@@ -3,7 +3,8 @@
  *
  * Ported from the Python clients (`backend/clients/anitabi.py`,
  * `backend/clients/bangumi.py`): same endpoints/params, but Workers-native
- * `fetch` instead of the Python retry/cache stack (a later wave owns retry).
+ * `fetch`. Retry (bounded exponential backoff, `Retry-After` honored) lives
+ * in `./retry` and wraps every upstream fetch below.
  *
  *   Anitabi : GET {base}/{id}/points/detail?haveImage=true  (base api.anitabi.cn/bangumi)
  *             -> raw point list (legacy lat/lng or official geo[] schema).
@@ -15,17 +16,32 @@
  * destined straight for the raw zone — parsing/enrich is downstream.
  */
 
+import {
+  isRetryableStatus,
+  parseRetryAfter,
+  RetryableError,
+  withRetry,
+  type RetryOptions,
+} from "./retry";
+
 /** Minimal fetch surface we depend on; satisfied by the global `fetch`. */
 export type FetchLike = (
   input: string,
   init?: { method?: string; headers?: Record<string, string>; body?: string },
-) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+) => Promise<{
+  ok: boolean;
+  status: number;
+  headers?: { get(name: string): string | null };
+  json: () => Promise<unknown>;
+}>;
 
 /** Injectable knobs for the source fetchers (defaulted for prod). */
 export interface SourceConfig {
   fetchImpl?: FetchLike;
   anitabiBaseUrl?: string;
   bangumiBaseUrl?: string;
+  /** Retry knobs (bounded backoff, `Retry-After` cap); defaulted for prod. */
+  retry?: RetryOptions;
 }
 
 /** Search-specific Bangumi knobs; `limit` is sent as a query parameter. */
@@ -97,7 +113,7 @@ export async function fetchAnitabiPoints(
   assertBangumiId(bangumiId);
   const base = cfg.anitabiBaseUrl ?? ANITABI_BASE;
   const url = `${base}/${bangumiId}/points/detail?haveImage=true`;
-  const body = await fetchJson(url, "anitabi", cfg.fetchImpl);
+  const body = await fetchJson(url, "anitabi", cfg);
   return normalizePoints(body);
 }
 
@@ -117,7 +133,7 @@ export async function fetchAnitabiLite(
 ): Promise<AnitabiLite> {
   assertBangumiId(bangumiId);
   const base = cfg.anitabiBaseUrl ?? ANITABI_BASE;
-  const body = await fetchJson(`${base}/${bangumiId}/lite`, "anitabi", cfg.fetchImpl);
+  const body = await fetchJson(`${base}/${bangumiId}/lite`, "anitabi", cfg);
   return parseLite(body);
 }
 
@@ -143,7 +159,7 @@ export async function fetchBangumiSubject(
   assertBangumiId(bangumiId);
   const base = cfg.bangumiBaseUrl ?? BANGUMI_BASE;
   const url = `${base}/v0/subjects/${bangumiId}`;
-  const body = await fetchJson(url, "bangumi", cfg.fetchImpl);
+  const body = await fetchJson(url, "bangumi", cfg);
   return expectObject(body);
 }
 
@@ -156,7 +172,7 @@ export async function fetchBangumiSubjects(
   const base = cfg.bangumiBaseUrl ?? BANGUMI_BASE;
   const body = JSON.stringify({ keyword: keywords, filter: { type: [BANGUMI_TYPE_ANIME] } });
   const url = `${base}/v0/search/subjects?limit=${String(limit)}&offset=0`;
-  return searchSubjects(await postJson(url, body, "bangumi", cfg.fetchImpl), limit);
+  return searchSubjects(await postJson(url, body, "bangumi", cfg), limit);
 }
 
 /** Resolve a title to the relevance-head subject id; retained for ingest preview. */
@@ -198,37 +214,65 @@ function searchLimit(limit: number): number {
   return limit;
 }
 
-/** GET + JSON-decode with status guarding; throws on a non-2xx response. */
-async function fetchJson(url: string, upstream: UpstreamName, fetchImpl?: FetchLike): Promise<unknown> {
-  const doFetch = fetchImpl ?? (fetch);
-  const res = await request(doFetch, url, upstream, { headers: { "User-Agent": USER_AGENT } });
+/** GET + JSON-decode with retry + status guarding; throws on a non-2xx response. */
+async function fetchJson(url: string, upstream: UpstreamName, cfg: SourceConfig = {}): Promise<unknown> {
+  const res = await fetchWithRetry(url, upstream, cfg, { headers: { "User-Agent": USER_AGENT } });
   if (res.status === 404) throw new UpstreamNotFoundError(url);
   if (!res.ok) throw new UpstreamFetchError(`${url} (${String(res.status)})`, upstream);
   return decodeJson(res, url, upstream);
 }
 
-/** POST a JSON body + JSON-decode with status guarding; throws on a non-2xx response. */
-async function postJson(url: string, body: string, upstream: UpstreamName, fetchImpl?: FetchLike): Promise<unknown> {
-  const doFetch = fetchImpl ?? (fetch);
+/** POST a JSON body + JSON-decode with retry + status guarding; throws on a non-2xx response. */
+async function postJson(url: string, body: string, upstream: UpstreamName, cfg: SourceConfig = {}): Promise<unknown> {
   const headers = { "User-Agent": USER_AGENT, "Content-Type": "application/json" };
-  const res = await request(doFetch, url, upstream, { method: "POST", headers, body });
+  const res = await fetchWithRetry(url, upstream, cfg, { method: "POST", headers, body });
   if (!res.ok) throw new UpstreamFetchError(`${url} (${String(res.status)})`, upstream);
   return decodeJson(res, url, upstream);
+}
+
+/** Fetch with retry on transient failures; exhaustion rethrows as UpstreamFetchError. */
+async function fetchWithRetry(
+  url: string,
+  upstream: UpstreamName,
+  cfg: SourceConfig,
+  init: Parameters<FetchLike>[1],
+): Promise<Awaited<ReturnType<FetchLike>>> {
+  const doFetch = cfg.fetchImpl ?? (fetch);
+  try {
+    return await withRetry(() => attemptFetch(doFetch, url, init), cfg.retry);
+  } catch (err) {
+    if (!(err instanceof RetryableError)) throw err;
+    const suffix = err.status !== undefined ? ` (${String(err.status)})` : "";
+    throw new UpstreamFetchError(`${url}${suffix}`, upstream, err.cause);
+  }
+}
+
+/** One attempt: transient statuses/transport errors signal a retry; others pass through. */
+async function attemptFetch(
+  doFetch: FetchLike,
+  url: string,
+  init: Parameters<FetchLike>[1],
+): Promise<Awaited<ReturnType<FetchLike>>> {
+  try {
+    const res = await doFetch(url, init);
+    if (isRetryableStatus(res.status)) throw new RetryableError(res.status, retryAfterDelayMs(res));
+    return res;
+  } catch (err) {
+    if (err instanceof RetryableError) throw err;
+    throw new RetryableError(undefined, undefined, err);
+  }
+}
+
+/** The `Retry-After` wait for a response, or undefined when absent/unparseable. */
+function retryAfterDelayMs(res: Awaited<ReturnType<FetchLike>>): number | undefined {
+  const parsed = parseRetryAfter(res.headers?.get("retry-after") ?? null, Date.now());
+  return parsed ?? undefined;
 }
 
 /** Convert malformed response bodies into source-aware upstream failures. */
 async function decodeJson(res: Awaited<ReturnType<FetchLike>>, url: string, upstream: UpstreamName): Promise<unknown> {
   try {
     return await res.json();
-  } catch (err) {
-    throw new UpstreamFetchError(url, upstream, err);
-  }
-}
-
-/** Convert network failures into a transport-specific error for source-aware callers. */
-async function request(doFetch: FetchLike, url: string, upstream: UpstreamName, init: Parameters<FetchLike>[1]) {
-  try {
-    return await doFetch(url, init);
   } catch (err) {
     throw new UpstreamFetchError(url, upstream, err);
   }
