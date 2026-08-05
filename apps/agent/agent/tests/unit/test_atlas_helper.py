@@ -20,9 +20,10 @@ from agent.tests.atlas_helper import (
 
 
 def test_atlas_command_pins_public_revisions_and_ten_minute_budget() -> None:
-    command = atlas_apply_command()
+    command = atlas_apply_command("postgresql://example/test")
     assert command[-2:] == ("--revisions-schema", "public")
-    assert command[3:5] == ("--env", "neon")
+    assert command[3:5] == ("--dir", "file://db/migrations")
+    assert command[5:7] == ("--url", "postgresql://example/test")
     assert ATLAS_TIMEOUT_SECONDS >= 600
     assert parse_atlas_version("atlas version v0.30.0") == "0.30.0"
     assert len(ATLAS_MACOS_ARM64_SHA256) == 64

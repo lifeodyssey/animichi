@@ -81,6 +81,8 @@ Security rule: record database hosts, mapped ports, branch IDs/names, timings, v
 ## Commands used
 
 Run from the repository root. Values remain in the environment and must not be pasted into this file.
+The two `spike_phase0.py` invocations below reference scripts deleted with the `spikes/` directory
+(repo-root cleanup); the scripts survive in git history (225ccb0).
 
 ```bash
 ATLAS_VERSION=0.30.0 scripts/neon-test-base.sh --self-test
@@ -187,3 +189,5 @@ The scripts append one row per emitted PASS/FAIL item below.
 > Note: `spike_phase0.py` (the asyncpg wire-path probe) was REMOVED after the wire path was
 > rejected — it required `ssl.CERT_NONE` against the local proxy, which security scanners rightly
 > block. Its measured evidence is recorded above; the exact script lives in git history (225ccb0).
+> `spike_phase0_serverless.mjs` and the rest of `spikes/neon-local/` were removed with the
+> `spikes/` directory in the repo-root cleanup.
