@@ -44,7 +44,7 @@ def _canned_agent_result() -> AgentResult:
         steps=[
             StepRecord(
                 tool="search_bangumi",
-                success=True,
+                is_success=True,
                 data={"rows": [], "row_count": 0},
             )
         ],

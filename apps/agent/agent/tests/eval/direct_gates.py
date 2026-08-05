@@ -89,10 +89,10 @@ def direct_thrash_gate(cases: Sequence[TrajectoryCase]) -> list[str]:
 
 
 def print_direct_thrash_metrics(
-    cases: Sequence[TrajectoryCase], *, include_p95: bool, enforced: bool
+    cases: Sequence[TrajectoryCase], *, include_p95: bool, is_enforced: bool
 ) -> None:
     """Print direct activity metrics even when they are report-only."""
-    mode = "enforced" if enforced else "report-only"
+    mode = "enforced" if is_enforced else "report-only"
     print(f"\nDirect thrash metrics ({mode}):")
     for case in cases:
         print(

@@ -61,7 +61,7 @@ def _make_clarify_result() -> AgentResult:
         output=output,
         intent="clarify",
         session_state=state,
-        steps=[StepRecord(tool="clarify", success=True, model_initiated=False)],
+        steps=[StepRecord(tool="clarify", is_success=True, model_initiated=False)],
     )
 
 

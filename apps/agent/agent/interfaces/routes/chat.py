@@ -137,7 +137,7 @@ async def _budget_rejection(
         usage_repo(_get_db_from_request(request)),
         budget_usd=settings.anon_daily_cost_budget_usd,
     )
-    return _budget_exhausted_response() if verdict.exhausted else None
+    return _budget_exhausted_response() if verdict.is_exhausted else None
 
 
 QUOTA_EXHAUSTED_MESSAGE = "今日はここまで・ログインすると続けられるよ。"
@@ -175,7 +175,9 @@ async def _quota_rejection(
         anon_id=auth.user_id,
         quota=settings.anon_daily_message_quota,
     )
-    return _quota_exhausted_response(verdict.resets_at) if verdict.exhausted else None
+    return (
+        _quota_exhausted_response(verdict.resets_at) if verdict.is_exhausted else None
+    )
 
 
 BYOK_REQUIRES_LOGIN_MESSAGE = "BYOKを使うにはログインが必要です。"
