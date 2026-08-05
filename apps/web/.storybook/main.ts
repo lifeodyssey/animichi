@@ -16,6 +16,8 @@ const config: StorybookConfig = {
   staticDirs: ["../public"],
   framework: { name: "@storybook/react-vite", options: {} },
   docs: { autodocs: "tag" },
+  // showcase.ts fails closed at module init — Storybook builds are never showcase.
+  env: (env) => ({ ...env, VITE_SHOWCASE_MODE: "false" }),
   viteFinal: (viteConfig) => ({ ...viteConfig, plugins: stripAppRuntimePlugins(viteConfig.plugins) }),
 };
 
