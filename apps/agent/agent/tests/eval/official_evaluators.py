@@ -75,7 +75,9 @@ class OfficialArgumentCorrectness(Evaluator[AgentInput, AgentResult, AgentExpect
         occurrences: dict[str, int] = {}
         results: list[EvaluationReason] = []
         for step in (
-            item for item in ctx.output.steps if item.success and item.model_initiated
+            item
+            for item in ctx.output.steps
+            if item.is_success and item.model_initiated
         ):
             occurrence = occurrences.get(step.tool, 0)
             occurrences[step.tool] = occurrence + 1

@@ -19,7 +19,7 @@ from agent.tests.eval.evaluators import AgentExpected, AgentInput
 
 
 def steps(*tools: str) -> list[StepRecord]:
-    return [StepRecord(tool=tool, success=True) for tool in tools]
+    return [StepRecord(tool=tool, is_success=True) for tool in tools]
 
 
 def result(

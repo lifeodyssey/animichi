@@ -25,7 +25,7 @@ def _context(
 ) -> EvaluatorContext[AgentInput, AgentResult, AgentExpected]:
     arguments = params or [{} for _ in tools]
     records = [
-        StepRecord(tool=tool, success=True, params=arguments[index])
+        StepRecord(tool=tool, is_success=True, params=arguments[index])
         for index, tool in enumerate(tools)
     ]
     spans = [
@@ -87,7 +87,7 @@ def test_official_argument_correctness_uses_normalized_tool_arguments(
 ) -> None:
     normalized: dict[str, object] = {"bangumi_id": "160209"}
     emitted = {"bangumi_id": work_id}
-    record = StepRecord(tool="search_bangumi", success=True, params=normalized)
+    record = StepRecord(tool="search_bangumi", is_success=True, params=normalized)
     evaluator_ctx = ctx(
         JA,
         result([record]),
@@ -103,11 +103,11 @@ def test_argument_correctness_ignores_server_geocode_step() -> None:
     records = [
         StepRecord(
             tool="geocode",
-            success=True,
+            is_success=True,
             params={"location": "西宮"},
             model_initiated=False,
         ),
-        StepRecord(tool="search_nearby", success=True, params=emitted),
+        StepRecord(tool="search_nearby", is_success=True, params=emitted),
     ]
     evaluator_ctx = ctx(
         JA,
@@ -123,7 +123,7 @@ def test_argument_correctness_ignores_server_geocode_step() -> None:
 
 @pytest.mark.parametrize(
     "records",
-    [[], [StepRecord(tool="clarify", success=True, model_initiated=False)]],
+    [[], [StepRecord(tool="clarify", is_success=True, model_initiated=False)]],
 )
 def test_official_argument_correctness_is_not_applicable_without_model_calls(
     records: list[StepRecord],

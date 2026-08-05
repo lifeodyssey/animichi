@@ -217,7 +217,7 @@ class _StepLike(Protocol):
     """Structural shape `record_turn_facts` needs from `agent_result.StepRecord`."""
 
     tool: str
-    success: bool
+    is_success: bool
     params: dict[str, object]
     data: dict[str, object] | None
 
@@ -237,7 +237,7 @@ def record_turn_facts(
 
 
 def _record_step(ledger: FactLedger, step: _StepLike, now: datetime) -> None:
-    if not step.success:
+    if not step.is_success:
         return
     if step.tool == "plan_route":
         _record_pacing(ledger, step, now)

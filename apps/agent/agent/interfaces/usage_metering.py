@@ -58,7 +58,7 @@ class UsagePrices:
 class BudgetVerdict:
     """The container ingress's authoritative anonymous-budget decision."""
 
-    exhausted: bool
+    is_exhausted: bool
     spent_usd: float
     budget_usd: float
 
@@ -133,17 +133,17 @@ async def anonymous_budget_verdict(
 
     A non-positive budget disables the breaker. A read failure fails OPEN: an
     unavailable meter must not take the anonymous surface down, and the edge
-    latch only ever caches an explicit ``exhausted`` verdict.
+    latch only ever caches an explicit ``is_exhausted`` verdict.
     """
     if budget_usd <= 0 or usage_repo is None:
-        return BudgetVerdict(exhausted=False, spent_usd=0.0, budget_usd=budget_usd)
+        return BudgetVerdict(is_exhausted=False, spent_usd=0.0, budget_usd=budget_usd)
     try:
         spent = await usage_repo.total_cost_usd(
             usage_date=today or utc_today(), scope="anon"
         )
     except _METER_ERRORS:
         logger.warning("daily_usage_read_failed", exc_info=True)
-        return BudgetVerdict(exhausted=False, spent_usd=0.0, budget_usd=budget_usd)
+        return BudgetVerdict(is_exhausted=False, spent_usd=0.0, budget_usd=budget_usd)
     return BudgetVerdict(
-        exhausted=spent >= budget_usd, spent_usd=spent, budget_usd=budget_usd
+        is_exhausted=spent >= budget_usd, spent_usd=spent, budget_usd=budget_usd
     )
