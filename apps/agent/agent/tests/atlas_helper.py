@@ -217,13 +217,15 @@ def ensure_pinned_atlas() -> Path | None:
     return _download_pinned_atlas(system, machine).parent
 
 
-def atlas_apply_command() -> tuple[str, ...]:
+def atlas_apply_command(dsn: str) -> tuple[str, ...]:
     return (
         "atlas",
         "migrate",
         "apply",
-        "--env",
-        "neon",
+        "--dir",
+        "file://db/migrations",
+        "--url",
+        dsn,
         "--revisions-schema",
         "public",
     )
@@ -246,15 +248,7 @@ def apply_migrations(dsn: str) -> float:
     started = time.monotonic()
     try:
         result = subprocess.run(
-            [
-                "atlas",
-                "migrate",
-                "apply",
-                "--env",
-                "neon",
-                "--revisions-schema",
-                "public",
-            ],
+            list(atlas_apply_command(dsn)),
             capture_output=True,
             text=True,
             timeout=ATLAS_TIMEOUT_SECONDS,

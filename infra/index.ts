@@ -362,6 +362,40 @@ if (stagingGateEnabled && stack === "staging") {
   });
 }
 
+// ── Staging: per-host config settings (CI smoke) ─────────────────────────────
+// The IP-allowlist gate above is the staging hostname's protection. The WAF's
+// browser-facing defenses would fight it here: a Browser Integrity Check (BIC)
+// or Security Level challenge on the staging host makes the Playwright smoke
+// suite (and any curl) answer a challenge instead of the app. One zone-scoped
+// ruleset turns both off for the staging hostname only — every other hostname
+// on the zone keeps the defaults. Gated on the web routes so preview stacks
+// stay clean: this is meaningful only where the staging hostname actually
+// serves the app.
+if (webRoutesEnabled && stack === "staging") {
+  const settingsZoneId = config.require("cloudflareZoneId");
+  const settingsDomain = config.require("stagingDomain");
+
+  new cloudflare.Ruleset("staging-http-config-settings", {
+    zoneId: settingsZoneId,
+    name: "staging http config settings",
+    kind: "zone",
+    phase: "http_config_settings",
+    description: "Per-host config overrides for the staging hostname.",
+    rules: [
+      {
+        action: "set_config",
+        expression: `http.host eq "${settingsDomain}"`,
+        description: "staging: CI smoke must not be browser-challenged; the IP-allowlist gate owns protection here",
+        enabled: true,
+        actionParameters: {
+          bic: false,
+          securityLevel: "essentially_off",
+        },
+      },
+    ],
+  });
+}
+
 
 export const wave0 = pulumi.output("spike-validated");
 export const catalogBucketName = catalogMediaBucket.name;

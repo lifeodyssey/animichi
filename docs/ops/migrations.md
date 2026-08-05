@@ -14,7 +14,7 @@ surface so a query schema cannot quietly become a second migration system.
 
 `db/migrations/` is append-only once a migration has reached a shared environment. Do not
 edit an applied file, hand-edit `atlas.sum`, or copy a Drizzle schema into a second SQL
-directory. `supabase/neon/` is not an active migration directory; new Neon changes belong
+directory. The legacy `supabase/neon/` migration twin was removed (repo-root cleanup); new Neon changes belong
 under `db/migrations/`.
 
 The application never runs migrations at startup. A Worker may construct a Drizzle client
