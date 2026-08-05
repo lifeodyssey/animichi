@@ -104,8 +104,6 @@ jobs:
     name: Post-deploy ${{ inputs.suite }} (${{ inputs.environment }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
-    env:
-      STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -145,36 +143,42 @@ jobs:
         shell: bash
         env:
           WEB_URL: ${{ steps.urls.outputs.web_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh web-landing
 
       - name: "/healthz reachable with status ok"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh healthz
 
       - name: "edge rejects an invalid bearer token (401)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh auth-probe
 
       - name: "USERS service binding reachable through the edge"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh users-probe
 
       - name: "catalog reachable via CATALOG service binding (Neon)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh catalog-probe
 
       - name: "agent's own Postgres connection is live (data plane)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh data-plane-probe
 
       # ── environment-gated: ANON_ACCESS_ENABLED differs by environment,
@@ -184,6 +188,7 @@ jobs:
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh anon-gate-staging
 
       - name: "anonymous access stays off (production)"
@@ -191,4 +196,5 @@ jobs:
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh anon-disabled-production
