@@ -146,7 +146,7 @@ function applyBodyMode(html: string, mode: VisualMode): string {
 }
 
 export function collectAssetRefs(html: string): string[] {
-  return [...new Set(Array.from(html.matchAll(ASSET_ATTR_RE), (m) => m[1]))].sort();
+  return [...new Set(Array.from(html.matchAll(ASSET_ATTR_RE), (m) => m[1]))].sort((a, b) => a.localeCompare(b));
 }
 
 export function canonicalize(input: CanonicalizeInput): CanonicalizeResult {
