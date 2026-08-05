@@ -71,7 +71,7 @@ function ComingSoonBody({ copy }: { copy: Dict["coming_soon"] }) {
 
 function ComingSoonDialog({ copy, panelRef, onClose }: DialogProps) {
   return (
-    <div className="coming-soon" role="dialog" aria-modal="true" aria-label={copy.title} tabIndex={-1} ref={panelRef} onClick={(event) => { event.stopPropagation(); }}>
+    <div className="coming-soon" role="dialog" aria-modal="true" aria-label={copy.title} tabIndex={-1} ref={panelRef} onClick={(event) => { event.stopPropagation(); }} onKeyDown={(event) => { if (event.key === "Escape") onClose(); }}>
       <button className="coming-soon__close" type="button" aria-label={copy.close} onClick={onClose}>×</button>
       <ComingSoonBody copy={copy} />
       <button className="coming-soon__action ds-button ds-button--primary" type="button" onClick={onClose}>{copy.action}</button>
