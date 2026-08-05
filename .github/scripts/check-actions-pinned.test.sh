@@ -2,7 +2,8 @@
 # Behavioral tests for check-actions-pinned.sh, driven against throwaway
 # fixture git repos in mktemp -d (the script resolves its root via
 # `git rev-parse --show-toplevel` and scans git-tracked files, so each case
-# cd's into its own repo). One pass case per allowed form, two red cases.
+# cd's into its own repo). One pass case per allowed form, one red case per
+# gate behavior (tag pins, docker:// comment rule, anchoring, .yaml scans).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -122,6 +123,56 @@ test_docker_without_comment_fails() {
   echo "PASS: docker:// use without comment fails"
 }
 
+# ── Case 8 (red): `uses:` substring in a run: script is ignored; real tag violation still fails ──
+test_uses_substring_in_run_ignored() {
+  local repo out=/tmp/actions-pin-case8.out rc
+  repo="$(mktemp -d)"
+  mkdir -p "${repo}/.github/workflows"
+  printf '%s\n' \
+    'steps:' \
+    '  - run: echo "uses: actions/checkout@v4" > /tmp/note' \
+    '  - uses: actions/checkout@v4' > "${repo}/.github/workflows/ci.yml"
+  commit_fixture "${repo}"
+  rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  [ "${rc}" -ne 0 ] || fail_test "real tag-pinned use must fail the gate, got exit 0"
+  grep -q "ci.yml:3: uses: actions/checkout@v4 — not pinned to a full 40-char SHA (got 'v4')" "${out}" \
+    || fail_test "real violation must be named: $(cat "${out}")"
+  grep -q "ci.yml:2:" "${out}" && fail_test "run: script containing 'uses:' must not be treated as an action reference: $(cat "${out}")"
+  echo "PASS: uses: substring in run: script ignored; real violation still fails"
+}
+
+# ── Case 9 (red): '#' inside the docker:// ref (quoted or glued) is not a trailing comment ──
+test_docker_ref_hashtag_not_comment() {
+  local repo out=/tmp/actions-pin-case9.out rc
+  repo="$(mktemp -d)"
+  mkdir -p "${repo}/.github/workflows"
+  printf '%s\n' \
+    '- uses: "docker://ghcr.io/animichi/some-tool:v1"' \
+    '- uses: docker://ghcr.io/animichi/some-tool:v1#frag' > "${repo}/.github/workflows/ci.yml"
+  commit_fixture "${repo}"
+  rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  [ "${rc}" -ne 0 ] || fail_test "docker:// ref carrying its own '#' must not dodge the comment requirement, got exit 0"
+  grep -q 'ci.yml:1: uses: "docker://ghcr.io/animichi/some-tool:v1" — quoted value' "${out}" \
+    || fail_test "quoted docker:// ref must be rejected: $(cat "${out}")"
+  grep -q "ci.yml:2: uses: docker://ghcr.io/animichi/some-tool:v1#frag — docker:// cannot be SHA-pinned" "${out}" \
+    || fail_test "docker:// ref with glued '#' must still require a real comment: $(cat "${out}")"
+  echo "PASS: docker:// '#' inside the ref is not treated as a trailing comment"
+}
+
+# ── Case 10 (red): .yaml workflow files are scanned too ────────────────────
+test_yaml_extension_fails() {
+  local repo out=/tmp/actions-pin-case10.out rc
+  repo="$(mktemp -d)"
+  mkdir -p "${repo}/.github/workflows"
+  printf '%s\n' 'steps:' '- uses: actions/checkout@v4' > "${repo}/.github/workflows/ci.yaml"
+  commit_fixture "${repo}"
+  rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  [ "${rc}" -ne 0 ] || fail_test ".yaml workflow with tag-pinned use must fail the gate, got exit 0"
+  grep -q "ci.yaml:2: uses: actions/checkout@v4 — not pinned to a full 40-char SHA (got 'v4')" "${out}" \
+    || fail_test "output must name the .yaml file: $(cat "${out}")"
+  echo "PASS: .yaml workflow is scanned and tag-pinned use fails"
+}
+
 test_sha_pinned_passes
 test_local_paths_pass
 test_docker_with_comment_passes
@@ -129,5 +180,8 @@ test_commented_line_ignored
 test_composite_action_checked_and_passes
 test_tag_pin_fails
 test_docker_without_comment_fails
+test_uses_substring_in_run_ignored
+test_docker_ref_hashtag_not_comment
+test_yaml_extension_fails
 
 echo "All check-actions-pinned.sh behavioral tests passed."
