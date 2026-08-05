@@ -66,11 +66,12 @@ jobs:
           inputs: apps/${{ inputs.app }}
 
       # No --cov-fail-under here on purpose: a CLI value OVERRIDES the addopts in
-      # apps/agent/pytest.ini, so the hardcoded 80 meant CI enforced 80 while the
-      # repo's ratcheted floor (82, now 88) applied only to local `make test`.
-      # The two gates disagreed silently, and the ratchet rule was paper-only.
-      # The floor now lives in exactly one place: apps/agent/pytest.ini.
-      - name: Unit tests (coverage floor from apps/agent/pytest.ini)
+      # apps/agent/pyproject.toml [tool.pytest.ini_options], so a hardcoded 80
+      # meant CI enforced 80 while the repo's ratcheted floor (82, now 88) applied
+      # only to local `make test`. The two gates disagreed silently, and the
+      # ratchet rule was paper-only. The floor now lives in exactly one place:
+      # apps/agent/pyproject.toml.
+      - name: Unit tests (coverage floor from apps/agent/pyproject.toml)
         run: uv run --frozen pytest agent/tests/unit/ -v --cov --cov-report=xml
 
       - name: Upload coverage
@@ -79,3 +80,4 @@ jobs:
           files: apps/${{ inputs.app }}/coverage.xml
           fail_ci_if_error: true
           use_oidc: true
+          flags: unit

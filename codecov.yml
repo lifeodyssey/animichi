@@ -1,3 +1,10 @@
+flag_management:
+  individual_flags:
+    - name: integration
+      carryforward: true
+    - name: unit
+      carryforward: true
+
 coverage:
   status:
     # Project status = global floor (informational; per-component floors are
