@@ -43,7 +43,8 @@ def test_apply_migrations_prepends_only_the_resolved_atlas_directory_to_path(
 
     apply_migrations("postgresql://example/test")
 
-    assert captured["argv"] == list(atlas_helper.atlas_apply_command())
+    expected = list(atlas_helper.atlas_apply_command("postgresql://example/test"))
+    assert captured["argv"] == expected
     env = captured["env"]
     assert isinstance(env, dict)
     assert env["PATH"] == f"/fake/atlas/bin{os.pathsep}{original_path}"

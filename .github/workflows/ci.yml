@@ -307,10 +307,12 @@ jobs:
     secrets:
       GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
-  # ── Agent-config reference check (#745) ───────────────────
-  # Replaces agnix with one narrow, provable rule: every backtick path in
-  # AGENTS.md / CLAUDE.md / .claude/rules resolves against the repo root.
-  # Blocking because trustworthy — agnix's 63% false-positive rate gated nothing.
+  # ── Repo hygiene gates (blocking because provable) ─────────
+  # 1. Agent-config reference check (#745): every backtick path in AGENTS.md /
+  #    CLAUDE.md / .claude/rules resolves against the repo root. Replaces
+  #    agnix, whose 63% false-positive rate gated nothing.
+  # 2. Root allowlist check (S0-v2 Track A.3): top-level tracked entries are
+  #    locked to the explicit allowlist in check-root-allowlist.sh.
 
   agnix:
     timeout-minutes: 5
@@ -324,6 +326,10 @@ jobs:
         run: bash .github/scripts/check-agents-refs.test.sh
       - name: AGENTS.md reference check
         run: bash .github/scripts/check-agents-refs.sh
+      - name: Root allowlist check self-tests
+        run: bash .github/scripts/check-root-allowlist.test.sh
+      - name: Root allowlist check
+        run: bash .github/scripts/check-root-allowlist.sh
 
   # ── DB migrations (Atlas validation + optional Neon dry-run) ──
 
