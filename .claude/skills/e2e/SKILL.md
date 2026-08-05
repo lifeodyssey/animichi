@@ -21,27 +21,22 @@ make e2e-setup
 
 This runs `scripts/e2e-setup.sh` which:
 1. Starts Supabase (--exclude vector,analytics)
-2. Seeds test data (18 anime, 43 spots from `apps/agent/agent/tests/fixtures/seed.sql`)
+2. Seeds test data (18 anime, 43 points — tables `bangumi`/`points` — from `apps/agent/agent/tests/fixtures/seed.sql`)
 3. Serves Edge Function (`send-auth-email` with SMTP to Mailpit)
 4. Installs `e2e/` npm deps
 
-Frontend must be running separately:
+Start the full local stack first (backend + `apps/web` + Supabase + Mailpit):
 ```bash
-cd frontend && npm run dev -- -p 3001
+make dev-local
 ```
-
-Frontend `.env.local` must point to local Supabase:
-```
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH
-```
+`E2E_WEB_BASE_URL` targets `apps/web` (default `http://localhost:3000`). Env wiring for the
+web app is handled by `make dev-local` — see `e2e/AGENTS.md`.
 
 ## Run
 
 | Command | What | Time |
 |---------|------|------|
 | `make e2e` | All 34 tests | ~16s |
-| `make e2e-public` | 12 tests (no email) | ~4s |
 | `cd e2e && npx playwright test --headed --workers=1` | Watch in browser | ~20s |
 
 ## Tests (34)
@@ -73,7 +68,7 @@ Tests set browser locale via `browser.newContext({ locale })` and verify Mailpit
 | Anime not found on Guide page | `docker exec -i supabase_db_seichijunrei-agent psql -U postgres < apps/agent/agent/tests/fixtures/seed.sql` |
 | Email not arriving in Mailpit | Check Edge Function: `curl http://localhost:54321/functions/v1/send-auth-email` |
 | SMTP connection refused | config.toml needs `[inbucket] smtp_port = 54325` |
-| Login link expired | Edge Function SITE_URL wrong. Pass `SITE_URL=http://localhost:3001` |
+| Login link expired | Edge Function SITE_URL wrong. Pass `SITE_URL=http://localhost:3000` |
 | Tests flaky | Use `--workers=1` (auth tests need serial SMTP) |
 | Docker snippets permission | `mkdir -p supabase/snippets && chmod 755 supabase/snippets` |
 | Supabase CLI too old | Need v2.98.1+ for auth hook support. `brew upgrade supabase` |
