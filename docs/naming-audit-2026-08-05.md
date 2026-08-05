@@ -1,6 +1,7 @@
 # Naming Audit — 2026-08-05 (round 2: serialization-boundary re-tier)
 
-Full-repo violation inventory against `docs/naming-conventions.md` (codified
+Full-repo naming inventory (violations + retained non-violation records)
+against `docs/naming-conventions.md` (codified
 same day from a measured histogram). Scope: tracked files under `apps/`,
 `workers/`, `packages/`, `infra/`, `e2e/`, `scripts/`, `db/`. Skipped: `docs/`,
 generated output, `node_modules`, `.venv`. Method: `find`/`rg` histograms for
@@ -13,8 +14,16 @@ file-level names; `rg` sweeps for symbol-level semantic rules.
    pydantic/dataclass field on a persisted or wire model, (c) a
    platform-contract property. Such symbols are L3 (or exempt per the
    conventions doc's wire-key carve-out).
-2. **Import-site sweep** — `rg "from '…<name>'"` for every file-rename
-   candidate, repo-wide (not just same-package).
+2. **Import-site sweep** — for every file-rename candidate, substitute
+   `<base>` with the file's base name (no extension, e.g. `costBreaker`),
+   then run repo-wide (not just same-package):
+   `rg --hidden -n -g '!node_modules' -g '!.venv' -e "(from|import) *['\"](\.{0,2}/)*<base>(\.tsx?)?['\"]" -e "(require|import)\(['\"](\.{0,2}/)*<base>(\.tsx?)?['\"]\)" -e "node --(test|import) *[^\n]*<base>" apps workers packages infra e2e scripts db .github`
+   — covers single/double-quoted `from`/`import`, dynamic `import()`/`require()`,
+   and `node --test`/`--import` CLI paths. Finish with a plain
+   `rg --hidden -n '<base>'` over the same roots to catch bare path strings
+   (Python subprocess args, `fileURLToPath`, CI path filters). A file is L1
+   only after this full sweep finds zero external references; otherwise it
+   goes to L2 (or L3 for wire/API/persisted/platform boundaries).
 3. **Path-reference sweep** — file paths consumed outside their own package
    (read by path in another package's tests, invoked in CI, listed in CI
    path filters) are L2, not L1.
@@ -24,13 +33,18 @@ file-level names; `rg` sweeps for symbol-level semantic rules.
 
 | Tier | apps/web | apps/agent | workers/edge | workers/catalog | packages/contract | workers/users | infra | e2e | scripts | db | Total |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| L1 — files | 45 | 1 | 24 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **70** |
+| L1 — files | 47 | 1 | 24 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **72** |
 | L1 — symbols | 8 | 20 | 10 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **38** |
 | L2 — cross-package | 0 | 0 | 3 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **3** |
 | L3 — external contract (adjudicate) | 1 | 5 | 2 | 1 | 0 | 1 | 0 | 0 | 0 | 1 | **11** |
-| **Total** | 54 | 26 | 39 | 1 | 0 | 1 | 0 | 0 | 0 | 1 | **122** |
+| **Total** | 56 | 26 | 39 | 1 | 0 | 1 | 0 | 0 | 0 | 1 | **124** |
 
-L1 = 70 file renames + 38 symbol renames = 108. Every L1 file was verified to
+Total 124 = **118 violations** + 6 retained non-violation records (the
+framework/tool names below: `configPath` ×2, pytest fixtures, migration
+files, `_dev`, env-prefix keys). The L3 row mixes both: 5 real renames to
+adjudicate + the 6 kept-for-the-record rows.
+
+L1 = 72 file renames + 38 symbol renames = 110. Every L1 file was verified to
 have zero imports and zero path references outside its own package (incl. CI
 workflows and other packages' tests). No violations found in
 `packages/contract` (src), `infra/`, `e2e/`, `scripts/`, `db/` (files); the
@@ -42,16 +56,16 @@ Round-2 deltas vs round 1: removed `workers/catalog` L1 symbols
 identifiers); moved `workers/edge/entry.ts:37` `envVars` and
 `apps/agent/agent/agents/session_state.py:98` `partial` to L3
 (serialization boundary); corrected `catalog_adapter.py:97` (was mis-listed
-as `success: bool`, actually `partial: bool = False`); added the 60
+as `success: bool`, actually `partial: bool = False`); added the 62
 file renames the round-1 inventory omitted (27 web src modules, 6 web
-tests, 27 workers/edge files — of which 3 re-tiered to L2 via the
-path-reference sweep); re-tiered 3 edge files to L2 via the same sweep.
+tests, 27 workers/edge files, 2 web component files — of which 3 edge
+files re-tiered to L2 via the path-reference sweep).
 
 ---
 
 ## L1 — internal-only (safe LSP rename; consumer sweep within package)
 
-### L1 files — apps/web (45)
+### L1 files — apps/web (47)
 
 #### camelCase modules → kebab (27)
 
@@ -85,7 +99,7 @@ path-reference sweep); re-tiered 3 edge files to L2 via the same sweep.
 | `apps/web/src/features/chat/save/deferredSave.ts` | deferredSave | `deferred-save.ts` |
 | `apps/web/src/features/chat/save/saveTarget.ts` | saveTarget | `save-target.ts` |
 
-#### Components / hooks / helpers (12)
+#### Components / hooks / helpers (14)
 
 | Path | Current | Proposed |
 |---|---|---|
@@ -93,6 +107,8 @@ path-reference sweep); re-tiered 3 edge files to L2 via the same sweep.
 | `apps/web/src/features/chat/return-target.tsx` | return-target | `ChatReturnTarget.tsx` (exports `ChatReturnTargetProvider`) |
 | `apps/web/src/features/anime/route-states.tsx` | route-states | `AnimeRouteStates.tsx` (exports `AnimeErrorState`/`AnimePendingState`) |
 | `apps/web/src/components/route-detail/route-states.tsx` | route-states | `RouteDetailStates.tsx` (exports `RouteDetailErrorState`/`RouteDetailPendingState`) |
+| `apps/web/src/features/chat/components/cards.tsx` | cards | `Cards.tsx` (exports `SpotList`/`SearchCard`/`ProseCard`) |
+| `apps/web/src/i18n/context.tsx` | context | `LocaleProvider.tsx` (exports `LocaleProvider` + `useDict`/`useLocale`/`useSetLocale`) |
 | `apps/web/src/features/chat/selection/useSpotSelection.tsx` | useSpotSelection | `use-spot-selection.tsx` (hook kebab) |
 | `apps/web/src/features/chat/components/useAutoFocus.ts` | useAutoFocus | `use-auto-focus.ts` |
 | `apps/web/src/features/chat/selection/useRecomputeTurn.ts` | useRecomputeTurn | `use-recompute-turn.ts` |
@@ -113,7 +129,7 @@ path-reference sweep); re-tiered 3 edge files to L2 via the same sweep.
 | `apps/web/tests/unit/byokStorage-ssr.test.ts` | byokStorage-ssr | `byok-storage-ssr.test.ts` |
 | `apps/web/tests/unit/byokStorage-validation.test.ts` | byokStorage-validation | `byok-storage-validation.test.ts` |
 
-Import sites for all 45 files (~150 total) verified inside `apps/web`
+Import sites for all 47 files (~180 total) verified inside `apps/web`
 (features, routes, tests) via `rg`. Test-helper files `_token-helpers.ts`,
 `_route-fixtures.ts`, `_chat-page.tsx`, `_i18n.tsx`, `_render.tsx`,
 `_actions.ts` are compliant (kebab + underscore prefix convention) — no
@@ -242,8 +258,12 @@ field (see L3).
 | `containerEnv.ts` → `container-env.ts` | `workers/edge/containerEnv.ts` | Read by path from `apps/agent/agent/tests/unit/test_deploy_model_env_consistency.py:13` and `test_secrets_docs_consistency.py:40`; listed in `.github/workflows/ci.yml:99` agent path filter. Sweep: both tests + CI filter + `wrangler.toml` comments (cosmetic). |
 | `migrationBoundary.test.ts` → `migration-boundary.test.ts` | `workers/edge/migrationBoundary.test.ts` | Invoked by literal path in `.github/workflows/ci.yml:361` (`node --test workers/edge/migrationBoundary.test.ts`) and in the `migrations` path filter (`ci.yml:122`). Sweep: CI workflow. |
 
-All three are single-consumer, mechanical sweeps. If a consumer outside the
-listed packages appears before execution, re-tier to L3.
+None of these is single-consumer: each has 2-4 documented consumers (see the
+Why L2 column). They are internal cross-package references — L2 by
+definition. A new in-repo consumer (another package's test, another CI path
+filter) is added to the sweep list, not a re-tier. Re-tier to L3 only when a
+reference crosses a wire, API, persisted-model, platform, or other external
+contract boundary.
 
 ---
 
@@ -280,7 +300,7 @@ keys (SCREAMING_SNAKE + domain prefix: `SUPABASE_*`, `MIMO_API_KEY`,
 
 | Card | Batch | Contents | Risk |
 |---|---|---|---|
-| G1-R1 | apps/web file renames (45) | 27 camelCase modules → kebab, 7 hooks → kebab, 4 component/provider files → PascalCase, 6 byokStorage tests → kebab, `_jpeg-fixtures.ts`; LSP rename, ~150 in-package import sites | L1, mechanical; verify with `make check` + `apps/web` unit suite |
+| G1-R1 | apps/web file renames (47) | 27 camelCase modules → kebab, 7 hooks → kebab, 6 component/provider files → PascalCase, 6 byokStorage tests → kebab, `_jpeg-fixtures.ts`; LSP rename, ~180 in-package import sites | L1, mechanical; verify with `apps/web` typecheck + unit suite (`make check` does not exercise TS) |
 | G1-R2 | apps/web boolean guards (8) | `isAlive`/`isLive`/`isActive` (×4)/`isDone`/`wasSettled` | L1, trivial; guards are hot paths — re-run stream tests |
 | G1-R3 | apps/agent naming (21) | 20 Python bool params/abbrevs + `chat-wire-parser.ts` rename (+ `test_chat_wire_contract.py` invocation sites) | L1; 10/20 are eval/test-only; `make test` + `make test-eval` |
 | G1-R4 | workers/edge file renames (24) | 4 modules + 20 test files → kebab; in-package LSP rename | L1; `pnpm run test:worker` + `node --test` lane |
@@ -301,9 +321,10 @@ a rename card.
 Every proposed name above was validated against `docs/naming-conventions.md`:
 
 - Component/provider files: `ChatActions.tsx`, `ChatReturnTarget.tsx`,
-  `AnimeRouteStates.tsx`, `RouteDetailStates.tsx` — `^[A-Z][A-Za-z0-9]*\.tsx$` ✓
+  `AnimeRouteStates.tsx`, `RouteDetailStates.tsx`, `Cards.tsx`,
+  `LocaleProvider.tsx` — `^[A-Z][A-Za-z0-9]*\.tsx$` ✓
 - Hooks: `use-{auto-focus,recompute-turn,save-gate,theme,auth-callback,magic-link-form,spot-selection}.ts(x)` — kebab `use-*` ✓
-- Other TS files: all 27 web + 4 edge module renames and 28 test renames are
+- Other TS files: all 27 web + 4 edge module renames and 27 test renames are
   pure lowercase + `-` (domain terms kebab'd, not expanded: `byok-storage`,
   `neon-auth`, `maplibre-adapter`, `turnstile-arm`) ✓
 - TS booleans: `isAlive`, `isLive`, `isActive`, `isDone`, `hasReceived`,
