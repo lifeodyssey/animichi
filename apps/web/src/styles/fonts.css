@@ -57,28 +57,65 @@
 
 /* ── Metric-aligned fallbacks (C8: landing CLS) ─────────────────────────────
    font-display: swap renders the first local font until the webfont arrives;
-   if their metrics differ, line boxes and wrap points change and the page
-   shifts. Each face below pins the pre-load render to the webfont's metrics
-   (size-adjust/ascent-override/descent-override per css-fonts-4 §5.9, same
-   math as fontaine/@capsizecss/unpack) so the swap is invisible.
+   if line-box metrics differ, line heights and wrap points change and the
+   page shifts. Each face below pins the pre-load render to the webfont's
+   metrics so the swap is invisible. Math per css-fonts-4 §5.9, the same
+   convention the review-confirmed Nunito/Arial faces below use:
 
-   Values measured 2026-08-05 with @capsizecss/unpack 3.1.0 + fontaine 4.4.2
-   against apps/web/public/fonts/*.woff2 and macOS system faces (Arial.ttf,
-   Hiragino Sans GB.ttc, ヒラギノ明朝 ProN.ttc):
-     Nunito 700            asc 1011 / desc 353 / gap 0 / xAvg(latin) 470
-     Nunito 500            asc 1011 / desc 353 / gap 0 / xAvg(latin) 456
-     Arial (fontdata)      asc 1854 / desc 434 / gap 67 / 2048 / xAvg 913
-     Zen Maru Gothic 700   asc 1160 / desc 288 / gap 0 / xAvg(latin) 447
-     Zen Maru Gothic 500   asc 1160 / desc 288 / gap 0 / xAvg(latin) 445
-     Noto Serif JP 700     asc 1151 / desc 286 / gap 0 / xAvg(latin) 514
-   size-adjust for the CJK pairs is 100% by design: the first-screen text is
-   Japanese and both fonts advance CJK glyphs at a full 1000/em — the
-   capsizecss "latin" xAvg would mis-scale the actual text. Hiragino Sans /
-   Mincho ProN share 880/-120/500 native boxes; on Linux CI the local() miss
-   skips these faces and system Noto Sans CJK JP (1160/288/0) matches Zen
-   Maru natively. Nunito/Arial use the latin-subset average (Nunito 700:
-   size 470/445.8, overrides 1.011/1.0543; Nunito 500: size 456/445.8,
-   overrides 1.011/1.0229).
+     size-adjust        = fallback avg advance / target avg advance
+     ascent-override    = 100% × targetAsc  / (size-adjust × unitsPerEm)
+     descent-override   = 100% × targetDesc / (size-adjust × unitsPerEm)
+     line-gap-override  = 100% × targetGap  / (size-adjust × unitsPerEm)
+
+   The overrides are expressed against the used size (font-size ×
+   size-adjust), so they are functions of the TARGET face only — the winning
+   local() font's own metrics never enter the numbers.
+
+   Targets measured 2026-08-05 from the @fontsource .woff sources
+   (byte-identical to apps/web/public/fonts/*.woff2, md5-verified) with a
+   local WOFF1/TTC parser (Node zlib inflate; head/hhea/OS2 read directly;
+   @capsizecss/unpack and fontaine are not installed in this repo):
+     Zen Maru Gothic 500   upm 1000  hhea 1160/-288/0  xAvg 975
+     Zen Maru Gothic 700   upm 1000  hhea 1160/-288/0  xAvg 974
+     Noto Serif JP 700     upm 1000  hhea 1151/-286/0  xAvg 988
+     Nunito 500            upm 1000  hhea 1011/-353/0  xAvg 587
+     Nunito 700            upm 1000  hhea 1011/-353/0  xAvg 600
+
+   size-adjust is 100% for the CJK pairs by design: the first-screen text is
+   Japanese, and every candidate below (webfonts included) advances CJK
+   glyphs at the full-width 1000/em grid, so the avg-advance ratio is 1.0
+   and only the target-derived line-box overrides carry the pinning.
+
+   local() candidate chains — the first installed font wins; ordered by
+   platform reach. CI runs Linux, where the previous single-candidate
+   local("Hiragino Sans") / local("Hiragino Mincho ProN") faces never
+   matched, the pin silently died, and the browser fell to unpinned stack
+   members — that was the CI 0.108 vs local 0.0639 gap:
+     Zen Maru fb.   : Noto Sans CJK JP (Linux CI), Noto Sans JP (Android),
+                      Yu Gothic, Meiryo, MS Gothic (Windows),
+                      Hiragino Sans (macOS)
+     Noto Serif fb. : Noto Serif CJK JP (Linux CI), Noto Serif JP (Android),
+                      Yu Mincho, MS Mincho (Windows),
+                      Hiragino Mincho ProN (macOS)
+
+   macOS candidates measured 2026-08-05 from /System/Library/Fonts TTCs
+   (same parser): Hiragino Kaku Gothic W3-W7 and Hiragino Mincho ProN W3/W6
+   all share hhea 880/-120/500 (xAvg W3 544 / W5 577 / W6 600 / W7 628;
+   Mincho W3 521 / W6 554). Noto CJK JP and Yu Gothic/Mincho are NOT
+   installed on this machine and could not be measured here; they follow
+   the JIS layout grid (hhea 1160/-288/0 — the same grid the Zen Maru
+   measurement above confirmed) — documented value, NOT a local measurement.
+   Meiryo/MS Gothic/MS Mincho are deep fallbacks (only reached when Noto and
+   Yu families are both absent) and their metrics are not verified.
+
+   Derived values (target-derived, so identical whichever local() face wins):
+     Zen Maru fallback        size 100%  asc 116.0%  desc 28.8%  gap 0%
+     Noto Serif JP fallback   size 100%  asc 115.1%  desc 28.6%  gap 0%
+
+   Arial (reference for the Latin faces below): measured 2026-08-05, upm
+   2048, hhea 1854/-434/67, xAvg 904 (the Nunito faces below were derived
+   with xAvg 913; left untouched per review confirmation — the ~1% delta
+   stays inside the CLS budget).
    ───────────────────────────────────────────────────────────────────────── */
 
 @font-face {
@@ -107,7 +144,7 @@
   font-family: "Zen Maru Gothic fallback";
   font-style: normal;
   font-weight: 500;
-  src: local("Hiragino Sans");
+  src: local("Noto Sans CJK JP"), local("Noto Sans JP"), local("Yu Gothic"), local("Meiryo"), local("MS Gothic"), local("Hiragino Sans");
   size-adjust: 100%;
   ascent-override: 116%;
   descent-override: 28.8%;
@@ -118,7 +155,7 @@
   font-family: "Zen Maru Gothic fallback";
   font-style: normal;
   font-weight: 700;
-  src: local("Hiragino Sans");
+  src: local("Noto Sans CJK JP"), local("Noto Sans JP"), local("Yu Gothic"), local("Meiryo"), local("MS Gothic"), local("Hiragino Sans");
   size-adjust: 100%;
   ascent-override: 116%;
   descent-override: 28.8%;
@@ -129,7 +166,7 @@
   font-family: "Noto Serif JP fallback";
   font-style: normal;
   font-weight: 700;
-  src: local("Hiragino Mincho ProN");
+  src: local("Noto Serif CJK JP"), local("Noto Serif JP"), local("Yu Mincho"), local("MS Mincho"), local("Hiragino Mincho ProN");
   size-adjust: 100%;
   ascent-override: 115.1%;
   descent-override: 28.6%;
