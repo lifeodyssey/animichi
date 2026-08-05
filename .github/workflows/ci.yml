@@ -485,7 +485,7 @@ jobs:
         # No --cov-fail-under here: the enforced floor belongs to the unit arm
         # (apps/agent/pyproject.toml); the integration arm alone is legitimately
         # far below it. Coverage is uploaded to codecov under the integration flag.
-        run: uv run --frozen pytest agent/tests/integration -q --cov --cov-report=xml --cov-fail-under=0
+        run: uv run --frozen --no-build --no-binary-package animichi pytest agent/tests/integration -q --cov --cov-report=xml --cov-fail-under=0
 
       - name: Upload coverage (integration)
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
