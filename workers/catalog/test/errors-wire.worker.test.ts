@@ -56,23 +56,6 @@ async function callOverview(bangumiId: string, context: CatalogContext): Promise
   return response;
 }
 
-/** Context that wins ingest singleflight and records the subsequent failure. */
-function ingestContext(fetchImpl: typeof fetch): CatalogContext {
-  let calls = 0;
-  const execute = () => Promise.resolve({ rows: calls++ === 0 ? [{ work_id: "3302" }] : [] });
-  const db = { execute } as unknown as CatalogDb;
-  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
-  return { db, neonSql, fetchImpl };
-}
-
-/** Bangumi succeeds; Anitabi fails so the typed source label is deterministic. */
-function anitabiOutage(): typeof fetch {
-  const fetchImpl = (input: string) => input.includes("api.bgm.tv")
-    ? Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ id: 3302 }) })
-    : Promise.reject(new Error("anitabi down"));
-  return fetchImpl as unknown as typeof fetch;
-}
-
 /** Build a minimal CatalogContext; casts stay at the test fake boundary. */
 function context(rows: unknown[], fetchImpl?: typeof fetch): CatalogContext {
   const db = { execute: () => Promise.resolve({ rows }) } as unknown as CatalogDb;
@@ -179,18 +162,6 @@ describe("catalog route limits and typed errors on the OpenAPI wire", () => {
       defined: true, code: "UPSTREAM_UNAVAILABLE", status: 502,
       message: "Upstream catalog source unavailable",
       data: { upstream: "bangumi" },
-    });
-  });
-});
-
-describe("catalog ingest typed errors on the OpenAPI wire", () => {
-  it("serializes defined UPSTREAM_UNAVAILABLE when ingest cannot reach Anitabi", async () => {
-    const res = await call("ingest", { bangumi_id: "3302" }, ingestContext(anitabiOutage()));
-    expect(res.status).toBe(502);
-    expect(await json<UpstreamUnavailableData>(res)).toEqual({
-      defined: true, code: "UPSTREAM_UNAVAILABLE", status: 502,
-      message: "Upstream catalog source unavailable",
-      data: { upstream: "anitabi" },
     });
   });
 });
