@@ -113,5 +113,6 @@ function defaultSleep(ms: number): Promise<void> {
 
 /** Full jitter (AWS style), uniform in [0, baseMs): desynchronizes peer retries. */
 function fullJitter(baseMs: number): number {
-  return Math.floor(Math.random() * baseMs);
+  const [word] = crypto.getRandomValues(new Uint32Array(1));
+  return Math.floor(((word ?? 0) / 2 ** 32) * baseMs);
 }
