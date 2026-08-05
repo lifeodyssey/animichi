@@ -8,6 +8,9 @@ export default defineConfig({
   globalSetup: "./global-setup.ts",
   testDir: ".",
   testMatch: "*.spec.ts",
+  // D1 card parity: never collect generated artifacts as tests. The visual
+  // suite lives under visual/ and only the @visual project collects it.
+  testIgnore: ["generated/**"],
   timeout: 30_000,
   retries: 0,
   use: {
@@ -23,7 +26,28 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      // The visual suite belongs to its own project; keep the plain suite
+      // byte-for-byte as it was.
+      testIgnore: ["generated/**", "agent-discovered/**", "visual/**"],
       use: { browserName: "chromium" },
+    },
+    {
+      name: "visual",
+      testDir: "visual",
+      testMatch: "*.spec.ts",
+      timeout: 60_000,
+      use: {
+        browserName: "chromium",
+        // Determinism: kill CSS animations, no service workers, light scheme
+        // unless a frame asks for night (see visual/mockup.spec.ts).
+        reducedMotion: "reduce",
+        serviceWorkers: "block",
+        colorScheme: "light",
+      },
+      // Regression-tier baselines; platform-suffixed so docker (linux) and
+      // host (darwin) renders never corrupt each other's accepted state.
+      snapshotDir: "./visual/regression-baselines",
+      snapshotPathTemplate: "{snapshotDir}/{arg}-{platform}{ext}",
     },
   ],
 });
