@@ -84,7 +84,7 @@ jobs:
           printf '{"commit_sha":"%s","sha256":"%s"}\n' "$GITHUB_SHA" "$ARTIFACT_SHA256" \
             > "$ARTIFACT_DIR/.artifact-meta.json"
       - name: Upload build artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ env.WEB_ARTIFACT_NAME }}
           path: |
@@ -95,7 +95,7 @@ jobs:
       - name: Isolate original build output
         run: mv apps/web/.output "$RUNNER_TEMP/original-web-output"
       - name: Download build artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ env.WEB_ARTIFACT_NAME }}
           path: ${{ runner.temp }}/downloaded-web-artifact
@@ -117,7 +117,7 @@ jobs:
           echo "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION#Version }" >> "$GITHUB_ENV"
         shell: bash
       - name: Restore Playwright browser cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
@@ -125,7 +125,7 @@ jobs:
         run: pnpm --dir e2e exec playwright install --with-deps chromium
       - name: Save Playwright browser cache
         if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium

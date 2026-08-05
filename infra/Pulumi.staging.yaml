@@ -1,15 +1,14 @@
 config:
   # Same Cloudflare account as prod (already committed in Pulumi.prod.yaml).
   seichijunrei-infra:cloudflareAccountId: 021233c1880a43aa68565496100e1f8c
-  # false until CLOUDFLARE_PULUMI_API_TOKEN gains Workers Routes + Custom Domains permissions (2026-08-05 401s, run 30939789276)
-  seichijunrei-infra:webRoutesEnabled: "false"
+  # re-enabled 2026-08-05: token gained Workers Routes (zone) + Workers Scripts (account) edit scopes
+  seichijunrei-infra:webRoutesEnabled: "true"
   seichijunrei-infra:cloudflareZoneId: 44fdcc54545c1152a8e730137b671be4
   seichijunrei-infra:stagingDomain: staging.animichi.com
   #
-  # ── Hostname cutover (#541), PREPARED but held 2026-08-05 ────────────────────────
-  # cutover PREPARED but held (token scopes pending, see the flag comment
-  # above); flipping the flag publishes. `webRoutesEnabled` creates the Custom
-  # Domain and the /v1, /img, /healthz edge routes together. One flag on
+  # ── Hostname cutover (#541), ENABLED 2026-08-05 ────────────────────────
+  # Flipping the flag publishes. `webRoutesEnabled` creates the Custom
+  # Domain and the /v1, /img, /tiles, /healthz edge routes together. One flag on
   # purpose — a hostname that resolves before its routes are narrowed answers a
   # browser navigation with the edge Worker's JSON 404.
   #
