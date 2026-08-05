@@ -1,17 +1,13 @@
 import { http, HttpResponse } from "msw";
 import type { HttpHandler } from "msw";
-import { CHAT_URL, chatStreamFixture, patchSessionId, streamText } from "./chat-stream-base";
+import { CHAT_URL, chatStreamFixture, mapFinalFrameData, patchSessionId, streamText } from "./chat-stream-base";
 import type { ChatStreamFixture, ChatStreamOptions } from "./chat-stream-base";
-import { flushTail, SSE_HEADERS, sseResponse } from "./chat-sse";
+import { heldSse, SSE_HEADERS, sseResponse } from "./chat-sse";
 
 export type FinalFramePatch = (envelope: Record<string, unknown>) => Record<string, unknown>;
 
 function patchFinalFrameLine(line: string, patch: FinalFramePatch): string {
-  if (!line.startsWith('data: {"type":"data-response"')) return line;
-  const frame = JSON.parse(line.slice("data: ".length)) as { data: Record<string, unknown> };
-  if (!("success" in frame.data)) return line;
-  frame.data = patch(frame.data);
-  return `data: ${JSON.stringify(frame)}`;
+  return mapFinalFrameData(line, patch);
 }
 
 /**
@@ -92,35 +88,35 @@ export function chatRecomputeHandler(options: ChatStreamOptions = {}): HttpHandl
   });
 }
 
-export interface ControlledRecomputeStream {
+export interface ControlledChatStream {
   readonly handler: HttpHandler;
-  /** Flush the final full envelope (and close); the skeleton shows until then. */
+  /** Flush the recorded final data-response frame (and close), if still open. */
   readonly releaseFinal: () => void;
 }
 
 /** The recompute stream held open before its final full envelope, so a test
  * can assert the skeleton state actually appeared (review P2-⑥). */
-export function chatRecomputeControlledHandler(): ControlledRecomputeStream {
-  const recorded = toRecomputeStream(chatStreamFixture("search"));
-  const splitAt = recorded.lastIndexOf('data: {"type":"data-response"');
-  let release: () => void = () => undefined;
+export type ControlledRecomputeStream = ControlledChatStream;
+
+/** A chat handler that streams the recording head and flushes the tail on release. */
+function controlledChatHandler(recorded: string, splitAt: number): ControlledChatStream {
+  let flush: () => void = () => undefined;
   const handler = http.post(CHAT_URL, () => {
-    const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode(recorded.slice(0, splitAt)));
-        release = () => {
-          flushTail(controller, recorded.slice(splitAt));
-        };
-      },
-    });
-    return new HttpResponse(body, { headers: SSE_HEADERS });
+    const held = heldSse(recorded.slice(0, splitAt), recorded.slice(splitAt));
+    flush = held.flush;
+    return new HttpResponse(held.stream, { headers: SSE_HEADERS });
   });
   return {
     handler,
     releaseFinal: () => {
-      release();
+      flush();
     },
   };
+}
+
+export function chatRecomputeControlledHandler(): ControlledRecomputeStream {
+  const recorded = toRecomputeStream(chatStreamFixture("search"));
+  return controlledChatHandler(recorded, recorded.lastIndexOf('data: {"type":"data-response"'));
 }
 
 /** Replays the recording up to (excluding) the first data-response frame and holds the stream open. */
@@ -132,35 +128,11 @@ export function chatStreamHeldOpenHandler(name: ChatStreamFixture): HttpHandler 
   });
 }
 
-export interface ControlledChatStream {
-  readonly handler: HttpHandler;
-  /** Flush the recorded final data-response frame (and close), if still open. */
-  readonly releaseFinal: () => void;
-}
-
 /** Streams the recording head, then lets the test release the final frame late. */
 export function chatStreamControlledHandler(
   name: ChatStreamFixture,
   sessionId: string,
 ): ControlledChatStream {
   const recorded = patchSessionId(chatStreamFixture(name), sessionId);
-  const splitAt = recorded.indexOf('data: {"type":"data-response"');
-  let release: () => void = () => undefined;
-  const handler = http.post(CHAT_URL, () => {
-    const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode(recorded.slice(0, splitAt)));
-        release = () => {
-          flushTail(controller, recorded.slice(splitAt));
-        };
-      },
-    });
-    return new HttpResponse(body, { headers: SSE_HEADERS });
-  });
-  return {
-    handler,
-    releaseFinal: () => {
-      release();
-    },
-  };
+  return controlledChatHandler(recorded, recorded.indexOf('data: {"type":"data-response"'));
 }
