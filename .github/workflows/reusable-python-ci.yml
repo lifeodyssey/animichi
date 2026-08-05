@@ -39,12 +39,10 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
-      # --no-build is deliberately not added here: this project's own editable
-      # package has no wheel, so a blanket --no-build refuses to install it
-      # ("marked as --no-build but has no binary distribution", verified
-      # locally against the pinned uv). See purge-anonymous-sessions.yml's
-      # NOTE (review round 2) for the same finding on the same project.
-      - run: uv sync --frozen --all-extras
+      # Sonar S8541: --no-build blocks third-party sdist builds (setup-script
+      # execution); --no-binary-package animichi exempts the project's own
+      # wheel-less editable install, which blanket --no-build rejects (uv #17416).
+      - run: uv sync --frozen --all-extras --no-build --no-binary-package animichi
 
       - name: Ruff lint
         uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
