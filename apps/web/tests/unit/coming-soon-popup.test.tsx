@@ -45,17 +45,16 @@ describe("ComingSoonPopup keyboard traversal", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog.getAttribute("aria-modal")).toBe("true");
     expect(dialog.getAttribute("aria-label")).toBe("ただいま準備中です");
-    expect(screen.getByText("ただいま準備中です")).toBeTruthy();
-    expect(screen.getByText(/この機能はただいま準備中です/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "了解しました" })).toBeTruthy();
+    expect(screen.getByText("ただいま準備中です")).not.toBeNull();
+    expect(screen.getByText(/この機能はただいま準備中です/)).not.toBeNull();
+    expect(screen.getByRole("button", { name: "了解しました" })).not.toBeNull();
   });
 
   it("closes on the action button, the backdrop, and Escape", () => {
     const onClose = vi.fn();
     renderWithLocale(<ComingSoonPopup open onClose={onClose} />);
     fireEvent.click(screen.getByRole("button", { name: "了解しました" }));
-    const backdrop = screen.getByRole("dialog").parentElement;
-    if (!backdrop) throw new Error("ComingSoonPopup backdrop is missing");
+    const backdrop = screen.getByRole("presentation");
     fireEvent.click(backdrop);
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(3);
