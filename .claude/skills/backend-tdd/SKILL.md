@@ -2,12 +2,14 @@
 
 Invoke before writing any backend Python code. Enforces Red-Green-Refactor cycle with project-specific Clean Code constraints.
 
+The backend lives in `apps/agent/` (module root `agent/`); the legacy `backend/` tree is gone. All commands run from `apps/agent/` unless prefixed with `make` (root).
+
 ## TDD Cycle
 
 ### 1. RED — Write failing test first
 
 ```bash
-uv run pytest backend/tests/unit/test_<module>.py -v -k "test_<behavior>" --no-header
+cd apps/agent && uv run pytest agent/tests/unit/test_<module>.py -v -k "test_<behavior>" --no-header
 ```
 
 - Test name: `test_<verb>_<scenario>_<expected>` (e.g., `test_returns_empty_when_no_results`)
@@ -19,17 +21,15 @@ uv run pytest backend/tests/unit/test_<module>.py -v -k "test_<behavior>" --no-h
 Write the smallest amount of production code that makes the test green. No more.
 
 ```bash
-uv run pytest backend/tests/unit/test_<module>.py -v --no-header
+cd apps/agent && uv run pytest agent/tests/unit/test_<module>.py -v --no-header
 ```
 
 ### 3. REFACTOR — Clean up with tests green
 
-Apply the constraints below. Run tests after every change:
+Apply the constraints below. Run tests after every change. The sanctioned full gates are the Makefile targets (root):
 
 ```bash
-uv run ruff format backend/ && uv run ruff check backend/ --fix
-uv run mypy backend/agents/ backend/interfaces/ backend/domain/ backend/infrastructure/
-uv run pytest backend/tests/unit/ -v --no-header -q
+make lint && make typecheck && make test
 ```
 
 ## Code Constraints
@@ -71,7 +71,7 @@ uv run pytest backend/tests/unit/ -v --no-header -q
 - Test name describes behavior: `test_returns_404_when_session_not_found`
 - One assert per test (multiple asserts OK if testing same behavior)
 - No conditional logic in tests (no if/else/try-except)
-- No timing-dependent assertions. Mock `asyncio.sleep` or use `freezegun`/`time-machine`.
+- No timing-dependent assertions. Mock the clock (`time-machine` / freezegun) — no `asyncio.sleep` thresholds.
 
 ### Assertions
 - Assert specific values: `assert result == expected`, not `assert result is not None`
@@ -82,10 +82,12 @@ uv run pytest backend/tests/unit/ -v --no-header -q
 - Mock at boundaries only: DB, HTTP, LLM. Not internal functions.
 - Fixtures should be self-documenting. If a fixture sets up complex state, add inline comments.
 - Remove unused mock methods from fixtures. Only mock what the test actually calls.
-- Prefer `respx` for HTTP mocks, `TestModel` for Pydantic AI.
+- Prefer `respx` for HTTP mocks, `TestModel` for Pydantic AI (never `unittest.mock` for the agent).
+- Integration tests: only the LLM is mocked. DB fixtures select BYO via `TEST_DATABASE_URL`,
+  explicit `TEST_DB=docker|neon`, or the offline Docker default — never assume a local database.
 
 ### Organization
-- One test file per production module
+- One test file per production module (`agent/tests/unit/` mirrors `agent/`)
 - Max 200 lines per test file. Split by feature/concern if larger.
 - Use `@pytest.mark.parametrize` for testing multiple inputs with same logic.
 - Factory functions for test data (`make_point()`, `make_bangumi()`), not inline dicts.

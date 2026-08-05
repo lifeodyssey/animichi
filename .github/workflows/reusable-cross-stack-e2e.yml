@@ -1,0 +1,77 @@
+# Reusable emitted-worker browser smoke lane. It deliberately runs against the
+# same `.output` artifact that the web deploy workflow publishes, not a Vite
+# dev server, so route/asset regressions fail before staging promotion.
+name: _cross-stack-e2e
+
+on:
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  cross-stack-e2e:
+    timeout-minutes: 30
+    name: Cross-stack E2E runner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Build emitted web Worker
+        env:
+          # Cloudflare's published always-passing TEST site key (public, not a
+          # secret — see `TurnstileGate.tsx`'s `TURNSTILE_TEST_SITE_KEY`).
+          # Vite inlines this at build time; without it a production build
+          # renders no `cf-turnstile` widget at all, and
+          # `web-chat-anonymous.spec.ts`'s two Turnstile-dock assertions fail
+          # not because of a code bug but because the emitted bundle never got
+          # a site key to embed.
+          VITE_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
+          # showcase.ts fails closed at module init — every build path must
+          # declare the mode explicitly; CI builds are never showcase.
+          VITE_SHOWCASE_MODE: "false"
+        run: pnpm --filter web test:integration
+
+      - name: Resolve Playwright version
+        run: |
+          PLAYWRIGHT_VERSION="$(pnpm --dir e2e exec playwright --version)"
+          echo "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION#Version }" >> "$GITHUB_ENV"
+        shell: bash
+
+      - name: Restore Playwright browser cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
+
+      - name: Install Playwright browser
+        run: |
+          test -x node_modules/.bin/playwright
+          node_modules/.bin/playwright install --with-deps chromium
+
+      - name: Save Playwright browser cache
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
+
+      - name: Exercise emitted Worker routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --filter web exec wrangler dev --port 8799 &
+          wrangler_pid=$!
+          trap 'kill "$wrangler_pid" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:8799/; then
+              break
+            fi
+            sleep 1
+          done
+          curl -sf -o /dev/null http://localhost:8799/ || exit 1
+          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts web-chat-anonymous.spec.ts

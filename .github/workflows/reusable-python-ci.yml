@@ -1,0 +1,83 @@
+# Reusable workflow (called by ci.yml; not triggered directly). '_' prefix = internal.
+name: _python-ci
+
+# Reusable Python CI: ruff (lint + format) + mypy strict + vulture + pip-audit + pytest/cov.
+# Called by ci.yml orchestrator. Strict quality stack per cicd-strict-refactor plan.
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: "App directory under apps/ to run CI against"
+        required: false
+        type: string
+        default: "agent"
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  python-ci:
+    timeout-minutes: 20
+    name: Python CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+
+      # Sonar S8541: --no-build blocks third-party sdist builds (setup-script
+      # execution); --no-binary-package animichi exempts the project's own
+      # wheel-less editable install, which blanket --no-build rejects (uv #17416).
+      - run: uv sync --frozen --all-extras --no-build --no-binary-package animichi
+
+      - name: Ruff lint
+        uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
+        with:
+          args: "check"
+          working-directory: apps/${{ inputs.app }}
+
+      - name: Ruff format check
+        run: uv run --frozen ruff format --check agent/
+
+      - name: Type check (mypy strict)
+        run: uv run --frozen mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ agent/scripts/purge_anonymous_sessions.py
+
+      - name: Dead code (vulture)
+        run: uv run --frozen vulture agent/ vulture_whitelist.py
+
+      - name: Dependency audit (pip-audit)
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
+        with:
+          local: true
+          inputs: apps/${{ inputs.app }}
+
+      # No --cov-fail-under here on purpose: a CLI value OVERRIDES the addopts in
+      # apps/agent/pyproject.toml [tool.pytest.ini_options], so a hardcoded 80
+      # meant CI enforced 80 while the repo's ratcheted floor (82, now 88) applied
+      # only to local `make test`. The two gates disagreed silently, and the
+      # ratchet rule was paper-only. The floor now lives in exactly one place:
+      # apps/agent/pyproject.toml.
+      - name: Unit tests (coverage floor from apps/agent/pyproject.toml)
+        run: uv run --frozen pytest agent/tests/unit/ -v --cov --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: apps/${{ inputs.app }}/coverage.xml
+          fail_ci_if_error: true
+          use_oidc: true
+          flags: unit

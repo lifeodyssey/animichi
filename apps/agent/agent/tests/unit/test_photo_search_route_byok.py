@@ -7,17 +7,22 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from agent.config.settings import Settings
-from agent.tests.unit.conftest_fastapi import async_client
 from agent.tests.unit.photo_search_route_fixtures import (
     BYOK_HEADERS,
     UsageRepo,
     app_,
-    body_,
     down_model,
     fake_byok_model,
     patched_build,
+    post_photo_search,
     titles_model,
 )
+
+_ANON_BYOK_COMMON = {
+    "X-User-Id": "anon_0123456789abcdef0123456789abcdef",
+    "X-BYOK-Provider": "anthropic",
+    "X-BYOK-Key": "sk-fake-secret-value",
+}
 
 
 async def test_byok_fallback_is_recorded_as_platform_user_usage() -> None:
@@ -30,10 +35,7 @@ async def test_byok_fallback_is_recorded_as_platform_user_usage() -> None:
     app.state.db_client.usage = repo
     byok_model, fake_client = fake_byok_model(down_model())
     with patched_build(byok_model):
-        async with async_client(app) as client:
-            response = await client.post(
-                "/v1/photo-search", json=body_(), headers=BYOK_HEADERS
-            )
+        response = await post_photo_search(app, headers=BYOK_HEADERS)
     assert response.status_code == 200
     assert [call.scope for call in repo.calls] == ["user"]
     fake_client.aclose.assert_awaited_once()
@@ -45,10 +47,7 @@ async def test_byok_success_is_recorded_as_byok_scope_with_zero_platform_cost() 
     app.state.db_client.usage = repo
     byok_model, fake_client = fake_byok_model(titles_model(["君の名は。"]))
     with patched_build(byok_model):
-        async with async_client(app) as client:
-            response = await client.post(
-                "/v1/photo-search", json=body_(), headers=BYOK_HEADERS
-            )
+        response = await post_photo_search(app, headers=BYOK_HEADERS)
     assert response.status_code == 200
     assert [(call.scope, call.cost_usd) for call in repo.calls] == [("byok", 0.0)]
     fake_client.aclose.assert_awaited_once()
@@ -64,17 +63,9 @@ def _unreachable_build() -> object:
 
 
 async def test_anonymous_byok_headers_are_rejected_before_any_model_call() -> None:
-    anon_headers = {
-        "X-User-Id": "anon_0123456789abcdef0123456789abcdef",
-        "X-User-Type": "anonymous",
-        "X-BYOK-Provider": "anthropic",
-        "X-BYOK-Key": "sk-fake-secret-value",
-    }
+    headers = {**_ANON_BYOK_COMMON, "X-User-Type": "anonymous"}
     with _unreachable_build():
-        async with async_client(app_()) as client:
-            response = await client.post(
-                "/v1/photo-search", json=body_(), headers=anon_headers
-            )
+        response = await post_photo_search(app_(), headers=headers)
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "byok_requires_login"
 
@@ -94,16 +85,8 @@ async def test_anon_id_prefix_gates_byok_even_without_the_literal_anonymous_type
     string "anonymous" — a caller shaped exactly like this cleared the old
     gate (200, real BYOK model resolution attempted) and only the quota/
     usage-scope logic downstream classified them as anonymous."""
-    headers = {
-        "X-User-Id": "anon_0123456789abcdef0123456789abcdef",
-        "X-BYOK-Provider": "anthropic",
-        "X-BYOK-Key": "sk-fake-secret-value",
-        **user_type_header,
-    }
+    headers = {**_ANON_BYOK_COMMON, **user_type_header}
     with _unreachable_build():
-        async with async_client(app_()) as client:
-            response = await client.post(
-                "/v1/photo-search", json=body_(), headers=headers
-            )
+        response = await post_photo_search(app_(), headers=headers)
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "byok_requires_login"

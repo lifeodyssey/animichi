@@ -123,8 +123,8 @@ def test_build_response_session_with_no_route_history() -> None:
 def test_extract_plan_steps_with_tools() -> None:
     result = _make_result(
         steps=[
-            StepRecord(tool="resolve_anime", success=True),
-            StepRecord(tool="search_bangumi", success=True),
+            StepRecord(tool="resolve_anime", is_success=True),
+            StepRecord(tool="search_bangumi", is_success=True),
         ]
     )
     steps = extract_plan_steps(result)

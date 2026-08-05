@@ -1,0 +1,244 @@
+name: _security
+
+# Reusable cross-language security workflow.
+# Called by ci.yml orchestrator; always runs (no affected gate).
+# Strict quality stack per cicd-strict-refactor plan (§安全).
+# Official GitHub Actions are SHA-pinned; CLI-only tools run via ./.github/actions/setup.
+
+on:
+  workflow_call:
+    secrets:
+      GITLEAKS_LICENSE:
+        required: false
+
+permissions:
+  contents: read
+  # gitleaks-action lists PR commits via the API on pull_request events; a
+  # bare contents-read block zeroes that scope and it dies with
+  # "Resource not accessible by integration" (2026-07-28). Read-only.
+  pull-requests: read
+
+jobs:
+  # ── Secret scanning ──────────────────────────────────────────
+
+  gitleaks:
+    timeout-minutes: 15
+    name: gitleaks (secret scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # gitleaks-action v3 is free for personal/public repos (this repo is
+          # lifeodyssey personal). GITLEAKS_LICENSE only needed for orgs.
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  trufflehog:
+    timeout-minutes: 15
+    name: TruffleHog (verified secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: trufflesecurity/trufflehog@6f3c981e7b77f235fd2702dd74af25fc4b72bf11 # v3.96.0
+        with:
+          extra_args: --results=verified --only-verified
+
+  # ── Dependency / lockfile CVE scanning ───────────────────────
+
+  osv-scanner:
+    timeout-minutes: 15
+    name: osv-scanner (lockfile CVE)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --recursive
+            ./
+
+  dependabot-config:
+    timeout-minutes: 15
+    name: Dependabot pnpm coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify pnpm lockfile domains stay covered
+        run: python3 .github/scripts/test_dependabot_config.py
+
+  config-read-sets:
+    timeout-minutes: 5
+    name: Config check read-set trigger coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Pin the uv binary itself — the flags this file relies on are version-sensitive.
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.14"
+          enable-cache: false
+          prune-cache: true
+      # --locked pins to the committed script lockfile; --no-build refuses to
+      # build a source distribution, which would execute its setup script.
+      - name: Verify config checks run for every file they read
+        run: uv run --script --locked --no-build .github/scripts/test_config_read_sets.py
+
+  # ── GitHub Actions security ──────────────────────────────────
+
+  zizmor:
+    timeout-minutes: 15
+    name: zizmor (GHA security)
+    runs-on: ubuntu-latest
+    env:
+      # One pin, three uses: cache key, restore-keys prefix, and the CLI call.
+      # Keeping the version inside the key namespace means a zizmor upgrade
+      # starts from a cold cache instead of restoring another version's
+      # response format through the broad restore-keys prefix.
+      ZIZMOR_VERSION: 1.5.2
+    # advanced-security: false (below) → no SARIF upload → security-events not
+    # needed. Requesting it caused startup_failure: a reusable job cannot request
+    # more than the caller (ci.yml) grants (contents: read → security-events: none).
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # zizmor's online audits (impostor-commit) resolve every third-party action
+      # ref against the GitHub API, which makes our CI availability a function of
+      # theirs — four red runs on 2026-08-03 were all upstream 502s, none of them
+      # our code. zizmor >=0.10 caches those lookups persistently, but the
+      # official zizmor-action runs zizmor inside a Docker container whose HOME
+      # is unrelated to the runner's, so a host-side actions/cache mount is
+      # invisible to it — and it exposes no --cache-dir passthrough. Calling the
+      # version-pinned CLI directly is the only way to get a warm cache.
+      # Cache key is content-based:
+      # any workflow edit re-audits, an unchanged tree reuses yesterday's answers.
+      # restore-only (never save): zizmor's own cache-poisoning audit flags a
+      # read-write actions/cache in any workflow whose artifacts can reach a
+      # release path. Restore-only keeps the speed-up while leaving the cache
+      # writable solely by the trusted main-branch run below.
+      - name: Restore zizmor audit cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/zizmor
+          key: zizmor-${{ runner.os }}-${{ env.ZIZMOR_VERSION }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
+          restore-keys: zizmor-${{ runner.os }}-${{ env.ZIZMOR_VERSION }}-
+      - name: Install zizmor
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.14"
+          # setup-uv's own cache defaults to auto-on and is read-write, which
+          # zizmor's cache-poisoning audit rejects in this workflow. zizmor is a
+          # single small download; the uv cache buys nothing here.
+          enable-cache: false
+          # Required by .github/scripts/test_dependabot_config.py for every
+          # setup-uv call site (kept consistent even with the cache disabled).
+          prune-cache: true
+      - name: Audit workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uvx --no-build zizmor@"$ZIZMOR_VERSION" --cache-dir ~/.cache/zizmor .
+      # Only main-branch runs may write the shared cache — a PR (including a
+      # fork PR) can read it but never poison it.
+      - name: Save zizmor audit cache
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/zizmor
+          key: zizmor-${{ runner.os }}-${{ env.ZIZMOR_VERSION }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
+
+  # ── Static analysis (SAST) ───────────────────────────────────
+
+  semgrep:
+    timeout-minutes: 15
+    name: Semgrep (SAST)
+    runs-on: ubuntu-latest
+    env:
+      # Semgrep ships wheels, so --no-build is safe here (unlike apps/agent's
+      # own editable package — see the uv sync comments elsewhere in this file).
+      SEMGREP_VERSION: "1.172.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+      - name: Install Semgrep
+        run: uv tool install --no-build "semgrep==$SEMGREP_VERSION"
+        shell: bash
+      - name: Run Semgrep
+        # Sonar S8544: run line must carry the version too (uv tool run is an
+        # on-demand install when absent); follows the zizmor@"$VERSION" pattern.
+        run: uv tool run --no-build semgrep@"$SEMGREP_VERSION" --config p/python --config p/typescript --config p/javascript --error . # v1.172.0
+        shell: bash
+
+  # ── SQL migration lint ───────────────────────────────────────
+
+  sqlfluff:
+    timeout-minutes: 15
+    name: sqlfluff (SQL lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/agent
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+      # Sonar S8541: --no-build blocks third-party sdist builds (setup-script
+      # execution); --no-binary-package animichi exempts the project's own
+      # wheel-less editable install, which blanket --no-build rejects (uv #17416).
+      - run: uv sync --frozen --all-extras --no-build --no-binary-package animichi
+      # .sqlfluff config lives at repo root; lint the schema dirs we own.
+      - name: Lint migrations (postgres dialect)
+        run: uv run --frozen --no-build --no-binary-package animichi sqlfluff lint ../../db/migrations --dialect postgres
+
+  # ── Deploy-gate script tests ─────────────────────────────────
+
+  post-deploy-assert-test:
+    timeout-minutes: 30
+    name: post-deploy smoke scripts (shellcheck + behavior)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: shellcheck
+        run: |
+          shellcheck .github/scripts/post-deploy-assert.sh .github/scripts/post-deploy-assert.test.sh \
+            .github/scripts/resolve-worker-url.sh .github/scripts/resolve-worker-url.test.sh
+        shell: bash
+      # #522: this is the gate that decides whether a real 404 (app broken,
+      # or the branded 404 page) fails a deploy immediately versus a
+      # Cloudflare edge 404 (propagation window) gets retried — behavior, not
+      # syntax, is the risk here. Drives the real script against a throwaway
+      # local mock server; no bats/JS test runner in this repo to hook into.
+      - name: post-deploy-assert.sh behavioral tests
+        run: bash .github/scripts/post-deploy-assert.test.sh
+        shell: bash
+      # #695: resolve-worker-url.sh is the thing that decides WHAT the smoke
+      # gate above even probes. Same throwaway-mock-server approach, this
+      # time mocking the Cloudflare API instead of the deployed app —
+      # including a direct comparison against a frozen snapshot of the
+      # pre-#695 hardcoded behavior (see the test file header).
+      - name: resolve-worker-url.sh behavioral tests
+        run: bash .github/scripts/resolve-worker-url.test.sh
+        shell: bash

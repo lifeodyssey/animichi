@@ -30,7 +30,7 @@ from agent.config.settings import Settings
 from agent.infrastructure.observability.photo_search import PhotoSearchQuota
 from agent.interfaces.public_api import RuntimeAPI
 from agent.interfaces.routes.photo_search import PhotoSearchRuntime
-from agent.tests.unit.conftest_fastapi import build_app, build_stub_db
+from agent.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
 from agent.tests.unit.photo_search_fakes import FakeCatalog
 
 # Valid JPEG magic so the route's strict sniff accepts the stub payload.
@@ -90,6 +90,34 @@ def body_(mime: str = "image/jpeg", image: bytes = IMAGE) -> dict[str, object]:
     return {
         "image_base64": base64.b64encode(image).decode("ascii"),
         "mime_type": mime,
+    }
+
+
+async def post_photo_search(
+    app: FastAPI, *, headers: dict[str, str] | None = None
+) -> httpx.Response:
+    """POST /v1/photo-search with the standard stub body and optional headers."""
+    async with async_client(app) as client:
+        return await client.post("/v1/photo-search", json=body_(), headers=headers)
+
+
+async def post_photo_search_confirm(
+    app: FastAPI, *, body: dict[str, object]
+) -> httpx.Response:
+    """POST /v1/photo-search/confirm with an explicit body."""
+    async with async_client(app) as client:
+        return await client.post("/v1/photo-search/confirm", json=body)
+
+
+def confirm_body(
+    *, query_type: str, layer_hit: str, candidates_shown: int
+) -> dict[str, object]:
+    """The /v1/photo-search/confirm body; gps_available is always false here."""
+    return {
+        "query_type": query_type,
+        "gps_available": False,
+        "layer_hit": layer_hit,
+        "candidates_shown": candidates_shown,
     }
 
 

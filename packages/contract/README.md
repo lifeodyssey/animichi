@@ -6,7 +6,7 @@ Single source of truth for the types exchanged between the **Python Agent servic
 
 | File | Contents |
 |---|---|
-| `src/models.ts` | Zod schemas + inferred TS types: `PilgrimagePoint`, `TimedStop`, `TransitLeg`, `TimedItinerary`, `IngestResult`, `Route`, `Pacing`, `Origin` |
+| `src/models.ts` | Zod schemas + inferred TS types: `PilgrimagePoint`, `TimedStop`, `TransitLeg`, `TimedItinerary`, `Route`, `Pacing`, `Origin` |
 | `src/contract.ts` | oRPC contract + additional response types: `SearchResult`, `SpotsResult`, `NearbyResult` and the `catalogContract` object |
 | `src/errors.ts` | Typed error registry: `CATALOG_ERROR_DEFS` (code → status/category/message/data schema), `ErrorCategory`, per-code data schemas, `pickCatalogErrors()` |
 | `src/index.ts` | Re-exports everything above |

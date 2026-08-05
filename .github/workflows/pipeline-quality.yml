@@ -1,0 +1,59 @@
+# Meta-quality lane (docs/iterations/iter6/design-CI-1-pipeline-refactor.md):
+# machine-checked invariants over every workflow (step 1d) plus the actionlint
+# gate that validates workflow syntax itself, moved here from
+# reusable-security.yml so it stands as an independent required context.
+# This lane is the fixed point of its own checks: it never filters by paths,
+# and it must keep its own timeout-minutes / permissions / concurrency /
+# merge_group or it fails on itself.
+name: Quality
+
+on:
+  pull_request:
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Template concurrency (design CI-1): PR runs cancel on a fresh push; queue
+# runs and main runs never cancel (cancelling a queue run wedges the queue).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  invariants:
+    name: Quality / invariants
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: shellcheck workflow meta scripts
+        run: shellcheck .github/scripts/assert-workflow-invariants.sh .github/scripts/assert-workflow-invariants.test.sh
+        shell: bash
+      - name: Workflow invariant behavioral tests
+        run: bash .github/scripts/assert-workflow-invariants.test.sh
+        shell: bash
+      - name: Assert workflow invariants
+        run: bash .github/scripts/assert-workflow-invariants.sh
+        shell: bash
+      - name: Download actionlint
+        run: |
+          ACTIONLINT_VERSION="1.7.7"
+          ACTIONLINT_ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          ACTIONLINT_CHECKSUMS="actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          ACTIONLINT_BASE_URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          curl -sSfL --proto '=https' --proto-redir '=https' -o "${ACTIONLINT_ARCHIVE}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_ARCHIVE}"
+          curl -sSfL --proto '=https' --proto-redir '=https' -o "${ACTIONLINT_CHECKSUMS}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_CHECKSUMS}"
+          grep -F "  ${ACTIONLINT_ARCHIVE}" "${ACTIONLINT_CHECKSUMS}" > actionlint.sha256
+          sha256sum -c actionlint.sha256
+          tar -xzf "${ACTIONLINT_ARCHIVE}" actionlint
+          chmod +x actionlint
+        shell: bash
+      - name: Run actionlint
+        run: ./actionlint -color
+        shell: bash

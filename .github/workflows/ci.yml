@@ -51,7 +51,6 @@ jobs:
       maintenance: ${{ steps.f.outputs.maintenance }}
       agent: ${{ steps.f.outputs.agent }}
       agent_behavior: ${{ steps.f.outputs.agent_behavior }}
-      web: ${{ steps.f.outputs.web }}
       contract: ${{ steps.f.outputs.contract }}
       worker: ${{ steps.f.outputs.worker }}
       infra: ${{ steps.f.outputs.infra }}
@@ -86,14 +85,14 @@ jobs:
             # workers/edge/auth.ts while ci-users skips (issue #647).
             users: ['workers/users/**', 'packages/contract/**', 'workers/edge/auth.ts']
             # workers/maintenance/test/config.worker.test.ts asserts against the deploy
-            # wiring itself — ci.yml, deploy.yml, _deploy-component.yml, both deprecated
+            # wiring itself — ci.yml, deploy.yml, reusable-deploy-component.yml, both deprecated
             # fallback workflows and docs/ops/secrets.md are read verbatim by that test.
             # Scoping the filter to workers/maintenance/** alone would let a change to any
             # of those files break the assertion while ci-maintenance skips: the same
             # "a gate that cannot test itself" failure the agent_behavior filter above
             # already had to fix. READS declarations are enforced by the unfiltered
             # config-read-sets security job.
-            maintenance: ['workers/maintenance/**', '.github/workflows/ci.yml', '.github/workflows/deploy.yml', '.github/workflows/_deploy-component.yml', '.github/workflows/purge-anon-quota-counts.yml', '.github/workflows/purge-anonymous-sessions.yml', 'docs/ops/secrets.md']
+            maintenance: ['workers/maintenance/**', '.github/workflows/ci.yml', '.github/workflows/deploy.yml', '.github/workflows/reusable-deploy-component.yml', '.github/workflows/purge-anon-quota-counts.yml', '.github/workflows/purge-anonymous-sessions.yml', 'docs/ops/secrets.md']
             # Agent unit tests assert cross-package workflow, documentation, Worker, and
             # web coverage config. The read-set meta-check protects these extra entries.
             agent: ['apps/agent/**', 'packages/contract/**', '.github/workflows/**', 'apps/web/vitest.config.ts', 'docs/ARCHITECTURE.md', 'docs/ops/deployment.md', 'docs/ops/secrets.md', 'docs/testing-strategy.md', 'workers/edge/containerEnv.ts']
@@ -111,12 +110,10 @@ jobs:
             # while this filter excluded tests/eval/**, so the smoke job SKIPPED
             # on the very PR that changed it — a gate that cannot test itself.
             agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py', 'apps/agent/agent/tests/eval/**']
-            # apps/web/tests/unit/chat/turnstile-constants-guard.test.ts reads
-            # workers/edge/turnstile.ts + packages/contract/src/constants.ts to assert
-            # the edge worker and this app still share the Turnstile header/TTL constants
-            # (issue #647); without these two entries a regression in either file
-            # would land while ci-web skips.
-            web: ['apps/web/**', 'workers/edge/turnstile.ts', 'packages/contract/**']
+            # No `web` filter: the apps/web suite moved out of this workflow into
+            # pipeline-web.yml (CI-1 union-method step 1, commit 688bfacc), whose
+            # pathless pull_request trigger runs it on every PR and whose push
+            # paths carry the old filter's read closure (turnstile.ts et al).
             worker: ['workers/edge/**']
             infra: ['infra/**']
             migrations: ['supabase/migrations/**', 'db/**', 'docs/ops/migrations.md', 'docs/ops/deployment.md', 'README*', 'Makefile', 'workers/edge/migrationBoundary.test.ts', '.github/workflows/ci.yml', '.github/workflows/deploy.yml']
@@ -138,7 +135,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/_python-ci.yml
+    uses: ./.github/workflows/reusable-python-ci.yml
     with:
       app: agent
 
@@ -149,7 +146,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/_ts-ci.yml
+    uses: ./.github/workflows/reusable-ts-ci.yml
     with:
       component: catalog
 
@@ -160,7 +157,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/_ts-ci.yml
+    uses: ./.github/workflows/reusable-ts-ci.yml
     with:
       component: users
 
@@ -171,7 +168,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/_ts-ci.yml
+    uses: ./.github/workflows/reusable-ts-ci.yml
     with:
       component: maintenance
 
@@ -193,15 +190,6 @@ jobs:
         run: |
           git add -A packages/contract/openapi.json packages/contract/users-openapi.json
           git diff --cached --exit-code -- packages/contract/openapi.json packages/contract/users-openapi.json
-
-  ci-web:
-    name: Web component CI
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.web == 'true' }}
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/_webapp-ci.yml
 
   ci-worker:
     timeout-minutes: 20
@@ -229,7 +217,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10.33.2
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -275,13 +263,21 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "::warning title=pulumi preview skipped::Pulumi preview prerequisites are not fully configured; missing: ${missing[*]}. The deploy path will still take a pre-up state backup, but infra changes merge without a plan diff."
           fi
-      - name: Pulumi preview (staging)
+      # Installs the Pulumi CLI onto PATH without running a command (omitting
+      # `command:` is the documented install-only mode) so the plain `pulumi`
+      # steps below can use it.
+      - name: Install Pulumi CLI
         if: ${{ steps.pulumi_gate.outputs.ready == 'true' }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
-        with:
-          command: preview
-          stack-name: staging
-          work-dir: infra
+      - name: Pulumi preview (staging)
+        if: ${{ steps.pulumi_gate.outputs.ready == 'true' }}
+        working-directory: infra
+        # pulumi/actions' automation-api login chokes on the query-string s3:// R2
+        # backend URL ('unknown backend cloudUrl format'); the CLI login is the same proven path the deploy uses.
+        run: |
+          pulumi login "$PULUMI_BACKEND_URL"
+          pulumi stack select staging
+          pulumi preview --non-interactive --diff
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -295,76 +291,37 @@ jobs:
 
   security:
     name: Security
-    uses: ./.github/workflows/_security.yml
+    uses: ./.github/workflows/reusable-security.yml
     secrets:
       GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
-  # ── Agent-config lint (agnix, warn-only) ─────────────────────
-  # Non-blocking drift gate for CLAUDE.md / AGENTS.md / .claude/rules / hooks / MCP.
-  # `continue-on-error` is an intentional warn-only gate policy (not a code-quality
-  # suppression): it surfaces context-doc rot without failing CI. Kept out of the
-  # deploy `needs:` chain so it never gates a release. Promote to blocking once proven.
-  #
-  # NOTE (2026-08-04, #738): this step does NOT go through npm/npx at all — do not
-  # "simplify" it back to `npx agnix@0.37.5 .`. History:
-  #
-  # 1. agnix ships no prebuilt binary in its npm tarball; its own `postinstall` hook
-  #    (install.js) is the only thing that fetches the platform binary from its
-  #    GitHub release. #723 (S6505 hardening, commit 2d1a50c6) added
-  #    --ignore-scripts to the old `npx --yes agnix@0.37.5 .` invocation, believing
-  #    it a no-behavior-change formalization, and recorded a local verification
-  #    that it "still runs and reports its usual findings."
-  # 2. That verification was a false positive: it ran on a machine with a stale npx
-  #    cache (binary already present from an earlier unrestricted run), so
-  #    postinstall never needed to fire. Every GitHub Actions runner starts with an
-  #    empty npx cache, so --ignore-scripts deterministically skipped the fetch
-  #    there and every run failed with "agnix binary not found" — bisected exactly
-  #    to that commit (run 30876322672, success, vs. 30877440998, failure, the
-  #    first run after 2d1a50c6 landed) and reproduced locally by clearing
-  #    ~/.npm/_npx and rerunning both flag variants.
-  # 3. Dropping --ignore-scripts (the first fix attempted) restored the lint but
-  #    reopened the exact npm-lifecycle-script execution surface S6505 exists to
-  #    close, which SonarCloud correctly flagged again on that revision.
-  #
-  # This step resolves both: it downloads the same GitHub-release tarball
-  # install.js would have fetched (the linux/x86_64 target, matching ubuntu-latest),
-  # but verifies it against a sha256 pinned in THIS file rather than the
-  # `.sha256` sidecar published alongside it in the same release. Per #723's own
-  # standard (see the Atlas CLI pin a few jobs down, and
-  # apps/agent/agent/tests/atlas_helper.py), a same-channel checksum only proves
-  # the bytes weren't corrupted in transit — it can't prove the published artifact
-  # is the one that was reviewed. The hash below was computed independently
-  # (`shasum -a 256`) against a fresh download on 2026-08-04 and cross-checked
-  # against the release's own `.sha256` sidecar (matched); it now lives here,
-  # decoupled from that channel. No `npm`/`npx`, so no lifecycle scripts run at
-  # all — S6505 doesn't apply to this step anymore.
+  # ── Repo hygiene gates (blocking because provable) ─────────
+  # 1. Agent-config reference check (#745): every backtick path in AGENTS.md /
+  #    CLAUDE.md / .claude/rules resolves against the repo root. Replaces
+  #    agnix, whose 63% false-positive rate gated nothing.
+  # 2. Root allowlist check (S0-v2 Track A.3): top-level tracked entries are
+  #    locked to the explicit allowlist in check-root-allowlist.sh.
 
   agnix:
-    timeout-minutes: 15
-    name: Agent config lint (agnix, warn-only)
+    timeout-minutes: 5
+    name: AGENTS.md reference check
     runs-on: ubuntu-latest
-    continue-on-error: true
-    env:
-      AGNIX_VERSION: "0.37.5"
-      AGNIX_SHA256: "312e81a2caf58ef47004f5c708a0fadf0c4758eda99814f8c37a82c925c47cf2"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install pinned agnix binary
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/agnix-bin"
-          curl --proto '=https' --tlsv1.2 -sSfL \
-            "https://github.com/agent-sh/agnix/releases/download/v${AGNIX_VERSION}/agnix-x86_64-unknown-linux-gnu.tar.gz" \
-            -o "$RUNNER_TEMP/agnix-bin/agnix.tar.gz"
-          echo "$AGNIX_SHA256  $RUNNER_TEMP/agnix-bin/agnix.tar.gz" \
-            | sha256sum --check --strict
-          tar -xzf "$RUNNER_TEMP/agnix-bin/agnix.tar.gz" -C "$RUNNER_TEMP/agnix-bin"
-          chmod +x "$RUNNER_TEMP/agnix-bin/agnix"
-          echo "$RUNNER_TEMP/agnix-bin" >> "$GITHUB_PATH"
-      - name: Lint AI agent configs
-        run: agnix .
+      - name: AGENTS.md reference check self-tests
+        run: bash .github/scripts/check-agents-refs.test.sh
+      - name: AGENTS.md reference check
+        run: bash .github/scripts/check-agents-refs.sh
+      - name: Root allowlist check self-tests
+        run: bash .github/scripts/check-root-allowlist.test.sh
+      - name: Root allowlist check
+        run: bash .github/scripts/check-root-allowlist.sh
+      - name: E2E promotion guard self-tests
+        run: bash .github/scripts/check-e2e-promotion.test.sh
+      - name: E2E promotion guard
+        run: bash .github/scripts/check-e2e-promotion.sh
 
   # ── DB migrations (Atlas validation + optional Neon dry-run) ──
 
@@ -455,7 +412,7 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       # --no-build rejected: this project's own editable package has no wheel
-      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
+      # (see purge-anonymous-sessions.yml's NOTE and reusable-python-ci.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Run L0 smoke trajectory eval (zero-errored + direct gates)
@@ -477,6 +434,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write # codecov OIDC upload needs id-token
     needs: changes
     if: >-
       ${{
@@ -512,7 +470,7 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       # --no-build rejected: this project's own editable package has no wheel
-      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
+      # (see purge-anonymous-sessions.yml's NOTE and reusable-python-ci.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Install pinned Atlas CLI
@@ -531,7 +489,18 @@ jobs:
       - name: Run Neon integration tests
         env:
           TEST_DB: neon
-        run: uv run --frozen pytest agent/tests/integration -q --no-cov
+        # No --cov-fail-under here: the enforced floor belongs to the unit arm
+        # (apps/agent/pyproject.toml); the integration arm alone is legitimately
+        # far below it. Coverage is uploaded to codecov under the integration flag.
+        run: uv run --frozen --no-build --no-binary-package animichi pytest agent/tests/integration -q --cov --cov-report=xml --cov-fail-under=0
+
+      - name: Upload coverage (integration)
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: apps/agent/coverage.xml
+          fail_ci_if_error: true
+          use_oidc: true
+          flags: integration
 
   catalog-spikes:
     timeout-minutes: 30
@@ -575,22 +544,6 @@ jobs:
   # jobs are the branch-protection contract: every lane is created on every
   # workflow run and accepts an intentionally skipped component as green.
   # A failed or cancelled component still fails its lane and blocks promotion.
-
-  web-ci-gate:
-    timeout-minutes: 5
-    name: Web CI
-    needs: [changes, ci-web]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Verify Web component result
-        env:
-          STATUSES: ${{ needs.ci-web.result }}
-          CHANGES_STATUS: ${{ needs.changes.result }}
-        run: bash .github/scripts/assert-ci-needs.sh "Web CI" "$CHANGES_STATUS $STATUSES"
 
   backend-ci-gate:
     timeout-minutes: 5
@@ -656,7 +609,7 @@ jobs:
     name: Cross-stack E2E component
     needs: changes
     if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.cross_stack == 'true' }}
-    uses: ./.github/workflows/_cross-stack-e2e.yml
+    uses: ./.github/workflows/reusable-cross-stack-e2e.yml
 
   cross-stack-e2e-gate:
     timeout-minutes: 5
@@ -700,7 +653,7 @@ jobs:
   codecov-patch-gate:
     timeout-minutes: 5
     name: Codecov Patch
-    needs: [changes, ci-agent, ci-catalog, ci-users, ci-maintenance, ci-web, ci-worker]
+    needs: [changes, ci-agent, ci-catalog, ci-users, ci-maintenance, ci-worker]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -719,7 +672,6 @@ jobs:
             ${{ needs.ci-catalog.result }}
             ${{ needs.ci-users.result }}
             ${{ needs.ci-maintenance.result }}
-            ${{ needs.ci-web.result }}
             ${{ needs.ci-worker.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Codecov Patch" "$STATUSES"
       - name: Verify patch coverage policy
@@ -728,12 +680,12 @@ jobs:
   # ── Stage 3: Deploy (CI-green gated, push-main promotion path) ──
   # Promotion: push main → CI → staging → post-staging (api) → prod (human gate) → post-prod.
   # A single push to main drives the full pipeline; no separate tag trigger needed.
-  # Human approval is enforced by `environment: production` in _deploy-component.yml.
+  # Human approval is enforced by `environment: production` in reusable-deploy-component.yml.
 
   # push main → staging
   deploy-staging:
     name: Deploy staging
-    needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
+    needs: [agent-ci-gate, backend-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
@@ -741,7 +693,7 @@ jobs:
     # undeployed for three runs. Gate failures still block: they surface as
     # failure(), not skipped.
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: catalog
       environment: staging
@@ -761,7 +713,7 @@ jobs:
 
   deploy-web-staging:
     name: Deploy web staging
-    needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
+    needs: [agent-ci-gate, backend-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
@@ -769,7 +721,7 @@ jobs:
     # undeployed for three runs. Gate failures still block: they surface as
     # failure(), not skipped.
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: web
       environment: staging
@@ -793,7 +745,7 @@ jobs:
     # undeployed for three runs. Gate failures still block: they surface as
     # failure(), not skipped.
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: users
       environment: staging
@@ -815,7 +767,7 @@ jobs:
     name: Deploy maintenance staging
     needs: [deploy-staging]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: maintenance
       environment: staging
@@ -839,7 +791,7 @@ jobs:
     # undeployed for three runs. Gate failures still block: they surface as
     # failure(), not skipped.
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: root
       environment: staging
@@ -865,8 +817,7 @@ jobs:
         DEEPSEEK_API_KEY
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
-      optional_worker_secrets: |
-        POST_DEPLOY_DIAG_TOKEN
+      optional_worker_secrets: ""
       post_deploy_secrets: |
         TURNSTILE_SECRET
         ANON_ID_SECRET
@@ -884,27 +835,29 @@ jobs:
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
-      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
     concurrency: deploy-root-staging
 
   post-staging:
     name: Post-deploy (staging)
     needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-maintenance-staging, deploy-root-staging]
-    uses: ./.github/workflows/_post-deploy-test.yml
+    uses: ./.github/workflows/reusable-post-deploy-test.yml
     with:
       environment: staging
       suite: api
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
+      # STAGING_GATE_TOKEN is deliberately NOT passed here: this job has no
+      # environment, so the expression would resolve empty. The called
+      # workflow's job declares `environment:` and resolves the staging
+      # environment secret itself (see its STAGING_GATE_TOKEN comment).
 
   # staging validated → production (human approve via environment: production in
-  # _deploy-component.yml). needs: post-staging guarantees staging passed api tests.
+  # reusable-deploy-component.yml). needs: post-staging guarantees staging passed api tests.
   deploy-prod:
     name: Deploy production
     needs: post-staging
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: catalog
       environment: production
@@ -925,7 +878,7 @@ jobs:
   deploy-web-prod:
     name: Deploy web production
     needs: post-staging
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: web
       environment: production
@@ -942,7 +895,7 @@ jobs:
   deploy-users-prod:
     name: Deploy users production
     needs: [post-staging, deploy-prod]
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: users
       environment: production
@@ -963,7 +916,7 @@ jobs:
   deploy-maintenance-prod:
     name: Deploy maintenance production
     needs: [post-staging, deploy-prod]
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: maintenance
       environment: production
@@ -980,7 +933,7 @@ jobs:
   deploy-root-prod:
     name: Deploy root production
     needs: [post-staging, deploy-users-prod]
-    uses: ./.github/workflows/_deploy-component.yml
+    uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: root
       environment: production
@@ -997,8 +950,7 @@ jobs:
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
         CORS_ALLOWED_ORIGIN
-      optional_worker_secrets: |
-        POST_DEPLOY_DIAG_TOKEN
+      optional_worker_secrets: ""
       post_deploy_secrets: |
         TURNSTILE_SECRET
         ANON_ID_SECRET
@@ -1017,17 +969,18 @@ jobs:
       CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
-      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
     concurrency: deploy-root-prod
 
   post-prod:
     name: Post-deploy (production)
     needs: [deploy-prod, deploy-web-prod, deploy-users-prod, deploy-maintenance-prod, deploy-root-prod]
-    uses: ./.github/workflows/_post-deploy-test.yml
+    uses: ./.github/workflows/reusable-post-deploy-test.yml
     with:
       environment: production
       suite: smoke
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      POST_DEPLOY_DIAG_TOKEN: ${{ secrets.POST_DEPLOY_DIAG_TOKEN }}
+      # STAGING_GATE_TOKEN is deliberately NOT passed here — same reason as
+      # post-staging: the called workflow's job-level `environment:` resolves
+      # it (empty on production, which the called workflow tolerates).

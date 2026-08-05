@@ -175,7 +175,7 @@ class TestRuntimeAPIErrors:
                 "results": {"rows": [], "row_count": 0},
             },
             steps=[
-                StepRecord(tool="search_bangumi", success=False, error="db down"),
+                StepRecord(tool="search_bangumi", is_success=False, error="db down"),
             ],
         )
 

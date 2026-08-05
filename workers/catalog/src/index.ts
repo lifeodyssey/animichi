@@ -1,7 +1,12 @@
+import { WorkerEntrypoint } from "cloudflare:workers";
 import { Hono } from "hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { catalogRouter } from "./router";
 import type { CatalogDb, NeonSql } from "./db/client";
+import { ingestWork as runOrchestratorIngest } from "./ingest/orchestrator";
+import type { IngestResult as OrchestratorIngestResult } from "./ingest/orchestrator";
+import { listDoneWorkIds, listStaleWorkIds } from "./ingest/cron-queries";
+import { SEED_WORK_IDS, SEED_WORKS } from "./ingest/seed-works";
 import { serveImage } from "./media/img";
 
 export interface Env {
@@ -14,7 +19,7 @@ export interface Env {
   MEDIA_BUCKET?: R2Bucket;
 }
 
-const app = new Hono<{ Bindings: Env }>();
+export const app = new Hono<{ Bindings: Env }>();
 
 app.get("/healthz", (c) =>
   c.json({ status: "ok", service: "catalog", env: c.env.ENVIRONMENT ?? "unknown" }),
@@ -98,6 +103,140 @@ app.use("/catalog/*", async (c, next) => {
   await next();
 });
 
-export default app;
 export { catalogRouter };
 export type { CatalogRouter } from "./router";
+
+/**
+ * Internal-only ingest door (#540): a named entrypoint reachable exclusively
+ * through a Cloudflare service binding — the public oRPC route is gone, so no
+ * HTTP surface can reach the orchestrator. The search-miss and work-points
+ * lazy-ingest paths stay internal to this Worker and keep calling the
+ * orchestrator directly.
+ */
+export class IngestEntrypoint extends WorkerEntrypoint<Env> {
+  async ingestWork(workId: string): Promise<OrchestratorIngestResult> {
+    const connStr = connectionString(this.env);
+    if (!connStr) throw new Error("catalog database not configured");
+    const { db } = await dbFor(connStr);
+    return runOrchestratorIngest(db, workId);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Scheduled ingestion (S0-v2 D4) — Cron Triggers. Shape mirrors
+// workers/maintenance/src/index.ts: a fail-closed cron-string dispatcher with
+// injectable dependencies, tested with a fake controller/DB in the worker pool.
+// ---------------------------------------------------------------------------
+
+/** Daily seed pass — pre-populate the catalog from the checked-in work list. */
+export const SEED_CRON = "0 4 * * *";
+/** Hourly TTL refresh — re-ingest the stalest raw works, capped per run. */
+export const TTL_REFRESH_CRON = "17 * * * *";
+/** TTL refresh batch cap — one run never ingests more works than this. */
+export const TTL_BATCH_CAP = 5;
+
+interface ScheduledInput {
+  readonly cron: string;
+}
+
+type ScheduledEnvironment = Partial<Env>;
+type ScheduledHandler = (
+  controller: ScheduledInput,
+  env: ScheduledEnvironment,
+) => Promise<void>;
+
+/** Outcome of one cron pass; `skipped` covers non-ingested and errored works. */
+export interface CronJobResult {
+  readonly attempted: number;
+  readonly ingested: number;
+  readonly skipped: number;
+}
+
+/** Injectable seams for the cron jobs; tests substitute every one. */
+export interface CronDependencies {
+  connect: (connectionString: string) => Promise<CatalogDb>;
+  ingestWork: (db: CatalogDb, workId: string) => Promise<OrchestratorIngestResult>;
+  listDoneWorkIds: (db: CatalogDb, workIds: readonly string[]) => Promise<ReadonlySet<string>>;
+  listStaleWorkIds: (db: CatalogDb, cap: number) => Promise<readonly string[]>;
+}
+
+const DEFAULT_DEPENDENCIES: CronDependencies = {
+  connect: async (connStr) => (await dbFor(connStr)).db,
+  ingestWork: runOrchestratorIngest,
+  listDoneWorkIds,
+  listStaleWorkIds,
+};
+
+export function createScheduledHandler(
+  dependencies: CronDependencies = DEFAULT_DEPENDENCIES,
+): ScheduledHandler {
+  return async (controller, env) => {
+    const connStr = connectionString(env);
+    if (!connStr) throw new Error("catalog database not configured");
+    const db = await dependencies.connect(connStr);
+    await runCron(controller.cron, db, dependencies);
+  };
+}
+
+async function runCron(
+  cron: string,
+  db: CatalogDb,
+  dependencies: CronDependencies,
+): Promise<CronJobResult> {
+  if (cron === SEED_CRON) return runSeedJob(db, dependencies);
+  if (cron === TTL_REFRESH_CRON) return runTtlJob(db, dependencies);
+  throw new Error(`Unknown catalog cron: ${cron}`);
+}
+
+/** Seed pass: ingest the checked-in works that have no `done` ingest_jobs row. */
+export async function runSeedJob(
+  db: CatalogDb,
+  dependencies: CronDependencies,
+): Promise<CronJobResult> {
+  const done = await dependencies.listDoneWorkIds(db, SEED_WORK_IDS);
+  const pending = SEED_WORKS.filter((work) => !done.has(work.bangumiId)).map(
+    (work) => work.bangumiId,
+  );
+  return ingestBatch(db, dependencies, pending);
+}
+
+/** TTL pass: re-ingest the stalest raw works, one at a time, capped per run. */
+export async function runTtlJob(
+  db: CatalogDb,
+  dependencies: CronDependencies,
+): Promise<CronJobResult> {
+  const stale = await dependencies.listStaleWorkIds(db, TTL_BATCH_CAP);
+  return ingestBatch(db, dependencies, stale.slice(0, TTL_BATCH_CAP));
+}
+
+/** Sequential per-work ingest; one failure never aborts the rest of the batch. */
+async function ingestBatch(
+  db: CatalogDb,
+  dependencies: CronDependencies,
+  workIds: readonly string[],
+): Promise<CronJobResult> {
+  let ingested = 0;
+  for (const workId of workIds) {
+    if (await ingestOne(db, dependencies, workId)) ingested++;
+  }
+  return { attempted: workIds.length, ingested, skipped: workIds.length - ingested };
+}
+
+/** One work's ingest, throwing-free — a failure counts as skipped, the batch continues. */
+async function ingestOne(
+  db: CatalogDb,
+  dependencies: CronDependencies,
+  workId: string,
+): Promise<boolean> {
+  try {
+    return (await dependencies.ingestWork(db, workId)).status === "ingested";
+  } catch (err) {
+    console.error(`[cron] ingest failed for work ${workId}: ${String(err)}`);
+    return false;
+  }
+}
+
+export default {
+  fetch: app.fetch,
+  scheduled: createScheduledHandler(),
+} satisfies ExportedHandler<Env>;

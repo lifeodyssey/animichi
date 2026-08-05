@@ -6,7 +6,6 @@ workflow = YAML.safe_load(File.read(".github/workflows/ci.yml"))
 jobs = workflow.fetch("jobs")
 
 expected = {
-  "web-ci-gate" => "Web CI",
   "backend-ci-gate" => "Backend CI",
   "agent-ci-gate" => "Agent CI",
   "infra-db-ci-gate" => "Infra & DB CI",
@@ -33,7 +32,7 @@ abort "deploy-web-staging is missing stable lanes: #{missing.join(', ')}" unless
 cross_stack = jobs.fetch("changes").fetch("outputs").fetch("cross_stack")
 abort "changes must expose cross_stack output" unless cross_stack.include?("cross_stack")
 
-puts "CI contract: seven stable lanes and staging dependencies are present"
+puts "CI contract: six stable lanes and staging dependencies are present"
 
 ci_source = File.read(".github/workflows/ci.yml")
 abort "Codecov lane must defer changed-line calculation to codecov/patch" unless ci_source.include?("codecov/patch")
@@ -43,14 +42,21 @@ abort "stable lanes must observe changes status" unless ci_source.scan("${{ need
 gate_script = File.read(".github/scripts/assert-ci-needs.sh")
 abort "lane status checker must require changes success" unless gate_script.include?("changes_status")
 
-%w[_python-ci.yml _ts-ci.yml _webapp-ci.yml].each do |workflow_name|
+%w[reusable-python-ci.yml reusable-ts-ci.yml].each do |workflow_name|
   source = File.read(".github/workflows/#{workflow_name}")
   abort "#{workflow_name} must grant Codecov OIDC" unless source.include?("id-token: write")
   abort "#{workflow_name} must fail when Codecov upload fails" unless source.include?("fail_ci_if_error: true")
   abort "#{workflow_name} must use Codecov OIDC" unless source.include?("use_oidc: true")
 end
 
-%w[ci-agent ci-catalog ci-users ci-maintenance ci-web].each do |job_id|
+# The web suite lives in its own workflow since the CI-1 union method (688bfacc);
+# its Codecov upload must carry the same guarantees the retired reusable lane had.
+web_ci = File.read(".github/workflows/pipeline-web.yml")
+abort "pipeline-web.yml must grant Codecov OIDC" unless web_ci.include?("id-token: write")
+abort "pipeline-web.yml must fail when Codecov upload fails" unless web_ci.include?("fail_ci_if_error: true")
+abort "pipeline-web.yml must use Codecov OIDC" unless web_ci.include?("use_oidc: true")
+
+%w[ci-agent ci-catalog ci-users ci-maintenance].each do |job_id|
   permissions = jobs.fetch(job_id).fetch("permissions")
   abort "#{job_id} must grant Codecov OIDC" unless permissions.fetch("id-token") == "write"
 end

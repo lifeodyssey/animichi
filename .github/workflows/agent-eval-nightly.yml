@@ -48,7 +48,7 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       # --no-build rejected: this project's own editable package has no wheel
-      # (see purge-anonymous-sessions.yml's NOTE and _python-ci.yml).
+      # (see purge-anonymous-sessions.yml's NOTE and reusable-python-ci.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Run L1 full trajectory eval (uncapped — owns the statistical baseline)
