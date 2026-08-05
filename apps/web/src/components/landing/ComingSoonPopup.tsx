@@ -11,37 +11,30 @@ export interface ComingSoonPopupProps {
   onClose: () => void;
 }
 
-function focusables(root: HTMLElement | null): HTMLElement[] {
-  return [...(root?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? [])];
+function focusables(root: HTMLElement): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)];
 }
 
-function firstFocusable(root: HTMLElement | null): HTMLElement | undefined {
-  return focusables(root)[0];
-}
-
-function lastFocusable(root: HTMLElement | null): HTMLElement | undefined {
-  const list = focusables(root);
-  return list[list.length - 1];
-}
-
-function trapTabKey(event: KeyboardEvent, root: HTMLElement | null): void {
+/** An empty dialog leaves `wrap` undefined and Tab passes through untouched. */
+function trapTabKey(event: KeyboardEvent, root: HTMLElement): void {
   if (event.key !== "Tab") return;
-  const first = firstFocusable(root);
-  const last = lastFocusable(root);
-  if (!first || !last) return;
-  const atEdge = event.shiftKey ? document.activeElement === first : document.activeElement === last;
-  if (!atEdge) return;
+  const list = focusables(root);
+  const forward = !event.shiftKey;
+  const edge = forward ? list[list.length - 1] : list[0];
+  const wrap = forward ? list[0] : list[list.length - 1];
+  if (wrap === undefined || document.activeElement !== edge) return;
   event.preventDefault();
-  (event.shiftKey ? last : first).focus();
+  wrap.focus();
 }
 
+/** Initial focus lands on the dialog container (WAI-ARIA modal pattern; it has tabIndex=-1). */
 function useFocusTrap(open: boolean, rootRef: RefObject<HTMLDivElement | null>): void {
   useEffect(() => {
-    if (!open) return;
-    const root = rootRef.current;
+    const root = open ? rootRef.current : null;
+    if (!root) return;
     const onKey = (event: KeyboardEvent) => { trapTabKey(event, root); };
     document.addEventListener("keydown", onKey);
-    (firstFocusable(root) ?? root)?.focus();
+    root.focus();
     return () => { document.removeEventListener("keydown", onKey); };
   }, [open, rootRef]);
 }
