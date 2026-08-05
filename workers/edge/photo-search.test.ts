@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import { handleGuardRequest } from "./edgeGuard.ts";
-import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
+import { handleGuardRequest } from "./edge-guard.ts";
+import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
 
 /** /v1/photo-search edge routing (issue #260 / PR #445 review P1-1):
  * the endpoints must ride the same auth-or-anon gate as /v1/chat — before
@@ -35,10 +35,10 @@ function fakeGuard() {
 }
 
 /** #260's subject is identity + header hygiene on the photo routes, not the
- * #447 Turnstile gate — `turnstileArm.test.ts` owns the challenge behaviour. */
+ * #447 Turnstile gate — `turnstile-arm.test.ts` owns the challenge behaviour. */
 const passingGate = { check: () => Promise.resolve({ ok: true, errorCodes: [] }) };
 
-function envWith(captured: { requests: Request[] }, anonEnabled: boolean) {
+function environmentWith(captured: { requests: Request[] }, anonEnabled: boolean) {
   return {
     ...(anonEnabled
       ? {
@@ -67,7 +67,7 @@ void test("authed /v1/photo-search forwards with worker identity, byok stripped,
     "x-session-id": "sess-1",
     "X-User-Id": "forged",
   };
-  const res = await app.request("/v1/photo-search", { method: "POST", headers }, envWith(cap, false), stubCtx);
+  const res = await app.request("/v1/photo-search", { method: "POST", headers }, environmentWith(cap, false), stubCtx);
   assert.equal(await res.text(), "container");
   const forwarded = cap.requests[0];
   assert.ok(forwarded);
@@ -84,7 +84,7 @@ void test("unauthenticated /v1/photo-search with anon disabled -> 401, container
     turnstileGate: passingGate,
   });
   const cap = { requests: [] as Request[] };
-  const res = await app.request("/v1/photo-search", { method: "POST" }, envWith(cap, false), stubCtx);
+  const res = await app.request("/v1/photo-search", { method: "POST" }, environmentWith(cap, false), stubCtx);
   assert.equal(res.status, 401);
   assert.equal(cap.requests.length, 0);
 });
@@ -95,7 +95,7 @@ void test("unauthenticated /v1/photo-search with anon enabled -> minted anonymou
     turnstileGate: passingGate,
   });
   const cap = { requests: [] as Request[] };
-  const res = await app.request("/v1/photo-search", { method: "POST" }, envWith(cap, true), stubCtx);
+  const res = await app.request("/v1/photo-search", { method: "POST" }, environmentWith(cap, true), stubCtx);
   assert.equal(await res.text(), "container");
   const forwarded = cap.requests[0];
   assert.ok(forwarded);
@@ -109,7 +109,7 @@ void test("/v1/photo-search/confirm rides the same gate (401 when anon disabled)
     turnstileGate: passingGate,
   });
   const cap = { requests: [] as Request[] };
-  const res = await app.request("/v1/photo-search/confirm", { method: "POST" }, envWith(cap, false), stubCtx);
+  const res = await app.request("/v1/photo-search/confirm", { method: "POST" }, environmentWith(cap, false), stubCtx);
   assert.equal(res.status, 401);
   assert.equal(cap.requests.length, 0);
 });
@@ -118,7 +118,7 @@ void test("/v1/photo-search/confirm forwards for an authed caller", async () => 
   const authenticate = () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const);
   const app = createWorkerApp({ authenticate, turnstileGate: passingGate });
   const cap = { requests: [] as Request[] };
-  const res = await app.request("/v1/photo-search/confirm", { method: "POST" }, envWith(cap, false), stubCtx);
+  const res = await app.request("/v1/photo-search/confirm", { method: "POST" }, environmentWith(cap, false), stubCtx);
   assert.equal(await res.text(), "container");
   assert.equal(cap.requests[0]?.headers.get("X-User-Id"), "u1");
 });
@@ -132,7 +132,7 @@ void test("x-byok-endpoint is stripped on the anonymous path too", async () => {
   await app.request(
     "/v1/photo-search",
     { method: "POST", headers: { "x-byok-endpoint": "client-set" } },
-    envWith(cap, true),
+    environmentWith(cap, true),
     stubCtx,
   );
   assert.equal(cap.requests[0]?.headers.get("x-byok-endpoint"), null);

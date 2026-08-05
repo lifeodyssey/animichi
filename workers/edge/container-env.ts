@@ -127,15 +127,15 @@ export const DENIED_EGRESS_HOSTS = [
 ];
 
 export function buildContainerEnvVars(env: Record<string, unknown>): Record<string, string> {
-  const envVars: Record<string, string> = { SERVICE_HOST: "0.0.0.0", SERVICE_PORT: "8080" };
+  const environmentVars: Record<string, string> = { SERVICE_HOST: "0.0.0.0", SERVICE_PORT: "8080" };
   for (const key of CONTAINER_REQUIRED_KEYS) {
     const value = env[key];
     if (typeof value !== "string" || value.length === 0) throw new Error(`Missing required container env: ${key}`);
-    envVars[key] = value;
+    environmentVars[key] = value;
   }
   for (const key of CONTAINER_ENV_KEYS) {
     const value = env[key];
-    if (typeof value === "string" && value.length > 0) envVars[key] = value;
+    if (typeof value === "string" && value.length > 0) environmentVars[key] = value;
   }
-  return envVars;
+  return environmentVars;
 }

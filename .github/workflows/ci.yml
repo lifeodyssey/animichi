@@ -96,7 +96,7 @@ jobs:
             maintenance: ['workers/maintenance/**', '.github/workflows/ci.yml', '.github/workflows/deploy.yml', '.github/workflows/reusable-deploy-component.yml', '.github/workflows/purge-anon-quota-counts.yml', '.github/workflows/purge-anonymous-sessions.yml', 'docs/ops/secrets.md']
             # Agent unit tests assert cross-package workflow, documentation, Worker, and
             # web coverage config. The read-set meta-check protects these extra entries.
-            agent: ['apps/agent/**', 'packages/contract/**', '.github/workflows/**', 'apps/web/vitest.config.ts', 'docs/ARCHITECTURE.md', 'docs/ops/deployment.md', 'docs/ops/secrets.md', 'docs/testing-strategy.md', 'workers/edge/containerEnv.ts']
+            agent: ['apps/agent/**', 'packages/contract/**', '.github/workflows/**', 'apps/web/vitest.config.ts', 'docs/ARCHITECTURE.md', 'docs/ops/deployment.md', 'docs/ops/secrets.md', 'docs/testing-strategy.md', 'workers/edge/container-env.ts']
             # SD-30 path-filter rule (shared verbatim with iter-1 S1.13, per the second-pass
             # spec review): prompt/instructions + model-config + guardrail files ONLY — not
             # every apps/agent/** change (that broader scope still gates `agent` above, which
@@ -119,7 +119,7 @@ jobs:
             web: ['apps/web/**', 'workers/edge/turnstile.ts', 'packages/contract/**']
             worker: ['workers/edge/**']
             infra: ['infra/**']
-            migrations: ['supabase/migrations/**', 'db/**', 'docs/ops/migrations.md', 'docs/ops/deployment.md', 'README*', 'Makefile', 'workers/edge/migrationBoundary.test.ts', '.github/workflows/ci.yml', '.github/workflows/deploy.yml']
+            migrations: ['supabase/migrations/**', 'db/**', 'docs/ops/migrations.md', 'docs/ops/deployment.md', 'README*', 'Makefile', 'workers/edge/migration-boundary.test.ts', '.github/workflows/ci.yml', '.github/workflows/deploy.yml']
             neon_agent: ['apps/agent/**']
             neon_catalog: ['workers/catalog/**']
             neon_migrations: ['db/migrations/**']
@@ -364,7 +364,7 @@ jobs:
           echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
 
       - name: Run migration boundary guard
-        run: node --test workers/edge/migrationBoundary.test.ts
+        run: node --test workers/edge/migration-boundary.test.ts
 
       - name: Validate Atlas migration directory
         run: atlas migrate validate --dir file://db/migrations

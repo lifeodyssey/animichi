@@ -1,8 +1,8 @@
 import { Container } from "@cloudflare/containers";
 import { createWorkerApp, catalogOutbound, type Env } from "./app.ts";
-import { buildContainerEnvVars, DENIED_EGRESS_HOSTS } from "./containerEnv.ts";
+import { buildContainerEnvVars, DENIED_EGRESS_HOSTS } from "./container-env.ts";
 
-export { EdgeGuard } from "./edgeGuard.ts";
+export { EdgeGuard } from "./edge-guard.ts";
 // Required for `deniedHosts`/outbound interception to actually run (#284 Task 7,
 // PR #478 review): `applyOutboundInterception` hard-throws when
 // `ctx.exports.ContainerProxy` is undefined — see
@@ -13,7 +13,7 @@ export { ContainerProxy } from "@cloudflare/containers";
 
 // Container-level egress URL-hostname denylist (#284 Task 7). `deniedHosts` is
 // a plain string/glob matcher against the request URL's hostname (NOT CIDR —
-// see `containerEnv.ts`'s header comment for the correction and why), enforced
+// see `container-env.ts`'s header comment for the correction and why), enforced
 // by the platform's Container runtime *before* any outbound handler runs, and
 // unconditionally — even though `enableInternet` stays `true` (required:
 // asyncpg's direct Postgres hop and the catalog.internal binding are
