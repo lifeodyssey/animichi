@@ -98,6 +98,25 @@ def _resolve_session_store(
     )
 
 
+async def _close_clients(catalog_client: CatalogClient) -> None:
+    """Close catalog then geocoding clients; both attempts run."""
+    try:
+        await catalog_client.aclose()
+    finally:
+        await aclose_geocoding_client()
+
+
+async def _close_stores(
+    runtime_session_store: SessionStore,
+    runtime_db: object,
+) -> None:
+    """Close session store then db; both attempts run."""
+    try:
+        await call_optional_async(runtime_session_store, "close")
+    finally:
+        await call_optional_async(runtime_db, "close")
+
+
 async def _close_runtime_resources(
     connect_task: asyncio.Task[object],
     catalog_client: CatalogClient,
@@ -109,13 +128,9 @@ async def _close_runtime_resources(
         await connect_task
     finally:
         try:
-            await catalog_client.aclose()
+            await _close_clients(catalog_client)
         finally:
-            await aclose_geocoding_client()
-        try:
-            await call_optional_async(runtime_session_store, "close")
-        finally:
-            await call_optional_async(runtime_db, "close")
+            await _close_stores(runtime_session_store, runtime_db)
 
 
 @asynccontextmanager
