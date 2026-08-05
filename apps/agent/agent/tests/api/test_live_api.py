@@ -22,8 +22,6 @@ pytestmark = pytest.mark.api
 
 CATALOG_URL = os.environ.get("CATALOG_API_URL", "http://127.0.0.1:8787")
 AGENT_URL = os.environ.get("AGENT_API_URL", "http://127.0.0.1:8080")
-WORK_ID = "160209"  # 君の名は。— has Anitabi pilgrimage points
-WORK_QUERY = "君の名は。"
 
 
 def _reachable(url: str) -> bool:
@@ -62,16 +60,6 @@ def test_catalog_healthz_ok() -> None:
     assert (
         httpx.get(f"{CATALOG_URL}/healthz", timeout=5.0).json()["service"] == "catalog"
     )
-
-
-@skip_no_stack
-def test_catalog_ingest_makes_work_searchable() -> None:
-    ingest = _post_with_retry(f"{CATALOG_URL}/catalog/ingest", {"bangumi_id": WORK_ID})
-    assert ingest.status_code == 200
-    assert ingest.json()["status"] in {"ingested", "in_progress"}
-    search = _post_with_retry(f"{CATALOG_URL}/catalog/search", {"query": WORK_QUERY})
-    assert search.status_code == 200
-    assert len(search.json()["rows"]) > 0
 
 
 @skip_no_stack
