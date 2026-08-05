@@ -21,6 +21,7 @@ from agent.infrastructure.supabase.client import SupabaseClient
 from agent.interfaces import fastapi_service
 from agent.interfaces.fastapi_service import (
     _call_optional_async,
+    _close_runtime_resources,
     _contains_json_invalid_error,
     _http_error_code,
     create_fastapi_app,
@@ -228,6 +229,30 @@ async def test_call_optional_async_ignores_missing_method() -> None:
     await _call_optional_async(target, "close")
 
 
+@pytest.mark.asyncio
+async def test_close_runtime_resources_isolates_close_failures() -> None:
+    """A failing session-store close must not skip the db close."""
+    events: list[str] = []
+
+    async def session_close() -> None:
+        events.append("session")
+        raise RuntimeError("session close failed")
+
+    db = MagicMock()
+    db.close = AsyncMock(side_effect=lambda: events.append("db"))
+    catalog = MagicMock()
+    catalog.aclose = AsyncMock(side_effect=lambda: events.append("catalog"))
+    session_store = MagicMock()
+    session_store.close = session_close
+    connect_task = asyncio.create_task(asyncio.sleep(0))
+
+    with pytest.raises(RuntimeError, match="session close failed"):
+        await _close_runtime_resources(connect_task, catalog, session_store, db)
+
+    assert events == ["catalog", "session", "db"]
+
+
+@staticmethod
 def test_lifespan_startup_does_not_block_on_db_connect() -> None:
     """Issue #694: the pool connect runs in the background, not before yield.
 
