@@ -52,6 +52,15 @@ bucket_name = "catalog-media"
 [observability]
 enabled = true
 
+# Scheduled ingestion (S0-v2 D4): a daily seed pass over the checked-in work
+# list (src/ingest/seed-works.ts) plus an hourly TTL refresh of the stalest
+# raw rows (batch cap 5). Both schedules repeat byte-identically in every
+# environment below; keep them in sync with SEED_CRON / TTL_REFRESH_CRON in
+# src/index.ts. The :17 minute offsets the :37 maintenance crons to stay a
+# good neighbor to Neon.
+[triggers]
+crons = ["0 4 * * *", "17 * * * *"]
+
 # NOTE: keep this block to ENVIRONMENT only. The vitest-pool-workers test env
 # reads [vars]; test/worker.worker.test.ts asserts that /catalog/* returns 503
 # ("catalog database not configured") precisely because neither HYPERDRIVE nor
@@ -75,6 +84,9 @@ preview_urls = false
 [env.staging.vars]
 ENVIRONMENT = "staging"
 
+[env.staging.triggers]
+crons = ["0 4 * * *", "17 * * * *"]
+
 [[env.staging.r2_buckets]]
 binding = "MEDIA_BUCKET"
 bucket_name = "catalog-media-staging"
@@ -86,6 +98,9 @@ preview_urls = false
 
 [env.production.vars]
 ENVIRONMENT = "production"
+
+[env.production.triggers]
+crons = ["0 4 * * *", "17 * * * *"]
 
 [[env.production.r2_buckets]]
 binding = "MEDIA_BUCKET"

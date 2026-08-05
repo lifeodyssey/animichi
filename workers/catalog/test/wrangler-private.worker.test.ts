@@ -79,6 +79,12 @@ describe("catalog has no public host", () => {
     expect(toml).not.toMatch(/^\s*routes\s*=/m);
   });
 
+  // Byte-identical cron strings in every environment (maintenance AGENTS.md
+  // rule); keep in sync with SEED_CRON / TTL_REFRESH_CRON in src/index.ts.
+  it("declares both ingest schedules for default, staging, and production", () => {
+    expect(toml.split('crons = ["0 4 * * *", "17 * * * *"]')).toHaveLength(4);
+  });
+
   it.each(Object.entries(PRIVACY))("%s declares %s", (name, expected) => {
     const section = environments(toml).find((s) => s.name === name);
     expect(section?.lines).toEqual(expect.arrayContaining(expected));
