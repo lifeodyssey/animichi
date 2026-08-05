@@ -25,12 +25,17 @@ export interface ChatStreamOptions {
   readonly once?: boolean;
 }
 
-function patchSessionIdLine(line: string, sessionId: string): string {
+/** Map the recorded final envelope's `data`; any other line passes through. */
+export function mapFinalFrameData(line: string, apply: (data: Record<string, unknown>) => Record<string, unknown>): string {
   if (!line.startsWith('data: {"type":"data-response"')) return line;
   const frame = JSON.parse(line.slice("data: ".length)) as { data: Record<string, unknown> };
   if (!("success" in frame.data)) return line;
-  frame.data.session_id = sessionId;
+  frame.data = apply(frame.data);
   return `data: ${JSON.stringify(frame)}`;
+}
+
+function patchSessionIdLine(line: string, sessionId: string): string {
+  return mapFinalFrameData(line, (data) => ({ ...data, session_id: sessionId }));
 }
 
 export function patchSessionId(text: string, sessionId?: string): string {
