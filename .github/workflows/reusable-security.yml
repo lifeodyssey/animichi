@@ -13,10 +13,6 @@ on:
 
 permissions:
   contents: read
-  # gitleaks-action lists PR commits via the API on pull_request events; a
-  # bare contents-read block zeroes that scope and it dies with
-  # "Resource not accessible by integration" (2026-07-28). Read-only.
-  pull-requests: read
 
 jobs:
   # ── Secret scanning ──────────────────────────────────────────
@@ -25,6 +21,13 @@ jobs:
     timeout-minutes: 15
     name: gitleaks (secret scan)
     runs-on: ubuntu-latest
+    # gitleaks-action lists PR commits via the API on pull_request events; a
+    # bare contents-read block zeroes that scope and it dies with
+    # "Resource not accessible by integration" (2026-07-28). Read-only, and
+    # job-scoped so the workflow default stays contents: read (S0-v2 B7).
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

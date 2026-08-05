@@ -7,26 +7,31 @@ on:
   push:
     branches: [main, develop]
   pull_request:
+  # The six stable lanes below are branch-protection required contexts; a
+  # merge queue waits on them, so they must also run on the queue's
+  # temporary merge commit or a queued PR pends forever (S0-v2 B7).
+  merge_group:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
-  # dorny/paths-filter (changes job) and gitleaks-action both list PR
-  # commits/files via the API; the explicit permissions block above would
-  # otherwise zero this out and both fail with
-  # "Resource not accessible by integration" (2026-07-28, run 30370261651).
-  pull-requests: read
+  # Scopes beyond contents: read live at job level (S0-v2 B7 "permissions"
+  # assertion, ci.md "Least privilege"): the changes job and the security job
+  # each declare their own `pull-requests: read`.
 
 env:
   PYTHON_VERSION: "3.11"
   NODE_VERSION: "24"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-# One in-flight run per ref: a new push to a PR cancels the previous
-# run (wasted work), while pushes to main queue instead of cancelling
-# so a deploy is never killed mid-flight.
+# One in-flight run per PR: a new push to a PR cancels the previous
+# run (wasted work), while pushes to main and queue runs queue instead of
+# cancelling so a deploy is never killed mid-flight. Group expression is the
+# design-CI-1 template: merge_group.head_ref keeps a PR's PR-run and its
+# queue-run in different groups (same-group runs would cancel each other).
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -292,6 +297,13 @@ jobs:
   security:
     name: Security
     uses: ./.github/workflows/reusable-security.yml
+    # Caller ceiling for the reusable: its gitleaks job declares
+    # `pull-requests: read` at job level, and a reusable job cannot request
+    # more than the calling job's token grants (zizmor precedent below) —
+    # gitleaks lists PR commits via the API on pull_request events.
+    permissions:
+      contents: read
+      pull-requests: read
     secrets:
       GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
