@@ -10,10 +10,18 @@ interface MobileFoxHomeProps {
   onStart: () => void;
 }
 
+function MobileFoxBrand() {
+  const landing = useDict().landing;
+  return (<span className="mobile-fox__brand">
+    <span className="mobile-fox__badge"><ToriiMark size={22} /></span>
+    <span className="mobile-fox__wordmark">{landing.hero}</span>
+  </span>);
+}
+
 function MobileFoxBar({ onLogin }: { onLogin: () => void }) {
   const landing = useDict().landing;
   return (<header className="mobile-fox__bar">
-    <span className="mobile-fox__badge"><ToriiMark size={22} /></span>
+    <MobileFoxBrand />
     <div className="mobile-fox__bar-actions">
       <LocaleSwitcher />
       <button className="landing__login" type="button" onClick={onLogin}>{landing.login}</button>
@@ -29,11 +37,48 @@ function MobileFoxGuide() {
   </div>);
 }
 
-function MobileFoxMapChip() {
-  return (<span className="mobile-fox__map" aria-hidden="true">
-    <svg viewBox="0 0 32 32" width={26} height={26} fill="none">
-      <path d="M6 25c6-2 3-12 9-12s3 9 11-5" stroke="var(--color-primary)" strokeWidth={3} strokeLinecap="round" />
-      <circle cx={6} cy={25} r={3.2} fill="var(--landing-brand)" />
+/** Decorative polaroid sticker stack from the mockup scene (aria-hidden). */
+function StickerCardMint() {
+  return (<g transform="rotate(-9 57 51)">
+    <rect x="13" y="13" width="76" height="76" rx="8" fill="var(--color-card)" stroke="var(--color-border)" strokeWidth={3} />
+    <rect x="22" y="22" width="58" height="43" rx="4" fill="var(--color-primary-soft)" />
+    <path fill="none" stroke="var(--color-primary)" strokeWidth={6} d="M20 65h60" />
+    <path fill="var(--color-fg)" d="M26 36h48v7H26zM31 46h38v6H31z" opacity=".45" />
+  </g>);
+}
+
+function StickerCardGold() {
+  return (<g transform="rotate(8 120 51)">
+    <rect x="91" y="7" width="76" height="80" rx="8" fill="var(--color-card)" stroke="var(--color-border)" strokeWidth={3} />
+    <rect x="100" y="17" width="58" height="47" rx="4" fill="var(--landing-chip-gold)" opacity=".9" />
+    <path fill="var(--landing-brand)" d="M117 22h24v8h-24zM121 31h5v25h-5zM134 31h5v25h-5z" />
+  </g>);
+}
+
+function StickerRibbonRoute() {
+  return (<>
+    <path fill="var(--landing-chip-gold)" stroke="var(--color-border)" strokeWidth={3} d="M74 88c26-18 42-15 75-4-22 15-45 20-75 4z" />
+    <path fill="none" stroke="var(--color-primary)" strokeLinecap="round" strokeWidth={5} d="M48 100c28-22 55-22 86 0" />
+  </>);
+}
+
+function MobileFoxStickers() {
+  return (<span className="mobile-fox__stickers" aria-hidden="true">
+    <svg viewBox="0 0 180 120" width="100%" height="100%" fill="none">
+      <StickerCardMint />
+      <StickerCardGold />
+      <StickerRibbonRoute />
+    </svg>
+  </span>);
+}
+
+/** Route-stamp chip beside the CTA, matching the mockup's settled scene. */
+function MobileFoxStamp() {
+  return (<span className="mobile-fox__stamp" aria-hidden="true">
+    <svg viewBox="0 0 80 64" width="100%" height="100%" fill="none">
+      <path fill="var(--color-card)" stroke="var(--color-border)" strokeWidth={3} d="M7 14h48c8 0 14 6 14 14v16c0 8-6 14-14 14H7z" />
+      <path fill="none" stroke="var(--color-primary)" strokeLinecap="round" strokeWidth={5} d="M20 40c7-13 16-19 30-22" />
+      <path fill="var(--color-primary)" d="M54 14l12 5-10 8z" />
     </svg>
   </span>);
 }
@@ -42,7 +87,7 @@ function MobileFoxActions({ onStart }: { onStart: () => void }) {
   const landing = useDict().landing;
   return (<div className="mobile-fox__actions">
     <button className="mobile-fox__cta" type="button" onClick={onStart}>{landing.cta}</button>
-    <MobileFoxMapChip />
+    <MobileFoxStamp />
   </div>);
 }
 
@@ -55,6 +100,13 @@ function MobileFoxCopy({ onStart }: { onStart: () => void }) {
   </div>);
 }
 
+function MobileFoxScene() {
+  return (<div className="mobile-fox__scene">
+    <MobileFoxGuide />
+    <MobileFoxStickers />
+  </div>);
+}
+
 /** Mobile-only fox welcome hero: shrine-approach art, fox guide, serif title, gold CTA.
     Always server-rendered; visibility is CSS-only (see landing.css) to avoid hydration drift. */
 export function MobileFoxHome({ onLogin, onStart }: MobileFoxHomeProps) {
@@ -62,7 +114,7 @@ export function MobileFoxHome({ onLogin, onStart }: MobileFoxHomeProps) {
   return (<section className="mobile-fox" aria-labelledby="mobile-fox-title">
     <img className="mobile-fox__bg" src={BG_SRC} alt={landing.mobile_bg_alt} width={941} height={1672} />
     <MobileFoxBar onLogin={onLogin} />
-    <div className="mobile-fox__scene"><MobileFoxGuide /></div>
+    <MobileFoxScene />
     <MobileFoxCopy onStart={onStart} />
   </section>);
 }
