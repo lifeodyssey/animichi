@@ -141,7 +141,7 @@ def _make_agent_result(text: str, _locale: str) -> AgentResult:
             output=output,
             intent="search_nearby",
             session_state=state,
-            steps=[StepRecord(tool="search_nearby", success=True)],
+            steps=[StepRecord(tool="search_nearby", is_success=True)],
         )
 
     if "路线" in text or "ルート" in text:
@@ -162,7 +162,7 @@ def _make_agent_result(text: str, _locale: str) -> AgentResult:
             output=output,
             intent="plan_route",
             session_state=state,
-            steps=[StepRecord(tool="plan_route", success=True)],
+            steps=[StepRecord(tool="plan_route", is_success=True)],
         )
 
     if text.strip() in {"你好", "你是谁"}:
@@ -185,7 +185,7 @@ def _make_agent_result(text: str, _locale: str) -> AgentResult:
         output=output,
         intent="clarify",
         session_state=state,
-        steps=[StepRecord(tool="clarify", success=True, model_initiated=False)],
+        steps=[StepRecord(tool="clarify", is_success=True, model_initiated=False)],
     )
 
 

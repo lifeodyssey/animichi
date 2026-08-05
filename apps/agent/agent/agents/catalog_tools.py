@@ -154,7 +154,7 @@ async def run_work_search(
         result.rows,
         kind="bangumi",
         anime_id=bangumi_id,
-        partial=result.partial,
+        is_partial=result.partial,
         locale=ctx.deps.locale,
     )
     ref = ResultRef(ctx.deps.ref_factory("search", payload.row_count))

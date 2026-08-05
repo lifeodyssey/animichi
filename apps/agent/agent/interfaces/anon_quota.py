@@ -47,7 +47,7 @@ _QUOTA_ERRORS = Exception
 class QuotaVerdict:
     """The container ingress's authoritative per-identity quota decision."""
 
-    exhausted: bool
+    is_exhausted: bool
     count: int
     quota: int | None
     resets_at: datetime
@@ -85,14 +85,18 @@ async def anonymous_quota_verdict(
     resolved_today = today or utc_today()
     resets_at = next_utc_midnight(resolved_today)
     if not quota or anon_quota_repo is None or not _ANON_ID_PATTERN.fullmatch(anon_id):
-        return QuotaVerdict(exhausted=False, count=0, quota=quota, resets_at=resets_at)
+        return QuotaVerdict(
+            is_exhausted=False, count=0, quota=quota, resets_at=resets_at
+        )
     try:
         count = await anon_quota_repo.increment_and_count(
             usage_date=resolved_today, anon_id=anon_id
         )
     except _QUOTA_ERRORS:
         logger.warning("anon_daily_message_count_failed", exc_info=True)
-        return QuotaVerdict(exhausted=False, count=0, quota=quota, resets_at=resets_at)
+        return QuotaVerdict(
+            is_exhausted=False, count=0, quota=quota, resets_at=resets_at
+        )
     return QuotaVerdict(
-        exhausted=count > quota, count=count, quota=quota, resets_at=resets_at
+        is_exhausted=count > quota, count=count, quota=quota, resets_at=resets_at
     )
