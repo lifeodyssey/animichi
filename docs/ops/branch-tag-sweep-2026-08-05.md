@@ -17,21 +17,36 @@
 
 **分类规则**:
 - **可删** = PR 状态 `MERGED`(内容已 squash 进 main;远端残留是 `delete_branch_on_merge=false` 导致)。
-- **保留** = `main`、PR 状态 `OPEN`(在飞的 S0-v2 卡)、本卡分支 `chore/s0v2-A3-branch-tag-sweep`(未推送,计入保留)。
-- **待裁决** = 无对应 PR 的分支(含 tip 已是 main 祖先的 `feat/s0v2-B5-vite-env-preflight`)。
+- **保留** = `main`、PR 状态 `OPEN`(在飞的 S0-v2 卡)、本卡分支 `chore/s0v2-A3-branch-tag-sweep`(盘点时未推送,属保留分类但不占远端计数)。
+- **待裁决** = 无对应 PR、或 PR 状态与内容不符的分支(如 `feat/s0v2-B5-vite-env-preflight`:tip 已是 main 祖先,盘点时无 PR,2026-08-06 复核出现 OPEN PR #816,见 §4)。
 
 ---
 
 ## 1. 汇总
 
+> **计数口径**:本表全部按远端 head(`refs/heads/*`)统计;`main` 计入「保留」;本卡分支
+> `chore/s0v2-A3-branch-tag-sweep` 盘点时为**本地未推送**分支,不占远端计数(§3.3)。
+
 | 类别 | 数量 | 分支 |
 |---|---|---|
 | **可删**(PR MERGED) | **43** | 见 §2 |
-| **保留** | **11** | `main`、9 个 OPEN-PR 分支(§3)、`chore/s0v2-A3-branch-tag-sweep`(本卡,本地未推送) |
-| **待裁决**(无 PR) | **4** | `feat/s0v2-B5-vite-env-preflight`、`wip/269-bubble-map-salvage`、`wip/550-service-origins-salvage`、`wip/catalog-db-roles-salvage` |
-| **合计(不含 main)** | **56** | — |
+| **保留**(远端,含 `main`) | **10** | `main` + 9 个 OPEN-PR 分支(§3.2) |
+| **待裁决**(无 PR 或 PR 状态与内容不符) | **4** | 见 §4 |
+| **合计(远端 heads,含 `main`)** | **57** | 43 + 10 + 4 |
+| 其中不含 `main` | **56** | — |
 
 **tag**:远端实测 4 个(`v0.1.0` `v0.1.1` `v0.2.0` `v0.3.0`),全部建议删除(§5)。卡片基线「6 个」是 `git ls-remote --tags` 的 6 行输出——`v0.2.0`/`v0.3.0` 为 annotated tag,各有 1 行 `^{}` peel 行,实际只有 4 个 tag。
+
+**加总校验(盘点快照 2026-08-05)**:43 可删 + 10 保留(`main` + 9 OPEN)+ 4 待裁决 = **57** 个远端 head(含 `main`);不含 `main` = **56**,与卡基线「远端分支 56 个」一致。
+
+**2026-08-06 复核(fix round 执行时实测)**:
+
+```bash
+git ls-remote origin | grep -c 'refs/heads/'         # → 60
+git ls-remote origin | grep -cE 'refs/(heads|tags)/' # → 66(60 heads + 6 行 tag 输出)
+```
+
+60 = 快照 57 − 1(`feat/s0v2-C8-cls-fonts`:PR #807 已于 2026-08-05 16:15 MERGED,其远端分支已不在远端;复核 `delete_branch_on_merge` 仍为 false)+ 4(盘点后新增在飞分支,均 OPEN PR:本卡 `chore/s0v2-A3-branch-tag-sweep` #814、`chore/s0v2-B7-meta-assertions` #815、`feat/s0v2-C12-seo-remnants` #817、`feat/s0v2-H3c-1050-workers` #818)。**§2 的 43 个可删分支与 §5 的 4 个 tag 复核时仍全部在远端,清单未过期。**
 
 ---
 
@@ -87,7 +102,7 @@
 
 ---
 
-## 3. 保留 — 11 个
+## 3. 保留 — 10 个(远端,含 `main`)
 
 ### 3.1 `main`
 默认分支,不动。
@@ -107,17 +122,17 @@
 | `feat/s0v2-H3b-1050-web` | 2026-08-05 23:17 | lifeodyssey | #804 OPEN |
 
 ### 3.3 本卡分支
-`chore/s0v2-A3-branch-tag-sweep` — 当前 worktree 分支,盘点时尚未推送到远端(已确认 `git ls-remote` 无此 ref);随本卡 PR 推送后在飞,合并后由 owner 决定。
+`chore/s0v2-A3-branch-tag-sweep` — 当前 worktree 分支,盘点时尚未推送到远端(已确认 `git ls-remote` 无此 ref);2026-08-06 复核:已随 PR #814 推送(OPEN),状态与 §3.2 在飞分支相同,合并后由 owner 决定。
 
 > 注:`backend-survey` 是 **本地**分支(远端不存在),不在远端删除范围内,天然保留。
 
 ---
 
-## 4. 待裁决 — 4 个(无对应 PR)
+## 4. 待裁决 — 4 个(无 PR 或 PR 状态与内容不符)
 
 | 分支 | 最后提交 | 作者 | 说明 |
 |---|---|---|---|
-| `feat/s0v2-B5-vite-env-preflight` | 2026-08-05 22:16 | lifeodyssey | **tip 是 main 的祖先**(`git merge-base --is-ancestor` = yes;`git branch -r --contains` 命中 main/C8/C9/G2c)——内容已进 main,但全量 PR 查询与 `gh pr list --search B5-vite-env` 均无对应 PR。疑似直接 push 合并或无 PR 直合。**建议:可删,等 owner 一句话确认** |
+| `feat/s0v2-B5-vite-env-preflight` | 2026-08-05 22:16 | lifeodyssey | **tip 是 main 的祖先**(`git merge-base --is-ancestor` = yes;`git branch -r --contains` 命中 main/C8/C9/G2c)——内容已进 main,盘点时全量 PR 查询与 `gh pr list --search B5-vite-env` 均无对应 PR。**2026-08-06 复核:已出现 OPEN PR #816**(head 即该分支 tip),「无对应 PR」判据不再成立。**建议改为:保留;若 owner 决定删,须先关闭 #816** |
 | `wip/269-bubble-map-salvage` | 2026-07-24 15:02 | Zhenjia ZHOU | 无 PR,距盘点 12 天,`wip/` 前缀、名字带 `-salvage`(抢救性分支,可能只是留档) |
 | `wip/550-service-origins-salvage` | 2026-07-30 01:43 | lifeodyssey | 无 PR,距盘点 6 天,同上 |
 | `wip/catalog-db-roles-salvage` | 2026-07-30 10:29 | lifeodyssey | 无 PR,距盘点 6 天,同上 |
@@ -150,19 +165,81 @@
 
 ### 6.0 执行前必做(先备份、再干跑,最后才删除)
 
-**① ref 全量快照(备份)**——覆盖远端**全部 refs**(56 个分支 + `main` + 4 个 tag),即 Track E 需要的 refs 全集;快照文件留存,不随删除失效,`--dry-run` 之外这是唯一的前置保护:
+**① ref 全量快照(备份)**——覆盖远端**全部 refs**(56 个分支 + `main` + 4 个 tag),即 Track E 需要的 refs 全集;快照文件留存,不随删除失效,`--dry-run` 之外这是唯一的前置保护。**顺序不能反**:`git bundle` 只打包**本地已有的** refs,在陈旧 clone 上直接 bundle 会得到不完整备份,所以必须**先 fetch → 再 bundle → 再验证**:
 
 ```bash
-git ls-remote origin > refs-snapshot-2026-08-05.txt
-# 或(更重,把全部 refs 落成本地 bundle 文件,可随时恢复):
+# ①-1 先 fetch,把远端全部 refs 落到本地(bundle 的原料;--prune 顺带清理远端已删分支的跟踪 ref)
+git fetch --all --prune --tags
+# ①-2 再打包(--all = 全部本地 refs,含刚 fetch 的 refs/remotes/origin/* 与 tags)
 git bundle create refs-backup-2026-08-05.bundle --all
+# ①-3 验证备份可读、对象完整
+git bundle verify refs-backup-2026-08-05.bundle
+# ①-4 验证无缺口:远端每个 head/tag 的名字都必须出现在备份内
+#     (bundle 里远端分支位于 refs/remotes/origin/,先映射回 refs/heads/ 再比对;
+#      比对输出只允许剩 annotated tag 的 ^{} peel 行——那不是真实 ref——其余必须为空)
+git bundle list-heads refs-backup-2026-08-05.bundle | awk '{print $2}' \
+  | sed -E 's|^refs/remotes/origin/|refs/heads/|' | sort > backup-refs.txt
+git ls-remote origin | grep -E 'refs/(heads|tags)/' | awk '{print $2}' | sort > remote-refs.txt
+comm -23 remote-refs.txt backup-refs.txt
+# 另存一份纯文本 refs 清单(逐条 diff 用的第二道保险):
+git ls-remote origin > refs-snapshot-2026-08-05.txt
+# (恢复示例,删错时用:git fetch refs-backup-2026-08-05.bundle '+refs/*:refs/*')
 ```
 
-**② `--dry-run` 干跑**——把 §6.1/§6.2 的命令原样加 `--dry-run` 先执行一遍,确认输出中被删 ref 的名字与 §2/§5 清单**逐条一致**(显式名字、无通配符、无手滑),核对无误后再去掉 `--dry-run` 正式执行:
+> 2026-08-06 已实测跑通 ①-1~①-4(`bundle verify` 输出「The bundle records a complete history.」;①-4 比对结果仅剩 `refs/tags/v0.2.0^{}` / `refs/tags/v0.3.0^{}` 两行 peel,head 与其余 tag 全覆盖),实测临时产物已清理。
+
+**② `--dry-run` 干跑**——把 §6.1/§6.2 的命令原样加 `--dry-run` 先执行一遍,确认输出中被删 ref 的名字与 §2/§5 清单**逐条一致**(显式名字、无通配符、无手滑),核对无误后再去掉 `--dry-run` 正式执行。**完整命令(可直接粘贴;预期输出:43 行 `- [deleted] <分支名>` + 4 行 tag,2026-08-06 已实测通过)**:
 
 ```bash
-git push origin --dry-run --delete chore/766-retire-diag chore/s0v2-trackA-cleanup ...
-git push origin --dry-run --delete refs/tags/v0.1.0 refs/tags/v0.1.1 refs/tags/v0.2.0 refs/tags/v0.3.0
+git push origin --dry-run --delete \
+  chore/766-retire-diag \
+  chore/s0v2-trackA-cleanup \
+  ci/485-rollback \
+  ci/486-deploy-thin-caller \
+  ci/487-infra-gates \
+  ci/499-reusable-rename \
+  ci/745-agents-refs-check \
+  ci/750-integration-coverage \
+  ci/actions-latest \
+  ci/s0v2-B1-web-lane \
+  ci/s0v2-B2-meta-asserts \
+  ci/s8541-install-hardening \
+  ci/smoke-coldstart-budget \
+  docs/architecture-refresh \
+  docs/s0v2-F1-agents-refresh \
+  docs/s0v2-G1-naming-audit \
+  docs/s0v2-spec \
+  feat/s0v2-C1-showcase \
+  feat/s0v2-C2-hero-mobile \
+  feat/s0v2-C5-seo-close \
+  feat/s0v2-C7-theme-upgrade \
+  feat/s0v2-D2-ingest-seal \
+  feat/s0v2-D3-ingest-retry \
+  feat/s0v2-D4-catalog-cron \
+  feat/s0v2-G2c-rename-agent \
+  feat/s0v2-I1-auth-staging \
+  fix/480-recompute-d13-d14 \
+  fix/557-geocoding-shared-client \
+  fix/559-gate-token-hygiene \
+  fix/694-container-coldstart \
+  fix/postmerge-lifespan-robustness \
+  infra/487-resource-hardening \
+  infra/541-step6-gate-on \
+  infra/769-ip-allowlist \
+  infra/hold-web-routes \
+  infra/staging-config-rule \
+  infra/staging-domain-activation \
+  infra/staging-gate-secrets \
+  infra/web-routes-on \
+  infra/zone-hardening \
+  refactor/759-ten-line-batch \
+  test/s0v2-C3-visual-pipeline \
+  test/s0v2-D1-test-agents
+git push origin --dry-run --delete \
+  refs/tags/v0.1.0 \
+  refs/tags/v0.1.1 \
+  refs/tags/v0.2.0 \
+  refs/tags/v0.3.0
 ```
 
 ### 6.1 删除 43 个已合并分支
@@ -228,7 +305,7 @@ git push origin --delete \
 ### 6.3 待裁决分支(owner 确认后执行;默认不删)
 
 ```bash
-# B5:内容已在 main,owner 确认后:
+# B5:内容已在 main;⚠️ 2026-08-06 起有 OPEN PR #816,须先关闭 #816 再删。owner 确认后:
 git push origin --delete feat/s0v2-B5-vite-env-preflight
 # wip salvage 三件套,确认抢救结束归档后:
 git push origin --delete wip/269-bubble-map-salvage wip/550-service-origins-salvage wip/catalog-db-roles-salvage
@@ -244,7 +321,11 @@ git push origin --delete wip/269-bubble-map-salvage wip/550-service-origins-salv
 
 ## 7. 执行后复核(删除命令跑完之后)
 
-1. `git fetch origin --prune` + `git ls-remote origin`,预期只剩 `main` + §3.2 的 9 个在飞分支 + 本卡分支,远端 tag 为 0。
+> **预期状态以 §6.3 为准**:4 个待裁决分支**默认不删**,只在 owner 明确确认后才执行删除。故复核分两种情形:
+
+1. `git fetch origin --prune` + `git ls-remote origin`,预期远端状态:
+   - **情形 A(默认,§6.3 未获 owner 确认)**:head = `main` + 执行时仍 OPEN 的在飞分支(§3.2 所列及盘点后新增,以 `gh pr list --state open` 实测为准)+ 4 个待裁决分支;tag = 0。
+   - **情形 B(owner 确认 §6.3 全部删除)**:head = `main` + 执行时仍 OPEN 的在飞分支;tag = 0。
 2. 与 §6.0 ① 的 `refs-snapshot-2026-08-05.txt` 对一遍被删 ref 名单,确认删除范围与清单完全一致。
 3. 快照文件(`refs-snapshot-*.txt` / `refs-backup-*.bundle`)留存,Track E 需要 refs 全集时直接取用。
 
@@ -252,4 +333,5 @@ git push origin --delete wip/269-bubble-map-salvage wip/550-service-origins-salv
 
 - 本盘点**未执行**任何 `git push --delete` / `gh api -X DELETE` / tag 删除 / repo 设置变更。
 - 盘点过程中的本地动作仅:只读查询、`git fetch origin --prune`、tag ref 本地强制同步(仅改本地 refs,不改远端)。
-- 佐证文件(盘点用临时产物:`prs.json`、`branches.txt`、`analyze_sweep.py`、`sweep_matrix.txt`、`report_rows.md`、`report_rows2.md`)盘点结束后已 `rm -f` 清理,工作目录根部无残留;本卡其余工作均在 `docs/ops/` 内完成。
+- fix round 验证(2026-08-06):§6.0 ① 的 fetch + bundle + verify + ref 比对、§6.0 ② 的完整 `--dry-run`(43 分支 + 4 tag,输出 47 行 `[deleted]`)均已**实测跑通**;临时产物(`refs-backup-*.bundle`、`backup-refs.txt`、`remote-refs.txt`、`dryrun-*.sh/.txt` 等)验证后已 `rm -f` 清理,工作目录根部无残留。
+- 佐证文件(盘点用临时产物:`prs.json`、`branches.txt`、`analyze_sweep.py`、`sweep_matrix.txt`、`report_rows.md`、`report_rows2.md`)盘点结束后已 `rm -f` 清理;本卡其余工作均在 `docs/ops/` 内完成。
