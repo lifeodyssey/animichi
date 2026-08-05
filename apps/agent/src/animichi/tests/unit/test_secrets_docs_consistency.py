@@ -126,13 +126,14 @@ def test_live_table_entries_are_still_actually_referenced(live_names: set[str]) 
 def test_dead_table_entries_are_not_actually_wired_by_a_workflow(
     dead_names: set[str],
 ) -> None:
-    # Deliberately narrower than `_required_names()`: `ZETA_API_KEY` and
-    # `OPENAI_COMPAT_API_KEY` are credential-shaped `CONTAINER_ENV_KEYS` entries (so
-    # `_required_names()` includes them, and test 1 requires them documented somewhere),
-    # but that is exactly *why* they belong in "Referenced by nothing" — the allowlist
-    # expects a value no workflow ever forwards. The real "did this get wired up" signal
-    # is a workflow actually setting `${{ secrets.X }}`, not mere CONTAINER_ENV_KEYS
-    # membership.
+    # Deliberately narrower than `_required_names()`: `OPENAI_COMPAT_API_KEY`
+    # is a credential-shaped `CONTAINER_ENV_KEYS` entry (so `_required_names()`
+    # includes it, and test 1 requires it documented somewhere), but that is
+    # exactly *why* it belongs in "Referenced by nothing" — the allowlist
+    # expects a value no workflow ever forwards. The real "did this get wired
+    # up" signal is a workflow actually setting `${{ secrets.X }}`, not mere
+    # CONTAINER_ENV_KEYS membership. (`ZETA_API_KEY` had the same shape until
+    # the MiMo-only key convergence #684 removed it from the allowlist.)
     resurrected = dead_names & _workflow_secret_names()
     assert not resurrected, (
         "docs/ops/secrets.md 'Referenced by nothing' table lists names a workflow now "
@@ -176,3 +177,47 @@ def test_every_repo_relative_path_in_the_doc_still_exists(
         f"docs/ops/secrets.md points at paths that do not exist: {missing} — "
         "update them to their current location rather than deleting the reference"
     )
+
+
+# Retired model-provider credentials (owner decision #684 — production is
+# MiMo-only: the only live model credential is MIMO_API_KEY). These names must
+# never reappear in the deploy-config surfaces a secret travels through
+# (secrets.md's own chain taxonomy): a workflow forwarding one, a wrangler
+# comment advertising one, or a deployment.md table claiming one all mean dead
+# wiring got resurrected. AGNES / NVIDIA / OPENROUTER never existed here and
+# must stay that way; ZETA_API_KEY was retired by this change; GEMINI_API_KEY
+# was retired with #656 (containerEnv.test.ts pins it out of CONTAINER_ENV_KEYS).
+RETIRED_MODEL_PROVIDER_KEYS: tuple[str, ...] = (
+    "AGNES",
+    "NVIDIA_API",
+    "OPENROUTER",
+    "ZETA_API_KEY",
+    "GEMINI_API_KEY",
+)
+_RETIRED_KEYS_CONFIG_FILES = (
+    CONTAINER_ENV_FILE,
+    ROOT / "wrangler.toml",
+    ROOT / "docs" / "ops" / "deployment.md",
+    ROOT / ".env.example",
+)
+
+
+def test_retired_model_provider_keys_appear_nowhere() -> None:
+    """Retired model-provider key names must stay out of workflows/wrangler/docs.
+
+    secrets.md is deliberately excluded from the scan: its "Referenced by
+    nothing" table is exactly where retired names wait for `gh secret delete`.
+    """
+    sources = {
+        str(path): path.read_text(encoding="utf-8")
+        for path in _RETIRED_KEYS_CONFIG_FILES
+    }
+    for glob in ("*.yml", "*.yaml"):
+        for path in WORKFLOWS_DIR.glob(glob):
+            sources[str(path)] = path.read_text(encoding="utf-8")
+    for name in RETIRED_MODEL_PROVIDER_KEYS:
+        hits = sorted(path for path, text in sources.items() if name in text)
+        assert not hits, (
+            f"retired model-provider key {name} reappeared in deploy config: {hits} "
+            "— remove it (owner decision #684: MiMo-only)"
+        )
