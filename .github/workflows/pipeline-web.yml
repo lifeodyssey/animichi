@@ -157,7 +157,21 @@ jobs:
         with:
           name: bundle-web-${{ github.sha }}
           path: ${{ runner.temp }}/downloaded-web-artifact
-      - name: Restore build output
-        run: tar -C apps/web -xzf "$RUNNER_TEMP/downloaded-web-artifact/web-output.tar.gz"
+      - name: Verify and restore build output
+        run: |
+          META_PATH="$RUNNER_TEMP/downloaded-web-artifact/.artifact-meta.json"
+          BUNDLE_PATH="$RUNNER_TEMP/downloaded-web-artifact/web-output.tar.gz"
+          META_COMMIT_SHA="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["commit_sha"])' "$META_PATH")"
+          META_SHA256="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["sha256"])' "$META_PATH")"
+          test "$META_COMMIT_SHA" = "$GITHUB_SHA"
+          printf '%s  %s\n' "$META_SHA256" "$BUNDLE_PATH" | sha256sum --check --strict
+          tar -C apps/web -xzf "$BUNDLE_PATH"
       - name: Lighthouse CI (CLS gate, LCP warn)
         run: pnpm --filter web exec lhci autorun --config=./lighthouserc.cjs
+      - name: Upload lighthouse report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: lighthouse-report-${{ github.sha }}
+          path: apps/web/lighthouse-reports/**
+          retention-days: 7
