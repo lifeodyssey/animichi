@@ -30,6 +30,13 @@ CHECK_PATHS = (
 TS_READS = re.compile(
     r"export\s+const\s+READS\s*=\s*(\[[^]]*])\s+as\s+const\s*;", re.DOTALL
 )
+# Component lanes that left ci.yml for their own workflow (CI-1 union method,
+# commit 688bfacc): pipeline-web.yml owns the apps/web suite. Its pull_request
+# trigger is pathless (merge_group compatibility), so PR coverage is
+# unconditional; the workflow's push paths must carry the read closure.
+COMPONENT_WORKFLOWS: dict[str, str] = {
+    "web": "pipeline-web.yml",
+}
 YamlMap = Mapping[str, object]
 
 
@@ -228,14 +235,28 @@ def lane_filter(
     return PathFilter("pull_request", f"dorny:{check.component}", paths)
 
 
+def check_workflow_path(check: ConfigCheck) -> Path:
+    return WORKFLOWS_DIR / COMPONENT_WORKFLOWS.get(check.component, CI_WORKFLOW.name)
+
+
 def active_filters(
-    workflow: YamlMap,
+    workflow_docs: dict[Path, YamlMap],
     lanes: YamlMap,
     check: ConfigCheck,
     event: str,
 ) -> tuple[PathFilter, ...]:
+    workflow_path = check_workflow_path(check)
+    workflow = workflow_docs[workflow_path]
+    uses_ci_lane = workflow_path == CI_WORKFLOW
     direct = direct_filter(workflow, event)
-    lane = lane_filter(workflow, lanes, check) if event == "pull_request" else None
+    # The dorny lane filter only gates ci.yml lanes; a dedicated component
+    # workflow (pipeline-web.yml) is itself the lane, and its pathless
+    # pull_request trigger already covers the event unconditionally.
+    lane = (
+        lane_filter(workflow, lanes, check)
+        if uses_ci_lane and event == "pull_request"
+        else None
+    )
     return tuple(path_filter for path_filter in (direct, lane) if path_filter)
 
 
@@ -275,19 +296,23 @@ def filter_failures(check: ConfigCheck, path_filter: PathFilter) -> tuple[str, .
     )
 
 
-def collect_failures(workflow: YamlMap, lanes: YamlMap) -> tuple[str, ...]:
+def collect_failures(
+    workflow_docs: dict[Path, YamlMap], lanes: YamlMap
+) -> tuple[str, ...]:
     return tuple(
         failure
         for check in discover_checks()
         for event in EVENTS
-        for path_filter in active_filters(workflow, lanes, check, event)
+        for path_filter in active_filters(workflow_docs, lanes, check, event)
         for failure in filter_failures(check, path_filter)
     )
 
 
 def run_check() -> int:
-    workflow = workflow_documents()[CI_WORKFLOW]
-    failures = collect_failures(workflow, changes_filters(workflow))
+    workflow_docs = workflow_documents()
+    failures = collect_failures(
+        workflow_docs, changes_filters(workflow_docs[CI_WORKFLOW])
+    )
     if failures:
         print("Config read-set trigger coverage failed:\n" + "\n".join(failures))
         return 1
