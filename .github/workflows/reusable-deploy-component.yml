@@ -70,6 +70,20 @@ on:
         required: false
       ANON_ID_SECRET:
         required: false
+      # Sent as the `x-staging-key` header by the Smoke step so the staging
+      # WAF gate (#529/#559, `stagingGateEnabled` in infra) lets web/root
+      # smokes through on staging. `required: false` for the same reason
+      # every secret above is: this is a staging-environment secret, so
+      # callers of this reusable (ci.yml/deploy.yml jobs have no
+      # environment context of their own) resolve `${{ secrets.
+      # STAGING_GATE_TOKEN }}` to EMPTY — and it works anyway, because the
+      # deploy job below declares `environment: ${{ inputs.environment }}`
+      # (GitHub: "the environment secret will be used, and not the secret
+      # passed from the caller workflow" — the same #527 mechanism that
+      # resolves NEON_DATABASE_URL etc. in this job). Callers therefore must
+      # NOT pass it, and a production call must not fail over it.
+      STAGING_GATE_TOKEN:
+        required: false
 jobs:
   deploy:
     timeout-minutes: 30
@@ -724,6 +738,14 @@ jobs:
           ENVIRONMENT: ${{ inputs.environment }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Resolves from the job-level `environment:` above (the #527
+          # mechanism), NOT from any caller pass-through — callers have no
+          # environment, so their `${{ secrets.STAGING_GATE_TOKEN }}` would
+          # be empty; do not add it to the caller secrets lists. Empty on
+          # production (no such environment secret) is fine: post-deploy-
+          # assert.sh only sends the header when the var is non-empty, and
+          # the gate ruleset only matches the staging hostname anyway.
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
           # First cold start after an image change takes minutes; base 12 →
           # sleep budget 12*(1+2+3+4)=120s plus 5×20s request timeouts ≈ 220s ceiling, still bounded.
           POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS: "12"

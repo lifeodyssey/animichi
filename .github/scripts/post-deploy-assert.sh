@@ -117,6 +117,14 @@ fetch() {
   local args=(-sS -o "${BODY_FILE}" -w '%{http_code}' --connect-timeout 10 --max-time 20 -X "${method}" "${url}" -H "Accept: ${ACCEPT_HEADER:-application/json}")
   [ -n "${auth_header}" ] && args+=(-H "Authorization: ${auth_header}")
   [ -n "${body}" ] && args+=(-H "Content-Type: application/json" -d "${body}")
+  # #541 step 6: the staging WAF gate blocks requests that carry neither the
+  # gate cookie/header nor an allowlisted source IP. CI sends the gate token
+  # (STAGING_GATE_TOKEN, wired through reusable-post-deploy-test.yml) as the
+  # `x-staging-key` header on every request; when the env var is absent
+  # (production runs, local runs) no header is sent and the request is
+  # untouched. The header name matches the gate ruleset expression in
+  # infra/index.ts exactly.
+  [ -n "${STAGING_GATE_TOKEN:-}" ] && args+=(-H "x-staging-key: ${STAGING_GATE_TOKEN}")
   local attempt status rc retry_reason
   for attempt in 1 2 3 4 5; do
     status="$(curl "${args[@]}")" && rc=0 || rc=$?

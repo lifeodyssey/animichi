@@ -60,6 +60,24 @@ on:
       # discussion on #493 if revisiting this.
       CLOUDFLARE_ACCOUNT_ID:
         required: true
+      # Sent as the `x-staging-key` header by post-deploy-assert.sh so the
+      # staging WAF gate (#529/#559, `stagingGateEnabled` in infra) lets the
+      # smoke through. On production the header is harmless — the gate
+      # ruleset only matches the staging hostname. Same value as the
+      # encrypted `stagingGateToken` in infra/Pulumi.staging.yaml
+      # (`scripts/setup-staging-gate.sh --rotate` replaces both together).
+      #
+      # `required: false` deliberately, and callers must NOT pass it:
+      # STAGING_GATE_TOKEN exists only as a staging-environment secret, so
+      # `${{ secrets.STAGING_GATE_TOKEN }}` at the CALLER level (ci.yml /
+      # deploy.yml jobs have no environment) resolves to empty. It resolves
+      # inside this workflow instead, because the job below declares
+      # `environment: ${{ inputs.environment }}` — GitHub uses the
+      # environment secret, not any caller-passed value (same #527
+      # mechanism as reusable-deploy-component.yml). A production call
+      # resolving it empty is expected and must not fail the workflow call.
+      STAGING_GATE_TOKEN:
+        required: false
   # Lets an operator manually re-run a suite against an already-deployed
   # environment from the Actions UI during a rollback (docs/ops/deployment.md
   # § Rollback step 4) — `workflow_call`-only reusable workflows have no
@@ -125,36 +143,42 @@ jobs:
         shell: bash
         env:
           WEB_URL: ${{ steps.urls.outputs.web_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh web-landing
 
       - name: "/healthz reachable with status ok"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh healthz
 
       - name: "edge rejects an invalid bearer token (401)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh auth-probe
 
       - name: "USERS service binding reachable through the edge"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh users-probe
 
       - name: "catalog reachable via CATALOG service binding (Neon)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh catalog-probe
 
       - name: "agent's own Postgres connection is live (data plane)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh data-plane-probe
 
       # ── environment-gated: ANON_ACCESS_ENABLED differs by environment,
@@ -164,6 +188,7 @@ jobs:
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh anon-gate-staging
 
       - name: "anonymous access stays off (production)"
@@ -171,4 +196,5 @@ jobs:
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh anon-disabled-production

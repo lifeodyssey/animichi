@@ -9,8 +9,11 @@ set -euo pipefail
 #
 #   1. Pulumi config (encrypted into infra/Pulumi.staging.yaml) — the WAF rule
 #      is built from it.
-#   2. The STAGING_GATE_TOKEN GitHub secret — the Playwright suite sends it as
-#      the `x-staging-key` header.
+#   2. The STAGING_GATE_TOKEN GitHub secret (staging environment — CI's smoke/
+#      E2E requests send it as the `x-staging-key` header; the `--env staging`
+#      scope is what keeps `--rotate` working, since the deploy workflows
+#      resolve it from a job-level `environment:` and a repo-level value
+#      would never reach them).
 #
 # A mismatch between the two locks CI out of staging with no useful symptom,
 # which is the whole reason this is a script and not a checklist.
@@ -59,7 +62,7 @@ pulumi stack select "$STACK" >/dev/null 2>&1 \
 EXISTING_PULUMI=0
 pulumi config get stagingGateToken --stack "$STACK" >/dev/null 2>&1 && EXISTING_PULUMI=1
 EXISTING_GH=0
-gh secret list --json name -q '.[].name' 2>/dev/null | grep -qx STAGING_GATE_TOKEN && EXISTING_GH=1
+gh secret list --env staging --json name -q '.[].name' 2>/dev/null | grep -qx STAGING_GATE_TOKEN && EXISTING_GH=1
 
 if [ "$ROTATE" -eq 0 ] && { [ "$EXISTING_PULUMI" -eq 1 ] || [ "$EXISTING_GH" -eq 1 ]; }; then
   echo "A gate token already exists:"
@@ -75,8 +78,8 @@ fi
 # Held in a variable, never written to a file, never echoed by default.
 TOKEN="$(openssl rand -base64 32)"
 
-printf '%s' "$TOKEN" | gh secret set STAGING_GATE_TOKEN
-echo "✓ GitHub secret STAGING_GATE_TOKEN set"
+printf '%s' "$TOKEN" | gh secret set STAGING_GATE_TOKEN --env staging
+echo "✓ GitHub secret STAGING_GATE_TOKEN set (staging environment)"
 
 # `--secret` encrypts it into Pulumi.staging.yaml under the stack passphrase.
 pulumi config set --secret stagingGateToken "$TOKEN" --stack "$STACK" >/dev/null
