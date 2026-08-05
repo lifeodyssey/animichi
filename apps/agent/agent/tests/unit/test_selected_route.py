@@ -129,6 +129,39 @@ async def test_selected_route_emits_running_and_done_steps() -> None:
     assert events == [("plan_selected", "running"), ("plan_selected", "done")]
 
 
+async def test_selected_route_empty_route_returns_error() -> None:
+    result = await execute_selected_route(
+        point_ids=["ghost"],
+        state=SessionState(),
+        origin=None,
+        locale="en",
+        catalog=MockCatalogClient(),
+    )
+
+    assert result.success is False
+    assert result.status == "error"
+    assert result.steps[0].is_success is False
+    assert result.steps[0].error == "No catalog route data"
+
+
+async def test_selected_route_empty_route_emits_error_step() -> None:
+    events: list[tuple[str, str]] = []
+
+    async def _record(event: StepEvent) -> None:
+        events.append((event.tool, event.status))
+
+    await execute_selected_route(
+        point_ids=["ghost"],
+        state=SessionState(),
+        origin=None,
+        locale="en",
+        catalog=MockCatalogClient(),
+        on_step=_record,
+    )
+
+    assert events == [("plan_selected", "running"), ("plan_selected", "error")]
+
+
 @pytest.mark.parametrize("origin", ["not-a-coord", "1,2,3", "999,0", "0,999"])
 async def test_selected_route_malformed_origin_routes_without_origin(
     origin: str,
