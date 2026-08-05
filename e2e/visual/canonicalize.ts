@@ -42,7 +42,7 @@ export interface CanonicalizeResult {
   assetRefs: string[];
 }
 
-const SCRIPT_RE = /<script[\s\S]*?<\/script\s*>/gi;
+const SCRIPT_RE = /<script\b[^>]*>[\s\S]*?<\/script[^>]*>/gi;
 const GOOGLE_FONTS_LINK_RE = /<link[^>]*?href="[^"]*fonts\.googleapis\.com[^"]*"[^>]*>/gi;
 const GSTATIC_LINK_RE = /<link[^>]*?href="[^"]*fonts\.gstatic\.com[^"]*"[^>]*>/gi;
 const STYLESHEET_LINK_RE = /<link[^>]*rel=["']stylesheet["'][^>]*>/gi;
@@ -62,12 +62,21 @@ function dropGoogleFontLinks(html: string): string {
   return html.replace(GOOGLE_FONTS_LINK_RE, "").replace(GSTATIC_LINK_RE, "");
 }
 
+function replaceUntilStable(html: string, re: RegExp): string {
+  let prev = "";
+  while (prev !== html) {
+    prev = html;
+    html = html.replace(re, "");
+  }
+  return html;
+}
+
 function stripScripts(html: string): string {
-  return html.replace(SCRIPT_RE, "");
+  return replaceUntilStable(html, SCRIPT_RE);
 }
 
 function removeModeToggle(html: string): string {
-  return html.replace(MODE_TG_RE, "");
+  return replaceUntilStable(html, MODE_TG_RE);
 }
 
 export function linkHref(linkTag: string): string {
