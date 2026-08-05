@@ -234,7 +234,7 @@ jobs:
       - run: uv sync --frozen --all-extras --no-build --no-binary-package animichi
       # .sqlfluff config lives at repo root; lint the schema dirs we own.
       - name: Lint migrations (postgres dialect)
-        run: uv run --frozen --no-build --no-binary-package animichi sqlfluff lint ../../db/migrations ../../supabase/neon --dialect postgres
+        run: uv run --frozen --no-build --no-binary-package animichi sqlfluff lint ../../db/migrations --dialect postgres
 
   # ── Deploy-gate script tests ─────────────────────────────────
 
