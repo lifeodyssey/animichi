@@ -46,7 +46,8 @@ function paeth(a: number, b: number, c: number): number {
 function unfilter(width: number, height: number, channels: number, raw: Buffer): PngImage {
   const stride = width * channels;
   const rgba = new Uint8Array(width * height * 4);
-  const rowOut = new Uint8Array(width * 4);
+  const prevRow = new Uint8Array(stride);
+  const rowOut = new Uint8Array(stride);
   let offset = 0;
   for (let y = 0; y < height; y++) {
     const filter = raw[offset++];
@@ -54,8 +55,8 @@ function unfilter(width: number, height: number, channels: number, raw: Buffer):
     const row = raw.subarray(offset, offset + stride);
     for (let x = 0; x < stride; x++) {
       const left = x >= channels ? rowOut[x - channels] : 0;
-      const up = y > 0 ? rgba[(y - 1) * width * 4 + x] : 0;
-      const upLeft = y > 0 && x >= channels ? rgba[(y - 1) * width * 4 + x - channels] : 0;
+      const up = y > 0 ? prevRow[x] : 0;
+      const upLeft = y > 0 && x >= channels ? prevRow[x - channels] : 0;
       let value = row[x];
       if (filter === 1) value += left;
       else if (filter === 2) value += up;
@@ -63,11 +64,13 @@ function unfilter(width: number, height: number, channels: number, raw: Buffer):
       else if (filter === 4) value += paeth(left, up, upLeft);
       rowOut[x] = value & 0xff;
     }
+    const rowBase = y * width * 4;
     for (let x = 0; x < width; x++) {
-      const base = y * width * 4 + x * 4;
+      const base = rowBase + x * 4;
       for (let c = 0; c < channels; c++) rgba[base + c] = rowOut[x * channels + c];
       if (channels === 3) rgba[base + 3] = 255;
     }
+    prevRow.set(rowOut);
     offset += stride;
   }
   return { width, height, rgba };

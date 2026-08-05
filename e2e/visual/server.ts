@@ -46,9 +46,11 @@ function matchesMount(pathname: string, mount: Mount): boolean {
 }
 
 export async function startVisualServer(mounts: Mount[]): Promise<VisualServer> {
+  // Most-specific prefix first, so "/" never shadows "/fonts".
+  const sortedMounts = [...mounts].sort((a, b) => b.prefix.length - a.prefix.length);
   const server = http.createServer((req, res) => {
     const pathname = new URL(req.url ?? "/", "http://127.0.0.1").pathname;
-    const mount = mounts.find((m) => matchesMount(pathname, m));
+    const mount = sortedMounts.find((m) => matchesMount(pathname, m));
     const rel = mount?.prefix === "/" ? pathname : pathname.slice(mount?.prefix.length ?? 0);
     const filePath = resolveWithin(mount?.root ?? ".", rel || "/");
     if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
