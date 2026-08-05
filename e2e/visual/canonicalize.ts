@@ -173,16 +173,16 @@ export function canonicalize(input: CanonicalizeInput): CanonicalizeResult {
 
 /** Materialize referenced mockup assets next to the canonical HTML. */
 export function copyAssets(mockupDir: string, outDir: string, assetRefs: string[]): void {
+  const outRoot = path.resolve(outDir) + path.sep;
   for (const ref of assetRefs) {
-    const source = path.join(mockupDir, ref);
+    if (!ref.startsWith("assets/")) continue;
     const target = path.join(outDir, ref);
-    if (ref.startsWith("assets/") && path.resolve(target).startsWith(path.resolve(outDir))) {
-      mkdirSync(path.dirname(target), { recursive: true });
-      try {
-        copyFileSync(source, target);
-      } catch {
-        // Referenced but absent in this mockup's asset tree: leave the URL as-is.
-      }
+    if (!path.resolve(target).startsWith(outRoot)) continue;
+    mkdirSync(path.dirname(target), { recursive: true });
+    try {
+      copyFileSync(path.join(mockupDir, ref), target);
+    } catch {
+      // Referenced but absent in this mockup's asset tree: leave the URL as-is.
     }
   }
 }

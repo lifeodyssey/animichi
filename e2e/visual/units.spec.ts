@@ -25,6 +25,28 @@ function mockupInput(mode: "day" | "night" = "day"): CanonicalizeInput {
   return { html, appFontsCss: readFileSync(FONTS_CSS_PATH, "utf8"), stylesheets, mode };
 }
 
+/** 8-bit, non-interlaced PNG with the given raw (filter+bytes) scanlines. */
+function buildPng(colorType: number, width: number, height: number, raw: Buffer): Buffer {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = colorType;
+  const idat = deflateSync(raw);
+  const lengthOf = (size: number): Buffer => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(size, 0);
+    return length;
+  };
+  // Reader skips CRCs, but the chunk layout must include them (4 bytes).
+  const crc = Buffer.alloc(4);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.concat([lengthOf(13), Buffer.from("IHDR"), ihdr, crc]),
+    Buffer.concat([lengthOf(idat.length), Buffer.from("IDAT"), idat, crc]),
+  ]);
+}
+
 test.describe("canonicalize", () => {
   test("is deterministic: same input → byte-identical output", () => {
     const input = mockupInput();
@@ -83,26 +105,26 @@ test.describe("png codec", () => {
     const rgba = new Uint8Array([10, 20, 30, 255]);
     for (let filter = 0; filter <= 4; filter++) {
       const raw = Buffer.concat([Buffer.from([filter]), Buffer.from(rgba)]);
-      const ihdr = Buffer.alloc(13);
-      ihdr.writeUInt32BE(1, 0);
-      ihdr.writeUInt32BE(1, 4);
-      ihdr[8] = 8;
-      ihdr[9] = 6;
-      const idat = deflateSync(raw);
-      const lengthOf = (size: number): Buffer => {
-        const length = Buffer.alloc(4);
-        length.writeUInt32BE(size, 0);
-        return length;
-      };
-      // Reader skips CRCs, but the chunk layout must include them (4 bytes).
-      const crc = Buffer.alloc(4);
-      const bytes = Buffer.concat([
-        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-        Buffer.concat([lengthOf(13), Buffer.from("IHDR"), ihdr, crc]),
-        Buffer.concat([lengthOf(idat.length), Buffer.from("IDAT"), idat, crc]),
-      ]);
+      const bytes = buildPng(6, 1, 1, raw);
       expect(Buffer.from(decodePng(bytes).rgba).equals(rgba)).toBe(true);
     }
+  });
+
+  test("decodes RGB (colorType 2) PNGs with previous-row filters", () => {
+    // Row 0: filter 0. Row 1: filter 2 (Up). Row 2: filter 3 (Average) —
+    // both must reconstruct from the RGB-stride previous row, not an RGBA stride.
+    const raw = Buffer.concat([
+      Buffer.from([0, 10, 20, 30, 40, 50, 60]),
+      Buffer.from([2, 60, 60, 60, 60, 60, 60]),
+      Buffer.from([3, 95, 65, 65, 65, 65, 65]),
+    ]);
+    const decoded = decodePng(buildPng(2, 2, 3, raw));
+    const expected = Buffer.from([
+      10, 20, 30, 255, 40, 50, 60, 255, //
+      70, 80, 90, 255, 100, 110, 120, 255, //
+      130, 140, 150, 255, 160, 170, 180, 255,
+    ]);
+    expect(Buffer.from(decoded.rgba).equals(expected)).toBe(true);
   });
 
   test("rejects corrupt input", () => {
