@@ -60,6 +60,7 @@ class PathFilter:
     event: str
     source: str
     patterns: tuple[str, ...]
+    workflow_path: Path
 
 
 def yaml_mapping(value: object, source: str) -> YamlMap:
@@ -219,11 +220,13 @@ def lane_paths(
     )
 
 
-def direct_filter(workflow: YamlMap, event: str) -> PathFilter | None:
+def direct_filter(
+    workflow_path: Path, workflow: YamlMap, event: str
+) -> PathFilter | None:
     paths = trigger_paths(workflow, event)
     if paths is None:
         return None
-    return PathFilter(event, f"on.{event}.paths", paths)
+    return PathFilter(event, f"on.{event}.paths", paths, workflow_path)
 
 
 def lane_filter(
@@ -232,7 +235,7 @@ def lane_filter(
     paths = lane_paths(workflow, lanes, check)
     if paths is None:
         return None
-    return PathFilter("pull_request", f"dorny:{check.component}", paths)
+    return PathFilter("pull_request", f"dorny:{check.component}", paths, CI_WORKFLOW)
 
 
 def check_workflow_path(check: ConfigCheck) -> Path:
@@ -247,14 +250,14 @@ def active_filters(
 ) -> tuple[PathFilter, ...]:
     workflow_path = check_workflow_path(check)
     workflow = workflow_docs[workflow_path]
-    uses_ci_lane = workflow_path == CI_WORKFLOW
-    direct = direct_filter(workflow, event)
+    is_ci_lane = workflow_path == CI_WORKFLOW
+    direct = direct_filter(workflow_path, workflow, event)
     # The dorny lane filter only gates ci.yml lanes; a dedicated component
     # workflow (pipeline-web.yml) is itself the lane, and its pathless
     # pull_request trigger already covers the event unconditionally.
     lane = (
         lane_filter(workflow, lanes, check)
-        if uses_ci_lane and event == "pull_request"
+        if is_ci_lane and event == "pull_request"
         else None
     )
     return tuple(path_filter for path_filter in (direct, lane) if path_filter)
@@ -285,12 +288,17 @@ def read_is_covered(read: str, patterns: tuple[str, ...]) -> bool:
 
 
 def filter_failures(check: ConfigCheck, path_filter: PathFilter) -> tuple[str, ...]:
+    lane = (
+        check.job
+        if path_filter.workflow_path == CI_WORKFLOW
+        else f"{check.component} lane"
+    )
     missing = tuple(
         read for read in check.reads if not read_is_covered(read, path_filter.patterns)
     )
     return tuple(
         f"{check.path}: READS path '{read}' is not covered by {path_filter.event} "
-        f"paths for {CI_WORKFLOW.relative_to(REPO_ROOT)}:{check.job} "
+        f"paths for {path_filter.workflow_path.relative_to(REPO_ROOT)}:{lane} "
         f"({path_filter.source}: {list(path_filter.patterns)})"
         for read in missing
     )
