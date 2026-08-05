@@ -90,5 +90,12 @@
     "contact": "プライバシーに関する質問・削除依頼",
     "contact_link": "GitHubでIssueを開く",
     "back_home": "Animichiに戻る"
+  },
+  "coming_soon": {
+    "badge": "準備中",
+    "title": "ただいま準備中です",
+    "body": "この機能はただいま準備中です。準備ができたらすぐ遊べるようになります。もうすこしだけお待ちくださいね。",
+    "action": "了解しました",
+    "close": "とじる"
   }
 }
