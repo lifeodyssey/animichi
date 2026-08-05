@@ -113,7 +113,7 @@ def test_eval_gate_flow_bootstraps_direct_failure_when_enforcement_is_off(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.delenv("DIRECT_GATE_ENFORCE", raising=False)
-    failures = _run_gate(_failing_gate_input(), "agent", tmp_path, capped=False)
+    failures = _run_gate(_failing_gate_input(), "agent", tmp_path, is_capped=False)
     assert failures is None
     assert baseline_path("agent", "fixture", tmp_path).exists()
     report = capsys.readouterr().out
@@ -127,7 +127,7 @@ def test_eval_gate_flow_blocks_direct_failure_without_baseline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("DIRECT_GATE_ENFORCE", "1")
-    failures = _run_gate(_failing_gate_input(), "agent", tmp_path, capped=False)
+    failures = _run_gate(_failing_gate_input(), "agent", tmp_path, is_capped=False)
     assert failures is not None and any("requests=13" in item for item in failures)
     assert not baseline_path("agent", "fixture", tmp_path).exists()
 
@@ -138,7 +138,7 @@ def test_capped_gate_prints_case_metrics_without_p95_or_blocking(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("DIRECT_GATE_ENFORCE", "1")
-    failures = _run_gate(_failing_gate_input(), "agent", tmp_path, capped=True)
+    failures = _run_gate(_failing_gate_input(), "agent", tmp_path, is_capped=True)
     assert failures == []
     assert not baseline_path("agent", "fixture", tmp_path).exists()
     report = capsys.readouterr().out

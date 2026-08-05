@@ -73,7 +73,7 @@ async def execute_selected_route(
         )
 
     step, payload = _build_step(route, params)
-    if not step.success:
+    if not step.is_success:
         await _emit_step(on_step, call_id, "error", {})
         return _error_result("No catalog route data", locale, state)
     await _emit_step(on_step, call_id, "done", payload)
@@ -105,13 +105,13 @@ def _build_step(
 ) -> tuple[StepRecord, dict[str, object]]:
     """Shape the catalog route into a StepRecord and its tool_state payload."""
     payload = build_route_payload(route)
-    success = route.point_count > 0
+    is_success = route.point_count > 0
     step = StepRecord(
         tool="plan_selected",
-        success=success,
+        is_success=is_success,
         params=params,
         data=payload,
-        error=None if success else "No catalog route data",
+        error=None if is_success else "No catalog route data",
         model_initiated=False,
     )
     return step, payload
@@ -157,7 +157,7 @@ def _error_result(
         steps=[
             StepRecord(
                 tool="plan_selected",
-                success=False,
+                is_success=False,
                 error=error,
                 provenance=RejectedRoute(status=route_status),
                 model_initiated=False,

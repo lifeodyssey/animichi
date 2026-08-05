@@ -96,7 +96,7 @@ def runtime_stage(output: AgentResultOutput, steps: list[StepRecord]) -> str:
 
 def _last_tool(steps: list[StepRecord], names: set[str]) -> str:
     for step in reversed(steps):
-        if step.success and step.tool in names:
+        if step.is_success and step.tool in names:
             return step.tool
     raise ValueError(f"No successful step for runtime stage: {sorted(names)}")
 
@@ -320,7 +320,7 @@ def _clarify_step_data(output: ClarifyResponseModel) -> dict[str, object]:
 
 
 def _clarify_step_record(data: dict[str, object]) -> StepRecord:
-    return StepRecord(tool="clarify", success=True, data=data, model_initiated=False)
+    return StepRecord(tool="clarify", is_success=True, data=data, model_initiated=False)
 
 
 async def _emit_clarify_lifecycle(on_step: OnStep, data: dict[str, object]) -> None:

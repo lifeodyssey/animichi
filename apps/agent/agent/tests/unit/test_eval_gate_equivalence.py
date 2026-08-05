@@ -29,8 +29,8 @@ def _fixture(name: str) -> tuple[ResultsPayload, str | None, bool]:
     raw = cast(dict[str, object], json.loads((_FIXTURES / f"{name}.json").read_text()))
     payload = ResultsPayload.model_validate(raw["results_payload"])
     baseline = raw.get("baseline")
-    capped = raw.get("capped") is True
-    return payload, json.dumps(baseline) if baseline is not None else None, capped
+    is_capped = raw.get("capped") is True
+    return payload, json.dumps(baseline) if baseline is not None else None, is_capped
 
 
 def _prepare_baseline(directory: Path, payload: str | None) -> None:
@@ -92,7 +92,7 @@ def _configure(
     directory: Path,
     payload: ResultsPayload,
     baseline: str | None,
-    capped: bool,
+    is_capped: bool,
 ) -> EvalTierTarget:
     directory.mkdir(parents=True, exist_ok=True)
     _prepare_baseline(directory, baseline)
@@ -100,7 +100,7 @@ def _configure(
     monkeypatch.setattr(eval_gate_flow, "RESULTS_DIR", directory / "results")
     monkeypatch.setattr(eval_gate_flow, "CASES", [object()] * payload.case_count)
     monkeypatch.setattr(eval_gate_flow, "ALL_CASES", [object()] * payload.case_count)
-    monkeypatch.setattr(eval_gate_flow, "CAPPED", capped)
+    monkeypatch.setattr(eval_gate_flow, "CAPPED", is_capped)
     monkeypatch.setattr(eval_gate_flow, "DATASET_NAME", payload.dataset)
     monkeypatch.setattr(eval_gate_flow, "METRIC_NAMES", list(payload.scores))
     return EvalTierTarget(object(), object, _LAYER, payload.tier, "fixture")
@@ -149,9 +149,9 @@ def test_finish_cli_report_golden_and_entry_verdicts(
     expected_exit: int,
 ) -> None:
     monkeypatch.delenv("EVAL_SMOKE", raising=False)
-    payload, baseline, capped = _fixture(fixture_name)
+    payload, baseline, is_capped = _fixture(fixture_name)
     direct_target = _configure(
-        monkeypatch, tmp_path / "direct", payload, baseline, capped
+        monkeypatch, tmp_path / "direct", payload, baseline, is_capped
     )
     failures = finish_cli_report(_report(payload), direct_target, _MODEL)
 
@@ -163,12 +163,12 @@ def test_finish_cli_report_golden_and_entry_verdicts(
         assert established.scores == payload.scores
 
     runner_target = _configure(
-        monkeypatch, tmp_path / "runner", payload, baseline, capped
+        monkeypatch, tmp_path / "runner", payload, baseline, is_capped
     )
     assert _finish_report(_report(payload), runner_target, _MODEL) == expected_exit
 
     pytest_target = _configure(
-        monkeypatch, tmp_path / "pytest", payload, baseline, capped
+        monkeypatch, tmp_path / "pytest", payload, baseline, is_capped
     )
     if expected_failures is None:
         with pytest.raises(pytest.skip.Exception):
@@ -183,20 +183,20 @@ def test_finish_cli_report_golden_and_entry_verdicts(
 def test_uncapped_all_error_is_failure_in_both_entries(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    payload, baseline, capped = _fixture("all_error")
+    payload, baseline, is_capped = _fixture("all_error")
     direct_target = _configure(
-        monkeypatch, tmp_path / "direct", payload, baseline, capped
+        monkeypatch, tmp_path / "direct", payload, baseline, is_capped
     )
     with pytest.raises(NoEvaluatedCases, match="All cases errored"):
         finish_cli_report(_report(payload), direct_target, _MODEL)
 
     runner_target = _configure(
-        monkeypatch, tmp_path / "runner", payload, baseline, capped
+        monkeypatch, tmp_path / "runner", payload, baseline, is_capped
     )
     assert _finish_report(_report(payload), runner_target, _MODEL) == 1
 
     pytest_target = _configure(
-        monkeypatch, tmp_path / "pytest", payload, baseline, capped
+        monkeypatch, tmp_path / "pytest", payload, baseline, is_capped
     )
     with pytest.raises(pytest.fail.Exception, match="All cases errored"):
         _assert_report(_report(payload), pytest_target, _MODEL)
@@ -205,8 +205,8 @@ def test_uncapped_all_error_is_failure_in_both_entries(
 def test_missing_baseline_golden_creates_schema_v2_record(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    payload, baseline, capped = _fixture("missing_baseline")
-    target = _configure(monkeypatch, tmp_path, payload, baseline, capped)
+    payload, baseline, is_capped = _fixture("missing_baseline")
+    target = _configure(monkeypatch, tmp_path, payload, baseline, is_capped)
 
     assert finish_cli_report(_report(payload), target, _MODEL) is None
 

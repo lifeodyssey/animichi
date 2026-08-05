@@ -19,7 +19,7 @@ class _FakeStep:
     """Minimal stand-in matching `_StepLike`'s structural shape."""
 
     tool: str
-    success: bool
+    is_success: bool
     params: dict[str, object] = field(default_factory=dict)
     data: dict[str, object] | None = None
 
@@ -45,7 +45,7 @@ def _selected_route_payload(*points: PilgrimagePoint) -> dict[str, object]:
 
 def test_recorder_derives_pacing_from_a_successful_plan_route_step() -> None:
     ledger = FactLedger()
-    steps = [_FakeStep(tool="plan_route", success=True, params={"pacing": "packed"})]
+    steps = [_FakeStep(tool="plan_route", is_success=True, params={"pacing": "packed"})]
 
     record_turn_facts(ledger, steps, now=_NOW)
 
@@ -59,7 +59,7 @@ def test_recorder_derives_scene_references_from_the_real_producer_shape() -> Non
     steps = [
         _FakeStep(
             tool="plan_selected",
-            success=True,
+            is_success=True,
             data=_selected_route_payload(_point()),
         )
     ]
@@ -81,7 +81,7 @@ def test_recorder_ignores_the_catalog_sentinel_for_no_episode() -> None:
     steps = [
         _FakeStep(
             tool="plan_selected",
-            success=True,
+            is_success=True,
             data=_selected_route_payload(_point(episode=-1, time_seconds=-1)),
         )
     ]
@@ -95,9 +95,9 @@ def test_recorder_records_nothing_for_ledger_irrelevant_steps() -> None:
     """A run whose steps carry no ledger-relevant tool output records nothing."""
     ledger = FactLedger()
     steps = [
-        _FakeStep(tool="resolve_anime", success=True, params={"title": "Haruhi"}),
-        _FakeStep(tool="search_bangumi", success=True, params={"bangumi_id": "1"}),
-        _FakeStep(tool="plan_route", success=False, params={"pacing": "packed"}),
+        _FakeStep(tool="resolve_anime", is_success=True, params={"title": "Haruhi"}),
+        _FakeStep(tool="search_bangumi", is_success=True, params={"bangumi_id": "1"}),
+        _FakeStep(tool="plan_route", is_success=False, params={"pacing": "packed"}),
     ]
 
     record_turn_facts(ledger, steps, now=_NOW)
@@ -108,8 +108,8 @@ def test_recorder_records_nothing_for_ledger_irrelevant_steps() -> None:
 def test_recorder_ignores_a_missing_or_non_string_pacing_argument() -> None:
     ledger = FactLedger()
     steps = [
-        _FakeStep(tool="plan_route", success=True, params={}),
-        _FakeStep(tool="plan_route", success=True, params={"pacing": 7}),
+        _FakeStep(tool="plan_route", is_success=True, params={}),
+        _FakeStep(tool="plan_route", is_success=True, params={"pacing": 7}),
     ]
 
     record_turn_facts(ledger, steps, now=_NOW)
@@ -124,7 +124,7 @@ def test_recorder_retires_a_point_dropped_from_a_later_turn() -> None:
     first_turn = [
         _FakeStep(
             tool="plan_selected",
-            success=True,
+            is_success=True,
             data=_selected_route_payload(
                 _point(id="p1"), _point(id="p2", name="別の場所")
             ),
@@ -135,7 +135,7 @@ def test_recorder_retires_a_point_dropped_from_a_later_turn() -> None:
     second_turn = [
         _FakeStep(
             tool="plan_selected",
-            success=True,
+            is_success=True,
             data=_selected_route_payload(_point(id="p1")),
         )
     ]
@@ -148,7 +148,7 @@ def test_recorder_uses_the_caller_supplied_clock_not_a_live_one() -> None:
     """Mock-the-clock: `now` is caller-supplied, never read internally."""
     ledger = FactLedger()
     fixed = datetime(2020, 1, 1, tzinfo=UTC)
-    steps = [_FakeStep(tool="plan_route", success=True, params={"pacing": "chill"})]
+    steps = [_FakeStep(tool="plan_route", is_success=True, params={"pacing": "chill"})]
 
     record_turn_facts(ledger, steps, now=fixed)
 
@@ -166,7 +166,7 @@ def test_recorder_performs_zero_model_calls(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr("httpx.AsyncClient.request", _forbidden_request)
     ledger = FactLedger()
-    steps = [_FakeStep(tool="plan_route", success=True, params={"pacing": "chill"})]
+    steps = [_FakeStep(tool="plan_route", is_success=True, params={"pacing": "chill"})]
 
     record_turn_facts(ledger, steps, now=_NOW)
 

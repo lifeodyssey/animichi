@@ -143,7 +143,7 @@ async def test_place_ambiguity_stages_coords_and_pending_in_same_outcome() -> No
         (35.0, 139.0),
     ]
     assert deps.tool_state.session.geocode_staging is None
-    assert deps.steps[-1].success is True
+    assert deps.steps[-1].is_success is True
     assert isinstance(deps.steps[-1].provenance, RejectedSearch)
 
 
@@ -155,7 +155,7 @@ async def test_route_never_uses_hidden_last_result_default() -> None:
         deps, "plan_route", {"search_result_ref": "missing-ref"}, outcome
     )
     assert outcome.status == "stale_ref"
-    assert deps.steps[-1].success is True
+    assert deps.steps[-1].is_success is True
     assert isinstance(deps.steps[-1].provenance, RejectedRoute)
 
 
@@ -171,7 +171,7 @@ async def test_empty_route_is_a_successful_typed_step() -> None:
         deps, "plan_route", {"search_result_ref": str(ref)}, outcome
     )
 
-    assert (outcome.status, deps.steps[-1].success) == ("empty", True)
+    assert (outcome.status, deps.steps[-1].is_success) == ("empty", True)
     assert isinstance(deps.steps[-1].provenance, RejectedRoute)
 
 
