@@ -64,7 +64,7 @@
 - [ ] repo 级 `.claude/skills/`(4 个 tracked)自述与源码一致(复核记录);user 级(~/.claude)
       Vercel 系/过时 skill 清理列 manual-ops 完成
 - [ ] 4 角色定义重写并与现行政策一致
-- [ ] `workflow.md` 单页上线(机器可执行判据)
+- [ ] `docs/workflow.md` 单页上线(机器可执行判据;AGENTS.md 一行指针,不进 .claude/rules)
 - [ ] 任务单 schema + `make visual-check` 首个任务原子可参数化调用成功
 
 ## G. 命名
