@@ -282,6 +282,8 @@ jobs:
           command: preview
           stack-name: staging
           work-dir: infra
+          # Self-managed S3/R2 backend — without this the action demands a Pulumi Cloud token.
+          cloud-url: ${{ secrets.PULUMI_BACKEND_URL }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
