@@ -35,7 +35,8 @@
       "testcontainers>undici": "8.9.0",
       "miniflare>undici": "7.29.0",
       "jsdom>undici": "7.29.0",
-      "@ai-sdk/provider-utils>undici": "7.29.0"
+      "@ai-sdk/provider-utils>undici": "7.29.0",
+      "tmp": ">=0.2.6"
     }
   },
   "devDependencies": {
