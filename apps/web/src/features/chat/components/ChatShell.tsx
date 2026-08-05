@@ -64,11 +64,7 @@ function ColdStartGate(props: BodyProps) {
 
 function HistoryLoadingGate({ history, dict }: Readonly<{ history: ConversationHistory; dict: ChatDict }>) {
   if (history.status !== "loading") return null;
-  return (
-    <p className="chat-history-loading" role="status" aria-busy="true">
-      {dict.preparing}
-    </p>
-  );
+  return <p className="chat-history-loading" role="status" aria-busy="true">{dict.preparing}</p>;
 }
 
 function ChatMessages({ chat, dict }: Readonly<{ chat: ChatSession; dict: ChatDict }>) {
@@ -76,13 +72,31 @@ function ChatMessages({ chat, dict }: Readonly<{ chat: ChatSession; dict: ChatDi
   return <MessageList messages={chat.messages} dict={dict} status={chat.status} settledDurationMs={settledDurationMs} />;
 }
 
+/** The four stream-phase components; `ScrollAnchor` (last in `.chat-body`)
+ * keeps the live region announced in order after the ritual. */
+function StreamRegion(props: BodyProps) {
+  return (
+    <>
+      <ColdStartGate {...props} />
+      <ChatMessages chat={props.chat} dict={props.dict} />
+      <TurnFailure view={props.failure} dict={props.dict} locale={props.locale} onOpenSettings={props.byok.show} />
+      <WaitingRitual status={props.chat.status} dict={props.dict} messages={props.chat.messages} />
+    </>
+  );
+}
+
+function ScrollAnchor(props: BodyProps) {
+  const ref = useScrollAnchor(props.history.entries.length + props.chat.messages.length);
+  return <div ref={ref} aria-hidden="true" />;
+}
+
 function ChatBody(props: BodyProps) {
-  const anchor = useScrollAnchor(props.history.entries.length + props.chat.messages.length);
   return (
     <section className="chat-body">
       <HistoryLoadingGate history={props.history} dict={props.dict} />
       <HistoryList entries={props.history.entries} dict={props.dict} />
-      <ColdStartGate {...props} /><ChatMessages chat={props.chat} dict={props.dict} /><TurnFailure view={props.failure} dict={props.dict} locale={props.locale} onOpenSettings={props.byok.show} /><WaitingRitual status={props.chat.status} dict={props.dict} messages={props.chat.messages} /><div ref={anchor} aria-hidden="true" />
+      <StreamRegion {...props} />
+      <ScrollAnchor {...props} />
     </section>
   );
 }
@@ -128,10 +142,16 @@ function DepartureGate({ departure, dict }: Readonly<{ departure: DeparturePromp
   );
 }
 
+/** Entry A5 (soft-locked) shows the retry banner above the history error. */
+function A5RetryGate(props: ChatShellProps) {
+  if (props.entry !== "A5") return null;
+  return <ErrorBanner dict={props.dict} onRetry={props.onRetry} />;
+}
+
 function ShellNotices(props: ChatShellProps) {
   return (
     <>
-      {props.entry === "A5" ? <ErrorBanner dict={props.dict} onRetry={props.onRetry} /> : null}
+      <A5RetryGate {...props} />
       <HistoryErrorGate history={props.history} dict={props.dict} />
     </>
   );
