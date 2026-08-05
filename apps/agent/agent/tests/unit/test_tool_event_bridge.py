@@ -111,7 +111,7 @@ async def test_hook_recovered_exception_emits_error_without_failed_step() -> Non
 
 def _assert_failed(deps: RuntimeDeps, events: list[StepEvent]) -> None:
     assert events[-1].status == "error"
-    assert (deps.steps[0].success, deps.steps[0].error) == (
+    assert (deps.steps[0].is_success, deps.steps[0].error) == (
         False,
         "Tool execution failed",
     )

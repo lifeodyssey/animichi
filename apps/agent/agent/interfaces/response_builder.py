@@ -148,7 +148,7 @@ def agent_result_to_response(
     """Map one server-owned result into the stable public contract."""
     data = _response_data(result)
     component = _UI_MAP.get(result.intent)
-    failed = [step for step in result.steps if not step.success and step.error]
+    failed = [step for step in result.steps if not step.is_success and step.error]
     errors = [
         *(_step_error(step, include_debug) for step in failed),
         *_agent_error_entry(result),
@@ -186,7 +186,7 @@ def serialize_step_record(step: StepRecord) -> JsonObject:
     """Serialize one step for opt-in debug output."""
     serialized: dict[str, object] = {
         "tool": step.tool,
-        "success": step.success,
+        "success": step.is_success,
         "error": step.error,
         "data": step.data,
         "model_initiated": step.model_initiated,

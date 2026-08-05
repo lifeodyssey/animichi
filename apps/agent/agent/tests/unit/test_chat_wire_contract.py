@@ -136,7 +136,7 @@ def _candidate() -> OrderedCandidate:
 
 def _run_parser(input_text: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["node", "--import", "tsx", "chat_wire_parser.ts"],
+        ["node", "--import", "tsx", "chat-wire-parser.ts"],
         cwd=_UNIT_DIR,
         input=input_text,
         text=True,
@@ -146,7 +146,7 @@ def _run_parser(input_text: str) -> subprocess.CompletedProcess[str]:
 
 def _run_warmup() -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["node", "--import", "tsx", "chat_wire_parser.ts", "--warm"],
+        ["node", "--import", "tsx", "chat-wire-parser.ts", "--warm"],
         cwd=_UNIT_DIR,
         text=True,
         capture_output=True,

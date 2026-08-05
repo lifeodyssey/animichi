@@ -100,8 +100,8 @@ def _validated_bytes(image_base64: str) -> bytes:
     return image
 
 
-def _quota_tier_for(authenticated: bool) -> QuotaTier:
-    return "member" if authenticated else "anon"
+def _quota_tier_for(is_authenticated: bool) -> QuotaTier:
+    return "member" if is_authenticated else "anon"
 
 
 def _quota_guidance(has_byok: bool) -> GuidancePremise:
@@ -159,7 +159,7 @@ async def _budget_rejection(
         usage_repo(request.app.state.db_client),
         budget_usd=settings.anon_daily_cost_budget_usd,
     )
-    if not verdict.exhausted:
+    if not verdict.is_exhausted:
         return None
     return JSONResponse(
         status_code=403,
@@ -180,7 +180,7 @@ def _byok_login_rejection(
 
     Routes through `is_anonymous_identity` — the single canonical "is this
     caller anonymous" predicate (also used below by `_scope_user_type`'s
-    sibling logic and by the route's own `authenticated` computation) —
+    sibling logic and by the route's own `is_authenticated` computation) —
     rather than a bare `user_type != ANONYMOUS_USER_TYPE` check. A literal
     check only catches a caller whose `X-User-Type` is exactly
     `"anonymous"`; an `anon_`-prefixed `X-User-Id` with a missing or
