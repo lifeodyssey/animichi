@@ -5,10 +5,14 @@ export const SSE_HEADERS = {
   "x-vercel-ai-ui-message-stream": "v1",
 };
 
+function enqueueText(controller: ReadableStreamDefaultController<Uint8Array>, text: string): void {
+  controller.enqueue(new TextEncoder().encode(text));
+}
+
 function sseBody(text: string, close: boolean): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {
-      controller.enqueue(new TextEncoder().encode(text));
+      enqueueText(controller, text);
       if (close) controller.close();
     },
   });
@@ -23,7 +27,7 @@ export function sseResponse(
 
 export function flushTail(controller: ReadableStreamDefaultController<Uint8Array>, tail: string): void {
   try {
-    controller.enqueue(new TextEncoder().encode(tail));
+    enqueueText(controller, tail);
     controller.close();
   } catch {
     // The consumer aborted the stream first: the late frame has nowhere to go.
@@ -48,7 +52,7 @@ export function heldSse(head: string, tail: string): HeldSse {
   let flush: () => void = () => undefined;
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
-      controller.enqueue(new TextEncoder().encode(head));
+      enqueueText(controller, head);
       flush = heldTailFlush(controller, tail);
     },
   });
