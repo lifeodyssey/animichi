@@ -177,7 +177,19 @@ re-deploy. Worth converging on in that step: `workers/users` derives its issuer 
 via `issuerFromJwksUrl()` (`workers/users/src/auth/jwt.ts`), while the edge needs a separate
 plaintext issuer var — the edge's split-var design is the root cause of this placeholder gap.
 
-What is genuinely in place: `NEON_AUTH_JWKS_URL` provisioned as a staging+production secret (#527);
+What is genuinely in place — `NEON_AUTH_JWKS_URL` is **dual-source**, and the two sources feed
+different consumers (rotate the right one):
+- **Checked-in var** — `[env.staging.vars]` in `wrangler.toml` (line 308), pinned by
+  `workers/edge/authConfig.test.ts`; consumed **only** by the edge worker's staging dual-issuer
+  path (`workers/edge/auth.ts`). Root `[vars]`/`[env.production.vars]` leave it empty and the root
+  worker's `worker_secrets` lists never upload a JWKS secret, so the edge worker has no Neon path
+  in production.
+- **Environment secret (#527, staging + production)** — consumed **only** by `workers/users`:
+  `ci.yml` (staging + production) and `deploy.yml` (production) upload it to that Worker via
+  `worker_secrets`, and `workers/users/src/index.ts` reads it at runtime (deriving the issuer via
+  `issuerFromJwksUrl()`). It is not forwarded to the agent container (`CONTAINER_ENV_KEYS` does
+  not list it) and is not legacy — `workers/users` is its live consumer.
+
 `apps/web` Better Auth client and the `workers/users` EdDSA verification are already Neon-capable.
 
 **Tests (edge, `workers/edge/auth-neon.test.ts`, mock JWKS via jose):** flag absent/false reject
