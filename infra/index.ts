@@ -123,6 +123,45 @@ if (webRoutesEnabled) {
     script: edgeScript,
   }, { deleteBeforeReplace: true });
 
+  // Legacy-domain 301s (seo-geo-plan §3 item 2 / iter-0 AC): the retired
+  // production domains (`seichijunrei.app`, `seichijunrei.zhenjia.dev`; and
+  // `aninavi.app` if held) 301 onto the canonical apex with path + query
+  // preserved. Each legacy domain must be its own Cloudflare zone (DNS
+  // delegated to CF — a manual-ops step, #545), so the config lists *zone
+  // ids*, not domains: a rule in the animichi.com zone cannot match a
+  // hostname another zone owns. Absent/empty config is a deliberate no-op
+  // until an owner onboards a legacy domain; the ruleset appears in the
+  // legacy zone only, and `expression: "true"` matches every request there
+  // because that zone exists solely to redirect.
+  if (stack === "prod") {
+    for (const [index, legacyZoneId] of (config.getObject<string[]>("legacyRedirectZones") ?? []).entries()) {
+      new cloudflare.Ruleset(`animichi-legacy-redirect-${index}`, {
+        zoneId: legacyZoneId,
+        name: `animichi legacy redirect ${index}`,
+        kind: "zone",
+        phase: "http_request_dynamic_redirect",
+        description: "301 the legacy domain onto the canonical apex.",
+        rules: [
+          {
+            action: "redirect",
+            expression: "true",
+            description: "301 every path onto the corresponding animichi.com path.",
+            enabled: true,
+            actionParameters: {
+              fromValue: {
+                statusCode: 301,
+                preserveQueryString: true,
+                targetUrl: {
+                  expression: `concat("https://animichi.com", http.request.uri.path)`,
+                },
+              },
+            },
+          },
+        ],
+      });
+    }
+  }
+
   // `www` is prod-only: there is no `www.staging.animichi.com`.
   if (stack === "prod") {
     const wwwDomain = config.require("wwwDomain");

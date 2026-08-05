@@ -6,9 +6,10 @@ import { LOCALES } from "../../i18n/locales";
  * canonical, `www` 301s onto it).
  *
  * It is a constant rather than a `VITE_*` read on purpose: `VITE_*` values are
- * inlined at build time and none are injected in this app's builds today
- * (#506), so an env-driven origin would silently resolve to `""` and ship
- * relative canonicals. `public/robots.txt` and `public/sitemap.xml` are copied
+ * inlined at build time, and the origin variable the deploy injects
+ * (`VITE_SITE_ORIGIN`) feeds the API base URLs, not SEO meta — reusing it for
+ * the canonical would silently ship relative canonicals on any build where the
+ * var is unset (`""`). `public/robots.txt` and `public/sitemap.xml` are copied
  * verbatim and cannot be templated at all, so the origin has to be a literal
  * somewhere; keeping exactly one literal — asserted by a test — makes a future
  * domain change a one-line edit.
