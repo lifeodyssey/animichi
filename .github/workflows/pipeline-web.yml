@@ -136,3 +136,28 @@ jobs:
           for _ in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8799/ && break; sleep 1; done
           E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts
           kill "$WRANGLER_PID"
+
+  lighthouse:
+    name: Web / lighthouse
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    # Reuses the build artifact; the config (apps/web/lighthouserc.cjs) asserts
+    # CLS (blocking) and LCP (warn-only). Not in any required-checks ruleset
+    # yet — report-only until real-world numbers exist (S0-v2 C5).
+    needs: [build]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Download build artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: bundle-web-${{ github.sha }}
+          path: ${{ runner.temp }}/downloaded-web-artifact
+      - name: Restore build output
+        run: tar -C apps/web -xzf "$RUNNER_TEMP/downloaded-web-artifact/web-output.tar.gz"
+      - name: Lighthouse CI (CLS gate, LCP warn)
+        run: pnpm --filter web exec lhci autorun --config=./lighthouserc.cjs
