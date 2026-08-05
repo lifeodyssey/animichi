@@ -275,15 +275,21 @@ jobs:
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "::warning title=pulumi preview skipped::Pulumi preview prerequisites are not fully configured; missing: ${missing[*]}. The deploy path will still take a pre-up state backup, but infra changes merge without a plan diff."
           fi
-      - name: Pulumi preview (staging)
+      # Installs the Pulumi CLI onto PATH without running a command (omitting
+      # `command:` is the documented install-only mode) so the plain `pulumi`
+      # steps below can use it.
+      - name: Install Pulumi CLI
         if: ${{ steps.pulumi_gate.outputs.ready == 'true' }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
-        with:
-          command: preview
-          stack-name: staging
-          work-dir: infra
-          # Self-managed S3/R2 backend — without this the action demands a Pulumi Cloud token.
-          cloud-url: ${{ secrets.PULUMI_BACKEND_URL }}
+      - name: Pulumi preview (staging)
+        if: ${{ steps.pulumi_gate.outputs.ready == 'true' }}
+        working-directory: infra
+        # pulumi/actions' automation-api login chokes on the query-string s3:// R2
+        # backend URL ('unknown backend cloudUrl format'); the CLI login is the same proven path the deploy uses.
+        run: |
+          pulumi login "$PULUMI_BACKEND_URL"
+          pulumi stack select staging
+          pulumi preview --non-interactive --diff
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
