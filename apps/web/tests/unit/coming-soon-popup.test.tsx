@@ -77,9 +77,16 @@ describe("ComingSoonPopup keyboard traversal", () => {
 });
 
 describe("ComingSoonPopup focus management", () => {
-  it("moves focus to the first focusable when it opens", () => {
+  it("moves focus onto the dialog container when it opens", () => {
     renderWithLocale(<ComingSoonPopup open onClose={vi.fn()} />);
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "とじる" }));
+    expect(document.activeElement).toBe(screen.getByRole("dialog"));
+  });
+
+  it("lets Tab pass through when the dialog has no focusable elements", () => {
+    renderWithLocale(<ComingSoonPopup open onClose={vi.fn()} />);
+    for (const button of screen.getAllByRole("button")) button.remove();
+    const propagated = fireEvent.keyDown(screen.getByRole("dialog"), { key: "Tab" });
+    expect(propagated).toBe(true);
   });
 
   it("wraps Tab focus around the dialog edges", () => {
