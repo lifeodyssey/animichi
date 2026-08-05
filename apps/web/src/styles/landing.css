@@ -486,6 +486,12 @@
   padding: 14px 16px 0;
 }
 
+.mobile-fox__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .mobile-fox__badge {
   display: grid;
   place-items: center;
@@ -494,6 +500,13 @@
   border: 2px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-card);
+}
+
+.mobile-fox__wordmark {
+  color: var(--color-muted-fg);
+  font-weight: 900;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
 }
 
 .mobile-fox__bar-actions {
@@ -515,6 +528,7 @@
 
 .mobile-fox__guide {
   position: absolute;
+  z-index: 2;
   right: 14px;
   bottom: -12px;
   display: flex;
@@ -523,27 +537,25 @@
   gap: 10px;
 }
 
+.mobile-fox__stickers {
+  position: absolute;
+  z-index: 1;
+  right: 3%;
+  bottom: 30%;
+  width: 30%;
+  opacity: 0.96;
+}
+
 .mobile-fox__bubble {
   position: relative;
   margin: 0 0 0 -64px;
   padding: 9px 22px;
-  border-radius: 999px;
+  border-radius: 18px 18px 6px 18px;
   background: var(--color-card);
   color: var(--color-fg);
   font-weight: 800;
   font-size: 1.05rem;
   box-shadow: 0 3px 10px rgb(61 52 40 / 22%);
-}
-
-.mobile-fox__bubble::after {
-  content: "";
-  position: absolute;
-  bottom: -5px;
-  left: 50%;
-  width: 12px;
-  height: 12px;
-  background: var(--color-card);
-  transform: translateX(-50%) rotate(45deg);
 }
 
 .mobile-fox__fox {
@@ -603,10 +615,10 @@
   box-shadow: none;
 }
 
-.mobile-fox__map {
+.mobile-fox__stamp {
   display: grid;
   place-items: center;
-  width: 56px;
+  flex: 0 0 70px;
   border: 2px solid var(--color-border);
   border-radius: 16px;
   background: var(--color-card);

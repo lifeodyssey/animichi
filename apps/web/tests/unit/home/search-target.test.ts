@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { chatSearchTarget, makeSearchHandler } from "../../../src/components/home/search-target";
+import { chatSearchPath, chatSearchTarget, makeSearchHandler } from "../../../src/components/home/search-target";
 
 describe("chatSearchTarget", () => {
   it("builds a /chat A2 target with the trimmed query", () => {
@@ -8,6 +8,21 @@ describe("chatSearchTarget", () => {
 
   it("returns null for a blank query so no navigation fires", () => {
     expect(chatSearchTarget("   ")).toBeNull();
+  });
+});
+
+describe("chatSearchPath", () => {
+  it("serializes a query to an encoded /chat?q= path for the landing return-target", () => {
+    expect(chatSearchPath("  Your Name  ")).toBe("/chat?q=Your%20Name");
+  });
+
+  it("percent-encodes non-ASCII queries so ?q= survives the mailed link", () => {
+    expect(chatSearchPath("君の名は。")).toBe(`/chat?q=${encodeURIComponent("君の名は。")}`);
+  });
+
+  it("returns undefined for a blank query so no return target rides the login", () => {
+    expect(chatSearchPath("")).toBeUndefined();
+    expect(chatSearchPath("   ")).toBeUndefined();
   });
 });
 
