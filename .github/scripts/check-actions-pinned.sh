@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Supply-chain pinning gate (S0-v2 B3): every `uses:` in
-# .github/workflows/*.yml and .github/actions/**/*.yml must reference a full
-# 40-char commit SHA. Local `./` action/workflow paths are allowed; `docker://`
-# images cannot be SHA-pinned and are allowed only with a trailing `#` comment.
-# Commented-out YAML lines (e.g. CodeQL's `# uses: actions/setup-example@v1`
-# example) are ignored.
+# .github/workflows/*.yml|*.yaml and .github/actions/**/*.yml|*.yaml must
+# reference a full 40-char commit SHA. Local `./` action/workflow paths are
+# allowed; `docker://` images cannot be SHA-pinned and are allowed only with a
+# trailing `#` comment. `uses:` is recognized only at the start of a YAML
+# mapping entry (anchored match), so `run:` scripts merely containing the text
+# and commented-out lines (e.g. CodeQL's `# uses: actions/setup-example@v1`
+# example) are ignored by the same rule.
 #
 # ── Operator toggles — merge-PR body MUST instruct, never do them from code ──
 # 1. Require SHA pinning at repo level (Settings > Actions > General > "Require
@@ -39,23 +41,31 @@ TOTAL_USES=0
 TOTAL_BAD=0
 
 list_workflow_files() {
-  git ls-files ':(glob).github/workflows/*.yml' ':(glob).github/actions/**/*.yml'
+  git ls-files \
+    ':(glob).github/workflows/*.yml' \
+    ':(glob).github/workflows/*.yaml' \
+    ':(glob).github/actions/**/*.yml' \
+    ':(glob).github/actions/**/*.yaml'
 }
 
-# A `uses:` that sits on a YAML comment line (anything before it contains '#')
-# is not live config and must be ignored.
-line_uses_commented() {
-  local line="$1"
-  case "${line%%uses:*}" in
-    *'#'*) return 0 ;;
-  esac
-  return 1
-}
-
-# Prints the `uses:` value (everything up to the first '#' or whitespace).
+# Prints the `uses:` value (everything up to the first whitespace). A '#'
+# glued to the value (e.g. docker://img#frag) is part of the ref, not a
+# comment, matching YAML's whitespace-separated comment rule.
 uses_ref() {
   local line="$1"
-  printf '%s' "${line#*uses:}" | sed 's/^[[:space:]]*//; s/[[:space:]#].*//'
+  printf '%s' "${line#*uses:}" | sed 's/^[[:space:]]*//; s/[[:space:]].*//'
+}
+
+# True when a real YAML trailing comment (a '#' preceded by whitespace)
+# follows the ref. A '#' inside a quoted value or glued to the ref is not a
+# comment and must not satisfy the docker:// exemption.
+line_has_trailing_comment() {
+  local line="$1" ref="$2" rest
+  rest="${line#*"${ref}"}"
+  case "${rest}" in
+    *[[:space:]]#*) return 0 ;;
+  esac
+  return 1
 }
 
 bad() {
@@ -65,14 +75,17 @@ bad() {
 }
 
 check_line() {
-  local file="$1" line_no="$2" line="$3" ref="$4" has_comment=0
-  case "${line}" in
-    *'#'*) has_comment=1 ;;
-  esac
+  local file="$1" line_no="$2" line="$3" ref="$4"
   case "${ref}" in
+    \"*|\'*)
+      bad "${file}" "${line_no}" "uses: ${ref} — quoted value; write the ref unquoted"
+      return 0
+      ;;
     ./*) return 0 ;;
     docker://*)
-      if [ "${has_comment}" -eq 1 ]; then return 0; fi
+      if line_has_trailing_comment "${line}" "${ref}"; then
+        return 0
+      fi
       bad "${file}" "${line_no}" "uses: ${ref} — docker:// cannot be SHA-pinned; add a trailing '# pinned by <image>@<digest>' comment"
       return 0
       ;;
@@ -91,10 +104,9 @@ check_line() {
 check_file() {
   local file="$1" line_no line
   while IFS=: read -r line_no line; do
-    line_uses_commented "${line}" && continue
     TOTAL_USES=$((TOTAL_USES + 1))
     check_line "${file}" "${line_no}" "${line}" "$(uses_ref "${line}")"
-  done < <(grep -n 'uses:' "${file}")
+  done < <(grep -nE '^[[:space:]]*(-[[:space:]]*)?uses:[[:space:]]+' -- "${file}")
 }
 
 main() {
