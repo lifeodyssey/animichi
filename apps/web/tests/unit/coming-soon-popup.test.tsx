@@ -24,6 +24,17 @@ describe("ComingSoonPopup", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+});
+
+describe("ComingSoonPopup keyboard traversal", () => {
+  it("leaves Tab alone when focus is not at the trap edge", () => {
+    renderWithLocale(<ComingSoonPopup open onClose={vi.fn()} />);
+    const close = screen.getByRole("button", { name: "とじる" });
+    close.focus();
+    fireEvent.keyDown(close, { key: "Tab" });
+    expect(document.activeElement).toBe(close);
+  });
+
   it("renders nothing while closed", () => {
     renderWithLocale(<ComingSoonPopup open={false} onClose={vi.fn()} />);
     expect(screen.queryByRole("dialog")).toBeNull();
