@@ -4,15 +4,32 @@
  * Two read queries over the raw zone + `ingest_jobs`:
  *   - listDoneWorkIds: the checked-in seed works that already carry a `done`
  *     ingest_jobs row — the daily seed pass skips them so re-runs are no-ops.
- *   - listStaleWorkIds: the works whose raw rows are the OLDEST, capped at
- *     `cap` — the hourly TTL pass re-ingests exactly these, so every raw
- *     payload is eventually refreshed without stampeding upstream.
+ *   - listStaleWorkIds: the works whose WEAKEST raw fetch is the OLDEST,
+ *     capped at `cap`. A work is only fresh when both sources were fetched
+ *     recently; a missing source row reads as infinitely old. Works behind a
+ *     live failure negative-cache are excluded, and a TTL floor stops the
+ *     refresh pass from re-picking everything every hour.
  *
  * Writes only flow through the existing pipeline (orchestrator/raw-store);
  * these reads go through raw `sql` execute, consistent with the ingest layer.
  */
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
+
+/** TTL freshness floor: works whose weakest fetch is younger than this are not stale. */
+export const STALE_AFTER_SECONDS = 24 * 60 * 60;
+
+/**
+ * A work's freshness: the WEAKER of its two source fetches. A source with no
+ * raw row at all reads as `-infinity`, so a missing source keeps the work
+ * stale instead of hiding behind the other source's fresh fetch.
+ */
+const WEAKEST_FRESHNESS = sql`
+  LEAST(
+    COALESCE(a.fetched_at, '-infinity'),
+    COALESCE(b.fetched_at, '-infinity')
+  )
+`;
 
 /** Work ids with a `done` ingest_jobs row; empty input yields an empty set. */
 export async function listDoneWorkIds(
@@ -28,27 +45,28 @@ export async function listDoneWorkIds(
   return new Set(workIdsOf(result.rows));
 }
 
-/**
- * The `cap` works with the oldest newest-fetch across both raw tables
- * (a work's freshness is the max of its raw_anitabi/raw_bangumi fetched_at).
- */
-export async function listStaleWorkIds(db: CatalogDb, cap: number): Promise<readonly string[]> {
+/** The `cap` stalest works past the TTL floor; live negative caches are skipped. */
+export async function listStaleWorkIds(
+  db: CatalogDb,
+  cap: number,
+  maxAgeSeconds: number = STALE_AFTER_SECONDS,
+): Promise<readonly string[]> {
   assertPositiveCap(cap);
-  const result = await db.execute(sql`
-    SELECT work_id
-    FROM (
-      SELECT work_id, MAX(fetched_at) AS newest_fetch
-      FROM (
-        SELECT work_id, fetched_at FROM raw_anitabi
-        UNION ALL
-        SELECT work_id, fetched_at FROM raw_bangumi
-      ) raw_rows
-      GROUP BY work_id
-    ) staleness
-    ORDER BY staleness.newest_fetch ASC
+  const rows = (await db.execute(staleWorksSql(cap, maxAgeSeconds))).rows;
+  return workIdsOf(rows);
+}
+
+/** Stale-set query: staleness is the weaker source fetch (missing row = -infinity). */
+function staleWorksSql(cap: number, maxAgeSeconds: number): SQL {
+  return sql`
+    SELECT staleness.work_id
+    FROM (SELECT work_id, ${WEAKEST_FRESHNESS} AS freshness
+      FROM raw_anitabi a FULL OUTER JOIN raw_bangumi b USING (work_id)) staleness
+    WHERE staleness.freshness < NOW() - make_interval(secs => ${maxAgeSeconds})
+      AND NOT EXISTS (SELECT 1 FROM ingest_jobs j WHERE j.work_id = staleness.work_id AND j.negative_cached_until > NOW())
+    ORDER BY staleness.freshness ASC
     LIMIT ${cap}
-  `);
-  return workIdsOf(result.rows);
+  `;
 }
 
 /** The cap is interpolated into a LIMIT clause — never interpolate raw input. */

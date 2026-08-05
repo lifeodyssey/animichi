@@ -217,15 +217,23 @@ async function ingestBatch(
 ): Promise<CronJobResult> {
   let ingested = 0;
   for (const workId of workIds) {
-    let success = false;
-    try {
-      success = (await dependencies.ingestWork(db, workId)).status === "ingested";
-    } catch (err) {
-      console.error(`[cron] ingest failed for work ${workId}: ${String(err)}`);
-    }
-    if (success) ingested++;
+    if (await ingestOne(db, dependencies, workId)) ingested++;
   }
   return { attempted: workIds.length, ingested, skipped: workIds.length - ingested };
+}
+
+/** One work's ingest, throwing-free — a failure counts as skipped, the batch continues. */
+async function ingestOne(
+  db: CatalogDb,
+  dependencies: CronDependencies,
+  workId: string,
+): Promise<boolean> {
+  try {
+    return (await dependencies.ingestWork(db, workId)).status === "ingested";
+  } catch (err) {
+    console.error(`[cron] ingest failed for work ${workId}: ${String(err)}`);
+    return false;
+  }
 }
 
 export default {
