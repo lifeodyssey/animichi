@@ -1,3 +1,8 @@
 node_modules/
 test-results/
 playwright-report/
+# Visual pipeline (S0-v2 C3): generated shots/reports are rebuildable.
+# canonical/ and regression-baselines/ stay committed on purpose.
+visual/canonical-shots/
+visual/app-shots/
+visual/report/
