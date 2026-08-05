@@ -108,6 +108,7 @@ max-complexity = 10
 "agent/tests/**" = ["S101", "S105", "S106", "S108", "S311", "S314", "S607"]
 "agent/config/settings.py" = ["S104"]  # FastAPI container must bind 0.0.0.0; remove with agent→Worker migration (Wave 3)
 "agent/interfaces/routes/health.py" = ["S603"]  # args is always a hardcoded list, not user input
+"agent/tests/atlas_helper.py" = ["S603"]  # argv is the fixed Atlas CLI shape; dsn comes from test fixtures, not user input
 
 [tool.pytest.ini_options]
 # Pytest configuration for Animichi Bot
