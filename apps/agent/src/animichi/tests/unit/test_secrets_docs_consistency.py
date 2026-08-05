@@ -200,6 +200,22 @@ _RETIRED_KEYS_CONFIG_FILES = (
     ROOT / "docs" / "ops" / "deployment.md",
     ROOT / ".env.example",
 )
+_WORKFLOW_GLOBS = ("*.yml", "*.yaml")
+
+
+def _retired_key_sources() -> dict[str, str]:
+    sources = {
+        str(path): path.read_text(encoding="utf-8")
+        for path in _RETIRED_KEYS_CONFIG_FILES
+    }
+    for glob in _WORKFLOW_GLOBS:
+        for path in WORKFLOWS_DIR.rglob(glob):
+            sources[str(path)] = path.read_text(encoding="utf-8")
+    return sources
+
+
+def _retired_key_hits(name: str, sources: dict[str, str]) -> list[str]:
+    return sorted(path for path, text in sources.items() if name in text)
 
 
 def test_retired_model_provider_keys_appear_nowhere() -> None:
@@ -208,15 +224,9 @@ def test_retired_model_provider_keys_appear_nowhere() -> None:
     secrets.md is deliberately excluded from the scan: its "Referenced by
     nothing" table is exactly where retired names wait for `gh secret delete`.
     """
-    sources = {
-        str(path): path.read_text(encoding="utf-8")
-        for path in _RETIRED_KEYS_CONFIG_FILES
-    }
-    for glob in ("*.yml", "*.yaml"):
-        for path in WORKFLOWS_DIR.glob(glob):
-            sources[str(path)] = path.read_text(encoding="utf-8")
+    sources = _retired_key_sources()
     for name in RETIRED_MODEL_PROVIDER_KEYS:
-        hits = sorted(path for path, text in sources.items() if name in text)
+        hits = _retired_key_hits(name, sources)
         assert not hits, (
             f"retired model-provider key {name} reappeared in deploy config: {hits} "
             "— remove it (owner decision #684: MiMo-only)"
