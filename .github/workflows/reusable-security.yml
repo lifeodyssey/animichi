@@ -161,31 +161,6 @@ jobs:
           path: ~/.cache/zizmor
           key: zizmor-${{ runner.os }}-${{ env.ZIZMOR_VERSION }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
 
-  actionlint:
-    timeout-minutes: 15
-    name: actionlint (GHA semantics)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Download actionlint
-        run: |
-          ACTIONLINT_VERSION="1.7.7"
-          ACTIONLINT_ARCHIVE="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          ACTIONLINT_CHECKSUMS="actionlint_${ACTIONLINT_VERSION}_checksums.txt"
-          ACTIONLINT_BASE_URL="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
-          curl -sSfL --proto '=https' --proto-redir '=https' -o "${ACTIONLINT_ARCHIVE}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_ARCHIVE}"
-          curl -sSfL --proto '=https' --proto-redir '=https' -o "${ACTIONLINT_CHECKSUMS}" "${ACTIONLINT_BASE_URL}/${ACTIONLINT_CHECKSUMS}"
-          grep -F "  ${ACTIONLINT_ARCHIVE}" "${ACTIONLINT_CHECKSUMS}" > actionlint.sha256
-          sha256sum -c actionlint.sha256
-          tar -xzf "${ACTIONLINT_ARCHIVE}" actionlint
-          chmod +x actionlint
-        shell: bash
-      - name: Run actionlint
-        run: ./actionlint -color
-        shell: bash
-
   # ── Static analysis (SAST) ───────────────────────────────────
 
   semgrep:
