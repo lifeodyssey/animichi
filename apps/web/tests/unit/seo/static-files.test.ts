@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { INDEXNOW_KEY, INDEXNOW_KEY_FILE } from "../../../src/features/seo/indexnow";
 import { CANONICAL_ORIGIN } from "../../../src/features/seo/site";
 
 /**
@@ -106,6 +107,17 @@ describe("llms.txt", () => {
 
   it("links the canonical home URL so agents resolve the right origin", () => {
     expect(llms).toContain(`](${CANONICAL_ORIGIN}/)`);
+  });
+});
+
+describe("IndexNow key file", () => {
+  it("is 32 hex chars, per the IndexNow key spec", () => {
+    expect(INDEXNOW_KEY).toMatch(/^[0-9a-f]{32}$/u);
+    expect(INDEXNOW_KEY_FILE).toBe(`${INDEXNOW_KEY}.txt`);
+  });
+
+  it("exists at public/<key>.txt with exactly the key constant", () => {
+    expect(readPublic(INDEXNOW_KEY_FILE)).toBe(`${INDEXNOW_KEY}\n`);
   });
 });
 
