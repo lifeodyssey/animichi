@@ -330,6 +330,10 @@ jobs:
         run: bash .github/scripts/check-root-allowlist.test.sh
       - name: Root allowlist check
         run: bash .github/scripts/check-root-allowlist.sh
+      - name: E2E promotion guard self-tests
+        run: bash .github/scripts/check-e2e-promotion.test.sh
+      - name: E2E promotion guard
+        run: bash .github/scripts/check-e2e-promotion.sh
 
   # ── DB migrations (Atlas validation + optional Neon dry-run) ──
 
