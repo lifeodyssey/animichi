@@ -14,13 +14,17 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   ts-ci:
     timeout-minutes: 20
     name: TS CI
     runs-on: ubuntu-latest
+    # Codecov OIDC upload needs id-token: write; job-scoped so the workflow
+    # default stays contents: read (S0-v2 B7 "permissions" assertion).
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
