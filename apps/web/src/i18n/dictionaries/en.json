@@ -90,5 +90,12 @@
     "contact": "Privacy questions or deletion requests",
     "contact_link": "Open an issue on GitHub",
     "back_home": "Back to Animichi"
+  },
+  "coming_soon": {
+    "badge": "Coming soon",
+    "title": "Coming soon",
+    "body": "This feature is still under construction. It will open right up once it's ready — thanks for your patience.",
+    "action": "Got it",
+    "close": "Close"
   }
 }
