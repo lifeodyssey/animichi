@@ -21,6 +21,14 @@
 # go stale, and #541's cutover requires zero edits here: the next run just
 # sees the Custom Domain that now exists and uses it.
 #
+# Resolution order: (1) a Custom Domain attached to the Worker script;
+# (2) workers.dev, when enabled; (3) for the root/edge Worker in staging
+# only, the zone-routed hostname declared in the environment's committed
+# Pulumi stack config (`stagingDomain`) — the root Worker's only staging
+# surface is Pulumi's zone routes once #541 step 6 disables workers.dev,
+# and reading that config is the same live-source-of-truth principle as
+# reading the Worker name from wrangler.toml. Anything left is a loud fail.
+#
 # Concretely, the previous version of this script hardcoded root/production
 # to `https://animichi.com` unconditionally — but per issue #541, that
 # hostname has NO DNS record at all today, so that branch was already
@@ -148,15 +156,40 @@ subdomain_status_response="$(cf_get_checked \
   "check workers.dev enablement for ${worker_name}")"
 workers_dev_enabled="$(echo "${subdomain_status_response}" | jq -r '.result.enabled // false')"
 
-if [ "${workers_dev_enabled}" != "true" ]; then
-  fail "${worker_name} (${component}/${environment}) has neither a Custom Domain nor workers.dev enabled — there is no reachable URL for the post-deploy smoke gate to probe. If a Custom Domain cutover just happened, this is expected right up until Cloudflare's Custom Domain is actually attached; if not, this Worker is unreachable and that is itself a real deploy problem."
+if [ "${workers_dev_enabled}" = "true" ]; then
+  account_subdomain_response="$(cf_get_checked \
+    "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" \
+    "fetch the account's workers.dev subdomain")"
+  account_subdomain="$(echo "${account_subdomain_response}" | jq -er '.result.subdomain')" || {
+    fail "Cloudflare API response did not contain result.subdomain: ${account_subdomain_response}"
+  }
+
+  echo "https://${worker_name}.${account_subdomain}.workers.dev"
+  exit 0
 fi
 
-account_subdomain_response="$(cf_get_checked \
-  "/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/subdomain" \
-  "fetch the account's workers.dev subdomain")"
-account_subdomain="$(echo "${account_subdomain_response}" | jq -er '.result.subdomain')" || {
-  fail "Cloudflare API response did not contain result.subdomain: ${account_subdomain_response}"
-}
+# 3) No Custom Domain AND workers.dev disabled: a Worker with no reachable
+#    URL is normally a real deploy problem (fail loudly below) — EXCEPT the
+#    root/edge Worker in staging, whose surface is the ZONE ROUTES Pulumi
+#    declares under the staging hostname ("routes belong to Pulumi": the
+#    root wrangler config deliberately declares none, #541). That hostname
+#    is committed in the environment's Pulumi stack config — read it from
+#    the same file Pulumi builds the routes from, the same "live source of
+#    truth" principle as reading the Worker name from wrangler.toml above
+#    (issue #695): the config only changes through a PR, so it cannot go
+#    stale behind this script. Production is deliberately NOT in scope
+#    here: prod's `webDomain` still has no DNS record (#541), so resolving
+#    it would just re-introduce the hardcoded animichi.com assumption this
+#    script's header says was removed. Non-root components skip this and
+#    fail loudly below.
+if [ "${component}" = "root" ] && [ "${environment}" = "staging" ]; then
+  pulumi_stack="infra/Pulumi.staging.yaml"
+  routed_hostname="$(grep -E "^[[:space:]]+seichijunrei-infra:stagingDomain:" "${REPO_ROOT}/${pulumi_stack}" 2>/dev/null \
+    | sed -E "s/^[[:space:]]+seichijunrei-infra:stagingDomain:[[:space:]]*//" | tr -d '[:space:]')"
+  if [ -n "${routed_hostname}" ]; then
+    echo "https://${routed_hostname}"
+    exit 0
+  fi
+fi
 
-echo "https://${worker_name}.${account_subdomain}.workers.dev"
+fail "${worker_name} (${component}/${environment}) has neither a Custom Domain nor workers.dev enabled — there is no reachable URL for the post-deploy smoke gate to probe. If a Custom Domain cutover just happened, this is expected right up until Cloudflare's Custom Domain is actually attached; if not, this Worker is unreachable and that is itself a real deploy problem."

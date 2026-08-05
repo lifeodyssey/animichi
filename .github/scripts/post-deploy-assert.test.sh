@@ -191,9 +191,47 @@ class Handler(http.server.BaseHTTPRequestHandler):
   echo "PASS: HTML-only origin served (${requests} request, exit ${rc})"
 }
 
+# ── Case 5 (#541 step 6): STAGING_GATE_TOKEN set -> every request carries
+#    it as the `x-staging-key` header, the staging WAF gate's pass signal
+#    (the ruleset expression in infra/index.ts matches exactly this header
+#    against the gate token). The mock enforces it the way the real gate
+#    does: a request without the header is answered 403, so this test only
+#    passes if the header actually rides along. ────────────────────────────
+test_gate_token_is_sent_as_header() {
+  local port=18805 counter_file pid rc=0 requests
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        if self.headers.get('x-staging-key') != 'test-gate-token':
+            self.send_response(403)
+            self.end_headers()
+            self.wfile.write(b'blocked by the staging WAF gate')
+            return
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b'''${LANDING_BODY}''')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}"
+  WEB_URL="http://127.0.0.1:${port}" STAGING_GATE_TOKEN='test-gate-token' \
+    bash "${ASSERT_SH}" web-landing >/tmp/gatetoken.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  requests="$(request_count "${counter_file}")"
+  rm -f "${counter_file}"
+  [ "${rc}" -eq 0 ] || fail_test "gate-token request should pass the mock gate, got exit ${rc}: $(cat /tmp/gatetoken.out)"
+  [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request (no retry needed), got ${requests}"
+  echo "PASS: STAGING_GATE_TOKEN rides every request as x-staging-key (${requests} request, exit ${rc})"
+}
+
 test_branded_404_fails_fast
 test_cf_edge_404_retries_then_fails
 test_cf_edge_404_then_recovers
 test_html_only_origin_is_accepted
+test_gate_token_is_sent_as_header
 
 echo "All post-deploy-assert.sh behavioral tests passed."
