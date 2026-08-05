@@ -31,6 +31,22 @@ function fakeClock(): { sleep: RetryOptions["sleep"]; waits: number[] } {
 /** Deterministic identity jitter so exponential delays are asserted exactly. */
 const noJitter = (baseMs: number): number => baseMs;
 
+/**
+ * Unconditional attempt script: throws `error` for the first `n` calls, then
+ * returns `value`. Keeps test bodies free of conditional logic — the failure
+ * cases are spelled out in the call, not branched on at runtime.
+ */
+function failFirstNTimes<T>(n: number, error: Error, value: T): () => T {
+  let remaining = n;
+  return () => {
+    if (remaining > 0) {
+      remaining -= 1;
+      throw error;
+    }
+    return value;
+  };
+}
+
 describe("isRetryableStatus", () => {
   it("classifies 5xx and transient 4xx as retryable", () => {
     expect(isRetryableStatus(500)).toBe(true);
@@ -72,13 +88,8 @@ describe("withRetry — success paths", () => {
 
   it("backs off exponentially between attempts, then succeeds", async () => {
     const { sleep, waits } = fakeClock();
-    let calls = 0;
     const result = await withRetry(
-      () => {
-        calls += 1;
-        if (calls < 3) throw new RetryableError(503);
-        return "ok";
-      },
+      failFirstNTimes(2, new RetryableError(503), "ok"),
       { sleep, jitterMs: noJitter, baseDelayMs: 400 },
     );
     expect(result).toBe("ok");
@@ -146,5 +157,25 @@ describe("withRetry — failure handling", () => {
     ).rejects.toThrow(RetryableError);
     expect(calls).toBe(1);
     expect(waits).toEqual([]);
+  });
+});
+
+describe("withRetry — invalid attempt caps", () => {
+  it.each([
+    ["NaN", Number.NaN],
+    ["zero", 0],
+    ["negative", -1],
+    ["not an integer", 2.5],
+  ])("falls back to the default when attempts is %s", async (_label, attempts) => {
+    const { sleep, waits } = fakeClock();
+    let calls = 0;
+    await expect(
+      withRetry(() => {
+        calls += 1;
+        throw new RetryableError(503);
+      }, { sleep, jitterMs: noJitter, baseDelayMs: 400, attempts }),
+    ).rejects.toThrow(RetryableError);
+    expect(calls).toBe(DEFAULT_RETRY_ATTEMPTS);
+    expect(waits).toEqual([400, 800]);
   });
 });

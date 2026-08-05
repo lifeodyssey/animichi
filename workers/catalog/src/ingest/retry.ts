@@ -12,7 +12,7 @@
 
 /** Knobs for {@link withRetry}; tests inject `sleep`/`jitterMs` to fake the clock. */
 export interface RetryOptions {
-  /** Total attempts (initial + retries), at least 1. Default 3. */
+  /** Total attempts (initial + retries), at least 1. Default 3; NaN or non-positive values fall back to the default. */
   attempts?: number;
   /** Exponential base of the first retry wait, in ms. Default 400. */
   baseDelayMs?: number;
@@ -77,12 +77,24 @@ function retryableMessage(status?: number): string {
 /** Resolved defaults; the `??` chains live here so `withRetry` stays flat. */
 function resolveRetryConfig(opts: RetryOptions): Required<RetryOptions> {
   return {
-    attempts: Math.max(opts.attempts ?? DEFAULT_RETRY_ATTEMPTS, 1),
+    attempts: normalizeAttempts(opts.attempts),
     baseDelayMs: opts.baseDelayMs ?? DEFAULT_RETRY_BASE_MS,
     maxDelayMs: opts.maxDelayMs ?? DEFAULT_RETRY_MAX_MS,
     sleep: opts.sleep ?? defaultSleep,
     jitterMs: opts.jitterMs ?? fullJitter,
   };
+}
+
+/**
+ * Positive-integer attempt caps only. NaN or a non-positive value would make
+ * the exhaustion check `attemptNo + 1 >= attempts` never true and retry
+ * forever, so anything invalid falls back to the default.
+ */
+function normalizeAttempts(attempts: number | undefined): number {
+  if (attempts === undefined || !Number.isInteger(attempts) || attempts < 1) {
+    return DEFAULT_RETRY_ATTEMPTS;
+  }
+  return attempts;
 }
 
 /** Sleep the backoff, or rethrow when the error is final or attempts run out. */
