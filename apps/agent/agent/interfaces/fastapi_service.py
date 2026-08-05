@@ -98,6 +98,26 @@ def _resolve_session_store(
     )
 
 
+async def _close_runtime_resources(
+    connect_task: asyncio.Task[object],
+    catalog_client: CatalogClient,
+    runtime_session_store: SessionStore,
+    runtime_db: object,
+) -> None:
+    """Close runtime resources; every close attempt still runs."""
+    try:
+        await connect_task
+    finally:
+        try:
+            await catalog_client.aclose()
+        finally:
+            await aclose_geocoding_client()
+        try:
+            await call_optional_async(runtime_session_store, "close")
+        finally:
+            await call_optional_async(runtime_db, "close")
+
+
 @asynccontextmanager
 async def _lifespan_build_runtime(
     app: FastAPI,
@@ -109,12 +129,6 @@ async def _lifespan_build_runtime(
     """Lifespan branch: build RuntimeAPI from scratch (normal startup)."""
     runtime_db = db if db is not None else build_supabase_client(resolved_settings)
     runtime_session_store = _resolve_session_store(session_store, runtime_db)
-    # The pool connect must not gate the container's readiness (issue #694):
-    # it runs in the background so the port binds immediately. Until it
-    # completes, DB work surfaces the client's "call connect() first" as a
-    # clean 500 — see RuntimeAPI's lazy-repo comment in public_api.py.
-    connect_task = asyncio.create_task(call_optional_async(runtime_db, "connect"))
-    connect_task.add_done_callback(_log_connect_failure)
     # Schema changes are never applied by the application. Neon catalog/user migrations run
     # through Atlas from db/migrations; the remaining Supabase compatibility surface has its
     # own operator path. See docs/ops/migrations.md.
@@ -129,18 +143,18 @@ async def _lifespan_build_runtime(
         memory_store=postgres_memory_store(runtime_db),
     )
     app.state.db_client = runtime_db
+    # The pool connect must not gate the container's readiness (issue #694):
+    # it runs in the background so the port binds immediately. Until it
+    # completes, DB work surfaces the client's "call connect() first" as a
+    # clean 500 — see RuntimeAPI's lazy-repo comment in public_api.py.
+    connect_task = asyncio.create_task(call_optional_async(runtime_db, "connect"))
+    connect_task.add_done_callback(_log_connect_failure)
     try:
         yield
     finally:
-        try:
-            await connect_task
-        finally:
-            try:
-                await catalog_client.aclose()
-            finally:
-                await aclose_geocoding_client()
-            await call_optional_async(runtime_session_store, "close")
-            await call_optional_async(runtime_db, "close")
+        await _close_runtime_resources(
+            connect_task, catalog_client, runtime_session_store, runtime_db
+        )
 
 
 def create_fastapi_app(
