@@ -21,12 +21,15 @@ config:
   # `webDomain` here; following it would leave `stagingDomain` unset and fail the
   # apply with "Missing required configuration variable".
   #
-  # ── Staging access gate (#529/#559), OFF today ──────────────────────────────
+  # ── Staging access gate (#529/#559), ON since 2026-08-05 (#541 step 6) ─────
   # A WAF rule blocking staging traffic that carries neither the
-  # `animichi_staging` cookie nor the `x-staging-key` header. The token is a
-  # value you invent (`openssl rand -base64 32`), not one issued by anybody. The
-  # SAME value must reach two places: this config, and the STAGING_GATE_TOKEN
-  # GitHub secret that the Playwright suite sends.
+  # `animichi_staging` cookie nor the `x-staging-key` header (and is not on the
+  # `stagingAllowedIps` allowlist or hitting the OIDC exchange path). The token
+  # is a value you invent (`openssl rand -base64 32`), not one issued by
+  # anybody. The SAME value must reach two places: this config, and the
+  # STAGING_GATE_TOKEN GitHub secret that CI's smoke/E2E requests send as the
+  # `x-staging-key` header. `bash scripts/setup-staging-gate.sh --rotate`
+  # replaces both together — a mismatch locks CI out of staging.
   #
   #   pulumi config set cloudflareZoneId <animichi.com zone id> --stack staging
   #   pulumi config set stagingDomain staging.animichi.com      --stack staging
@@ -37,7 +40,9 @@ config:
   # independently of `webRoutesEnabled`, so enabling only the gate while the
   # cutover flag is still false fails the apply on missing config — which is
   # what following the previous version of these instructions would have done.
-  #
+
+  seichijunrei-infra:stagingGateEnabled: "true"
+
   # ── Data plane ──────────────────────────────────────────────────────────────
   # catalogDatabaseUrl is a secret — set it per stack, never commit the raw value:
   #   pulumi config set --secret catalogDatabaseUrl "<neon staging branch connstr>" --stack staging

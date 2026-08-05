@@ -261,11 +261,38 @@ ROUTES = {
   echo "  real output: ${out}"
 }
 
+# ── Case 7 (#541 step 6): the root/edge Worker with workers.dev disabled
+#    and no Custom Domain. Its staging surface is the ZONE ROUTES Pulumi
+#    declares under the staging hostname — the only door left after the
+#    step-6 workers.dev close — so the script must resolve that hostname
+#    from the committed Pulumi stack config (the source the routes are built
+#    from, the same live-source-of-truth principle as the wrangler.toml
+#    Worker-name read) instead of treating the Worker as unreachable. The
+#    mock's Cloudflare state says "nowhere to go"; the config says otherwise.
+test_root_resolves_pulumi_routed_hostname() {
+  local port=18907 pid rc=0 out
+  start_mock "${port}" "
+ROUTES = {
+    '/accounts/mock-account/workers/domains?service=animichi-staging': '${NO_CUSTOM_DOMAINS}',
+    '/accounts/mock-account/workers/scripts/animichi-staging/subdomain': '{\"success\":true,\"result\":{\"enabled\":false}}',
+}
+"
+  pid=$!
+  wait_for_port "${port}"
+  out="$(CLOUDFLARE_API_BASE_URL="http://127.0.0.1:${port}" CLOUDFLARE_API_TOKEN=t CLOUDFLARE_ACCOUNT_ID=mock-account \
+    bash "${RESOLVE_SH}" root staging)" || rc=$?
+  stop_mock "${pid}"
+  [ "${rc}" -eq 0 ] || fail_test "expected the Pulumi-routed staging hostname, got exit ${rc}: ${out}"
+  [ "${out}" = "https://staging.animichi.com" ] || fail_test "expected https://staging.animichi.com from infra/Pulumi.staging.yaml, got: ${out}"
+  echo "PASS: root Worker with workers.dev disabled resolves the Pulumi-routed staging hostname (${out})"
+}
+
 test_resolves_workers_dev_when_no_custom_domain
 test_resolves_custom_domain_when_attached
 test_old_script_would_have_lied_new_script_does_not
 test_fails_loudly_when_unreachable
 test_fails_loudly_on_cf_success_false
 test_finds_target_domain_via_server_side_filter_not_pagination
+test_root_resolves_pulumi_routed_hostname
 
 echo "All resolve-worker-url.sh behavioral tests passed."
