@@ -8,7 +8,7 @@ config:
   #
   # ── Hostname cutover (#541), ENABLED 2026-08-05 ────────────────────────
   # Flipping the flag publishes. `webRoutesEnabled` creates the Custom
-  # Domain and the /v1, /img, /healthz edge routes together. One flag on
+  # Domain and the /v1, /img, /tiles, /healthz edge routes together. One flag on
   # purpose — a hostname that resolves before its routes are narrowed answers a
   # browser navigation with the edge Worker's JSON 404.
   #
