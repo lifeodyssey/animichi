@@ -6,18 +6,20 @@ import { URL, fileURLToPath } from "node:url";
 const EDGE_DIR = fileURLToPath(new URL(".", import.meta.url));
 const testFiles = readdirSync(EDGE_DIR).filter((name) => name.endsWith(".test.ts"));
 
-// Floor ratchet: 27 .test.ts files (including this one) when #558 switched the
-// runner to a glob and #766 retired the auth-config drift diagnostic's test
-// file. The floor RISES when new test files are added; it may only be lowered
-// in the same PR that legitimately deletes a test file, with review.
-const MIN_TEST_FILES = 27;
+// Floor ratchet: 32 .test.ts files (including this one) after the 1-10-50
+// splits added entry-container-env, entry-v1-routing, turnstile-siteverify and
+// denied-egress (#1050). The floor RISES when new test files are added; it may
+// only be lowered in the same PR that legitimately deletes a test file, with
+// review.
+const MIN_TEST_FILES = 32;
 
 void test("test-inventory: the worker test directory holds at least the pinned floor of test files", () => {
+  const found = testFiles.length;
   assert.equal(
-    testFiles.length >= MIN_TEST_FILES,
+    found >= MIN_TEST_FILES,
     true,
-    `expected >= ${String(MIN_TEST_FILES)} test files in workers/edge/, found ${String(testFiles.length)} — ` +
-      `bump MIN_TEST_FILES only when files are legitimately removed`,
+    `expected >= ${String(MIN_TEST_FILES)} test files in workers/edge/, found ${String(found)} — ` +
+      "bump MIN_TEST_FILES only when files are legitimately removed",
   );
 });
 

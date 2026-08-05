@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { type AuthResult, authenticate as realAuthenticate } from "./auth.ts";
 import type { Env, WorkerExecutionContext } from "./env.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardV1 } from "./forward.ts";
@@ -41,19 +41,23 @@ async function isNotRunningResponse(response: Response): Promise<boolean> {
   return (await response.clone().text()).includes(NOT_RUNNING_MARKER);
 }
 
+function coldStartFailure(error: unknown): { ok: false; failure: Error } {
+  if (isNotRunningError(error)) return { ok: false, failure: error };
+  throw error;
+}
+
 /** One container fetch attempt: the response to return, or the failure to
  * retry (re-thrown immediately when it is not a cold-start failure). */
+type FetchAttempt = { ok: true; response: Response } | { ok: false; failure: Response | Error };
+
 async function containerFetchAttempt(
-  fetchFn: (request: Request) => Promise<Response>,
-  request: Request,
-): Promise<{ ok: true; response: Response } | { ok: false; failure: Response | Error }> {
+  fetchFn: (request: Request) => Promise<Response>, request: Request,
+): Promise<FetchAttempt> {
   try {
     const response = await fetchFn(request);
-    if (!(await isNotRunningResponse(response))) return { ok: true, response };
-    return { ok: false, failure: response };
+    return (await isNotRunningResponse(response)) ? { ok: false, failure: response } : { ok: true, response };
   } catch (error) {
-    if (!isNotRunningError(error)) throw error;
-    return { ok: false, failure: error };
+    return coldStartFailure(error);
   }
 }
 
@@ -62,19 +66,24 @@ function finalFailureResponse(failure: Response | Error): Response {
   return failure;
 }
 
-async function fetchContainerWithStartupRetry(
+async function fetchAttempt(
   fetchFn: (request: Request) => Promise<Response>,
   request: Request,
+  attempt: number,
   sleep: (ms: number) => Promise<void>,
+): Promise<FetchAttempt> {
+  if (attempt > 0) await sleep(startupBackoffMs(attempt));
+  return containerFetchAttempt(fetchFn, request);
+}
+
+async function fetchContainerWithStartupRetry(
+  fetchFn: (request: Request) => Promise<Response>, request: Request, sleep: (ms: number) => Promise<void>,
 ): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
-    const lastAttempt = attempt === NOT_RUNNING_RETRIES - 1;
-    if (attempt > 0) await sleep(startupBackoffMs(attempt));
-    const outcome = await containerFetchAttempt(fetchFn, request.clone());
-    if (lastAttempt) {
+    const outcome = await fetchAttempt(fetchFn, request.clone(), attempt, sleep);
+    if (outcome.ok || attempt === NOT_RUNNING_RETRIES - 1) {
       return outcome.ok ? outcome.response : finalFailureResponse(outcome.failure);
     }
-    if (outcome.ok) return outcome.response;
   }
 }
 
@@ -98,6 +107,76 @@ interface WorkerDeps {
   showcaseMode?: ShowcaseMode;
 }
 
+function healthzHandler(c: Context<{ Bindings: Env }>, sleep: (ms: number) => Promise<void>): Promise<Response> {
+  const container = c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default"));
+  return fetchContainerWithStartupRetry((request) => container.fetch(request), c.req.raw, sleep);
+}
+
+async function animeOverviewHandler(c: Context<{ Bindings: Env }>, showcaseMode: ShowcaseMode): Promise<Response> {
+  // Showcase mode (GOAL C / C9): deny the public catalog read like every
+  // other functional route — the landing needs no API data.
+  if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
+  if (new URL(c.req.url).search) return c.text("Unexpected query parameters", 400);
+  return forwardPublicCatalog(c.env, c.req.raw);
+}
+
+function registerAssetRoutes(app: WorkerApp, deps: WorkerDeps, showcaseMode: ShowcaseMode): void {
+  app.get("/healthz", (c) => healthzHandler(c, deps.sleep ?? realSleep));
+  app.all("/tiles/*", (c) => handleTiles(c.req.raw, c.env.MAP_TILES, c.executionCtx));
+  app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
+  app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", (c) => animeOverviewHandler(c, showcaseMode));
+  app.all("/catalog/public/*", (c) => c.notFound());
+}
+
+function forwardedIdentity(
+  env: Env, request: Request, auth: AuthResult & { ok: true }, pathname: string,
+): Promise<Response> {
+  const identity = { userId: auth.userId, userType: auth.userType };
+  if (pathname === SESSION_MIGRATE_PATH) return handleSessionMigrate(env, request, identity);
+  return authenticatedForward(env, request, identity, pathname);
+}
+
+async function anonymousOrUnauthorized(
+  c: Context<{ Bindings: Env }>, deps: V1Deps, pathname: string,
+): Promise<Response> {
+  const anonymous = isAnonymousV1(pathname)
+    ? await handleAnonymousV1(c.env, c.req.raw, Date.now(), deps.turnstileGate)
+    : null;
+  if (anonymous !== null) return anonymous;
+  return c.json(UNAUTHORIZED_BODY, 401);
+}
+
+interface V1Deps {
+  authenticate: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
+  turnstileGate: TurnstileGate;
+}
+
+async function handleV1Request(
+  c: Context<{ Bindings: Env }>, deps: V1Deps,
+): Promise<Response> {
+  const { pathname } = new URL(c.req.url);
+  if (isPublicV1(pathname)) return forwardV1(c.env, c.req.raw);
+  const auth = await deps.authenticate(c.req.raw, c.env, c.executionCtx);
+  if (auth.ok) return forwardedIdentity(c.env, c.req.raw, auth, pathname);
+  if (auth.reason === "invalid") return unauthorized(pathname);
+  return anonymousOrUnauthorized(c, deps, pathname);
+}
+
+// /v1/users/* bypasses the container entirely: the users service verifies the Neon
+// Auth JWT itself (jose JWKS), so the edge passes Authorization through untouched.
+function registerV1Routes(
+  app: WorkerApp, authenticate: V1Deps["authenticate"], turnstileGate: TurnstileGate, showcaseMode: ShowcaseMode,
+): void {
+  app.all("/v1/users/*", (c) => {
+    if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
+    return c.env.USERS.fetch(c.req.raw);
+  });
+  app.all("/v1/*", (c) => {
+    if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
+    return handleV1Request(c, { authenticate, turnstileGate });
+  });
+}
+
 function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
   app.notFound(() => Response.json(NOT_FOUND_BODY, { status: 404 }));
   const authenticate = deps.authenticate ?? ((req, env, ctx) => realAuthenticate(req, env, fetch, ctx));
@@ -109,66 +188,8 @@ function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
   // warn-once dedupe is per-instance (per-isolate in production), and tests
   // inject their own to keep warning state out of module scope.
   const showcaseMode = deps.showcaseMode ?? createShowcaseMode();
-  app.get("/healthz", (c) => {
-    const container = c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default"));
-    return fetchContainerWithStartupRetry(
-      (request) => container.fetch(request),
-      c.req.raw,
-      deps.sleep ?? realSleep,
-    );
-  });
-  app.all("/tiles/*", (c) => handleTiles(c.req.raw, c.env.MAP_TILES, c.executionCtx));
-  app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
-  app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", async (c) => {
-    // Showcase mode (GOAL C / C9): deny the public catalog read like every
-    // other functional route — the landing needs no API data.
-    if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
-    if (new URL(c.req.url).search) return c.text("Unexpected query parameters", 400);
-    return forwardPublicCatalog(c.env, c.req.raw);
-  });
-  app.all("/catalog/public/*", (c) => c.notFound());
-  // Hono runs the first matching handler in registration order.
-  // /v1/users/* bypasses the container entirely: the users service verifies the
-  // Neon Auth JWT itself (jose JWKS), so the edge passes Authorization through
-  // untouched. Different trust model from the container /v1/* path — do not
-  // funnel this through authenticate()/forwardV1.
-  app.all("/v1/users/*", (c) => {
-    if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
-    return c.env.USERS.fetch(c.req.raw);
-  });
-  app.all("/v1/*", async (c) => {
-    if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
-    const { pathname } = new URL(c.req.url);
-    if (isPublicV1(pathname)) return forwardV1(c.env, c.req.raw);
-    const auth = await authenticate(c.req.raw, c.env, c.executionCtx);
-    if (auth.ok) {
-      const identity = { userId: auth.userId, userType: auth.userType };
-      // Session migration runs ahead of the per-identity rate limiter (#284
-      // Task 9): it is an identity-only DB update, not a cost-bearing route,
-      // and is not in AUTH_RATE_LIMITED_EXACT — routing it through
-      // authenticatedForward would be a silent no-op today, but checking it
-      // first keeps that true by construction rather than by omission.
-      if (pathname === SESSION_MIGRATE_PATH) {
-        return handleSessionMigrate(c.env, c.req.raw, identity);
-      }
-      return authenticatedForward(c.env, c.req.raw, identity, pathname);
-    }
-    // S1.9 Turnstile (issue #281) is ARMED as of issue #447: `handleAnonymousV1`
-    // below challenges every anonymous turn before it can reach the limiter or
-    // the container. Without it, dropping the `aid` cookie mints a fresh
-    // identity and resets the per-identity limiter, leaving the daily dollar
-    // breaker as the only guard — i.e. a paid-for daily DoS.
-    // Issue #441: only a caller who presented NO credential may be demoted to
-    // an anonymous identity. A presented-but-unverifiable one (expired,
-    // malformed, wrong key) falls straight through to the 401 below, which is
-    // what puts the web client back on its token-refresh path.
-    if (auth.reason === "invalid") return unauthorized(pathname);
-    const anonymous = isAnonymousV1(pathname)
-      ? await handleAnonymousV1(c.env, c.req.raw, Date.now(), turnstileGate)
-      : null;
-    if (anonymous !== null) return anonymous;
-    return c.json(UNAUTHORIZED_BODY, 401);
-  });
+  registerAssetRoutes(app, deps, showcaseMode);
+  registerV1Routes(app, authenticate, turnstileGate, showcaseMode);
 }
 
 export function createWorkerApp(deps: WorkerDeps): WorkerApp {

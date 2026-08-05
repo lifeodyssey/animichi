@@ -26,11 +26,23 @@ const generator = new OpenAPIGenerator({
 type Contract = Parameters<OpenAPIGenerator["generate"]>[0];
 type GenerateOptions = Parameters<OpenAPIGenerator["generate"]>[1];
 
-function describeEmission(contract: Contract, spec: Awaited<ReturnType<typeof generator.generate>>): void {
+type GeneratedSpec = Awaited<ReturnType<typeof generator.generate>>;
+
+function describeEmission(contract: Contract, spec: GeneratedSpec): void {
   const methods = Object.keys(contract);
   const schemas = Object.keys(spec.components?.schemas ?? {});
   process.stdout.write(`Methods: ${methods.join(", ")}\n`);
   process.stdout.write(`Schemas: ${schemas.join(", ") || "(inlined)"}\n`);
+}
+
+function resolveOutPath(filename: string): string {
+  return join(dirname(fileURLToPath(import.meta.url)), "..", filename);
+}
+
+function writeSpec(spec: GeneratedSpec, filename: string): void {
+  const outPath = resolveOutPath(filename);
+  writeFileSync(outPath, `${JSON.stringify(spec, null, 2)}\n`, "utf8");
+  process.stdout.write(`Wrote ${outPath}\n`);
 }
 
 async function emitOpenApi(
@@ -39,9 +51,7 @@ async function emitOpenApi(
   options: GenerateOptions,
 ): Promise<void> {
   const spec = await generator.generate(contract, options);
-  const outPath = join(dirname(fileURLToPath(import.meta.url)), "..", filename);
-  writeFileSync(outPath, `${JSON.stringify(spec, null, 2)}\n`, "utf8");
-  process.stdout.write(`Wrote ${outPath}\n`);
+  writeSpec(spec, filename);
   describeEmission(contract, spec);
 }
 

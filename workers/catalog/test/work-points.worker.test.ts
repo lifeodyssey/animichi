@@ -9,7 +9,7 @@ import type {
   IngestResult,
 } from "../src/ingest/orchestrator";
 import type { PilgrimagePoint } from "../src/types";
-import type { WorkPointRow } from "../src/api/search";
+import type { WorkPointRow, MissPreview } from "../src/api/search";
 
 const PREVIEW: PilgrimagePoint = {
   id: "lite-1",
@@ -36,50 +36,64 @@ const PUBLISHED: WorkPointRow = {
   synced_at: "2026-07-17T00:00:00.000Z",
 };
 
-interface Recorder {
-  db: WorkPointsDb;
-  previews: string[];
-  claims: string[];
-  ingests: string[];
-  completed: string[];
-}
-
-function fakeDb(options: {
+interface FakeDbOptions {
   rows?: WorkPointRow[];
   rowsSequence?: WorkPointRow[][];
   guard?: IngestGuard;
   claim?: IngestClaim;
   ingest?: Promise<IngestResult>;
-} = {}): Recorder {
-  const previews: string[] = [];
-  const claims: string[] = [];
-  const ingests: string[] = [];
-  const completed: string[] = [];
-  let guard = options.guard ?? "ready";
-  const rowsSequence = [...(options.rowsSequence ?? [])];
-  const db: WorkPointsDb = {
-    pointsForWork: () => Promise.resolve(rowsSequence.shift() ?? options.rows ?? []),
-    previewForWork: (workId) => {
-      previews.push(workId);
-      return Promise.resolve({ workId, points: [PREVIEW] });
-    },
-    ingestGuard: () => Promise.resolve(guard),
-    claimIngest: (workId) => {
-      claims.push(workId);
-      const claim: IngestClaim = options.claim ?? (guard === "ready" ? "acquired" : guard);
-      if (claim === "acquired") guard = "in_progress";
-      return Promise.resolve(claim);
-    },
-    markDone: (workId) => {
-      completed.push(workId);
-      return Promise.resolve();
-    },
-    runClaimedIngest: (workId) => {
-      ingests.push(workId);
-      return options.ingest ?? Promise.resolve({ status: "ingested", version: 1, pointCount: 1 });
-    },
+}
+
+interface RecorderState extends FakeDbOptions {
+  previews: string[];
+  claims: string[];
+  ingests: string[];
+  completed: string[];
+  guard: IngestGuard;
+  rowsSequence: WorkPointRow[][];
+}
+
+function fakeDb(options: FakeDbOptions = {}) {
+  const state = recorderState(options);
+  return { db: fakeDbMethods(state), ...state };
+}
+
+function recorderState(options: FakeDbOptions): RecorderState {
+  const sequences = [...(options.rowsSequence ?? [])];
+  return { ...options, previews: [], claims: [], ingests: [], completed: [], guard: options.guard ?? "ready", rowsSequence: sequences };
+}
+
+function fakeDbMethods(state: RecorderState): WorkPointsDb {
+  return {
+    pointsForWork: () => Promise.resolve(state.rowsSequence.shift() ?? state.rows ?? []),
+    previewForWork: (workId) => previewWork(state, workId),
+    ingestGuard: () => Promise.resolve(state.guard),
+    claimIngest: (workId) => claimWork(state, workId),
+    markDone: (workId) => markWorkDone(state, workId),
+    runClaimedIngest: (workId) => runIngestWork(state, workId),
   };
-  return { db, previews, claims, ingests, completed };
+}
+
+function previewWork(state: RecorderState, workId: string): Promise<MissPreview> {
+  state.previews.push(workId);
+  return Promise.resolve({ workId, points: [PREVIEW] });
+}
+
+function claimWork(state: RecorderState, workId: string): Promise<IngestClaim> {
+  state.claims.push(workId);
+  const claim: IngestClaim = state.claim ?? (state.guard === "ready" ? "acquired" : state.guard);
+  if (claim === "acquired") state.guard = "in_progress";
+  return Promise.resolve(claim);
+}
+
+function markWorkDone(state: RecorderState, workId: string): Promise<void> {
+  state.completed.push(workId);
+  return Promise.resolve();
+}
+
+function runIngestWork(state: RecorderState, workId: string): Promise<IngestResult> {
+  state.ingests.push(workId);
+  return state.ingest ?? Promise.resolve({ status: "ingested", version: 1, pointCount: 1 });
 }
 
 function waitUntilSpy(): {

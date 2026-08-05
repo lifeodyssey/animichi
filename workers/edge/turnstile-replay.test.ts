@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import { handleGuardRequest } from "./edge-guard.ts";
-import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
+import { fakeGuard } from "./guard-doubles.ts";
 import { TURNSTILE_HEADER, createTurnstileGate } from "./turnstile.ts";
+import { stubCtx } from "./entry-env.ts";
 
 /**
  * Issue #447 review, P1-1: the armed path exercised with the REAL gate (only
@@ -23,58 +23,43 @@ const ANON_ENV = {
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 const SOLVED = "solved-token";
 
-const stubCtx = {
-  waitUntil(promise: Promise<unknown>) { void promise; },
-  passThroughOnException() { return undefined; },
-} as unknown as ExecutionContext;
-
 /** Cloudflare's real contract: a token verifies once, then is a duplicate. */
 function singleUseSiteverify(calls: string[]): typeof fetch {
   const spent = new Set<string>();
   return (_input, init) => {
-    const rawBody = init?.body;
-    const bodyText = rawBody instanceof URLSearchParams ? rawBody.toString() : typeof rawBody === "string" ? rawBody : "";
-    const token = new URLSearchParams(bodyText).get("response") ?? "";
+    const token = siteverifyToken(init);
     calls.push(token);
     const fresh = !spent.has(token);
     spent.add(token);
-    const body = fresh ? { success: true } : { success: false, "error-codes": ["timeout-or-duplicate"] };
-    return Promise.resolve(Response.json(body));
+    return Promise.resolve(Response.json(tokenVerdict(fresh)));
   };
 }
 
-function fakeGuard() {
-  const shards = new Map<string, GuardStore>();
-  const storeFor = (name: string) => {
-    const existing = shards.get(name);
-    if (existing) return existing;
-    const created = memoryGuardStore();
-    shards.set(name, created);
-    return created;
-  };
-  return {
-    idFromName: (name: string) => name as unknown as DurableObjectId,
-    get: (id: DurableObjectId) => ({
-      fetch: (request: Request) =>
-        handleGuardRequest(request, storeFor(String(id)), NOW, { limit: 20, windowSeconds: 60 }),
-    }),
-  };
+function siteverifyToken(init?: RequestInit): string {
+  const rawBody = init?.body;
+  const bodyText = rawBody instanceof URLSearchParams ? rawBody.toString() : typeof rawBody === "string" ? rawBody : "";
+  return new URLSearchParams(bodyText).get("response") ?? "";
+}
+
+function tokenVerdict(fresh: boolean) {
+  return fresh ? { success: true } : { success: false, "error-codes": ["timeout-or-duplicate"] };
 }
 
 function anonEnv(captured: { requests: Request[] }) {
   return {
     ...ANON_ENV,
-    EDGE_GUARD: fakeGuard(),
-    CONTAINER: {
-      idFromName: () => "id",
-      get: () => ({
-        fetch: (r: Request) => {
-          captured.requests.push(r);
-          return Promise.resolve(new Response("container"));
-        },
-      }),
-    },
+    EDGE_GUARD: fakeGuard(NOW).namespace,
+    CONTAINER: containerStub(captured),
   } as never;
+}
+
+function containerStub(captured: { requests: Request[] }) {
+  return {
+    idFromName: () => "id",
+    get: () => ({
+      fetch: (r: Request) => { captured.requests.push(r); return Promise.resolve(new Response("container")); },
+    }),
+  };
 }
 
 /** The real gate, wired exactly as `createWorkerApp` builds its default. */

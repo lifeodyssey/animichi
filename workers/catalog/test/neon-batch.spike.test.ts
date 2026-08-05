@@ -35,10 +35,9 @@ function capturedQuery(statement: SQL): CapturedQuery {
   return Object.assign(Promise.resolve(queryResult(statement)), { statement });
 }
 
-function fakeDb(version: number): {
-  db: CatalogDb;
-  batch: ReturnType<typeof vi.fn<(queries: readonly CapturedQuery[]) => Promise<{ rows: unknown[] }[]>>>;
-} {
+type BatchMock = ReturnType<typeof vi.fn<(queries: readonly CapturedQuery[]) => Promise<{ rows: unknown[] }[]>>>;
+
+function fakeDb(version: number): { db: CatalogDb; batch: BatchMock } {
   const execute = vi.fn(capturedQuery);
   const batch = vi.fn((queries: readonly CapturedQuery[]) =>
     Promise.resolve(queries.map((_query, index) =>

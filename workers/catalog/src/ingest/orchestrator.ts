@@ -92,29 +92,27 @@ export function runClaimedIngest(
 
 /** Negative-cache every failure, then preserve typed upstream transport errors. */
 async function runIngest(
-  db: CatalogDb,
-  jobs: JobStore,
-  workId: string,
-  fetchImpl?: FetchLike,
+  db: CatalogDb, jobs: JobStore, workId: string, fetchImpl?: FetchLike,
 ): Promise<IngestResult> {
   try {
     return await ingestAcquired(db, jobs, workId, fetchImpl);
   } catch (err) {
-    if (err instanceof UpstreamNotFoundError) {
-      return failJob(jobs, workId, ErrorCode.NotFound, String(err));
-    }
-    const result = await failJob(jobs, workId, ErrorCode.IngestError, String(err));
-    if (err instanceof UpstreamFetchError) throw upstreamUnavailable(err.upstream, err);
-    return result;
+    return handleIngestError(jobs, workId, err);
   }
+}
+
+async function handleIngestError(jobs: JobStore, workId: string, err: unknown): Promise<IngestResult> {
+  if (err instanceof UpstreamNotFoundError) {
+    return failJob(jobs, workId, ErrorCode.NotFound, String(err));
+  }
+  const result = await failJob(jobs, workId, ErrorCode.IngestError, String(err));
+  if (err instanceof UpstreamFetchError) throw upstreamUnavailable(err.upstream, err);
+  return result;
 }
 
 /** Fetch -> raw -> enrich -> publish for the work this caller has acquired. */
 async function ingestAcquired(
-  db: CatalogDb,
-  jobs: JobStore,
-  workId: string,
-  fetchImpl?: FetchLike,
+  db: CatalogDb, jobs: JobStore, workId: string, fetchImpl?: FetchLike,
 ): Promise<IngestResult> {
   const { subject, points } = await fetchUpstream(workId, fetchImpl);
   if (points.length === 0) return failJob(jobs, workId, ErrorCode.NotFound, "no points");
@@ -149,10 +147,7 @@ async function persistRaw(
 
 /** Negative-cache the failure (clears the 'running' row) and report `empty`/`failed`. */
 async function failJob(
-  jobs: JobStore,
-  workId: string,
-  errorCode: string,
-  reason: string,
+  jobs: JobStore, workId: string, errorCode: string, reason: string,
 ): Promise<IngestResult> {
   const ttlSeconds = errorCode === ErrorCode.NotFound ? EMPTY_TTL_SECONDS : FAILURE_TTL_SECONDS;
   await jobs.markFailed(workId, { errorCode, ttlSeconds, error: reason });

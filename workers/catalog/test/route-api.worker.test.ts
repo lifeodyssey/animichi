@@ -36,21 +36,14 @@ interface FakeRow {
 }
 
 function row(id: string, lat: number, image: string | null = null): FakeRow {
+  return { ...rowBase(id, lat, image), name_cn: null, episode: null, time_seconds: null, origin: null, city: "Tokyo" };
+}
+
+function rowBase(id: string, lat: number, image: string | null): Omit<FakeRow, "name_cn" | "episode" | "time_seconds" | "origin" | "city"> {
   return {
-    id,
-    name: id.toUpperCase(),
-    name_cn: null,
-    bangumi_id: "k",
-    episode: null,
-    time_seconds: null,
-    image,
-    latitude: lat,
-    longitude: 135.0,
-    origin: null,
-    title: "Lucky Star",
-    title_cn: "幸运星",
-    cover_url: "cover.jpg",
-    city: "Tokyo",
+    id, name: id.toUpperCase(), bangumi_id: "k", image,
+    latitude: lat, longitude: 135.0,
+    title: "Lucky Star", title_cn: "幸运星", cover_url: "cover.jpg",
   };
 }
 

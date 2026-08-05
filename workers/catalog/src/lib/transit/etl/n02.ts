@@ -210,14 +210,24 @@ function relevant(features_: readonly ParsedFeature[], props: N02PropertyNames, 
 }
 
 export function buildShinkansenSubgraph(sections: unknown, stations: unknown, options?: N02Options): N02Result {
-  const warnings: string[] = [];
-  const props = resolvePropertyNames(options);
+  const warnings: string[] = [], props = resolvePropertyNames(options);
   const sectionFeatures = relevant(features(sections, "sections", warnings), props, "sections", false, warnings);
   const stationFeatures = relevant(features(stations, "stations", warnings), props, "stations", true, warnings);
-  const lineNames = [...new Set([...sectionFeatures, ...stationFeatures].map((item) => lineNameOf(item, props)).filter((name): name is string => name !== null))].sort(compareStrings);
+  const lineNames = uniqueLineNames(sectionFeatures, stationFeatures, props);
   const lines = new Map(lineNames.map((name) => [name, topologyLine(name)]));
   const parsedStations = stationFeatures.map((item) => parseStation(item, lines, props, warnings)).filter((item): item is ParsedStation => item !== null);
-  const byLine = new Map(lineNames.map((name) => [name, parsedStations.filter((item) => item.lineName === name)]));
-  const adjacency = lineNames.flatMap((name) => adjacencyFor(byLine.get(name) ?? [], buildSegmentGraph([...sectionFeatures.filter((item) => lineNameOf(item, props) === name), ...stationFeatures.filter((item) => lineNameOf(item, props) === name)])));
+  const adjacency = subgraphAdjacency(lineNames, sectionFeatures, stationFeatures, props, parsedStations);
   return { graph: { lines: [...lines.values()], stations: parsedStations.map((item) => item.station), adjacency }, warnings };
+}
+
+function uniqueLineNames(sectionFeatures: ParsedFeature[], stationFeatures: ParsedFeature[], props: N02PropertyNames): string[] {
+  return [...new Set([...sectionFeatures, ...stationFeatures].map((item) => lineNameOf(item, props)).filter((name): name is string => name !== null))].sort(compareStrings);
+}
+
+function subgraphAdjacency(
+  lineNames: string[], sectionFeatures: ParsedFeature[], stationFeatures: ParsedFeature[],
+  props: N02PropertyNames, parsedStations: ParsedStation[],
+): AdjacencyEdge[] {
+  const byLine = new Map(lineNames.map((name) => [name, parsedStations.filter((item) => item.lineName === name)]));
+  return lineNames.flatMap((name) => adjacencyFor(byLine.get(name) ?? [], buildSegmentGraph([...sectionFeatures.filter((item) => lineNameOf(item, props) === name), ...stationFeatures.filter((item) => lineNameOf(item, props) === name)])));
 }

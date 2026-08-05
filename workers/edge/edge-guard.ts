@@ -13,6 +13,7 @@ import {
   RATE_LIMIT_KEY,
   rateLimitConfigFrom,
   type RateLimitConfig,
+  type WindowState,
 } from "./rate-limiter.ts";
 
 /**
@@ -60,10 +61,7 @@ export async function handleBudget(
 
 /** Route one guard request; exported so tests drive it without a live DO. */
 export function handleGuardRequest(
-  request: Request,
-  store: GuardStore,
-  nowMs: number,
-  fallback: RateLimitConfig,
+  request: Request, store: GuardStore, nowMs: number, fallback: RateLimitConfig,
 ): Promise<Response> {
   const { pathname } = new URL(request.url);
   if (pathname === "/rate-limit") return handleRateLimit(request, store, nowMs, fallback);
@@ -139,12 +137,8 @@ export class EdgeGuard {
     await this.storage.setAlarm(Date.now() + reclaimDelayMs(windowSeconds));
   }
 
-  /** If a later request reset the window since arming, rearm instead of
-   * deleting (P2-4). Otherwise a targeted `storage.delete`, never
-   * `deleteAll` — the budget shard's isolation is a static guarantee here. */
-  async alarm(): Promise<void> {
-    const windowSeconds = parseReclaimWindow(await this.store.get(RECLAIM_WINDOW_KEY), this.fallback.windowSeconds);
-    const state = parseWindowState(await this.store.get(RATE_LIMIT_KEY));
+  /** Rearm while the window is still live; otherwise reclaim the shard keys. */
+  private async reclaimOrDelete(windowSeconds: number, state: WindowState | null): Promise<void> {
     const stillFresh = state !== null && Date.now() - state.startedAtMs < windowSeconds * 1_000;
     if (stillFresh) {
       await this.storage.setAlarm(Date.now() + reclaimDelayMs(windowSeconds));
@@ -152,5 +146,14 @@ export class EdgeGuard {
     }
     await this.storage.delete(RATE_LIMIT_KEY);
     await this.storage.delete(RECLAIM_WINDOW_KEY);
+  }
+
+  /** If a later request reset the window since arming, rearm instead of
+   * deleting (P2-4). Otherwise a targeted `storage.delete`, never
+   * `deleteAll` — the budget shard's isolation is a static guarantee here. */
+  async alarm(): Promise<void> {
+    const windowSeconds = parseReclaimWindow(await this.store.get(RECLAIM_WINDOW_KEY), this.fallback.windowSeconds);
+    const state = parseWindowState(await this.store.get(RATE_LIMIT_KEY));
+    await this.reclaimOrDelete(windowSeconds, state);
   }
 }

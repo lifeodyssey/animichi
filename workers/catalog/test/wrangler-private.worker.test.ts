@@ -49,15 +49,16 @@ const nameOf = (line: string, current: string): string | null => {
 const sections = (toml: string): Section[] => {
   let current: Section = { name: "top-level", lines: [] };
   const out: Section[] = [current];
-  for (const raw of toml.split("\n")) {
-    const line = raw.trim();
-    if (line.startsWith("#")) continue;
+  for (const line of contentLines(toml)) {
     const opened = nameOf(line, current.name);
     if (opened === null) current.lines.push(line);
     else out.push((current = { name: opened, lines: [] }));
   }
   return out;
 };
+
+const contentLines = (toml: string): string[] =>
+  toml.split("\n").map((raw) => raw.trim()).filter((line) => !line.startsWith("#"));
 
 const environments = (toml: string): Section[] =>
   sections(toml).filter((s) => s.name === "top-level" || /^env\.[A-Za-z0-9_-]+$/.test(s.name));

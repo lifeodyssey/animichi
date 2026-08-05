@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { listRoutes, saveRoute } from "../src/api/routes";
 import { listSessions } from "../src/api/routes";
 import type { DbExecutor } from "../src/db/client";
-import { fakeDb, type FakeRouteRow } from "./helpers";
+import { fakeDb, type FakeRouteRow } from "./in-memory-routes-db";
 
 const ID = "00000000-0000-4000-8000-000000000009";
 const RAW = "2026-07-13 12:34:56+00";
@@ -22,16 +22,19 @@ function row(overrides: Partial<FakeRouteRow> = {}): FakeRouteRow {
 }
 
 async function caught(
-  input: SaveRouteInput,
-  db: DbExecutor = fakeDb([row({ user_id: "user-b" })]).db,
+  input: SaveRouteInput, db: DbExecutor = fakeDb([row({ user_id: "user-b" })]).db,
 ): Promise<ORPCError<string, unknown>> {
   try {
     await saveRoute(db, "user-a", input);
   } catch (error) {
-    expect(error).toBeInstanceOf(ORPCError);
-    return error as ORPCError<string, unknown>;
+    return orpcError(error);
   }
   throw new Error("expected saveRoute to reject");
+}
+
+function orpcError(error: unknown): ORPCError<string, unknown> {
+  expect(error).toBeInstanceOf(ORPCError);
+  return error as ORPCError<string, unknown>;
 }
 
 describe("user routes handlers", () => {

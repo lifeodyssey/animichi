@@ -15,26 +15,13 @@ import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 
 /** Delete non-current versions older than the newest `keep`; returns count deleted. */
-export async function gcOldVersions(
-  db: CatalogDb,
-  workId: string,
-  keep: number,
-): Promise<number> {
+export async function gcOldVersions(db: CatalogDb, workId: string, keep: number): Promise<number> {
   if (keep < 1) throw new Error("keep must be >= 1");
-  const rows = (
-    await db.execute(sql`
+  const rows = (await db.execute(sql`
       DELETE FROM cluster_version
-      WHERE work_id = ${workId}
-        AND NOT is_current
-        AND version < (
-          SELECT MIN(version) FROM (
-            SELECT version FROM cluster_version
-            WHERE work_id = ${workId}
-            ORDER BY version DESC LIMIT ${keep}
-          ) AS kept
-        )
+      WHERE work_id = ${workId} AND NOT is_current
+        AND version < (SELECT MIN(version) FROM (SELECT version FROM cluster_version WHERE work_id = ${workId} ORDER BY version DESC LIMIT ${keep}) AS kept)
       RETURNING id
-    `)
-  ).rows as { id: number }[];
+    `)).rows as { id: number }[];
   return rows.length;
 }

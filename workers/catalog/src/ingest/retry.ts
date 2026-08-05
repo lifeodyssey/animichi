@@ -55,10 +55,7 @@ export function parseRetryAfter(value: string | null, nowMs: number): number | n
 }
 
 /** Re-run `attempt` on transient failures with backoff; rethrow everything else. */
-export async function withRetry<T>(
-  attempt: () => Promise<T> | T,
-  opts: RetryOptions = {},
-): Promise<T> {
+export async function withRetry<T>(attempt: () => Promise<T> | T, opts: RetryOptions = {}): Promise<T> {
   const cfg = resolveRetryConfig(opts);
   for (let attemptNo = 0; ; attemptNo++) {
     try {

@@ -21,6 +21,21 @@ export function forwardPublicCatalog(env: Env, request: Request): Promise<Respon
   return env.CATALOG.fetch(new Request(request, { headers: publicCatalogHeaders(request) }));
 }
 
+/** The worker-verified identity replaces the caller's own headers. */
+function applyIdentity(headers: Headers, auth: { userId: string; userType: string }): void {
+  headers.delete("Authorization");
+  headers.set("X-User-Id", auth.userId);
+  headers.set("X-User-Type", auth.userType);
+}
+
+/** Client-supplied identity headers are anti-forgery: always stripped. */
+function stripUntrustedHeaders(headers: Headers): void {
+  headers.delete("X-User-Id");
+  headers.delete("X-User-Type");
+  headers.delete("x-byok-endpoint");
+  headers.delete("X-Anon-Id");
+}
+
 /** Forward a /v1 request to the container's default instance. Always strips
  * client-supplied X-User-*, X-Anon-Id (anti-forgery), and x-byok-endpoint
  * (documented as trusted by the container but client-settable — closed
@@ -31,21 +46,11 @@ export function forwardPublicCatalog(env: Env, request: Request): Promise<Respon
  * intentionally forwarded: chat session continuity needs it, so the
  * container must never treat it as a trust signal. */
 export function forwardV1(
-  env: Env,
-  request: Request,
-  auth?: { userId: string; userType: string },
-  trustedAnonId?: string | null,
+  env: Env, request: Request, auth?: { userId: string; userType: string }, trustedAnonId?: string | null,
 ): Promise<Response> {
   const headers = new Headers(request.headers);
-  headers.delete("X-User-Id");
-  headers.delete("X-User-Type");
-  headers.delete("x-byok-endpoint");
-  headers.delete("X-Anon-Id");
-  if (auth) {
-    headers.delete("Authorization");
-    headers.set("X-User-Id", auth.userId);
-    headers.set("X-User-Type", auth.userType);
-  }
+  stripUntrustedHeaders(headers);
+  if (auth) applyIdentity(headers, auth);
   if (trustedAnonId) headers.set("X-Anon-Id", trustedAnonId);
   const forwarded = new Request(request, { headers });
   return env.CONTAINER.get(env.CONTAINER.idFromName("default")).fetch(forwarded);

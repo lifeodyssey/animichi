@@ -1,23 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { resolve, type ResolveDb } from "../src/api/resolve";
+import { resolve } from "../src/api/resolve";
 import type { FetchLike } from "../src/ingest/sources";
-
-const MISS_DB: ResolveDb = {
-  worksForAlias: () => Promise.resolve([]),
-  candidatesForWorks: () => Promise.reject(new Error("catalog candidates must not load on MISS")),
-};
-
-function response(body: unknown, status = 200): FetchLike {
-  return () => Promise.resolve({
-    ok: status >= 200 && status < 300,
-    status,
-    json: () => Promise.resolve(body),
-  });
-}
-
-function subject(id: number, name: string, name_cn?: string): Record<string, unknown> {
-  return { id, name, name_cn };
-}
+import { MISS_DB, response, subject } from "./resolve-miss-doubles";
 
 describe("resolve alias MISS outcome partition", () => {
   it("returns not_found when Bangumi returns zero subjects", async () => {

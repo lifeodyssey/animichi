@@ -4,9 +4,9 @@ import {
   fetchAnitabiPoints,
   fetchBangumiSubject,
   UpstreamFetchError,
-  UpstreamNotFoundError,
   type FetchLike,
 } from "../src/ingest/sources";
+import { mockFetch } from "./mock-fetch-sequence";
 
 /**
  * Unit tests for the upstream source fetchers (catalog/src/ingest/sources.ts).
@@ -16,56 +16,6 @@ import {
  * clients and (b) the body parses into the typed raw shape. Pure I/O wiring;
  * named *.worker.test.ts so the vitest-pool-workers config picks it up.
  */
-
-/** Build a mock FetchLike that records the URL and returns a canned JSON body. */
-function mockFetch(
-  body: unknown,
-  opts: { ok?: boolean; status?: number } = {},
-): { fetch: FetchLike; urls: string[] } {
-  const urls: string[] = [];
-  const fetch: FetchLike = (url) => {
-    urls.push(url);
-    return Promise.resolve({
-      ok: opts.ok ?? true,
-      status: opts.status ?? 200,
-      json: () => Promise.resolve(body),
-    });
-  };
-  return { fetch, urls };
-}
-
-/** Build a mock FetchLike serving canned responses in sequence, with optional headers. */
-function mockFetchSequence(
-  responses: { status: number; body: unknown; headers?: Record<string, string> }[],
-): { fetch: FetchLike; callCount: () => number } {
-  let calls = 0;
-  const fetch: FetchLike = () => {
-    const response = responses[calls];
-    if (response === undefined) {
-      throw new Error(`fetch called ${String(calls + 1)} times, expected ${String(responses.length)}`);
-    }
-    calls += 1;
-    return Promise.resolve({
-      ok: response.status >= 200 && response.status < 300,
-      status: response.status,
-      headers: { get: (name: string) => response.headers?.[name] ?? null },
-      json: () => Promise.resolve(response.body),
-    });
-  };
-  return { fetch, callCount: () => calls };
-}
-
-/** A fake clock: records requested waits and resolves instantly — no real timers. */
-function fakeSleep(): { sleep: (ms: number) => Promise<void>; waits: number[] } {
-  const waits: number[] = [];
-  return {
-    sleep: (ms) => {
-      waits.push(ms);
-      return Promise.resolve();
-    },
-    waits,
-  };
-}
 
 describe("bangumi_id validation", () => {
   it("rejects non-numeric bangumi_id in fetchAnitabiPoints", async () => {
@@ -188,92 +138,5 @@ describe("fetchBangumiSubject", () => {
     await expect(fetchBangumiSubject("3302", { fetchImpl: fetch })).rejects.toThrow(
       "JSON object",
     );
-  });
-});
-
-describe("retry wiring — transient retries", () => {
-  it("honors Retry-After on a 429, then succeeds on the retry", async () => {
-    const { sleep, waits } = fakeSleep();
-    const { fetch, callCount } = mockFetchSequence([
-      { status: 429, body: null, headers: { "retry-after": "2" } },
-      { status: 200, body: { points: [{ id: "p1" }] } },
-    ]);
-    const points = await fetchAnitabiPoints("3302", {
-      fetchImpl: fetch,
-      retry: { sleep },
-    });
-    expect(points).toHaveLength(1);
-    expect(callCount()).toBe(2);
-    expect(waits).toEqual([2000]);
-  });
-
-  it("retries a 5xx with backoff, then succeeds", async () => {
-    const { sleep, waits } = fakeSleep();
-    const { fetch, callCount } = mockFetchSequence([
-      { status: 503, body: null },
-      { status: 503, body: null },
-      { status: 200, body: { points: [{ id: "p1" }] } },
-    ]);
-    const points = await fetchAnitabiPoints("3302", {
-      fetchImpl: fetch,
-      retry: { sleep, jitterMs: (ms) => ms, baseDelayMs: 400 },
-    });
-    expect(points).toHaveLength(1);
-    expect(callCount()).toBe(3);
-    expect(waits).toEqual([400, 800]);
-  });
-});
-
-describe("retry wiring — transport errors", () => {
-  it("retries a transport error, then succeeds", async () => {
-    const { sleep, waits } = fakeSleep();
-    let calls = 0;
-    const fetch: FetchLike = () => {
-      calls += 1;
-      if (calls === 1) return Promise.reject(new Error("network down"));
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ points: [{ id: "p1" }] }),
-      });
-    };
-    const points = await fetchAnitabiPoints("3302", {
-      fetchImpl: fetch,
-      retry: { sleep, jitterMs: (ms) => ms, baseDelayMs: 400 },
-    });
-    expect(points).toHaveLength(1);
-    expect(calls).toBe(2);
-    expect(waits).toEqual([400]);
-  });
-});
-
-describe("retry wiring — terminal failures", () => {
-  it("raises 404 immediately without retrying", async () => {
-    const { sleep, waits } = fakeSleep();
-    const { fetch, callCount } = mockFetchSequence([{ status: 404, body: null }]);
-    await expect(
-      fetchAnitabiPoints("3302", { fetchImpl: fetch, retry: { sleep } }),
-    ).rejects.toEqual(expect.objectContaining({ name: UpstreamNotFoundError.name }));
-    expect(callCount()).toBe(1);
-    expect(waits).toEqual([]);
-  });
-
-  it("raises UpstreamFetchError once retries are exhausted", async () => {
-    const { sleep, waits } = fakeSleep();
-    const { fetch, callCount } = mockFetchSequence([
-      { status: 503, body: null },
-      { status: 503, body: null },
-      { status: 503, body: null },
-    ]);
-    await expect(
-      fetchAnitabiPoints("3302", {
-        fetchImpl: fetch,
-        retry: { sleep, jitterMs: (ms) => ms, baseDelayMs: 400 },
-      }),
-    ).rejects.toEqual(
-      expect.objectContaining({ name: UpstreamFetchError.name, upstream: "anitabi" }),
-    );
-    expect(callCount()).toBe(3);
-    expect(waits).toEqual([400, 800]);
   });
 });

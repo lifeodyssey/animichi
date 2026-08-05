@@ -1,7 +1,8 @@
 import { generateKeyPair, SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import { createUsersApp } from "../src/index";
-import { authTools, BASE, fakeDb, TEST_ENV } from "./helpers";
+import { authTools, BASE, TEST_ENV } from "./neon-auth-fixture";
+import { fakeDb } from "./in-memory-routes-db";
 
 const unauthorized = {
   error: { code: "unauthorized", message: "Valid credentials required." },

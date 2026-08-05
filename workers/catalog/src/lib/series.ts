@@ -77,19 +77,19 @@ export function walkSeries(edges: SeriesEdge[], startWorkId: string): Set<string
   const adj = buildAdjacency(edges);
   const visited = new Set<string>([startWorkId]);
   let frontier = [startWorkId];
-  while (frontier.length > 0) {
-    const nextFrontier: string[] = [];
-    for (const current of frontier) visit(adj.get(current), visited, nextFrontier);
-    frontier = nextFrontier;
-  }
+  while (frontier.length > 0) frontier = expand(frontier, adj, visited);
   return visited;
+}
+
+function expand(frontier: string[], adj: Map<string, Set<string>>, visited: Set<string>): string[] {
+  const nextFrontier: string[] = [];
+  for (const current of frontier) visit(adj.get(current), visited, nextFrontier);
+  return nextFrontier;
 }
 
 /** Enqueue any unvisited neighbours of the current node. */
 function visit(
-  neighbours: Set<string> | undefined,
-  visited: Set<string>,
-  queue: string[],
+  neighbours: Set<string> | undefined, visited: Set<string>, queue: string[],
 ): void {
   for (const next of neighbours ?? []) {
     if (!visited.has(next)) {

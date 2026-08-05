@@ -107,17 +107,24 @@ function pickNext(remaining: NonEmpty<LocationCluster>, current: LocationCluster
 /** Order a cluster tuple while preserving its non-empty type. */
 function orderNonEmpty(clusters: NonEmpty<LocationCluster>, origin?: Origin): NonEmpty<LocationCluster> {
   const [first, ...remaining] = seedOrder(clusters, origin);
-  const result: NonEmpty<LocationCluster> = [first];
-  let current = first;
+  return [first, ...orderRest(remaining, first)];
+}
+
+function orderRest(remaining: LocationCluster[], current: LocationCluster): LocationCluster[] {
+  const result: LocationCluster[] = [];
   while (remaining.length > 0) {
-    const [candidate, ...rest] = remaining;
-    if (!candidate) break;
-    const next = pickNext([candidate, ...rest], current);
+    const next = pickFirst(remaining, current);
     remaining.splice(remaining.indexOf(next), 1);
     result.push(next);
     current = next;
   }
   return result;
+}
+
+function pickFirst(remaining: LocationCluster[], current: LocationCluster): LocationCluster {
+  const [candidate, ...rest] = remaining;
+  if (!candidate) return current;
+  return pickNext([candidate, ...rest], current);
 }
 
 /**
@@ -175,14 +182,9 @@ function stopName(cluster: LocationCluster): string {
 /** Build one stop record for `cluster` arriving at `arrive`. */
 function makeStop(cluster: LocationCluster, arrive: string, dwell: number): TimedStop {
   return {
-    cluster_id: cluster.clusterId,
-    name: stopName(cluster),
-    arrive,
-    depart: addMinutes(arrive, dwell),
-    dwell_minutes: dwell,
-    lat: cluster.centerLat,
-    lng: cluster.centerLng,
-    photo_count: cluster.photoCount,
+    cluster_id: cluster.clusterId, name: stopName(cluster), arrive,
+    depart: addMinutes(arrive, dwell), dwell_minutes: dwell,
+    lat: cluster.centerLat, lng: cluster.centerLng, photo_count: cluster.photoCount,
   };
 }
 
@@ -191,11 +193,8 @@ function makeWalkLeg(from: LocationCluster, to: LocationCluster, buffer: number)
   const dist = haversine(from.centerLat, from.centerLng, to.centerLat, to.centerLng);
   const estimate = (dist * WALK_DETOUR_COEFFICIENT) / WALKING_SPEED_M_PER_MIN;
   return {
-    from_id: from.clusterId,
-    to_id: to.clusterId,
-    mode: "walk",
-    duration_minutes: Math.max(1, pyRound(estimate * buffer)),
-    distance_m: pyRound(dist, 1),
+    from_id: from.clusterId, to_id: to.clusterId, mode: "walk",
+    duration_minutes: Math.max(1, pyRound(estimate * buffer)), distance_m: pyRound(dist, 1),
   };
 }
 
@@ -218,25 +217,26 @@ export interface ItineraryOptions {
 }
 
 /**
- * Build a `TimedItinerary` from `clusters`: order them by nearest-neighbor,
- * then walk through producing stops (arrive/depart/dwell), legs (walk distance
- * via raw haversine + detoured duration estimate), and totals. Throws when
+ * Build a `TimedItinerary` from `clusters`: order by nearest-neighbor, then
+ * walk through stops (arrive/depart/dwell), legs, and totals. Throws when
  * given over {@link MAX_ITINERARY_CLUSTERS} clusters.
  */
 export function buildTimedItinerary(
   clusters: LocationCluster[],
   opts: ItineraryOptions = {},
 ): TimedItinerary {
-  if (clusters.length > MAX_ITINERARY_CLUSTERS) {
-    throw new Error(`Too many locations to route (max ${String(MAX_ITINERARY_CLUSTERS)})`);
-  }
   const startTime = opts.startTime ?? "09:00";
   const pacing = safePacing(opts.pacing ?? "normal");
+  const ordered = orderClusters(clusters, opts.origin);
+  if (!ordered) return { stops: [], legs: [], total_minutes: 0, total_distance_m: 0, pacing, start_time: startTime };
+  return assembleItinerary(ordered, startTime, pacing, opts.transit);
+}
+
+/** Order clusters by nearest-neighbor; null when given none to route. */
+function orderClusters(clusters: LocationCluster[], origin?: Origin): NonEmpty<LocationCluster> | null {
+  if (clusters.length > MAX_ITINERARY_CLUSTERS) throw new Error(`Too many locations to route (max ${String(MAX_ITINERARY_CLUSTERS)})`);
   const [first, ...rest] = clusters;
-  if (!first) {
-    return { stops: [], legs: [], total_minutes: 0, total_distance_m: 0, pacing, start_time: startTime };
-  }
-  return assembleItinerary(orderNonEmpty([first, ...rest], opts.origin), startTime, pacing, opts.transit);
+  return first ? orderNonEmpty([first, ...rest], origin) : null;
 }
 
 interface ItineraryAccumulator {
@@ -254,12 +254,14 @@ function assembleItinerary(
   pacing: Pacing,
   transit?: TransitIndex,
 ): TimedItinerary {
-  const buffer = TRANSIT_BUFFERS[pacing];
-  const [first, ...rest] = ordered;
-  const firstStop = makeStop(first, startTime, computeDwellMinutes(first.photoCount, pacing));
-  const acc: ItineraryAccumulator = { stops: [firstStop], legs: [], totalDistance: 0, current: first, currentStop: firstStop };
-  for (const next of rest) appendCluster(acc, next, pacing, buffer, transit);
+  const acc = startAccumulator(ordered[0], startTime, pacing);
+  for (const next of ordered.slice(1)) appendCluster(acc, next, pacing, TRANSIT_BUFFERS[pacing], transit);
   return finalizeItinerary(acc.stops, acc.legs, acc.totalDistance, startTime, pacing);
+}
+
+function startAccumulator(first: LocationCluster, startTime: string, pacing: Pacing): ItineraryAccumulator {
+  const firstStop = makeStop(first, startTime, computeDwellMinutes(first.photoCount, pacing));
+  return { stops: [firstStop], legs: [], totalDistance: 0, current: first, currentStop: firstStop };
 }
 
 /** Append one cluster, including the inbound leg and its timed stop. */
@@ -275,21 +277,23 @@ function appendCluster(acc: ItineraryAccumulator, next: LocationCluster, pacing:
 }
 
 /** Compute totals and assemble the final `TimedItinerary`. */
-function finalizeItinerary(
-  stops: NonEmpty<TimedStop>,
-  legs: TransitLeg[],
-  totalDistance: number,
-  startTime: string,
-  pacing: Pacing,
-): TimedItinerary {
-  const lastStop = stops.reduce((_, stop) => stop);
+function finalizeItinerary(stops: NonEmpty<TimedStop>, legs: TransitLeg[], totalDistance: number, startTime: string, pacing: Pacing): TimedItinerary {
   return {
     stops,
     legs,
-    total_minutes: minutesBetween(stops[0].arrive, lastStop.depart),
-    total_distance_m: pyRound(totalDistance, 1),
-    spot_count: stops.length,
+    ...totals(stops, totalDistance),
     pacing,
     start_time: startTime,
+  };
+}
+
+function totals(
+  stops: NonEmpty<TimedStop>,
+  totalDistance: number,
+): Pick<TimedItinerary, "total_minutes" | "total_distance_m" | "spot_count"> {
+  return {
+    total_minutes: minutesBetween(stops[0].arrive, stops.reduce((_, stop) => stop).depart),
+    total_distance_m: pyRound(totalDistance, 1),
+    spot_count: stops.length,
   };
 }

@@ -42,21 +42,30 @@ export async function pointsByWorkId(
 }
 
 async function uncoveredWork(
-  db: WorkPointsDb,
-  workId: string,
-  options: SearchOptions,
+  db: WorkPointsDb, workId: string, options: SearchOptions,
 ): Promise<SearchResult> {
   const guard = await db.ingestGuard(workId);
   if (guard !== "ready") return guardedResult(guard);
   const claim = await db.claimIngest(workId);
   if (claim !== "acquired") return claimedElsewhere(claim);
-  const published = await hitResult(db, workId);
-  if (published.rows.length > 0) {
-    await db.markDone(workId);
-    return published;
-  }
+  return onAcquired(db, workId, options);
+}
+
+/** The claim is held by this call: publish if ready, else preview while ingesting. */
+async function onAcquired(
+  db: WorkPointsDb, workId: string, options: SearchOptions,
+): Promise<SearchResult> {
+  const published = await publishIfReady(db, workId);
+  if (published) return published;
   const preview = await db.previewForWork(workId, options.fetchImpl);
   return claimedResult(db, preview, options);
+}
+
+async function publishIfReady(db: WorkPointsDb, workId: string): Promise<SearchResult | undefined> {
+  const published = await hitResult(db, workId);
+  if (published.rows.length === 0) return undefined;
+  await db.markDone(workId);
+  return published;
 }
 
 async function claimedResult(
@@ -75,13 +84,21 @@ async function syncResult(
   preview: MissPreview,
   ingest: Promise<IngestResult>,
 ): Promise<SearchResult> {
-  let result: IngestResult;
-  try {
-    result = await ingest;
-  } catch {
-    return previewResult(preview);
-  }
+  const result = await settledIngest(ingest);
+  if (result === "failed") return previewResult(preview);
   if (result.status === "empty") return emptyResult();
+  return republishedOrPreview(db, preview);
+}
+
+async function settledIngest(ingest: Promise<IngestResult>): Promise<IngestResult | "failed"> {
+  try {
+    return await ingest;
+  } catch {
+    return "failed";
+  }
+}
+
+async function republishedOrPreview(db: WorkPointsDb, preview: MissPreview): Promise<SearchResult> {
   const published = await hitResult(db, preview.workId);
   return published.rows.length > 0 ? published : previewResult(preview);
 }
@@ -108,13 +125,11 @@ function syncingResult(): SearchResult {
 
 /** Bind the work-id port to the shared ingest and preview infrastructure. */
 export function workPointsDb(db: CatalogDb): WorkPointsDb {
-  const search = searchDb(db);
-  const jobs = new JobStore(db);
+  const search = searchDb(db), jobs = new JobStore(db);
   return {
     pointsForWork: (workId) => search.pointsForWork(workId),
     previewForWork,
-    ingestGuard: (workId) => ingestGuard(db, workId),
-    claimIngest: (workId) => claimIngest(db, workId),
+    ingestGuard: (workId) => ingestGuard(db, workId), claimIngest: (workId) => claimIngest(db, workId),
     markDone: (workId) => jobs.markDone(workId),
     runClaimedIngest: (workId, fetchImpl) => runClaimedIngest(db, workId, { fetchImpl }),
   };

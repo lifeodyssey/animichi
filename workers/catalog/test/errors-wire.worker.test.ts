@@ -37,15 +37,19 @@ const handler = new OpenAPIHandler(catalogRouter);
 
 /** Call the catalog OpenAPI handler directly with a typed fake context. */
 async function call(path: string, body: unknown, context: CatalogContext): Promise<Response> {
+  const { matched, response } = await handleRequest(path, body, context);
+  expect(matched).toBe(true);
+  if (!response) throw new Error("expected OpenAPI handler response");
+  return response;
+}
+
+async function handleRequest(path: string, body: unknown, context: CatalogContext) {
   const req = new Request(`https://catalog.test/catalog/${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  const { matched, response } = await handler.handle(req, { context });
-  expect(matched).toBe(true);
-  if (!response) throw new Error("expected OpenAPI handler response");
-  return response;
+  return handler.handle(req, { context });
 }
 
 async function callOverview(bangumiId: string, context: CatalogContext): Promise<Response> {

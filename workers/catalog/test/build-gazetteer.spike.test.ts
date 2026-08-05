@@ -6,8 +6,10 @@ import {
   renderSql,
   validateGazetteer,
   verifySourceHashes,
+  type AliasRow,
   type Gazetteer,
   type Kind,
+  type LocationRow,
   type Prefecture,
 } from "../scripts/build-gazetteer";
 
@@ -43,17 +45,23 @@ function build(stations: typeof STATIONS = STATIONS) {
 const META = { stationSha: "station-sha", citiesSha: "cities-sha", command: "generator command" };
 
 function gazetteerWithCounts(counts: Partial<Record<Kind, number>>, aliasCount = 20_000): Gazetteer {
-  const locations = Object.entries(counts).flatMap(([kind, count]) =>
+  return { locations: locationRows(counts), aliases: aliasRows(aliasCount) };
+}
+
+function locationRows(counts: Partial<Record<Kind, number>>): LocationRow[] {
+  return Object.entries(counts).flatMap(([kind, count]) =>
     Array.from({ length: count }, (_, index) => ({
       id: `${kind}:${String(index)}`, name: `${kind}-${String(index)}`, kind: kind as Kind,
       lat: 35, lng: 135, source: "manual" as const, pref: null,
     })),
   );
-  const aliases = Array.from({ length: aliasCount }, (_, index) => ({
+}
+
+function aliasRows(aliasCount: number): AliasRow[] {
+  return Array.from({ length: aliasCount }, (_, index) => ({
     alias: `alias-${String(index)}`, normalized: `alias-${String(index)}`,
     locationId: "station:0", lang: "en" as const, priority: 0,
   }));
-  return { locations, aliases };
 }
 
 describe("gazetteer generator output", () => {

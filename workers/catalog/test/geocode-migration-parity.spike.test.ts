@@ -26,31 +26,38 @@ function migrationLocations(): typeof SEED_LOCATIONS {
   const rows: Record<string, (typeof SEED_LOCATIONS)[string]> = {};
   const tuple = /\('([^']+)', '([^']+)', '([^']+)', (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), '([^']+)', '([^']+)'\)/g;
   for (const match of insertValues("locations").matchAll(tuple)) {
-    const [, id, name, kind, latitude, longitude, source, pref] = match;
-    if (!id || !name || !kind || !latitude || !longitude || !source || !pref) continue;
-    rows[id] = {
-      id,
-      name,
-      kind: kind as GeocodeHit["kind"],
-      latitude: Number(latitude),
-      longitude: Number(longitude),
-      source: source as GeocodeHit["source"],
-      pref,
-    };
+    const parsed = parsedLocation(match);
+    if (parsed) rows[parsed.id] = parsed;
   }
   return rows;
+}
+
+function parsedLocation(match: RegExpExecArray): (typeof SEED_LOCATIONS)[string] | null {
+  const [, id, name, kind, latitude, longitude, source, pref] = match;
+  if (!id || !name || !kind || !latitude || !longitude || !source || !pref) return null;
+  return {
+    id, name,
+    kind: kind as GeocodeHit["kind"],
+    latitude: Number(latitude), longitude: Number(longitude), source: source as GeocodeHit["source"],
+    pref,
+  };
 }
 
 function migrationAliases(): readonly (readonly [string, string])[] {
   const aliases: [string, string][] = [];
   const tuple = /\('([^']+)', '([^']+)', '([^']+)', (?:'[^']+'|NULL), \d+\)/g;
   for (const match of insertValues("location_aliases").matchAll(tuple)) {
-    const [, alias, normalized, locationId] = match;
-    if (!alias || !normalized || !locationId) continue;
-    expect(normalized).toBe(alias);
-    aliases.push([alias, locationId]);
+    const parsed = parsedAlias(match);
+    if (parsed) aliases.push(parsed);
   }
   return aliases;
+}
+
+function parsedAlias(match: RegExpExecArray): [string, string] | null {
+  const [, alias, normalized, locationId] = match;
+  if (!alias || !normalized || !locationId) return null;
+  expect(normalized).toBe(alias);
+  return [alias, locationId];
 }
 
 describe("catalog geocode migration parity", () => {

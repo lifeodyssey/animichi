@@ -81,12 +81,7 @@ beforeAll(async () => {
 afterAll(() => { restoreNeonConfig(); });
 
 async function assertEnrichBangumiRow(): Promise<void> {
-  const rows = (
-    await db.execute(
-      sql`SELECT title, title_cn, cover_url, rating, eps_count, air_date
-          FROM bangumi WHERE id = 'lucky-star'`,
-    )
-  ).rows as { title: string; title_cn: string; cover_url: string; rating: number; eps_count: number; air_date: string }[];
+  const rows = await bangumiRow(db);
   const row = rows[0];
   expect(row?.title).toBe("らき☆すた");
   expect(row?.title_cn).toBe("幸运星");
@@ -96,13 +91,18 @@ async function assertEnrichBangumiRow(): Promise<void> {
   expect(row?.air_date).toBe("2007-04-08");
 }
 
+async function bangumiRow(db: CatalogDb) {
+  return (await db.execute(
+    sql`SELECT title, title_cn, cover_url, rating, eps_count, air_date
+        FROM bangumi WHERE id = 'lucky-star'`,
+  )).rows as { title: string; title_cn: string; cover_url: string; rating: number; eps_count: number; air_date: string }[];
+}
+
 async function assertEnrichAliases(): Promise<void> {
-  const rows = (
-    await db.execute(
-      sql`SELECT alias, alias_normalized, source FROM aliases
-          WHERE work_id = 'lucky-star' ORDER BY alias_normalized`,
-    )
-  ).rows as { alias: string; alias_normalized: string; source: string }[];
+  const rows = (await db.execute(
+    sql`SELECT alias, alias_normalized, source FROM aliases
+        WHERE work_id = 'lucky-star' ORDER BY alias_normalized`,
+  )).rows as { alias: string; alias_normalized: string; source: string }[];
   const normalized = rows.map((r) => r.alias_normalized);
   expect(normalized).toContain("らき☆すた".normalize("NFKC").toLowerCase());
   expect(normalized).toContain("幸运星");

@@ -70,16 +70,10 @@ function find(node: UnionNode): UnionNode {
 function union(a: UnionNode, b: UnionNode): void {
   let ra = find(a);
   let rb = find(b);
-  if (ra === rb) {
-    return;
-  }
-  if (ra.rank < rb.rank) {
-    [ra, rb] = [rb, ra];
-  }
+  if (ra === rb) return;
+  if (ra.rank < rb.rank) [ra, rb] = [rb, ra];
   rb.parent = ra;
-  if (ra.rank === rb.rank) {
-    ra.rank += 1;
-  }
+  if (ra.rank === rb.rank) ra.rank += 1;
 }
 
 /**
@@ -152,35 +146,37 @@ function unionIfClose<P extends ClusterablePoint>(left: PointNode<P>, right: Poi
   if (distance < radiusM) union(left.node, right.node);
 }
 
-function buildClusters<P extends ClusterablePoint>(
-  entries: PointNode<P>[],
-): LocationCluster<P>[] {
-  const groups = new Map<UnionNode, NonEmpty<P>>();
-  for (const { point, node } of entries) {
-    const root = find(node);
-    const bucket = groups.get(root);
-    if (bucket) {
-      bucket.push(point);
-    } else {
-      groups.set(root, [point]);
-    }
-  }
-  const clusters = [...groups.values()].map(makeCluster);
+function buildClusters<P extends ClusterablePoint>(entries: PointNode<P>[]): LocationCluster<P>[] {
+  const clusters = [...groupByRoot(entries).values()].map(makeCluster);
   clusters.sort((a, b) => a.clusterId.localeCompare(b.clusterId));
   return clusters;
 }
 
-function makeCluster<P extends ClusterablePoint>(
-  members: NonEmpty<P>,
-): LocationCluster<P> {
-  const sumLat = members.reduce((acc, p) => acc + p.latitude, 0);
-  const sumLng = members.reduce((acc, p) => acc + p.longitude, 0);
-  const clusterId = members.reduce((id, point) => point.id.localeCompare(id) < 0 ? point.id : id, members[0].id);
+function groupByRoot<P extends ClusterablePoint>(entries: PointNode<P>[]): Map<UnionNode, NonEmpty<P>> {
+  const groups = new Map<UnionNode, NonEmpty<P>>();
+  for (const { point, node } of entries) {
+    const root = find(node);
+    const bucket = groups.get(root);
+    if (bucket) bucket.push(point);
+    else groups.set(root, [point]);
+  }
+  return groups;
+}
+
+function makeCluster<P extends ClusterablePoint>(members: NonEmpty<P>): LocationCluster<P> {
   return {
-    centerLat: sumLat / members.length,
-    centerLng: sumLng / members.length,
+    centerLat: sumOf(members, (p) => p.latitude) / members.length,
+    centerLng: sumOf(members, (p) => p.longitude) / members.length,
     points: members,
     photoCount: members.length,
-    clusterId,
+    clusterId: earliestId(members),
   };
+}
+
+function sumOf<P extends ClusterablePoint>(members: readonly P[], pick: (p: P) => number): number {
+  return members.reduce((acc, p) => acc + pick(p), 0);
+}
+
+function earliestId<P extends ClusterablePoint>(members: NonEmpty<P>): string {
+  return members.reduce((id, point) => point.id.localeCompare(id) < 0 ? point.id : id, members[0].id);
 }

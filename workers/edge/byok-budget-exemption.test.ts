@@ -1,9 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp, type Env } from "./app.ts";
-import { handleGuardRequest } from "./edge-guard.ts";
 import { latchBudget, utcDayKey } from "./cost-breaker.ts";
-import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
+import { fakeGuard } from "./guard-doubles.ts";
 
 // #284 Task 4 regression lock (edge half): an AUTHENTICATED `/v1/chat`
 // request must never consult `budgetLatched` — that check is reachable
@@ -30,31 +29,6 @@ const stubCtx = {
   waitUntil(promise: Promise<unknown>) { void promise; },
   passThroughOnException() { return undefined; },
 } as unknown as ExecutionContext;
-
-/** A guard double that records every request path+method it receives, so a
- * test can assert "the budget shard was never even asked", not just "the
- * final response happened to be 200". */
-function fakeGuard(nowMs: number) {
-  const shards = new Map<string, GuardStore>();
-  const calls: { url: string; method: string }[] = [];
-  const storeFor = (name: string) => {
-    const existing = shards.get(name);
-    if (existing) return existing;
-    const created = memoryGuardStore();
-    shards.set(name, created);
-    return created;
-  };
-  const namespace = {
-    idFromName: (name: string) => name as unknown as DurableObjectId,
-    get: (id: DurableObjectId) => ({
-      fetch: (request: Request) => {
-        calls.push({ url: request.url, method: request.method });
-        return handleGuardRequest(request, storeFor(String(id)), nowMs, { limit: 20, windowSeconds: 60 });
-      },
-    }),
-  };
-  return { namespace, calls };
-}
 
 function env(guard: ReturnType<typeof fakeGuard>["namespace"]): Env {
   return {

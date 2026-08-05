@@ -50,10 +50,15 @@ export interface AuthEnv {
   NEON_AUTH_ISSUER?: string;
 }
 
-export interface AnonymousEnv {
-  ANON_ACCESS_ENABLED?: string;
-  ANON_ID_SECRET?: string;
-}
+export type { AnonymousEnv } from "./anonymous-id.ts";
+export {
+  ANON_ID_PREFIX,
+  anonymousEnabled,
+  constantTimeEqual,
+  resolveAnonymous,
+  resolveAnonymousReadOnly,
+  type AnonymousIdentity,
+} from "./anonymous-id.ts";
 
 const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
@@ -71,10 +76,13 @@ function human(sub: unknown): AuthResult {
     : INVALID;
 }
 
+function supabaseJwks(env: AuthEnv, f: typeof fetch): ReturnType<typeof createRemoteJWKSet> {
+  return remoteJwks(`${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`, f);
+}
+
 async function verifySupabase(token: string, env: AuthEnv, f: typeof fetch): Promise<AuthResult> {
   try {
-    const jwks = remoteJwks(`${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`, f);
-    const { payload } = await jwtVerify(token, jwks, {
+    const { payload } = await jwtVerify(token, supabaseJwks(env, f), {
       issuer: `${env.SUPABASE_URL}/auth/v1`, audience: "authenticated", algorithms: ["ES256", "RS256"],
     });
     return human(payload.sub);
@@ -116,163 +124,78 @@ async function sha256Hex(raw: string): Promise<string> {
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function apiKeyLookupUrl(supabaseUrl: string, keyHash: string): string {
+  return `${supabaseUrl}/rest/v1/api_keys?key_hash=eq.${keyHash}&revoked=eq.false&select=user_id`;
+}
+
+async function apiKeyRow(
+  f: typeof fetch, env: AuthEnv, keyHash: string,
+): Promise<{ user_id: string } | null> {
+  const resp = await f(apiKeyLookupUrl(env.SUPABASE_URL, keyHash), { headers: serviceHeaders(env) });
+  if (!resp.ok) return null;
+  const rows = (await resp.json()) as { user_id: string }[];
+  return rows[0] ?? null;
+}
+
+function serviceHeaders(env: AuthEnv): Record<string, string> {
+  const sr = env.SUPABASE_SERVICE_ROLE_KEY;
+  return { apikey: sr, Authorization: `Bearer ${sr}` };
+}
+
+function touchApiKey(f: typeof fetch, env: AuthEnv, keyHash: string): Promise<Response> {
+  return f(`${env.SUPABASE_URL}/rest/v1/api_keys?key_hash=eq.${keyHash}`, {
+    method: "PATCH",
+    headers: { ...serviceHeaders(env), "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ last_used_at: new Date().toISOString() }),
+  });
+}
+
+function schedule(patch: Promise<Response>, ctx?: Pick<ExecutionContext, "waitUntil">): void {
+  if (ctx) ctx.waitUntil(patch); else void patch;
+}
+
+async function verifiedApiKey(
+  rawKey: string, env: AuthEnv, f: typeof fetch, ctx?: Pick<ExecutionContext, "waitUntil">,
+): Promise<{ ok: true; userId: string } | { ok: false }> {
+  const keyHash = await sha256Hex(rawKey);
+  const row = await apiKeyRow(f, env, keyHash);
+  if (row === null) return { ok: false };
+  schedule(touchApiKey(f, env, keyHash), ctx);
+  return { ok: true, userId: row.user_id };
+}
+
 async function verifyApiKey(
-  rawKey: string,
-  env: AuthEnv,
-  f: typeof fetch,
-  ctx?: Pick<ExecutionContext, "waitUntil">,
+  rawKey: string, env: AuthEnv, f: typeof fetch, ctx?: Pick<ExecutionContext, "waitUntil">,
 ): Promise<{ ok: true; userId: string } | { ok: false }> {
   try {
-    const keyHash = await sha256Hex(rawKey);
-    const sr = env.SUPABASE_SERVICE_ROLE_KEY;
-    const resp = await f(
-      `${env.SUPABASE_URL}/rest/v1/api_keys?key_hash=eq.${keyHash}&revoked=eq.false&select=user_id`,
-      { headers: { apikey: sr, Authorization: `Bearer ${sr}` } },
-    );
-    if (!resp.ok) return { ok: false };
-    const rows = (await resp.json()) as { user_id: string }[];
-    const [row] = rows;
-    if (!row) return { ok: false };
-    const patch = f(`${env.SUPABASE_URL}/rest/v1/api_keys?key_hash=eq.${keyHash}`, {
-      method: "PATCH",
-      headers: { apikey: sr, Authorization: `Bearer ${sr}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({ last_used_at: new Date().toISOString() }),
-    });
-    if (ctx) ctx.waitUntil(patch); else void patch;
-    return { ok: true, userId: row.user_id };
+    return await verifiedApiKey(rawKey, env, f, ctx);
   } catch {
     return { ok: false };
   }
 }
 
-/** Authenticate a /v1 request: `sk_*` -> api_keys (agent), else JWT -> issuer JWKS (human). */
-export async function authenticate(
-  request: Request,
-  env: AuthEnv,
-  fetchImpl: typeof fetch = fetch,
-  ctx?: Pick<ExecutionContext, "waitUntil">,
-): Promise<AuthResult> {
+function bearerToken(request: Request): string | null {
   const header = request.headers.get("Authorization") ?? "";
   const scheme = BEARER_SCHEME.exec(header);
-  if (scheme === null) return ABSENT;
+  if (scheme === null) return null;
   const token = header.slice(scheme[0].length).trim();
   // A scheme with nothing behind it presented no credential at all.
-  if (!token) return ABSENT;
-  if (token.startsWith("sk_")) {
-    const r = await verifyApiKey(token, env, fetchImpl, ctx);
-    return r.ok ? { ok: true, userId: r.userId, userType: "agent" } : INVALID;
-  }
+  return token.length > 0 ? token : null;
+}
+
+async function agentKeyResult(
+  token: string, env: AuthEnv, fetchImpl: typeof fetch, ctx?: Pick<ExecutionContext, "waitUntil">,
+): Promise<AuthResult> {
+  const r = await verifyApiKey(token, env, fetchImpl, ctx);
+  return r.ok ? { ok: true, userId: r.userId, userType: "agent" } : INVALID;
+}
+
+/** Authenticate a /v1 request: `sk_*` -> api_keys (agent), else JWT -> issuer JWKS (human). */
+export async function authenticate(
+  request: Request, env: AuthEnv, fetchImpl: typeof fetch = fetch, ctx?: Pick<ExecutionContext, "waitUntil">,
+): Promise<AuthResult> {
+  const token = bearerToken(request);
+  if (token === null) return ABSENT;
+  if (token.startsWith("sk_")) return await agentKeyResult(token, env, fetchImpl, ctx);
   return verifyJwt(token, env, fetchImpl);
-}
-
-// ── Anonymous identity (issue #274 / S1.8) ─────────────────────────────────
-//
-// Mechanism: a worker-signed, opaque, HttpOnly cookie. The edge mints a random
-// id and an HMAC tag over it, so the id is stable per browser (survives IP
-// changes and CGNAT, unlike an IP-derived hash) and cannot be forged into an
-// arbitrary namespace or made to collide with another visitor's counters. No
-// PII is derived or stored. Anonymous access is opt-in: without both
-// ANON_ACCESS_ENABLED and ANON_ID_SECRET the edge keeps its existing 401.
-
-const ANON_COOKIE = "aid";
-const ANON_COOKIE_MAX_AGE_SECONDS = 31_536_000;
-const ANON_ID_PATTERN = /^[0-9a-f]{32}$/;
-
-/** Container-visible prefix of every anonymous `X-User-Id`. */
-export const ANON_ID_PREFIX = "anon_";
-
-export interface AnonymousIdentity {
-  readonly userId: string;
-  /** Set only when this request minted a new identity. */
-  readonly setCookie: string | null;
-}
-
-export function anonymousEnabled(env: AnonymousEnv): boolean {
-  return (
-    env.ANON_ACCESS_ENABLED === "true" &&
-    typeof env.ANON_ID_SECRET === "string" &&
-    env.ANON_ID_SECRET.length > 0
-  );
-}
-
-function readCookie(request: Request, name: string): string | null {
-  for (const part of (request.headers.get("Cookie") ?? "").split(";")) {
-    const [key, ...rest] = part.trim().split("=");
-    if (key === name && rest.length > 0) return rest.join("=");
-  }
-  return null;
-}
-
-async function hmacHex(secret: string, message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
-  return Array.from(new Uint8Array(signature)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-export function constantTimeEqual(left: string, right: string): boolean {
-  if (left.length !== right.length) return false;
-  let difference = 0;
-  for (let i = 0; i < left.length; i += 1) difference |= left.charCodeAt(i) ^ right.charCodeAt(i);
-  return difference === 0;
-}
-
-async function verifyAnonymousToken(token: string, secret: string): Promise<string | null> {
-  const [id, signature] = token.split(".");
-  if (id === undefined || signature === undefined || !ANON_ID_PATTERN.test(id)) return null;
-  return constantTimeEqual(signature, await hmacHex(secret, id)) ? id : null;
-}
-
-function anonymousCookie(token: string): string {
-  return `${ANON_COOKIE}=${token}; Path=/; Max-Age=${String(ANON_COOKIE_MAX_AGE_SECONDS)}; HttpOnly; Secure; SameSite=Lax`;
-}
-
-async function mintAnonymousIdentity(secret: string): Promise<AnonymousIdentity> {
-  const id = crypto.randomUUID().replaceAll("-", "");
-  return {
-    userId: `${ANON_ID_PREFIX}${id}`,
-    setCookie: anonymousCookie(`${id}.${await hmacHex(secret, id)}`),
-  };
-}
-
-/**
- * Resolve (or mint) this browser's anonymous identity. A brand-new visitor
- * with zero history is issued one immediately — there is no minimum-history
- * threshold and no first-request penalty. Returns null when anonymous access
- * is not enabled, which leaves the caller on the authenticated path.
- */
-export async function resolveAnonymous(
-  request: Request,
-  env: AnonymousEnv,
-): Promise<AnonymousIdentity | null> {
-  const secret = env.ANON_ID_SECRET;
-  if (!anonymousEnabled(env) || secret === undefined) return null;
-  const cookie = readCookie(request, ANON_COOKIE);
-  const verified = cookie === null ? null : await verifyAnonymousToken(cookie, secret);
-  if (verified === null) return mintAnonymousIdentity(secret);
-  return { userId: `${ANON_ID_PREFIX}${verified}`, setCookie: null };
-}
-
-/**
- * Resolve-only variant for the session-migration route (issue #273 Task 3,
- * re-P2-1): verifies an existing `aid` cookie but never mints one. A missing
- * or tampered cookie returns null rather than a fresh identity, so a request
- * with no anonymous history forwards no `X-Anon-Id` — minting here would
- * silently give the migration endpoint side effects no other route has. The
- * route sets no cookie at all: it does not mint one, and (per the #507 owner
- * ruling reversing S1.7 rev5 P2-b) it no longer retires one either.
- */
-export async function resolveAnonymousReadOnly(
-  request: Request,
-  env: AnonymousEnv,
-): Promise<AnonymousIdentity | null> {
-  const secret = env.ANON_ID_SECRET;
-  if (!anonymousEnabled(env) || secret === undefined) return null;
-  const cookie = readCookie(request, ANON_COOKIE);
-  if (cookie === null) return null;
-  const verified = await verifyAnonymousToken(cookie, secret);
-  if (verified === null) return null;
-  return { userId: `${ANON_ID_PREFIX}${verified}`, setCookie: null };
 }

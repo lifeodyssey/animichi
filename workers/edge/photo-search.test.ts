@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import { handleGuardRequest } from "./edge-guard.ts";
-import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
+import { fakeGuard } from "./guard-doubles.ts";
 
 /** /v1/photo-search edge routing (issue #260 / PR #445 review P1-1):
  * the endpoints must ride the same auth-or-anon gate as /v1/chat — before
@@ -16,46 +15,36 @@ const stubCtx = {
   passThroughOnException() { return undefined; },
 } as unknown as ExecutionContext;
 
-function fakeGuard() {
-  const shards = new Map<string, GuardStore>();
-  const storeFor = (name: string) => {
-    const existing = shards.get(name);
-    if (existing) return existing;
-    const created = memoryGuardStore();
-    shards.set(name, created);
-    return created;
-  };
-  return {
-    idFromName: (name: string) => name as unknown as DurableObjectId,
-    get: (id: DurableObjectId) => ({
-      fetch: (request: Request) =>
-        handleGuardRequest(request, storeFor(String(id)), NOW, { limit: 20, windowSeconds: 60 }),
-    }),
-  };
-}
-
 /** #260's subject is identity + header hygiene on the photo routes, not the
  * #447 Turnstile gate — `turnstile-arm.test.ts` owns the challenge behaviour. */
 const passingGate = { check: () => Promise.resolve({ ok: true, errorCodes: [] }) };
 
 function environmentWith(captured: { requests: Request[] }, anonEnabled: boolean) {
   return {
-    ...(anonEnabled
-      ? {
-          ANON_ACCESS_ENABLED: "true",
-          ANON_ID_SECRET: SECRET,
-          TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
-        }
-      : {}),
+    ...anonEnv(anonEnabled),
     EDGE_SHOWCASE_MODE: "false",
-    EDGE_GUARD: fakeGuard(),
-    CONTAINER: {
-      idFromName: () => "id",
-      get: () => ({
-        fetch: (r: Request) => { captured.requests.push(r); return Promise.resolve(new Response("container")); },
-      }),
-    },
+    EDGE_GUARD: fakeGuard(NOW).namespace,
+    CONTAINER: containerStub(captured),
   } as never;
+}
+
+function anonEnv(anonEnabled: boolean) {
+  return anonEnabled
+    ? {
+        ANON_ACCESS_ENABLED: "true",
+        ANON_ID_SECRET: SECRET,
+        TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
+      }
+    : {};
+}
+
+function containerStub(captured: { requests: Request[] }) {
+  return {
+    idFromName: () => "id",
+    get: () => ({
+      fetch: (r: Request) => { captured.requests.push(r); return Promise.resolve(new Response("container")); },
+    }),
+  };
 }
 
 void test("authed /v1/photo-search forwards with worker identity, byok stripped, session kept", async () => {

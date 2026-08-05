@@ -27,16 +27,17 @@ function environmentWithContainer(captured: { req?: Request }, body: object = { 
   return {
     ...ANON_ENV,
     EDGE_GUARD: alwaysAllowGuard,
-    CONTAINER: {
-      idFromName: () => "id",
-      get: () => ({
-        fetch: (r: Request) => {
-          captured.req = r;
-          return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
-        },
-      }),
-    },
+    CONTAINER: containerStub(captured, body),
   } as never;
+}
+
+function containerStub(captured: { req?: Request }, body: object) {
+  return {
+    idFromName: () => "id",
+    get: () => ({
+      fetch: (r: Request) => { captured.req = r; return Promise.resolve(new Response(JSON.stringify(body), { status: 200 })); },
+    }),
+  };
 }
 
 async function anonCookieFor(userId: string): Promise<string> {

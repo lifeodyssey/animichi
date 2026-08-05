@@ -89,18 +89,29 @@ export function parseBangumi(workId: string, payload: unknown): BangumiRow {
 }
 
 /** Assemble the `bangumi` row from a narrowed subject object. */
-function buildBangumiRow(
-  workId: string,
-  subject: Record<string, unknown>,
-  title: string,
-): BangumiRow {
+function buildBangumiRow(workId: string, subject: Record<string, unknown>, title: string): BangumiRow {
   return {
     id: workId,
     title,
+    ...bangumiMeta(subject),
+  };
+}
+
+type BangumiMeta = Pick<BangumiRow, "title_cn" | "cover_url" | "summary" | "rating" | "eps_count" | "air_date">;
+
+/** Derive the remaining `bangumi` columns from the narrowed subject. */
+function bangumiMeta(subject: Record<string, unknown>): BangumiMeta {
+  return {
     title_cn: asStr(subject.name_cn),
     cover_url: coverFromImages(subject.images),
     summary: asStr(subject.summary),
     rating: ratingScore(subject.rating),
+    ...airMeta(subject),
+  };
+}
+
+function airMeta(subject: Record<string, unknown>): Pick<BangumiRow, "eps_count" | "air_date"> {
+  return {
     eps_count: asNum(subject.total_episodes) ?? asNum(subject.eps),
     air_date: pickStr(subject, ["date", "air_date"]),
   };
@@ -169,13 +180,24 @@ function buildPointRow(
   item: Record<string, unknown>,
   core: { id: string; name: string; latitude: number; longitude: number },
 ): PointRow {
+  return { ...core, bangumi_id: workId, ...pointMeta(item) };
+}
+
+type PointMeta = Pick<PointRow, "name_cn" | "image" | "episode" | "time_seconds" | "origin" | "origin_url">;
+
+/** Derive the remaining `points` columns from the narrowed point object. */
+function pointMeta(item: Record<string, unknown>): PointMeta {
   return {
-    ...core,
-    bangumi_id: workId,
     name_cn: pickStr(item, ["cn", "cn_name"]),
     image: pointImage(item),
     episode: asNum(item.episode) ?? asNum(item.ep),
     time_seconds: asNum(item.time_seconds) ?? asNum(item.s) ?? 0,
+    ...pointSourceMeta(item),
+  };
+}
+
+function pointSourceMeta(item: Record<string, unknown>): Pick<PointRow, "origin" | "origin_url"> {
+  return {
     origin: asStr(item.origin),
     origin_url: pickStr(item, ["origin_url", "originURL"]),
   };

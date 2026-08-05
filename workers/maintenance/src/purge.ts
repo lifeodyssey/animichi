@@ -73,11 +73,9 @@ async function purgeSession(
   sessionIdValue: string,
   cutoff: Date,
 ): Promise<PurgeOutcome> {
-  try {
-    return await deleteSession(db, sessionIdValue, cutoff);
-  } catch (error) {
-    return failedSession(error, sessionIdValue);
-  }
+  return deleteSession(db, sessionIdValue, cutoff).catch((error: unknown) =>
+    failedSession(error, sessionIdValue),
+  );
 }
 
 async function deleteSession(
