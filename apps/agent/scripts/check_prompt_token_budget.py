@@ -24,7 +24,11 @@ TOKEN_BUDGET = 2000
 _INSTRUCTIONS_NAME = "_INSTRUCTIONS"
 _ENCODING_NAME = "cl100k_base"
 _INSTRUCTIONS_PATH = (
-    Path(__file__).resolve().parent.parent / "agent" / "agents" / "animichi_agent.py"
+    Path(__file__).resolve().parent.parent
+    / "src"
+    / "animichi"
+    / "agents"
+    / "animichi_agent.py"
 )
 
 

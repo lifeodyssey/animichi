@@ -58,11 +58,11 @@ jobs:
 
       - name: Run the anonymous-session retention sweep
         # The script itself writes "purged=N raced=N failed=N" to
-        # $GITHUB_STEP_SUMMARY (agent.scripts.purge_anonymous_sessions.
+        # $GITHUB_STEP_SUMMARY (animichi.scripts.purge_anonymous_sessions.
         # _write_step_summary) — GitHub Actions sets that path for every
         # step automatically, no extra wiring needed here.
         run: |
-          uv run --frozen python -m agent.scripts.purge_anonymous_sessions \
+          uv run --frozen python -m animichi.scripts.purge_anonymous_sessions \
             ${{ inputs.dry_run == true && '--dry-run' || '' }}
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}

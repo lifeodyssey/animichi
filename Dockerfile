@@ -21,7 +21,7 @@ COPY apps/agent/pyproject.toml apps/agent/uv.lock /app/
 # .github/workflows/purge-anonymous-sessions.yml's NOTE.
 RUN uv sync --no-dev --no-install-project --frozen --no-build
 
-COPY apps/agent/agent /app/agent
+COPY apps/agent/src/animichi /app/src/animichi
 
 # --no-build rejected here: this `uv sync` installs the local editable
 # project itself, which has no wheel ("marked as --no-build but has no
@@ -54,8 +54,8 @@ RUN useradd -r -s /bin/false appuser
 # #494: build-time git metadata. The CI deploy path builds this image through
 # `wrangler deploy` (wrangler.toml [[containers]] image = "./Dockerfile"), which
 # cannot pass `--build-arg` (workers-sdk #12991) — CI instead bakes
-# apps/agent/agent/build_info.py before deploying, and the existing COPY of
-# that directory ships it into /app/agent. These ARG/ENV pairs cover manual
+# apps/agent/src/animichi/build_info.py before deploying, and the existing COPY of
+# that directory ships it into /app/src/animichi. These ARG/ENV pairs cover manual
 # `docker build --build-arg GIT_COMMIT=... GIT_BRANCH=...` builds; empty
 # defaults keep a plain build healthy (health.py falls through to git).
 ARG GIT_COMMIT=""
@@ -69,4 +69,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"SERVICE_PORT\", \"8080\")}/healthz', timeout=3)"
 
-CMD ["python", "-m", "agent.interfaces.fastapi_service"]
+CMD ["python", "-m", "animichi.interfaces.fastapi_service"]

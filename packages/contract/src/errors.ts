@@ -2,7 +2,7 @@
  * Single source of truth for cross-service Catalog error codes.
  *
  * Mirrors live in `workers/catalog/src/lib/errors.ts` (TS, no zod) and
- * `apps/agent/agent/clients/catalog_errors.py` (Python). Keep all three in
+ * `apps/agent/src/animichi/clients/catalog_errors.py` (Python). Keep all three in
  * lockstep.
  */
 
