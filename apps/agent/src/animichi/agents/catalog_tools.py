@@ -1,0 +1,277 @@
+from __future__ import annotations
+
+from pydantic_ai import RunContext
+
+from animichi.agents.agent_result import ProducedSearch, RejectedSearch
+from animichi.agents.catalog_adapter import build_search_state
+from animichi.agents.catalog_failures import CATALOG_FAILURES
+from animichi.agents.models import ToolName
+from animichi.agents.runtime_deps import RuntimeDeps
+from animichi.agents.session_state import (
+    CurrentAnime,
+    GeocodeStaging,
+    OrderedCandidate,
+    PendingClarification,
+    ResultRef,
+)
+from animichi.agents.step_recording import record_server_step
+from animichi.agents.title_matching import looks_like_wrong_variant
+from animichi.agents.tool_event_bridge import register_tool_provenance
+from animichi.agents.tool_outcomes import (
+    NearbyEmpty,
+    NearbyMissingLocation,
+    NearbyOk,
+    NearbyPlaceAmbiguous,
+    NearbyPlaceUnresolved,
+    NearbyUpstreamDown,
+    ResolveAmbiguous,
+    ResolveNotFound,
+    ResolveResolved,
+    ResolveUpstreamDown,
+    SearchEmpty,
+    SearchOk,
+    SearchUpstreamDown,
+)
+from animichi.clients.catalog_client import (
+    AnimeCandidate,
+    CatalogClientProtocol,
+    GeocodeCandidate,
+    GeocodeKind,
+)
+from animichi.clients.catalog_client import (
+    ResolveAmbiguous as CatalogResolveAmbiguous,
+)
+from animichi.clients.catalog_client import (
+    ResolveNotFound as CatalogResolveNotFound,
+)
+from animichi.clients.catalog_client import (
+    ResolveResolved as CatalogResolveResolved,
+)
+
+
+def _candidate(candidate: AnimeCandidate) -> OrderedCandidate:
+    return OrderedCandidate(
+        id=candidate.bangumi_id,
+        title=candidate.title or candidate.title_cn or candidate.bangumi_id,
+        cover_url=candidate.cover_url or None,
+        points_count=candidate.points_count,
+    )
+
+
+def _place_candidate(candidate: GeocodeCandidate) -> OrderedCandidate:
+    return OrderedCandidate(
+        id=candidate.id,
+        title=candidate.label,
+        lat=candidate.lat,
+        lng=candidate.lng,
+        effective_radius_m=candidate.effective_radius_m,
+    )
+
+
+def _set_pending(
+    deps: RuntimeDeps, reason: str, candidates: list[OrderedCandidate]
+) -> None:
+    session = deps.tool_state.session
+    session.clarification_revision += 1
+    session.pending_clarification = PendingClarification.model_validate(
+        {
+            "reason": reason,
+            "candidate_ids": [candidate.id for candidate in candidates],
+            "ordered_candidates": candidates,
+            "revision": session.clarification_revision,
+        }
+    )
+    session.geocode_staging = None
+
+
+def _clear_pending(deps: RuntimeDeps) -> None:
+    deps.tool_state.session.pending_clarification = None
+    deps.tool_state.session.geocode_staging = None
+
+
+async def run_resolve(
+    ctx: RunContext[RuntimeDeps], catalog: CatalogClientProtocol, title: str
+) -> ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamDown:
+    result: ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamDown
+    try:
+        resolved = await catalog.resolve(title)
+    except CATALOG_FAILURES:
+        result = ResolveUpstreamDown()
+    else:
+        result = _adapt_resolve(ctx.deps, resolved, title)
+    return result
+
+
+def _adapt_resolve(
+    deps: RuntimeDeps, resolved: object, query: str
+) -> ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamDown:
+    if isinstance(resolved, CatalogResolveResolved):
+        return _adapt_resolved(deps, resolved, query)
+    if isinstance(resolved, CatalogResolveAmbiguous):
+        return _adapt_ambiguous(deps, resolved)
+    if isinstance(resolved, CatalogResolveNotFound):
+        return _adapt_not_found(deps)
+    _clear_pending(deps)
+    return ResolveUpstreamDown()
+
+
+def _adapt_resolved(
+    deps: RuntimeDeps, resolved: CatalogResolveResolved, query: str
+) -> ResolveResolved | ResolveNotFound:
+    match = resolved.match
+    if looks_like_wrong_variant(query, (match.title, match.title_cn)):
+        return _adapt_not_found(deps)
+    _clear_pending(deps)
+    title = match.title or match.title_cn
+    deps.tool_state.session.current_anime = CurrentAnime(
+        bangumi_id=match.bangumi_id, title=title
+    )
+    return ResolveResolved(bangumi_id=match.bangumi_id, anime_title=title)
+
+
+def _adapt_ambiguous(
+    deps: RuntimeDeps, resolved: CatalogResolveAmbiguous
+) -> ResolveAmbiguous:
+    candidates = [_candidate(candidate) for candidate in resolved.candidates]
+    _set_pending(deps, "anime_ambiguity", candidates)
+    return ResolveAmbiguous(candidate_ids=[candidate.id for candidate in candidates])
+
+
+def _adapt_not_found(deps: RuntimeDeps) -> ResolveNotFound:
+    _set_pending(deps, "anime_not_found", [])
+    return ResolveNotFound()
+
+
+async def run_work_search(
+    ctx: RunContext[RuntimeDeps], catalog: CatalogClientProtocol, bangumi_id: str
+) -> SearchOk | SearchEmpty | SearchUpstreamDown:
+    """Fetch an already-resolved work without repeating free-text resolution."""
+    try:
+        result = await catalog.points_by_work_id(bangumi_id)
+    except CATALOG_FAILURES:
+        return SearchUpstreamDown()
+    payload = build_search_state(
+        result.rows,
+        kind="bangumi",
+        anime_id=bangumi_id,
+        is_partial=result.partial,
+        locale=ctx.deps.locale,
+    )
+    ref = ResultRef(ctx.deps.ref_factory("search", payload.row_count))
+    ctx.deps.tool_state.session.store_search_result(ref, payload)
+    _clear_pending(ctx.deps)
+    title = payload.metadata.anime_title if payload.metadata else None
+    outcome: SearchOk | SearchEmpty
+    if payload.row_count:
+        outcome = SearchOk(
+            result_ref=str(ref),
+            row_count=payload.row_count,
+            anime_title=title,
+            partial=payload.partial,
+        )
+    else:
+        outcome = SearchEmpty(anime_title=title, partial=payload.partial)
+    provenance = ProducedSearch(outcome=outcome.outcome, result_ref=ref)
+    register_tool_provenance(ctx, provenance)
+    return outcome
+
+
+def _origin(deps: RuntimeDeps) -> tuple[float, float] | None:
+    lat = deps.tool_state.origin_lat
+    lng = deps.tool_state.origin_lng
+    return (lat, lng) if lat is not None and lng is not None else None
+
+
+def _place_pending(
+    deps: RuntimeDeps, candidates: list[GeocodeCandidate]
+) -> NearbyPlaceAmbiguous:
+    ordered = [_place_candidate(candidate) for candidate in candidates]
+    staging = GeocodeStaging(candidates=ordered)
+    deps.tool_state.session.geocode_staging = staging
+    _set_pending(deps, "place_ambiguity", staging.candidates)
+    return NearbyPlaceAmbiguous(place_candidate_ids=[item.id for item in ordered])
+
+
+async def _coordinates(
+    deps: RuntimeDeps, catalog: CatalogClientProtocol, location: str | None
+) -> (
+    tuple[tuple[float, float], int]
+    | NearbyPlaceAmbiguous
+    | NearbyPlaceUnresolved
+    | NearbyMissingLocation
+):
+    if location is None or not location.strip():
+        origin = _origin(deps)
+        if origin is not None:
+            return origin, 5_000
+        _set_pending(deps, "missing_location", [])
+        return NearbyMissingLocation()
+    candidates = await catalog.geocode(location.strip(), limit=5)
+    record_server_step(
+        deps,
+        ToolName.GEOCODE.value,
+        {"location": location.strip()},
+        {"candidate_ids": [candidate.id for candidate in candidates]},
+    )
+    if not candidates:
+        _set_pending(deps, "unknown_place", [])
+        return NearbyPlaceUnresolved(clarification_reason="unknown_place")
+    if len(candidates) > 1:
+        return _place_pending(deps, candidates)
+    candidate = candidates[0]
+    if candidate.kind == GeocodeKind.PREFECTURE:
+        _set_pending(deps, "place_too_broad", [])
+        return NearbyPlaceUnresolved(clarification_reason="place_too_broad")
+    radius = candidate.effective_radius_m or 5_000
+    return (candidate.lat, candidate.lng), radius
+
+
+async def run_nearby_search(
+    ctx: RunContext[RuntimeDeps],
+    catalog: CatalogClientProtocol,
+    location: str | None,
+    radius_m: int | None,
+) -> (
+    NearbyOk
+    | NearbyEmpty
+    | NearbyPlaceAmbiguous
+    | NearbyPlaceUnresolved
+    | NearbyMissingLocation
+    | NearbyUpstreamDown
+):
+    """Resolve a place into a typed outcome and a registry-backed geo result."""
+    try:
+        resolved = await _coordinates(ctx.deps, catalog, location)
+    except CATALOG_FAILURES:
+        _clear_pending(ctx.deps)
+        return _nearby_upstream_down(ctx)
+    if not isinstance(resolved, tuple):
+        rejected = RejectedSearch(outcome=resolved.outcome)
+        register_tool_provenance(ctx, rejected)
+        return resolved
+    coords, default_radius = resolved
+    try:
+        points = await catalog.nearby(
+            coords[0], coords[1], radius_m=radius_m or default_radius
+        )
+    except CATALOG_FAILURES:
+        _clear_pending(ctx.deps)
+        return _nearby_upstream_down(ctx)
+    payload = build_search_state(points, kind="nearby", locale=ctx.deps.locale)
+    ref = ResultRef(ctx.deps.ref_factory("search", payload.row_count))
+    ctx.deps.tool_state.session.store_search_result(ref, payload)
+    _clear_pending(ctx.deps)
+    outcome: NearbyOk | NearbyEmpty = (
+        NearbyOk(result_ref=str(ref), row_count=payload.row_count)
+        if payload.row_count
+        else NearbyEmpty()
+    )
+    produced = ProducedSearch(outcome=outcome.outcome, result_ref=ref)
+    register_tool_provenance(ctx, produced)
+    return outcome
+
+
+def _nearby_upstream_down(ctx: RunContext[RuntimeDeps]) -> NearbyUpstreamDown:
+    outcome = NearbyUpstreamDown()
+    register_tool_provenance(ctx, RejectedSearch(outcome=outcome.outcome))
+    return outcome

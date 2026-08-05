@@ -5,7 +5,7 @@
 
 ## Overview
 
-*Agent file references below are relative to `apps/agent/agent/` (monorepo move, #306-era); worker and web paths are repo-root relative.*
+*Agent file references below are relative to `apps/agent/src/animichi/` (src-layout, #651); worker and web paths are repo-root relative.*
 
 ```
 User text → RuntimeAPI.handle() → run_animichi_agent() → animichi_agent.run()

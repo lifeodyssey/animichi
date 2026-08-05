@@ -163,7 +163,7 @@ void test("APP_ENV is listed in CONTAINER_REQUIRED_KEYS (fail-closed, issue #498
 });
 
 // #656 retired the standalone Gemini vision provider (photo-search now rides
-// the main agent's multimodal input, apps/agent/agent/agents/photo_vision.py)
+// the main agent's multimodal input, apps/agent/src/animichi/agents/photo_vision.py)
 // and removed GEMINI_API_KEY from every config surface it touched. A guard
 // pins the removal itself, not just the code that stopped reading it — this
 // repo has hit "the guard doesn't run / doesn't exist" four times in one week

@@ -86,7 +86,7 @@ ATLAS_VERSION=0.30.0 scripts/neon-test-base.sh refresh test-base
 
 Phase C's `.github/workflows/neon-test-base.yml` runs the same `refresh test-base` command after a
 push to `main` that changes `db/migrations/**` or
-`apps/agent/agent/tests/fixtures/seed.sql`. Use `provision test-base` only for an owner-approved
+`apps/agent/src/animichi/tests/fixtures/seed.sql`. Use `provision test-base` only for an owner-approved
 deterministic rebuild; that mode drops and recreates the target database after the same identity
 rails pass.
 
@@ -155,7 +155,7 @@ curl -fsS -H "Authorization: Bearer $NEON_API_KEY" "https://console.neon.tech/ap
 ```
 
 This mirrors the parent/name ownership pattern in
-`apps/agent/agent/tests/neon_api.py::delete_claimed_branch`: list-delta discovery is only a hint;
+`apps/agent/src/animichi/tests/neon_api.py::delete_claimed_branch`: list-delta discovery is only a hint;
 the deletion authority comes from the per-ID identity re-verification. Neon documents `parent_id`
 as the parent branch ID in its [branch API](https://api-docs.neon.tech/reference/listprojectbranches)
 and rejects deletion of branches that still have children.

@@ -470,12 +470,12 @@ checklist, in order:
 1. **`RuntimeContainer.deniedHosts`** (this section) — the Worker's URL-hostname glob denylist
    described above (plain HTTP, literal IP/hostname requests only — not CIDR-aware, not
    DNS-rebinding-aware); the actual Task 7 deliverable.
-2. **`egress_guard.validate_base_url()`** (`apps/agent/agent/infrastructure/egress_guard.py`,
+2. **`egress_guard.validate_base_url()`** (`apps/agent/src/animichi/infrastructure/egress_guard.py`,
    Task 1 / #458) — SSRF pre-flight check run against any user-supplied BYOK `base_url` before a
    model client is constructed; rejects private/link-local/CGNAT/reserved targets (dual-condition
    `is_global` + deny-flag check, T3/T6) with a `400` before any socket is opened.
 3. **`GuardedAsyncTransport` / `build_guarded_async_client`**
-   (`apps/agent/agent/infrastructure/egress_transport.py`, Task 1) — the only sanctioned way to
+   (`apps/agent/src/animichi/infrastructure/egress_transport.py`, Task 1) — the only sanctioned way to
    build a BYOK-path HTTP client (all three provider families — OpenAI-compatible, Anthropic,
    Gemini — route through it via `agents/byok_models.py`, #477). It:
    - re-validates at connect time and **pins the socket to the validated IP with a rewritten
@@ -512,7 +512,7 @@ remain the guarded-factory convention's job. `apps/agent/AGENTS.md`'s HTTP conve
 states this explicitly (previously it said the opposite: "leave `trust_env` at httpx's default
 (`True`)", without carving out the BYOK/egress-guarded path, which would have told a future
 contributor to recreate the exact T13 bypass this section closes — that has been corrected).
-Owner: whoever lands new outbound HTTP call sites in `apps/agent/agent/` must construct clients
+Owner: whoever lands new outbound HTTP call sites in `apps/agent/src/animichi/` must construct clients
 via `egress_transport.build_guarded_async_client`; PR review is the enforcement point for the
 HTTPS and DNS-rebinding residuals.
 

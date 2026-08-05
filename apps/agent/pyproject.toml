@@ -49,7 +49,7 @@ dependencies = [
 ]
 
 [project.scripts]
-animichi-api = "agent.interfaces.fastapi_service:main"
+animichi-api = "animichi.interfaces.fastapi_service:main"
 
 [project.optional-dependencies]
 dev = [
@@ -58,7 +58,7 @@ dev = [
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.0.0",
     # Self-signed TLS fixture for the SSRF egress guard integration tests
-    # (agent/tests/integration/_egress_tls_stub.py). Previously an incidental
+    # (src/animichi/tests/integration/_egress_tls_stub.py). Previously an incidental
     # transitive dependency (via authlib) — pinned explicitly since tests
     # import it directly and it must not silently disappear on a dep bump.
     "cryptography>=46.0.0",
@@ -74,7 +74,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agent"]
+packages = ["src/animichi"]
 
 [tool.ruff]
 line-length = 88
@@ -105,10 +105,10 @@ ignore = [
 max-complexity = 10
 
 [tool.ruff.lint.per-file-ignores]
-"agent/tests/**" = ["S101", "S105", "S106", "S108", "S311", "S314", "S607"]
-"agent/config/settings.py" = ["S104"]  # FastAPI container must bind 0.0.0.0; remove with agent→Worker migration (Wave 3)
-"agent/interfaces/routes/health.py" = ["S603"]  # args is always a hardcoded list, not user input
-"agent/tests/atlas_helper.py" = ["S603"]  # argv is the fixed Atlas CLI shape; dsn comes from test fixtures, not user input
+"src/animichi/tests/**" = ["S101", "S105", "S106", "S108", "S311", "S314", "S607"]
+"src/animichi/config/settings.py" = ["S104"]  # FastAPI container must bind 0.0.0.0; remove with agent→Worker migration (Wave 3)
+"src/animichi/interfaces/routes/health.py" = ["S603"]  # args is always a hardcoded list, not user input
+"src/animichi/tests/atlas_helper.py" = ["S603"]  # argv is the fixed Atlas CLI shape; dsn comes from test fixtures, not user input
 
 [tool.pytest.ini_options]
 # Pytest configuration for Animichi Bot
@@ -119,10 +119,10 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 # Test paths
-testpaths = ["agent/tests"]
+testpaths = ["src/animichi/tests"]
 
 # Pytest options
-addopts = "-ra --strict-markers --strict-config --cov=agent --cov-branch --cov-report=term-missing:skip-covered --cov-report=html --cov-report=xml --cov-fail-under=87 --maxfail=1 --tb=short --asyncio-mode=auto -v"
+addopts = "-ra --strict-markers --strict-config --cov=animichi --cov-branch --cov-report=term-missing:skip-covered --cov-report=html --cov-report=xml --cov-fail-under=87 --maxfail=1 --tb=short --asyncio-mode=auto -v"
 
 # Custom markers (must live under [tool.pytest.ini_options]; previously misplaced under [coverage:report])
 markers = [
@@ -136,7 +136,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["agent"]
+source = ["animichi"]
 omit = [
     "*/tests/*",
     "*/test_*.py",
@@ -165,13 +165,13 @@ exclude_lines = [
 ]
 
 [tool.vulture]
-paths = ["agent", "vulture_whitelist.py"]
+paths = ["src/animichi", "vulture_whitelist.py"]
 min_confidence = 80
 
 [tool.mypy]
 python_version = "3.11"
 plugins = ["pydantic.mypy"]
-mypy_path = "agent/typestubs"
+mypy_path = "src/animichi/typestubs"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -183,10 +183,10 @@ warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
 module = [
-    "agent.agents.models",
-    "agent.domain.entities",
-    "agent.domain.llm_schemas",
-    "agent.interfaces.public_api",
+    "animichi.agents.models",
+    "animichi.domain.entities",
+    "animichi.domain.llm_schemas",
+    "animichi.interfaces.public_api",
 ]
 disallow_any_explicit = false
 

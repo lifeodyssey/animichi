@@ -25,16 +25,16 @@ os.environ.setdefault("MIMO_API_KEY", "recording-stub")
 os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
 
 if TYPE_CHECKING:
-    from agent.agents.runtime_deps import OnStep, StepEvent, StepStatus
-    from agent.interfaces.routes.chat_stream import ChatHandler
-    from agent.interfaces.schemas import PublicAPIResponse
+    from animichi.agents.runtime_deps import OnStep, StepEvent, StepStatus
+    from animichi.interfaces.routes.chat_stream import ChatHandler
+    from animichi.interfaces.schemas import PublicAPIResponse
 
 _FIXTURE_DIR = Path(__file__).parent
 
 
 def _search_response() -> PublicAPIResponse:
-    from agent.interfaces.response_builder import agent_result_to_response
-    from agent.tests.unit.conftest_public_api import make_result
+    from animichi.interfaces.response_builder import agent_result_to_response
+    from animichi.tests.unit.conftest_public_api import make_result
 
     data = {
         "results": {
@@ -93,8 +93,8 @@ def _search_response() -> PublicAPIResponse:
 
 
 def _clarify_response() -> PublicAPIResponse:
-    from agent.interfaces.response_builder import agent_result_to_response
-    from agent.tests.unit.conftest_public_api import make_result
+    from animichi.interfaces.response_builder import agent_result_to_response
+    from animichi.tests.unit.conftest_public_api import make_result
 
     result = make_result(
         "clarify",
@@ -105,7 +105,7 @@ def _clarify_response() -> PublicAPIResponse:
 
 
 def _step(tool: str, status: StepStatus, data: dict[str, object]) -> StepEvent:
-    from agent.agents.runtime_deps import StepEvent
+    from animichi.agents.runtime_deps import StepEvent
 
     return StepEvent(tool, f"{tool}-fixture", status, data)
 
@@ -149,7 +149,7 @@ def _error_handler() -> ChatHandler:
 
 
 async def _record(name: str, handler: ChatHandler) -> Path:
-    from agent.interfaces.routes.chat_stream import stream_chat
+    from animichi.interfaces.routes.chat_stream import stream_chat
 
     frames = [frame async for frame in stream_chat(handler)]
     path = _FIXTURE_DIR / f"{name}.sse"

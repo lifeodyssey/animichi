@@ -96,14 +96,14 @@ order. Apply migrations in a dedicated deploy step, not at application startup.
 
 **Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
-See [`apps/agent/agent/config/settings.py`](apps/agent/agent/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
+See [`apps/agent/src/animichi/config/settings.py`](apps/agent/src/animichi/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
 
 ## Example Usage
 
 **Python (direct):**
 ```python
-from agent.agents.animichi_runner import run_animichi_agent
-from agent.infrastructure.supabase.client import SupabaseClient
+from animichi.agents.animichi_runner import run_animichi_agent
+from animichi.infrastructure.supabase.client import SupabaseClient
 
 async def main() -> None:
     async with SupabaseClient(db_url) as db:
@@ -121,7 +121,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 
 **Python client:**
 ```python
-from agent.clients.python.seichijunrei_client import SeichijunreiClient
+from animichi.clients.python.seichijunrei_client import SeichijunreiClient
 
 client = SeichijunreiClient(api_key="sk_your_key_here")
 result = client.search("Hibike Euphonium locations", locale="en")

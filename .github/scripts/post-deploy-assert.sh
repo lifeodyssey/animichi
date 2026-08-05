@@ -258,7 +258,7 @@ cmd_catalog_probe() {
 # container process is up; catalog-probe covers the Neon-backed catalog
 # Worker specifically. Neither exercises the agent container's OWN Postgres
 # connection (env.SUPABASE_DB_URL — despite the name, a plain asyncpg DSN;
-# see apps/agent/agent/infrastructure/supabase/client.py). GET /v1/bangumi/
+# see apps/agent/src/animichi/infrastructure/supabase/client.py). GET /v1/bangumi/
 # popular is in PUBLIC_V1 (no auth, no LLM call, zero cost) and reads through
 # that connection via BangumiRepository — a misconfigured/unreachable DSN
 # there throws and surfaces as a non-200, not a silent empty success.
