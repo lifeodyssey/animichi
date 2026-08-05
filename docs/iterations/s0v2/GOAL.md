@@ -73,6 +73,19 @@
 - [ ] L1/L2 违例清单归零(每 PR 测试数不变);L3 清单交 owner 裁决记录在案
 - [ ] lint 命名规则防回潮开启(Python=ruff N 系列;TS 按工具实测能力配置)
 
+## H. 代码结构收口(owner 终核纳入;与 G 同波)
+
+- [ ] #651:agent 迁入 `src/` 布局,全部工具链(uv/pytest/ruff/CI)随迁,测试数不变
+- [ ] #654:DatabasePort 协议 + SessionEnvelope 封套落地,dict 混装消灭(typecheck 锁)
+- [ ] #655:存量破线文件拆分归零 → 1-10-50 lint 全线阻塞开启
+
+## I. Auth cutover(owner 终核纳入)
+
+- [ ] staging:NEON_AUTH_ENABLED 翻转,GOAL A ②登录判据改走 Neon Auth 全链取证
+- [ ] local-dev/E2E auth 依赖迁移:`make dev-local` / `make e2e` 一条命令仍绿
+- [ ] prod 翻转(随 C 的生产发布窗口或其后,owner 批)
+- [ ] Supabase 面退役:config/functions/templates/migrations 清出,残留引用 grep 归零
+
 ## E. 历史(最后执行)
 
 - [ ] 全量备份可恢复实证(bundle + archive fork)
