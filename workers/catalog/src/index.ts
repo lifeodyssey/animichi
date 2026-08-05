@@ -1,7 +1,10 @@
+import { WorkerEntrypoint } from "cloudflare:workers";
 import { Hono } from "hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { catalogRouter } from "./router";
 import type { CatalogDb, NeonSql } from "./db/client";
+import { ingestWork as runOrchestratorIngest } from "./ingest/orchestrator";
+import type { IngestResult as OrchestratorIngestResult } from "./ingest/orchestrator";
 import { serveImage } from "./media/img";
 
 export interface Env {
@@ -101,3 +104,19 @@ app.use("/catalog/*", async (c, next) => {
 export default app;
 export { catalogRouter };
 export type { CatalogRouter } from "./router";
+
+/**
+ * Internal-only ingest door (#540): a named entrypoint reachable exclusively
+ * through a Cloudflare service binding — the public oRPC route is gone, so no
+ * HTTP surface can reach the orchestrator. The search-miss and work-points
+ * lazy-ingest paths stay internal to this Worker and keep calling the
+ * orchestrator directly.
+ */
+export class IngestEntrypoint extends WorkerEntrypoint<Env> {
+  async ingestWork(workId: string): Promise<OrchestratorIngestResult> {
+    const connStr = connectionString(this.env);
+    if (!connStr) throw new Error("catalog database not configured");
+    const { db } = await dbFor(connStr);
+    return runOrchestratorIngest(db, workId);
+  }
+}

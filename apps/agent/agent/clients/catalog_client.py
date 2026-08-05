@@ -54,7 +54,6 @@ __all__ = [
     "ResolveOutcome",
     "SearchResult",
     "Route",
-    "IngestResult",
     "TimedItinerary",
     "TimedStop",
     "TransitLeg",
@@ -149,19 +148,6 @@ class Route(BaseModel):
         if self.point_count != len(self.ordered_points):
             raise ValueError("point_count must match ordered_points")
         return self
-
-
-class IngestResult(BaseModel):
-    """Outcome of an on-demand ingest, mirroring the contract IngestResult.
-
-    Discriminated by ``status``: ``version`` + ``point_count`` are set only for
-    ``ingested``; ``reason`` carries the cause for ``empty`` / ``failed``.
-    """
-
-    status: Literal["ingested", "in_progress", "empty", "failed"]
-    version: int = -1
-    point_count: int = -1
-    reason: str = ""
 
 
 @runtime_checkable
