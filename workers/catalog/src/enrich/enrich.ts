@@ -79,24 +79,30 @@ async function readRaw(
   table: "raw_anitabi" | "raw_bangumi",
   workId: string,
 ): Promise<unknown> {
-  const rows = (
-    await db.execute(sql`SELECT payload FROM ${sql.raw(table)} WHERE work_id = ${workId}`)
-  ).rows as { payload: unknown }[];
-  if (rows.length === 0) throw new Error(`No ${table} payload for work ${workId}`);
+  const rows = await rawPayloadRows(db, table, workId);
   const first = rows[0];
   if (first === undefined) throw new Error(`No ${table} payload for work ${workId}`);
   return first.payload;
+}
+
+async function rawPayloadRows(
+  db: DbExecutor,
+  table: "raw_anitabi" | "raw_bangumi",
+  workId: string,
+): Promise<{ payload: unknown }[]> {
+  return (
+    await db.execute(sql`SELECT payload FROM ${sql.raw(table)} WHERE work_id = ${workId}`)
+  ).rows as { payload: unknown }[];
 }
 
 /** UPSERT the `bangumi` row keyed by id (re-enrich overwrites in place). */
 function upsertBangumi(row: BangumiRow): SQL {
   return sql`
     INSERT INTO bangumi (id, title, title_cn, cover_url, summary, rating, eps_count, air_date)
-    VALUES (${row.id}, ${row.title}, ${row.title_cn}, ${row.cover_url},
-            ${row.summary}, ${row.rating}, ${row.eps_count}, ${row.air_date})
-    ON CONFLICT (id) DO UPDATE SET
-      title = EXCLUDED.title, title_cn = EXCLUDED.title_cn, cover_url = EXCLUDED.cover_url,
-      summary = EXCLUDED.summary, rating = EXCLUDED.rating,
+    VALUES (${row.id}, ${row.title}, ${row.title_cn}, ${row.cover_url}, ${row.summary},
+            ${row.rating}, ${row.eps_count}, ${row.air_date})
+    ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, title_cn = EXCLUDED.title_cn,
+      cover_url = EXCLUDED.cover_url, summary = EXCLUDED.summary, rating = EXCLUDED.rating,
       eps_count = EXCLUDED.eps_count, air_date = EXCLUDED.air_date
   `;
 }
@@ -108,13 +114,16 @@ function upsertPoints(rows: PointRow[]): SQL[] {
     INSERT INTO points (id, bangumi_id, name, name_cn, latitude, longitude,
                         image, episode, time_seconds, origin, origin_url)
     VALUES ${sql.join(rows.map(pointValues), sql`, `)}
-    ON CONFLICT (id) DO UPDATE SET
-      bangumi_id = EXCLUDED.bangumi_id, name = EXCLUDED.name, name_cn = EXCLUDED.name_cn,
-      latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, image = EXCLUDED.image,
-      episode = EXCLUDED.episode, time_seconds = EXCLUDED.time_seconds,
-      origin = EXCLUDED.origin, origin_url = EXCLUDED.origin_url
+    ${POINT_CONFLICT_CLAUSE}
   `];
 }
+
+/** ON CONFLICT update clause shared by the bulk point UPSERT. */
+const POINT_CONFLICT_CLAUSE = sql`ON CONFLICT (id) DO UPDATE SET
+  bangumi_id = EXCLUDED.bangumi_id, name = EXCLUDED.name, name_cn = EXCLUDED.name_cn,
+  latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, image = EXCLUDED.image,
+  episode = EXCLUDED.episode, time_seconds = EXCLUDED.time_seconds,
+  origin = EXCLUDED.origin, origin_url = EXCLUDED.origin_url`;
 
 /** Parameterized VALUES tuple for the bulk point UPSERT. */
 function pointValues(row: PointRow): SQL {

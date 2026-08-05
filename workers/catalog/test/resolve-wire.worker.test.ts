@@ -14,15 +14,19 @@ function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogConte
 }
 
 async function call(path: string, body: unknown, ctx: CatalogContext): Promise<Response> {
+  const result = await handleRequest(path, body, ctx);
+  expect(result.matched).toBe(true);
+  assert(result.response);
+  return result.response;
+}
+
+async function handleRequest(path: string, body: unknown, ctx: CatalogContext) {
   const request = new Request(`https://catalog.test/catalog/${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  const result = await handler.handle(request, { context: ctx });
-  expect(result.matched).toBe(true);
-  assert(result.response);
-  return result.response;
+  return handler.handle(request, { context: ctx });
 }
 
 describe("Phase 1a catalog procedures on the oRPC wire", () => {

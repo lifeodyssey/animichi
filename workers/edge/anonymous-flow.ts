@@ -16,20 +16,23 @@ function withAnonymousCookie(response: Response, setCookie: string | null): Resp
 /** Normalize the container ingress's breaker rejection into the shared login
  * guidance, and latch it so the edge short-circuits for the rest of the day. */
 async function guardBudget(env: Env, response: Response, dayKey: string): Promise<Response> {
-  // Check the status BEFORE touching the body. `/v1/chat` answers with an SSE
-  // StreamingResponse, so reading a clone waits for the container to finish the
-  // whole turn — passing `await response.clone().text()` as an argument would
-  // evaluate it on every response, including healthy 200s, and silently destroy
-  // streaming for every anonymous turn (while buffering it twice in memory).
+  // Check the status BEFORE the body: on a healthy /v1/chat, `clone().text()`
+  // would buffer the whole SSE turn and destroy its streaming.
   if (response.status !== 403) return response;
   if (!isBudgetRejection(response.status, await response.clone().text())) return response;
   await latchBudget(env.EDGE_GUARD, dayKey);
   return budgetGuidanceResponse();
 }
 
+async function limitedOrNull(env: Env, identity: string): Promise<Response | null> {
+  const limit = await checkRateLimit(env.EDGE_GUARD, identity, rateLimitConfigFrom(env));
+  return limit !== null && !limit.allowed ? rateLimitedResponse(limit.retryAfterSeconds) : null;
+}
+
 async function anonymousForward(
-  env: Env, request: Request, identity: AnonymousIdentity, dayKey: string,
+  env: Env, request: Request, identity: AnonymousIdentity, nowMs: number,
 ): Promise<Response> {
+  const dayKey = utcDayKey(nowMs);
   if (await budgetLatched(env.EDGE_GUARD, dayKey)) return budgetGuidanceResponse();
   const forwarded = await forwardV1(env, request, { userId: identity.userId, userType: "anonymous" });
   return guardBudget(env, forwarded, dayKey);
@@ -50,15 +53,12 @@ async function anonymousForward(
  *    bucket with it; an unsolved turn must therefore cost neither a bucket slot
  *    (legitimate visitors would pay for their own challenges) nor an LLM call.
  */
-export async function handleAnonymousV1(
-  env: Env, request: Request, nowMs: number, gate: TurnstileGate,
-): Promise<Response | null> {
+export async function handleAnonymousV1(env: Env, request: Request, nowMs: number, gate: TurnstileGate): Promise<Response | null> {
   const identity = await resolveAnonymous(request, env);
   if (identity === null) return null;
   const challenged = await guardTurnstile(request, env, gate, identity.userId);
   if (challenged !== null) return challenged;
-  const limit = await checkRateLimit(env.EDGE_GUARD, identity.userId, rateLimitConfigFrom(env));
-  if (limit !== null && !limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
-  const response = await anonymousForward(env, request, identity, utcDayKey(nowMs));
-  return withAnonymousCookie(response, identity.setCookie);
+  const limited = await limitedOrNull(env, identity.userId);
+  if (limited !== null) return limited;
+  return withAnonymousCookie(await anonymousForward(env, request, identity, nowMs), identity.setCookie);
 }

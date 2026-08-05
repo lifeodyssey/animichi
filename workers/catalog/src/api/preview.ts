@@ -58,13 +58,19 @@ async function fetchLitePreview(workId: string, fetchImpl?: FetchLike): Promise<
 function litePoint(point: AnitabiPoint, workId: string): PilgrimagePoint {
   const [latitude, longitude] = liteGeo(point.geo);
   return {
+    ...liteBase(point, workId, latitude, longitude),
+    ...optional({ episode: liteInt(point.ep), time_seconds: liteInt(point.s) }),
+  };
+}
+
+function liteBase(point: AnitabiPoint, workId: string, latitude: number, longitude: number): PilgrimagePoint {
+  return {
     id: liteString(point.id),
     name: liteString(point.name),
     bangumi_id: workId,
     screenshot_url: liteImage(point.image),
     latitude,
     longitude,
-    ...optional({ episode: liteInt(point.ep), time_seconds: liteInt(point.s) }),
   };
 }
 

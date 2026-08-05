@@ -42,20 +42,28 @@ async function assetOf(pointId: string): Promise<{ r2_key: string | null; tombst
 function mockBucket(): { bucket: R2Bucket; store: Map<string, { body: ArrayBuffer; contentType: string }> } {
   const store = new Map<string, { body: ArrayBuffer; contentType: string }>();
   const bucket = {
-    put(key: string, body: ArrayBuffer, opts?: { httpMetadata?: { contentType?: string } }) {
-      store.set(key, { body, contentType: opts?.httpMetadata?.contentType ?? "image/jpeg" });
-      return Promise.resolve(undefined as unknown as R2Object);
-    },
-    get(key: string) {
-      const hit = store.get(key);
-      if (!hit) return Promise.resolve(null);
-      return Promise.resolve({
-        httpMetadata: { contentType: hit.contentType },
-        arrayBuffer: () => Promise.resolve(hit.body),
-      });
-    },
+    put: putAsset(store),
+    get: getAsset(store),
   };
   return { bucket: bucket as unknown as R2Bucket, store };
+}
+
+function putAsset(store: Map<string, { body: ArrayBuffer; contentType: string }>) {
+  return (key: string, body: ArrayBuffer, opts?: { httpMetadata?: { contentType?: string } }): Promise<R2Object> => {
+    store.set(key, { body, contentType: opts?.httpMetadata?.contentType ?? "image/jpeg" });
+    return Promise.resolve(undefined as unknown as R2Object);
+  };
+}
+
+function getAsset(store: Map<string, { body: ArrayBuffer; contentType: string }>) {
+  return (key: string) => {
+    const hit = store.get(key);
+    if (!hit) return Promise.resolve(null);
+    return Promise.resolve({
+      httpMetadata: { contentType: hit.contentType },
+      arrayBuffer: () => Promise.resolve(hit.body),
+    });
+  };
 }
 
 // Call-counting fetch stub returning bytes (status 200) or a status (404/etc).
@@ -63,14 +71,18 @@ function mockFetch(status: number, bytes: Uint8Array): { fetchImpl: ImageFetchLi
   let count = 0;
   const fetchImpl: ImageFetchLike = () => {
     count += 1;
-    return Promise.resolve({
-      ok: status >= 200 && status < 300,
-      status,
-      headers: { get: (n: string) => (n.toLowerCase() === "content-type" ? "image/png" : null) },
-      arrayBuffer: () => Promise.resolve(bytes.buffer.slice(0) as ArrayBuffer),
-    });
+    return Promise.resolve(fetchResponse(status, bytes));
   };
   return { fetchImpl, calls: () => count };
+}
+
+function fetchResponse(status: number, bytes: Uint8Array) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: { get: (n: string) => (n.toLowerCase() === "content-type" ? "image/png" : null) },
+    arrayBuffer: () => Promise.resolve(bytes.buffer.slice(0) as ArrayBuffer),
+  };
 }
 
 beforeAll(async () => {

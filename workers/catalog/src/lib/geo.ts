@@ -17,17 +17,19 @@ const toRadians = (deg: number): number => (deg * Math.PI) / 180;
  *   d = 2 * R * asin(sqrt(a))
  */
 export function haversine(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
+  lat1: number, lng1: number, lat2: number, lng2: number,
 ): number {
   const rlat1 = toRadians(lat1);
   const rlat2 = toRadians(lat2);
   const dlat = toRadians(lat2 - lat1);
   const dlon = toRadians(lng2 - lng1);
-  const a =
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(haversineTerm(rlat1, rlat2, dlat, dlon)));
+}
+
+/** The intermediate `a` term of the haversine formula. */
+function haversineTerm(rlat1: number, rlat2: number, dlat: number, dlon: number): number {
+  return (
     Math.sin(dlat / 2) ** 2 +
-    Math.cos(rlat1) * Math.cos(rlat2) * Math.sin(dlon / 2) ** 2;
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(a));
+    Math.cos(rlat1) * Math.cos(rlat2) * Math.sin(dlon / 2) ** 2
+  );
 }

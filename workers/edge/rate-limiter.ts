@@ -83,20 +83,22 @@ function retryAfter(window: WindowState, nowMs: number, windowMs: number): numbe
   return Math.max(1, Math.ceil((window.startedAtMs + windowMs - nowMs) / 1000));
 }
 
+function nextWindow(window: WindowState, allowed: boolean): WindowState {
+  return allowed ? { startedAtMs: window.startedAtMs, count: window.count + 1 } : window;
+}
+
 /**
  * Advance the fixed window by one request. Pure: the caller injects `nowMs`,
  * so window expiry is exercised with a mocked clock rather than a real sleep.
  * A rejected request does not extend the window (no punitive lockout).
  */
 export function stepWindow(
-  state: WindowState | null,
-  nowMs: number,
-  config: RateLimitConfig,
+  state: WindowState | null, nowMs: number, config: RateLimitConfig,
 ): RateLimitDecision {
   const windowMs = config.windowSeconds * 1000;
   const window = currentWindow(state, nowMs, windowMs);
   const allowed = window.count < config.limit;
-  const next = allowed ? { startedAtMs: window.startedAtMs, count: window.count + 1 } : window;
+  const next = nextWindow(window, allowed);
   return { allowed, next, retryAfterSeconds: retryAfter(window, nowMs, windowMs) };
 }
 

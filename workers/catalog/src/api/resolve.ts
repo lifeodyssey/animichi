@@ -41,13 +41,16 @@ export async function resolve(
   input: { query: string },
   opts: ResolveOptions = {},
 ): Promise<ResolveOutcome> {
-  const rows = await db.worksForAlias(normalizeAlias(input.query));
-  const works = dedupeWorks(rows);
-  if (works.length > 0) {
-    const hit = await resolveHit(db, works);
-    if (hit) return hit;
-  }
+  const hit = await aliasHit(db, normalizeAlias(input.query));
+  if (hit) return hit;
   return resolveMiss(input.query, opts.fetchImpl);
+}
+
+/** Resolve through the alias index; undefined when the alias matches nothing. */
+async function aliasHit(db: ResolveDb, query: string): Promise<ResolveOutcome | undefined> {
+  const works = dedupeWorks(await db.worksForAlias(query));
+  if (works.length === 0) return undefined;
+  return resolveHit(db, works);
 }
 
 /** Apply the top-priority tie rule to alias-index works. */
@@ -114,16 +117,21 @@ function compareText(left: string, right: string): number {
 
 /** Bangumi MISS: deterministic guarded name similarity partitions the results. */
 async function resolveMiss(query: string, fetchImpl?: FetchLike): Promise<ResolveOutcome> {
-  let subjects: BangumiSearchSubject[];
+  const subjects = await fetchSubjects(query, fetchImpl);
+  return subjects === "upstream_unavailable"
+    ? { outcome: "upstream_unavailable", provider: "bangumi" }
+    : resolveSubjects(query, subjects);
+}
+
+async function fetchSubjects(
+  query: string, fetchImpl?: FetchLike,
+): Promise<BangumiSearchSubject[] | "upstream_unavailable"> {
   try {
-    subjects = await fetchBangumiSubjects(query, { limit: BANGUMI_FETCH_N, fetchImpl });
+    return await fetchBangumiSubjects(query, { limit: BANGUMI_FETCH_N, fetchImpl });
   } catch (error) {
-    if (error instanceof UpstreamFetchError) {
-      return { outcome: "upstream_unavailable", provider: "bangumi" };
-    }
+    if (error instanceof UpstreamFetchError) return "upstream_unavailable";
     throw error;
   }
-  return resolveSubjects(query, subjects);
 }
 
 function resolveSubjects(query: string, subjects: BangumiSearchSubject[]): ResolveOutcome {

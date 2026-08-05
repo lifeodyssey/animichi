@@ -19,10 +19,7 @@ export type SnapshotPayload = Record<string, unknown> | unknown[];
 
 /** UPSERT a route snapshot bound to (work_id, version) so it never drifts. */
 export async function saveRouteSnapshot(
-  db: CatalogDb,
-  workId: string,
-  version: number,
-  payload: SnapshotPayload,
+  db: CatalogDb, workId: string, version: number, payload: SnapshotPayload,
 ): Promise<void> {
   await db.execute(sql`
     INSERT INTO route_snapshots (work_id, cluster_version, payload)
@@ -32,16 +29,11 @@ export async function saveRouteSnapshot(
 
 /** Read back the snapshot payload bound to (work_id, version), or null. */
 export async function getRouteSnapshot(
-  db: CatalogDb,
-  workId: string,
-  version: number,
+  db: CatalogDb, workId: string, version: number,
 ): Promise<SnapshotPayload | null> {
-  const rows = (
-    await db.execute(sql`
+  const rows = (await db.execute(sql`
       SELECT payload FROM route_snapshots
-      WHERE work_id = ${workId} AND cluster_version = ${version}
-      ORDER BY id DESC LIMIT 1
-    `)
-  ).rows as { payload: SnapshotPayload }[];
+      WHERE work_id = ${workId} AND cluster_version = ${version} ORDER BY id DESC LIMIT 1
+    `)).rows as { payload: SnapshotPayload }[];
   return rows[0]?.payload ?? null;
 }

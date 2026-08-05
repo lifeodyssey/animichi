@@ -126,16 +126,24 @@ export const DENIED_EGRESS_HOSTS = [
   ...IPV6_METADATA_AND_LOCAL,
 ];
 
-export function buildContainerEnvVars(env: Record<string, unknown>): Record<string, string> {
-  const environmentVars: Record<string, string> = { SERVICE_HOST: "0.0.0.0", SERVICE_PORT: "8080" };
+function requiredEnvVars(env: Record<string, unknown>, envVars: Record<string, string>): void {
   for (const key of CONTAINER_REQUIRED_KEYS) {
     const value = env[key];
     if (typeof value !== "string" || value.length === 0) throw new Error(`Missing required container env: ${key}`);
     environmentVars[key] = value;
   }
+}
+
+function optionalEnvVars(env: Record<string, unknown>, envVars: Record<string, string>): void {
   for (const key of CONTAINER_ENV_KEYS) {
     const value = env[key];
     if (typeof value === "string" && value.length > 0) environmentVars[key] = value;
   }
-  return environmentVars;
+}
+
+export function buildContainerEnvVars(env: Record<string, unknown>): Record<string, string> {
+  const envVars: Record<string, string> = { SERVICE_HOST: "0.0.0.0", SERVICE_PORT: "8080" };
+  requiredEnvVars(env, envVars);
+  optionalEnvVars(env, envVars);
+  return envVars;
 }

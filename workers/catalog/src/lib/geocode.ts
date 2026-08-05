@@ -79,17 +79,20 @@ function clusterOrder(a: GeocodeHit, b: GeocodeHit): number {
 }
 
 function collapseMembers(members: GeocodeHit[]): CollapsedGeocodeCandidate {
-  const representative = clusterRepresentative(members);
+  return { ...memberBase(clusterRepresentative(members)), effective_radius_m: maxRadius(members) };
+}
+
+function memberBase(representative: GeocodeHit): Omit<CollapsedGeocodeCandidate, "effective_radius_m"> {
   return {
-    id: representative.id,
+    id: representative.id, name: representative.name,
     label: representative.pref ? `${representative.name}(${representative.pref})` : representative.name,
-    name: representative.name,
-    lat: representative.latitude,
-    lng: representative.longitude,
-    kind: representative.kind,
-    source: representative.source,
-    effective_radius_m: Math.max(...members.map((member) => KIND_RADIUS_M[member.kind])),
+    lat: representative.latitude, lng: representative.longitude,
+    kind: representative.kind, source: representative.source,
   };
+}
+
+function maxRadius(members: GeocodeHit[]): number {
+  return Math.max(...members.map((member) => KIND_RADIUS_M[member.kind]));
 }
 
 function clusterRepresentative(members: GeocodeHit[]): GeocodeHit {
@@ -102,13 +105,21 @@ function clusterRepresentative(members: GeocodeHit[]): GeocodeHit {
 export function collapseGeocodeHits(hits: GeocodeHit[], limit: number): CollapsedGeocodeCandidate[] {
   const parent = hits.map((_, index) => index);
   connectNearby(hits, parent);
+  const groups = groupByRoot(hits, parent);
+  return rankedClusters(groups).slice(0, limit);
+}
+
+function groupByRoot(hits: GeocodeHit[], parent: number[]): Map<number, GeocodeHit[]> {
   const groups = new Map<number, GeocodeHit[]>();
   hits.forEach((hit, index) => {
     const root = find(parent, index);
     groups.set(root, [...(groups.get(root) ?? []), hit]);
   });
+  return groups;
+}
+
+function rankedClusters(groups: Map<number, GeocodeHit[]>): CollapsedGeocodeCandidate[] {
   return [...groups.values()]
     .sort((a, b) => clusterOrder(clusterRepresentative(a), clusterRepresentative(b)))
-    .map(collapseMembers)
-    .slice(0, limit);
+    .map(collapseMembers);
 }

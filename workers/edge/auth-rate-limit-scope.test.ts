@@ -1,8 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp, isAuthRateLimited, type Env } from "./app.ts";
-import { handleGuardRequest } from "./edge-guard.ts";
-import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
+import { fakeGuard } from "./guard-doubles.ts";
 
 // P2-5 (issue #284 / Task 9, round 3): the authenticated cost-path allowlist
 // was an exact-match `Array.includes`, so a trailing slash on the path
@@ -84,25 +83,7 @@ const stubCtx = {
   passThroughOnException() { return undefined; },
 } as unknown as ExecutionContext;
 
-function fakeGuard() {
-  const shards = new Map<string, GuardStore>();
-  const storeFor = (name: string) => {
-    const existing = shards.get(name);
-    if (existing) return existing;
-    const created = memoryGuardStore();
-    shards.set(name, created);
-    return created;
-  };
-  return {
-    idFromName: (name: string) => name as unknown as DurableObjectId,
-    get: (id: DurableObjectId) => ({
-      fetch: (request: Request) =>
-        handleGuardRequest(request, storeFor(String(id)), NOW, { limit: 20, windowSeconds: 60 }),
-    }),
-  };
-}
-
-function env(guard: ReturnType<typeof fakeGuard>): Env {
+function env(guard: ReturnType<typeof fakeGuard>["namespace"]): Env {
   return {
     EDGE_GUARD: guard,
     EDGE_SHOWCASE_MODE: "false",
@@ -120,7 +101,7 @@ function authedApp() {
 const POST = { method: "POST", headers: { Authorization: "Bearer jwt" } };
 
 void test("a real request to a percent-encoded /v1/byok/ path is rate-limited end-to-end", async () => {
-  const guard = fakeGuard();
+  const guard = fakeGuard(NOW).namespace;
   const app = authedApp();
   const e = env(guard);
   const first = await app.request("/v1/byok/probe", POST, e, stubCtx);
@@ -134,7 +115,7 @@ void test("a real request to a percent-encoded /v1/byok/ path is rate-limited en
 });
 
 void test("a real request to a percent-encoded /v1/chat path is rate-limited end-to-end", async () => {
-  const guard = fakeGuard();
+  const guard = fakeGuard(NOW).namespace;
   const app = authedApp();
   const e = env(guard);
   const first = await app.request("/v1/chat", POST, e, stubCtx);

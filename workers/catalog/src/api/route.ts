@@ -117,21 +117,23 @@ function toPoint(r: PointRow): ClusterablePilgrimagePoint {
 
 /** The non-coordinate `PilgrimagePoint` fields, dropping null optionals. */
 function scalarFields(r: PointRow): Omit<PilgrimagePoint, "latitude" | "longitude"> {
+  return { ...scalarBase(r), ...optional(scalarOptionals(r)) };
+}
+
+function scalarBase(r: PointRow): Omit<PilgrimagePoint, "latitude" | "longitude"> {
   return {
     id: r.id,
     name: r.name,
     bangumi_id: r.bangumi_id,
     screenshot_url: r.image ?? "",
-    ...optional({
-      name_cn: r.name_cn,
-      episode: r.episode,
-      time_seconds: r.time_seconds,
-      origin: r.origin,
-      title: r.title,
-      title_cn: r.title_cn,
-      cover_url: r.cover_url,
-      city: r.city,
-    }),
+  };
+}
+
+function scalarOptionals(r: PointRow): Record<string, unknown> {
+  return {
+    name_cn: r.name_cn, episode: r.episode, time_seconds: r.time_seconds,
+    origin: r.origin, title: r.title, title_cn: r.title_cn,
+    cover_url: r.cover_url, city: r.city,
   };
 }
 

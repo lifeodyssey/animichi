@@ -84,9 +84,7 @@ async function lazyPull(deps: ImgDeps, pointId: string): Promise<Response> {
 
 /** Store fetched bytes in R2, UPSERT the asset row, and serve the bytes. */
 async function storeAndServe(
-  deps: ImgDeps,
-  pointId: string,
-  res: ImageFetchResult,
+  deps: ImgDeps, pointId: string, res: ImageFetchResult,
 ): Promise<Response> {
   const key = r2KeyFor(pointId);
   const body = await res.arrayBuffer();
@@ -106,17 +104,13 @@ async function originUrl(db: CatalogDb, pointId: string): Promise<string | null>
 
 /** UPSERT a stored asset (r2_key + content_hash + last_origin_pull). */
 async function recordAsset(
-  db: CatalogDb,
-  pointId: string,
-  key: string,
-  hash: string,
+  db: CatalogDb, pointId: string, key: string, hash: string,
 ): Promise<void> {
   await db.execute(sql`
     INSERT INTO media_assets (point_id, r2_key, content_hash, last_origin_pull, tombstoned)
     VALUES (${pointId}, ${key}, ${hash}, NOW(), FALSE)
-    ON CONFLICT (point_id) DO UPDATE SET
-      r2_key = EXCLUDED.r2_key, content_hash = EXCLUDED.content_hash,
-      last_origin_pull = NOW(), tombstoned = FALSE
+    ON CONFLICT (point_id) DO UPDATE SET r2_key = EXCLUDED.r2_key,
+      content_hash = EXCLUDED.content_hash, last_origin_pull = NOW(), tombstoned = FALSE
   `);
 }
 

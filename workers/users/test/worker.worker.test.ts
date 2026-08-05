@@ -1,7 +1,8 @@
 import { UserRoute } from "@animichi/contract";
 import { describe, expect, it } from "vitest";
 import { createUsersApp } from "../src/index";
-import { authTools, fakeDb, TEST_ENV } from "./helpers";
+import { authTools, TEST_ENV } from "./neon-auth-fixture";
+import { fakeDb } from "./in-memory-routes-db";
 
 async function setup() {
   const auth = await authTools();

@@ -1,16 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import { handleGuardRequest } from "./edge-guard.ts";
-import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
-import { TURNSTILE_HEADER, type TurnstileGate, type TurnstileResult } from "./turnstile.ts";
+import { fakeGuard } from "./guard-doubles.ts";
+import { TURNSTILE_HEADER, type TurnstileGate } from "./turnstile.ts";
+import { stubCtx } from "./entry-env.ts";
+import { recordingGate, type GateCall } from "./turnstile-doubles.ts";
 
 /**
  * Issue #447: the S1.9 gate (#436) is ARMED on the anonymous branch.
- *
  * `turnstile.test.ts` pins the gate in isolation; this file pins the
- * composition — that an anonymous `/v1/chat` really is challenged, in the right
- * order relative to the 401 path, the rate limiter and the container.
+ * composition — an anonymous `/v1/chat` is challenged in the right order
+ * relative to the 401 path, the rate limiter and the container.
  */
 
 const SECRET = "fixed-test-hmac-key-0000000000000000";
@@ -18,61 +18,22 @@ const TURNSTILE_SECRET = "fixed-test-turnstile-secret-0000000";
 const ANON_ENV = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET, TURNSTILE_SECRET, EDGE_SHOWCASE_MODE: "false" };
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 
-const stubCtx = {
-  waitUntil(promise: Promise<unknown>) { void promise; },
-  passThroughOnException() { return undefined; },
-} as unknown as ExecutionContext;
-
-interface GateCall {
-  readonly token: string | null;
-  readonly clientIp: string;
-  readonly secret: string;
-}
-
-/** A gate that records every check and passes only the token it was told to. */
-function recordingGate(calls: GateCall[], solved: string | null): TurnstileGate {
-  return {
-    check: (token, clientIp, secret): Promise<TurnstileResult> => {
-      calls.push({ token, clientIp, secret });
-      const ok = solved !== null && token === solved;
-      return Promise.resolve({ ok, errorCodes: ok ? [] : ["invalid-input-response"] });
-    },
-  };
-}
-
-function fakeGuard() {
-  const shards = new Map<string, GuardStore>();
-  const storeFor = (name: string) => {
-    const existing = shards.get(name);
-    if (existing) return existing;
-    const created = memoryGuardStore();
-    shards.set(name, created);
-    return created;
-  };
-  return {
-    idFromName: (name: string) => name as unknown as DurableObjectId,
-    get: (id: DurableObjectId) => ({
-      fetch: (request: Request) =>
-        handleGuardRequest(request, storeFor(String(id)), NOW, { limit: 20, windowSeconds: 60 }),
-    }),
-  };
-}
-
 function anonEnv(captured: { requests: Request[] }, extra: Record<string, string> = {}) {
   return {
     ...ANON_ENV,
     ...extra,
-    EDGE_GUARD: fakeGuard(),
-    CONTAINER: {
-      idFromName: () => "id",
-      get: () => ({
-        fetch: (r: Request) => {
-          captured.requests.push(r);
-          return Promise.resolve(new Response("container"));
-        },
-      }),
-    },
+    EDGE_GUARD: fakeGuard(NOW).namespace,
+    CONTAINER: containerStub(captured),
   } as never;
+}
+
+function containerStub(captured: { requests: Request[] }) {
+  return {
+    idFromName: () => "id",
+    get: () => ({
+      fetch: (r: Request) => { captured.requests.push(r); return Promise.resolve(new Response("container")); },
+    }),
+  };
 }
 
 function armedApp(gate: TurnstileGate, authenticated = false) {

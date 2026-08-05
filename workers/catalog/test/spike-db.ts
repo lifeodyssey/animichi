@@ -99,9 +99,13 @@ async function waitUntilReady(db: CatalogDb): Promise<void> {
 export async function openServerlessDb(): Promise<CatalogDb> {
   configureServerlessDriver();
   const db = makeDb(enabledContext().localDsn);
+  await readyOrRestore(db);
+  return db;
+}
+
+async function readyOrRestore(db: CatalogDb): Promise<void> {
   try {
     await waitUntilReady(db);
-    return db;
   } catch (error) {
     restoreNeonConfig();
     throw error;

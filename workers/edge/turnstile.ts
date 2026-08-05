@@ -97,21 +97,24 @@ function siteverifyRequest(token: string, clientIp: string, secret: string): Req
   };
 }
 
+async function siteverifyResult(
+  token: string, clientIp: string, secret: string, fetchImpl: typeof fetch,
+): Promise<TurnstileResult> {
+  const response = await fetchImpl(SITEVERIFY_URL, siteverifyRequest(token, clientIp, secret));
+  const body: unknown = await response.json();
+  return readSiteverify(body);
+}
+
 /**
  * The canonical siteverify call. Pure apart from the injected `fetchImpl`.
  * Everything that can throw — the fetch itself, the timeout, a body that is not
  * JSON — resolves to the fail-open verdict rather than escaping as a bare 500.
  */
 export async function verifySiteverify(
-  token: string,
-  clientIp: string,
-  secret: string,
-  fetchImpl: typeof fetch,
+  token: string, clientIp: string, secret: string, fetchImpl: typeof fetch,
 ): Promise<TurnstileResult> {
   try {
-    const response = await fetchImpl(SITEVERIFY_URL, siteverifyRequest(token, clientIp, secret));
-    const body: unknown = await response.json();
-    return readSiteverify(body);
+    return await siteverifyResult(token, clientIp, secret, fetchImpl);
   } catch {
     logSiteverifyUnavailable("unreachable");
     return SITEVERIFY_UNAVAILABLE;
@@ -167,20 +170,22 @@ function isVerifiedPass(result: TurnstileResult): boolean {
   return result.ok && result.errorCodes.length === 0;
 }
 
+async function verifyAndCache(
+  state: GateState, token: string, clientIp: string, secret: string, key: string,
+): Promise<TurnstileResult> {
+  const result = await state.verify(token, clientIp, secret, state.fetchImpl);
+  if (isVerifiedPass(result)) state.passed.set(key, state.now() + state.windowMs);
+  return result;
+}
+
 async function checkToken(
-  state: GateState,
-  token: string | null,
-  clientIp: string,
-  secret: string,
-  identity: string,
+  state: GateState, token: string | null, clientIp: string, secret: string, identity: string,
 ): Promise<TurnstileResult> {
   if (token === null || token === "") return MISSING_TOKEN;
   const key = windowKey(identity, token);
   if (isWithinWindow(state, key)) return WINDOW_PASS;
   prune(state);
-  const result = await state.verify(token, clientIp, secret, state.fetchImpl);
-  if (isVerifiedPass(result)) state.passed.set(key, state.now() + state.windowMs);
-  return result;
+  return verifyAndCache(state, token, clientIp, secret, key);
 }
 
 /** Build a gate with its own short-lived verification window. */
@@ -216,22 +221,22 @@ function usableSecret(secret: unknown): string | null {
   return typeof secret === "string" && secret !== "" ? secret : null;
 }
 
+function turnstileSecret(env: TurnstileEnv): string | null {
+  const secret = usableSecret(env.TURNSTILE_SECRET);
+  if (secret === null) logMissingSecret();
+  return secret;
+}
+
 /**
  * Edge guard. Returns `null` when the caller may proceed to forward the
  * request, or a 403 Response the caller MUST return without ever touching the
  * container. `identity` scopes the pass window — see TURNSTILE_WINDOW_MS.
  */
 export async function guardTurnstile(
-  request: Request,
-  env: TurnstileEnv,
-  gate: TurnstileGate,
-  identity: string,
+  request: Request, env: TurnstileEnv, gate: TurnstileGate, identity: string,
 ): Promise<Response | null> {
-  const secret = usableSecret(env.TURNSTILE_SECRET);
-  if (secret === null) {
-    logMissingSecret();
-    return rejection();
-  }
+  const secret = turnstileSecret(env);
+  if (secret === null) return rejection();
   const token = request.headers.get(TURNSTILE_HEADER);
   const clientIp = request.headers.get("CF-Connecting-IP") ?? "";
   const result = await gate.check(token, clientIp, secret, identity);

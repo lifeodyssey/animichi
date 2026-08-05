@@ -59,15 +59,21 @@ function representativeQuery(bangumiId: string) {
 /** Map a DB row to the contract PilgrimagePoint shape (omitting null columns). */
 function toPoint(r: PointRow): PilgrimagePoint {
   return {
+    ...pointBase(r),
+    ...optional({ episode: r.episode, time_seconds: r.time_seconds }),
+    ...(r.name_cn ? { name_cn: r.name_cn } : {}),
+    ...(r.city ? { city: r.city } : {}),
+  };
+}
+
+function pointBase(r: PointRow): PilgrimagePoint {
+  return {
     id: r.id,
     name: r.name,
     bangumi_id: r.bangumi_id,
     screenshot_url: r.image ?? "",
     latitude: r.latitude,
     longitude: r.longitude,
-    ...(r.name_cn ? { name_cn: r.name_cn } : {}),
-    ...optional({ episode: r.episode, time_seconds: r.time_seconds }),
-    ...(r.city ? { city: r.city } : {}),
   };
 }
 
@@ -84,11 +90,8 @@ export async function spots(
   db: CatalogDb,
   input: { bangumi_id: string; origin?: Origin },
 ): Promise<{ point: PilgrimagePoint; distance_m?: number }> {
-  const result = await db.execute(representativeQuery(input.bangumi_id));
-  const row = (result.rows as unknown as PointRow[])[0];
-  if (!row) {
-    throw new SpotNotFoundError(input.bangumi_id);
-  }
+  const row = ((await db.execute(representativeQuery(input.bangumi_id))).rows as unknown as PointRow[])[0];
+  if (!row) throw new SpotNotFoundError(input.bangumi_id);
   const point = toPoint(row);
   const distance_m = distanceFrom(point, input.origin);
   return distance_m == null ? { point } : { point, distance_m };

@@ -9,17 +9,15 @@ function notRunningEnv(attempts: (() => Promise<Response>)[]) {
   return {
     CONTAINER: {
       idFromName: () => "id",
-      get: () => ({
-        fetch: () => {
-          const next = attempts.shift();
-          if (next === undefined) {
-            throw new Error("container fetch called more times than stubbed");
-          }
-          return next();
-        },
-      }),
+      get: () => ({ fetch: () => containerFetch(attempts) }),
     },
   } as never;
+}
+
+function containerFetch(attempts: (() => Promise<Response>)[]): Promise<Response> {
+  const next = attempts.shift();
+  if (next === undefined) throw new Error("container fetch called more times than stubbed");
+  return next();
 }
 
 /** Resolves instantly, recording the backoff durations it was asked to wait. */

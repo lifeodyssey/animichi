@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp, type Env } from "./app.ts";
-import { handleGuardRequest } from "./edge-guard.ts";
-import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
+import { fakeGuard } from "./guard-doubles.ts";
+import { stubCtx } from "./entry-env.ts";
 
 // Task 9 (#284): per-identity rate limiting on the authenticated /v1/* path,
 // scoped to cost-bearing routes only (chat, byok/probe, runtime*) — not
@@ -10,30 +10,6 @@ import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
 // makes that unbounded. Reads are deliberately NOT counted — see below.
 
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
-
-const stubCtx = {
-  waitUntil(promise: Promise<unknown>) { void promise; },
-  passThroughOnException() { return undefined; },
-} as unknown as ExecutionContext;
-
-/** A guard namespace backed by per-name in-memory shards and a fixed clock. */
-function fakeGuard(nowMs = NOW) {
-  const shards = new Map<string, GuardStore>();
-  const storeFor = (name: string) => {
-    const existing = shards.get(name);
-    if (existing) return existing;
-    const created = memoryGuardStore();
-    shards.set(name, created);
-    return created;
-  };
-  return {
-    idFromName: (name: string) => name as unknown as DurableObjectId,
-    get: (id: DurableObjectId) => ({
-      fetch: (request: Request) =>
-        handleGuardRequest(request, storeFor(String(id)), nowMs, { limit: 20, windowSeconds: 60 }),
-    }),
-  };
-}
 
 /** Fetch rejects outright (dropped connection / overloaded DO), not a
  * well-formed error response — must fail open (T9-AC4), see OUTAGES below. */
@@ -62,7 +38,7 @@ function brokenGuard() {
 /** A typed test-env factory: every call site gets `Env`'s shape instead of
  * repeating an untyped `as never` escape hatch. `extra` still widens freely
  * (env vars, feature flags) since those are genuinely optional on `Env`. */
-function env(guard = fakeGuard(), extra: Record<string, unknown> = {}): Env {
+function env(guard = fakeGuard(NOW).namespace, extra: Record<string, unknown> = {}): Env {
   return {
     EDGE_GUARD: guard,
     EDGE_SHOWCASE_MODE: "false",
@@ -84,7 +60,7 @@ function req(path: string, headers: Record<string, string> = {}) {
 // ── AC1: happy path counted per-identity + burst → 429 ─────────────────────
 
 void test("a happy-path authenticated /v1/chat request is allowed and counted; a burst beyond the limit returns 429 with Retry-After", async () => {
-  const e = env(fakeGuard(), { AUTH_RATE_LIMIT: "1" });
+  const e = env(fakeGuard(NOW).namespace, { AUTH_RATE_LIMIT: "1" });
   const app = authedApp();
   const first = await app.request("/v1/chat", req("/v1/chat"), e, stubCtx);
   assert.equal(first.status, 200, "the happy path (within the limit) must still be allowed");
@@ -98,7 +74,7 @@ void test("a happy-path authenticated /v1/chat request is allowed and counted; a
 // ── AC2: /v1/byok/probe covered by the same limiter ────────────────────────
 
 void test("/v1/chat and /v1/byok/probe share one identity's window (probe is limited by prior chat use)", async () => {
-  const e = env(fakeGuard(), { AUTH_RATE_LIMIT: "1" });
+  const e = env(fakeGuard(NOW).namespace, { AUTH_RATE_LIMIT: "1" });
   const app = authedApp();
   await app.request("/v1/chat", req("/v1/chat"), e, stubCtx);
   const res = await app.request("/v1/byok/probe", req("/v1/byok/probe"), e, stubCtx);
@@ -108,7 +84,7 @@ void test("/v1/chat and /v1/byok/probe share one identity's window (probe is lim
 // ── AC3: identity isolation ─────────────────────────────────────────────────
 
 void test("user A's burst never consumes user B's allowance", async () => {
-  const guard = fakeGuard();
+  const guard = fakeGuard(NOW).namespace;
   const e = env(guard, { AUTH_RATE_LIMIT: "1" });
   await authedApp("user-a").request("/v1/chat", req("/v1/chat"), e, stubCtx);
   const res = await authedApp("user-b").request("/v1/chat", req("/v1/chat"), e, stubCtx);
@@ -116,7 +92,7 @@ void test("user A's burst never consumes user B's allowance", async () => {
 });
 
 void test("an anonymous caller's allowance is unaffected by authenticated traffic", async () => {
-  const guard = fakeGuard();
+  const guard = fakeGuard(NOW).namespace;
   const e = env(guard, {
     AUTH_RATE_LIMIT: "1", ANON_RATE_LIMIT: "1", ANON_ACCESS_ENABLED: "true",
     ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000",
@@ -135,7 +111,7 @@ void test("an anonymous caller's allowance is unaffected by authenticated traffi
 // ── scope: authenticated READS never consume the cost-path allowance ───────
 
 void test("an authenticated read (GET /v1/conversations et al) never consumes the /v1/chat allowance", async () => {
-  const e = env(fakeGuard(), { AUTH_RATE_LIMIT: "1" });
+  const e = env(fakeGuard(NOW).namespace, { AUTH_RATE_LIMIT: "1" });
   const app = authedApp();
   const get = { method: "GET", headers: { Authorization: "Bearer jwt" } };
   for (const path of ["/v1/conversations", "/v1/conversations/abc/messages", "/v1/conversations/abc/routes"]) {
@@ -148,7 +124,7 @@ void test("an authenticated read (GET /v1/conversations et al) never consumes th
 // legacy /v1/runtime + /v1/runtime/stream run a full agent turn on the house
 // key (same cost shape as /v1/chat) — Fable's follow-up finding.
 void test("/v1/runtime shares the /v1/chat window (same cost shape, same branch)", async () => {
-  const e = env(fakeGuard(), { AUTH_RATE_LIMIT: "1" });
+  const e = env(fakeGuard(NOW).namespace, { AUTH_RATE_LIMIT: "1" });
   const app = authedApp();
   await app.request("/v1/runtime", req("/v1/runtime"), e, stubCtx);
   const res = await app.request("/v1/chat", req("/v1/chat"), e, stubCtx);
@@ -173,7 +149,7 @@ for (const [label, guard] of OUTAGES) {
 // ── AC5: the key is the identity only, never caller-supplied input ─────────
 
 void test("varying X-BYOK-* headers or base_url never changes whose allowance is spent", async () => {
-  const e = env(fakeGuard(), { AUTH_RATE_LIMIT: "1" });
+  const e = env(fakeGuard(NOW).namespace, { AUTH_RATE_LIMIT: "1" });
   const app = authedApp("user-a");
   await app.request(
     "/v1/chat",
@@ -189,7 +165,7 @@ void test("varying X-BYOK-* headers or base_url never changes whose allowance is
 });
 
 void test("an unauthenticated caller cannot spend an authenticated identity's allowance by forging X-BYOK-* headers", async () => {
-  const guard = fakeGuard();
+  const guard = fakeGuard(NOW).namespace;
   const e = env(guard, { AUTH_RATE_LIMIT: "1", ANON_ACCESS_ENABLED: "false" });
   const anonApp = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const) });
   const forged = await anonApp.request(

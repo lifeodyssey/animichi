@@ -41,43 +41,22 @@ describe("haversine (geo.ts)", () => {
 });
 
 function assertMergesCloseKeepsFar(): void {
-  const pts: P[] = [
-    { id: "a", latitude: 35.0, longitude: 135.0 },
-    { id: "b", latitude: 35.0003, longitude: 135.0 },
-    { id: "c", latitude: 35.01, longitude: 135.0 },
-  ];
-  const clusters = clusterByLocation(pts);
+  const clusters = clusterByLocation(ptsAt(["a", 35.0, 135.0], ["b", 35.0003, 135.0], ["c", 35.01, 135.0]));
   expect(clusters.map((c) => c.clusterId)).toEqual(["a", "c"]);
-  expect(clusters.at(0)?.photoCount).toBe(2);
-  expect(clusters.at(0)?.centerLat).toBeCloseTo(35.000150000000005, 12);
+  assertCluster(clusters, 0, 2, 35.000150000000005, ["a", "b"]);
   expect(clusters.at(0)?.centerLng).toBe(135.0);
-  expect(clusters.at(0)?.points.map((p) => p.id)).toEqual(["a", "b"]);
-  expect(clusters.at(1)?.photoCount).toBe(1);
-  expect(clusters.at(1)?.centerLat).toBe(35.01);
-  expect(clusters.at(1)?.points.map((p) => p.id)).toEqual(["c"]);
+  assertCluster(clusters, 1, 1, 35.01, ["c"]);
 }
 
 function assertTransitiveChain(): void {
-  const pts: P[] = [
-    { id: "a", latitude: 35.0, longitude: 135.0 },
-    { id: "b", latitude: 35.0003, longitude: 135.0 },
-    { id: "c", latitude: 35.0006, longitude: 135.0 },
-  ];
-  const clusters = clusterByLocation(pts);
+  const clusters = clusterByLocation(ptsAt(["a", 35.0, 135.0], ["b", 35.0003, 135.0], ["c", 35.0006, 135.0]));
   expect(clusters).toHaveLength(1);
   expect(clusters.at(0)?.clusterId).toBe("a");
-  expect(clusters.at(0)?.photoCount).toBe(3);
-  expect(clusters.at(0)?.centerLat).toBeCloseTo(35.0003, 12);
-  expect(clusters.at(0)?.points.map((p) => p.id)).toEqual(["a", "b", "c"]);
+  assertCluster(clusters, 0, 3, 35.0003, ["a", "b", "c"]);
 }
 
 function assertAllDistantSortedById(): void {
-  const pts: P[] = [
-    { id: "z", latitude: 35.0, longitude: 135.0 },
-    { id: "y", latitude: 36.0, longitude: 136.0 },
-    { id: "x", latitude: 37.0, longitude: 137.0 },
-  ];
-  const clusters = clusterByLocation(pts);
+  const clusters = clusterByLocation(ptsAt(["z", 35.0, 135.0], ["y", 36.0, 136.0], ["x", 37.0, 137.0]));
   expect(clusters.map((c) => c.clusterId)).toEqual(["x", "y", "z"]);
   expect(clusters.every((c) => c.photoCount === 1)).toBe(true);
   expect(clusters.at(0)?.centerLat).toBe(37.0);
@@ -85,15 +64,20 @@ function assertAllDistantSortedById(): void {
 }
 
 function assertAlphabeticalClusterId(): void {
-  const pts: P[] = [
-    { id: "m", latitude: 35.0, longitude: 135.0 },
-    { id: "a", latitude: 35.0001, longitude: 135.0 },
-    { id: "z", latitude: 35.0002, longitude: 135.0 },
-  ];
-  const clusters = clusterByLocation(pts);
+  const clusters = clusterByLocation(ptsAt(["m", 35.0, 135.0], ["a", 35.0001, 135.0], ["z", 35.0002, 135.0]));
   expect(clusters).toHaveLength(1);
   expect(clusters.at(0)?.clusterId).toBe("a");
   expect(clusters.at(0)?.points.map((p) => p.id)).toEqual(["m", "a", "z"]);
+}
+
+function ptsAt(...rows: [string, number, number][]): P[] {
+  return rows.map(([id, latitude, longitude]) => ({ id, latitude, longitude }));
+}
+
+function assertCluster(clusters: ReturnType<typeof clusterByLocation<P>>, index: number, photoCount: number, lat: number, ids: string[]): void {
+  expect(clusters.at(index)?.photoCount).toBe(photoCount);
+  expect(clusters.at(index)?.centerLat).toBeCloseTo(lat, 12);
+  expect(clusters.at(index)?.points.map((p) => p.id)).toEqual(ids);
 }
 
 describe("clusterByLocation (clustering.ts)", () => {

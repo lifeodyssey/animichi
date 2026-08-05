@@ -11,7 +11,7 @@ import type {
   UserRoute,
   UserSession,
 } from "@animichi/contract";
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import type { DbExecutor } from "../db/client";
 import { routeNotFound, routeNotOwned } from "../lib/errors";
 
@@ -19,18 +19,7 @@ import { routeNotFound, routeNotOwned } from "../lib/errors";
 const MAX_LIST_OFFSET = 1_000;
 
 type RecordRow = Record<string, unknown>;
-
-function toSession(value: unknown): UserSession {
-  if (!isRecord(value)) throw new Error("invalid session row");
-  const { session_id, first_query, title } = value;
-  if (typeof session_id !== "string" || typeof first_query !== "string") {
-    throw new Error("invalid session row");
-  }
-  return {
-    session_id, title: typeof title === "string" ? title : null,
-    first_query, created_at: iso(value.created_at), updated_at: iso(value.updated_at),
-  };
-}
+interface DbRows { rows: unknown[] }
 
 function isRecord(value: unknown): value is RecordRow {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -55,18 +44,55 @@ function nullableIso(value: unknown): string | null {
   return value === null ? null : iso(value);
 }
 
-/** Narrow and normalize one raw database row into the public route model. */
-function toUserRoute(value: unknown): UserRoute {
-  if (!isRecord(value)) throw new Error("invalid route row");
+function requireSessionRow(
+  value: RecordRow,
+): { session_id: string; first_query: string; title: unknown } {
+  const { session_id, first_query, title } = value;
+  if (typeof session_id !== "string" || typeof first_query !== "string") {
+    throw new Error("invalid session row");
+  }
+  return { session_id, first_query, title };
+}
+
+function toSession(value: unknown): UserSession {
+  if (!isRecord(value)) throw new Error("invalid session row");
+  const { session_id, first_query, title } = requireSessionRow(value);
+  return {
+    session_id, title: typeof title === "string" ? title : null,
+    first_query, created_at: iso(value.created_at), updated_at: iso(value.updated_at),
+  };
+}
+
+function requireRouteRow(value: RecordRow): { id: string; title: unknown; status: RouteStatus } {
   const { id, title, status } = value;
   if (typeof id !== "string" || !isStatus(status)) {
     throw new Error("invalid route row");
   }
+  return { id, title, status };
+}
+
+/** Narrow and normalize one raw database row into the public route model. */
+function toUserRoute(value: unknown): UserRoute {
+  if (!isRecord(value)) throw new Error("invalid route row");
+  const { id, title, status } = requireRouteRow(value);
   const safeTitle = typeof title === "string" ? title : "";
   return {
     id, title: safeTitle, status, point_ids: strings(value.point_ids),
     saved_at: nullableIso(value.saved_at), updated_at: iso(value.updated_at),
   };
+}
+
+/** next_offset must stay within ListSessionsInput's offset cap (packages/contract
+ * users-contract.ts): a next_offset the contract would reject is worse than
+ * ending pagination early. */
+function sessionPage(
+  result: DbRows,
+  input: ListSessionsInput,
+): { sessions: UserSession[]; next_offset: number | null } {
+  const sessions = result.rows.slice(0, input.limit).map(toSession);
+  const next = input.offset + input.limit;
+  const hasMore = result.rows.length > input.limit && next <= MAX_LIST_OFFSET;
+  return { sessions, next_offset: hasMore ? next : null };
 }
 
 /** List routes owned by a user, newest update first. */
@@ -78,22 +104,37 @@ export async function listRoutes(db: DbExecutor, userId: string): Promise<ListRo
   return { routes: result.rows.map(toUserRoute) };
 }
 
-/** List conversation-backed sessions owned by a user, newest first. */
-export async function listSessions(
-  db: DbExecutor, userId: string, input: ListSessionsInput,
-): Promise<ListSessionsResult> {
-  const result = await db.execute(sql`
+function sessionSql(userId: string, input: ListSessionsInput): SQL {
+  return sql`
     SELECT session_id, title, first_query, created_at, updated_at
     FROM conversations WHERE user_id = ${userId}
     ORDER BY updated_at DESC, session_id DESC
     LIMIT ${input.limit + 1} OFFSET ${input.offset}
-  `);
-  const rows = result.rows.slice(0, input.limit).map(toSession);
-  const next = input.offset + input.limit;
-  // Must stay within ListSessionsInput's offset cap (packages/contract users-contract.ts): a
-  // next_offset the contract would reject is worse than ending pagination early.
-  const hasMore = result.rows.length > input.limit && next <= MAX_LIST_OFFSET;
-  return { sessions: rows, next_offset: hasMore ? next : null };
+  `;
+}
+
+/** List conversation-backed sessions owned by a user, newest first. */
+export async function listSessions(
+  db: DbExecutor, userId: string, input: ListSessionsInput,
+): Promise<ListSessionsResult> {
+  const result = await db.execute(sessionSql(userId, input));
+  return sessionPage(result, input);
+}
+
+function insertRouteSql(userId: string, input: SaveRouteInput): SQL {
+  return sql`
+    INSERT INTO routes (user_id, title, point_ids, status, saved_at)
+    VALUES (${userId}, ${input.title}, ${sql.param(input.point_ids)}::text[], ${input.status},
+      CASE WHEN ${input.status} = 'draft' THEN NULL ELSE NOW() END)
+    RETURNING id, title, point_ids, status, saved_at, updated_at
+  `;
+}
+
+async function insertRoute(
+  db: DbExecutor, userId: string, input: SaveRouteInput,
+): Promise<unknown[]> {
+  const result = await db.execute(insertRouteSql(userId, input));
+  return result.rows;
 }
 
 async function createRoute(
@@ -101,13 +142,7 @@ async function createRoute(
   userId: string,
   input: SaveRouteInput,
 ): Promise<UserRoute> {
-  const result = await db.execute(sql`
-    INSERT INTO routes (user_id, title, point_ids, status, saved_at)
-    VALUES (${userId}, ${input.title}, ${sql.param(input.point_ids)}::text[], ${input.status},
-      CASE WHEN ${input.status} = 'draft' THEN NULL ELSE NOW() END)
-    RETURNING id, title, point_ids, status, saved_at, updated_at
-  `);
-  return toUserRoute(result.rows[0]);
+  return toUserRoute((await insertRoute(db, userId, input))[0]);
 }
 
 function ownerFrom(value: unknown): string | null | undefined {
@@ -128,20 +163,30 @@ function updatedRoute(rows: unknown[], routeId: string): UserRoute {
   return toUserRoute(rows[0]);
 }
 
+function updateRouteSql(userId: string, input: SaveRouteInput & { id: string }): SQL {
+  return sql`
+    UPDATE routes SET title = ${input.title}, point_ids = ${sql.param(input.point_ids)}::text[],
+      status = ${input.status}, saved_at = CASE WHEN ${input.status} = 'draft'
+        THEN NULL ELSE COALESCE(saved_at, NOW()) END
+    WHERE id = ${input.id} AND user_id = ${userId}
+    RETURNING id, title, point_ids, status, saved_at, updated_at
+  `;
+}
+
+async function updateRouteRow(
+  db: DbExecutor, userId: string, input: SaveRouteInput & { id: string },
+): Promise<unknown[]> {
+  const result = await db.execute(updateRouteSql(userId, input));
+  return result.rows;
+}
+
 async function updateRoute(
   db: DbExecutor,
   userId: string,
   input: SaveRouteInput & { id: string },
 ): Promise<UserRoute> {
   await assertOwner(db, userId, input.id);
-  const result = await db.execute(sql`
-    UPDATE routes SET title = ${input.title}, point_ids = ${sql.param(input.point_ids)}::text[],
-      status = ${input.status}, saved_at = CASE WHEN ${input.status} = 'draft'
-        THEN NULL ELSE COALESCE(saved_at, NOW()) END
-    WHERE id = ${input.id} AND user_id = ${userId}
-    RETURNING id, title, point_ids, status, saved_at, updated_at
-  `);
-  return updatedRoute(result.rows, input.id);
+  return updatedRoute(await updateRouteRow(db, userId, input), input.id);
 }
 
 /** Create a route or update it after explicit ownership validation. */
@@ -155,6 +200,13 @@ export async function saveRoute(
     : createRoute(db, userId, input);
 }
 
+async function deleteRouteRow(db: DbExecutor, userId: string, routeId: string): Promise<unknown[]> {
+  const result = await db.execute(sql`
+    DELETE FROM routes WHERE id = ${routeId} AND user_id = ${userId} RETURNING id
+  `);
+  return result.rows;
+}
+
 /** Delete a route after explicit ownership validation. */
 export async function deleteRoute(
   db: DbExecutor,
@@ -162,11 +214,16 @@ export async function deleteRoute(
   input: DeleteRouteInput,
 ): Promise<DeleteRouteResult> {
   await assertOwner(db, userId, input.id);
-  const result = await db.execute(sql`
-    DELETE FROM routes WHERE id = ${input.id} AND user_id = ${userId} RETURNING id
-  `);
-  if (result.rows.length === 0) throw routeNotOwned(input.id);
+  if ((await deleteRouteRow(db, userId, input.id)).length === 0) throw routeNotOwned(input.id);
   return { deleted: true };
+}
+
+async function claimRouteRows(db: DbExecutor, userId: string, sessionId: string): Promise<unknown[]> {
+  const result = await db.execute(sql`
+    UPDATE routes SET user_id = ${userId}
+    WHERE session_id = ${sessionId} AND user_id IS NULL RETURNING id
+  `);
+  return result.rows;
 }
 
 /** Atomically assign this session's still-anonymous routes to the caller. */
@@ -175,9 +232,5 @@ export async function claimRoutes(
   userId: string,
   input: ClaimRoutesInput,
 ): Promise<ClaimRoutesResult> {
-  const result = await db.execute(sql`
-    UPDATE routes SET user_id = ${userId}
-    WHERE session_id = ${input.session_id} AND user_id IS NULL RETURNING id
-  `);
-  return { claimed_count: result.rows.length };
+  return { claimed_count: (await claimRouteRows(db, userId, input.session_id)).length };
 }

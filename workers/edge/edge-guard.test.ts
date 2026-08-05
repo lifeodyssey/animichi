@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EdgeGuard, isRateLimitPath, RECLAIM_WINDOW_KEY, reclaimDelayMs } from "./edge-guard.ts";
+import { fakeStorage } from "./guard-doubles.ts";
 import { RATE_LIMIT_KEY } from "./rate-limiter.ts";
 
 // P2-3 (issue #284 / Task 9): a per-identity rate-limit shard is reclaimed
@@ -25,18 +26,9 @@ void test("the reclaim delay is exactly two windows out", () => {
 // source, unconditional write-per-request) ship unnoticed.
 
 function fakeCtx(env: Record<string, unknown> = {}) {
-  const data = new Map<string, unknown>();
-  let alarmAt: number | null = null;
-  let setAlarmCalls = 0;
-  const storage = {
-    get: (key: string) => Promise.resolve(data.get(key)),
-    put: (key: string, value: unknown) => { data.set(key, value); return Promise.resolve(); },
-    delete: (key: string) => Promise.resolve(data.delete(key)),
-    getAlarm: () => Promise.resolve(alarmAt),
-    setAlarm: (time: number) => { alarmAt = time; setAlarmCalls += 1; return Promise.resolve(); },
-  };
-  const guard = new EdgeGuard({ storage } as unknown as DurableObjectState, env);
-  return { guard, data, getAlarmAt: () => alarmAt, getSetAlarmCalls: () => setAlarmCalls };
+  const storage = fakeStorage();
+  const guard = new EdgeGuard({ storage: storage.state } as unknown as DurableObjectState, env);
+  return { guard, data: storage.data, getAlarmAt: () => storage.alarm.at, getSetAlarmCalls: () => storage.alarm.calls };
 }
 
 function rateLimitRequest(config: { limit: number; windowSeconds: number }) {
