@@ -1,4 +1,4 @@
-name = "maintenance"
+name = "jobs"
 main = "src/index.ts"
 compatibility_date = "2026-08-03"
 compatibility_flags = ["nodejs_compat"]
@@ -29,7 +29,7 @@ crons = ["37 18 * * *", "37 19 * * *"]
 required = ["AGENT_DATABASE_URL"]
 
 [env.production]
-name = "maintenance"
+name = "jobs"
 workers_dev = false
 preview_urls = false
 

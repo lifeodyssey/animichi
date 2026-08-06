@@ -52,13 +52,13 @@ describe("scheduled handler", () => {
     const deps = dependencies(database());
 
     await expect(createScheduledHandler(deps)({ cron: "0 0 * * *" }, ENV)).rejects.toThrow(
-      "Unknown maintenance cron: 0 0 * * *",
+      "Unknown jobs cron: 0 0 * * *",
     );
   });
 
   it("constructs the default dependencies without opening a database connection", async () => {
     await expect(
       createScheduledHandler()({ cron: "0 0 * * *" }, ENV),
-    ).rejects.toThrow("Unknown maintenance cron: 0 0 * * *");
+    ).rejects.toThrow("Unknown jobs cron: 0 0 * * *");
   });
 });

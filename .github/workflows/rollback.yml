@@ -59,7 +59,7 @@ jobs:
             web) directory="apps/web" ;;
             catalog) directory="workers/catalog" ;;
             users) directory="workers/users" ;;
-            maintenance) directory="workers/maintenance" ;;
+            maintenance) directory="workers/jobs" ;;
             *)
               echo "::error::Unsupported component: $COMPONENT"
               exit 1

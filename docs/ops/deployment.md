@@ -38,7 +38,7 @@ resolves), then the main Worker.
 
 Catalog and users Workers query Neon through Drizzle's `neon-http` driver, which supplies their
 runtime query/type metadata. The maintenance Worker has no ORM: it calls `neon()` from
-`@neondatabase/serverless` directly (`workers/maintenance/src/database.ts`) and issues raw SQL.
+`@neondatabase/serverless` directly (`workers/jobs/src/database.ts`) and issues raw SQL.
 The checked-in Atlas directory is the only Neon schema authority for all three. See
 [`migrations.md`](./migrations.md) before changing a table or deploy step.
 
@@ -105,7 +105,7 @@ These secrets stay in the Worker environment and are not forwarded into the cont
 
 ### Maintenance Worker
 
-`workers/maintenance` requires `AGENT_DATABASE_URL` as a Cloudflare secret binding. CI resolves the
+`workers/jobs` requires `AGENT_DATABASE_URL` as a Cloudflare secret binding. CI resolves the
 same-named secret from the selected GitHub Environment, so staging and production receive distinct
 agent-domain Neon DSNs. Schedules and cutover verification are in
 [`maintenance-worker.md`](./maintenance-worker.md).
@@ -439,7 +439,7 @@ explicitly.
 | root (edge Worker + container) | `.` | `npx wrangler@4.112.0 versions list --env <staging\|production>` | `npx wrangler@4.112.0 rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 | catalog | `workers/catalog` | `pnpm --filter catalog exec wrangler versions list --env <staging\|production>` | `pnpm --filter catalog exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 | users | `workers/users` | `pnpm --filter users exec wrangler versions list --env <staging\|production>` | `pnpm --filter users exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
-| maintenance | `workers/maintenance` | `pnpm --filter maintenance exec wrangler versions list --env <staging\|production>` | `pnpm --filter maintenance exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
+| maintenance | `workers/jobs` | `pnpm --filter maintenance exec wrangler versions list --env <staging\|production>` | `pnpm --filter maintenance exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 | web | `apps/web` | `pnpm --filter web exec wrangler versions list --env <staging\|production>` | `pnpm --filter web exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 
 `wrangler rollback` with no version id rolls back to the version immediately before the current

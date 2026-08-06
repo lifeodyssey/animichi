@@ -5,8 +5,8 @@ import {
   type DatabaseClient,
 } from "./purge";
 
-export const ANONYMOUS_SESSIONS_CRON = "37 18 * * *";
-export const ANON_QUOTA_CRON = "37 19 * * *";
+export { ANONYMOUS_SESSIONS_CRON, ANON_QUOTA_CRON } from "./schedule";
+import { ANONYMOUS_SESSIONS_CRON, ANON_QUOTA_CRON } from "./schedule";
 
 interface ScheduledInput {
   readonly cron: string;
@@ -38,7 +38,7 @@ function databaseUrl(env: ScheduledEnvironment): string {
 async function runCron(cron: string, db: DatabaseClient, now: Date): Promise<void> {
   if (cron === ANON_QUOTA_CRON) await purgeAnonQuotaCounts(db, now);
   else if (cron === ANONYMOUS_SESSIONS_CRON) await purgeAnonymousSessions(db, now);
-  else throw new Error(`Unknown maintenance cron: ${cron}`);
+  else throw new Error(`Unknown jobs cron: ${cron}`);
 }
 
 export function createScheduledHandler(
