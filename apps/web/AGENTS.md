@@ -46,8 +46,10 @@ landing page and branded 404 through a Cloudflare SSR bundle. Root guide: `../..
   a review blocker):
   1. `src/routes/` and `src/components/` — UI. May import features, `src/api/hooks/`, `src/lib/`.
   2. `src/features/*/` — feature units. May import `src/api/` clients/hooks, `src/lib/`,
-     `src/platform/`. Features never import from other features' internals; share via `src/lib/`
-     or `src/api/hooks/`.
+     `src/platform/`. Prefer no imports from other features' internals — share via `src/lib/`
+     or `src/api/hooks/`. **Known exception:** map geometry/controller under
+     `src/features/bubble-map/` is a shared map primitive used by chat maps until a
+     `src/lib/map/` extract (TODO(refactor-skeleton): see #842).
   3. `src/api/` (transport + hooks) · `src/lib/` (pure utilities) · `src/platform/` — never import
      UI or features. Nothing may reverse this order.
 - A feature owns everything it needs under `src/features/<feature>/` — components/, hooks, and a
