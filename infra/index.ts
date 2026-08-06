@@ -123,6 +123,47 @@ if (webRoutesEnabled) {
     script: edgeScript,
   }, { deleteBeforeReplace: true });
 
+  // Legacy-domain 301s (seo-geo-plan §3 item 2 / iter-0 AC): the retired
+  // production domains (`seichijunrei.app`, `seichijunrei.zhenjia.dev`; and
+  // `aninavi.app` if held) 301 onto the canonical apex with path + query
+  // preserved. Each legacy domain must be its own Cloudflare zone (DNS
+  // delegated to CF — a manual-ops step, #545), so the config lists *zone
+  // ids*, not domains: a rule in the animichi.com zone cannot match a
+  // hostname another zone owns. Absent/empty config is a deliberate no-op
+  // until an owner onboards a legacy domain; the ruleset appears in the
+  // legacy zone only, and `expression: "true"` matches every request there
+  // because that zone exists solely to redirect.
+  if (stack === "prod") {
+    const legacyZoneIds = config.getObject<string[]>("legacyRedirectZones") ?? [];
+    validateLegacyRedirectZones(legacyZoneIds);
+    for (const legacyZoneId of legacyZoneIds) {
+      new cloudflare.Ruleset(`animichi-legacy-redirect-${legacyZoneId}`, {
+        zoneId: legacyZoneId,
+        name: `animichi legacy redirect ${legacyZoneId}`,
+        kind: "zone",
+        phase: "http_request_dynamic_redirect",
+        description: "301 the legacy domain onto the canonical apex.",
+        rules: [
+          {
+            action: "redirect",
+            expression: "true",
+            description: "301 every path onto the canonical apex path.",
+            enabled: true,
+            actionParameters: {
+              fromValue: {
+                statusCode: 301,
+                preserveQueryString: true,
+                targetUrl: {
+                  expression: `concat("https://${apexDomain}", http.request.uri.path)`,
+                },
+              },
+            },
+          },
+        ],
+      });
+    }
+  }
+
   // `www` is prod-only: there is no `www.staging.animichi.com`.
   if (stack === "prod") {
     const wwwDomain = config.require("wwwDomain");
@@ -307,6 +348,21 @@ export function buildIpClause(raw: string): string {
     throw new Error(`stagingAllowedIps entry "${invalid}" is not a valid IP or CIDR`);
   }
   return ` and not (ip.src in {${entries.join(" ")}})`;
+}
+
+// The legacy ruleset identity derives from the zone id, not the list position,
+// so reordering `legacyRedirectZones` never churns Pulumi state. A duplicate
+// id would declare two rulesets with the same Cloudflare `name` in the same
+// zone and fight on `pulumi up`; the list is operator-supplied, so fail the
+// build loudly instead of applying a conflicting declaration.
+export function validateLegacyRedirectZones(zoneIds: string[]): void {
+  const seen = new Set<string>();
+  for (const zoneId of zoneIds) {
+    if (seen.has(zoneId)) {
+      throw new Error(`legacyRedirectZones lists "${zoneId}" more than once`);
+    }
+    seen.add(zoneId);
+  }
 }
 
 // The stack check keeps this resource meaningful only on staging, even if the
