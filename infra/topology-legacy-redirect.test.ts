@@ -68,15 +68,15 @@ test("the rule 301s onto the configured apex, preserving path and query", () => 
     assert.equal(params.fromValue.statusCode, 301);
     assert.equal(params.fromValue.preserveQueryString, true);
     const expression = (params.fromValue.targetUrl as { expression: string }).expression;
-    assert.match(expression, new RegExp(`"https://${WEB_DOMAIN}"`), "targets the configured apex");
+    assert.ok(expression.includes(`"https://${WEB_DOMAIN}"`), "targets the configured apex");
     assert.match(expression, /http\.request\.uri\.path/, "path preserved, not dropped");
   }
 });
 
 test("ruleset identity derives from the zone id, not the list position", () => {
   for (const ruleset of legacyRulesets()) {
-    assert.match(ruleset.name, new RegExp(ruleset.inputs.zoneId as string));
-    assert.match(ruleset.inputs.name as string, new RegExp(ruleset.inputs.zoneId as string));
+    assert.ok(ruleset.name.includes(ruleset.inputs.zoneId as string));
+    assert.ok((ruleset.inputs.name as string).includes(ruleset.inputs.zoneId as string));
   }
 });
 
