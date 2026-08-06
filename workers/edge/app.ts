@@ -177,19 +177,27 @@ function registerV1Routes(
   });
 }
 
+interface ResolvedGates {
+  authenticate: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
+  turnstileGate: TurnstileGate;
+  showcaseMode: ShowcaseMode;
+}
+
+function resolveGates(deps: WorkerDeps): ResolvedGates {
+  // One gate per app instance, built outside the request handlers so their
+  // pass window / warn-once dedupe is shared by every request on the same
+  // isolate — tests inject their own to keep state out of module scope.
+  const authenticate = deps.authenticate ?? ((req, env, ctx) => realAuthenticate(req, env, fetch, ctx));
+  const turnstileGate = deps.turnstileGate ?? createTurnstileGate();
+  const showcaseMode = deps.showcaseMode ?? createShowcaseMode();
+  return { authenticate, turnstileGate, showcaseMode };
+}
+
 function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
   app.notFound(() => Response.json(NOT_FOUND_BODY, { status: 404 }));
-  const authenticate = deps.authenticate ?? ((req, env, ctx) => realAuthenticate(req, env, fetch, ctx));
-  // One gate per app instance, built outside the request handler so its
-  // short-lived pass window is shared by every request on the same isolate —
-  // that window is what stops a visitor being re-challenged per message.
-  const turnstileGate = deps.turnstileGate ?? createTurnstileGate();
-  // One gate per app instance, built outside the request handler: its
-  // warn-once dedupe is per-instance (per-isolate in production), and tests
-  // inject their own to keep warning state out of module scope.
-  const showcaseMode = deps.showcaseMode ?? createShowcaseMode();
-  registerAssetRoutes(app, deps, showcaseMode);
-  registerV1Routes(app, authenticate, turnstileGate, showcaseMode);
+  const gates = resolveGates(deps);
+  registerAssetRoutes(app, deps, gates.showcaseMode);
+  registerV1Routes(app, gates.authenticate, gates.turnstileGate, gates.showcaseMode);
 }
 
 export function createWorkerApp(deps: WorkerDeps): WorkerApp {
