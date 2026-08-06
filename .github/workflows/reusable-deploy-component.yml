@@ -338,8 +338,12 @@ jobs:
       # inline shell in the YAML, or no test can ever exercise it. The script
       # validates shapes, not just presence: VITE_TURNSTILE_SITE_KEY must be
       # exactly 24 chars (35 = the SECRET, refused with a dedicated error; any
-      # other length is fail-closed), every VITE_* value must not look like a
-      # secret (35-char Turnstile-secret shape, PEM/private-key markers), and
+      # other length is fail-closed), every other VITE_* value is checked by
+      # three predicates: the Turnstile-specific shape, PEM/private-key
+      # markers, and the universal looks_like_secret_material rule (credential
+      # prefixes + long base64/hex blobs, fail-closed — with an explicit
+      # per-variable secret_shape_allowlist in the script for known
+      # false-positive shapes like the 36-char Cloudflare beacon UUID), and
       # VITE_NEON_AUTH_BASE_URL / VITE_SHOWCASE_MODE keep their presence/value
       # rules. Names only in the log, never values: these are not secrets
       # (Vite puts them in a public bundle by definition), but there is no
