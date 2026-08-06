@@ -8,9 +8,11 @@
 # start_mock <port> <counter-file> <handler-python>: launches one server; the
 # handler body must define class Handler(BaseHTTPRequestHandler) and may call
 # record_request() to append one line to the counter file per request served.
-# wait_for_port is a plain TCP connect check, so readiness polling never adds
-# to a test's request count. start_mock prints nothing; the caller tracks the
-# PID via $!.
+# The server writes <counter-file>.ready right after the listening socket
+# binds; wait_for_port waits for that signal, so readiness is detected by
+# event, not by elapsed time (per the "mock the clock" rule in AGENTS.md) and
+# never adds to a test's request count. start_mock prints nothing; the caller
+# tracks the PID via $!.
 
 fail_test() {
   echo "FAIL: $1" >&2
@@ -22,17 +24,19 @@ start_mock() {
 import http.server
 def record_request(): open('$2','a').write('1\n')
 $3
-http.server.HTTPServer(('127.0.0.1',$1),Handler).serve_forever()
+server = http.server.HTTPServer(('127.0.0.1',$1),Handler)
+open('$2.ready','w').write('READY\n')
+server.serve_forever()
 " &
 }
 
 wait_for_port() {
-  local port="$1" _attempt
+  local port="$1" ready_file="$2" _attempt
   for _attempt in $(seq 1 50); do
-    (exec 3<>"/dev/tcp/127.0.0.1/${port}") 2>/dev/null && exec 3>&- 3<&- && return 0
+    [ -f "${ready_file}" ] && return 0
     sleep 0.1
   done
-  fail_test "mock server on port ${port} never came up"
+  fail_test "mock server on port ${port} never signaled ready (missing ${ready_file})"
 }
 
 request_count() {
@@ -63,4 +67,23 @@ export FIXED_ANSWER_HANDLER="class Handler(http.server.BaseHTTPRequestHandler):
         record_request()
         self.send_response(__STATUS__); self.send_header('Content-Type', 'application/json'); self.end_headers()
         self.wfile.write(b'__BODY__')
+    def log_message(self, *a): pass"
+
+# Handler python for a mock origin enforcing the staging WAF gate the way the
+# ruleset in infra/index.ts does: a request without the gate token as
+# `x-staging-key` is answered 403. __GATE_TOKEN__ is substituted by
+# staging_gate_mock in post-deploy-assert-probes.test.sh. Exported like
+# FIXED_ANSWER_HANDLER.
+export GATE_TOKEN_HANDLER="class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        record_request()
+        if self.headers.get('x-staging-key') != '__GATE_TOKEN__':
+            self.send_response(403)
+            self.end_headers()
+            self.wfile.write(b'blocked by the staging WAF gate')
+            return
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b'''${LANDING_BODY}''')
     def log_message(self, *a): pass"
