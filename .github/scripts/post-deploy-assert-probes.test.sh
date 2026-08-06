@@ -19,35 +19,25 @@ source "${SCRIPT_DIR}/mock-origin.sh"
 #    against the gate token). The mock enforces it the way the real gate
 #    does: a request without the header is answered 403, so this test only
 #    passes if the header actually rides along. ────────────────────────────
-test_gate_token_is_sent_as_header() {
-  local port=18805 counter_file pid rc=0 requests
+
+# The staging WAF gate fixture (the arrange above): a mock answering 403
+# unless the request carries the gate token as `x-staging-key`. Echoes
+# "<pid> <counter-file>", the fixed_answer_mock contract.
+staging_gate_mock() {
+  local port="$1" counter_file handler
   counter_file="$(mktemp)"
   rm -f "${counter_file}"
-  start_mock "${port}" "${counter_file}" "
-class Handler(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
-        record_request()
-        if self.headers.get('x-staging-key') != 'test-gate-token':
-            self.send_response(403)
-            self.end_headers()
-            self.wfile.write(b'blocked by the staging WAF gate')
-            return
-        self.send_response(200)
-        self.send_header('Content-Type', 'text/html')
-        self.end_headers()
-        self.wfile.write(b'''${LANDING_BODY}''')
-    def log_message(self, *a): pass
-"
-  pid=$!
-  wait_for_port "${port}"
-  WEB_URL="http://127.0.0.1:${port}" STAGING_GATE_TOKEN='test-gate-token' \
-    bash "${ASSERT_SH}" web-landing >/tmp/gatetoken.out 2>&1 || rc=$?
-  stop_mock "${pid}"
-  requests="$(request_count "${counter_file}")"
-  rm -f "${counter_file}"
-  [ "${rc}" -eq 0 ] || fail_test "gate-token request should pass the mock gate, got exit ${rc}: $(cat /tmp/gatetoken.out)"
-  [ "${requests}" -eq 1 ] || fail_test "expected exactly 1 request (no retry needed), got ${requests}"
-  echo "PASS: STAGING_GATE_TOKEN rides every request as x-staging-key (${requests} request, exit ${rc})"
+  handler="${GATE_TOKEN_HANDLER//__GATE_TOKEN__/test-gate-token}"
+  start_mock "${port}" "${counter_file}" "${handler}"
+  echo "${!} ${counter_file}"
+}
+
+test_gate_token_is_sent_as_header() {
+  local port=18805 pid counter_file rc=0
+  read -r pid counter_file < <(staging_gate_mock "${port}")
+  wait_for_port "${port}" "${counter_file}.ready"
+  WEB_URL="http://127.0.0.1:${port}" STAGING_GATE_TOKEN='test-gate-token' bash "${ASSERT_SH}" web-landing >/tmp/gatetoken.out 2>&1 || rc=$?
+  assert_single_request_probe "STAGING_GATE_TOKEN rides every request as x-staging-key" 0 "${rc}" "${pid}" "${counter_file}" "/tmp/gatetoken.out"
 }
 
 # ── showcase-mode & classic probe-contract cases (S0-v2 GOAL C / C9) ─────────
@@ -68,15 +58,17 @@ fixed_answer_mock() {
 
 # The two invariants every fixed-answer probe case shares: the expected exit
 # code, and exactly 1 request (401/403 are final application answers, never
-# retried — see `fetch`'s retry policy in post-deploy-assert.sh).
+# retried — see `fetch`'s retry policy in post-deploy-assert.sh). The mock
+# output stays on disk until BOTH assertions ran, so a failed probe's
+# diagnostic can still show the response that caused the failure.
 assert_single_request_probe() {
   local name="$1" expected_rc="$2" actual_rc="$3" pid="$4" counter_file="$5" out="$6"
   stop_mock "${pid}"
   local requests
   requests="$(request_count "${counter_file}")"
-  rm -f "${counter_file}" "${out}"
   [ "${actual_rc}" -eq "${expected_rc}" ] || fail_test "${name}: expected exit ${expected_rc}, got ${actual_rc}: $(cat "${out}")"
   [ "${requests}" -eq 1 ] || fail_test "${name}: expected exactly 1 request, got ${requests}"
+  rm -f "${counter_file}" "${out}"
   echo "PASS: ${name} (${requests} request, exit ${actual_rc})"
 }
 
@@ -87,7 +79,7 @@ run_json_probe_case() {
   shift 6
   local rc=0 out
   read -r pid counter_file < <(fixed_answer_mock "${port}" "${status}" "${json_body}")
-  wait_for_port "${port}"
+  wait_for_port "${port}" "${counter_file}.ready"
   out="$(mktemp)"
   ROOT_URL="http://127.0.0.1:${port}" env "$@" bash "${ASSERT_SH}" "${subcmd}" >"${out}" 2>&1 || rc=$?
   assert_single_request_probe "${name}" "${expected_rc}" "${rc}" "${pid}" "${counter_file}" "${out}"
@@ -102,16 +94,11 @@ BANGUMI_OK_BODY='{"bangumi":[{"id":1}]}'
 # is GOAL C's "bypass the UI, curl the API straight, get 403" acceptance made
 # a permanent CI assertion.
 test_showcase_probes_accept_denial() {
-  run_json_probe_case "showcase auth-probe accepts 403 showcase_denied" 18806 \
-    403 "${SHOWCASE_DENIED_BODY}" 0 auth-probe EDGE_SHOWCASE_MODE=true
-  run_json_probe_case "showcase users-probe accepts 403 showcase_denied" 18807 \
-    403 "${SHOWCASE_DENIED_BODY}" 0 users-probe EDGE_SHOWCASE_MODE=true
-  run_json_probe_case "showcase data-plane-probe accepts 403 showcase_denied" 18808 \
-    403 "${SHOWCASE_DENIED_BODY}" 0 data-plane-probe EDGE_SHOWCASE_MODE=true
-  run_json_probe_case "showcase catalog-probe accepts 403 showcase_denied" 18809 \
-    403 "${SHOWCASE_DENIED_BODY}" 0 catalog-probe EDGE_SHOWCASE_MODE=true
-  run_json_probe_case "showcase anon-disabled-production accepts 403 showcase_denied" 18810 \
-    403 "${SHOWCASE_DENIED_BODY}" 0 anon-disabled-production EDGE_SHOWCASE_MODE=true
+  run_json_probe_case "showcase auth-probe accepts 403 showcase_denied" 18806 403 "${SHOWCASE_DENIED_BODY}" 0 auth-probe EDGE_SHOWCASE_MODE=true
+  run_json_probe_case "showcase users-probe accepts 403 showcase_denied" 18807 403 "${SHOWCASE_DENIED_BODY}" 0 users-probe EDGE_SHOWCASE_MODE=true
+  run_json_probe_case "showcase data-plane-probe accepts 403 showcase_denied" 18808 403 "${SHOWCASE_DENIED_BODY}" 0 data-plane-probe EDGE_SHOWCASE_MODE=true
+  run_json_probe_case "showcase catalog-probe accepts 403 showcase_denied" 18809 403 "${SHOWCASE_DENIED_BODY}" 0 catalog-probe EDGE_SHOWCASE_MODE=true
+  run_json_probe_case "showcase anon-disabled-production accepts 403 showcase_denied" 18810 403 "${SHOWCASE_DENIED_BODY}" 0 anon-disabled-production EDGE_SHOWCASE_MODE=true
 }
 
 # Case 7: showcase mode but the gate is DOWN (auth probe gets the old 401) —
@@ -125,12 +112,9 @@ test_showcase_gate_down_fails() {
 # showcase_denied answer where the classic contract was expected is a gate
 # misconfiguration, not a pass.
 test_classic_probes_keep_classic_contract() {
-  run_json_probe_case "classic auth-probe accepts 401 unauthorized" 18812 \
-    401 "${UNAUTHORIZED_BODY}" 0 auth-probe
-  run_json_probe_case "classic data-plane-probe accepts 200 bangumi" 18813 \
-    200 "${BANGUMI_OK_BODY}" 0 data-plane-probe
-  run_json_probe_case "classic auth-probe fails on 403 showcase_denied" 18814 \
-    403 "${SHOWCASE_DENIED_BODY}" 1 auth-probe
+  run_json_probe_case "classic auth-probe accepts 401 unauthorized" 18812 401 "${UNAUTHORIZED_BODY}" 0 auth-probe
+  run_json_probe_case "classic data-plane-probe accepts 200 bangumi" 18813 200 "${BANGUMI_OK_BODY}" 0 data-plane-probe
+  run_json_probe_case "classic auth-probe fails on 403 showcase_denied" 18814 403 "${SHOWCASE_DENIED_BODY}" 1 auth-probe
 }
 
 # ── EDGE_SHOWCASE_MODE parse lock (S0-v2 GOAL C / C9, fix round 2) ──────────
@@ -158,13 +142,13 @@ test_showcase_mode_parses_from_real_wrangler_toml() {
   echo "PASS: real wrangler.toml parses EDGE_SHOWCASE_MODE (production=true, staging=false)"
 }
 
+# The exact shipped-bug shape: a decoy EDGE_SHOWCASE_MODE in the bare
+# [env.staging] block (where `name =` lives) MUST NOT be picked up — the
+# real value lives in [env.staging.vars]. Slicing [env.staging] would print
+# the decoy and exit the case check cleanly with the WRONG contract.
 test_showcase_mode_parse_is_anchored_to_vars_block() {
   local fixture rc out
   fixture="$(mktemp)"
-  # The exact shipped-bug shape: a decoy EDGE_SHOWCASE_MODE in the bare
-  # [env.staging] block (where `name =` lives) MUST NOT be picked up — the
-  # real value lives in [env.staging.vars]. Slicing [env.staging] would
-  # print the decoy and exit the case check cleanly with the WRONG contract.
   printf '[env.staging]\nname = "animichi-staging"\nEDGE_SHOWCASE_MODE = "true"\n[env.staging.vars]\nEDGE_SHOWCASE_MODE = "false"\n' > "${fixture}"
   out="$(bash "${EDGE_SHOWCASE_MODE_SH}" "${fixture}" staging)" || rc=$?
   [ "${rc:-0}" -eq 0 ] || fail_test "decoy-var parse should succeed, got exit ${rc}: ${out}"
@@ -173,20 +157,19 @@ test_showcase_mode_parse_is_anchored_to_vars_block() {
   echo "PASS: parse is anchored to the [env.<environment>.vars] block, not the bare env block"
 }
 
+# Both fixture shapes a config without a usable value can take: the key
+# missing entirely, and a malformed value ("TRUE"). Each must fail loudly —
+# same fail-closed contract as the Worker's own gate (workers/edge/showcase.ts
+# accepts only the literal "true"/"false").
 test_showcase_mode_missing_or_malformed_fails() {
-  local fixture rc out
+  local fixture rc out bad_case
   fixture="$(mktemp)"
-  # Config lost the key: env block present, no EDGE_SHOWCASE_MODE anywhere.
-  printf '[env.staging.vars]\nAPP_ENV = "staging"\n' > "${fixture}"
-  out="$(bash "${EDGE_SHOWCASE_MODE_SH}" "${fixture}" staging 2>&1)" || rc=$?
-  [ "${rc:-0}" -ne 0 ] || fail_test "missing EDGE_SHOWCASE_MODE must fail loudly, got exit 0: ${out}"
-  # Malformed value must fail closed, same as the Worker's own gate
-  # (workers/edge/showcase.ts accepts only the literal "true"/"false").
-  printf '[env.staging.vars]\nEDGE_SHOWCASE_MODE = "TRUE"\n' > "${fixture}"
-  out="$(bash "${EDGE_SHOWCASE_MODE_SH}" "${fixture}" staging 2>&1)" || rc=$?
-  [ "${rc:-0}" -ne 0 ] || fail_test "malformed EDGE_SHOWCASE_MODE (\"TRUE\") must fail loudly, got exit 0: ${out}"
-  rm -f "${fixture}"
-  echo "PASS: missing or malformed EDGE_SHOWCASE_MODE fails loudly"
+  for bad_case in 'APP_ENV = "staging"' 'EDGE_SHOWCASE_MODE = "TRUE"'; do
+    printf '[env.staging.vars]\n%s\n' "${bad_case}" > "${fixture}"
+    rc=0 out="$(bash "${EDGE_SHOWCASE_MODE_SH}" "${fixture}" staging 2>&1)" || rc=$?
+    [ "${rc:-0}" -ne 0 ] || fail_test "a config without the literal true/false must fail loudly, got exit 0: ${out}"
+  done
+  rm -f "${fixture}" && echo "PASS: missing or malformed EDGE_SHOWCASE_MODE fails loudly"
 }
 
 test_gate_token_is_sent_as_header

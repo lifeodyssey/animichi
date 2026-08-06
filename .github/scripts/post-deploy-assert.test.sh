@@ -35,7 +35,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 "
   pid=$!
-  wait_for_port "${port}"
+  wait_for_port "${port}" "${counter_file}.ready"
   WEB_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" web-landing >/tmp/branded404.out 2>&1 || rc=$?
   stop_mock "${pid}"
   requests="$(request_count "${counter_file}")"
@@ -62,7 +62,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 "
   pid=$!
-  wait_for_port "${port}"
+  wait_for_port "${port}" "${counter_file}.ready"
   WEB_URL="http://127.0.0.1:${port}" POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS=1 \
     bash "${ASSERT_SH}" web-landing >/tmp/cfedge404.out 2>&1 || rc=$?
   stop_mock "${pid}"
@@ -106,7 +106,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 "
   pid=$!
-  wait_for_port "${port}"
+  wait_for_port "${port}" "${counter_file}.ready"
   WEB_URL="http://127.0.0.1:${port}" POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS=1 \
     bash "${ASSERT_SH}" web-landing >/tmp/cfrecover.out 2>&1 || rc=$?
   stop_mock "${pid}"
@@ -141,7 +141,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 "
   pid=$!
-  wait_for_port "${port}"
+  wait_for_port "${port}" "${counter_file}.ready"
   WEB_URL="http://127.0.0.1:${port}" bash "${ASSERT_SH}" web-landing >/tmp/htmlonly.out 2>&1 || rc=$?
   stop_mock "${pid}"
   requests="$(request_count "${counter_file}")"
