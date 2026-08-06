@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { memoryGuardStore } from "./guardStore.ts";
+import { memoryGuardStore } from "./guard-store.ts";
 import {
   authenticatedRateLimitKey,
   authRateLimitConfigFrom,
@@ -9,7 +9,7 @@ import {
   parseWindowState,
   rateLimitConfigFrom,
   stepWindow,
-} from "./rateLimiter.ts";
+} from "./rate-limiter.ts";
 
 // The clock is always injected — no test here sleeps or reads the real time.
 const CONFIG = { limit: 3, windowSeconds: 60 };

@@ -273,7 +273,7 @@ cmd_data_plane_probe() {
 }
 
 # NEON_AUTH_JWKS_URL is a GitHub environment SECRET; NEON_AUTH_ISSUER is a
-# `wrangler.toml` VAR. workers/edge/authConfig.test.ts pins their relationship
+# `wrangler.toml` VAR. workers/edge/auth-config.test.ts pins their relationship
 # (jwks == ${issuer}/.well-known/jwks.json) at CONFIG time, but it can only
 # ever see the var — never the secret's real deployed value. The runtime
 # drift check (GET /internal/auth-config, issue #709) was retired 2026-08-04

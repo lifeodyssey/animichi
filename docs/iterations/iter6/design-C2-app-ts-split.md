@@ -47,14 +47,14 @@
 - `image-proxy.ts` — `handleImageProxy`(~30 行)
 - `responses.ts` — `UNAUTHORIZED_BODY/NOT_FOUND_BODY/unauthorized/logInvalidCredential`(~35 行)
 - `app.ts` — 仅 `registerWorkerRoutes`+`createWorkerApp`,顺序注释保留(~90 行)
-- 既有独立模块(auth/tiles/turnstile/rateLimiter/costBreaker/edgeGuard/containerEnv/entry)原样 `git mv`。
+- 既有独立模块(auth/tiles/turnstile/rate-limiter/cost-breaker/edge-guard/container-env/entry)原样 `git mv`。
 
 ## 破线测试文件(>200 行,实测)拆分原则
-turnstile.test 331 / entry.test 263 / containerEnv.test 257 / turnstileArm.test 229 / anonymous.test 207 / byok.test 205(tiles.test 198 贴线)。原则:**按被测行为域切,不对半切** —— turnstile.test → 验证协议(verify/siteverify 契约)与 gate 状态机(pass-window/re-challenge)两文件;entry.test → container 组装(RuntimeContainer/outboundByHost)与路由行为两文件;containerEnv.test → env 构建与 denylist 两文件;anonymous/byok 各按"闸门"(限流/预算/降级)切。共享 fixture 提到 `test-helpers.ts`(mock env/guard 构造器),消灭复制粘贴的 stub。
+turnstile.test 331 / entry.test 263 / container-env.test 257 / turnstile-arm.test 229 / anonymous.test 207 / byok.test 205(tiles.test 198 贴线)。原则:**按被测行为域切,不对半切** —— turnstile.test → 验证协议(verify/siteverify 契约)与 gate 状态机(pass-window/re-challenge)两文件;entry.test → container 组装(RuntimeContainer/outboundByHost)与路由行为两文件;container-env.test → env 构建与 denylist 两文件;anonymous/byok 各按"闸门"(限流/预算/降级)切。共享 fixture 提到 `test-helpers.ts`(mock env/guard 构造器),消灭复制粘贴的 stub。
 
 ## 测试策略(门禁按性质分类,不再混称"唯一门禁")
 - **合并门(每个 commit/PR 必过)**:`pnpm run test:worker` 全绿。先 mv、跑绿、再拆、再跑绿(两个可独立 revert 的 commit)。
-- 新增一条组装回归测试:断言 `/v1/users/*` 不经过 authenticate(现有 authFallthrough.test 已覆盖部分,补 registration-order 断言)。
+- 新增一条组装回归测试:断言 `/v1/users/*` 不经过 authenticate(现有 auth-fallthrough.test 已覆盖部分,补 registration-order 断言)。
 - v2 新增:`trust-chain.test.ts` 顺序守卫(stage `id` 序列断言 + 变异验证换序必红);`Admitted` 类型锁的负向验证用 `@ts-expect-error` type-test(裸 identity 传 forwardV1 必须编译失败);gate 生命周期测试——同一 app 实例连发两次匿名请求,断言复用**同一个** turnstileGate(pass-window 跨请求共享)。
 - **迁移后一次性核对(仅本次迁移 PR)**:`verify:dependabot` + `wrangler deploy --dry-run` 验 `main` 路径(记忆:root Worker 曾因两份 wrangler 配置从未部署成功——迁移时顺手核对唯一 config)。
 - **部署门(不变)**:staging = merge 到 main 后 CI 自动;prod 走既有 production approval——本卡不新增部署门。

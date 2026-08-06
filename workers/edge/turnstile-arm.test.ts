@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import { handleGuardRequest } from "./edgeGuard.ts";
-import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
+import { handleGuardRequest } from "./edge-guard.ts";
+import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
 import { TURNSTILE_HEADER, type TurnstileGate, type TurnstileResult } from "./turnstile.ts";
 
 /**

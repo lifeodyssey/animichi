@@ -51,7 +51,7 @@ B0 修 `CLOUDFLARE_PULUMI_API_TOKEN` 断线(推 2e3a9c12 + provision)。B1 清 7
 ## 5. 命名与守卫
 
 **改名批次**(配合 #312 Supabase 退役;借 ESC 迁移批同车,一次名字只改一处真源):R1 `SUPABASE_DB_URL`→`AGENT_DATABASE_URL`(触点:GH/ESC + `_deploy-component.yml` + `deploy.yml` + `CONTAINER_ENV_KEYS` + `CONTAINER_REQUIRED_KEYS` + settings.py + secrets.md,env 三触点教训);R2 `NEON_DATABASE_URL`→`CATALOG_DATABASE_URL`;R3 `MIMO_API_KEY` 等模型 key 维持(名已语义)。每批新旧名并读一个 release(settings 层 alias)再删旧名。
-**配置守卫扩展**(`worker/authConfig.test.ts` 模式 → 新 `worker/secretsWiring.test.ts` + `.github/` contract test):可写断言——(a) `worker_secrets`/`post_deploy_secrets` 列表 ⊆ `_deploy-component.yml` `secrets:` 声明 ∩ env map(三处一致);(b) `CONTAINER_ENV_KEYS` 中 credential 形名字必在某 workflow env map 出现(ZETA/OPENAI_COMPAT 断链即红);(c) wrangler.toml 各 env `image`/`workers_dev`/services 形状钉死;(d) Pulumi 步骤 env 必用 `CLOUDFLARE_PULUMI_API_TOKEN` 而非 wrangler token(防回退)。**来源与名字分开校验**:(a)/(b) 断言的是 GH 递送链现状;B2-B5 后已迁 ESC 的名字改为对照 ESC env JSON export(§1 守卫),GH 侧断言只保留未迁/bootstrap 名——否则守卫会为了通过而倒逼保留 GH 重复副本,或误杀合法的 `esc run` 注入。
+**配置守卫扩展**(`worker/auth-config.test.ts` 模式 → 新 `worker/secretsWiring.test.ts` + `.github/` contract test):可写断言——(a) `worker_secrets`/`post_deploy_secrets` 列表 ⊆ `_deploy-component.yml` `secrets:` 声明 ∩ env map(三处一致);(b) `CONTAINER_ENV_KEYS` 中 credential 形名字必在某 workflow env map 出现(ZETA/OPENAI_COMPAT 断链即红);(c) wrangler.toml 各 env `image`/`workers_dev`/services 形状钉死;(d) Pulumi 步骤 env 必用 `CLOUDFLARE_PULUMI_API_TOKEN` 而非 wrangler token(防回退)。**来源与名字分开校验**:(a)/(b) 断言的是 GH 递送链现状;B2-B5 后已迁 ESC 的名字改为对照 ESC env JSON export(§1 守卫),GH 侧断言只保留未迁/bootstrap 名——否则守卫会为了通过而倒逼保留 GH 重复副本,或误杀合法的 `esc run` 注入。
 
 ## 分卡建议(执行顺序)
 

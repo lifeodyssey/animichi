@@ -23,7 +23,7 @@ const alwaysAllowGuard = {
   }),
 };
 
-function envWithContainer(captured: { req?: Request }, body: object = { migrated: true }) {
+function environmentWithContainer(captured: { req?: Request }, body: object = { migrated: true }) {
   return {
     ...ANON_ENV,
     EDGE_GUARD: alwaysAllowGuard,
@@ -53,7 +53,7 @@ void test("a valid aid cookie reaches the container as X-Anon-Id, exactly", asyn
   const cap: { req?: Request } = {};
   const app = createWorkerApp({ authenticate: authOk });
   const cookie = await anonCookieFor("anon_" + "a".repeat(32));
-  await app.request("/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, envWithContainer(cap), stubCtx);
+  await app.request("/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, environmentWithContainer(cap), stubCtx);
   assert.equal(cap.req?.headers.get("X-Anon-Id"), "anon_" + "a".repeat(32));
 });
 
@@ -61,7 +61,7 @@ void test("no aid cookie -> no X-Anon-Id forwarded, and no Set-Cookie on the res
   const cap: { req?: Request } = {};
   const app = createWorkerApp({ authenticate: authOk });
   const res = await app.request(
-    "/v1/session/migrate", { method: "POST" }, envWithContainer(cap, { migrated: false }), stubCtx,
+    "/v1/session/migrate", { method: "POST" }, environmentWithContainer(cap, { migrated: false }), stubCtx,
   );
   assert.equal(cap.req?.headers.get("X-Anon-Id"), null);
   assert.equal(res.headers.get("Set-Cookie"), null);
@@ -73,7 +73,7 @@ void test("a tampered aid cookie -> no X-Anon-Id forwarded, and no Set-Cookie on
   const res = await app.request(
     "/v1/session/migrate",
     { method: "POST", headers: { Cookie: `aid=${"a".repeat(32)}.${"b".repeat(64)}` } },
-    envWithContainer(cap, { migrated: false }),
+    environmentWithContainer(cap, { migrated: false }),
     stubCtx,
   );
   assert.equal(cap.req?.headers.get("X-Anon-Id"), null);
@@ -87,7 +87,7 @@ void test("a client-forged X-Anon-Id is overwritten by the edge's own resolution
   await app.request(
     "/v1/session/migrate",
     { method: "POST", headers: { Cookie: cookie, "X-Anon-Id": "anon_" + "f".repeat(32) } },
-    envWithContainer(cap),
+    environmentWithContainer(cap),
     stubCtx,
   );
   assert.equal(cap.req?.headers.get("X-Anon-Id"), "anon_" + "c".repeat(32));
@@ -107,7 +107,7 @@ void test("a successful migration does NOT retire the aid cookie (#507 reversal)
   const app = createWorkerApp({ authenticate: authOk });
   const cookie = await anonCookieFor("anon_" + "d".repeat(32));
   const res = await app.request(
-    "/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, envWithContainer(cap, { migrated: true }), stubCtx,
+    "/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, environmentWithContainer(cap, { migrated: true }), stubCtx,
   );
   assert.equal(res.headers.get("Set-Cookie"), null);
 });
@@ -118,13 +118,13 @@ void test("the surviving identity keeps working: a later anonymous turn reuses i
   const anonId = "anon_" + "d".repeat(32);
   const cookie = await anonCookieFor(anonId);
   const migrated = await app.request(
-    "/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, envWithContainer(cap, { migrated: true }), stubCtx,
+    "/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, environmentWithContainer(cap, { migrated: true }), stubCtx,
   );
   // Nothing in the response tells the browser to drop `aid`, so the same
   // cookie still resolves to the same identity -- and therefore to the same
   // per-identity quota bucket, which is what closes the log-out-for-more loop.
   assert.equal(migrated.headers.get("Set-Cookie"), null);
-  await app.request("/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, envWithContainer(cap), stubCtx);
+  await app.request("/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, environmentWithContainer(cap), stubCtx);
   assert.equal(cap.req?.headers.get("X-Anon-Id"), anonId);
 });
 
@@ -133,7 +133,7 @@ void test("a no-op migration (migrated: false) sets no cookie either", async () 
   const app = createWorkerApp({ authenticate: authOk });
   const cookie = await anonCookieFor("anon_" + "e".repeat(32));
   const res = await app.request(
-    "/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, envWithContainer(cap, { migrated: false }), stubCtx,
+    "/v1/session/migrate", { method: "POST", headers: { Cookie: cookie } }, environmentWithContainer(cap, { migrated: false }), stubCtx,
   );
   assert.equal(res.headers.get("Set-Cookie"), null);
 });
@@ -143,7 +143,7 @@ void test("X-Anon-Id is stripped on every OTHER /v1 route, even with a valid coo
   const app = createWorkerApp({ authenticate: authOk });
   const cookie = await anonCookieFor("anon_" + "b".repeat(32));
   await app.request(
-    "/v1/chat", { method: "POST", headers: { Cookie: cookie, "X-Anon-Id": "anon_" + "b".repeat(32) } }, envWithContainer(cap), stubCtx,
+    "/v1/chat", { method: "POST", headers: { Cookie: cookie, "X-Anon-Id": "anon_" + "b".repeat(32) } }, environmentWithContainer(cap), stubCtx,
   );
   assert.equal(cap.req?.headers.get("X-Anon-Id"), null);
 });

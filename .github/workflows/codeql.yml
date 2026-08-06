@@ -19,6 +19,12 @@ on:
   schedule:
     - cron: '37 18 * * 0'
 
+# PR runs cancel on a fresh push; main pushes and schedule runs queue instead
+# (S0-v2 B7 "concurrency" assertion — push runs must never be cancelled).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Least-privilege default for every job in this file (GitHub hardening
 # guide): jobs that need more declare it themselves at job level.
 permissions:

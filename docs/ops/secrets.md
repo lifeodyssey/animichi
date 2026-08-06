@@ -27,7 +27,7 @@ trade. Instead,
 does it with zero credentials, by grepping source instead of asking GitHub:
 
 - **A** = every name used as `${{ secrets.X }}` anywhere under `.github/workflows/**`, plus
-  every credential-shaped name in `workers/edge/containerEnv.ts`'s `CONTAINER_ENV_KEYS`
+  every credential-shaped name in `workers/edge/container-env.ts`'s `CONTAINER_ENV_KEYS`
   (`_API_KEY` / `_TOKEN` / `_SECRET` suffix, plus `SUPABASE_DB_URL`) — the rest of that list
   is plain runtime config with no GitHub secret behind it, and stays out of scope here (see
   `deployment.md`).
@@ -76,7 +76,7 @@ imitate when adding a new secret produces exactly the wrong number of touchpoint
    3. Manual path: `.github/workflows/deploy.yml` uses direct `cloudflare/wrangler-action`
       steps, so add the name to that action's `secrets:` block and its `env:` map separately;
       changing `reusable-deploy-component.yml` does not update this workflow.
-   4. `workers/edge/containerEnv.ts` — add the name to `CONTAINER_ENV_KEYS`, or the worker drops it
+   4. `workers/edge/container-env.ts` — add the name to `CONTAINER_ENV_KEYS`, or the worker drops it
       even when Wrangler has it.
    5. This file, plus `deployment.md` if it is not secret-shaped.
 2. **Cloudflare Worker secret chain** — a GitHub secret pushed straight to the Worker's own
@@ -96,7 +96,7 @@ imitate when adding a new secret produces exactly the wrong number of touchpoint
    `wrangler.toml`'s `[vars]` (or `[env.<name>.vars]`), forwarded to the container the same way
    as (1) via `CONTAINER_ENV_KEYS`. Reference implementation: `ANON_DAILY_COST_BUDGET_USD`.
    1. `wrangler.toml` — add the literal value under the relevant `[vars]` section(s).
-   2. `workers/edge/containerEnv.ts` — add the name to `CONTAINER_ENV_KEYS`.
+   2. `workers/edge/container-env.ts` — add the name to `CONTAINER_ENV_KEYS`.
    3. `deployment.md`'s environment tables (not this file — nothing secret-shaped happened).
 
 `CORS_ALLOWED_ORIGIN` has completed the chain-1 → chain-3 migration for staging (#528): staging
@@ -139,7 +139,7 @@ not one kind of finding** — read the action column before batching a decision:
 | `GCP_SA_KEY` | A GCP service-account private key, added 2025-12, referenced nowhere in code or workflows — the only row here with a real blast radius if it leaked (a live cloud credential, not an inert config name) | Check GCP IAM for any usage of this SA outside this repo; if none, revoke it in GCP first, then `gh secret delete GCP_SA_KEY`. Open an issue to track — do not batch with the rows below |
 | `GCP_PROJECT_ID` | Companion to `GCP_SA_KEY`, same 2025-12 origin, referenced nowhere | Delete once `GCP_SA_KEY` is confirmed dead and revoked |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Added 2026-05, referenced nowhere | `gh secret delete CLAUDE_CODE_OAUTH_TOKEN` — no dependency to check first |
-| `ZETA_API_KEY` | Listed in `CONTAINER_ENV_KEYS` (`workers/edge/containerEnv.ts`) but **no workflow passes it**, so the container never receives a value even though the forwarding allowlist expects one. This is a broken chain, not dead config | Decide whether Zeta is still a wanted provider. If yes: wire it through the container-secret chain (see above) and move this row to Live. If no: remove it from `CONTAINER_ENV_KEYS` and `apps/agent/agent/config/model_aliases.py` / `apps/agent/agent/config/settings.py`'s references, and delete the GitHub secret |
+| `ZETA_API_KEY` | Listed in `CONTAINER_ENV_KEYS` (`workers/edge/container-env.ts`) but **no workflow passes it**, so the container never receives a value even though the forwarding allowlist expects one. This is a broken chain, not dead config | Decide whether Zeta is still a wanted provider. If yes: wire it through the container-secret chain (see above) and move this row to Live. If no: remove it from `CONTAINER_ENV_KEYS` and `apps/agent/agent/config/model_aliases.py` / `apps/agent/agent/config/settings.py`'s references, and delete the GitHub secret |
 | `OPENAI_COMPAT_API_KEY` | Read by `apps/agent/agent/config/settings.py` and `apps/agent/agent/config/model_aliases.py`, listed in `CONTAINER_ENV_KEYS`, but again **no workflow passes it** — same broken-chain shape as `ZETA_API_KEY` | Same decision as `ZETA_API_KEY`: wire it through or retire the references, don't just delete the secret and leave the code reading for it |
 | `ANTHROPIC_API_KEY` · `ANTHROPIC_BASE_URL` | Repository secrets present in the 2026-08-01 snapshot, but no workflow or source file references either name; the old Dependabot/Claude path was retired | Confirm no external automation still uses them, then delete both repository secrets |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Repository secret present in the 2026-08-01 name snapshot, but no workflow, `apps/web` source, or `CONTAINER_ENV_KEYS` entry references it. The current map stack is MapLibre GL + Protomaps PMTiles and the Mapbox ADR is explicitly retired/banned. If a future Mapbox integration is approved, this `NEXT_PUBLIC_` token would be a **public browser client token**, not a container secret; it would need URL restrictions and a public build variable instead of secret forwarding. | Confirm no external deployment still consumes it, revoke the token in the Mapbox console, then `gh secret delete NEXT_PUBLIC_MAPBOX_TOKEN`. Do not move it to Live or add it to `CONTAINER_ENV_KEYS` |
