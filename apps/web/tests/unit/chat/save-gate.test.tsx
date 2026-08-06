@@ -9,7 +9,7 @@ import { chatDictFor } from "../../../src/features/chat/i18n";
 import { DEFERRED_SAVE_KEY, readDeferredSave } from "../../../src/features/chat/save/deferred-save";
 import { saveAction } from "../../../src/features/chat/save/use-save-gate";
 import type { SaveGateOptions } from "../../../src/features/chat/save/use-save-gate";
-import { itineraryView } from "../../../src/lib/chat/itinerary";
+import { itineraryView } from "../../../src/features/chat/lib/itinerary";
 import { renderWithLocale, setLanguages } from "../_i18n";
 import { ujiItinerary } from "./_route-fixtures";
 

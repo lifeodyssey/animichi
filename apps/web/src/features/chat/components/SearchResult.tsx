@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { MAX_MAP_PINS, searchMapView, topSpots } from "../../../lib/chat/spot-clusters";
-import type { SearchSpot, SpotCluster } from "../../../lib/chat/spot-clusters";
+import { MAX_MAP_PINS, searchMapView, topSpots } from "../lib/spot-clusters";
+import type { SearchSpot, SpotCluster } from "../lib/spot-clusters";
 import { attachBasemap } from "../../bubble-map/bubble-map-controller";
 import { episodeTag } from "../search-copy";
 import { useSpotSelection } from "../selection/use-spot-selection";

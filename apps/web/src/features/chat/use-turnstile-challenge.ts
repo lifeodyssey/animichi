@@ -7,7 +7,7 @@ import {
   currentTurnstileToken,
   onTurnstileToken,
 } from "../../lib/turnstile/token-store";
-import { TURNSTILE_REQUIRED_CODE } from "../../lib/chat/error-classifier";
+import { TURNSTILE_REQUIRED_CODE } from "./lib/error-classifier";
 import type { ChatSession } from "./use-chat-session";
 
 export interface TurnstileChallenge {

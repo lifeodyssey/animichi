@@ -1,6 +1,6 @@
 import { LoginModal } from "../../../components/auth/LoginModal";
 import { useChatReturnTarget } from "../ChatReturnTarget";
-import type { ItineraryLeg, ItineraryStation, ItineraryView } from "../../../lib/chat/itinerary";
+import type { ItineraryLeg, ItineraryStation, ItineraryView } from "../lib/itinerary";
 import type { ChatDict } from "../i18n";
 import { legCapsule } from "../route-copy";
 import { useSaveGate } from "../save/use-save-gate";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { routeDocumentKey, supersededFlags } from "../../../src/lib/chat/supersession";
+import { routeDocumentKey, supersededFlags } from "../../../src/features/chat/lib/supersession";
 import { parsedPart, routePartRaw, ujiPoints } from "./_route-fixtures";
 
 describe("supersededFlags (E1 rule, shared with issue #273)", () => {

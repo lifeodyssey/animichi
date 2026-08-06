@@ -7,7 +7,7 @@ import type { UIMessage } from "ai";
 import { useCallback, useRef } from "react";
 import type { RefObject } from "react";
 import { z } from "zod";
-import type { SelectedPointsBody } from "../../lib/chat/selected-points-bypass";
+import type { SelectedPointsBody } from "./lib/selected-points-bypass";
 import { sessionHeaders } from "./session-headers";
 
 /**

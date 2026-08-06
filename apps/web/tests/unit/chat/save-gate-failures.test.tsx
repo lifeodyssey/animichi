@@ -8,7 +8,7 @@ import { TimedItinerary } from "../../../src/features/chat/components/TimedItine
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { DEFERRED_SAVE_KEY, DEFERRED_SAVE_TTL_MS, readDeferredSave, writeDeferredSave } from "../../../src/features/chat/save/deferred-save";
 import type { SaveGateOptions } from "../../../src/features/chat/save/use-save-gate";
-import { itineraryView } from "../../../src/lib/chat/itinerary";
+import { itineraryView } from "../../../src/features/chat/lib/itinerary";
 import { renderWithLocale, setLanguages } from "../_i18n";
 import { ujiItinerary } from "./_route-fixtures";
 

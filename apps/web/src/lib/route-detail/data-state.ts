@@ -1,3 +1,4 @@
+// TODO(refactor-skeleton): de-dual-home route-detail lib -> features/route-detail/ — see #842
 import type { RouteStatus, TimedItinerary } from "@animichi/contract";
 
 /**

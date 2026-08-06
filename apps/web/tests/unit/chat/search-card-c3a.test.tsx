@@ -6,8 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { SearchResult } from "../../../src/features/chat/components/SearchResult";
 import type { AttachBasemap } from "../../../src/features/chat/components/SearchMap";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { toSearchSpots } from "../../../src/lib/chat/spot-clusters";
-import type { SpotRowLike } from "../../../src/lib/chat/spot-clusters";
+import { toSearchSpots } from "../../../src/features/chat/lib/spot-clusters";
+import type { SpotRowLike } from "../../../src/features/chat/lib/spot-clusters";
 
 afterEach(cleanup);
 

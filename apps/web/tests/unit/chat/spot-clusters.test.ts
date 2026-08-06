@@ -7,8 +7,8 @@ import {
   searchMapView,
   toSearchSpots,
   topSpots,
-} from "../../../src/lib/chat/spot-clusters";
-import type { LocatedSpot } from "../../../src/lib/chat/spot-clusters";
+} from "../../../src/features/chat/lib/spot-clusters";
+import type { LocatedSpot } from "../../../src/features/chat/lib/spot-clusters";
 
 const UJI = { lat: 34.89, lng: 135.8 };
 const TOKYO = { lat: 35.69, lng: 139.7 };
