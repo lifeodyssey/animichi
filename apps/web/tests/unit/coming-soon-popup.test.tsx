@@ -4,7 +4,7 @@
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ComingSoonPopup } from "../../src/components/landing/ComingSoonPopup";
-import { LocaleProvider } from "../../src/i18n/context";
+import { LocaleProvider } from "../../src/i18n/LocaleProvider";
 import { renderWithLocale, setLanguages } from "./_i18n";
 
 beforeEach(() => { setLanguages(["ja-JP"]); });
