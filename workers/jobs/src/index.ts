@@ -5,7 +5,6 @@ import {
   type DatabaseClient,
 } from "./purge";
 
-export { ANONYMOUS_SESSIONS_CRON, ANON_QUOTA_CRON } from "./schedule";
 import { ANONYMOUS_SESSIONS_CRON, ANON_QUOTA_CRON } from "./schedule";
 
 interface ScheduledInput {
