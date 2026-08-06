@@ -179,9 +179,14 @@ describe("pointsByWorkId completion semantics", () => {
     const ingest = Promise.reject(new Error("upstream unavailable"));
     void ingest.catch(() => undefined);
     const { db } = fakeDb({ ingest });
-    await expect(pointsByWorkId(db, "115908")).resolves.toMatchObject({
-      rows: [PREVIEW], partial: true,
-    });
+    const result = await pointsByWorkId(db, "115908");
+    expect(result).toMatchObject({ rows: [PREVIEW], partial: true });
+  });
+
+  it("returns the empty result when synchronous ingest finds no points", async () => {
+    const { db } = fakeDb({ ingest: Promise.resolve({ status: "empty", reason: "no points" }) });
+    const result = await pointsByWorkId(db, "115908");
+    expect(result).toEqual({ rows: [], partial: undefined });
   });
 
   it("swallows background ingest rejection inside the waitUntil promise", async () => {

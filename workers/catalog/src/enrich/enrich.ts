@@ -114,16 +114,29 @@ function upsertPoints(rows: PointRow[]): SQL[] {
     INSERT INTO points (id, bangumi_id, name, name_cn, latitude, longitude,
                         image, episode, time_seconds, origin, origin_url)
     VALUES ${sql.join(rows.map(pointValues), sql`, `)}
-    ${POINT_CONFLICT_CLAUSE}
+    ${pointConflictClauseSql()}
   `];
 }
 
-/** ON CONFLICT update clause shared by the bulk point UPSERT. */
-const POINT_CONFLICT_CLAUSE = sql`ON CONFLICT (id) DO UPDATE SET
-  bangumi_id = EXCLUDED.bangumi_id, name = EXCLUDED.name, name_cn = EXCLUDED.name_cn,
-  latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, image = EXCLUDED.image,
-  episode = EXCLUDED.episode, time_seconds = EXCLUDED.time_seconds,
-  origin = EXCLUDED.origin, origin_url = EXCLUDED.origin_url`;
+let pointConflictClause: SQL | undefined;
+
+/**
+ * ON CONFLICT update clause shared by the bulk point UPSERT.
+ *
+ * Built lazily on first use, not at module top level: evaluating a `sql`
+ * template during module evaluation crashes the *bundled* Worker runtime
+ * (esbuild's lazy-ESM ordering leaves drizzle's StringChunk class in the TDZ
+ * until its init module runs — the vitest pool evaluates unbundled modules
+ * with correct ESM order, so only the deployed bundle ever sees it).
+ */
+function pointConflictClauseSql(): SQL {
+  pointConflictClause ??= sql`ON CONFLICT (id) DO UPDATE SET
+    bangumi_id = EXCLUDED.bangumi_id, name = EXCLUDED.name, name_cn = EXCLUDED.name_cn,
+    latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, image = EXCLUDED.image,
+    episode = EXCLUDED.episode, time_seconds = EXCLUDED.time_seconds,
+    origin = EXCLUDED.origin, origin_url = EXCLUDED.origin_url`;
+  return pointConflictClause;
+}
 
 /** Parameterized VALUES tuple for the bulk point UPSERT. */
 function pointValues(row: PointRow): SQL {
