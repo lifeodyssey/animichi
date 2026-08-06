@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { exportJWK, generateKeyPair, SignJWT } from "jose";
+import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 import { authenticate } from "./auth.ts";
 
 const BASE_ENV = { SUPABASE_URL: "https://sb-neon-base.example.test", SUPABASE_SERVICE_ROLE_KEY: "service" };
@@ -25,7 +25,7 @@ async function fixture(alg: "EdDSA" | "ES256", issuer: string, audience = issuer
   return { jwk, token };
 }
 
-function jwks(jwk: JsonWebKey): Response {
+function jwks(jwk: JWK): Response {
   return new Response(JSON.stringify({ keys: [jwk] }), { status: 200, headers: { "Content-Type": "application/json" } });
 }
 

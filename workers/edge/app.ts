@@ -4,8 +4,9 @@ import type { Env, WorkerExecutionContext } from "./env.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardV1 } from "./forward.ts";
 import { handleAnonymousV1 } from "./anonymous-flow.ts";
 import { handleImageProxy } from "./image-proxy.ts";
-import { NOT_FOUND_BODY, UNAUTHORIZED_BODY, unauthorized } from "./responses.ts";
+import { NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./responses.ts";
 import { isAnonymousV1, isPublicV1 } from "./routing-policy.ts";
+import { createShowcaseMode, type ShowcaseMode } from "./showcase.ts";
 import { handleSessionMigrate, SESSION_MIGRATE_PATH } from "./session-migrate.ts";
 import { handleTiles } from "./tiles.ts";
 import { createTurnstileGate, type TurnstileGate } from "./turnstile.ts";
@@ -93,6 +94,8 @@ interface WorkerDeps {
   turnstileGate?: TurnstileGate;
   /** Injectable sleep for the container cold-start retry (tests avoid real waits). */
   sleep?: (ms: number) => Promise<void>;
+  /** Injectable showcase gate (tests capture its warning / isolate it per case). */
+  showcaseMode?: ShowcaseMode;
 }
 
 function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
@@ -102,6 +105,10 @@ function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
   // short-lived pass window is shared by every request on the same isolate —
   // that window is what stops a visitor being re-challenged per message.
   const turnstileGate = deps.turnstileGate ?? createTurnstileGate();
+  // One gate per app instance, built outside the request handler: its
+  // warn-once dedupe is per-instance (per-isolate in production), and tests
+  // inject their own to keep warning state out of module scope.
+  const showcaseMode = deps.showcaseMode ?? createShowcaseMode();
   app.get("/healthz", (c) => {
     const container = c.env.CONTAINER.get(c.env.CONTAINER.idFromName("default"));
     return fetchContainerWithStartupRetry(
@@ -113,6 +120,9 @@ function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
   app.all("/tiles/*", (c) => handleTiles(c.req.raw, c.env.MAP_TILES, c.executionCtx));
   app.all("/img/*", (c) => handleImageProxy(c.req.raw, c.executionCtx));
   app.get("/catalog/public/anime-overview/:bangumiId{[0-9]+}", async (c) => {
+    // Showcase mode (GOAL C / C9): deny the public catalog read like every
+    // other functional route — the landing needs no API data.
+    if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
     if (new URL(c.req.url).search) return c.text("Unexpected query parameters", 400);
     return forwardPublicCatalog(c.env, c.req.raw);
   });
@@ -122,8 +132,12 @@ function registerWorkerRoutes(app: WorkerApp, deps: WorkerDeps): void {
   // Neon Auth JWT itself (jose JWKS), so the edge passes Authorization through
   // untouched. Different trust model from the container /v1/* path — do not
   // funnel this through authenticate()/forwardV1.
-  app.all("/v1/users/*", (c) => c.env.USERS.fetch(c.req.raw));
+  app.all("/v1/users/*", (c) => {
+    if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
+    return c.env.USERS.fetch(c.req.raw);
+  });
   app.all("/v1/*", async (c) => {
+    if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
     const { pathname } = new URL(c.req.url);
     if (isPublicV1(pathname)) return forwardV1(c.env, c.req.raw);
     const auth = await authenticate(c.req.raw, c.env, c.executionCtx);

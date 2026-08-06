@@ -67,10 +67,14 @@ void test("the latch survives within the day and self-expires at rollover", asyn
   assert.equal(await readBudgetLatch(store, utcDayKey(DAY_TWO_MS)), false);
 });
 
-async function guardBudget(store: ReturnType<typeof memoryGuardStore>, method: string, nowMs: number) {
+async function guardBudget(
+  store: ReturnType<typeof memoryGuardStore>,
+  method: string,
+  nowMs: number,
+): Promise<{ latched: boolean }> {
   const url = `https://edge-guard/budget?dayKey=${utcDayKey(nowMs)}`;
   const response = await handleGuardRequest(new Request(url, { method }), store, nowMs, FALLBACK);
-  return await response.json();
+  return (await response.json()) as { latched: boolean };
 }
 
 void test("the guard shard reports the latch it was told to set", async () => {

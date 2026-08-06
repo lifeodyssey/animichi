@@ -15,7 +15,7 @@ import { TURNSTILE_HEADER, type TurnstileGate, type TurnstileResult } from "./tu
 
 const SECRET = "fixed-test-hmac-key-0000000000000000";
 const TURNSTILE_SECRET = "fixed-test-turnstile-secret-0000000";
-const ANON_ENV = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET, TURNSTILE_SECRET };
+const ANON_ENV = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET, TURNSTILE_SECRET, EDGE_SHOWCASE_MODE: "false" };
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 
 const stubCtx = {

@@ -65,6 +65,7 @@ function brokenGuard() {
 function env(guard = fakeGuard(), extra: Record<string, unknown> = {}): Env {
   return {
     EDGE_GUARD: guard,
+    EDGE_SHOWCASE_MODE: "false",
     CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
     ...extra,
   } as unknown as Env;

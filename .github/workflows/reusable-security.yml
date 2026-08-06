@@ -227,6 +227,8 @@ jobs:
       - name: shellcheck
         run: |
           shellcheck .github/scripts/post-deploy-assert.sh .github/scripts/post-deploy-assert.test.sh \
+            .github/scripts/post-deploy-assert-probes.test.sh \
+            .github/scripts/edge-showcase-mode.sh .github/scripts/mock-origin.sh \
             .github/scripts/resolve-worker-url.sh .github/scripts/resolve-worker-url.test.sh \
             .github/scripts/vite-env-preflight.sh .github/scripts/vite-env-preflight.test.sh
         shell: bash
@@ -235,8 +237,13 @@ jobs:
       # Cloudflare edge 404 (propagation window) gets retried — behavior, not
       # syntax, is the risk here. Drives the real script against a throwaway
       # local mock server; no bats/JS test runner in this repo to hook into.
+      # mock-origin.sh is the shared mock-server harness; two test files by
+      # concern: transport (retry/CF-edge) + probe contracts (showcase denial
+      # vs classic, EDGE_SHOWCASE_MODE parse lock).
       - name: post-deploy-assert.sh behavioral tests
-        run: bash .github/scripts/post-deploy-assert.test.sh
+        run: |
+          bash .github/scripts/post-deploy-assert.test.sh
+          bash .github/scripts/post-deploy-assert-probes.test.sh
         shell: bash
       # #695: resolve-worker-url.sh is the thing that decides WHAT the smoke
       # gate above even probes. Same throwaway-mock-server approach, this

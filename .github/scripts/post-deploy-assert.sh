@@ -6,6 +6,35 @@
 # surface is a real gate failure.
 set -euo pipefail
 
+# Showcase-mode gate (S0-v2 GOAL C / C9): `EDGE_SHOWCASE_MODE` is passed
+# through from the environment's wrangler.toml `[env.<environment>.vars]`
+# block by reusable-post-deploy-test.yml — parsed from the SAME file `wrangler
+# deploy` reads, one source of truth, no duplicated constant here. When it is
+# "true", the edge denies every functional route (/v1/chat, /v1/users/*,
+# public /v1 reads, the public catalog read) with 403 showcase_denied before
+# any binding is touched, while the landing surface (/healthz, /img/*,
+# /tiles/*) stays reachable — that denial IS the "prod is a landing-only
+# showcase" contract (GOAL C). The probes below then assert the DENIAL as the
+# permanent CI form of "bypass the UI, curl the API straight, get 403" — the
+# GOAL C acceptance as an always-on check instead of a one-off manual curl.
+# The script never infers showcase mode from a response: it must be told, so
+# a deploy config that lost the key fails loudly in the workflow's parse step
+# instead of the probes guessing.
+is_showcase_mode() {
+  [ "${EDGE_SHOWCASE_MODE:-}" = "true" ]
+}
+
+# The showcase-denial contract every functional-route probe must see in a
+# showcase environment: 403 + the showcase_denied envelope. Anything else
+# fails the gate loudly — a classic 401 here means the deployed gate is OFF
+# while this run believes it is ON (a config mismatch, not a pass).
+assert_showcase_denied() {
+  local probe="$1" status="$2"
+  [ "${status}" = "403" ] || fail "${probe} in showcase mode expected 403 showcase_denied (the direct-backend denial IS the prod contract), got ${status}"
+  jq -e '.error.code == "showcase_denied"' "${BODY_FILE}" >/dev/null || fail "${probe} 403 body missing error.code=showcase_denied"
+  echo "Showcase mode: ${probe} denied with 403 showcase_denied — GOAL C direct-backend denial confirmed."
+}
+
 BODY_FILE="$(mktemp)"
 trap 'rm -f "${BODY_FILE}"' EXIT
 
@@ -164,7 +193,8 @@ cmd_auth_probe() {
   local status
   status="$(fetch POST "${ROOT_URL}/v1/chat" "Bearer not-a-real-token" '{"message":"ping"}')"
   diag "${status}"
-  [ "${status}" = "401" ] || fail "POST ${ROOT_URL}/v1/chat with an invalid bearer token expected 401, got ${status} — the edge auth gate may be down"
+  if is_showcase_mode; then assert_showcase_denied "auth-probe" "${status}"; return 0; fi
+  [ "${status}" = "401" ] || fail "POST ${ROOT_URL}/v1/chat with an invalid bearer token expected 401, got ${status}"
   jq -e '.error.code == "unauthorized"' "${BODY_FILE}" >/dev/null || fail "POST /v1/chat 401 body missing error.code=unauthorized"
 }
 
@@ -173,7 +203,8 @@ cmd_users_probe() {
   local status
   status="$(fetch GET "${ROOT_URL}/v1/users/post-deploy-probe-484")"
   diag "${status}"
-  [ "${status}" = "401" ] || fail "GET ${ROOT_URL}/v1/users/post-deploy-probe-484 with no credentials expected 401 (proves the USERS service binding is reachable through the edge), got ${status}"
+  if is_showcase_mode; then assert_showcase_denied "users-probe" "${status}"; return 0; fi
+  [ "${status}" = "401" ] || fail "GET ${ROOT_URL}/v1/users/post-deploy-probe-484 with no credentials expected 401, got ${status}"
   jq -e '.error.code == "unauthorized"' "${BODY_FILE}" >/dev/null || fail "users probe 401 body missing error.code=unauthorized"
 }
 
@@ -213,6 +244,7 @@ cmd_anon_disabled_production() {
   local status
   status="$(fetch POST "${ROOT_URL}/v1/chat" "" '{}')"
   diag "${status}"
+  if is_showcase_mode; then assert_showcase_denied "production anon /v1/chat" "${status}"; return 0; fi
   [ "${status}" = "401" ] || fail "anonymous POST ${ROOT_URL}/v1/chat on production (ANON_ACCESS_ENABLED=false) expected 401 unauthorized, got ${status}"
   jq -e '.error.code == "unauthorized"' "${BODY_FILE}" >/dev/null || fail "production anon /v1/chat 401 body missing error.code=unauthorized"
 }
@@ -234,24 +266,28 @@ cmd_web_landing() {
   grep -q 'class="landing"' "${BODY_FILE}" || fail "GET ${WEB_URL}/ response did not contain LandingPage's structural marker (<main class=\"landing\">) — this would also fail on a 200 SSR error page or the branded 404, which is the point of asserting on this instead of the page <title>"
 }
 
+# A classic (non-showcase) catalog-probe answer: 200 with the catalog's own
+# shape, or 404 (AnimeOverviewNotFoundError — still proves the edge → CATALOG
+# binding → Neon round-trip; a DB/connectivity failure would surface as 500,
+# not 404); anything else is a gate failure.
+assert_catalog_answer() {
+  local status="$1"
+  case "${status}" in
+    200) jq -e '.points_length | type == "number"' "${BODY_FILE}" >/dev/null || fail "catalog 200 body missing points_length (see workers/catalog/src/api/anime-overview.ts)" ;;
+    404) echo "::warning title=post-deploy catalog-probe::bangumi_id=1 returned 404 (AnimeOverviewNotFoundError) — binding→Neon round-trip still proved; confirm id=1 is absent from this env's seed data"
+      jq -e '. != null' "${BODY_FILE}" >/dev/null || fail "catalog 404 response is not valid JSON"
+      ;;
+    *) fail "catalog expected 200 or 404 (binding reachable; a DB misconfig surfaces as 500, not 404), got ${status}" ;;
+  esac
+}
+
 cmd_catalog_probe() {
   : "${ROOT_URL:?ROOT_URL is required}"
   local status
   status="$(fetch GET "${ROOT_URL}/catalog/public/anime-overview/1")"
   diag "${status}"
-  case "${status}" in
-    200)
-      jq -e '.points_length | type == "number"' "${BODY_FILE}" >/dev/null \
-        || fail "GET ${ROOT_URL}/catalog/public/anime-overview/1 returned 200 but body is missing the points_length field the catalog Worker always emits (see workers/catalog/src/api/anime-overview.ts) — the CATALOG binding responded, but not with catalog's own shape"
-      ;;
-    404)
-      echo "::warning title=post-deploy catalog-probe::bangumi_id=1 returned 404 (AnimeOverviewNotFoundError) — this still proves the edge -> CATALOG service binding -> Neon round-trip completed (a DB/connectivity failure would surface as 500, not 404; see workers/catalog/src/router.ts callAnimeOverview), but confirm bangumi_id=1 is expected to be absent from this environment's seed data rather than assuming this branch is always benign"
-      jq -e '. != null' "${BODY_FILE}" >/dev/null || fail "catalog probe 404 response is not valid JSON"
-      ;;
-    *)
-      fail "GET ${ROOT_URL}/catalog/public/anime-overview/1 expected 200 or 404 (catalog reachable via the CATALOG service binding), got ${status} — a DB/connection misconfiguration surfaces as 500 here, not 404 (workers/catalog/src/router.ts only translates AnimeOverviewNotFoundError to 404; every other error rethrows)"
-      ;;
-  esac
+  if is_showcase_mode; then assert_showcase_denied "catalog-probe" "${status}"; return 0; fi
+  assert_catalog_answer "${status}"
 }
 
 # Data-plane connectivity probe (issue #484 P1-3): healthz only proves the
@@ -262,14 +298,30 @@ cmd_catalog_probe() {
 # popular is in PUBLIC_V1 (no auth, no LLM call, zero cost) and reads through
 # that connection via BangumiRepository — a misconfigured/unreachable DSN
 # there throws and surfaces as a non-200, not a silent empty success.
+#
+# Showcase mode (S0-v2 GOAL C / C9): the data plane is deliberately
+# unreachable — /v1/bangumi/popular is a functional route and is denied like
+# everything else under /v1. The probe then asserts the DENIAL (403
+# showcase_denied) rather than the round-trip; the edge -> container ->
+# Postgres proof resumes when the environment's EDGE_SHOWCASE_MODE returns to
+# "false". healthz still proves container liveness in the meantime.
+# A classic data-plane-probe answer: a 200 whose body carries a non-empty
+# bangumi array (proves the edge → container → agent Postgres [SUPABASE_DB_URL]
+# round-trip; a misconfigured DSN throws and surfaces as a non-200).
+assert_bangumi_answer() {
+  local status="$1"
+  [ "${status}" = "200" ] || fail "GET bangumi/popular expected 200 (edge→container→agent Postgres round-trip), got ${status}"
+  jq -e '.bangumi | type == "array"' "${BODY_FILE}" >/dev/null || fail "bangumi/popular response missing a bangumi array"
+  jq -e '.bangumi | length > 0' "${BODY_FILE}" >/dev/null || fail "bangumi/popular returned an empty array"
+}
+
 cmd_data_plane_probe() {
   : "${ROOT_URL:?ROOT_URL is required}"
   local status
   status="$(fetch GET "${ROOT_URL}/v1/bangumi/popular?limit=3")"
   diag "${status}"
-  [ "${status}" = "200" ] || fail "GET ${ROOT_URL}/v1/bangumi/popular expected 200 (proves edge -> container -> agent Postgres [SUPABASE_DB_URL] round-trip), got ${status}"
-  jq -e '.bangumi | type == "array"' "${BODY_FILE}" >/dev/null || fail "bangumi/popular response missing a bangumi array — response shape changed or the query failed in a way that didn't surface as a non-200"
-  jq -e '.bangumi | length > 0' "${BODY_FILE}" >/dev/null || fail "bangumi/popular returned an empty array — either this environment's seed data is genuinely empty (adjust this check if so) or the query silently returned nothing"
+  if is_showcase_mode; then assert_showcase_denied "data-plane-probe" "${status}"; return 0; fi
+  assert_bangumi_answer "${status}"
 }
 
 # NEON_AUTH_JWKS_URL is a GitHub environment SECRET; NEON_AUTH_ISSUER is a
