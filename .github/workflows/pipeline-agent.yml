@@ -1,0 +1,129 @@
+# Agent pipeline (S0-v2 B4): the apps/agent Python suite moved out of ci.yml
+# into this lane (CI-1 union method). pull_request is pathless by design
+# (merge_group runs ignore path filters, so a filtered PR lane would diverge
+# from the queue); the push paths carry the read closure: agent unit tests
+# assert workflow/docs content (test_secrets_docs_consistency.py READS
+# .github/workflows/**, docs/ops/secrets.md, workers/edge/container-env.ts;
+# test_documentation_guardrails.py READS the docs + vitest config), and the
+# build stage compiles the container image (Dockerfile + wrangler.toml
+# [[containers]] image = "./Dockerfile").
+name: pipeline-agent
+
+on:
+  pull_request:
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/**"
+      - ".github/scripts/**"
+      - ".github/workflows/**"
+      - "apps/agent/**"
+      - "apps/web/vitest.config.ts"
+      - "docs/ARCHITECTURE.md"
+      - "docs/ops/deployment.md"
+      - "docs/ops/secrets.md"
+      - "docs/testing-strategy.md"
+      - "packages/contract/**"
+      - "workers/edge/container-env.ts"
+      - "Dockerfile"
+      - "wrangler.toml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  lint:
+    name: Agent / lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/agent
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      # Sonar S8541: --no-build blocks third-party sdist builds (setup-script
+      # execution); --no-binary-package animichi exempts the project's own
+      # wheel-less editable install, which blanket --no-build rejects (uv #17416).
+      - run: uv sync --frozen --all-extras --no-build --no-binary-package animichi
+      - name: Ruff lint
+        uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
+        with:
+          args: "check"
+          working-directory: apps/agent
+      - name: Ruff format check
+        run: uv run --frozen ruff format --check src/animichi/
+      - name: Type check (mypy strict)
+        run: uv run --frozen mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/scripts/purge_anonymous_sessions.py
+      - name: Dead code (vulture)
+        run: uv run --frozen vulture src/animichi/ vulture_whitelist.py
+      - name: Dependency audit (pip-audit)
+        uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
+        with:
+          local: true
+          inputs: apps/agent
+
+  test:
+    name: Agent / test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: apps/agent
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      # --no-build rejected: this project's own editable package has no wheel
+      # (see the lint job and purge-anonymous-sessions.yml's NOTE).
+      - run: uv sync --frozen --all-extras
+      # No --cov-fail-under here on purpose: a CLI value OVERRIDES the addopts in
+      # apps/agent/pyproject.toml [tool.pytest.ini_options], so a hardcoded 80
+      # meant CI enforced 80 while the repo's ratcheted floor (82, now 88) applied
+      # only to local `make test`. The two gates disagreed silently, and the
+      # ratchet rule was paper-only. The floor now lives in exactly one place:
+      # apps/agent/pyproject.toml.
+      - name: Unit tests (coverage floor from apps/agent/pyproject.toml)
+        run: uv run --frozen pytest src/animichi/tests/unit/ -v --cov --cov-report=xml
+      - name: Upload coverage
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: apps/agent/coverage.xml
+          fail_ci_if_error: true
+          use_oidc: true
+          flags: unit
+
+  build:
+    name: Agent / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build agent container image
+        run: docker build -f Dockerfile -t animichi-agent:ci .

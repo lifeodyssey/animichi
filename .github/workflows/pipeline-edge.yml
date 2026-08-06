@@ -1,0 +1,82 @@
+# Edge pipeline (S0-v2 B4): the workers/edge suite moved out of ci.yml into
+# this lane (CI-1 union method). pull_request is pathless by design (merge_group
+# runs ignore path filters, so a filtered PR lane would diverge from the queue);
+# the push paths carry the read closure: the edge node:test suite includes
+# auth-config.test.ts / migration-boundary.test.ts / dependabot-workflow.test.ts
+# which read workflow files verbatim, but their READS are declared inside
+# workers/edge/** and are enforced by the unfiltered config-read-sets security
+# job (they are not in that meta-check's CHECK_PATHS list, matching the retired
+# ci-worker scope).
+name: pipeline-edge
+
+on:
+  pull_request:
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/**"
+      - ".github/scripts/**"
+      - ".github/workflows/pipeline-edge.yml"
+      - ".oxlintrc.json"
+      - "workers/edge/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: Edge / lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Oxlint (type-aware, strict)
+        run: pnpm run lint:oxlint
+        working-directory: workers/edge
+
+  test:
+    name: Edge / test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # The node:test suite under workers/edge/*.test.ts doubles as the
+      # workflow-content guard tests (auth-config, migration-boundary,
+      # dependabot-workflow, test-inventory).
+      - name: Edge worker tests (node:test)
+        run: pnpm run test:worker
+
+  build:
+    name: Edge / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # The edge worker is the root wrangler.toml entry; bundle-check the
+      # production config (wrangler dev/deploy bundle server-side). dry-run
+      # never deploys, but it DOES run the full [[containers]] docker build
+      # (verified 2026-08-05: "naming to docker.io/library/animichi-
+      # runtimecontainer-production:worker") — the same root ./Dockerfile the
+      # Agent / build lane docker-builds, so every PR builds that image twice
+      # (image dedup is a tracked follow-up; the 15-min timeout is a flake risk
+      # for this required context only until then).
+      - name: Bundle check (wrangler deploy dry-run, production config)
+        run: pnpm exec wrangler deploy --dry-run -e production --outdir "$RUNNER_TEMP/edge-bundle"

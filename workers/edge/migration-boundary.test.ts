@@ -39,11 +39,14 @@ void test("Drizzle schemas cannot become migration runners", () => {
 });
 
 void test("CI and deploy workflows use Atlas, never the old all-schema push", () => {
+  // S0-v2 B4: the migration lane moved out of ci.yml into pipeline-db.yml
+  // (CI-1 union method); ci.yml now carries only the deploy chain.
+  const dbLane = read(".github/workflows/pipeline-db.yml");
   const ci = read(".github/workflows/ci.yml");
   const deploy = read(".github/workflows/deploy.yml");
   const promotion = read(".github/workflows/reusable-deploy-component.yml");
-  assert.match(ci, /atlas migrate validate --dir file:\/\/db\/migrations/);
-  assert.match(ci, /atlas migrate apply --dry-run[\s\S]*--revisions-schema public/);
+  assert.match(dbLane, /atlas migrate validate --dir file:\/\/db\/migrations/);
+  assert.match(dbLane, /atlas migrate apply --dry-run[\s\S]*--revisions-schema public/);
   // #486 thin caller: the manual path cannot skip Atlas — every job runs the reusable pipeline.
   assert.match(deploy, /uses: \.\/\.github\/workflows\/reusable-deploy-component\.yml/);
   assert.match(promotion, /atlas migrate apply --dir ["']?file:\/\/db\/migrations[\s\S]*--revisions-schema public/);

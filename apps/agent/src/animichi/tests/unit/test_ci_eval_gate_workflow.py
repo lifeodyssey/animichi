@@ -73,12 +73,34 @@ def test_agent_behavior_filter_scopes_to_prompt_model_guardrail_files() -> None:
     assert not any(_matches_any(path, patterns) for path in excluded)
 
 
+def _push_paths(source: str) -> list[str]:
+    in_paths = False
+    paths: list[str] = []
+    for line in source.splitlines():
+        if line == "    paths:":
+            in_paths = True
+            continue
+        if in_paths:
+            if line.startswith("      - "):
+                paths.append(line[8:].strip().strip('"'))
+            else:
+                break
+    assert paths, "missing push paths entries"
+    return paths
+
+
 def test_agent_behavior_filter_is_narrower_than_the_full_agent_filter() -> None:
-    """The broad `agent` filter (drives lint/type/test) still covers every
-    `agent_behavior` file; `agent_behavior` itself must be the smaller set."""
-    source = _CI_WORKFLOW.read_text(encoding="utf-8")
-    agent_patterns = _filter_patterns(source, "agent")
-    behavior_patterns = _filter_patterns(source, "agent_behavior")
+    """The broad `agent` scope (drives lint/type/test; now the
+    pipeline-agent.yml push paths) still covers every `agent_behavior` file;
+    `agent_behavior` itself must be the smaller set."""
+    agent_patterns = _push_paths(
+        (_REPO_ROOT / ".github" / "workflows" / "pipeline-agent.yml").read_text(
+            encoding="utf-8"
+        )
+    )
+    behavior_patterns = _filter_patterns(
+        _CI_WORKFLOW.read_text(encoding="utf-8"), "agent_behavior"
+    )
 
     assert _matches_any(
         "apps/agent/src/animichi/agents/animichi_agent.py", agent_patterns
@@ -94,7 +116,9 @@ def test_smoke_job_has_no_kill_switch_and_wires_the_zero_error_direct_gate() -> 
     )
 
     assert "&& false" not in job
-    assert "needs.changes.outputs.agent_behavior" in job
+    # S0-v2 B4: with the changes aggregation job retired, the gate is a
+    # step-level dorny filter inside the job itself.
+    assert "steps.f.outputs.agent_behavior" in job
     assert 'EVAL_SMOKE: "1"' in job
     assert 'EVAL_MAX_CASES: "80"' in job
     assert "test_agent_eval.py::test_agent_trajectory" in job

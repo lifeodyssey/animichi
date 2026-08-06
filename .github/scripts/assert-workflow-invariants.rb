@@ -22,9 +22,11 @@
 #               contexts must listen on `merge_group` — otherwise the merge
 #               queue waits forever on a check that never runs. The required
 #               context -> workflow map below is the pinned snapshot of the
-#               current ruleset (9 contexts; docs/ops/deployment.md "Main
-#               promotion path"); drift in either direction fails loudly:
-#               an owner workflow absent from the directory is reported too.
+#               current ruleset (35 contexts; the S0-v2 B4 hard-switch PUT of
+#               2026-08-06, docs/ops/deployment.md "Main promotion path" and
+#               docs/iterations/s0v2/ruleset-target.json); drift in either
+#               direction fails loudly: an owner workflow absent from the
+#               directory is reported too.
 #
 # Every check is blocking: any violation line prints to stdout and the exit
 # code is 1. No `continue-on-error` anywhere in the wiring (pipeline-quality
@@ -47,19 +49,51 @@ require "yaml"
 require_relative "assert-workflow-invariants-expression"
 
 # Branch-protection required contexts -> workflow that produces each one.
-# Snapshot of the current ruleset (9 contexts). Update this table whenever
-# the ruleset changes (e.g. the planned 7 -> ~26 per-package stage split),
-# and add merge_group to any newly-required workflow.
+# Snapshot of the current ruleset (35 contexts, S0-v2 B4 hard switch of
+# 2026-08-06; the retired 6 gate lanes are gone from the live ruleset).
+# Update this table whenever the ruleset changes, and add merge_group to any
+# newly-required workflow. Reusable-callee contexts (the 9 `Security / *`
+# names, produced by reusable-security.yml jobs invoked from ci.yml's
+# `Security` job) are checked through the caller/callee expansion in
+# producer_names; `Infra / build` is deliberately NOT required (deferred:
+# its Pulumi preview lane is red pending re-issued R2 keys — see
+# docs/iterations/s0v2/ruleset-target.json _deferred_required).
 REQUIRED_CONTEXTS = {
-  "Backend CI" => "ci.yml",
-  "Agent CI" => "ci.yml",
-  "Infra & DB CI" => "ci.yml",
-  "Cross-stack E2E" => "ci.yml",
-  "Repository Quality" => "ci.yml",
-  "Codecov Patch" => "ci.yml",
   "Web / lint" => "pipeline-web.yml",
   "Web / test" => "pipeline-web.yml",
-  "Web / build" => "pipeline-web.yml"
+  "Web / build" => "pipeline-web.yml",
+  "Agent / lint" => "pipeline-agent.yml",
+  "Agent / test" => "pipeline-agent.yml",
+  "Agent / build" => "pipeline-agent.yml",
+  "Catalog / lint" => "pipeline-catalog.yml",
+  "Catalog / test" => "pipeline-catalog.yml",
+  "Catalog / build" => "pipeline-catalog.yml",
+  "Users / lint" => "pipeline-users.yml",
+  "Users / test" => "pipeline-users.yml",
+  "Users / build" => "pipeline-users.yml",
+  "Maintenance / lint" => "pipeline-maintenance.yml",
+  "Maintenance / test" => "pipeline-maintenance.yml",
+  "Maintenance / build" => "pipeline-maintenance.yml",
+  "Edge / lint" => "pipeline-edge.yml",
+  "Edge / test" => "pipeline-edge.yml",
+  "Edge / build" => "pipeline-edge.yml",
+  "Contract / lint" => "pipeline-contract.yml",
+  "Contract / test" => "pipeline-contract.yml",
+  "Contract / build" => "pipeline-contract.yml",
+  "Infra / lint" => "pipeline-infra.yml",
+  "Infra / test" => "pipeline-infra.yml",
+  "DB / lint" => "pipeline-db.yml",
+  "DB / build" => "pipeline-db.yml",
+  "Quality / invariants" => "pipeline-quality.yml",
+  "Security / gitleaks (secret scan)" => "ci.yml",
+  "Security / TruffleHog (verified secrets)" => "ci.yml",
+  "Security / osv-scanner (lockfile CVE)" => "ci.yml",
+  "Security / Dependabot pnpm coverage" => "ci.yml",
+  "Security / Config check read-set trigger coverage" => "ci.yml",
+  "Security / zizmor (GHA security)" => "ci.yml",
+  "Security / Semgrep (SAST)" => "ci.yml",
+  "Security / sqlfluff (SQL lint)" => "ci.yml",
+  "Security / post-deploy smoke scripts (shellcheck + behavior)" => "ci.yml"
 }.freeze
 
 # Events that produce one run per pull-request update and therefore share the
@@ -182,7 +216,37 @@ def concurrency_violations(file, wf)
   violations
 end
 
-def merge_group_violations(file, wf)
+# GitHub names a reusable job's check-run "<caller display name> / <callee job
+# name>" (verified against live check-runs: the ci.yml `Security` caller
+# produces "Security / gitleaks (secret scan)" and friends, with no workflow
+# prefix). producer_names expands reusable callers into those names so
+# REQUIRED_CONTEXTS entries can be matched against real check-run producers;
+# a caller whose reusable file is missing produces nothing (fail-closed).
+def producer_names(dir, wf)
+  return [] unless wf.is_a?(Hash) && wf["jobs"].is_a?(Hash)
+
+  wf["jobs"].flat_map do |job_id, job|
+    next [] unless job.is_a?(Hash)
+
+    display = job["name"] || job_id
+    callee = job["uses"]
+    next [display] unless callee&.start_with?("./.github/workflows/reusable-")
+
+    reusable_path = File.join(dir, File.basename(callee))
+    next [] unless File.exist?(reusable_path)
+
+    reusable = load_workflow(reusable_path)
+    next [] unless reusable.is_a?(Hash) && reusable["jobs"].is_a?(Hash)
+
+    reusable["jobs"].map do |callee_id, callee_job|
+      next nil unless callee_job.is_a?(Hash)
+
+      "#{display} / #{callee_job['name'] || callee_id}"
+    end.compact
+  end
+end
+
+def merge_group_violations(dir, file, wf)
   on_map = triggers(wf)
   return [] unless on_map.is_a?(Hash)
 
@@ -194,12 +258,13 @@ def merge_group_violations(file, wf)
   if file.start_with?("pipeline-") && !on_map.key?("merge_group")
     violations << "#{file}:top-level:missing merge_group trigger (pipeline fixed point)"
   end
-  if contexts.any? && wf["jobs"].is_a?(Hash)
-    job_names = wf["jobs"].values.select { |j| j.is_a?(Hash) }.map { |j| j["name"] }
-    contexts.each do |ctx|
-      next if job_names.include?(ctx)
+  if contexts.any?
+    producer_names(dir, wf).tap do |job_names|
+      contexts.each do |ctx|
+        next if job_names.include?(ctx)
 
-      violations << "#{file}:top-level:required context not produced by any job (#{ctx})"
+        violations << "#{file}:top-level:required context not produced by any job (#{ctx})"
+      end
     end
   end
   violations
@@ -233,7 +298,7 @@ def main
     violations.concat(job_timeout_violations(file, wf))
     violations.concat(permissions_violations(file, wf))
     violations.concat(concurrency_violations(file, wf))
-    violations.concat(merge_group_violations(file, wf))
+    violations.concat(merge_group_violations(dir, file, wf))
   end
 
   if violations.any?
@@ -243,4 +308,4 @@ def main
   puts "checked #{files.length} workflow files, all invariants hold"
 end
 
-main
+main if $PROGRAM_NAME == __FILE__

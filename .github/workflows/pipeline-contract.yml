@@ -1,0 +1,74 @@
+# Contract pipeline (S0-v2 B4): the packages/contract suite moved out of ci.yml
+# into this lane (CI-1 union method). pull_request is pathless by design
+# (merge_group runs ignore path filters, so a filtered PR lane would diverge
+# from the queue); the push paths are the package read closure. The build stage
+# regenerates the committed OpenAPI documents and fails on drift, so the
+# artifacts themselves (openapi.json / users-openapi.json) live under the
+# package scope and any change to them re-runs the drift check.
+name: pipeline-contract
+
+on:
+  pull_request:
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/**"
+      - ".github/scripts/**"
+      - ".github/workflows/pipeline-contract.yml"
+      - "packages/contract/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: Contract / lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Type check (tsc)
+        run: pnpm exec tsc --noEmit
+        working-directory: packages/contract
+
+  test:
+    name: Contract / test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Unit tests (vitest)
+        run: pnpm run test
+        working-directory: packages/contract
+
+  build:
+    name: Contract / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Regenerate contract OpenAPI
+        run: pnpm emit:openapi
+        working-directory: packages/contract
+      - name: Verify committed OpenAPI is current
+        run: |
+          git add -A packages/contract/openapi.json packages/contract/users-openapi.json
+          git diff --cached --exit-code -- packages/contract/openapi.json packages/contract/users-openapi.json

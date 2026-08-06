@@ -1,0 +1,112 @@
+# DB pipeline (S0-v2 B4): the db-validate lane moved out of ci.yml into this
+# workflow (CI-1 union method). pull_request is pathless by design (merge_group
+# runs ignore path filters, so a filtered PR lane would diverge from the queue).
+# lint validates the Atlas migration directory (hermetic); build runs the
+# migration boundary guard (node:test, hermetic — also part of the edge suite,
+# matching the retired db-validate job) plus the optional credentialed
+# dry-runs against real Neon/Supabase when the environment secrets exist.
+# The push paths carry the old migrations filter's read closure: the boundary
+# guard reads ci.yml/deploy.yml, docs/ops/migrations.md, README*, Makefile and
+# db/migrations/atlas.sum itself.
+name: pipeline-db
+
+on:
+  pull_request:
+  merge_group:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/**"
+      - ".github/scripts/**"
+      - ".github/workflows/pipeline-db.yml"
+      - "db/**"
+      - "supabase/migrations/**"
+      - "docs/ops/migrations.md"
+      - "docs/ops/deployment.md"
+      - "README*"
+      - "Makefile"
+      - "workers/edge/migration-boundary.test.ts"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/deploy.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+jobs:
+  lint:
+    name: DB / lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Install pinned Atlas CLI
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/atlas-bin"
+          curl --proto '=https' --tlsv1.2 -sSfL \
+            "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" \
+            -o "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas" \
+            | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
+      - name: Validate Atlas migration directory
+        run: atlas migrate validate --dir file://db/migrations
+
+  build:
+    name: DB / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+      - name: Run migration boundary guard
+        run: node --test workers/edge/migration-boundary.test.ts
+      - name: Install pinned Atlas CLI
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/atlas-bin"
+          curl --proto '=https' --tlsv1.2 -sSfL \
+            "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" \
+            -o "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas" \
+            | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
+      - name: Dry-run Neon migrations
+        if: env.NEON_DATABASE_URL != ''
+        run: |
+          case "$NEON_DATABASE_URL" in
+            *\?*) scoped_url="${NEON_DATABASE_URL}&search_path=public" ;;
+            *) scoped_url="${NEON_DATABASE_URL}?search_path=public" ;;
+          esac
+          atlas migrate apply --dry-run --dir "file://db/migrations" \
+            --url "$scoped_url" --revisions-schema public
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        if: env.SUPABASE_DB_URL != ''
+        with:
+          version: "2.26.9"
+      - name: Validate frozen Supabase auth/compatibility migrations
+        if: env.SUPABASE_DB_URL != ''
+        run: supabase migration list --db-url "$SUPABASE_DB_URL"
