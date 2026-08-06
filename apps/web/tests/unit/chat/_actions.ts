@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { ChatActions } from "../../../src/features/chat/chat-actions";
+import type { ChatActions } from "../../../src/features/chat/ChatActions";
 
 /**
  * One mock shape for the whole `ChatActions` surface. The D12 lock tests are

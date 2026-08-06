@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findHreflangDefects } from "../../../src/features/seo/hreflangGraph";
+import { findHreflangDefects } from "../../../src/features/seo/hreflang-graph";
 import { homeHead, SITE_META } from "../../../src/features/seo/head";
 import {
   CANONICAL_ORIGIN,

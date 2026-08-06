@@ -45,8 +45,8 @@ jobs:
         run: |
           test -f apps/web/package.json
           test -f pnpm-lock.yaml
-          test -f apps/agent/agent/interfaces/fastapi_service.py
-          test ! -e apps/agent/agent/agents/pipeline.py
+          test -f apps/agent/src/animichi/interfaces/fastapi_service.py
+          test ! -e apps/agent/src/animichi/agents/pipeline.py
           test ! -d frontend
 
       # ── Python setup ──
@@ -57,9 +57,14 @@ jobs:
 
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
-      # Dependabot controls the dependency diff. Honor the committed lockfile,
-      # accept wheels only, and avoid building the local project on this runner.
-      - run: uv sync --python "$PYTHON_VERSION" --all-extras --locked --no-build --no-install-project
+      # Dependabot controls the dependency diff. Honor the committed lockfile and
+      # accept wheels only. Install the local project (editable): under the src
+      # layout its .pth entry points into apps/agent/src, which is what makes
+      # `import animichi` resolve regardless of the caller's working directory.
+      # Sonar S8541: --no-build blocks third-party sdist builds (setup-script
+      # execution); --no-binary-package animichi exempts the project's own
+      # wheel-less editable install, which blanket --no-build rejects (uv #17416).
+      - run: uv sync --python "$PYTHON_VERSION" --all-extras --locked --no-build --no-binary-package animichi
         working-directory: apps/agent
 
       # ── Node setup (pnpm workspace; the web package lives in apps/web) ──
@@ -90,11 +95,11 @@ jobs:
           SUPABASE_DB_URL: postgresql://test:test@127.0.0.1:5432/test
           MIMO_API_KEY: test-only
         run: |
-          uv run --no-build --no-sync ruff format --check agent/
-          uv run --no-build --no-sync ruff check agent/
-          uv run --no-build --no-sync mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/
-          uv run --no-build --no-sync python -m pytest agent/tests/unit/ -v --no-cov
-          uv run --no-build --no-sync python -c "from agent.interfaces.fastapi_service import create_fastapi_app; print('fastapi OK')"
+          uv run --no-build --no-sync ruff format --check src/animichi/
+          uv run --no-build --no-sync ruff check src/animichi/
+          uv run --no-build --no-sync mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/
+          uv run --no-build --no-sync python -m pytest src/animichi/tests/unit/ -v --no-cov
+          uv run --no-build --no-sync python -c "from animichi.interfaces.fastapi_service import create_fastapi_app; print('fastapi OK')"
 
       # ── TypeScript workspace checks ──
       - name: Web + worker quality

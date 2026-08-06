@@ -12,7 +12,7 @@ vi.mock("better-auth/client", () => ({
 }));
 vi.mock("better-auth/client/plugins", () => ({ jwtClient, magicLinkClient: () => ({}) }));
 
-import { fetchAuthToken, isNeonAuthConfigured, sendMagicLink } from "../../src/lib/auth/neonAuth";
+import { fetchAuthToken, isNeonAuthConfigured, sendMagicLink } from "../../src/lib/auth/neon-auth";
 
 const request = { email: "fan@example.com", callbackURL: "https://app.test/auth/callback" };
 

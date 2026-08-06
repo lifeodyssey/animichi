@@ -1,6 +1,6 @@
 import type { TimedItinerary } from "@animichi/contract";
-import { selectShioriLayout, type ShioriLayout, type ShioriStatus } from "./layoutSelector";
-import { shioriTimeWindow } from "./timeWindow";
+import { selectShioriLayout, type ShioriLayout, type ShioriStatus } from "./layout-selector";
+import { shioriTimeWindow } from "./time-window";
 import type { ShioriMeta, ShioriPhoto } from "./types";
 
 export type ShioriMode = "planned" | "commemorative";

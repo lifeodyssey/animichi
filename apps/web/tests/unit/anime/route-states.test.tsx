@@ -4,7 +4,7 @@
 import { RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { AnimePendingState } from "../../../src/features/anime/route-states";
+import { AnimePendingState } from "../../../src/features/anime/AnimeRouteStates";
 import { getRouter } from "../../../src/router";
 import { animeOverviewHandler, animeOverviewOutageHandler } from "../../msw/anime-overview";
 import { server } from "../../msw/node";

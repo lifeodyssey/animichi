@@ -1,4 +1,4 @@
-import { useLocale, useSetLocale } from "./context";
+import { useLocale, useSetLocale } from "./LocaleProvider";
 import { LOCALES, LOCALE_LABELS, type Locale } from "./locales";
 
 interface LocaleOptionProps {

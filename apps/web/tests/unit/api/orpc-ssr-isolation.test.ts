@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { catalog, users } from "../../../src/api/orpc";
 
 /**
@@ -7,6 +7,16 @@ import { catalog, users } from "../../../src/api/orpc";
  * accepted host happened to serve the first SSR request.
  */
 describe("orpc utils on the server", () => {
+  beforeEach(() => {
+    // A well-formed server config: outside a request context `resolveOrigin`
+    // fails loud (no VITE_SITE_ORIGIN, no request URL), so the freshness
+    // checks below need the explicit override.
+    vi.stubEnv("VITE_SITE_ORIGIN", "https://ssr.test");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
   it("builds fresh catalog utils per call instead of caching the first origin", () => {
     expect(catalog()).not.toBe(catalog());
   });

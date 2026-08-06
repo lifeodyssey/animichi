@@ -3,7 +3,7 @@
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ChatActionsProvider } from "../../../src/features/chat/chat-actions";
+import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
 import { DataPartCard } from "../../../src/features/chat/components/DataPartCard";
 import { RouteCard } from "../../../src/features/chat/components/RouteCard";
 import type { AttachBasemap } from "../../../src/features/chat/components/SearchMap";

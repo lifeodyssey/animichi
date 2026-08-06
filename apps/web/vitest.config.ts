@@ -27,25 +27,25 @@ export default defineConfig({
         // WebGL map glue: instantiates maplibre-gl (requires a real GL context + dynamic imports),
         // unrunnable under jsdom. Its pure inputs (style/layers/pins/geometry) are unit-covered; the
         // live mount is covered by S0.4's browser ACs (Tester). Per campaign plan §0.6 exclude ledger.
-        "src/features/map-spike/mapController.ts",
+        "src/features/map-spike/map-controller.ts",
         // The _dev map-spike route only wires the maplibre container mount (attachMapSpike ->
-        // mapController above). It cannot render under jsdom for the same GL reason; the mount is a
-        // browser AC (S0.4). Same §0.6 exclude-ledger rationale as mapController.ts (surfaced when
+        // map-controller above). It cannot render under jsdom for the same GL reason; the mount is a
+        // browser AC (S0.4). Same §0.6 exclude-ledger rationale as map-controller.ts (surfaced when
         // routes/** entered the sweep in C0.1).
         "src/routes/_dev/map-spike.tsx",
         // Bubble-map WebGL basemap glue: instantiates maplibre-gl (real GL context + dynamic
-        // imports), unrunnable under jsdom. Its pure inputs (bubbleGeometry) are unit-covered and
+        // imports), unrunnable under jsdom. Its pure inputs (bubble-geometry) are unit-covered and
         // the interactive bubble overlay/sheet are DOM-covered; the live mount is an S5.2 browser AC
-        // (Tester). Same §0.6 exclude-ledger rationale as mapController.ts.
-        "src/features/bubble-map/bubbleMapController.ts",
+        // (Tester). Same §0.6 exclude-ledger rationale as map-controller.ts.
+        "src/features/bubble-map/bubble-map-controller.ts",
         // BubbleMap entry only owns the ref + effect that mounts the basemap (attachBubbleMap ->
-        // bubbleMapController above); it cannot render under jsdom for the same GL reason. The
+        // bubble-map-controller above); it cannot render under jsdom for the same GL reason. The
         // testable state/overlay/sheet live in BubbleMapPanel. Same §0.6 exclude-ledger rationale
         // as routes/_dev/map-spike.tsx.
         "src/features/bubble-map/BubbleMap.tsx",
         // Shared MapLibre adapter owns the browser-only WebGL lifecycle. Its state machine is
         // exercised by the browser canary and adapter unit tests with a deterministic module stub.
-        "src/features/maplibre/maplibreAdapter.ts",
+        "src/features/maplibre/maplibre-adapter.ts",
         // The canary route is a browser-only smoke surface for the adapter, not an SSR/jsdom page.
         "src/routes/_dev/map-canary.tsx",
       ],

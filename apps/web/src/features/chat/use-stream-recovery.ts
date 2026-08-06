@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { clearAuthToken } from "../../lib/auth/authSession";
+import { clearAuthToken } from "../../lib/auth/auth-session";
 import type { ChatUIMessage } from "./use-chat-session";
 import { fetchHistory } from "./use-conversation-history";
 import type { HistoryEntry } from "./use-conversation-history";

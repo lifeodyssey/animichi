@@ -3,9 +3,9 @@
  */
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useAuthCallback } from "../../../src/components/auth/useAuthCallback";
-import type { DeferredReplayOutcome } from "../../../src/features/chat/save/createOnLogin";
-import type { SessionMigrationOutcome } from "../../../src/lib/auth/sessionMigration";
+import { useAuthCallback } from "../../../src/components/auth/use-auth-callback";
+import type { DeferredReplayOutcome } from "../../../src/features/chat/save/create-on-login";
+import type { SessionMigrationOutcome } from "../../../src/lib/auth/session-migration";
 
 // Every collaborator is a module-level constant: the effect's dependency array
 // includes them, so an inline arrow would be a fresh identity on each render and
@@ -115,7 +115,7 @@ describe("useAuthCallback migration recovery (#507 review)", () => {
   });
 });
 
-describe("useAuthCallback", () => {
+describe("use-auth-callback", () => {
   it("starts pending, then resolves to done once a token is established", async () => {
     const establish = vi.fn().mockResolvedValue("jwt-1");
     const view = renderHook(() => useAuthCallback(establish));

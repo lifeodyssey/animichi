@@ -50,7 +50,7 @@ void test("Dependabot gate checks repository structure without assuming uv is pr
 
 void test("Dependabot installs locked Python wheels without running build scripts", () => {
   const safeSync =
-    /- run: uv sync --python "\$PYTHON_VERSION" --all-extras --locked --no-build --no-install-project\n\s+working-directory: apps\/agent/g;
+    /- run: uv sync --python "\$PYTHON_VERSION" --all-extras --locked --no-build --no-binary-package animichi\n\s+working-directory: apps\/agent/g;
   assert.equal(WORKFLOW.match(safeSync)?.length, 1);
   assert.doesNotMatch(WORKFLOW, /- run: uv sync --all-extras\n/);
   assert.doesNotMatch(WORKFLOW, /uv run (?!--no-build --no-sync)/);

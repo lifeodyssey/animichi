@@ -2,8 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import { MapSpike, type MapStatus } from "../../features/map-spike/MapSpike";
-import { attachMapSpike } from "../../features/map-spike/mapController";
-import { parseSourceMode, type SourceMode } from "../../features/map-spike/sourceMode";
+import { attachMapSpike } from "../../features/map-spike/map-controller";
+import { parseSourceMode, type SourceMode } from "../../features/map-spike/source-mode";
 
 export const Route = createFileRoute("/_dev/map-spike")({
   component: MapSpikeRoute,

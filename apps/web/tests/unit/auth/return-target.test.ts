@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeReturnTarget } from "../../../src/lib/auth/returnTarget";
+import { sanitizeReturnTarget } from "../../../src/lib/auth/return-target";
 
 /**
  * T14 open-redirect guard (issue #284 Task 8, T8-AC5/AC6): only same-origin

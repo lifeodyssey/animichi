@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../msw/node";
 
 const { authHeaders } = vi.hoisted(() => ({ authHeaders: vi.fn() }));
-vi.mock("../../../src/lib/auth/authSession", () => ({ authHeaders }));
+vi.mock("../../../src/lib/auth/auth-session", () => ({ authHeaders }));
 
 import { users } from "../../../src/api/orpc";
 

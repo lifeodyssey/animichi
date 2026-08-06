@@ -6,7 +6,7 @@ import {
   useSavedRoutes,
 } from "../../api/hooks/use-route-detail";
 import { RouteDetailView } from "../../components/route-detail/RouteDetailView";
-import { RouteDetailErrorState, RouteDetailPendingState } from "../../components/route-detail/route-states";
+import { RouteDetailErrorState, RouteDetailPendingState } from "../../components/route-detail/RouteDetailStates";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../../i18n/locales";
 
 /** A real `Error` carrying TanStack's not-found marker (`isNotFound: true`). */

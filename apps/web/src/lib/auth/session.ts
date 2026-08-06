@@ -34,9 +34,9 @@ export function fetchAuthStatus(): Promise<AuthStatus> {
 export function useAuthStatus(fetcher: () => Promise<AuthStatus> = fetchAuthStatus): AuthStatus {
   const [status, setStatus] = useState<AuthStatus>("pending");
   useEffect(() => {
-    let active = true;
-    void fetcher().then((next) => { if (active) setStatus(next); });
-    return () => { active = false; };
+    let isActive = true;
+    void fetcher().then((next) => { if (isActive) setStatus(next); });
+    return () => { isActive = false; };
   }, [fetcher]);
   return status;
 }

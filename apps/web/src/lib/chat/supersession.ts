@@ -22,7 +22,7 @@ const ROUTE_INTENTS: ReadonlySet<string> = new Set([
 ]);
 
 /** Intent discriminator of a streamed `data-response` payload (shared with
- * the E2 bypass detection in `selectedPointsBypass.ts` — one implementation). */
+ * the E2 bypass detection in `selected-points-bypass.ts` — one implementation). */
 export function intentOf(data: unknown): string | undefined {
   if (typeof data !== "object" || data === null || !("intent" in data)) return undefined;
   const { intent } = data;

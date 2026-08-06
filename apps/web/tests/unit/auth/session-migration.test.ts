@@ -9,7 +9,7 @@ import {
   anomalyOf,
   migrateAnonymousSession,
   reportMigrationAnomaly,
-} from "../../../src/lib/auth/sessionMigration";
+} from "../../../src/lib/auth/session-migration";
 
 const BASE = "http://edge.test";
 const URL = `${BASE}${SESSION_MIGRATE_PATH}`;

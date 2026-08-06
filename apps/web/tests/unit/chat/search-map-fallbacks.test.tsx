@@ -3,12 +3,12 @@
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ChatActionsProvider } from "../../../src/features/chat/chat-actions";
+import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
 import { SearchResult } from "../../../src/features/chat/components/SearchResult";
 import type { AttachBasemap } from "../../../src/features/chat/components/SearchMap";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { toSearchSpots } from "../../../src/lib/chat/spotClusters";
-import type { SpotRowLike } from "../../../src/lib/chat/spotClusters";
+import { toSearchSpots } from "../../../src/lib/chat/spot-clusters";
+import type { SpotRowLike } from "../../../src/lib/chat/spot-clusters";
 
 afterEach(cleanup);
 

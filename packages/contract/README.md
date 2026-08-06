@@ -45,7 +45,7 @@ import { PilgrimagePoint } from "../../packages/contract/src/models";
 
 ### 2. Do NOT codegen Python models
 
-The Python Agent client (`apps/agent/agent/clients/catalog_client.py`) mirrors the contract
+The Python Agent client (`apps/agent/src/animichi/clients/catalog_client.py`) mirrors the contract
 shapes **by hand** and **intentionally diverges** via sentinel defaults:
 
 | Field | Contract (optional) | Python sentinel |
@@ -107,7 +107,7 @@ client into unexpected behavior.
 The envelope `message` is **untrusted upstream content**. Clients may log it,
 but must never show it to users, embed it in LLM prompts, or store it on
 exception `str()`. All user-visible text comes from the client's own mapping
-table (`apps/agent/agent/agents/error_messages.py`), built from `code` +
+table (`apps/agent/src/animichi/agents/error_messages.py`), built from `code` +
 validated `data`.
 
 ### Three mirrors, one registry
@@ -115,13 +115,13 @@ validated `data`.
 ```
 packages/contract/src/errors.ts        ← registry (zod, source of truth)
 workers/catalog/src/lib/errors.ts      ← Worker mirror (no zod) + ORPCError constructors
-apps/agent/agent/clients/catalog_errors.py ← Python mirror: envelope parser → typed exceptions
-apps/agent/agent/agents/error_messages.py  ← user-facing localized messages (ja/zh/en)
+apps/agent/src/animichi/clients/catalog_errors.py ← Python mirror: envelope parser → typed exceptions
+apps/agent/src/animichi/agents/error_messages.py  ← user-facing localized messages (ja/zh/en)
 ```
 
 Parity between the contract and the Worker mirror is enforced at compile time
 by `workers/catalog/test/contract-parity.worker.test.ts`; the Python mirror is
-pinned by `apps/agent/agent/tests/unit/test_catalog_errors.py`.
+pinned by `apps/agent/src/animichi/tests/unit/test_catalog_errors.py`.
 
 ### Adding a new error code (checklist for stories)
 
@@ -135,13 +135,13 @@ pinned by `apps/agent/agent/tests/unit/test_catalog_errors.py`.
    `defined: true`). Throw it at the site. Extend the parity assertions in
    `test/contract-parity.worker.test.ts` and add a wire-shape test in
    `test/errors-wire.worker.test.ts`.
-3. **Agent client** — mirror in `apps/agent/agent/clients/catalog_errors.py`:
+3. **Agent client** — mirror in `apps/agent/src/animichi/clients/catalog_errors.py`:
    data model (defaults for every field — wire data is untrusted), exception
    class (subclass `TransientAPIError` too iff category is `retryable`), and
    the code → builder registry entry. Pin it in
-   `apps/agent/agent/tests/unit/test_catalog_errors.py`.
+   `apps/agent/src/animichi/tests/unit/test_catalog_errors.py`.
 4. **User messages** — add ja/zh/en templates to
-   `apps/agent/agent/agents/error_messages.py`, formatted only from the typed
+   `apps/agent/src/animichi/agents/error_messages.py`, formatted only from the typed
    exception's fields.
 5. **Pick the category deliberately**: can the user change something to make
    the call succeed? → `user_actionable`. Would an identical retry plausibly

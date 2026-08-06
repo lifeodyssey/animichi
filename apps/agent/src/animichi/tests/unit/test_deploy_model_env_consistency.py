@@ -1,0 +1,129 @@
+"""Cross-language deployment invariants for container-required settings."""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[6]
+# CONTAINER_ENV_KEYS/CONTAINER_REQUIRED_KEYS moved out of entry.ts into their
+# own module (issue #282 review) so they're importable under plain
+# `node --test` without pulling in entry.ts's @cloudflare/containers import
+# chain — see workers/edge/container-env.ts's module docstring.
+_ENTRYPOINT = _REPO_ROOT / "workers" / "edge" / "container-env.ts"
+_CI_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
+_DEPLOY_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "deploy.yml"
+_REUSABLE_DEPLOY_WORKFLOW = (
+    _REPO_ROOT / ".github" / "workflows" / "reusable-deploy-component.yml"
+)
+_DOCKERFILE = _REPO_ROOT / "Dockerfile"
+_NON_SECRET_REQUIRED_KEYS = {"APP_ENV"}
+
+
+def _typescript_string_list(source: str, const_name: str) -> set[str]:
+    assignment = re.search(
+        rf"const\s+{re.escape(const_name)}\s*=\s*\[(?P<body>.*?)\]\s*;",
+        source,
+        re.DOTALL,
+    )
+    assert assignment is not None, f"missing TypeScript constant: {const_name}"
+    return set(re.findall(r'["\']([A-Z][A-Z0-9_]*)["\']', assignment["body"]))
+
+
+def _named_workflow_job(source: str, job_id: str) -> str:
+    job = re.search(
+        rf"(?ms)^  {re.escape(job_id)}:\s*$\n(?P<body>.*?)(?=^  [a-zA-Z0-9_-]+:\s*$|\Z)",
+        source,
+    )
+    assert job is not None, f"missing workflow job: {job_id}"
+    return job["body"]
+
+
+def _wrangler_secret_names(step: str) -> set[str]:
+    # Since the optional-secret change, a deploy's names live in up to two
+    # blocks (`worker_secrets` + `optional_worker_secrets`) on both the CI
+    # callers and the manual deploy.yml caller. The old deploy.yml inline
+    # `REQUIRED_LIST`/`OPTIONAL_LIST` step was superseded by the reusable
+    # workflow's own optional handling (issue #486), so this helper only ever
+    # sees caller-job bodies now. Optional names are still provisioned secrets
+    # and belong in the same consistency accounting, so the union across every
+    # found block is what a deploy provisions.
+    blocks = re.findall(
+        r"(?m)^[ \t]+(?:worker_secrets|optional_worker_secrets|secrets|REQUIRED_LIST|OPTIONAL_LIST):\s*\|\s*$\n"
+        r"(?P<body>(?:^[ \t]+[A-Z][A-Z0-9_]*[ \t]*$\n?)+)",
+        step,
+    )
+    assert blocks, "missing Wrangler secrets block"
+    return {
+        name
+        for body in blocks
+        for name in re.findall(r"(?m)^[ \t]+([A-Z][A-Z0-9_]*)[ \t]*$", body)
+    }
+
+
+def _mapped_secret_names(source: str) -> set[str]:
+    mappings = re.findall(
+        r"(?m)^\s+([A-Z][A-Z0-9_]*):\s+\$\{\{\s*secrets\.([A-Z][A-Z0-9_]*)\s*}}\s*$",
+        source,
+    )
+    return {name for name, secret in mappings if name == secret}
+
+
+def _required_deploy_keys() -> tuple[set[str], set[str], set[str]]:
+    entrypoint = _ENTRYPOINT.read_text(encoding="utf-8")
+    required = _typescript_string_list(entrypoint, "CONTAINER_REQUIRED_KEYS")
+    forwarded = _typescript_string_list(entrypoint, "CONTAINER_ENV_KEYS")
+    deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
+    # The manual path is now a thin caller of reusable-deploy-component.yml (issue
+    # #486): the literal secret-name lists live in the deploy-root-prod JOB's
+    # `worker_secrets`/`optional_worker_secrets` inputs. The old inline
+    # "Resolve effective worker secrets" step is gone — the reusable workflow
+    # owns optional-secret resolution now.
+    provisioned = _wrangler_secret_names(
+        _named_workflow_job(deploy, "deploy-root-prod")
+    )
+    return required, forwarded, provisioned
+
+
+def test_container_required_keys_are_forwarded_and_deployed() -> None:
+    required, forwarded, provisioned = _required_deploy_keys()
+    assert required
+    assert required <= forwarded
+    assert required - _NON_SECRET_REQUIRED_KEYS <= provisioned
+
+
+def test_ci_root_deploys_match_manual_root_secrets() -> None:
+    deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
+    # The literal lists live in the deploy-root-prod JOB (a thin caller of
+    # reusable-deploy-component.yml); the reusable workflow owns optional-secret
+    # resolution, so there is no inline "Resolve effective worker secrets"
+    # step to read anymore (issue #486).
+    root_job = _named_workflow_job(deploy, "deploy-root-prod")
+    manual_secrets = _wrangler_secret_names(root_job)
+    ci = _CI_WORKFLOW.read_text(encoding="utf-8")
+    staging = _named_workflow_job(ci, "deploy-root-staging")
+    production = _named_workflow_job(ci, "deploy-root-prod")
+    reusable = _REUSABLE_DEPLOY_WORKFLOW.read_text(encoding="utf-8")
+
+    # CORS_ALLOWED_ORIGIN is a deliberate staging exception (#527/#528): staging
+    # gets its value from wrangler.toml's [env.staging.vars] (a plain domain
+    # name, not a secret — see that block's comment), while production and the
+    # manual deploy.yml path still provision it as a real GitHub secret. This
+    # is why staging is no longer a strict match against manual_secrets.
+    STAGING_EXEMPT_SECRETS = {"CORS_ALLOWED_ORIGIN"}
+
+    assert _wrangler_secret_names(staging) == manual_secrets - STAGING_EXEMPT_SECRETS
+    assert _wrangler_secret_names(production) == manual_secrets
+    assert manual_secrets - STAGING_EXEMPT_SECRETS <= _mapped_secret_names(staging)
+    assert manual_secrets <= _mapped_secret_names(production)
+    assert manual_secrets <= _mapped_secret_names(reusable)
+
+
+def test_dockerfile_does_not_hardcode_a_privileged_app_env() -> None:
+    """Issue #498's 4th touchpoint: a direct `docker run` (bypassing the
+    Worker's CONTAINER_REQUIRED_KEYS fail-closed check entirely) must not
+    silently default to a privileged environment. Settings.app_env's own
+    Field default ("development") is what applies when APP_ENV is unset.
+    """
+    dockerfile = _DOCKERFILE.read_text(encoding="utf-8")
+    assert "APP_ENV=" not in dockerfile

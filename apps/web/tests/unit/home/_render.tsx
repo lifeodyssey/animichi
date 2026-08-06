@@ -2,7 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { makeQueryClient } from "../../../src/api/query-client";
-import { LocaleProvider } from "../../../src/i18n/context";
+import { LocaleProvider } from "../../../src/i18n/LocaleProvider";
 
 /** Render a home block inside a fresh QueryClient + i18n provider (retries off). */
 export function renderHome(ui: ReactElement) {

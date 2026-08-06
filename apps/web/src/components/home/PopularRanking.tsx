@@ -1,7 +1,7 @@
 import type { PopularBangumi } from "../../api/popular";
 import { usePopularRanking } from "../../api/hooks/use-popular";
 import type { Dict } from "../../i18n/dictionaries";
-import { useDict, useLocale } from "../../i18n/context";
+import { useDict, useLocale } from "../../i18n/LocaleProvider";
 import type { Locale } from "../../i18n/locales";
 
 function rowTitle(row: PopularBangumi, locale: Locale): string {

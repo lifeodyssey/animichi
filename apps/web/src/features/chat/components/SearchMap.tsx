@@ -1,14 +1,14 @@
 import type { LatLng } from "@animichi/contract";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject } from "react";
-import type { LocatedSpot, SpotCluster } from "../../../lib/chat/spotClusters";
-import { bubblePlacements, pointPlacements } from "../../bubble-map/bubbleGeometry";
-import type { BubblePlacement, PointPlacement } from "../../bubble-map/bubbleGeometry";
-import type { BasemapStatus, MountBasemapOptions } from "../../bubble-map/bubbleMapController";
+import type { LocatedSpot, SpotCluster } from "../../../lib/chat/spot-clusters";
+import { bubblePlacements, pointPlacements } from "../../bubble-map/bubble-geometry";
+import type { BubblePlacement, PointPlacement } from "../../bubble-map/bubble-geometry";
+import type { BasemapStatus, MountBasemapOptions } from "../../bubble-map/bubble-map-controller";
 import { clusterName, spotCountBadge } from "../search-copy";
 import type { ChatDict } from "../i18n";
 import { MapFallback } from "./ErrorStates/MapFallback";
-import { useAutoFocus } from "./useAutoFocus";
+import { useAutoFocus } from "./use-auto-focus";
 
 /** Injectable mount so tests (and D7 simulations) never touch WebGL. */
 export type AttachBasemap = (options: MountBasemapOptions) => () => void;

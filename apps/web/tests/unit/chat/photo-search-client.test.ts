@@ -3,7 +3,7 @@
  */
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
-import { clearByokConfig, saveByokConfig } from "../../../src/lib/byok/byokStorage";
+import { clearByokConfig, saveByokConfig } from "../../../src/lib/byok/byok-storage";
 import {
   MAX_PHOTO_BYTES,
   confirmPhotoSearch,
@@ -15,7 +15,7 @@ import {
 import type { PhotoSearchContext } from "../../../src/features/chat/photo-search";
 import { TEST_ORIGIN } from "../../msw/fixtures";
 import { server } from "../../msw/node";
-import { bytesToText, makeJpegWithExif } from "../shiori/_jpegFixtures";
+import { bytesToText, makeJpegWithExif } from "../shiori/_jpeg-fixtures";
 
 afterEach(() => {
   clearByokConfig();

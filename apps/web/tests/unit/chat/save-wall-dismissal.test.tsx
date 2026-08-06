@@ -8,16 +8,16 @@
  */
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { sendMagicLink } from "../../../src/lib/auth/neonAuth";
+import { sendMagicLink } from "../../../src/lib/auth/neon-auth";
 import { LoginModal } from "../../../src/components/auth/LoginModal";
 import { TimedItinerary } from "../../../src/features/chat/components/TimedItinerary";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { DEFERRED_SAVE_KEY } from "../../../src/features/chat/save/deferredSave";
+import { DEFERRED_SAVE_KEY } from "../../../src/features/chat/save/deferred-save";
 import { itineraryView } from "../../../src/lib/chat/itinerary";
 import { renderWithLocale, setLanguages } from "../_i18n";
 import { ujiItinerary } from "./_route-fixtures";
 
-vi.mock("../../../src/lib/auth/neonAuth", () => ({ sendMagicLink: vi.fn(), isNeonAuthConfigured: () => true }));
+vi.mock("../../../src/lib/auth/neon-auth", () => ({ sendMagicLink: vi.fn(), isNeonAuthConfigured: () => true }));
 const send = vi.mocked(sendMagicLink);
 
 beforeEach(() => { setLanguages(["ja-JP"]); });

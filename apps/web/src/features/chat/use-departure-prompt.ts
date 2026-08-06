@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { sendWithOriginOf } from "./chat-actions";
-import type { ChatActions } from "./chat-actions";
+import { sendWithOriginOf } from "./ChatActions";
+import type { ChatActions } from "./ChatActions";
 import type { DepartureChipKind } from "./components/DeparturePrompt";
 import { needsDeparturePrompt } from "./departure";
 import type { ChatDict } from "./i18n";

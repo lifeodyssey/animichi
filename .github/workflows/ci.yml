@@ -114,7 +114,7 @@ jobs:
             # rewrote the classifier, the L0 selection and the failure reporting
             # while this filter excluded tests/eval/**, so the smoke job SKIPPED
             # on the very PR that changed it — a gate that cannot test itself.
-            agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py', 'apps/agent/agent/tests/eval/**']
+            agent_behavior: ['apps/agent/src/animichi/agents/**', 'apps/agent/src/animichi/config/model_aliases.py', 'apps/agent/src/animichi/config/settings.py', 'apps/agent/src/animichi/tests/eval/**']
             # No `web` filter: the apps/web suite moved out of this workflow into
             # pipeline-web.yml (CI-1 union-method step 1, commit 688bfacc), whose
             # pathless pull_request trigger runs it on every PR and whose push
@@ -154,6 +154,29 @@ jobs:
     uses: ./.github/workflows/reusable-ts-ci.yml
     with:
       component: catalog
+
+  # Boots the REAL deploy bundle in workerd (wrangler dev + /healthz). The
+  # vitest worker pool evaluates unbundled modules, so bundle-only startup
+  # failures (the StringChunk TDZ that blocked staging deploys, 2026-08-05)
+  # are invisible to every unit test — only a bundled boot catches them.
+  catalog-startup-smoke:
+    name: Catalog startup smoke (bundled boot)
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.catalog == 'true' }}
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Startup smoke (bundled Worker boot + /healthz)
+        run: pnpm run test:smoke
+        working-directory: workers/catalog
 
   ci-users:
     name: Users CI
@@ -406,7 +429,7 @@ jobs:
   # Path-filter scope = the SD-30 rule above (`agent_behavior`): prompt/model-config/
   # guardrail files only. EVAL_SMOKE=1 composes the L0 set explicitly (one case per
   # behavior path, locale-rotated across ja/zh/en, then the remaining budget spent on
-  # the P0 trilingual fill — see agent/tests/eval/l0_selection.py) and turns the
+  # the P0 trilingual fill — see src/animichi/tests/eval/l0_selection.py) and turns the
   # normally report-only capped run into an enforced one: zero agent-originated errors
   # plus the deterministic direct_gates (thrash), without ever touching the statistical
   # baseline. Provider transport errors are reported but do not gate (#434); the
@@ -438,7 +461,7 @@ jobs:
       - run: uv sync --frozen --all-extras
 
       - name: Run L0 smoke trajectory eval (zero-errored + direct gates)
-        run: uv run --frozen pytest agent/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
+        run: uv run --frozen pytest src/animichi/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
         env:
           EVAL_MODEL: openai:mimo-v2.5@https://api.xiaomimimo.com/v1
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
@@ -502,7 +525,7 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSfL \
             "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" \
             -o "$RUNNER_TEMP/atlas-bin/atlas"
-          # Keep synchronized with apps/agent/agent/tests/atlas_helper.py.
+          # Keep synchronized with apps/agent/src/animichi/tests/atlas_helper.py.
           echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas" \
             | sha256sum --check --strict
           chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
@@ -514,7 +537,7 @@ jobs:
         # No --cov-fail-under here: the enforced floor belongs to the unit arm
         # (apps/agent/pyproject.toml); the integration arm alone is legitimately
         # far below it. Coverage is uploaded to codecov under the integration flag.
-        run: uv run --frozen --no-build --no-binary-package animichi pytest agent/tests/integration -q --cov --cov-report=xml --cov-fail-under=0
+        run: uv run --frozen --no-build --no-binary-package animichi pytest src/animichi/tests/integration -q --cov --cov-report=xml --cov-fail-under=0
 
       - name: Upload coverage (integration)
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
@@ -570,7 +593,7 @@ jobs:
   backend-ci-gate:
     timeout-minutes: 5
     name: Backend CI
-    needs: [changes, ci-catalog, ci-users, ci-maintenance, contract-openapi-drift, ci-worker]
+    needs: [changes, ci-catalog, ci-users, ci-maintenance, contract-openapi-drift, ci-worker, catalog-startup-smoke]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -586,6 +609,7 @@ jobs:
             ${{ needs.ci-maintenance.result }}
             ${{ needs.contract-openapi-drift.result }}
             ${{ needs.ci-worker.result }}
+            ${{ needs.catalog-startup-smoke.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Backend CI" "$STATUSES"
 
   agent-ci-gate:

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import type { Dict } from "../../i18n/dictionaries";
-import { useDict } from "../../i18n/context";
+import { useDict } from "../../i18n/LocaleProvider";
 
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';

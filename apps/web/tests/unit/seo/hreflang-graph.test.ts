@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { animeAlternates } from "../../../src/features/anime/head";
-import { findHreflangDefects, isHreflangClosed } from "../../../src/features/seo/hreflangGraph";
+import { findHreflangDefects, isHreflangClosed } from "../../../src/features/seo/hreflang-graph";
 
 const ORIGIN = "https://animichi.example";
 

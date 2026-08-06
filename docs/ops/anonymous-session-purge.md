@@ -6,7 +6,7 @@ without a TTL.
 
 ## What it does
 
-`apps/agent/agent/scripts/purge_anonymous_sessions.py` deletes an anonymous
+`apps/agent/src/animichi/scripts/purge_anonymous_sessions.py` deletes an anonymous
 conversation (and its cascaded `conversation_messages`) plus its `sessions`
 row once:
 
@@ -46,7 +46,7 @@ The shared trigger/deploy/secret runbook is [`maintenance-worker.md`](./maintena
 ## Reading a run
 
 The job writes `purged=N raced=N failed=N` to the step's `$GITHUB_STEP_SUMMARY`
-(via `agent.scripts.purge_anonymous_sessions._write_step_summary`):
+(via `animichi.scripts.purge_anonymous_sessions._write_step_summary`):
 
 - `purged` — sessions actually deleted this run.
 - `raced` — the find-then-delete race resolved itself (the session was no
@@ -81,5 +81,5 @@ someone.
   the non-C arm** where that's the architecturally correct expectation —
   if a third collation value shows up, the base image or Neon's default
   changed and this needs updating alongside it.
-- `apps/agent/agent/interfaces/routes/session_migration.py` — the login-time
+- `apps/agent/src/animichi/interfaces/routes/session_migration.py` — the login-time
   ownership transition this purge coexists with.

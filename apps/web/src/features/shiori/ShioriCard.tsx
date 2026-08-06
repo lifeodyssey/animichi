@@ -1,4 +1,4 @@
-import { selectShioriLayout, type ShioriLayout, type ShioriStatus } from "./layoutSelector";
+import { selectShioriLayout, type ShioriLayout, type ShioriStatus } from "./layout-selector";
 import { AlbumGrid } from "./layouts/AlbumGrid";
 import { PosterFallback } from "./layouts/PosterFallback";
 import { PosterSingle } from "./layouts/PosterSingle";
