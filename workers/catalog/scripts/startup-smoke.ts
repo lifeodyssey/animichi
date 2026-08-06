@@ -15,10 +15,21 @@
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const CATALOG_DIR = join(fileURLToPath(new URL(".", import.meta.url)), "..");
+const nodeRequire = createRequire(import.meta.url);
+
+// Absolute path to this repo's wrangler install, resolved at script load —
+// never resolve executables through PATH, and run the CLI with the current
+// Node interpreter rather than trusting a shebang.
+const WRANGLER_BIN = join(
+  dirname(nodeRequire.resolve("wrangler/package.json")),
+  "bin",
+  "wrangler.js",
+);
 const BUNDLE_DIR = join(CATALOG_DIR, "dist", "smoke");
 const PORT = 8796;
 const HEALTH_URL = `http://127.0.0.1:${String(PORT)}/healthz`;
@@ -82,7 +93,7 @@ function bootFailure(
 }
 
 function spawnWrangler(args: string[]): WranglerProc {
-  const child = spawn("pnpm", ["exec", "wrangler", ...args], {
+  const child = spawn(process.execPath, [WRANGLER_BIN, ...args], {
     cwd: CATALOG_DIR,
     stdio: ["ignore", "pipe", "pipe"],
   });
