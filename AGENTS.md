@@ -49,7 +49,7 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
   `noqa` / `pragma: no cover` / `continue-on-error` / `skip`. Fix the code; don't silence the rule.
 - **TypeScript gate** — TypeScript 7.0.2 direct + type-aware oxlint/tsgolint with
   `--deny-warnings` across every package. ESLint left the repo with `frontend/` (#537).
-- **Coverage floors ratchet UP only** — backend ≥82; `apps/web` floors live in `apps/web/AGENTS.md`.
+- **Coverage floors ratchet UP only** — `apps/agent` ≥87 (`pyproject.toml` `--cov-fail-under`); `apps/web` floors live in `apps/web/vitest.config.ts` (mirrored in `apps/web/AGENTS.md`).
 - **Test quality**: mock the clock (no timing-dependent asserts); no conditional logic in tests
   (split them); ≤200 lines per test file; ≤5 mocks per test.
 - **No local deploy** (hook `block-local-deploy`) — CI/CD only: staging = merge to `main`; prod =

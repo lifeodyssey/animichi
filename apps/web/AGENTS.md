@@ -56,7 +56,7 @@ landing page and branded 404 through a Cloudflare SSR bundle. Root guide: `../..
   pool runs without the TanStack Start vite plugin, so `tests/setup/generate-route-tree.ts`
   (vitest `globalSetup`) emits it before the suite; a normal build regenerates it otherwise.
 - Coverage sweeps `src/**` (routes + `router.tsx` included, per campaign plan §0.6); the enforced
-  floor is `statements 95 / branches 94 / functions 95 / lines 95`, read from `vitest.config.ts`,
+  floor is `statements 98 / branches 95 / functions 98 / lines 99`, read from `vitest.config.ts`,
   which is the authority — ratchet UP only. `routeTree.gen.ts` is the only exclusion (plus the
   WebGL map glue listed in the config's exclude ledger).
 - `OpenAPILink` captures `globalThis.fetch` at construction: build clients at call time (the lazy
