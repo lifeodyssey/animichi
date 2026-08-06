@@ -65,7 +65,7 @@ void test("mutation guard: buildContainerEnvVars never seeds APP_ENV on its own"
 // wrangler.toml three-touchpoint check (feedback_env_var_three_touchpoints):
 // each of the three environment blocks must set its own APP_ENV value, and
 // they must not all collapse to the same (formerly hardcoded) "production".
-const WRANGLER_TOML_PATH = fileURLToPath(new URL("../../wrangler.toml", import.meta.url).href);
+const WRANGLER_TOML_PATH = fileURLToPath(new URL("./wrangler.toml", import.meta.url).href);
 const wranglerToml = readFileSync(WRANGLER_TOML_PATH, "utf8");
 
 // Full regex-metacharacter escape (CodeQL js/incomplete-sanitization: the

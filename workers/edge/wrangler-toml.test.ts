@@ -20,7 +20,7 @@ import { URL, fileURLToPath } from "node:url";
 //
 // test-type: unit (all cases parse a checked-in file; no network, no clock).
 
-const WRANGLER_TOML_PATH = fileURLToPath(new URL("../../wrangler.toml", import.meta.url));
+const WRANGLER_TOML_PATH = fileURLToPath(new URL("./wrangler.toml", import.meta.url));
 const wranglerToml = readFileSync(WRANGLER_TOML_PATH, "utf8");
 
 // Full regex-metacharacter escape (CodeQL js/incomplete-sanitization: the

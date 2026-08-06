@@ -133,7 +133,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `db/migrations/` — Neon データ面の Atlas マイグレーションと生成 checksum
 - `supabase/` — auth/旧版互換マイグレーションと Supabase プロジェクト資産
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
-- `Dockerfile`、`Makefile`、`wrangler.toml`、`package.json` — ルートに残すランタイム/ツール入口
+- `Makefile`、`package.json` — ルートに残すツール入口。`apps/agent/Dockerfile`（コンテナイメージ）と `workers/edge/wrangler.toml`（edge Worker 設定）はコードの隣に配置
 
 ## ドキュメント
 

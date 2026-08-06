@@ -305,7 +305,7 @@ if (hardeningZoneId) {
 
 // ── Staging: WAF gate ─────────────────────────────────────────────────────────
 // staging runs the same app as production *with anonymous access on*
-// (`ANON_ACCESS_ENABLED = "true"`, root wrangler.toml), so there is no login to
+// (`ANON_ACCESS_ENABLED = "true"`, workers/edge/wrangler.toml), so there is no login to
 // keep strangers out. A WAF custom rule gates the hostname instead.
 //
 // Why WAF and not Cloudflare Access: Access would do the same job, but the

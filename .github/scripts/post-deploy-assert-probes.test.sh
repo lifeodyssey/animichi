@@ -133,13 +133,13 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 test_showcase_mode_parses_from_real_wrangler_toml() {
   local value rc
-  value="$(bash "${EDGE_SHOWCASE_MODE_SH}" "${REPO_ROOT}/wrangler.toml" production)" || rc=$?
+  value="$(bash "${EDGE_SHOWCASE_MODE_SH}" "${REPO_ROOT}/workers/edge/wrangler.toml" production)" || rc=$?
   [ "${rc:-0}" -eq 0 ] || fail_test "production EDGE_SHOWCASE_MODE parse failed (exit ${rc}): ${value}"
   [ "${value}" = "true" ] || fail_test "production EDGE_SHOWCASE_MODE must parse to true (the landing-only contract), got '${value}'"
-  value="$(bash "${EDGE_SHOWCASE_MODE_SH}" "${REPO_ROOT}/wrangler.toml" staging)" || rc=$?
+  value="$(bash "${EDGE_SHOWCASE_MODE_SH}" "${REPO_ROOT}/workers/edge/wrangler.toml" staging)" || rc=$?
   [ "${rc:-0}" -eq 0 ] || fail_test "staging EDGE_SHOWCASE_MODE parse failed (exit ${rc}): ${value}"
   [ "${value}" = "false" ] || fail_test "staging EDGE_SHOWCASE_MODE must parse to false (full functionality), got '${value}'"
-  echo "PASS: real wrangler.toml parses EDGE_SHOWCASE_MODE (production=true, staging=false)"
+  echo "PASS: real workers/edge/wrangler.toml parses EDGE_SHOWCASE_MODE (production=true, staging=false)"
 }
 
 # The exact shipped-bug shape: a decoy EDGE_SHOWCASE_MODE in the bare

@@ -16,7 +16,7 @@ _DEPLOY_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "deploy.yml"
 _REUSABLE_DEPLOY_WORKFLOW = (
     _REPO_ROOT / ".github" / "workflows" / "reusable-deploy-component.yml"
 )
-_DOCKERFILE = _REPO_ROOT / "Dockerfile"
+_DOCKERFILE = _REPO_ROOT / "apps" / "agent" / "Dockerfile"
 _NON_SECRET_REQUIRED_KEYS = {"APP_ENV"}
 
 

@@ -5,8 +5,8 @@
 # assert workflow/docs content (test_secrets_docs_consistency.py READS
 # .github/workflows/**, docs/ops/secrets.md, workers/edge/container/container-env.ts;
 # test_documentation_guardrails.py READS the docs + vitest config), and the
-# build stage compiles the container image (Dockerfile + wrangler.toml
-# [[containers]] image = "./Dockerfile").
+# build stage compiles the container image (apps/agent/Dockerfile +
+# workers/edge/wrangler.toml [[containers]] image = "../../apps/agent/Dockerfile").
 name: pipeline-agent
 
 on:
@@ -27,8 +27,8 @@ on:
       - "docs/testing-strategy.md"
       - "packages/contract/**"
       - "workers/edge/container/container-env.ts"
-      - "Dockerfile"
-      - "wrangler.toml"
+      - "apps/agent/Dockerfile"
+      - "workers/edge/wrangler.toml"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -127,4 +127,4 @@ jobs:
         with:
           persist-credentials: false
       - name: Build agent container image
-        run: docker build -f Dockerfile -t animichi-agent:ci .
+        run: docker build -f apps/agent/Dockerfile -t animichi-agent:ci .
