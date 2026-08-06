@@ -72,5 +72,5 @@ jobs:
           working-directory: packages/contract
           build-command: |
             pnpm emit:openapi
-            git add -A packages/contract/openapi.json packages/contract/users-openapi.json
-            git diff --cached --exit-code -- packages/contract/openapi.json packages/contract/users-openapi.json
+            git add -A openapi.json users-openapi.json
+            git diff --cached --exit-code -- openapi.json users-openapi.json
