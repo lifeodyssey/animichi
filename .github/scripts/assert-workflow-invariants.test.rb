@@ -32,16 +32,17 @@ end
 # limited to the violation it is testing.
 def seed_owners(dir)
   REQUIRED_CONTEXTS.group_by { |_ctx, owner| owner }.each do |owner, pairs|
+    # Explicit indentation (no heredoc): a squiggly heredoc dedents by its
+    # least-indented line and would land the job keys at column 0, making
+    # `jobs:` parse empty and every seeded owner "produce nothing".
     jobs = pairs.map do |ctx, _owner|
       id = ctx.downcase.gsub(/[^a-z0-9]+/, "-").gsub(/\A-+|-+\z/, "")
-      <<~YAML
-        #{id}:
-          name: #{ctx}
-          runs-on: ubuntu-latest
-          timeout-minutes: 5
-          steps:
-            - run: echo ok
-      YAML
+      "  #{id}:\n" \
+        "    name: #{ctx}\n" \
+        "    runs-on: ubuntu-latest\n" \
+        "    timeout-minutes: 5\n" \
+        "    steps:\n" \
+        "      - run: echo ok\n"
     end.join
     File.write(File.join(dir, owner), <<~YAML)
       name: #{File.basename(owner, ".yml")}
