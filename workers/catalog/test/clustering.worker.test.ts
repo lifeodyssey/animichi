@@ -104,4 +104,18 @@ describe("clusterByLocation (clustering.ts)", () => {
     expect(clusterByLocation(pts, 50)).toHaveLength(2);
     expect(clusterByLocation(pts, 100)).toHaveLength(1);
   });
+
+  it("merges a higher-rank tree under a lower-rank one (union-by-rank swap)", () => {
+    // a-b chain lifts a's rank to 1. c stays rank 0 (267m from a, 222m from
+    // b — outside the 200m radius). When e bridges the chain and c, the
+    // union(c, e) call finds c's root at rank 0 against e's root (a) at
+    // rank 1, forcing the `ra.rank < rb.rank` swap branch.
+    const pts: P[] = [
+      { id: "a", latitude: 35.0, longitude: 135.0 },
+      { id: "b", latitude: 35.0004, longitude: 135.0 },
+      { id: "c", latitude: 35.0024, longitude: 135.0 },
+      { id: "e", latitude: 35.0016, longitude: 135.0 },
+    ];
+    expect(clusterByLocation(pts, 200)).toHaveLength(1);
+  });
 });

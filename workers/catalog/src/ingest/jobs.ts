@@ -15,7 +15,7 @@
  * these mutations go through raw `sql` execute, consistent with the pipeline
  * cards owning all inserts/updates.
  */
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 
 const RUNNING_TTL_SECONDS = 15 * 60;
@@ -66,14 +66,27 @@ async function acquireJob(db: CatalogDb, workId: string): Promise<boolean> {
     INSERT INTO ingest_jobs (work_id, status, started_at) VALUES (${workId}, 'running', NOW())
     ON CONFLICT (work_id) DO UPDATE SET status = 'running', started_at = NOW()
     WHERE (status <> 'running' AND (negative_cached_until IS NULL OR negative_cached_until <= NOW()))
-       OR (status = 'running' AND ${RUNNING_STALE})
+       OR (status = 'running' AND ${runningStaleSql()})
     RETURNING work_id
   `);
   return result.rows.length > 0;
 }
 
-/** A `running` job whose heartbeat looks dead: expired, or never started. */
-const RUNNING_STALE = sql`COALESCE(started_at, created_at) <= NOW() - make_interval(secs => ${RUNNING_TTL_SECONDS})`;
+let runningStale: SQL | undefined;
+
+/**
+ * A `running` job whose heartbeat looks dead: expired, or never started.
+ *
+ * Built lazily on first use, not at module top level: evaluating a `sql`
+ * template during module evaluation crashes the *bundled* Worker runtime
+ * (esbuild's lazy-ESM ordering leaves drizzle's StringChunk class in the TDZ
+ * until its init module runs — the vitest pool evaluates unbundled modules
+ * with correct ESM order, so only the deployed bundle ever sees it).
+ */
+function runningStaleSql(): SQL {
+  runningStale ??= sql`COALESCE(started_at, created_at) <= NOW() - make_interval(secs => ${RUNNING_TTL_SECONDS})`;
+  return runningStale;
+}
 
 async function readGuard(db: CatalogDb, workId: string): Promise<JobGuard> {
   const row = await readGuardRow(db, workId);
@@ -85,7 +98,7 @@ async function readGuard(db: CatalogDb, workId: string): Promise<JobGuard> {
 async function readGuardRow(db: CatalogDb, workId: string): Promise<GuardRow | undefined> {
   const result = await db.execute(sql`
     SELECT error_code,
-           COALESCE(status = 'running' AND ${RUNNING_STALE}, FALSE) AS running_live,
+           COALESCE(status = 'running' AND ${runningStaleSql()}, FALSE) AS running_live,
            COALESCE(negative_cached_until > NOW(), FALSE) AS cache_live
     FROM ingest_jobs WHERE work_id = ${workId}
   `);

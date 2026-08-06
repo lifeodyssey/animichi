@@ -3,7 +3,7 @@ import { ORPCError } from "@orpc/server";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { listRoutes, saveRoute } from "../src/api/routes";
+import { listRoutes, saveRoute, deleteRoute } from "../src/api/routes";
 import { listSessions } from "../src/api/routes";
 import type { DbExecutor } from "../src/db/client";
 import { fakeDb, type FakeRouteRow } from "./in-memory-routes-db";
@@ -68,10 +68,46 @@ describe("user routes handlers", () => {
     expect(error).toMatchObject({ code: "ROUTE_NOT_OWNED", status: 403, defined: true });
   });
 
+  it("updates an owned route and returns the updated row", async () => {
+    const { db } = fakeDb([row()]);
+    const result = await saveRoute(db, "user-a", {
+      id: ID, title: "Renamed", point_ids: ["p2"], status: "saved",
+    });
+    expect(result).toMatchObject({ id: ID, title: "Renamed", point_ids: ["p2"], status: "saved" });
+  });
+
   it("normalizes raw workerd timestamp strings while listing", async () => {
     const result = await listRoutes(fakeDb([row()]).db, "user-a");
     expect(result.routes[0]?.saved_at).toBe("2026-07-13T12:34:56.000Z");
     expect(result.routes[0]?.updated_at).toBe("2026-07-13T12:34:56.000Z");
+  });
+});
+
+describe("deleteRoute ownership", () => {
+  it("throws ROUTE_NOT_OWNED when deleting an unknown route", async () => {
+    const { db } = fakeDb([row({ user_id: "user-b" })]);
+    await expect(deleteRoute(db, "user-a", { id: ID })).rejects.toMatchObject({
+      code: "ROUTE_NOT_OWNED", status: 403, defined: true,
+    });
+  });
+
+  it("throws ROUTE_NOT_OWNED when the delete loses the race", async () => {
+    const raceDb: DbExecutor = {
+      execute: (query) => {
+        const rendered = new PgDialect().sqlToQuery(query);
+        return rendered.sql.toLowerCase().includes("select user_id")
+          ? Promise.resolve({ rows: [{ user_id: "user-a" }] })
+          : Promise.resolve({ rows: [] });
+      },
+    };
+    await expect(deleteRoute(raceDb, "user-a", { id: ID })).rejects.toMatchObject({
+      code: "ROUTE_NOT_OWNED", status: 403, defined: true,
+    });
+  });
+
+  it("deletes an owned route", async () => {
+    const { db } = fakeDb([row()]);
+    await expect(deleteRoute(db, "user-a", { id: ID })).resolves.toEqual({ deleted: true });
   });
 });
 

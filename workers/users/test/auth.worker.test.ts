@@ -1,7 +1,8 @@
 import { generateKeyPair, SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import { createUsersApp } from "../src/index";
-import { authTools, BASE, TEST_ENV } from "./neon-auth-fixture";
+import { verifyBearer } from "../src/auth/jwt";
+import { authTools, BASE, JWKS_URL, TEST_ENV } from "./neon-auth-fixture";
 import { fakeDb } from "./in-memory-routes-db";
 
 const unauthorized = {
@@ -67,5 +68,25 @@ describe("Users Worker auth boundary", () => {
     const response = await request(undefined, { ENVIRONMENT: "test", DATABASE_URL: "postgresql://fake" });
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "users auth not configured" });
+  });
+});
+
+describe("verifyBearer (auth/jwt.ts)", () => {
+  it("rejects a token whose subject is empty", async () => {
+    const { makeJwt, getKey } = await authTools();
+    const token = await makeJwt({ sub: "" });
+    expect(await verifyBearer(`Bearer ${token}`, JWKS_URL, getKey)).toBeNull();
+  });
+
+  it("falls back to the remote JWKS set when no getKey is injected", async () => {
+    // The remote JWKS URL is unreachable in the workerd sandbox, so the
+    // verify fails and the whole check resolves to null — exercising the
+    // cachedRemote fallback branch of verifySubject.
+    expect(await verifyBearer("Bearer garbage", JWKS_URL)).toBeNull();
+  });
+
+  it("rejects a missing or malformed bearer without touching the key", async () => {
+    expect(await verifyBearer(null, JWKS_URL)).toBeNull();
+    expect(await verifyBearer("Bearer ", JWKS_URL)).toBeNull();
   });
 });

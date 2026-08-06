@@ -41,10 +41,17 @@ const GEO: GeoRow[] = [
   { id: "satte", name: "幸手権現堂", latitude: 36.0833, longitude: 139.725, distance_m: 4200 },
 ];
 
-const DETAILS: DetailRow[] = [
-  { id: "washinomiya", bangumi_id: "lucky-star", name_cn: "鹫宫神社", image: "https://img/w.jpg", episode: 1, time_seconds: 12, origin: "anitabi", city: "Kuki" },
-  { id: "satte", bangumi_id: "lucky-star", name_cn: null, image: null, episode: null, time_seconds: null, origin: null, city: null },
-];
+const WASHINOMIYA: DetailRow = {
+  id: "washinomiya", bangumi_id: "lucky-star", name_cn: "鹫宫神社", image: "https://img/w.jpg",
+  episode: 1, time_seconds: 12, origin: "anitabi", city: "Kuki",
+};
+
+const SATTE: DetailRow = {
+  id: "satte", bangumi_id: "lucky-star", name_cn: null, image: null,
+  episode: null, time_seconds: null, origin: null, city: null,
+};
+
+const DETAILS: DetailRow[] = [WASHINOMIYA, SATTE];
 
 /** Minimal CatalogDb double: handles the detail-load IN read via db.execute(sql). */
 function fakeDb(details: DetailRow[]): CatalogDb {
@@ -98,6 +105,13 @@ describe("nearby (api/nearby.ts)", () => {
     expect(rows[1]?.episode).toBeUndefined();
   });
 
+  it("returns an empty rows array when no point is within the radius", async () => {
+    const { rows } = await run([], []);
+    expect(rows).toEqual([]);
+  });
+});
+
+describe("nearby radius clamp", () => {
   // The clamp is only otherwise exercised by the Neon-gated spike lane, which
   // skips without credentials — assert it here so it runs in every CI job.
   it("clamps an over-cap radius before it reaches the geo query", async () => {
@@ -116,9 +130,24 @@ describe("nearby (api/nearby.ts)", () => {
     });
     expect(bound[0]).toContain(1_000);
   });
+});
 
-  it("returns an empty rows array when no point is within the radius", async () => {
-    const { rows } = await run([], []);
-    expect(rows).toEqual([]);
+describe("nearby missing detail row", () => {
+  it("defaults to empty bangumi_id and screenshot_url when a point has no detail row", async () => {
+    const geo: GeoRow[] = [
+      { id: "washinomiya", name: "鷲宮神社", latitude: 36.1019, longitude: 139.6586, distance_m: 5 },
+      { id: "undetailed", name: "素顔の神", latitude: 36.102, longitude: 139.659, distance_m: 10 },
+    ];
+    const { rows } = await run(geo, [WASHINOMIYA]);
+
+    expect(rows[1]).toMatchObject({
+      id: "undetailed",
+      name: "素顔の神",
+      bangumi_id: "",
+      screenshot_url: "",
+      distance_m: 10,
+    });
+    expect(rows[1]?.name_cn).toBeUndefined();
+    expect(rows[1]?.episode).toBeUndefined();
   });
 });
