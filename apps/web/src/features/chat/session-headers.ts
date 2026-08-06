@@ -1,7 +1,7 @@
 import { configuredTurnstileSiteKey } from "../../components/TurnstileGate";
-import { authHeaders } from "../../lib/auth/authSession";
-import { byokHeaders } from "../../lib/byok/byokStorage";
-import { awaitTurnstileToken, turnstileHeaders } from "../../lib/turnstile/tokenStore";
+import { authHeaders } from "../../lib/auth/auth-session";
+import { byokHeaders } from "../../lib/byok/byok-storage";
+import { awaitTurnstileToken, turnstileHeaders } from "../../lib/turnstile/token-store";
 
 /**
  * Shared /v1 transport headers: `x-session-id` (when known) plus a Bearer

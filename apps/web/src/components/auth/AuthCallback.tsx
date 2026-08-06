@@ -1,12 +1,12 @@
 import { useEffect } from "react";
-import { useDict } from "../../i18n/context";
+import { useDict } from "../../i18n/LocaleProvider";
 import type { Dict } from "../../i18n/dictionaries";
-import type { DeferredReplayOutcome } from "../../features/chat/save/createOnLogin";
-import { getAuthToken } from "../../lib/auth/authSession";
-import { useAuthCallback } from "./useAuthCallback";
-import type { AuthCallbackSession, AuthCallbackState } from "./useAuthCallback";
+import type { DeferredReplayOutcome } from "../../features/chat/save/create-on-login";
+import { getAuthToken } from "../../lib/auth/auth-session";
+import { useAuthCallback } from "./use-auth-callback";
+import type { AuthCallbackSession, AuthCallbackState } from "./use-auth-callback";
 
-import type { SessionMigrationOutcome } from "../../lib/auth/sessionMigration";
+import type { SessionMigrationOutcome } from "../../lib/auth/session-migration";
 
 type MessageState = Extract<AuthCallbackState, "pending" | "error">;
 

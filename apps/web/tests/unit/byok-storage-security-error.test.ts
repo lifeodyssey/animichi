@@ -17,8 +17,8 @@ import {
   getByokVisionSupported,
   saveByokConfig,
   setByokVisionSupported,
-} from "../../src/lib/byok/byokStorage";
-import type { ByokConfig } from "../../src/lib/byok/byokStorage";
+} from "../../src/lib/byok/byok-storage";
+import type { ByokConfig } from "../../src/lib/byok/byok-storage";
 
 const OPENAI_CONFIG: ByokConfig = {
   provider: "openai-compatible",

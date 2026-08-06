@@ -4,7 +4,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useStreamRecovery } from "../../../src/features/chat/use-stream-recovery";
-import { clearAuthToken } from "../../../src/lib/auth/authSession";
+import { clearAuthToken } from "../../../src/lib/auth/auth-session";
 import {
   conversationMessagesErrorHandler,
   conversationMessagesHandler,
@@ -12,7 +12,7 @@ import {
 import { TEST_ORIGIN } from "../../msw/fixtures";
 import { server } from "../../msw/node";
 
-vi.mock(import("../../../src/lib/auth/authSession"), { spy: true });
+vi.mock(import("../../../src/lib/auth/auth-session"), { spy: true });
 
 function fakeChat() {
   return { setMessages: vi.fn(), clearError: vi.fn(), regenerate: vi.fn().mockResolvedValue(undefined) };

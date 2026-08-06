@@ -21,7 +21,7 @@
  *
  * Naming note: the spec prose refers to the read accessor as
  * "readByokConfig" — this module exports it as `getByokConfig`, matching the
- * `getX`/`setX`/`clearX` naming already used by `tokenStore.ts`/`authSession.ts`.
+ * `getX`/`setX`/`clearX` naming already used by `token-store.ts`/`auth-session.ts`.
  */
 
 /** The three model families the credential boundary (Task 3) accepts. */

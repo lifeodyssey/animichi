@@ -5,11 +5,11 @@ import {
   ROUTE_DETAIL_SCHEMA_VERSION,
   deriveRouteDataState,
   isRouteEmpty,
-} from "../../lib/route-detail/dataState";
-import type { RouteDataState, RouteDetail } from "../../lib/route-detail/dataState";
+} from "../../lib/route-detail/data-state";
+import type { RouteDataState, RouteDetail } from "../../lib/route-detail/data-state";
 import { EXPANDED_SHEET_PX, initialMode, useRouteMode } from "../../lib/route-detail/mode";
 import type { RouteMode } from "../../lib/route-detail/mode";
-import { routeProgressLabel, toRoutePins } from "../../lib/route-detail/pinState";
+import { routeProgressLabel, toRoutePins } from "../../lib/route-detail/pin-state";
 import { GoldBar } from "./GoldBar";
 import { Hero } from "./Hero";
 import { MapCard } from "./MapCard";

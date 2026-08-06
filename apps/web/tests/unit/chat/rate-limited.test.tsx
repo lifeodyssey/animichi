@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StreamInterruption } from "../../../src/features/chat/components/ErrorStates/StreamInterruption";
 import { TurnFailure } from "../../../src/features/chat/components/ErrorStates/TurnFailure";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { classifyFailure } from "../../../src/lib/chat/errorClassifier";
+import { classifyFailure } from "../../../src/lib/chat/error-classifier";
 import { LOCALES } from "../../../src/i18n/locales";
 import { renderWithLocale, setLanguages } from "../_i18n";
 

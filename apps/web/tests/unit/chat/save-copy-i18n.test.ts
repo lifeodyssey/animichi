@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { SaveRouteInput } from "@animichi/contract";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { saveRouteTitle } from "../../../src/features/chat/route-copy";
-import { routeSaveTarget } from "../../../src/features/chat/save/saveTarget";
+import { routeSaveTarget } from "../../../src/features/chat/save/save-target";
 import { parsedPart, routePartRaw, ujiPoints } from "./_route-fixtures";
 
 const LOCALES = ["ja", "zh", "en"] as const;

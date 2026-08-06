@@ -1,5 +1,5 @@
 import { beforeEach, vi } from "vitest";
-import { clearTurnstileToken } from "../../src/lib/turnstile/tokenStore";
+import { clearTurnstileToken } from "../../src/lib/turnstile/token-store";
 
 // Neutralize Turnstile for every suite that is not about it (issue #447).
 // Vitest runs with `DEV === true`, which would otherwise hand the chat page the

@@ -1,6 +1,6 @@
 import type { Ref } from "react";
 import { IllustrationBasemap } from "./IllustrationBasemap";
-import type { SourceMode } from "./sourceMode";
+import type { SourceMode } from "./source-mode";
 
 export type MapStatus = "loading" | "ready" | "fallback";
 

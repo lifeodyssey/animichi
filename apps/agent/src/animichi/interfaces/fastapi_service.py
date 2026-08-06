@@ -222,7 +222,7 @@ def create_fastapi_app(
             "x-session-id",
             "x-locale",
             "x-byok-endpoint",
-            # The actual BYOK headers byokStorage.ts (#467) sends. Without
+            # The actual BYOK headers byok-storage.ts (#467) sends. Without
             # these, browser CORS preflight rejects them before the request
             # ever reaches this container — this PR is the point where the
             # container-side header contract is established, so it belongs

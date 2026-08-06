@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
-import type { RouteDataState } from "./dataState";
+import type { RouteDataState } from "./data-state";
 
 /**
  * MODE (spec-route-detail §2): a form axis orthogonal to the data state — the

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PrivacyPolicy } from "../components/legal/PrivacyPolicy";
-import { LocaleProvider } from "../i18n/context";
+import { LocaleProvider } from "../i18n/LocaleProvider";
 
 export const Route = createFileRoute("/privacy")({ component: PrivacyRoute });
 

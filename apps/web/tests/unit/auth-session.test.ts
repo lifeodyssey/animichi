@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { fetchAuthToken } = vi.hoisted(() => ({ fetchAuthToken: vi.fn() }));
 
-vi.mock("../../src/lib/auth/neonAuth", () => ({ fetchAuthToken }));
+vi.mock("../../src/lib/auth/neon-auth", () => ({ fetchAuthToken }));
 
-import { authHeaders, clearAuthToken, getAuthToken } from "../../src/lib/auth/authSession";
+import { authHeaders, clearAuthToken, getAuthToken } from "../../src/lib/auth/auth-session";
 
 const NOW = 2_000_000_000_000;
 const REFRESH_MARGIN_MS = 60_000;

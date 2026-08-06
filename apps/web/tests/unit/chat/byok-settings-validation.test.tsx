@@ -5,7 +5,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ByokSettings } from "../../../src/features/chat/components/ByokSettings";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { BYOK_DEFAULT_MODEL, getByokConfig } from "../../../src/lib/byok/byokStorage";
+import { BYOK_DEFAULT_MODEL, getByokConfig } from "../../../src/lib/byok/byok-storage";
 
 const dict = chatDictFor("ja");
 const probe = vi.fn().mockResolvedValue({ kind: "ok", vision: false });

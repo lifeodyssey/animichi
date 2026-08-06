@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  *
  * validateByokConfig() rules: model requirement (OQ-1) and key requirement
- * (P1 review follow-up — Fable + Opus). Split out of byokStorage.test.ts to
+ * (P1 review follow-up — Fable + Opus). Split out of byok-storage.test.ts to
  * keep each test file under the repo's ~200-line budget.
  */
 import { afterEach, describe, expect, it } from "vitest";
@@ -13,8 +13,8 @@ import {
   getByokConfig,
   saveByokConfig,
   validateByokConfig,
-} from "../../src/lib/byok/byokStorage";
-import type { ByokConfig } from "../../src/lib/byok/byokStorage";
+} from "../../src/lib/byok/byok-storage";
+import type { ByokConfig } from "../../src/lib/byok/byok-storage";
 
 const OPENAI_CONFIG: ByokConfig = {
   provider: "openai-compatible",

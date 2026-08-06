@@ -1,11 +1,11 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
-import { attachMapLibre, mountMapLibre, type MapLibreHandle, type MapLibreModule } from "../maplibre/maplibreAdapter";
-import { createMapStyle } from "./mapStyle";
-import { routeLayer, ROUTE_SOURCE_ID, routeSource } from "./mapLayers";
+import { attachMapLibre, mountMapLibre, type MapLibreHandle, type MapLibreModule } from "../maplibre/maplibre-adapter";
+import { createMapStyle } from "./map-style";
+import { routeLayer, ROUTE_SOURCE_ID, routeSource } from "./map-layers";
 import { pinLabel } from "./pins";
 import type { MapStatus } from "./MapSpike";
-import type { SourceMode } from "./sourceMode";
+import type { SourceMode } from "./source-mode";
 import { SPOTS, UJI_CENTER, UJI_ZOOM, type Spot } from "./spots";
 
 export type MountOptions = Readonly<{

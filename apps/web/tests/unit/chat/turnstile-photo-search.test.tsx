@@ -10,17 +10,17 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ChatActionsProvider } from "../../../src/features/chat/chat-actions";
+import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
 import { PhotoSearchUpload } from "../../../src/features/chat/components/PhotoSearchUpload";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { sessionHeaders } from "../../../src/features/chat/session-headers";
 import {
   clearTurnstileToken,
   rememberTurnstileToken,
-} from "../../../src/lib/turnstile/tokenStore";
+} from "../../../src/lib/turnstile/token-store";
 import { TEST_ORIGIN } from "../../msw/fixtures";
 import { server } from "../../msw/node";
-import { makeJpegWithExif } from "../shiori/_jpegFixtures";
+import { makeJpegWithExif } from "../shiori/_jpeg-fixtures";
 
 const dict = chatDictFor("ja");
 const URL = `${TEST_ORIGIN}/v1/photo-search`;
@@ -77,11 +77,11 @@ describe("the shared header path waits for the widget", () => {
   // transport that never waits — the component-level test below cannot tell
   // the two apart, and a mutation that drops the wait survives it.
   it("does not resolve an anonymous request's headers until a token exists", async () => {
-    let settled = false;
+    let wasSettled = false;
     const pending = sessionHeaders();
-    void pending.then(() => { settled = true; });
+    void pending.then(() => { wasSettled = true; });
     await flush();
-    expect(settled).toBe(false);
+    expect(wasSettled).toBe(false);
     rememberTurnstileToken("late-token");
     expect(await pending).toEqual({ "cf-turnstile-response": "late-token" });
   });
@@ -89,10 +89,10 @@ describe("the shared header path waits for the widget", () => {
   it("resolves headers straight away when this build renders no widget", async () => {
     vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "");
     vi.stubEnv("DEV", false);
-    let settled = false;
-    void sessionHeaders().then(() => { settled = true; });
+    let wasSettled = false;
+    void sessionHeaders().then(() => { wasSettled = true; });
     await flush();
-    expect(settled).toBe(true);
+    expect(wasSettled).toBe(true);
   });
 
 });

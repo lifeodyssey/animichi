@@ -6,13 +6,13 @@
  * P1 review follow-up: the grep now walks the **entire** `src/` tree instead
  * of two flat directories — the AC says "no component", not "no component in
  * these two folders", and a component anywhere else reaching past
- * `byokStorage.ts` into `sessionStorage` would previously have passed this
+ * `byok-storage.ts` into `sessionStorage` would previously have passed this
  * guard unnoticed. A full-tree recursive `readdirSync` costs single-digit
  * milliseconds on this codebase's `src/` (verified locally), so there is no
  * reason to keep the narrower scan.
  *
  * #463 rebase follow-up: a bare substring match false-positived on
- * `deferredSave.ts`, whose doc comment *describes* `sessionStorage`
+ * `deferred-save.ts`, whose doc comment *describes* `sessionStorage`
  * (explaining why the P5 deferred-save feature deliberately does NOT use it)
  * without ever touching the API. Comments are stripped before matching so
  * only real usage counts.
@@ -25,7 +25,7 @@ import { describe, expect, it } from "vitest";
 const HERE = dirname(fileURLToPath(import.meta.url));
 
 const SRC_DIR = resolve(HERE, "../../src");
-const BYOK_STORAGE_RELATIVE = "lib/byok/byokStorage.ts";
+const BYOK_STORAGE_RELATIVE = "lib/byok/byok-storage.ts";
 /**
  * #282 rebase follow-up: the rule the AC states is "no *component* calls
  * `sessionStorage` directly" — the boundary, not the single file. The D12
@@ -34,7 +34,7 @@ const BYOK_STORAGE_RELATIVE = "lib/byok/byokStorage.ts";
  * for the API. Adding a module here is a deliberate review decision; adding a
  * *component* to this list would gut the guard.
  */
-const CHAT_DRAFT_STORAGE_RELATIVE = "lib/chat/draftStorage.ts";
+const CHAT_DRAFT_STORAGE_RELATIVE = "lib/chat/draft-storage.ts";
 const STORAGE_MODULES = [BYOK_STORAGE_RELATIVE, CHAT_DRAFT_STORAGE_RELATIVE];
 const SOURCE_EXTENSIONS = [".ts", ".tsx"];
 
@@ -81,7 +81,7 @@ describe("no component calls sessionStorage directly (AC1 lint-level grep, full 
   });
 });
 
-describe("byokStorage.ts never accesses `window` at module (top) scope", () => {
+describe("byok-storage.ts never accesses `window` at module (top) scope", () => {
   it("only references `window.` inside function bodies, never at column 0", () => {
     const source = readSource(SRC_DIR, BYOK_STORAGE_RELATIVE);
     const topLevelLines = source.split("\n").filter((line) => !/^\s/.test(line) && !line.startsWith("}"));

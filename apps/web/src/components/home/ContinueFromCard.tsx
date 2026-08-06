@@ -1,7 +1,7 @@
 import type { UserRoute } from "@animichi/contract";
 import { useContinueFrom } from "../../api/hooks/use-continue-from";
 import type { Dict } from "../../i18n/dictionaries";
-import { useDict } from "../../i18n/context";
+import { useDict } from "../../i18n/LocaleProvider";
 
 function ContinueCard({ route, home }: { readonly route: UserRoute; readonly home: Dict["home"] }) {
   return (

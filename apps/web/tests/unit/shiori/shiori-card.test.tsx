@@ -5,7 +5,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { ShioriCard } from "../../../src/features/shiori/ShioriCard";
-import type { ShioriStatus } from "../../../src/features/shiori/layoutSelector";
+import type { ShioriStatus } from "../../../src/features/shiori/layout-selector";
 import { makeItinerary, makeMeta, makePhotos } from "./_factories";
 
 afterEach(cleanup);

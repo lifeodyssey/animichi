@@ -1,8 +1,8 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { AnimeOverviewCircle, LatLng } from "@animichi/contract";
 import type { LngLatBoundsLike, Map as MapLibreMap } from "maplibre-gl";
-import { attachMapLibre, mountMapLibre, type MapLibreHandle } from "../maplibre/maplibreAdapter";
-import { createMapStyle } from "../map-spike/mapStyle";
+import { attachMapLibre, mountMapLibre, type MapLibreHandle } from "../maplibre/maplibre-adapter";
+import { createMapStyle } from "../map-spike/map-style";
 
 export type BasemapStatus = "loading" | "ready" | "fallback";
 

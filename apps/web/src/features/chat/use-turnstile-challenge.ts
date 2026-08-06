@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { configuredTurnstileSiteKey, resetTurnstileWidget } from "../../components/TurnstileGate";
-import { getAuthToken } from "../../lib/auth/authSession";
+import { getAuthToken } from "../../lib/auth/auth-session";
 import {
   awaitTurnstileToken,
   clearTurnstileToken,
   currentTurnstileToken,
   onTurnstileToken,
-} from "../../lib/turnstile/tokenStore";
-import { TURNSTILE_REQUIRED_CODE } from "../../lib/chat/errorClassifier";
+} from "../../lib/turnstile/token-store";
+import { TURNSTILE_REQUIRED_CODE } from "../../lib/chat/error-classifier";
 import type { ChatSession } from "./use-chat-session";
 
 export interface TurnstileChallenge {
@@ -19,11 +19,11 @@ export interface TurnstileChallenge {
 /** True once we know this visitor holds no session — only anonymous turns are
  * challenged, so a signed-in reader never loads the widget at all. */
 function trackAnonymous(setAnonymous: (anonymous: boolean) => void): () => void {
-  let live = true;
+  let isLive = true;
   void getAuthToken().then((token) => {
-    if (live) setAnonymous(token === undefined);
+    if (isLive) setAnonymous(token === undefined);
   });
-  return () => { live = false; };
+  return () => { isLive = false; };
 }
 
 function useAnonymousVisitor(): boolean {
