@@ -13,19 +13,19 @@
  * >10-point LLM area-split are handled by later cards — this is the kernel only.
  */
 
-import type { LocationCluster } from "./clustering";
-import { haversine } from "./geo";
-import { WALK_DETOUR_COEFFICIENT, WALKING_SPEED_M_PER_MIN } from "./transit/constants";
-import { maybeTransitLeg } from "./transit/leg";
-import type { TransitIndex } from "./transit/graph";
-import type { Pacing, TimedItinerary, TimedStop, TransitLeg } from "../types";
+import type { LocationCluster } from "../clustering/cluster";
+import { haversine } from "../geo";
+import { WALK_DETOUR_COEFFICIENT, WALKING_SPEED_M_PER_MIN } from "../../lib/transit/constants";
+import { maybeTransitLeg } from "../../lib/transit/leg";
+import type { TransitIndex } from "../../lib/transit/graph";
+import type { Pacing, TimedItinerary, TimedStop, TransitLeg } from "../../types";
 
 /**
  * The wire shapes this kernel produces (`TimedStop` / `TransitLeg` /
  * `TimedItinerary` / `Pacing`) live in `../types` — the single in-Worker mirror
  * of `packages/contract/src/models.ts`. `import type` erases at compile time, so
- * the contract's zod runtime stays out of the Worker bundle. Re-exported here so
- * existing kernel consumers keep importing them from `lib/route`.
+ * the contract's zod runtime stays out of the Worker bundle. Re-exported here as
+ * the single type source for kernel consumers.
  */
 export type { Pacing, TimedItinerary, TimedStop, TransitLeg };
 

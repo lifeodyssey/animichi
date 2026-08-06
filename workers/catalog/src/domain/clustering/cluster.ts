@@ -7,7 +7,7 @@
  * helpers. Pure logic — no I/O, no DB. Deterministic for a given input order.
  */
 
-import { haversine } from "./geo";
+import { haversine } from "../geo";
 
 /** A point to be clustered. Extra fields are preserved on output. */
 export interface ClusterablePoint {

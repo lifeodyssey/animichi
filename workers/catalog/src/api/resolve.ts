@@ -1,3 +1,4 @@
+// TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
 /** Deterministic anime-title resolver over the alias index and Bangumi MISS path. */
 import { MAX_CANDIDATES } from "@animichi/contract/constants";
 import { sql } from "drizzle-orm";

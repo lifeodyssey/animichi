@@ -1,3 +1,4 @@
+// TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
 /**
  * Public `animeOverview` read handler — catalog's first anonymous surface.
  *
@@ -16,7 +17,7 @@
  */
 
 import { sql } from "drizzle-orm";
-import { clusterByLocation, type LocationCluster } from "../lib/clustering";
+import { clusterByLocation, type LocationCluster } from "../domain/clustering/cluster";
 import type { AnimeOverview, AnimeOverviewCircle, AnimeSampleRoute, AnimeScene } from "../types";
 
 export type { AnimeOverview };

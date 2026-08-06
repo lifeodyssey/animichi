@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { haversine } from "../src/lib/geo";
-import { clusterByLocation } from "../src/lib/clustering";
+import { haversine } from "../src/domain/geo";
+import { clusterByLocation } from "../src/domain/clustering/cluster";
 
 /**
  * Parity tests: the TS port of the Python deterministic kernels

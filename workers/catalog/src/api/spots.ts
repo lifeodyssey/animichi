@@ -1,3 +1,4 @@
+// TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
 /**
  * Catalog `spots` read handler — one representative pilgrimage point for a work,
  * optionally annotated with `distance_m` from a caller-supplied origin.
@@ -16,7 +17,7 @@
 
 import type { CatalogDb } from "../db/client";
 import { sql } from "drizzle-orm";
-import { haversine } from "../lib/geo";
+import { haversine } from "../domain/geo";
 import { optional } from "../lib/optional";
 import type { Origin, PilgrimagePoint } from "../types";
 

@@ -1,4 +1,4 @@
-import { haversine } from "../../geo";
+import { haversine } from "../../../domain/geo";
 import { NEAREST_STATION_MAX_M } from "../constants";
 import type { TopologyStation } from "../model";
 

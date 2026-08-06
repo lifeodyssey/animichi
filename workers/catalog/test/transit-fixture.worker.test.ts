@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { haversine } from "../src/lib/geo";
+import { haversine } from "../src/domain/geo";
 import { buildTransitIndex, parseTopologyGraph } from "../src/lib/transit";
 import { tokyoSample } from "./fixtures/transit/tokyo-sample";
 

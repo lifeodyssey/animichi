@@ -1,3 +1,4 @@
+// TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
 /**
  * Catalog `search` read API: free-text query -> pilgrimage points.
  *

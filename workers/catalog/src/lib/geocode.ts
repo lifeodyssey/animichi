@@ -1,4 +1,4 @@
-import { haversine } from "./geo";
+import { haversine } from "../domain/geo";
 import type { GeocodeCandidate, GeocodeKind, GeocodeSource } from "../types";
 
 const CLUSTER_RADIUS_M = 12_000;
