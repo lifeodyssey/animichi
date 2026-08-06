@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { CONTAINER_ENV_KEYS, CONTAINER_REQUIRED_KEYS, DENIED_EGRESS_HOSTS, buildContainerEnvVars } from "./containerEnv.ts";
+import { CONTAINER_ENV_KEYS, CONTAINER_REQUIRED_KEYS, DENIED_EGRESS_HOSTS, buildContainerEnvVars } from "./container-env.ts";
 
 // Pins RuntimeContainer.deniedHosts (#284 Task 7 — egress hostname denylist).
-// See docs/ops/cloudflare-hardening.md §6 and containerEnv.ts's header comment
+// See docs/ops/cloudflare-hardening.md §6 and container-env.ts's header comment
 // for the full correction: `deniedHosts` is `string[]`, but the vendored
 // `@cloudflare/containers` implementation is a plain string-prefix/suffix glob
 // matcher on the URL hostname (`simpleGlobMatch`/`matchesHostList` in
@@ -108,7 +108,7 @@ void test("DENIED_EGRESS_HOSTS covers the full RFC1918 172.16/12 and CGNAT 100.6
 // #284 Task 7, PR #478 review (third round): `url.hostname` renders IPv6 in
 // bracketed, colon-compressed form — no dotted-quad glob above matches any of
 // these. These are the concrete, individually-verified best-effort entries
-// (see containerEnv.ts's header comment); this is NOT general IPv6 coverage —
+// (see container-env.ts's header comment); this is NOT general IPv6 coverage —
 // see limit 4 in docs/ops/cloudflare-hardening.md §6.
 void test("DENIED_EGRESS_HOSTS covers the named IPv6 literal cases (best-effort, not general IPv6 coverage)", () => {
   const ipv6Cases = [
@@ -174,15 +174,15 @@ void test("GEMINI_API_KEY stays out of the container forwarding allowlist (#656)
 
 void test("buildContainerEnvVars forwards the provided APP_ENV value unchanged", () => {
   for (const appEnv of ["development", "staging", "production"]) {
-    const envVars = buildContainerEnvVars({ ...requiredContainerEnv(), APP_ENV: appEnv });
-    assert.equal(envVars.APP_ENV, appEnv);
+    const environmentVars = buildContainerEnvVars({ ...requiredContainerEnv(), APP_ENV: appEnv });
+    assert.equal(environmentVars.APP_ENV, appEnv);
   }
 });
 
 void test("buildContainerEnvVars throws (fail-closed) when APP_ENV is missing, instead of seeding a hardcoded default", () => {
-  const { APP_ENV: _unused, ...envWithoutAppEnv } = requiredContainerEnv();
+  const { APP_ENV: _unused, ...environmentWithoutAppEnv } = requiredContainerEnv();
   void _unused;
-  assert.throws(() => buildContainerEnvVars(envWithoutAppEnv), /Missing required container env: APP_ENV/);
+  assert.throws(() => buildContainerEnvVars(environmentWithoutAppEnv), /Missing required container env: APP_ENV/);
 });
 
 void test("buildContainerEnvVars throws when APP_ENV is an empty string, not just when absent", () => {

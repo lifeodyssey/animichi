@@ -10,13 +10,13 @@
 ## 存量破线清单(精确实测,2026-08-03 复测)
 
 **方法**:oxlint 单独跑 `max-lines-per-function:10`(tests override 50)+ `max-lines:300`(tests 200),两条规则均 `skipBlankLines:true, skipComments:true`(与根配置及 apps/web 现行 override 的既有选项**一致**——这是规则真正执法的口径),非 type-aware,范围 = worker/ workers/ packages/ apps/web(即全部 live TS;frontend 冻结包除外)。
-**去重说明**:初稿表格按组相加得 52,与题头 46 矛盾——差异来源是初稿混用了裸 `wc -l` 行数:turnstileArm.test(229)/anonymous.test(207)/byok.test(205)/containerEnv.test(257) 等 4 个测试文件与 worker/users 两个 ×2 组条目在 skip 口径下**不超限**,不是违规文件;复测按执法口径逐文件去重后 = **46 个唯一文件**(生产 39 + 测试 7),清单如下,无重叠、无 shorthand:
+**去重说明**:初稿表格按组相加得 52,与题头 46 矛盾——差异来源是初稿混用了裸 `wc -l` 行数:turnstile-arm.test(229)/anonymous.test(207)/byok.test(205)/container-env.test(257) 等 4 个测试文件与 worker/users 两个 ×2 组条目在 skip 口径下**不超限**,不是违规文件;复测按执法口径逐文件去重后 = **46 个唯一文件**(生产 39 + 测试 7),清单如下,无重叠、无 shorthand:
 
 **生产代码 39 文件**(违规数,f=函数限 m=文件限):
 
 | 包 | 文件 | 拆分思路(职责边界) |
 |---|---|---|
-| worker/ (7) | app.ts ×5f · auth.ts ×5f · tiles.ts ×3f · turnstile.ts ×3f · edgeGuard.ts ×2f · containerEnv.ts ×1f · rateLimiter.ts ×1f | app.ts → C2 卡按信任域拆;auth.ts 按 Supabase 验证/Neon-JWT 验证/匿名铸造三域分文件;turnstile.ts 分 siteverify 客户端与 gate 状态机;tiles.ts 分 R2 读取/缓存头/路径校验;其余就地 extract-method |
+| worker/ (7) | app.ts ×5f · auth.ts ×5f · tiles.ts ×3f · turnstile.ts ×3f · edge-guard.ts ×2f · container-env.ts ×1f · rate-limiter.ts ×1f | app.ts → C2 卡按信任域拆;auth.ts 按 Supabase 验证/Neon-JWT 验证/匿名铸造三域分文件;turnstile.ts 分 siteverify 客户端与 gate 状态机;tiles.ts 分 R2 读取/缓存头/路径校验;其余就地 extract-method |
 | workers/catalog/src/lib (9) | route.ts ×6f · clustering.ts ×3f · geocode.ts ×2f · series.ts ×2f · alias.ts ×1f · geo-query.ts ×1f · geo.ts ×1f · transit/etl/build.ts ×1f + transit/etl/n02.ts ×1f | route.ts 按 TSP 求解/腿构建/格式化三段抽纯函数;clustering.ts 距离矩阵/合并循环/输出映射分层;长尾 extract-method |
 | workers/catalog/src/api (9) | work-points.ts ×3f · resolve.ts ×2f · search.ts ×2f · spots.ts ×2f · anime-overview.ts ×1f · geocode.ts ×1f · nearby.ts ×1f · preview.ts ×1f · route.ts ×1f | 均为"一个胖 handler"型:抽 request-parse 与 domain 步骤(与 C5 用例化协同) |
 | workers/catalog/src 其余 (7) | enrich/enrich.ts ×3f · enrich/parse.ts ×2f · ingest/jobs.ts ×3f · ingest/orchestrator.ts ×3f · ingest/raw-store.ts ×1f · index.ts ×2f · media/img.ts ×2f | enrich 抓取/解析/合并三步早返回化;orchestrator 每 pipeline 阶段一函数;jobs 状态机逐 case 抽函数 |

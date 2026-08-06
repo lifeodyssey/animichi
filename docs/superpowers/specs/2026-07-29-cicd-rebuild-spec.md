@@ -14,7 +14,7 @@
 > **Re-baselining note.** [measured: `git diff 0cad6b41 79c8306d -- .github/` → empty] `.github/**` is
 > **byte-identical** between rev 1's base and rev 2's, so every `.github` file:line reference in this
 > spec survives the re-baseline unchanged. What `#501` *did* move is three entries of §5.5's
-> duplication list — `wrangler.toml`, `worker/containerEnv.ts`, `Dockerfile` — plus
+> duplication list — `wrangler.toml`, `worker/container-env.ts`, `Dockerfile` — plus
 > `test_deploy_model_env_consistency.py` itself. That is the list this rebuild exists to collapse, and
 > it moved during the ~6 hours between two revisions of the spec about it.
 >
@@ -70,7 +70,7 @@ Verified by grepping every workflow at base for each package path:
 - **`packages/contract/`** — declares `"test": "vitest run"` and `"typecheck": "tsc --noEmit"`.
   **Neither is ever invoked by any workflow.** The only contract job is `contract-openapi-drift`
   (`ci.yml:123-139`). So `packages/contract/test/anon-limits.test.ts` — which pins contract
-  constants against `worker/costBreaker.ts` — has never run in CI. The cross-service source of
+  constants against `worker/cost-breaker.ts` — has never run in CI. The cross-service source of
   truth has zero test execution.
 - **`infra/`** — no lint, no typecheck, no `pulumi preview` on PR. Its only CI appearance is
   `pnpm install` + `pulumi up` inside the deploy job (`_deploy-component.yml:389-473`): the first
@@ -376,7 +376,7 @@ That feedback latency — not any individual bug — is the defect this rebuild 
 | # | Incident | Immediate cause | Structural cause |
 |---|---|---|---|
 | 1 | **#490** — 8 deploy jobs silently skipped | `changes` exited 128: `dorny/paths-filter` on `push` needs `before` reachable; `fetch-depth: 1` + `persist-credentials: false` denied it (fixed at `ci.yml:64`) | Affected-detection is a **job**, so it can fail; 27 jobs `needs:` it. One failure = whole-pipeline skip, and **`skipped` reads as success** (§2.2). |
-| 2 | **`main` red** — `test_deploy_model_env_consistency.py` | It reads `worker/containerEnv.ts`, `ci.yml`, `deploy.yml`, `_deploy-component.yml`, **and `Dockerfile`**; it runs in `Agent CI`, whose filter is `['apps/agent/**','packages/contract/**']` (`ci.yml:73`). **Zero of its five inputs are in its trigger.** | **A test's trigger set is unrelated to its read set.** Nothing connects "this test reads X" to "this test runs when X changes". This is not one test — it is **eight** (§6.4). |
+| 2 | **`main` red** — `test_deploy_model_env_consistency.py` | It reads `worker/container-env.ts`, `ci.yml`, `deploy.yml`, `_deploy-component.yml`, **and `Dockerfile`**; it runs in `Agent CI`, whose filter is `['apps/agent/**','packages/contract/**']` (`ci.yml:73`). **Zero of its five inputs are in its trigger.** | **A test's trigger set is unrelated to its read set.** Nothing connects "this test reads X" to "this test runs when X changes". This is not one test — it is **eight** (§6.4). |
 | 3 | **#457** — skipped required check counts as satisfied | Job-level `if:` / `needs:`-propagation skips report **success** (§2.2) | Per-lane checks cannot express "the pipeline as a whole ran". Currently moot only because nothing is required (§2.1) — and blocking the moment required checks are added. |
 | 4 | **Components drag each other down** | `deploy-root-staging` `needs: [deploy-staging, deploy-users-staging]` (`ci.yml:428`); a catalog `Pulumi up` failure skips root and users | `needs:` is used to encode **ordering**, but `needs:` means **validation dependency**. Conflated, so an unrelated failure cascades — and cascades as `skipped`, i.e. green. |
 | 5 | **List-shaped merge conflicts** | `worker_secrets` / `post_deploy_secrets` / `secrets:` / `[vars]` are YAML/TOML lists maintained by hand in 8 places (§5.5). "Keep one side" silently drops entries | `_deploy-component.yml:15-19` documents the rule in prose — *"adding a new post-deploy secret means adding it in those three places"* — with no test that the copies agree. |
@@ -898,7 +898,7 @@ The duplication surface is larger than rev 1 measured. A model/env change today 
 1. root `wrangler.toml` — `[vars]`, `[env.production.vars]`, `[env.staging.vars]` (**×3**, and they
    already differ: `ANON_ACCESS_ENABLED` is `"true"`/`"true"`/`"false"`; staging alone carries
    `CORS_ALLOWED_ORIGIN`);
-2. `worker/containerEnv.ts:14-31` — `CONTAINER_ENV_KEYS` forwarding allowlist;
+2. `worker/container-env.ts:14-31` — `CONTAINER_ENV_KEYS` forwarding allowlist;
 3. `ci.yml` `worker_secrets:` — **×6, not ×2** [measured: `:377, :416, :448, :500, :537, :558` — one
    per deploy call site, staging + production for catalog / users / root. The catalog pair is the
    single-name form `worker_secrets: DATABASE_URL`; the other four are block lists; the root staging
@@ -1014,14 +1014,14 @@ that runs it and whether its trigger covers what it reads:
 
 | Test | Reads as data | Lane | Verdict |
 |---|---|---|---|
-| `apps/agent/agent/tests/unit/test_deploy_model_env_consistency.py:13-19` | `worker/containerEnv.ts`, `ci.yml`, `deploy.yml`, `_deploy-component.yml`, **`Dockerfile`** | `ci-agent` | **mismatch — 0 of 5 inputs covered** ([measured]; rev 1 said 4) |
+| `apps/agent/agent/tests/unit/test_deploy_model_env_consistency.py:13-19` | `worker/container-env.ts`, `ci.yml`, `deploy.yml`, `_deploy-component.yml`, **`Dockerfile`** | `ci-agent` | **mismatch — 0 of 5 inputs covered** ([measured]; rev 1 said 4) |
 | `…/test_ci_eval_gate_workflow.py:17-19` | `ci.yml`, `agent-eval-nightly.yml` | `ci-agent` | **mismatch** |
 | `…/test_purge_workflow_trigger.py:18-21` | `purge-anonymous-sessions.yml` | `ci-agent` | **mismatch** |
 | `…/test_anonymous_docs_consistency.py:19-20` | `docs/ARCHITECTURE.md`, `worker/auth.ts` | `ci-agent` | **mismatch** |
 | `…/test_neon_script_security.py:7-8` | `scripts/neon-test-base.sh` | `ci-agent` | **mismatch** |
 | `apps/web/tests/unit/lockfile-pin.test.ts:21` | `.github/actions/setup/action.yml` | `ci-web` (`web: ['apps/web/**']`) | **mismatch** |
-| `packages/contract/test/anon-limits.test.ts:12,25` | `worker/costBreaker.ts` | **none** | **never runs at all** |
-| `worker/containerEnv.test.ts`, `worker/entry.test.ts:236` | vendored container.js; `wrangler.toml` wiring | `ci-worker` (`worker: ['worker/**']`) | covered |
+| `packages/contract/test/anon-limits.test.ts:12,25` | `worker/cost-breaker.ts` | **none** | **never runs at all** |
+| `worker/container-env.test.ts`, `worker/entry.test.ts:236` | vendored container.js; `wrangler.toml` wiring | `ci-worker` (`worker: ['worker/**']`) | covered |
 | `frontend/tests/design-token-alignment.test.ts` etc. | `app/globals.css`, `animal-island-ui` CSS | `ci-frontend` | covered |
 | `.github/scripts/post-deploy-assert.test.sh` | its own script | `security` (no filter) | covered — **because it has no filter** |
 | `workers/catalog/test/wrangler-private.worker.test.ts` (PR #539, **open**) | `workers/catalog/wrangler.toml` | catalog worker pool | **covered but fragile** — see the trap below |
