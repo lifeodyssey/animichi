@@ -252,6 +252,13 @@ jobs:
   # steps and report green; push/merge_group always run it in full).
 
   ci-cross-stack-e2e:
+    # The reusable's job re-requests `pull-requests: read` at job level (B7
+    # least-privilege), and a called workflow's job cannot exceed what the
+    # calling job grants — so the caller must state the same scope explicitly
+    # rather than relying on this workflow's top-level block.
+    permissions:
+      contents: read
+      pull-requests: read
     uses: ./.github/workflows/reusable-cross-stack-e2e.yml
 
   # ── Stage 3: Deploy (security/hygiene gated, push-main promotion path) ──
