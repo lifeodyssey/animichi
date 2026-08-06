@@ -40,13 +40,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup
-      - name: Type check (tsc)
-        run: pnpm exec tsc --noEmit
-        working-directory: workers/users
-      - name: Oxlint (type-aware, strict)
-        run: pnpm run lint:oxlint
-        working-directory: workers/users
+      - uses: ./.github/actions/package-ci
+        with:
+          working-directory: workers/users
+          lint-command: pnpm exec tsc --noEmit && pnpm run lint:oxlint
 
   test:
     name: Users / test
@@ -59,10 +56,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup
-      - name: Worker tests (vitest, coverage gate)
-        run: pnpm run test:worker
-        working-directory: workers/users
+      - uses: ./.github/actions/package-ci
+        with:
+          working-directory: workers/users
+          test-command: pnpm run test:worker
       - name: Upload coverage
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
