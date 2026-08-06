@@ -15,7 +15,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 env:
   PYTHON_VERSION: "3.11"
@@ -25,6 +24,11 @@ jobs:
     timeout-minutes: 20
     name: Python CI
     runs-on: ubuntu-latest
+    # Codecov OIDC upload needs id-token: write; job-scoped so the workflow
+    # default stays contents: read (S0-v2 B7 "permissions" assertion).
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: apps/${{ inputs.app }}
