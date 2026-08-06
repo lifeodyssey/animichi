@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MapCard } from "../../../src/components/route-detail/MapCard";
 import type { MapCardPayload } from "../../../src/components/route-detail/MapCard";
 import { routeDetailCopyFor } from "../../../src/lib/route-detail/copy";
-import { ROUTE_DETAIL_SCHEMA_VERSION } from "../../../src/lib/route-detail/dataState";
+import { ROUTE_DETAIL_SCHEMA_VERSION } from "../../../src/lib/route-detail/data-state";
 
 afterEach(cleanup);
 

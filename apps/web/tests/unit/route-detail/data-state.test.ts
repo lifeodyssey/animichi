@@ -6,8 +6,8 @@ import {
   isRouteEmpty,
   isStopCheckedIn,
   isToday,
-} from "../../../src/lib/route-detail/dataState";
-import type { RouteDetail } from "../../../src/lib/route-detail/dataState";
+} from "../../../src/lib/route-detail/data-state";
+import type { RouteDetail } from "../../../src/lib/route-detail/data-state";
 
 const NOW = new Date("2026-07-20T09:00:00");
 

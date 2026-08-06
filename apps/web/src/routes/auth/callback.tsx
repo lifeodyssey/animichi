@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { AuthCallback } from "../../components/auth/AuthCallback";
-import { returnTargetNamesSession } from "../../features/chat/return-target";
-import { LocaleProvider } from "../../i18n/context";
-import { carriesPanelIntent, sanitizeReturnTarget } from "../../lib/auth/returnTarget";
+import { returnTargetNamesSession } from "../../features/chat/ChatReturnTarget";
+import { LocaleProvider } from "../../i18n/LocaleProvider";
+import { carriesPanelIntent, sanitizeReturnTarget } from "../../lib/auth/return-target";
 
 /**
  * `next` rides the magic-link callback URL because the link may open in a

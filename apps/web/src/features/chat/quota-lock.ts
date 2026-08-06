@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
-import type { ChatActions } from "./chat-actions";
-import type { RecomputeTurn } from "./selection/useRecomputeTurn";
+import type { ChatActions } from "./ChatActions";
+import type { RecomputeTurn } from "./selection/use-recompute-turn";
 
 /** The D12 composer lock (#282 S1.10) and the instant it lifts by itself. */
 export interface QuotaLock {

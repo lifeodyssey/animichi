@@ -3,7 +3,7 @@
  */
 import { act, cleanup, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { LocaleProvider, useDict, useLocale, useSetLocale } from "../../src/i18n/context";
+import { LocaleProvider, useDict, useLocale, useSetLocale } from "../../src/i18n/LocaleProvider";
 import { setLanguages } from "./_i18n";
 
 function Probe() {

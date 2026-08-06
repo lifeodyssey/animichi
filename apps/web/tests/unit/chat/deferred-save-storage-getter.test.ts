@@ -6,8 +6,8 @@ import {
   DEFERRED_SAVE_KEY,
   DEFERRED_SAVE_TTL_MS,
   writeDeferredSave,
-} from "../../../src/features/chat/save/deferredSave";
-import { replayDeferredSave } from "../../../src/features/chat/save/createOnLogin";
+} from "../../../src/features/chat/save/deferred-save";
+import { replayDeferredSave } from "../../../src/features/chat/save/create-on-login";
 
 function localStorageDescriptor(): PropertyDescriptor {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage");

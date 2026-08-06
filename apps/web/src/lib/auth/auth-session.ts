@@ -1,4 +1,4 @@
-import { fetchAuthToken } from "./neonAuth";
+import { fetchAuthToken } from "./neon-auth";
 
 /**
  * In-memory Neon Auth JWT cache.

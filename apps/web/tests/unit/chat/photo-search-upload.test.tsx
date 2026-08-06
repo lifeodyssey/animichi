@@ -4,13 +4,13 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ChatActionsProvider } from "../../../src/features/chat/chat-actions";
+import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
 import { PhotoSearchUpload } from "../../../src/features/chat/components/PhotoSearchUpload";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { MAX_PHOTO_BYTES } from "../../../src/features/chat/photo-search";
 import { TEST_ORIGIN } from "../../msw/fixtures";
 import { server } from "../../msw/node";
-import { makeJpegWithExif } from "../shiori/_jpegFixtures";
+import { makeJpegWithExif } from "../shiori/_jpeg-fixtures";
 
 const dict = chatDictFor("ja");
 const URL = `${TEST_ORIGIN}/v1/photo-search`;

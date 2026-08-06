@@ -1,7 +1,7 @@
-import type { LocatedSpot } from "../../../lib/chat/spotClusters";
-import { pointPlacements } from "../../bubble-map/bubbleGeometry";
-import type { PointPlacement } from "../../bubble-map/bubbleGeometry";
-import { attachBasemap } from "../../bubble-map/bubbleMapController";
+import type { LocatedSpot } from "../../../lib/chat/spot-clusters";
+import { pointPlacements } from "../../bubble-map/bubble-geometry";
+import type { PointPlacement } from "../../bubble-map/bubble-geometry";
+import { attachBasemap } from "../../bubble-map/bubble-map-controller";
 import type { ChatDict } from "../i18n";
 import { MapFallback } from "./ErrorStates/MapFallback";
 import { MapFrame, percentStyle, useBasemap } from "./SearchMap";

@@ -1,6 +1,6 @@
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useState } from "react";
-import { useDict } from "../../i18n/context";
+import { useDict } from "../../i18n/LocaleProvider";
 
 interface SearchBoxProps {
   readonly onSubmit: (query: string) => void;

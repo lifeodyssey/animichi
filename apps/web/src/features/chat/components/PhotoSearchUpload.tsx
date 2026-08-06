@@ -1,8 +1,8 @@
 import type { ChatDataPart } from "@animichi/contract";
 import { useCallback, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
-import { ChatActionsProvider, useChatActions } from "../chat-actions";
-import type { ChatActions } from "../chat-actions";
+import { ChatActionsProvider, useChatActions } from "../ChatActions";
+import type { ChatActions } from "../ChatActions";
 import type { ChatDict } from "../i18n";
 import {
   PHOTO_CHALLENGED,
@@ -17,7 +17,7 @@ import type {
   PhotoSearchContext,
   PhotoSearchOutcome,
 } from "../photo-search";
-import { candidatesOf } from "./cards";
+import { candidatesOf } from "./Cards";
 import { DataPartCard } from "./DataPartCard";
 
 /** Photo-search upload (issue #260 AC4/AC5/AC7): the result envelope renders

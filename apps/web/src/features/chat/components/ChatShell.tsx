@@ -16,7 +16,7 @@ import { WaitingRitual } from "./WaitingRitual";
 import type { ChatEntryState } from "../entry-state";
 import type { ChatDict } from "../i18n";
 import type { PhotoSearchContext } from "../photo-search";
-import type { RecomputeTurn } from "../selection/useRecomputeTurn";
+import type { RecomputeTurn } from "../selection/use-recompute-turn";
 import type { ByokPanel } from "../use-byok-panel";
 import type { DeparturePromptState } from "../use-departure-prompt";
 import type { ConversationHistory } from "../use-conversation-history";

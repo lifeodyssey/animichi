@@ -3,7 +3,7 @@
  *
  * `HEADER_SAFE` character-safety extended to the model field (every family,
  * not just openai-compatible) and to base_url (Opus P2① follow-up, second
- * round). Split out of byokStorage-validation.test.ts to keep each file
+ * round). Split out of byok-storage-validation.test.ts to keep each file
  * under the repo's ~200-line budget.
  *
  * Five probes, per review: a Japanese model name on anthropic/gemini, a
@@ -21,8 +21,8 @@ import {
   getByokConfig,
   saveByokConfig,
   validateByokConfig,
-} from "../../src/lib/byok/byokStorage";
-import type { ByokConfig } from "../../src/lib/byok/byokStorage";
+} from "../../src/lib/byok/byok-storage";
+import type { ByokConfig } from "../../src/lib/byok/byok-storage";
 
 const OPENAI_CONFIG: ByokConfig = {
   provider: "openai-compatible",

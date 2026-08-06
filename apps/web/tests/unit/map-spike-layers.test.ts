@@ -4,9 +4,9 @@ import {
   routeLayer,
   ROUTE_SOURCE_ID,
   routeSource,
-} from "../../src/features/map-spike/mapLayers";
+} from "../../src/features/map-spike/map-layers";
 import { SPOTS } from "../../src/features/map-spike/spots";
-import { parseSourceMode } from "../../src/features/map-spike/sourceMode";
+import { parseSourceMode } from "../../src/features/map-spike/source-mode";
 
 describe("routeCoordinates", () => {
   it("routes through every spot coordinate in order", () => {

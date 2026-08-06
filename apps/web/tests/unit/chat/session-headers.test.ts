@@ -9,9 +9,9 @@
  * the same semantics survive through that specific transport.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearByokConfig, saveByokConfig } from "../../../src/lib/byok/byokStorage";
+import { clearByokConfig, saveByokConfig } from "../../../src/lib/byok/byok-storage";
 import { sessionHeaders } from "../../../src/features/chat/session-headers";
-import { clearTurnstileToken, rememberTurnstileToken } from "../../../src/lib/turnstile/tokenStore";
+import { clearTurnstileToken, rememberTurnstileToken } from "../../../src/lib/turnstile/token-store";
 
 /** 24 characters — the shape `configuredTurnstileSiteKey()` accepts as a real
  * public key (see turnstile-armed-flow.test.tsx). The global
@@ -20,7 +20,7 @@ import { clearTurnstileToken, rememberTurnstileToken } from "../../../src/lib/tu
 const SITE_KEY = "0x4AAAAAAAsitekey24chars";
 
 const { authHeaders } = vi.hoisted(() => ({ authHeaders: vi.fn().mockResolvedValue({}) }));
-vi.mock("../../../src/lib/auth/authSession", () => ({ authHeaders }));
+vi.mock("../../../src/lib/auth/auth-session", () => ({ authHeaders }));
 
 afterEach(() => {
   authHeaders.mockReset().mockResolvedValue({});

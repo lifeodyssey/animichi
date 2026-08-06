@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { selectedPointsBody } from "../../../lib/chat/selectedPointsBypass";
-import type { SelectedPointsBody } from "../../../lib/chat/selectedPointsBypass";
+import { selectedPointsBody } from "../../../lib/chat/selected-points-bypass";
+import type { SelectedPointsBody } from "../../../lib/chat/selected-points-bypass";
 import type { RecomputeStatus } from "../components/SelectionTray";
 import type { ChatSession } from "../use-chat-session";
 

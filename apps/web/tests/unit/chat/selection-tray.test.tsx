@@ -10,10 +10,10 @@ import type { AttachBasemap } from "../../../src/features/chat/components/Search
 import {
   SpotSelectionProvider,
   useSpotSelectionState,
-} from "../../../src/features/chat/selection/useSpotSelection";
+} from "../../../src/features/chat/selection/use-spot-selection";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import type { Locale } from "../../../src/i18n/locales";
-import { toSearchSpots } from "../../../src/lib/chat/spotClusters";
+import { toSearchSpots } from "../../../src/lib/chat/spot-clusters";
 
 afterEach(cleanup);
 

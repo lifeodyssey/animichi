@@ -1,5 +1,5 @@
 import type { ChatStatus, UIMessage } from "ai";
-import { isBypassTurn } from "../../../lib/chat/selectedPointsBypass";
+import { isBypassTurn } from "../../../lib/chat/selected-points-bypass";
 import { routeDocumentKey, supersededFlags } from "../../../lib/chat/supersession";
 import { HIDDEN_TOOL_STEPS } from "../i18n";
 import type { ChatDict } from "../i18n";

@@ -1,7 +1,7 @@
 import type { ChatDataPart } from "@animichi/contract";
 import type { ReactNode } from "react";
-import { classifyFailure } from "../../../lib/chat/errorClassifier";
-import type { ChatErrorState } from "../../../lib/chat/errorClassifier";
+import { classifyFailure } from "../../../lib/chat/error-classifier";
+import type { ChatErrorState } from "../../../lib/chat/error-classifier";
 import { isIntentOnly, parseChatDataPart } from "../data-parts";
 import type { ChatDict } from "../i18n";
 import { intentRegistry } from "../registry";

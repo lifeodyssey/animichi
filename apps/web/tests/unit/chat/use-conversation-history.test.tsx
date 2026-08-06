@@ -11,7 +11,7 @@ import { TEST_ORIGIN } from "../../msw/fixtures";
 import { conversationMessagesHandler } from "../../msw/chat-handlers";
 
 const { authHeaders } = vi.hoisted(() => ({ authHeaders: vi.fn() }));
-vi.mock("../../../src/lib/auth/authSession", () => ({ authHeaders }));
+vi.mock("../../../src/lib/auth/auth-session", () => ({ authHeaders }));
 
 function wrapper({ children }: Readonly<{ children: ReactNode }>) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

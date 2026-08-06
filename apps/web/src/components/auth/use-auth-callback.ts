@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { replayDeferredSave } from "../../features/chat/save/createOnLogin";
-import type { DeferredReplayOutcome } from "../../features/chat/save/createOnLogin";
-import { getAuthToken } from "../../lib/auth/authSession";
+import { replayDeferredSave } from "../../features/chat/save/create-on-login";
+import type { DeferredReplayOutcome } from "../../features/chat/save/create-on-login";
+import { getAuthToken } from "../../lib/auth/auth-session";
 import {
   MIGRATE_TIMEOUT_MS,
   anomalyOf,
   migrateAnonymousSession,
   reportMigrationAnomaly,
-} from "../../lib/auth/sessionMigration";
-import type { MigrationAnomaly, SessionMigrationOutcome } from "../../lib/auth/sessionMigration";
+} from "../../lib/auth/session-migration";
+import type { MigrationAnomaly, SessionMigrationOutcome } from "../../lib/auth/session-migration";
 
 /**
  * `save-failed` is a *successful* login whose create-on-login replay failed. It
@@ -111,10 +111,10 @@ type SetMigration = (migration: MigrationState) => void;
 /** Redeems the token once, dropping the result if the component unmounted first.
  * A rejection is a failed login, not an unhandled promise. */
 function establishEffect(c: Collaborators, setState: SetState, setMigration: SetMigration): () => void {
-  let active = true;
-  const apply = (r: RedeemResult) => { if (active) { setMigration(r.migration); setState(r.state); } };
+  let isActive = true;
+  const apply = (r: RedeemResult) => { if (isActive) { setMigration(r.migration); setState(r.state); } };
   void redeem(c).catch((): RedeemResult => ({ state: "error", migration: undefined })).then(apply);
-  return () => { active = false; };
+  return () => { isActive = false; };
 }
 
 function useEstablishOnce(c: Collaborators, setState: SetState, setMigration: SetMigration): void {

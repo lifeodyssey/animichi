@@ -1,4 +1,4 @@
-import { useDict } from "../../i18n/context";
+import { useDict } from "../../i18n/LocaleProvider";
 import { HeroSceneCard } from "./HeroSceneCard";
 import { HeroSearch } from "./HeroSearch";
 import { ToriiMark } from "./ToriiMark";

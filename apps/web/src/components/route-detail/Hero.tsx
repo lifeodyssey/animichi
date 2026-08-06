@@ -1,5 +1,5 @@
-import { completedTotals } from "../../lib/route-detail/dataState";
-import type { RouteDataState, RouteDetail } from "../../lib/route-detail/dataState";
+import { completedTotals } from "../../lib/route-detail/data-state";
+import type { RouteDataState, RouteDetail } from "../../lib/route-detail/data-state";
 import type { RouteDetailCopy } from "../../lib/route-detail/copy";
 
 /**
