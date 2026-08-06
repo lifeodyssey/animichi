@@ -1,29 +1,40 @@
 import { useCallback, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { useLocale } from "../../i18n/context";
+import type { Locale } from "../../i18n/locales";
 import { useAuthStatus } from "../../lib/auth/session";
 import { ChatActionsProvider, sendWithOriginOf } from "./chat-actions";
 import type { ChatActions } from "./chat-actions";
-import { ChatShell } from "./components/ChatShell";
+import { ByokPanelGate, ChallengeGate, ChatIntro, ChatNotices, ChatShell, DepartureGate, DockTray, ScrollAnchor, TurnStream } from "./components/ChatShell";
+import { ChatInput } from "./components/ChatInput";
 import { currentChatConfig } from "./config";
 import { deriveEntryState, resolveRouteReference } from "./entry-state";
 import type { ChatEntryState } from "./entry-state";
 import { chatDictFor } from "./i18n";
+import type { ChatDict } from "./i18n";
 import type { PhotoGps, PhotoSearchContext } from "./photo-search";
 import type { ChatSearch } from "./search";
 import { SpotSelectionProvider, useSpotSelectionState } from "./selection/useSpotSelection";
 import { useRecomputeTurn } from "./selection/useRecomputeTurn";
+import type { RecomputeTurn } from "./selection/useRecomputeTurn";
 import { lockedRecompute, useLockedActions } from "./quota-lock";
+import type { QuotaLock } from "./quota-lock";
 import { useAutoSend } from "./use-auto-send";
 import { useByokPanel } from "./use-byok-panel";
+import type { ByokPanel } from "./use-byok-panel";
 import { useDeparturePrompt } from "./use-departure-prompt";
+import type { DeparturePromptState } from "./use-departure-prompt";
 import { useBackendHealth } from "./use-backend-health";
 import type { BackendHealth } from "./use-backend-health";
 import type { ChatSession } from "./use-chat-session";
 import { useChatSession } from "./use-chat-session";
 import { useConversationHistory } from "./use-conversation-history";
+import type { ConversationHistory } from "./use-conversation-history";
 import { maskRecomputeFailure, useTurnFailure } from "./use-turn-failure";
 import type { TurnFailureGate } from "./use-turn-failure";
+import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
 import { useTurnstileChallenge, useTurnstileReady } from "./use-turnstile-challenge";
+import type { TurnstileChallenge } from "./use-turnstile-challenge";
 import { ChatReturnTargetProvider } from "./return-target";
 
 export interface ChatPageProps {
@@ -134,10 +145,54 @@ function useChatPage(search: ChatSearch) {
 
 type PageState = ReturnType<typeof useChatPage>;
 
-function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
+/** A5 soft-lock, busy turns, and the A3 history gate all lock the composer. */
+function isInputLocked(entry: ChatEntryState, chat: ChatSession, history: ConversationHistory): boolean {
+  const busy = chat.status === "submitted" || chat.status === "streaming";
+  const historyBlocked = entry === "A3" && history.status !== "success";
+  return entry === "A5" || busy || historyBlocked;
+}
+
+/** Plain page-level assembly (not a component): the `.chat-body` order spans
+ * three regions whose state union exceeds the component prop ceiling. */
+function chatBody(entry: ChatEntryState, chat: ChatSession, history: ConversationHistory, dict: ChatDict, onSend: (text: string) => void, failure: TurnFailureView | undefined, locale: Locale, byok: ByokPanel): ReactNode {
   return (
-    <ChatShell entry={entryStateOf(search, page.health)} dict={page.dict} chat={page.chat} history={page.history} failure={page.failure} recompute={page.recompute} challenge={page.challenge} onRetry={page.health.retry} onSend={page.departure.onSend} departure={page.departure} baseUrl={page.config.baseUrl} photo={page.photo} quota={page.quota} locale={page.locale} byok={page.byok} />
+    <>
+      <ChatIntro entry={entry} chat={chat} history={history} dict={dict} onSend={onSend} />
+      <TurnStream chat={chat} dict={dict} failure={failure} locale={locale} byok={byok} />
+      <ScrollAnchor count={history.entries.length + chat.messages.length} />
+    </>
   );
+}
+
+/** Plain page-level assembly: the departure chips and the dock surfaces. */
+function chatDock(departure: DeparturePromptState, dict: ChatDict, baseUrl: string, photo: PhotoSearchContext, chat: ChatSession, recompute: RecomputeTurn): ReactNode {
+  return (
+    <>
+      <DepartureGate departure={departure} dict={dict} />
+      <DockTray dict={dict} baseUrl={baseUrl} photo={photo} chat={chat} recompute={recompute} />
+    </>
+  );
+}
+
+/** Plain page-level assembly: the BYOK panel, the input, the Turnstile hint. */
+function chatComposer(dict: ChatDict, baseUrl: string, byok: ByokPanel, challenge: TurnstileChallenge | undefined, quota: QuotaLock, onSend: (text: string) => void, disabled: boolean): ReactNode {
+  return (
+    <>
+      <ByokPanelGate dict={dict} baseUrl={baseUrl} byok={byok} />
+      <ChatInput dict={dict} disabled={disabled} quotaLocked={quota.locked} onSend={onSend} settingsOpen={byok.open} onToggleSettings={byok.toggle} />
+      <ChallengeGate dict={dict} challenge={challenge} />
+    </>
+  );
+}
+
+function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
+  const entry = entryStateOf(search, page.health);
+  return <ChatShell
+    notices={<ChatNotices entry={entry} onRetry={page.health.retry} history={page.history} dict={page.dict} />}
+    body={chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale, page.byok)}
+    dock={chatDock(page.departure, page.dict, page.config.baseUrl, page.photo, page.chat, page.recompute)}
+    composer={chatComposer(page.dict, page.config.baseUrl, page.byok, page.challenge, page.quota, page.departure.onSend, isInputLocked(entry, page.chat, page.history))}
+  />;
 }
 
 /** Publishes the live session id so every in-chat login wall can send the
