@@ -22,10 +22,10 @@ import type { Pacing, TimedItinerary, TimedStop, TransitLeg } from "../../types"
 
 /**
  * The wire shapes this kernel produces (`TimedStop` / `TransitLeg` /
- * `TimedItinerary` / `Pacing`) live in `../types` — the single in-Worker mirror
- * of `packages/contract/src/models.ts`. `import type` erases at compile time, so
- * the contract's zod runtime stays out of the Worker bundle. Re-exported here as
- * the single type source for kernel consumers.
+ * `TimedItinerary` / `Pacing`) live in `../../types` (`src/types.ts`) — the
+ * single in-Worker mirror of `packages/contract/src/models.ts`. `import type`
+ * erases at compile time, so the contract's zod runtime stays out of the Worker
+ * bundle. Re-exported here as the single type source for kernel consumers.
  */
 export type { Pacing, TimedItinerary, TimedStop, TransitLeg };
 
