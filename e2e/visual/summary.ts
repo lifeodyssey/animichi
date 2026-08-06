@@ -14,10 +14,10 @@
  *
  *   0 = every frame compared and passed
  *   1 = at least one frame failed (visual difference)
- *   2 = environment or invocation problem: no frames resolved, or at least
- *       one frame produced no comparison (app unreachable, runner blocked,
- *       missing convergence report) — fail-closed: zero compared pixels is
- *       never green.
+ *   2 = environment or invocation problem: no frames resolved, a malformed
+ *       RATIO (not a finite number in (0, 1]), or at least one frame produced
+ *       no comparison (app unreachable, runner blocked, missing convergence
+ *       report) — fail-closed: zero compared pixels is never green.
  */
 
 export type FrameStatus = "pass" | "fail" | "skipped";
@@ -50,10 +50,25 @@ export interface FrameVerdict {
 export interface Invocation {
   page: string;
   mode: string;
-  ratio: number;
+  /** Pixel budget. Null only in invocation-error records: a malformed RATIO is recorded as null with the error message, never silently coerced. */
+  ratio: number | null;
   baseUrl: string;
   runner: string;
   frames: string[];
+}
+
+/** The environment a frame verdict is judged against: how reachable the app was, where, and at what budget. */
+export interface AssessmentContext {
+  reach: Reachability;
+  appUrl: string;
+  fallbackRatio: number;
+}
+
+/** What one atom run produced: its id, the per-frame verdicts, and the run-level error (null on a clean run). */
+export interface RunOutcome {
+  runId: string;
+  verdicts: FrameVerdict[];
+  error: string | null;
 }
 
 export interface Summary {
@@ -86,6 +101,13 @@ export function parseReachability(raw: string): Reachability {
   return "app-down";
 }
 
+/** A finite pixel-budget ratio in (0, 1]; anything else is a malformed invocation (fail-fast, never NaN→null). */
+export function parseRatio(raw: string): number | null {
+  const ratio = Number(raw);
+  if (!Number.isFinite(ratio) || ratio <= 0 || ratio > 1) return null;
+  return ratio;
+}
+
 export function parseFrameReport(parsed: unknown): FrameReport | null {
   if (typeof parsed !== "object" || parsed === null) return null;
   const record = parsed as Record<string, unknown>;
@@ -111,12 +133,12 @@ function passVerdict(run: FrameRun, report: FrameReport, threshold: number): Fra
   return { frame: run.frame, status: "pass", playwrightExit: 0, ratio: report.ratio, threshold, report: `report/${run.frame}.json`, reason: "" };
 }
 
-export function assessFrame(run: FrameRun, report: FrameReport | null, reach: Reachability, appUrl: string, fallbackRatio: number): FrameVerdict {
-  const threshold = report?.threshold ?? fallbackRatio;
+export function assessFrame(run: FrameRun, report: FrameReport | null, context: AssessmentContext): FrameVerdict {
+  const threshold = report?.threshold ?? context.fallbackRatio;
   if (run.exitCode !== 0) return failVerdict(run, report, threshold, `playwright exited ${run.exitCode}`);
   if (report && !report.pass) return failVerdict(run, report, threshold, `convergence ratio ${report.ratio.toFixed(4)} > threshold ${threshold}`);
   if (report) return passVerdict(run, report, threshold);
-  return { frame: run.frame, status: "skipped", playwrightExit: 0, ratio: null, threshold, report: null, reason: skipReason(reach, appUrl) };
+  return { frame: run.frame, status: "skipped", playwrightExit: 0, ratio: null, threshold, report: null, reason: skipReason(context.reach, context.appUrl) };
 }
 
 export function verdictFor(verdicts: FrameVerdict[]): AtomExit {
@@ -131,17 +153,17 @@ function verdictCounts(verdicts: FrameVerdict[]): { passed: number; failed: numb
   return { passed: verdicts.length - failedFrames.length - skippedFrames.length, failed: failedFrames.length, skipped: skippedFrames.length, failedFrames, skippedFrames };
 }
 
-export function buildSummary(invocation: Invocation, runId: string, verdicts: FrameVerdict[], error: string | null): Summary {
-  const counts = verdictCounts(verdicts);
+export function buildSummary(invocation: Invocation, outcome: RunOutcome): Summary {
+  const counts = verdictCounts(outcome.verdicts);
   return {
-    schema: "visual-check/summary/v1", runId,
-    invocation: { ...invocation, frames: verdicts.map((v) => v.frame) },
-    total: verdicts.length, passed: counts.passed, failed: counts.failed, skipped: counts.skipped,
+    schema: "visual-check/summary/v1", runId: outcome.runId,
+    invocation: { ...invocation, frames: outcome.verdicts.map((v) => v.frame) },
+    total: outcome.verdicts.length, passed: counts.passed, failed: counts.failed, skipped: counts.skipped,
     failedFrames: counts.failedFrames, skippedFrames: counts.skippedFrames,
-    frames: verdicts, exitCode: verdictFor(verdicts), error,
+    frames: outcome.verdicts, exitCode: verdictFor(outcome.verdicts), error: outcome.error,
   };
 }
 
 export function invocationErrorSummary(invocation: Invocation, runId: string, message: string): Summary {
-  return buildSummary(invocation, runId, [], message);
+  return buildSummary(invocation, { runId, verdicts: [], error: message });
 }

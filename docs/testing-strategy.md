@@ -526,12 +526,21 @@ regression) is exposed as a parameterized, re-entrant task atom:
 - `make visual-check PAGE=landing MODE=night` — one frame; `PAGE` accepts a
   full frame key or a partial key resolved against `MODE`.
 - `make visual-check RATIO=0.05` — loosen the pixel budget; `RATIO` is the
-  threshold config, default `0.01`.
-- `make visual-check-self-test` — shell-boundary contract check: runs the
-  atom with no `PAGE` (every frame) and asserts each frame has a report, all
-  verdicts are `pass`, and `summary.exitCode` is `0`. Loose budget on purpose
-  (contract, not convergence — that is C4). Needs docker + a reachable app;
-  fails closed otherwise.
+  threshold config, default `0.01`, must be a finite number in `(0, 1]` (a
+  malformed value fails fast with `exitCode: 2` + `error`, never a silent
+  `NaN`→`null`).
+- `make visual-check-self-test` — shell-boundary contract check, three
+  phases: (1) multi-frame — runs the atom with no `PAGE` (every frame) and
+  asserts each frame has a report, all verdicts are `pass`, and
+  `summary.exitCode` is `0`; (2) invocation — a malformed `RATIO` fails fast
+  with a fresh `exitCode: 2` summary; (3) host-arm — with docker unavailable
+  and no resolvable Playwright binary, the host arm fails fast with an
+  environment summary instead of a bare "command not found". Loose budget on
+  purpose (contract, not convergence — that is C4). Needs docker + a
+  reachable app; fails closed otherwise.
+- The docker arm runs Playwright in the image with `e2e/node_modules`; the
+  host arm resolves Playwright from `e2e/node_modules` first, then the
+  workspace root, and fails fast (environment summary) if neither exists.
 
 Contract (inputs/outputs):
 
@@ -548,9 +557,10 @@ Contract (inputs/outputs):
   produced").
   `summary.exitCode` has three states: `0` every frame compared and passed ·
   `1` at least one visual diff (`failedFrames`) ·
-  `2` environment or invocation problem (unknown `PAGE`, or a frame produced
-  no comparison — app unreachable, runner blocked — **fail-closed: zero
-  compared pixels is never green**). `scripts/visual-check.sh` exits 0/1/2
+  `2` environment or invocation problem (unknown `PAGE`, malformed `RATIO`,
+  or a frame produced no comparison — app unreachable, runner blocked —
+  **fail-closed: zero compared pixels is never green**).
+  `scripts/visual-check.sh` exits 0/1/2
   directly; via `make` GNU make remaps any recipe failure to its own exit `2`
   (still nonzero), so the 1-vs-2 distinction lives in the JSON, not in make's
   exit code.

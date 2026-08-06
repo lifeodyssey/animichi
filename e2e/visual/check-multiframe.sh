@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Multi-frame shell-boundary check for the visual task atom (S0-v2 F2).
+# Shell-boundary contract check for the visual task atom (S0-v2 F2).
 #
 # The unit layer (summary.spec.ts) proves the pure contract but cannot catch a
 # per-frame lifecycle bug in the wrapper: when the report/ clear ran INSIDE
@@ -7,11 +7,19 @@
 # but the last was reported "no convergence report produced" — a false
 # verdict. That only shows up on a real all-frames run, at the shell boundary.
 #
-# This check runs the atom WITHOUT PAGE (every frame in the registry) and
-# asserts the contract end-to-end:
+# Phase 1 — multi-frame contract: runs the atom WITHOUT PAGE (every frame in
+# the registry) and asserts:
 #   1. summary.json says exitCode 0 (every frame compared and passed)
 #   2. every resolved frame appears in summary.frames with status "pass"
 #   3. every resolved frame has its report/<frame>.json on disk
+#
+# Phase 2 — invocation contract: a malformed RATIO must fail fast (exit 2)
+# with a fresh summary recording the error — never a silent pass, and never a
+# NaN that serializes to a null ratio inside the JSON.
+#
+# Phase 3 — host-arm contract: with docker unavailable and no resolvable
+# Playwright binary, the host arm must fail fast with an environment summary
+# (exit 2), not a bare "command not found" that leaves no contract record.
 #
 # The budget is loose (default 0.9999) ON PURPOSE: this check verifies the
 # atom's contract, not frame convergence — converging the frames to the
@@ -42,15 +50,16 @@ FRAME_KEYS="$(node --no-warnings --experimental-strip-types "$VISUAL_DIR/frames-
 
 FRAMES=""
 while IFS= read -r frame; do
-  [ -n "$frame" ] && FRAMES="$FRAMES $frame"
+  [[ -n "$frame" ]] && FRAMES="$FRAMES $frame"
 done <<< "$FRAME_KEYS"
 
 echo "check-multiframe: frames:${FRAMES}  RATIO=$RATIO  BASE_URL=$BASE_URL"
 
+# Phase 1 — every frame compared and passed.
 ATOM_EXIT=0
 VISUAL_PAGE="" VISUAL_RATIO="$RATIO" E2E_WEB_BASE_URL="$BASE_URL" \
   bash "$REPO_ROOT/scripts/visual-check.sh" || ATOM_EXIT=$?
-if [ "$ATOM_EXIT" -gt 2 ]; then
+if [[ "$ATOM_EXIT" -gt 2 ]]; then
   echo "check-multiframe FAIL: atom exited $ATOM_EXIT (contract says 0/1/2)" >&2
   exit 1
 fi
@@ -79,5 +88,52 @@ if (problems.length > 0) {
   console.error("check-multiframe FAIL:\n  " + problems.join("\n  "));
   process.exit(1);
 }
-console.log("check-multiframe PASS: every frame has a report, all pass, exitCode 0");
-' "$REPORT_DIR/summary.json" "$REPORT_DIR" $FRAMES
+console.log("check-multiframe PASS (phase 1): every frame has a report, all pass, exitCode 0");
+' "$REPORT_DIR/summary.json" "$REPORT_DIR" $FRAMES || exit 1
+
+# Phase 2 — a malformed RATIO fails fast with a fresh error summary.
+BAD_RATIO_EXIT=0
+VISUAL_PAGE="" VISUAL_RATIO="oops" E2E_WEB_BASE_URL="$BASE_URL" \
+  bash "$REPO_ROOT/scripts/visual-check.sh" || BAD_RATIO_EXIT=$?
+if [[ "$BAD_RATIO_EXIT" -ne 2 ]]; then
+  echo "check-multiframe FAIL: malformed RATIO exited $BAD_RATIO_EXIT (expected 2)" >&2
+  exit 1
+fi
+node --no-warnings -e '
+const fs = require("node:fs");
+const summary = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+const problems = [];
+if (summary.exitCode !== 2) problems.push(`summary.exitCode=${summary.exitCode} (expected 2)`);
+if (!summary.error || !/ratio/i.test(summary.error)) problems.push(`summary.error=${summary.error} (expected a ratio error)`);
+if (summary.invocation.ratio !== null) problems.push(`summary.invocation.ratio=${summary.invocation.ratio} (expected null for a malformed RATIO)`);
+if (problems.length > 0) {
+  console.error("check-multiframe FAIL (phase 2):\n  " + problems.join("\n  "));
+  process.exit(1);
+}
+console.log("check-multiframe PASS (phase 2): malformed RATIO fails fast, exitCode 2, error recorded");
+' "$REPORT_DIR/summary.json" || exit 1
+
+# Phase 3 — host arm with no resolvable Playwright binary fails fast.
+HOST_FAIL_EXIT=0
+VISUAL_PLAYWRIGHT_BIN="$REPO_ROOT/e2e/.nonexistent-playwright-bin" \
+VISUAL_PAGE="landing" E2E_WEB_BASE_URL="$BASE_URL" \
+  PATH="$REPO_ROOT/e2e/.stub-bin:$PATH" \
+  bash "$REPO_ROOT/scripts/visual-check.sh" || HOST_FAIL_EXIT=$?
+if [[ "$HOST_FAIL_EXIT" -ne 2 ]]; then
+  echo "check-multiframe FAIL: host arm with missing playwright exited $HOST_FAIL_EXIT (expected 2)" >&2
+  exit 1
+fi
+node --no-warnings -e '
+const fs = require("node:fs");
+const summary = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+const problems = [];
+if (summary.exitCode !== 2) problems.push(`summary.exitCode=${summary.exitCode} (expected 2)`);
+if (!summary.error || !/playwright/i.test(summary.error)) problems.push(`summary.error=${summary.error} (expected a playwright-path error)`);
+if (problems.length > 0) {
+  console.error("check-multiframe FAIL (phase 3):\n  " + problems.join("\n  "));
+  process.exit(1);
+}
+console.log("check-multiframe PASS (phase 3): host arm fails fast when no playwright binary resolves");
+' "$REPORT_DIR/summary.json" || exit 1
+
+echo "check-multiframe PASS: all contract phases green"

@@ -17,7 +17,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  assessFrame, buildSummary, invocationErrorSummary, parseFrameReport, parseFrameRuns, parseReachability,
+  assessFrame, buildSummary, invocationErrorSummary, parseFrameReport, parseFrameRuns, parseRatio, parseReachability,
   type FrameReport, type FrameRun, type FrameVerdict, type Invocation, type Reachability, type Summary,
 } from "./summary.ts";
 
@@ -26,7 +26,7 @@ const REPORT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "repo
 interface CliArgs {
   page: string;
   mode: string;
-  ratio: number;
+  ratio: number | null;
   baseUrl: string;
   runner: string;
   reachability: Reachability;
@@ -43,7 +43,7 @@ function flagValue(argv: string[], flag: string, fallback: string): string {
 function parseArgs(argv: string[]): CliArgs {
   return {
     page: flagValue(argv, "--page", ""), mode: flagValue(argv, "--mode", "day"),
-    ratio: Number.parseFloat(flagValue(argv, "--ratio", "0.01")), baseUrl: flagValue(argv, "--base-url", "http://localhost:3000"),
+    ratio: parseRatio(flagValue(argv, "--ratio", "0.01")), baseUrl: flagValue(argv, "--base-url", "http://localhost:3000"),
     runner: flagValue(argv, "--runner", "host"), reachability: parseReachability(flagValue(argv, "--reachability", "app-down")),
     runId: flagValue(argv, "--run-id", new Date().toISOString()), error: flagValue(argv, "--error", ""),
     frames: parseFrameRuns(flagValue(argv, "--frames", "")),
@@ -64,8 +64,9 @@ function invocationOf(args: CliArgs): Invocation {
   return { page: args.page, mode: args.mode, ratio: args.ratio, baseUrl: args.baseUrl, runner: args.runner, frames: [] };
 }
 
-function verdictsOf(args: CliArgs): FrameVerdict[] {
-  return args.frames.map((run) => assessFrame(run, readFrameReport(run.frame), args.reachability, args.baseUrl, args.ratio));
+function verdictsOf(args: CliArgs, fallbackRatio: number): FrameVerdict[] {
+  const context = { reach: args.reachability, appUrl: args.baseUrl, fallbackRatio };
+  return args.frames.map((run) => assessFrame(run, readFrameReport(run.frame), context));
 }
 
 function writeSummary(summary: Summary): void {
@@ -73,17 +74,32 @@ function writeSummary(summary: Summary): void {
   writeFileSync(path.join(REPORT_DIR, "summary.json"), `${JSON.stringify(summary, null, 2)}\n`);
 }
 
+function verdictLine(summary: Summary): string {
+  if (summary.error) return summary.error;
+  if (summary.failedFrames.length > 0) return `FAILED ${summary.failedFrames.join(", ")}`;
+  if (summary.skipped > 0) return "unverified — fail-closed";
+  return "all green";
+}
+
 function printVerdict(summary: Summary): void {
-  const verdict = summary.error ?? (summary.failedFrames.length > 0 ? `FAILED ${summary.failedFrames.join(", ")}` : summary.skipped > 0 ? "unverified — fail-closed" : "all green");
-  console.log(`visual-check: ${summary.passed}/${summary.total} passed — ${verdict} (run ${summary.runId}; e2e/visual/report/summary.json)`);
+  console.log(`visual-check: ${summary.passed}/${summary.total} passed — ${verdictLine(summary)} (run ${summary.runId}; e2e/visual/report/summary.json)`);
 }
 
 function main(): void {
-  const args = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  const args = parseArgs(argv);
+  if (args.ratio === null) {
+    const message = `invalid --ratio '${flagValue(argv, "--ratio", "0.01")}' (expected a finite number, 0 < ratio <= 1)`;
+    const summary = invocationErrorSummary(invocationOf(args), args.runId, message);
+    writeSummary(summary);
+    printVerdict(summary);
+    process.exitCode = 2;
+    return;
+  }
   const invocation = invocationOf(args);
   const summary = args.error
     ? invocationErrorSummary(invocation, args.runId, args.error)
-    : buildSummary(invocation, args.runId, verdictsOf(args), null);
+    : buildSummary(invocation, { runId: args.runId, verdicts: verdictsOf(args, args.ratio), error: null });
   writeSummary(summary);
   printVerdict(summary);
   process.exitCode = summary.exitCode;
