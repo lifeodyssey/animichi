@@ -241,6 +241,11 @@ def lane_failures(
     check: ConfigCheck, workflow_docs: dict[Path, YamlMap]
 ) -> tuple[str, ...]:
     path = check_workflow_path(check)
+    if path not in workflow_docs:
+        raise MetaCheckError(
+            f"{check.path}: component '{check.component}' is registered to "
+            f"{path.name}, which does not exist in {WORKFLOWS_DIR}"
+        )
     patterns = validate_lane_triggers(workflow_docs[path], str(path), check)
     return filter_failures(
         check, PathFilter(EVENT, f"on.{EVENT}.paths", patterns, path)

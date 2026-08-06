@@ -74,19 +74,17 @@ def test_agent_behavior_filter_scopes_to_prompt_model_guardrail_files() -> None:
 
 
 def _push_paths(source: str) -> list[str]:
-    in_paths = False
-    paths: list[str] = []
-    for line in source.splitlines():
-        if line == "    paths:":
-            in_paths = True
-            continue
-        if in_paths:
-            if line.startswith("      - "):
-                paths.append(line[8:].strip().strip('"'))
-            else:
-                break
-    assert paths, "missing push paths entries"
-    return paths
+    on = _top_level_block(source, "on")
+    push = re.search(
+        r"(?ms)^  push:\s*$\n(?P<body>.*?)(?=^[a-zA-Z0-9_-]+:\s*$|\Z)",
+        on,
+    )
+    assert push is not None, "missing on.push block"
+    paths = re.search(r"(?ms)^    paths:\s*$\n(?P<body>.*)$", push["body"])
+    assert paths is not None, "missing push paths block"
+    entries = re.findall(r"(?m)^      - (.+)$", paths["body"])
+    assert entries, "missing push paths entries"
+    return [entry.strip('"') for entry in entries]
 
 
 def test_agent_behavior_filter_is_narrower_than_the_full_agent_filter() -> None:

@@ -66,16 +66,19 @@ pipelines.each do |file, contexts|
   path = ".github/workflows/#{file}"
   workflow = YAML.safe_load(File.read(path))
   on = triggers(workflow, file)
-  abort "#{file} must not path-filter pull_request (merge_group compat)" if on.fetch("pull_request").is_a?(Hash) && on.fetch("pull_request").key?("paths")
+  abort "#{file} must declare a pull_request trigger" unless on.key?("pull_request")
+  pull_request = on.fetch("pull_request")
+  abort "#{file} must not path-filter pull_request (merge_group compat)" if pull_request.is_a?(Hash) && pull_request.key?("paths")
   abort "#{file} must trigger on merge_group" unless on.key?("merge_group")
   merge_group = on.fetch("merge_group")
   abort "#{file} merge_group must target main" unless merge_group.is_a?(Hash) && Array(merge_group.fetch("branches")) == ["main"]
+  abort "#{file} must declare a push trigger" unless on.key?("push")
   push = on.fetch("push")
   abort "#{file} push must target main with paths" unless push.is_a?(Hash) && Array(push.fetch("branches")) == ["main"] && push.key?("paths")
   abort "#{file} must declare top-level permissions" unless workflow.key?("permissions")
   abort "#{file} must declare concurrency" unless workflow.key?("concurrency")
 
-  names = workflow.fetch("jobs").values.map { |job| job.fetch("name") }
+  names = workflow.fetch("jobs").map { |job_id, job| job.fetch("name", job_id) }
   missing = contexts - names
   abort "#{file} is missing stage contexts: #{missing.join(', ')}" unless missing.empty?
 end

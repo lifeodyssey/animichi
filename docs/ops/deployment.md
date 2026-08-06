@@ -316,19 +316,20 @@ On a push to `main`, the current promotion chain is:
    whole `*-gate` layer are retired; required checks land on real job names. The credentialed
    verify lanes (`Agent Eval (L0 smoke, ~80 cases)`, `Python integration (Neon)`, `Catalog spikes
    (Neon)`) remain in `ci.yml` and are never required; they self-gate with step-level dorny
-   filters. NOTE (status as of S0-v2 B4): the repository ruleset has NOT yet been flipped —
-   the target declaration lives in `docs/iterations/s0v2/ruleset-target.json`, and the
-   orchestrator applies it as a single hard-switch PUT at merge time. After that PUT the ruleset
-   will require 35 contexts: the 23 new contexts (22 package stages — `Agent`/`Catalog`/`Users`/
+   filters. STATUS (as of 2026-08-06): the repository ruleset has been flipped — the
+   orchestrator executed the one-shot hard-switch PUT (9 → 35 required contexts; the 6 retired
+   gate contexts were deleted in the same PUT; `enforcement=active`, `bypass_actors=[]`;
+   verified via `gh api repos/lifeodyssey/animichi/rulesets/19974534`). The ruleset now requires
+   the 35 contexts declared in `docs/iterations/s0v2/ruleset-target.json` (a live-state
+   snapshot, not a target): the 23 new contexts (22 package stages — `Agent`/`Catalog`/`Users`/
    `Maintenance`/`Edge`/`Contract` lint+test+build, `Infra` lint+test, `DB` lint+build — plus the
    `Quality / invariants` meta lane (`pipeline-quality.yml` — the unfiltered fixed point that
    also carries the repo-hygiene checks and the CI contract test)), the three
-   `Web / lint|test|build` contexts B1 already required, and the 9 `Security / *` contexts (which
-   additionally require ci.yml to gain a `merge_group` trigger in the same batch, or they must
-   stay recommended — see the declaration file's `_check_gates`). `Infra / build` is deferred out
-   of that PUT: it was red on main HEAD at flip time (R2 state-backend 401, credentials being
-   re-issued) and its preview steps are path-gated on PRs; re-add it once the lane is
-   consecutively green.
+   `Web / lint|test|build` contexts B1 already required, and the 9 `Security / *` contexts
+   (ci.yml declares a `merge_group` trigger, so queue runs produce them). `Infra / build` is
+   deferred out of the required set: the new `pipeline-infra.yml` lane was red at flip time (R2
+   state-backend 401, credentials since re-issued) and its preview steps are path-gated on PRs;
+   re-add it once the lane is consecutively green.
    BACKLOG (not part of the B4 PUT): the 95% changed-line verdict. `codecov/patch` is not a
    required status today — neither in the live ruleset nor in the B4 target — and the retired
    `Codecov Patch` lane was only the upload/policy precondition, not the changed-line gate.
