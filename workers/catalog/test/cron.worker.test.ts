@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "../src/cron-config";
 import {
-  SEED_CRON,
-  TTL_BATCH_CAP,
-  TTL_REFRESH_CRON,
   createScheduledHandler,
   runSeedJob,
   runTtlJob,

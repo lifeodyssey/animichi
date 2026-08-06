@@ -9,6 +9,10 @@ Root guide: `../../AGENTS.md`.
 - pnpm. `pnpm run dev` (`wrangler dev`, local) — never `wrangler deploy` (hook `block-local-deploy`).
 - `pnpm test` (`test:worker` + `test:spike`) · `pnpm run typecheck` (TypeScript 7.0.2) ·
   `pnpm run lint:oxlint` (type-aware, strict, warnings denied). ESLint is gone.
+- `pnpm run test:smoke` — boots the real deploy bundle in workerd and asserts
+  `/healthz` 200. The worker pool evaluates unbundled modules, so bundle-only
+  startup failures (the StringChunk TDZ, 2026-08-05) are invisible to it — this
+  gate exists for exactly that class of bug. Runs in CI as `catalog-startup-smoke`.
 
 ## Stack (per the ADR)
 

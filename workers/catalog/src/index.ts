@@ -5,6 +5,7 @@ import { catalogRouter } from "./router";
 import type { CatalogDb, NeonSql } from "./db/client";
 import { ingestWork as runOrchestratorIngest } from "./ingest/orchestrator";
 import type { IngestResult as OrchestratorIngestResult } from "./ingest/orchestrator";
+import { SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "./cron-config";
 import { listDoneWorkIds, listStaleWorkIds } from "./ingest/cron-queries";
 import { SEED_WORK_IDS, SEED_WORKS } from "./ingest/seed-works";
 import { serveImage } from "./media/img";
@@ -126,14 +127,9 @@ export class IngestEntrypoint extends WorkerEntrypoint<Env> {
 // Scheduled ingestion (S0-v2 D4) — Cron Triggers. Shape mirrors
 // workers/maintenance/src/index.ts: a fail-closed cron-string dispatcher with
 // injectable dependencies, tested with a fake controller/DB in the worker pool.
+// Schedule constants live in src/cron-config.ts (the entry module must not
+// export primitives — workerd rejects them at boot).
 // ---------------------------------------------------------------------------
-
-/** Daily seed pass — pre-populate the catalog from the checked-in work list. */
-export const SEED_CRON = "0 4 * * *";
-/** Hourly TTL refresh — re-ingest the stalest raw works, capped per run. */
-export const TTL_REFRESH_CRON = "17 * * * *";
-/** TTL refresh batch cap — one run never ingests more works than this. */
-export const TTL_BATCH_CAP = 5;
 
 interface ScheduledInput {
   readonly cron: string;

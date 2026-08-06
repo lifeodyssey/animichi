@@ -150,6 +150,29 @@ jobs:
     with:
       component: catalog
 
+  # Boots the REAL deploy bundle in workerd (wrangler dev + /healthz). The
+  # vitest worker pool evaluates unbundled modules, so bundle-only startup
+  # failures (the StringChunk TDZ that blocked staging deploys, 2026-08-05)
+  # are invisible to every unit test — only a bundled boot catches them.
+  catalog-startup-smoke:
+    name: Catalog startup smoke (bundled boot)
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.catalog == 'true' }}
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+
+      - name: Startup smoke (bundled Worker boot + /healthz)
+        run: pnpm run test:smoke
+        working-directory: workers/catalog
+
   ci-users:
     name: Users CI
     needs: changes
@@ -558,7 +581,7 @@ jobs:
   backend-ci-gate:
     timeout-minutes: 5
     name: Backend CI
-    needs: [changes, ci-catalog, ci-users, ci-maintenance, contract-openapi-drift, ci-worker]
+    needs: [changes, ci-catalog, ci-users, ci-maintenance, contract-openapi-drift, ci-worker, catalog-startup-smoke]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -574,6 +597,7 @@ jobs:
             ${{ needs.ci-maintenance.result }}
             ${{ needs.contract-openapi-drift.result }}
             ${{ needs.ci-worker.result }}
+            ${{ needs.catalog-startup-smoke.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Backend CI" "$STATUSES"
 
   agent-ci-gate:
