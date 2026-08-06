@@ -42,8 +42,17 @@ def shanghai_tz() -> tzinfo:
         return timezone(timedelta(hours=8))
 
 
+def ref_exists(repo: str, ref: str) -> bool:
+    r = subprocess.run(
+        ["git", "-C", repo, "rev-parse", "--verify", "--quiet", ref],
+        capture_output=True,
+        text=True,
+    )
+    return r.returncode == 0
+
+
 def default_ref(repo: str) -> str:
-    if git(repo, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"):
+    if ref_exists(repo, "refs/remotes/origin/main"):
         return "origin/main"
     return "main"
 
@@ -112,17 +121,21 @@ def build_synthetic_history(
         msg = f"daily squash {day} ({len(shas)} commits)"
         head = synthetic_commit(repo, tree, head, msg, commit_env(name, email, ts))
         counts[day] = len(shas)
-    assert head is not None
+    if head is None:
+        raise RuntimeError("empty bucket map — no synthetic head")
     return head, counts
 
 
 def trees_identical(repo: str, old: str, new: str) -> bool:
+    # --quiet --exit-code: 0 identical, 1 differ, 2 error (not "always 0")
     diff = subprocess.run(
-        ["git", "-C", repo, "diff", old, new],
+        ["git", "-C", repo, "diff", "--quiet", "--exit-code", old, new],
         capture_output=True,
         text=True,
     )
-    return diff.returncode == 0
+    if diff.returncode in (0, 1):
+        return diff.returncode == 0
+    raise RuntimeError(f"git diff failed ({diff.returncode}): {diff.stderr.strip()}")
 
 
 def densest(counts: dict[str, int], top: int = 5) -> list[tuple[str, int]]:
@@ -134,7 +147,7 @@ def make_branch(repo: str, sha: Sha, branch: str) -> None:
 
 
 def make_dry_run_branch(repo: str, head: Sha) -> str:
-    branch = f"dry-run/daily-squash-{int(time.time())}"
+    branch = f"dry-run/daily-squash-{time.time_ns()}-{os.getpid()}"
     make_branch(repo, head, branch)
     return branch
 
