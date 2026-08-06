@@ -616,3 +616,7 @@ After the old feat/ssr-cloudflare merge, operators used these checks:
    ```sql
    SELECT city, count(*) FROM points GROUP BY city ORDER BY count DESC LIMIT 10;
    ```
+
+## Neon topology
+
+See [neon-env-topology.md](./neon-env-topology.md) (N3 / #859).
