@@ -26,6 +26,7 @@ ALLOWED_ROOT_ENTRIES=(
   .sqlfluff
   AGENTS.md
   CLAUDE.md
+  CONTEXT-MAP.md
   Dockerfile
   Makefile
   README.ja.md
