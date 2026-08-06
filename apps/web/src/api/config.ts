@@ -46,11 +46,14 @@ export function resolveOrigin(
 
 function missingOriginError(): Error {
   return new Error(
-    "VITE_SITE_ORIGIN is unset and no SSR request context is available; refusing to let catalog/users requests silently target this app itself",
+    "VITE_SITE_ORIGIN is unset and no SSR request context is available; refusing to let API requests silently target this app itself",
   );
 }
 
 export function resolveApiConfig(env: Env, location?: { readonly origin: string }): ApiConfig {
+  if (env.VITE_CATALOG_URL !== undefined && env.VITE_USERS_URL !== undefined) {
+    return { catalogUrl: env.VITE_CATALOG_URL, usersUrl: env.VITE_USERS_URL };
+  }
   const origin = resolveOrigin(env, location);
   return {
     catalogUrl: env.VITE_CATALOG_URL ?? origin,
