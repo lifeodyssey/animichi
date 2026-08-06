@@ -8,16 +8,19 @@ on:
 
 permissions:
   contents: read
-  # dorny/paths-filter lists PR commits/files via the API; a bare contents-read
-  # block zeroes that scope and the filter dies with
-  # "Resource not accessible by integration" (2026-07-28).
-  pull-requests: read
 
 jobs:
   cross-stack-e2e:
     timeout-minutes: 30
     name: Cross-stack E2E runner
     runs-on: ubuntu-latest
+    # dorny/paths-filter lists PR commits/files via the API; the workflow-level
+    # `contents: read` zeroes that scope and the filter dies with "Resource not
+    # accessible by integration" (2026-07-28), so the job re-requests the scope
+    # itself (B7 least-privilege pattern, same as the security job).
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
