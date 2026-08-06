@@ -132,6 +132,15 @@ Required:
   the production Worker, so a `wrangler deploy` without `--env` would otherwise publish to
   production with no `APP_ENV` and silently deindex the site.
 
+- `EDGE_SHOWCASE_MODE` — edge-only `[vars]` (NOT forwarded to the container, NOT a GitHub secret),
+  the worker-side half of "prod is a landing-only showcase" (GOAL C): `"true"` (production) makes
+  every functional route (`/v1/*`, `/v1/users/*`, the public catalog read) answer 403
+  `showcase_denied` before any binding is touched, while `/healthz`, `/img/*`, `/tiles/*` stay
+  reachable. Strict boolean like `VITE_SHOWCASE_MODE`: only the literal `"false"` opens the
+  backend — unset/empty/malformed values fail closed (deny) with a one-per-isolate warning. Pinned
+  by `workers/edge/containerEnv.test.ts`; the post-deploy smoke gate parses it from `wrangler.toml`
+  and asserts the denial as a permanent CI check.
+
 Production is temporarily MiMo-only while the DeepSeek account has insufficient balance. After
 recharging DeepSeek, set `FALLBACK_AGENT_MODEL=deepseek:deepseek-v4-flash` to re-enable the already
 provisioned fallback path.

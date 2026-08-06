@@ -105,6 +105,7 @@ function fakeGuard() {
 function env(guard: ReturnType<typeof fakeGuard>): Env {
   return {
     EDGE_GUARD: guard,
+    EDGE_SHOWCASE_MODE: "false",
     AUTH_RATE_LIMIT: "1",
     CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
   } as unknown as Env;

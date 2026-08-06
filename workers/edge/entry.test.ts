@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { URL, fileURLToPath } from "node:url";
 import { createWorkerApp, catalogOutbound } from "./app.ts";
 import { buildContainerEnvVars } from "./container-env.ts";
 
@@ -46,6 +46,7 @@ void test("a real private catalog endpoint is unreachable and never touches the 
 
 function environmentWithCatalog(captured: { req?: Request }) {
   return {
+    EDGE_SHOWCASE_MODE: "false",
     CATALOG: { fetch: (r: Request) => { captured.req = r; return Promise.resolve(new Response("cat")); } },
   } as never;
 }
@@ -140,6 +141,7 @@ const alwaysAllowGuard = {
 
 function environmentWithContainer(captured: { req?: Request }) {
   return {
+    EDGE_SHOWCASE_MODE: "false",
     EDGE_GUARD: alwaysAllowGuard,
     CONTAINER: {
       idFromName: () => "id",
@@ -210,6 +212,7 @@ void test("/v1/users/routes -> USERS with Authorization intact, no container or 
   const authenticate = () => { wasAuthCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
   const app = createWorkerApp({ authenticate });
   const env = {
+    EDGE_SHOWCASE_MODE: "false",
     USERS: { fetch: (req: Request) => { hasReceived = req; return Promise.resolve(new Response("users")); } },
     CONTAINER: {
       idFromName: () => "id",
@@ -227,6 +230,7 @@ void test("/v1/users/routes bypasses a rejecting authenticate stub", async () =>
   let hasReceived = false;
   const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
   const env = {
+    EDGE_SHOWCASE_MODE: "false",
     USERS: { fetch: () => { hasReceived = true; return Promise.resolve(new Response("users")); } },
   } as never;
   const res = await app.request("/v1/users/routes", {}, env, stubCtx);

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
 
 const SECRET = "fixed-test-hmac-key-0000000000000000";
-const ANON_ENV = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET };
+const ANON_ENV = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET, EDGE_SHOWCASE_MODE: "false" };
 
 const stubCtx = {
   waitUntil(promise: Promise<unknown>) { void promise; },

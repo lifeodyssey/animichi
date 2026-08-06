@@ -18,6 +18,7 @@ const ANON_ENV = {
   ANON_ACCESS_ENABLED: "true",
   ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000",
   TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
+  EDGE_SHOWCASE_MODE: "false",
 };
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 const SOLVED = "solved-token";

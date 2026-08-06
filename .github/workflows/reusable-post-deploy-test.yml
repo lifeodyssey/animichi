@@ -30,10 +30,13 @@ name: post-deploy-test
 # with (post-staging always passes suite: api, post-prod always passes
 # suite: smoke), which silently dropped several assertions from whichever
 # gate actually runs in CI. Every non-environment-specific check below now
-# runs for every suite value; only the anonymous-access check branches, and
-# it branches on `environment` (the property that actually determines the
-# expected behavior — ANON_ACCESS_ENABLED differs by environment, not by
-# suite name), not on `suite`.
+# runs for every suite value; two things branch, and both branch on
+# `environment` (the property that actually determines the expected behavior,
+# not the suite name): the anonymous-access check (ANON_ACCESS_ENABLED
+# differs by environment), and every functional-route probe's expected status
+# (the edge showcase gate — EDGE_SHOWCASE_MODE, read from wrangler.toml in
+# the Resolve step — denies /v1/*, /v1/users/* and the public catalog read
+# with 403 showcase_denied in showcase environments like production).
 
 on:
   workflow_call:
@@ -133,6 +136,19 @@ jobs:
           echo "root_url=$root_url" >> "$GITHUB_OUTPUT"
           echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
           echo "Resolved root_url=$root_url web_url=$web_url"
+          # Showcase-mode gate (S0-v2 GOAL C / C9): read the environment's
+          # EDGE_SHOWCASE_MODE from wrangler.toml — the SAME file `wrangler
+          # deploy --env <environment>` publishes from — so the probes below
+          # assert the contract the deployment actually carries, and a config
+          # that lost the key (or carries a malformed value) fails here
+          # LOUDLY instead of the probes guessing. Parsed by
+          # .github/scripts/edge-showcase-mode.sh (a real script precisely
+          # so the parse is covered by post-deploy-assert-probes.test.sh
+          # against this same file — the earlier inline awk sliced
+          # [env.<environment>] and exited at the [env.<environment>.vars]
+          # header before finding anything).
+          edge_showcase_mode="$(bash .github/scripts/edge-showcase-mode.sh wrangler.toml "${ENVIRONMENT}")"
+          echo "EDGE_SHOWCASE_MODE=${edge_showcase_mode}" >> "$GITHUB_ENV"
 
       # ── checks that run for every suite/environment (issue #484 P1-2:
       # every invocation of this workflow is a real gate, so every
@@ -153,32 +169,36 @@ jobs:
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh healthz
 
-      - name: "edge rejects an invalid bearer token (401)"
+      - name: "edge rejects an invalid bearer token (401; 403 showcase_denied in showcase mode)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
+          EDGE_SHOWCASE_MODE: ${{ env.EDGE_SHOWCASE_MODE }}
         run: bash .github/scripts/post-deploy-assert.sh auth-probe
 
-      - name: "USERS service binding reachable through the edge"
+      - name: "USERS service binding reachable through the edge (denied wholesale in showcase mode)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
+          EDGE_SHOWCASE_MODE: ${{ env.EDGE_SHOWCASE_MODE }}
         run: bash .github/scripts/post-deploy-assert.sh users-probe
 
-      - name: "catalog reachable via CATALOG service binding (Neon)"
+      - name: "catalog reachable via CATALOG service binding (Neon) (denied in showcase mode)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
+          EDGE_SHOWCASE_MODE: ${{ env.EDGE_SHOWCASE_MODE }}
         run: bash .github/scripts/post-deploy-assert.sh catalog-probe
 
-      - name: "agent's own Postgres connection is live (data plane)"
+      - name: "agent's own Postgres connection is live (data plane) (denied in showcase mode)"
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
+          EDGE_SHOWCASE_MODE: ${{ env.EDGE_SHOWCASE_MODE }}
         run: bash .github/scripts/post-deploy-assert.sh data-plane-probe
 
       # ── environment-gated: ANON_ACCESS_ENABLED differs by environment,
@@ -191,10 +211,11 @@ jobs:
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
         run: bash .github/scripts/post-deploy-assert.sh anon-gate-staging
 
-      - name: "anonymous access stays off (production)"
+      - name: "anonymous access stays off (production) (403 showcase_denied in showcase mode)"
         if: ${{ inputs.environment == 'production' }}
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
+          EDGE_SHOWCASE_MODE: ${{ env.EDGE_SHOWCASE_MODE }}
         run: bash .github/scripts/post-deploy-assert.sh anon-disabled-production

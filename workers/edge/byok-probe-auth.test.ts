@@ -22,6 +22,7 @@ function env(containerFetch: () => Promise<Response>): { env: Env; callCount: ()
     return containerFetch();
   };
   const e = {
+    EDGE_SHOWCASE_MODE: "false",
     CONTAINER: { idFromName: () => "id", get: () => ({ fetch: wrapped }) },
   } as unknown as Env;
   return { env: e, callCount: () => calls };

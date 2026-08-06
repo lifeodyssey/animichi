@@ -47,6 +47,7 @@ function environmentWith(captured: { requests: Request[] }, anonEnabled: boolean
           TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
         }
       : {}),
+    EDGE_SHOWCASE_MODE: "false",
     EDGE_GUARD: fakeGuard(),
     CONTAINER: {
       idFromName: () => "id",
@@ -80,7 +81,7 @@ void test("authed /v1/photo-search forwards with worker identity, byok stripped,
 
 void test("unauthenticated /v1/photo-search with anon disabled -> 401, container not hit", async () => {
   const app = createWorkerApp({
-    authenticate: () => Promise.resolve({ ok: false }),
+    authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
     turnstileGate: passingGate,
   });
   const cap = { requests: [] as Request[] };
@@ -91,7 +92,7 @@ void test("unauthenticated /v1/photo-search with anon disabled -> 401, container
 
 void test("unauthenticated /v1/photo-search with anon enabled -> minted anonymous identity", async () => {
   const app = createWorkerApp({
-    authenticate: () => Promise.resolve({ ok: false }),
+    authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
     turnstileGate: passingGate,
   });
   const cap = { requests: [] as Request[] };
@@ -105,7 +106,7 @@ void test("unauthenticated /v1/photo-search with anon enabled -> minted anonymou
 
 void test("/v1/photo-search/confirm rides the same gate (401 when anon disabled)", async () => {
   const app = createWorkerApp({
-    authenticate: () => Promise.resolve({ ok: false }),
+    authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
     turnstileGate: passingGate,
   });
   const cap = { requests: [] as Request[] };
@@ -125,7 +126,7 @@ void test("/v1/photo-search/confirm forwards for an authed caller", async () => 
 
 void test("x-byok-endpoint is stripped on the anonymous path too", async () => {
   const app = createWorkerApp({
-    authenticate: () => Promise.resolve({ ok: false }),
+    authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
     turnstileGate: passingGate,
   });
   const cap = { requests: [] as Request[] };

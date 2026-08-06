@@ -10,6 +10,7 @@ const ANON_ENV = {
   ANON_ACCESS_ENABLED: "true",
   ANON_ID_SECRET: SECRET,
   TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
+  EDGE_SHOWCASE_MODE: "false",
 };
 const NOW = Date.UTC(2026, 6, 26, 12, 0, 0);
 
