@@ -36,14 +36,14 @@ void test("the unmatched-path body is the shared JSON error envelope", async () 
 
 void test("a non-allowlisted /catalog/public path answers the same 404 envelope", async () => {
   const app = createWorkerApp({});
-  let catalogHit = false;
-  const env = { CATALOG: { fetch: () => { catalogHit = true; return Promise.resolve(new Response("cat")); } } } as never;
+  let wasCatalogHit = false;
+  const env = { CATALOG: { fetch: () => { wasCatalogHit = true; return Promise.resolve(new Response("cat")); } } } as never;
   const res = await app.request("/catalog/public/secret", {}, env, stubCtx);
   assert.equal(res.status, 404);
   assert.deepEqual(await res.json(), {
     error: { code: "not_found", message: "No route matches this request." },
   });
-  assert.equal(catalogHit, false);
+  assert.equal(wasCatalogHit, false);
 });
 
 void test("entry.ts imports nothing from the retired OpenNext bundle", () => {

@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp, isAuthRateLimited, type Env } from "./app.ts";
-import { handleGuardRequest } from "./edgeGuard.ts";
-import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
+import { handleGuardRequest } from "./edge-guard.ts";
+import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
 
 // P2-5 (issue #284 / Task 9, round 3): the authenticated cost-path allowlist
 // was an exact-match `Array.includes`, so a trailing slash on the path

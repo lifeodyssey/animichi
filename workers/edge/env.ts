@@ -1,5 +1,5 @@
 /// <reference types="@cloudflare/workers-types" />
-import type { GuardNamespace } from "./guardStore.ts";
+import type { GuardNamespace } from "./guard-store.ts";
 import type { TileBucket } from "./tiles.ts";
 
 export interface Env {

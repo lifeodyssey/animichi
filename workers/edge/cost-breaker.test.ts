@@ -9,9 +9,9 @@ import {
   readBudgetLatch,
   utcDayKey,
   writeBudgetLatch,
-} from "./costBreaker.ts";
-import { handleGuardRequest } from "./edgeGuard.ts";
-import { memoryGuardStore } from "./guardStore.ts";
+} from "./cost-breaker.ts";
+import { handleGuardRequest } from "./edge-guard.ts";
+import { memoryGuardStore } from "./guard-store.ts";
 
 // Day rollover is exercised on an injected clock — never a real wait.
 const DAY_ONE_MS = Date.UTC(2026, 6, 26, 23, 59, 0);

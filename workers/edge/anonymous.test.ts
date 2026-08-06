@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import { ANON_BUDGET_EXHAUSTED_CODE } from "./costBreaker.ts";
-import { handleGuardRequest } from "./edgeGuard.ts";
-import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
+import { ANON_BUDGET_EXHAUSTED_CODE } from "./cost-breaker.ts";
+import { handleGuardRequest } from "./edge-guard.ts";
+import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
 
 const SECRET = "fixed-test-hmac-key-0000000000000000";
 const ANON_ENV = {
@@ -51,7 +51,7 @@ function anonEnv(captured: { requests: Request[] }, container: () => Response, g
 }
 
 /** These tests are about the anonymous branch itself, so the Turnstile gate
- * (armed in #447) is stubbed to a pass. `turnstileArm.test.ts` owns the
+ * (armed in #447) is stubbed to a pass. `turnstile-arm.test.ts` owns the
  * challenge behaviour. */
 const passingGate = { check: () => Promise.resolve({ ok: true, errorCodes: [] }) };
 

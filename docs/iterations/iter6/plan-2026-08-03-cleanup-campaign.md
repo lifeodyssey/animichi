@@ -68,7 +68,7 @@
 - **#237 S0.4**:实现齐但 3 条 browser AC 的 e2e 全缺;**3s 首瓦片测量全仓不存在**,`test:perf-mobile-cold` 脚本名义存在但只跑 splash——命名误导。
 - **#252 S0.8**:测试套件质量高,但缺 4 件:IndexNow key 文件、旧域名 301 Worker 规则、Lighthouse CI 门、CANONICAL_DOMAIN 硬编码(有注释论证,待裁决);3 条 manual-ops 零证据需 owner 亲验。
 
-**测试诚实度**:未发现造假;splash 800ms(CDP 节流真测)、token 漂移 fixture、migrationBoundary(连 CI 命令文本都断言)是真守卫。两处名不副实:`test:perf-mobile-cold` 命名、S0.4/S0.6 的 browser AC 用 unit 顶替(test-type 契约失守)。
+**测试诚实度**:未发现造假;splash 800ms(CDP 节流真测)、token 漂移 fixture、migration-boundary(连 CI 命令文本都断言)是真守卫。两处名不副实:`test:perf-mobile-cold` 命名、S0.4/S0.6 的 browser AC 用 unit 顶替(test-type 契约失守)。
 
 ### E. S0 缺口回填(新增拟开卡)
 
