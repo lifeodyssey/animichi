@@ -13,6 +13,11 @@ import type {
 } from "@animichi/contract";
 import { sql, type SQL } from "drizzle-orm";
 import type { DbExecutor } from "../db/client";
+import {
+  assertRouteOwnedBy,
+  isRouteStatus,
+  savedAtPolicy,
+} from "../domain/route-rules";
 import { routeNotFound, routeNotOwned } from "../lib/errors";
 
 /** ListSessionsInput caps offset at 1000 (packages/contract users-contract.ts). */
@@ -23,10 +28,6 @@ interface DbRows { rows: unknown[] }
 
 function isRecord(value: unknown): value is RecordRow {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isStatus(value: unknown): value is RouteStatus {
-  return value === "draft" || value === "saved" || value === "completed";
 }
 
 function strings(value: unknown): string[] {
@@ -65,7 +66,7 @@ function toSession(value: unknown): UserSession {
 
 function requireRouteRow(value: RecordRow): { id: string; title: unknown; status: RouteStatus } {
   const { id, title, status } = value;
-  if (typeof id !== "string" || !isStatus(status)) {
+  if (typeof id !== "string" || !isRouteStatus(status)) {
     throw new Error("invalid route row");
   }
   return { id, title, status };
@@ -125,7 +126,7 @@ function insertRouteSql(userId: string, input: SaveRouteInput): SQL {
   return sql`
     INSERT INTO routes (user_id, title, point_ids, status, saved_at)
     VALUES (${userId}, ${input.title}, ${sql.param(input.point_ids)}::text[], ${input.status},
-      CASE WHEN ${input.status} = 'draft' THEN NULL ELSE NOW() END)
+      CASE WHEN ${savedAtPolicy(input.status, "insert")} = 'null' THEN NULL ELSE NOW() END)
     RETURNING id, title, point_ids, status, saved_at, updated_at
   `;
 }
@@ -155,7 +156,7 @@ function ownerFrom(value: unknown): string | null | undefined {
 async function assertOwner(db: DbExecutor, userId: string, routeId: string): Promise<void> {
   const result = await db.execute(sql`SELECT user_id FROM routes WHERE id = ${routeId}`);
   if (result.rows.length === 0) throw routeNotFound(routeId);
-  if (ownerFrom(result.rows[0]) !== userId) throw routeNotOwned(routeId);
+  assertRouteOwnedBy(ownerFrom(result.rows[0]), userId, routeId);
 }
 
 function updatedRoute(rows: unknown[], routeId: string): UserRoute {
@@ -166,8 +167,8 @@ function updatedRoute(rows: unknown[], routeId: string): UserRoute {
 function updateRouteSql(userId: string, input: SaveRouteInput & { id: string }): SQL {
   return sql`
     UPDATE routes SET title = ${input.title}, point_ids = ${sql.param(input.point_ids)}::text[],
-      status = ${input.status}, saved_at = CASE WHEN ${input.status} = 'draft'
-        THEN NULL ELSE COALESCE(saved_at, NOW()) END
+      status = ${input.status}, saved_at = CASE ${savedAtPolicy(input.status, "update")}
+        WHEN 'null' THEN NULL ELSE COALESCE(saved_at, NOW()) END
     WHERE id = ${input.id} AND user_id = ${userId}
     RETURNING id, title, point_ids, status, saved_at, updated_at
   `;
@@ -218,6 +219,8 @@ export async function deleteRoute(
   return { deleted: true };
 }
 
+/** Atomic claim: only rows whose owner passes canClaimUnowned (user_id IS NULL,
+ * src/domain/route-rules.ts) are touched — owned rows are left intact. */
 async function claimRouteRows(db: DbExecutor, userId: string, sessionId: string): Promise<unknown[]> {
   const result = await db.execute(sql`
     UPDATE routes SET user_id = ${userId}
