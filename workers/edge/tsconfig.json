@@ -14,5 +14,5 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["*.ts"]
+  "include": ["*.ts", "identity/**/*.ts", "gateway/**/*.ts", "protect/**/*.ts", "proxy/**/*.ts", "container/**/*.ts"]
 }

@@ -39,9 +39,10 @@ export async function handleImageProxy(request: Request, ctx: WorkerExecutionCon
   const imagePath = imagePathOf(request);
   if (imagePath === null) return badRequest();
   const cacheKey = new Request(request.url, request);
-  const cached = await caches.default.match(cacheKey);
+  const cache: Cache = caches.default;
+  const cached: Response | undefined = await cache.match(cacheKey);
   if (cached) return cached;
   const response = await imageResponse(imagePath);
-  if (response.ok) ctx.waitUntil(caches.default.put(cacheKey, response.clone()));
+  if (response.ok) ctx.waitUntil(cache.put(cacheKey, response.clone()));
   return response;
 }
