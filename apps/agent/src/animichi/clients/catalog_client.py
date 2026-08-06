@@ -161,26 +161,6 @@ class CatalogClientProtocol(CatalogReadGateway, Protocol):
     satisfies it structurally.
     """
 
-    async def resolve(self, query: str) -> ResolveOutcome: ...
-
-    async def points_by_work_id(self, work_id: str) -> SearchResult: ...
-
-    async def nearby(
-        self, lat: float, lng: float, *, radius_m: int = 2000
-    ) -> list[PilgrimagePoint]: ...
-
-    async def geocode(
-        self, query: str, *, limit: int = 5
-    ) -> list[GeocodeCandidate]: ...
-
-    async def route(
-        self,
-        point_ids: list[str],
-        *,
-        origin: tuple[float, float] | None = None,
-        pacing: Literal["chill", "normal", "packed"] | None = None,
-    ) -> Route: ...
-
 
 class CatalogClient:
     """Async client for the Catalog RPC methods over a shared httpx client.
