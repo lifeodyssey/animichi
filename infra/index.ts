@@ -134,10 +134,12 @@ if (webRoutesEnabled) {
   // legacy zone only, and `expression: "true"` matches every request there
   // because that zone exists solely to redirect.
   if (stack === "prod") {
-    for (const [index, legacyZoneId] of (config.getObject<string[]>("legacyRedirectZones") ?? []).entries()) {
-      new cloudflare.Ruleset(`animichi-legacy-redirect-${index}`, {
+    const legacyZoneIds = config.getObject<string[]>("legacyRedirectZones") ?? [];
+    validateLegacyRedirectZones(legacyZoneIds);
+    for (const legacyZoneId of legacyZoneIds) {
+      new cloudflare.Ruleset(`animichi-legacy-redirect-${legacyZoneId}`, {
         zoneId: legacyZoneId,
-        name: `animichi legacy redirect ${index}`,
+        name: `animichi legacy redirect ${legacyZoneId}`,
         kind: "zone",
         phase: "http_request_dynamic_redirect",
         description: "301 the legacy domain onto the canonical apex.",
@@ -145,14 +147,14 @@ if (webRoutesEnabled) {
           {
             action: "redirect",
             expression: "true",
-            description: "301 every path onto the corresponding animichi.com path.",
+            description: "301 every path onto the canonical apex path.",
             enabled: true,
             actionParameters: {
               fromValue: {
                 statusCode: 301,
                 preserveQueryString: true,
                 targetUrl: {
-                  expression: `concat("https://animichi.com", http.request.uri.path)`,
+                  expression: `concat("https://${apexDomain}", http.request.uri.path)`,
                 },
               },
             },
@@ -346,6 +348,21 @@ export function buildIpClause(raw: string): string {
     throw new Error(`stagingAllowedIps entry "${invalid}" is not a valid IP or CIDR`);
   }
   return ` and not (ip.src in {${entries.join(" ")}})`;
+}
+
+// The legacy ruleset identity derives from the zone id, not the list position,
+// so reordering `legacyRedirectZones` never churns Pulumi state. A duplicate
+// id would declare two rulesets with the same Cloudflare `name` in the same
+// zone and fight on `pulumi up`; the list is operator-supplied, so fail the
+// build loudly instead of applying a conflicting declaration.
+export function validateLegacyRedirectZones(zoneIds: string[]): void {
+  const seen = new Set<string>();
+  for (const zoneId of zoneIds) {
+    if (seen.has(zoneId)) {
+      throw new Error(`legacyRedirectZones lists "${zoneId}" more than once`);
+    }
+    seen.add(zoneId);
+  }
 }
 
 // The stack check keeps this resource meaningful only on staging, even if the
