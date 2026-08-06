@@ -92,10 +92,11 @@ make db-push           # NEON_DATABASE_URL に適用
 | `SUPABASE_URL` | Supabase プロジェクト URL（auth + API キー照会） |
 | `SUPABASE_SERVICE_ROLE_KEY` | サーバーサイド Supabase 認証 / `api_keys` 照会 |
 | `MIMO_API_KEY` | 主モデルプロバイダキー |
+| `DEEPSEEK_API_KEY` | エッジ container-env がコンテナ起動時に要求（コンテナへ転送） |
 
 **Worker エッジ:** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`（JWT は公開 JWKS で検証 — エッジに `SUPABASE_ANON_KEY` は不要）。catalog/users/maintenance は各 Neon DSN も必要 — [`docs/ops/deployment.md`](docs/ops/deployment.md)。
 
-**オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`, `DEEPSEEK_API_KEY`
+**オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
 詳細は [`apps/agent/src/animichi/config/settings.py`](apps/agent/src/animichi/config/settings.py) と [`.env.example`](.env.example) を参照してください。
 

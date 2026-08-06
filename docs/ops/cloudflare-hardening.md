@@ -23,12 +23,13 @@ Cloudflare Edge (Worker: workers/edge/entry.ts)
   ├─ /tiles/* ───────────────────────────────────▶ private R2 tile proxy
   ├─ /healthz ───────────────────────────────────▶ RuntimeContainer (no auth)
   ├─ /v1/users/* ────────────────────────────────▶ USERS service binding
-  ├─ /catalog/* ─────────────────────────────────▶ CATALOG service binding
   └─ /v1/* ── authenticate ── strip Authorization
        │        inject X-User-Id, X-User-Type
        ▼
      RuntimeContainer (Durable Object → Python FastAPI on port 8080)
        ├─ agent-domain Postgres (SUPABASE_DB_URL)
+       ├─ catalog.internal (private) ─────────────▶ CATALOG service binding
+       │    (no public /catalog/* browser route)
        └─ MiMo/DeepSeek model provider (MIMO_API_KEY / DEEPSEEK_API_KEY) —
           photo-search recognition rides this same chat model (#656)
 ```
