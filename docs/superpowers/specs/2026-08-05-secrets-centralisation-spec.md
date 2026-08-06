@@ -69,7 +69,7 @@ epic #674 第 1 条原文:「Secrets 三分散:GH env secrets + wrangler secrets
 | `PULUMI_BACKEND_URL` · `PULUMI_CONFIG_PASSPHRASE` | staging + production | Pulumi state |
 | `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` | staging + production | Pulumi state backend + 备份上传(**本次事故漏掉的两层**) |
 | `NEON_DATABASE_URL` | staging + production | Atlas migrate + catalog/users Worker |
-| `AGENT_DATABASE_URL` | **三 scope 均不存在**(F1,[measured] 2026-08-06:repo 28 名 / staging 12 名 / production 11 名全无此名) | maintenance Worker(secrets.md:121 记的是「staging + production environment secrets only」——**文档失实**;`workers/maintenance/wrangler.toml` 三环境 `required`,`src/index.ts:33-34` 缺值即 throw) |
+| `AGENT_DATABASE_URL` | **三 scope 均不存在**(F1,[measured] 2026-08-06:repo 28 名 / staging 12 名 / production 11 名全无此名) | maintenance Worker(secrets.md:121 记的是「staging + production environment secrets only」——**文档失实**;`workers/jobs/wrangler.toml` 三环境 `required`,`src/index.ts:33-34` 缺值即 throw) |
 | `SUPABASE_DB_URL` | **staging only**(F2,[measured] 2026-08-06 设置于 `2026-08-03T05:49:29Z`;production 无——不对称) | 容器面 / edge / web build;**按 same-name override rule,staging 部署取 env 级值,repo 级副本对 staging 无效** |
 | `NEON_AUTH_JWKS_URL` | staging + production | edge 双 issuer 验证(URL,非凭据;SE 低,secrets.md:123) |
 | `LOGFIRE_TOKEN` | staging + production | 各环境独立 Logfire 项目 |
@@ -79,7 +79,7 @@ epic #674 第 1 条原文:「Secrets 三分散:GH env secrets + wrangler secrets
 ### 2.3 第三处:Cloudflare Worker secret store(运行时)
 
 - `TURNSTILE_SECRET` · `ANON_ID_SECRET` — edge Worker 运行时读(`workers/edge/turnstile.ts`、`auth.ts`),由 CI post-deploy push 灌入两个环境。
-- `DATABASE_URL`(catalog/users 的 binding 名,值 = `NEON_DATABASE_URL`)、`AGENT_DATABASE_URL`(maintenance)— deploy 时经 wrangler-action `secrets:` 灌入。**注意 F1**:`AGENT_DATABASE_URL` 的运行时 binding 在 `workers/maintenance/wrangler.toml` 三环境 `required`,但 GH 三 scope 无此 secret → maintenance 部署在 `reusable-deploy-component.yml:104-109` 的 fail-closed 前置检查就 exit 1,**从未到达过 secret put 这一步**(§2.2)。
+- `DATABASE_URL`(catalog/users 的 binding 名,值 = `NEON_DATABASE_URL`)、`AGENT_DATABASE_URL`(maintenance)— deploy 时经 wrangler-action `secrets:` 灌入。**注意 F1**:`AGENT_DATABASE_URL` 的运行时 binding 在 `workers/jobs/wrangler.toml` 三环境 `required`,但 GH 三 scope 无此 secret → maintenance 部署在 `reusable-deploy-component.yml:104-109` 的 fail-closed 前置检查就 exit 1,**从未到达过 secret put 这一步**(§2.2)。
 - 容器面 10 个(secrets.md 链 1 的 `worker_secrets` 清单)同样落在容器 Worker 的 secret store。
 - **运行时存储不可能也不应该被 ESC 替换**——ESC 是供给端真源,运行时 store 留在 Cloudflare(见 §4 Q1)。
 

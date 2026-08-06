@@ -1,3 +1,4 @@
+// TODO(refactor-skeleton): J3 routes→saved_routes SQL with users rename — #836
 import type { DatabaseClient, QueryResult, QueryRow } from "./database";
 
 // The retired GHA jobs supplied no override, so both scripts used the defaults at

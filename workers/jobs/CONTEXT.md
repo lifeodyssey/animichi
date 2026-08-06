@@ -1,8 +1,8 @@
-# Maintenance → Jobs (rename pending)
+# Jobs (was maintenance)
 
-**Target package path:** `workers/jobs` (not `maintenance`, not `scheduler`).
+Scheduled retention jobs for agent-domain Neon data. **No pilgrimage domain.**
 
-This folder will be `git mv`'d in the jobs structure train. Until then, runtime code still lives here.
+Target path: `workers/jobs` (renamed from `workers/maintenance` in #836).
 
 Design: `docs/superpowers/specs/2026-08-06-jobs-worker-structure-design.md`
 

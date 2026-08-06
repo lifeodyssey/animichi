@@ -14,7 +14,7 @@ export const READS = [
   ".github/workflows/purge-anon-quota-counts.yml",
   ".github/workflows/purge-anonymous-sessions.yml",
   "docs/ops/secrets.md",
-  "workers/maintenance/wrangler.toml",
+  "workers/jobs/wrangler.toml",
 ] as const;
 
 const REQUIRED_DSN = 'required = ["AGENT_DATABASE_URL"]';
@@ -34,7 +34,7 @@ describe("maintenance deployment configuration", () => {
     expect(ciWorkflow).toContain("component: maintenance");
     expect(ciWorkflow).toContain("AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}");
     // #486 thin caller: deploy.yml passes inputs/secrets; env and Atlas live in reusable-deploy-component.yml.
-    expect(deployWorkflow).toContain("working_directory: workers/maintenance");
+    expect(deployWorkflow).toContain("working_directory: workers/jobs");
     expect(deployWorkflow).toContain("AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}");
     expect(secretsDocs).toContain("| `AGENT_DATABASE_URL` |");
   });

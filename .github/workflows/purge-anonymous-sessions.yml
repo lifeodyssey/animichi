@@ -1,4 +1,4 @@
-# DEPRECATED: superseded by workers/maintenance's Cloudflare Cron Trigger at
+# DEPRECATED: superseded by workers/jobs's Cloudflare Cron Trigger at
 # "37 18 * * *". Its GHA schedule is disabled so a hosted runner no longer
 # receives a database credential. Keep this manual fallback only until staging
 # records one verified real Cron Trigger run, then delete this workflow.

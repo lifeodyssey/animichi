@@ -1,4 +1,4 @@
-# workers/maintenance — AGENTS.md
+# workers/jobs — AGENTS.md
 
 Scheduled-only TypeScript Cloudflare Worker for agent-domain Neon retention. It owns no public HTTP
 surface and must not absorb catalog- or user-domain work. Root guide: `../../AGENTS.md`.
