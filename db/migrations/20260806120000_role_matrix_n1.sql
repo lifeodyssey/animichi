@@ -35,6 +35,25 @@ BEGIN
   END IF;
 END $$;
 
+-- SERIAL sequences: USAGE+SELECT for services that INSERT (nextval fires on insert)
+DO $$
+DECLARE seq text;
+BEGIN
+  FOREACH seq IN ARRAY ARRAY[
+    pg_get_serial_sequence('public.cluster_version', 'id'),
+    pg_get_serial_sequence('public.route_snapshots', 'id'),
+    pg_get_serial_sequence('public.aliases', 'id')
+  ] LOOP
+    IF seq IS NOT NULL THEN
+      EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE %s TO catalog_svc', seq);
+    END IF;
+  END LOOP;
+  seq := pg_get_serial_sequence('public.conversation_messages', 'id');
+  IF seq IS NOT NULL THEN
+    EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE %s TO agent_svc', seq);
+  END IF;
+END $$;
+
 -- Users-owned: routes (+ route_anime when present)
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE routes TO users_svc;
 DO $$
