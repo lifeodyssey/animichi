@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import inspect
 from pathlib import Path
+from typing import cast
 
 from animichi.application.catalog_read_gateway import CatalogReadGateway
 from animichi.clients.catalog_client import (
@@ -52,19 +53,22 @@ def _imported_module_names(module: ast.Module) -> list[str]:
 class _FakeReadGateway:
     """Structural stand-in for CatalogClient; never touches the network."""
 
-    async def resolve(self, query: str) -> object:
+    async def _noop(self, *args: object, **kwargs: object) -> object:
         return object()
 
+    async def resolve(self, query: str) -> object:
+        return await self._noop(query)
+
     async def points_by_work_id(self, work_id: str) -> object:
-        return object()
+        return await self._noop(work_id)
 
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
     ) -> list[object]:
-        return []
+        return cast(list[object], await self._noop(lat, lng, radius_m=radius_m))
 
     async def geocode(self, query: str, *, limit: int = 5) -> list[object]:
-        return []
+        return cast(list[object], await self._noop(query, limit=limit))
 
     async def route(
         self,
@@ -73,7 +77,7 @@ class _FakeReadGateway:
         origin: object | None = None,
         pacing: object | None = None,
     ) -> object:
-        return object()
+        return await self._noop(point_ids, origin=origin, pacing=pacing)
 
 
 def test_gateway_protocol_is_read_only() -> None:
