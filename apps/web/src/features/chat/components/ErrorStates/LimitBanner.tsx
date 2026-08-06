@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { LoginModal } from "../../../../components/auth/LoginModal";
-import { useChatReturnTarget } from "../../return-target";
+import { useChatReturnTarget } from "../../ChatReturnTarget";
 import { FallbackRetryButton } from "./FallbackRetryButton";
 
 type Props = Readonly<{

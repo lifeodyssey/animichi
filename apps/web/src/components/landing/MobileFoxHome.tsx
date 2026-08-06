@@ -1,4 +1,4 @@
-import { useDict } from "../../i18n/context";
+import { useDict } from "../../i18n/LocaleProvider";
 import { LocaleSwitcher } from "../../i18n/LocaleSwitcher";
 import { ToriiMark } from "./ToriiMark";
 

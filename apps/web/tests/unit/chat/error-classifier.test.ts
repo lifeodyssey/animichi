@@ -1,7 +1,7 @@
 import type { ChatDataPart } from "@animichi/contract";
 import { describe, expect, it } from "vitest";
 import { ANON_BUDGET_EXHAUSTED_CODE, ANON_QUOTA_EXHAUSTED_CODE } from "@animichi/contract";
-import { classifyFailure } from "../../../src/lib/chat/errorClassifier";
+import { classifyFailure } from "../../../src/lib/chat/error-classifier";
 
 type SearchIntent = "search_bangumi" | "search_nearby";
 

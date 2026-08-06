@@ -10,7 +10,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthCallback } from "../../../src/components/auth/AuthCallback";
-import type { SessionMigrationOutcome } from "../../../src/lib/auth/sessionMigration";
+import type { SessionMigrationOutcome } from "../../../src/lib/auth/session-migration";
 import { dictFor } from "../../../src/i18n/dictionaries";
 import { renderWithLocale, setLanguages } from "../_i18n";
 

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SanitizedShioriPhoto } from "../../../src/features/shiori/types";
 import { ShioriGenerator, type ShioriGeneratorSource } from "../../../src/features/shiori/ShioriGenerator";
 import { makeItinerary, makeMeta, makePhotoInput } from "./_factories";
-import { blobText } from "./_jpegFixtures";
+import { blobText } from "./_jpeg-fixtures";
 
 const createObjectURL = vi.fn((_blob: Blob) => `blob:mock-${String(createObjectURL.mock.calls.length)}`);
 const revokeObjectURL = vi.fn();

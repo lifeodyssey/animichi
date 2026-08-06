@@ -2,9 +2,9 @@
  * @vitest-environment jsdom
  *
  * Core persistence, header emission, vision-flag lockstep. Validation and
- * field-safety rules live in byokStorage-validation.test.ts /
- * byokStorage-field-safety.test.ts; storage-failure modes live in
- * byokStorage-security-error.test.ts (split for the ~200-line file budget).
+ * field-safety rules live in byok-storage-validation.test.ts /
+ * byok-storage-field-safety.test.ts; storage-failure modes live in
+ * byok-storage-security-error.test.ts (split for the ~200-line file budget).
  */
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -15,8 +15,8 @@ import {
   getByokVisionSupported,
   saveByokConfig,
   setByokVisionSupported,
-} from "../../src/lib/byok/byokStorage";
-import type { ByokConfig } from "../../src/lib/byok/byokStorage";
+} from "../../src/lib/byok/byok-storage";
+import type { ByokConfig } from "../../src/lib/byok/byok-storage";
 
 const OPENAI_CONFIG: ByokConfig = {
   provider: "openai-compatible",
@@ -194,6 +194,6 @@ describe("null/empty — SSR safety and corrupt storage", () => {
 });
 
 // Module-source guards (no top-level `window` access, no cross-file
-// `sessionStorage` use) live in byokStorage-source-guard.test.ts — a plain
+// `sessionStorage` use) live in byok-storage-source-guard.test.ts — a plain
 // node environment, since jsdom rewrites `import.meta.url` away from a real
 // `file://` path (vitest.config.ts's `environmentOptions.jsdom.url`).

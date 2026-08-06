@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { TimedItinerary, TimedStop } from "@animichi/contract";
-import type { RouteDetail } from "../../../src/lib/route-detail/dataState";
+import type { RouteDetail } from "../../../src/lib/route-detail/data-state";
 import {
   pinBadge,
   pinSizePx,
   routeProgressLabel,
   toRoutePins,
-} from "../../../src/lib/route-detail/pinState";
+} from "../../../src/lib/route-detail/pin-state";
 
 function stop(clusterId: string): TimedStop {
   return {

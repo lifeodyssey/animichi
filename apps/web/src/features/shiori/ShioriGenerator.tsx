@@ -2,7 +2,7 @@ import { type ChangeEvent, useCallback, useEffect, useState } from "react";
 import type { Locale } from "../../i18n/locales";
 import { composeShiori, type ComposedShiori, type ShioriSource } from "./compose";
 import { shioriLabels, type ShioriLabels } from "./labels";
-import { ingestShioriPhotos, revokeShioriPhotoUrls } from "./photoIngestion";
+import { ingestShioriPhotos, revokeShioriPhotoUrls } from "./photo-ingestion";
 import { ShioriCard } from "./ShioriCard";
 import type { SanitizedShioriPhoto, ShioriPhotoInput } from "./types";
 
@@ -82,12 +82,12 @@ function runIngestion(
 
 /** A cancelled epoch still revokes whatever URLs its late resolution minted. */
 function trackIngestion(pending: PendingPhotos, deliver: PhotosSanitizedHandler): () => void {
-  let alive = true;
+  let isAlive = true;
   void pending.then((next) => {
-    if (alive) deliver(next);
+    if (isAlive) deliver(next);
     else revokeShioriPhotoUrls(next);
   });
-  return () => { alive = false; };
+  return () => { isAlive = false; };
 }
 
 type PendingPhotos = Promise<readonly SanitizedShioriPhoto[]>;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMapStyle } from "../../src/features/map-spike/mapStyle";
+import { createMapStyle } from "../../src/features/map-spike/map-style";
 
 const source = (style: ReturnType<typeof createMapStyle>) => {
   return style.sources.protomaps;

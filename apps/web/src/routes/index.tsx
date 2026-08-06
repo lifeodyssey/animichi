@@ -3,7 +3,7 @@ import { AppHome } from "../components/home/AppHome";
 import { makeSearchHandler } from "../components/home/search-target";
 import { LandingPage } from "../components/landing/LandingPage";
 import { homeHead } from "../features/seo/head";
-import { LocaleProvider } from "../i18n/context";
+import { LocaleProvider } from "../i18n/LocaleProvider";
 import { useAuthStatus } from "../lib/auth/session";
 
 export const Route = createFileRoute("/")({

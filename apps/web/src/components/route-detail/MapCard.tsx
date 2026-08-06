@@ -1,7 +1,7 @@
 import type { RouteDetailCopy } from "../../lib/route-detail/copy";
 import { MODE_EASING, MODE_TRANSITION_MS } from "../../lib/route-detail/mode";
 import type { RouteMode } from "../../lib/route-detail/mode";
-import type { RoutePin } from "../../lib/route-detail/pinState";
+import type { RoutePin } from "../../lib/route-detail/pin-state";
 import { ModeToggle } from "./ModeToggle";
 import { RoutePinLayer } from "./RoutePinLayer";
 

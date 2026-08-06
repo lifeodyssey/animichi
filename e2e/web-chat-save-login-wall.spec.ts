@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { BrowserContext, Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
-import { DEFERRED_SAVE_KEY } from "../apps/web/src/features/chat/save/deferredSave";
+import { DEFERRED_SAVE_KEY } from "../apps/web/src/features/chat/save/deferred-save";
 import { SSE_HEADERS, chatStreamRecording, patchFinalFrame } from "./fixtures/chat-stream";
 
 /**

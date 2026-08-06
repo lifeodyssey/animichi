@@ -1,4 +1,4 @@
-import { useChatActions } from "../../chat-actions";
+import { useChatActions } from "../../ChatActions";
 import type { ChatDict } from "../../i18n";
 
 /**

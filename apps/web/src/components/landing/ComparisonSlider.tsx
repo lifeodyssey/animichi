@@ -1,6 +1,6 @@
 import type { CSSProperties, ChangeEvent } from "react";
 import { useState } from "react";
-import { useDict } from "../../i18n/context";
+import { useDict } from "../../i18n/LocaleProvider";
 
 const ANIME_SRC = "/images/landing/suga-shrine-anime-source.webp";
 const REAL_SRC = "/images/landing/suga-shrine-reality-perspective-v2.webp";

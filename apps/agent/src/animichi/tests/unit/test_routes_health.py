@@ -65,7 +65,7 @@ async def test_cors_middleware_allows_configured_origin() -> None:
 
 # ---------------------------------------------------------------------------
 # BYOK (#284 Task 2): CORS preflight must allow the X-BYOK-* headers
-# byokStorage.ts (#467) sends, or the browser never lets them reach this
+# byok-storage.ts (#467) sends, or the browser never lets them reach this
 # container at all.
 # ---------------------------------------------------------------------------
 

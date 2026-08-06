@@ -2,7 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { notFound } from "@tanstack/react-router";
 import type { UserRoute } from "@animichi/contract";
 import { users } from "../orpc";
-import type { RouteDetail } from "../../lib/route-detail/dataState";
+import type { RouteDetail } from "../../lib/route-detail/data-state";
 
 /**
  * Query options for the caller's saved routes, shared by the route loader

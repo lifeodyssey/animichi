@@ -58,7 +58,7 @@ vi.mock("pmtiles", () => ({
   },
 }));
 
-import { attachMapLibre, mountMapLibre } from "../../src/features/maplibre/maplibreAdapter";
+import { attachMapLibre, mountMapLibre } from "../../src/features/maplibre/maplibre-adapter";
 
 const STYLE = {
   version: 8,

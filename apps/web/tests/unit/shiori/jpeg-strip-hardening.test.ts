@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { stripJpegMetadata } from "../../../src/features/shiori/exifStrip";
-import { APP1_EXIF_GPS, bytesToText, DQT, segment, SOS_HEADER } from "./_jpegFixtures";
+import { stripJpegMetadata } from "../../../src/features/shiori/exif-strip";
+import { APP1_EXIF_GPS, bytesToText, DQT, segment, SOS_HEADER } from "./_jpeg-fixtures";
 
 const EOI = [0xff, 0xd9];
 const SCAN_WITH_STUFFING = [...SOS_HEADER, 0xaa, 0xff, 0x00, 0xbb];

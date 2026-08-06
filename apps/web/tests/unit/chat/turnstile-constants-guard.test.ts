@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import constantsSource from "../../../../../packages/contract/src/constants.ts?raw";
 import edgeTurnstileSource from "../../../../../workers/edge/turnstile.ts?raw";
-import tokenStoreSource from "../../../src/lib/turnstile/tokenStore.ts?raw";
+import tokenStoreSource from "../../../src/lib/turnstile/token-store.ts?raw";
 
 /**
  * The Turnstile header name and TTL/window relationship lived once in the edge
@@ -35,7 +35,7 @@ import tokenStoreSource from "../../../src/lib/turnstile/tokenStore.ts?raw";
 export const READS = [
   "packages/contract/src/constants.ts",
   "workers/edge/turnstile.ts",
-  "apps/web/src/lib/turnstile/tokenStore.ts",
+  "apps/web/src/lib/turnstile/token-store.ts",
 ] as const;
 
 const MODULE = "@animichi/contract/constants";

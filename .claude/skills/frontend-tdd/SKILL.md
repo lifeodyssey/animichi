@@ -54,7 +54,7 @@ cd apps/web && pnpm run typecheck && pnpm run lint:oxlint && pnpm run build
 - Callbacks passed through 3+ levels → create a context instead.
 
 ### i18n
-- All user-facing strings via `useDict()` from `src/i18n/context.tsx`. No hardcoded English.
+- All user-facing strings via `useDict()` from `src/i18n/LocaleProvider.tsx`. No hardcoded English.
 
 ### Naming
 - Components: PascalCase (`ChatPanel`) · Hooks: `use` prefix (`useMediaQuery`)
@@ -102,6 +102,6 @@ cd apps/web && pnpm run typecheck && pnpm run lint:oxlint && pnpm run build
 | Excessive mocking | 12 mocks in one test | Refactor component to be testable with fewer deps |
 | CSS class assertion | `className.includes("bg-primary")` | Test visible state: `toHaveAttribute("aria-pressed")` |
 | Missing interactions | Only render tests, no click/type tests | Add fireEvent/userEvent tests |
-| Hardcoded i18n | English strings inline | `useDict()` from `src/i18n/context.tsx` |
+| Hardcoded i18n | English strings inline | `useDict()` from `src/i18n/LocaleProvider.tsx` |
 | Conditional test logic | `if (img) { fireEvent... }` | Assert img exists, then interact |
 | Nested ternaries in JSX | `locale === "ja" ? ... : locale === "zh" ? ...` | Extract to helper function |

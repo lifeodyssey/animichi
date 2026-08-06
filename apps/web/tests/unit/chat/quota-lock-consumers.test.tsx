@@ -4,8 +4,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { ChatActionsProvider } from "../../../src/features/chat/chat-actions";
-import type { ChatActions } from "../../../src/features/chat/chat-actions";
+import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
+import type { ChatActions } from "../../../src/features/chat/ChatActions";
 import { DataPartCard } from "../../../src/features/chat/components/DataPartCard";
 import { EnvelopeFallback } from "../../../src/features/chat/components/ErrorStates/EnvelopeFallback";
 import { ShortRouteNotice } from "../../../src/features/chat/components/ErrorStates/ShortRouteNotice";

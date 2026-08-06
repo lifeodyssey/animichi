@@ -1,7 +1,7 @@
 import type { ChatDataPart } from "@animichi/contract";
 import type { ComponentType } from "react";
-import { ProseCard, SearchCard } from "./components/cards";
-import type { IntentCardProps } from "./components/cards";
+import { ProseCard, SearchCard } from "./components/Cards";
+import type { IntentCardProps } from "./components/Cards";
 import { ClarifyCard } from "./components/ClarifyCard";
 import { RouteCard } from "./components/RouteCard";
 

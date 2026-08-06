@@ -3,11 +3,11 @@
  */
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { sendMagicLink } from "../../src/lib/auth/neonAuth";
+import { sendMagicLink } from "../../src/lib/auth/neon-auth";
 import { LoginForm } from "../../src/components/auth/LoginForm";
 import { renderWithLocale, setLanguages } from "./_i18n";
 
-vi.mock("../../src/lib/auth/neonAuth", () => ({ sendMagicLink: vi.fn() }));
+vi.mock("../../src/lib/auth/neon-auth", () => ({ sendMagicLink: vi.fn() }));
 const send = vi.mocked(sendMagicLink);
 
 beforeEach(() => { setLanguages(["ja-JP"]); });

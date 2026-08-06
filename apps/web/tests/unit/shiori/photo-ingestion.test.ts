@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ingestShioriPhotos, revokeShioriPhotoUrls } from "../../../src/features/shiori/photoIngestion";
+import { ingestShioriPhotos, revokeShioriPhotoUrls } from "../../../src/features/shiori/photo-ingestion";
 import { makePhotoInput } from "./_factories";
-import { blobText, makeMalformedJpegBlob } from "./_jpegFixtures";
+import { blobText, makeMalformedJpegBlob } from "./_jpeg-fixtures";
 
 const createObjectURL = vi.fn((_blob: Blob) => `blob:mock-${String(createObjectURL.mock.calls.length)}`);
 const revokeObjectURL = vi.fn();

@@ -3,7 +3,7 @@
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ChatActionsProvider } from "../../../src/features/chat/chat-actions";
+import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
 import { DataPartCard } from "../../../src/features/chat/components/DataPartCard";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 

@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useLocale } from "../../i18n/context";
+import { useLocale } from "../../i18n/LocaleProvider";
 import type { Locale } from "../../i18n/locales";
 import { useAuthStatus } from "../../lib/auth/session";
-import { ChatActionsProvider, sendWithOriginOf } from "./chat-actions";
-import type { ChatActions } from "./chat-actions";
+import { ChatActionsProvider, sendWithOriginOf } from "./ChatActions";
+import type { ChatActions } from "./ChatActions";
 import { ByokPanelGate, ChallengeGate, ChatIntro, ChatNotices, ChatShell, DepartureGate, DockTray, ScrollAnchor, TurnStream } from "./components/ChatShell";
 import { ChatInput } from "./components/ChatInput";
 import { currentChatConfig } from "./config";
@@ -14,9 +14,9 @@ import { chatDictFor } from "./i18n";
 import type { ChatDict } from "./i18n";
 import type { PhotoGps, PhotoSearchContext } from "./photo-search";
 import type { ChatSearch } from "./search";
-import { SpotSelectionProvider, useSpotSelectionState } from "./selection/useSpotSelection";
-import { useRecomputeTurn } from "./selection/useRecomputeTurn";
-import type { RecomputeTurn } from "./selection/useRecomputeTurn";
+import { SpotSelectionProvider, useSpotSelectionState } from "./selection/use-spot-selection";
+import { useRecomputeTurn } from "./selection/use-recompute-turn";
+import type { RecomputeTurn } from "./selection/use-recompute-turn";
 import { lockedRecompute, useLockedActions } from "./quota-lock";
 import type { QuotaLock } from "./quota-lock";
 import { useAutoSend } from "./use-auto-send";
@@ -35,7 +35,7 @@ import type { TurnFailureGate } from "./use-turn-failure";
 import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
 import { useTurnstileChallenge, useTurnstileReady } from "./use-turnstile-challenge";
 import type { TurnstileChallenge } from "./use-turnstile-challenge";
-import { ChatReturnTargetProvider } from "./return-target";
+import { ChatReturnTargetProvider } from "./ChatReturnTarget";
 
 export interface ChatPageProps {
   readonly search: ChatSearch;

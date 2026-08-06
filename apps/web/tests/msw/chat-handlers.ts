@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import type { HttpHandler } from "msw";
-import { TURNSTILE_HEADER } from "../../src/lib/turnstile/tokenStore";
+import { TURNSTILE_HEADER } from "../../src/lib/turnstile/token-store";
 import { CHAT_URL, HEALTHZ_URL, chatStreamFixture, chatStreamPost, recordingHead, streamText } from "./chat-stream-base";
 import type { ChatStreamFixture, ChatStreamOptions } from "./chat-stream-base";
 import { sseResponse, SSE_HEADERS } from "./chat-sse";

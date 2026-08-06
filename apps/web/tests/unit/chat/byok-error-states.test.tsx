@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TurnFailure } from "../../../src/features/chat/components/ErrorStates/TurnFailure";
 import type { TurnFailureView } from "../../../src/features/chat/components/ErrorStates/TurnFailure";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import type { ChatErrorState } from "../../../src/lib/chat/errorClassifier";
-import { classifyFailure } from "../../../src/lib/chat/errorClassifier";
+import type { ChatErrorState } from "../../../src/lib/chat/error-classifier";
+import { classifyFailure } from "../../../src/lib/chat/error-classifier";
 import { renderWithLocale, setLanguages } from "../_i18n";
 
 const dict = chatDictFor("ja");
