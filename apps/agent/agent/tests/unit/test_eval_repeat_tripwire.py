@@ -87,7 +87,7 @@ def test_metrics_report_unrecorded_params_instead_of_hiding_them(
 ) -> None:
     trajectory = _trajectory(_unrecorded_nearby(), _nearby("Uji"))
 
-    print_direct_thrash_metrics([trajectory], include_p95=False, enforced=True)
+    print_direct_thrash_metrics([trajectory], include_p95=False, is_enforced=True)
 
     report = capsys.readouterr().out
     assert "C1_en_005: requests=2 tool_calls=2 repeats=0 unrecorded_params=1" in report

@@ -172,9 +172,9 @@ async def _handle_return(deps: RuntimeDeps, part: ToolReturnPart) -> None:
     if deps.tool_lifecycle.take_recovered_exception(part.tool_call_id):
         await _handle_recovered_exception(deps, call, part)
         return
-    success = part.outcome == "success"
-    data = _project_content(part.content) if success else None
-    await _complete(deps, call, part, data, success)
+    is_success = part.outcome == "success"
+    data = _project_content(part.content) if is_success else None
+    await _complete(deps, call, part, data, is_success)
 
 
 async def _handle_recovered_exception(
@@ -197,11 +197,11 @@ async def _complete(
     call: ActiveToolCall,
     part: ToolReturnPart,
     data: dict[str, JsonValue] | None,
-    success: bool,
+    is_success: bool,
 ) -> None:
-    _record_terminal_return(deps, call, part, data, success)
+    _record_terminal_return(deps, call, part, data, is_success)
     _scan_result(call.tool, part.content)
-    status: StepStatus = "done" if success else "error"
+    status: StepStatus = "done" if is_success else "error"
     payload = cast(StepData, data or {})
     await _emit(deps, StepEvent(call.tool, part.tool_call_id, status, payload))
 
@@ -211,17 +211,17 @@ def _record_terminal_return(
     call: ActiveToolCall,
     part: ToolReturnPart,
     data: dict[str, JsonValue] | None,
-    success: bool,
+    is_success: bool,
 ) -> None:
     """Persist only an official terminal return, never a recovered attempt."""
     provenance = deps.tool_lifecycle.take_provenance(part.tool_call_id)
-    error = None if success else _FAILED_ERROR
+    error = None if is_success else _FAILED_ERROR
     params = cast(StepData, call.params)
     payload = cast(StepData | None, data)
     deps.steps.append(
         StepRecord(
             tool=call.tool,
-            success=success,
+            is_success=is_success,
             params=params,
             data=payload,
             provenance=provenance,

@@ -32,14 +32,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: shellcheck workflow meta scripts
-        run: shellcheck .github/scripts/assert-workflow-invariants.sh .github/scripts/assert-workflow-invariants.test.sh
+      - name: Ruby syntax check workflow meta scripts
+        run: |
+          for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb; do
+            ruby -c "${f}"
+          done
         shell: bash
       - name: Workflow invariant behavioral tests
-        run: bash .github/scripts/assert-workflow-invariants.test.sh
+        run: ruby .github/scripts/assert-workflow-invariants.test.rb
         shell: bash
       - name: Assert workflow invariants
-        run: bash .github/scripts/assert-workflow-invariants.sh
+        run: ruby .github/scripts/assert-workflow-invariants.rb
         shell: bash
       - name: Download actionlint
         run: |

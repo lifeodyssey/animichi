@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
-import app, { closeDbPools, IngestEntrypoint } from "../src/index";
+import { app, closeDbPools, IngestEntrypoint } from "../src/index";
 import {
   databaseDescribe,
   localDatabaseUrl,

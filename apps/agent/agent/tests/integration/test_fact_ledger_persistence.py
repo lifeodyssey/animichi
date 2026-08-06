@@ -31,7 +31,7 @@ def _turn_result(session: SessionState, *, pacing: str) -> AgentResult:
         steps=[
             StepRecord(
                 tool="plan_route",
-                success=True,
+                is_success=True,
                 params={"search_result_ref": "ref-1", "pacing": pacing},
             )
         ],

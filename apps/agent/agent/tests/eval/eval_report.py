@@ -25,7 +25,7 @@ def print_scores(
     model_id: str,
     *,
     case_count: int,
-    l3_on: bool,
+    l3_enabled: bool,
     tier: str | None = None,
 ) -> None:
     """Print a per-metric score table."""
@@ -34,7 +34,7 @@ def print_scores(
     if tier is not None:
         print(f"  Tier:     {tier}")
     print(f"  Cases:    {case_count}")
-    print(f"  L3 judge: {'on' if l3_on else 'off'}")
+    print(f"  L3 judge: {'on' if l3_enabled else 'off'}")
     for name, value in scores.items():
         print(f"  {name:<22}{value:.1%}")
     print(f"{'=' * 60}")

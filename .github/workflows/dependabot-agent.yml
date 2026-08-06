@@ -5,6 +5,12 @@ on:
   pull_request:
     types: [opened, synchronize]
 
+# A fresh dependabot synchronize cancels the stale run — this workflow is
+# PR-only, so cancel-in-progress never touches a push or deploy (S0-v2 B7).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 env:
   PYTHON_VERSION: "3.11"
   NODE_VERSION: "24"

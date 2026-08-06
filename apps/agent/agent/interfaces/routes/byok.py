@@ -105,7 +105,7 @@ ProbeErrorCode = Literal["byok_credential_rejected", "provider_unreachable"]
 
 @dataclass(frozen=True, slots=True)
 class ProbeResult:
-    vision: bool
+    has_vision: bool
     reachable: bool
     error_code: ProbeErrorCode | None
 
@@ -182,16 +182,18 @@ def _probe_message() -> list[UserContent]:
 
 
 def _unreachable_result() -> ProbeResult:
-    return ProbeResult(vision=False, reachable=False, error_code="provider_unreachable")
+    return ProbeResult(
+        has_vision=False, reachable=False, error_code="provider_unreachable"
+    )
 
 
 def _classify_model_http_error(exc: ModelHTTPError) -> ProbeResult:
     if exc.status_code in _CREDENTIAL_REJECTED_STATUSES:
         return ProbeResult(
-            vision=False, reachable=False, error_code="byok_credential_rejected"
+            has_vision=False, reachable=False, error_code="byok_credential_rejected"
         )
     if exc.status_code in _VISION_UNSUPPORTED_STATUSES:
-        return ProbeResult(vision=False, reachable=True, error_code=None)
+        return ProbeResult(has_vision=False, reachable=True, error_code=None)
     return _unreachable_result()
 
 
@@ -231,20 +233,20 @@ async def _run_probe(model: Model) -> ProbeResult:
         # non-LLM service behind the probed endpoint.
         logger.info("byok_probe_unreachable", exc_info=True)
         return _unreachable_result()
-    return ProbeResult(vision=True, reachable=True, error_code=None)
+    return ProbeResult(has_vision=True, reachable=True, error_code=None)
 
 
 def _probe_response(result: ProbeResult) -> JSONResponse:
     logger.info(
         "byok_probe_completed",
-        vision=result.vision,
+        vision=result.has_vision,
         reachable=result.reachable,
         error_code=result.error_code,
     )
     return JSONResponse(
         status_code=200,
         content={
-            "vision": result.vision,
+            "vision": result.has_vision,
             "reachable": result.reachable,
             "error_code": result.error_code,
         },

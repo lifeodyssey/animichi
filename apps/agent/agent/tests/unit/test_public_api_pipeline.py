@@ -105,7 +105,7 @@ async def test_selected_point_ids_bypass_planner(mock_db: MagicMock) -> None:
             steps=[
                 StepRecord(
                     tool="plan_selected",
-                    success=True,
+                    is_success=True,
                     data={"route_ref": str(route_ref)},
                 )
             ],

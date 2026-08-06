@@ -156,14 +156,14 @@ def _write_baseline(
     )
 
 
-def _capped_mode_label(*, smoke: bool) -> str:
-    if smoke:
+def _capped_mode_label(*, is_smoke: bool) -> str:
+    if is_smoke:
         return "smoke-enforced (zero-errors + direct gates)"
     return "report-only"
 
 
-def _capped_notice(case_count: int, *, smoke: bool) -> None:
-    label = _capped_mode_label(smoke=smoke)
+def _capped_notice(case_count: int, *, is_smoke: bool) -> None:
+    label = _capped_mode_label(is_smoke=is_smoke)
     print(
         f"\nCAPPED eval run: {case_count}/{len(ALL_CASES)} cases; {label} "
         "(no baseline read/write/statistical gate)."
@@ -174,17 +174,17 @@ def gate_report(
     report: AgentReport, target: EvalTierTarget, model_id: str, scores: ScoreMap
 ) -> list[str] | None:
     gate_input = _report_gate_input(report, target, model_id, scores)
-    return _run_gate(gate_input, target.layer, BASELINES_DIR, capped=CAPPED)
+    return _run_gate(gate_input, target.layer, BASELINES_DIR, is_capped=CAPPED)
 
 
 def _run_gate(
-    gate_input: GateInput, layer: str, baselines_dir: Path, *, capped: bool
+    gate_input: GateInput, layer: str, baselines_dir: Path, *, is_capped: bool
 ) -> list[str] | None:
-    if capped:
+    if is_capped:
         return _run_capped_gate(gate_input)
     _refuse_uncapped_smoke()
     enforce_direct = _direct_gate_enforced()
-    _print_direct_metrics(gate_input, include_p95=True, enforced=enforce_direct)
+    _print_direct_metrics(gate_input, include_p95=True, is_enforced=enforce_direct)
     return _run_uncapped_gate(gate_input, layer, baselines_dir, enforce_direct)
 
 
@@ -201,10 +201,10 @@ def _refuse_uncapped_smoke() -> None:
 
 def _run_capped_gate(gate_input: GateInput) -> list[str]:
     """L0 smoke tier: never touches the baseline; EVAL_SMOKE=1 makes it enforce."""
-    smoke = _smoke_enforced()
-    _print_direct_metrics(gate_input, include_p95=smoke, enforced=smoke)
-    _capped_notice(gate_input.case_count, smoke=smoke)
-    if not smoke:
+    is_smoke = _smoke_enforced()
+    _print_direct_metrics(gate_input, include_p95=is_smoke, is_enforced=is_smoke)
+    _capped_notice(gate_input.case_count, is_smoke=is_smoke)
+    if not is_smoke:
         return []
     return _smoke_gate_failures(gate_input)
 
@@ -219,9 +219,9 @@ def _smoke_gate_failures(gate_input: GateInput) -> list[str]:
 
 def _trajectory_assertion_failures(gate_input: GateInput) -> list[str]:
     """S1.13 pilot: report every case, block only once calibrated (opt-in)."""
-    enforced = _trajectory_assertions_enforced()
-    print_trajectory_assertions(gate_input.expectations, enforced=enforced)
-    if not enforced:
+    is_enforced = _trajectory_assertions_enforced()
+    print_trajectory_assertions(gate_input.expectations, is_enforced=is_enforced)
+    if not is_enforced:
         return []
     return trajectory_assertion_failures(gate_input.expectations)
 
@@ -263,10 +263,10 @@ def _run_uncapped_gate(
 
 
 def _print_direct_metrics(
-    gate_input: GateInput, *, include_p95: bool, enforced: bool
+    gate_input: GateInput, *, include_p95: bool, is_enforced: bool
 ) -> None:
     print_direct_thrash_metrics(
-        gate_input.trajectories, include_p95=include_p95, enforced=enforced
+        gate_input.trajectories, include_p95=include_p95, is_enforced=is_enforced
     )
 
 
@@ -342,7 +342,7 @@ def _print_report_scores(
     scores: ScoreMap, target: EvalTierTarget, model_id: str
 ) -> None:
     print_scores(
-        scores, model_id, case_count=len(CASES), l3_on=EVAL_L3, tier=target.tier
+        scores, model_id, case_count=len(CASES), l3_enabled=EVAL_L3, tier=target.tier
     )
 
 
