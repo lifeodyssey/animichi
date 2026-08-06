@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  ANON_QUOTA_CRON,
-  ANONYMOUS_SESSIONS_CRON,
-  createScheduledHandler,
-  type HandlerDependencies,
-} from "../src/index";
+import { ANON_QUOTA_CRON, ANONYMOUS_SESSIONS_CRON } from "../src/schedule";
+import { createScheduledHandler, type HandlerDependencies } from "../src/index";
 import type { DatabaseClient } from "../src/purge";
 
 const ENV = { AGENT_DATABASE_URL: "postgresql://user:password@agent.example/animichi" };
