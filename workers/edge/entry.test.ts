@@ -41,7 +41,7 @@ void test("exact public anime overview GET forwards anonymously, no auth called"
   const authenticate = () => { wasAuthCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
   const app = createWorkerApp({ authenticate });
   const cap: { req?: Request } = {};
-  const res = await app.request("/catalog/public/anime-overview/3302", {}, environmentWithCatalog(cap), stubCtx);
+  const res = await app.request("/catalog/public/anime-overview/3302", {}, envWithCatalog(cap), stubCtx);
   assert.equal(await res.text(), "cat");
   assert.equal(wasAuthCalled, false);
 });
@@ -54,7 +54,7 @@ void test("public catalog forwarding keeps only the minimal safe header allowlis
     Cookie: "session=test-token-000", "X-API-Key": "test-token-000",
     "X-User-Id": "forged",
   };
-  await app.request("/catalog/public/anime-overview/3302", { headers }, environmentWithCatalog(cap), stubCtx);
+  await app.request("/catalog/public/anime-overview/3302", { headers }, envWithCatalog(cap), stubCtx);
   assert.ok(cap.req);
   assert.deepEqual([...cap.req.headers], [["accept", "application/json"]]);
 });
@@ -62,7 +62,7 @@ void test("public catalog forwarding keeps only the minimal safe header allowlis
 void test("public anime overview rejects unexpected query parameters", async () => {
   const app = createWorkerApp({});
   const cap: { req?: Request } = {};
-  const res = await app.request("/catalog/public/anime-overview/3302?nonce=fixed", {}, environmentWithCatalog(cap), stubCtx);
+  const res = await app.request("/catalog/public/anime-overview/3302?nonce=fixed", {}, envWithCatalog(cap), stubCtx);
   assert.equal(res.status, 400);
   assert.equal(cap.req, undefined);
 });
@@ -70,7 +70,7 @@ void test("public anime overview rejects unexpected query parameters", async () 
 async function assertPublicCatalogRejected(path: string, method = "GET"): Promise<void> {
   const app = createWorkerApp({});
   const cap: { req?: Request } = {};
-  const res = await app.request(path, { method }, environmentWithCatalog(cap), stubCtx);
+  const res = await app.request(path, { method }, envWithCatalog(cap), stubCtx);
   assert.equal(res.status, 404);
   assert.equal(cap.req, undefined);
 }

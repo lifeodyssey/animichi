@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import app from "../src/index";
+import { app } from "../src/index";
 import { localDatabaseUrl } from "./spike-db";
 
 export interface ApiPoint {
