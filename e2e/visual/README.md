@@ -51,24 +51,33 @@ route, viewport, mode) + `make visual-canonicalize` + accepting baselines.
 From the repo root:
 
 ```
-make visual-check                      # PAGE=landing-day MODE=day RATIO=0.01
-make visual-check PAGE=landing-night   # the night frame
+make visual-check                      # every frame in the registry
+make visual-check PAGE=landing          # partial key → landing-day
+make visual-check PAGE=landing-night    # a full frame key wins
 make visual-check PAGE=landing MODE=night   # partial key + MODE → landing-night
-make visual-check RATIO=0.05           # loosen the pixel budget
+make visual-check RATIO=0.05            # loosen the pixel budget (threshold config)
 make visual-canonicalize               # regenerate canonical/ from the mockups
+make visual-check-self-test            # shell-boundary contract check: no PAGE,
+                                       # every frame must have a report and pass
 ```
 
 A PAGE that is already a full frame key wins; otherwise PAGE-MODE is tried
-("landing" + "night" → "landing-night").
+("landing" + "night" → "landing-night"). No PAGE means the whole registry
+(landing-day + landing-night today).
 
 `visual-check` canonicalizes first (idempotent: identical inputs produce
 byte-identical files, so no git churn), then runs the `@visual` Playwright
-project. With docker available it runs inside
+project once per frame. With docker available it runs inside
 `mcr.microsoft.com/playwright:v1.62.0-noble` (`--network host`, repo mounted);
 without docker it runs on the host and prints a WARNING that baselines are
-host-rendered. **Exit code is the comparison result** in both arms. The app
-tier skips with a message when `E2E_WEB_BASE_URL` (default
-`http://localhost:3000`) is unreachable — start it with `make dev-local`.
+host-rendered. The wrapper resolves the app URL the runner can actually reach:
+under Docker Desktop the container's loopback is the Linux VM's, so a
+host-bound app is reached via the `host.docker.internal` gateway IP (vite
+accepts raw-IP Host headers; Linux host-network keeps the original URL).
+**Exit code is the comparison result** in both arms. When `E2E_WEB_BASE_URL`
+(default `http://localhost:3000`) is unreachable the app tiers skip and the
+atom fails closed (`summary.exitCode` 2 — see the result contract below):
+start the app with `make dev-local`.
 
 The plain suite (`make e2e`) does not run the pixel tiers: the visual suite is
 opt-in via `VISUAL_CHECK=1` (which `visual-check` sets). Its pure-module unit
@@ -100,6 +109,99 @@ The app side gets the same treatment: `reducedMotion: "reduce"`,
 on every screenshot, fonts awaited via `document.fonts.ready`, and the
 splash's CSS-driven dismissal awaited (`[data-splash="static"]` hidden).
 
+## Result contract (task atom, F2)
+
+`visual-check` is a re-entrant task atom: same invocation shape every time,
+machine-readable output, exit code as verdict. An orchestration layer can
+dispatch it without touching the pipeline.
+
+**Inputs** — make variables, each with a pipeline default; none required:
+
+| Var | Default | Meaning |
+|---|---|---|
+| `PAGE` | empty = all frames | full frame key (`landing-night`) or partial key (`landing`) |
+| `MODE` | `day` | frame mode, used only for partial keys |
+| `RATIO` | `0.01` | the pixel budget (threshold). It is config: read from this variable, forwarded as `VISUAL_RATIO`, never recomputed per frame |
+| `E2E_WEB_BASE_URL` | `http://localhost:3000` | app under test |
+
+**Outputs**:
+
+- **`e2e/visual/report/summary.json` is the single authoritative verdict.**
+  It is written fresh on *every* invocation path — a normal run, a visual
+  diff, or an invocation failure (`exitCode: 2` with an `error` message) —
+  and the per-frame reports are cleared by the *runner* once, before the
+  frame loop (the docker container and the host arm each do
+  `rm -rf visual/report` first). The clear is deliberately NOT inside the
+  loop: per-frame reports are per-run artifacts, so clearing on frame N+1
+  would delete frame N's report and every frame but the last would be
+  misreported as "no convergence report produced". report/ is never cleared
+  from the host shell: rm on a Docker Desktop bind mount can leave the VM's
+  dentry cache holding deleted names, and the container's later write of the
+  same name then fails ENOENT (observed on the convergence tier). The
+  stale-file guarantee is the combination: fresh per-frame JSON per run + a
+  fresh summary.json on every path, including failures. `runId` (ISO
+  timestamp) is echoed on the last stdout line and stored in the JSON; a
+  dispatcher that wants to guard against interleaved runs compares the two.
+  Because of `runId`, repeated runs are verdict-identical but not
+  byte-identical.
+- **Exit code semantics** — three states, distinguished by `summary.exitCode`:
+
+  | `exitCode` | Meaning | When |
+  |---|---|---|
+  | `0` | pass | every frame compared and under threshold |
+  | `1` | visual diff | ≥1 frame failed (ratio over threshold, or a nonzero playwright/runner exit) |
+  | `2` | environment or invocation | no frames resolved (unknown `PAGE`), **or** ≥1 frame produced no comparison (app unreachable, app unreachable from the docker runner, missing convergence report) — fail-closed: zero compared pixels is never green |
+
+  `scripts/visual-check.sh` exits 0/1/2 directly. Invoked through `make`, GNU
+  make remaps *any* recipe failure to its own exit `2` (still nonzero) — the
+  1-vs-2 distinction survives only in `summary.exitCode`, which is why it is
+  the contract.
+- **Per-frame detail** — `summary.frames[]` carries each frame's `status`
+  (`pass`/`fail`/`skipped`), `ratio`, `threshold`, and `reason`; `failedFrames`
+  and `skippedFrames` are the flat lists; `invocation` echoes the inputs and
+  the resolved frame order. Pixel-level detail (diff heatmap + cluster boxes)
+  stays in `report/<frame>.json`.
+- Human progress on stdout; the last line is the one-line verdict including
+  the `runId`.
+
+Orchestration recipe: run the atom, read `report/summary.json`; branch on
+`summary.exitCode` — `2` → stop (read `summary.error` or each skipped frame's
+`reason`: app down, runner blocked, or bad `PAGE`); `1` → act per
+`summary.failedFrames` (each failing frame's `reason` names the threshold
+breach or the runner exit); `0` → green. The dispatcher can act without
+re-reading heatmaps.
+
+> **TODO (convergence card, C4):** under the default `RATIO=0.01` the frames
+> are **not converged yet** — `landing-day` sits around `0.964` of pixels
+> differing from the mockup (font + layout work, see Known gaps below). The
+> atom reports that honestly as `exitCode 1`; converging the frames to
+> `0.01` is the convergence card's job, **not** this atom's. Until C4 lands,
+> acceptance runs must pass an explicit loose `RATIO` (e.g.
+> `make visual-check PAGE=landing RATIO=0.9999`). The default `RATIO` is
+> pipeline config and must not be loosened here.
+
+## Contract self-test
+
+`make visual-check-self-test` (`e2e/visual/check-multiframe.sh`) is the
+shell-boundary check that the unit layer cannot provide: it runs the atom
+WITHOUT `PAGE` (every frame in the registry) and asserts the contract
+end-to-end — every resolved frame has its `report/<frame>.json` on disk,
+every verdict is `pass`, and `summary.exitCode` is `0`. This is what catches
+a per-frame lifecycle regression like the clear-inside-the-loop bug (frame
+N+1 deletes frame N's report): the pure-module tests never see the shell,
+and a single-frame run never exercises the ordering.
+
+The budget is loose on purpose (`RATIO=0.9999`, documented in the script):
+the self-test verifies the *contract*, not frame *convergence* — converging
+to the default `RATIO=0.01` is the C4 card. A loose budget still catches the
+bug class: a skipped or missing report is a contract violation, not a
+convergence matter. The Makefile `RATIO ?= 0.01` default is not touched.
+
+Preconditions: docker + the Playwright image (or host playwright) and a
+reachable app (`E2E_WEB_BASE_URL`, default `http://localhost:3000` — start
+`make dev-local`). It is fail-closed: an unreachable app makes the atom
+exit `2` and the self-test fails.
+
 ## Baseline policy
 
 - `canonical/` — committed. Regenerate only when the mockup changes; review
@@ -118,6 +220,10 @@ pipeline owner (product/design sign-off that the frame is truly dead). No
 
 ## Known gaps (convergence card)
 
+- **Not converged under the default threshold — see the C4 TODO in the result
+  contract above.** `landing-day` currently reports ~0.96 of pixels differing
+  from the mockup; converging to `RATIO=0.01` is the convergence card's work
+  (this card only made the atom callable and machine-honest about it).
 - First real diff ratio is recorded in `report/first-run.md` (generated) —
   treat it as the starting point, not a passing result.
 - Fonts differ between mockup and app (Lora absent, weight synthesis

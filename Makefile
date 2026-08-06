@@ -1,6 +1,6 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -47,7 +47,8 @@ help:
 	@echo "E2E Testing:"
 	@echo "  make e2e-setup   Start Supabase + Edge Function + seed data"
 	@echo "  make e2e         Run all Playwright E2E tests"
-	@echo "  make visual-check  Pixel-level mockup comparison (PAGE=landing-day MODE=day RATIO=0.01)"
+	@echo "  make visual-check  Pixel mockup comparison (PAGE=landing MODE=day RATIO=0.01; no PAGE = all frames; JSON -> e2e/visual/report/summary.json)"
+	@echo "  make visual-check-self-test  Atom contract check (all frames; needs docker + app up)"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean       Remove build artifacts and caches"
@@ -222,31 +223,38 @@ e2e:
 local-login:
 	bash scripts/local-login.sh
 
-# ── Visual comparison (S0-v2 C3) ─────────────────────────────
-# User-facing params: PAGE (frame key or partial key), MODE (day|night),
-# RATIO (pixel budget). PAGE defaults to the one proven frame.
+# ── Visual comparison (S0-v2 C3 + F2 task atom) ─────────────
+# User-facing params: PAGE (frame key or partial key; empty = all frames),
+# MODE (day|night), RATIO (pixel budget, from config — default 0.01).
+# Result contract: e2e/visual/report/summary.json is the single authoritative
+# verdict — exitCode 0 pass / 1 visual diff / 2 environment or invocation,
+# plus per-frame ratio/pass and failedFrames. Through make, GNU make remaps
+# any recipe failure to its own exit 2 (still nonzero); read summary.json to
+# distinguish 1 from 2. Canonicalize runs inside scripts/visual-check.sh; the
+# runner clears report/ once before the frame loop (never the host shell —
+# bind-mount races; never per frame, or frame N+1 deletes frame N's report).
 
-PAGE ?= landing-day
+PAGE ?=
 MODE ?= day
 RATIO ?= 0.01
 VISUAL_PLAYWRIGHT_IMAGE ?= mcr.microsoft.com/playwright:v1.62.0-noble
-VISUAL_DOCKER_ENV := $(if $(E2E_WEB_BASE_URL),-e E2E_WEB_BASE_URL="$(E2E_WEB_BASE_URL)",)
 
 visual-canonicalize:
 	@echo "visual-canonicalize: regenerating frozen canonical mockups"
 	node --experimental-strip-types e2e/visual/canonicalize-cli.ts --out e2e/visual/canonical --fonts apps/web/src/styles/fonts.css
 
-visual-check: visual-canonicalize
-	@echo "visual-check: PAGE=$(PAGE) MODE=$(MODE) RATIO=$(RATIO)"
-	@if docker info >/dev/null 2>&1; then \
-	  echo "visual-check: running in Playwright docker image $(VISUAL_PLAYWRIGHT_IMAGE)"; \
-	  docker run --rm --network host -v "$$(pwd)":/work -w /work/e2e \
-	    -e VISUAL_CHECK=1 -e VISUAL_PAGE="$(PAGE)" -e VISUAL_MODE="$(MODE)" -e VISUAL_RATIO="$(RATIO)" \
-	    $(VISUAL_DOCKER_ENV) "$(VISUAL_PLAYWRIGHT_IMAGE)" npx playwright test --project=visual --grep @visual; \
-	else \
-	  echo "WARNING: docker unavailable — visual baselines are host-rendered, not container-rendered"; \
-	  cd e2e && VISUAL_CHECK=1 VISUAL_PAGE="$(PAGE)" VISUAL_MODE="$(MODE)" VISUAL_RATIO="$(RATIO)" npx playwright test --project=visual --grep @visual; \
-	fi
+visual-check:
+	@PAGE="$(PAGE)" MODE="$(MODE)" RATIO="$(RATIO)" \
+	 VISUAL_PLAYWRIGHT_IMAGE="$(VISUAL_PLAYWRIGHT_IMAGE)" E2E_WEB_BASE_URL="$(E2E_WEB_BASE_URL)" \
+	 bash scripts/visual-check.sh; exit $$?
+
+# Self-test of the atom contract at the shell boundary: runs the atom WITHOUT
+# PAGE (every frame), then asserts every frame has a report, every verdict is
+# pass, and summary.exitCode is 0. The budget is loose by design (0.9999) —
+# this checks the contract, not frame convergence (C4). Needs a reachable app
+# (E2E_WEB_BASE_URL) and docker; fails closed when either is missing.
+visual-check-self-test:
+	@E2E_WEB_BASE_URL="$(E2E_WEB_BASE_URL)" bash e2e/visual/check-multiframe.sh
 
 # ── Setup ────────────────────────────────────────────────────
 

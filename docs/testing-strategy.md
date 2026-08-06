@@ -517,6 +517,49 @@ Beyond AC-defined scenarios, Evaluator proactively generates:
 }
 ```
 
+### Visual Regression (Pixel) Pipeline
+
+The pixel pipeline (`e2e/visual/`, two-tier doctrine: convergence vs
+regression) is exposed as a parameterized, re-entrant task atom:
+
+- `make visual-check` — every frame in the registry.
+- `make visual-check PAGE=landing MODE=night` — one frame; `PAGE` accepts a
+  full frame key or a partial key resolved against `MODE`.
+- `make visual-check RATIO=0.05` — loosen the pixel budget; `RATIO` is the
+  threshold config, default `0.01`.
+- `make visual-check-self-test` — shell-boundary contract check: runs the
+  atom with no `PAGE` (every frame) and asserts each frame has a report, all
+  verdicts are `pass`, and `summary.exitCode` is `0`. Loose budget on purpose
+  (contract, not convergence — that is C4). Needs docker + a reachable app;
+  fails closed otherwise.
+
+Contract (inputs/outputs):
+
+- **Inputs**: `PAGE` (empty = all frames), `MODE` (`day`/`night`, for partial
+  keys only), `RATIO` (pixel budget, from config), `E2E_WEB_BASE_URL`
+  (default `http://localhost:3000`).
+- **The single authoritative verdict is `e2e/visual/report/summary.json`** —
+  written fresh on every invocation path (including invocation failures, with
+  an `error` field), with a `runId` for freshness; per-frame reports are
+  cleared by the runner once, before the frame loop (never from the host
+  shell — rm on a Docker Desktop bind mount races the container's writes
+  with ENOENT; never per frame, or frame N+1 would delete frame N's report
+  and every frame but the last would misreport "no convergence report
+  produced").
+  `summary.exitCode` has three states: `0` every frame compared and passed ·
+  `1` at least one visual diff (`failedFrames`) ·
+  `2` environment or invocation problem (unknown `PAGE`, or a frame produced
+  no comparison — app unreachable, runner blocked — **fail-closed: zero
+  compared pixels is never green**). `scripts/visual-check.sh` exits 0/1/2
+  directly; via `make` GNU make remaps any recipe failure to its own exit `2`
+  (still nonzero), so the 1-vs-2 distinction lives in the JSON, not in make's
+  exit code.
+- Per-frame `status` (`pass`/`fail`/`skipped`) carries `ratio`, `threshold`,
+  `reason`; `failedFrames` / `skippedFrames` are the flat lists.
+- Frame registry, determinism rules, orchestration recipe, and the C4
+  convergence TODO (frames not yet converged under the default `RATIO=0.01`):
+  `e2e/visual/README.md`.
+
 ---
 
 ## Coverage Targets & CI
