@@ -70,7 +70,11 @@ byte-identical files, so no git churn), then runs the `@visual` Playwright
 project once per frame. With docker available it runs inside
 `mcr.microsoft.com/playwright:v1.62.0-noble` (`--network host`, repo mounted);
 without docker it runs on the host and prints a WARNING that baselines are
-host-rendered. The wrapper resolves the app URL the runner can actually reach:
+host-rendered. The host arm resolves Playwright from `e2e/node_modules`
+(the documented e2e setup), falling back to the workspace-root
+`node_modules/.bin/playwright`, and fails fast with an environment summary
+(`exitCode: 2`) if neither exists. The wrapper resolves the app URL the
+runner can actually reach:
 under Docker Desktop the container's loopback is the Linux VM's, so a
 host-bound app is reached via the `host.docker.internal` gateway IP (vite
 accepts raw-IP Host headers; Linux host-network keeps the original URL).
@@ -121,7 +125,7 @@ dispatch it without touching the pipeline.
 |---|---|---|
 | `PAGE` | empty = all frames | full frame key (`landing-night`) or partial key (`landing`) |
 | `MODE` | `day` | frame mode, used only for partial keys |
-| `RATIO` | `0.01` | the pixel budget (threshold). It is config: read from this variable, forwarded as `VISUAL_RATIO`, never recomputed per frame |
+| `RATIO` | `0.01` | the pixel budget (threshold). It is config: read from this variable, forwarded as `VISUAL_RATIO`, never recomputed per frame. Must be a finite number in `(0, 1]` — a malformed value is an invocation error (`exitCode: 2` with `error`), never a silent `NaN`→`null` in the JSON. The wrapper pre-filters typos before any docker run; the summarize CLI re-validates finiteness and range on every path (authoritative) |
 | `E2E_WEB_BASE_URL` | `http://localhost:3000` | app under test |
 
 **Outputs**:
@@ -150,7 +154,7 @@ dispatch it without touching the pipeline.
   |---|---|---|
   | `0` | pass | every frame compared and under threshold |
   | `1` | visual diff | ≥1 frame failed (ratio over threshold, or a nonzero playwright/runner exit) |
-  | `2` | environment or invocation | no frames resolved (unknown `PAGE`), **or** ≥1 frame produced no comparison (app unreachable, app unreachable from the docker runner, missing convergence report) — fail-closed: zero compared pixels is never green |
+  | `2` | environment or invocation | no frames resolved (unknown `PAGE`), a malformed `RATIO`, **or** ≥1 frame produced no comparison (app unreachable, app unreachable from the docker runner, missing convergence report) — fail-closed: zero compared pixels is never green |
 
   `scripts/visual-check.sh` exits 0/1/2 directly. Invoked through `make`, GNU
   make remaps *any* recipe failure to its own exit `2` (still nonzero) — the
@@ -183,13 +187,23 @@ re-reading heatmaps.
 ## Contract self-test
 
 `make visual-check-self-test` (`e2e/visual/check-multiframe.sh`) is the
-shell-boundary check that the unit layer cannot provide: it runs the atom
-WITHOUT `PAGE` (every frame in the registry) and asserts the contract
-end-to-end — every resolved frame has its `report/<frame>.json` on disk,
-every verdict is `pass`, and `summary.exitCode` is `0`. This is what catches
-a per-frame lifecycle regression like the clear-inside-the-loop bug (frame
-N+1 deletes frame N's report): the pure-module tests never see the shell,
-and a single-frame run never exercises the ordering.
+shell-boundary check that the unit layer cannot provide. Three phases:
+
+1. **Multi-frame contract** — runs the atom WITHOUT `PAGE` (every frame in
+   the registry) and asserts the contract end-to-end — every resolved frame
+   has its `report/<frame>.json` on disk, every verdict is `pass`, and
+   `summary.exitCode` is `0`. This is what catches a per-frame lifecycle
+   regression like the clear-inside-the-loop bug (frame N+1 deletes frame
+   N's report): the pure-module tests never see the shell, and a single-frame
+   run never exercises the ordering.
+2. **Invocation contract** — a malformed `RATIO` must fail fast (atom exit
+   `2`) with a fresh summary whose `exitCode` is `2`, whose `error` names the
+   ratio, and whose `invocation.ratio` is `null` — never a stale pass, never
+   a silently coerced value.
+3. **Host-arm contract** — with docker unavailable (the `e2e/.stub-bin/docker`
+   stub) and no resolvable Playwright binary, the host arm fails fast with an
+   environment summary (`exitCode: 2`), not a bare "command not found" that
+   leaves no contract record.
 
 The budget is loose on purpose (`RATIO=0.9999`, documented in the script):
 the self-test verifies the *contract*, not frame *convergence* — converging
@@ -197,10 +211,10 @@ to the default `RATIO=0.01` is the C4 card. A loose budget still catches the
 bug class: a skipped or missing report is a contract violation, not a
 convergence matter. The Makefile `RATIO ?= 0.01` default is not touched.
 
-Preconditions: docker + the Playwright image (or host playwright) and a
-reachable app (`E2E_WEB_BASE_URL`, default `http://localhost:3000` — start
-`make dev-local`). It is fail-closed: an unreachable app makes the atom
-exit `2` and the self-test fails.
+Preconditions: docker + the Playwright image (or a resolvable host
+Playwright binary) and a reachable app (`E2E_WEB_BASE_URL`, default
+`http://localhost:3000` — start `make dev-local`). It is fail-closed: an
+unreachable app makes the atom exit `2` and the self-test fails.
 
 ## Baseline policy
 
@@ -229,5 +243,8 @@ pipeline owner (product/design sign-off that the frame is truly dead). No
 - Fonts differ between mockup and app (Lora absent, weight synthesis
   400/600/800 → 500/700); a convergence fail may be font-only. Confirm with
   the cluster boxes before touching the app.
-- `make visual-check` needs `pnpm install` to have run (the `e2e/node_modules`
-  must exist for the docker arm).
+- `make visual-check` needs the e2e deps installed: the docker arm mounts the
+  repo and runs `npx playwright` inside the image with `e2e/node_modules`
+  (`cd e2e && npm ci` via `make e2e-setup`, or `pnpm install` from the repo
+  root); the host arm needs `e2e/node_modules/.bin/playwright` or the
+  workspace-root `node_modules/.bin/playwright` and fails fast otherwise.

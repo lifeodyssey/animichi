@@ -9,6 +9,16 @@
 # Through `make` GNU make remaps any recipe failure to its own exit 2, so the
 # authoritative verdict is summary.json: `exitCode` (0/1/2) + `error`.
 #
+# Invocation contract: RATIO must be a finite number in (0, 1]. The wrapper
+# pre-filters typos before any docker run; the summarize CLI re-validates
+# finiteness and range on every path, so a malformed RATIO always lands as a
+# fresh exitCode-2 summary with an error, never as NaN→null inside the JSON.
+#
+# Host arm: Playwright resolves from e2e/node_modules (the documented e2e
+# setup: `cd e2e && npm ci`), falling back to the workspace-root bin; if
+# neither exists the arm fails fast with an environment summary (exit 2)
+# instead of a bare "command not found" with no contract record.
+#
 # Usage: make visual-check [PAGE=landing] [MODE=day] [RATIO=0.01]
 set -u
 
@@ -16,7 +26,13 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 VISUAL_DIR="$REPO_ROOT/e2e/visual"
 REPORT_DIR="$VISUAL_DIR/report"
 E2E_DIR="$REPO_ROOT/e2e"
-PLAYWRIGHT_BIN="$REPO_ROOT/node_modules/.bin/playwright"
+PLAYWRIGHT_BIN="${VISUAL_PLAYWRIGHT_BIN:-}"
+if [[ -z "$PLAYWRIGHT_BIN" ]]; then
+  PLAYWRIGHT_BIN="$E2E_DIR/node_modules/.bin/playwright"
+  if [[ ! -x "$PLAYWRIGHT_BIN" ]]; then
+    PLAYWRIGHT_BIN="$REPO_ROOT/node_modules/.bin/playwright"
+  fi
+fi
 
 PAGE="${VISUAL_PAGE:-${PAGE:-}}"
 MODE="${VISUAL_MODE:-${MODE:-day}}"
@@ -38,7 +54,17 @@ echo "visual-check: PAGE='${PAGE:-<all frames>}' MODE=$MODE RATIO=$RATIO"
 #    summary.json can never be read as this run's verdict.
 mkdir -p "$REPORT_DIR"
 
-# 2. Canonicalize (idempotent: same inputs → byte-identical files). Runs here,
+# 2. Invocation pre-filter: a malformed RATIO is an invocation error, fail
+#    fast before any docker run. The summarize CLI re-validates finiteness
+#    and range on every path (authoritative); this regex only catches typos.
+if ! [[ "$RATIO" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  node --no-warnings --experimental-strip-types "$VISUAL_DIR/summarize-cli.ts" \
+    --page "$PAGE" --mode "$MODE" --ratio "$RATIO" --base-url "$BASE_URL" --frames ""
+  echo "visual-check: invocation error (exit 2)" >&2
+  exit 2
+fi
+
+# 3. Canonicalize (idempotent: same inputs → byte-identical files). Runs here,
 #    not as a make prerequisite, so this script owns every failure path and
 #    each one ends in a fresh error summary.
 if ! node --no-warnings --experimental-strip-types "$VISUAL_DIR/canonicalize-cli.ts" \
@@ -49,12 +75,12 @@ if ! node --no-warnings --experimental-strip-types "$VISUAL_DIR/canonicalize-cli
   exit 2
 fi
 
-# 3. Resolve frames through the registry (frames.ts) — one source of truth for
+# 4. Resolve frames through the registry (frames.ts) — one source of truth for
 #    the PAGE/MODE → frame mapping. An unknown PAGE fails here; the error is
 #    recorded in a fresh summary (exitCode 2), never left for a stale pass.
 FRAMES_ERR="$REPORT_DIR/.frames-cli.err"
 FRAME_OUT="$(node --no-warnings --experimental-strip-types "$VISUAL_DIR/frames-cli.ts" --page "$PAGE" --mode "$MODE" 2>"$FRAMES_ERR")"
-if [ $? -ne 0 ]; then
+if [[ $? -ne 0 ]]; then
   ERROR_MSG="$(cat "$FRAMES_ERR")"
   rm -f "$FRAMES_ERR"
   node --no-warnings --experimental-strip-types "$VISUAL_DIR/summarize-cli.ts" \
@@ -66,10 +92,10 @@ fi
 rm -f "$FRAMES_ERR"
 FRAMES=()
 while IFS= read -r frame; do
-  [ -n "$frame" ] && FRAMES+=("$frame")
+  [[ -n "$frame" ]] && FRAMES+=("$frame")
 done <<< "$FRAME_OUT"
 
-# 4. Probe the app once from the host. Unreachable → every app tier skips and
+# 5. Probe the app once from the host. Unreachable → every app tier skips and
 #    no pixel is compared; the summary must then report exitCode 2 (fail-
 #    closed), never a green.
 APP_REACHABLE=0
@@ -79,7 +105,7 @@ else
   echo "visual-check: WARNING app not reachable at $BASE_URL — no comparison will run"
 fi
 
-# 5. Container reachability. With --network host on Docker Desktop the
+# 6. Container reachability. With --network host on Docker Desktop the
 #    container's loopback is the Linux VM's, not the host's, so a host-bound
 #    app must be reached through the host gateway IP (vite allows raw-IP Host
 #    headers; Chromium connects to the literal IP). On Linux host-network the
@@ -89,28 +115,39 @@ container_fetch_ok() {
   local url="$1"
   docker run --rm --network host "$IMAGE" node -e \
     "fetch('${url}/',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  return $?
 }
 container_gateway_ip() {
   docker run --rm --network host "$IMAGE" node -e \
     "require('node:dns').lookup('host.docker.internal',{family:4},(e,a)=>{if(e){process.exit(1)}process.stdout.write(a)})"
+  return $?
 }
-resolve_container_url() {
-  local url="$1" port rest ip alias_url
-  if container_fetch_ok "$url"; then echo "$url"; return 0; fi
+container_port_of() {
+  local url="$1"
   case "$url" in
-    http://localhost:*) port="${url#http://localhost:}" ;;
-    http://127.0.0.1:*) port="${url#http://127.0.0.1:}" ;;
-    http://\[::1\]:*) port="${url#http://[::1]:}" ;;
+    http://localhost:*) echo "${url#http://localhost:}" ;;
+    http://127.0.0.1:*) echo "${url#http://127.0.0.1:}" ;;
+    http://\[::1\]:*) echo "${url#http://[::1]:}" ;;
     *) return 1 ;;
   esac
+}
+container_gateway_alias() {
+  local url="$1" port="$2" rest scheme ip
   rest="${url#*:${port}}"
+  scheme="${url%%://*}"
   ip="$(container_gateway_ip)" || return 1
-  alias_url="http://${ip}:${port}${rest}"
+  echo "${scheme}://${ip}:${port}${rest}"
+}
+resolve_container_url() {
+  local url="$1" port alias_url
+  if container_fetch_ok "$url"; then echo "$url"; return 0; fi
+  port="$(container_port_of "$url")" || return 1
+  alias_url="$(container_gateway_alias "$url" "$port")" || return 1
   if container_fetch_ok "$alias_url"; then echo "$alias_url"; return 0; fi
   return 1
 }
 
-# 6. One playwright run per frame, preserving the C3 docker/host split. The
+# 7. One playwright run per frame, preserving the C3 docker/host split. The
 #    report/ clear is a single runner-side step BEFORE the loop (never inside
 #    it): per-frame reports are per-run artifacts, so deleting them on frame
 #    N+1 would destroy frame N's verdict.
@@ -129,7 +166,7 @@ if docker info >/dev/null 2>&1; then
     exit 2
   fi
   CONTAINER_BASE_URL="$(resolve_container_url "$BASE_URL")" || true
-  if [ -n "$CONTAINER_BASE_URL" ]; then
+  if [[ -n "$CONTAINER_BASE_URL" ]]; then
     CONTAINER_REACHABLE=1
   else
     CONTAINER_BASE_URL="$BASE_URL"
@@ -147,8 +184,15 @@ if docker info >/dev/null 2>&1; then
 else
   RUNNER="host"
   CONTAINER_BASE_URL="$BASE_URL"
-  [ "$APP_REACHABLE" = "1" ] && CONTAINER_REACHABLE=1
+  [[ "$APP_REACHABLE" = "1" ]] && CONTAINER_REACHABLE=1
   echo "WARNING: docker unavailable — visual baselines are host-rendered, not container-rendered"
+  if [[ ! -x "$PLAYWRIGHT_BIN" ]]; then
+    node --no-warnings --experimental-strip-types "$VISUAL_DIR/summarize-cli.ts" \
+      --page "$PAGE" --mode "$MODE" --ratio "$RATIO" --base-url "$BASE_URL" \
+      --error "host playwright not found at $PLAYWRIGHT_BIN (run make e2e-setup)" --frames ""
+    echo "visual-check: environment error (exit 2)" >&2
+    exit 2
+  fi
   (cd "$E2E_DIR" && rm -rf visual/report)
   for frame in "${FRAMES[@]}"; do
     echo "visual-check: frame $frame"
@@ -159,16 +203,16 @@ else
   done
 fi
 
-# 7. Reachability — the named three-state concept the summary reasons on.
-if [ "$APP_REACHABLE" = "1" ] && [ "$CONTAINER_REACHABLE" = "1" ]; then
+# 8. Reachability — the named three-state concept the summary reasons on.
+if [[ "$APP_REACHABLE" = "1" ]] && [[ "$CONTAINER_REACHABLE" = "1" ]]; then
   REACH="compared"
-elif [ "$APP_REACHABLE" = "1" ]; then
+elif [[ "$APP_REACHABLE" = "1" ]]; then
   REACH="runner-blocked"
 else
   REACH="app-down"
 fi
 
-# 8. Summarize — always runs, always writes a fresh summary; its exit code is
+# 9. Summarize — always runs, always writes a fresh summary; its exit code is
 #    the atom verdict (0/1/2) and the script's.
 node --no-warnings --experimental-strip-types "$VISUAL_DIR/summarize-cli.ts" \
   --page "$PAGE" --mode "$MODE" --ratio "$RATIO" --base-url "$BASE_URL" \
