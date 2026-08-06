@@ -45,4 +45,13 @@ describe("resolveApiConfig", () => {
     expect(config.catalogUrl).toBe("https://catalog.test");
     expect(config.usersUrl).toBe("https://users.test");
   });
+
+  it("never resolves the origin when both service URLs are configured", () => {
+    const env = { VITE_CATALOG_URL: "https://catalog.test", VITE_USERS_URL: "https://users.test" };
+    expect(() => resolveApiConfig(env)).not.toThrow();
+    expect(resolveApiConfig(env)).toEqual({
+      catalogUrl: "https://catalog.test",
+      usersUrl: "https://users.test",
+    });
+  });
 });
