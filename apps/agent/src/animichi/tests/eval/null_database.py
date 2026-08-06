@@ -20,19 +20,6 @@ class _NullBangumiRepo:
     async def find_all_by_title(self, title: str) -> NoReturn:
         _raise_access("bangumi", "find_all_by_title")
 
-    async def upsert_bangumi_title(self, title: str, bangumi_id: str) -> NoReturn:
-        _raise_access("bangumi", "upsert_bangumi_title")
-
-    async def upsert_bangumi(
-        self,
-        bangumi_id: str,
-        *,
-        title: str | None = None,
-        cover_url: str | None = None,
-        points_count: int | None = None,
-    ) -> NoReturn:
-        _raise_access("bangumi", "upsert_bangumi")
-
     async def find_candidate_details_by_titles(self, titles: list[str]) -> NoReturn:
         _raise_access("bangumi", "find_candidate_details_by_titles")
 
@@ -53,9 +40,6 @@ class _NullPointsRepo:
 
     async def get_points_by_ids(self, point_ids: list[str]) -> NoReturn:
         _raise_access("points", "get_points_by_ids")
-
-    async def upsert_points_batch(self, rows: object) -> NoReturn:
-        _raise_access("points", "upsert_points_batch")
 
 
 _BANGUMI_REPO: BangumiRepo = _NullBangumiRepo()

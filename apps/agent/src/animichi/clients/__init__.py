@@ -5,9 +5,11 @@ service through :mod:`animichi.clients.catalog_client` (httpx). Seed scripts
 use their own scripts-local helpers under ``agent/scripts/``.
 """
 
+from animichi.application.catalog_read_gateway import CatalogReadGateway
 from animichi.clients.catalog_client import CatalogClient, CatalogClientProtocol
 
 __all__ = [
     "CatalogClient",
     "CatalogClientProtocol",
+    "CatalogReadGateway",
 ]

@@ -1,12 +1,8 @@
-"""Bangumi table operations."""
+"""Bangumi table operations (read-only, #839 — no writes to catalog master data)."""
 
 from __future__ import annotations
 
 from animichi.infrastructure.supabase.client_types import AsyncPGPool, Row
-from animichi.infrastructure.supabase.helpers import (
-    _BANGUMI_COLUMNS,
-    _validate_columns,
-)
 
 
 def _escape_ilike(value: str) -> str:
@@ -42,18 +38,6 @@ class BangumiRepository:
             "SELECT * FROM bangumi ORDER BY rating DESC NULLS LAST LIMIT $1",
             limit,
         )
-
-    async def upsert_bangumi(self, bangumi_id: str, **fields: object) -> None:
-        """Insert or update a bangumi record."""
-        _validate_columns(_BANGUMI_COLUMNS, fields)
-        columns = ["id"] + list(fields.keys())
-        placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
-        update_set = ", ".join(f"{col} = EXCLUDED.{col}" for col in fields.keys())
-        sql = (
-            f"INSERT INTO bangumi ({', '.join(columns)}) VALUES ({placeholders}) "  # noqa: S608 — columns validated against _BANGUMI_COLUMNS allowlist, not user input
-            f"ON CONFLICT (id) DO UPDATE SET {update_set}"
-        )
-        await self._pool.execute(sql, bangumi_id, *fields.values())
 
     async def list_popular(self, *, limit: int = 8) -> list[dict[str, object]]:
         """List popular bangumi by rating, only those with points."""
@@ -126,18 +110,6 @@ class BangumiRepository:
             pattern,
         )
         return [dict(r) for r in rows]
-
-    async def upsert_bangumi_title(self, title: str, bangumi_id: str) -> None:
-        """Insert a bangumi title if the bangumi row does not already exist."""
-        await self._pool.execute(
-            """
-            INSERT INTO bangumi (id, title)
-            VALUES ($1, $2)
-            ON CONFLICT (id) DO NOTHING
-            """,
-            bangumi_id,
-            title,
-        )
 
     async def find_candidate_details_by_titles(
         self, titles: list[str]
