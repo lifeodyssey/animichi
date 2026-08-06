@@ -1,8 +1,8 @@
 import { type AnonymousIdentity, resolveAnonymous } from "./auth.ts";
-import { budgetGuidanceResponse, budgetLatched, isBudgetRejection, latchBudget, utcDayKey } from "./costBreaker.ts";
+import { budgetGuidanceResponse, budgetLatched, isBudgetRejection, latchBudget, utcDayKey } from "./cost-breaker.ts";
 import type { Env } from "./env.ts";
 import { forwardV1 } from "./forward.ts";
-import { checkRateLimit, rateLimitConfigFrom } from "./rateLimiter.ts";
+import { checkRateLimit, rateLimitConfigFrom } from "./rate-limiter.ts";
 import { rateLimitedResponse } from "./responses.ts";
 import { type TurnstileGate, guardTurnstile } from "./turnstile.ts";
 

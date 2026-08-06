@@ -5,15 +5,15 @@ import {
   readBudgetLatch,
   utcDayKey,
   writeBudgetLatch,
-} from "./costBreaker.ts";
-import { durableGuardStore, type GuardStore } from "./guardStore.ts";
+} from "./cost-breaker.ts";
+import { durableGuardStore, type GuardStore } from "./guard-store.ts";
 import {
   consumeRateLimit,
   parseWindowState,
   RATE_LIMIT_KEY,
   rateLimitConfigFrom,
   type RateLimitConfig,
-} from "./rateLimiter.ts";
+} from "./rate-limiter.ts";
 
 /**
  * Strongly-consistent state for the edge guards (issue #274 / S1.8).
@@ -74,7 +74,7 @@ export function handleGuardRequest(
 export { budgetGuidanceResponse };
 
 /** Only a `/rate-limit` request reclaims its shard. The daily budget shard
- * is a fixed, separate DO instance (`idFromName("budget")`, costBreaker.ts)
+ * is a fixed, separate DO instance (`idFromName("budget")`, cost-breaker.ts)
  * that never receives this pathname, so it is never at risk of being armed
  * or swept below. */
 export function isRateLimitPath(pathname: string): boolean {

@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { EdgeGuard, isRateLimitPath, RECLAIM_WINDOW_KEY, reclaimDelayMs } from "./edgeGuard.ts";
-import { RATE_LIMIT_KEY } from "./rateLimiter.ts";
+import { EdgeGuard, isRateLimitPath, RECLAIM_WINDOW_KEY, reclaimDelayMs } from "./edge-guard.ts";
+import { RATE_LIMIT_KEY } from "./rate-limiter.ts";
 
 // P2-3 (issue #284 / Task 9): a per-identity rate-limit shard is reclaimed
 // two windows after its last write so an abandoned identity's shard doesn't
 // occupy storage forever. The daily budget shard is a fixed, separate DO
-// instance (`idFromName("budget")`, costBreaker.ts) and never receives the
+// instance (`idFromName("budget")`, cost-breaker.ts) and never receives the
 // `/rate-limit` pathname, so it can never be swept by this mechanism.
 
 void test("only the /rate-limit pathname schedules a reclaim", () => {

@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp, type Env } from "./app.ts";
-import { handleGuardRequest } from "./edgeGuard.ts";
-import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
+import { handleGuardRequest } from "./edge-guard.ts";
+import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
 
 // Task 9 (#284): per-identity rate limiting on the authenticated /v1/* path,
 // scoped to cost-bearing routes only (chat, byok/probe, runtime*) — not

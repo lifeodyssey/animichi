@@ -12,16 +12,16 @@ const testFiles = readdirSync(EDGE_DIR).filter((name) => name.endsWith(".test.ts
 // in the same PR that legitimately deletes a test file, with review.
 const MIN_TEST_FILES = 27;
 
-void test("testInventory: the worker test directory holds at least the pinned floor of test files", () => {
+void test("test-inventory: the worker test directory holds at least the pinned floor of test files", () => {
   assert.equal(
     testFiles.length >= MIN_TEST_FILES,
     true,
-    `expected >= ${MIN_TEST_FILES} test files in workers/edge/, found ${testFiles.length} — ` +
+    `expected >= ${String(MIN_TEST_FILES)} test files in workers/edge/, found ${String(testFiles.length)} — ` +
       `bump MIN_TEST_FILES only when files are legitimately removed`,
   );
 });
 
-void test("testInventory: the runner script targets this directory via the glob", () => {
+void test("test-inventory: the runner script targets this directory via the glob", () => {
   const rootPkg = JSON.parse(
     readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
   ) as { scripts: Record<string, string> };

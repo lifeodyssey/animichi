@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp, type Env } from "./app.ts";
-import { handleGuardRequest } from "./edgeGuard.ts";
-import { latchBudget, utcDayKey } from "./costBreaker.ts";
-import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
+import { handleGuardRequest } from "./edge-guard.ts";
+import { latchBudget, utcDayKey } from "./cost-breaker.ts";
+import { memoryGuardStore, type GuardStore } from "./guard-store.ts";
 
 // #284 Task 4 regression lock (edge half): an AUTHENTICATED `/v1/chat`
 // request must never consult `budgetLatched` — that check is reachable
