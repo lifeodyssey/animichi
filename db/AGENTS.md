@@ -32,3 +32,46 @@ migrations remain under `supabase/migrations/`. Root guide: `../AGENTS.md`.
 - The generator verifies pinned source SHA256 values in
   `workers/catalog/data/gazetteer-sources.json`; `--update-sources` is for deliberate source-lock
   review, never a bypass for accepting unexplained drift.
+
+## Table ownership (D21) — parent [#830](https://github.com/lifeodyssey/animichi/issues/830) · [#829](https://github.com/lifeodyssey/animichi/issues/829)
+
+Owner service = BC that may **write** the table under greenfield. Reads may be broader (e.g. jobs SELECT).
+
+| Table (today) | Owner service | Notes / greenfield |
+| --- | --- | --- |
+| `bangumi`, `points`, `aliases`, `series_edges` | **catalog** | Master data |
+| `ingest_jobs`, `cluster_version`, `raw_anitabi`, `raw_bangumi`, `media_assets` | **catalog** | Pipeline |
+| `leg_cache` | **catalog** | Transit cache |
+| `locations`, `location_aliases` | **catalog** | Gazetteer |
+| `route_snapshots` | **catalog** | Target name `itinerary_snapshots` |
+| `routes` | **users** | Target name `saved_routes`; user document |
+| `route_anime` | **users** (FK to routes) | SavedRoute–Bangumi link |
+| `sessions`, `conversations`, `conversation_messages` | **agent** | Dialogue; Users may list SessionSummary only |
+| `agent_memory`, `agent_memory_operations`, `agent_memory_metadata` | **agent** | In-agent memory |
+| `daily_usage`, `anon_daily_message_count` | **agent** (write); **jobs** purge | Quota / metering |
+| `request_log`, `feedback`, `api_keys` | **agent** / platform | Operational |
+| `user_memory` | **users** when awake | Dropped once; reintroduce under Users BC only |
+
+Legacy / unknown: if a table is not listed, treat as **needs classification** before GRANT widen.
+
+## Intended role matrix (N1 — schema as code; wire in #831/#832)
+
+| Role | Login? | Purpose |
+| --- | --- | --- |
+| **migrator** | LOGIN (CI/deploy secret only) | Atlas `migrate apply`; DDL + seed. **Never** app runtime. |
+| **catalog_svc** | LOGIN or NOLOGIN+SET (env-specific) | Catalog worker: CRUD on catalog-owned tables; **no** write to `routes`/`saved_routes` |
+| **agent_svc** | same | Agent: sessions/messages/memory/quota; **no** Point master write |
+| **users_svc** | same | Users worker: SavedRoute (+ share/checkin when built); **no** points write |
+| **jobs_svc** | same | Retention jobs: DELETE/SELECT on purge targets; **no** DDL |
+| **readonly** | LOGIN optional | Human/analytics SELECT-only |
+
+### RLS stance
+
+Application-layer authorization remains authoritative this campaign. RLS is **not** reintroduced as primary auth (Neon cutover stripped Supabase policies). Optional defense-in-depth only via future Atlas migrations if product requires.
+
+### Related
+
+- Capability map: `docs/superpowers/specs/2026-08-06-neon-dba-capability-map.md` (land with design docs / #833)
+- Runtime DSN wiring: #832 (staging) · #855 (prod HITL)
+- #685 GRANT-as-decoration debt
+
