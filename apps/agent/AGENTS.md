@@ -10,7 +10,7 @@ catalog** — it never calls external anime APIs in the request path and never w
   `make lint` (ruff). Pre-commit runs ruff + mypy on every commit.
 - `make test-eval` — official model-backed runner plus translation eval. The pytest eval entry is a
   transition alias sharing the same report/gate path, not the primary interface.
-- Directly: `cd apps/agent && uv run pytest agent/tests/unit/`. Seed data: `agent/tests/fixtures/seed.sql`.
+- Directly: `cd apps/agent && uv run pytest src/animichi/tests/unit/`. Seed data: `src/animichi/tests/fixtures/seed.sql`.
 - In a worktree, format with `uv tool run ruff format` (not `uv run …`).
 
 ## Runtime call-path
@@ -20,9 +20,9 @@ User text → `RuntimeAPI.handle()` → `run_animichi_agent()` → `animichi_age
 bypass the model through `execute_selected_route()`, `execute_multi_selection()`, or
 `execute_place_selection()`.
 
-- Entry: `agent/interfaces/fastapi_service.py` → `public_api.py` → `agent/agents/animichi_runner.py`.
+- Entry: `src/animichi/interfaces/fastapi_service.py` → `public_api.py` → `src/animichi/agents/animichi_runner.py`.
 - Agent constructor: `build_animichi_agent()`; PydanticAI name: `animichi`.
-- Shared types: `agent/agents/models.py`, `agent/agents/agent_result.py`.
+- Shared types: `src/animichi/agents/models.py`, `src/animichi/agents/agent_result.py`.
 
 ## PydanticAI 2.9.1 composition
 
@@ -37,8 +37,8 @@ bypass the model through `execute_selected_route()`, `execute_multi_selection()`
 
 ## Tools and outputs
 
-Four catalog data tools live in `agent/agents/animichi_tools.py`; two web-facing tools live in
-`agent/agents/web_tools.py`. Catalog tools return discriminated outcomes and record current-turn
+Four catalog data tools live in `src/animichi/agents/animichi_tools.py`; two web-facing tools live in
+`src/animichi/agents/web_tools.py`. Catalog tools return discriminated outcomes and record current-turn
 provenance. They never ingest data or call anime APIs directly.
 
 | Tool | Description |
@@ -62,7 +62,7 @@ The model emits exactly one of five typed outputs: `ClarifyResponseModel`, `Sear
   provenance that was not produced by the current turn.
 - The container trusts auth headers forwarded by the edge worker (`workers/edge/`); it does not re-authenticate.
 - Injection defense (SD-19): tool/envelope text is **untrusted** — never show an upstream `message` to
-  users, embed it in prompts, or store it on `str()`. User-facing text comes from `agent/agents/error_messages.py`.
+  users, embed it in prompts, or store it on `str()`. User-facing text comes from `src/animichi/agents/error_messages.py`.
 
 ## Type safety
 
@@ -70,9 +70,9 @@ See `.claude/rules/python-types.md` (auto-loads for `*.py` here) + `docs/typing-
 
 ## Catalog client (hand-mirrored contract — do NOT codegen)
 
-`agent/clients/catalog_client.py` mirrors `packages/contract` by hand with sentinel defaults
-(`episode=-1`, `name_cn=""`, `distance_m=-1.0`). Error mirror: `agent/clients/catalog_errors.py`;
-user messages: `agent/agents/error_messages.py`. Adding an error code → follow the checklist in
+`src/animichi/clients/catalog_client.py` mirrors `packages/contract` by hand with sentinel defaults
+(`episode=-1`, `name_cn=""`, `distance_m=-1.0`). Error mirror: `src/animichi/clients/catalog_errors.py`;
+user messages: `src/animichi/agents/error_messages.py`. Adding an error code → follow the checklist in
 `packages/contract/README.md` (all three mirrors).
 
 ## External APIs (the agent reads the catalog; ingestion is the catalog Worker's job)
@@ -83,7 +83,7 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
 ## HTTP + observability conventions (F7/F8)
 
 - **httpx only** — aiohttp is retired (F7). **One shared `httpx.AsyncClient` per client**, created
-  lazily and closed via the FastAPI lifespan `aclose()` (`agent/interfaces/fastapi_service.py`) — never per-request.
+  lazily and closed via the FastAPI lifespan `aclose()` (`src/animichi/interfaces/fastapi_service.py`) — never per-request.
   Leave `trust_env` at httpx's default (`True`) for this **shared lifespan client** so proxy/CA env
   vars are respected. **This does not apply to BYOK/egress-guarded clients** (#284 Task 1/T13):
   those must be built via `egress_transport.build_guarded_async_client`, which sets
@@ -99,9 +99,9 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
   point for everything that layer does not reach — HTTPS to a private/link-local/CGNAT address,
   and any hostname that only *resolves* to one.
 - **Status-based retry** — classify by **status code, never by URL/substring**: 5xx, transport errors,
-  and transient 4xx (408/429) retry with backoff; other 4xx raise immediately (`agent/clients/catalog_client.py`).
+  and transient 4xx (408/429) retry with backoff; other 4xx raise immediately (`src/animichi/clients/catalog_client.py`).
 - **Observability = logfire only** (F8). Never hand-roll OpenTelemetry or add `opentelemetry-api|sdk`
-  directly (logfire pins its own). Go through `agent/infrastructure/observability/runtime.py`
+  directly (logfire pins its own). Go through `src/animichi/infrastructure/observability/runtime.py`
   (`runtime_span` / `http_span`, `record_*`); `setup_logfire` calls
   `logfire.configure(send_to_logfire="if-token-present")`, which no-ops without `LOGFIRE_TOKEN`.
   Test spans via `logfire.testing.capfire`.
@@ -111,9 +111,9 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
 
 - Unit tests are hermetic: the autouse fixture sets `pydantic_ai.models.ALLOW_MODEL_REQUESTS=False`
   and installs test models/keys. `.env` is not needed for `make test`; it is needed for live evals.
-- `MIMO_API_KEY` is selected by `_resolve_api_key()` in `agent/agents/base.py` only for
+- `MIMO_API_KEY` is selected by `_resolve_api_key()` in `src/animichi/agents/base.py` only for
   `xiaomimimo.com` model endpoints; do not reuse a generic key by accident.
-- Official eval entry: `agent/tests/eval/run_agent_eval.py`. It streams one status line per case,
+- Official eval entry: `src/animichi/tests/eval/run_agent_eval.py`. It streams one status line per case,
   persists reports, creates/enforces statistical baselines, and exits nonzero on gate regression or
   all-error runs. Never refresh a baseline merely to pass a gate.
 - DB-backed pytest suites select one arm in this order: `TEST_DATABASE_URL` (BYO), explicit
@@ -127,7 +127,7 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
 ## Eval: cost, run recipe, and the post-redesign baseline (2026-07-17)
 
 **Model + cost.** The eval model is MiMo `mimo-v2.5` (`openai:mimo-v2.5@https://api.xiaomimimo.com/v1`,
-credential `MIMO_API_KEY`; thinking param OFF — pinned in `agent/config/model_aliases.py`).
+credential `MIMO_API_KEY`; thinking param OFF — pinned in `src/animichi/config/model_aliases.py`).
 MiMo pay-as-you-go (permanent rate since 2026-05-27): **$1 / M input, $3 / M output, $0.20 / M cached input**.
 
 Measured full run (655 cases, trajectory tier, ~21 min): **6.40 M input + 0.31 M output tokens, 2,341 requests**
@@ -137,18 +137,18 @@ Run it freely at milestones; don't hoard it.
 
 **Run recipe.**
 ```bash
-cd apps/agent && uv run python -m agent.tests.eval.run_agent_eval \
+cd apps/agent && uv run python -m animichi.tests.eval.run_agent_eval \
   --eval-model "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"   # full 655
-EVAL_MAX_CASES=50 uv run python -m agent.tests.eval.run_agent_eval ...  # capped = report-only, no baseline/gate
+EVAL_MAX_CASES=50 uv run python -m animichi.tests.eval.run_agent_eval ...  # capped = report-only, no baseline/gate
 ```
-Direct thrash gates (req≤12 / tool≤10 / repeat=0 / p95≤8 — `agent/tests/eval/direct_gates.py`) are
+Direct thrash gates (req≤12 / tool≤10 / repeat=0 / p95≤8 — `src/animichi/tests/eval/direct_gates.py`) are
 **report-only** until `DIRECT_GATE_ENFORCE=1` (owner calibrates first). Capped runs never read/write baselines.
 
 **CI tiering (SD-30, #228/#227).** `EVAL_SMOKE=1` turns a capped run from report-only into an
 enforced L0 gate: zero-errored cases + the deterministic direct thrash gates (unconditionally,
 independent of `DIRECT_GATE_ENFORCE`) — it still never reads or writes the baseline. CI wires this
 as `agent-eval-smoke` in `ci.yml` (`EVAL_SMOKE=1 EVAL_MAX_CASES=80`, required on PRs that touch
-`agents/**` or `agent/config/model_aliases.py`). The uncapped L1 suite — owning the statistical baseline
+`agents/**` or `src/animichi/config/model_aliases.py`). The uncapped L1 suite — owning the statistical baseline
 via `finish_cli_report`/`gate.py` — runs nightly + on `workflow_dispatch` only, in the standalone
 `agent-eval-nightly.yml` (never on PRs, so its cron cadence doesn't ride along with the PR/push
 matrix in `ci.yml`).
@@ -171,6 +171,6 @@ the owner signs off per the redesign spec §7):**
 \* the nonempty evaluator was rewritten in the re-baseline (reads the produced route's `source_ref`) —
 not apples-to-apples with the old contract; 15/655 errored cases (~2.3 %) also drag it. The table is
 calibration-only: the official-first switch changes metric semantics and requires a fresh uncapped
-baseline. Per-case results land in `agent/tests/eval/results/`.
+baseline. Per-case results land in `src/animichi/tests/eval/results/`.
 
 ## TDD: invoke `/backend-tdd` before writing Python.

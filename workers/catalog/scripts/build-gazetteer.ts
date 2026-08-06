@@ -343,7 +343,7 @@ function requiredOptions(args: Record<string, string | boolean>): CliOptions {
 
 async function main(): Promise<void> {
   const args = requiredOptions(options(process.argv.slice(2)));
-  const namesPath = fileURLToPath(new NodeURL("../../../apps/agent/agent/agents/data/city_names_jp.json", import.meta.url));
+  const namesPath = fileURLToPath(new NodeURL("../../../apps/agent/src/animichi/agents/data/city_names_jp.json", import.meta.url));
   const [stationText, cityText, namesText, lockText] = await Promise.all([readFile(resolve(args.stations), "utf8"), readFile(resolve(args.cities), "utf8"), readFile(namesPath, "utf8"), readFile(SOURCE_LOCK_PATH, "utf8")]);
   const hashes = { stations: sha256(stationText), cities: sha256(cityText) };
   verifySourceHashes(hashes, JSON.parse(lockText) as SourceHashes, args.updateSources);

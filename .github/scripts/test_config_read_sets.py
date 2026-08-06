@@ -21,8 +21,8 @@ WORKFLOWS_DIR = REPO_ROOT / ".github/workflows"
 CI_WORKFLOW = WORKFLOWS_DIR / "ci.yml"
 EVENTS = ("push", "pull_request")
 CHECK_PATHS = (
-    "apps/agent/agent/tests/unit/test_documentation_guardrails.py",
-    "apps/agent/agent/tests/unit/test_secrets_docs_consistency.py",
+    "apps/agent/src/animichi/tests/unit/test_documentation_guardrails.py",
+    "apps/agent/src/animichi/tests/unit/test_secrets_docs_consistency.py",
     "workers/maintenance/test/config.worker.test.ts",
     "workers/users/test/eddsa-shared-primitive.worker.test.ts",
     "apps/web/tests/unit/chat/turnstile-constants-guard.test.ts",

@@ -62,44 +62,44 @@ serve:
 	cd apps/agent && uv run animichi-api
 
 test:
-	cd apps/agent && $(PYTEST) agent/tests/unit/ -v
+	cd apps/agent && $(PYTEST) src/animichi/tests/unit/ -v
 
 test-all:
-	cd apps/agent && $(PYTEST) agent/tests/unit agent/tests/integration -v
+	cd apps/agent && $(PYTEST) src/animichi/tests/unit src/animichi/tests/integration -v
 
 test-cov:
-	cd apps/agent && $(PYTEST) agent/tests/unit/ -v --cov --cov-report=html --cov-report=term-missing
+	cd apps/agent && $(PYTEST) src/animichi/tests/unit/ -v --cov --cov-report=html --cov-report=term-missing
 
 test-integration:
-	cd apps/agent && $(PYTEST) agent/tests/integration/ -v --no-cov
+	cd apps/agent && $(PYTEST) src/animichi/tests/integration/ -v --no-cov
 
 test-eval:
-	cd apps/agent && $(PYTHON) -m agent.tests.eval.run_agent_eval
-	cd apps/agent && $(PYTEST) agent/tests/eval/test_translation.py -v -m integration --no-cov
+	cd apps/agent && $(PYTHON) -m animichi.tests.eval.run_agent_eval
+	cd apps/agent && $(PYTEST) src/animichi/tests/eval/test_translation.py -v -m integration --no-cov
 
 test-eval-fullstack:
-	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTHON) -m agent.tests.eval.run_agent_eval
+	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTHON) -m animichi.tests.eval.run_agent_eval
 
 test-docs:
-	cd apps/agent && uv run pytest agent/tests/unit/test_documentation_guardrails.py -q --no-cov
+	cd apps/agent && uv run pytest src/animichi/tests/unit/test_documentation_guardrails.py -q --no-cov
 
 # test-docs is deliberately NOT a prerequisite here: the doc guardrails are
-# ordinary unit tests, so `make test` and CI's `pytest agent/tests/unit/` both
+# ordinary unit tests, so `make test` and CI's `pytest src/animichi/tests/unit/` both
 # already execute them. Keeping the dependency made `make check` run them twice.
 # The target stays as a fast standalone loop while editing docs.
 lint:
-	cd apps/agent && uv run ruff check agent/ scripts/
-	cd apps/agent && uv run ruff format --check agent/ scripts/
+	cd apps/agent && uv run ruff check src/animichi/ scripts/
+	cd apps/agent && uv run ruff format --check src/animichi/ scripts/
 	# vulture runs in CI (reusable-python-ci.yml); without it here a dead-code finding
 	# reaches CI as a bare "exit code 3" after `make check` was green locally.
-	cd apps/agent && uv run vulture agent/ vulture_whitelist.py
+	cd apps/agent && uv run vulture src/animichi/ vulture_whitelist.py
 
 format:
-	cd apps/agent && uv run ruff format agent/ scripts/
-	cd apps/agent && uv run ruff check --fix agent/ scripts/
+	cd apps/agent && uv run ruff format src/animichi/ scripts/
+	cd apps/agent && uv run ruff check --fix src/animichi/ scripts/
 
 typecheck:
-	cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ agent/tests/eval/ agent/scripts/purge_anonymous_sessions.py
+	cd apps/agent && uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/tests/eval/ src/animichi/scripts/purge_anonymous_sessions.py
 
 check: lint typecheck test test-integration
 
@@ -175,7 +175,7 @@ dev-local:
 	@# 3. Seed data if bangumi table is empty
 	@COUNT=$$(docker exec supabase_db_seichijunrei-agent psql -U postgres -d postgres -tAc "SELECT count(*) FROM bangumi" 2>/dev/null || echo "0"); \
 	if [ "$$COUNT" = "0" ]; then \
-		docker exec -i supabase_db_seichijunrei-agent psql -U postgres -d postgres < apps/agent/agent/tests/fixtures/seed.sql; \
+		docker exec -i supabase_db_seichijunrei-agent psql -U postgres -d postgres < apps/agent/src/animichi/tests/fixtures/seed.sql; \
 		echo "✓ Seed data applied"; \
 	else \
 		echo "✓ Data exists ($$COUNT bangumi)"; \
@@ -184,7 +184,7 @@ dev-local:
 	@supabase functions serve send-auth-email --no-verify-jwt --env-file supabase/.env.local > /tmp/animichi-edge.log 2>&1 & echo $$! > /tmp/animichi-edge.pid
 	@echo "✓ Edge Function started (SITE_URL=http://localhost:3000)"
 	@# 5. Start backend with .env (background, daemonized)
-	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) bash -c 'cd apps/agent && uv run uvicorn agent.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080' > /tmp/animichi-backend.log 2>&1 & echo $$! > /tmp/animichi-backend.pid
+	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) bash -c 'cd apps/agent && uv run uvicorn animichi.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080' > /tmp/animichi-backend.log 2>&1 & echo $$! > /tmp/animichi-backend.pid
 	@# 6. Wait for backend health
 	@echo "Waiting for backend..."
 	@for i in $$(seq 1 60); do curl -s http://localhost:8080/healthz >/dev/null 2>&1 && break || sleep 2; done

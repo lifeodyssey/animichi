@@ -37,7 +37,7 @@ The generator verifies both extracted inputs against
 before accepting regenerated artifacts.
 
 The generator reads the checked-in Japanese/Chinese city-name mapping at
-`apps/agent/agent/agents/data/city_names_jp.json`. It emits stable ordering,
+`apps/agent/src/animichi/agents/data/city_names_jp.json`. It emits stable ordering,
 500-row SQL batches, source-file SHA256 values, and the canonical command above in the generated
 migration header regardless of the actual input paths. Re-running with identical inputs is
 byte-identical.
