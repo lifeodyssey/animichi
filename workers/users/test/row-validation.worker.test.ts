@@ -1,8 +1,10 @@
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
+import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
 import { listRoutes, saveRoute } from "../src/api/routes";
 import { listSessions } from "../src/api/routes";
 import type { DbExecutor } from "../src/db/client";
+import type { SavedRouteRepo } from "../src/domain/ports";
 import { fakeDb } from "./in-memory-routes-db";
 
 const ID = "00000000-0000-4000-8000-000000000009";
@@ -19,15 +21,20 @@ function updateRows(rows: Record<string, unknown>[]): DbExecutor {
   };
 }
 
+/** Real Neon adapter over the fixed-answer executor. */
+function repo(db: DbExecutor): SavedRouteRepo {
+  return new NeonSavedRouteRepo(db);
+}
+
 describe("route row validation", () => {
   it("throws on a route row whose id or status is malformed", async () => {
-    await expect(saveRoute(updateRows([{ id: 42, title: "X", status: "bogus", point_ids: ["p1"] }]), "user-a", {
+    await expect(saveRoute(repo(updateRows([{ id: 42, title: "X", status: "bogus", point_ids: ["p1"] }])), "user-a", {
       id: ID, title: "X", point_ids: [], status: "saved",
     })).rejects.toThrow("invalid route row");
   });
 
   it("throws on a route row whose status is not a valid RouteStatus", async () => {
-    await expect(saveRoute(updateRows([{ id: ID, title: "X", status: "bogus", point_ids: ["p1"] }]), "user-a", {
+    await expect(saveRoute(repo(updateRows([{ id: ID, title: "X", status: "bogus", point_ids: ["p1"] }])), "user-a", {
       id: ID, title: "X", point_ids: [], status: "saved",
     })).rejects.toThrow("invalid route row");
   });
@@ -41,7 +48,7 @@ describe("route row validation", () => {
           : Promise.resolve({ rows: ["not-an-object"] });
       },
     };
-    await expect(saveRoute(nonObjectDb, "user-a", {
+    await expect(saveRoute(repo(nonObjectDb), "user-a", {
       id: ID, title: "X", point_ids: [], status: "saved",
     })).rejects.toThrow("invalid route row");
   });
@@ -51,7 +58,7 @@ describe("route row validation", () => {
       id: ID, session_id: null, user_id: "user-a", title: null, point_ids: ["p1"],
       status: "saved", saved_at: "2026-07-13T00:00:00Z", updated_at: "2026-07-13T00:00:00Z",
     }]);
-    const result = await listRoutes(db, "user-a");
+    const result = await listRoutes(repo(db), "user-a");
     expect(result.routes[0]?.title).toBe("");
   });
 });
