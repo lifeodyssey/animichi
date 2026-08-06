@@ -16,6 +16,7 @@ import type { DbExecutor } from "../db/client";
 import {
   assertRouteOwnedBy,
   isRouteStatus,
+  RouteNotOwnedError,
   savedAtPolicy,
 } from "../domain/route-rules";
 import { routeNotFound, routeNotOwned } from "../lib/errors";
@@ -156,7 +157,12 @@ function ownerFrom(value: unknown): string | null | undefined {
 async function assertOwner(db: DbExecutor, userId: string, routeId: string): Promise<void> {
   const result = await db.execute(sql`SELECT user_id FROM routes WHERE id = ${routeId}`);
   if (result.rows.length === 0) throw routeNotFound(routeId);
-  assertRouteOwnedBy(ownerFrom(result.rows[0]), userId, routeId);
+  try {
+    assertRouteOwnedBy(ownerFrom(result.rows[0]), userId, routeId);
+  } catch (error) {
+    if (error instanceof RouteNotOwnedError) throw routeNotOwned(routeId);
+    throw error;
+  }
 }
 
 function updatedRoute(rows: unknown[], routeId: string): UserRoute {
