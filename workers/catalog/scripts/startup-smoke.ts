@@ -2,8 +2,8 @@
  * Startup smoke for the catalog Worker.
  *
  * Builds the real deploy bundle (`wrangler deploy --dry-run --outdir`) and
- * boots it in workerd via `wrangler dev`, then asserts /healthz answers 200
- * with `{"status":"ok"}`.
+ * boots that exact artifact in workerd (`wrangler dev --no-bundle`), then
+ * asserts /healthz answers 200 with `{"status":"ok"}`.
  *
  * Why this exists: the vitest worker pool evaluates UNBUNDLED source modules
  * with correct ESM order, so bundle-only startup failures are invisible to
@@ -31,6 +31,7 @@ const WRANGLER_BIN = join(
   "wrangler.js",
 );
 const BUNDLE_DIR = join(CATALOG_DIR, "dist", "smoke");
+const BUNDLE_ENTRY = join(BUNDLE_DIR, "index.js");
 const PORT = 8796;
 const HEALTH_URL = `http://127.0.0.1:${String(PORT)}/healthz`;
 const BOOT_TIMEOUT_MS = 90_000;
@@ -50,9 +51,9 @@ async function dryRunDeploy(): Promise<void> {
   }
 }
 
-/** Boot the bundled Worker in workerd and wait for a healthy /healthz. */
+/** Boot the deploy artifact in workerd and wait for a healthy /healthz. */
 async function bootAndCheckHealth(): Promise<void> {
-  const { child, output } = spawnWrangler(["dev", "--port", String(PORT)]);
+  const { child, output } = spawnWrangler(["dev", "--no-bundle", BUNDLE_ENTRY, "--port", String(PORT)]);
   try {
     await waitForHealth(child, output);
   } finally {
@@ -108,9 +109,13 @@ function spawnWrangler(args: string[]): WranglerProc {
 }
 
 async function waitForExit(child: ChildProcess): Promise<number | null> {
-  return new Promise((resolve) => {
-    child.on("exit", (code) => {
+  if (child.exitCode !== null) return child.exitCode;
+  return new Promise((resolve, reject) => {
+    child.once("exit", (code) => {
       resolve(code);
+    });
+    child.once("error", (err) => {
+      reject(err);
     });
   });
 }
