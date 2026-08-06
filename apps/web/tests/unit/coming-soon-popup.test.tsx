@@ -100,6 +100,7 @@ describe("ComingSoonPopup focus management", () => {
     expect(document.activeElement).toBe(action);
   });
 
+  // @unit — AC: Shift+Tab from the initial focus position must wrap to the last focusable.
   it("wraps Shift+Tab from the dialog container to the last focusable", () => {
     renderWithLocale(<ComingSoonPopup open onClose={vi.fn()} />);
     const dialog = screen.getByRole("dialog");
@@ -108,6 +109,7 @@ describe("ComingSoonPopup focus management", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "了解しました" }));
   });
 
+  // @unit — AC: closing the dialog must restore focus to the previously focused element.
   it("restores focus to the previously focused element when it closes", () => {
     const trigger = document.createElement("button");
     document.body.appendChild(trigger);
@@ -119,6 +121,7 @@ describe("ComingSoonPopup focus management", () => {
     trigger.remove();
   });
 
+  // @unit — AC: closing must not crash or leak focus when nothing was focused on open.
   it("closes cleanly when no element was focused on open", () => {
     const spy = vi.spyOn(document, "activeElement", "get").mockReturnValue(null);
     const { rerender } = renderWithLocale(<ComingSoonPopup open onClose={vi.fn()} />);
