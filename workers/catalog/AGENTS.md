@@ -53,7 +53,7 @@ Root guide: `../../AGENTS.md`.
 - **zod runs only at the handler/contract boundary** to validate untrusted public input — the one
   sanctioned place for a zod *value* import (contrast `src/types.ts`, which stays `import type` only;
   see Contract discipline above).
-- **Follow-up (2026-08-06, P0 round 2)**: `workers/maintenance/src/index.ts:8-9` exports entry
+- **Follow-up (2026-08-06, P0 round 2)**: `workers/maintenance/src/index.ts`(第 8-9 行)exports entry
   primitives with the same shape that made workerd refuse catalog startup
   (`Incorrect type for map entry`), and its compat date (`2026-08-03`) exceeds the locally
   available workerd (`2026-07-29`), so a local boot could not conclude either way. Next: generalize
