@@ -33,11 +33,15 @@
 #
 # Parsing choice: Ruby's stdlib YAML (Psych), like test_ci_contract.rb. The
 # top-level `on:` key is re-quoted before parsing because YAML 1.1 reads the
-# bare word `on` as boolean true — without the re-quote the trigger map would
-# silently vanish and every event-dependent check would misjudge. YAML
-# validity itself is owned by the actionlint step in pipeline-quality.yml.
+# bare word `on` as boolean true (Norway-problem family) for every legal
+# shorthand — `on:`, `on: pull_request`, `on: [push, pull_request]` all parse
+# with key `true` and the trigger map would silently vanish. The re-quote
+# below covers all three forms; `triggers` additionally falls back to the
+# boolean key so an unreached shorthand can never be misread as "no triggers".
+# YAML validity itself is owned by the actionlint step in pipeline-quality.yml.
 
 require "yaml"
+require_relative "assert-workflow-invariants-expression"
 
 # Branch-protection required contexts -> workflow that produces each one.
 # Snapshot of the current ruleset (9 contexts). Update this table whenever
@@ -65,29 +69,50 @@ def workflow_dir
 end
 
 def load_workflow(path)
-  text = File.read(path).gsub(/^on:[ \t]*(#.*)?$/, '"on":')
+  text = File.read(path).sub(/^on:(?=[ \t#]|$)/, '"on":')
   YAML.safe_load(text, permitted_classes: [], permitted_symbols: [], aliases: true)
 end
 
+# Normalize the three legal `on:` shapes into an event-name map:
+#   on: pull_request           -> {"pull_request" => nil}
+#   on: [push, pull_request]   -> {"push" => nil, "pull_request" => nil}
+#   on:\n  pull_request: ...   -> {"pull_request" => ...}
+# Falls back to the YAML 1.1 boolean key when the re-quote somehow missed
+# (e.g. `on :` with a space before the colon). Returns nil when `on` is
+# absent or of an unexpected type — absent means fail-closed, never guess.
 def triggers(wf)
-  wf.is_a?(Hash) ? wf["on"] : nil
+  return nil unless wf.is_a?(Hash)
+
+  raw = wf.key?("on") ? wf["on"] : wf[true]
+  case raw
+  when Hash then raw
+  when String then { raw => nil }
+  when Array then raw.to_h { |event| [event, nil] }
+  end
 end
 
 def cancel_in_progress(concurrency)
   concurrency.is_a?(Hash) ? concurrency["cancel-in-progress"] : nil
 end
 
-# `true`, or any expression the template family uses for PR-scoped cancels
-# (design CI-1: `${{ github.event_name == 'pull_request' }}`).
-def cancels_pull_requests?(value)
-  value == true || (value.is_a?(String) && value.include?("pull_request"))
+# True/UNKNOWN if the expression is true in the given world; false otherwise.
+# Literal YAML booleans short-circuit; expressions are judged semantically
+# (see expr_eval), and anything unjudgeable is UNKNOWN so the caller
+# fail-closes instead of letting a bypass through.
+def cancels_in_world?(value, world)
+  return value if value == true || value == false
+  return false unless value.is_a?(String)
+
+  verdict = expr_verdict(value, world)
+  verdict == UNKNOWN ? UNKNOWN : verdict
 end
 
-# Literal `true` unconditionally cancels push-to-main runs; an expression
-# matching `== 'push'` cancels them too. The sanctioned template is false on
-# push, so only these two shapes are flagged.
+def cancels_pull_requests?(value)
+  cancels_in_world?(value, WORLD_PR)
+end
+
 def cancels_push?(value)
-  value == true || (value.is_a?(String) && (value.include?("'push'") || value.include?('"push"')))
+  cancels_in_world?(value, WORLD_PUSH_MAIN)
 end
 
 def job_timeout_violations(file, wf)
@@ -126,14 +151,21 @@ def concurrency_violations(file, wf)
       violations << "#{file}:top-level:missing concurrency (pull_request-triggered)"
     else
       violations << "#{file}:top-level:concurrency must declare a group" unless concurrency["group"]
-      cancel = cancel_in_progress(concurrency)
-      unless cancels_pull_requests?(cancel)
-        violations << "#{file}:top-level:concurrency must cancel pull_request runs (cancel-in-progress: #{cancel.inspect})"
+      verdict = cancels_pull_requests?(cancel_in_progress(concurrency))
+      case verdict
+      when true then nil
+      when UNKNOWN then violations << "#{file}:top-level:cannot judge cancel-in-progress for pull_request runs, confirm manually (#{cancel_in_progress(concurrency).inspect})"
+      else violations << "#{file}:top-level:concurrency must cancel pull_request runs (cancel-in-progress: #{cancel_in_progress(concurrency).inspect})"
       end
     end
   end
-  if on_map.key?("push") && concurrency.is_a?(Hash) && cancels_push?(cancel_in_progress(concurrency))
-    violations << "#{file}:top-level:concurrency must not cancel push runs (would kill a deploy mid-flight)"
+  if on_map.key?("push") && concurrency.is_a?(Hash)
+    verdict = cancels_push?(cancel_in_progress(concurrency))
+    case verdict
+    when false then nil
+    when UNKNOWN then violations << "#{file}:top-level:cannot judge cancel-in-progress for push runs, confirm manually (#{cancel_in_progress(concurrency).inspect})"
+    else violations << "#{file}:top-level:concurrency must not cancel push runs (would kill a deploy mid-flight)"
+    end
   end
   violations
 end
