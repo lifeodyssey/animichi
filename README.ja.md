@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml?query=branch%3Amain)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
-[![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg?logo=nextdotjs)](https://nextjs.org)
+[![TanStack Start](https://img.shields.io/badge/TanStack_Start-SSR-FF4154.svg)](https://tanstack.com/start)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e.svg?logo=supabase)](https://supabase.com)
 [![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/animichi)](https://github.com/lifeodyssey/animichi/commits/main)
@@ -26,11 +26,11 @@
 
 ```
 ユーザー入力 → PydanticAI Agent（animichi_agent）
-                 ├── resolve_anime  → DB優先のタイトル検索; ミス時は Bangumi.tv API
-                 ├── search_bangumi → パラメータ化 SQL → Supabase ポイント
-                 ├── search_nearby  → PostGIS 地理検索
-                 ├── plan_route     → 最近傍法によるルート最適化
-                 └── answer_question → QA パススルー
+                 ├── resolve_anime  → catalog Worker のタイトル解決; ミス時は Bangumi 取り込み
+                 ├── search_bangumi → 解決済み bangumi_id の catalog ポイント
+                 ├── search_nearby  → catalog 地理検索（Neon 上の PostGIS）
+                 ├── plan_route     → catalog ルート並び替え
+                 └── web_search / translate → 出典付き調査 / タイトル翻訳
               → AgentResult（型付き出力 + ツール呼び出し記録）
 ```
 
@@ -85,15 +85,17 @@ make db-push           # NEON_DATABASE_URL に適用
 
 ## 環境変数
 
-**必須：**
+**必須（agent コンテナ / ローカル serve）：**
 | 変数名 | 用途 |
 |---|---|
-| `SUPABASE_DB_URL` | Postgres 接続文字列 |
-| `SUPABASE_URL` | Supabase プロジェクト URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | サーバーサイド Supabase 認証 |
-| `SUPABASE_ANON_KEY` | Worker エッジでの JWT 検証 |
+| `SUPABASE_DB_URL` | agent ドメインの Postgres 接続文字列 |
+| `SUPABASE_URL` | Supabase プロジェクト URL（auth + API キー照会） |
+| `SUPABASE_SERVICE_ROLE_KEY` | サーバーサイド Supabase 認証 / `api_keys` 照会 |
+| `MIMO_API_KEY` | 主モデルプロバイダキー |
 
-**オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
+**Worker エッジ:** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`（JWT は公開 JWKS で検証 — エッジに `SUPABASE_ANON_KEY` は不要）。catalog/users/maintenance は各 Neon DSN も必要 — [`docs/ops/deployment.md`](docs/ops/deployment.md)。
+
+**オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`, `DEEPSEEK_API_KEY`
 
 詳細は [`apps/agent/src/animichi/config/settings.py`](apps/agent/src/animichi/config/settings.py) と [`.env.example`](.env.example) を参照してください。
 
@@ -118,21 +120,15 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
   -d '{"text":"吹響の聖地","locale":"ja"}'
 ```
 
-**Python クライアント：**
-```python
-from animichi.clients.python.seichijunrei_client import SeichijunreiClient
-
-client = SeichijunreiClient(api_key="sk_your_key_here")
-result = client.search("Hibike Euphonium locations", locale="en")
-```
-
 ## リポジトリ構成マップ
 
 - `apps/agent/` — Python ランタイム本体。agents、interfaces、infrastructure、tests、tools を含む
-- `workers/catalog/` — アニメ聖地カタログ REST API を提供する Cloudflare Worker（TypeScript）
-- `packages/contract/` — catalog ↔ agent 間で共有する oRPC contract 型定義
-- `apps/web/` — TanStack Start SSR の Web アプリと UI コンポーネント
-- `workers/edge/` — 認証とリクエストルーティングを担う Cloudflare Worker
+- `workers/catalog/` — アニメカタログ API + データ基盤の Cloudflare Worker（TypeScript）
+- `workers/users/` — ユーザー領域データ Worker（`/v1/users/*`）
+- `workers/maintenance/` — スケジュール Neon 保持 Worker（公開ルートなし）
+- `packages/contract/` — 共有 oRPC/zod 契約（catalog ↔ agent ↔ users）
+- `apps/web/` — TanStack Start SSR Web アプリ（**唯一のブラウザ面**）
+- `workers/edge/` — 認証と `/v1` ルーティングの Cloudflare Worker 入口
 - `db/migrations/` — Neon データ面の Atlas マイグレーションと生成 checksum
 - `supabase/` — auth/旧版互換マイグレーションと Supabase プロジェクト資産
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
@@ -145,5 +141,6 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - [マイグレーション境界](docs/ops/migrations.md) — Atlas authority と Drizzle のクエリ/型境界
 - [運用ドキュメント](docs/ops/README.md) — 運用手順と環境向けランブック
 - [イテレーション資料](docs/iterations/README.md) — task plan、progress、findings の保存場所
-- [実装計画](docs/superpowers/plans/) — 既存位置を維持する実装計画の履歴
-- [設計仕様](docs/superpowers/specs/) — プロダクト仕様
+- [実装計画（アーカイブ）](docs/superpowers/plans/archive/) — 過去の実行計画（平層 `plans/` には新規を置かない）
+- [設計仕様](docs/superpowers/specs/) — 現行のプロダクト/アーキテクチャ仕様
+- [エージェントガイド](AGENTS.md) — monorepo 構成・コマンド・横断ガードレール

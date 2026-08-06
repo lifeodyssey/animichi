@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml?query=branch%3Amain)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
-[![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg?logo=nextdotjs)](https://nextjs.org)
+[![TanStack Start](https://img.shields.io/badge/TanStack_Start-SSR-FF4154.svg)](https://tanstack.com/start)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e.svg?logo=supabase)](https://supabase.com)
 [![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/animichi)](https://github.com/lifeodyssey/animichi/commits/main)
@@ -26,11 +26,11 @@ Tell the agent an anime title or a location in natural language. It finds real-w
 
 ```
 User text  →  PydanticAI Agent (animichi_agent)
-                 ├── resolve_anime  → DB-first title lookup; Bangumi.tv API on miss
-                 ├── search_bangumi → parameterized SQL → Supabase points
-                 ├── search_nearby  → PostGIS geo retrieval
-                 ├── plan_route     → nearest-neighbor route ordering
-                 └── answer_question → QA pass-through
+                 ├── resolve_anime  → catalog Worker title resolve; Bangumi ingest on miss
+                 ├── search_bangumi → catalog points for resolved bangumi_id
+                 ├── search_nearby  → catalog geo retrieval (PostGIS on Neon)
+                 ├── plan_route     → catalog route ordering
+                 └── web_search / translate → attributed research / title translation
               → AgentResult (typed output + tool call records)
 ```
 
@@ -86,15 +86,17 @@ order. Apply migrations in a dedicated deploy step, not at application startup.
 
 ## Environment
 
-**Required:**
+**Required (agent container / local serve):**
 | Variable | Purpose |
 |---|---|
-| `SUPABASE_DB_URL` | Postgres connection string |
-| `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase auth |
-| `SUPABASE_ANON_KEY` | JWT validation at Worker edge |
+| `SUPABASE_DB_URL` | Agent-domain Postgres connection string |
+| `SUPABASE_URL` | Supabase project URL (auth + API-key lookup plane) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase auth / `api_keys` lookup |
+| `MIMO_API_KEY` | Primary model provider key |
 
-**Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
+**Worker edge:** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (JWT verifies public JWKS — `SUPABASE_ANON_KEY` is not required at the edge). Catalog/users/maintenance also need their Neon DSNs — see [`docs/ops/deployment.md`](docs/ops/deployment.md).
+
+**Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`, `DEEPSEEK_API_KEY`
 
 See [`apps/agent/src/animichi/config/settings.py`](apps/agent/src/animichi/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
 
@@ -119,21 +121,15 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
   -d '{"text":"吹響の聖地","locale":"ja"}'
 ```
 
-**Python client:**
-```python
-from animichi.clients.python.seichijunrei_client import SeichijunreiClient
-
-client = SeichijunreiClient(api_key="sk_your_key_here")
-result = client.search("Hibike Euphonium locations", locale="en")
-```
-
 ## Repository Map
 
 - `apps/agent/` — Python runtime: agents, interfaces, infrastructure, tests, and tools
-- `workers/catalog/` — Cloudflare Worker: anime catalog REST API (TypeScript)
-- `packages/contract/` — shared oRPC contract types (catalog ↔ agent)
-- `apps/web/` — TanStack Start SSR web app and UI components
-- `workers/edge/` — Cloudflare Worker entrypoint for auth and request routing
+- `workers/catalog/` — Cloudflare Worker: anime catalog API + data platform (TypeScript)
+- `workers/users/` — Cloudflare Worker: user-domain data service (`/v1/users/*`)
+- `workers/maintenance/` — Scheduled Neon retention Worker (no public route)
+- `packages/contract/` — shared oRPC/zod contract (catalog ↔ agent ↔ users)
+- `apps/web/` — TanStack Start SSR web app (**the only browser surface**)
+- `workers/edge/` — Cloudflare Worker entrypoint for auth and `/v1` routing
 - `db/migrations/` — Atlas migrations and generated checksum for the Neon data plane
 - `supabase/` — auth/legacy compatibility migrations and Supabase project assets
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
@@ -146,5 +142,6 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - [Migrations](docs/ops/migrations.md) — Atlas authority and Drizzle query/type boundary
 - [Ops docs](docs/ops/README.md) — operational runbooks and environment procedures
 - [Iteration artifacts](docs/iterations/README.md) — task plans, progress logs, and findings by iteration
-- [Implementation plans](docs/superpowers/plans/) — implementation plans kept in place for execution history
-- [Design spec](docs/superpowers/specs/) — product specification
+- [Implementation plans (archive)](docs/superpowers/plans/archive/) — historical execution plans (flat `plans/` no longer accepts new files)
+- [Design specs](docs/superpowers/specs/) — active product/architecture specifications
+- [Agent guide](AGENTS.md) — monorepo layout, commands, and cross-stack guardrails

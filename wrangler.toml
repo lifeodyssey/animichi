@@ -25,8 +25,9 @@
 #
 # Edge runtime secrets (used by workers/edge/auth.ts for /v1 auth):
 #   SUPABASE_URL               — https://<project>.supabase.co (set via wrangler secret put)
-#   SUPABASE_ANON_KEY          — Public anon key for JWT validation (set via wrangler secret put)
 #   SUPABASE_SERVICE_ROLE_KEY  — Service role for sk_ API key lookup (set via wrangler secret put)
+#   SUPABASE_ANON_KEY          — optional/legacy Env binding; edge JWT verifies public JWKS
+#                                and does not require the anon key (see docs/ops/deployment.md)
 #   NEON_AUTH_ISSUER           — public Neon Auth base URL (set in [vars] when cutover is approved)
 #
 # Container runtime secrets (forwarded to Python backend). Production model
