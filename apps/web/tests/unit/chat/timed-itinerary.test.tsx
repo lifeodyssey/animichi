@@ -5,7 +5,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { TimedItinerary } from "../../../src/features/chat/components/TimedItinerary";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { itineraryView } from "../../../src/lib/chat/itinerary";
+import { itineraryView } from "../../../src/features/chat/lib/itinerary";
 import { ujiItinerary } from "./_route-fixtures";
 
 afterEach(cleanup);

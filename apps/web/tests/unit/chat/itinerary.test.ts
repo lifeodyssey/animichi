@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { itineraryView } from "../../../src/lib/chat/itinerary";
+import { itineraryView } from "../../../src/features/chat/lib/itinerary";
 import { stopAt, ujiItinerary, walkLeg } from "./_route-fixtures";
 
 describe("itineraryView stations (AC1: HH:MM timeline + gold-star highlight)", () => {

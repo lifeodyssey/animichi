@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import { TURNSTILE_REQUIRED_CODE, classifyFailure } from "../../lib/chat/error-classifier";
-import type { ChatErrorState, FailureSignal } from "../../lib/chat/error-classifier";
+import { TURNSTILE_REQUIRED_CODE, classifyFailure } from "./lib/error-classifier";
+import type { ChatErrorState, FailureSignal } from "./lib/error-classifier";
 import type { AuthStatus } from "../../lib/auth/session";
 import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
 import { UNLOCKED, lockHolds, resetInstant, useQuotaRelease } from "./quota-lock";

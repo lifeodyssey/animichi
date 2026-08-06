@@ -5,7 +5,7 @@ import {
   isBypassTurn,
   sameIds,
   selectedPointsBody,
-} from "../../../src/lib/chat/selected-points-bypass";
+} from "../../../src/features/chat/lib/selected-points-bypass";
 
 describe("selectedPointsBody (AC: the tray action can never fire empty)", () => {
   it("returns undefined for an empty selection", () => {
@@ -82,11 +82,11 @@ function sourceFiles(dir: string): readonly string[] {
 describe("AC: no second supersession implementation exists under apps/web/src", () => {
   const src = join(process.cwd(), "src");
 
-  it("defines supersededFlags exactly once, in lib/chat/supersession.ts", () => {
+  it("defines supersededFlags exactly once, in features/chat/lib/supersession.ts", () => {
     const defining = sourceFiles(src).filter((path) =>
       /function supersededFlags|supersededFlags\s*=/u.test(readFileSync(path, "utf8")),
     );
-    expect(defining).toEqual([join(src, "lib", "chat", "supersession.ts")]);
+    expect(defining).toEqual([join(src, "features", "chat", "lib", "supersession.ts")]);
   });
 
   it("keeps the one composed superseded-class producer in DataPartCard", () => {

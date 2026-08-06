@@ -1,5 +1,5 @@
 import type { Locale } from "../../../../i18n/locales";
-import type { ChatErrorState } from "../../../../lib/chat/error-classifier";
+import type { ChatErrorState } from "../../lib/error-classifier";
 import type { ChatDict } from "../../i18n";
 import { ByokUpsell } from "../ByokUpsell";
 import { BudgetExhausted } from "./BudgetExhausted";
