@@ -20,7 +20,7 @@ staging 从 04:39 起部署全挂,Pulumi 连 R2 state 后端 **401**。根因:ow
 
 这不是疏忽个例,是结构缺陷的必然结果:同一个密钥要手工同步在**三处**(repo GH secret + staging env secret + production env secret),其中两层还因「same-name override rule」(`docs/ops/secrets.md:44-58`)在部署时是真正生效的那层。漏一处 = 静默故障 —— 部署时 Pulumi 不会因为「repo 层轮换了、env 层没换」给出任何提示,它只是拿旧值 401。
 
-活体切片(物证):[measured 2026-08-06 `gh secret list --env staging`] staging 里两把 R2 钥的更新时间是 `2026-08-05T14:50`(事故后补录),而 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_PULUMI_API_TOKEN` 是同日 `04:47` —— **这道时间戳裂缝就是「三处手工同步漏一处」的物证**。
+活体切片(物证):[measured 2026-08-06 `gh secret list --env staging`,2026-08-06 复核一致] staging 里两把 R2 钥的更新时间是 `2026-08-05T17:47:06Z / 17:47:07Z`(事故后 17:47 修复轮换的补录),而 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_PULUMI_API_TOKEN` 是同日 `04:47`(04:47:38Z / 04:47:40Z)——**这道时间戳裂缝(17:47 vs 04:47,跨 13 小时)就是「三处手工同步漏一处」的物证**。
 
 同一缺陷的其它已归档实锤:
 
