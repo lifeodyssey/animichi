@@ -122,7 +122,7 @@
 | **N2** | 生产同 N1 + 负向权限测进 CI 或 runbook 勾选 | 生产 DSN 矩阵与 secrets 文档一致；无 app 持 migrator |
 | **N3** | 环境拓扑 + branch SLA 单页（D6–D7） | main/staging/test-base/dev/preview 表可读 |
 | **N4** | `db/` → `migrations/neon/`（D19）+ CI path | monorepo 目标树一致 |
-| **N5** | 监控/备份/RPO（D12/D15）+ 坏迁移剧本（D10） | 成文 + 至少一条告警或演练勾选 |
+| **N5** | 监控/备份/RPO（D12/D15）+ 坏迁移剧本（D10） | 成文 + 至少一条告警或演练勾选 → **`docs/ops/neon-backup-rpo.md`** (#860) |
 
 **与 greenfield 表 rename：** `saved_routes` / `bangumi_id` 等迁移 **必须** 同步改 GRANT（N1 矩阵）与 jobs SQL；可与代码 greenfield 同波或紧前。
 
@@ -157,3 +157,4 @@
 |---|---|
 | 2026-08-06 | 初稿：Neon DBA 已有/缺口/角色矩阵草案/切片 |
 | 2026-08-06 | Owner **ACCEPTED** best-practice 路径；CI pipeline 布局 **明确另议**；N0–N5 验收可开票 |
+| 2026-08-07 | N5 落地：`docs/ops/neon-backup-rpo.md`（RPO/RTO、PITR、HITL checklist、坏迁移 stub）；链自 deployment / db AGENTS / migrations |

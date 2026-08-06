@@ -532,6 +532,10 @@ old migration file. Treat any release that combined a schema change with app cod
 Worker rollback alone is insufficient; check `db/migrations` for what shipped in that release before
 declaring the rollback complete.
 
+**Neon data-plane recovery (PITR, RPO/RTO, failed-migrate checklist, bad-migration stub):** see
+[`neon-backup-rpo.md`](./neon-backup-rpo.md). Worker/Pulumi steps on this page do not replace Neon
+history-window restore or the owner HITL monitor checklist.
+
 ### Prerequisite: a local Cloudflare API token, provisioned BEFORE an incident
 
 Every command in the table above needs a Cloudflare API token in the operator's own environment —
