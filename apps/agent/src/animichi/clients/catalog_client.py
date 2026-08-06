@@ -32,6 +32,7 @@ from tenacity import (
 )
 
 from animichi.agents.models import TimedItinerary, TimedStop, TransitLeg
+from animichi.application.catalog_read_gateway import CatalogReadGateway
 from animichi.clients.catalog_errors import parse_catalog_error
 from animichi.clients.errors import APIError, TransientAPIError
 from animichi.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
@@ -59,6 +60,7 @@ __all__ = [
     "TransitLeg",
     "CatalogClient",
     "CatalogClientProtocol",
+    "CatalogReadGateway",
     "GeocodeCandidate",
     "GeocodeKind",
     "GeocodeSource",
@@ -151,7 +153,14 @@ class Route(BaseModel):
 
 
 @runtime_checkable
-class CatalogClientProtocol(Protocol):
+class CatalogClientProtocol(CatalogReadGateway, Protocol):
+    """Read-only catalog protocol: the adapter-level mirror of the gateway.
+
+    Extends :class:`animichi.application.catalog_read_gateway.CatalogReadGateway`
+    so the adapter inherits the same read-only contract; ``CatalogClient``
+    satisfies it structurally.
+    """
+
     async def resolve(self, query: str) -> ResolveOutcome: ...
 
     async def points_by_work_id(self, work_id: str) -> SearchResult: ...

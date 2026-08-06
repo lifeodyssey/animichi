@@ -34,22 +34,16 @@ from typing import Protocol, runtime_checkable
 
 
 class BangumiRepo(Protocol):
-    """Bangumi-related DB operations used by handlers."""
+    """Bangumi-related DB operations used by handlers (read-only, #839).
+
+    Writes to catalog master data were deleted: the agent is a read-only
+    consumer and ingestion is the catalog Worker's job. Any write method
+    added back here is a review blocker.
+    """
 
     async def find_bangumi_by_title(self, title: str) -> str | None: ...
 
     async def find_all_by_title(self, title: str) -> list[dict[str, object]]: ...
-
-    async def upsert_bangumi_title(self, title: str, bangumi_id: str) -> None: ...
-
-    async def upsert_bangumi(
-        self,
-        bangumi_id: str,
-        *,
-        title: str | None = None,
-        cover_url: str | None = None,
-        points_count: int | None = None,
-    ) -> None: ...
 
     async def find_candidate_details_by_titles(
         self, titles: list[str]
@@ -59,7 +53,7 @@ class BangumiRepo(Protocol):
 
 
 class PointsRepo(Protocol):
-    """Pilgrimage point DB operations used by handlers."""
+    """Pilgrimage point DB operations used by handlers (read-only, #839)."""
 
     async def search_points_by_location(
         self,
@@ -73,8 +67,6 @@ class PointsRepo(Protocol):
     async def get_points_by_ids(
         self, point_ids: list[str]
     ) -> list[dict[str, object]]: ...
-
-    async def upsert_points_batch(self, rows: list[dict[str, object]]) -> None: ...
 
 
 @runtime_checkable

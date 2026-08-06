@@ -1,14 +1,8 @@
-"""Points table operations."""
+"""Points table operations (read-only, #839 — no writes to catalog master data)."""
 
 from __future__ import annotations
 
 from animichi.infrastructure.supabase.client_types import AsyncPGPool, Row
-from animichi.infrastructure.supabase.helpers import (
-    _POINT_COLUMNS,
-    _point_placeholder,
-    _prepare_point_fields,
-    _validate_columns,
-)
 
 
 class PointsRepository:
@@ -90,52 +84,3 @@ class PointsRepository:
             radius_m,
             limit,
         )
-
-    async def upsert_point(self, point_id: str, **fields: object) -> None:
-        """Insert or update a point record."""
-        _validate_columns(_POINT_COLUMNS, fields)
-        point_fields = _prepare_point_fields(fields)
-
-        columns = ["id"] + list(point_fields.keys())
-        values: list[object] = [point_id] + list(point_fields.values())
-        placeholders = [
-            _point_placeholder(column, i + 1) for i, column in enumerate(columns)
-        ]
-
-        update_columns = list(point_fields.keys())
-        update_set = ", ".join(f"{col} = EXCLUDED.{col}" for col in update_columns)
-
-        sql = (
-            f"INSERT INTO points ({', '.join(columns)}) VALUES ({', '.join(placeholders)}) "  # noqa: S608 — columns validated against _POINT_COLUMNS allowlist, not user input
-            f"ON CONFLICT (id) DO UPDATE SET {update_set}"
-        )
-        await self._pool.execute(sql, *values)
-
-    async def upsert_points_batch(self, rows: list[dict[str, object]]) -> int:
-        """Batch upsert points. Returns the number of rows upserted."""
-        if not rows:
-            return 0
-
-        prepared_rows = [_prepare_point_fields(row) for row in rows]
-        first = prepared_rows[0]
-        fields_sample = {k: v for k, v in first.items() if k != "id"}
-        _validate_columns(_POINT_COLUMNS, fields_sample)
-
-        columns = ["id"] + list(fields_sample.keys())
-        placeholders = [
-            _point_placeholder(column, i + 1) for i, column in enumerate(columns)
-        ]
-        update_set = ", ".join(f"{col} = EXCLUDED.{col}" for col in fields_sample)
-
-        sql = (
-            f"INSERT INTO points ({', '.join(columns)}) VALUES ({', '.join(placeholders)}) "  # noqa: S608 — columns validated against _POINT_COLUMNS allowlist, not user input
-            f"ON CONFLICT (id) DO UPDATE SET {update_set}"
-        )
-
-        args = [tuple(row.get(col) for col in columns) for row in prepared_rows]
-
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                await conn.executemany(sql, args)
-
-        return len(rows)

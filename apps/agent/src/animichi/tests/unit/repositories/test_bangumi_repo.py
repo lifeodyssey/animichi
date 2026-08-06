@@ -72,17 +72,6 @@ async def test_list_bangumi_returns_list(
     pool.fetch.assert_awaited_once()
 
 
-async def test_upsert_bangumi_calls_execute(
-    repo: BangumiRepository, pool: AsyncMock
-) -> None:
-    pool.execute.return_value = None
-    await repo.upsert_bangumi("115908", title="Liz")
-    pool.execute.assert_awaited_once()
-    sql = pool.execute.await_args.args[0]
-    assert "INSERT INTO bangumi" in sql
-    assert "ON CONFLICT (id)" in sql
-
-
 async def test_find_bangumi_by_title_returns_id(
     repo: BangumiRepository, pool: AsyncMock
 ) -> None:
