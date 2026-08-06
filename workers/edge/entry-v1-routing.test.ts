@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import { envWithContainer, stubCtx } from "./entry-env.ts";
+import { envWithContainer, stubCtx } from "./container/entry-env.ts";
 
 void test("/v1 public route -> container, no auth called", async () => {
   let authCalled = false;
