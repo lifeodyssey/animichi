@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import { TurnstileGate } from "../../../components/TurnstileGate";
 import type { Locale } from "../../../i18n/locales";
 import { ByokSettings } from "./ByokSettings";
-import { ChatInput } from "./ChatInput";
 import { ColdStart } from "./ColdStart";
 import { DeparturePrompt } from "./DeparturePrompt";
 import { PhotoSearchUpload } from "./PhotoSearchUpload";
@@ -17,7 +17,6 @@ import type { ChatEntryState } from "../entry-state";
 import type { ChatDict } from "../i18n";
 import type { PhotoSearchContext } from "../photo-search";
 import type { RecomputeTurn } from "../selection/useRecomputeTurn";
-import type { QuotaLock } from "../quota-lock";
 import type { ByokPanel } from "../use-byok-panel";
 import type { DeparturePromptState } from "../use-departure-prompt";
 import type { ConversationHistory } from "../use-conversation-history";
@@ -25,22 +24,12 @@ import type { ChatSession } from "../use-chat-session";
 import type { TurnstileChallenge } from "../use-turnstile-challenge";
 import { useTurnTiming } from "../use-turn-timing";
 
+/** The chat-page frame: ChatPage assembles the four regions it owns. */
 export type ChatShellProps = Readonly<{
-  entry: ChatEntryState;
-  dict: ChatDict;
-  chat: ChatSession;
-  history: ConversationHistory;
-  failure: TurnFailureView | undefined;
-  recompute: RecomputeTurn;
-  challenge: TurnstileChallenge | undefined;
-  onRetry: () => void;
-  onSend: (text: string) => void;
-  departure: DeparturePromptState;
-  baseUrl: string;
-  photo: PhotoSearchContext;
-  quota: QuotaLock;
-  locale: Locale;
-  byok: ByokPanel;
+  notices: ReactNode;
+  body: ReactNode;
+  dock: ReactNode;
+  composer: ReactNode;
 }>;
 
 function useScrollAnchor(itemCount: number) {
@@ -51,66 +40,98 @@ function useScrollAnchor(itemCount: number) {
   return ref;
 }
 
-type BodyProps = Omit<ChatShellProps, "onRetry">;
+type ChatNoticesProps = Readonly<{
+  entry: ChatEntryState;
+  onRetry: () => void;
+  history: ConversationHistory;
+  dict: ChatDict;
+}>;
 
-function showColdStart({ entry, chat, history }: BodyProps): boolean {
-  return chat.messages.length === 0 && history.entries.length === 0 && entry !== "A3";
-}
-
-function ColdStartGate(props: BodyProps) {
-  if (!showColdStart(props)) return null;
-  return <ColdStart dict={props.dict} onChip={props.onSend} disabled={props.entry === "A5"} />;
-}
-
-function HistoryLoadingGate({ history, dict }: Readonly<{ history: ConversationHistory; dict: ChatDict }>) {
-  if (history.status !== "loading") return null;
-  return <p className="chat-history-loading" role="status" aria-busy="true">{dict.preparing}</p>;
-}
-
-function ChatMessages({ chat, dict }: Readonly<{ chat: ChatSession; dict: ChatDict }>) {
-  const settledDurationMs = useTurnTiming(chat.status);
-  return <MessageList messages={chat.messages} dict={dict} status={chat.status} settledDurationMs={settledDurationMs} />;
-}
-
-/** The four stream-phase components; `ScrollAnchor` (last in `.chat-body`)
- * keeps the live region announced in order after the ritual. */
-function StreamRegion(props: BodyProps) {
+/** Owns the page-level banners: the A5 retry and the history error. */
+export function ChatNotices({ entry, onRetry, history, dict }: ChatNoticesProps) {
   return (
     <>
-      <ColdStartGate {...props} />
-      <ChatMessages chat={props.chat} dict={props.dict} />
-      <TurnFailure view={props.failure} dict={props.dict} locale={props.locale} onOpenSettings={props.byok.show} />
-      <WaitingRitual status={props.chat.status} dict={props.dict} messages={props.chat.messages} />
+      {entry === "A5" ? <ErrorBanner dict={dict} onRetry={onRetry} /> : null}
+      {history.status === "error" ? <ErrorBanner dict={dict} onRetry={history.retry} message={dict.historyError} /> : null}
     </>
   );
 }
 
-function ScrollAnchor(props: BodyProps) {
-  const ref = useScrollAnchor(props.history.entries.length + props.chat.messages.length);
-  return <div ref={ref} aria-hidden="true" />;
+type ChatIntroProps = Readonly<{
+  entry: ChatEntryState;
+  chat: ChatSession;
+  history: ConversationHistory;
+  dict: ChatDict;
+  onSend: (text: string) => void;
+}>;
+
+function showColdStart(chat: ChatSession, history: ConversationHistory, entry: ChatEntryState): boolean {
+  return chat.messages.length === 0 && history.entries.length === 0 && entry !== "A3";
 }
 
-function ChatBody(props: BodyProps) {
+/** Owns the pre-turn region: the history summary and the cold-start invite. */
+export function ChatIntro({ entry, chat, history, dict, onSend }: ChatIntroProps) {
   return (
-    <section className="chat-body">
-      <HistoryLoadingGate history={props.history} dict={props.dict} />
-      <HistoryList entries={props.history.entries} dict={props.dict} />
-      <StreamRegion {...props} />
-      <ScrollAnchor {...props} />
-    </section>
+    <>
+      {history.status === "loading" ? <p className="chat-history-loading" role="status" aria-busy="true">{dict.preparing}</p> : null}
+      <HistoryList entries={history.entries} dict={dict} />
+      {showColdStart(chat, history, entry) ? <ColdStart dict={dict} onChip={onSend} disabled={entry === "A5"} /> : null}
+    </>
   );
 }
 
-function HistoryErrorGate({ history, dict }: Readonly<{ history: ConversationHistory; dict: ChatDict }>) {
-  if (history.status !== "error") return null;
-  return <ErrorBanner dict={dict} onRetry={history.retry} message={dict.historyError} />;
+type TurnStreamProps = Readonly<{
+  chat: ChatSession;
+  dict: ChatDict;
+  failure: TurnFailureView | undefined;
+  locale: Locale;
+  byok: ByokPanel;
+}>;
+
+/** Owns the live-turn region: messages, the failure strip, the waiting ritual. */
+export function TurnStream({ chat, dict, failure, locale, byok }: TurnStreamProps) {
+  const settledDurationMs = useTurnTiming(chat.status);
+  return (
+    <>
+      <MessageList messages={chat.messages} dict={dict} status={chat.status} settledDurationMs={settledDurationMs} />
+      <TurnFailure view={failure} dict={dict} locale={locale} onOpenSettings={byok.show} />
+      <WaitingRitual status={chat.status} dict={dict} messages={chat.messages} />
+    </>
+  );
 }
 
-function isInputLocked(props: ChatShellProps): boolean {
-  const busy = props.chat.status === "submitted" || props.chat.status === "streaming";
-  const historyBlocked = props.entry === "A3" && props.history.status !== "success";
-  return props.entry === "A5" || busy || historyBlocked;
+/** The a11y anchor, last in `.chat-body`, keeps the live region announced in
+ * order after the ritual. */
+export function ScrollAnchor({ count }: Readonly<{ count: number }>) {
+  const ref = useScrollAnchor(count);
+  return <div ref={ref} aria-hidden="true" />;
 }
+
+/** Owns the page frame: notices above the chat body, dock and composer below. */
+export function ChatShell({ notices, body, dock, composer }: ChatShellProps) {
+  return (
+    <main className="chat-page">
+      {notices}
+      <section className="chat-body">{body}</section>
+      {dock}
+      {composer}
+    </main>
+  );
+}
+
+/** C2t chips render only while a route request is held for departure info. */
+export function DepartureGate({ departure, dict }: Readonly<{ departure: DeparturePromptState; dict: ChatDict }>) {
+  if (departure.pending === null) return null;
+  return <DeparturePrompt dict={dict} onChip={departure.onChip} onLocated={departure.onLocated} onManualLocation={departure.onManualLocation} />;
+}
+
+type DockTrayProps = Readonly<{
+  dict: ChatDict;
+  baseUrl: string;
+  photo: PhotoSearchContext;
+  chat: ChatSession;
+  recompute: RecomputeTurn;
+}>;
 
 /** P1-3: the tray must not fire while ANY turn is in flight — the AI SDK's
  * `makeRequest` has no concurrency guard, so a mid-stream tap would clobber
@@ -120,93 +141,26 @@ function trayStatus(chat: ChatSession, recompute: RecomputeTurn): RecomputeTurn[
   return active ? "busy" : recompute.status;
 }
 
-type TrayHostProps = Readonly<{ dict: ChatDict; chat: ChatSession; recompute: RecomputeTurn }>;
-
-/** The E2 recompute bar docks above the composer (design `.dock`); the live
- * region keeps announcing after the bar unmounts on fire (a11y handoff). */
-function RecomputeTray({ dict, chat, recompute }: TrayHostProps) {
+/** Owns the dock surfaces: photo upload and the E2 recompute tray. */
+export function DockTray({ dict, baseUrl, photo, chat, recompute }: DockTrayProps) {
   const status = trayStatus(chat, recompute);
   return (
     <>
+      <PhotoSearchUpload dict={dict} baseUrl={baseUrl} context={photo} />
       <span className="chat-live-note" aria-live="polite">{status === "busy" ? dict.preparing : ""}</span>
       <SelectionTray dict={dict} status={status} lastSentIds={recompute.lastSentIds} onRecompute={recompute.fire} />
     </>
   );
 }
 
-/** C2t chips render only while a route request is held for departure info. */
-function DepartureGate({ departure, dict }: Readonly<{ departure: DeparturePromptState; dict: ChatDict }>) {
-  if (departure.pending === null) return null;
-  return (
-    <DeparturePrompt dict={dict} onChip={departure.onChip} onLocated={departure.onLocated} onManualLocation={departure.onManualLocation} />
-  );
-}
-
-/** Entry A5 (soft-locked) shows the retry banner above the history error. */
-function A5RetryGate(props: ChatShellProps) {
-  if (props.entry !== "A5") return null;
-  return <ErrorBanner dict={props.dict} onRetry={props.onRetry} />;
-}
-
-function ShellNotices(props: ChatShellProps) {
-  return (
-    <>
-      <A5RetryGate {...props} />
-      <HistoryErrorGate history={props.history} dict={props.dict} />
-    </>
-  );
-}
-
-/** The C2t chips and photo upload sit between the stream and the composer. */
-function ComposerExtras(props: ChatShellProps) {
-  return (
-    <>
-      <DepartureGate departure={props.departure} dict={props.dict} />
-      <PhotoSearchUpload dict={props.dict} baseUrl={props.baseUrl} context={props.photo} />
-    </>
-  );
-}
-
-/** The dock's hint slot: silent until Turnstile decides a human check is due. */
-function ChallengeGate({ dict, challenge }: Readonly<{ dict: ChatDict; challenge: TurnstileChallenge | undefined }>) {
-  if (challenge === undefined) return null;
-  return <TurnstileGate dict={dict} {...challenge} />;
-}
-
-/** Chips, photo upload, and the E2 tray dock between the stream and composer. */
-function ComposerDock(props: ChatShellProps) {
-  return (
-    <>
-      <ComposerExtras {...props} />
-      <RecomputeTray dict={props.dict} chat={props.chat} recompute={props.recompute} />
-    </>
-  );
-}
-
 /** The BYOK settings panel docks above the composer when toggled open (#284 T6). */
-function ByokPanelGate({ dict, baseUrl, byok }: Readonly<{ dict: ChatDict; baseUrl: string; byok: ByokPanel }>) {
+export function ByokPanelGate({ dict, baseUrl, byok }: Readonly<{ dict: ChatDict; baseUrl: string; byok: ByokPanel }>) {
   if (!byok.open) return null;
   return <ByokSettings dict={dict} auth={byok.auth} baseUrl={baseUrl} />;
 }
 
-/** Composer plus the quiet challenge slot beneath it (design sync `.hint`). */
-function Composer(props: ChatShellProps) {
-  return (
-    <>
-      <ByokPanelGate dict={props.dict} baseUrl={props.baseUrl} byok={props.byok} />
-      <ChatInput dict={props.dict} disabled={isInputLocked(props)} quotaLocked={props.quota.locked} onSend={props.onSend} settingsOpen={props.byok.open} onToggleSettings={props.byok.toggle} />
-      <ChallengeGate dict={props.dict} challenge={props.challenge} />
-    </>
-  );
-}
-
-export function ChatShell(props: ChatShellProps) {
-  return (
-    <main className="chat-page">
-      <ShellNotices {...props} />
-      <ChatBody {...props} />
-      <ComposerDock {...props} />
-      <Composer {...props} />
-    </main>
-  );
+/** The dock's hint slot: silent until Turnstile decides a human check is due. */
+export function ChallengeGate({ dict, challenge }: Readonly<{ dict: ChatDict; challenge: TurnstileChallenge | undefined }>) {
+  if (challenge === undefined) return null;
+  return <TurnstileGate dict={dict} {...challenge} />;
 }
