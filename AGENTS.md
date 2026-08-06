@@ -149,3 +149,19 @@ Role definitions live in `.claude/agents/`:
 ## File placement
 
 Never save working files to the repo root. Doc placement + the doc-change checklist → `docs/DOCS_POLICY.md`.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues (`lifeodyssey/animichi`) via `gh`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical five roles map 1:1 to label strings; plus `wayfinder:*` for decision maps. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context monorepo: root `CONTEXT-MAP.md` points at per-package `CONTEXT.md`. System ADRs in `docs/adr/`. See `docs/agents/domain.md`.
+
+Workflow overview (Matt × Policy C): `docs/workflow.md`.

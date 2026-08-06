@@ -2,7 +2,7 @@
 
 Multi-context monorepo. Glossaries are pure language (no implementation). Layout target: `docs/superpowers/specs/2026-08-06-monorepo-target-layout.md`.
 
-Consumer rules: `docs/agents/domain.md` (when present).
+Consumer rules: `docs/agents/domain.md` (when present). Per-package `CONTEXT.md` files are **created lazily** when a term or decision is resolved — missing files are normal.
 
 ## Contexts
 
@@ -17,6 +17,8 @@ Consumer rules: `docs/agents/domain.md` (when present).
 | **Jobs** (retention cron; was Maintenance) | `workers/jobs/CONTEXT.md` (target; today `workers/maintenance/CONTEXT.md`) | `workers/jobs` (target path) |
 | **Migrations** | `migrations/CONTEXT.md` (lazy) | `migrations/neon`, `migrations/supabase` (target paths) |
 | **Infra** | `infra/CONTEXT.md` (lazy) | `infra` |
+| **Auth appliance** | — | `supabase/` (auth-only, no package guide) |
+| **Browser E2E** | `e2e/CONTEXT.md` (lazy) | `e2e/` |
 
 System-wide ADRs: `docs/adr/` (incl. [0002 published language](./docs/adr/0002-published-language-point-bangumi-itinerary.md)).
 
