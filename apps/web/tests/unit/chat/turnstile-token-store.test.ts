@@ -8,7 +8,7 @@ import {
   onTurnstileToken,
   rememberTurnstileToken,
   turnstileHeaders,
-} from "../../../src/lib/turnstile/tokenStore";
+} from "../../../src/lib/turnstile/token-store";
 
 const T0 = 1_000_000;
 

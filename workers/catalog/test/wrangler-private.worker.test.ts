@@ -49,15 +49,16 @@ const nameOf = (line: string, current: string): string | null => {
 const sections = (toml: string): Section[] => {
   let current: Section = { name: "top-level", lines: [] };
   const out: Section[] = [current];
-  for (const raw of toml.split("\n")) {
-    const line = raw.trim();
-    if (line.startsWith("#")) continue;
+  for (const line of contentLines(toml)) {
     const opened = nameOf(line, current.name);
     if (opened === null) current.lines.push(line);
     else out.push((current = { name: opened, lines: [] }));
   }
   return out;
 };
+
+const contentLines = (toml: string): string[] =>
+  toml.split("\n").map((raw) => raw.trim()).filter((line) => !line.startsWith("#"));
 
 const environments = (toml: string): Section[] =>
   sections(toml).filter((s) => s.name === "top-level" || /^env\.[A-Za-z0-9_-]+$/.test(s.name));
@@ -80,7 +81,7 @@ describe("catalog has no public host", () => {
   });
 
   // Byte-identical cron strings in every environment (maintenance AGENTS.md
-  // rule); keep in sync with SEED_CRON / TTL_REFRESH_CRON in src/index.ts.
+  // rule); keep in sync with SEED_CRON / TTL_REFRESH_CRON in src/cron-config.ts.
   it("declares both ingest schedules for default, staging, and production", () => {
     expect(toml.split('crons = ["0 4 * * *", "17 * * * *"]')).toHaveLength(4);
   });

@@ -28,6 +28,20 @@ export function unauthorized(pathname: string): Response {
   return Response.json(UNAUTHORIZED_BODY, { status: 401 });
 }
 
+/** Showcase-mode denial (S0-v2 GOAL C / C9): in showcase mode the edge
+ * answers every functional backend route with 403 in the same structured
+ * envelope as the other rejections, so a direct curl cannot reach chat /
+ * photo-search / user data while the landing stays up. The code is distinct
+ * from `not_found` on purpose: clients can tell "this route is temporarily
+ * denied" from "this route does not exist". */
+export const SHOWCASE_DENIED_BODY = {
+  error: { code: "showcase_denied", message: "Not available in showcase mode." },
+} as const;
+
+export function showcaseDenied(): Response {
+  return Response.json(SHOWCASE_DENIED_BODY, { status: 403 });
+}
+
 const RATE_LIMIT_MESSAGE = "リクエストが多いみたい。少し待ってね。";
 
 export function rateLimitedResponse(retryAfterSeconds: number): Response {

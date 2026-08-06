@@ -3,6 +3,7 @@
   "name": "edge-worker",
   "private": true,
   "scripts": {
-    "lint:oxlint": "oxlint --type-aware --deny-warnings ."
+    "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "typecheck": "tsc --noEmit"
   }
 }

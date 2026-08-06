@@ -1,57 +1,38 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import { ANON_BUDGET_EXHAUSTED_CODE } from "./costBreaker.ts";
-import { handleGuardRequest } from "./edgeGuard.ts";
-import { memoryGuardStore, type GuardStore } from "./guardStore.ts";
+import { ANON_BUDGET_EXHAUSTED_CODE } from "./cost-breaker.ts";
+import { fakeGuard } from "./guard-doubles.ts";
+import { stubCtx } from "./entry-env.ts";
 
 const SECRET = "fixed-test-hmac-key-0000000000000000";
 const ANON_ENV = {
   ANON_ACCESS_ENABLED: "true",
   ANON_ID_SECRET: SECRET,
   TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
+  EDGE_SHOWCASE_MODE: "false",
 };
 const NOW = Date.UTC(2026, 6, 26, 12, 0, 0);
 
-const stubCtx = {
-  waitUntil(promise: Promise<unknown>) { void promise; },
-  passThroughOnException() { return undefined; },
-} as unknown as ExecutionContext;
-
-/** A guard namespace backed by per-name in-memory shards and a fixed clock. */
-function fakeGuard(nowMs = NOW) {
-  const shards = new Map<string, GuardStore>();
-  const storeFor = (name: string) => {
-    const existing = shards.get(name);
-    if (existing) return existing;
-    const created = memoryGuardStore();
-    shards.set(name, created);
-    return created;
-  };
+function anonEnv(captured: { requests: Request[] }, container: () => Response, guard = fakeGuard(NOW).namespace) {
   return {
-    idFromName: (name: string) => name as unknown as DurableObjectId,
-    get: (id: DurableObjectId) => ({
-      fetch: (request: Request) =>
-        handleGuardRequest(request, storeFor(String(id)), nowMs, { limit: 20, windowSeconds: 60 }),
+    ...ANON_ENV,
+    EDGE_GUARD: guard,
+    CONTAINER: containerStub(captured, container),
+  } as never;
+}
+
+function containerStub(captured: { requests: Request[] }, container: () => Response) {
+  return {
+    idFromName: () => "id",
+    get: () => ({
+      fetch: (r: Request) => { captured.requests.push(r); return Promise.resolve(container()); },
     }),
   };
 }
 
-function anonEnv(captured: { requests: Request[] }, container: () => Response, guard = fakeGuard()) {
-  return {
-    ...ANON_ENV,
-    EDGE_GUARD: guard,
-    CONTAINER: {
-      idFromName: () => "id",
-      get: () => ({
-        fetch: (r: Request) => { captured.requests.push(r); return Promise.resolve(container()); },
-      }),
-    },
-  } as never;
-}
-
 /** These tests are about the anonymous branch itself, so the Turnstile gate
- * (armed in #447) is stubbed to a pass. `turnstileArm.test.ts` owns the
+ * (armed in #447) is stubbed to a pass. `turnstile-arm.test.ts` owns the
  * challenge behaviour. */
 const passingGate = { check: () => Promise.resolve({ ok: true, errorCodes: [] }) };
 
@@ -154,7 +135,7 @@ void test("the container's breaker verdict becomes login guidance at the edge", 
 
 void test("once tripped the edge short-circuits without hitting the container again", async () => {
   const captured = { requests: [] as Request[] };
-  const env = anonEnv(captured, breakerTripped, fakeGuard());
+  const env = anonEnv(captured, breakerTripped, fakeGuard(NOW).namespace);
   await anonApp().request("/v1/chat", chat(), env, stubCtx);
   const res = await anonApp().request("/v1/chat", chat(), env, stubCtx);
   assert.equal(res.status, 403);
@@ -163,7 +144,7 @@ void test("once tripped the edge short-circuits without hitting the container ag
 
 void test("the breaker does not touch logged-in callers", async () => {
   const captured = { requests: [] as Request[] };
-  const env = anonEnv(captured, breakerTripped, fakeGuard());
+  const env = anonEnv(captured, breakerTripped, fakeGuard(NOW).namespace);
   await anonApp().request("/v1/chat", chat(), env, stubCtx);
   const app = createWorkerApp({
     authenticate: () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const),

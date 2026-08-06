@@ -9,6 +9,10 @@ Root guide: `../../AGENTS.md`.
 - pnpm. `pnpm run dev` (`wrangler dev`, local) — never `wrangler deploy` (hook `block-local-deploy`).
 - `pnpm test` (`test:worker` + `test:spike`) · `pnpm run typecheck` (TypeScript 7.0.2) ·
   `pnpm run lint:oxlint` (type-aware, strict, warnings denied). ESLint is gone.
+- `pnpm run test:smoke` — boots the real deploy bundle in workerd and asserts
+  `/healthz` 200. The worker pool evaluates unbundled modules, so bundle-only
+  startup failures (the StringChunk TDZ, 2026-08-05) are invisible to it — this
+  gate exists for exactly that class of bug. Runs in CI as `catalog-startup-smoke`.
 
 ## Stack (per the ADR)
 
@@ -49,6 +53,11 @@ Root guide: `../../AGENTS.md`.
 - **zod runs only at the handler/contract boundary** to validate untrusted public input — the one
   sanctioned place for a zod *value* import (contrast `src/types.ts`, which stays `import type` only;
   see Contract discipline above).
+- **Follow-up (2026-08-06, P0 round 2)**: `workers/maintenance/src/index.ts`(第 8-9 行)exports entry
+  primitives with the same shape that made workerd refuse catalog startup
+  (`Incorrect type for map entry`), and its compat date (`2026-08-03`) exceeds the locally
+  available workerd (`2026-07-29`), so a local boot could not conclude either way. Next: generalize
+  the startup smoke to users/maintenance/edge and pin down maintenance's compat-date gap.
 
 ## Test pools
 

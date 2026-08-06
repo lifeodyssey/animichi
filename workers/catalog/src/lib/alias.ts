@@ -71,9 +71,7 @@ export function rankAliases(aliases: RawAlias[]): RankedAlias[] {
 /** Keep `raw` only if it beats the incumbent for its normalized key. */
 function consider(best: Map<string, RankedAlias>, raw: RawAlias): void {
   const normalized = normalizeAlias(raw.alias);
-  if (!normalized) {
-    return;
-  }
+  if (!normalized) return;
   const priority = SOURCE_PRIORITY[raw.source];
   const incumbent = best.get(normalized);
   if (!incumbent || priority > incumbent.priority) {

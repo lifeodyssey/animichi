@@ -55,10 +55,7 @@ async function assertContractShape(): Promise<void> {
 }
 
 async function assertNullCoercion(): Promise<void> {
-  const bare: FixtureRow = {
-    id: "spot-2", name: "鷲宮神社", name_cn: null, bangumi_id: "200",
-    episode: null, time_seconds: null, image: null, latitude: 36.1019, longitude: 139.6586, city: null,
-  };
+  const bare: FixtureRow = { id: "spot-2", name: "鷲宮神社", name_cn: null, bangumi_id: "200", episode: null, time_seconds: null, image: null, latitude: 36.1019, longitude: 139.6586, city: null };
   const { point } = await spots(fakeDb([bare]), { bangumi_id: "200" });
   expect(point.name_cn).toBeUndefined();
   expect(point.episode).toBeUndefined();

@@ -7,15 +7,19 @@ import type { UpstreamUnavailableData } from "../src/lib/errors";
 const handler = new OpenAPIHandler(catalogRouter);
 
 async function call(body: unknown, context: CatalogContext): Promise<Response> {
+  const { matched, response } = await handleRequest(body, context);
+  expect(matched).toBe(true);
+  if (!response) throw new Error("expected OpenAPI handler response");
+  return response;
+}
+
+async function handleRequest(body: unknown, context: CatalogContext) {
   const request = new Request("https://catalog.test/catalog/points-by-work-id", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  const { matched, response } = await handler.handle(request, { context });
-  expect(matched).toBe(true);
-  if (!response) throw new Error("expected OpenAPI handler response");
-  return response;
+  return handler.handle(request, { context });
 }
 
 function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogContext {

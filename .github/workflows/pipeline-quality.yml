@@ -2,9 +2,11 @@
 # machine-checked invariants over every workflow (step 1d) plus the actionlint
 # gate that validates workflow syntax itself, moved here from
 # reusable-security.yml so it stands as an independent required context.
-# This lane is the fixed point of its own checks: it never filters by paths,
-# and it must keep its own timeout-minutes / permissions / concurrency /
-# merge_group or it fails on itself.
+# S0-v2 B4: the retired repository-quality-gate's contents (repo-hygiene checks,
+# CI contract test, codecov patch policy) also live here — this lane is the
+# fixed point of its own checks: it never filters by paths, and it must keep
+# its own timeout-minutes / permissions / concurrency / merge_group or it fails
+# on itself.
 name: Quality
 
 on:
@@ -27,20 +29,50 @@ jobs:
   invariants:
     name: Quality / invariants
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: shellcheck workflow meta scripts
-        run: shellcheck .github/scripts/assert-workflow-invariants.sh .github/scripts/assert-workflow-invariants.test.sh
+      - name: Ruby syntax check workflow meta scripts
+        run: |
+          for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb; do
+            ruby -c "${f}"
+          done
         shell: bash
       - name: Workflow invariant behavioral tests
-        run: bash .github/scripts/assert-workflow-invariants.test.sh
+        run: ruby .github/scripts/assert-workflow-invariants.test.rb
         shell: bash
       - name: Assert workflow invariants
-        run: bash .github/scripts/assert-workflow-invariants.sh
+        run: ruby .github/scripts/assert-workflow-invariants.rb
         shell: bash
+      # S0-v2 B4: the retired repository-quality-gate's contents moved here —
+      # this lane is the fixed point that never path-filters, so the checks
+      # that test the CI contract itself must live here (a gate that cannot
+      # test itself is not a gate).
+      - name: AGENTS.md reference check self-tests
+        run: bash .github/scripts/check-agents-refs.test.sh
+      - name: AGENTS.md reference check
+        run: bash .github/scripts/check-agents-refs.sh
+      - name: Root allowlist check self-tests
+        run: bash .github/scripts/check-root-allowlist.test.sh
+      - name: Root allowlist check
+        run: bash .github/scripts/check-root-allowlist.sh
+      - name: E2E promotion guard self-tests
+        run: bash .github/scripts/check-e2e-promotion.test.sh
+      - name: E2E promotion guard
+        run: bash .github/scripts/check-e2e-promotion.sh
+      # S0-v2 B3 (supply chain): every `uses:` must be pinned to a full 40-char
+      # SHA; local `./` action/workflow paths are allowed and `docker://` images
+      # must be digest-pinned (documented exception in check-actions-pinned.sh).
+      - name: Actions pinning check self-tests
+        run: bash .github/scripts/check-actions-pinned.test.sh
+      - name: Actions pinning check
+        run: bash .github/scripts/check-actions-pinned.sh
+      - name: Verify CI contract
+        run: ruby .github/scripts/test_ci_contract.rb
+      - name: Verify patch coverage policy
+        run: ruby .github/scripts/test_codecov_patch.rb
       - name: Download actionlint
         run: |
           ACTIONLINT_VERSION="1.7.7"

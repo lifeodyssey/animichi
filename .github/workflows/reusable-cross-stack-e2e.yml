@@ -14,14 +14,36 @@ jobs:
     timeout-minutes: 30
     name: Cross-stack E2E runner
     runs-on: ubuntu-latest
+    # dorny/paths-filter lists PR commits/files via the API; the workflow-level
+    # `contents: read` zeroes that scope and the filter dies with "Resource not
+    # accessible by integration" (2026-07-28), so the job re-requests the scope
+    # itself (B7 least-privilege pattern, same as the security job).
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # On `push`, paths-filter diffs the event's `before` SHA against HEAD using
+          # local git (the API listFiles path is pull_request-only), so `before` must
+          # be locally reachable; full history keeps the credentials hardening.
+          fetch-depth: 0
           persist-credentials: false
+
+      # Self-gated lane (S0-v2 B4): with the ci.yml changes aggregation job
+      # retired, the cross-stack scope filter lives here. PRs that do not touch
+      # its scope skip the heavy steps below and report green; push (main) and
+      # merge_group runs always execute the full lane.
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: f
+        with:
+          filters: |
+            cross_stack: ['apps/**', 'workers/**', 'packages/contract/**', 'db/**', 'infra/**', 'e2e/**', '.github/workflows/**', '.github/actions/**']
 
       - uses: ./.github/actions/setup
 
       - name: Build emitted web Worker
+        if: ${{ github.event_name != 'pull_request' || steps.f.outputs.cross_stack == 'true' }}
         env:
           # Cloudflare's published always-passing TEST site key (public, not a
           # secret — see `TurnstileGate.tsx`'s `TURNSTILE_TEST_SITE_KEY`).
@@ -34,33 +56,43 @@ jobs:
           # showcase.ts fails closed at module init — every build path must
           # declare the mode explicitly; CI builds are never showcase.
           VITE_SHOWCASE_MODE: "false"
+          # web-hero-query.spec.ts requires a non-empty auth base URL or the
+          # magic-link form renders "not configured" and emits no request. The
+          # VALUE is irrelevant — every Neon Auth request is intercepted by
+          # the browser in the spec — so a dead port stands in for the real
+          # per-branch base URL.
+          VITE_NEON_AUTH_BASE_URL: "http://127.0.0.1:9"
         run: pnpm --filter web test:integration
 
       - name: Resolve Playwright version
+        if: ${{ github.event_name != 'pull_request' || steps.f.outputs.cross_stack == 'true' }}
         run: |
           PLAYWRIGHT_VERSION="$(pnpm --dir e2e exec playwright --version)"
           echo "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION#Version }" >> "$GITHUB_ENV"
         shell: bash
 
       - name: Restore Playwright browser cache
+        if: ${{ github.event_name != 'pull_request' || steps.f.outputs.cross_stack == 'true' }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
 
       - name: Install Playwright browser
+        if: ${{ github.event_name != 'pull_request' || steps.f.outputs.cross_stack == 'true' }}
         run: |
           test -x node_modules/.bin/playwright
           node_modules/.bin/playwright install --with-deps chromium
 
       - name: Save Playwright browser cache
-        if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+        if: ${{ (github.event_name != 'pull_request' || steps.f.outputs.cross_stack == 'true') && github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
 
       - name: Exercise emitted Worker routes
+        if: ${{ github.event_name != 'pull_request' || steps.f.outputs.cross_stack == 'true' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -74,4 +106,4 @@ jobs:
             sleep 1
           done
           curl -sf -o /dev/null http://localhost:8799/ || exit 1
-          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts web-chat-anonymous.spec.ts
+          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts web-chat-anonymous.spec.ts web-hero-query.spec.ts

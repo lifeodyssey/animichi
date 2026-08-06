@@ -4,7 +4,7 @@ import {
   albumOverflowCount,
   selectShioriLayout,
   visibleAlbumCount,
-} from "../../../src/features/shiori/layoutSelector";
+} from "../../../src/features/shiori/layout-selector";
 
 describe("selectShioriLayout", () => {
   it.each([0, 1, 2, 3, 500])(

@@ -70,13 +70,7 @@ export function pointSeed(
   latitude: number,
   longitude: number,
 ): PointSeed {
-  return {
-    id,
-    workId: work.workId,
-    name,
-    latitude: Latitude.parse(latitude),
-    longitude: Longitude.parse(longitude),
-  };
+  return { id, workId: work.workId, name, latitude: Latitude.parse(latitude), longitude: Longitude.parse(longitude) };
 }
 
 export function aliasSeed(
@@ -124,10 +118,7 @@ function statement(
   rows: readonly (readonly (string | number)[])[],
 ): SeedStatement {
   const groups = rows.map((_, row) => placeholderGroup(row, columns.length));
-  return {
-    text: `INSERT INTO ${table} (${columns.join(", ")}) VALUES ${groups.join(", ")}`,
-    values: rows.flatMap((row) => [...row]),
-  };
+  return { text: `INSERT INTO ${table} (${columns.join(", ")}) VALUES ${groups.join(", ")}`, values: rows.flatMap((row) => [...row]) };
 }
 
 export function workInsert(seeds: readonly WorkSeed[]): SeedStatement {

@@ -6,7 +6,7 @@ import { createRef } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { MapSpike, type MapStatus } from "../../src/features/map-spike/MapSpike";
-import type { SourceMode } from "../../src/features/map-spike/sourceMode";
+import type { SourceMode } from "../../src/features/map-spike/source-mode";
 
 afterEach(cleanup);
 

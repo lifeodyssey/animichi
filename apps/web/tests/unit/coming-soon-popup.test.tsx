@@ -4,6 +4,7 @@
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ComingSoonPopup } from "../../src/components/landing/ComingSoonPopup";
+import { LocaleProvider } from "../../src/i18n/LocaleProvider";
 import { renderWithLocale, setLanguages } from "./_i18n";
 
 beforeEach(() => { setLanguages(["ja-JP"]); });
@@ -97,5 +98,35 @@ describe("ComingSoonPopup focus management", () => {
     expect(document.activeElement).toBe(close);
     fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
     expect(document.activeElement).toBe(action);
+  });
+
+  // @unit — AC: Shift+Tab from the initial focus position must wrap to the last focusable.
+  it("wraps Shift+Tab from the dialog container to the last focusable", () => {
+    renderWithLocale(<ComingSoonPopup open onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expect(document.activeElement).toBe(dialog);
+    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "了解しました" }));
+  });
+
+  // @unit — AC: closing the dialog must restore focus to the previously focused element.
+  it("restores focus to the previously focused element when it closes", () => {
+    const trigger = document.createElement("button");
+    document.body.appendChild(trigger);
+    trigger.focus();
+    const { rerender } = renderWithLocale(<ComingSoonPopup open onClose={vi.fn()} />);
+    expect(document.activeElement).toBe(screen.getByRole("dialog"));
+    rerender(<LocaleProvider><ComingSoonPopup open={false} onClose={vi.fn()} /></LocaleProvider>);
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+  });
+
+  // @unit — AC: closing must not crash or leak focus when nothing was focused on open.
+  it("closes cleanly when no element was focused on open", () => {
+    const spy = vi.spyOn(document, "activeElement", "get").mockReturnValue(null);
+    const { rerender } = renderWithLocale(<ComingSoonPopup open onClose={vi.fn()} />);
+    rerender(<LocaleProvider><ComingSoonPopup open={false} onClose={vi.fn()} /></LocaleProvider>);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    spy.mockRestore();
   });
 });

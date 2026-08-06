@@ -4,7 +4,7 @@
 import { HttpResponse, http } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
 import { runByokProbe } from "../../../src/features/chat/byok-probe";
-import { saveByokConfig } from "../../../src/lib/byok/byokStorage";
+import { saveByokConfig } from "../../../src/lib/byok/byok-storage";
 import { server } from "../../msw/node";
 
 const BASE = "http://agent.test";

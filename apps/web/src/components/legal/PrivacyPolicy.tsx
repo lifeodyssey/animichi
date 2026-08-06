@@ -1,4 +1,4 @@
-import { useDict } from "../../i18n/context";
+import { useDict } from "../../i18n/LocaleProvider";
 import type { Dict } from "../../i18n/dictionaries";
 import { LocaleSwitcher } from "../../i18n/LocaleSwitcher";
 

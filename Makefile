@@ -1,6 +1,6 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -47,7 +47,8 @@ help:
 	@echo "E2E Testing:"
 	@echo "  make e2e-setup   Start Supabase + Edge Function + seed data"
 	@echo "  make e2e         Run all Playwright E2E tests"
-	@echo "  make visual-check  Pixel-level mockup comparison (PAGE=landing-day MODE=day RATIO=0.01)"
+	@echo "  make visual-check  Pixel mockup comparison (PAGE=landing MODE=day RATIO=0.01; no PAGE = all frames; JSON -> e2e/visual/report/summary.json)"
+	@echo "  make visual-check-self-test  Atom contract check (all frames; needs docker + app up)"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean       Remove build artifacts and caches"
@@ -62,44 +63,44 @@ serve:
 	cd apps/agent && uv run animichi-api
 
 test:
-	cd apps/agent && $(PYTEST) agent/tests/unit/ -v
+	cd apps/agent && $(PYTEST) src/animichi/tests/unit/ -v
 
 test-all:
-	cd apps/agent && $(PYTEST) agent/tests/unit agent/tests/integration -v
+	cd apps/agent && $(PYTEST) src/animichi/tests/unit src/animichi/tests/integration -v
 
 test-cov:
-	cd apps/agent && $(PYTEST) agent/tests/unit/ -v --cov --cov-report=html --cov-report=term-missing
+	cd apps/agent && $(PYTEST) src/animichi/tests/unit/ -v --cov --cov-report=html --cov-report=term-missing
 
 test-integration:
-	cd apps/agent && $(PYTEST) agent/tests/integration/ -v --no-cov
+	cd apps/agent && $(PYTEST) src/animichi/tests/integration/ -v --no-cov
 
 test-eval:
-	cd apps/agent && $(PYTHON) -m agent.tests.eval.run_agent_eval
-	cd apps/agent && $(PYTEST) agent/tests/eval/test_translation.py -v -m integration --no-cov
+	cd apps/agent && $(PYTHON) -m animichi.tests.eval.run_agent_eval
+	cd apps/agent && $(PYTEST) src/animichi/tests/eval/test_translation.py -v -m integration --no-cov
 
 test-eval-fullstack:
-	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTHON) -m agent.tests.eval.run_agent_eval
+	cd apps/agent && EVAL_FULLSTACK=1 EVAL_MAX_CASES=$${EVAL_MAX_CASES:-50} $(PYTHON) -m animichi.tests.eval.run_agent_eval
 
 test-docs:
-	cd apps/agent && uv run pytest agent/tests/unit/test_documentation_guardrails.py -q --no-cov
+	cd apps/agent && uv run pytest src/animichi/tests/unit/test_documentation_guardrails.py -q --no-cov
 
 # test-docs is deliberately NOT a prerequisite here: the doc guardrails are
-# ordinary unit tests, so `make test` and CI's `pytest agent/tests/unit/` both
+# ordinary unit tests, so `make test` and CI's `pytest src/animichi/tests/unit/` both
 # already execute them. Keeping the dependency made `make check` run them twice.
 # The target stays as a fast standalone loop while editing docs.
 lint:
-	cd apps/agent && uv run ruff check agent/ scripts/
-	cd apps/agent && uv run ruff format --check agent/ scripts/
+	cd apps/agent && uv run ruff check src/animichi/ scripts/
+	cd apps/agent && uv run ruff format --check src/animichi/ scripts/
 	# vulture runs in CI (reusable-python-ci.yml); without it here a dead-code finding
 	# reaches CI as a bare "exit code 3" after `make check` was green locally.
-	cd apps/agent && uv run vulture agent/ vulture_whitelist.py
+	cd apps/agent && uv run vulture src/animichi/ vulture_whitelist.py
 
 format:
-	cd apps/agent && uv run ruff format agent/ scripts/
-	cd apps/agent && uv run ruff check --fix agent/ scripts/
+	cd apps/agent && uv run ruff format src/animichi/ scripts/
+	cd apps/agent && uv run ruff check --fix src/animichi/ scripts/
 
 typecheck:
-	cd apps/agent && uv run mypy agent/agents/ agent/interfaces/ agent/domain/ agent/infrastructure/ agent/clients/ agent/tests/eval/ agent/scripts/purge_anonymous_sessions.py
+	cd apps/agent && uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/tests/eval/ src/animichi/scripts/purge_anonymous_sessions.py
 
 check: lint typecheck test test-integration
 
@@ -175,7 +176,7 @@ dev-local:
 	@# 3. Seed data if bangumi table is empty
 	@COUNT=$$(docker exec supabase_db_seichijunrei-agent psql -U postgres -d postgres -tAc "SELECT count(*) FROM bangumi" 2>/dev/null || echo "0"); \
 	if [ "$$COUNT" = "0" ]; then \
-		docker exec -i supabase_db_seichijunrei-agent psql -U postgres -d postgres < apps/agent/agent/tests/fixtures/seed.sql; \
+		docker exec -i supabase_db_seichijunrei-agent psql -U postgres -d postgres < apps/agent/src/animichi/tests/fixtures/seed.sql; \
 		echo "✓ Seed data applied"; \
 	else \
 		echo "✓ Data exists ($$COUNT bangumi)"; \
@@ -184,7 +185,7 @@ dev-local:
 	@supabase functions serve send-auth-email --no-verify-jwt --env-file supabase/.env.local > /tmp/animichi-edge.log 2>&1 & echo $$! > /tmp/animichi-edge.pid
 	@echo "✓ Edge Function started (SITE_URL=http://localhost:3000)"
 	@# 5. Start backend with .env (background, daemonized)
-	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) bash -c 'cd apps/agent && uv run uvicorn agent.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080' > /tmp/animichi-backend.log 2>&1 & echo $$! > /tmp/animichi-backend.pid
+	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) bash -c 'cd apps/agent && uv run uvicorn animichi.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080' > /tmp/animichi-backend.log 2>&1 & echo $$! > /tmp/animichi-backend.pid
 	@# 6. Wait for backend health
 	@echo "Waiting for backend..."
 	@for i in $$(seq 1 60); do curl -s http://localhost:8080/healthz >/dev/null 2>&1 && break || sleep 2; done
@@ -222,31 +223,38 @@ e2e:
 local-login:
 	bash scripts/local-login.sh
 
-# ── Visual comparison (S0-v2 C3) ─────────────────────────────
-# User-facing params: PAGE (frame key or partial key), MODE (day|night),
-# RATIO (pixel budget). PAGE defaults to the one proven frame.
+# ── Visual comparison (S0-v2 C3 + F2 task atom) ─────────────
+# User-facing params: PAGE (frame key or partial key; empty = all frames),
+# MODE (day|night), RATIO (pixel budget, from config — default 0.01).
+# Result contract: e2e/visual/report/summary.json is the single authoritative
+# verdict — exitCode 0 pass / 1 visual diff / 2 environment or invocation,
+# plus per-frame ratio/pass and failedFrames. Through make, GNU make remaps
+# any recipe failure to its own exit 2 (still nonzero); read summary.json to
+# distinguish 1 from 2. Canonicalize runs inside scripts/visual-check.sh; the
+# runner clears report/ once before the frame loop (never the host shell —
+# bind-mount races; never per frame, or frame N+1 deletes frame N's report).
 
-PAGE ?= landing-day
+PAGE ?=
 MODE ?= day
 RATIO ?= 0.01
 VISUAL_PLAYWRIGHT_IMAGE ?= mcr.microsoft.com/playwright:v1.62.0-noble
-VISUAL_DOCKER_ENV := $(if $(E2E_WEB_BASE_URL),-e E2E_WEB_BASE_URL="$(E2E_WEB_BASE_URL)",)
 
 visual-canonicalize:
 	@echo "visual-canonicalize: regenerating frozen canonical mockups"
 	node --experimental-strip-types e2e/visual/canonicalize-cli.ts --out e2e/visual/canonical --fonts apps/web/src/styles/fonts.css
 
-visual-check: visual-canonicalize
-	@echo "visual-check: PAGE=$(PAGE) MODE=$(MODE) RATIO=$(RATIO)"
-	@if docker info >/dev/null 2>&1; then \
-	  echo "visual-check: running in Playwright docker image $(VISUAL_PLAYWRIGHT_IMAGE)"; \
-	  docker run --rm --network host -v "$$(pwd)":/work -w /work/e2e \
-	    -e VISUAL_CHECK=1 -e VISUAL_PAGE="$(PAGE)" -e VISUAL_MODE="$(MODE)" -e VISUAL_RATIO="$(RATIO)" \
-	    $(VISUAL_DOCKER_ENV) "$(VISUAL_PLAYWRIGHT_IMAGE)" npx playwright test --project=visual --grep @visual; \
-	else \
-	  echo "WARNING: docker unavailable — visual baselines are host-rendered, not container-rendered"; \
-	  cd e2e && VISUAL_CHECK=1 VISUAL_PAGE="$(PAGE)" VISUAL_MODE="$(MODE)" VISUAL_RATIO="$(RATIO)" npx playwright test --project=visual --grep @visual; \
-	fi
+visual-check:
+	@PAGE="$(PAGE)" MODE="$(MODE)" RATIO="$(RATIO)" \
+	 VISUAL_PLAYWRIGHT_IMAGE="$(VISUAL_PLAYWRIGHT_IMAGE)" E2E_WEB_BASE_URL="$(E2E_WEB_BASE_URL)" \
+	 bash scripts/visual-check.sh; exit $$?
+
+# Self-test of the atom contract at the shell boundary: runs the atom WITHOUT
+# PAGE (every frame), then asserts every frame has a report, every verdict is
+# pass, and summary.exitCode is 0. The budget is loose by design (0.9999) —
+# this checks the contract, not frame convergence (C4). Needs a reachable app
+# (E2E_WEB_BASE_URL) and docker; fails closed when either is missing.
+visual-check-self-test:
+	@E2E_WEB_BASE_URL="$(E2E_WEB_BASE_URL)" bash e2e/visual/check-multiframe.sh
 
 # ── Setup ────────────────────────────────────────────────────
 

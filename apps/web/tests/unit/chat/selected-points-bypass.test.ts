@@ -5,7 +5,7 @@ import {
   isBypassTurn,
   sameIds,
   selectedPointsBody,
-} from "../../../src/lib/chat/selectedPointsBypass";
+} from "../../../src/lib/chat/selected-points-bypass";
 
 describe("selectedPointsBody (AC: the tray action can never fire empty)", () => {
   it("returns undefined for an empty selection", () => {

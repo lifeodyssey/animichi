@@ -76,15 +76,19 @@ function context(): CatalogContext {
 }
 
 async function call(method: string, payload: unknown): Promise<unknown> {
-  const request = new Request(`https://catalog.test/catalog/${method}`, {
-    method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const result = await handler.handle(request, { context: context() });
+  const result = await handleRequest(method, payload);
   expect(result.matched).toBe(true);
   assert(result.response);
   expect(result.response.status).toBe(200);
   return result.response.json();
+}
+
+async function handleRequest(method: string, payload: unknown) {
+  const request = new Request(`https://catalog.test/catalog/${method}`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handler.handle(request, { context: context() });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

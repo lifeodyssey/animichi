@@ -19,17 +19,28 @@ import type { CatalogDb } from "../db/client";
 /** TTL freshness floor: works whose weakest fetch is younger than this are not stale. */
 export const STALE_AFTER_SECONDS = 24 * 60 * 60;
 
+let weakestFreshness: SQL | undefined;
+
 /**
  * A work's freshness: the WEAKER of its two source fetches. A source with no
  * raw row at all reads as `-infinity`, so a missing source keeps the work
  * stale instead of hiding behind the other source's fresh fetch.
+ *
+ * Built lazily on first use, not at module top level: evaluating a `sql`
+ * template during module evaluation crashes the *bundled* Worker runtime
+ * (esbuild's lazy-ESM ordering leaves drizzle's StringChunk class in the TDZ
+ * until its init module runs — the vitest pool evaluates unbundled modules
+ * with correct ESM order, so only the deployed bundle ever sees it).
  */
-const WEAKEST_FRESHNESS = sql`
+function weakestFreshnessSql(): SQL {
+  weakestFreshness ??= sql`
   LEAST(
     COALESCE(a.fetched_at, '-infinity'),
     COALESCE(b.fetched_at, '-infinity')
   )
 `;
+  return weakestFreshness;
+}
 
 /** Work ids with a `done` ingest_jobs row; empty input yields an empty set. */
 export async function listDoneWorkIds(
@@ -60,7 +71,7 @@ export async function listStaleWorkIds(
 function staleWorksSql(cap: number, maxAgeSeconds: number): SQL {
   return sql`
     SELECT staleness.work_id
-    FROM (SELECT work_id, ${WEAKEST_FRESHNESS} AS freshness
+    FROM (SELECT work_id, ${weakestFreshnessSql()} AS freshness
       FROM raw_anitabi a FULL OUTER JOIN raw_bangumi b USING (work_id)) staleness
     WHERE staleness.freshness < NOW() - make_interval(secs => ${maxAgeSeconds})
       AND NOT EXISTS (SELECT 1 FROM ingest_jobs j WHERE j.work_id = staleness.work_id AND j.negative_cached_until > NOW())
