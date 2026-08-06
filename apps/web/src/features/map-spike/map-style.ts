@@ -1,7 +1,7 @@
 import { LIGHT, type Flavor, layers } from "@protomaps/basemaps";
 import type { StyleSpecification } from "maplibre-gl";
 import { TILE_PMTILES_URL, TILE_ZXY_URL } from "./spots";
-import type { SourceMode } from "./sourceMode";
+import type { SourceMode } from "./source-mode";
 
 const ATTRIBUTION = "© OpenStreetMap contributors, Protomaps";
 const SOURCE_ID = "protomaps";

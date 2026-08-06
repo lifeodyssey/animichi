@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { LocaleProvider } from "../../src/i18n/context";
+import { LocaleProvider } from "../../src/i18n/LocaleProvider";
 
 /** Pin navigator.languages so the provider's mount detection is deterministic. */
 export function setLanguages(langs: string[]): void {

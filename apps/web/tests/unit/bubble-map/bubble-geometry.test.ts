@@ -8,7 +8,7 @@ import {
   bubbleRadius,
   circlesMaxCount,
   hasBubbles,
-} from "../../../src/features/bubble-map/bubbleGeometry";
+} from "../../../src/features/bubble-map/bubble-geometry";
 
 function circle(overrides: Partial<AnimeOverviewCircle>): AnimeOverviewCircle {
   return { region: "Tokyo", count: 1, lat: 35.68, lng: 139.76, ...overrides };

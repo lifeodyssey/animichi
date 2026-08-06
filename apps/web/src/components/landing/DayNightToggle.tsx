@@ -1,5 +1,5 @@
-import { useDict } from "../../i18n/context";
-import { useTheme } from "./useTheme";
+import { useDict } from "../../i18n/LocaleProvider";
+import { useTheme } from "./use-theme";
 
 /** Day/night switch — persistence lives in useTheme. */
 export function DayNightToggle() {

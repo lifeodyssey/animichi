@@ -9,14 +9,14 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { rememberTurnstileToken } from "../../../src/lib/turnstile/tokenStore";
+import { rememberTurnstileToken } from "../../../src/lib/turnstile/token-store";
 import { server } from "../../msw/node";
 import { chatStreamHandler, chatTurnstileRequiredHandler } from "../../msw/chat-handlers";
 import { setLanguages } from "../_i18n";
 import { renderChatPage } from "./_chat-page";
 
 const { getAuthToken } = vi.hoisted(() => ({ getAuthToken: vi.fn().mockResolvedValue(undefined) }));
-vi.mock("../../../src/lib/auth/authSession", () => ({
+vi.mock("../../../src/lib/auth/auth-session", () => ({
   getAuthToken,
   clearAuthToken: () => undefined,
   authHeaders: async () => {

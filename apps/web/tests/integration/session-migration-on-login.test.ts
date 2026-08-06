@@ -20,13 +20,13 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthCallback } from "../../src/components/auth/AuthCallback";
-import { LocaleProvider } from "../../src/i18n/context";
+import { LocaleProvider } from "../../src/i18n/LocaleProvider";
 import { dictFor } from "../../src/i18n/dictionaries";
 
 // The integration lane has no locale setup, so jsdom's `en-US` navigator wins.
 const auth = dictFor("en").auth;
-import { clearAuthToken } from "../../src/lib/auth/authSession";
-import { SESSION_MIGRATE_PATH } from "../../src/lib/auth/sessionMigration";
+import { clearAuthToken } from "../../src/lib/auth/auth-session";
+import { SESSION_MIGRATE_PATH } from "../../src/lib/auth/session-migration";
 
 const NEON_AUTH = "http://localhost:3000/neondb/auth";
 const MIGRATE_URL = "http://localhost:3000/v1/session/migrate";
@@ -108,12 +108,12 @@ describe("a login drives the session-migration endpoint end to end", () => {
     // only real outlet. A 503 must reach the DOM, not just a console line.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     server.use(http.post(MIGRATE_URL, () => HttpResponse.json({}, { status: 503 })));
-    let done = false;
+    let isDone = false;
     render(createElement(LocaleProvider, null,
-      createElement(AuthCallback, { onDone: () => { done = true; } })));
+      createElement(AuthCallback, { onDone: () => { isDone = true; } })));
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain(auth.callback_migration_failed);
-    expect(done).toBe(false);
+    expect(isDone).toBe(false);
     expect(warn).toHaveBeenCalledExactlyOnceWith(
       JSON.stringify({ event: "auth_session_migration", anomaly: "failed" }),
     );
@@ -123,11 +123,11 @@ describe("a login drives the session-migration endpoint end to end", () => {
   it("still lets the visitor through — the login is never blocked", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     server.use(http.post(MIGRATE_URL, () => HttpResponse.json({}, { status: 503 })));
-    let done = false;
+    let isDone = false;
     render(createElement(LocaleProvider, null,
-      createElement(AuthCallback, { onDone: () => { done = true; } })));
+      createElement(AuthCallback, { onDone: () => { isDone = true; } })));
     fireEvent.click(await screen.findByRole("button", { name: auth.callback_migration_skip }));
-    await vi.waitFor(() => { expect(done).toBe(true); });
+    await vi.waitFor(() => { expect(isDone).toBe(true); });
   });
 });
 

@@ -14,14 +14,14 @@ import { TimedItinerary } from "../../../src/features/chat/components/TimedItine
 import { itineraryView } from "../../../src/lib/chat/itinerary";
 import { ujiItinerary } from "./_route-fixtures";
 import { SessionExpired } from "../../../src/features/chat/components/ErrorStates/SessionExpired";
-import { ChatReturnTargetProvider, chatSessionTarget, returnTargetNamesSession } from "../../../src/features/chat/return-target";
-import { carriesPanelIntent } from "../../../src/lib/auth/returnTarget";
+import { ChatReturnTargetProvider, chatSessionTarget, returnTargetNamesSession } from "../../../src/features/chat/ChatReturnTarget";
+import { carriesPanelIntent } from "../../../src/lib/auth/return-target";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { sendMagicLink } from "../../../src/lib/auth/neonAuth";
+import { sendMagicLink } from "../../../src/lib/auth/neon-auth";
 import { setLanguages } from "../_i18n";
-import { LocaleProvider } from "../../../src/i18n/context";
+import { LocaleProvider } from "../../../src/i18n/LocaleProvider";
 
-vi.mock("../../../src/lib/auth/neonAuth", () => ({ sendMagicLink: vi.fn() }));
+vi.mock("../../../src/lib/auth/neon-auth", () => ({ sendMagicLink: vi.fn() }));
 const send = vi.mocked(sendMagicLink);
 
 beforeEach(() => { setLanguages(["ja-JP"]); });

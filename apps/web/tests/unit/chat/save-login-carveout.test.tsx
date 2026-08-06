@@ -7,9 +7,9 @@ import { BudgetExhausted } from "../../../src/features/chat/components/ErrorStat
 import { SessionExpired } from "../../../src/features/chat/components/ErrorStates/SessionExpired";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { AuthCallback } from "../../../src/components/auth/AuthCallback";
-import { REPLAY_TIMEOUT_MS, useAuthCallback } from "../../../src/components/auth/useAuthCallback";
-import type { DeferredReplayOutcome } from "../../../src/features/chat/save/createOnLogin";
-import { DEFERRED_SAVE_KEY, writeDeferredSave } from "../../../src/features/chat/save/deferredSave";
+import { REPLAY_TIMEOUT_MS, useAuthCallback } from "../../../src/components/auth/use-auth-callback";
+import type { DeferredReplayOutcome } from "../../../src/features/chat/save/create-on-login";
+import { DEFERRED_SAVE_KEY, writeDeferredSave } from "../../../src/features/chat/save/deferred-save";
 import { dictFor } from "../../../src/i18n/dictionaries";
 import { renderWithLocale, setLanguages } from "../_i18n";
 

@@ -1,6 +1,6 @@
 import type { TimedItinerary, TimedStop } from "@animichi/contract";
 import type { ShioriMeta, ShioriPhoto, ShioriPhotoInput } from "../../../src/features/shiori/types";
-import { makeJpegBlobWithExif } from "./_jpegFixtures";
+import { makeJpegBlobWithExif } from "./_jpeg-fixtures";
 
 export function makeStop(overrides: Partial<TimedStop> = {}): TimedStop {
   return {

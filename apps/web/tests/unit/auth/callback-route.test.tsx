@@ -9,10 +9,10 @@ import { setLanguages } from "../_i18n";
 import { dictFor } from "../../../src/i18n/dictionaries";
 
 const { getAuthToken } = vi.hoisted(() => ({ getAuthToken: vi.fn() }));
-vi.mock("../../../src/lib/auth/authSession", () => ({ getAuthToken }));
+vi.mock("../../../src/lib/auth/auth-session", () => ({ getAuthToken }));
 
 const { replayDeferredSave } = vi.hoisted(() => ({ replayDeferredSave: vi.fn() }));
-vi.mock("../../../src/features/chat/save/createOnLogin", () => ({ replayDeferredSave }));
+vi.mock("../../../src/features/chat/save/create-on-login", () => ({ replayDeferredSave }));
 
 beforeEach(() => { replayDeferredSave.mockResolvedValue("none"); });
 afterEach(() => {

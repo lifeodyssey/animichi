@@ -1,6 +1,6 @@
 import type { ChatDataPart } from "@animichi/contract";
-import { routeOf } from "../components/cards";
-import type { SpotRow } from "../components/cards";
+import { routeOf } from "../components/Cards";
+import type { SpotRow } from "../components/Cards";
 import type { ChatDict } from "../i18n";
 import { saveRouteTitle } from "../route-copy";
 

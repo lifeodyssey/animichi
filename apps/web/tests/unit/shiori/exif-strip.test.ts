@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { sanitizePhoto, stripJpegMetadata } from "../../../src/features/shiori/exifStrip";
+import { sanitizePhoto, stripJpegMetadata } from "../../../src/features/shiori/exif-strip";
 import {
   APP0_JFIF,
   ascii,
@@ -8,7 +8,7 @@ import {
   makeJpegWithExif,
   SCAN_TAIL,
   segment,
-} from "./_jpegFixtures";
+} from "./_jpeg-fixtures";
 
 describe("stripJpegMetadata", () => {
   it("removes the EXIF APP1 segment including GPS payload", () => {

@@ -3,7 +3,7 @@ import { cleanup, render } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { ChatPage } from "../../../src/features/chat/ChatPage";
 import type { ChatSearch } from "../../../src/features/chat/search";
-import { LocaleProvider } from "../../../src/i18n/context";
+import { LocaleProvider } from "../../../src/i18n/LocaleProvider";
 import { server } from "../../msw/node";
 import { healthzOkHandler } from "../../msw/chat-handlers";
 

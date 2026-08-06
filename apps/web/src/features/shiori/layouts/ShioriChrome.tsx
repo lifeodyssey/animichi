@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import type { TimedItinerary } from "@animichi/contract";
-import type { ShioriLayout } from "../layoutSelector";
+import type { ShioriLayout } from "../layout-selector";
 import type { ShioriMeta } from "../types";
-import { shioriTimeWindow } from "../timeWindow";
+import { shioriTimeWindow } from "../time-window";
 
 type ShioriFrameProps = Readonly<{
   layout: ShioriLayout;

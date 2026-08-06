@@ -123,7 +123,7 @@ interface MapLifecycleOptions {
 
 class MapLifecycle implements MapLibreHandle {
   readonly map: MapLibreMap;
-  private active = true;
+  private isActive = true;
   private failed = false;
   private loaded = false;
   private loadCleanup: (() => void) | undefined;
@@ -136,7 +136,7 @@ class MapLifecycle implements MapLibreHandle {
   }
 
   private readonly reportError = (): void => {
-    if (!this.active || this.failed) return;
+    if (!this.isActive || this.failed) return;
     this.failed = true;
     try {
       this.options.onError();
@@ -153,7 +153,7 @@ class MapLifecycle implements MapLibreHandle {
   };
 
   private readonly reportReady = (): void => {
-    if (!this.active || this.failed || this.loaded) return;
+    if (!this.isActive || this.failed || this.loaded) return;
     try { this.handleReady(); } catch { this.reportError(); }
   };
 
@@ -168,8 +168,8 @@ class MapLifecycle implements MapLibreHandle {
   };
 
   readonly destroy = (): void => {
-    if (!this.active) return;
-    this.active = false;
+    if (!this.isActive) return;
+    this.isActive = false;
     this.dispose();
   };
 }
@@ -187,12 +187,12 @@ export const mountMapLibre = async (options: MapLibreMountOptions): Promise<MapL
 };
 
 interface Attachment {
-  active: boolean;
+  isActive: boolean;
   handle: MapLibreHandle | null;
 }
 
 const storeHandle = (attachment: Attachment, handle: MapLibreHandle): void => {
-  if (!attachment.active) {
+  if (!attachment.isActive) {
     handle.destroy();
     return;
   }
@@ -200,17 +200,17 @@ const storeHandle = (attachment: Attachment, handle: MapLibreHandle): void => {
 };
 
 const reportAttachmentFailure = (attachment: Attachment, options: MapLibreMountOptions): void => {
-  if (attachment.active) options.onError();
+  if (attachment.isActive) options.onError();
 };
 
 /** Bridge async MapLibre setup into React's synchronous effect cleanup contract. */
 export const attachMapLibre = (options: MapLibreMountOptions): (() => void) => {
-  const attachment: Attachment = { active: true, handle: null };
+  const attachment: Attachment = { isActive: true, handle: null };
   void mountMapLibre(options)
     .then((handle) => { storeHandle(attachment, handle); })
     .catch(() => { reportAttachmentFailure(attachment, options); });
   return () => {
-    attachment.active = false;
+    attachment.isActive = false;
     attachment.handle?.destroy();
   };
 };

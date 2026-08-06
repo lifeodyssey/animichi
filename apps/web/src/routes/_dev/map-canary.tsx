@@ -2,7 +2,7 @@ import type { StyleSpecification } from "maplibre-gl";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { attachMapLibre } from "../../features/maplibre/maplibreAdapter";
+import { attachMapLibre } from "../../features/maplibre/maplibre-adapter";
 
 export const Route = createFileRoute("/_dev/map-canary")({
   component: MapCanaryRoute,

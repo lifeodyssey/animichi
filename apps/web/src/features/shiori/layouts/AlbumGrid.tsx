@@ -1,6 +1,6 @@
 import type { ShioriPhoto, ShioriRouteProps } from "../types";
-import { albumOverflowCount, visibleAlbumCount } from "../layoutSelector";
-import { shioriTimeWindow } from "../timeWindow";
+import { albumOverflowCount, visibleAlbumCount } from "../layout-selector";
+import { shioriTimeWindow } from "../time-window";
 import { PhotoTile } from "./PhotoTile";
 import { ShioriFrame, ShioriHeader } from "./ShioriChrome";
 

@@ -1,7 +1,7 @@
 import type { ChangeEvent } from "react";
 import type { Dict } from "../../i18n/dictionaries";
-import { useDict } from "../../i18n/context";
-import { type FormStatus, type MagicLinkForm, type SendCommitted, type ValidationKey, useMagicLinkForm } from "./useMagicLinkForm";
+import { useDict } from "../../i18n/LocaleProvider";
+import { type FormStatus, type MagicLinkForm, type SendCommitted, type ValidationKey, useMagicLinkForm } from "./use-magic-link-form";
 
 type Auth = Dict["auth"];
 

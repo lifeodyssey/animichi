@@ -4,9 +4,9 @@ import { useSaveRoute } from "../../../api/hooks/use-save-route";
 import type { SaveRouteRequest, SaveRouteStatus } from "../../../api/hooks/use-save-route";
 import { fetchAuthStatus, useAuthStatus } from "../../../lib/auth/session";
 import type { AuthStatus } from "../../../lib/auth/session";
-import { toSaveInput } from "./createOnLogin";
-import { clearDeferredSave, pruneDeferredSave, writeDeferredSave } from "./deferredSave";
-import type { SaveTarget } from "./saveTarget";
+import { toSaveInput } from "./create-on-login";
+import { clearDeferredSave, pruneDeferredSave, writeDeferredSave } from "./deferred-save";
+import type { SaveTarget } from "./save-target";
 
 /** What a 「保存する」 tap does: nothing, open the login wall, or save. */
 export type SaveAction = "none" | "login" | "save";

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { clusterName, episodeTag, spotCountBadge } from "../../../src/features/chat/search-copy";
-import type { LocatedSpot, SpotCluster } from "../../../src/lib/chat/spotClusters";
+import type { LocatedSpot, SpotCluster } from "../../../src/lib/chat/spot-clusters";
 import { LOCALES } from "../../../src/i18n/locales";
 
 const CENTER = { lat: 34.89, lng: 135.8 };

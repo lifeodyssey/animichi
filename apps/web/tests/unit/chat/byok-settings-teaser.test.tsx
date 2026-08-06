@@ -3,13 +3,13 @@
  */
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { sendMagicLink } from "../../../src/lib/auth/neonAuth";
+import { sendMagicLink } from "../../../src/lib/auth/neon-auth";
 import { ByokSettings } from "../../../src/features/chat/components/ByokSettings";
-import { getByokConfig, saveByokConfig } from "../../../src/lib/byok/byokStorage";
+import { getByokConfig, saveByokConfig } from "../../../src/lib/byok/byok-storage";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { renderWithLocale, setLanguages } from "../_i18n";
 
-vi.mock("../../../src/lib/auth/neonAuth", () => ({ sendMagicLink: vi.fn() }));
+vi.mock("../../../src/lib/auth/neon-auth", () => ({ sendMagicLink: vi.fn() }));
 const send = vi.mocked(sendMagicLink);
 
 const dict = chatDictFor("ja");

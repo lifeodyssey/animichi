@@ -1,6 +1,6 @@
 import type { TimedStop } from "@animichi/contract";
-import { completedTotals, isStopCheckedIn } from "./dataState";
-import type { RouteDetail } from "./dataState";
+import { completedTotals, isStopCheckedIn } from "./data-state";
+import type { RouteDetail } from "./data-state";
 
 /**
  * Map-pin language (spec-route-detail §5 "pin-is-the-picture"): each stop reads

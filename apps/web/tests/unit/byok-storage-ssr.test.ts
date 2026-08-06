@@ -2,7 +2,7 @@
  * @vitest-environment node
  *
  * No `window` global exists in this environment (unlike jsdom), so this
- * pins the SSR half of the AC: importing byokStorage.ts and calling every
+ * pins the SSR half of the AC: importing byok-storage.ts and calling every
  * exported accessor must not throw, and every read must degrade to the
  * "no credential" answer rather than crash the render.
  */
@@ -14,7 +14,7 @@ import {
   getByokVisionSupported,
   saveByokConfig,
   setByokVisionSupported,
-} from "../../src/lib/byok/byokStorage";
+} from "../../src/lib/byok/byok-storage";
 
 describe("SSR safety — no window global available", () => {
   it("importing the module does not throw", () => {

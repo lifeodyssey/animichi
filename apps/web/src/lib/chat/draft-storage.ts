@@ -7,7 +7,7 @@
  * keeps that promise honest: same tab, cleared when the tab closes, never sent
  * anywhere.
  *
- * It lives behind this module for the same reason `byokStorage.ts` exists:
+ * It lives behind this module for the same reason `byok-storage.ts` exists:
  * components do not touch the storage API directly, so quota-exempt access is
  * reviewable in one place and the source guard stays meaningful. Unlike BYOK
  * this holds no secret — only what the visitor already typed on screen.

@@ -15,7 +15,7 @@ import {
 } from "../../msw/chat-handlers";
 
 const { authHeaders } = vi.hoisted(() => ({ authHeaders: vi.fn().mockResolvedValue({}) }));
-vi.mock("../../../src/lib/auth/authSession", () => ({ authHeaders }));
+vi.mock("../../../src/lib/auth/auth-session", () => ({ authHeaders }));
 
 afterEach(() => {
   authHeaders.mockReset().mockResolvedValue({});

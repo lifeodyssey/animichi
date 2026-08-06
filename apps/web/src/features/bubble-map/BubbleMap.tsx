@@ -1,7 +1,7 @@
 import type { AnimeOverviewCircle, AnimeScene } from "@animichi/contract";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { BubbleMapPanel } from "./BubbleMapPanel";
-import { type BasemapStatus, attachBubbleMap } from "./bubbleMapController";
+import { type BasemapStatus, attachBubbleMap } from "./bubble-map-controller";
 import type { BubbleMapCopy } from "./copy";
 
 type Props = Readonly<{

@@ -4,7 +4,7 @@
 import { renderHook } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { useRecomputeTurn } from "../../../src/features/chat/selection/useRecomputeTurn";
+import { useRecomputeTurn } from "../../../src/features/chat/selection/use-recompute-turn";
 import type { ChatSession } from "../../../src/features/chat/use-chat-session";
 
 type ChatStub = Readonly<{
@@ -23,7 +23,7 @@ function renderTurn(initial: ChatStub) {
   });
 }
 
-describe("useRecomputeTurn", () => {
+describe("use-recompute-turn", () => {
   it("never fires the bypass with an empty selection", () => {
     const chat = chatStub("ready");
     const { result } = renderTurn(chat);

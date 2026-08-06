@@ -1,4 +1,4 @@
-import { LocaleProvider } from "../i18n/context";
+import { LocaleProvider } from "../i18n/LocaleProvider";
 import { LandingPage } from "./landing/LandingPage";
 
 /** Landing entry: provides the i18n context to the marketing page. */

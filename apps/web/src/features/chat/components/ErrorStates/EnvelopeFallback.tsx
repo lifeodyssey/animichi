@@ -1,6 +1,6 @@
-import { useChatActions } from "../../chat-actions";
+import { useChatActions } from "../../ChatActions";
 import type { ChatDict } from "../../i18n";
-import type { ChatErrorState } from "../../../../lib/chat/errorClassifier";
+import type { ChatErrorState } from "../../../../lib/chat/error-classifier";
 import { FallbackRetryButton } from "./FallbackRetryButton";
 
 type Props = Readonly<{ state: ChatErrorState; dict: ChatDict }>;
