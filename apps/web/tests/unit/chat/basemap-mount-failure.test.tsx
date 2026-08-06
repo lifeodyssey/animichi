@@ -8,11 +8,11 @@
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { attachBasemap } from "../../../src/features/bubble-map/bubbleMapController";
+import { attachBasemap } from "../../../src/features/bubble-map/bubble-map-controller";
 import { SearchResult } from "../../../src/features/chat/components/SearchResult";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { toSearchSpots } from "../../../src/lib/chat/spotClusters";
-import type { SpotRowLike } from "../../../src/lib/chat/spotClusters";
+import { toSearchSpots } from "../../../src/lib/chat/spot-clusters";
+import type { SpotRowLike } from "../../../src/lib/chat/spot-clusters";
 
 vi.mock("pmtiles", () => ({ Protocol: class { readonly tile = () => undefined; } }));
 

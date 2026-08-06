@@ -1,5 +1,5 @@
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
-import { authHeaders } from "../lib/auth/authSession";
+import { authHeaders } from "../lib/auth/auth-session";
 import {
   type CatalogClient,
   type UsersClient,

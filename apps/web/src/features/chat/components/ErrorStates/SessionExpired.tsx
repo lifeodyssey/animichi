@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { LoginModal } from "../../../../components/auth/LoginModal";
 import type { ChatDict } from "../../i18n";
-import { useChatReturnTarget } from "../../return-target";
+import { useChatReturnTarget } from "../../ChatReturnTarget";
 import { FallbackRetryButton } from "./FallbackRetryButton";
 
 type Props = Readonly<{ dict: ChatDict; onResume: () => void; recovering?: boolean }>;

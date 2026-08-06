@@ -3,7 +3,7 @@
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { RouteDetailPendingState } from "../../../src/components/route-detail/route-states";
+import { RouteDetailPendingState } from "../../../src/components/route-detail/RouteDetailStates";
 
 afterEach(cleanup);
 

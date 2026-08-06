@@ -85,7 +85,7 @@ fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly ROOT
 readonly MIGRATIONS_DIR="$ROOT/db/migrations"
-readonly SEED_FILE="$ROOT/apps/agent/agent/tests/fixtures/seed.sql"
+readonly SEED_FILE="$ROOT/apps/agent/src/animichi/tests/fixtures/seed.sql"
 [[ -d "$MIGRATIONS_DIR" ]] || die "migration directory not found"
 [[ -f "$SEED_FILE" ]] || die "seed file not found"
 
@@ -255,9 +255,9 @@ fi
 # password in the process argv, which the pg_service/pgpass indirection exists to
 # avoid.
 (
-  export PYTHONPATH="$ROOT/apps/agent" DATABASE_URL ATLAS_VERSION
+  export PYTHONPATH="$ROOT/apps/agent/src" DATABASE_URL ATLAS_VERSION
   run_db_step "Atlas ${PINNED_ATLAS_VERSION} migration apply" \
-    python3 -m agent.tests.atlas_helper apply
+    python3 -m animichi.tests.atlas_helper apply
 )
 run_db_step "idempotent fixture seed" psql -X --set=ON_ERROR_STOP=1 "service=database" \
   --file="$SEED_FILE"

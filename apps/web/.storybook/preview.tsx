@@ -1,5 +1,5 @@
 import type { Decorator, Preview } from "@storybook/react";
-import { LocaleProvider } from "../src/i18n/context";
+import { LocaleProvider } from "../src/i18n/LocaleProvider";
 import "../src/styles/globals.css";
 
 const withLocale: Decorator = (Story) => <LocaleProvider><Story /></LocaleProvider>;

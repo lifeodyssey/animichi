@@ -35,7 +35,7 @@ every contract change and commit both outputs. CI reruns emission and fails on c
 
 - Catalog errors move in three-mirror lockstep:
   `src/errors.ts` ↔ `workers/catalog/src/lib/errors.ts` ↔
-  `apps/agent/agent/clients/catalog_errors.py`.
+  `apps/agent/src/animichi/clients/catalog_errors.py`.
 - Extend `workers/catalog/test/contract-parity.worker.test.ts` and the Python error tests with any
   mirror change; do not rely on OpenAPI generation alone.
 - Do not introduce runtime value imports into the catalog's type mirror.

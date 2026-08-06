@@ -413,7 +413,7 @@ jobs:
           # (that would only prove the download wasn't corrupted in transit,
           # not that the upstream artifact itself is the one this repo
           # reviewed). Keep synchronized with
-          # apps/agent/agent/tests/atlas_helper.py's ATLAS_LINUX_AMD64_SHA256
+          # apps/agent/src/animichi/tests/atlas_helper.py's ATLAS_LINUX_AMD64_SHA256
           # and ci.yml's two "Install pinned Atlas CLI" steps — all four
           # pin the same v0.30.0 linux/amd64 artifact.
           echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  /usr/local/bin/atlas" \
@@ -621,8 +621,8 @@ jobs:
       # built by the "Deploy Worker" step below (`wrangler deploy`, driven by
       # wrangler.toml's [[containers]] image = "./Dockerfile"), and wrangler
       # cannot pass `--build-arg` through to docker (workers-sdk #12991). So we
-      # write apps/agent/agent/build_info.py into the build context instead;
-      # the Dockerfile's existing `COPY apps/agent/agent /app/agent` ships it
+      # write apps/agent/src/animichi/build_info.py into the build context instead;
+      # the Dockerfile's existing `COPY apps/agent/src/animichi /app/src/animichi` ships it
       # into the image at build time. The file is gitignored (#494) and
       # regenerated on every deploy, so it never goes stale in a PR.
       - name: Bake git build info for root container
@@ -633,8 +633,8 @@ jobs:
           # Whitelist-sanitize: a ref name may contain characters that break a
           # quoted Python literal; GITHUB_SHA is hex and safe as-is.
           branch="${GITHUB_REF_NAME//[^A-Za-z0-9._\/-]/-}"
-          mkdir -p apps/agent/agent
-          cat > apps/agent/agent/build_info.py <<EOF
+          mkdir -p apps/agent/src/animichi
+          cat > apps/agent/src/animichi/build_info.py <<EOF
           """Build-time git metadata baked by CI (#494). Do not edit."""
 
           GIT_COMMIT = "${GITHUB_SHA::7}"

@@ -21,7 +21,7 @@ make e2e-setup
 
 This runs `scripts/e2e-setup.sh` which:
 1. Starts Supabase (--exclude vector,analytics)
-2. Seeds test data (18 anime, 43 points — tables `bangumi`/`points` — from `apps/agent/agent/tests/fixtures/seed.sql`)
+2. Seeds test data (18 anime, 43 points — tables `bangumi`/`points` — from `apps/agent/src/animichi/tests/fixtures/seed.sql`)
 3. Serves Edge Function (`send-auth-email` with SMTP to Mailpit)
 4. Installs `e2e/` npm deps
 
@@ -65,7 +65,7 @@ Tests set browser locale via `browser.newContext({ locale })` and verify Mailpit
 
 | Problem | Fix |
 |---------|-----|
-| Anime not found on Guide page | `docker exec -i supabase_db_seichijunrei-agent psql -U postgres < apps/agent/agent/tests/fixtures/seed.sql` |
+| Anime not found on Guide page | `docker exec -i supabase_db_seichijunrei-agent psql -U postgres < apps/agent/src/animichi/tests/fixtures/seed.sql` |
 | Email not arriving in Mailpit | Check Edge Function: `curl http://localhost:54321/functions/v1/send-auth-email` |
 | SMTP connection refused | config.toml needs `[inbucket] smtp_port = 54325` |
 | Login link expired | Edge Function SITE_URL wrong. Pass `SITE_URL=http://localhost:3000` |

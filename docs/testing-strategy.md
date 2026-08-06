@@ -155,7 +155,7 @@ class AgentResultFactory(factory.Factory):
 
 ### Agent database arms
 
-`agent/tests/conftest_db.py` evaluates this once per pytest session. Credentials alone never opt a
+`src/animichi/tests/conftest_db.py` evaluates this once per pytest session. Credentials alone never opt a
 local run into the live arm.
 
 | `TEST_DATABASE_URL` | `TEST_DB` | Result |
@@ -362,7 +362,7 @@ No-retry-until-green: eval tasks run once. `retry_task` and
 `EVAL_TASK_RETRIES` are not part of the eval contract; task errors are counted
 in `errored_count`, and a run fails when more than 20% of cases error.
 
-Regression gating uses `agent/tests/eval/gate.py`: schema-v2 per-case baselines
+Regression gating uses `src/animichi/tests/eval/gate.py`: schema-v2 per-case baselines
 and a paired-bootstrap 95% confidence interval. Capped runs are report-only and
 never read, write, or enforce baselines.
 

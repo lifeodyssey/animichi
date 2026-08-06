@@ -3,7 +3,7 @@
 # Six jobs mirror the production promotion stage of ci.yml (deploy-prod … post-prod)
 # so the manual path and the CI path exercise identical inputs. Every `with:` /
 # `secrets:` / `concurrency:` line here must stay verbatim-identical to ci.yml's
-# corresponding job (the guard apps/agent/agent/tests/unit/
+# corresponding job (the guard apps/agent/src/animichi/tests/unit/
 # test_deploy_model_env_consistency.py enforces the root job's secret lists).
 # Allowed deltas: `needs:` / `if:` that reference ci.yml-only jobs are dropped;
 # post-prod keeps needs on the five deploy jobs.

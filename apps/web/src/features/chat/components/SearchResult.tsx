@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { MAX_MAP_PINS, searchMapView, topSpots } from "../../../lib/chat/spotClusters";
-import type { SearchSpot, SpotCluster } from "../../../lib/chat/spotClusters";
-import { attachBasemap } from "../../bubble-map/bubbleMapController";
+import { MAX_MAP_PINS, searchMapView, topSpots } from "../../../lib/chat/spot-clusters";
+import type { SearchSpot, SpotCluster } from "../../../lib/chat/spot-clusters";
+import { attachBasemap } from "../../bubble-map/bubble-map-controller";
 import { episodeTag } from "../search-copy";
-import { useSpotSelection } from "../selection/useSpotSelection";
+import { useSpotSelection } from "../selection/use-spot-selection";
 import type { ChatDict } from "../i18n";
 import { EnvelopeFallback } from "./ErrorStates/EnvelopeFallback";
 import { SceneThumb } from "./ErrorStates/SceneThumb";
 import { ClusterBubbleMap, StaticSpotMap } from "./SearchMap";
 import type { AttachBasemap } from "./SearchMap";
-import { useAutoFocus } from "./useAutoFocus";
+import { useAutoFocus } from "./use-auto-focus";
 
 type SpotProps = Readonly<{ spot: SearchSpot; dict: ChatDict }>;
 type GridProps = Readonly<{ spots: readonly SearchSpot[]; dict: ChatDict }>;

@@ -13,7 +13,7 @@ import {
   useLockedActions,
   useQuotaRelease,
 } from "../../../src/features/chat/quota-lock";
-import type { RecomputeTurn } from "../../../src/features/chat/selection/useRecomputeTurn";
+import type { RecomputeTurn } from "../../../src/features/chat/selection/use-recompute-turn";
 
 const NOW = Date.parse("2026-07-28T12:00:00Z");
 const LATER = Date.parse("2026-07-29T00:00:00Z");

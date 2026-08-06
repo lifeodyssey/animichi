@@ -24,7 +24,7 @@ vi.mock("pmtiles", () => ({
   },
 }));
 
-import { mountMapLibre } from "../../src/features/maplibre/maplibreAdapter";
+import { mountMapLibre } from "../../src/features/maplibre/maplibre-adapter";
 
 const STYLE = { version: 8, sources: {}, layers: [] } satisfies StyleSpecification;
 

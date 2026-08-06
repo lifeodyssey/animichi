@@ -8,7 +8,7 @@ import { AnimePage } from "../../features/anime/AnimePage";
 import { animeHead } from "../../features/anime/head";
 import { buildAnimeJsonLd } from "../../features/anime/structured-data";
 import { useRegisterAnimeSw } from "../../features/anime/register-sw";
-import { AnimeErrorState, AnimePendingState } from "../../features/anime/route-states";
+import { AnimeErrorState, AnimePendingState } from "../../features/anime/AnimeRouteStates";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../../i18n/locales";
 
 const BANGUMI_ID_PATTERN = /^\d+$/;

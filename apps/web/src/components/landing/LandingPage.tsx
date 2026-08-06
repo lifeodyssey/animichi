@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Dict } from "../../i18n/dictionaries";
-import { useDict } from "../../i18n/context";
+import { useDict } from "../../i18n/LocaleProvider";
 import { LocaleSwitcher } from "../../i18n/LocaleSwitcher";
 import { isShowcase } from "../../features/config/showcase";
 import { LoginModal } from "../auth/LoginModal";

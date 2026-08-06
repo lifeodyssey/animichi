@@ -1,11 +1,11 @@
 import { useCallback } from "react";
-import { TURNSTILE_REQUIRED_CODE, classifyFailure } from "../../lib/chat/errorClassifier";
-import type { ChatErrorState, FailureSignal } from "../../lib/chat/errorClassifier";
+import { TURNSTILE_REQUIRED_CODE, classifyFailure } from "../../lib/chat/error-classifier";
+import type { ChatErrorState, FailureSignal } from "../../lib/chat/error-classifier";
 import type { AuthStatus } from "../../lib/auth/session";
 import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
 import { UNLOCKED, lockHolds, resetInstant, useQuotaRelease } from "./quota-lock";
 import type { QuotaLock } from "./quota-lock";
-import type { RecomputeTurn } from "./selection/useRecomputeTurn";
+import type { RecomputeTurn } from "./selection/use-recompute-turn";
 import type { ChatSession } from "./use-chat-session";
 import { useStreamRecovery } from "./use-stream-recovery";
 import { useTurnTimeout } from "./use-turn-timeout";

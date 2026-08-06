@@ -8,8 +8,8 @@ It has no HTTP route, `workers.dev` host, or preview URL.
 
 | Cron (UTC) | Job | Python source preserved by the port |
 |---|---|---|
-| `37 18 * * *` | Routeless anonymous sessions inactive for 30 days | `apps/agent/agent/scripts/purge_anonymous_sessions.py` |
-| `37 19 * * *` | `anon_daily_message_count` rows older than 30 UTC dates | `apps/agent/agent/scripts/purge_anon_quota_counts.py` |
+| `37 18 * * *` | Routeless anonymous sessions inactive for 30 days | `apps/agent/src/animichi/scripts/purge_anonymous_sessions.py` |
+| `37 19 * * *` | `anon_daily_message_count` rows older than 30 UTC dates | `apps/agent/src/animichi/scripts/purge_anon_quota_counts.py` |
 
 Both expressions appear under the default, staging, and production `[triggers]` blocks in
 `workers/maintenance/wrangler.toml`. The handler switches on the exact `controller.cron` string and

@@ -6,8 +6,8 @@ import {
   getByokVisionSupported,
   saveByokConfig,
   setByokVisionSupported,
-} from "../../lib/byok/byokStorage";
-import type { ByokConfig, ByokProvider, ByokSaveError } from "../../lib/byok/byokStorage";
+} from "../../lib/byok/byok-storage";
+import type { ByokConfig, ByokProvider, ByokSaveError } from "../../lib/byok/byok-storage";
 import { runByokProbe } from "./byok-probe";
 import type { ByokProbeOutcome } from "./byok-probe";
 
