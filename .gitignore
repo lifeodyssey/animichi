@@ -151,3 +151,6 @@ test-results/
 # `wrangler deploy` builds the root container; never committed (a committed
 # copy would go stale with the deploy).
 /apps/agent/src/animichi/build_info.py
+
+# B8 PR-comment-debt scratch (round-2 re-evidence fetches; regenerable)
+/.tmp-b8/
