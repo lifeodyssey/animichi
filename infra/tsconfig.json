@@ -10,9 +10,11 @@
     ],
     "forceConsistentCasingInFileNames": true,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "allowImportingTsExtensions": true
   },
-  "files": [
-    "index.ts"
+  "include": [
+    "index.ts",
+    "src/**/*.ts"
   ]
 }
