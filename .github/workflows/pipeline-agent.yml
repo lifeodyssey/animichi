@@ -69,11 +69,11 @@ jobs:
           args: "check"
           working-directory: apps/agent
       - name: Ruff format check
-        run: uv run --frozen ruff format --check src/animichi/
+        run: uv run --frozen --no-build --no-binary-package animichi ruff format --check src/animichi/
       - name: Type check (mypy strict)
-        run: uv run --frozen mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/scripts/purge_anonymous_sessions.py
+        run: uv run --frozen --no-build --no-binary-package animichi mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/scripts/purge_anonymous_sessions.py
       - name: Dead code (vulture)
-        run: uv run --frozen vulture src/animichi/ vulture_whitelist.py
+        run: uv run --frozen --no-build --no-binary-package animichi vulture src/animichi/ vulture_whitelist.py
       - name: Dependency audit (pip-audit)
         uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
         with:
@@ -109,7 +109,7 @@ jobs:
       # ratchet rule was paper-only. The floor now lives in exactly one place:
       # apps/agent/pyproject.toml.
       - name: Unit tests (coverage floor from apps/agent/pyproject.toml)
-        run: uv run --frozen pytest src/animichi/tests/unit/ -v --cov --cov-report=xml
+        run: uv run --frozen --no-build --no-binary-package animichi pytest src/animichi/tests/unit/ -v --cov --cov-report=xml
       - name: Upload coverage
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
