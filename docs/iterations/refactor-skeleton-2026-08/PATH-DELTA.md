@@ -25,3 +25,5 @@
 | greenfield Point/Itinerary/SavedRoute | 旧 wire 名仍在 | TODO | 可与结构同波 |
 
 **规则：** 未搬完成前，代码里允许 `TODO(refactor-skeleton): move to <target>`。
+
+<!-- ci-retrigger: force Actions webhook after outage -->
