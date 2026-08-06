@@ -153,7 +153,7 @@ grill ✅ → to-spec ✅ #829 → to-tickets ✅ → **implement 全波次** �
 
 **关波：** 三票 CLOSED + 文档在 main。
 
-- [ ] **W0 完成**
+- [x] **W0 完成** — #861 PATH-DELTA (#833) · #862 DB-1 (#830) · #863 N3+security (#859); merged 2026-08-06
 
 ---
 
@@ -270,8 +270,8 @@ Epic：#845。**不** force-push git 历史（那是 W8）。
 
 ### A. 仓骨架 — W0 · W3
 
-- [ ] PATH-DELTA 覆盖目标树  
-- [ ] CONTEXT-MAP / 包 CONTEXT 与有无 domain 一致  
+- [x] PATH-DELTA 覆盖目标树 (#861)
+- [x] CONTEXT-MAP / 包 CONTEXT 与有无 domain 一致 (#861)
 - [ ] 配置 owner-local（#853）  
 
 ### B. 业务包 — W1
