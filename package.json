@@ -10,12 +10,6 @@
     "test:worker": "node --test \"workers/edge/*.test.ts\"",
     "verify:dependabot": "pnpm run lint:oxlint && pnpm run test:worker && pnpm -r --if-present typecheck && pnpm --filter web build"
   },
-  "dependencies": {
-    "@animichi/contract": "workspace:*",
-    "@cloudflare/containers": "^0.3.7",
-    "hono": "^4.12.32",
-    "jose": "^6.2.4"
-  },
   "pnpm": {
     "overrides": {
       "postcss": ">=8.5.23",

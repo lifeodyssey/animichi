@@ -5,7 +5,7 @@ import test from "node:test";
 import { URL, fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
-const WRANGLER = readFileSync(`${ROOT}wrangler.toml`, "utf8");
+const WRANGLER = readFileSync(`${ROOT}workers/edge/wrangler.toml`, "utf8");
 const TOP_LEVEL = WRANGLER.slice(0, WRANGLER.indexOf("\n[vars]\n"));
 const READ_CONFIG_SCRIPT = `
 process.env.WRANGLER_WRITE_LOGS = "false";
@@ -36,7 +36,7 @@ function countMatches(source: string, pattern: RegExp): number {
 function parsedWorkerName(environment: string): string {
   return execFileSync(
     process.execPath,
-    ["--input-type=module", "--eval", READ_CONFIG_SCRIPT, `${ROOT}wrangler.toml`, environment],
+    ["--input-type=module", "--eval", READ_CONFIG_SCRIPT, `${ROOT}workers/edge/wrangler.toml`, environment],
     { encoding: "utf8" },
   );
 }

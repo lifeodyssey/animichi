@@ -9,9 +9,9 @@
 
 | 目标 | 现状 | 状态 | 备注 |
 |---|---|---|---|
-| `workers/edge/wrangler.toml` | 根 `wrangler.toml` | TODO | Edge E1 |
-| `workers/edge/package.json` runtime deps | 根 `package.json` | TODO | Edge E1 |
-| `apps/agent/Dockerfile` | 根 `Dockerfile` | TODO | 容器 pin |
+| `workers/edge/wrangler.toml` | 根 `wrangler.toml` | DONE | Edge E1, #853 |
+| `workers/edge/package.json` runtime deps | 根 `package.json` | DONE | Edge E1, #853 |
+| `apps/agent/Dockerfile` | 根 `Dockerfile` | DONE | 容器 pin, #853 |
 | `workers/jobs/` | `workers/maintenance/` | TODO | J1 |
 | `migrations/neon/` | `db/migrations/` | TODO | DBA D19 |
 | `migrations/supabase/` | 根 `supabase/` | TODO | 过渡 |

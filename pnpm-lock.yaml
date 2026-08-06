@@ -28,19 +28,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      '@animichi/contract':
-        specifier: workspace:*
-        version: link:packages/contract
-      '@cloudflare/containers':
-        specifier: ^0.3.7
-        version: 0.3.7
-      hono:
-        specifier: '>=4.12.34'
-        version: 4.13.0
-      jose:
-        specifier: ^6.2.4
-        version: 6.2.4
     devDependencies:
       '@cloudflare/workers-types':
         specifier: ^5.20260727.1
@@ -280,7 +267,24 @@ importers:
         specifier: ^4.114.0
         version: 4.114.0(@cloudflare/workers-types@5.20260727.1)(@types/node@26.1.2)
 
-  workers/edge: {}
+  workers/edge:
+    dependencies:
+      '@animichi/contract':
+        specifier: workspace:*
+        version: link:../../packages/contract
+      '@cloudflare/containers':
+        specifier: ^0.3.7
+        version: 0.3.7
+      hono:
+        specifier: '>=4.12.34'
+        version: 4.13.0
+      jose:
+        specifier: ^6.2.4
+        version: 6.2.5
+    devDependencies:
+      '@cloudflare/workers-types':
+        specifier: ^5.20260727.1
+        version: 5.20260727.1
 
   workers/jobs:
     dependencies:

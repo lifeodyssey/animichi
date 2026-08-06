@@ -47,7 +47,7 @@ Agent HTTP surface (paths relative to `apps/agent/src/animichi/`):
 - `interfaces/fastapi_service.py` / `interfaces/routes/health.py` — `GET /healthz`
 - `interfaces/routes/runtime.py` — `POST /v1/runtime` and `POST /v1/runtime/stream` (SSE)
 - `interfaces/routes/feedback.py` — `POST /v1/feedback`
-- root `Dockerfile` packages the agent into a single container image
+- `apps/agent/Dockerfile` packages the agent into a single container image
 
 The deployment target stays intentionally thin. The Worker owns routing and edge auth; the container runs the agent service and stays unaware of raw end-user credentials.
 

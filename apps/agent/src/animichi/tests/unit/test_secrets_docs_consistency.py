@@ -198,7 +198,7 @@ RETIRED_MODEL_PROVIDER_KEYS: tuple[str, ...] = (
 )
 _RETIRED_KEYS_CONFIG_FILES = (
     CONTAINER_ENV_FILE,
-    ROOT / "wrangler.toml",
+    ROOT / "workers" / "edge" / "wrangler.toml",
     ROOT / "docs" / "ops" / "deployment.md",
     ROOT / ".env.example",
 )

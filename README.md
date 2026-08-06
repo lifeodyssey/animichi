@@ -134,7 +134,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `db/migrations/` — Atlas migrations and generated checksum for the Neon data plane
 - `supabase/` — auth/legacy compatibility migrations and Supabase project assets
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
-- `Dockerfile`, `Makefile`, `wrangler.toml`, `package.json` — root runtime and tooling entrypoints that stay at the repository root
+- `Makefile`, `package.json` — root tooling entrypoints; `apps/agent/Dockerfile` (container image) and `workers/edge/wrangler.toml` (edge Worker config) live beside their code
 
 ## Docs
 

@@ -75,7 +75,7 @@ resolve_worker_name() {
         $0 == want { found=1; next }
         found && /^\[/ { exit }
         found && /^name[[:space:]]*=/ { print; exit }
-      ' "${REPO_ROOT}/wrangler.toml" | sed -E 's/^name[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/'
+      ' "${REPO_ROOT}/workers/edge/wrangler.toml" | sed -E 's/^name[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/'
       ;;
     web)
       # wrangler.jsonc comments in this repo are always whole-line (never

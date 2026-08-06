@@ -3,7 +3,7 @@
 #
 # Architecture (issue #537 retired the bundled Next.js app; `apps/web` owns
 # every HTML surface now, so this Worker is API + asset proxy only):
-#   workers/edge/entry.ts → /v1/* (container proxy) + /v1/users/* (users Worker)
+#   entry.ts → /v1/* (container proxy) + /v1/users/* (users Worker)
 #                   + /img/* (image proxy) + /tiles/* (private R2 proxy)
 #                   + /healthz + one public catalog read
 #                   → everything else: JSON 404, no page renderer
@@ -19,11 +19,17 @@
 # at all: no routes here, and `workers_dev = false` since #539. That is the
 # intended pre-cutover state, not a misconfiguration.
 #
+# Deploy: always run `wrangler deploy -c workers/edge/wrangler.toml` from the
+# monorepo root. `main = "entry.ts"` and the `[[containers]]` image path are
+# resolved relative to this config file, but the container image is built from
+# the directory wrangler is invoked in — the build context must stay the repo
+# root so the Dockerfile's `COPY apps/agent/...` lines resolve (#853).
+#
 # Required GitHub Secrets:
 #   CLOUDFLARE_API_TOKEN       — Wrangler deploy auth
 #   CLOUDFLARE_ACCOUNT_ID      — Cloudflare account target
 #
-# Edge runtime secrets (used by workers/edge/auth.ts for /v1 auth):
+# Edge runtime secrets (used by auth.ts for /v1 auth):
 #   SUPABASE_URL               — https://<project>.supabase.co (set via wrangler secret put)
 #   SUPABASE_SERVICE_ROLE_KEY  — Service role for sk_ API key lookup (set via wrangler secret put)
 #   SUPABASE_ANON_KEY          — optional/legacy Env binding; edge JWT verifies public JWKS
@@ -67,7 +73,7 @@ compatibility_date = "2025-03-01"
 # and every container start fails with "ctx.exports is undefined" — staging
 # /healthz 500 on the first real root deploy (run 30795617682).
 compatibility_flags = ["nodejs_compat", "enable_ctx_exports"]
-main = "workers/edge/entry.ts"
+main = "entry.ts"
 
 # Plain (non-secret) vars forwarded into the RuntimeContainer (Python agent).
 # CATALOG_API_URL is the base the agent's CatalogClient POSTs to as
@@ -144,7 +150,7 @@ bucket_name = "map-tiles-staging"
 [[containers]]
 name = "animichi-runtimecontainer"
 class_name = "RuntimeContainer"
-image = "./Dockerfile"
+image = "../../apps/agent/Dockerfile"
 max_instances = 3
 
 [[durable_objects.bindings]]
@@ -238,7 +244,7 @@ bucket_name = "map-tiles"
 
 [[env.production.containers]]
 class_name = "RuntimeContainer"
-image = "./Dockerfile"
+image = "../../apps/agent/Dockerfile"
 max_instances = 3
 
 [[env.production.durable_objects.bindings]]
@@ -322,7 +328,7 @@ ANON_ACCESS_ENABLED = "true"
 # SD-31 staging cutover (owner-approved 2026-08-03, #312 slice 1): edge verifies
 # Neon Auth (Better Auth) tokens against the staging branch's JWKS. Migrated
 # users only — legacy Supabase tokens still verify via the dual-issuer
-# fallback in workers/edge/auth.ts (non-EdDSA + non-Neon issuer → verifySupabase).
+# fallback in auth.ts (non-EdDSA + non-Neon issuer → verifySupabase).
 NEON_AUTH_ENABLED = "true"
 NEON_AUTH_ISSUER = "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth"
 NEON_AUTH_JWKS_URL = "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
@@ -361,7 +367,7 @@ service = "users-staging"
 
 [[env.staging.containers]]
 class_name = "RuntimeContainer"
-image = "./Dockerfile"
+image = "../../apps/agent/Dockerfile"
 max_instances = 3
 
 [[env.staging.durable_objects.bindings]]
