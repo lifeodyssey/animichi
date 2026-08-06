@@ -130,14 +130,14 @@ function requiredEnvVars(env: Record<string, unknown>, envVars: Record<string, s
   for (const key of CONTAINER_REQUIRED_KEYS) {
     const value = env[key];
     if (typeof value !== "string" || value.length === 0) throw new Error(`Missing required container env: ${key}`);
-    environmentVars[key] = value;
+    envVars[key] = value;
   }
 }
 
 function optionalEnvVars(env: Record<string, unknown>, envVars: Record<string, string>): void {
   for (const key of CONTAINER_ENV_KEYS) {
     const value = env[key];
-    if (typeof value === "string" && value.length > 0) environmentVars[key] = value;
+    if (typeof value === "string" && value.length > 0) envVars[key] = value;
   }
 }
 
