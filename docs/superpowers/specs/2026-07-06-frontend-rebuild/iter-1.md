@@ -262,7 +262,7 @@ Suggested dependency order: S1.1 → S1.2 → {S1.3, S1.4 (depends on S0.4), S1.
 - Test coverage (SD-6): the new anonymous-trust-marking logic in `worker/app.ts` has unit tests at the same coverage level as the existing `authenticate`/`forwardV1` tests (the current **16-case baseline — measured 2026-07-07: `entry.test.ts` 11 + `auth.test.ts` 5 = 16**, already wired into CI by S0.3) — no test-coverage regression is allowed -> unit
 - Documentation consistency: X5's forward-looking statement in S0.9 is backfilled to describe the now-implemented state once this story lands -> unit
 
-**Files changed**: `worker/app.ts` (gate-logic changes), `worker/rateLimiter.ts` (new), `worker/costBreaker.ts` (new, X4), `worker/app.test.ts` (expanded), `docs/ARCHITECTURE.md` (X5 backfill).
+**Files changed**: `worker/app.ts` (gate-logic changes), `worker/rate-limiter.ts` (new), `worker/cost-breaker.ts` (new, X4), `worker/app.test.ts` (expanded), `docs/ARCHITECTURE.md` (X5 backfill).
 
 **Dependencies**: S1.1; S0.3 (the worker CI wiring must land first, SD-6).
 

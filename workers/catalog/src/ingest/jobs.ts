@@ -15,7 +15,7 @@
  * these mutations go through raw `sql` execute, consistent with the pipeline
  * cards owning all inserts/updates.
  */
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 
 const RUNNING_TTL_SECONDS = 15 * 60;
@@ -63,19 +63,29 @@ export class JobStore {
 
 async function acquireJob(db: CatalogDb, workId: string): Promise<boolean> {
   const result = await db.execute(sql`
-    INSERT INTO ingest_jobs (work_id, status, started_at)
-    VALUES (${workId}, 'running', NOW())
-    ON CONFLICT (work_id) DO UPDATE
-      SET status = 'running', started_at = NOW()
-      WHERE (ingest_jobs.status <> 'running'
-             AND (ingest_jobs.negative_cached_until IS NULL
-                  OR ingest_jobs.negative_cached_until <= NOW()))
-         OR (ingest_jobs.status = 'running'
-             AND COALESCE(ingest_jobs.started_at, ingest_jobs.created_at)
-                 <= NOW() - make_interval(secs => ${RUNNING_TTL_SECONDS}))
+    INSERT INTO ingest_jobs (work_id, status, started_at) VALUES (${workId}, 'running', NOW())
+    ON CONFLICT (work_id) DO UPDATE SET status = 'running', started_at = NOW()
+    WHERE (status <> 'running' AND (negative_cached_until IS NULL OR negative_cached_until <= NOW()))
+       OR (status = 'running' AND ${runningStaleSql()})
     RETURNING work_id
   `);
   return result.rows.length > 0;
+}
+
+let runningStale: SQL | undefined;
+
+/**
+ * A `running` job whose heartbeat looks dead: expired, or never started.
+ *
+ * Built lazily on first use, not at module top level: evaluating a `sql`
+ * template during module evaluation crashes the *bundled* Worker runtime
+ * (esbuild's lazy-ESM ordering leaves drizzle's StringChunk class in the TDZ
+ * until its init module runs — the vitest pool evaluates unbundled modules
+ * with correct ESM order, so only the deployed bundle ever sees it).
+ */
+function runningStaleSql(): SQL {
+  runningStale ??= sql`COALESCE(started_at, created_at) <= NOW() - make_interval(secs => ${RUNNING_TTL_SECONDS})`;
+  return runningStale;
 }
 
 async function readGuard(db: CatalogDb, workId: string): Promise<JobGuard> {
@@ -88,9 +98,7 @@ async function readGuard(db: CatalogDb, workId: string): Promise<JobGuard> {
 async function readGuardRow(db: CatalogDb, workId: string): Promise<GuardRow | undefined> {
   const result = await db.execute(sql`
     SELECT error_code,
-           COALESCE(status = 'running' AND
-             COALESCE(started_at, created_at) >
-               NOW() - make_interval(secs => ${RUNNING_TTL_SECONDS}), FALSE) AS running_live,
+           COALESCE(status = 'running' AND ${runningStaleSql()}, FALSE) AS running_live,
            COALESCE(negative_cached_until > NOW(), FALSE) AS cache_live
     FROM ingest_jobs WHERE work_id = ${workId}
   `);
@@ -106,11 +114,7 @@ async function markJobDone(db: CatalogDb, workId: string): Promise<void> {
   `);
 }
 
-async function markJobFailed(
-  db: CatalogDb,
-  workId: string,
-  opts: FailureOptions,
-): Promise<void> {
+async function markJobFailed(db: CatalogDb, workId: string, opts: FailureOptions): Promise<void> {
   await db.execute(sql`
     UPDATE ingest_jobs
     SET status = 'failed', finished_at = NOW(),

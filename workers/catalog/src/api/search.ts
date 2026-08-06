@@ -130,7 +130,12 @@ async function missResult(
   const preview = await db.resolvePreview(query, opts.fetchImpl);
   if (!preview) return emptyResult();
   if (!opts.waitUntil) return syncFallback(db, preview, opts.fetchImpl);
-  opts.waitUntil(db.runFullIngest(preview.workId, opts.fetchImpl));
+  return backgroundIngest(db, preview, opts);
+}
+
+/** Return the L1 preview now; full ingest keeps running after the response. */
+function backgroundIngest(db: SearchDb, preview: MissPreview, opts: SearchOptions): SearchResult {
+  opts.waitUntil?.(db.runFullIngest(preview.workId, opts.fetchImpl));
   return { rows: preview.points, synced_at: new Date().toISOString(), partial: true };
 }
 
@@ -173,13 +178,8 @@ function geo(r: WorkPointRow): Pick<PilgrimagePoint, "latitude" | "longitude"> {
 /** Optional metadata fields, omitted when null. */
 function meta(r: WorkPointRow): Partial<PilgrimagePoint> {
   return optional({
-    name_cn: r.name_cn,
-    episode: r.episode,
-    time_seconds: r.time_seconds,
-    title: r.title,
-    title_cn: r.title_cn,
-    cover_url: r.cover_url,
-    city: r.city,
+    name_cn: r.name_cn, episode: r.episode, time_seconds: r.time_seconds,
+    title: r.title, title_cn: r.title_cn, cover_url: r.cover_url, city: r.city,
   });
 }
 

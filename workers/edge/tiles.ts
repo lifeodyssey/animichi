@@ -126,18 +126,24 @@ const safeAsset = (pathname: string): TileAsset | null => {
   return { key: `${OBJECT_PREFIX}${decoded}`, kind: kindOf(extension), contentType: MIME_TYPES[extension] ?? "application/octet-stream" };
 };
 
-const parseRange = (value: string | null): TileRange | null | undefined => {
-  if (value === null) return null;
+const parseFirstRange = (value: string): TileRange | undefined => {
   const range = RANGE_PATTERN.exec(value);
-  if (range) {
-    const offset = Number(range[1]);
-    const end = range[2] === "" ? undefined : Number(range[2]);
-    if (end !== undefined && end < offset) return undefined;
-    return { offset, ...(end === undefined ? {} : { length: end - offset + 1 }) };
-  }
+  if (!range) return undefined;
+  const offset = Number(range[1]);
+  const end = range[2] === "" ? undefined : Number(range[2]);
+  if (end !== undefined && end < offset) return undefined;
+  return { offset, ...(end === undefined ? {} : { length: end - offset + 1 }) };
+};
+
+const parseSuffixRange = (value: string): TileRange | undefined => {
   const suffix = SUFFIX_RANGE_PATTERN.exec(value);
   if (suffix && Number(suffix[1]) > 0) return { suffix: Number(suffix[1]) };
   return undefined;
+};
+
+const parseRange = (value: string | null): TileRange | null | undefined => {
+  if (value === null) return null;
+  return parseFirstRange(value) ?? parseSuffixRange(value);
 };
 
 const cache = (): Cache | null => {
@@ -198,27 +204,46 @@ const objectResponse = (asset: TileAsset, object: TileObject, request: Request, 
   return new Response(body, { status, headers: metadataHeaders(asset, object, request, range) });
 };
 
+const cachedResponse = async (request: Request, range: TileRange | null): Promise<Response | null> => {
+  if (range !== null) return null;
+  const cached = await cacheHit(request);
+  if (!cached) return null;
+  return new Response(request.method === "HEAD" ? null : cached.body, { status: cached.status, headers: cached.headers });
+};
+
+const storedResponse = async (
+  asset: TileAsset, request: Request, bucket: TileBucket, range: TileRange | null,
+): Promise<Response> => {
+  const object = await bucket.get(asset.key, range === null ? undefined : { range });
+  if (!object) return missingResponse(asset, request);
+  return objectResponse(asset, object, request, range);
+};
+
 const fetchAsset = async (asset: TileAsset, request: Request, bucket: TileBucket, ctx: TileExecutionContext): Promise<Response> => {
   const range = parseRange(request.headers.get("Range"));
   if (range === undefined) return errorResponse(416, "tile_range_not_satisfiable", request);
-  const cached = range === null ? await cacheHit(request) : null;
-  if (cached) return new Response(request.method === "HEAD" ? null : cached.body, { status: cached.status, headers: cached.headers });
-  const object = await bucket.get(asset.key, range === null ? undefined : { range });
-  if (!object) return missingResponse(asset, request);
-  const response = objectResponse(asset, object, request, range);
+  const cached = await cachedResponse(request, range);
+  if (cached) return cached;
+  const response = await storedResponse(asset, request, bucket, range);
   if (request.method === "GET" && range === null && response.status === 200) cachePut(request, response, ctx);
   return response;
 };
 
-export async function handleTiles(request: Request, bucket: TileBucket | undefined, ctx: TileExecutionContext): Promise<Response> {
-  const method = methodResponse(request);
-  if (method) return method;
-  const asset = safeAsset(new URL(request.url).pathname);
-  if (!asset) return errorResponse(404, "tile_not_found", request);
-  if (!bucket) return errorResponse(503, "tile_storage_unavailable", request);
+const assetFor = (request: Request): TileAsset | null => safeAsset(new URL(request.url).pathname);
+
+const fetchAssetGuarded = async (asset: TileAsset, request: Request, bucket: TileBucket, ctx: TileExecutionContext): Promise<Response> => {
   try {
     return await fetchAsset(asset, request, bucket, ctx);
   } catch {
     return errorResponse(503, "tile_storage_unavailable", request);
   }
+};
+
+export async function handleTiles(request: Request, bucket: TileBucket | undefined, ctx: TileExecutionContext): Promise<Response> {
+  const method = methodResponse(request);
+  if (method) return method;
+  const asset = assetFor(request);
+  if (!asset) return errorResponse(404, "tile_not_found", request);
+  if (!bucket) return errorResponse(503, "tile_storage_unavailable", request);
+  return fetchAssetGuarded(asset, request, bucket, ctx);
 }

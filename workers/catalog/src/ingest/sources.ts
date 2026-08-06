@@ -2,18 +2,14 @@
  * Upstream source fetchers for the ingest pipeline.
  *
  * Ported from the Python clients (`backend/clients/anitabi.py`,
- * `backend/clients/bangumi.py`): same endpoints/params, but Workers-native
- * `fetch`. Retry (bounded exponential backoff, `Retry-After` honored) lives
- * in `./retry` and wraps every upstream fetch below.
+ * `backend/clients/bangumi.py`): same endpoints/params, Workers-native fetch.
+ * Retry (bounded backoff, `Retry-After` honored) lives in `./retry`.
  *
- *   Anitabi : GET {base}/{id}/points/detail?haveImage=true  (base api.anitabi.cn/bangumi)
- *             -> raw point list (legacy lat/lng or official geo[] schema).
- *   Bangumi : GET {base}/v0/subjects/{id}                   (base api.bgm.tv)
- *             -> subject metadata object.
+ *   Anitabi GET {base}/{id}/points/detail?haveImage=true (base api.anitabi.cn/bangumi)
+ *   Bangumi GET {base}/v0/subjects/{id} (base api.bgm.tv)
  *
- * The base URL and `fetch` are injectable so tests drive a mock and never hit
- * the network. Return shapes are the verbatim upstream JSON (object / array),
- * destined straight for the raw zone — parsing/enrich is downstream.
+ * The base URL and `fetch` are injectable for tests. Return shapes are verbatim
+ * upstream JSON, destined straight for the raw zone — parsing is downstream.
  */
 
 import {
@@ -28,12 +24,7 @@ import {
 export type FetchLike = (
   input: string,
   init?: { method?: string; headers?: Record<string, string>; body?: string },
-) => Promise<{
-  ok: boolean;
-  status: number;
-  headers?: { get(name: string): string | null };
-  json: () => Promise<unknown>;
-}>;
+) => Promise<{ ok: boolean; status: number; headers?: { get(name: string): string | null }; json: () => Promise<unknown> }>;
 
 /** Injectable knobs for the source fetchers (defaulted for prod). */
 export interface SourceConfig {
@@ -232,41 +223,47 @@ async function postJson(url: string, body: string, upstream: UpstreamName, cfg: 
 
 /** Fetch with retry on transient failures; exhaustion rethrows as UpstreamFetchError. */
 async function fetchWithRetry(
-  url: string,
-  upstream: UpstreamName,
-  cfg: SourceConfig,
-  init: Parameters<FetchLike>[1],
+  url: string, upstream: UpstreamName, cfg: SourceConfig, init: Parameters<FetchLike>[1],
 ): Promise<Awaited<ReturnType<FetchLike>>> {
   const doFetch = cfg.fetchImpl ?? (fetch);
   try {
     return await withRetry(() => attemptFetch(doFetch, url, init), cfg.retry);
   } catch (err) {
-    if (!(err instanceof RetryableError)) throw err;
-    const suffix = err.status !== undefined ? ` (${String(err.status)})` : "";
-    throw new UpstreamFetchError(`${url}${suffix}`, upstream, err.cause);
+    return upstreamError(url, upstream, err);
   }
+}
+
+function upstreamError(url: string, upstream: UpstreamName, err: unknown): never {
+  if (!(err instanceof RetryableError)) throw err;
+  const suffix = err.status !== undefined ? ` (${String(err.status)})` : "";
+  throw new UpstreamFetchError(`${url}${suffix}`, upstream, err.cause);
 }
 
 /** One attempt: transient statuses/transport errors signal a retry; others pass through. */
 async function attemptFetch(
+  doFetch: FetchLike, url: string, init: Parameters<FetchLike>[1],
+): Promise<Awaited<ReturnType<FetchLike>>> {
+  try {
+    return await fetchOnce(doFetch, url, init);
+  } catch (err) {
+    throw err instanceof RetryableError ? err : new RetryableError(undefined, undefined, err);
+  }
+}
+
+async function fetchOnce(
   doFetch: FetchLike,
   url: string,
   init: Parameters<FetchLike>[1],
 ): Promise<Awaited<ReturnType<FetchLike>>> {
-  try {
-    const res = await doFetch(url, init);
-    if (isRetryableStatus(res.status)) throw new RetryableError(res.status, retryAfterDelayMs(res));
-    return res;
-  } catch (err) {
-    if (err instanceof RetryableError) throw err;
-    throw new RetryableError(undefined, undefined, err);
-  }
+  const res = await doFetch(url, init);
+  checkRetryable(res);
+  return res;
 }
 
-/** The `Retry-After` wait for a response, or undefined when absent/unparseable. */
-function retryAfterDelayMs(res: Awaited<ReturnType<FetchLike>>): number | undefined {
-  const parsed = parseRetryAfter(res.headers?.get("retry-after") ?? null, Date.now());
-  return parsed ?? undefined;
+function checkRetryable(res: Awaited<ReturnType<FetchLike>>): void {
+  if (!isRetryableStatus(res.status)) return;
+  const delay = parseRetryAfter(res.headers?.get("retry-after") ?? null, Date.now()) ?? undefined;
+  throw new RetryableError(res.status, delay);
 }
 
 /** Convert malformed response bodies into source-aware upstream failures. */

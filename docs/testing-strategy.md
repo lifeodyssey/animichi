@@ -155,7 +155,7 @@ class AgentResultFactory(factory.Factory):
 
 ### Agent database arms
 
-`agent/tests/conftest_db.py` evaluates this once per pytest session. Credentials alone never opt a
+`src/animichi/tests/conftest_db.py` evaluates this once per pytest session. Credentials alone never opt a
 local run into the live arm.
 
 | `TEST_DATABASE_URL` | `TEST_DB` | Result |
@@ -362,7 +362,7 @@ No-retry-until-green: eval tasks run once. `retry_task` and
 `EVAL_TASK_RETRIES` are not part of the eval contract; task errors are counted
 in `errored_count`, and a run fails when more than 20% of cases error.
 
-Regression gating uses `agent/tests/eval/gate.py`: schema-v2 per-case baselines
+Regression gating uses `src/animichi/tests/eval/gate.py`: schema-v2 per-case baselines
 and a paired-bootstrap 95% confidence interval. Capped runs are report-only and
 never read, write, or enforce baselines.
 
@@ -516,6 +516,59 @@ Beyond AC-defined scenarios, Evaluator proactively generates:
   ]
 }
 ```
+
+### Visual Regression (Pixel) Pipeline
+
+The pixel pipeline (`e2e/visual/`, two-tier doctrine: convergence vs
+regression) is exposed as a parameterized, re-entrant task atom:
+
+- `make visual-check` — every frame in the registry.
+- `make visual-check PAGE=landing MODE=night` — one frame; `PAGE` accepts a
+  full frame key or a partial key resolved against `MODE`.
+- `make visual-check RATIO=0.05` — loosen the pixel budget; `RATIO` is the
+  threshold config, default `0.01`, must be a finite number in `(0, 1]` (a
+  malformed value fails fast with `exitCode: 2` + `error`, never a silent
+  `NaN`→`null`).
+- `make visual-check-self-test` — shell-boundary contract check, three
+  phases: (1) multi-frame — runs the atom with no `PAGE` (every frame) and
+  asserts each frame has a report, all verdicts are `pass`, and
+  `summary.exitCode` is `0`; (2) invocation — a malformed `RATIO` fails fast
+  with a fresh `exitCode: 2` summary; (3) host-arm — with docker unavailable
+  and no resolvable Playwright binary, the host arm fails fast with an
+  environment summary instead of a bare "command not found". Loose budget on
+  purpose (contract, not convergence — that is C4). Needs docker + a
+  reachable app; fails closed otherwise.
+- The docker arm runs Playwright in the image with `e2e/node_modules`; the
+  host arm resolves Playwright from `e2e/node_modules` first, then the
+  workspace root, and fails fast (environment summary) if neither exists.
+
+Contract (inputs/outputs):
+
+- **Inputs**: `PAGE` (empty = all frames), `MODE` (`day`/`night`, for partial
+  keys only), `RATIO` (pixel budget, from config), `E2E_WEB_BASE_URL`
+  (default `http://localhost:3000`).
+- **The single authoritative verdict is `e2e/visual/report/summary.json`** —
+  written fresh on every invocation path (including invocation failures, with
+  an `error` field), with a `runId` for freshness; per-frame reports are
+  cleared by the runner once, before the frame loop (never from the host
+  shell — rm on a Docker Desktop bind mount races the container's writes
+  with ENOENT; never per frame, or frame N+1 would delete frame N's report
+  and every frame but the last would misreport "no convergence report
+  produced").
+  `summary.exitCode` has three states: `0` every frame compared and passed ·
+  `1` at least one visual diff (`failedFrames`) ·
+  `2` environment or invocation problem (unknown `PAGE`, malformed `RATIO`,
+  or a frame produced no comparison — app unreachable, runner blocked —
+  **fail-closed: zero compared pixels is never green**).
+  `scripts/visual-check.sh` exits 0/1/2
+  directly; via `make` GNU make remaps any recipe failure to its own exit `2`
+  (still nonzero), so the 1-vs-2 distinction lives in the JSON, not in make's
+  exit code.
+- Per-frame `status` (`pass`/`fail`/`skipped`) carries `ratio`, `threshold`,
+  `reason`; `failedFrames` / `skippedFrames` are the flat lists.
+- Frame registry, determinism rules, orchestration recipe, and the C4
+  convergence TODO (frames not yet converged under the default `RATIO=0.01`):
+  `e2e/visual/README.md`.
 
 ---
 

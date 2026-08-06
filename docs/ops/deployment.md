@@ -132,6 +132,15 @@ Required:
   the production Worker, so a `wrangler deploy` without `--env` would otherwise publish to
   production with no `APP_ENV` and silently deindex the site.
 
+- `EDGE_SHOWCASE_MODE` — edge-only `[vars]` (NOT forwarded to the container, NOT a GitHub secret),
+  the worker-side half of "prod is a landing-only showcase" (GOAL C): `"true"` (production) makes
+  every functional route (`/v1/*`, `/v1/users/*`, the public catalog read) answer 403
+  `showcase_denied` before any binding is touched, while `/healthz`, `/img/*`, `/tiles/*` stay
+  reachable. Strict boolean like `VITE_SHOWCASE_MODE`: only the literal `"false"` opens the
+  backend — unset/empty/malformed values fail closed (deny) with a one-per-isolate warning. Pinned
+  by `workers/edge/containerEnv.test.ts`; the post-deploy smoke gate parses it from `wrangler.toml`
+  and asserts the denial as a permanent CI check.
+
 Production is temporarily MiMo-only while the DeepSeek account has insufficient balance. After
 recharging DeepSeek, set `FALLBACK_AGENT_MODEL=deepseek:deepseek-v4-flash` to re-enable the already
 provisioned fallback path.
@@ -299,24 +308,40 @@ only start when `github.event_name == 'push'` and `github.ref == 'refs/heads/mai
 
 On a push to `main`, the current promotion chain is:
 
-1. The six stable required lanes run first: `Backend CI`, `Agent CI`, `Infra & DB CI`,
-   `Cross-stack E2E`, `Repository Quality`, and `Codecov Patch` (the `apps/web` suite lives in its
-   own `pipeline-web.yml` workflow — its `Web / lint`, `Web / test`, and `Web / build` contexts join
-   the required set via the same ruleset flip that retires `Web CI`). Their component jobs remain
-   affected-only on pull requests, while each stable lane is always created and treats an
-   intentionally skipped component as green. A failed or cancelled component fails its lane and
-   blocks promotion. The `agnix` check remains warn-only inside `Repository Quality`; its warning
-   policy is explicit and does not mask failures from the security reusable workflow or CI contract
-   test. `Codecov Patch` is deliberately only the stable upload/policy precondition: it does not
-   calculate changed-line coverage locally. The GitHub ruleset must require the external Codecov
-   `codecov/patch` status as the real 95% changed-line verdict as well as this stable context.
-   Coverage upload jobs use GitHub OIDC and fail closed when Codecov cannot authenticate or publish;
-   they do not silently accept a tokenless upload failure. Accepted tradeoff:
-   `deploy-web-staging` no longer waits on the web typecheck/lint/vitest lane, because GitHub cannot
-   express `needs:` across workflows — protection comes from the required merge contexts instead,
-   plus the future merge queue.
-2. `deploy-staging` calls `reusable-deploy-component.yml` with `component: catalog`,
-   `environment: staging`, and `pulumi_stack: staging`.
+1. The per-package suites run in their own `pipeline-*.yml` workflows (S0-v2 B4, CI-1 union
+   method): `pipeline-web/agent/catalog/users/maintenance/edge/contract/infra/db.yml`, each with
+   the three-stage naming `lint` / `test` / `build` (db has `lint` + `build`), a pathless
+   `pull_request` trigger (merge_group compatibility), a `merge_group` trigger on `main`, and
+   push paths on `main`. The `changes` aggregation job, dorny/paths-filter middle layer, and the
+   whole `*-gate` layer are retired; required checks land on real job names. The credentialed
+   verify lanes (`Agent Eval (L0 smoke, ~80 cases)`, `Python integration (Neon)`, `Catalog spikes
+   (Neon)`) remain in `ci.yml` and are never required; they self-gate with step-level dorny
+   filters. STATUS (as of 2026-08-06): the repository ruleset has been flipped — the
+   orchestrator executed the one-shot hard-switch PUT (9 → 35 required contexts; the 6 retired
+   gate contexts were deleted in the same PUT; `enforcement=active`, `bypass_actors=[]`;
+   verified via `gh api repos/lifeodyssey/animichi/rulesets/19974534`). The ruleset now requires
+   the 35 contexts declared in `docs/iterations/s0v2/ruleset-target.json` (a live-state
+   snapshot, not a target): the 23 new contexts (22 package stages — `Agent`/`Catalog`/`Users`/
+   `Maintenance`/`Edge`/`Contract` lint+test+build, `Infra` lint+test, `DB` lint+build — plus the
+   `Quality / invariants` meta lane (`pipeline-quality.yml` — the unfiltered fixed point that
+   also carries the repo-hygiene checks and the CI contract test)), the three
+   `Web / lint|test|build` contexts B1 already required, and the 9 `Security / *` contexts
+   (ci.yml declares a `merge_group` trigger, so queue runs produce them). `Infra / build` is
+   deferred out of the required set: the new `pipeline-infra.yml` lane was red at flip time (R2
+   state-backend 401, credentials since re-issued) and its preview steps are path-gated on PRs;
+   re-add it once the lane is consecutively green.
+   BACKLOG (not part of the B4 PUT): the 95% changed-line verdict. `codecov/patch` is not a
+   required status today — neither in the live ruleset nor in the B4 target — and the retired
+   `Codecov Patch` lane was only the upload/policy precondition, not the changed-line gate.
+   Re-requiring the external `codecov/patch` status (95% patch coverage) is a tracked backlog
+   item for the orchestrator; until then the repo-side policy check
+   (`pipeline-quality.yml` "Verify patch coverage policy") is the only 95% enforcement.
+2. `deploy-staging` and `deploy-web-staging` wait only on the lanes that still live in `ci.yml`
+   (`security` and the self-gated cross-stack lane), then call
+   `reusable-deploy-component.yml` with `component: catalog` / `web`, `environment: staging`,
+   and `pulumi_stack: staging`. Accepted tradeoff: staging deploys no longer wait on any package
+   pipeline, because GitHub cannot express `needs:` across workflows — protection comes from the
+   required merge contexts in the ruleset instead, plus the future merge queue.
 3. `reusable-deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
    repo, runs the shared setup action, applies Atlas migrations when `NEON_DATABASE_URL` is set,
    runs `pulumi up` in `infra/`, deploys `workers/${{ inputs.component }}` with Wrangler, and runs
@@ -560,7 +585,7 @@ itself was a pure UI-affordance gap rather than new untested rollback logic; see
 - **CURRENTLY BROKEN — do not rely on this**: `/healthz`'s `git_branch`/`git_commit` fields are
   always `"unknown"` in every deployed environment. `Dockerfile` never `COPY`s `.git` into the
   image, so the `git rev-parse`/`git branch --show-current` calls in
-  `apps/agent/agent/interfaces/routes/health.py` fail every time. "Verify `/healthz` `git_branch`
+  `apps/agent/src/animichi/interfaces/routes/health.py` fail every time. "Verify `/healthz` `git_branch`
   after a deploy" (referenced in `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md:215`
   and `docs/superpowers/specs/2026-07-28-284-byok-design.md:1080`) cannot confirm anything today —
   tracked in issue #494.

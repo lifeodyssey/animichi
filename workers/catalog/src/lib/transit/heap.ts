@@ -18,8 +18,7 @@ export class MinHeap<T> {
   }
 
   private less(left: number, right: number): boolean {
-    const a = this.nodes.at(left);
-    const b = this.nodes.at(right);
+    const a = this.nodes.at(left), b = this.nodes.at(right);
     if (!a || !b) return false;
     return a.priority < b.priority || (a.priority === b.priority && a.tie < b.tie);
   }
@@ -39,15 +38,13 @@ export class MinHeap<T> {
   }
 
   private smallerChild(index: number): number {
-    const left = index * 2 + 1;
-    const right = left + 1;
+    const left = index * 2 + 1, right = left + 1;
     if (left >= this.nodes.length) return -1;
     return right < this.nodes.length && this.less(right, left) ? right : left;
   }
 
   private swap(left: number, right: number): void {
-    const a = this.nodes.at(left);
-    const b = this.nodes.at(right);
+    const a = this.nodes.at(left), b = this.nodes.at(right);
     if (!a || !b) return;
     this.nodes[left] = b;
     this.nodes[right] = a;

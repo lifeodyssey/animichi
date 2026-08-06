@@ -26,6 +26,17 @@ function bearerToken(authorization: string | null): string | null {
   return token.length > 0 ? token : null;
 }
 
+async function verifySubject(token: string, jwksUrl: string, getKey?: JWTVerifyGetKey): Promise<string | null> {
+  try {
+    const base = issuerFromJwksUrl(jwksUrl);
+    const key = getKey ?? cachedRemote(jwksUrl);
+    const payload = await verifyEdDsaJwt({ token, key, issuer: base, audience: base });
+    return typeof payload.sub === "string" && payload.sub.length > 0 ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Verify an EdDSA Neon Auth bearer and return its non-empty subject. */
 export async function verifyBearer(
   authorization: string | null,
@@ -34,14 +45,6 @@ export async function verifyBearer(
 ): Promise<{ userId: string } | null> {
   const token = bearerToken(authorization);
   if (!token) return null;
-  try {
-    const base = issuerFromJwksUrl(jwksUrl);
-    const key = getKey ?? cachedRemote(jwksUrl);
-    const payload = await verifyEdDsaJwt({ token, key, issuer: base, audience: base });
-    return typeof payload.sub === "string" && payload.sub.length > 0
-      ? { userId: payload.sub }
-      : null;
-  } catch {
-    return null;
-  }
+  const sub = await verifySubject(token, jwksUrl, getKey);
+  return sub === null ? null : { userId: sub };
 }

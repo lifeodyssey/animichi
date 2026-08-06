@@ -35,6 +35,11 @@ S0-v2 Track B 按 GOAL「repo 级 CF token 删除」收口——执行 ticket �
 - `stagingAllowedIps` / `stagingGateToken`(Pulumi staging 栈密文):WAF IP 白名单与闸 token。
 - `VITE_*` 六键(部署侧构建注入,per-env;preflight 非空校验):web 构建期配置。
   S0-v2 增 `VITE_SHOWCASE_MODE`(严格布尔契约,见 launch spec)。
+- `EDGE_SHOWCASE_MODE`(edge Worker 的 `[vars]`,根/staging/production 三段):showcase 闸,
+  语义同 `VITE_SHOWCASE_MODE` 的严格布尔契约——仅字面量 `"false"` 开放功能路由,
+  `"true"` 使 /v1 功能路由(chat/photo-search/users)与 public catalog 读答 403,
+  缺失/非法值 fail-closed(同样拒绝);/healthz、/img/*、/tiles/* 恒可达。
+  staging=false、production=true、本地默认 false。仅 edge Worker 自身消费,不进 `CONTAINER_ENV_KEYS`。
 - Neon/Supabase/模型 provider 键:数据面与 agent;分布以实时清单为准,用途见各包 AGENTS.md。
 
 ## 2. 域名与路由拓扑(全部 Pulumi 声明,`infra/index.ts`)

@@ -1,9 +1,9 @@
 import type { ChatDataPart } from "@animichi/contract";
 import { useCallback, useState } from "react";
-import { sendWithOriginOf, useChatActions } from "../chat-actions";
+import { sendWithOriginOf, useChatActions } from "../ChatActions";
 import type { ChatDict } from "../i18n";
-import type { IntentCardProps } from "./cards";
-import { candidatesOf } from "./cards";
+import type { IntentCardProps } from "./Cards";
+import { candidatesOf } from "./Cards";
 import { LocationPrompt } from "./LocationPrompt";
 
 /** C2 clarification card (issue #260 AC1/AC5): 2-4 candidate buttons plus an

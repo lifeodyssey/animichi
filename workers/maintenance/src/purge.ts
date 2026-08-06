@@ -1,18 +1,18 @@
 import type { DatabaseClient, QueryResult, QueryRow } from "./database";
 
 // The retired GHA jobs supplied no override, so both scripts used the defaults at
-// apps/agent/agent/config/cron_settings.py:37-47.
+// apps/agent/src/animichi/config/cron_settings.py:37-47.
 const RETENTION_DAYS = 30;
 const MILLISECONDS_PER_DAY = 86_400_000;
 const FOREIGN_KEY_VIOLATION = "23503";
 
-// Port of apps/agent/agent/scripts/purge_anon_quota_counts.py:36,44.
-// Exact source SQL: apps/agent/agent/infrastructure/supabase/repositories/anon_quota.py:40-42.
+// Port of apps/agent/src/animichi/scripts/purge_anon_quota_counts.py:36,44.
+// Exact source SQL: apps/agent/src/animichi/infrastructure/supabase/repositories/anon_quota.py:40-42.
 export const ANON_QUOTA_PURGE_SQL =
   "DELETE FROM anon_daily_message_count WHERE usage_date < $1";
 
-// Port of apps/agent/agent/scripts/purge_anonymous_sessions.py:70-75.
-// Exact source SQL: apps/agent/agent/infrastructure/supabase/repositories/session.py:31-37.
+// Port of apps/agent/src/animichi/scripts/purge_anonymous_sessions.py:70-75.
+// Exact source SQL: apps/agent/src/animichi/infrastructure/supabase/repositories/session.py:31-37.
 export const FIND_PURGEABLE_SESSIONS_SQL = [
   "SELECT c.session_id",
   "FROM conversations c",
@@ -21,8 +21,8 @@ export const FIND_PURGEABLE_SESSIONS_SQL = [
   "  AND NOT EXISTS (SELECT 1 FROM routes r WHERE r.session_id = c.session_id)",
 ].join("\n");
 
-// Port of apps/agent/agent/scripts/purge_anonymous_sessions.py:85-102.
-// Source predicates/transaction: apps/agent/agent/infrastructure/supabase/repositories/session.py:45-50,242-265.
+// Port of apps/agent/src/animichi/scripts/purge_anonymous_sessions.py:85-102.
+// Source predicates/transaction: apps/agent/src/animichi/infrastructure/supabase/repositories/session.py:45-50,242-265.
 // The data-modifying CTE is one atomic Neon HTTP statement: an FK failure rolls back both deletes.
 export const PURGE_ANONYMOUS_SESSION_SQL = [
   "WITH deleted_conversation AS (",
@@ -73,11 +73,9 @@ async function purgeSession(
   sessionIdValue: string,
   cutoff: Date,
 ): Promise<PurgeOutcome> {
-  try {
-    return await deleteSession(db, sessionIdValue, cutoff);
-  } catch (error) {
-    return failedSession(error, sessionIdValue);
-  }
+  return deleteSession(db, sessionIdValue, cutoff).catch((error: unknown) =>
+    failedSession(error, sessionIdValue),
+  );
 }
 
 async function deleteSession(

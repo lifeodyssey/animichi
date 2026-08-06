@@ -23,7 +23,7 @@ import {
   clearTurnstileToken,
   currentTurnstileToken,
   rememberTurnstileToken,
-} from "../../../src/lib/turnstile/tokenStore";
+} from "../../../src/lib/turnstile/token-store";
 import { LOCALES } from "../../../src/i18n/locales";
 
 const SITE_KEY = "0x4AAAAAAAsitekey24chars";

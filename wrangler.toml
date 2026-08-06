@@ -29,15 +29,19 @@
 #   SUPABASE_SERVICE_ROLE_KEY  — Service role for sk_ API key lookup (set via wrangler secret put)
 #   NEON_AUTH_ISSUER           — public Neon Auth base URL (set in [vars] when cutover is approved)
 #
-# Container runtime secrets (forwarded to Python backend):
+# Container runtime secrets (forwarded to Python backend). Production model
+# policy is MiMo-only (#684): MIMO_API_KEY is the one live model credential.
+# The DeepSeek and generic OpenAI-compat fallbacks stay wired but DISABLED
+# (settings.fallback_agent_model is empty; re-enabling is a config flip, not a
+# secret add) — so their keys remain provisioned, not deleted:
 #   SUPABASE_DB_URL            — postgres://... for asyncpg
 #   MIMO_API_KEY               — required primary model key (MiMo V2.5)
-#   DEEPSEEK_API_KEY           — required fallback model key (DeepSeek)
+#   DEEPSEEK_API_KEY           — wired-but-disabled fallback model key (DeepSeek)
 #   (photo-search recognition rides the same chat model credentials above —
-#   #656 retired the standalone GEMINI_API_KEY-backed vision provider in favor
-#   of the main agent's multimodal input, apps/agent/agent/agents/photo_vision.py)
-#   OPENAI_COMPAT_BASE_URL     — custom OpenAI-compatible fallback endpoint
-#   OPENAI_COMPAT_API_KEY      — custom OpenAI-compatible fallback provider key
+#   #656 retired the standalone Gemini vision provider in favor of the main
+#   agent's multimodal input, apps/agent/src/animichi/agents/photo_vision.py)
+#   OPENAI_COMPAT_BASE_URL     — OpenAI-compatible endpoint (MiMo transport)
+#   OPENAI_COMPAT_API_KEY      — wired-but-disabled compat fallback provider key
 #   GOOGLE_MAPS_API_KEY        — optional geocoding provider key
 #   LOGFIRE_TOKEN              — optional observability token
 #   CORS_ALLOWED_ORIGIN        — backend CORS allowlist
@@ -79,6 +83,14 @@ CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "true"
 NEON_AUTH_ENABLED = "false"
 NEON_AUTH_ISSUER = ""
+# Showcase-mode gate (S0-v2 GOAL C / C9): worker-side sibling of the web app's
+# VITE_SHOWCASE_MODE with the same strict-boolean contract — only the literal
+# "false" opens the functional /v1 routes; "true" denies them with 403 and any
+# unset/empty/malformed value FAILS CLOSED (denies). staging=false keeps full
+# functionality, production=true makes the backend unreachable past the
+# landing's own surface (/healthz, /img/*, /tiles/*). Consumed by the edge
+# worker itself, so it is deliberately NOT in CONTAINER_ENV_KEYS.
+EDGE_SHOWCASE_MODE = "false"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -174,12 +186,18 @@ name = "animichi"
 
 [env.production.vars]
 # Forwarded to the container as APP_ENV (issue #498) — required, see
-# containerEnv.ts CONTAINER_REQUIRED_KEYS.
+# container-env.ts CONTAINER_REQUIRED_KEYS.
 APP_ENV = "production"
 CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "false"
 NEON_AUTH_ENABLED = "false"
 NEON_AUTH_ISSUER = ""
+# Showcase-mode gate (S0-v2 GOAL C / C9): production is landing-only — every
+# functional /v1 route (chat/photo-search/users) and the public catalog read
+# answer 403; only /healthz, /img/* and /tiles/* stay reachable. Strict
+# boolean: anything other than the literal "false" denies, so a missing var
+# can never silently re-open the backend.
+EDGE_SHOWCASE_MODE = "true"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -265,15 +283,18 @@ bucket_name = "map-tiles-staging"
 
 [env.staging.vars]
 # Forwarded to the container as APP_ENV (issue #498) — required, see
-# containerEnv.ts CONTAINER_REQUIRED_KEYS. This is the whole point of the fix:
+# container-env.ts CONTAINER_REQUIRED_KEYS. This is the whole point of the fix:
 # staging traces must tag "staging" in Logfire, not "production".
 APP_ENV = "staging"
 CATALOG_API_URL = "http://catalog.internal"
+# Showcase-mode gate (S0-v2 GOAL C / C9): staging stays fully functional
+# (showcase off). Strict boolean — only the literal "false" means that.
+EDGE_SHOWCASE_MODE = "false"
 # #527/#528 (P1-A): CORS_ALLOWED_ORIGIN was never provisioned for staging as
 # either a repo-level or a staging-environment GH secret. Simply removing it
 # from ci.yml's worker_secrets (an earlier revision of this PR did that) would
 # NOT preserve staging's current behavior — there is no wildcard fallback.
-# `workers/edge/containerEnv.ts` hardcodes `APP_ENV: "production"` for every
+# `workers/edge/container-env.ts` hardcodes `APP_ENV: "production"` for every
 # environment (confirmed: no APP_ENV var/secret exists anywhere — root,
 # staging, or production), and only forwards CORS_ALLOWED_ORIGIN to the
 # container when it is non-empty. With it absent, the container boots with

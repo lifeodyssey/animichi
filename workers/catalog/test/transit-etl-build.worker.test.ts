@@ -49,4 +49,20 @@ describe("buildTopologyAsset", () => {
     expect(result.asset.sources.map((item) => item.id)).toEqual(["ekidata"]);
     expect(result.warnings).toContain("Built without N02 shinkansen input");
   });
+
+  it("builds an empty topology when no source input is provided", () => {
+    const result = buildTopologyAsset({ generatedAt: "2026-07-13T00:00:00.000Z" });
+    expect(result.asset).toEqual({
+      format_version: 1,
+      generated_at: "2026-07-13T00:00:00.000Z",
+      sources: [],
+      lines: [],
+      stations: [],
+      adjacency: [],
+    });
+    expect(result.warnings).toEqual([
+      "Built without ekidata input",
+      "Built without N02 shinkansen input",
+    ]);
+  });
 });

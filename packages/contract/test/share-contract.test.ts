@@ -110,7 +110,9 @@ describe("public share projection", () => {
     const result = { expires_at: "2026-08-18T09:30:00+09:00", itinerary: PUBLIC_ITINERARY };
     expect(ResolveShareResult.parse(result)).toEqual(result);
   });
+});
 
+describe("public share strictness", () => {
   it.each([
     "user_id",
     "internal_user_id",
@@ -131,7 +133,9 @@ describe("public share projection", () => {
     const stops = [{ ...PUBLIC_ITINERARY.stops[0], latitude: 35.702_123 }];
     expect(PublicSharedItinerary.safeParse({ ...PUBLIC_ITINERARY, stops }).success).toBe(false);
   });
+});
 
+describe("public share consistency", () => {
   it("rejects completed stop counts above the total", () => {
     const invalid = { ...PUBLIC_ITINERARY, total_stops: 0 };
     expect(PublicSharedItinerary.safeParse(invalid).success).toBe(false);

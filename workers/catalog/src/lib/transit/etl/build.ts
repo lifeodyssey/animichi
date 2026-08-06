@@ -87,14 +87,26 @@ function missingWarnings(inputs: BuildInputs): string[] {
 }
 
 export function buildTopologyAsset(inputs: BuildInputs): BuildResult {
-  const warnings = missingWarnings(inputs);
-  const ekidata = inputs.ekidata ?? { lines: [], stations: [], adjacency: [] };
-  const shinkansen = inputs.shinkansen ?? { lines: [], stations: [], adjacency: [] };
+  const warnings = missingWarnings(inputs), ekidata = inputs.ekidata ?? EMPTY_TOPOLOGY, shinkansen = inputs.shinkansen ?? EMPTY_TOPOLOGY;
   const stations = uniqueBy([...ekidata.stations, ...stitchStations(ekidata.stations, shinkansen.stations)], (item) => item.station_id, "station_id", warnings);
   const lines = uniqueBy([...ekidata.lines, ...shinkansen.lines], (item) => item.line_id, "line_id", warnings);
   const adjacency = uniqueBy([...ekidata.adjacency, ...shinkansen.adjacency], (item) => [item.from, item.to].sort(compareStrings).join("\u0000"), "adjacency", warnings);
-  const sources = [inputs.ekidata ? source("ekidata", inputs.retrievedAt?.ekidata) : null, inputs.shinkansen ? source("n02", inputs.retrievedAt?.n02) : null].filter((item): item is TopologySource => item !== null);
+  const sources = sourceList(inputs);
   const asset: TopologyGraphAsset = { format_version: 1, generated_at: inputs.generatedAt, sources, lines, stations, adjacency };
-  const stats = { ekidata: sourceStats(inputs.ekidata), n02: sourceStats(inputs.shinkansen), total: totalStats(asset), isolated_stations: isolatedCount(stations, adjacency), duplicate_warnings: warnings.filter((warning) => warning.startsWith("Duplicate ")).length };
+  const stats = assetStats(asset, inputs, warnings);
   return { asset, stats, warnings };
+}
+
+const EMPTY_TOPOLOGY = { lines: [], stations: [], adjacency: [] };
+
+function sourceList(inputs: BuildInputs): TopologySource[] {
+  return [inputs.ekidata ? source("ekidata", inputs.retrievedAt?.ekidata) : null, inputs.shinkansen ? source("n02", inputs.retrievedAt?.n02) : null].filter((item): item is TopologySource => item !== null);
+}
+
+function assetStats(asset: TopologyGraphAsset, inputs: BuildInputs, warnings: string[]) {
+  return {
+    ekidata: sourceStats(inputs.ekidata), n02: sourceStats(inputs.shinkansen), total: totalStats(asset),
+    isolated_stations: isolatedCount(asset.stations, asset.adjacency),
+    duplicate_warnings: warnings.filter((warning) => warning.startsWith("Duplicate ")).length,
+  };
 }

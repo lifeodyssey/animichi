@@ -4,7 +4,7 @@
 import type { ChatStatus, UIMessage } from "ai";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ChatActionsProvider } from "../../../src/features/chat/chat-actions";
+import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
 import { MessageList } from "../../../src/features/chat/components/MessageList";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { useTurnTiming } from "../../../src/features/chat/use-turn-timing";

@@ -55,8 +55,12 @@ export async function animeOverview(
   input: { bangumi_id: string },
 ): Promise<AnimeOverview> {
   const rows = await loadOverviewRows(db, input.bangumi_id);
+  return toOverview(input.bangumi_id, rows);
+}
+
+function toOverview(bangumiId: string, rows: OverviewRow[]): AnimeOverview {
   return {
-    bangumi_id: input.bangumi_id,
+    bangumi_id: bangumiId,
     points_length: rows.length,
     circles: buildCircles(rows),
     scenes: buildScenes(rows),

@@ -32,15 +32,13 @@ function detailOptionals(d: PointDetail): Partial<PilgrimagePoint> {
 }
 
 function merge(near: NearbyPoint, d?: PointDetail): PilgrimagePoint {
+  return { ...mergeBase(near, d?.bangumi_id ?? "", d?.image ?? ""), ...(d ? detailOptionals(d) : {}) };
+}
+
+function mergeBase(near: NearbyPoint, bangumiId: string, image: string): PilgrimagePoint {
   return {
-    id: near.id,
-    name: near.name,
-    bangumi_id: d?.bangumi_id ?? "",
-    screenshot_url: d?.image ?? "",
-    latitude: near.latitude,
-    longitude: near.longitude,
-    distance_m: near.distanceM,
-    ...(d ? detailOptionals(d) : {}),
+    id: near.id, name: near.name, bangumi_id: bangumiId, screenshot_url: image,
+    latitude: near.latitude, longitude: near.longitude, distance_m: near.distanceM,
   };
 }
 

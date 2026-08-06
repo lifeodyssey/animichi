@@ -66,16 +66,15 @@ async function assertPointRow(): Promise<void> {
   const row = rows[0];
   expect(row?.name).toBe("鷲宮神社");
   expect(row?.bangumiId).toBe("lucky-star");
-  expect(row?.latitude).toBeCloseTo(36.1019, 4);
-  expect(row?.longitude).toBeCloseTo(139.6586, 4);
+  expect(row?.latitude).toBeCloseTo(36.1019, 4); expect(row?.longitude).toBeCloseTo(139.6586, 4);
   expect(typeof row?.location).toBe("string");
   expect(row?.location?.length).toBeGreaterThan(0);
 }
 
+
 async function assertSchemaRelations(): Promise<void> {
   const versions = await db.select().from(clusterVersion).where(eq(clusterVersion.workId, "lucky-star"));
-  expect(versions[0]?.version).toBe(1);
-  expect(versions[0]?.isCurrent).toBe(true);
+  expect(versions[0]?.version).toBe(1); expect(versions[0]?.isCurrent).toBe(true);
   const aliasRows = await db.select().from(aliases).where(eq(aliases.workId, "lucky-star"));
   expect(aliasRows[0]?.aliasNormalized).toBe("らきすた");
   expect(aliasRows[0]?.priority).toBe(10);
@@ -85,17 +84,11 @@ async function assertSchemaRelations(): Promise<void> {
 }
 
 async function assertPostgisRadiusRead(): Promise<void> {
-  const centerLat = 36.1019;
-  const centerLon = 139.6586;
   const rows = (
     await db.execute(sql`
-      SELECT id
-      FROM points
-      WHERE ST_DWithin(
-        location,
-        ST_SetSRID(ST_MakePoint(${centerLon}, ${centerLat}), 4326)::geography,
-        1000
-      )
+      SELECT id FROM points
+      WHERE ST_DWithin(location,
+        ST_SetSRID(ST_MakePoint(${139.6586}, ${36.1019}), 4326)::geography, 1000)
     `)
   ).rows as { id: string }[];
   expect(rows.map((r) => r.id)).toEqual(["washinomiya"]);

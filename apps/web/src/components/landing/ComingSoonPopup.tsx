@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import type { Dict } from "../../i18n/dictionaries";
-import { useDict } from "../../i18n/context";
+import { useDict } from "../../i18n/LocaleProvider";
 
 const FOCUSABLE_SELECTOR =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -15,27 +15,53 @@ function focusables(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)];
 }
 
-/** An empty dialog leaves `wrap` undefined and Tab passes through untouched. */
-function trapTabKey(event: KeyboardEvent, root: HTMLElement): void {
-  if (event.key !== "Tab") return;
+/**
+ * Tab wrap: wraps at the edges, and also from the dialog container itself —
+ * initial focus lands there (tabIndex=-1), and without the wrap the browser's
+ * Shift+Tab from that position escapes into the background page. An empty
+ * dialog leaves the edges undefined and Tab passes through untouched.
+ */
+function tabEdges(root: HTMLElement): readonly [HTMLElement, HTMLElement] | null {
   const list = focusables(root);
-  const forward = !event.shiftKey;
-  const edge = forward ? list[list.length - 1] : list[0];
-  const wrap = forward ? list[0] : list[list.length - 1];
-  if (wrap === undefined || document.activeElement !== edge) return;
-  event.preventDefault();
-  wrap.focus();
+  const first = list[0];
+  const last = list[list.length - 1];
+  if (first === undefined || last === undefined) return null;
+  return [first, last];
 }
 
-/** Initial focus lands on the dialog container (WAI-ARIA modal pattern; it has tabIndex=-1). */
+function trapTabKey(event: KeyboardEvent, root: HTMLElement): void {
+  if (event.key !== "Tab") return;
+  const edges = tabEdges(root);
+  if (edges === null) return;
+  const [first, last] = edges;
+  const active = document.activeElement;
+  if (root.contains(active) && active !== root && active !== (event.shiftKey ? first : last)) return;
+  event.preventDefault();
+  (event.shiftKey ? last : first).focus();
+}
+
+/**
+ * Initial focus lands on the dialog container (WAI-ARIA modal pattern; it has
+ * tabIndex=-1). The previously focused element (the trigger) is captured when
+ * the dialog opens and restored on close, so keyboard users keep their place
+ * in the page instead of dropping to body.
+ */
+function trapFocusIn(root: HTMLElement): () => void {
+  const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const onKey = (event: KeyboardEvent) => { trapTabKey(event, root); };
+  document.addEventListener("keydown", onKey);
+  root.focus();
+  return () => {
+    document.removeEventListener("keydown", onKey);
+    trigger?.focus();
+  };
+}
+
 function useFocusTrap(open: boolean, rootRef: RefObject<HTMLDivElement | null>): void {
   useEffect(() => {
     const root = open ? rootRef.current : null;
-    if (!root) return;
-    const onKey = (event: KeyboardEvent) => { trapTabKey(event, root); };
-    document.addEventListener("keydown", onKey);
-    root.focus();
-    return () => { document.removeEventListener("keydown", onKey); };
+    if (!root) return undefined;
+    return trapFocusIn(root);
   }, [open, rootRef]);
 }
 

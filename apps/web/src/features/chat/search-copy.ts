@@ -1,4 +1,4 @@
-import type { SpotCluster } from "../../lib/chat/spotClusters";
+import type { SpotCluster } from "../../lib/chat/spot-clusters";
 import type { ChatDict } from "./i18n";
 
 /** Cluster display name: the majority city, else a localized area fallback. */

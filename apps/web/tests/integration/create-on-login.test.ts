@@ -14,10 +14,10 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthCallback } from "../../src/components/auth/AuthCallback";
-import { LocaleProvider } from "../../src/i18n/context";
+import { LocaleProvider } from "../../src/i18n/LocaleProvider";
 import { users } from "../../src/api/orpc";
-import { replayDeferredSave } from "../../src/features/chat/save/createOnLogin";
-import { DEFERRED_SAVE_KEY, writeDeferredSave } from "../../src/features/chat/save/deferredSave";
+import { replayDeferredSave } from "../../src/features/chat/save/create-on-login";
+import { DEFERRED_SAVE_KEY, writeDeferredSave } from "../../src/features/chat/save/deferred-save";
 
 const ROUTES_URL = "http://localhost:3000/v1/users/routes";
 const POINT_IDS = ["uji-01", "uji-02", "uji-03"];

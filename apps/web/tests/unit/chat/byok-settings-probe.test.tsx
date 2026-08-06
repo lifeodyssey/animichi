@@ -7,7 +7,7 @@ import type { ByokProbeOutcome as Outcome } from "../../../src/features/chat/byo
 import type { ByokProbeOutcome } from "../../../src/features/chat/byok-probe";
 import { ByokSettings } from "../../../src/features/chat/components/ByokSettings";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { getByokConfig, getByokVisionSupported } from "../../../src/lib/byok/byokStorage";
+import { getByokConfig, getByokVisionSupported } from "../../../src/lib/byok/byok-storage";
 
 const dict = chatDictFor("ja");
 const KEY = "sk-secret-abcdef";

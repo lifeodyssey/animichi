@@ -36,15 +36,11 @@ export async function saveRawBangumi(
 
 /** Shared UPSERT into a raw JSONB table keyed by work_id. */
 async function upsertRaw(
-  db: CatalogDb,
-  table: "raw_anitabi" | "raw_bangumi",
-  workId: string,
-  payload: RawPayload,
+  db: CatalogDb, table: "raw_anitabi" | "raw_bangumi",
+  workId: string, payload: RawPayload,
 ): Promise<void> {
   await db.execute(sql`
-    INSERT INTO ${sql.raw(table)} (work_id, payload, fetched_at)
-    VALUES (${workId}, ${JSON.stringify(payload)}::jsonb, NOW())
-    ON CONFLICT (work_id)
-    DO UPDATE SET payload = EXCLUDED.payload, fetched_at = NOW()
+    INSERT INTO ${sql.raw(table)} (work_id, payload, fetched_at) VALUES (${workId}, ${JSON.stringify(payload)}::jsonb, NOW())
+    ON CONFLICT (work_id) DO UPDATE SET payload = EXCLUDED.payload, fetched_at = NOW()
   `);
 }

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { z } from "zod";
-import { authHeaders } from "../../lib/auth/authSession";
+import { authHeaders } from "../../lib/auth/auth-session";
 import { conversationMessagesUrl } from "./config";
 
 const HistoryRow = z.object({

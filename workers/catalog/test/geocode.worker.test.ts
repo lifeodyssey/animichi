@@ -1,57 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type { CatalogDb } from "../src/db/client";
 import { geocode } from "../src/api/geocode";
-import {
-  collapseGeocodeHits,
-  FUZZY_RESULT_LIMIT,
-  FUZZY_SIMILARITY_THRESHOLD,
-  type GeocodeHit,
-} from "../src/lib/geocode";
+import { collapseGeocodeHits, FUZZY_RESULT_LIMIT, FUZZY_SIMILARITY_THRESHOLD } from "../src/lib/geocode";
 import { SEED_ALIASES, SEED_LOCATIONS } from "./fixtures/geocode-seed";
-
-const NISHINOMIYA: GeocodeHit = {
-  id: "seed:nishinomiya-station",
-  name: "西宮駅",
-  kind: "station",
-  latitude: 34.7386,
-  longitude: 135.3485,
-  source: "manual",
-  pref: "兵庫県",
-  priority: 100,
-  exact: true,
-};
-
-interface FakeDb extends CatalogDb {
-  executeSpy: ReturnType<typeof vi.fn>;
-}
-
-function fakeDb(...responses: GeocodeHit[][]): FakeDb {
-  const pending = [...responses];
-  const executeSpy = vi.fn((_query: unknown) =>
-    Promise.resolve({ rows: pending.shift() ?? [] }),
-  );
-  return {
-    execute: executeSpy,
-    executeSpy,
-  } as unknown as FakeDb;
-}
-
-function hit(overrides: Partial<GeocodeHit>): GeocodeHit {
-  return { ...NISHINOMIYA, ...overrides };
-}
-
-function sqlText(value: unknown): string {
-  if (typeof value !== "object" || value === null) return "";
-  if ("value" in value && Array.isArray(value.value)) return value.value.join("");
-  if (!("queryChunks" in value) || !Array.isArray(value.queryChunks)) return "";
-  return value.queryChunks.map(sqlText).join("");
-}
-
-async function fuzzySql(): Promise<string> {
-  const db = fakeDb([], []);
-  await geocode(db, { query: "西宮北口", limit: 5 });
-  return sqlText(db.executeSpy.mock.calls[1]?.[0]);
-}
+import { NISHINOMIYA, fakeDb, fuzzySql, hit } from "./geocode-doubles";
 
 describe("catalog geocode lookup", () => {
   it.each(["西宮", "西宫", "nishinomiya"])("A1 exact lookup resolves %s", async (query) => {
