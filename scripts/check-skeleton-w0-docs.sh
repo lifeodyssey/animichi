@@ -6,23 +6,38 @@ cd "$ROOT"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-test -f CONTEXT-MAP.md || fail "CONTEXT-MAP.md missing"
-grep -q 'Domain model presence' CONTEXT-MAP.md || fail "CONTEXT-MAP missing domain presence table"
-grep -q 'workers/catalog' CONTEXT-MAP.md || fail "CONTEXT-MAP missing catalog"
+require_file() { test -f "$1" || fail "missing file: $1"; }
+require_grep() { grep -qE "$2" "$1" || fail "missing pattern in $1: $2"; }
 
-test -f docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md || fail "PATH-DELTA missing"
-grep -q 'workers/jobs' docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md || fail "PATH-DELTA missing jobs row"
+require_file CONTEXT-MAP.md
+require_grep CONTEXT-MAP.md 'Domain model presence'
+require_grep CONTEXT-MAP.md 'workers/catalog'
+require_grep CONTEXT-MAP.md 'No.*pilgrimage|Gateway only|\*\*No\*\*'
 
-for f in workers/catalog/CONTEXT.md workers/users/CONTEXT.md apps/agent/CONTEXT.md \
-  workers/edge/CONTEXT.md apps/web/CONTEXT.md packages/contract/CONTEXT.md \
-  workers/maintenance/CONTEXT.md; do
-  test -f "$f" || fail "missing $f"
+require_file docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md
+require_grep docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md 'workers/jobs'
+require_grep docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md 'migrations/neon'
+require_file docs/iterations/refactor-skeleton-2026-08/GOAL.md
+require_file docs/iterations/refactor-skeleton-2026-08/README.md
+
+for f in \
+  workers/catalog/CONTEXT.md \
+  workers/users/CONTEXT.md \
+  apps/agent/CONTEXT.md \
+  workers/edge/CONTEXT.md \
+  apps/web/CONTEXT.md \
+  packages/contract/CONTEXT.md \
+  workers/maintenance/CONTEXT.md
+do
+  require_file "$f"
 done
 
-grep -q 'no pilgrimage domain' workers/edge/CONTEXT.md || grep -qi 'Does not own' workers/edge/CONTEXT.md \
-  || fail "edge CONTEXT must deny pilgrimage domain ownership"
+require_grep workers/edge/CONTEXT.md 'no pilgrimage domain|Does not own|Gateway'
+require_grep apps/web/CONTEXT.md 'no.*src/domain|Does not own|no.*domain'
 
-test -f docs/superpowers/specs/2026-08-06-monorepo-target-layout.md || fail "monorepo-target-layout missing"
-test -f docs/superpowers/specs/2026-08-06-structure-refactor-index.md || fail "structure-refactor-index missing"
+require_file docs/superpowers/specs/2026-08-06-monorepo-target-layout.md
+require_file docs/superpowers/specs/2026-08-06-structure-refactor-index.md
+require_file docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md
+require_file docs/adr/0002-published-language-point-bangumi-itinerary.md
 
 echo "OK: skeleton W0 doc structure"
