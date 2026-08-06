@@ -34,6 +34,12 @@ jobs:
           # showcase.ts fails closed at module init — every build path must
           # declare the mode explicitly; CI builds are never showcase.
           VITE_SHOWCASE_MODE: "false"
+          # web-hero-query.spec.ts requires a non-empty auth base URL or the
+          # magic-link form renders "not configured" and emits no request. The
+          # VALUE is irrelevant — every Neon Auth request is intercepted by
+          # the browser in the spec — so a dead port stands in for the real
+          # per-branch base URL.
+          VITE_NEON_AUTH_BASE_URL: "http://127.0.0.1:9"
         run: pnpm --filter web test:integration
 
       - name: Resolve Playwright version
@@ -74,4 +80,4 @@ jobs:
             sleep 1
           done
           curl -sf -o /dev/null http://localhost:8799/ || exit 1
-          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts web-chat-anonymous.spec.ts
+          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts web-chat-anonymous.spec.ts web-hero-query.spec.ts

@@ -7,8 +7,8 @@ const stagingGateToken = process.env.STAGING_GATE_TOKEN;
 // The Playwright MCP test server (the agent tool surface) runs as
 // `npx playwright run-test-mcp-server`; every other invocation is the plain
 // test runner. The "seed" project exists only in the MCP server process so the
-// agents can resolve seed.spec.ts while default CLI runs stay at 34 cases in
-// 8 files (see generated/README.md).
+// agents can resolve seed.spec.ts while default CLI runs stay at 36 cases in
+// 9 files (see generated/README.md).
 //
 // Worker processes re-require this config file with a different argv, so the
 // detection is propagated through the environment: the controller (whose argv
@@ -44,11 +44,11 @@ export default defineConfig({
     // (see generated/README.md). It must stay at the e2e/ root — the Playwright
     // MCP test server (npx playwright run-test-mcp-server) locates seeds there —
     // but it must never count as a case in the always-run suite: a silent
-    // 34 -> 35 drift is exactly what the promotion gate exists to prevent.
+    // 36 -> 37 drift is exactly what the promotion gate exists to prevent.
     //
     // Playwright runs every project in the config by default, so the seed gets
     // its own project that exists ONLY in the MCP server process. The CLI test
-    // runner therefore collects nothing but the 34 real cases in 8 files, while
+    // runner therefore collects nothing but the 36 real cases in 9 files, while
     // the agents' server resolves the seed project (it sits first, and the MCP
     // server seeds from the first top-level project).
     ...(seedProjectEnabled

@@ -59,7 +59,7 @@ planner ──> agent-discovered/*.md ──> human review ──> generator ─
 - One file per feature/flow; name `<feature>-plan.md`.
 - Plans must assume a blank/fresh starting state and list independent scenarios.
 - Never `git add` a plan without an accompanying review note in the PR.
-- The default `npx playwright test` run is exactly **34 tests in 8 files** (the
+- The default `npx playwright test` run is exactly **36 tests in 9 files** (the
   committed suite). `seed.spec.ts` and anything in `generated/` or
   `agent-discovered/` never count toward that number — the seed is isolated
   behind a `seed` project that exists only in the Playwright MCP server process,
