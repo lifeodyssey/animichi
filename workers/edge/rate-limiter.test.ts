@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { memoryGuardStore } from "./guard-store.ts";
+import { memoryGuardStore } from "./protect/guard-store.ts";
 import {
   authenticatedRateLimitKey,
   authRateLimitConfigFrom,

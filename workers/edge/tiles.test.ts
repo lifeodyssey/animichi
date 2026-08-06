@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import type { TileBucket } from "./tiles.ts";
+import type { TileBucket } from "./proxy/tiles.ts";
 
 const ctx = {
   waitUntil: () => undefined,

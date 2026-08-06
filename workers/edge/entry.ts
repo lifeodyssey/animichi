@@ -1,4 +1,8 @@
 // TODO(refactor-skeleton): finish moving remaining wiring into concern folders — #841
+// TODO(#841 path-delta): this file must stay at the worker root — it is the
+// `main = "workers/edge/entry.ts"` contract in the root wrangler.toml (and the
+// source read by entry-container-env.test.ts). Composition root only; all
+// logic lives in identity/ gateway/ protect/ proxy/ container/.
 import { Container } from "@cloudflare/containers";
 import { createWorkerApp, catalogOutbound, type Env } from "./app.ts";
 import { buildContainerEnvVars, DENIED_EGRESS_HOSTS } from "./container/container-env.ts";

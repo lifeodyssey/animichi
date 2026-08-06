@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
 import { fakeGuard } from "./guard-doubles.ts";
-import { TURNSTILE_HEADER, createTurnstileGate } from "./turnstile.ts";
+import { TURNSTILE_HEADER, createTurnstileGate } from "./protect/turnstile.ts";
 import { stubCtx } from "./container/entry-env.ts";
 
 /**
