@@ -9,8 +9,8 @@ import {
   readBudgetLatch,
   utcDayKey,
   writeBudgetLatch,
-} from "./cost-breaker.ts";
-import { handleGuardRequest } from "./edge-guard.ts";
+} from "./protect/cost-breaker.ts";
+import { handleGuardRequest } from "./protect/edge-guard.ts";
 import { memoryGuardStore } from "./guard-store.ts";
 
 // Day rollover is exercised on an injected clock — never a real wait.

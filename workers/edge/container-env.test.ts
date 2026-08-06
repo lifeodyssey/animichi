@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { CONTAINER_ENV_KEYS, CONTAINER_REQUIRED_KEYS, buildContainerEnvVars } from "./container-env.ts";
+import { CONTAINER_ENV_KEYS, CONTAINER_REQUIRED_KEYS, buildContainerEnvVars } from "./container/container-env.ts";
 
 // Issue #498: APP_ENV used to be seeded with a hardcoded "production" default
 // in buildContainerEnvVars, so every container reported APP_ENV=production

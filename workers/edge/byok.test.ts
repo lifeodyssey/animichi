@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp, type Env } from "./app.ts";
 import { fakeGuard } from "./guard-doubles.ts";
-import { stubCtx } from "./entry-env.ts";
+import { stubCtx } from "./container/entry-env.ts";
 
 // Task 9 (#284): per-identity rate limiting on the authenticated /v1/* path,
 // scoped to cost-bearing routes only (chat, byok/probe, runtime*) — not

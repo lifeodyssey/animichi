@@ -9,7 +9,7 @@ import {
   parseWindowState,
   rateLimitConfigFrom,
   stepWindow,
-} from "./rate-limiter.ts";
+} from "./protect/rate-limiter.ts";
 
 // The clock is always injected — no test here sleeps or reads the real time.
 const CONFIG = { limit: 3, windowSeconds: 60 };

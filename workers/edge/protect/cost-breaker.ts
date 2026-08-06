@@ -1,6 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
-import type { GuardNamespace, GuardStore } from "./guard-store.ts";
+import type { GuardNamespace, GuardStore } from "../guard-store.ts";
 
 /**
  * Global anonymous daily-budget circuit breaker (X4, issue #274 / S1.8).

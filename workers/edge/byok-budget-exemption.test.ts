@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp, type Env } from "./app.ts";
-import { latchBudget, utcDayKey } from "./cost-breaker.ts";
+import { latchBudget, utcDayKey } from "./protect/cost-breaker.ts";
 import { fakeGuard } from "./guard-doubles.ts";
 
 // #284 Task 4 regression lock (edge half): an AUTHENTICATED `/v1/chat`

@@ -1,8 +1,9 @@
+// TODO(refactor-skeleton): finish moving remaining wiring into concern folders — #841
 import { Container } from "@cloudflare/containers";
 import { createWorkerApp, catalogOutbound, type Env } from "./app.ts";
-import { buildContainerEnvVars, DENIED_EGRESS_HOSTS } from "./container-env.ts";
+import { buildContainerEnvVars, DENIED_EGRESS_HOSTS } from "./container/container-env.ts";
 
-export { EdgeGuard } from "./edge-guard.ts";
+export { EdgeGuard } from "./protect/edge-guard.ts";
 // Required for `deniedHosts`/outbound interception to actually run (#284 Task 7,
 // PR #478 review): `applyOutboundInterception` hard-throws when
 // `ctx.exports.ContainerProxy` is undefined — see

@@ -1,9 +1,10 @@
+// TODO(refactor-skeleton): finish moving remaining wiring into concern folders — #841
 import { Hono, type Context } from "hono";
-import { type AuthResult, authenticate as realAuthenticate } from "./auth.ts";
+import { type AuthResult, authenticate as realAuthenticate } from "./identity/auth.ts";
 import type { Env, WorkerExecutionContext } from "./env.ts";
-import { authenticatedForward, forwardPublicCatalog, forwardV1 } from "./forward.ts";
+import { authenticatedForward, forwardPublicCatalog, forwardV1 } from "./gateway/forward.ts";
 import { handleAnonymousV1 } from "./anonymous-flow.ts";
-import { handleImageProxy } from "./image-proxy.ts";
+import { handleImageProxy } from "./proxy/image-proxy.ts";
 import { NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./responses.ts";
 import { isAnonymousV1, isPublicV1 } from "./routing-policy.ts";
 import { createShowcaseMode, type ShowcaseMode } from "./showcase.ts";
@@ -12,7 +13,7 @@ import { handleTiles } from "./tiles.ts";
 import { createTurnstileGate, type TurnstileGate } from "./turnstile.ts";
 
 export type { Env } from "./env.ts";
-export { catalogOutbound } from "./forward.ts";
+export { catalogOutbound } from "./gateway/forward.ts";
 export { isAuthRateLimited } from "./routing-policy.ts";
 
 /** Container cold-start hardening (issue #694): while a container is still

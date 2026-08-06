@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
 import { fakeGuard } from "./guard-doubles.ts";
 import { TURNSTILE_HEADER, type TurnstileGate } from "./turnstile.ts";
-import { stubCtx } from "./entry-env.ts";
+import { stubCtx } from "./container/entry-env.ts";
 import { recordingGate, type GateCall } from "./turnstile-doubles.ts";
 
 /**

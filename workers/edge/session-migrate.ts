@@ -1,6 +1,6 @@
-import { resolveAnonymousReadOnly } from "./auth.ts";
+import { resolveAnonymousReadOnly } from "./identity/auth.ts";
 import type { Env } from "./env.ts";
-import { forwardV1 } from "./forward.ts";
+import { forwardV1 } from "./gateway/forward.ts";
 
 // ── Session migration (issue #273 Task 3) ─────────────────────────
 //

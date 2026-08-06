@@ -1,4 +1,4 @@
-import type { WorkerExecutionContext } from "./env.ts";
+import type { WorkerExecutionContext } from "../env.ts";
 
 /** Bad request for a path the proxy refuses (empty or traversal). */
 function badRequest(): Response {

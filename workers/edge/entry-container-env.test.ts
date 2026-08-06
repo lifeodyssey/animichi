@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildContainerEnvVars } from "./container-env.ts";
+import { buildContainerEnvVars } from "./container/container-env.ts";
 
 function requiredEnv(): Record<string, string> {
   return { DEEPSEEK_API_KEY: "k", MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x", APP_ENV: "development" };

@@ -1,4 +1,4 @@
-import { handleGuardRequest } from "./edge-guard.ts";
+import { handleGuardRequest } from "./protect/edge-guard.ts";
 import { memoryGuardStore, type GuardNamespace, type GuardStore } from "./guard-store.ts";
 
 export interface GuardCall {
