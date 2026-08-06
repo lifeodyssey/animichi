@@ -47,6 +47,12 @@ from animichi.agents.session_state import CurrentAnime, SessionState
 from animichi.agents.tool_event_bridge import tool_event_bridge
 from animichi.agents.tool_state import ToolState
 from animichi.agents.web_trust import detect_prompt_injection
+from animichi.application.handle_user_message import (
+    HandleUserMessage,
+    TurnExecutor,
+    TurnOutcome,
+    UserMessage,
+)
 from animichi.clients.catalog_client import CatalogClientProtocol
 from animichi.domain.ports import CatalogLookup
 
@@ -175,6 +181,12 @@ async def run_animichi_agent(
 
     The data tools route exclusively through the injected ``catalog`` client;
     the agent makes no upstream calls (no DB Retriever, no Anitabi/Bangumi).
+
+    Framework adapter: the deterministic turn lifecycle (input validation,
+    injection preflight gate) is owned by the application use case
+    :class:`animichi.application.handle_user_message.HandleUserMessage`; the
+    PydanticAI run itself stays in this adapter behind the ``TurnExecutor``
+    port.
     """
     deps = RuntimeDeps(
         db=db,
@@ -187,9 +199,65 @@ async def run_animichi_agent(
         title_translator=title_translator,
     )
     _seed_tool_state(deps, context)
-    blocked = _injection_preflight(text, deps)
-    if blocked is not None:
-        return blocked
+    use_case = HandleUserMessage[AgentResult](
+        execute_turn=_make_turn_executor(
+            deps,
+            model=model,
+            message_history=message_history,
+            model_settings=model_settings,
+            memory_store=memory_store,
+            user_id=user_id,
+        ),
+        detect_injection=detect_prompt_injection,
+        guard_enabled=_input_guard_enabled,
+    )
+    outcome = await use_case(
+        UserMessage(text=text, locale=locale, user_id=user_id, context=context)
+    )
+    return outcome.result
+
+
+def _make_turn_executor(
+    deps: RuntimeDeps,
+    *,
+    model: Model | str | None,
+    message_history: list[ModelMessage] | None,
+    model_settings: ModelSettings | None,
+    memory_store: MemoryStore | None,
+    user_id: str | None,
+) -> TurnExecutor[AgentResult]:
+    """Build the PydanticAI turn executor that implements the use-case port."""
+
+    async def execute_turn(
+        message: UserMessage, *, blocked: bool
+    ) -> TurnOutcome[AgentResult]:
+        if blocked:
+            return TurnOutcome(blocked=True, result=_blocked_result(deps))
+        result = await _run_model_turn(
+            deps,
+            message.text,
+            model=model,
+            message_history=message_history,
+            model_settings=model_settings,
+            memory_store=memory_store,
+            user_id=user_id,
+        )
+        return TurnOutcome(blocked=False, result=result)
+
+    return execute_turn
+
+
+async def _run_model_turn(
+    deps: RuntimeDeps,
+    text: str,
+    *,
+    model: Model | str | None,
+    message_history: list[ModelMessage] | None,
+    model_settings: ModelSettings | None,
+    memory_store: MemoryStore | None,
+    user_id: str | None,
+) -> AgentResult:
+    """Execute the PydanticAI model turn and assemble the AgentResult."""
     resolved_model = resolve_model_alias(model)
     memory = build_user_memory_capability(memory_store, user_id)
     run_agent = build_animichi_agent(memory=memory) if memory else animichi_agent
@@ -277,15 +345,6 @@ def _capped_partial_result(
 
 def _partial_message(locale: str) -> str:
     return _PARTIAL_MESSAGES.get(locale, _PARTIAL_MESSAGES["ja"])
-
-
-def _injection_preflight(text: str, deps: RuntimeDeps) -> AgentResult | None:
-    if not detect_prompt_injection(text):
-        return None
-    logger.warning("input_guardrail_injection_detected", text=text[:100])
-    if not _input_guard_enabled():
-        return None
-    return _blocked_result(deps)
 
 
 def _blocked_result(deps: RuntimeDeps) -> AgentResult:
