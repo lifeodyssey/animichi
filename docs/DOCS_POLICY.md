@@ -74,6 +74,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Eval | `apps/agent/src/animichi/tests/eval/` (Python) | |
 | Testing strategy | `docs/testing-strategy.md` | |
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
+| Neon backup / RPO / bad-migration recovery | `docs/ops/neon-backup-rpo.md` | N5 (#860); PITR + HITL checklist; pairs with `migrations.md` |
 | Iteration specs (live) | `docs/superpowers/specs/` — 平层只放活跃 spec(cicd-rebuild、catalog-rpc、byok、s1.7、neon-test-infra、rebuild、ADR) | 过时 spec 一律入 `docs/superpowers/specs/archive/`(只进不出,iter6 A6/#640) |
 | Iteration plans | 当前 iteration 的计划在 `docs/iterations/<iterN>/`;历史执行 plan 全部在 `docs/superpowers/plans/archive/` | 平层不再新增 plan(iter6 A6/#640) |
 | Iteration progress/handoff | `docs/iterations/<iterN>/`(progress、task_plan、handoff、status) | 根目录禁放(File Placement 规则) |

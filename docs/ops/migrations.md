@@ -93,6 +93,7 @@ the raw DSN and tokens out of logs and PRs.
 
 - [`db/AGENTS.md`](../../db/AGENTS.md) — migration conventions and pinned commands
 - [`docs/ops/deployment.md`](./deployment.md) — deployment sequence and rollback limits
+- [`docs/ops/neon-backup-rpo.md`](./neon-backup-rpo.md) — RPO/RTO, PITR, failed-migrate + bad-migration recovery
 - [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — PR/static and promotion gates
 - [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) — manual production path
 - [`workers/edge/migration-boundary.test.ts`](../../workers/edge/migration-boundary.test.ts) — static boundary guard
