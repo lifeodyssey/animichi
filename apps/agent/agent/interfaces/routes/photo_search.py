@@ -151,10 +151,10 @@ def _consume_quota(
     runtime: PhotoSearchRuntime,
     request: Request,
     auth: TrustedAuthContext,
-    authenticated: bool,
+    is_authenticated: bool,
 ) -> None:
     settings = _get_settings_from_request(request)
-    tier = _quota_tier_for(authenticated)
+    tier = _quota_tier_for(is_authenticated)
     quota_ok = runtime.quota.consume(
         tier, _quota_key(auth, request), _quota_limit(settings, tier)
     )
@@ -166,7 +166,7 @@ async def _prepare_turn(
     request: Request,
     auth: TrustedAuthContext,
     body: PhotoSearchBody,
-    authenticated: bool,
+    is_authenticated: bool,
 ) -> tuple[bytes, ByokModel | None]:
     """Every rejecting guard — image validation, then BYOK resolution — runs
     before the quota slot is spent (#739 review): a request this turn is
@@ -176,7 +176,7 @@ async def _prepare_turn(
     image = _decode_image(body.image_base64, body.mime_type)
     byok_model = await _resolve_byok_model(request)
     try:
-        _consume_quota(runtime, request, auth, authenticated)
+        _consume_quota(runtime, request, auth, is_authenticated)
     except PhotoSearchRejection:
         if byok_model is not None:
             await byok_model.client.aclose()
@@ -215,7 +215,7 @@ async def handle_photo_search(
 ) -> JSONResponse:
     """Run the standalone vision pipeline and reply with a chat-shaped envelope."""
     runtime = _get_photo_runtime(request)
-    authenticated = auth.user_id is not None and not is_anonymous_identity(
+    is_authenticated = auth.user_id is not None and not is_anonymous_identity(
         auth.user_id, auth.user_type
     )
     login_rejection = _byok_login_rejection(auth, request)
@@ -232,7 +232,7 @@ async def handle_photo_search(
         return budget_rejection
     try:
         image, byok_model = await _prepare_turn(
-            runtime, request, auth, body, authenticated
+            runtime, request, auth, body, is_authenticated
         )
     except PhotoSearchRejection as rejection:
         return _rejection_response(rejection)

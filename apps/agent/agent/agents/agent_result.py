@@ -83,7 +83,7 @@ class StepRecord:
     """One tool execution record."""
 
     tool: str
-    success: bool
+    is_success: bool
     params: StepData = field(default_factory=dict)
     data: StepData | None = None
     provenance: StepProvenance | None = None
@@ -118,7 +118,7 @@ class AgentResult:
     def success(self) -> bool:
         if self.success_override is not None:
             return self.success_override
-        return all(s.success for s in self.steps) if self.steps else True
+        return all(s.is_success for s in self.steps) if self.steps else True
 
     @property
     def message(self) -> str:

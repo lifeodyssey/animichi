@@ -33,14 +33,16 @@ def _route_result(*, with_debug_steps: bool) -> AgentResult:
         ],
         "point_count": 2,
     }
-    steps = [StepRecord(tool="plan_route", success=True, params={"bangumi": "115908"})]
+    steps = [
+        StepRecord(tool="plan_route", is_success=True, params={"bangumi": "115908"})
+    ]
     if with_debug_steps:
         steps = [
             StepRecord(
-                tool="resolve_anime", success=True, params={"bangumi": "115908"}
+                tool="resolve_anime", is_success=True, params={"bangumi": "115908"}
             ),
             StepRecord(
-                tool="search_bangumi", success=True, params={"bangumi": "115908"}
+                tool="search_bangumi", is_success=True, params={"bangumi": "115908"}
             ),
             *steps,
         ]

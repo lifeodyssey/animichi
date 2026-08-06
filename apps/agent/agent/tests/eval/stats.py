@@ -174,24 +174,24 @@ def _validate_proportion(events: int, total: int, confidence: float) -> None:
 
 def _lower_bound(events: int, total: int, alpha: float) -> float:
     return _bisect_probability(
-        partial(_binomial_tail, events, total), alpha, increasing=True
+        partial(_binomial_tail, events, total), alpha, is_increasing=True
     )
 
 
 def _upper_bound(events: int, total: int, alpha: float) -> float:
     return _bisect_probability(
-        partial(_binomial_cdf, events, total), alpha, increasing=False
+        partial(_binomial_cdf, events, total), alpha, is_increasing=False
     )
 
 
 def _bisect_probability(
-    probability: Callable[[float], float], target: float, *, increasing: bool
+    probability: Callable[[float], float], target: float, *, is_increasing: bool
 ) -> float:
     lower, upper = 0.0, 1.0
     for _ in range(60):
         midpoint = (lower + upper) / 2.0
         lower, upper = _bisect_step(
-            lower, upper, midpoint, probability(midpoint), target, increasing
+            lower, upper, midpoint, probability(midpoint), target, is_increasing
         )
     return (lower + upper) / 2.0
 
@@ -202,9 +202,9 @@ def _bisect_step(
     midpoint: float,
     value: float,
     target: float,
-    increasing: bool,
+    is_increasing: bool,
 ) -> tuple[float, float]:
-    if (value < target) == increasing:
+    if (value < target) == is_increasing:
         return midpoint, upper
     return lower, midpoint
 

@@ -13,7 +13,7 @@ import agent.agents.animichi_runner as runner
 from agent.agents.agent_result import ProducedRoute, ProducedSearch, StepRecord
 from agent.agents.animichi_agent import RuntimeOutput
 from agent.agents.runtime_deps import RuntimeDeps
-from agent.agents.runtime_models import PartialResponseModel
+from agent.agents.runtime_models import PartialResponseModel, SearchResponseModel
 from agent.agents.session_state import (
     PointState,
     ResultRef,
@@ -41,7 +41,7 @@ def _seed_current_search(deps: RuntimeDeps) -> None:
     deps.steps.append(
         StepRecord(
             tool="search_bangumi",
-            success=True,
+            is_success=True,
             params={"bangumi_id": "1"},
             provenance=ProducedSearch(outcome="ok", result_ref=ref),
         )
@@ -91,6 +91,21 @@ def test_partial_model_maps_to_stable_stage_and_ui() -> None:
     output = PartialResponseModel(message="Partial results are shown.")
     assert runner.runtime_stage(output, []) == "partial"
     assert _UI_MAP["partial"] == "GeneralAnswer"
+
+
+@pytest.mark.parametrize(
+    "step",
+    [
+        StepRecord(tool="search_bangumi", is_success=False),
+        StepRecord(tool="plan_route", is_success=True),
+    ],
+)
+def test_runtime_stage_search_requires_successful_matching_tool_step(
+    step: StepRecord,
+) -> None:
+    output = SearchResponseModel(message="Search complete.")
+    with pytest.raises(ValueError, match="No successful step"):
+        runner.runtime_stage(output, [step])
 
 
 async def test_usage_limit_returns_partial_with_current_turn_provenance(

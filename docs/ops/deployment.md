@@ -299,8 +299,10 @@ only start when `github.event_name == 'push'` and `github.ref == 'refs/heads/mai
 
 On a push to `main`, the current promotion chain is:
 
-1. The seven stable required lanes run first: `Web CI`, `Backend CI`, `Agent CI`, `Infra & DB CI`,
-   `Cross-stack E2E`, `Repository Quality`, and `Codecov Patch`. Their component jobs remain
+1. The six stable required lanes run first: `Backend CI`, `Agent CI`, `Infra & DB CI`,
+   `Cross-stack E2E`, `Repository Quality`, and `Codecov Patch` (the `apps/web` suite lives in its
+   own `pipeline-web.yml` workflow — its `Web / lint`, `Web / test`, and `Web / build` contexts join
+   the required set via the same ruleset flip that retires `Web CI`). Their component jobs remain
    affected-only on pull requests, while each stable lane is always created and treats an
    intentionally skipped component as green. A failed or cancelled component fails its lane and
    blocks promotion. The `agnix` check remains warn-only inside `Repository Quality`; its warning
@@ -309,7 +311,10 @@ On a push to `main`, the current promotion chain is:
    calculate changed-line coverage locally. The GitHub ruleset must require the external Codecov
    `codecov/patch` status as the real 95% changed-line verdict as well as this stable context.
    Coverage upload jobs use GitHub OIDC and fail closed when Codecov cannot authenticate or publish;
-   they do not silently accept a tokenless upload failure.
+   they do not silently accept a tokenless upload failure. Accepted tradeoff:
+   `deploy-web-staging` no longer waits on the web typecheck/lint/vitest lane, because GitHub cannot
+   express `needs:` across workflows — protection comes from the required merge contexts instead,
+   plus the future merge queue.
 2. `deploy-staging` calls `reusable-deploy-component.yml` with `component: catalog`,
    `environment: staging`, and `pulumi_stack: staging`.
 3. `reusable-deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the

@@ -103,14 +103,14 @@ _KEPT_METRIC_NAMES = [
 ]
 
 
-def metric_names(*, has_nonempty_cases: bool, l3_on: bool) -> list[str]:
+def metric_names(*, has_nonempty_cases: bool, l3_enabled: bool) -> list[str]:
     kept = [
         name
         for name in _KEPT_METRIC_NAMES
         if name != "nonempty_results" or has_nonempty_cases
     ]
     names = [*_OFFICIAL_METRIC_NAMES, *kept]
-    if l3_on:
+    if l3_enabled:
         names += ["task_completion", "hallucination_check"]
     return names
 
@@ -241,7 +241,7 @@ METRIC_NAMES = metric_names(
     has_nonempty_cases=any(
         case.metadata is not None and case.metadata.expect_nonempty for case in CASES
     ),
-    l3_on=EVAL_L3,
+    l3_enabled=EVAL_L3,
 )
 
 

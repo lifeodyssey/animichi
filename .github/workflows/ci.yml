@@ -51,7 +51,6 @@ jobs:
       maintenance: ${{ steps.f.outputs.maintenance }}
       agent: ${{ steps.f.outputs.agent }}
       agent_behavior: ${{ steps.f.outputs.agent_behavior }}
-      web: ${{ steps.f.outputs.web }}
       contract: ${{ steps.f.outputs.contract }}
       worker: ${{ steps.f.outputs.worker }}
       infra: ${{ steps.f.outputs.infra }}
@@ -111,12 +110,10 @@ jobs:
             # while this filter excluded tests/eval/**, so the smoke job SKIPPED
             # on the very PR that changed it — a gate that cannot test itself.
             agent_behavior: ['apps/agent/agent/agents/**', 'apps/agent/agent/config/model_aliases.py', 'apps/agent/agent/config/settings.py', 'apps/agent/agent/tests/eval/**']
-            # apps/web/tests/unit/chat/turnstile-constants-guard.test.ts reads
-            # workers/edge/turnstile.ts + packages/contract/src/constants.ts to assert
-            # the edge worker and this app still share the Turnstile header/TTL constants
-            # (issue #647); without these two entries a regression in either file
-            # would land while ci-web skips.
-            web: ['apps/web/**', 'workers/edge/turnstile.ts', 'packages/contract/**']
+            # No `web` filter: the apps/web suite moved out of this workflow into
+            # pipeline-web.yml (CI-1 union-method step 1, commit 688bfacc), whose
+            # pathless pull_request trigger runs it on every PR and whose push
+            # paths carry the old filter's read closure (turnstile.ts et al).
             worker: ['workers/edge/**']
             infra: ['infra/**']
             migrations: ['supabase/migrations/**', 'db/**', 'docs/ops/migrations.md', 'docs/ops/deployment.md', 'README*', 'Makefile', 'workers/edge/migrationBoundary.test.ts', '.github/workflows/ci.yml', '.github/workflows/deploy.yml']
@@ -193,15 +190,6 @@ jobs:
         run: |
           git add -A packages/contract/openapi.json packages/contract/users-openapi.json
           git diff --cached --exit-code -- packages/contract/openapi.json packages/contract/users-openapi.json
-
-  ci-web:
-    name: Web component CI
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.web == 'true' }}
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/reusable-webapp-ci.yml
 
   ci-worker:
     timeout-minutes: 20
@@ -313,6 +301,12 @@ jobs:
   #    agnix, whose 63% false-positive rate gated nothing.
   # 2. Root allowlist check (S0-v2 Track A.3): top-level tracked entries are
   #    locked to the explicit allowlist in check-root-allowlist.sh.
+  # 3. Actions pinning check (S0-v2 B3, supply chain): every `uses:` must be
+  #    pinned to a full 40-char SHA; local `./` action/workflow paths are
+  #    allowed and `docker://` images must be digest-pinned (documented
+  #    exception in .github/scripts/check-actions-pinned.sh). The companion
+  #    sha_pinning_required toggle + repo-level CF token deletion are
+  #    operator actions, documented in that script's header.
 
   agnix:
     timeout-minutes: 5
@@ -330,6 +324,14 @@ jobs:
         run: bash .github/scripts/check-root-allowlist.test.sh
       - name: Root allowlist check
         run: bash .github/scripts/check-root-allowlist.sh
+      - name: E2E promotion guard self-tests
+        run: bash .github/scripts/check-e2e-promotion.test.sh
+      - name: E2E promotion guard
+        run: bash .github/scripts/check-e2e-promotion.sh
+      - name: Actions pinning check self-tests
+        run: bash .github/scripts/check-actions-pinned.test.sh
+      - name: Actions pinning check
+        run: bash .github/scripts/check-actions-pinned.sh
 
   # ── DB migrations (Atlas validation + optional Neon dry-run) ──
 
@@ -553,22 +555,6 @@ jobs:
   # workflow run and accepts an intentionally skipped component as green.
   # A failed or cancelled component still fails its lane and blocks promotion.
 
-  web-ci-gate:
-    timeout-minutes: 5
-    name: Web CI
-    needs: [changes, ci-web]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Verify Web component result
-        env:
-          STATUSES: ${{ needs.ci-web.result }}
-          CHANGES_STATUS: ${{ needs.changes.result }}
-        run: bash .github/scripts/assert-ci-needs.sh "Web CI" "$CHANGES_STATUS $STATUSES"
-
   backend-ci-gate:
     timeout-minutes: 5
     name: Backend CI
@@ -677,7 +663,7 @@ jobs:
   codecov-patch-gate:
     timeout-minutes: 5
     name: Codecov Patch
-    needs: [changes, ci-agent, ci-catalog, ci-users, ci-maintenance, ci-web, ci-worker]
+    needs: [changes, ci-agent, ci-catalog, ci-users, ci-maintenance, ci-worker]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
@@ -696,7 +682,6 @@ jobs:
             ${{ needs.ci-catalog.result }}
             ${{ needs.ci-users.result }}
             ${{ needs.ci-maintenance.result }}
-            ${{ needs.ci-web.result }}
             ${{ needs.ci-worker.result }}
         run: bash .github/scripts/assert-ci-needs.sh "Codecov Patch" "$STATUSES"
       - name: Verify patch coverage policy
@@ -710,7 +695,7 @@ jobs:
   # push main → staging
   deploy-staging:
     name: Deploy staging
-    needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
+    needs: [agent-ci-gate, backend-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
@@ -738,7 +723,7 @@ jobs:
 
   deploy-web-staging:
     name: Deploy web staging
-    needs: [agent-ci-gate, backend-ci-gate, web-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
+    needs: [agent-ci-gate, backend-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()

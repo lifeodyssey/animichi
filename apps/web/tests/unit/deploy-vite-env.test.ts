@@ -36,7 +36,12 @@ const preflightedNames = new Set(
 // The four omitted names (VITE_SITE_ORIGIN, VITE_CATALOG_URL, VITE_USERS_URL,
 // VITE_AGENT_URL) fall back to the current origin, which is correct for a
 // same-origin deploy — empty there is a real configuration, not a hole.
-const requiredViteNames = ["VITE_NEON_AUTH_BASE_URL", "VITE_TURNSTILE_SITE_KEY"];
+//
+// VITE_SHOWCASE_MODE is required because showcase.ts (features/config) throws
+// at module init on any value other than exactly "true"/"false" — an unset or
+// malformed value fails the whole SSR bundle, and the preflight additionally
+// validates the allowed values, not just presence.
+const requiredViteNames = ["VITE_NEON_AUTH_BASE_URL", "VITE_SHOWCASE_MODE", "VITE_TURNSTILE_SITE_KEY"];
 
 describe("deploy workflow Vite build environment", () => {
   it("injects every VITE_* read by apps/web/src", () => {

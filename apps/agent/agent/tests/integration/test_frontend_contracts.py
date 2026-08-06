@@ -89,21 +89,21 @@ async def _search_and_plan() -> tuple[list[dict[str, object]], dict[str, object]
 def _parse_sse(raw: str) -> list[dict[str, object]]:
     """Parse raw SSE text into [{event, data}, ...]."""
     events: list[dict[str, object]] = []
-    cur_event: str | None = None
+    current_event: str | None = None
     data_buf: list[str] = []
     for line in raw.split("\n"):
         if line.startswith("event: "):
-            cur_event = line[7:]
+            current_event = line[7:]
         elif line.startswith("data: "):
             data_buf.append(line[6:])
-        elif line == "" and cur_event is not None:
+        elif line == "" and current_event is not None:
             raw_data = "\n".join(data_buf)
             try:
                 parsed = json.loads(raw_data)
             except json.JSONDecodeError:
                 parsed = raw_data
-            events.append({"event": cur_event, "data": parsed})
-            cur_event = None
+            events.append({"event": current_event, "data": parsed})
+            current_event = None
             data_buf = []
     return events
 

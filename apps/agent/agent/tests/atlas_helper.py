@@ -130,13 +130,13 @@ def _fetch_atlas_artifact(url: str) -> bytes:
 
 
 def _write_verified_binary(
-    tmp_destination: Path, destination: Path, payload: bytes, system: str, machine: str
+    temp_destination: Path, destination: Path, payload: bytes, system: str, machine: str
 ) -> None:
-    tmp_destination.write_bytes(payload)
-    verify_atlas_checksum(tmp_destination, system, machine)
+    temp_destination.write_bytes(payload)
+    verify_atlas_checksum(temp_destination, system, machine)
     executable_bits = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
-    tmp_destination.chmod(tmp_destination.stat().st_mode | executable_bits)
-    tmp_destination.replace(destination)
+    temp_destination.chmod(temp_destination.stat().st_mode | executable_bits)
+    temp_destination.replace(destination)
 
 
 def _download_pinned_atlas(system: str, machine: str) -> Path:
@@ -160,15 +160,15 @@ def _download_pinned_atlas(system: str, machine: str) -> Path:
         )
     artifact_name, _ = artifact
     destination = _cached_atlas_binary(system, machine)
-    tmp_destination = destination.with_suffix(".download")
+    temp_destination = destination.with_suffix(".download")
     url = f"{ATLAS_RELEASE_BASE_URL}/{artifact_name}"
     try:
         destination.parent.mkdir(parents=True, exist_ok=True)
         payload = _fetch_atlas_artifact(url)
-        _write_verified_binary(tmp_destination, destination, payload, system, machine)
+        _write_verified_binary(temp_destination, destination, payload, system, machine)
     except (httpx.HTTPError, OSError, RuntimeError) as error:
         with contextlib.suppress(OSError):
-            tmp_destination.unlink(missing_ok=True)
+            temp_destination.unlink(missing_ok=True)
         raise RuntimeError(
             "integration test arm did NOT run: could not prepare the pinned "
             f"Atlas {PINNED_ATLAS_VERSION} binary ({error}); check network access, "

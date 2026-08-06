@@ -46,7 +46,7 @@ async def test_a_brand_new_identity_starts_at_full_quota_not_zero() -> None:
     verdict = await anonymous_quota_verdict(
         _AnonQuotaRepoDouble(), anon_id=ANON_ID, quota=3, today=TODAY
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
     assert verdict.count == 1
 
 
@@ -57,7 +57,7 @@ async def test_the_nth_message_within_quota_passes() -> None:
         verdict = await anonymous_quota_verdict(
             db, anon_id=ANON_ID, quota=3, today=TODAY
         )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
     assert verdict.count == 3
 
 
@@ -67,7 +67,7 @@ async def test_the_n_plus_first_message_trips_the_quota() -> None:
     for _ in range(3):
         await anonymous_quota_verdict(db, anon_id=ANON_ID, quota=3, today=TODAY)
     verdict = await anonymous_quota_verdict(db, anon_id=ANON_ID, quota=3, today=TODAY)
-    assert verdict.exhausted is True
+    assert verdict.is_exhausted is True
     assert verdict.count == 4
 
 
@@ -79,7 +79,7 @@ async def test_a_different_identity_has_its_own_independent_count() -> None:
     other = await anonymous_quota_verdict(
         db, anon_id="anon_fedcba9876543210fedcba9876543210", quota=3, today=TODAY
     )
-    assert other.exhausted is False
+    assert other.is_exhausted is False
     assert other.count == 1
 
 
@@ -92,7 +92,7 @@ async def test_crossing_a_utc_day_boundary_resets_the_count() -> None:
     verdict = await anonymous_quota_verdict(
         db, anon_id=ANON_ID, quota=3, today=TOMORROW
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
     assert verdict.count == 1
 
 
@@ -101,7 +101,7 @@ async def test_a_none_quota_disables_the_check_and_never_touches_the_repo() -> N
     verdict = await anonymous_quota_verdict(
         repo, anon_id=ANON_ID, quota=None, today=TODAY
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
     assert repo.calls == []
 
 
@@ -110,7 +110,7 @@ async def test_a_zero_quota_also_disables_the_check_same_as_none() -> None:
     everything" (review follow-up: the two knobs must agree on what 0 means)."""
     repo = _AnonQuotaRepoDouble()
     verdict = await anonymous_quota_verdict(repo, anon_id=ANON_ID, quota=0, today=TODAY)
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
     assert repo.calls == []
 
 
@@ -121,7 +121,7 @@ async def test_a_malformed_anon_id_is_neither_counted_nor_rejected() -> None:
     verdict = await anonymous_quota_verdict(
         repo, anon_id="anon_not-hex", quota=3, today=TODAY
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
     assert repo.calls == []
 
 
@@ -133,7 +133,7 @@ async def test_an_anon_id_missing_the_prefix_is_also_rejected_as_malformed() -> 
         quota=3,
         today=TODAY,
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
     assert repo.calls == []
 
 
@@ -149,7 +149,7 @@ async def test_a_valid_prefix_with_trailing_junk_is_still_malformed() -> None:
     verdict = await anonymous_quota_verdict(
         repo, anon_id=f"{valid_prefix}\n", quota=3, today=TODAY
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
     assert repo.calls == []
 
 
@@ -157,19 +157,19 @@ async def test_a_counter_read_failure_fails_open() -> None:
     verdict = await anonymous_quota_verdict(
         _FailingRepo(), anon_id=ANON_ID, quota=3, today=TODAY
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
 
 
 async def test_a_postgres_failure_fails_the_quota_check_open() -> None:
     verdict = await anonymous_quota_verdict(
         _PgFailingRepo(), anon_id=ANON_ID, quota=3, today=TODAY
     )
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
 
 
 async def test_quota_verdict_is_inert_without_an_anon_quota_repo() -> None:
     verdict = await anonymous_quota_verdict(None, anon_id=ANON_ID, quota=3, today=TODAY)
-    assert verdict.exhausted is False
+    assert verdict.is_exhausted is False
 
 
 def test_next_utc_midnight_is_the_start_of_the_following_utc_day() -> None:
