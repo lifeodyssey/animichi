@@ -21,11 +21,15 @@
 #                                      specific); it is NOT a general secret
 #                                      detector.
 #       looks_like_private_key       — PEM/private-key markers, unambiguous.
-#       looks_like_secret_material   — the UNIVERSAL rule: credential
-#                                      prefixes or long base64/hex blobs in
-#                                      ANY slot. Deliberately fail-closed;
-#                                      false positives are escaped through
-#                                      the explicit per-variable
+#       looks_like_secret_material   — the UNIVERSAL rule: known credential
+#                                      prefixes, exactly-35-character
+#                                      values (the Turnstile SECRET-key
+#                                      length, by the repo's length-only
+#                                      contract — regardless of character
+#                                      set), or long base64/hex blobs in ANY
+#                                      slot. Deliberately fail-closed; false
+#                                      positives are escaped through the
+#                                      explicit per-variable
 #                                      secret_shape_allowlist() table, never
 #                                      by silently loosening this predicate.
 #   - VITE_NEON_AUTH_BASE_URL and VITE_SHOWCASE_MODE keep their presence/value
@@ -138,8 +142,19 @@ looks_like_private_key() {
 
 # looks_like_secret_material(): the universal rule — 0 when the value could
 # be a credential in ANY VITE_* slot, regardless of which service it belongs
-# to. Either signal alone is enough:
+# to. Each signal alone is enough:
 #   • a known credential prefix (sk-/pk_/ghp_/AKIA/xoxb-/eyJ/…); or
+#   • exactly SECRET_KEY_LENGTH (35) characters — the repo's authoritative
+#     Turnstile contract (TurnstileGate.tsx) distinguishes site key from
+#     secret by LENGTH ALONE (24 vs 35), so a 35-character value is
+#     secret-shaped in any slot no matter what characters it contains. Values
+#     containing ':' or '.' are structurally exempt, exactly as the alphabet
+#     signal below exempts them: they have URL/hostname structure, and no
+#     known secret format is 35 characters with a ':' or '.' in it — a
+#     35-character URL must not silently block a deploy. (qodo #816: the
+#     old length signal required the restricted [A-Za-z0-9_-] alphabet, so a
+#     35-character value with any other character escaped the universal rule
+#     entirely.)
 #   • SECRET_MIN_LENGTH+ chars of only base64/base64url/hex characters —
 #     high-entropy material with no URL structure (any value containing ':'
 #     or '.' is NOT composed of that alphabet, so URLs and hostnames never
@@ -159,6 +174,10 @@ looks_like_secret_material() {
     sk-* | sk_* | pk_* | ghp_* | gho_* | ghu_* | AKIA* | xoxb-* | xoxp-* | AIza* | eyJ* | SG.*) return 0 ;;
   esac
   [ "${#value}" -ge "${SECRET_MIN_LENGTH}" ] || return 1
+  if [ "${#value}" -eq "${SECRET_KEY_LENGTH}" ]; then
+    [[ "${value}" =~ [:.] ]] && return 1
+    return 0
+  fi
   [[ "${value}" =~ ^[-A-Za-z0-9_+=/]+$ ]]
 }
 
@@ -194,7 +213,7 @@ check_secret_shape() {
     echo "::warning::${name} is ${length} characters and looks like secret material, but that length is explicitly allowlisted for this variable (secret_shape_allowlist in ${SCRIPT_NAME}). Re-verify the entry is still needed."
     return 0
   fi
-  echo "::error::${name} is ${length} characters of base64/hex-shaped material or carries a known credential prefix — it looks like a secret, and a VITE_* variable is inlined into the public client bundle by Vite at build time. Secrets belong in GitHub Secrets, never in a VITE_* slot. Refusing to build (fail-closed: add an explicit secret_shape_allowlist entry if this is a false positive)."
+  echo "::error::${name} is ${length} characters and looks like a secret (a ${SECRET_KEY_LENGTH}-character value is the Turnstile SECRET-key length by the repo's length-only contract; long base64/hex blobs and known credential prefixes are refused too). A VITE_* variable is inlined into the public client bundle by Vite at build time; secrets belong in GitHub Secrets, never in a VITE_* slot. Refusing to build (fail-closed: add an explicit secret_shape_allowlist entry if this is a false positive)."
   FAILED=1
 }
 

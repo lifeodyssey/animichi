@@ -340,9 +340,11 @@ jobs:
       # exactly 24 chars (35 = the SECRET, refused with a dedicated error; any
       # other length is fail-closed), every other VITE_* value is checked by
       # three predicates: the Turnstile-specific shape, PEM/private-key
-      # markers, and the universal looks_like_secret_material rule (credential
-      # prefixes + long base64/hex blobs, fail-closed — with an explicit
-      # per-variable secret_shape_allowlist in the script for known
+      # markers, and the universal looks_like_secret_material rule (known
+      # credential prefixes, exactly-35-character values — the Turnstile
+      # SECRET-key length by the repo's length-only contract, whatever the
+      # character set — and long base64/hex blobs; fail-closed, with an
+      # explicit per-variable secret_shape_allowlist in the script for known
       # false-positive shapes like the 36-char Cloudflare beacon UUID), and
       # VITE_NEON_AUTH_BASE_URL / VITE_SHOWCASE_MODE keep their presence/value
       # rules. Names only in the log, never values: these are not secrets

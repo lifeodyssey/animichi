@@ -4,14 +4,17 @@
 # shapes. Covers the four mandated states: valid 24-char site key passes,
 # 35-char SECRET fails (message must call out "SECRET"), empty fails, and any
 # other length fails closed — plus the universal secret-material rules
-# (Turnstile shape, credential prefixes, long base64/hex blobs, PEM markers),
-# the per-variable secret_shape_allowlist, and the kept presence/value rules.
-# Every predicate family has a positive (legit value not killed) and a
-# negative (secret-shaped value killed) case.
+# (Turnstile shape, credential prefixes, long base64/hex blobs, PEM markers,
+# and the exactly-35-character length-only signal that closes qodo #816's
+# hole: a 35-char value with a character outside every alphabet must still be
+# refused), the per-variable secret_shape_allowlist, and the kept
+# presence/value rules. Every predicate family has a positive (legit value
+# not killed) and a negative (secret-shaped value killed) case.
 #
 # Mutation runs: set PREFLIGHT_UNDER_TEST to a mutated copy of the script to
 # verify a loosened detector goes red (e.g. drop '+' from the material
-# alphabet and the 35-char-with-'+' test must fail).
+# alphabet and the 35-char-with-'+' test must fail, or widen the length-only
+# signal to >35 and the 35-char-with-'!' test must fail).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,10 +27,23 @@ SECRET_35="$(printf 'b%.0s' {1..35})"          # 35 b's — the SECRET-key lengt
 OTHER_LENGTH="$(printf 'c%.0s' {1..23})"       # 23 c's — unknown shape
 AUTH_URL="https://auth.example.com"
 # 34 b's plus a standard-base64 '+' — 35 chars with a character outside
-# [A-Za-z0-9_-]. The pre-fix universal check only matched the restricted
-# alphabet and this value escaped it entirely; the generic material rule
-# must catch it.
+# [A-Za-z0-9_-]. Before the length-only signal existed, this value escaped
+# the Turnstile-specific predicate; the base64 alphabet signal catches it.
 SECRET_35_BASE64="$(printf 'b%.0s' {1..34})+"
+# 34 b's plus a '!' — 35 chars with a character outside BOTH the Turnstile
+# alphabet and the base64-ish alphabet. qodo #816: pre-fix, this escaped
+# every universal check in a non-site-key slot. The exactly-35 length-only
+# signal (the repo's authoritative contract: site key 24, secret 35) must
+# refuse it regardless of character set.
+SECRET_35_WITH_BANG="$(printf 'b%.0s' {1..34})!"
+# 33 b's plus a '!' — 34 chars: one short of the SECRET-key length and not
+# material-alphabet-composed. Must PASS, proving the length signal is
+# exactly 35, not a sweep.
+NOT_SECRET_34_WITH_BANG="$(printf 'b%.0s' {1..33})!"
+# Exactly 35 chars WITH URL structure ('https://' + ':' + '.'): the length
+# signal must exempt URL/hostname-shaped values, or a 35-character URL would
+# silently block a deploy — no known secret format is 35 chars with a ':'.
+LONG_URL_35="https://staging.example-service.com"
 HEX_32="$(printf 'f%.0s' {1..32})"             # 32 f's — pure hex key material
 # 52 chars with URL structure (':' and '.'): long, but never credential
 # material — the length-only half of the material rule must not fire.
@@ -168,6 +184,19 @@ test_secret_material_with_base64_alphabet_fails() {
   echo "PASS: 35-char value with a non-[A-Za-z0-9_-] character fails the universal rule"
 }
 
+# ── Red 7b: qodo #816 hole — 35 chars, character outside EVERY alphabet ────
+test_35_char_with_foreign_character_fails() {
+  local out="${TMP_DIR}/red-qodo-hole.out" rc
+  rc="$(run_preflight "${out}" \
+    VITE_TURNSTILE_SITE_KEY="${SITE_KEY_OK}" \
+    VITE_NEON_AUTH_BASE_URL="${AUTH_URL}" \
+    VITE_SHOWCASE_MODE="false" \
+    VITE_SITE_ORIGIN="${SECRET_35_WITH_BANG}")"
+  [ "${rc}" -ne 0 ] || fail_test "35-char value containing '!' must fail the length-only signal, got exit 0"
+  grep -q "looks like a secret" "${out}" || fail_test "material rule must fire its message: $(cat "${out}")"
+  echo "PASS: 35-char value with a character outside every alphabet fails the universal rule"
+}
+
 # ── Red 8: long pure-hex blob fails the material rule ──────────────────────
 test_hex_material_fails() {
   local out="${TMP_DIR}/red-hex.out" rc
@@ -258,6 +287,32 @@ test_allowlisted_beacon_token_passes() {
   echo "PASS: allowlisted UUID-shaped beacon token passes with an explicit warning"
 }
 
+# ── Green 4b: 34-char value with a foreign character passes (exact-35) ─────
+test_34_char_with_foreign_character_passes() {
+  local out="${TMP_DIR}/green-short-foreign.out" rc
+  rc="$(run_preflight "${out}" \
+    VITE_TURNSTILE_SITE_KEY="${SITE_KEY_OK}" \
+    VITE_NEON_AUTH_BASE_URL="${AUTH_URL}" \
+    VITE_SHOWCASE_MODE="false" \
+    VITE_SITE_ORIGIN="${NOT_SECRET_34_WITH_BANG}")"
+  [ "${rc}" -eq 0 ] || fail_test "34-char value containing '!' must pass, got exit ${rc}: $(cat "${out}")"
+  grep -q "::error::" "${out}" && fail_test "no ::error:: expected: $(cat "${out}")"
+  echo "PASS: 34-char value with a foreign character passes (length signal is exactly 35)"
+}
+
+# ── Green 4c: exactly-35 URL-shaped value passes (URL structure exempt) ────
+test_35_char_url_passes() {
+  local out="${TMP_DIR}/green-url-35.out" rc
+  rc="$(run_preflight "${out}" \
+    VITE_TURNSTILE_SITE_KEY="${SITE_KEY_OK}" \
+    VITE_NEON_AUTH_BASE_URL="${AUTH_URL}" \
+    VITE_SHOWCASE_MODE="false" \
+    VITE_SITE_ORIGIN="${LONG_URL_35}")"
+  [ "${rc}" -eq 0 ] || fail_test "35-char URL must pass (URL structure is exempt from the length signal), got exit ${rc}: $(cat "${out}")"
+  grep -q "::error::" "${out}" && fail_test "no ::error:: expected: $(cat "${out}")"
+  echo "PASS: 35-char URL-shaped value passes (URL structure is exempt)"
+}
+
 # ── Kept value rule: showcase mode must be exactly true/false ──────────────
 test_showcase_mode_validation() {
   local out_ok="${TMP_DIR}/green-showcase.out" out_bad="${TMP_DIR}/red-showcase.out" rc
@@ -292,6 +347,7 @@ test_optional_var_rejects_secret_shape
 test_private_key_markers_fail
 test_auth_url_required
 test_secret_material_with_base64_alphabet_fails
+test_35_char_with_foreign_character_fails
 test_hex_material_fails
 test_credential_prefix_fails
 test_github_pat_shape_fails
@@ -299,6 +355,8 @@ test_uuid_shape_rejected_outside_allowlist
 test_long_url_passes_secret_material_rule
 test_url_with_embedded_prefix_substring_passes
 test_allowlisted_beacon_token_passes
+test_34_char_with_foreign_character_passes
+test_35_char_url_passes
 test_showcase_mode_validation
 test_no_args_fails
 
