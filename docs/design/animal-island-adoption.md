@@ -21,9 +21,11 @@
    上一轮「pnpm store 无 tarball 装不上」的结论**是误判**：store 里其实有全部所需
    包（含 `@radix-ui/react-separator@1.1.11`），shim 从未有必要存在。
 4. **门禁全部在未篡改环境重跑通过**（§7）。
-5. 本卡的代码净变更 = **零**（全部退回）；产物 = 本表 + 层叠结论 + 增量处置 + shim 取证。
+5. 本卡的代码净变更 = **零**：`apps/web` 工作树零 diff（4 处替换全部退回，见 §4 处置表）；
+   style link 接入从未进入任何 commit，当前树亦无（§1.5 有 `__root.tsx` 实读取证）；唯一
+   产物 = 本文档（本表 + 层叠结论 + 增量处置 + shim 取证）。
 
-## 1. 层叠验证结论（静态分析；接入点方案本身有效）
+## 1. 层叠验证结论（静态分析；接入点 = 未接入的假设推演，见 §1.5）
 
 **层叠方向 = 仓库样式恒胜，库样式只补齐仓库未声明的属性。** 依据：
 
@@ -37,14 +39,21 @@
    theme < base < components < utilities 两表一致）。→ 仓内类声明了某属性，库值即被覆盖；
    **仓内类没声明的属性，库值会泄漏进来**（这是上一轮漏掉的风险类，§2 逐属性列出）。
 4. token 名分离：仓内 `--color-*`（teal 品牌系）/ `--app-font-*`，库 `--animal-*`（奶油系）。
-5. 接入点：`__root.tsx` 的 `?url` style link 在 `globalsUrl` 之后、早于组件渲染，顺序确定，
-   是对 AI_USAGE §0「app 入口一次导入、先于组件使用」的同效实现——方案本身验证无误。
-6. **新增发现：库 @font-face 与仓内 fonts.css 同族同名（Nunito / Noto Sans SC / Zen Maru
-   Gothic），style link 在后 → 浏览器按文档序用库的 woff2 覆盖仓内同族字体文件**；且
-   仓内 `--app-font-body` 含 `"Zen Maru Gothic"`、库栈不含 → 日文正文字形切换。上一轮把
-   库字体文件 stub 化导致浏览器跳过坏字体，**恰好掩盖了这个冲突**。结论：在没有任何库
-   组件被采纳之前，style link 无收益且有字体接管风险 → **随组件替换一并撤回**；采纳卡
-   的前置 = 先解 @font-face 冲突（子集化或错开 family 名），再上 link。
+5. 接入点（**未接入的假设推演**）：`__root.tsx` 当前只有一条 stylesheet link——
+   `links: [{ rel: "stylesheet", href: globalsUrl }, ...SITE_ICON_LINKS]`（`__root.tsx:28`；
+   文件里唯一的 CSS import 是 `:17` 的 `globals.css?url`），**并没有** animal-island 的
+   `?url` style link。若未来采纳卡接入，正确位置应在 `globalsUrl` 之后、早于组件渲染——
+   该顺序在 AI_USAGE §0「app 入口一次导入、先于组件使用」要求下成立，但**顺序结论仅为
+   推演，未经任何真实渲染验证**（接入从未发生）。§1.6 的 @font-face 接管风险即基于同一
+   「若接入则…」推演。
+6. **新增发现（若接入才生效的推演）：库 @font-face 与仓内 fonts.css 同族同名（Nunito /
+   Noto Sans SC / Zen Maru Gothic），style link 若置于 `globalsUrl` 之后 → 浏览器按文档序
+   用库的 woff2 覆盖仓内同族字体文件**；且仓内 `--app-font-body` 含 `"Zen Maru Gothic"`
+   （`globals.css:47`）、库栈不含 → 日文正文字形切换。上一轮把库字体文件 stub 化导致
+   浏览器跳过坏字体，**恰好掩盖了这个冲突**。结论：在没有任何库组件被采纳之前，style
+   link 无收益且有字体接管风险 → **不接入**（当前树与 git 历史均无该 link，没有「撤回」
+   动作可言，只有「不实施」）；采纳卡的前置 = 先解 @font-face 冲突（子集化或错开 family
+   名），再上 link。
 
 ## 2. 残留风险清单（逐属性：仓内声明了 → 不泄漏 / 未声明 → 库值泄漏）
 
@@ -130,7 +139,7 @@
 | h2 字重 400→500（#3） | `.animal-card` | **退回** | 可见文本变化 |
 | `<section>` → `<div>`（#3） | Card 只渲染 div | **退回** | 终审阻断三：语义不得静默丢失；退回后 landmark + aria-labelledby 完整（P4 采纳前置：保留 `<section>` 包层或移除失效 aria-labelledby） |
 | cursor:pointer、transition（#4 frame） | `.animal-card` | **退回** | frame 含可交互 slider；增量小仍属视觉变更 → 提议 P3 |
-| @font-face 字体接管（style link 一旦存在即生效） | 库 CSS | **退回（link 一并撤回）** | §1.6；采纳前置：先解字体冲突 |
+| @font-face 字体接管（style link 一旦存在即生效） | 库 CSS | **不接入**（§1.5：当前 `__root.tsx` 无该 link，接入从未发生，本行为「若接入则…」的推演处置） | §1.6；采纳前置：先解字体冲突 |
 
 ## 5. shim 清除取证（终审阻断一）
 
@@ -146,7 +155,9 @@
 
 上一轮 doc §0.1 声称「pnpm store 无 tarball 装不上 @radix-ui/react-separator」。**实测为误判**：
 
-- `pnpm store path` = `~/Library/pnpm/store/v10`，索引中**存在**
+- （**本机 macOS 取证**，2026-08-05）`pnpm store path` = `~/Library/pnpm/store/v10`（store
+  路径随 OS / CI 配置而变，CI 跑在 ubuntu-latest 上不适用该路径，仅作本机取证记录），
+  索引中**存在**
   `@radix-ui/react-separator@1.1.11`（peer 范围 `^1.1.10` 满足）以及全部其余可选 peer
   （accordion/checkbox/dialog/label/radio-group/select/switch/tabs/tooltip、gsap 3.15.0），
   版本与 lockfile 所钉一一对应。
@@ -156,13 +167,16 @@
 - 因果方向：shim 的注释说「CI 装真包所以不受影响」——但干净安装恢复的正是 shim 想
   绕开的三样东西，而**手写 shim 不会被任何 `pnpm install` 重建**。此结论自相矛盾。
 
-### 5.3 干净安装取证（命令与输出）
+### 5.3 干净安装取证（命令与输出；**本机 macOS 取证，2026-08-05**）
+
+> 时长 / pnpm 版本 / reuse 计数均为本机单次输出，不可复现为通用结论；可移植结论只有一条：
+> 本机 store 命中了 lockfile 全部包，`--offline` 干净安装成功且 0 downloads。
 
 ```bash
 rm -rf node_modules
 pnpm install --frozen-lockfile --offline
 # Progress: resolved 0, reused 1058, downloaded 0, added 1096, done
-# Done in 13.8s using pnpm v10.33.2      ← 全程 store 命中，0 downloads
+# Done in 13.8s using pnpm v10.33.2      ← 全程 store 命中，0 downloads（本机 macOS 取证）
 ```
 
 装后核验：① `node_modules/@radix-ui/react-separator` 不存在（无消费者，正确状态）；
@@ -194,15 +208,17 @@ pnpm install --frozen-lockfile --offline
 - 上一轮新增的 `server.deps.inline`（vitest.config.ts）已随退回一并还原（无库 import
   时不需要），不属于孤儿 CSS 但属于**孤儿配置**，同列此处备查。
 
-## 7. 门禁（未篡改环境重跑，`rm -rf node_modules && pnpm install --frozen-lockfile --offline` 之后）
+## 7. 门禁（未篡改环境：`rm -rf node_modules && pnpm install --frozen-lockfile --offline`
+   之后首跑于 2026-08-05；下表数值为 **2026-08-06 本机 macOS 复跑**，node_modules
+   纯净性核验见 §5.3 ①–⑤，`pnpm-lock.yaml` 零 diff）
 
 | 门禁 | 命令 | 结果 |
 |---|---|---|
 | 单元测试 | `cd apps/web && pnpm test` | ✅ 218 文件 / **1637 测试全绿**（与退回前同数，无测试损失） |
-| 覆盖率 | 同上 | ✅ Statements 98.43 / Branches 95.37 / Functions 98.58 / Lines 99.44（config 阈值 98/95/98/99 与卡面 95/94/95/95 地板均过） |
+| 覆盖率 | 同上 | ✅ Statements 98.46 / Branches 95.43 / Functions 98.58 / Lines 99.44（2026-08-06 复跑；config 阈值 98/95/98/99 与卡面 95/94/95/95 地板均过；较 2026-08-05 首跑 Statements +0.03 / Branches +0.06，为计数波动） |
 | 类型检查 | `pnpm run typecheck` | ✅ exit 0 |
 | lint | `pnpm run lint:oxlint` | ✅ exit 0（--deny-warnings） |
-| 构建 | `VITE_SHOWCASE_MODE=false pnpm run build` | ✅ exit 0（client + SSR + Nitro Cloudflare 产物，2.44 MB） |
+| 构建 | `VITE_SHOWCASE_MODE=false pnpm run build` | ✅ exit 0（client + SSR + Nitro Cloudflare 产物，2.44 MB；2026-08-06 本机复跑）。**证明力限定**：该绿灯只证明「源码零 import 该库」的当前树可打包——构建从未包含库 barrel，故对库的可打包性**零证明力**（§5.4 曾记录 barrel 顶层静态导入在 SSR/rollup 求值失败）。若 §8 提议日后被采纳，必须先重跑本构建重新取证。 |
 
 ## 8. 提议（交 owner 定夺；一律未实施）
 
