@@ -6,6 +6,7 @@ settings:
 
 overrides:
   brace-expansion: '>=5.0.9'
+  js-yaml: '>=4.3.1'
 
 importers:
 
@@ -17,6 +18,9 @@ importers:
       '@pulumi/pulumi':
         specifier: ^3.0.0
         version: 3.255.0(typescript@5.9.3)
+      js-yaml:
+        specifier: '>=4.3.1'
+        version: 5.2.3
     devDependencies:
       '@types/node':
         specifier: ^26.1.1
@@ -511,8 +515,8 @@ packages:
     resolution: {integrity: sha512-FFUtZMpoZ8RqHS3XeXEmHWLA4thH+ZxCv2lOiPIn1Xc7CxrqhWzNSDzD+/chS/zbYezmiwWLdQC09JdQKmthOw==}
     engines: {node: '>=20'}
 
-  js-yaml@4.3.0:
-    resolution: {integrity: sha512-1td788aAnnZ5qs7V2QIRl1owjtYpbKt749Y3xauqQgwIIGF/xXWz1wMTEBx5O3LK3lXLVuqXPdPxj2BoFHaW9Q==}
+  js-yaml@5.2.3:
+    resolution: {integrity: sha512-n+mUVyUX5bVv7G/G2zyIHOhdxfuU1dY2NOFzTQUWiMUbFss8b57NFlgCCaggU78wSw5KVS9cllzeLyzyR+n5nw==}
     hasBin: true
 
   json-parse-even-better-errors@5.0.0:
@@ -1205,7 +1209,7 @@ snapshots:
       execa: 5.1.1
       google-protobuf: 3.21.4
       ini: 2.0.0
-      js-yaml: 4.3.0
+      js-yaml: 5.2.3
       minimist: 1.2.8
       normalize-package-data: 6.0.2
       require-from-string: 2.0.2
@@ -1436,7 +1440,7 @@ snapshots:
 
   isexe@4.0.0: {}
 
-  js-yaml@4.3.0:
+  js-yaml@5.2.3:
     dependencies:
       argparse: 2.0.1
 
