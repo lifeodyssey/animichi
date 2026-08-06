@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ANON_ID_PREFIX, anonymousEnabled, resolveAnonymous } from "./auth.ts";
+import { ANON_ID_PREFIX, anonymousEnabled, resolveAnonymous } from "./identity/auth.ts";
 
 const SECRET = "fixed-test-hmac-key-0000000000000000";
 const ANON_ENV = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET };

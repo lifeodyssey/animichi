@@ -1,5 +1,8 @@
-import { handleGuardRequest } from "./edge-guard.ts";
-import { memoryGuardStore, type GuardNamespace, type GuardStore } from "./guard-store.ts";
+// TODO(#841 path-delta): test double — stays at the worker root because the
+// root `test:worker` glob (`workers/edge/*.test.ts`) keeps tests flat; moves to
+// protect/ alongside its tests in the #853 package-ization.
+import { handleGuardRequest } from "./protect/edge-guard.ts";
+import { memoryGuardStore, type GuardNamespace, type GuardStore } from "./protect/guard-store.ts";
 
 export interface GuardCall {
   readonly url: string;

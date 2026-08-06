@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { LocationCluster } from "../src/lib/clustering";
+import type { LocationCluster } from "../src/domain/clustering/cluster";
 import {
   buildTimedItinerary,
   computeDwellMinutes,
   orderNearestNeighbor,
-} from "../src/lib/route";
+} from "../src/domain/itinerary/plan";
 
 // Fixture: three clusters on a meridian near 35.0N, 135.0E.
 // Adjacent gap a-b == b-c == 111.1949 m.

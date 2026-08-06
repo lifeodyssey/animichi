@@ -212,12 +212,12 @@ cmd_users_probe() {
 # 403 turnstile_required. The gate is armed in code (issue #447,
 # workers/edge/app.ts handleAnonymousV1 -> guardTurnstile) and fails CLOSED — if
 # TURNSTILE_SECRET itself is missing, guardTurnstile still returns 403
-# turnstile_required (workers/edge/turnstile.ts usableSecret/rejection), it does
+# turnstile_required (workers/edge/protect/turnstile.ts usableSecret/rejection), it does
 # NOT let the request through. So a 403 here does not require the Cloudflare
 # secret to be provisioned yet.
 #
 # The one precondition this DOES have is ANON_ID_SECRET (issue #492):
-# resolveAnonymous (workers/edge/auth.ts) returns null before guardTurnstile is
+# resolveAnonymous (workers/edge/identity/auth.ts) returns null before guardTurnstile is
 # ever reached when that secret is absent, and handleAnonymousV1 then falls
 # through to the ordinary 401 path. So a 401 here is a distinct, expected-
 # until-#492 failure mode ("anonymous identity isn't enabled yet"), not
@@ -236,7 +236,7 @@ cmd_anon_gate_staging() {
   if [ "${status}" = "401" ]; then
     fail "anonymous POST ${ROOT_URL}/v1/chat on staging expected 403 turnstile_required, got 401. The gate itself (workers/edge/app.ts handleAnonymousV1 -> guardTurnstile, issue #447) is wired and fails closed even without TURNSTILE_SECRET — a 401 instead means resolveAnonymous returned null before guardTurnstile ran, i.e. ANON_ID_SECRET is not yet injected into the staging Worker (issue #492 is the prerequisite for this check to pass). This is a real, expected failure until #492 lands — not evidence the Turnstile wiring is broken."
   fi
-  fail "anonymous POST ${ROOT_URL}/v1/chat on staging (ANON_ACCESS_ENABLED=true) expected 403 turnstile_required, got ${status}. Unlike a 401, this status means the request did NOT hit the expected gated path at all — if this is 200, anonymous chat was served with no Turnstile challenge, which is the exact security gap this check exists to catch. Investigate workers/edge/app.ts handleAnonymousV1 / workers/edge/turnstile.ts guardTurnstile directly; do not assume #492 (ANON_ID_SECRET) is the cause."
+  fail "anonymous POST ${ROOT_URL}/v1/chat on staging (ANON_ACCESS_ENABLED=true) expected 403 turnstile_required, got ${status}. Unlike a 401, this status means the request did NOT hit the expected gated path at all — if this is 200, anonymous chat was served with no Turnstile challenge, which is the exact security gap this check exists to catch. Investigate workers/edge/app.ts handleAnonymousV1 / workers/edge/protect/turnstile.ts guardTurnstile directly; do not assume #492 (ANON_ID_SECRET) is the cause."
 }
 
 cmd_anon_disabled_production() {

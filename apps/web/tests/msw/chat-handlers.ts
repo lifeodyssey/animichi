@@ -75,7 +75,7 @@ const TURNSTILE_REJECTION = {
   error: { code: "turnstile_required", message: "Turnstile verification required.", retryable: true },
 };
 
-/** The armed edge gate's retryable rejection (issue #447, `workers/edge/turnstile.ts`). */
+/** The armed edge gate's retryable rejection (issue #447, `workers/edge/protect/turnstile.ts`). */
 export function chatTurnstileRequiredHandler(spy?: (request: Request) => void): HttpHandler {
   return http.post(CHAT_URL, ({ request }) => {
     spy?.(request);

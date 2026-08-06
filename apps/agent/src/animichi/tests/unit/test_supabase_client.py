@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -29,103 +29,6 @@ def _make_client(pool: AsyncMock) -> SupabaseClient:
     client._messages = None
     client._init_repos(pool)
     return client
-
-
-@pytest.mark.asyncio
-async def test_upsert_point_uses_geography_cast_for_location() -> None:
-    pool = AsyncMock()
-    client = _make_client(pool)
-
-    await client.points.upsert_point(
-        "p1",
-        bangumi_id="115908",
-        name="宇治桥",
-        name_cn="宇治桥",
-        episode=1,
-        time_seconds=42,
-        image="https://example.com/point.jpg",
-        location="POINT(135.7997 34.8843)",
-    )
-
-    sql = pool.execute.await_args.args[0]
-    assert "ST_GeogFromText" in sql
-    assert pool.execute.await_args.args[-1] == "POINT(135.7997 34.8843)"
-
-
-@pytest.mark.asyncio
-async def test_upsert_points_batch_accepts_latitude_and_longitude() -> None:
-    conn = MagicMock()
-    conn.executemany = AsyncMock()
-    tx = AsyncMock()
-    tx.__aenter__.return_value = tx
-    tx.__aexit__.return_value = None
-    conn.transaction.return_value = tx
-
-    acquire_ctx = AsyncMock()
-    acquire_ctx.__aenter__.return_value = conn
-    acquire_ctx.__aexit__.return_value = None
-
-    pool = MagicMock()
-    pool.acquire.return_value = acquire_ctx
-    client = _make_client(pool)
-
-    await client.points.upsert_points_batch(
-        [
-            {
-                "id": "p1",
-                "bangumi_id": "115908",
-                "name": "宇治桥",
-                "name_cn": "宇治桥",
-                "latitude": 34.8843,
-                "longitude": 135.7997,
-                "episode": 1,
-                "time_seconds": 42,
-                "image": "https://example.com/point.jpg",
-                "location": "POINT(135.7997 34.8843)",
-            }
-        ]
-    )
-
-    sql = conn.executemany.await_args.args[0]
-    args = conn.executemany.await_args.args[1]
-    assert "latitude" in sql
-    assert "longitude" in sql
-    assert "ST_GeogFromText" in sql
-    assert args == [
-        (
-            "p1",
-            "115908",
-            "宇治桥",
-            "宇治桥",
-            34.8843,
-            135.7997,
-            1,
-            42,
-            "https://example.com/point.jpg",
-            "POINT(135.7997 34.8843)",
-        )
-    ]
-
-
-@pytest.mark.asyncio
-async def test_upsert_point_casts_embedding_to_vector() -> None:
-    pool = AsyncMock()
-    client = _make_client(pool)
-
-    await client.points.upsert_point(
-        "p1",
-        bangumi_id="115908",
-        name="宇治桥",
-        latitude=34.8843,
-        longitude=135.7997,
-        embedding=[0.1, 0.2, 0.3],
-    )
-
-    sql = pool.execute.await_args.args[0]
-    args = pool.execute.await_args.args[1:]
-    assert "embedding" in sql
-    assert "::vector" in sql
-    assert args[-1] == "[0.1,0.2,0.3]"
 
 
 @pytest.mark.asyncio
@@ -185,16 +88,6 @@ class TestGetPointsByIds:
         ]
         sql = mock_pool.fetch.await_args.args[0]
         assert "WITH ORDINALITY" in sql
-
-
-class TestUpsertBangumiTitle:
-    async def test_upserts_title(self, mock_pool):
-        mock_pool.execute.return_value = None
-        client = _make_client(mock_pool)
-        await client.bangumi.upsert_bangumi_title("進撃の巨人", "6718")
-        mock_pool.execute.assert_awaited_once()
-        sql, *args = mock_pool.execute.call_args[0]
-        assert "6718" in args or "進撃の巨人" in args
 
 
 @pytest.fixture

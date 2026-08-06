@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
-import { authenticate } from "./auth.ts";
+import { authenticate } from "./identity/auth.ts";
 
 const HOST = "https://sb-441-scheme.example.test";
 const ENV = { SUPABASE_URL: HOST, SUPABASE_SERVICE_ROLE_KEY: "service" };

@@ -4,7 +4,7 @@ import { route, type PilgrimagePoint, type RouteDb } from "../src/api/route";
 /**
  * Tests for the `route` read API handler (catalog/src/api/route.ts), which
  * composes the data layer (fetch points + bangumi) with the pure W2-1 kernel
- * (catalog/src/lib/route.ts) to produce a contract `Route`.
+ * (catalog/src/domain/itinerary/plan.ts) to produce a contract `Route`.
  *
  * No Docker: a typed fake `RouteDb` returns fixture rows shaped exactly like the
  * `SELECT ... FROM points LEFT JOIN bangumi` the handler issues, so this is a

@@ -1,3 +1,4 @@
+// TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
 /** Tiered point reads for an already-resolved Bangumi work id. */
 
 import type { CatalogDb } from "../db/client";

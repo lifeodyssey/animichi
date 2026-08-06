@@ -1,4 +1,4 @@
-import { haversine } from "../../geo";
+import { haversine } from "../../../domain/geo";
 import type { AdjacencyEdge, RailCategory, TopologyLine, TopologyStation } from "../model";
 import { parseCsv, type CsvRow } from "./csv";
 

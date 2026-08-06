@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
-import { authenticate } from "./auth.ts";
+import { authenticate } from "./identity/auth.ts";
 
 const BASE_ENV = { SUPABASE_URL: "https://sb-neon-base.example.test", SUPABASE_SERVICE_ROLE_KEY: "service" };
 

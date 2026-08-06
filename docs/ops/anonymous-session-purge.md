@@ -27,7 +27,7 @@ rest of the sweep continues. See `agent/scripts/purge_anonymous_sessions.py`
 docstrings and `agent/infrastructure/supabase/repositories/session.py`
 (`purge_session`) for the mechanics.
 
-## Trigger: `workers/maintenance`
+## Trigger: `workers/jobs`
 
 The shared trigger/deploy/secret runbook is [`maintenance-worker.md`](./maintenance-worker.md).
 

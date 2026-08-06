@@ -94,7 +94,7 @@ jobs:
       component: maintenance
       environment: production
       pulumi_stack: prod
-      working_directory: workers/maintenance
+      working_directory: workers/jobs
       run_pulumi: false
       worker_secrets: AGENT_DATABASE_URL
     secrets:

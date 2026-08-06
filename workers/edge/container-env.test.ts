@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { CONTAINER_ENV_KEYS, CONTAINER_REQUIRED_KEYS, buildContainerEnvVars } from "./container-env.ts";
+import { CONTAINER_ENV_KEYS, CONTAINER_REQUIRED_KEYS, buildContainerEnvVars } from "./container/container-env.ts";
 
 // Issue #498: APP_ENV used to be seeded with a hardcoded "production" default
 // in buildContainerEnvVars, so every container reported APP_ENV=production
@@ -65,7 +65,7 @@ void test("mutation guard: buildContainerEnvVars never seeds APP_ENV on its own"
 // wrangler.toml three-touchpoint check (feedback_env_var_three_touchpoints):
 // each of the three environment blocks must set its own APP_ENV value, and
 // they must not all collapse to the same (formerly hardcoded) "production".
-const WRANGLER_TOML_PATH = fileURLToPath(new URL("../../wrangler.toml", import.meta.url).href);
+const WRANGLER_TOML_PATH = fileURLToPath(new URL("./wrangler.toml", import.meta.url).href);
 const wranglerToml = readFileSync(WRANGLER_TOML_PATH, "utf8");
 
 // Full regex-metacharacter escape (CodeQL js/incomplete-sanitization: the

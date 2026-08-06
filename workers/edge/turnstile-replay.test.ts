@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
 import { fakeGuard } from "./guard-doubles.ts";
-import { TURNSTILE_HEADER, createTurnstileGate } from "./turnstile.ts";
-import { stubCtx } from "./entry-env.ts";
+import { TURNSTILE_HEADER, createTurnstileGate } from "./protect/turnstile.ts";
+import { stubCtx } from "./container/entry-env.ts";
 
 /**
  * Issue #447 review, P1-1: the armed path exercised with the REAL gate (only

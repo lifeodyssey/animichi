@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import { ANON_BUDGET_EXHAUSTED_CODE } from "./cost-breaker.ts";
+import { ANON_BUDGET_EXHAUSTED_CODE } from "./protect/cost-breaker.ts";
 import { fakeGuard } from "./guard-doubles.ts";
-import { stubCtx } from "./entry-env.ts";
+import { stubCtx } from "./container/entry-env.ts";
 
 const SECRET = "fixed-test-hmac-key-0000000000000000";
 const ANON_ENV = {

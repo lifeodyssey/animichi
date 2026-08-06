@@ -1,5 +1,5 @@
 import type { TransitLeg } from "../../types";
-import { haversine } from "../geo";
+import { haversine } from "../../domain/geo";
 import { isTransitCandidate } from "./constants";
 import { estimateTransitLeg } from "./estimate";
 import { formatTransitSummary } from "./format";

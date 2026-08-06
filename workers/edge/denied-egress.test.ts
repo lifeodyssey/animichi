@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { DENIED_EGRESS_HOSTS } from "./container-env.ts";
+import { DENIED_EGRESS_HOSTS } from "./container/container-env.ts";
 
 // Pins RuntimeContainer.deniedHosts (#284 Task 7 — egress hostname denylist).
 // See docs/ops/cloudflare-hardening.md §6 and containerEnv.ts's header comment

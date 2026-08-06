@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { haversine } from "../src/lib/geo";
+import { haversine } from "../src/domain/geo";
 import { buildTransitIndex, shortestPath } from "../src/lib/transit";
 import { buildShinkansenSubgraph, N02_SNAP_DECIMALS } from "../src/lib/transit/etl";
 

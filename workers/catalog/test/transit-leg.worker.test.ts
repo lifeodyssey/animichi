@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { LocationCluster } from "../src/lib/clustering";
-import { buildTimedItinerary } from "../src/lib/route";
+import type { LocationCluster } from "../src/domain/clustering/cluster";
+import { buildTimedItinerary } from "../src/domain/itinerary/plan";
 import { buildTransitIndex, maybeTransitLeg, type TopologyGraphAsset } from "../src/lib/transit";
 import { tokyoSample } from "./fixtures/transit/tokyo-sample";
 

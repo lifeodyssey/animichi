@@ -1,10 +1,10 @@
 import { type AnonymousIdentity, resolveAnonymous } from "./auth.ts";
-import { budgetGuidanceResponse, budgetLatched, isBudgetRejection, latchBudget, utcDayKey } from "./cost-breaker.ts";
-import type { Env } from "./env.ts";
-import { forwardV1 } from "./forward.ts";
-import { checkRateLimit, rateLimitConfigFrom } from "./rate-limiter.ts";
-import { rateLimitedResponse } from "./responses.ts";
-import { type TurnstileGate, guardTurnstile } from "./turnstile.ts";
+import { budgetGuidanceResponse, budgetLatched, isBudgetRejection, latchBudget, utcDayKey } from "../protect/cost-breaker.ts";
+import type { Env } from "../env.ts";
+import { forwardV1 } from "../gateway/forward.ts";
+import { checkRateLimit, rateLimitConfigFrom } from "../protect/rate-limiter.ts";
+import { rateLimitedResponse } from "../gateway/responses.ts";
+import { type TurnstileGate, guardTurnstile } from "../protect/turnstile.ts";
 
 function withAnonymousCookie(response: Response, setCookie: string | null): Response {
   if (setCookie === null) return response;

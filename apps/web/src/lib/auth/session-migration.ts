@@ -10,7 +10,7 @@ import { currentChatConfig } from "../../features/chat/config";
  *
  *  - the incoming real user, from the `Authorization` bearer the edge verifies;
  *  - the outgoing `anon_<hex>`, which the client **cannot** name. `aid` is an
- *    `HttpOnly`, worker-signed cookie (`workers/edge/auth.ts`), unreadable from JS by
+ *    `HttpOnly`, worker-signed cookie (`workers/edge/identity/auth.ts`), unreadable from JS by
  *    construction. `credentials: "include"` is therefore the whole mechanism:
  *    the browser attaches `aid`, the edge resolves (never mints) it and
  *    forwards the result as a trusted `X-Anon-Id` on this route alone.

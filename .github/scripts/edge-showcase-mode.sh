@@ -16,7 +16,7 @@
 # could test it; post-deploy-assert-probes.test.sh pins this script against
 # the real repo wrangler.toml.
 #
-# Fail-closed contract (mirrors workers/edge/showcase.ts): only the literal
+# Fail-closed contract (mirrors workers/edge/proxy/showcase.ts): only the literal
 # "true" or "false" is accepted; anything else — a missing key, a blank
 # value, "TRUE"/"1", a section that does not exist — exits 1 with a loud
 # diagnostic, so a deploy config that lost or corrupted the key fails the

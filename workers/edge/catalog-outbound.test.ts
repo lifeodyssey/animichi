@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { catalogOutbound } from "./app.ts";
-import { CATALOG_OUTBOUND_ALLOWLIST } from "./catalog-policy.ts";
+import { CATALOG_OUTBOUND_ALLOWLIST } from "./gateway/catalog-policy.ts";
 
 const EXPECTED_CATALOG_CALLS = [
   "POST /catalog/search",

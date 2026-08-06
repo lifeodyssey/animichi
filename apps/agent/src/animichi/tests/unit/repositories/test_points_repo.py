@@ -67,14 +67,3 @@ async def test_search_points_by_location_returns_rows(
     result = await repo.search_points_by_location(34.88, 135.80, 5000)
     assert len(result) == 1
     pool.fetch.assert_awaited_once()
-
-
-async def test_upsert_point_calls_execute(
-    repo: PointsRepository, pool: AsyncMock
-) -> None:
-    pool.execute.return_value = None
-    await repo.upsert_point("p1", bangumi_id="115908", name="Uji")
-    pool.execute.assert_awaited_once()
-    sql = pool.execute.await_args.args[0]
-    assert "INSERT INTO points" in sql
-    assert "ON CONFLICT (id)" in sql

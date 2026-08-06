@@ -2,7 +2,7 @@
 # this lane (CI-1 union method). pull_request is pathless by design (merge_group
 # runs ignore path filters, so a filtered PR lane would diverge from the queue);
 # the push paths carry the read closure: the eddsa-shared-primitive test READS
-# packages/contract/src/jwt.ts + workers/edge/auth.ts, so a regression in either
+# packages/contract/src/jwt.ts + workers/edge/identity/auth.ts, so a regression in either
 # must re-run this lane (issue #647).
 name: pipeline-users
 
@@ -19,7 +19,7 @@ on:
       - ".oxlintrc.json"
       - "workers/users/**"
       - "packages/contract/**"
-      - "workers/edge/auth.ts"
+      - "workers/edge/identity/auth.ts"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -40,13 +40,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup
-      - name: Type check (tsc)
-        run: pnpm exec tsc --noEmit
-        working-directory: workers/users
-      - name: Oxlint (type-aware, strict)
-        run: pnpm run lint:oxlint
-        working-directory: workers/users
+      - uses: ./.github/actions/package-ci
+        with:
+          working-directory: workers/users
+          lint-command: pnpm exec tsc --noEmit && pnpm run lint:oxlint
 
   test:
     name: Users / test
@@ -59,10 +56,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup
-      - name: Worker tests (vitest, coverage gate)
-        run: pnpm run test:worker
-        working-directory: workers/users
+      - uses: ./.github/actions/package-ci
+        with:
+          working-directory: workers/users
+          test-command: pnpm run test:worker
       - name: Upload coverage
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:

@@ -1,4 +1,4 @@
-import { haversine } from "../../geo";
+import { haversine } from "../../../domain/geo";
 import { compareStrings } from "../compare";
 import { MinHeap } from "../heap";
 import type { AdjacencyEdge, TopologyLine, TopologyStation } from "../model";

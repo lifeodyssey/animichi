@@ -1,4 +1,4 @@
-# Maintenance pipeline (S0-v2 B4): the workers/maintenance suite moved out of
+# Maintenance pipeline (S0-v2 B4): the workers/jobs suite moved out of
 # ci.yml into this lane (CI-1 union method). pull_request is pathless by design
 # (merge_group runs ignore path filters, so a filtered PR lane would diverge
 # from the queue); the push paths carry the read closure:
@@ -26,7 +26,7 @@ on:
       - ".github/workflows/purge-anonymous-sessions.yml"
       - ".oxlintrc.json"
       - "docs/ops/secrets.md"
-      - "workers/maintenance/**"
+      - "workers/jobs/**"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
@@ -50,10 +50,10 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Type check (tsc)
         run: pnpm exec tsc --noEmit
-        working-directory: workers/maintenance
+        working-directory: workers/jobs
       - name: Oxlint (type-aware, strict)
         run: pnpm run lint:oxlint
-        working-directory: workers/maintenance
+        working-directory: workers/jobs
 
   test:
     name: Maintenance / test
@@ -69,11 +69,11 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Worker tests (vitest, coverage gate)
         run: pnpm run test:worker
-        working-directory: workers/maintenance
+        working-directory: workers/jobs
       - name: Upload coverage
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
-          files: workers/maintenance/coverage/lcov.info
+          files: workers/jobs/coverage/lcov.info
           flags: maintenance
           fail_ci_if_error: true
           use_oidc: true
@@ -92,4 +92,4 @@ jobs:
       # stage's closest hermetic proxy for "the worker still compiles".
       - name: Bundle check (wrangler deploy dry-run)
         run: pnpm exec wrangler deploy --dry-run --env="" --outdir "$RUNNER_TEMP/maintenance-bundle"
-        working-directory: workers/maintenance
+        working-directory: workers/jobs

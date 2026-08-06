@@ -1,4 +1,7 @@
-import { TURNSTILE_HEADER, type TurnstileGate, type TurnstileResult, createTurnstileGate, guardTurnstile } from "./turnstile.ts";
+// TODO(#841 path-delta): test double — stays at the worker root because the
+// root `test:worker` glob (`workers/edge/*.test.ts`) keeps tests flat; moves to
+// protect/ alongside its tests in the #853 package-ization.
+import { TURNSTILE_HEADER, type TurnstileGate, type TurnstileResult, createTurnstileGate, guardTurnstile } from "./protect/turnstile.ts";
 
 export const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 export const ENV = { TURNSTILE_SECRET: "test-secret-not-a-real-value" };

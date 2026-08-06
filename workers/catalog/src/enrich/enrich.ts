@@ -25,7 +25,7 @@
  */
 import { sql, type SQL } from "drizzle-orm";
 import type { CatalogDb, DbExecutor } from "../db/client";
-import { clusterByLocation } from "../lib/clustering";
+import { clusterByLocation } from "../domain/clustering/cluster";
 import { rankAliases, Source, type RankedAlias, type RawAlias } from "../lib/alias";
 import { publishVersionStatements, readPublishedVersion } from "../publish/versioning";
 import {

@@ -1,3 +1,4 @@
+// TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
 import { sql } from "drizzle-orm";
 import type { CatalogDb, NeonSql } from "../db/client";
 import { findPointsWithinRadius, type NearbyPoint } from "../lib/geo-query";

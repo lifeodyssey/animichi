@@ -1,6 +1,6 @@
 import { catalogRequestAllowed } from "./catalog-policy.ts";
-import type { Env } from "./env.ts";
-import { authenticatedRateLimitKey, authRateLimitConfigFrom, checkRateLimit } from "./rate-limiter.ts";
+import type { Env } from "../env.ts";
+import { authenticatedRateLimitKey, authRateLimitConfigFrom, checkRateLimit } from "../protect/rate-limiter.ts";
 import { rateLimitedResponse } from "./responses.ts";
 import { isAuthRateLimited } from "./routing-policy.ts";
 

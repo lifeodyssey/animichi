@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "./app.ts";
-import { createShowcaseMode, type ShowcaseMode } from "./showcase.ts";
-import type { GuardNamespace } from "./guard-store.ts";
+import { createShowcaseMode, type ShowcaseMode } from "./proxy/showcase.ts";
+import type { GuardNamespace } from "./protect/guard-store.ts";
 
 // S0-v2 GOAL C / C9: the showcase gate is the backend half of "prod is a
 // landing-only showcase". Armed, every functional route under /v1 and the

@@ -4,7 +4,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
-import { authenticate, type AuthResult } from "./auth.ts";
+import { authenticate, type AuthResult } from "./identity/auth.ts";
 import { createWorkerApp } from "./app.ts";
 import { fakeGuard } from "./guard-doubles.ts";
 

@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { EdgeGuard, isRateLimitPath, RECLAIM_WINDOW_KEY, reclaimDelayMs } from "./edge-guard.ts";
+import { EdgeGuard, isRateLimitPath, RECLAIM_WINDOW_KEY, reclaimDelayMs } from "./protect/edge-guard.ts";
 import { fakeStorage } from "./guard-doubles.ts";
-import { RATE_LIMIT_KEY } from "./rate-limiter.ts";
+import { RATE_LIMIT_KEY } from "./protect/rate-limiter.ts";
 
 // P2-3 (issue #284 / Task 9): a per-identity rate-limit shard is reclaimed
 // two windows after its last write so an abandoned identity's shard doesn't
