@@ -1,5 +1,4 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { chatSearchPath } from "../apps/web/src/components/home/search-target";
 
 /**
  * GOAL C #41 (C13) — hero search query survival on staging (non-showcase):
@@ -24,6 +23,16 @@ test.use({
 
 /** A query whose `&` and `#` must survive encoding as literal characters. */
 const QUERY = "君の名は。 & #";
+
+/**
+ * The expected post-login return target for `QUERY`, written out independently
+ * of the production helper under test: `encodeURIComponent("君の名は。 & #")`
+ * is `%E5%90%9B%E3%81%AE%E5%90%8D%E3%81%AF%E3%80%82%20%26%20%23` (space `%20`,
+ * ampersand `%26`, hash `%23`). Deriving the expectation from
+ * `chatSearchPath` would let the app and the test drift together and stay
+ * green; this literal pins the escaping contract instead.
+ */
+const EXPECTED_CHAT_PATH = "/chat?q=%E5%90%9B%E3%81%AE%E5%90%8D%E3%81%AF%E3%80%82%20%26%20%23";
 
 /**
  * Hydration barrier, same contract as web-chat-save-login-wall.spec.ts:50-53
@@ -62,10 +71,14 @@ async function captureMagicLinks(context: BrowserContext, bodies: unknown[]): Pr
 
 async function submitHeroSearch(page: Page, query: string): Promise<void> {
   await waitForHydration(page);
-  const search = page.getByRole("textbox", { name: "アニメ・駅・都市を入力" });
+  // The mobile home renders a second CTA with the same accessible name, so the
+  // submit button is scoped to the desktop hero bar (the input's container)
+  // instead of picking by DOM order.
+  const heroBar = page.locator(".hero-search__bar");
+  const search = heroBar.getByRole("textbox", { name: "アニメ・駅・都市を入力" });
   await expect(search).toBeVisible();
-  if (query) await search.fill(query);
-  await page.getByRole("button", { name: "巡礼をはじめる" }).first().click();
+  await search.fill(query);
+  await heroBar.getByRole("button", { name: "巡礼をはじめる" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
 }
 
@@ -81,7 +94,7 @@ function callbackUrlOf(body: unknown): string {
   return callbackURL;
 }
 
-test("a typed hero query survives login as an escaped /chat?q= return target", async ({ page, context }) => {
+test("a typed hero query survives login as an escaped /chat?q= return target", { tag: "@browser" }, async ({ page, context }) => {
   const bodies: unknown[] = [];
   await captureMagicLinks(context, bodies);
   await submitHeroSearch(page, QUERY);
@@ -97,11 +110,10 @@ test("a typed hero query survives login as an escaped /chat?q= return target", a
   // equality doubles as the escaping proof: had `&` or `#` been joined raw
   // into the callback URL, the `next` parameter would have been split (or
   // fragment-truncated) and this exact string could not be recovered.
-  expect(next).not.toBeNull();
-  expect(next).toBe(chatSearchPath(QUERY));
+  expect(next).toBe(EXPECTED_CHAT_PATH);
 });
 
-test("an empty hero submit sends a plain /auth/callback with no ?q=", async ({ page, context }) => {
+test("an empty hero submit sends a plain /auth/callback with no ?q=", { tag: "@browser" }, async ({ page, context }) => {
   const bodies: unknown[] = [];
   await captureMagicLinks(context, bodies);
   await submitHeroSearch(page, "");
