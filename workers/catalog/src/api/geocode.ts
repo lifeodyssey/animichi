@@ -1,3 +1,4 @@
+// TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import {

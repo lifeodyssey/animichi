@@ -1,3 +1,4 @@
+// TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
 /** Fast Anitabi L1 preview mapping shared by title and work-id read paths. */
 
 import { upstreamUnavailable } from "../lib/errors";

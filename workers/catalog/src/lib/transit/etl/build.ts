@@ -1,4 +1,4 @@
-import { haversine } from "../../geo";
+import { haversine } from "../../../domain/geo";
 import { compareStrings } from "../compare";
 import type { TopologyGraphAsset, TopologySource, TopologyStation } from "../model";
 import type { EkidataGraph } from "./ekidata";

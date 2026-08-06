@@ -1,7 +1,8 @@
+// TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
 /**
  * The `route` read API handler: plan an ordered, timed route over selected
  * points. Composes the data layer (fetch points + bangumi) with the pure W2-1
- * kernel (`catalog/src/lib/route.ts`: cluster -> nearest-neighbor order ->
+ * kernel (`catalog/src/domain/itinerary/plan.ts`: cluster -> nearest-neighbor order ->
  * timed itinerary) and assembles the contract `Route`
  * (`packages/contract/src/models.ts`).
  *
@@ -17,11 +18,11 @@
  */
 
 import { sql } from "drizzle-orm";
-import type { ClusterablePoint, LocationCluster } from "../lib/clustering";
-import { clusterByLocation } from "../lib/clustering";
+import type { ClusterablePoint, LocationCluster } from "../domain/clustering/cluster";
+import { clusterByLocation } from "../domain/clustering/cluster";
 import { optional } from "../lib/optional";
-import type { Origin as KernelOrigin, Pacing, TimedItinerary } from "../lib/route";
-import { buildTimedItinerary, MAX_ITINERARY_CLUSTERS } from "../lib/route";
+import type { Origin as KernelOrigin, Pacing, TimedItinerary } from "../domain/itinerary/plan";
+import { buildTimedItinerary, MAX_ITINERARY_CLUSTERS } from "../domain/itinerary/plan";
 import type { Origin, PilgrimagePoint, Route } from "../types";
 
 /**
