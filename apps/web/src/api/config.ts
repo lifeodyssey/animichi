@@ -4,12 +4,13 @@ import { getRequestUrl } from "@tanstack/react-start/server";
 /**
  * Base-URL resolution for the catalog and users oRPC services.
  *
- * The catalog and users Workers are distinct origins, so each gets its own
- * base URL. SSR `fetch` needs an absolute origin (no `window`): the server
- * reads the TanStack Start request context (`getRequestUrl`), with
- * `VITE_SITE_ORIGIN` as an explicit override; the browser reads
- * `location.origin`. When every source is missing we degrade to a relative
- * origin instead of throwing.
+ * Same-origin by design (#550): the edge Worker fans `/v1/*`, `/v1/users/*`
+ * and `/catalog/public/*` out to the services, so the base is the origin that
+ * serves this app. The browser reads `location.origin`; SSR reads the
+ * TanStack Start request context (`getRequestUrl`) with `VITE_SITE_ORIGIN`
+ * as an explicit override. When the server has neither, resolution FAILS
+ * LOUD: a silent relative base would point every catalog/users request at
+ * this app itself (404s and HTML, no error).
  */
 export interface ApiConfig {
   readonly catalogUrl: string;
@@ -37,10 +38,16 @@ export function resolveOrigin(
   location?: { readonly origin: string },
   contextOrigin: OriginSource = runtimeOrigin,
 ): string {
-  if (location) {
-    return location.origin;
-  }
-  return env.VITE_SITE_ORIGIN ?? contextOrigin() ?? "";
+  if (location) return location.origin;
+  const explicit = env.VITE_SITE_ORIGIN ?? contextOrigin();
+  if (explicit) return explicit;
+  throw missingOriginError();
+}
+
+function missingOriginError(): Error {
+  return new Error(
+    "VITE_SITE_ORIGIN is unset and no SSR request context is available; refusing to let catalog/users requests silently target this app itself",
+  );
 }
 
 export function resolveApiConfig(env: Env, location?: { readonly origin: string }): ApiConfig {
