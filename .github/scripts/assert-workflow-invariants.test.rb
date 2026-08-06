@@ -16,6 +16,7 @@
 
 require "open3"
 require "tmpdir"
+require_relative "assert-workflow-invariants"
 
 SCRIPT = File.join(__dir__, "assert-workflow-invariants.rb")
 
@@ -25,93 +26,40 @@ def run_assert(dir)
 end
 
 # A fixture dir must contain every REQUIRED_CONTEXTS owner workflow or the
-# owner-presence check fires; seeding both owners keeps each fixture limited
-# to the violation it is testing.
+# owner-presence check fires; seed_owners regenerates every owner workflow
+# straight from the table (jobs named exactly like their contexts), so the
+# fixtures stay in sync when REQUIRED_CONTEXTS changes and each fixture is
+# limited to the violation it is testing.
 def seed_owners(dir)
-  File.write(File.join(dir, "ci.yml"), <<~YAML)
-    name: ci
-    on:
-      pull_request:
-      push:
-        branches: [main]
-      merge_group:
-        branches: [main]
-    permissions:
-      contents: read
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-    jobs:
-      backend-ci-gate:
-        name: Backend CI
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-      agent-ci-gate:
-        name: Agent CI
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-      infra-db-ci-gate:
-        name: Infra & DB CI
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-      cross-stack-e2e-gate:
-        name: Cross-stack E2E
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-      repository-quality-gate:
-        name: Repository Quality
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-      codecov-patch-gate:
-        name: Codecov Patch
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-  YAML
-  File.write(File.join(dir, "pipeline-web.yml"), <<~YAML)
-    name: pipeline-web
-    on:
-      pull_request:
-      push:
-        branches: [main]
-      merge_group:
-        branches: [main]
-    permissions:
-      contents: read
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-    jobs:
-      lint:
-        name: Web / lint
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-      test:
-        name: Web / test
-        runs-on: ubuntu-latest
-        timeout-minutes: 12
-        steps:
-          - run: echo ok
-      build:
-        name: Web / build
-        runs-on: ubuntu-latest
-        timeout-minutes: 15
-        steps:
-          - run: echo ok
-  YAML
+  REQUIRED_CONTEXTS.group_by { |_ctx, owner| owner }.each do |owner, pairs|
+    jobs = pairs.map do |ctx, _owner|
+      id = ctx.downcase.gsub(/[^a-z0-9]+/, "-").gsub(/\A-+|-+\z/, "")
+      <<~YAML
+        #{id}:
+          name: #{ctx}
+          runs-on: ubuntu-latest
+          timeout-minutes: 5
+          steps:
+            - run: echo ok
+      YAML
+    end.join
+    File.write(File.join(dir, owner), <<~YAML)
+      name: #{File.basename(owner, ".yml")}
+      on:
+        pull_request:
+        push:
+          branches: [main]
+        merge_group:
+          branches: [main]
+      permissions:
+        contents: read
+      concurrency:
+        group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
+        cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+      jobs:
+      #{jobs}
+    YAML
+  end
 end
 
 def green_fixture(name)
@@ -368,11 +316,12 @@ end
 red_fixture(
   "required context without merge_group",
   [
-    "ci.yml:top-level:missing merge_group trigger (required contexts: Backend CI, Agent CI, Infra & DB CI, Cross-stack E2E, Repository Quality, Codecov Patch)"
+    "pipeline-edge.yml:top-level:missing merge_group trigger (required contexts: Edge / lint, Edge / test, Edge / build)",
+    "pipeline-edge.yml:top-level:missing merge_group trigger (pipeline fixed point)"
   ]
 ) do |dir|
-  File.write(File.join(dir, "ci.yml"), <<~YAML)
-    name: ci
+  File.write(File.join(dir, "pipeline-edge.yml"), <<~YAML)
+    name: pipeline-edge
     on:
       pull_request:
       push:
@@ -383,38 +332,20 @@ red_fixture(
       group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     jobs:
-      backend-ci-gate:
-        name: Backend CI
+      lint:
+        name: Edge / lint
         runs-on: ubuntu-latest
         timeout-minutes: 5
         steps:
           - run: echo ok
-      agent-ci-gate:
-        name: Agent CI
+      test:
+        name: Edge / test
         runs-on: ubuntu-latest
         timeout-minutes: 5
         steps:
           - run: echo ok
-      infra-db-ci-gate:
-        name: Infra & DB CI
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-      cross-stack-e2e-gate:
-        name: Cross-stack E2E
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-      repository-quality-gate:
-        name: Repository Quality
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-      codecov-patch-gate:
-        name: Codecov Patch
+      build:
+        name: Edge / build
         runs-on: ubuntu-latest
         timeout-minutes: 5
         steps:
@@ -425,10 +356,10 @@ end
 # ── Red 4b (merge_group): ruleset map drift — context no longer produced ────
 red_fixture(
   "required context without producing job",
-  ["ci.yml:top-level:required context not produced by any job (Backend CI)"]
+  ["pipeline-agent.yml:top-level:required context not produced by any job (Agent / lint)"]
 ) do |dir|
-  File.write(File.join(dir, "ci.yml"), <<~YAML)
-    name: ci
+  File.write(File.join(dir, "pipeline-agent.yml"), <<~YAML)
+    name: pipeline-agent
     on:
       pull_request:
       merge_group:
@@ -441,8 +372,20 @@ red_fixture(
       group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     jobs:
-      renamed-gate:
-        name: Renamed CI
+      lint:
+        name: Agent / lints
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+          - run: echo ok
+      test:
+        name: Agent / test
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+          - run: echo ok
+      build:
+        name: Agent / build
         runs-on: ubuntu-latest
         timeout-minutes: 5
         steps:

@@ -17,12 +17,12 @@ on:
 permissions:
   contents: read
   # Scopes beyond contents: read live at job level (S0-v2 B7 "permissions"
-  # assertion, ci.md "Least privilege"): the changes job and the security job
-  # each declare their own `pull-requests: read`.
+  # assertion, ci.md "Least privilege"): the security job declares its own
+  # `pull-requests: read`, as do the step-level dorny/paths-filter users
+  # (agent-eval-smoke, python-integration, catalog-spikes).
 
 env:
   PYTHON_VERSION: "3.11"
-  NODE_VERSION: "24"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # One in-flight run per PR: a new push to a PR cancels the previous
@@ -36,286 +36,15 @@ concurrency:
 
 jobs:
 
-  # ── Affected detection ────────────────────────────────────────
-
-  changes:
-    timeout-minutes: 5
-    runs-on: ubuntu-latest
-    # dorny/paths-filter resolves a pull_request's changed files through the
-    # GitHub API (listFiles), which needs `pull-requests: read`. The workflow-level
-    # `permissions: contents: read` grants only Contents+Metadata, so on a private
-    # repo the call returns "Resource not accessible by integration"; this job then
-    # fails and EVERY downstream lane (`Agent CI`, `Edge worker tests`, `Contract
-    # OpenAPI drift`, …) reports `skipping` — a green-looking PR with no suite run.
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      catalog: ${{ steps.f.outputs.catalog }}
-      users: ${{ steps.f.outputs.users }}
-      maintenance: ${{ steps.f.outputs.maintenance }}
-      agent: ${{ steps.f.outputs.agent }}
-      agent_behavior: ${{ steps.f.outputs.agent_behavior }}
-      contract: ${{ steps.f.outputs.contract }}
-      worker: ${{ steps.f.outputs.worker }}
-      infra: ${{ steps.f.outputs.infra }}
-      migrations: ${{ steps.f.outputs.migrations }}
-      neon_agent: ${{ steps.f.outputs.neon_agent }}
-      neon_catalog: ${{ steps.f.outputs.neon_catalog }}
-      neon_migrations: ${{ steps.f.outputs.neon_migrations }}
-      cross_stack: ${{ steps.f.outputs.cross_stack }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # On `push`, paths-filter diffs the event's `before` SHA against HEAD using
-          # local git (the API listFiles path is pull_request-only). The default
-          # fetch-depth of 1 leaves `before` unreachable, and `persist-credentials:
-          # false` means the action's own fallback fetch has no auth — it exits 128
-          # and every downstream lane, INCLUDING all eight deploy jobs, reports
-          # `skipping`. That is how the #483 merge to main deployed nothing while
-          # only this job showed red (2026-07-29, run 30429636371). Full history
-          # keeps the credentials hardening and makes `before` locally reachable.
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
-        id: f
-        with:
-          filters: |
-            contract: ['packages/contract/**']
-            catalog: ['workers/catalog/**', 'packages/contract/**']
-            # workers/users/test/eddsa-shared-primitive.worker.test.ts asserts
-            # workers/edge/auth.ts (the edge /v1 EdDSA consumer) still delegates to the
-            # shared contract verifier — scoping this filter to workers/users/** +
-            # packages/contract/** alone would let a regression land in
-            # workers/edge/auth.ts while ci-users skips (issue #647).
-            users: ['workers/users/**', 'packages/contract/**', 'workers/edge/auth.ts']
-            # workers/maintenance/test/config.worker.test.ts asserts against the deploy
-            # wiring itself — ci.yml, deploy.yml, reusable-deploy-component.yml, both deprecated
-            # fallback workflows and docs/ops/secrets.md are read verbatim by that test.
-            # Scoping the filter to workers/maintenance/** alone would let a change to any
-            # of those files break the assertion while ci-maintenance skips: the same
-            # "a gate that cannot test itself" failure the agent_behavior filter above
-            # already had to fix. READS declarations are enforced by the unfiltered
-            # config-read-sets security job.
-            maintenance: ['workers/maintenance/**', '.github/workflows/ci.yml', '.github/workflows/deploy.yml', '.github/workflows/reusable-deploy-component.yml', '.github/workflows/purge-anon-quota-counts.yml', '.github/workflows/purge-anonymous-sessions.yml', 'docs/ops/secrets.md']
-            # Agent unit tests assert cross-package workflow, documentation, Worker, and
-            # web coverage config. The read-set meta-check protects these extra entries.
-            agent: ['apps/agent/**', 'packages/contract/**', '.github/workflows/**', 'apps/web/vitest.config.ts', 'docs/ARCHITECTURE.md', 'docs/ops/deployment.md', 'docs/ops/secrets.md', 'docs/testing-strategy.md', 'workers/edge/container-env.ts']
-            # SD-30 path-filter rule (shared verbatim with iter-1 S1.13, per the second-pass
-            # spec review): prompt/instructions + model-config + guardrail files ONLY — not
-            # every apps/agent/** change (that broader scope still gates `agent` above, which
-            # drives ci-agent's lint/type/test/coverage). agents/** carries the system prompt
-            # (animichi_agent.py), the ModelRetry/output_validator/repeat-guard hooks, the
-            # runner's usage-limit + error-classification guardrails, and the model-resolution
-            # glue (base.py); model_aliases.py is the concrete provider/thinking-mode registry;
-            # settings.py is where the production model spec actually lives (default_agent_model,
-            # model_attempt_timeout) — a PR flipping the prod model would live here, not in agents/**.
-            # The gate's own machinery is in scope too (added 2026-07-26): #440
-            # rewrote the classifier, the L0 selection and the failure reporting
-            # while this filter excluded tests/eval/**, so the smoke job SKIPPED
-            # on the very PR that changed it — a gate that cannot test itself.
-            agent_behavior: ['apps/agent/src/animichi/agents/**', 'apps/agent/src/animichi/config/model_aliases.py', 'apps/agent/src/animichi/config/settings.py', 'apps/agent/src/animichi/tests/eval/**']
-            # No `web` filter: the apps/web suite moved out of this workflow into
-            # pipeline-web.yml (CI-1 union-method step 1, commit 688bfacc), whose
-            # pathless pull_request trigger runs it on every PR and whose push
-            # paths carry the old filter's read closure (turnstile.ts et al).
-            worker: ['workers/edge/**']
-            infra: ['infra/**']
-            migrations: ['supabase/migrations/**', 'db/**', 'docs/ops/migrations.md', 'docs/ops/deployment.md', 'README*', 'Makefile', 'workers/edge/migration-boundary.test.ts', '.github/workflows/ci.yml', '.github/workflows/deploy.yml']
-            neon_agent: ['apps/agent/**']
-            neon_catalog: ['workers/catalog/**']
-            neon_migrations: ['db/migrations/**']
-            # The cross-stack browser lane exercises emitted apps/web output
-            # and the edge-facing worker together. Keep its scope broad enough
-            # to catch contract and deployment wiring changes.
-            cross_stack: ['apps/**', 'workers/**', 'packages/contract/**', 'db/**', 'infra/**', 'e2e/**', '.github/workflows/**', '.github/actions/**']
-
-  # ── Stage 1: Component CI (reusable workflows, all parallel) ──
-  # affected-only on PRs; full run on push/tag.
-
-  ci-agent:
-    name: Agent component CI
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.agent == 'true' }}
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/reusable-python-ci.yml
-    with:
-      app: agent
-
-  ci-catalog:
-    name: Catalog CI
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.catalog == 'true' }}
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/reusable-ts-ci.yml
-    with:
-      component: catalog
-
-  # Boots the REAL deploy bundle in workerd (wrangler dev + /healthz). The
-  # vitest worker pool evaluates unbundled modules, so bundle-only startup
-  # failures (the StringChunk TDZ that blocked staging deploys, 2026-08-05)
-  # are invisible to every unit test — only a bundled boot catches them.
-  catalog-startup-smoke:
-    name: Catalog startup smoke (bundled boot)
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.catalog == 'true' }}
-    permissions:
-      contents: read
-    timeout-minutes: 15
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/setup
-
-      - name: Startup smoke (bundled Worker boot + /healthz)
-        run: pnpm run test:smoke
-        working-directory: workers/catalog
-
-  ci-users:
-    name: Users CI
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.users == 'true' }}
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/reusable-ts-ci.yml
-    with:
-      component: users
-
-  ci-maintenance:
-    name: Maintenance CI
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.maintenance == 'true' }}
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/reusable-ts-ci.yml
-    with:
-      component: maintenance
-
-  contract-openapi-drift:
-    timeout-minutes: 20
-    name: Contract OpenAPI drift
-    runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.contract == 'true' }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup
-      - name: Regenerate contract OpenAPI
-        run: pnpm emit:openapi
-        working-directory: packages/contract
-      - name: Verify committed OpenAPI is current
-        run: |
-          git add -A packages/contract/openapi.json packages/contract/users-openapi.json
-          git diff --cached --exit-code -- packages/contract/openapi.json packages/contract/users-openapi.json
-
-  ci-worker:
-    timeout-minutes: 20
-    name: Edge worker component CI
-    runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.worker == 'true' }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup
-      - run: pnpm run test:worker
-
-  ci-infra:
-    timeout-minutes: 20
-    name: Infra component CI
-    runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.infra == 'true' }}
-    defaults:
-      run:
-        working-directory: infra
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          version: 10.33.2
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: infra/pnpm-lock.yaml
-      - name: Install infra dependencies
-        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
-      - name: Verify infra lockfile matches package manifest
-        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts --lockfile-only
-      - name: Typecheck infra
-        run: npm run typecheck
-      - name: Infra topology tests
-        run: npm test
-      - name: Check Pulumi preview prerequisites
-        id: pulumi_gate
-        env:
-          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
-          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-          CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: |
-          missing=()
-          for name in \
-            PULUMI_BACKEND_URL \
-            PULUMI_CONFIG_PASSPHRASE \
-            CLOUDFLARE_PULUMI_API_TOKEN \
-            CLOUDFLARE_ACCOUNT_ID \
-            R2_ACCESS_KEY_ID \
-            R2_SECRET_ACCESS_KEY
-          do
-            if [ -z "${!name:-}" ]; then
-              missing+=("$name")
-            fi
-          done
-
-          if [ "${#missing[@]}" -eq 0 ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning title=pulumi preview skipped::Pulumi preview prerequisites are not fully configured; missing: ${missing[*]}. The deploy path will still take a pre-up state backup, but infra changes merge without a plan diff."
-          fi
-      # Installs the Pulumi CLI onto PATH without running a command (omitting
-      # `command:` is the documented install-only mode) so the plain `pulumi`
-      # steps below can use it.
-      - name: Install Pulumi CLI
-        if: ${{ steps.pulumi_gate.outputs.ready == 'true' }}
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
-      - name: Pulumi preview (staging)
-        if: ${{ steps.pulumi_gate.outputs.ready == 'true' }}
-        working-directory: infra
-        # pulumi/actions' automation-api login chokes on the query-string s3:// R2
-        # backend URL ('unknown backend cloudUrl format'); the CLI login is the same proven path the deploy uses.
-        run: |
-          pulumi login "$PULUMI_BACKEND_URL"
-          pulumi stack select staging
-          pulumi preview --non-interactive --diff
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-
-  # ── Security (cross-language; always runs, no affected gate) ──
+  # ── Stage 1: Cross-stack browser lane (see reusable-cross-stack-e2e.yml) ──
+  # The component CI lanes moved out of this workflow into their own
+  # pipeline-*.yml files (CI-1 union method, S0-v2 B4); the changes aggregation
+  # job and the gate layer were retired with them. This workflow keeps the
+  # non-gating verify lanes (credentialed eval/Neon), the security lane, and
+  # the deploy promotion chain; the repo-hygiene checks moved into
+  # pipeline-quality.yml (the unfiltered fixed point). Per-lane path gating on
+  # PRs is now a step-level dorny filter inside each lane (the cross-workflow
+  # tradeoff documented in docs/ops/deployment.md).
 
   security:
     name: Security
@@ -330,102 +59,7 @@ jobs:
     secrets:
       GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
-  # ── Repo hygiene gates (blocking because provable) ─────────
-  # 1. Agent-config reference check (#745): every backtick path in AGENTS.md /
-  #    CLAUDE.md / .claude/rules resolves against the repo root. Replaces
-  #    agnix, whose 63% false-positive rate gated nothing.
-  # 2. Root allowlist check (S0-v2 Track A.3): top-level tracked entries are
-  #    locked to the explicit allowlist in check-root-allowlist.sh.
-  # 3. Actions pinning check (S0-v2 B3, supply chain): every `uses:` must be
-  #    pinned to a full 40-char SHA; local `./` action/workflow paths are
-  #    allowed and `docker://` images must be digest-pinned (documented
-  #    exception in .github/scripts/check-actions-pinned.sh). The companion
-  #    sha_pinning_required toggle + repo-level CF token deletion are
-  #    operator actions, documented in that script's header.
-
-  agnix:
-    timeout-minutes: 5
-    name: AGENTS.md reference check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: AGENTS.md reference check self-tests
-        run: bash .github/scripts/check-agents-refs.test.sh
-      - name: AGENTS.md reference check
-        run: bash .github/scripts/check-agents-refs.sh
-      - name: Root allowlist check self-tests
-        run: bash .github/scripts/check-root-allowlist.test.sh
-      - name: Root allowlist check
-        run: bash .github/scripts/check-root-allowlist.sh
-      - name: E2E promotion guard self-tests
-        run: bash .github/scripts/check-e2e-promotion.test.sh
-      - name: E2E promotion guard
-        run: bash .github/scripts/check-e2e-promotion.sh
-      - name: Actions pinning check self-tests
-        run: bash .github/scripts/check-actions-pinned.test.sh
-      - name: Actions pinning check
-        run: bash .github/scripts/check-actions-pinned.sh
-
-  # ── DB migrations (Atlas validation + optional Neon dry-run) ──
-
-  db-validate:
-    timeout-minutes: 20
-    name: DB Migrations (Atlas)
-    runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.migrations == 'true' }}
-    env:
-      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-
-      - name: Install pinned Atlas CLI
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/atlas-bin"
-          curl --proto '=https' --tlsv1.2 -sSfL \
-            "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" \
-            -o "$RUNNER_TEMP/atlas-bin/atlas"
-          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas" \
-            | sha256sum --check --strict
-          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
-          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
-
-      - name: Run migration boundary guard
-        run: node --test workers/edge/migration-boundary.test.ts
-
-      - name: Validate Atlas migration directory
-        run: atlas migrate validate --dir file://db/migrations
-
-      - name: Dry-run Neon migrations
-        if: env.NEON_DATABASE_URL != ''
-        run: |
-          case "$NEON_DATABASE_URL" in
-            *\?*) scoped_url="${NEON_DATABASE_URL}&search_path=public" ;;
-            *) scoped_url="${NEON_DATABASE_URL}?search_path=public" ;;
-          esac
-          atlas migrate apply --dry-run --dir "file://db/migrations" \
-            --url "$scoped_url" --revisions-schema public
-
-      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
-        if: env.SUPABASE_DB_URL != ''
-        with:
-          version: "2.26.9"
-
-      - name: Validate frozen Supabase auth/compatibility migrations
-        if: env.SUPABASE_DB_URL != ''
-        run: supabase migration list --db-url "$SUPABASE_DB_URL"
-
-  # ── Agent eval: L0 smoke (SD-30 §① — required PR gate) ────────
+  # ── Agent eval: L0 smoke (SD-30 §① — report-only PR gate) ──
   # Path-filter scope = the SD-30 rule above (`agent_behavior`): prompt/model-config/
   # guardrail files only. EVAL_SMOKE=1 composes the L0 set explicitly (one case per
   # behavior path, locale-rotated across ja/zh/en, then the remaining budget spent on
@@ -436,20 +70,32 @@ jobs:
   # trajectory assertions print every run and enforce under TRAJECTORY_ASSERT=1.
   # The uncapped L1 suite (baseline + statistical gate + translation eval)
   # runs nightly instead of on every PR — see agent-eval-nightly.yml.
+  # With the changes aggregation job retired (S0-v2 B4) the gate is a step-level
+  # dorny filter; the job itself always runs (report-only, never a required check).
 
   agent-eval-smoke:
     timeout-minutes: 45
     name: Agent Eval (L0 smoke, ~80 cases)
     runs-on: ubuntu-latest
-    needs: changes
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.agent_behavior == 'true' }}
+    permissions:
+      contents: read
+      pull-requests: read
     defaults:
       run:
         working-directory: apps/agent
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # On `push`, paths-filter diffs the event's `before` SHA against HEAD using
+          # local git (the API listFiles path is pull_request-only), so `before` must
+          # be locally reachable; full history keeps the credentials hardening.
+          fetch-depth: 0
           persist-credentials: false
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: f
+        with:
+          filters: |
+            agent_behavior: ['apps/agent/src/animichi/agents/**', 'apps/agent/src/animichi/config/model_aliases.py', 'apps/agent/src/animichi/config/settings.py', 'apps/agent/src/animichi/tests/eval/**']
       - uses: ./.github/actions/setup
         with:
           python: "true"
@@ -457,10 +103,11 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       # --no-build rejected: this project's own editable package has no wheel
-      # (see purge-anonymous-sessions.yml's NOTE and reusable-python-ci.yml).
+      # (see purge-anonymous-sessions.yml's NOTE and pipeline-agent.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Run L0 smoke trajectory eval (zero-errored + direct gates)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.f.outputs.agent_behavior == 'true' }}
         run: uv run --frozen pytest src/animichi/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
         env:
           EVAL_MODEL: openai:mimo-v2.5@https://api.xiaomimimo.com/v1
@@ -479,16 +126,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
       id-token: write # codecov OIDC upload needs id-token
-    needs: changes
+    # Same-repo PRs only (fork PRs cannot reach the Neon credentials); push and
+    # merge_group runs skip this lane entirely, as they did under the changes job.
     if: >-
       ${{
         (github.event_name == 'workflow_dispatch' ||
           (github.event_name == 'pull_request' &&
-            github.event.pull_request.head.repo.full_name == github.repository)) &&
-        (github.event_name == 'workflow_dispatch' ||
-          needs.changes.outputs.neon_agent == 'true' ||
-          needs.changes.outputs.neon_migrations == 'true')
+            github.event.pull_request.head.repo.full_name == github.repository))
       }}
     concurrency:
       group: neon-tests-${{ github.ref }}
@@ -506,7 +152,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: f
+        with:
+          filters: |
+            neon_agent: ['apps/agent/**']
+            neon_migrations: ['db/migrations/**']
 
       - uses: ./.github/actions/setup
         with:
@@ -515,7 +169,7 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       # --no-build rejected: this project's own editable package has no wheel
-      # (see purge-anonymous-sessions.yml's NOTE and reusable-python-ci.yml).
+      # (see purge-anonymous-sessions.yml's NOTE and pipeline-agent.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Install pinned Atlas CLI
@@ -532,6 +186,7 @@ jobs:
           echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
 
       - name: Run Neon integration tests
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.f.outputs.neon_agent == 'true' || steps.f.outputs.neon_migrations == 'true' }}
         env:
           TEST_DB: neon
         # No --cov-fail-under here: the enforced floor belongs to the unit arm
@@ -540,6 +195,7 @@ jobs:
         run: uv run --frozen --no-build --no-binary-package animichi pytest src/animichi/tests/integration -q --cov --cov-report=xml --cov-fail-under=0
 
       - name: Upload coverage (integration)
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.f.outputs.neon_agent == 'true' || steps.f.outputs.neon_migrations == 'true' }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: apps/agent/coverage.xml
@@ -553,19 +209,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [changes, python-integration]
+      pull-requests: read
+    needs: [python-integration]
     if: >-
       ${{
         always() &&
-        needs.changes.result == 'success' &&
         (needs.python-integration.result == 'success' ||
           needs.python-integration.result == 'skipped') &&
         (github.event_name == 'workflow_dispatch' ||
           (github.event_name == 'pull_request' &&
-            github.event.pull_request.head.repo.full_name == github.repository)) &&
-        (github.event_name == 'workflow_dispatch' ||
-          needs.changes.outputs.neon_catalog == 'true' ||
-          needs.changes.outputs.neon_migrations == 'true')
+            github.event.pull_request.head.repo.full_name == github.repository))
       }}
     concurrency:
       group: neon-tests-${{ github.ref }}
@@ -576,162 +229,44 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: f
+        with:
+          filters: |
+            neon_catalog: ['workers/catalog/**']
+            neon_migrations: ['db/migrations/**']
 
       - uses: ./.github/actions/setup
 
       - name: Run catalog spike tests
+        if: ${{ github.event_name == 'workflow_dispatch' || steps.f.outputs.neon_catalog == 'true' || steps.f.outputs.neon_migrations == 'true' }}
         run: pnpm run test:spike
         working-directory: workers/catalog
 
-  # ── Stable required contexts ─────────────────────────────────
-  # Component jobs above remain affected-only on pull requests. These lane
-  # jobs are the branch-protection contract: every lane is created on every
-  # workflow run and accepts an intentionally skipped component as green.
-  # A failed or cancelled component still fails its lane and blocks promotion.
+  # ── Cross-stack browser lane ──────────────────────────────────
+  # The reusable workflow is intentionally broad and path-gates itself with a
+  # step-level dorny filter (PRs that do not touch its scope skip the heavy
+  # steps and report green; push/merge_group always run it in full).
 
-  backend-ci-gate:
-    timeout-minutes: 5
-    name: Backend CI
-    needs: [changes, ci-catalog, ci-users, ci-maintenance, contract-openapi-drift, ci-worker, catalog-startup-smoke]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Verify backend component results
-        env:
-          STATUSES: >-
-            ${{ needs.changes.result }}
-            ${{ needs.ci-catalog.result }}
-            ${{ needs.ci-users.result }}
-            ${{ needs.ci-maintenance.result }}
-            ${{ needs.contract-openapi-drift.result }}
-            ${{ needs.ci-worker.result }}
-            ${{ needs.catalog-startup-smoke.result }}
-        run: bash .github/scripts/assert-ci-needs.sh "Backend CI" "$STATUSES"
-
-  agent-ci-gate:
-    timeout-minutes: 5
-    name: Agent CI
-    needs: [changes, ci-agent, agent-eval-smoke]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Verify agent component results
-        env:
-          STATUSES: >-
-            ${{ needs.changes.result }}
-            ${{ needs.ci-agent.result }}
-            ${{ needs.agent-eval-smoke.result }}
-        run: bash .github/scripts/assert-ci-needs.sh "Agent CI" "$STATUSES"
-
-  infra-db-ci-gate:
-    timeout-minutes: 5
-    name: Infra & DB CI
-    needs: [changes, ci-infra, db-validate]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Verify infra and migration results
-        env:
-          STATUSES: >-
-            ${{ needs.changes.result }}
-            ${{ needs.ci-infra.result }}
-            ${{ needs.db-validate.result }}
-        run: bash .github/scripts/assert-ci-needs.sh "Infra & DB CI" "$STATUSES"
-
-  # The reusable workflow is intentionally broad and is independently
-  # path-filtered by `changes.cross_stack`; its result is folded into a stable
-  # lane below so documentation-only PRs still receive a required check.
   ci-cross-stack-e2e:
-    name: Cross-stack E2E component
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.cross_stack == 'true' }}
     uses: ./.github/workflows/reusable-cross-stack-e2e.yml
 
-  cross-stack-e2e-gate:
-    timeout-minutes: 5
-    name: Cross-stack E2E
-    needs: [changes, ci-cross-stack-e2e]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Verify cross-stack result
-        env:
-          STATUSES: >-
-            ${{ needs.changes.result }}
-            ${{ needs.ci-cross-stack-e2e.result }}
-        run: bash .github/scripts/assert-ci-needs.sh "Cross-stack E2E" "$STATUSES"
-
-  repository-quality-gate:
-    timeout-minutes: 5
-    name: Repository Quality
-    needs: [changes, security, agnix]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Verify repository-quality component results
-        env:
-          STATUSES: >-
-            ${{ needs.changes.result }}
-            ${{ needs.security.result }}
-            ${{ needs.agnix.result }}
-        run: bash .github/scripts/assert-ci-needs.sh "Repository Quality" "$STATUSES"
-      - name: Verify CI contract
-        run: ruby .github/scripts/test_ci_contract.rb
-      - name: Verify lane failure paths
-        run: bash .github/scripts/assert-ci-needs.test.sh
-
-  codecov-patch-gate:
-    timeout-minutes: 5
-    name: Codecov Patch
-    needs: [changes, ci-agent, ci-catalog, ci-users, ci-maintenance, ci-worker]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      # This stable context is a policy/upload precondition, not a local
-      # reimplementation of Codecov's changed-line calculation. The real 95%
-      # patch verdict is the external `codecov/patch` status produced after the
-      # component uploads; the repository ruleset must require both contexts.
-      - name: Verify component coverage results
-        env:
-          STATUSES: >-
-            ${{ needs.changes.result }}
-            ${{ needs.ci-agent.result }}
-            ${{ needs.ci-catalog.result }}
-            ${{ needs.ci-users.result }}
-            ${{ needs.ci-maintenance.result }}
-            ${{ needs.ci-worker.result }}
-        run: bash .github/scripts/assert-ci-needs.sh "Codecov Patch" "$STATUSES"
-      - name: Verify patch coverage policy
-        run: ruby .github/scripts/test_codecov_patch.rb
-
-  # ── Stage 3: Deploy (CI-green gated, push-main promotion path) ──
+  # ── Stage 3: Deploy (security/hygiene gated, push-main promotion path) ──
   # Promotion: push main → CI → staging → post-staging (api) → prod (human gate) → post-prod.
   # A single push to main drives the full pipeline; no separate tag trigger needed.
   # Human approval is enforced by `environment: production` in reusable-deploy-component.yml.
+  # The per-package pipeline stages live in their own workflow files, so GitHub
+  # cannot express them in `needs:` (the cross-workflow tradeoff documented in
+  # docs/ops/deployment.md): protection for merges comes from the required
+  # checks in the repository ruleset instead.
 
   # push main → staging
   deploy-staging:
     name: Deploy staging
-    needs: [agent-ci-gate, backend-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
+    needs: [security, ci-cross-stack-e2e]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
@@ -759,7 +294,7 @@ jobs:
 
   deploy-web-staging:
     name: Deploy web staging
-    needs: [agent-ci-gate, backend-ci-gate, infra-db-ci-gate, cross-stack-e2e-gate, repository-quality-gate, codecov-patch-gate]
+    needs: [security, ci-cross-stack-e2e]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
