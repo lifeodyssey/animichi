@@ -17,7 +17,7 @@ on:
       # Read-closure of the web lane: the turnstile-constants-guard test reads
       # this file, and it is not under apps/web/** (the pathless PR trigger
       # already runs it on every PR; this keeps push-to-main honest).
-      - "workers/edge/turnstile.ts"
+      - "workers/edge/protect/turnstile.ts"
       - "e2e/**"
       - "package.json"
       - "packages/contract/**"

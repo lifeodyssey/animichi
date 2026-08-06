@@ -1,6 +1,8 @@
 /// <reference types="@cloudflare/workers-types" />
-import type { GuardNamespace } from "./guard-store.ts";
-import type { TileBucket } from "./tiles.ts";
+// TODO(#841 path-delta): shared Env/context types — stays at the worker root
+// (imported by every concern folder) until the #853 package-ization.
+import type { GuardNamespace } from "./protect/guard-store.ts";
+import type { TileBucket } from "./proxy/tiles.ts";
 
 export interface Env {
   CATALOG: { fetch: (req: Request) => Promise<Response> };

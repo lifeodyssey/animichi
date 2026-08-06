@@ -6,7 +6,7 @@ import {
   utcDayKey,
   writeBudgetLatch,
 } from "./cost-breaker.ts";
-import { durableGuardStore, type GuardStore } from "../guard-store.ts";
+import { durableGuardStore, type GuardStore } from "./guard-store.ts";
 import {
   consumeRateLimit,
   parseWindowState,

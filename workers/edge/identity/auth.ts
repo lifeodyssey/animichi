@@ -50,7 +50,7 @@ export interface AuthEnv {
   NEON_AUTH_ISSUER?: string;
 }
 
-export type { AnonymousEnv } from "../anonymous-id.ts";
+export type { AnonymousEnv } from "./anonymous-id.ts";
 export {
   ANON_ID_PREFIX,
   anonymousEnabled,
@@ -58,7 +58,7 @@ export {
   resolveAnonymous,
   resolveAnonymousReadOnly,
   type AnonymousIdentity,
-} from "../anonymous-id.ts";
+} from "./anonymous-id.ts";
 
 const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 

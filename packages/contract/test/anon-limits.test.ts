@@ -9,7 +9,7 @@ import {
   readQuotaResetsAt,
 } from "../src/error-registry.js";
 
-const WORKER_BREAKER = fileURLToPath(new URL("../../../workers/edge/cost-breaker.ts", import.meta.url));
+const WORKER_BREAKER = fileURLToPath(new URL("../../../workers/edge/protect/cost-breaker.ts", import.meta.url));
 
 describe("anonymous-limit wire codes", () => {
   it("pins the literals every tier has to agree on", () => {

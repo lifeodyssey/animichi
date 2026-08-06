@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { guardTurnstile, verifySiteverify } from "./turnstile.ts";
-import { createTurnstileGate } from "./turnstile.ts";
+import { guardTurnstile, verifySiteverify } from "./protect/turnstile.ts";
+import { createTurnstileGate } from "./protect/turnstile.ts";
 import { ENV, ID, request, unreachable, htmlGateway, withErrorLog } from "./turnstile-doubles.ts";
 
 // ── siteverify outages (issue #447 review, P1-3) ───────────────────────────

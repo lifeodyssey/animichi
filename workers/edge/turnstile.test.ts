@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TURNSTILE_HEADER, createTurnstileGate, guardTurnstile, verifySiteverify } from "./turnstile.ts";
+import { TURNSTILE_HEADER, createTurnstileGate, guardTurnstile, verifySiteverify } from "./protect/turnstile.ts";
 import { anonymousV1, clockGate, ENV, ID, request, stubFetch, type Call } from "./turnstile-doubles.ts";
 
 function createGate(calls: Call[], success: boolean, errorCodes: string[] = []) {

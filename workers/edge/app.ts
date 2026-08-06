@@ -1,20 +1,22 @@
-// TODO(refactor-skeleton): finish moving remaining wiring into concern folders — #841
+// TODO(#841 path-delta): composition root — stays at the worker root until the
+// #853 package-ization; all logic lives in identity/ gateway/ protect/ proxy/
+// container/.
 import { Hono, type Context } from "hono";
 import { type AuthResult, authenticate as realAuthenticate } from "./identity/auth.ts";
 import type { Env, WorkerExecutionContext } from "./env.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardV1 } from "./gateway/forward.ts";
-import { handleAnonymousV1 } from "./anonymous-flow.ts";
+import { handleAnonymousV1 } from "./identity/anonymous-flow.ts";
 import { handleImageProxy } from "./proxy/image-proxy.ts";
-import { NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./responses.ts";
-import { isAnonymousV1, isPublicV1 } from "./routing-policy.ts";
-import { createShowcaseMode, type ShowcaseMode } from "./showcase.ts";
-import { handleSessionMigrate, SESSION_MIGRATE_PATH } from "./session-migrate.ts";
-import { handleTiles } from "./tiles.ts";
-import { createTurnstileGate, type TurnstileGate } from "./turnstile.ts";
+import { NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./gateway/responses.ts";
+import { isAnonymousV1, isPublicV1 } from "./gateway/routing-policy.ts";
+import { createShowcaseMode, type ShowcaseMode } from "./proxy/showcase.ts";
+import { handleSessionMigrate, SESSION_MIGRATE_PATH } from "./identity/session-migrate.ts";
+import { handleTiles } from "./proxy/tiles.ts";
+import { createTurnstileGate, type TurnstileGate } from "./protect/turnstile.ts";
 
 export type { Env } from "./env.ts";
 export { catalogOutbound } from "./gateway/forward.ts";
-export { isAuthRateLimited } from "./routing-policy.ts";
+export { isAuthRateLimited } from "./gateway/routing-policy.ts";
 
 /** Container cold-start hardening (issue #694): while a container is still
  * starting, its fetch answers a 500 whose body carries this marker (or throws

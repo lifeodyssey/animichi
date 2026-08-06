@@ -159,7 +159,7 @@ test_showcase_mode_parse_is_anchored_to_vars_block() {
 
 # Both fixture shapes a config without a usable value can take: the key
 # missing entirely, and a malformed value ("TRUE"). Each must fail loudly —
-# same fail-closed contract as the Worker's own gate (workers/edge/showcase.ts
+# same fail-closed contract as the Worker's own gate (workers/edge/proxy/showcase.ts
 # accepts only the literal "true"/"false").
 test_showcase_mode_missing_or_malformed_fails() {
   local fixture rc out bad_case
