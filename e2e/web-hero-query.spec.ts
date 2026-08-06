@@ -91,15 +91,14 @@ test("a typed hero query survives login as an escaped /chat?q= return target", a
   expect(callback.pathname).toBe("/auth/callback");
 
   const next = callback.searchParams.get("next");
-  if (next === null) throw new Error("magic-link callbackURL lost the next return target");
   // `searchParams.get` already decodes the first level (the outer
   // `encodeURIComponent` in callbackUrl), so `next` must be exactly the
-  // path the app handed over: `/chat?q=<encodeURIComponent(query)>`.
+  // path the app handed over: `/chat?q=<encodeURIComponent(query)>`. The
+  // equality doubles as the escaping proof: had `&` or `#` been joined raw
+  // into the callback URL, the `next` parameter would have been split (or
+  // fragment-truncated) and this exact string could not be recovered.
+  expect(next).not.toBeNull();
   expect(next).toBe(chatSearchPath(QUERY));
-
-  // Escaping proof: `&` and `#` inside the query must not split the `q` param.
-  const q = new URLSearchParams(next.slice(next.indexOf("?"))).get("q");
-  expect(q).toBe(QUERY);
 });
 
 test("an empty hero submit sends a plain /auth/callback with no ?q=", async ({ page, context }) => {

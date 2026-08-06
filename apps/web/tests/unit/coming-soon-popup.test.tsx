@@ -118,4 +118,12 @@ describe("ComingSoonPopup focus management", () => {
     expect(document.activeElement).toBe(trigger);
     trigger.remove();
   });
+
+  it("closes cleanly when no element was focused on open", () => {
+    const spy = vi.spyOn(document, "activeElement", "get").mockReturnValue(null);
+    const { rerender } = renderWithLocale(<ComingSoonPopup open onClose={vi.fn()} />);
+    rerender(<LocaleProvider><ComingSoonPopup open={false} onClose={vi.fn()} /></LocaleProvider>);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    spy.mockRestore();
+  });
 });
