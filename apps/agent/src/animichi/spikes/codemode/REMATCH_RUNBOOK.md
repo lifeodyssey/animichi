@@ -16,11 +16,11 @@ export EVAL_MODEL='openai:mimo-v2.5@https://api.xiaomimimo.com/v1'
 export EVAL_MAX_CASES=80
 export EVAL_CONCURRENCY=10
 export EVAL_L3=0
-export ANIMICHI_SPIKE_OUT_BASE="$PWD/agent/spikes/codemode"
+export ANIMICHI_SPIKE_OUT_BASE="$PWD/src/animichi/spikes/codemode"
 
-uv run python -m agent.spikes.codemode.rematch --arm control
-uv run python -m agent.spikes.codemode.rematch --arm codemode-taught
-uv run python -m agent.spikes.codemode.compare
+uv run python -m animichi.spikes.codemode.rematch --arm control
+uv run python -m animichi.spikes.codemode.rematch --arm codemode-taught
+uv run python -m animichi.spikes.codemode.compare
 
 Outputs are written to fixed paths inside the spike directory
 (`rematch-control.json`, `rematch-codemode-taught.json`, `rematch-report.md`) —
