@@ -65,7 +65,7 @@ void test("mutation guard: buildContainerEnvVars never seeds APP_ENV on its own"
 // wrangler.toml three-touchpoint check (feedback_env_var_three_touchpoints):
 // each of the three environment blocks must set its own APP_ENV value, and
 // they must not all collapse to the same (formerly hardcoded) "production".
-const WRANGLER_TOML_PATH = fileURLToPath(new URL("../../wrangler.toml", import.meta.url));
+const WRANGLER_TOML_PATH = fileURLToPath(new URL("../../wrangler.toml", import.meta.url).href);
 const wranglerToml = readFileSync(WRANGLER_TOML_PATH, "utf8");
 
 // Full regex-metacharacter escape (CodeQL js/incomplete-sanitization: the
@@ -80,8 +80,10 @@ function escapeRegExp(literal: string): string {
 function appEnvInBlock(header: string): string {
   const block = sectionBlock(header);
   const match = /^APP_ENV\s*=\s*"([^"]+)"/m.exec(block);
-  assert.notEqual(match, null, `"${header}" must set APP_ENV`);
-  return match[1];
+  assert.ok(match, `"${header}" must set APP_ENV`);
+  const value = match[1];
+  assert.ok(value, `"${header}" must set a non-empty APP_ENV`);
+  return value;
 }
 
 function sectionBlock(header: string): string {
@@ -89,7 +91,7 @@ function sectionBlock(header: string): string {
   // inline, which a bare .indexOf(header) would match first.
   const headerLineRegex = new RegExp(`^${escapeRegExp(header)}$`, "m");
   const headerMatch = headerLineRegex.exec(wranglerToml);
-  assert.notEqual(headerMatch, null, `wrangler.toml must contain a "${header}" section header line`);
+  assert.ok(headerMatch, `wrangler.toml must contain a "${header}" section header line`);
   const headerIndex = headerMatch.index;
   const nextHeaderIndex = wranglerToml.indexOf("\n[", headerIndex + header.length);
   return wranglerToml.slice(headerIndex, nextHeaderIndex === -1 ? undefined : nextHeaderIndex);
