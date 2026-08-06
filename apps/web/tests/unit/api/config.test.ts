@@ -19,17 +19,17 @@ describe("resolveOrigin", () => {
     );
   });
 
-  it("degrades to a relative origin instead of throwing when every source is missing", () => {
-    expect(resolveOrigin({}, undefined, () => undefined)).toBe("");
+  it("fails loud instead of degrading when the server has no origin source", () => {
+    expect(() => resolveOrigin({}, undefined, () => undefined)).toThrow(/VITE_SITE_ORIGIN/);
   });
 
-  it("degrades gracefully with the default request-context source outside a request", () => {
-    expect(resolveOrigin({})).toBe("");
+  it("fails loud with the default request-context source outside a request", () => {
+    expect(() => resolveOrigin({})).toThrow(/VITE_SITE_ORIGIN/);
   });
 });
 
 describe("resolveApiConfig", () => {
-  it("defaults both services to the resolved origin", () => {
+  it("defaults both services to the resolved origin (same-origin fan-out)", () => {
     const config = resolveApiConfig({}, { origin: "https://animichi.app" });
     expect(config).toEqual({
       catalogUrl: "https://animichi.app",
@@ -44,5 +44,14 @@ describe("resolveApiConfig", () => {
     );
     expect(config.catalogUrl).toBe("https://catalog.test");
     expect(config.usersUrl).toBe("https://users.test");
+  });
+
+  it("never resolves the origin when both service URLs are configured", () => {
+    const env = { VITE_CATALOG_URL: "https://catalog.test", VITE_USERS_URL: "https://users.test" };
+    expect(() => resolveApiConfig(env)).not.toThrow();
+    expect(resolveApiConfig(env)).toEqual({
+      catalogUrl: "https://catalog.test",
+      usersUrl: "https://users.test",
+    });
   });
 });
