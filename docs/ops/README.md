@@ -22,3 +22,14 @@ Current canonical docs:
 - `indexnow.md` · `privacy.md` — SEO push and privacy ops notes
 
 Keep iteration task trackers, progress logs, and findings under `docs/iterations/`.
+
+## Repo scripts
+
+- `scripts/git-squash-daily.py` — dry-run daily squash of a ref by Asia/Shanghai
+  day. Builds a local-only `dry-run/daily-squash-<ts>` branch where each day's
+  tip tree becomes one parent-chained synthetic commit, verifies the final tree
+  is identical (`git diff` empty), and prints day/new-commit counts plus the 5
+  densest days. **Never pushes** — no push code path exists. Local-only preview
+  tool for planning history rewrites; run e.g.
+  `python3 scripts/git-squash-daily.py --ref origin/main`. See module docstring
+  and `--help` for details.
