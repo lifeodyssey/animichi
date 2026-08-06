@@ -93,10 +93,11 @@ order. Apply migrations in a dedicated deploy step, not at application startup.
 | `SUPABASE_URL` | Supabase project URL (auth + API-key lookup plane) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase auth / `api_keys` lookup |
 | `MIMO_API_KEY` | Primary model provider key |
+| `DEEPSEEK_API_KEY` | Required by edge container-env for agent boot (forwarded into the container) |
 
 **Worker edge:** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (JWT verifies public JWKS — `SUPABASE_ANON_KEY` is not required at the edge). Catalog/users/maintenance also need their Neon DSNs — see [`docs/ops/deployment.md`](docs/ops/deployment.md).
 
-**Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`, `DEEPSEEK_API_KEY`
+**Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
 See [`apps/agent/src/animichi/config/settings.py`](apps/agent/src/animichi/config/settings.py) for full reference and [`.env.example`](.env.example) for defaults.
 

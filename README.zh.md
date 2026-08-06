@@ -91,10 +91,11 @@ make db-push           # 对 NEON_DATABASE_URL 应用迁移
 | `SUPABASE_URL` | Supabase 项目 URL（auth + API key 查询面） |
 | `SUPABASE_SERVICE_ROLE_KEY` | 服务端 Supabase 认证 / `api_keys` 查询 |
 | `MIMO_API_KEY` | 主模型供应商密钥 |
+| `DEEPSEEK_API_KEY` | 边缘 container-env 容器启动必填（转发进容器） |
 
 **Worker 边缘：** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`（JWT 用公开 JWKS 校验 — 边缘不需要 `SUPABASE_ANON_KEY`）。catalog/users/maintenance 还需各自 Neon DSN — 见 [`docs/ops/deployment.md`](docs/ops/deployment.md)。
 
-**可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`, `DEEPSEEK_API_KEY`
+**可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
 详见 [`apps/agent/src/animichi/config/settings.py`](apps/agent/src/animichi/config/settings.py) 和 [`.env.example`](.env.example)。
 
