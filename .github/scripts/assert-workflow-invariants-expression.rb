@@ -88,7 +88,7 @@ class ExprParser
       node
     elsif token.start_with?("'", '"')
       [:string, token[1..-2]]
-    elsif %w[== != && || !)].include?(token)
+    elsif %w[== != && || ! )].include?(token)
       raise UnsupportedExpression, "unexpected operator #{token}"
     else
       [:ident, token]
