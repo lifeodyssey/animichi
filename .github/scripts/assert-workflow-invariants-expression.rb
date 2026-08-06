@@ -137,13 +137,22 @@ def expr_eval(node, world)
   end
 end
 
-# Worlds the expression is judged under: a PR run and a push-to-main run.
-# A PR run has event_name pull_request and a ref under refs/pull; a push-to-main
-# run has event_name push and ref refs/heads/main. Deploy safety is judged on
+# Worlds the expression is judged under: a PR-class run and a push-to-main run.
+# A PR-class run (pull_request or pull_request_target) has event_name equal to
+# its triggering event and a ref under refs/pull; a push-to-main run has
+# event_name push and ref refs/heads/main. Deploy safety is judged on
 # push-to-main only — cancelling a push to a feature branch is harmless.
+# Each PR-class event gets its own world so a cancel-in-progress that only
+# cancels `pull_request` runs cannot satisfy a workflow that also (or only)
+# fires on `pull_request_target` — and vice versa.
 EVENT_NAME = "github.event_name"
 REF = "github.ref"
-WORLD_PR = { EVENT_NAME => "pull_request", REF => "refs/pull/1/merge" }.freeze
+
+def world_for_pr_event(event)
+  { EVENT_NAME => event, REF => "refs/pull/1/merge" }.freeze
+end
+
+WORLD_PR = world_for_pr_event("pull_request")
 WORLD_PUSH_MAIN = { EVENT_NAME => "push", REF => "refs/heads/main" }.freeze
 
 def expr_verdict(expression, world)

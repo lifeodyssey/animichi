@@ -11,7 +11,9 @@
 #   permissions every workflow must declare a top-level `permissions:` block
 #               whose default is exactly `contents: read` — anything wider
 #               must live at job level (ci.md "Least privilege")
-#   concurrency PR-triggered workflows must declare a `concurrency` group with
+#   concurrency PR-class workflows (pull_request / pull_request_target — each
+#               produces one run per PR update and is judged in its own event
+#               world) must declare a `concurrency` group with
 #               cancel-in-progress for PR runs (CI-quota hygiene); workflows
 #               that trigger on push must NOT cancel unconditionally (that
 #               kills a deploy mid-flight). The two classes are judged
@@ -21,7 +23,8 @@
 #               queue waits forever on a check that never runs. The required
 #               context -> workflow map below is the pinned snapshot of the
 #               current ruleset (9 contexts; docs/ops/deployment.md "Main
-#               promotion path"); drift in either direction fails loudly.
+#               promotion path"); drift in either direction fails loudly:
+#               an owner workflow absent from the directory is reported too.
 #
 # Every check is blocking: any violation line prints to stdout and the exit
 # code is 1. No `continue-on-error` anywhere in the wiring (pipeline-quality
@@ -58,6 +61,12 @@ REQUIRED_CONTEXTS = {
   "Web / test" => "pipeline-web.yml",
   "Web / build" => "pipeline-web.yml"
 }.freeze
+
+# Events that produce one run per pull-request update and therefore share the
+# same CI-quota hygiene rule. Judged per event in its own world (see
+# world_for_pr_event): a cancel expression that only cancels `pull_request`
+# runs must not satisfy a workflow that fires on `pull_request_target`.
+PR_CLASS_EVENTS = %w[pull_request pull_request_target].freeze
 
 def workflow_dir
   if ARGV[0]
@@ -107,8 +116,8 @@ def cancels_in_world?(value, world)
   verdict == UNKNOWN ? UNKNOWN : verdict
 end
 
-def cancels_pull_requests?(value)
-  cancels_in_world?(value, WORLD_PR)
+def cancels_pull_requests?(value, event = "pull_request")
+  cancels_in_world?(value, world_for_pr_event(event))
 end
 
 def cancels_push?(value)
@@ -146,16 +155,19 @@ def concurrency_violations(file, wf)
 
   concurrency = wf["concurrency"]
   violations = []
-  if on_map.key?("pull_request")
+  pr_events = on_map.keys & PR_CLASS_EVENTS
+  if pr_events.any?
     if !concurrency.is_a?(Hash)
-      violations << "#{file}:top-level:missing concurrency (pull_request-triggered)"
+      violations << "#{file}:top-level:missing concurrency (#{pr_events.join('/')}-triggered)"
     else
       violations << "#{file}:top-level:concurrency must declare a group" unless concurrency["group"]
-      verdict = cancels_pull_requests?(cancel_in_progress(concurrency))
-      case verdict
-      when true then nil
-      when UNKNOWN then violations << "#{file}:top-level:cannot judge cancel-in-progress for pull_request runs, confirm manually (#{cancel_in_progress(concurrency).inspect})"
-      else violations << "#{file}:top-level:concurrency must cancel pull_request runs (cancel-in-progress: #{cancel_in_progress(concurrency).inspect})"
+      pr_events.each do |event|
+        verdict = cancels_pull_requests?(cancel_in_progress(concurrency), event)
+        case verdict
+        when true then nil
+        when UNKNOWN then violations << "#{file}:top-level:cannot judge cancel-in-progress for #{event} runs, confirm manually (#{cancel_in_progress(concurrency).inspect})"
+        else violations << "#{file}:top-level:concurrency must cancel #{event} runs (cancel-in-progress: #{cancel_in_progress(concurrency).inspect})"
+        end
       end
     end
   end
@@ -200,6 +212,12 @@ def main
   abort "assert-workflow-invariants: no workflow files under #{dir}" if files.empty?
 
   violations = []
+  names = files.map { |path| File.basename(path) }
+  REQUIRED_CONTEXTS.values.uniq.each do |owner|
+    next if names.include?(owner)
+
+    violations << "#{owner}:top-level:missing required-context owner workflow"
+  end
   files.each do |path|
     file = File.basename(path)
     wf = begin
