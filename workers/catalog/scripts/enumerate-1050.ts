@@ -197,7 +197,7 @@ function collectFiles(): string[] {
     const full = path.join(REPO_ROOT, dir);
     if (existsSync(full)) walk(full, files);
   }
-  return files.sort();
+  return files.sort((a, b) => a.localeCompare(b));
 }
 
 function scanOne(file: string, funcs: FuncViolation[], classes: FuncViolation[], over: FileViolation[]): void {
