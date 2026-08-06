@@ -1,5 +1,15 @@
 import type { RouteStatus } from "@animichi/contract";
-import { routeNotOwned } from "../lib/errors";
+
+/** Pure domain error — the adapter maps it to the oRPC routeNotOwned error. */
+export class RouteNotOwnedError extends Error {
+  readonly routeId: string;
+
+  constructor(routeId: string) {
+    super(`Route belongs to another user: ${routeId}`);
+    this.name = "RouteNotOwnedError";
+    this.routeId = routeId;
+  }
+}
 
 export function isRouteStatus(value: unknown): value is RouteStatus {
   return value === "draft" || value === "saved" || value === "completed";
@@ -10,13 +20,13 @@ export function canClaimUnowned(routeUserId: string | null | undefined): boolean
   return routeUserId == null;
 }
 
-/** Throw routeNotOwned when actor is not the owner. */
+/** Throw RouteNotOwnedError when actor is not the owner. */
 export function assertRouteOwnedBy(
   ownerUserId: string | null | undefined,
   actorUserId: string,
   routeId: string,
 ): void {
-  if (ownerUserId !== actorUserId) throw routeNotOwned(routeId);
+  if (ownerUserId !== actorUserId) throw new RouteNotOwnedError(routeId);
 }
 
 /** Pure decision for saved_at SQL CASE. */
