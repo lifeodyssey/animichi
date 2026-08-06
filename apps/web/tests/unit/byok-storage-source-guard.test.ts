@@ -78,7 +78,7 @@ describe("no component calls sessionStorage directly (AC1 lint-level grep, full 
 
   it("keeps every allowed file inside a dedicated storage module (lib/ or features/*/lib/), so no component can be added to the list", () => {
     for (const module of STORAGE_MODULES)
-      expect(module.startsWith("lib/") || module.startsWith("features/chat/lib/")).toBe(true);
+      expect(module.startsWith("lib/") || /^features\/[^/]+\/lib\//.test(module)).toBe(true);
   });
 });
 
