@@ -85,7 +85,7 @@ let runningStale: SQL | undefined;
  * with correct ESM order, so only the deployed bundle ever sees it).
  */
 function runningStaleSql(): SQL {
-  runningStale ??= sql`COALESCE(started_at, created_at) <= NOW() - make_interval(secs => ${RUNNING_TTL_SECONDS})`;
+  runningStale ??= sql`COALESCE(ingest_jobs.started_at, ingest_jobs.created_at) <= NOW() - make_interval(secs => ${RUNNING_TTL_SECONDS})`;
   return runningStale;
 }
 
