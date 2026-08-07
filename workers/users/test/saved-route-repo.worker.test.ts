@@ -93,7 +93,7 @@ describe("NeonSavedRouteRepo over the raw executor", () => {
 
 describe("NeonSavedRouteRepo defensive normalization", () => {
   const rawDb = (row: Record<string, unknown>): DbExecutor => ({
-    execute: async () => ({ rows: [row] }),
+    execute: () => Promise.resolve({ rows: [row] }),
   });
 
   it("normalizes malformed row fields instead of crashing", async () => {
