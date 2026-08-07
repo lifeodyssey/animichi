@@ -151,6 +151,7 @@ bucket_name = "map-tiles-staging"
 name = "animichi-runtimecontainer"
 class_name = "RuntimeContainer"
 image = "../../apps/agent/Dockerfile"
+image_build_context = "../../"
 max_instances = 3
 
 [[durable_objects.bindings]]
@@ -245,6 +246,7 @@ bucket_name = "map-tiles"
 [[env.production.containers]]
 class_name = "RuntimeContainer"
 image = "../../apps/agent/Dockerfile"
+image_build_context = "../../"
 max_instances = 3
 
 [[env.production.durable_objects.bindings]]
@@ -368,6 +370,7 @@ service = "users-staging"
 [[env.staging.containers]]
 class_name = "RuntimeContainer"
 image = "../../apps/agent/Dockerfile"
+image_build_context = "../../"
 max_instances = 3
 
 [[env.staging.durable_objects.bindings]]
