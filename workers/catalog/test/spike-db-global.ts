@@ -7,7 +7,6 @@ import {
   endpointReady,
   purgeOrphanBranches,
   environment,
-  findEphemeralBranch,
   listBranches,
   resolveTestBase,
   type NeonBranch,
@@ -15,34 +14,11 @@ import {
 } from "./spike-db-global/neon-api";
 import {
   buildDirectContext,
-  waitForEphemeral,
   waitUntilDeleted,
   type SpikeRuntime,
 } from "./spike-db-global/runtime";
 
 const SKIP_MESSAGE = "spike suite needs Neon Local — set NEON_API_KEY/NEON_PROJECT_ID";
-
-async function deleteObservedBranch(
-  env: NeonEnvironment, before: NeonBranch[], parent: NeonBranch, known?: NeonBranch,
-): Promise<unknown> {
-  try {
-    await deleteIfPresent(env, known ?? findEphemeralBranch(before, await listBranches(env), parent));
-    return undefined;
-  } catch (error) {
-    return error;
-  }
-}
-
-async function deleteIfPresent(env: NeonEnvironment, branch: NeonBranch | undefined): Promise<void> {
-  if (branch) await deleteBranch(env, branch.id);
-}
-
-async function cleanupIncomplete(
-  env: NeonEnvironment, before: NeonBranch[], parent: NeonBranch,
-  branch?: NeonBranch,
-): Promise<unknown> {
-  return deleteObservedBranch(env, before, parent, branch);
-}
 
 async function createRuntime(
   env: NeonEnvironment, before: NeonBranch[], parent: NeonBranch,
@@ -53,7 +29,7 @@ async function createRuntime(
   // from parallel CI runs starve the 10-branch quota, so purge orphans first.
   await purgeOrphanBranches(env, before);
   const branch = await createBranch(
-    env, parent.id, `catalog-spike-${Date.now()}-${process.pid}`,
+    env, parent.id, `catalog-spike-${String(Date.now())}-${String(process.pid)}`,
   );
   await createEndpoint(env, branch.id);
   for (let attempt = 0; attempt < 30; attempt += 1) {

@@ -95,7 +95,7 @@ export function environment(): NeonEnvironment | undefined {
   return { apiKey, projectId };
 }
 
-function headers(env: NeonEnvironment): HeadersInit {
+function headers(env: NeonEnvironment): Record<string, string> {
   return { Authorization: `Bearer ${env.apiKey}`, Accept: "application/json" };
 }
 
