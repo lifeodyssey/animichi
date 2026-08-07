@@ -270,7 +270,7 @@ enforcement either.
 ### What is implemented
 
 `RuntimeContainer.deniedHosts` (`workers/edge/entry.ts`) is set from `DENIED_EGRESS_HOSTS`
-(`workers/edge/container-env.ts`, split out for the same Node-import-chain reason as
+(`workers/edge/container/container-env.ts`, split out for the same Node-import-chain reason as
 `buildContainerEnvVars` — see that file's header comment). It is a set of dotted-decimal glob
 prefixes and exact hostnames — **not CIDR strings** — chosen to be the glob-equivalent of the
 spec's target ranges when a request URL's hostname is already a bare IPv4 literal (the common

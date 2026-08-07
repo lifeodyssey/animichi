@@ -9,8 +9,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[6]
 # CONTAINER_ENV_KEYS/CONTAINER_REQUIRED_KEYS moved out of entry.ts into their
 # own module (issue #282 review) so they're importable under plain
 # `node --test` without pulling in entry.ts's @cloudflare/containers import
-# chain — see workers/edge/container-env.ts's module docstring.
-_ENTRYPOINT = _REPO_ROOT / "workers" / "edge" / "container-env.ts"
+# chain — see workers/edge/container/container-env.ts's module docstring.
+_ENTRYPOINT = _REPO_ROOT / "workers" / "edge" / "container" / "container-env.ts"
 _CI_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
 _DEPLOY_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "deploy.yml"
 _REUSABLE_DEPLOY_WORKFLOW = (
