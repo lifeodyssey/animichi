@@ -34,7 +34,7 @@ const BYOK_STORAGE_RELATIVE = "lib/byok/byok-storage.ts";
  * for the API. Adding a module here is a deliberate review decision; adding a
  * *component* to this list would gut the guard.
  */
-const CHAT_DRAFT_STORAGE_RELATIVE = "lib/chat/draft-storage.ts";
+const CHAT_DRAFT_STORAGE_RELATIVE = "features/chat/lib/draft-storage.ts";
 const STORAGE_MODULES = [BYOK_STORAGE_RELATIVE, CHAT_DRAFT_STORAGE_RELATIVE];
 const SOURCE_EXTENSIONS = [".ts", ".tsx"];
 
@@ -76,8 +76,9 @@ describe("no component calls sessionStorage directly (AC1 lint-level grep, full 
     expect([...filesUsingSessionStorage(SRC_DIR)].sort()).toEqual([...STORAGE_MODULES].sort());
   });
 
-  it("keeps every allowed file in lib/, so no component can be added to the list", () => {
-    for (const module of STORAGE_MODULES) expect(module.startsWith("lib/")).toBe(true);
+  it("keeps every allowed file inside a dedicated storage module (lib/ or features/*/lib/), so no component can be added to the list", () => {
+    for (const module of STORAGE_MODULES)
+      expect(module.startsWith("lib/") || /^features\/[^/]+\/lib\//.test(module)).toBe(true);
   });
 });
 

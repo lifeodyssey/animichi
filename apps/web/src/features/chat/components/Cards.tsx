@@ -1,5 +1,5 @@
 import type { ChatDataPart } from "@animichi/contract";
-import { toSearchSpots } from "../../../lib/chat/spot-clusters";
+import { toSearchSpots } from "../lib/spot-clusters";
 import type { ChatDict } from "../i18n";
 import { SceneThumb } from "./ErrorStates/SceneThumb";
 import { SearchResult } from "./SearchResult";

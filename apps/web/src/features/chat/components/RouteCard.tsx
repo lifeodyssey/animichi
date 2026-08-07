@@ -1,7 +1,7 @@
 import type { ChatDataPart, TimedItinerary as TimedItineraryModel } from "@animichi/contract";
-import { itineraryView } from "../../../lib/chat/itinerary";
-import { locatedSpots, toSearchSpots } from "../../../lib/chat/spot-clusters";
-import type { LocatedSpot } from "../../../lib/chat/spot-clusters";
+import { itineraryView } from "../lib/itinerary";
+import { locatedSpots, toSearchSpots } from "../lib/spot-clusters";
+import type { LocatedSpot } from "../lib/spot-clusters";
 import type { ChatDict } from "../i18n";
 import { resultsOf, routeOf, SpotList } from "./Cards";
 import type { IntentCardProps } from "./Cards";

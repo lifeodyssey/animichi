@@ -1,4 +1,4 @@
-import type { ItineraryLeg } from "../../lib/chat/itinerary";
+import type { ItineraryLeg } from "./lib/itinerary";
 import type { ChatDict } from "./i18n";
 
 /** Localized capsule copy for a between-station leg (issue #271 S1.5). */

@@ -7,7 +7,7 @@ import { RouteTrailMap } from "../../../src/features/chat/components/RouteTrailM
 import type { AttachBasemap } from "../../../src/features/chat/components/SearchMap";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { pointPlacements } from "../../../src/features/bubble-map/bubble-geometry";
-import type { LocatedSpot } from "../../../src/lib/chat/spot-clusters";
+import type { LocatedSpot } from "../../../src/features/chat/lib/spot-clusters";
 import { ruleDeclaration } from "../_token-helpers";
 import chatCss from "../../../src/styles/chat.css?raw";
 

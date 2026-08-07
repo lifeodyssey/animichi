@@ -11,7 +11,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LimitBanner } from "../../../src/features/chat/components/ErrorStates/LimitBanner";
 import { TimedItinerary } from "../../../src/features/chat/components/TimedItinerary";
-import { itineraryView } from "../../../src/lib/chat/itinerary";
+import { itineraryView } from "../../../src/features/chat/lib/itinerary";
 import { ujiItinerary } from "./_route-fixtures";
 import { SessionExpired } from "../../../src/features/chat/components/ErrorStates/SessionExpired";
 import { ChatReturnTargetProvider, chatSessionTarget, returnTargetNamesSession } from "../../../src/features/chat/ChatReturnTarget";
