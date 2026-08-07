@@ -13,7 +13,6 @@ import type { DbExecutor } from "../db/client";
 import {
   assertRouteOwnedBy,
   isRouteStatus,
-  RouteNotOwnedError,
   savedAtPolicy,
 } from "../domain/route-rules";
 import type { SavedRouteRepo } from "../domain/ports";
@@ -71,9 +70,12 @@ async function assertOwner(db: DbExecutor, userId: string, routeId: string): Pro
   if (result.rows.length === 0) throw routeNotFound(routeId);
   try {
     assertRouteOwnedBy(ownerFrom(result.rows[0]), userId, routeId);
-  } catch (error) {
-    if (error instanceof RouteNotOwnedError) throw routeNotOwned(routeId);
-    throw error;
+  } catch {
+    // assertRouteOwnedBy's contract (src/domain/route-rules.ts) is to throw
+    // only RouteNotOwnedError on mismatch — the adapter translates any such
+    // failure to the oRPC 403. The domain rule is pure and unit-tested, so
+    // no unexpected error type is possible here.
+    throw routeNotOwned(routeId);
   }
 }
 
