@@ -1,8 +1,11 @@
 import type { TestProject } from "vitest/node";
 export { findEphemeralBranch, verifyTestBase, type NeonBranch } from "./spike-db-global/neon-api";
-import type { StartedTestContainer } from "testcontainers";
 import {
+  createBranch,
+  createEndpoint,
   deleteBranch,
+  endpointReady,
+  purgeOrphanBranches,
   environment,
   findEphemeralBranch,
   listBranches,
@@ -11,9 +14,7 @@ import {
   type NeonEnvironment,
 } from "./spike-db-global/neon-api";
 import {
-  buildContext,
-  startContainer,
-  stopContainer,
+  buildDirectContext,
   waitForEphemeral,
   waitUntilDeleted,
   type SpikeRuntime,
@@ -38,55 +39,34 @@ async function deleteIfPresent(env: NeonEnvironment, branch: NeonBranch | undefi
 
 async function cleanupIncomplete(
   env: NeonEnvironment, before: NeonBranch[], parent: NeonBranch,
-  container: StartedTestContainer, branch?: NeonBranch,
+  branch?: NeonBranch,
 ): Promise<unknown> {
-  const stopError = await stopContainer(container);
-  const deleteError = await deleteObservedBranch(env, before, parent, branch);
-  if (stopError && deleteError) return new AggregateError([stopError, deleteError]);
-  return stopError ?? deleteError;
+  return deleteObservedBranch(env, before, parent, branch);
 }
 
 async function createRuntime(
   env: NeonEnvironment, before: NeonBranch[], parent: NeonBranch,
 ): Promise<SpikeRuntime> {
-  const container = await startContainer(env, parent);
-  return attemptSetup(container, env, before, parent, { branch: undefined });
-}
-
-interface BranchBox { branch: NeonBranch | undefined }
-
-/** Provision the ephemeral branch + context; on failure, clean up and rethrow. */
-async function attemptSetup(
-  container: StartedTestContainer, env: NeonEnvironment, before: NeonBranch[], parent: NeonBranch, box: BranchBox,
-): Promise<SpikeRuntime> {
-  try {
-    box.branch = await waitForEphemeral(env, before, parent);
-    return { branch: box.branch, container, context: await buildContext(env, container, box.branch) };
-  } catch (error) {
-    return handleSetupFailure(env, before, parent, container, box.branch, error);
+  // Direct-cloud mode (#883): no neon_local container — the ephemeral branch
+  // is created through the Neon API and the suite connects to its own
+  // connection URI, so no local proxy is involved at all. Leftover branches
+  // from parallel CI runs starve the 10-branch quota, so purge orphans first.
+  await purgeOrphanBranches(env, before);
+  const branch = await createBranch(
+    env, parent.id, `catalog-spike-${Date.now()}-${process.pid}`,
+  );
+  await createEndpoint(env, branch.id);
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    if (await endpointReady(env, branch.id)) break;
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
   }
+  return { branch, context: await buildDirectContext(env, branch) };
 }
 
-async function handleSetupFailure(
-  env: NeonEnvironment, before: NeonBranch[], parent: NeonBranch,
-  container: StartedTestContainer, branch: NeonBranch | undefined, error: unknown,
-): Promise<never> {
-  const cleanupError = await cleanupIncomplete(env, before, parent, container, branch);
-  if (!cleanupError) throw error;
-  const combined = new AggregateError([error, cleanupError], "spike setup cleanup failed");
-  combined.cause = error;
-  throw combined;
-}
+
 
 async function stopRuntime(env: NeonEnvironment, runtime: SpikeRuntime): Promise<void> {
-  const stopError = await stopContainer(runtime.container);
   if (!await waitUntilDeleted(env, runtime.branch.id)) await deleteBranch(env, runtime.branch.id);
-  if (stopError) rethrow(stopError);
-}
-
-function rethrow(error: unknown): void {
-  if (error instanceof Error) throw error;
-  throw new Error("neon_local container stop failed", { cause: error });
 }
 
 async function enabledSetup(project: TestProject, env: NeonEnvironment): Promise<() => Promise<void>> {

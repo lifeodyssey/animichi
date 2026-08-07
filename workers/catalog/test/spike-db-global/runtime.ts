@@ -12,8 +12,50 @@ import {
 
 export interface SpikeRuntime {
   branch: NeonBranch;
-  container: StartedTestContainer;
+  container?: StartedTestContainer;
   context: SpikeDatabaseContext;
+}
+
+/**
+ * Direct-cloud runtime context — no neon_local container (#883): the stale
+ * container neither binds 5432 on current runners nor survives the serverless
+ * fetch round-trip. The ephemeral branch's own connection URI is the only
+ * endpoint the suite needs. Cloud-created branches start empty, so the Atlas
+ * migration chain (db/migrations) is applied before the suite runs — this is
+ * the schema-as-code path the python-integration lane already uses.
+ */
+export async function buildDirectContext(
+  env: NeonEnvironment, branch: NeonBranch,
+): Promise<SpikeDatabaseContext> {
+  const directDsn = await connectionUri(env, branch.id);
+  await applyMigrations(directDsn);
+  return {
+    enabled: true,
+    localDsn: directDsn,
+    localHost: "",
+    localPort: 0,
+    directDsn,
+  };
+}
+
+async function applyMigrations(directDsn: string): Promise<void> {
+  const migrationsDir = new URL("../../../../db/migrations/", import.meta.url);
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const run = promisify(execFile);
+  // stdio ignored: the gazetteer seed migration prints tens of thousands of
+  // INSERT lines that would otherwise swamp the vitest reporter.
+  await run("atlas", [
+    "migrate", "apply",
+    "--dir", migrationsDir.href,
+    "--url", directDsn,
+    "--revisions-schema", "public",
+    "--allow-dirty",
+  ], {
+    env: { ...process.env, ATLAS_NO_UPDATE_NOTIFIER: "1" },
+    stdio: "ignore",
+    maxBuffer: 10 * 1024 * 1024,
+  });
 }
 
 /**
