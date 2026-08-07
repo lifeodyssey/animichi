@@ -3,16 +3,16 @@
 // stable public surface topology tests and stack consumers rely on.
 // Layout: see src/README.md
 
-import "./src/buckets.ts";
-import "./src/web-routes.ts";
-import "./src/hardening.ts";
-import "./src/staging.ts";
+import "./src/buckets"
+import "./src/web-routes"
+import "./src/hardening"
+import "./src/staging"
 
-export { catalogDatabaseUrl } from "./src/config.ts";
-export { validateLegacyRedirectZones } from "./src/web-routes.ts";
-export { validateIpEntry, buildIpClause } from "./src/staging.ts";
+export { catalogDatabaseUrl } from "./src/config"
+export { validateLegacyRedirectZones } from "./src/web-routes"
+export { validateIpEntry, buildIpClause } from "./src/staging"
 export {
   wave0,
   catalogBucketName,
   tilesBucketName,
-} from "./src/outputs.ts";
+} from "./src/outputs"

@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "strict": true,
-    "noEmit": true,
     "target": "es2020",
     "module": "commonjs",
     "moduleResolution": "node",
@@ -10,8 +9,7 @@
     ],
     "forceConsistentCasingInFileNames": true,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "allowImportingTsExtensions": true
+    "noFallthroughCasesInSwitch": true
   },
   "include": [
     "index.ts",
