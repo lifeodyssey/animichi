@@ -28,7 +28,8 @@ Sha = str
 
 def git(repo: str, *args: str) -> str:
     return subprocess.run(
-        ["git", "-C", repo, *args],
+        ["git", *args],
+        cwd=repo,
         check=True,
         capture_output=True,
         text=True,
@@ -44,7 +45,8 @@ def shanghai_tz() -> tzinfo:
 
 def ref_exists(repo: str, ref: str) -> bool:
     r = subprocess.run(
-        ["git", "-C", repo, "rev-parse", "--verify", "--quiet", ref],
+        ["git", "rev-parse", "--verify", "--quiet", ref],
+        cwd=repo,
         capture_output=True,
         text=True,
     )
@@ -104,10 +106,12 @@ def commit_env(name: str, email: str, ts: int) -> dict[str, str]:
 
 
 def synthetic_commit(repo: str, tree: Sha, parent: Sha | None, msg: str, env: dict[str, str]) -> Sha:
-    args = ["git", "-C", repo, "commit-tree", tree, "-m", msg]
+    args = ["git", "commit-tree", tree, "-m", msg]
     if parent:
         args += ["-p", parent]
-    return subprocess.run(args, check=True, capture_output=True, text=True, env=env).stdout.strip()
+    return subprocess.run(
+        args, cwd=repo, check=True, capture_output=True, text=True, env=env
+    ).stdout.strip()
 
 
 def build_synthetic_history(
@@ -129,7 +133,8 @@ def build_synthetic_history(
 def trees_identical(repo: str, old: str, new: str) -> bool:
     # --quiet --exit-code: 0 identical, 1 differ, 2 error (not "always 0")
     diff = subprocess.run(
-        ["git", "-C", repo, "diff", "--quiet", "--exit-code", old, new],
+        ["git", "diff", "--quiet", "--exit-code", old, new],
+        cwd=repo,
         capture_output=True,
         text=True,
     )
@@ -184,6 +189,8 @@ def verify_and_report(repo: str, ref: str, branch: str, head: Sha) -> int:
 
 def main() -> int:
     args = parse_args()
+    if not os.path.isdir(args.repo):
+        raise RuntimeError(f"--repo must be an existing directory: {args.repo}")
     ref = args.ref or default_ref(args.repo)
     commits = walk_commits(args.repo, ref)
     if not commits:
