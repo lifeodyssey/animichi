@@ -1,0 +1,30 @@
+# actionlint configuration (auto-discovered from .github/actionlint.yaml).
+#
+# Documented exception — do not extend casually:
+#
+# STAGING_GATE_TOKEN is a staging-environment secret, NOT a caller-passed
+# secret. The jobs in reusable-deploy-component.yml and
+# reusable-post-deploy-test.yml resolve it via their job-level
+# `environment: ${{ inputs.environment }}` binding (the #527 mechanism, which
+# is also what resolves NEON_DATABASE_URL etc.). Callers must NOT pass it:
+# declaring it under `on.workflow_call.secrets` makes `${{ secrets.
+# STAGING_GATE_TOKEN }}` resolve to the caller's (empty) value and SHADOWS
+# the environment secret, which 403s the staging WAF smoke (#826).
+#
+# actionlint types the `secrets` context of a callable workflow strictly from
+# `on.workflow_call.secrets` and has no knowledge of job-level environment
+# secrets (upstream: rhysd/actionlint#701 and friends) — so with the
+# declaration removed (#826 fix) it reports the deliberate references as
+# undefined-property errors. This is a known static limitation: the GitHub
+# runtime resolves them correctly (verified by the #527 diagnostic dispatch
+# run). The escapes below therefore filter ONLY the exact
+# `staging_gate_token` undefined-property message, and ONLY in the two files
+# that legitimately use the job-environment mechanism. Every other file and
+# every other secret stays under full `workflow_call.secrets` checking.
+paths:
+  .github/workflows/reusable-deploy-component.yml:
+    ignore:
+      - 'property "staging_gate_token" is not defined in object type'
+  .github/workflows/reusable-post-deploy-test.yml:
+    ignore:
+      - 'property "staging_gate_token" is not defined in object type'
