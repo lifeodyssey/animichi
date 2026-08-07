@@ -748,7 +748,8 @@ jobs:
             fi
             config_flag=""
             [ "$TARGET_COMPONENT" = "root" ] && config_flag="-c workers/edge/wrangler.toml"
-            printf '%s' "$value" | pnpm exec wrangler secret put "$name" $config_flag --env "$TARGET_ENVIRONMENT"
+            read -r -a config_args <<< "$config_flag"
+            printf '%s' "$value" | pnpm exec wrangler secret put "$name" "${config_args[@]}" --env "$TARGET_ENVIRONMENT"
           done <<< "$POST_DEPLOY_SECRETS"
       # Real per-component smoke checks (issue #484). `web` and `root` are
       # each self-contained (no dependency on other components in the same
