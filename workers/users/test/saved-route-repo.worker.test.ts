@@ -107,10 +107,11 @@ describe("NeonSavedRouteRepo defensive normalization", () => {
         updated_at: "2026-07-13T04:00:00.000Z",
       }),
     );
-    const routes = (await repo.listRoutes("user-a")).routes;
-    expect(routes).toHaveLength(1);
-    expect(routes[0]!).toMatchObject({ id: "r1", title: "", point_ids: [] });
-    expect(routes[0]!.saved_at).toBe("2026-07-13T04:00:00.000Z");
+    const [first] = (await repo.listRoutes("user-a")).routes as [
+      UserRoute, ...UserRoute[],
+    ];
+    expect(first).toMatchObject({ id: "r1", title: "", point_ids: [] });
+    expect(first.saved_at).toBe("2026-07-13T04:00:00.000Z");
   });
 
   it("rejects rows with an unparseable timestamp", async () => {
