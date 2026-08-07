@@ -1,6 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as cloudflare from "@pulumi/cloudflare";
-import { config, stack, webRoutesEnabled } from "./config"
+import { config, stack, webRoutesEnabled } from "./config.ts"
 
 // ── Staging: WAF gate ─────────────────────────────────────────────────────────
 // staging runs the same app as production *with anonymous access on*

@@ -1,5 +1,5 @@
 import * as cloudflare from "@pulumi/cloudflare";
-import { accountId, mediaBucketName, mapTilesBucketName } from "./config"
+import { accountId, mediaBucketName, mapTilesBucketName } from "./config.ts"
 
 // ── Catalog: R2 media bucket ──────────────────────────────────────────────────
 // catalog Worker uses MEDIA_BUCKET (see workers/catalog/src/media/r2.ts) for
