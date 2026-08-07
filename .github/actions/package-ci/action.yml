@@ -1,0 +1,52 @@
+name: "Package CI"
+description: "Lint/test/build steps shared by pipeline-* lanes. Caller does checkout; this action runs setup (./.github/actions/setup) plus the lint/test/build command inputs, each skipped when its input is empty."
+
+inputs:
+  working-directory:
+    description: "Directory (relative to repo root) that lint/test/build commands run in"
+    required: false
+    default: "."
+  lint-command:
+    description: "Command to run for the lint stage; empty (default) skips"
+    required: false
+    default: ""
+  test-command:
+    description: "Command to run for the test stage; empty (default) skips"
+    required: false
+    default: ""
+  build-command:
+    description: "Command to run for the build stage; empty (default) skips"
+    required: false
+    default: ""
+  python:
+    description: "Also set up uv for Python (passed through to .github/actions/setup)"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - uses: ./.github/actions/setup
+      with:
+        python: ${{ inputs.python }}
+    - name: Lint
+      if: inputs.lint-command != ''
+      env:
+        PACKAGE_CI_CMD: ${{ inputs.lint-command }}
+      run: bash -ec "$PACKAGE_CI_CMD"
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+    - name: Test
+      if: inputs.test-command != ''
+      env:
+        PACKAGE_CI_CMD: ${{ inputs.test-command }}
+      run: bash -ec "$PACKAGE_CI_CMD"
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+    - name: Build
+      if: inputs.build-command != ''
+      env:
+        PACKAGE_CI_CMD: ${{ inputs.build-command }}
+      run: bash -ec "$PACKAGE_CI_CMD"
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}

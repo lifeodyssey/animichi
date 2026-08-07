@@ -12,6 +12,8 @@ Current active iteration artifacts:
 - `docs/iterations/iter6/README.md` — iter6 cleanup campaign index + Wave 3 design docs
   (`design-C2-app-ts-split.md` / `design-C4-type-convergence.md` /
   `design-C5-clean-arch-both-sides.md` / `design-L1-lint-enforcement.md`)
+- `docs/iterations/s0v2/` — S0-v2 launch GOAL + ruleset target snapshot
+- `docs/iterations/refactor-skeleton-2026-08/HYGIENE-INVENTORY.md` — #856 HY-1 root/docs hygiene inventory
 
 Previous iteration (iter5):
 - `docs/iterations/iter5/task_plan.md`
