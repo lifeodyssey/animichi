@@ -85,10 +85,26 @@ END $$;
 -- Jobs: session purge SELECT/DELETE
 GRANT SELECT, DELETE ON TABLE sessions, conversations, conversation_messages TO jobs_svc;
 
--- Readonly: SELECT on public business tables that exist
+-- Readonly: SELECT on business read-model tables only. Deliberately NOT
+-- schema-wide: agent dialogue/quota/api-key tables (sessions, conversations,
+-- conversation_messages, request_log, feedback, api_keys, daily_usage,
+-- anon_daily_message_count, agent_memory*) stay owner-only until classified.
+-- No ALTER DEFAULT PRIVILEGES: future tables must be classified before a
+-- grant decision is made, matching the per-ownership explicit-grant pattern.
 GRANT USAGE ON SCHEMA public TO readonly;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO readonly;
+GRANT SELECT ON TABLE
+  bangumi, points, aliases, series_edges, cluster_version, route_snapshots,
+  raw_anitabi, raw_bangumi, media_assets, leg_cache, routes
+TO readonly;
+DO $$
+BEGIN
+  IF to_regclass('public.locations') IS NOT NULL THEN
+    EXECUTE 'GRANT SELECT ON TABLE locations, location_aliases TO readonly';
+  END IF;
+  IF to_regclass('public.route_anime') IS NOT NULL THEN
+    EXECUTE 'GRANT SELECT ON TABLE route_anime TO readonly';
+  END IF;
+END $$;
 
 -- Explicit: catalog must not need users routes write (no grant routes to catalog_svc)
 -- Explicit: users must not need points write (no grant points to users_svc)
