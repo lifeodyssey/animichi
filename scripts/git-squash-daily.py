@@ -21,7 +21,7 @@ import subprocess
 import time
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone, tzinfo
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 Sha = str
 
@@ -39,7 +39,7 @@ def git(repo: str, *args: str) -> str:
 def shanghai_tz() -> tzinfo:
     try:
         return ZoneInfo("Asia/Shanghai")
-    except Exception:
+    except ZoneInfoNotFoundError:
         return timezone(timedelta(hours=8))
 
 
@@ -49,6 +49,7 @@ def ref_exists(repo: str, ref: str) -> bool:
         cwd=repo,
         capture_output=True,
         text=True,
+        check=False,
     )
     return r.returncode == 0
 
@@ -137,6 +138,7 @@ def trees_identical(repo: str, old: str, new: str) -> bool:
         cwd=repo,
         capture_output=True,
         text=True,
+        check=False,
     )
     if diff.returncode in (0, 1):
         return diff.returncode == 0
