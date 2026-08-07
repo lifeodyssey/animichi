@@ -70,20 +70,18 @@ on:
         required: false
       ANON_ID_SECRET:
         required: false
-      # Sent as the `x-staging-key` header by the Smoke step so the staging
-      # WAF gate (#529/#559, `stagingGateEnabled` in infra) lets web/root
-      # smokes through on staging. `required: false` for the same reason
-      # every secret above is: this is a staging-environment secret, so
-      # callers of this reusable (ci.yml/deploy.yml jobs have no
-      # environment context of their own) resolve `${{ secrets.
-      # STAGING_GATE_TOKEN }}` to EMPTY — and it works anyway, because the
-      # deploy job below declares `environment: ${{ inputs.environment }}`
-      # (GitHub: "the environment secret will be used, and not the secret
-      # passed from the caller workflow" — the same #527 mechanism that
-      # resolves NEON_DATABASE_URL etc. in this job). Callers therefore must
-      # NOT pass it, and a production call must not fail over it.
-      STAGING_GATE_TOKEN:
-        required: false
+      # STAGING_GATE_TOKEN is sent as the `x-staging-key` header by the
+      # Smoke step so the staging WAF gate (#529/#559, `stagingGateEnabled`
+      # in infra) lets web/root smokes through on staging. It exists ONLY as
+      # a staging-environment secret and must NEVER be declared under
+      # `workflow_call.secrets`: declaring it makes `${{ secrets.
+      # STAGING_GATE_TOKEN }}` inside the job resolve to the caller's value
+      # (empty when not passed, as in ci.yml/deploy.yml) and SHADOWS the
+      # job-level `environment:` secret (#826 — the header goes missing and
+      # the staging WAF 403s the smoke). It resolves via the deploy job's
+      # `environment: ${{ inputs.environment }}` instead (the #527 mechanism
+      # that also resolves NEON_DATABASE_URL etc.). Callers must NOT pass
+      # it, and a production call resolving it empty is expected and fine.
 jobs:
   deploy:
     timeout-minutes: 30
