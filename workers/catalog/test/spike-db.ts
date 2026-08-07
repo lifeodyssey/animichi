@@ -66,13 +66,18 @@ function enabledContext(): Extract<SpikeDatabaseContext, { enabled: true }> {
   return context;
 }
 
-function configureServerlessDriver(): void {
-  const configured = enabledContext();
-  neonConfig.fetchEndpoint =
-    `http://${configured.localHost}:${String(configured.localPort)}/sql`;
-  neonConfig.useSecureWebSocket = false;
-  neonConfig.poolQueryViaFetch = true;
-  neonConfig.wsProxy = (host, port) => `${host}:${String(port)}/v2`;
+/**
+ * Serverless-driver config for the DIRECT cloud endpoint (directDsn).
+ *
+ * The neon_local container proxy (#883) is 11 months old and does not bind
+ * 5432 on current runners; routing the driver through it produced both the
+ * 180s port timeout and the "parse error - invalid geometry" bytea mangling.
+ * Node 22+ ships a native WebSocket, so poolQueryViaFetch=false gives a
+ * direct encrypted connection to the ephemeral branch with no container.
+ */
+function configureDirectDriver(): void {
+  neonConfig.poolQueryViaFetch = false;
+  neonConfig.useSecureWebSocket = true;
 }
 
 function pause(milliseconds: number): Promise<void> {
@@ -97,8 +102,8 @@ async function waitUntilReady(db: CatalogDb): Promise<void> {
 }
 
 export async function openServerlessDb(): Promise<CatalogDb> {
-  configureServerlessDriver();
-  const db = makeDb(enabledContext().localDsn);
+  configureDirectDriver();
+  const db = makeDb(enabledContext().directDsn);
   await readyOrRestore(db);
   return db;
 }
@@ -145,7 +150,7 @@ export function directPoolConfig(connectionString: string): pg.PoolConfig {
 }
 
 export function localDatabaseUrl(): string {
-  return enabledContext().localDsn;
+  return enabledContext().directDsn;
 }
 
 export function catalogTruncateSql(): string {

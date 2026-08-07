@@ -100,12 +100,83 @@ function headers(env: NeonEnvironment): HeadersInit {
 }
 
 export async function apiRequest(
-  env: NeonEnvironment, path: string, method = "GET",
+  env: NeonEnvironment, path: string, method = "GET", body?: string,
 ): Promise<unknown> {
-  const response = await fetch(`${API_BASE}/${path}`, { method, headers: headers(env) });
+  const response = await fetch(`${API_BASE}/${path}`, {
+    method,
+    headers: { ...headers(env), ...(body ? { "Content-Type": "application/json" } : {}) },
+    body,
+  });
   if (response.status === 404) return undefined;
   if (!response.ok) throw new Error(`Neon API ${method} ${path} failed: ${String(response.status)}`);
   return await response.json();
+}
+
+/** Create a child branch of `parentId` (the direct-cloud replacement for the
+ *  neon_local container's own branch provisioning, #883). */
+export async function createBranch(
+  env: NeonEnvironment, parentId: string, name: string,
+): Promise<NeonBranch> {
+  const payload = await apiRequest(
+    env,
+    `projects/${env.projectId}/branches`,
+    "POST",
+    JSON.stringify({ parent_id: parentId, name }),
+  );
+  return parseBranchDetail(payload);
+}
+
+/** Branches the spike suite must never delete. */
+export const RESERVED_BRANCH_NAMES = new Set([
+  "staging", "test-base", "production", "wave2-spike",
+]);
+
+/** Free the project's branch quota (#883): ephemeral branches leak from
+ *  parallel CI runs; Neon free tier caps at 10, so leftover branches starve
+ *  the spike suite (BRANCHES_LIMIT_EXCEEDED on create). */
+export async function purgeOrphanBranches(
+  env: NeonEnvironment, before: NeonBranch[],
+): Promise<void> {
+  const current = await listBranches(env);
+  const kept: string[] = [];
+  for (const branch of current) {
+    if (branch.default || RESERVED_BRANCH_NAMES.has(branch.name)) continue;
+    if (!before.some((b) => b.id === branch.id)) continue;
+    if (kept.includes(branch.id)) continue;
+    kept.push(branch.id);
+    await apiRequest(env, `projects/${env.projectId}/branches/${branch.id}`, "DELETE");
+  }
+}
+
+/** A fresh branch has no compute until an endpoint is attached. */
+export async function createEndpoint(
+  env: NeonEnvironment, branchId: string,
+): Promise<void> {
+  const payload = await apiRequest(
+    env,
+    `projects/${env.projectId}/endpoints`,
+    "POST",
+    JSON.stringify({
+      endpoint: {
+        branch_id: branchId,
+        type: "read_write",
+        autoscaling_limit_min_cu: 0.25,
+        autoscaling_limit_max_cu: 0.25,
+      },
+    }),
+  );
+  record(payload, "endpoint");
+}
+
+export async function endpointReady(
+  env: NeonEnvironment, branchId: string,
+): Promise<boolean> {
+  const payload = await apiRequest(env, `projects/${env.projectId}/endpoints`);
+  const endpoints = record(payload, "endpoint list").endpoints;
+  if (!Array.isArray(endpoints)) throw new Error("Neon API endpoint list omitted endpoints");
+  return endpoints.some(
+    (e) => record(e, "endpoint").branch_id === branchId && textField(record(e, "endpoint"), "current_state") === "active",
+  );
 }
 
 export async function listBranches(env: NeonEnvironment): Promise<NeonBranch[]> {
