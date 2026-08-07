@@ -9,7 +9,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[6]
 WORKFLOW = ROOT / ".github" / "workflows" / "purge-anonymous-sessions.yml"
-WRANGLER_CONFIG = ROOT / "workers" / "maintenance" / "wrangler.toml"
+WRANGLER_CONFIG = ROOT / "workers" / "jobs" / "wrangler.toml"
 
 #: PyYAML's default (YAML 1.1) resolver parses the unquoted `on:` workflow
 #: key as the boolean `True`, not the string `"on"` — a well-known gotcha.
