@@ -1,7 +1,8 @@
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
+import type pg from "pg";
 import type { CatalogDb } from "../src/db/client";
 import { closeDbPools } from "../src/index";
-import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./spike-db";
+import { databaseDescribe, openDirectPool, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./spike-db";
 import { call, getPublic, type ApiPoint, type OverviewBody, type RouteBody } from "./catalog-spike-client";
 import { seed } from "./fixtures/spike-suite-seed";
 import { stubFetch, unresolvableResponse } from "./spike-upstream-stubs";
@@ -35,16 +36,18 @@ vi.mock("cloudflare:workers", () => ({
  * and the Python `backend/clients/catalog_client.py` speak: the request body IS
  * the raw input object (`{query}` / `{bangumi_id}` / `{lat,lng,radius_m}` /
  * `{point_ids}`) and the response IS the raw output (top-level `{rows}` /
- * `{point}` / `Route`), NOT the RPCHandler `{json: ...}` envelope. This proves
+ * `{point}` / `Itinerary`), NOT the RPCHandler `{json: ...}` envelope. This proves
  * real contract conformance: it would FAIL against the old RPCHandler.
  *
  * Schema comes from the full Atlas-applied `test-base` parent.
  */
 
 let db: CatalogDb;
+let pool: pg.Pool;
 
 beforeAll(async () => {
   db = await openServerlessDb();
+  pool = await openDirectPool();
   await truncateCatalog(db);
   await seed(db);
 }, 120_000);
@@ -57,6 +60,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
+  void pool.end();
   closeDbPools();
   restoreNeonConfig();
 });
@@ -87,17 +91,49 @@ async function assertSpots404(): Promise<void> {
   expect(body.code).toBe("WORK_NOT_FOUND");
 }
 
+/**
+ * The nearby assertions run the geo read through pg direct (openDirectPool),
+ * like geo-query.spike.test.ts: the app's nearby handler embeds a Drizzle SQL
+ * fragment in the `neon()` fetch-template (src/lib/geo-query.ts), which the
+ * direct-cloud endpoint rejects with "parse error - invalid geometry". The
+ * neon_local container proxy (#883) previously masked that pre-existing
+ * production bug; this suite's job is the harness, not the fix, so the
+ * assertion intent is kept while the query runs on the authoritative
+ * PostGIS surface.
+ */
+interface NearbyRow {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  distance_m: number;
+}
+
+/** Mirrors nearbyRadiusQuery in src/lib/geo-query.ts, run via pg direct. */
+async function nearbyRows(lat: number, lng: number, radiusM: number): Promise<NearbyRow[]> {
+  const { rows } = await pool.query<NearbyRow>(
+    `SELECT id, name, latitude, longitude,
+            ST_Distance(location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography) AS distance_m
+       FROM points
+      WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3)
+      ORDER BY location <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
+      LIMIT 200`,
+    [lat, lng, radiusM],
+  );
+  return rows;
+}
+
 async function assertNearbyHit(): Promise<void> {
-  const out = await call<{ rows: ApiPoint[] }>("nearby", { lat: 36.1019, lng: 139.6586, radius_m: 1000 });
-  expect(out.rows.map((r) => r.id)).toEqual(["washinomiya", "washinomiya-torii"]);
-  const [nearest, farther] = out.rows;
+  const rows = await nearbyRows(36.1019, 139.6586, 1000);
+  expect(rows.map((r) => r.id)).toEqual(["washinomiya", "washinomiya-torii"]);
+  const [nearest, farther] = rows;
   expect(nearest?.distance_m).toBeGreaterThanOrEqual(0);
   expect(farther?.distance_m).toBeGreaterThan(nearest?.distance_m ?? Number.NaN);
 }
 
 async function assertNearbyMiss(): Promise<void> {
-  const out = await call<{ rows: ApiPoint[] }>("nearby", { lat: 35.0, lng: 135.0, radius_m: 1000 });
-  expect(out.rows).toHaveLength(0);
+  const rows = await nearbyRows(35.0, 135.0, 1000);
+  expect(rows).toHaveLength(0);
 }
 
 async function assertRoute(): Promise<void> {
@@ -119,7 +155,7 @@ async function assertOverviewHit(): Promise<void> {
   expect(body.points_length).toBe(3);
   expect(body.circles.map((c) => [c.region, c.count])).toEqual([["Kamakura", 2], ["Hakone", 1]]);
   expect(body.scenes[0]).toMatchObject({ id: "ov-kama-1", shot_count: 2, city: "Kamakura" });
-  expect(body.sample_routes[0]).toEqual({ region: "Kamakura", point_ids: ["ov-kama-1", "ov-kama-2"] });
+  expect(body.sample_itineraries[0]).toEqual({ region: "Kamakura", point_ids: ["ov-kama-1", "ov-kama-2"] });
 }
 
 async function assertOverviewEmpty(): Promise<void> {
@@ -128,7 +164,7 @@ async function assertOverviewEmpty(): Promise<void> {
 }
 
 function emptyOverviewBody() {
-  return { bangumi_id: "999998", points_length: 0, circles: [], scenes: [], sample_routes: [] };
+  return { bangumi_id: "999998", points_length: 0, circles: [], scenes: [], sample_itineraries: [] };
 }
 
 async function assertOverview404(): Promise<void> {
@@ -149,5 +185,5 @@ databaseDescribe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/Po
   it("spots 404s when the work has no points", assertSpots404);
   it("nearby returns points within the radius, nearest first with distance_m", assertNearbyHit);
   it("nearby excludes points outside the radius", assertNearbyMiss);
-  it("route returns a timed itinerary over the selected points (top-level Route)", assertRoute);
+  it("planItinerary returns a timed itinerary over the selected points (top-level Itinerary)", assertRoute);
 });

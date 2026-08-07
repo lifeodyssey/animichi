@@ -1,4 +1,3 @@
-import type { StartedTestContainer } from "testcontainers";
 import type { SpikeDatabaseContext } from "../spike-db";
 import {
   branchDeleted,
@@ -12,11 +11,54 @@ import {
 
 export interface SpikeRuntime {
   branch: NeonBranch;
-  container: StartedTestContainer;
   context: SpikeDatabaseContext;
 }
 
-const IMAGE = "neondatabase/neon_local:latest";
+/**
+ * Direct-cloud runtime context — no neon_local container (#883): the stale
+ * container neither binds 5432 on current runners nor survives the serverless
+ * fetch round-trip. The ephemeral branch's own connection URI is the only
+ * endpoint the suite needs. Cloud-created branches start empty, so the Atlas
+ * migration chain (migrations/neon) is applied before the suite runs — this is
+ * the schema-as-code path the python-integration lane already uses.
+ */
+export async function buildDirectContext(
+  env: NeonEnvironment, branch: NeonBranch,
+): Promise<SpikeDatabaseContext> {
+  const directDsn = await connectionUri(env, branch.id);
+  await applyMigrations(directDsn);
+  return {
+    enabled: true,
+    localDsn: directDsn,
+    localHost: "",
+    localPort: 0,
+    directDsn,
+  };
+}
+
+async function applyMigrations(directDsn: string): Promise<void> {
+  const migrationsDir = new URL("../../../../migrations/neon/", import.meta.url);
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const run = promisify(execFile);
+  // Child output is captured into the callback buffer (never printed), so
+  // the schema chain's DDL/GRANT output does not swamp the vitest reporter.
+  // The gazetteer seed (workers/catalog/data/gazetteer_seed.sql) is applied
+  // by the test-base provisioner (scripts/neon-test-base.sh), and ephemeral
+  // branches inherit it from the test-base parent, so it is not re-applied
+  // here. Existing branches that already recorded the old gazetteer migration
+  // keep their data; Atlas tolerates the removed file (verified on 0.30.0).
+  await run("atlas", [
+    "migrate", "apply",
+    "--dir", migrationsDir.href,
+    "--url", directDsn,
+    "--revisions-schema", "public",
+    "--allow-dirty",
+  ], {
+    env: { ...process.env, ATLAS_NO_UPDATE_NOTIFIER: "1" },
+    maxBuffer: 10 * 1024 * 1024,
+  });
+}
 
 function pause(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -43,52 +85,10 @@ export async function connectionUri(env: NeonEnvironment, branchId: string): Pro
   return uri;
 }
 
-/** testcontainers v12 defaults to an image healthcheck; pin listening-ports for deterministic readiness. */
-export async function startContainer(
-  env: NeonEnvironment, parent: NeonBranch,
-): Promise<StartedTestContainer> {
-  const { GenericContainer, Wait } = await import("testcontainers");
-  return new GenericContainer(IMAGE)
-    .withEnvironment(containerEnv(env, parent))
-    .withExposedPorts(5432)
-    .withWaitStrategy(Wait.forListeningPorts())
-    .start();
-}
-
-function containerEnv(env: NeonEnvironment, parent: NeonBranch): Record<string, string> {
-  return {
-    NEON_API_KEY: env.apiKey,
-    NEON_PROJECT_ID: env.projectId,
-    PARENT_BRANCH_ID: parent.id,
-    DELETE_BRANCH: "true",
-  };
-}
-
-export async function buildContext(
-  env: NeonEnvironment, container: StartedTestContainer, branch: NeonBranch,
-): Promise<SpikeDatabaseContext> {
-  const host = container.getHost();
-  const port = container.getMappedPort(5432);
-  return { enabled: true, localDsn: localDsnFor(host, port), localHost: host, localPort: port, directDsn: await connectionUri(env, branch.id) };
-}
-
-function localDsnFor(host: string, port: number): string {
-  return `postgres://neon:npg@${host}:${String(port)}/neondb?sslmode=require`;
-}
-
 export async function waitUntilDeleted(env: NeonEnvironment, branchId: string): Promise<boolean> {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     if (await branchDeleted(env, branchId)) return true;
     await pause(2_000);
   }
   return false;
-}
-
-export async function stopContainer(container: StartedTestContainer): Promise<unknown> {
-  try {
-    await container.stop();
-    return undefined;
-  } catch (error) {
-    return error;
-  }
 }

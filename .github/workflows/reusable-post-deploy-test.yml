@@ -63,6 +63,14 @@ on:
       # discussion on #493 if revisiting this.
       CLOUDFLARE_ACCOUNT_ID:
         required: true
+      # #826 mechanism — this secret MUST be declared here AND passed by the
+      # staging caller (ci.yml's post-staging); this job's `environment:`
+      # then supplies the value. Declaring alone is not enough — the name
+      # must also appear in the caller's `secrets:` map — but omitting the
+      # declaration while expecting the environment to fill the name was
+      # #886's fix and left it empty, 403ing every staging smoke.
+      STAGING_GATE_TOKEN:
+        required: false
       # Sent as the `x-staging-key` header by post-deploy-assert.sh so the
       # staging WAF gate (#529/#559, `stagingGateEnabled` in infra) lets the
       # smoke through. On production the header is harmless — the gate
@@ -70,17 +78,17 @@ on:
       # encrypted `stagingGateToken` in infra/Pulumi.staging.yaml
       # (`scripts/setup-staging-gate.sh --rotate` replaces both together).
       #
-      # `required: false` deliberately, and callers must NOT pass it:
-      # STAGING_GATE_TOKEN exists only as a staging-environment secret, so
-      # `${{ secrets.STAGING_GATE_TOKEN }}` at the CALLER level (ci.yml /
-      # deploy.yml jobs have no environment) resolves to empty. It resolves
-      # inside this workflow instead, because the job below declares
-      # `environment: ${{ inputs.environment }}` — GitHub uses the
-      # environment secret, not any caller-passed value (same #527
-      # mechanism as reusable-deploy-component.yml). A production call
-      # resolving it empty is expected and must not fail the workflow call.
-      STAGING_GATE_TOKEN:
-        required: false
+      # Resolution mechanism (#826) — DECLARE + CALLER-PASS, then this
+      # job's `environment:` overrides the value: GitHub fills a name under
+      # the secrets context inside a callable workflow ONLY for names that
+      # appear BOTH under `on.workflow_call.secrets` AND in the caller's
+      # `secrets:` map. With the declaration absent (#886's fix), the
+      # staging-environment secret NEVER fills the name and the staging WAF
+      # 403s every smoke. So ci.yml's post-staging passes it explicitly
+      # (callers must pass the NAME; the job-level environment supplies the
+      # VALUE). `required: false` keeps production callers (no such
+      # environment secret — empty is expected and must not fail the call)
+      # free to omit it.
   # Lets an operator manually re-run a suite against an already-deployed
   # environment from the Actions UI during a rollback (docs/ops/deployment.md
   # § Rollback step 4) — `workflow_call`-only reusable workflows have no

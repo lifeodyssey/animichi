@@ -160,7 +160,7 @@ jobs:
         with:
           filters: |
             neon_agent: ['apps/agent/**']
-            neon_migrations: ['db/migrations/**']
+            neon_migrations: ['migrations/neon/**']
 
       - uses: ./.github/actions/setup
         with:
@@ -237,9 +237,19 @@ jobs:
         with:
           filters: |
             neon_catalog: ['workers/catalog/**']
-            neon_migrations: ['db/migrations/**']
+            neon_migrations: ['migrations/neon/**']
 
       - uses: ./.github/actions/setup
+
+      - name: Install pinned Atlas CLI
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/atlas-bin"
+          curl --proto '=https' --tlsv1.2 -sSfL             "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0"             -o "$RUNNER_TEMP/atlas-bin/atlas"
+          # Keep synchronized with apps/agent/src/animichi/tests/atlas_helper.py.
+          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas"             | sha256sum --check --strict
+          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
+          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
 
       - name: Run catalog spike tests
         if: ${{ github.event_name == 'workflow_dispatch' || steps.f.outputs.neon_catalog == 'true' || steps.f.outputs.neon_migrations == 'true' }}
@@ -289,6 +299,9 @@ jobs:
       working_directory: workers/catalog
       worker_secrets: DATABASE_URL
     secrets:
+      # #832: catalog_svc least-privilege DSN; fallback to NEON_DATABASE_URL
+      # (owner DSN) in the reusable until provisioned. Staging only.
+      CATALOG_DATABASE_URL: ${{ secrets.CATALOG_DATABASE_URL }}
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
@@ -321,6 +334,10 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # #826: the Smoke step sends this as `x-staging-key` past the staging
+      # WAF gate. Must be passed (the name must appear here) for the called
+      # workflow's job-level `environment: staging` to resolve its value.
+      STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
     concurrency: deploy-web-staging
 
   deploy-users-staging:
@@ -344,6 +361,9 @@ jobs:
         DATABASE_URL
         NEON_AUTH_JWKS_URL
     secrets:
+      # #832: users_svc least-privilege DSN; fallback to owner DSN until
+      # provisioned. Staging only.
+      USERS_DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
@@ -423,6 +443,10 @@ jobs:
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+      # #826: the Smoke step sends this as `x-staging-key` past the staging
+      # WAF gate. Must be passed (the name must appear here) for the called
+      # workflow's job-level `environment: staging` to resolve its value.
+      STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
     concurrency: deploy-root-staging
 
   post-staging:
@@ -435,10 +459,12 @@ jobs:
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      # STAGING_GATE_TOKEN is deliberately NOT passed here: this job has no
-      # environment, so the expression would resolve empty. The called
-      # workflow's job declares `environment:` and resolves the staging
-      # environment secret itself (see its STAGING_GATE_TOKEN comment).
+      # #826: every assertion step sends this as `x-staging-key` past the
+      # staging WAF gate. Must be passed (the name must appear here) for the
+      # called workflow's job-level `environment: staging` to resolve its
+      # value — #886's "declare nothing, let the environment fill it" fix
+      # left the name unfilled and every staging smoke 403'd.
+      STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
 
   # staging validated → production (human approve via environment: production in
   # reusable-deploy-component.yml). needs: post-staging guarantees staging passed api tests.
@@ -557,6 +583,11 @@ jobs:
       CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+      # #826: passed for parity with deploy-root-staging (the environment-
+      # consistency guard requires ci.yml and deploy.yml root jobs to carry
+      # the same names). Production has no such environment secret, so the
+      # called workflow resolves it empty — expected and fine.
+      STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
     concurrency: deploy-root-prod
 
   post-prod:
@@ -569,6 +600,8 @@ jobs:
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      # STAGING_GATE_TOKEN is deliberately NOT passed here — same reason as
-      # post-staging: the called workflow's job-level `environment:` resolves
-      # it (empty on production, which the called workflow tolerates).
+      # STAGING_GATE_TOKEN is deliberately NOT passed here (unlike
+      # post-staging): the production environment has no such secret, so the
+      # called workflow resolves it empty — expected and fine, the WAF gate
+      # ruleset only matches the staging hostname. It is `required: false`
+      # in the called workflow precisely to allow this.
