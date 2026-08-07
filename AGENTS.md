@@ -16,7 +16,7 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
 - `apps/agent/`        — Python PydanticAI agent (FastAPI container). uv. → `apps/agent/AGENTS.md`
 - `workers/catalog/`   — TS Worker: anime catalog API + data platform (ingest/enrich/publish). → `workers/catalog/AGENTS.md`
 - `workers/users/`     — LIVE Hono/oRPC/jose user-data Worker; 21 tests + CI lane. → `workers/users/AGENTS.md`
-- `workers/maintenance/` — Scheduled agent-domain Neon retention; no public route. → `workers/maintenance/AGENTS.md`
+- `workers/jobs/` — Scheduled agent-domain Neon retention; no public route. → `workers/jobs/AGENTS.md`
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
 - `workers/edge/`      — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy. No page fallback — unmatched paths 404.
@@ -49,7 +49,7 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
   `noqa` / `pragma: no cover` / `continue-on-error` / `skip`. Fix the code; don't silence the rule.
 - **TypeScript gate** — TypeScript 7.0.2 direct + type-aware oxlint/tsgolint with
   `--deny-warnings` across every package. ESLint left the repo with `frontend/` (#537).
-- **Coverage floors ratchet UP only** — backend ≥82; `apps/web` floors live in `apps/web/AGENTS.md`.
+- **Coverage floors ratchet UP only** — `apps/agent` ≥87 (`pyproject.toml` `--cov-fail-under`); `apps/web` floors live in `apps/web/vitest.config.ts` (mirrored in `apps/web/AGENTS.md`).
 - **Test quality**: mock the clock (no timing-dependent asserts); no conditional logic in tests
   (split them); ≤200 lines per test file; ≤5 mocks per test.
 - **No local deploy** (hook `block-local-deploy`) — CI/CD only: staging = merge to `main`; prod =
@@ -149,3 +149,19 @@ Role definitions live in `.claude/agents/`:
 ## File placement
 
 Never save working files to the repo root. Doc placement + the doc-change checklist → `docs/DOCS_POLICY.md`.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues (`lifeodyssey/animichi`) via `gh`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical five roles map 1:1 to label strings; plus `wayfinder:*` for decision maps. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context monorepo: root `CONTEXT-MAP.md` points at per-package `CONTEXT.md`. System ADRs in `docs/adr/`. See `docs/agents/domain.md`.
+
+Workflow overview (Matt × Policy C): `docs/workflow.md`.

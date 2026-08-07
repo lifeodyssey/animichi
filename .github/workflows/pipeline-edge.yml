@@ -70,13 +70,14 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # The edge worker is the root wrangler.toml entry; bundle-check the
+      # The edge worker's config is workers/edge/wrangler.toml (invoked from
+      # the repo root via -c, #853); bundle-check the
       # production config (wrangler dev/deploy bundle server-side). dry-run
       # never deploys, but it DOES run the full [[containers]] docker build
       # (verified 2026-08-05: "naming to docker.io/library/animichi-
-      # runtimecontainer-production:worker") — the same root ./Dockerfile the
+      # runtimecontainer-production:worker") — the same apps/agent/Dockerfile the
       # Agent / build lane docker-builds, so every PR builds that image twice
       # (image dedup is a tracked follow-up; the 15-min timeout is a flake risk
       # for this required context only until then).
       - name: Bundle check (wrangler deploy dry-run, production config)
-        run: pnpm exec wrangler deploy --dry-run -e production --outdir "$RUNNER_TEMP/edge-bundle"
+        run: pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir "$RUNNER_TEMP/edge-bundle"

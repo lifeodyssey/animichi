@@ -3,7 +3,7 @@ name: post-deploy-test
 # Reusable post-deploy test harness (issue #484). Runs real HTTP assertions
 # against an already-deployed environment via .github/scripts/post-deploy-assert.sh.
 # URLs are resolved by .github/scripts/resolve-worker-url.sh, which reads the
-# Worker script name from wrangler.toml / apps/web/wrangler.jsonc and then
+# Worker script name from workers/edge/wrangler.toml / apps/web/wrangler.jsonc and then
 # queries Cloudflare for that exact script's ACTUAL live state — its
 # attached Custom Domain if one exists, else its workers.dev URL if that's
 # enabled (issue #695: this used to be a hardcoded hostname table, which
@@ -137,7 +137,7 @@ jobs:
           echo "web_url=$web_url" >> "$GITHUB_OUTPUT"
           echo "Resolved root_url=$root_url web_url=$web_url"
           # Showcase-mode gate (S0-v2 GOAL C / C9): read the environment's
-          # EDGE_SHOWCASE_MODE from wrangler.toml — the SAME file `wrangler
+          # EDGE_SHOWCASE_MODE from workers/edge/wrangler.toml — the SAME file `wrangler
           # deploy --env <environment>` publishes from — so the probes below
           # assert the contract the deployment actually carries, and a config
           # that lost the key (or carries a malformed value) fails here
@@ -147,7 +147,7 @@ jobs:
           # against this same file — the earlier inline awk sliced
           # [env.<environment>] and exited at the [env.<environment>.vars]
           # header before finding anything).
-          edge_showcase_mode="$(bash .github/scripts/edge-showcase-mode.sh wrangler.toml "${ENVIRONMENT}")"
+          edge_showcase_mode="$(bash .github/scripts/edge-showcase-mode.sh workers/edge/wrangler.toml "${ENVIRONMENT}")"
           echo "EDGE_SHOWCASE_MODE=${edge_showcase_mode}" >> "$GITHUB_ENV"
 
       # ── checks that run for every suite/environment (issue #484 P1-2:

@@ -28,7 +28,7 @@ Cloudflare Cron Triggers ──────────────────�
 
 The hybrid topology runs the edge Worker plus the catalog, users, and scheduled maintenance Workers. The main `seichijunrei` Worker
 (`workers/edge/entry.ts`) routes `/catalog/*` to the separate `catalog` Worker
-(`catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`).
+(`workers/catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`).
 The Python agent in the container cannot use that JS-only binding, so it reaches
 the catalog over the public origin: `CATALOG_API_URL` (forwarded into the
 container as a plain var) points at the deployed host, and `CatalogClient` POSTs
@@ -38,17 +38,18 @@ resolves), then the main Worker.
 
 Catalog and users Workers query Neon through Drizzle's `neon-http` driver, which supplies their
 runtime query/type metadata. The maintenance Worker has no ORM: it calls `neon()` from
-`@neondatabase/serverless` directly (`workers/maintenance/src/database.ts`) and issues raw SQL.
+`@neondatabase/serverless` directly (`workers/jobs/src/database.ts`) and issues raw SQL.
 The checked-in Atlas directory is the only Neon schema authority for all three. See
 [`migrations.md`](./migrations.md) before changing a table or deploy step.
 
-- `interfaces/fastapi_service.py` exposes `GET /healthz`
-- `interfaces/fastapi_service.py` exposes `POST /v1/runtime`
-- `interfaces/fastapi_service.py` exposes `POST /v1/runtime/stream` (SSE)
-- `interfaces/fastapi_service.py` exposes `POST /v1/feedback`
-- `Dockerfile` packages the runtime into a single container image
+Agent HTTP surface (paths relative to `apps/agent/src/animichi/`):
 
-The deployment target stays intentionally thin. The Worker owns routing and edge auth; the container runs the backend service and stays unaware of raw end-user credentials.
+- `interfaces/fastapi_service.py` / `interfaces/routes/health.py` — `GET /healthz`
+- `interfaces/routes/runtime.py` — `POST /v1/runtime` and `POST /v1/runtime/stream` (SSE)
+- `interfaces/routes/feedback.py` — `POST /v1/feedback`
+- `apps/agent/Dockerfile` packages the agent into a single container image
+
+The deployment target stays intentionally thin. The Worker owns routing and edge auth; the container runs the agent service and stays unaware of raw end-user credentials.
 
 ## Trust Boundaries
 
@@ -104,7 +105,7 @@ These secrets stay in the Worker environment and are not forwarded into the cont
 
 ### Maintenance Worker
 
-`workers/maintenance` requires `AGENT_DATABASE_URL` as a Cloudflare secret binding. CI resolves the
+`workers/jobs` requires `AGENT_DATABASE_URL` as a Cloudflare secret binding. CI resolves the
 same-named secret from the selected GitHub Environment, so staging and production receive distinct
 agent-domain Neon DSNs. Schedules and cutover verification are in
 [`maintenance-worker.md`](./maintenance-worker.md).
@@ -250,12 +251,12 @@ Routing defined by `wrangler.toml`:
 - everything else answers a JSON `404 not_found`
 
 <!-- historical: retired in #537 -->
-Issue #537 removed the bundled Next.js app and with it the `[assets]` binding: this Worker
-has **no** HTML surface. `apps/web` deploys as its own Worker and owns every page. The root
-Worker's `routes` still claim `animichi.com/*`, so the apex has not yet been cut over to the
-web Worker. Until issue #541 changes the DNS and route ownership, the root Worker owns the
-apex request but returns its JSON 404 for page paths; `apps/web` owns HTML only on its own
-Worker hostname. That cutover must land before `animichi.com` gets a DNS record.
+Issue #537 removed the bundled legacy static frontend and with it the `[assets]` binding: this
+Worker has **no** HTML surface. `apps/web` (TanStack Start) deploys as its own Worker and owns
+every page. Route ownership for the apex is declared in Pulumi (`infra/index.ts`, #541): until
+`webRoutesEnabled` is on, the root Worker may have no public hostname at all
+(`workers_dev = false`). `apps/web` owns HTML on its Worker hostname; the root Worker is API +
+proxy only (`/v1/*`, `/healthz`, `/img/*`, `/tiles/*`, one public catalog read).
 
 ## Deploy Sequence
 
@@ -438,7 +439,7 @@ explicitly.
 | root (edge Worker + container) | `.` | `npx wrangler@4.112.0 versions list --env <staging\|production>` | `npx wrangler@4.112.0 rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 | catalog | `workers/catalog` | `pnpm --filter catalog exec wrangler versions list --env <staging\|production>` | `pnpm --filter catalog exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 | users | `workers/users` | `pnpm --filter users exec wrangler versions list --env <staging\|production>` | `pnpm --filter users exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
-| maintenance | `workers/maintenance` | `pnpm --filter maintenance exec wrangler versions list --env <staging\|production>` | `pnpm --filter maintenance exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
+| maintenance | `workers/jobs` | `pnpm --filter maintenance exec wrangler versions list --env <staging\|production>` | `pnpm --filter maintenance exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 | web | `apps/web` | `pnpm --filter web exec wrangler versions list --env <staging\|production>` | `pnpm --filter web exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
 
 `wrangler rollback` with no version id rolls back to the version immediately before the current
@@ -532,6 +533,10 @@ old migration file. Treat any release that combined a schema change with app cod
 Worker rollback alone is insufficient; check `db/migrations` for what shipped in that release before
 declaring the rollback complete.
 
+**Neon data-plane recovery (PITR, RPO/RTO, failed-migrate checklist, bad-migration stub):** see
+[`neon-backup-rpo.md`](./neon-backup-rpo.md). Worker/Pulumi steps on this page do not replace Neon
+history-window restore or the owner HITL monitor checklist.
+
 ### Prerequisite: a local Cloudflare API token, provisioned BEFORE an incident
 
 Every command in the table above needs a Cloudflare API token in the operator's own environment —
@@ -616,3 +621,7 @@ After the old feat/ssr-cloudflare merge, operators used these checks:
    ```sql
    SELECT city, count(*) FROM points GROUP BY city ORDER BY count DESC LIMIT 10;
    ```
+
+## Neon topology
+
+See [neon-env-topology.md](./neon-env-topology.md) (N3 / #859).

@@ -360,7 +360,7 @@ jobs:
       component: maintenance
       environment: staging
       pulumi_stack: staging
-      working_directory: workers/maintenance
+      working_directory: workers/jobs
       run_pulumi: false
       worker_secrets: AGENT_DATABASE_URL
     secrets:
@@ -389,8 +389,8 @@ jobs:
       # #527/#528 (P1-A): CORS_ALLOWED_ORIGIN is NOT listed here anymore, and
       # this is NOT "staging doesn't need CORS restriction" — that framing
       # was reasoned, not verified, and turned out wrong. It's provisioned
-      # instead as `[env.staging.vars].CORS_ALLOWED_ORIGIN` in the root
-      # `wrangler.toml` (see the comment there for the full chain: no
+      # instead as `[env.staging.vars].CORS_ALLOWED_ORIGIN` in the edge
+      # `workers/edge/wrangler.toml` (see the comment there for the full chain: no
       # wildcard fallback exists, the container hardcodes
       # `APP_ENV=production`, and an absent value reproducibly crashes the
       # container on boot via `settings.py`'s CORS validator — verified
@@ -509,7 +509,7 @@ jobs:
       component: maintenance
       environment: production
       pulumi_stack: prod
-      working_directory: workers/maintenance
+      working_directory: workers/jobs
       run_pulumi: false
       worker_secrets: AGENT_DATABASE_URL
     secrets:

@@ -22,6 +22,8 @@ migrations remain under `supabase/migrations/`. Root guide: `../AGENTS.md`.
 - `migrations/atlas.sum` — Atlas integrity manifest.
 - `../.github/workflows/reusable-deploy-component.yml` — deploy-time apply gate.
 - `../docs/data-sources.md` — gazetteer provenance and regeneration inputs.
+- `../docs/ops/migrations.md` — authoring/apply boundary and expand/contract.
+- `../docs/ops/neon-backup-rpo.md` — Neon PITR / RPO·RTO / failed-migrate + bad-migration recovery (N5).
 
 ## Pitfalls
 

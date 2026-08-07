@@ -26,7 +26,7 @@ ALLOWED_ROOT_ENTRIES=(
   .sqlfluff
   AGENTS.md
   CLAUDE.md
-  Dockerfile
+  CONTEXT-MAP.md
   Makefile
   README.ja.md
   README.md
@@ -46,7 +46,6 @@ ALLOWED_ROOT_ENTRIES=(
   scripts
   supabase
   workers
-  wrangler.toml
 )
 
 # First path segment of every tracked file; -z keeps non-ASCII paths unquoted.

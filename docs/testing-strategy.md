@@ -3,7 +3,7 @@
 Date: 2026-07-18
 Status: CURRENT
 Repo: lifeodyssey/animichi
-Stack: FastAPI + asyncpg + Pydantic AI (backend), Next.js + React (frontend), Cloudflare Workers (deploy)
+Stack: FastAPI + asyncpg + PydanticAI (`apps/agent`), TanStack Start + React (`apps/web`), Cloudflare Workers (`workers/edge` · `catalog` · `users` · `maintenance`)
 
 ## Table of Contents
 
@@ -475,9 +475,9 @@ Weekly CI run without cassettes verifies APIs haven't changed.
 
 ### Test Environment
 
-- Backend: `localhost:8080` (FastAPI; choose its DB arm separately)
-- Frontend: `localhost:3000` (Next.js dev server)
-- Auth: local Supabase GoTrue + `send-auth-email` + Mailpit
+- Agent: `localhost:8080` (FastAPI container/service; choose its DB arm separately)
+- Web: `apps/web` Vite dev / Wrangler preview (default `E2E_WEB_BASE_URL=http://localhost:3000`)
+- Auth: local Supabase GoTrue + `send-auth-email` + Mailpit (until Neon Auth cutover)
 - **Nothing is mocked**
 
 `make e2e-setup` starts the retained auth appliance and seeds its compatibility database. That
@@ -670,15 +670,15 @@ The following is embedded directly in Executor and Reviewer prompts. No runtime 
 - Assert agent-model exchange with `capture_run_messages()`
 - Global `models.ALLOW_MODEL_REQUESTS = False` prevents accidental real calls
 
-### React / Next.js
+### React / TanStack Start (`apps/web`)
 
-- Server Components by default, `"use client"` only when interaction/state needed
-- Minimize `"use client"` — only on components that truly need client state
+- Prefer server loaders and route-level data; mark client components only when interaction/state needs the browser
 - Hook rules: no hooks in conditionals/loops
 - key prop with stable IDs (e.g. `message.id`), not array index
 - `useCallback` for event handlers to prevent unnecessary child re-renders
-- CSS via Tailwind utility + `globals.css` design tokens
+- CSS via Tailwind utility + `apps/web/src/styles/globals.css` design tokens
 - `useEffect` cleanup: return cleanup function to prevent memory leaks
+- Package conventions and coverage floors: `apps/web/AGENTS.md` + `apps/web/vitest.config.ts`
 
 ### testcontainers
 

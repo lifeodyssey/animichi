@@ -65,8 +65,9 @@ async function acquireJob(db: CatalogDb, workId: string): Promise<boolean> {
   const result = await db.execute(sql`
     INSERT INTO ingest_jobs (work_id, status, started_at) VALUES (${workId}, 'running', NOW())
     ON CONFLICT (work_id) DO UPDATE SET status = 'running', started_at = NOW()
-    WHERE (status <> 'running' AND (negative_cached_until IS NULL OR negative_cached_until <= NOW()))
-       OR (status = 'running' AND ${runningStaleSql()})
+    WHERE (ingest_jobs.status <> 'running'
+           AND (ingest_jobs.negative_cached_until IS NULL OR ingest_jobs.negative_cached_until <= NOW()))
+       OR (ingest_jobs.status = 'running' AND ${runningStaleSql()})
     RETURNING work_id
   `);
   return result.rows.length > 0;
@@ -84,7 +85,7 @@ let runningStale: SQL | undefined;
  * with correct ESM order, so only the deployed bundle ever sees it).
  */
 function runningStaleSql(): SQL {
-  runningStale ??= sql`COALESCE(started_at, created_at) <= NOW() - make_interval(secs => ${RUNNING_TTL_SECONDS})`;
+  runningStale ??= sql`COALESCE(ingest_jobs.started_at, ingest_jobs.created_at) <= NOW() - make_interval(secs => ${RUNNING_TTL_SECONDS})`;
   return runningStale;
 }
 

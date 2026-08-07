@@ -17,15 +17,19 @@ For the full deployment topology, auth flow, and env-var boundaries see `deploym
 Browser / API client
   │
   ▼
-Cloudflare Edge (Worker: worker/worker.js)
-  ├─ static paths (/, /about, *.js, *.css, …) ──▶ ASSETS binding (frontend/out/)
+Cloudflare Edge (Worker: workers/edge/entry.ts)
+  ├─ page HTML ──────────────────────────────────▶ apps/web Worker (TanStack Start; not this Worker)
   ├─ /img/* ─────────────────────────────────────▶ Worker image proxy → Anitabi CDN (cached)
+  ├─ /tiles/* ───────────────────────────────────▶ private R2 tile proxy
   ├─ /healthz ───────────────────────────────────▶ RuntimeContainer (no auth)
+  ├─ /v1/users/* ────────────────────────────────▶ USERS service binding
   └─ /v1/* ── authenticate ── strip Authorization
        │        inject X-User-Id, X-User-Type
        ▼
      RuntimeContainer (Durable Object → Python FastAPI on port 8080)
-       ├─ Supabase Postgres (SUPABASE_DB_URL)
+       ├─ agent-domain Postgres (SUPABASE_DB_URL)
+       ├─ catalog.internal (private) ─────────────▶ CATALOG service binding
+       │    (no public /catalog/* browser route)
        └─ MiMo/DeepSeek model provider (MIMO_API_KEY / DEEPSEEK_API_KEY) —
           photo-search recognition rides this same chat model (#656)
 ```
@@ -49,20 +53,20 @@ On success the Worker sets `X-User-Id` and `X-User-Type`, deletes the `Authoriza
 | `SUPABASE_SERVICE_ROLE_KEY` | Worker-only | Used for `api_keys` table lookup |
 | `NEON_AUTH_ENABLED` / `NEON_AUTH_JWKS_URL` / `NEON_AUTH_ISSUER` | Worker-only (optional) | Dual-issuer readiness — Neon Auth EdDSA JWKS verification; absent or `false` ⇒ Neon path off (default) |
 | `SUPABASE_DB_URL` | Container-only | Direct Postgres connection for asyncpg |
-| `CORS_ALLOWED_ORIGIN` | Container-only | Backend CORS allowlist |
+| `CORS_ALLOWED_ORIGIN` | Container-only | Agent CORS allowlist |
 | `GOOGLE_MAPS_API_KEY` | Container-only (optional) | Geocoding |
 | `LOGFIRE_TOKEN` | Container-only (optional) | Observability |
-| `NEXT_PUBLIC_SUPABASE_URL` | Frontend build-time only | Injected by CI, not a runtime secret |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Frontend build-time only | Injected by CI, not a runtime secret |
+| `VITE_*` (web build) | `apps/web` build-time only | Injected by CI into the web Worker; not root-Worker secrets |
 
-The full container env allowlist is defined in `worker/worker.js` as `CONTAINER_REQUIRED_ENV_KEYS`, `CONTAINER_RUNTIME_ENV_KEYS`, and `CONTAINER_OPTIONAL_ENV_KEYS`.
+The full container env allowlist is `CONTAINER_ENV_KEYS` / `CONTAINER_REQUIRED_KEYS` in
+`workers/edge/container-env.ts` (consumed by `workers/edge/entry.ts`).
 
 ## Current Trust Boundary
 
-- Browser and API clients talk only to the Worker hostname
+- Browser clients hit `apps/web`; API clients hit the root edge Worker hostname
 - Worker-only auth secrets stay at the edge: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (+ optional `NEON_AUTH_*`); the edge JWT path verifies against the public Supabase JWKS, so no `SUPABASE_ANON_KEY` is needed there
-- Container runtime receives only its explicit allowlist from `worker/worker.js`
-- Backend auth trust starts from `X-User-Id` and `X-User-Type`, not from raw bearer tokens
+- Container runtime receives only its explicit allowlist from `workers/edge/container-env.ts`
+- Agent auth trust starts from `X-User-Id` and `X-User-Type`, not from raw bearer tokens
 
 ## 1. `/v1/*` Rate Limit Rule
 
@@ -128,7 +132,7 @@ Operational guidance:
 
 If AI Gateway is enabled later:
 
-- place it between the container and Gemini
+- place it between the container and the upstream model provider (MiMo / DeepSeek)
 - do not place it in the browser
 - do not place it in the Worker
 
@@ -164,8 +168,8 @@ After manual dashboard changes:
 
 - confirm `/healthz` still succeeds without auth
 - confirm `/v1/runtime` still requires auth and returns `401` when missing credentials
-- confirm a valid authenticated `/v1/runtime` request still reaches the backend
-- confirm static frontend assets remain unaffected
+- confirm a valid authenticated `/v1/runtime` request still reaches the agent container
+- confirm `apps/web` page routes are unaffected (they are a separate Worker)
 - inspect Worker logs for unexpected spikes in blocked traffic or auth failures
 
 ## 6. Egress Network Policy (container-level defense-in-depth — #284 Task 7)
@@ -266,7 +270,7 @@ enforcement either.
 ### What is implemented
 
 `RuntimeContainer.deniedHosts` (`workers/edge/entry.ts`) is set from `DENIED_EGRESS_HOSTS`
-(`workers/edge/container-env.ts`, split out for the same Node-import-chain reason as
+(`workers/edge/container/container-env.ts`, split out for the same Node-import-chain reason as
 `buildContainerEnvVars` — see that file's header comment). It is a set of dotted-decimal glob
 prefixes and exact hostnames — **not CIDR strings** — chosen to be the glob-equivalent of the
 spec's target ranges when a request URL's hostname is already a bare IPv4 literal (the common

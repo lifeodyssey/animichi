@@ -17,7 +17,7 @@ stable boundaries, current entry points, and active plans only.
 | `apps/agent/AGENTS.md` | Python agent (PydanticAI / FastAPI) conventions |
 | `workers/catalog/AGENTS.md` | Catalog Worker (Hono / oRPC / Drizzle) + data-platform conventions |
 | `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / jose) conventions |
-| `workers/maintenance/AGENTS.md` | Scheduled agent-domain Neon retention Worker conventions |
+| `workers/jobs/AGENTS.md` | Scheduled agent-domain Neon retention Worker conventions |
 | `packages/contract/AGENTS.md` | Cross-service oRPC/Zod contract conventions |
 | `apps/web/AGENTS.md` | TanStack Start rebuild conventions |
 | `db/AGENTS.md` · `e2e/AGENTS.md` · `infra/AGENTS.md` | Migrations, browser tests, and IaC conventions |
@@ -66,7 +66,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Cross-service contract (zod = SoT) | `packages/contract/src/` (`models.ts`, `contract.ts`, `errors.ts`) + `packages/contract/README.md` | error registry + parity guard live here |
 | User-domain service | `workers/users/` + `workers/users/AGENTS.md` | Live Hono/oRPC/jose service over Neon, `/v1/users/*` |
 | Edge worker / auth / routing | `workers/edge/entry.ts` (+ `app.ts`, `auth.ts`) | was `worker/worker.js`, then `worker/` (iter6 C2) |
-| Deploy wiring | `wrangler.toml` + `workers/edge/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
+| Deploy wiring | `workers/edge/wrangler.toml` + `workers/edge/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
 | DB — catalog/user data | **Neon** (Drizzle raw-SQL query-only over neon-http); migrations in `db/` (Atlas) | data plane; no Hyperdrive |
 | DB — auth | **Supabase** (auth-only); migrations in `supabase/migrations/` | |
 | Web app (the only browser surface) | `apps/web/` + `apps/web/AGENTS.md` (TanStack Start) | Legacy `frontend/` retired in #537; spec `2026-07-06-frontend-rebuild-spec.md` |
@@ -74,10 +74,11 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Eval | `apps/agent/src/animichi/tests/eval/` (Python) | |
 | Testing strategy | `docs/testing-strategy.md` | |
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
+| Neon backup / RPO / bad-migration recovery | `docs/ops/neon-backup-rpo.md` | N5 (#860); PITR + HITL checklist; pairs with `migrations.md` |
 | Iteration specs (live) | `docs/superpowers/specs/` — 平层只放活跃 spec(cicd-rebuild、catalog-rpc、byok、s1.7、neon-test-infra、rebuild、ADR) | 过时 spec 一律入 `docs/superpowers/specs/archive/`(只进不出,iter6 A6/#640) |
 | Iteration plans | 当前 iteration 的计划在 `docs/iterations/<iterN>/`;历史执行 plan 全部在 `docs/superpowers/plans/archive/` | 平层不再新增 plan(iter6 A6/#640) |
 | Iteration progress/handoff | `docs/iterations/<iterN>/`(progress、task_plan、handoff、status) | 根目录禁放(File Placement 规则) |
-| Scheduled retention purges | `workers/maintenance/` + `docs/ops/maintenance-worker.md` | Cloudflare Cron Triggers for anonymous sessions and daily quota counts |
+| Scheduled retention purges | `workers/jobs/` + `docs/ops/maintenance-worker.md` | Cloudflare Cron Triggers for anonymous sessions and daily quota counts |
 
 ## Review Check
 

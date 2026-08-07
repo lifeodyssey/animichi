@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml?query=branch%3Amain)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
-[![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg?logo=nextdotjs)](https://nextjs.org)
+[![TanStack Start](https://img.shields.io/badge/TanStack_Start-SSR-FF4154.svg)](https://tanstack.com/start)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e.svg?logo=supabase)](https://supabase.com)
 [![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/animichi)](https://github.com/lifeodyssey/animichi/commits/main)
@@ -26,11 +26,11 @@
 
 ```
 用户输入 → PydanticAI Agent（animichi_agent）
-              ├── resolve_anime  → DB 优先的标题查找; 未命中时调用 Bangumi.tv API
-              ├── search_bangumi → 参数化 SQL → Supabase 数据点
-              ├── search_nearby  → PostGIS 地理检索
-              ├── plan_route     → 最近邻路线排序
-              └── answer_question → QA 直通
+              ├── resolve_anime  → catalog Worker 标题解析; 未命中时 Bangumi 入库
+              ├── search_bangumi → 已解析 bangumi_id 的 catalog 点位
+              ├── search_nearby  → catalog 地理检索（Neon 上的 PostGIS）
+              ├── plan_route     → catalog 路线排序
+              └── web_search / translate → 带出处调研 / 标题翻译
            → AgentResult（类型化输出 + 工具调用记录）
 ```
 
@@ -84,13 +84,16 @@ make db-push           # 对 NEON_DATABASE_URL 应用迁移
 
 ## 环境变量
 
-**必需：**
+**必需（agent 容器 / 本地 serve）：**
 | 变量 | 用途 |
 |---|---|
-| `SUPABASE_DB_URL` | Postgres 连接字符串 |
-| `SUPABASE_URL` | Supabase 项目 URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | 服务端 Supabase 认证 |
-| `SUPABASE_ANON_KEY` | Worker 边缘 JWT 验证 |
+| `SUPABASE_DB_URL` | agent 域 Postgres 连接字符串 |
+| `SUPABASE_URL` | Supabase 项目 URL（auth + API key 查询面） |
+| `SUPABASE_SERVICE_ROLE_KEY` | 服务端 Supabase 认证 / `api_keys` 查询 |
+| `MIMO_API_KEY` | 主模型供应商密钥 |
+| `DEEPSEEK_API_KEY` | 边缘 container-env 容器启动必填（转发进容器） |
+
+**Worker 边缘：** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`（JWT 用公开 JWKS 校验 — 边缘不需要 `SUPABASE_ANON_KEY`）。catalog/users/maintenance 还需各自 Neon DSN — 见 [`docs/ops/deployment.md`](docs/ops/deployment.md)。
 
 **可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -117,25 +120,19 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
   -d '{"text":"吹響の聖地","locale":"ja"}'
 ```
 
-**Python 客户端：**
-```python
-from animichi.clients.python.seichijunrei_client import SeichijunreiClient
-
-client = SeichijunreiClient(api_key="sk_your_key_here")
-result = client.search("Hibike Euphonium locations", locale="en")
-```
-
 ## 仓库结构地图
 
 - `apps/agent/` — Python 运行时：agents、interfaces、infrastructure、tests、tools
-- `workers/catalog/` — 动漫圣地目录 REST API 的 Cloudflare Worker（TypeScript）
-- `packages/contract/` — catalog 与 agent 之间共享的 oRPC contract 类型
-- `apps/web/` — TanStack Start SSR Web 应用与 UI 组件
-- `workers/edge/` — Cloudflare Worker 入口，负责认证与请求路由
+- `workers/catalog/` — 动漫目录 API + 数据平台 Cloudflare Worker（TypeScript）
+- `workers/users/` — 用户域数据 Worker（`/v1/users/*`）
+- `workers/maintenance/` — 定时 Neon 保留 Worker（无公网路由）
+- `packages/contract/` — 共享 oRPC/zod 契约（catalog ↔ agent ↔ users）
+- `apps/web/` — TanStack Start SSR Web 应用（**唯一浏览器面**）
+- `workers/edge/` — Cloudflare Worker 入口：认证与 `/v1` 路由
 - `db/migrations/` — Neon 数据面的 Atlas 迁移与生成的 checksum
 - `supabase/` — auth/旧版兼容迁移与 Supabase 项目资产
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划
-- `Dockerfile`、`Makefile`、`wrangler.toml`、`package.json` — 保留在根目录的运行与工具入口文件
+- `Makefile`、`package.json` — 根目录工具入口；`apps/agent/Dockerfile`（容器镜像）与 `workers/edge/wrangler.toml`（edge Worker 配置）随代码存放
 
 ## 文档
 
@@ -144,5 +141,6 @@ result = client.search("Hibike Euphonium locations", locale="en")
 - [迁移边界](docs/ops/migrations.md) — Atlas authority 与 Drizzle 查询/类型边界
 - [运维文档](docs/ops/README.md) — 运维手册与环境流程
 - [迭代资料](docs/iterations/README.md) — 按迭代归档的 task plan、progress、findings
-- [实现计划](docs/superpowers/plans/) — 保持原位的实现计划历史
-- [设计规格](docs/superpowers/specs/) — 产品规格说明
+- [实现计划（归档）](docs/superpowers/plans/archive/) — 历史执行计划（平层 `plans/` 不再新增）
+- [设计规格](docs/superpowers/specs/) — 现行产品/架构规格
+- [Agent 指南](AGENTS.md) — monorepo 布局、命令与跨栈护栏
