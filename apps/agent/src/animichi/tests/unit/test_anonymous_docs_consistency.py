@@ -42,9 +42,9 @@ def test_the_documented_identity_shape_matches_the_code(architecture: str) -> No
 
 
 def test_the_documented_opt_in_switches_match_the_worker(architecture: str) -> None:
-    # The anonymous gate moved out of auth.ts into anonymous-id.ts (1-10-50
-    # split): the switches live where `anonymousEnabled` reads them.
-    auth_source = (WORKER / "anonymous-id.ts").read_text(encoding="utf-8")
+    # The anonymous gate moved out of auth.ts into identity/anonymous-id.ts
+    # (1-10-50 split): the switches live where `anonymousEnabled` reads them.
+    auth_source = (WORKER / "identity" / "anonymous-id.ts").read_text(encoding="utf-8")
     for name in ("ANON_ACCESS_ENABLED", "ANON_ID_SECRET"):
         assert name in architecture
         assert name in auth_source

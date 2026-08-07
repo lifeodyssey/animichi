@@ -22,7 +22,7 @@ EVENT = "push"
 CHECK_PATHS = (
     "apps/agent/src/animichi/tests/unit/test_documentation_guardrails.py",
     "apps/agent/src/animichi/tests/unit/test_secrets_docs_consistency.py",
-    "workers/maintenance/test/config.worker.test.ts",
+    "workers/jobs/test/config.worker.test.ts",
     "workers/users/test/eddsa-shared-primitive.worker.test.ts",
     "apps/web/tests/unit/chat/turnstile-constants-guard.test.ts",
 )
@@ -35,7 +35,7 @@ TS_READS = re.compile(
 # read closure — that is what this script asserts.
 COMPONENT_WORKFLOWS: dict[str, str] = {
     "agent": "pipeline-agent.yml",
-    "maintenance": "pipeline-maintenance.yml",
+    "jobs": "pipeline-maintenance.yml",
     "users": "pipeline-users.yml",
     "web": "pipeline-web.yml",
 }

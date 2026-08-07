@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { TURNSTILE_REQUIRED_CODE } from "../../../src/lib/chat/error-classifier";
+import { TURNSTILE_REQUIRED_CODE } from "../../../src/features/chat/lib/error-classifier";
 import { maskRecomputeFailure, turnFailureState } from "../../../src/features/chat/use-turn-failure";
 import type { FailingTurn } from "../../../src/features/chat/use-turn-failure";
 import type { TurnFailureView } from "../../../src/features/chat/components/ErrorStates/TurnFailure";
 import type { RecomputeTurn } from "../../../src/features/chat/selection/use-recompute-turn";
-import type { ChatErrorState } from "../../../src/lib/chat/error-classifier";
+import type { ChatErrorState } from "../../../src/features/chat/lib/error-classifier";
 
 /**
  * Classification-level guards for the two suppressions that decide whether an

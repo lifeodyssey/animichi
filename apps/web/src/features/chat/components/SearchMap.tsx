@@ -1,7 +1,7 @@
 import type { LatLng } from "@animichi/contract";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject } from "react";
-import type { LocatedSpot, SpotCluster } from "../../../lib/chat/spot-clusters";
+import type { LocatedSpot, SpotCluster } from "../lib/spot-clusters";
 import { bubblePlacements, pointPlacements } from "../../bubble-map/bubble-geometry";
 import type { BubblePlacement, PointPlacement } from "../../bubble-map/bubble-geometry";
 import type { BasemapStatus, MountBasemapOptions } from "../../bubble-map/bubble-map-controller";

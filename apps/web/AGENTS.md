@@ -40,6 +40,27 @@ landing page and branded 404 through a Cloudflare SSR bundle. Root guide: `../..
   JSON: `contract-handler.ts` `parse()`s requests and responses against the `@animichi/contract`
   zod schemas and builds oRPC-typed error envelopes.
 
+## Dependency direction (UI → features → clients/platform; never reverse)
+
+- One-way layering, enforced by convention and peer review (no lint plugin exists; a back-edge is
+  a review blocker):
+  1. `src/routes/` and `src/components/` — UI. May import features, `src/api/hooks/`, `src/lib/`.
+  2. `src/features/*/` — feature units. May import `src/api/` clients/hooks, `src/lib/`,
+     `src/platform/`. Prefer no imports from other features' internals — share via `src/lib/`
+     or `src/api/hooks/`. **Known exception:** map geometry/controller under
+     `src/features/bubble-map/` is a shared map primitive used by chat maps until a
+     `src/lib/map/` extract (TODO(refactor-skeleton): see #842).
+  3. `src/api/` (transport + hooks) · `src/lib/` (pure utilities) · `src/platform/` — never import
+     UI or features. Nothing may reverse this order.
+- A feature owns everything it needs under `src/features/<feature>/` — components/, hooks, and a
+  `lib/` subfolder for pure logic. `src/lib/` is reserved for cross-cutting/platform-adjacent
+  utilities (auth, byok, turnstile, route-detail); it must never hold a feature's code twice.
+- Chat is single-homed (consolidated in #842): its pure logic lives in
+  `src/features/chat/lib/` — do NOT recreate `src/lib/chat/`.
+- Remaining dual home tracked in #842: `route-detail` still spans `src/lib/route-detail/` +
+  `src/components/route-detail/`; consolidate under `src/features/route-detail/` and delete
+  `src/lib/route-detail/` (see the `TODO(refactor-skeleton)` markers in that folder).
+
 ## Key files + entrypoints
 
 - `src/routes/__root.tsx` — document shell, metadata, error/not-found wiring.
@@ -56,7 +77,7 @@ landing page and branded 404 through a Cloudflare SSR bundle. Root guide: `../..
   pool runs without the TanStack Start vite plugin, so `tests/setup/generate-route-tree.ts`
   (vitest `globalSetup`) emits it before the suite; a normal build regenerates it otherwise.
 - Coverage sweeps `src/**` (routes + `router.tsx` included, per campaign plan §0.6); the enforced
-  floor is `statements 95 / branches 94 / functions 95 / lines 95`, read from `vitest.config.ts`,
+  floor is `statements 98 / branches 95 / functions 98 / lines 99`, read from `vitest.config.ts`,
   which is the authority — ratchet UP only. `routeTree.gen.ts` is the only exclusion (plus the
   WebGL map glue listed in the config's exclude ledger).
 - `OpenAPILink` captures `globalThis.fetch` at construction: build clients at call time (the lazy

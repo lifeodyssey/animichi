@@ -7,27 +7,32 @@ import {
   listSessions as listSessionsHandler,
   saveRoute as saveHandler,
 } from "./api/routes";
+import { NeonSavedRouteRepo } from "./adapters/neon-saved-route-repo";
 import type { DbExecutor } from "./db/client";
+import type { SavedRouteRepo } from "./domain/ports";
 
 /** Per-request dependencies established by authentication middleware. */
 export interface UsersContext { db: DbExecutor; userId: string }
 
 const os = implement(usersContract).$context<UsersContext>();
 
+/** Stateless Neon SavedRouteRepo bound to the per-request executor. */
+const repo = (context: UsersContext): SavedRouteRepo => new NeonSavedRouteRepo(context.db);
+
 const listRoutes = os.listRoutes.handler(async ({ context }) =>
-  listHandler(context.db, context.userId),
+  listHandler(repo(context), context.userId),
 );
 const listSessions = os.listSessions.handler(async ({ input, context }) =>
   listSessionsHandler(context.db, context.userId, input),
 );
 const saveRoute = os.saveRoute.handler(async ({ input, context }) =>
-  saveHandler(context.db, context.userId, input),
+  saveHandler(repo(context), context.userId, input),
 );
 const deleteRoute = os.deleteRoute.handler(async ({ input, context }) =>
-  deleteHandler(context.db, context.userId, input),
+  deleteHandler(repo(context), context.userId, input),
 );
 const claimRoutes = os.claimRoutes.handler(async ({ input, context }) =>
-  claimHandler(context.db, context.userId, input),
+  claimHandler(repo(context), context.userId, input),
 );
 
 /** Users service oRPC implementation. */

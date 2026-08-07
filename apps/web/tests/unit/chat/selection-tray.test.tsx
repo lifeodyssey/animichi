@@ -13,7 +13,7 @@ import {
 } from "../../../src/features/chat/selection/use-spot-selection";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import type { Locale } from "../../../src/i18n/locales";
-import { toSearchSpots } from "../../../src/lib/chat/spot-clusters";
+import { toSearchSpots } from "../../../src/features/chat/lib/spot-clusters";
 
 afterEach(cleanup);
 

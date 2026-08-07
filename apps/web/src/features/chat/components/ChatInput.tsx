@@ -1,6 +1,6 @@
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { readChatDraft, writeChatDraft } from "../../../lib/chat/draft-storage";
+import { readChatDraft, writeChatDraft } from "../lib/draft-storage";
 import type { ChatDict } from "../i18n";
 import { QUOTA_BANNER_ID } from "./ErrorStates/QuotaExhausted";
 

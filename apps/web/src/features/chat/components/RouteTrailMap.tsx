@@ -1,4 +1,4 @@
-import type { LocatedSpot } from "../../../lib/chat/spot-clusters";
+import type { LocatedSpot } from "../lib/spot-clusters";
 import { pointPlacements } from "../../bubble-map/bubble-geometry";
 import type { PointPlacement } from "../../bubble-map/bubble-geometry";
 import { attachBasemap } from "../../bubble-map/bubble-map-controller";

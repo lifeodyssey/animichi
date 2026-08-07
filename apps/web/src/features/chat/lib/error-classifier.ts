@@ -28,7 +28,7 @@ export type FailureSignal =
 const ROUTE_MINIMUM_POINTS = 3;
 const D1_CODE_MARKERS = ["not_found", "no_bangumi", "invalid_station"];
 
-/** The armed edge gate's retryable rejection (`workers/edge/turnstile.ts`, #447). */
+/** The armed edge gate's retryable rejection (`workers/edge/protect/turnstile.ts`, #447). */
 export const TURNSTILE_REQUIRED_CODE = "turnstile_required";
 
 /**
