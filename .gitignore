@@ -20,6 +20,8 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+# Python build dirs only — do NOT ignore TypeScript feature lib/ dirs.
+!apps/web/src/features/**/lib/
 
 # Virtual Environments
 .venv/
