@@ -31,16 +31,22 @@ runs:
         python: ${{ inputs.python }}
     - name: Lint
       if: inputs.lint-command != ''
-      run: ${{ inputs.lint-command }}
+      env:
+        PACKAGE_CI_CMD: ${{ inputs.lint-command }}
+      run: bash -ec "$PACKAGE_CI_CMD"
       shell: bash
       working-directory: ${{ inputs.working-directory }}
     - name: Test
       if: inputs.test-command != ''
-      run: ${{ inputs.test-command }}
+      env:
+        PACKAGE_CI_CMD: ${{ inputs.test-command }}
+      run: bash -ec "$PACKAGE_CI_CMD"
       shell: bash
       working-directory: ${{ inputs.working-directory }}
     - name: Build
       if: inputs.build-command != ''
-      run: ${{ inputs.build-command }}
+      env:
+        PACKAGE_CI_CMD: ${{ inputs.build-command }}
+      run: bash -ec "$PACKAGE_CI_CMD"
       shell: bash
       working-directory: ${{ inputs.working-directory }}
