@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import time
 from collections import OrderedDict
@@ -194,6 +195,8 @@ def main() -> int:
     if not os.path.isdir(args.repo):
         raise RuntimeError(f"--repo must be an existing directory: {args.repo}")
     ref = args.ref or default_ref(args.repo)
+    if ref.startswith("-") or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]*", ref):
+        raise SystemExit(f"invalid ref: {ref!r}")
     commits = walk_commits(args.repo, ref)
     if not commits:
         print(f"no commits on {ref}")
