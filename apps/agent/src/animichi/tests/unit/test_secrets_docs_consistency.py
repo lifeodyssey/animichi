@@ -56,7 +56,9 @@ def _workflow_secret_names() -> set[str]:
 def _container_env_keys() -> list[str]:
     source = CONTAINER_ENV_FILE.read_text(encoding="utf-8")
     match = re.search(r"CONTAINER_ENV_KEYS\s*=\s*\[(.*?)\];", source, re.DOTALL)
-    assert match, "CONTAINER_ENV_KEYS array not found in workers/edge/container/container-env.ts"
+    assert match, (
+        "CONTAINER_ENV_KEYS array not found in workers/edge/container/container-env.ts"
+    )
     return re.findall(r'"([A-Z0-9_]+)"', match.group(1))
 
 
