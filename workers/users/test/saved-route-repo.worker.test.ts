@@ -13,6 +13,7 @@ import {
 } from "../src/api/routes";
 import type { SavedRouteRepo } from "../src/domain/ports";
 import { fakeDb, type FakeRouteRow } from "./in-memory-routes-db";
+import type { DbExecutor } from "../src/db/client";
 
 const ID = "00000000-0000-4000-8000-000000000009";
 const SESSION = "anonymous-session";
@@ -87,5 +88,39 @@ describe("NeonSavedRouteRepo over the raw executor", () => {
     const repo = new NeonSavedRouteRepo(store.db);
     expect(await repo.claimRoutes("user-a", { session_id: SESSION })).toEqual({ claimed_count: 1 });
     expect(store.rows.map((item) => item.user_id)).toEqual(["user-a", "user-b"]);
+  });
+});
+
+describe("NeonSavedRouteRepo defensive normalization", () => {
+  const rawDb = (row: Record<string, unknown>): DbExecutor => ({
+    execute: async () => ({ rows: [row] }),
+  });
+
+  it("normalizes malformed row fields instead of crashing", async () => {
+    const repo = new NeonSavedRouteRepo(
+      rawDb({
+        id: "r1",
+        title: 42,
+        status: "saved",
+        point_ids: [1, "p2"],
+        saved_at: new Date("2026-07-13T04:00:00.000Z"),
+        updated_at: "2026-07-13T04:00:00.000Z",
+      }),
+    );
+    const routes = (await repo.listRoutes("user-a")).routes;
+    expect(routes[0]).toMatchObject({ id: "r1", title: "", point_ids: [] });
+    expect(routes[0].saved_at).toBe("2026-07-13T04:00:00.000Z");
+  });
+
+  it("rejects rows with an unparseable timestamp", async () => {
+    const repo = new NeonSavedRouteRepo(rawDb({ id: "r2", title: "x", status: "saved", updated_at: 12345 }));
+    await expect(repo.listRoutes("user-a")).rejects.toThrow("invalid timestamp row");
+  });
+
+  it("treats a missing/invalid owner as not-owned", async () => {
+    const repo = new NeonSavedRouteRepo(rawDb({ id: "r3", user_id: 12345 }));
+    await expect(repo.deleteRoute("user-a", { id: "r3" })).rejects.toMatchObject({
+      code: "ROUTE_NOT_OWNED",
+    });
   });
 });
