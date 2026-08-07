@@ -16,7 +16,15 @@ export interface SpikeRuntime {
   context: SpikeDatabaseContext;
 }
 
-const IMAGE = "neondatabase/neon_local:latest";
+/**
+ * Pinned to a version tag, not :latest (#883): an unpinned mutable tag breaks
+ * the repo's supply-chain pinning discipline and can drift under CI between
+ * runs. v1.5 is the newest published tag (Docker Hub, 2025-09-25) and its
+ * digest (sha256:15e20ade47a80ae8285d6dbb6877f7482b305eb1021dd5119d33055dce9407ce)
+ * is identical to :latest at the time of pinning, so this changes nothing
+ * about the current run — it only makes future runs reproducible.
+ */
+const IMAGE = "neondatabase/neon_local:v1.5";
 
 function pause(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -43,7 +51,9 @@ export async function connectionUri(env: NeonEnvironment, branchId: string): Pro
   return uri;
 }
 
-/** testcontainers v12 defaults to an image healthcheck; pin listening-ports for deterministic readiness. */
+/** testcontainers v12 defaults to an image healthcheck; pin listening-ports for deterministic readiness.
+ *  Default startup timeout is 60s — a cold GH runner can exceed it (observed in #883 as "Port 5432/tcp
+ *  not bound after 60000ms"), so raise it to 180s. */
 export async function startContainer(
   env: NeonEnvironment, parent: NeonBranch,
 ): Promise<StartedTestContainer> {
@@ -51,7 +61,7 @@ export async function startContainer(
   return new GenericContainer(IMAGE)
     .withEnvironment(containerEnv(env, parent))
     .withExposedPorts(5432)
-    .withWaitStrategy(Wait.forListeningPorts())
+    .withWaitStrategy(Wait.forListeningPorts().withStartupTimeout(180_000))
     .start();
 }
 
