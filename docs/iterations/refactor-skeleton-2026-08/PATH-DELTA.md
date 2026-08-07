@@ -22,7 +22,7 @@
 | agent application use cases | 主路径在 agents/runner | TODO | B2 |
 | users pure rules + port | `api/routes.ts` 上帝 | TODO | B3 |
 | web feature 去双栖 | `lib/chat` + `features/chat` | TODO | C2 |
-| greenfield Point/Itinerary/SavedRoute | 旧 wire 名仍在 | TODO | 可与结构同波 |
+| greenfield Point/Itinerary/SavedRoute | 旧 wire 名仍在 | TODO | SPIKE #852 → [RENAME-EXPAND-CONTRACT.md](./RENAME-EXPAND-CONTRACT.md) |
 
 **规则：** 未搬完成前，代码里允许 `TODO(refactor-skeleton): move to <target>`。
 
