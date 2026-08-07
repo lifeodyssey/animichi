@@ -1,5 +1,5 @@
 import * as cloudflare from "@pulumi/cloudflare";
-import { accountId, config, stack, webRoutesEnabled } from "./config.ts";
+import { accountId, config, stack, webRoutesEnabled } from "./config"
 
 // The legacy ruleset identity derives from the zone id, not the list position,
 // so reordering `legacyRedirectZones` never churns Pulumi state. A duplicate

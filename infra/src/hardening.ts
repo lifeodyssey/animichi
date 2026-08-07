@@ -1,5 +1,5 @@
 import * as cloudflare from "@pulumi/cloudflare";
-import { config, stack } from "./config.ts";
+import { config, stack } from "./config"
 
 // ── Zone hardening: DNSSEC, CAA, API rate limit, HSTS ───────────────────────
 // Owner ruling 2026-08-05 (prod security review), restructured per PR #776:
