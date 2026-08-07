@@ -33,7 +33,7 @@ FROM public.ecr.aws/docker/library/python:3.11.13-slim
 
 # APP_ENV is intentionally NOT defaulted here (issue #498 follow-up — 4th
 # touchpoint alongside wrangler.toml's three [vars] blocks): the real deploy
-# path (RuntimeContainer, see workers/edge/container-env.ts) always injects it, and
+# path (RuntimeContainer, see workers/edge/container/container-env.ts) always injects it, and
 # a hardcoded "production" default here would silently claim production for
 # anyone who `docker run`s this image directly, bypassing the Worker's
 # fail-closed CONTAINER_REQUIRED_KEYS check entirely. Settings.app_env's own
