@@ -175,6 +175,8 @@ jobs:
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
+          # #494: hard-assert the deployed git_commit equals this run's SHA.
+          EXPECTED_GIT_COMMIT: ${{ github.sha }}
         run: bash .github/scripts/post-deploy-assert.sh healthz
 
       - name: "edge rejects an invalid bearer token (401; 403 showcase_denied in showcase mode)"

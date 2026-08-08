@@ -172,7 +172,22 @@ test_showcase_mode_missing_or_malformed_fails() {
   rm -f "${fixture}" && echo "PASS: missing or malformed EDGE_SHOWCASE_MODE fails loudly"
 }
 
+# ── #494: /healthz must PROVE the baked git SHA — the pre-fix soft warning
+#    is now a hard assertion, and EXPECTED_GIT_COMMIT pins the exact deploy
+#    SHA (a stale pre-#494 image reports "unknown" and must fail the gate) ───
+HEALTHZ_OK_BODY='{"status":"ok","git_commit":"abc1234","git_branch":"main"}'
+HEALTHZ_UNKNOWN_BODY='{"status":"ok","git_commit":"unknown","git_branch":"unknown"}'
+
+test_healthz_asserts_baked_commit() {
+  run_json_probe_case "healthz accepts a real baked commit" 18815 200 "${HEALTHZ_OK_BODY}" 0 healthz
+  run_json_probe_case "healthz fails on git_commit unknown" 18816 200 "${HEALTHZ_UNKNOWN_BODY}" 1 healthz
+  run_json_probe_case "healthz fails on git_branch unknown" 18817 200 '{"status":"ok","git_commit":"abc1234","git_branch":"unknown"}' 1 healthz
+  run_json_probe_case "healthz fails when commit != deploy SHA" 18818 200 "${HEALTHZ_OK_BODY}" 1 healthz EXPECTED_GIT_COMMIT=deadbeef
+  run_json_probe_case "healthz accepts the exact deploy SHA" 18819 200 "${HEALTHZ_OK_BODY}" 0 healthz EXPECTED_GIT_COMMIT=abc1234
+}
+
 test_gate_token_is_sent_as_header
+test_healthz_asserts_baked_commit
 test_showcase_probes_accept_denial
 test_showcase_gate_down_fails
 test_classic_probes_keep_classic_contract
