@@ -7,7 +7,6 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
-import asyncpg
 import pytest
 
 from animichi.infrastructure.supabase.client import SupabaseClient
@@ -26,6 +25,18 @@ async def _seed_session(
     db: SupabaseClient, session_id: str, user_id: str, query: str = "hello"
 ) -> None:
     await db.session.create_owned_session(session_id, user_id, query, {"k": "v"})
+
+
+async def _seed_saved_route(db: SupabaseClient, session_id: str) -> None:
+    """Direct saved_routes insert — the agent no longer owns a routes writer
+    (#852 P1 deleted RoutesRepository); retention still treats a session that
+    produced a saved route as permanently retained."""
+    await db.pool.execute(
+        "INSERT INTO saved_routes (claim_session_id, point_ids) "
+        "VALUES ($1, $2::text[])",
+        session_id,
+        ["pt-1"],
+    )
 
 
 @pytest.mark.integration
@@ -111,7 +122,7 @@ async def test_route_bearing_session_is_retained_permanently(real_db) -> None:
     without_route = f"sess-{uuid.uuid4().hex}"
     await _seed_session(real_db, with_route, anon, "routed query")
     await _seed_session(real_db, without_route, anon, "routeless query")
-    await real_db.routes.save_route(with_route, [], ["pt-1"], {})
+    await _seed_saved_route(real_db, with_route)
     old_cutoff = _days_ago(400)
     await _backdate_conversation(real_db, with_route, old_cutoff)
     await _backdate_conversation(real_db, without_route, old_cutoff)
@@ -142,27 +153,6 @@ async def test_purge_deletes_conversations_before_sessions_leaving_no_orphans(
         "SELECT 1 FROM conversation_messages WHERE session_id = $1", session_id
     )
     assert messages == []
-
-
-@pytest.mark.integration
-async def test_purge_transaction_rolls_back_whole_unit_when_fk_backstop_fires(
-    real_db,
-) -> None:
-    """With the exclusion predicate deliberately bypassed (calling
-    `purge_session` directly on a route-bearing session), the routes FK
-    refuses the sessions delete and the whole transaction rolls back — the
-    conversation and its messages must still exist afterwards."""
-    anon = _anon_id()
-    session_id = f"sess-{uuid.uuid4().hex}"
-    await _seed_session(real_db, session_id, anon, "fk backstop check")
-    await real_db.routes.save_route(session_id, [], ["pt-1"], {})
-    await _backdate_conversation(real_db, session_id, _days_ago(40))
-
-    with pytest.raises(asyncpg.ForeignKeyViolationError):
-        await real_db.session.purge_session(session_id, _days_ago(30))
-
-    assert await real_db.session.get_conversation(session_id) is not None
-    assert await real_db.session.get_session(session_id) is not None
 
 
 def _days_ago(days: int) -> datetime:

@@ -22,7 +22,6 @@ from animichi.agents.session_state import (
 from animichi.domain.ports import (
     BangumiRepo,
     ConversationLog,
-    RouteArchive,
     SessionRepo,
 )
 from animichi.infrastructure.session import SessionStore
@@ -63,9 +62,8 @@ def _spawn_background(coro: object) -> None:
 # row) hits a real ForeignKeyViolationError on `conversation_messages` — a
 # schema fact the #663 bug had been silently hiding since the insert never
 # ran. conversation_messages is scoped to authenticated conversation history
-# by design (mirrors maybe_persist_route's existing `except
-# asyncpg.PostgresError` around save_route); message persistence for
-# anonymous turns degrades to a logged no-op rather than crashing the turn.
+# by design; message persistence for anonymous turns degrades to a logged
+# no-op rather than crashing the turn.
 _PERSIST_ERRORS = (
     OSError,
     RuntimeError,
@@ -78,7 +76,6 @@ _PERSIST_ERRORS = (
 async def persist_result(
     *,
     session_repo: SessionRepo | None,
-    routes_repo: RouteArchive | None,
     bangumi_repo: BangumiRepo | None,
     messages_repo: ConversationLog | None,
     session_store: SessionStore,
@@ -116,7 +113,6 @@ async def persist_result(
     if result is not None:
         route_record = await maybe_persist_route(
             bangumi_repo=bangumi_repo,
-            routes_repo=routes_repo,
             session_id=session_id,
             request=request,
             result=result,
@@ -283,7 +279,6 @@ async def load_session_state(
 async def maybe_persist_route(
     *,
     bangumi_repo: BangumiRepo | None,
-    routes_repo: RouteArchive | None,
     session_id: str,
     request: PublicAPIRequest,
     result: AgentResult,
@@ -332,26 +327,6 @@ async def maybe_persist_route(
         "status": response.status,
         "created_at": datetime.now(UTC).isoformat(),
     }
-
-    if routes_repo is not None:
-        try:
-            route_id = await routes_repo.save_route(
-                session_id,
-                anime_ids,
-                point_ids,
-                {
-                    "message": response.message,
-                    "results": response.data.get("results"),
-                    "route": route_data,
-                },
-                origin_station=origin_station,
-                origin_lat=request.origin_lat,
-                origin_lon=request.origin_lng,
-            )
-        except asyncpg.PostgresError:
-            logger.warning("save_route_failed", session_id=session_id)
-            return None
-        route_record["route_id"] = route_id
 
     return route_record
 

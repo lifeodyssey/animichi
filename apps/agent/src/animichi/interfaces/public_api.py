@@ -65,7 +65,6 @@ from animichi.domain.ports import (
     CatalogLookup,
     ConversationLog,
     RequestAudit,
-    RouteArchive,
     SessionRepo,
     UsageMeter,
 )
@@ -79,7 +78,6 @@ from animichi.interfaces.db_repos import (
     bangumi_repo,
     messages_repo,
     request_audit_repo,
-    routes_repo,
     session_repo,
     usage_repo,
 )
@@ -243,10 +241,6 @@ class RuntimeAPI:
         return bangumi_repo(self._db)
 
     @cached_property
-    def _routes_repo(self) -> RouteArchive | None:
-        return routes_repo(self._db)
-
-    @cached_property
     def _usage_repo(self) -> UsageMeter | None:
         return usage_repo(self._db)
 
@@ -323,7 +317,6 @@ class RuntimeAPI:
                     generated_title,
                 ) = await persist_result(
                     session_repo=self._session_repo,
-                    routes_repo=self._routes_repo,
                     bangumi_repo=self._bangumi_repo,
                     messages_repo=self._messages_repo,
                     session_store=self._session_store,

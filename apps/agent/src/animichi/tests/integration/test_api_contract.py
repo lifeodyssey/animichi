@@ -424,29 +424,6 @@ class TestConversationPatch:
         assert resp.status_code == 400
 
 
-# ── GET /v1/routes ───────────────────────────────────────────────────────────
-
-
-class TestRoutes:
-    async def test_returns_200_with_routes_key(self, tc_db: SupabaseClient) -> None:
-        async with _build_app(db=tc_db) as client:
-            resp = await client.get(
-                "/v1/routes",
-                headers={"X-User-Id": "user-1"},
-            )
-        assert resp.status_code == 200
-        body = resp.json()
-        assert "routes" in body
-        assert isinstance(body["routes"], list)
-
-    async def test_missing_user_header_returns_400(self, tc_db: SupabaseClient) -> None:
-        async with _build_app(db=tc_db) as client:
-            resp = await client.get("/v1/routes")
-        assert resp.status_code == 400
-        body = resp.json()
-        assert "error" in body
-
-
 # ── POST /v1/feedback ────────────────────────────────────────────────────────
 
 
@@ -503,7 +480,6 @@ class TestErrorShape:
 
     _ERROR_CASES = [
         ("GET", "/v1/conversations", None, None, 400),
-        ("GET", "/v1/routes", None, None, 400),
         ("POST", "/v1/runtime", {"text": "  "}, None, 422),
     ]
 

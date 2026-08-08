@@ -57,7 +57,6 @@ from animichi.domain.ports import (
     BangumiRepo,
     ConversationLog,
     RequestAudit,
-    RouteArchive,
     SessionRepo,
     UsageMeter,
 )
@@ -89,12 +88,6 @@ def bangumi_repo(db: object) -> BangumiRepo | None:
     """Return *db*'s bangumi repo, or ``None`` if it is not wired for use."""
     repo = _wired_sub_repo(db, "bangumi", "filter_existing_ids")
     return cast(BangumiRepo, repo) if repo is not None else None
-
-
-def routes_repo(db: object) -> RouteArchive | None:
-    """Return *db*'s routes repo, or ``None`` if it is not wired for use."""
-    repo = _wired_sub_repo(db, "routes", "save_route")
-    return cast(RouteArchive, repo) if repo is not None else None
 
 
 def usage_repo(db: object) -> UsageMeter | None:

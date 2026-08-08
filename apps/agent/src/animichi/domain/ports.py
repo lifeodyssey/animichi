@@ -123,26 +123,6 @@ class SessionRepo(Protocol):
     async def check_session_owner(self, session_id: str, user_id: str) -> bool: ...
 
 
-class RouteArchive(Protocol):
-    """Route persistence operations used by persistence helpers.
-
-    Renamed from ``RoutesRepo`` (iter6 C4) to match the bounded-context name
-    in the C4 design doc.
-    """
-
-    async def save_route(
-        self,
-        session_id: str,
-        anime_ids: list[str],
-        point_ids: list[str],
-        data: dict[str, object],
-        *,
-        origin_station: str | None = None,
-        origin_lat: float | None = None,
-        origin_lon: float | None = None,
-    ) -> str: ...
-
-
 class UsageMeter(Protocol):
     """Daily model-usage meter operations (issue #274 / S1.8).
 

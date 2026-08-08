@@ -40,7 +40,6 @@ def mock_db() -> MagicMock:
     db.session.get_conversations = AsyncMock(return_value=[])
     db.session.get_conversation = AsyncMock(return_value={"user_id": "user-1"})
     db.messages.get_messages = AsyncMock(return_value=[])
-    db.routes.get_user_routes = AsyncMock(return_value=[])
     db.feedback.save_feedback = AsyncMock(return_value="feedback-1")
     return db
 
@@ -101,24 +100,6 @@ def test_messages_route_returns_structured_404_when_ownership_mismatch(
     assert response.status_code == 404
     body = response.json()
     assert body["error"]["code"] == "not_found"
-
-
-def test_missing_db_method_fails_fast_on_routes_endpoint() -> None:
-    db = object()  # not a SupabaseClient — routes should return 500
-    app = create_fastapi_app(
-        runtime_api=RuntimeAPI(
-            db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
-        ),
-        settings=Settings(),
-        db=db,
-    )
-
-    with TestClient(app) as client:
-        response = client.get("/v1/routes", headers={"X-User-Id": "user-1"})
-
-    assert response.status_code == 500
-    body = response.json()
-    assert body["error"]["code"] == "internal_error"
 
 
 def test_feedback_validation_rejects_blank_query_text(mock_db: MagicMock) -> None:
