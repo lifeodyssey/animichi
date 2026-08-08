@@ -92,7 +92,7 @@ def test_session_summary_error_is_best_effort(monkeypatch: pytest.MonkeyPatch) -
     _fail_summary_open(monkeypatch)
     log = MagicMock()
     monkeypatch.setattr(purge_anonymous_sessions, "logger", log)
-    report = purge_anonymous_sessions.PurgeReport(purged=4, raced=1, failed=0)
+    report = purge_anonymous_sessions.PurgeReport(purged=4, raced=1)
     purge_anonymous_sessions._write_step_summary(report)
     assert _PRIVATE_ERROR not in str(log.mock_calls)
     log.warning.assert_called_once_with(
@@ -110,7 +110,7 @@ def test_session_summary_propagates_non_os_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _fail_summary_with_programming_error(monkeypatch)
-    report = purge_anonymous_sessions.PurgeReport(purged=4, raced=1, failed=0)
+    report = purge_anonymous_sessions.PurgeReport(purged=4, raced=1)
     with pytest.raises(RuntimeError, match=_PROGRAMMING_ERROR):
         purge_anonymous_sessions._write_step_summary(report)
 
@@ -125,7 +125,7 @@ async def test_quota_main_survives_summary(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 async def test_session_main_survives_summary(monkeypatch: pytest.MonkeyPatch) -> None:
-    report = purge_anonymous_sessions.PurgeReport(purged=4, raced=1, failed=0)
+    report = purge_anonymous_sessions.PurgeReport(purged=4, raced=1)
     purge = AsyncMock(return_value=report)
     _configure_session_main(monkeypatch, purge)
     summary = _spy_summary(monkeypatch, purge_anonymous_sessions)

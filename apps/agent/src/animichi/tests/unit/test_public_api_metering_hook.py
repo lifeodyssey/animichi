@@ -29,8 +29,6 @@ def _db() -> MagicMock:
     db = MagicMock(spec=SupabaseClient)
     db.pool.fetch = AsyncMock(return_value=[])
     db.session = AsyncMock()
-    db.routes = AsyncMock()
-    db.routes.save_route = AsyncMock(return_value="route-1")
     db.usage = AsyncMock()
     db.usage.accumulate_usage = AsyncMock(return_value=None)
     return db

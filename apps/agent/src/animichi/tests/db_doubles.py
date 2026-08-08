@@ -17,7 +17,6 @@ def build_persistence_supabase_double() -> MagicMock:
     db.session.upsert_session = AsyncMock()
     db.session.upsert_conversation = AsyncMock()
     db.session.update_conversation_title = AsyncMock()
-    db.routes.save_route = AsyncMock(return_value="route-1")
     # #663: the real repos are nested (db.messages / db.feedback), not flat
     # db.insert_message / db.insert_request_log — that flat shape was the
     # production bug. Wired here so every double built off this helper

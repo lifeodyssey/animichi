@@ -35,7 +35,6 @@ def mock_db() -> MagicMock:
     db.session.upsert_conversation = AsyncMock()
     db.session.check_session_owner = AsyncMock(return_value=True)
     db.session.update_conversation_title = AsyncMock()
-    db.routes.save_route = AsyncMock(return_value="route-1")
     return db
 
 

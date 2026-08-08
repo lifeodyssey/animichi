@@ -3,8 +3,8 @@
 
 Anonymous conversations accumulate free-text queries and locations with no
 TTL. A conversation is eligible once it has gone `anonymous_session_retention_
-days` without an update AND is associated with no `routes` row — a session
-that produced a route is retained permanently, unconditionally.
+days` without an update AND is associated with no `saved_routes` row — a
+session that produced a saved route is retained permanently, unconditionally.
 
 Usage:
     uv run python -m animichi.scripts.purge_anonymous_sessions
@@ -20,8 +20,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import asyncpg
-
 from animichi.config.cron_settings import get_purge_cron_settings
 from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.utils.logger import get_logger
@@ -33,23 +31,12 @@ logger = get_logger(__name__)
 class PurgeReport:
     """Outcome of one sweep. `raced` is the find-then-delete race being
     caught structurally (a session whose owner logged in mid-sweep) — a
-    normal outcome, not a failure. `failed` is a per-session database error
-    (e.g. the FK backstop firing) that was isolated and logged."""
+    normal outcome, not a failure. Since #852 dropped the saved_routes FK
+    backstop, a per-session error aborts the sweep instead of being
+    isolated."""
 
     purged: int
     raced: int
-    failed: int
-
-
-#: A single session's purge can lose a benign race — another request wrote a
-#: route between the eligibility scan and this delete, so the FK backstop
-#: fires for that one row. That is exactly the case the backstop exists to
-#: catch, not a reason to abort the sweep: everything asyncpg raises for a
-#: real database-level failure (including the FK violation) derives from
-#: this. A non-Postgres exception (a programming bug) is deliberately NOT
-#: caught here — it propagates out of the sweep and crashes the CLI with a
-#: nonzero exit, which is what should page someone.
-_EXPECTED_PER_SESSION_ERRORS = asyncpg.ForeignKeyViolationError
 
 
 async def purge_anonymous_sessions(
@@ -61,23 +48,22 @@ async def purge_anonymous_sessions(
 ) -> PurgeReport:
     """Sweep routeless anonymous sessions inactive since the cutoff.
 
-    Per-session transaction AND per-session error isolation: each purge
-    deletes that session's conversation (cascading its messages) and its
-    session row as one unit. A session raced away by a concurrent login
-    (`raced`) or refused by the FK backstop (`failed`) is logged and skipped
-    rather than aborting the rest of the sweep.
+    Per-session transaction: each purge deletes that session's conversation
+    (cascading its messages) and its session row as one unit. A session raced
+    away by a concurrent login (`raced`) is skipped rather than aborting the
+    rest of the sweep. Since #852 dropped the saved_routes FK backstop, any
+    other per-session error propagates and aborts the sweep.
     """
     cutoff = (now or datetime.now(UTC)) - timedelta(days=retention_days)
     session_ids = await db.session.find_purgeable_anonymous_sessions(cutoff)
     if dry_run:
         logger.info("anonymous_purge_dry_run", eligible=len(session_ids))
-        return PurgeReport(purged=len(session_ids), raced=0, failed=0)
+        return PurgeReport(purged=len(session_ids), raced=0)
     report = await _purge_each(db, session_ids, cutoff)
     logger.info(
         "anonymous_sessions_purged",
         count=report.purged,
         raced=report.raced,
-        failed=report.failed,
     )
     return report
 
@@ -87,31 +73,21 @@ async def _purge_each(
 ) -> PurgeReport:
     purged = 0
     raced = 0
-    failed = 0
     for session_id in session_ids:
-        try:
-            if await db.session.purge_session(session_id, cutoff):
-                purged += 1
-            else:
-                raced += 1
-        except _EXPECTED_PER_SESSION_ERRORS:
-            failed += 1
-            logger.warning(
-                "anonymous_session_purge_failed", session_id=session_id, exc_info=True
-            )
-    return PurgeReport(purged=purged, raced=raced, failed=failed)
+        if await db.session.purge_session(session_id, cutoff):
+            purged += 1
+        else:
+            raced += 1
+    return PurgeReport(purged=purged, raced=raced)
 
 
 def _write_step_summary(report: PurgeReport) -> None:
-    """Best-effort: record purged/raced/failed where the workflow's job
-    summary can show it, if running under GitHub Actions."""
+    """Best-effort: record purged/raced where the workflow's job summary can
+    show it, if running under GitHub Actions."""
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if not summary_path:
         return
-    line = (
-        f"anonymous-session purge: purged={report.purged} "
-        f"raced={report.raced} failed={report.failed}\n"
-    )
+    line = f"anonymous-session purge: purged={report.purged} raced={report.raced}\n"
     _append_step_summary(Path(summary_path), line)
 
 

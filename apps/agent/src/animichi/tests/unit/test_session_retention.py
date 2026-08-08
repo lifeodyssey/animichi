@@ -15,7 +15,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
-import asyncpg
 import pytest
 
 from animichi.infrastructure.supabase.repositories.session import SessionRepository
@@ -38,13 +37,13 @@ async def test_find_purgeable_excludes_route_bearing_sessions_by_construction(
     repo: SessionRepository, pool: AsyncMock
 ) -> None:
     """The exclusion pair: the predicate must carry a NOT EXISTS against
-    routes, not a blanket "no filter at all" scan."""
+    saved_routes, not a blanket "no filter at all" scan."""
     pool.fetch.return_value = []
     await repo.find_purgeable_anonymous_sessions(CUTOFF)
     sql = pool.fetch.await_args.args[0]
     assert "NOT EXISTS" in sql
-    assert "routes r" in sql
-    assert "r.session_id = c.session_id" in sql
+    assert "saved_routes r" in sql
+    assert "r.claim_session_id = c.session_id" in sql
 
 
 async def test_find_purgeable_uses_collation_safe_like_not_a_range_scan(
@@ -150,35 +149,11 @@ async def test_a_raced_session_is_not_counted_as_purged_or_failed() -> None:
 
     assert report.purged == 1
     assert report.raced == 1
-    assert report.failed == 0
 
 
-async def test_one_session_fk_race_is_isolated_the_sweep_continues() -> None:
-    """A concurrent-race FK backstop hit on one session must not abort the
-    rest of the sweep — it is exactly the case the backstop exists to catch,
-    not a reason to red the whole cron run."""
-    db = AsyncMock()
-    db.session.find_purgeable_anonymous_sessions = AsyncMock(
-        return_value=["sess-a", "sess-race", "sess-b"]
-    )
-
-    async def _purge(session_id: str, cutoff: datetime) -> bool:
-        if session_id == "sess-race":
-            raise asyncpg.ForeignKeyViolationError("routes_session_id_fkey")
-        return True
-
-    db.session.purge_session = AsyncMock(side_effect=_purge)
-
-    report = await purge_anonymous_sessions(db, retention_days=30, now=CUTOFF)
-
-    assert report.purged == 2
-    assert report.failed == 1
-    assert db.session.purge_session.await_count == 3
-
-
-async def test_a_non_postgres_error_is_not_swallowed_and_propagates() -> None:
-    """An unexpected (non-database) failure is a programming bug, not a
-    benign race — it must propagate so the CLI exits nonzero."""
+async def test_a_database_error_propagates_and_aborts_the_sweep() -> None:
+    """A per-session database error is no longer isolated (the FK backstop is
+    gone since #852) — it must propagate so the CLI exits nonzero."""
     db = AsyncMock()
     db.session.find_purgeable_anonymous_sessions = AsyncMock(return_value=["sess-a"])
     db.session.purge_session = AsyncMock(side_effect=RuntimeError("boom"))

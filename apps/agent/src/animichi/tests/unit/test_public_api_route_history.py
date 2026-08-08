@@ -68,8 +68,7 @@ async def test_handle_can_include_debug(mock_db: MagicMock) -> None:
     steps = response.debug["steps"]
     assert isinstance(steps, list)
     assert len(steps) == 3
-    assert response.route_history[0]["route_id"] == "route-1"
-    mock_db.routes.save_route.assert_awaited_once()
+    assert response.route_history[0]["route_id"] is None
 
 
 async def test_handle_preserves_coordinate_origin_in_route_history(
@@ -89,10 +88,6 @@ async def test_handle_preserves_coordinate_origin_in_route_history(
         )
 
     assert response.route_history[0]["origin_station"] == "34.9,135.8"
-    saved = mock_db.routes.save_route.await_args.kwargs
-    assert saved["origin_station"] == "34.9,135.8"
-    assert saved["origin_lat"] == pytest.approx(34.9)
-    assert saved["origin_lon"] == pytest.approx(135.8)
 
 
 async def test_request_log_called_after_response(

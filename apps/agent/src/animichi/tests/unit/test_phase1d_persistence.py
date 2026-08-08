@@ -83,7 +83,6 @@ def _db() -> MagicMock:
     # `db.insert_message`/`db.insert_request_log` — that was the production bug.
     db.messages.insert_message = AsyncMock()
     db.feedback.insert_request_log = AsyncMock()
-    db.routes.save_route = AsyncMock(return_value="route-id")
     return db
 
 
@@ -119,8 +118,7 @@ async def test_partial_with_current_route_persists_assistant_and_route() -> None
     assert state.last_result_ref == "search:partial"
     assert db.messages.insert_message.await_count == 2
     assert db.messages.insert_message.await_args_list[1].args[1] == "assistant"
-    db.routes.save_route.assert_awaited_once()
-    assert response.route_history[0]["route_id"] == "route-id"
+    assert response.route_history[0]["route_id"] is None
 
 
 async def test_message_only_partial_persists_assistant_without_route() -> None:
@@ -138,7 +136,6 @@ async def test_message_only_partial_persists_assistant_without_route() -> None:
         "Partial results are shown.",
         {"intent": "partial", "success": False},
     )
-    db.routes.save_route.assert_not_awaited()
     assert response.route_history == []
 
 
