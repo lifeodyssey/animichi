@@ -1,13 +1,13 @@
 import { z } from "zod";
 import {
   AnimeCandidate,
-  PilgrimagePoint,
+  Itinerary,
+  Point,
   ResolveOutcome,
-  Route,
   TimedItinerary,
 } from "./models.js";
 
-const StreamPoint = PilgrimagePoint.partial().extend({
+const StreamPoint = Point.partial().extend({
   lat: z.number().optional(),
   lng: z.number().optional(),
   ep: z.number().int().optional(),
@@ -24,7 +24,7 @@ const SearchResults = z.object({
   rows: z.array(StreamPoint).optional(),
 }).strict();
 
-const StreamRoute = Route.partial().extend({
+const StreamItinerary = Itinerary.partial().extend({
   ordered_points: z.union([z.array(z.string()), z.array(StreamPoint)]).optional(),
   point_count: z.number().int().nonnegative().optional(),
   status: z.string().optional(),
@@ -49,7 +49,7 @@ const ClarificationData = z.object({
 const SearchData = z.object({ results: SearchResults.optional() }).strict();
 const RouteData = z.object({
   results: SearchResults.optional(),
-  route: StreamRoute.optional(),
+  itinerary: StreamItinerary.optional(),
 }).strict();
 const EmptyData = z.object({}).strict();
 
@@ -75,7 +75,7 @@ const ResponseEnvelope = z.object({
 const searchPart = (intent: "search_bangumi" | "search_nearby") =>
   ResponseEnvelope.extend({ intent: z.literal(intent), data: SearchData.optional() });
 
-const routePart = (intent: "plan_route" | "plan_selected" | "plan_multi") =>
+const itineraryPart = (intent: "plan_route" | "plan_selected" | "plan_multi") =>
   ResponseEnvelope.extend({ intent: z.literal(intent), data: RouteData.optional() });
 
 const prosePart = (intent: "general_qa" | "greet_user" | "blocked") =>
@@ -84,9 +84,9 @@ const prosePart = (intent: "general_qa" | "greet_user" | "blocked") =>
 export const ChatResponseDataPart = z.discriminatedUnion("intent", [
   searchPart("search_bangumi"),
   searchPart("search_nearby"),
-  routePart("plan_route"),
-  routePart("plan_selected"),
-  routePart("plan_multi"),
+  itineraryPart("plan_route"),
+  itineraryPart("plan_selected"),
+  itineraryPart("plan_multi"),
   prosePart("general_qa"),
   prosePart("greet_user"),
   ResponseEnvelope.extend({ intent: z.literal("clarify"), data: ClarificationData.optional() }),

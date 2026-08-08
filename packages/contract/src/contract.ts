@@ -10,13 +10,13 @@ import { z } from "zod";
 import { pickCatalogErrors } from "./errors.js";
 import {
   AnimeOverview,
+  Itinerary,
   Latitude,
   Longitude,
   Origin,
-  PilgrimagePoint,
+  Point,
   Pacing,
   ResolveOutcome,
-  Route,
 } from "./models.js";
 
 /** search(query, origin?) -> { rows, synced_at, partial? } */
@@ -27,7 +27,7 @@ export const SearchInput = z.object({
 export type SearchInput = z.infer<typeof SearchInput>;
 
 export const SearchResult = z.object({
-  rows: z.array(PilgrimagePoint),
+  rows: z.array(Point),
   synced_at: z.string(),
   // True when `rows` are an L1 preview (Anitabi `/lite`, first ~10 points)
   // returned immediately on an alias miss while the full ingest runs in the
@@ -40,9 +40,9 @@ export type SearchResult = z.infer<typeof SearchResult>;
 export const ResolveInput = z.object({ query: z.string().trim().min(1) });
 export type ResolveInput = z.infer<typeof ResolveInput>;
 
-/** pointsByWorkId(work_id) -> the existing SearchResult shape */
-export const PointsByWorkIdInput = z.object({ work_id: z.string().regex(/^\d+$/) });
-export type PointsByWorkIdInput = z.infer<typeof PointsByWorkIdInput>;
+/** pointsByBangumiId(bangumi_id) -> the existing SearchResult shape */
+export const PointsByBangumiIdInput = z.object({ bangumi_id: z.string().regex(/^\d+$/) });
+export type PointsByBangumiIdInput = z.infer<typeof PointsByBangumiIdInput>;
 
 /** spots(bangumi_id, origin?) -> { point, distance_m? } */
 export const SpotsInput = z.object({
@@ -52,7 +52,7 @@ export const SpotsInput = z.object({
 export type SpotsInput = z.infer<typeof SpotsInput>;
 
 export const SpotsResult = z.object({
-  point: PilgrimagePoint,
+  point: Point,
   distance_m: z.number().optional(),
 });
 export type SpotsResult = z.infer<typeof SpotsResult>;
@@ -66,7 +66,7 @@ export const NearbyInput = z.object({
 export type NearbyInput = z.infer<typeof NearbyInput>;
 
 export const NearbyResult = z.object({
-  rows: z.array(PilgrimagePoint),
+  rows: z.array(Point),
 });
 export type NearbyResult = z.infer<typeof NearbyResult>;
 
@@ -98,13 +98,13 @@ export type GeocodeCandidate = z.infer<typeof GeocodeCandidate>;
 export const GeocodeResult = z.object({ candidates: z.array(GeocodeCandidate) });
 export type GeocodeResult = z.infer<typeof GeocodeResult>;
 
-/** route(point_ids, origin?, pacing?) -> Route */
-export const RouteInput = z.object({
+/** planItinerary(point_ids, origin?, pacing?) -> Itinerary */
+export const ItineraryInput = z.object({
   point_ids: z.array(z.string()),
   origin: Origin.optional(),
   pacing: Pacing.optional(),
 });
-export type RouteInput = z.infer<typeof RouteInput>;
+export type ItineraryInput = z.infer<typeof ItineraryInput>;
 
 /** animeOverview(bangumi_id) -> AnimeOverview (public, anonymous, read-only GET) */
 export const AnimeOverviewInput = z.object({
@@ -122,13 +122,13 @@ export const catalogContract = {
     .route({ method: "POST", path: "/catalog/resolve", summary: "Resolve an anime title deterministically" })
     .input(ResolveInput)
     .output(ResolveOutcome),
-  pointsByWorkId: oc
+  pointsByBangumiId: oc
     .route({
       method: "POST",
-      path: "/catalog/points-by-work-id",
-      summary: "Fetch pilgrimage points by resolved work id",
+      path: "/catalog/points-by-bangumi-id",
+      summary: "Fetch pilgrimage points by resolved bangumi id",
     })
-    .input(PointsByWorkIdInput)
+    .input(PointsByBangumiIdInput)
     .errors(pickCatalogErrors(["UPSTREAM_UNAVAILABLE"]))
     .output(SearchResult),
   spots: oc
@@ -149,11 +149,11 @@ export const catalogContract = {
     })
     .input(GeocodeInput)
     .output(GeocodeResult),
-  route: oc
-    .route({ method: "POST", path: "/catalog/route", summary: "Plan an ordered, timed route over selected points" })
-    .input(RouteInput)
+  planItinerary: oc
+    .route({ method: "POST", path: "/catalog/itinerary", summary: "Plan an ordered, timed itinerary over selected points" })
+    .input(ItineraryInput)
     .errors(pickCatalogErrors(["ROUTE_TOO_MANY_CLUSTERS", "ROUTE_TOO_MANY_POINTS"]))
-    .output(Route),
+    .output(Itinerary),
   animeOverview: oc
     .route({
       method: "GET",
