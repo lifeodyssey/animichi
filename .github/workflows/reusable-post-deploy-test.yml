@@ -79,8 +79,8 @@ on:
       # (`scripts/setup-staging-gate.sh --rotate` replaces both together).
       #
       # Resolution mechanism (#826) — DECLARE + CALLER-PASS, then this
-      # job's `environment:` overrides the value: GitHub fills
-      # `${{ secrets.NAME }}` inside a callable workflow ONLY for names that
+      # job's `environment:` overrides the value: GitHub fills a name under
+      # the secrets context inside a callable workflow ONLY for names that
       # appear BOTH under `on.workflow_call.secrets` AND in the caller's
       # `secrets:` map. With the declaration absent (#886's fix), the
       # staging-environment secret NEVER fills the name and the staging WAF

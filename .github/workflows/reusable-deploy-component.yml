@@ -93,7 +93,7 @@ on:
       # in infra) lets web/root smokes through on staging (#826).
       #
       # Resolution mechanism — DECLARE + CALLER-PASS, then the job-level
-      # `environment:` overrides the value: GitHub fills `${{ secrets.NAME }}`
+      # `environment:` overrides the value: GitHub fills a name under the
       # inside a callable workflow ONLY for names that appear BOTH under
       # `on.workflow_call.secrets` AND in the caller's `secrets:` map. When
       # the name is present, the job's `environment:` wins over whatever the
