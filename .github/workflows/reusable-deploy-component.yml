@@ -80,18 +80,34 @@ on:
         required: false
       ANON_ID_SECRET:
         required: false
+      # #826 mechanism — this secret MUST be declared here AND passed by
+      # staging callers in ci.yml (see below); the job-level `environment:`
+      # then supplies the value. Declaring alone is not enough — the name
+      # must also appear in the caller's `secrets:` map — but omitting the
+      # declaration while expecting the environment to fill the name was
+      # #886's fix and left it empty, 403ing every staging smoke.
+      STAGING_GATE_TOKEN:
+        required: false
       # STAGING_GATE_TOKEN is sent as the `x-staging-key` header by the
       # Smoke step so the staging WAF gate (#529/#559, `stagingGateEnabled`
-      # in infra) lets web/root smokes through on staging. It exists ONLY as
-      # a staging-environment secret and must NEVER be declared under
-      # `workflow_call.secrets`: declaring it makes `${{ secrets.
-      # STAGING_GATE_TOKEN }}` inside the job resolve to the caller's value
-      # (empty when not passed, as in ci.yml/deploy.yml) and SHADOWS the
-      # job-level `environment:` secret (#826 — the header goes missing and
-      # the staging WAF 403s the smoke). It resolves via the deploy job's
-      # `environment: ${{ inputs.environment }}` instead (the #527 mechanism
-      # that also resolves NEON_DATABASE_URL etc.). Callers must NOT pass
-      # it, and a production call resolving it empty is expected and fine.
+      # in infra) lets web/root smokes through on staging (#826).
+      #
+      # Resolution mechanism — DECLARE + CALLER-PASS, then the job-level
+      # `environment:` overrides the value: GitHub fills `${{ secrets.NAME }}`
+      # inside a callable workflow ONLY for names that appear BOTH under
+      # `on.workflow_call.secrets` AND in the caller's `secrets:` map. When
+      # the name is present, the job's `environment:` wins over whatever the
+      # caller passed (verified: users' NEON_AUTH_JWKS_URL resolves to the
+      # staging-environment value, not the caller's, under exactly this
+      # pattern — see the "Report resolved secret shape" step's #527 note).
+      # With the declaration absent (#886's fix), the environment secret
+      # NEVER fills the name, `${{ secrets.STAGING_GATE_TOKEN }}` is empty,
+      # and the staging WAF 403s the smoke. So: staging callers in ci.yml
+      # pass it explicitly (they are the only ones that need it), and this
+      # job's `environment: ${{ inputs.environment }}` resolves the
+      # staging-environment value. `required: false` keeps production
+      # callers (no such environment secret — empty is expected and fine)
+      # free to omit it.
 jobs:
   deploy:
     timeout-minutes: 30
@@ -783,13 +799,15 @@ jobs:
           ENVIRONMENT: ${{ inputs.environment }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Resolves from the job-level `environment:` above (the #527
-          # mechanism), NOT from any caller pass-through — callers have no
-          # environment, so their `${{ secrets.STAGING_GATE_TOKEN }}` would
-          # be empty; do not add it to the caller secrets lists. Empty on
-          # production (no such environment secret) is fine: post-deploy-
-          # assert.sh only sends the header when the var is non-empty, and
-          # the gate ruleset only matches the staging hostname anyway.
+          # #826 mechanism: declared under `workflow_call.secrets` above AND
+          # passed by the staging callers in ci.yml — this job's
+          # `environment:` then resolves the staging-environment value.
+          # Without the caller pass-through the name never fills and the
+          # staging WAF 403s this smoke. Empty on production (no such
+          # environment secret, and prod callers omit it) is fine:
+          # post-deploy-assert.sh only sends the header when the var is
+          # non-empty, and the gate ruleset only matches the staging
+          # hostname anyway.
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
           # First cold start after an image change takes minutes; base 12 →
           # sleep budget 12*(1+2+3+4)=120s plus 5×20s request timeouts ≈ 220s ceiling, still bounded.
