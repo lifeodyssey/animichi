@@ -212,7 +212,7 @@ grill ✅ → to-spec ✅ #829 → to-tickets ✅ → **implement 全波次** �
 
 **关波：** 合同+Workers+agent 新名；迁移+GRANT；测绿。
 
-- [ ] **W4 完成**
+- [x] **W4 完成** — #881 spike 计划 (#852) · #890 users rename (#852) · #891 catalog rename (#852) · #892 agent language (#852) · #894 docs closeout (#852); merged 2026-08-08
 
 ---
 
@@ -222,7 +222,7 @@ grill ✅ → to-spec ✅ #829 → to-tickets ✅ → **implement 全波次** �
 |---|---|---|
 | #854 | SK-M1 `db/migrations` → `migrations/neon` + CI | 宜 **W6 后** 搬短链，或 W6 前搬（冻结选一侧） |
 
-- [ ] **W5 完成**
+- [x] **W5 完成** — #893 migrations 搬家 (#854); merged 2026-08-08
 
 ---
 
@@ -293,7 +293,7 @@ Epic：#845。**不** force-push git 历史（那是 W8）。
 
 - [x] 归属文档（#862）
 - [x] staging 角色+DSN（#870 迁移已合；#832 staging apply+DSN 剩余）
-- [ ] （可选）migration 史干净 + gazetteer 外置
+- [ ] （可选）migration 史干净 + gazetteer 外置（#847 进行中）
 - [ ] （可选）prod DSN
 
 ### F. 历史 — W8
@@ -358,3 +358,4 @@ W6 后：    W5 搬家（若未提前）
 | 2026-08-06 | #829 镜像勾选板 |
 | 2026-08-06 | **全波次 W0–W8**；编排锁定；双执行器；**Matt code-review 强制**；**两路 PR 评论闸（线程判定）** 写入 GOAL |
 | 2026-08-07 | **W1/W3 关账回写** + #884/#885/#886/#876 合入 |
+| 2026-08-08 | **W4/W5 关账**（rename 三切片 + migrations 搬家） |
