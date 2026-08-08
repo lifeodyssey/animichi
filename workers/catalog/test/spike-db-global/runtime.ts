@@ -41,9 +41,13 @@ async function applyMigrations(directDsn: string): Promise<void> {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  // Child output is captured into the callback buffer (never printed), so the
-  // gazetteer seed migration's tens of thousands of INSERT lines do not swamp
-  // the vitest reporter.
+  // Child output is captured into the callback buffer (never printed), so
+  // the schema chain's DDL/GRANT output does not swamp the vitest reporter.
+  // The gazetteer seed (workers/catalog/data/gazetteer_seed.sql) is applied
+  // by the test-base provisioner (scripts/neon-test-base.sh), and ephemeral
+  // branches inherit it from the test-base parent, so it is not re-applied
+  // here. Existing branches that already recorded the old gazetteer migration
+  // keep their data; Atlas tolerates the removed file (verified on 0.30.0).
   await run("atlas", [
     "migrate", "apply",
     "--dir", migrationsDir.href,
