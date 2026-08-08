@@ -100,28 +100,28 @@ workers/users/
 
 ### 1.4 已有正确碎片（保留，勿拆坏）
 
-1. **BC 边界**：binding-only `/v1/users/*`；JWT 自验签；`sub` → `user_id`。  
-2. **信任序**：无 JWT → 401；跨用户 → 403 `ROUTE_NOT_OWNED`；不存在 → 404（`assertOwner` 先查存在性）。  
-3. **Claim SQL 语义**：`user_id IS NULL` + session 匹配才更新（正确；列名待 greenfield）。  
-4. **status / saved_at**：insert 时 draft→NULL；update 时 draft 清 NULL，非 draft `COALESCE(saved_at, NOW())`。  
-5. **可测 seam**：`createUsersApp({ getKey, makeDb })` + `DbExecutor`。  
-6. **workerd 纪律**：raw `sql`、数组 `sql.param`、timestamptz `toISOString()`。  
+1. **BC 边界**：binding-only `/v1/users/*`；JWT 自验签；`sub` → `user_id`。
+2. **信任序**：无 JWT → 401；跨用户 → 403 `ROUTE_NOT_OWNED`；不存在 → 404（`assertOwner` 先查存在性）。
+3. **Claim SQL 语义**：`user_id IS NULL` + session 匹配才更新（正确；列名待 greenfield）。
+4. **status / saved_at**：insert 时 draft→NULL；update 时 draft 清 NULL，非 draft `COALESCE(saved_at, NOW())`。
+5. **可测 seam**：`createUsersApp({ getKey, makeDb })` + `DbExecutor`。
+6. **workerd 纪律**：raw `sql`、数组 `sql.param`、timestamptz `toISOString()`。
 7. **数组绑定**：`${sql.param(input.point_ids)}::text[]` — 搬家时必须原样保留。
 
 ### 1.5 核心问题（为何要结构重构，而不只 rename）
 
 `src/api/routes.ts` 是 **单一事务脚本文件**，混有：
 
-- 领域规则（所有权、claim 资格、status→saved_at）  
-- 应用编排（create vs update 分支、删前 assert）  
-- 出站 SQL 与行映射  
+- 领域规则（所有权、claim 资格、status→saved_at）
+- 应用编排（create vs update 分支、删前 assert）
+- 出站 SQL 与行映射
 - 与 Agent 域表 `conversations` 的只读查询（未标明「投影、非拥有」）
 
 结果：
 
-- 规则无法无 DB 单测（只能走 fake SQL 文本匹配）。  
-- 新增第三段能力时会再长一截 400 行脚本。  
-- 命名仍是 `UserRoute` / `routes` / `session_id`，与 CONTEXT / parent LOCKED 语言冲突。  
+- 规则无法无 DB 单测（只能走 fake SQL 文本匹配）。
+- 新增第三段能力时会再长一截 400 行脚本。
+- 命名仍是 `UserRoute` / `routes` / `session_id`，与 CONTEXT / parent LOCKED 语言冲突。
 - `UsersContext` 直接持 `DbExecutor`，用例无法依赖抽象 port。
 
 ---
@@ -221,9 +221,9 @@ assertOwner(db, userId, routeId)
 
 **简化：** update/delete 的「先 assert 再写」可收敛为 **一次** repo 方法（`updateIfOwned` 返回 affected），但 **403 vs 404 语义必须保留**（parent 不变量 2）。推荐：
 
-1. `findOwner` → domain decide → 非 ok 则错；  
-2. 再 `update`/`delete` 带 `user_id` 条件；  
-3. 若 2 返回 0 行 → 仍 `not_owned`（竞态）。  
+1. `findOwner` → domain decide → 非 ok 则错；
+2. 再 `update`/`delete` 带 `user_id` 条件；
+3. 若 2 返回 0 行 → 仍 `not_owned`（竞态）。
 
 不要为了少一次 round-trip 把 404 静默成 403 或反之。
 
@@ -281,8 +281,8 @@ export interface SessionSummaryReader {
 
 测试：
 
-- **单元（application）：** 手写 fake repo（内存 Map）— 不解析 SQL。  
-- **适配器：** 可保留 `fakeDb` SQL 分派测 repo 实现。  
+- **单元（application）：** 手写 fake repo（内存 Map）— 不解析 SQL。
+- **适配器：** 可保留 `fakeDb` SQL 分派测 repo 实现。
 - **HTTP：** `createUsersApp` 仍可 `makeDb` 注入；或新增 `makeRepos` 覆盖（可选，勿过度）。
 
 ### 2.7 语言对照（结构 PR 内命名）
@@ -317,8 +317,8 @@ export interface SessionSummaryReader {
 
 **非 smell（勿过度修）：**
 
-- `auth/jwt.ts` 短且单一 — 保持。  
-- `DbExecutor` 作为 workerd 出站最小面 — 保留在 adapter。  
+- `auth/jwt.ts` 短且单一 — 保持。
+- `DbExecutor` 作为 workerd 出站最小面 — 保留在 adapter。
 - oRPC `implement` 薄 handler — 正确；不要再包一层「UseCase class」。
 
 ---
@@ -365,9 +365,9 @@ domain/*       (pure)
 adapters/outbound/*  implements ports（application 定义 port）
 ```
 
-- `domain/*` **不得** import：`hono`、`jose`、`drizzle-orm`、`@orpc/*`、`./db/*`。  
-- `application/*` **不得** import：`sql` 模板、表名字符串（经 port）。  
-- 允许 `application` import `type` 自 `@animichi/contract`。  
+- `domain/*` **不得** import：`hono`、`jose`、`drizzle-orm`、`@orpc/*`、`./db/*`。
+- `application/*` **不得** import：`sql` 模板、表名字符串（经 port）。
+- 允许 `application` import `type` 自 `@animichi/contract`。
 - `adapters` 可 import domain 纯函数做映射辅助。
 
 ### 4.4 与 Full 包（catalog）对照
@@ -387,7 +387,7 @@ adapters/outbound/*  implements ports（application 定义 port）
 
 ### Slice U-S0 — 文档对齐（可选，可已做）
 
-- CONTEXT / AGENTS 已指向 parent CA：确认「SessionSummary 只读」「claim_session_id」用语。  
+- CONTEXT / AGENTS 已指向 parent CA：确认「SessionSummary 只读」「claim_session_id」用语。
 - **无生产代码。**
 
 ### Slice U-S1 — 纯规则抽出 + 无 DB 测试
@@ -409,10 +409,10 @@ adapters/outbound/*  implements ports（application 定义 port）
 
 **动：**
 
-- `application/ports.ts` + `adapters/.../saved-route-repo.ts`（或 `db/saved-route-repo.ts`）。  
-- 迁移 list/insert/update/delete/claim/findOwner SQL。  
-- `listRoutes` / `saveRoute` / `deleteRoute` / `claimRoutes` 改为调 repo（可仍住 `api/routes.ts` 短暂，或已拆 application 文件）。  
-- `row-map.ts`：`toSavedRoute`（名可先 `toUserRoute` 若 contract 未改）。  
+- `application/ports.ts` + `adapters/.../saved-route-repo.ts`（或 `db/saved-route-repo.ts`）。
+- 迁移 list/insert/update/delete/claim/findOwner SQL。
+- `listRoutes` / `saveRoute` / `deleteRoute` / `claimRoutes` 改为调 repo（可仍住 `api/routes.ts` 短暂，或已拆 application 文件）。
+- `row-map.ts`：`toSavedRoute`（名可先 `toUserRoute` 若 contract 未改）。
 - 更新 `in-memory-routes-db` **或** 测 repo 的 SQL fake。
 
 **验收：** 行为不变（403/404/claim 计数/saved_at）；无 contract 强制改名亦可本 slice 只做结构。
@@ -421,9 +421,9 @@ adapters/outbound/*  implements ports（application 定义 port）
 
 **动：**
 
-- 抽出 `listSessions` SQL → `SessionSummaryReader`。  
-- 应用函数命名/注释：**SessionSummary projection；Agent owns Conversation writes**。  
-- `UsersContext` 去掉裸 `db`（若 U-S2 已换 SavedRoute，本 slice 换掉剩余 db）。  
+- 抽出 `listSessions` SQL → `SessionSummaryReader`。
+- 应用函数命名/注释：**SessionSummary projection；Agent owns Conversation writes**。
+- `UsersContext` 去掉裸 `db`（若 U-S2 已换 SavedRoute，本 slice 换掉剩余 db）。
 - router / index 装配两 port。
 
 **验收：** 分页 `next_offset` 与 `MAX_LIST_OFFSET` 行为不变；row-validation 会话测绿。
@@ -432,9 +432,9 @@ adapters/outbound/*  implements ports（application 定义 port）
 
 **动：**
 
-- 五文件 use case；router 改 import。  
-- 删除 `api/routes.ts`；必要时删空 `api/`。  
-- 测试 import 路径全量更新。  
+- 五文件 use case；router 改 import。
+- 删除 `api/routes.ts`；必要时删空 `api/`。
+- 测试 import 路径全量更新。
 - 跑 1-10-50 目视：过长函数再抽。
 
 **验收：** 包内无「上帝 routes 文件」；目录符合 §2.1 选定变体。
@@ -443,9 +443,9 @@ adapters/outbound/*  implements ports（application 定义 port）
 
 **动（仍限 users 包 + 其测试 + 约定的 contract/migration 邻 PR）：**
 
-- 表 `routes`→`saved_routes`；列 claim 键→`claim_session_id`。  
-- schema.ts 收列。  
-- 类型/函数名 SavedRoute；错误码与 contract 对齐。  
+- 表 `routes`→`saved_routes`；列 claim 键→`claim_session_id`。
+- schema.ts 收列。
+- 类型/函数名 SavedRoute；错误码与 contract 对齐。
 - fake SQL 文本 `insert into saved_routes` 等。
 
 **跨包 path**（`/v1/users/saved-routes`）若 contract 同改：edge/web 跟车 — **不算本结构文档展开**，但 PR 描述须链 greenfield G1。
@@ -463,9 +463,9 @@ U-S1（纯规则） → U-S2（SavedRouteRepo） → U-S3（SessionSummary） �
 
 ### 每 slice 不做
 
-- Share / Check-in / しおり / presign 实现。  
-- 新建空表 `route_shares` / `walk_checkins`（除非独立 product PR）。  
-- Edge/Web 大范围 UI。  
+- Share / Check-in / しおり / presign 实现。
+- 新建空表 `route_shares` / `walk_checkins`（除非独立 product PR）。
+- Edge/Web 大范围 UI。
 - 覆盖率用 `skip` / `eslint-disable` 糊弄。
 
 ---
@@ -498,10 +498,10 @@ U-S1（纯规则） → U-S2（SavedRouteRepo） → U-S3（SessionSummary） �
 
 ### 6.3 结构上的非目标
 
-- 为「将来 Share」先铺 `application/create-share.ts` 空文件。  
-- 统一全仓同一目录深度。  
-- 把 `listSessions` 从 Users **删掉**（产品未定 O6；现面保留为只读投影）。  
-- 性能项目（Hyperdrive 调优、缓存）— 非结构债。  
+- 为「将来 Share」先铺 `application/create-share.ts` 空文件。
+- 统一全仓同一目录深度。
+- 把 `listSessions` 从 Users **删掉**（产品未定 O6；现面保留为只读投影）。
+- 性能项目（Hyperdrive 调优、缓存）— 非结构债。
 - 替换 oRPC/Hono/Neon 栈。
 
 ---
@@ -537,14 +537,14 @@ U-S1（纯规则） → U-S2（SavedRouteRepo） → U-S3（SessionSummary） �
 
 当且仅当：
 
-1. **`src/api/routes.ts` 已删除**（或 ≤50 行 re-export 过渡且下一 PR 必删 — 推荐直接删）。  
-2. Domain 纯规则可单测且 **不** import drizzle/hono/jose。  
-3. Application 用例只依赖 **SavedRouteRepo + SessionSummaryReader**（+ userId）。  
-4. SQL 仅出现在 outbound adapter。  
-5. Claim 语义与 status/saved_at 行为与重构前一致（测锁定）。  
-6. SessionSummary 路径有「Agent 写权威 / Users 只读投影」注释或类型名。  
-7. **无** Share/Check-in/しおり/presign 新 runtime。  
-8. `pnpm test` + typecheck + lint 在 `workers/users` 绿。  
+1. **`src/api/routes.ts` 已删除**（或 ≤50 行 re-export 过渡且下一 PR 必删 — 推荐直接删）。
+2. Domain 纯规则可单测且 **不** import drizzle/hono/jose。
+3. Application 用例只依赖 **SavedRouteRepo + SessionSummaryReader**（+ userId）。
+4. SQL 仅出现在 outbound adapter。
+5. Claim 语义与 status/saved_at 行为与重构前一致（测锁定）。
+6. SessionSummary 路径有「Agent 写权威 / Users 只读投影」注释或类型名。
+7. **无** Share/Check-in/しおり/presign 新 runtime。
+8. `pnpm test` + typecheck + lint 在 `workers/users` 绿。
 
 **非 DoD：** 目录「看起来像 textbook」；interface 数量最大化。
 

@@ -18,17 +18,17 @@
 | Gateway **关切词汇**（Identity / Forward / Policy / RateLimit） | **是** — 这是网关语言，不是巡礼领域模型 |
 | Clean Architecture 四圈教科书 | **否** — Gateway 用 **关切分包 + 纯 policy 函数 + 薄 adapter** |
 
-一句话：**Edge 没有业务 domain model；有的是网关策略与转发。**  
+一句话：**Edge 没有业务 domain model；有的是网关策略与转发。**
 若文档出现 “policy / identity”，指 **接入控制**，不是 DDD Aggregate。
 
 ---
 
 ## 1. 目标（一次最好）
 
-1. **Package-ize 一次到位**：edge 运行时依赖、wrangler、测试入口全部在 `workers/edge`；根只编排。  
-2. **目录一次到位**：按关切进 `src/`，测试进 `test/`（或 `__tests__`），禁止再扁平堆根。  
-3. **策略可单测**：path allowlist / public catalog / rate-limit 范围 = **纯函数**，零 CF 绑定。  
-4. **Greenfield path 一次对齐**：`/catalog/itinerary`、`/v1/users/saved-routes` 等随 contract 改（与 G1 同波或紧后）。  
+1. **Package-ize 一次到位**：edge 运行时依赖、wrangler、测试入口全部在 `workers/edge`；根只编排。
+2. **目录一次到位**：按关切进 `src/`，测试进 `test/`（或 `__tests__`），禁止再扁平堆根。
+3. **策略可单测**：path allowlist / public catalog / rate-limit 范围 = **纯函数**，零 CF 绑定。
+4. **Greenfield path 一次对齐**：`/catalog/itinerary`、`/v1/users/saved-routes` 等随 contract 改（与 G1 同波或紧后）。
 5. **不半吊子**：不做「先只 rename 文件名、目录下个迭代再说」。
 
 ---
@@ -60,10 +60,10 @@
 
 ### 2.2 正确碎片（保留语义）
 
-- Identity 注入后转发（不预鉴权 Users 的二次模型 — Users 自验签）  
-- Public catalog / public v1 与 authenticated 分轨  
-- Percent-decode 后做限流匹配（防编码绕过）  
-- Container → `catalog.internal` 私有 binding  
+- Identity 注入后转发（不预鉴权 Users 的二次模型 — Users 自验签）
+- Public catalog / public v1 与 authenticated 分轨
+- Percent-decode 后做限流匹配（防编码绕过）
+- Container → `catalog.internal` 私有 binding
 - 非 HTML：未匹配 → JSON 404（页面归 web）
 
 ---
@@ -166,9 +166,9 @@ entities/Point.ts
 
 **SOLID 在 Gateway 的落点：**
 
-- **S：** `app.ts` 只组装；policy 与 forward 分离  
-- **O：** 新公网 path = 改 policy 表，不改 Container 类  
-- **I：** 不要求 forward 依赖整包 Env 的每个字段（可收窄参数类型）  
+- **S：** `app.ts` 只组装；policy 与 forward 分离
+- **O：** 新公网 path = 改 policy 表，不改 Container 类
+- **I：** 不要求 forward 依赖整包 Env 的每个字段（可收窄参数类型）
 - **D：** 测试注入 `authenticate` / `fetch` / clock（已有 seam 则保留并统一）
 
 **1-10-50：** 继续拆 >10 行函数；`app.ts` / `auth.ts` / `tiles.ts` 超标则按关切再拆文件，**不** 引入无意义 base class。
@@ -216,11 +216,11 @@ entities/Point.ts
 
 ## 9. 验收（实现后）
 
-- [ ] 无 `workers/edge/src/domain`  
-- [ ] 根 `package.json` 无 edge 运行时业务依赖  
-- [ ] 生产 ts 均在 `src/**`；测试在 `test/**`  
-- [ ] policy 纯函数可在 node:test 无 binding 跑  
-- [ ] 公网/鉴权/容器/proxy 既有测绿  
+- [ ] 无 `workers/edge/src/domain`
+- [ ] 根 `package.json` 无 edge 运行时业务依赖
+- [ ] 生产 ts 均在 `src/**`；测试在 `test/**`
+- [ ] policy 纯函数可在 node:test 无 binding 跑
+- [ ] 公网/鉴权/容器/proxy 既有测绿
 
 ---
 

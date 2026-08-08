@@ -2,8 +2,8 @@
 
 - Status: **ACCEPTED**（owner 2026-08-06 — 包名 **`workers/jobs`**；内部分 **jobs/**）
 - Date: 2026-08-06
-- **Package (target):** `workers/jobs`  
-- **Package (today):** `workers/maintenance` → 实现时 `git mv` 改名  
+- **Package (target):** `workers/jobs`
+- **Package (today):** `workers/maintenance` → 实现时 `git mv` 改名
 - Tier: **Thin** · scheduled-only · **无 HTTP**
 - Supersedes naming: `2026-08-06-maintenance-thin-structure-design.md`（见文末）
 
@@ -17,7 +17,7 @@
 | **scheduler** | 像平台调度器 / 编排；和 CF `scheduled`、各类 agent scheduler 易混 |
 | **`jobs`** | **推荐**：包内就是一条条 **job**；cron 只是触发器 |
 
-**LOCKED：** 目标包名 **`workers/jobs`**（pnpm name / wrangler name 同步，如 `animichi-jobs` 或 `jobs`）。  
+**LOCKED：** 目标包名 **`workers/jobs`**（pnpm name / wrangler name 同步，如 `animichi-jobs` 或 `jobs`）。
 对外说明：Cloudflare **Scheduled Worker** that runs retention **jobs**.
 
 ---
@@ -26,8 +26,8 @@
 
 **无巡礼 `domain/`。** 只有：
 
-- **Job** = 一次可调度的工作单元（输入：clock + db；输出：report/log）  
-- **Schedule** = cron 表达式 → 选哪个 job  
+- **Job** = 一次可调度的工作单元（输入：clock + db；输出：report/log）
+- **Schedule** = cron 表达式 → 选哪个 job
 
 Session 表权威仍在 **Agent**；本包是 **执行删除的定时作业**。
 
@@ -40,9 +40,9 @@ Session 表权威仍在 **Agent**；本包是 **执行删除的定时作业**。
 | `purge-anonymous-sessions` | `37 18 * * *` | 过期匿名会话（无关联 saved_route） |
 | `purge-anon-quota` | `37 19 * * *` | 过期 `anon_daily_message_count` |
 
-- Secret：`AGENT_DATABASE_URL`  
-- 不碰 Catalog；不删 Users 已归属文档  
-- SQL 谓词与历史 Python port 对齐；表 rename 同波  
+- Secret：`AGENT_DATABASE_URL`
+- 不碰 Catalog；不删 Users 已归属文档
+- SQL 谓词与历史 Python port 对齐；表 rename 同波
 
 ---
 
@@ -121,11 +121,11 @@ workers/jobs/                    # 原 workers/maintenance
 
 ## 7. 验收
 
-- [ ] 仓库路径为 `workers/jobs`  
-- [ ] 无 `workers/maintenance`（或仅 re-export 过渡 **零** 终态）  
-- [ ] `src/jobs/` 下每 job 可单测  
-- [ ] wrangler crons 与 `schedule.ts` 一致  
-- [ ] 无 `domain/`、无 public fetch  
+- [ ] 仓库路径为 `workers/jobs`
+- [ ] 无 `workers/maintenance`（或仅 re-export 过渡 **零** 终态）
+- [ ] `src/jobs/` 下每 job 可单测
+- [ ] wrangler crons 与 `schedule.ts` 一致
+- [ ] 无 `domain/`、无 public fetch
 
 ---
 

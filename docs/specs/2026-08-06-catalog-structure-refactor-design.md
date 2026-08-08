@@ -6,7 +6,7 @@
 - Parents:
   - `docs/superpowers/specs/2026-08-06-catalog-clean-architecture-design.md` (ACCEPTED CA target)
   - `docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md` (Point / Bangumi / Itinerary)
-- Scope lock: **only** catalog internal structure (move files/functions, simplify, SOLID / 1-10-50).  
+- Scope lock: **only** catalog internal structure (move files/functions, simplify, SOLID / 1-10-50).
   **Not** edge / web / maintenance / monorepo root. **Not** new product features.
 
 ---
@@ -26,7 +26,7 @@ Turn today’s “pipeline folders + `api/*` transaction scripts + grab-bag `lib
 
 - Rename-only PRs without moves that improve dependency direction
 - Build empty domain entities for thin paths
-- Ship Share / Check-in / しおり / OSRM layer-2 / SEO pipelines under this train  
+- Ship Share / Check-in / しおり / OSRM layer-2 / SEO pipelines under this train
   (ticket pointers only — see §6)
 
 ---
@@ -319,15 +319,15 @@ Ports already use structural typing (`CatalogDb` satisfies `RouteDb` via drizzle
 
 ### 4.1 Patterns to use (minimal)
 
-1. **Pure domain functions**  
-   Existing kernels stay functions/modules, not entity class hierarchies.  
+1. **Pure domain functions**
+   Existing kernels stay functions/modules, not entity class hierarchies.
    Example spine: `clusterByLocation` → `buildTimedItinerary`.
 
-2. **Use case functions**  
-   `planItinerary(ports, input)`, `searchPoints(ports, input)`, …  
+2. **Use case functions**
+   `planItinerary(ports, input)`, `searchPoints(ports, input)`, …
    One exported async function per use case file; helpers private.
 
-3. **Narrow ports (structural TypeScript interfaces)**  
+3. **Narrow ports (structural TypeScript interfaces)**
    Extend the existing style:
 
    ```text
@@ -342,11 +342,11 @@ Ports already use structural typing (`CatalogDb` satisfies `RouteDb` via drizzle
 
    Prefer **several small interfaces** over one catalog façade.
 
-4. **Adapter inbound thin handlers**  
+4. **Adapter inbound thin handlers**
    parse/validate (oRPC/zod at boundary) → call use case → map domain/application errors to `lib/errors` (relocated) ORPC factories.
 
-5. **Adapter outbound neon**  
-   Raw `sql` tagged templates only (workerd hang rule stays — AGENTS).  
+5. **Adapter outbound neon**
+   Raw `sql` tagged templates only (workerd hang rule stays — AGENTS).
    No fluent Drizzle query builder.
 
 ### 4.2 What NOT to use
@@ -444,9 +444,9 @@ Each slice: **one reviewable PR**, green `pnpm test` + typecheck + oxlint in `wo
 
 `PlanItinerary` is already almost correct in `api/route.ts`:
 
-1. Domain: cluster + plan (S2)  
-2. Application: load via port → domain → assemble Itinerary (S3)  
-3. Outbound: one SQL  
+1. Domain: cluster + plan (S2)
+2. Application: load via port → domain → assemble Itinerary (S3)
+3. Outbound: one SQL
 4. Inbound: cap check stays in router/handler (`MAX_ROUTE_POINT_IDS` → itinerary point cap)
 
 Use this as the template for Search (harder: waitUntil + ingest).
@@ -457,7 +457,7 @@ Use this as the template for Search (harder: waitUntil + ingest).
 
 ### 6.1 Other packages / surfaces
 
-- `workers/edge`, `apps/web`, `workers/users`, `workers/maintenance`, monorepo root layout  
+- `workers/edge`, `apps/web`, `workers/users`, `workers/maintenance`, monorepo root layout
 - Agent Python catalog client (except note that contract rename forces follow-up **outside** this structure doc’s catalog PRs)
 - New public HTTP products not already in `catalogContract`
 
@@ -475,15 +475,15 @@ Use this as the template for Search (harder: waitUntil + ingest).
 ### 6.3 Non-structure work this design refuses
 
 - Rewrite transit ETL algorithms or gazetteer scripts (scripts/ stay; optional import path fix only when domain/transit moves)
-- New caching layers, Hyperdrive adoption, Drizzle query-builder revival  
+- New caching layers, Hyperdrive adoption, Drizzle query-builder revival
 - Compatibility aliases for old wire names (greenfield: **no**)
-- Coverage theatre / large test rewrites without behavior change  
+- Coverage theatre / large test rewrites without behavior change
 - Adding Share/Check-in tables or SavedRoute concepts into catalog
 
 ### 6.4 Abstraction non-goals
 
-- Demonstrating OOP for its own sake  
-- Full DDD aggregate/repository textbooks with factories for every row  
+- Demonstrating OOP for its own sake
+- Full DDD aggregate/repository textbooks with factories for every row
 - Micro-package split of catalog into multiple Workers
 
 ---
@@ -504,11 +504,11 @@ Use this as the template for Search (harder: waitUntil + ingest).
 
 Structure refactor is done when:
 
-1. No long-term `src/api/` or `src/lib/` (except temporary deleted in-PR).  
-2. `domain/**` has no framework/SQL imports (lint or boundary test optional).  
-3. PlanItinerary + SearchPoints paths: handlers thin; SQL in outbound; pure plan/cluster in domain.  
-4. Language: Point / Bangumi / Itinerary in catalog-facing names; no new `work_id` / `PilgrimagePoint` / bare `Route`.  
-5. `AGENTS.md` paths match the tree; startup smoke + worker/spike suites green.  
+1. No long-term `src/api/` or `src/lib/` (except temporary deleted in-PR).
+2. `domain/**` has no framework/SQL imports (lint or boundary test optional).
+3. PlanItinerary + SearchPoints paths: handlers thin; SQL in outbound; pure plan/cluster in domain.
+4. Language: Point / Bangumi / Itinerary in catalog-facing names; no new `work_id` / `PilgrimagePoint` / bare `Route`.
+5. `AGENTS.md` paths match the tree; startup smoke + worker/spike suites green.
 6. No new product feature landed in the same PRs.
 
 ---

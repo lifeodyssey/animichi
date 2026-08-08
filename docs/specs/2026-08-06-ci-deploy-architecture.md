@@ -1,8 +1,8 @@
 # CI / 部署架构（方向）
 
-- Status: **DIRECTION ACCEPTED**（owner 2026-08-06 — 原则如下；**实现未开**；与 Neon DBA / catalog ingest **分轨**）  
+- Status: **DIRECTION ACCEPTED**（owner 2026-08-06 — 原则如下；**实现未开**；与 Neon DBA / catalog ingest **分轨**）
 - Executable plan (also design-only until scheduled): [ci-cd-refactor-plan](./2026-08-06-ci-cd-refactor-plan.md)
-- Date: 2026-08-06  
+- Date: 2026-08-06
 - Related: `docs/ops/deployment.md` · S0-v2 B4 / CI-1 · 现网 `.github/workflows/*`
 
 ---
@@ -29,8 +29,8 @@
 | **命名** | `pipeline-*` = 包 CI，又和 **数据 ingest pipeline**、部署 pipeline 口语撞车 |
 | **遗留双轨** | 旧 GHA purge yml 与 `workers/jobs` 并存风险；`ci.yml` 仍 500+ 行上帝工作流 |
 
-**结论：**  
-**「每包一条部署线」保留。**  
+**结论：**
+**「每包一条部署线」保留。**
 要改的是：**文件编排、复用深度、阶段纯度、命名，以及把乱七八糟的东西移出包部署主路径。**
 
 ---
@@ -90,8 +90,8 @@
 lint → test → build → publish artifact
 ```
 
-- **不** 在包 CI 里直接 `wrangler deploy`（除非明确 local-only 例外，本项目 **否**）  
-- artifact：web bundle、worker 构建产物、agent 镜像引用等 — 按组件定义 inputs  
+- **不** 在包 CI 里直接 `wrangler deploy`（除非明确 local-only 例外，本项目 **否**）
+- artifact：web bundle、worker 构建产物、agent 镜像引用等 — 按组件定义 inputs
 - branch protection：**required checks** = 各包 `ci-<pkg>` 的结论 job（或一个 matrix 汇总 job）
 
 ### 2.4 部署阶段（LOCKED 语义）
@@ -105,8 +105,8 @@ lint → test → build → publish artifact
 → next environment …
 ```
 
-- Staging 后 API/E2E：**部署编排的一部分**或 **独立 workflow 由 deploy 成功触发** — 都对；不要散落在每个 `pipeline-web` 里复制  
-- **Scheduler** 跑 API/E2E：允许（合成监控）；与 PR 门禁分离配置  
+- Staging 后 API/E2E：**部署编排的一部分**或 **独立 workflow 由 deploy 成功触发** — 都对；不要散落在每个 `pipeline-web` 里复制
+- **Scheduler** 跑 API/E2E：允许（合成监控）；与 PR 门禁分离配置
 
 ---
 
@@ -114,11 +114,11 @@ lint → test → build → publish artifact
 
 实现完成后应 **消除**：
 
-1. 同一套 `actions/checkout@sha` + setup 在 ≥5 个文件全文重复而无 reusable  
-2. PR 上出现 **与 diff 无关** 的全量包编译作为默认（除非 contract/共享触达或 merge_group 全量策略 **成文**）  
-3. `ci.yml` 同时拥有「随机 eval」和「prod 五连 deploy」且无目录/命名分层  
-4. 包 CI 文件 > ~80 行且大部分是可复用 steps  
-5. 两套 purge（GHA + jobs Worker）无「唯一权威」声明  
+1. 同一套 `actions/checkout@sha` + setup 在 ≥5 个文件全文重复而无 reusable
+2. PR 上出现 **与 diff 无关** 的全量包编译作为默认（除非 contract/共享触达或 merge_group 全量策略 **成文**）
+3. `ci.yml` 同时拥有「随机 eval」和「prod 五连 deploy」且无目录/命名分层
+4. 包 CI 文件 > ~80 行且大部分是可复用 steps
+5. 两套 purge（GHA + jobs Worker）无「唯一权威」声明
 
 ---
 
@@ -159,9 +159,9 @@ lint → test → build → publish artifact
 
 ## 6. 明确非目标
 
-- 取消「每包一条线」改回巨型单体 job 且无法并行  
-- PR 上永远跑全 monorepo 且无法 path-skip（除非 merge_group 策略显式选择全量）  
-- 在包 CI 里藏生产 deploy  
+- 取消「每包一条线」改回巨型单体 job 且无法并行
+- PR 上永远跑全 monorepo 且无法 path-skip（除非 merge_group 策略显式选择全量）
+- 在包 CI 里藏生产 deploy
 
 ---
 

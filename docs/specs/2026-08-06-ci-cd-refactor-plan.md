@@ -1,9 +1,9 @@
 # CI/CD 重构怎么写（基于现方案 · 可执行计划）
 
-- Status: **ACCEPTED (design only)** — owner 2026-08-06；**不实施 YAML**，直至另开实现列车  
-- Aligns: [ci-deploy-architecture](./2026-08-06-ci-deploy-architecture.md)（DIRECTION ACCEPTED）  
-- Date: 2026-08-06  
-- Scope (when implemented): **只改 `.github` 编排与文档**；不改业务包运行时（除非 pin/脚本路径）  
+- Status: **ACCEPTED (design only)** — owner 2026-08-06；**不实施 YAML**，直至另开实现列车
+- Aligns: [ci-deploy-architecture](./2026-08-06-ci-deploy-architecture.md)（DIRECTION ACCEPTED）
+- Date: 2026-08-06
+- Scope (when implemented): **只改 `.github` 编排与文档**；不改业务包运行时（除非 pin/脚本路径）
 - Out: Neon DBA N1、catalog ingest 代码、产品 enabler；**本会话不改 workflow 文件**
 
 ---
@@ -19,9 +19,9 @@
 
 **重构时怎么写 Sonar：**
 
-- **保留** SonarCloud 为 **仓级 CI 横切门**（Quality Gate = required check 之一，若 branch protection 已勾选）。  
-- **不要** 复制进 9 个 package workflow。  
-- **要做：** 在重构文档/部署 runbook 写清「Sonar = Automatic Analysis + `.sonarcloud.properties`」；验证 **一份配置**；QG 仍绿。  
+- **保留** SonarCloud 为 **仓级 CI 横切门**（Quality Gate = required check 之一，若 branch protection 已勾选）。
+- **不要** 复制进 9 个 package workflow。
+- **要做：** 在重构文档/部署 runbook 写清「Sonar = Automatic Analysis + `.sonarcloud.properties`」；验证 **一份配置**；QG 仍绿。
 - 若以后要 **CI-based analysis**（显式 action），再做成 **一个** `reusable` / 一个 `ci-quality` job，仍不 per-package 抄。
 
 **Codecov：** 已在多条 pipeline 里 OIDC upload — 应 **收进 reusable-package-ci**，flag=`${{ inputs.component }}`。
@@ -76,7 +76,7 @@
     # ci.yml 上帝文件             → 拆空或只剩 redirect 注释期
 ```
 
-**每包 CI 语义（不变）：** `lint → test → build → (artifact)`  
+**每包 CI 语义（不变）：** `lint → test → build → (artifact)`
 **CD 语义（不变）：** migrate(若需) → deploy → smoke → staging API/E2E → tag → prod…
 
 ---
@@ -98,7 +98,7 @@
 | `startup_smoke` | bool（catalog 类 wrangler boot） |
 | `node_package_filter` | pnpm filter 名 |
 
-**jobs 固定：** `lint` → `test` → `build`（needs test 或 parallel 策略成文）→ 可选 `smoke`。  
+**jobs 固定：** `lint` → `test` → `build`（needs test 或 parallel 策略成文）→ 可选 `smoke`。
 **禁止：** 在 reusable 里 `wrangler deploy`。
 
 ### 2.2 薄调用方示例（目标长度）
@@ -147,15 +147,15 @@ jobs:
 
 **写什么：**
 
-- 表格：今日每个 workflow 的职责、触发、是否 required  
-- Required checks 目标列表（ci-catalog 等新名映射）  
-- Sonar：确认 Automatic Analysis + `.sonarcloud.properties` + QG 是否 required  
+- 表格：今日每个 workflow 的职责、触发、是否 required
+- Required checks 目标列表（ci-catalog 等新名映射）
+- Sonar：确认 Automatic Analysis + `.sonarcloud.properties` + QG 是否 required
 
 **验收：** 文档 PR；CI 行为不变。
 
 ### PR-C2 — 引入 `reusable-package-ci`（先迁 1–2 个最简包）
 
-**先迁：** `contract`、`users` 或 `edge`（步骤最像）。  
+**先迁：** `contract`、`users` 或 `edge`（步骤最像）。
 **验收：** 原 pipeline 与新 ci-* 可短暂双跑或直接切；测绿；codecov flag 仍在。
 
 ### PR-C3 — 全部 `pipeline-*` → 薄 `ci-*`
@@ -190,15 +190,15 @@ jobs:
 
 ### PR-C5 — 清理杂物
 
-- 删除或 archive：`purge-anonymous-sessions.yml`、`purge-anon-quota-counts.yml`（权威 **jobs Worker**）  
-- `deploy.yml` → `deploy-manual.yml`，与 deploy-prod **共用** reusable-deploy  
-- 文档：`docs/ops/deployment.md` 重画「CI 横切 / 包 CI / CD」三层 + Sonar 说明  
+- 删除或 archive：`purge-anonymous-sessions.yml`、`purge-anon-quota-counts.yml`（权威 **jobs Worker**）
+- `deploy.yml` → `deploy-manual.yml`，与 deploy-prod **共用** reusable-deploy
+- 文档：`docs/ops/deployment.md` 重画「CI 横切 / 包 CI / CD」三层 + Sonar 说明
 
 ### PR-C6 — 策略打磨（可选同波）
 
-- PR path-skip 策略 A  
-- staging 后 API/E2E 触发关系写死  
-- scheduler 健康检查（若需要）独立 `schedule: cron` workflow  
+- PR path-skip 策略 A
+- staging 后 API/E2E 触发关系写死
+- scheduler 健康检查（若需要）独立 `schedule: cron` workflow
 
 ---
 
@@ -251,20 +251,20 @@ jobs:
 
 ## 6. 成功标准（重构 Done）
 
-- [ ] 包 CI **无** 大段复制的 checkout/setup/codecov  
-- [ ] 部署编排 **不** 活在「还跑 eval 的 ci.yml」里  
-- [ ] 顶层 workflow 数量明显下降或 **职责一目了然**（名见义）  
-- [ ] Sonar / Security / Codecov 位置成文；Sonar **未** 复制进每包  
-- [ ] purge 双轨消除  
-- [ ] `docs/ops/deployment.md` 与本文一致  
-- [ ] 一次完整 PR：改单包只跑相关 ci（若已上策略 A）或至少 merge_group 行为成文  
+- [ ] 包 CI **无** 大段复制的 checkout/setup/codecov
+- [ ] 部署编排 **不** 活在「还跑 eval 的 ci.yml」里
+- [ ] 顶层 workflow 数量明显下降或 **职责一目了然**（名见义）
+- [ ] Sonar / Security / Codecov 位置成文；Sonar **未** 复制进每包
+- [ ] purge 双轨消除
+- [ ] `docs/ops/deployment.md` 与本文一致
+- [ ] 一次完整 PR：改单包只跑相关 ci（若已上策略 A）或至少 merge_group 行为成文
 
 ---
 
 ## 7. 建议的第一行「设计说明」（给将来写 PR 的人）
 
-> 我们不否定「每包一条部署线」。  
-> 本次重构把 **实现** 收成：薄 `ci-<pkg>` + 深 `reusable-package-ci` + 独立 `deploy-*` + 横切 security/sonar。  
+> 我们不否定「每包一条部署线」。
+> 本次重构把 **实现** 收成：薄 `ci-<pkg>` + 深 `reusable-package-ci` + 独立 `deploy-*` + 横切 security/sonar。
 > SonarCloud 已通过 Automatic Analysis 接入；本次只文档化与配置合一验收，不把 scanner 抄进每个包。
 
 ---

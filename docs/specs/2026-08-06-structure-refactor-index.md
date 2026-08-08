@@ -41,9 +41,9 @@
 
 ## 2. 跨包顺序建议（仍仅三包）
 
-1. **Contract 语言**（Point / Itinerary / SavedRoute / bangumi_id）— 三包消费，宜先或与 Catalog S1 / Users U-S5 同波。  
-2. **Catalog** 纯 domain 抽出（S2）与 **Agent** 删双写/双读（S1–S2）可并行（不同树）。  
-3. **Users** U-S1–S4 小，可与上并行。  
+1. **Contract 语言**（Point / Itinerary / SavedRoute / bangumi_id）— 三包消费，宜先或与 Catalog S1 / Users U-S5 同波。
+2. **Catalog** 纯 domain 抽出（S2）与 **Agent** 删双写/双读（S1–S2）可并行（不同树）。
+3. **Users** U-S1–S4 小，可与上并行。
 4. 竖切（Catalog S3+、Agent S3+）按包内依赖推进；测绿再合。
 
 **不做：** 为 edge/web 开结构切片，直到单独讨论。
@@ -63,8 +63,8 @@
 
 ## 4. 相对「之前缺什么」
 
-此前只有 CA 目标树与分期口号。  
-现已补齐：**实盘 inventory · from→to · smell 证据路径 · pattern 取舍 · 按包 PR 切片**。  
+此前只有 CA 目标树与分期口号。
+现已补齐：**实盘 inventory · from→to · smell 证据路径 · pattern 取舍 · 按包 PR 切片**。
 仍缺：**你拍板切片优先级**、以及 **edge/web 是否同一套规则**（未讨论）。
 
 ---

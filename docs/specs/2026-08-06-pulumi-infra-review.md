@@ -1,16 +1,16 @@
 # Pulumi / `infra/` 现状与目标（设计）
 
-- Status: **ACCEPTED (design only)** — owner 2026-08-06；边界 + best-practice 对照已定；**不含实现**  
-- Date: 2026-08-06  
-- Package: `infra/`（独立 pnpm 项目，**不在** workspace 成员里）  
-- Stacks: `staging` · `prod`（`Pulumi.staging.yaml` / `Pulumi.prod.yaml`）  
+- Status: **ACCEPTED (design only)** — owner 2026-08-06；边界 + best-practice 对照已定；**不含实现**
+- Date: 2026-08-06
+- Package: `infra/`（独立 pnpm 项目，**不在** workspace 成员里）
+- Stacks: `staging` · `prod`（`Pulumi.staging.yaml` / `Pulumi.prod.yaml`）
 - Aligns: monorepo 目标树、`docs/ops/deployment.md`、edge「routes ∈ Pulumi / code ∈ Wrangler」
 
 ---
 
 ## 0. 一句话
 
-**职责切得对**：Cloudflare **共享平台**（R2、hostname/routes、staging WAF、zone 硬化）归 Pulumi；**Worker 代码与 service binding** 归 Wrangler。  
+**职责切得对**：Cloudflare **共享平台**（R2、hostname/routes、staging WAF、zone 硬化）归 Pulumi；**Worker 代码与 service binding** 归 Wrangler。
 **结构还薄**：几乎全部在 **单文件 `index.ts`（~458 行）**；测试有 topology  harness，但无 ComponentResource 分层；**Neon 项目/分支不在 Pulumi 里**（连接串当 secret 注入）。
 
 ---
@@ -26,7 +26,7 @@
 | Zone DNSSEC / CAA / HSTS / zone rate-limit（prod zone） | | |
 | 导出 `catalogDatabaseUrl` 给 CI（config secret，非 CF WorkersSecret 资源） | | |
 
-**铁律（已验证、AGENTS 写明）：**  
+**铁律（已验证、AGENTS 写明）：**
 `wrangler deploy` **不** 覆盖 Pulumi 管的 routes → **routes 只在 Pulumi 改**。
 
 ---
@@ -57,11 +57,11 @@ infra/
 
 ### 2.2 正确碎片
 
-- Stack 分名：prod 稳定名，非 prod 后缀  
-- 未知 stack **禁止** 误吃 `stagingDomain`  
-- Staging gate 表达式与 token 校验可测（export 纯函数）  
-- 每次 `up` 前 stack export → R2 rollback-backups（**非** 公开 GH artifact）  
-- 无 Hyperdrive（catalog = neon-http）— 有意简化  
+- Stack 分名：prod 稳定名，非 prod 后缀
+- 未知 stack **禁止** 误吃 `stagingDomain`
+- Staging gate 表达式与 token 校验可测（export 纯函数）
+- 每次 `up` 前 stack export → R2 rollback-backups（**非** 公开 GH artifact）
+- 无 Hyperdrive（catalog = neon-http）— 有意简化
 
 ### 2.3 债 / 缺口
 
@@ -100,7 +100,7 @@ infra/
   testing/harness.ts
 ```
 
-**不** 引入巡礼 `domain/`。  
+**不** 引入巡礼 `domain/`。
 **可** 用 Pulumi **ComponentResource**（`AnimichiWebTopology`、`StagingAccessGate`）——这是 IaC 组件，不是 DDD。
 
 ---
@@ -145,9 +145,9 @@ DBA 图 N1 换 app DSN **不** 要求先大改 Pulumi；最多更新 `catalogDat
 
 ## 7. 非目标
 
-- 用 Pulumi 部署 Worker **源码**（继续 wrangler）  
-- 把 Atlas 迁移搬进 Pulumi  
-- 在 `infra/` 写巡礼业务  
+- 用 Pulumi 部署 Worker **源码**（继续 wrangler）
+- 把 Atlas 迁移搬进 Pulumi
+- 在 `infra/` 写巡礼业务
 
 ---
 
@@ -170,13 +170,13 @@ DBA 图 N1 换 app DSN **不** 要求先大改 Pulumi；最多更新 `catalogDat
 
 **总评：**
 
-- **所有权与 secrets 用法**：与官方/最佳实践 **大体一致**，不是野路子。  
-- **「最佳」还差的主要是结构（组件化）与 secret 中央化（ESC）**，不是「routes 不该在 Pulumi」。  
+- **所有权与 secrets 用法**：与官方/最佳实践 **大体一致**，不是野路子。
+- **「最佳」还差的主要是结构（组件化）与 secret 中央化（ESC）**，不是「routes 不该在 Pulumi」。
 - 我们文档里建议的 `src/` 拆分 + ComponentResource + ESC + lifecycle，**对齐** 业界写法，不是自创洁癖。
 
 **不必照抄的：**
 
-- 为洁癖把 **Worker 源码** 也改成纯 Pulumi `WorkersScript` 管理（会与现 wrangler 工作流打架；CF 官方也同时支持两边）。  
+- 为洁癖把 **Worker 源码** 也改成纯 Pulumi `WorkersScript` 管理（会与现 wrangler 工作流打架；CF 官方也同时支持两边）。
 - 立刻把 Neon 全建成 Pulumi 资源（DBA/分支生命周期可继续 neonctl + Atlas）。
 
 ---

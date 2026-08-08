@@ -16,14 +16,14 @@
 
 把 Users 从「已能跑的 SavedRoute CRUD + JWT 门」收成**可教学且与分级一致**的：
 
-1. **DDD**：SavedRoute / Claim / Share / Check-in 语言清晰；**不**拥有 Point 几何与 Itinerary 算法  
-2. **Clean Architecture（Thin 版）**：所有权与生命周期规则可抽测；SQL / jose / Hono 在外圈  
-3. **信任模型可叙述**：Bearer JWT 自验签、跨用户 403、分享 resolve 匿名只读 — 与 AGENTS 一致  
+1. **DDD**：SavedRoute / Claim / Share / Check-in 语言清晰；**不**拥有 Point 几何与 Itinerary 算法
+2. **Clean Architecture（Thin 版）**：所有权与生命周期规则可抽测；SQL / jose / Hono 在外圈
+3. **信任模型可叙述**：Bearer JWT 自验签、跨用户 403、分享 resolve 匿名只读 — 与 AGENTS 一致
 
 **非目标（本文仍不直接改生产代码；实现按 §9 分期 PR）：**
 
-- 立刻 mkdir 空 domain 深树  
-- 本文阶段不部署 Share/Check-in runtime（表与契约目标已在 §2.5 定好）  
+- 立刻 mkdir 空 domain 深树
+- 本文阶段不部署 Share/Check-in runtime（表与契约目标已在 §2.5 定好）
 
 **Greenfield 前提（owner 2026-08-06）：** 无历史用户 / 无生产包袱 → **语言、契约、表名一次到位最佳形态**，不保留 `UserRoute` / `routes` 作为长期别名。
 
@@ -156,7 +156,7 @@ workers/users/src/
 | **point_ids** | Catalog **Point** 的 id 引用列表，非几何权威 |
 | **UserMemory** | 跨会话 profile（SD-15 休眠；表形状预留见 §2.5.4） |
 
-**禁止在新代码/新契约中使用：** `UserRoute`、`Route`（裸词）、`routes` 表名（用户域）。  
+**禁止在新代码/新契约中使用：** `UserRoute`、`Route`（裸词）、`routes` 表名（用户域）。
 Catalog 的计算结果继续叫 **Itinerary**，与 SavedRoute 严格二分。
 
 **不拥有：**
@@ -195,16 +195,16 @@ Catalog 的计算结果继续叫 **Itinerary**，与 SavedRoute 严格二分。
 
 ### 2.3 核心不变量（草案，确认后 LOCK）
 
-1. **身份：** 除 **Share resolve** 外，Users 过程一律要求有效 Neon Auth JWT；`sub` = 行级 `user_id`。  
-2. **所有权：** 对已归属用户的 SavedRoute，非 owner → **403 `ROUTE_NOT_OWNED`**；不存在 → **404 `ROUTE_NOT_FOUND`**（先存在性再所有权的现序可保留，但不得把跨用户静默当 404 掩盖审计需求时需文档化）。  
-3. **引用而非复制：** SavedRoute 只存 `point_ids`（及元数据）；**不**复制 Point 坐标为权威源。  
-4. **Claim：** 仅 `user_id IS NULL` 且 `claim_session_id` 匹配的 SavedRoute 可被 claim；已有 `user_id` 的行不可被他人 claim。  
-5. **Status / saved_at：** `draft` → `saved_at` IS NULL；进入 `saved`/`completed` 时建立或保留 `saved_at`。  
-6. **Share：** 库内只存 token **hash**；过期/吊销终态；resolve 返回 **创建时固化的 public_snapshot**（无全精度 GPS、无内部 user id — 契约）。  
-7. **Check-in：** 同 `(user_id, client_id)` 同 payload 幂等；payload 变更 → 冲突；观测 GPS 截断 ~100 m。  
-8. **G4：** 用户域能力进本服务；**禁止**再往 Agent 加用户数据端点。  
-9. **Conversation 写权威在 Agent**（§2.1.1）；Users 不得写 messages / 会话内 memory。  
-10. **SessionSummary 列表 = 只读投影**。  
+1. **身份：** 除 **Share resolve** 外，Users 过程一律要求有效 Neon Auth JWT；`sub` = 行级 `user_id`。
+2. **所有权：** 对已归属用户的 SavedRoute，非 owner → **403 `ROUTE_NOT_OWNED`**；不存在 → **404 `ROUTE_NOT_FOUND`**（先存在性再所有权的现序可保留，但不得把跨用户静默当 404 掩盖审计需求时需文档化）。
+3. **引用而非复制：** SavedRoute 只存 `point_ids`（及元数据）；**不**复制 Point 坐标为权威源。
+4. **Claim：** 仅 `user_id IS NULL` 且 `claim_session_id` 匹配的 SavedRoute 可被 claim；已有 `user_id` 的行不可被他人 claim。
+5. **Status / saved_at：** `draft` → `saved_at` IS NULL；进入 `saved`/`completed` 时建立或保留 `saved_at`。
+6. **Share：** 库内只存 token **hash**；过期/吊销终态；resolve 返回 **创建时固化的 public_snapshot**（无全精度 GPS、无内部 user id — 契约）。
+7. **Check-in：** 同 `(user_id, client_id)` 同 payload 幂等；payload 变更 → 冲突；观测 GPS 截断 ~100 m。
+8. **G4：** 用户域能力进本服务；**禁止**再往 Agent 加用户数据端点。
+9. **Conversation 写权威在 Agent**（§2.1.1）；Users 不得写 messages / 会话内 memory。
+10. **SessionSummary 列表 = 只读投影**。
 11. **无跨 BC 外键：** `point_ids` / `primary_bangumi_id` 为 **TEXT 引用**，不 REFERENCES catalog 表。
 
 ### 2.4 上下文关系
@@ -220,14 +220,14 @@ Claim conversation.user_id ──▶ Agent
 Share resolve（匿名）──▶ Users（hash 查 token → public_snapshot）
 ```
 
-**表纪律（LOCKED）：**  
-- Users 写权威：`saved_routes`、`route_shares`、`walk_checkins`、（未来）`user_memory`  
-- Agent 写权威：`conversations`、`conversation_messages`、会话内 memory 表  
-- 禁止无协调双写同一语义列  
+**表纪律（LOCKED）：**
+- Users 写权威：`saved_routes`、`route_shares`、`walk_checkins`、（未来）`user_memory`
+- Agent 写权威：`conversations`、`conversation_messages`、会话内 memory 表
+- 禁止无协调双写同一语义列
 
 ### 2.5 目标数据模型（Greenfield LOCKED）
 
-**前提：** 无生产用户 → Atlas 迁移可 **DROP/RENAME 到位**，不做双写兼容窗。  
+**前提：** 无生产用户 → Atlas 迁移可 **DROP/RENAME 到位**，不做双写兼容窗。
 **权威迁移史：** `db/migrations`（目标路径 `migrations/neon/`）；Drizzle `schema.ts` 仅 typing。
 
 #### 2.5.1 退役（用户域相关）
@@ -308,7 +308,7 @@ CREATE INDEX idx_route_shares_route ON route_shares (saved_route_id);
 CREATE INDEX idx_route_shares_creator ON route_shares (created_by);
 ```
 
-**resolve：** 入参 token → hash 查找 → 校验未过期且 `revoked_at IS NULL` → 返回 `public_snapshot`（不再实时拼内部 id）。  
+**resolve：** 入参 token → hash 查找 → 校验未过期且 `revoked_at IS NULL` → 返回 `public_snapshot`（不再实时拼内部 id）。
 **快照策略（LOCKED）：** 创建时固化公开投影，避免 Users 运行时强依赖 Catalog；点名/帧图在创建瞬间从 Catalog 读入快照。
 
 #### 2.5.4 `walk_checkins`
@@ -375,10 +375,10 @@ domain（浅）: SavedRoute 不变量、Status 规则、Claim 资格、所有权
 
 **依赖硬规则（Thin 版）：**
 
-- 领域规则（状态机、claim 资格、所有权结果）**不** import Hono / jose / drizzle schema 类  
-- 用例依赖 **port**（`SavedRouteRepo`、`SessionSummaryReader`、可选 `Clock`）  
-- `auth/jwt` = 入站 identity adapter，不是 domain  
-- **允许** 初期：domain 以纯函数模块存在（`domain/saved-route-rules.ts`），不必强制 class / 聚合根脚手架  
+- 领域规则（状态机、claim 资格、所有权结果）**不** import Hono / jose / drizzle schema 类
+- 用例依赖 **port**（`SavedRouteRepo`、`SessionSummaryReader`、可选 `Clock`）
+- `auth/jwt` = 入站 identity adapter，不是 domain
+- **允许** 初期：domain 以纯函数模块存在（`domain/saved-route-rules.ts`），不必强制 class / 聚合根脚手架
 
 ### 3.1 与现状命名对齐
 
@@ -413,7 +413,7 @@ workers/users/src/
   # 近端可不改路径：继续 api/* 但文件内分「规则 / 仓储 / handler」三段注释边界
 ```
 
-**近端推荐：** 在 **实现 Share/Check-in 之前** 完成规则抽取 + port，避免第三个 400 行事务脚本文件。  
+**近端推荐：** 在 **实现 Share/Check-in 之前** 完成规则抽取 + port，避免第三个 400 行事务脚本文件。
 **不强制** 与 catalog 同构的深树。
 
 ---

@@ -19,7 +19,7 @@
 | **Catalog 只读客户** | 删主数据双写 / 双读死路径；**Session / Conversation / fact ledger / quota / usage 写保留** |
 | **未写产品** | `match_scene` 全管线等 → **ticket 指针 only**，本文件不落 runtime |
 
-**发布语言（本包）：** `Point` · `Itinerary` · `Session` · `Bangumi`。  
+**发布语言（本包）：** `Point` · `Itinerary` · `Session` · `Bangumi`。
 **SavedRoute** 归属 Users；Agent 侧若仍有 session 内 `routes` 归档表，语义是 **Session 附属行程快照**，不得冒充 SavedRoute 权威。
 
 依赖硬规则（继承 parent CA §3）：
@@ -34,9 +34,9 @@ application/  (use cases)
 domain/       (Session 规则 · entities · Port Protocols)
 ```
 
-- `domain/` 不 import FastAPI / PydanticAI runtime / infrastructure 实现  
-- `application/` 只依赖 domain + Protocol  
-- `agents/` = **PydanticAI 外圈适配器**（tool 绑定 + runner），调用 application/domain，禁止反向  
+- `domain/` 不 import FastAPI / PydanticAI runtime / infrastructure 实现
+- `application/` 只依赖 domain + Protocol
+- `agents/` = **PydanticAI 外圈适配器**（tool 绑定 + runner），调用 application/domain，禁止反向
 - 抽象纪律：优先 **删** 错误分层与上帝对象，再加 port；禁止空 interface 表演
 
 ---
@@ -306,7 +306,7 @@ animichi/
 
 ### 4.1 Use Case（Application）
 
-每个用例：**输入 DTO（非 FastAPI）→ 调 ports → 领域规则 → 输出 DTO**。  
+每个用例：**输入 DTO（非 FastAPI）→ 调 ports → 领域规则 → 输出 DTO**。
 不 import FastAPI `Request`；不构造 PydanticAI `Agent`（那是 agents 的事）。
 
 | Use case（目标模块） | 覆盖的已有路径 | Ports |
@@ -344,8 +344,8 @@ animichi/
 
 ### 4.4 PydanticAI 留在外圈
 
-- **保留在 `agents/`：** `animichi_agent`, tool 注册, `runtime_models` output_type, hooks, history compaction capability, runner 的 `agent.run` 调用。  
-- **禁止渗入 `domain/`：** `RunContext`, `Agent`, `Model`, tool decorators。  
+- **保留在 `agents/`：** `animichi_agent`, tool 注册, `runtime_models` output_type, hooks, history compaction capability, runner 的 `agent.run` 调用。
+- **禁止渗入 `domain/`：** `RunContext`, `Agent`, `Model`, tool decorators。
 - **application** 可依赖「已完成的工具结果 DTO」或调用 **CatalogGateway**，但不依赖 PydanticAI 类型（必要时 application 定义自己的 Command/Result）。
 
 ### 4.5 明确 **NOT** 使用
@@ -365,59 +365,59 @@ animichi/
 
 ## 5. PR slices（仅已有代码）
 
-每片可合并、可测、独立绿。对齐 parent **A1–A5** 与仓级 **G1/G2**。  
+每片可合并、可测、独立绿。对齐 parent **A1–A5** 与仓级 **G1/G2**。
 命令：`make check`（agent 相关 lane）；切片后跑触及的 unit + 关键的 integration。
 
 ### Slice S0 — 边界文档与 import 护栏（小）
 
-- AGENTS.md / CONTEXT：写明 `agents/` = framework adapter；**禁止** `domain → agents|interfaces|infrastructure`。  
-- 可选：简单 import-linter / 测试断言 domain 无出界 import。  
-- **无行为变更。**  
+- AGENTS.md / CONTEXT：写明 `agents/` = framework adapter；**禁止** `domain → agents|interfaces|infrastructure`。
+- 可选：简单 import-linter / 测试断言 domain 无出界 import。
+- **无行为变更。**
 - 对应 parent **A1**。
 
 ### Slice S1 — Greenfield 语言 + 删除主数据写（G1）
 
-- `PilgrimagePoint`→`Point`，catalog `Route`→`Itinerary`（client + adapter + tests/eval fixtures 在 **agent 包内**）。  
-- 删除：`upsert_*` Protocol 方法、repository 实现、相关 unit 测试（或改为「方法不存在」）。  
-- `CatalogClient` path 跟随 contract 列车（若 contract 未合，本片可先类型改名、path 紧后）。  
-- **不**改产品行为除命名与删死写。  
+- `PilgrimagePoint`→`Point`，catalog `Route`→`Itinerary`（client + adapter + tests/eval fixtures 在 **agent 包内**）。
+- 删除：`upsert_*` Protocol 方法、repository 实现、相关 unit 测试（或改为「方法不存在」）。
+- `CatalogClient` path 跟随 contract 列车（若 contract 未合，本片可先类型改名、path 紧后）。
+- **不**改产品行为除命名与删死写。
 - 对应 parent **A2** 前半。
 
 ### Slice S2 — 统一 CatalogGateway；杀死双读 / 死注入（G2）
 
-- 提升 `CatalogClientProtocol` → `domain.ports.CatalogGateway`；infrastructure 实现。  
-- 从 `RuntimeDeps` / `run_animichi_agent` / `RuntimeAPI` **移除** `CatalogLookup db`。  
-- `routes/bangumi.py` · `search_preview.py`：改走 Catalog **或删除**（优先删除 agent 数据端点；若 web 仍依赖，先在 **catalog worker** 提供等价 API，再删 agent 路由——该协调属 contract/catalog 列车，agent 侧只停直连表）。  
-- `maybe_persist_route` 去掉 `filter_existing_ids`。  
-- 删除/收缩 `BangumiRepo`/`PointsRepo` 与 supabase bangumi/points **写后的只读死代码**（若全无引用则整 repo 删除）。  
+- 提升 `CatalogClientProtocol` → `domain.ports.CatalogGateway`；infrastructure 实现。
+- 从 `RuntimeDeps` / `run_animichi_agent` / `RuntimeAPI` **移除** `CatalogLookup db`。
+- `routes/bangumi.py` · `search_preview.py`：改走 Catalog **或删除**（优先删除 agent 数据端点；若 web 仍依赖，先在 **catalog worker** 提供等价 API，再删 agent 路由——该协调属 contract/catalog 列车，agent 侧只停直连表）。
+- `maybe_persist_route` 去掉 `filter_existing_ids`。
+- 删除/收缩 `BangumiRepo`/`PointsRepo` 与 supabase bangumi/points **写后的只读死代码**（若全无引用则整 repo 删除）。
 - 对应 parent **A3**。
 
 ### Slice S3 — 抽出 HandleUserMessage + PersistTurn（核心结构）
 
-- 新建 `application/handle_user_message.py`：自 `RuntimeAPI.handle` 迁编排。  
-- 新建 `application/persist_turn.py`：自 `persistence.py` 迁。  
-- `RuntimeAPI` 退化为构造 ports + 调用。  
-- 单测：对 use case 用 fake ports（可从现有 public_api 单测迁）。  
+- 新建 `application/handle_user_message.py`：自 `RuntimeAPI.handle` 迁编排。
+- 新建 `application/persist_turn.py`：自 `persistence.py` 迁。
+- `RuntimeAPI` 退化为构造 ports + 调用。
+- 单测：对 use case 用 fake ports（可从现有 public_api 单测迁）。
 - 对应 parent **A4**。
 
 ### Slice S4 — Selection / Itinerary / Search 进 application
 
-- `apply_selection.py` ← `selection.py`  
-- `request_itinerary.py` ← `selected_route` + route tool 内核  
-- `search_points.py` ← `catalog_tools` 内核  
-- `agents/*_tools.py` 仅 `RunContext` 胶水。  
+- `apply_selection.py` ← `selection.py`
+- `request_itinerary.py` ← `selected_route` + route tool 内核
+- `search_points.py` ← `catalog_tools` 内核
+- `agents/*_tools.py` 仅 `RunContext` 胶水。
 - 目标：agents 不再持有大块业务分支。
 
 ### Slice S5 — Session domain 归位
 
-- `SessionState` + fact_ledger + compaction_retention → `domain/session/`。  
-- 收敛 `entities.AnimichiSession` / 过时 `llm_schemas`。  
+- `SessionState` + fact_ledger + compaction_retention → `domain/session/`。
+- 收敛 `entities.AnimichiSession` / 过时 `llm_schemas`。
 - 保证 compaction / fact 规则 **无 DB 单测** 路径更短。
 
 ### Slice S6 — 1-10-50 拆文件与去 handlers 空壳
 
-- 拆超标文件（`public_api` 剩余、`catalog_client`、selection 遗留）。  
-- `handlers/` 清空或删除；helpers 迁出。  
+- 拆超标文件（`public_api` 剩余、`catalog_client`、selection 遗留）。
+- `handlers/` 清空或删除；helpers 迁出。
 - `RouteArchive` 文档/rename 与 SavedRoute 切割。
 
 ### Slice S7 — 可选目录 A5
@@ -465,9 +465,9 @@ S1/S2 可与仓级 contract/catalog path 改名 **同列车**；S3+ 不依赖 we
 
 重构列车 **不** 打开下列首次交付；仅要求未来实现遵守 CA + greenfield：
 
-- **match_scene / 场景匹配全管线** — 既有产品 ticket（实现时：Catalog 读 + Session 写边界同上）  
-- Share / Check-in / しおり 等 — Users 设计文 + 对应 issue  
-- 跨会话 memory 唤醒 — Users  
+- **match_scene / 场景匹配全管线** — 既有产品 ticket（实现时：Catalog 读 + Session 写边界同上）
+- Share / Check-in / しおり 等 — Users 设计文 + 对应 issue
+- 跨会话 memory 唤醒 — Users
 - 主战场结构债跟踪：#432 · #666（及 agent boy-scout 卡）
 
 ---

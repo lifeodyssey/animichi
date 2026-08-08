@@ -19,19 +19,19 @@
 | Feature 内 **view-model / UI state** | **是** — 仅 UI 状态（chat draft、panel open），不复制主数据权威 |
 | Clean Architecture 四圈 | **否** — UI 用 **Feature module + Route + API hook** |
 
-一句话：**Web 消费发布语言（contract），不拥有领域模型。**  
+一句话：**Web 消费发布语言（contract），不拥有领域模型。**
 组件里的 `Point` 类型 = **wire/view 形状**，规则以服务端与 contract 为准。
 
 ---
 
 ## 1. 目标（一次最好）
 
-1. **依赖方向一次钉死（已有好基础，写成硬规则）：**  
-   `routes / components → features → api/hooks → api clients → 公网 /v1`  
-   UI **永不** 手写 JSON 旁路 contract。  
-2. **Feature 边界一次理清：** 跨 feature 共享进 `platform/` 或极薄 `components/`；feature 私货不进 `lib/` 黑洞。  
-3. **`lib/` 降级为 platform 工具：** auth / byok / turnstile 等跨面能力；chat/route-detail **迁回或明确归属 feature**。  
-4. **Greenfield 一次跟车：** contract 改名/path 时 hooks + MSW + 类型 import 全改，无长期 `UserRoute` 别名。  
+1. **依赖方向一次钉死（已有好基础，写成硬规则）：**
+   `routes / components → features → api/hooks → api clients → 公网 /v1`
+   UI **永不** 手写 JSON 旁路 contract。
+2. **Feature 边界一次理清：** 跨 feature 共享进 `platform/` 或极薄 `components/`；feature 私货不进 `lib/` 黑洞。
+3. **`lib/` 降级为 platform 工具：** auth / byok / turnstile 等跨面能力；chat/route-detail **迁回或明确归属 feature**。
+4. **Greenfield 一次跟车：** contract 改名/path 时 hooks + MSW + 类型 import 全改，无长期 `UserRoute` 别名。
 5. **不半吊子：** 不做「文档写 feature-first、仓库继续双堆 components+lib 无时间表」。
 
 ---
@@ -51,10 +51,10 @@ apps/web/src/
 
 ### 2.1 正确碎片
 
-- oRPC OpenAPILink + 分 service client（catalog / users）  
-- hooks 前缀 key 分离；SSR QueryClient per request  
-- MSW 用 contract zod parse，不手写 envelope  
-- features 已按产品面切开  
+- oRPC OpenAPILink + 分 service client（catalog / users）
+- hooks 前缀 key 分离；SSR QueryClient per request
+- MSW 用 contract zod parse，不手写 envelope
+- features 已按产品面切开
 - 1-10-50 / coverage floors 已在 AGENTS
 
 ### 2.2 结构债
@@ -108,7 +108,7 @@ apps/web/src/
 
 今日 `map-spike` / `maplibre` / `bubble-map` 并存。目标：
 
-- **`features/maps/`** 统一出口；spike 中已生产化的代码并入，死 spike **删除**（已有码清理，不是新功能）。  
+- **`features/maps/`** 统一出口；spike 中已生产化的代码并入，死 spike **删除**（已有码清理，不是新功能）。
 - 若某文件仍是实验且无路由引用 → 删或移 `_dev`，不留三套真源。
 
 ---
@@ -146,9 +146,9 @@ apps/web/src/
 
 **SOLID 在 UI 的落点：**
 
-- **S：** 一个 feature 一个产品面；hook 不渲染  
-- **O：** 新卡片/流式 part → registry 扩展（既有 generative 纪律）  
-- **D：** UI 依赖 hook 抽象，不依赖 OpenAPILink 细节  
+- **S：** 一个 feature 一个产品面；hook 不渲染
+- **O：** 新卡片/流式 part → registry 扩展（既有 generative 纪律）
+- **D：** UI 依赖 hook 抽象，不依赖 OpenAPILink 细节
 
 **1-10-50 / coverage：** 搬家不降 floor；超标组件拆，不靠 disable。
 
@@ -198,11 +198,11 @@ apps/web/src/
 
 ## 9. 验收（实现后）
 
-- [ ] 无 `apps/web/src/domain`  
-- [ ] UI → hooks → clients 单向；无组件手写业务 URL 散落  
-- [ ] `lib/chat`、`lib/route-detail` 不存在或仅 re-export 过渡 **零**（终态无 re-export）  
-- [ ] maps 单一 feature 入口  
-- [ ] contract 新名全站编译通过  
+- [ ] 无 `apps/web/src/domain`
+- [ ] UI → hooks → clients 单向；无组件手写业务 URL 散落
+- [ ] `lib/chat`、`lib/route-detail` 不存在或仅 re-export 过渡 **零**（终态无 re-export）
+- [ ] maps 单一 feature 入口
+- [ ] contract 新名全站编译通过
 
 ---
 

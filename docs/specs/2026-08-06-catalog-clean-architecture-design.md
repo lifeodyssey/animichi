@@ -15,14 +15,14 @@
 
 把 Catalog 从「能力管道 + 部分纯 kernel + handler 内事务脚本」收成**可教学的**：
 
-1. **DDD**：清晰有界上下文、统一语言、领域不变量在 domain、用例在 application  
-2. **Clean Architecture**：依赖只指向内圈；框架（Hono/oRPC/Drizzle/Neon/fetch）只在最外圈  
-3. **可测**：domain 与 application 可在无 workerd、无真实 Neon 下单测  
-4. **Greenfield 语言**：Point / Bangumi / Itinerary；无 `PilgrimagePoint` / `Route` / `work_id`  
+1. **DDD**：清晰有界上下文、统一语言、领域不变量在 domain、用例在 application
+2. **Clean Architecture**：依赖只指向内圈；框架（Hono/oRPC/Drizzle/Neon/fetch）只在最外圈
+3. **可测**：domain 与 application 可在无 workerd、无真实 Neon 下单测
+4. **Greenfield 语言**：Point / Bangumi / Itinerary；无 `PilgrimagePoint` / `Route` / `work_id`
 
 **非目标（本文不直接改代码）：**
 
-- 立刻单 PR 完成全部 `git mv` + 全仓契约（实现见 §10 + greenfield G1）  
+- 立刻单 PR 完成全部 `git mv` + 全仓契约（实现见 §10 + greenfield G1）
 - 保留长期 wire 别名（**已否决**）
 
 ---
@@ -82,10 +82,10 @@ workers/catalog/src/
 
 ### 2.2 核心不变量
 
-1. Point 必属一个 Bangumi。  
-2. Itinerary 由 Point 选择生成；空选择无有效行程。  
-3. 规划可对共址 Point 做 Cluster，且有上限。  
-4. Search 可返回 **partial** 预览行；调用方不得当最终全集。  
+1. Point 必属一个 Bangumi。
+2. Itinerary 由 Point 选择生成；空选择无有效行程。
+3. 规划可对共址 Point 做 Cluster，且有上限。
+4. Search 可返回 **partial** 预览行；调用方不得当最终全集。
 5. Catalog 不持久化用户 SavedRoute。
 
 ### 2.3 上下文关系
@@ -132,10 +132,10 @@ Ingest upstream (Anitabi 等) ◀── Catalog outbound
 
 **依赖规则（硬）：**
 
-- Domain **不得** import：hono、@orpc、drizzle、@neondatabase、cloudflare:、ingest 编排  
-- Application **不得** import：hono、drizzle 实现细节；只依赖 **port 接口** 与 domain  
-- Adapters 可以实现 port、调用 application、接触框架  
-- `types.ts` / contract：**仅适配器边界**做 wire 形状；domain 用自己的类型或从 port 返回的已映射结构  
+- Domain **不得** import：hono、@orpc、drizzle、@neondatabase、cloudflare:、ingest 编排
+- Application **不得** import：hono、drizzle 实现细节；只依赖 **port 接口** 与 domain
+- Adapters 可以实现 port、调用 application、接触框架
+- `types.ts` / contract：**仅适配器边界**做 wire 形状；domain 用自己的类型或从 port 返回的已映射结构
 
 ---
 
@@ -202,9 +202,9 @@ workers/catalog/
 
 **命名说明（Greenfield）：**
 
-- 对外 oRPC：**`planItinerary`** / path **`/catalog/itinerary`**（不再保留 `route` 兼容名）。  
-- Wire 类型：**`Point`**、**`Itinerary`**；输入键 **`bangumi_id`** 而非 `work_id`。  
-- 文件：`lib/route.ts` → `domain/itinerary/plan.ts`。  
+- 对外 oRPC：**`planItinerary`** / path **`/catalog/itinerary`**（不再保留 `route` 兼容名）。
+- Wire 类型：**`Point`**、**`Itinerary`**；输入键 **`bangumi_id`** 而非 `work_id`。
+- 文件：`lib/route.ts` → `domain/itinerary/plan.ts`。
 
 ### 4.1 数据面（Catalog 表目标）
 
@@ -254,9 +254,9 @@ workers/catalog/
 
 **PlanItinerary 分层示例（逻辑，非实现）：**
 
-1. Adapter：HTTP/oRPC → 校验 wire 输入  
-2. Application：PointsRepo.loadByIds → domain.cluster → domain.planTimedItinerary → 装配公开结果  
-3. Domain：clusterByLocation、buildTimedItinerary — **零 I/O**  
+1. Adapter：HTTP/oRPC → 校验 wire 输入
+2. Application：PointsRepo.loadByIds → domain.cluster → domain.planTimedItinerary → 装配公开结果
+3. Domain：clusterByLocation、buildTimedItinerary — **零 I/O**
 
 Search 必须把「别名命中 / lite 预览 / 后台 ingest」收成 application 策略，而不是单文件事务脚本（设计要求；实现分期）。
 
@@ -309,9 +309,9 @@ Search 必须把「别名命中 / lite 预览 / 后台 ingest」收成 applicati
 
 **迁移策略（Greenfield）：**
 
-- **无**长期 `PilgrimagePoint` 别名 export。  
-- 可选短期 `lib/foo.ts` re-export **仅**为拆 PR 方便，合并前删掉。  
-- 禁止 domain import api。  
+- **无**长期 `PilgrimagePoint` 别名 export。
+- 可选短期 `lib/foo.ts` re-export **仅**为拆 PR 方便，合并前删掉。
+- 禁止 domain import api。
 
 ---
 
@@ -357,17 +357,17 @@ Search 必须把「别名命中 / lite 预览 / 后台 ingest」收成 applicati
 
 **设计完成（本文）：**
 
-- [x] 圈层、依赖规则、目标树、端口、用例、迁移地图、分期  
-- [x] Owner 标记本文 Status → **ACCEPTED** (2026-08-06)  
-- [x] Greenfield 语言/表目标并入（2026-08-06）  
+- [x] 圈层、依赖规则、目标树、端口、用例、迁移地图、分期
+- [x] Owner 标记本文 Status → **ACCEPTED** (2026-08-06)
+- [x] Greenfield 语言/表目标并入（2026-08-06）
 
 
 **实现完成（未来）：**
 
-- [ ] domain 无框架 import（可用 lint/边界测试约束）  
-- [ ] PlanItinerary / Search 主路径符合分层  
-- [ ] 测试分层存在且主测绿  
-- [ ] AGENTS.md 描述与树一致  
+- [ ] domain 无框架 import（可用 lint/边界测试约束）
+- [ ] PlanItinerary / Search 主路径符合分层
+- [ ] 测试分层存在且主测绿
+- [ ] AGENTS.md 描述与树一致
 
 ---
 

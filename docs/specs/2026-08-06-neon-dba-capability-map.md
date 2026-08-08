@@ -1,15 +1,15 @@
 # Neon 数据面 · DBA 能力图（缺什么）
 
-- Status: **ACCEPTED**（owner 2026-08-06 — gap 地图 + 目标按 best practice；**不含实现**）  
-- Date: 2026-08-06  
-- Scope: **一张 Neon 数据面**（catalog + agent 会话/计量 + users 文档表）+ `neon_auth` 旁路 schema  
+- Status: **ACCEPTED**（owner 2026-08-06 — gap 地图 + 目标按 best practice；**不含实现**）
+- Date: 2026-08-06
+- Scope: **一张 Neon 数据面**（catalog + agent 会话/计量 + users 文档表）+ `neon_auth` 旁路 schema
 - Explicitly out of this doc: **CI `pipeline-*.yml` 布局**（另开讨论，勿与本图混谈）；catalog **ingest 数据 pipeline**（属 catalog 结构）
 
 ---
 
 ## 0. 一句话
 
-迁移 **作者工具链已经像样**（Atlas 单史、边界清楚、deploy 前 apply）。  
+迁移 **作者工具链已经像样**（Atlas 单史、边界清楚、deploy 前 apply）。
 作为 **DBA 运营与权限模型**，还差一整层：**角色矩阵真落地、按服务最小权限连接、可观测、备份/分支治理、扩展与容量、审计**。
 
 现有 issue 信号：**#685**「角色矩阵 — readonly/migration/developer + 服务运行时角色（GRANT 全是装饰）」。
@@ -96,7 +96,7 @@
 | **jobs_svc** | jobs Worker | purge 所需 SELECT/DELETE；最小表集合 |
 | **readonly** | 人 / 报表 | SELECT；statement_timeout；可无敏感列视图 |
 
-**连接：** Neon 上 LOGIN 角色或 pooler user → `SET ROLE` / 直接 login 为 svc。  
+**连接：** Neon 上 LOGIN 角色或 pooler user → `SET ROLE` / 直接 login 为 svc。
 **验收：** 用 catalog DSN 写 `saved_routes` 必须失败；用 users DSN 写 `points` 必须失败。
 
 ---
@@ -130,10 +130,10 @@
 
 ## 6. 明确非目标（本图）
 
-- 换掉 Neon / 上第二套 OLTP  
-- 用 Drizzle 生成迁移  
-- 在 Agent 启动时 migrate  
-- 把 catalog **ingest 业务 pipeline** 画进本 DBA 图（属 catalog）  
+- 换掉 Neon / 上第二套 OLTP
+- 用 Drizzle 生成迁移
+- 在 Agent 启动时 migrate
+- 把 catalog **ingest 业务 pipeline** 画进本 DBA 图（属 catalog）
 
 ---
 
@@ -141,11 +141,11 @@
 
 若只记五条：
 
-1. **GRANT 装饰 → 真·最小权限连接**  
-2. **users / jobs 独立角色**  
-3. **migrator 与 app DSN 分离**  
-4. **环境/分支/拓扑一张图**  
-5. **备份、监控、坏迁移剧本**  
+1. **GRANT 装饰 → 真·最小权限连接**
+2. **users / jobs 独立角色**
+3. **migrator 与 app DSN 分离**
+4. **环境/分支/拓扑一张图**
+5. **备份、监控、坏迁移剧本**
 
 迁移文件本身 **不是** 短板；**权限与运营** 才是。
 

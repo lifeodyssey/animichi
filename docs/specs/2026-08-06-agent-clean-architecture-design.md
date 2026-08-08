@@ -16,12 +16,12 @@
 
 在 **已有** `domain/` · `application/` · `infrastructure/` · `interfaces/` · `agents/` 骨架上，收敛成教科书依赖方向与清晰用例边界，使：
 
-1. **Session** 与工具循环的领域规则可单测、不绑 FastAPI  
-2. **Catalog** 访问只经明确 port（客户–供应商）——对齐 **X12 / G4**  
-3. **SavedRoute / 身份** 不在 Agent 内重建  
-4. 与 monorepo Full tier、ADR-0002 **greenfield 语言**一致（Point / Itinerary / Session）  
+1. **Session** 与工具循环的领域规则可单测、不绑 FastAPI
+2. **Catalog** 访问只经明确 port（客户–供应商）——对齐 **X12 / G4**
+3. **SavedRoute / 身份** 不在 Agent 内重建
+4. 与 monorepo Full tier、ADR-0002 **greenfield 语言**一致（Point / Itinerary / Session）
 
-**非目标：** 本文阶段直接改生产代码；重写 PydanticAI。  
+**非目标：** 本文阶段直接改生产代码；重写 PydanticAI。
 **已否决：** 长期保留 Python `Route` / `PilgrimagePoint` 镜像旧名。
 
 ### 0.1 「只读」校准（对齐早期定案，避免误解）
@@ -33,7 +33,7 @@
 | **用户域**（SavedRoute、打卡、しおり） | **不新增 agent 数据端点** | G4 / SD-2 → `workers/users` |
 | **LLM tools 副作用** | **工具面只读**（无写 catalog/用户主数据） | SD-19 架构不变量 |
 
-一句话：**对 catalog 主数据只读；对 Session/编排可写；禁止往 agent 服务新增数据端点。**  
+一句话：**对 catalog 主数据只读；对 Session/编排可写；禁止往 agent 服务新增数据端点。**
 「全服务零写库」**不是**目标。
 
 ---
@@ -99,12 +99,12 @@ apps/agent/src/animichi/
 
 ### 2.3 不变量（草案，确认后 LOCK）
 
-1. Session 有稳定 id；匿名 Session 可被 claim 到用户，不能无主合并丢约束。  
-2. 硬约束进入 fact ledger 后，compaction 不得静默丢弃。  
-3. Agent **不**在本地「发明」与 Catalog 冲突的 Point 几何权威；**不写** catalog 主数据表。  
-4. 需要 Itinerary 时，经 Catalog port，不在 Agent 内复制规划 kernel（SD-28 已统一到 catalog）。  
-5. 对外 HTTP 错误经 registry 映射，不把领域异常直接当 500 文本泄漏。  
-6. **X12 / G4：** 不往 agent 服务新增任何 **数据端点**（catalog 域或用户域）；新能力问归属桶（catalog / users / session-only）。  
+1. Session 有稳定 id；匿名 Session 可被 claim 到用户，不能无主合并丢约束。
+2. 硬约束进入 fact ledger 后，compaction 不得静默丢弃。
+3. Agent **不**在本地「发明」与 Catalog 冲突的 Point 几何权威；**不写** catalog 主数据表。
+4. 需要 Itinerary 时，经 Catalog port，不在 Agent 内复制规划 kernel（SD-28 已统一到 catalog）。
+5. 对外 HTTP 错误经 registry 映射，不把领域异常直接当 500 文本泄漏。
+6. **X12 / G4：** 不往 agent 服务新增任何 **数据端点**（catalog 域或用户域）；新能力问归属桶（catalog / users / session-only）。
 7. **SD-19：** 面向模型的 tools 默认只读副作用；写 Session/配额走应用层与 port，不经「工具随便写库」。
 
 ---
@@ -123,11 +123,11 @@ domain/       (Session rules, entities, port *protocols*)
 
 **依赖硬规则：**
 
-- `domain/` 不 import FastAPI、PydanticAI agent 运行时、infrastructure 实现类  
-- `application/` 只依赖 domain + port 协议  
-- `agents/` 定位：**PydanticAI 适配器 + 工具绑定**（framework adapter），调用 application/domain，而不是反向  
-- `interfaces/`：HTTP 入站适配  
-- `infrastructure/`：port 的具体实现  
+- `domain/` 不 import FastAPI、PydanticAI agent 运行时、infrastructure 实现类
+- `application/` 只依赖 domain + port 协议
+- `agents/` 定位：**PydanticAI 适配器 + 工具绑定**（framework adapter），调用 application/domain，而不是反向
+- `interfaces/`：HTTP 入站适配
+- `infrastructure/`：port 的具体实现
 
 **与现状命名对齐（不必强行改文件夹名）：**
 
@@ -189,9 +189,9 @@ animichi/
 
 **目标依赖方向（= X12 + greenfield）：**
 
-- 巡礼主数据 **只经 Catalog HTTP/oRPC 读**（新 path：`/catalog/itinerary` 等）。  
-- **禁止** Agent→Neon 主数据写入；**无包袱 → 删 upsert 而非长期标债**。  
-- Session / messages / fact ledger / anon quota：**保留写**（Agent 表）。  
+- 巡礼主数据 **只经 Catalog HTTP/oRPC 读**（新 path：`/catalog/itinerary` 等）。
+- **禁止** Agent→Neon 主数据写入；**无包袱 → 删 upsert 而非长期标债**。
+- Session / messages / fact ledger / anon quota：**保留写**（Agent 表）。
 - 类型名与 contract 对齐：**Point / Itinerary / Bangumi / Session**。
 
 ---

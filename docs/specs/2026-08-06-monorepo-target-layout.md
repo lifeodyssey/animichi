@@ -7,8 +7,8 @@
 
 **怎么用这份文档**
 
-1. 已锁定的段落标 `LOCKED`，改它们要显式翻案。  
-2. 进行中的段落标 `OPEN`，讨论结果直接往文档里追加/改写。  
+1. 已锁定的段落标 `LOCKED`，改它们要显式翻案。
+2. 进行中的段落标 `OPEN`，讨论结果直接往文档里追加/改写。
 3. 实施时另开 PR；本文是 **目标态 + 决策记录**，不是 git mv 脚本。
 
 ---
@@ -90,7 +90,7 @@
 
 ### 1.4 jobs（原 maintenance）
 
-Cron 清理 agent 域匿名 Session / 配额行。包名 **`workers/jobs`**（比 maintenance 好懂；不用 scheduler 以免和编排混淆）。  
+Cron 清理 agent 域匿名 Session / 配额行。包名 **`workers/jobs`**（比 maintenance 好懂；不用 scheduler 以免和编排混淆）。
 非 catalog/users 职责；非 lib（需可部署 cron 单元）。结构：[jobs-worker-structure-design](./2026-08-06-jobs-worker-structure-design.md)。
 
 ### 1.5 Supabase
@@ -115,7 +115,7 @@ Supabase CLI 需 `--workdir migrations/supabase`；Atlas `file://migrations/neon
 
 ## 3. Monorepo / DDD 立场（LOCKED）
 
-第一层 = 部署与平台；DDD = 包内模型 + CONTEXT 地图。  
+第一层 = 部署与平台；DDD = 包内模型 + CONTEXT 地图。
 Arch review 候选见会话记录（Edge package-ize 等）——实施顺序另议。
 
 ---
@@ -134,7 +134,7 @@ Arch review 候选见会话记录（Edge package-ize 等）——实施顺序另
 | **SavedRoute** | 用户**保存**的路线（point_ids + 元数据） | 单独 Route |
 | **Session** | 用户与 agent 的对话上下文 | 未限定的 auth session |
 
-**保存语义（LOCKED）：** SavedRoute = point_ids + 元数据；打开可再算 Itinerary。  
+**保存语义（LOCKED）：** SavedRoute = point_ids + 元数据；打开可再算 Itinerary。
 **代码债：** 契约里或仍见 `Route` / `PilgrimagePoint` / `UserRoute`——先锁语言，改名另 PR。
 
 ### 4.1 分层词（LOCKED 方向）
@@ -152,25 +152,25 @@ Domain / Application / Adapters / Infrastructure；依赖 adapters → applicati
 
 **每个包的固定议程：**
 
-1. 拥有 / 不拥有哪些概念  
-2. 核心不变量与边界场景  
-3. 入站用例（application）  
-4. 出站 port  
-5. 目标内部目录  
-6. 与 contract 的映射  
-7. 测试 seam  
+1. 拥有 / 不拥有哪些概念
+2. 核心不变量与边界场景
+3. 入站用例（application）
+4. 出站 port
+5. 目标内部目录
+6. 与 contract 的映射
+7. 测试 seam
 
-**推荐顺序：** catalog → agent → users → edge → web → jobs  
+**推荐顺序：** catalog → agent → users → edge → web → jobs
 （contract 不单独「实现 DDD」，只随前几包收紧发布语言。）
 
 **明确不做：** 无场景地给每个包 mkdir 空 domain。
 
 ### 4.3 分级默认（可在逐包时推翻）
 
-- **Full**：catalog、agent  
-- **Gateway**：edge  
-- **Thin**：users、**jobs**  
-- **UI**：web features  
+- **Full**：catalog、agent
+- **Gateway**：edge
+- **Thin**：users、**jobs**
+- **UI**：web features
 
 全局 D1/D3 不再空转：以 **catalog 第一包** 实装选择为准再回写。
 
@@ -187,8 +187,8 @@ Domain / Application / Adapters / Infrastructure；依赖 adapters → applicati
 
 ### 4.5 Catalog 摘要
 
-- **拥有 / 语言 / 用例：** `workers/catalog/CONTEXT.md`  
-- **CA 设计：** `2026-08-06-catalog-clean-architecture-design.md`（ACCEPTED + greenfield）  
+- **拥有 / 语言 / 用例：** `workers/catalog/CONTEXT.md`
+- **CA 设计：** `2026-08-06-catalog-clean-architecture-design.md`（ACCEPTED + greenfield）
 - **待实现：** 分层目录；G1 去掉 `route` / `PilgrimagePoint` / `work_id`
 
 ### 4.6 结构 best practice（LOCKED 默认）
@@ -232,9 +232,9 @@ Domain / Application / Adapters / Infrastructure；依赖 adapters → applicati
 
 ## 6. 下一步
 
-1. **可部署包结构设计已齐**；索引：[structure-refactor-index](./2026-08-06-structure-refactor-index.md)。  
-2. **Neon DBA 能力图 ACCEPTED**（best practice）：[neon-dba-capability-map](./2026-08-06-neon-dba-capability-map.md) — 优先 **N1 角色矩阵 + staging DSN**（#685）。  
-3. **CI/部署**：**方向 + 重构计划均 design ACCEPTED** — [architecture](./2026-08-06-ci-deploy-architecture.md) · [refactor plan C1–C6](./2026-08-06-ci-cd-refactor-plan.md)；**YAML 未改**。  
-4. **Pulumi/infra**：[pulumi-infra-review](./2026-08-06-pulumi-infra-review.md) **ACCEPTED design only**（P1 拆 index 等后置）。  
-5. **重构 GOAL（只骨架）：** [docs/iterations/refactor-skeleton-2026-08/GOAL.md](../../iterations/refactor-skeleton-2026-08/GOAL.md) — 无新功能；未做 `TODO(refactor-skeleton)`；Matt `/to-issues`→`/implement`（+/tdd）→`/code-review`。  
+1. **可部署包结构设计已齐**；索引：[structure-refactor-index](./2026-08-06-structure-refactor-index.md)。
+2. **Neon DBA 能力图 ACCEPTED**（best practice）：[neon-dba-capability-map](./2026-08-06-neon-dba-capability-map.md) — 优先 **N1 角色矩阵 + staging DSN**（#685）。
+3. **CI/部署**：**方向 + 重构计划均 design ACCEPTED** — [architecture](./2026-08-06-ci-deploy-architecture.md) · [refactor plan C1–C6](./2026-08-06-ci-cd-refactor-plan.md)；**YAML 未改**。
+4. **Pulumi/infra**：[pulumi-infra-review](./2026-08-06-pulumi-infra-review.md) **ACCEPTED design only**（P1 拆 index 等后置）。
+5. **重构 GOAL（只骨架）：** [docs/iterations/refactor-skeleton-2026-08/GOAL.md](../../iterations/refactor-skeleton-2026-08/GOAL.md) — 无新功能；未做 `TODO(refactor-skeleton)`；Matt `/to-issues`→`/implement`（+/tdd）→`/code-review`。
 6. **实现列车**（按 GOAL 出票）：包结构 · jobs rename · DBA 文档骨架 · CI 设计已定实现后置 · 产品 ticket 另线。

@@ -1,18 +1,18 @@
 # 小配置文件放哪（Monorepo 放置规则）
 
-- Status: **DESIGN** — 与 monorepo P3「根只做编排」对齐；**不强制一次搬完**  
-- Date: 2026-08-06  
+- Status: **DESIGN** — 与 monorepo P3「根只做编排」对齐；**不强制一次搬完**
+- Date: 2026-08-06
 - Parent: [monorepo-target-layout](./2026-08-06-monorepo-target-layout.md)
 
 ---
 
 ## 0. 三条总则
 
-1. **谁拥有生命周期，配置就跟谁**  
-   只服务一个 app/worker 的 → 放在该包根下（`apps/web/vitest.config.ts`）。  
-2. **工具强制要求仓库根的 → 留在根**  
-   例如 GitHub、SonarCloud Automatic Analysis、多数 pre-commit、pnpm workspace。  
-3. **根上禁止「假装编排、其实是 edge 运行时」**  
+1. **谁拥有生命周期，配置就跟谁**
+   只服务一个 app/worker 的 → 放在该包根下（`apps/web/vitest.config.ts`）。
+2. **工具强制要求仓库根的 → 留在根**
+   例如 GitHub、SonarCloud Automatic Analysis、多数 pre-commit、pnpm workspace。
+3. **根上禁止「假装编排、其实是 edge 运行时」**
    已定：`wrangler.toml`、edge 的 hono/jose deps、agent `Dockerfile` → 沉入 `workers/edge` / `apps/agent`。
 
 **不搞** 统一的 `config/` 大筐把所有东西塞进去——会破坏工具发现路径，也违反「跟 owner 走」。
@@ -171,9 +171,9 @@ workers/catalog/
 
 ## 7. 非目标
 
-- 建 `config/sonar/` `config/lint/` 深层树（除非工具强制）  
-- 每个包复制一份 `.sonarcloud.properties`  
-- 把 `pnpm-workspace` 沉到子目录  
+- 建 `config/sonar/` `config/lint/` 深层树（除非工具强制）
+- 每个包复制一份 `.sonarcloud.properties`
+- 把 `pnpm-workspace` 沉到子目录
 
 ---
 
