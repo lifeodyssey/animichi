@@ -404,7 +404,7 @@ jobs:
         # itself provisions and owns — Atlas must never touch them) alongside
         # `public` (the schema Atlas actually manages). Without scoping,
         # Atlas's "is this database clean" check inspects EVERY schema it can
-        # see, finds `neon_auth` unaccounted for by db/migrations, and aborts
+        # see, finds `neon_auth` unaccounted for by migrations/neon, and aborts
         # with "connected database is not clean: found schema ...". The fix
         # is `search_path=<schema>` on the connection URL — confirmed
         # empirically against the exact pinned v0.30.0 binary (not guessed):
@@ -443,8 +443,8 @@ jobs:
             *) scoped_url="${NEON_DATABASE_URL}?search_path=public" ;;
           esac
           # 486: the manual thin-caller path has no db-validate job, so validate here (cheap, seconds) before mutating.
-          atlas migrate validate --dir "file://db/migrations"
-          atlas migrate apply --dir "file://db/migrations" --url "$scoped_url" --revisions-schema public
+          atlas migrate validate --dir "file://migrations/neon"
+          atlas migrate apply --dir "file://migrations/neon" --url "$scoped_url" --revisions-schema public
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       # Installs the Pulumi CLI onto PATH without running a command (omitting

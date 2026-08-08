@@ -38,7 +38,7 @@ help:
 	@echo "Database:"
 	@echo "  make db-new NAME=x  Create a timestamped Atlas migration"
 	@echo "  make db-list        List checked-in Atlas migrations"
-	@echo "  make db-hash        Regenerate db/migrations/atlas.sum"
+	@echo "  make db-hash        Regenerate migrations/neon/atlas.sum"
 	@echo "  make db-validate    Validate Atlas checksums and SQL"
 	@echo "  make db-push-dry    Dry-run Atlas migrations against Neon"
 	@echo "  make db-push        Apply Atlas migrations against Neon"
@@ -119,7 +119,7 @@ clean:
 build:
 	cd apps/agent && uv build
 
-ATLAS_MIGRATIONS := file://db/migrations
+ATLAS_MIGRATIONS := file://migrations/neon
 
 db-new:
 	@test -n "$(NAME)" || (echo "NAME is required (for example: make db-new NAME=add_routes_index)" >&2; exit 1)

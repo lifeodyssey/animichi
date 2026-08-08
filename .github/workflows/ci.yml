@@ -160,7 +160,7 @@ jobs:
         with:
           filters: |
             neon_agent: ['apps/agent/**']
-            neon_migrations: ['db/migrations/**']
+            neon_migrations: ['migrations/neon/**']
 
       - uses: ./.github/actions/setup
         with:
@@ -237,7 +237,7 @@ jobs:
         with:
           filters: |
             neon_catalog: ['workers/catalog/**']
-            neon_migrations: ['db/migrations/**']
+            neon_migrations: ['migrations/neon/**']
 
       - uses: ./.github/actions/setup
 

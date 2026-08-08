@@ -147,7 +147,7 @@ async def _lifespan_build_runtime(
     runtime_db = db if db is not None else build_supabase_client(resolved_settings)
     runtime_session_store = _resolve_session_store(session_store, runtime_db)
     # Schema changes are never applied by the application. Neon catalog/user migrations run
-    # through Atlas from db/migrations; the remaining Supabase compatibility surface has its
+    # through Atlas from migrations/neon; the remaining Supabase compatibility surface has its
     # own operator path. See docs/ops/migrations.md.
     catalog_client = build_catalog_client(resolved_settings)
     app.state.catalog_client = catalog_client

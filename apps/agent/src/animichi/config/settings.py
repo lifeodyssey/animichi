@@ -172,7 +172,7 @@ class Settings(BaseSettings):
     )
 
     # No application-level migration runner. Neon schema changes are applied by Atlas from
-    # db/migrations in the deployment workflow; see docs/ops/migrations.md.
+    # migrations/neon in the deployment workflow; see docs/ops/migrations.md.
 
     # CORS
     cors_allowed_origin: str = Field(

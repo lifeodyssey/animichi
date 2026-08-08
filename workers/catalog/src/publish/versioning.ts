@@ -1,6 +1,6 @@
 /**
  * Atomic version publish over `cluster_version`
- * (`db/migrations/20260623000001_init.sql`):
+ * (`migrations/neon/20260623000001_init.sql`):
  *   id, bangumi_id, version, is_current, created_at, with the partial unique index
  *   `uq_cluster_version_one_current` (bangumi_id) WHERE is_current.
  *

@@ -11,7 +11,7 @@ import { SEED_ALIASES, SEED_LOCATIONS } from "./fixtures/geocode-seed";
  */
 
 const MIGRATION_SQL = readFileSync(
-  new URL("../../../db/migrations/20260714000001_catalog_geocoding.sql", import.meta.url),
+  new URL("../../../migrations/neon/20260714000001_catalog_geocoding.sql", import.meta.url),
   "utf8",
 );
 

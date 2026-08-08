@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Staging least-privilege role wiring (#832) — one-shot, idempotent.
 #
-# N1 (db/migrations/20260806120000_role_matrix_n1.sql) created the service
+# N1 (migrations/neon/20260806120000_role_matrix_n1.sql) created the service
 # roles as NOLOGIN. This script flips catalog_svc / agent_svc / users_svc /
 # jobs_svc to LOGIN with per-role passwords, and can also write the
 # per-component DSNs into the staging GitHub environment secrets.
