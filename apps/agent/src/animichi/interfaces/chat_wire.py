@@ -91,7 +91,7 @@ class TimedItinerary(_WireModel):
     export_ics: str | None = None
 
 
-class StreamRoute(_WireModel):
+class StreamItinerary(_WireModel):
     id: str | None = None
     version: str | None = None
     ordered_points: list[str] | list[StreamPoint] | None = None
@@ -125,7 +125,7 @@ class SearchData(_WireModel):
 
 class RouteData(_WireModel):
     results: SearchResults | None = None
-    route: StreamRoute | None = None
+    itinerary: StreamItinerary | None = None
 
 
 class ClarificationData(_WireModel):
@@ -172,10 +172,10 @@ def _search_results(data: JsonObject) -> SearchResults | None:
     return SearchResults.model_validate(values, extra="ignore")
 
 
-def _route(data: JsonObject) -> StreamRoute | None:
+def _itinerary(data: JsonObject) -> StreamItinerary | None:
     raw = data.get("route")
     return (
-        StreamRoute.model_validate(raw, extra="ignore")
+        StreamItinerary.model_validate(raw, extra="ignore")
         if isinstance(raw, dict)
         else None
     )
@@ -188,7 +188,7 @@ def _wire_data(
         return SearchData(results=_search_results(response.data))
     if response.intent in {"plan_route", "plan_selected", "plan_multi", "partial"}:
         return RouteData(
-            results=_search_results(response.data), route=_route(response.data)
+            results=_search_results(response.data), itinerary=_itinerary(response.data)
         )
     if response.intent == "clarify":
         return ClarificationData.model_validate(response.data, extra="ignore")

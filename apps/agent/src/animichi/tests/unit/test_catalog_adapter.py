@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from animichi.agents.catalog_adapter import (
-    build_route_payload,
+    build_itinerary_payload,
     build_route_state,
     build_search_payload,
     build_search_state,
@@ -14,14 +14,14 @@ from animichi.agents.handlers._helpers import (
     _build_nearby_groups,
     rewrite_image_urls,
 )
-from animichi.clients.catalog_client import PilgrimagePoint, Route
+from animichi.clients.catalog_client import Itinerary, Point
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 
 
 def _point(
     pid: str = "p1", bangumi_id: str = "160209", city: str | None = None
-) -> PilgrimagePoint:
-    return PilgrimagePoint(
+) -> Point:
+    return Point(
         id=pid,
         name="須賀神社",
         name_cn="须贺神社",
@@ -77,15 +77,15 @@ def test_search_state_localizes_catalog_city_at_trusted_boundary(
 
 
 async def test_route_state_localizes_catalog_city_at_trusted_boundary() -> None:
-    route = await MockCatalogClient().route(["p004"])
+    route = await MockCatalogClient().plan_itinerary(["p004"])
     route.ordered_points[0].city = "Tokyo"
     state = build_route_state(route, source_ref=None, locale="ja")
     assert state.ordered_points[0].city == "東京"
 
 
-async def test_build_route_payload_from_catalog_route() -> None:
-    route: Route = await MockCatalogClient().route(["p004", "p005"])
-    payload = build_route_payload(route)
+async def test_build_itinerary_payload_from_catalog_itinerary() -> None:
+    itinerary: Itinerary = await MockCatalogClient().plan_itinerary(["p004", "p005"])
+    payload = build_itinerary_payload(itinerary)
     assert payload["point_count"] == 2
     assert payload["status"] == "ok"
     itinerary = payload["timed_itinerary"]
@@ -93,16 +93,16 @@ async def test_build_route_payload_from_catalog_route() -> None:
     assert itinerary["spot_count"] == 2
 
 
-async def test_build_route_payload_summary_has_coordinate_counts() -> None:
-    route: Route = await MockCatalogClient().route(["p004", "p005"])
-    summary = build_route_payload(route)["summary"]
+async def test_build_itinerary_payload_summary_has_coordinate_counts() -> None:
+    itinerary: Itinerary = await MockCatalogClient().plan_itinerary(["p004", "p005"])
+    summary = build_itinerary_payload(itinerary)["summary"]
     assert isinstance(summary, dict)
     assert summary["with_coordinates"] == 2
     assert summary["without_coordinates"] == 0
 
 
-def test_build_route_payload_empty_route_has_zero_points() -> None:
-    payload = build_route_payload(Route())
+def test_build_itinerary_payload_empty_itinerary_has_zero_points() -> None:
+    payload = build_itinerary_payload(Itinerary())
     assert payload["point_count"] == 0
 
 

@@ -105,7 +105,7 @@ async def execute_multi_selection(
     call_id = new_step_call_id("plan_multi")
     await _emit(on_step, call_id, "plan_multi", "running", {})
     fetched = await asyncio.gather(
-        *(catalog.points_by_work_id(item) for item in candidate_ids),
+        *(catalog.points_by_bangumi_id(item) for item in candidate_ids),
         return_exceptions=True,
     )
     steps = _fetch_steps(candidate_ids, fetched)
@@ -134,7 +134,9 @@ async def execute_multi_selection(
             state, steps, locale, "too_large", on_step, call_id, search=provenance
         )
     try:
-        route = await catalog.route([point.id for point in merged.rows if point.id])
+        itinerary = await catalog.plan_itinerary(
+            [point.id for point in merged.rows if point.id]
+        )
     except (RouteTooManyClustersError, RouteTooManyPointsError):
         return await _multi_terminal_event(
             state, steps, locale, "too_large", on_step, call_id, search=provenance
@@ -143,12 +145,14 @@ async def execute_multi_selection(
         return await _multi_terminal_event(
             state, steps, locale, "error", on_step, call_id, search=provenance
         )
-    if route.point_count < 1:
+    if itinerary.point_count < 1:
         return await _multi_terminal_event(
             state, steps, locale, "error", on_step, call_id, search=provenance
         )
     route_ref = state.next_route_ref("multi", state.clarification_revision)
-    state.store_route(route_ref, build_route_state(route, result_ref, locale=locale))
+    state.store_route(
+        route_ref, build_route_state(itinerary, result_ref, locale=locale)
+    )
     _set_current_anime(state, candidate_ids)
     omitted = _omitted_titles(state, merged.omitted_work_ids)
     _consume_pending(state)

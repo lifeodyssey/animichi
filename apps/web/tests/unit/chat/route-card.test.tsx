@@ -24,7 +24,7 @@ function fullRouteRaw() {
     ...routePartRaw(ujiPoints().slice(), { timed_itinerary: ujiItinerary() }),
     data: {
       results: { rows: [...ujiPoints(), offRoute] },
-      route: { ordered_points: ujiPoints().slice(), point_count: 3, timed_itinerary: ujiItinerary() },
+      itinerary: { ordered_points: ujiPoints().slice(), point_count: 3, timed_itinerary: ujiItinerary() },
     },
   };
 }
@@ -83,7 +83,7 @@ describe("AC4: a short route still renders the card plus the D3 note", () => {
   it("keeps the timeline and appends the explanatory notice for <3 spots", () => {
     const short = {
       ...routePartRaw(ujiPoints().slice(0, 2)),
-      data: { route: { ordered_points: ujiPoints().slice(0, 2), point_count: 2, timed_itinerary: { ...ujiItinerary(), stops: ujiItinerary().stops.slice(0, 2), legs: ujiItinerary().legs.slice(0, 1) } } },
+      data: { itinerary: { ordered_points: ujiPoints().slice(0, 2), point_count: 2, timed_itinerary: { ...ujiItinerary(), stops: ujiItinerary().stops.slice(0, 2), legs: ujiItinerary().legs.slice(0, 1) } } },
     };
     render(
       <ChatActionsProvider actions={{ send: vi.fn(), regenerate: vi.fn() }}>

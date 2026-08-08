@@ -12,7 +12,7 @@ from animichi.agents.catalog_adapter import build_search_payload
 from animichi.agents.runtime_deps import OnStep, StepEvent
 from animichi.agents.selected_route import execute_selected_route
 from animichi.agents.session_state import ResultRef, SearchPayloadState, SessionState
-from animichi.clients.catalog_client import PilgrimagePoint, Route
+from animichi.clients.catalog_client import Itinerary, Point
 from animichi.clients.errors import APIError
 from animichi.tests.eval.mock_catalog_client import FIXTURE_POINTS, MockCatalogClient
 
@@ -41,7 +41,7 @@ def _ordered_rows(result: AgentResult) -> list[dict[str, object]]:
     return [row.model_dump(mode="json") for row in state.routes[ref].ordered_points]
 
 
-def _euphonium_points() -> list[PilgrimagePoint]:
+def _euphonium_points() -> list[Point]:
     return [point.model_copy(deep=True) for point in FIXTURE_POINTS["115908"]]
 
 
@@ -80,7 +80,9 @@ async def test_selected_route_rows_keep_catalog_point_fields() -> None:
     assert rows[0] == _euphonium_points()[0].model_dump(mode="json")
     assert result.message == "Created a route with 2 selected stops."
     assert result.steps[0].model_initiated is False
-    assert catalog.calls == [("route", (("p004", "p005"), (34.8915, 135.8075), None))]
+    assert catalog.calls == [
+        ("plan_itinerary", (("p004", "p005"), (34.8915, 135.8075), None))
+    ]
 
 
 async def test_selected_route_rows_match_search_payload_rows() -> None:
@@ -112,9 +114,9 @@ async def test_selected_route_empty_point_ids_returns_error() -> None:
 
 
 class _FailingCatalog(MockCatalogClient):
-    async def route(
+    async def plan_itinerary(
         self, point_ids: list[str], *, origin: tuple[float, float] | None = None
-    ) -> Route:
+    ) -> Itinerary:
         raise APIError("catalog down")
 
 
@@ -178,7 +180,7 @@ async def test_selected_route_malformed_origin_routes_without_origin(
         catalog=catalog,
     )
 
-    assert catalog.calls == [("route", (("p004",), None, None))]
+    assert catalog.calls == [("plan_itinerary", (("p004",), None, None))]
 
 
 async def test_selected_route_preserves_hydrated_search_state() -> None:

@@ -1,7 +1,7 @@
 import type {
   AnimeOverview,
   AnimeOverviewCircle,
-  AnimeSampleRoute,
+  AnimeSampleItinerary,
   AnimeScene,
 } from "@animichi/contract";
 
@@ -36,8 +36,8 @@ function topCities(circles: readonly AnimeOverviewCircle[]): CityCount[] {
     .map((circle) => ({ region: circle.region, count: circle.count }));
 }
 
-function estimateDurationMinutes(routes: readonly AnimeSampleRoute[]): number | null {
-  const largest = Math.max(0, ...routes.map((route) => route.point_ids.length));
+function estimateDurationMinutes(itineraries: readonly AnimeSampleItinerary[]): number | null {
+  const largest = Math.max(0, ...itineraries.map((itinerary) => itinerary.point_ids.length));
   if (largest === 0) return null;
   return largest * DWELL_FLOOR_MINUTES + (largest - 1) * WALK_BUFFER_MINUTES;
 }
@@ -46,8 +46,8 @@ export function buildFactSummary(overview: AnimeOverview): FactSummary {
   return {
     spotCount: overview.points_length,
     topCities: topCities(overview.circles),
-    durationMinutes: estimateDurationMinutes(overview.sample_routes),
-    routeCount: overview.sample_routes.length,
+    durationMinutes: estimateDurationMinutes(overview.sample_itineraries),
+    routeCount: overview.sample_itineraries.length,
   };
 }
 

@@ -33,8 +33,8 @@ export function intentOf(data: unknown): string | undefined {
 function hasRoute(data: unknown): boolean {
   if (typeof data !== "object" || data === null || !("data" in data)) return false;
   const inner = data.data;
-  if (typeof inner !== "object" || inner === null || !("route" in inner)) return false;
-  return typeof inner.route === "object" && inner.route !== null && Object.keys(inner.route).length > 0;
+  if (typeof inner !== "object" || inner === null || !("itinerary" in inner)) return false;
+  return typeof inner.itinerary === "object" && inner.itinerary !== null && Object.keys(inner.itinerary).length > 0;
 }
 
 /**

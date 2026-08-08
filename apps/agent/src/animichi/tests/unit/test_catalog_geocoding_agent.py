@@ -195,7 +195,7 @@ async def test_partial_route_is_pending_sync_and_never_calls_catalog_route() -> 
     )
 
     assert outcome.status == "pending_sync"
-    assert all(call[0] != "route" for call in catalog.calls)
+    assert all(call[0] != "plan_itinerary" for call in catalog.calls)
     assert isinstance(deps.steps[-1].provenance, RejectedRoute)
 
 
@@ -209,4 +209,4 @@ async def test_route_threads_optional_pacing_to_catalog() -> None:
     catalog = MockCatalogClient()
     outcome = await run_route(_ctx(deps), catalog, str(ref), "packed")
     assert outcome.status == "ok"
-    assert ("route", (("p004",), None, "packed")) in catalog.calls
+    assert ("plan_itinerary", (("p004",), None, "packed")) in catalog.calls

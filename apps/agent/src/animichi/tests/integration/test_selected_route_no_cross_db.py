@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from animichi.agents.catalog_adapter import build_search_payload
-from animichi.clients.catalog_client import PilgrimagePoint
+from animichi.clients.catalog_client import Point
 from animichi.infrastructure.session.memory import InMemorySessionStore
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from animichi.interfaces.schemas import PublicAPIResponse
@@ -34,7 +34,7 @@ _STALE_SUPABASE_ROWS = [
 ]
 
 
-def _catalog_points() -> list[PilgrimagePoint]:
+def _catalog_points() -> list[Point]:
     return [point.model_copy(deep=True) for point in FIXTURE_POINTS["115908"][:2]]
 
 

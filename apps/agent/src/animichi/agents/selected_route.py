@@ -13,7 +13,7 @@ from animichi.agents.agent_result import (
     RouteRejectionStatus,
     StepRecord,
 )
-from animichi.agents.catalog_adapter import build_route_payload, build_route_state
+from animichi.agents.catalog_adapter import build_itinerary_payload, build_route_state
 from animichi.agents.error_messages import (
     CATALOG_ROUTE_UNAVAILABLE_MESSAGE,
     build_error_message,
@@ -22,7 +22,7 @@ from animichi.agents.runtime_deps import OnStep, StepEvent, StepStatus, new_step
 from animichi.agents.runtime_models import RouteResponseModel
 from animichi.agents.selection_messages import selected_route_message
 from animichi.agents.session_state import SessionState
-from animichi.clients.catalog_client import CatalogClientProtocol, Route
+from animichi.clients.catalog_client import CatalogClientProtocol, Itinerary
 from animichi.clients.errors import APIError
 
 logger = structlog.get_logger(__name__)
@@ -49,7 +49,9 @@ async def execute_selected_route(
     await _emit_step(on_step, call_id, "running", {})
 
     try:
-        route = await catalog.route(point_ids, origin=_parse_coordinate_origin(origin))
+        itinerary = await catalog.plan_itinerary(
+            point_ids, origin=_parse_coordinate_origin(origin)
+        )
     except ValidationError:
         logger.error("selected_route_catalog_contract_error")
         await _emit_step(on_step, call_id, "error", {})
@@ -72,12 +74,12 @@ async def execute_selected_route(
             state,
         )
 
-    step, payload = _build_step(route, params)
+    step, payload = _build_step(itinerary, params)
     if not step.is_success:
         await _emit_step(on_step, call_id, "error", {})
         return _error_result("No catalog route data", locale, state)
     await _emit_step(on_step, call_id, "done", payload)
-    return _build_success_result(route, step, locale, state)
+    return _build_success_result(itinerary, step, locale, state)
 
 
 def _build_params(point_ids: list[str], origin: str | None) -> dict[str, object]:
@@ -101,11 +103,11 @@ async def _emit_step(
 
 
 def _build_step(
-    route: Route, params: dict[str, object]
+    itinerary: Itinerary, params: dict[str, object]
 ) -> tuple[StepRecord, dict[str, object]]:
-    """Shape the catalog route into a StepRecord and its tool_state payload."""
-    payload = build_route_payload(route)
-    is_success = route.point_count > 0
+    """Shape the catalog itinerary into a StepRecord and its tool_state payload."""
+    payload = build_itinerary_payload(itinerary)
+    is_success = itinerary.point_count > 0
     step = StepRecord(
         tool="plan_selected",
         is_success=is_success,
@@ -118,7 +120,7 @@ def _build_step(
 
 
 def _build_success_result(
-    route: Route,
+    itinerary: Itinerary,
     step: StepRecord,
     locale: str,
     state: SessionState,
@@ -126,13 +128,13 @@ def _build_success_result(
     """Assemble the AgentResult returned on a successful route lookup."""
     route_ref = state.next_route_ref("selected", 1)
     state.store_route(
-        route_ref, build_route_state(route, source_ref=None, locale=locale)
+        route_ref, build_route_state(itinerary, source_ref=None, locale=locale)
     )
     step.provenance = ProducedRoute(status="ok", route_ref=route_ref)
     state.pending_clarification = None
     state.geocode_staging = None
     output = RouteResponseModel(
-        message=selected_route_message(locale, route.point_count)
+        message=selected_route_message(locale, itinerary.point_count)
     )
     return AgentResult(
         output=output,

@@ -45,9 +45,9 @@ async def test_status_in_url_does_not_defeat_retry(
 
     _no_sleep(monkeypatch)
     _install_transport(monkeypatch, handler)
-    result = await CatalogClient("https://catalog.test/tenant-404").points_by_work_id(
-        "8000"
-    )
+    result = await CatalogClient(
+        "https://catalog.test/tenant-404"
+    ).points_by_bangumi_id("8000")
 
     assert result.rows == []
     assert attempts == 2
@@ -65,7 +65,7 @@ async def test_retries_on_transport_error(monkeypatch: pytest.MonkeyPatch) -> No
 
     _no_sleep(monkeypatch)
     _install_transport(monkeypatch, handler)
-    result = await CatalogClient("https://catalog.test").points_by_work_id("8000")
+    result = await CatalogClient("https://catalog.test").points_by_bangumi_id("8000")
 
     assert result.rows == []
     assert attempts == 2
@@ -84,7 +84,7 @@ async def test_exhaustion_pins_attempts_and_backoff(
     sleep = _no_sleep(monkeypatch)
     _install_transport(monkeypatch, handler)
     with pytest.raises(APIError, match="HTTP 502"):
-        await CatalogClient("https://catalog.test", max_retries=3).points_by_work_id(
+        await CatalogClient("https://catalog.test", max_retries=3).points_by_bangumi_id(
             "8000"
         )
 
@@ -105,7 +105,7 @@ async def test_backoff_caps_at_thirty_seconds(
     sleep = _no_sleep(monkeypatch)
     _install_transport(monkeypatch, handler)
     with pytest.raises(APIError, match="HTTP 503"):
-        await CatalogClient("https://catalog.test", max_retries=8).points_by_work_id(
+        await CatalogClient("https://catalog.test", max_retries=8).points_by_bangumi_id(
             "8000"
         )
 

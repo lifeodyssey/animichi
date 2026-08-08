@@ -54,7 +54,7 @@ export function routePartRaw(points: readonly Record<string, unknown>[], extras:
     intent: "plan_route",
     success: true,
     status: "ok",
-    data: { route: { ordered_points: points, point_count: points.length, ...extras } },
+    data: { itinerary: { ordered_points: points, point_count: points.length, ...extras } },
   };
 }
 

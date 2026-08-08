@@ -15,7 +15,7 @@ from animichi.agents.photo_vision import (
 )
 from animichi.clients.catalog_client import (
     AnimeCandidate,
-    PilgrimagePoint,
+    Point,
     ResolveAmbiguous,
     ResolveNotFound,
     ResolveOutcome,
@@ -61,8 +61,8 @@ def recognize_unavailable() -> RecognizeCall:
     return call
 
 
-def suga_shrine_point() -> PilgrimagePoint:
-    return PilgrimagePoint(
+def suga_shrine_point() -> Point:
+    return Point(
         id="p1",
         name="須賀神社",
         bangumi_id=YOURNAME_BANGUMI_ID,
@@ -72,8 +72,8 @@ def suga_shrine_point() -> PilgrimagePoint:
     )
 
 
-def nearby_point() -> PilgrimagePoint:
-    return PilgrimagePoint(
+def nearby_point() -> Point:
+    return Point(
         id="n1",
         name="豊郷小学校",
         bangumi_id=NEARBY_BANGUMI_ID,
@@ -86,7 +86,7 @@ def nearby_point() -> PilgrimagePoint:
 class FakeCatalog:
     """Resolves 君の名は。 to 160209; nearby returns one けいおん! point."""
 
-    def __init__(self, nearby_points: list[PilgrimagePoint] | None = None) -> None:
+    def __init__(self, nearby_points: list[Point] | None = None) -> None:
         self.nearby_points = (
             nearby_points if nearby_points is not None else [nearby_point()]
         )
@@ -100,12 +100,10 @@ class FakeCatalog:
             return ResolveResolved(outcome="resolved", match=match)
         return ResolveNotFound(outcome="not_found", reason="anime_not_found")
 
-    async def points_by_work_id(self, work_id: str) -> SearchResult:
+    async def points_by_bangumi_id(self, bangumi_id: str) -> SearchResult:
         return SearchResult(rows=[suga_shrine_point()])
 
-    async def nearby(
-        self, lat: float, lng: float, radius_m: int = 5000
-    ) -> list[PilgrimagePoint]:
+    async def nearby(self, lat: float, lng: float, radius_m: int = 5000) -> list[Point]:
         self.nearby_calls.append((lat, lng, radius_m))
         return self.nearby_points
 
@@ -127,7 +125,5 @@ class DownCatalog(FakeCatalog):
     async def resolve(self, query: str) -> ResolveOutcome:
         raise APIError("catalog down")
 
-    async def nearby(
-        self, lat: float, lng: float, radius_m: int = 5000
-    ) -> list[PilgrimagePoint]:
+    async def nearby(self, lat: float, lng: float, radius_m: int = 5000) -> list[Point]:
         raise APIError("catalog down")

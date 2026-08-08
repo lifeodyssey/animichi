@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from animichi.agents.catalog_adapter import build_route_payload
-from animichi.clients.catalog_client import PilgrimagePoint, Route
+from animichi.agents.catalog_adapter import build_itinerary_payload
+from animichi.clients.catalog_client import Itinerary, Point
 from animichi.domain.fact_ledger import FactLedger, record_turn_facts
 
 _NOW = datetime(2026, 7, 28, 12, 0, tzinfo=UTC)
@@ -24,7 +24,7 @@ class _FakeStep:
     data: dict[str, object] | None = None
 
 
-def _point(**overrides: object) -> PilgrimagePoint:
+def _point(**overrides: object) -> Point:
     base: dict[str, object] = {
         "id": "p1",
         "name": "資生堂前",
@@ -34,13 +34,13 @@ def _point(**overrides: object) -> PilgrimagePoint:
         "time_seconds": 340,
     }
     base.update(overrides)
-    return PilgrimagePoint.model_validate(base)
+    return Point.model_validate(base)
 
 
-def _selected_route_payload(*points: PilgrimagePoint) -> dict[str, object]:
+def _selected_route_payload(*points: Point) -> dict[str, object]:
     """Build the real `plan_selected` step payload shape (not a hand-rolled dict)."""
-    route = Route(ordered_points=list(points), point_count=len(points))
-    return build_route_payload(route)
+    itinerary = Itinerary(ordered_points=list(points), point_count=len(points))
+    return build_itinerary_payload(itinerary)
 
 
 def test_recorder_derives_pacing_from_a_successful_plan_route_step() -> None:
@@ -75,7 +75,7 @@ def test_recorder_derives_scene_references_from_the_real_producer_shape() -> Non
 
 
 def test_recorder_ignores_the_catalog_sentinel_for_no_episode() -> None:
-    """PilgrimagePoint defaults episode/time_seconds to -1, not None (#473
+    """Point defaults episode/time_seconds to -1, not None (#473
     review) — the sentinel must never be recorded as "Episode -1 @ -1s"."""
     ledger = FactLedger()
     steps = [
