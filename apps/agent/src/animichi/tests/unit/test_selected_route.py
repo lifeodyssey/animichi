@@ -10,7 +10,7 @@ import pytest
 from animichi.agents.agent_result import AgentResult
 from animichi.agents.catalog_adapter import build_search_payload
 from animichi.agents.runtime_deps import OnStep, StepEvent
-from animichi.agents.selected_route import execute_selected_route
+from animichi.agents.selected_route import execute_selected_itinerary
 from animichi.agents.session_state import ResultRef, SearchPayloadState, SessionState
 from animichi.clients.catalog_client import Itinerary, Point
 from animichi.clients.errors import APIError
@@ -37,8 +37,10 @@ _POINT_FIELDS = {
 
 def _ordered_rows(result: AgentResult) -> list[dict[str, object]]:
     state = result.session_state
-    ref = state.route_lru[-1]
-    return [row.model_dump(mode="json") for row in state.routes[ref].ordered_points]
+    ref = state.itinerary_lru[-1]
+    return [
+        row.model_dump(mode="json") for row in state.itineraries[ref].ordered_points
+    ]
 
 
 def _euphonium_points() -> list[Point]:
@@ -55,7 +57,7 @@ def _spy_events() -> tuple[list[tuple[str, str]], OnStep]:
 
 
 async def _run_empty_route(on_step: OnStep | None) -> AgentResult:
-    return await execute_selected_route(
+    return await execute_selected_itinerary(
         point_ids=["ghost"],
         state=SessionState(),
         origin=None,
@@ -67,7 +69,7 @@ async def _run_empty_route(on_step: OnStep | None) -> AgentResult:
 
 async def test_selected_route_rows_keep_catalog_point_fields() -> None:
     catalog = MockCatalogClient()
-    result = await execute_selected_route(
+    result = await execute_selected_itinerary(
         point_ids=["p004", "p005"],
         state=SessionState(),
         origin="34.8915,135.8075",
@@ -87,7 +89,7 @@ async def test_selected_route_rows_keep_catalog_point_fields() -> None:
 
 async def test_selected_route_rows_match_search_payload_rows() -> None:
     catalog = MockCatalogClient()
-    result = await execute_selected_route(
+    result = await execute_selected_itinerary(
         point_ids=["p004", "p005", "p006"],
         state=SessionState(),
         origin=None,
@@ -101,7 +103,7 @@ async def test_selected_route_rows_match_search_payload_rows() -> None:
 
 
 async def test_selected_route_empty_point_ids_returns_error() -> None:
-    result = await execute_selected_route(
+    result = await execute_selected_itinerary(
         point_ids=[],
         state=SessionState(),
         origin=None,
@@ -121,7 +123,7 @@ class _FailingCatalog(MockCatalogClient):
 
 
 async def test_selected_route_catalog_api_error_returns_error() -> None:
-    result = await execute_selected_route(
+    result = await execute_selected_itinerary(
         point_ids=["p004"],
         state=SessionState(),
         origin=None,
@@ -139,7 +141,7 @@ async def test_selected_route_emits_running_and_done_steps() -> None:
     async def _record(event: StepEvent) -> None:
         events.append((event.tool, event.status))
 
-    await execute_selected_route(
+    await execute_selected_itinerary(
         point_ids=["p004"],
         state=SessionState(),
         origin=None,
@@ -172,7 +174,7 @@ async def test_selected_route_malformed_origin_routes_without_origin(
     origin: str,
 ) -> None:
     catalog = MockCatalogClient()
-    await execute_selected_route(
+    await execute_selected_itinerary(
         point_ids=["p004"],
         state=SessionState(),
         origin=origin,
@@ -195,14 +197,14 @@ async def test_selected_route_preserves_hydrated_search_state() -> None:
             anime_id="115908",
         ),
     )
-    result = await execute_selected_route(
+    result = await execute_selected_itinerary(
         point_ids=["p004", "p005"],
         state=state,
         origin=None,
         locale="en",
         catalog=MockCatalogClient(),
     )
-    route = state.routes[state.route_lru[-1]]
+    route = state.itineraries[state.itinerary_lru[-1]]
     assert result.session_state.search_results[source_ref].row_count == 3
     assert route.source_ref is None
 

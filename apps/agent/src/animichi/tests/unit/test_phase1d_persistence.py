@@ -7,13 +7,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
-from animichi.agents.agent_result import AgentResult, ProducedRoute, TurnProvenance
+from animichi.agents.agent_result import AgentResult, ProducedItinerary, TurnProvenance
 from animichi.agents.runtime_models import BlockedResponseModel, PartialResponseModel
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItineraryRef,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchPayloadState,
     SessionState,
 )
@@ -24,7 +24,7 @@ from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 
 def _partial_route_result() -> AgentResult:
     search_ref = ResultRef("search:partial")
-    route_ref = RouteRef("route:partial")
+    itinerary_ref = ItineraryRef("route:partial")
     state = SessionState()
     state.store_search_result(
         search_ref,
@@ -35,9 +35,9 @@ def _partial_route_result() -> AgentResult:
             anime_id="1",
         ),
     )
-    state.store_route(
-        route_ref,
-        RoutePayloadState(
+    state.store_itinerary(
+        itinerary_ref,
+        ItineraryPayloadState(
             ordered_points=[PointState(id="p1", bangumi_id="1")],
             source_ref=search_ref,
         ),
@@ -49,7 +49,7 @@ def _partial_route_result() -> AgentResult:
         status="partial",
         success_override=False,
         provenance=TurnProvenance(
-            route=ProducedRoute(status="ok", route_ref=route_ref)
+            itinerary=ProducedItinerary(status="ok", itinerary_ref=itinerary_ref)
         ),
     )
 

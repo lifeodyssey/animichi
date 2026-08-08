@@ -60,7 +60,7 @@ async def test_selected_route_rejects_alias_before_route_sink(
 ) -> None:
     app, _ = build_app()
     with patch(
-        "animichi.interfaces.public_api.execute_selected_route",
+        "animichi.interfaces.public_api.execute_selected_itinerary",
         new_callable=AsyncMock,
         side_effect=RuntimeError("selected route sink must not run"),
     ) as sink:

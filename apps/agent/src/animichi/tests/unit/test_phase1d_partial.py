@@ -10,15 +10,15 @@ from pydantic_ai.exceptions import UsageLimitExceeded
 from pydantic_ai.usage import RunUsage
 
 import animichi.agents.animichi_runner as runner
-from animichi.agents.agent_result import ProducedRoute, ProducedSearch, StepRecord
+from animichi.agents.agent_result import ProducedItinerary, ProducedSearch, StepRecord
 from animichi.agents.animichi_agent import RuntimeOutput
 from animichi.agents.runtime_deps import RuntimeDeps
 from animichi.agents.runtime_models import PartialResponseModel, SearchResponseModel
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItineraryRef,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchPayloadState,
     SessionState,
 )
@@ -61,16 +61,16 @@ async def _usage_limit_run(*_args: object, **kwargs: object) -> NoReturn:
 async def _route_usage_limit_run(*_args: object, **kwargs: object) -> NoReturn:
     deps = kwargs["deps"]
     assert isinstance(deps, RuntimeDeps)
-    ref = RouteRef("route:new")
-    deps.tool_state.session.store_route(
+    ref = ItineraryRef("route:new")
+    deps.tool_state.session.store_itinerary(
         ref,
-        RoutePayloadState(ordered_points=[PointState(id="new", bangumi_id="1")]),
+        ItineraryPayloadState(ordered_points=[PointState(id="new", bangumi_id="1")]),
     )
     deps.steps.append(
         StepRecord(
             "plan_route",
             True,
-            provenance=ProducedRoute(status="ok", route_ref=ref),
+            provenance=ProducedItinerary(status="ok", itinerary_ref=ref),
         )
     )
     raise UsageLimitExceeded("request limit reached")
@@ -159,9 +159,9 @@ async def test_usage_limit_projects_current_route_over_stale_route(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     state = SessionState()
-    state.store_route(
-        RouteRef("route:old"),
-        RoutePayloadState(ordered_points=[PointState(id="old", bangumi_id="1")]),
+    state.store_itinerary(
+        ItineraryRef("route:old"),
+        ItineraryPayloadState(ordered_points=[PointState(id="old", bangumi_id="1")]),
     )
     _install_run(monkeypatch, _route_usage_limit_run)
     result = await runner.run_animichi_agent(

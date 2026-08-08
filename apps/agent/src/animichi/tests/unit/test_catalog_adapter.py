@@ -6,7 +6,7 @@ import pytest
 
 from animichi.agents.catalog_adapter import (
     build_itinerary_payload,
-    build_route_state,
+    build_itinerary_state,
     build_search_payload,
     build_search_state,
 )
@@ -79,7 +79,7 @@ def test_search_state_localizes_catalog_city_at_trusted_boundary(
 async def test_route_state_localizes_catalog_city_at_trusted_boundary() -> None:
     route = await MockCatalogClient().plan_itinerary(["p004"])
     route.ordered_points[0].city = "Tokyo"
-    state = build_route_state(route, source_ref=None, locale="ja")
+    state = build_itinerary_state(route, source_ref=None, locale="ja")
     assert state.ordered_points[0].city == "東京"
 
 

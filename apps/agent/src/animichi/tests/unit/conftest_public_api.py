@@ -9,7 +9,7 @@ import pytest
 
 from animichi.agents.agent_result import (
     AgentResult,
-    ProducedRoute,
+    ProducedItinerary,
     ProducedSearch,
     StepRecord,
     TurnProvenance,
@@ -17,19 +17,19 @@ from animichi.agents.agent_result import (
 from animichi.agents.runtime_models import (
     ClarifyResponseModel,
     GreetingResponseModel,
+    ItineraryResponseModel,
     QAResponseModel,
-    RouteResponseModel,
     RuntimeStageOutput,
     SearchResponseModel,
 )
 from animichi.agents.session_state import (
     CurrentAnime,
+    ItineraryPayloadState,
+    ItineraryRef,
     OrderedCandidate,
     PendingClarification,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchPayloadState,
     SessionState,
 )
@@ -44,7 +44,7 @@ def _build_output(intent: str, message: str, state: SessionState) -> RuntimeStag
     if intent in {"search_bangumi", "search_nearby"}:
         return SearchResponseModel(message=message)
     if intent in {"plan_route", "plan_selected", "plan_multi"}:
-        return RouteResponseModel(message=message)
+        return ItineraryResponseModel(message=message)
     if intent == "greet_user":
         return GreetingResponseModel(message=message)
     return QAResponseModel(message=message)
@@ -130,9 +130,11 @@ def _seed_route(state: SessionState, intent: str, rows: list[PointState]) -> Non
                 ),
             ),
         )
-    state.store_route(
-        RouteRef("route:test"),
-        RoutePayloadState(ordered_points=rows, source_ref=source_ref if rows else None),
+    state.store_itinerary(
+        ItineraryRef("itinerary:test"),
+        ItineraryPayloadState(
+            ordered_points=rows, source_ref=source_ref if rows else None
+        ),
     )
 
 
@@ -161,16 +163,18 @@ def make_result(
 
 def _provenance(intent: str, state: SessionState) -> TurnProvenance:
     search = None
-    route = None
+    itinerary = None
     if intent in {"search_bangumi", "search_nearby", "plan_multi"}:
         ref = state.last_result_ref
         if ref is not None:
             payload = state.search_results[ref]
             outcome: Literal["ok", "empty"] = "ok" if payload.row_count else "empty"
             search = ProducedSearch(outcome=outcome, result_ref=ref)
-    if intent in {"plan_route", "plan_selected", "plan_multi"} and state.route_lru:
-        route = ProducedRoute(status="ok", route_ref=state.route_lru[-1])
-    return TurnProvenance(search=search, route=route)
+    if intent in {"plan_route", "plan_selected", "plan_multi"} and state.itinerary_lru:
+        itinerary = ProducedItinerary(
+            status="ok", itinerary_ref=state.itinerary_lru[-1]
+        )
+    return TurnProvenance(search=search, itinerary=itinerary)
 
 
 def make_fake_agent(

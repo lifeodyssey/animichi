@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from animichi.agents.agent_result import AgentResult, StepRecord
-from animichi.agents.runtime_models import RouteResponseModel
+from animichi.agents.runtime_models import ItineraryResponseModel
 from animichi.agents.session_state import SessionState
 from animichi.domain.fact_ledger import record_turn_facts
 from animichi.infrastructure.session.memory import InMemorySessionStore
@@ -25,7 +25,7 @@ _SECOND_TURN = datetime(2026, 7, 28, 9, 31, tzinfo=UTC)
 
 def _turn_result(session: SessionState, *, pacing: str) -> AgentResult:
     return AgentResult(
-        output=RouteResponseModel(message="Routed."),
+        output=ItineraryResponseModel(message="Routed."),
         intent="plan_route",
         session_state=session,
         steps=[

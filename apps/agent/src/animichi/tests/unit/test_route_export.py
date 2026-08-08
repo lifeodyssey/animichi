@@ -1,4 +1,4 @@
-"""Unit tests for route_export module — Google Maps URL builder and .ics generator."""
+"""Unit tests for itinerary export module — Google Maps URL builder and .ics generator."""
 
 from animichi.agents.models import TimedItinerary, TimedStop
 from animichi.agents.route_export import build_google_maps_url, build_ics_calendar

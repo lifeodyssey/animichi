@@ -6,9 +6,9 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from animichi.agents.tool_outcomes import (
+    ItineraryToolResult,
     NearbyToolResult,
     ResolveResult,
-    RouteToolResult,
     SearchToolResult,
 )
 
@@ -91,7 +91,7 @@ def test_nearby_result_partition(payload: dict[str, object]) -> None:
     [
         {
             "status": "ok",
-            "route_ref": "route:1",
+            "itinerary_ref": "route:1",
             "point_count": 2,
             "total_minutes": 30,
         },
@@ -102,6 +102,6 @@ def test_nearby_result_partition(payload: dict[str, object]) -> None:
 )
 def test_route_result_partition(payload: dict[str, object]) -> None:
     assert (
-        TypeAdapter(RouteToolResult).validate_python(payload).status
+        TypeAdapter(ItineraryToolResult).validate_python(payload).status
         == payload["status"]
     )

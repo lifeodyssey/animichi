@@ -9,9 +9,9 @@ from pydantic import ValidationError
 
 from animichi.agents.session_state import (
     MAX_REFS,
+    ItineraryPayloadState,
+    ItineraryRef,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchPayloadState,
     SessionState,
 )
@@ -22,8 +22,8 @@ def _search_payload() -> SearchPayloadState:
     return SearchPayloadState(kind="bangumi")
 
 
-def _route_payload() -> RoutePayloadState:
-    return RoutePayloadState()
+def _route_payload() -> ItineraryPayloadState:
+    return ItineraryPayloadState()
 
 
 def test_search_lru_survives_jsonb_registry_key_reordering() -> None:
@@ -44,19 +44,19 @@ def test_search_lru_survives_jsonb_registry_key_reordering() -> None:
 
 
 def test_route_lru_survives_jsonb_registry_key_reordering() -> None:
-    refs = [RouteRef(value) for value in ("z", "a", "b", "c", "d", "e", "f", "g")]
+    refs = [ItineraryRef(value) for value in ("z", "a", "b", "c", "d", "e", "f", "g")]
     state = SessionState()
     for ref in refs:
-        state.store_route(ref, _route_payload())
+        state.store_itinerary(ref, _route_payload())
     serialized = state.model_dump(mode="json")
-    registry = cast(dict[str, object], serialized["routes"])
-    serialized["routes"] = {key: registry[key] for key in sorted(registry)}
+    registry = cast(dict[str, object], serialized["itineraries"])
+    serialized["itineraries"] = {key: registry[key] for key in sorted(registry)}
 
     restored = SessionState.model_validate(serialized)
-    restored.store_route(RouteRef("new"), _route_payload())
+    restored.store_itinerary(ItineraryRef("new"), _route_payload())
 
-    assert refs[0] not in restored.routes
-    assert refs[1] in restored.routes
+    assert refs[0] not in restored.itineraries
+    assert refs[1] in restored.itineraries
 
 
 def test_session_state_restore_bounds_an_oversized_compaction_ledger() -> None:
@@ -111,7 +111,7 @@ def test_session_state_restore_bounds_an_oversized_compaction_ledger() -> None:
     ],
 )
 def test_route_snapshot_recursively_rejects_unknown_fields(itinerary: object) -> None:
-    snapshot = {"routes": {"route:0:1": {"timed_itinerary": itinerary}}}
+    snapshot = {"itineraries": {"route:0:1": {"timed_itinerary": itinerary}}}
 
     with pytest.raises(ValidationError, match="unknown"):
         SessionState.model_validate(snapshot)

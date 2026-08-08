@@ -6,12 +6,12 @@ from typing import Literal
 
 from animichi.agents.selection import execute_multi_selection, execute_place_selection
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItineraryRef,
     OrderedCandidate,
     PendingClarification,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchPayloadState,
     SessionState,
 )
@@ -125,7 +125,7 @@ async def test_all_empty_is_t4_and_preserves_pending() -> None:
     )
     assert (result.status, result.success) == ("empty", False)
     assert state.pending_clarification is not None
-    assert not state.routes
+    assert not state.itineraries
 
 
 async def test_empty_itinerary_is_error_terminal_without_route_write() -> None:
@@ -166,9 +166,9 @@ async def test_t4_does_not_project_a_route_from_a_prior_turn() -> None:
             anime_id="old-anime",
         ),
     )
-    state.store_route(
-        RouteRef("route:prior:1"),
-        RoutePayloadState(
+    state.store_itinerary(
+        ItineraryRef("route:prior:1"),
+        ItineraryPayloadState(
             ordered_points=[PointState(id="old-point", bangumi_id="old-anime")],
             source_ref=prior_result_ref,
         ),

@@ -8,7 +8,7 @@ from pydantic_evals.otel.span_tree import SpanNode, SpanTree
 
 from animichi.agents.agent_result import (
     AgentResult,
-    ProducedRoute,
+    ProducedItinerary,
     ProducedSearch,
     StepRecord,
     TurnProvenance,
@@ -41,15 +41,17 @@ def result(
 
 def _provenance(intent: str, state: SessionState) -> TurnProvenance:
     search = None
-    route = None
+    itinerary = None
     if intent in {"search_bangumi", "search_nearby", "plan_multi"}:
         ref = state.last_result_ref
         if ref is not None:
             outcome = "ok" if state.search_results[ref].row_count else "empty"
             search = ProducedSearch(outcome=outcome, result_ref=ref)
-    if intent in {"plan_route", "plan_selected", "plan_multi"} and state.route_lru:
-        route = ProducedRoute(status="ok", route_ref=state.route_lru[-1])
-    return TurnProvenance(search=search, route=route)
+    if intent in {"plan_route", "plan_selected", "plan_multi"} and state.itinerary_lru:
+        itinerary = ProducedItinerary(
+            status="ok", itinerary_ref=state.itinerary_lru[-1]
+        )
+    return TurnProvenance(search=search, itinerary=itinerary)
 
 
 def ctx(
