@@ -20,11 +20,11 @@ describe("users OpenAPI security", () => {
   });
 
   it("requires bearer authentication for users, check-in, and share mutations", () => {
-    expect(usersOpenApi.paths["/v1/users/routes"].get.security).toEqual(BEARER_SECURITY);
+    expect(usersOpenApi.paths["/v1/users/saved-routes"].get.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/sessions"].get.security).toEqual(BEARER_SECURITY);
-    expect(usersOpenApi.paths["/v1/users/routes"].post.security).toEqual(BEARER_SECURITY);
-    expect(usersOpenApi.paths["/v1/users/routes/{id}"].delete.security).toEqual(BEARER_SECURITY);
-    expect(usersOpenApi.paths["/v1/users/routes/claim"].post.security).toEqual(BEARER_SECURITY);
+    expect(usersOpenApi.paths["/v1/users/saved-routes"].post.security).toEqual(BEARER_SECURITY);
+    expect(usersOpenApi.paths["/v1/users/saved-routes/{id}"].delete.security).toEqual(BEARER_SECURITY);
+    expect(usersOpenApi.paths["/v1/users/saved-routes/claim"].post.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/checkins"].post.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/checkins"].get.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/shares"].post.security).toEqual(BEARER_SECURITY);
