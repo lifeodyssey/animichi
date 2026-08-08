@@ -1,9 +1,9 @@
-import type { UserRoute } from "@animichi/contract";
+import type { SavedRoute } from "@animichi/contract";
 import { useContinueFrom } from "../../api/hooks/use-continue-from";
 import type { Dict } from "../../i18n/dictionaries";
 import { useDict } from "../../i18n/LocaleProvider";
 
-function ContinueCard({ route, home }: { readonly route: UserRoute; readonly home: Dict["home"] }) {
+function ContinueCard({ route, home }: { readonly route: SavedRoute; readonly home: Dict["home"] }) {
   return (
     <section aria-labelledby="continue-from-title" className="rounded-2xl bg-[var(--color-card)] p-4">
       <h2 id="continue-from-title" className="m-0 text-sm text-[var(--color-muted-fg)]">{home.continue_title}</h2>

@@ -2,14 +2,14 @@
  * @vitest-environment jsdom
  *
  * AC3 (create-on-login): after a magic-link login initiated by the save tap, the
- * deferred intent replays through `users.saveRoute` and the persisted row is
- * visible to `users.listRoutes`. Asserted on row content, not on the call having
+ * deferred intent replays through `users.saveSavedRoute` and the persisted row is
+ * visible to `users.listSavedRoutes`. Asserted on row content, not on the call having
  * been made — a fake that merely records the request would pass the weaker form.
  */
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import type { JsonBodyType } from "msw";
-import { ListRoutesResult, SaveRouteInput, UserRoute } from "@animichi/contract";
+import { ListSavedRoutesResult, SaveSavedRouteInput, SavedRoute } from "@animichi/contract";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -19,17 +19,17 @@ import { users } from "../../src/api/orpc";
 import { replayDeferredSave } from "../../src/features/chat/save/create-on-login";
 import { DEFERRED_SAVE_KEY, writeDeferredSave } from "../../src/features/chat/save/deferred-save";
 
-const ROUTES_URL = "http://localhost:3000/v1/users/routes";
+const SAVED_ROUTES_URL = "http://localhost:3000/v1/users/saved-routes";
 const POINT_IDS = ["uji-01", "uji-02", "uji-03"];
 const TITLE = "響け!ユーフォニアム・3スポットの聖地巡礼";
 
 /** A stateful stand-in for the users Worker: saves persist and then list. */
-const saved: UserRoute[] = [];
+const saved: SavedRoute[] = [];
 
 const server = setupServer(
-  http.post(ROUTES_URL, async ({ request }) => {
-    const input = SaveRouteInput.parse(await request.json());
-    const row = UserRoute.parse({
+  http.post(SAVED_ROUTES_URL, async ({ request }) => {
+    const input = SaveSavedRouteInput.parse(await request.json());
+    const row = SavedRoute.parse({
       id: `11111111-1111-4111-8111-00000000000${String(saved.length)}`,
       title: input.title,
       point_ids: input.point_ids,
@@ -40,7 +40,7 @@ const server = setupServer(
     saved.push(row);
     return HttpResponse.json(row);
   }),
-  http.get(ROUTES_URL, () => HttpResponse.json(ListRoutesResult.parse({ routes: saved }) as JsonBodyType)),
+  http.get(SAVED_ROUTES_URL, () => HttpResponse.json(ListSavedRoutesResult.parse({ saved_routes: saved }) as JsonBodyType)),
   // Every login now also claims the browser's anonymous sessions (#507). This
   // suite runs with `onUnhandledRequest: "error"`, so the handler is proof the
   // call is real: delete the client wiring and it goes unused; delete the
@@ -70,20 +70,20 @@ describe("create-on-login persists the deferred route and lists it back", () => 
     expect(saved[0]?.status).toBe("saved");
   });
 
-  it("makes the new row visible to a subsequent listRoutes for that user", async () => {
+  it("makes the new row visible to a subsequent listSavedRoutes for that user", async () => {
     writeDeferredSave({ pointIds: POINT_IDS, title: TITLE });
     await replayDeferredSave();
-    const listed = await users().listRoutes.call();
-    expect(listed.routes.map((route) => route.title)).toContain(TITLE);
-    expect(listed.routes[0]?.point_ids).toEqual(POINT_IDS);
+    const listed = await users().listSavedRoutes.call();
+    expect(listed.saved_routes.map((route) => route.title)).toContain(TITLE);
+    expect(listed.saved_routes[0]?.point_ids).toEqual(POINT_IDS);
   });
 
   it("creates rather than claims: no route id is ever sent, so ownership cannot be contested", async () => {
     let sentId: unknown = "unset";
     server.use(
-      http.post(ROUTES_URL, async ({ request }) => {
+      http.post(SAVED_ROUTES_URL, async ({ request }) => {
         sentId = (await request.json() as Record<string, unknown>).id;
-        return HttpResponse.json(UserRoute.parse({
+        return HttpResponse.json(SavedRoute.parse({
           id: "22222222-2222-4222-8222-222222222222",
           title: TITLE,
           point_ids: POINT_IDS,
@@ -125,7 +125,7 @@ describe("P1-3: the production wiring itself, with no replay injected", () => {
   });
 
   it("surfaces the failure rather than reporting a clean login when the save 5xxs", async () => {
-    server.use(http.post(ROUTES_URL, () => new HttpResponse(null, { status: 503 })));
+    server.use(http.post(SAVED_ROUTES_URL, () => new HttpResponse(null, { status: 503 })));
     writeDeferredSave({ pointIds: POINT_IDS, title: TITLE });
     const onDone = vi.fn();
     renderCallback(onDone);

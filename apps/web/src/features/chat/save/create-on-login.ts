@@ -1,14 +1,14 @@
-import type { SaveRouteInput } from "@animichi/contract";
-import { saveRouteRequest } from "../../../api/hooks/use-save-route";
-import type { SaveRouteRequest } from "../../../api/hooks/use-save-route";
+import type { SaveSavedRouteInput } from "@animichi/contract";
+import { saveSavedRouteRequest } from "../../../api/hooks/use-saved-route";
+import type { SaveSavedRouteRequest } from "../../../api/hooks/use-saved-route";
 import { takeDeferredSave, writeDeferredSave } from "./deferred-save";
 
 /**
  * Create-on-login (OQ-9 ruling (b)): the post-login replay creates a **fresh**
  * route from the client-held point ids. There is no claim call and no route id,
- * so `ROUTE_NOT_OWNED` is structurally unreachable on this path.
+ * so `SAVED_ROUTE_NOT_OWNED` is structurally unreachable on this path.
  */
-export function toSaveInput(intent: Readonly<{ pointIds: readonly string[]; title: string }>): SaveRouteInput {
+export function toSaveInput(intent: Readonly<{ pointIds: readonly string[]; title: string }>): SaveSavedRouteInput {
   return { title: intent.title, point_ids: [...intent.pointIds], status: "saved" };
 }
 
@@ -26,7 +26,7 @@ export type DeferredReplayOutcome = "none" | "saved" | "failed";
  * intent and timestamp so it can be retried without extending the TTL.
  */
 export async function replayDeferredSave(
-  request: SaveRouteRequest = saveRouteRequest,
+  request: SaveSavedRouteRequest = saveSavedRouteRequest,
   now: number = Date.now(),
 ): Promise<DeferredReplayOutcome> {
   const claim = takeDeferredSave(now);

@@ -3,7 +3,7 @@
  */
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { UserRoute } from "@animichi/contract";
+import type { SavedRoute } from "@animichi/contract";
 import { TimedItinerary } from "../../../src/features/chat/components/TimedItinerary";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { DEFERRED_SAVE_KEY, readDeferredSave } from "../../../src/features/chat/save/deferred-save";
@@ -21,7 +21,7 @@ afterEach(() => {
 
 const ja = chatDictFor("ja");
 const TARGET = { pointIds: ["a", "b", "c"], title: "宇治・3スポットの聖地巡礼" } as const;
-const SAVED = { id: "r1", title: TARGET.title, point_ids: [...TARGET.pointIds], status: "saved", saved_at: null, updated_at: "" } as UserRoute;
+const SAVED = { id: "r1", title: TARGET.title, point_ids: [...TARGET.pointIds], status: "saved", saved_at: null, updated_at: "" } as SavedRoute;
 
 function renderCta(deps: SaveGateOptions, target: typeof TARGET | undefined) {
   return renderWithLocale(

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthStatus } from "../../../src/lib/auth/session";
 import { server } from "../../msw/node";
 import { popularEmptyHandler } from "../../msw/popular";
-import { usersRoutesEmptyHandler } from "../../msw/users";
+import { usersSavedRoutesEmptyHandler } from "../../msw/users";
 import { setLanguages } from "../_i18n";
 import { renderHome } from "./_render";
 
@@ -21,7 +21,7 @@ const { HomeView, HomeRoute } = await import("../../../src/routes/index");
 
 beforeEach(() => {
   setLanguages(["ja-JP"]);
-  server.use(popularEmptyHandler, usersRoutesEmptyHandler);
+  server.use(popularEmptyHandler, usersSavedRoutesEmptyHandler);
 });
 afterEach(cleanup);
 

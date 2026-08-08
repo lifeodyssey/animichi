@@ -4,20 +4,20 @@
 import { RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { listRoutesOptions } from "../../../src/api/hooks/use-route-detail";
+import { listSavedRoutesOptions } from "../../../src/api/hooks/use-route-detail";
 import { getRouter } from "../../../src/router";
 import { server } from "../../msw/node";
 import {
   COMPLETED_ROUTE_ID,
   EMPTY_ROUTE_ID,
   SAVED_ROUTE_ID,
-  userRoutesHandler,
-  userRoutesOutageHandler,
+  userSavedRoutesHandler,
+  userSavedRoutesOutageHandler,
 } from "../../msw/user-routes";
 
 afterEach(cleanup);
 beforeEach(() => {
-  server.use(userRoutesHandler);
+  server.use(userSavedRoutesHandler);
 });
 
 async function openRoute(routeId: string, search: Readonly<{ hl?: "ja" | "zh" | "en" }> = {}) {
@@ -32,10 +32,10 @@ describe("/routes/$routeId loader", () => {
   it("prefetches the saved routes into the per-request QueryClient", async () => {
     const router = await openRoute(SAVED_ROUTE_ID);
     await screen.findByRole("heading", { level: 1 });
-    const cached = router.options.context.queryClient.getQueryData(listRoutesOptions().queryKey) as {
-      readonly routes: readonly unknown[];
+    const cached = router.options.context.queryClient.getQueryData(listSavedRoutesOptions().queryKey) as {
+      readonly saved_routes: readonly unknown[];
     };
-    expect(Array.isArray(cached.routes)).toBe(true);
+    expect(Array.isArray(cached.saved_routes)).toBe(true);
   });
 
   it("renders the matched route's title in the hero", async () => {
@@ -61,24 +61,24 @@ describe("/routes/$routeId loader", () => {
 
 describe("/routes/$routeId error state", () => {
   it("renders the branded error screen when the users service is unreachable", async () => {
-    server.use(userRoutesOutageHandler);
+    server.use(userSavedRoutesOutageHandler);
     await openRoute(SAVED_ROUTE_ID);
     expect(await screen.findByText("エラーが発生しました")).toBeTruthy();
     expect(screen.getByRole("link", { name: "ホームに戻る" }).getAttribute("href")).toBe("/");
   });
 
   it("localizes the error screen and never leaks technical text", async () => {
-    server.use(userRoutesOutageHandler);
+    server.use(userSavedRoutesOutageHandler);
     await openRoute(SAVED_ROUTE_ID, { hl: "zh" });
     expect(await screen.findByText("出错了")).toBeTruthy();
     expect(screen.queryByText(/users unavailable/)).toBeNull();
   });
 
   it("recovers via the try-again button once the service is back", async () => {
-    server.use(userRoutesOutageHandler);
+    server.use(userSavedRoutesOutageHandler);
     await openRoute(SAVED_ROUTE_ID);
     await screen.findByRole("button", { name: "もう一度試す" });
-    server.use(userRoutesHandler);
+    server.use(userSavedRoutesHandler);
     fireEvent.click(screen.getByRole("button", { name: "もう一度試す" }));
     expect(await screen.findByText("Suga Shrine loop")).toBeTruthy();
   });

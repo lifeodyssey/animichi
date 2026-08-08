@@ -1,5 +1,5 @@
 // TODO(refactor-skeleton): de-dual-home route-detail lib -> features/route-detail/ — see #842
-import type { RouteStatus, TimedItinerary } from "@animichi/contract";
+import type { SavedRouteStatus, TimedItinerary } from "@animichi/contract";
 
 /**
  * The route detail page is one living document, not three patched-together
@@ -23,7 +23,7 @@ export type RouteDataState = "completed" | "today" | "weekday";
 export interface RouteDetail {
   readonly id: string;
   readonly title: string;
-  readonly status: RouteStatus;
+  readonly status: SavedRouteStatus;
   readonly scheduledDate: string | null;
   readonly itinerary: TimedItinerary | null;
   readonly checkins: readonly string[];

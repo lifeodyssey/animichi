@@ -1,7 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import {
-  listRoutesOptions,
+  listSavedRoutesOptions,
   selectRouteDetail,
   useSavedRoutes,
 } from "../../api/hooks/use-route-detail";
@@ -21,8 +21,8 @@ function parseSearch(search: Record<string, unknown>): { readonly hl?: Locale } 
 }
 
 async function assertRouteExists(queryClient: QueryClient, routeId: string): Promise<void> {
-  const { routes } = await queryClient.ensureQueryData(listRoutesOptions());
-  if (!routes.some((route) => route.id === routeId)) throw notFoundError();
+  const { saved_routes } = await queryClient.ensureQueryData(listSavedRoutesOptions());
+  if (!saved_routes.some((route) => route.id === routeId)) throw notFoundError();
 }
 
 export const Route = createFileRoute("/routes/$routeId")({
@@ -41,6 +41,6 @@ function RouteDetailRoute() {
   const { locale } = Route.useLoaderData();
   const { routeId } = Route.useParams();
   const { data } = useSavedRoutes();
-  const detail = selectRouteDetail(data.routes, routeId);
+  const detail = selectRouteDetail(data.saved_routes, routeId);
   return <RouteDetailView detail={detail} locale={locale} now={new Date()} />;
 }
