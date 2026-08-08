@@ -13,7 +13,8 @@ cd "$ROOT"
 echo "=== 1/6 Starting Supabase ==="
 supabase stop 2>/dev/null || true
 sleep 2
-docker rm -f $(docker ps -aq --filter "name=supabase") 2>/dev/null || true
+mapfile -t supabase_containers < <(docker ps -aq --filter "name=supabase")
+[ ${#supabase_containers[@]} -gt 0 ] && docker rm -f "${supabase_containers[@]}" 2>/dev/null || true
 mkdir -p supabase/snippets && chmod 755 supabase/snippets
 sleep 2
 supabase start --exclude vector,analytics --ignore-health-check
