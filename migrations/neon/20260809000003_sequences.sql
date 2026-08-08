@@ -41,4 +41,3 @@ CREATE SEQUENCE public.itinerary_snapshots_id_seq
     NO MINVALUE
     NO MAXVALUE
     CACHE 1;
-

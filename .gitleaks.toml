@@ -1,0 +1,5 @@
+# atlas.sum lines are base64 sha256 checksums ("h1:..."), not secrets.
+# gitleaks' generic-api-key rule false-positives on the api_keys.sql filename
+# in the same line; allowlist the checksum file only.
+[allowlist]
+  paths = ['''atlas\.sum$''']

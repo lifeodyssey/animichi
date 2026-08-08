@@ -73,7 +73,9 @@ def test_atlas_binary_without_recorded_digest_fails_closed(
 
 def _saved_route_anime_sql() -> str:
     root = Path(__file__).resolve().parents[6]
-    migration = root / "migrations" / "neon" / "20260809000027_table_saved_route_anime.sql"
+    migration = (
+        root / "migrations" / "neon" / "20260809000027_table_saved_route_anime.sql"
+    )
     return migration.read_text(encoding="utf-8")
 
 
