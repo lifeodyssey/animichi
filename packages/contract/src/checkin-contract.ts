@@ -19,8 +19,8 @@ import { requireBearer } from "./openapi-security.js";
 
 /** Full-precision GPS coordinates retained by the API and storage layer. */
 export const GpsCoordinates = z.strictObject({
-  latitude: z.number().finite().min(-90).max(90),
-  longitude: z.number().finite().min(-180).max(180),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
 });
 /** Full-precision GPS coordinates. */
 export type GpsCoordinates = z.infer<typeof GpsCoordinates>;
@@ -103,12 +103,12 @@ export const CheckinPointNotFoundData = z.strictObject({ point_id: z.string() })
 /** Inferred point-not-found data. */
 export type CheckinPointNotFoundData = z.infer<typeof CheckinPointNotFoundData>;
 
-type CheckinErrorDefItem = {
+interface CheckinErrorDefItem {
   readonly status: number;
   readonly category: CheckinErrorCategory;
   readonly message: string;
-  readonly data: z.ZodType<unknown>;
-};
+  readonly data: z.ZodType;
+}
 
 /** Check-in error registry with registry-only categories omitted from responses. */
 export const CHECKIN_ERROR_DEFS = {

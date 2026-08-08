@@ -71,12 +71,12 @@ export function readQuotaResetsAt(body: unknown): string | undefined {
 }
 
 /** Users-service error codes are feature-namespaced: ROUTE_*, CHECKIN_*, SHARE_*. */
-export type ErrorRegistryItem = {
+export interface ErrorRegistryItem {
   readonly status: number;
   readonly category: string;
   readonly message: string;
-  readonly data: z.ZodType<unknown>;
-};
+  readonly data: z.ZodType;
+}
 
 type ErrorRegistry = Readonly<Record<string, ErrorRegistryItem>>;
 type ErrorCode<Registry extends ErrorRegistry> = keyof Registry & string;
@@ -92,7 +92,7 @@ function registryItem<Registry extends ErrorRegistry>(
   registry: Registry,
   code: ErrorCode<Registry>,
 ): ErrorRegistryItem {
-  const item = registry[code];
+  const item: ErrorRegistryItem | undefined = registry[code];
   if (!item) throw new Error(`Unknown error code: ${code}`);
   return item;
 }
