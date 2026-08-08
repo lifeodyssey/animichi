@@ -25,9 +25,10 @@ repos:
       - id: check-yaml
       - id: check-toml
 
-  # Ruff over ALL repo Python (apps/agent, scripts/, .github/scripts/) —
-  # previously scoped to apps/agent only, which let scripts/*.py lint
-  # failures (EXE001/BLE001/PLW1510) reach CI.
+  # Ruff over all repo Python paths (any staged .py — apps/agent, scripts/,
+  # .github/scripts/); previously scoped to apps/agent only, which let
+  # scripts/*.py lint failures (EXE001/BLE001/PLW1510) reach CI. Like every
+  # pre-commit hook, this lints staged files; the full tree is CI's job.
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.1
     hooks:
@@ -59,7 +60,7 @@ repos:
       # missing; its lint failures reached CI in the #841 campaign).
       - id: oxlint
         name: oxlint (strict live-package lint)
-        entry: pnpm run lint:oxlint
+        entry: bash -c 'pnpm run lint:oxlint && pnpm --filter "./workers/edge" run lint:oxlint'
         language: system
         files: ^(workers/catalog|workers/users|workers/edge|apps/web)/
         types_or: [javascript, jsx, ts, tsx]
@@ -111,7 +112,7 @@ repos:
       # stays CI-authoritative; TS errors in workers reached CI repeatedly).
       - id: workers-typecheck
         name: workers + contract typecheck
-        entry: pnpm --filter './workers/*' typecheck && pnpm --filter '@animichi/contract' typecheck
+        entry: bash -c 'pnpm --filter "./workers/*" typecheck && pnpm --filter "@animichi/contract" typecheck'
         language: system
         pass_filenames: false
         always_run: true
@@ -121,7 +122,7 @@ repos:
       # atlas.sum or unparseable migration before CI's pipeline-db.
       - id: atlas-validate
         name: atlas migrate validate
-        entry: bash -c 'command -v atlas >/dev/null && atlas migrate validate --dir migrations/neon || /tmp/atlas-bin/atlas migrate validate --dir migrations/neon'
+        entry: bash -c 'ATLAS_BIN="$(command -v atlas || echo /tmp/atlas-bin/atlas)"; "$ATLAS_BIN" migrate validate --dir "file://migrations/neon"'
         language: system
         files: ^migrations/
         pass_filenames: false
