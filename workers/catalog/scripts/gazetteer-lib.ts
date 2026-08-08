@@ -21,7 +21,7 @@ export interface BuildInput { stations: unknown; cities: string; cityNames: City
 export interface CliOptions { stations: string; cities: string; outSql: string; outAudit: string; updateSources: boolean }
 export interface SourceHashes { stations: string; cities: string }
 type CityColumns = string[] & { 0: string; 1: string; 4: string; 5: string };
-export const CANONICAL_COMMAND = "node --import tsx workers/catalog/scripts/build-gazetteer.ts --stations data/raw/N02-23_Station.geojson --cities data/raw/cities500.txt --out-sql migrations/neon/20260714000002_gazetteer_data.sql --out-audit workers/catalog/data/gazetteer-audit.csv";
+export const CANONICAL_COMMAND = "node --import tsx workers/catalog/scripts/build-gazetteer.ts --stations data/raw/N02-23_Station.geojson --cities data/raw/cities500.txt --out-sql workers/catalog/data/gazetteer_seed.sql --out-audit workers/catalog/data/gazetteer-audit.csv";
 export const SOURCE_LOCK_PATH = fileURLToPath(new NodeURL("../data/gazetteer-sources.json", import.meta.url));
 export const PREFECTURES: readonly Prefecture[] = [
   { jis: "01", name: "北海道", zh: "北海道", en: "Hokkaido", capital: "札幌市", lat: 43.0642, lng: 141.3469, admin1: "12" },
