@@ -65,6 +65,8 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
 - Live runtime **reference** → `docs/ARCHITECTURE.md`
 - Deploy runbook → `docs/ops/deployment.md`
 - **Single Source-of-Truth table + doc-change rules** → `docs/DOCS_POLICY.md` (the one canonical topic→path map)
+- Current **campaign tracking** (merged restructure-spec × GOAL; waves P0–P8; ADRs 0003–0005) →
+  `docs/superpowers/specs/2026-08-08-repo-closeout-spec.md`
 
 ## Tool routing (repo-specific; global tooling lives in `~/.claude/` — do not repeat it here)
 
