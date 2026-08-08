@@ -153,6 +153,9 @@ class_name = "RuntimeContainer"
 image = "../../apps/agent/Dockerfile"
 image_build_context = "../../"
 max_instances = 3
+# lite (0.0625 vCPU / 256 MiB) is below this service's import peak (~273 MiB,
+# cold-start audit 2026-08-07) — OOM risk during boot. basic: 1/4 vCPU / 1 GiB.
+instance_type = "basic"
 
 [[durable_objects.bindings]]
 name = "CONTAINER"
@@ -248,6 +251,9 @@ class_name = "RuntimeContainer"
 image = "../../apps/agent/Dockerfile"
 image_build_context = "../../"
 max_instances = 3
+# lite (0.0625 vCPU / 256 MiB) is below this service's import peak (~273 MiB,
+# cold-start audit 2026-08-07) — OOM risk during boot. basic: 1/4 vCPU / 1 GiB.
+instance_type = "basic"
 
 [[env.production.durable_objects.bindings]]
 name = "CONTAINER"
@@ -372,6 +378,9 @@ class_name = "RuntimeContainer"
 image = "../../apps/agent/Dockerfile"
 image_build_context = "../../"
 max_instances = 3
+# lite (0.0625 vCPU / 256 MiB) is below this service's import peak (~273 MiB,
+# cold-start audit 2026-08-07) — OOM risk during boot. basic: 1/4 vCPU / 1 GiB.
+instance_type = "basic"
 
 [[env.staging.durable_objects.bindings]]
 name = "CONTAINER"

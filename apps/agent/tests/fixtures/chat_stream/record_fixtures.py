@@ -62,7 +62,7 @@ def _search_response() -> PublicAPIResponse:
                 },
             ],
         },
-        "route": {
+        "itinerary": {
             "ordered_points": [
                 {
                     "id": "p1",

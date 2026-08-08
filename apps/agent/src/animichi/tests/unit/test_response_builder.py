@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from animichi.agents.agent_result import (
     AgentResult,
-    ProducedRoute,
+    ProducedItinerary,
     ProducedSearch,
     StepRecord,
     TurnProvenance,
@@ -12,17 +12,17 @@ from animichi.agents.agent_result import (
 from animichi.agents.runtime_models import (
     ClarifyResponseModel,
     ErrorResponseModel,
+    ItineraryResponseModel,
     QAResponseModel,
-    RouteResponseModel,
     SearchResponseModel,
 )
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItineraryRef,
     OrderedCandidate,
     PendingClarification,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchPayloadState,
     SessionState,
 )
@@ -49,9 +49,9 @@ def _search_state(*, empty: bool = False, kind: str = "bangumi") -> SessionState
 
 def _route_state(*, multi: bool = False) -> SessionState:
     state = _search_state(kind="multi" if multi else "bangumi")
-    state.store_route(
-        RouteRef("route:1"),
-        RoutePayloadState(
+    state.store_itinerary(
+        ItineraryRef("itinerary:1"),
+        ItineraryPayloadState(
             ordered_points=[PointState(id="p1", bangumi_id="1")],
             source_ref=state.last_result_ref,
         ),
@@ -66,7 +66,7 @@ def _result(
     steps: list[StepRecord] | None = None,
 ) -> AgentResult:
     output = (
-        RouteResponseModel(message="Route ready.")
+        ItineraryResponseModel(message="Itinerary ready.")
         if intent.startswith("plan_")
         else SearchResponseModel(message="Search complete.")
     )
@@ -81,15 +81,17 @@ def _result(
 
 def _provenance(intent: str, state: SessionState) -> TurnProvenance:
     search = None
-    route = None
+    itinerary = None
     if intent in {"search_bangumi", "search_nearby", "plan_multi"}:
         ref = state.last_result_ref
         if ref is not None:
             outcome = "ok" if state.search_results[ref].row_count else "empty"
             search = ProducedSearch(outcome=outcome, result_ref=ref)
-    if intent.startswith("plan_") and state.route_lru:
-        route = ProducedRoute(status="ok", route_ref=state.route_lru[-1])
-    return TurnProvenance(search=search, route=route)
+    if intent.startswith("plan_") and state.itinerary_lru:
+        itinerary = ProducedItinerary(
+            status="ok", itinerary_ref=state.itinerary_lru[-1]
+        )
+    return TurnProvenance(search=search, itinerary=itinerary)
 
 
 def test_search_projection_uses_registry_rows() -> None:

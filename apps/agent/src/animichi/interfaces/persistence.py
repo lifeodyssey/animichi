@@ -15,14 +15,13 @@ from pydantic_core import to_jsonable_python
 
 from animichi.agents.agent_result import AgentResult
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
     PointState,
-    RoutePayloadState,
     SearchPayloadState,
 )
 from animichi.domain.ports import (
     BangumiRepo,
     ConversationLog,
-    RouteArchive,
     SessionRepo,
 )
 from animichi.infrastructure.session import SessionStore
@@ -63,9 +62,8 @@ def _spawn_background(coro: object) -> None:
 # row) hits a real ForeignKeyViolationError on `conversation_messages` — a
 # schema fact the #663 bug had been silently hiding since the insert never
 # ran. conversation_messages is scoped to authenticated conversation history
-# by design (mirrors maybe_persist_route's existing `except
-# asyncpg.PostgresError` around save_route); message persistence for
-# anonymous turns degrades to a logged no-op rather than crashing the turn.
+# by design; message persistence for anonymous turns degrades to a logged
+# no-op rather than crashing the turn.
 _PERSIST_ERRORS = (
     OSError,
     RuntimeError,
@@ -78,7 +76,6 @@ _PERSIST_ERRORS = (
 async def persist_result(
     *,
     session_repo: SessionRepo | None,
-    routes_repo: RouteArchive | None,
     bangumi_repo: BangumiRepo | None,
     messages_repo: ConversationLog | None,
     session_store: SessionStore,
@@ -114,9 +111,8 @@ async def persist_result(
 
     route_record = None
     if result is not None:
-        route_record = await maybe_persist_route(
+        route_record = await maybe_persist_itinerary(
             bangumi_repo=bangumi_repo,
-            routes_repo=routes_repo,
             session_id=session_id,
             request=request,
             result=result,
@@ -280,16 +276,15 @@ async def load_session_state(
     return normalize_session_state(state)
 
 
-async def maybe_persist_route(
+async def maybe_persist_itinerary(
     *,
     bangumi_repo: BangumiRepo | None,
-    routes_repo: RouteArchive | None,
     session_id: str,
     request: PublicAPIRequest,
     result: AgentResult,
     response: PublicAPIResponse,
 ) -> dict[str, object] | None:
-    if result.provenance.route is None:
+    if result.provenance.itinerary is None:
         return None
     if not response.success and response.status != "partial":
         return None
@@ -310,11 +305,11 @@ async def maybe_persist_route(
     if not point_ids:
         return None
 
-    route_state = _current_route(result)
-    if route_state is None:
+    itinerary_state = _current_itinerary(result)
+    if itinerary_state is None:
         return None
     anime_ids = await _existing_anime_ids(
-        bangumi_repo, _route_anime_ids(result, route_state), session_id
+        bangumi_repo, _itinerary_anime_ids(result, itinerary_state), session_id
     )
     origin_station = request.origin
     if (
@@ -324,7 +319,7 @@ async def maybe_persist_route(
     ):
         origin_station = f"{request.origin_lat},{request.origin_lng}"
 
-    route_record: dict[str, object] = {
+    itinerary_record: dict[str, object] = {
         "route_id": None,
         "anime_ids": anime_ids,
         "origin_station": origin_station,
@@ -333,34 +328,14 @@ async def maybe_persist_route(
         "created_at": datetime.now(UTC).isoformat(),
     }
 
-    if routes_repo is not None:
-        try:
-            route_id = await routes_repo.save_route(
-                session_id,
-                anime_ids,
-                point_ids,
-                {
-                    "message": response.message,
-                    "results": response.data.get("results"),
-                    "route": route_data,
-                },
-                origin_station=origin_station,
-                origin_lat=request.origin_lat,
-                origin_lon=request.origin_lng,
-            )
-        except asyncpg.PostgresError:
-            logger.warning("save_route_failed", session_id=session_id)
-            return None
-        route_record["route_id"] = route_id
-
-    return route_record
+    return itinerary_record
 
 
-def _current_route(result: AgentResult) -> RoutePayloadState | None:
-    produced = result.provenance.route
+def _current_itinerary(result: AgentResult) -> ItineraryPayloadState | None:
+    produced = result.provenance.itinerary
     if produced is None:
         return None
-    return result.session_state.routes.get(produced.route_ref)
+    return result.session_state.itineraries.get(produced.itinerary_ref)
 
 
 async def _existing_anime_ids(
@@ -375,14 +350,16 @@ async def _existing_anime_ids(
         return []
 
 
-def _route_anime_ids(result: AgentResult, route: RoutePayloadState) -> list[str]:
+def _itinerary_anime_ids(
+    result: AgentResult, itinerary: ItineraryPayloadState
+) -> list[str]:
     source = (
-        result.session_state.search_results.get(route.source_ref)
-        if route.source_ref is not None
+        result.session_state.search_results.get(itinerary.source_ref)
+        if itinerary.source_ref is not None
         else None
     )
     if source is None:
-        return _distinct_work_ids(route.ordered_points)
+        return _distinct_work_ids(itinerary.ordered_points)
     return _search_anime_ids(source)
 
 

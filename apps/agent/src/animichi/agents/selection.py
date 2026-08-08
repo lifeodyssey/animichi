@@ -10,17 +10,17 @@ import httpx
 
 from animichi.agents.agent_result import (
     AgentResult,
-    ProducedRoute,
+    ProducedItinerary,
     ProducedSearch,
     StepData,
     StepProvenance,
     StepRecord,
     TurnProvenance,
 )
-from animichi.agents.catalog_adapter import build_route_state, build_search_state
+from animichi.agents.catalog_adapter import build_itinerary_state, build_search_state
 from animichi.agents.geo_names import localized_city_name
 from animichi.agents.runtime_deps import OnStep, StepEvent, StepStatus, new_step_call_id
-from animichi.agents.runtime_models import RouteResponseModel, SearchResponseModel
+from animichi.agents.runtime_models import ItineraryResponseModel, SearchResponseModel
 from animichi.agents.selection_messages import PLACE_MESSAGES, multi_message
 from animichi.agents.session_state import (
     CurrentAnime,
@@ -35,7 +35,7 @@ from animichi.clients.catalog_errors import (
 )
 from animichi.clients.errors import APIError
 
-MAX_ROUTE_POINT_IDS = 500
+MAX_ITINERARY_POINT_IDS = 500
 _FETCH_ERRORS = (
     APIError,
     httpx.TransportError,
@@ -105,7 +105,7 @@ async def execute_multi_selection(
     call_id = new_step_call_id("plan_multi")
     await _emit(on_step, call_id, "plan_multi", "running", {})
     fetched = await asyncio.gather(
-        *(catalog.points_by_work_id(item) for item in candidate_ids),
+        *(catalog.points_by_bangumi_id(item) for item in candidate_ids),
         return_exceptions=True,
     )
     steps = _fetch_steps(candidate_ids, fetched)
@@ -129,12 +129,14 @@ async def execute_multi_selection(
         return await _multi_terminal_event(
             state, steps, locale, status, on_step, call_id, search=provenance
         )
-    if len(merged.rows) > MAX_ROUTE_POINT_IDS:
+    if len(merged.rows) > MAX_ITINERARY_POINT_IDS:
         return await _multi_terminal_event(
             state, steps, locale, "too_large", on_step, call_id, search=provenance
         )
     try:
-        route = await catalog.route([point.id for point in merged.rows if point.id])
+        itinerary = await catalog.plan_itinerary(
+            [point.id for point in merged.rows if point.id]
+        )
     except (RouteTooManyClustersError, RouteTooManyPointsError):
         return await _multi_terminal_event(
             state, steps, locale, "too_large", on_step, call_id, search=provenance
@@ -143,26 +145,30 @@ async def execute_multi_selection(
         return await _multi_terminal_event(
             state, steps, locale, "error", on_step, call_id, search=provenance
         )
-    if route.point_count < 1:
+    if itinerary.point_count < 1:
         return await _multi_terminal_event(
             state, steps, locale, "error", on_step, call_id, search=provenance
         )
-    route_ref = state.next_route_ref("multi", state.clarification_revision)
-    state.store_route(route_ref, build_route_state(route, result_ref, locale=locale))
+    itinerary_ref = state.next_itinerary_ref("multi", state.clarification_revision)
+    state.store_itinerary(
+        itinerary_ref, build_itinerary_state(itinerary, result_ref, locale=locale)
+    )
     _set_current_anime(state, candidate_ids)
     omitted = _omitted_titles(state, merged.omitted_work_ids)
     _consume_pending(state)
-    steps.append(_server_step("plan_multi", True, {"route_ref": str(route_ref)}))
-    await _emit(on_step, call_id, "plan_multi", "done", {"route_ref": str(route_ref)})
+    steps.append(_server_step("plan_multi", True, {"route_ref": str(itinerary_ref)}))
+    await _emit(
+        on_step, call_id, "plan_multi", "done", {"route_ref": str(itinerary_ref)}
+    )
     return AgentResult(
-        output=RouteResponseModel(message=multi_message(locale, "ok", omitted)),
+        output=ItineraryResponseModel(message=multi_message(locale, "ok", omitted)),
         intent="plan_multi",
         session_state=state,
         steps=steps,
         success_override=True,
         provenance=TurnProvenance(
             search=ProducedSearch(outcome="ok", result_ref=result_ref),
-            route=ProducedRoute(status="ok", route_ref=route_ref),
+            itinerary=ProducedItinerary(status="ok", itinerary_ref=itinerary_ref),
         ),
     )
 
@@ -272,7 +278,7 @@ def _multi_terminal(
     expected = status in {"empty", "partial", "too_large"}
     steps.append(_server_step("plan_multi", expected, {"status": status}))
     return AgentResult(
-        output=RouteResponseModel(message=multi_message(locale, status)),
+        output=ItineraryResponseModel(message=multi_message(locale, status)),
         intent="plan_multi",
         session_state=state,
         steps=steps,

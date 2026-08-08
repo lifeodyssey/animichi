@@ -22,7 +22,7 @@ from animichi.tests.atlas_helper import (
 def test_atlas_command_pins_public_revisions_and_ten_minute_budget() -> None:
     command = atlas_apply_command("postgresql://example/test")
     assert command[-2:] == ("--revisions-schema", "public")
-    assert command[3:5] == ("--dir", "file://db/migrations")
+    assert command[3:5] == ("--dir", "file://migrations/neon")
     assert command[5:7] == ("--url", "postgresql://example/test")
     assert ATLAS_TIMEOUT_SECONDS >= 600
     assert parse_atlas_version("atlas version v0.30.0") == "0.30.0"
@@ -73,7 +73,7 @@ def test_atlas_binary_without_recorded_digest_fails_closed(
 
 def _route_anime_sql() -> str:
     root = Path(__file__).resolve().parents[6]
-    migration = root / "db" / "migrations" / "20260718000001_route_anime.sql"
+    migration = root / "migrations" / "neon" / "20260718000001_route_anime.sql"
     return migration.read_text(encoding="utf-8")
 
 

@@ -18,7 +18,6 @@ from animichi.infrastructure.supabase.repositories.bangumi import BangumiReposit
 from animichi.infrastructure.supabase.repositories.feedback import FeedbackRepository
 from animichi.infrastructure.supabase.repositories.messages import MessagesRepository
 from animichi.infrastructure.supabase.repositories.points import PointsRepository
-from animichi.infrastructure.supabase.repositories.routes import RoutesRepository
 from animichi.infrastructure.supabase.repositories.session import SessionRepository
 from animichi.infrastructure.supabase.repositories.usage import UsageRepository
 
@@ -32,7 +31,7 @@ class SupabaseClient:
 
     Access repositories via explicit typed properties:
     ``db.bangumi``, ``db.points``, ``db.session``, ``db.feedback``,
-    ``db.routes``, ``db.messages``, ``db.usage``, ``db.anon_quota``.
+    ``db.messages``, ``db.usage``, ``db.anon_quota``.
     """
 
     def __init__(
@@ -52,7 +51,6 @@ class SupabaseClient:
         self._points: PointsRepository | None = None
         self._session: SessionRepository | None = None
         self._feedback: FeedbackRepository | None = None
-        self._routes: RoutesRepository | None = None
         self._messages: MessagesRepository | None = None
         self._usage: UsageRepository | None = None
         self._anon_quota: AnonQuotaRepository | None = None
@@ -101,7 +99,6 @@ class SupabaseClient:
         self._points = PointsRepository(pool)
         self._session = SessionRepository(pool)
         self._feedback = FeedbackRepository(pool)
-        self._routes = RoutesRepository(pool)
         self._messages = MessagesRepository(pool)
         self._usage = UsageRepository(pool)
         self._anon_quota = AnonQuotaRepository(pool)
@@ -137,14 +134,6 @@ class SupabaseClient:
                 "FeedbackRepository not initialized — call connect() first"
             )
         return self._feedback
-
-    @property
-    def routes(self) -> RoutesRepository:
-        if self._routes is None:
-            raise RuntimeError(
-                "RoutesRepository not initialized — call connect() first"
-            )
-        return self._routes
 
     @property
     def messages(self) -> MessagesRepository:

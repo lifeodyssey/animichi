@@ -32,7 +32,7 @@ def test_route_too_many_clusters_parses_typed() -> None:
     body = _envelope(
         "ROUTE_TOO_MANY_CLUSTERS", {"cluster_count": 62, "max_clusters": 50}, 422
     )
-    exc = parse_catalog_error(422, body, "https://catalog.test/catalog/route")
+    exc = parse_catalog_error(422, body, "https://catalog.test/catalog/itinerary")
 
     assert isinstance(exc, RouteTooManyClustersError)
     assert exc.cluster_count == 62

@@ -163,7 +163,8 @@ async def test_override_helpers_forward_the_shared_client() -> None:
     # `test_injected_title_translator_runs_on_the_server_model`, asserted on the
     # context that is actually supplied rather than on its absence.
     with patch(
-        "animichi.agents.route_area_splitter.route_planner_agent.run", new=AsyncMock()
+        "animichi.agents.route_area_splitter.itinerary_planner_agent.run",
+        new=AsyncMock(),
     ) as run:
         run.return_value.output = SimpleNamespace(areas=[])
         await split_into_areas([{} for _ in range(11)], model=model)

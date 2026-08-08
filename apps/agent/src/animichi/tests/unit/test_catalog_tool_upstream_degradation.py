@@ -8,29 +8,29 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic_ai import ModelRetry
 
-from animichi.agents.agent_result import RejectedRoute, RejectedSearch
+from animichi.agents.agent_result import RejectedItinerary, RejectedSearch
 from animichi.agents.animichi_agent import validate_output
 from animichi.agents.animichi_runner import runtime_stage
-from animichi.agents.catalog_route_tools import run_route
+from animichi.agents.catalog_route_tools import run_itinerary
 from animichi.agents.catalog_tools import run_nearby_search
 from animichi.agents.runtime_deps import RuntimeDeps
 from animichi.agents.runtime_models import (
     ClarifyResponseModel,
+    ItineraryResponseModel,
     QAResponseModel,
-    RouteResponseModel,
     SearchResponseModel,
 )
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItineraryRef,
     OrderedCandidate,
     PendingClarification,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchPayloadState,
 )
-from animichi.agents.tool_outcomes import NearbyUpstreamDown, RouteUpstreamDown
-from animichi.clients.catalog_client import GeocodeCandidate, PilgrimagePoint, Route
+from animichi.agents.tool_outcomes import ItineraryUpstreamDown, NearbyUpstreamDown
+from animichi.clients.catalog_client import GeocodeCandidate, Itinerary, Point
 from animichi.clients.errors import APIError
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 from animichi.tests.tool_event_helpers import project_tool_result, tool_context
@@ -67,18 +67,18 @@ class _GeocodeDownCatalog(MockCatalogClient):
 class _NearbyDownCatalog(MockCatalogClient):
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
-    ) -> list[PilgrimagePoint]:
+    ) -> list[Point]:
         raise APIError("catalog down")
 
 
 class _RouteDownCatalog(MockCatalogClient):
-    async def route(
+    async def plan_itinerary(
         self,
         point_ids: list[str],
         *,
         origin: tuple[float, float] | None = None,
         pacing: Literal["chill", "normal", "packed"] | None = None,
-    ) -> Route:
+    ) -> Itinerary:
         raise APIError("catalog down")
 
 
@@ -132,19 +132,21 @@ async def test_route_api_error_becomes_route_upstream_down() -> None:
         ref,
         SearchPayloadState(kind="nearby", rows=[PointState(id="p1")], row_count=1),
     )
-    deps.tool_state.session.store_route(RouteRef("route:prior"), RoutePayloadState())
+    deps.tool_state.session.store_itinerary(
+        ItineraryRef("route:prior"), ItineraryPayloadState()
+    )
 
-    outcome = await run_route(tool_context(deps), catalog, str(ref), None)
+    outcome = await run_itinerary(tool_context(deps), catalog, str(ref), None)
     await project_tool_result(
         deps, "plan_route", {"search_result_ref": str(ref)}, outcome
     )
 
-    assert isinstance(outcome, RouteUpstreamDown)
+    assert isinstance(outcome, ItineraryUpstreamDown)
     assert deps.steps[-1].data == {"status": "upstream_unavailable"}
-    assert isinstance(deps.steps[-1].provenance, RejectedRoute)
+    assert isinstance(deps.steps[-1].provenance, RejectedItinerary)
     assert deps.tool_state.session.pending_clarification is None
     context = MagicMock(deps=deps)
-    stale_route = RouteResponseModel(message="stale")
+    stale_route = ItineraryResponseModel(message="stale")
     with pytest.raises(ModelRetry):
         await validate_output(context, stale_route)
     with pytest.raises(ModelRetry):

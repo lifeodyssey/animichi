@@ -112,7 +112,7 @@ def _parse_sse(raw: str) -> list[dict[str, object]]:
 
 
 class TestAC1SearchBangumi:
-    """Search by anime title returns typed PilgrimagePoint rows."""
+    """Search by anime title returns typed Point rows."""
 
     async def test_returns_200_with_success(self) -> None:
         status, body = await _post(
@@ -136,7 +136,7 @@ class TestAC1SearchBangumi:
         assert len(rows) > 0
 
     async def test_rows_have_required_pilgrimage_point_fields(self) -> None:
-        """Every row must match frontend PilgrimagePoint type."""
+        """Every row must match frontend Point type."""
         rows = await _search_euphonium()
         required = {"id", "name", "latitude", "longitude", "bangumi_id"}
         for row in rows:

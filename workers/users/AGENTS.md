@@ -42,7 +42,7 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
   secrets (`.dev.vars` locally — see `.dev.vars.example`; `wrangler secret put` / deploy-lane env
   in CI). Never commit real Neon URLs or project ids.
 - Envs: `[env.staging]` = `users-staging`, `[env.production]` = `users` (routeless; binding-only).
-- DB schema changes ride `db/migrations/` (atlas, timestamped files + `atlas migrate hash`).
+- DB schema changes ride `migrations/neon/` (atlas, timestamped files + `atlas migrate hash`).
 
 ## Tests
 

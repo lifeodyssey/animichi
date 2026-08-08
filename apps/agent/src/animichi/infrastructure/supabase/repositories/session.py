@@ -33,7 +33,7 @@ _FIND_PURGEABLE_SQL = """
     FROM conversations c
     WHERE c.user_id LIKE 'anon\\_%' ESCAPE '\\'
       AND c.updated_at < $1
-      AND NOT EXISTS (SELECT 1 FROM routes r WHERE r.session_id = c.session_id)
+      AND NOT EXISTS (SELECT 1 FROM saved_routes r WHERE r.claim_session_id = c.session_id)
 """
 #: The DELETE re-asserts the SAME eligibility predicate the scan used
 #: (anon-owned, still older than cutoff) rather than trusting the

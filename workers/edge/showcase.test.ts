@@ -109,7 +109,7 @@ void test("AC: showcase=true — POST /v1/chat is 403 showcase_denied; container
 // test-type: unit
 void test("AC: showcase=true — every other functional route is 403 and touches no binding", async () => {
   const app = createWorkerApp({});
-  const paths = ["/v1/photo-search", "/v1/users/routes", "/v1/search/preview", "/v1/bangumi/popular", "/catalog/public/anime-overview/3302"];
+  const paths = ["/v1/photo-search", "/v1/users/saved-routes", "/v1/search/preview", "/v1/bangumi/popular", "/catalog/public/anime-overview/3302"];
   for (const path of paths) {
     const touched = { count: 0 };
     const res = await app.request(path, {}, functionalEnv(touched), stubCtx);
@@ -161,11 +161,11 @@ void test("AC: showcase=false — authenticated /v1/chat reaches the container, 
 });
 
 // test-type: unit
-void test("AC: showcase=false — /v1/users/routes and the public catalog read work as before", async () => {
+void test("AC: showcase=false — /v1/users/saved-routes and the public catalog read work as before", async () => {
   const app = createWorkerApp({});
   const touched = { count: 0 };
   const env = { ...(functionalEnv(touched) as object), EDGE_SHOWCASE_MODE: "false" };
-  const users = await app.request("/v1/users/routes", {}, env, stubCtx);
+  const users = await app.request("/v1/users/saved-routes", {}, env, stubCtx);
   assert.equal(await users.text(), "users");
   const catalog = await app.request("/catalog/public/anime-overview/3302", {}, env, stubCtx);
   assert.equal(await catalog.text(), "cat");

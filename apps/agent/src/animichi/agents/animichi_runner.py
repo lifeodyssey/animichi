@@ -38,9 +38,9 @@ from animichi.agents.runtime_models import (
     ClarifyResponseModel,
     ErrorResponseModel,
     GreetingResponseModel,
+    ItineraryResponseModel,
     PartialResponseModel,
     QAResponseModel,
-    RouteResponseModel,
     SearchResponseModel,
 )
 from animichi.agents.session_state import CurrentAnime, SessionState
@@ -68,7 +68,7 @@ RUN_USAGE_LIMITS = UsageLimits(
 
 _STAGE_BY_OUTPUT: dict[type[AgentResultOutput], str] = {
     SearchResponseModel: "search",
-    RouteResponseModel: "route",
+    ItineraryResponseModel: "route",
     ClarifyResponseModel: "clarify",
     GreetingResponseModel: "greet_user",
     QAResponseModel: "general_qa",
@@ -150,7 +150,7 @@ def _seed_tool_state(deps: RuntimeDeps, context: dict[str, object] | None) -> No
     _seed_current_anime(deps.tool_state, context)
     session = deps.tool_state.session
     deps.ref_factory.reserve(
-        [*map(str, session.search_results), *map(str, session.routes)]
+        [*map(str, session.search_results), *map(str, session.itineraries)]
     )
 
 

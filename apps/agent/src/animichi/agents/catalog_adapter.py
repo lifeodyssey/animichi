@@ -11,31 +11,31 @@ from typing import Literal
 from animichi.agents.geo_names import localized_city_name
 from animichi.agents.handlers._helpers import _build_nearby_groups, rewrite_image_urls
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItinerarySummaryState,
     NearbyGroupState,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteSummaryState,
     SearchMetadataState,
     SearchPayloadState,
     TimedItineraryState,
 )
-from animichi.clients.catalog_client import PilgrimagePoint, Route
+from animichi.clients.catalog_client import Itinerary, Point
 
 SearchTool = Literal["search_bangumi", "search_nearby"]
 
 
-def _point_to_row(point: PilgrimagePoint) -> dict[str, object]:
+def _point_to_row(point: Point) -> dict[str, object]:
     """Serialize a typed point to the flat row dict the frontend contract uses."""
     return point.model_dump(mode="json")
 
 
-def _rows_from_points(points: list[PilgrimagePoint]) -> list[dict[str, object]]:
+def _rows_from_points(points: list[Point]) -> list[dict[str, object]]:
     """Serialize points to proxy-rewritten row dicts (shared search/route shape)."""
     return rewrite_image_urls([_point_to_row(p) for p in points])
 
 
-def _search_metadata(points: list[PilgrimagePoint]) -> dict[str, object]:
+def _search_metadata(points: list[Point]) -> dict[str, object]:
     """Derive anime title/cover metadata from the first point, if any."""
     if not points:
         return {}
@@ -49,9 +49,7 @@ def _search_metadata(points: list[PilgrimagePoint]) -> dict[str, object]:
     }
 
 
-def build_search_payload(
-    points: list[PilgrimagePoint], *, tool: SearchTool
-) -> dict[str, object]:
+def build_search_payload(points: list[Point], *, tool: SearchTool) -> dict[str, object]:
     """Shape catalog points into the search/nearby tool_state payload."""
     rows = _rows_from_points(points)
     empty = not rows
@@ -68,21 +66,21 @@ def build_search_payload(
     }
 
 
-def build_route_payload(route: Route) -> dict[str, object]:
-    """Shape a catalog Route into the plan_route tool_state payload."""
-    ordered = _rows_from_points(route.ordered_points)
-    itinerary = route.timed_itinerary
+def build_itinerary_payload(itinerary: Itinerary) -> dict[str, object]:
+    """Shape a catalog Itinerary into the plan_route tool_state payload."""
+    ordered = _rows_from_points(itinerary.ordered_points)
+    timed = itinerary.timed_itinerary
     return {
         "ordered_points": ordered,
-        "timed_itinerary": itinerary.model_dump(mode="json"),
-        "point_count": route.point_count,
-        "cover_url": route.cover_url,
+        "timed_itinerary": timed.model_dump(mode="json"),
+        "point_count": itinerary.point_count,
+        "cover_url": itinerary.cover_url,
         "status": "ok",
         "summary": {
-            "point_count": route.point_count,
-            "total_minutes": itinerary.total_minutes,
-            "total_distance_m": itinerary.total_distance_m,
-            "clusters": itinerary.spot_count,
+            "point_count": itinerary.point_count,
+            "total_minutes": timed.total_minutes,
+            "total_distance_m": timed.total_distance_m,
+            "clusters": timed.spot_count,
             "with_coordinates": len(ordered),
             "without_coordinates": 0,
         },
@@ -90,7 +88,7 @@ def build_route_payload(route: Route) -> dict[str, object]:
 
 
 def build_search_state(
-    points: list[PilgrimagePoint],
+    points: list[Point],
     *,
     kind: Literal["bangumi", "nearby"],
     anime_id: str | None = None,
@@ -118,31 +116,31 @@ def build_search_state(
     )
 
 
-def build_route_state(
-    route: Route, source_ref: ResultRef | None, *, locale: str
-) -> RoutePayloadState:
-    """Adapt a non-empty catalog route into the typed route registry."""
-    localized = route.model_copy(
+def build_itinerary_state(
+    itinerary: Itinerary, source_ref: ResultRef | None, *, locale: str
+) -> ItineraryPayloadState:
+    """Adapt a non-empty catalog route into the typed itinerary registry."""
+    localized = itinerary.model_copy(
         update={
             "ordered_points": [
-                _localized_point(point, locale) for point in route.ordered_points
+                _localized_point(point, locale) for point in itinerary.ordered_points
             ]
         }
     )
-    payload = build_route_payload(localized)
+    payload = build_itinerary_payload(localized)
     summary = payload["summary"]
-    itinerary = payload["timed_itinerary"]
+    timed = payload["timed_itinerary"]
     raw_points = payload["ordered_points"]
     points = raw_points if isinstance(raw_points, list) else []
-    return RoutePayloadState(
+    return ItineraryPayloadState(
         ordered_points=[PointState.model_validate(row) for row in points],
-        timed_itinerary=TimedItineraryState.model_validate(itinerary),
-        summary=RouteSummaryState.model_validate(summary),
+        timed_itinerary=TimedItineraryState.model_validate(timed),
+        summary=ItinerarySummaryState.model_validate(summary),
         source_ref=source_ref,
     )
 
 
-def _localized_point(point: PilgrimagePoint, locale: str) -> PilgrimagePoint:
+def _localized_point(point: Point, locale: str) -> Point:
     if point.city is None:
         return point
     return point.model_copy(update={"city": localized_city_name(point.city, locale)})

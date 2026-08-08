@@ -82,7 +82,7 @@ describe("ChatResponseDataPart rejects invalid data", () => {
   });
 
   it("rejects a malformed payload", () => {
-    const malformed = { intent: "plan_route", data: { route: { ordered_points: "bad" } } };
+    const malformed = { intent: "plan_route", data: { itinerary: { ordered_points: "bad" } } };
     expect(() => ChatResponseDataPart.parse(malformed)).toThrow();
   });
 });

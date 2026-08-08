@@ -325,7 +325,7 @@ async def _capabilities(dsn: str) -> asyncpg.Record | None:
         return await connection.fetchrow(
             """
             SELECT to_regclass('public.bangumi') AS bangumi,
-                   to_regclass('public.route_anime') AS route_anime,
+                   to_regclass('public.saved_route_anime') AS route_anime,
                    EXISTS (
                        SELECT 1 FROM pg_extension WHERE extname = 'vector'
                    ) AS vector
@@ -343,7 +343,7 @@ async def _verify_capabilities_async(target: DatabaseTarget) -> None:
     if result is None or not all(
         (result["bangumi"], result["route_anime"], result["vector"])
     ):
-        raise RuntimeError("database lacks bangumi, route_anime, or pgvector")
+        raise RuntimeError("database lacks bangumi, saved_route_anime, or pgvector")
 
 
 def _verify_capabilities(target: DatabaseTarget) -> None:

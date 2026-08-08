@@ -3,20 +3,19 @@
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-import asyncpg
 import pytest
 
-from animichi.agents.agent_result import AgentResult, ProducedRoute, TurnProvenance
-from animichi.agents.runtime_models import RouteResponseModel
+from animichi.agents.agent_result import AgentResult, ProducedItinerary, TurnProvenance
+from animichi.agents.runtime_models import ItineraryResponseModel
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItineraryRef,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchPayloadState,
     SessionState,
 )
-from animichi.interfaces.persistence import maybe_persist_route
+from animichi.interfaces.persistence import maybe_persist_itinerary
 from animichi.interfaces.response_builder import agent_result_to_response
 from animichi.interfaces.schemas import PublicAPIRequest
 
@@ -34,19 +33,21 @@ def _route_result(
     source_ref = ResultRef("search:test")
     if source is not None:
         state.store_search_result(source_ref, source)
-    state.store_route(
-        RouteRef("route:test"),
-        RoutePayloadState(
+    state.store_itinerary(
+        ItineraryRef("route:test"),
+        ItineraryPayloadState(
             ordered_points=route_rows,
             source_ref=source_ref if source is not None else None,
         ),
     )
     return AgentResult(
-        output=RouteResponseModel(message="Route ready."),
+        output=ItineraryResponseModel(message="Route ready."),
         intent=intent,
         session_state=state,
         provenance=TurnProvenance(
-            route=ProducedRoute(status="ok", route_ref=RouteRef("route:test"))
+            itinerary=ProducedItinerary(
+                status="ok", itinerary_ref=ItineraryRef("route:test")
+            )
         ),
     )
 
@@ -97,11 +98,8 @@ async def test_route_intents_derive_associations_from_typed_state(
 ) -> None:
     result = _route_result(intent, route_rows, source)
     response = agent_result_to_response(result, include_debug=False)
-    db = MagicMock()
-    db.routes.save_route = AsyncMock(return_value="route-id")
-    record = await maybe_persist_route(
+    record = await maybe_persist_itinerary(
         bangumi_repo=None,
-        routes_repo=db.routes,
         session_id="session-id",
         request=PublicAPIRequest(text="route these"),
         result=result,
@@ -109,7 +107,6 @@ async def test_route_intents_derive_associations_from_typed_state(
     )
     assert record is not None
     assert record["anime_ids"] == expected
-    assert db.routes.save_route.await_args.args[1] == expected
 
 
 async def test_route_persistence_filters_missing_anime_foreign_keys() -> None:
@@ -121,10 +118,8 @@ async def test_route_persistence_filters_missing_anime_foreign_keys() -> None:
     response = agent_result_to_response(result, include_debug=False)
     db = MagicMock()
     db.bangumi.filter_existing_ids = AsyncMock(return_value=["1"])
-    db.routes.save_route = AsyncMock(return_value="route-id")
-    record = await maybe_persist_route(
+    record = await maybe_persist_itinerary(
         bangumi_repo=db.bangumi,
-        routes_repo=db.routes,
         session_id="session-id",
         request=PublicAPIRequest(text="route these"),
         result=result,
@@ -132,26 +127,6 @@ async def test_route_persistence_filters_missing_anime_foreign_keys() -> None:
     )
     assert record is not None
     assert record["anime_ids"] == ["1"]
-    assert db.routes.save_route.await_args.args[1] == ["1"]
-
-
-async def test_route_persistence_swallows_foreign_key_violation() -> None:
-    result = _route_result("plan_selected", [_point("p1", "missing")], source=None)
-    response = agent_result_to_response(result, include_debug=False)
-    db = MagicMock()
-    db.bangumi.filter_existing_ids = AsyncMock(return_value=[])
-    db.routes.save_route = AsyncMock(
-        side_effect=asyncpg.ForeignKeyViolationError("missing bangumi")
-    )
-    record = await maybe_persist_route(
-        bangumi_repo=db.bangumi,
-        routes_repo=db.routes,
-        session_id="session-id",
-        request=PublicAPIRequest(text="route this"),
-        result=result,
-        response=response,
-    )
-    assert record is None
 
 
 def test_route_anime_migration_backfills_then_removes_single_source() -> None:

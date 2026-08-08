@@ -7,10 +7,10 @@ typed errors — while untyped failures keep the legacy fallback.
 
 from __future__ import annotations
 
-from animichi.agents.agent_result import RejectedRoute
-from animichi.agents.selected_route import execute_selected_route
+from animichi.agents.agent_result import RejectedItinerary
+from animichi.agents.selected_route import execute_selected_itinerary
 from animichi.agents.session_state import SessionState
-from animichi.clients.catalog_client import Route
+from animichi.clients.catalog_client import Itinerary
 from animichi.clients.catalog_errors import (
     RouteTooManyClustersData,
     RouteTooManyClustersError,
@@ -21,30 +21,30 @@ from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 
 
 class _TooManyClustersCatalog(MockCatalogClient):
-    async def route(
+    async def plan_itinerary(
         self, point_ids: list[str], *, origin: tuple[float, float] | None = None
-    ) -> Route:
+    ) -> Itinerary:
         raise RouteTooManyClustersError(
             RouteTooManyClustersData(cluster_count=62, max_clusters=50)
         )
 
 
 class _UpstreamDownCatalog(MockCatalogClient):
-    async def route(
+    async def plan_itinerary(
         self, point_ids: list[str], *, origin: tuple[float, float] | None = None
-    ) -> Route:
+    ) -> Itinerary:
         raise UpstreamUnavailableError(UpstreamUnavailableData(upstream="bangumi"))
 
 
 class _MalformedCatalog(MockCatalogClient):
-    async def route(
+    async def plan_itinerary(
         self, point_ids: list[str], *, origin: tuple[float, float] | None = None
-    ) -> Route:
-        return Route.model_validate({"point_count": 1})
+    ) -> Itinerary:
+        return Itinerary.model_validate({"point_count": 1})
 
 
 async def test_too_many_clusters_returns_actionable_message_en() -> None:
-    result = await execute_selected_route(
+    result = await execute_selected_itinerary(
         point_ids=["p1"],
         state=SessionState(),
         origin=None,
@@ -60,7 +60,7 @@ async def test_too_many_clusters_returns_actionable_message_en() -> None:
 
 
 async def test_too_many_clusters_returns_actionable_message_ja() -> None:
-    result = await execute_selected_route(
+    result = await execute_selected_itinerary(
         point_ids=["p1"],
         state=SessionState(),
         origin=None,
@@ -74,7 +74,7 @@ async def test_too_many_clusters_returns_actionable_message_ja() -> None:
 
 
 async def test_retryable_error_returns_try_again_message() -> None:
-    result = await execute_selected_route(
+    result = await execute_selected_itinerary(
         point_ids=["p1"],
         state=SessionState(),
         origin=None,
@@ -89,7 +89,7 @@ async def test_retryable_error_returns_try_again_message() -> None:
 
 
 async def test_catalog_contract_violation_is_typed_without_exposing_details() -> None:
-    result = await execute_selected_route(
+    result = await execute_selected_itinerary(
         point_ids=["p1"],
         state=SessionState(),
         origin=None,
@@ -98,4 +98,4 @@ async def test_catalog_contract_violation_is_typed_without_exposing_details() ->
     )
 
     assert result.output.message == "Catalog route unavailable"
-    assert result.steps[0].provenance == RejectedRoute(status="contract_violation")
+    assert result.steps[0].provenance == RejectedItinerary(status="contract_violation")

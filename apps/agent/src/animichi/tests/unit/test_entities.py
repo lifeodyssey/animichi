@@ -11,9 +11,9 @@ from animichi.domain.entities import (
     AnimichiSession,
     Bangumi,
     Coordinates,
+    Itinerary,
+    ItinerarySegment,
     Point,
-    Route,
-    RouteSegment,
     Station,
     TransportInfo,
 )
@@ -337,11 +337,11 @@ class TestTransportInfo:
 
 
 class TestRoute:
-    """Test Route entity and related components."""
+    """Test Itinerary entity and related components."""
 
     @pytest.fixture
     def sample_route_data(self):
-        """Create sample data for route testing."""
+        """Create sample data for itinerary testing."""
         station = Station(
             name="Tokyo Station",
             coordinates=Coordinates(latitude=35.6812, longitude=139.7671),
@@ -379,7 +379,7 @@ class TestRoute:
                 cumulative_distance += transport.distance_km
                 cumulative_duration += transport.duration_minutes
 
-            segment = RouteSegment(
+            segment = ItinerarySegment(
                 order=i,
                 point=point,
                 transport=transport,
@@ -391,27 +391,27 @@ class TestRoute:
         return station, segments
 
     def test_create_route(self, sample_route_data):
-        """Test creating a route."""
+        """Test creating a itinerary."""
         station, segments = sample_route_data
 
-        route = Route(
+        itinerary = Itinerary(
             origin=station,
             segments=segments,
             total_distance_km=10.5,
             total_duration_minutes=90,
-            google_maps_url="https://maps.google.com/route",
+            google_maps_url="https://maps.google.com/itinerary",
         )
 
-        assert route.origin == station
-        assert len(route.segments) == 4
-        assert route.total_distance_km == 10.5
-        assert route.total_duration_minutes == 90
+        assert itinerary.origin == station
+        assert len(itinerary.segments) == 4
+        assert itinerary.total_distance_km == 10.5
+        assert itinerary.total_duration_minutes == 90
 
     def test_route_duration_formatted(self, sample_route_data):
-        """Test route duration formatting."""
+        """Test itinerary duration formatting."""
         station, segments = sample_route_data
 
-        route1 = Route(
+        route1 = Itinerary(
             origin=station,
             segments=segments,
             total_distance_km=10.5,
@@ -419,7 +419,7 @@ class TestRoute:
         )
         assert route1.total_duration_formatted == "45min"
 
-        route2 = Route(
+        route2 = Itinerary(
             origin=station,
             segments=segments,
             total_distance_km=20,
@@ -428,43 +428,43 @@ class TestRoute:
         assert route2.total_duration_formatted == "2h 5min"
 
     def test_route_points_count(self, sample_route_data):
-        """Test counting points in route."""
+        """Test counting points in itinerary."""
         station, segments = sample_route_data
 
-        route = Route(
+        itinerary = Itinerary(
             origin=station,
             segments=segments,
             total_distance_km=10.5,
             total_duration_minutes=90,
         )
-        assert route.points_count == 4
+        assert itinerary.points_count == 4
 
     def test_route_groups_points_by_bangumi(self, sample_route_data):
-        """Test that route groups points into the correct number of bangumi groups."""
+        """Test that itinerary groups points into the correct number of bangumi groups."""
         station, segments = sample_route_data
 
-        route = Route(
+        itinerary = Itinerary(
             origin=station,
             segments=segments,
             total_distance_km=10.5,
             total_duration_minutes=90,
         )
 
-        groups = route.get_bangumi_groups()
+        groups = itinerary.get_bangumi_groups()
         assert len(groups) == 2, f"Expected 2 bangumi groups, got {len(groups)}"
 
     def test_route_group_keys_match_bangumi_ids(self, sample_route_data):
-        """Test that bangumi group keys match the bangumi IDs in the route."""
+        """Test that bangumi group keys match the bangumi IDs in the itinerary."""
         station, segments = sample_route_data
 
-        route = Route(
+        itinerary = Itinerary(
             origin=station,
             segments=segments,
             total_distance_km=10.5,
             total_duration_minutes=90,
         )
 
-        groups = route.get_bangumi_groups()
+        groups = itinerary.get_bangumi_groups()
         assert "BG001" in groups, "Expected BG001 in bangumi groups"
         assert "BG002" in groups, "Expected BG002 in bangumi groups"
 
@@ -472,14 +472,14 @@ class TestRoute:
         """Test that each bangumi group contains the correct number of points."""
         station, segments = sample_route_data
 
-        route = Route(
+        itinerary = Itinerary(
             origin=station,
             segments=segments,
             total_distance_km=10.5,
             total_duration_minutes=90,
         )
 
-        groups = route.get_bangumi_groups()
+        groups = itinerary.get_bangumi_groups()
         assert len(groups["BG001"]) == 2, (
             f"Expected 2 points in BG001, got {len(groups['BG001'])}"
         )
@@ -500,7 +500,7 @@ class TestAnimichiSession:
         assert session.search_radius_km == 5.0
         assert session.nearby_bangumi == []
         assert session.points == []
-        assert session.route is None
+        assert session.itinerary is None
         assert isinstance(session.created_at, datetime)
         assert isinstance(session.updated_at, datetime)
 

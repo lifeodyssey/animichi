@@ -57,7 +57,7 @@ async def test_user_actionable_error_raises_without_retry(
     client = CatalogClient("https://catalog.test")
 
     with pytest.raises(RouteTooManyClustersError) as excinfo:
-        await client.route([f"p{i}" for i in range(3)])
+        await client.plan_itinerary([f"p{i}" for i in range(3)])
 
     assert len(requests) == 1
     assert excinfo.value.cluster_count == 62

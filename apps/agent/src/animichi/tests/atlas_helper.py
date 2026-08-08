@@ -43,7 +43,7 @@ ATLAS_ARTIFACTS: dict[tuple[str, str], tuple[str, str | None]] = {
 }
 ATLAS_TIMEOUT_SECONDS = 600
 ROOT = Path(__file__).resolve().parents[5]
-MIGRATIONS_DIR = ROOT / "db" / "migrations"
+MIGRATIONS_DIR = ROOT / "migrations" / "neon"
 
 # Self-check + self-heal (#730): a homebrew-global Atlas that doesn't match
 # PINNED_ATLAS_VERSION must never silently weaken this test arm. The cache
@@ -223,7 +223,7 @@ def atlas_apply_command(dsn: str) -> tuple[str, ...]:
         "migrate",
         "apply",
         "--dir",
-        "file://db/migrations",
+        "file://migrations/neon",
         "--url",
         dsn,
         "--revisions-schema",

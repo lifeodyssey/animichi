@@ -6,9 +6,9 @@ import pytest
 from pydantic import ValidationError
 
 from animichi.clients.catalog_client import (
-    PilgrimagePoint,
+    Itinerary,
+    Point,
     ResolveResolved,
-    Route,
     SearchResult,
 )
 from animichi.tests.unit.test_catalog_client import _mock_catalog
@@ -28,19 +28,17 @@ async def test_resolve_posts_to_typed_phase1a_endpoint() -> None:
     assert json.loads(requests[0].content) == {"query": "京吹"}
 
 
-async def test_points_by_work_id_never_repeats_free_text_search() -> None:
+async def test_points_by_bangumi_id_never_repeats_free_text_search() -> None:
     async with _mock_catalog({"rows": [_POINT], "synced_at": "now"}) as (
         client,
         requests,
     ):
-        result = await client.points_by_work_id("115908")
-    assert result == SearchResult(
-        rows=[PilgrimagePoint.model_validate(_POINT)], synced_at="now"
-    )
-    assert str(requests[0].url).endswith("/catalog/points-by-work-id")
-    assert json.loads(requests[0].content) == {"work_id": "115908"}
+        result = await client.points_by_bangumi_id("115908")
+    assert result == SearchResult(rows=[Point.model_validate(_POINT)], synced_at="now")
+    assert str(requests[0].url).endswith("/catalog/points-by-bangumi-id")
+    assert json.loads(requests[0].content) == {"bangumi_id": "115908"}
 
 
 def test_route_rejects_count_without_matching_ordered_points() -> None:
     with pytest.raises(ValidationError, match="point_count must match"):
-        Route(point_count=1)
+        Itinerary(point_count=1)

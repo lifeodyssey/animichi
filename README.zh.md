@@ -67,14 +67,14 @@ make check             # lint + 类型检查 + 测试
 
 ## 数据库迁移
 
-Neon catalog 与 user 数据面的 schema 变更统一记录在 `db/migrations/`，由固定版本的
-Atlas CLI 应用；`db/migrations/atlas.sum` 是生成的完整性清单，必须和迁移文件一起更新。
+Neon catalog 与 user 数据面的 schema 变更统一记录在 `migrations/neon/`，由固定版本的
+Atlas CLI 应用；`migrations/neon/atlas.sum` 是生成的完整性清单，必须和迁移文件一起更新。
 Worker 中的 Drizzle schema 仅用于运行时查询和类型，不生成也不执行迁移。剩余的
 Supabase 迁移目录只服务 auth/旧版兼容面，不能作为 Neon 新表的来源。
 
 ```bash
 make db-list           # 列出仓库中的 Atlas 迁移
-make db-hash           # 重新生成 db/migrations/atlas.sum
+make db-hash           # 重新生成 migrations/neon/atlas.sum
 make db-validate       # 校验 checksum 与 SQL 结构
 make db-push-dry       # 对 NEON_DATABASE_URL 做 dry-run
 make db-push           # 对 NEON_DATABASE_URL 应用迁移
@@ -129,7 +129,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `packages/contract/` — 共享 oRPC/zod 契约（catalog ↔ agent ↔ users）
 - `apps/web/` — TanStack Start SSR Web 应用（**唯一浏览器面**）
 - `workers/edge/` — Cloudflare Worker 入口：认证与 `/v1` 路由
-- `db/migrations/` — Neon 数据面的 Atlas 迁移与生成的 checksum
+- `migrations/neon/` — Neon 数据面的 Atlas 迁移与生成的 checksum
 - `supabase/` — auth/旧版兼容迁移与 Supabase 项目资产
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划
 - `Makefile`、`package.json` — 根目录工具入口；`apps/agent/Dockerfile`（容器镜像）与 `workers/edge/wrangler.toml`（edge Worker 配置）随代码存放

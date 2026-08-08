@@ -4,18 +4,18 @@ import test from "node:test";
 import { URL, fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
-const MIGRATIONS = `${ROOT}db/migrations/`;
+const MIGRATIONS = `${ROOT}migrations/neon/`;
 const read = (path: string): string => readFileSync(`${ROOT}${path}`, "utf8");
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 void test("Atlas files are the only Neon migration authority", () => {
   const files = readdirSync(MIGRATIONS).filter((file) => file.endsWith(".sql")).sort();
-  const sum = read("db/migrations/atlas.sum");
-  assert.notEqual(files.length, 0, "db/migrations must contain SQL migrations");
+  const sum = read("migrations/neon/atlas.sum");
+  assert.notEqual(files.length, 0, "migrations/neon must contain SQL migrations");
   for (const file of files) {
     assert.match(sum, new RegExp(`^${escapeRegExp(file)} h1:`, "m"), `${file} is missing from atlas.sum`);
   }
-  assert.match(read("docs/ops/migrations.md"), /db\/migrations\/\*\.sql.*atlas\.sum/s);
+  assert.match(read("docs/ops/migrations.md"), /migrations\/neon\/\*\.sql.*atlas\.sum/s);
   assert.match(read("docs/ops/migrations.md"), /Drizzle[\s\S]*metadata.*only/s);
   for (const path of [
     "docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md",
@@ -23,7 +23,7 @@ void test("Atlas files are the only Neon migration authority", () => {
   ]) {
     const source = read(path);
     assert.match(source, /S0\.9 authority amendment \(2026-08-02\)/, `${path} needs the S0.9 amendment`);
-    assert.match(source, /db\/migrations\/\*\.sql[\s\S]*atlas\.sum/);
+    assert.match(source, /migrations\/neon\/\*\.sql[\s\S]*atlas\.sum/);
     assert.match(source, /Drizzle[\s\S]*runtime query\/type metadata only/);
     assert.doesNotMatch(source, /dual-chain\s*\+\s*atlas-provider-drizzle|Drizzle TS schema.*single source/i);
   }
@@ -45,12 +45,12 @@ void test("CI and deploy workflows use Atlas, never the old all-schema push", ()
   const ci = read(".github/workflows/ci.yml");
   const deploy = read(".github/workflows/deploy.yml");
   const promotion = read(".github/workflows/reusable-deploy-component.yml");
-  assert.match(dbLane, /atlas migrate validate --dir file:\/\/db\/migrations/);
+  assert.match(dbLane, /atlas migrate validate --dir file:\/\/migrations\/neon/);
   assert.match(dbLane, /atlas migrate apply --dry-run[\s\S]*--revisions-schema public/);
   // #486 thin caller: the manual path cannot skip Atlas — every job runs the reusable pipeline.
   assert.match(deploy, /uses: \.\/\.github\/workflows\/reusable-deploy-component\.yml/);
-  assert.match(promotion, /atlas migrate apply --dir ["']?file:\/\/db\/migrations[\s\S]*--revisions-schema public/);
-  assert.match(promotion, /atlas migrate validate --dir ["']?file:\/\/db\/migrations/);
+  assert.match(promotion, /atlas migrate apply --dir ["']?file:\/\/migrations\/neon[\s\S]*--revisions-schema public/);
+  assert.match(promotion, /atlas migrate validate --dir ["']?file:\/\/migrations\/neon/);
   assert.doesNotMatch(ci, /supabase db push/);
   assert.doesNotMatch(deploy, /supabase db push/);
 });
@@ -70,6 +70,6 @@ void test("README points operators to the migration runbook", () => {
 void test("historical deployment notes cannot look like the current migration path", () => {
   const deployment = read("docs/ops/deployment.md");
   assert.match(deployment, /HISTORICAL[\s\S]*Historical only; no longer current/i);
-  assert.match(deployment, /current\s+Neon migration authority[\s\S]*db\/migrations[\s\S]*Atlas/i);
+  assert.match(deployment, /current\s+Neon migration authority[\s\S]*migrations\/neon[\s\S]*Atlas/i);
   assert.match(deployment, /Historical Supabase schema event \(not a current apply\)/);
 });

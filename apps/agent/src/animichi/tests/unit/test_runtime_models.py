@@ -7,14 +7,14 @@ from animichi.agents.runtime_models import (
     ClarifyResponseModel,
     ErrorResponseModel,
     GreetingResponseModel,
+    ItineraryResponseModel,
     QAResponseModel,
-    RouteResponseModel,
     SearchResponseModel,
 )
 
 _FIVE_RESPONSE_MODELS = (
     SearchResponseModel,
-    RouteResponseModel,
+    ItineraryResponseModel,
     GreetingResponseModel,
     ClarifyResponseModel,
     QAResponseModel,
@@ -54,7 +54,7 @@ def test_clarify_candidate_ids_description_states_ordering_contract() -> None:
 def test_error_response_model_is_runner_only_never_a_model_output() -> None:
     assert ErrorResponseModel not in (
         SearchResponseModel,
-        RouteResponseModel,
+        ItineraryResponseModel,
         GreetingResponseModel,
         ClarifyResponseModel,
         QAResponseModel,

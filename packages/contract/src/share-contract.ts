@@ -145,8 +145,8 @@ export const PublicSharedItinerary = PublicSharedItineraryBase.superRefine((valu
 /** Inferred strict public itinerary projection. */
 export type PublicSharedItinerary = z.infer<typeof PublicSharedItinerary>;
 
-/** Authenticated input for sharing a caller-owned route. */
-export const CreateShareInput = z.strictObject({ route_id: z.uuid() });
+/** Authenticated input for sharing a caller-owned saved route. */
+export const CreateShareInput = z.strictObject({ saved_route_id: z.uuid() });
 /** Inferred create-share input. */
 export type CreateShareInput = z.infer<typeof CreateShareInput>;
 
@@ -191,8 +191,8 @@ export const ShareErrorCategory = z.enum(["user_actionable", "retryable", "syste
 /** Inferred share error category. */
 export type ShareErrorCategory = z.infer<typeof ShareErrorCategory>;
 
-/** Data returned when a route cannot be shared. */
-export const ShareRouteData = z.strictObject({ route_id: z.uuid() });
+/** Data returned when a saved route cannot be shared. */
+export const ShareSavedRouteData = z.strictObject({ saved_route_id: z.uuid() });
 /** Data for a share token that has passed its immutable expiry. */
 export const ShareExpiredData = z.strictObject({
   expires_at: z.iso.datetime({ offset: true }),
@@ -213,17 +213,17 @@ type ShareErrorDefItem = {
 
 /** Share error registry with registry-only categories omitted from responses. */
 export const SHARE_ERROR_DEFS = {
-  SHARE_ROUTE_NOT_FOUND: {
+  SHARE_SAVED_ROUTE_NOT_FOUND: {
     status: 404,
     category: "user_actionable",
     message: "No such saved route",
-    data: ShareRouteData,
+    data: ShareSavedRouteData,
   },
-  SHARE_ROUTE_NOT_OWNED: {
+  SHARE_SAVED_ROUTE_NOT_OWNED: {
     status: 403,
     category: "user_actionable",
     message: "Route belongs to another user",
-    data: ShareRouteData,
+    data: ShareSavedRouteData,
   },
   SHARE_NOT_FOUND: {
     status: 404,
@@ -263,11 +263,11 @@ export const shareContract = {
     .route({
       method: "POST",
       path: "/v1/users/shares",
-      summary: "Create a route share",
+      summary: "Create a saved route share",
       spec: requireBearer,
     })
     .input(CreateShareInput)
-    .errors(pickShareErrors(["SHARE_ROUTE_NOT_FOUND", "SHARE_ROUTE_NOT_OWNED"]))
+    .errors(pickShareErrors(["SHARE_SAVED_ROUTE_NOT_FOUND", "SHARE_SAVED_ROUTE_NOT_OWNED"]))
     .output(CreateShareResult),
   revokeShare: oc
     .route({

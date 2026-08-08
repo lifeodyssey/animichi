@@ -24,9 +24,9 @@ from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from animichi.clients.catalog_client import (
         GeocodeCandidate,
-        PilgrimagePoint,
+        Itinerary,
+        Point,
         ResolveOutcome,
-        Route,
         SearchResult,
     )
 
@@ -43,20 +43,20 @@ class CatalogReadGateway(Protocol):
 
     async def resolve(self, query: str) -> ResolveOutcome: ...
 
-    async def points_by_work_id(self, work_id: str) -> SearchResult: ...
+    async def points_by_bangumi_id(self, bangumi_id: str) -> SearchResult: ...
 
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
-    ) -> list[PilgrimagePoint]: ...
+    ) -> list[Point]: ...
 
     async def geocode(
         self, query: str, *, limit: int = 5
     ) -> list[GeocodeCandidate]: ...
 
-    async def route(
+    async def plan_itinerary(
         self,
         point_ids: list[str],
         *,
         origin: tuple[float, float] | None = None,
         pacing: Literal["chill", "normal", "packed"] | None = None,
-    ) -> Route: ...
+    ) -> Itinerary: ...

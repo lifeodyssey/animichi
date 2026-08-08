@@ -20,14 +20,14 @@ async def test_500_points_routes_but_501_does_not() -> None:
         candidate_ids=["1"], state=_pending(), locale="en", catalog=catalog
     )
     assert routed.success is True
-    assert len(routed.session_state.routes) == 1
+    assert len(routed.session_state.itineraries) == 1
     catalog = _Catalog({"1": SearchResult(rows=five_hundred + [_point("500", "1")])})
     rejected = await execute_multi_selection(
         candidate_ids=["1"], state=_pending(), locale="en", catalog=catalog
     )
     assert (rejected.status, rejected.success) == ("too_large", False)
     assert (rejected.steps[-1].is_success, rejected.steps[-1].error) == (True, None)
-    assert not rejected.session_state.routes
+    assert not rejected.session_state.itineraries
 
 
 async def test_50_cluster_success_and_typed_51_cluster_rejection() -> None:
@@ -116,7 +116,7 @@ async def test_t5_preserves_pending_and_writes_no_registry_refs() -> None:
         "Catalog fetch failed",
     )
     assert state.pending_clarification is not None
-    assert not state.search_results and not state.routes
+    assert not state.search_results and not state.itineraries
 
 
 async def test_route_transport_failure_is_typed_and_preserves_pending() -> None:
@@ -143,7 +143,7 @@ async def test_t7_partial_sync_returns_results_without_routing() -> None:
     assert (result.status, result.success, payload.partial) == ("partial", False, True)
     assert "results" in wire.data and "route" not in wire.data
     assert wire.data["results"]["partial"] is True
-    assert all(call[0] != "route" for call in catalog.calls)
+    assert all(call[0] != "plan_itinerary" for call in catalog.calls)
     assert state.pending_clarification is not None
     assert (result.steps[-1].is_success, result.steps[-1].error) == (True, None)
 

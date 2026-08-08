@@ -11,9 +11,9 @@ import pytest
 from animichi.agents.agent_result import AgentResult
 from animichi.agents.runtime_models import BlockedResponseModel, PartialResponseModel
 from animichi.agents.session_state import (
+    ItinerarySummaryState,
     NearbyGroupState,
     OrderedCandidate,
-    RouteSummaryState,
     SearchMetadataState,
     SessionState,
 )
@@ -98,14 +98,14 @@ def _enrich_search(result: AgentResult) -> None:
 
 
 def _enrich_route(result: AgentResult) -> None:
-    if not result.session_state.route_lru:
+    if not result.session_state.itinerary_lru:
         return
-    route = result.session_state.routes[result.session_state.route_lru[-1]]
+    route = result.session_state.itineraries[result.session_state.itinerary_lru[-1]]
     route.summary = _route_summary()
 
 
-def _route_summary() -> RouteSummaryState:
-    return RouteSummaryState(
+def _route_summary() -> ItinerarySummaryState:
+    return ItinerarySummaryState(
         point_count=1,
         total_minutes=1,
         total_distance_m=1.0,

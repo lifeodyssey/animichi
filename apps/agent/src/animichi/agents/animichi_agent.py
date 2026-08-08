@@ -16,7 +16,7 @@ from pydantic_ai.output import ToolOutput
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai_harness.memory import Memory, MemoryStore
 
-from animichi.agents.agent_result import ProducedRoute, ProducedSearch, StepRecord
+from animichi.agents.agent_result import ProducedItinerary, ProducedSearch, StepRecord
 from animichi.agents.animichi_tools import TOOLS as ANIMICHI_TOOLS
 from animichi.agents.base import resolve_model
 from animichi.agents.error_boundary import error_boundary_hooks
@@ -25,8 +25,8 @@ from animichi.agents.runtime_deps import RuntimeDeps
 from animichi.agents.runtime_models import (
     ClarifyResponseModel,
     GreetingResponseModel,
+    ItineraryResponseModel,
     QAResponseModel,
-    RouteResponseModel,
     SearchResponseModel,
 )
 from animichi.agents.session_state import SessionState
@@ -45,7 +45,7 @@ USER_MEMORY_GUIDANCE = (
 RuntimeOutput = (
     ClarifyResponseModel
     | SearchResponseModel
-    | RouteResponseModel
+    | ItineraryResponseModel
     | GreetingResponseModel
     | QAResponseModel
 )
@@ -207,7 +207,7 @@ def _output_types() -> list[ToolOutput[RuntimeOutput]]:
     return [
         ToolOutput(ClarifyResponseModel, name="clarify_response"),
         ToolOutput(SearchResponseModel, name="search_response"),
-        ToolOutput(RouteResponseModel, name="route_response"),
+        ToolOutput(ItineraryResponseModel, name="route_response"),
         ToolOutput(GreetingResponseModel, name="greeting_response"),
         ToolOutput(QAResponseModel, name="qa_response"),
     ]
@@ -429,7 +429,7 @@ async def validate_output(
         ctx.deps.steps, session
     ):
         raise ModelRetry("Call a search tool before returning search_response.")
-    if isinstance(output, RouteResponseModel) and not _valid_route(
+    if isinstance(output, ItineraryResponseModel) and not _valid_itinerary(
         ctx.deps.steps, session
     ):
         raise ModelRetry("Call plan_route before returning route_response.")
@@ -447,11 +447,12 @@ def _valid_search(steps: list[StepRecord], session: SessionState) -> bool:
     )
 
 
-def _valid_route(steps: list[StepRecord], session: SessionState) -> bool:
+def _valid_itinerary(steps: list[StepRecord], session: SessionState) -> bool:
     step = _last_step(steps, {"plan_route", "plan_selected"})
     provenance = step.provenance if step is not None else None
     return (
-        isinstance(provenance, ProducedRoute) and provenance.route_ref in session.routes
+        isinstance(provenance, ProducedItinerary)
+        and provenance.itinerary_ref in session.itineraries
     )
 
 

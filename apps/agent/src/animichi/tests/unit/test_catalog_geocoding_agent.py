@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from typing import Literal
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic_ai import RunContext
 
-from animichi.agents.agent_result import RejectedRoute, RejectedSearch
-from animichi.agents.catalog_route_tools import run_route
+from animichi.agents.agent_result import RejectedItinerary, RejectedSearch
+from animichi.agents.catalog_route_tools import run_itinerary
 from animichi.agents.catalog_tools import run_nearby_search, run_resolve
 from animichi.agents.runtime_deps import RuntimeDeps
 from animichi.agents.session_state import (
@@ -21,6 +22,7 @@ from animichi.clients.catalog_client import (
     AnimeCandidate,
     GeocodeCandidate,
     GeocodeKind,
+    Itinerary,
     ResolveAmbiguous,
     ResolveNotFound,
 )
@@ -150,13 +152,13 @@ async def test_place_ambiguity_stages_coords_and_pending_in_same_outcome() -> No
 async def test_route_never_uses_hidden_last_result_default() -> None:
     deps = _deps()
     deps.tool_state.session = SessionState()
-    outcome = await run_route(_ctx(deps), MockCatalogClient(), "missing-ref", None)
+    outcome = await run_itinerary(_ctx(deps), MockCatalogClient(), "missing-ref", None)
     await project_tool_result(
         deps, "plan_route", {"search_result_ref": "missing-ref"}, outcome
     )
     assert outcome.status == "stale_ref"
     assert deps.steps[-1].is_success is True
-    assert isinstance(deps.steps[-1].provenance, RejectedRoute)
+    assert isinstance(deps.steps[-1].provenance, RejectedItinerary)
 
 
 async def test_empty_route_is_a_successful_typed_step() -> None:
@@ -166,13 +168,44 @@ async def test_empty_route_is_a_successful_typed_step() -> None:
         ref, SearchPayloadState(kind="bangumi", rows=[], row_count=0)
     )
 
-    outcome = await run_route(_ctx(deps), MockCatalogClient(), str(ref), None)
+    outcome = await run_itinerary(_ctx(deps), MockCatalogClient(), str(ref), None)
     await project_tool_result(
         deps, "plan_route", {"search_result_ref": str(ref)}, outcome
     )
 
     assert (outcome.status, deps.steps[-1].is_success) == ("empty", True)
-    assert isinstance(deps.steps[-1].provenance, RejectedRoute)
+    assert isinstance(deps.steps[-1].provenance, RejectedItinerary)
+
+
+async def test_catalog_empty_itinerary_is_a_typed_route_empty() -> None:
+    deps = _deps()
+    ref = ResultRef("search:rows")
+    deps.tool_state.session.store_search_result(
+        ref,
+        SearchPayloadState(kind="bangumi", rows=[PointState(id="p004")], row_count=1),
+    )
+
+    class _EmptyItineraryCatalog(MockCatalogClient):
+        async def plan_itinerary(
+            self,
+            point_ids: list[str],
+            *,
+            origin: tuple[float, float] | None = None,
+            pacing: Literal["chill", "normal", "packed"] | None = None,
+        ) -> Itinerary:
+            self.calls.append(("plan_itinerary", (tuple(point_ids), origin, pacing)))
+            return Itinerary(ordered_points=[], point_count=0)
+
+    catalog = _EmptyItineraryCatalog()
+
+    outcome = await run_itinerary(_ctx(deps), catalog, str(ref), None)
+    await project_tool_result(
+        deps, "plan_route", {"search_result_ref": str(ref)}, outcome
+    )
+
+    assert outcome.status == "empty"
+    assert ("plan_itinerary", (("p004",), None, None)) in catalog.calls
+    assert isinstance(deps.steps[-1].provenance, RejectedItinerary)
 
 
 async def test_partial_route_is_pending_sync_and_never_calls_catalog_route() -> None:
@@ -189,14 +222,14 @@ async def test_partial_route_is_pending_sync_and_never_calls_catalog_route() -> 
     )
     catalog = MockCatalogClient()
 
-    outcome = await run_route(_ctx(deps), catalog, str(ref), None)
+    outcome = await run_itinerary(_ctx(deps), catalog, str(ref), None)
     await project_tool_result(
         deps, "plan_route", {"search_result_ref": str(ref)}, outcome
     )
 
     assert outcome.status == "pending_sync"
-    assert all(call[0] != "route" for call in catalog.calls)
-    assert isinstance(deps.steps[-1].provenance, RejectedRoute)
+    assert all(call[0] != "plan_itinerary" for call in catalog.calls)
+    assert isinstance(deps.steps[-1].provenance, RejectedItinerary)
 
 
 async def test_route_threads_optional_pacing_to_catalog() -> None:
@@ -207,6 +240,6 @@ async def test_route_threads_optional_pacing_to_catalog() -> None:
         SearchPayloadState(kind="bangumi", rows=[PointState(id="p004")], row_count=1),
     )
     catalog = MockCatalogClient()
-    outcome = await run_route(_ctx(deps), catalog, str(ref), "packed")
+    outcome = await run_itinerary(_ctx(deps), catalog, str(ref), "packed")
     assert outcome.status == "ok"
-    assert ("route", (("p004",), None, "packed")) in catalog.calls
+    assert ("plan_itinerary", (("p004",), None, "packed")) in catalog.calls

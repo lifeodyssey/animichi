@@ -125,9 +125,9 @@
         ]
       }
     },
-    "/v1/users/routes": {
+    "/v1/users/saved-routes": {
       "get": {
-        "operationId": "listRoutes",
+        "operationId": "listSavedRoutes",
         "summary": "List the caller's saved routes",
         "responses": {
           "200": {
@@ -137,7 +137,7 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "routes": {
+                    "saved_routes": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -189,7 +189,7 @@
                     }
                   },
                   "required": [
-                    "routes"
+                    "saved_routes"
                   ]
                 }
               }
@@ -203,7 +203,7 @@
         ]
       },
       "post": {
-        "operationId": "saveRoute",
+        "operationId": "saveSavedRoute",
         "summary": "Create or update a saved route",
         "requestBody": {
           "required": true,
@@ -315,7 +315,7 @@
                           "const": true
                         },
                         "code": {
-                          "const": "ROUTE_NOT_OWNED"
+                          "const": "SAVED_ROUTE_NOT_OWNED"
                         },
                         "status": {
                           "const": 403
@@ -327,12 +327,12 @@
                         "data": {
                           "type": "object",
                           "properties": {
-                            "route_id": {
+                            "saved_route_id": {
                               "type": "string"
                             }
                           },
                           "required": [
-                            "route_id"
+                            "saved_route_id"
                           ]
                         }
                       },
@@ -386,7 +386,7 @@
                           "const": true
                         },
                         "code": {
-                          "const": "ROUTE_NOT_FOUND"
+                          "const": "SAVED_ROUTE_NOT_FOUND"
                         },
                         "status": {
                           "const": 404
@@ -398,12 +398,12 @@
                         "data": {
                           "type": "object",
                           "properties": {
-                            "route_id": {
+                            "saved_route_id": {
                               "type": "string"
                             }
                           },
                           "required": [
-                            "route_id"
+                            "saved_route_id"
                           ]
                         }
                       },
@@ -452,9 +452,9 @@
         ]
       }
     },
-    "/v1/users/routes/{id}": {
+    "/v1/users/saved-routes/{id}": {
       "delete": {
-        "operationId": "deleteRoute",
+        "operationId": "deleteSavedRoute",
         "summary": "Delete a saved route",
         "parameters": [
           {
@@ -499,7 +499,7 @@
                           "const": true
                         },
                         "code": {
-                          "const": "ROUTE_NOT_OWNED"
+                          "const": "SAVED_ROUTE_NOT_OWNED"
                         },
                         "status": {
                           "const": 403
@@ -511,12 +511,12 @@
                         "data": {
                           "type": "object",
                           "properties": {
-                            "route_id": {
+                            "saved_route_id": {
                               "type": "string"
                             }
                           },
                           "required": [
-                            "route_id"
+                            "saved_route_id"
                           ]
                         }
                       },
@@ -570,7 +570,7 @@
                           "const": true
                         },
                         "code": {
-                          "const": "ROUTE_NOT_FOUND"
+                          "const": "SAVED_ROUTE_NOT_FOUND"
                         },
                         "status": {
                           "const": 404
@@ -582,12 +582,12 @@
                         "data": {
                           "type": "object",
                           "properties": {
-                            "route_id": {
+                            "saved_route_id": {
                               "type": "string"
                             }
                           },
                           "required": [
-                            "route_id"
+                            "saved_route_id"
                           ]
                         }
                       },
@@ -636,10 +636,10 @@
         ]
       }
     },
-    "/v1/users/routes/claim": {
+    "/v1/users/saved-routes/claim": {
       "post": {
-        "operationId": "claimRoutes",
-        "summary": "Claim anonymous routes",
+        "operationId": "claimSavedRoutes",
+        "summary": "Claim anonymous saved routes",
         "requestBody": {
           "required": true,
           "content": {
@@ -699,7 +699,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "route_id": {
+                  "saved_route_id": {
                     "type": "string",
                     "format": "uuid"
                   },
@@ -743,7 +743,7 @@
                   }
                 },
                 "required": [
-                  "route_id",
+                  "saved_route_id",
                   "point_id",
                   "client_id",
                   "coordinates",
@@ -766,7 +766,7 @@
                       "type": "string",
                       "format": "uuid"
                     },
-                    "route_id": {
+                    "saved_route_id": {
                       "type": "string",
                       "format": "uuid"
                     },
@@ -815,7 +815,7 @@
                   },
                   "required": [
                     "id",
-                    "route_id",
+                    "saved_route_id",
                     "point_id",
                     "client_id",
                     "coordinates",
@@ -840,25 +840,25 @@
                           "const": true
                         },
                         "code": {
-                          "const": "CHECKIN_ROUTE_NOT_FOUND"
+                          "const": "CHECKIN_SAVED_ROUTE_NOT_FOUND"
                         },
                         "status": {
                           "const": 404
                         },
                         "message": {
                           "type": "string",
-                          "default": "No such user route"
+                          "default": "No such saved route"
                         },
                         "data": {
                           "type": "object",
                           "properties": {
-                            "route_id": {
+                            "saved_route_id": {
                               "type": "string",
                               "format": "uuid"
                             }
                           },
                           "required": [
-                            "route_id"
+                            "saved_route_id"
                           ],
                           "additionalProperties": false
                         }
@@ -1022,7 +1022,7 @@
         "summary": "List the caller's check-ins",
         "parameters": [
           {
-            "name": "route_id",
+            "name": "saved_route_id",
             "in": "query",
             "schema": {
               "type": "string",
@@ -1049,7 +1049,7 @@
                             "type": "string",
                             "format": "uuid"
                           },
-                          "route_id": {
+                          "saved_route_id": {
                             "type": "string",
                             "format": "uuid"
                           },
@@ -1098,7 +1098,7 @@
                         },
                         "required": [
                           "id",
-                          "route_id",
+                          "saved_route_id",
                           "point_id",
                           "client_id",
                           "coordinates",
@@ -1128,7 +1128,7 @@
     "/v1/users/shares": {
       "post": {
         "operationId": "createShare",
-        "summary": "Create a route share",
+        "summary": "Create a saved route share",
         "requestBody": {
           "required": true,
           "content": {
@@ -1136,13 +1136,13 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "route_id": {
+                  "saved_route_id": {
                     "type": "string",
                     "format": "uuid"
                   }
                 },
                 "required": [
-                  "route_id"
+                  "saved_route_id"
                 ],
                 "additionalProperties": false
               }
@@ -1198,7 +1198,7 @@
                           "const": true
                         },
                         "code": {
-                          "const": "SHARE_ROUTE_NOT_OWNED"
+                          "const": "SHARE_SAVED_ROUTE_NOT_OWNED"
                         },
                         "status": {
                           "const": 403
@@ -1210,13 +1210,13 @@
                         "data": {
                           "type": "object",
                           "properties": {
-                            "route_id": {
+                            "saved_route_id": {
                               "type": "string",
                               "format": "uuid"
                             }
                           },
                           "required": [
-                            "route_id"
+                            "saved_route_id"
                           ],
                           "additionalProperties": false
                         }
@@ -1271,7 +1271,7 @@
                           "const": true
                         },
                         "code": {
-                          "const": "SHARE_ROUTE_NOT_FOUND"
+                          "const": "SHARE_SAVED_ROUTE_NOT_FOUND"
                         },
                         "status": {
                           "const": 404
@@ -1283,13 +1283,13 @@
                         "data": {
                           "type": "object",
                           "properties": {
-                            "route_id": {
+                            "saved_route_id": {
                               "type": "string",
                               "format": "uuid"
                             }
                           },
                           "required": [
-                            "route_id"
+                            "saved_route_id"
                           ],
                           "additionalProperties": false
                         }

@@ -59,7 +59,7 @@ class TestSplitIntoAreasLargeSets:
         mock_run_result.output = mock_output
 
         with patch(
-            "animichi.agents.route_area_splitter.route_planner_agent"
+            "animichi.agents.route_area_splitter.itinerary_planner_agent"
         ) as mock_agent:
             mock_agent.run = AsyncMock(return_value=mock_run_result)
             result = await split_into_areas(_make_points(15))
@@ -75,7 +75,7 @@ class TestSplitIntoAreasLargeSets:
 class TestSplitIntoAreasHandlesFailure:
     async def test_returns_none_on_agent_exception(self) -> None:
         with patch(
-            "animichi.agents.route_area_splitter.route_planner_agent"
+            "animichi.agents.route_area_splitter.itinerary_planner_agent"
         ) as mock_agent:
             mock_agent.run = AsyncMock(side_effect=RuntimeError("LLM timeout"))
             result = await split_into_areas(_make_points(15))
@@ -100,7 +100,7 @@ class TestSplitIntoAreasFixesOrphans:
         mock_run_result.output = mock_output
 
         with patch(
-            "animichi.agents.route_area_splitter.route_planner_agent"
+            "animichi.agents.route_area_splitter.itinerary_planner_agent"
         ) as mock_agent:
             mock_agent.run = AsyncMock(return_value=mock_run_result)
             result = await split_into_areas(_make_points(12))

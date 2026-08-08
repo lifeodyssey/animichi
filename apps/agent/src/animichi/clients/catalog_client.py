@@ -50,11 +50,11 @@ _CATALOG_HTTP_LIMITS = httpx.Limits(
 
 # Re-exported so callers depend on this client, not on agent internals.
 __all__ = [
-    "PilgrimagePoint",
+    "Point",
     "AnimeCandidate",
     "ResolveOutcome",
     "SearchResult",
-    "Route",
+    "Itinerary",
     "TimedItinerary",
     "TimedStop",
     "TransitLeg",
@@ -69,7 +69,7 @@ __all__ = [
 JSONDict = dict[str, object]
 
 
-class PilgrimagePoint(BaseModel):
+class Point(BaseModel):
     """A single pilgrimage point returned by the Catalog service."""
 
     id: str
@@ -128,17 +128,17 @@ ResolveOutcome: TypeAlias = Annotated[
 
 
 class SearchResult(BaseModel):
-    """Published point result returned by search and pointsByWorkId."""
+    """Published point result returned by search and pointsByBangumiId."""
 
-    rows: list[PilgrimagePoint] = Field(default_factory=list)
+    rows: list[Point] = Field(default_factory=list)
     synced_at: str = ""
     partial: bool = False
 
 
-class Route(BaseModel):
-    """An ordered route plus its timed itinerary."""
+class Itinerary(BaseModel):
+    """An ordered itinerary plus its timed itinerary."""
 
-    ordered_points: list[PilgrimagePoint] = Field(default_factory=list)
+    ordered_points: list[Point] = Field(default_factory=list)
     point_count: int = 0
     cover_url: str = ""
     anime_title: str = ""
@@ -189,14 +189,14 @@ class CatalogClient:
         payload = await self._rpc("resolve", {"query": query})
         return TypeAdapter(ResolveOutcome).validate_python(payload)
 
-    async def points_by_work_id(self, work_id: str) -> SearchResult:
-        """Fetch published points for an already-resolved work id."""
-        payload = await self._rpc("points-by-work-id", {"work_id": work_id})
+    async def points_by_bangumi_id(self, bangumi_id: str) -> SearchResult:
+        """Fetch published points for an already-resolved bangumi id."""
+        payload = await self._rpc("points-by-bangumi-id", {"bangumi_id": bangumi_id})
         return SearchResult.model_validate(payload)
 
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
-    ) -> list[PilgrimagePoint]:
+    ) -> list[Point]:
         """Return pilgrimage points near a coordinate within ``radius_m``."""
         body = {"lat": lat, "lng": lng, "radius_m": radius_m}
         payload = await self._rpc("nearby", body)
@@ -210,21 +210,21 @@ class CatalogClient:
             raise APIError("Expected 'candidates' to be a JSON array")
         return [GeocodeCandidate.model_validate(item) for item in candidates]
 
-    async def route(
+    async def plan_itinerary(
         self,
         point_ids: list[str],
         *,
         origin: tuple[float, float] | None = None,
         pacing: Literal["chill", "normal", "packed"] | None = None,
-    ) -> Route:
-        """Plan an ordered, timed route across the given points."""
+    ) -> Itinerary:
+        """Plan an ordered, timed itinerary across the given points."""
         body: dict[str, object] = {"point_ids": point_ids}
         if origin is not None:
             body["origin"] = {"lat": origin[0], "lng": origin[1]}
         if pacing is not None:
             body["pacing"] = pacing
-        payload = await self._rpc("route", body)
-        return Route.model_validate(payload)
+        payload = await self._rpc("itinerary", body)
+        return Itinerary.model_validate(payload)
 
     async def aclose(self) -> None:
         """Close the shared HTTP client (idempotent; no-op when never used)."""
@@ -351,9 +351,9 @@ def _expect_object(value: object, *, context: str) -> JSONDict:
     return {str(key): item for key, item in value.items()}
 
 
-def _parse_rows(payload: JSONDict) -> list[PilgrimagePoint]:
+def _parse_rows(payload: JSONDict) -> list[Point]:
     """Validate a ``{"rows": [...]}`` envelope into typed pilgrimage points."""
     rows = payload.get("rows")
     if not isinstance(rows, list):
         raise APIError("Expected 'rows' to be a JSON array of points")
-    return [PilgrimagePoint.model_validate(row) for row in rows]
+    return [Point.model_validate(row) for row in rows]

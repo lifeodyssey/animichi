@@ -1,4 +1,4 @@
-"""Conversation and route history routes."""
+"""Conversation history routes."""
 
 from __future__ import annotations
 
@@ -80,15 +80,3 @@ async def handle_get_messages(
 
     messages_obj: object = await db.messages.get_messages(session_id)
     return _json_response({"messages": messages_obj})
-
-
-@router.get("/routes")
-async def handle_get_routes(
-    request: Request,
-    auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
-) -> JSONResponse:
-    if auth.user_id is None:
-        return _unauthorized()
-    db = _require_supabase(_get_db_from_request(request))
-    routes_obj: object = await db.routes.get_user_routes(auth.user_id)
-    return _json_response({"routes": routes_obj})

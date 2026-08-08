@@ -7,13 +7,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from pydantic_ai.messages import ModelRequest, UserPromptPart
 
-from animichi.agents.agent_result import AgentResult, ProducedRoute, TurnProvenance
+from animichi.agents.agent_result import AgentResult, ProducedItinerary, TurnProvenance
 from animichi.agents.runtime_models import BlockedResponseModel, PartialResponseModel
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItineraryRef,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchPayloadState,
     SessionState,
 )
@@ -24,7 +24,7 @@ from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 
 def _partial_route_result() -> AgentResult:
     search_ref = ResultRef("search:partial")
-    route_ref = RouteRef("route:partial")
+    itinerary_ref = ItineraryRef("route:partial")
     state = SessionState()
     state.store_search_result(
         search_ref,
@@ -35,9 +35,9 @@ def _partial_route_result() -> AgentResult:
             anime_id="1",
         ),
     )
-    state.store_route(
-        route_ref,
-        RoutePayloadState(
+    state.store_itinerary(
+        itinerary_ref,
+        ItineraryPayloadState(
             ordered_points=[PointState(id="p1", bangumi_id="1")],
             source_ref=search_ref,
         ),
@@ -49,7 +49,7 @@ def _partial_route_result() -> AgentResult:
         status="partial",
         success_override=False,
         provenance=TurnProvenance(
-            route=ProducedRoute(status="ok", route_ref=route_ref)
+            itinerary=ProducedItinerary(status="ok", itinerary_ref=itinerary_ref)
         ),
     )
 
@@ -83,7 +83,6 @@ def _db() -> MagicMock:
     # `db.insert_message`/`db.insert_request_log` — that was the production bug.
     db.messages.insert_message = AsyncMock()
     db.feedback.insert_request_log = AsyncMock()
-    db.routes.save_route = AsyncMock(return_value="route-id")
     return db
 
 
@@ -119,8 +118,7 @@ async def test_partial_with_current_route_persists_assistant_and_route() -> None
     assert state.last_result_ref == "search:partial"
     assert db.messages.insert_message.await_count == 2
     assert db.messages.insert_message.await_args_list[1].args[1] == "assistant"
-    db.routes.save_route.assert_awaited_once()
-    assert response.route_history[0]["route_id"] == "route-id"
+    assert response.route_history[0]["route_id"] is None
 
 
 async def test_message_only_partial_persists_assistant_without_route() -> None:
@@ -138,7 +136,6 @@ async def test_message_only_partial_persists_assistant_without_route() -> None:
         "Partial results are shown.",
         {"intent": "partial", "success": False},
     )
-    db.routes.save_route.assert_not_awaited()
     assert response.route_history == []
 
 

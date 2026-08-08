@@ -11,11 +11,11 @@ from structlog import testing
 
 from animichi.agents.agent_result import AgentResult, StepRecord
 from animichi.agents.animichi_runner import run_animichi_agent
-from animichi.agents.runtime_models import RouteResponseModel
+from animichi.agents.runtime_models import ItineraryResponseModel
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItineraryRef,
     PointState,
-    RoutePayloadState,
-    RouteRef,
     SessionState,
 )
 from animichi.infrastructure.session.memory import InMemorySessionStore
@@ -92,21 +92,21 @@ async def test_selected_point_ids_bypass_planner(mock_db: MagicMock) -> None:
             PointState(id="p1", name="A", latitude=34.88, longitude=135.80),
             PointState(id="p2", name="B", latitude=34.89, longitude=135.81),
         ]
-        route_ref = RouteRef("route:selected")
-        route_state = SessionState(
-            routes={route_ref: RoutePayloadState(ordered_points=points)},
-            route_lru=[route_ref],
+        itinerary_ref = ItineraryRef("route:selected")
+        itinerary_state = SessionState(
+            itineraries={itinerary_ref: ItineraryPayloadState(ordered_points=points)},
+            itinerary_lru=[itinerary_ref],
         )
-        output = RouteResponseModel(message="已为2处选定取景地规划路线。")
+        output = ItineraryResponseModel(message="已为2处选定取景地规划路线。")
         return AgentResult(
             output=output,
             intent="plan_selected",
-            session_state=route_state,
+            session_state=itinerary_state,
             steps=[
                 StepRecord(
                     tool="plan_selected",
                     is_success=True,
-                    data={"route_ref": str(route_ref)},
+                    data={"route_ref": str(itinerary_ref)},
                 )
             ],
         )
@@ -117,7 +117,7 @@ async def test_selected_point_ids_bypass_planner(mock_db: MagicMock) -> None:
             new=AsyncMock(side_effect=AssertionError("planner should be bypassed")),
         ),
         patch(
-            "animichi.interfaces.public_api.execute_selected_route",
+            "animichi.interfaces.public_api.execute_selected_itinerary",
             new=AsyncMock(side_effect=fake_selected_route),
         ),
     ):

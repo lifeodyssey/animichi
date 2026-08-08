@@ -12,7 +12,7 @@ from pydantic_ai.messages import ModelMessage
 from pydantic_ai.usage import RunUsage
 
 from animichi.agents.runtime_models import AgentResultOutput
-from animichi.agents.session_state import ResultRef, RouteRef, SessionState
+from animichi.agents.session_state import ItineraryRef, ResultRef, SessionState
 
 
 @dataclass(frozen=True)
@@ -36,27 +36,27 @@ class RejectedSearch:
 
 
 @dataclass(frozen=True)
-class ProducedRoute:
-    """A route registry entry produced by the current transition."""
+class ProducedItinerary:
+    """An itinerary registry entry produced by the current transition."""
 
     status: Literal["ok"]
-    route_ref: RouteRef
+    itinerary_ref: ItineraryRef
 
 
-RouteRejectionStatus: TypeAlias = Literal[
+ItineraryRejectionStatus: TypeAlias = Literal[
     "empty", "stale_ref", "pending_sync", "upstream_unavailable", "contract_violation"
 ]
 
 
 @dataclass(frozen=True)
-class RejectedRoute:
-    """A current route outcome that did not produce a registry entry."""
+class RejectedItinerary:
+    """A current itinerary outcome that did not produce a registry entry."""
 
-    status: RouteRejectionStatus
+    status: ItineraryRejectionStatus
 
 
 StepProvenance: TypeAlias = (
-    ProducedSearch | RejectedSearch | ProducedRoute | RejectedRoute
+    ProducedSearch | RejectedSearch | ProducedItinerary | RejectedItinerary
 )
 StepData: TypeAlias = dict[str, object]
 UsagePayer: TypeAlias = Literal["platform", "byok"]
@@ -75,7 +75,7 @@ class TurnProvenance:
     """Exact producing refs owned by one completed agent transition."""
 
     search: ProducedSearch | None = None
-    route: ProducedRoute | None = None
+    itinerary: ProducedItinerary | None = None
 
 
 @dataclass
@@ -127,7 +127,8 @@ class AgentResult:
 
 def _turn_provenance(steps: list[StepRecord]) -> TurnProvenance:
     return TurnProvenance(
-        search=_last_search_provenance(steps), route=_last_route_provenance(steps)
+        search=_last_search_provenance(steps),
+        itinerary=_last_itinerary_provenance(steps),
     )
 
 
@@ -140,10 +141,10 @@ def _last_search_provenance(steps: list[StepRecord]) -> ProducedSearch | None:
     return None
 
 
-def _last_route_provenance(steps: list[StepRecord]) -> ProducedRoute | None:
+def _last_itinerary_provenance(steps: list[StepRecord]) -> ProducedItinerary | None:
     for step in reversed(steps):
-        if isinstance(step.provenance, ProducedRoute):
+        if isinstance(step.provenance, ProducedItinerary):
             return step.provenance
-        if isinstance(step.provenance, RejectedRoute):
+        if isinstance(step.provenance, RejectedItinerary):
             return None
     return None

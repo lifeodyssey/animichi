@@ -84,10 +84,12 @@ fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly ROOT
-readonly MIGRATIONS_DIR="$ROOT/db/migrations"
+readonly MIGRATIONS_DIR="$ROOT/migrations/neon"
 readonly SEED_FILE="$ROOT/apps/agent/src/animichi/tests/fixtures/seed.sql"
+readonly GAZETTEER_SEED_FILE="$ROOT/workers/catalog/data/gazetteer_seed.sql"
 [[ -d "$MIGRATIONS_DIR" ]] || die "migration directory not found"
 [[ -f "$SEED_FILE" ]] || die "seed file not found"
+[[ -f "$GAZETTEER_SEED_FILE" ]] || die "gazetteer seed file not found"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -259,6 +261,8 @@ fi
   run_db_step "Atlas ${PINNED_ATLAS_VERSION} migration apply" \
     python3 -m animichi.tests.atlas_helper apply
 )
+run_db_step "idempotent gazetteer seed" psql -X --set=ON_ERROR_STOP=1 "service=database" \
+  --file="$GAZETTEER_SEED_FILE"
 run_db_step "idempotent fixture seed" psql -X --set=ON_ERROR_STOP=1 "service=database" \
   --file="$SEED_FILE"
 run_db_step "service-role membership grant" psql -X --set=ON_ERROR_STOP=1 "service=database" \
