@@ -102,31 +102,35 @@ NearbyToolResult: TypeAlias = Annotated[
 ]
 
 
-class RouteOk(_Outcome):
+class ItineraryOk(_Outcome):
     status: Literal["ok"] = "ok"
-    route_ref: str
+    itinerary_ref: str
     point_count: int = Field(ge=1)
     total_minutes: int
 
 
-class RouteEmpty(_Outcome):
+class ItineraryEmpty(_Outcome):
     status: Literal["empty"] = "empty"
 
 
-class RouteStaleRef(_Outcome):
+class ItineraryStaleRef(_Outcome):
     status: Literal["stale_ref"] = "stale_ref"
 
 
-class RoutePendingSync(_Outcome):
+class ItineraryPendingSync(_Outcome):
     status: Literal["pending_sync"] = "pending_sync"
 
 
-class RouteUpstreamDown(_Outcome):
+class ItineraryUpstreamDown(_Outcome):
     status: Literal["upstream_unavailable"] = "upstream_unavailable"
 
 
-RouteToolResult: TypeAlias = Annotated[
-    RouteOk | RouteEmpty | RouteStaleRef | RoutePendingSync | RouteUpstreamDown,
+ItineraryToolResult: TypeAlias = Annotated[
+    ItineraryOk
+    | ItineraryEmpty
+    | ItineraryStaleRef
+    | ItineraryPendingSync
+    | ItineraryUpstreamDown,
     Field(discriminator="status"),
 ]
 

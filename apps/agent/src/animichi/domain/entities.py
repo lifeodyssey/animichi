@@ -165,8 +165,8 @@ class TransportInfo(BaseModel):
         return f"{minutes}min"
 
 
-class RouteSegment(BaseModel):
-    """Route segment between two locations."""
+class ItinerarySegment(BaseModel):
+    """Itinerary segment between two locations."""
 
     order: int = Field(..., ge=1)
     point: Point
@@ -175,11 +175,11 @@ class RouteSegment(BaseModel):
     cumulative_duration_minutes: int = Field(0, ge=0)
 
 
-class Route(BaseModel):
-    """Complete pilgrimage route."""
+class Itinerary(BaseModel):
+    """Complete pilgrimage itinerary."""
 
     origin: Station
-    segments: list[RouteSegment]
+    segments: list[ItinerarySegment]
     total_distance_km: float = Field(..., ge=0)
     total_duration_minutes: int = Field(..., ge=0)
     google_maps_url: HttpUrl | None = None
@@ -219,7 +219,7 @@ class AnimichiSession(BaseModel):
     search_radius_km: float = Field(5.0, ge=1, le=20)
     nearby_bangumi: list[Bangumi] = Field(default_factory=list)
     points: list[Point] = Field(default_factory=list)
-    route: Route | None = None
+    itinerary: Itinerary | None = None
 
     # NEW: Bangumi-specific fields for direct bangumi search
     bangumi_id: str | None = None
