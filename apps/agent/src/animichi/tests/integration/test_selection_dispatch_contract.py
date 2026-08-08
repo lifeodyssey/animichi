@@ -75,7 +75,7 @@ async def test_anime_selection_bypasses_model_and_returns_multi_route(
         assert {"results", "route"} <= response.data.keys()
     finally:
         await real_db.pool.execute(
-            "DELETE FROM routes WHERE session_id = $1", session_id
+            "DELETE FROM saved_routes WHERE claim_session_id = $1", session_id
         )
         await real_db.pool.execute("DELETE FROM sessions WHERE id = $1", session_id)
 

@@ -23,11 +23,13 @@ ALTER TABLE route_anime RENAME TO saved_route_anime;
 ALTER TABLE saved_route_anime RENAME COLUMN route_id TO saved_route_id;
 ALTER INDEX IF EXISTS idx_route_anime_bangumi RENAME TO idx_saved_route_anime_bangumi;
 
--- GRANT re-baseline: users_svc + readonly keep the tables, agent_svc loses the
--- legacy writer grants (init op_tables / 20260718000001 route_anime grants);
--- the agent legacy writer was deleted with the /v1/routes endpoint (D4).
-REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE saved_routes FROM agent_svc;
-REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE saved_route_anime FROM agent_svc;
+-- GRANT re-baseline: users_svc + readonly keep the tables. agent_svc loses
+-- the legacy writer grants (init op_tables / 20260718000001 route_anime
+-- grants; the agent legacy writer was deleted with the /v1/routes endpoint,
+-- D4). #832 N2 grants agent_svc/jobs_svc SELECT on routes for the purge
+-- exemption read; that grant follows the rename, so SELECT stays.
+REVOKE INSERT, UPDATE, DELETE ON TABLE saved_routes FROM agent_svc;
+REVOKE ALL ON TABLE saved_route_anime FROM agent_svc;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE saved_routes TO users_svc;
 GRANT SELECT ON TABLE saved_routes TO readonly;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE saved_route_anime TO users_svc;
