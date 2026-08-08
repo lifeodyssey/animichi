@@ -29,7 +29,7 @@ curl -s -X POST "$SUPABASE_URL/auth/v1/otp" \
 
 # Wait for email in Mailpit
 echo "Waiting for email in Mailpit..."
-for i in $(seq 1 20); do
+for _ in $(seq 1 20); do
   LINK=$(curl -s "$MAILPIT_URL/api/v1/messages" | python3 -c "
 import sys, json, urllib.request, re
 d = json.load(sys.stdin)

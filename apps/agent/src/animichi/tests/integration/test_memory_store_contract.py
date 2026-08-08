@@ -5,7 +5,11 @@ from __future__ import annotations
 import asyncpg
 from pydantic_ai_harness.memory import PostgresMemoryStore
 
-_MIGRATION_VERSION = "20260719000001"
+_MIGRATION_VERSIONS = {
+    "20260809000004",
+    "20260809000005",
+    "20260809000006",
+}
 _TABLES = {
     "agent_memory",
     "agent_memory_operations",
@@ -26,9 +30,9 @@ async def _cleanup(pool: asyncpg.Pool) -> None:
 async def test_memory_schema_lands_through_atlas_migration(
     db_pool: asyncpg.Pool,
 ) -> None:
-    revision = await db_pool.fetchval(
-        "SELECT version FROM public.atlas_schema_revisions WHERE version = $1",
-        _MIGRATION_VERSION,
+    revisions = await db_pool.fetch(
+        "SELECT version FROM public.atlas_schema_revisions WHERE version = ANY($1::text[])",
+        sorted(_MIGRATION_VERSIONS),
     )
     rows = await db_pool.fetch(
         "SELECT tablename FROM pg_tables "
@@ -39,7 +43,7 @@ async def test_memory_schema_lands_through_atlas_migration(
         "SELECT to_regclass('public.agent_memory_versions')::text"
     )
 
-    assert revision == _MIGRATION_VERSION
+    assert {row["version"] for row in revisions} == _MIGRATION_VERSIONS
     assert {row["tablename"] for row in rows} == _TABLES
     assert sequence == "agent_memory_versions"
 
