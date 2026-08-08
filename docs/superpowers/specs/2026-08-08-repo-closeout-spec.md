@@ -27,7 +27,7 @@
 ### P1 — Documentation and docs/ reorg
 
 - Matt-skill docs: ADR 0003/0004/0005 (written); campaign spec (this file); hook design (`docs/ops/local-gates.md`); merge as one docs PR.
-- W1 docs/ reorg: fresh inventory → `git mv` (superpowers specs → `docs/specs/` + archive buckets) → reference rewrites (scripted, enumerated by `git grep`) → DOCS_POLICY map/pointer update → zero-check (`git grep docs/superpowers` / `docs/adr/` = 0).
+- W1 docs/ reorg: fresh inventory → `git mv` (superpowers specs → `docs/specs/` + archive buckets) → reference rewrites (scripted, enumerated by `git grep`) → DOCS_POLICY map/pointer update → zero-check (`git grep docs/superpowers` = 0; `docs/adr/` stays canonical — ADRs 0003-0005 are registered in DOCS_POLICY/CONTEXT-MAP and are not a legacy path).
 - W0 remainder: GitHub deployments record sweep (inactive → DELETE, admin token), `.codacy.yml` path verification, `.gitignore` + `.DS_Store`.
 - Restructure §4 verification leftovers: deno.lock discovery, sqlfluff upward discovery, Sonar config file, zero-ref specs, `make dev-local` wrangler dependency, `git filter-repo --analyze` blood report, R2 image-link form.
 - Acceptance: zero grep hits on legacy paths; DOCS_POLICY map matches the tree; verification table with conclusions.
