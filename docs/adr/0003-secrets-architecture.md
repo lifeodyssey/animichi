@@ -1,5 +1,13 @@
 # Secrets architecture: Cloudflare Secrets Store as runtime truth, Neon-hosted role passwords, Pulumi-managed roles
 
+> **Status**: accepted — records the target architecture, **not yet implemented as of writing**.
+> Current deployment still delivers `*_DATABASE_URL` via GitHub env secrets + `wrangler secret
+> bulk`, and `scripts/staging-roles-login.sh` still exists. The migration boundary is defined in
+> **P4 — Secrets re-architecture** of `docs/superpowers/specs/2026-08-08-repo-closeout-spec.md`
+> (Pulumi `neon.Role` → compose DSNs → write Secrets Store; remove `wrangler secret bulk` steps
+> and GitHub `*_DATABASE_URL` secrets; delete `scripts/staging-roles-login.sh`). This ADR is
+> authoritative for the target state; the spec's P4 wave owns the cutover.
+
 The skeleton-refactor campaign exposed three broken assumptions about secrets: (1) GitHub Actions secrets are a values source, not a delivery layer — the `workflow_call.secrets` shadowing bug (#826) cost three deploy cycles; (2) psql out-of-band scripts are not infrastructure (`scripts/staging-roles-login.sh` did `ALTER ROLE ... LOGIN PASSWORD` by hand); (3) the #674 ESC centralisation direction assumed a Pulumi Cloud account, which the repo does not use (self-managed R2 backend).
 
 ## Decision

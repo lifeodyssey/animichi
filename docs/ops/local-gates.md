@@ -14,6 +14,13 @@ Campaign lesson: code repeatedly reached CI that local gates should have caught 
 | Path prefix | Package | pre-commit lint | pre-push checks |
 |---|---|---|---|
 | `apps/agent/` | agent | ruff + ruff-format (py) | `uv run mypy` + `uv run pytest src/animichi/tests/unit -q --cov --cov-fail-under=82` |
+
+Coverage floors are an intentional local/CI split: the local pre-push gate runs
+at `--cov-fail-under=82` as a fast signal (mirrors the merged
+`.pre-commit-config.yaml`), while CI remains the terminal gate at the canonical
+`apps/agent` floor of 87 (`apps/agent/pyproject.toml`; AGENTS.md). The local
+floor is deliberately looser than the CI floor — a red push must be the
+exception, but only CI is authoritative for coverage.
 | `apps/web/` | web | oxlint (type-aware) | `tsc --noEmit` + vitest unit |
 | `workers/catalog/` | catalog | oxlint | `tsc --noEmit` + vitest worker suite |
 | `workers/users/` | users | oxlint | `tsc --noEmit` + vitest |
@@ -31,7 +38,7 @@ Campaign lesson: code repeatedly reached CI that local gates should have caught 
 
 ## Changed-package detection
 
-```
+```text
 scripts/local-gates/changed-packages.sh
   base = origin/main (or HEAD^ when origin is missing)
   git diff --name-only $base...HEAD | prefix-map → sorted unique package set
