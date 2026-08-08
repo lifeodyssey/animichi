@@ -2,7 +2,7 @@ import type { ChatDataPart } from "@animichi/contract";
 import { routeOf } from "../components/Cards";
 import type { SpotRow } from "../components/Cards";
 import type { ChatDict } from "../i18n";
-import { saveRouteTitle } from "../route-copy";
+import { saveSavedRouteTitle } from "../route-copy";
 
 /** Everything create-on-login needs from a rendered route card. */
 export interface SaveTarget {
@@ -29,5 +29,5 @@ export function routeSaveTarget(part: ChatDataPart, dict: ChatDict): SaveTarget 
   const route = routeOf(part);
   const pointIds = pointIdsOf(route?.ordered_points ?? []);
   if (pointIds.length === 0) return undefined;
-  return { pointIds, title: saveRouteTitle(dict, route?.anime_title, pointIds.length) };
+  return { pointIds, title: saveSavedRouteTitle(dict, route?.anime_title, pointIds.length) };
 }

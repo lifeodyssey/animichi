@@ -8,25 +8,25 @@ import { createUsersClient } from "../../../src/api/clients";
 import { server } from "../../msw/node";
 import { TEST_ORIGIN } from "../../msw/fixtures";
 
-const ROUTES_URL = `${TEST_ORIGIN}/v1/users/routes`;
+const SAVED_ROUTES_URL = `${TEST_ORIGIN}/v1/users/saved-routes`;
 
 describe("users client", () => {
   it("lists routes through the lazy users utils singleton", async () => {
-    server.use(http.get(ROUTES_URL, () => HttpResponse.json({ routes: [] })));
-    const result = await users().listRoutes.call();
-    expect(result.routes).toEqual([]);
+    server.use(http.get(SAVED_ROUTES_URL, () => HttpResponse.json({ saved_routes: [] })));
+    const result = await users().listSavedRoutes.call();
+    expect(result.saved_routes).toEqual([]);
   });
 
   it("forwards the auth header on users requests", async () => {
     let seen: string | null = null;
     server.use(
-      http.get(ROUTES_URL, ({ request }) => {
+      http.get(SAVED_ROUTES_URL, ({ request }) => {
         seen = request.headers.get("authorization");
-        return HttpResponse.json({ routes: [] });
+        return HttpResponse.json({ saved_routes: [] });
       }),
     );
     const client = createUsersClient({ url: TEST_ORIGIN });
-    await client.listRoutes(undefined, { context: { headers: { authorization: "Bearer u" } } });
+    await client.listSavedRoutes(undefined, { context: { headers: { authorization: "Bearer u" } } });
     expect(seen).toBe("Bearer u");
   });
 });

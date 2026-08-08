@@ -1,24 +1,25 @@
 import { http, HttpResponse } from "msw";
 import type { HttpHandler, JsonBodyType } from "msw";
-import { ListRoutesResult, type UserRoute } from "@animichi/contract";
+import { ListSavedRoutesResult, type SavedRoute } from "@animichi/contract";
 import { orpcErrorResponse } from "./contract-handler";
 import { TEST_ORIGIN } from "./fixtures";
 
 /**
- * Contract-typed MSW swimlane for `users.listRoutes` (GET). Same discipline as
- * the anime swimlane: every body is `parse()`d with the contract output schema,
- * so a malformed fixture fails the request instead of leaking a wrong shape.
+ * Contract-typed MSW swimlane for `users.listSavedRoutes` (GET). Same
+ * discipline as the anime swimlane: every body is `parse()`d with the contract
+ * output schema, so a malformed fixture fails the request instead of leaking a
+ * wrong shape.
  */
-export const USER_ROUTES_URL = `${TEST_ORIGIN}/v1/users/routes`;
+export const USER_SAVED_ROUTES_URL = `${TEST_ORIGIN}/v1/users/saved-routes`;
 
 /** A saved route with three points (the shell renders skeleton itinerary slots). */
 export const SAVED_ROUTE_ID = "11111111-1111-4111-8111-111111111111";
 /** A saved route with zero points (renders the empty state). */
 export const EMPTY_ROUTE_ID = "22222222-2222-4222-8222-222222222222";
-/** A completed route (renders the 完走 hero badge). */
+/** A completed saved route (renders the 完走 hero badge). */
 export const COMPLETED_ROUTE_ID = "33333333-3333-4333-8333-333333333333";
 
-const routesFixture: readonly UserRoute[] = [
+const savedRoutesFixture: readonly SavedRoute[] = [
   {
     id: SAVED_ROUTE_ID,
     title: "Suga Shrine loop",
@@ -45,12 +46,12 @@ const routesFixture: readonly UserRoute[] = [
   },
 ];
 
-/** Default handler: the caller's fixture routes. */
-export const userRoutesHandler: HttpHandler = http.get(USER_ROUTES_URL, () =>
-  HttpResponse.json(ListRoutesResult.parse({ routes: routesFixture }) as JsonBodyType),
+/** Default handler: the caller's fixture saved routes. */
+export const userSavedRoutesHandler: HttpHandler = http.get(USER_SAVED_ROUTES_URL, () =>
+  HttpResponse.json(ListSavedRoutesResult.parse({ saved_routes: savedRoutesFixture }) as JsonBodyType),
 );
 
 /** An always-failing handler for loader error-path tests. */
-export const userRoutesOutageHandler: HttpHandler = http.get(USER_ROUTES_URL, () =>
+export const userSavedRoutesOutageHandler: HttpHandler = http.get(USER_SAVED_ROUTES_URL, () =>
   orpcErrorResponse({ code: "INTERNAL_SERVER_ERROR", status: 500, message: "users unavailable" }),
 );

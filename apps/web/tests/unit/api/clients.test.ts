@@ -46,32 +46,32 @@ describe("createUsersClient", () => {
   it("resolves an async headers factory before every request", async () => {
     let seen: string | null = null;
     server.use(
-      http.get("https://users.test/v1/users/routes", ({ request }) => {
+      http.get("https://users.test/v1/users/saved-routes", ({ request }) => {
         seen = request.headers.get("authorization");
-        return HttpResponse.json({ routes: [] });
+        return HttpResponse.json({ saved_routes: [] });
       }),
     );
     const client = createUsersClient({
       url: "https://users.test",
       headers: () => Promise.resolve({ Authorization: "Bearer async-tok" }),
     });
-    await client.listRoutes();
+    await client.listSavedRoutes();
     expect(seen).toBe("Bearer async-tok");
   });
 
   it("lets per-call context headers override the async factory default", async () => {
     let seen: string | null = null;
     server.use(
-      http.get("https://users.test/v1/users/routes", ({ request }) => {
+      http.get("https://users.test/v1/users/saved-routes", ({ request }) => {
         seen = request.headers.get("authorization");
-        return HttpResponse.json({ routes: [] });
+        return HttpResponse.json({ saved_routes: [] });
       }),
     );
     const client = createUsersClient({
       url: "https://users.test",
       headers: () => Promise.resolve({ Authorization: "Bearer default-tok" }),
     });
-    await client.listRoutes(undefined, { context: { headers: { Authorization: "Bearer override" } } });
+    await client.listSavedRoutes(undefined, { context: { headers: { Authorization: "Bearer override" } } });
     expect(seen).toBe("Bearer override");
   });
 });

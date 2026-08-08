@@ -58,9 +58,9 @@ async function send(page: Page, text: string): Promise<void> {
   await page.getByRole("button", { name: ja.send }).click();
 }
 
-/** Record every users.saveRoute body the app sends, answering with a saved row. */
+/** Record every users.saveSavedRoute body the app sends, answering with a saved row. */
 async function captureSaves(context: BrowserContext, bodies: unknown[]): Promise<void> {
-  await context.route("**/v1/users/routes", async (route) => {
+  await context.route("**/v1/users/saved-routes", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     bodies.push(route.request().postDataJSON());
     return route.fulfill({

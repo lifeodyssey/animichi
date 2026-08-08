@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { useSaveRoute } from "../../../api/hooks/use-save-route";
-import type { SaveRouteRequest, SaveRouteStatus } from "../../../api/hooks/use-save-route";
+import { useSavedRoute } from "../../../api/hooks/use-saved-route";
+import type { SaveSavedRouteRequest, SaveSavedRouteStatus } from "../../../api/hooks/use-saved-route";
 import { fetchAuthStatus, useAuthStatus } from "../../../lib/auth/session";
 import type { AuthStatus } from "../../../lib/auth/session";
 import { toSaveInput } from "./create-on-login";
@@ -26,7 +26,7 @@ export function saveAction(target: SaveTarget | undefined, status: AuthStatus): 
 
 export interface SaveGate {
   readonly action: SaveAction;
-  readonly status: SaveRouteStatus;
+  readonly status: SaveSavedRouteStatus;
   readonly loginOpen: boolean;
   readonly activate: () => void;
   readonly closeLogin: () => void;
@@ -38,7 +38,7 @@ export interface SaveGate {
 /** Injectable for tests; production callers rely on the defaults. */
 export interface SaveGateOptions {
   readonly authStatus?: AuthStatus;
-  readonly request?: SaveRouteRequest;
+  readonly request?: SaveSavedRouteRequest;
 }
 
 /** An injected status is already the answer — don't spend a `getSession` round
@@ -52,7 +52,7 @@ function useResolvedAuthStatus(override: AuthStatus | undefined): AuthStatus {
   return override ?? detected;
 }
 
-type Save = (input: ReturnType<typeof toSaveInput>) => Promise<SaveRouteStatus>;
+type Save = (input: ReturnType<typeof toSaveInput>) => Promise<SaveSavedRouteStatus>;
 
 /** A save rejected as unauthorized re-enters the wall with a fresh intent
  * rather than offering a retry that would fail identically. */
@@ -119,7 +119,7 @@ function useCloseLogin(setLoginOpen: (open: boolean) => void, committed: RefObje
 export function useSaveGate(target: SaveTarget | undefined, options: SaveGateOptions = {}): SaveGate {
   const detected = useResolvedAuthStatus(options.authStatus);
   const wall = useWall();
-  const { status, save } = useSaveRoute(options.request);
+  const { status, save } = useSavedRoute(options.request);
   const action = saveAction(target, detected);
   useEffect(() => { pruneDeferredSave(); }, []);
   const activate = useActivate(action, target, save, wall.openLogin);
