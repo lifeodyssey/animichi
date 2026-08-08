@@ -16,9 +16,10 @@ Both expressions appear under the default, staging, and production `[triggers]` 
 fails an unknown schedule instead of guessing which deletion to run.
 
 The session sweep retains the Python race guarantees: it finds anonymous, stale, routeless
-candidates, re-checks anonymous ownership and cutoff per session, and lets the `routes.session_id`
-foreign key roll back a raced deletion. Each session is isolated in its own atomic statement, so one
-FK race does not abort the remaining candidates.
+candidates, re-checks anonymous ownership and cutoff per session, and counts a delete that matches
+zero rows as raced. Each session is isolated in its own atomic statement, so a raced session does not
+abort the remaining candidates. The `routes.session_id` FK backstop no longer exists — the rename
+dropped the cross-BC FK (#852), so no FK race is possible.
 
 ## Secret chain
 
