@@ -19,7 +19,7 @@ Worker; the container trusts the forwarded `X-User-Id`.
 
 ```mermaid
 flowchart TD
-    EDGE["Cloudflare Worker - workers/edge/entry.ts<br/>strips Authorization, injects X-User-Id<br/>routes /v1 to the container"]
+    EDGE["Cloudflare Worker - workers/edge/src/entry.ts<br/>strips Authorization, injects X-User-Id<br/>routes /v1 to the container"]
 
     subgraph AGENT["Agent service - apps/agent"]
         API["FastAPI 0.139 + uvicorn, Python 3.13<br/>lifespan owns the catalog client and<br/>one shared model httpx client"]
