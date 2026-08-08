@@ -1,6 +1,17 @@
-# Fast local gate (<5s): ruff · oxlint · gitleaks run on every commit.
-# Heavy checks (mypy, full test suites + coverage) run on pre-push, since CI
-# is the authoritative gate for those — keeps commits fast per best practice.
+# Local gates — two stages:
+#
+#   pre-commit (fast, <10s): formatting, lint, secret scan, shell/workflow
+#     syntax — catches the classes of breakage that repeatedly reached CI
+#     during the skeleton-refactor campaign (ruff format, SC2086, TS lint,
+#     path drift).
+#
+#   pre-push (medium, <2min): typecheck + fast test suites + atlas checksum —
+#     CI stays authoritative for the slow lanes (full suites, eval, deploy),
+#     but a red push should be the exception, not the norm.
+#
+# Install: pre-commit install && pre-commit install --hook-type pre-push
+# Sourcery needs a one-time login (free): sourcery login
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -14,13 +25,17 @@ repos:
       - id: check-yaml
       - id: check-toml
 
+  # Ruff over ALL repo Python (apps/agent, scripts/, .github/scripts/) —
+  # previously scoped to apps/agent only, which let scripts/*.py lint
+  # failures (EXE001/BLE001/PLW1510) reach CI.
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.1
     hooks:
       - id: ruff
-        args: [--fix, apps/agent/src/animichi/]
+        args: [--fix]
+        types: [python]
       - id: ruff-format
-        args: [apps/agent/src/animichi/]
+        types: [python]
 
   # Secret scan — sub-second, official gitleaks pre-commit hook (SHA/tag-pinned).
   - repo: https://github.com/gitleaks/gitleaks
@@ -28,18 +43,44 @@ repos:
     hooks:
       - id: gitleaks
 
+  # Sourcery — Python refactoring suggestions (free community tier).
+  # One-time login required: `sourcery login`. Rules can be scoped later via
+  # a .sourcery.yaml if the default set is noisy.
+  - repo: https://github.com/sourcery-ai/sourcery
+    rev: v1.44.0
+    hooks:
+      - id: sourcery
+        types: [python]
+        args: [--no-summary]
+
   - repo: local
     hooks:
-      # Fast strict TS lint for the three live pnpm packages.
+      # Strict TS lint for every worker package + the web app (edge was
+      # missing; its lint failures reached CI in the #841 campaign).
       - id: oxlint
         name: oxlint (strict live-package lint)
         entry: pnpm run lint:oxlint
         language: system
-        files: ^(workers/catalog|workers/users|apps/web)/
+        files: ^(workers/catalog|workers/users|workers/edge|apps/web)/
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
 
-      # --- pre-push stage: heavy checks. Commits stay fast; CI is authoritative. ---
+      # Shell syntax + common pitfalls (SC2086 reached CI twice in #853/#857).
+      - id: shellcheck
+        name: shellcheck (scripts + CI shell)
+        entry: shellcheck --severity=warning
+        language: system
+        types: [shell]
+
+      # GitHub Actions syntax + workflow_call.secrets typing (actionlint.yaml
+      # carries the documented STAGING_GATE_TOKEN environment-secret escape).
+      - id: actionlint
+        name: actionlint (workflow syntax)
+        entry: actionlint
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
+
+      # --- pre-push stage: medium-weight checks. ---
       - id: mypy
         name: mypy
         entry: bash -c 'cd apps/agent && uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/'
@@ -54,5 +95,34 @@ repos:
         entry: bash -c 'cd apps/agent && SUPABASE_DB_URL=postgresql://unused@db.invalid/unused DEEPSEEK_API_KEY=test-key uv run pytest src/animichi/tests/unit/ -q --cov --cov-fail-under=82'
         language: system
         types: [python]
+        pass_filenames: false
+        stages: [pre-push]
+
+      # Edge worker node:test suite — 286 tests, seconds.
+      - id: edge-test-worker
+        name: edge worker tests (node:test)
+        entry: pnpm run test:worker
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      # Typecheck every worker package + shared contract (web is slow and
+      # stays CI-authoritative; TS errors in workers reached CI repeatedly).
+      - id: workers-typecheck
+        name: workers + contract typecheck
+        entry: pnpm --filter './workers/*' typecheck && pnpm --filter '@animichi/contract' typecheck
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      # Atlas chain integrity: checksum + parse, sub-second. Catches a stale
+      # atlas.sum or unparseable migration before CI's pipeline-db.
+      - id: atlas-validate
+        name: atlas migrate validate
+        entry: bash -c 'command -v atlas >/dev/null && atlas migrate validate --dir migrations/neon || /tmp/atlas-bin/atlas migrate validate --dir migrations/neon'
+        language: system
+        files: ^migrations/
         pass_filenames: false
         stages: [pre-push]
