@@ -32,12 +32,14 @@ function databaseWithOnePurgeableSession(): DatabaseClient {
 // The two SQL constants are re-stated here verbatim rather than imported into the
 // assertion, so an edit to src/purge.ts cannot silently redefine what "equivalent to
 // the Python original" means. Sources: session.py:31-37 and session.py:45-50,242-265.
+// #852 P1: the eligibility join targets saved_routes.claim_session_id and the FK
+// race backstop is gone (the routes→sessions FK was dropped by the rename).
 const EXPECTED_FIND_SQL = [
   "SELECT c.session_id",
   "FROM conversations c",
   "WHERE c.user_id LIKE 'anon\\_%' ESCAPE '\\'",
   "  AND c.updated_at < $1",
-  "  AND NOT EXISTS (SELECT 1 FROM routes r WHERE r.session_id = c.session_id)",
+  "  AND NOT EXISTS (SELECT 1 FROM saved_routes r WHERE r.claim_session_id = c.session_id)",
 ].join("\n");
 
 const EXPECTED_PURGE_SQL = [
@@ -79,7 +81,7 @@ describe("anonymous session retention", () => {
   it("uses the Python eligibility predicates and timestamp cutoff", async () => {
     const db = databaseWithOnePurgeableSession();
 
-    await expect(purgeAnonymousSessions(db)).resolves.toEqual({ purged: 1, raced: 0, failed: 0 });
+    await expect(purgeAnonymousSessions(db)).resolves.toEqual({ purged: 1, raced: 0 });
 
     expect(FIND_PURGEABLE_SESSIONS_SQL).toBe(EXPECTED_FIND_SQL);
     expect(db.query).toHaveBeenNthCalledWith(1, FIND_PURGEABLE_SESSIONS_SQL, [SESSION_CUTOFF]);
@@ -99,28 +101,16 @@ describe("anonymous session retention", () => {
 });
 
 describe("anonymous session race handling", () => {
-  it("isolates an FK race and continues the sweep", async () => {
-    const db = database();
-    const fkViolation = Object.assign(new Error("routes_session_id_fkey"), { code: "23503" });
-    vi.mocked(db.query)
-      .mockResolvedValueOnce(result(2, [{ session_id: "sess-race" }, { session_id: "sess-b" }]))
-      .mockRejectedValueOnce(fkViolation)
-      .mockResolvedValueOnce(result(1));
-
-    await expect(purgeAnonymousSessions(db)).resolves.toEqual({ purged: 1, raced: 0, failed: 1 });
-    expect(db.query).toHaveBeenCalledTimes(3);
-  });
-
   it("reports a re-check miss as raced", async () => {
     const db = database();
     vi.mocked(db.query)
       .mockResolvedValueOnce(result(1, [{ session_id: "sess-raced" }]))
       .mockResolvedValueOnce(result(0));
 
-    await expect(purgeAnonymousSessions(db)).resolves.toEqual({ purged: 0, raced: 1, failed: 0 });
+    await expect(purgeAnonymousSessions(db)).resolves.toEqual({ purged: 0, raced: 1 });
   });
 
-  it("propagates a non-FK database failure", async () => {
+  it("propagates a database failure", async () => {
     const db = database();
     vi.mocked(db.query)
       .mockResolvedValueOnce(result(1, [{ session_id: "sess-a" }]))

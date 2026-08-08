@@ -1,11 +1,9 @@
-// TODO(refactor-skeleton): J3 routes→saved_routes SQL with users rename — #836
 import type { DatabaseClient, QueryResult, QueryRow } from "./database";
 
 // The retired GHA jobs supplied no override, so both scripts used the defaults at
 // apps/agent/src/animichi/config/cron_settings.py:37-47.
 const RETENTION_DAYS = 30;
 const MILLISECONDS_PER_DAY = 86_400_000;
-const FOREIGN_KEY_VIOLATION = "23503";
 
 // Port of apps/agent/src/animichi/scripts/purge_anon_quota_counts.py:36,44.
 // Exact source SQL: apps/agent/src/animichi/infrastructure/supabase/repositories/anon_quota.py:40-42.
@@ -14,17 +12,19 @@ export const ANON_QUOTA_PURGE_SQL =
 
 // Port of apps/agent/src/animichi/scripts/purge_anonymous_sessions.py:70-75.
 // Exact source SQL: apps/agent/src/animichi/infrastructure/supabase/repositories/session.py:31-37.
+// #852 P1: saved_routes/claim_session_id; the routes FK backstop no longer
+// exists (greenfield drops the cross-BC FK), so no FK race is possible.
 export const FIND_PURGEABLE_SESSIONS_SQL = [
   "SELECT c.session_id",
   "FROM conversations c",
   "WHERE c.user_id LIKE 'anon\\_%' ESCAPE '\\'",
   "  AND c.updated_at < $1",
-  "  AND NOT EXISTS (SELECT 1 FROM routes r WHERE r.session_id = c.session_id)",
+  "  AND NOT EXISTS (SELECT 1 FROM saved_routes r WHERE r.claim_session_id = c.session_id)",
 ].join("\n");
 
 // Port of apps/agent/src/animichi/scripts/purge_anonymous_sessions.py:85-102.
 // Source predicates/transaction: apps/agent/src/animichi/infrastructure/supabase/repositories/session.py:45-50,242-265.
-// The data-modifying CTE is one atomic Neon HTTP statement: an FK failure rolls back both deletes.
+// The data-modifying CTE is one atomic Neon HTTP statement.
 export const PURGE_ANONYMOUS_SESSION_SQL = [
   "WITH deleted_conversation AS (",
   "  DELETE FROM conversations",
@@ -40,7 +40,6 @@ export const PURGE_ANONYMOUS_SESSION_SQL = [
 export interface PurgeReport {
   purged: number;
   raced: number;
-  failed: number;
 }
 
 type PurgeOutcome = keyof PurgeReport;
@@ -64,21 +63,6 @@ async function findPurgeableSessions(db: DatabaseClient, cutoff: Date): Promise<
   return result.rows.map(sessionId);
 }
 
-function isForeignKeyViolation(error: unknown): boolean {
-  if (typeof error !== "object" || error === null || !("code" in error)) return false;
-  return error.code === FOREIGN_KEY_VIOLATION;
-}
-
-async function purgeSession(
-  db: DatabaseClient,
-  sessionIdValue: string,
-  cutoff: Date,
-): Promise<PurgeOutcome> {
-  return deleteSession(db, sessionIdValue, cutoff).catch((error: unknown) =>
-    failedSession(error, sessionIdValue),
-  );
-}
-
 async function deleteSession(
   db: DatabaseClient,
   sessionIdValue: string,
@@ -86,12 +70,6 @@ async function deleteSession(
 ): Promise<PurgeOutcome> {
   const result = await db.query(PURGE_ANONYMOUS_SESSION_SQL, [sessionIdValue, cutoff]);
   return result.rowCount > 0 ? "purged" : "raced";
-}
-
-function failedSession(error: unknown, sessionIdValue: string): PurgeOutcome {
-  if (!isForeignKeyViolation(error)) throw error;
-  console.warn(JSON.stringify({ event: "anonymous_session_purge_failed", sessionIdValue }));
-  return "failed";
 }
 
 function increment(report: PurgeReport, outcome: PurgeOutcome): void {
@@ -103,8 +81,8 @@ async function purgeEach(
   sessionIds: readonly string[],
   cutoff: Date,
 ): Promise<PurgeReport> {
-  const report: PurgeReport = { purged: 0, raced: 0, failed: 0 };
-  for (const id of sessionIds) increment(report, await purgeSession(db, id, cutoff));
+  const report: PurgeReport = { purged: 0, raced: 0 };
+  for (const id of sessionIds) increment(report, await deleteSession(db, id, cutoff));
   return report;
 }
 
