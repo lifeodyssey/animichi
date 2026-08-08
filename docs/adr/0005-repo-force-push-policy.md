@@ -5,7 +5,7 @@ The skeleton-refactor campaign force-pushed feature branches continuously (`reba
 ## Decision
 
 - The `non_fast_forward` and `deletion` rules extend to **all branches** (ruleset pattern `*`), with **bypass actors = owner only** (`lifeodyssey`).
-- Daily workflow no longer uses local force-push: updating a feature branch against `main` is `git merge origin/main` + a normal push; PRs merge via GitHub rebase-merge (linear history is already enforced by `required_linear_history`).
+- Daily workflow no longer uses local force-push: updating a feature branch against `main` is `git merge origin/main` + a normal push; PRs merge via GitHub **squash** merge (one commit per PR; the ruleset `pull_request.allowed_merge_methods = ["squash"]` — amended from rebase on 2026-08-08 — and `required_linear_history` keeps the log linear).
 - A rewrite (W8 daily-squash, restructure W6 binary strip, or any forced update) is executed only inside the approved **history-rewrite window**: freeze declaration → double backup (git bundle + private archive repo) → rewrite → force-push as owner bypass → CI green + staging re-deploy evidence → `main-legacy` retained ≥30 days. The runbook is `docs/ops/git-daily-squash-runbook.md`.
 - `--no-verify` pushes are not technically blockable server-side; CI remains the terminal gate (it runs the same checks the local hooks run), and the policy is documented here and in the runbook.
 
