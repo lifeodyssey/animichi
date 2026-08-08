@@ -50,7 +50,7 @@ export const TraceGpsCoordinates = GpsCoordinates.transform(({ latitude, longitu
 /** Walk check-in returned by workers/users. */
 export const WalkCheckin = z.strictObject({
   id: z.uuid(),
-  route_id: z.uuid(),
+  saved_route_id: z.uuid(),
   point_id: z.string().min(1).max(128),
   client_id: z.uuid(),
   coordinates: GpsCoordinates,
@@ -63,7 +63,7 @@ export type WalkCheckin = z.infer<typeof WalkCheckin>;
 
 /** Offline-replay-safe input for submitting a walk check-in. */
 export const SubmitCheckinInput = z.strictObject({
-  route_id: z.uuid(),
+  saved_route_id: z.uuid(),
   point_id: z.string().min(1).max(128),
   client_id: z.uuid(),
   coordinates: GpsCoordinates,
@@ -73,9 +73,9 @@ export const SubmitCheckinInput = z.strictObject({
 /** Offline-replay-safe input for submitting a walk check-in. */
 export type SubmitCheckinInput = z.infer<typeof SubmitCheckinInput>;
 
-/** Optional route filter when listing the authenticated user's check-ins. */
-export const ListCheckinsInput = z.strictObject({ route_id: z.uuid().optional() });
-/** Optional route filter for listing check-ins. */
+/** Optional saved-route filter when listing the authenticated user's check-ins. */
+export const ListCheckinsInput = z.strictObject({ saved_route_id: z.uuid().optional() });
+/** Optional saved-route filter for listing check-ins. */
 export type ListCheckinsInput = z.infer<typeof ListCheckinsInput>;
 
 /** Check-ins owned by the authenticated user; an empty result is an empty array. */
@@ -93,10 +93,10 @@ export const CheckinReplayConflictData = z.strictObject({ client_id: z.uuid() })
 /** Inferred replay-conflict data. */
 export type CheckinReplayConflictData = z.infer<typeof CheckinReplayConflictData>;
 
-/** Data returned when a route is unavailable to the authenticated user. */
-export const CheckinRouteNotFoundData = z.strictObject({ route_id: z.uuid() });
-/** Inferred route-not-found data. */
-export type CheckinRouteNotFoundData = z.infer<typeof CheckinRouteNotFoundData>;
+/** Data returned when a saved route is unavailable to the authenticated user. */
+export const CheckinSavedRouteNotFoundData = z.strictObject({ saved_route_id: z.uuid() });
+/** Inferred saved-route-not-found data. */
+export type CheckinSavedRouteNotFoundData = z.infer<typeof CheckinSavedRouteNotFoundData>;
 
 /** Data returned when a pilgrimage point does not exist. */
 export const CheckinPointNotFoundData = z.strictObject({ point_id: z.string() });
@@ -118,11 +118,11 @@ export const CHECKIN_ERROR_DEFS = {
     message: "Idempotency key was already used with a different payload",
     data: CheckinReplayConflictData,
   },
-  CHECKIN_ROUTE_NOT_FOUND: {
+  CHECKIN_SAVED_ROUTE_NOT_FOUND: {
     status: 404,
     category: "user_actionable",
-    message: "No such user route",
-    data: CheckinRouteNotFoundData,
+    message: "No such saved route",
+    data: CheckinSavedRouteNotFoundData,
   },
   CHECKIN_POINT_NOT_FOUND: {
     status: 404,
@@ -156,7 +156,7 @@ export const checkinContract = {
     .input(SubmitCheckinInput)
     .errors(pickCheckinErrors([
       "CHECKIN_REPLAY_CONFLICT",
-      "CHECKIN_ROUTE_NOT_FOUND",
+      "CHECKIN_SAVED_ROUTE_NOT_FOUND",
       "CHECKIN_POINT_NOT_FOUND",
     ]))
     .output(WalkCheckin),

@@ -59,7 +59,7 @@ describe("share token inputs", () => {
   );
 
   it("accepts an authenticated create request without client-controlled expiry", () => {
-    expect(CreateShareInput.parse({ route_id: ROUTE_ID })).toEqual({ route_id: ROUTE_ID });
+    expect(CreateShareInput.parse({ saved_route_id: ROUTE_ID })).toEqual({ saved_route_id: ROUTE_ID });
   });
 
   it("accepts issued credentials with server-authored lifecycle timestamps", () => {
