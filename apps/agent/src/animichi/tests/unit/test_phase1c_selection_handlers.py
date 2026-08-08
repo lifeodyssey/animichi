@@ -149,7 +149,7 @@ async def test_empty_itinerary_is_error_terminal_without_route_write() -> None:
 
     assert (result.status, result.success) == ("error", False)
     assert ("plan_itinerary", (("a",), None, None)) in catalog.calls
-    assert not state.routes
+    assert not state.itineraries
     assert state.pending_clarification is not None
 
 
