@@ -93,15 +93,16 @@ on:
       # in infra) lets web/root smokes through on staging (#826).
       #
       # Resolution mechanism — DECLARE + CALLER-PASS, then the job-level
-      # `environment:` overrides the value: GitHub fills a name under the
-      # inside a callable workflow ONLY for names that appear BOTH under
-      # `on.workflow_call.secrets` AND in the caller's `secrets:` map. When
+      # `environment:` overrides the value: GitHub fills a name in the
+      # callable-workflow secrets context ONLY for names that appear BOTH
+      # under `on.workflow_call.secrets` AND in the caller's `secrets:` map.
+      # When
       # the name is present, the job's `environment:` wins over whatever the
       # caller passed (verified: users' NEON_AUTH_JWKS_URL resolves to the
       # staging-environment value, not the caller's, under exactly this
       # pattern — see the "Report resolved secret shape" step's #527 note).
       # With the declaration absent (#886's fix), the environment secret
-      # NEVER fills the name, `${{ secrets.STAGING_GATE_TOKEN }}` is empty,
+      # NEVER fills the name, and the `STAGING_GATE_TOKEN` lookup is empty,
       # and the staging WAF 403s the smoke. So: staging callers in ci.yml
       # pass it explicitly (they are the only ones that need it), and this
       # job's `environment: ${{ inputs.environment }}` resolves the
@@ -804,7 +805,8 @@ jobs:
           # `environment:` then resolves the staging-environment value.
           # Without the caller pass-through the name never fills and the
           # staging WAF 403s this smoke. Empty on production (no such
-          # environment secret, and prod callers omit it) is fine:
+          # environment secret — post-prod omits the mapping, while
+          # deploy-root-prod passes the name only for parity) is fine:
           # post-deploy-assert.sh only sends the header when the var is
           # non-empty, and the gate ruleset only matches the staging
           # hostname anyway.
