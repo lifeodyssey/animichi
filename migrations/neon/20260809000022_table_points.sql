@@ -7,7 +7,7 @@ CREATE TABLE public.points (
     name_cn text,
     latitude double precision NOT NULL,
     longitude double precision NOT NULL,
-    location public.geography(Point,4326),
+    location public.GEOGRAPHY(POINT,4326),
     image text,
     episode integer,
     time_seconds integer DEFAULT 0,

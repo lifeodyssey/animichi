@@ -3,6 +3,7 @@
 CREATE FUNCTION public.sync_points_coordinates() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
+    BEGIN
     IF NEW.location IS NULL
        AND NEW.latitude IS NOT NULL
        AND NEW.longitude IS NOT NULL THEN
@@ -21,10 +22,8 @@ $$;
 CREATE FUNCTION public.update_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
-    NEW.updated_at = NOW();
+    BEGIN
+    NEW.updated_at := NOW();
     RETURN NEW;
 END;
 $$;
-
-
-

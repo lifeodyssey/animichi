@@ -8,7 +8,7 @@ CREATE TABLE public.daily_usage (
     output_tokens bigint DEFAULT 0 NOT NULL,
     cost_usd numeric(14,6) DEFAULT 0 NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT daily_usage_scope_check CHECK ((scope = ANY (ARRAY['anon'::text, 'user'::text, 'byok'::text])))
+    CONSTRAINT daily_usage_scope_check CHECK ((scope = ANY(ARRAY['anon'::text, 'user'::text, 'byok'::text])))
 );
 
 ALTER TABLE ONLY public.daily_usage

@@ -8,7 +8,7 @@ CREATE TABLE public.feedback (
     rating text NOT NULL,
     comment text,
     created_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT feedback_rating_check CHECK ((rating = ANY (ARRAY['good'::text, 'bad'::text])))
+    CONSTRAINT feedback_rating_check CHECK ((rating = ANY(ARRAY['good'::text, 'bad'::text])))
 );
 
 ALTER TABLE ONLY public.feedback

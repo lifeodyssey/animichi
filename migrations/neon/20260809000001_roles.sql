@@ -1,6 +1,7 @@
 -- Service roles (NOLOGIN; grants reference them)
 
 DO $$
+BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'catalog_svc') THEN
     CREATE ROLE catalog_svc NOLOGIN;
   END IF;

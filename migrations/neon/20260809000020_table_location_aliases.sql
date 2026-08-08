@@ -6,7 +6,7 @@ CREATE TABLE public.location_aliases (
     location_id text NOT NULL,
     lang text,
     priority integer DEFAULT 0 NOT NULL,
-    CONSTRAINT location_aliases_lang_check CHECK (((lang = ANY (ARRAY['ja'::text, 'zh'::text, 'en'::text])) OR (lang IS NULL)))
+    CONSTRAINT location_aliases_lang_check CHECK (((lang = ANY(ARRAY['ja'::text, 'zh'::text, 'en'::text])) OR (lang IS NULL)))
 );
 
 ALTER TABLE ONLY public.location_aliases

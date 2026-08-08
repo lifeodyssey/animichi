@@ -7,7 +7,7 @@ CREATE TABLE public.conversation_messages (
     content text NOT NULL,
     response_data jsonb,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT conversation_messages_role_check CHECK ((role = ANY (ARRAY['user'::text, 'assistant'::text])))
+    CONSTRAINT conversation_messages_role_check CHECK ((role = ANY(ARRAY['user'::text, 'assistant'::text])))
 );
 
 ALTER TABLE ONLY public.conversation_messages
