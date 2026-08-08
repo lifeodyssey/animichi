@@ -85,7 +85,7 @@ def _saved_route_anime_sql() -> str:
         "CREATE TABLE public.saved_route_anime",
         "REFERENCES public.saved_routes(id) ON DELETE CASCADE",
         "REFERENCES public.bangumi(id)",
-        'UNIQUE (saved_route_id, "position")',
+        "UNIQUE (saved_route_id, position)",
         "idx_saved_route_anime_bangumi",
     ],
 )
