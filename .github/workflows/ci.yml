@@ -299,6 +299,9 @@ jobs:
       working_directory: workers/catalog
       worker_secrets: DATABASE_URL
     secrets:
+      # #832: catalog_svc least-privilege DSN; fallback to NEON_DATABASE_URL
+      # (owner DSN) in the reusable until provisioned. Staging only.
+      CATALOG_DATABASE_URL: ${{ secrets.CATALOG_DATABASE_URL }}
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
@@ -354,6 +357,9 @@ jobs:
         DATABASE_URL
         NEON_AUTH_JWKS_URL
     secrets:
+      # #832: users_svc least-privilege DSN; fallback to owner DSN until
+      # provisioned. Staging only.
+      USERS_DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
