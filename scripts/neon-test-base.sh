@@ -84,7 +84,7 @@ fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly ROOT
-readonly MIGRATIONS_DIR="$ROOT/db/migrations"
+readonly MIGRATIONS_DIR="$ROOT/migrations/neon"
 readonly SEED_FILE="$ROOT/apps/agent/src/animichi/tests/fixtures/seed.sql"
 [[ -d "$MIGRATIONS_DIR" ]] || die "migration directory not found"
 [[ -f "$SEED_FILE" ]] || die "seed file not found"

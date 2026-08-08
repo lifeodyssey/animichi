@@ -1,5 +1,5 @@
 # sqlfluff config for hand-written Postgres schema migrations.
-# Scope: db/migrations/ (Atlas) -- the Neon schema we own.
+# Scope: migrations/neon/ (Atlas) -- the Neon schema we own.
 # EXCLUDED: supabase/migrations/ (Supabase auth-DB history, not ours to restyle).
 #
 # These are consolidated DDL files with deliberate, valid Postgres idioms

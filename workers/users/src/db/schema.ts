@@ -7,7 +7,7 @@ import {
 
 /**
  * Typing only — queries go through the raw sql tagged template (workerd
- * gotcha). The Atlas SQL files under db/migrations are authoritative; this
+ * gotcha). The Atlas SQL files under migrations/neon are authoritative; this
  * schema never generates or applies migrations.
  */
 export const savedRoutes = pgTable("saved_routes", {

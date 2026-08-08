@@ -1,6 +1,6 @@
 /**
  * Itinerary-snapshot storage over `itinerary_snapshots`
- * (`db/migrations/20260623000001_init.sql`, renamed by the #852 catalog
+ * (`migrations/neon/20260623000001_init.sql`, renamed by the #852 catalog
  * migration): id, bangumi_id, cluster_version, payload JSONB, created_at.
  *
  * A snapshot is bound to a specific cluster_version so an itinerary computed

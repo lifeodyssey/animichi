@@ -7,7 +7,7 @@
 # dry-runs against real Neon/Supabase when the environment secrets exist.
 # The push paths carry the old migrations filter's read closure: the boundary
 # guard reads ci.yml/deploy.yml, docs/ops/migrations.md, README*, Makefile and
-# db/migrations/atlas.sum itself.
+# migrations/neon/atlas.sum itself.
 name: pipeline-db
 
 on:
@@ -20,7 +20,7 @@ on:
       - ".github/actions/**"
       - ".github/scripts/**"
       - ".github/workflows/pipeline-db.yml"
-      - "db/**"
+      - "migrations/**"
       - "supabase/migrations/**"
       - "docs/ops/migrations.md"
       - "docs/ops/deployment.md"
@@ -68,7 +68,7 @@ jobs:
           chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
           echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
       - name: Validate Atlas migration directory
-        run: atlas migrate validate --dir file://db/migrations
+        run: atlas migrate validate --dir file://migrations/neon
 
   build:
     name: DB / build
@@ -101,7 +101,7 @@ jobs:
             *\?*) scoped_url="${NEON_DATABASE_URL}&search_path=public" ;;
             *) scoped_url="${NEON_DATABASE_URL}?search_path=public" ;;
           esac
-          atlas migrate apply --dry-run --dir "file://db/migrations" \
+          atlas migrate apply --dry-run --dir "file://migrations/neon" \
             --url "$scoped_url" --revisions-schema public
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         if: env.SUPABASE_DB_URL != ''

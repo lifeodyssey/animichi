@@ -6,7 +6,7 @@ on:
   push:
     branches: [main, feat/frontend-rebuild]
     paths:
-      - db/migrations/**
+      - migrations/neon/**
       - apps/agent/src/animichi/tests/fixtures/seed.sql
 
 permissions:

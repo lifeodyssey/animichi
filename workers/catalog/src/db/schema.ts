@@ -14,7 +14,7 @@ import {
  * Drizzle read/query schema for the Catalog service.
  *
  * Query-only: column names and types mirror the live Postgres schema exactly
- * (db/migrations/20260623000001_init.sql). The pipeline cards own all
+ * (migrations/neon/20260623000001_init.sql). The pipeline cards own all
  * inserts/updates; nothing here exposes write helpers.
  *
  * `location` is PostGIS GEOGRAPHY(Point,4326). Drizzle has no native geography

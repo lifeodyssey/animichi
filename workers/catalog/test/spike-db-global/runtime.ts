@@ -19,7 +19,7 @@ export interface SpikeRuntime {
  * container neither binds 5432 on current runners nor survives the serverless
  * fetch round-trip. The ephemeral branch's own connection URI is the only
  * endpoint the suite needs. Cloud-created branches start empty, so the Atlas
- * migration chain (db/migrations) is applied before the suite runs — this is
+ * migration chain (migrations/neon) is applied before the suite runs — this is
  * the schema-as-code path the python-integration lane already uses.
  */
 export async function buildDirectContext(
@@ -37,7 +37,7 @@ export async function buildDirectContext(
 }
 
 async function applyMigrations(directDsn: string): Promise<void> {
-  const migrationsDir = new URL("../../../../db/migrations/", import.meta.url);
+  const migrationsDir = new URL("../../../../migrations/neon/", import.meta.url);
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);

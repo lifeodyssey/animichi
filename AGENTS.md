@@ -20,7 +20,7 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
 - `workers/edge/`      — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy. No page fallback — unmatched paths 404.
-- `db/`                — Atlas/Neon migrations; Supabase migrations stay auth-only. → `db/AGENTS.md`
+- `migrations/neon/`    — Atlas/Neon migrations (moved from `db/migrations`); Supabase migrations stay auth-only in `supabase/`. → `migrations/AGENTS.md`
 - `e2e/`               — Playwright browser suite for `apps/web`. → `e2e/AGENTS.md`
 - `infra/`             — Pulumi Cloudflare IaC. → `infra/AGENTS.md`
 
@@ -118,7 +118,7 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
   | `pulumi:pulumi-best-practices` · `pulumi:pulumi-component` · `pulumi:pulumi-esc` · `pulumi:pulumi-automation-api` | IaC in `infra/` — Cloudflare R2 / routes / DNS / secrets, stacks, ESC. |
   | `better-auth:create-auth-skill` · `better-auth:better-auth-best-practices` | Auth work as we migrate onto Neon Auth (Better Auth) (`workers/users`, login). |
   | `ai-sdk` | Frontend AI SDK streaming/UI in the TanStack rebuild (`apps/web`). |
-  | `atlas` | Schema migrations in `db/migrations` — diff/lint/apply. |
+  | `atlas` | Schema migrations in `migrations/neon` — diff/lint/apply. |
 
 ## Harness (4-role agent system)
 
