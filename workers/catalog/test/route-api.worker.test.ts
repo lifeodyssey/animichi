@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { route, type PilgrimagePoint, type RouteDb } from "../src/api/route";
+import { planItinerary, type Point, type RouteDb } from "../src/api/route";
 
 /**
  * Tests for the `route` read API handler (catalog/src/api/route.ts), which
  * composes the data layer (fetch points + bangumi) with the pure W2-1 kernel
- * (catalog/src/domain/itinerary/plan.ts) to produce a contract `Route`.
+ * (catalog/src/domain/itinerary/plan.ts) to produce a contract `Itinerary`.
  *
  * No Docker: a typed fake `RouteDb` returns fixture rows shaped exactly like the
  * `SELECT ... FROM points LEFT JOIN bangumi` the handler issues, so this is a
- * pure-logic check of fetch -> cluster -> itinerary -> Route assembly. Named
+ * pure-logic check of fetch -> cluster -> itinerary -> Itinerary assembly. Named
  * *.worker.test.ts so the vitest-pool-workers config picks it up.
  *
  * Fixture (3 points on a meridian, > 50m apart so each is its own cluster;
@@ -63,10 +63,10 @@ function fakeDb(rows: FakeRow[]): RouteDb {
   };
 }
 
-const ids = (ps: PilgrimagePoint[]): string[] => ps.map((p) => p.id);
+const ids = (ps: Point[]): string[] => ps.map((p) => p.id);
 
 async function assertTimedRoute(): Promise<void> {
-  const r = await route(fakeDb(ROWS), { point_ids: ["a", "b", "c"], pacing: "normal" });
+  const r = await planItinerary(fakeDb(ROWS), { point_ids: ["a", "b", "c"], pacing: "normal" });
   expect(r.point_count).toBe(3);
   expect(r.timed_itinerary.stops.map((s) => s.cluster_id)).toEqual(["a", "b", "c"]);
   expect(r.timed_itinerary.legs.map((l) => [l.from_id, l.to_id])).toEqual([["a", "b"], ["b", "c"]]);
@@ -75,7 +75,7 @@ async function assertTimedRoute(): Promise<void> {
 }
 
 async function assertPointFields(): Promise<void> {
-  const r = await route(fakeDb(ROWS), { point_ids: ["a"] });
+  const r = await planItinerary(fakeDb(ROWS), { point_ids: ["a"] });
   const [a] = r.ordered_points;
   expect(a?.screenshot_url).toBe("a.jpg");
   expect(a?.bangumi_id).toBe("k");
@@ -84,23 +84,23 @@ async function assertPointFields(): Promise<void> {
   expect(r.timed_itinerary.legs).toEqual([]);
 }
 
-describe("route API handler — fetch -> cluster -> itinerary -> Route", () => {
-  it("plans a timed route with a stop+leg itinerary for the selected ids", assertTimedRoute);
+describe("planItinerary API handler — fetch -> cluster -> itinerary -> Itinerary", () => {
+  it("plans a timed itinerary with a stop+leg itinerary for the selected ids", assertTimedRoute);
 
   it("returns ordered_points in itinerary order (NN from origin near c -> c,b,a)", async () => {
-    const r = await route(fakeDb(ROWS), { point_ids: ["a", "b", "c"], origin: { lat: 35.0025, lng: 135.0 } });
+    const r = await planItinerary(fakeDb(ROWS), { point_ids: ["a", "b", "c"], origin: { lat: 35.0025, lng: 135.0 } });
     expect(ids(r.ordered_points)).toEqual(["c", "b", "a"]);
     expect(r.timed_itinerary.stops.map((s) => s.cluster_id)).toEqual(["c", "b", "a"]);
   });
 
   it("ordered_points (no origin) follow alphabetical NN seed a,b,c", async () => {
-    const r = await route(fakeDb(ROWS), { point_ids: ["c", "a", "b"] });
+    const r = await planItinerary(fakeDb(ROWS), { point_ids: ["c", "a", "b"] });
     expect(ids(r.ordered_points)).toEqual(["a", "b", "c"]);
     expect(r.point_count).toBe(3);
   });
 
   it("carries anime title + cover metadata from the lead point", async () => {
-    const r = await route(fakeDb(ROWS), { point_ids: ["a", "b", "c"] });
+    const r = await planItinerary(fakeDb(ROWS), { point_ids: ["a", "b", "c"] });
     expect(r.anime_title).toBe("Lucky Star");
     expect(r.anime_title_cn).toBe("幸运星");
     expect(r.cover_url).toBe("cover.jpg");
@@ -109,7 +109,7 @@ describe("route API handler — fetch -> cluster -> itinerary -> Route", () => {
   it("maps point fields: screenshot_url from image, coordinates as numbers", assertPointFields);
 
   it("unknown ids -> point_count 0 with an empty itinerary", async () => {
-    const r = await route(fakeDb(ROWS), { point_ids: ["nope", "missing"] });
+    const r = await planItinerary(fakeDb(ROWS), { point_ids: ["nope", "missing"] });
     expect(r.point_count).toBe(0);
     expect(r.ordered_points).toEqual([]);
     expect(r.timed_itinerary.stops).toEqual([]);
@@ -117,13 +117,13 @@ describe("route API handler — fetch -> cluster -> itinerary -> Route", () => {
   });
 
   it("empty point_ids -> point_count 0 (no DB rows)", async () => {
-    const r = await route(fakeDb(ROWS), { point_ids: [] });
+    const r = await planItinerary(fakeDb(ROWS), { point_ids: [] });
     expect(r.point_count).toBe(0);
     expect(r.ordered_points).toEqual([]);
   });
 
   it("caps 51 clusters and discloses the successful truncation", async () => {
-    const r = await route(fakeDb(MANY_ROWS), { point_ids: MANY_ROWS.map((entry) => entry.id) });
+    const r = await planItinerary(fakeDb(MANY_ROWS), { point_ids: MANY_ROWS.map((entry) => entry.id) });
     expect(r.point_count).toBe(50);
     expect(r.timed_itinerary.stops).toHaveLength(50);
     expect(ids(r.ordered_points)).not.toContain("p050");
@@ -132,7 +132,7 @@ describe("route API handler — fetch -> cluster -> itinerary -> Route", () => {
 
   it("keeps the response shape unchanged at the 50-cluster cap", async () => {
     const rows = MANY_ROWS.slice(0, 50);
-    const r = await route(fakeDb(rows), { point_ids: rows.map((entry) => entry.id) });
+    const r = await planItinerary(fakeDb(rows), { point_ids: rows.map((entry) => entry.id) });
     expect(r.point_count).toBe(50);
     expect(r).not.toHaveProperty("truncated");
     expect(r).not.toHaveProperty("shown_cluster_count");

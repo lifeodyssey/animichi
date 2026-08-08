@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from animichi.clients.catalog_client import PilgrimagePoint
+from animichi.clients.catalog_client import Point
 from animichi.clients.geocode import GeocodeKind
 
 
@@ -323,9 +323,9 @@ def _title_aliases() -> dict[str, str]:
     }
 
 
-def _point(seed: PointSeed) -> PilgrimagePoint:
+def _point(seed: PointSeed) -> Point:
     names = TITLE_NAMES[seed.bangumi_id]
-    return PilgrimagePoint(
+    return Point(
         id=seed.pid,
         name=seed.name,
         name_cn=seed.name_cn,
@@ -340,8 +340,8 @@ def _point(seed: PointSeed) -> PilgrimagePoint:
     )
 
 
-def _fixture_points() -> dict[str, list[PilgrimagePoint]]:
-    points: dict[str, list[PilgrimagePoint]] = {}
+def _fixture_points() -> dict[str, list[Point]]:
+    points: dict[str, list[Point]] = {}
     for seed in POINT_SEEDS:
         points.setdefault(seed.bangumi_id, []).append(_point(seed))
     return points

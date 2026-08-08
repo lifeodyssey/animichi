@@ -7,9 +7,9 @@ import { ContinueFromCard } from "../../../src/components/home/ContinueFromCard"
 import { server } from "../../msw/node";
 import {
   draftRoute,
-  usersRoutesEmptyHandler,
-  usersRoutesUnauthorizedHandler,
-  usersRoutesWithDraftHandler,
+  usersSavedRoutesEmptyHandler,
+  usersSavedRoutesUnauthorizedHandler,
+  usersSavedRoutesWithDraftHandler,
 } from "../../msw/users";
 import { setLanguages } from "../_i18n";
 import { renderHome } from "./_render";
@@ -19,20 +19,20 @@ afterEach(cleanup);
 
 describe("ContinueFromCard", () => {
   it("shows the in-progress route with a resume link when one exists", async () => {
-    server.use(usersRoutesWithDraftHandler);
+    server.use(usersSavedRoutesWithDraftHandler);
     renderHome(<ContinueFromCard />);
     expect(await screen.findByText(draftRoute.title)).toBeTruthy();
     expect(screen.getByRole("link", { name: "再開する" }).getAttribute("href")).toBe(`/chat?route=${draftRoute.id}`);
   });
 
   it("renders nothing for a logged-out (unauthorized) caller", async () => {
-    server.use(usersRoutesUnauthorizedHandler);
+    server.use(usersSavedRoutesUnauthorizedHandler);
     renderHome(<ContinueFromCard />);
     await waitFor(() => { expect(screen.queryByText("続きから")).toBeNull(); });
   });
 
   it("renders nothing for a signed-in user with no in-progress route", async () => {
-    server.use(usersRoutesEmptyHandler);
+    server.use(usersSavedRoutesEmptyHandler);
     renderHome(<ContinueFromCard />);
     await waitFor(() => { expect(screen.queryByText("続きから")).toBeNull(); });
   });

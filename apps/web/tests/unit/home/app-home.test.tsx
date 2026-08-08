@@ -6,13 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppHome } from "../../../src/components/home/AppHome";
 import { server } from "../../msw/node";
 import { popularEmptyHandler } from "../../msw/popular";
-import { usersRoutesWithDraftHandler } from "../../msw/users";
+import { usersSavedRoutesWithDraftHandler } from "../../msw/users";
 import { setLanguages } from "../_i18n";
 import { renderHome } from "./_render";
 
 beforeEach(() => {
   setLanguages(["ja-JP"]);
-  server.use(popularEmptyHandler, usersRoutesWithDraftHandler);
+  server.use(popularEmptyHandler, usersSavedRoutesWithDraftHandler);
 });
 afterEach(cleanup);
 

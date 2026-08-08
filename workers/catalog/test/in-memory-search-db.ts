@@ -43,7 +43,7 @@ export interface Recorder {
 export function fakeDb(aliasIndex: AliasIndex, miss: MissStubs = {}): Recorder {
   const lookups: string[] = [], resolved: string[] = [], ingested: string[] = [];
   const db: SearchDb = {
-    workIdForAlias: (alias) => Promise.resolve(recordLookup(lookups, aliasIndex, alias)),
+    bangumiIdForAlias: (alias) => Promise.resolve(recordLookup(lookups, aliasIndex, alias)),
     pointsForWork: (workId) => Promise.resolve(pointsFor(aliasIndex, workId)),
     resolvePreview: (query) => resolvePreview(miss, resolved, query),
     runFullIngest: (workId) => runFullIngest(miss, ingested, workId),

@@ -25,15 +25,15 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from animichi.agents.agent_result import AgentResult
 from animichi.agents.animichi_runner import run_animichi_agent
 from animichi.agents.runtime_models import (
+    ItineraryResponseModel,
     QAResponseModel,
-    RouteResponseModel,
     SearchResponseModel,
 )
 from animichi.clients.catalog_client import CatalogClientProtocol
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 from animichi.tests.streaming_function_model import streaming_function_model
 
-_ALLOWED_CATALOG_METHODS = {"search", "spots", "nearby", "route"}
+_ALLOWED_CATALOG_METHODS = {"search", "spots", "nearby", "plan_itinerary"}
 
 
 def _returned(messages: list[ModelMessage], tool_name: str) -> bool:
@@ -175,10 +175,10 @@ def _route_driver(title: str) -> FunctionModel:
 
 
 async def test_route_case_returns_route_output_via_catalog() -> None:
-    """A full resolve->search->route flow yields typed RouteResponse offline."""
+    """A full resolve->search->route flow yields typed ItineraryResponse offline."""
     result, catalog = await _run(
         _route_driver("響け！ユーフォニアム"), text="響けの聖地を巡るルート"
     )
-    assert isinstance(result.output, RouteResponseModel)
+    assert isinstance(result.output, ItineraryResponseModel)
     assert ("route", (("p004", "p005", "p006"), None)) in catalog.calls
     assert {name for name, _ in catalog.calls} <= _ALLOWED_CATALOG_METHODS

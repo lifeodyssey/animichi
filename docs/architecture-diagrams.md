@@ -28,8 +28,8 @@ flowchart TD
         PAI["animichi agent - pydantic-ai 2.9.1<br/>6 tools, 5 typed outputs, output validator"]
     end
 
-    CAT["Catalog Worker - workers/catalog<br/>typed oRPC contract - packages/contract<br/>resolve, pointsByWorkId, route, geocode"]
-    PG[("Supabase Postgres + PostGIS<br/>sessions, messages, routes + route_anime<br/>via asyncpg")]
+    CAT["Catalog Worker - workers/catalog<br/>typed oRPC contract - packages/contract<br/>resolve, pointsByBangumiId, planItinerary, geocode"]
+    PG[("Supabase Postgres + PostGIS<br/>sessions, messages, saved_routes + saved_route_anime<br/>via asyncpg")]
     LLM["MiMo mimo-v2.5 - prod primary<br/>OpenAI SDK, header X-App-Client<br/>DeepSeek fallback dormant"]
     DDG["DuckDuckGo - web_search tool<br/>output wrapped as untrusted"]
     OBS["Logfire<br/>service animichi-runtime,<br/>environment = app_env"]
@@ -45,7 +45,7 @@ flowchart TD
 
 Endpoints (`interfaces/routes/`): `POST /v1/runtime` (JSON), `POST
 /v1/runtime/stream` (SSE step events), `POST /v1/chat` (Vercel AI protocol
-adapter over the same RuntimeAPI), plus read-only conversations/routes/bangumi
+adapter over the same RuntimeAPI), plus read-only conversations/bangumi
 routes and `/healthz`.
 
 ---
@@ -91,7 +91,7 @@ sequenceDiagram
     end
     API->>RB: agent_result_to_response
     RB->>RB: project data.results and data.route from<br/>THIS turn provenance only - never registry recency
-    API->>DB: envelope snapshot, messages, route + route_anime
+    API->>DB: envelope snapshot, messages
     API-->>C: 200 for success AND graceful terminals -<br/>clarify, partial, blocked, empty, too_large.<br/>400 invalid_selection. 500 only for real faults.
 ```
 
@@ -201,7 +201,7 @@ default and fallback actually need.
 ```mermaid
 flowchart TD
     subgraph TURN["During a turn"]
-        REGY["SessionState registry<br/>search_results maps ResultRef to rows and partial flag<br/>routes maps RouteRef to ordered points<br/>LRU-tracked, evictable refs"]
+        REGY["SessionState registry<br/>search_results maps ResultRef to rows and partial flag<br/>itineraries maps ItineraryRef to ordered points<br/>LRU-tracked, evictable refs"]
         PEND["PendingClarification<br/>reason, candidate_ids,<br/>ordered_candidates, revision"]
         PROV["TurnProvenance from steps -<br/>Produced or Rejected, Search or Route -<br/>what THIS turn actually did"]
     end
@@ -213,12 +213,10 @@ flowchart TD
     subgraph SAVE["Persisted per turn"]
         ENV["session envelope - ONE key<br/>session_state_v2 full snapshot,<br/>interactions stay pure history"]
         MSGS["messages - user and assistant,<br/>including clarify, partial and blocked turns"]
-        RTBL["routes table + route_anime join table"]
     end
 
     REGY --> ENV
     PROJ --> MSGS
-    PROJ --> RTBL
 
     subgraph NEXTTURN["Next request"]
         HYD["hydrate - envelope first,<br/>legacy interaction scan as fallback"]

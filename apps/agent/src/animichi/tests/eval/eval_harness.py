@@ -265,11 +265,11 @@ agent_dataset = Dataset(name=DATASET_NAME, cases=CASES, evaluators=build_evaluat
 
 
 async def _selected_task(inp: AgentInput) -> AgentResult:
-    from animichi.agents.selected_route import execute_selected_route
+    from animichi.agents.selected_route import execute_selected_itinerary
     from animichi.agents.session_state import SessionState
     from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 
-    return await execute_selected_route(
+    return await execute_selected_itinerary(
         point_ids=inp.selected_point_ids or [],
         state=SessionState(),
         origin=None,

@@ -17,6 +17,7 @@ Milestone:iter6 — cleanup campaign(#635-#655 + #665 + #666)
 
 ## 决议与调研档案
 
+- [retro-2026-08-06-five-days.md](./retro-2026-08-06-five-days.md) — 五日复盘(8/1–8/6:48 修复轮逐轮分类、13 次环境故障归因、三轨改进,owner 已拍板)
 - [decisions-2026-08-03.md](./decisions-2026-08-03.md) — 全域决议册(方法论/secrets/DB/CI-CD/网络/CF-native)
 - [spec-infra-governance.md](./spec-infra-governance.md) — infra 治理 spec(#674,8 卡)
 - [audit-cf-native-v2.md](./audit-cf-native-v2.md) — CF 全目录对照审计

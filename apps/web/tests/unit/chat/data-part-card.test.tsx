@@ -33,7 +33,7 @@ describe("DataPartCard", () => {
       message: "宇治の聖地を2件、徒歩ルートにまとめました。",
       data: {
         results: { rows: [{ id: "p1", name: "宇治橋" }, { id: "p2", name: "京阪宇治駅" }] },
-        route: { point_count: 2, total_walk_minutes: 12 },
+        itinerary: { point_count: 2, total_walk_minutes: 12 },
       },
     });
     expect(screen.getByText("宇治の聖地を2件、徒歩ルートにまとめました。")).toBeTruthy();
@@ -44,7 +44,7 @@ describe("DataPartCard", () => {
   it("appends the D3 short-route notice while keeping the spot cards", () => {
     renderPart({
       intent: "plan_route",
-      data: { route: { ordered_points: [{ id: "p1", name: "宇治橋" }], point_count: 1 } },
+      data: { itinerary: { ordered_points: [{ id: "p1", name: "宇治橋" }], point_count: 1 } },
     });
     expect(screen.getByText("宇治橋")).toBeTruthy();
     expect(screen.getByText(dict.errorStates.d3Notice)).toBeTruthy();

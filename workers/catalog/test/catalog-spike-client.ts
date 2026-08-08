@@ -16,7 +16,7 @@ export interface OverviewBody {
   points_length: number;
   circles: { region: string; count: number; lat: number; lng: number }[];
   scenes: { id: string; shot_count: number; screenshot_url: string | null; city?: string }[];
-  sample_routes: { region: string; point_ids: string[] }[];
+  sample_itineraries: { region: string; point_ids: string[] }[];
 }
 
 export interface RouteBody {

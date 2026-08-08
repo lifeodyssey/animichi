@@ -31,7 +31,7 @@ describe("spike database helper", () => {
     const statement = catalogTruncateSql();
 
     expect(CATALOG_TABLES).toHaveLength(12);
-    expect(statement).toContain('"route_anime"');
+    expect(statement).toContain('"saved_route_anime"');
     expect(statement).not.toMatch(/CASCADE/u);
     expect(statement).not.toMatch(/locations|location_aliases|atlas_schema_revisions/u);
     expect(statement).toMatch(/RESTART IDENTITY$/u);

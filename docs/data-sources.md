@@ -1,6 +1,9 @@
 # Gazetteer data sources
 
-The catalog gazetteer is compiled into an Atlas data migration. Raw source files are not committed.
+The catalog gazetteer is compiled into an independent seed file
+(`workers/catalog/data/gazetteer_seed.sql`), **not** an Atlas migration: it is loaded
+idempotently after the schema exists, keeping the `migrations/neon/` chain schema-only.
+Raw source files are not committed.
 
 ## MLIT N02-2023 railway stations
 
@@ -26,10 +29,11 @@ From the repository root, place the raw files at the canonical placeholder paths
 node --import tsx workers/catalog/scripts/build-gazetteer.ts \
   --stations data/raw/N02-23_Station.geojson \
   --cities data/raw/cities500.txt \
-  --out-sql db/migrations/20260714000002_gazetteer_data.sql \
+  --out-sql workers/catalog/data/gazetteer_seed.sql \
   --out-audit workers/catalog/data/gazetteer-audit.csv
-atlas migrate hash --dir file://db/migrations
 ```
+
+No `atlas migrate hash` step is needed — the seed is not part of the migration chain.
 
 The generator verifies both extracted inputs against
 `workers/catalog/data/gazetteer-sources.json` before building. A deliberate source refresh may use
@@ -39,5 +43,19 @@ before accepting regenerated artifacts.
 The generator reads the checked-in Japanese/Chinese city-name mapping at
 `apps/agent/src/animichi/agents/data/city_names_jp.json`. It emits stable ordering,
 500-row SQL batches, source-file SHA256 values, and the canonical command above in the generated
-migration header regardless of the actual input paths. Re-running with identical inputs is
+seed header regardless of the actual input paths. Re-running with identical inputs is
 byte-identical.
+
+## Loading the seed
+
+The seed requires the `locations` / `location_aliases` schema to already exist (apply the
+`migrations/neon/` chain first). It is idempotent (`INSERT ... ON CONFLICT DO NOTHING`),
+so re-running is a no-op:
+
+```sh
+DATABASE_URL='postgres://user:pass@host/db' make seed-gazetteer
+# or: DATABASE_URL=... scripts/seed-gazetteer.sh
+```
+
+`scripts/neon-test-base.sh` loads it as part of both `provision` and `refresh` of the
+`test-base` branch, so ephemeral branches inherit the gazetteer from their parent.

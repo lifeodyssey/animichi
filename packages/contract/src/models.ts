@@ -32,8 +32,7 @@ export type Pacing = z.infer<typeof Pacing>;
  * A single pilgrimage point row.
  * Mirrors PilgrimagePointModel in runtime_models.py.
  */
-export const PilgrimagePoint = z.object({
-  id: z.string(),
+export const Point = z.object({  id: z.string(),
   name: z.string(),
   name_cn: z.string().optional(),
   bangumi_id: z.string(),
@@ -49,7 +48,7 @@ export const PilgrimagePoint = z.object({
   cover_url: z.string().optional(),
   city: z.string().optional(),
 });
-export type PilgrimagePoint = z.infer<typeof PilgrimagePoint>;
+export type Point = z.infer<typeof Point>;
 
 /**
  * One region bubble for the public anime overview: a place name, its spot count,
@@ -79,16 +78,16 @@ export const AnimeScene = z.object({
 });
 export type AnimeScene = z.infer<typeof AnimeScene>;
 
-/** A suggested per-region sample route: the region name plus its member point ids. */
-export const AnimeSampleRoute = z.object({
+/** A suggested per-region sample itinerary: the region name plus its member point ids. */
+export const AnimeSampleItinerary = z.object({
   region: z.string(),
   point_ids: z.array(z.string()),
 });
-export type AnimeSampleRoute = z.infer<typeof AnimeSampleRoute>;
+export type AnimeSampleItinerary = z.infer<typeof AnimeSampleItinerary>;
 
 /**
  * The public anime overview payload: bubble aggregation, 名場面 ranking, and
- * sample routes for one work. Exposed anonymously (catalog's first public
+ * sample itineraries for one work. Exposed anonymously (catalog's first public
  * surface) — every field is derived from already-public catalog data.
  */
 export const AnimeOverview = z.object({
@@ -96,7 +95,7 @@ export const AnimeOverview = z.object({
   points_length: z.number().int().nonnegative(),
   circles: z.array(AnimeOverviewCircle),
   scenes: z.array(AnimeScene),
-  sample_routes: z.array(AnimeSampleRoute),
+  sample_itineraries: z.array(AnimeSampleItinerary),
 });
 export type AnimeOverview = z.infer<typeof AnimeOverview>;
 
@@ -183,13 +182,13 @@ export const TimedItinerary = z.object({
 export type TimedItinerary = z.infer<typeof TimedItinerary>;
 
 /**
- * An ordered, timed pilgrimage route.
+ * An ordered, timed pilgrimage itinerary.
  * Mirrors RouteModel in runtime_models.py.
  */
-export const Route = z.object({
+export const Itinerary = z.object({
   id: z.string().optional(),
   version: z.string().optional(),
-  ordered_points: z.array(PilgrimagePoint),
+  ordered_points: z.array(Point),
   point_count: z.number().int(),
   cover_url: z.string().optional(),
   anime_title: z.string().optional(),
@@ -199,4 +198,4 @@ export const Route = z.object({
   total_cluster_count: z.number().int().optional(),
   timed_itinerary: TimedItinerary,
 });
-export type Route = z.infer<typeof Route>;
+export type Itinerary = z.infer<typeof Itinerary>;

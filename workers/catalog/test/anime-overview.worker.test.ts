@@ -71,7 +71,7 @@ describe("animeOverview (api/anime-overview.ts)", () => {
 
   it("suggests per-region sample routes ordered by spot count", async () => {
     const result = await animeOverview(fakeDb(SPREAD), { bangumi_id: "100" });
-    expect(result.sample_routes).toEqual([
+    expect(result.sample_itineraries).toEqual([
       { region: "Kamakura", point_ids: ["k1", "k2"] },
       { region: "Hakone", point_ids: ["h1"] },
     ]);
@@ -87,7 +87,7 @@ describe("animeOverview empty and missing work behavior", () => {
       points_length: 0,
       circles: [],
       scenes: [],
-      sample_routes: [],
+      sample_itineraries: [],
     });
   });
 
@@ -103,7 +103,7 @@ describe("animeOverview scene edge cases", () => {
     const noCity: FixtureRow[] = [row("n1", 35.0, 139.0, null), row("n2", 36.0, 140.0, "")];
     const result = await animeOverview(fakeDb(noCity), { bangumi_id: "200" });
     expect(result.circles).toEqual([]);
-    expect(result.sample_routes).toEqual([]);
+    expect(result.sample_itineraries).toEqual([]);
     expect(result.scenes).toHaveLength(2);
     expect(result.points_length).toBe(2);
   });
@@ -141,8 +141,8 @@ describe("animeOverview output caps", () => {
   it("caps scenes at 20, sample routes at 3 regions, and point ids at 12 per route", async () => {
     const result = await animeOverview(fakeDb(cappedFixture()), { bangumi_id: "400" });
     expect(result.scenes).toHaveLength(20);
-    expect(result.sample_routes.map((r) => r.region)).toEqual(["A", "B", "C"]);
-    expect(result.sample_routes[0]?.point_ids).toHaveLength(12);
+    expect(result.sample_itineraries.map((r) => r.region)).toEqual(["A", "B", "C"]);
+    expect(result.sample_itineraries[0]?.point_ids).toHaveLength(12);
   });
 });
 

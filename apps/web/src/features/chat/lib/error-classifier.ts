@@ -110,7 +110,7 @@ function resultRowCount(part: ChatDataPart): number | undefined {
 
 function routePointCount(part: ChatDataPart): number | undefined {
   const data = part.data;
-  const route = data && "route" in data ? data.route : undefined;
+  const route = data && "itinerary" in data ? data.itinerary : undefined;
   return route?.point_count ?? route?.ordered_points?.length;
 }
 

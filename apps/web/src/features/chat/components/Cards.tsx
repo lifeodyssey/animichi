@@ -19,7 +19,7 @@ export function resultsOf(part: ChatDataPart) {
 
 export function routeOf(part: ChatDataPart) {
   const data = dataOf(part);
-  return data && "route" in data ? data.route : undefined;
+  return data && "itinerary" in data ? data.itinerary : undefined;
 }
 
 export function candidatesOf(part: ChatDataPart) {

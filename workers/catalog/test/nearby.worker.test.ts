@@ -81,7 +81,7 @@ describe("nearby (api/nearby.ts)", () => {
     expect(rows.map((r) => r.distance_m)).toEqual([5, 4200]);
   });
 
-  it("merges detail columns onto the contract PilgrimagePoint shape", async () => {
+  it("merges detail columns onto the contract Point shape", async () => {
     const { rows } = await run(GEO, DETAILS);
     expect(rows[0]).toMatchObject({
       id: "washinomiya",

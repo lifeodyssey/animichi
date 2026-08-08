@@ -27,7 +27,7 @@ describe("resolve production DB adapter", () => {
   it("groups aliases by work and derives stored candidate enrichment", async () => {
     const queries: string[] = [];
     const db = catalogDb([
-      [{ work_id: "3302", priority: 40 }],
+      [{ bangumi_id: "3302", priority: 40 }],
       [{
         id: "3302", title: "らき☆すた", title_cn: "幸运星",
         cover_url: "cover.jpg", air_date: "2007-04-08", points_count: "2",
@@ -41,13 +41,13 @@ describe("resolve production DB adapter", () => {
         cover_url: "cover.jpg", year: 2007, points_count: 2,
       },
     });
-    expect(queries[0]).toContain("GROUP BY work_id");
+    expect(queries[0]).toContain("GROUP BY bangumi_id");
     expect(queries[1]).toContain("COUNT(p.id) AS points_count");
   });
 
   it("resolves a stored candidate whose point count is zero", async () => {
     const resolved = await resolve({
-      worksForAlias: () => Promise.resolve([{ work_id: "zero", priority: 40 }]),
+      worksForAlias: () => Promise.resolve([{ bangumi_id: "zero", priority: 40 }]),
       candidatesForWorks: () => Promise.resolve([candidate("zero")]),
     }, { query: "Zero" });
     expect(resolved).toEqual({ outcome: "resolved", match: candidate("zero") });

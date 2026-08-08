@@ -12,12 +12,12 @@ import {
   type AnitabiPoint,
   type FetchLike,
 } from "../ingest/sources";
-import type { PilgrimagePoint } from "../types";
+import type { Point } from "../types";
 
 /** A resolved work plus its fast `/lite` point preview. */
 export interface MissPreview {
   workId: string;
-  points: PilgrimagePoint[];
+  points: Point[];
 }
 
 /** Resolve a title and return a non-empty preview, preserving search miss behavior. */
@@ -56,7 +56,7 @@ async function fetchLitePreview(workId: string, fetchImpl?: FetchLike): Promise<
 }
 
 /** Map one official Anitabi `/lite` point to the public point contract. */
-function litePoint(point: AnitabiPoint, workId: string): PilgrimagePoint {
+function litePoint(point: AnitabiPoint, workId: string): Point {
   const [latitude, longitude] = liteGeo(point.geo);
   return {
     ...liteBase(point, workId, latitude, longitude),
@@ -64,7 +64,7 @@ function litePoint(point: AnitabiPoint, workId: string): PilgrimagePoint {
   };
 }
 
-function liteBase(point: AnitabiPoint, workId: string, latitude: number, longitude: number): PilgrimagePoint {
+function liteBase(point: AnitabiPoint, workId: string, latitude: number, longitude: number): Point {
   return {
     id: liteString(point.id),
     name: liteString(point.name),

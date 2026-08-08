@@ -75,8 +75,9 @@ with `neonctl connection-string dev/<name>`. Put that secret in the Worker's ign
 ## Refreshing `test-base`
 
 The refresh path is non-destructive: it verifies the exact branch name, ID, parent project, and
-project ID; applies `db/migrations/` with Atlas 0.30.0; reapplies the idempotent seed; and restores
-the service-role grants. It never runs the provisioner's database-wipe path.
+project ID; applies `migrations/neon/` with Atlas 0.30.0; reapplies the idempotent seeds (gazetteer
+seed first, then the fixture seed); and restores the service-role grants. It never runs the
+provisioner's database-wipe path.
 
 ```bash
 export NEON_API_KEY='<secret>'
@@ -85,17 +86,21 @@ ATLAS_VERSION=0.30.0 scripts/neon-test-base.sh refresh test-base
 ```
 
 Phase C's `.github/workflows/neon-test-base.yml` runs the same `refresh test-base` command after a
-push to `main` that changes `db/migrations/**` or
-`apps/agent/src/animichi/tests/fixtures/seed.sql`. Use `provision test-base` only for an owner-approved
+push to `main` that changes `migrations/neon/**`,
+`apps/agent/src/animichi/tests/fixtures/seed.sql`, or
+`workers/catalog/data/gazetteer_seed.sql`. Use `provision test-base` only for an owner-approved
 deterministic rebuild; that mode drops and recreates the target database after the same identity
 rails pass.
 
 ## Migration source rule
 
-`db/migrations/` is the integration-test and Neon data-plane schema source. New catalog/user
+`migrations/neon/` is the integration-test and Neon data-plane **schema** source. New catalog/user
 changes are authored there directly, and `atlas.sum` is regenerated in the same change. The
 older `supabase/migrations/` files are frozen compatibility history for the remaining Supabase
 surface; do not create an auth-stripped twin or copy a new data-plane change into both trees.
+The gazetteer seed is **not** a migration — it lives at `workers/catalog/data/gazetteer_seed.sql`
+and is loaded idempotently (`make seed-gazetteer` / the `neon-test-base.sh` seed step) after the
+schema exists.
 
 Never reintroduce Python migration splitting, statement filtering, pgvector neutralization, or
 swallowed migration failures. Atlas owns ordering, checksums, transactions, and the revision

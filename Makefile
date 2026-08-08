@@ -1,6 +1,6 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry seed-gazetteer test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -38,10 +38,11 @@ help:
 	@echo "Database:"
 	@echo "  make db-new NAME=x  Create a timestamped Atlas migration"
 	@echo "  make db-list        List checked-in Atlas migrations"
-	@echo "  make db-hash        Regenerate db/migrations/atlas.sum"
+	@echo "  make db-hash        Regenerate migrations/neon/atlas.sum"
 	@echo "  make db-validate    Validate Atlas checksums and SQL"
 	@echo "  make db-push-dry    Dry-run Atlas migrations against Neon"
 	@echo "  make db-push        Apply Atlas migrations against Neon"
+	@echo "  make seed-gazetteer Load gazetteer seed (needs DATABASE_URL; schema first)"
 	@echo "  db-diff/db-pull/db-reset are retired; use the Atlas targets above"
 	@echo ""
 	@echo "E2E Testing:"
@@ -119,7 +120,7 @@ clean:
 build:
 	cd apps/agent && uv build
 
-ATLAS_MIGRATIONS := file://db/migrations
+ATLAS_MIGRATIONS := file://migrations/neon
 
 db-new:
 	@test -n "$(NAME)" || (echo "NAME is required (for example: make db-new NAME=add_routes_index)" >&2; exit 1)
@@ -141,6 +142,10 @@ db-push-dry:
 db-push:
 	@: "$${NEON_DATABASE_URL:?NEON_DATABASE_URL is required}"
 	atlas migrate apply --dir $(ATLAS_MIGRATIONS) --url "$${NEON_DATABASE_URL}" --revisions-schema public
+
+seed-gazetteer:
+	@: "$${DATABASE_URL:?DATABASE_URL is required}"
+	scripts/seed-gazetteer.sh
 
 # ── Local Dev (one-command startup) ──────────────────────────
 

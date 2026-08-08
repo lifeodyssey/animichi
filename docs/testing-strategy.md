@@ -168,7 +168,7 @@ local run into the live arm.
 | unset | anything else | Hard error: unknown arm |
 
 The priority is therefore `TEST_DATABASE_URL` > explicit `TEST_DB=docker|neon` > offline default.
-All container arms apply `db/migrations/` with the pinned Atlas CLI, reapply the idempotent seed,
+All container arms apply `migrations/neon/` with the pinned Atlas CLI, reapply the idempotent seed,
 and run the same pgvector/HNSW contract. A BYO database is not writable until
 `TEST_DB_ALLOW_MUTATION=1`; Neon BYO additionally passes the protected-lineage check.
 
@@ -410,9 +410,9 @@ dependencies and failure modes differ.
 ### Migration Testing
 
 The test fixture never parses, filters, splits, or swallows migration SQL. Atlas 0.30.0 applies
-`db/migrations/` transactionally and records revisions in `public.atlas_schema_revisions`; tests
+`migrations/neon/` transactionally and records revisions in `public.atlas_schema_revisions`; tests
 then assert required tables, extensions, the `vector(1024)` column, and its HNSW index. New
-catalog/user schema changes are authored in `db/migrations/` directly; the older Supabase
+catalog/user schema changes are authored in `migrations/neon/` directly; the older Supabase
 compatibility files are not a second source and do not require an Atlas twin. See
 `docs/ops/neon-test-infra.md` for the source rule and `test-base` refresh.
 

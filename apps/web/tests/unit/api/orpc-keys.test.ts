@@ -12,13 +12,13 @@ describe("oRPC tanstack utils key prefixes", () => {
   });
 
   it("prefixes users queries under the users namespace", () => {
-    const [path] = usersUtils.listRoutes.key();
-    expect(path).toEqual(["users", "listRoutes"]);
+    const [path] = usersUtils.listSavedRoutes.key();
+    expect(path).toEqual(["users", "listSavedRoutes"]);
   });
 
   it("keeps the two service namespaces disjoint", () => {
     const [catalogPath] = catalogUtils.search.key();
-    const [usersPath] = usersUtils.listRoutes.key();
+    const [usersPath] = usersUtils.listSavedRoutes.key();
     expect(catalogPath[0]).toBe("catalog");
     expect(usersPath[0]).toBe("users");
   });

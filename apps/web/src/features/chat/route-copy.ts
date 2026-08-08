@@ -16,7 +16,7 @@ export function routeStatsCopy(dict: ChatDict, spots: number, minutes: number | 
     .replace("{min}", minutes === undefined ? "—" : String(minutes));
 }
 
-/** `SaveRouteInput.title` is `min(1).max(200)`; 200 counts UTF-16 units. */
+/** `SaveSavedRouteInput.title` is `min(1).max(200)`; 200 counts UTF-16 units. */
 const TITLE_MAX = 200;
 const ELLIPSIS = "…";
 
@@ -43,13 +43,13 @@ function render(template: string, work: string, spots: number): string {
 }
 
 /**
- * `SaveRouteInput.title` is required and nothing in the chat flow produces one,
+ * `SaveSavedRouteInput.title` is required and nothing in the chat flow produces one,
  * so the client derives it from the resolved work title plus the stop count
  * through a localized template (issue #273 S1.7, P2-4). An absent work title
  * uses the locale's own stand-in, never an English one. Over-long input trims
  * the **work title** — never the rendered tail, which would drop the stop count.
  */
-export function saveRouteTitle(dict: ChatDict, workTitle: string | undefined, spots: number): string {
+export function saveSavedRouteTitle(dict: ChatDict, workTitle: string | undefined, spots: number): string {
   const work = workTitle === undefined || workTitle === "" ? dict.route.saveUntitled : workTitle;
   const full = render(dict.route.saveTitle, work, spots);
   if (full.length <= TITLE_MAX) return full;

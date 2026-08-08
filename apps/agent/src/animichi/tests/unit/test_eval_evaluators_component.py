@@ -10,12 +10,12 @@ from animichi.agents.agent_result import AgentResult
 from animichi.agents.base import parse_model_spec
 from animichi.agents.runtime_models import QAResponseModel, SearchResponseModel
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItineraryRef,
     OrderedCandidate,
     PendingClarification,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchPayloadState,
     SessionState,
 )
@@ -62,9 +62,9 @@ def _route_result(source_rows: int, route_rows: int, *, intent: str) -> AgentRes
         source_rows, kind="multi" if intent == "plan_multi" else "bangumi"
     )
     source_ref = state.last_result_ref
-    state.store_route(
-        RouteRef("route:1"),
-        RoutePayloadState(
+    state.store_itinerary(
+        ItineraryRef("route:1"),
+        ItineraryPayloadState(
             ordered_points=[PointState(id=f"r-{index}") for index in range(route_rows)],
             source_ref=source_ref,
         ),

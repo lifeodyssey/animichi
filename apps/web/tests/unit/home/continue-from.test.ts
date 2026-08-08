@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { UserRoute } from "@animichi/contract";
+import type { SavedRoute } from "@animichi/contract";
 import { pickContinueFrom } from "../../../src/api/hooks/use-continue-from";
 
-function makeRoute(overrides: Partial<UserRoute>): UserRoute {
+function makeRoute(overrides: Partial<SavedRoute>): SavedRoute {
   return {
     id: "00000000-0000-0000-0000-000000000001",
     title: "Draft route",

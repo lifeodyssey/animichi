@@ -9,7 +9,7 @@
  *   - `circles`: bubble aggregation grouped by region (city), with centroid.
  *   - `scenes`: 名場面 ranking — co-located points (`clusterByLocation`, 50m)
  *     collapse into one scene ranked by shot count.
- *   - `sample_routes`: the top regions with their member point ids.
+ *   - `sample_itineraries`: the top regions with their member point ids.
  *
  * Read-only: a single typed `db.execute(sql`...`)` following the geo-query.ts
  * pattern. Wire shapes come from `../types` (import type erases at compile time,
@@ -18,13 +18,13 @@
 
 import { sql } from "drizzle-orm";
 import { clusterByLocation, type LocationCluster } from "../domain/clustering/cluster";
-import type { AnimeOverview, AnimeOverviewCircle, AnimeSampleRoute, AnimeScene } from "../types";
+import type { AnimeOverview, AnimeOverviewCircle, AnimeSampleItinerary, AnimeScene } from "../types";
 
 export type { AnimeOverview };
 
 const SCENE_LIMIT = 20;
-const SAMPLE_ROUTE_REGION_LIMIT = 3;
-const SAMPLE_ROUTE_POINT_CAP = 12;
+const SAMPLE_ITINERARY_REGION_LIMIT = 3;
+const SAMPLE_ITINERARY_POINT_CAP = 12;
 const CLUSTER_RADIUS_M = 50;
 
 /** The one DB capability this handler needs: run a query, get back `{ rows }`. */
@@ -65,7 +65,7 @@ function toOverview(bangumiId: string, rows: OverviewRow[]): AnimeOverview {
     points_length: rows.length,
     circles: buildCircles(rows),
     scenes: buildScenes(rows),
-    sample_routes: buildSampleRoutes(rows),
+    sample_itineraries: buildSampleItineraries(rows),
   };
 }
 
@@ -156,20 +156,20 @@ function representative(cluster: LocationCluster<OverviewRow>): OverviewRow {
   return rep;
 }
 
-/** One sample route per top region, listing its member point ids (capped). */
-function buildSampleRoutes(rows: OverviewRow[]): AnimeSampleRoute[] {
+/** One sample itinerary per top region, listing its member point ids (capped). */
+function buildSampleItineraries(rows: OverviewRow[]): AnimeSampleItinerary[] {
   const groups = groupByRegion(rows);
   return rankRegions(groups)
-    .slice(0, SAMPLE_ROUTE_REGION_LIMIT)
-    .map((region) => toSampleRoute(region, groups.get(region) ?? []));
+    .slice(0, SAMPLE_ITINERARY_REGION_LIMIT)
+    .map(([region, members]) => toSampleItinerary(region, members));
 }
 
-function rankRegions(groups: Map<string, OverviewRow[]>): string[] {
-  return [...groups.entries()]
-    .sort(([ar, a], [br, b]) => b.length - a.length || ar.localeCompare(br))
-    .map(([region]) => region);
+function rankRegions(groups: Map<string, OverviewRow[]>): [string, OverviewRow[]][] {
+  return [...groups.entries()].sort(
+    ([ar, a], [br, b]) => b.length - a.length || ar.localeCompare(br),
+  );
 }
 
-function toSampleRoute(region: string, members: OverviewRow[]): AnimeSampleRoute {
-  return { region, point_ids: members.slice(0, SAMPLE_ROUTE_POINT_CAP).map((m) => m.id) };
+function toSampleItinerary(region: string, members: OverviewRow[]): AnimeSampleItinerary {
+  return { region, point_ids: members.slice(0, SAMPLE_ITINERARY_POINT_CAP).map((m) => m.id) };
 }

@@ -57,7 +57,7 @@ describe("AnimePage full state", () => {
 
 describe("AnimePage partial data", () => {
   it("omits the duration fact when there are no sample routes", () => {
-    render(<AnimePage overview={{ ...fullOverviewFixture, sample_routes: [] }} locale="ja" />);
+    render(<AnimePage overview={{ ...fullOverviewFixture, sample_itineraries: [] }} locale="ja" />);
     expect(screen.queryByText(/所要時間は約/)).toBeNull();
   });
 

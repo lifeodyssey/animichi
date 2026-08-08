@@ -7,7 +7,7 @@ import {
 } from "../src/checkin-contract.js";
 
 const VALID_INPUT = {
-  route_id: "019b984f-1a52-7000-8000-000000000001",
+  saved_route_id: "019b984f-1a52-7000-8000-000000000001",
   point_id: "point-kanda-myojin",
   client_id: "019b984f-1a52-7000-8000-000000000002",
   coordinates: { latitude: 35.702_123_4, longitude: 139.767_654_3 },

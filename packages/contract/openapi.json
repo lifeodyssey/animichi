@@ -388,10 +388,10 @@
         }
       }
     },
-    "/catalog/points-by-work-id": {
+    "/catalog/points-by-bangumi-id": {
       "post": {
-        "operationId": "pointsByWorkId",
-        "summary": "Fetch pilgrimage points by resolved work id",
+        "operationId": "pointsByBangumiId",
+        "summary": "Fetch pilgrimage points by resolved bangumi id",
         "requestBody": {
           "required": true,
           "content": {
@@ -399,13 +399,13 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "work_id": {
+                  "bangumi_id": {
                     "type": "string",
                     "pattern": "^\\d+$"
                   }
                 },
                 "required": [
-                  "work_id"
+                  "bangumi_id"
                 ]
               }
             }
@@ -1009,10 +1009,10 @@
         }
       }
     },
-    "/catalog/route": {
+    "/catalog/itinerary": {
       "post": {
-        "operationId": "route",
-        "summary": "Plan an ordered, timed route over selected points",
+        "operationId": "planItinerary",
+        "summary": "Plan an ordered, timed itinerary over selected points",
         "requestBody": {
           "required": true,
           "content": {
@@ -1610,7 +1610,7 @@
                         ]
                       }
                     },
-                    "sample_routes": {
+                    "sample_itineraries": {
                       "type": "array",
                       "items": {
                         "type": "object",
@@ -1637,7 +1637,7 @@
                     "points_length",
                     "circles",
                     "scenes",
-                    "sample_routes"
+                    "sample_itineraries"
                   ]
                 }
               }

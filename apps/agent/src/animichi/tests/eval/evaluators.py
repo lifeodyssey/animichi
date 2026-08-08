@@ -16,7 +16,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext, LLMJudge
 
 from animichi.agents.agent_result import AgentResult
-from animichi.agents.session_state import RoutePayloadState, SearchPayloadState
+from animichi.agents.session_state import ItineraryPayloadState, SearchPayloadState
 from animichi.utils.language import resolve_reply_language
 
 EVALUATOR_VERSION = "official-v1"
@@ -121,12 +121,12 @@ def _available_data_keys(result: AgentResult) -> set[str]:
         pending = result.session_state.pending_clarification
         return {"reason", "candidates"} if pending is not None else set()
     search = _latest_search(result)
-    route = _latest_route(result)
+    itinerary = _latest_itinerary(result)
     keys: set[str] = set()
     if result.intent in {"search_bangumi", "search_nearby", "plan_multi"}:
         keys.update({"results"} if search is not None else set())
     if result.intent in {"plan_route", "plan_selected", "plan_multi"}:
-        keys.update({"route"} if route is not None else set())
+        keys.update({"route"} if itinerary is not None else set())
     return keys
 
 
@@ -137,11 +137,11 @@ def _latest_search(result: AgentResult) -> SearchPayloadState | None:
     return result.session_state.search_results.get(produced.result_ref)
 
 
-def _latest_route(result: AgentResult) -> RoutePayloadState | None:
-    produced = result.provenance.route
+def _latest_itinerary(result: AgentResult) -> ItineraryPayloadState | None:
+    produced = result.provenance.itinerary
     if produced is None:
         return None
-    return result.session_state.routes.get(produced.route_ref)
+    return result.session_state.itineraries.get(produced.itinerary_ref)
 
 
 def _acceptable_min_steps(ctx: _Ctx) -> list[int]:
@@ -182,14 +182,16 @@ class NonemptyResults(Evaluator[AgentInput, AgentResult, AgentExpected]):
 
 
 def _nonempty(result: AgentResult) -> bool:
-    route = _latest_route(result)
-    if route is None:
+    itinerary = _latest_itinerary(result)
+    if itinerary is None:
         search = _latest_search(result)
         return search is not None and search.row_count > 0
-    if route.source_ref is None:
+    if itinerary.source_ref is None:
         return False
-    source = result.session_state.search_results.get(route.source_ref)
-    return bool(route.ordered_points) and source is not None and source.row_count > 0
+    source = result.session_state.search_results.get(itinerary.source_ref)
+    return (
+        bool(itinerary.ordered_points) and source is not None and source.row_count > 0
+    )
 
 
 @dataclass

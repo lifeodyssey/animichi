@@ -24,12 +24,12 @@ describe("users() authenticated transport", () => {
     authHeaders.mockResolvedValue({});
     let seen: string | null = "unset";
     server.use(
-      http.get("*/v1/users/routes", ({ request }) => {
+      http.get("*/v1/users/saved-routes", ({ request }) => {
         seen = request.headers.get("authorization");
-        return HttpResponse.json({ routes: [] });
+        return HttpResponse.json({ saved_routes: [] });
       }),
     );
-    await users().listRoutes.call({});
+    await users().listSavedRoutes.call({});
     expect(seen).toBeNull();
   });
 
@@ -37,12 +37,12 @@ describe("users() authenticated transport", () => {
     authHeaders.mockResolvedValue({ Authorization: "Bearer jwt-users" });
     let seen: string | null = "unset";
     server.use(
-      http.get("*/v1/users/routes", ({ request }) => {
+      http.get("*/v1/users/saved-routes", ({ request }) => {
         seen = request.headers.get("authorization");
-        return HttpResponse.json({ routes: [] });
+        return HttpResponse.json({ saved_routes: [] });
       }),
     );
-    await users().listRoutes.call({});
+    await users().listSavedRoutes.call({});
     expect(seen).toBe("Bearer jwt-users");
   });
 });

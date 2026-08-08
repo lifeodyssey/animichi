@@ -1,6 +1,6 @@
 /**
  * Singleflight job tracking over the `ingest_jobs` table
- * (`db/migrations/20260623000001_init.sql`):
+ * (`migrations/neon/20260623000001_init.sql`):
  *   work_id (PK), status, stage, error, error_code, negative_cached_until.
  *
  * One ingest per work_id runs at a time (singleflight). `acquire` is the gate:

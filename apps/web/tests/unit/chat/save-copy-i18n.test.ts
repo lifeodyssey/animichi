@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { SaveRouteInput } from "@animichi/contract";
+import { SaveSavedRouteInput } from "@animichi/contract";
 import { chatDictFor } from "../../../src/features/chat/i18n";
-import { saveRouteTitle } from "../../../src/features/chat/route-copy";
+import { saveSavedRouteTitle } from "../../../src/features/chat/route-copy";
 import { routeSaveTarget } from "../../../src/features/chat/save/save-target";
 import { parsedPart, routePartRaw, ujiPoints } from "./_route-fixtures";
 
 const LOCALES = ["ja", "zh", "en"] as const;
 
 function titleIn(locale: (typeof LOCALES)[number]): string {
-  return saveRouteTitle(chatDictFor(locale), "響け!ユーフォニアム", 3);
+  return saveSavedRouteTitle(chatDictFor(locale), "響け!ユーフォニアム", 3);
 }
 
 describe("AC11: the save title is derived, bounded and localized", () => {
@@ -30,14 +30,14 @@ describe("AC11: the save title is derived, bounded and localized", () => {
   });
 
   it("falls back to a localized work name rather than an empty or English one", () => {
-    const missing = LOCALES.map((locale) => saveRouteTitle(chatDictFor(locale), undefined, 2));
+    const missing = LOCALES.map((locale) => saveSavedRouteTitle(chatDictFor(locale), undefined, 2));
     expect(new Set(missing).size).toBe(LOCALES.length);
     for (const rendered of missing) expect(rendered.length).toBeGreaterThan(0);
   });
 
-  it("stays inside SaveRouteInput's 1-200 bound even for a very long work title", () => {
-    const title = saveRouteTitle(chatDictFor("ja"), "あ".repeat(400), 3);
-    expect(SaveRouteInput.safeParse({ title, point_ids: ["p1"] }).success).toBe(true);
+  it("stays inside SaveSavedRouteInput's 1-200 bound even for a very long work title", () => {
+    const title = saveSavedRouteTitle(chatDictFor("ja"), "あ".repeat(400), 3);
+    expect(SaveSavedRouteInput.safeParse({ title, point_ids: ["p1"] }).success).toBe(true);
     expect(title.length).toBeLessThanOrEqual(200);
     // A naive slice of the RENDERED string would amputate the tail; the trim
     // must land on the work title so the stop count survives.
@@ -47,19 +47,19 @@ describe("AC11: the save title is derived, bounded and localized", () => {
 
 describe("P3: the derived title is injection- and grapheme-safe", () => {
   it("keeps a work title containing replacement patterns verbatim", () => {
-    const title = saveRouteTitle(chatDictFor("ja"), "$& $1 $` Euphonium", 3);
+    const title = saveSavedRouteTitle(chatDictFor("ja"), "$& $1 $` Euphonium", 3);
     expect(title).toContain("$& $1 $` Euphonium");
   });
 
   it("never splits a surrogate pair when truncating a long emoji title", () => {
-    const title = saveRouteTitle(chatDictFor("ja"), "🎺".repeat(300), 3);
+    const title = saveSavedRouteTitle(chatDictFor("ja"), "🎺".repeat(300), 3);
     expect(title.length).toBeLessThanOrEqual(200);
     expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(title)).toBe(false);
   });
 
   it("still produces a contract-valid title after truncation", () => {
-    const title = saveRouteTitle(chatDictFor("en"), "👨‍👩‍👧‍👦".repeat(60), 5);
-    expect(SaveRouteInput.safeParse({ title, point_ids: ["p1"] }).success).toBe(true);
+    const title = saveSavedRouteTitle(chatDictFor("en"), "👨‍👩‍👧‍👦".repeat(60), 5);
+    expect(SaveSavedRouteInput.safeParse({ title, point_ids: ["p1"] }).success).toBe(true);
   });
 });
 
@@ -92,7 +92,7 @@ describe("the save target is derived from the rendered route", () => {
   });
 
   it("accepts bare id strings and drops blank ids from the stream", () => {
-    const raw = { intent: "plan_route", success: true, status: "ok", data: { route: { ordered_points: ["x", "", "y"], point_count: 3 } } };
+    const raw = { intent: "plan_route", success: true, status: "ok", data: { itinerary: { ordered_points: ["x", "", "y"], point_count: 3 } } };
     expect(routeSaveTarget(parsedPart(raw), chatDictFor("ja"))?.pointIds).toEqual(["x", "y"]);
   });
 

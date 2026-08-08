@@ -1,7 +1,7 @@
-import type { PilgrimagePoint } from "../../src/types";
+import type { Point } from "../../src/types";
 
 /** A canned L1 preview point (the lite shape, already mapped to the contract). */
-export const PREVIEW_POINT: PilgrimagePoint = {
+export const PREVIEW_POINT: Point = {
   id: "lite-1",
   name: "宇治橋",
   bangumi_id: "10380",

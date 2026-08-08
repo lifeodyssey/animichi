@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { planItinerary, type PointsForRoutePort, type RoutePoint } from "../src/application/plan-itinerary";
+import { planItinerary, type PointsForRoutePort, type ItineraryPoint } from "../src/application/plan-itinerary";
 import { pointsForRoute, type RouteDb } from "../src/adapters/outbound/route-points";
 
 /**
  * Tests at the use-case seam: `planItinerary` receives points through a fake
  * `PointsForRoutePort` — no DB, no SQL on this side. Verifies the
- * load -> cluster -> plan -> assemble orchestration and the contract `Route`
+ * load -> cluster -> plan -> assemble orchestration and the contract `Itinerary`
  * assembly. A small adapter check covers the port wiring (ids order preserved,
  * unknown ids dropped) against a fake `RouteDb`.
  *
@@ -16,7 +16,7 @@ import { pointsForRoute, type RouteDb } from "../src/adapters/outbound/route-poi
  *   c (35.0020) bangumi "k" "Lucky Star"
  */
 
-function point(id: string, lat: number, image = ""): RoutePoint {
+function point(id: string, lat: number, image = ""): ItineraryPoint {
   return {
     id, name: id.toUpperCase(), bangumi_id: "k", screenshot_url: image,
     latitude: lat, longitude: 135.0,
@@ -25,12 +25,12 @@ function point(id: string, lat: number, image = ""): RoutePoint {
 }
 
 const POINTS = [point("a", 35.0, "a.jpg"), point("b", 35.001), point("c", 35.002)];
-const MANY_POINTS: RoutePoint[] = Array.from({ length: 51 }, (_, i) =>
+const MANY_POINTS: ItineraryPoint[] = Array.from({ length: 51 }, (_, i) =>
   point(`p${String(i).padStart(3, "0")}`, 35 + i * 0.001),
 );
 
 /** A fake `PointsForRoutePort` returning only the requested ids, in ids order. */
-function fakePort(points: RoutePoint[]): PointsForRoutePort {
+function fakePort(points: ItineraryPoint[]): PointsForRoutePort {
   const byId = new Map(points.map((p) => [p.id, p]));
   return {
     loadPoints: (ids) =>
@@ -41,9 +41,9 @@ function fakePort(points: RoutePoint[]): PointsForRoutePort {
   };
 }
 
-const ids = (ps: RoutePoint[]): string[] => ps.map((p) => p.id);
+const ids = (ps: ItineraryPoint[]): string[] => ps.map((p) => p.id);
 
-describe("planItinerary use case — port load -> cluster -> plan -> Route", () => {
+describe("planItinerary use case — port load -> cluster -> plan -> Itinerary", () => {
   it("plans a timed route with a stop+leg itinerary for the selected ids", async () => {
     const r = await planItinerary(fakePort(POINTS), { point_ids: ["a", "b", "c"], pacing: "normal" });
     expect(r.point_count).toBe(3);

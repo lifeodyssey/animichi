@@ -264,7 +264,7 @@ There are two workflow-backed deploy paths. Neither path is tag-triggered.
 
 ### Schema change policy
 
-Neon migrations run from `db/migrations/` before the Worker rollout, but the old container can
+Neon migrations run from `migrations/neon/` before the Worker rollout, but the old container can
 still serve traffic while that step is running. A destructive change can therefore briefly break
 old code that still reads or writes the removed schema; the `route_anime` release, for example,
 dropped `routes.bangumi_id` in the same release that changed the writer. For schema changes where
@@ -278,14 +278,14 @@ construction. The full authoring/apply boundary is [`migrations.md`](./migration
 Confirmed via Neon (project `billowing-fire-22850320`, read-only queries, #516 investigation): as of
 2026-07-29, staging (`br-gentle-king-aowjem8v`) and production (`br-cold-term-aor1v6gl`) both have
 **zero** business tables in `public` — only `neon_auth` (Neon Auth's own 9 tables, unrelated to
-`db/migrations`) and, on staging, an empty orphaned `atlas_schema_revisions` schema left over from
+`migrations/neon`) and, on staging, an empty orphaned `atlas_schema_revisions` schema left over from
 an earlier manual attempt that ran without `--revisions-schema public`. The full, real data plane
 (23 tables) exists only on the `test-base` branch. **Every prior "successful deploy" to staging or
 production shipped Worker code against an empty database** — the app-level effect of that had not
 previously surfaced because nothing had exercised the affected paths hard enough to notice.
 
 Once the Atlas scoping fix above lands, the first `Atlas migrate` run against staging (and,
-separately and later, production) will apply **all 11** `db/migrations/*.sql` files from scratch in
+separately and later, production) will apply **all 11** `migrations/neon/*.sql` files from scratch in
 one shot — this is a one-time provisioning event for that branch, not the incremental single-file
 apply every subsequent deploy will actually be. Reviewed all 11 files for anything that assumes a
 manual step outside the migration directory (backfills, hand-run grants, seed data) — found none;
@@ -371,7 +371,7 @@ Its current order is:
 6. verify `Dockerfile` exists
 7. deploy the root Worker/container with Wrangler
 
-The approval-gated main promotion (`reusable-deploy-component.yml`) applies `db/migrations/` before its
+The approval-gated main promotion (`reusable-deploy-component.yml`) applies `migrations/neon/` before its
 catalog/users rollout. This manual path does not apply either the Neon or frozen Supabase
 compatibility directory; an explicitly approved auth migration follows the separate Supabase
 owner/runbook and must not be used to change Neon catalog or user tables.
@@ -525,12 +525,12 @@ for this change; tracked as **#521**, not silently assumed to already exist.
 
 ### ⚠️ Database migrations do NOT roll back this way
 
-Nothing above undoes an Atlas migration (`db/migrations`) or a Supabase migration. `wrangler
+Nothing above undoes an Atlas migration (`migrations/neon`) or a Supabase migration. `wrangler
 rollback` only swaps Worker code; it cannot un-apply a schema change the new code already wrote
 data under. Roll a schema change back only by writing and applying a new forward migration that
 reverses it (expand/contract, per the schema change policy above) — never by trying to "undo" the
 old migration file. Treat any release that combined a schema change with app code as a case where
-Worker rollback alone is insufficient; check `db/migrations` for what shipped in that release before
+Worker rollback alone is insufficient; check `migrations/neon` for what shipped in that release before
 declaring the rollback complete.
 
 **Neon data-plane recovery (PITR, RPO/RTO, failed-migrate checklist, bad-migration stub):** see
@@ -599,7 +599,7 @@ itself was a pure UI-affordance gap rather than new untested rollback logic; see
 
 This section records the old feat/ssr-cloudflare merge runbook. It is not the current deployment
 trigger or an executable migration procedure. **Historical only; no longer current.** The current
-Neon migration authority is `db/migrations/` applied by pinned Atlas before the Worker rollout;
+Neon migration authority is `migrations/neon/` applied by pinned Atlas before the Worker rollout;
 use [`migrations.md`](./migrations.md) and the workflow paths above instead.
 
 After the old feat/ssr-cloudflare merge, operators used these checks:

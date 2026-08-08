@@ -11,14 +11,14 @@ export const UsersErrorCategory = z.enum(["user_actionable", "retryable", "syste
 export type UsersErrorCategory = z.infer<typeof UsersErrorCategory>;
 
 /** Data carried when a saved route does not exist. */
-export const RouteNotFoundData = z.object({ route_id: z.string() });
-/** Inferred route-not-found data. */
-export type RouteNotFoundData = z.infer<typeof RouteNotFoundData>;
+export const SavedRouteNotFoundData = z.object({ saved_route_id: z.string() });
+/** Inferred saved-route-not-found data. */
+export type SavedRouteNotFoundData = z.infer<typeof SavedRouteNotFoundData>;
 
 /** Data carried when a saved route belongs to another user. */
-export const RouteNotOwnedData = z.object({ route_id: z.string() });
-/** Inferred route-not-owned data. */
-export type RouteNotOwnedData = z.infer<typeof RouteNotOwnedData>;
+export const SavedRouteNotOwnedData = z.object({ saved_route_id: z.string() });
+/** Inferred saved-route-not-owned data. */
+export type SavedRouteNotOwnedData = z.infer<typeof SavedRouteNotOwnedData>;
 
 type UsersErrorDefItem = {
   readonly status: number;
@@ -29,17 +29,17 @@ type UsersErrorDefItem = {
 
 /** Users error registry with registry-only categories kept out of oRPC responses. */
 export const USERS_ERROR_DEFS = {
-  ROUTE_NOT_FOUND: {
+  SAVED_ROUTE_NOT_FOUND: {
     status: 404,
     category: "user_actionable",
     message: "No such saved route",
-    data: RouteNotFoundData,
+    data: SavedRouteNotFoundData,
   },
-  ROUTE_NOT_OWNED: {
+  SAVED_ROUTE_NOT_OWNED: {
     status: 403,
     category: "user_actionable",
     message: "Route belongs to another user",
-    data: RouteNotOwnedData,
+    data: SavedRouteNotOwnedData,
   },
 } as const satisfies Record<string, UsersErrorDefItem>;
 
@@ -55,57 +55,57 @@ export function pickUsersErrors<const Code extends UsersErrorCode>(
   return pickErrors(USERS_ERROR_DEFS, codes);
 }
 
-/** Lifecycle status for a user-owned route. */
-export const RouteStatus = z.enum(["draft", "saved", "completed"]);
-/** Inferred route lifecycle status. */
-export type RouteStatus = z.infer<typeof RouteStatus>;
+/** Lifecycle status for a user-owned saved route. */
+export const SavedRouteStatus = z.enum(["draft", "saved", "completed"]);
+/** Inferred saved-route lifecycle status. */
+export type SavedRouteStatus = z.infer<typeof SavedRouteStatus>;
 
-/** User-owned route returned by the Users service. */
-export const UserRoute = z.object({
+/** User-owned saved route returned by the Users service. */
+export const SavedRoute = z.object({
   id: z.uuid(),
   title: z.string(),
   point_ids: z.array(z.string()),
-  status: RouteStatus,
+  status: SavedRouteStatus,
   saved_at: z.string().nullable(),
   updated_at: z.string(),
 });
-/** Inferred user-owned route. */
-export type UserRoute = z.infer<typeof UserRoute>;
+/** Inferred user-owned saved route. */
+export type SavedRoute = z.infer<typeof SavedRoute>;
 
-/** Input for creating or updating a user-owned route. */
-export const SaveRouteInput = z.object({
+/** Input for creating or updating a user-owned saved route. */
+export const SaveSavedRouteInput = z.object({
   id: z.uuid().optional(),
   title: z.string().min(1).max(200),
   point_ids: z.array(z.string().max(128)).max(500),
-  status: RouteStatus.default("saved"),
+  status: SavedRouteStatus.default("saved"),
 });
-/** Inferred save-route input. */
-export type SaveRouteInput = z.infer<typeof SaveRouteInput>;
+/** Inferred save-saved-route input. */
+export type SaveSavedRouteInput = z.infer<typeof SaveSavedRouteInput>;
 
-/** Input for deleting one user-owned route. */
-export const DeleteRouteInput = z.object({ id: z.uuid() });
-/** Inferred delete-route input. */
-export type DeleteRouteInput = z.infer<typeof DeleteRouteInput>;
+/** Input for deleting one user-owned saved route. */
+export const DeleteSavedRouteInput = z.object({ id: z.uuid() });
+/** Inferred delete-saved-route input. */
+export type DeleteSavedRouteInput = z.infer<typeof DeleteSavedRouteInput>;
 
-/** Result returned after deleting one user-owned route. */
-export const DeleteRouteResult = z.object({ deleted: z.literal(true) });
-/** Inferred delete-route result. */
-export type DeleteRouteResult = z.infer<typeof DeleteRouteResult>;
+/** Result returned after deleting one user-owned saved route. */
+export const DeleteSavedRouteResult = z.object({ deleted: z.literal(true) });
+/** Inferred delete-saved-route result. */
+export type DeleteSavedRouteResult = z.infer<typeof DeleteSavedRouteResult>;
 
-/** Input for claiming routes created during an anonymous session. */
-export const ClaimRoutesInput = z.object({ session_id: z.string().min(1) });
-/** Inferred claim-routes input. */
-export type ClaimRoutesInput = z.infer<typeof ClaimRoutesInput>;
+/** Input for claiming saved routes created during an anonymous session. */
+export const ClaimSavedRoutesInput = z.object({ session_id: z.string().min(1) });
+/** Inferred claim-saved-routes input. */
+export type ClaimSavedRoutesInput = z.infer<typeof ClaimSavedRoutesInput>;
 
-/** Number of anonymous routes assigned to the authenticated caller. */
-export const ClaimRoutesResult = z.object({ claimed_count: z.number().int().nonnegative() });
-/** Inferred claim-routes result. */
-export type ClaimRoutesResult = z.infer<typeof ClaimRoutesResult>;
+/** Number of anonymous saved routes assigned to the authenticated caller. */
+export const ClaimSavedRoutesResult = z.object({ claimed_count: z.number().int().nonnegative() });
+/** Inferred claim-saved-routes result. */
+export type ClaimSavedRoutesResult = z.infer<typeof ClaimSavedRoutesResult>;
 
-/** Result returned when listing the caller's routes. */
-export const ListRoutesResult = z.object({ routes: z.array(UserRoute) });
-/** Inferred list-routes result. */
-export type ListRoutesResult = z.infer<typeof ListRoutesResult>;
+/** Result returned when listing the caller's saved routes. */
+export const ListSavedRoutesResult = z.object({ saved_routes: z.array(SavedRoute) });
+/** Inferred list-saved-routes result. */
+export type ListSavedRoutesResult = z.infer<typeof ListSavedRoutesResult>;
 
 /** Bounded page controls for listing the caller's sessions. */
 export const ListSessionsInput = z.strictObject({
@@ -134,7 +134,7 @@ export const ListSessionsResult = z.strictObject({
 /** Inferred session-list result. */
 export type ListSessionsResult = z.infer<typeof ListSessionsResult>;
 
-/** oRPC contract for authenticated user-route operations. */
+/** oRPC contract for authenticated saved-route operations. */
 export const usersContract = {
   listSessions: oc
     .route({
@@ -145,43 +145,43 @@ export const usersContract = {
     })
     .input(ListSessionsInput)
     .output(ListSessionsResult),
-  listRoutes: oc
+  listSavedRoutes: oc
     .route({
       method: "GET",
-      path: "/v1/users/routes",
+      path: "/v1/users/saved-routes",
       summary: "List the caller's saved routes",
       spec: requireBearer,
     })
-    .output(ListRoutesResult),
-  saveRoute: oc
+    .output(ListSavedRoutesResult),
+  saveSavedRoute: oc
     .route({
       method: "POST",
-      path: "/v1/users/routes",
+      path: "/v1/users/saved-routes",
       summary: "Create or update a saved route",
       spec: requireBearer,
     })
-    .input(SaveRouteInput)
-    .errors(pickUsersErrors(["ROUTE_NOT_FOUND", "ROUTE_NOT_OWNED"]))
-    .output(UserRoute),
-  deleteRoute: oc
+    .input(SaveSavedRouteInput)
+    .errors(pickUsersErrors(["SAVED_ROUTE_NOT_FOUND", "SAVED_ROUTE_NOT_OWNED"]))
+    .output(SavedRoute),
+  deleteSavedRoute: oc
     .route({
       method: "DELETE",
-      path: "/v1/users/routes/{id}",
+      path: "/v1/users/saved-routes/{id}",
       summary: "Delete a saved route",
       spec: requireBearer,
     })
-    .input(DeleteRouteInput)
-    .errors(pickUsersErrors(["ROUTE_NOT_FOUND", "ROUTE_NOT_OWNED"]))
-    .output(DeleteRouteResult),
-  claimRoutes: oc
+    .input(DeleteSavedRouteInput)
+    .errors(pickUsersErrors(["SAVED_ROUTE_NOT_FOUND", "SAVED_ROUTE_NOT_OWNED"]))
+    .output(DeleteSavedRouteResult),
+  claimSavedRoutes: oc
     .route({
       method: "POST",
-      path: "/v1/users/routes/claim",
-      summary: "Claim anonymous routes",
+      path: "/v1/users/saved-routes/claim",
+      summary: "Claim anonymous saved routes",
       spec: requireBearer,
     })
-    .input(ClaimRoutesInput)
-    .output(ClaimRoutesResult),
+    .input(ClaimSavedRoutesInput)
+    .output(ClaimSavedRoutesResult),
 };
 
 /** Users oRPC contract type. */
