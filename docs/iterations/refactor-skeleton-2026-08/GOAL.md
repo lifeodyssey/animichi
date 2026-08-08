@@ -175,7 +175,7 @@ grill ✅ → to-spec ✅ #829 → to-tickets ✅ → **implement 全波次** �
 
 **关波：** 上表票均合；GOAL §B/C 相关项可勾。
 
-- [ ] **W1 完成**
+- [x] **W1 完成** — #866 Users 规则 (#834) · #873 SavedRouteRepo (#835) · #864 Catalog CA (#837) · #874 PlanItinerary (#838) · #865 Agent gateway (#839) · #875 HandleUserMessage (#840) · #869 Jobs (#836) · #867 Edge (#841) · #872 Web (#842) · #868 CI (#844) · #871 GH-1 (#857); merged 2026-08-07
 
 ---
 
@@ -200,7 +200,7 @@ grill ✅ → to-spec ✅ #829 → to-tickets ✅ → **implement 全波次** �
 | #856 | HY-1 文档/根卫生 | #833；宜 W1 大路径稳后 |
 | #860 | N5 备份/监控/RPO stub | —（doc）；告警 HITL 可选 |
 
-- [ ] **W3 完成**
+- [x] **W3 完成** — #880 配置下沉 (#853) · #877 HY-1 文档卫生 (#856) · #878 N5 备份/RPO (#860); merged 2026-08-07
 
 ---
 
@@ -272,41 +272,41 @@ Epic：#845。**不** force-push git 历史（那是 W8）。
 
 - [x] PATH-DELTA 覆盖目标树 (#861)
 - [x] CONTEXT-MAP / 包 CONTEXT 与有无 domain 一致 (#861)
-- [ ] 配置 owner-local（#853）  
+- [x] 配置 owner-local（#880）
 
 ### B. 业务包 — W1
 
-- [ ] Catalog CA + PlanItinerary  
-- [ ] Agent gateway + HandleUserMessage  
-- [ ] Users 规则 + SavedRouteRepo；产品 TODO  
+- [x] Catalog CA + PlanItinerary（#864 · #874）
+- [x] Agent gateway + HandleUserMessage（#865 · #875）
+- [x] Users 规则 + SavedRouteRepo；产品 TODO（#866 · #873）
 
 ### C. Edge / Web / Jobs — W1
 
-- [ ] 无巡礼 domain；测绿  
+- [x] 无巡礼 domain；测绿（#867 · #872 · #869）
 
 ### D. Infra / CI — W1 · W3
 
-- [ ] Infra 分段  
-- [ ] package-ci 文件夹 + 1–2 pipeline；required check **名**不变  
+- [x] Infra 分段（#876）
+- [x] package-ci 文件夹 + 1–2 pipeline；required check **名**不变（#868）
 
 ### E. Neon / 角色 — W0 · W2 · W6 · W7
 
-- [ ] 归属文档  
-- [ ] staging 角色+DSN  
-- [ ] （可选）migration 史干净 + gazetteer 外置  
-- [ ] （可选）prod DSN  
+- [x] 归属文档（#862）
+- [x] staging 角色+DSN（#870 迁移已合；#832 staging apply+DSN 剩余）
+- [ ] （可选）migration 史干净 + gazetteer 外置
+- [ ] （可选）prod DSN
 
 ### F. 历史 — W8
 
-- [ ] git 日折叠完成或显式延期  
+- [ ] git 日折叠完成或显式延期
 
 ### G. 质量与合 PR 纪律（**每个 PR**）
 
-- [ ] 包门禁绿  
-- [ ] 无用户可见 API 行为变更  
-- [ ] 1-10-50 破线不增  
-- [ ] **Matt `/code-review` 双轴通过**  
-- [ ] **两路 PR 评论闸完成 + 顶层「线程判定」**  
+- [ ] 包门禁绿
+- [ ] 无用户可见 API 行为变更
+- [ ] 1-10-50 破线不增
+- [ ] **Matt `/code-review` 双轴通过**
+- [ ] **两路 PR 评论闸完成 + 顶层「线程判定」**
 
 ---
 
@@ -357,3 +357,4 @@ W6 后：    W5 搬家（若未提前）
 | 2026-08-06 | 初稿 GOAL |
 | 2026-08-06 | #829 镜像勾选板 |
 | 2026-08-06 | **全波次 W0–W8**；编排锁定；双执行器；**Matt code-review 强制**；**两路 PR 评论闸（线程判定）** 写入 GOAL |
+| 2026-08-07 | **W1/W3 关账回写** + #884/#885/#886/#876 合入 |
