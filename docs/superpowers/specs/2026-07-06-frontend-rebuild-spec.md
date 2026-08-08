@@ -6,7 +6,7 @@ Author: Planning agent (rev. 7, based on `2026-07-06-frontend-rebuild-inputs.md`
 Baseline: `main` (`02cd7fa`), new branch `feat/frontend-rebuild`
 
 > **S0.9 authority amendment (2026-08-02):** This supersedes older SD-1 wording. The Neon
-> migration authority is `db/migrations/*.sql` plus generated `db/migrations/atlas.sum`, applied
+> migration authority is `migrations/neon/*.sql` plus generated `migrations/neon/atlas.sum`, applied
 > by pinned Atlas. Drizzle remains runtime query/type metadata only; there is no
 > `atlas-provider-drizzle` desired-state generation or Drizzle migration runner. Supabase
 > migrations are frozen auth/legacy compatibility history, not a second Neon source.
@@ -95,7 +95,7 @@ We are not aiming for "feature parity with the old site from day one" — we're 
 | Round | Conclusion |
 |---|---|
 | SD-0 Domain | **`animichi.com` Finalized**; `aninavi.app` either 301s or is left non-blocking; kitsunavi.com kept as a brand-upgrade backup → DD-20 frozen |
-| SD-1 Migration chain | `db/migrations/*.sql` plus generated `atlas.sum` are authoritative; Drizzle is query/type metadata only; Supabase migrations remain auth/legacy compatibility; boundary written up in `docs/ops/migrations.md` (S0.9) |
+| SD-1 Migration chain | `migrations/neon/*.sql` plus generated `atlas.sum` are authoritative; Drizzle is query/type metadata only; Supabase migrations remain auth/legacy compatibility; boundary written up in `docs/ops/migrations.md` (S0.9) |
 | SD-2 User-domain access | API-first, `/v1/users/*` oRPC (`workers/users`); the **Neon Auth SDK** is auth-only (SD-31 — was `supabase-js`) |
 | SD-3 Data plane | Data plane moves to Neon (5 sub-points, D8); ⑤ the auth migration is now **activated by SD-31 (→ Neon Auth)**, no longer DD-1 frozen |
 | SD-4 Agent runtime | Python FastAPI container, Finalized, not up for further debate (D7) |

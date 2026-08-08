@@ -26,9 +26,9 @@ From the repository root, place the raw files at the canonical placeholder paths
 node --import tsx workers/catalog/scripts/build-gazetteer.ts \
   --stations data/raw/N02-23_Station.geojson \
   --cities data/raw/cities500.txt \
-  --out-sql db/migrations/20260714000002_gazetteer_data.sql \
+  --out-sql migrations/neon/20260714000002_gazetteer_data.sql \
   --out-audit workers/catalog/data/gazetteer-audit.csv
-atlas migrate hash --dir file://db/migrations
+atlas migrate hash --dir file://migrations/neon
 ```
 
 The generator verifies both extracted inputs against

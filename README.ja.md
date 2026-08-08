@@ -67,15 +67,15 @@ make check             # lint + 型チェック + テスト
 
 ## データベースマイグレーション
 
-Neon の catalog/user データ面のスキーマ変更は `db/migrations/` に記録し、固定した
-Atlas CLI で適用します。`db/migrations/atlas.sum` は生成される整合性マニフェストなので、
+Neon の catalog/user データ面のスキーマ変更は `migrations/neon/` に記録し、固定した
+Atlas CLI で適用します。`migrations/neon/atlas.sum` は生成される整合性マニフェストなので、
 マイグレーションと同じ変更で再生成してください。Worker の Drizzle schema は実行時の
 クエリ/型情報だけを提供し、マイグレーションを生成・適用しません。残る Supabase の
 マイグレーションは auth/旧版互換用で、Neon の新しいテーブルのソースではありません。
 
 ```bash
 make db-list           # リポジトリ内の Atlas マイグレーション一覧
-make db-hash           # db/migrations/atlas.sum を再生成
+make db-hash           # migrations/neon/atlas.sum を再生成
 make db-validate       # checksum と SQL 構造を検証
 make db-push-dry       # NEON_DATABASE_URL に対する dry-run
 make db-push           # NEON_DATABASE_URL に適用
@@ -130,7 +130,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `packages/contract/` — 共有 oRPC/zod 契約（catalog ↔ agent ↔ users）
 - `apps/web/` — TanStack Start SSR Web アプリ（**唯一のブラウザ面**）
 - `workers/edge/` — 認証と `/v1` ルーティングの Cloudflare Worker 入口
-- `db/migrations/` — Neon データ面の Atlas マイグレーションと生成 checksum
+- `migrations/neon/` — Neon データ面の Atlas マイグレーションと生成 checksum
 - `supabase/` — auth/旧版互換マイグレーションと Supabase プロジェクト資産
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
 - `Makefile`、`package.json` — ルートに残すツール入口。`apps/agent/Dockerfile`（コンテナイメージ）と `workers/edge/wrangler.toml`（edge Worker 設定）はコードの隣に配置

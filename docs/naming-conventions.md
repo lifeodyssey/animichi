@@ -42,7 +42,7 @@ Exceptions (framework/tool conventions, not violations):
 - Underscore-prefixed files under `tests/` (`_fixtures.ts`, `_chat-page.tsx`)
   are vitest helper modules — excluded from test discovery by design.
 - `__snapshots__/` dirs and `*.snap` (vitest-generated).
-- `db/migrations/` Atlas-generated files (timestamp_snake_case).
+- `migrations/neon/` Atlas-generated files (timestamp_snake_case).
 - Established domain terms used as-is (measured dominant usage, repo-wide):
   `byok`, `shiori`, `turnstile`, `maplibre` — kebab them like any word
   (`byok-storage.ts`, `maplibre-adapter.ts`), but never expand them.

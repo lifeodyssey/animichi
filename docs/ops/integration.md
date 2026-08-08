@@ -62,7 +62,7 @@ image.anitabi.cn ───────┘      ↓ raw_anitabi / raw_bangumi(JSO
                           Publish → cluster_version(蓝绿指针);媒体 → R2 catalog-media
 agent(Python 容器)= catalog 的只读消费者(不在请求期调外部 API)
 users Worker = 用户数据(Hono/oRPC);maintenance Worker = 定时清理(cron 范式的参照实现)
-数据库 = Neon(Atlas 迁移,db/migrations);Supabase 仅存量 auth(SD-31 迁移中,冻结)
+数据库 = Neon(Atlas 迁移,migrations/neon);Supabase 仅存量 auth(SD-31 迁移中,冻结)
 ```
 
 ## 4. 部署链

@@ -63,7 +63,7 @@ someone.
 
 ## Related
 
-- `db/migrations/20260728000001_conversations_user_id_pattern_ops.sql` — the
+- `migrations/neon/20260728000001_conversations_user_id_pattern_ops.sql` — the
   Atlas-authoritative migration that creates the `text_pattern_ops` index the purge
   scan's `LIKE 'anon\_%'` match depends on. The frozen Supabase compatibility file is
   not a second source. The two arms this test suite
