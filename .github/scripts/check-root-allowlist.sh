@@ -15,6 +15,7 @@ ALLOWED_ROOT_ENTRIES=(
   .env.example
   .env.test.example
   .github
+  .gitleaks.toml
   .gitignore
   .npmrc
   .nvmrc
