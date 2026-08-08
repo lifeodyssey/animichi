@@ -6,7 +6,7 @@ Single source of truth for the types exchanged between the **Python Agent servic
 
 | File | Contents |
 |---|---|
-| `src/models.ts` | Zod schemas + inferred TS types: `PilgrimagePoint`, `TimedStop`, `TransitLeg`, `TimedItinerary`, `Route`, `Pacing`, `Origin` |
+| `src/models.ts` | Zod schemas + inferred TS types: `Point`, `TimedStop`, `TransitLeg`, `TimedItinerary`, `Itinerary`, `Pacing`, `Origin` |
 | `src/contract.ts` | oRPC contract + additional response types: `SearchResult`, `SpotsResult`, `NearbyResult` and the `catalogContract` object |
 | `src/errors.ts` | Typed error registry: `CATALOG_ERROR_DEFS` (code → status/category/message/data schema), `ErrorCategory`, per-code data schemas, `pickCatalogErrors()` |
 | `src/index.ts` | Re-exports everything above |
@@ -37,10 +37,10 @@ Cloudflare Worker bundle. The parity test also uses `import type` exclusively.
 
 ```ts
 // CORRECT — in catalog code and tests
-import type { PilgrimagePoint } from "../../packages/contract/src/models";
+import type { Point } from "../../packages/contract/src/models";
 
 // WRONG — pulls zod runtime into the Worker bundle
-import { PilgrimagePoint } from "../../packages/contract/src/models";
+import { Point } from "../../packages/contract/src/models";
 ```
 
 ### 2. Do NOT codegen Python models
