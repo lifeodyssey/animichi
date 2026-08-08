@@ -112,3 +112,12 @@ def test_fake_gateway_satisfies_read_protocol() -> None:
 def test_gateway_methods_are_awaitable_contracts() -> None:
     for name in _ALLOWED_READ_METHODS:
         assert inspect.iscoroutinefunction(getattr(CatalogReadGateway, name))
+
+
+async def test_gateway_stub_bodies_resolve_when_invoked() -> None:
+    for name in _ALLOWED_READ_METHODS:
+        stub = getattr(CatalogReadGateway, name)
+        signature = inspect.signature(stub)
+        args = {param: None for param in signature.parameters if param != "self"}
+        result = await stub(None, **args)
+        assert result is None

@@ -161,13 +161,13 @@ function buildSampleItineraries(rows: OverviewRow[]): AnimeSampleItinerary[] {
   const groups = groupByRegion(rows);
   return rankRegions(groups)
     .slice(0, SAMPLE_ITINERARY_REGION_LIMIT)
-    .map((region) => toSampleItinerary(region, groups.get(region) ?? []));
+    .map(([region, members]) => toSampleItinerary(region, members));
 }
 
-function rankRegions(groups: Map<string, OverviewRow[]>): string[] {
-  return [...groups.entries()]
-    .sort(([ar, a], [br, b]) => b.length - a.length || ar.localeCompare(br))
-    .map(([region]) => region);
+function rankRegions(groups: Map<string, OverviewRow[]>): [string, OverviewRow[]][] {
+  return [...groups.entries()].sort(
+    ([ar, a], [br, b]) => b.length - a.length || ar.localeCompare(br),
+  );
 }
 
 function toSampleItinerary(region: string, members: OverviewRow[]): AnimeSampleItinerary {

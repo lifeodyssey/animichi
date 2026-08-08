@@ -59,6 +59,31 @@ describe("search (alias miss — synchronous fallback when no waitUntil)", () =>
   });
 });
 
+describe("search (alias miss — production SearchDb wrapper)", () => {
+  it("runs the sync fallback through the real runFullIngest when the preview resolves", async () => {
+    const fetchImpl: FetchLike = (url) =>
+      url.includes("/v0/search/subjects")
+        ? Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ data: [{ id: 10380 }] }) })
+        : Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({
+              pointsLength: 1,
+              litePoints: [{ id: "lite-1", name: "宇治橋", geo: [34.8915, 135.8078], image: "/lite/p1.jpg", ep: 1, s: 12 }],
+            }),
+          });
+
+    const result = await search(
+      searchDb(catalogDb([])),
+      { query: "けいおん！" },
+      { fetchImpl },
+    );
+
+    expect(result.partial).toBe(true);
+    expect(result.rows.map((r) => r.id)).toEqual(["lite-1"]);
+  });
+});
+
 describe("search (alias miss — Anitabi lite 404 = no data, not an outage)", () => {
   const bangumiHit = { ok: true, status: 200, json: () => Promise.resolve({ data: [{ id: 10380 }] }) };
 

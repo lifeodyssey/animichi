@@ -128,6 +128,31 @@ async def test_all_empty_is_t4_and_preserves_pending() -> None:
     assert not state.routes
 
 
+async def test_empty_itinerary_is_error_terminal_without_route_write() -> None:
+    class _EmptyItineraryCatalog(_Catalog):
+        async def plan_itinerary(
+            self,
+            point_ids: list[str],
+            *,
+            origin: tuple[float, float] | None = None,
+            pacing: Literal["chill", "normal", "packed"] | None = None,
+        ) -> Itinerary:
+            self.calls.append(("plan_itinerary", (tuple(point_ids), origin, pacing)))
+            return Itinerary(ordered_points=[], point_count=0)
+
+    catalog = _EmptyItineraryCatalog({"1": SearchResult(rows=[_point("a", "1")])})
+    state = _pending()
+
+    result = await execute_multi_selection(
+        candidate_ids=["1"], state=state, locale="en", catalog=catalog
+    )
+
+    assert (result.status, result.success) == ("error", False)
+    assert ("plan_itinerary", (("a",), None, None)) in catalog.calls
+    assert not state.routes
+    assert state.pending_clarification is not None
+
+
 async def test_t4_does_not_project_a_route_from_a_prior_turn() -> None:
     catalog = _Catalog({"1": SearchResult(), "2": SearchResult()})
     state = _pending()

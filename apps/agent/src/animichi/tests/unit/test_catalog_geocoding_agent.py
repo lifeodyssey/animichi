@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Literal
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -21,6 +22,7 @@ from animichi.clients.catalog_client import (
     AnimeCandidate,
     GeocodeCandidate,
     GeocodeKind,
+    Itinerary,
     ResolveAmbiguous,
     ResolveNotFound,
 )
@@ -172,6 +174,37 @@ async def test_empty_route_is_a_successful_typed_step() -> None:
     )
 
     assert (outcome.status, deps.steps[-1].is_success) == ("empty", True)
+    assert isinstance(deps.steps[-1].provenance, RejectedRoute)
+
+
+async def test_catalog_empty_itinerary_is_a_typed_route_empty() -> None:
+    deps = _deps()
+    ref = ResultRef("search:rows")
+    deps.tool_state.session.store_search_result(
+        ref,
+        SearchPayloadState(kind="bangumi", rows=[PointState(id="p004")], row_count=1),
+    )
+
+    class _EmptyItineraryCatalog(MockCatalogClient):
+        async def plan_itinerary(
+            self,
+            point_ids: list[str],
+            *,
+            origin: tuple[float, float] | None = None,
+            pacing: Literal["chill", "normal", "packed"] | None = None,
+        ) -> Itinerary:
+            self.calls.append(("plan_itinerary", (tuple(point_ids), origin, pacing)))
+            return Itinerary(ordered_points=[], point_count=0)
+
+    catalog = _EmptyItineraryCatalog()
+
+    outcome = await run_route(_ctx(deps), catalog, str(ref), None)
+    await project_tool_result(
+        deps, "plan_route", {"search_result_ref": str(ref)}, outcome
+    )
+
+    assert outcome.status == "empty"
+    assert ("plan_itinerary", (("p004",), None, None)) in catalog.calls
     assert isinstance(deps.steps[-1].provenance, RejectedRoute)
 
 
