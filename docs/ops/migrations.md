@@ -8,14 +8,16 @@ surface so a query schema cannot quietly become a second migration system.
 
 | Surface | Source of truth | Apply mechanism | Boundary |
 |---|---|---|---|
-| Neon catalog and user data | `migrations/neon/*.sql` plus the generated `migrations/neon/atlas.sum` | Pinned Atlas CLI (`0.30.0`) | The only versioned schema and data migration history for Neon |
+| Neon catalog and user data | `migrations/neon/*.sql` plus the generated `migrations/neon/atlas.sum` | Pinned Atlas CLI (`0.30.0`) | The only versioned schema and data migration history for Neon. The chain is schema-only; reference/seed data (e.g. the gazetteer at `workers/catalog/data/gazetteer_seed.sql`) is loaded separately and idempotently (`make seed-gazetteer`) |
 | Catalog/users runtime access | `workers/catalog/src/db/schema.ts` and `workers/users/src/db/schema.ts` | Drizzle `neon-http` client with raw `sql` queries | Runtime column/type metadata and query typing only; never a migration source |
 | Supabase auth/legacy compatibility | `supabase/migrations/` | Supabase CLI, only when an auth owner explicitly schedules it | Not a source for new Neon catalog or user tables |
 
 `migrations/neon/` is append-only once a migration has reached a shared environment. Do not
 edit an applied file, hand-edit `atlas.sum`, or copy a Drizzle schema into a second SQL
 directory. The legacy `supabase/neon/` migration twin was removed (repo-root cleanup); new Neon changes belong
-under `migrations/neon/`.
+under `migrations/neon/`. The gazetteer seed (`workers/catalog/data/gazetteer_seed.sql`) is a
+generated artifact and must stay out of this directory — it was removed from the chain in #847
+and is loaded via `make seed-gazetteer` after the schema exists.
 
 The application never runs migrations at startup. A Worker may construct a Drizzle client
 and execute a query, but it must not import `drizzle-kit`, call a Drizzle migration API, or
