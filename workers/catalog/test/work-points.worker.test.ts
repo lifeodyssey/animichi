@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  pointsByWorkId,
+  pointsByBangumiId,
   type WorkPointsDb,
 } from "../src/api/work-points";
 import type {
@@ -8,10 +8,10 @@ import type {
   IngestGuard,
   IngestResult,
 } from "../src/ingest/orchestrator";
-import type { PilgrimagePoint } from "../src/types";
+import type { Point } from "../src/types";
 import type { WorkPointRow, MissPreview } from "../src/api/search";
 
-const PREVIEW: PilgrimagePoint = {
+const PREVIEW: Point = {
   id: "lite-1",
   name: "宇治橋",
   bangumi_id: "115908",
@@ -104,7 +104,7 @@ function waitUntilSpy(): {
   return { waitUntil: (promise) => void scheduled.push(promise), scheduled };
 }
 
-describe("pointsByWorkId tiered ingest", () => {
+describe("pointsByBangumiId tiered ingest", () => {
   it("returns a partial preview and schedules one ingest while the marker is in flight", async () => {
     let finish: (result: IngestResult) => void = () => undefined;
     const ingest = new Promise<IngestResult>((resolve) => (finish = resolve));
@@ -112,8 +112,8 @@ describe("pointsByWorkId tiered ingest", () => {
     const { waitUntil, scheduled } = waitUntilSpy();
 
     const [first, duplicate] = await Promise.all([
-      pointsByWorkId(db, "115908", { waitUntil }),
-      pointsByWorkId(db, "115908", { waitUntil }),
+      pointsByBangumiId(db, "115908", { waitUntil }),
+      pointsByBangumiId(db, "115908", { waitUntil }),
     ]);
 
     expect(first).toMatchObject({ rows: [PREVIEW], partial: true });
@@ -128,7 +128,7 @@ describe("pointsByWorkId tiered ingest", () => {
 
   it("serves a genuine-empty marker without previewing or re-ingesting", async () => {
     const { db, previews, claims, ingests } = fakeDb({ guard: "empty" });
-    const result = await pointsByWorkId(db, "115908", waitUntilSpy());
+    const result = await pointsByBangumiId(db, "115908", waitUntilSpy());
     expect(result.rows).toEqual([]);
     expect(result.partial).toBeUndefined();
     expect([previews, claims, ingests]).toEqual([[], [], []]);
@@ -136,7 +136,7 @@ describe("pointsByWorkId tiered ingest", () => {
 
   it("serves a recent-attempt marker without previewing or re-ingesting", async () => {
     const { db, previews, claims, ingests } = fakeDb({ guard: "recently_attempted" });
-    const result = await pointsByWorkId(db, "115908", waitUntilSpy());
+    const result = await pointsByBangumiId(db, "115908", waitUntilSpy());
     expect(result.rows).toEqual([]);
     expect(result.partial).toBe(true);
     expect([previews, claims, ingests]).toEqual([[], [], []]);
@@ -144,16 +144,16 @@ describe("pointsByWorkId tiered ingest", () => {
 
   it("returns empty partial when it loses the claim before preview", async () => {
     const { db, previews, ingests } = fakeDb({ claim: "in_progress" });
-    const result = await pointsByWorkId(db, "115908", waitUntilSpy());
+    const result = await pointsByBangumiId(db, "115908", waitUntilSpy());
     expect(result).toMatchObject({ rows: [], partial: true });
     expect([previews, ingests]).toEqual([[], []]);
   });
 });
 
-describe("pointsByWorkId completion semantics", () => {
+describe("pointsByBangumiId completion semantics", () => {
   it("re-reads published rows after claiming and closes the no-op claim", async () => {
     const recorder = fakeDb({ rowsSequence: [[], [PUBLISHED]] });
-    const result = await pointsByWorkId(recorder.db, "115908", waitUntilSpy());
+    const result = await pointsByBangumiId(recorder.db, "115908", waitUntilSpy());
     expect(result.rows.map((point) => point.id)).toEqual(["published-1"]);
     expect(recorder.completed).toEqual(["115908"]);
     expect([recorder.previews, recorder.ingests]).toEqual([[], []]);
@@ -161,7 +161,7 @@ describe("pointsByWorkId completion semantics", () => {
 
   it("keeps the published-points path unchanged", async () => {
     const { db, previews, claims, ingests } = fakeDb({ rows: [PUBLISHED] });
-    const result = await pointsByWorkId(db, "115908", waitUntilSpy());
+    const result = await pointsByBangumiId(db, "115908", waitUntilSpy());
     expect(result.rows.map((point) => point.id)).toEqual(["published-1"]);
     expect(result.synced_at).toBe("2026-07-17T00:00:00.000Z");
     expect(result.partial).toBeUndefined();
@@ -170,7 +170,7 @@ describe("pointsByWorkId completion semantics", () => {
 
   it("runs the claimed ingest synchronously when waitUntil is absent", async () => {
     const { db, ingests } = fakeDb();
-    const result = await pointsByWorkId(db, "115908");
+    const result = await pointsByBangumiId(db, "115908");
     expect(ingests).toEqual(["115908"]);
     expect(result).toMatchObject({ rows: [PREVIEW], partial: true });
   });
@@ -179,12 +179,12 @@ describe("pointsByWorkId completion semantics", () => {
     const ingest = Promise.reject(new Error("upstream unavailable"));
     void ingest.catch(() => undefined);
     const { db } = fakeDb({ ingest });
-    await expect(pointsByWorkId(db, "115908")).resolves.toMatchObject({ rows: [PREVIEW], partial: true });
+    await expect(pointsByBangumiId(db, "115908")).resolves.toMatchObject({ rows: [PREVIEW], partial: true });
   });
 
   it("returns the empty result when synchronous ingest finds no points", async () => {
     const { db } = fakeDb({ ingest: Promise.resolve({ status: "empty", reason: "no points" }) });
-    await expect(pointsByWorkId(db, "115908")).resolves.toMatchObject({ rows: [] });
+    await expect(pointsByBangumiId(db, "115908")).resolves.toMatchObject({ rows: [] });
   });
 
   it("swallows background ingest rejection inside the waitUntil promise", async () => {
@@ -192,7 +192,7 @@ describe("pointsByWorkId completion semantics", () => {
     void ingest.catch(() => undefined);
     const { db } = fakeDb({ ingest });
     const { waitUntil, scheduled } = waitUntilSpy();
-    await expect(pointsByWorkId(db, "115908", { waitUntil })).resolves.toMatchObject({
+    await expect(pointsByBangumiId(db, "115908", { waitUntil })).resolves.toMatchObject({
       rows: [PREVIEW], partial: true,
     });
     await expect(Promise.all(scheduled)).resolves.toEqual([undefined]);

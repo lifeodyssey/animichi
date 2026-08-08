@@ -26,10 +26,10 @@ export type Relation =
   | "character"
   | "other";
 
-/** A directed edge from the `series_edges` table (from_work_id, to_work_id, relation). */
+/** A directed edge from the `series_edges` table (from_bangumi_id, to_bangumi_id, relation). */
 export interface SeriesEdge {
-  fromWorkId: string;
-  toWorkId: string;
+  fromBangumiId: string;
+  toBangumiId: string;
   relation: Relation;
 }
 
@@ -51,8 +51,8 @@ function buildAdjacency(edges: SeriesEdge[]): Map<string, Set<string>> {
   const adj = new Map<string, Set<string>>();
   for (const edge of edges) {
     if (SAME_SERIES_RELATIONS.has(edge.relation)) {
-      link(adj, edge.fromWorkId, edge.toWorkId);
-      link(adj, edge.toWorkId, edge.fromWorkId);
+      link(adj, edge.fromBangumiId, edge.toBangumiId);
+      link(adj, edge.toBangumiId, edge.fromBangumiId);
     }
   }
   return adj;
@@ -70,13 +70,13 @@ function link(adj: Map<string, Set<string>>, from: string, to: string): void {
 
 /**
  * BFS over same-series edges (treated as bidirectional), returning every
- * work_id in the connected series component containing `startWorkId`
+ * bangumi_id in the connected series component containing `startBangumiId`
  * (inclusive). A visited set makes it cycle-safe.
  */
-export function walkSeries(edges: SeriesEdge[], startWorkId: string): Set<string> {
+export function walkSeries(edges: SeriesEdge[], startBangumiId: string): Set<string> {
   const adj = buildAdjacency(edges);
-  const visited = new Set<string>([startWorkId]);
-  let frontier = [startWorkId];
+  const visited = new Set<string>([startBangumiId]);
+  let frontier = [startBangumiId];
   while (frontier.length > 0) frontier = expand(frontier, adj, visited);
   return visited;
 }

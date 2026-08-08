@@ -4,13 +4,13 @@
  * optionally annotated with `distance_m` from a caller-supplied origin.
  *
  * Shape source of truth: packages/contract/src/contract.ts ->
- *   spots(bangumi_id, origin?) -> { point: PilgrimagePoint, distance_m? }
+ *   spots(bangumi_id, origin?) -> { point: Point, distance_m? }
  * The contract returns a SINGLE point (not a list), so we pick the work's
  * representative point (lowest id, deterministic) and 404 if the work has none.
  *
  * Read-only: a single typed `db.execute(sql`...`)` following the validated
  * geo-query.ts pattern (Drizzle has no native GEOGRAPHY predicate). The wire
- * shapes (`PilgrimagePoint` / `Origin`) come from `../types` — the single
+ * shapes (`Point` / `Origin`) come from `../types` — the single
  * in-Worker mirror of packages/contract/src/models.ts (import type erases at
  * compile time, keeping the contract's zod runtime out of the bundle).
  */
@@ -19,9 +19,9 @@ import type { CatalogDb } from "../db/client";
 import { sql } from "drizzle-orm";
 import { haversine } from "../domain/geo";
 import { optional } from "../lib/optional";
-import type { Origin, PilgrimagePoint } from "../types";
+import type { Origin, Point } from "../types";
 
-export type { Origin, PilgrimagePoint };
+export type { Origin, Point };
 
 /** Raw column shape returned by the points read query. */
 interface PointRow {
@@ -57,8 +57,8 @@ function representativeQuery(bangumiId: string) {
   `;
 }
 
-/** Map a DB row to the contract PilgrimagePoint shape (omitting null columns). */
-function toPoint(r: PointRow): PilgrimagePoint {
+/** Map a DB row to the contract Point shape (omitting null columns). */
+function toPoint(r: PointRow): Point {
   return {
     ...pointBase(r),
     ...optional({ episode: r.episode, time_seconds: r.time_seconds }),
@@ -67,7 +67,7 @@ function toPoint(r: PointRow): PilgrimagePoint {
   };
 }
 
-function pointBase(r: PointRow): PilgrimagePoint {
+function pointBase(r: PointRow): Point {
   return {
     id: r.id,
     name: r.name,
@@ -79,7 +79,7 @@ function pointBase(r: PointRow): PilgrimagePoint {
 }
 
 /** Distance in meters from a lat/lng origin to the point; undefined for named origins. */
-function distanceFrom(point: PilgrimagePoint, origin?: Origin): number | undefined {
+function distanceFrom(point: Point, origin?: Origin): number | undefined {
   if (!origin || typeof origin === "string") {
     return undefined;
   }
@@ -90,7 +90,7 @@ function distanceFrom(point: PilgrimagePoint, origin?: Origin): number | undefin
 export async function spots(
   db: CatalogDb,
   input: { bangumi_id: string; origin?: Origin },
-): Promise<{ point: PilgrimagePoint; distance_m?: number }> {
+): Promise<{ point: Point; distance_m?: number }> {
   const row = ((await db.execute(representativeQuery(input.bangumi_id))).rows as unknown as PointRow[])[0];
   if (!row) throw new SpotNotFoundError(input.bangumi_id);
   const point = toPoint(row);

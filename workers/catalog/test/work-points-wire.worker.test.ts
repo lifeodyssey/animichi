@@ -14,7 +14,7 @@ async function call(body: unknown, context: CatalogContext): Promise<Response> {
 }
 
 async function handleRequest(body: unknown, context: CatalogContext) {
-  const request = new Request("https://catalog.test/catalog/points-by-work-id", {
+  const request = new Request("https://catalog.test/catalog/points-by-bangumi-id", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
@@ -38,7 +38,7 @@ function unreachableContext(): CatalogContext {
 
 describe("work-id contract on the OpenAPI wire", () => {
   it("rejects a nonnumeric work id before SQL or upstream access", async () => {
-    const response = await call({ work_id: "not-a-number" }, unreachableContext());
+    const response = await call({ bangumi_id: "not-a-number" }, unreachableContext());
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ defined: false, status: 400 });
   });
@@ -46,8 +46,8 @@ describe("work-id contract on the OpenAPI wire", () => {
   it("serializes UPSTREAM_UNAVAILABLE for a preview outage", async () => {
     const fetchImpl = (() => Promise.reject(new Error("anitabi down"))) as unknown as typeof fetch;
     const response = await call(
-      { work_id: "3302" },
-      context([[], [], [{ work_id: "3302" }], []], fetchImpl),
+      { bangumi_id: "3302" },
+      context([[], [], [{ bangumi_id: "3302" }], []], fetchImpl),
     );
     expect(response.status).toBe(502);
     expect(await response.json()).toEqual({

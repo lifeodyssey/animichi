@@ -9,7 +9,7 @@ import { spots, SpotNotFoundError } from "../src/api/spots";
  * `db.execute(sql`...`)` returning `{ rows }` (the geo-query.ts pattern), so a
  * typed fake `execute` returning fixture rows is injected via `fakeDb()` and
  * cast to CatalogDb at the boundary. Asserts the contract shape
- * { point, distance_m? } where `point` is a SINGLE PilgrimagePoint.
+ * { point, distance_m? } where `point` is a SINGLE Point.
  * Named *.worker.test.ts so the vitest-pool-workers config picks it up.
  */
 
@@ -64,7 +64,7 @@ async function assertNullCoercion(): Promise<void> {
 }
 
 describe("spots (api/spots.ts)", () => {
-  it("maps a known bangumi_id row to the contract PilgrimagePoint shape", assertContractShape);
+  it("maps a known bangumi_id row to the contract Point shape", assertContractShape);
 
   it("omits distance_m when no origin is given", async () => {
     const result = await spots(fakeDb([KAMAKURA]), { bangumi_id: "100" });

@@ -1,8 +1,8 @@
 /**
  * Atomic version publish over `cluster_version`
  * (`db/migrations/20260623000001_init.sql`):
- *   id, work_id, version, is_current, created_at, with the partial unique index
- *   `uq_cluster_version_one_current` (work_id) WHERE is_current.
+ *   id, bangumi_id, version, is_current, created_at, with the partial unique index
+ *   `uq_cluster_version_one_current` (bangumi_id) WHERE is_current.
  *
  * A publish is a blue/green pointer switch done in ONE server-side batch
  * transaction: flip any current row to is_current=false, THEN insert the new row
@@ -40,15 +40,15 @@ export function publishVersionStatements(
 
 /** Flip the work's current row (if any) to is_current=false. */
 function flipCurrentOff(workId: string): SQL {
-  return sql`UPDATE cluster_version SET is_current = FALSE WHERE work_id = ${workId} AND is_current`;
+  return sql`UPDATE cluster_version SET is_current = FALSE WHERE bangumi_id = ${workId} AND is_current`;
 }
 
 /** Atomically derive and insert max(version)+1 (1 when no row exists). */
 function insertCurrent(workId: string): SQL<PublishedVersionRow> {
   return sql<PublishedVersionRow>`
-    INSERT INTO cluster_version (work_id, version, is_current)
+    INSERT INTO cluster_version (bangumi_id, version, is_current)
     SELECT ${workId}, COALESCE(MAX(version), 0) + 1, TRUE
-    FROM cluster_version WHERE work_id = ${workId}
+    FROM cluster_version WHERE bangumi_id = ${workId}
     RETURNING version
   `;
 }

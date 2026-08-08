@@ -21,7 +21,7 @@ import {
   type WorkPointRow,
 } from "./search";
 
-/** Minimal persistence/upstream port for the work-id orchestration. */
+/** Minimal persistence/upstream port for the bangumi-id orchestration. */
 export interface WorkPointsDb {
   pointsForWork(workId: string): Promise<WorkPointRow[]>;
   previewForWork(workId: string, fetchImpl?: FetchLike): Promise<MissPreview>;
@@ -32,14 +32,14 @@ export interface WorkPointsDb {
 }
 
 /** Return published rows, or a guarded L1 preview while full ingest runs. */
-export async function pointsByWorkId(
+export async function pointsByBangumiId(
   db: WorkPointsDb,
-  workId: string,
+  bangumiId: string,
   options: SearchOptions = {},
 ): Promise<SearchResult> {
-  const published = await hitResult(db, workId);
+  const published = await hitResult(db, bangumiId);
   if (published.rows.length > 0) return published;
-  return uncoveredWork(db, workId, options);
+  return uncoveredWork(db, bangumiId, options);
 }
 
 async function uncoveredWork(
@@ -124,7 +124,7 @@ function syncingResult(): SearchResult {
   return { ...emptyResult(), partial: true };
 }
 
-/** Bind the work-id port to the shared ingest and preview infrastructure. */
+/** Bind the bangumi-id port to the shared ingest and preview infrastructure. */
 export function workPointsDb(db: CatalogDb): WorkPointsDb {
   const search = searchDb(db), jobs = new JobStore(db);
   return {

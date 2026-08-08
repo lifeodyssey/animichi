@@ -3,7 +3,7 @@
  *
  * Feeds the `aliases` catalog table
  * (`db/migrations/20260623000001_init.sql`):
- *   work_id, alias, alias_normalized, source, priority.
+ *   bangumi_id, alias, alias_normalized, source, priority.
  *
  * `alias_normalized` is the NFKC-folded form used for exact-match lookup
  * (btree `idx_aliases_normalized`); fuzzy match (pg_trgm) lands in Wave 2.

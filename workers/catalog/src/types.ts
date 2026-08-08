@@ -42,8 +42,8 @@ export interface GeocodeResult {
   candidates: GeocodeCandidate[];
 }
 
-/** A single pilgrimage point row — mirrors `PilgrimagePoint` in the contract. */
-export interface PilgrimagePoint {
+/** A single pilgrimage point row — mirrors `Point` in the contract. */
+export interface Point {
   id: string;
   name: string;
   name_cn?: string;
@@ -80,8 +80,8 @@ export interface AnimeScene {
   city?: string;
 }
 
-/** A per-region sample route — mirrors `AnimeSampleRoute`. */
-export interface AnimeSampleRoute {
+/** A per-region sample itinerary — mirrors `AnimeSampleItinerary`. */
+export interface AnimeSampleItinerary {
   region: string;
   point_ids: string[];
 }
@@ -92,7 +92,7 @@ export interface AnimeOverview {
   points_length: number;
   circles: AnimeOverviewCircle[];
   scenes: AnimeScene[];
-  sample_routes: AnimeSampleRoute[];
+  sample_itineraries: AnimeSampleItinerary[];
 }
 
 /** Stable anime identity and trusted display metadata — mirrors `AnimeCandidate`. */
@@ -152,7 +152,7 @@ export interface TransitLeg {
  * normal alias-hit response.
  */
 export interface SearchResult {
-  rows: PilgrimagePoint[];
+  rows: Point[];
   synced_at: string;
   partial?: boolean;
 }
@@ -170,11 +170,11 @@ export interface TimedItinerary {
   export_ics?: string;
 }
 
-/** An ordered, timed pilgrimage route — mirrors `Route` in the contract. */
-export interface Route {
+/** An ordered, timed pilgrimage itinerary — mirrors `Itinerary` in the contract. */
+export interface Itinerary {
   id?: string;
   version?: string;
-  ordered_points: PilgrimagePoint[];
+  ordered_points: Point[];
   point_count: number;
   cover_url?: string;
   anime_title?: string;

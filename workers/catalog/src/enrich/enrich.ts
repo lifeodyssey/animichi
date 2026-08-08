@@ -156,9 +156,9 @@ function logClusters(workId: string, points: PointRow[]): number {
 function upsertAliases(workId: string, b: BangumiRow): SQL {
   const aliases = rankAliases(titleAliases(b));
   return sql`
-    INSERT INTO aliases (work_id, alias, alias_normalized, source, priority)
+    INSERT INTO aliases (bangumi_id, alias, alias_normalized, source, priority)
     VALUES ${sql.join(aliases.map((alias) => aliasValues(workId, alias)), sql`, `)}
-    ON CONFLICT (work_id, alias, source)
+    ON CONFLICT (bangumi_id, alias, source)
     DO UPDATE SET alias_normalized = EXCLUDED.alias_normalized, priority = EXCLUDED.priority
   `;
 }

@@ -36,7 +36,7 @@ vi.mock("cloudflare:workers", () => ({
  * and the Python `backend/clients/catalog_client.py` speak: the request body IS
  * the raw input object (`{query}` / `{bangumi_id}` / `{lat,lng,radius_m}` /
  * `{point_ids}`) and the response IS the raw output (top-level `{rows}` /
- * `{point}` / `Route`), NOT the RPCHandler `{json: ...}` envelope. This proves
+ * `{point}` / `Itinerary`), NOT the RPCHandler `{json: ...}` envelope. This proves
  * real contract conformance: it would FAIL against the old RPCHandler.
  *
  * Schema comes from the full Atlas-applied `test-base` parent.
@@ -155,7 +155,7 @@ async function assertOverviewHit(): Promise<void> {
   expect(body.points_length).toBe(3);
   expect(body.circles.map((c) => [c.region, c.count])).toEqual([["Kamakura", 2], ["Hakone", 1]]);
   expect(body.scenes[0]).toMatchObject({ id: "ov-kama-1", shot_count: 2, city: "Kamakura" });
-  expect(body.sample_routes[0]).toEqual({ region: "Kamakura", point_ids: ["ov-kama-1", "ov-kama-2"] });
+  expect(body.sample_itineraries[0]).toEqual({ region: "Kamakura", point_ids: ["ov-kama-1", "ov-kama-2"] });
 }
 
 async function assertOverviewEmpty(): Promise<void> {
@@ -164,7 +164,7 @@ async function assertOverviewEmpty(): Promise<void> {
 }
 
 function emptyOverviewBody() {
-  return { bangumi_id: "999998", points_length: 0, circles: [], scenes: [], sample_routes: [] };
+  return { bangumi_id: "999998", points_length: 0, circles: [], scenes: [], sample_itineraries: [] };
 }
 
 async function assertOverview404(): Promise<void> {
@@ -185,5 +185,5 @@ databaseDescribe("Catalog API end-to-end (Hono app + OpenAPIHandler + Drizzle/Po
   it("spots 404s when the work has no points", assertSpots404);
   it("nearby returns points within the radius, nearest first with distance_m", assertNearbyHit);
   it("nearby excludes points outside the radius", assertNearbyMiss);
-  it("route returns a timed itinerary over the selected points (top-level Route)", assertRoute);
+  it("planItinerary returns a timed itinerary over the selected points (top-level Itinerary)", assertRoute);
 });

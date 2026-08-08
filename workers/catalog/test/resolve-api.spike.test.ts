@@ -36,7 +36,7 @@ import {
  * ingest. Do not stub it.
  *
  * Seeds and expectations are built by `./fixtures/catalog-seed`, so a work id
- * that `pointsByWorkId` would reject with a 400 cannot be written here (#363).
+ * that `pointsByBangumiId` would reject with a 400 cannot be written here (#363).
  */
 const handler = new OpenAPIHandler(catalogRouter);
 
@@ -97,13 +97,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function pointKey(value: unknown): string {
   if (!isRecord(value) || typeof value.id !== "string" || typeof value.bangumi_id !== "string") {
-    throw new Error("pointsByWorkId returned a malformed row");
+    throw new Error("pointsByBangumiId returned a malformed row");
   }
   return `${value.bangumi_id}:${value.id}`;
 }
 
 function pointKeys(value: unknown): string[] {
-  if (!isRecord(value) || !Array.isArray(value.rows)) throw new Error("pointsByWorkId returned no rows");
+  if (!isRecord(value) || !Array.isArray(value.rows)) throw new Error("pointsByBangumiId returned no rows");
   return value.rows.map(pointKey).sort();
 }
 
@@ -131,8 +131,8 @@ databaseDescribe("Phase 1a resolver SQL against Postgres", () => {
     await expect(call("resolve", { query: "Zero" })).resolves.toEqual(resolvedOutcome(ZERO, 0));
   });
 
-  it("returns published rows through pointsByWorkId", async () => {
-    const result = await call("points-by-work-id", { work_id: BETA.workId });
+  it("returns published rows through pointsByBangumiId", async () => {
+    const result = await call("points-by-bangumi-id", { bangumi_id: BETA.workId });
     expect(pointKeys(result)).toEqual([`${BETA.workId}:b-1`, `${BETA.workId}:b-2`]);
   });
 });

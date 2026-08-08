@@ -24,7 +24,7 @@ export const CATALOG_TABLES = [
   "bangumi",
   "points",
   "cluster_version",
-  "route_snapshots",
+  "itinerary_snapshots",
   "aliases",
   "series_edges",
   "leg_cache",

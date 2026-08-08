@@ -29,7 +29,7 @@ function catalogDb(responses: unknown[][]): CatalogDb {
 }
 
 function runSearch(row: Record<string, unknown>) {
-  const db = catalogDb([[{ work_id: "1" }], [row]]);
+  const db = catalogDb([[{ bangumi_id: "1" }], [row]]);
   return search(searchDb(db), { query: "Lucky Star" });
 }
 

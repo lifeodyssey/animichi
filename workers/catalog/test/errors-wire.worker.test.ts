@@ -7,7 +7,7 @@ import type {
   UpstreamUnavailableData,
   WorkNotFoundData,
 } from "../src/lib/errors";
-import type { Route } from "../src/types";
+import type { Itinerary } from "../src/types";
 
 interface ErrorEnvelope<TData> {
   defined: true;
@@ -118,7 +118,7 @@ describe("catalog input validation on the OpenAPI wire", () => {
 describe("catalog route limits and typed errors on the OpenAPI wire", () => {
   it("serializes ROUTE_TOO_MANY_POINTS for route input over the router cap", async () => {
     const point_ids = Array.from({ length: 501 }, (_, i) => `p${String(i)}`);
-    const res = await call("route", { point_ids }, unreachableContext());
+    const res = await call("itinerary", { point_ids }, unreachableContext());
     expect(res.status).toBe(400);
     expect(await json<RouteTooManyPointsData>(res)).toEqual({
       defined: true, code: "ROUTE_TOO_MANY_POINTS", status: 400,
@@ -130,8 +130,8 @@ describe("catalog route limits and typed errors on the OpenAPI wire", () => {
   it("serializes a successful truncation signal after clustering 51 selected points", async () => {
     const rows = routeRows(51);
     const point_ids = rows.map((r) => r.id);
-    const res = await call("route", { point_ids }, context(rows));
-    const body = await res.json() as Route;
+    const res = await call("itinerary", { point_ids }, context(rows));
+    const body = await res.json() as Itinerary;
     expect(res.status).toBe(200);
     expect(body.ordered_points).toHaveLength(50);
     expect(body.timed_itinerary.stops).toHaveLength(50);

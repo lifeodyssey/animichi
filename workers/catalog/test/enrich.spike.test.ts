@@ -56,7 +56,7 @@ async function locationWkt(pointId: string): Promise<string | null> {
 async function currentVersion(workId: string): Promise<number | undefined> {
   const rows = (
     await db.execute(
-      sql`SELECT version FROM cluster_version WHERE work_id = ${workId} AND is_current`,
+      sql`SELECT version FROM cluster_version WHERE bangumi_id = ${workId} AND is_current`,
     )
   ).rows as { version: number }[];
   return rows[0]?.version;
@@ -65,7 +65,7 @@ async function currentVersion(workId: string): Promise<number | undefined> {
 async function allVersions(workId: string): Promise<number[]> {
   const rows = (
     await db.execute(
-      sql`SELECT version FROM cluster_version WHERE work_id = ${workId} ORDER BY version`,
+      sql`SELECT version FROM cluster_version WHERE bangumi_id = ${workId} ORDER BY version`,
     )
   ).rows as { version: number }[];
   return rows.map((r) => r.version);
@@ -101,7 +101,7 @@ async function bangumiRow(db: CatalogDb) {
 async function assertEnrichAliases(): Promise<void> {
   const rows = (await db.execute(
     sql`SELECT alias, alias_normalized, source FROM aliases
-        WHERE work_id = 'lucky-star' ORDER BY alias_normalized`,
+        WHERE bangumi_id = 'lucky-star' ORDER BY alias_normalized`,
   )).rows as { alias: string; alias_normalized: string; source: string }[];
   const normalized = rows.map((r) => r.alias_normalized);
   expect(normalized).toContain("らき☆すた".normalize("NFKC").toLowerCase());

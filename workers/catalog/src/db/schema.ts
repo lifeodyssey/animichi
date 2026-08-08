@@ -70,7 +70,7 @@ export const points = pgTable("points", {
 // 20260620230000 — atomic version pointer (blue/green publish).
 export const clusterVersion = pgTable("cluster_version", {
   id: serial("id").primaryKey(),
-  workId: text("work_id").notNull(),
+  bangumiId: text("bangumi_id").notNull(),
   version: integer("version").notNull(),
   isCurrent: boolean("is_current").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -79,7 +79,7 @@ export const clusterVersion = pgTable("cluster_version", {
 // 20260620230000 — alias pipeline (NFKC-folded exact match via alias_normalized).
 export const aliases = pgTable("aliases", {
   id: serial("id").primaryKey(),
-  workId: text("work_id").notNull(),
+  bangumiId: text("bangumi_id").notNull(),
   alias: text("alias").notNull(),
   aliasNormalized: text("alias_normalized").notNull(),
   source: text("source").notNull(),
@@ -88,7 +88,7 @@ export const aliases = pgTable("aliases", {
 
 // 20260620230000 — series relation graph for series-aware resolve.
 export const seriesEdges = pgTable("series_edges", {
-  fromWorkId: text("from_work_id").notNull(),
-  toWorkId: text("to_work_id").notNull(),
+  fromBangumiId: text("from_bangumi_id").notNull(),
+  toBangumiId: text("to_bangumi_id").notNull(),
   relation: text("relation").notNull(),
 });
