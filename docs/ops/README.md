@@ -19,6 +19,7 @@ Current canonical docs:
 - `anonymous-session-purge.md` — scheduled anonymous-session retention sweep (cron cadence, required secret, reading a run)
 - `auth-migration-neon.md` — Neon Auth (Better Auth) cutover runbook (flag-gated; Supabase still verifies today)
 - `neon-test-infra.md` · `neon-local-spike-findings.md` — Neon test-base / local proxy operator notes
+- `git-daily-squash-runbook.md` — W8 git history daily-squash execution runbook (mirror/bundle backup, branch swap or force-with-lease, `main-legacy` retention ≥30 days, rollback, owner checklist; #851/#858)
 - `indexnow.md` · `privacy.md` — SEO push and privacy ops notes
 
 Keep iteration task trackers, progress logs, and findings under `docs/iterations/`.
