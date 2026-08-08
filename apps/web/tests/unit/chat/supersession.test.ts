@@ -33,6 +33,7 @@ describe("routeDocumentKey (route cards as the first living document)", () => {
 
   it("leaves non-route intents and malformed payloads keyless", () => {
     expect(routeDocumentKey({ intent: "search_bangumi", data: { results: {} } })).toBeUndefined();
+    expect(routeDocumentKey({ intent: "plan_route", data: null })).toBeUndefined();
     expect(routeDocumentKey({ intent: "plan_route", data: { itinerary: null } })).toBeUndefined();
     expect(routeDocumentKey({ intent: "plan_route", data: { itinerary: undefined } })).toBeUndefined();
     expect(routeDocumentKey({ intent: 42, data: {} })).toBeUndefined();
