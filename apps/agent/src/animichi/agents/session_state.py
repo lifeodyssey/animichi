@@ -12,7 +12,7 @@ from animichi.domain.fact_ledger import FactLedger
 MAX_REFS = 8
 
 ResultRef = NewType("ResultRef", str)
-RouteRef = NewType("RouteRef", str)
+ItineraryRef = NewType("ItineraryRef", str)
 
 RefT = TypeVar("RefT")
 PayloadT = TypeVar("PayloadT")
@@ -66,8 +66,8 @@ class NearbyGroupState(_SessionModel):
     closest_distance_m: float | None = None
 
 
-class RouteSummaryState(_SessionModel):
-    """Counts and totals for a stored route."""
+class ItinerarySummaryState(_SessionModel):
+    """Counts and totals for a stored itinerary."""
 
     point_count: int
     total_minutes: int
@@ -136,12 +136,12 @@ class TimedItineraryState(_SessionModel):
     export_ics: str = ""
 
 
-class RoutePayloadState(_SessionModel):
-    """Full route payload addressed by a server-owned route ref."""
+class ItineraryPayloadState(_SessionModel):
+    """Full itinerary payload addressed by a server-owned itinerary ref."""
 
     ordered_points: list[PointState] = Field(default_factory=list)
     timed_itinerary: TimedItineraryState | None = None
-    summary: RouteSummaryState | None = None
+    summary: ItinerarySummaryState | None = None
     source_ref: ResultRef | None = None
 
 
@@ -190,17 +190,17 @@ class StaleRef(_SessionModel):
 
 
 SearchResultLookup: TypeAlias = SearchPayloadState | StaleRef
-RouteLookup: TypeAlias = RoutePayloadState | StaleRef
+ItineraryLookup: TypeAlias = ItineraryPayloadState | StaleRef
 
 
 class SessionState(_SessionModel):
-    """Versioned identity, candidate, search, and route carrier."""
+    """Versioned identity, candidate, search, and itinerary carrier."""
 
     current_anime: CurrentAnime | None = None
     search_results: dict[ResultRef, SearchPayloadState] = Field(default_factory=dict)
     search_result_lru: list[ResultRef] = Field(default_factory=list)
-    routes: dict[RouteRef, RoutePayloadState] = Field(default_factory=dict)
-    route_lru: list[RouteRef] = Field(default_factory=list)
+    itineraries: dict[ItineraryRef, ItineraryPayloadState] = Field(default_factory=dict)
+    itinerary_lru: list[ItineraryRef] = Field(default_factory=list)
     pending_clarification: PendingClarification | None = None
     geocode_staging: GeocodeStaging | None = None
     last_result_ref: ResultRef | None = None
@@ -218,8 +218,8 @@ class SessionState(_SessionModel):
             self.search_result_lru,
             "search_result_lru" in fields,
         )
-        self.route_lru = _restore_lru(
-            self.routes, self.route_lru, "route_lru" in fields
+        self.itinerary_lru = _restore_lru(
+            self.itineraries, self.itinerary_lru, "itinerary_lru" in fields
         )
         self.compaction_retained_entities.enforce_bounds()
         return self
@@ -243,22 +243,24 @@ class SessionState(_SessionModel):
         _store_lru(self.search_results, self.search_result_lru, ref, payload)
         return payload
 
-    def store_route(self, ref: RouteRef, payload: RoutePayloadState) -> None:
-        """Store and mark a route payload as the most recently used."""
-        _store_lru(self.routes, self.route_lru, ref, payload)
+    def store_itinerary(
+        self, ref: ItineraryRef, payload: ItineraryPayloadState
+    ) -> None:
+        """Store and mark an itinerary payload as the most recently used."""
+        _store_lru(self.itineraries, self.itinerary_lru, ref, payload)
 
-    def next_route_ref(self, kind: str, seed: int) -> RouteRef:
-        """Return the first collision-free opaque route ref at or above seed."""
-        while RouteRef(f"route:{kind}:{seed}") in self.routes:
+    def next_itinerary_ref(self, kind: str, seed: int) -> ItineraryRef:
+        """Return the first collision-free opaque itinerary ref at or above seed."""
+        while ItineraryRef(f"route:{kind}:{seed}") in self.itineraries:
             seed += 1
-        return RouteRef(f"route:{kind}:{seed}")
+        return ItineraryRef(f"route:{kind}:{seed}")
 
-    def get_route(self, ref: RouteRef) -> RouteLookup:
-        """Return a route payload or a typed stale-ref outcome."""
-        payload = self.routes.get(ref)
+    def get_itinerary(self, ref: ItineraryRef) -> ItineraryLookup:
+        """Return an itinerary payload or a typed stale-ref outcome."""
+        payload = self.itineraries.get(ref)
         if payload is None:
             return StaleRef()
-        _store_lru(self.routes, self.route_lru, ref, payload)
+        _store_lru(self.itineraries, self.itinerary_lru, ref, payload)
         return payload
 
     def is_empty(self) -> bool:

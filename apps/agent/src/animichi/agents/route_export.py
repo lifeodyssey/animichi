@@ -1,4 +1,4 @@
-"""Backward-compatible re-exports for route export helpers.
+"""Backward-compatible re-exports for itinerary export helpers.
 
 Implementation lives in ``animichi.agents.export``.
 """

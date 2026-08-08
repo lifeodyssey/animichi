@@ -8,7 +8,7 @@ from pydantic import Field
 from pydantic_ai import RunContext, Tool
 from pydantic_ai.tools import ToolFuncEither
 
-from animichi.agents.catalog_route_tools import run_route
+from animichi.agents.catalog_route_tools import run_itinerary
 from animichi.agents.catalog_tools import (
     run_nearby_search,
     run_resolve,
@@ -16,9 +16,9 @@ from animichi.agents.catalog_tools import (
 )
 from animichi.agents.runtime_deps import RuntimeDeps
 from animichi.agents.tool_outcomes import (
+    ItineraryToolResult,
     NearbyToolResult,
     ResolveResult,
-    RouteToolResult,
     SearchToolResult,
 )
 
@@ -70,9 +70,9 @@ async def plan_route(
     ctx: RunContext[RuntimeDeps],
     search_result_ref: Annotated[str, Field(min_length=1)],
     pacing: Literal["chill", "normal", "packed"] | None = None,
-) -> RouteToolResult:
+) -> ItineraryToolResult:
     """Plan one stored result; upstream_unavailable means retry later."""
-    return await run_route(ctx, ctx.deps.catalog, search_result_ref, pacing)
+    return await run_itinerary(ctx, ctx.deps.catalog, search_result_ref, pacing)
 
 
 TOOLS: list[Tool[RuntimeDeps] | ToolFuncEither[RuntimeDeps]] = [

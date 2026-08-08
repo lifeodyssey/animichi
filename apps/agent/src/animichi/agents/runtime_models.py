@@ -30,14 +30,14 @@ class SearchResponseModel(_CompactOutput):
     )
 
 
-class RouteResponseModel(_CompactOutput):
-    """Brief prose wrapper for a registry-backed route response."""
+class ItineraryResponseModel(_CompactOutput):
+    """Brief prose wrapper for a registry-backed itinerary response."""
 
     message: str = Field(
         description=(
-            "Brief 1-2 sentence wrapper around a completed route; the app "
-            "renders the route from typed SessionState, so never re-type stops, "
-            "legs, or times here."
+            "Brief 1-2 sentence wrapper around a completed itinerary; the app "
+            "renders the itinerary from typed SessionState, so never re-type "
+            "stops, legs, or times here."
         )
     )
 
@@ -125,7 +125,7 @@ class ErrorResponseModel(_CompactOutput):
 RuntimeStageOutput = (
     ClarifyResponseModel
     | SearchResponseModel
-    | RouteResponseModel
+    | ItineraryResponseModel
     | GreetingResponseModel
     | QAResponseModel
 )

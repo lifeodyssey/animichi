@@ -1,4 +1,4 @@
-"""Direct selected-point route execution (no ExecutorAgent needed)."""
+"""Direct selected-point itinerary execution (no ExecutorAgent needed)."""
 
 from __future__ import annotations
 
@@ -8,18 +8,21 @@ from pydantic import ValidationError
 
 from animichi.agents.agent_result import (
     AgentResult,
-    ProducedRoute,
-    RejectedRoute,
-    RouteRejectionStatus,
+    ItineraryRejectionStatus,
+    ProducedItinerary,
+    RejectedItinerary,
     StepRecord,
 )
-from animichi.agents.catalog_adapter import build_itinerary_payload, build_route_state
+from animichi.agents.catalog_adapter import (
+    build_itinerary_payload,
+    build_itinerary_state,
+)
 from animichi.agents.error_messages import (
     CATALOG_ROUTE_UNAVAILABLE_MESSAGE,
     build_error_message,
 )
 from animichi.agents.runtime_deps import OnStep, StepEvent, StepStatus, new_step_call_id
-from animichi.agents.runtime_models import RouteResponseModel
+from animichi.agents.runtime_models import ItineraryResponseModel
 from animichi.agents.selection_messages import selected_route_message
 from animichi.agents.session_state import SessionState
 from animichi.clients.catalog_client import CatalogClientProtocol, Itinerary
@@ -28,10 +31,10 @@ from animichi.clients.errors import APIError
 logger = structlog.get_logger(__name__)
 
 _TRANSIENT_ERRORS = (APIError, httpx.TransportError, httpx.TimeoutException)
-_ROUTE_ERRORS = _TRANSIENT_ERRORS
+_ITINERARY_ERRORS = _TRANSIENT_ERRORS
 
 
-async def execute_selected_route(
+async def execute_selected_itinerary(
     *,
     point_ids: list[str],
     state: SessionState,
@@ -40,7 +43,7 @@ async def execute_selected_route(
     catalog: CatalogClientProtocol,
     on_step: OnStep | None = None,
 ) -> AgentResult:
-    """Route user-selected point IDs directly, returning AgentResult."""
+    """Build a user-selected itinerary from point IDs directly, returning AgentResult."""
     if not point_ids:
         return _error_result("point_ids is required", locale, state)
 
@@ -59,9 +62,9 @@ async def execute_selected_route(
             CATALOG_ROUTE_UNAVAILABLE_MESSAGE,
             locale,
             state,
-            route_status="contract_violation",
+            itinerary_status="contract_violation",
         )
-    except _ROUTE_ERRORS as exc:
+    except _ITINERARY_ERRORS as exc:
         logger.warning("selected_route_catalog_error", error=str(exc))
         await _emit_step(on_step, call_id, "error", {})
         # Typed CatalogError -> localized, actionable text from OUR mapping
@@ -125,15 +128,15 @@ def _build_success_result(
     locale: str,
     state: SessionState,
 ) -> AgentResult:
-    """Assemble the AgentResult returned on a successful route lookup."""
-    route_ref = state.next_route_ref("selected", 1)
-    state.store_route(
-        route_ref, build_route_state(itinerary, source_ref=None, locale=locale)
+    """Assemble the AgentResult returned on a successful itinerary lookup."""
+    itinerary_ref = state.next_itinerary_ref("selected", 1)
+    state.store_itinerary(
+        itinerary_ref, build_itinerary_state(itinerary, source_ref=None, locale=locale)
     )
-    step.provenance = ProducedRoute(status="ok", route_ref=route_ref)
+    step.provenance = ProducedItinerary(status="ok", itinerary_ref=itinerary_ref)
     state.pending_clarification = None
     state.geocode_staging = None
-    output = RouteResponseModel(
+    output = ItineraryResponseModel(
         message=selected_route_message(locale, itinerary.point_count)
     )
     return AgentResult(
@@ -149,9 +152,9 @@ def _error_result(
     locale: str,
     state: SessionState,
     *,
-    route_status: RouteRejectionStatus = "upstream_unavailable",
+    itinerary_status: ItineraryRejectionStatus = "upstream_unavailable",
 ) -> AgentResult:
-    output = RouteResponseModel(message=error)
+    output = ItineraryResponseModel(message=error)
     return AgentResult(
         output=output,
         intent="plan_selected",
@@ -161,7 +164,7 @@ def _error_result(
                 tool="plan_selected",
                 is_success=False,
                 error=error,
-                provenance=RejectedRoute(status=route_status),
+                provenance=RejectedItinerary(status=itinerary_status),
                 model_initiated=False,
             )
         ],

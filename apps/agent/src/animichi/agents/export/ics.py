@@ -18,7 +18,7 @@ def build_ics_calendar(
     """Serialize a TimedItinerary as an iCalendar (.ics) string.
 
     Args:
-        itinerary: The timed route to serialize.
+        itinerary: The timed itinerary to serialize.
         title:     Calendar display name (unused in VEVENT SUMMARY; kept for
                    future X-WR-CALNAME support).
         date:      Date string in YYYYMMDD format.  Defaults to today.

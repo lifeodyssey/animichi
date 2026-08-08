@@ -1,4 +1,4 @@
-"""LLM-based area splitting for route planning.
+"""LLM-based area splitting for itinerary planning.
 
 When pilgrimage spots span multiple geographic areas (e.g., Your Name has spots
 in Shinjuku AND Hida-Furukawa 300km away), this module asks the LLM to group
@@ -54,16 +54,16 @@ class AreaSplitResult(BaseModel):
     )
 
 
-route_planner_agent: Agent[None, AreaSplitResult] = Agent(
+itinerary_planner_agent: Agent[None, AreaSplitResult] = Agent(
     resolve_model(None),
-    name="route_planner",
+    name="itinerary_planner",
     output_type=AreaSplitResult,
     instructions=_SPLIT_INSTRUCTIONS,
     retries=1,
 )
 
 
-@route_planner_agent.tool_plain
+@itinerary_planner_agent.tool_plain
 def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """Calculate distance in meters between two coordinates.
 
@@ -120,7 +120,7 @@ async def split_into_areas(
         return None
 
     try:
-        result = await route_planner_agent.run(
+        result = await itinerary_planner_agent.run(
             _build_prompt(points),
             model=model,
         )

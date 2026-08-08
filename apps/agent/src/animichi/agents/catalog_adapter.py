@@ -11,11 +11,11 @@ from typing import Literal
 from animichi.agents.geo_names import localized_city_name
 from animichi.agents.handlers._helpers import _build_nearby_groups, rewrite_image_urls
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItinerarySummaryState,
     NearbyGroupState,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteSummaryState,
     SearchMetadataState,
     SearchPayloadState,
     TimedItineraryState,
@@ -116,10 +116,10 @@ def build_search_state(
     )
 
 
-def build_route_state(
+def build_itinerary_state(
     itinerary: Itinerary, source_ref: ResultRef | None, *, locale: str
-) -> RoutePayloadState:
-    """Adapt a non-empty catalog route into the typed route registry."""
+) -> ItineraryPayloadState:
+    """Adapt a non-empty catalog route into the typed itinerary registry."""
     localized = itinerary.model_copy(
         update={
             "ordered_points": [
@@ -132,10 +132,10 @@ def build_route_state(
     timed = payload["timed_itinerary"]
     raw_points = payload["ordered_points"]
     points = raw_points if isinstance(raw_points, list) else []
-    return RoutePayloadState(
+    return ItineraryPayloadState(
         ordered_points=[PointState.model_validate(row) for row in points],
         timed_itinerary=TimedItineraryState.model_validate(timed),
-        summary=RouteSummaryState.model_validate(summary),
+        summary=ItinerarySummaryState.model_validate(summary),
         source_ref=source_ref,
     )
 

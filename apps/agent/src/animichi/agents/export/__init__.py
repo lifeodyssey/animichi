@@ -1,4 +1,4 @@
-"""Route export helpers — ICS calendar and Google Maps URL builder."""
+"""Itinerary export helpers — ICS calendar and Google Maps URL builder."""
 
 from animichi.agents.export.ics import build_ics_calendar
 from animichi.agents.export.maps_url import build_google_maps_url
