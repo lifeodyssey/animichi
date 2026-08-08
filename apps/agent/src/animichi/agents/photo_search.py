@@ -22,7 +22,7 @@ from animichi.agents.photo_vision import RecognizeCall, VisionRecognitionFailed
 from animichi.clients.catalog_client import (
     AnimeCandidate,
     CatalogClientProtocol,
-    PilgrimagePoint,
+    Point,
     ResolveAmbiguous,
     ResolveResolved,
 )
@@ -99,7 +99,7 @@ class PhotoSearchOutcome:
     usage: AttributedUsage | None = None
 
 
-def _point(row: PilgrimagePoint) -> PhotoPoint:
+def _point(row: Point) -> PhotoPoint:
     return PhotoPoint(
         id=row.id,
         name=row.name,
@@ -113,9 +113,7 @@ def _point(row: PilgrimagePoint) -> PhotoPoint:
     )
 
 
-def _search_response(
-    match: AnimeCandidate, rows: list[PilgrimagePoint]
-) -> PhotoSearchResponse:
+def _search_response(match: AnimeCandidate, rows: list[Point]) -> PhotoSearchResponse:
     results = PhotoResults(
         bangumi_id=match.bangumi_id,
         title=match.title or match.title_cn,
@@ -155,7 +153,7 @@ def merge_candidates(
     return merged
 
 
-def _nearby_works(points: list[PilgrimagePoint]) -> list[PhotoCandidate]:
+def _nearby_works(points: list[Point]) -> list[PhotoCandidate]:
     works: dict[str, PhotoCandidate] = {}
     for point in points:
         if point.bangumi_id and point.bangumi_id not in works:
@@ -200,7 +198,7 @@ async def _layer_one(
 async def _resolved_outcome(
     catalog: CatalogClientProtocol, resolved: ResolveResolved, gps: GpsPoint | None
 ) -> PhotoSearchOutcome:
-    rows = (await catalog.points_by_work_id(resolved.match.bangumi_id)).rows
+    rows = (await catalog.points_by_bangumi_id(resolved.match.bangumi_id)).rows
     response = _search_response(resolved.match, rows)
     return PhotoSearchOutcome(
         response, _signals("anime_screenshot", gps, "1", len(rows))

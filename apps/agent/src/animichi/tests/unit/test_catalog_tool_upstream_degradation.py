@@ -30,7 +30,7 @@ from animichi.agents.session_state import (
     SearchPayloadState,
 )
 from animichi.agents.tool_outcomes import NearbyUpstreamDown, RouteUpstreamDown
-from animichi.clients.catalog_client import GeocodeCandidate, PilgrimagePoint, Route
+from animichi.clients.catalog_client import GeocodeCandidate, Itinerary, Point
 from animichi.clients.errors import APIError
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 from animichi.tests.tool_event_helpers import project_tool_result, tool_context
@@ -67,18 +67,18 @@ class _GeocodeDownCatalog(MockCatalogClient):
 class _NearbyDownCatalog(MockCatalogClient):
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
-    ) -> list[PilgrimagePoint]:
+    ) -> list[Point]:
         raise APIError("catalog down")
 
 
 class _RouteDownCatalog(MockCatalogClient):
-    async def route(
+    async def plan_itinerary(
         self,
         point_ids: list[str],
         *,
         origin: tuple[float, float] | None = None,
         pacing: Literal["chill", "normal", "packed"] | None = None,
-    ) -> Route:
+    ) -> Itinerary:
         raise APIError("catalog down")
 
 

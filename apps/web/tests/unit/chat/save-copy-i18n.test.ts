@@ -92,7 +92,7 @@ describe("the save target is derived from the rendered route", () => {
   });
 
   it("accepts bare id strings and drops blank ids from the stream", () => {
-    const raw = { intent: "plan_route", success: true, status: "ok", data: { route: { ordered_points: ["x", "", "y"], point_count: 3 } } };
+    const raw = { intent: "plan_route", success: true, status: "ok", data: { itinerary: { ordered_points: ["x", "", "y"], point_count: 3 } } };
     expect(routeSaveTarget(parsedPart(raw), chatDictFor("ja"))?.pointIds).toEqual(["x", "y"]);
   });
 

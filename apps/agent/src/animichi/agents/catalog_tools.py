@@ -147,7 +147,7 @@ async def run_work_search(
 ) -> SearchOk | SearchEmpty | SearchUpstreamDown:
     """Fetch an already-resolved work without repeating free-text resolution."""
     try:
-        result = await catalog.points_by_work_id(bangumi_id)
+        result = await catalog.points_by_bangumi_id(bangumi_id)
     except CATALOG_FAILURES:
         return SearchUpstreamDown()
     payload = build_search_state(

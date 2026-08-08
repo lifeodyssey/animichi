@@ -42,7 +42,7 @@ export const fullOverviewFixture = {
       city: "Tokyo",
     },
   ],
-  sample_routes: [
+  sample_itineraries: [
     { region: "Takayama", point_ids: ["p1", "p2", "p3"] },
     { region: "Tokyo", point_ids: ["p4", "p5"] },
   ],
@@ -55,7 +55,7 @@ export function emptyOverviewFixture(bangumiId: string): AnimeOverview {
     points_length: 0,
     circles: [],
     scenes: [],
-    sample_routes: [],
+    sample_itineraries: [],
   };
 }
 

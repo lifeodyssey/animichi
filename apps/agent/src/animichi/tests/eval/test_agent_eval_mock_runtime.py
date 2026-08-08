@@ -33,7 +33,7 @@ from animichi.clients.catalog_client import CatalogClientProtocol
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 from animichi.tests.streaming_function_model import streaming_function_model
 
-_ALLOWED_CATALOG_METHODS = {"search", "spots", "nearby", "route"}
+_ALLOWED_CATALOG_METHODS = {"search", "spots", "nearby", "plan_itinerary"}
 
 
 def _returned(messages: list[ModelMessage], tool_name: str) -> bool:

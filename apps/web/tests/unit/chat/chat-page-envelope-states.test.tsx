@@ -28,7 +28,7 @@ function failedEnvelopePatch(code: string, technical: string): FinalFramePatch {
 
 const zeroSpotsPatch: FinalFramePatch = (envelope) => ({
   ...envelope,
-  data: { route: { ordered_points: [], point_count: 0 } },
+  data: { itinerary: { ordered_points: [], point_count: 0 } },
 });
 
 const BROKEN_SCENE_POINT = {
@@ -43,7 +43,7 @@ const BROKEN_SCENE_POINT = {
 
 const brokenScenePatch: FinalFramePatch = (envelope) => ({
   ...envelope,
-  data: { route: { ordered_points: [BROKEN_SCENE_POINT], point_count: 2 } },
+  data: { itinerary: { ordered_points: [BROKEN_SCENE_POINT], point_count: 2 } },
 });
 
 describe("D1 recognition failure", () => {

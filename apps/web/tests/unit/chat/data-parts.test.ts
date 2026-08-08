@@ -15,7 +15,7 @@ describe("parseChatDataPart", () => {
       intent: "plan_route",
       success: true,
       message: "宇治の聖地を2件",
-      data: { route: { point_count: 2, total_walk_minutes: 12 } },
+      data: { itinerary: { point_count: 2, total_walk_minutes: 12 } },
     });
     expect(part?.message).toBe("宇治の聖地を2件");
   });

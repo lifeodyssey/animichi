@@ -10,7 +10,7 @@ from animichi.agents.catalog_tools import run_work_search
 from animichi.agents.runtime_deps import RuntimeDeps
 from animichi.agents.runtime_models import SearchResponseModel
 from animichi.agents.tool_outcomes import SearchEmpty, SearchOk, SearchUpstreamDown
-from animichi.clients.catalog_client import PilgrimagePoint, SearchResult
+from animichi.clients.catalog_client import Point, SearchResult
 from animichi.clients.catalog_errors import (
     UpstreamUnavailableData,
     UpstreamUnavailableError,
@@ -21,13 +21,13 @@ from animichi.tests.tool_event_helpers import project_tool_result, tool_context
 
 
 class _PartialCatalog(MockCatalogClient):
-    async def points_by_work_id(self, work_id: str) -> SearchResult:
+    async def points_by_bangumi_id(self, bangumi_id: str) -> SearchResult:
         return SearchResult(
             rows=[
-                PilgrimagePoint(
+                Point(
                     id="p1",
                     name="Uji Bridge",
-                    bangumi_id=work_id,
+                    bangumi_id=bangumi_id,
                     latitude=34.89,
                     longitude=135.8,
                 )
@@ -37,12 +37,12 @@ class _PartialCatalog(MockCatalogClient):
 
 
 class _EmptyPartialCatalog(MockCatalogClient):
-    async def points_by_work_id(self, work_id: str) -> SearchResult:
+    async def points_by_bangumi_id(self, bangumi_id: str) -> SearchResult:
         return SearchResult(partial=True)
 
 
 class _UpstreamDownCatalog(MockCatalogClient):
-    async def points_by_work_id(self, work_id: str) -> SearchResult:
+    async def points_by_bangumi_id(self, bangumi_id: str) -> SearchResult:
         raise UpstreamUnavailableError(UpstreamUnavailableData(upstream="anitabi"))
 
 

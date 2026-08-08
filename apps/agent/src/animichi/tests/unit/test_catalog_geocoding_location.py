@@ -4,14 +4,14 @@ from unittest.mock import MagicMock
 
 from animichi.agents.catalog_tools import run_nearby_search
 from animichi.agents.runtime_deps import RuntimeDeps
-from animichi.clients.catalog_client import PilgrimagePoint
+from animichi.clients.catalog_client import Point
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 
 
 class _EmptyNearby(MockCatalogClient):
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
-    ) -> list[PilgrimagePoint]:
+    ) -> list[Point]:
         self.calls.append(("nearby", (lat, lng, radius_m)))
         return []
 

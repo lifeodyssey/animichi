@@ -20,7 +20,7 @@ from animichi.agents.tool_outcomes import (
     RouteStaleRef,
     RouteUpstreamDown,
 )
-from animichi.clients.catalog_client import CatalogClientProtocol, Route
+from animichi.clients.catalog_client import CatalogClientProtocol, Itinerary
 
 Pacing = Literal["chill", "normal", "packed"]
 
@@ -59,23 +59,25 @@ async def _route_outcome(
         return RoutePendingSync()
     if not payload.rows:
         return RouteEmpty()
-    route = await catalog.route(
+    itinerary = await catalog.plan_itinerary(
         [point.id for point in payload.rows if point.id], pacing=pacing
     )
-    if route.point_count < 1:
+    if itinerary.point_count < 1:
         return RouteEmpty()
-    return _store_route(ctx, route, ref)
+    return _store_route(ctx, itinerary, ref)
 
 
-def _store_route(ctx: RunContext[RuntimeDeps], route: Route, ref: ResultRef) -> RouteOk:
-    route_ref = RouteRef(ctx.deps.ref_factory("route", route.point_count))
-    state = build_route_state(route, ref, locale=ctx.deps.locale)
+def _store_route(
+    ctx: RunContext[RuntimeDeps], itinerary: Itinerary, ref: ResultRef
+) -> RouteOk:
+    route_ref = RouteRef(ctx.deps.ref_factory("route", itinerary.point_count))
+    state = build_route_state(itinerary, ref, locale=ctx.deps.locale)
     ctx.deps.tool_state.session.store_route(route_ref, state)
     _clear_pending(ctx.deps)
     minutes = state.timed_itinerary.total_minutes if state.timed_itinerary else 0
     return RouteOk(
         route_ref=str(route_ref),
-        point_count=route.point_count,
+        point_count=itinerary.point_count,
         total_minutes=minutes,
     )
 

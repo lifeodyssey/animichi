@@ -15,7 +15,7 @@ from animichi.agents.session_state import (
     SearchPayloadState,
     SessionState,
 )
-from animichi.clients.catalog_client import PilgrimagePoint, Route, SearchResult
+from animichi.clients.catalog_client import Itinerary, Point, SearchResult
 from animichi.clients.catalog_errors import (
     RouteTooManyClustersData,
     RouteTooManyClustersError,
@@ -24,8 +24,8 @@ from animichi.interfaces.response_builder import agent_result_to_response
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 
 
-def _point(pid: str, work: str) -> PilgrimagePoint:
-    return PilgrimagePoint(
+def _point(pid: str, work: str) -> Point:
+    return Point(
         id=pid,
         name=pid,
         bangumi_id=work,
@@ -56,24 +56,24 @@ class _Catalog(MockCatalogClient):
         super().__init__()
         self.results = results
         self.route_error: bool | BaseException = False
-        self.nearby_rows: list[PilgrimagePoint] | None = None
+        self.nearby_rows: list[Point] | None = None
         self.nearby_error = False
 
-    async def points_by_work_id(self, work_id: str) -> SearchResult:
-        self.calls.append(("points_by_work_id", (work_id,)))
-        result = self.results[work_id]
+    async def points_by_bangumi_id(self, bangumi_id: str) -> SearchResult:
+        self.calls.append(("points_by_bangumi_id", (bangumi_id,)))
+        result = self.results[bangumi_id]
         if isinstance(result, BaseException):
             raise result
         return result
 
-    async def route(
+    async def plan_itinerary(
         self,
         point_ids: list[str],
         *,
         origin: tuple[float, float] | None = None,
         pacing: Literal["chill", "normal", "packed"] | None = None,
-    ) -> Route:
-        self.calls.append(("route", (tuple(point_ids), origin, pacing)))
+    ) -> Itinerary:
+        self.calls.append(("plan_itinerary", (tuple(point_ids), origin, pacing)))
         if isinstance(self.route_error, BaseException):
             raise self.route_error
         if self.route_error:
@@ -87,11 +87,11 @@ class _Catalog(MockCatalogClient):
             for point in result.rows
         }
         ordered = [points[item] for item in point_ids]
-        return Route(ordered_points=ordered, point_count=len(ordered))
+        return Itinerary(ordered_points=ordered, point_count=len(ordered))
 
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
-    ) -> list[PilgrimagePoint]:
+    ) -> list[Point]:
         self.calls.append(("nearby", (lat, lng, radius_m)))
         if self.nearby_error:
             raise OSError("down")
@@ -176,7 +176,7 @@ async def test_501_points_is_t6_without_route_call() -> None:
         candidate_ids=["1"], state=_pending(), locale="en", catalog=catalog
     )
     assert result.status == "too_large"
-    assert all(call[0] != "route" for call in catalog.calls)
+    assert all(call[0] != "plan_itinerary" for call in catalog.calls)
 
 
 async def test_place_selection_uses_staged_coords_without_geocode() -> None:

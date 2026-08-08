@@ -9,10 +9,10 @@ from animichi.agents.models import TimedItinerary, TimedStop, TransitLeg
 from animichi.agents.title_matching import best_alias_match
 from animichi.clients.catalog_client import (
     AnimeCandidate,
-    PilgrimagePoint,
+    Itinerary,
+    Point,
     ResolveNotFound,
     ResolveResolved,
-    Route,
     SearchResult,
 )
 from animichi.clients.geocode import GeocodeCandidate, GeocodeKind, GeocodeSource
@@ -36,7 +36,7 @@ __all__ = [
 
 _TITLE_ALIASES = TITLE_ALIASES
 _LOCATION_CENTERS = LOCATION_CENTERS
-_POINT_INDEX: dict[str, PilgrimagePoint] = {
+_POINT_INDEX: dict[str, Point] = {
     point.id: point for points in FIXTURE_POINTS.values() for point in points
 }
 
@@ -63,16 +63,16 @@ class MockCatalogClient:
             ),
         )
 
-    async def points_by_work_id(self, work_id: str) -> SearchResult:
-        self.calls.append(("points_by_work_id", (work_id,)))
+    async def points_by_bangumi_id(self, bangumi_id: str) -> SearchResult:
+        self.calls.append(("points_by_bangumi_id", (bangumi_id,)))
         rows = [
-            point.model_copy(deep=True) for point in FIXTURE_POINTS.get(work_id, [])
+            point.model_copy(deep=True) for point in FIXTURE_POINTS.get(bangumi_id, [])
         ]
         return SearchResult(rows=rows, synced_at="fixture")
 
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
-    ) -> list[PilgrimagePoint]:
+    ) -> list[Point]:
         self.calls.append(("nearby", (lat, lng, radius_m)))
         scored = self._within_radius(lat, lng, radius_m)
         return [point for _, point in sorted(scored, key=lambda item: item[0])]
@@ -81,14 +81,14 @@ class MockCatalogClient:
         self.calls.append(("geocode", (query, limit)))
         return [candidate.model_copy() for candidate in _geocode_fixture(query)[:limit]]
 
-    async def route(
+    async def plan_itinerary(
         self,
         point_ids: list[str],
         *,
         origin: tuple[float, float] | None = None,
         pacing: Literal["chill", "normal", "packed"] | None = None,
-    ) -> Route:
-        self.calls.append(("route", (tuple(point_ids), origin, pacing)))
+    ) -> Itinerary:
+        self.calls.append(("plan_itinerary", (tuple(point_ids), origin, pacing)))
         ordered = [
             _POINT_INDEX[pid].model_copy(deep=True)
             for pid in point_ids
@@ -96,7 +96,7 @@ class MockCatalogClient:
         ]
         return _build_route(ordered)
 
-    async def near_location(self, name: str) -> list[PilgrimagePoint]:
+    async def near_location(self, name: str) -> list[Point]:
         center = self._match_location(name)
         if center is None:
             return []
@@ -119,8 +119,8 @@ class MockCatalogClient:
     @staticmethod
     def _within_radius(
         lat: float, lng: float, radius_m: int
-    ) -> list[tuple[float, PilgrimagePoint]]:
-        scored: list[tuple[float, PilgrimagePoint]] = []
+    ) -> list[tuple[float, Point]]:
+        scored: list[tuple[float, Point]] = []
         for point in _POINT_INDEX.values():
             dist = haversine_distance(lat, lng, point.latitude, point.longitude)
             if dist <= radius_m:
@@ -130,10 +130,10 @@ class MockCatalogClient:
         return scored
 
 
-def _build_route(ordered: list[PilgrimagePoint]) -> Route:
+def _build_route(ordered: list[Point]) -> Itinerary:
     if not ordered:
-        return Route()
-    return Route(
+        return Itinerary()
+    return Itinerary(
         ordered_points=ordered,
         point_count=len(ordered),
         cover_url=ordered[0].cover_url,
@@ -169,7 +169,7 @@ def _geocode_fixture(query: str) -> list[GeocodeCandidate]:
     ]
 
 
-def _build_itinerary(ordered: list[PilgrimagePoint]) -> TimedItinerary:
+def _build_itinerary(ordered: list[Point]) -> TimedItinerary:
     stops = [_stop(point, index) for index, point in enumerate(ordered)]
     legs = [_leg(ordered[i], ordered[i + 1]) for i in range(len(ordered) - 1)]
     return TimedItinerary(
@@ -181,7 +181,7 @@ def _build_itinerary(ordered: list[PilgrimagePoint]) -> TimedItinerary:
     )
 
 
-def _stop(point: PilgrimagePoint, index: int) -> TimedStop:
+def _stop(point: Point, index: int) -> TimedStop:
     arrive_hour = 9 + index
     return TimedStop(
         cluster_id=point.id,
@@ -195,7 +195,7 @@ def _stop(point: PilgrimagePoint, index: int) -> TimedStop:
     )
 
 
-def _leg(src: PilgrimagePoint, dst: PilgrimagePoint) -> TransitLeg:
+def _leg(src: Point, dst: Point) -> TransitLeg:
     distance = haversine_distance(
         src.latitude, src.longitude, dst.latitude, dst.longitude
     )

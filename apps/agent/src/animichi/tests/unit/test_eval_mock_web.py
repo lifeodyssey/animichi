@@ -160,6 +160,6 @@ async def test_web_search_direct_injection_returns_wrapped_results() -> None:
 
 
 async def test_mock_catalog_route_accepts_dataset_point_ids() -> None:
-    route = await MockCatalogClient().route(["p004", "p005"])
+    route = await MockCatalogClient().plan_itinerary(["p004", "p005"])
 
     assert route.point_count == 2

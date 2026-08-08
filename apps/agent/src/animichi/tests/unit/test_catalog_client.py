@@ -9,7 +9,7 @@ from animichi.clients.catalog_client import (
     GeocodeCandidate,
     GeocodeKind,
     GeocodeSource,
-    Route,
+    Itinerary,
 )
 
 _POINT = {
@@ -82,12 +82,12 @@ async def test_geocode_parses_candidates_and_posts_limit() -> None:
 
 
 async def test_route_parses_route() -> None:
-    """route() validates the Route envelope and POSTs point_ids."""
+    """plan_itinerary() validates the Itinerary envelope and POSTs point_ids."""
     payload = {"ordered_points": [_POINT], "point_count": 1}
     async with _mock_catalog(payload) as (client, requests):
-        route = await client.route(["p1"])
+        route = await client.plan_itinerary(["p1"])
 
-    assert isinstance(route, Route)
+    assert isinstance(route, Itinerary)
     assert route.point_count == 1
     assert json.loads(requests[0].content) == {"point_ids": ["p1"]}
 
@@ -96,7 +96,7 @@ async def test_route_posts_coordinate_origin() -> None:
     """route() sends origin only when coordinates are provided."""
     payload = {"ordered_points": [_POINT], "point_count": 1}
     async with _mock_catalog(payload) as (client, requests):
-        await client.route(["p1"], origin=(34.89, 135.8))
+        await client.plan_itinerary(["p1"], origin=(34.89, 135.8))
 
     assert json.loads(requests[0].content) == {
         "point_ids": ["p1"],

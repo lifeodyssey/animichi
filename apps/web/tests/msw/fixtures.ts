@@ -1,4 +1,4 @@
-import type { PilgrimagePoint, SearchResult } from "@animichi/contract";
+import type { Point, SearchResult } from "@animichi/contract";
 
 /** Base origin the unit MSW swimlane serves; matches the jsdom `location.origin`. */
 export const TEST_ORIGIN = "http://localhost:3000";
@@ -12,7 +12,7 @@ const hakoneStation = {
   screenshot_url: "https://cdn.test/point-1.jpg",
   latitude: 35.2323,
   longitude: 139.1069,
-} satisfies PilgrimagePoint;
+} satisfies Point;
 
 /** A valid, contract-shaped catalog search payload. */
 export const searchSuccessFixture = {

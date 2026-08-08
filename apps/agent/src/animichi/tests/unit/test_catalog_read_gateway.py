@@ -14,7 +14,7 @@ from animichi.clients.catalog_client import (
 )
 
 _ALLOWED_READ_METHODS = frozenset(
-    {"resolve", "points_by_work_id", "nearby", "geocode", "route"}
+    {"resolve", "points_by_bangumi_id", "nearby", "geocode", "plan_itinerary"}
 )
 _WRITE_VERBS = frozenset(
     {
@@ -59,8 +59,8 @@ class _FakeReadGateway:
     async def resolve(self, query: str) -> object:
         return await self._noop(query)
 
-    async def points_by_work_id(self, work_id: str) -> object:
-        return await self._noop(work_id)
+    async def points_by_bangumi_id(self, bangumi_id: str) -> object:
+        return await self._noop(bangumi_id)
 
     async def nearby(
         self, lat: float, lng: float, *, radius_m: int = 2000
@@ -70,7 +70,7 @@ class _FakeReadGateway:
     async def geocode(self, query: str, *, limit: int = 5) -> list[object]:
         return cast(list[object], await self._noop(query, limit=limit))
 
-    async def route(
+    async def plan_itinerary(
         self,
         point_ids: list[str],
         *,

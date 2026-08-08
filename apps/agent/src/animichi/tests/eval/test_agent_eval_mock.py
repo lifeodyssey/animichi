@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from animichi.clients.catalog_client import PilgrimagePoint, Route
+from animichi.clients.catalog_client import Itinerary, Point
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 
 
@@ -9,17 +9,17 @@ async def test_nearby_returns_sorted_points_within_radius() -> None:
     client = MockCatalogClient()
     points = await client.near_location("宇治")
     assert points, "Uji should resolve to seeded Euphonium points"
-    assert all(isinstance(p, PilgrimagePoint) for p in points)
+    assert all(isinstance(p, Point) for p in points)
     distances = [p.distance_m for p in points]
     assert distances == sorted(distances)
     assert all(d >= 0 for d in distances)
 
 
 async def test_route_builds_valid_timed_itinerary() -> None:
-    """route() (D1-style plan) returns an ordered Route with a timed itinerary."""
+    """plan_itinerary() (D1-style plan) returns an ordered Itinerary with a timed itinerary."""
     client = MockCatalogClient()
-    route = await client.route(["p004", "p005"])
-    assert isinstance(route, Route)
+    route = await client.plan_itinerary(["p004", "p005"])
+    assert isinstance(route, Itinerary)
     assert route.point_count == 2
     assert len(route.ordered_points) == 2
     itinerary = route.timed_itinerary
@@ -33,4 +33,4 @@ async def test_unknown_inputs_yield_no_data() -> None:
     """Unknown title/coord/ids keep DataKeysPresent empty-data semantics stable."""
     client = MockCatalogClient()
     assert await client.nearby(0.0, 0.0, radius_m=1000) == []
-    assert (await client.route(["does-not-exist"])).point_count == 0
+    assert (await client.plan_itinerary(["does-not-exist"])).point_count == 0

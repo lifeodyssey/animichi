@@ -143,7 +143,7 @@ async def test_t7_partial_sync_returns_results_without_routing() -> None:
     assert (result.status, result.success, payload.partial) == ("partial", False, True)
     assert "results" in wire.data and "route" not in wire.data
     assert wire.data["results"]["partial"] is True
-    assert all(call[0] != "route" for call in catalog.calls)
+    assert all(call[0] != "plan_itinerary" for call in catalog.calls)
     assert state.pending_clarification is not None
     assert (result.steps[-1].is_success, result.steps[-1].error) == (True, None)
 

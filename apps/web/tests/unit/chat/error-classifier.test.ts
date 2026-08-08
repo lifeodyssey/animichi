@@ -10,8 +10,8 @@ function searchPart(intent: SearchIntent, results?: Record<string, unknown>): Ch
   return { intent, success: true, data };
 }
 
-function routePart(route?: Record<string, unknown>): ChatDataPart {
-  const data = route === undefined ? undefined : { route };
+function routePart(itinerary?: Record<string, unknown>): ChatDataPart {
+  const data = itinerary === undefined ? undefined : { itinerary };
   return { intent: "plan_route", success: true, data };
 }
 
