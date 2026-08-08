@@ -1,42 +1,42 @@
-import type { SaveRouteInput } from "@animichi/contract";
+import type { SaveSavedRouteInput } from "@animichi/contract";
 import { ORPCError } from "@orpc/server";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
-import { listRoutes, saveRoute, deleteRoute } from "../src/api/routes";
+import { listSavedRoutes, saveSavedRoute, deleteSavedRoute } from "../src/api/routes";
 import { listSessions } from "../src/api/routes";
 import type { DbExecutor } from "../src/db/client";
 import type { SavedRouteRepo } from "../src/domain/ports";
-import { fakeDb, type FakeRouteRow } from "./in-memory-routes-db";
+import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
 
 const ID = "00000000-0000-4000-8000-000000000009";
 const RAW = "2026-07-13 12:34:56+00";
-const UPDATE_INPUT: SaveRouteInput = {
+const UPDATE_INPUT: SaveSavedRouteInput = {
   id: ID, title: "X", point_ids: [], status: "saved",
 };
 
-/** Real Neon adapter over the fake executor — route SQL still verified. */
+/** Real Neon adapter over the fake executor — saved-route SQL still verified. */
 function repo(db: DbExecutor): SavedRouteRepo {
   return new NeonSavedRouteRepo(db);
 }
 
-function row(overrides: Partial<FakeRouteRow> = {}): FakeRouteRow {
+function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   return {
-    id: ID, session_id: null, user_id: "user-a", title: "Tokyo", point_ids: ["p1"],
+    id: ID, claim_session_id: null, user_id: "user-a", title: "Tokyo", point_ids: ["p1"],
     status: "saved", saved_at: RAW, updated_at: RAW, first_query: "Find Tokyo", ...overrides,
   };
 }
 
 async function caught(
-  input: SaveRouteInput, db: DbExecutor = fakeDb([row({ user_id: "user-b" })]).db,
+  input: SaveSavedRouteInput, db: DbExecutor = fakeDb([row({ user_id: "user-b" })]).db,
 ): Promise<ORPCError<string, unknown>> {
   try {
-    await saveRoute(repo(db), "user-a", input);
+    await saveSavedRoute(repo(db), "user-a", input);
   } catch (error) {
     return orpcError(error);
   }
-  throw new Error("expected saveRoute to reject");
+  throw new Error("expected saveSavedRoute to reject");
 }
 
 function orpcError(error: unknown): ORPCError<string, unknown> {
@@ -44,13 +44,13 @@ function orpcError(error: unknown): ORPCError<string, unknown> {
   return error as ORPCError<string, unknown>;
 }
 
-describe("user routes handlers", () => {
+describe("user saved-route handlers", () => {
   it("lists an empty store", async () => {
-    expect(await listRoutes(repo(fakeDb().db), "user-a")).toEqual({ routes: [] });
+    expect(await listSavedRoutes(repo(fakeDb().db), "user-a")).toEqual({ saved_routes: [] });
   });
 
   it("creates a saved route with normalized timestamps", async () => {
-    const result = await saveRoute(repo(fakeDb().db), "user-a", {
+    const result = await saveSavedRoute(repo(fakeDb().db), "user-a", {
       title: "Tokyo", point_ids: ["p1"], status: "saved",
     });
     expect(result).toMatchObject({ title: "Tokyo", status: "saved", point_ids: ["p1"] });
@@ -59,46 +59,46 @@ describe("user routes handlers", () => {
   });
 
   it("creates a draft with no saved timestamp", async () => {
-    const result = await saveRoute(repo(fakeDb().db), "user-a", {
+    const result = await saveSavedRoute(repo(fakeDb().db), "user-a", {
       title: "Draft", point_ids: [], status: "draft",
     });
     expect(result.saved_at).toBeNull();
   });
 
-  it("throws ROUTE_NOT_FOUND for an unknown update id", async () => {
+  it("throws SAVED_ROUTE_NOT_FOUND for an unknown update id", async () => {
     const error = await caught({ id: "00000000-0000-4000-8000-000000000008", title: "X", point_ids: [], status: "saved" });
-    expect(error).toMatchObject({ code: "ROUTE_NOT_FOUND", status: 404, defined: true });
+    expect(error).toMatchObject({ code: "SAVED_ROUTE_NOT_FOUND", status: 404, defined: true });
   });
 
-  it("throws ROUTE_NOT_OWNED for another user's route", async () => {
+  it("throws SAVED_ROUTE_NOT_OWNED for another user's saved route", async () => {
     const error = await caught({ id: ID, title: "X", point_ids: [], status: "saved" });
-    expect(error).toMatchObject({ code: "ROUTE_NOT_OWNED", status: 403, defined: true });
+    expect(error).toMatchObject({ code: "SAVED_ROUTE_NOT_OWNED", status: 403, defined: true });
   });
 
-  it("updates an owned route and returns the updated row", async () => {
+  it("updates an owned saved route and returns the updated row", async () => {
     const { db } = fakeDb([row()]);
-    const result = await saveRoute(repo(db), "user-a", {
+    const result = await saveSavedRoute(repo(db), "user-a", {
       id: ID, title: "Renamed", point_ids: ["p2"], status: "saved",
     });
     expect(result).toMatchObject({ id: ID, title: "Renamed", point_ids: ["p2"], status: "saved" });
   });
 
   it("normalizes raw workerd timestamp strings while listing", async () => {
-    const result = await listRoutes(repo(fakeDb([row()]).db), "user-a");
-    expect(result.routes[0]?.saved_at).toBe("2026-07-13T12:34:56.000Z");
-    expect(result.routes[0]?.updated_at).toBe("2026-07-13T12:34:56.000Z");
+    const result = await listSavedRoutes(repo(fakeDb([row()]).db), "user-a");
+    expect(result.saved_routes[0]?.saved_at).toBe("2026-07-13T12:34:56.000Z");
+    expect(result.saved_routes[0]?.updated_at).toBe("2026-07-13T12:34:56.000Z");
   });
 });
 
-describe("deleteRoute ownership", () => {
-  it("throws ROUTE_NOT_OWNED when deleting an unknown route", async () => {
+describe("deleteSavedRoute ownership", () => {
+  it("throws SAVED_ROUTE_NOT_OWNED when deleting an unknown saved route", async () => {
     const { db } = fakeDb([row({ user_id: "user-b" })]);
-    await expect(deleteRoute(repo(db), "user-a", { id: ID })).rejects.toMatchObject({
-      code: "ROUTE_NOT_OWNED", status: 403, defined: true,
+    await expect(deleteSavedRoute(repo(db), "user-a", { id: ID })).rejects.toMatchObject({
+      code: "SAVED_ROUTE_NOT_OWNED", status: 403, defined: true,
     });
   });
 
-  it("throws ROUTE_NOT_OWNED when the delete loses the race", async () => {
+  it("throws SAVED_ROUTE_NOT_OWNED when the delete loses the race", async () => {
     const raceDb: DbExecutor = {
       execute: (query) => {
         const rendered = new PgDialect().sqlToQuery(query);
@@ -107,14 +107,14 @@ describe("deleteRoute ownership", () => {
           : Promise.resolve({ rows: [] });
       },
     };
-    await expect(deleteRoute(repo(raceDb), "user-a", { id: ID })).rejects.toMatchObject({
-      code: "ROUTE_NOT_OWNED", status: 403, defined: true,
+    await expect(deleteSavedRoute(repo(raceDb), "user-a", { id: ID })).rejects.toMatchObject({
+      code: "SAVED_ROUTE_NOT_OWNED", status: 403, defined: true,
     });
   });
 
-  it("deletes an owned route", async () => {
+  it("deletes an owned saved route", async () => {
     const { db } = fakeDb([row()]);
-    await expect(deleteRoute(repo(db), "user-a", { id: ID })).resolves.toEqual({ deleted: true });
+    await expect(deleteSavedRoute(repo(db), "user-a", { id: ID })).resolves.toEqual({ deleted: true });
   });
 });
 
@@ -129,7 +129,7 @@ describe("user session handlers", () => {
   });
 
   it("caps next_offset at the contract offset ceiling", async () => {
-    const rows = Array.from({ length: 1050 }, (_, i) => row({ session_id: `s-${String(i)}` }));
+    const rows = Array.from({ length: 1050 }, (_, i) => row({ claim_session_id: `s-${String(i)}` }));
     const result = await listSessions(fakeDb(rows).db, "user-a", { limit: 30, offset: 980 });
     expect(result.next_offset).toBeNull();
   });
@@ -141,8 +141,8 @@ describe("user session handlers", () => {
   });
 });
 
-describe("atomic route updates", () => {
-  it("throws ROUTE_NOT_OWNED when an owned update loses the race", async () => {
+describe("atomic saved-route updates", () => {
+  it("throws SAVED_ROUTE_NOT_OWNED when an owned update loses the race", async () => {
     const inlineDb: DbExecutor = { execute: (query) => {
       const rendered = new PgDialect().sqlToQuery(query);
       if (rendered.sql.toLowerCase().includes("select user_id")) {
@@ -151,7 +151,7 @@ describe("atomic route updates", () => {
       return Promise.resolve({ rows: [] });
     } };
     const error = await caught(UPDATE_INPUT, inlineDb);
-    expect(error).toMatchObject({ code: "ROUTE_NOT_OWNED", status: 403, defined: true });
+    expect(error).toMatchObject({ code: "SAVED_ROUTE_NOT_OWNED", status: 403, defined: true });
   });
 
   it("includes user_id in the atomic update predicate", async () => {

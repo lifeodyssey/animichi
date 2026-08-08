@@ -1,7 +1,7 @@
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
-import { listRoutes, saveRoute } from "../src/api/routes";
+import { listSavedRoutes, saveSavedRoute } from "../src/api/routes";
 import { listSessions } from "../src/api/routes";
 import type { DbExecutor } from "../src/db/client";
 import type { SavedRouteRepo } from "../src/domain/ports";
@@ -26,17 +26,17 @@ function repo(db: DbExecutor): SavedRouteRepo {
   return new NeonSavedRouteRepo(db);
 }
 
-describe("route row validation", () => {
+describe("saved-route row validation", () => {
   it("throws on a route row whose id or status is malformed", async () => {
-    await expect(saveRoute(repo(updateRows([{ id: 42, title: "X", status: "bogus", point_ids: ["p1"] }])), "user-a", {
+    await expect(saveSavedRoute(repo(updateRows([{ id: 42, title: "X", status: "bogus", point_ids: ["p1"] }])), "user-a", {
       id: ID, title: "X", point_ids: [], status: "saved",
-    })).rejects.toThrow("invalid route row");
+    })).rejects.toThrow("invalid saved route row");
   });
 
-  it("throws on a route row whose status is not a valid RouteStatus", async () => {
-    await expect(saveRoute(repo(updateRows([{ id: ID, title: "X", status: "bogus", point_ids: ["p1"] }])), "user-a", {
+  it("throws on a route row whose status is not a valid SavedRouteStatus", async () => {
+    await expect(saveSavedRoute(repo(updateRows([{ id: ID, title: "X", status: "bogus", point_ids: ["p1"] }])), "user-a", {
       id: ID, title: "X", point_ids: [], status: "saved",
-    })).rejects.toThrow("invalid route row");
+    })).rejects.toThrow("invalid saved route row");
   });
 
   it("throws on a route row that is not an object", async () => {
@@ -48,18 +48,18 @@ describe("route row validation", () => {
           : Promise.resolve({ rows: ["not-an-object"] });
       },
     };
-    await expect(saveRoute(repo(nonObjectDb), "user-a", {
+    await expect(saveSavedRoute(repo(nonObjectDb), "user-a", {
       id: ID, title: "X", point_ids: [], status: "saved",
-    })).rejects.toThrow("invalid route row");
+    })).rejects.toThrow("invalid saved route row");
   });
 
   it("lists a route with a null title as an empty string", async () => {
     const { db } = fakeDb([{
-      id: ID, session_id: null, user_id: "user-a", title: null, point_ids: ["p1"],
+      id: ID, claim_session_id: null, user_id: "user-a", title: null, point_ids: ["p1"],
       status: "saved", saved_at: "2026-07-13T00:00:00Z", updated_at: "2026-07-13T00:00:00Z",
     }]);
-    const result = await listRoutes(repo(db), "user-a");
-    expect(result.routes[0]?.title).toBe("");
+    const result = await listSavedRoutes(repo(db), "user-a");
+    expect(result.saved_routes[0]?.title).toBe("");
   });
 });
 
@@ -83,7 +83,7 @@ describe("session row validation", () => {
 
   it("lists a session with a null title as null", async () => {
     const { db } = fakeDb([{
-      id: ID, session_id: null, user_id: "user-a", title: null, point_ids: ["p1"],
+      id: ID, claim_session_id: null, user_id: "user-a", title: null, point_ids: ["p1"],
       status: "saved", saved_at: "2026-07-13T00:00:00Z", updated_at: "2026-07-13T00:00:00Z",
     }]);
     const result = await listSessions(db, "user-a", { limit: 1, offset: 0 });
