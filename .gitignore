@@ -148,6 +148,8 @@ backend/tests/eval/results/agent_openai-mimo-*
 # tool-generated local state (rebuildable)
 .codegraph/
 test-results/
+.context/
+.grok/
 
 # CI-generated build metadata (#494) — written into the checkout just before
 # `wrangler deploy` builds the root container; never committed (a committed
