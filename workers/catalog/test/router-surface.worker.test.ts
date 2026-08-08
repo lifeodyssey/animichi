@@ -10,11 +10,11 @@ import { catalogRouter } from "../src/router";
 const PUBLIC_PROCEDURES = [
   "search",
   "resolve",
-  "pointsByWorkId",
+  "pointsByBangumiId",
   "spots",
   "nearby",
   "geocode",
-  "route",
+  "planItinerary",
   "animeOverview",
 ] as const;
 

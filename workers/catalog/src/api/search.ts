@@ -4,7 +4,7 @@
  *
  * Resolves the query through the alias index (NFKC-folded exact match on
  * `aliases.alias_normalized`, the same key `catalog/src/lib/alias.ts` writes)
- * to a `work_id` (a Bangumi subject id), then returns that work's `points`
+ * to a `bangumi_id` (a Bangumi subject id), then returns that work's `points`
  * joined to its `bangumi` metadata for the anime title.
  *
  * On an alias MISS (an uncovered work) this is TIERED so workerd never blocks on
@@ -23,8 +23,8 @@
  * surfaces as a defined retryable `UPSTREAM_UNAVAILABLE` oRPC error (502
  * envelope) instead of lying to the user with empty rows.
  *
- * Output mirrors the oRPC contract `SearchResult` / `PilgrimagePoint`. The wire
- * shapes (`Origin` / `PilgrimagePoint`) come from `../types` — the single
+ * Output mirrors the oRPC contract `SearchResult` / `Point`. The wire
+ * shapes (`Origin` / `Point`) come from `../types` — the single
  * in-Worker mirror of `packages/contract/src/models.ts`. `import type` erases at
  * compile time, keeping the contract's zod runtime out of the Worker bundle;
  * they are re-exported so existing consumers keep importing them from here.
@@ -39,10 +39,10 @@ import {
 } from "../lib/rows";
 import { ingestWork } from "../ingest/orchestrator";
 import type { FetchLike } from "../ingest/sources";
-import type { Origin, PilgrimagePoint } from "../types";
+import type { Origin, Point } from "../types";
 import { previewForQuery, type MissPreview } from "./preview";
 
-export type { Origin, PilgrimagePoint };
+export type { Origin, Point };
 
 export type { MissPreview } from "./preview";
 
@@ -89,15 +89,15 @@ export interface WorkPointRow {
  *     fallback). The published points then serve subsequent (alias-hit) reads.
  */
 export interface SearchDb {
-  workIdForAlias(aliasNormalized: string): Promise<string | undefined>;
-  pointsForWork(workId: string): Promise<WorkPointRow[]>;
+  bangumiIdForAlias(aliasNormalized: string): Promise<string | undefined>;
+  pointsForWork(bangumiId: string): Promise<WorkPointRow[]>;
   resolvePreview(query: string, fetchImpl?: FetchLike): Promise<MissPreview | null>;
-  runFullIngest(workId: string, fetchImpl?: FetchLike): Promise<void>;
+  runFullIngest(bangumiId: string, fetchImpl?: FetchLike): Promise<void>;
 }
 
 /** The search response: rows + freshness, plus `partial` when these are an L1 preview. */
 export interface SearchResult {
-  rows: PilgrimagePoint[];
+  rows: Point[];
   synced_at: string;
   partial?: boolean;
 }
@@ -108,17 +108,17 @@ export async function search(
   input: { query: string; origin?: Origin },
   opts: SearchOptions = {},
 ): Promise<SearchResult> {
-  const workId = await db.workIdForAlias(normalizeAlias(input.query));
-  if (workId) return hitResult(db, workId);
+  const bangumiId = await db.bangumiIdForAlias(normalizeAlias(input.query));
+  if (bangumiId) return hitResult(db, bangumiId);
   return missResult(db, input.query, opts);
 }
 
 /** Alias HIT: return the work's published points from the catalog (no preview/ingest). */
 export async function hitResult(
   db: Pick<SearchDb, "pointsForWork">,
-  workId: string,
+  bangumiId: string,
 ): Promise<SearchResult> {
-  const rows = await db.pointsForWork(workId);
+  const rows = await db.pointsForWork(bangumiId);
   return { rows: rows.map(toPoint), synced_at: syncedAt(rows) };
 }
 
@@ -157,8 +157,8 @@ function emptyResult(): SearchResult {
   return { rows: [], synced_at: new Date().toISOString() };
 }
 
-/** Map a joined DB row to the contract `PilgrimagePoint` shape. */
-function toPoint(r: WorkPointRow): PilgrimagePoint {
+/** Map a joined DB row to the contract `Point` shape. */
+function toPoint(r: WorkPointRow): Point {
   return {
     ...identity(r),
     ...geo(r),
@@ -167,17 +167,17 @@ function toPoint(r: WorkPointRow): PilgrimagePoint {
 }
 
 /** Required identity fields (id / name / bangumi_id / screenshot_url). */
-function identity(r: WorkPointRow): Pick<PilgrimagePoint, "id" | "name" | "bangumi_id" | "screenshot_url"> {
+function identity(r: WorkPointRow): Pick<Point, "id" | "name" | "bangumi_id" | "screenshot_url"> {
   return { id: r.id, name: r.name, bangumi_id: r.bangumi_id ?? "", screenshot_url: r.image ?? "" };
 }
 
 /** Required geo fields. */
-function geo(r: WorkPointRow): Pick<PilgrimagePoint, "latitude" | "longitude"> {
+function geo(r: WorkPointRow): Pick<Point, "latitude" | "longitude"> {
   return { latitude: r.latitude, longitude: r.longitude };
 }
 
 /** Optional metadata fields, omitted when null. */
-function meta(r: WorkPointRow): Partial<PilgrimagePoint> {
+function meta(r: WorkPointRow): Partial<Point> {
   return optional({
     name_cn: r.name_cn, episode: r.episode, time_seconds: r.time_seconds,
     title: r.title, title_cn: r.title_cn, cover_url: r.cover_url, city: r.city,
@@ -194,10 +194,10 @@ function syncedAt(rows: WorkPointRow[]): string {
 /** Build the production `SearchDb` over a Drizzle `CatalogDb`. */
 export function searchDb(db: CatalogDb): SearchDb {
   return {
-    workIdForAlias: (normalized) => firstWorkId(db, normalized),
-    pointsForWork: (workId) => selectPoints(db, workId),
+    bangumiIdForAlias: (normalized) => firstBangumiId(db, normalized),
+    pointsForWork: (bangumiId) => selectPoints(db, bangumiId),
     resolvePreview: (query, fetchImpl) => previewForQuery(query, fetchImpl),
-    runFullIngest: (workId, fetchImpl) => runFullIngest(db, workId, fetchImpl),
+    runFullIngest: (bangumiId, fetchImpl) => runFullIngest(db, bangumiId, fetchImpl),
   };
 }
 
@@ -205,19 +205,19 @@ export function searchDb(db: CatalogDb): SearchDb {
  * (it is fire-and-forget on `waitUntil`, and synchronous callers re-read the DB). */
 async function runFullIngest(
   db: CatalogDb,
-  workId: string,
+  bangumiId: string,
   fetchImpl?: FetchLike,
 ): Promise<void> {
-  await ingestWork(db, workId, { fetchImpl });
+  await ingestWork(db, bangumiId, { fetchImpl });
 }
 
-/** Exact-match the normalized alias -> the highest-priority work id.
+/** Exact-match the normalized alias -> the highest-priority bangumi id.
  * Raw `sql` (not the Drizzle query builder) — the builder hangs under workerd. */
-async function firstWorkId(db: CatalogDb, normalized: string): Promise<string | undefined> {
+async function firstBangumiId(db: CatalogDb, normalized: string): Promise<string | undefined> {
   const result = await db.execute(
-    sql`SELECT work_id FROM aliases WHERE alias_normalized = ${normalized} ORDER BY priority DESC LIMIT 1`,
+    sql`SELECT bangumi_id FROM aliases WHERE alias_normalized = ${normalized} ORDER BY priority DESC LIMIT 1`,
   );
-  return (result.rows as { work_id: string }[])[0]?.work_id;
+  return (result.rows as { bangumi_id: string }[])[0]?.bangumi_id;
 }
 
 function readWorkPointRow(row: Record<string, unknown>): WorkPointRow {

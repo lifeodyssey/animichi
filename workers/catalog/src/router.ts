@@ -2,10 +2,10 @@ import { catalogContract } from "@animichi/contract";
 import { implement } from "@orpc/server";
 import { resolve as resolveHandler, resolveDb } from "./api/resolve";
 import { search as searchHandler, searchDb } from "./api/search";
-import { pointsByWorkId, workPointsDb } from "./api/work-points";
+import { pointsByBangumiId, workPointsDb } from "./api/work-points";
 import { nearby as nearbyHandler } from "./api/nearby";
 import { geocode as geocodeHandler } from "./api/geocode";
-import { route as routeHandler } from "./api/route";
+import { planItinerary as planItineraryHandler } from "./api/route";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
 import { animeOverview as animeOverviewHandler, AnimeOverviewNotFoundError } from "./api/anime-overview";
 import type { CatalogDb, NeonSql } from "./db/client";
@@ -37,8 +37,8 @@ const resolve = os.resolve.handler(async ({ input, context }) =>
   resolveHandler(resolveDb(context.db), input, { fetchImpl: context.fetchImpl }),
 );
 
-const pointsById = os.pointsByWorkId.handler(async ({ input, context }) =>
-  pointsByWorkId(workPointsDb(context.db), input.work_id, {
+const pointsById = os.pointsByBangumiId.handler(async ({ input, context }) =>
+  pointsByBangumiId(workPointsDb(context.db), input.bangumi_id, {
     fetchImpl: context.fetchImpl,
     waitUntil: context.waitUntil,
   }),
@@ -56,19 +56,19 @@ const geocode = os.geocode.handler(async ({ input, context }) =>
   geocodeHandler(context.db, input),
 );
 
-const MAX_ROUTE_POINT_IDS = 500;
+const MAX_ITINERARY_POINT_IDS = 500;
 
-/** Reject route inputs over the point_ids cap with the typed 400. */
-function assertRoutePointIdCap(count: number): Promise<void> {
-  if (count > MAX_ROUTE_POINT_IDS) {
-    return Promise.reject(routeTooManyPoints(count, MAX_ROUTE_POINT_IDS));
+/** Reject itinerary inputs over the point_ids cap with the typed 400. */
+function assertItineraryPointIdCap(count: number): Promise<void> {
+  if (count > MAX_ITINERARY_POINT_IDS) {
+    return Promise.reject(routeTooManyPoints(count, MAX_ITINERARY_POINT_IDS));
   }
   return Promise.resolve();
 }
 
-const route = os.route.handler(async ({ input, context }) => {
-  await assertRoutePointIdCap(input.point_ids.length);
-  return routeHandler(context.db, input);
+const planItinerary = os.planItinerary.handler(async ({ input, context }) => {
+  await assertItineraryPointIdCap(input.point_ids.length);
+  return planItineraryHandler(context.db, input);
 });
 
 const animeOverview = os.animeOverview.handler(async ({ input, context }) =>
@@ -98,11 +98,11 @@ async function callAnimeOverview(db: CatalogDb, input: { bangumi_id: string }) {
 export const catalogRouter = {
   search,
   resolve,
-  pointsByWorkId: pointsById,
+  pointsByBangumiId: pointsById,
   spots,
   nearby,
   geocode,
-  route,
+  planItinerary,
   animeOverview,
 };
 export type CatalogRouter = typeof catalogRouter;

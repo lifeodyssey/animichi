@@ -9,7 +9,7 @@ import { assertContractShape, assertNullFieldsOmitted } from "./search-contract-
  *
  * `search` takes the narrow `SearchDb` port (the minimal surface it calls), so
  * these inject a typed in-memory fake instead of a real container. We assert:
- * a known alias maps points to the contract `PilgrimagePoint` shape; the query
+ * a known alias maps points to the contract `Point` shape; the query
  * is NFKC-normalized before the lookup; and — the focus of this card — that an
  * alias MISS is TIERED so workerd never blocks on the full ingest:
  *   - with a `waitUntil`: the L1 lite preview returns FAST (no awaiting the full
@@ -22,7 +22,7 @@ import { assertContractShape, assertNullFieldsOmitted } from "./search-contract-
  */
 
 describe("search (alias hit)", () => {
-  it("maps a known alias to PilgrimagePoint rows in contract shape", assertContractShape);
+  it("maps a known alias to Point rows in contract shape", assertContractShape);
 
   it("returns synced_at from the work's bangumi.updated_at", async () => {
     const { db } = fakeDb({ "lucky star": { workId: "1", rows: [ROW] } });

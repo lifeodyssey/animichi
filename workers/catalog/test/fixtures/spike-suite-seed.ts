@@ -52,14 +52,14 @@ function insertSeedPoints(db: CatalogDb): Promise<unknown> {
 
 function insertSeedCluster(db: CatalogDb): Promise<unknown> {
   return db.execute(sql`
-    INSERT INTO cluster_version (work_id, version, is_current)
+    INSERT INTO cluster_version (bangumi_id, version, is_current)
     VALUES ('lucky-star', 1, TRUE)
   `);
 }
 
 function insertSeedAlias(db: CatalogDb): Promise<unknown> {
   return db.execute(sql`
-    INSERT INTO aliases (work_id, alias, alias_normalized, source, priority)
+    INSERT INTO aliases (bangumi_id, alias, alias_normalized, source, priority)
     VALUES ('lucky-star', 'らき☆すた', 'らき☆すた', 'bangumi', 40)
   `);
 }

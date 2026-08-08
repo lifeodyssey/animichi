@@ -34,15 +34,15 @@ beforeAll(async () => {
     VALUES ('washinomiya', 'lucky-star', '鷲宮神社', 36.1019, 139.6586, 1)
   `);
   await db.execute(sql`
-    INSERT INTO cluster_version (work_id, version, is_current)
+    INSERT INTO cluster_version (bangumi_id, version, is_current)
     VALUES ('lucky-star', 1, TRUE)
   `);
   await db.execute(sql`
-    INSERT INTO aliases (work_id, alias, alias_normalized, source, priority)
+    INSERT INTO aliases (bangumi_id, alias, alias_normalized, source, priority)
     VALUES ('lucky-star', 'らき☆すた', 'らきすた', 'bangumi', 10)
   `);
   await db.execute(sql`
-    INSERT INTO series_edges (from_work_id, to_work_id, relation)
+    INSERT INTO series_edges (from_bangumi_id, to_bangumi_id, relation)
     VALUES ('lucky-star', 'lucky-star-ova', 'sequel')
   `);
 }, 120_000);
@@ -73,13 +73,13 @@ async function assertPointRow(): Promise<void> {
 
 
 async function assertSchemaRelations(): Promise<void> {
-  const versions = await db.select().from(clusterVersion).where(eq(clusterVersion.workId, "lucky-star"));
+  const versions = await db.select().from(clusterVersion).where(eq(clusterVersion.bangumiId, "lucky-star"));
   expect(versions[0]?.version).toBe(1); expect(versions[0]?.isCurrent).toBe(true);
-  const aliasRows = await db.select().from(aliases).where(eq(aliases.workId, "lucky-star"));
+  const aliasRows = await db.select().from(aliases).where(eq(aliases.bangumiId, "lucky-star"));
   expect(aliasRows[0]?.aliasNormalized).toBe("らきすた");
   expect(aliasRows[0]?.priority).toBe(10);
-  const edges = await db.select().from(seriesEdges).where(eq(seriesEdges.fromWorkId, "lucky-star"));
-  expect(edges[0]?.toWorkId).toBe("lucky-star-ova");
+  const edges = await db.select().from(seriesEdges).where(eq(seriesEdges.fromBangumiId, "lucky-star"));
+  expect(edges[0]?.toBangumiId).toBe("lucky-star-ova");
   expect(edges[0]?.relation).toBe("sequel");
 }
 

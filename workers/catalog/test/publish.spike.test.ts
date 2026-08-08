@@ -2,7 +2,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
 import { publishVersion } from "../src/publish/versioning";
-import { getRouteSnapshot, saveRouteSnapshot } from "../src/publish/snapshots";
+import { getItinerarySnapshot, saveItinerarySnapshot } from "../src/publish/snapshots";
 import { gcOldVersions } from "../src/publish/gc";
 import {
   databaseDescribe,
@@ -13,7 +13,7 @@ import {
 
 /**
  * Spike for the Publish stage (card W3-1): atomic version switch over
- * `cluster_version`, no-drift route snapshots over `route_snapshots`, and
+ * `cluster_version`, no-drift itinerary snapshots over `itinerary_snapshots`, and
  * version GC.
  *
  * Uses the complete Atlas schema inherited by the suite branch, including the
@@ -25,7 +25,7 @@ let db: CatalogDb;
 async function currentVersions(workId: string): Promise<number[]> {
   const rows = (
     await db.execute(
-      sql`SELECT version FROM cluster_version WHERE work_id = ${workId} AND is_current ORDER BY version`,
+      sql`SELECT version FROM cluster_version WHERE bangumi_id = ${workId} AND is_current ORDER BY version`,
     )
   ).rows as { version: number }[];
   return rows.map((r) => r.version);
@@ -34,7 +34,7 @@ async function currentVersions(workId: string): Promise<number[]> {
 async function allVersions(workId: string): Promise<number[]> {
   const rows = (
     await db.execute(
-      sql`SELECT version FROM cluster_version WHERE work_id = ${workId} ORDER BY version`,
+      sql`SELECT version FROM cluster_version WHERE bangumi_id = ${workId} ORDER BY version`,
     )
   ).rows as { version: number }[];
   return rows.map((r) => r.version);
@@ -70,12 +70,12 @@ databaseDescribe("publishVersion atomic version switch over cluster_version", ()
   });
 });
 
-databaseDescribe("saveRouteSnapshot binds a route to a version so it never drifts", () => {
+databaseDescribe("saveItinerarySnapshot binds an itinerary to a version so it never drifts", () => {
   it("reads back a v1 snapshot unchanged after v2 publishes (no drift)", async () => {
     await publishVersion(db, "drift");
-    await saveRouteSnapshot(db, "drift", 1, { order: ["a", "b"] });
+    await saveItinerarySnapshot(db, "drift", 1, { order: ["a", "b"] });
     await publishVersion(db, "drift");
-    const snap = (await getRouteSnapshot(db, "drift", 1)) as { order: string[] };
+    const snap = (await getItinerarySnapshot(db, "drift", 1)) as { order: string[] };
     expect(snap.order).toEqual(["a", "b"]);
   });
 });

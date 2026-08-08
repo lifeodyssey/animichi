@@ -16,14 +16,14 @@ import {
  */
 
 const SEQUEL_CHAIN: SeriesEdge[] = [
-  { fromWorkId: "A", toWorkId: "B", relation: "sequel" },
-  { fromWorkId: "B", toWorkId: "C", relation: "sequel" },
+  { fromBangumiId: "A", toBangumiId: "B", relation: "sequel" },
+  { fromBangumiId: "B", toBangumiId: "C", relation: "sequel" },
 ];
 
 function assertExcludesCharacter(): void {
   const edges: SeriesEdge[] = [
-    { fromWorkId: "A", toWorkId: "B", relation: "sequel" },
-    { fromWorkId: "B", toWorkId: "C", relation: "character" },
+    { fromBangumiId: "A", toBangumiId: "B", relation: "sequel" },
+    { fromBangumiId: "B", toBangumiId: "C", relation: "character" },
   ];
   expect([...walkSeries(edges, "A")].sort()).toEqual(["A", "B"]);
   expect(walkSeries(edges, "A").has("C")).toBe(false);
@@ -52,8 +52,8 @@ describe("walkSeries (series.ts)", () => {
 
   it("is cycle-safe: A->B->A does not loop forever", () => {
     const edges: SeriesEdge[] = [
-      { fromWorkId: "A", toWorkId: "B", relation: "sequel" },
-      { fromWorkId: "B", toWorkId: "A", relation: "prequel" },
+      { fromBangumiId: "A", toBangumiId: "B", relation: "sequel" },
+      { fromBangumiId: "B", toBangumiId: "A", relation: "prequel" },
     ];
     expect([...walkSeries(edges, "A")].sort()).toEqual(["A", "B"]);
   });
@@ -62,9 +62,9 @@ describe("walkSeries (series.ts)", () => {
 
   it("merges via side_story / summary / same_setting relations", () => {
     const edges: SeriesEdge[] = [
-      { fromWorkId: "A", toWorkId: "B", relation: "side_story" },
-      { fromWorkId: "B", toWorkId: "C", relation: "summary" },
-      { fromWorkId: "C", toWorkId: "D", relation: "same_setting" },
+      { fromBangumiId: "A", toBangumiId: "B", relation: "side_story" },
+      { fromBangumiId: "B", toBangumiId: "C", relation: "summary" },
+      { fromBangumiId: "C", toBangumiId: "D", relation: "same_setting" },
     ];
     expect([...walkSeries(edges, "A")].sort()).toEqual(["A", "B", "C", "D"]);
   });

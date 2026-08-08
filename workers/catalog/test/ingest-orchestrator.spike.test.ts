@@ -87,7 +87,7 @@ async function bangumiExists(workId: string): Promise<boolean> {
 async function currentVersion(workId: string): Promise<number | undefined> {
   const rows = (
     await db.execute(
-      sql`SELECT version FROM cluster_version WHERE work_id = ${workId} AND is_current`,
+      sql`SELECT version FROM cluster_version WHERE bangumi_id = ${workId} AND is_current`,
     )
   ).rows as { version: number }[];
   return rows[0]?.version;

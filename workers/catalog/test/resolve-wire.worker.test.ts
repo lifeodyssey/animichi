@@ -42,7 +42,7 @@ describe("Phase 1a catalog procedures on the oRPC wire", () => {
 
   it("serves the deterministic resolve outcome", async () => {
     const response = await call("resolve", { query: "Lucky Star" }, context([
-      [{ work_id: "3302", priority: 40 }],
+      [{ bangumi_id: "3302", priority: 40 }],
       [{
         id: "3302", title: "らき☆すた", title_cn: "幸运星",
         cover_url: null, air_date: "2007-04-08", points_count: "0",
@@ -66,7 +66,7 @@ describe("Phase 1a catalog procedures on the oRPC wire", () => {
       title: "らき☆すた", title_cn: null, cover_url: null,
       synced_at: "2026-07-16T00:00:00.000Z",
     };
-    const response = await call("points-by-work-id", { work_id: "3302" }, context([[point]]));
+    const response = await call("points-by-bangumi-id", { bangumi_id: "3302" }, context([[point]]));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({

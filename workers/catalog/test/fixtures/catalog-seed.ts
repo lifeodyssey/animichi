@@ -18,7 +18,7 @@ import {
   AnimeCandidate,
   Latitude,
   Longitude,
-  PointsByWorkIdInput,
+  PointsByBangumiIdInput,
   ResolveOutcome,
 } from "@animichi/contract";
 import { aliases, bangumi, points } from "../../src/db/schema";
@@ -54,13 +54,13 @@ export interface AliasSeed {
   priority: number;
 }
 
-/** A work id the contract accepts on `pointsByWorkId` (bare Bangumi subject id). */
-export function contractWorkId(candidate: string): string {
-  return PointsByWorkIdInput.parse({ work_id: candidate }).work_id;
+/** A bangumi id the contract accepts on `pointsByBangumiId` (bare Bangumi subject id). */
+export function contractBangumiId(candidate: string): string {
+  return PointsByBangumiIdInput.parse({ bangumi_id: candidate }).bangumi_id;
 }
 
 export function workSeed(id: string, title: string): WorkSeed {
-  return { workId: contractWorkId(id), title };
+  return { workId: contractBangumiId(id), title };
 }
 
 export function pointSeed(
@@ -145,7 +145,7 @@ export function aliasInsert(seeds: readonly AliasSeed[]): SeedStatement {
   return statement(
     getTableName(aliases),
     [
-      aliasColumns.workId.name, aliasColumns.alias.name, aliasColumns.aliasNormalized.name,
+      aliasColumns.bangumiId.name, aliasColumns.alias.name, aliasColumns.aliasNormalized.name,
       aliasColumns.source.name, aliasColumns.priority.name,
     ],
     seeds.map((s) => [s.workId, s.alias, s.normalized, s.source, s.priority]),

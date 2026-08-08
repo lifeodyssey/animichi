@@ -23,7 +23,7 @@ const MIN_SIMILAR_LEN = 2;
 const MAX_REVERSE_RATIO = 3;
 
 export interface AliasWork {
-  work_id: string;
+  bangumi_id: string;
   priority: number;
 }
 
@@ -56,7 +56,7 @@ async function aliasHit(db: ResolveDb, query: string): Promise<ResolveOutcome | 
 
 /** Apply the top-priority tie rule to alias-index works. */
 async function resolveHit(db: ResolveDb, works: AliasWork[]): Promise<ResolveOutcome | undefined> {
-  const candidates = await db.candidatesForWorks(works.map((work) => work.work_id));
+  const candidates = await db.candidatesForWorks(works.map((work) => work.bangumi_id));
   const survivors = survivingWorks(works, candidates);
   if (survivors.length === 0) return undefined;
   const top = topPriorityWorks(survivors);
@@ -69,15 +69,15 @@ async function resolveHit(db: ResolveDb, works: AliasWork[]): Promise<ResolveOut
 function dedupeWorks(rows: AliasWork[]): AliasWork[] {
   const priorities = new Map<string, number>();
   for (const row of rows) {
-    priorities.set(row.work_id, Math.max(priorities.get(row.work_id) ?? -Infinity, row.priority));
+    priorities.set(row.bangumi_id, Math.max(priorities.get(row.bangumi_id) ?? -Infinity, row.priority));
   }
-  return [...priorities].map(([work_id, priority]) => ({ work_id, priority }));
+  return [...priorities].map(([bangumi_id, priority]) => ({ bangumi_id, priority }));
 }
 
 /** Keep only alias works backed by loadable Bangumi metadata. */
 function survivingWorks(works: AliasWork[], candidates: AnimeCandidate[]): AliasWork[] {
   const ids = new Set(candidates.map((candidate) => candidate.bangumi_id));
-  return works.filter((work) => ids.has(work.work_id));
+  return works.filter((work) => ids.has(work.bangumi_id));
 }
 
 function topPriorityWorks(works: AliasWork[]): AliasWork[] {
@@ -86,13 +86,13 @@ function topPriorityWorks(works: AliasWork[]): AliasWork[] {
 }
 
 function candidatesForWorks(works: AliasWork[], candidates: AnimeCandidate[]): AnimeCandidate[] {
-  const ids = new Set(works.map((work) => work.work_id));
+  const ids = new Set(works.map((work) => work.bangumi_id));
   return candidates.filter((candidate) => ids.has(candidate.bangumi_id));
 }
 
 /** Rank by priority desc, point coverage desc/null-last, then stable id asc. */
 function rankCandidates(works: AliasWork[], candidates: AnimeCandidate[]): AnimeCandidate[] {
-  const priorities = new Map(works.map((work) => [work.work_id, work.priority]));
+  const priorities = new Map(works.map((work) => [work.bangumi_id, work.priority]));
   return [...candidates].sort((left, right) => compareCandidates(left, right, priorities));
 }
 
@@ -219,9 +219,9 @@ export function resolveDb(db: CatalogDb): ResolveDb {
 
 async function selectAliasWorks(db: CatalogDb, normalized: string): Promise<AliasWork[]> {
   const result = await db.execute(sql`
-    SELECT work_id, MAX(priority) AS priority
+    SELECT bangumi_id, MAX(priority) AS priority
     FROM aliases WHERE alias_normalized = ${normalized}
-    GROUP BY work_id
+    GROUP BY bangumi_id
   `);
   return result.rows.map(readAliasWork);
 }
@@ -238,7 +238,7 @@ async function selectCandidates(db: CatalogDb, workIds: string[]): Promise<Anime
 }
 
 function readAliasWork(row: Record<string, unknown>): AliasWork {
-  return { work_id: requiredString(row, "work_id"), priority: requiredNumber(row, "priority") };
+  return { bangumi_id: requiredString(row, "bangumi_id"), priority: requiredNumber(row, "priority") };
 }
 
 function readStoredCandidate(row: Record<string, unknown>): AnimeCandidate {

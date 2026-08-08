@@ -30,7 +30,7 @@ const EMPTY_SUBJECTS: FetchLike = () => Promise.resolve({
 describe("resolve alias HIT deduplication and ties", () => {
   it("deduplicates duplicate alias rows for one work before deciding ambiguity", async () => {
     const db = fakeDb(
-      [{ work_id: "3302", priority: 40 }, { work_id: "3302", priority: 40 }],
+      [{ bangumi_id: "3302", priority: 40 }, { bangumi_id: "3302", priority: 40 }],
       [candidate("3302", 2)],
     );
 
@@ -42,7 +42,7 @@ describe("resolve alias HIT deduplication and ties", () => {
 
   it("resolves one work reached through multiple source alias priorities", async () => {
     const db = fakeDb(
-      [{ work_id: "10380", priority: 40 }, { work_id: "10380", priority: 30 }],
+      [{ bangumi_id: "10380", priority: 40 }, { bangumi_id: "10380", priority: 30 }],
       [candidate("10380", 0)],
     );
 
@@ -52,7 +52,7 @@ describe("resolve alias HIT deduplication and ties", () => {
 
   it("clarifies two distinct works tied at top priority in ranking-tuple order", async () => {
     const db = fakeDb(
-      [{ work_id: "200", priority: 40 }, { work_id: "100", priority: 40 }],
+      [{ bangumi_id: "200", priority: 40 }, { bangumi_id: "100", priority: 40 }],
       [candidate("100", 3), candidate("200", 7)],
     );
 
@@ -65,7 +65,7 @@ describe("resolve alias HIT deduplication and ties", () => {
 
   it("drops an orphaned top alias and re-ranks the surviving work", async () => {
     const db = fakeDb(
-      [{ work_id: "missing", priority: 50 }, { work_id: "present", priority: 40 }],
+      [{ bangumi_id: "missing", priority: 50 }, { bangumi_id: "present", priority: 40 }],
       [candidate("present", 2)],
     );
 
@@ -76,7 +76,7 @@ describe("resolve alias HIT deduplication and ties", () => {
   });
 
   it("falls through to MISS when every alias work is orphaned", async () => {
-    const db = fakeDb([{ work_id: "missing", priority: 40 }], []);
+    const db = fakeDb([{ bangumi_id: "missing", priority: 40 }], []);
 
     await expect(resolve(db, { query: "Stale Alias" }, {
       fetchImpl: EMPTY_SUBJECTS,
@@ -88,9 +88,9 @@ describe("resolve alias HIT priority and candidate cap", () => {
   it("resolves a strictly dominant top priority among three works", async () => {
     const db = fakeDb(
       [
-        { work_id: "top", priority: 50 },
-        { work_id: "lower-a", priority: 40 },
-        { work_id: "lower-b", priority: 40 },
+        { bangumi_id: "top", priority: 50 },
+        { bangumi_id: "lower-a", priority: 40 },
+        { bangumi_id: "lower-b", priority: 40 },
       ],
       [candidate("top", 0), candidate("lower-a", 10), candidate("lower-b", 20)],
     );
@@ -102,8 +102,8 @@ describe("resolve alias HIT priority and candidate cap", () => {
   });
 
   it("caps an over-limit tie with stable points-count-null-last ordering", async () => {
-    const works = ["7", "2", "5", "1", "4", "3", "8", "6"].map((work_id) => ({
-      work_id,
+    const works = ["7", "2", "5", "1", "4", "3", "8", "6"].map((bangumi_id) => ({
+      bangumi_id,
       priority: 40,
     }));
     const candidates = [

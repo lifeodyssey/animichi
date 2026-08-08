@@ -16,18 +16,18 @@
  */
 
 import type {
-  PilgrimagePoint as ContractPilgrimagePoint,
+  Point as ContractPoint,
   TimedStop as ContractTimedStop,
   TransitLeg as ContractTransitLeg,
   TimedItinerary as ContractTimedItinerary,
-  Route as ContractRoute,
+  Itinerary as ContractItinerary,
   Pacing as ContractPacing,
   Origin as ContractOrigin,
   AnimeCandidate as ContractAnimeCandidate,
   ResolveOutcome as ContractResolveOutcome,
   AnimeOverviewCircle as ContractAnimeOverviewCircle,
   AnimeScene as ContractAnimeScene,
-  AnimeSampleRoute as ContractAnimeSampleRoute,
+  AnimeSampleItinerary as ContractAnimeSampleItinerary,
   AnimeOverview as ContractAnimeOverview,
 } from "../../../packages/contract/src/models";
 
@@ -49,11 +49,11 @@ import type {
 } from "../../../packages/contract/src/errors";
 
 import type {
-  PilgrimagePoint as LocalPilgrimagePoint,
+  Point as LocalPoint,
   TimedStop as LocalTimedStop,
   TransitLeg as LocalTransitLeg,
   TimedItinerary as LocalTimedItinerary,
-  Route as LocalRoute,
+  Itinerary as LocalItinerary,
   Pacing as LocalPacing,
   Origin as LocalOrigin,
   SearchResult as LocalSearchResult,
@@ -64,7 +64,7 @@ import type {
   ResolveOutcome as LocalResolveOutcome,
   AnimeOverviewCircle as LocalAnimeOverviewCircle,
   AnimeScene as LocalAnimeScene,
-  AnimeSampleRoute as LocalAnimeSampleRoute,
+  AnimeSampleItinerary as LocalAnimeSampleItinerary,
   AnimeOverview as LocalAnimeOverview,
 } from "../src/types";
 
@@ -86,9 +86,9 @@ type LocalErrorSpec = {
   [Code in keyof LocalCatalogErrors]: Pick<LocalCatalogErrors[Code], "status" | "category" | "message">;
 };
 
-// --- PilgrimagePoint ---
-const _pp_a: ContractPilgrimagePoint = null as unknown as ContractPilgrimagePoint;
-const _pp_b: LocalPilgrimagePoint = null as unknown as ContractPilgrimagePoint;
+// --- Point ---
+const _pp_a: ContractPoint = null as unknown as ContractPoint;
+const _pp_b: LocalPoint = null as unknown as ContractPoint;
 
 // --- TimedStop ---
 const _ts_a: ContractTimedStop = null as unknown as ContractTimedStop;
@@ -104,9 +104,9 @@ const _tl_attr_b: LocalTransitLeg["attribution"] = null as unknown as ContractTr
 const _ti_a: ContractTimedItinerary = null as unknown as ContractTimedItinerary;
 const _ti_b: LocalTimedItinerary = null as unknown as ContractTimedItinerary;
 
-// --- Route ---
-const _r_a: ContractRoute = null as unknown as LocalRoute;
-const _r_b: LocalRoute = null as unknown as ContractRoute;
+// --- Itinerary ---
+const _r_a: ContractItinerary = null as unknown as LocalItinerary;
+const _r_b: LocalItinerary = null as unknown as ContractItinerary;
 
 // --- Pacing ---
 const _pac_a: ContractPacing = null as unknown as ContractPacing;
@@ -131,8 +131,8 @@ const _aoc_a: ContractAnimeOverviewCircle = null as unknown as LocalAnimeOvervie
 const _aoc_b: LocalAnimeOverviewCircle = null as unknown as ContractAnimeOverviewCircle;
 const _asc_a: ContractAnimeScene = null as unknown as LocalAnimeScene;
 const _asc_b: LocalAnimeScene = null as unknown as ContractAnimeScene;
-const _asr_a: ContractAnimeSampleRoute = null as unknown as LocalAnimeSampleRoute;
-const _asr_b: LocalAnimeSampleRoute = null as unknown as ContractAnimeSampleRoute;
+const _asr_a: ContractAnimeSampleItinerary = null as unknown as LocalAnimeSampleItinerary;
+const _asr_b: LocalAnimeSampleItinerary = null as unknown as ContractAnimeSampleItinerary;
 const _aov_a: ContractAnimeOverview = null as unknown as LocalAnimeOverview;
 const _aov_b: LocalAnimeOverview = null as unknown as ContractAnimeOverview;
 

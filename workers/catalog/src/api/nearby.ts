@@ -2,7 +2,7 @@
 import { sql } from "drizzle-orm";
 import type { CatalogDb, NeonSql } from "../db/client";
 import { findPointsWithinRadius, type NearbyPoint } from "../lib/geo-query";
-import type { PilgrimagePoint } from "../types";
+import type { Point } from "../types";
 
 export interface NearbyInput {
   lat: number;
@@ -22,7 +22,7 @@ interface PointDetail {
   city?: string | null;
 }
 
-function detailOptionals(d: PointDetail): Partial<PilgrimagePoint> {
+function detailOptionals(d: PointDetail): Partial<Point> {
   return {
     ...(d.name_cn != null && { name_cn: d.name_cn }),
     ...(d.episode != null && { episode: d.episode }),
@@ -32,11 +32,11 @@ function detailOptionals(d: PointDetail): Partial<PilgrimagePoint> {
   };
 }
 
-function merge(near: NearbyPoint, d?: PointDetail): PilgrimagePoint {
+function merge(near: NearbyPoint, d?: PointDetail): Point {
   return { ...mergeBase(near, d?.bangumi_id ?? "", d?.image ?? ""), ...(d ? detailOptionals(d) : {}) };
 }
 
-function mergeBase(near: NearbyPoint, bangumiId: string, image: string): PilgrimagePoint {
+function mergeBase(near: NearbyPoint, bangumiId: string, image: string): Point {
   return {
     id: near.id, name: near.name, bangumi_id: bangumiId, screenshot_url: image,
     latitude: near.latitude, longitude: near.longitude, distance_m: near.distanceM,
@@ -61,7 +61,7 @@ export async function nearby(
   db: CatalogDb,
   neonSql: NeonSql,
   input: NearbyInput,
-): Promise<{ rows: PilgrimagePoint[] }> {
+): Promise<{ rows: Point[] }> {
   const near = await findPointsWithinRadius(neonSql, { lat: input.lat, lng: input.lng, radiusM: input.radius_m });
   const details = await loadDetails(db, near.map((p) => p.id));
   return { rows: near.map((p) => merge(p, details.get(p.id))) };

@@ -23,7 +23,7 @@ const beta = workSeed("1002", "Beta");
 const alpha = workSeed("1001", "Alpha");
 
 describe("catalog seed fixtures are contract-derived", () => {
-  it("rejects a work id that `pointsByWorkId` would reject with a 400", () => {
+  it("rejects a work id that `pointsByBangumiId` would reject with a 400", () => {
     expect(() => workSeed("beta", "Beta")).toThrow();
   });
 

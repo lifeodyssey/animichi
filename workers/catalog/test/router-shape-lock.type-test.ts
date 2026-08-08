@@ -17,7 +17,7 @@ const validOutput: SearchResult = { rows: [], synced_at: "2026-07-13T00:00:00.00
 
 expectTypeOf(validOutput).toExtend<SearchResult>();
 os.search.handler(() => validOutput);
-os.pointsByWorkId.handler(() => validOutput);
+os.pointsByBangumiId.handler(() => validOutput);
 const resolved: ResolveOutcome = {
   outcome: "resolved",
   match: { bangumi_id: "3302", title: "らき☆すた" },
@@ -29,7 +29,7 @@ const overview: AnimeOverview = {
   points_length: 0,
   circles: [],
   scenes: [],
-  sample_routes: [],
+  sample_itineraries: [],
 };
 os.animeOverview.handler(() => overview);
 

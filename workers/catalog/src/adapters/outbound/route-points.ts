@@ -1,14 +1,14 @@
 /**
  * Outbound adapter for the `PointsForRoutePort`: fetch the points for a route
  * from Postgres (joined to bangumi for the anime title) and map the rows to
- * `RoutePoint`s, preserving the requested `ids` order. This adapter owns the
+ * `ItineraryPoint`s, preserving the requested `ids` order. This adapter owns the
  * only SQL on the plan-itinerary path.
  */
 
 import { sql } from "drizzle-orm";
-import type { PointsForRoutePort, RoutePoint } from "../../application/plan-itinerary";
+import type { ItineraryPoint, PointsForRoutePort } from "../../application/plan-itinerary";
 import { optional } from "../../lib/optional";
-import type { PilgrimagePoint } from "../../types";
+import type { Point } from "../../types";
 
 /** The one DB capability this adapter needs: run a query, get back `{ rows }`. */
 export interface RouteDb {
@@ -39,7 +39,7 @@ export function pointsForRoute(db: RouteDb): PointsForRoutePort {
 }
 
 /** SELECT the points for `ids` joined to their bangumi, preserving `ids` order. */
-async function fetchPoints(db: RouteDb, ids: string[]): Promise<RoutePoint[]> {
+async function fetchPoints(db: RouteDb, ids: string[]): Promise<ItineraryPoint[]> {
   if (ids.length === 0) return [];
   const result = await db.execute(pointsQuery(ids));
   const byId = indexRows(result.rows as PointRow[]);
@@ -50,7 +50,7 @@ async function fetchPoints(db: RouteDb, ids: string[]): Promise<RoutePoint[]> {
 }
 
 /** Index fetched rows by `id` (mapped to points), for ordered reassembly. */
-function indexRows(rows: PointRow[]): Map<string, RoutePoint> {
+function indexRows(rows: PointRow[]): Map<string, ItineraryPoint> {
   return new Map(rows.map((r) => [r.id, toPoint(r)]));
 }
 
@@ -66,17 +66,17 @@ function pointsQuery(ids: string[]) {
   `;
 }
 
-/** Map a joined DB row to a contract `PilgrimagePoint` (+ clustering geo). */
-function toPoint(r: PointRow): RoutePoint {
+/** Map a joined DB row to a contract `Point` (+ clustering geo). */
+function toPoint(r: PointRow): ItineraryPoint {
   return { ...scalarFields(r), latitude: r.latitude, longitude: r.longitude };
 }
 
-/** The non-coordinate `PilgrimagePoint` fields, dropping null optionals. */
-function scalarFields(r: PointRow): Omit<PilgrimagePoint, "latitude" | "longitude"> {
+/** The non-coordinate `Point` fields, dropping null optionals. */
+function scalarFields(r: PointRow): Omit<Point, "latitude" | "longitude"> {
   return { ...scalarBase(r), ...optional(scalarOptionals(r)) };
 }
 
-function scalarBase(r: PointRow): Omit<PilgrimagePoint, "latitude" | "longitude"> {
+function scalarBase(r: PointRow): Omit<Point, "latitude" | "longitude"> {
   return {
     id: r.id,
     name: r.name,
