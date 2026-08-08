@@ -59,16 +59,16 @@ Workflow: `.grok/workflows/structure-design-three-packages.rhai`
 
 | 今日 | 目标 |
 |---|---|
-| `PilgrimagePoint` | **`Point`** |
-| `Route`（规划结果） | **`Itinerary`** |
-| `work_id` | **`bangumi_id`**（仍为数字字符串时用 regex 约束，名改正） |
-| `pointsByWorkId` | **`pointsByBangumiId`** |
-| `POST /catalog/route` | **`POST /catalog/itinerary`** |
+| `Point`（原 `PilgrimagePoint`，#891 已落地） | **`Point`** |
+| `Itinerary`（原 `Route`，#891 已落地） | **`Itinerary`** |
+| `bangumi_id`（原 `work_id`，#891 已落地） | **`bangumi_id`**（仍为数字字符串时用 regex 约束，名改正） |
+| `pointsByBangumiId`（#891 已落地） | **`pointsByBangumiId`** |
+| `POST /catalog/itinerary`（#891 已落地） | **`POST /catalog/itinerary`** |
 | `POST /catalog/spots` | **`POST /catalog/point`**（或 `/catalog/points/get`；实现选定一，文档锁定） |
-| `UserRoute` / `/v1/users/routes` | **`SavedRoute` / `/v1/users/saved-routes`** |
-| share/checkin `route_id` | **`saved_route_id`** |
-| `AnimeSampleRoute` / `sample_routes` | **`AnimeSampleItinerary` / `sample_itineraries`** |
-| Agent Python 镜像类型 | 与 contract **同词**（Point / Itinerary / …） |
+| `SavedRoute` / `/v1/users/saved-routes`（#890 已落地） | **`SavedRoute` / `/v1/users/saved-routes`** |
+| `saved_route_id`（#890 已落地） | **`saved_route_id`** |
+| `AnimeSampleItinerary` / `sample_itineraries`（#891 已落地） | **`AnimeSampleItinerary` / `sample_itineraries`** |
+| 与 contract 同词（Point / Itinerary / …，#892 已落地） | 与 contract **同词**（Point / Itinerary / …） |
 
 **兼容：** 无。Web、MSW、eval fixture、Agent `CatalogClient` **同波或紧后 PR 改完**。
 
@@ -85,7 +85,7 @@ Workflow: `.grok/workflows/structure-design-three-packages.rhai`
 | `aliases` | **`work_id` → `bangumi_id`** | 列改名 |
 | `series_edges` | 若有 `work_id` → **`bangumi_id`** | 同 |
 | `cluster_version` | **`work_id` → `bangumi_id`** | 同 |
-| `route_snapshots` | **`itinerary_snapshots`**；键列 `bangumi_id` | 缓存/发布快照，非 SavedRoute |
+| `itinerary_snapshots`（原 `route_snapshots`，#891 已落地） | **`itinerary_snapshots`**；键列 `bangumi_id` | 缓存/发布快照，非 SavedRoute |
 | `leg_cache` | 评估保留或改 `transit_leg_cache` | 实现时定，避免 `route` 歧义 |
 | `ingest_jobs` / `raw_*` / `media_assets` | **保留**（平台表） | 非粉丝语言 |
 | `locations`（gazetteer） | **保留** | 非 Point |
@@ -94,7 +94,7 @@ Workflow: `.grok/workflows/structure-design-three-packages.rhai`
 
 | 今日 | 目标 |
 |---|---|
-| `routes`（用户保存） | **`saved_routes`**（见 Users §2.5） |
+| `saved_routes`（原 `routes`，#890 已落地） | **`saved_routes`**（见 Users §2.5） |
 | （无） | **`route_shares`**、`walk_checkins` |
 | `user_memory` | 休眠预留形状见 Users 设计 |
 
