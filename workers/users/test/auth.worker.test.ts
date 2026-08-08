@@ -14,7 +14,7 @@ async function request(token?: string, env = TEST_ENV): Promise<Response> {
   const { db } = fakeDb();
   const app = createUsersApp({ getKey: auth.getKey, makeDb: () => db });
   const headers: Record<string, string> = token === undefined ? {} : { Authorization: token };
-  return app.request("/v1/users/routes", { headers }, env);
+  return app.request("/v1/users/saved-routes", { headers }, env);
 }
 
 async function expectUnauthorized(token?: string): Promise<void> {
@@ -49,7 +49,7 @@ describe("Users Worker auth boundary", () => {
       .setSubject("user-a").setIssuer(BASE).setAudience(BASE).setExpirationTime("15m").sign(privateKey);
     const validResolver = (await authTools()).getKey;
     const response = await createUsersApp({ getKey: validResolver, makeDb: () => fakeDb().db })
-      .request("/v1/users/routes", { headers: { Authorization: `Bearer ${token}` } }, TEST_ENV);
+      .request("/v1/users/saved-routes", { headers: { Authorization: `Bearer ${token}` } }, TEST_ENV);
     expect(response.status).toBe(401);
   });
 

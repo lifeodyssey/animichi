@@ -1,14 +1,14 @@
-import type { RouteStatus } from "@animichi/contract";
+import type { SavedRouteStatus } from "@animichi/contract";
 import { describe, expect, it } from "vitest";
 import {
-  RouteNotOwnedError,
-  assertRouteOwnedBy,
-  canClaimUnowned,
-  isRouteStatus,
+  SavedRouteNotOwnedError,
+  assertSavedRouteOwnedBy,
+  canClaimUnownedSavedRoute,
+  isSavedRouteStatus,
   savedAtPolicy,
 } from "../../src/domain/route-rules";
 
-const ROUTE_ID = "00000000-0000-4000-8000-000000000009";
+const SAVED_ROUTE_ID = "00000000-0000-4000-8000-000000000009";
 
 const statusCases: { name: string; value: unknown; expected: boolean }[] = [
   { name: "draft", value: "draft", expected: true },
@@ -33,13 +33,13 @@ const claimCases: { name: string; owner: string | null | undefined; expected: bo
 
 const notOwnedCases: { name: string; owner: string | null | undefined }[] = [
   { name: "a different owner", owner: "user-b" },
-  { name: "an unclaimed route", owner: null },
+  { name: "an unclaimed saved route", owner: null },
   { name: "a malformed row", owner: undefined },
 ];
 
 const savedAtCases: {
   name: string;
-  status: RouteStatus;
+  status: SavedRouteStatus;
   mode: "insert" | "update";
   expected: "null" | "now" | "coalesce";
 }[] = [
@@ -51,36 +51,36 @@ const savedAtCases: {
   { name: "completed update", status: "completed", mode: "update", expected: "coalesce" },
 ];
 
-function expectRouteNotOwned(owner: string | null | undefined): void {
+function expectSavedRouteNotOwned(owner: string | null | undefined): void {
   let caught: unknown;
   try {
-    assertRouteOwnedBy(owner, "user-a", ROUTE_ID);
+    assertSavedRouteOwnedBy(owner, "user-a", SAVED_ROUTE_ID);
   } catch (error) {
     caught = error;
   }
-  expect(caught).toBeInstanceOf(RouteNotOwnedError);
-  expect(caught).toMatchObject({ routeId: ROUTE_ID });
+  expect(caught).toBeInstanceOf(SavedRouteNotOwnedError);
+  expect(caught).toMatchObject({ savedRouteId: SAVED_ROUTE_ID });
 }
 
-describe("isRouteStatus", () => {
+describe("isSavedRouteStatus", () => {
   it.each(statusCases)("$name -> $expected", ({ value, expected }) => {
-    expect(isRouteStatus(value)).toBe(expected);
+    expect(isSavedRouteStatus(value)).toBe(expected);
   });
 });
 
-describe("canClaimUnowned", () => {
+describe("canClaimUnownedSavedRoute", () => {
   it.each(claimCases)("$name -> $expected", ({ owner, expected }) => {
-    expect(canClaimUnowned(owner)).toBe(expected);
+    expect(canClaimUnownedSavedRoute(owner)).toBe(expected);
   });
 });
 
-describe("assertRouteOwnedBy", () => {
+describe("assertSavedRouteOwnedBy", () => {
   it("passes when the owner is the actor", () => {
-    expect(() => { assertRouteOwnedBy("user-a", "user-a", ROUTE_ID); }).not.toThrow();
+    expect(() => { assertSavedRouteOwnedBy("user-a", "user-a", SAVED_ROUTE_ID); }).not.toThrow();
   });
 
-  it.each(notOwnedCases)("throws RouteNotOwnedError for $name", ({ owner }) => {
-    expectRouteNotOwned(owner);
+  it.each(notOwnedCases)("throws SavedRouteNotOwnedError for $name", ({ owner }) => {
+    expectSavedRouteNotOwned(owner);
   });
 });
 

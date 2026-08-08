@@ -1,13 +1,13 @@
 import type {
-  ClaimRoutesInput,
-  ClaimRoutesResult,
-  DeleteRouteInput,
-  DeleteRouteResult,
+  ClaimSavedRoutesInput,
+  ClaimSavedRoutesResult,
+  DeleteSavedRouteInput,
+  DeleteSavedRouteResult,
   ListSessionsInput,
   ListSessionsResult,
-  ListRoutesResult,
-  SaveRouteInput,
-  UserRoute,
+  ListSavedRoutesResult,
+  SaveSavedRouteInput,
+  SavedRoute,
   UserSession,
 } from "@animichi/contract";
 import { sql, type SQL } from "drizzle-orm";
@@ -15,9 +15,10 @@ import type { DbExecutor } from "../db/client";
 import type { SavedRouteRepo } from "../domain/ports";
 
 /**
- * Thin HTTP mapping over the SavedRouteRepo port (src/domain/ports.ts). Route
- * SQL lives in the Neon adapter (src/adapters/neon-saved-route-repo.ts);
- * domain decisions in src/domain/route-rules.ts.
+ * Thin HTTP mapping over the SavedRouteRepo port (src/domain/ports.ts).
+ * Saved-route SQL lives in the Neon adapter
+ * (src/adapters/neon-saved-route-repo.ts); domain decisions in
+ * src/domain/route-rules.ts.
  *
  * TODO(refactor-skeleton): Share (expose a saved route to another user, #235)
  * and Check-in (record an on-site visit, #243) are product surfaces on the
@@ -71,9 +72,9 @@ function sessionPage(
   return { sessions, next_offset: hasMore ? next : null };
 }
 
-/** List routes owned by a user, newest update first. */
-export async function listRoutes(repo: SavedRouteRepo, userId: string): Promise<ListRoutesResult> {
-  return repo.listRoutes(userId);
+/** List saved routes owned by a user, newest update first. */
+export async function listSavedRoutes(repo: SavedRouteRepo, userId: string): Promise<ListSavedRoutesResult> {
+  return repo.listSavedRoutes(userId);
 }
 
 // TODO(refactor-skeleton): the conversation query and row normalization below
@@ -102,29 +103,29 @@ export async function listSessions(
   return sessionPage(result, input);
 }
 
-/** Create a route or update it after explicit ownership validation. */
-export async function saveRoute(
+/** Create a saved route or update it after explicit ownership validation. */
+export async function saveSavedRoute(
   repo: SavedRouteRepo,
   userId: string,
-  input: SaveRouteInput,
-): Promise<UserRoute> {
-  return repo.saveRoute(userId, input);
+  input: SaveSavedRouteInput,
+): Promise<SavedRoute> {
+  return repo.saveSavedRoute(userId, input);
 }
 
-/** Delete a route after explicit ownership validation. */
-export async function deleteRoute(
+/** Delete a saved route after explicit ownership validation. */
+export async function deleteSavedRoute(
   repo: SavedRouteRepo,
   userId: string,
-  input: DeleteRouteInput,
-): Promise<DeleteRouteResult> {
-  return repo.deleteRoute(userId, input);
+  input: DeleteSavedRouteInput,
+): Promise<DeleteSavedRouteResult> {
+  return repo.deleteSavedRoute(userId, input);
 }
 
-/** Atomically assign this session's still-anonymous routes to the caller. */
-export async function claimRoutes(
+/** Atomically assign this session's still-anonymous saved routes to the caller. */
+export async function claimSavedRoutes(
   repo: SavedRouteRepo,
   userId: string,
-  input: ClaimRoutesInput,
-): Promise<ClaimRoutesResult> {
-  return repo.claimRoutes(userId, input);
+  input: ClaimSavedRoutesInput,
+): Promise<ClaimSavedRoutesResult> {
+  return repo.claimSavedRoutes(userId, input);
 }
