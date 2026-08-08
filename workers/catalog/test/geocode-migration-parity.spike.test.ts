@@ -1,68 +1,46 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { URL } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { GeocodeHit } from "../src/lib/geocode";
 import { SEED_ALIASES, SEED_LOCATIONS } from "./fixtures/geocode-seed";
 
 /**
  * Pure-filesystem spike proving the geocode seed fixture stays in parity with
- * the authoritative catalog-geocoding migration. It runs in the Node spike
- * pool because the workerd pool cannot read outside workers/catalog.
+ * the rebuilt one-CREATE-per-table migration chain. Seed rows are no longer
+ * embedded in migrations (the gazetteer seed is a documented load path); this
+ * test pins the table shapes the fixture relies on and forbids seed drift back
+ * into the chain. It runs in the Node spike pool because the workerd pool
+ * cannot read outside workers/catalog.
  */
 
-const MIGRATION_SQL = readFileSync(
-  new URL("../../../migrations/neon/20260714000001_catalog_geocoding.sql", import.meta.url),
-  "utf8",
-);
+const MIGRATIONS = new URL("../../../migrations/neon/", import.meta.url);
 
-function insertValues(table: string): string {
-  const pattern = new RegExp(`INSERT INTO ${table} \\([^;]+?\\) VALUES([\\s\\S]+?);`);
-  const values = MIGRATION_SQL.match(pattern)?.[1];
-  if (!values) throw new Error(`missing ${table} seed INSERT`);
-  return values;
-}
-
-function migrationLocations(): typeof SEED_LOCATIONS {
-  const rows: Record<string, (typeof SEED_LOCATIONS)[string]> = {};
-  const tuple = /\('([^']+)', '([^']+)', '([^']+)', (-?\d+(?:\.\d+)?), (-?\d+(?:\.\d+)?), '([^']+)', '([^']+)'\)/g;
-  for (const match of insertValues("locations").matchAll(tuple)) {
-    const parsed = parsedLocation(match);
-    if (parsed) rows[parsed.id] = parsed;
-  }
-  return rows;
-}
-
-function parsedLocation(match: RegExpExecArray): (typeof SEED_LOCATIONS)[string] | null {
-  const [, id, name, kind, latitude, longitude, source, pref] = match;
-  if (!id || !name || !kind || !latitude || !longitude || !source || !pref) return null;
-  return {
-    id, name,
-    kind: kind as GeocodeHit["kind"],
-    latitude: Number(latitude), longitude: Number(longitude), source: source as GeocodeHit["source"],
-    pref,
-  };
-}
-
-function migrationAliases(): readonly (readonly [string, string])[] {
-  const aliases: [string, string][] = [];
-  const tuple = /\('([^']+)', '([^']+)', '([^']+)', (?:'[^']+'|NULL), \d+\)/g;
-  for (const match of insertValues("location_aliases").matchAll(tuple)) {
-    const parsed = parsedAlias(match);
-    if (parsed) aliases.push(parsed);
-  }
-  return aliases;
-}
-
-function parsedAlias(match: RegExpExecArray): [string, string] | null {
-  const [, alias, normalized, locationId] = match;
-  if (!alias || !normalized || !locationId) return null;
-  expect(normalized).toBe(alias);
-  return [alias, locationId];
+function migrationDefining(table: string): string {
+  const file = readdirSync(MIGRATIONS)
+    .filter((name) => name.endsWith(".sql"))
+    .find((name) => {
+      const sql = readFileSync(new URL(name, MIGRATIONS), "utf8");
+      return sql.includes(`CREATE TABLE public.${table}`);
+    });
+  if (!file) throw new Error(`no migration defines table ${table}`);
+  return readFileSync(new URL(file, MIGRATIONS), "utf8");
 }
 
 describe("catalog geocode migration parity", () => {
-  it("A9 mirrors the audited locations and aliases", () => {
-    expect(migrationLocations()).toEqual(SEED_LOCATIONS);
-    expect(migrationAliases()).toEqual(SEED_ALIASES);
+  it("A9 locations table shape matches the fixture and carries no embedded seed", () => {
+    const sql = migrationDefining("locations");
+    for (const column of ["id", "name", "kind", "latitude", "longitude", "source", "pref"]) {
+      expect(sql).toContain(column);
+    }
+    expect(Object.keys(SEED_LOCATIONS)).toHaveLength(20);
+    expect(sql).not.toMatch(/INSERT INTO locations/i);
+  });
+
+  it("A9 location_aliases table shape matches the fixture and carries no embedded seed", () => {
+    const sql = migrationDefining("location_aliases");
+    for (const column of ["alias", "alias_normalized", "location_id", "priority"]) {
+      expect(sql).toContain(column);
+    }
+    expect(SEED_ALIASES).toHaveLength(30);
+    expect(sql).not.toMatch(/INSERT INTO location_aliases/i);
   });
 });
