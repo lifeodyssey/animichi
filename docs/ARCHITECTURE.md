@@ -156,7 +156,7 @@ planning all go through the catalog Worker. Catalog ingest/enrichment/publish jo
 Bangumi access and decide which works are available; the runtime request path never grows the
 catalog on demand.
 
-## Auth Layer — `workers/edge/app.ts` + `workers/edge/auth.ts`
+## Auth Layer — `workers/edge/src/app.ts` + `workers/edge/src/identity/auth.ts`
 
 The CF Worker establishes an identity before proxying to the container. It always strips
 client-supplied `X-User-Id` / `X-User-Type` and re-injects the worker-verified values, so the
@@ -183,7 +183,7 @@ open to callers with no session:
   minimum-history threshold. A forged or wrongly-signed cookie is discarded, not trusted.
 - **Opt-in** — anonymous access stays off unless both `ANON_ACCESS_ENABLED=true` and
   `ANON_ID_SECRET` are set; otherwise `/v1/chat` keeps its 401.
-- **Rate limiting** — `workers/edge/rate-limiter.ts` applies a per-identity fixed window
+- **Rate limiting** — `workers/edge/src/protect/rate-limiter.ts` applies a per-identity fixed window
   (`ANON_RATE_LIMIT` / `ANON_RATE_LIMIT_WINDOW_SECONDS`) backed by the `EDGE_GUARD` Durable
   Object, one shard per identity. Exceeding it returns a 429 the client renders as in-character
   "少し待ってね" copy.
@@ -211,7 +211,7 @@ that package is the source of truth, not this file.
 
 <!-- historical: retired in #537 -->
 Issue #537 deleted the legacy `frontend/` package and the root Worker's static-asset fallback
-with it. The root Worker (`workers/edge/app.ts`) is now an API gateway only: `/v1/*`,
+with it. The root Worker (`workers/edge/src/app.ts`) is now an API gateway only: `/v1/*`,
 `/v1/users/*`, `/healthz`, `/img/*`, `/tiles/*`, one allowlisted public catalog read, and a JSON
 `404 not_found` for everything else. It serves no HTML; `apps/web` owns every page.
 

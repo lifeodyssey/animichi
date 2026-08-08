@@ -151,7 +151,7 @@ owner-approved 2026-08-03) and already deployed to staging (root deploys succeed
 2026-08-04 19:01Z and 2026-08-05 02:26Z, both containing the flip commit). The flag change is live;
 whether it does anything is decided by the issuer, below.
 
-**What verifies staging tokens today:** the edge Worker (`workers/edge/auth.ts`) runs in dual-issuer
+**What verifies staging tokens today:** the edge Worker (`workers/edge/src/identity/auth.ts`) runs in dual-issuer
 mode. `verifyJwt` routes by token header/claims: `alg == "EdDSA"` or `iss == NEON_AUTH_ISSUER` →
 Neon Auth EdDSA verification against `NEON_AUTH_JWKS_URL`; anything else → legacy Supabase
 verification (`ES256`/`RS256` against `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`). The flag
@@ -162,7 +162,7 @@ fallback for them). It is **not** a hard switch: legacy Supabase tokens keep ver
 **What the flip changed (staging only, `[env.staging.vars]` in `wrangler.toml`):**
 `NEON_AUTH_ENABLED` `false → "true"`, with the pinned `NEON_AUTH_ISSUER` and derived
 `NEON_AUTH_JWKS_URL`. Root `[vars]` and `[env.production.vars]` stay `"false"` — prod cutover is a
-separate owner-approved step. Locked by `workers/edge/auth-config.test.ts` (staging stays on, prod
+separate owner-approved step. Locked by `workers/edge/test/auth-config.test.ts` (staging stays on, prod
 stays off, CI/deploy workflows keep their JWKS secret paths).
 
 **Prerequisite reality (as of the deploy above):** the flip is **not** yet functionally live on
@@ -172,7 +172,7 @@ Consequence: with `NEON_AUTH_ENABLED = "true"`, real Neon Auth tokens are **reje
 today (the Neon path fails closed on the placeholder JWKS), while Supabase tokens are **unaffected**
 (dual mode still verifies them on the Supabase path) — a silent no-op, not an outage. Filling in the
 real issuer is an **owner-sequenced step**: it requires synchronized changes to the issuer-pinning
-tests in `workers/edge/auth-config.test.ts` (which assert the exact placeholder string), plus
+tests in `workers/edge/test/auth-config.test.ts` (which assert the exact placeholder string), plus
 re-deploy. Worth converging on in that step: `workers/users` derives its issuer from a single secret
 via `issuerFromJwksUrl()` (`workers/users/src/auth/jwt.ts`), while the edge needs a separate
 plaintext issuer var — the edge's split-var design is the root cause of this placeholder gap.
@@ -180,8 +180,8 @@ plaintext issuer var — the edge's split-var design is the root cause of this p
 What is genuinely in place — `NEON_AUTH_JWKS_URL` is **dual-source**, and the two sources feed
 different consumers (rotate the right one):
 - **Checked-in var** — `[env.staging.vars]` in `wrangler.toml` (line 308), pinned by
-  `workers/edge/auth-config.test.ts`; consumed **only** by the edge worker's staging dual-issuer
-  path (`workers/edge/auth.ts`). Root `[vars]`/`[env.production.vars]` leave it empty and the root
+  `workers/edge/test/auth-config.test.ts`; consumed **only** by the edge worker's staging dual-issuer
+  path (`workers/edge/src/identity/auth.ts`). Root `[vars]`/`[env.production.vars]` leave it empty and the root
   worker's `worker_secrets` lists never upload a JWKS secret, so the edge worker has no Neon path
   in production.
 - **Environment secret (#527, staging + production)** — consumed **only** by `workers/users`:
@@ -192,7 +192,7 @@ different consumers (rotate the right one):
 
 `apps/web` Better Auth client and the `workers/users` EdDSA verification are already Neon-capable.
 
-**Tests (edge, `workers/edge/auth-neon.test.ts`, mock JWKS via jose):** flag absent/false reject
+**Tests (edge, `workers/edge/test/auth-neon.test.ts`, mock JWKS via jose):** flag absent/false reject
 EdDSA without a JWKS fetch; flag true accepts a valid EdDSA Neon-issuer JWT; wrong issuer /
 expired / wrong audience / wrong key rejected; **dual mode**: a valid legacy Supabase JWT still
 passes with the flag true; missing JWKS URL rejects without throwing. Verified green:
