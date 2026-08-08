@@ -20,12 +20,12 @@ export const SavedRouteNotOwnedData = z.object({ saved_route_id: z.string() });
 /** Inferred saved-route-not-owned data. */
 export type SavedRouteNotOwnedData = z.infer<typeof SavedRouteNotOwnedData>;
 
-type UsersErrorDefItem = {
+interface UsersErrorDefItem {
   readonly status: number;
   readonly category: UsersErrorCategory;
   readonly message: string;
-  readonly data: z.ZodType<unknown>;
-};
+  readonly data: z.ZodType;
+}
 
 /** Users error registry with registry-only categories kept out of oRPC responses. */
 export const USERS_ERROR_DEFS = {

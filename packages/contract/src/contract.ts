@@ -61,7 +61,7 @@ export type SpotsResult = z.infer<typeof SpotsResult>;
 export const NearbyInput = z.object({
   lat: Latitude,
   lng: Longitude,
-  radius_m: z.number().positive().finite(),
+  radius_m: z.number().positive(),
 });
 export type NearbyInput = z.infer<typeof NearbyInput>;
 
