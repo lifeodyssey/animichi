@@ -58,7 +58,7 @@ void test("client-forged X-User-Id is stripped on PUBLIC route too", async () =>
   assert.equal(cap.req?.headers.get("X-User-Id"), null);
 });
 
-void test("/v1/users/routes -> USERS with Authorization intact, no container or auth", async () => {
+void test("/v1/users/saved-routes -> USERS with Authorization intact, no container or auth", async () => {
   let authCalled = false;
   let containerHit = false;
   let received: Request | undefined;
@@ -72,21 +72,21 @@ void test("/v1/users/routes -> USERS with Authorization intact, no container or 
       get: () => ({ fetch: () => { containerHit = true; return Promise.resolve(new Response("container")); } }),
     },
   } as never;
-  const res = await app.request("/v1/users/routes", { headers: { Authorization: "Bearer x" } }, env, stubCtx);
+  const res = await app.request("/v1/users/saved-routes", { headers: { Authorization: "Bearer x" } }, env, stubCtx);
   assert.equal(await res.text(), "users");
   assert.equal(received?.headers.get("Authorization"), "Bearer x");
   assert.equal(containerHit, false);
   assert.equal(authCalled, false);
 });
 
-void test("/v1/users/routes bypasses a rejecting authenticate stub", async () => {
+void test("/v1/users/saved-routes bypasses a rejecting authenticate stub", async () => {
   let received = false;
   const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
   const env = {
     EDGE_SHOWCASE_MODE: "false",
     USERS: { fetch: () => { received = true; return Promise.resolve(new Response("users")); } },
   } as never;
-  const res = await app.request("/v1/users/routes", {}, env, stubCtx);
+  const res = await app.request("/v1/users/saved-routes", {}, env, stubCtx);
   assert.equal(res.status, 200);
   assert.equal(await res.text(), "users");
   assert.equal(received, true);
