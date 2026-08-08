@@ -12,6 +12,11 @@ import pytest
 from pydantic import BaseModel
 
 from animichi.agents.tool_outcomes import (
+    ItineraryEmpty,
+    ItineraryOk,
+    ItineraryPendingSync,
+    ItineraryStaleRef,
+    ItineraryUpstreamDown,
     NearbyEmpty,
     NearbyMissingLocation,
     NearbyOk,
@@ -22,11 +27,6 @@ from animichi.agents.tool_outcomes import (
     ResolveNotFound,
     ResolveResolved,
     ResolveUpstreamDown,
-    RouteEmpty,
-    RouteOk,
-    RoutePendingSync,
-    RouteStaleRef,
-    RouteUpstreamDown,
     SearchEmpty,
     SearchOk,
     SearchUpstreamDown,
@@ -55,11 +55,14 @@ _MODELS_WITH_EXPECTED_PROPERTIES: tuple[_ModelWithProperties, ...] = (
     (NearbyPlaceUnresolved, frozenset({"outcome", "clarification_reason"})),
     (NearbyMissingLocation, frozenset({"outcome", "clarification_reason"})),
     (NearbyUpstreamDown, frozenset({"outcome"})),
-    (RouteOk, frozenset({"status", "route_ref", "point_count", "total_minutes"})),
-    (RouteEmpty, frozenset({"status"})),
-    (RouteStaleRef, frozenset({"status"})),
-    (RoutePendingSync, frozenset({"status"})),
-    (RouteUpstreamDown, frozenset({"status"})),
+    (
+        ItineraryOk,
+        frozenset({"status", "itinerary_ref", "point_count", "total_minutes"}),
+    ),
+    (ItineraryEmpty, frozenset({"status"})),
+    (ItineraryStaleRef, frozenset({"status"})),
+    (ItineraryPendingSync, frozenset({"status"})),
+    (ItineraryUpstreamDown, frozenset({"status"})),
     (
         TranslateTitleResult,
         frozenset({"original", "translated", "source", "confidence"}),

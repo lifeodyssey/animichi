@@ -15,8 +15,8 @@ from animichi.agents.runtime_deps import RuntimeDeps
 from animichi.agents.runtime_models import (
     ClarifyResponseModel,
     GreetingResponseModel,
+    ItineraryResponseModel,
     QAResponseModel,
-    RouteResponseModel,
     SearchResponseModel,
 )
 from animichi.agents.session_state import (
@@ -39,7 +39,7 @@ def _deps(state: SessionState | None = None) -> RuntimeDeps:
     "output",
     [
         SearchResponseModel(message="Found matching spots."),
-        RouteResponseModel(message="Your route is ready."),
+        ItineraryResponseModel(message="Your route is ready."),
         GreetingResponseModel(message="Hello."),
         QAResponseModel(message="A complete answer with no schema length cap."),
     ],
@@ -80,7 +80,7 @@ def test_compact_outputs_forbid_historical_fields() -> None:
             "search_nearby",
         ),
         (
-            RouteResponseModel(message="x"),
+            ItineraryResponseModel(message="x"),
             [StepRecord("plan_route", True)],
             "plan_route",
         ),

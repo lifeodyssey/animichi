@@ -15,18 +15,18 @@ from animichi.agents.agent_result import AgentResult, StepRecord
 from animichi.agents.runtime_deps import OnStep, StepEvent, new_step_call_id
 from animichi.agents.runtime_models import (
     ClarifyResponseModel,
+    ItineraryResponseModel,
     QAResponseModel,
-    RouteResponseModel,
     SearchResponseModel,
 )
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItineraryRef,
     NearbyGroupState,
     OrderedCandidate,
     PendingClarification,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchMetadataState,
     SearchPayloadState,
     SessionState,
@@ -143,12 +143,12 @@ def _make_agent_result(text: str, _locale: str) -> AgentResult:
         )
 
     if "路线" in text or "ルート" in text:
-        output = RouteResponseModel(message="已为你规划好 2 个巡礼点的路线。")
-        route_ref = RouteRef("route:test:1")
+        output = ItineraryResponseModel(message="已为你规划好 2 个巡礼点的路线。")
+        itinerary_ref = ItineraryRef("route:test:1")
         state = SessionState()
-        state.store_route(
-            route_ref,
-            RoutePayloadState(
+        state.store_itinerary(
+            itinerary_ref,
+            ItineraryPayloadState(
                 ordered_points=_ROUTE_POINTS,
                 timed_itinerary=TimedItineraryState(
                     total_minutes=75,

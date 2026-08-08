@@ -9,14 +9,14 @@ from animichi.agents.session_state import (
     MAX_REFS,
     CurrentAnime,
     GeocodeStaging,
+    ItineraryPayloadState,
+    ItineraryRef,
+    ItinerarySummaryState,
     NearbyGroupState,
     OrderedCandidate,
     PendingClarification,
     PointState,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
-    RouteSummaryState,
     SearchMetadataState,
     SearchPayloadState,
     SessionState,
@@ -40,8 +40,8 @@ def _search_payload(index: int = 0) -> SearchPayloadState:
     )
 
 
-def _route_payload(source_ref: ResultRef) -> RoutePayloadState:
-    return RoutePayloadState(
+def _route_payload(source_ref: ResultRef) -> ItineraryPayloadState:
+    return ItineraryPayloadState(
         ordered_points=[],
         source_ref=source_ref,
     )
@@ -61,16 +61,16 @@ def test_session_state_round_trips_every_component() -> None:
         clarification_revision=3,
     )
     result_ref = ResultRef("bangumi:3:1")
-    route_ref = RouteRef("route:3:1")
+    itinerary_ref = ItineraryRef("route:3:1")
     state.store_search_result(result_ref, _search_payload())
-    state.store_route(route_ref, _route_payload(result_ref))
+    state.store_itinerary(itinerary_ref, _route_payload(result_ref))
 
     restored = SessionState.model_validate(state.model_dump(mode="json"))
 
     assert restored == state
     assert restored.last_result_ref == result_ref
     assert isinstance(restored.search_results[result_ref], SearchPayloadState)
-    assert isinstance(restored.routes[route_ref], RoutePayloadState)
+    assert isinstance(restored.itineraries[itinerary_ref], ItineraryPayloadState)
 
 
 @pytest.mark.parametrize(
@@ -81,7 +81,7 @@ def test_session_state_round_trips_every_component() -> None:
         (SearchMetadataState, {}),
         (NearbyGroupState, {"bangumi_id": "1", "title": "Anime"}),
         (
-            RouteSummaryState,
+            ItinerarySummaryState,
             {
                 "point_count": 1,
                 "total_minutes": 10,
@@ -92,7 +92,7 @@ def test_session_state_round_trips_every_component() -> None:
             },
         ),
         (SearchPayloadState, {"kind": "bangumi"}),
-        (RoutePayloadState, {}),
+        (ItineraryPayloadState, {}),
         (OrderedCandidate, {"id": "1", "title": "Anime"}),
         (
             PendingClarification,
@@ -142,19 +142,19 @@ def test_evicted_search_ref_returns_typed_stale_outcome() -> None:
 def test_route_registry_evicts_least_recently_used_ref() -> None:
     state = SessionState()
     source_ref = ResultRef("bangumi:0:source")
-    refs = [RouteRef(f"route:0:{index}") for index in range(MAX_REFS)]
+    refs = [ItineraryRef(f"route:0:{index}") for index in range(MAX_REFS)]
     for ref in refs:
-        state.store_route(ref, _route_payload(source_ref))
-    assert isinstance(state.get_route(refs[0]), RoutePayloadState)
-    assert state.route_lru[-1] == refs[0]
+        state.store_itinerary(ref, _route_payload(source_ref))
+    assert isinstance(state.get_itinerary(refs[0]), ItineraryPayloadState)
+    assert state.itinerary_lru[-1] == refs[0]
 
-    newest = RouteRef("route:0:newest")
-    state.store_route(newest, _route_payload(source_ref))
+    newest = ItineraryRef("route:0:newest")
+    state.store_itinerary(newest, _route_payload(source_ref))
 
-    assert refs[0] in state.routes
-    assert refs[1] not in state.routes
-    assert len(state.routes) == MAX_REFS
-    assert isinstance(state.get_route(refs[1]), StaleRef)
+    assert refs[0] in state.itineraries
+    assert refs[1] not in state.itineraries
+    assert len(state.itineraries) == MAX_REFS
+    assert isinstance(state.get_itinerary(refs[1]), StaleRef)
 
 
 def test_restore_trims_oversized_registries_to_last_max_refs() -> None:

@@ -10,15 +10,15 @@ from animichi.agents.animichi_agent import validate_output
 from animichi.agents.runtime_deps import RuntimeDeps
 from animichi.agents.runtime_models import (
     ClarifyResponseModel,
-    RouteResponseModel,
+    ItineraryResponseModel,
     SearchResponseModel,
 )
 from animichi.agents.session_state import (
+    ItineraryPayloadState,
+    ItineraryRef,
     OrderedCandidate,
     PendingClarification,
     ResultRef,
-    RoutePayloadState,
-    RouteRef,
     SearchPayloadState,
     SessionState,
 )
@@ -53,22 +53,22 @@ def _context(state: SessionState, steps: list[StepRecord]) -> MagicMock:
             [],
         ),
         (
-            RouteResponseModel(message="x"),
+            ItineraryResponseModel(message="x"),
             SessionState(),
             [StepRecord("plan_route", True)],
         ),
         (
-            RouteResponseModel(message="x"),
+            ItineraryResponseModel(message="x"),
             SessionState(
-                routes={RouteRef("route:1"): RoutePayloadState()},
-                route_lru=[RouteRef("route:1")],
+                itineraries={ItineraryRef("route:1"): ItineraryPayloadState()},
+                itinerary_lru=[ItineraryRef("route:1")],
             ),
             [],
         ),
     ],
 )
 async def test_search_and_route_reject_step_or_registry_fabrication(
-    output: SearchResponseModel | RouteResponseModel,
+    output: SearchResponseModel | ItineraryResponseModel,
     state: SessionState,
     steps: list[StepRecord],
 ) -> None:

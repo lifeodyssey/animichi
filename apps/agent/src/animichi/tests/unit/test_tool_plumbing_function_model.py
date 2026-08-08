@@ -12,8 +12,8 @@ from animichi.agents.animichi_runner import run_animichi_agent
 from animichi.agents.runtime_models import (
     ClarifyResponseModel,
     GreetingResponseModel,
+    ItineraryResponseModel,
     QAResponseModel,
-    RouteResponseModel,
     SearchResponseModel,
 )
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
@@ -85,7 +85,7 @@ def _route_model() -> FunctionModel:
         (
             _route_model(),
             "plan_route",
-            RouteResponseModel,
+            ItineraryResponseModel,
             ["resolve_anime", "search_bangumi", "plan_route"],
         ),
     ],
@@ -93,7 +93,7 @@ def _route_model() -> FunctionModel:
 async def test_real_tool_chain_builds_server_owned_stage(
     model: FunctionModel,
     intent: str,
-    family: type[SearchResponseModel] | type[RouteResponseModel],
+    family: type[SearchResponseModel] | type[ItineraryResponseModel],
     steps: list[str],
 ) -> None:
     result = await run_animichi_agent(
