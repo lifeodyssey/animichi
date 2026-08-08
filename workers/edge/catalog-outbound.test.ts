@@ -6,11 +6,11 @@ import { CATALOG_OUTBOUND_ALLOWLIST } from "./gateway/catalog-policy.ts";
 const EXPECTED_CATALOG_CALLS = [
   "POST /catalog/search",
   "POST /catalog/resolve",
-  "POST /catalog/points-by-work-id",
+  "POST /catalog/points-by-bangumi-id",
   "POST /catalog/spots",
   "POST /catalog/nearby",
   "POST /catalog/geocode",
-  "POST /catalog/route",
+  "POST /catalog/itinerary",
 ];
 
 function catalogEnv(received: Request[]): never {
