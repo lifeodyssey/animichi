@@ -74,6 +74,9 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Eval | `apps/agent/src/animichi/tests/eval/` (Python) | |
 | Testing strategy | `docs/testing-strategy.md` | |
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
+| Secrets architecture / worker secrets | `docs/adr/0003-secrets-architecture.md` | CF Secrets Store + Neon-hosted role passwords + Pulumi `neon.Role`; supersedes the ESC-first plan of #674 |
+| Local development gates | `docs/ops/local-gates.md` + `.pre-commit-config.yaml` | changed-package routing; pre-commit/pre-push split; integration tests stay in CI |
+| Close-out campaign (2026-08) | `docs/superpowers/specs/2026-08-08-repo-closeout-spec.md` | ADRs 0004/0005; merges restructure-spec × GOAL; waves P0–P8 |
 | Neon backup / RPO / bad-migration recovery | `docs/ops/neon-backup-rpo.md` | N5 (#860); PITR + HITL checklist; pairs with `migrations.md` |
 | Iteration specs (live) | `docs/superpowers/specs/` — 平层只放活跃 spec(cicd-rebuild、catalog-rpc、byok、s1.7、neon-test-infra、rebuild、ADR) | 过时 spec 一律入 `docs/superpowers/specs/archive/`(只进不出,iter6 A6/#640) |
 | Iteration plans | 当前 iteration 的计划在 `docs/iterations/<iterN>/`;历史执行 plan 全部在 `docs/superpowers/plans/archive/` | 平层不再新增 plan(iter6 A6/#640) |
