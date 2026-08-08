@@ -174,17 +174,35 @@ diag() {
   echo
 }
 
+# #494: /healthz must PROVE the deployed git SHA — the container never carries
+# .git, so git_commit/git_branch are real only through the CI bake chain
+# ("Bake git build info" -> apps/agent/Dockerfile COPY apps/agent/src/animichi
+# -> animichi.build_info import in apps/agent/src/animichi/interfaces/routes/health.py).
+# "unknown" here therefore means the bake chain broke, and this used to be a
+# soft warning whose text described the PRE-FIX mechanism ("Dockerfile has no
+# GIT_SHA build arg") — silently letting every deploy pass unverified. Both
+# fields are now hard-asserted; when EXPECTED_GIT_COMMIT (the deploy run's own
+# SHA) is provided, the running container's commit must equal it exactly — the
+# P7 deploy-verification prerequisite (a stale pre-#494 image reports "unknown"
+# today and must fail the gate, not pass with a warning).
 cmd_healthz() {
   : "${ROOT_URL:?ROOT_URL is required}"
-  local status
+  local status git_commit git_branch expected
   status="$(fetch GET "${ROOT_URL}/healthz")"
   diag "${status}"
   [ "${status}" = "200" ] || fail "GET ${ROOT_URL}/healthz expected 200, got ${status}"
   jq -e '.status == "ok"' "${BODY_FILE}" >/dev/null || fail "GET ${ROOT_URL}/healthz body missing status:\"ok\""
-  local git_branch
+  git_commit="$(jq -r '.git_commit // "unknown"' "${BODY_FILE}")"
   git_branch="$(jq -r '.git_branch // "unknown"' "${BODY_FILE}")"
-  if [ "${git_branch}" = "unknown" ]; then
-    echo "::warning title=post-deploy healthz::git_branch reports 'unknown' — the container image does not embed .git (Dockerfile has no GIT_SHA build arg). Known gap, tracked separately; not asserted on here (see docs/ops/deployment.md)."
+  [[ "${git_commit}" =~ ^[0-9a-f]{7,}$ ]] || fail "GET ${ROOT_URL}/healthz git_commit is '${git_commit}', expected a hex SHA — the container image lost its baked build info (check the 'Bake git build info' step and the Dockerfile COPY of apps/agent/src/animichi)"
+  [ "${git_branch}" != "unknown" ] || fail "GET ${ROOT_URL}/healthz git_branch is 'unknown' — the container image lost its baked build info (same chain as the git_commit check)"
+  expected="${EXPECTED_GIT_COMMIT:-}"
+  if [ -n "${expected}" ]; then
+    case "${expected}" in
+      [0-9a-fA-F]*) expected="${expected:0:7}" ;;
+      *) fail "EXPECTED_GIT_COMMIT='${expected}' is not a hex commit SHA — refusing to compare" ;;
+    esac
+    [ "${git_commit}" = "${expected}" ] || fail "GET ${ROOT_URL}/healthz git_commit=${git_commit} != expected deploy SHA ${expected} — the running container is not the image this deploy baked (stale container or bake regression)"
   fi
 }
 

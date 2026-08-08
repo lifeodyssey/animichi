@@ -811,6 +811,11 @@ jobs:
           # non-empty, and the gate ruleset only matches the staging
           # hostname anyway.
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
+          # #494: the healthz probe hard-asserts git_commit equals this
+          # run's SHA (baked by the "Bake git build info" step) — the P7
+          # deploy-verification proof. `github.sha` in a workflow_call is
+          # the caller's commit, i.e. exactly what the bake wrote.
+          EXPECTED_GIT_COMMIT: ${{ github.sha }}
           # First cold start after an image change takes minutes; base 12 →
           # sleep budget 12*(1+2+3+4)=120s plus 5×20s request timeouts ≈ 220s ceiling, still bounded.
           POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS: "12"

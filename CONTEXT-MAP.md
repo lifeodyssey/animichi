@@ -20,9 +20,9 @@ Consumer rules: `docs/agents/domain.md` (when present). Per-package `CONTEXT.md`
 | **Auth appliance** | — | `supabase/` (auth-only, no package guide) |
 | **Browser E2E** | `e2e/CONTEXT.md` (lazy) | `e2e/` |
 
-System-wide ADRs: `docs/adr/` (incl. [0002 published language](./docs/adr/0002-published-language-point-bangumi-itinerary.md)).
+System-wide ADRs: `docs/adr/` (0002 published language · [0003 secrets architecture](./docs/adr/0003-secrets-architecture.md) · [0004 campaign merge](./docs/adr/0004-campaign-merge.md) · [0005 force-push policy](./docs/adr/0005-repo-force-push-policy.md)).
 
-Greenfield (no dual wire names / table aliases):  
+Greenfield (no dual wire names / table aliases):
 [`docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md`](./docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md).
 
 ## Relationships

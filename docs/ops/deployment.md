@@ -587,13 +587,17 @@ itself was a pure UI-affordance gap rather than new untested rollback logic; see
 - default session storage is in-memory unless a distributed backend is introduced later
 - OpenTelemetry exporters are opt-in and disabled by default
 - AI Gateway is documented but not yet wired in backend provider configuration
-- **CURRENTLY BROKEN — do not rely on this**: `/healthz`'s `git_branch`/`git_commit` fields are
-  always `"unknown"` in every deployed environment. `Dockerfile` never `COPY`s `.git` into the
-  image, so the `git rev-parse`/`git branch --show-current` calls in
-  `apps/agent/src/animichi/interfaces/routes/health.py` fail every time. "Verify `/healthz` `git_branch`
-  after a deploy" (referenced in `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md:215`
-  and `docs/superpowers/specs/2026-07-28-284-byok-design.md:1080`) cannot confirm anything today —
-  tracked in issue #494.
+- `/healthz`'s `git_branch`/`git_commit` are real in deployed containers via the CI bake chain:
+  `reusable-deploy-component.yml`'s "Bake git build info" step writes
+  `apps/agent/src/animichi/build_info.py` (gitignored, regenerated per deploy) from
+  `GITHUB_SHA`/`GITHUB_REF_NAME`; the image's `COPY apps/agent/src/animichi` ships it and
+  `apps/agent/src/animichi/interfaces/routes/health.py` imports it at startup (fallback: env vars →
+  git shell-out → `"unknown"`). The container never carries `.git`, so `"unknown"` in a deployed
+  environment means the bake chain broke — and since #494's gate fix,
+  `.github/scripts/post-deploy-assert.sh healthz` **hard-fails the deploy** on `"unknown"` and, when
+  `EXPECTED_GIT_COMMIT` is passed (both CI smoke sites), asserts `git_commit` equals the deploy run's
+  own SHA. Live-verified 2026-08-05 (staging returned the deployed SHA; production's last deploy
+  predates the bake fix, so prod still reports `"unknown"` until its next deploy).
 
 ## HISTORICAL (pre-2026-07): feat/ssr-cloudflare Post-deploy Notes
 
