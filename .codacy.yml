@@ -6,6 +6,6 @@ engines:
     enabled: true
 
 exclude_paths:
-  - "src/animichi/tests/eval/**"
+  - "apps/agent/src/animichi/tests/eval/**"
   - "docs/**"
   - "**/*.snap"
