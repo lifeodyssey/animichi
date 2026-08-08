@@ -8,6 +8,7 @@ on:
     paths:
       - migrations/neon/**
       - apps/agent/src/animichi/tests/fixtures/seed.sql
+      - workers/catalog/data/gazetteer_seed.sql
 
 permissions:
   contents: read
