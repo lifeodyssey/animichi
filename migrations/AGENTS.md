@@ -7,7 +7,9 @@ Authentication-only legacy migrations remain under `supabase/migrations/`. Root 
 
 - After **any** migration edit: `atlas migrate hash --dir file://migrations/neon`.
 - Deploy uses `atlas migrate apply --dir "file://migrations/neon" --url "$NEON_DATABASE_URL" --revisions-schema public`
-  before Pulumi/Worker rollout; seed/reference data rides migrations too.
+  before Pulumi/Worker rollout. The chain is **schema-only**; reference/seed data no longer rides
+  migrations — the gazetteer seed lives outside the chain
+  (`workers/catalog/data/gazetteer_seed.sql`, see `../docs/data-sources.md` and `make seed-gazetteer`).
 
 ## Conventions
 
@@ -18,7 +20,7 @@ Authentication-only legacy migrations remain under `supabase/migrations/`. Root 
 
 ## Key files + entrypoints
 
-- `neon/*.sql` — ordered schema and data migrations.
+- `neon/*.sql` — ordered **schema** migrations (append-only).
 - `neon/atlas.sum` — Atlas integrity manifest.
 - `../.github/workflows/reusable-deploy-component.yml` — deploy-time apply gate.
 - `../docs/data-sources.md` — gazetteer provenance and regeneration inputs.
@@ -27,10 +29,12 @@ Authentication-only legacy migrations remain under `supabase/migrations/`. Root 
 
 ## Pitfalls
 
-- `neon/20260714000002_gazetteer_data.sql` is a header-declared **GENERATED ARTIFACT** and
-  is exempt from the 300-line rule. Never edit it by hand.
-- Regenerate it and the audit CSV from repo root, then rerun the Atlas hash command:
-  `node --import tsx workers/catalog/scripts/build-gazetteer.ts --stations data/raw/N02-23_Station.geojson --cities data/raw/cities500.txt --out-sql migrations/neon/20260714000002_gazetteer_data.sql --out-audit workers/catalog/data/gazetteer-audit.csv`.
+- **Gazetteer seed is NOT a migration** (`workers/catalog/data/gazetteer_seed.sql`): do not add it
+  back to this directory. It is a header-declared **GENERATED ARTIFACT**, exempt from the 300-line
+  rule, never edited by hand, and loaded idempotently after the schema exists
+  (`DATABASE_URL=... make seed-gazetteer`, or the `scripts/neon-test-base.sh` seed step).
+- Regenerate it and the audit CSV from repo root — no Atlas hash step:
+  `node --import tsx workers/catalog/scripts/build-gazetteer.ts --stations data/raw/N02-23_Station.geojson --cities data/raw/cities500.txt --out-sql workers/catalog/data/gazetteer_seed.sql --out-audit workers/catalog/data/gazetteer-audit.csv`.
 - The generator verifies pinned source SHA256 values in
   `workers/catalog/data/gazetteer-sources.json`; `--update-sources` is for deliberate source-lock
   review, never a bypass for accepting unexplained drift.
