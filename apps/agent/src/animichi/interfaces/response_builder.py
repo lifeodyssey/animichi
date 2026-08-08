@@ -11,7 +11,7 @@ from animichi.agents.runtime_models import (
     PartialResponseModel,
 )
 from animichi.agents.session_state import (
-    RoutePayloadState,
+    ItineraryPayloadState,
     SearchPayloadState,
 )
 from animichi.application.errors import ApplicationError
@@ -49,7 +49,7 @@ def _search_wire(payload: SearchPayloadState) -> dict[str, object]:
     return data
 
 
-def _route_wire(payload: RoutePayloadState) -> dict[str, object]:
+def _itinerary_wire(payload: ItineraryPayloadState) -> dict[str, object]:
     data = payload.model_dump(mode="json")
     data["point_count"] = len(payload.ordered_points)
     data["status"] = "ok" if payload.ordered_points else "empty"
@@ -66,14 +66,14 @@ def _project_search(result: AgentResult) -> dict[str, object] | None:
     return _search_wire(payload) if payload is not None else None
 
 
-def _project_route(result: AgentResult) -> dict[str, object] | None:
-    produced = result.provenance.route
+def _project_itinerary(result: AgentResult) -> dict[str, object] | None:
+    produced = result.provenance.itinerary
     payload = (
-        result.session_state.routes.get(produced.route_ref)
+        result.session_state.itineraries.get(produced.itinerary_ref)
         if produced is not None
         else None
     )
-    return _route_wire(payload) if payload is not None else None
+    return _itinerary_wire(payload) if payload is not None else None
 
 
 def _clarify_data(result: AgentResult) -> dict[str, object]:
@@ -106,20 +106,20 @@ def _response_data(result: AgentResult) -> dict[str, object]:
         if search is not None:
             data["results"] = search
     if result.intent in {"plan_route", "plan_selected", "plan_multi"}:
-        route = _project_route(result)
-        if route is not None:
-            data["route"] = route
+        itinerary = _project_itinerary(result)
+        if itinerary is not None:
+            data["route"] = itinerary
     return data
 
 
 def _partial_data(result: AgentResult) -> dict[str, object]:
     data: dict[str, object] = {}
     search = _project_search(result)
-    route = _project_route(result)
+    itinerary = _project_itinerary(result)
     if search is not None:
         data["results"] = search
-    if route is not None:
-        data["route"] = route
+    if itinerary is not None:
+        data["route"] = itinerary
     return data
 
 

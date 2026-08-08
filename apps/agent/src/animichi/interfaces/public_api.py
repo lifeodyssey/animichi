@@ -42,7 +42,7 @@ from animichi.agents.runtime_deps import (
     TitleTranslator,
     new_step_call_id,
 )
-from animichi.agents.selected_route import execute_selected_route
+from animichi.agents.selected_route import execute_selected_itinerary
 from animichi.agents.selection import (
     SelectionError,
     execute_multi_selection,
@@ -560,7 +560,7 @@ class RuntimeAPI:
         context: dict[str, object] | None,
         on_step: OnStep | None,
     ) -> AgentResult:
-        return await execute_selected_route(
+        return await execute_selected_itinerary(
             point_ids=list(request.selected_point_ids or []),
             state=_selection_state(context),
             origin=request.origin,
