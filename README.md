@@ -67,15 +67,15 @@ make check             # lint + typecheck + test
 
 ## Database Migrations
 
-Neon catalog and user schema changes are versioned in `db/migrations/` and applied by the
-pinned Atlas CLI. `db/migrations/atlas.sum` is generated metadata and must be regenerated in
+Neon catalog and user schema changes are versioned in `migrations/neon/` and applied by the
+pinned Atlas CLI. `migrations/neon/atlas.sum` is generated metadata and must be regenerated in
 the same change. Drizzle schemas in the Workers are runtime query/type metadata only; they do
 not generate or apply migrations. The remaining Supabase migration directory is reserved for
 auth/legacy compatibility work and is not a source for new Neon tables.
 
 ```bash
 make db-list           # list checked-in Atlas migrations
-make db-hash           # regenerate db/migrations/atlas.sum
+make db-hash           # regenerate migrations/neon/atlas.sum
 make db-validate       # verify the checksum and SQL structure
 make db-push-dry       # dry-run against NEON_DATABASE_URL
 make db-push           # apply against NEON_DATABASE_URL
@@ -131,7 +131,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `packages/contract/` — shared oRPC/zod contract (catalog ↔ agent ↔ users)
 - `apps/web/` — TanStack Start SSR web app (**the only browser surface**)
 - `workers/edge/` — Cloudflare Worker entrypoint for auth and `/v1` routing
-- `db/migrations/` — Atlas migrations and generated checksum for the Neon data plane
+- `migrations/neon/` — Atlas migrations and generated checksum for the Neon data plane
 - `supabase/` — auth/legacy compatibility migrations and Supabase project assets
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
 - `Makefile`, `package.json` — root tooling entrypoints; `apps/agent/Dockerfile` (container image) and `workers/edge/wrangler.toml` (edge Worker config) live beside their code

@@ -127,7 +127,7 @@ Worker cannot query the expected schema.
 **Default narrative (already in deploy docs):** a Worker rollback does **not**
 un-apply Atlas. Prefer **forward-fix**: new timestamped migration that restores
 a safe shape (expand/contract). Never rewrite an applied file in
-`db/migrations/`.
+`migrations/neon/`.
 
 ### A. Forward-fix (preferred)
 
@@ -151,7 +151,7 @@ seed) and the damage is inside the history window.
 4. Neon Console → root branch → Backup & Restore → restore from history (or
    CLI `neon branches restore` with `preserve_under_name` / auto backup
    branch). Expect brief connection blip; strings unchanged.
-5. Re-check Atlas revision ledger vs `db/migrations` on the restored state.
+5. Re-check Atlas revision ledger vs `migrations/neon` on the restored state.
    You may need a careful forward migration to re-align code with the restored
    schema, or redeploy the Worker version that matched that schema.
 6. Keep the `{branch}_old_*` backup branch until smoke passes; then decide
