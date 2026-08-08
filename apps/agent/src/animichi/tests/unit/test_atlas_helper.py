@@ -71,29 +71,36 @@ def test_atlas_binary_without_recorded_digest_fails_closed(
         verify_atlas_checksum(binary, "FixtureOS", "fixture-cpu")
 
 
-def _route_anime_sql() -> str:
+def _saved_route_anime_sql() -> str:
     root = Path(__file__).resolve().parents[6]
-    migration = root / "migrations" / "neon" / "20260718000001_route_anime.sql"
+    migration = root / "migrations" / "neon" / "20260809000027_table_saved_route_anime.sql"
     return migration.read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize(
     "required",
     [
-        "CREATE TABLE IF NOT EXISTS route_anime",
-        "REFERENCES routes(id)",
-        "REFERENCES bangumi(id)",
-        "INSERT INTO route_anime",
-        "GRANT SELECT, INSERT, UPDATE, DELETE ON route_anime TO agent_svc",
-        "ALTER TABLE routes DROP COLUMN IF EXISTS bangumi_id",
+        "CREATE TABLE public.saved_route_anime",
+        "REFERENCES public.saved_routes(id) ON DELETE CASCADE",
+        "REFERENCES public.bangumi(id)",
+        'UNIQUE (saved_route_id, "position")',
+        "idx_saved_route_anime_bangumi",
     ],
 )
 def test_route_anime_atlas_twin_keeps_data_plane(required: str) -> None:
-    assert required in _route_anime_sql()
+    assert required in _saved_route_anime_sql()
+
+
+@pytest.mark.parametrize(
+    "forbidden",
+    ["DROP COLUMN", "DROP TABLE", "INSERT INTO saved_route_anime"],
+)
+def test_route_anime_atlas_twin_has_no_alter_or_embedded_seed(forbidden: str) -> None:
+    assert forbidden not in _saved_route_anime_sql()
 
 
 @pytest.mark.parametrize(
     "auth_only", ["ROW LEVEL SECURITY", "REVOKE", "CREATE POLICY", "DROP POLICY"]
 )
 def test_route_anime_atlas_twin_strips_auth(auth_only: str) -> None:
-    assert auth_only not in _route_anime_sql()
+    assert auth_only not in _saved_route_anime_sql()
