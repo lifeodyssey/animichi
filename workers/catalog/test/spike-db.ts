@@ -32,7 +32,7 @@ export const CATALOG_TABLES = [
   "raw_bangumi",
   "media_assets",
   "ingest_jobs",
-  "route_anime",
+  "saved_route_anime",
 ] as const;
 
 export interface NeonConfigSnapshot {

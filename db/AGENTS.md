@@ -46,8 +46,8 @@ Owner service = BC that may **write** the table under greenfield. Reads may be b
 | `leg_cache` | **catalog** | Transit cache |
 | `locations`, `location_aliases` | **catalog** | Gazetteer |
 | `route_snapshots` | **catalog** | Target name `itinerary_snapshots` |
-| `routes` | **users** | Target name `saved_routes`; user document |
-| `route_anime` | **users** (FK to routes) | SavedRoute–Bangumi link |
+| `saved_routes` | **users** | Renamed from `routes` (#852 P1); user document |
+| `saved_route_anime` | **users** (FK to saved_routes) | Renamed from `route_anime` (#852 P1); SavedRoute–Bangumi link |
 | `sessions`, `conversations`, `conversation_messages` | **agent** | Dialogue; Users may list SessionSummary only |
 | `agent_memory`, `agent_memory_operations`, `agent_memory_metadata` | **agent** | In-agent memory |
 | `daily_usage`, `anon_daily_message_count` | **agent** (write); **jobs** purge | Quota / metering |
@@ -61,7 +61,7 @@ Legacy / unknown: if a table is not listed, treat as **needs classification** be
 | Role | Login? | Purpose |
 | --- | --- | --- |
 | **migrator** | LOGIN (CI/deploy secret only) | Atlas `migrate apply`; DDL + seed. **Never** app runtime. |
-| **catalog_svc** | LOGIN or NOLOGIN+SET (env-specific) | Catalog worker: CRUD on catalog-owned tables; **no** write to `routes`/`saved_routes` |
+| **catalog_svc** | LOGIN or NOLOGIN+SET (env-specific) | Catalog worker: CRUD on catalog-owned tables; **no** write to `saved_routes` |
 | **agent_svc** | same | Agent: sessions/messages/memory/quota; **no** Point master write |
 | **users_svc** | same | Users worker: SavedRoute (+ share/checkin when built); **no** points write |
 | **jobs_svc** | same | Retention jobs: DELETE/SELECT on purge targets; **no** DDL |
