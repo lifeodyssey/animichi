@@ -73,7 +73,7 @@
 | 477 | apps/agent/agent/agents/byok_models.py:87 | qodo | _decode 放行 UnicodeDecodeError → 非法 UTF-8 头回 500 而非 400 invalid_request | OBSOLETE-FIXED | #608 (1626e2a9) _decode_header 捕获并转 ByokError | — |
 | 477 | apps/agent/agent/interfaces/public_api.py:357 | qodo | BYOK 转译辅助调用用量整体按零计价,服务端真实花费不入计量 | OBSOLETE-FIXED | main _attributed_usage 拆分零价 BYOK 与补充调用(#554 重构后) | — |
 | 478 | docs/ops/cloudflare-hardening.md:229-231 | qodo | runbook 声称 egress_guard 已生效,当时该守卫尚未实现 | OBSOLETE-FIXED | 守卫已随 #477/#479 落地,doc 现有 "What is implemented" 段 | — |
-| 478 | docs/ops/cloudflare-hardening.md | qodo | Task 7 验收来源链接失效 | OBSOLETE-FIXED | main :174-176 验收来源已落树(docs/superpowers/specs/2026-07-28-284-byok-design.md 内链,Threat Model T1–T14) | — |
+| 478 | docs/ops/cloudflare-hardening.md | qodo | Task 7 验收来源链接失效 | OBSOLETE-FIXED | main :174-176 验收来源已落树(docs/specs/2026-07-28-284-byok-design.md 内链,Threat Model T1–T14) | — |
 | 478 | 顶层 SonarCloud | sonarqubecloud | Quality Gate FAILED:B Maintainability Rating(文档新代码) | OBSOLETE-REWRITTEN | PR 快照指标;该文档此后经多轮改写(#766 等),评分对象已变 | — |
 | 479 | apps/agent/agent/interfaces/routes/byok.py:195-197 | qodo | 5s 超时只包模型调用,DNS 双校验可各自再耗 5s,超墙钟 | OBSOLETE-FIXED | main byok.py:207/341 asyncio.timeout 包住整段探测(注释 "fixed ≤5s wall-clock") | — |
 | 479 | apps/agent/agent/interfaces/routes/byok.py | qodo | 429/5xx 被当成功返回,探测结果失真 | OBSOLETE-FIXED | main 错误分类折叠为 provider_unreachable | — |

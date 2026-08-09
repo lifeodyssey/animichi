@@ -40,7 +40,7 @@
 | DD-24 | iter-3/4 四薄点深度细化:① Walk GPS 实时逻辑(到达判定半径/后台省电/漂移防误判)② 打卡防伪造验证 ③ 対比図拍摄对齐 UX ④ 离线打包边界与体积预算 | spec 详细度热力图讨论(2026-07-06 用户批准:留迭代3 开工前,不提前写死) | **迭代3 排期启动前**(流程节点触发,非信号型);⚠️ **飞轮3 上游质量标记**:四点决定打卡数据可信度与回流照片质量 → 图搜 real2real 唯一解锁源(SD-26),细化时须带迭代1-2 实际学习(定位权限授予率等) | 内部(流程) | 迭代3 排期会人工触发;巡检时核对是否已排期 | 冻结(计划内延迟细化) |
 | DD-25 | durable execution(Cloudflare Workflows——checkpoint/重放式长任务执行) | agent resume/checkpoint 讨论(2026-07-07):现有 run = 秒级全只读幂等,重跑即恢复,run 级 checkpoint 属过度工程;「领域数据即 checkpoint」原则成立 | **首个长时(>60s)或有写副作用的 agent 任务立项时**(如批量导入/UGC 批处理/付费操作)——重跑策略届时失效,需 durable execution;CF Workflows = 零新供应商现成方案 | 内部(流程) | 新工具/任务设计评审时人工触发;巡检核对有无此类任务进了排期 | 冻结 |
 
-> **DD-1 解冻记录(2026-07-07)**:本条已由 **SD-31** 激活,状态从「冻结」翻为「已激活」。**越触发判断(用户拍板)**:按 **Better Auth 底座成熟度(v1.4.18)** 而非 Neon Auth 产品 GA 提前解冻——Neon Auth 的底座已从当初被否的 **Stack Auth** 换成成熟的 **Better Auth v1.4.18**,当初「等 GA + migration 工具稳定」的否决理由已过期。原触发条件与「WebSearch "Neon Auth GA changelog"」巡检项一并作废,巡检不再跟踪本条(见文末巡检指令 step 1)。传导详情见 `docs/superpowers/specs/2026-07-06-frontend-rebuild-inputs.md` §七 SD-31 与 `2026-07-06-frontend-rebuild-spec.md`;auth 侧超越亦标注于 `2026-06-23-multi-env-neon-supabase-design.md`。
+> **DD-1 解冻记录(2026-07-07)**:本条已由 **SD-31** 激活,状态从「冻结」翻为「已激活」。**越触发判断(用户拍板)**:按 **Better Auth 底座成熟度(v1.4.18)** 而非 Neon Auth 产品 GA 提前解冻——Neon Auth 的底座已从当初被否的 **Stack Auth** 换成成熟的 **Better Auth v1.4.18**,当初「等 GA + migration 工具稳定」的否决理由已过期。原触发条件与「WebSearch "Neon Auth GA changelog"」巡检项一并作废,巡检不再跟踪本条(见文末巡检指令 step 1)。传导详情见 `docs/specs/2026-07-06-frontend-rebuild-inputs.md` §七 SD-31 与 `2026-07-06-frontend-rebuild-spec.md`;auth 侧超越亦标注于 `2026-06-23-multi-env-neon-supabase-design.md`。
 
 ## 埋点缺口汇总(建迭代1 全信号埋点时一并补)
 

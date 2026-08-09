@@ -20,23 +20,38 @@ stable boundaries, current entry points, and active plans only.
 | `workers/jobs/AGENTS.md` | Scheduled agent-domain Neon retention Worker conventions |
 | `packages/contract/AGENTS.md` | Cross-service oRPC/Zod contract conventions |
 | `apps/web/AGENTS.md` | TanStack Start rebuild conventions |
-| `db/AGENTS.md` · `e2e/AGENTS.md` · `infra/AGENTS.md` | Migrations, browser tests, and IaC conventions |
+| `migrations/AGENTS.md` · `e2e/AGENTS.md` · `infra/AGENTS.md` | Atlas migrations, browser tests, and IaC conventions |
 | `.claude/rules/*.md` | Path-scoped rules loaded only for matching files |
 | `docs/ARCHITECTURE.md` | Live runtime reference (refresh pending — see Source-of-Truth notes below) |
 | `docs/ops/deployment.md` | Deployment runbook |
 | `docs/ops/secrets.md` | What each repository secret is for, who consumes it, and rotation impact |
-| `docs/iterations/iter5/task_plan.md` | Main task tracker |
-| `docs/iterations/iter5/progress.md` | Session log |
-| `docs/iterations/iter5/findings.md` | Current design findings and rationale |
+| `docs/iterations/README.md` | Main task tracker / session log / findings — pointer into the live iteration (no hardcoded `iterN`) |
+
+## Docs Tree Map (W1)
+
+Sole navigation for `docs/` — no `docs/README.md`. Paths on the post-reorg layout (#908 W1).
+
+| Path | Holds | Write policy |
+|---|---|---|
+| `docs/specs/` | Active, non-superseded design specs (ADRs live flat) | Superseded → `docs/archive/specs/` (one-way) |
+| `docs/adr/` | Registered ADRs 0001–0005 (canonical) | Amend via a new ADR |
+| `docs/ops/` | Live runbooks (deployment, hardening, maintenance, …) | Update in place |
+| `docs/iterations/` | Active iteration artifacts + `README.md` pointer | Per-iteration dirs |
+| `docs/archive/` | `specs/` · `plans/` · `reviews/` · `design-sync/` · `mockups-demo/` · `landing-hero/` · `review-boards/` | Read-only history |
+| `docs/design/` | Live design guidance (tokens, mascot, prompts) | Update in place |
+| `docs/api-reference/` · `docs/agents/` | External API refs · agent guides | Update in place |
 
 ## Rules
 
 1. Do not keep legacy and current architecture docs side by side.
-2. Do not add separate roadmap files when `docs/iterations/iter5/task_plan.md` already tracks the work.
+2. Do not add separate roadmap files when the live iteration (see `docs/iterations/README.md`) already tracks the work.
 3. If a subsystem is removed from the codebase, remove its docs in the same change.
 4. Prefer linking to code paths over hardcoding volatile counts.
 5. Planning docs may contain process detail; README and architecture docs should not.
 6. Put operational docs under `docs/ops/` and iteration artifacts under `docs/iterations/`.
+7. Docs images >1MB: never commit. Upload to the private R2 bucket and link through the edge
+   `/img` proxy (`workers/edge/proxy/image-proxy.ts` — upstreams `image.anitabi.cn` today; R2-backed
+   serving is a listed edge extension). Legacy >1MB assets under `docs/archive/` are W6 strip candidates.
 
 ## Agent-docs Network
 
@@ -56,8 +71,8 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 
 | Topic | Current source of truth | Notes / was |
 |---|---|---|
-| **Why** the architecture is shaped this way | `docs/superpowers/specs/2026-06-13-architecture-adr.md` | Foundational ADR; its "全 TS on Workers" decision was later refined by the rebuild spec below |
-| **Current target** architecture (hybrid, latest) | `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md` | Latest; supersedes the ADR on agent language; rebuild in progress |
+| **Why** the architecture is shaped this way | `docs/specs/2026-06-13-architecture-adr.md` | Foundational ADR; its "全 TS on Workers" decision was later refined by the rebuild spec below |
+| **Current target** architecture (hybrid, latest) | `docs/specs/2026-07-06-frontend-rebuild-spec.md` | Latest; supersedes the ADR on agent language; rebuild in progress |
 | Live agent runtime reference | `docs/ARCHITECTURE.md` + `apps/agent/src/animichi/agents/animichi_runner.py` | Runtime is still Python & live |
 | Agent entry | `apps/agent/src/animichi/interfaces/fastapi_service.py` → `public_api.py` → `agents/animichi_runner.py` | was `backend/interfaces/…` |
 | Agent shared types | `apps/agent/src/animichi/agents/models.py`, `…/agent_result.py` | was `backend/agents/…` |
@@ -76,12 +91,12 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
 | Secrets architecture / worker secrets | `docs/adr/0003-secrets-architecture.md` | CF Secrets Store + Neon-hosted role passwords + Pulumi `neon.Role`; supersedes the ESC-first plan of #674 |
 | Local development gates | `docs/ops/local-gates.md` + `.pre-commit-config.yaml` | changed-package routing; pre-commit/pre-push split; integration tests stay in CI |
-| Close-out campaign (2026-08) | `docs/superpowers/specs/2026-08-08-repo-closeout-spec.md` | ADRs 0004/0005; merges restructure-spec × GOAL; waves P0–P8 |
+| Close-out campaign (2026-08) | `docs/specs/2026-08-08-repo-closeout-spec.md` | ADRs 0004/0005; merges restructure-spec × GOAL; waves P0–P8 |
 | Neon backup / RPO / bad-migration recovery | `docs/ops/neon-backup-rpo.md` | N5 (#860); PITR + HITL checklist; pairs with `migrations.md` |
-| Iteration specs (live) | `docs/superpowers/specs/` — 平层只放活跃 spec(cicd-rebuild、catalog-rpc、byok、s1.7、neon-test-infra、rebuild、ADR) | 过时 spec 一律入 `docs/superpowers/specs/archive/`(只进不出,iter6 A6/#640) |
-| Iteration plans | 当前 iteration 的计划在 `docs/iterations/<iterN>/`;历史执行 plan 全部在 `docs/superpowers/plans/archive/` | 平层不再新增 plan(iter6 A6/#640) |
+| Iteration specs (live) | `docs/specs/` — 平层只放非 superseded spec(不维护名单;以 superseded 标注与 archive 位为准) | superseded spec 一律入 `docs/archive/specs/`(只进不出,iter6 A6/#640) |
+| Iteration plans | 当前 iteration 的计划在 `docs/iterations/<iterN>/`;历史执行 plan 全部在 `docs/archive/plans/` | 平层不再新增 plan(iter6 A6/#640) |
 | Iteration progress/handoff | `docs/iterations/<iterN>/`(progress、task_plan、handoff、status) | 根目录禁放(File Placement 规则) |
-| Scheduled retention purges | `workers/jobs/` + `docs/ops/maintenance-worker.md` | Cloudflare Cron Triggers for anonymous sessions and daily quota counts |
+| Scheduled retention purges | `workers/jobs/` + `docs/ops/jobs-worker.md` | Cloudflare Cron Triggers for anonymous sessions and daily quota counts |
 
 ## Review Check
 

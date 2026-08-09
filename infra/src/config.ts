@@ -9,7 +9,7 @@ import * as pulumi from "@pulumi/pulumi";
 // Wave 2 (Task 4): catalog infra added below.
 // Wave 2+ will declare real infra parameterized per stack (prod / staging) —
 // R2 (media + Pulumi state), Worker routes/custom domains, DNS, secrets.
-// See docs/superpowers/specs/2026-06-23-platform-monorepo-cf-deploy-design.md
+// See docs/archive/specs/2026-06-23-platform-monorepo-cf-deploy-design.md
 
 export const config = new pulumi.Config();
 export const stack = pulumi.getStack();

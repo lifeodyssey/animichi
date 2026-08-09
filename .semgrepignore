@@ -23,4 +23,4 @@ tests/
 # Committed design-sync mockup canvases (static design-review artifacts,
 # never served as product code); their demo scripts trip browser-security
 # rules that are meaningless outside a shipped origin.
-docs/design/
+docs/archive/design-sync/

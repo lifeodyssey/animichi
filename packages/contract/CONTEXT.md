@@ -2,8 +2,8 @@
 
 Types and error codes exchanged across deployable units. Not a full bounded context — a **published language** so Agent, Catalog, Users, Edge, and Web do not invent parallel words for the same wire shapes.
 
-Greenfield rename train:  
-`docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md`
+Greenfield rename train:
+`docs/specs/2026-08-06-greenfield-language-and-data-plane.md`
 
 ## Language
 

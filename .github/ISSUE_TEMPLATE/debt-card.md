@@ -19,4 +19,4 @@ labels: type:debt
 
 ## Spec source
 
-<!-- e.g. `docs/superpowers/plans/2026-07-07-refactor-backlog.md` (commit <sha>) -->
+<!-- e.g. `docs/archive/plans/2026-07-07-refactor-backlog.md` (commit <sha>) -->

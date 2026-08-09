@@ -12,7 +12,7 @@ import { canonicalize, collectStylesheetLinks, type CanonicalizeInput } from "./
 import { clusterBoxes, diffPixels } from "./diff";
 import { decodePng, encodePng } from "./png";
 
-const MOCKUP_PATH = path.resolve(__dirname, "../../docs/design/2026-07-06-design-sync/Landing - Seichijunrei.html");
+const MOCKUP_PATH = path.resolve(__dirname, "../../docs/archive/design-sync/Landing - Seichijunrei.html");
 const FONTS_CSS_PATH = path.resolve(__dirname, "../../apps/web/src/styles/fonts.css");
 
 function mockupInput(mode: "day" | "night" = "day"): CanonicalizeInput {

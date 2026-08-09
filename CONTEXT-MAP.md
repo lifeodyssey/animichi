@@ -1,6 +1,6 @@
 # Context map — Animichi
 
-Multi-context monorepo. Glossaries are pure language (no implementation). Layout target: `docs/superpowers/specs/2026-08-06-monorepo-target-layout.md`.
+Multi-context monorepo. Glossaries are pure language (no implementation). Layout target: `docs/specs/2026-08-06-monorepo-target-layout.md`.
 
 Consumer rules: `docs/agents/domain.md` (when present). Per-package `CONTEXT.md` files are **created lazily** when a term or decision is resolved — missing files are normal.
 
@@ -14,7 +14,7 @@ Consumer rules: `docs/agents/domain.md` (when present). Per-package `CONTEXT.md`
 | **Agent** | [`apps/agent/CONTEXT.md`](./apps/agent/CONTEXT.md) | `apps/agent` |
 | **Edge** | [`workers/edge/CONTEXT.md`](./workers/edge/CONTEXT.md) | `workers/edge` |
 | **Web** | `apps/web/CONTEXT.md` (lazy) | `apps/web` |
-| **Jobs** (retention cron; was Maintenance) | `workers/jobs/CONTEXT.md` (target; today `workers/maintenance/CONTEXT.md`) | `workers/jobs` (target path) |
+| **Jobs** (retention cron; was Maintenance) | `workers/jobs/CONTEXT.md` (rename #836 landed) | `workers/jobs` (target path) |
 | **Migrations** | `migrations/CONTEXT.md` (lazy) | `migrations/neon`, `migrations/supabase` (target paths) |
 | **Infra** | `infra/CONTEXT.md` (lazy) | `infra` |
 | **Auth appliance** | — | `supabase/` (auth-only, no package guide) |
@@ -23,7 +23,7 @@ Consumer rules: `docs/agents/domain.md` (when present). Per-package `CONTEXT.md`
 System-wide ADRs: `docs/adr/` (0002 published language · [0003 secrets architecture](./docs/adr/0003-secrets-architecture.md) · [0004 campaign merge](./docs/adr/0004-campaign-merge.md) · [0005 force-push policy](./docs/adr/0005-repo-force-push-policy.md)).
 
 Greenfield (no dual wire names / table aliases):
-[`docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md`](./docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md).
+[`docs/specs/2026-08-06-greenfield-language-and-data-plane.md`](./docs/specs/2026-08-06-greenfield-language-and-data-plane.md).
 
 ## Relationships
 
@@ -54,8 +54,8 @@ Greenfield (no dual wire names / table aliases):
 | `workers/users` | **Shallow** | Pure rules + ports; no heavy DDD tree |
 | `workers/edge` | **No** | Gateway only — never `src/domain/` for pilgrimage |
 | `apps/web` | **No** | UI — no `src/domain/` |
-| `workers/jobs` (today `maintenance`) | **No** | Job + Schedule only |
+| `workers/jobs` | **No** | Job + Schedule only |
 | `infra` | **No** | Topology / Cloudflare only |
 | `packages/contract` | N/A | Published language, not a BC with domain/ |
 
-Campaign: [#829](https://github.com/lifeodyssey/animichi/issues/829) · path tracker: [`docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md`](./docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md) · structure index: [`docs/superpowers/specs/2026-08-06-structure-refactor-index.md`](./docs/superpowers/specs/2026-08-06-structure-refactor-index.md).
+Campaign: [#829](https://github.com/lifeodyssey/animichi/issues/829) · path tracker: [`docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md`](./docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md) · structure index: [`docs/specs/2026-08-06-structure-refactor-index.md`](./docs/specs/2026-08-06-structure-refactor-index.md).

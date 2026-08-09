@@ -23,7 +23,7 @@ export const VISUAL_FRAMES: Record<string, VisualFrame> = {
   "landing-day": {
     key: "landing-day",
     canonicalName: "landing-day.html",
-    mockup: "docs/design/2026-07-06-design-sync/Landing - Seichijunrei.html",
+    mockup: "docs/archive/design-sync/Landing - Seichijunrei.html",
     route: "/",
     viewport: { width: 1280, height: 800 },
     mode: "day",
@@ -31,7 +31,7 @@ export const VISUAL_FRAMES: Record<string, VisualFrame> = {
   "landing-night": {
     key: "landing-night",
     canonicalName: "landing-night.html",
-    mockup: "docs/design/2026-07-06-design-sync/Landing - Seichijunrei.html",
+    mockup: "docs/archive/design-sync/Landing - Seichijunrei.html",
     route: "/",
     viewport: { width: 1280, height: 800 },
     mode: "night",

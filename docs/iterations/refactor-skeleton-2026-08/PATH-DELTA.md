@@ -1,8 +1,8 @@
 # PATH-DELTA — 目标路径 vs 现状
 
 **Parent:** [#829](https://github.com/lifeodyssey/animichi/issues/829) · **Ticket:** [#833](https://github.com/lifeodyssey/animichi/issues/833)
-**Layout target:** `docs/superpowers/specs/2026-08-06-monorepo-target-layout.md`
-**Structure index:** `docs/superpowers/specs/2026-08-06-structure-refactor-index.md`
+**Layout target:** `docs/specs/2026-08-06-monorepo-target-layout.md`
+**Structure index:** `docs/specs/2026-08-06-structure-refactor-index.md`
 
 
 实现过程中更新。状态：`TODO` | `IN_PROGRESS` | `DONE` | `WONT`（附理由）。

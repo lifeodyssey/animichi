@@ -18,8 +18,8 @@ void test("Atlas files are the only Neon migration authority", () => {
   assert.match(read("docs/ops/migrations.md"), /migrations\/neon\/\*\.sql.*atlas\.sum/s);
   assert.match(read("docs/ops/migrations.md"), /Drizzle[\s\S]*metadata.*only/s);
   for (const path of [
-    "docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md",
-    "docs/superpowers/specs/2026-07-06-frontend-rebuild/iter-0.md",
+    "docs/specs/2026-07-06-frontend-rebuild-spec.md",
+    "docs/specs/2026-07-06-frontend-rebuild/iter-0.md",
   ]) {
     const source = read(path);
     assert.match(source, /S0\.9 authority amendment \(2026-08-02\)/, `${path} needs the S0.9 amendment`);

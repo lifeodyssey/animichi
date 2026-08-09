@@ -25,7 +25,7 @@ skeleton (apps/agent · workers/* · apps/web). Path renames (PATH-DELTA) follow
 | Python client example `animichi.clients.python.seichijunrei_client` | No such module under `apps/agent/src/animichi/clients/` (only catalog/geocode) | **Fixed** — example removed; SDK still Iteration-7 |
 | How-it-works "Supabase points" | Catalog/user data plane is Neon; Supabase auth-only | **Fixed** — wording → catalog/Neon |
 | Repo map missing `workers/users/`, `workers/maintenance/` | Live Workers per root `AGENTS.md` / `docs/ops/deployment.md` | **Fixed** — map rows added |
-| Docs link "Implementation plans" → `docs/superpowers/plans/` | Flat plans empty; live history is `plans/archive/` (DOCS_POLICY A6) | **Fixed** — link to `plans/archive/` |
+| Docs link "Implementation plans" → `docs/archive/plans/` | Flat plans empty; live history is `plans/archive/` (DOCS_POLICY A6) | **Fixed** — link to `plans/archive/` |
 | Live demo host `seichijunrei.zhenjia.org` | Still the pre-apex public origin until domain cutover (#541 family) | **Keep** (ops fact, not path drift) |
 
 ## Deployment notes (duplicate / path drift)
@@ -51,7 +51,7 @@ skeleton (apps/agent · workers/* · apps/web). Path renames (PATH-DELTA) follow
 | `docs/testing-strategy.md` stack line | "Next.js + React (frontend)" | **Fixed** stack line + E2E ports note |
 | `docs/testing-strategy.md` body | Many `frontend/` MSW path examples, `make test-frontend`, React/Next section | **Deferred** — full rewrite is S0.9/E1 (#262); not mass-edit this card |
 | `apps/web/AGENTS.md` coverage floors | Claimed 95/94/95/95; config is 98/95/98/99 | **Fixed** to match `vitest.config.ts` |
-| Archived reviews under `docs/superpowers/reviews/` | Full of `backend/` + `frontend/` | **Keep** (historical) |
+| Archived reviews under `docs/archive/reviews/` | Full of `backend/` + `frontend/` | **Keep** (historical) |
 | `docs/archive/frontend-*.md` | Intentional archive of retired frontend design | **Keep** |
 
 ## Candidate deletions (strong-evidence only)
@@ -61,7 +61,7 @@ skeleton (apps/agent · workers/* · apps/web). Path renames (PATH-DELTA) follow
 | Root `DEPLOYMENT.md` / `docs/todo.md` / `CHANGELOG` / `VERSION` / `atlas.hcl` / `deno.lock` / skills-lock | Already absent from tree (S0-v2 GOAL A partial) | N/A |
 | `scripts/qa_login.sh` hardcodes foreign venv path | Still referenced by `docs/ops/auth-migration-neon.md` until Neon Auth cutover | **Keep** — cutover ticket retires it |
 | `apps/agent/.../spikes/codemode/` | Spike residual; S0-v2 GOAL A lists spikes cleanup | **Deferred** (behavior-adjacent; not pure docs HY-1) |
-| Historical `docs/superpowers/reviews/*` | Pre-rename eng reviews | **Keep** in place (history) |
+| Historical `docs/archive/reviews/*` | Pre-rename eng reviews | **Keep** in place (history) |
 
 **No tracked file deleted in this card** — evidence for pure dead files was weak or cutover-blocked; prefer docs path fixes.
 
@@ -75,8 +75,8 @@ skeleton (apps/agent · workers/* · apps/web). Path renames (PATH-DELTA) follow
 | `docs/ARCHITECTURE.md` | OK |
 | `docs/DOCS_POLICY.md` | OK |
 | `docs/workflow.md` | OK |
-| `docs/superpowers/specs/2026-06-13-architecture-adr.md` | OK |
-| `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md` | OK |
+| `docs/specs/2026-06-13-architecture-adr.md` | OK |
+| `docs/specs/2026-07-06-frontend-rebuild-spec.md` | OK |
 | `.claude/rules/` | OK (directory present) |
 
 ## Deferred (out of HY-1 surgical scope)

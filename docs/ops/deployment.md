@@ -108,7 +108,7 @@ These secrets stay in the Worker environment and are not forwarded into the cont
 `workers/jobs` requires `AGENT_DATABASE_URL` as a Cloudflare secret binding. CI resolves the
 same-named secret from the selected GitHub Environment, so staging and production receive distinct
 agent-domain Neon DSNs. Schedules and cutover verification are in
-[`maintenance-worker.md`](./maintenance-worker.md).
+[`jobs-worker.md`](./jobs-worker.md).
 
 ### Container runtime
 

@@ -2,8 +2,8 @@
 
 > 状态:ACCEPTED(2026-07-11)
 > 范围:S0.4(issue #237);blocks S1.4 / S1.5 / S2.2 / S5.2 / S6.2;离线伏笔 S3.6 / S3.10
-> 调研全文(决策矩阵、需求映射、成本账、风险):`docs/superpowers/specs/2026-07-11-map-stack-adr.md`
-> Spike:`docs/superpowers/spikes/map-stack/` 已删除(PR #727,2026-08-04;5 条 undici CVE +
+> 调研全文(决策矩阵、需求映射、成本账、风险):`docs/archive/specs/2026-07-11-map-stack-adr.md`
+> Spike:`docs/archive/spikes/map-stack/` 已删除(PR #727,2026-08-04;5 条 undici CVE +
 > 目录从未被 Dependabot 覆盖会持续腐烂;其证明的决策已生产化,见下方"已落地"条目)。
 > 现在看实现:`apps/web/src/features/maplibre/`(引擎适配层)、
 > `apps/web/src/features/map-spike/`(纯逻辑 style/layers/pins/geometry)、
@@ -11,7 +11,7 @@
 > `apps/web/src/routes/_dev/map-spike.tsx`(挂载点)。
 >
 > 本目录(`docs/adr/`)自本条起为架构决策记录统一归档处(修复 report C「无统一 ADR 目录」缺口)。
-> 早于本目录的 ADR 存于 `docs/superpowers/specs/`(如 2026-06-13-architecture-adr.md、2026-04-15-api-adr.md),不迁移。
+> 早于本目录的 ADR 存于 `docs/archive/specs/`(如 2026-06-13-architecture-adr.md、2026-04-15-api-adr.md),不迁移。
 
 ## Context
 

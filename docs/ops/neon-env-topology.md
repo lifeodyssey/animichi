@@ -1,7 +1,7 @@
 # Neon environment topology + branch SLA
 
-**Ticket:** [#859](https://github.com/lifeodyssey/animichi/issues/859) · **Parent:** [#829](https://github.com/lifeodyssey/animichi/issues/829)  
-**DBA map:** `docs/superpowers/specs/2026-08-06-neon-dba-capability-map.md` (N3)
+**Ticket:** [#859](https://github.com/lifeodyssey/animichi/issues/859) · **Parent:** [#829](https://github.com/lifeodyssey/animichi/issues/829)
+**DBA map:** `docs/specs/2026-08-06-neon-dba-capability-map.md` (N3)
 
 ## Branches / environments
 
@@ -24,17 +24,17 @@
 
 ## Apply path (current)
 
-1. **PR / package CI:** `pipeline-db` → `atlas migrate validate` (+ dry-run when URL present).  
-2. **Deploy:** `reusable-deploy-component` → Atlas migrate with `NEON_DATABASE_URL` and `search_path=public` (avoids `neon_auth` dirty checks).  
+1. **PR / package CI:** `pipeline-db` → `atlas migrate validate` (+ dry-run when URL present).
+2. **Deploy:** `reusable-deploy-component` → Atlas migrate with `NEON_DATABASE_URL` and `search_path=public` (avoids `neon_auth` dirty checks).
 3. **Local:** same Atlas pin as CI for **empty/dev/test-base** only. Staging/prod apply is the deploy workflow; laptop apply to staging/prod requires explicit owner HITL (not routine).
 
 ## Align with campaign decisions
 
-- Role matrix SQL: #831 · staging wire: #832 · prod: #855  
-- History squash / gazetteer out of chain: #845–#850  
+- Role matrix SQL: #831 · staging wire: #832 · prod: #855
+- History squash / gazetteer out of chain: #845–#850
 - Update wipe row for staging when #845 D1 is locked (wipe vs soft).
 
 ## Links
 
-- `db/AGENTS.md` — ownership + role intent (#830)  
-- `docs/ops/deployment.md` — deploy orchestration  
+- `db/AGENTS.md` — ownership + role intent (#830)
+- `docs/ops/deployment.md` — deploy orchestration

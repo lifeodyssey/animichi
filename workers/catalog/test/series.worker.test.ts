@@ -10,7 +10,7 @@ import {
  *
  * Same-series relations (续集/前传/番外篇/总集篇/相同世界观) merge into one
  * connected component; non-series relations (角色 = 'character') do NOT.
- * Source: docs/superpowers/specs/2026-04-27-series-aware-resolve-design.md
+ * Source: docs/archive/specs/2026-04-27-series-aware-resolve-design.md
  * (Mode C, lines 81-84). Pure logic — named *.worker.test.ts so the existing
  * vitest-pool-workers config picks it up; no Docker, no DB.
  */
