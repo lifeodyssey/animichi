@@ -1,0 +1,12 @@
+name: animichi-neon-secrets
+runtime:
+  name: nodejs
+  options:
+    typescript: false
+description: Neon role passwords + Cloudflare Secrets Store (store + per-component DSN secrets) managed by Pulumi (ADR 0003, #912 PR1)
+packages:
+  neon:
+    source: terraform-provider
+    version: 1.3.0
+    parameters:
+      - kislerdm/neon
