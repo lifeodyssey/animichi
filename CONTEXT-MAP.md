@@ -14,7 +14,7 @@ Consumer rules: `docs/agents/domain.md` (when present). Per-package `CONTEXT.md`
 | **Agent** | [`apps/agent/CONTEXT.md`](./apps/agent/CONTEXT.md) | `apps/agent` |
 | **Edge** | [`workers/edge/CONTEXT.md`](./workers/edge/CONTEXT.md) | `workers/edge` |
 | **Web** | `apps/web/CONTEXT.md` (lazy) | `apps/web` |
-| **Jobs** (retention cron; was Maintenance) | `workers/jobs/CONTEXT.md` (target; today `workers/maintenance/CONTEXT.md`) | `workers/jobs` (target path) |
+| **Jobs** (retention cron; was Maintenance) | `workers/jobs/CONTEXT.md` (rename #836 landed) | `workers/jobs` (target path) |
 | **Migrations** | `migrations/CONTEXT.md` (lazy) | `migrations/neon`, `migrations/supabase` (target paths) |
 | **Infra** | `infra/CONTEXT.md` (lazy) | `infra` |
 | **Auth appliance** | — | `supabase/` (auth-only, no package guide) |
@@ -54,7 +54,7 @@ Greenfield (no dual wire names / table aliases):
 | `workers/users` | **Shallow** | Pure rules + ports; no heavy DDD tree |
 | `workers/edge` | **No** | Gateway only — never `src/domain/` for pilgrimage |
 | `apps/web` | **No** | UI — no `src/domain/` |
-| `workers/jobs` (today `maintenance`) | **No** | Job + Schedule only |
+| `workers/jobs` | **No** | Job + Schedule only |
 | `infra` | **No** | Topology / Cloudflare only |
 | `packages/contract` | N/A | Published language, not a BC with domain/ |
 

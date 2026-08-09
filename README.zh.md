@@ -93,7 +93,7 @@ make db-push           # 对 NEON_DATABASE_URL 应用迁移
 | `MIMO_API_KEY` | 主模型供应商密钥 |
 | `DEEPSEEK_API_KEY` | 边缘 container-env 容器启动必填（转发进容器） |
 
-**Worker 边缘：** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`（JWT 用公开 JWKS 校验 — 边缘不需要 `SUPABASE_ANON_KEY`）。catalog/users/maintenance 还需各自 Neon DSN — 见 [`docs/ops/deployment.md`](docs/ops/deployment.md)。
+**Worker 边缘：** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`（JWT 用公开 JWKS 校验 — 边缘不需要 `SUPABASE_ANON_KEY`）。catalog/users/jobs 还需各自 Neon DSN — 见 [`docs/ops/deployment.md`](docs/ops/deployment.md)。
 
 **可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -125,7 +125,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `apps/agent/` — Python 运行时：agents、interfaces、infrastructure、tests、tools
 - `workers/catalog/` — 动漫目录 API + 数据平台 Cloudflare Worker（TypeScript）
 - `workers/users/` — 用户域数据 Worker（`/v1/users/*`）
-- `workers/maintenance/` — 定时 Neon 保留 Worker（无公网路由）
+- `workers/jobs/` — 定时 Neon 保留 Worker（无公网路由）
 - `packages/contract/` — 共享 oRPC/zod 契约（catalog ↔ agent ↔ users）
 - `apps/web/` — TanStack Start SSR Web 应用（**唯一浏览器面**）
 - `workers/edge/` — Cloudflare Worker 入口：认证与 `/v1` 路由
