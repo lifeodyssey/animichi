@@ -43,6 +43,26 @@ void test("buildContainerEnvVars forwards the provided APP_ENV value unchanged",
   }
 });
 
+// #912 follow-up: the agent container's Neon agent_svc role DSN is forwarded
+// when the edge Worker has the Secrets Store binding (staging wrangler.toml
+// [[env.staging.secrets_store_secrets]]). It is deliberately NOT required —
+// production has no binding until the #855 cutover, so it must not fail-closed
+// every environment; the per-environment requirement lives in the agent's
+// settings (AGENT_SVC_DATABASE_URL or the legacy SUPABASE_DB_URL).
+void test("AGENT_SVC_DATABASE_URL is forwarded to the container when set (#912)", () => {
+  const environmentVars = buildContainerEnvVars({
+    ...requiredContainerEnv(),
+    AGENT_SVC_DATABASE_URL: "postgresql://agent_svc@neon/db",
+  });
+  assert.equal(environmentVars.AGENT_SVC_DATABASE_URL, "postgresql://agent_svc@neon/db");
+});
+
+void test("AGENT_SVC_DATABASE_URL is optional: absent without a binding, never required", () => {
+  assert.equal(CONTAINER_REQUIRED_KEYS.includes("AGENT_SVC_DATABASE_URL"), false);
+  const environmentVars = buildContainerEnvVars(requiredContainerEnv());
+  assert.equal("AGENT_SVC_DATABASE_URL" in environmentVars, false);
+});
+
 void test("buildContainerEnvVars throws (fail-closed) when APP_ENV is missing, instead of seeding a hardcoded default", () => {
   const { APP_ENV: _unused, ...environmentWithoutAppEnv } = requiredContainerEnv();
   void _unused;

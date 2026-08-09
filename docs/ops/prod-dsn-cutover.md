@@ -2,6 +2,7 @@
 
 **Ticket:** [#855](https://github.com/lifeodyssey/animichi/issues/855) · **Parent:** [#829](https://github.com/lifeodyssey/animichi/issues/829) · **Campaign:** [#904](https://github.com/lifeodyssey/animichi/issues/904) P5 (#913)
 **Precedent:** staging cutover [#832](https://github.com/lifeodyssey/animichi/issues/832) (closed) · **Secrets ADR:** `docs/adr/0003-secrets-architecture.md` · **Env map:** `docs/ops/neon-env-topology.md`
+**Agent container DSN:** [#912 follow-up](https://github.com/lifeodyssey/animichi/issues/912) (staging wire landed; this doc is the prod half)
 
 ## Current state (investigated for #913)
 
@@ -29,14 +30,80 @@
   back); Workers bind Secrets Store values (`wrangler.toml` bindings — P4 shape).
 - Schema + GRANTs applied by **Atlas** via the deploy path (`search_path=public`).
 
+## Container DSN mechanism (agent — not a Worker)
+
+The Python agent runs in a Cloudflare **container**, which has no Secrets Store binding of
+its own. Containers receive env **only** through the edge Worker's code:
+`buildContainerEnvVars()` (`workers/edge/src/container/container-env.ts`) copies from the edge
+Worker's own env (`vars` + secrets + Secrets Store bindings) an allowlist of keys. So the
+agent's Neon DSN travels: **Pulumi store secret → edge Worker `[[env.<env>.secrets_store_secrets]]`
+binding → `CONTAINER_ENV_KEYS` forwarding → container env → `Settings.agent_svc_database_url`
+(`Settings.database_url`, preferred over the legacy `SUPABASE_DB_URL`)**.
+
+Staging landed this wire (#912 follow-up). Two consequences for prod:
+
+- The prod edge Worker needs the same binding, and CI needs the value in the **GitHub
+  `production` environment secret `AGENT_SVC_DATABASE_URL`** (uploaded via
+  `wrangler secret put`, mirroring how `SUPABASE_DB_URL` is uploaded today) **or** the prod
+  store binding once the prod store story below is settled — until then the prod container
+  keeps `SUPABASE_DB_URL`.
+- **Naming collision**: the store secret is `AGENT_SVC_DATABASE_URL`, not
+  `AGENT_DATABASE_URL` — that store secret name is already claimed by the jobs Worker's
+  binding (`jobs_svc` role) and store secret names are unique per store. The iter6 R1
+  rename plan (`SUPABASE_DB_URL → AGENT_DATABASE_URL`) is therefore amended to
+  `SUPABASE_DB_URL → AGENT_SVC_DATABASE_URL`. (If the jobs binding were ever renamed
+  `JOBS_DATABASE_URL`, `AGENT_DATABASE_URL` would free up — out of scope.)
+
+## neon-secrets prod stack (Pulumi)
+
+`infra/neon-secrets/` currently runs only the `staging` stack (`Pulumi.staging.yaml`). The
+prod stack is deliberately **not** created in the staging PR (#912 follow-up) — owner
+approval + secrets are HITL. Steps:
+
+1. **`infra/neon-secrets/Pulumi.production.yaml`** — mirror `Pulumi.staging.yaml`:
+   - `neonProjectId`: the **same** Neon project (roles are **project-scoped**, not
+     branch-scoped — do not re-create roles; `pulumi up` on a second stack against the same
+     project would try to create them again and Neon rejects duplicate role creates).
+   - `neonBranchId`: the **production** branch (`main` compute).
+   - `cloudflareAccountId` / `secretsStoreId` / `neonApiKey`: see the store question below.
+   - `pulumi stack init production` (passphrase provider, same R2 backend)
+     followed by the **adopt** step: import the four `neon.Role`s by ID so Pulumi owns the
+     passwords without recreating them (`neon-secrets-adopt.sh` pattern; the provider key is
+     fed at import time — import does not execute the stack program).
+2. **Store strategy (HITL, decided before `pulumi up`)** — the account's plan refused a
+   second Secrets Store (`maximum_stores_exceeded`, code 1003), which is why staging
+   imports the account's built-in `default_secrets_store`. Secrets are global per account,
+   so **staging and prod cannot share the same store with the same secret names** (the
+   values differ by branch endpoint/role password):
+   - Preferred: upgrade the account plan (if the limit is plan-bound) and create a
+     **second store for prod**; the stack's `secretsStoreId` config then points there and
+     secret names stay identical (`CATALOG_DATABASE_URL`, `USERS_DATABASE_URL`,
+     `AGENT_DATABASE_URL`, `AGENT_SVC_DATABASE_URL`).
+   - Fallback: keep one store and give prod DSNs distinct names (e.g. `*_PROD` suffix) —
+     the binding `secret_name` in `[env.production]` wrangler blocks then differs from
+     staging. Either way, the prod store secrets are written **once** by Pulumi; verify
+     with the deploy report hash row.
+3. **Apply**: the prod lane of `reusable-deploy-neon-secrets.yml` (needs a `production`
+   environment + owner-approved `pulumi up`, the same shape as
+   `reusable-deploy-component.yml`'s prod lane) — or a manual owner `pulumi up` in the
+   window. Roles reused, DSNs composed against the **main-branch endpoint**.
+4. **Wire prod consumers** (deploy workflow changes, separate PR): add
+   `AGENT_SVC_DATABASE_URL` to the edge Worker's `[env.production.secrets_store_secrets]`
+   and/or CI `worker_secrets`; jobs stays on `AGENT_DATABASE_URL` (jobs_svc). Remove the
+   prod GitHub `*_DATABASE_URL`/`SUPABASE_DB_URL` secrets only after the bindings verify
+   (step 5 of the cutover below).
+
 ## Cutover steps (owner window, HITL — mirror #832)
 
 1. **Prereq: P4 green and stable on staging** (#912: roles exist project-wide once Pulumi ran;
    verify the Pulumi prod stack config points at the same Neon project and reuses the same
-   role names — import, do not recreate, if the stack otherwise diverges).
-2. **Pulumi prod stack up** (`reusable-deploy-component` prod lane / owner-approved apply):
-   confirms prod roles, composes prod DSNs (main-branch endpoint), writes them to the
-   **Secrets Store** for the prod environment. Verify with the deploy report hash row.
+   role names — import, do not recreate, if the stack otherwise diverges). Also verify the
+   **staging agent container** is on `AGENT_SVC_DATABASE_URL` (the #912 follow-up wire) and
+   the old `SUPABASE_DB_URL` staging container value is rotated out of the edge Worker.
+2. **Pulumi prod stack up** (`reusable-deploy-neon-secrets` prod lane / owner-approved
+   apply): confirms prod roles (import, project-scoped), composes prod DSNs (main-branch
+   endpoint), writes them to the **Secrets Store** for the prod environment (store strategy
+   above). Verify with the deploy report hash row.
 3. **First prod Atlas apply** (deploy workflow, `production` environment approval): creates the
    schema in the empty `public` + applies `*_grants.sql` GRANTs. Empty data plane ⇒ this is a
    pure creation, nothing to preserve; soft-baseline decision for the future history squash
