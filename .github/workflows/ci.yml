@@ -280,10 +280,38 @@ jobs:
   # docs/ops/deployment.md): protection for merges comes from the required
   # checks in the repository ruleset instead.
 
+  # push main → staging: neon-secrets roles + Secrets Store DSNs must exist
+  # BEFORE any Worker deploy consumes them (PR2's wrangler.toml bindings will
+  # read the store; #926 CI wiring). Runs first in the staging chain:
+  # deploy-staging (catalog) waits on it, so users/maintenance/root cascade
+  # behind it. Production has no neon-secrets job: the stack is staging-only
+  # today (no Pulumi.prod.yaml, no prod branch roles — #912 follow-up).
+  deploy-neon-secrets-staging:
+    name: Deploy neon-secrets staging
+    needs: [security, ci-cross-stack-e2e]
+    # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
+    # otherwise prepends: a *skipped* upstream propagates through the always()
+    # gates and would silently skip every deploy — the bug that kept staging
+    # undeployed for three runs. Gate failures still block: they surface as
+    # failure(), not skipped.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/reusable-deploy-neon-secrets.yml
+    with:
+      environment: staging
+      pulumi_stack: staging
+    secrets:
+      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    concurrency: deploy-neon-secrets-staging
+
   # push main → staging
   deploy-staging:
     name: Deploy staging
-    needs: [security, ci-cross-stack-e2e]
+    needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()

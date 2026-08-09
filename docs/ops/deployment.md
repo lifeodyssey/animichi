@@ -344,17 +344,43 @@ On a push to `main`, the current promotion chain is:
    and `pulumi_stack: staging`. Accepted tradeoff: staging deploys no longer wait on any package
    pipeline, because GitHub cannot express `needs:` across workflows — protection comes from the
    required merge contexts in the ruleset instead, plus the future merge queue.
-3. `reusable-deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
+3. `deploy-neon-secrets-staging` runs **before** `deploy-staging` (catalog waits on it, so
+   users/maintenance/root cascade behind it): the Neon service roles and the Cloudflare Secrets
+   Store DSN secrets (`infra/neon-secrets/`, ADR 0003 / #912) must exist before any Worker deploy
+   consumes them (PR2's `wrangler.toml` store bindings). It calls the slim
+   `reusable-deploy-neon-secrets.yml` (Pulumi-only — no Worker machinery):
+   `pulumi package add` to generate the gitignored Neon provider SDK (the package.json rewrite
+   that command performs is reverted right after — a `file:` spec it appends to
+   `pnpm.onlyBuiltDependencies` makes pnpm 10.33 reject the project, see the workflow header),
+   a plain frozen `pnpm install` against `infra/neon-secrets/pnpm-lock.yaml` (the SDK's
+   postinstall compiles it; the committed `pnpm-workspace.yaml` allows that build), the #485
+   rollback backup to the same R2 `rollback-backups/` prefix, and `pulumi up` on stack
+   `staging`.
+   **State backend**: R2 (`PULUMI_BACKEND_URL`) + `PULUMI_CONFIG_PASSPHRASE` — the same
+   encrypted backend the `infra/` project uses. A file backend was used for the #926 validation
+   but can never serve CI, and the state holds Neon role passwords + DSNs, so it must stay
+   encrypted at rest. No `NEON_API_KEY` secret exists: the key lives in the committed
+   `Pulumi.staging.yaml` as a passphrase-encrypted `secure:` value, exactly like `infra/`'s
+   stack configs.
+   **First run**: the `staging` stack does not exist on R2 yet, so the job `pulumi stack init`s
+   it (passphrase secrets provider) and runs `.github/scripts/neon-secrets-adopt.sh`, which
+   imports the resources the #926 local file-backend run created (a fresh `up` would try to
+   re-create the roles and the Neon API rejects duplicate creates). Adoption is idempotent and
+   guarded on the stack state; after it, `pulumi up` is a no-change apply.
+   **Production**: deliberately absent from `deploy.yml` and the prod promotion — the stack is
+   staging-only (single branch, no `Pulumi.prod.yaml`); the production stack is a #912
+   follow-up.
+4. `reusable-deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
    repo, runs the shared setup action, applies Atlas migrations when `NEON_DATABASE_URL` is set,
    runs `pulumi up` in `infra/`, deploys `workers/${{ inputs.component }}` with Wrangler, and runs
    the component smoke step.
-4. `deploy-maintenance-staging` deploys the scheduled Worker after the catalog job has applied Atlas
+5. `deploy-maintenance-staging` deploys the scheduled Worker after the catalog job has applied Atlas
    migrations; the web, users, and root staging deploys complete in the same promotion stage.
-5. `post-staging` runs the API post-deploy suite against staging.
-6. `deploy-prod` and the other production component jobs deploy catalog, web, users, maintenance,
+6. `post-staging` runs the API post-deploy suite against staging.
+7. `deploy-prod` and the other production component jobs deploy catalog, web, users, maintenance,
    and root with `environment: production`; `pulumi_stack: prod` remains catalog-only. The GitHub
    `production` environment is the human approval gate.
-7. `post-prod` runs the production smoke post-deploy suite.
+8. `post-prod` runs the production smoke post-deploy suite.
 
 ### Manual production path (`.github/workflows/deploy.yml`)
 
