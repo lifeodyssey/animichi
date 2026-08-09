@@ -115,7 +115,10 @@ Schedules and cutover verification are in
 
 Required:
 
-- `SUPABASE_DB_URL`
+- `AGENT_SVC_DATABASE_URL` **or** `SUPABASE_DB_URL` — the Postgres DSN. Staging supplies
+  the role-scoped Neon DSN (`agent_svc` role) via the edge Worker's Secrets Store binding,
+  forwarded into the container and preferred over `SUPABASE_DB_URL` (which remains the
+  production container DSN until the #855 cutover); see `docs/ops/prod-dsn-cutover.md`.
 - `MIMO_API_KEY` for the primary `mimo-v2.5` model
 - `DEEPSEEK_API_KEY` remains deploy-required and provisioned for the dormant DeepSeek fallback
 - `APP_ENV` — forwarded from `wrangler.toml`'s per-environment `[vars]` block (`development` /
