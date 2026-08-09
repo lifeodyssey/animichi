@@ -297,11 +297,9 @@ jobs:
       environment: staging
       pulumi_stack: staging
       working_directory: workers/catalog
-      worker_secrets: DATABASE_URL
     secrets:
-      # #832: catalog_svc least-privilege DSN; fallback to NEON_DATABASE_URL
-      # (owner DSN) in the reusable until provisioned. Staging only.
-      CATALOG_DATABASE_URL: ${{ secrets.CATALOG_DATABASE_URL }}
+      # #912 PR2: the staging DSN now arrives via the wrangler.toml Secrets
+      # Store binding — no DATABASE_URL upload, no CATALOG_DATABASE_URL secret.
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
@@ -358,12 +356,10 @@ jobs:
       working_directory: workers/users
       run_pulumi: false
       worker_secrets: |
-        DATABASE_URL
         NEON_AUTH_JWKS_URL
     secrets:
-      # #832: users_svc least-privilege DSN; fallback to owner DSN until
-      # provisioned. Staging only.
-      USERS_DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}
+      # #912 PR2: the staging DSN now arrives via the wrangler.toml Secrets
+      # Store binding — no DATABASE_URL upload, no USERS_DATABASE_URL secret.
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
@@ -382,9 +378,9 @@ jobs:
       pulumi_stack: staging
       working_directory: workers/jobs
       run_pulumi: false
-      worker_secrets: AGENT_DATABASE_URL
     secrets:
-      AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+      # #912 PR2: the staging DSN arrives via the wrangler.toml Secrets Store
+      # binding — no AGENT_DATABASE_URL upload, no GH secret pass-through.
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     concurrency: deploy-maintenance-staging

@@ -59,7 +59,7 @@ describe("maintenance deployment configuration", () => {
 
   it("drops the staging maintenance GH-secret pass-through from CI", () => {
     const stagingJob =
-      ciWorkflow.match(/deploy-maintenance-staging:[\s\S]*?concurrency: deploy-maintenance-staging/)?.[0] ??
+      /deploy-maintenance-staging:[\s\S]*?concurrency: deploy-maintenance-staging/.exec(ciWorkflow)?.[0] ??
       "";
     expect(stagingJob).not.toContain("AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}");
     expect(stagingJob).not.toContain("worker_secrets");
