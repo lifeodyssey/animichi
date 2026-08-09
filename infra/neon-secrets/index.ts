@@ -58,8 +58,16 @@ const neonProvider = new neon.Provider("neon", {
 
 // Role -> staging secret mapping (#832): the secrets carry the same names the
 // deploy chain passes to `wrangler secret put` today, so PR2 only needs to
-// swap the source of the value. agent_svc gets no DSN yet — the agent
-// container still connects via SUPABASE_DB_URL (follow-up in #912).
+// swap the source of the value.
+//
+// agent_svc DSN (#912 follow-up): the agent is a CONTAINER, not a Worker, so
+// it has no Secrets Store binding of its own — the edge Worker binds
+// AGENT_SVC_DATABASE_URL and `buildContainerEnvVars` (workers/edge/src/
+// container/container-env.ts) forwards it into the container env. The store
+// secret is named AGENT_SVC_DATABASE_URL, NOT AGENT_DATABASE_URL: that name
+// is already claimed in this store by jobs_svc (the maintenance Worker's
+// binding), and store secret names are unique per store — a second secret
+// with the same name cannot exist.
 const roleDefs: { name: string; secretName?: string; comment: string }[] = [
   {
     name: "catalog_svc",
@@ -78,7 +86,8 @@ const roleDefs: { name: string; secretName?: string; comment: string }[] = [
   },
   {
     name: "agent_svc",
-    comment: "agent data-plane role; no DSN yet — agent connects via SUPABASE_DB_URL (#912 follow-up)",
+    secretName: "AGENT_SVC_DATABASE_URL",
+    comment: "agent container data-plane role DSN (staging; edge Worker binding, forwarded to the container via CONTAINER_ENV_KEYS — replaces SUPABASE_DB_URL once deployed)",
   },
 ];
 

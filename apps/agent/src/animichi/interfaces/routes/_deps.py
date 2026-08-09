@@ -322,9 +322,11 @@ def _http_status_for_response(response: PublicAPIResponse) -> int:
 
 
 def build_supabase_client(settings: Settings) -> SupabaseClient:
-    dsn = settings.supabase_db_url.strip()
+    dsn = settings.database_url.strip()
     if not dsn:
-        raise RuntimeError("SUPABASE_DB_URL is required to run the HTTP service.")
+        raise RuntimeError(
+            "AGENT_SVC_DATABASE_URL or SUPABASE_DB_URL is required to run the HTTP service."
+        )
     return SupabaseClient(dsn)
 
 
