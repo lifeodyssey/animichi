@@ -48,6 +48,7 @@ jobs:
 
   security:
     name: Security
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     uses: ./.github/workflows/reusable-security.yml
     # Caller ceiling for the reusable: its gitleaks job declares
     # `pull-requests: read` at job level, and a reusable job cannot request
@@ -75,6 +76,7 @@ jobs:
 
   agent-eval-smoke:
     timeout-minutes: 45
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     name: Agent Eval (L0 smoke, ~80 cases)
     runs-on: ubuntu-latest
     permissions:
@@ -270,6 +272,7 @@ jobs:
       contents: read
       pull-requests: read
     uses: ./.github/workflows/reusable-cross-stack-e2e.yml
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
 
   # ── Stage 3: Deploy (security/hygiene gated, push-main promotion path) ──
   # Promotion: push main → CI → staging → post-staging (api) → prod (human gate) → post-prod.
