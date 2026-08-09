@@ -27,7 +27,7 @@ for f in \
   workers/edge/CONTEXT.md \
   apps/web/CONTEXT.md \
   packages/contract/CONTEXT.md \
-  workers/maintenance/CONTEXT.md
+  workers/jobs/CONTEXT.md
 do
   require_file "$f"
 done
