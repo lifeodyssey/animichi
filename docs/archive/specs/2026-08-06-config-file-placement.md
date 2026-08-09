@@ -50,7 +50,8 @@
 | `.pre-commit-config.yaml` | **根** | pre-commit 默认根配置 |
 | `.sonarcloud.properties` | **根** | Sonar Automatic Analysis 要求/惯例在根 |
 | `codecov.yml` | **根** | Codecov 仓级 flag/门禁 |
-| `.sqlfluff` · `.semgrepignore` · `.codacy.yml` | **根** | 仓级静态分析入口 |
+| `db/.sqlfluff` | **`db/`** | 仓级静态分析入口 — **已落地 #911**:`.sqlfluff` → `db/`，CI 用 `--config` 显式指定（见 `docs/specs/2026-08-08-repo-closeout-spec.md` P3） |
+| `.semgrepignore` · `.codacy.yml` | **根** | 仓级静态分析入口 |
 | `.env.example` · `.env.test.example` | **根** 或拆 | 跨服务本地变量总表可留根；**单包** 用 `apps/web/.env.example` |
 | `.github/**` | **根下** | CI/CD、模板、actions — 永不沉到 workers |
 

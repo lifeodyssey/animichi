@@ -24,7 +24,7 @@ from animichi.clients.catalog_client import (
 )
 from animichi.clients.errors import APIError
 
-VISION_FIXTURES = Path(__file__).resolve().parents[6] / "fixtures" / "vision"
+VISION_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "vision"
 YOURNAME_FIXTURE = VISION_FIXTURES / "yourname_screenshot.jpg"
 LANDSCAPE_FIXTURE = VISION_FIXTURES / "unknown_landscape.jpg"
 

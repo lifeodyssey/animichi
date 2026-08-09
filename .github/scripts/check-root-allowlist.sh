@@ -34,6 +34,7 @@ ALLOWED_ROOT_ENTRIES=(
   README.zh.md
   apps
   codecov.yml
+  db
   docker
   docs
   e2e

@@ -210,9 +210,12 @@ jobs:
       # execution); --no-binary-package animichi exempts the project's own
       # wheel-less editable install, which blanket --no-build rejects (uv #17416).
       - run: uv sync --frozen --all-extras --no-build --no-binary-package animichi
-      # .sqlfluff config lives at repo root; lint the schema dirs we own.
+      # #911: .sqlfluff config lives at db/ (not an ancestor of
+      # migrations/neon, so explicit --config is required — sqlfluff only
+      # discovers config by walking up from the lint target); lint the schema
+      # dirs we own.
       - name: Lint migrations (postgres dialect)
-        run: uv run --frozen --no-build --no-binary-package animichi sqlfluff lint ../../migrations/neon --dialect postgres
+        run: uv run --frozen --no-build --no-binary-package animichi sqlfluff lint ../../migrations/neon --dialect postgres --config ../../db/.sqlfluff
 
   # ── Deploy-gate script tests ─────────────────────────────────
 
