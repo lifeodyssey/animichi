@@ -86,6 +86,7 @@ The flag is one config line: set `webRoutesEnabled false`, merge, re-apply via
 ### 1. SEO verification script (this repo, re-runnable, read-only)
 
 ```bash
+# from the repo root (the activation steps above ran from infra/ — cd .. first)
 bash scripts/verify-prod-seo.sh
 ```
 
