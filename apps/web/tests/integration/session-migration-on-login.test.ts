@@ -139,7 +139,7 @@ describe("a login drives the session-migration endpoint end to end", () => {
 describe("the posted path is the one the edge routes on", () => {
   it("matches workers/edge/identity/session-migrate.ts's SESSION_MIGRATE_PATH literal", () => {
     const edge = readFileSync(
-      resolve(import.meta.dirname, "../../../../workers/edge/identity/session-migrate.ts"),
+      resolve(import.meta.dirname, "../../../../workers/edge/src/identity/session-migrate.ts"),
       "utf8",
     );
     expect(edge).toContain(`export const SESSION_MIGRATE_PATH = "${SESSION_MIGRATE_PATH}"`);
