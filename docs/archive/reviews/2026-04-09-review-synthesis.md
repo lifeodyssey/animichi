@@ -1,13 +1,13 @@
 # 2026-04-09 Architecture Review Synthesis
 
 **Date:** 2026-04-09
-**Scope:** Consolidated synthesis of completed 2026-04-09 review reports under `docs/superpowers/reviews/`
+**Scope:** Consolidated synthesis of completed 2026-04-09 review reports under `docs/archive/reviews/`
 **Sources included:**
-- `docs/superpowers/reviews/2026-04-09-eng-review-solid-refactor.md`
-- `docs/superpowers/reviews/2026-04-09-distill-simplification.md`
-- `docs/superpowers/reviews/2026-04-09-design-patterns-review.md`
-- `docs/superpowers/reviews/2026-04-09-plan-eng-review-backend.md`
-- `docs/superpowers/reviews/2026-04-09-plan-eng-review-frontend.md`
+- `docs/archive/reviews/2026-04-09-eng-review-solid-refactor.md`
+- `docs/archive/reviews/2026-04-09-distill-simplification.md`
+- `docs/archive/reviews/2026-04-09-design-patterns-review.md`
+- `docs/archive/reviews/2026-04-09-plan-eng-review-backend.md`
+- `docs/archive/reviews/2026-04-09-plan-eng-review-frontend.md`
 
 ---
 

@@ -280,4 +280,4 @@ Total: **16 cards across 4 waves.** Waves 1 and 2 may overlap in scheduling once
 
 ## Output / File Path
 
-Spec: `docs/superpowers/specs/2026-05-31-animal-island-full-redesign.md`
+Spec: `docs/archive/specs/2026-05-31-animal-island-full-redesign.md`

@@ -168,7 +168,7 @@
   <img src="assets/torii.svg" alt="">
   <div>
     <h1>路線詳情 状態総覧 — /routes/:id（Route 的家）</h1>
-    <p><b>三时态＝同一页随旅程变形</b>（数据驱动，非 tab）：預習（しおり共有·计划版）→ 現場入口（歩くモード）→ 記念（しおりを作る·完走版+pair grid）。金 CTA 每态唯一。編集不在本页——跳 Chat A2b 引用态。桌面＝左 760 内容+右 320 sticky QR rail（登录卖点：把路线带去旅途）。spec 存档：<a href="docs/spec-route-detail.md">docs/spec-route-detail.md</a></p>
+    <p><b>三时态＝同一页随旅程变形</b>（数据驱动，非 tab）：預習（しおり共有·计划版）→ 現場入口（歩くモード）→ 記念（しおりを作る·完走版+pair grid）。金 CTA 每态唯一。編集不在本页——跳 Chat A2b 引用态。桌面＝左 760 内容+右 320 sticky QR rail（登录卖点：把路线带去旅途）。spec 存档：<a href="docs/archive/design-sync/docs/spec-route-detail.md">docs/archive/design-sync/docs/spec-route-detail.md</a></p>
   </div>
   <div class="toplinks">
     <a href="Walk 状态总览.html">Walk（現場入口的去向）</a>
@@ -411,7 +411,7 @@
 
   /* RULE */
   var rules=document.createElement('div'); rules.className='frame w2';
-  rules.innerHTML='<div class="fhead"><span class="fc">RULE</span><b>三时态规则 — spec 已存档 docs/spec-route-detail.md</b><span></span></div>'
+  rules.innerHTML='<div class="fhead"><span class="fc">RULE</span><b>三时态规则 — spec 已存档 docs/archive/design-sync/docs/spec-route-detail.md</b><span></span></div>'
     +'<div style="display:flex;flex-direction:column;gap:9px;">'
     +'<div style="display:flex;gap:10px;align-items:flex-start;background:var(--content);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12px;line-height:1.6;font-weight:700;color:var(--ink-body);"><span style="flex:none;width:18px;height:18px;border-radius:50%;background:#2c2722;color:#ffd76a;font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:2px;">1</span><div><b>时态＝数据驱动，非 tab</b>：date==today && 進行中→現場；100%→記念；其余→預習。页面跟着旅程变形，用户永不手动切</div></div>'
     +'<div style="display:flex;gap:10px;align-items:flex-start;background:var(--content);border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font-size:12px;line-height:1.6;font-weight:700;color:var(--ink-body);"><span style="flex:none;width:18px;height:18px;border-radius:50%;background:#2c2722;color:#ffd76a;font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;margin-top:2px;">2</span><div><b>金 CTA 分配</b>：預習＝しおり共有（计划版）· 現場＝歩くモードを開く（scene-cut 进 Walk）· 記念＝しおりを作る（完走版）——每态唯一</div></div>'

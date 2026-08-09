@@ -71,7 +71,7 @@ Suggested dependency order: S4.5 (share-token enabler) / S4.7 (R2 enabler) can g
 
 **Scope** (**revised**: the earlier version's spec, written against `user-journey.md` §6.6's "9:16 portrait satori+resvg しおり visual," has been superseded by the SD-27 landing package — the authoritative spec is now the standard **1200×630** OG size, with copy localized per page language and artifacts cached in R2; the technology choice — Satori-family `workers-og` vs. CF Images — is left to the executor, not locked in). This iteration delivers the **shared dynamic-OG rendering infrastructure**; the first concrete template is the `/s/:id` share page (route thumbnail + completed-stop count). The anime-page template (cover + spot count + frame-comparison collage) isn't built until `/anime/:id` ships in iteration 5 — this story's rendering pipeline leaves a pluggable template-registration mechanism for `iter-5.md` (S5.1) to plug its concrete template into (not rebuild the pipeline).
 
-**Design basis**: `docs/superpowers/specs/2026-07-06-seo-geo-plan.md` §4 "sitemap system + new-title SLA + dynamic OG"; iteration 0's static OG (S0.8) is the fallback — this story adds a dynamic layer on top of it, not a replacement.
+**Design basis**: `docs/archive/specs/2026-07-06-seo-geo-plan.md` §4 "sitemap system + new-title SLA + dynamic OG"; iteration 0's static OG (S0.8) is the fallback — this story adds a dynamic layer on top of it, not a replacement.
 
 **Core AC**:
 - Happy path: requesting the OG-image endpoint for a completed route returns a valid 1200×630 PNG showing the route thumbnail + completed-stop count, with copy rendered in the requested page's language -> integration

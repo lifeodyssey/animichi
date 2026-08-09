@@ -59,8 +59,8 @@ data/raw/
 *.html
 !templates/*.html
 !supabase/templates/*.html
-!docs/mockups/**/*.html
-!docs/design/**/*.html
+!docs/archive/mockups-demo/**/*.html
+!docs/archive/design-sync/**/*.html
 
 # QA/debug screenshots dumped at repo root (root-level only; docs/ assets unaffected)
 /*.png
@@ -119,13 +119,9 @@ node_modules
 .context/
 
 # Large design-probe / mockup image artifacts (kept on disk, not in git)
-docs/design/redesign-probes/
 docs/mockups/*
-docs/mockups/previous-design-contact-sheet.jpg
-!docs/mockups/review-boards/
-!docs/mockups/review-boards/**
-!docs/mockups/landing-hero/
-!docs/mockups/landing-hero/**
+!docs/mockups/mobile-fox-home-assets/
+!docs/mockups/mobile-fox-home-assets/**
 backend/tests/eval/results/agent_openai-mimo-*
 *.tsbuildinfo
 

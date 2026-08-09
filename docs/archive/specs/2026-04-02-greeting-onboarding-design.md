@@ -4,8 +4,8 @@
 **Status:** Design confirmed, implemented (see `greet_user` + frontend empty state)
 **Type:** Focused feature spec
 **Related canonical specs:**
-- `docs/superpowers/specs/2026-03-31-seichijunrei-redesign-design.md`
-- `docs/superpowers/specs/2026-04-01-frontend-memory-arch.md`
+- `docs/archive/specs/2026-03-31-seichijunrei-redesign-design.md`
+- `docs/archive/specs/2026-04-01-frontend-memory-arch.md`
 
 ---
 > **Update (2026-04-03):** The `greet_user` path and a more guided empty state have landed. Treat this spec as rationale; confirm exact UX copy and component behavior in `frontend/` + `interfaces/public_api.py`.

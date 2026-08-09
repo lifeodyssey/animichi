@@ -5,7 +5,7 @@
 - Date: 2026-08-06
 - Package: `workers/users`（TS Cloudflare Worker · Hono · oRPC · Neon）
 - Language: ADR-0002 · greenfield 总表 · `workers/users/CONTEXT.md`
-- Parent: `docs/superpowers/specs/2026-08-06-monorepo-target-layout.md`
+- Parent: `docs/specs/2026-08-06-monorepo-target-layout.md`
 - Siblings: [Catalog ACCEPTED](./2026-08-06-catalog-clean-architecture-design.md) · [Agent ACCEPTED](./2026-08-06-agent-clean-architecture-design.md) · [Greenfield 总表](./2026-08-06-greenfield-language-and-data-plane.md)
 - Tier: **Thin**（monorepo §4.3 LOCKED 默认）— 不硬套 Full 四层空壳
 - Accepted: U1–U7（核心）；§0.3 仍为后续设计队列

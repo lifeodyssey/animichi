@@ -2,7 +2,7 @@
 
 ## Context
 
-Parent spec: `docs/superpowers/specs/2026-04-07-full-stack-refactor-design.md`
+Parent spec: `docs/archive/specs/2026-04-07-full-stack-refactor-design.md`
 
 The full-stack refactor (Phases 1-2) landed successfully: FastAPI adapter live, aiohttp removed, supabase client decomposed into 7 repositories, executor handlers extracted. However, three areas remain incomplete:
 

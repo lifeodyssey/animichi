@@ -1,6 +1,6 @@
 # Animal Island Full Redesign — Wave Plan (Coordinator)
 
-Spec: `docs/superpowers/specs/2026-05-31-animal-island-full-redesign.md` (16 cards, 62 ACs)
+Spec: `docs/archive/specs/2026-05-31-animal-island-full-redesign.md` (16 cards, 62 ACs)
 Branch: `feat/ssr-cloudflare` (worktree `.claude/worktrees/ssr-migration/`)
 
 ## Execution model (Coordinator decisions)

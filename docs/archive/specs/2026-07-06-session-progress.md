@@ -22,11 +22,11 @@
 ## 二、权威文件(引用,勿复制)
 
 - **worktree**:`.claude/worktrees/frontend-rebuild`(分支 `feat/frontend-rebuild`,基于 main `02cd7fa`)
-- **输入总账**:`docs/superpowers/specs/2026-07-06-frontend-rebuild-inputs.md` —— 决策登记册 G1-G8、默认项、用户附加 scope、迭代列车 0-7、三路盘点报告 A/B/C、第六~十一节 X1-X15 + SD-1~24 + 飞轮运行手册。**这是唯一权威输入**。
-- **主 spec**:`docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md`(Planner 产出 399 行)
-- **迭代 spec**:`docs/superpowers/specs/2026-07-06-frontend-rebuild/iter-0.md ~ iter-7.md`(67 story,289 AC,覆盖矩阵 24 html)
-- **域名调研**:`docs/superpowers/specs/2026-07-06-domain-research.md`
-- **设计导出**:`docs/design/2026-07-06-design-sync/`(Tester 视觉 oracle;5 份权威 md:user-journey/DESIGN/spec-chat-page-states/spec-chat-page-design/spec-route-detail)
+- **输入总账**:`docs/specs/2026-07-06-frontend-rebuild-inputs.md` —— 决策登记册 G1-G8、默认项、用户附加 scope、迭代列车 0-7、三路盘点报告 A/B/C、第六~十一节 X1-X15 + SD-1~24 + 飞轮运行手册。**这是唯一权威输入**。
+- **主 spec**:`docs/specs/2026-07-06-frontend-rebuild-spec.md`(Planner 产出 399 行)
+- **迭代 spec**:`docs/specs/2026-07-06-frontend-rebuild/iter-0.md ~ iter-7.md`(67 story,289 AC,覆盖矩阵 24 html)
+- **域名调研**:`docs/archive/specs/2026-07-06-domain-research.md`
+- **设计导出**:`docs/archive/design-sync/`(Tester 视觉 oracle;5 份权威 md:user-journey/DESIGN/spec-chat-page-states/spec-chat-page-design/spec-route-detail)
 
 ⚠️ **Planner 的 9 个 spec 文件写于 SD 讨论早期**,SD-13~24 大量决策是之后定的,**需在评审阶段统一回填**(见任务 #5)。inputs 文件是最新真相,spec 文件滞后。
 
@@ -97,7 +97,7 @@ OpenAPI 单一真源 + 四壳薄适配;顺序 Skill→MCP(FastMCP.from_openapi)�
 
 **当前在飞(2026-07-06 ~21:30 发车),共 4 个后台代理**:
 1. **Reviewer(Fable5)**:9 spec 全审(Quality Ratchet 计数/releasable/SD 一致性/C2 重点/**详细度热力图** full-adequate-thin + iter-0/1 thin 清单/翻译抽查)→ 返回文本报告
-2. **Codex 二审**:错位视角(AC 可测性/依赖图断链/跨文件矛盾/冻结项泄漏/数字一致性)→ **增量写入 docs/superpowers/specs/2026-07-06-review-codex.md**(防崩纪律)
+2. **Codex 二审**:错位视角(AC 可测性/依赖图断链/跨文件矛盾/冻结项泄漏/数字一致性)→ **增量写入 docs/archive/specs/2026-07-06-review-codex.md**(防崩纪律)
 3. **规范审计**(sonnet):存活代码(apps/agent/workers/packages/worker,排除 frontend/)的 CLAUDE.md 规范违反 + 已知债核对 → 分级重构 backlog P0/P1/P2
 4. **轮子审查**(高配):"不该自己写"逐依赖检测(union-find vs ST_ClusterDBSCAN 等)+ 跨 worktree 漂移(backend/ 旧 vs apps/agent/ 新)→ quick-win/story 级清单
 

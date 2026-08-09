@@ -161,7 +161,7 @@ Suggested dependency order: S3.7 (check-in table, can start independently) → S
 - If the sprite sheet fails to load (404), falls back to the existing single-frame `fox-trot.svg`, not a broken image -> browser
 - **User sign-off required (G8 mandatory manual AC)**: generated assets are only considered done once the user has reviewed and signed off on them -> browser (manual verification)
 
-**Changed files**: `docs/design/2026-07-06-design-sync/assets/fox/fox-walk-sheet.png` (or 8 separate PNGs), `apps/web/src/styles/fox-animation.css`, `apps/web/src/components/transitions/GraduationTransition.tsx` (wiring, reuses S3.1).
+**Changed files**: `docs/archive/design-sync/assets/fox/fox-walk-sheet.png` (or 8 separate PNGs), `apps/web/src/styles/fox-animation.css`, `apps/web/src/components/transitions/GraduationTransition.tsx` (wiring, reuses S3.1).
 
 **Dependencies**: none (asset production can run in parallel); consumed by S3.1, S0.7.
 
@@ -187,7 +187,7 @@ Suggested dependency order: S3.7 (check-in table, can start independently) → S
 
 **Attribution check (backfilled from SD-3④, pending Coordinator ruling at the time this was written)**: SD-3④'s original text names three categories of existing data to migrate together — "sessions / messages / routes." Sessions (`sessions`) are already covered by Iteration 2's S2.9; messages (`conversation_messages`) are this story. But whether pre-migration "routes" history data exists in production (distinct from the route-save/list *feature* Iteration 2 builds fresh) had no corresponding explicit migration story visible in iter-2.md/iter-3.md at the time. `supabase/migrations/` does confirm pre-existing route-related tables (`20260402124000_operational_tables.sql`, etc.), so this migration item may have been a genuine gap rather than "nothing to migrate." This file does not overstep into modifying iter-2.md; it only records the open question here, for whichever Coordinator schedules that iteration to verify whether an S2.x/S3.x-level routes migration story needs to be added.
 
-**Update (this patch round)**: this question is no longer open. Per the ✅ ruling in `docs/superpowers/specs/2026-07-06-backfill-conflicts.md` (C1 = option a), any pre-existing `routes` rows get folded into S2.9's migration script as one added line — no separate story is opened for it. Landing that line inside S2.9's script is iter-2.md's owner's responsibility; this file's content otherwise stands unchanged.
+**Update (this patch round)**: this question is no longer open. Per the ✅ ruling in `docs/archive/specs/2026-07-06-backfill-conflicts.md` (C1 = option a), any pre-existing `routes` rows get folded into S2.9's migration script as one added line — no separate story is opened for it. Landing that line inside S2.9's script is iter-2.md's owner's responsibility; this file's content otherwise stands unchanged.
 
 ---
 

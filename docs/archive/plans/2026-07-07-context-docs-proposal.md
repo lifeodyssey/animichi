@@ -322,7 +322,7 @@ content that would already be wrong if an earlier step is skipped.
 - **Breaking type/SDK renames** — `SeichijunreiClient`, `@seichijunrei/contract`. A package
   or class rename is a separate, larger decision with its own blast radius; not bundled
   into a docs-organization change.
-- **Rewriting `docs/superpowers/plans/*.md` / `docs/superpowers/specs/*.md`** — these are
+- **Rewriting `docs/archive/plans/*.md` / `docs/specs/*.md`** — these are
   dated, point-in-time artifacts (already good practice per `DOCS_POLICY.md` rule 5:
   "Planning docs may contain process detail; README and architecture docs should not").
   They document decisions *as of* their timestamp and should not be retroactively edited
@@ -394,12 +394,12 @@ pre-rename world**:
 The genuinely authoritative architecture now lives in two dated specs, in an **authority
 layering** the tables don't capture:
 
-- **`docs/superpowers/specs/2026-06-13-architecture-adr.md`** — the foundational ADR: data
+- **`docs/specs/2026-06-13-architecture-adr.md`** — the foundational ADR: data
   platform as the core, the Catalog-from-Agent split, DB-per-service, and the framework
   picks (Hono / oRPC / Drizzle / AI SDK v5 / Workflows / MapLibre+Protomaps / Evalite /
   Logfire-CF). Its *decision-two* ("全 TS on Workers", i.e. rewrite the agent to TS) was
   **later refined**: the agent stays Python.
-- **`docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md`** — the latest and most
+- **`docs/specs/2026-07-06-frontend-rebuild-spec.md`** — the latest and most
   complete current-target doc. **SD-4 / D7 REJECTED the agent TS-rewrite as final** — the
   containerized Python PydanticAI agent is the permanent shape. It adds a third TS service
   (`workers/users`, Neon+Drizzle), the `apps/web` TanStack rebuild, Neon-data/Supabase-auth
@@ -415,8 +415,8 @@ live in **one** place (see v2.1.5), replacing both drifted copies.
 
 | Topic | Current source of truth | Notes / was |
 |---|---|---|
-| **Why** the architecture is shaped this way | `docs/superpowers/specs/2026-06-13-architecture-adr.md` | Foundational ADR. Decision-two ("全 TS") refined by SD-4/D7 below |
-| **Current target** architecture (hybrid, latest) | `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md` | Latest; supersedes ADR on agent language; rebuild in progress (iter 0-7) |
+| **Why** the architecture is shaped this way | `docs/specs/2026-06-13-architecture-adr.md` | Foundational ADR. Decision-two ("全 TS") refined by SD-4/D7 below |
+| **Current target** architecture (hybrid, latest) | `docs/specs/2026-07-06-frontend-rebuild-spec.md` | Latest; supersedes ADR on agent language; rebuild in progress (iter 0-7) |
 | Live agent runtime call-path (reference) | `docs/ARCHITECTURE.md` **(needs refresh — v2.1.3)** + `apps/agent/agent/agents/pilgrimage_runner.py` | Runtime is still Python & live; the doc's *paths* + *frontend* section are stale |
 | Agent entry | `apps/agent/agent/interfaces/fastapi_service.py` → `public_api.py` → `agents/pilgrimage_runner.py` | was `backend/interfaces/…` / `agent/interfaces/…` |
 | Agent shared types | `apps/agent/agent/agents/models.py`, `…/agent_result.py` | was `backend/agents/…` |
@@ -526,8 +526,8 @@ service) + a TanStack web app (rebuild in progress). Data plane = Neon; auth = S
 - **No local deploy** — CI/CD only (hook `block-local-deploy`). staging = merge to main; prod = tag `v*`.
 
 ## Authoritative docs (read when doing the matching work)
-- Architecture WHY → `docs/superpowers/specs/2026-06-13-architecture-adr.md`
-- Current TARGET → `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md`
+- Architecture WHY → `docs/specs/2026-06-13-architecture-adr.md`
+- Current TARGET → `docs/specs/2026-07-06-frontend-rebuild-spec.md`
 - Live runtime reference → `docs/ARCHITECTURE.md`
 - Deploy runbook → `docs/ops/deployment.md`
 - Single Source-of-Truth table + doc rules → `docs/DOCS_POLICY.md`

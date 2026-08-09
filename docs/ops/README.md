@@ -15,7 +15,7 @@ Current canonical docs:
 - `cloudflare-hardening.md` — WAF rate limiting, prompt-injection filtering, rollback for edge rules, container-level egress network policy (#284 Task 7)
 - `secrets.md` — repository/environment secret inventory, consumers, rotation impact
 - `integration.md` — single source for env/secrets layout, domain topology, data path, deploy chain, local dev
-- `maintenance-worker.md` — scheduled maintenance Worker schedules and cutover checks
+- `jobs-worker.md` — scheduled maintenance Worker schedules and cutover checks
 - `anonymous-session-purge.md` — scheduled anonymous-session retention sweep (cron cadence, required secret, reading a run)
 - `auth-migration-neon.md` — Neon Auth (Better Auth) cutover runbook (flag-gated; Supabase still verifies today)
 - `neon-test-infra.md` · `neon-local-spike-findings.md` — Neon test-base / local proxy operator notes

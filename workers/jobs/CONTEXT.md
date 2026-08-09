@@ -4,7 +4,7 @@ Scheduled retention jobs for agent-domain Neon data. **No pilgrimage domain.**
 
 Target path: `workers/jobs` (renamed from `workers/maintenance` in #836).
 
-Design: `docs/superpowers/specs/2026-08-06-jobs-worker-structure-design.md`
+Design: `docs/specs/2026-08-06-jobs-worker-structure-design.md`
 
 ## Domain model?
 

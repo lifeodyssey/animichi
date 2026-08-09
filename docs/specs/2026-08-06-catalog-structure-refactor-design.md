@@ -4,8 +4,8 @@
 - Date: 2026-08-06
 - Package: `workers/catalog` (+ rename notes for `packages/contract` types **already consumed**)
 - Parents:
-  - `docs/superpowers/specs/2026-08-06-catalog-clean-architecture-design.md` (ACCEPTED CA target)
-  - `docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md` (Point / Bangumi / Itinerary)
+  - `docs/specs/2026-08-06-catalog-clean-architecture-design.md` (ACCEPTED CA target)
+  - `docs/specs/2026-08-06-greenfield-language-and-data-plane.md` (Point / Bangumi / Itinerary)
 - Scope lock: **only** catalog internal structure (move files/functions, simplify, SOLID / 1-10-50).
   **Not** edge / web / maintenance / monorepo root. **Not** new product features.
 
@@ -517,8 +517,8 @@ Structure refactor is done when:
 
 | Doc | Role |
 |---|---|
-| `docs/superpowers/specs/2026-08-06-catalog-clean-architecture-design.md` | CA target, ports, P1–P6 |
-| `docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md` | Language + tables |
+| `docs/specs/2026-08-06-catalog-clean-architecture-design.md` | CA target, ports, P1–P6 |
+| `docs/specs/2026-08-06-greenfield-language-and-data-plane.md` | Language + tables |
 | `workers/catalog/CONTEXT.md` | BC language ownership |
 | `workers/catalog/AGENTS.md` | Commands, workerd SQL rules (update after moves) |
 | `packages/contract` | Wire SoT for renames catalog already implements |

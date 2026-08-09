@@ -35,9 +35,9 @@ done
 require_grep workers/edge/CONTEXT.md 'no pilgrimage domain|Does not own|Gateway'
 require_grep apps/web/CONTEXT.md 'no.*src/domain|Does not own|no.*domain'
 
-require_file docs/superpowers/specs/2026-08-06-monorepo-target-layout.md
-require_file docs/superpowers/specs/2026-08-06-structure-refactor-index.md
-require_file docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md
+require_file docs/specs/2026-08-06-monorepo-target-layout.md
+require_file docs/specs/2026-08-06-structure-refactor-index.md
+require_file docs/specs/2026-08-06-greenfield-language-and-data-plane.md
 require_file docs/adr/0002-published-language-point-bangumi-itinerary.md
 
 echo "OK: skeleton W0 doc structure"

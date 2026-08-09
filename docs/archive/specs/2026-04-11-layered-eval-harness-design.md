@@ -2,7 +2,7 @@
 
 ## Context
 
-The original design spec (`docs/superpowers/specs/2026-04-10-layered-eval-architecture-design.md`) proposed a 4-layer eval pyramid for the Seichijunrei ReAct agent. That spec is DRAFT with 0% implementation. This harness-compliant spec rewrites it with mandatory AC categories, test type annotations, and a concrete task breakdown suitable for the Coordinator to plan execution.
+The original design spec (`docs/archive/specs/2026-04-10-layered-eval-architecture-design.md`) proposed a 4-layer eval pyramid for the Seichijunrei ReAct agent. That spec is DRAFT with 0% implementation. This harness-compliant spec rewrites it with mandatory AC categories, test type annotations, and a concrete task breakdown suitable for the Coordinator to plan execution.
 
 **Current state:** One eval layer exists (`backend/tests/eval/test_plan_quality.py`) running 163 cases through the full `run_pipeline()` path with a testcontainer DB. It takes 1-2 hours, burns model quota, and provides no isolation between intent classification, planner reasoning, executor dispatch, and database failures. The existing baseline (`baselines/gemini-2.5-pro.json`) shows StepsMatch at 45%, IntentMatch at 60%, Outcome at 37%, Efficiency at 88%.
 

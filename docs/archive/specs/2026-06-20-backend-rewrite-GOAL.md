@@ -14,8 +14,8 @@
 ## 1. 权威文档(冲突时优先级从高到低)
 
 1. 系统设计:`/Users/lumimamini/.claude/plans/pure-percolating-wadler.md`(已与用户对齐,最高准绳)
-2. ADR 决策一:`docs/superpowers/specs/2026-06-13-architecture-adr.md`(职责架构,栈无关)
-3. 迁移地图:`docs/superpowers/specs/2026-06-20-backend-legacy-migration-map.md`
+2. ADR 决策一:`docs/specs/2026-06-13-architecture-adr.md`(职责架构,栈无关)
+3. 迁移地图:`docs/archive/specs/2026-06-20-backend-legacy-migration-map.md`
 4. 领域细节:series-aware(`2026-04-27-*`)、route-planning(`2026-04-28-*`)、agent(`2026-04-08-*`)
 
 > ADR 决策二(TS on Workers)= **OUT(搁置)**。任何 TS/Workers/Hono/Drizzle/Wrangler 内容都不实现。

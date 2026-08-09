@@ -38,7 +38,7 @@
 - `backend/tests/unit/test_response_builder.py` — update for non-lossy stage payload behavior
 - `backend/tests/unit/repositories/test_bangumi_repo.py` — add richer title lookup coverage
 - `backend/tests/eval/baselines/*.json` — new baseline entry for runtime journey eval
-- `docs/superpowers/specs/2026-04-22-backend-frontend-journey-contract-design.md` — already updated; use as source of truth only, no further changes in execution phase unless implementation proves spec gap
+- `docs/archive/specs/2026-04-22-backend-frontend-journey-contract-design.md` — already updated; use as source of truth only, no further changes in execution phase unless implementation proves spec gap
 
 ### Legacy runtime files to deprecate from main path
 - `backend/agents/planner_agent.py`
@@ -1001,7 +1001,7 @@ git commit -m "test: lock runtime journey baselines"
 - Nearby metadata names are consistent: `radius_m`, `nearby_groups`, `cover_url`, `closest_distance_m`.
 - Route metadata names are consistent: `cover_url`, `anime_title`, `anime_title_cn`, `timed_itinerary`.
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-23-pydanticai-runtime-journey-alignment.md`. Two execution options:
+Plan complete and saved to `docs/archive/plans/2026-04-23-pydanticai-runtime-journey-alignment.md`. Two execution options:
 
 1. Subagent-Driven (recommended) - I dispatch a fresh subagent per task, review between tasks, fast iteration
 

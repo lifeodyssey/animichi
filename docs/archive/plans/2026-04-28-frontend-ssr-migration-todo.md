@@ -1,4 +1,4 @@
-> Archived 2026-07-18: superseded by `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md`.
+> Archived 2026-07-18: superseded by `docs/specs/2026-07-06-frontend-rebuild-spec.md`.
 
 # Frontend Architecture Migration: Static Export → SSR on Cloudflare
 

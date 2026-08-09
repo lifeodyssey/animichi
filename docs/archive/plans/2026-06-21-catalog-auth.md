@@ -375,7 +375,7 @@ git commit -m "feat(worker): route container->catalog over private catalog.inter
 ### Task 6: 部署核对清单 + 设计 spec 收口
 
 **Files:**
-- Modify: `docs/superpowers/specs/2026-06-21-catalog-auth-design.md`
+- Modify: `docs/archive/specs/2026-06-21-catalog-auth-design.md`
 
 **Interfaces:**
 - Consumes: Task 4-5
@@ -396,7 +396,7 @@ git commit -m "feat(worker): route container->catalog over private catalog.inter
 - [ ] **Step 2: Commit**
 
 ```bash
-git add docs/superpowers/specs/2026-06-21-catalog-auth-design.md
+git add docs/archive/specs/2026-06-21-catalog-auth-design.md
 git commit -m "docs: catalog auth deployment verification checklist"
 ```
 

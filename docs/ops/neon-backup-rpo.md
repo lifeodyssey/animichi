@@ -174,7 +174,7 @@ seed) and the damage is inside the history window.
 - [`docs/ops/deployment.md`](./deployment.md) — deploy order; Worker/Pulumi rollback; schema non-rollback
 - [`db/AGENTS.md`](../../db/AGENTS.md) — migration conventions
 - [`docs/ops/neon-test-infra.md`](./neon-test-infra.md) — test-base / branch quota (not production PITR)
-- [`docs/superpowers/specs/2026-08-06-neon-dba-capability-map.md`](../superpowers/specs/2026-08-06-neon-dba-capability-map.md) — D10/D12/D15, N5 acceptance
+- [`docs/specs/2026-08-06-neon-dba-capability-map.md`](../superpowers/specs/2026-08-06-neon-dba-capability-map.md) — D10/D12/D15, N5 acceptance
 - Neon docs: [Instant restore](https://neon.com/docs/introduction/branch-restore) ·
   [History window](https://neon.com/docs/introduction/history-window) ·
   [Backups overview](https://neon.com/docs/manage/backups)

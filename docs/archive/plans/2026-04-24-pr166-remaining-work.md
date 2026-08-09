@@ -518,7 +518,7 @@ git commit -m "feat: unify QA intent — general_qa only, drop answer_question"
 2. **Placeholder scan:** Every step has concrete code. ✓
 3. **Type consistency:** `QAResponseModel.intent` change in Task 6 is propagated to agent + response_builder + eval. ✓
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-24-pr166-remaining-work.md`. Two execution options:
+Plan complete and saved to `docs/archive/plans/2026-04-24-pr166-remaining-work.md`. Two execution options:
 
 **1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
 

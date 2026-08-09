@@ -29,7 +29,7 @@
 - ✅ 已合主干：S0.2 skeleton、S0.3 部署链、S0.5 DS tokens、S0.10 契约执法
 - ❌ 缺口：apps/web 无 API 层（无 oRPC client/TanStack Query/MSW/QueryClient/hydration 布线）、无 i18n、Landing stub、S0.4 map spike 未做
 - auth：Neon Auth 已开通 + JWKS 就绪、workers/users 已验 JWT，但 **apps/web 端 client 未集成**——C0.4 的 scope 含真实集成，不是 mock 壳
-- 参照 spec：`docs/superpowers/specs/2026-07-06-frontend-rebuild/iter-0..7.md`（依赖边以 spec 为准）
+- 参照 spec：`docs/specs/2026-07-06-frontend-rebuild/iter-0..7.md`（依赖边以 spec 为准）
 
 ## 2. 卡片清单（调度以 §3 DAG 为准，wave 仅是标签）
 

@@ -2,8 +2,8 @@
 
 Orchestrates the pilgrimage dialogue: tool loop, Session state, and calls out to Catalog (and related ports). Does not own Point master data or SavedRoute persistence.
 
-Greenfield language + data plane:  
-`docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md`
+Greenfield language + data plane:
+`docs/specs/2026-08-06-greenfield-language-and-data-plane.md`
 
 ## Language
 
@@ -38,4 +38,4 @@ In-session constraints that survive compaction. Not cross-session UserMemory (Us
 
 ## Design
 
-`docs/superpowers/specs/2026-08-06-agent-clean-architecture-design.md` (ACCEPTED + greenfield).
+`docs/specs/2026-08-06-agent-clean-architecture-design.md` (ACCEPTED + greenfield).

@@ -1,7 +1,7 @@
 # Journey 文字走查 — UX/BA 视角（先对齐，再画图）
 
 > 2026-07-02。目的：把整个 user journey 用文字走一遍，标出每个决策点、每个转场的触发条件、以及 spec 没回答的开放问题。**画布只是这份走查的可视化**——本文档先于设计。
-> 依据：docs/user-journey.md（§1 环 / §2 J1–J18 / §5 状态机 / §6.5 Walk 施工表）+ docs/spec-chat-page-states.md（44 态）。
+> 依据：docs/archive/design-sync/docs/user-journey.md（§1 环 / §2 J1–J18 / §5 状态机 / §6.5 Walk 施工表）+ docs/archive/design-sync/docs/spec-chat-page-states.md（44 态）。
 
 ---
 

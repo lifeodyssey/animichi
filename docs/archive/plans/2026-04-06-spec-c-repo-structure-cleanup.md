@@ -16,7 +16,7 @@ Current root has a lot of mixed concerns:
 - runtime code (`backend/`, `frontend/`, `worker/`)
 - infra files (`wrangler.toml`, `Dockerfile`, `Makefile`)
 - docs (`DEPLOYMENT.md`, `README*`, `docs/`)
-- execution artifacts (`docs/superpowers/plans/`, `docs/progress.md`, `docs/findings.md`, `docs/task_plan.md`)
+- execution artifacts (`docs/archive/plans/`, `docs/progress.md`, `docs/findings.md`, `docs/task_plan.md`)
 - local tooling directories (`.claude/`, `.gstack/`, `.worktrees/`, `.venv/`, etc.)
 
 The main issue is not hidden dot-directories; it is that long-lived docs, iteration plans, and operational runbooks are not clearly grouped. The cleanup should improve scanability without moving runtime-critical files like `Dockerfile`, `wrangler.toml`, or `pyproject.toml` away from the root.
@@ -28,7 +28,7 @@ The main issue is not hidden dot-directories; it is that long-lived docs, iterat
 | `docs/task_plan.md` | Move/Rewrite | Iteration tracker should live under an ops/iterations area |
 | `docs/progress.md` | Move/Rewrite | Session progress log |
 | `docs/findings.md` | Move/Rewrite | Discovery log |
-| `docs/superpowers/plans/` | Keep but document | Implementation plans remain here |
+| `docs/archive/plans/` | Keep but document | Implementation plans remain here |
 | `DEPLOYMENT.md` | Move or cross-link | Could become `docs/ops/deployment.md` with root stub |
 | `README.md` | Modify | Add repository map |
 | `CLAUDE.md` | Modify if needed | Add file placement conventions |
@@ -59,7 +59,7 @@ Rules such as:
 - runtime entrypoints stay at root or under `backend/interfaces/`
 - operational docs go under `docs/ops/`
 - iteration artifacts go under `docs/iterations/`
-- implementation plans stay under `docs/superpowers/plans/`
+- implementation plans stay under `docs/archive/plans/`
 
 - [ ] **Step 3: Commit**
 

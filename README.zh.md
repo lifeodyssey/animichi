@@ -141,6 +141,6 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - [迁移边界](docs/ops/migrations.md) — Atlas authority 与 Drizzle 查询/类型边界
 - [运维文档](docs/ops/README.md) — 运维手册与环境流程
 - [迭代资料](docs/iterations/README.md) — 按迭代归档的 task plan、progress、findings
-- [实现计划（归档）](docs/superpowers/plans/archive/) — 历史执行计划（平层 `plans/` 不再新增）
-- [设计规格](docs/superpowers/specs/) — 现行产品/架构规格
+- [实现计划（归档）](docs/archive/plans/) — 历史执行计划（平层 `plans/` 不再新增）
+- [设计规格](docs/specs/) — 现行产品/架构规格
 - [Agent 指南](AGENTS.md) — monorepo 布局、命令与跨栈护栏

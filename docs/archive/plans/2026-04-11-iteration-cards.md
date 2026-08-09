@@ -1,11 +1,11 @@
 # Iteration 10: Combined Execution Plan
 
 Specs:
-- `docs/superpowers/specs/2026-04-11-bug03-route-planning-fix-design.md` (BUG-03 Wave 2-3)
-- `docs/superpowers/specs/2026-04-11-refactor-remaining-design.md`
-- `docs/superpowers/specs/2026-04-11-test-infra-remaining-design.md`
-- `docs/superpowers/specs/2026-04-11-seo-geo-harness-design.md`
-- `docs/superpowers/specs/2026-04-11-layered-eval-harness-design.md`
+- `docs/archive/specs/2026-04-11-bug03-route-planning-fix-design.md` (BUG-03 Wave 2-3)
+- `docs/archive/specs/2026-04-11-refactor-remaining-design.md`
+- `docs/archive/specs/2026-04-11-test-infra-remaining-design.md`
+- `docs/archive/specs/2026-04-11-seo-geo-harness-design.md`
+- `docs/archive/specs/2026-04-11-layered-eval-harness-design.md`
 
 Date: 2026-04-11
 Status: PENDING APPROVAL

@@ -9,7 +9,7 @@
 
 **Tech Stack:** Python / Pydantic AI / aiohttp 3.12+ / Next.js (static export) / TypeScript / Supabase
 
-**Spec:** `docs/superpowers/specs/2026-04-01-frontend-memory-arch.md`
+**Spec:** `docs/archive/specs/2026-04-01-frontend-memory-arch.md`
 
 ---
 

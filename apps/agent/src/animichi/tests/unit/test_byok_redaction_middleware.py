@@ -1,6 +1,6 @@
 """Unit tests for the BYOK credential-stripping middleware (X3, Task 2).
 
-Spec: docs/superpowers/specs/2026-07-28-284-byok-design.md — Task 2.
+Spec: docs/specs/2026-07-28-284-byok-design.md — Task 2.
 """
 
 from __future__ import annotations

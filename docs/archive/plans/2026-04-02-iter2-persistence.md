@@ -11,7 +11,7 @@
 
 **Tech Stack:** Python / asyncpg / aiohttp / pydantic-ai / Next.js (static export) / TypeScript / Supabase PostgreSQL
 
-**Spec:** `docs/superpowers/specs/2026-04-01-frontend-memory-arch.md` — Iter 2 section
+**Spec:** `docs/archive/specs/2026-04-01-frontend-memory-arch.md` — Iter 2 section
 
 ---
 

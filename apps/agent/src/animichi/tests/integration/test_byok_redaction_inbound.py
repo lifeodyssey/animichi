@@ -1,6 +1,6 @@
 """Integration tests for the BYOK credential-stripping middleware — inbound leg.
 
-Spec: docs/superpowers/specs/2026-07-28-284-byok-design.md — Task 2 (X3),
+Spec: docs/specs/2026-07-28-284-byok-design.md — Task 2 (X3),
 T2-AC1, AC2, AC4, AC5. (AC3 and AC8 are unit-level; AC6/AC7, the outbound
 leg, live in `test_byok_redaction_outbound.py`.)
 

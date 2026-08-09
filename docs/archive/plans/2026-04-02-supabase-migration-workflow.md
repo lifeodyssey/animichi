@@ -9,7 +9,7 @@
 
 **Tech Stack:** Supabase CLI, PostgreSQL SQL migrations, GitHub Actions, Cloudflare deploy workflow, Makefile helpers
 
-**Spec:** `docs/superpowers/specs/2026-04-02-supabase-migration-workflow-design.md`
+**Spec:** `docs/archive/specs/2026-04-02-supabase-migration-workflow-design.md`
 
 ---
 
@@ -499,7 +499,7 @@ git commit -m "ci: add deploy-time supabase db push stage"
 
 **Files:**
 - Modify: `README.md`
-- Modify: `docs/superpowers/specs/2026-04-02-supabase-migration-workflow-design.md`
+- Modify: `docs/archive/specs/2026-04-02-supabase-migration-workflow-design.md`
 
 - [ ] **Step 1: Run final migration verification**
 
@@ -542,6 +542,6 @@ Legacy SQL under `infrastructure/supabase/migrations/` and `scripts/supabase/` i
 - [ ] **Step 4: Commit**
 
 ```bash
-git add README.md docs/superpowers/specs/2026-04-02-supabase-migration-workflow-design.md
+git add README.md docs/archive/specs/2026-04-02-supabase-migration-workflow-design.md
 git commit -m "docs: finalize supabase migration workflow guidance"
 ```

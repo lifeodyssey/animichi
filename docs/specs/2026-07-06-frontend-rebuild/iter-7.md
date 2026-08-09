@@ -68,7 +68,7 @@ This iteration allocates no story/AC/changed files to A2A, and it doesn't count 
 
 **Design basis**: No visual mockup; SD-25② (confirmed) + SD-12 (capability scope) + SD-19 (iteration-7 hard bar).
 
-**Architecture note (important — for the Coordinator to verify at scheduling time)**: `fastmcp`/`FastMCP.from_openapi` is a Python-ecosystem library, so this story lands on the `apps/agent` (existing FastAPI container) side rather than the Workers/TypeScript side — this differs from older documents that once assumed "the MCP server is a thin Workers-side (TS) adapter"; it's an architectural correction made during this backfill pass per SD-25②'s original text, and is reflected in "Changed files" below. **Per the C2 ruling** (`docs/superpowers/specs/2026-07-06-backfill-conflicts.md`, ✅ resolution section): this placement is accepted for now, but explicitly flagged to **re-verify runtime placement (Python FastMCP vs Workers/TS) before iteration-7 kickoff** — the MCP stateless-core spec and the FastMCP ecosystem's maturity may look different by the time this iteration actually starts, and locking it in this early risks staleness; this item is called out for dual-review focus.
+**Architecture note (important — for the Coordinator to verify at scheduling time)**: `fastmcp`/`FastMCP.from_openapi` is a Python-ecosystem library, so this story lands on the `apps/agent` (existing FastAPI container) side rather than the Workers/TypeScript side — this differs from older documents that once assumed "the MCP server is a thin Workers-side (TS) adapter"; it's an architectural correction made during this backfill pass per SD-25②'s original text, and is reflected in "Changed files" below. **Per the C2 ruling** (`docs/archive/specs/2026-07-06-backfill-conflicts.md`, ✅ resolution section): this placement is accepted for now, but explicitly flagged to **re-verify runtime placement (Python FastMCP vs Workers/TS) before iteration-7 kickoff** — the MCP stateless-core spec and the FastMCP ecosystem's maturity may look different by the time this iteration actually starts, and locking it in this early risks staleness; this item is called out for dual-review focus.
 
 **Prerequisite**: S7.8 (tool return types / `tool_state` made explicit — `FastMCP.from_openapi`'s generated `outputSchema` needs named Pydantic models, not `dict[str,object]`).
 
@@ -180,7 +180,7 @@ This iteration allocates no story/AC/changed files to A2A, and it doesn't count 
 
 **Scope**: GEO discoverability wrap-up once the MCP server (S7.4) is live — submit to the MCP Registry and the mcp.so/Glama directories, pass the isitagentready five-dimension self-check, and add one line referencing the MCP endpoint to the static llms.txt already live from Iteration 0.
 
-**Design basis**: No visual mockup; `docs/superpowers/specs/2026-07-06-seo-geo-plan.md` §7's iteration-7 row ("MCP-as-GEO: MCP Registry + mcp.so/Glama submission + isitagentready five-dimension self-check + add MCP endpoint to llms.txt"); SD-27 (confirmed).
+**Design basis**: No visual mockup; `docs/archive/specs/2026-07-06-seo-geo-plan.md` §7's iteration-7 row ("MCP-as-GEO: MCP Registry + mcp.so/Glama submission + isitagentready five-dimension self-check + add MCP endpoint to llms.txt"); SD-27 (confirmed).
 
 **Core ACs**:
 - Happy path: MCP server metadata has been submitted to the MCP Registry and to the third-party mcp.so/Glama directories -> integration (verified via submission records / a checklist)

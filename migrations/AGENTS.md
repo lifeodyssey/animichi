@@ -77,7 +77,6 @@ Application-layer authorization remains authoritative this campaign. RLS is **no
 
 ### Related
 
-- Capability map: `docs/superpowers/specs/2026-08-06-neon-dba-capability-map.md` (land with design docs / #833)
+- Capability map: `docs/specs/2026-08-06-neon-dba-capability-map.md` (land with design docs / #833)
 - Runtime DSN wiring: #832 (staging) · #855 (prod HITL)
 - #685 GRANT-as-decoration debt
-

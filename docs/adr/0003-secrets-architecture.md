@@ -3,7 +3,7 @@
 > **Status**: accepted — records the target architecture, **not yet implemented as of writing**.
 > Current deployment still delivers `*_DATABASE_URL` via GitHub env secrets + `wrangler secret
 > bulk`, and `scripts/staging-roles-login.sh` still exists. The migration boundary is defined in
-> **P4 — Secrets re-architecture** of `docs/superpowers/specs/2026-08-08-repo-closeout-spec.md`
+> **P4 — Secrets re-architecture** of `docs/specs/2026-08-08-repo-closeout-spec.md`
 > (Pulumi `neon.Role` → compose DSNs → write Secrets Store; remove `wrangler secret bulk` steps
 > and GitHub `*_DATABASE_URL` secrets; delete `scripts/staging-roles-login.sh`). This ADR is
 > authoritative for the target state; the spec's P4 wave owns the cutover.

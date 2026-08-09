@@ -16,7 +16,7 @@ Use published terms in code identifiers: **Point**, **Bangumi**, **Itinerary**, 
 
 ## Layout target
 
-See `docs/superpowers/specs/2026-08-06-web-ui-structure-design.md`.
+See `docs/specs/2026-08-06-web-ui-structure-design.md`.
 
 ```text
 routes → features → api/hooks → api clients → public /v1

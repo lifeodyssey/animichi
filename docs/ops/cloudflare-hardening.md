@@ -177,7 +177,7 @@ After manual dashboard changes:
 ### Threat model reference
 
 This section closes **Task 7** of the BYOK design spec
-(`docs/superpowers/specs/2026-07-28-284-byok-design.md`, now landed in this tree — see the
+(`docs/specs/2026-07-28-284-byok-design.md`, now landed in this tree — see the
 Threat Model table there for the full T1–T14 list), whose OQ-5 ruling required a **spike before
 implementation**: verify whether the Cloudflare Containers runtime "grants `NET_ADMIN` / can
 express an egress policy **at all**" — a kernel-level or platform-level block of RFC1918 +

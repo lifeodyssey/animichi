@@ -5,7 +5,7 @@
 - Package: `apps/agent`（Python / PydanticAI / FastAPI 容器）
 - Language: ADR-0002 · `CONTEXT-MAP.md` · `apps/agent/CONTEXT.md`
 - Sibling: [Catalog 设计（已 ACCEPTED）](./2026-08-06-catalog-clean-architecture-design.md)
-- Parent: `docs/superpowers/specs/2026-08-06-monorepo-target-layout.md`
+- Parent: `docs/specs/2026-08-06-monorepo-target-layout.md`
 - Accepted: A1–A5（含 §0.1 只读校准 / X12·G4 A3）
 - Greenfield: `2026-08-06-greenfield-language-and-data-plane.md`（语言/契约/删直连写 **一次最佳**）
 - Refactor train: **已有代码** 真·结构重构（移文件/抽 use case/化简/SOLID），**不止 rename**；未写产品能力归既有 ticket

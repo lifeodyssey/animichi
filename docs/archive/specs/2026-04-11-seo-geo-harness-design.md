@@ -2,7 +2,7 @@
 
 ## Context
 
-SEO audit on 2026-04-08 scored the site **35/100 (Google)** and **~5/100 (AI visibility)**. The original spec lives at `docs/superpowers/specs/2026-04-08-seo-geo-design.md`. No tasks from that spec have been implemented.
+SEO audit on 2026-04-08 scored the site **35/100 (Google)** and **~5/100 (AI visibility)**. The original spec lives at `docs/archive/specs/2026-04-08-seo-geo-design.md`. No tasks from that spec have been implemented.
 
 **Current state (verified 2026-04-11):**
 

@@ -142,6 +142,6 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - [マイグレーション境界](docs/ops/migrations.md) — Atlas authority と Drizzle のクエリ/型境界
 - [運用ドキュメント](docs/ops/README.md) — 運用手順と環境向けランブック
 - [イテレーション資料](docs/iterations/README.md) — task plan、progress、findings の保存場所
-- [実装計画（アーカイブ）](docs/superpowers/plans/archive/) — 過去の実行計画（平層 `plans/` には新規を置かない）
-- [設計仕様](docs/superpowers/specs/) — 現行のプロダクト/アーキテクチャ仕様
+- [実装計画（アーカイブ）](docs/archive/plans/) — 過去の実行計画（平層 `plans/` には新規を置かない）
+- [設計仕様](docs/specs/) — 現行のプロダクト/アーキテクチャ仕様
 - [エージェントガイド](AGENTS.md) — monorepo 構成・コマンド・横断ガードレール

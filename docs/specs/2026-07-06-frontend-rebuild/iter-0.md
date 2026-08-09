@@ -1,6 +1,6 @@
 # Iteration 0 — Foundation
 
-Detail level: **fully elaborated**. Story count: 10 (exceeds the "3-8" guideline; reason, see main spec §③: X1's map ADR and X8's eval tiering are additional must-do items, plus S0.10, the contract-enforcement + hygiene sweep, backfilled from the P3 patch / `docs/superpowers/plans/2026-07-07-refactor-backlog.md`).
+Detail level: **fully elaborated**. Story count: 10 (exceeds the "3-8" guideline; reason, see main spec §③: X1's map ADR and X8's eval tiering are additional must-do items, plus S0.10, the contract-enforcement + hygiene sweep, backfilled from the P3 patch / `docs/archive/plans/2026-07-07-refactor-backlog.md`).
 
 Precondition (not a story, an external blocker): **PR #206 (the atlas CI fix) must merge first**, otherwise this iteration's CI baseline can't be trusted.
 
@@ -46,7 +46,7 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 
 **User story**: As a developer, I want an `apps/web` TanStack Start skeleton that's registered in the pnpm workspace and running `animal-island-ui-tailwind@1.0.x`, so later iterations have a foundation to build on.
 
-**Design basis**: no specific canvas; `docs/DESIGN.md` as the token baseline (this story only wires things up, without consuming specific tokens — that's S0.5's job).
+**Design basis**: no specific canvas; `docs/archive/design-sync/docs/DESIGN.md` as the token baseline (this story only wires things up, without consuming specific tokens — that's S0.5's job).
 
 **Releasable statement**: `pnpm --filter web dev` runs a branded but blank TanStack Start app; `pnpm --filter web build` produces `.output/`; CI runs typecheck/lint/test/build against it.
 
@@ -109,7 +109,7 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 
 **User story**: As a developer, I want apps/web wired up to `animal-island-ui-tailwind@1.0.x`'s tokens, with Zen Maru Gothic vendored in, and a CI test that asserts token alignment, so that every subsequent component story inherits a correct, test-protected visual language instead of everyone doing their own thing.
 
-**Design basis**: `docs/DESIGN.md` (the token authority; the frontmatter is missing explore/walk/map-*, to be backfilled); `DS 补全 - Chat 桌面.html` (the radius-sm=16px governance rule, S8); `docs/ds-审计.md` (2 contrast-ratio FAILs, for later component-level fixes to reference).
+**Design basis**: `docs/archive/design-sync/docs/DESIGN.md` (the token authority; the frontmatter is missing explore/walk/map-*, to be backfilled); `DS 补全 - Chat 桌面.html` (the radius-sm=16px governance rule, S8); `docs/ds-审计.md` (2 contrast-ratio FAILs, for later component-level fixes to reference).
 
 **Releasable statement**: apps/web's globals.css exposes `--color-*` semantic tokens that align 1:1 with the package's `--animal-*` primitives (including a backfilled explore/walk/map-pin-* family); any Japanese text renders in Zen Maru Gothic; a CI test fails whenever the package's token values drift without the semantic layer being kept in sync.
 
@@ -169,7 +169,7 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 
 **User story**: As the site owner, I want the rebuilt site to ship with baseline SEO/GEO infrastructure (robots/sitemap/hreflang/OG/llms.txt/crawler reachability) and a performance-budget gate, and I want that infrastructure to point directly at the real production domain (including the auth-callback domain), so that search-engine and AI-crawler visibility — and performance — don't regress from the rebuild, and so we don't have to leave a pile of placeholders waiting for the domain to be "decided later."
 
-**Design basis**: no visual canvas; migrating the test infrastructure pattern from `apps/agent/agent/tests/unit/test_seo_static_files.py`; `docs/superpowers/specs/2026-07-06-seo-geo-plan.md` §3 (the domain-migration checklist)/§5 (L3 growth analytics)/§6 (robots/llms.txt)/§7 (the iteration mapping).
+**Design basis**: no visual canvas; migrating the test infrastructure pattern from `apps/agent/agent/tests/unit/test_seo_static_files.py`; `docs/archive/specs/2026-07-06-seo-geo-plan.md` §3 (the domain-migration checklist)/§5 (L3 growth analytics)/§6 (robots/llms.txt)/§7 (the iteration mapping).
 
 **Releasable statement**: apps/web ships robots.txt (blocking training crawlers `GPTBot`/`ClaudeBot`/`Google-Extended`, allowing search/citation/agent crawlers `OAI-SearchBot`/`Claude-SearchBot`/`Claude-User`/`ChatGPT-User`/`PerplexityBot`, with a `Sitemap` directive pointing at `https://animichi.com/sitemap.xml`), a sitemap.xml skeleton (including the root URL, with an IndexNow key file reserved), trilingual hreflang+canonical (all pointing at the `animichi.com` domain), a default OG card (1200x630) + a Twitter summary_large_image card, llms.txt v1 (**a static single page — no llms-full pipeline is built**, backfilled from SD-27C's negative checklist; if the original draft ever envisioned an llms-full pipeline, it is explicitly voided here); Lighthouse CI fails the build when LCP>2.5s or CLS>0.1; dual-property verification with GSC + Bing Webmaster + Cloudflare Web Analytics wired in (the L3 growth-analytics baseline, not GA4); `aninavi.app` gets a 301 redirect to `animichi.com` **if that domain is held at execution time, otherwise a no-op recorded in the ops log** (a manual-ops decision, non-blocking).
 
@@ -221,11 +221,11 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 
 ---
 
-### S0.10 Contract enforcement + hygiene sweep (backfilled from the P3 patch / `docs/superpowers/plans/2026-07-07-refactor-backlog.md`: F1 + the F2-F6 hygiene batch + dead eval-dataset/TODO cleanup)
+### S0.10 Contract enforcement + hygiene sweep (backfilled from the P3 patch / `docs/archive/plans/2026-07-07-refactor-backlog.md`: F1 + the F2-F6 hygiene batch + dead eval-dataset/TODO cleanup)
 
 **User story**: As the operator maintaining the hybrid backend, I want the catalog worker's public contract enforced at compile time and validated at runtime (so a drift between the router and `@seichijunrei/contract` can't silently ship and so malformed public inputs are rejected at the edge), and I want the accumulated small-debt in the agent package swept out (dead dependencies, dead code, an importlib hack, an official tool we're reimplementing, unreferenced eval fixtures, and stale TODOs), so the rebuild starts from a clean, contract-locked baseline instead of carrying known cruft into every later iteration.
 
-**Design basis**: no visual canvas; `docs/superpowers/plans/2026-07-07-refactor-backlog.md` (the "Scheduled into stories (iter-0)" rows F1 + the hygiene batch), governed by X16 (the refactoring mandate + its three disciplines). X11/SD-2's literal "consume the contract" landing.
+**Design basis**: no visual canvas; `docs/archive/plans/2026-07-07-refactor-backlog.md` (the "Scheduled into stories (iter-0)" rows F1 + the hygiene batch), governed by X16 (the refactoring mandate + its three disciplines). X11/SD-2's literal "consume the contract" landing.
 
 **Releasable statement**: `workers/catalog/src/router.ts` is rebuilt on top of `implement(catalogContract)` from `@orpc/server` (with `@seichijunrei/contract` added as a catalog dependency), giving a compile-time shape lock against the shared contract plus runtime zod validation on public inputs; and the agent-package hygiene batch lands — the zombie `pydantic-ai-guardrails` dependency is gone, `reverse-geocoder` moves to a scripts/dev dependency group, the dead `LogContext`/`LogTimer` in `utils/logger.py` are deleted, `asyncpg-stubs` replaces the `importlib` import hack + hand-written `Protocol` shims in `infrastructure/supabase/`, `web_tools.py` adopts the official `pydantic_ai.common_tools.duckduckgo.duckduckgo_search_tool()` (with the SD-19 untrusted-content delimiter wrapping kept **outside** the tool), the 4 unreferenced eval datasets are deleted, and the 2 stale TODOs in `persistence.py` are resolved. No behavior changes for end users; the agent's 7 tools and the catalog's public routes keep the same external shapes.
 

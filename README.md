@@ -143,6 +143,6 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - [Migrations](docs/ops/migrations.md) — Atlas authority and Drizzle query/type boundary
 - [Ops docs](docs/ops/README.md) — operational runbooks and environment procedures
 - [Iteration artifacts](docs/iterations/README.md) — task plans, progress logs, and findings by iteration
-- [Implementation plans (archive)](docs/superpowers/plans/archive/) — historical execution plans (flat `plans/` no longer accepts new files)
-- [Design specs](docs/superpowers/specs/) — active product/architecture specifications
+- [Implementation plans (archive)](docs/archive/plans/) — historical execution plans (flat `plans/` no longer accepts new files)
+- [Design specs](docs/specs/) — active product/architecture specifications
 - [Agent guide](AGENTS.md) — monorepo layout, commands, and cross-stack guardrails

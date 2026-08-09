@@ -4,7 +4,7 @@
 - Date: 2026-08-06
 - Package: `workers/catalog`
 - Language: ADR-0002 · `CONTEXT-MAP.md` · `workers/catalog/CONTEXT.md`
-- Parent: `docs/superpowers/specs/2026-08-06-monorepo-target-layout.md`
+- Parent: `docs/specs/2026-08-06-monorepo-target-layout.md`
 - Owner acceptance: C1–C6 全部接受（四圈 CA、目标树、ingest=application、P1→P6 分期）
 - Greenfield: 见 `2026-08-06-greenfield-language-and-data-plane.md`（**语言/契约/表一次最佳，无兼容层**）
 - Refactor train: **已有代码** 真·结构重构（移文件/抽 use case/化简/SOLID），**不止 rename**；未写产品能力归既有 ticket
@@ -377,7 +377,7 @@ Search 必须把「别名命中 / lite 预览 / 后台 ingest」收成 applicati
 |---|---|
 | `workers/catalog/CONTEXT.md` | 语言与所有权 |
 | `docs/adr/0002-published-language-…md` | 跨服务词 |
-| `docs/superpowers/specs/2026-08-06-monorepo-target-layout.md` | 仓级目标与逐包进度 |
+| `docs/specs/2026-08-06-monorepo-target-layout.md` | 仓级目标与逐包进度 |
 | `workers/catalog/AGENTS.md` | 现行命令与陷阱（实现后改） |
 
 ---

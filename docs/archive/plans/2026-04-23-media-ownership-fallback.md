@@ -571,7 +571,7 @@ git commit -m "test: lock media ownership validation"
 - `cover_url_local` / `cover_url_upstream` and `image_local` / `image_upstream` are used consistently.
 - Runtime contract continues to expose only final `cover_url` / `screenshot_url`.
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-23-media-ownership-fallback.md`. Two execution options:
+Plan complete and saved to `docs/archive/plans/2026-04-23-media-ownership-fallback.md`. Two execution options:
 
 1. Subagent-Driven (recommended) - I dispatch a fresh subagent per task, review between tasks, fast iteration
 

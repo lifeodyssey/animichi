@@ -2,7 +2,7 @@
 
 ## Context
 
-Parent spec: `docs/superpowers/specs/2026-04-08-test-infrastructure-design.md`
+Parent spec: `docs/archive/specs/2026-04-08-test-infrastructure-design.md`
 
 That spec is 60% landed. Tasks 1, 3, and 4 shipped (testcontainer conftest, eval migration, 160 eval cases). This spec covers the four remaining items:
 

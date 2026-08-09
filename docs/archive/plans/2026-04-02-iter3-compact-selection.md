@@ -11,9 +11,9 @@
 
 **Tech Stack:** Python / Pydantic AI / aiohttp / Next.js (static export) / TypeScript / React context
 
-**Spec:** `docs/superpowers/specs/2026-04-01-frontend-memory-arch.md` — Iter 3
+**Spec:** `docs/archive/specs/2026-04-01-frontend-memory-arch.md` — Iter 3
 
-**Save to:** `docs/superpowers/plans/2026-04-02-iter3-compact-selection.md`
+**Save to:** `docs/archive/plans/2026-04-02-iter3-compact-selection.md`
 
 ---
 
