@@ -13,25 +13,39 @@ enabled = true
 [triggers]
 crons = ["37 18 * * *", "37 19 * * *"]
 
-# Secret values are uploaded by CI from the same-named GitHub Environment secret.
-[secrets]
-required = ["AGENT_DATABASE_URL"]
-
 [env.staging]
 name = "maintenance-staging"
 workers_dev = false
 preview_urls = false
 
+# #912 PR2: the staging DSN comes from the Cloudflare Secrets Store (secret
+# AGENT_DATABASE_URL, provisioned by the infra/neon-secrets Pulumi stack)
+# instead of `wrangler secret put` in CI. env.AGENT_DATABASE_URL is then a
+# SecretsStoreSecret — src/index.ts awaits `.get()` (string fallback kept for
+# tests). Do NOT add AGENT_DATABASE_URL to `secrets.required` here: wrangler
+# rejects a name assigned to both a Secrets Store Secret binding and a Secret
+# binding; the binding's deploy-time store/secret validation is the fail-closed
+# gate (a missing store secret fails the deploy API call), and `.get()` throws
+# if the secret is ever deleted at runtime.
+[[env.staging.secrets_store_secrets]]
+binding = "AGENT_DATABASE_URL"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "AGENT_DATABASE_URL"
+
 [env.staging.triggers]
 crons = ["37 18 * * *", "37 19 * * *"]
-
-[env.staging.secrets]
-required = ["AGENT_DATABASE_URL"]
 
 [env.production]
 name = "jobs"
 workers_dev = false
 preview_urls = false
+
+# Production has NO Secrets Store binding yet (#912): the store secrets hold
+# staging-role DSNs only, so binding production to them would silently point
+# prod at the staging database. Production keeps its AGENT_DATABASE_URL worker
+# secret (uploaded by CI from the same-named GH environment secret) until the
+# production-role cutover phase (#912 follow-up); `secrets.required` here is
+# the fail-closed guard for that upload chain.
 
 [env.production.triggers]
 crons = ["37 18 * * *", "37 19 * * *"]

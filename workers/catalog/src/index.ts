@@ -15,7 +15,7 @@ export interface Env {
   /** Optional pooled connection binding when a deployment provides one. */
   HYPERDRIVE?: { connectionString: string };
   /** Neon Postgres connection string used by the current catalog deployment. */
-  DATABASE_URL?: string;
+  DATABASE_URL?: string | SecretsStoreSecret;
   /** R2 bucket for lazy-cached pilgrimage point photos (see media/img.ts). */
   MEDIA_BUCKET?: R2Bucket;
 }
@@ -38,9 +38,17 @@ app.use("/catalog/public/*", async (c, next) => {
 
 const apiHandler = new OpenAPIHandler(catalogRouter);
 
-/** Prefer an explicitly provided pooled binding; otherwise use the Neon URL. */
-function connectionString(env?: Env): string | undefined {
-  return env?.HYPERDRIVE?.connectionString ?? env?.DATABASE_URL;
+/**
+ * Prefer an explicitly provided pooled binding; otherwise use the Neon URL.
+ * In staging the DSN arrives as a Secrets Store binding (#912 PR2): the value
+ * is a SecretsStoreSecret whose `.get()` resolves the string. The string
+ * branch keeps local dev (.dev.vars) and tests working unchanged.
+ */
+async function connectionString(env?: Env): Promise<string | undefined> {
+  if (env?.HYPERDRIVE?.connectionString) return env.HYPERDRIVE.connectionString;
+  const url = env?.DATABASE_URL;
+  if (url == null) return undefined;
+  return typeof url === "string" ? url : await url.get();
 }
 
 function waitUntilFor(
@@ -77,7 +85,7 @@ export function closeDbPools(): void {
 }
 
 app.get("/catalog/img/:pointId", async (c) => {
-  const connStr = connectionString(c.env);
+  const connStr = await connectionString(c.env);
   const bucket = c.env.MEDIA_BUCKET;
   if (!connStr || !bucket) {
     return c.json({ error: "catalog media not configured" }, 503);
@@ -90,7 +98,7 @@ app.get("/catalog/img/:pointId", async (c) => {
 });
 
 app.use("/catalog/*", async (c, next) => {
-  const connStr = connectionString(c.env);
+  const connStr = await connectionString(c.env);
   if (!connStr) {
     return c.json({ error: "catalog database not configured" }, 503);
   }
@@ -116,7 +124,7 @@ export type { CatalogRouter } from "./router";
  */
 export class IngestEntrypoint extends WorkerEntrypoint<Env> {
   async ingestWork(workId: string): Promise<OrchestratorIngestResult> {
-    const connStr = connectionString(this.env);
+    const connStr = await connectionString(this.env);
     if (!connStr) throw new Error("catalog database not configured");
     const { db } = await dbFor(connStr);
     return runOrchestratorIngest(db, workId);
@@ -167,7 +175,7 @@ export function createScheduledHandler(
   dependencies: CronDependencies = DEFAULT_DEPENDENCIES,
 ): ScheduledHandler {
   return async (controller, env) => {
-    const connStr = connectionString(env);
+    const connStr = await connectionString(env);
     if (!connStr) throw new Error("catalog database not configured");
     const db = await dependencies.connect(connStr);
     await runCron(controller.cron, db, dependencies);

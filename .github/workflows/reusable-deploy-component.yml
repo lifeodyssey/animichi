@@ -30,16 +30,10 @@ on:
     secrets:
       NEON_DATABASE_URL:
         required: false
-      # #832 (staging only): per-component least-privilege DSNs. Optional like
-      # every sibling: until provisioned, the `||` chain in the two DATABASE_URL
-      # env maps ("Resolve effective worker secrets" and "Deploy Worker" stay in
-      # sync) falls back to NEON_DATABASE_URL (owner DSN), so deploy behavior is
-      # unchanged. Production passes neither and keeps the owner-DSN fallback
-      # until #855. Provision with scripts/staging-roles-login.sh --set-secrets.
-      CATALOG_DATABASE_URL:
-        required: false
-      USERS_DATABASE_URL:
-        required: false
+      # #912 PR2: production-only — the maintenance Worker's AGENT_DATABASE_URL
+      # is still uploaded from the same-named GitHub environment secret until
+      # the production-role cutover. Staging reads its DSN from the Secrets
+      # Store binding in workers/jobs/wrangler.toml and passes nothing.
       AGENT_DATABASE_URL:
         required: false
       CLOUDFLARE_API_TOKEN:
@@ -120,17 +114,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - name: Preflight - maintenance database secret
-        if: ${{ inputs.component == 'maintenance' }}
-        shell: bash
-        env:
-          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
-          TARGET_ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          if [ -z "$AGENT_DATABASE_URL" ]; then
-            echo "::error::AGENT_DATABASE_URL is empty/unset for the maintenance Worker in environment=$TARGET_ENVIRONMENT. Refusing to deploy a scheduled purge that cannot reach the agent data plane."
-            exit 1
-          fi
       # #527/#528: this job declares `environment: ${{ inputs.environment }}`
       # above, which is what makes environment-scoped secrets resolve here
       # at all (GitHub: "If you include environment in the reusable workflow
@@ -197,8 +180,6 @@ jobs:
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           TARGET_COMPONENT: ${{ inputs.component }}
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-          CATALOG_DATABASE_URL: ${{ secrets.CATALOG_DATABASE_URL }}
-          USERS_DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
@@ -209,8 +190,6 @@ jobs:
           }
           echo "environment=$TARGET_ENVIRONMENT component=$TARGET_COMPONENT"
           echo "  NEON_DATABASE_URL   set=$([ -n "$NEON_DATABASE_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_DATABASE_URL")"
-          echo "  CATALOG_DATABASE_URL set=$([ -n "$CATALOG_DATABASE_URL" ] && echo true || echo false) sha256_8=$(hash8 "$CATALOG_DATABASE_URL")"
-          echo "  USERS_DATABASE_URL  set=$([ -n "$USERS_DATABASE_URL" ] && echo true || echo false) sha256_8=$(hash8 "$USERS_DATABASE_URL")"
           echo "  NEON_AUTH_JWKS_URL  set=$([ -n "$NEON_AUTH_JWKS_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_AUTH_JWKS_URL")"
           echo "  PULUMI_BACKEND_URL  set=$([ -n "$PULUMI_BACKEND_URL" ] && echo true || echo false) sha256_8=$(hash8 "$PULUMI_BACKEND_URL")"
           echo "  LOGFIRE_TOKEN       set=$([ -n "$LOGFIRE_TOKEN" ] && echo true || echo false) sha256_8=$(hash8 "$LOGFIRE_TOKEN")"
@@ -611,9 +590,11 @@ jobs:
           # Same env block as the Deploy Worker step below — the indirect
           # `${!name}` expansion above looks up OPTIONAL_LIST names here, so
           # every secret that could be optional must be present in env.
-          # #832: per-component least-privilege DSN with owner-DSN fallback
-          # (empty component secret is falsy → NEON_DATABASE_URL wins).
-          DATABASE_URL: ${{ (inputs.component == 'catalog' && secrets.CATALOG_DATABASE_URL) || (inputs.component == 'users' && secrets.USERS_DATABASE_URL) || secrets.NEON_DATABASE_URL }}
+          # #912 PR2: catalog/users staging read their DSN from a Secrets Store
+          # binding (wrangler.toml [[env.staging.secrets_store_secrets]]) and
+          # never list DATABASE_URL here; production still uploads the owner
+          # DSN as the DATABASE_URL worker secret until the #912 cutover.
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -706,10 +687,11 @@ jobs:
           environment: ${{ inputs.environment }}
           secrets: ${{ steps.effective_secrets.outputs.list }}
         env:
-          # #832: mirror of the "Resolve effective worker secrets" map — the
-          # Deploy Worker step's own env must resolve the same per-component
-          # DSN (wrangler-action reads secrets via this env block).
-          DATABASE_URL: ${{ (inputs.component == 'catalog' && secrets.CATALOG_DATABASE_URL) || (inputs.component == 'users' && secrets.USERS_DATABASE_URL) || secrets.NEON_DATABASE_URL }}
+          # #912 PR2: mirror of the "Resolve effective worker secrets" map —
+          # staging catalog/users take their DSN from the Secrets Store binding
+          # (no upload); production keeps uploading the owner DSN as
+          # DATABASE_URL until the #912 cutover.
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
