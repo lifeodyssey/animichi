@@ -95,10 +95,10 @@ const host = neon
   .getBranchEndpointsOutput({ projectId, branchId }, { provider: neonProvider })
   .apply((result) => {
     const endpoints = result.endpoints ?? [];
-    if (endpoints.length === 0) {
-      throw new Error(`no endpoint found for branch ${branchId}`);
+    const rw = endpoints.find((e) => e.type === "read_write");
+    if (rw === undefined) {
+      throw new Error(`no read-write endpoint found for branch ${branchId}`);
     }
-    const rw = endpoints.find((e) => e.type === "read_write") ?? endpoints[0];
     return rw.host;
   });
 
@@ -107,16 +107,20 @@ const store = cloudflare.SecretsStore.get(
   `${accountId}/${secretsStoreId}`,
 );
 
-roles.forEach((role, i) => {
-  const def = roleDefs[i];
-  if (def.secretName === undefined) {
-    return;
-  }
-  const dsn = pulumi.interpolate`postgresql://${def.name}:${role.password}@${host}:5432/${databaseName}?sslmode=require`;
-  new cloudflare.SecretsStoreSecret(def.secretName, {
+const dsnFor = (role: neon.Role, name: string) =>
+  pulumi.interpolate`postgresql://${name}:${role.password.apply(encodeURIComponent)}@${host}:5432/${databaseName}?sslmode=require`;
+
+const dsnSecrets = roleDefs.flatMap((def, i) =>
+  def.secretName === undefined
+    ? []
+    : [{ def, name: def.secretName, dsn: dsnFor(roles[i], def.name) }],
+);
+
+dsnSecrets.forEach(({ def, name, dsn }) => {
+  new cloudflare.SecretsStoreSecret(name, {
     accountId,
     storeId: secretsStoreId,
-    name: def.secretName,
+    name,
     value: dsn,
     scopes: ["workers"],
     comment: def.comment,
