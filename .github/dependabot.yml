@@ -23,6 +23,7 @@ updates:
   - package-ecosystem: "npm"
     directories:
       - "/"
+      - "/infra/neon-secrets"
     schedule:
       interval: "weekly"
       day: "monday"

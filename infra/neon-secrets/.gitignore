@@ -1,0 +1,4 @@
+node_modules/
+.pulumi/
+# Generated provider SDKs — regenerate with: pulumi package add terraform-provider kislerdm/neon
+sdks/
