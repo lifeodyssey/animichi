@@ -17,7 +17,7 @@ from animichi.interfaces.usage_metering import (
 )
 
 ARCHITECTURE = Path(__file__).resolve().parents[6] / "docs" / "ARCHITECTURE.md"
-WORKER = Path(__file__).resolve().parents[6] / "workers" / "edge"
+WORKER = Path(__file__).resolve().parents[6] / "workers" / "edge" / "src"
 
 
 @pytest.fixture(scope="module")
@@ -26,7 +26,10 @@ def architecture() -> str:
 
 
 def test_the_auth_section_names_the_real_worker_modules(architecture: str) -> None:
-    assert "`workers/edge/app.ts` + `workers/edge/auth.ts`" in architecture
+    assert (
+        "`workers/edge/src/app.ts` + `workers/edge/src/identity/auth.ts`"
+        in architecture
+    )
 
 
 def test_x5_is_documented_as_implemented_rather_than_forward_looking(

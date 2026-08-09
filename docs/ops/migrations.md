@@ -98,4 +98,4 @@ the raw DSN and tokens out of logs and PRs.
 - [`docs/ops/neon-backup-rpo.md`](./neon-backup-rpo.md) — RPO/RTO, PITR, failed-migrate + bad-migration recovery
 - [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — PR/static and promotion gates
 - [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) — manual production path
-- [`workers/edge/migration-boundary.test.ts`](../../workers/edge/migration-boundary.test.ts) — static boundary guard
+- [`workers/edge/test/migration-boundary.test.ts`](../../workers/edge/test/migration-boundary.test.ts) — static boundary guard

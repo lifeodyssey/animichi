@@ -8,10 +8,10 @@ secrets, and minting a standing repo-admin PAT just to keep a doc honest is a ne
 trade (a permanent credential for a documentation nice-to-have). This asserts the same thing
 with zero credentials, by grepping source instead of asking GitHub — mirroring the shape of
 `test_anonymous_docs_consistency.py`, which does the same job for ARCHITECTURE.md against
-workers/edge/auth.ts.
+workers/edge/src/identity/auth.ts.
 
 Set A (things that must be documented): every name used as `${{ secrets.X }}` anywhere under
-`.github/workflows/**`, plus every credential-shaped name in `workers/edge/container/container-env.ts`'s
+`.github/workflows/**`, plus every credential-shaped name in `workers/edge/src/container/container-env.ts`'s
 `CONTAINER_ENV_KEYS` (`_API_KEY`/`_TOKEN`/`_SECRET` suffix, plus the one exception
 `SUPABASE_DB_URL`). The non-credential majority of `CONTAINER_ENV_KEYS` (`LOG_LEVEL`,
 `CACHE_TTL_SECONDS`, ...) is plain runtime config with no GitHub secret behind it and is out
@@ -32,12 +32,14 @@ import pytest
 READS: tuple[str, ...] = (
     ".github/workflows/**",
     "docs/ops/secrets.md",
-    "workers/edge/container/container-env.ts",
+    "workers/edge/src/container/container-env.ts",
 )
 
 ROOT = Path(__file__).resolve().parents[6]
 WORKFLOWS_DIR = ROOT / ".github" / "workflows"
-CONTAINER_ENV_FILE = ROOT / "workers" / "edge" / "container" / "container-env.ts"
+CONTAINER_ENV_FILE = (
+    ROOT / "workers" / "edge" / "src" / "container" / "container-env.ts"
+)
 SECRETS_DOC = ROOT / "docs" / "ops" / "secrets.md"
 
 SECRET_REF_RE = re.compile(r"\$\{\{\s*secrets\.([A-Z0-9_]+)\s*\}\}")
@@ -57,7 +59,7 @@ def _container_env_keys() -> list[str]:
     source = CONTAINER_ENV_FILE.read_text(encoding="utf-8")
     match = re.search(r"CONTAINER_ENV_KEYS\s*=\s*\[(.*?)\];", source, re.DOTALL)
     assert match, (
-        "CONTAINER_ENV_KEYS array not found in workers/edge/container/container-env.ts"
+        "CONTAINER_ENV_KEYS array not found in workers/edge/src/container/container-env.ts"
     )
     return re.findall(r'"([A-Z0-9_]+)"', match.group(1))
 

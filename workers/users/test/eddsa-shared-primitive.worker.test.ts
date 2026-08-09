@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import contractJwtSource from "../../../packages/contract/src/jwt.ts?raw";
-import edgeAuthSource from "../../../workers/edge/identity/auth.ts?raw";
+import edgeAuthSource from "../../../workers/edge/src/identity/auth.ts?raw";
 import usersJwtSource from "../src/auth/jwt.ts?raw";
 
 /**
@@ -38,7 +38,7 @@ import usersJwtSource from "../src/auth/jwt.ts?raw";
  */
 export const READS = [
   "packages/contract/src/jwt.ts",
-  "workers/edge/identity/auth.ts",
+  "workers/edge/src/identity/auth.ts",
   "workers/users/src/auth/jwt.ts",
 ] as const;
 

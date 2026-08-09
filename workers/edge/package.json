@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "test": "node --test \"test/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
