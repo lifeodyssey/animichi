@@ -53,7 +53,7 @@ const secretsStoreName = config.get("secretsStoreName") ?? "animichi-secrets";
 const secretsStoreId = config.require("secretsStoreId");
 
 const neonProvider = new neon.Provider("neon", {
-  apiKey: config.getSecret("neonApiKey"),
+  apiKey: config.requireSecret("neonApiKey"),
 });
 
 // Role -> staging secret mapping (#832): the secrets carry the same names the
