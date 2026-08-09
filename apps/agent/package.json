@@ -1,0 +1,12 @@
+{
+  "name": "@animichi/agent",
+  "private": true,
+  "scripts": {
+    "install": "uv sync --extra dev",
+    "test": "uv run pytest src/animichi/tests/unit/ -v",
+    "test:integration": "uv run pytest src/animichi/tests/integration/ -v --no-cov"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.1"
+  }
+}

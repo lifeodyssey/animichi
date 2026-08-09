@@ -20,7 +20,7 @@ labels: type:story
 
 ## Spec source
 
-<!-- e.g. `docs/superpowers/specs/2026-07-06-frontend-rebuild/iter-5.md` (commit <sha>) -->
+<!-- e.g. `docs/specs/2026-07-06-frontend-rebuild/iter-5.md` (commit <sha>) -->
 
 <!--
 Labels to set:

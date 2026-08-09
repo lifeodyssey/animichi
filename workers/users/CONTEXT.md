@@ -2,8 +2,8 @@
 
 Owns authenticated-user documents and claims of anonymous work after login. Does not own Point geometry or Itinerary algorithms — only references (e.g. point ids).
 
-Design (Thin CA + greenfield schema):  
-`docs/superpowers/specs/2026-08-06-users-clean-architecture-design.md`  
+Design (Thin CA + greenfield schema):
+`docs/specs/2026-08-06-users-clean-architecture-design.md`
 **Status:** ACCEPTED core BC (§0.2). Product surfaces still OPEN (§0.3 O1–O12) — do not implement those as if designed.
 
 ## Language

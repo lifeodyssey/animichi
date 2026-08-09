@@ -4,18 +4,40 @@ config:
     secure: v1:+pBUAY5DQexxcppn:PAx1EPqfroMHknjsk87vPP6usmoP2x8BlHMuxeNZs339sXPDS7Dr5LzwAyqHuRAncHPPEJ6OTuzgB2VF7F33TMoICpGfkC8oHEKm4aNt0mIrmaOOiaJ8ewt42hh3LGQhLJKqGaC9GLOvC7OsilRaZpGzOPdDNk8Quw5BeuYAvXM8fOUdoZvtsaRqI7X0H93VzFLcVf+eu3S64jO5n/jkF9k=
   seichijunrei-infra:cloudflareAccountId: 021233c1880a43aa68565496100e1f8c
   #
-  # ── Hostname cutover (#541), OFF today ──────────────────────────────────────
+  # ── Hostname cutover (#541 / #914), OFF today ───────────────────────────────
   # `animichi.com` has no DNS record yet. Flipping `webRoutesEnabled` is the
   # launch: it creates the apex Custom Domain, the /v1, /img, /healthz edge
   # routes, and the www placeholder + 301, all together. They share one flag
   # because separating DNS from route narrowing is precisely the failure mode —
   # the apex would answer a browser with the edge Worker's JSON 404.
   #
-  #   pulumi config set webRoutesEnabled true                   --stack prod
-  #   pulumi config set cloudflareZoneId <animichi.com zone id> --stack prod
-  #   pulumi config set webDomain animichi.com                  --stack prod
-  #   pulumi config set wwwDomain www.animichi.com              --stack prod
+  # Activation order (each key is committed here and applied by CI):
+  #
+  #   pulumi config set cloudflareZoneId 44fdcc54545c1152a8e730137b671be4 --stack prod
+  #   pulumi config set webDomain animichi.com                            --stack prod
+  #   pulumi config set wwwDomain www.animichi.com                        --stack prod
+  #   pulumi config set webRoutesEnabled true                             --stack prod
+  #
+  #   # Optional, one entry per legacy domain (each needs its own CF zone, #545):
+  #   pulumi config set legacyRedirectZones '["<legacy zone id>"]'        --stack prod
+  #
+  # Zone id 44fdcc54545c1152a8e730137b671be4 is the animichi.com zone — the
+  # SAME zone staging already lives in (Pulumi.staging.yaml, live since #541
+  # step 6). A CF Custom Domain for a subdomain requires the parent zone in the
+  # account, so the apex zone provably exists; owner still confirms via the CF
+  # dashboard before the launch.
+  #
+  # Not all keys activate at the flag flip. `cloudflareZoneId` ALONE (step 1)
+  # turns on the zone hardening in src/hardening.ts — DNSSEC signing, the
+  # /v1/* rate-limit ruleset, and the HSTS zone setting. `webDomain` (step 2)
+  # additionally pins the four CAA records to the apex. Only
+  # `webRoutesEnabled` (step 4) publishes the apex + narrows the routes.
+  #
+  # After the launch, verify the apex with scripts/verify-prod-seo.sh — the
+  # runbook is docs/ops/prod-seo-validation.md (runbook + HITL checklist,
+  # #914).
   #
   # Prod applies run through CI behind the GitHub `production` environment
-  # approval — see ../docs/ops/deployment.md. There is no staging gate here;
-  # `stagingGateEnabled` is read only on the staging stack.
+  # approval — `run_pulumi: true` only on the deploy-prod catalog job (see
+  # ../docs/ops/deployment.md and .github/workflows/ci.yml). There is no
+  # staging gate here; `stagingGateEnabled` is read only on the staging stack.

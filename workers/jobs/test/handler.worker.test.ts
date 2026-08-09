@@ -44,6 +44,20 @@ describe("scheduled handler", () => {
     expect(deps.connect).not.toHaveBeenCalled();
   });
 
+  it("resolves the DSN from a Secrets Store binding (#912 PR2)", async () => {
+    const db = database();
+    const deps = dependencies(db);
+    const env = {
+      AGENT_DATABASE_URL: { get: vi.fn().mockResolvedValue("postgresql://user:password@agent.example/animichi") },
+    };
+
+    await createScheduledHandler(deps)({ cron: ANON_QUOTA_CRON }, env);
+
+    expect(deps.connect).toHaveBeenCalledWith("postgresql://user:password@agent.example/animichi");
+    expect(env.AGENT_DATABASE_URL.get).toHaveBeenCalledTimes(1);
+    expect(db.query).toHaveBeenCalledTimes(1);
+  });
+
   it("fails an unknown cron instead of silently running the wrong purge", async () => {
     const deps = dependencies(database());
 

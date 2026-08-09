@@ -204,12 +204,12 @@ export const ShareRevokedData = z.strictObject({
 /** Empty public not-found data avoids reflecting bearer tokens. */
 export const ShareNotFoundData = z.strictObject({});
 
-type ShareErrorDefItem = {
+interface ShareErrorDefItem {
   readonly status: number;
   readonly category: ShareErrorCategory;
   readonly message: string;
-  readonly data: z.ZodType<unknown>;
-};
+  readonly data: z.ZodType;
+}
 
 /** Share error registry with registry-only categories omitted from responses. */
 export const SHARE_ERROR_DEFS = {

@@ -14,6 +14,10 @@
 #
 # Concurrency groups are shared with ci.yml's prod jobs: a manual dispatch and a
 # CI promotion of the same component can never deploy concurrently.
+#
+# Deliberately no neon-secrets job here: the infra/neon-secrets stack is
+# staging-only today (single branch, no Pulumi.prod.yaml — #912 follow-up
+# tracks the production stack). Production branch roles are untouched by it.
 name: Deploy (Manual)
 
 on:

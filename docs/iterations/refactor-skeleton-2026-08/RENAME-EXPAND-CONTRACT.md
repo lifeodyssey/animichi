@@ -2,7 +2,7 @@
 
 **Status:** SPIKE — 本 PR 只落文档，**无** Atlas 迁移、**无** runtime 改名、**无** git 操作。
 **Parent:** [#829](https://github.com/lifeodyssey/animichi/issues/829) · **Ticket:** [#852](https://github.com/lifeodyssey/animichi/issues/852)（W4，GOAL §3）
-**Language / data-plane target:** `docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md`（§2 契约 / §3 数据面 / §4 分包装改）
+**Language / data-plane target:** `docs/specs/2026-08-06-greenfield-language-and-data-plane.md`（§2 契约 / §3 数据面 / §4 分包装改）
 **ADR:** `docs/adr/0002-published-language-point-bangumi-itinerary.md`
 **Table ownership:** `db/AGENTS.md`（D21，`routes` → users 写权威，目标名 `saved_routes`）
 **实施入口:** `RENAME-INVENTORY.txt`（#852 执行 PR 以此为 grep 起点）

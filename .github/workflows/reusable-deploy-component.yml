@@ -30,16 +30,10 @@ on:
     secrets:
       NEON_DATABASE_URL:
         required: false
-      # #832 (staging only): per-component least-privilege DSNs. Optional like
-      # every sibling: until provisioned, the `||` chain in the two DATABASE_URL
-      # env maps ("Resolve effective worker secrets" and "Deploy Worker" stay in
-      # sync) falls back to NEON_DATABASE_URL (owner DSN), so deploy behavior is
-      # unchanged. Production passes neither and keeps the owner-DSN fallback
-      # until #855. Provision with scripts/staging-roles-login.sh --set-secrets.
-      CATALOG_DATABASE_URL:
-        required: false
-      USERS_DATABASE_URL:
-        required: false
+      # #912 PR2: production-only — the maintenance Worker's AGENT_DATABASE_URL
+      # is still uploaded from the same-named GitHub environment secret until
+      # the production-role cutover. Staging reads its DSN from the Secrets
+      # Store binding in workers/jobs/wrangler.toml and passes nothing.
       AGENT_DATABASE_URL:
         required: false
       CLOUDFLARE_API_TOKEN:
@@ -120,17 +114,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - name: Preflight - maintenance database secret
-        if: ${{ inputs.component == 'maintenance' }}
-        shell: bash
-        env:
-          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
-          TARGET_ENVIRONMENT: ${{ inputs.environment }}
-        run: |
-          if [ -z "$AGENT_DATABASE_URL" ]; then
-            echo "::error::AGENT_DATABASE_URL is empty/unset for the maintenance Worker in environment=$TARGET_ENVIRONMENT. Refusing to deploy a scheduled purge that cannot reach the agent data plane."
-            exit 1
-          fi
       # #527/#528: this job declares `environment: ${{ inputs.environment }}`
       # above, which is what makes environment-scoped secrets resolve here
       # at all (GitHub: "If you include environment in the reusable workflow
@@ -197,8 +180,6 @@ jobs:
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           TARGET_COMPONENT: ${{ inputs.component }}
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-          CATALOG_DATABASE_URL: ${{ secrets.CATALOG_DATABASE_URL }}
-          USERS_DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
@@ -209,8 +190,6 @@ jobs:
           }
           echo "environment=$TARGET_ENVIRONMENT component=$TARGET_COMPONENT"
           echo "  NEON_DATABASE_URL   set=$([ -n "$NEON_DATABASE_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_DATABASE_URL")"
-          echo "  CATALOG_DATABASE_URL set=$([ -n "$CATALOG_DATABASE_URL" ] && echo true || echo false) sha256_8=$(hash8 "$CATALOG_DATABASE_URL")"
-          echo "  USERS_DATABASE_URL  set=$([ -n "$USERS_DATABASE_URL" ] && echo true || echo false) sha256_8=$(hash8 "$USERS_DATABASE_URL")"
           echo "  NEON_AUTH_JWKS_URL  set=$([ -n "$NEON_AUTH_JWKS_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_AUTH_JWKS_URL")"
           echo "  PULUMI_BACKEND_URL  set=$([ -n "$PULUMI_BACKEND_URL" ] && echo true || echo false) sha256_8=$(hash8 "$PULUMI_BACKEND_URL")"
           echo "  LOGFIRE_TOKEN       set=$([ -n "$LOGFIRE_TOKEN" ] && echo true || echo false) sha256_8=$(hash8 "$LOGFIRE_TOKEN")"
@@ -223,9 +202,9 @@ jobs:
       # backs the "validates before anything deploys" claim.
       #
       # TURNSTILE_SECRET and ANON_ID_SECRET are both only read from inside
-      # `handleAnonymousV1` (workers/edge/app.ts), which `resolveAnonymous` only
+      # `handleAnonymousV1` (workers/edge/src/app.ts), which `resolveAnonymous` only
       # reaches when this environment's `ANON_ACCESS_ENABLED` var is "true"
-      # (workers/edge/identity/auth.ts:anonymousEnabled — both flag AND secret are required).
+      # (workers/edge/src/identity/auth.ts:anonymousEnabled — both flag AND secret are required).
       # `wrangler.toml`'s `env.production.vars` currently sets it to "false",
       # so both secrets are genuinely inert there today; hard-failing
       # deploy-root-prod over a secret production doesn't read would be a
@@ -287,10 +266,10 @@ jobs:
             value="${!name-}"
             if [ -z "$value" ]; then
               if [ "$anon_flag" = "true" ]; then
-                echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, where ANON_ACCESS_ENABLED=\"true\" makes it load-bearing (workers/edge/protect/turnstile.ts fails CLOSED — every anonymous request 403s without TURNSTILE_SECRET once ANON_ID_SECRET lets resolveAnonymous through at all). Refusing to start the deploy without it. Set it with: gh secret set $name"
+                echo "::error::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, where ANON_ACCESS_ENABLED=\"true\" makes it load-bearing (workers/edge/src/protect/turnstile.ts fails CLOSED — every anonymous request 403s without TURNSTILE_SECRET once ANON_ID_SECRET lets resolveAnonymous through at all). Refusing to start the deploy without it. Set it with: gh secret set $name"
                 missing=1
               else
-                echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, but ANON_ACCESS_ENABLED is not \"true\" there, so this environment's code path never reads it (see workers/edge/identity/auth.ts:anonymousEnabled). Soft warning only; the post-deploy push step will skip it."
+                echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT, but ANON_ACCESS_ENABLED is not \"true\" there, so this environment's code path never reads it (see workers/edge/src/identity/auth.ts:anonymousEnabled). Soft warning only; the post-deploy push step will skip it."
               fi
               continue
             fi
@@ -483,19 +462,13 @@ jobs:
       # guarantee that the rollback backup always lands before `up` mutates
       # anything.
       #
-      # `infra/` is deliberately NOT a pnpm-workspace member (absent from
-      # `pnpm-workspace.yaml`'s `packages:` list, and from `pnpm-lock.yaml`
-      # entirely). Confirmed empirically, not guessed: running a plain `pnpm
-      # install` from inside `infra/` in THIS repo prints "Scope: all 8
-      # workspace projects" and reinstalls the other workspace packages
-      # instead of infra's own — pnpm walks up to the repo-root
-      # `pnpm-workspace.yaml`, sees infra isn't a declared member, and simply
-      # ignores it rather than treating it as a standalone project. Only
-      # `--ignore-workspace` makes pnpm treat `infra/` as its own project;
-      # confirmed by the resulting `infra/node_modules` actually containing
-      # `@pulumi/pulumi` and `@pulumi/cloudflare`. `infra/pnpm-lock.yaml` is
-      # committed alongside this change so `--frozen-lockfile` pins versions
-      # here the same way the root lockfile does for every other package.
+      # #911: `infra/` IS a pnpm-workspace member now (listed in
+      # `pnpm-workspace.yaml`, deps absorbed into the root `pnpm-lock.yaml`),
+      # so this install runs against the root workspace exactly like the
+      # checkout's `setup` action does — no `--ignore-workspace`, no
+      # `infra/pnpm-lock.yaml`. It is kept as a run_pulumi-gated step (rather
+      # than removed) so the "deps installed before `up`" invariant stays
+      # explicit; it is a fast no-op once the root store is cached.
       #
       # `--ignore-scripts` disables package lifecycle scripts (pre/postinstall)
       # for this install (SonarCloud githubactions:S6505, a real finding, not
@@ -507,10 +480,9 @@ jobs:
       # lifecycle script — pnpm's own build-script gate already no-ops here
       # too, logging "Ignored build scripts: protobufjs@7.6.5" on a plain
       # install with no flag at all).
-      - name: Install infra dependencies
+      - name: Install infra dependencies (root workspace)
         if: ${{ inputs.run_pulumi }}
-        working-directory: infra
-        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Pulumi stack export (rollback backup)
         # Snapshot state BEFORE `up` mutates it, so a bad apply can be rolled
         # back with `pulumi stack import` from the R2 object this step writes.
@@ -538,6 +510,14 @@ jobs:
         # runs under the catalog deploy jobs; look there for the backup, not
         # under a root/web/users run.
         if: ${{ inputs.run_pulumi }}
+        # #933: `pulumi stack select "$PULUMI_STACK"` must run from inside the
+        # `infra/` project directory. From the repo root there is no
+        # Pulumi.yaml for pulumi to resolve the bare "staging" stack name
+        # against, so every run died with "pass the fully qualified name
+        # (organization/project/stack)" and the rollback backup (and the
+        # subsequent `up`) never ran. Mirroring the "Pulumi up" step's
+        # work-dir: infra makes `staging` resolve to seichijunrei-infra/staging
+        # exactly like the deploy action does.
         working-directory: infra
         env:
           # Least-privilege split (#674): Pulumi only touches R2/DNS/Routes/
@@ -619,9 +599,11 @@ jobs:
           # Same env block as the Deploy Worker step below — the indirect
           # `${!name}` expansion above looks up OPTIONAL_LIST names here, so
           # every secret that could be optional must be present in env.
-          # #832: per-component least-privilege DSN with owner-DSN fallback
-          # (empty component secret is falsy → NEON_DATABASE_URL wins).
-          DATABASE_URL: ${{ (inputs.component == 'catalog' && secrets.CATALOG_DATABASE_URL) || (inputs.component == 'users' && secrets.USERS_DATABASE_URL) || secrets.NEON_DATABASE_URL }}
+          # #912 PR2: catalog/users staging read their DSN from a Secrets Store
+          # binding (wrangler.toml [[env.staging.secrets_store_secrets]]) and
+          # never list DATABASE_URL here; production still uploads the owner
+          # DSN as the DATABASE_URL worker secret until the #912 cutover.
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -714,10 +696,11 @@ jobs:
           environment: ${{ inputs.environment }}
           secrets: ${{ steps.effective_secrets.outputs.list }}
         env:
-          # #832: mirror of the "Resolve effective worker secrets" map — the
-          # Deploy Worker step's own env must resolve the same per-component
-          # DSN (wrangler-action reads secrets via this env block).
-          DATABASE_URL: ${{ (inputs.component == 'catalog' && secrets.CATALOG_DATABASE_URL) || (inputs.component == 'users' && secrets.USERS_DATABASE_URL) || secrets.NEON_DATABASE_URL }}
+          # #912 PR2: mirror of the "Resolve effective worker secrets" map —
+          # staging catalog/users take their DSN from the Secrets Store binding
+          # (no upload); production keeps uploading the owner DSN as
+          # DATABASE_URL until the #912 cutover.
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -811,6 +794,11 @@ jobs:
           # non-empty, and the gate ruleset only matches the staging
           # hostname anyway.
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
+          # #494: the healthz probe hard-asserts git_commit equals this
+          # run's SHA (baked by the "Bake git build info" step) — the P7
+          # deploy-verification proof. `github.sha` in a workflow_call is
+          # the caller's commit, i.e. exactly what the bake wrote.
+          EXPECTED_GIT_COMMIT: ${{ github.sha }}
           # First cold start after an image change takes minutes; base 12 →
           # sleep budget 12*(1+2+3+4)=120s plus 5×20s request timeouts ≈ 220s ceiling, still bounded.
           POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS: "12"

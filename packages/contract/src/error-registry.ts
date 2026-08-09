@@ -20,7 +20,7 @@ import { z } from "zod";
  * "today", which is wrong across every timezone but the server's.
  */
 
-/** Global anonymous daily-dollar breaker (X4); mirror: `workers/edge/protect/cost-breaker.ts`. */
+/** Global anonymous daily-dollar breaker (X4); mirror: `workers/edge/src/protect/cost-breaker.ts`. */
 export const ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted";
 
 /** Per-identity daily message quota (S1.10). */
@@ -71,12 +71,12 @@ export function readQuotaResetsAt(body: unknown): string | undefined {
 }
 
 /** Users-service error codes are feature-namespaced: ROUTE_*, CHECKIN_*, SHARE_*. */
-export type ErrorRegistryItem = {
+export interface ErrorRegistryItem {
   readonly status: number;
   readonly category: string;
   readonly message: string;
-  readonly data: z.ZodType<unknown>;
-};
+  readonly data: z.ZodType;
+}
 
 type ErrorRegistry = Readonly<Record<string, ErrorRegistryItem>>;
 type ErrorCode<Registry extends ErrorRegistry> = keyof Registry & string;
@@ -92,7 +92,7 @@ function registryItem<Registry extends ErrorRegistry>(
   registry: Registry,
   code: ErrorCode<Registry>,
 ): ErrorRegistryItem {
-  const item = registry[code];
+  const item: ErrorRegistryItem | undefined = registry[code];
   if (!item) throw new Error(`Unknown error code: ${code}`);
   return item;
 }

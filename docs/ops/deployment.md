@@ -27,7 +27,7 @@ Cloudflare Cron Triggers ──────────────────�
 ```
 
 The hybrid topology runs the edge Worker plus the catalog, users, and scheduled maintenance Workers. The main `seichijunrei` Worker
-(`workers/edge/entry.ts`) routes `/catalog/*` to the separate `catalog` Worker
+(`workers/edge/src/entry.ts`) routes `/catalog/*` to the separate `catalog` Worker
 (`workers/catalog/wrangler.toml`) via a wrangler service binding (`env.CATALOG.fetch`).
 The Python agent in the container cannot use that JS-only binding, so it reaches
 the catalog over the public origin: `CATALOG_API_URL` (forwarded into the
@@ -64,7 +64,7 @@ Current hardening rule: the Worker strips the raw `Authorization` header before 
 
 ## Auth Flow
 
-Worker auth is implemented in `workers/edge/auth.ts`:
+Worker auth is implemented in `workers/edge/src/identity/auth.ts`:
 
 - JWT flow: `authenticate()` verifies the token signature locally against the issuer JWKS (jose `createRemoteJWKSet`, cached per isolate) — no per-request `/auth/v1/user` round-trip. Supabase tokens verify as ES256/RS256 against `SUPABASE_URL/auth/v1/.well-known/jwks.json` (issuer `SUPABASE_URL/auth/v1`, audience `authenticated`, `exp` checked); the injected `X-User-Id` is the token `sub`.
 - Dual-issuer readiness: a flag-gated Neon Auth (Better Auth, EdDSA) verification path exists but is OFF by default — active only when `NEON_AUTH_ENABLED=true` and both `NEON_AUTH_JWKS_URL` and `NEON_AUTH_ISSUER` are set. Tokens route by `alg`/`iss`, so Supabase and Neon issuers coexist without a cutover.
@@ -105,16 +105,20 @@ These secrets stay in the Worker environment and are not forwarded into the cont
 
 ### Maintenance Worker
 
-`workers/jobs` requires `AGENT_DATABASE_URL` as a Cloudflare secret binding. CI resolves the
-same-named secret from the selected GitHub Environment, so staging and production receive distinct
-agent-domain Neon DSNs. Schedules and cutover verification are in
-[`maintenance-worker.md`](./maintenance-worker.md).
+`workers/jobs` reads `AGENT_DATABASE_URL` from a Cloudflare Secrets Store binding
+(`[[env.staging.secrets_store_secrets]]` in `wrangler.toml`, #912 PR2) on staging; production
+still receives it via CI from the same-named GitHub environment secret until the #912 cutover.
+Schedules and cutover verification are in
+[`jobs-worker.md`](./jobs-worker.md).
 
 ### Container runtime
 
 Required:
 
-- `SUPABASE_DB_URL`
+- `AGENT_SVC_DATABASE_URL` **or** `SUPABASE_DB_URL` — the Postgres DSN. Staging supplies
+  the role-scoped Neon DSN (`agent_svc` role) via the edge Worker's Secrets Store binding,
+  forwarded into the container and preferred over `SUPABASE_DB_URL` (which remains the
+  production container DSN until the #855 cutover); see `docs/ops/prod-dsn-cutover.md`.
 - `MIMO_API_KEY` for the primary `mimo-v2.5` model
 - `DEEPSEEK_API_KEY` remains deploy-required and provisioned for the dormant DeepSeek fallback
 - `APP_ENV` — forwarded from `wrangler.toml`'s per-environment `[vars]` block (`development` /
@@ -139,7 +143,7 @@ Required:
   `showcase_denied` before any binding is touched, while `/healthz`, `/img/*`, `/tiles/*` stay
   reachable. Strict boolean like `VITE_SHOWCASE_MODE`: only the literal `"false"` opens the
   backend — unset/empty/malformed values fail closed (deny) with a one-per-isolate warning. Pinned
-  by `workers/edge/containerEnv.test.ts`; the post-deploy smoke gate parses it from `wrangler.toml`
+  by `workers/edge/test/container-env.test.ts`; the post-deploy smoke gate parses it from `wrangler.toml`
   and asserts the denial as a permanent CI check.
 
 Production is temporarily MiMo-only while the DeepSeek account has insufficient balance. After
@@ -343,17 +347,43 @@ On a push to `main`, the current promotion chain is:
    and `pulumi_stack: staging`. Accepted tradeoff: staging deploys no longer wait on any package
    pipeline, because GitHub cannot express `needs:` across workflows — protection comes from the
    required merge contexts in the ruleset instead, plus the future merge queue.
-3. `reusable-deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
+3. `deploy-neon-secrets-staging` runs **before** `deploy-staging` (catalog waits on it, so
+   users/maintenance/root cascade behind it): the Neon service roles and the Cloudflare Secrets
+   Store DSN secrets (`infra/neon-secrets/`, ADR 0003 / #912) must exist before any Worker deploy
+   consumes them (PR2's `wrangler.toml` store bindings). It calls the slim
+   `reusable-deploy-neon-secrets.yml` (Pulumi-only — no Worker machinery):
+   `pulumi package add` to generate the gitignored Neon provider SDK (the package.json rewrite
+   that command performs is reverted right after — a `file:` spec it appends to
+   `pnpm.onlyBuiltDependencies` makes pnpm 10.33 reject the project, see the workflow header),
+   a plain frozen `pnpm install` against `infra/neon-secrets/pnpm-lock.yaml` (the SDK's
+   postinstall compiles it; the committed `pnpm-workspace.yaml` allows that build), the #485
+   rollback backup to the same R2 `rollback-backups/` prefix, and `pulumi up` on stack
+   `staging`.
+   **State backend**: R2 (`PULUMI_BACKEND_URL`) + `PULUMI_CONFIG_PASSPHRASE` — the same
+   encrypted backend the `infra/` project uses. A file backend was used for the #926 validation
+   but can never serve CI, and the state holds Neon role passwords + DSNs, so it must stay
+   encrypted at rest. No `NEON_API_KEY` secret exists: the key lives in the committed
+   `Pulumi.staging.yaml` as a passphrase-encrypted `secure:` value, exactly like `infra/`'s
+   stack configs.
+   **First run**: the `staging` stack does not exist on R2 yet, so the job `pulumi stack init`s
+   it (passphrase secrets provider) and runs `.github/scripts/neon-secrets-adopt.sh`, which
+   imports the resources the #926 local file-backend run created (a fresh `up` would try to
+   re-create the roles and the Neon API rejects duplicate creates). Adoption is idempotent and
+   guarded on the stack state; after it, `pulumi up` is a no-change apply.
+   **Production**: deliberately absent from `deploy.yml` and the prod promotion — the stack is
+   staging-only (single branch, no `Pulumi.prod.yaml`); the production stack is a #912
+   follow-up.
+4. `reusable-deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
    repo, runs the shared setup action, applies Atlas migrations when `NEON_DATABASE_URL` is set,
    runs `pulumi up` in `infra/`, deploys `workers/${{ inputs.component }}` with Wrangler, and runs
    the component smoke step.
-4. `deploy-maintenance-staging` deploys the scheduled Worker after the catalog job has applied Atlas
+5. `deploy-maintenance-staging` deploys the scheduled Worker after the catalog job has applied Atlas
    migrations; the web, users, and root staging deploys complete in the same promotion stage.
-5. `post-staging` runs the API post-deploy suite against staging.
-6. `deploy-prod` and the other production component jobs deploy catalog, web, users, maintenance,
+6. `post-staging` runs the API post-deploy suite against staging.
+7. `deploy-prod` and the other production component jobs deploy catalog, web, users, maintenance,
    and root with `environment: production`; `pulumi_stack: prod` remains catalog-only. The GitHub
    `production` environment is the human approval gate.
-7. `post-prod` runs the production smoke post-deploy suite.
+8. `post-prod` runs the production smoke post-deploy suite.
 
 ### Manual production path (`.github/workflows/deploy.yml`)
 
@@ -367,7 +397,8 @@ Its current order is:
    mutate the database)
 3. deploy the catalog Worker first, because the root Worker service binding depends on it
 4. deploy the users Worker before the root Worker, because the root `USERS` binding depends on it
-5. deploy the scheduled maintenance Worker with `AGENT_DATABASE_URL`
+5. deploy the scheduled maintenance Worker (DSN supplied by its Secrets Store binding on
+   staging; GitHub-environment secret on production)
 6. verify `Dockerfile` exists
 7. deploy the root Worker/container with Wrangler
 
@@ -378,7 +409,7 @@ owner/runbook and must not be used to change Neon catalog or user tables.
 
 Do not use version tags as a deploy trigger for the current pipeline.
 
-**CF Worker routing** (`workers/edge/app.ts`):
+**CF Worker routing** (`workers/edge/src/app.ts`):
 - `/v1/*` and `/healthz` → `CONTAINER` (Durable Object → FastAPI service on port 8080)
 - `/v1/users/*` → `USERS` service binding
 - `/catalog/public/anime-overview/:id` → allowlisted anonymous catalog read
@@ -587,13 +618,17 @@ itself was a pure UI-affordance gap rather than new untested rollback logic; see
 - default session storage is in-memory unless a distributed backend is introduced later
 - OpenTelemetry exporters are opt-in and disabled by default
 - AI Gateway is documented but not yet wired in backend provider configuration
-- **CURRENTLY BROKEN — do not rely on this**: `/healthz`'s `git_branch`/`git_commit` fields are
-  always `"unknown"` in every deployed environment. `Dockerfile` never `COPY`s `.git` into the
-  image, so the `git rev-parse`/`git branch --show-current` calls in
-  `apps/agent/src/animichi/interfaces/routes/health.py` fail every time. "Verify `/healthz` `git_branch`
-  after a deploy" (referenced in `docs/superpowers/specs/2026-07-06-frontend-rebuild-spec.md:215`
-  and `docs/superpowers/specs/2026-07-28-284-byok-design.md:1080`) cannot confirm anything today —
-  tracked in issue #494.
+- `/healthz`'s `git_branch`/`git_commit` are real in deployed containers via the CI bake chain:
+  `reusable-deploy-component.yml`'s "Bake git build info" step writes
+  `apps/agent/src/animichi/build_info.py` (gitignored, regenerated per deploy) from
+  `GITHUB_SHA`/`GITHUB_REF_NAME`; the image's `COPY apps/agent/src/animichi` ships it and
+  `apps/agent/src/animichi/interfaces/routes/health.py` imports it at startup (fallback: env vars →
+  git shell-out → `"unknown"`). The container never carries `.git`, so `"unknown"` in a deployed
+  environment means the bake chain broke — and since #494's gate fix,
+  `.github/scripts/post-deploy-assert.sh healthz` **hard-fails the deploy** on `"unknown"` and, when
+  `EXPECTED_GIT_COMMIT` is passed (both CI smoke sites), asserts `git_commit` equals the deploy run's
+  own SHA. Live-verified 2026-08-05 (staging returned the deployed SHA; production's last deploy
+  predates the bake fix, so prod still reports `"unknown"` until its next deploy).
 
 ## HISTORICAL (pre-2026-07): feat/ssr-cloudflare Post-deploy Notes
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import constantsSource from "../../../../../packages/contract/src/constants.ts?raw";
-import edgeTurnstileSource from "../../../../../workers/edge/protect/turnstile.ts?raw";
+import edgeTurnstileSource from "../../../../../workers/edge/src/protect/turnstile.ts?raw";
 import tokenStoreSource from "../../../src/lib/turnstile/token-store.ts?raw";
 
 /**
@@ -34,7 +34,7 @@ import tokenStoreSource from "../../../src/lib/turnstile/token-store.ts?raw";
  */
 export const READS = [
   "packages/contract/src/constants.ts",
-  "workers/edge/protect/turnstile.ts",
+  "workers/edge/src/protect/turnstile.ts",
   "apps/web/src/lib/turnstile/token-store.ts",
 ] as const;
 

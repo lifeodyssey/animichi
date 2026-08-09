@@ -8,7 +8,7 @@
  * `alias_normalized` is the NFKC-folded form used for exact-match lookup
  * (btree `idx_aliases_normalized`); fuzzy match (pg_trgm) lands in Wave 2.
  *
- * Source priority follows `docs/superpowers/specs/2026-06-13-backend-design.md`
+ * Source priority follows `docs/archive/specs/2026-06-13-backend-design.md`
  * (line 38): Bangumi 官方名 (most authoritative) > AniDB daily dump >
  * 萌娘百科 (Moegirl) community names > manual seed (gap-filler fallback).
  * Higher number wins. (Anitabi supplies point data, not title aliases, so it is

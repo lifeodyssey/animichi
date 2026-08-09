@@ -1,6 +1,6 @@
 """Integration tests for the BYOK egress instrumentation exclusion — outbound leg.
 
-Spec: docs/superpowers/specs/2026-07-28-284-byok-design.md — Task 2 (X3),
+Spec: docs/specs/2026-07-28-284-byok-design.md — Task 2 (X3),
 T2-AC6, AC7.
 
 These tests deliberately avoid the trap the spec calls out for T2-AC6: under

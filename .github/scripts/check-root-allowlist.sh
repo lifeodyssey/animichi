@@ -15,6 +15,7 @@ ALLOWED_ROOT_ENTRIES=(
   .env.example
   .env.test.example
   .github
+  .gitleaks.toml
   .gitignore
   .npmrc
   .nvmrc
@@ -33,6 +34,7 @@ ALLOWED_ROOT_ENTRIES=(
   README.zh.md
   apps
   codecov.yml
+  db
   docker
   docs
   e2e

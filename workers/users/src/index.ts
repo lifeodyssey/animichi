@@ -9,7 +9,7 @@ import { usersRouter, type UsersContext } from "./router";
 export interface Env {
   ENVIRONMENT?: string;
   HYPERDRIVE?: { connectionString: string };
-  DATABASE_URL?: string;
+  DATABASE_URL?: string | SecretsStoreSecret;
   NEON_AUTH_JWKS_URL?: string;
 }
 
@@ -21,8 +21,13 @@ export interface UsersAppDeps {
 
 const dbPools = new Map<string, DbExecutor>();
 
-function connectionString(env: Env): string | undefined {
-  return env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL;
+/** In staging the DSN arrives as a Secrets Store binding (#912 PR2): `.get()`
+ * resolves the string; the string branch keeps local dev and tests unchanged. */
+async function connectionString(env: Env): Promise<string | undefined> {
+  if (env.HYPERDRIVE?.connectionString) return env.HYPERDRIVE.connectionString;
+  const url = env.DATABASE_URL;
+  if (url == null) return undefined;
+  return typeof url === "string" ? url : await url.get();
 }
 
 function realDbFor(connStr: string): DbExecutor {
@@ -54,13 +59,13 @@ function healthz(c: Context<{ Bindings: Env }>): Response {
   return c.json({ status: "ok", service: "users", env: c.env.ENVIRONMENT ?? "unknown" });
 }
 
-function requestService(
+async function requestService(
   c: Context<{ Bindings: Env }>,
   deps: UsersAppDeps,
-): { db: DbExecutor; authUrl: string } | Response {
+): Promise<{ db: DbExecutor; authUrl: string } | Response> {
   const authUrl = c.env.NEON_AUTH_JWKS_URL;
   if (!authUrl) return c.json({ error: "users auth not configured" }, 503);
-  const connStr = connectionString(c.env);
+  const connStr = await connectionString(c.env);
   if (!connStr) return c.json({ error: "users database not configured" }, 503);
   return { db: dbFor(connStr, deps.makeDb), authUrl };
 }
@@ -94,7 +99,7 @@ async function guardUsersV1(
   service: UsersV1Service,
   c: Context<{ Bindings: Env }, string>, next: Next,
 ): Promise<Response | undefined> {
-  const ready = requestService(c, service.deps);
+  const ready = await requestService(c, service.deps);
   if (isResponse(ready)) return ready;
   const user = await requireUser(c, service.deps, ready.authUrl);
   if (isResponse(user)) return user;

@@ -55,7 +55,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # The node:test suite under workers/edge/*.test.ts doubles as the
+      # The node:test suite under workers/edge/test/*.test.ts doubles as the
       # workflow-content guard tests (auth-config, migration-boundary,
       # dependabot-workflow, test-inventory).
       - name: Edge worker tests (node:test)

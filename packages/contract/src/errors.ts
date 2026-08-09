@@ -49,12 +49,12 @@ export const UpstreamUnavailableData = z.object({
 /** Inferred TS type for upstream-unavailable error data. */
 export type UpstreamUnavailableData = z.infer<typeof UpstreamUnavailableData>;
 
-type CatalogErrorDefItem = {
+interface CatalogErrorDefItem {
   readonly status: number;
   readonly category: ErrorCategory;
   readonly message: string;
-  readonly data: z.ZodType<unknown>;
-};
+  readonly data: z.ZodType;
+}
 
 /**
  * Catalog error registry with categories kept out of the oRPC wire envelope.
@@ -93,11 +93,11 @@ export type CatalogErrorDefs = typeof CATALOG_ERROR_DEFS;
 /** Catalog error code union. */
 export type CatalogErrorCode = keyof CatalogErrorDefs;
 
-type CatalogErrorMapItem<Code extends CatalogErrorCode> = {
+export interface CatalogErrorMapItem<Code extends CatalogErrorCode> {
   status: CatalogErrorDefs[Code]["status"];
   message: CatalogErrorDefs[Code]["message"];
   data: CatalogErrorDefs[Code]["data"];
-};
+}
 
 type CatalogErrorMap<Code extends CatalogErrorCode> = {
   [Key in Code]: CatalogErrorMapItem<Key>;

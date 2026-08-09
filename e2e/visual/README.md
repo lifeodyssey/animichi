@@ -1,7 +1,7 @@
 # Visual Pipeline (S0-v2 C3)
 
 Pixel-level comparison of the TanStack web app against the design mockups in
-`docs/design/` and `docs/mockups/`. Machinery card: one frame
+`docs/archive/design-sync/` and `docs/archive/mockups-demo/`. Machinery card: one frame
 (`landing-day`) proven end-to-end; frame convergence is a later card.
 
 ## The two-tier doctrine
@@ -40,7 +40,7 @@ the heatmap.
 
 | Frame | Mockup | App route | Viewport | Mode |
 |---|---|---|---|---|
-| `landing-day` | `docs/design/2026-07-06-design-sync/Landing - Seichijunrei.html` | `/` | 1280×800 | day |
+| `landing-day` | `docs/archive/design-sync/Landing - Seichijunrei.html` | `/` | 1280×800 | day |
 | `landing-night` | same | `/` | 1280×800 | night |
 
 Adding a frame = one entry in `e2e/visual/frames.ts` (key, mockup path,

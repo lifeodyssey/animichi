@@ -121,3 +121,41 @@ class TestAPIKeyValidation:
         )
         assert config["fallback_agent_model"] == "openai:gpt-5.4"
         assert config["openai_compat_base_url"] == "https://api.univibe.cc/openai"
+
+
+class TestAgentDatabaseUrl:
+    """Container DSN resolution (#912 follow-up): AGENT_SVC_DATABASE_URL wins
+    over the legacy SUPABASE_DB_URL when both are set, and either one
+    satisfies the required-env check."""
+
+    def test_agent_svc_dsn_wins_over_supabase(self) -> None:
+        settings = Settings(
+            _env_file=None,
+            mimo_api_key="k",
+            supabase_db_url="postgresql://legacy/db",
+            agent_svc_database_url="postgresql://agent_svc@neon/db",
+        )
+        assert settings.database_url == "postgresql://agent_svc@neon/db"
+
+    def test_supabase_dsn_is_fallback_when_no_agent_dsn(self) -> None:
+        settings = Settings(
+            _env_file=None, mimo_api_key="k", supabase_db_url="postgresql://legacy/db"
+        )
+        assert settings.database_url == "postgresql://legacy/db"
+
+    def test_agent_dsn_alone_satisfies_required_env(self) -> None:
+        settings = Settings(
+            _env_file=None,
+            mimo_api_key="k",
+            agent_svc_database_url="postgresql://agent_svc@neon/db",
+        )
+        assert settings.database_url == "postgresql://agent_svc@neon/db"
+
+    def test_missing_both_dsns_raises(self) -> None:
+        with pytest.raises(ValueError, match="AGENT_SVC_DATABASE_URL"):
+            Settings(
+                _env_file=None,
+                mimo_api_key="k",
+                supabase_db_url="",
+                agent_svc_database_url="",
+            )

@@ -173,6 +173,8 @@ async def test_healthz_git_absent_returns_unknown(
 ) -> None:
     monkeypatch.delenv("GIT_COMMIT", raising=False)
     monkeypatch.delenv("GIT_BRANCH", raising=False)
+    monkeypatch.delenv("GIT_DIR", raising=False)
+    monkeypatch.delenv("GIT_WORK_TREE", raising=False)
     monkeypatch.delitem(sys.modules, "animichi.build_info", raising=False)
     monkeypatch.chdir(tmp_path)
     importlib.reload(health)

@@ -27,7 +27,7 @@ trade. Instead,
 does it with zero credentials, by grepping source instead of asking GitHub:
 
 - **A** = every name used as `${{ secrets.X }}` anywhere under `.github/workflows/**`, plus
-  every credential-shaped name in `workers/edge/container/container-env.ts`'s `CONTAINER_ENV_KEYS`
+  every credential-shaped name in `workers/edge/src/container/container-env.ts`'s `CONTAINER_ENV_KEYS`
   (`_API_KEY` / `_TOKEN` / `_SECRET` suffix, plus `SUPABASE_DB_URL`) — the rest of that list
   is plain runtime config with no GitHub secret behind it, and stays out of scope here (see
   `deployment.md`).
@@ -39,7 +39,7 @@ does it with zero credentials, by grepping source instead of asking GitHub:
   "Referenced by nothing" → red, not a silent stale claim.
 
 Follows the shape of `apps/agent/src/animichi/tests/unit/test_anonymous_docs_consistency.py`, which
-does the same job for `ARCHITECTURE.md` against `workers/edge/identity/auth.ts`.
+does the same job for `ARCHITECTURE.md` against `workers/edge/src/identity/auth.ts`.
 
 ## Same-name override rule
 
@@ -76,11 +76,11 @@ imitate when adding a new secret produces exactly the wrong number of touchpoint
    3. Manual path: `.github/workflows/deploy.yml` uses direct `cloudflare/wrangler-action`
       steps, so add the name to that action's `secrets:` block and its `env:` map separately;
       changing `reusable-deploy-component.yml` does not update this workflow.
-   4. `workers/edge/container/container-env.ts` — add the name to `CONTAINER_ENV_KEYS`, or the worker drops it
+   4. `workers/edge/src/container/container-env.ts` — add the name to `CONTAINER_ENV_KEYS`, or the worker drops it
       even when Wrangler has it.
    5. This file, plus `deployment.md` if it is not secret-shaped.
 2. **Cloudflare Worker secret chain** — a GitHub secret pushed straight to the Worker's own
-   Cloudflare secret store, read by `workers/edge/*.ts` directly; never forwarded into the container.
+   Cloudflare secret store, read by `workers/edge/src/**` directly; never forwarded into the container.
    Reference implementation: `ANON_ID_SECRET` / `TURNSTILE_SECRET` — as of the same-day
    `reusable-deploy-component.yml` change that wired them in (2026-07-29), the push itself now runs
    inside CI's "Push post-deploy secrets to Worker" step (driven by the `post_deploy_secrets`
@@ -96,7 +96,7 @@ imitate when adding a new secret produces exactly the wrong number of touchpoint
    `wrangler.toml`'s `[vars]` (or `[env.<name>.vars]`), forwarded to the container the same way
    as (1) via `CONTAINER_ENV_KEYS`. Reference implementation: `ANON_DAILY_COST_BUDGET_USD`.
    1. `wrangler.toml` — add the literal value under the relevant `[vars]` section(s).
-   2. `workers/edge/container/container-env.ts` — add the name to `CONTAINER_ENV_KEYS`.
+   2. `workers/edge/src/container/container-env.ts` — add the name to `CONTAINER_ENV_KEYS`.
    3. `deployment.md`'s environment tables (not this file — nothing secret-shaped happened).
 
 `CORS_ALLOWED_ORIGIN` has completed the chain-1 → chain-3 migration for staging (#528): staging
@@ -108,8 +108,8 @@ table, with its source called out explicitly; do not create a staging GitHub sec
 
 | Secret | Scope | What it is | Value lives in / read by | Rotation |
 |---|---|---|---|---|
-| `ANON_ID_SECRET` | repo (no env override) | HMAC-SHA-256 key signing anonymous visitor IDs | GitHub repo secret → pushed to both Cloudflare Worker secret stores via CI's post-deploy-secrets step → read by `workers/edge/identity/auth.ts` | **Invalidates every existing `aid` cookie**, and since #514 `aid` also backs anonymous→signed-in session-ownership migration, so every unmigrated anonymous session's history is permanently orphaned, not just rate-limit counters reset. Set once. Breaks silently: `verifyAnonymousToken` (`workers/edge/identity/auth.ts`) just returns `null` on a signature mismatch — no error, the edge mints a fresh anonymous identity and session-migration reports "nothing to migrate" for visitors who actually had history |
-| `TURNSTILE_SECRET` | repo (no env override) | Cloudflare Turnstile siteverify key. Must be the **Secret Key** (~35 chars), not the Site Key (~24) | GitHub repo secret → pushed to both Cloudflare Worker secret stores via CI's post-deploy-secrets step → read by `workers/edge/protect/turnstile.ts` | Safe. Missing or wrong → `guardTurnstile` fails closed and every anonymous request gets 403 `turnstile_required` — loud, not silent |
+| `ANON_ID_SECRET` | repo (no env override) | HMAC-SHA-256 key signing anonymous visitor IDs | GitHub repo secret → pushed to both Cloudflare Worker secret stores via CI's post-deploy-secrets step → read by `workers/edge/src/identity/auth.ts` | **Invalidates every existing `aid` cookie**, and since #514 `aid` also backs anonymous→signed-in session-ownership migration, so every unmigrated anonymous session's history is permanently orphaned, not just rate-limit counters reset. Set once. Breaks silently: `verifyAnonymousToken` (`workers/edge/src/identity/auth.ts`) just returns `null` on a signature mismatch — no error, the edge mints a fresh anonymous identity and session-migration reports "nothing to migrate" for visitors who actually had history |
+| `TURNSTILE_SECRET` | repo (no env override) | Cloudflare Turnstile siteverify key. Must be the **Secret Key** (~35 chars), not the Site Key (~24) | GitHub repo secret → pushed to both Cloudflare Worker secret stores via CI's post-deploy-secrets step → read by `workers/edge/src/protect/turnstile.ts` | Safe. Missing or wrong → `guardTurnstile` fails closed and every anonymous request gets 403 `turnstile_required` — loud, not silent |
 | `CLOUDFLARE_API_TOKEN` | repo + `staging` + `production` (environment value wins for every current staging/production deploy; no PR-preview workflow exists) | Deploys Workers; needs `Workers Scripts:Edit` | `reusable-deploy-component.yml`, `reusable-post-deploy-test.yml`, and direct production `deploy.yml` steps | Rotating the environment-level value breaks staging/production deploys; the repo-level copy has no current deploy consumer but remains required in caller secret maps. Create the replacement first, update the intended scope, then revoke the old one |
 | `CLOUDFLARE_PULUMI_API_TOKEN` | `staging` + `production` environments | Pulumi 专用最小权限 token(R2:Edit + Zone DNS/Routes/Rulesets:Edit,zone 限 animichi.com;不含 Workers Scripts/Containers)— #674 最小权限分离 | `reusable-deploy-component.yml` 的 Pulumi state-backup 与 `pulumi up` 两步(仅 run_pulumi 的 catalog 部署 job) | 与 wrangler token 分离即为轮换/爆炸半径隔离;轮换在 CF dashboard 原地 Edit 权限或 Roll 后更新两环境 secret |
 | `CLOUDFLARE_ACCOUNT_ID` | repo + `staging` + `production` (same override rule as above) | Account identifier (not a credential, stored as a secret for convenience) | All current deploy and post-deploy workflows | Rotating an environment value breaks that environment's URL resolution/deploy; the repo-level copy is only a caller mapping today |
@@ -117,12 +117,10 @@ table, with its source called out explicitly; do not create a staging GitHub sec
 | `MIMO_API_KEY` | repo (no env override) | **Production LLM.** MiMo `mimo-v2.5` is the only live model | Agent container, `agent-eval-nightly.yml` | Breaks every chat turn: the provider call 401/403s and the user sees the agent's generic failure response, never the raw provider error (SD-19 forbids surfacing upstream text). Note the key prefix rotates `tp-` → `sk-` on top-up |
 | `DEEPSEEK_API_KEY` | repo (no env override) | Fallback model — **wired but disabled** (no balance) | Agent container | No live impact today; would surface the same way as `MIMO_API_KEY` once re-enabled |
 | `GOOGLE_MAPS_API_KEY` | repo (no env override) | Geocoding (`apps/agent/src/animichi/infrastructure/gateways/geocoding.py`) | Agent container | Breaks geocoding — surfaces as a place-resolution failure, not a raw API error |
-| `NEON_DATABASE_URL` | repo (**unreachable** — see "Same-name override rule"; no non-environment-scoped caller exists today) + `staging` + `production` | Catalog data plane | `reusable-deploy-component.yml`'s Atlas-migrate step and its `DATABASE_URL` env for catalog/users Worker deploys. **Not** `purge-anon-quota-counts.yml` — that workflow reads `SUPABASE_DB_URL` and its own inline comment warns against this exact mix-up (issue #508 review) | Wrong value → Atlas migrate fails closed (`atlas migrate apply` errors) or a catalog/users deploy points at the wrong branch; either way the deploy job fails loudly, it does not silently write to the wrong database |
-| `AGENT_DATABASE_URL` | `staging` + `production` environment secrets only | Agent-domain Neon DSN for scheduled retention | Same name in `workers/jobs/wrangler.toml`, `reusable-deploy-component.yml`/`ci.yml`/`deploy.yml`, and `workers/jobs/src/index.ts`; it is uploaded only to the maintenance Worker | Missing/empty → the scheduled invocation throws `Missing required binding: AGENT_DATABASE_URL` before connecting (`workers/jobs/src/index.ts`), so rows are retained, not deleted elsewhere. A wrong-but-valid DSN is **not** caught: the Worker performs no runtime database-identity check, so whether it fails depends entirely on whether that DSN is reachable — an unreachable one errors the scheduled run, a reachable one from another environment would run the purge SQL there. Rotate one environment at a time and verify its next Cron Trigger Past Event |
-| `CATALOG_DATABASE_URL` | `staging` only (optional — not set until provisioned; falls back to `NEON_DATABASE_URL`) | Per-component least-privilege Neon DSN for the **catalog** Worker (#832) | `reusable-deploy-component.yml`'s `DATABASE_URL` maps ("Resolve effective worker secrets" and "Deploy Worker") when `inputs.component == 'catalog'`, via the `||` chain; provisioned with `scripts/staging-roles-login.sh --set-secrets` | Missing → the `||` chain falls back to `NEON_DATABASE_URL` (owner DSN), so staging deploys keep working at higher privilege until provisioned. Wrong value → catalog deploys point at the wrong database and fail loudly, never silently |
-| `USERS_DATABASE_URL` | `staging` only (optional — not set until provisioned; falls back to `NEON_DATABASE_URL`) | Per-component least-privilege Neon DSN for the **users** Worker (#832) | `reusable-deploy-component.yml`'s `DATABASE_URL` maps when `inputs.component == 'users'`, via the `||` chain; provisioned with `scripts/staging-roles-login.sh --set-secrets` | Missing → falls back to `NEON_DATABASE_URL` (owner DSN) until provisioned. Wrong value → users deploys point at the wrong database and fail loudly, never silently |
+| `NEON_DATABASE_URL` | repo (**unreachable** — see "Same-name override rule"; no non-environment-scoped caller exists today) + `staging` + `production` | Catalog data plane | `reusable-deploy-component.yml`'s Atlas-migrate step; production catalog/users Worker deploys still upload it as the `DATABASE_URL` worker secret until the #912 Secrets Store cutover (staging reads its DSN from the Secrets Store binding instead). **Not** `purge-anon-quota-counts.yml` — that workflow reads `SUPABASE_DB_URL` and its own inline comment warns against this exact mix-up (issue #508 review) | Wrong value → Atlas migrate fails closed (`atlas migrate apply` errors) or a production catalog/users deploy points at the wrong branch; either way the deploy job fails loudly, it does not silently write to the wrong database |
+| `AGENT_DATABASE_URL` | `staging` + `production` environment secrets only | Agent-domain Neon DSN for scheduled retention | **Staging (#912 PR2):** read through the `workers/jobs/wrangler.toml` Secrets Store binding (`[[env.staging.secrets_store_secrets]]`, store secret `AGENT_DATABASE_URL`) — the staging GH secret is no longer read and stays only as a stopgap until deletion is verified. **Production:** still uploaded to the maintenance Worker from the GH secret (`reusable-deploy-component.yml`/`ci.yml`/`deploy.yml`) until the #912 cutover. Read at runtime by `workers/jobs/src/index.ts` | Missing/empty → the scheduled invocation throws `Missing required binding: AGENT_DATABASE_URL` before connecting (`workers/jobs/src/index.ts`), so rows are retained, not deleted elsewhere. A wrong-but-valid DSN is **not** caught: the Worker performs no runtime database-identity check, so whether it fails depends entirely on whether that DSN is reachable — an unreachable one errors the scheduled run, a reachable one from another environment would run the purge SQL there. Rotate one environment at a time and verify its next Cron Trigger Past Event |
 | `NEON_API_KEY` | repo (no env override) | Neon branch management in CI | `ci.yml`, `neon-test-base.yml` (there is no current PR-preview workflow) | Breaks Neon test lanes, not production |
-| `NEON_AUTH_JWKS_URL` | `staging` + `production` only (no repo-level fallback) | Neon Auth (Better Auth) JWKS endpoint for the dual-issuer JWT path | Worker edge (`workers/edge/identity/auth.ts`), gated by `NEON_AUTH_ENABLED` | Currently low-blast-radius: Neon Auth is provisioned but not yet the active issuer (SD-31), and tokens route by `alg`/`iss`, so a wrong JWKS URL would only affect a Neon-issued token if one ever arrives — unverified in production today since no live flow mints one yet |
+| `NEON_AUTH_JWKS_URL` | `staging` + `production` only (no repo-level fallback) | Neon Auth (Better Auth) JWKS endpoint for the dual-issuer JWT path | Worker edge (`workers/edge/src/identity/auth.ts`), gated by `NEON_AUTH_ENABLED` | Currently low-blast-radius: Neon Auth is provisioned but not yet the active issuer (SD-31), and tokens route by `alg`/`iss`, so a wrong JWKS URL would only affect a Neon-issued token if one ever arrives — unverified in production today since no live flow mints one yet |
 | `SUPABASE_URL` · `SUPABASE_ANON_KEY` · `SUPABASE_SERVICE_ROLE_KEY` · `SUPABASE_DB_URL` | repo (no env override) | Auth today; **migrating to Neon Auth (SD-31)** | Edge worker, agent container, web build | Breaks login — `SUPABASE_URL`/`SERVICE_ROLE_KEY` wrong → JWT/API-key verification 401s everything; `SUPABASE_DB_URL` wrong → the container fails its required-env check at boot (`buildContainerEnvVars` throws). `SUPABASE_ANON_KEY` is publishable by design |
 | `PULUMI_BACKEND_URL` · `PULUMI_CONFIG_PASSPHRASE` | repo (**unreachable** — no non-environment-scoped caller) + `staging` + `production` | Pulumi state on R2 and its encryption passphrase | `pulumi up` in the catalog deploy job | **Losing the passphrase makes existing state undecryptable.** Back it up outside this repo. This is the loudest possible failure: `pulumi up` refuses to proceed |
 | `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` | repo (**unreachable** — no non-environment-scoped caller) + `staging` + `production` | R2 credentials for the Pulumi state bucket | Catalog deploy job | Wrong value → Pulumi's R2-backed state backend fails to authenticate, loud failure on the next `pulumi` invocation |
@@ -141,17 +139,47 @@ not one kind of finding** — read the action column before batching a decision:
 | `GCP_SA_KEY` | A GCP service-account private key, added 2025-12, referenced nowhere in code or workflows — the only row here with a real blast radius if it leaked (a live cloud credential, not an inert config name) | Check GCP IAM for any usage of this SA outside this repo; if none, revoke it in GCP first, then `gh secret delete GCP_SA_KEY`. Open an issue to track — do not batch with the rows below |
 | `GCP_PROJECT_ID` | Companion to `GCP_SA_KEY`, same 2025-12 origin, referenced nowhere | Delete once `GCP_SA_KEY` is confirmed dead and revoked |
 | `CLAUDE_CODE_OAUTH_TOKEN` | Added 2026-05, referenced nowhere | `gh secret delete CLAUDE_CODE_OAUTH_TOKEN` — no dependency to check first |
-| `ZETA_API_KEY` | Model-provider key for Z.AI — was listed in `CONTAINER_ENV_KEYS` (`workers/edge/container/container-env.ts`) but **no workflow ever passed it** and no source reads it, a broken chain. Retired under the MiMo-only key convergence (#684): removed from the forwarding allowlist, with the policy decision (Zeta is not a wanted provider) recorded in the `workers/edge/wrangler.toml` comment block | `gh secret delete ZETA_API_KEY` — no dependency to check first |
+| `ZETA_API_KEY` | Model-provider key for Z.AI — was listed in `CONTAINER_ENV_KEYS` (`workers/edge/src/container/container-env.ts`) but **no workflow ever passed it** and no source reads it, a broken chain. Retired under the MiMo-only key convergence (#684): removed from the forwarding allowlist, with the policy decision (Zeta is not a wanted provider) recorded in the `workers/edge/wrangler.toml` comment block | `gh secret delete ZETA_API_KEY` — no dependency to check first |
 | `OPENAI_COMPAT_API_KEY` | Read by `apps/agent/src/animichi/config/settings.py` and `apps/agent/src/animichi/config/model_aliases.py`, listed in `CONTAINER_ENV_KEYS`, but again **no workflow passes it** — broken chain: the allowlist expects a value no workflow ever forwards | Keep-or-retire decision, not a delete: code still reads this credential, so retiring it means first removing its references from `settings.py` / `model_aliases.py`, then the `CONTAINER_ENV_KEYS` entry and this row |
 | `ANTHROPIC_API_KEY` · `ANTHROPIC_BASE_URL` | Repository secrets present in the 2026-08-01 snapshot, but no workflow or source file references either name; the old Dependabot/Claude path was retired | Confirm no external automation still uses them, then delete both repository secrets |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Repository secret present in the 2026-08-01 name snapshot, but no workflow, `apps/web` source, or `CONTAINER_ENV_KEYS` entry references it. The current map stack is MapLibre GL + Protomaps PMTiles and the Mapbox ADR is explicitly retired/banned. If a future Mapbox integration is approved, this `NEXT_PUBLIC_` token would be a **public browser client token**, not a container secret; it would need URL restrictions and a public build variable instead of secret forwarding. | Confirm no external deployment still consumes it, revoke the token in the Mapbox console, then `gh secret delete NEXT_PUBLIC_MAPBOX_TOKEN`. Do not move it to Live or add it to `CONTAINER_ENV_KEYS` |
 | `GEMINI_API_KEY` | Was Live (this table, above) until #656 (2026-08-04): photo-search recognition now rides the main agent's multimodal input (`apps/agent/src/animichi/agents/photo_vision.py`) instead of the standalone `GeminiVisionProvider`, so nothing in `CONTAINER_ENV_KEYS`, `wrangler.toml`, or any workflow reads this name anymore | `gh secret delete GEMINI_API_KEY` once the deploy carrying #656 is confirmed live in production — no dependency to check first, the code path it fed no longer exists |
+| `CATALOG_DATABASE_URL` | Migrated to the Cloudflare Secrets Store (#912 PR2): the catalog Worker's staging DSN now arrives via the `[[env.staging.secrets_store_secrets]]` binding in `workers/catalog/wrangler.toml`, so no workflow or GH secret reference remains. The staging GH secret still exists only until the binding swap is verified live | After the first post-PR2 staging deploy passes its post-deploy suite, `gh secret delete CATALOG_DATABASE_URL --env staging` |
+| `USERS_DATABASE_URL` | Migrated to the Cloudflare Secrets Store (#912 PR2): the users Worker's staging DSN now arrives via the `[[env.staging.secrets_store_secrets]]` binding in `workers/users/wrangler.toml`, so no workflow or GH secret reference remains. The staging GH secret still exists only until the binding swap is verified live | After the first post-PR2 staging deploy passes its post-deploy suite, `gh secret delete USERS_DATABASE_URL --env staging` |
 
 Deleting is a per-row decision, not a batch one: `GCP_SA_KEY` needs an external check before
 deletion, the one remaining broken chain (`OPENAI_COMPAT_API_KEY`) needs a keep-or-retire
 decision (not a delete) — `ZETA_API_KEY`'s retirement was already decided in #684 (MiMo-only) —
 Mapbox needs a provider-side revocation check, and only `CLAUDE_CODE_OAUTH_TOKEN` is safe to
 delete immediately.
+
+## Cloudflare Secrets Store (not GitHub secrets)
+
+#912 PR2 moved the per-component Neon DSNs out of GitHub secrets and into the **Cloudflare
+Secrets Store** (the account's default store, id `66c9bb0faef644b4a0671bb7d90d98bd`; a second
+store is refused by the account plan, `maximum_stores_exceeded`). Values are managed by the
+`infra/neon-secrets` Pulumi stack (staging branch roles + composed DSNs; see its `index.ts` for
+the role→secret mapping and the bootstrap/rotation runbook). This file only covers GitHub
+secrets, so store secrets are listed here for the reader, not enforced by
+`test_secrets_docs_consistency.py`:
+
+| Store secret | Worker binding | Consumed by |
+|---|---|---|
+| `CATALOG_DATABASE_URL` | `DATABASE_URL` | `workers/catalog/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → `workers/catalog/src/index.ts` (`await env.DATABASE_URL.get()`) |
+| `USERS_DATABASE_URL` | `DATABASE_URL` | `workers/users/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → `workers/users/src/index.ts` |
+| `AGENT_DATABASE_URL` | `AGENT_DATABASE_URL` | `workers/jobs/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → `workers/jobs/src/index.ts` |
+
+Bindings are declared per environment in `wrangler.toml` (`secrets_store_secrets` is
+non-inheritable) and are applied automatically by `wrangler deploy` — no CI secret upload step
+exists for them. The fail-closed guard is the binding itself: a missing store id/secret fails
+the deploy API call, and `env.<binding>.get()` throws at runtime if the secret is ever deleted.
+Note that `secrets.required` must NOT list a name that is also a Secrets Store binding —
+wrangler rejects a name assigned to both binding types.
+
+**Staging only, deliberately.** The store secrets hold staging-role DSNs; production bindings
+would silently point prod at the staging database. Production workers keep the GitHub-secret
+`wrangler secret put` chain (`NEON_DATABASE_URL` as `DATABASE_URL`; `AGENT_DATABASE_URL`) until
+the production-role cutover phase of #912. Local dev is unchanged (`.dev.vars`).
 
 ## Adding a new secret
 

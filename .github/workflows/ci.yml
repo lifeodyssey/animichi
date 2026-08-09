@@ -48,6 +48,7 @@ jobs:
 
   security:
     name: Security
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     uses: ./.github/workflows/reusable-security.yml
     # Caller ceiling for the reusable: its gitleaks job declares
     # `pull-requests: read` at job level, and a reusable job cannot request
@@ -75,6 +76,7 @@ jobs:
 
   agent-eval-smoke:
     timeout-minutes: 45
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     name: Agent Eval (L0 smoke, ~80 cases)
     runs-on: ubuntu-latest
     permissions:
@@ -270,6 +272,7 @@ jobs:
       contents: read
       pull-requests: read
     uses: ./.github/workflows/reusable-cross-stack-e2e.yml
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
 
   # ── Stage 3: Deploy (security/hygiene gated, push-main promotion path) ──
   # Promotion: push main → CI → staging → post-staging (api) → prod (human gate) → post-prod.
@@ -280,10 +283,39 @@ jobs:
   # docs/ops/deployment.md): protection for merges comes from the required
   # checks in the repository ruleset instead.
 
+  # push main → staging: neon-secrets roles + Secrets Store DSNs must exist
+  # BEFORE any Worker deploy consumes them (PR2's wrangler.toml bindings will
+  # read the store; #926 CI wiring). Runs first in the staging chain:
+  # deploy-staging (catalog) waits on it, so users/maintenance/root cascade
+  # behind it. Production has no neon-secrets job: the stack is staging-only
+  # today (no Pulumi.prod.yaml, no prod branch roles — #912 follow-up).
+  deploy-neon-secrets-staging:
+    name: Deploy neon-secrets staging
+    needs: [security, ci-cross-stack-e2e]
+    # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
+    # otherwise prepends: a *skipped* upstream propagates through the always()
+    # gates and would silently skip every deploy — the bug that kept staging
+    # undeployed for three runs. Gate failures still block: they surface as
+    # failure(), not skipped.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/reusable-deploy-neon-secrets.yml
+    with:
+      environment: staging
+      pulumi_stack: staging
+    secrets:
+      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+    concurrency: deploy-neon-secrets-staging
+
   # push main → staging
   deploy-staging:
     name: Deploy staging
-    needs: [security, ci-cross-stack-e2e]
+    needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
@@ -297,11 +329,9 @@ jobs:
       environment: staging
       pulumi_stack: staging
       working_directory: workers/catalog
-      worker_secrets: DATABASE_URL
     secrets:
-      # #832: catalog_svc least-privilege DSN; fallback to NEON_DATABASE_URL
-      # (owner DSN) in the reusable until provisioned. Staging only.
-      CATALOG_DATABASE_URL: ${{ secrets.CATALOG_DATABASE_URL }}
+      # #912 PR2: the staging DSN now arrives via the wrangler.toml Secrets
+      # Store binding — no DATABASE_URL upload, no CATALOG_DATABASE_URL secret.
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
@@ -358,12 +388,10 @@ jobs:
       working_directory: workers/users
       run_pulumi: false
       worker_secrets: |
-        DATABASE_URL
         NEON_AUTH_JWKS_URL
     secrets:
-      # #832: users_svc least-privilege DSN; fallback to owner DSN until
-      # provisioned. Staging only.
-      USERS_DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}
+      # #912 PR2: the staging DSN now arrives via the wrangler.toml Secrets
+      # Store binding — no DATABASE_URL upload, no USERS_DATABASE_URL secret.
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
@@ -382,9 +410,9 @@ jobs:
       pulumi_stack: staging
       working_directory: workers/jobs
       run_pulumi: false
-      worker_secrets: AGENT_DATABASE_URL
     secrets:
-      AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+      # #912 PR2: the staging DSN arrives via the wrangler.toml Secrets Store
+      # binding — no AGENT_DATABASE_URL upload, no GH secret pass-through.
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     concurrency: deploy-maintenance-staging

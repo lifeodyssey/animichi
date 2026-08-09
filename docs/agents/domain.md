@@ -26,7 +26,7 @@ Multi-context — one glossary per deployable / shared package:
 ├── workers/edge/CONTEXT.md        ← lazy (package guide may still be missing)
 ├── workers/catalog/CONTEXT.md     ← lazy
 ├── workers/users/CONTEXT.md       ← lazy
-├── workers/maintenance/CONTEXT.md ← lazy
+├── workers/jobs/CONTEXT.md ← lazy
 ├── packages/contract/CONTEXT.md   ← lazy
 ├── db/CONTEXT.md                  ← lazy
 ├── infra/CONTEXT.md               ← lazy

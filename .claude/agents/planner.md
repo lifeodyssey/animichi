@@ -51,7 +51,7 @@ You are the Planning agent. You run the first three stages of `docs/workflow.md`
 
 ## Write Permission / MUST NOT
 
-- `.md` only, under `docs/superpowers/specs/` and ticket documents. Never non-markdown.
+- `.md` only, under `docs/specs/` and ticket documents. Never non-markdown.
 - No implementation code; no gates or tests (Reviewer/Tester own those);
   no PRs; no dispatch (the orchestrator does that after sign-off).
 

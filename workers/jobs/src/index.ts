@@ -12,7 +12,8 @@ interface ScheduledInput {
 }
 
 export interface MaintenanceEnv {
-  readonly AGENT_DATABASE_URL: string;
+  /** Staging supplies the DSN as a Secrets Store binding (#912 PR2). */
+  readonly AGENT_DATABASE_URL: string | SecretsStoreSecret;
 }
 
 type ScheduledEnvironment = Partial<MaintenanceEnv>;
@@ -28,10 +29,10 @@ const DEFAULT_DEPENDENCIES: HandlerDependencies = {
   now: () => new Date(),
 };
 
-function databaseUrl(env: ScheduledEnvironment): string {
+async function databaseUrl(env: ScheduledEnvironment): Promise<string> {
   const value = env.AGENT_DATABASE_URL;
   if (!value) throw new Error("Missing required binding: AGENT_DATABASE_URL");
-  return value;
+  return typeof value === "string" ? value : await value.get();
 }
 
 async function runCron(cron: string, db: DatabaseClient, now: Date): Promise<void> {
@@ -44,7 +45,7 @@ export function createScheduledHandler(
   dependencies: HandlerDependencies = DEFAULT_DEPENDENCIES,
 ): ScheduledHandler {
   return async (controller, env) => {
-    const db = dependencies.connect(databaseUrl(env));
+    const db = dependencies.connect(await databaseUrl(env));
     await runCron(controller.cron, db, dependencies.now());
   };
 }

@@ -147,7 +147,7 @@ async def persist_result(
 
     # DECISION(2026-07-07): session compaction stays disabled pending proper
     # async task management — tracked in
-    # docs/superpowers/plans/2026-07-07-refactor-backlog.md; re-evaluate when
+    # docs/archive/plans/2026-07-07-refactor-backlog.md; re-evaluate when
     # conversation-history work lands.
 
     return session_state, True, None
@@ -251,7 +251,7 @@ async def persist_conversation(
         await session_repo.upsert_conversation(session_id, user_id, request.text)
         # DECISION(2026-07-07): auto-generated conversation titles stay
         # disabled pending the conversation-history feature landing —
-        # tracked in docs/superpowers/plans/2026-07-07-refactor-backlog.md.
+        # tracked in docs/archive/plans/2026-07-07-refactor-backlog.md.
 
 
 async def create_owned_session(

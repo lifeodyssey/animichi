@@ -17,7 +17,7 @@ For the full deployment topology, auth flow, and env-var boundaries see `deploym
 Browser / API client
   │
   ▼
-Cloudflare Edge (Worker: workers/edge/entry.ts)
+Cloudflare Edge (Worker: workers/edge/src/entry.ts)
   ├─ page HTML ──────────────────────────────────▶ apps/web Worker (TanStack Start; not this Worker)
   ├─ /img/* ─────────────────────────────────────▶ Worker image proxy → Anitabi CDN (cached)
   ├─ /tiles/* ───────────────────────────────────▶ private R2 tile proxy
@@ -59,13 +59,13 @@ On success the Worker sets `X-User-Id` and `X-User-Type`, deletes the `Authoriza
 | `VITE_*` (web build) | `apps/web` build-time only | Injected by CI into the web Worker; not root-Worker secrets |
 
 The full container env allowlist is `CONTAINER_ENV_KEYS` / `CONTAINER_REQUIRED_KEYS` in
-`workers/edge/container-env.ts` (consumed by `workers/edge/entry.ts`).
+`workers/edge/src/container/container-env.ts` (consumed by `workers/edge/src/entry.ts`).
 
 ## Current Trust Boundary
 
 - Browser clients hit `apps/web`; API clients hit the root edge Worker hostname
 - Worker-only auth secrets stay at the edge: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (+ optional `NEON_AUTH_*`); the edge JWT path verifies against the public Supabase JWKS, so no `SUPABASE_ANON_KEY` is needed there
-- Container runtime receives only its explicit allowlist from `workers/edge/container-env.ts`
+- Container runtime receives only its explicit allowlist from `workers/edge/src/container/container-env.ts`
 - Agent auth trust starts from `X-User-Id` and `X-User-Type`, not from raw bearer tokens
 
 ## 1. `/v1/*` Rate Limit Rule
@@ -177,7 +177,7 @@ After manual dashboard changes:
 ### Threat model reference
 
 This section closes **Task 7** of the BYOK design spec
-(`docs/superpowers/specs/2026-07-28-284-byok-design.md`, now landed in this tree — see the
+(`docs/specs/2026-07-28-284-byok-design.md`, now landed in this tree — see the
 Threat Model table there for the full T1–T14 list), whose OQ-5 ruling required a **spike before
 implementation**: verify whether the Cloudflare Containers runtime "grants `NET_ADMIN` / can
 express an egress policy **at all**" — a kernel-level or platform-level block of RFC1918 +
@@ -240,7 +240,7 @@ plain `*`-wildcard string matcher — there is no `/`-suffix (CIDR) parsing anyw
 function, and it never resolves DNS, so it cannot match a hostname's *resolved* IP either. The
 literal string `"10.0.0.0/8"` only ever matches a hostname that is exactly the eleven characters
 `10.0.0.0/8` — it does not match `10.0.0.1`, `10.5.3.200`, or anything else. The previous revision
-of `workers/edge/entry.ts` shipped exactly that: five CIDR-notation strings that matched nothing,
+of `workers/edge/src/entry.ts` shipped exactly that: five CIDR-notation strings that matched nothing,
 ever — a complete no-op, caught only because a reviewer decided that "the type is `string[]`"
 does not establish "the semantics are CIDR" and went and read the matcher's actual source instead
 of trusting the docs' prose example. **The type of a config field is not proof of what a runtime
@@ -269,8 +269,8 @@ enforcement either.
 
 ### What is implemented
 
-`RuntimeContainer.deniedHosts` (`workers/edge/entry.ts`) is set from `DENIED_EGRESS_HOSTS`
-(`workers/edge/container/container-env.ts`, split out for the same Node-import-chain reason as
+`RuntimeContainer.deniedHosts` (`workers/edge/src/entry.ts`) is set from `DENIED_EGRESS_HOSTS`
+(`workers/edge/src/container/container-env.ts`, split out for the same Node-import-chain reason as
 `buildContainerEnvVars` — see that file's header comment). It is a set of dotted-decimal glob
 prefixes and exact hostnames — **not CIDR strings** — chosen to be the glob-equivalent of the
 spec's target ranges when a request URL's hostname is already a bare IPv4 literal (the common
@@ -309,7 +309,7 @@ request itself, and the container never gets a TCP connection to the target. Fun
 equivalent for SSRF purposes (no bytes reach the target, no bytes come back), but a future
 engineer debugging a `520` from inside the container should know this policy is what produced it.
 
-Pinned by `workers/edge/container-env.test.ts` (run via `pnpm run test:worker`), which — after two
+Pinned by `workers/edge/test/container-env.test.ts` (run via `pnpm run test:worker`), which — after two
 earlier revisions each fixed one layer of the same problem (a hand-rolled `ipInCidr()` helper that
 validated its own invented semantics, then a hand-ported copy of the real algorithm that could
 still silently drift from a future vendored change) — now **extracts and evaluates the real
@@ -338,12 +338,12 @@ if (ctx.exports.ContainerProxy === undefined) {
 }
 ```
 
-`workers/edge/entry.ts` now re-exports it (`export { ContainerProxy } from "@cloudflare/containers";`),
+`workers/edge/src/entry.ts` now re-exports it (`export { ContainerProxy } from "@cloudflare/containers";`),
 matching the pattern in Cloudflare's own `Container` class reference example. This is not a
 regression introduced by this change — the repo already exercised `outboundByHost` for
 `catalog.internal` before this PR, which also depends on the same interception machinery — but it
 was never verified as present, and `deniedHosts` makes it load-bearing for the first genuinely
-security-relevant use of this mechanism. `workers/edge/entry.test.ts` asserts (via a source-text match,
+security-relevant use of this mechanism. `workers/edge/test/entry.test.ts` asserts (via a source-text match,
 since `entry.ts`'s `@cloudflare/containers` import chain cannot be loaded under plain `node
 --test` — see that file's comment) that the export line is present, as a regression guard against
 silently losing it again.
@@ -434,7 +434,7 @@ check before being marked fully closed):
 - **Happy path** (public egress succeeds): satisfied by design — none of the three representative
   public addresses (`1.1.1.1`, `8.8.8.8`, a placeholder provider hostname) match
   `DENIED_EGRESS_HOSTS` under the ported real matcher; pinned by
-  `workers/edge/container-env.test.ts`. Not yet verified against a live deployed instance, and not yet
+  `workers/edge/test/container-env.test.ts`. Not yet verified against a live deployed instance, and not yet
   verified that `ContainerProxy` is actually reachable via `ctx.exports` at runtime (see the
   live-verification checklist below — step 1).
 - **Null/empty** (catalog `outboundByHost` hop + the MiMo provider call still succeed):
@@ -444,7 +444,7 @@ check before being marked fully closed):
 - **Error path** (`169.254.169.254`, `100.100.100.200`, `10.0.0.1` "refused at the network
   layer"): satisfied **for plain HTTP requests whose URL names one of these addresses or hostname
   literals directly**, matching the spec's own literal AC wording (`http://169.254.169.254/`);
-  pinned against the real ported glob algorithm by `workers/edge/container-env.test.ts`. The
+  pinned against the real ported glob algorithm by `workers/edge/test/container-env.test.ts`. The
   spec's "refused at the network layer" phrasing is satisfied **in effect** (nothing reaches the
   target, nothing comes back) but not **literally** — see "What actually happens on a match"
   above: enforcement returns a synthesized HTTP `520`, not a refused connection. **Not** covered:
