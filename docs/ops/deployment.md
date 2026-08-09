@@ -105,9 +105,10 @@ These secrets stay in the Worker environment and are not forwarded into the cont
 
 ### Maintenance Worker
 
-`workers/jobs` requires `AGENT_DATABASE_URL` as a Cloudflare secret binding. CI resolves the
-same-named secret from the selected GitHub Environment, so staging and production receive distinct
-agent-domain Neon DSNs. Schedules and cutover verification are in
+`workers/jobs` reads `AGENT_DATABASE_URL` from a Cloudflare Secrets Store binding
+(`[[env.staging.secrets_store_secrets]]` in `wrangler.toml`, #912 PR2) on staging; production
+still receives it via CI from the same-named GitHub environment secret until the #912 cutover.
+Schedules and cutover verification are in
 [`jobs-worker.md`](./jobs-worker.md).
 
 ### Container runtime
@@ -367,7 +368,8 @@ Its current order is:
    mutate the database)
 3. deploy the catalog Worker first, because the root Worker service binding depends on it
 4. deploy the users Worker before the root Worker, because the root `USERS` binding depends on it
-5. deploy the scheduled maintenance Worker with `AGENT_DATABASE_URL`
+5. deploy the scheduled maintenance Worker (DSN supplied by its Secrets Store binding on
+   staging; GitHub-environment secret on production)
 6. verify `Dockerfile` exists
 7. deploy the root Worker/container with Wrangler
 
