@@ -12,7 +12,7 @@
 | `workers/edge/wrangler.toml` | 根 `wrangler.toml` | DONE | Edge E1, #853 |
 | `workers/edge/package.json` runtime deps | 根 `package.json` | DONE | Edge E1, #853 |
 | `apps/agent/Dockerfile` | 根 `Dockerfile` | DONE | 容器 pin, #853 |
-| `workers/jobs/` | `workers/maintenance/` | TODO | J1 |
+| `workers/jobs/` | `workers/jobs/` | DONE | J1, #836 |
 | `migrations/neon/` | `db/migrations/` | TODO | DBA D19 |
 | `migrations/supabase/` | 根 `supabase/` | TODO | 过渡 |
 | `tests/e2e/` | 根 `e2e/` | TODO | monorepo 树 |

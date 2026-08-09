@@ -11,6 +11,9 @@ catalog** — it never calls external anime APIs in the request path and never w
 - `make test-eval` — official model-backed runner plus translation eval. The pytest eval entry is a
   transition alias sharing the same report/gate path, not the primary interface.
 - Directly: `cd apps/agent && uv run pytest src/animichi/tests/unit/`. Seed data: `src/animichi/tests/fixtures/seed.sql`.
+- The zod wire-contract tests (`tests/unit/test_chat_wire_contract.py`, 12 parametrized cases) spawn
+  `node --import tsx chat-wire-parser.ts`; they need the workspace TS toolchain, so run `pnpm install`
+  once (tsx is a declared devDependency of this package). CI always has it via the shared setup action.
 - In a worktree, format with `uv tool run ruff format` (not `uv run …`).
 
 ## Runtime call-path
