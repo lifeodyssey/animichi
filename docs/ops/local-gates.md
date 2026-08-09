@@ -24,7 +24,7 @@ exception, but only CI is authoritative for coverage.
 | `apps/web/` | web | oxlint (type-aware) | `tsc --noEmit` + vitest unit |
 | `workers/catalog/` | catalog | oxlint | `tsc --noEmit` + vitest worker suite |
 | `workers/users/` | users | oxlint | `tsc --noEmit` + vitest |
-| `workers/edge/` | edge | oxlint | `tsc --noEmit` + `node --test workers/edge/*.test.ts` |
+| `workers/edge/` | edge | oxlint | `tsc --noEmit` + `node --test workers/edge/test/*.test.ts` |
 | `workers/jobs/` | jobs | oxlint | `tsc --noEmit` + vitest |
 | `packages/contract/` | contract | oxlint | `tsc --noEmit` + contract tests |
 | `infra/` | infra | — (oxlint not used) | `tsc --noEmit` + `node --test topology-*.test.ts` |

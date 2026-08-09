@@ -7,7 +7,7 @@
   },
   "scripts": {
     "lint:oxlint": "pnpm --filter catalog --filter users --filter jobs --filter web run lint:oxlint",
-    "test:worker": "node --test \"workers/edge/*.test.ts\"",
+    "test:worker": "pnpm --filter edge-worker test",
     "verify:dependabot": "pnpm run lint:oxlint && pnpm run test:worker && pnpm -r --if-present typecheck && pnpm --filter web build"
   },
   "pnpm": {
@@ -34,7 +34,6 @@
     }
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260727.1",
     "@types/node": "^26.1.1",
     "oxlint": "~1.75.0",
     "oxlint-tsgolint": "~7.0.2001",

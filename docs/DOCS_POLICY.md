@@ -80,8 +80,8 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Catalog service (TS) + data platform | `workers/catalog/src/` — `ingest/` · `enrich/` · `publish/` · `api/` · `router.ts` | realizes the ADR's ingest→enrich→publish |
 | Cross-service contract (zod = SoT) | `packages/contract/src/` (`models.ts`, `contract.ts`, `errors.ts`) + `packages/contract/README.md` | error registry + parity guard live here |
 | User-domain service | `workers/users/` + `workers/users/AGENTS.md` | Live Hono/oRPC/jose service over Neon, `/v1/users/*` |
-| Edge worker / auth / routing | `workers/edge/entry.ts` (+ `app.ts`, `auth.ts`) | was `worker/worker.js`, then `worker/` (iter6 C2) |
-| Deploy wiring | `workers/edge/wrangler.toml` + `workers/edge/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
+| Edge worker / auth / routing | `workers/edge/src/entry.ts` (+ `src/app.ts`, `src/identity/auth.ts`) | was `worker/worker.js`, then `worker/` (iter6 C2) |
+| Deploy wiring | `workers/edge/wrangler.toml` + `workers/edge/src/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
 | DB — catalog/user data | **Neon** (Drizzle raw-SQL query-only over neon-http); migrations in `db/` (Atlas) | data plane; no Hyperdrive |
 | DB — auth | **Supabase** (auth-only); migrations in `supabase/migrations/` | |
 | Web app (the only browser surface) | `apps/web/` + `apps/web/AGENTS.md` (TanStack Start) | Legacy `frontend/` retired in #537; spec `2026-07-06-frontend-rebuild-spec.md` |

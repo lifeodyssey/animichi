@@ -26,7 +26,7 @@ on:
       - "docs/ops/deployment.md"
       - "README*"
       - "Makefile"
-      - "workers/edge/migration-boundary.test.ts"
+      - "workers/edge/test/migration-boundary.test.ts"
       - ".github/workflows/ci.yml"
       - ".github/workflows/deploy.yml"
       - "package.json"
@@ -82,7 +82,7 @@ jobs:
         with:
           node-version: "24"
       - name: Run migration boundary guard
-        run: node --test workers/edge/migration-boundary.test.ts
+        run: node --test workers/edge/test/migration-boundary.test.ts
       - name: Install pinned Atlas CLI
         shell: bash
         run: |

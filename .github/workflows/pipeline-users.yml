@@ -2,7 +2,7 @@
 # this lane (CI-1 union method). pull_request is pathless by design (merge_group
 # runs ignore path filters, so a filtered PR lane would diverge from the queue);
 # the push paths carry the read closure: the eddsa-shared-primitive test READS
-# packages/contract/src/jwt.ts + workers/edge/identity/auth.ts, so a regression in either
+# packages/contract/src/jwt.ts + workers/edge/src/identity/auth.ts, so a regression in either
 # must re-run this lane (issue #647).
 name: pipeline-users
 
@@ -19,7 +19,7 @@ on:
       - ".oxlintrc.json"
       - "workers/users/**"
       - "packages/contract/**"
-      - "workers/edge/identity/auth.ts"
+      - "workers/edge/src/identity/auth.ts"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
