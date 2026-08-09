@@ -54,6 +54,13 @@ jobs:
         run: bash .github/scripts/check-agents-refs.test.sh
       - name: AGENTS.md reference check
         run: bash .github/scripts/check-agents-refs.sh
+      # #913 (close-out W5): every docs/-prefixed string in tracked files must
+      # resolve — extends the reference-check surface to code comments and all
+      # docs (archive/ exempt: read-only history).
+      - name: Docs path check self-tests
+        run: bash .github/scripts/check-docs-paths.test.sh
+      - name: Docs path check
+        run: bash .github/scripts/check-docs-paths.sh
       - name: Root allowlist check self-tests
         run: bash .github/scripts/check-root-allowlist.test.sh
       - name: Root allowlist check
