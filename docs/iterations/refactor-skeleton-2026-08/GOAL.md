@@ -1,17 +1,17 @@
 # GOAL — Monorepo 骨架重构（全波次 · 编排锁定）
 
-**正式 spec：** https://github.com/lifeodyssey/animichi/issues/829  
-**本文件：** 战役关账板 + **全波次计划** + 编排/合 PR 闸；与 #829 冲突时以本文件最新波次表为准并回写 #829 评论。  
+**正式 spec：** https://github.com/lifeodyssey/animichi/issues/829
+**本文件：** 战役关账板 + **全波次计划** + 编排/合 PR 闸；与 #829 冲突时以本文件最新波次表为准并回写 #829 评论。
 **工作目录：** `~/work/animichi`
 
-**Matt 流（已完成 → 执行中）：**  
+**Matt 流（已完成 → 执行中）：**
 grill ✅ → to-spec ✅ #829 → to-tickets ✅ → **implement 全波次** → **每 PR `/code-review`** → **两路 PR 评论闸** → merge → 本文件勾选
 
 ### 如何用 `/goal` 驱动本文件
 
 本文件是**战役合同**；`/goal` 是**让 agent 一直干到完成条件成立**的开关。用法：
 
-1. **工作目录**切到 `~/work/animichi`（或 monorepo 根）。  
+1. **工作目录**切到 `~/work/animichi`（或 monorepo 根）。
 2. 开新会话或当前会话发（Grok Build）：
 
 ```text
@@ -24,20 +24,20 @@ grill ✅ → to-spec ✅ #829 → to-tickets ✅ → **implement 全波次** �
 /goal 只做 GOAL W0：合完 #833 #830 #859 并勾选 W0；纪律同 GOAL §1.2–1.3
 ```
 
-4. 查询 / 暂停 / 取消（Grok）：`/goal status` · `/goal pause` · `/goal resume` · `/goal clear`  
+4. 查询 / 暂停 / 取消（Grok）：`/goal status` · `/goal pause` · `/goal resume` · `/goal clear`
 
-5. **没有 `/goal` 时**直接说同一段自然语言即可（「按 GOAL 从 W0 开干」）。  
+5. **没有 `/goal` 时**直接说同一段自然语言即可（「按 GOAL 从 W0 开干」）。
 
 6. Claude Code 若用 planning-with-files：可先把本 GOAL 链进 plan，再 `/plan-goal` 或 `/goal <同上完成条件>`。
 
-**完成条件（agent 自证用）：**  
+**完成条件（agent 自证用）：**
 `GOAL.md` 中 W0–W6 的「W? 完成」为 `[x]`（W7/W8 完成或变更日志写明延期）；每个已合 PR 有 code-review 记录与「线程判定」类 ACK；`gh pr list --state open` 无本战役遗留阻塞 PR。
 
 ---
 
 ## 一句话
 
-只重构：目录/边界/竖切/配置/CI 骨架/DB 角色与迁移史/可选 rename；未完成 `TODO(refactor-skeleton)`；**无新产品功能**。  
+只重构：目录/边界/竖切/配置/CI 骨架/DB 角色与迁移史/可选 rename；未完成 `TODO(refactor-skeleton)`；**无新产品功能**。
 执行能快则快；写码 **opencode-go 与 subagent 均可**；**合 PR 前 Matt review + 全部 PR 评论处理完**。
 
 ---
@@ -97,11 +97,11 @@ grill ✅ → to-spec ✅ #829 → to-tickets ✅ → **implement 全波次** �
 
 **放行条件（全部满足）：**
 
-1. 未解决线程 = 0  
-2. 顶层无未处理的阻塞 bot findings（或已在 maintainer 评论中判定）  
-3. 顶层有一条 **OWNER/MEMBER/COLLABORATOR** 评论，含 **`线程判定`** 或 **`findings triaged`** 字样（hook ACK）  
-4. Matt `/code-review` 双轴无未处理阻塞项（报告可贴 PR 或 lead 日志）  
-5. `gh pr checks` 全绿  
+1. 未解决线程 = 0
+2. 顶层无未处理的阻塞 bot findings（或已在 maintainer 评论中判定）
+3. 顶层有一条 **OWNER/MEMBER/COLLABORATOR** 评论，含 **`线程判定`** 或 **`findings triaged`** 字样（hook ACK）
+4. Matt `/code-review` 双轴无未处理阻塞项（报告可贴 PR 或 lead 日志）
+5. `gh pr checks` 全绿
 
 **顺序：** inline 回复线程 → resolve → **最后** 发顶层「线程判定」→ 再 merge（避免 bot 刷新时间戳顶掉判定）。
 
@@ -188,7 +188,9 @@ grill ✅ → to-spec ✅ #829 → to-tickets ✅ → **implement 全波次** �
 
 **关波：** 迁移在 staging apply；DSN 接线完成或缺口写清 TODO；#832 评论闸 + 人确认密钥。
 
-- [ ] **W2 完成**
+> **口径说明（2026-08-09 回写）：** W2 以 **P4/P5 secrets re-architecture（ADR 0003）** 落地替代原 #831/#832 Atlas 路径——neon.Role 托管角色 + Cloudflare Secrets Store 存 DSN（#926/#927/#928/#929），staging 接线由 #932 完成（agent container 用 AGENT_SVC_DATABASE_URL）。#831/#832 已 CLOSED。
+
+- [x] **W2 完成** — #926 neon-secrets stack · #927 Secrets Store bindings · #928 CI wiring + R2 · #929 neon provider auth · #932 agent container Neon DSN（ADR 0003）; merged 2026-08-08/09
 
 ---
 
@@ -238,7 +240,9 @@ grill ✅ → to-spec ✅ #829 → to-tickets ✅ → **implement 全波次** �
 
 Epic：#845。**不** force-push git 历史（那是 W8）。
 
-- [ ] **W6 完成**
+> **口径说明（2026-08-09 回写）：** W6 以 **重建链** 完成替代 squash——#901 一次性重建为 32 个原子 one-CREATE-per-table 迁移（零 ALTER/DROP churn），等价达成「迁移史干净且 schema-only」目标；gazetteer 出链由 #899 完成（对应 #847 MS-2，CLOSED）。#845 epic 剩余 MS-1/MS-3/MS-4/MS-5 票（#846/#848/#849/#850）保留 OPEN（HITL owner，#829 战役账外），不影响本波次关闭判定。
+
+- [x] **W6 完成** — #901 重建链（32 原子迁移）· #899 gazetteer 出链; merged 2026-08-08（squash→重建口径）
 
 ---
 
@@ -249,6 +253,8 @@ Epic：#845。**不** force-push git 历史（那是 W8）。
 | #855 | DB-N2 prod 最小权限 DSN | #832 稳 |
 
 - [ ] **W7 完成**（或显式 WONT 留到下战役）
+
+> **2026-08-09 显式延期：** W7（#855 prod 最小权限 DSN）延至下战役——#912 HITL 关闭后 DSN 接续已在 staging 验证（#932），prod 窗口未到，不与本战役关账绑定。
 
 ---
 
@@ -263,6 +269,8 @@ Epic：#845。**不** force-push git 历史（那是 W8）。
 **关波：** tip tree 不变；~1 commit/天；`main-legacy` 保留 ≥30 天。
 
 - [ ] **W8 完成**
+
+> **2026-08-09 显式延期：** W8 git 日折叠（#857/#858/#851）延至下战役——需 main 冻结窗口；#857 dry-run 脚本已交付（#871），#858 执行与 #851 关账随之顺延。
 
 ---
 
@@ -292,9 +300,9 @@ Epic：#845。**不** force-push git 历史（那是 W8）。
 ### E. Neon / 角色 — W0 · W2 · W6 · W7
 
 - [x] 归属文档（#862）
-- [x] staging 角色+DSN（#870 迁移已合；#832 staging apply+DSN 剩余）
-- [ ] （可选）migration 史干净 + gazetteer 外置（#847 进行中）
-- [ ] （可选）prod DSN
+- [x] staging 角色+DSN（ADR 0003 secrets re-architecture：#926/#927/#928/#929；agent container 接线 #932）
+- [x] migration 史干净 + gazetteer 外置（重建链 #901 + #899 出链；#845 epic 剩余票 HITL）
+- [ ] （可选）prod DSN（→ W7 显式延期）
 
 ### F. 历史 — W8
 
@@ -359,3 +367,4 @@ W6 后：    W5 搬家（若未提前）
 | 2026-08-06 | **全波次 W0–W8**；编排锁定；双执行器；**Matt code-review 强制**；**两路 PR 评论闸（线程判定）** 写入 GOAL |
 | 2026-08-07 | **W1/W3 关账回写** + #884/#885/#886/#876 合入 |
 | 2026-08-08 | **W4/W5 关账**（rename 三切片 + migrations 搬家） |
+| 2026-08-09 | **W2/W6 关账**（重建口径）——W2=#912/#926–#929+ADR 0003（#932 agent DSN 接线收尾）；W6=squash→重建 #901（32 原子迁移）+gazetteer 出链 #899；W7/W8 显式延期下战役（#855 / #857–#858/#851） |
