@@ -1,9 +1,10 @@
 # Infra pipeline (S0-v2 B4): the infra/ suite moved out of ci.yml into this
 # lane (CI-1 union method). pull_request is pathless by design (merge_group
 # runs ignore path filters, so a filtered PR lane would diverge from the queue).
-# infra/ has its own lockfile and is NOT a pnpm workspace member, so installs
-# run with --ignore-workspace against infra/pnpm-lock.yaml (the deploy path
-# consumes the same stacks). The build stage is the Pulumi preview: it is
+# #911: infra/ IS a pnpm workspace member; installs run against the root
+# workspace (root pnpm-lock.yaml, same as the deploy path consumes), so the
+# per-job setup installs here are plain `pnpm install --frozen-lockfile`
+# from the repo root. The build stage is the Pulumi preview: it is
 # credentialed (environment-level secrets) and degrades to a warning when the
 # prerequisites are absent, exactly like the retired ci-infra job. Unlike the
 # lint/test stages, the preview steps carry a step-level dorny path gate on
@@ -55,11 +56,13 @@ jobs:
         with:
           node-version: "24"
           cache: pnpm
-          cache-dependency-path: infra/pnpm-lock.yaml
-      - name: Install infra dependencies
-        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
-      - name: Verify infra lockfile matches package manifest
-        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts --lockfile-only
+          cache-dependency-path: pnpm-lock.yaml
+      # #911: infra is a workspace member; root frozen install covers it.
+      # Kept as its own step so the typecheck/test steps below can rely on a
+      # completed install regardless of job-level working-directory.
+      - name: Install workspace dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Typecheck infra
         run: npm run typecheck
 
@@ -81,9 +84,10 @@ jobs:
         with:
           node-version: "24"
           cache: pnpm
-          cache-dependency-path: infra/pnpm-lock.yaml
-      - name: Install infra dependencies
-        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install workspace dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Infra topology tests
         run: npm test
 
@@ -123,9 +127,10 @@ jobs:
         with:
           node-version: "24"
           cache: pnpm
-          cache-dependency-path: infra/pnpm-lock.yaml
-      - name: Install infra dependencies
-        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install workspace dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile --ignore-scripts
       # Path gate for the credentialed preview (S0-v2 B4 fix round 2, BLOCK-2b):
       # equivalent of the retired needs.changes.outputs.infra gate, at step
       # granularity so the Infra / build check-run is always produced (a
