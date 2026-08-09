@@ -376,7 +376,7 @@ Search 必须把「别名命中 / lite 预览 / 后台 ingest」收成 applicati
 | 文档 | 角色 |
 |---|---|
 | `workers/catalog/CONTEXT.md` | 语言与所有权 |
-| `docs/adr/0002-published-language-…md` | 跨服务词 |
+| `docs/adr/0002-published-language-point-bangumi-itinerary.md` | 跨服务词 |
 | `docs/specs/2026-08-06-monorepo-target-layout.md` | 仓级目标与逐包进度 |
 | `workers/catalog/AGENTS.md` | 现行命令与陷阱（实现后改） |
 

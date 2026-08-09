@@ -161,7 +161,7 @@ Suggested dependency order: S3.7 (check-in table, can start independently) → S
 - If the sprite sheet fails to load (404), falls back to the existing single-frame `fox-trot.svg`, not a broken image -> browser
 - **User sign-off required (G8 mandatory manual AC)**: generated assets are only considered done once the user has reviewed and signed off on them -> browser (manual verification)
 
-**Changed files**: `docs/archive/design-sync/assets/fox/fox-walk-sheet.png` (or 8 separate PNGs), `apps/web/src/styles/fox-animation.css`, `apps/web/src/components/transitions/GraduationTransition.tsx` (wiring, reuses S3.1).
+**Changed files**: `fox-walk-sheet.png` in `docs/archive/design-sync/assets/fox/` (or 8 separate PNGs), `apps/web/src/styles/fox-animation.css`, `apps/web/src/components/transitions/GraduationTransition.tsx` (wiring, reuses S3.1).
 
 **Dependencies**: none (asset production can run in parallel); consumed by S3.1, S0.7.
 

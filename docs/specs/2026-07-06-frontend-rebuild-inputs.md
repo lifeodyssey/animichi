@@ -92,8 +92,8 @@
 - **docs/archive/design-sync/docs/spec-chat-page-design.md**:双形态分期共享同一 generative UI registry——Phase1 单列流(现做)→Phase2 桌面双栏(环闭合后);TimedItinerary 站粒度+HH:MM 精确时刻+散步段独立可见为核心固化资产;地图 static-first/GL-on-demand(单季≤206 点、系列合并 829 点→50m 聚合 115 地点);未决:登录墙范围(已由 G7 裁决)/流式协议(Vercel AI SDK 曾 revert)/しおり排版细节。
 - **docs/archive/design-sync/docs/spec-chat-page-states.md**:四层正交状态模型(页面 A→回合 B→内容形态 C→卡片 D/E,输入区 G 贯穿);等待仪式感阶梯化(<1s 纯 typing、1–4s 管线+徽章、≥4s 情绪卡),纯文字回合永不出 skeleton;9 种异常态(D1–D9)全兜底永不裸错误;E1 活文档旧卡降级不改写历史、E2 旁路不演 agent 戏。
 - **docs/archive/design-sync/docs/spec-route-detail.md**:「单页活文档·无模式」,数据点亮元素,优先级完走>当天>平日;MODE 与数据正交,FLIP 360ms,07-03 已改为「可随时手动切」;时刻表恢复帧缩略 104×64(画面>地点>时刻);规模态 G4 留 2 项「待用户过目」。
-- **docs/journey-走查.md**:三主线 A 首次搜索/B 回流アレンジ(更高频)/C 浏览判断;chat→SP 工作台仅两个入口,SP 出口不产路线只旁路改「选中集合」(E2);Q1–Q5 共 5 个未裁决开放问题;C2t 帧是画布作者提案,spec 未收录。
-- **docs/ds-审计.md**:品牌层强、系统层仅~50%;**2 处对比度 FAIL(`#9f927d`≈2.8:1、白字 on teal≈2.1:1)**;图标/组件状态矩阵/产品组件规范/布局栅格/治理分 P0–P3 补齐(P0 已交付进 DS 补全画布)。
+- **`journey-走查.md`(spike 分支文档,未并入 main)**:三主线 A 首次搜索/B 回流アレンジ(更高频)/C 浏览判断;chat→SP 工作台仅两个入口,SP 出口不产路线只旁路改「选中集合」(E2);Q1–Q5 共 5 个未裁决开放问题;C2t 帧是画布作者提案,spec 未收录。
+- **`ds-审计.md`(spike 分支文档,未并入 main)**:品牌层强、系统层仅~50%;**2 处对比度 FAIL(`#9f927d`≈2.8:1、白字 on teal≈2.1:1)**;图标/组件状态矩阵/产品组件规范/布局栅格/治理分 P0–P3 补齐(P0 已交付进 DS 补全画布)。
 - **fox-walk-spec.md**:scene-cut 狐狸单帧→8 帧小跑 sprite(512×512 透明底、脚着地线 y=430、不烘焙阴影);交付雪碧图 4096×512 或 8 张 PNG;附 CSS `steps()` 接入代码与生成提示词模板。
 - **generative-ui.md**:Plan Phase1 单列 inline 卡是唯一现做范围;Walk 审判时刻插队于 Phase2 之前;固定组件库+结构化输出选组件填数据;J6 流式反馈必须、J7/P5 登录墙只在保存两条红线;组件 catalog 标注 Phase 归属。
 
@@ -160,7 +160,7 @@
 - spike 的 `src/routes`、`src/components`、Storybook、i18n(含测试)、登录 modal、hero/对比滑块 → 迭代 0 搬运主体
 - `packages/contract`(oRPC + zod)→ 新前端类型化 API 调用的挂点
 - `_web-ci.yml` reusable workflow → 改路径(apps/web)/包管理器(npm→pnpm)后复用
-- `docs/archive/specs/2026-06-22-frontend-rebuild-tanstack-design.md` 及配套 UX spec → 设计依据(注意其 D4 纯 SPA 决策已被 G3 修订)
+- `2026-06-22-frontend-rebuild-tanstack-design.md`(spike 分支 spec,未并入 main)及配套 UX spec → 设计依据(注意其 D4 纯 SPA 决策已被 G3 修订)
 
 ### B5. 风险
 

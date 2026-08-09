@@ -58,7 +58,7 @@ skeleton (apps/agent · workers/* · apps/web). Path renames (PATH-DELTA) follow
 
 | Candidate | Evidence | Decision |
 |---|---|---|
-| Root `DEPLOYMENT.md` / `docs/todo.md` / `CHANGELOG` / `VERSION` / `atlas.hcl` / `deno.lock` / skills-lock | Already absent from tree (S0-v2 GOAL A partial) | N/A |
+| Root `DEPLOYMENT.md` / root-level `todo.md` / `CHANGELOG` / `VERSION` / `atlas.hcl` / `deno.lock` / skills-lock | Already absent from tree (S0-v2 GOAL A partial) | N/A |
 | `scripts/qa_login.sh` hardcodes foreign venv path | Still referenced by `docs/ops/auth-migration-neon.md` until Neon Auth cutover | **Keep** — cutover ticket retires it |
 | `apps/agent/.../spikes/codemode/` | Spike residual; S0-v2 GOAL A lists spikes cleanup | **Deferred** (behavior-adjacent; not pure docs HY-1) |
 | Historical `docs/archive/reviews/*` | Pre-rename eng reviews | **Keep** in place (history) |
