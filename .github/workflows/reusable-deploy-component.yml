@@ -510,6 +510,15 @@ jobs:
         # runs under the catalog deploy jobs; look there for the backup, not
         # under a root/web/users run.
         if: ${{ inputs.run_pulumi }}
+        # #933: `pulumi stack select "$PULUMI_STACK"` must run from inside the
+        # `infra/` project directory. From the repo root there is no
+        # Pulumi.yaml for pulumi to resolve the bare "staging" stack name
+        # against, so every run died with "pass the fully qualified name
+        # (organization/project/stack)" and the rollback backup (and the
+        # subsequent `up`) never ran. Mirroring the "Pulumi up" step's
+        # work-dir: infra makes `staging` resolve to seichijunrei-infra/staging
+        # exactly like the deploy action does.
+        working-directory: infra
         env:
           # Least-privilege split (#674): Pulumi only touches R2/DNS/Routes/
           # Rulesets — it gets its own token instead of the wrangler CI token.
