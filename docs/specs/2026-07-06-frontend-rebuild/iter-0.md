@@ -109,7 +109,7 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 
 **User story**: As a developer, I want apps/web wired up to `animal-island-ui-tailwind@1.0.x`'s tokens, with Zen Maru Gothic vendored in, and a CI test that asserts token alignment, so that every subsequent component story inherits a correct, test-protected visual language instead of everyone doing their own thing.
 
-**Design basis**: `docs/archive/design-sync/docs/DESIGN.md` (the token authority; the frontmatter is missing explore/walk/map-*, to be backfilled); `DS 补全 - Chat 桌面.html` (the radius-sm=16px governance rule, S8); `docs/ds-审计.md` (2 contrast-ratio FAILs, for later component-level fixes to reference).
+**Design basis**: `docs/archive/design-sync/docs/DESIGN.md` (the token authority; the frontmatter is missing explore/walk/map-*, to be backfilled); `DS 补全 - Chat 桌面.html` (the radius-sm=16px governance rule, S8); spike 分支的 `ds-审计.md` (2 contrast-ratio FAILs, for later component-level fixes to reference).
 
 **Releasable statement**: apps/web's globals.css exposes `--color-*` semantic tokens that align 1:1 with the package's `--animal-*` primitives (including a backfilled explore/walk/map-pin-* family); any Japanese text renders in Zen Maru Gothic; a CI test fails whenever the package's token values drift without the semantic layer being kept in sync.
 
@@ -206,7 +206,7 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 
 **Design basis**: none.
 
-**Releasable statement**: `docs/ARCHITECTURE.md`, `docs/todo.md`, `docs/ops/deployment.md`, the root `AGENTS.md`/`CLAUDE.md`, the `wrangler.toml` comments, the CI comments, and `docs/testing-strategy.md` are all rewritten to describe apps/web + TanStack Start + MapLibre (no longer frontend/ + Next.js + OpenNext + Mapbox); D7 is documented as **both REJECTED** (neither Pyodide nor the TS rewrite — not "in progress"); X5's forward-looking statement about the edge auth model is written in; a new `docs/ops/migrations.md` (SD-1) records that `migrations/neon/*.sql` plus `atlas.sum` are the Neon authority, Drizzle is query/type-only, and Supabase remains an auth/legacy compatibility surface.
+**Releasable statement**: `docs/ARCHITECTURE.md`, root `todo.md`, `docs/ops/deployment.md`, the root `AGENTS.md`/`CLAUDE.md`, the `wrangler.toml` comments, the CI comments, and `docs/testing-strategy.md` are all rewritten to describe apps/web + TanStack Start + MapLibre (no longer frontend/ + Next.js + OpenNext + Mapbox); D7 is documented as **both REJECTED** (neither Pyodide nor the TS rewrite — not "in progress"); X5's forward-looking statement about the edge auth model is written in; a new `docs/ops/migrations.md` (SD-1) records that `migrations/neon/*.sql` plus `atlas.sum` are the Neon authority, Drizzle is query/type-only, and Supabase remains an auth/legacy compatibility surface.
 
 **AC**:
 - Grepping `docs/ARCHITECTURE.md` and `docs/ops/deployment.md` for "Next.js"/"OpenNext"/"Mapbox" returns zero hits after the rewrite (asserted by a repo-hygiene test script) -> unit
@@ -215,7 +215,7 @@ Suggested dependency order: S0.1 (independent) → S0.2 → {S0.3, S0.4, S0.5} �
 - X5's target auth model ("the edge lets anonymous+Turnstile+quota-tagged traffic through") is written into `docs/ARCHITECTURE.md`'s auth chapter as a forward-looking statement (to be backfilled as an accomplished-fact description once S1.8 lands; this story only states the direction) -> unit
 - **New from SD-1 (backfilled from SD-1; the S0.9 Atlas-authority amendment supersedes the original X13 wording)**: `docs/ops/migrations.md` exists and covers at least three things — the Neon chain (`migrations/neon/*.sql` plus generated `atlas.sum` → pinned `atlas migrate validate/apply`), the runtime boundary (catalog/users Drizzle files are query/type metadata only), the Supabase auth/legacy compatibility surface, and the corresponding CI steps -> unit
 
-**Files changed**: `docs/ARCHITECTURE.md`, `docs/todo.md`, `docs/ops/deployment.md`, `AGENTS.md`/`CLAUDE.md`, `wrangler.toml` (comments), `.github/workflows/*.yml` (comments), `docs/testing-strategy.md`, `docs/ops/migrations.md` (new).
+**Files changed**: `docs/ARCHITECTURE.md`, root `todo.md`, `docs/ops/deployment.md`, `AGENTS.md`/`CLAUDE.md`, `wrangler.toml` (comments), `.github/workflows/*.yml` (comments), `docs/testing-strategy.md`, `docs/ops/migrations.md` (new).
 
 **Dependencies**: soft dependency on S0.3/S0.4 (the documentation should describe the actual landed state, not something aspirational).
 

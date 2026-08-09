@@ -29,7 +29,7 @@ stable boundaries, current entry points, and active plans only.
 
 ## Docs Tree Map (W1)
 
-Sole navigation for `docs/` — no `docs/README.md`. Paths on the post-reorg layout (#908 W1).
+Sole navigation for `docs/` — no docs-level README. Paths on the post-reorg layout (#908 W1).
 
 | Path | Holds | Write policy |
 |---|---|---|

@@ -295,8 +295,8 @@ On top of ④ (the Finalized portion):
 | `docs/archive/design-sync/docs/spec-chat-page-design.md` | Spec canvas (one of the authoritative five) | The map portion is superseded by X1's MapLibre reading; the streaming-protocol portion is superseded by the **revised SD-9**'s AI SDK UI message stream (replacing the old "three-event SSE" reading) |
 | `docs/archive/design-sync/docs/spec-route-detail.md` | Spec canvas (one of the authoritative five) | The sole source for Iteration 2 |
 | `docs/archive/design-sync/docs/card-user-journey.html` | Spec canvas (one of the authoritative five, an APPROVED visual anchor) | Authoritative for scope decisions |
-| `docs/journey-走查.md` | Spec canvas (authoritative for Q1-Q5) | Already absorbed into §8 |
-| `docs/ds-审计.md` | Spec canvas | The P0 deliverables are already in the DS-supplement canvas, absorbed into S0.5 |
+| `journey-走查.md`(spike 分支文档) | Spec canvas (authoritative for Q1-Q5) | Already absorbed into §8 |
+| `ds-审计.md`(spike 分支文档) | Spec canvas | The P0 deliverables are already in the DS-supplement canvas, absorbed into S0.5 |
 | `fox-walk-spec.md` | Spec canvas | The sole basis for S3.8 |
 | `generative-ui.md` | Spec canvas | The Phase 1/Phase 2 boundary for Iterations 1/6 |
 | `design-project-log.md` | Index canvas (a step-by-step log) | For provenance tracing, not a deliverable |

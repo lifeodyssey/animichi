@@ -64,7 +64,7 @@ describe("inlineConfigViolations", () => {
 
   it("ignores vendored and non-source files", () => {
     write("node_modules/pkg/index.ts", `${LEGACY_SUPPRESSION}\n`);
-    write("docs/notes.md", `${LEGACY_SUPPRESSION}\n`);
+    write("notes.md", `${LEGACY_SUPPRESSION}\n`);
     expect(inlineConfigViolations(root)).toEqual([]);
   });
 });
