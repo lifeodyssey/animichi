@@ -2,7 +2,7 @@
 
 > C10 卡主产物。目的：把 `apps/web` 里「手搓了库中已有对应物」的 UI 换成
 > `animal-island-ui-tailwind`（v1.4.1）的组件。判据（owner 原话）：**前端一定要做得和
-> 设计稿一模一样** —— 与 mockup（`docs/design/2026-07-06-design-sync/`）一致优先于
+> 设计稿一模一样** —— 与 mockup（`docs/archive/design-sync/`）一致优先于
 > 「用上库组件」。不改设计。库正典：`node_modules/animal-island-ui-tailwind/AI_USAGE.md`
 > （prop 全部逐字来自源码，禁止发明 prop）。
 

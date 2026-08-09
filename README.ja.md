@@ -94,7 +94,7 @@ make db-push           # NEON_DATABASE_URL に適用
 | `MIMO_API_KEY` | 主モデルプロバイダキー |
 | `DEEPSEEK_API_KEY` | エッジ container-env がコンテナ起動時に要求（コンテナへ転送） |
 
-**Worker エッジ:** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`（JWT は公開 JWKS で検証 — エッジに `SUPABASE_ANON_KEY` は不要）。catalog/users/maintenance は各 Neon DSN も必要 — [`docs/ops/deployment.md`](docs/ops/deployment.md)。
+**Worker エッジ:** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`（JWT は公開 JWKS で検証 — エッジに `SUPABASE_ANON_KEY` は不要）。catalog/users/jobs は各 Neon DSN も必要 — [`docs/ops/deployment.md`](docs/ops/deployment.md)。
 
 **オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -126,7 +126,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `apps/agent/` — Python ランタイム本体。agents、interfaces、infrastructure、tests、tools を含む
 - `workers/catalog/` — アニメカタログ API + データ基盤の Cloudflare Worker（TypeScript）
 - `workers/users/` — ユーザー領域データ Worker（`/v1/users/*`）
-- `workers/maintenance/` — スケジュール Neon 保持 Worker（公開ルートなし）
+- `workers/jobs/` — スケジュール Neon 保持 Worker（公開ルートなし）
 - `packages/contract/` — 共有 oRPC/zod 契約（catalog ↔ agent ↔ users）
 - `apps/web/` — TanStack Start SSR Web アプリ（**唯一のブラウザ面**）
 - `workers/edge/` — 認証と `/v1` ルーティングの Cloudflare Worker 入口
@@ -142,6 +142,6 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - [マイグレーション境界](docs/ops/migrations.md) — Atlas authority と Drizzle のクエリ/型境界
 - [運用ドキュメント](docs/ops/README.md) — 運用手順と環境向けランブック
 - [イテレーション資料](docs/iterations/README.md) — task plan、progress、findings の保存場所
-- [実装計画（アーカイブ）](docs/superpowers/plans/archive/) — 過去の実行計画（平層 `plans/` には新規を置かない）
-- [設計仕様](docs/superpowers/specs/) — 現行のプロダクト/アーキテクチャ仕様
+- [実装計画（アーカイブ）](docs/archive/plans/) — 過去の実行計画（平層 `plans/` には新規を置かない）
+- [設計仕様](docs/specs/) — 現行のプロダクト/アーキテクチャ仕様
 - [エージェントガイド](AGENTS.md) — monorepo 構成・コマンド・横断ガードレール

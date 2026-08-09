@@ -1,6 +1,6 @@
 # CI-1 — per-package pipeline 重构设计稿 v3 定稿(#679)
 
-底稿:`docs/superpowers/specs/2026-07-29-cicd-rebuild-spec.md` §4/§5/§7;决议册 `docs/iterations/iter6/decisions-2026-08-03.md` §CI/CD。v3 = v2 + Fable 席评审 7 条 [必须修改] 全部落实。本稿数字全部 2026-08-03 实测(分支 `fix/zizmor-cache`,与 `main` 仅差 `_security.yml`)。
+底稿:`docs/specs/2026-07-29-cicd-rebuild-spec.md` §4/§5/§7;决议册 `docs/iterations/iter6/decisions-2026-08-03.md` §CI/CD。v3 = v2 + Fable 席评审 7 条 [必须修改] 全部落实。本稿数字全部 2026-08-03 实测(分支 `fix/zizmor-cache`,与 `main` 仅差 `_security.yml`)。
 
 ## 结论先行
 

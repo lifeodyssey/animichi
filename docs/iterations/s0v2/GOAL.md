@@ -1,7 +1,7 @@
 # S0-v2 GOAL — 验收契约
 
 本文件是 S0-v2 的验收契约:**全部勾选即 S0-v2 关账**,进入 S1 功能线。
-判据细则见 `docs/superpowers/specs/2026-08-05-s0v2-launch-spec.md`;勾选必须附证据(run 链接/截图/查询结果)。
+判据细则见 `docs/specs/2026-08-05-s0v2-launch-spec.md`;勾选必须附证据(run 链接/截图/查询结果)。
 
 ## 0. 止血
 

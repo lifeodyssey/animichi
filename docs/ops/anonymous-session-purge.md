@@ -31,7 +31,7 @@ continues. The `routes.session_id` FK backstop was dropped with the
 
 ## Trigger: `workers/jobs`
 
-The shared trigger/deploy/secret runbook is [`maintenance-worker.md`](./maintenance-worker.md).
+The shared trigger/deploy/secret runbook is [`jobs-worker.md`](./jobs-worker.md).
 
 - **Cron cadence:** `37 18 * * *` (18:37 UTC daily), configured identically in
   the default, staging, and production `wrangler.toml` environments.

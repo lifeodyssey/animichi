@@ -19,7 +19,7 @@ Cross-service speech used overloaded English **Route** (computed plan vs user-ow
 
 - Glossaries: `CONTEXT-MAP.md` and per-package `CONTEXT.md`.
 - New docs, issues, and package-internal domain names use the table above.
-- **Greenfield (2026-08-06):** no production users → **wire types, HTTP paths, and DB column/table names move to the table above in the same migration train**. No long-lived dual names. Detail: `docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md`.
+- **Greenfield (2026-08-06):** no production users → **wire types, HTTP paths, and DB column/table names move to the table above in the same migration train**. No long-lived dual names. Detail: `docs/specs/2026-08-06-greenfield-language-and-data-plane.md`.
 
 **Supersedes**
 

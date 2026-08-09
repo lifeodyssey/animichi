@@ -142,7 +142,7 @@ same provider = no resilience.
 
 ### Route Planner Agent — Full Version (Phase 3)
 **Priority:** P2
-**Spec:** `docs/superpowers/specs/archive/2026-04-28-route-planning-v2.md`
+**Spec:** `docs/archive/specs/2026-04-28-route-planning-v2.md`
 
 Current state: `route_area_splitter.py` has a minimal agent with 2 tools
 (`calculate_distance`, `cluster_points`). It works but relies on LLM world
@@ -176,7 +176,7 @@ exists? Adding 20-40s LLM latency to user-initiated route planning is the tradeo
 
 ### Eval V4 Redesign
 **Priority:** P1
-**Spec:** `docs/superpowers/specs/archive/2026-04-27-series-aware-resolve-design.md` section "Eval V4 Redesign"
+**Spec:** `docs/archive/specs/2026-04-27-series-aware-resolve-design.md` section "Eval V4 Redesign"
 
 Current eval has critical scoring bugs:
 - [ ] Error guard: count `report.failures` (task crashes vanish from scoring)
@@ -196,7 +196,7 @@ silently excluded from scoring.
 
 ### Route Planner Eval
 **Priority:** P2
-**Spec:** `docs/superpowers/specs/archive/2026-04-28-route-planning-v2.md` section "Eval strategy"
+**Spec:** `docs/archive/specs/2026-04-28-route-planning-v2.md` section "Eval strategy"
 
 - [ ] New dataset `route_planner_eval.json` (~20 cases)
 - [ ] `AreaSplitQuality` evaluator (score)
@@ -210,7 +210,7 @@ silently excluded from scoring.
 
 ### Series-Aware Resolve
 **Priority:** P2
-**Spec:** `docs/superpowers/specs/archive/2026-04-27-series-aware-resolve-design.md`
+**Spec:** `docs/archive/specs/2026-04-27-series-aware-resolve-design.md`
 
 Bangumi API returns S1/S2/S3/movie for popular anime → agent over-clarifies.
 Use Anitabi geo data to decide merge vs clarify:

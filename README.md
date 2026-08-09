@@ -95,7 +95,7 @@ order. Apply migrations in a dedicated deploy step, not at application startup.
 | `MIMO_API_KEY` | Primary model provider key |
 | `DEEPSEEK_API_KEY` | Required by edge container-env for agent boot (forwarded into the container) |
 
-**Worker edge:** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (JWT verifies public JWKS — `SUPABASE_ANON_KEY` is not required at the edge). Catalog/users/maintenance also need their Neon DSNs — see [`docs/ops/deployment.md`](docs/ops/deployment.md).
+**Worker edge:** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (JWT verifies public JWKS — `SUPABASE_ANON_KEY` is not required at the edge). Catalog/users/jobs also need their Neon DSNs — see [`docs/ops/deployment.md`](docs/ops/deployment.md).
 
 **Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -127,7 +127,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `apps/agent/` — Python runtime: agents, interfaces, infrastructure, tests, and tools
 - `workers/catalog/` — Cloudflare Worker: anime catalog API + data platform (TypeScript)
 - `workers/users/` — Cloudflare Worker: user-domain data service (`/v1/users/*`)
-- `workers/maintenance/` — Scheduled Neon retention Worker (no public route)
+- `workers/jobs/` — Scheduled Neon retention Worker (no public route)
 - `packages/contract/` — shared oRPC/zod contract (catalog ↔ agent ↔ users)
 - `apps/web/` — TanStack Start SSR web app (**the only browser surface**)
 - `workers/edge/` — Cloudflare Worker entrypoint for auth and `/v1` routing
@@ -143,6 +143,6 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - [Migrations](docs/ops/migrations.md) — Atlas authority and Drizzle query/type boundary
 - [Ops docs](docs/ops/README.md) — operational runbooks and environment procedures
 - [Iteration artifacts](docs/iterations/README.md) — task plans, progress logs, and findings by iteration
-- [Implementation plans (archive)](docs/superpowers/plans/archive/) — historical execution plans (flat `plans/` no longer accepts new files)
-- [Design specs](docs/superpowers/specs/) — active product/architecture specifications
+- [Implementation plans (archive)](docs/archive/plans/) — historical execution plans (flat `plans/` no longer accepts new files)
+- [Design specs](docs/specs/) — active product/architecture specifications
 - [Agent guide](AGENTS.md) — monorepo layout, commands, and cross-stack guardrails

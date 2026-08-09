@@ -113,7 +113,7 @@ owner 需要问「所以情况咋样了」「为啥还有那么多 PR 没合并�
 ## 七、改进清单
 
 ### 轨道 1 — 编排器 v2 重建卡(正式流程)
-产出 `docs/superpowers/specs/2026-08-06-orchestra-v2-spec.md`,必须包含:
+产出 `docs/specs/2026-08-06-orchestra-v2-spec.md`,必须包含:
 - 平台约束清单:macOS bash 3.2 与 Linux bash 差异(BASHPID、flock、sed -i、大小写)逐条列出
 - 每个外部依赖的失败检测方式:serve(存活探测 + 会话内容校验)、opencode 沙箱(越界即终止)、gh API(瞬时故障重试)、git push(推送前与远端对齐)、vitest(高负载超时与测试失败区分)。每种依赖写明它失败时系统靠什么发现
 - 并发上限的计算方式:总进程数 = 各卡门禁并行度之和,MAX_LIVE 由此反推

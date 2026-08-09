@@ -2,7 +2,7 @@
 
 Owns seichi **master data** and **planning algorithms**: Bangumi, Points, search/nearby/geocode, and Itinerary computation. Read-mostly for the Agent; public anonymous reads for some overview/search surfaces. Does **not** own login identity, SavedRoute documents, or Agent Session state.
 
-Published language: ADR-0002 · greenfield: `docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md`.
+Published language: ADR-0002 · greenfield: `docs/specs/2026-08-06-greenfield-language-and-data-plane.md`.
 
 ## Language
 
@@ -41,4 +41,4 @@ As in prior glossary; pipeline stages are not fan-facing nouns.
 
 ## Design
 
-`docs/superpowers/specs/2026-08-06-catalog-clean-architecture-design.md` (ACCEPTED + greenfield).
+`docs/specs/2026-08-06-catalog-clean-architecture-design.md` (ACCEPTED + greenfield).

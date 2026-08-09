@@ -2,7 +2,7 @@
  * Series-aware graph walker over `series_edges`.
  *
  * Backs series-aware resolve ("is X part of the same series as Y") per
- * `docs/superpowers/specs/2026-04-27-series-aware-resolve-design.md` (Mode C,
+ * `docs/archive/specs/2026-04-27-series-aware-resolve-design.md` (Mode C,
  * lines 81-84): candidates linked by a Bangumi relation of
  * 续集 / 前传 / 番外篇 / 总集篇 / 相同世界观 count as the SAME series; a 'character'
  * (角色) or any unrelated relation does NOT merge components.

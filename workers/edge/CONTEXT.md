@@ -5,10 +5,10 @@ Request gateway: identity, rate limits, routing to Catalog / Users / Agent conta
 **Tier:** Gateway — **no pilgrimage domain model**, **no `src/domain/`**.
 
 Structure (implemented): `src/` production (entry/app/env + identity/gateway/protect/proxy/container), `test/` + `test/doubles/` (node:test).
-Design doc: `docs/superpowers/specs/2026-08-06-edge-gateway-structure-design.md`
+Design doc: `docs/specs/2026-08-06-edge-gateway-structure-design.md`
 
 Greenfield path strings:
-`docs/superpowers/specs/2026-08-06-greenfield-language-and-data-plane.md`
+`docs/specs/2026-08-06-greenfield-language-and-data-plane.md`
 
 ## Domain model?
 
