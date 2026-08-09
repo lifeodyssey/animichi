@@ -2,7 +2,7 @@
 
 - Status: **DESIGN** — 与 monorepo P3「根只做编排」对齐；**不强制一次搬完**
 - Date: 2026-08-06
-- Parent: [monorepo-target-layout](./2026-08-06-monorepo-target-layout.md)
+- Parent: [monorepo-target-layout](../../specs/2026-08-06-monorepo-target-layout.md)
 
 ---
 

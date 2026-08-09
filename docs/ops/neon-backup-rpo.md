@@ -1,7 +1,7 @@
 # Neon backup, RPO/RTO, and bad-migration recovery
 
 Canonical ops page for **N5** of the Neon DBA capability map
-([`2026-08-06-neon-dba-capability-map.md`](../superpowers/specs/2026-08-06-neon-dba-capability-map.md)
+([`2026-08-06-neon-dba-capability-map.md`](../specs/2026-08-06-neon-dba-capability-map.md)
 — D10 / D12 / D15). Schema authoring and deploy-time Atlas apply remain in
 [`migrations.md`](./migrations.md); Worker/code rollback remains in
 [`deployment.md`](./deployment.md).
@@ -172,9 +172,9 @@ seed) and the damage is inside the history window.
 
 - [`docs/ops/migrations.md`](./migrations.md) — Atlas authority, apply command, expand/contract
 - [`docs/ops/deployment.md`](./deployment.md) — deploy order; Worker/Pulumi rollback; schema non-rollback
-- [`db/AGENTS.md`](../../db/AGENTS.md) — migration conventions
+- [`migrations/AGENTS.md`](../../migrations/AGENTS.md) — migration conventions
 - [`docs/ops/neon-test-infra.md`](./neon-test-infra.md) — test-base / branch quota (not production PITR)
-- [`docs/specs/2026-08-06-neon-dba-capability-map.md`](../superpowers/specs/2026-08-06-neon-dba-capability-map.md) — D10/D12/D15, N5 acceptance
+- [`docs/specs/2026-08-06-neon-dba-capability-map.md`](../specs/2026-08-06-neon-dba-capability-map.md) — D10/D12/D15, N5 acceptance
 - Neon docs: [Instant restore](https://neon.com/docs/introduction/branch-restore) ·
   [History window](https://neon.com/docs/introduction/history-window) ·
   [Backups overview](https://neon.com/docs/manage/backups)

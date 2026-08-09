@@ -93,7 +93,7 @@ the raw DSN and tokens out of logs and PRs.
 
 ## Related entry points
 
-- [`db/AGENTS.md`](../../db/AGENTS.md) — migration conventions and pinned commands
+- [`migrations/AGENTS.md`](../../migrations/AGENTS.md) — migration conventions and pinned commands
 - [`docs/ops/deployment.md`](./deployment.md) — deployment sequence and rollback limits
 - [`docs/ops/neon-backup-rpo.md`](./neon-backup-rpo.md) — RPO/RTO, PITR, failed-migrate + bad-migration recovery
 - [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — PR/static and promotion gates

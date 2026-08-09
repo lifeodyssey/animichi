@@ -236,5 +236,5 @@ Domain / Application / Adapters / Infrastructure；依赖 adapters → applicati
 2. **Neon DBA 能力图 ACCEPTED**（best practice）：[neon-dba-capability-map](./2026-08-06-neon-dba-capability-map.md) — 优先 **N1 角色矩阵 + staging DSN**（#685）。
 3. **CI/部署**：**方向 + 重构计划均 design ACCEPTED** — [architecture](./2026-08-06-ci-deploy-architecture.md) · [refactor plan C1–C6](./2026-08-06-ci-cd-refactor-plan.md)；**YAML 未改**。
 4. **Pulumi/infra**：[pulumi-infra-review](./2026-08-06-pulumi-infra-review.md) **ACCEPTED design only**（P1 拆 index 等后置）。
-5. **重构 GOAL（只骨架）：** [docs/iterations/refactor-skeleton-2026-08/GOAL.md](../../iterations/refactor-skeleton-2026-08/GOAL.md) — 无新功能；未做 `TODO(refactor-skeleton)`；Matt `/to-issues`→`/implement`（+/tdd）→`/code-review`。
+5. **重构 GOAL（只骨架）：** [docs/iterations/refactor-skeleton-2026-08/GOAL.md](../iterations/refactor-skeleton-2026-08/GOAL.md) — 无新功能；未做 `TODO(refactor-skeleton)`；Matt `/to-issues`→`/implement`（+/tdd）→`/code-review`。
 6. **实现列车**（按 GOAL 出票）：包结构 · jobs rename · DBA 文档骨架 · CI 设计已定实现后置 · 产品 ticket 另线。
