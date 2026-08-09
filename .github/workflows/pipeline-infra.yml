@@ -91,6 +91,44 @@ jobs:
       - name: Infra topology tests
         run: npm test
 
+  # infra/neon-secrets (#912 PR1) is its own standalone pnpm workspace with
+  # its own lockfile — NOT a root-workspace member, so the infra jobs above
+  # never cover it. This job typechecks it: generate the gitignored Neon
+  # provider SDK (pulumi package add — then revert the package.json rewrite
+  # it does, see reusable-deploy-neon-secrets.yml for why), install (plain
+  # frozen install; the project's workspace yaml `packages: []` makes it
+  # self-contained; the SDK's postinstall compiles it because the committed
+  # pnpm-workspace.yaml allows '@pulumi/neon' builds), then tsc --noEmit.
+  neon-secrets:
+    name: Infra / neon-secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: infra/neon-secrets
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: infra/neon-secrets/pnpm-lock.yaml
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+      - name: Generate Neon provider SDK
+        run: |
+          pulumi package add terraform-provider kislerdm/neon
+          git checkout -- package.json
+      - name: Install neon-secrets dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck neon-secrets
+        run: pnpm run typecheck
+
   build:
     name: Infra / build
     runs-on: ubuntu-latest
@@ -186,6 +224,41 @@ jobs:
           # CLOUDFLARE_API_TOKEN, R2_* → AWS_*), not the same-named job env above.
           # Dropping them made the preview fail on every run that reached the
           # pulumi_gate (the six gate secrets all exist). Same shape as retired ci-infra.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+      # neon-secrets (#912 PR1): same credential-gated preview for the
+      # infra/neon-secrets stack, sharing the infra path gate. The stack does
+      # not exist on the R2 backend until the first staging deploy creates it
+      # (select-or-init happens only on push; PR previews must stay read-only),
+      # so until then this step degrades to a warning — the first plan diff
+      # appears after the first deploy.
+      - name: Generate Neon provider SDK (neon-secrets preview)
+        if: ${{ steps.pulumi_gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || steps.f.outputs.infra == 'true') }}
+        working-directory: infra/neon-secrets
+        run: |
+          pulumi package add terraform-provider kislerdm/neon
+          git checkout -- package.json
+          pnpm install --frozen-lockfile
+      - name: Pulumi preview (neon-secrets staging)
+        if: ${{ steps.pulumi_gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || steps.f.outputs.infra == 'true') }}
+        working-directory: infra/neon-secrets
+        run: |
+          pulumi login "$PULUMI_BACKEND_URL"
+          if ! pulumi stack select staging 2>/dev/null; then
+            echo "::warning::neon-secrets stack 'staging' does not exist yet on the R2 backend (it is created by the first staging deploy on push to main). Skipping preview; the first plan diff appears after that deploy."
+            exit 0
+          fi
+          pulumi preview --non-interactive --diff
+        env:
+          # Same rename mappings as the infra preview: the Cloudflare
+          # provider reads CLOUDFLARE_API_TOKEN, the R2 backend the AWS_* pair.
+          # The Neon API key needs no secret — it decrypts from the committed
+          # stack config with PULUMI_CONFIG_PASSPHRASE.
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
