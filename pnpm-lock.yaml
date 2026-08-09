@@ -42,6 +42,8 @@ importers:
         specifier: 4.114.0
         version: 4.114.0(@cloudflare/workers-types@5.20260727.1)(@types/node@26.1.1)
 
+  apps/agent: {}
+
   apps/web:
     dependencies:
       '@ai-sdk/react':
