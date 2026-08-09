@@ -16,8 +16,6 @@
 # Install: pre-commit install && pre-commit install --hook-type pre-push
 # Policy: fix a failing gate or document an environmental exemption — no
 # silent --no-verify (CI still enforces).
-# Sourcery needs a one-time login (free): sourcery login
-
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -49,16 +47,6 @@ repos:
     rev: v8.30.1
     hooks:
       - id: gitleaks
-
-  # Sourcery — Python refactoring suggestions (free community tier).
-  # One-time login required: `sourcery login`. Rules can be scoped later via
-  # a .sourcery.yaml if the default set is noisy.
-  - repo: https://github.com/sourcery-ai/sourcery
-    rev: v1.44.0
-    hooks:
-      - id: sourcery
-        types: [python]
-        args: [--no-summary]
 
   - repo: local
     hooks:
