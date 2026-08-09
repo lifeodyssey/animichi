@@ -20,7 +20,7 @@ The pytest fixture selects exactly one arm per session:
 
 ```bash
 # One-time image build; this step needs network.
-docker build -f docker/test-postgres/Dockerfile \
+docker build -f apps/agent/docker/test-postgres/Dockerfile \
   -t animichi-test-postgres:16-3.4-pgvector-0.8.5 .
 
 # Offline after the image and Atlas 0.30.0 are cached. Typical: 30-45 seconds.

@@ -483,19 +483,13 @@ jobs:
       # guarantee that the rollback backup always lands before `up` mutates
       # anything.
       #
-      # `infra/` is deliberately NOT a pnpm-workspace member (absent from
-      # `pnpm-workspace.yaml`'s `packages:` list, and from `pnpm-lock.yaml`
-      # entirely). Confirmed empirically, not guessed: running a plain `pnpm
-      # install` from inside `infra/` in THIS repo prints "Scope: all 8
-      # workspace projects" and reinstalls the other workspace packages
-      # instead of infra's own — pnpm walks up to the repo-root
-      # `pnpm-workspace.yaml`, sees infra isn't a declared member, and simply
-      # ignores it rather than treating it as a standalone project. Only
-      # `--ignore-workspace` makes pnpm treat `infra/` as its own project;
-      # confirmed by the resulting `infra/node_modules` actually containing
-      # `@pulumi/pulumi` and `@pulumi/cloudflare`. `infra/pnpm-lock.yaml` is
-      # committed alongside this change so `--frozen-lockfile` pins versions
-      # here the same way the root lockfile does for every other package.
+      # #911: `infra/` IS a pnpm-workspace member now (listed in
+      # `pnpm-workspace.yaml`, deps absorbed into the root `pnpm-lock.yaml`),
+      # so this install runs against the root workspace exactly like the
+      # checkout's `setup` action does — no `--ignore-workspace`, no
+      # `infra/pnpm-lock.yaml`. It is kept as a run_pulumi-gated step (rather
+      # than removed) so the "deps installed before `up`" invariant stays
+      # explicit; it is a fast no-op once the root store is cached.
       #
       # `--ignore-scripts` disables package lifecycle scripts (pre/postinstall)
       # for this install (SonarCloud githubactions:S6505, a real finding, not
@@ -507,10 +501,9 @@ jobs:
       # lifecycle script — pnpm's own build-script gate already no-ops here
       # too, logging "Ignored build scripts: protobufjs@7.6.5" on a plain
       # install with no flag at all).
-      - name: Install infra dependencies
+      - name: Install infra dependencies (root workspace)
         if: ${{ inputs.run_pulumi }}
-        working-directory: infra
-        run: pnpm install --ignore-workspace --frozen-lockfile --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Pulumi stack export (rollback backup)
         # Snapshot state BEFORE `up` mutates it, so a bad apply can be rolled
         # back with `pulumi stack import` from the R2 object this step writes.
@@ -538,7 +531,6 @@ jobs:
         # runs under the catalog deploy jobs; look there for the backup, not
         # under a root/web/users run.
         if: ${{ inputs.run_pulumi }}
-        working-directory: infra
         env:
           # Least-privilege split (#674): Pulumi only touches R2/DNS/Routes/
           # Rulesets — it gets its own token instead of the wrangler CI token.
