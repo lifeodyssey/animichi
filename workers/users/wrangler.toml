@@ -17,12 +17,29 @@ ENVIRONMENT = "development"
 name = "users-staging"
 workers_dev = false
 
+# #912 PR2: the staging DSN comes from the Cloudflare Secrets Store (secret
+# USERS_DATABASE_URL, provisioned by the infra/neon-secrets Pulumi stack)
+# instead of `wrangler secret put` in CI. env.DATABASE_URL is then a
+# SecretsStoreSecret — src/index.ts awaits `.get()` (string fallback kept for
+# tests/local dev). Wrangler validates the binding at deploy time; no CI
+# secret pass-through remains.
+[[env.staging.secrets_store_secrets]]
+binding = "DATABASE_URL"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "USERS_DATABASE_URL"
+
 [env.staging.vars]
 ENVIRONMENT = "staging"
 
 [env.production]
 name = "users"
 workers_dev = false
+
+# Production has NO Secrets Store binding yet (#912): the store secrets hold
+# staging-role DSNs only, so binding production to them would silently point
+# prod at the staging database. Production keeps its DATABASE_URL worker
+# secret (owner DSN via CI's NEON_DATABASE_URL) until the production-role
+# cutover phase (#912 follow-up).
 
 [env.production.vars]
 ENVIRONMENT = "production"

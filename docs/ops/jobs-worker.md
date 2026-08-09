@@ -23,16 +23,20 @@ dropped the cross-BC FK (#852), so no FK race is possible.
 
 ## Secret chain
 
-`AGENT_DATABASE_URL` is the exact name at all three source touchpoints:
+`AGENT_DATABASE_URL` names both the Cloudflare Secrets Store secret and the Worker binding:
 
-1. required secret binding in every `workers/jobs/wrangler.toml` environment;
-2. `worker_secrets`/`env` wiring in reusable CI, staging/production callers, and the manual production
-   deploy workflow;
+1. **Staging (#912 PR2):** `[[env.staging.secrets_store_secrets]]` in `workers/jobs/wrangler.toml`
+   binds `AGENT_DATABASE_URL` to the same-named store secret (managed by `infra/neon-secrets`).
+   No GitHub secret and no `wrangler secret put` step exists for the staging value.
+2. **Production:** still uploaded by CI from the same-named GitHub environment secret
+   (`worker_secrets` in `reusable-deploy-component.yml` callers) until the #912 cutover;
 3. the live-secret inventory in [`secrets.md`](./secrets.md).
 
-Operators must provision different `AGENT_DATABASE_URL` values on the `staging` and `production`
-GitHub Environments. The repository contains no DSN value and local development uses a git-ignored
-`.dev.vars` file.
+The `[env.production.secrets] required` block in `workers/jobs/wrangler.toml` is the fail-closed
+guard for the production upload chain. Staging's guard is the binding itself: a missing
+store secret fails the deploy, and `.get()` throws at runtime if it is ever deleted. (A name
+must NOT appear in both `secrets.required` and a Secrets Store binding — wrangler rejects it.)
+Local development uses a git-ignored `.dev.vars` file.
 
 ## Cutover verification
 
