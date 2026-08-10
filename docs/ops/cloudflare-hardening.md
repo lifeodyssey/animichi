@@ -36,12 +36,15 @@ Cloudflare Edge (Worker: workers/edge/src/entry.ts)
 
 ## Auth Flow
 
-Two credential types, both validated at the Worker edge:
+The only bearer credential type is a human JWT, validated at the Worker edge:
 
 | Credential | Format | Validation |
 |---|---|---|
 | Human JWT | `Bearer <supabase_jwt>` | `authenticate()` verifies the signature locally against the Supabase JWKS (ES256/RS256 via jose `createRemoteJWKSet`), checking issuer/audience/exp — no `/auth/v1/user` round-trip. Flag-gated Neon Auth (EdDSA) issuer is off by default. |
-| Agent API key | `Bearer sk_<hex>` | `validateApiKey()` SHA-256 hashes the key, looks up `api_keys` table via Supabase REST with `SUPABASE_SERVICE_ROLE_KEY` |
+
+The `sk_*` API-key credential and the `api_keys` table are deleted (AUTH-1 #945): an `sk_*`
+Bearer token is rejected as invalid, never mapped to an "agent" identity. Anonymous access uses a
+worker-minted cookie identity, not a credential.
 
 On success the Worker sets `X-User-Id` and `X-User-Type`, deletes the `Authorization` header, and forwards to the container. The container never sees raw bearer tokens.
 
@@ -49,8 +52,7 @@ On success the Worker sets `X-User-Id` and `X-User-Type`, deletes the `Authoriza
 
 | Variable | Boundary | Notes |
 |---|---|---|
-| `SUPABASE_URL` | Worker-only | JWKS fetch (`/auth/v1/.well-known/jwks.json`) for local JWT verification + `api_keys` lookup |
-| `SUPABASE_SERVICE_ROLE_KEY` | Worker-only | Used for `api_keys` table lookup |
+| `SUPABASE_URL` | Worker-only | JWKS fetch (`/auth/v1/.well-known/jwks.json`) for local JWT verification |
 | `NEON_AUTH_ENABLED` / `NEON_AUTH_JWKS_URL` / `NEON_AUTH_ISSUER` | Worker-only (optional) | Dual-issuer readiness — Neon Auth EdDSA JWKS verification; absent or `false` ⇒ Neon path off (default) |
 | `SUPABASE_DB_URL` | Container-only | Direct Postgres connection for asyncpg |
 | `CORS_ALLOWED_ORIGIN` | Container-only | Agent CORS allowlist |
@@ -64,7 +66,7 @@ The full container env allowlist is `CONTAINER_ENV_KEYS` / `CONTAINER_REQUIRED_K
 ## Current Trust Boundary
 
 - Browser clients hit `apps/web`; API clients hit the root edge Worker hostname
-- Worker-only auth secrets stay at the edge: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (+ optional `NEON_AUTH_*`); the edge JWT path verifies against the public Supabase JWKS, so no `SUPABASE_ANON_KEY` is needed there
+- Worker-only auth secrets stay at the edge: `SUPABASE_URL` (+ optional `NEON_AUTH_*`); the edge JWT path verifies against the public Supabase JWKS, so no `SUPABASE_ANON_KEY` is needed there
 - Container runtime receives only its explicit allowlist from `workers/edge/src/container/container-env.ts`
 - Agent auth trust starts from `X-User-Id` and `X-User-Type`, not from raw bearer tokens
 

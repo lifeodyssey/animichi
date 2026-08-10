@@ -421,7 +421,7 @@ compatibility files are not a second source and do not require an Atlas twin. Se
 Reviewer must check all SQL for:
 
 1. **Performance:** Indexed WHERE columns (verify with EXPLAIN ANALYZE), no SELECT *, LIMIT on large tables, no N+1 (use JOIN or batch)
-2. **Security:** Parameterized queries (`$1, $2`), no string concatenation. RLS policies correct. Sensitive data (api_keys) hashed.
+2. **Security:** Parameterized queries (`$1, $2`), no string concatenation. RLS policies correct. Sensitive data (e.g. credential hashes) hashed.
 3. **Correctness:** NULL handling (COALESCE / IS NOT NULL). Transaction boundaries. Unique constraints.
 4. **Maintainability:** Formatted SQL (aligned clauses). Comments explain "why" not "what". Migration naming: `YYYYMMDDHHMMSS_description.sql`. Idempotent migrations.
 

@@ -1,5 +1,10 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import {
+  type IdentityClass,
+  type IdentityClassPolicy,
+  type IdentityPolicy,
+} from "@animichi/contract/identity";
 import { verifyEdDsaJwt } from "@animichi/contract/jwt";
 import { createRemoteJWKSet, customFetch, decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
 
@@ -9,7 +14,33 @@ import { createRemoteJWKSet, customFetch, decodeJwt, decodeProtectedHeader, jwtV
  * caller, minted by the edge so open surfaces can still be rate-limited and
  * metered per client. `authenticate()` never returns it.
  */
-export type UserType = "human" | "agent" | "anonymous";
+export type UserType = "human" | "anonymous";
+
+/**
+ * The explicit identity matrix (AUTH-1 #945): how a /v1 request is classified
+ * and the numeric configuration each class is governed by.
+ *
+ *  - `"public"`       — allowlisted read routes (PUBLIC_V1 in
+ *                       gateway/routing-policy.ts): no credential, no limiter,
+ *                       no quota, no budget.
+ *  - `"anonymous"`    — no credential + the anonymous allowlist (ANON_V1):
+ *                       worker-minted identity, burst-limited, daily-quota'd,
+ *                       daily-budgeted.
+ *  - `"authenticated"` — a verified human JWT: burst-limited on cost-bearing
+ *                        paths only; no anonymous quota/budget.
+ *
+ * The path -> class classification stays in gateway/routing-policy.ts; this
+ * module owns the classes and the policy document they consume.
+ */
+export type { IdentityClass, IdentityClassPolicy, IdentityPolicy };
+
+export {
+  identityClassSchema,
+  identityClassPolicySchema,
+  identityPolicySchema,
+  identityRateLimitSchema,
+  DEFAULT_IDENTITY_POLICY,
+} from "@animichi/contract/identity";
 
 /**
  * Why authentication produced no identity (issue #441).
@@ -17,9 +48,9 @@ export type UserType = "human" | "agent" | "anonymous";
  * - `"absent"` — the caller presented no bearer credential at all. Only this
  *   case may fall through to the anonymous handler.
  * - `"invalid"` — a bearer credential WAS presented and failed to verify
- *   (expired, malformed, wrong issuer/audience/algorithm, unknown API key).
- *   Silently demoting it to an anonymous identity hides the expiry from the
- *   client and charges the turn to the wrong meter, so it must 401.
+ *   (expired, malformed, wrong issuer/audience/algorithm). Silently demoting
+ *   it to an anonymous identity hides the expiry from the client and charges
+ *   the turn to the wrong meter, so it must 401.
  *
  * A non-Bearer `Authorization` scheme is `"absent"`: this edge has never
  * accepted one, so an unrelated header must not start 401ing.
@@ -27,7 +58,7 @@ export type UserType = "human" | "agent" | "anonymous";
 export type AuthFailureReason = "absent" | "invalid";
 
 export type AuthResult =
-  | { ok: true; userId: string; userType: "human" | "agent" }
+  | { ok: true; userId: string; userType: "human" }
   | { ok: false; reason: AuthFailureReason };
 
 // Frozen because both are module-level singletons shared by every request on
@@ -44,7 +75,6 @@ export const BEARER_SCHEME = /^bearer[ \t]+/i;
 
 export interface AuthEnv {
   SUPABASE_URL: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
   NEON_AUTH_ENABLED?: string;
   NEON_AUTH_JWKS_URL?: string;
   NEON_AUTH_ISSUER?: string;
@@ -119,61 +149,6 @@ async function verifyJwt(token: string, env: AuthEnv, f: typeof fetch): Promise<
   }
 }
 
-async function sha256Hex(raw: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function apiKeyLookupUrl(supabaseUrl: string, keyHash: string): string {
-  return `${supabaseUrl}/rest/v1/api_keys?key_hash=eq.${keyHash}&revoked=eq.false&select=user_id`;
-}
-
-async function apiKeyRow(
-  f: typeof fetch, env: AuthEnv, keyHash: string,
-): Promise<{ user_id: string } | null> {
-  const resp = await f(apiKeyLookupUrl(env.SUPABASE_URL, keyHash), { headers: serviceHeaders(env) });
-  if (!resp.ok) return null;
-  const rows = (await resp.json()) as { user_id: string }[];
-  return rows[0] ?? null;
-}
-
-function serviceHeaders(env: AuthEnv): Record<string, string> {
-  const sr = env.SUPABASE_SERVICE_ROLE_KEY;
-  return { apikey: sr, Authorization: `Bearer ${sr}` };
-}
-
-function touchApiKey(f: typeof fetch, env: AuthEnv, keyHash: string): Promise<Response> {
-  return f(`${env.SUPABASE_URL}/rest/v1/api_keys?key_hash=eq.${keyHash}`, {
-    method: "PATCH",
-    headers: { ...serviceHeaders(env), "Content-Type": "application/json", Prefer: "return=minimal" },
-    body: JSON.stringify({ last_used_at: new Date().toISOString() }),
-  });
-}
-
-function schedule(patch: Promise<Response>, ctx?: Pick<ExecutionContext, "waitUntil">): void {
-  if (ctx) ctx.waitUntil(patch); else void patch;
-}
-
-async function verifiedApiKey(
-  rawKey: string, env: AuthEnv, f: typeof fetch, ctx?: Pick<ExecutionContext, "waitUntil">,
-): Promise<{ ok: true; userId: string } | { ok: false }> {
-  const keyHash = await sha256Hex(rawKey);
-  const row = await apiKeyRow(f, env, keyHash);
-  if (row === null) return { ok: false };
-  schedule(touchApiKey(f, env, keyHash), ctx);
-  return { ok: true, userId: row.user_id };
-}
-
-async function verifyApiKey(
-  rawKey: string, env: AuthEnv, f: typeof fetch, ctx?: Pick<ExecutionContext, "waitUntil">,
-): Promise<{ ok: true; userId: string } | { ok: false }> {
-  try {
-    return await verifiedApiKey(rawKey, env, f, ctx);
-  } catch {
-    return { ok: false };
-  }
-}
-
 function bearerToken(request: Request): string | null {
   const header = request.headers.get("Authorization") ?? "";
   const scheme = BEARER_SCHEME.exec(header);
@@ -183,19 +158,19 @@ function bearerToken(request: Request): string | null {
   return token.length > 0 ? token : null;
 }
 
-async function agentKeyResult(
-  token: string, env: AuthEnv, fetchImpl: typeof fetch, ctx?: Pick<ExecutionContext, "waitUntil">,
-): Promise<AuthResult> {
-  const r = await verifyApiKey(token, env, fetchImpl, ctx);
-  return r.ok ? { ok: true, userId: r.userId, userType: "agent" } : INVALID;
-}
-
-/** Authenticate a /v1 request: `sk_*` -> api_keys (agent), else JWT -> issuer JWKS (human). */
+/**
+ * Authenticate a /v1 request (AUTH-1 #945): only a JWT can produce an
+ * identity (`"human"`); any legacy API-key credential is `"invalid"` — the
+ * API-key mint/verify path and its backing table are deleted, so nothing here
+ * ever consults them. The matrix's other classes are produced by the caller:
+ * `"public"` never reaches this function (routing-policy), and `"anonymous"`
+ * is minted downstream by `handleAnonymousV1` only for `"absent"`.
+ */
 export async function authenticate(
   request: Request, env: AuthEnv, fetchImpl: typeof fetch = fetch, ctx?: Pick<ExecutionContext, "waitUntil">,
 ): Promise<AuthResult> {
+  void ctx;
   const token = bearerToken(request);
   if (token === null) return ABSENT;
-  if (token.startsWith("sk_")) return await agentKeyResult(token, env, fetchImpl, ctx);
   return verifyJwt(token, env, fetchImpl);
 }

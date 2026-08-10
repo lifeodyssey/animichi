@@ -2,10 +2,11 @@
 
 These tests call the live HTTP service and require environment variables:
   - SEICHI_API_URL: base URL of the running service (e.g. http://localhost:8080)
-  - SEICHI_API_KEY: a valid API key (sk_...) or Supabase JWT
+  - SEICHI_API_KEY: a valid Supabase JWT (the legacy API-key credential was
+    deleted in AUTH-1 #945)
 
 Run with:
-  SEICHI_API_URL=http://localhost:8080 SEICHI_API_KEY=sk_xxx \
+  SEICHI_API_URL=http://localhost:8080 SEICHI_API_KEY=<supabase_jwt> \
     pytest agent/tests/integration/test_e2e_smoke.py -v
 """
 

@@ -55,7 +55,7 @@ Owner service = BC that may **write** the table under greenfield. Reads may be b
 | `sessions`, `conversations`, `conversation_messages` | **agent** | Dialogue; Users may list SessionSummary only |
 | `agent_memory`, `agent_memory_operations`, `agent_memory_metadata` | **agent** | In-agent memory |
 | `daily_usage`, `anon_daily_message_count` | **agent** (write); **jobs** purge | Quota / metering |
-| `request_log`, `feedback`, `api_keys` | **agent** / platform | Operational |
+| `request_log`, `feedback` | **agent** / platform | Operational |
 | `user_memory` | **users** when awake | Dropped once; reintroduce under Users BC only |
 
 Legacy / unknown: if a table is not listed, treat as **needs classification** before GRANT widen.
