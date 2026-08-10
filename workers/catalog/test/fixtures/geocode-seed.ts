@@ -1,4 +1,4 @@
-import type { GeocodeHit } from "../../src/lib/geocode";
+import type { GeocodeHit } from "../../src/domain/geocode/collapse";
 
 type SeedLocation = Omit<GeocodeHit, "priority" | "exact">;
 
