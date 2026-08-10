@@ -1,7 +1,18 @@
-// TODO(refactor-skeleton): vertical slice — structure design catalog #837/#838
-import { sql } from "drizzle-orm";
+/**
+ * Inbound transport for the `nearby` read: wires the `NearbyPoints` use case
+ * (`application/nearby-points.ts`) to the Neon adapters
+ * (`adapters/outbound/nearby-points.ts`) and a console observer. Radius
+ * policy, distance ordering, and typed empty results are the use case's job —
+ * this file only adapts dependencies and logs.
+ */
+
+import { nearbyDetailsPort, nearbyGeoPort } from "../adapters/outbound/nearby-points";
+import {
+  nearbyPoints,
+  type NearbyObservation,
+  type NearbyObserverPort,
+} from "../application/nearby-points";
 import type { CatalogDb, NeonSql } from "../db/client";
-import { findPointsWithinRadius, type NearbyPoint } from "../lib/geo-query";
 import type { Point } from "../types";
 
 export interface NearbyInput {
@@ -10,51 +21,15 @@ export interface NearbyInput {
   radius_m: number;
 }
 
-/** The point columns the geo helper omits, keyed by id for the merge step. */
-interface PointDetail {
-  id: string;
-  bangumi_id: string | null;
-  name_cn: string | null;
-  image: string | null;
-  episode: number | null;
-  time_seconds: number | null;
-  origin: string | null;
-  city?: string | null;
-}
-
-function detailOptionals(d: PointDetail): Partial<Point> {
-  return {
-    ...(d.name_cn != null && { name_cn: d.name_cn }),
-    ...(d.episode != null && { episode: d.episode }),
-    ...(d.time_seconds != null && { time_seconds: d.time_seconds }),
-    ...(d.origin != null && { origin: d.origin }),
-    ...(d.city != null && { city: d.city }),
-  };
-}
-
-function merge(near: NearbyPoint, d?: PointDetail): Point {
-  return { ...mergeBase(near, d?.bangumi_id ?? "", d?.image ?? ""), ...(d ? detailOptionals(d) : {}) };
-}
-
-function mergeBase(near: NearbyPoint, bangumiId: string, image: string): Point {
-  return {
-    id: near.id, name: near.name, bangumi_id: bangumiId, screenshot_url: image,
-    latitude: near.latitude, longitude: near.longitude, distance_m: near.distanceM,
-  };
-}
-
-/** The point detail columns for `ids`. Raw `sql` (the Drizzle query builder
- * hangs under workerd), matching the IN pattern in api/route.ts. */
-async function loadDetails(db: CatalogDb, ids: string[]): Promise<Map<string, PointDetail>> {
-  if (ids.length === 0) return new Map();
-  const result = await db.execute(sql`
-    SELECT id, bangumi_id, name_cn, image, episode, time_seconds, origin, city
-    FROM points
-    WHERE id IN (${sql.join(ids, sql`, `)})
-  `);
-  const rows = result.rows as unknown as PointDetail[];
-  return new Map(rows.map((r) => [r.id, r]));
-}
+/** Redacted observation line: radius bucket, count, outcome, duration — no coordinates. */
+const observer: NearbyObserverPort = {
+  record: (observation: NearbyObservation) => {
+    console.info(
+      `nearby ${observation.outcome} bucket=${observation.radius_bucket} `
+      + `count=${String(observation.count)} ${String(observation.duration_ms)}ms`,
+    );
+  },
+};
 
 /** Points within `input.radius_m` meters of (lat,lng), nearest first, with `distance_m`. */
 export async function nearby(
@@ -62,7 +37,5 @@ export async function nearby(
   neonSql: NeonSql,
   input: NearbyInput,
 ): Promise<{ rows: Point[] }> {
-  const near = await findPointsWithinRadius(neonSql, { lat: input.lat, lng: input.lng, radiusM: input.radius_m });
-  const details = await loadDetails(db, near.map((p) => p.id));
-  return { rows: near.map((p) => merge(p, details.get(p.id))) };
+  return nearbyPoints(nearbyGeoPort(neonSql), nearbyDetailsPort(db), input, { observer });
 }

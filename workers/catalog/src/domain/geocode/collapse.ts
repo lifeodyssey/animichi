@@ -1,5 +1,5 @@
-import { haversine } from "../domain/geo";
-import type { GeocodeCandidate, GeocodeKind, GeocodeSource } from "../types";
+import { haversine } from "../geo";
+import type { GeocodeCandidate, GeocodeKind, GeocodeSource } from "../../types";
 
 const CLUSTER_RADIUS_M = 12_000;
 export const FUZZY_SIMILARITY_THRESHOLD = 0.4;
@@ -33,6 +33,11 @@ export interface GeocodeHit {
 
 export interface CollapsedGeocodeCandidate extends GeocodeCandidate {
   effective_radius_m: number;
+}
+
+/** A gazetteer row is usable only when its coordinates are finite numbers. */
+export function isValidGeocodeHit(hit: GeocodeHit): boolean {
+  return Number.isFinite(hit.latitude) && Number.isFinite(hit.longitude);
 }
 
 function find(parent: number[], index: number): number {

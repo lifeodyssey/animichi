@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import type { CatalogDb } from "../src/db/client";
-import { geocode } from "../src/api/geocode";
-import type { GeocodeHit } from "../src/lib/geocode";
+import { NeonGazetteer } from "../src/adapters/outbound/neon/gazetteer";
+import type { GeocodeHit } from "../src/domain/geocode/collapse";
 
 export const NISHINOMIYA: GeocodeHit = {
   id: "seed:nishinomiya-station",
@@ -43,6 +43,6 @@ export function sqlText(value: unknown): string {
 
 export async function fuzzySql(): Promise<string> {
   const db = fakeDb([], []);
-  await geocode(db, { query: "西宮北口", limit: 5 });
-  return sqlText(db.executeSpy.mock.calls[1]?.[0]);
+  await new NeonGazetteer(db).fuzzy("西宮北口");
+  return sqlText(db.executeSpy.mock.calls[0]?.[0]);
 }

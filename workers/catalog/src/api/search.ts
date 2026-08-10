@@ -31,12 +31,10 @@
  */
 
 import { sql } from "drizzle-orm";
+import { bangumiPoints } from "../adapters/outbound/bangumi-points";
+import { pointsByBangumi, type PublishedPointRow } from "../application/list-points-for-bangumi";
 import type { CatalogDb } from "../db/client";
 import { normalizeAlias } from "../lib/alias";
-import { optional } from "../lib/optional";
-import {
-  nullableNumber, nullableString, nullableTimestamp, requiredNumber, requiredString,
-} from "../lib/rows";
 import { ingestWork } from "../ingest/orchestrator";
 import type { FetchLike } from "../ingest/sources";
 import type { Origin, Point } from "../types";
@@ -55,25 +53,6 @@ export interface SearchOptions {
   waitUntil?: (promise: Promise<unknown>) => void;
 }
 
-/** A point row joined to its parent work's title, as read from Postgres. */
-export interface WorkPointRow {
-  id: string;
-  name: string;
-  name_cn: string | null;
-  bangumi_id: string | null;
-  episode: number | null;
-  time_seconds: number | null;
-  image: string | null;
-  latitude: number;
-  longitude: number;
-  title: string | null;
-  title_cn: string | null;
-  cover_url: string | null;
-  city?: string | null;
-  // workerd's raw pg returns timestamptz as a string (Node parses it to Date) — accept both.
-  synced_at: Date | string | null;
-}
-
 /**
  * The minimal DB surface `search` depends on. `CatalogDb` (the production
  * Drizzle client) satisfies it via `searchDb(db)`; tests inject a fake.
@@ -90,7 +69,7 @@ export interface WorkPointRow {
  */
 export interface SearchDb {
   bangumiIdForAlias(aliasNormalized: string): Promise<string | undefined>;
-  pointsForWork(bangumiId: string): Promise<WorkPointRow[]>;
+  pointsForBangumi(bangumiId: string): Promise<PublishedPointRow[]>;
   resolvePreview(query: string, fetchImpl?: FetchLike): Promise<MissPreview | null>;
   runFullIngest(bangumiId: string, fetchImpl?: FetchLike): Promise<void>;
 }
@@ -109,17 +88,8 @@ export async function search(
   opts: SearchOptions = {},
 ): Promise<SearchResult> {
   const bangumiId = await db.bangumiIdForAlias(normalizeAlias(input.query));
-  if (bangumiId) return hitResult(db, bangumiId);
+  if (bangumiId) return pointsByBangumi(db, bangumiId);
   return missResult(db, input.query, opts);
-}
-
-/** Alias HIT: return the work's published points from the catalog (no preview/ingest). */
-export async function hitResult(
-  db: Pick<SearchDb, "pointsForWork">,
-  bangumiId: string,
-): Promise<SearchResult> {
-  const rows = await db.pointsForWork(bangumiId);
-  return { rows: rows.map(toPoint), synced_at: syncedAt(rows) };
 }
 
 /** Alias MISS: resolve + L1 preview now, full ingest in the background (or sync fallback). */
@@ -147,8 +117,8 @@ async function syncFallback(
   fetchImpl?: FetchLike,
 ): Promise<SearchResult> {
   await db.runFullIngest(preview.workId, fetchImpl);
-  const rows = await db.pointsForWork(preview.workId);
-  if (rows.length > 0) return { rows: rows.map(toPoint), synced_at: syncedAt(rows) };
+  const published = await pointsByBangumi(db, preview.workId);
+  if (published.rows.length > 0) return published;
   return { rows: preview.points, synced_at: new Date().toISOString(), partial: true };
 }
 
@@ -157,45 +127,11 @@ function emptyResult(): SearchResult {
   return { rows: [], synced_at: new Date().toISOString() };
 }
 
-/** Map a joined DB row to the contract `Point` shape. */
-function toPoint(r: WorkPointRow): Point {
-  return {
-    ...identity(r),
-    ...geo(r),
-    ...meta(r),
-  };
-}
-
-/** Required identity fields (id / name / bangumi_id / screenshot_url). */
-function identity(r: WorkPointRow): Pick<Point, "id" | "name" | "bangumi_id" | "screenshot_url"> {
-  return { id: r.id, name: r.name, bangumi_id: r.bangumi_id ?? "", screenshot_url: r.image ?? "" };
-}
-
-/** Required geo fields. */
-function geo(r: WorkPointRow): Pick<Point, "latitude" | "longitude"> {
-  return { latitude: r.latitude, longitude: r.longitude };
-}
-
-/** Optional metadata fields, omitted when null. */
-function meta(r: WorkPointRow): Partial<Point> {
-  return optional({
-    name_cn: r.name_cn, episode: r.episode, time_seconds: r.time_seconds,
-    title: r.title, title_cn: r.title_cn, cover_url: r.cover_url, city: r.city,
-  });
-}
-
-/** `synced_at` from the work's `bangumi.updated_at`, else now. Accepts a Date or
- * a raw timestamptz string (workerd's pg driver does not parse it to a Date). */
-function syncedAt(rows: WorkPointRow[]): string {
-  const stamp = rows[0]?.synced_at;
-  return stamp ? new Date(stamp).toISOString() : new Date().toISOString();
-}
-
 /** Build the production `SearchDb` over a Drizzle `CatalogDb`. */
 export function searchDb(db: CatalogDb): SearchDb {
   return {
     bangumiIdForAlias: (normalized) => firstBangumiId(db, normalized),
-    pointsForWork: (bangumiId) => selectPoints(db, bangumiId),
+    pointsForBangumi: (bangumiId) => bangumiPoints(db).pointsForBangumi(bangumiId),
     resolvePreview: (query, fetchImpl) => previewForQuery(query, fetchImpl),
     runFullIngest: (bangumiId, fetchImpl) => runFullIngest(db, bangumiId, fetchImpl),
   };
@@ -218,27 +154,4 @@ async function firstBangumiId(db: CatalogDb, normalized: string): Promise<string
     sql`SELECT bangumi_id FROM aliases WHERE alias_normalized = ${normalized} ORDER BY priority DESC LIMIT 1`,
   );
   return (result.rows as { bangumi_id: string }[])[0]?.bangumi_id;
-}
-
-function readWorkPointRow(row: Record<string, unknown>): WorkPointRow {
-  return {
-    id: requiredString(row, "id"), name: requiredString(row, "name"),
-    name_cn: nullableString(row, "name_cn"), bangumi_id: nullableString(row, "bangumi_id"),
-    episode: nullableNumber(row, "episode"), time_seconds: nullableNumber(row, "time_seconds"),
-    image: nullableString(row, "image"), latitude: requiredNumber(row, "latitude"), longitude: requiredNumber(row, "longitude"),
-    title: nullableString(row, "title"), title_cn: nullableString(row, "title_cn"), cover_url: nullableString(row, "cover_url"),
-    city: nullableString(row, "city"), synced_at: nullableTimestamp(row, "synced_at"),
-  };
-}
-
-/** Select the work's points joined to its bangumi title metadata. */
-async function selectPoints(db: CatalogDb, workId: string): Promise<WorkPointRow[]> {
-  const result = await db.execute(sql`
-    SELECT p.id, p.name, p.name_cn, p.bangumi_id, p.episode, p.time_seconds,
-           p.image, p.latitude, p.longitude, p.city, b.title, b.title_cn,
-           b.cover_url, b.updated_at AS synced_at
-    FROM points p LEFT JOIN bangumi b ON p.bangumi_id = b.id
-    WHERE p.bangumi_id = ${workId}
-  `);
-  return result.rows.map(readWorkPointRow);
 }
