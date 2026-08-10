@@ -60,8 +60,10 @@ function parsedRow(row: Record<string, unknown>): BangumiRow {
     title_cn: nullableString(row, "title_cn"),
     cover_url: nullableString(row, "cover_url"),
     air_date: nullableString(row, "air_date"),
-    summary: null,
-    rating: null,
-    eps_count: null,
+    ...emptyEnrichment(),
   };
+}
+
+function emptyEnrichment() {
+  return { summary: null, rating: null, eps_count: null };
 }

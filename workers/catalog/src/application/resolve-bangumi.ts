@@ -90,8 +90,12 @@ export async function resolveBangumi(
   const clock = opts.clock ?? realClock;
   const started = clock.now();
   const result = await resolveExactFirst(alias, upstream, input.query);
-  opts.observer?.record(observe(result, started, clock.now()));
+  recordIfObserved(opts, observe(result, started, clock.now()));
   return result.outcome;
+}
+
+function recordIfObserved(opts: ResolveOptions, observation: ResolveObservation): void {
+  opts.observer?.record(observation);
 }
 
 /** Exact-first sequencing: the alias index decides before any upstream call. */

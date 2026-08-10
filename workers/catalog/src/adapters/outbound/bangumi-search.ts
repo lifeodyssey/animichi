@@ -32,7 +32,11 @@ async function fetchSubjects(
   try {
     return await fetchBangumiSubjects(query, { limit: BANGUMI_FETCH_N, ...cfg });
   } catch (error) {
-    if (error instanceof UpstreamFetchError) return "upstream_unavailable";
-    throw error;
+    return classifyUpstreamError(error);
   }
+}
+
+function classifyUpstreamError(error: unknown): UpstreamSubjects {
+  if (error instanceof UpstreamFetchError) return "upstream_unavailable";
+  throw error;
 }

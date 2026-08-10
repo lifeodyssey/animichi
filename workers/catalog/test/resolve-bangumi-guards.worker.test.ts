@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_CANDIDATES,
   resolveBangumi,
   type AliasWork,
   type TitleAliasPort,
@@ -14,6 +15,10 @@ function aliasWith(works: AliasWork[], candidates: AnimeCandidate[]): TitleAlias
     worksForAlias: () => Promise.resolve(works),
     candidatesForWorks: (ids) => Promise.resolve(candidates.filter((item) => ids.includes(item.bangumi_id))),
   };
+}
+
+function subject(id: number, name: string, name_cn?: string): Subject {
+  return { id: String(id), name, name_cn };
 }
 
 function upstreamWith(subjects: Subject[]): UpstreamTitlePort {
@@ -56,5 +61,43 @@ describe("resolveBangumi guard paths", () => {
     expect(result.outcome).toBe("needs_disambiguation");
     const ambiguity = result as Extract<typeof result, { outcome: "needs_disambiguation" }>;
     expect(ambiguity.candidates.map((item) => item.bangumi_id)).toEqual(["200", "100", "100"]);
+  });
+});
+
+describe("catalog resolve observation guards", () => {
+  it("ambiguity outcome records candidate_count and source_class", async () => {
+    const records: { count: number; source: string }[] = [];
+    const outcome = await resolveBangumi(
+      EMPTY_ALIAS,
+      upstreamWith([subject(1, "涼宮ハルヒの憂鬱", "凉宫春日的忧郁"), subject(2, "凉宫ハルヒの消失", "凉宫春日的消失")]),
+      { query: "凉宫" },
+      { observer: { record: (o) => records.push({ count: o.candidate_count, source: o.source_class }) } },
+    );
+    expect(outcome.outcome).toBe("needs_disambiguation");
+    expect(records[0]).toEqual({ count: 2, source: "upstream" });
+  });
+
+  it("duration clamps to zero when the clock goes backwards", async () => {
+    let now = 100;
+    const records: number[] = [];
+    await resolveBangumi(EMPTY_ALIAS, upstreamWith([]), { query: "zzz-nonexistent" }, {
+      clock: { now: () => now },
+      observer: { record: (o) => records.push(o.duration_ms) },
+    });
+    now = 50;
+    await resolveBangumi(EMPTY_ALIAS, upstreamWith([]), { query: "zzz-nonexistent" }, {
+      clock: { now: () => now },
+      observer: { record: (o) => records.push(o.duration_ms) },
+    });
+    expect(records[records.length - 1]).toBe(0);
+  });
+
+  it("upstream ambiguity respects MAX_CANDIDATES", async () => {
+    const many = Array.from({ length: MAX_CANDIDATES + 5 }, (_, i) => subject(i, `凉宫${String(i)}`));
+    const outcome = await resolveBangumi(EMPTY_ALIAS, upstreamWith(many), { query: "凉宫" });
+    expect(outcome.outcome).toBe("needs_disambiguation");
+    if (outcome.outcome === "needs_disambiguation") {
+      expect(outcome.candidates.length).toBeLessThanOrEqual(MAX_CANDIDATES);
+    }
   });
 });
