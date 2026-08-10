@@ -129,14 +129,21 @@ jobs:
         env:
           TARGET_COMPONENT: ${{ inputs.component }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # All expressions arrive via env (never inlined into run) so zizmor
+          # cannot flag template injection, and values cannot reach argv.
+          CANDIDATE_SHA: ${{ github.sha }}
+          CALLER_WORKING_DIRECTORY: ${{ inputs.working_directory }}
+          CALLER_PULUMI_STACK: ${{ inputs.pulumi_stack }}
+          CALLER_BUILD_FILTER: ${{ inputs.build_filter }}
+          CALLER_RUN_PULUMI: ${{ inputs.run_pulumi }}
         run: |
           set -euo pipefail
-          verdict="$(bash .github/scripts/release-eligibility.sh "$TARGET_COMPONENT" "${{ github.sha }}")"
+          verdict="$(bash .github/scripts/release-eligibility.sh "$TARGET_COMPONENT" "$CANDIDATE_SHA")"
           # jq emits JSON literals ("true"/"false") — never Python's
           # "True"/"False" — matching the caller-side gate comparison.
           deploy="$(echo "$verdict" | jq -r .eligibility.deploy)"
           if [ "$deploy" != "true" ]; then
-            echo "::error::production ineligible: candidate ${{ github.sha }} is not the pinned pre-campaign source revision (SAFE-1). Refusing to deploy before any production mutation."
+            echo "::error::production ineligible: candidate $CANDIDATE_SHA is not the pinned pre-campaign source revision (SAFE-1). Refusing to deploy before any production mutation."
             exit 1
           fi
           # The manifest is the only authority for the production deployment
@@ -151,13 +158,13 @@ jobs:
             fi
           }
           check_matches working_directory \
-            "$(echo "$verdict" | jq -r .component.working_directory)" "${{ inputs.working_directory }}"
+            "$(echo "$verdict" | jq -r .component.working_directory)" "$CALLER_WORKING_DIRECTORY"
           check_matches pulumi_stack \
-            "$(echo "$verdict" | jq -r .component.pulumi_stack)" "${{ inputs.pulumi_stack }}"
+            "$(echo "$verdict" | jq -r .component.pulumi_stack)" "$CALLER_PULUMI_STACK"
           check_matches build_filter \
-            "$(echo "$verdict" | jq -r .component.build_filter)" "${{ inputs.build_filter }}"
+            "$(echo "$verdict" | jq -r .component.build_filter)" "$CALLER_BUILD_FILTER"
           check_matches run_pulumi \
-            "$(echo "$verdict" | jq -r .component.run_pulumi)" "${{ inputs.run_pulumi }}"
+            "$(echo "$verdict" | jq -r .component.run_pulumi)" "$CALLER_RUN_PULUMI"
           {
             echo "source_revision=$(echo "$verdict" | jq -r .source_revision)"
             echo "atlas_target=$(echo "$verdict" | jq -r .atlas.target)"
