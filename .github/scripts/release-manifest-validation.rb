@@ -107,7 +107,11 @@ def validate_component_fields(errors, key, comp, expected)
 end
 
 def validate_secret_names(errors, key, names, field)
-  (names || []).each do |name|
+  unless names.is_a?(Array)
+    add_error(errors, "component #{key}: #{field} names must be an array, got #{names.inspect}")
+    return
+  end
+  names.each do |name|
     unless name.is_a?(String) && name.match?(SECRET_NAME_RE)
       add_error(errors, "component #{key}: #{field} name #{name.inspect} must match #{SECRET_NAME_RE}")
     end
@@ -115,7 +119,11 @@ def validate_secret_names(errors, key, names, field)
 end
 
 def validate_depends_on(errors, key, deps)
-  (deps || []).each do |dep|
+  unless deps.is_a?(Array)
+    add_error(errors, "component #{key}: depends_on must be an array, got #{deps.inspect}")
+    return
+  end
+  deps.each do |dep|
     add_error(errors, "component #{key}: depends_on #{dep.inspect} is not a known component") unless EXPECTED_COMPONENTS.key?(dep)
   end
 end
