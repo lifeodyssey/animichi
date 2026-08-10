@@ -9,7 +9,8 @@ import type {
   IngestResult,
 } from "../src/ingest/orchestrator";
 import type { Point } from "../src/types";
-import type { WorkPointRow, MissPreview } from "../src/api/search";
+import type { PublishedPointRow } from "../src/application/list-points-for-bangumi";
+import type { MissPreview } from "../src/api/search";
 
 const PREVIEW: Point = {
   id: "lite-1",
@@ -20,7 +21,7 @@ const PREVIEW: Point = {
   longitude: 135.8078,
 };
 
-const PUBLISHED: WorkPointRow = {
+const PUBLISHED: PublishedPointRow = {
   id: "published-1",
   name: "宇治橋",
   name_cn: null,
@@ -37,8 +38,8 @@ const PUBLISHED: WorkPointRow = {
 };
 
 interface FakeDbOptions {
-  rows?: WorkPointRow[];
-  rowsSequence?: WorkPointRow[][];
+  rows?: PublishedPointRow[];
+  rowsSequence?: PublishedPointRow[][];
   guard?: IngestGuard;
   claim?: IngestClaim;
   ingest?: Promise<IngestResult>;
@@ -50,7 +51,7 @@ interface RecorderState extends FakeDbOptions {
   ingests: string[];
   completed: string[];
   guard: IngestGuard;
-  rowsSequence: WorkPointRow[][];
+  rowsSequence: PublishedPointRow[][];
 }
 
 function fakeDb(options: FakeDbOptions = {}) {
@@ -65,7 +66,7 @@ function recorderState(options: FakeDbOptions): RecorderState {
 
 function fakeDbMethods(state: RecorderState): WorkPointsDb {
   return {
-    pointsForWork: () => Promise.resolve(state.rowsSequence.shift() ?? state.rows ?? []),
+    pointsForBangumi: () => Promise.resolve(state.rowsSequence.shift() ?? state.rows ?? []),
     previewForWork: (workId) => previewWork(state, workId),
     ingestGuard: () => Promise.resolve(state.guard),
     claimIngest: (workId) => claimWork(state, workId),
