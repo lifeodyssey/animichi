@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
       - name: Ruby syntax check workflow meta scripts
         run: |
-          for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb; do
+          for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_safe1_production_contract.rb; do
             ruby -c "${f}"
           done
         shell: bash
@@ -45,6 +45,20 @@ jobs:
         shell: bash
       - name: Assert workflow invariants
         run: ruby .github/scripts/assert-workflow-invariants.rb
+        shell: bash
+      # SAFE-1 (#937): the production freeze contract — the eligibility gate on
+      # every production entry point, the removed rollback version_id, and the
+      # pinned manifest resolution (checkout, Atlas target, build metadata, and
+      # smoke expectations). Unfiltered like every check in this lane, so any
+      # PR or merge-group candidate that could change release code runs it.
+      - name: SAFE-1 production freeze contract
+        run: ruby .github/scripts/test_safe1_production_contract.rb
+        shell: bash
+      - name: SAFE-1 release manifest resolver self-tests
+        run: ruby .github/scripts/release-manifest-resolver.test.rb
+        shell: bash
+      - name: SAFE-1 release eligibility self-tests
+        run: bash .github/scripts/release-eligibility.test.sh
         shell: bash
       # S0-v2 B4: the retired repository-quality-gate's contents moved here —
       # this lane is the fixed point that never path-filters, so the checks

@@ -47,6 +47,13 @@ on:
       suite:
         required: true
         type: string  # api | e2e | smoke — informational label, see header
+      # SAFE-1 (#937): production callers pass the pinned pre-campaign source
+      # revision so the /healthz git_commit assertion expects the resolved
+      # revision, never the campaign github.sha. Staging omits it (caller SHA).
+      expected_source_revision:
+        required: false
+        type: string
+        default: ""
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
@@ -176,7 +183,9 @@ jobs:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
           # #494: hard-assert the deployed git_commit equals this run's SHA.
-          EXPECTED_GIT_COMMIT: ${{ github.sha }}
+          # SAFE-1 (#937): production expects the pinned pre-campaign revision
+          # (production builds bake that, not the campaign github.sha).
+          EXPECTED_GIT_COMMIT: ${{ inputs.expected_source_revision != '' && inputs.expected_source_revision || github.sha }}
         run: bash .github/scripts/post-deploy-assert.sh healthz
 
       - name: "edge rejects an invalid bearer token (401; 403 showcase_denied in showcase mode)"

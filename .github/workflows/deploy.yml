@@ -31,8 +31,25 @@ env:
 
 jobs:
 
+  # SAFE-1 (#937): production eligibility gate. The manual path mirrors the CI
+  # promotion path: the dispatch's github.sha is judged against the pinned
+  # pre-campaign source revision. Once a campaign revision lands on main, this
+  # resolves ineligible and every production job is skipped before checkout,
+  # Atlas, Pulumi, or Wrangler can mutate production. Only an explicit
+  # pre-campaign invocation (dispatch while main == source_revision) resolves
+  # the manifest, and the GitHub `production` environment approval remains
+  # mandatory inside reusable-deploy-component.yml.
+  production-eligibility:
+    name: Production eligibility (SAFE-1)
+    uses: ./.github/workflows/reusable-production-eligibility.yml
+    with:
+      candidate_sha: ${{ github.sha }}
+      component: root
+
   deploy-prod:
     name: Deploy production
+    needs: production-eligibility
+    if: ${{ needs.production-eligibility.outputs.eligible == 'true' }}
     uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: catalog
@@ -53,6 +70,8 @@ jobs:
 
   deploy-web-prod:
     name: Deploy web production
+    needs: production-eligibility
+    if: ${{ needs.production-eligibility.outputs.eligible == 'true' }}
     uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: web
@@ -70,7 +89,8 @@ jobs:
   deploy-users-prod:
     name: Deploy users production
     # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
-    needs: [deploy-prod]
+    needs: [production-eligibility, deploy-prod]
+    if: ${{ needs.production-eligibility.outputs.eligible == 'true' }}
     uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: users
@@ -92,7 +112,8 @@ jobs:
   deploy-maintenance-prod:
     name: Deploy maintenance production
     # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
-    needs: [deploy-prod]
+    needs: [production-eligibility, deploy-prod]
+    if: ${{ needs.production-eligibility.outputs.eligible == 'true' }}
     uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: maintenance
@@ -110,7 +131,8 @@ jobs:
   deploy-root-prod:
     name: Deploy root production
     # mirrors ci.yml's intra-prod ordering (root routes to users; users must be live first)
-    needs: [deploy-users-prod]
+    needs: [production-eligibility, deploy-users-prod]
+    if: ${{ needs.production-eligibility.outputs.eligible == 'true' }}
     uses: ./.github/workflows/reusable-deploy-component.yml
     with:
       component: root
@@ -156,11 +178,13 @@ jobs:
 
   post-prod:
     name: Post-deploy (production)
-    needs: [deploy-prod, deploy-web-prod, deploy-users-prod, deploy-maintenance-prod, deploy-root-prod]
+    needs: [production-eligibility, deploy-prod, deploy-web-prod, deploy-users-prod, deploy-maintenance-prod, deploy-root-prod]
+    if: ${{ needs.production-eligibility.outputs.eligible == 'true' }}
     uses: ./.github/workflows/reusable-post-deploy-test.yml
     with:
       environment: production
       suite: smoke
+      expected_source_revision: ${{ needs.production-eligibility.outputs.source_revision }}
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
