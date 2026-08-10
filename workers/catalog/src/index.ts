@@ -118,7 +118,7 @@ export type { CatalogRouter } from "./router";
 /**
  * Internal-only ingest door (#540): a named entrypoint reachable exclusively
  * through a Cloudflare service binding — the public oRPC route is gone, so no
- * HTTP surface can reach the orchestrator. The search-miss and points-by-id
+ * HTTP surface can reach the ingest pipeline. The search-miss and points-by-id
  * lazy-ingest paths stay internal to this Worker and keep calling the
  * IngestBangumi use case directly.
  */

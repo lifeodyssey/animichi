@@ -15,8 +15,9 @@ import type { SearchOptions } from "./search";
 
 /**
  * The read path's port over points + the ingest lifecycle. `ingest` owns the
- * whole acquire -> completion state machine; this adapter only maps outcomes
- * to preview/empty/syncing HTTP responses (no claim logic of its own).
+ * whole guard/claim decision ({@link IngestLifecycle.readClaim}) and the
+ * acquire -> completion state machine; this adapter only maps the outcome to
+ * preview/empty/syncing HTTP responses (no claim logic of its own).
  */
 export interface WorkPointsPort {
   pointsForBangumi(bangumiId: string): Promise<PublishedPointRow[]>;
@@ -38,12 +39,9 @@ export async function pointsByBangumiId(
 async function uncoveredWork(
   db: WorkPointsPort, bangumiId: string, options: SearchOptions,
 ): Promise<PointsByBangumiResult> {
-  const guard = await db.ingest.guard(bangumiId);
-  if (guard === "empty") return emptyResult();
-  if (guard !== "ready") return syncingResult();
-  const claim = await db.ingest.claim(bangumiId);
-  if (claim === "empty") return emptyResult();
-  if (claim !== "acquired") return syncingResult();
+  const outcome = await db.ingest.readClaim(bangumiId);
+  if (outcome.kind === "empty") return emptyResult();
+  if (outcome.kind === "syncing") return syncingResult();
   return onAcquired(db, bangumiId, options);
 }
 

@@ -14,7 +14,11 @@
  * Callers (search, points-by-bangumi-id, the scheduled crons, the internal
  * entrypoint) all funnel through {@link ingest}: it acquires the claim and
  * runs the pipeline, or reports the persisted guard without touching upstream.
+ * Read paths use {@link readClaim} for the guard/claim decision, so the
+ * singleflight state machine lives here once, not in each handler.
  *
+ * The pipeline phases live as module-level functions over a bundled
+ * {@link IngestRuntime}; the class keeps only the public lifecycle surface.
  * Writes go through the `store` port's raw `sql` execute (the Drizzle read
  * schema is query-only), consistent with the ingest layer owning all mutations.
  */
@@ -63,6 +67,12 @@ export type IngestResult =
   | { status: "empty"; reason: string }
   | { status: "failed"; reason: string };
 
+/** What a read path should do for an already-resolved id, per the guard. */
+export type IngestReadOutcome =
+  | { kind: "acquired" }
+  | { kind: "empty" }
+  | { kind: "syncing" };
+
 /** Upstream source port: fetch the Bangumi subject + Anitabi points. */
 export interface IngestSource {
   fetchBangumi(bangumiId: string, fetchImpl?: FetchLike): Promise<BangumiSubject>;
@@ -73,6 +83,8 @@ export interface IngestSource {
 export interface IngestLifecycle {
   guard(bangumiId: string): Promise<IngestGuard>;
   claim(bangumiId: string): Promise<IngestClaim>;
+  /** The guard -> claim decision for a read: acquired / empty / syncing. */
+  readClaim(bangumiId: string): Promise<IngestReadOutcome>;
   markDone(bangumiId: string): Promise<void>;
   runClaimed(bangumiId: string, opts?: IngestBangumiOptions): Promise<IngestResult>;
 }
@@ -98,31 +110,36 @@ export interface IngestTtl {
   emptySeconds: number;
 }
 
+/** The ports + TTL an ingest phase needs, bundled so module helpers stay small. */
+interface IngestRuntime {
+  source: IngestSource;
+  store: IngestStore;
+  publisher: IngestPublisher;
+  ttl: IngestTtl;
+}
+
 /** The complete Bangumi ingest lifecycle, composed over three ports. */
 export class IngestBangumi {
+  private readonly runtime: IngestRuntime;
   constructor(
-    private readonly source: IngestSource,
-    private readonly store: IngestStore,
-    private readonly publisher: IngestPublisher,
-    private readonly ttl: IngestTtl = DEFAULT_INGEST_TTL,
-  ) {}
+    source: IngestSource,
+    store: IngestStore,
+    publisher: IngestPublisher,
+    ttl: IngestTtl = DEFAULT_INGEST_TTL,
+  ) {
+    this.runtime = { source, store, publisher, ttl };
+  }
 
   /** Read the persisted marker without claiming ready work. */
   guard(bangumiId: string): Promise<IngestGuard> {
-    return this.store.guard(bangumiId);
+    return this.runtime.store.guard(bangumiId);
   }
 
-  /** Close a held claim — used by callers that finish without ingesting. */
   markDone(bangumiId: string): Promise<void> {
-    return this.store.markDone(bangumiId);
+    return this.runtime.store.markDone(bangumiId);
   }
 
-  /**
-   * Ingest a work end-to-end behind one singleflight gate. The claim winner
-   * runs the full pipeline; a loser (an in-flight peer, or a live negative
-   * cache) returns the persisted outcome and does no work. Upstream transport
-   * failures escape as typed retryable oRPC errors.
-   */
+  /** Ingest a work end-to-end behind one singleflight gate; losers return the persisted outcome. */
   async ingest(bangumiId: string, opts: IngestBangumiOptions = {}): Promise<IngestResult> {
     const claim = await this.claim(bangumiId);
     if (claim === "acquired") return this.runClaimed(bangumiId, opts);
@@ -132,67 +149,83 @@ export class IngestBangumi {
 
   /** Atomically reserve the claim; a loser reads the persisted marker. */
   async claim(bangumiId: string): Promise<IngestClaim> {
-    if (await this.store.acquire(bangumiId)) return "acquired";
-    const guard = await this.store.guard(bangumiId);
+    if (await this.runtime.store.acquire(bangumiId)) return "acquired";
+    const guard = await this.runtime.store.guard(bangumiId);
     return guard === "ready" ? "in_progress" : guard;
   }
 
   /** Run the full pipeline for a claim this caller already holds. */
   runClaimed(bangumiId: string, opts: IngestBangumiOptions = {}): Promise<IngestResult> {
-    return this.runSafely(bangumiId, opts.fetchImpl);
+    return runSafely(this.runtime, bangumiId, opts.fetchImpl);
   }
 
-  /** Negative-cache every failure, then preserve typed upstream transport errors. */
-  private async runSafely(bangumiId: string, fetchImpl?: FetchLike): Promise<IngestResult> {
-    try {
-      return await this.runPipeline(bangumiId, fetchImpl);
-    } catch (err) {
-      return this.handleError(bangumiId, err);
-    }
+  /** The guard -> claim decision for a read: serve empty / report syncing / acquire. */
+  async readClaim(bangumiId: string): Promise<IngestReadOutcome> {
+    const guard = await this.guard(bangumiId);
+    if (guard === "empty") return { kind: "empty" };
+    if (guard !== "ready") return { kind: "syncing" };
+    const claim = await this.claim(bangumiId);
+    if (claim === "empty") return { kind: "empty" };
+    return claim === "acquired" ? { kind: "acquired" } : { kind: "syncing" };
   }
+}
 
-  private async handleError(bangumiId: string, err: unknown): Promise<IngestResult> {
-    if (err instanceof UpstreamNotFoundError) {
-      return this.fail(bangumiId, IngestErrorCode.NotFound, String(err));
-    }
-    const result = await this.fail(bangumiId, IngestErrorCode.IngestError, String(err));
-    if (err instanceof UpstreamFetchError) throw upstreamUnavailable(err.upstream, err);
-    return result;
+/** Negative-cache every failure, then preserve typed upstream transport errors. */
+async function runSafely(runtime: IngestRuntime, bangumiId: string, fetchImpl?: FetchLike): Promise<IngestResult> {
+  try {
+    return await runPipeline(runtime, bangumiId, fetchImpl);
+  } catch (err) {
+    return handleError(runtime, bangumiId, err);
   }
+}
 
-  /** Fetch -> raw -> enrich -> publish -> completion for the held claim. */
-  private async runPipeline(bangumiId: string, fetchImpl?: FetchLike): Promise<IngestResult> {
-    const { subject, points } = await this.fetchUpstream(bangumiId, fetchImpl);
-    if (points.length === 0) return this.fail(bangumiId, IngestErrorCode.NotFound, "no points");
-    await this.store.saveRawBangumi(bangumiId, subject);
-    await this.store.saveRawAnitabi(bangumiId, points);
-    const enriched = await this.publisher.publish(bangumiId);
-    await this.store.markDone(bangumiId);
-    return { status: "ingested", version: enriched.version, pointCount: enriched.pointCount };
+/** Park the failure with the right TTL; rethrow transport outages as defined 502s. */
+async function handleError(runtime: IngestRuntime, bangumiId: string, err: unknown): Promise<IngestResult> {
+  if (err instanceof UpstreamNotFoundError) {
+    return fail(runtime, bangumiId, IngestErrorCode.NotFound, errorMessage(err));
   }
+  const result = await fail(runtime, bangumiId, IngestErrorCode.IngestError, errorMessage(err));
+  if (err instanceof UpstreamFetchError) throw upstreamUnavailable(err.upstream, err);
+  return result;
+}
 
-  private async fetchUpstream(
-    bangumiId: string,
-    fetchImpl?: FetchLike,
-  ): Promise<{ subject: BangumiSubject; points: AnitabiPoint[] }> {
-    const [subject, points] = await Promise.all([
-      this.source.fetchBangumi(bangumiId, fetchImpl),
-      this.source.fetchPoints(bangumiId, fetchImpl),
-    ]);
-    return { subject, points };
-  }
+/** Fetch -> raw -> enrich -> publish -> completion for the held claim. */
+async function runPipeline(runtime: IngestRuntime, bangumiId: string, fetchImpl?: FetchLike): Promise<IngestResult> {
+  const { subject, points } = await fetchUpstream(runtime.source, bangumiId, fetchImpl);
+  if (points.length === 0) return fail(runtime, bangumiId, IngestErrorCode.NotFound, "no points");
+  await runtime.store.saveRawBangumi(bangumiId, subject);
+  await runtime.store.saveRawAnitabi(bangumiId, points);
+  const enriched = await runtime.publisher.publish(bangumiId);
+  await runtime.store.markDone(bangumiId);
+  return { status: "ingested", version: enriched.version, pointCount: enriched.pointCount };
+}
 
-  /** Negative-cache the failure (clears the 'running' row) and report it. */
-  private async fail(
-    bangumiId: string, errorCode: string, reason: string,
-  ): Promise<IngestResult> {
-    const ttlSeconds = errorCode === IngestErrorCode.NotFound
-      ? this.ttl.emptySeconds
-      : this.ttl.failureSeconds;
-    await this.store.markFailed(bangumiId, { errorCode, ttlSeconds, error: reason });
-    const status = errorCode === IngestErrorCode.NotFound ? "empty" : "failed";
-    return { status, reason };
-  }
+/** Fetch both upstream sources in parallel. */
+async function fetchUpstream(
+  source: IngestSource,
+  bangumiId: string,
+  fetchImpl?: FetchLike,
+): Promise<{ subject: BangumiSubject; points: AnitabiPoint[] }> {
+  const [subject, points] = await Promise.all([
+    source.fetchBangumi(bangumiId, fetchImpl),
+    source.fetchPoints(bangumiId, fetchImpl),
+  ]);
+  return { subject, points };
+}
+
+/** Negative-cache the failure (clears the 'running' row) and report it. */
+async function fail(runtime: IngestRuntime, bangumiId: string, errorCode: string, reason: string): Promise<IngestResult> {
+  const ttlSeconds = errorCode === IngestErrorCode.NotFound
+    ? runtime.ttl.emptySeconds
+    : runtime.ttl.failureSeconds;
+  await runtime.store.markFailed(bangumiId, { errorCode, ttlSeconds, error: reason });
+  const status = errorCode === IngestErrorCode.NotFound ? "empty" : "failed";
+  return { status, reason };
+}
+
+/** Preserve the root cause: message for real Errors, a stable string otherwise. */
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 /** The production `IngestBangumi` over a Drizzle `CatalogDb`. */

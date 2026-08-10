@@ -10,7 +10,7 @@
  *     live failure negative-cache are excluded, and a TTL floor stops the
  *     refresh pass from re-picking everything every hour.
  *
- * Writes only flow through the existing pipeline (orchestrator/raw-store);
+ * Writes only flow through the existing pipeline (IngestBangumi/raw-store);
  * these reads go through raw `sql` execute, consistent with the ingest layer.
  */
 import { sql, type SQL } from "drizzle-orm";

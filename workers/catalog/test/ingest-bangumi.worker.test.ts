@@ -22,10 +22,7 @@ function recorder(): Recorder {
   return { calls: [], failed: [], publishes: 0, done: 0 };
 }
 
-function mark(rec: Recorder, entry: string): Promise<void> {
-  rec.calls.push(entry);
-  return Promise.resolve();
-}
+function mark(rec: Recorder, entry: string): Promise<void> { rec.calls.push(entry); return Promise.resolve(); }
 
 /** Default store: first acquire wins the claim, completion releases it. */
 function makeStore(rec: Recorder): IngestStore {
@@ -76,16 +73,12 @@ describe("IngestBangumi claim uniqueness (singleflight)", () => {
   it("lets exactly one concurrent caller win and run the pipeline", async () => {
     const rec = recorder();
     const gate = deferred();
-    const source: IngestSource = {
-      fetchBangumi: () => Promise.resolve(SUBJECT),
-      fetchPoints: () => gate.promise.then(() => POINTS),
-    };
+    const source: IngestSource = { fetchBangumi: () => Promise.resolve(SUBJECT), fetchPoints: () => gate.promise.then(() => POINTS) };
     const ingest = new IngestBangumi(source, makeStore(rec), makePublisher(rec), DEFAULT_INGEST_TTL);
     const winner = ingest.ingest("10380");
     const loser = await ingest.ingest("10380");
     gate.resolve();
-    const won = await winner;
-    expect(won).toEqual({ status: "ingested", version: 1, pointCount: 1 });
+    expect(await winner).toEqual({ status: "ingested", version: 1, pointCount: 1 });
     expect(loser.status).toBe("in_progress");
     expect(rec.publishes).toBe(1);
   });
@@ -195,9 +188,7 @@ describe("IngestBangumi crash recovery + idempotent replay", () => {
   });
 });
 
-function neverFetch(): Promise<AnitabiPoint[]> {
-  throw new Error("must not fetch");
-}
+function neverFetch(): Promise<AnitabiPoint[]> { throw new Error("must not fetch"); }
 
 function deferred(): { promise: Promise<void>; resolve: () => void } {
   let resolve: () => void = () => undefined;

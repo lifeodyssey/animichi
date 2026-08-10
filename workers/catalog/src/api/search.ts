@@ -13,7 +13,7 @@
  *   - resolve the title to a Bangumi subject id (fast);
  *   - fetch the Anitabi `/lite` preview (the first ~10 points, fast) and return
  *     those IMMEDIATELY as the L1 preview, flagged `partial:true`;
- *   - schedule the FULL `ingestWork` in the background via the request's
+ *   - schedule the FULL `ingestBangumi` in the background via the request's
  *     `ExecutionContext.waitUntil`, so the response returns before it finishes.
  * When no `waitUntil` is available (tests / integration harnesses without an
  * execution context) it FALLS BACK to running the full ingest synchronously —
@@ -63,7 +63,7 @@ export interface SearchOptions {
  *     Anitabi `/lite` preview (first ~10 points). Returns the work id + preview
  *     points, or null (unresolvable / empty preview) so the handler returns
  *     empty rows. FAST — no enrich/publish.
- *   - `runFullIngest`: the full `ingestWork` (fetch all points -> enrich ->
+ *   - `runFullIngest`: the full `ingestBangumi` (fetch all points -> enrich ->
  *     publish), run in the background via `waitUntil` (or synchronously in the
  *     fallback). The published points then serve subsequent (alias-hit) reads.
  */

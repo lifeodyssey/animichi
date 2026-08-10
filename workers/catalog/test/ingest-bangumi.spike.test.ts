@@ -35,16 +35,11 @@ const ANITABI_POINTS = [
 
 /** Build a mock fetchImpl that routes by URL substring to the canned payloads. */
 function makeFetch(points: unknown): FetchLike {
-  return (url) => {
-    const body = url.includes("/points/detail") ? points : BANGUMI_SUBJECT;
-    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
-  };
+  return (url) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(url.includes("/points/detail") ? points : BANGUMI_SUBJECT) });
 }
 
 /** A fetchImpl that throws — simulates an upstream/network failure. */
-const throwingFetch: FetchLike = () => {
-  throw new Error("upstream exploded");
-};
+const throwingFetch: FetchLike = () => { throw new Error("upstream exploded"); };
 
 const notFoundFetch: FetchLike = (url) => {
   if (url.includes("/points/detail")) {
@@ -94,10 +89,7 @@ async function backdateNegativeCache(bangumiId: string): Promise<void> {
 }
 
 async function negativeCacheSeconds(bangumiId: string): Promise<number | undefined> {
-  const rows = (await db.execute(sql`
-    SELECT EXTRACT(EPOCH FROM (negative_cached_until - NOW()))::int AS seconds
-    FROM ingest_jobs WHERE work_id = ${bangumiId}
-  `)).rows as { seconds: number }[];
+  const rows = (await db.execute(sql`SELECT EXTRACT(EPOCH FROM (negative_cached_until - NOW()))::int AS seconds FROM ingest_jobs WHERE work_id = ${bangumiId}`)).rows as { seconds: number }[];
   return rows[0]?.seconds;
 }
 
