@@ -7,6 +7,7 @@ Single source of truth for the types exchanged between the **Python Agent servic
 | File | Contents |
 |---|---|
 | `src/models.ts` | Zod schemas + inferred TS types: `Point`, `TimedStop`, `TransitLeg`, `TimedItinerary`, `Itinerary`, `Pacing`, `Origin` |
+| `src/identity-contract.ts` | Identity matrix (AUTH-1 #945): `IdentityPolicy` zod schema + `DEFAULT_IDENTITY_POLICY` (public/anonymous/authenticated rate/quota/budget cells), consumed by the edge worker |
 | `src/contract.ts` | oRPC contract + additional response types: `SearchResult`, `SpotsResult`, `NearbyResult` and the `catalogContract` object |
 | `src/errors.ts` | Typed error registry: `CATALOG_ERROR_DEFS` (code → status/category/message/data schema), `ErrorCategory`, per-code data schemas, `pickCatalogErrors()` |
 | `src/index.ts` | Re-exports everything above |

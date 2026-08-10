@@ -166,8 +166,9 @@ def _require_non_anonymous_user(
     (issue #741 sibling cleanup: a second hand-written copy of that union is
     exactly how a divergent third definition creeps in). There is no
     ``"user"`` literal anywhere in the system — real humans are stamped
-    ``"human"``, ``sk_*`` API keys ``"agent"`` — so this must not be an
-    allow-list, which would 403 every genuine caller.
+    ``"human"`` (the legacy API-key ``"agent"`` class was deleted in
+    AUTH-1 #945) — so this must not be an allow-list, which would 403 every
+    genuine caller.
     """
     if auth.user_id is None:
         raise HTTPException(status_code=400, detail="X-User-Id header required.")

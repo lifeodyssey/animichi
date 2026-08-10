@@ -44,7 +44,8 @@ _TRANSPORT_TYPES = frozenset(
 #: (a token count, an id) must not be excused as transport.
 _TRANSPORT_STATUS = re.compile(r"status_code:\s*(408|409|425|429|5\d{2})\b")
 _SECRET = re.compile(
-    # Prefixed provider keys, with `_` as well as `-` (sk_live_… is real).
+    # Prefixed provider keys, with `_` as well as `-` (OpenAI `sk`-prefixed
+    # live keys are real).
     r"\b(?:sk|tp|xai|key)[-_][A-Za-z0-9_-]{6,}"
     # JWTs — three base64url segments; MiMo/DeepSeek do not use them today,
     # but a BYOK provider (#284) or a gateway may put one in an error body.

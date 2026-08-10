@@ -1,5 +1,6 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { DEFAULT_IDENTITY_POLICY, type IdentityClassPolicy } from "../identity/auth.ts";
 import type { GuardNamespace, GuardStore } from "./guard-store.ts";
 
 /**
@@ -25,16 +26,32 @@ export interface RateLimitDecision {
   readonly retryAfterSeconds: number;
 }
 
-const DEFAULT_LIMIT = 20;
-const DEFAULT_WINDOW_SECONDS = 60;
+const DEFAULT_LIMIT = defaultLimit(DEFAULT_IDENTITY_POLICY.anonymous);
+const DEFAULT_WINDOW_SECONDS = defaultWindowSeconds(DEFAULT_IDENTITY_POLICY.anonymous);
 export const RATE_LIMIT_KEY = "window";
+
+/** The one class policy default a limiter falls back to; fail closed (throw)
+ * if the matrix drops the class's rate limit rather than silently use a
+ * divergent literal (AUTH-1 #945). */
+function defaultLimit(policy: IdentityClassPolicy): number {
+  const rateLimit = policy.rateLimit;
+  if (rateLimit === null) throw new Error("identity class policy has no rate limit");
+  return rateLimit.limit;
+}
+
+function defaultWindowSeconds(policy: IdentityClassPolicy): number {
+  const rateLimit = policy.rateLimit;
+  if (rateLimit === null) throw new Error("identity class policy has no rate limit");
+  return rateLimit.windowSeconds;
+}
 
 function positiveInt(raw: unknown, fallback: number): number {
   const parsed = typeof raw === "string" ? Number.parseInt(raw, 10) : Number.NaN;
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-/** Read the limiter's window from config; never from a literal in the logic. */
+/** Read the limiter's window from config; never from a literal in the logic.
+ * The default comes from the IdentityPolicy's anonymous class. */
 export function rateLimitConfigFrom(env: Record<string, unknown>): RateLimitConfig {
   return {
     limit: positiveInt(env.ANON_RATE_LIMIT, DEFAULT_LIMIT),
@@ -44,11 +61,13 @@ export function rateLimitConfigFrom(env: Record<string, unknown>): RateLimitConf
 
 /** Read the authenticated-path limiter's window from config, independent of
  * the anonymous burst limiter so each surface can be tuned separately
- * (issue #284 / Task 9). */
+ * (issue #284 / Task 9). The default is the IdentityPolicy's authenticated
+ * class (60/60), NOT the anonymous 20/60 — the two classes deliberately
+ * differ (AUTH-1 #945). */
 export function authRateLimitConfigFrom(env: Record<string, unknown>): RateLimitConfig {
   return {
-    limit: positiveInt(env.AUTH_RATE_LIMIT, DEFAULT_LIMIT),
-    windowSeconds: positiveInt(env.AUTH_RATE_LIMIT_WINDOW_SECONDS, DEFAULT_WINDOW_SECONDS),
+    limit: positiveInt(env.AUTH_RATE_LIMIT, defaultLimit(DEFAULT_IDENTITY_POLICY.authenticated)),
+    windowSeconds: positiveInt(env.AUTH_RATE_LIMIT_WINDOW_SECONDS, defaultWindowSeconds(DEFAULT_IDENTITY_POLICY.authenticated)),
   };
 }
 
