@@ -100,3 +100,38 @@ describe("catalog geocode row validity", () => {
     expect(isValidGeocodeHit(hit({ latitude: Number.POSITIVE_INFINITY }))).toBe(false);
   });
 });
+
+describe("catalog geocode clustering edge coverage", () => {
+  it("path compression collapses a deeper union-find chain", () => {
+    const chain = [
+      hit({ id: "a", longitude: 135.00 }),
+      hit({ id: "b", longitude: 135.05 }),
+      hit({ id: "c", longitude: 135.10 }),
+      hit({ id: "d", longitude: 135.15 }),
+    ];
+    expect(collapseGeocodeHits(chain, 5)).toHaveLength(1);
+  });
+
+  it("preferred-pref representative keeps the pref label", () => {
+    const [candidate] = collapseGeocodeHits(
+      [hit({ id: "plain", longitude: 135, pref: null }), hit({ id: "pref", longitude: 135.01, pref: "兵庫県", priority: 200 })],
+      5,
+    );
+    expect(candidate).toMatchObject({ id: "pref", label: "西宮駅(兵庫県)" });
+  });
+
+  it("empty input collapses to an empty list", () => {
+    expect(collapseGeocodeHits([], 5)).toEqual([]);
+  });
+
+  it("mixed kinds cluster with the widest effective radius", () => {
+    const [candidate] = collapseGeocodeHits(
+      [
+        hit({ id: "station", kind: "station", longitude: 135, priority: 100 }),
+        hit({ id: "city", kind: "city", longitude: 135.08, priority: 1 }),
+      ],
+      5,
+    );
+    expect(candidate).toMatchObject({ id: "station", effective_radius_m: 10_000 });
+  });
+});
