@@ -170,7 +170,11 @@ puts "PASS: resolver enforces component.deploy_eligible in the deploy verdict"
 
 # ── Green: manifest_blob_id is the COMPUTED blob id (never mistaken for a
 #    verified constant when the computation was unavailable) ─────────────────
-computed = `git -C "#{ROOT}" hash-object .github/release-manifests/production-pre-campaign.json`.strip
+# Args passed as a vector (never interpolated into a shell string) so a
+# checkout path with shell metacharacters cannot break out of git -C.
+_, blob_out, = Open3.capture2("git", "-C", ROOT, "hash-object",
+                              ".github/release-manifests/production-pre-campaign.json")
+computed = blob_out.strip
 parsed = green_case("computed blob id reported", MANIFEST, "root")
 abort "FAIL: manifest_blob_id must be the computed #{computed}, got #{parsed['manifest_blob_id'].inspect}" \
   unless parsed["manifest_blob_id"] == computed
