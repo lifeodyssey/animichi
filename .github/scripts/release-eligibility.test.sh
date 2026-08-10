@@ -21,7 +21,7 @@ fail() {
 verdict="$(bash "$SCRIPT" root "$PINNED_REVISION" "$MANIFEST")"
 echo "$verdict" | grep -q '"deploy":true' || fail "matching revision must be deploy eligible"
 echo "$verdict" | grep -q '"rollback":false' || fail "rollback must be ineligible"
-test "$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["component"]["worker_name"])')" = "animichi" || fail "verdict must carry the resolved worker name"
+[[ "$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["component"]["worker_name"])')" == "animichi" ]] || fail "verdict must carry the resolved worker name"
 echo "PASS: matching revision is deploy-eligible"
 
 # Green: stale candidate → deploy ineligible, still exit 0.

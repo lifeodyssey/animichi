@@ -132,15 +132,36 @@ jobs:
         run: |
           set -euo pipefail
           verdict="$(bash .github/scripts/release-eligibility.sh "$TARGET_COMPONENT" "${{ github.sha }}")"
-          deploy="$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["eligibility"]["deploy"])')"
+          # jq emits JSON literals ("true"/"false") — never Python's
+          # "True"/"False" — matching the caller-side gate comparison.
+          deploy="$(echo "$verdict" | jq -r .eligibility.deploy)"
           if [ "$deploy" != "true" ]; then
             echo "::error::production ineligible: candidate ${{ github.sha }} is not the pinned pre-campaign source revision (SAFE-1). Refusing to deploy before any production mutation."
             exit 1
           fi
+          # The manifest is the only authority for the production deployment
+          # mapping: a caller that drifts from it (working directory, Pulumi
+          # stack, build filter, Pulumi run flag) fails closed rather than
+          # deploying a component under caller-selected settings.
+          check_matches() {
+            local field="$1" expected="$2" actual="$3"
+            if [ "$expected" != "$actual" ]; then
+              echo "::error::caller $field='$actual' does not match pinned manifest '$expected' for component '$TARGET_COMPONENT'"
+              exit 1
+            fi
+          }
+          check_matches working_directory \
+            "$(echo "$verdict" | jq -r .component.working_directory)" "${{ inputs.working_directory }}"
+          check_matches pulumi_stack \
+            "$(echo "$verdict" | jq -r .component.pulumi_stack)" "${{ inputs.pulumi_stack }}"
+          check_matches build_filter \
+            "$(echo "$verdict" | jq -r .component.build_filter)" "${{ inputs.build_filter }}"
+          check_matches run_pulumi \
+            "$(echo "$verdict" | jq -r .component.run_pulumi)" "${{ inputs.run_pulumi }}"
           {
-            echo "source_revision=$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["source_revision"])')"
-            echo "atlas_target=$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["atlas"]["target"])')"
-            echo "atlas_digest=$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["atlas"]["digest_sha256"])')"
+            echo "source_revision=$(echo "$verdict" | jq -r .source_revision)"
+            echo "atlas_target=$(echo "$verdict" | jq -r .atlas.target)"
+            echo "atlas_digest=$(echo "$verdict" | jq -r .atlas.digest_sha256)"
           } >> "$GITHUB_OUTPUT"
       - name: Checkout pinned production source
         if: ${{ inputs.environment == 'production' }}
@@ -164,12 +185,15 @@ jobs:
         run: |
           set -euo pipefail
           cd migrations/neon
-          shasum -a 256 -c atlas.sum
+          # atlas.sum is an Atlas checksum ledger (h1: entries), NOT a standard
+          # shasum -c checkfile — compare the file's own SHA-256 against the
+          # manifest pin instead (same digest the Phase A contract asserts).
           actual="$(shasum -a 256 atlas.sum | awk '{print $1}')"
           test "$actual" = "$ATLAS_DIGEST" || {
             echo "::error::atlas.sum SHA-256 $actual does not match pinned manifest digest $ATLAS_DIGEST"
             exit 1
           }
+          echo "atlas.sum matches pinned digest $ATLAS_DIGEST"
       - uses: ./.github/actions/setup
       # #527/#528: this job declares `environment: ${{ inputs.environment }}`
       # above, which is what makes environment-scoped secrets resolve here

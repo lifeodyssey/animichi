@@ -24,7 +24,7 @@ manifest_file="${3:-}"
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 
-if [ -n "$manifest_file" ]; then
+if [[ -n "$manifest_file" ]]; then
   manifest_path="$manifest_file"
 else
   manifest_path="$workdir/manifest.json"

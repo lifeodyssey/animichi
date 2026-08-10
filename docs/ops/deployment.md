@@ -469,10 +469,11 @@ step itself. This is the instant-rollback side of the same versions primitive us
 
 ### CI one-command path (rollback.yml)
 
-Run a production rollback through CI with:
-`gh workflow run rollback.yml -f component=<name> -f version_id=<id>`
+SAFE-1 removed the caller-supplied `version_id` input: rollback eligibility now resolves from the
+pinned release manifest, and every component is rollback-ineligible until an owner-approved manifest
+revision marks a component/version pair eligible. Running the workflow today fails closed before any
+Wrangler command:
 
-For inspection only, use the same command without `version_id`; it lists versions only:
 `gh workflow run rollback.yml -f component=<name>`
 
 The workflow waits on the `production` environment approval and shares the prod deploy concurrency

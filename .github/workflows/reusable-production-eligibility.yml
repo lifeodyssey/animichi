@@ -55,8 +55,10 @@ jobs:
           # gh-api path: the manifest is read from the pinned blob id, never
           # from the checkout, so a tampered working tree cannot win.
           verdict="$(bash .github/scripts/release-eligibility.sh "$COMPONENT" "$CANDIDATE_SHA")"
-          source_revision="$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["source_revision"])')"
-          deploy="$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["eligibility"]["deploy"])')"
+          source_revision="$(echo "$verdict" | jq -r .source_revision)"
+          # jq emits JSON literals ("true"/"false"), which the gate compares
+          # against the lowercase strings — never Python's "True"/"False".
+          deploy="$(echo "$verdict" | jq -r .eligibility.deploy)"
           if [ "$deploy" = "true" ]; then
             reason="candidate $CANDIDATE_SHA matches pinned pre-campaign source $source_revision"
           else

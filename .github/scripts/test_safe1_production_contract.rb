@@ -1,12 +1,12 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# SAFE-1 Phase A: characterization of today's production release behavior.
+# SAFE-1 production freeze contract (Phase A characterization → target
+# invariants after Phase B2 wired the guard).
 #
-# This pins the public release semantics of the production deploy surface as
-# they exist today, BEFORE the SAFE-1 promotion-eligibility changes land. It
-# must pass on the current tree; Phase B (PromotionEligibility) is expected to
-# have to update it. Semantics only — never whitespace trivia:
+# This pins the release semantics of the production deploy surface after the
+# SAFE-1 promotion-eligibility changes land. Semantics only — never whitespace
+# trivia:
 #
 #   1. ci.yml and deploy.yml expose the same five production component
 #      mappings (component -> working directory), root included, with root's
@@ -15,11 +15,12 @@
 #      AGENT_DATABASE_URL, the jobs_svc grants, and both cron schedules.
 #   3. Atlas head is 20260809000031 and migrations/neon/atlas.sum hashes to
 #      the pinned SHA-256.
-#   4. The three current unsafe release behaviors, so their replacement is
-#      observable: rollback.yml accepts and forwards a caller-supplied
-#      version_id; the reusable deploy checks out the caller workflow's SHA
-#      implicitly (no ref input, no checkout ref); post-deploy asserts the
-#      deployed commit equals github.sha.
+#   4. The SAFE-1 target invariants (replacing the Phase A unsafe-behavior
+#      characterizations): every production entry point routes through the
+#      eligibility workflow and gates on the pinned manifest; rollback has no
+#      caller-supplied version_id and stops before Wrangler when ineligible;
+#      production checkout, Atlas target, build metadata, and smoke
+#      expectations resolve from the pinned revision, never github.sha.
 
 require "yaml"
 require "digest"

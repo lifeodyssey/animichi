@@ -189,4 +189,26 @@ Dir.mktmpdir("b1-json") do |dir|
            ["manifest is not valid JSON"])
 end
 
+# ── Red: component marked deploy_eligible=false stays ineligible even with a
+#    matching revision (the flag is enforced, not just validated) ────────────
+# NOTE: the pinned-manifest path cannot hold a deploy_eligible=false component
+# (the pinned blob is immutable), so this behavior is verified structurally
+# here: the resolver's eligibility.deploy must AND the flag with the revision
+# match. Asserted via source inspection rather than a fixture (a tampered copy
+# fails on the pinned identity before reaching the verdict).
+resolver_source = File.read(SCRIPT)
+unless resolver_source.include?("SOURCE_REVISION == manifest.fetch(\"source_revision\") && component.fetch(\"deploy_eligible\")")
+  abort "FAIL: resolver must enforce component.deploy_eligible in the deploy verdict"
+end
+puts "PASS: resolver enforces component.deploy_eligible in the deploy verdict"
+
+# ── Green: manifest_blob_id in the verdict is the COMPUTED blob id (observed
+#    value), so consumers never mistake an unavailable computation for a
+#    verified one ─────────────────────────────────────────────────────────────
+computed = `git -C "#{ROOT}" hash-object .github/release-manifests/production-pre-campaign.json`.strip
+parsed = green_case("computed blob id reported", MANIFEST, "root")
+abort "FAIL: manifest_blob_id must be the computed #{computed}, got #{parsed['manifest_blob_id'].inspect}" \
+  unless parsed["manifest_blob_id"] == computed
+puts "PASS: manifest_blob_id is the computed blob id"
+
 puts "All release-manifest-resolver.rb behavioral tests passed."

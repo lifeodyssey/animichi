@@ -128,6 +128,41 @@ def add_error(errors, message)
   errors << "error: #{message}"
 end
 
+def validate_component_fields(errors, key, comp, expected)
+  unknown_comp = comp.keys - ALLOWED_COMPONENT_KEYS
+  add_error(errors, "component #{key}: unknown field(s): #{unknown_comp.sort.join(', ')}") unless unknown_comp.empty?
+  expected.each do |field, value|
+    actual = comp[field.to_s]
+    unless actual == value
+      add_error(errors, "component #{key}: #{field} must be #{value.inspect}, got #{actual.inspect}")
+    end
+  end
+end
+
+def validate_component_names(errors, key, comp)
+  (comp["worker_secrets"] || []).each do |name|
+    unless name.is_a?(String) && name.match?(SECRET_NAME_RE)
+      add_error(errors, "component #{key}: secret name #{name.inspect} must match #{SECRET_NAME_RE}")
+    end
+  end
+  (comp["post_deploy_secrets"] || []).each do |name|
+    unless name.is_a?(String) && name.match?(SECRET_NAME_RE)
+      add_error(errors, "component #{key}: post-deploy secret name #{name.inspect} must match #{SECRET_NAME_RE}")
+    end
+  end
+  (comp["depends_on"] || []).each do |dep|
+    add_error(errors, "component #{key}: depends_on #{dep.inspect} is not a known component") unless EXPECTED_COMPONENTS.key?(dep)
+  end
+end
+
+def validate_component_eligibility(errors, key, comp)
+  %w[deploy_eligible rollback_eligible].each do |field|
+    unless comp[field] == true || comp[field] == false
+      add_error(errors, "component #{key}: #{field} must be a boolean, got #{comp[field].inspect}")
+    end
+  end
+end
+
 unless MANIFEST_PATH && COMPONENT_KEY
   warn "usage: ruby release-manifest-resolver.rb <manifest.json> <component> [source_revision]"
   exit 1
@@ -215,35 +250,9 @@ if manifest.is_a?(Hash)
         add_error(errors, "component #{key} must be an object")
         next
       end
-      unknown_comp = comp.keys - ALLOWED_COMPONENT_KEYS
-      add_error(errors, "component #{key}: unknown field(s): #{unknown_comp.sort.join(', ')}") unless unknown_comp.empty?
-
-      expected.each do |field, value|
-        actual = comp[field.to_s]
-        if field == :worker_secrets || field == :post_deploy_secrets || field == :depends_on
-          unless actual.is_a?(Array) && actual == value
-            add_error(errors, "component #{key}: #{field} must be #{value.inspect}, got #{actual.inspect}")
-          end
-        elsif field == :run_pulumi
-          add_error(errors, "component #{key}: #{field} must be #{value}, got #{actual.inspect}") unless actual == value
-        else
-          add_error(errors, "component #{key}: #{field} must be #{value.inspect}, got #{actual.inspect}") unless actual == value
-        end
-      end
-
-      (comp["worker_secrets"] || []).each do |name|
-        add_error(errors, "component #{key}: secret name #{name.inspect} must match #{SECRET_NAME_RE}") unless name.is_a?(String) && name.match?(SECRET_NAME_RE)
-      end
-      (comp["post_deploy_secrets"] || []).each do |name|
-        add_error(errors, "component #{key}: post-deploy secret name #{name.inspect} must match #{SECRET_NAME_RE}") unless name.is_a?(String) && name.match?(SECRET_NAME_RE)
-      end
-      (comp["depends_on"] || []).each do |dep|
-        add_error(errors, "component #{key}: depends_on #{dep.inspect} is not a known component") unless EXPECTED_COMPONENTS.key?(dep)
-      end
-
-      %w[deploy_eligible rollback_eligible].each do |field|
-        add_error(errors, "component #{key}: #{field} must be a boolean, got #{comp[field].inspect}") unless comp[field] == true || comp[field] == false
-      end
+      validate_component_fields(errors, key, comp, expected)
+      validate_component_names(errors, key, comp)
+      validate_component_eligibility(errors, key, comp)
     end
 
     unless EXPECTED_COMPONENTS.key?(COMPONENT_KEY)
@@ -258,11 +267,18 @@ if errors.any?
 end
 
 component = manifest.fetch("components").fetch(COMPONENT_KEY)
-deploy_eligible = SOURCE_REVISION.nil? ? nil : (SOURCE_REVISION == manifest.fetch("source_revision"))
+# Deploy eligibility requires BOTH the candidate match AND the manifest's own
+# per-component deploy_eligible flag — a manifest that marks a component
+# ineligible must never deploy, even with a matching revision.
+deploy_eligible = if SOURCE_REVISION.nil?
+  nil
+else
+  SOURCE_REVISION == manifest.fetch("source_revision") && component.fetch("deploy_eligible")
+end
 
 output = {
   manifest_sha256: file_sha256,
-  manifest_blob_id: PINNED_MANIFEST_BLOB_ID,
+  manifest_blob_id: blob_id,
   source_revision: manifest.fetch("source_revision"),
   atlas: manifest.fetch("atlas"),
   component: {
