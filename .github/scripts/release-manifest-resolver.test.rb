@@ -172,9 +172,9 @@ puts "PASS: resolver enforces component.deploy_eligible in the deploy verdict"
 #    verified constant when the computation was unavailable) ─────────────────
 # Args passed as a vector (never interpolated into a shell string) so a
 # checkout path with shell metacharacters cannot break out of git -C.
-_, blob_out, = Open3.capture2("git", "-C", ROOT, "hash-object",
-                              ".github/release-manifests/production-pre-campaign.json")
-computed = blob_out.strip
+stdout, = Open3.capture2("git", "-C", ROOT, "hash-object",
+                         ".github/release-manifests/production-pre-campaign.json")
+computed = stdout.strip
 parsed = green_case("computed blob id reported", MANIFEST, "root")
 abort "FAIL: manifest_blob_id must be the computed #{computed}, got #{parsed['manifest_blob_id'].inspect}" \
   unless parsed["manifest_blob_id"] == computed
