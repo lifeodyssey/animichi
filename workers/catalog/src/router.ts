@@ -9,7 +9,8 @@ import { nearby as nearbyHandler } from "./api/nearby";
 import { geocode as geocodeHandler } from "./api/geocode";
 import { planItinerary as planItineraryHandler } from "./api/route";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
-import { animeOverview as animeOverviewHandler, AnimeOverviewNotFoundError } from "./api/anime-overview";
+import { overviewPointsDb } from "./adapters/outbound/overview-points";
+import { AnimeOverviewNotFoundError, getBangumiOverview } from "./application/get-bangumi-overview";
 import type { CatalogDb, NeonSql } from "./db/client";
 import { routeTooManyPoints, workNotFound } from "./lib/errors";
 import type { Origin } from "./types";
@@ -92,7 +93,7 @@ async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Or
 /** Run anime overview, translating only an absent anime into the typed 404. */
 async function callAnimeOverview(db: CatalogDb, input: { bangumi_id: string }) {
   try {
-    return await animeOverviewHandler(db, input);
+    return await getBangumiOverview(overviewPointsDb(db), input);
   } catch (err) {
     if (err instanceof AnimeOverviewNotFoundError) throw workNotFound(err.bangumiId);
     throw err;

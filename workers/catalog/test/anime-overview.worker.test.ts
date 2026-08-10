@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  animeOverview,
-  AnimeOverviewNotFoundError,
-  type OverviewDb,
-} from "../src/api/anime-overview";
+import { AnimeOverviewNotFoundError, getBangumiOverview } from "../src/application/get-bangumi-overview";
+import { overviewPointsDb, type OverviewPointsDb } from "../src/adapters/outbound/overview-points";
 
 /**
  * Unit tests for the public `animeOverview` read handler
@@ -28,11 +25,11 @@ function row(id: string, lat: number, lng: number, city: string | null, image: s
 }
 
 /** Fake db whose execute() returns the fixture rows once. */
-function fakeDb(rows: FixtureRow[]): OverviewDb {
+function fakeDb(rows: FixtureRow[]): OverviewPointsDb {
   return { execute: () => Promise.resolve({ rows }) };
 }
 
-function knownEmptyDb(): OverviewDb {
+function knownEmptyDb(): OverviewPointsDb {
   const execute = vi.fn()
     .mockResolvedValueOnce({ rows: [] })
     .mockResolvedValueOnce({ rows: [{ id: "999" }] });
@@ -45,9 +42,9 @@ const KAMAKURA_B = row("k2", 35.30661, 139.48891, "Kamakura");
 const HAKONE = row("h1", 35.23230, 139.10690, "Hakone", "https://img/h1.jpg");
 const SPREAD: FixtureRow[] = [KAMAKURA_A, KAMAKURA_B, HAKONE];
 
-describe("animeOverview (api/anime-overview.ts)", () => {
+describe("getBangumiOverview (application/get-bangumi-overview.ts)", () => {
   it("aggregates region bubbles with counts and centroids", async () => {
-    const result = await animeOverview(fakeDb(SPREAD), { bangumi_id: "100" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeDb(SPREAD)), { bangumi_id: "100" });
     expect(result.bangumi_id).toBe("100");
     expect(result.points_length).toBe(3);
     expect(result.circles.map((c) => [c.region, c.count])).toEqual([
@@ -60,7 +57,7 @@ describe("animeOverview (api/anime-overview.ts)", () => {
   });
 
   it("ranks 名場面 by shot count (co-located points merge into one scene)", async () => {
-    const result = await animeOverview(fakeDb(SPREAD), { bangumi_id: "100" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeDb(SPREAD)), { bangumi_id: "100" });
     expect(result.scenes.map((s) => [s.id, s.shot_count])).toEqual([
       ["k1", 2],
       ["h1", 1],
@@ -70,7 +67,7 @@ describe("animeOverview (api/anime-overview.ts)", () => {
   });
 
   it("suggests per-region sample routes ordered by spot count", async () => {
-    const result = await animeOverview(fakeDb(SPREAD), { bangumi_id: "100" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeDb(SPREAD)), { bangumi_id: "100" });
     expect(result.sample_itineraries).toEqual([
       { region: "Kamakura", point_ids: ["k1", "k2"] },
       { region: "Hakone", point_ids: ["h1"] },
@@ -79,9 +76,9 @@ describe("animeOverview (api/anime-overview.ts)", () => {
 
 });
 
-describe("animeOverview empty and missing work behavior", () => {
+describe("getBangumiOverview empty and missing work behavior", () => {
   it("returns an empty-but-valid overview when a known work has no points", async () => {
-    const result = await animeOverview(knownEmptyDb(), { bangumi_id: "999" });
+    const result = await getBangumiOverview(overviewPointsDb(knownEmptyDb()), { bangumi_id: "999" });
     expect(result).toEqual({
       bangumi_id: "999",
       points_length: 0,
@@ -92,16 +89,16 @@ describe("animeOverview empty and missing work behavior", () => {
   });
 
   it("throws a typed domain miss when the anime does not exist", async () => {
-    await expect(animeOverview(fakeDb([]), { bangumi_id: "404" }))
+    await expect(getBangumiOverview(overviewPointsDb(fakeDb([])), { bangumi_id: "404" }))
       .rejects.toBeInstanceOf(AnimeOverviewNotFoundError);
   });
 
 });
 
-describe("animeOverview scene edge cases", () => {
+describe("getBangumiOverview scene edge cases", () => {
   it("returns empty circles (no region clustering) for spots lacking a city, without erroring", async () => {
     const noCity: FixtureRow[] = [row("n1", 35.0, 139.0, null), row("n2", 36.0, 140.0, "")];
-    const result = await animeOverview(fakeDb(noCity), { bangumi_id: "200" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeDb(noCity)), { bangumi_id: "200" });
     expect(result.circles).toEqual([]);
     expect(result.sample_itineraries).toEqual([]);
     expect(result.scenes).toHaveLength(2);
@@ -109,7 +106,7 @@ describe("animeOverview scene edge cases", () => {
   });
 
   it("omits city on a scene whose representative point has no city", async () => {
-    const result = await animeOverview(fakeDb([row("x1", 34.0, 138.0, null)]), { bangumi_id: "300" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeDb([row("x1", 34.0, 138.0, null)])), { bangumi_id: "300" });
     expect(result.scenes[0]?.city).toBeUndefined();
     expect(result.scenes[0]?.screenshot_url).toBeNull();
   });
@@ -119,7 +116,7 @@ describe("animeOverview scene edge cases", () => {
       row("a-no-image", 35.0, 139.0, "Tokyo"),
       row("b-image", 35.00001, 139.00001, "Tokyo", "https://img/scene.jpg"),
     ];
-    const result = await animeOverview(fakeDb(rows), { bangumi_id: "301" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeDb(rows)), { bangumi_id: "301" });
     expect(result.scenes[0]).toMatchObject({
       id: "b-image", screenshot_url: "https://img/scene.jpg", shot_count: 2,
     });
@@ -131,15 +128,15 @@ describe("animeOverview scene edge cases", () => {
     const tail = Array.from({ length: 100 }, (_, index) =>
       row(`z-${String(index).padStart(3, "0")}`, 35.0, 139.0, "Tokyo"));
     const rows = [...prefix, ...tail];
-    const result = await animeOverview(fakeDb(rows), { bangumi_id: "302" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeDb(rows)), { bangumi_id: "302" });
     expect(result.points_length).toBe(620);
     expect(result.scenes[0]).toMatchObject({ id: "z-000", shot_count: 100 });
   });
 });
 
-describe("animeOverview output caps", () => {
+describe("getBangumiOverview output caps", () => {
   it("caps scenes at 20, sample routes at 3 regions, and point ids at 12 per route", async () => {
-    const result = await animeOverview(fakeDb(cappedFixture()), { bangumi_id: "400" });
+    const result = await getBangumiOverview(overviewPointsDb(fakeDb(cappedFixture())), { bangumi_id: "400" });
     expect(result.scenes).toHaveLength(20);
     expect(result.sample_itineraries.map((r) => r.region)).toEqual(["A", "B", "C"]);
     expect(result.sample_itineraries[0]?.point_ids).toHaveLength(12);
