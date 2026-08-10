@@ -126,32 +126,78 @@ sum = Digest::SHA256.file("migrations/neon/atlas.sum").hexdigest
 abort "atlas.sum SHA-256 must be e0428e7a9b25745a8d1f22f8fbcec5c915a8e18d56a7a45f5fe3554158b6ab80, got #{sum}" \
   unless sum == "e0428e7a9b25745a8d1f22f8fbcec5c915a8e18d56a7a45f5fe3554158b6ab80"
 
-# ── 4. Current unsafe release behaviors, characterized as they are today ──
-rollback = load_workflow("rollback.yml")
-version_id = triggers(rollback).fetch("workflow_dispatch").fetch("inputs").fetch("version_id")
-abort "rollback.yml version_id input must accept a caller-supplied value" \
-  unless version_id["type"] == "string" && version_id["required"] == false
-rollback_step = rollback.fetch("jobs").fetch("rollback").fetch("steps")
-  .find { |step| step["run"]&.include?("wrangler rollback") }
-abort "rollback.yml must forward the caller version_id to wrangler rollback" \
-  unless rollback_step && rollback_step.dig("env", "VERSION_ID") == "${{ inputs.version_id }}"
-abort "rollback.yml rollback command must send VERSION_ID verbatim" \
-  unless rollback_step.fetch("run").include?('wrangler rollback "$VERSION_ID"')
+# ── 4. SAFE-1 target invariants (replaces the Phase A unsafe-behavior
+#        characterizations — the guard is now wired) ─────────────────────────
+# 4a. Every production entry point routes through the eligibility workflow and
+#     only runs when the pinned manifest marks the candidate eligible.
+eligibility_source = File.read(File.join(WORKFLOWS, "reusable-production-eligibility.yml"))
+abort "eligibility workflow must resolve the pinned manifest via the GitHub API" \
+  unless eligibility_source.include?("release-eligibility.sh")
+abort "eligibility workflow must expose eligible/source_revision/reason outputs" \
+  unless %w[eligible source_revision reason].all? { |o| eligibility_source.include?(o) }
 
-reusable = load_workflow("reusable-deploy-component.yml")
-call_inputs = triggers(reusable).fetch("workflow_call").fetch("inputs")
-abort "reusable deploy must accept no ref input (caller SHA checked out implicitly)" \
-  if call_inputs.key?("ref")
-checkout = reusable.fetch("jobs").fetch("deploy").fetch("steps")
-  .find { |step| step["uses"].to_s.start_with?("actions/checkout") }
-abort "reusable deploy checkout must not pin a ref (implicit caller SHA)" \
-  if checkout.fetch("with", {}).key?("ref")
-
-%w[reusable-deploy-component.yml reusable-post-deploy-test.yml].each do |file|
-  source = File.read(File.join(WORKFLOWS, file))
-  abort "#{file} must expect the deployed commit to equal github.sha" \
-    unless source.include?("EXPECTED_GIT_COMMIT: ${{ github.sha }}")
+%w[ci.yml deploy.yml].each do |file|
+  jobs = load_workflow(file).fetch("jobs")
+  abort "#{file}: must call reusable-production-eligibility.yml" \
+    unless jobs.fetch("production-eligibility").fetch("uses") == "./.github/workflows/reusable-production-eligibility.yml"
+  PROD_COMPONENT_DIRS.each_key do |component|
+    job = fetch_prod_job(jobs, component)
+    abort "#{file}: #{prod_job_id(component)} must depend on production-eligibility" \
+      unless job.fetch("needs").include?("production-eligibility")
+    abort "#{file}: #{prod_job_id(component)} must gate on eligible == 'true'" \
+      unless job.fetch("if") == "${{ needs.production-eligibility.outputs.eligible == 'true' }}"
+  end
+  post = jobs.fetch("post-prod")
+  abort "#{file}: post-prod must depend on production-eligibility" \
+    unless post.fetch("needs").include?("production-eligibility")
+  abort "#{file}: post-prod must gate on eligible == 'true'" \
+    unless post.fetch("if") == "${{ needs.production-eligibility.outputs.eligible == 'true' }}"
+  abort "#{file}: post-prod must pass the resolved source revision" \
+    unless post.fetch("with")["expected_source_revision"] == "${{ needs.production-eligibility.outputs.source_revision }}"
 end
 
-puts "SAFE-1 Phase A contract: #{PROD_COMPONENT_DIRS.size} prod component mappings in ci.yml + deploy.yml; " \
-     "jobs surface, atlas head 20260809000031, and unsafe-release behaviors pinned"
+# 4b. Rollback: caller-supplied version_id is gone; component/config/rollback
+#     eligibility resolve from the pinned manifest, and rollback-ineligible
+#     components stop before any Wrangler command.
+rollback = load_workflow("rollback.yml")
+abort "rollback.yml must not accept a caller-supplied version_id input" \
+  if triggers(rollback).fetch("workflow_dispatch").fetch("inputs").key?("version_id")
+rollback_source = File.read(File.join(WORKFLOWS, "rollback.yml"))
+abort "rollback.yml must resolve eligibility from the pinned manifest" \
+  unless rollback_source.include?("release-eligibility.sh")
+abort "rollback.yml must fail closed on rollback-ineligible components" \
+  unless rollback_source.include?("rollback-ineligible")
+abort "rollback.yml must never forward a caller version_id to wrangler" \
+  if rollback_source.include?("wrangler rollback \"$VERSION_ID\"")
+
+# 4c. The reusable deploy resolves the pinned manifest for production, checks
+#     out the pinned source revision, verifies HEAD + atlas.sum, and applies
+#     the pinned Atlas target — staging keeps caller-SHA behavior.
+reusable = load_workflow("reusable-deploy-component.yml")
+reusable_source = File.read(File.join(WORKFLOWS, "reusable-deploy-component.yml"))
+abort "reusable deploy must resolve the pinned manifest for production" \
+  unless reusable_source.include?("Resolve pinned production release manifest")
+abort "reusable deploy must check out the pinned production source" \
+  unless reusable_source.include?("Checkout pinned production source")
+abort "reusable deploy must verify HEAD against the pinned source revision" \
+  unless reusable_source.include?("does not match pinned source revision")
+abort "reusable deploy must verify atlas.sum against the pinned digest" \
+  unless reusable_source.include?("Verify pinned atlas.sum")
+abort "reusable deploy must apply the pinned Atlas target for production" \
+  unless reusable_source.include?("--to-version")
+
+# 4d. Post-deploy smoke expectations: production uses the resolved revision,
+#     never the campaign github.sha; the healthz contract is revision-based.
+%w[reusable-deploy-component.yml reusable-post-deploy-test.yml].each do |file|
+  source = File.read(File.join(WORKFLOWS, file))
+  abort "#{file} must not expect github.sha unconditionally as the deployed commit" \
+    if source.include?("EXPECTED_GIT_COMMIT: ${{ github.sha }}")
+  abort "#{file} must resolve the expected deployed commit for production" \
+    unless source.include?("expected_source_revision") || source.include?("steps.release.outputs.source_revision")
+end
+abort "reusable deploy must bake the pinned revision for production" \
+  unless reusable_source.include?("pinned-pre-campaign")
+
+puts "SAFE-1 production freeze contract: eligibility gate on all production entry points; " \
+     "rollback version_id removed; pinned manifest resolution for production checkout, " \
+     "Atlas target, build metadata, and smoke expectations"

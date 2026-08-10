@@ -113,6 +113,63 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # Full history so the production path can detach onto the pinned
+          # pre-campaign source revision without a second network fetch.
+          fetch-depth: 0
+      # SAFE-1 (#937): production only — resolve the pinned pre-campaign
+      # release manifest (content-addressed GitHub blob, never the working
+      # tree), then detach the worktree onto the pinned source revision and
+      # verify HEAD and atlas.sum BEFORE any mutation can start. A campaign
+      # revision is ineligible and fails here, before Atlas/Pulumi/Wrangler.
+      # Staging keeps the caller-SHA behavior (no resolve, implicit checkout).
+      - name: Resolve pinned production release manifest
+        if: ${{ inputs.environment == 'production' }}
+        id: release
+        shell: bash
+        env:
+          TARGET_COMPONENT: ${{ inputs.component }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          verdict="$(bash .github/scripts/release-eligibility.sh "$TARGET_COMPONENT" "${{ github.sha }}")"
+          deploy="$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["eligibility"]["deploy"])')"
+          if [ "$deploy" != "true" ]; then
+            echo "::error::production ineligible: candidate ${{ github.sha }} is not the pinned pre-campaign source revision (SAFE-1). Refusing to deploy before any production mutation."
+            exit 1
+          fi
+          {
+            echo "source_revision=$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["source_revision"])')"
+            echo "atlas_target=$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["atlas"]["target"])')"
+            echo "atlas_digest=$(echo "$verdict" | python3 -c 'import json,sys; print(json.load(sys.stdin)["atlas"]["digest_sha256"])')"
+          } >> "$GITHUB_OUTPUT"
+      - name: Checkout pinned production source
+        if: ${{ inputs.environment == 'production' }}
+        shell: bash
+        env:
+          SOURCE_REVISION: ${{ steps.release.outputs.source_revision }}
+        run: |
+          set -euo pipefail
+          git checkout --detach "$SOURCE_REVISION"
+          head="$(git rev-parse HEAD)"
+          test "$head" = "$SOURCE_REVISION" || {
+            echo "::error::production HEAD $head does not match pinned source revision $SOURCE_REVISION"
+            exit 1
+          }
+          echo "Checked out pinned pre-campaign source $SOURCE_REVISION (detached)"
+      - name: Verify pinned atlas.sum
+        if: ${{ inputs.environment == 'production' }}
+        shell: bash
+        env:
+          ATLAS_DIGEST: ${{ steps.release.outputs.atlas_digest }}
+        run: |
+          set -euo pipefail
+          cd migrations/neon
+          shasum -a 256 -c atlas.sum
+          actual="$(shasum -a 256 atlas.sum | awk '{print $1}')"
+          test "$actual" = "$ATLAS_DIGEST" || {
+            echo "::error::atlas.sum SHA-256 $actual does not match pinned manifest digest $ATLAS_DIGEST"
+            exit 1
+          }
       - uses: ./.github/actions/setup
       # #527/#528: this job declares `environment: ${{ inputs.environment }}`
       # above, which is what makes environment-scoped secrets resolve here
@@ -440,9 +497,19 @@ jobs:
           esac
           # 486: the manual thin-caller path has no db-validate job, so validate here (cheap, seconds) before mutating.
           atlas migrate validate --dir "file://migrations/neon"
-          atlas migrate apply --dir "file://migrations/neon" --url "$scoped_url" --revisions-schema public
+          # SAFE-1 (#937): production applies the PINNED pre-campaign Atlas
+          # target from the release manifest (never the campaign head); staging
+          # keeps applying the caller SHA's migrations as before.
+          if [ "$TARGET_ENVIRONMENT" = "production" ]; then
+            atlas migrate apply --dir "file://migrations/neon" --url "$scoped_url" \
+              --revisions-schema public --to-version "$ATLAS_TARGET"
+          else
+            atlas migrate apply --dir "file://migrations/neon" --url "$scoped_url" --revisions-schema public
+          fi
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          ATLAS_TARGET: ${{ steps.release.outputs.atlas_target }}
       # Installs the Pulumi CLI onto PATH without running a command (omitting
       # `command:` is the documented install-only mode) so the plain `pulumi`
       # steps below can use it.
@@ -649,16 +716,27 @@ jobs:
       - name: Bake git build info for root container
         if: ${{ inputs.component == 'root' }}
         shell: bash
+        env:
+          # SAFE-1 (#937): production bakes the pinned pre-campaign revision,
+          # never the campaign github.sha; staging keeps the caller SHA.
+          SOURCE_REVISION: ${{ steps.release.outputs.source_revision }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
         run: |
           set -euo pipefail
           # Whitelist-sanitize: a ref name may contain characters that break a
-          # quoted Python literal; GITHUB_SHA is hex and safe as-is.
-          branch="${GITHUB_REF_NAME//[^A-Za-z0-9._\/-]/-}"
+          # quoted Python literal; a full hex SHA is safe as-is.
+          if [ "$TARGET_ENVIRONMENT" = "production" ]; then
+            baked_commit="${SOURCE_REVISION:0:7}"
+            branch="pinned-pre-campaign"
+          else
+            baked_commit="${GITHUB_SHA::7}"
+            branch="${GITHUB_REF_NAME//[^A-Za-z0-9._\/-]/-}"
+          fi
           mkdir -p apps/agent/src/animichi
           cat > apps/agent/src/animichi/build_info.py <<EOF
           """Build-time git metadata baked by CI (#494). Do not edit."""
 
-          GIT_COMMIT = "${GITHUB_SHA::7}"
+          GIT_COMMIT = "${baked_commit}"
           GIT_BRANCH = "${branch}"
           EOF
       - name: Deploy Worker
@@ -798,7 +876,9 @@ jobs:
           # run's SHA (baked by the "Bake git build info" step) — the P7
           # deploy-verification proof. `github.sha` in a workflow_call is
           # the caller's commit, i.e. exactly what the bake wrote.
-          EXPECTED_GIT_COMMIT: ${{ github.sha }}
+          # SAFE-1 (#937): production expects the PINNED pre-campaign
+          # revision (the bake wrote that), never the campaign github.sha.
+          EXPECTED_GIT_COMMIT: ${{ inputs.environment == 'production' && steps.release.outputs.source_revision || github.sha }}
           # First cold start after an image change takes minutes; base 12 →
           # sleep budget 12*(1+2+3+4)=120s plus 5×20s request timeouts ≈ 220s ceiling, still bounded.
           POST_DEPLOY_ASSERT_RETRY_BACKOFF_BASE_SECONDS: "12"
