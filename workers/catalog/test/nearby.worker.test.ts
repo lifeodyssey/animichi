@@ -1,18 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogDb, NeonSql } from "../src/db/client";
 import { nearby } from "../src/api/nearby";
-import { MAX_RADIUS_M } from "../src/lib/geo-query";
 
 /**
- * Unit tests for the `nearby` read API handler (card W2-4).
+ * Unit tests for the `nearby` transport (card CATALOG-3): wiring only. Radius
+ * policy, distance ordering, and typed empty results are unit-tested in
+ * nearby-points.worker.test.ts and proven against real PostGIS in
+ * nearby-points.spike.test.ts. Here the two reads `nearby()` performs are
+ * faked: the geo read via the `neonSql` tag (the geo port's adapter) and the
+ * detail read via `db.execute(sql)` (the details port's adapter).
  *
- * No Docker: `findPointsWithinRadius` (the ST_DWithin primitive) is already
- * integration-tested against real PostGIS in geo-query.spike.test.ts. Here we
- * fake the two reads `nearby()` performs:
- *   - geo read: via `neonSql` template tag (findPointsWithinRadius)
- *   - detail read: via `db.execute(sql)` (loadDetails)
- * Named *.worker.test.ts so the existing vitest-pool-workers config picks it up;
- * the logic is runtime-agnostic.
+ * Named *.worker.test.ts so the existing vitest-pool-workers config picks it
+ * up; the logic is runtime-agnostic.
  *
  * Fixture: two points near Washinomiya, returned nearest-first by the geo read.
  */
@@ -60,13 +59,10 @@ function fakeDb(details: DetailRow[]): CatalogDb {
   } as unknown as CatalogDb;
 }
 
-/** Minimal NeonSql double: returns geo rows, recording each query's bound values. */
-function fakeNeonSql(geo: GeoRow[], bound: unknown[][] = []): NeonSql {
+/** Minimal NeonSql double: returns geo rows for the adapter's template tag. */
+function fakeNeonSql(geo: GeoRow[]): NeonSql {
   return Object.assign(
-    (_strings: TemplateStringsArray, ...values: unknown[]) => {
-      bound.push(values);
-      return Promise.resolve(geo);
-    },
+    (_strings: TemplateStringsArray, ..._values: unknown[]) => Promise.resolve(geo),
     { transaction: undefined },
   ) as unknown as NeonSql;
 }
@@ -109,30 +105,7 @@ describe("nearby (api/nearby.ts)", () => {
     const { rows } = await run([], []);
     expect(rows).toEqual([]);
   });
-});
 
-describe("nearby radius clamp", () => {
-  // The clamp is only otherwise exercised by the Neon-gated spike lane, which
-  // skips without credentials — assert it here so it runs in every CI job.
-  it("clamps an over-cap radius before it reaches the geo query", async () => {
-    const bound: unknown[][] = [];
-    await nearby(fakeDb(DETAILS), fakeNeonSql(GEO, bound), {
-      lat: 36.1019, lng: 139.6586, radius_m: MAX_RADIUS_M * 4,
-    });
-    expect(bound[0]).toContain(MAX_RADIUS_M);
-    expect(bound[0]).not.toContain(MAX_RADIUS_M * 4);
-  });
-
-  it("passes an under-cap radius through unchanged", async () => {
-    const bound: unknown[][] = [];
-    await nearby(fakeDb(DETAILS), fakeNeonSql(GEO, bound), {
-      lat: 36.1019, lng: 139.6586, radius_m: 1_000,
-    });
-    expect(bound[0]).toContain(1_000);
-  });
-});
-
-describe("nearby missing detail row", () => {
   it("defaults to empty bangumi_id and screenshot_url when a point has no detail row", async () => {
     const geo: GeoRow[] = [
       { id: "washinomiya", name: "鷲宮神社", latitude: 36.1019, longitude: 139.6586, distance_m: 5 },

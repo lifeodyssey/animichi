@@ -8,8 +8,9 @@
  * The contract returns a SINGLE point (not a list), so we pick the work's
  * representative point (lowest id, deterministic) and 404 if the work has none.
  *
- * Read-only: a single typed `db.execute(sql`...`)` following the validated
- * geo-query.ts pattern (Drizzle has no native GEOGRAPHY predicate). The wire
+ * Read-only: a single typed `db.execute(sql`...`)` following the outbound
+ * adapter pattern (Drizzle has no native GEOGRAPHY predicate — see
+ * `adapters/outbound/nearby-points.ts`). The wire
  * shapes (`Point` / `Origin`) come from `../types` — the single
  * in-Worker mirror of packages/contract/src/models.ts (import type erases at
  * compile time, keeping the contract's zod runtime out of the bundle).
