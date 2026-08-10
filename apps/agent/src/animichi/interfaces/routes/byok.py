@@ -38,18 +38,12 @@ see issue #481 for a constant-time-response mitigation.
 from __future__ import annotations
 
 import asyncio
-import base64
-from dataclasses import dataclass
-from typing import Annotated, Final, Literal
+from typing import Annotated, Final
 
 import httpx
 import structlog
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from pydantic_ai import Agent
-from pydantic_ai.exceptions import ModelHTTPError
-from pydantic_ai.messages import BinaryContent, UserContent
-from pydantic_ai.models import Model
 
 from animichi.agents.byok_models import (
     ByokCredential,
@@ -57,6 +51,7 @@ from animichi.agents.byok_models import (
     ByokModel,
     build_byok_model,
 )
+from animichi.agents.byok_probe import ProbeResult, probe_byok_model
 from animichi.infrastructure.egress_errors import EgressBlocked
 from animichi.infrastructure.egress_guard import validate_base_url
 from animichi.interfaces.routes._deps import (
@@ -99,15 +94,6 @@ _CREDENTIAL_REJECTED_STATUSES: Final[frozenset[int]] = frozenset({401, 403})
 #: non-401/403 status" to exactly these two, so a 404/429/5xx doesn't
 #: masquerade as a legitimate "no vision" answer).
 _VISION_UNSUPPORTED_STATUSES: Final[frozenset[int]] = frozenset({400, 422})
-
-ProbeErrorCode = Literal["byok_credential_rejected", "provider_unreachable"]
-
-
-@dataclass(frozen=True, slots=True)
-class ProbeResult:
-    has_vision: bool
-    reachable: bool
-    error_code: ProbeErrorCode | None
 
 
 class _ProbeResponseTooLarge(Exception):
@@ -176,64 +162,10 @@ class _CappedResponseTransport(httpx.AsyncBaseTransport):
         await self._inner.aclose()
 
 
-def _probe_message() -> list[UserContent]:
-    png = base64.b64decode(_PROBE_PNG_B64)
-    return [_PROBE_PROMPT, BinaryContent(data=png, media_type="image/png")]
-
-
 def _unreachable_result() -> ProbeResult:
     return ProbeResult(
         has_vision=False, reachable=False, error_code="provider_unreachable"
     )
-
-
-def _classify_model_http_error(exc: ModelHTTPError) -> ProbeResult:
-    if exc.status_code in _CREDENTIAL_REJECTED_STATUSES:
-        return ProbeResult(
-            has_vision=False, reachable=False, error_code="byok_credential_rejected"
-        )
-    if exc.status_code in _VISION_UNSUPPORTED_STATUSES:
-        return ProbeResult(has_vision=False, reachable=True, error_code=None)
-    return _unreachable_result()
-
-
-async def _run_probe(model: Model) -> ProbeResult:
-    """Run the one-shot probe turn. Never lets an exception escape: every
-    branch below returns a `ProbeResult` — see the module docstring's (a)."""
-    probe_agent: Agent[None, str] = Agent(
-        model, output_type=str, name="byok_vision_probe"
-    )
-    try:
-        async with asyncio.timeout(_PROBE_TIMEOUT_SECONDS):
-            await probe_agent.run(_probe_message())
-    except ModelHTTPError as exc:
-        return _classify_model_http_error(exc)
-    except asyncio.CancelledError:
-        # #479 round-3 review follow-up (Fable): a genuine cancellation —
-        # the CI runner tearing down the surrounding test/request, not a
-        # provider reachability outcome — must propagate, never be folded
-        # into `provider_unreachable` by the broad clause below. Explicit
-        # even though `CancelledError` is a `BaseException`, not an
-        # `Exception`, in this Python version: some paths through
-        # pydantic-ai's `AsyncExitStack`/task-group cleanup can surface a
-        # cancellation as a *different*, `Exception`-derived error raised
-        # during that cleanup (e.g. from closing an httpx transport mid
-        # teardown) rather than the raw `CancelledError` itself, so this
-        # is defense-in-depth on the one case we CAN identify directly —
-        # never treat "the ground is shifting under us" as "the provider
-        # is unreachable".
-        raise
-    except Exception:
-        # Bare `except Exception` (#479 P1-2 review follow-up), not a curated
-        # tuple: a connectivity failure, a timeout, the response-size cap, or
-        # any other model/provider error must all collapse to the same
-        # opaque outcome. Letting any of them escape here would 500 through
-        # the app's generic exception handler — a fourth, distinguishable
-        # response shape a caller could use to fingerprint a public
-        # non-LLM service behind the probed endpoint.
-        logger.info("byok_probe_unreachable", exc_info=True)
-        return _unreachable_result()
-    return ProbeResult(has_vision=True, reachable=True, error_code=None)
 
 
 def _probe_response(result: ProbeResult) -> JSONResponse:
@@ -340,7 +272,7 @@ async def handle_byok_probe(
     try:
         async with asyncio.timeout(_PROBE_TIMEOUT_SECONDS):
             byok_model = await _resolve_probe_model(credential)
-            result = await _run_probe(byok_model.model)
+            result = await probe_byok_model(byok_model.model)
     except _RouteRejection as rejection:
         return rejection.response
     except TimeoutError:
