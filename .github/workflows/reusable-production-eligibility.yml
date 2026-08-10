@@ -1,0 +1,72 @@
+# Reusable workflow: judge a candidate SHA against the SAFE-1 pinned
+# production manifest (called by ci.yml and deploy.yml; not triggered
+# directly). '_' prefix = internal.
+#
+# Every production entry point must route through this workflow so the
+# eligibility verdict is computed BEFORE any checkout, Atlas, Pulumi, Wrangler,
+# or rollback of production. It reads the manifest content-addressed (pinned
+# Git blob id via the GitHub API — never from the working tree), so a campaign
+# checkout that tampers with the manifest cannot influence the verdict.
+name: production-eligibility
+permissions:
+  contents: read
+on:
+  workflow_call:
+    inputs:
+      candidate_sha:
+        description: SHA to judge (caller's github.sha for push/dispatch).
+        required: true
+        type: string
+      component:
+        description: Component whose typed verdict should be reported.
+        required: true
+        type: string
+    outputs:
+      eligible:
+        description: "true when the candidate is deploy-eligible for production."
+        value: ${{ jobs.eligibility.outputs.eligible }}
+      source_revision:
+        description: Pinned pre-campaign production source revision.
+        value: ${{ jobs.eligibility.outputs.source_revision }}
+      reason:
+        description: Human-readable eligibility reason (ineligible cases).
+        value: ${{ jobs.eligibility.outputs.reason }}
+jobs:
+  eligibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      eligible: ${{ steps.verdict.outputs.eligible }}
+      source_revision: ${{ steps.verdict.outputs.source_revision }}
+      reason: ${{ steps.verdict.outputs.reason }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Resolve production eligibility
+        id: verdict
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          COMPONENT: ${{ inputs.component }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # gh-api path: the manifest is read from the pinned blob id, never
+          # from the checkout, so a tampered working tree cannot win.
+          verdict="$(bash .github/scripts/release-eligibility.sh "$COMPONENT" "$CANDIDATE_SHA")"
+          source_revision="$(echo "$verdict" | jq -r .source_revision)"
+          # jq emits JSON literals ("true"/"false"), which the gate compares
+          # against the lowercase strings — never Python's "True"/"False".
+          deploy="$(echo "$verdict" | jq -r .eligibility.deploy)"
+          if [ "$deploy" = "true" ]; then
+            reason="candidate $CANDIDATE_SHA matches pinned pre-campaign source $source_revision"
+          else
+            reason="candidate $CANDIDATE_SHA is not the pinned pre-campaign source $source_revision — campaign revisions cannot mutate production"
+          fi
+          {
+            echo "eligible=$deploy"
+            echo "source_revision=$source_revision"
+            echo "reason=$reason"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice title=production eligibility::$reason"
