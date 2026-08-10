@@ -1,6 +1,6 @@
 """Model-usage metering and the anonymous daily-budget breaker (S1.8, SD-18).
 
-Every runtime turn already produces a ``RunUsage``; this module is the hook
+Every runtime turn already produces a ``ModelTurnUsage``; this module is the hook
 that turns it into a durable, scope-partitioned row in ``daily_usage``, and the
 container-ingress read that decides whether the anonymous daily budget (X4) is
 exhausted. The container is deliberately the only tier that reads the table —
@@ -19,8 +19,8 @@ from datetime import UTC, date, datetime
 from typing import Literal
 
 import structlog
-from pydantic_ai.usage import RunUsage
 
+from animichi.application.model_turn_port import ModelTurnUsage
 from animichi.domain.ports import UsageMeter
 
 logger = structlog.get_logger(__name__)
@@ -92,17 +92,17 @@ def scope_for_identity(
     return "user"
 
 
-def usage_cost_usd(usage: RunUsage, prices: UsagePrices) -> float:
+def usage_cost_usd(usage: ModelTurnUsage, prices: UsagePrices) -> float:
     """Price one turn's token usage. Unpriced models meter tokens at zero cost."""
-    input_usd = usage.input_tokens * prices.input_usd_per_mtok
-    output_usd = usage.output_tokens * prices.output_usd_per_mtok
+    input_usd = usage.prompt_tokens * prices.input_usd_per_mtok
+    output_usd = usage.completion_tokens * prices.output_usd_per_mtok
     return (input_usd + output_usd) / _TOKENS_PER_MILLION
 
 
 async def record_turn_usage(
     usage_repo: UsageMeter | None,
     *,
-    usage: RunUsage | None,
+    usage: ModelTurnUsage | None,
     scope: UsageScope,
     prices: UsagePrices,
     today: date | None = None,
@@ -115,8 +115,8 @@ async def record_turn_usage(
             usage_date=today or utc_today(),
             scope=scope,
             requests=usage.requests,
-            input_tokens=usage.input_tokens,
-            output_tokens=usage.output_tokens,
+            input_tokens=usage.prompt_tokens,
+            output_tokens=usage.completion_tokens,
             cost_usd=usage_cost_usd(usage, prices),
         )
     except _METER_ERRORS:

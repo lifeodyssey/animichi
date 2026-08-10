@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol, cast
 
 import httpx
 import structlog
@@ -127,18 +127,26 @@ async def _recognize_platform(
     return VisionCallResult(titles, "platform", usage)
 
 
+class ModelProvider(Protocol):
+    """Structural model-provider carrier (pydantic-ai Model compatible).
+
+    TURN-1 (#939): routes carry the provider without importing framework
+    types; the adapter casts to the real Model at the boundary.
+    """
+
+
 async def recognize_photo(
-    platform_model: Model,
-    byok_model: Model | None,
+    platform_model: ModelProvider,
+    byok_model: ModelProvider | None,
     images: list[bytes],
     locale: str,
 ) -> VisionCallResult:
     """BYOK first (when supplied), platform as the fallback/default."""
     if byok_model is not None:
-        result = await _try_byok(byok_model, images, locale)
+        result = await _try_byok(cast(Model, byok_model), images, locale)
         if result is not None:
             return result
-    return await _recognize_platform(platform_model, images, locale)
+    return await _recognize_platform(cast(Model, platform_model), images, locale)
 
 
 def sniff_image_mime(image: bytes) -> str | None:
