@@ -13,7 +13,7 @@
  *   - resolve the title to a Bangumi subject id (fast);
  *   - fetch the Anitabi `/lite` preview (the first ~10 points, fast) and return
  *     those IMMEDIATELY as the L1 preview, flagged `partial:true`;
- *   - schedule the FULL `ingestWork` in the background via the request's
+ *   - schedule the FULL `ingestBangumi` in the background via the request's
  *     `ExecutionContext.waitUntil`, so the response returns before it finishes.
  * When no `waitUntil` is available (tests / integration harnesses without an
  * execution context) it FALLS BACK to running the full ingest synchronously —
@@ -35,7 +35,7 @@ import { bangumiPoints } from "../adapters/outbound/bangumi-points";
 import { pointsByBangumi, type PublishedPointRow } from "../application/list-points-for-bangumi";
 import type { CatalogDb } from "../db/client";
 import { normalizeAlias } from "../lib/alias";
-import { ingestWork } from "../ingest/orchestrator";
+import { catalogIngestBangumi, type IngestBangumi } from "../ingest/ingest-bangumi";
 import type { FetchLike } from "../ingest/sources";
 import type { Origin, Point } from "../types";
 import { previewForQuery, type MissPreview } from "./preview";
@@ -63,7 +63,7 @@ export interface SearchOptions {
  *     Anitabi `/lite` preview (first ~10 points). Returns the work id + preview
  *     points, or null (unresolvable / empty preview) so the handler returns
  *     empty rows. FAST — no enrich/publish.
- *   - `runFullIngest`: the full `ingestWork` (fetch all points -> enrich ->
+ *   - `runFullIngest`: the full `ingestBangumi` (fetch all points -> enrich ->
  *     publish), run in the background via `waitUntil` (or synchronously in the
  *     fallback). The published points then serve subsequent (alias-hit) reads.
  */
@@ -106,7 +106,7 @@ async function missResult(
 
 /** Return the L1 preview now; full ingest keeps running after the response. */
 function backgroundIngest(db: SearchDb, preview: MissPreview, opts: SearchOptions): SearchResult {
-  opts.waitUntil?.(db.runFullIngest(preview.workId, opts.fetchImpl));
+  opts.waitUntil?.(db.runFullIngest(preview.bangumiId, opts.fetchImpl));
   return { rows: preview.points, synced_at: new Date().toISOString(), partial: true };
 }
 
@@ -116,8 +116,8 @@ async function syncFallback(
   preview: MissPreview,
   fetchImpl?: FetchLike,
 ): Promise<SearchResult> {
-  await db.runFullIngest(preview.workId, fetchImpl);
-  const published = await pointsByBangumi(db, preview.workId);
+  await db.runFullIngest(preview.bangumiId, fetchImpl);
+  const published = await pointsByBangumi(db, preview.bangumiId);
   if (published.rows.length > 0) return published;
   return { rows: preview.points, synced_at: new Date().toISOString(), partial: true };
 }
@@ -129,22 +129,23 @@ function emptyResult(): SearchResult {
 
 /** Build the production `SearchDb` over a Drizzle `CatalogDb`. */
 export function searchDb(db: CatalogDb): SearchDb {
+  const ingest = catalogIngestBangumi(db);
   return {
     bangumiIdForAlias: (normalized) => firstBangumiId(db, normalized),
     pointsForBangumi: (bangumiId) => bangumiPoints(db).pointsForBangumi(bangumiId),
     resolvePreview: (query, fetchImpl) => previewForQuery(query, fetchImpl),
-    runFullIngest: (bangumiId, fetchImpl) => runFullIngest(db, bangumiId, fetchImpl),
+    runFullIngest: (bangumiId, fetchImpl) => runFullIngest(ingest, bangumiId, fetchImpl),
   };
 }
 
 /** The FULL ingest (fetch all points -> enrich -> publish); swallows the result
  * (it is fire-and-forget on `waitUntil`, and synchronous callers re-read the DB). */
 async function runFullIngest(
-  db: CatalogDb,
+  ingest: IngestBangumi,
   bangumiId: string,
   fetchImpl?: FetchLike,
 ): Promise<void> {
-  await ingestWork(db, bangumiId, { fetchImpl });
+  await ingest.ingest(bangumiId, { fetchImpl });
 }
 
 /** Exact-match the normalized alias -> the highest-priority bangumi id.

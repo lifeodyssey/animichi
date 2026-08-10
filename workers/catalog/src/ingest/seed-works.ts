@@ -8,13 +8,13 @@
  * relevance-head match on 2026-08-05 — no unresolved ids ship unchecked.
  * Re-verify against https://api.bgm.tv/v0/search/subjects when adding titles.
  */
-export interface SeedWork {
+export interface SeedBangumi {
   readonly bangumiId: string;
   readonly title: string;
 }
 
 /** Popular pilgrimage works to pre-populate the catalog (10 titles). */
-export const SEED_WORKS: readonly SeedWork[] = [
+export const SEED_BANGUMI: readonly SeedBangumi[] = [
   { bangumiId: "160209", title: "君の名は。 (Your Name)" },
   { bangumiId: "117777", title: "聲の形 (A Silent Voice)" },
   { bangumiId: "276", title: "らき☆すた (Lucky Star)" },
@@ -28,4 +28,4 @@ export const SEED_WORKS: readonly SeedWork[] = [
 ] as const;
 
 /** The seed ids as a bare list, for the single done-check query. */
-export const SEED_WORK_IDS: readonly string[] = SEED_WORKS.map((work) => work.bangumiId);
+export const SEED_BANGUMI_IDS: readonly string[] = SEED_BANGUMI.map((work) => work.bangumiId);

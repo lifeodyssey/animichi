@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   pointsByBangumiId,
-  type WorkPointsDb,
+  type WorkPointsPort,
 } from "../src/api/work-points";
 import type {
   IngestClaim,
   IngestGuard,
+  IngestReadOutcome,
   IngestResult,
-} from "../src/ingest/orchestrator";
+} from "../src/ingest/ingest-bangumi";
 import type { Point } from "../src/types";
 import type { PublishedPointRow } from "../src/application/list-points-for-bangumi";
-import type { MissPreview } from "../src/api/search";
 
 const PREVIEW: Point = {
   id: "lite-1",
@@ -37,70 +37,68 @@ const PUBLISHED: PublishedPointRow = {
   synced_at: "2026-07-17T00:00:00.000Z",
 };
 
-interface FakeDbOptions {
+interface RecorderState {
   rows?: PublishedPointRow[];
-  rowsSequence?: PublishedPointRow[][];
-  guard?: IngestGuard;
+  rowsSequence: PublishedPointRow[][];
+  guard: IngestGuard;
   claim?: IngestClaim;
   ingest?: Promise<IngestResult>;
-}
-
-interface RecorderState extends FakeDbOptions {
   previews: string[];
   claims: string[];
   ingests: string[];
   completed: string[];
-  guard: IngestGuard;
-  rowsSequence: PublishedPointRow[][];
 }
 
-function fakeDb(options: FakeDbOptions = {}) {
+function recorderState(options: Partial<RecorderState> = {}): RecorderState {
+  return { ...options, previews: [], claims: [], ingests: [], completed: [], guard: options.guard ?? "ready", rowsSequence: [...(options.rowsSequence ?? [])] };
+}
+
+function fakeDb(options: Partial<RecorderState> = {}) {
   const state = recorderState(options);
   return { db: fakeDbMethods(state), ...state };
 }
 
-function recorderState(options: FakeDbOptions): RecorderState {
-  const sequences = [...(options.rowsSequence ?? [])];
-  return { ...options, previews: [], claims: [], ingests: [], completed: [], guard: options.guard ?? "ready", rowsSequence: sequences };
-}
-
-function fakeDbMethods(state: RecorderState): WorkPointsDb {
+function fakeDbMethods(state: RecorderState): WorkPointsPort {
   return {
     pointsForBangumi: () => Promise.resolve(state.rowsSequence.shift() ?? state.rows ?? []),
-    previewForWork: (workId) => previewWork(state, workId),
-    ingestGuard: () => Promise.resolve(state.guard),
-    claimIngest: (workId) => claimWork(state, workId),
-    markDone: (workId) => markWorkDone(state, workId),
-    runClaimedIngest: (workId) => runIngestWork(state, workId),
+    previewForWork: (bangumiId) => {
+      state.previews.push(bangumiId);
+      return Promise.resolve({ bangumiId, points: [PREVIEW] });
+    },
+    ingest: {
+      guard: () => Promise.resolve(state.guard),
+      readClaim: (bangumiId) => readClaimWork(state, bangumiId),
+      claim: (bangumiId) => claimWork(state, bangumiId),
+      markDone: (bangumiId) => {
+        state.completed.push(bangumiId);
+        return Promise.resolve();
+      },
+      runClaimed: (bangumiId) => {
+        state.ingests.push(bangumiId);
+        return state.ingest ?? Promise.resolve({ status: "ingested", version: 1, pointCount: 1 });
+      },
+    },
   };
 }
 
-function previewWork(state: RecorderState, workId: string): Promise<MissPreview> {
-  state.previews.push(workId);
-  return Promise.resolve({ workId, points: [PREVIEW] });
-}
-
-function claimWork(state: RecorderState, workId: string): Promise<IngestClaim> {
-  state.claims.push(workId);
+function claimWork(state: RecorderState, bangumiId: string): Promise<IngestClaim> {
+  state.claims.push(bangumiId);
   const claim: IngestClaim = state.claim ?? (state.guard === "ready" ? "acquired" : state.guard);
   if (claim === "acquired") state.guard = "in_progress";
   return Promise.resolve(claim);
 }
 
-function markWorkDone(state: RecorderState, workId: string): Promise<void> {
-  state.completed.push(workId);
-  return Promise.resolve();
+/** Mirror of IngestBangumi.readClaim over the fake's guard/claim state. */
+async function readClaimWork(state: RecorderState, bangumiId: string): Promise<IngestReadOutcome> {
+  const guard = await Promise.resolve(state.guard);
+  if (guard === "empty") return { kind: "empty" };
+  if (guard !== "ready") return { kind: "syncing" };
+  const claim = await claimWork(state, bangumiId);
+  if (claim === "empty") return { kind: "empty" };
+  return claim === "acquired" ? { kind: "acquired" } : { kind: "syncing" };
 }
 
-function runIngestWork(state: RecorderState, workId: string): Promise<IngestResult> {
-  state.ingests.push(workId);
-  return state.ingest ?? Promise.resolve({ status: "ingested", version: 1, pointCount: 1 });
-}
-
-function waitUntilSpy(): {
-  waitUntil: (promise: Promise<unknown>) => void;
-  scheduled: Promise<unknown>[];
-} {
+function waitUntilSpy(): { waitUntil: (promise: Promise<unknown>) => void; scheduled: Promise<unknown>[] } {
   const scheduled: Promise<unknown>[] = [];
   return { waitUntil: (promise) => void scheduled.push(promise), scheduled };
 }

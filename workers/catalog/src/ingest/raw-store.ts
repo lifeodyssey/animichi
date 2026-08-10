@@ -19,28 +19,28 @@ export type RawPayload = Record<string, unknown> | unknown[];
 /** UPSERT the raw Anitabi points payload for a work. */
 export async function saveRawAnitabi(
   db: CatalogDb,
-  workId: string,
+  bangumiId: string,
   payload: RawPayload,
 ): Promise<void> {
-  await upsertRaw(db, "raw_anitabi", workId, payload);
+  await upsertRaw(db, "raw_anitabi", bangumiId, payload);
 }
 
 /** UPSERT the raw Bangumi subject payload for a work. */
 export async function saveRawBangumi(
   db: CatalogDb,
-  workId: string,
+  bangumiId: string,
   payload: RawPayload,
 ): Promise<void> {
-  await upsertRaw(db, "raw_bangumi", workId, payload);
+  await upsertRaw(db, "raw_bangumi", bangumiId, payload);
 }
 
 /** Shared UPSERT into a raw JSONB table keyed by work_id. */
 async function upsertRaw(
   db: CatalogDb, table: "raw_anitabi" | "raw_bangumi",
-  workId: string, payload: RawPayload,
+  bangumiId: string, payload: RawPayload,
 ): Promise<void> {
   await db.execute(sql`
-    INSERT INTO ${sql.raw(table)} (work_id, payload, fetched_at) VALUES (${workId}, ${JSON.stringify(payload)}::jsonb, NOW())
+    INSERT INTO ${sql.raw(table)} (work_id, payload, fetched_at) VALUES (${bangumiId}, ${JSON.stringify(payload)}::jsonb, NOW())
     ON CONFLICT (work_id) DO UPDATE SET payload = EXCLUDED.payload, fetched_at = NOW()
   `);
 }
