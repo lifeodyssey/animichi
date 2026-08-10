@@ -313,10 +313,7 @@ def _make_model_turn_port(
 def _neutral_usage(usage: RunUsage | None) -> ModelTurnUsage:
     if usage is None:
         return ModelTurnUsage()
-    return ModelTurnUsage(
-        completion_tokens=usage.output_tokens,
-        prompt_tokens=usage.input_tokens,
-    )
+    return to_model_turn_usage(usage)
 
 
 async def _run_model_turn(

@@ -78,5 +78,5 @@ async def probe_byok_model(model: Model) -> ProbeResult:
 
 
 def _probe_unreachable() -> ProbeResult:
-    logger.info("byok_probe_unreachable", exc_info=True)
+    logger.info("byok_probe_unreachable")
     return _unreachable_result()
