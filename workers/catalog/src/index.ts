@@ -132,9 +132,9 @@ export class IngestEntrypoint extends WorkerEntrypoint<Env> {
 }
 
 // ---------------------------------------------------------------------------
-// Scheduled ingestion (S0-v2 D4) — Cron Triggers. Shape mirrors
-// workers/jobs/src/index.ts: a fail-closed cron-string dispatcher with
-// injectable dependencies, tested with a fake controller/DB in the worker pool.
+// Scheduled ingestion (S0-v2 D4) — Cron Triggers. Fail-closed cron-string
+// dispatcher with injectable dependencies, tested with a fake controller/DB
+// in the worker pool (the jobs Worker's retired dispatcher was the template).
 // Schedule constants live in src/cron-config.ts (the entry module must not
 // export primitives — workerd rejects them at boot).
 // ---------------------------------------------------------------------------

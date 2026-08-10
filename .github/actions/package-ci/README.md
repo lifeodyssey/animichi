@@ -45,10 +45,10 @@ Migrated: `pipeline-contract`.
 
 Still to migrate (keep job names identical — they are required-check contexts):
 `pipeline-agent`, `pipeline-catalog`, `pipeline-db`, `pipeline-edge`,
-`pipeline-infra`, `pipeline-maintenance`, `pipeline-quality`, `pipeline-users`,
+`pipeline-infra`, `pipeline-quality`, `pipeline-users`,
 `pipeline-web`.
 
 Note for migrating lanes with extra per-job steps (coverage upload in
-`pipeline-users`/`pipeline-maintenance` test jobs, python-heavy lanes): either
+`pipeline-users` test jobs, python-heavy lanes): either
 fold them into the command inputs (multiline) or keep them as follow-up steps
 in the caller job after the composite call.

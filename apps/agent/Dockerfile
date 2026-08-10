@@ -19,7 +19,7 @@ COPY apps/agent/pyproject.toml apps/agent/uv.lock /app/
 # --no-build is safe only here: --no-install-project skips the local editable
 # package (the one thing in this project with no wheel), so it doesn't hit
 # the failure documented on the second `uv sync` below and in
-# .github/workflows/purge-anonymous-sessions.yml's NOTE.
+# pipeline-agent.yml's NOTE.
 RUN uv sync --no-dev --no-install-project --frozen --no-build
 
 COPY apps/agent/src/animichi /app/src/animichi
@@ -27,7 +27,7 @@ COPY apps/agent/src/animichi /app/src/animichi
 # --no-build rejected here: this `uv sync` installs the local editable
 # project itself, which has no wheel ("marked as --no-build but has no
 # binary distribution", verified locally) — same finding as the reusable
-# Python CI workflows and purge-anonymous-sessions.yml.
+# Python CI workflows.
 RUN uv sync --no-dev --frozen
 
 FROM public.ecr.aws/docker/library/python:3.11.13-slim

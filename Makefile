@@ -101,7 +101,7 @@ format:
 	cd apps/agent && uv run ruff check --fix src/animichi/ scripts/
 
 typecheck:
-	cd apps/agent && uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/tests/eval/ src/animichi/scripts/purge_anonymous_sessions.py
+	cd apps/agent && uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/tests/eval/
 
 check: lint typecheck test test-integration
 

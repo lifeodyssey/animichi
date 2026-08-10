@@ -15,7 +15,6 @@ require_grep CONTEXT-MAP.md 'workers/catalog'
 require_grep CONTEXT-MAP.md 'No.*pilgrimage|Gateway only|\*\*No\*\*'
 
 require_file docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md
-require_grep docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md 'workers/jobs'
 require_grep docs/iterations/refactor-skeleton-2026-08/PATH-DELTA.md 'migrations/neon'
 require_file docs/iterations/refactor-skeleton-2026-08/GOAL.md
 require_file docs/iterations/refactor-skeleton-2026-08/README.md
@@ -26,8 +25,7 @@ for f in \
   apps/agent/CONTEXT.md \
   workers/edge/CONTEXT.md \
   apps/web/CONTEXT.md \
-  packages/contract/CONTEXT.md \
-  workers/jobs/CONTEXT.md
+  packages/contract/CONTEXT.md
 do
   require_file "$f"
 done

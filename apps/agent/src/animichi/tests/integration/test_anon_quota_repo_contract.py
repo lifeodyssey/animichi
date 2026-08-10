@@ -14,7 +14,7 @@ actually serializes concurrent writers for the same key with no lost update.
 from __future__ import annotations
 
 import asyncio
-from datetime import date, timedelta
+from datetime import date
 
 import asyncpg
 import pytest
@@ -39,14 +39,13 @@ async def _cleanup(pool: asyncpg.Pool, anon_ids: list[str]) -> None:
     )
 
 
-# The repo's four operations against this table (issue #661): the UPSERT
-# (`increment_and_count`) needs SELECT/INSERT/UPDATE; the retention purge
-# (`purge_older_than`) needs DELETE. One parametrize case per privilege keeps
-# each test body under the 1-10-50 function-length limit *and* makes a
-# missing grant self-diagnosing — a failure names the exact privilege that's
-# missing (`test_agent_svc_holds_the_grant[DELETE]`) instead of a single
-# bundled assertion that only says "grants are wrong".
-_REPO_PRIVILEGES = ("SELECT", "INSERT", "UPDATE", "DELETE")
+# The repo's operations against this table (issue #661): the UPSERT
+# (`increment_and_count`) needs SELECT/INSERT/UPDATE. One parametrize case per
+# privilege keeps each test body under the 1-10-50 function-length limit *and*
+# makes a missing grant self-diagnosing — a failure names the exact privilege
+# that's missing (`test_agent_svc_holds_the_grant[INSERT]`) instead of a
+# single bundled assertion that only says "grants are wrong".
+_REPO_PRIVILEGES = ("SELECT", "INSERT", "UPDATE")
 
 
 @pytest.mark.parametrize("privilege", _REPO_PRIVILEGES)
@@ -54,14 +53,6 @@ async def test_agent_svc_holds_the_grant(db_pool: asyncpg.Pool, privilege: str) 
     """The migration's GRANT actually took — `has_table_privilege` probes the
     grant layer directly (same pattern as `test_service_roles.py`), catching a
     typo'd role name or a forgotten GRANT that a mocked unit test can't.
-
-    DELETE is covered here because the sibling
-    `test_purge_older_than_removes_stale_rows_and_keeps_recent_ones` below
-    calls `repo.purge_older_than()` through the unscoped `db_pool` fixture,
-    not as `agent_svc` — so it stayed green through 20260729000001 shipping
-    without a DELETE grant, and only the real retention cron (running as
-    `agent_svc`) ever hit "permission denied for table
-    anon_daily_message_count". This is the probe that would have caught it.
     """
     async with db_pool.acquire() as conn:
         held = await conn.fetchval(
@@ -132,28 +123,3 @@ async def test_concurrent_increments_for_the_same_key_have_no_lost_update(
         assert set(results) == set(range(1, concurrent_callers + 1))
     finally:
         await _cleanup(db_pool, [anon_id])
-
-
-async def test_purge_older_than_removes_stale_rows_and_keeps_recent_ones(
-    db_pool: asyncpg.Pool,
-) -> None:
-    repo = AnonQuotaRepository(db_pool)
-    stale_id, fresh_id = _anon_id("ddd5"), _anon_id("eee5")
-    stale_date = TODAY - timedelta(days=100)
-    try:
-        await repo.increment_and_count(usage_date=stale_date, anon_id=stale_id)
-        await repo.increment_and_count(usage_date=TODAY, anon_id=fresh_id)
-        removed = await repo.purge_older_than(TODAY)
-        remaining = await db_pool.fetchval(
-            "SELECT count(*) FROM anon_daily_message_count WHERE anon_id = $1",
-            stale_id,
-        )
-        still_there = await db_pool.fetchval(
-            "SELECT count(*) FROM anon_daily_message_count WHERE anon_id = $1",
-            fresh_id,
-        )
-        assert removed >= 1
-        assert remaining == 0
-        assert still_there == 1
-    finally:
-        await _cleanup(db_pool, [stale_id, fresh_id])

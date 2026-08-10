@@ -162,8 +162,9 @@ seed) and the damage is inside the history window.
 ### C. After any recovery
 
 - Smoke: `/healthz`, one catalog read, one users path if users schema touched.
-- Confirm maintenance Worker still has a valid agent-domain DSN binding (no
-  secret rotation unless the incident required it).
+- Confirm the SAFE-1-pinned production maintenance Worker still has a valid
+  agent-domain DSN binding (no secret rotation unless the incident required it;
+  RETENTION-1 retired the staging jobs Worker — staging has no retention DSN).
 - File follow-ups: missing expand/contract, missing checklist item, alert gap.
 
 ---

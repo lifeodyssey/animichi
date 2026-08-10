@@ -126,7 +126,6 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `apps/agent/` — Python ランタイム本体。agents、interfaces、infrastructure、tests、tools を含む
 - `workers/catalog/` — アニメカタログ API + データ基盤の Cloudflare Worker（TypeScript）
 - `workers/users/` — ユーザー領域データ Worker（`/v1/users/*`）
-- `workers/jobs/` — スケジュール Neon 保持 Worker（公開ルートなし）
 - `packages/contract/` — 共有 oRPC/zod 契約（catalog ↔ agent ↔ users）
 - `apps/web/` — TanStack Start SSR Web アプリ（**唯一のブラウザ面**）
 - `workers/edge/` — 認証と `/v1` ルーティングの Cloudflare Worker 入口

@@ -54,7 +54,7 @@ Owner service = BC that may **write** the table under greenfield. Reads may be b
 | `saved_route_anime` | **users** (FK to saved_routes) | Renamed from `route_anime` (#852 P1); SavedRoute–Bangumi link |
 | `sessions`, `conversations`, `conversation_messages` | **agent** | Dialogue; Users may list SessionSummary only |
 | `agent_memory`, `agent_memory_operations`, `agent_memory_metadata` | **agent** | In-agent memory |
-| `daily_usage`, `anon_daily_message_count` | **agent** (write); **jobs** purge | Quota / metering |
+| `daily_usage`, `anon_daily_message_count` | **agent** (write) | Quota / metering |
 | `request_log`, `feedback`, `api_keys` | **agent** / platform | Operational |
 | `user_memory` | **users** when awake | Dropped once; reintroduce under Users BC only |
 
@@ -68,7 +68,6 @@ Legacy / unknown: if a table is not listed, treat as **needs classification** be
 | **catalog_svc** | LOGIN or NOLOGIN+SET (env-specific) | Catalog worker: CRUD on catalog-owned tables; **no** write to `saved_routes` |
 | **agent_svc** | same | Agent: sessions/messages/memory/quota; **no** Point master write |
 | **users_svc** | same | Users worker: SavedRoute (+ share/checkin when built); **no** points write |
-| **jobs_svc** | same | Retention jobs: DELETE/SELECT on purge targets; **no** DDL |
 | **readonly** | LOGIN optional | Human/analytics SELECT-only |
 
 ### RLS stance
