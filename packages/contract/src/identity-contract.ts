@@ -32,7 +32,7 @@ export const identityClassPolicySchema = z.object({
   /** Per-identity daily message quota; `0` disables it (container-enforced). */
   dailyMessageQuota: z.number().int().nonnegative().nullable(),
   /** Global daily cost ceiling in USD; `0` disables it (container-enforced). */
-  dailyCostBudgetUsd: z.number().positive().nullable(),
+  dailyCostBudgetUsd: z.number().nonnegative().nullable(),
 });
 export type IdentityClassPolicy = z.infer<typeof identityClassPolicySchema>;
 
