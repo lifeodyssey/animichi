@@ -13,6 +13,10 @@
  * named-place string Origin would need geocoding first (a follow-up, alongside
  * the `leg_cache` pre-warmed walk durations the kernel currently derives from
  * haversine).
+ *
+ * Observability: `ItineraryObserverPort` records a redacted observation —
+ * outcome, point/cluster counts, truncation, duration — never coordinates or
+ * titles.
  */
 
 import type { ClusterablePoint, LocationCluster } from "../domain/clustering/cluster";
@@ -40,13 +44,40 @@ export interface ItineraryInput {
   pacing?: Pacing;
 }
 
+/** Redacted itinerary observation: outcome, counts, truncation, duration — never coordinates/titles. */
+export interface ItineraryObservation {
+  outcome: "planned" | "empty";
+  point_count: number;
+  cluster_count: number;
+  truncated: boolean;
+  duration_ms: number;
+}
+
+export interface ItineraryObserverPort {
+  record(observation: ItineraryObservation): void;
+}
+
+/** Injectable clock so duration is deterministic in tests. */
+export interface ItineraryClock {
+  now(): number;
+}
+
+export interface ItineraryOptions {
+  observer?: ItineraryObserverPort;
+  clock?: ItineraryClock;
+}
+
 /** Plan an ordered, timed route over `point_ids`. Empty/unknown ids -> count 0. */
-export async function planItinerary(port: PointsForRoutePort, input: ItineraryInput): Promise<Itinerary> {
+export async function planItinerary(port: PointsForRoutePort, input: ItineraryInput, opts: ItineraryOptions = {}): Promise<Itinerary> {
+  const clock = opts.clock ?? realClock;
+  const started = clock.now();
   const points = await port.loadPoints(input.point_ids);
   const allClusters = clusterByLocation(points, 50);
   const clusters = allClusters.slice(0, MAX_ITINERARY_CLUSTERS);
   const itinerary = buildTimedItinerary(clusters, kernelOpts(input));
-  return assembleRoute(clusters, itinerary, allClusters.length);
+  const result = assembleRoute(clusters, itinerary, allClusters.length);
+  recordIfObserved(opts, result, clusters.length, started, clock.now());
+  return result;
 }
 
 /** Kernel itinerary options: pacing + the coordinate form of Origin only. */
@@ -81,3 +112,22 @@ function animeMeta(lead?: Point): Pick<Itinerary, "anime_title" | "anime_title_c
     cover_url: lead?.cover_url,
   });
 }
+
+/** Record the redacted observation; duration is the injected clock's span. */
+function recordIfObserved(
+  opts: ItineraryOptions,
+  result: Itinerary,
+  clusterCount: number,
+  started: number,
+  finished: number,
+): void {
+  opts.observer?.record({
+    outcome: result.point_count === 0 ? "empty" : "planned",
+    point_count: result.point_count,
+    cluster_count: clusterCount,
+    truncated: result.truncated ?? false,
+    duration_ms: Math.max(0, finished - started),
+  });
+}
+
+const realClock: ItineraryClock = { now: () => Date.now() };
