@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
-import { ingestGuard, ingestWork } from "../src/ingest/orchestrator";
+import { catalogIngestBangumi, type IngestBangumi } from "../src/ingest/ingest-bangumi";
 import type { FetchLike } from "../src/ingest/sources";
 import {
   databaseDescribe,
@@ -11,12 +11,10 @@ import {
 } from "./spike-db";
 
 /**
- * Spike for the on-demand ingest orchestrator (card W5): ingestWork composes the
- * committed pieces (acquire -> fetch -> raw -> enrich -> publish) behind the
- * singleflight gate, and proves its negative-cache / error semantics.
- *
- * Uses the suite branch's full Atlas schema and drives ingestWork through Neon
- * Local HTTP with an injected mock fetchImpl, so upstream access stays offline.
+ * Spike for the IngestBangumi use case: acquire -> fetch -> raw -> enrich ->
+ * publish -> completion over the source/store/publisher ports, with singleflight,
+ * negative-cache TTLs, crash recovery, and idempotent replay (mirrors the
+ * worker-pool component tests against the real Atlas schema on Neon Local).
  */
 
 // Realistic upstream payloads matching the sources.ts shapes (mirrors enrich.spike).
@@ -57,7 +55,7 @@ const notFoundFetch: FetchLike = (url) => {
 
 /**
  * A fetchImpl gated on an external promise — the winner's pipeline parks here
- * (job still 'running') until released, so a concurrent caller's acquire is
+ * (job still 'running') until released, so a concurrent caller's claim is
  * forced to observe the in-flight row and lose the singleflight race.
  */
 function makeGatedFetch(gate: Promise<void>): FetchLike {
@@ -69,69 +67,59 @@ function makeGatedFetch(gate: Promise<void>): FetchLike {
 }
 
 let db: CatalogDb;
+let ingest: IngestBangumi;
 
-async function pointCount(workId: string): Promise<number> {
-  const rows = (
-    await db.execute(sql`SELECT COUNT(*)::int AS n FROM points WHERE bangumi_id = ${workId}`)
-  ).rows as { n: number }[];
+async function pointCount(bangumiId: string): Promise<number> {
+  const rows = (await db.execute(sql`SELECT COUNT(*)::int AS n FROM points WHERE bangumi_id = ${bangumiId}`)).rows as { n: number }[];
   return rows[0]?.n ?? 0;
 }
 
-async function bangumiExists(workId: string): Promise<boolean> {
-  const rows = (
-    await db.execute(sql`SELECT 1 FROM bangumi WHERE id = ${workId}`)
-  ).rows as { "?column?": number }[];
+async function bangumiExists(bangumiId: string): Promise<boolean> {
+  const rows = (await db.execute(sql`SELECT 1 FROM bangumi WHERE id = ${bangumiId}`)).rows as { "?column?": number }[];
   return rows.length > 0;
 }
 
-async function currentVersion(workId: string): Promise<number | undefined> {
-  const rows = (
-    await db.execute(
-      sql`SELECT version FROM cluster_version WHERE bangumi_id = ${workId} AND is_current`,
-    )
-  ).rows as { version: number }[];
+async function currentVersion(bangumiId: string): Promise<number | undefined> {
+  const rows = (await db.execute(sql`SELECT version FROM cluster_version WHERE bangumi_id = ${bangumiId} AND is_current`)).rows as { version: number }[];
   return rows[0]?.version;
 }
 
-async function jobStatus(workId: string): Promise<string | undefined> {
-  const rows = (
-    await db.execute(sql`SELECT status FROM ingest_jobs WHERE work_id = ${workId}`)
-  ).rows as { status: string }[];
+async function jobStatus(bangumiId: string): Promise<string | undefined> {
+  const rows = (await db.execute(sql`SELECT status FROM ingest_jobs WHERE work_id = ${bangumiId}`)).rows as { status: string }[];
   return rows[0]?.status;
 }
 
-async function backdateNegativeCache(workId: string): Promise<void> {
-  await db.execute(
-    sql`UPDATE ingest_jobs SET negative_cached_until = NOW() - INTERVAL '1 second' WHERE work_id = ${workId}`,
-  );
+async function backdateNegativeCache(bangumiId: string): Promise<void> {
+  await db.execute(sql`UPDATE ingest_jobs SET negative_cached_until = NOW() - INTERVAL '1 second' WHERE work_id = ${bangumiId}`);
 }
 
-async function negativeCacheSeconds(workId: string): Promise<number | undefined> {
+async function negativeCacheSeconds(bangumiId: string): Promise<number | undefined> {
   const rows = (await db.execute(sql`
     SELECT EXTRACT(EPOCH FROM (negative_cached_until - NOW()))::int AS seconds
-    FROM ingest_jobs WHERE work_id = ${workId}
+    FROM ingest_jobs WHERE work_id = ${bangumiId}
   `)).rows as { seconds: number }[];
   return rows[0]?.seconds;
 }
 
-async function awaitRunning(workId: string): Promise<void> {
+async function awaitRunning(bangumiId: string): Promise<void> {
   for (let i = 0; i < 100; i++) {
-    if ((await jobStatus(workId)) === "running") return;
+    if ((await jobStatus(bangumiId)) === "running") return;
     await new Promise((r) => setTimeout(r, 10));
   }
-  throw new Error(`job ${workId} never reached running`);
+  throw new Error(`job ${bangumiId} never reached running`);
 }
 
 beforeAll(async () => {
   db = await openServerlessDb();
   await truncateCatalog(db);
+  ingest = catalogIngestBangumi(db);
 }, 120_000);
 
 afterAll(() => { restoreNeonConfig(); });
 
-databaseDescribe("ingestWork end-to-end: acquire -> fetch -> raw -> enrich -> publish", () => {
-  it("ingests a new work and lands it in the catalog with a current version", async () => {
-    const result = await ingestWork(db, "460100", { fetchImpl: makeFetch(ANITABI_POINTS) });
+databaseDescribe("IngestBangumi end-to-end: claim -> fetch -> raw -> enrich -> publish -> done", () => {
+  it("ingests a new title and lands it in the catalog with one current version", async () => {
+    const result = await ingest.ingest("460100", { fetchImpl: makeFetch(ANITABI_POINTS) });
     expect(result).toEqual({ status: "ingested", version: 1, pointCount: 2 });
     expect(await bangumiExists("460100")).toBe(true);
     expect(await pointCount("460100")).toBe(2);
@@ -140,14 +128,14 @@ databaseDescribe("ingestWork end-to-end: acquire -> fetch -> raw -> enrich -> pu
   });
 });
 
-databaseDescribe("ingestWork singleflight: concurrent double ingest", () => {
+databaseDescribe("IngestBangumi claim uniqueness: concurrent double ingest", () => {
   it("yields exactly one 'ingested' and one 'in_progress'", async () => {
     let release: () => void = () => { /* placeholder replaced by Promise constructor */ };
     const gate = new Promise<void>((r) => (release = r));
-    // Winner parks in fetch (job 'running'); loser's acquire then loses the race.
-    const winner = ingestWork(db, "460101", { fetchImpl: makeGatedFetch(gate) });
+    // Winner parks in fetch (job 'running'); loser's claim then loses the race.
+    const winner = ingest.ingest("460101", { fetchImpl: makeGatedFetch(gate) });
     await awaitRunning("460101");
-    const loser = await ingestWork(db, "460101", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    const loser = await ingest.ingest("460101", { fetchImpl: makeFetch(ANITABI_POINTS) });
     release();
     const a = await winner;
     const statuses = [a.status, loser.status].sort();
@@ -156,40 +144,61 @@ databaseDescribe("ingestWork singleflight: concurrent double ingest", () => {
   });
 });
 
-databaseDescribe("ingestWork empty upstream: no points", () => {
-  it("returns 'empty', negative-caches, and blocks re-ingest within TTL", async () => {
+databaseDescribe("IngestBangumi negative cache: empty upstream", () => {
+  it("returns 'empty', parks the empty TTL, and blocks re-ingest within it", async () => {
     const fetchImpl = makeFetch([]);
-    const result = await ingestWork(db, "460102", { fetchImpl });
+    const result = await ingest.ingest("460102", { fetchImpl });
     expect(result.status).toBe("empty");
     expect(await jobStatus("460102")).toBe("failed");
     expect(await bangumiExists("460102")).toBe(false);
-    const retry = await ingestWork(db, "460102", { fetchImpl });
+    const retry = await ingest.ingest("460102", { fetchImpl });
     expect(retry.status).toBe("empty");
   });
 
   it("parks an upstream 404 for seven days and exposes a genuine-empty guard", async () => {
-    const result = await ingestWork(db, "460104", { fetchImpl: notFoundFetch });
+    const result = await ingest.ingest("460104", { fetchImpl: notFoundFetch });
     const ttl = await negativeCacheSeconds("460104");
 
     expect(result.status).toBe("empty");
     expect(ttl).toBeGreaterThan(6 * 24 * 60 * 60);
     expect(ttl).toBeLessThanOrEqual(7 * 24 * 60 * 60);
-    await expect(ingestGuard(db, "460104")).resolves.toBe("empty");
+    await expect(ingest.guard("460104")).resolves.toBe("empty");
   });
 });
 
-databaseDescribe("ingestWork failed upstream: fetch throws", () => {
+databaseDescribe("IngestBangumi retryable upstream: fetch throws", () => {
   it("throws typed upstream-unavailable and leaves a re-acquirable job", async () => {
-    await expect(ingestWork(db, "460103", { fetchImpl: throwingFetch })).rejects.toMatchObject({
+    await expect(ingest.ingest("460103", { fetchImpl: throwingFetch })).rejects.toMatchObject({
       code: "UPSTREAM_UNAVAILABLE",
       defined: true,
       status: 502,
     });
     expect(await jobStatus("460103")).toBe("failed");
-    // After the negative-cache TTL elapses the work re-acquires and succeeds.
+    // After the negative-cache TTL elapses the title re-acquires and succeeds.
     await backdateNegativeCache("460103");
-    const retry = await ingestWork(db, "460103", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    const retry = await ingest.ingest("460103", { fetchImpl: makeFetch(ANITABI_POINTS) });
     expect(retry.status).toBe("ingested");
     expect(await jobStatus("460103")).toBe("done");
+  });
+});
+
+databaseDescribe("IngestBangumi crash recovery + idempotent replay", () => {
+  it("reclaims a stale running claim (crashed peer) and completes it", async () => {
+    await db.execute(sql`
+      INSERT INTO ingest_jobs (work_id, status, started_at)
+      VALUES ('460105', 'running', NOW() - INTERVAL '16 minutes')
+    `);
+    const result = await ingest.ingest("460105", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    expect(result.status).toBe("ingested");
+    expect(await jobStatus("460105")).toBe("done");
+  });
+
+  it("re-ingests idempotently: re-enrich upserts, no duplicate points, version bumps once", async () => {
+    await ingest.ingest("460106", { fetchImpl: makeFetch(ANITABI_POINTS) });
+    await ingest.ingest("460106", { fetchImpl: makeFetch(ANITABI_POINTS) });
+
+    expect(await pointCount("460106")).toBe(2);
+    expect(await currentVersion("460106")).toBe(2);
+    expect(await jobStatus("460106")).toBe("done");
   });
 });

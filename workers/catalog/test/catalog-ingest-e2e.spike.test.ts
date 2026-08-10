@@ -28,7 +28,7 @@ databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publ
       {} as unknown as ExecutionContext,
       { ENVIRONMENT: "test", DATABASE_URL: localDatabaseUrl() },
     );
-    const ingested = await entrypoint.ingestWork(NEW_WORK_ID);
+    const ingested = await entrypoint.ingestBangumi(NEW_WORK_ID);
     expect(ingested).toEqual({
       status: "ingested",
       version: 1,

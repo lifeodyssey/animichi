@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   pointsByBangumiId,
-  type WorkPointsDb,
+  type WorkPointsPort,
 } from "../src/api/work-points";
 import type {
   IngestClaim,
   IngestGuard,
   IngestResult,
-} from "../src/ingest/orchestrator";
+} from "../src/ingest/ingest-bangumi";
 import type { Point } from "../src/types";
 import type { PublishedPointRow } from "../src/application/list-points-for-bangumi";
-import type { MissPreview } from "../src/api/search";
+import type { MissPreview } from "../src/api/preview";
 
 const PREVIEW: Point = {
   id: "lite-1",
@@ -64,36 +64,38 @@ function recorderState(options: FakeDbOptions): RecorderState {
   return { ...options, previews: [], claims: [], ingests: [], completed: [], guard: options.guard ?? "ready", rowsSequence: sequences };
 }
 
-function fakeDbMethods(state: RecorderState): WorkPointsDb {
+function fakeDbMethods(state: RecorderState): WorkPointsPort {
   return {
     pointsForBangumi: () => Promise.resolve(state.rowsSequence.shift() ?? state.rows ?? []),
-    previewForWork: (workId) => previewWork(state, workId),
-    ingestGuard: () => Promise.resolve(state.guard),
-    claimIngest: (workId) => claimWork(state, workId),
-    markDone: (workId) => markWorkDone(state, workId),
-    runClaimedIngest: (workId) => runIngestWork(state, workId),
+    previewForWork: (bangumiId) => previewWork(state, bangumiId),
+    ingest: {
+      guard: () => Promise.resolve(state.guard),
+      claim: (bangumiId) => claimWork(state, bangumiId),
+      markDone: (bangumiId) => markWorkDone(state, bangumiId),
+      runClaimed: (bangumiId) => runIngestWork(state, bangumiId),
+    },
   };
 }
 
-function previewWork(state: RecorderState, workId: string): Promise<MissPreview> {
-  state.previews.push(workId);
-  return Promise.resolve({ workId, points: [PREVIEW] });
+function previewWork(state: RecorderState, bangumiId: string): Promise<MissPreview> {
+  state.previews.push(bangumiId);
+  return Promise.resolve({ bangumiId, points: [PREVIEW] });
 }
 
-function claimWork(state: RecorderState, workId: string): Promise<IngestClaim> {
-  state.claims.push(workId);
+function claimWork(state: RecorderState, bangumiId: string): Promise<IngestClaim> {
+  state.claims.push(bangumiId);
   const claim: IngestClaim = state.claim ?? (state.guard === "ready" ? "acquired" : state.guard);
   if (claim === "acquired") state.guard = "in_progress";
   return Promise.resolve(claim);
 }
 
-function markWorkDone(state: RecorderState, workId: string): Promise<void> {
-  state.completed.push(workId);
+function markWorkDone(state: RecorderState, bangumiId: string): Promise<void> {
+  state.completed.push(bangumiId);
   return Promise.resolve();
 }
 
-function runIngestWork(state: RecorderState, workId: string): Promise<IngestResult> {
-  state.ingests.push(workId);
+function runIngestWork(state: RecorderState, bangumiId: string): Promise<IngestResult> {
+  state.ingests.push(bangumiId);
   return state.ingest ?? Promise.resolve({ status: "ingested", version: 1, pointCount: 1 });
 }
 
