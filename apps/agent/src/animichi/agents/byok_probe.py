@@ -61,9 +61,7 @@ def _classify_model_http_error(exc: ModelHTTPError) -> ProbeResult:
 
 
 async def probe_byok_model(model: Model) -> ProbeResult:
-    """Run the one-shot probe turn. Never lets an exception escape: every
-    branch returns a ``ProbeResult`` (see the route docstring's containment
-    contract)."""
+    """Run the one-shot probe turn; never lets an exception escape."""
     probe_agent: Agent[None, str] = Agent(
         model, output_type=str, name="byok_vision_probe"
     )
@@ -75,6 +73,10 @@ async def probe_byok_model(model: Model) -> ProbeResult:
     except asyncio.CancelledError:
         raise
     except Exception:
-        logger.info("byok_probe_unreachable", exc_info=True)
-        return _unreachable_result()
+        return _probe_unreachable()
     return ProbeResult(has_vision=True, reachable=True, error_code=None)
+
+
+def _probe_unreachable() -> ProbeResult:
+    logger.info("byok_probe_unreachable", exc_info=True)
+    return _unreachable_result()

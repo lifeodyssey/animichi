@@ -111,14 +111,17 @@ def is_byok_credential_rejection(exc: object) -> bool:
     return isinstance(exc, ModelHTTPError) and exc.status_code in (401, 403)
 
 
+_TRANSIENT_HTTP_STATUSES = frozenset({429, 502, 503})
+
+
 def is_provider_error(exc: object) -> bool:
     """Detect transient provider errors by exception type, not string scanning."""
     if isinstance(exc, ModelHTTPError):
-        return exc.status_code in (429, 502, 503)
+        return exc.status_code in _TRANSIENT_HTTP_STATUSES
     if isinstance(exc, FallbackExceptionGroup):
         return True
     if isinstance(exc, httpx.TransportError):
         return True
     if isinstance(exc, httpx.HTTPStatusError):
-        return exc.response.status_code in (429, 502, 503)
+        return exc.response.status_code in _TRANSIENT_HTTP_STATUSES
     return False

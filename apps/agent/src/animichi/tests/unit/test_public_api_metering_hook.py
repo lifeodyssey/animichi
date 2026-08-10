@@ -9,14 +9,12 @@ raising path — a failed turn still burned tokens and must still be charged.
 
 from __future__ import annotations
 
-from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic_ai.usage import RunUsage
 
 from animichi.agents.agent_result import AgentResult
-from animichi.application.model_turn_port import ModelTurnUsage
 from animichi.config.settings import Settings
 from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
@@ -38,11 +36,11 @@ def _db() -> MagicMock:
 
 def _metered_result() -> AgentResult:
     result = make_result()
-    usage: RunUsage = cast(
-        RunUsage,
-        ModelTurnUsage(prompt_tokens=1_000_000, completion_tokens=500_000, requests=1),
+    result.usage = RunUsage(
+        input_tokens=1_000_000,
+        output_tokens=500_000,
+        requests=1,
     )
-    result.usage = usage
     return result
 
 

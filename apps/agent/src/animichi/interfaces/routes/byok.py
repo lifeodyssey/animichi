@@ -86,16 +86,13 @@ _PROBE_PNG_B64 = (
     "+A8AAQUBAScY42YAAAAASUVORK5CYII="
 )
 
+
 #: Only these two HTTP statuses are actionable for the caller (they can fix
 #: their key); everything else collapses to `provider_unreachable` (a).
-_CREDENTIAL_REJECTED_STATUSES: Final[frozenset[int]] = frozenset({401, 403})
 #: The provider answered but rejected the image part itself — reachable,
 #: just no vision support (review follow-up, #479 P2-1: narrowed from "any
 #: non-401/403 status" to exactly these two, so a 404/429/5xx doesn't
 #: masquerade as a legitimate "no vision" answer).
-_VISION_UNSUPPORTED_STATUSES: Final[frozenset[int]] = frozenset({400, 422})
-
-
 class _ProbeResponseTooLarge(Exception):
     """Raised when a probe response exceeds the 64 KiB read cap (c)."""
 
