@@ -1,13 +1,14 @@
 import { catalogContract } from "@animichi/contract";
 import { implement } from "@orpc/server";
 import { resolveBangumi, type ResolveObserverPort } from "./application/resolve-bangumi";
+import { planItinerary as planItineraryUseCase } from "./application/plan-itinerary";
 import { bangumiTitleSearch } from "./adapters/outbound/bangumi-search";
 import { titleAlias } from "./adapters/outbound/title-alias";
+import { pointsForRoute } from "./adapters/outbound/route-points";
 import { search as searchHandler, searchDb } from "./api/search";
 import { pointsByBangumiId, workPointsDb } from "./api/work-points";
 import { nearby as nearbyHandler } from "./api/nearby";
 import { geocode as geocodeHandler } from "./api/geocode";
-import { planItinerary as planItineraryHandler } from "./api/route";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
 import { animeOverview as animeOverviewHandler, AnimeOverviewNotFoundError } from "./api/anime-overview";
 import type { CatalogDb, NeonSql } from "./db/client";
@@ -72,7 +73,7 @@ function assertItineraryPointIdCap(count: number): Promise<void> {
 
 const planItinerary = os.planItinerary.handler(async ({ input, context }) => {
   await assertItineraryPointIdCap(input.point_ids.length);
-  return planItineraryHandler(context.db, input);
+  return planItineraryUseCase(pointsForRoute(context.db), input);
 });
 
 const animeOverview = os.animeOverview.handler(async ({ input, context }) =>
