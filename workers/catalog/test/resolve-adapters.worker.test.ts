@@ -85,6 +85,22 @@ describe("bangumiTitleSearch upstream-ingest adapter", () => {
 
     await expect(port.fetchSubjects("broken")).resolves.toBe("upstream_unavailable");
   });
+
+  it("builds a port with production defaults when no config is given", () => {
+    expect(Object.keys(bangumiTitleSearch())).toEqual(["fetchSubjects"]);
+  });
+
+  it("propagates a non-upstream failure instead of the upstream_unavailable sentinel", async () => {
+    const port = bangumiTitleSearch({
+      fetchImpl: () => Promise.reject(new Error("inner transport")),
+      retry: {
+        attempts: 2,
+        sleep: () => Promise.reject(new Error("sleeper exploded")),
+      },
+    });
+
+    await expect(port.fetchSubjects("boom")).rejects.toThrow("sleeper exploded");
+  });
 });
 
 function response(body: unknown, status = 200): FetchLike {
