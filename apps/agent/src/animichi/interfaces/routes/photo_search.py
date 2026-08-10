@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Annotated, Literal, Protocol, cast
+from typing import Annotated, Literal, cast
 
 import httpx
 from fastapi import APIRouter, Depends, Request
@@ -26,6 +26,7 @@ from animichi.agents.base import get_default_model
 from animichi.agents.byok_models import ByokError, ByokModel, build_byok_model
 from animichi.agents.photo_search import GpsPoint, PhotoSearchResponse, run_photo_search
 from animichi.agents.photo_vision import (
+    ModelProvider,
     RecognizeCall,
     VisionCallResult,
     recognize_photo,
@@ -88,19 +89,11 @@ class PhotoConfirmBody(BaseModel):
     candidates_shown: int = Field(ge=0)
 
 
-class _PlatformModel(Protocol):
-    """Structural model-provider type (satisfied by pydantic-ai models).
-
-    TURN-1 (#939): the route layer must not import framework model types; it
-    only carries the provider between domain helpers.
-    """
-
-
 @dataclass
 class PhotoSearchRuntime:
     """Per-app photo-search wiring, injectable for tests."""
 
-    platform_model: _PlatformModel
+    platform_model: ModelProvider
     catalog: CatalogClientProtocol
     quota: PhotoSearchQuota = field(
         default_factory=lambda: PhotoSearchQuota(clock=lambda: datetime.now(UTC))
@@ -197,7 +190,7 @@ async def _prepare_turn(
 
 def _recognize_call(
     runtime: PhotoSearchRuntime,
-    byok_model: _PlatformModel | None,
+    byok_model: ModelProvider | None,
     images: list[bytes],
     locale: str,
 ) -> RecognizeCall:
