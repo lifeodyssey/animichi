@@ -265,7 +265,15 @@ class _PydanticAIModelTurn:
     ) -> ModelTurnResult:
         events.on_stage("running")
         started = time.monotonic()
-        result = await _run_model_turn(self._deps, request.text, **self._turn_kwargs())
+        result = await _run_model_turn(
+            self._deps,
+            request.text,
+            model=self._model,
+            message_history=self._message_history,
+            model_settings=self._model_settings,
+            memory_store=self._memory_store,
+            user_id=self._user_id,
+        )
         events.on_stage("terminal", outcome=result.status)
         usage = _neutral_usage(result.usage)
         events.on_usage(
@@ -274,15 +282,6 @@ class _PydanticAIModelTurn:
             duration_ms=int((time.monotonic() - started) * 1000),
         )
         return ModelTurnResult(output=result, usage=usage)
-
-    def _turn_kwargs(self) -> dict[str, object]:
-        return {
-            "model": self._model,
-            "message_history": self._message_history,
-            "model_settings": self._model_settings,
-            "memory_store": self._memory_store,
-            "user_id": self._user_id,
-        }
 
 
 def _make_model_turn_port(
@@ -311,7 +310,9 @@ def _make_model_turn_port(
     return port, blocked_outcome
 
 
-def _neutral_usage(usage: RunUsage) -> ModelTurnUsage:
+def _neutral_usage(usage: RunUsage | None) -> ModelTurnUsage:
+    if usage is None:
+        return ModelTurnUsage()
     return ModelTurnUsage(
         completion_tokens=usage.output_tokens,
         prompt_tokens=usage.input_tokens,
