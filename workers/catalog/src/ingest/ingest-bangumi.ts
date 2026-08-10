@@ -38,6 +38,8 @@ import {
 } from "./sources";
 
 /** Error codes parked behind the negative cache (no bare strings). */
+export type IngestErrorCode = (typeof IngestErrorCode)[keyof typeof IngestErrorCode];
+
 export const IngestErrorCode = {
   NotFound: "not_found",
   IngestError: "ingest_error",
@@ -214,7 +216,7 @@ async function fetchUpstream(
 }
 
 /** Negative-cache the failure (clears the 'running' row) and report it. */
-async function fail(runtime: IngestRuntime, bangumiId: string, errorCode: string, reason: string): Promise<IngestResult> {
+async function fail(runtime: IngestRuntime, bangumiId: string, errorCode: IngestErrorCode, reason: string): Promise<IngestResult> {
   const ttlSeconds = errorCode === IngestErrorCode.NotFound
     ? runtime.ttl.emptySeconds
     : runtime.ttl.failureSeconds;
