@@ -1,6 +1,8 @@
 import { catalogContract } from "@animichi/contract";
 import { implement } from "@orpc/server";
-import { resolve as resolveHandler, resolveDb } from "./api/resolve";
+import { resolveBangumi, type ResolveObserverPort } from "./application/resolve-bangumi";
+import { bangumiTitleSearch } from "./adapters/outbound/bangumi-search";
+import { titleAlias } from "./adapters/outbound/title-alias";
 import { search as searchHandler, searchDb } from "./api/search";
 import { pointsByBangumiId, workPointsDb } from "./api/work-points";
 import { nearby as nearbyHandler } from "./api/nearby";
@@ -34,7 +36,9 @@ const search = os.search.handler(async ({ input, context }) =>
 );
 
 const resolve = os.resolve.handler(async ({ input, context }) =>
-  resolveHandler(resolveDb(context.db), input, { fetchImpl: context.fetchImpl }),
+  resolveBangumi(titleAlias(context.db), bangumiTitleSearch({ fetchImpl: context.fetchImpl }), input, {
+    observer: resolveObserver(),
+  }),
 );
 
 const pointsById = os.pointsByBangumiId.handler(async ({ input, context }) =>
@@ -93,6 +97,17 @@ async function callAnimeOverview(db: CatalogDb, input: { bangumi_id: string }) {
     if (err instanceof AnimeOverviewNotFoundError) throw workNotFound(err.bangumiId);
     throw err;
   }
+}
+
+/** Redacted resolve observability: outcome, candidate count, source class, duration. */
+function resolveObserver(): ResolveObserverPort {
+  return {
+    record: (o) => {
+      console.info(
+        `resolve outcome=${o.outcome} candidates=${String(o.candidate_count)} source=${o.source_class} duration_ms=${String(o.duration_ms)}`,
+      );
+    },
+  };
 }
 
 export const catalogRouter = {

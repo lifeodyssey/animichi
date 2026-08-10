@@ -1,7 +1,8 @@
-import type { MissPreview, SearchDb, WorkPointRow } from "../src/api/search";
+import type { MissPreview, SearchDb } from "../src/api/search";
+import type { PublishedPointRow } from "../src/application/list-points-for-bangumi";
 import type { CatalogDb } from "../src/db/client";
 
-export const ROW: WorkPointRow = {
+export const ROW: PublishedPointRow = {
   id: "spot-1",
   name: "鷲宮神社",
   name_cn: "鹫宫神社",
@@ -19,7 +20,7 @@ export const ROW: WorkPointRow = {
 };
 
 /** Index of works keyed by normalized alias (the published catalog). */
-export type AliasIndex = Record<string, { workId: string; rows: WorkPointRow[] }>;
+export type AliasIndex = Record<string, { workId: string; rows: PublishedPointRow[] }>;
 
 /** The miss-path stubs a test can wire: resolve a preview + run the full ingest. */
 export interface MissStubs {
@@ -44,14 +45,14 @@ export function fakeDb(aliasIndex: AliasIndex, miss: MissStubs = {}): Recorder {
   const lookups: string[] = [], resolved: string[] = [], ingested: string[] = [];
   const db: SearchDb = {
     bangumiIdForAlias: (alias) => Promise.resolve(recordLookup(lookups, aliasIndex, alias)),
-    pointsForWork: (workId) => Promise.resolve(pointsFor(aliasIndex, workId)),
+    pointsForBangumi: (bangumiId) => Promise.resolve(pointsFor(aliasIndex, bangumiId)),
     resolvePreview: (query) => resolvePreview(miss, resolved, query),
     runFullIngest: (workId) => runFullIngest(miss, ingested, workId),
   };
   return { db, lookups, resolved, ingested };
 }
 
-function pointsFor(index: AliasIndex, workId: string): WorkPointRow[] {
+function pointsFor(index: AliasIndex, workId: string): PublishedPointRow[] {
   return Object.values(index).find((e) => e.workId === workId)?.rows ?? [];
 }
 
