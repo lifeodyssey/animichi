@@ -16,8 +16,11 @@ from animichi.interfaces.routes._deps import (
     _has_logfire_token,
     _json_response,
 )
+from animichi.interfaces.services.service_metadata import GetServiceMetadata
 
 router = APIRouter(tags=["health"])
+
+_service_metadata = GetServiceMetadata()
 
 # Capture git info at module load time (once, at startup)
 _STARTED_AT = datetime.now(UTC).isoformat()
@@ -68,32 +71,19 @@ _GIT_BRANCH = _git_info(
 @router.get("/")
 async def handle_root(request: Request) -> JSONResponse:
     settings = _get_settings_from_request(request)
-    payload = {
-        "service": "animichi-runtime",
-        "status": "ok",
-        "app_env": settings.app_env,
-        "endpoints": {
-            "healthz": "/healthz",
-            "runtime": "/v1/runtime",
-            "feedback": "/v1/feedback",
-        },
-    }
-    return _json_response(payload)
+    return _json_response(_service_metadata.root_metadata(settings).model_dump())
 
 
 @router.get("/healthz")
 async def handle_health(request: Request) -> JSONResponse:
     runtime_api = _get_runtime_api(request)
     settings = _get_settings_from_request(request)
-    payload = {
-        "status": "ok",
-        "service": "animichi-runtime",
-        "git_commit": _GIT_COMMIT,
-        "git_branch": _GIT_BRANCH,
-        "started_at": _STARTED_AT,
-        "app_env": settings.app_env,
-        "observability_enabled": _has_logfire_token(),
-        "db_adapter": type(getattr(runtime_api, "_db", None)).__name__,
-        "session_store": type(getattr(runtime_api, "_session_store", None)).__name__,
-    }
-    return _json_response(payload)
+    payload = _service_metadata.service_metadata(
+        settings=settings,
+        runtime_api=runtime_api,
+        git_commit=_GIT_COMMIT,
+        git_branch=_GIT_BRANCH,
+        started_at=_STARTED_AT,
+        observability_enabled=_has_logfire_token(),
+    )
+    return _json_response(payload.model_dump())
