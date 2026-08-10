@@ -3,7 +3,7 @@
  * read port.
  *
  * Covers the application use case (`application/list-points-for-bangumi.ts`),
- * its outbound adapter (`adapters/outbound/neon/bangumi-points.ts`, the only
+ * its outbound adapter (`adapters/outbound/bangumi-points.ts`, the only
  * SQL on the path), and the OpenAPI route seam end to end.
  *
  * Ordering contract (the "requested ordering" the adapter must emit): scene

@@ -4,7 +4,7 @@
  *
  * Orchestration only — the single SELECT (whose `ORDER BY` defines "scene
  * order") and the raw-row mapping live in the outbound adapter
- * `adapters/outbound/neon/bangumi-points.ts`; this file assembles the contract
+ * `adapters/outbound/bangumi-points.ts`; this file assembles the contract
  * `SearchResult` from validated rows and never touches I/O.
  *
  * Ordering contract (the "requested ordering"): a Bangumi's points come back in
