@@ -11,8 +11,9 @@
  *     collapse into one scene ranked by shot count.
  *   - `sample_itineraries`: the top regions with their member point ids.
  *
- * Read-only: a single typed `db.execute(sql`...`)` following the geo-query.ts
- * pattern. Wire shapes come from `../types` (import type erases at compile time,
+ * Read-only: a single typed `db.execute(sql`...`)` following the outbound
+ * adapter pattern (see `adapters/outbound/nearby-points.ts`). Wire shapes come
+ * from `../types` (import type erases at compile time,
  * keeping the contract's zod runtime out of the Worker bundle).
  */
 
