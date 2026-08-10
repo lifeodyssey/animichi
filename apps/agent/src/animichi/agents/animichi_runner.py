@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import time
+from typing import cast
+
 import structlog
 from pydantic import ValidationError
 from pydantic_ai.exceptions import (
@@ -48,11 +51,17 @@ from animichi.agents.tool_event_bridge import tool_event_bridge
 from animichi.agents.tool_state import ToolState
 from animichi.agents.web_trust import detect_prompt_injection
 from animichi.application.handle_user_message import (
+    BlockedOutcome,
     HandleUserMessage,
-    TurnExecutor,
-    TurnOutcome,
     UserMessage,
 )
+from animichi.application.model_turn_port import (
+    ModelTurnPort,
+    ModelTurnRequest,
+    ModelTurnResult,
+    ModelTurnUsage,
+)
+from animichi.application.turn_event_sink import TurnEventSink
 from animichi.clients.catalog_client import CatalogClientProtocol
 from animichi.domain.ports import CatalogLookup
 
@@ -199,25 +208,78 @@ async def run_animichi_agent(
         title_translator=title_translator,
     )
     _seed_tool_state(deps, context)
-    use_case = HandleUserMessage[AgentResult](
-        execute_turn=_make_turn_executor(
-            deps,
-            model=model,
-            message_history=message_history,
-            model_settings=model_settings,
-            memory_store=memory_store,
-            user_id=user_id,
-        ),
+    turn_port, blocked_outcome = _make_model_turn_port(
+        deps,
+        model=model,
+        message_history=message_history,
+        model_settings=model_settings,
+        memory_store=memory_store,
+        user_id=user_id,
+    )
+    use_case = HandleUserMessage(
+        turn_port=turn_port,
+        blocked_outcome=blocked_outcome,
         detect_injection=detect_prompt_injection,
         guard_enabled=_input_guard_enabled,
     )
     outcome = await use_case(
         UserMessage(text=text, locale=locale, user_id=user_id, context=context)
     )
-    return outcome.result
+    return cast(AgentResult, outcome.result.output)
 
 
-def _make_turn_executor(
+class _PydanticAIModelTurn:
+    """Production ModelTurnPort over the PydanticAI agent run.
+
+    All pydantic_ai imports stay in this adapter; application and routes
+    consume the neutral port and sink (TURN-1 #939).
+    """
+
+    def __init__(
+        self,
+        *,
+        deps: RuntimeDeps,
+        model: Model | str | None,
+        message_history: list[ModelMessage] | None,
+        model_settings: ModelSettings | None,
+        memory_store: MemoryStore | None,
+        user_id: str | None,
+    ) -> None:
+        self._deps = deps
+        self._model = model
+        self._message_history = message_history
+        self._model_settings = model_settings
+        self._memory_store = memory_store
+        self._user_id = user_id
+
+    async def run(
+        self, request: ModelTurnRequest, *, events: TurnEventSink
+    ) -> ModelTurnResult:
+        events.on_stage("running")
+        started = time.monotonic()
+        result = await _run_model_turn(
+            self._deps,
+            request.text,
+            model=self._model,
+            message_history=self._message_history,
+            model_settings=self._model_settings,
+            memory_store=self._memory_store,
+            user_id=self._user_id,
+        )
+        events.on_stage("terminal", outcome=result.status)
+        usage = ModelTurnUsage(
+            completion_tokens=result.usage.output_tokens,
+            prompt_tokens=result.usage.input_tokens,
+        )
+        events.on_usage(
+            completion_tokens=usage.completion_tokens,
+            prompt_tokens=usage.prompt_tokens,
+            duration_ms=int((time.monotonic() - started) * 1000),
+        )
+        return ModelTurnResult(output=result, usage=usage)
+
+
+def _make_model_turn_port(
     deps: RuntimeDeps,
     *,
     model: Model | str | None,
@@ -225,26 +287,22 @@ def _make_turn_executor(
     model_settings: ModelSettings | None,
     memory_store: MemoryStore | None,
     user_id: str | None,
-) -> TurnExecutor[AgentResult]:
-    """Build the PydanticAI turn executor that implements the use-case port."""
+) -> tuple[ModelTurnPort, BlockedOutcome]:
+    """Build the production port + blocked-outcome factory for the use case."""
 
-    async def execute_turn(
-        message: UserMessage, *, blocked: bool
-    ) -> TurnOutcome[AgentResult]:
-        if blocked:
-            return TurnOutcome(blocked=True, result=_blocked_result(deps))
-        result = await _run_model_turn(
-            deps,
-            message.text,
-            model=model,
-            message_history=message_history,
-            model_settings=model_settings,
-            memory_store=memory_store,
-            user_id=user_id,
-        )
-        return TurnOutcome(blocked=False, result=result)
+    port: ModelTurnPort = _PydanticAIModelTurn(
+        deps=deps,
+        model=model,
+        message_history=message_history,
+        model_settings=model_settings,
+        memory_store=memory_store,
+        user_id=user_id,
+    )
 
-    return execute_turn
+    def blocked_outcome() -> ModelTurnResult:
+        return ModelTurnResult(output=_blocked_result(deps), usage=ModelTurnUsage())
+
+    return port, blocked_outcome
 
 
 async def _run_model_turn(
