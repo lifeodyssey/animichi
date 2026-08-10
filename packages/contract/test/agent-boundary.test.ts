@@ -48,7 +48,7 @@ describe("agent boundary emitter", () => {
     }
   });
 
-  it("deleting a health field fails (required-field assertion)", () => {
+  it("omitting a health field from the schema drops it from the rendered model", () => {
     const withoutCommit = z.object({
       status: z.literal("ok"),
       service: z.string(),

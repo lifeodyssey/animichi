@@ -96,20 +96,25 @@ function renderModel(name: string, schema: z.ZodType): string[] {
   return out;
 }
 
+function collectTypingImports(json: JsonSchema, typing: string[], path: string): void {
+  for (const [field, prop] of Object.entries(json.properties ?? {})) {
+    const at = `${path}.${field}`;
+    if (prop.const !== undefined || (prop.enum && prop.enum.length > 0)) {
+      if (!typing.includes("Literal")) typing.push("Literal");
+    }
+    if (!(json.required ?? []).includes(field)) {
+      if (!typing.includes("Optional")) typing.push("Optional");
+    }
+    if (prop.type === "object") {
+      collectTypingImports(prop, typing, at);
+    }
+  }
+}
+
 function renderImports(): string[] {
   const typing: string[] = [];
   for (const model of MODELS) {
-    const json = toJsonSchema(model.schema);
-    for (const prop of Object.values(json.properties ?? {})) {
-      if (prop.const !== undefined || (prop.enum && prop.enum.length > 0)) {
-        if (!typing.includes("Literal")) typing.push("Literal");
-      }
-    }
-    for (const field of Object.keys(json.properties ?? {})) {
-      if (!(json.required ?? []).includes(field)) {
-        if (!typing.includes("Optional")) typing.push("Optional");
-      }
-    }
+    collectTypingImports(toJsonSchema(model.schema), typing, model.name);
   }
   const lines: string[] = [];
   if (typing.length > 0) lines.push(`from typing import ${typing.join(", ")}`);
@@ -117,9 +122,13 @@ function renderImports(): string[] {
   return lines;
 }
 
+function pyString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
+}
+
 function renderInventory(): string[] {
   const entries = AGENT_PATHS.map(
-    (p) => `    ("${p.method}", "${p.path}", "${p.summary}"),`,
+    (p) => `    ("${pyString(p.method)}", "${pyString(p.path)}", "${pyString(p.summary)}"),`,
   ).join("\n");
   return [
     "AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (",
@@ -137,22 +146,25 @@ export function renderContent(): string {
   return `${HEADER}\n${lines.join("\n")}\n`;
 }
 
-const content = renderContent();
+export { collectTypingImports, renderImports, renderModel, renderInventory, toJsonSchema };
 
-const outPath = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "..",
-  "apps",
-  "agent",
-  "src",
-  "animichi",
-  "interfaces",
-  "boundary",
-  "agent_models.py",
-);
-writeFileSync(outPath, content, "utf8");
-process.stdout.write(`Wrote ${outPath}\n`);
-
-export { renderImports, renderModel, renderInventory, toJsonSchema };
+// Write the generated file only when run as a CLI (never on import — the
+// test suite imports this module and must not rewrite the committed file).
+const isMain = process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href;
+if (isMain) {
+  const outPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..",
+    "..",
+    "..",
+    "apps",
+    "agent",
+    "src",
+    "animichi",
+    "interfaces",
+    "boundary",
+    "agent_models.py",
+  );
+  writeFileSync(outPath, renderContent(), "utf8");
+  process.stdout.write(`Wrote ${outPath}\n`);
+}
