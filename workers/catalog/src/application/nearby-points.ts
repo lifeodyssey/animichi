@@ -138,6 +138,7 @@ function sortByDistance(points: NearbyPoint[]): NearbyPoint[] {
 function compareDistance(left: NearbyPoint, right: NearbyPoint): number {
   const byDistance = left.distanceM - right.distanceM;
   if (byDistance !== 0) return byDistance;
+  if (left.id === right.id) return 0;
   return left.id < right.id ? -1 : 1;
 }
 
