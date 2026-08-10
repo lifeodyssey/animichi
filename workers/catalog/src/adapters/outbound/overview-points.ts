@@ -50,11 +50,19 @@ async function loadWorkExists(db: OverviewPointsDb, bangumiId: string): Promise<
 function parseRow(row: unknown): OverviewPointRow {
   const record = row as Record<string, unknown>;
   return {
-    id: String(record.id),
-    name: String(record.name),
-    image: record.image == null ? null : String(record.image),
+    id: stringField(record.id),
+    name: stringField(record.name),
+    image: nullableStringField(record.image),
     latitude: Number(record.latitude),
     longitude: Number(record.longitude),
-    city: record.city == null ? null : String(record.city),
+    city: nullableStringField(record.city),
   };
+}
+
+function stringField(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function nullableStringField(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
 }

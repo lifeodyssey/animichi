@@ -10,6 +10,7 @@ import { geocode as geocodeHandler } from "./api/geocode";
 import { planItinerary as planItineraryHandler } from "./api/route";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
 import { overviewPointsDb } from "./adapters/outbound/overview-points";
+import { popularBangumiDb } from "./adapters/outbound/popular-bangumi";
 import { AnimeOverviewNotFoundError, getBangumiOverview } from "./application/get-bangumi-overview";
 import type { CatalogDb, NeonSql } from "./db/client";
 import { routeTooManyPoints, workNotFound } from "./lib/errors";
@@ -80,6 +81,21 @@ const animeOverview = os.animeOverview.handler(async ({ input, context }) =>
   callAnimeOverview(context.db, input),
 );
 
+const popular = os.popular.handler(async ({ input, context }) => {
+  const rows = await popularBangumiDb(context.db).listPopular(input.limit);
+  return {
+    bangumi: rows.map((row) => ({
+      bangumi_id: row.id,
+      title: row.title,
+      title_cn: row.title_cn,
+      cover_url: row.cover_url,
+      city: row.city,
+      points_count: row.points_count,
+      rating: row.rating,
+    })),
+  };
+});
+
 /** Run `spots`, translating a no-points work into an oRPC 404 (else 500). */
 async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Origin }) {
   try {
@@ -120,5 +136,6 @@ export const catalogRouter = {
   geocode,
   planItinerary,
   animeOverview,
+  popular,
 };
 export type CatalogRouter = typeof catalogRouter;
