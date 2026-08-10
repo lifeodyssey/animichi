@@ -93,11 +93,10 @@ async function assertSpots404(): Promise<void> {
 
 /**
  * The nearby assertions run the geo read through pg direct (openDirectPool),
- * like geo-query.spike.test.ts: the app's nearby handler embeds a Drizzle SQL
- * fragment in the `neon()` fetch-template (src/lib/geo-query.ts), which the
- * direct-cloud endpoint rejects with "parse error - invalid geometry". The
- * neon_local container proxy (#883) previously masked that pre-existing
- * production bug; this suite's job is the harness, not the fix, so the
+ * like nearby-points.spike.test.ts: the app's nearby path runs its geo SQL
+ * through the PostGIS adapter (src/adapters/outbound/nearby-points.ts), whose
+ * flat-bound template the direct-cloud endpoint accepts. This suite's job is
+ * the harness, not the adapter proof (that lives in the spike), so the
  * assertion intent is kept while the query runs on the authoritative
  * PostGIS surface.
  */
@@ -109,7 +108,7 @@ interface NearbyRow {
   distance_m: number;
 }
 
-/** Mirrors nearbyRadiusQuery in src/lib/geo-query.ts, run via pg direct. */
+/** Mirrors the adapter geo SQL in src/adapters/outbound/nearby-points.ts, run via pg direct. */
 async function nearbyRows(lat: number, lng: number, radiusM: number): Promise<NearbyRow[]> {
   const { rows } = await pool.query<NearbyRow>(
     `SELECT id, name, latitude, longitude,

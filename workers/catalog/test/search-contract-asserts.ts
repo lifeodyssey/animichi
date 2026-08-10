@@ -1,7 +1,7 @@
 import { expect } from "vitest";
 import { ORPCError } from "@orpc/server";
 import { search } from "../src/api/search";
-import type { WorkPointRow } from "../src/api/search";
+import type { PublishedPointRow } from "../src/application/list-points-for-bangumi";
 import { fakeDb, ROW } from "./in-memory-search-db";
 
 export async function searchError(run: () => Promise<unknown>): Promise<ORPCError<string, unknown>> {
@@ -38,7 +38,7 @@ export async function assertNullFieldsOmitted(): Promise<void> {
   expect(result.rows[0]).toEqual(minimalRow());
 }
 
-function bareRow(): WorkPointRow {
+function bareRow(): PublishedPointRow {
   return {
     ...ROW, name_cn: null, episode: null, time_seconds: null,
     image: null, title: null, title_cn: null, cover_url: null, city: null, synced_at: null,
