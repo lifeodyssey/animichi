@@ -211,10 +211,13 @@ function isSimilar(name: string, nameCn: string | undefined, q: string): boolean
 }
 
 function matchesName(n: string, q: string): boolean {
-  if (n.length === 0) return false;
-  if (n === q) return true;
+  if (n.length === 0 || n === q) return n.length !== 0;
   if (q.length < MIN_QUERY_LEN) return false;
   if (n.includes(q)) return true;
+  return isReverseSimilar(n, q);
+}
+
+function isReverseSimilar(n: string, q: string): boolean {
   return (
     q.includes(n)
     && n.length >= MIN_SIMILAR_LEN
