@@ -14,9 +14,9 @@ import {
 } from "../ingest/sources";
 import type { Point } from "../types";
 
-/** A resolved work plus its fast `/lite` point preview. */
+/** A resolved title plus its fast `/lite` point preview. */
 export interface MissPreview {
-  workId: string;
+  bangumiId: string;
   points: Point[];
 }
 
@@ -25,30 +25,30 @@ export async function previewForQuery(
   query: string,
   fetchImpl?: FetchLike,
 ): Promise<MissPreview | null> {
-  const workId = await resolveWorkId(query, fetchImpl);
-  if (!workId) return null;
-  const preview = await previewForWork(workId, fetchImpl);
+  const bangumiId = await bangumiIdResolve(query, fetchImpl);
+  if (!bangumiId) return null;
+  const preview = await previewForWork(bangumiId, fetchImpl);
   return preview.points.length > 0 ? preview : null;
 }
 
-/** Fetch a preview for an already-resolved work id, including an empty preview. */
+/** Fetch a preview for an already-resolved bangumi id, including an empty preview. */
 export async function previewForWork(
-  workId: string,
+  bangumiId: string,
   fetchImpl?: FetchLike,
 ): Promise<MissPreview> {
-  const lite = await fetchLitePreview(workId, fetchImpl);
-  return { workId, points: lite.points.map((point) => litePoint(point, workId)) };
+  const lite = await fetchLitePreview(bangumiId, fetchImpl);
+  return { bangumiId, points: lite.points.map((point) => litePoint(point, bangumiId)) };
 }
 
 /** Resolve a title via Bangumi; upstream failures become typed retryable errors. */
-async function resolveWorkId(query: string, fetchImpl?: FetchLike): Promise<string | null> {
+async function bangumiIdResolve(query: string, fetchImpl?: FetchLike): Promise<string | null> {
   return withUpstreamUnavailable("bangumi", () => fetchBangumiSearch(query, { fetchImpl }));
 }
 
 /** Treat Anitabi 404 as a real empty preview and other failures as outages. */
-async function fetchLitePreview(workId: string, fetchImpl?: FetchLike): Promise<AnitabiLite> {
+async function fetchLitePreview(bangumiId: string, fetchImpl?: FetchLike): Promise<AnitabiLite> {
   try {
-    return await fetchAnitabiLite(workId, { fetchImpl });
+    return await fetchAnitabiLite(bangumiId, { fetchImpl });
   } catch (error) {
     if (error instanceof UpstreamNotFoundError) return { points: [], total: 0 };
     throw upstreamUnavailable("anitabi", error);
@@ -56,19 +56,19 @@ async function fetchLitePreview(workId: string, fetchImpl?: FetchLike): Promise<
 }
 
 /** Map one official Anitabi `/lite` point to the public point contract. */
-function litePoint(point: AnitabiPoint, workId: string): Point {
+function litePoint(point: AnitabiPoint, bangumiId: string): Point {
   const [latitude, longitude] = liteGeo(point.geo);
   return {
-    ...liteBase(point, workId, latitude, longitude),
+    ...liteBase(point, bangumiId, latitude, longitude),
     ...optional({ episode: liteInt(point.ep), time_seconds: liteInt(point.s) }),
   };
 }
 
-function liteBase(point: AnitabiPoint, workId: string, latitude: number, longitude: number): Point {
+function liteBase(point: AnitabiPoint, bangumiId: string, latitude: number, longitude: number): Point {
   return {
     id: liteString(point.id),
     name: liteString(point.name),
-    bangumi_id: workId,
+    bangumi_id: bangumiId,
     screenshot_url: liteImage(point.image),
     latitude,
     longitude,

@@ -12,7 +12,6 @@ export interface Env {
   MAP_TILES?: TileBucket;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
-  SUPABASE_SERVICE_ROLE_KEY: string;
   /** Cloudflare Turnstile secret (Worker secret binding — never process.env). */
   TURNSTILE_SECRET: string;
   ANON_ACCESS_ENABLED?: string;

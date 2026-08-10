@@ -89,12 +89,11 @@ make db-push           # NEON_DATABASE_URL に適用
 | 変数名 | 用途 |
 |---|---|
 | `SUPABASE_DB_URL` | agent ドメインの Postgres 接続文字列 |
-| `SUPABASE_URL` | Supabase プロジェクト URL（auth + API キー照会） |
-| `SUPABASE_SERVICE_ROLE_KEY` | サーバーサイド Supabase 認証 / `api_keys` 照会 |
+| `SUPABASE_URL` | Supabase プロジェクト URL（auth 面） |
 | `MIMO_API_KEY` | 主モデルプロバイダキー |
 | `DEEPSEEK_API_KEY` | エッジ container-env がコンテナ起動時に要求（コンテナへ転送） |
 
-**Worker エッジ:** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`（JWT は公開 JWKS で検証 — エッジに `SUPABASE_ANON_KEY` は不要）。catalog/users/jobs は各 Neon DSN も必要 — [`docs/ops/deployment.md`](docs/ops/deployment.md)。
+**Worker エッジ:** `SUPABASE_URL`（JWT は公開 JWKS で検証 — エッジに `SUPABASE_ANON_KEY` は不要）。catalog/users/jobs は各 Neon DSN も必要 — [`docs/ops/deployment.md`](docs/ops/deployment.md)。
 
 **オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -113,10 +112,10 @@ async def main() -> None:
         print(result.output)
 ```
 
-**HTTP（API キー）：**
+**HTTP（認証済み）：**
 ```bash
 curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
-  -H 'Authorization: Bearer sk_your_key_here' \
+  -H 'Authorization: Bearer <supabase_jwt>' \
   -H 'Content-Type: application/json' \
   -d '{"text":"吹響の聖地","locale":"ja"}'
 ```

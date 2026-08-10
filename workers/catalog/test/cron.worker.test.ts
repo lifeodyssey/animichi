@@ -7,9 +7,9 @@ import {
   type CronDependencies,
   type CronJobResult,
 } from "../src/index";
-import type { IngestResult } from "../src/ingest/orchestrator";
+import type { IngestResult } from "../src/ingest/ingest-bangumi";
 import type { CatalogDb } from "../src/db/client";
-import { SEED_WORK_IDS } from "../src/ingest/seed-works";
+import { SEED_BANGUMI_IDS } from "../src/ingest/seed-works";
 
 const ENV = { DATABASE_URL: "postgresql://user:password@catalog.example/animichi" };
 const INGESTED: IngestResult = { status: "ingested", version: 1, pointCount: 4 };
@@ -23,9 +23,9 @@ function result(attempted: number, ingested: number): CronJobResult {
 function dependencies(overrides: Partial<CronDependencies> = {}): CronDependencies {
   return {
     connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(db),
-    ingestWork: vi.fn<CronDependencies["ingestWork"]>().mockResolvedValue(INGESTED),
-    listDoneWorkIds: vi.fn<CronDependencies["listDoneWorkIds"]>().mockResolvedValue(new Set<string>()),
-    listStaleWorkIds: vi.fn<CronDependencies["listStaleWorkIds"]>().mockResolvedValue([]),
+    ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue(INGESTED),
+    listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set<string>()),
+    listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -37,28 +37,28 @@ beforeEach(() => {
 describe("scheduled handler", () => {
   it("routes the daily 04:00 UTC seed cron to the seed job", async () => {
     const deps = dependencies();
-    const done = vi.mocked(deps.listDoneWorkIds).mockResolvedValue(
-      new Set(SEED_WORK_IDS.slice(0, 3)),
+    const done = vi.mocked(deps.listDoneBangumiIds).mockResolvedValue(
+      new Set(SEED_BANGUMI_IDS.slice(0, 3)),
     );
 
     await createScheduledHandler(deps)({ cron: SEED_CRON }, ENV);
 
     expect(SEED_CRON).toBe("0 4 * * *");
-    expect(done).toHaveBeenCalledWith(db, SEED_WORK_IDS);
-    expect(deps.listStaleWorkIds).not.toHaveBeenCalled();
-    expect(deps.ingestWork).toHaveBeenCalledTimes(SEED_WORK_IDS.length - 3);
+    expect(done).toHaveBeenCalledWith(db, SEED_BANGUMI_IDS);
+    expect(deps.listStaleBangumiIds).not.toHaveBeenCalled();
+    expect(deps.ingestBangumi).toHaveBeenCalledTimes(SEED_BANGUMI_IDS.length - 3);
   });
 
   it("routes the hourly :17 TTL refresh cron to the TTL job", async () => {
     const deps = dependencies();
-    const stale = vi.mocked(deps.listStaleWorkIds).mockResolvedValue(["1", "2"]);
+    const stale = vi.mocked(deps.listStaleBangumiIds).mockResolvedValue(["1", "2"]);
 
     await createScheduledHandler(deps)({ cron: TTL_REFRESH_CRON }, ENV);
 
     expect(TTL_REFRESH_CRON).toBe("17 * * * *");
     expect(stale).toHaveBeenCalledWith(db, TTL_BATCH_CAP);
-    expect(deps.listDoneWorkIds).not.toHaveBeenCalled();
-    expect(deps.ingestWork).toHaveBeenCalledTimes(2);
+    expect(deps.listDoneBangumiIds).not.toHaveBeenCalled();
+    expect(deps.ingestBangumi).toHaveBeenCalledTimes(2);
   });
 
   it("fails closed when the catalog DSN is absent", async () => {
@@ -76,7 +76,7 @@ describe("scheduled handler", () => {
     await expect(createScheduledHandler(deps)({ cron: "0 0 * * *" }, ENV)).rejects.toThrow(
       "Unknown catalog cron: 0 0 * * *",
     );
-    expect(deps.ingestWork).not.toHaveBeenCalled();
+    expect(deps.ingestBangumi).not.toHaveBeenCalled();
   });
 
   it("constructs the default dependencies without opening a database connection", async () => {
@@ -88,32 +88,32 @@ describe("scheduled handler", () => {
 
 describe("seed job", () => {
   it("skips works that already have a done ingest_jobs row", async () => {
-    const doneIds = new Set(SEED_WORK_IDS.slice(0, 3));
+    const doneIds = new Set(SEED_BANGUMI_IDS.slice(0, 3));
     const deps = dependencies({
-      listDoneWorkIds: vi.fn<CronDependencies["listDoneWorkIds"]>().mockResolvedValue(doneIds),
+      listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(doneIds),
     });
 
-    await expect(runSeedJob(db, deps)).resolves.toEqual(result(SEED_WORK_IDS.length - 3, 7));
-    expect(deps.ingestWork).toHaveBeenCalledTimes(SEED_WORK_IDS.length - 3);
-    const skipped = vi.mocked(deps.ingestWork).mock.calls.map(([, id]) => id);
+    await expect(runSeedJob(db, deps)).resolves.toEqual(result(SEED_BANGUMI_IDS.length - 3, 7));
+    expect(deps.ingestBangumi).toHaveBeenCalledTimes(SEED_BANGUMI_IDS.length - 3);
+    const skipped = vi.mocked(deps.ingestBangumi).mock.calls.map(([, id]) => id);
     expect(skipped.some((id) => doneIds.has(id))).toBe(false);
   });
 
   it("counts non-ingested outcomes (in_progress/empty/failed) as skipped", async () => {
     const deps = dependencies();
-    vi.mocked(deps.ingestWork).mockResolvedValueOnce(IN_PROGRESS).mockResolvedValue(INGESTED);
+    vi.mocked(deps.ingestBangumi).mockResolvedValueOnce(IN_PROGRESS).mockResolvedValue(INGESTED);
 
-    await expect(runSeedJob(db, deps)).resolves.toEqual(result(SEED_WORK_IDS.length, 9));
+    await expect(runSeedJob(db, deps)).resolves.toEqual(result(SEED_BANGUMI_IDS.length, 9));
   });
 
   it("keeps ingesting the rest when one work's ingest throws", async () => {
     const deps = dependencies();
-    vi.mocked(deps.ingestWork)
+    vi.mocked(deps.ingestBangumi)
       .mockRejectedValueOnce(new Error("upstream exploded"))
       .mockResolvedValue(INGESTED);
 
-    await expect(runSeedJob(db, deps)).resolves.toEqual(result(SEED_WORK_IDS.length, 9));
-    expect(deps.ingestWork).toHaveBeenCalledTimes(SEED_WORK_IDS.length);
+    await expect(runSeedJob(db, deps)).resolves.toEqual(result(SEED_BANGUMI_IDS.length, 9));
+    expect(deps.ingestBangumi).toHaveBeenCalledTimes(SEED_BANGUMI_IDS.length);
   });
 });
 
@@ -121,19 +121,19 @@ describe("TTL job", () => {
   it("respects the batch cap when more works are stale than the cap", async () => {
     const twelveStale = Array.from({ length: 12 }, (_, i) => String(i + 1));
     const deps = dependencies({
-      listStaleWorkIds: vi.fn<CronDependencies["listStaleWorkIds"]>().mockResolvedValue(twelveStale),
+      listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue(twelveStale),
     });
 
     await expect(runTtlJob(db, deps)).resolves.toEqual(result(TTL_BATCH_CAP, TTL_BATCH_CAP));
-    expect(deps.listStaleWorkIds).toHaveBeenCalledWith(db, TTL_BATCH_CAP);
-    expect(deps.ingestWork).toHaveBeenCalledTimes(TTL_BATCH_CAP);
-    const ingested = vi.mocked(deps.ingestWork).mock.calls.map(([, id]) => id);
+    expect(deps.listStaleBangumiIds).toHaveBeenCalledWith(db, TTL_BATCH_CAP);
+    expect(deps.ingestBangumi).toHaveBeenCalledTimes(TTL_BATCH_CAP);
+    const ingested = vi.mocked(deps.ingestBangumi).mock.calls.map(([, id]) => id);
     expect(ingested).toEqual(twelveStale.slice(0, TTL_BATCH_CAP));
   });
 
   it("ingests every stale work when the list is under the cap", async () => {
     const deps = dependencies({
-      listStaleWorkIds: vi.fn<CronDependencies["listStaleWorkIds"]>().mockResolvedValue([
+      listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([
         "1",
         "2",
         "3",
@@ -141,6 +141,6 @@ describe("TTL job", () => {
     });
 
     await expect(runTtlJob(db, deps)).resolves.toEqual(result(3, 3));
-    expect(deps.ingestWork).toHaveBeenCalledTimes(3);
+    expect(deps.ingestBangumi).toHaveBeenCalledTimes(3);
   });
 });

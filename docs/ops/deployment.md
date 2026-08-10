@@ -76,7 +76,7 @@ The deployment target stays intentionally thin. The Worker owns routing and edge
 | Layer | Responsibility | Secrets/config it should see |
 |---|---|---|
 | Web app (`apps/web`) | SSR browser surface, deployed as its own Worker on its own route | none of this Worker's secrets |
-| Worker edge | Route match, JWT/API-key auth, identity injection | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (+ optional `NEON_AUTH_*`) |
+| Worker edge | Route match, JWT auth, identity injection | `SUPABASE_URL` (+ optional `NEON_AUTH_*`) |
 | Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
 
 Current hardening rule: the Worker strips the raw `Authorization` header before proxying and forwards only trusted `X-User-Id` / `X-User-Type` identity headers to the container.
@@ -87,7 +87,7 @@ Worker auth is implemented in `workers/edge/src/identity/auth.ts`:
 
 - JWT flow: `authenticate()` verifies the token signature locally against the issuer JWKS (jose `createRemoteJWKSet`, cached per isolate) — no per-request `/auth/v1/user` round-trip. Supabase tokens verify as ES256/RS256 against `SUPABASE_URL/auth/v1/.well-known/jwks.json` (issuer `SUPABASE_URL/auth/v1`, audience `authenticated`, `exp` checked); the injected `X-User-Id` is the token `sub`.
 - Dual-issuer readiness: a flag-gated Neon Auth (Better Auth, EdDSA) verification path exists but is OFF by default — active only when `NEON_AUTH_ENABLED=true` and both `NEON_AUTH_JWKS_URL` and `NEON_AUTH_ISSUER` are set. Tokens route by `alg`/`iss`, so Supabase and Neon issuers coexist without a cutover.
-- API key flow: `authenticate()` hashes the presented `sk_*` token and looks it up through Supabase REST using `SUPABASE_SERVICE_ROLE_KEY` (unchanged)
+- `sk_*` API keys are gone (AUTH-1 #945): an `sk_*` Bearer token is rejected as invalid — there is no `api_keys` lookup and no "agent" identity class.
 - Forwarding flow: the Worker injects `X-User-Id` and `X-User-Type`, deletes `Authorization`, and proxies the request to `CONTAINER` (unchanged)
 
 Auth expectations:
@@ -117,7 +117,6 @@ Default bind settings:
 Required at deploy time:
 
 - `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
 - optional: `NEON_AUTH_ENABLED`, `NEON_AUTH_JWKS_URL`, `NEON_AUTH_ISSUER` (dual-issuer readiness; leave unset to keep the Neon path off)
 
 These secrets stay in the Worker environment and are not forwarded into the container runtime. `SUPABASE_ANON_KEY` is no longer required at the edge — the JWT path verifies against the public Supabase JWKS and sends no `apikey` header.

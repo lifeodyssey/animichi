@@ -8,32 +8,26 @@ import {
   type PublishedPointRow,
 } from "../application/list-points-for-bangumi";
 import type { CatalogDb } from "../db/client";
-import {
-  claimIngest,
-  ingestGuard,
-  runClaimedIngest,
-  type IngestClaim,
-  type IngestGuard,
-  type IngestResult,
-} from "../ingest/orchestrator";
+import { catalogIngestBangumi, type IngestLifecycle, type IngestResult } from "../ingest/ingest-bangumi";
 import type { FetchLike } from "../ingest/sources";
-import { JobStore } from "../ingest/jobs";
 import { previewForWork, type MissPreview } from "./preview";
 import type { SearchOptions } from "./search";
 
-/** Minimal persistence/upstream port for the bangumi-id orchestration. */
-export interface WorkPointsDb {
+/**
+ * The read path's port over points + the ingest lifecycle. `ingest` owns the
+ * whole guard/claim decision ({@link IngestLifecycle.readClaim}) and the
+ * acquire -> completion state machine; this adapter only maps the outcome to
+ * preview/empty/syncing HTTP responses (no claim logic of its own).
+ */
+export interface WorkPointsPort {
   pointsForBangumi(bangumiId: string): Promise<PublishedPointRow[]>;
-  previewForWork(workId: string, fetchImpl?: FetchLike): Promise<MissPreview>;
-  ingestGuard(workId: string): Promise<IngestGuard>;
-  claimIngest(workId: string): Promise<IngestClaim>;
-  markDone(workId: string): Promise<void>;
-  runClaimedIngest(workId: string, fetchImpl?: FetchLike): Promise<IngestResult>;
+  previewForWork(bangumiId: string, fetchImpl?: FetchLike): Promise<MissPreview>;
+  ingest: IngestLifecycle;
 }
 
 /** Return published rows, or a guarded L1 preview while full ingest runs. */
 export async function pointsByBangumiId(
-  db: WorkPointsDb,
+  db: WorkPointsPort,
   bangumiId: string,
   options: SearchOptions = {},
 ): Promise<PointsByBangumiResult> {
@@ -43,45 +37,40 @@ export async function pointsByBangumiId(
 }
 
 async function uncoveredWork(
-  db: WorkPointsDb, workId: string, options: SearchOptions,
+  db: WorkPointsPort, bangumiId: string, options: SearchOptions,
 ): Promise<PointsByBangumiResult> {
-  const guard = await db.ingestGuard(workId);
-  if (guard !== "ready") return guardedResult(guard);
-  const claim = await db.claimIngest(workId);
-  if (claim !== "acquired") return claimedElsewhere(claim);
-  return onAcquired(db, workId, options);
+  const outcome = await db.ingest.readClaim(bangumiId);
+  if (outcome.kind === "empty") return emptyResult();
+  if (outcome.kind === "syncing") return syncingResult();
+  return onAcquired(db, bangumiId, options);
 }
 
 /** The claim is held by this call: publish if ready, else preview while ingesting. */
 async function onAcquired(
-  db: WorkPointsDb, workId: string, options: SearchOptions,
+  db: WorkPointsPort, bangumiId: string, options: SearchOptions,
 ): Promise<PointsByBangumiResult> {
-  const published = await publishIfReady(db, workId);
-  if (published) return published;
-  const preview = await db.previewForWork(workId, options.fetchImpl);
+  const published = await pointsByBangumi(db, bangumiId);
+  if (published.rows.length > 0) {
+    await db.ingest.markDone(bangumiId);
+    return published;
+  }
+  const preview = await db.previewForWork(bangumiId, options.fetchImpl);
   return claimedResult(db, preview, options);
 }
 
-async function publishIfReady(db: WorkPointsDb, workId: string): Promise<PointsByBangumiResult | undefined> {
-  const published = await pointsByBangumi(db, workId);
-  if (published.rows.length === 0) return undefined;
-  await db.markDone(workId);
-  return published;
-}
-
 async function claimedResult(
-  db: WorkPointsDb,
+  db: WorkPointsPort,
   preview: MissPreview,
   options: SearchOptions,
 ): Promise<PointsByBangumiResult> {
-  const ingest = db.runClaimedIngest(preview.workId, options.fetchImpl);
+  const ingest = db.ingest.runClaimed(preview.bangumiId, { fetchImpl: options.fetchImpl });
   if (!options.waitUntil) return syncResult(db, preview, ingest);
   options.waitUntil(ingest.catch(() => undefined));
   return previewResult(preview);
 }
 
 async function syncResult(
-  db: WorkPointsDb,
+  db: WorkPointsPort,
   preview: MissPreview,
   ingest: Promise<IngestResult>,
 ): Promise<PointsByBangumiResult> {
@@ -99,17 +88,9 @@ async function settledIngest(ingest: Promise<IngestResult>): Promise<IngestResul
   }
 }
 
-async function republishedOrPreview(db: WorkPointsDb, preview: MissPreview): Promise<PointsByBangumiResult> {
-  const published = await pointsByBangumi(db, preview.workId);
+async function republishedOrPreview(db: WorkPointsPort, preview: MissPreview): Promise<PointsByBangumiResult> {
+  const published = await pointsByBangumi(db, preview.bangumiId);
   return published.rows.length > 0 ? published : previewResult(preview);
-}
-
-function claimedElsewhere(claim: Exclude<IngestClaim, "acquired">): PointsByBangumiResult {
-  return claim === "empty" ? emptyResult() : syncingResult();
-}
-
-function guardedResult(guard: Exclude<IngestGuard, "ready">): PointsByBangumiResult {
-  return guard === "empty" ? emptyResult() : syncingResult();
 }
 
 function previewResult(preview: MissPreview): PointsByBangumiResult {
@@ -124,14 +105,12 @@ function syncingResult(): PointsByBangumiResult {
   return { ...emptyResult(), partial: true };
 }
 
-/** Bind the bangumi-id port to the shared ingest and preview infrastructure. */
-export function workPointsDb(db: CatalogDb): WorkPointsDb {
-  const points = bangumiPoints(db), jobs = new JobStore(db);
+/** Bind the read port to the shared points reader and ingest infrastructure. */
+export function workPointsDb(db: CatalogDb): WorkPointsPort {
+  const points = bangumiPoints(db);
   return {
     pointsForBangumi: (bangumiId) => points.pointsForBangumi(bangumiId),
     previewForWork,
-    ingestGuard: (workId) => ingestGuard(db, workId), claimIngest: (workId) => claimIngest(db, workId),
-    markDone: (workId) => jobs.markDone(workId),
-    runClaimedIngest: (workId, fetchImpl) => runClaimedIngest(db, workId, { fetchImpl }),
+    ingest: catalogIngestBangumi(db),
   };
 }

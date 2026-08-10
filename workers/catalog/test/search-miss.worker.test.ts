@@ -32,7 +32,7 @@ describe("search (alias miss — synchronous fallback when no waitUntil)", () =>
   it("runs the full ingest synchronously, then returns the published points", async () => {
     const index: AliasIndex = {};
     const { db, ingested } = fakeDb(index, {
-      resolvePreview: () => Promise.resolve({ workId: "10380", points: [PREVIEW_POINT] }),
+      resolvePreview: () => Promise.resolve({ bangumiId: "10380", points: [PREVIEW_POINT] }),
       runFullIngest: (workId) => {
         index.__ = { workId, rows: [{ ...ROW, id: "fresh", bangumi_id: workId }] };
         return Promise.resolve();
@@ -49,7 +49,7 @@ describe("search (alias miss — synchronous fallback when no waitUntil)", () =>
   it("falls back to the preview when the synchronous ingest published nothing", async () => {
     const { db } = fakeDb(
       {},
-      { resolvePreview: () => Promise.resolve({ workId: "10380", points: [PREVIEW_POINT] }) },
+      { resolvePreview: () => Promise.resolve({ bangumiId: "10380", points: [PREVIEW_POINT] }) },
     );
 
     const result = await search(db, { query: "けいおん！" });

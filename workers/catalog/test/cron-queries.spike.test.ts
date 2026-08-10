@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
-import { listStaleWorkIds, STALE_AFTER_SECONDS } from "../src/ingest/cron-queries";
+import { listStaleBangumiIds, STALE_AFTER_SECONDS } from "../src/ingest/cron-queries";
 import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./spike-db";
 
 /**
@@ -41,7 +41,7 @@ beforeAll(async () => {
 
 afterAll(() => { restoreNeonConfig(); });
 
-databaseDescribe("listStaleWorkIds staleness shapes", () => {
+databaseDescribe("listStaleBangumiIds staleness shapes", () => {
   beforeAll(async () => {
     await truncateCatalog(db);
     await insertRaw("raw_anitabi", "both-fresh", ONE_HOUR);
@@ -58,32 +58,32 @@ databaseDescribe("listStaleWorkIds staleness shapes", () => {
   }, 60_000);
 
   it("keeps a work fresh only while BOTH sources are fresh", async () => {
-    const stale = await listStaleWorkIds(db, 10, STALE_AFTER_SECONDS);
+    const stale = await listStaleBangumiIds(db, 10, STALE_AFTER_SECONDS);
     expect(stale).not.toContain("both-fresh");
   });
 
   it("selects a work when ONE source is stale, even if the other is fresh", async () => {
-    const stale = await listStaleWorkIds(db, 10, STALE_AFTER_SECONDS);
+    const stale = await listStaleBangumiIds(db, 10, STALE_AFTER_SECONDS);
     expect(stale).toContain("one-stale");
   });
 
   it("selects a work when ONE source row is entirely absent", async () => {
-    const stale = await listStaleWorkIds(db, 10, STALE_AFTER_SECONDS);
+    const stale = await listStaleBangumiIds(db, 10, STALE_AFTER_SECONDS);
     expect(stale).toContain("missing-source");
   });
 
   it("skips works behind a live failure negative-cache", async () => {
-    const stale = await listStaleWorkIds(db, 10, STALE_AFTER_SECONDS);
+    const stale = await listStaleBangumiIds(db, 10, STALE_AFTER_SECONDS);
     expect(stale).not.toContain("neg-cached");
   });
 
   it("re-admits a failed work once its negative-cache has lapsed", async () => {
-    const stale = await listStaleWorkIds(db, 10, STALE_AFTER_SECONDS);
+    const stale = await listStaleBangumiIds(db, 10, STALE_AFTER_SECONDS);
     expect(stale).toContain("cache-lapsed");
   });
 });
 
-databaseDescribe("listStaleWorkIds batch cap and freshness floor", () => {
+databaseDescribe("listStaleBangumiIds batch cap and freshness floor", () => {
   beforeAll(async () => {
     await truncateCatalog(db);
     for (let days = 2; days <= 8; days += 1) {
@@ -95,14 +95,14 @@ databaseDescribe("listStaleWorkIds batch cap and freshness floor", () => {
   }, 60_000);
 
   it("returns at most the cap, oldest-first, excluding fresh works", async () => {
-    const stale = await listStaleWorkIds(db, 5, STALE_AFTER_SECONDS);
+    const stale = await listStaleBangumiIds(db, 5, STALE_AFTER_SECONDS);
     expect(stale).toHaveLength(5);
     expect(stale[0]).toBe("stale-8d");
     expect(stale).not.toContain("still-fresh");
   });
 });
 
-databaseDescribe("listStaleWorkIds freshness floor", () => {
+databaseDescribe("listStaleBangumiIds freshness floor", () => {
   beforeAll(async () => {
     await truncateCatalog(db);
     await insertRaw("raw_anitabi", "fresh-a", ONE_HOUR);
@@ -112,6 +112,6 @@ databaseDescribe("listStaleWorkIds freshness floor", () => {
   }, 60_000);
 
   it("returns nothing when every work is fresh — no perpetual treadmill", async () => {
-    await expect(listStaleWorkIds(db, 5, STALE_AFTER_SECONDS)).resolves.toEqual([]);
+    await expect(listStaleBangumiIds(db, 5, STALE_AFTER_SECONDS)).resolves.toEqual([]);
   });
 });

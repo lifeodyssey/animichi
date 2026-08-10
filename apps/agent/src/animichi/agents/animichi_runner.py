@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import time
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import cast
+
+import httpx
 import structlog
 from pydantic import ValidationError
+from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai.exceptions import (
     ContentFilterError,
     UnexpectedModelBehavior,
@@ -15,7 +22,11 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import RunUsage, UsageLimits
 from pydantic_ai_harness.memory import MemoryStore
 
-from animichi.agents.agent_result import AgentResult, StepRecord
+from animichi.agents.agent_result import (
+    AgentResult,
+    AttributedUsage,
+    StepRecord,
+)
 from animichi.agents.animichi_agent import (
     _input_guard_enabled,
     animichi_agent,
@@ -23,7 +34,7 @@ from animichi.agents.animichi_agent import (
     build_user_memory_capability,
     trusted_session_context,
 )
-from animichi.agents.base import resolve_model_alias
+from animichi.agents.base import get_default_model, resolve_model_alias
 from animichi.agents.runtime_deps import (
     OnStep,
     RuntimeDeps,
@@ -48,11 +59,17 @@ from animichi.agents.tool_event_bridge import tool_event_bridge
 from animichi.agents.tool_state import ToolState
 from animichi.agents.web_trust import detect_prompt_injection
 from animichi.application.handle_user_message import (
+    BlockedOutcome,
     HandleUserMessage,
-    TurnExecutor,
-    TurnOutcome,
     UserMessage,
 )
+from animichi.application.model_turn_port import (
+    ModelTurnPort,
+    ModelTurnRequest,
+    ModelTurnResult,
+    ModelTurnUsage,
+)
+from animichi.application.turn_event_sink import TurnEventSink
 from animichi.clients.catalog_client import CatalogClientProtocol
 from animichi.domain.ports import CatalogLookup
 
@@ -199,25 +216,75 @@ async def run_animichi_agent(
         title_translator=title_translator,
     )
     _seed_tool_state(deps, context)
-    use_case = HandleUserMessage[AgentResult](
-        execute_turn=_make_turn_executor(
-            deps,
-            model=model,
-            message_history=message_history,
-            model_settings=model_settings,
-            memory_store=memory_store,
-            user_id=user_id,
-        ),
+    turn_port, blocked_outcome = _make_model_turn_port(
+        deps,
+        model=model,
+        message_history=message_history,
+        model_settings=model_settings,
+        memory_store=memory_store,
+        user_id=user_id,
+    )
+    use_case = HandleUserMessage(
+        turn_port=turn_port,
+        blocked_outcome=blocked_outcome,
         detect_injection=detect_prompt_injection,
         guard_enabled=_input_guard_enabled,
     )
     outcome = await use_case(
         UserMessage(text=text, locale=locale, user_id=user_id, context=context)
     )
-    return outcome.result
+    return cast(AgentResult, outcome.result.output)
 
 
-def _make_turn_executor(
+class _PydanticAIModelTurn:
+    """Production ModelTurnPort over the PydanticAI agent run.
+
+    All pydantic_ai imports stay in this adapter; application and routes
+    consume the neutral port and sink (TURN-1 #939).
+    """
+
+    def __init__(
+        self,
+        *,
+        deps: RuntimeDeps,
+        model: Model | str | None,
+        message_history: list[ModelMessage] | None,
+        model_settings: ModelSettings | None,
+        memory_store: MemoryStore | None,
+        user_id: str | None,
+    ) -> None:
+        self._deps = deps
+        self._model = model
+        self._message_history = message_history
+        self._model_settings = model_settings
+        self._memory_store = memory_store
+        self._user_id = user_id
+
+    async def run(
+        self, request: ModelTurnRequest, *, events: TurnEventSink
+    ) -> ModelTurnResult:
+        events.on_stage("running")
+        started = time.monotonic()
+        result = await _run_model_turn(
+            self._deps,
+            request.text,
+            model=self._model,
+            message_history=self._message_history,
+            model_settings=self._model_settings,
+            memory_store=self._memory_store,
+            user_id=self._user_id,
+        )
+        events.on_stage("terminal", outcome=result.status)
+        usage = _neutral_usage(result.usage)
+        events.on_usage(
+            completion_tokens=usage.completion_tokens,
+            prompt_tokens=usage.prompt_tokens,
+            duration_ms=int((time.monotonic() - started) * 1000),
+        )
+        return ModelTurnResult(output=result, usage=usage)
+
+
+def _make_model_turn_port(
     deps: RuntimeDeps,
     *,
     model: Model | str | None,
@@ -225,26 +292,28 @@ def _make_turn_executor(
     model_settings: ModelSettings | None,
     memory_store: MemoryStore | None,
     user_id: str | None,
-) -> TurnExecutor[AgentResult]:
-    """Build the PydanticAI turn executor that implements the use-case port."""
+) -> tuple[ModelTurnPort, BlockedOutcome]:
+    """Build the production port + blocked-outcome factory for the use case."""
 
-    async def execute_turn(
-        message: UserMessage, *, blocked: bool
-    ) -> TurnOutcome[AgentResult]:
-        if blocked:
-            return TurnOutcome(blocked=True, result=_blocked_result(deps))
-        result = await _run_model_turn(
-            deps,
-            message.text,
-            model=model,
-            message_history=message_history,
-            model_settings=model_settings,
-            memory_store=memory_store,
-            user_id=user_id,
-        )
-        return TurnOutcome(blocked=False, result=result)
+    port: ModelTurnPort = _PydanticAIModelTurn(
+        deps=deps,
+        model=model,
+        message_history=message_history,
+        model_settings=model_settings,
+        memory_store=memory_store,
+        user_id=user_id,
+    )
 
-    return execute_turn
+    def blocked_outcome() -> ModelTurnResult:
+        return ModelTurnResult(output=_blocked_result(deps), usage=ModelTurnUsage())
+
+    return port, blocked_outcome
+
+
+def _neutral_usage(usage: RunUsage | None) -> ModelTurnUsage:
+    if usage is None:
+        return ModelTurnUsage()
+    return to_model_turn_usage(usage)
 
 
 async def _run_model_turn(
@@ -386,3 +455,57 @@ async def _emit_clarify_lifecycle(on_step: OnStep, data: dict[str, object]) -> N
     call_id = new_step_call_id("clarify")
     await on_step(StepEvent("clarify", call_id, "running", data))
     await on_step(StepEvent("clarify", call_id, "done", data))
+
+
+@dataclass(frozen=True)
+class _TranslationContext:
+    """Resources a translation sub-agent call inherits from the parent run."""
+
+    model: Model
+    usage: RunUsage
+
+
+def build_translation_context(model: object, usage: RunUsage) -> _TranslationContext:
+    """Bundle a translation sub-agent's model and usage accumulator."""
+    return _TranslationContext(model=cast(Model, model), usage=usage)
+
+
+def new_translation_usage() -> RunUsage:
+    """Fresh usage accumulator for a translation sub-agent call."""
+    return RunUsage()
+
+
+def translation_usage(result: AgentResult, isolated: bool) -> RunUsage:
+    """Return the usage accumulator a translation sub-agent should mutate."""
+    if not isolated:
+        return result.usage or RunUsage()
+    usage = RunUsage()
+    result.supplemental_usage.append(AttributedUsage(usage, "platform"))
+    return usage
+
+
+def deserialize_message_history(raw_history: Sequence[object]) -> list[ModelMessage]:
+    """Rebuild validated ModelMessage list from serialized message data."""
+    if not raw_history:
+        return []
+    return list(ModelMessagesTypeAdapter.validate_python(raw_history))
+
+
+def resolve_request_model(
+    model: object, http_client: httpx.AsyncClient
+) -> Model | None:
+    """Resolve defaults only with an SDK-compatible shared transport."""
+    if model is None and isinstance(http_client, httpx.AsyncClient):
+        return get_default_model(http_client=http_client)
+    return resolve_model_alias(cast(Model | str | None, model), http_client=http_client)
+
+
+def to_model_turn_usage(usage: RunUsage) -> ModelTurnUsage:
+    """Map a run usage onto the neutral ModelTurnUsage for metering."""
+    if isinstance(usage, ModelTurnUsage):
+        return usage
+    return ModelTurnUsage(
+        prompt_tokens=usage.input_tokens,
+        completion_tokens=usage.output_tokens,
+        requests=usage.requests,
+    )

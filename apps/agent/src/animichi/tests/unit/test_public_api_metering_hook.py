@@ -36,7 +36,11 @@ def _db() -> MagicMock:
 
 def _metered_result() -> AgentResult:
     result = make_result()
-    result.usage = RunUsage(input_tokens=1_000_000, output_tokens=500_000, requests=1)
+    result.usage = RunUsage(
+        input_tokens=1_000_000,
+        output_tokens=500_000,
+        requests=1,
+    )
     return result
 
 

@@ -22,8 +22,8 @@ interface PublishedVersionRow extends Record<string, unknown> {
 }
 
 /** Publish a new version for a work; returns the new version number. */
-export async function publishVersion(db: CatalogDb, workId: string): Promise<number> {
-  const [flip, insert] = publishVersionStatements(workId);
+export async function publishVersion(db: CatalogDb, bangumiId: string): Promise<number> {
+  const [flip, insert] = publishVersionStatements(bangumiId);
   const [, inserted] = await db.batch([
     db.execute(flip),
     db.execute<PublishedVersionRow>(insert),
@@ -33,22 +33,22 @@ export async function publishVersion(db: CatalogDb, workId: string): Promise<num
 
 /** Ordered flip + insert-select statements shared by standalone and enrich batches. */
 export function publishVersionStatements(
-  workId: string,
+  bangumiId: string,
 ): readonly [SQL, SQL<PublishedVersionRow>] {
-  return [flipCurrentOff(workId), insertCurrent(workId)];
+  return [flipCurrentOff(bangumiId), insertCurrent(bangumiId)];
 }
 
 /** Flip the work's current row (if any) to is_current=false. */
-function flipCurrentOff(workId: string): SQL {
-  return sql`UPDATE cluster_version SET is_current = FALSE WHERE bangumi_id = ${workId} AND is_current`;
+function flipCurrentOff(bangumiId: string): SQL {
+  return sql`UPDATE cluster_version SET is_current = FALSE WHERE bangumi_id = ${bangumiId} AND is_current`;
 }
 
 /** Atomically derive and insert max(version)+1 (1 when no row exists). */
-function insertCurrent(workId: string): SQL<PublishedVersionRow> {
+function insertCurrent(bangumiId: string): SQL<PublishedVersionRow> {
   return sql<PublishedVersionRow>`
     INSERT INTO cluster_version (bangumi_id, version, is_current)
-    SELECT ${workId}, COALESCE(MAX(version), 0) + 1, TRUE
-    FROM cluster_version WHERE bangumi_id = ${workId}
+    SELECT ${bangumiId}, COALESCE(MAX(version), 0) + 1, TRUE
+    FROM cluster_version WHERE bangumi_id = ${bangumiId}
     RETURNING version
   `;
 }

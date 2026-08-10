@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 
 from asyncpg.exceptions import UndefinedTableError
-from pydantic_ai.usage import RunUsage
 
+from animichi.application.model_turn_port import ModelTurnUsage
 from animichi.interfaces.usage_metering import (
     UsagePrices,
     anonymous_budget_verdict,
@@ -75,13 +75,13 @@ def test_byok_flag_wins_even_over_an_anonymous_shaped_identity() -> None:
 
 
 def test_cost_prices_input_and_output_tokens_separately() -> None:
-    usage = RunUsage(input_tokens=1_000_000, output_tokens=500_000)
+    usage = ModelTurnUsage(prompt_tokens=1_000_000, completion_tokens=500_000)
     assert usage_cost_usd(usage, PRICES) == 6.0
 
 
 def test_an_unpriced_model_meters_tokens_at_zero_cost() -> None:
     free = UsagePrices(input_usd_per_mtok=0.0, output_usd_per_mtok=0.0)
-    assert usage_cost_usd(RunUsage(input_tokens=9_999), free) == 0.0
+    assert usage_cost_usd(ModelTurnUsage(prompt_tokens=9_999), free) == 0.0
 
 
 def test_utc_today_reads_the_injected_clock_in_utc() -> None:
@@ -90,7 +90,7 @@ def test_utc_today_reads_the_injected_clock_in_utc() -> None:
 
 async def test_record_turn_usage_banks_the_turn_under_its_scope() -> None:
     repo = _UsageRepoDouble()
-    usage = RunUsage(input_tokens=1_000_000, output_tokens=0)
+    usage = ModelTurnUsage(prompt_tokens=1_000_000)
     await record_turn_usage(repo, usage=usage, scope="anon", prices=PRICES, today=TODAY)
     assert repo.calls == [(TODAY, "anon", 2.0)]
 
@@ -103,7 +103,7 @@ async def test_record_turn_usage_ignores_a_turn_without_usage() -> None:
 
 async def test_record_turn_usage_is_a_noop_without_a_usage_repo() -> None:
     await record_turn_usage(
-        None, usage=RunUsage(), scope="anon", prices=PRICES, today=TODAY
+        None, usage=ModelTurnUsage(), scope="anon", prices=PRICES, today=TODAY
     )
 
 
@@ -162,7 +162,7 @@ async def test_a_missing_daily_usage_table_never_escapes_the_meter() -> None:
     """
     await record_turn_usage(
         _PgFailingRepo(),
-        usage=RunUsage(requests=1, input_tokens=100, output_tokens=50),
+        usage=ModelTurnUsage(requests=1, prompt_tokens=100, completion_tokens=50),
         scope="anon",
         prices=PRICES,
         today=TODAY,

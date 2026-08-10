@@ -7,32 +7,36 @@ session management in ``session_facade``, and persistence in ``persistence``.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cached_property
 from time import perf_counter
-from typing import cast
+from typing import Protocol, cast
 from uuid import uuid4
 
 import httpx
 import structlog
 from fastapi import HTTPException
-from pydantic_ai import ModelMessagesTypeAdapter
-from pydantic_ai.exceptions import FallbackExceptionGroup, ModelHTTPError
-from pydantic_ai.messages import ModelMessage
-from pydantic_ai.models import Model
-from pydantic_ai.usage import RunUsage
-from pydantic_ai_harness.memory import MemoryStore
 
 from animichi.agents.agent_result import AgentResult, AttributedUsage, UsagePayer
 from animichi.agents.animichi_agent import animichi_agent
-from animichi.agents.animichi_runner import run_animichi_agent
+from animichi.agents.animichi_runner import (
+    MemoryStore,
+    build_translation_context,
+    deserialize_message_history,
+    new_translation_usage,
+    resolve_request_model,
+    run_animichi_agent,
+    to_model_turn_usage,
+    translation_usage,
+)
 from animichi.agents.base import (
     ModelAliasError,
     build_model_http_client,
-    get_default_model,
     resolve_model,
-    resolve_model_alias,
+)
+from animichi.agents.error_boundary import (
+    is_byok_credential_rejection,
+    is_provider_error,
 )
 from animichi.agents.error_messages import build_input_error_message
 from animichi.agents.runtime_deps import (
@@ -51,6 +55,7 @@ from animichi.agents.selection import (
 )
 from animichi.agents.session_state import SessionState
 from animichi.agents.translation import (
+    TranslationContext,
     TranslationResult,
     translate_text,
     translate_title,
@@ -126,19 +131,8 @@ __all__ = [
 logger = structlog.get_logger(__name__)
 
 
-@dataclass(frozen=True)
-class _TranslationContext:
-    model: Model
-    usage: RunUsage
-
-
-def _is_byok_credential_rejection(exc: BaseException) -> bool:
-    """A provider-reported auth failure for a BYOK-supplied credential.
-
-    Only `ModelHTTPError` carries a structured `status_code`; a 401/403 here
-    means the caller's own key/base_url was rejected, never the server's.
-    """
-    return isinstance(exc, ModelHTTPError) and exc.status_code in (401, 403)
+class _ModelLike(Protocol):
+    """Structural stand-in for the framework model type (opaque passthrough)."""
 
 
 def _byok_credential_rejected_response() -> PublicAPIResponse:
@@ -148,19 +142,6 @@ def _byok_credential_rejected_response() -> PublicAPIResponse:
         "byok_credential_rejected",
         intent="error",
     )
-
-
-def _is_provider_error(exc: BaseException) -> bool:
-    """Detect transient provider errors by exception type, not string scanning."""
-    if isinstance(exc, ModelHTTPError):
-        return exc.status_code in (429, 502, 503)
-    if isinstance(exc, FallbackExceptionGroup):
-        return True
-    if isinstance(exc, httpx.TransportError):
-        return True
-    if isinstance(exc, httpx.HTTPStatusError):
-        return exc.response.status_code in (429, 502, 503)
-    return False
 
 
 def _span_record_exception(span: object, exc: BaseException) -> None:
@@ -271,7 +252,7 @@ class RuntimeAPI:
         self,
         request: PublicAPIRequest,
         *,
-        model: Model | str | None = None,
+        model: _ModelLike | str | None = None,
         is_byok: bool = False,
         user_id: str | None = None,
         user_type: str | None = None,
@@ -414,7 +395,7 @@ class RuntimeAPI:
         self,
         session_id: str | None,
         request: PublicAPIRequest,
-    ) -> tuple[dict[str, object], dict[str, object] | None, list[ModelMessage]]:
+    ) -> tuple[dict[str, object], dict[str, object] | None, list[object]]:
         """Load session state, context block, and message history."""
         previous_state = (
             await load_session_state(self._session_store, session_id)
@@ -427,15 +408,15 @@ class RuntimeAPI:
                 context = {}
             context["origin_lat"] = request.origin_lat
             context["origin_lng"] = request.origin_lng
-        message_history = _deserialize_history(previous_state)
+        message_history = build_message_history(previous_state)
         return previous_state, context, message_history
 
     async def _execute_pipeline(
         self,
         request: PublicAPIRequest,
         context: dict[str, object] | None,
-        message_history: list[ModelMessage],
-        effective_model: Model | str | None,
+        message_history: list[object],
+        effective_model: _ModelLike | str | None,
         on_step: OnStep | None,
         span: object,
         user_id: str | None,
@@ -482,11 +463,11 @@ class RuntimeAPI:
             )
         except Exception as exc:
             _span_record_exception(span, exc)
-            if is_byok and _is_byok_credential_rejection(exc):
+            if is_byok and is_byok_credential_rejection(exc):
                 logger.warning("byok_credential_rejected")
                 return None, _byok_credential_rejected_response(), context_delta
             error_msg = str(exc)
-            if _is_provider_error(exc):
+            if is_provider_error(exc):
                 logger.warning("provider_error", error=error_msg[:200])
                 return (
                     None,
@@ -531,28 +512,36 @@ class RuntimeAPI:
         self,
         request: PublicAPIRequest,
         context: dict[str, object] | None,
-        history: list[ModelMessage],
-        effective_model: Model | str | None,
+        history: list[object],
+        effective_model: _ModelLike | str | None,
         on_step: OnStep | None,
         user_id: str | None = None,
         *,
         is_byok: bool = False,
-    ) -> tuple[AgentResult, Model | None, bool]:
+    ) -> tuple[AgentResult, object | None, bool]:
         """Dispatch exactly one of point, candidate, or model request modes."""
-        model = _resolve_request_model(
-            effective_model,
-            self._model_http_client,
-        )
         if request.selected_point_ids is not None:
+            resolve_request_model(effective_model, self._model_http_client)
             result = await self._point_selection(request, context, on_step)
             return result, None, False
         if request.selected_candidate_ids is not None:
+            resolve_request_model(effective_model, self._model_http_client)
             result = await self._candidate_selection(request, context, on_step)
             return result, None, False
         result = await self._model_request(
-            request, context, history, model, on_step, user_id, is_byok=is_byok
+            request,
+            context,
+            history,
+            effective_model,
+            on_step,
+            user_id,
+            is_byok=is_byok,
         )
-        return result, model, True
+        return (
+            result,
+            resolve_request_model(effective_model, self._model_http_client),
+            True,
+        )
 
     async def _point_selection(
         self,
@@ -601,13 +590,14 @@ class RuntimeAPI:
         self,
         request: PublicAPIRequest,
         context: dict[str, object] | None,
-        history: list[ModelMessage],
-        model: Model | None,
+        history: list[object],
+        effective_model: _ModelLike | str | None,
         on_step: OnStep | None,
         user_id: str | None,
         *,
         is_byok: bool = False,
     ) -> AgentResult:
+        model = resolve_request_model(effective_model, self._model_http_client)
         supplemental_usage: list[AttributedUsage] = []
         result = await asyncio.wait_for(
             run_animichi_agent(
@@ -625,7 +615,7 @@ class RuntimeAPI:
                 model=model,
                 locale=request.locale,
                 context=context,
-                message_history=history,
+                message_history=deserialize_message_history(history),
                 on_step=on_step,
                 catalog=self._catalog,
                 title_translator=(
@@ -654,13 +644,15 @@ class RuntimeAPI:
         """
 
         async def _translate(title: str, target_language: str) -> TranslationResult:
-            usage = RunUsage()
+            usage = new_translation_usage()
             result = await translate_title(
                 title,
                 target_locale=target_language,
                 kind="anime_title",
                 catalog=self._catalog,
-                ctx=_TranslationContext(resolve_model(translation_agent.model), usage),
+                ctx=build_translation_context(
+                    resolve_model(translation_agent.model), usage
+                ),
             )
             if usage.requests > 0:
                 supplemental_usage.append(AttributedUsage(usage, "platform"))
@@ -721,7 +713,7 @@ async def handle_public_request(
     request: PublicAPIRequest,
     db: object,
     *,
-    model: Model | str | None = None,
+    model: _ModelLike | str | None = None,
     session_store: SessionStore | None = None,
     user_id: str | None = None,
     on_step: OnStep | None = None,
@@ -740,30 +732,10 @@ async def handle_public_request(
         await model_client.aclose()
 
 
-def _deserialize_history(
-    previous_state: dict[str, object],
-) -> list[ModelMessage]:
-    """Rebuild validated ModelMessage list from serialized session data."""
-    raw_history = build_message_history(previous_state)
-    if not raw_history:
-        return []
-    return list(ModelMessagesTypeAdapter.validate_python(raw_history))
-
-
 def _selection_state(context: dict[str, object] | None) -> SessionState:
     """Restore the typed selection oracle from the unified session context."""
     raw = context.get("session_state_v2") if context is not None else None
     return SessionState.model_validate(raw) if isinstance(raw, dict) else SessionState()
-
-
-def _resolve_request_model(
-    model: Model | str | None,
-    http_client: httpx.AsyncClient,
-) -> Model | None:
-    """Resolve defaults only with an SDK-compatible shared transport."""
-    if model is None and isinstance(http_client, httpx.AsyncClient):
-        return get_default_model(http_client=http_client)
-    return resolve_model_alias(model, http_client=http_client)
 
 
 def _invalid_selection_response(_message: str | None = None) -> PublicAPIResponse:
@@ -780,7 +752,7 @@ async def _apply_translation_gate(
     locale: str,
     on_step: OnStep | None,
     *,
-    model: Model | None,
+    model: object | None,
     isolate_platform_usage: bool = False,
 ) -> None:
     """Translate the agent message when its language mismatches *locale*.
@@ -813,19 +785,13 @@ async def _apply_translation_gate(
 
 
 def _translation_context(
-    result: AgentResult, model: Model | None, isolate_platform_usage: bool = False
-) -> _TranslationContext:
+    result: AgentResult,
+    model: object | None,
+    isolate_platform_usage: bool = False,
+) -> TranslationContext:
     selected = model or resolve_model(animichi_agent.model)
-    usage = _translation_usage(result, isolate_platform_usage)
-    return _TranslationContext(model=selected, usage=usage)
-
-
-def _translation_usage(result: AgentResult, isolated: bool) -> RunUsage:
-    if not isolated:
-        return result.usage or RunUsage()
-    usage = RunUsage()
-    result.supplemental_usage.append(AttributedUsage(usage, "platform"))
-    return usage
+    usage = translation_usage(result, isolate_platform_usage)
+    return build_translation_context(selected, usage)
 
 
 def _attributed_usage(result: AgentResult, is_byok: bool) -> list[AttributedUsage]:
@@ -843,7 +809,12 @@ async def _record_attributed_usage(
 ) -> None:
     scope = scope_for_identity(user_id, user_type, is_byok=item.payer == "byok")
     prices = platform_prices if item.payer == "platform" else UsagePrices(0.0, 0.0)
-    await record_turn_usage(usage_repo, usage=item.usage, scope=scope, prices=prices)
+    await record_turn_usage(
+        usage_repo,
+        usage=to_model_turn_usage(item.usage),
+        scope=scope,
+        prices=prices,
+    )
 
 
 async def record_attributed_usage(

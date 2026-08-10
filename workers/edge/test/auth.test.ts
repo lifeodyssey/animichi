@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 import { authenticate } from "../src/identity/auth.ts";
 
-const ENV = { SUPABASE_URL: "https://sb-base.example.test", SUPABASE_SERVICE_ROLE_KEY: "service" };
+const ENV = { SUPABASE_URL: "https://sb-base.example.test" };
 
 function stubFetch(handler: (url: string, init?: RequestInit) => Response, urls: string[] = []): typeof fetch {
   return ((input: RequestInfo | URL, init?: RequestInit) => {
@@ -34,19 +34,14 @@ void test("no Authorization header -> {ok:false, reason:absent}", async () => {
   assert.deepEqual(r, { ok: false, reason: "absent" });
 });
 
-void test("valid sk_ key -> agent + userId from api_keys", async () => {
-  const r = await authenticate(bearer("sk_fake_valid"), ENV, stubFetch((url) => {
-    if (url.includes("/rest/v1/api_keys") && url.includes("select=user_id"))
-      return new Response(JSON.stringify([{ user_id: "fake-agent" }]), { status: 200 });
-    return new Response("", { status: 200 });
-  }));
-  assert.deepEqual(r, { ok: true, userId: "fake-agent", userType: "agent" });
-});
-
-void test("unknown sk_ key (no rows) -> {ok:false}", async () => {
-  const r = await authenticate(bearer("sk_fake_unknown"), ENV, stubFetch((url) =>
-    url.includes("/rest/v1/api_keys") ? new Response("[]", { status: 200 }) : new Response("", { status: 200 })));
+void test("an sk_ credential is invalid, never an agent (AUTH-1: api_keys deleted)", async () => {
+  const urls: string[] = [];
+  const r = await authenticate(
+    bearer("sk_fake_agent"), ENV,
+    stubFetch(() => new Response("", { status: 500 }), urls),
+  );
   assert.deepEqual(r, { ok: false, reason: "invalid" });
+  assert.deepEqual(urls, [], "an sk_ credential must never trigger an api_keys lookup or JWKS fetch");
 });
 
 void test("valid ES256 token verifies locally", async () => {

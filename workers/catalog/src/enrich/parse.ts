@@ -81,17 +81,17 @@ function coverFromImages(images: unknown): string | null {
 }
 
 /** Parse a raw Bangumi v0 subject payload into a `bangumi` row. */
-export function parseBangumi(workId: string, payload: unknown): BangumiRow {
+export function parseBangumi(bangumiId: string, payload: unknown): BangumiRow {
   if (!isObject(payload)) throw new Error("Bangumi payload is not an object");
   const title = pickStr(payload, ["name", "name_cn"]);
   if (!title) throw new Error("Bangumi payload has no title");
-  return buildBangumiRow(workId, payload, title);
+  return buildBangumiRow(bangumiId, payload, title);
 }
 
 /** Assemble the `bangumi` row from a narrowed subject object. */
-function buildBangumiRow(workId: string, subject: Record<string, unknown>, title: string): BangumiRow {
+function buildBangumiRow(bangumiId: string, subject: Record<string, unknown>, title: string): BangumiRow {
   return {
-    id: workId,
+    id: bangumiId,
     title,
     ...bangumiMeta(subject),
   };
@@ -124,11 +124,11 @@ function ratingScore(rating: unknown): number | null {
 }
 
 /** Parse a raw Anitabi points payload into `points` rows, skipping bad items. */
-export function parseAnitabiPoints(workId: string, payload: unknown): PointRow[] {
+export function parseAnitabiPoints(bangumiId: string, payload: unknown): PointRow[] {
   const items = pointItems(payload);
   const rows: PointRow[] = [];
   for (const item of items) {
-    const row = tryParsePoint(workId, item);
+    const row = tryParsePoint(bangumiId, item);
     if (row) rows.push(row);
   }
   return rows;
@@ -148,12 +148,12 @@ function nestedList(payload: unknown): unknown[] {
 }
 
 /** Parse one point item, returning null if it lacks id/name/coords. */
-function tryParsePoint(workId: string, item: Record<string, unknown>): PointRow | null {
+function tryParsePoint(bangumiId: string, item: Record<string, unknown>): PointRow | null {
   const id = asStr(item.id);
   const coords = pointCoords(item);
   const name = pickStr(item, ["name", "cn", "cn_name"]);
   if (!id || !coords || !name) return null;
-  return buildPointRow(workId, item, { id, name, ...coords });
+  return buildPointRow(bangumiId, item, { id, name, ...coords });
 }
 
 /** Resolve [lat, lng] from the legacy lat/lng pair or the official geo array. */
@@ -176,11 +176,11 @@ function numericCoords(
 
 /** Assemble the `points` row from a narrowed point object. */
 function buildPointRow(
-  workId: string,
+  bangumiId: string,
   item: Record<string, unknown>,
   core: { id: string; name: string; latitude: number; longitude: number },
 ): PointRow {
-  return { ...core, bangumi_id: workId, ...pointMeta(item) };
+  return { ...core, bangumi_id: bangumiId, ...pointMeta(item) };
 }
 
 type PointMeta = Pick<PointRow, "name_cn" | "image" | "episode" | "time_seconds" | "origin" | "origin_url">;
