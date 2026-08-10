@@ -30,7 +30,7 @@ SCRIPTS = File.join(ROOT, ".github/scripts")
 
 # Immutable decision/history records: archived specs and plans, iteration
 # records, and dated ADRs.
-HISTORICAL_DIRS = %w[docs/archive docs/iterations docs/specs docs/adr].freeze
+HISTORICAL_DIRS = ["docs/archive", "docs/iterations", "docs/specs", "docs/adr"].freeze
 
 # Exact-path allowlist for each retired vocabulary term. Paths are relative to
 # ROOT; a trailing "/**" prefix-matches a directory.
