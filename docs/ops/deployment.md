@@ -6,6 +6,30 @@ The old root `DEPLOYMENT.md` compatibility pointer was removed in iter6 A6 (#640
 This file covers non-secret runtime config. For what each GitHub secret is, who consumes it,
 and rotation impact, see [`secrets.md`](./secrets.md).
 
+## SAFE-1: production freeze (2026-08-10)
+
+Every production entry point (`ci.yml` promotion, manual `deploy.yml`, and `rollback.yml`) routes
+through the SAFE-1 eligibility workflow. It resolves the immutable pre-campaign release manifest
+(`.github/release-manifests/production-pre-campaign.json`, content-addressed by pinned Git blob id
+and SHA-256) from the GitHub API — never from the working tree — and judges the candidate SHA.
+
+- **Eligible** when the candidate `github.sha` equals the pinned pre-campaign source revision
+  `b94c30ab6a519f1cce9eb0a3f7885953f8ff54cf` (Atlas target `20260809000031`). Production jobs then
+  check out that pinned revision, verify `HEAD` and `atlas.sum`, and apply Atlas with the pinned
+  target.
+- **Ineligible** otherwise: every production job is skipped (CI records the reason in the
+  `production-eligibility` job's log as a notice: "candidate <sha> is not the pinned pre-campaign
+  source <sha> — campaign revisions cannot mutate production"). The reusable deploy additionally
+  fails closed before Atlas/Pulumi/Wrangler if an ineligible caller somehow reaches it.
+- **Rollback** has no caller-supplied `version_id` anymore: eligibility resolves from the manifest,
+  and every component is rollback-ineligible until an owner-approved manifest revision marks a
+  component/version pair eligible.
+
+Operator notes: the freeze is a self-referential GitHub Actions guard — it makes ordinary campaign
+revisions technically unable to mutate production, and it cannot stop someone who deliberately
+edits the freeze's own workflows or resolver pins. Staging behavior and DAG are unchanged.
+
+
 ## Edge Topology
 
 ```text
@@ -393,19 +417,18 @@ Its current order is:
 
 1. install workspace dependencies (`pnpm install --frozen-lockfile`); there is no app build
    step — the root Worker ships as TypeScript source
-2. validate the checked-in Neon migration directory with pinned Atlas (the manual path does not
-   mutate the database)
-3. deploy the catalog Worker first, because the root Worker service binding depends on it
-4. deploy the users Worker before the root Worker, because the root `USERS` binding depends on it
-5. deploy the scheduled maintenance Worker (DSN supplied by its Secrets Store binding on
+2. deploy the catalog Worker first, because the root Worker service binding depends on it
+3. deploy the users Worker before the root Worker, because the root `USERS` binding depends on it
+4. deploy the scheduled maintenance Worker (DSN supplied by its Secrets Store binding on
    staging; GitHub-environment secret on production)
-6. verify `Dockerfile` exists
-7. deploy the root Worker/container with Wrangler
+5. verify `Dockerfile` exists
+6. deploy the root Worker/container with Wrangler
 
-The approval-gated main promotion (`reusable-deploy-component.yml`) applies `migrations/neon/` before its
-catalog/users rollout. This manual path does not apply either the Neon or frozen Supabase
-compatibility directory; an explicitly approved auth migration follows the separate Supabase
-owner/runbook and must not be used to change Neon catalog or user tables.
+The manual path runs the same `reusable-deploy-component.yml` as the CI promotion, so it applies
+`migrations/neon/` (when `NEON_DATABASE_URL` is set) exactly like the CI path — it is not a
+migration-free path. The frozen Supabase compatibility directory is never applied by either path;
+an explicitly approved auth migration follows the separate Supabase owner/runbook and must not be
+used to change Neon catalog or user tables.
 
 Do not use version tags as a deploy trigger for the current pipeline.
 
