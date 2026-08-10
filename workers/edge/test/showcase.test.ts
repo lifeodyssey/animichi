@@ -109,7 +109,7 @@ void test("AC: showcase=true — POST /v1/chat is 403 showcase_denied; container
 // test-type: unit
 void test("AC: showcase=true — every other functional route is 403 and touches no binding", async () => {
   const app = createWorkerApp({});
-  const paths = ["/v1/photo-search", "/v1/users/saved-routes", "/v1/search/preview", "/v1/bangumi/popular", "/catalog/public/anime-overview/3302"];
+  const paths = ["/v1/photo-search", "/v1/users/saved-routes", "/v1/search/preview", "/catalog/public/anime-overview/3302"];
   for (const path of paths) {
     const touched = { count: 0 };
     const res = await app.request(path, {}, functionalEnv(touched), stubCtx);

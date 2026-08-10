@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { catalog } from "../orpc";
 
 /** Query options for the popular ranking, keyed under `["catalog", "popular", limit]`. */

@@ -68,13 +68,13 @@ function buildCircles(rows: OverviewPointRow[]): AnimeOverviewCircle[] {
     const lng = members.reduce((sum, row) => sum + row.longitude, 0) / count;
     circles.push({ region, count, lat, lng });
   }
-  return circles;
+  return circles.sort((a, b) => b.count - a.count || a.region.localeCompare(b.region));
 }
 
 function buildScenes(rows: OverviewPointRow[]): AnimeScene[] {
   const scenes = clusterByLocation(rows, CLUSTER_RADIUS_M).map(toScene);
   return scenes
-    .sort((a, b) => b.shot_count - a.shot_count)
+    .sort((a, b) => b.shot_count - a.shot_count || a.id.localeCompare(b.id))
     .slice(0, SCENE_LIMIT);
 }
 
@@ -101,7 +101,7 @@ function representative(cluster: LocationCluster<OverviewPointRow>): OverviewPoi
 
 function buildSampleItineraries(rows: OverviewPointRow[]): AnimeSampleItinerary[] {
   return [...groupByRegion(rows).entries()]
-    .sort((a, b) => b[1].length - a[1].length)
+    .sort(([ar, a], [br, b]) => b.length - a.length || ar.localeCompare(br))
     .slice(0, SAMPLE_ITINERARY_REGION_LIMIT)
     .map(([region, members]) => ({
       region,
