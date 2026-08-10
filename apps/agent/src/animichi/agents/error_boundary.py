@@ -100,3 +100,25 @@ def error_boundary_hooks() -> Hooks[RuntimeDeps]:
     hooks.on.tool_execute_error(_on_tool_execute_error)
     hooks.on.run_error(_on_run_error)
     return hooks
+
+
+def is_byok_credential_rejection(exc: object) -> bool:
+    """A provider-reported auth failure for a BYOK-supplied credential.
+
+    Only `ModelHTTPError` carries a structured `status_code`; a 401/403 here
+    means the caller's own key/base_url was rejected, never the server's.
+    """
+    return isinstance(exc, ModelHTTPError) and exc.status_code in (401, 403)
+
+
+def is_provider_error(exc: object) -> bool:
+    """Detect transient provider errors by exception type, not string scanning."""
+    if isinstance(exc, ModelHTTPError):
+        return exc.status_code in (429, 502, 503)
+    if isinstance(exc, FallbackExceptionGroup):
+        return True
+    if isinstance(exc, httpx.TransportError):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in (429, 502, 503)
+    return False

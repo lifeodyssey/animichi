@@ -279,7 +279,7 @@ async def test_alias_override_reuses_injected_model_client() -> None:
     )
     with (
         patch(
-            "animichi.interfaces.public_api.resolve_model_alias",
+            "animichi.agents.animichi_runner.resolve_model_alias",
             wraps=resolve_model_alias,
         ) as resolve,
         patch.object(api, "_model_request", new=AsyncMock(return_value=result)),
@@ -310,7 +310,7 @@ async def test_default_model_reuses_injected_model_client() -> None:
     with (
         patch("animichi.config.get_settings", return_value=settings),
         patch(
-            "animichi.interfaces.public_api.get_default_model", wraps=get_default_model
+            "animichi.agents.animichi_runner.get_default_model", wraps=get_default_model
         ),
         patch.object(api, "_model_request", new=AsyncMock(return_value=result)),
         patch(

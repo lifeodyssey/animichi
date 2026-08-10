@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import cast
 
+import httpx
 import structlog
 from pydantic import ValidationError
+from pydantic_ai import ModelMessagesTypeAdapter
 from pydantic_ai.exceptions import (
     ContentFilterError,
     UnexpectedModelBehavior,
@@ -18,7 +22,11 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import RunUsage, UsageLimits
 from pydantic_ai_harness.memory import MemoryStore
 
-from animichi.agents.agent_result import AgentResult, StepRecord
+from animichi.agents.agent_result import (
+    AgentResult,
+    AttributedUsage,
+    StepRecord,
+)
 from animichi.agents.animichi_agent import (
     _input_guard_enabled,
     animichi_agent,
@@ -26,7 +34,7 @@ from animichi.agents.animichi_agent import (
     build_user_memory_capability,
     trusted_session_context,
 )
-from animichi.agents.base import resolve_model_alias
+from animichi.agents.base import get_default_model, resolve_model_alias
 from animichi.agents.runtime_deps import (
     OnStep,
     RuntimeDeps,
@@ -444,3 +452,57 @@ async def _emit_clarify_lifecycle(on_step: OnStep, data: dict[str, object]) -> N
     call_id = new_step_call_id("clarify")
     await on_step(StepEvent("clarify", call_id, "running", data))
     await on_step(StepEvent("clarify", call_id, "done", data))
+
+
+@dataclass(frozen=True)
+class _TranslationContext:
+    """Resources a translation sub-agent call inherits from the parent run."""
+
+    model: Model
+    usage: RunUsage
+
+
+def build_translation_context(model: object, usage: RunUsage) -> _TranslationContext:
+    """Bundle a translation sub-agent's model and usage accumulator."""
+    return _TranslationContext(model=cast(Model, model), usage=usage)
+
+
+def new_translation_usage() -> RunUsage:
+    """Fresh usage accumulator for a translation sub-agent call."""
+    return RunUsage()
+
+
+def translation_usage(result: AgentResult, isolated: bool) -> RunUsage:
+    """Return the usage accumulator a translation sub-agent should mutate."""
+    if not isolated:
+        return result.usage or RunUsage()
+    usage = RunUsage()
+    result.supplemental_usage.append(AttributedUsage(usage, "platform"))
+    return usage
+
+
+def deserialize_message_history(raw_history: Sequence[object]) -> list[ModelMessage]:
+    """Rebuild validated ModelMessage list from serialized message data."""
+    if not raw_history:
+        return []
+    return list(ModelMessagesTypeAdapter.validate_python(raw_history))
+
+
+def resolve_request_model(
+    model: object, http_client: httpx.AsyncClient
+) -> Model | None:
+    """Resolve defaults only with an SDK-compatible shared transport."""
+    if model is None and isinstance(http_client, httpx.AsyncClient):
+        return get_default_model(http_client=http_client)
+    return resolve_model_alias(cast(Model | str | None, model), http_client=http_client)
+
+
+def to_model_turn_usage(usage: RunUsage) -> ModelTurnUsage:
+    """Map a run usage onto the neutral ModelTurnUsage for metering."""
+    if isinstance(usage, ModelTurnUsage):
+        return usage
+    return ModelTurnUsage(
+        prompt_tokens=usage.input_tokens,
+        completion_tokens=usage.output_tokens,
+        requests=usage.requests,
+    )
