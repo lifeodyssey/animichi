@@ -4,7 +4,7 @@
 # SAFE-1 production freeze contract (Phase A characterization → target
 # invariants after Phase B2 wired the guard).
 #
-# This pins the release semantics of the production deploy surface after the
+# Pins the release semantics of the production deploy surface after the
 # SAFE-1 promotion-eligibility changes land. Semantics only — never whitespace
 # trivia:
 #
@@ -15,12 +15,11 @@
 #      AGENT_DATABASE_URL, the jobs_svc grants, and both cron schedules.
 #   3. Atlas head is 20260809000031 and migrations/neon/atlas.sum hashes to
 #      the pinned SHA-256.
-#   4. The SAFE-1 target invariants (replacing the Phase A unsafe-behavior
-#      characterizations): every production entry point routes through the
-#      eligibility workflow and gates on the pinned manifest; rollback has no
-#      caller-supplied version_id and stops before Wrangler when ineligible;
-#      production checkout, Atlas target, build metadata, and smoke
-#      expectations resolve from the pinned revision, never github.sha.
+#   4. SAFE-1 target invariants: every production entry point gates on the
+#      eligibility workflow; rollback has no caller version_id and stops
+#      before Wrangler when ineligible; production checkout, Atlas target,
+#      build metadata, and smoke expectations resolve from the pinned
+#      revision, never github.sha.
 
 require "yaml"
 require "digest"
@@ -127,8 +126,7 @@ sum = Digest::SHA256.file("migrations/neon/atlas.sum").hexdigest
 abort "atlas.sum SHA-256 must be e0428e7a9b25745a8d1f22f8fbcec5c915a8e18d56a7a45f5fe3554158b6ab80, got #{sum}" \
   unless sum == "e0428e7a9b25745a8d1f22f8fbcec5c915a8e18d56a7a45f5fe3554158b6ab80"
 
-# ── 4. SAFE-1 target invariants (replaces the Phase A unsafe-behavior
-#        characterizations — the guard is now wired) ─────────────────────────
+# ── 4. SAFE-1 target invariants (the guard is now wired) ────────────────────
 # 4a. Every production entry point routes through the eligibility workflow and
 #     only runs when the pinned manifest marks the candidate eligible.
 eligibility_source = File.read(File.join(WORKFLOWS, "reusable-production-eligibility.yml"))
@@ -157,23 +155,22 @@ abort "eligibility workflow must expose eligible/source_revision/reason outputs"
     unless post.fetch("with")["expected_source_revision"] == "${{ needs.production-eligibility.outputs.source_revision }}"
 end
 
-# 4b. Rollback: caller-supplied version_id is gone; component/config/rollback
-#     eligibility resolve from the pinned manifest, and rollback-ineligible
-#     components stop before any Wrangler command.
+# 4b. Rollback: no caller version_id; eligibility resolves from the pinned
+#     manifest BEFORE checkout; ineligible stops before checkout or Wrangler.
 rollback = load_workflow("rollback.yml")
+rollback_source = File.read(File.join(WORKFLOWS, "rollback.yml"))
 abort "rollback.yml must not accept a caller-supplied version_id input" \
   if triggers(rollback).fetch("workflow_dispatch").fetch("inputs").key?("version_id")
-rollback_source = File.read(File.join(WORKFLOWS, "rollback.yml"))
-abort "rollback.yml must resolve eligibility from the pinned manifest" \
-  unless rollback_source.include?("release-eligibility.sh")
+abort "rollback.yml must verify the pinned manifest SHA-256 inline" \
+  unless rollback_source.include?("PINNED_MANIFEST_SHA256")
+abort "rollback.yml must gate BEFORE checkout" \
+  unless rollback_source.index("Resolve manifest rollback eligibility") < rollback_source.index("actions/checkout")
 abort "rollback.yml must fail closed on rollback-ineligible components" \
   unless rollback_source.include?("rollback-ineligible")
-abort "rollback.yml must never forward a caller version_id to wrangler" \
-  if rollback_source.include?("wrangler rollback \"$VERSION_ID\"")
 
-# 4c. The reusable deploy resolves the pinned manifest for production, checks
-#     out the pinned source revision, verifies HEAD + atlas.sum, and applies
-#     the pinned Atlas target — staging keeps caller-SHA behavior.
+# 4c. The reusable deploy resolves the pinned manifest, checks out the pinned
+#     source revision, verifies HEAD + atlas.sum, applies the pinned Atlas
+#     target — staging keeps caller-SHA behavior.
 reusable = load_workflow("reusable-deploy-component.yml")
 reusable_source = File.read(File.join(WORKFLOWS, "reusable-deploy-component.yml"))
 abort "reusable deploy must resolve the pinned manifest for production" \
@@ -187,8 +184,8 @@ abort "reusable deploy must verify atlas.sum against the pinned digest" \
 abort "reusable deploy must apply the pinned Atlas target for production" \
   unless reusable_source.include?("--to-version")
 
-# 4d. Post-deploy smoke expectations: production uses the resolved revision,
-#     never the campaign github.sha; the healthz contract is revision-based.
+# 4d. Post-deploy smokes: production expects the resolved revision, never the
+#     campaign github.sha.
 %w[reusable-deploy-component.yml reusable-post-deploy-test.yml].each do |file|
   source = File.read(File.join(WORKFLOWS, file))
   abort "#{file} must not expect github.sha unconditionally as the deployed commit" \
@@ -199,6 +196,5 @@ end
 abort "reusable deploy must bake the pinned revision for production" \
   unless reusable_source.include?("pinned-pre-campaign")
 
-puts "SAFE-1 production freeze contract: eligibility gate on all production entry points; " \
-     "rollback version_id removed; pinned manifest resolution for production checkout, " \
-     "Atlas target, build metadata, and smoke expectations"
+puts "SAFE-1 freeze: eligibility gate on all production entry points; rollback version_id " \
+     "removed; pinned manifest resolution for checkout, Atlas target, build metadata, smokes"

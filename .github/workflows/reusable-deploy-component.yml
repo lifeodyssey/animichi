@@ -502,6 +502,13 @@ jobs:
         # consideration, not the safety check itself.
         run: |
           if [ -z "$NEON_DATABASE_URL" ]; then
+            # SAFE-1 (#937): a production run MUST apply the pinned Atlas
+            # target before deploying — an empty URL is a fail-closed error,
+            # not a skip. Staging keeps the pre-campaign skip behavior.
+            if [ "$TARGET_ENVIRONMENT" = "production" ]; then
+              echo "::error::NEON_DATABASE_URL not set — production requires the pinned Atlas apply before deploy; refusing to continue"
+              exit 1
+            fi
             echo "NEON_DATABASE_URL not set — skipping atlas migrate"; exit 0
           fi
           curl -sSfL --proto '=https' --proto-redir '=https' "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" -o /usr/local/bin/atlas
