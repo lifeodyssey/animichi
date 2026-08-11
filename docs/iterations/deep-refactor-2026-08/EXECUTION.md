@@ -80,10 +80,9 @@ removed) — ruleset now 32 contexts.
 - RUNNING ELSEWHERE: TURN-4 (#955) ralph loop in `.worktrees/turn-4` (chat commands through AgentTurn; files actively changing).
 - TODO: TURN-4 #955 → WEB-1 #958 + SESSION-1 #959 (need #955) → SESSION-2 #960 → SESSION-3 #961 → AGENT-3 #962 → EDGE-1 #963.
 
-**Recovery point (2026-08-12 ~03:35)**: `origin/main` at `e9cf75fc` — SESSION-1 #959 via #986 merged; issue closed; worktree removed. **Waves 0–6 DONE** (all 20 tickets of waves 0–6 merged: #937–#950, #951–#959; only #960/#961/#962/#963 open).
-- RUNNING: SESSION-2 #960 ralph loop in `.worktrees/session-2` (w7:p1) — AdoptSessions ownership command (needs #955/#950/#958/#959, all merged).
-- NEXT: SESSION-2 PR → SESSION-3 #961 (needs #960) → AGENT-3 #962 (needs #961) → EDGE-1 #963 (needs #961/#962 + waves 0–6).
-- Note: `gh pr merge` CLI blocks on stale `mergeStateStatus` (copilot-code-review rule) — merge via REST `PUT /pulls/{n}/merge` after the two-way gate; Agent Eval flake retry-once then document; DB/build transient cert failures re-run.
+**Recovery point (2026-08-12 ~05:30)**: `origin/main` at `e9cf75fc` — SESSION-2 #960 PR #987 open, CI green (codecov 97.6%, SonarCloud pass, invariants pass) but 10 coderabbit threads raised (all FIX): adopt: turn-key spoof/prune exclusion, adopt-body limit, AuthCallback/use-auth-callback nesting + timeout-retry convergence, session-adoption response validation, 2 test-conditional fixes, e2e page-scoped stub, edge route gates (POST-only adopt + explicit migrate-path reject). Fix round running in `.worktrees/session-2` (w7:p1).
+- NEXT: fix round → merge #987 → close #960 → SESSION-3 #961 (brief + prompt ready, staging cutover) → AGENT-3 #962 → EDGE-1 #963.
+- Note: Agent Eval flaked twice on #987 (documented); codecov local/CI discrepancy on the route file resolved by direct-call tests (97.6% ✓); `gh pr merge` CLI false-blocks on stale mergeStateStatus → use REST PUT /pulls/{n}/merge after the two-way gate.
 
 **SAFE-1 (historical) is DONE**: merged via PR #964 (squash `f44a76e9`-based stack; final head on
 `main`), issue closed. The safe-1-promotion-guard worktree and branch are removed; its
