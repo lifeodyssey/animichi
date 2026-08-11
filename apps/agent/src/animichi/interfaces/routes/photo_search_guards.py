@@ -50,6 +50,7 @@ class PhotoSearchRejection(Exception):
         "image_too_large",
         "photo_search_quota_exhausted",
         "invalid_request",
+        "turn_lease_lost",
     ]
     message: str
     guidance: GuidancePremise | None = None
