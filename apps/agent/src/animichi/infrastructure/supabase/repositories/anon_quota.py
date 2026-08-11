@@ -29,21 +29,3 @@ class AnonQuotaRepository:
         )
         count = 0 if row is None else row["message_count"]
         return int(count)
-
-    async def purge_older_than(self, cutoff: date) -> int:
-        """Delete rows strictly older than *cutoff*; returns the count removed.
-
-        No FK backstop is needed here (unlike the session-purge precedent):
-        this table is a pure aggregate counter with no dependent rows, so a
-        plain age-based delete is the whole retention policy.
-        """
-        result = await self._pool.execute(
-            "DELETE FROM anon_daily_message_count WHERE usage_date < $1", cutoff
-        )
-        return _parse_delete_count(result)
-
-
-def _parse_delete_count(result: str) -> int:
-    """asyncpg's `execute` returns a command tag like ``"DELETE 3"``."""
-    parts = result.split()
-    return int(parts[-1]) if len(parts) == 2 and parts[0] == "DELETE" else 0

@@ -22,9 +22,6 @@
     "Users / lint",
     "Users / test",
     "Users / build",
-    "Maintenance / lint",
-    "Maintenance / test",
-    "Maintenance / build",
     "Edge / lint",
     "Edge / test",
     "Edge / build",
@@ -80,6 +77,7 @@
     ]
   },
   "_notes": [
+    "RETENTION-1 (2026-08-10, #940): the three 'Maintenance / *' contexts were removed from required_checks (now 32) because pipeline-maintenance.yml was deleted with the retired jobs Worker. The live ruleset must drop them in the same change that removes the lane (guard: test_ci_contract.rb asserts every name here has a producing job check-run).",
     "APPLIED STATE (verified via gh api repos/lifeodyssey/animichi/rulesets/19974534 on 2026-08-06 after the orchestrator's hard-switch PUT): enforcement=active, bypass_actors=[], conditions ~DEFAULT_BRANCH, required_status_checks = exactly the 35 names in required_checks. The 6 retired contexts (see _retired_contexts) were deleted in the same PUT.",
     "HISTORICAL (pre-PUT, 2026-08-06): the live ruleset had exactly 9 contexts — the 6 retired lanes + Web / lint + Web / test + Web / build. The one-shot PUT deleted the 6 and added the 23 new stage/security contexts; Web / lint|test|build were already required by B1's union step and stayed. The two-step union order was not executable because the 6 retired contexts no longer produce on this PR's head — required checks with no producing lane would leave the merge queue Pending forever (bypass_actors: [] means nobody can clear it either).",
     "Quality / invariants IS required since the PUT (it was NOT before — it is one of the 23 added).",

@@ -1,3 +1,0 @@
-# Local-only agent-domain Neon DSN. Copy to `.dev.vars` (git-ignored).
-# Leave this empty in source control; never commit the real DSN.
-AGENT_DATABASE_URL=

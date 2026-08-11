@@ -128,9 +128,6 @@ class Settings(BaseSettings):
         ge=0,
         description="Per-identity daily message cap for anonymous users (None or 0 disables)",
     )
-    # anon_daily_message_count and anonymous-session retention windows moved
-    # to `PurgeCronSettings` (agent/config/cron_settings.py, issue #508) —
-    # the only two things that ever read them are the DB-only purge crons.
     model_input_cost_per_mtok_usd: float = Field(
         default=0.0, ge=0, description="Input token price per million tokens (USD)"
     )

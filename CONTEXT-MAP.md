@@ -14,7 +14,6 @@ Consumer rules: `docs/agents/domain.md` (when present). Per-package `CONTEXT.md`
 | **Agent** | [`apps/agent/CONTEXT.md`](./apps/agent/CONTEXT.md) | `apps/agent` |
 | **Edge** | [`workers/edge/CONTEXT.md`](./workers/edge/CONTEXT.md) | `workers/edge` |
 | **Web** | `apps/web/CONTEXT.md` (lazy) | `apps/web` |
-| **Jobs** (retention cron; was Maintenance) | `workers/jobs/CONTEXT.md` (rename #836 landed) | `workers/jobs` (target path) |
 | **Migrations** | `migrations/CONTEXT.md` (lazy) | `migrations/neon`, `migrations/supabase` (target paths) |
 | **Infra** | `infra/CONTEXT.md` (lazy) | `infra` |
 | **Auth appliance** | — | `supabase/` (auth-only, no package guide) |
@@ -32,7 +31,6 @@ Greenfield (no dual wire names / table aliases):
 - **Agent → Catalog**: Customer–supplier; Agent needs Points / Bangumi / Itineraries; Catalog owns master data and planning.
 - **Users → Catalog (by id only)**: **SavedRoute** stores `point_ids`, not Point rows; Users does not redefine Point.
 - **Agent ↔ Users**: Claim anonymous **Session** / saved data after login (via Users APIs / product flows).
-- **Jobs → Agent data plane**: Cron retention jobs over anonymous Session / quota tables; no public route (`workers/jobs`, was maintenance).
 - **All → Contract**: Published language for cross-boundary DTOs; prefer glossary terms above over ad-hoc synonyms.
 
 ## Core vocabulary (cross-context)
@@ -54,7 +52,6 @@ Greenfield (no dual wire names / table aliases):
 | `workers/users` | **Shallow** | Pure rules + ports; no heavy DDD tree |
 | `workers/edge` | **No** | Gateway only — never `src/domain/` for pilgrimage |
 | `apps/web` | **No** | UI — no `src/domain/` |
-| `workers/jobs` | **No** | Job + Schedule only |
 | `infra` | **No** | Topology / Cloudflare only |
 | `packages/contract` | N/A | Published language, not a BC with domain/ |
 

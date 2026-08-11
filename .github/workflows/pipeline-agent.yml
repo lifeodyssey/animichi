@@ -71,7 +71,7 @@ jobs:
       - name: Ruff format check
         run: uv run --frozen --no-build --no-binary-package animichi ruff format --check src/animichi/
       - name: Type check (mypy strict)
-        run: uv run --frozen --no-build --no-binary-package animichi mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/scripts/purge_anonymous_sessions.py
+        run: uv run --frozen --no-build --no-binary-package animichi mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/
       - name: Dead code (vulture)
         run: uv run --frozen --no-build --no-binary-package animichi vulture src/animichi/ vulture_whitelist.py
       - name: Dependency audit (pip-audit)

@@ -105,7 +105,7 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       # --no-build rejected: this project's own editable package has no wheel
-      # (see purge-anonymous-sessions.yml's NOTE and pipeline-agent.yml).
+      # (see pipeline-agent.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Run L0 smoke trajectory eval (zero-errored + direct gates)
@@ -171,7 +171,7 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       # --no-build rejected: this project's own editable package has no wheel
-      # (see purge-anonymous-sessions.yml's NOTE and pipeline-agent.yml).
+      # (see pipeline-agent.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Install pinned Atlas CLI
@@ -399,24 +399,6 @@ jobs:
       NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
     concurrency: deploy-users-staging
 
-  deploy-maintenance-staging:
-    name: Deploy maintenance staging
-    needs: [deploy-staging]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/reusable-deploy-component.yml
-    with:
-      component: maintenance
-      environment: staging
-      pulumi_stack: staging
-      working_directory: workers/jobs
-      run_pulumi: false
-    secrets:
-      # #912 PR2: the staging DSN arrives via the wrangler.toml Secrets Store
-      # binding — no AGENT_DATABASE_URL upload, no GH secret pass-through.
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-    concurrency: deploy-maintenance-staging
-
   deploy-root-staging:
     name: Deploy root staging
     needs: [deploy-staging, deploy-users-staging]
@@ -479,7 +461,7 @@ jobs:
 
   post-staging:
     name: Post-deploy (staging)
-    needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-maintenance-staging, deploy-root-staging]
+    needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-root-staging]
     uses: ./.github/workflows/reusable-post-deploy-test.yml
     with:
       environment: staging

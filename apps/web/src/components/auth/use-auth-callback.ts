@@ -138,7 +138,7 @@ export interface AuthCallbackSession {
    * matches zero rows the second time, and the `aid` cookie still resolves. */
   readonly retryMigration: () => void;
   /** Move on without the claim. The anonymous work stays behind that identity,
-   * reachable by a later login — until the 30-day routeless-session purge. */
+   * still reachable by a later login. */
   readonly dismissMigration: () => void;
 }
 

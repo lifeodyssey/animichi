@@ -102,8 +102,8 @@ missing = expected_grants.reject { |line| grants.include?(line) }
 abort "jobs_svc grants missing: #{missing.join('; ')}" unless missing.empty?
 
 jobs_toml = File.read("workers/jobs/wrangler.toml")
-abort "jobs wrangler.toml must declare both crons in base, staging, and production" \
-  unless jobs_toml.scan('crons = ["37 18 * * *", "37 19 * * *"]').size == 3
+abort "jobs wrangler.toml must declare both crons in base and production" \
+  unless jobs_toml.scan('crons = ["37 18 * * *", "37 19 * * *"]').size == 2
 
 # Production identity, scoped to the [env.production] subtree: the worker
 # deployed to production must be named `jobs`, and its secrets.required must

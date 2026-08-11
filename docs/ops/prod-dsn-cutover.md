@@ -48,11 +48,11 @@ Staging landed this wire (#912 follow-up). Two consequences for prod:
   store binding once the prod store story below is settled — until then the prod container
   keeps `SUPABASE_DB_URL`.
 - **Naming collision**: the store secret is `AGENT_SVC_DATABASE_URL`, not
-  `AGENT_DATABASE_URL` — that store secret name is already claimed by the jobs Worker's
-  binding (`jobs_svc` role) and store secret names are unique per store. The iter6 R1
+  `AGENT_DATABASE_URL` — the latter name is the SAFE-1-pinned production jobs Worker
+  secret (`AGENT_DATABASE_URL` worker secret; RETENTION-1 retired the staging store
+  secret of that name) and store secret names are unique per store. The iter6 R1
   rename plan (`SUPABASE_DB_URL → AGENT_DATABASE_URL`) is therefore amended to
-  `SUPABASE_DB_URL → AGENT_SVC_DATABASE_URL`. (If the jobs binding were ever renamed
-  `JOBS_DATABASE_URL`, `AGENT_DATABASE_URL` would free up — out of scope.)
+  `SUPABASE_DB_URL → AGENT_SVC_DATABASE_URL`.
 
 ## neon-secrets prod stack (Pulumi)
 
@@ -89,7 +89,8 @@ approval + secrets are HITL. Steps:
    window. Roles reused, DSNs composed against the **main-branch endpoint**.
 4. **Wire prod consumers** (deploy workflow changes, separate PR): add
    `AGENT_SVC_DATABASE_URL` to the edge Worker's `[env.production.secrets_store_secrets]`
-   and/or CI `worker_secrets`; jobs stays on `AGENT_DATABASE_URL` (jobs_svc). Remove the
+   and/or CI `worker_secrets`. The jobs Worker is out of this cutover's scope: it stays on
+   the `AGENT_DATABASE_URL` worker secret per the SAFE-1 production pin (#937). Remove the
    prod GitHub `*_DATABASE_URL`/`SUPABASE_DB_URL` secrets only after the bindings verify
    (step 5 of the cutover below).
 

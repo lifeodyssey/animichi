@@ -32,8 +32,7 @@ on:
         required: false
       # #912 PR2: production-only — the maintenance Worker's AGENT_DATABASE_URL
       # is still uploaded from the same-named GitHub environment secret until
-      # the production-role cutover. Staging reads its DSN from the Secrets
-      # Store binding in workers/jobs/wrangler.toml and passes nothing.
+      # the production-role cutover.
       AGENT_DATABASE_URL:
         required: false
       CLOUDFLARE_API_TOKEN:
@@ -939,9 +938,6 @@ jobs:
               ;;
             users)
               echo "::notice title=post-deploy smoke::users has no public route in any environment by design (private, USERS service binding only); reachability is verified end-to-end by reusable-post-deploy-test.yml's users-probe once root is deployed in the same environment"
-              ;;
-            maintenance)
-              echo "::notice title=post-deploy smoke::maintenance is scheduled-only with no public route; verify its first staging invocation in Cloudflare Cron Trigger Past Events before deleting the deprecated GHA fallbacks"
               ;;
             *)
               echo "::error title=post-deploy smoke::unknown component '$COMPONENT'"
