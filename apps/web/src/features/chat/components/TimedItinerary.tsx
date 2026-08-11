@@ -146,7 +146,7 @@ function SaveCta({ save, dict, saveDeps }: Omit<ItineraryProps, "view">) {
 }
 
 /** The P5 save wall carries the session back (#507 review P1-1): without a
- * return target a correct migration still lands the visitor on `/`.
+ * return target a correct adoption still lands the visitor on `/`.
  *
  * The hook is read **before** the early return, not inside the JSX after it
  * (#514 review round 2). It is inert today — `useChatReturnTarget` wraps only

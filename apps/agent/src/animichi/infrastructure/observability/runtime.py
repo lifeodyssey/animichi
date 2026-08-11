@@ -38,6 +38,15 @@ _history_duration = logfire.metric_histogram(
     unit="ms",
     description="Session-history read duration in milliseconds.",
 )
+_adoption_requests = logfire.metric_counter(
+    "adoption_requests_total",
+    description="Session adoptions recorded with count, no-op class, and revision outcome.",
+)
+_adoption_duration = logfire.metric_histogram(
+    "adoption_request_duration_ms",
+    unit="ms",
+    description="Session adoption duration in milliseconds.",
+)
 
 
 def runtime_span(name: str) -> logfire.LogfireSpan:
@@ -111,3 +120,24 @@ def record_history_request(
     }
     _history_requests.add(1, attributes)
     _history_duration.record(duration_ms, attributes)
+
+
+def record_adoption_request(
+    *,
+    duration_ms: float,
+    adopted_count: int,
+    noop_class: str,
+    revisions_bumped: int,
+) -> None:
+    """Record one session adoption (SESSION-2 #960 telemetry).
+
+    Adoption count, no-op class, and revision outcome only — never an actor or
+    Session identifier.
+    """
+    attributes: dict[str, str | int] = {
+        "adopted_count": adopted_count,
+        "noop_class": noop_class,
+        "revisions_bumped": revisions_bumped,
+    }
+    _adoption_requests.add(1, attributes)
+    _adoption_duration.record(duration_ms, attributes)

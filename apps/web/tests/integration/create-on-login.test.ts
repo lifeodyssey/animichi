@@ -45,7 +45,7 @@ const server = setupServer(
   // suite runs with `onUnhandledRequest: "error"`, so the handler is proof the
   // call is real: delete the client wiring and it goes unused; delete the
   // handler and the whole suite errors.
-  http.post("http://localhost:3000/v1/session/migrate", () => HttpResponse.json({ migrated: false })),
+  http.post("http://localhost:3000/v1/sessions/adopt", () => HttpResponse.json({ adopted: 0, noop_class: "no_rows" })),
 );
 
 beforeAll(() => { server.listen({ onUnhandledRequest: "error" }); });

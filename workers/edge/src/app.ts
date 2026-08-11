@@ -10,7 +10,7 @@ import { handleImageProxy } from "./proxy/image-proxy.ts";
 import { NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./gateway/responses.ts";
 import { isAnonymousV1, isPublicV1 } from "./gateway/routing-policy.ts";
 import { createShowcaseMode, type ShowcaseMode } from "./proxy/showcase.ts";
-import { handleSessionMigrate, SESSION_MIGRATE_PATH } from "./identity/session-migrate.ts";
+import { handleSessionAdopt, SESSION_ADOPT_PATH } from "./identity/session-adopt.ts";
 import { handleTiles } from "./proxy/tiles.ts";
 import { createTurnstileGate, type TurnstileGate } from "./protect/turnstile.ts";
 
@@ -135,7 +135,7 @@ function forwardedIdentity(
   env: Env, request: Request, auth: AuthResult & { ok: true }, pathname: string,
 ): Promise<Response> {
   const identity = { userId: auth.userId, userType: auth.userType };
-  if (pathname === SESSION_MIGRATE_PATH) return handleSessionMigrate(env, request, identity);
+  if (pathname === SESSION_ADOPT_PATH) return handleSessionAdopt(env, request, identity);
   return authenticatedForward(env, request, identity, pathname);
 }
 

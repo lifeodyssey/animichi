@@ -4,12 +4,12 @@ import type { ReactNode } from "react";
 /**
  * Where a login opened from inside the chat should land (issue #507 review).
  *
- * Wiring `/v1/session/migrate` re-points the anonymous sessions onto the
+ * Wiring `/v1/sessions/adopt` re-points the anonymous sessions onto the
  * account, but that is only half a fix: `/chat?session=<id>` is the **only**
- * entry in the app that reads a migrated session back — there is no session or
+ * entry in the app that reads an adopted session back — there is no session or
  * route list — and none of the three in-chat login walls carried a return
  * target. `sanitizeReturnTarget(undefined)` is `/`, so every one of them
- * migrated the work correctly and then dropped the visitor on the landing page
+ * adopted the work correctly and then dropped the visitor on the landing page
  * with no way back to it.
  *
  * The live session id cannot come from the URL: `?session=` is an *entry*
@@ -54,7 +54,7 @@ export function useChatReturnTarget(): string | undefined {
  * carrier that survives the magic link into a different tab — or a different
  * device, which is exactly the case this exists to catch (#507 review P1-2):
  * there the target still names a session while the `aid` cookie is absent, so
- * the migration correctly moves nothing and the mismatch is the signal.
+ * the adoption correctly moves nothing and the mismatch is the signal.
  */
 export function returnTargetNamesSession(next: string | undefined): boolean {
   if (next === undefined) return false;

@@ -82,10 +82,10 @@ async function stubAuthToken(context: BrowserContext): Promise<void> {
   await context.route("**/token", (route) => route.fulfill({ json: { token: "e2e-token" } }));
 }
 
-/** The callback also migrates the browser's anonymous sessions; a normal no-op
- * keeps the migrate notice off the screen so the save outcome drives the page. */
-async function stubSessionMigrate(context: BrowserContext): Promise<void> {
-  await context.route("**/v1/session/migrate", (route) => route.fulfill({ json: { migrated: false } }));
+/** The callback also adopts the browser's anonymous sessions; a normal no-op
+ * keeps the adoption notice off the screen so the save outcome drives the page. */
+async function stubSessionAdopt(context: BrowserContext): Promise<void> {
+  await context.route("**/v1/sessions/adopt", (route) => route.fulfill({ json: { adopted: 0, noop_class: "no_rows" } }));
 }
 
 /** The first save POST 5xxes, the retry succeeds — for the browser-seam retry AC. */
@@ -235,7 +235,7 @@ test("an expired deferred intent does not replay and is erased at the browser se
   const bodies: unknown[] = [];
   await captureSaves(context, bodies);
   await stubAuthToken(context);
-  await stubSessionMigrate(context);
+  await stubSessionAdopt(context);
   // createdAt sits outside the 30-minute TTL: the callback must treat the
   // intent as abandoned rather than resurrecting a stale save.
   await stashIntent(page, Date.now() - DEFERRED_SAVE_TTL_MS - 60_000);
@@ -249,7 +249,7 @@ test("a failed replay surfaces the callback retry, and retry completes the save"
   const bodies: unknown[] = [];
   await captureSaveWithRetry(context, bodies);
   await stubAuthToken(context);
-  await stubSessionMigrate(context);
+  await stubSessionAdopt(context);
   await stashIntent(page, Date.now());
   await page.goto("/auth/callback");
   await expect(page.getByRole("alert")).toBeVisible();

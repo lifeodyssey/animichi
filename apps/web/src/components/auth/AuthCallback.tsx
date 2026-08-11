@@ -6,7 +6,7 @@ import { getAuthToken } from "../../lib/auth/auth-session";
 import { useAuthCallback } from "./use-auth-callback";
 import type { AuthCallbackSession, AuthCallbackState } from "./use-auth-callback";
 
-import type { SessionMigrationOutcome } from "../../lib/auth/session-migration";
+import type { SessionAdoptionOutcome } from "../../lib/auth/session-adoption";
 
 type MessageState = Extract<AuthCallbackState, "pending" | "error">;
 
@@ -45,16 +45,16 @@ function SaveFailure({ auth, session }: FailureProps) {
  * save failure above, deliberately: `apps/web` has no telemetry sink, so this
  * screen is the only real outlet, and reusing the designed surface keeps it a
  * variant rather than a new pattern (the design sync has no callback mock).
- * `nothing-migrated` gets its own copy — that is the cross-device case, where
+ * `nothing-adopted` gets its own copy — that is the cross-device case, where
  * the work is on the other browser and a retry here cannot reach it.
  */
-function MigrationFailure({ auth, session }: FailureProps) {
-  const text = session.migration === "nothing-migrated" ? auth.callback_migration_missing : auth.callback_migration_failed;
+function AdoptionFailure({ auth, session }: FailureProps) {
+  const text = session.adoption === "nothing-adopted" ? auth.callback_adoption_missing : auth.callback_adoption_failed;
   return (
     <div className="auth-callback__save-failed" role="alert">
       <p className="auth-callback__message">{text}</p>
-      <CallbackAction label={auth.callback_migration_retry} className="auth-callback__retry" onClick={session.retryMigration} />
-      <CallbackAction label={auth.callback_migration_skip} className="auth-callback__skip" onClick={session.dismissMigration} />
+      <CallbackAction label={auth.callback_adoption_retry} className="auth-callback__retry" onClick={session.retryAdoption} />
+      <CallbackAction label={auth.callback_adoption_skip} className="auth-callback__skip" onClick={session.dismissAdoption} />
     </div>
   );
 }
@@ -67,12 +67,12 @@ export interface AuthCallbackProps {
    * return target still happens. Without a return intent, today's blocking
    * retry/skip surface is preserved. */
   readonly hasReturnIntent?: boolean;
-  /** The login's return target named a chat session, so a migration that moved
+  /** The login's return target named a chat session, so an adoption that moved
    * nothing is an anomaly rather than a normal no-op (#507 review P1-2). */
-  readonly expectsMigration?: boolean;
+  readonly expectsAdoption?: boolean;
   readonly establish?: () => Promise<string | undefined>;
   readonly replay?: () => Promise<DeferredReplayOutcome>;
-  readonly migrate?: (token: string) => Promise<SessionMigrationOutcome>;
+  readonly adopt?: (token: string) => Promise<SessionAdoptionOutcome>;
 }
 
 function shouldNavigate(state: AuthCallbackState, hasReturnIntent: boolean): boolean {
@@ -89,7 +89,7 @@ function CallbackBody({ session }: Readonly<{ session: AuthCallbackSession }>) {
   const auth = useDict().auth;
   if (session.state === "done") return null;
   if (session.state === "save-failed") return <SaveFailure auth={auth} session={session} />;
-  if (session.state === "migration-failed") return <MigrationFailure auth={auth} session={session} />;
+  if (session.state === "adoption-failed") return <AdoptionFailure auth={auth} session={session} />;
   return <CallbackMessage state={session.state} />;
 }
 
@@ -97,9 +97,9 @@ function CallbackBody({ session }: Readonly<{ session: AuthCallbackSession }>) {
  * hands control back to the route — unless that replay failed AND no return
  * intent is waiting (see `hasReturnIntent`). */
 export function AuthCallback(
-  { onDone, hasReturnIntent = false, expectsMigration = false, establish = getAuthToken, replay, migrate }: AuthCallbackProps,
+  { onDone, hasReturnIntent = false, expectsAdoption = false, establish = getAuthToken, replay, adopt }: AuthCallbackProps,
 ) {
-  const session = useAuthCallback(establish, replay, migrate, expectsMigration);
+  const session = useAuthCallback(establish, replay, adopt, expectsAdoption);
   useDoneEffect(session.state, onDone, hasReturnIntent);
   return <CallbackBody session={session} />;
 }

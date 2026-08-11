@@ -189,7 +189,7 @@ describe("agent boundary emitter", () => {
       "GET /v1/search/preview",
       "POST /v1/photo-search",
       "POST /v1/photo-search/confirm",
-      "POST /v1/session/migrate",
+      "POST /v1/sessions/adopt",
     ]);
     expect(new Set(AGENT_PATHS.map((p) => p.path)).size).toBe(AGENT_PATHS.length);
   });
