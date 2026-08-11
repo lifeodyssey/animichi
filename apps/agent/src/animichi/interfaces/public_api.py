@@ -1,26 +1,29 @@
-"""Thin public API surface over the runtime pipeline.
+"""Thin public API surface over the AgentTurn use case (TURN-4 #955).
 
-Orchestration logic only — response building lives in ``response_builder``,
+Orchestration only — the turn lifecycle (admission verdict, dispatch-certainty,
+exactly-once settlement, session load/persist, kind dispatch) lives in
+``application/agent_turn.AgentTurn``; this module wires its ports to the
+runtime services and maps :class:`TurnResult` back onto
+:class:`PublicAPIResponse`. Response building lives in ``response_builder``,
 session management in ``session_facade``, and persistence in ``persistence``.
 """
 
 from __future__ import annotations
 
-import asyncio
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from functools import cached_property
-from time import perf_counter
 from typing import Protocol, cast
 from uuid import uuid4
 
 import httpx
 import structlog
 from fastapi import HTTPException
+from pydantic_ai.usage import RunUsage
+from pydantic_core import to_jsonable_python
 
 from animichi.agents.agent_result import AgentResult, AttributedUsage, UsagePayer
-from animichi.agents.animichi_agent import animichi_agent
+from animichi.agents.animichi_agent import _input_guard_enabled, animichi_agent
 from animichi.agents.animichi_runner import (
     MemoryStore,
     build_translation_context,
@@ -31,16 +34,11 @@ from animichi.agents.animichi_runner import (
     to_model_turn_usage,
     translation_usage,
 )
-from animichi.agents.base import (
-    ModelAliasError,
-    build_model_http_client,
-    resolve_model,
-)
+from animichi.agents.base import ModelAliasError, resolve_model
 from animichi.agents.error_boundary import (
     is_byok_credential_rejection,
     is_provider_error,
 )
-from animichi.agents.error_messages import build_input_error_message
 from animichi.agents.runtime_deps import (
     OnStep,
     StepEvent,
@@ -63,10 +61,35 @@ from animichi.agents.translation import (
     translate_title,
     translation_agent,
 )
+from animichi.agents.web_trust import detect_prompt_injection
 from animichi.application.admission_limits import anon_quota_eligible
+from animichi.application.agent_turn import AgentTurn
 from animichi.application.errors import ApplicationError, ErrorCode
+from animichi.application.turn_admission import (
+    AdmissionIdentity,
+    AdmissionVerdict,
+    TurnAdmission,
+)
 from animichi.application.turn_outcome import TurnOutcome
-from animichi.application.turn_outcome_port import SettleOutcome, TurnRef
+from animichi.application.turn_outcome_port import TurnRef
+from animichi.application.turn_types import (
+    AdmissionRejection,
+    CandidateSelectionTurn,
+    ExecutionResult,
+    PersistOutcome,
+    PointSelectionTurn,
+    ReservationBinding,
+    SessionSnapshot,
+    SessionUpdate,
+    TextTurn,
+    TurnInput,
+    TurnKind,
+    TurnResult,
+    TurnSelectionError,
+    TurnSideEffects,
+    TurnStageEvent,
+    TurnStageSink,
+)
 from animichi.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from animichi.config.settings import Settings, get_settings
 from animichi.domain.fact_ledger import record_turn_facts
@@ -78,18 +101,20 @@ from animichi.domain.ports import (
     SessionRepo,
     UsageMeter,
 )
-from animichi.infrastructure.memory import postgres_memory_store
 from animichi.infrastructure.observability import (
     record_runtime_request,
     runtime_span,
 )
 from animichi.infrastructure.session import SessionStore, create_session_store
+from animichi.infrastructure.turn_reservation.postgres import state_digest
+from animichi.interfaces.admission_policy import admission_policy
 from animichi.interfaces.db_repos import (
     anon_quota_repo,
     bangumi_repo,
     messages_repo,
     request_audit_repo,
     session_repo,
+    turn_reservation_store,
     usage_repo,
 )
 from animichi.interfaces.error_registry import (
@@ -151,13 +176,6 @@ def _byok_credential_rejected_response() -> PublicAPIResponse:
     )
 
 
-def _span_record_exception(span: object, exc: BaseException) -> None:
-    """Best-effort span exception recording (OpenTelemetry compatible)."""
-    record_exc = getattr(span, "record_exception", None)
-    if callable(record_exc):
-        record_exc(exc)
-
-
 def default_catalog_client() -> CatalogClient:
     """Build the default Catalog read-path client from settings.
 
@@ -173,6 +191,8 @@ def _input_error_response(
     """Reject oversized text with safe localized copy."""
     if len(request.text) <= limit:
         return None
+    from animichi.agents.error_messages import build_input_error_message
+
     message = build_input_error_message("message_too_long", request.locale)
     error = PublicAPIError(code=ErrorCode.INVALID_INPUT.value, message=message)
     return PublicAPIResponse(
@@ -184,40 +204,454 @@ def _input_error_response(
     )
 
 
-@dataclass(frozen=True)
-class SettlementContext:
-    """Per-turn inputs shared by the terminal settlement side effects."""
-
-    result: AgentResult | None
-    request: PublicAPIRequest
-    response: PublicAPIResponse | None
-    session_id: str | None
-    elapsed_ms: float
-    intent: str
-    status: str
-    user_message_persisted: bool
-    user_id: str | None
-    user_type: str | None
-    is_byok: bool
-
-    @property
-    def terminal(self) -> SettleOutcome:
-        """Terminal settle outcome for this turn's response."""
-        return "completed" if self.response is not None else "failed"
+def _selection_state(context: dict[str, object] | None) -> SessionState:
+    """Restore the typed selection oracle from the unified session context."""
+    raw = context.get("session_state_v2") if context is not None else None
+    return SessionState.model_validate(raw) if isinstance(raw, dict) else SessionState()
 
 
-@dataclass(frozen=True)
-class ReservedTurn:
-    """Lease-guarded reservation identity the route hands to settlement."""
+def _invalid_selection_response(_message: str | None = None) -> PublicAPIResponse:
+    """Return a typed stale/invalid selection response without mutating state."""
+    return public_error_response(
+        "invalid_selection",
+        intent="clarify",
+        ui={"component": "Clarification"},
+    )
 
-    outcome: TurnOutcome
-    turn_ref: TurnRef
-    owner: str
-    dispatched: bool
+
+def _kind_from_request(request: PublicAPIRequest) -> TurnKind:
+    """Map the request carrier onto its typed turn kind."""
+    if request.selected_point_ids is not None:
+        return PointSelectionTurn(
+            point_ids=tuple(request.selected_point_ids),
+            locale=request.locale,
+            origin=request.origin,
+        )
+    if request.selected_candidate_ids is not None:
+        return CandidateSelectionTurn(
+            candidate_ids=tuple(request.selected_candidate_ids),
+            clarification_id=cast(int, request.clarification_id),
+            locale=request.locale,
+        )
+    return TextTurn(
+        text=request.text,
+        locale=request.locale,
+        include_debug=request.include_debug,
+        origin=request.origin,
+        origin_lat=request.origin_lat,
+        origin_lng=request.origin_lng,
+    )
+
+
+def _stage_sink(on_step: OnStep | None) -> TurnStageSink | None:
+    """Bridge the raw framework OnStep onto the neutral turn stage sink."""
+    if on_step is None:
+        return None
+
+    async def sink(event: TurnStageEvent) -> None:
+        await on_step(
+            StepEvent(
+                event.tool,
+                event.call_id,
+                cast(StepStatus, event.status),
+                event.data or {},
+            )
+        )
+
+    return sink
+
+
+def _extract_delta_port() -> Callable[[object], dict[str, object]]:
+    """Port: serialize an opaque output's typed session state (CQS query)."""
+
+    def extract(output: object) -> dict[str, object]:
+        if isinstance(output, AgentResult):
+            return extract_context_delta(output)
+        return {}
+
+    return extract
+
+
+class _RuntimeTurnExecution:
+    """TurnExecution port: dispatch on the typed turn kind (TURN-4 #955)."""
+
+    def __init__(
+        self,
+        api: RuntimeAPI,
+        *,
+        request: PublicAPIRequest,
+        model: _ModelLike | str | None,
+        is_byok: bool,
+        user_id: str | None,
+        on_step: OnStep | None,
+    ) -> None:
+        self._api = api
+        self._request = request
+        self._model = model
+        self._is_byok = is_byok
+        self._user_id = user_id
+        self._on_step = on_step
+
+    async def execute(
+        self,
+        kind: TurnKind,
+        *,
+        context: dict[str, object] | None,
+        history: Sequence[object],
+        model: object | None,
+        on_step: TurnStageSink | None,
+    ) -> ExecutionResult:
+        try:
+            if isinstance(kind, TextTurn):
+                return await self._text_turn(kind, context, history, model, on_step)
+            if isinstance(kind, PointSelectionTurn):
+                return await self._point_turn(kind, context, on_step)
+            return await self._candidate_turn(kind, context, on_step)
+        except SelectionError as exc:
+            raise TurnSelectionError(str(exc)) from exc
+        except TimeoutError:
+            # AgentTurn owns deadline enforcement (wait_for) and the timeout
+            # mapping; a timeout escaping the port must reach it untouched.
+            raise
+        except ModelAliasError:
+            return self._failed("invalid_model_alias")
+        except ApplicationError as exc:
+            return self._failed(exc.error_code, dict(exc.details))
+        except Exception as exc:
+            if self._is_byok and is_byok_credential_rejection(exc):
+                logger.warning("byok_credential_rejected")
+                return self._failed("byok_credential_rejected")
+            if is_provider_error(exc):
+                logger.warning("provider_error", error=str(exc)[:200])
+                return self._failed("provider_error")
+            logger.error("pipeline_unhandled_exception", exc_info=exc)
+            return self._failed("internal_error")
+
+    async def _text_turn(
+        self,
+        kind: TextTurn,
+        context: dict[str, object] | None,
+        history: Sequence[object],
+        model: object | None,
+        on_step: TurnStageSink | None,
+    ) -> ExecutionResult:
+        supplemental_usage: list[AttributedUsage] = []
+        resolved = resolve_request_model(model, self._api._model_http_client)
+        result = await run_animichi_agent(
+            text=kind.text,
+            db=cast(CatalogLookup, self._api._db),
+            model=resolved,
+            locale=kind.locale,
+            context=context,
+            message_history=deserialize_message_history(history),
+            on_step=_to_on_step(on_step),
+            catalog=self._api._catalog,
+            title_translator=(
+                self._api._server_title_translator(supplemental_usage)
+                if self._is_byok
+                else None
+            ),
+            memory_store=self._api._memory_store,
+            user_id=self._user_id,
+        )
+        result.supplemental_usage.extend(supplemental_usage)
+        await _apply_translation_gate(
+            result,
+            resolve_reply_language(kind.text, kind.locale),
+            self._on_step,
+            # D18: the post-turn translation pass reuses the run's own model
+            # when it can (cheaper, same connection) — but on a BYOK turn
+            # that model is the caller's own credential, and this helper call
+            # must never be billed to it. `model=None` forces
+            # `_translation_context`'s fallback to the server default.
+            model=None if self._is_byok else resolved,
+            isolate_platform_usage=self._is_byok,
+        )
+        return _execution_result(result)
+
+    async def _point_turn(
+        self,
+        kind: PointSelectionTurn,
+        context: dict[str, object] | None,
+        on_step: TurnStageSink | None,
+    ) -> ExecutionResult:
+        resolve_request_model(self._model, self._api._model_http_client)
+        result = await execute_selected_itinerary(
+            point_ids=list(kind.point_ids),
+            state=_selection_state(context),
+            origin=kind.origin,
+            locale=kind.locale,
+            catalog=self._api._catalog,
+            on_step=_to_on_step(on_step),
+        )
+        return _execution_result(result)
+
+    async def _candidate_turn(
+        self,
+        kind: CandidateSelectionTurn,
+        context: dict[str, object] | None,
+        on_step: TurnStageSink | None,
+    ) -> ExecutionResult:
+        resolve_request_model(self._model, self._api._model_http_client)
+        state = _selection_state(context)
+        selected = validate_candidate_selection(
+            state, list(kind.candidate_ids), kind.clarification_id
+        )
+        if selected.reason == "anime_ambiguity":
+            result = await execute_multi_selection(
+                candidate_ids=selected.candidate_ids,
+                state=state,
+                locale=kind.locale,
+                catalog=self._api._catalog,
+                on_step=_to_on_step(on_step),
+            )
+        else:
+            result = await execute_place_selection(
+                candidate_id=selected.candidate_ids[0],
+                state=state,
+                locale=kind.locale,
+                catalog=self._api._catalog,
+                on_step=_to_on_step(on_step),
+            )
+        return _execution_result(result)
+
+    def _failed(
+        self, error_code: str, error_details: dict[str, object] | None = None
+    ) -> ExecutionResult:
+        return ExecutionResult(
+            output=None,
+            context_delta={},
+            intent="error",
+            status="error",
+            error_code=error_code,
+            error_details=error_details,
+        )
+
+
+def _to_on_step(sink: TurnStageSink | None) -> OnStep | None:
+    """Bridge the neutral turn stage sink back onto the framework OnStep."""
+    if sink is None:
+        return None
+
+    async def on_step(step: StepEvent) -> None:
+        await sink(TurnStageEvent(step.tool, step.call_id, step.status, step.data))
+
+    return on_step
+
+
+def _execution_result(result: AgentResult) -> ExecutionResult:
+    """Command-then-query (CQS, OQ-4): record facts, then extract the delta."""
+    record_turn_facts(
+        result.session_state.fact_ledger, result.steps, now=datetime.now(UTC)
+    )
+    new_messages: list[object] = (
+        list(to_jsonable_python(result.new_messages)) if result.new_messages else []
+    )
+    return ExecutionResult(
+        output=result,
+        context_delta=extract_context_delta(result),
+        intent=result.intent,
+        status=result.status or "ok",
+        new_messages=new_messages,
+    )
+
+
+class _RuntimeSessionGateway:
+    """SessionGateway port: ownership, load/create, and persist."""
+
+    def __init__(
+        self,
+        api: RuntimeAPI,
+        *,
+        request: PublicAPIRequest,
+        user_id: str | None,
+    ) -> None:
+        self._api = api
+        self._request = request
+        self._user_id = user_id
+        self._previous_state: dict[str, object] | None = None
+
+    async def check_owner(self, session_id: str | None, user_id: str | None) -> bool:
+        if session_id is None or user_id is None:
+            return True
+        repo = self._api._session_repo
+        if repo is None or not await repo.check_session_owner(session_id, user_id):
+            return False
+        return True
+
+    async def load(
+        self,
+        session_id: str | None,
+        *,
+        user_id: str | None,
+    ) -> SessionSnapshot:
+        if session_id is None and user_id is not None:
+            return await self._create_owned(user_id)
+        previous_state = (
+            await load_session_state(self._api._session_store, session_id)
+            if session_id is not None
+            else normalize_session_state(None)
+        )
+        self._previous_state = previous_state
+        if session_id is not None and user_id is not None:
+            repo = self._api._session_repo
+            if repo is None or not await repo.check_session_owner(session_id, user_id):
+                raise HTTPException(status_code=404, detail="Conversation not found.")
+        context = build_context_block(previous_state)
+        if (
+            self._request.origin_lat is not None
+            and self._request.origin_lng is not None
+        ):
+            if context is None:
+                context = {}
+            context["origin_lat"] = self._request.origin_lat
+            context["origin_lng"] = self._request.origin_lng
+        return SessionSnapshot(
+            session_id=session_id,
+            session_state=previous_state,
+            context=context,
+            history=build_message_history(previous_state),
+        )
+
+    async def _create_owned(self, user_id: str) -> SessionSnapshot:
+        session_id = uuid4().hex
+        state = normalize_session_state(None)
+        await create_owned_session(
+            self._api._session_repo, session_id, user_id, self._request.text, state
+        )
+        self._previous_state = state
+        return SessionSnapshot(
+            session_id=session_id,
+            session_state=state,
+            context=None,
+            history=(),
+            is_new=True,
+        )
+
+    async def persist(self, session_id: str, update: SessionUpdate) -> PersistOutcome:
+        result = update.output if isinstance(update.output, AgentResult) else None
+        response = (
+            agent_result_to_response(result, include_debug=self._request.include_debug)
+            if result is not None
+            else PublicAPIResponse(
+                success=update.response_success,
+                status=update.response_status,
+                intent=update.response_intent,
+                message=update.response_message,
+            )
+        )
+        session_state, _, generated_title = await persist_result(
+            session_repo=self._api._session_repo,
+            bangumi_repo=self._api._bangumi_repo,
+            messages_repo=self._api._messages_repo,
+            session_store=self._api._session_store,
+            session_id=session_id,
+            request=self._request,
+            result=result,
+            response=response,
+            context_delta=update.context_delta or {},
+            previous_state=self._previous_state or normalize_session_state(None),
+            user_id=self._user_id,
+        )
+        return PersistOutcome(
+            session_state=session_state, generated_title=generated_title
+        )
+
+
+class _RuntimeTurnSettlement:
+    """TurnSettlement port: meter usage, quota, and the terminal audit."""
+
+    def __init__(
+        self,
+        api: RuntimeAPI,
+        *,
+        request: PublicAPIRequest,
+        user_id: str | None,
+        user_type: str | None,
+        is_byok: bool,
+    ) -> None:
+        self._api = api
+        self._request = request
+        self._user_id = user_id
+        self._user_type = user_type
+        self._is_byok = is_byok
+
+    async def settle(self, side: TurnSideEffects) -> None:
+        await self._meter(side)
+        if side.settle_quota:
+            await self._settle_anon_quota(side)
+        await self._log_request(side)
+
+    async def _meter(self, side: TurnSideEffects) -> None:
+        result = side.result if isinstance(side.result, AgentResult) else None
+        if result is None:
+            return
+        for item in _attributed_usage(result, side.is_byok):
+            await _record_attributed_usage(
+                self._api._usage_repo,
+                item,
+                side.user_id,
+                side.user_type,
+                self._api._usage_prices(),
+            )
+
+    async def _settle_anon_quota(self, side: TurnSideEffects) -> None:
+        if not self._is_anon_scope(side):
+            return
+        repo = anon_quota_repo(self._api._db)
+        anon_id = side.user_id or ""
+        if repo is None or not anon_quota_eligible(anon_id):
+            return
+        try:
+            await repo.increment_and_count(usage_date=utc_today(), anon_id=anon_id)
+        except Exception:
+            logger.warning("anon_quota_settle_failed", exc_info=True)
+
+    def _is_anon_scope(self, side: TurnSideEffects) -> bool:
+        return (
+            scope_for_identity(side.user_id, side.user_type, is_byok=side.is_byok)
+            == "anon"
+        )
+
+    async def _log_request(self, side: TurnSideEffects) -> None:
+        """Persist user message on error (best-effort) and log the request."""
+        if not side.user_message_persisted and side.session_id and side.request_text:
+            try:
+                await persist_messages(
+                    messages_repo=self._api._messages_repo,
+                    session_id=side.session_id,
+                    user_text=side.request_text,
+                    result=None,
+                    response=PublicAPIResponse(
+                        success=False, status="error", intent="unknown"
+                    ),
+                    persist_user_only=True,
+                )
+            except (OSError, RuntimeError, ValueError, TypeError):
+                logger.warning(
+                    "finally_persist_user_msg_failed",
+                    session_id=side.session_id,
+                )
+        if self._api._request_audit_repo is None:
+            return
+        try:
+            await self._api._request_audit_repo.insert_request_log(
+                session_id=side.session_id,
+                query_text=side.request_text,
+                locale=self._request.locale,
+                plan_steps=extract_plan_steps(
+                    side.result if isinstance(side.result, AgentResult) else None
+                ),
+                intent=side.intent,
+                status=side.status,
+                latency_ms=side.elapsed_ms,
+            )
+        except (OSError, RuntimeError, ValueError, TypeError):
+            logger.warning("request_log_failed", session_id=side.session_id)
 
 
 class RuntimeAPI:
-    """Thin interface-layer facade over the runtime agent."""
+    """Thin interface-layer facade over the AgentTurn use case."""
 
     def __init__(
         self,
@@ -299,498 +733,176 @@ class RuntimeAPI:
         outcome: TurnOutcome | None = None,
         turn_ref: TurnRef | None = None,
         owner: str | None = None,
+        verdict: AdmissionVerdict | None = None,
+        turn_key: str | None = None,
     ) -> PublicAPIResponse:
-        """Execute the runtime pipeline and normalize its output.
+        """Execute one turn through AgentTurn and map its result to a response.
 
-        When a reserved turn context (``outcome`` + ``turn_ref`` + ``owner``)
-        is supplied, the reservation is dispatched at the dispatch-certainty
-        point and settled exactly once in the terminal path; otherwise usage
-        and the terminal audit run directly (replay / direct callers).
+        A route-granted reservation (``outcome`` + ``turn_ref`` + ``owner``)
+        or admission ``verdict`` drives dispatch/settlement; absent both, the
+        use case admits itself (direct callers).
         """
         rejection = _input_error_response(request, self._settings.message_max_chars)
         if rejection is not None:
             return rejection
-        started_at = perf_counter()
-        session_id = request.session_id or None
-        response: PublicAPIResponse | None = None
-        result: AgentResult | None = None
-        user_message_persisted = False
-        dispatched = False
-        try:
-            session_id, is_new_session = await self._prepare_session(request, user_id)
-            effective_model = model if model is not None else request.model
-            with runtime_span("runtime.handle") as span:
-                _set_span_request_attrs(
-                    span, session_id, request, effective_model, user_id
+        binding = None
+        if outcome is not None and turn_ref is not None and owner is not None:
+            binding = ReservationBinding(outcome, turn_ref, owner)
+            if verdict is None:
+                verdict = AdmissionVerdict(
+                    admitted=True,
+                    payer="user",
+                    revision=0,
+                    session_id=turn_ref.session_id,
+                    owner=owner,
                 )
-                try:
-                    previous_state, context, message_history = await self._load_session(
-                        None if is_new_session else session_id, request
-                    )
-                    if (
-                        outcome is not None
-                        and turn_ref is not None
-                        and owner is not None
-                    ):
-                        dispatched = await outcome.dispatch(turn_ref, owner=owner)
-                        if not dispatched:
-                            # Dispatch-certainty guard (TURN-3 #951): a
-                            # failed dispatch means the lease is gone — the
-                            # provider call is uncertain and must NEVER run.
-                            # The settlement below releases the reservation.
-                            span.set_attribute("runtime.dispatch_lost", True)
-                            return PublicAPIResponse(
-                                success=False,
-                                status="blocked",
-                                intent="blocked",
-                                errors=[
-                                    PublicAPIError(
-                                        code="turn_lease_lost",
-                                        message=(
-                                            "The turn reservation expired "
-                                            "before dispatch; please retry."
-                                        ),
-                                        action="retry",
-                                    )
-                                ],
-                            )
-                    result, response, context_delta = await self._execute_pipeline(
-                        request,
-                        context,
-                        message_history,
-                        effective_model,
-                        on_step,
-                        span,
-                        user_id,
-                        is_byok=is_byok,
-                    )
+        agent_turn = self._build_agent_turn(
+            request, model, is_byok, user_id, user_type, on_step, outcome, binding
+        )
+        with runtime_span("runtime.handle") as span:
+            result = await agent_turn(
+                TurnInput(
+                    session_id=request.session_id,
+                    turn_key=turn_key or uuid4().hex,
+                    identity=AdmissionIdentity(user_id=user_id, user_type=user_type),
+                    kind=_kind_from_request(request),
+                    is_byok=is_byok,
+                    model=model if model is not None else request.model,
+                    verdict=verdict,
+                ),
+                binding=binding,
+                on_step=_stage_sink(on_step),
+            )
+            response = self._response(request, result)
+            _record_result_span(span, request, response)
+            record_runtime_request(
+                duration_ms=0,
+                intent=response.intent,
+                status=response.status,
+                transport="public_api",
+            )
+            return response
 
-                    if session_id is None:
-                        session_id = uuid4().hex
-                        span.set_attribute("runtime.session_id", session_id)
-
-                    response.session_id = session_id
-
-                    (
-                        session_state,
-                        user_message_persisted,
-                        generated_title,
-                    ) = await persist_result(
-                        session_repo=self._session_repo,
-                        bangumi_repo=self._bangumi_repo,
-                        messages_repo=self._messages_repo,
-                        session_store=self._session_store,
-                        session_id=session_id,
-                        request=request,
-                        result=result,
-                        response=response,
-                        context_delta=context_delta,
-                        previous_state=previous_state,
-                        user_id=user_id,
-                    )
-
-                    session_summary, route_history = build_response_session(
-                        session_state
-                    )
-                    response.session = as_json_object(session_summary)
-                    response.route_history = [
-                        as_json_object(r) for r in route_history if isinstance(r, dict)
-                    ]
-                    response.generated_title = generated_title
-                    return response
-                except Exception as exc:
-                    span.record_exception(exc)
-                    raise
-                finally:
-                    elapsed_ms = (perf_counter() - started_at) * 1000
-                    intent = response.intent if response is not None else "unknown"
-                    status = response.status if response is not None else "error"
-                    success = response.success if response is not None else False
-                    error_count = len(response.errors) if response is not None else 1
-
-                    span.set_attribute("runtime.intent", intent)
-                    span.set_attribute("runtime.status", status)
-                    span.set_attribute("runtime.success", success)
-                    span.set_attribute("runtime.error_count", error_count)
-
-                    record_runtime_request(
-                        duration_ms=elapsed_ms,
-                        intent=intent,
-                        status=status,
-                        transport="public_api",
-                    )
-        finally:
-            settlement = SettlementContext(
-                result=result,
+    def _build_agent_turn(
+        self,
+        request: PublicAPIRequest,
+        model: _ModelLike | str | None,
+        is_byok: bool,
+        user_id: str | None,
+        user_type: str | None,
+        on_step: OnStep | None,
+        outcome: TurnOutcome | None,
+        binding: ReservationBinding | None,
+    ) -> AgentTurn:
+        return AgentTurn(
+            outcome=outcome or self._lifecycle_outcome(),
+            session=_RuntimeSessionGateway(self, request=request, user_id=user_id),
+            settlement=_RuntimeTurnSettlement(
+                self,
                 request=request,
-                response=response,
-                session_id=session_id,
-                elapsed_ms=(perf_counter() - started_at) * 1000,
-                intent=response.intent if response is not None else "unknown",
-                status=response.status if response is not None else "error",
-                user_message_persisted=user_message_persisted,
                 user_id=user_id,
                 user_type=user_type,
                 is_byok=is_byok,
+            ),
+            execution=_RuntimeTurnExecution(
+                self,
+                request=request,
+                model=model,
+                is_byok=is_byok,
+                user_id=user_id,
+                on_step=on_step,
+            ),
+            detect_injection=detect_prompt_injection,
+            guard_enabled=_input_guard_enabled,
+            blocked_outcome=self._blocked_outcome(),
+            extract_delta=_extract_delta_port(),
+            timeout=self._settings.agent_deadline,
+        )
+
+    def _lifecycle_outcome(self) -> TurnOutcome:
+        """Build a lifecycle use case for direct (non-route) callers."""
+        db = self._db
+        store = turn_reservation_store(db)
+        return TurnOutcome(
+            store=store,
+            admission=TurnAdmission(
+                store=store,
+                policy=admission_policy(self._settings),
+                usage_repo=usage_repo(db),
+                anon_quota_repo=anon_quota_repo(db),
+            ),
+        )
+
+    def _blocked_outcome(self) -> Callable[[SessionSnapshot, str], object]:
+        """Build the blocked AgentResult for the injection gate."""
+        from animichi.agents.animichi_runner import _blocked_message
+        from animichi.agents.runtime_models import BlockedResponseModel
+
+        def build(snapshot: SessionSnapshot, locale: str) -> object:
+            return AgentResult(
+                output=BlockedResponseModel(message=_blocked_message(locale)),
+                intent="blocked",
+                session_state=_selection_state(snapshot.context),
+                steps=[],
+                usage=RunUsage(),
+                status="blocked",
+                success_override=False,
             )
-            if outcome is not None and turn_ref is not None and owner is not None:
-                await self._settle_reserved_turn(
-                    ReservedTurn(outcome, turn_ref, owner, dispatched), settlement
-                )
-            else:
-                await self._settle_direct(settlement)
+
+        return build
+
+    def _response(
+        self,
+        request: PublicAPIRequest,
+        result: TurnResult,
+    ) -> PublicAPIResponse:
+        if result.outcome == "rejected":
+            return _rejection_response(result.rejection)
+        if result.outcome == "lease_lost":
+            return PublicAPIResponse(
+                success=False,
+                status="blocked",
+                intent="blocked",
+                errors=[
+                    PublicAPIError(
+                        code="turn_lease_lost",
+                        message=(
+                            "The turn reservation expired before dispatch; please retry."
+                        ),
+                        action="retry",
+                    )
+                ],
+            )
+        if result.outcome == "error":
+            response = _error_response_for(
+                result.error_code, self._settings, result.error_details
+            )
+        else:
+            output = result.output
+            response = (
+                agent_result_to_response(output, include_debug=request.include_debug)
+                if isinstance(output, AgentResult)
+                else PublicAPIResponse(success=True, status="ok", intent="unknown")
+            )
+        response.session_id = result.session_id
+        response.revision = result.revision
+        if result.persisted is not None:
+            session_summary, route_history = build_response_session(
+                result.persisted.session_state
+            )
+            response.session = as_json_object(session_summary)
+            response.route_history = [
+                as_json_object(item) for item in route_history if isinstance(item, dict)
+            ]
+            response.generated_title = result.persisted.generated_title
+            response.session_digest = state_digest(result.persisted.session_state)
+        return response
 
     def _usage_prices(self) -> UsagePrices:
         return UsagePrices(
             input_usd_per_mtok=self._settings.model_input_cost_per_mtok_usd,
             output_usd_per_mtok=self._settings.model_output_cost_per_mtok_usd,
         )
-
-    async def _settle_reserved_turn(
-        self, reserved: ReservedTurn, settlement: SettlementContext
-    ) -> None:
-        """Release a never-dispatched turn, else settle it exactly once."""
-        if not reserved.dispatched:
-            await reserved.outcome.release(reserved.turn_ref, owner=reserved.owner)
-            return
-        await self._settle_dispatched(reserved, settlement)
-
-    async def _settle_dispatched(
-        self, reserved: ReservedTurn, settlement: SettlementContext
-    ) -> None:
-        """Settle a dispatched turn exactly once through the CAS guard."""
-        await reserved.outcome.settle(
-            reserved.turn_ref,
-            owner=reserved.owner,
-            outcome=settlement.terminal,
-            on_settled=self._settlement(settlement, settle_quota=True),
-        )
-
-    def _settlement(
-        self, context: SettlementContext, *, settle_quota: bool
-    ) -> Callable[[], Awaitable[None]]:
-        """Exactly-once side effects for a settled turn (meter + quota + audit)."""
-        return lambda: self._settle_side_effects(context, settle_quota=settle_quota)
-
-    async def _settle_direct(self, context: SettlementContext) -> None:
-        """Fallback settlement for non-reserved turns (replay / direct callers)."""
-        await self._settle_side_effects(context, settle_quota=False)
-
-    async def _settle_side_effects(
-        self, context: SettlementContext, *, settle_quota: bool
-    ) -> None:
-        """Meter usage, settle the anon quota, and write the terminal audit."""
-        await self._meter(context)
-        if settle_quota:
-            await self._settle_anon_quota(context)
-        await self._log_request(context=context)
-
-    async def _meter(self, context: SettlementContext) -> None:
-        """Bank this turn's usage into ``daily_usage`` (SD-18 metering hook)."""
-        await self._record_usage(
-            context.result,
-            context.user_id,
-            context.user_type,
-            is_byok=context.is_byok,
-        )
-
-    async def _settle_anon_quota(self, context: SettlementContext) -> None:
-        """Increment the anon counter exactly once for a settled turn."""
-        if self._is_anon_scope(context):
-            await self._bump_anon_quota(context.user_id or "")
-
-    def _is_anon_scope(self, context: SettlementContext) -> bool:
-        """Whether this identity settles against the anon daily counter."""
-        return (
-            scope_for_identity(
-                context.user_id, context.user_type, is_byok=context.is_byok
-            )
-            == "anon"
-        )
-
-    async def _bump_anon_quota(self, anon_id: str) -> None:
-        """Best-effort exactly-once increment; failures are logged, not raised."""
-        repo = anon_quota_repo(self._db)
-        if repo is None or not anon_quota_eligible(anon_id):
-            return
-        try:
-            await repo.increment_and_count(usage_date=utc_today(), anon_id=anon_id)
-        except Exception:
-            logger.warning("anon_quota_settle_failed", exc_info=True)
-
-    async def _record_usage(
-        self,
-        result: AgentResult | None,
-        user_id: str | None,
-        user_type: str | None,
-        *,
-        is_byok: bool = False,
-    ) -> None:
-        """SD-18 metering hook: bank this turn's RunUsage into ``daily_usage``.
-
-        The request's primary BYOK call is zero-cost, while supplemental calls
-        are priced from their actual payer attribution.
-        """
-        if result is None:
-            return
-        for item in _attributed_usage(result, is_byok):
-            await _record_attributed_usage(
-                self._usage_repo, item, user_id, user_type, self._usage_prices()
-            )
-
-    async def _prepare_session(
-        self, request: PublicAPIRequest, user_id: str | None
-    ) -> tuple[str | None, bool]:
-        session_id = request.session_id or None
-        await self.validate_session_owner(session_id, user_id)
-        if session_id is not None or user_id is None:
-            return session_id, False
-        session_id = uuid4().hex
-        state = normalize_session_state(None)
-        await create_owned_session(
-            self._session_repo, session_id, user_id, request.text, state
-        )
-        return session_id, True
-
-    async def _load_session(
-        self,
-        session_id: str | None,
-        request: PublicAPIRequest,
-    ) -> tuple[dict[str, object], dict[str, object] | None, list[object]]:
-        """Load session state, context block, and message history."""
-        previous_state = (
-            await load_session_state(self._session_store, session_id)
-            if session_id
-            else normalize_session_state(None)
-        )
-        context = build_context_block(previous_state)
-        if request.origin_lat is not None and request.origin_lng is not None:
-            if context is None:
-                context = {}
-            context["origin_lat"] = request.origin_lat
-            context["origin_lng"] = request.origin_lng
-        message_history = build_message_history(previous_state)
-        return previous_state, context, message_history
-
-    async def _execute_pipeline(
-        self,
-        request: PublicAPIRequest,
-        context: dict[str, object] | None,
-        message_history: list[object],
-        effective_model: _ModelLike | str | None,
-        on_step: OnStep | None,
-        span: object,
-        user_id: str | None,
-        *,
-        is_byok: bool = False,
-    ) -> tuple[AgentResult | None, PublicAPIResponse, dict[str, object]]:
-        """Run the pipeline (or synthetic plan) and map result to response."""
-        context_delta: dict[str, object] = {}
-        try:
-            result, resolved_model, model_path = await self._dispatch_request(
-                request,
-                context,
-                message_history,
-                effective_model,
-                on_step,
-                user_id,
-                is_byok=is_byok,
-            )
-        except TimeoutError:
-            _span_record_exception(span, TimeoutError("agent timed out"))
-            logger.warning("agent_timeout", text=request.text[:50])
-            return (
-                None,
-                timeout_error_response(self._settings.agent_deadline),
-                context_delta,
-            )
-        except ModelAliasError as exc:
-            _span_record_exception(span, exc)
-            return (
-                None,
-                public_error_response("invalid_model_alias"),
-                context_delta,
-            )
-        except SelectionError as exc:
-            _span_record_exception(span, exc)
-            return None, _invalid_selection_response(), context_delta
-        except ApplicationError as exc:
-            _span_record_exception(span, exc)
-            details = as_json_object(exc.details)
-            return (
-                None,
-                public_error_response(exc.error_code, details=details),
-                context_delta,
-            )
-        except Exception as exc:
-            _span_record_exception(span, exc)
-            if is_byok and is_byok_credential_rejection(exc):
-                logger.warning("byok_credential_rejected")
-                return None, _byok_credential_rejected_response(), context_delta
-            error_msg = str(exc)
-            if is_provider_error(exc):
-                logger.warning("provider_error", error=error_msg[:200])
-                return (
-                    None,
-                    public_error_response("provider_error", intent="error"),
-                    context_delta,
-                )
-            logger.error("pipeline_unhandled_exception", exc_info=exc)
-            return (
-                None,
-                internal_error_response(),
-                context_delta,
-            )
-        if model_path:
-            await _apply_translation_gate(
-                result,
-                resolve_reply_language(request.text, request.locale),
-                on_step,
-                # D18: the post-turn translation pass reuses the run's own
-                # model when it can (cheaper, same connection) — but on a
-                # BYOK turn that model is the caller's own credential, and
-                # this helper call must never be billed to it. `model=None`
-                # forces `_translation_context`'s fallback to the server
-                # default (`resolve_model(animichi_agent.model)`), which is
-                # never influenced by a per-request override.
-                model=None if is_byok else resolved_model,
-                isolate_platform_usage=is_byok,
-            )
-        response = agent_result_to_response(
-            result,
-            include_debug=request.include_debug,
-        )
-        # Command (mutates session_state.fact_ledger) kept separate from the
-        # pure `extract_context_delta` query below (CQS) — the deterministic
-        # post-turn recorder (OQ-4), run exactly once per turn.
-        record_turn_facts(
-            result.session_state.fact_ledger, result.steps, now=datetime.now(UTC)
-        )
-        context_delta = extract_context_delta(result)
-        return result, response, context_delta
-
-    async def _dispatch_request(
-        self,
-        request: PublicAPIRequest,
-        context: dict[str, object] | None,
-        history: list[object],
-        effective_model: _ModelLike | str | None,
-        on_step: OnStep | None,
-        user_id: str | None = None,
-        *,
-        is_byok: bool = False,
-    ) -> tuple[AgentResult, object | None, bool]:
-        """Dispatch exactly one of point, candidate, or model request modes."""
-        if request.selected_point_ids is not None:
-            resolve_request_model(effective_model, self._model_http_client)
-            result = await self._point_selection(request, context, on_step)
-            return result, None, False
-        if request.selected_candidate_ids is not None:
-            resolve_request_model(effective_model, self._model_http_client)
-            result = await self._candidate_selection(request, context, on_step)
-            return result, None, False
-        result = await self._model_request(
-            request,
-            context,
-            history,
-            effective_model,
-            on_step,
-            user_id,
-            is_byok=is_byok,
-        )
-        return (
-            result,
-            resolve_request_model(effective_model, self._model_http_client),
-            True,
-        )
-
-    async def _point_selection(
-        self,
-        request: PublicAPIRequest,
-        context: dict[str, object] | None,
-        on_step: OnStep | None,
-    ) -> AgentResult:
-        return await execute_selected_itinerary(
-            point_ids=list(request.selected_point_ids or []),
-            state=_selection_state(context),
-            origin=request.origin,
-            locale=request.locale,
-            catalog=self._catalog,
-            on_step=on_step,
-        )
-
-    async def _candidate_selection(
-        self,
-        request: PublicAPIRequest,
-        context: dict[str, object] | None,
-        on_step: OnStep | None,
-    ) -> AgentResult:
-        state = _selection_state(context)
-        selected = validate_candidate_selection(
-            state,
-            list(request.selected_candidate_ids or []),
-            cast(int, request.clarification_id),
-        )
-        if selected.reason == "anime_ambiguity":
-            return await execute_multi_selection(
-                candidate_ids=selected.candidate_ids,
-                state=state,
-                locale=request.locale,
-                catalog=self._catalog,
-                on_step=on_step,
-            )
-        return await execute_place_selection(
-            candidate_id=selected.candidate_ids[0],
-            state=state,
-            locale=request.locale,
-            catalog=self._catalog,
-            on_step=on_step,
-        )
-
-    async def _model_request(
-        self,
-        request: PublicAPIRequest,
-        context: dict[str, object] | None,
-        history: list[object],
-        effective_model: _ModelLike | str | None,
-        on_step: OnStep | None,
-        user_id: str | None,
-        *,
-        is_byok: bool = False,
-    ) -> AgentResult:
-        model = resolve_request_model(effective_model, self._model_http_client)
-        supplemental_usage: list[AttributedUsage] = []
-        result = await asyncio.wait_for(
-            run_animichi_agent(
-                text=request.text,
-                # Iter6 C4 design note: replacing this cast with an
-                # `isinstance(self._db, CatalogLookup)` guard changes
-                # behavior for tests that patch `run_animichi_agent` itself
-                # (the db value is then never dereferenced) — see the C4 PR
-                # description for the flagged contradiction with the
-                # behavior-equivalence constraint. Kept as the one
-                # deliberately-retained cast; every other DatabasePort/
-                # CatalogLookup cast and getattr accessor in this module is
-                # gone.
-                db=cast(CatalogLookup, self._db),
-                model=model,
-                locale=request.locale,
-                context=context,
-                message_history=deserialize_message_history(history),
-                on_step=on_step,
-                catalog=self._catalog,
-                title_translator=(
-                    self._server_title_translator(supplemental_usage)
-                    if is_byok
-                    else None
-                ),
-                memory_store=self._memory_store,
-                user_id=user_id,
-            ),
-            timeout=self._settings.agent_deadline,
-        )
-        result.supplemental_usage.extend(supplemental_usage)
-        return result
 
     def _server_title_translator(
         self, supplemental_usage: list[AttributedUsage]
@@ -821,46 +933,56 @@ class RuntimeAPI:
 
         return _translate
 
-    async def _log_request(self, *, context: SettlementContext) -> None:
-        """Persist user message on error (best-effort) and log request."""
-        if (
-            not context.user_message_persisted
-            and context.session_id
-            and context.request.text
-        ):
-            try:
-                await persist_messages(
-                    messages_repo=self._messages_repo,
-                    session_id=context.session_id,
-                    user_text=context.request.text,
-                    result=None,
-                    response=context.response
-                    or PublicAPIResponse(
-                        success=False, status="error", intent="unknown"
-                    ),
-                    persist_user_only=True,
-                )
-            except (OSError, RuntimeError, ValueError, TypeError):
-                logger.warning(
-                    "finally_persist_user_msg_failed",
-                    session_id=context.session_id,
-                )
 
-        if self._request_audit_repo is None:
-            return
+def _rejection_response(rejection: AdmissionRejection | None) -> PublicAPIResponse:
+    """Map an admission refusal onto the internal response carrier."""
+    if rejection is None:
+        return internal_error_response()
+    return PublicAPIResponse(
+        success=False,
+        status="rejected",
+        intent="error",
+        errors=[PublicAPIError(code=rejection.reason, message=rejection.reason)],
+    )
 
-        try:
-            await self._request_audit_repo.insert_request_log(
-                session_id=context.session_id,
-                query_text=context.request.text,
-                locale=context.request.locale,
-                plan_steps=extract_plan_steps(context.result),
-                intent=context.intent,
-                status=context.status,
-                latency_ms=int(context.elapsed_ms),
-            )
-        except (OSError, RuntimeError, ValueError, TypeError):
-            logger.warning("request_log_failed", session_id=context.session_id)
+
+def _error_response_for(
+    error_code: str | None,
+    settings: Settings,
+    error_details: dict[str, object] | None = None,
+) -> PublicAPIResponse:
+    from animichi.interfaces.error_registry import PublicErrorCode
+
+    if error_code == "timeout":
+        return timeout_error_response(settings.agent_deadline)
+    if error_code == "invalid_model_alias":
+        return public_error_response("invalid_model_alias")
+    if error_code == "invalid_selection":
+        return _invalid_selection_response()
+    if error_code == "byok_credential_rejected":
+        return _byok_credential_rejected_response()
+    if error_code == "provider_error":
+        return public_error_response("provider_error", intent="error")
+    if error_code is not None and error_code != "internal_error":
+        return public_error_response(
+            cast(PublicErrorCode, error_code), details=as_json_object(error_details)
+        )
+    return internal_error_response()
+
+
+def _record_result_span(
+    span: object, request: PublicAPIRequest, response: PublicAPIResponse
+) -> None:
+    set_attr = getattr(span, "set_attribute", None)
+    if not callable(set_attr):
+        return
+    if response.session_id:
+        set_attr("runtime.session_id", response.session_id)
+    set_attr("runtime.include_debug", request.include_debug)
+    set_attr("runtime.intent", response.intent)
+    set_attr("runtime.status", response.status)
+    set_attr("runtime.success", response.success)
+    set_attr("runtime.error_count", len(response.errors))
 
 
 async def handle_public_request(
@@ -873,6 +995,9 @@ async def handle_public_request(
     on_step: OnStep | None = None,
 ) -> PublicAPIResponse:
     """Convenience helper for one-off public API execution."""
+    from animichi.agents.base import build_model_http_client
+    from animichi.infrastructure.memory import postgres_memory_store
+
     model_client = build_model_http_client()
     api = RuntimeAPI(
         db,
@@ -884,21 +1009,6 @@ async def handle_public_request(
         return await api.handle(request, model=model, user_id=user_id, on_step=on_step)
     finally:
         await model_client.aclose()
-
-
-def _selection_state(context: dict[str, object] | None) -> SessionState:
-    """Restore the typed selection oracle from the unified session context."""
-    raw = context.get("session_state_v2") if context is not None else None
-    return SessionState.model_validate(raw) if isinstance(raw, dict) else SessionState()
-
-
-def _invalid_selection_response(_message: str | None = None) -> PublicAPIResponse:
-    """Return a typed stale/invalid selection response without mutating state."""
-    return public_error_response(
-        "invalid_selection",
-        intent="clarify",
-        ui={"component": "Clarification"},
-    )
 
 
 async def _apply_translation_gate(
@@ -929,7 +1039,6 @@ async def _apply_translation_gate(
             target_locale=locale,
             ctx=_translation_context(result, model, isolate_platform_usage),
         )
-        # Mutate the output model's message field
         object.__setattr__(result.output, "message", translated)
     except (OSError, RuntimeError, ValueError, TypeError):
         logger.warning("translation_gate_failed", locale=locale)
@@ -981,33 +1090,3 @@ async def record_attributed_usage(
     await _record_attributed_usage(
         usage_repo, item, user_id, user_type, platform_prices
     )
-
-
-def _set_span_request_attrs(
-    span: object,
-    session_id: str | None,
-    request: PublicAPIRequest,
-    effective_model: object,
-    user_id: str | None,
-) -> None:
-    set_attr = getattr(span, "set_attribute", None)
-    if not callable(set_attr):
-        return
-    if session_id:
-        set_attr("runtime.session_id", session_id)
-    set_attr("runtime.include_debug", request.include_debug)
-    model_label = _runtime_model_label(effective_model)
-    if model_label:
-        set_attr("runtime.model", model_label)
-    if user_id:
-        set_attr("runtime.user_id", user_id)
-
-
-def _runtime_model_label(model: object) -> str | None:
-    if model is None:
-        return None
-    from animichi.agents.base import describe_model
-
-    if isinstance(model, str):
-        return model
-    return describe_model(model)

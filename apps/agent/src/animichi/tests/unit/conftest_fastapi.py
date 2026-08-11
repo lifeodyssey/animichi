@@ -1,6 +1,6 @@
 """Shared fixtures for FastAPI service tests.
 
-Imported by test_routes_health, test_routes_runtime, test_routes_data.
+Imported by test_routes_health, test_routes_data.
 Not a conftest.py to avoid polluting other unit tests with these fixtures.
 """
 

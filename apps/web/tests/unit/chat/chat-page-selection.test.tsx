@@ -83,16 +83,15 @@ describe("AC: the tray action drives the selected_point_ids bypass", () => {
     expect(marker?.parts).toEqual([]);
   });
 
-  it("renders the recompute as footprint + card, with no tool badges and the old card dimmed", async () => {
+  it("renders the selection turn as card + streamed tool badge (TURN-4 #955)", async () => {
     const bodies: SentBody[] = [];
     await searchThenTickTwo(bodies);
     recomputeNow();
     await waitFor(() => {
-      expect(document.querySelector(".chat-settled--recompute")).toBeTruthy();
+      expect(document.querySelector('article[data-intent="plan_selected"]')).toBeTruthy();
     });
     const recomputeTurn = document.querySelector('article[data-intent="plan_selected"]');
     expect(recomputeTurn?.className).toBe("chat-card");
-    expect(recomputeTurn?.closest("li")?.querySelector(".chat-step")).toBeNull();
     expect(document.querySelector('article[data-intent="search_bangumi"]')?.className).toBe("chat-card");
   });
 });

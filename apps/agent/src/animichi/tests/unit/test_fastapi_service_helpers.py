@@ -158,27 +158,6 @@ def test_feedback_success_persists(mock_db: MagicMock) -> None:
     assert response.json() == {"feedback_id": "feedback-1"}
 
 
-def test_sse_stream_returns_structured_error_event_on_runtime_failure(
-    mock_db: MagicMock,
-) -> None:
-    runtime_api = MagicMock()
-    runtime_api.handle = AsyncMock(side_effect=RuntimeError("boom"))
-    app = create_fastapi_app(runtime_api=runtime_api, settings=Settings())
-
-    with TestClient(app) as client:
-        with client.stream(
-            "POST",
-            "/v1/runtime/stream",
-            json={"text": "京吹"},
-            headers={"X-User-Id": "user-1"},
-        ) as response:
-            body = "".join(response.iter_text())
-
-    assert response.status_code == 200
-    assert "event: error" in body
-    assert '"code": "internal_error"' in body
-
-
 def test_http_error_code_maps_404() -> None:
     assert _http_error_code(404) == "not_found"
 

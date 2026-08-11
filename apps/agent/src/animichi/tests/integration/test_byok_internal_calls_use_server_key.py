@@ -21,8 +21,13 @@ from pydantic_ai.models import Model
 
 from animichi.agents.base import resolve_model
 from animichi.agents.translation import TranslationResult, translation_agent
+from animichi.application.agent_turn import TextTurn
 from animichi.clients.catalog_client import CatalogClientProtocol
-from animichi.interfaces.public_api import RuntimeAPI
+from animichi.interfaces.public_api import (
+    PublicAPIRequest,
+    RuntimeAPI,
+    _RuntimeTurnExecution,
+)
 
 pytestmark = pytest.mark.integration
 
@@ -36,13 +41,17 @@ def _api() -> RuntimeAPI:
 
 
 async def test_byok_turn_injects_a_server_locked_title_translator() -> None:
-    """`_model_request` must pass a `title_translator` on a BYOK turn."""
+    """The text turn must pass a `title_translator` on a BYOK turn."""
     api = _api()
     with patch(
         "animichi.interfaces.public_api.run_animichi_agent", new=AsyncMock()
     ) as run_mock:
-        await api._model_request(
-            _request(), None, [], cast(Model, object()), None, None, is_byok=True
+        await _execution(api, is_byok=True).execute(
+            TextTurn(text="hello", locale="ja"),
+            context=None,
+            history=(),
+            model=cast(Model, object()),
+            on_step=None,
         )
     assert run_mock.await_args.kwargs["title_translator"] is not None
 
@@ -53,8 +62,12 @@ async def test_non_byok_turn_leaves_title_translator_untouched() -> None:
     with patch(
         "animichi.interfaces.public_api.run_animichi_agent", new=AsyncMock()
     ) as run_mock:
-        await api._model_request(
-            _request(), None, [], cast(Model, object()), None, None, is_byok=False
+        await _execution(api, is_byok=False).execute(
+            TextTurn(text="hello", locale="ja"),
+            context=None,
+            history=(),
+            model=cast(Model, object()),
+            on_step=None,
         )
     assert run_mock.await_args.kwargs["title_translator"] is None
 
@@ -91,39 +104,41 @@ async def test_byok_turn_forces_the_translation_gate_off_the_run_model() -> None
     """`_apply_translation_gate` must receive `model=None` on a BYOK turn so
     `_translation_context` falls back to the server default, never the
     resolved (BYOK) model."""
+    from animichi.agents.agent_result import AgentResult
+    from animichi.agents.runtime_models import QAResponseModel
+    from animichi.agents.session_state import SessionState
     from animichi.interfaces.public_api import _apply_translation_gate
 
+    result = AgentResult(
+        output=QAResponseModel(message="hello there"),
+        intent="qa",
+        session_state=SessionState(),
+    )
     with patch(
         "animichi.interfaces.public_api._apply_translation_gate", new=AsyncMock()
     ) as gate_mock:
         gate_mock.side_effect = _apply_translation_gate
         api = _api()
-        with (
-            patch.object(
-                api, "_dispatch_request", new=AsyncMock(side_effect=_dispatch_stub)
-            ),
+        with patch(
+            "animichi.interfaces.public_api.run_animichi_agent",
+            new=AsyncMock(return_value=result),
         ):
-            await api._execute_pipeline(
-                _request(),
-                None,
-                [],
-                cast(Model, object()),
-                None,
-                object(),
-                None,
-                is_byok=True,
+            await _execution(api, is_byok=True).execute(
+                TextTurn(text="hello", locale="ja"),
+                context=None,
+                history=(),
+                model=cast(Model, object()),
+                on_step=None,
             )
     assert gate_mock.await_args.kwargs["model"] is None
 
 
-def _request() -> object:
-    from animichi.interfaces.schemas import PublicAPIRequest
-
-    return PublicAPIRequest(text="hello")
-
-
-async def _dispatch_stub(*_args: object, **_kwargs: object) -> object:
-    from animichi.tests.unit.conftest_public_api import make_result
-
-    result = make_result(intent="qa", message="hello there")
-    return result, cast(Model, object()), True
+def _execution(api: RuntimeAPI, *, is_byok: bool) -> _RuntimeTurnExecution:
+    return _RuntimeTurnExecution(
+        api,
+        request=PublicAPIRequest(text="hello"),
+        model=cast(Model, object()),
+        is_byok=is_byok,
+        user_id=None,
+        on_step=None,
+    )

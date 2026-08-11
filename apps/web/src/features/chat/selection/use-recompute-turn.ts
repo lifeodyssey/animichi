@@ -1,15 +1,36 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { selectedPointsBody } from "../lib/selected-points-bypass";
-import type { SelectedPointsBody } from "../lib/selected-points-bypass";
 import type { RecomputeStatus } from "../components/SelectionTray";
 import type { ChatSession } from "../use-chat-session";
 
 /**
- * Tracks the E2 recompute turn (issue #273 S1.7): `fire` sends the bypass
- * body; the settle watcher classifies the turn as idle again or failed. A
- * failed recompute stays on the tray — ChatPage masks the full-page
- * `TurnFailure` surface while this hook reports `failed`.
+ * A selected-points selection turn (TURN-4 #955): the checkbox reselection
+ * re-sends the conversation with `selected_point_ids`, which the server maps
+ * onto the typed PointSelectionTurn — no model run, no bypass machinery. The
+ * turn carries no new user utterance — the body field is the whole request
+ * delta.
+ */
+export interface SelectedPointsBody {
+  readonly selected_point_ids: readonly string[];
+}
+
+/** The selection can never fire empty: an empty selection produces no body. */
+export function selectedPointsBody(ids: readonly string[]): SelectedPointsBody | undefined {
+  if (ids.length === 0) return undefined;
+  return { selected_point_ids: [...ids] };
+}
+
+/** Order-insensitive match of the live selection against the last-sent ids. */
+export function sameIds(selected: ReadonlySet<string>, ids: readonly string[] | undefined): boolean {
+  if (ids === undefined || selected.size !== ids.length) return false;
+  return ids.every((id) => selected.has(id));
+}
+
+/**
+ * Tracks the selection turn: `fire` sends the `selected_point_ids` body; the
+ * settle watcher classifies the turn as idle again or failed. A failed
+ * selection stays on the tray — ChatPage masks the full-page `TurnFailure`
+ * surface while this hook reports `failed`.
  */
 export interface RecomputeTurn {
   readonly status: RecomputeStatus;
@@ -25,7 +46,7 @@ type SetStatus = (status: RecomputeStatus) => void;
 type SetIds = (ids: readonly string[]) => void;
 type SendBypass = (body: SelectedPointsBody) => void;
 
-/** The guard: an empty selection produces no body, so the bypass never fires empty. */
+/** The guard: an empty selection produces no body, so the turn never fires empty. */
 function fireRecompute(ids: readonly string[], send: SendBypass, setStatus: SetStatus, setIds: SetIds): void {
   const body = selectedPointsBody(ids);
   if (body === undefined) return;
@@ -52,7 +73,7 @@ type WatcherStep = Readonly<{
   setStatus: SetStatus;
 }>;
 
-/** A busy recompute settles once its turn went active and came back. */
+/** A busy selection settles once its turn went active and came back. */
 function settleBusy({ chatStatus, error, started, setStatus }: WatcherStep): void {
   if (isActive(chatStatus)) {
     started.current = true;
@@ -61,7 +82,7 @@ function settleBusy({ chatStatus, error, started, setStatus }: WatcherStep): voi
   if (started.current) setStatus(error === undefined ? "idle" : "failed");
 }
 
-/** One watcher step; a later non-recompute turn going active clears a stale verdict. */
+/** One watcher step; a later non-selection turn going active clears a stale verdict. */
 function stepWatcher(step: WatcherStep): void {
   if (step.status === "busy") {
     settleBusy(step);

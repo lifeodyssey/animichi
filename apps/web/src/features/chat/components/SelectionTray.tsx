@@ -1,5 +1,5 @@
 import { useSpotSelection } from "../selection/use-spot-selection";
-import { sameIds } from "../lib/selected-points-bypass";
+import { sameIds } from "../selection/use-recompute-turn";
 import type { ChatDict } from "../i18n";
 
 /** The recompute turn's lifecycle as the tray sees it (issue #273 S1.7 E2). */

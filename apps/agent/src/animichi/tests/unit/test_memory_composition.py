@@ -21,7 +21,8 @@ from animichi.agents.animichi_agent import USER_MEMORY_GUIDANCE
 from animichi.agents.animichi_runner import run_animichi_agent
 from animichi.agents.runtime_models import PartialResponseModel, QAResponseModel
 from animichi.agents.session_state import SessionState
-from animichi.interfaces.public_api import RuntimeAPI
+from animichi.application.agent_turn import TextTurn
+from animichi.interfaces.public_api import RuntimeAPI, _RuntimeTurnExecution
 from animichi.interfaces.schemas import PublicAPIRequest
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 from animichi.tests.streaming_function_model import streaming_function_model
@@ -101,9 +102,21 @@ async def test_runtime_threads_user_and_shared_store_to_runner(
         model_http_client=MagicMock(),
         memory_store=store,
     )
+    execution = _RuntimeTurnExecution(
+        api,
+        request=PublicAPIRequest(text="hello"),
+        model=TestModel(),
+        is_byok=False,
+        user_id="user-1",
+        on_step=None,
+    )
 
-    await api._dispatch_request(
-        PublicAPIRequest(text="hello"), None, [], TestModel(), None, "user-1"
+    await execution.execute(
+        TextTurn(text="hello", locale="ja"),
+        context=None,
+        history=(),
+        model=TestModel(),
+        on_step=None,
     )
 
     assert run.await_args.kwargs["user_id"] == "user-1"

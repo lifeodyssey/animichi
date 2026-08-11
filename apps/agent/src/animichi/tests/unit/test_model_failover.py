@@ -17,9 +17,16 @@ from pydantic_ai.settings import ModelSettings
 
 from animichi.agents.agent_result import AgentResult
 from animichi.agents.base import get_default_model, resolve_model, resolve_model_alias
+from animichi.agents.runtime_models import QAResponseModel
+from animichi.agents.session_state import SessionState
+from animichi.application.agent_turn import TextTurn
 from animichi.clients.catalog_client import CatalogClientProtocol
 from animichi.config.settings import Settings
-from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
+from animichi.interfaces.public_api import (
+    PublicAPIRequest,
+    RuntimeAPI,
+    _RuntimeTurnExecution,
+)
 
 
 class _FailModel(TestModel):
@@ -271,29 +278,48 @@ def test_runtime_api_requires_model_http_client() -> None:
 
 async def test_alias_override_reuses_injected_model_client() -> None:
     client = httpx.AsyncClient()
-    result = cast(AgentResult, object())
+    result = AgentResult(
+        output=QAResponseModel(message="ok"),
+        intent="general_qa",
+        session_state=SessionState(),
+    )
     api = RuntimeAPI(
         object(),
         catalog=cast(CatalogClientProtocol, object()),
         model_http_client=client,
+    )
+    execution = _RuntimeTurnExecution(
+        api,
+        request=PublicAPIRequest(text="hello"),
+        model="mimo",
+        is_byok=False,
+        user_id=None,
+        on_step=None,
     )
     with (
         patch(
             "animichi.agents.animichi_runner.resolve_model_alias",
             wraps=resolve_model_alias,
         ) as resolve,
-        patch.object(api, "_model_request", new=AsyncMock(return_value=result)),
+        patch(
+            "animichi.interfaces.public_api.run_animichi_agent",
+            new=AsyncMock(return_value=result),
+        ),
         patch(
             "animichi.agents.base.build_model_http_client",
             side_effect=AssertionError("fresh model client built"),
         ),
     ):
-        dispatched = await api._dispatch_request(
-            PublicAPIRequest(text="hello"), None, [], "mimo", None
+        executed = await execution.execute(
+            TextTurn(text="hello", locale="ja"),
+            context=None,
+            history=(),
+            model="mimo",
+            on_step=None,
         )
     try:
         resolve.assert_called_once_with("mimo", http_client=client)
-        assert dispatched[0] is result
+        assert executed.output is result
     finally:
         await client.aclose()
 
@@ -307,22 +333,35 @@ async def test_default_model_reuses_injected_model_client() -> None:
         catalog=cast(CatalogClientProtocol, object()),
         model_http_client=client,
     )
+    run = AsyncMock(return_value=result)
+    execution = _RuntimeTurnExecution(
+        api,
+        request=PublicAPIRequest(text="hello"),
+        model=None,
+        is_byok=False,
+        user_id=None,
+        on_step=None,
+    )
     with (
         patch("animichi.config.get_settings", return_value=settings),
         patch(
             "animichi.agents.animichi_runner.get_default_model", wraps=get_default_model
         ),
-        patch.object(api, "_model_request", new=AsyncMock(return_value=result)),
+        patch("animichi.interfaces.public_api.run_animichi_agent", new=run),
         patch(
             "animichi.agents.base.build_model_http_client",
             side_effect=AssertionError("fresh model client built"),
         ),
     ):
-        dispatched = await api._dispatch_request(
-            PublicAPIRequest(text="hello"), None, [], None, None
+        await execution.execute(
+            TextTurn(text="hello", locale="ja"),
+            context=None,
+            history=(),
+            model=None,
+            on_step=None,
         )
     try:
-        selected = dispatched[1]
+        selected = run.await_args.kwargs["model"]
         assert isinstance(selected, FallbackModel)
         assert all(model.client._client is client for model in selected.models)
     finally:

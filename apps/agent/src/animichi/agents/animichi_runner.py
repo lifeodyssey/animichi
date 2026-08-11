@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import cast
 
@@ -58,11 +58,7 @@ from animichi.agents.session_state import CurrentAnime, SessionState
 from animichi.agents.tool_event_bridge import tool_event_bridge
 from animichi.agents.tool_state import ToolState
 from animichi.agents.web_trust import detect_prompt_injection
-from animichi.application.handle_user_message import (
-    BlockedOutcome,
-    HandleUserMessage,
-    UserMessage,
-)
+from animichi.application.errors import InvalidInputError
 from animichi.application.model_turn_port import (
     ModelTurnPort,
     ModelTurnRequest,
@@ -72,6 +68,21 @@ from animichi.application.model_turn_port import (
 from animichi.application.turn_event_sink import TurnEventSink
 from animichi.clients.catalog_client import CatalogClientProtocol
 from animichi.domain.ports import CatalogLookup
+
+logger = structlog.get_logger(__name__)
+
+BlockedOutcome = Callable[[], ModelTurnResult]
+
+
+class _NullSink:
+    """No-op sink for direct port execution (no turn lifecycle here)."""
+
+    def on_stage(self, stage: str, outcome: str | None = None) -> None: ...
+
+    def on_usage(
+        self, completion_tokens: int, prompt_tokens: int, duration_ms: int
+    ) -> None: ...
+
 
 logger = structlog.get_logger(__name__)
 
@@ -199,11 +210,12 @@ async def run_animichi_agent(
     The data tools route exclusively through the injected ``catalog`` client;
     the agent makes no upstream calls (no DB Retriever, no Anitabi/Bangumi).
 
-    Framework adapter: the deterministic turn lifecycle (input validation,
-    injection preflight gate) is owned by the application use case
-    :class:`animichi.application.handle_user_message.HandleUserMessage`; the
-    PydanticAI run itself stays in this adapter behind the ``TurnExecutor``
-    port.
+    Framework adapter: the deterministic turn lifecycle (admission, dispatch,
+    settlement, input/injection gating) is owned by the application use case
+    :class:`animichi.application.agent_turn.AgentTurn`; this entrypoint is the
+    direct adapter convenience for callers that already hold a context
+    (TURN-4 #955). The PydanticAI run itself stays here behind the
+    ``ModelTurnPort``.
     """
     deps = RuntimeDeps(
         db=db,
@@ -224,16 +236,15 @@ async def run_animichi_agent(
         memory_store=memory_store,
         user_id=user_id,
     )
-    use_case = HandleUserMessage(
-        turn_port=turn_port,
-        blocked_outcome=blocked_outcome,
-        detect_injection=detect_prompt_injection,
-        guard_enabled=_input_guard_enabled,
-    )
-    outcome = await use_case(
-        UserMessage(text=text, locale=locale, user_id=user_id, context=context)
-    )
-    return cast(AgentResult, outcome.result.output)
+    if not text.strip():
+        raise InvalidInputError("user message text must not be blank", field="text")
+    injected = detect_prompt_injection(text)
+    if injected:
+        logger.warning("input_guardrail_injection_detected", text=text[:100])
+    if _input_guard_enabled() and injected:
+        return cast(AgentResult, blocked_outcome().output)
+    outcome = await turn_port.run(ModelTurnRequest(text=text), events=_NullSink())
+    return cast(AgentResult, outcome.output)
 
 
 class _PydanticAIModelTurn:

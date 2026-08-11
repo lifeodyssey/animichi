@@ -41,7 +41,6 @@ from animichi.interfaces.routes.conversations import router as conversations_rou
 from animichi.interfaces.routes.feedback import router as feedback_router
 from animichi.interfaces.routes.health import router as health_router
 from animichi.interfaces.routes.photo_search import router as photo_search_router
-from animichi.interfaces.routes.runtime import router as runtime_router
 from animichi.interfaces.routes.search_preview import router as search_preview_router
 from animichi.interfaces.routes.session_migration import (
     router as session_migration_router,
@@ -267,7 +266,6 @@ def create_fastapi_app(
     # credential or Authorization header.
     register_credential_stripping_middleware(app)
     app.include_router(health_router)
-    app.include_router(runtime_router)
     app.include_router(chat_router)
     app.include_router(byok_router)
     app.include_router(feedback_router)

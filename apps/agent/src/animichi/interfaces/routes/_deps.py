@@ -270,13 +270,6 @@ def _require_supabase(db: object) -> SupabaseClient:
     return db
 
 
-def _public_api_response(response: PublicAPIResponse) -> JSONResponse:
-    return _json_response(
-        response.model_dump(mode="json"),
-        status_code=_http_status_for_response(response),
-    )
-
-
 def _json_response(payload: object, status_code: int = 200) -> JSONResponse:
     return JSONResponse(status_code=status_code, content=jsonable_encoder(payload))
 

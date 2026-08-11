@@ -177,3 +177,21 @@ async def test_running_call_is_closed_when_handler_raises() -> None:
     tool_error = _of_type(chunks, "tool-output-error")
     assert [part["toolCallId"] for part in tool_error] == ["provider-call-error"]
     assert _types(chunks).index("tool-output-error") < _types(chunks).index("error")
+
+
+async def test_consumer_disconnect_cancels_the_producer_task_without_hanging() -> None:
+    """Disconnect (the generator closed early) settles the producer task:
+    it is cancelled rather than awaited to completion, so a handler that
+    never returns cannot leak a task or hang the loop (TURN-4 #955)."""
+
+    async def never_returns(_on_step: OnStep) -> PublicAPIResponse:
+        import asyncio
+
+        await asyncio.Future()
+        return _response()  # pragma: no cover - unreachable
+
+    frames = stream_chat(never_returns)
+    first = await anext(frames)
+    assert _type_of(_parse([first])[0]) == "start"
+
+    await frames.aclose()
