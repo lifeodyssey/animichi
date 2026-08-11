@@ -49,7 +49,7 @@ jobs:
     environment: staging
     steps:
       - name: Checkout the cutover source revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
@@ -73,7 +73,7 @@ jobs:
     needs: cutover-phase-c-close-ingress
     steps:
       - name: Checkout the cutover source revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
@@ -108,7 +108,7 @@ jobs:
     needs: cutover-phase-d-reset-schema
     steps:
       - name: Checkout and verify the cutover source revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
@@ -132,7 +132,7 @@ jobs:
     needs: [cutover-phase-d-reset-schema, cutover-phase-e-deploy-catalog]
     steps:
       - name: Checkout and verify the cutover source revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
@@ -157,7 +157,7 @@ jobs:
     needs: [cutover-phase-d-reset-schema, cutover-phase-e-deploy-users]
     steps:
       - name: Checkout and verify the cutover source revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
@@ -181,7 +181,7 @@ jobs:
     needs: cutover-phase-d-reset-schema
     steps:
       - name: Checkout and verify the cutover source revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
@@ -204,7 +204,7 @@ jobs:
     needs: [cutover-phase-d-reset-schema, cutover-phase-e-deploy-agent, cutover-phase-e-deploy-web]
     steps:
       - name: Checkout and verify the cutover source revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
@@ -232,7 +232,7 @@ jobs:
       - cutover-phase-e-deploy-edge
     steps:
       - name: Checkout the cutover source revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
@@ -253,7 +253,7 @@ jobs:
     needs: cutover-phase-e-private-smoke
     steps:
       - name: Checkout the cutover source revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
