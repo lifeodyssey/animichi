@@ -1,5 +1,5 @@
 import { http } from "msw";
-import type { HttpHandler, JsonBodyType } from "msw";
+import type { HttpHandler } from "msw";
 import type { z } from "zod";
 import { Itinerary as ItinerarySchema, ItineraryInput } from "@animichi/contract";
 import { contractJsonHandler, orpcErrorResponse } from "./contract-handler";
@@ -83,4 +83,4 @@ function orderedPoint(id: string, index: number): z.infer<typeof ItinerarySchema
   };
 }
 
-export type { JsonBodyType };
+export type { JsonBodyType } from "msw";

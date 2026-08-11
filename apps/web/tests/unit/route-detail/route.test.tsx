@@ -34,9 +34,9 @@ describe("/routes/$routeId loader", () => {
     const router = await openRoute(SAVED_ROUTE_ID);
     await screen.findByRole("heading", { level: 1 });
     const cached = router.options.context.queryClient.getQueryData(listSavedRoutesOptions().queryKey) as {
-      readonly saved_routes: readonly unknown[];
+      readonly saved_routes: readonly { id: string }[];
     };
-    expect(Array.isArray(cached.saved_routes)).toBe(true);
+    expect(cached.saved_routes.map((route) => route.id)).toContain(SAVED_ROUTE_ID);
   });
 
   it("renders the matched route's title in the hero", async () => {
@@ -64,7 +64,7 @@ describe("liveRouteDetailPort (wire read port)", () => {
   it("reads owned routes and plans the itinerary over the wire", async () => {
     server.use(catalogPlanItineraryHandler);
     const saved = await liveRouteDetailPort.listOwned();
-    expect(Array.isArray(saved.saved_routes)).toBe(true);
+    expect(saved.saved_routes.map((route) => route.id)).toContain(SAVED_ROUTE_ID);
     const itinerary = await liveRouteDetailPort.planItinerary(["p1"]);
     expect(itinerary.point_count).toBeGreaterThan(0);
   });
