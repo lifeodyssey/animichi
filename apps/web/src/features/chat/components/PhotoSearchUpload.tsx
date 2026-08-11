@@ -12,7 +12,6 @@ import {
   postPhotoSearch,
 } from "../photo-search";
 import type {
-  PhotoConfirmSignals,
   PhotoGuidance,
   PhotoSearchContext,
   PhotoSearchOutcome,
@@ -20,9 +19,10 @@ import type {
 import { candidatesOf } from "./Cards";
 import { DataPartCard } from "./DataPartCard";
 
-/** Photo-search upload (issue #260 AC4/AC5/AC7): the result envelope renders
- * through DataPartCard, sharing the text-search render path; failures show
- * on-brand copy with a retry — never a stuck spinner. */
+/** Photo-search upload (issue #260 AC4/AC5/AC7, AGENT-1 #952): the result
+ * envelope renders through DataPartCard, sharing the text-search render
+ * path; selecting a candidate confirms the server-issued photo offer (AC11);
+ * failures show on-brand copy with a retry — never a stuck spinner. */
 
 type UploadError = "unsupported" | "tooLarge" | "failed" | "challenge";
 
@@ -31,7 +31,7 @@ type UploadState =
   | { readonly kind: "uploading" }
   | { readonly kind: "error"; readonly error: UploadError }
   | { readonly kind: "quota"; readonly guidance: PhotoGuidance }
-  | { readonly kind: "done"; readonly part: ChatDataPart };
+  | { readonly kind: "done"; readonly part: ChatDataPart; readonly offerId: string };
 
 type Props = Readonly<{ dict: ChatDict; baseUrl: string; context: PhotoSearchContext }>;
 
@@ -69,35 +69,41 @@ function UploadStatus({ dict, state, onRetry }: StatusProps) {
   return null;
 }
 
-function confirmSignals(part: ChatDataPart, context: PhotoSearchContext): PhotoConfirmSignals {
-  return {
-    query_type: "anime_screenshot",
-    gps_available: context.gps !== undefined,
-    layer_hit: part.intent === "search_bangumi" ? "1" : "none",
-    candidates_shown: candidatesOf(part).length,
-  };
+/** The candidate the user picked, resolved back to its offer candidate id. */
+function candidateIdOf(part: ChatDataPart, title: string): string | undefined {
+  return candidatesOf(part).find((candidate) => candidate.title === title)?.id;
 }
 
-function makeConfirmSend(actions: ChatActions, baseUrl: string, part: ChatDataPart, context: PhotoSearchContext) {
+function makeConfirmSend(actions: ChatActions, confirm: (title: string) => void) {
   return (text: string) => {
-    confirmPhotoSearch(baseUrl, confirmSignals(part, context), context);
+    confirm(text);
     actions.send(text);
   };
 }
 
-/** Selecting a candidate from a photo result fires the confirm ping (AC11). */
-function confirmingActions(actions: ChatActions, baseUrl: string, part: ChatDataPart, context: PhotoSearchContext): ChatActions {
-  return { ...actions, send: makeConfirmSend(actions, baseUrl, part, context) };
+type ConfirmProps = Readonly<{
+  baseUrl: string;
+  offerId: string;
+  part: ChatDataPart;
+  context: PhotoSearchContext;
+}>;
+
+/** Selecting a candidate from a photo result confirms the photo offer (AC11). */
+function confirmingActions(actions: ChatActions, props: ConfirmProps): ChatActions {
+  const confirm = (title: string) => {
+    confirmPhotoSearch(props.baseUrl, props.offerId, candidateIdOf(props.part, title), props.context);
+  };
+  return { ...actions, send: makeConfirmSend(actions, confirm) };
 }
 
-type ResultProps = Readonly<{ dict: ChatDict; baseUrl: string; part: ChatDataPart; context: PhotoSearchContext }>;
+type ResultProps = Readonly<{ dict: ChatDict; props: ConfirmProps }>;
 
-function PhotoResult({ dict, baseUrl, part, context }: ResultProps) {
+function PhotoResult({ dict, props }: ResultProps) {
   const actions = useChatActions();
-  const decorated = useMemo(() => confirmingActions(actions, baseUrl, part, context), [actions, baseUrl, part, context]);
+  const decorated = confirmingActions(actions, props);
   return (
     <ChatActionsProvider actions={decorated}>
-      <DataPartCard data={part} dict={dict} />
+      <DataPartCard data={props.part} dict={dict} />
     </ChatActionsProvider>
   );
 }
@@ -105,7 +111,7 @@ function PhotoResult({ dict, baseUrl, part, context }: ResultProps) {
 type SetUploadState = (state: UploadState) => void;
 
 function settledState(outcome: PhotoSearchOutcome): UploadState {
-  return outcome.kind === "quota" ? outcome : { kind: "done", part: outcome.part };
+  return outcome.kind === "quota" ? outcome : { kind: "done", part: outcome.part, offerId: outcome.offerId };
 }
 
 /** A rejected challenge reads as its own state so the visitor is told to
@@ -164,7 +170,7 @@ function UploadControl({ dict, onChange }: Readonly<{ dict: ChatDict; onChange: 
 
 function ResultGate({ dict, baseUrl, state, context }: Readonly<{ dict: ChatDict; baseUrl: string; state: UploadState; context: PhotoSearchContext }>) {
   if (state.kind !== "done") return null;
-  return <PhotoResult dict={dict} baseUrl={baseUrl} part={state.part} context={context} />;
+  return <PhotoResult dict={dict} props={{ baseUrl, offerId: state.offerId, part: state.part, context }} />;
 }
 
 type OutcomeProps = Readonly<{ dict: ChatDict; baseUrl: string; state: UploadState; context: PhotoSearchContext; onRetry: () => void }>;

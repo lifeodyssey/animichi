@@ -18,12 +18,14 @@ model first (when one was resolved for the request) and falls back to the
 platform model on any call failure — the same "try, then fall back to
 platform for this call" contract the old canary-based router used for a
 runtime failure.
+
+The adapter returns the application's neutral :class:`PhotoVisionResult`
+(``application.search_photo``) — PydanticAI usage is mapped to
+``ModelTurnUsage`` here, at the framework boundary.
 """
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from typing import Literal, Protocol, cast
 
 import httpx
@@ -33,6 +35,10 @@ from pydantic_ai import Agent
 from pydantic_ai.messages import BinaryContent, UserContent
 from pydantic_ai.models import Model
 from pydantic_ai.usage import RunUsage
+
+from animichi.application.model_turn_port import ModelTurnUsage
+from animichi.application.photo_image import sniff_image_mime
+from animichi.application.search_photo import PhotoVisionResult
 
 logger = structlog.get_logger(__name__)
 
@@ -70,16 +76,6 @@ class VisionRecognitionFailed(Exception):
     BYOK attempt (if any) and the platform model are both exhausted."""
 
 
-@dataclass(frozen=True)
-class VisionCallResult:
-    candidate_titles: list[str]
-    provider_kind: VisionProviderKind
-    usage: RunUsage
-
-
-RecognizeCall = Callable[[], Awaitable[VisionCallResult]]
-
-
 def _images_to_content(images: list[bytes]) -> list[UserContent]:
     return [
         BinaryContent(data=image, media_type=sniff_image_mime(image) or "image/jpeg")
@@ -100,7 +96,7 @@ async def _run_recognition(
 
 async def _try_byok(
     model: Model, images: list[bytes], locale: str
-) -> VisionCallResult | None:
+) -> PhotoVisionResult | None:
     """A failed BYOK call falls back to platform (by design, unchanged from
     the old router): a transient blip or a model that rejects the image part
     must not turn into a hard failure while the platform model is still
@@ -110,12 +106,12 @@ async def _try_byok(
     except _RECOGNITION_FAILURES as exc:
         logger.warning("vision_byok_recognize_failed", error_type=type(exc).__name__)
         return None
-    return VisionCallResult(titles, "byok", usage)
+    return _result(titles, "byok", usage)
 
 
 async def _recognize_platform(
     model: Model, images: list[bytes], locale: str
-) -> VisionCallResult:
+) -> PhotoVisionResult:
     """The final fallback: any failure here has nowhere left to go."""
     try:
         titles, usage = await _run_recognition(model, images, locale)
@@ -124,7 +120,21 @@ async def _recognize_platform(
             "vision_platform_recognize_failed", error_type=type(exc).__name__
         )
         raise VisionRecognitionFailed from exc
-    return VisionCallResult(titles, "platform", usage)
+    return _result(titles, "platform", usage)
+
+
+def _result(
+    titles: list[str], provider_kind: VisionProviderKind, usage: RunUsage
+) -> PhotoVisionResult:
+    return PhotoVisionResult(
+        candidate_titles=titles,
+        provider_kind=provider_kind,
+        usage=ModelTurnUsage(
+            prompt_tokens=usage.input_tokens,
+            completion_tokens=usage.output_tokens,
+            requests=usage.requests,
+        ),
+    )
 
 
 class ModelProvider(Protocol):
@@ -140,24 +150,10 @@ async def recognize_photo(
     byok_model: ModelProvider | None,
     images: list[bytes],
     locale: str,
-) -> VisionCallResult:
+) -> PhotoVisionResult:
     """BYOK first (when supplied), platform as the fallback/default."""
     if byok_model is not None:
         result = await _try_byok(cast(Model, byok_model), images, locale)
         if result is not None:
             return result
     return await _recognize_platform(cast(Model, platform_model), images, locale)
-
-
-def sniff_image_mime(image: bytes) -> str | None:
-    """Strict magic-byte sniff; ``None`` when the bytes are not a supported
-    image. Used both to validate an uploaded image's real type (the client's
-    declared mime is never trusted, `agent/interfaces/routes/photo_search.py`)
-    and to label the ``BinaryContent`` part sent to the model above."""
-    if image.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png"
-    if image.startswith(b"RIFF") and image[8:12] == b"WEBP":
-        return "image/webp"
-    if image.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg"
-    return None

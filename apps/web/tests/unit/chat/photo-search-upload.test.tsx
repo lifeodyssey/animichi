@@ -22,6 +22,7 @@ const SEARCH_ENVELOPE = {
   success: true,
   status: "ok",
   intent: "search_bangumi",
+  offer_id: "offer-1",
   data: {
     results: {
       kind: "bangumi",
@@ -37,6 +38,7 @@ const CLARIFY_ENVELOPE = {
   success: true,
   status: "ok",
   intent: "clarify",
+  offer_id: "offer-1",
   data: { reason: "photo_unrecognized", candidates: [{ id: "9912", title: "けいおん!" }] },
 };
 
@@ -79,7 +81,7 @@ describe("PhotoSearchUpload degradation (AC5)", () => {
     expect(screen.getByRole("button", { name: "けいおん!" })).toBeTruthy();
   });
 
-  it("selecting a candidate sends it and fires the confirm ping (AC11)", async () => {
+  it("selecting a candidate confirms the photo offer with its candidate id (AC11, AGENT-1 #952)", async () => {
     const confirmed: unknown[] = [];
     server.use(
       http.post(URL, () => HttpResponse.json(CLARIFY_ENVELOPE)),
@@ -93,7 +95,7 @@ describe("PhotoSearchUpload degradation (AC5)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "けいおん!" }));
     expect(send).toHaveBeenCalledWith("けいおん!");
     await vi.waitFor(() => { expect(confirmed).toHaveLength(1); });
-    expect(confirmed[0]).toEqual({ query_type: "anime_screenshot", gps_available: false, layer_hit: "none", candidates_shown: 1 });
+    expect(confirmed[0]).toEqual({ offer_id: "offer-1", candidate_id: "9912" });
   });
 });
 
