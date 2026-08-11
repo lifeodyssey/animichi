@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 import { authenticate } from "../src/identity/auth.ts";
 
-const BASE_ENV = { SUPABASE_URL: "https://sb-neon-base.example.test", SUPABASE_SERVICE_ROLE_KEY: "service" };
+const BASE_ENV = { SUPABASE_URL: "https://sb-neon-base.example.test" };
 
 function stubFetch(handler: (url: string, init?: RequestInit) => Response, urls: string[] = []): typeof fetch {
   return ((input: RequestInfo | URL, init?: RequestInit) => {
@@ -111,9 +111,10 @@ void test("enabled Neon without JWKS URL rejects without throwing", async () => 
   assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
-void test("sk_ token still uses api_keys when Neon is enabled", async () => {
+void test("an sk_ credential is invalid even with Neon enabled (AUTH-1: api_keys deleted)", async () => {
   const host = "https://neon-api-key.example.test";
-  const r = await authenticate(bearer("sk_fake_neon"), neonEnv(host), stubFetch((url) =>
-    url.includes("select=user_id") ? new Response(JSON.stringify([{ user_id: "fake-agent" }]), { status: 200 }) : new Response("", { status: 200 })));
-  assert.deepEqual(r, { ok: true, userId: "fake-agent", userType: "agent" });
+  const urls: string[] = [];
+  const r = await authenticate(bearer("sk_fake_neon"), neonEnv(host), stubFetch(() => new Response("", { status: 500 }), urls));
+  assert.deepEqual(r, { ok: false, reason: "invalid" });
+  assert.deepEqual(urls, [], "an sk_ credential must never touch api_keys or the JWKS endpoints");
 });

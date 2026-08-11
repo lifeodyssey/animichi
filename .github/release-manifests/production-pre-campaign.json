@@ -5,8 +5,8 @@
   "source_revision": "b94c30ab6a519f1cce9eb0a3f7885953f8ff54cf",
   "atlas": {
     "directory": "migrations/neon",
-    "target": "20260809000031",
-    "digest_sha256": "e0428e7a9b25745a8d1f22f8fbcec5c915a8e18d56a7a45f5fe3554158b6ab80"
+    "target": "20260809000032",
+    "digest_sha256": "90c8dbc121247e16fc9e1e4cf516e39df69263ff272cdf92ddd311cfe8c4816c"
   },
   "components": {
     "catalog": {
@@ -17,7 +17,9 @@
       "pulumi_stack": "prod",
       "run_pulumi": true,
       "build_filter": "",
-      "worker_secrets": ["DATABASE_URL"],
+      "worker_secrets": [
+        "DATABASE_URL"
+      ],
       "post_deploy_secrets": [],
       "depends_on": [],
       "deploy_eligible": true,
@@ -45,9 +47,14 @@
       "pulumi_stack": "prod",
       "run_pulumi": false,
       "build_filter": "",
-      "worker_secrets": ["DATABASE_URL", "NEON_AUTH_JWKS_URL"],
+      "worker_secrets": [
+        "DATABASE_URL",
+        "NEON_AUTH_JWKS_URL"
+      ],
       "post_deploy_secrets": [],
-      "depends_on": ["catalog"],
+      "depends_on": [
+        "catalog"
+      ],
       "deploy_eligible": true,
       "rollback_eligible": false
     },
@@ -59,9 +66,13 @@
       "pulumi_stack": "prod",
       "run_pulumi": false,
       "build_filter": "",
-      "worker_secrets": ["AGENT_DATABASE_URL"],
+      "worker_secrets": [
+        "AGENT_DATABASE_URL"
+      ],
       "post_deploy_secrets": [],
-      "depends_on": ["catalog"],
+      "depends_on": [
+        "catalog"
+      ],
       "deploy_eligible": true,
       "rollback_eligible": false
     },
@@ -84,8 +95,13 @@
         "LOGFIRE_TOKEN",
         "CORS_ALLOWED_ORIGIN"
       ],
-      "post_deploy_secrets": ["TURNSTILE_SECRET", "ANON_ID_SECRET"],
-      "depends_on": ["users"],
+      "post_deploy_secrets": [
+        "TURNSTILE_SECRET",
+        "ANON_ID_SECRET"
+      ],
+      "depends_on": [
+        "users"
+      ],
       "deploy_eligible": true,
       "rollback_eligible": false
     }

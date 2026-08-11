@@ -43,7 +43,7 @@ describe("previewForQuery (api/preview.ts)", () => {
 
     const preview = await previewForQuery("けいおん！", fetch);
 
-    expect(preview?.workId).toBe("10380");
+    expect(preview?.bangumiId).toBe("10380");
     expect(preview?.points).toEqual([
       {
         id: "p1",
@@ -99,7 +99,7 @@ describe("previewForWork (api/preview.ts)", () => {
   it("treats an Anitabi 404 as an empty preview, not an outage", async () => {
     const { fetch } = mockFetchSequence([{ status: 404, body: null }]);
     const preview = await previewForWork("10380", fetch);
-    expect(preview).toEqual({ workId: "10380", points: [] });
+    expect(preview).toEqual({ bangumiId: "10380", points: [] });
   });
 
   it("maps an Anitabi outage to a typed retryable upstream error", async () => {

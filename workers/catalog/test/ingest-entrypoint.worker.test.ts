@@ -1,14 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { IngestResult } from "../src/ingest/orchestrator";
+import type { IngestResult } from "../src/ingest/ingest-bangumi";
 
-/** Spy over the orchestrator's `ingestWork`; the other exports stay inert. */
-const mocks = vi.hoisted(() => ({ ingestWork: vi.fn() }));
+/** Spy over the IngestBangumi use case; the other exports stay inert. */
+const mocks = vi.hoisted(() => ({ ingest: vi.fn() }));
 
-vi.mock("../src/ingest/orchestrator", () => ({
-  ingestWork: mocks.ingestWork,
-  ingestGuard: () => Promise.resolve("ready"),
-  claimIngest: () => Promise.resolve("acquired"),
-  runClaimedIngest: () => Promise.resolve({ status: "in_progress" }),
+vi.mock("../src/ingest/ingest-bangumi", () => ({
+  catalogIngestBangumi: () => ({ ingest: mocks.ingest }),
 }));
 
 import { IngestEntrypoint } from "../src/index";
@@ -17,28 +14,28 @@ const ctx = {} as unknown as ExecutionContext;
 
 describe("IngestEntrypoint", () => {
   beforeEach(() => {
-    mocks.ingestWork.mockReset();
+    mocks.ingest.mockReset();
   });
 
-  it("delegates ingestWork(workId) to the orchestrator", async () => {
+  it("delegates ingestBangumi(bangumiId) to the IngestBangumi use case", async () => {
     const result: IngestResult = { status: "ingested", version: 3, pointCount: 12 };
-    mocks.ingestWork.mockResolvedValue(result);
+    mocks.ingest.mockResolvedValue(result);
 
     const entrypoint = new IngestEntrypoint(ctx, {
       ENVIRONMENT: "test",
       DATABASE_URL: "postgresql://user:pass@example.test:5432/db",
     });
 
-    await expect(entrypoint.ingestWork("10380")).resolves.toEqual(result);
-    expect(mocks.ingestWork).toHaveBeenCalledExactlyOnceWith(expect.anything(), "10380");
+    await expect(entrypoint.ingestBangumi("10380")).resolves.toEqual(result);
+    expect(mocks.ingest).toHaveBeenCalledExactlyOnceWith("10380");
   });
 
-  it("rejects without touching the orchestrator when no database is configured", async () => {
+  it("rejects without touching the use case when no database is configured", async () => {
     const entrypoint = new IngestEntrypoint(ctx, {});
 
-    await expect(entrypoint.ingestWork("10380")).rejects.toThrow(
+    await expect(entrypoint.ingestBangumi("10380")).rejects.toThrow(
       "catalog database not configured",
     );
-    expect(mocks.ingestWork).not.toHaveBeenCalled();
+    expect(mocks.ingest).not.toHaveBeenCalled();
   });
 });

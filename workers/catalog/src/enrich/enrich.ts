@@ -42,21 +42,21 @@ export interface EnrichResult {
 }
 
 /** Enrich one work from its raw zone, then publish a new catalog version. */
-export async function enrichWork(db: CatalogDb, workId: string): Promise<EnrichResult> {
-  const bangumi = parseBangumi(workId, await readRaw(db, "raw_bangumi", workId));
-  const points = parseAnitabiPoints(workId, await readRaw(db, "raw_anitabi", workId));
-  logClusters(workId, points);
-  const results = await db.batch(prepareBatch(db, enrichStatements(workId, bangumi, points)));
+export async function enrichWork(db: CatalogDb, bangumiId: string): Promise<EnrichResult> {
+  const bangumi = parseBangumi(bangumiId, await readRaw(db, "raw_bangumi", bangumiId));
+  const points = parseAnitabiPoints(bangumiId, await readRaw(db, "raw_anitabi", bangumiId));
+  logClusters(bangumiId, points);
+  const results = await db.batch(prepareBatch(db, enrichStatements(bangumiId, bangumi, points)));
   return { version: readPublishedVersion(lastResult(results)), pointCount: points.length };
 }
 
 /** Build every work mutation in its mandatory execution order. */
 function enrichStatements(
-  workId: string, bangumi: BangumiRow, points: PointRow[],
+  bangumiId: string, bangumi: BangumiRow, points: PointRow[],
 ): readonly [SQL, ...SQL[]] {
   return [
     upsertBangumi(bangumi), ...upsertPoints(points),
-    upsertAliases(workId, bangumi), ...publishVersionStatements(workId),
+    upsertAliases(bangumiId, bangumi), ...publishVersionStatements(bangumiId),
   ];
 }
 
@@ -77,21 +77,21 @@ function lastResult(results: readonly { rows: unknown[] }[]): { rows: unknown[] 
 async function readRaw(
   db: DbExecutor,
   table: "raw_anitabi" | "raw_bangumi",
-  workId: string,
+  bangumiId: string,
 ): Promise<unknown> {
-  const rows = await rawPayloadRows(db, table, workId);
+  const rows = await rawPayloadRows(db, table, bangumiId);
   const first = rows[0];
-  if (first === undefined) throw new Error(`No ${table} payload for work ${workId}`);
+  if (first === undefined) throw new Error(`No ${table} payload for work ${bangumiId}`);
   return first.payload;
 }
 
 async function rawPayloadRows(
   db: DbExecutor,
   table: "raw_anitabi" | "raw_bangumi",
-  workId: string,
+  bangumiId: string,
 ): Promise<{ payload: unknown }[]> {
   return (
-    await db.execute(sql`SELECT payload FROM ${sql.raw(table)} WHERE work_id = ${workId}`)
+    await db.execute(sql`SELECT payload FROM ${sql.raw(table)} WHERE work_id = ${bangumiId}`)
   ).rows as { payload: unknown }[];
 }
 
@@ -146,18 +146,18 @@ function pointValues(row: PointRow): SQL {
 }
 
 /** Compute 50m clusters (no cluster_id column to persist) and log the count. */
-function logClusters(workId: string, points: PointRow[]): number {
+function logClusters(bangumiId: string, points: PointRow[]): number {
   const clusters = clusterByLocation(points, 50);
-  console.info(`enrich ${workId}: ${String(points.length)} points -> ${String(clusters.length)} clusters`);
+  console.info(`enrich ${bangumiId}: ${String(points.length)} points -> ${String(clusters.length)} clusters`);
   return clusters.length;
 }
 
 /** Rank the work's title aliases and UPSERT them in one statement. */
-function upsertAliases(workId: string, b: BangumiRow): SQL {
+function upsertAliases(bangumiId: string, b: BangumiRow): SQL {
   const aliases = rankAliases(titleAliases(b));
   return sql`
     INSERT INTO aliases (bangumi_id, alias, alias_normalized, source, priority)
-    VALUES ${sql.join(aliases.map((alias) => aliasValues(workId, alias)), sql`, `)}
+    VALUES ${sql.join(aliases.map((alias) => aliasValues(bangumiId, alias)), sql`, `)}
     ON CONFLICT (bangumi_id, alias, source)
     DO UPDATE SET alias_normalized = EXCLUDED.alias_normalized, priority = EXCLUDED.priority
   `;
@@ -171,6 +171,6 @@ function titleAliases(b: BangumiRow): RawAlias[] {
 }
 
 /** Parameterized VALUES tuple for the bulk alias UPSERT. */
-function aliasValues(workId: string, a: RankedAlias): SQL {
-  return sql`(${workId}, ${a.alias}, ${a.alias_normalized}, ${a.source}, ${a.priority})`;
+function aliasValues(bangumiId: string, a: RankedAlias): SQL {
+  return sql`(${bangumiId}, ${a.alias}, ${a.alias_normalized}, ${a.source}, ${a.priority})`;
 }

@@ -67,7 +67,7 @@ export function nearbyDetailsPort(db: DbExecutor): PointDetailsPort {
 }
 
 /** The point detail columns for `ids`. Raw `sql` (the Drizzle query builder
- * hangs under workerd), matching the IN pattern in api/route.ts. */
+ * hangs under workerd), matching the IN pattern in route-points.ts. */
 async function loadDetails(db: DbExecutor, ids: string[]): Promise<Map<string, PointDetail>> {
   if (ids.length === 0) return new Map();
   const result = await db.execute(sql`
