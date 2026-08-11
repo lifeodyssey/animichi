@@ -1,5 +1,4 @@
 import type { ChatStatus, UIMessage } from "ai";
-import { isBypassTurn } from "../lib/selected-points-bypass";
 import { routeDocumentKey, supersededFlags } from "../lib/supersession";
 import { HIDDEN_TOOL_STEPS } from "../i18n";
 import type { ChatDict } from "../i18n";
@@ -77,28 +76,12 @@ function Pipeline({ parts, settled, elapsedLabel, dict }: PipelineProps) {
   return <SettledFootprint elapsedLabel={elapsedLabel} dict={dict}>{badges}</SettledFootprint>;
 }
 
-type RecomputeProps = Readonly<{ settled: boolean; elapsedLabel?: string; dict: ChatDict }>;
-
-/** E2 bypass footprint (issue #273 S1.7): 「✓ 再計算 1.2s」 — no pipeline. */
-function RecomputeFootprint({ settled, elapsedLabel, dict }: RecomputeProps) {
-  if (!settled) return null;
-  return (
-    <p className="chat-settled chat-settled--recompute">
-      ✓ {dict.search.recompute}
-      {elapsedLabel ? <span className="chat-settled__elapsed"> {elapsedLabel}</span> : null}
-    </p>
-  );
-}
-
 type RailProps = Readonly<{ message: UIMessage; settled: boolean; elapsedLabel?: string; dict: ChatDict }>;
 
-/** The turn's progress rail: tool badges for agent turns; a bypass turn
- * SUPPRESSES its streamed `plan_selected` step part and renders the
- * footprint instead (review P1-1 — the backend always emits that part). */
+/** The turn's progress rail: tool badges for every turn — selection turns
+ * stream their `plan_selected` step like any other (TURN-4 #955, bypass
+ * detection deleted). */
 function MessageRail({ message, settled, elapsedLabel, dict }: RailProps) {
-  if (isBypassTurn(message.parts)) {
-    return <RecomputeFootprint settled={settled} elapsedLabel={elapsedLabel} dict={dict} />;
-  }
   return <Pipeline parts={message.parts.filter(isToolPart)} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />;
 }
 

@@ -21,6 +21,7 @@ import { z } from "zod";
 import {
   AGENT_PATHS,
   ByokProbeResponse,
+  ChatTurnRequest,
   EndpointMap,
   GpsPoint,
   PhotoCandidate,
@@ -38,6 +39,7 @@ const MODELS: Array<{ name: string; schema: z.ZodType }> = [
   { name: "ServiceMetadata", schema: ServiceMetadata },
   { name: "RootMetadata", schema: RootMetadata },
   { name: "ByokProbeResponse", schema: ByokProbeResponse },
+  { name: "ChatTurnRequest", schema: ChatTurnRequest },
   { name: "GpsPoint", schema: GpsPoint },
   { name: "PhotoSearchRequest", schema: PhotoSearchRequest },
   { name: "PhotoCandidate", schema: PhotoCandidate },

@@ -63,6 +63,13 @@ const ResponseEnvelope = z.object({
   success: z.boolean().optional(),
   status: z.string().optional(),
   session_id: z.string().nullable().optional(),
+  /** The Session revision echoed for the next turn (TURN-4 #955): the web
+   * sends it back as `x-session-revision` so admission CAS can reject stale
+   * concurrent turns. */
+  revision: z.number().int().optional(),
+  /** The matching Session offer (TURN-4 #955): sha256 of the persisted
+   * session envelope, echoed so the web can send `x-session-digest`. */
+  session_digest: z.string().optional(),
   message: z.string().optional(),
   session: z.record(z.string(), z.unknown()).optional(),
   route_history: z.array(z.record(z.string(), z.unknown())).optional(),

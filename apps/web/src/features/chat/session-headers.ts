@@ -4,7 +4,22 @@ import { byokHeaders } from "../../lib/byok/byok-storage";
 import { awaitTurnstileToken, turnstileHeaders } from "../../lib/turnstile/token-store";
 
 /**
- * Shared /v1 transport headers: `x-session-id` (when known) plus a Bearer
+ * The Session offer (TURN-4 #955): what the server granted/echoed for the
+ * conversation — the live session id, the CAS revision, and the canonical
+ * digest of the persisted session envelope. The web echoes all three back on
+ * the next turn so admission can reject stale/concurrent requests.
+ */
+export interface SessionOffer {
+  readonly sessionId?: string;
+  readonly revision?: number;
+  readonly digest?: string;
+  /** One fresh turn identifier per send (`x-turn-id`, TURN-4 #955). */
+  readonly turnId?: string;
+}
+
+/**
+ * Shared /v1 transport headers: the Session offer (`x-session-id`,
+ * `x-session-revision`, `x-session-digest` — when known) plus a Bearer
  * token once signed in; anonymous turns simply omit Authorization and instead
  * carry the held Turnstile token (S1.9 #281) — one solved challenge covers
  * every turn in its window. Used by the chat transport and photo search so
@@ -21,8 +36,12 @@ import { awaitTurnstileToken, turnstileHeaders } from "../../lib/turnstile/token
  * synchronously and does not participate in the Turnstile wait below in any
  * way — its ordering relative to that wait has no observable effect.
  */
-export async function sessionHeaders(sessionId?: string): Promise<Record<string, string>> {
-  const base: Record<string, string> = sessionId ? { "x-session-id": sessionId } : {};
+export async function sessionHeaders(offer?: SessionOffer): Promise<Record<string, string>> {
+  const base: Record<string, string> = {};
+  if (offer?.sessionId) base["x-session-id"] = offer.sessionId;
+  if (offer?.revision !== undefined) base["x-session-revision"] = String(offer.revision);
+  if (offer?.digest) base["x-session-digest"] = offer.digest;
+  if (offer?.turnId) base["x-turn-id"] = offer.turnId;
   const auth = await authHeaders();
   const challenge = await challengeHeaders(auth);
   return { ...base, ...challenge, ...auth, ...byokHeaders() };

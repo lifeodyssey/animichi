@@ -87,8 +87,10 @@ async def _static_handler(
     outcome: object | None = None,
     turn_ref: object | None = None,
     owner: object | None = None,
+    verdict: object | None = None,
+    turn_key: str | None = None,
 ) -> PublicAPIResponse:
-    del model, is_byok, outcome, turn_ref, owner
+    del model, is_byok, outcome, turn_ref, owner, verdict, turn_key
     return _response()
 
 
@@ -103,8 +105,10 @@ async def _official_handler(
     outcome: object | None = None,
     turn_ref: object | None = None,
     owner: object | None = None,
+    verdict: object | None = None,
+    turn_key: str | None = None,
 ) -> PublicAPIResponse:
-    del model, is_byok, outcome, turn_ref, owner
+    del model, is_byok, outcome, turn_ref, owner, verdict, turn_key
     deps = RuntimeDeps(MagicMock(), "en", "query", MockCatalogClient(), on_step=on_step)
     await tool_event_bridge(MagicMock(deps=deps), _events(_official_events()))
     return _response()
@@ -121,8 +125,10 @@ async def _timeout_handler(
     outcome: object | None = None,
     turn_ref: object | None = None,
     owner: object | None = None,
+    verdict: object | None = None,
+    turn_key: str | None = None,
 ) -> PublicAPIResponse:
-    del model, is_byok, outcome, turn_ref, owner
+    del model, is_byok, outcome, turn_ref, owner, verdict, turn_key
     deps = RuntimeDeps(MagicMock(), "en", "query", MockCatalogClient(), on_step=on_step)
     call = ToolCallPart("web_search", {"query": "slow"}, tool_call_id="active-9")
     await tool_event_bridge(

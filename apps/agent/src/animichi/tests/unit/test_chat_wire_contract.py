@@ -17,7 +17,7 @@ from animichi.agents.session_state import (
     SearchMetadataState,
     SessionState,
 )
-from animichi.interfaces.chat_wire import chat_response_wire
+from animichi.interfaces.chat_stream_frames import chat_response_wire
 from animichi.interfaces.response_builder import agent_result_to_response
 from animichi.interfaces.schemas import JsonObject, PublicAPIResponse
 from animichi.tests.unit.conftest_public_api import make_result

@@ -18,9 +18,14 @@ import pytest
 from pydantic_ai.usage import RunUsage
 
 from animichi.agents.agent_result import AgentResult
+from animichi.application.agent_turn import TurnSideEffects
 from animichi.clients.catalog_client import CatalogClientProtocol
 from animichi.config.settings import Settings
-from animichi.interfaces.public_api import RuntimeAPI
+from animichi.interfaces.public_api import (
+    PublicAPIRequest,
+    RuntimeAPI,
+    _RuntimeTurnSettlement,
+)
 
 _PRICED_SETTINGS = Settings(
     model_input_cost_per_mtok_usd=2.0, model_output_cost_per_mtok_usd=8.0
@@ -74,6 +79,32 @@ def _api(db: object) -> RuntimeAPI:
     )
 
 
+async def _record_usage(
+    api: RuntimeAPI, result: AgentResult, user_id: str, user_type: str, *, is_byok: bool
+) -> None:
+    settlement = _RuntimeTurnSettlement(
+        api,
+        request=PublicAPIRequest(text="x"),
+        user_id=user_id,
+        user_type=user_type,
+        is_byok=is_byok,
+    )
+    await settlement.settle(
+        TurnSideEffects(
+            result=result,
+            session_id=None,
+            user_id=user_id,
+            user_type=user_type,
+            is_byok=is_byok,
+            settle_quota=False,
+            elapsed_ms=0,
+            intent="qa",
+            status="ok",
+            request_text="x",
+        )
+    )
+
+
 def _result(usage: RunUsage) -> AgentResult:
     from animichi.agents.runtime_models import QAResponseModel
 
@@ -92,7 +123,7 @@ async def test_a_byok_turn_is_banked_at_zero_cost_with_nonzero_tokens() -> None:
     api = _api(_Db(repo))
     usage = RunUsage(input_tokens=1200, output_tokens=340, requests=1)
 
-    await api._record_usage(_result(usage), "user-1", "human", is_byok=True)
+    await _record_usage(api, _result(usage), "user-1", "human", is_byok=True)
 
     assert len(repo.calls) == 1
     usage_date, scope, input_tokens, output_tokens, cost_usd = repo.calls[0]
@@ -108,7 +139,7 @@ async def test_a_non_byok_turn_is_still_priced_normally() -> None:
     api = _api(_Db(repo))
     usage = RunUsage(input_tokens=1000, output_tokens=1000, requests=1)
 
-    await api._record_usage(_result(usage), "user-1", "human", is_byok=False)
+    await _record_usage(api, _result(usage), "user-1", "human", is_byok=False)
 
     assert len(repo.calls) == 1
     _usage_date, scope, _input, _output, cost_usd = repo.calls[0]
@@ -145,7 +176,7 @@ async def test_a_byok_turn_never_moves_todays_anon_spend_total(
     api = _api(_Db(repo))
     usage = RunUsage(input_tokens=500, output_tokens=200, requests=1)
 
-    await api._record_usage(_result(usage), "anon_abc", "anonymous", is_byok=True)
+    await _record_usage(api, _result(usage), "anon_abc", "anonymous", is_byok=True)
 
     verdict = await anonymous_budget_verdict(repo, budget_usd=1.0)
     assert verdict.spent_usd == 0.0

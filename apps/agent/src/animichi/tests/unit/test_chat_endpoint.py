@@ -187,8 +187,10 @@ def _replay_runtime(response: PublicAPIResponse, steps: list[StepEvent]) -> Magi
         outcome: object | None = None,
         turn_ref: object | None = None,
         owner: object | None = None,
+        verdict: object | None = None,
+        turn_key: str | None = None,
     ) -> PublicAPIResponse:
-        del model, is_byok, outcome, turn_ref, owner
+        del model, is_byok, outcome, turn_ref, owner, verdict, turn_key
         for step in steps:
             if on_step is not None:
                 await on_step(step)
@@ -277,3 +279,33 @@ async def test_chat_partial_response_completes_as_data_response() -> None:
     assert '"type":"data-response"' in response.text
     assert '"status":"partial"' in response.text
     assert '"type":"error"' not in response.text
+
+
+async def test_chat_stream_echoes_the_session_offer_revision_and_digest() -> None:
+    """The streamed data part carries the Session offer (TURN-4 #955):
+    the granted revision and the persisted session digest, so the web can
+    echo both back as `x-session-revision` / `x-session-digest`."""
+    response = PublicAPIResponse(
+        success=True,
+        status="ok",
+        intent="greet_user",
+        message="hi",
+        revision=3,
+        session_digest="ab" * 32,
+    )
+    runtime = _runtime()
+    runtime.handle = AsyncMock(return_value=response)
+    app, _ = build_app(runtime_api=runtime)
+    async with async_client(app) as client:
+        result = await client.post(
+            "/v1/chat", json=_body(), headers={"X-User-Id": "user-1"}
+        )
+
+    data_parts = [
+        json.loads(line[len("data: ") :])
+        for line in result.text.splitlines()
+        if line.startswith("data: ") and '"type":"data-response"' in line
+    ]
+    offer = data_parts[-1]["data"]
+    assert offer["revision"] == 3
+    assert offer["session_digest"] == "ab" * 32

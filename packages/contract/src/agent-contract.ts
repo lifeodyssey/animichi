@@ -65,6 +65,26 @@ export const ByokProbeErrorBody = z.object({
 });
 export type ByokProbeErrorBody = z.infer<typeof ByokProbeErrorBody>;
 
+/**
+ * The `POST /v1/chat` turn request (TURN-4 #955): the post-envelope turn
+ * carrier built by the route from the AI SDK message envelope plus headers.
+ * Every field is optional except `text` so the emitted Pydantic model can
+ * validate one turn without the web shipping defaults. Selection turns ride
+ * the AI SDK envelope (`chat-data-parts.ts`); the typed turn kinds live in
+ * `application/agent_turn.py`, not on this wire.
+ */
+export const ChatTurnRequest = z.object({
+  text: z.string(),
+  session_id: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  locale: z.enum(["ja", "zh", "en"]).optional(),
+  include_debug: z.boolean().optional(),
+  origin: z.string().nullable().optional(),
+  origin_lat: z.number().optional(),
+  origin_lng: z.number().optional(),
+});
+export type ChatTurnRequest = z.infer<typeof ChatTurnRequest>;
+
 /** One published Agent path in the complete inventory. */
 export interface AgentPath {
   method: "GET" | "POST" | "PATCH";
@@ -162,8 +182,6 @@ export type PhotoConfirmRequest = z.infer<typeof PhotoConfirmRequest>;
 export const AGENT_PATHS: AgentPath[] = [
   { method: "GET", path: "/", summary: "service banner" },
   { method: "GET", path: "/healthz", summary: "health and service metadata" },
-  { method: "POST", path: "/v1/runtime", summary: "runtime request" },
-  { method: "POST", path: "/v1/runtime/stream", summary: "streaming runtime request" },
   { method: "POST", path: "/v1/chat", summary: "chat turn" },
   { method: "POST", path: "/v1/byok/probe", summary: "probe a bring-your-own-key credential" },
   { method: "POST", path: "/v1/feedback", summary: "submit feedback" },

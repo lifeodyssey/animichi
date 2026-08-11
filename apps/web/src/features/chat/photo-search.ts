@@ -93,7 +93,7 @@ function parseOutcome(payload: unknown): PhotoSearchOutcome {
 
 async function photoHeaders(context: PhotoSearchContext): Promise<Record<string, string>> {
   return {
-    ...(await sessionHeaders(context.sessionIdOf?.())),
+    ...(await sessionHeaders({ sessionId: context.sessionIdOf?.() })),
     "x-locale": context.locale,
     "Content-Type": "application/json",
   };

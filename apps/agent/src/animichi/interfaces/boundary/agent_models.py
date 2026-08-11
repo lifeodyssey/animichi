@@ -44,6 +44,17 @@ class ByokProbeResponse(BaseModel):
     error_code: str | None
 
 
+class ChatTurnRequest(BaseModel):
+    text: str
+    session_id: str | None = None
+    model: str | None = None
+    locale: Literal["ja", "zh", "en"] | None = None
+    include_debug: bool | None = None
+    origin: str | None = None
+    origin_lat: float | None = None
+    origin_lng: float | None = None
+
+
 class GpsPoint(BaseModel):
     lat: float
     lng: float
@@ -146,8 +157,6 @@ class PhotoConfirmRequest(BaseModel):
 AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
     ("GET", "/", "service banner"),
     ("GET", "/healthz", "health and service metadata"),
-    ("POST", "/v1/runtime", "runtime request"),
-    ("POST", "/v1/runtime/stream", "streaming runtime request"),
     ("POST", "/v1/chat", "chat turn"),
     ("POST", "/v1/byok/probe", "probe a bring-your-own-key credential"),
     ("POST", "/v1/feedback", "submit feedback"),

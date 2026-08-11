@@ -1,7 +1,7 @@
 """SSE-level `byok_credential_rejected` end-to-end (#284 T3-AC6, P1-3②).
 
-`test_byok_error_taxonomy.py` exercises `_execute_pipeline` directly — the
-lightest reach to the new branch. This file goes the other way: a real
+`test_byok_error_taxonomy.py` exercises the TurnExecution port directly —
+the lightest reach to the new branch. This file goes the other way: a real
 `RuntimeAPI` wired into the actual FastAPI app via `/v1/chat`, so the
 assertion is on the literal SSE bytes a browser client would receive, not on
 an internal method's return value. Only `run_animichi_agent` (the deepest
@@ -9,11 +9,11 @@ call in the real pipeline) is mocked, to simulate the caller's own provider
 rejecting the credential.
 
 OQ-4 (optional `error_code` on the contract's error chunk): no
-`packages/contract/` change was made. `PublicAPIErrorWire.code` (in
-`agent/interfaces/chat_wire.py`) is already an untyped `str`, so
-`byok_credential_rejected` flows through the existing `data-response` SSE
-chunk's `errors[].code` field without a schema change — this is the
-documented deviation from doing a zod-enum update on the frontend contract.
+`packages/contract/` change was made. The response's `errors[].code` is an
+untyped `str`, so `byok_credential_rejected` flows through the existing
+`data-response` SSE chunk's `errors[].code` field without a schema change —
+this is the documented deviation from doing a zod-enum update on the
+frontend contract.
 """
 
 from __future__ import annotations

@@ -152,8 +152,6 @@ describe("agent boundary emitter", () => {
     expect(AGENT_PATHS.map((p) => `${p.method} ${p.path}`)).toEqual([
       "GET /",
       "GET /healthz",
-      "POST /v1/runtime",
-      "POST /v1/runtime/stream",
       "POST /v1/chat",
       "POST /v1/byok/probe",
       "POST /v1/feedback",

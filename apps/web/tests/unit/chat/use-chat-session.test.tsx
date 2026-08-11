@@ -50,6 +50,38 @@ async function sendAndSettle(view: ReturnType<typeof renderSession>, text: strin
   });
 }
 
+describe("Session offer round-trip (TURN-4 #955)", () => {
+  it("sends a fresh x-turn-id on every turn", async () => {
+    const seen: (string | null)[] = [];
+    server.use(chatStreamHandler("search", { spy: (request) => seen.push(request.headers.get("x-turn-id")) }));
+    const view = renderSession();
+    await sendAndSettle(view, "ユーフォ");
+    await sendAndSettle(view, "続きも教えて");
+    expect(seen[0]).toBeTruthy();
+    expect(seen[1]).toBeTruthy();
+    expect(seen[0]).not.toBe(seen[1]);
+  });
+
+  it("echoes the streamed revision and digest back on the follow-up turn", async () => {
+    const seen: string[] = [];
+    server.use(
+      chatStreamHandler("search", {
+        sessionId: "srv-1",
+        sessionOffer: { revision: 2, digest: "deadbeef" },
+        spy: (request) => {
+          const revision = request.headers.get("x-session-revision") ?? "none";
+          const digest = request.headers.get("x-session-digest") ?? "none";
+          seen.push(`${revision}/${digest}`);
+        },
+      }),
+    );
+    const view = renderSession();
+    await sendAndSettle(view, "ユーフォ");
+    await sendAndSettle(view, "続きも教えて");
+    expect(seen).toEqual(["none/none", "2/deadbeef"]);
+  });
+});
+
 describe("session id round-trip", () => {
   it("sends the ?session= id as the x-session-id header from the first turn", async () => {
     const seen: (string | null)[] = [];
