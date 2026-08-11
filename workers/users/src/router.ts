@@ -6,7 +6,6 @@ import type { DeleteSavedRouteStore } from "./application/delete-saved-route";
 import type { ListSavedRoutesObserverPort, SavedRouteReader } from "./application/list-saved-routes";
 import { saveSavedRoute as saveSavedRouteAction } from "./application/save-saved-route";
 import type { SavedRouteStore } from "./application/save-saved-route";
-import { listSessions as listSessionsHandler } from "./api/routes";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "./adapters/neon-saved-route-repo";
 import type { DbExecutor } from "./db/client";
 
@@ -32,9 +31,6 @@ function listSavedRoutesObserver(): ListSavedRoutesObserverPort {
 const listSavedRoutes = os.listSavedRoutes.handler(async ({ context }) =>
   listSavedRoutesAction(reader(context), context.userId, { observer: listSavedRoutesObserver() }),
 );
-const listSessions = os.listSessions.handler(async ({ input, context }) =>
-  listSessionsHandler(context.db, context.userId, input),
-);
 const saveSavedRoute = os.saveSavedRoute.handler(async ({ input, context }) =>
   saveSavedRouteAction(store(context), context.userId, input),
 );
@@ -44,7 +40,7 @@ const deleteSavedRoute = os.deleteSavedRoute.handler(async ({ input, context }) 
 
 /** Users service oRPC implementation. */
 export const usersRouter = {
-  listSessions, listSavedRoutes, saveSavedRoute, deleteSavedRoute,
+  listSavedRoutes, saveSavedRoute, deleteSavedRoute,
 };
 /** Users router type. */
 export type UsersRouter = typeof usersRouter;

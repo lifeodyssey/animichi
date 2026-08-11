@@ -164,6 +164,15 @@ export function conversationMessagesHandler(
   const url = `${TEST_ORIGIN}/v1/conversations/${encodeURIComponent(sessionId)}/messages`;
   return http.get(url, ({ request }) => {
     spy?.(request);
-    return HttpResponse.json({ messages: rows });
+    return HttpResponse.json({
+      messages: rows.map((row, index) => ({
+        role: row.role,
+        content: row.content,
+        response_data: row.response_data ?? null,
+        created_at: `2026-08-01T00:00:${String(index).padStart(2, "0")}Z`,
+      })),
+      revision: 0,
+      next_offset: null,
+    });
   });
 }

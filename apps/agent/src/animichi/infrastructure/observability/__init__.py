@@ -14,6 +14,7 @@ Usage:
 from animichi.infrastructure.observability.runtime import (
     http_span,
     record_agent_run_error,
+    record_history_request,
     record_http_request,
     record_runtime_request,
     runtime_span,
@@ -22,6 +23,7 @@ from animichi.infrastructure.observability.runtime import (
 __all__ = [
     "http_span",
     "record_agent_run_error",
+    "record_history_request",
     "record_http_request",
     "record_runtime_request",
     "runtime_span",

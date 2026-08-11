@@ -154,6 +154,36 @@ class PhotoConfirmRequest(BaseModel):
     candidate_id: str | None = None
 
 
+class SessionHistoryMessageResponse_data(BaseModel):
+    intent: str | None = None
+    success: bool | None = None
+
+
+class SessionHistoryMessage(BaseModel):
+    role: str
+    content: str
+    response_data: SessionHistoryMessageResponse_data | None = None
+    created_at: str
+
+
+class GetSessionHistoryResponseMessagesResponse_data(BaseModel):
+    intent: str | None = None
+    success: bool | None = None
+
+
+class GetSessionHistoryResponseMessages(BaseModel):
+    role: str
+    content: str
+    response_data: GetSessionHistoryResponseMessagesResponse_data | None = None
+    created_at: str
+
+
+class GetSessionHistoryResponse(BaseModel):
+    messages: list[GetSessionHistoryResponseMessages]
+    revision: int
+    next_offset: int | None
+
+
 AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
     ("GET", "/", "service banner"),
     ("GET", "/healthz", "health and service metadata"),

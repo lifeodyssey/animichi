@@ -2,7 +2,6 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { listSavedRoutes as listSavedRoutesAction } from "../src/application/list-saved-routes";
-import { listSessions } from "../src/api/routes";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
 import type { DbExecutor } from "../src/db/client";
@@ -61,33 +60,5 @@ describe("saved-route row validation", () => {
     }]);
     const result = await listSavedRoutesAction(new NeonSavedRouteRepo(db), "user-a");
     expect(result.saved_routes[0]?.title).toBe("");
-  });
-});
-
-describe("session row validation", () => {
-  function sessionRows(rows: Record<string, unknown>[]): DbExecutor {
-    return { execute: () => Promise.resolve({ rows }) };
-  }
-
-  it("throws on a session row whose session_id is malformed", async () => {
-    const badDb = sessionRows([{
-      session_id: 42, first_query: "q", title: "t",
-      created_at: "2026-07-13T00:00:00Z", updated_at: "2026-07-13T00:00:00Z",
-    }]);
-    await expect(listSessions(badDb, "user-a", { limit: 1, offset: 0 })).rejects.toThrow("invalid session row");
-  });
-
-  it("throws on a session row that is not an object", async () => {
-    const badDb: DbExecutor = { execute: () => Promise.resolve({ rows: ["not-an-object"] }) };
-    await expect(listSessions(badDb, "user-a", { limit: 1, offset: 0 })).rejects.toThrow("invalid session row");
-  });
-
-  it("lists a session with a null title as null", async () => {
-    const { db } = fakeDb([{
-      id: ID, user_id: "user-a", title: null, point_ids: ["p1"],
-      status: "saved", saved_at: "2026-07-13T00:00:00Z", updated_at: "2026-07-13T00:00:00Z",
-    }]);
-    const result = await listSessions(db, "user-a", { limit: 1, offset: 0 });
-    expect(result.sessions[0]?.title).toBeNull();
   });
 });

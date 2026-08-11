@@ -73,3 +73,22 @@ async def test_get_messages_empty_conversation(
     pool.fetch.return_value = []
     result = await repo.get_messages("empty-sess")
     assert result == []
+
+
+async def test_get_messages_paginates_with_offset(
+    repo: MessagesRepository, pool: AsyncMock
+) -> None:
+    pool.fetch.return_value = []
+    await repo.get_messages("sess-1", limit=10, offset=40)
+    sql = pool.fetch.await_args.args[0]
+    assert "ORDER BY created_at ASC" in sql
+    assert "LIMIT $2 OFFSET $3" in sql
+    assert pool.fetch.await_args.args[1:] == ("sess-1", 10, 40)
+
+
+async def test_get_messages_defaults_to_first_page(
+    repo: MessagesRepository, pool: AsyncMock
+) -> None:
+    pool.fetch.return_value = []
+    await repo.get_messages("sess-1")
+    assert pool.fetch.await_args.args[1:] == ("sess-1", 100, 0)

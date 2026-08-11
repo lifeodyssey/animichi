@@ -5,7 +5,6 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { listSavedRoutes as listSavedRoutesAction } from "../src/application/list-saved-routes";
-import { listSessions } from "../src/api/routes";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { DbExecutor } from "../src/db/client";
 import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
@@ -94,29 +93,6 @@ describe("user saved-route handlers", () => {
     const result = await listSavedRoutesAction(repo(fakeDb([row()]).db), "user-a");
     expect(result.saved_routes[0]?.saved_at).toBe("2026-07-13T12:34:56.000Z");
     expect(result.saved_routes[0]?.updated_at).toBe("2026-07-13T12:34:56.000Z");
-  });
-});
-
-describe("user session handlers", () => {
-  it("lists only owned sessions in stable newest-first pages", async () => {
-    const older = row({ id: "00000000-0000-4000-8000-000000000001", first_query: "older", updated_at: "2026-07-12T00:00:00Z" });
-    const newer = row({ id: "00000000-0000-4000-8000-000000000002", first_query: "newer", updated_at: "2026-07-13T00:00:00Z" });
-    const other = row({ id: "00000000-0000-4000-8000-000000000003", user_id: "user-b" });
-    const result = await listSessions(fakeDb([older, newer, other]).db, "user-a", { limit: 1, offset: 0 });
-    expect(result.sessions.map((session) => session.first_query)).toEqual(["newer"]);
-    expect(result.next_offset).toBe(1);
-  });
-
-  it("caps next_offset at the contract offset ceiling", async () => {
-    const rows = Array.from({ length: 1050 }, (_, i) => row({ id: `session-${String(i)}` }));
-    const result = await listSessions(fakeDb(rows).db, "user-a", { limit: 30, offset: 980 });
-    expect(result.next_offset).toBeNull();
-  });
-
-  it("returns the final page without a next offset", async () => {
-    const result = await listSessions(fakeDb([row()]).db, "user-a", { limit: 2, offset: 0 });
-    expect(result.next_offset).toBeNull();
-    expect(result.sessions[0]).toMatchObject({ session_id: ID, title: "Tokyo" });
   });
 });
 

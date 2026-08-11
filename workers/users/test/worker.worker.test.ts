@@ -28,11 +28,10 @@ describe("Users Worker saved-routes wire", () => {
     expect(await listed.json()).toMatchObject({ saved_routes: [{ title: "Tokyo" }] });
   });
 
-  it("lists sessions through the identity-guarded users endpoint", async () => {
+  it("no longer exposes a session list endpoint (SESSION-1 #959)", async () => {
     const { app, headers } = setup();
     const response = await app.request("/v1/users/sessions?limit=1", { headers }, TEST_ENV);
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ sessions: [], next_offset: null });
+    expect(response.status).toBe(404);
   });
 
   it.each([

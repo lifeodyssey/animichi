@@ -16,11 +16,13 @@ import {
   AGENT_PATHS,
   ByokProbeErrorBody,
   ByokProbeResponse,
+  GetSessionHistoryResponse,
   GpsPoint,
   PhotoConfirmRequest,
   PhotoSearchRequest,
   PhotoSearchResponse,
   ServiceMetadata,
+  SessionHistoryMessage,
 } from "../src/agent-contract.js";
 import { renderContent, renderModel } from "../scripts/emit-agent-python.js";
 
@@ -146,6 +148,30 @@ describe("agent boundary emitter", () => {
       error: { code: "egress_blocked", message: "base_url failed egress validation." },
     });
     expect(full.success).toBe(true);
+  });
+
+  it("renders history DTOs with revision, pagination, and a nullable envelope (SESSION-1 #959)", () => {
+    const message = renderModel("SessionHistoryMessage", SessionHistoryMessage).join("\n");
+    expect(message).toContain("    role: str");
+    expect(message).toContain("    content: str");
+    expect(message).toContain("    response_data: SessionHistoryMessageResponse_data | None = None");
+    expect(message).toContain("    created_at: str");
+    expect(message).toContain("    intent: str | None = None");
+    expect(message).toContain("    success: bool | None = None");
+
+    const response = renderModel("GetSessionHistoryResponse", GetSessionHistoryResponse).join("\n");
+    expect(response).toContain("    messages: list[GetSessionHistoryResponseMessages]");
+    expect(response).toContain("    revision: int");
+    expect(response).toContain("    next_offset: int | None");
+  });
+
+  it("the history payload parses a typed page with a null next offset", () => {
+    const page = GetSessionHistoryResponse.safeParse({
+      messages: [{ role: "user", content: "hi", response_data: null, created_at: "2026-08-01T00:00:00Z" }],
+      revision: 0,
+      next_offset: null,
+    });
+    expect(page.success).toBe(true);
   });
 
   it("the path inventory covers every retained Agent path (exact set)", () => {
