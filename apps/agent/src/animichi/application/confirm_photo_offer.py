@@ -58,11 +58,17 @@ class ConfirmPhotoOffer:
         self, offer_id: str, candidate_id: str | None
     ) -> ConfirmPhotoOfferResult:
         self._offers.cleanup(self._clock())
-        confirmed = self._offers.confirm(offer_id, candidate_id)
-        if confirmed is None:
-            raise PhotoOfferRejection(
-                404, "photo_offer_not_found", "This photo offer is unknown."
-            )
-        return ConfirmPhotoOfferResult(
-            signals=confirmed.signals, candidate=confirmed.candidate
+        return _confirm_or_raise(self._offers, offer_id, candidate_id)
+
+
+def _confirm_or_raise(
+    offers: PhotoOfferStore, offer_id: str, candidate_id: str | None
+) -> ConfirmPhotoOfferResult:
+    confirmed = offers.confirm(offer_id, candidate_id)
+    if confirmed is None:
+        raise PhotoOfferRejection(
+            404, "photo_offer_not_found", "This photo offer is unknown."
         )
+    return ConfirmPhotoOfferResult(
+        signals=confirmed.signals, candidate=confirmed.candidate
+    )

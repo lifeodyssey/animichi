@@ -141,7 +141,9 @@ function fieldType(prop: JsonSchema, at: string): string {
   if (inner.type === "integer") return "int";
   if (inner.type === "object") return nestedClassName(at);
   if (inner.type === "array") {
-    return `list[${fieldType(itemSchema(inner, at), at)}]`;
+    const item = unwrapNullable(itemSchema(inner, at), at);
+    const itemType = fieldType(item.inner, at);
+    return item.nullable ? `list[${itemType} | None]` : `list[${itemType}]`;
   }
   return "str";
 }

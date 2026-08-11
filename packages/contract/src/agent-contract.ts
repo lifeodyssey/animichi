@@ -84,7 +84,7 @@ export interface AgentPath {
 
 /** 8 MiB image cap (matches the web pre-check); base64 expands ceil(n/3)*4. */
 const PHOTO_MAX_BYTES = 8 * 1024 * 1024;
-export const PHOTO_IMAGE_BASE64_CHARS = Math.floor((PHOTO_MAX_BYTES + 2) / 3);
+export const PHOTO_IMAGE_BASE64_CHARS = Math.floor((PHOTO_MAX_BYTES + 2) / 3) * 4;
 // The request schema caps at 2x as a parse-time belt; the semantic limit is
 // the 1x cap enforced by SearchPhoto's own 413 rejection.
 const PHOTO_IMAGE_BASE64_PARSE_BELT = 2 * PHOTO_IMAGE_BASE64_CHARS;

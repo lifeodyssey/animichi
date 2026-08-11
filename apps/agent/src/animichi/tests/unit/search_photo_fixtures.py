@@ -21,6 +21,7 @@ from animichi.application.search_photo import (
     GpsPoint,
     ModelPrices,
     PhotoIdentity,
+    PhotoSearchPipelineCall,
     PhotoVisionResult,
     SearchPhoto,
     SearchPhotoCommand,
@@ -75,7 +76,7 @@ def make_search(
     byok: FakeByok | None = None,
     clock: FixedClock | None = None,
     vision: Callable[[list[bytes], str], Awaitable[PhotoVisionResult]] | None = None,
-    pipeline: Callable | None = None,
+    pipeline: PhotoSearchPipelineCall | None = None,
 ) -> tuple[SearchPhoto, FixedClock]:
     """A SearchPhoto over real infra adapters; returns the use case + clock."""
     fixed = clock if clock is not None else FixedClock()

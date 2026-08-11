@@ -36,6 +36,8 @@ from animichi.application.photo_offers import (
     PhotoOfferStore,
 )
 from animichi.application.photo_search_envelope import (
+    PhotoCandidate,
+    PhotoResults,
     PhotoSearchEnvelope,
     PipelineOutcome,
 )
@@ -230,15 +232,25 @@ class SearchPhoto:
 
 def _offer_candidates(envelope: PhotoSearchEnvelope) -> list[OfferCandidate]:
     if envelope.data.results is not None:
-        return [
-            OfferCandidate(id=point.id, title=point.title, bangumi_id=point.bangumi_id)
-            for point in envelope.data.results.rows
-        ]
+        return _candidates_from_rows(envelope.data.results)
+    return _candidates_from_offers(envelope.data.candidates)
+
+
+def _candidates_from_rows(results: PhotoResults) -> list[OfferCandidate]:
+    return [
+        OfferCandidate(id=point.id, title=point.title, bangumi_id=point.bangumi_id)
+        for point in results.rows
+    ]
+
+
+def _candidates_from_offers(
+    candidates: tuple[PhotoCandidate, ...],
+) -> list[OfferCandidate]:
     return [
         OfferCandidate(
             id=candidate.id, title=candidate.title, bangumi_id=candidate.bangumi_id
         )
-        for candidate in envelope.data.candidates
+        for candidate in candidates
     ]
 
 

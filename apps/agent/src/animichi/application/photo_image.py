@@ -47,11 +47,15 @@ def sniff_image_mime(image: bytes) -> str | None:
     sent to the model."""
     if image.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
-    if image.startswith(b"RIFF") and image[8:12] == b"WEBP":
+    if _is_webp(image):
         return "image/webp"
     if image.startswith(b"\xff\xd8\xff"):
         return "image/jpeg"
     return None
+
+
+def _is_webp(image: bytes) -> bool:
+    return image.startswith(b"RIFF") and image[8:12] == b"WEBP"
 
 
 def decode_image(image_base64: str, mime_type: str) -> bytes:
@@ -62,11 +66,15 @@ def decode_image(image_base64: str, mime_type: str) -> bytes:
         raise PhotoSearchRejection(
             415, "unsupported_image_format", "This image format is not supported."
         )
+    _reject_oversized(image_base64)
+    return _validated_bytes(image_base64)
+
+
+def _reject_oversized(image_base64: str) -> None:
     if len(image_base64) > MAX_IMAGE_BASE64_CHARS:
         raise PhotoSearchRejection(
             413, "image_too_large", "The image is larger than the 8 MB limit."
         )
-    return _validated_bytes(image_base64)
 
 
 def _validated_bytes(image_base64: str) -> bytes:

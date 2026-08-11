@@ -98,7 +98,7 @@ describe("photo-search transport (P1-1/P1-4)", () => {
     capture([]);
     const outcome = await postPhotoSearch(TEST_ORIGIN, jpegFile(), CTX);
     expect(outcome.kind).toBe("part");
-    if (outcome.kind === "part") expect(outcome.offerId).toBe("offer-1");
+    expect(outcome.offerId).toBe("offer-1");
   });
 
   it("rejects an envelope without an offer id (AGENT-1 #952)", async () => {
