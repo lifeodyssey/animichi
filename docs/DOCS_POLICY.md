@@ -17,7 +17,6 @@ stable boundaries, current entry points, and active plans only.
 | `apps/agent/AGENTS.md` | Python agent (PydanticAI / FastAPI) conventions |
 | `workers/catalog/AGENTS.md` | Catalog Worker (Hono / oRPC / Drizzle) + data-platform conventions |
 | `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / jose) conventions |
-| `workers/jobs/AGENTS.md` | Scheduled agent-domain Neon retention Worker conventions |
 | `packages/contract/AGENTS.md` | Cross-service oRPC/Zod contract conventions |
 | `apps/web/AGENTS.md` | TanStack Start rebuild conventions |
 | `migrations/AGENTS.md` · `e2e/AGENTS.md` · `infra/AGENTS.md` | Atlas migrations, browser tests, and IaC conventions |
@@ -96,7 +95,6 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Iteration specs (live) | `docs/specs/` — 平层只放非 superseded spec(不维护名单;以 superseded 标注与 archive 位为准) | superseded spec 一律入 `docs/archive/specs/`(只进不出,iter6 A6/#640) |
 | Iteration plans | 当前 iteration 的计划在 `docs/iterations/<iterN>/`;历史执行 plan 全部在 `docs/archive/plans/` | 平层不再新增 plan(iter6 A6/#640) |
 | Iteration progress/handoff | `docs/iterations/<iterN>/`(progress、task_plan、handoff、status) | 根目录禁放(File Placement 规则) |
-| Scheduled retention purges | `workers/jobs/` + `docs/ops/jobs-worker.md` | Cloudflare Cron Triggers for anonymous sessions and daily quota counts |
 
 ## Review Check
 

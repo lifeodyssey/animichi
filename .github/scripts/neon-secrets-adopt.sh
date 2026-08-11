@@ -63,11 +63,9 @@ fi
 RESOURCES=(
   "neon:index/role:Role|catalog_svc|<projectId>/<branchId>/catalog_svc"
   "neon:index/role:Role|users_svc|<projectId>/<branchId>/users_svc"
-  "neon:index/role:Role|jobs_svc|<projectId>/<branchId>/jobs_svc"
   "neon:index/role:Role|agent_svc|<projectId>/<branchId>/agent_svc"
   "cloudflare:index/secretsStoreSecret:SecretsStoreSecret|CATALOG_DATABASE_URL|<accountId>/<storeId>/e14b4f8b8c7e4fe485807921d952cb1a"
   "cloudflare:index/secretsStoreSecret:SecretsStoreSecret|USERS_DATABASE_URL|<accountId>/<storeId>/891fd7994212451a8483e67adc09426a"
-  "cloudflare:index/secretsStoreSecret:SecretsStoreSecret|AGENT_DATABASE_URL|<accountId>/<storeId>/c331e43e26a740579767f6b775676858"
 )
 
 project_id="$(pulumi config get animichi-neon-secrets:neonProjectId)"

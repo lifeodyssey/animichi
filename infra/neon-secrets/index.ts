@@ -7,7 +7,7 @@ import * as neon from "@pulumi/neon";
 //
 // Manages, for one branch (staging):
 //   - Neon service roles. The pre-existing roles were created by the SQL
-//     migrations (migrations/neon/20260806120000_role_matrix_n1.sql) as
+//     migrations (migrations/neon/20260809000001_roles.sql) as
 //     NOLOGIN roles WITHOUT a control-plane-stored password:
 //       * reveal_password returns an empty password for them (200, len 0),
 //       * reset_password refuses them (422 ROLE_PASSWORD_NOT_AVAILABLE), and
@@ -18,7 +18,7 @@ import * as neon from "@pulumi/neon";
 //       1. DELETE the SQL-created role via the Neon API (per branch; the
 //          staging roles have no live consumers — the deploy chain still
 //          falls back to the owner DSN until the Secrets Store binding lands,
-//          and the staging environment has no CATALOG/USERS/AGENT_DATABASE_URL
+//          and the staging environment has no CATALOG/USERS/AGENT_SVC_DATABASE_URL
 //          secrets provisioned).
 //       2. `pulumi up` — the role is created here with a Neon-generated
 //          password that the provider can always read back (reveal_password).
@@ -37,6 +37,11 @@ import * as neon from "@pulumi/neon";
 //     (`maximum_stores_exceeded`, HTTP 400 code 1003). This stack therefore
 //     IMPORTS the account's default store (`secretsStoreId` config) instead
 //     of creating one; the store name is only the logical resource name here.
+//
+//     RETENTION-1 (#940): the staging retention role and its store secret are
+//     retired from this stack — deleting the role resource removes the staging
+//     retention grants with it (grants die with the role), while the immutable
+//     role/grant migrations keep the SAFE-1-pinned production surface.
 //
 // The DSN host/db follow the staging NEON_DATABASE_URL: same branch endpoint,
 // database `neondb`, sslmode=require.
@@ -63,11 +68,7 @@ const neonProvider = new neon.Provider("neon", {
 // agent_svc DSN (#912 follow-up): the agent is a CONTAINER, not a Worker, so
 // it has no Secrets Store binding of its own — the edge Worker binds
 // AGENT_SVC_DATABASE_URL and `buildContainerEnvVars` (workers/edge/src/
-// container/container-env.ts) forwards it into the container env. The store
-// secret is named AGENT_SVC_DATABASE_URL, NOT AGENT_DATABASE_URL: that name
-// is already claimed in this store by jobs_svc (the maintenance Worker's
-// binding), and store secret names are unique per store — a second secret
-// with the same name cannot exist.
+// container/container-env.ts) forwards it into the container env.
 const roleDefs: { name: string; secretName?: string; comment: string }[] = [
   {
     name: "catalog_svc",
@@ -78,11 +79,6 @@ const roleDefs: { name: string; secretName?: string; comment: string }[] = [
     name: "users_svc",
     secretName: "USERS_DATABASE_URL",
     comment: "users Worker DATABASE_URL (staging)",
-  },
-  {
-    name: "jobs_svc",
-    secretName: "AGENT_DATABASE_URL",
-    comment: "maintenance/jobs Worker DATABASE_URL (staging; binding name AGENT_DATABASE_URL per the deploy chain)",
   },
   {
     name: "agent_svc",

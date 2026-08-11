@@ -47,7 +47,6 @@ pipelines = {
   "pipeline-agent.yml" => ["Agent / lint", "Agent / test", "Agent / build"],
   "pipeline-catalog.yml" => ["Catalog / lint", "Catalog / test", "Catalog / build"],
   "pipeline-users.yml" => ["Users / lint", "Users / test", "Users / build"],
-  "pipeline-maintenance.yml" => ["Maintenance / lint", "Maintenance / test", "Maintenance / build"],
   "pipeline-edge.yml" => ["Edge / lint", "Edge / test", "Edge / build"],
   "pipeline-contract.yml" => ["Contract / lint", "Contract / test", "Contract / build"],
   "pipeline-infra.yml" => ["Infra / lint", "Infra / test", "Infra / build"],
@@ -85,7 +84,7 @@ end
 
 puts "CI contract: #{pipelines.size} pipelines with #{pipelines.values.sum(&:size)} stage contexts; ci.yml gate-free"
 
-%w[pipeline-agent.yml pipeline-catalog.yml pipeline-users.yml pipeline-maintenance.yml].each do |workflow_name|
+%w[pipeline-agent.yml pipeline-catalog.yml pipeline-users.yml].each do |workflow_name|
   source = File.read(".github/workflows/#{workflow_name}")
   abort "#{workflow_name} must grant Codecov OIDC" unless source.include?("id-token: write")
   abort "#{workflow_name} must fail when Codecov upload fails" unless source.include?("fail_ci_if_error: true")

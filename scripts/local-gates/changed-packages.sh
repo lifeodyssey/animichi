@@ -44,7 +44,6 @@ if [ -n "$input" ]; then
       workers/catalog/*) packages+="catalog"$'\n' ;;
       workers/users/*) packages+="users"$'\n' ;;
       workers/edge/*) packages+="edge"$'\n' ;;
-      workers/jobs/*) packages+="jobs"$'\n' ;;
       packages/contract/*) packages+="contract"$'\n' ;;
       infra/*) packages+="infra"$'\n' ;;
       migrations/*) packages+="db"$'\n' ;;
@@ -58,7 +57,7 @@ if [ -n "$input" ]; then
 fi
 
 # contract is the cross-service source of truth: any consumer change implies it.
-if printf '%s\n' "$packages" | grep -qE '^(agent|web|catalog|users|edge|jobs)$'; then
+if printf '%s\n' "$packages" | grep -qE '^(agent|web|catalog|users|edge)$'; then
   packages="$(printf '%s\ncontract\n' "$packages")"
 fi
 

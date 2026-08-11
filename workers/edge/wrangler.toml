@@ -380,11 +380,12 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 # binding; the binding's deploy-time store/secret validation is the fail-closed
 # gate (a missing store secret fails the deploy API call).
 #
-# The store secret is named AGENT_SVC_DATABASE_URL, NOT AGENT_DATABASE_URL:
-# that name is already claimed by the jobs Worker's binding (jobs_svc role) in
-# the same store, and store secret names are unique per store. Production
-# keeps getting its container DSN via the SUPABASE_DB_URL worker secret until
-# the #855 prod cutover provisions AGENT_SVC_DATABASE_URL for prod.
+# The store secret name AGENT_SVC_DATABASE_URL deliberately differs from the
+# production jobs Worker's upload chain name: they are different planes
+# (Cloudflare store vs Worker secret) and store secret names are unique per
+# store. Production keeps getting its container DSN via the SUPABASE_DB_URL
+# worker secret until the #855 prod cutover provisions
+# AGENT_SVC_DATABASE_URL for prod.
 [[env.staging.secrets_store_secrets]]
 binding = "AGENT_SVC_DATABASE_URL"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
