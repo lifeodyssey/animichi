@@ -249,8 +249,3 @@ class TurnSelectionError(ValueError):
 
 def _request_text(turn: TurnInput) -> str:
     return turn.kind.text if isinstance(turn.kind, TextTurn) else ""
-
-
-def _carried_output(exc: BaseException) -> object | None:
-    """The result produced before a catastrophic escape (meter it anyway)."""
-    return getattr(exc, "_agent_turn_output", None)
