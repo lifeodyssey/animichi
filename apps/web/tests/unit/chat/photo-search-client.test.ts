@@ -97,8 +97,7 @@ describe("photo-search transport (P1-1/P1-4)", () => {
   it("carries the server-issued offer id on the outcome (AGENT-1 #952)", async () => {
     capture([]);
     const outcome = await postPhotoSearch(TEST_ORIGIN, jpegFile(), CTX);
-    expect(outcome.kind).toBe("part");
-    expect(outcome.offerId).toBe("offer-1");
+    expect(outcome).toMatchObject({ kind: "part", offerId: "offer-1" });
   });
 
   it("rejects an envelope without an offer id (AGENT-1 #952)", async () => {
