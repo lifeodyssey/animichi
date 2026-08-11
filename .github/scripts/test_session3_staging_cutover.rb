@@ -165,7 +165,7 @@ def workflow_order_violations(wf)
       end
       verified_revision = job.fetch("steps", []).any? do |s|
         run = s["run"].to_s
-        run.include?("git rev-parse HEAD") && run.include?("source_revision")
+        run.include?("git rev-parse HEAD") && run.include?("SOURCE_REVISION")
       end
       unless verified_revision
         found << "#{name}: must verify the deployed HEAD equals source_revision"
