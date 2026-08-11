@@ -80,6 +80,10 @@ removed) — ruleset now 32 contexts.
 - RUNNING ELSEWHERE: TURN-4 (#955) ralph loop in `.worktrees/turn-4` (chat commands through AgentTurn; files actively changing).
 - TODO: TURN-4 #955 → WEB-1 #958 + SESSION-1 #959 (need #955) → SESSION-2 #960 → SESSION-3 #961 → AGENT-3 #962 → EDGE-1 #963.
 
+**Recovery point (2026-08-12 ~02:10)**: `origin/main` at `0908c32a` — WEB-1 #958 via #985 merged; issue #958 closed; worktree removed. **Waves 0–6 open**:
+- IN FLIGHT (2 ralph loops in herdr panes w6/w5): TURN-4 #955 PR #984 open — threads judged (13, 10 FIXED / 3 no-change), SonarCloud passed; codecov/patch 91.61% → coverage-fix loop running in `.worktrees/turn-4`. SESSION-1 #959 ralph loop in `.worktrees/session-1` (brief prepared; needs #955 merged to open its PR, implement now on branch base).
+- NEXT: TURN-4 merge (codecov ≥95) → SESSION-1 PR → SESSION-2 #960 (needs #955/#958/#959; brief ready, worktree not yet created) → SESSION-3 #961 → AGENT-3 #962 → EDGE-1 #963.
+
 **SAFE-1 (historical) is DONE**: merged via PR #964 (squash `f44a76e9`-based stack; final head on
 `main`), issue closed. The safe-1-promotion-guard worktree and branch are removed; its
 characterization commit (`50be86d5`) and B1/B2/B3/review commits are on `main` through the squash.
