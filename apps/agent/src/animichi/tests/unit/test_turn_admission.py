@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from unittest.mock import AsyncMock
 
 import pytest
@@ -10,7 +11,13 @@ import pytest
 from animichi.application.errors import InvalidInputError
 from animichi.application.turn_admission import (
     AdmissionPolicy,
+    AdmissionRejection,
+    AdmissionVerdict,
     TurnAdmission,
+)
+from animichi.interfaces.routes.admission import (
+    DIGEST_MISMATCH_MESSAGE,
+    admission_rejection_response,
 )
 from animichi.tests.unit.turn_admission_fakes import (
     HUMAN,
@@ -165,3 +172,16 @@ async def test_admission_without_a_store_still_gates_quota() -> None:
     assert verdict.admitted is False
     assert verdict.rejection is not None
     assert verdict.rejection.reason == "quota_exhausted"
+
+
+async def test_digest_mismatch_maps_to_conflict_envelope() -> None:
+    verdict = AdmissionVerdict(
+        admitted=False, payer="anon", rejection=AdmissionRejection("digest_mismatch")
+    )
+    response = admission_rejection_response(verdict)
+    assert response is not None
+    assert response.status_code == 409
+    body = json.loads(response.body)
+    assert body == {
+        "error": {"code": "session_digest_mismatch", "message": DIGEST_MISMATCH_MESSAGE}
+    }

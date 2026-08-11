@@ -158,7 +158,4 @@ def _revision_header(request: Request) -> int | None:
     raw = _header(request, "x-session-revision")
     if raw is None or not _ADMISSION_REVISION_PATTERN.fullmatch(raw):
         return None
-    try:
-        return int(raw)
-    except ValueError:
-        return None
+    return int(raw)

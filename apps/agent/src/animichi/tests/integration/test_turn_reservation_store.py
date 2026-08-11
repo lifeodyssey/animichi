@@ -63,7 +63,6 @@ def _reserve(
     )
 
 
-@pytest.mark.parametrize("privilege", ("SELECT", "INSERT", "UPDATE", "DELETE"))
 async def test_initial_and_continued_admission_advance_the_revision(
     db_pool: asyncpg.Pool,
 ) -> None:
