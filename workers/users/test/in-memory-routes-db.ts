@@ -90,6 +90,7 @@ export function fakeDb(seed: FakeSavedRouteRow[] = []): { db: DbExecutor; rows: 
 /** Dispatch a rendered query to its matching in-memory handler. */
 function executeText(query: { text: string; values: unknown[] }, rows: FakeSavedRouteRow[]): unknown[] {
   const { text, values } = query;
+  if (text.includes("select 1 from saved_routes")) return existsRows(rows, values);
   if (text.includes("select user_id")) return selectUserId(rows, values);
   if (text.includes("insert into saved_routes")) return insertRoute(rows, values);
   if (text.includes("delete from saved_routes")) return deleteRows(rows, values);
@@ -97,6 +98,10 @@ function executeText(query: { text: string; values: unknown[] }, rows: FakeSaved
   if (text.includes("from conversations")) return conversationPage(rows, values);
   if (text.includes("update saved_routes")) return updateRoute(rows, values);
   return routeRows(rows, values);
+}
+
+function existsRows(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {
+  return rows.some((item) => item.id === values[0]) ? [{ exists: true }] : [];
 }
 
 function selectUserId(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {

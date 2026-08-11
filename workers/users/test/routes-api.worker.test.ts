@@ -4,7 +4,7 @@ import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
-import { listSavedRoutes, deleteSavedRoute } from "../src/api/routes";
+import { listSavedRoutes } from "../src/api/routes";
 import { listSessions } from "../src/api/routes";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
@@ -95,34 +95,6 @@ describe("user saved-route handlers", () => {
     const result = await listSavedRoutes(repoReads(fakeDb([row()]).db), "user-a");
     expect(result.saved_routes[0]?.saved_at).toBe("2026-07-13T12:34:56.000Z");
     expect(result.saved_routes[0]?.updated_at).toBe("2026-07-13T12:34:56.000Z");
-  });
-});
-
-describe("deleteSavedRoute ownership", () => {
-  it("throws SAVED_ROUTE_NOT_OWNED when deleting an unknown saved route", async () => {
-    const { db } = fakeDb([row({ user_id: "user-b" })]);
-    await expect(deleteSavedRoute(repoReads(db), "user-a", { id: ID })).rejects.toMatchObject({
-      code: "SAVED_ROUTE_NOT_OWNED", status: 403, defined: true,
-    });
-  });
-
-  it("throws SAVED_ROUTE_NOT_OWNED when the delete loses the race", async () => {
-    const raceDb: DbExecutor = {
-      execute: (query) => {
-        const rendered = new PgDialect().sqlToQuery(query);
-        return rendered.sql.toLowerCase().includes("select user_id")
-          ? Promise.resolve({ rows: [{ user_id: "user-a" }] })
-          : Promise.resolve({ rows: [] });
-      },
-    };
-    await expect(deleteSavedRoute(repoReads(raceDb), "user-a", { id: ID })).rejects.toMatchObject({
-      code: "SAVED_ROUTE_NOT_OWNED", status: 403, defined: true,
-    });
-  });
-
-  it("deletes an owned saved route", async () => {
-    const { db } = fakeDb([row()]);
-    await expect(deleteSavedRoute(repoReads(db), "user-a", { id: ID })).resolves.toEqual({ deleted: true });
   });
 });
 

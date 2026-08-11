@@ -1,10 +1,11 @@
 import { usersContract } from "@animichi/contract";
 import { implement } from "@orpc/server";
+import { deleteSavedRoute as deleteSavedRouteAction } from "./application/delete-saved-route";
+import type { DeleteSavedRouteStore } from "./application/delete-saved-route";
 import { saveSavedRoute as saveSavedRouteAction } from "./application/save-saved-route";
 import type { SavedRouteStore } from "./application/save-saved-route";
 import {
   claimSavedRoutes as claimHandler,
-  deleteSavedRoute as deleteHandler,
   listSavedRoutes as listHandler,
   listSessions as listSessionsHandler,
 } from "./api/routes";
@@ -20,6 +21,7 @@ const os = implement(usersContract).$context<UsersContext>();
 /** Stateless Neon SavedRouteRepo bound to the per-request executor. */
 const repo = (context: UsersContext): SavedRouteRepo => new NeonSavedRouteRepo(context.db);
 const store = (context: UsersContext): SavedRouteStore => new NeonSavedRouteRepo(context.db);
+const deleteStore = (context: UsersContext): DeleteSavedRouteStore => new NeonSavedRouteRepo(context.db);
 
 const listSavedRoutes = os.listSavedRoutes.handler(async ({ context }) =>
   listHandler(repo(context), context.userId),
@@ -31,7 +33,7 @@ const saveSavedRoute = os.saveSavedRoute.handler(async ({ input, context }) =>
   saveSavedRouteAction(store(context), context.userId, input),
 );
 const deleteSavedRoute = os.deleteSavedRoute.handler(async ({ input, context }) =>
-  deleteHandler(repo(context), context.userId, input),
+  deleteSavedRouteAction(deleteStore(context), context.userId, input),
 );
 const claimSavedRoutes = os.claimSavedRoutes.handler(async ({ input, context }) =>
   claimHandler(repo(context), context.userId, input),

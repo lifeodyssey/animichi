@@ -8,7 +8,6 @@ import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
 import {
   claimSavedRoutes,
-  deleteSavedRoute,
   listSavedRoutes,
 } from "../src/api/routes";
 import type { SavedRouteRepo } from "../src/domain/ports";
@@ -30,7 +29,6 @@ function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
 function stubRepo(): SavedRouteRepo {
   return {
     listSavedRoutes: vi.fn().mockResolvedValue({ saved_routes: [] } satisfies ListSavedRoutesResult),
-    deleteSavedRoute: vi.fn().mockResolvedValue({ deleted: true }),
     claimSavedRoutes: vi.fn().mockResolvedValue({ claimed_count: 0 }),
   };
 }
@@ -40,12 +38,6 @@ describe("handlers delegate to the SavedRouteRepo port", () => {
     const repo = stubRepo();
     expect(await listSavedRoutes(repo, "user-a")).toEqual({ saved_routes: [] });
     expect(repo.listSavedRoutes).toHaveBeenCalledExactlyOnceWith("user-a");
-  });
-
-  it("deleteSavedRoute forwards user id and input", async () => {
-    const repo = stubRepo();
-    expect(await deleteSavedRoute(repo, "user-a", { id: ID })).toEqual({ deleted: true });
-    expect(repo.deleteSavedRoute).toHaveBeenCalledExactlyOnceWith("user-a", { id: ID });
   });
 
   it("claimSavedRoutes forwards user id and input", async () => {
@@ -79,6 +71,15 @@ describe("NeonSavedRouteRepo over the raw executor", () => {
     expect(await repo.claimSavedRoutes("user-a", { session_id: SESSION })).toEqual({ claimed_count: 1 });
     expect(store.rows.map((item) => item.user_id)).toEqual(["user-a", "user-b"]);
   });
+
+  it("deletes only the row still owned by the user", async () => {
+    const other = row({ id: "00000000-0000-4000-8000-000000000002", user_id: "user-b" });
+    const store = fakeDb([row(), other]);
+    const repo = new NeonSavedRouteRepo(store.db);
+    expect(await repo.deleteOwned("user-a", ID)).toEqual({ kind: "deleted" });
+    expect(store.rows).toEqual([other]);
+    expect(await repo.deleteOwned("user-a", ID)).toEqual({ kind: "missing" });
+  });
 });
 
 describe("NeonSavedRouteRepo defensive normalization", () => {
@@ -107,13 +108,6 @@ describe("NeonSavedRouteRepo defensive normalization", () => {
   it("rejects rows with an unparseable timestamp", async () => {
     const repo = new NeonSavedRouteRepo(rawDb({ id: "r2", title: "x", status: "saved", updated_at: 12345 }));
     await expect(repo.listSavedRoutes("user-a")).rejects.toThrow("invalid timestamp row");
-  });
-
-  it("treats a missing/invalid owner as not-owned", async () => {
-    const repo = new NeonSavedRouteRepo(rawDb({ id: "r3", user_id: 12345 }));
-    await expect(repo.deleteSavedRoute("user-a", { id: "r3" })).rejects.toMatchObject({
-      code: "SAVED_ROUTE_NOT_OWNED",
-    });
   });
 });
 

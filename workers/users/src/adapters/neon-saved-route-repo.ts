@@ -1,21 +1,18 @@
 import type {
   ClaimSavedRoutesInput,
   ClaimSavedRoutesResult,
-  DeleteSavedRouteInput,
-  DeleteSavedRouteResult,
   ListSavedRoutesResult,
   SaveSavedRouteInput,
   SavedRoute,
   SavedRouteStatus,
 } from "@animichi/contract";
 import { sql } from "drizzle-orm";
+import type { DeleteOwnedOutcome, DeleteSavedRouteStore } from "../application/delete-saved-route";
+import type { SavedRouteStore } from "../application/save-saved-route";
 import type { DbExecutor } from "../db/client";
 import type { OwnerLookup } from "../domain/ownership";
 import type { SavedRouteRepo } from "../domain/ports";
-import { assertSavedRouteOwnedBy } from "../domain/route-rules";
 import { isSavedRouteStatus } from "../domain/saved-route-status";
-import type { SavedRouteStore } from "../application/save-saved-route";
-import { savedRouteNotFound, savedRouteNotOwned } from "../lib/errors";
 
 type RecordRow = Record<string, unknown>;
 
@@ -57,29 +54,6 @@ function toSavedRoute(value: unknown): SavedRoute {
   };
 }
 
-function ownerFrom(value: unknown): string | null | undefined {
-  if (!isRecord(value)) return undefined;
-  return typeof value.user_id === "string" || value.user_id === null
-    ? value.user_id
-    : undefined;
-}
-
-/** Ownership read for the delete path; a missing row is not-found, a mismatch
- * is not-owned (src/domain/route-rules.ts). */
-async function assertOwner(db: DbExecutor, userId: string, savedRouteId: string): Promise<void> {
-  const result = await db.execute(sql`SELECT user_id FROM saved_routes WHERE id = ${savedRouteId}`);
-  if (result.rows.length === 0) throw savedRouteNotFound(savedRouteId);
-  try {
-    assertSavedRouteOwnedBy(ownerFrom(result.rows[0]), userId, savedRouteId);
-  } catch {
-    // assertSavedRouteOwnedBy's contract (src/domain/route-rules.ts) is to
-    // throw only SavedRouteNotOwnedError on mismatch — the adapter translates
-    // any such failure to the oRPC 403. The domain rule is pure and
-    // unit-tested, so no unexpected error type is possible here.
-    throw savedRouteNotOwned(savedRouteId);
-  }
-}
-
 function insertSavedRouteSql(userId: string, input: SaveSavedRouteInput, savedAt: string | null) {
   return sql`
     INSERT INTO saved_routes (user_id, title, point_ids, status, saved_at)
@@ -104,6 +78,13 @@ async function deleteSavedRouteRow(db: DbExecutor, userId: string, savedRouteId:
   return result.rows;
 }
 
+/** Id-only existence probe used to classify a delete that lost the race;
+ * never reveals the owner, so it is not a cross-owner oracle. */
+async function existsSavedRouteRow(db: DbExecutor, savedRouteId: string): Promise<unknown[]> {
+  const result = await db.execute(sql`SELECT 1 FROM saved_routes WHERE id = ${savedRouteId}`);
+  return result.rows;
+}
+
 /** Atomic claim: only rows whose owner passes canClaimUnownedSavedRoute
  * (user_id IS NULL, src/domain/route-rules.ts) are touched — owned rows are
  * left intact. */
@@ -116,14 +97,15 @@ async function claimSavedRouteRows(db: DbExecutor, userId: string, sessionId: st
 }
 
 /**
- * Neon-backed SavedRouteStore + SavedRouteRepo over the raw SQL executor
- * (Drizzle typing only, see src/db/client.ts). Owns SQL and row mapping only:
- * the SaveSavedRoute action (src/application/save-saved-route.ts) owns the
- * create/update decision, ownership, and saved-at policy; the delete path maps
- * SavedRouteNotOwnedError to SAVED_ROUTE_NOT_OWNED and a missing row to
- * SAVED_ROUTE_NOT_FOUND (src/lib/errors.ts).
+ * Neon-backed SavedRouteStore + DeleteSavedRouteStore + SavedRouteRepo over
+ * the raw SQL executor (Drizzle typing only, see src/db/client.ts). Owns SQL
+ * and row mapping only: the SaveSavedRoute action
+ * (src/application/save-saved-route.ts) and DeleteSavedRoute action
+ * (src/application/delete-saved-route.ts) own the ownership decisions and the
+ * stable SAVED_ROUTE_* errors; the delete store performs one owner-predicated
+ * atomic delete and reports only whether a row was deleted.
  */
-export class NeonSavedRouteRepo implements SavedRouteRepo, SavedRouteStore {
+export class NeonSavedRouteRepo implements SavedRouteRepo, SavedRouteStore, DeleteSavedRouteStore {
   constructor(private readonly db: DbExecutor) {}
 
   async listSavedRoutes(userId: string): Promise<ListSavedRoutesResult> {
@@ -154,12 +136,15 @@ export class NeonSavedRouteRepo implements SavedRouteRepo, SavedRouteStore {
     return row === undefined ? null : toSavedRoute(row);
   }
 
-  async deleteSavedRoute(userId: string, input: DeleteSavedRouteInput): Promise<DeleteSavedRouteResult> {
-    await assertOwner(this.db, userId, input.id);
-    if ((await deleteSavedRouteRow(this.db, userId, input.id)).length === 0) {
-      throw savedRouteNotOwned(input.id);
+  /** One owner-predicated atomic delete; a lost delete is classified without
+   * exposing the owner (src/application/delete-saved-route.ts). */
+  async deleteOwned(userId: string, savedRouteId: string): Promise<DeleteOwnedOutcome> {
+    if ((await deleteSavedRouteRow(this.db, userId, savedRouteId)).length > 0) {
+      return { kind: "deleted" };
     }
-    return { deleted: true };
+    return (await existsSavedRouteRow(this.db, savedRouteId)).length > 0
+      ? { kind: "not_owned" }
+      : { kind: "missing" };
   }
 
   async claimSavedRoutes(userId: string, input: ClaimSavedRoutesInput): Promise<ClaimSavedRoutesResult> {
