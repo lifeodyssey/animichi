@@ -4,7 +4,7 @@ import { createUsersApp } from "../src/index";
 import { identityHeaders, TEST_ENV } from "./identity-fixture";
 import { fakeDb } from "./in-memory-routes-db";
 
-async function setup() {
+function setup() {
   const store = fakeDb();
   const app = createUsersApp({ makeDb: () => store.db });
   const headers = identityHeaders("user-a", { "content-type": "application/json" });
@@ -19,7 +19,7 @@ function save(app: Awaited<ReturnType<typeof setup>>["app"], headers: Record<str
 
 describe("Users Worker saved-routes wire", () => {
   it("saves then lists a saved route for the same edge-forwarded identity", async () => {
-    const { app, headers } = await setup();
+    const { app, headers } = setup();
     const created = await save(app, headers, { title: "Tokyo", point_ids: ["p1"] });
     expect(created.status).toBe(200);
     const savedRoute: unknown = await created.json();
@@ -29,7 +29,7 @@ describe("Users Worker saved-routes wire", () => {
   });
 
   it("lists sessions through the identity-guarded users endpoint", async () => {
-    const { app, headers } = await setup();
+    const { app, headers } = setup();
     const response = await app.request("/v1/users/sessions?limit=1", { headers }, TEST_ENV);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ sessions: [], next_offset: null });
@@ -41,12 +41,12 @@ describe("Users Worker saved-routes wire", () => {
     [{ title: "X", point_ids: Array.from({ length: 501 }, (_, i) => String(i)) }, "501 points"],
     [{ title: "X", point_ids: [], status: "invalid" }, "bad status"],
   ])("returns 400 for %s (%s)", async (body, _label) => {
-    const { app, headers } = await setup();
+    const { app, headers } = setup();
     expect((await save(app, headers, body)).status).toBe(400);
   });
 
   it("serializes the defined ownership error for a cross-user update", async () => {
-    const { app, headers } = await setup();
+    const { app, headers } = setup();
     const created = await save(app, headers, { title: "A", point_ids: [] });
     const savedRoute: unknown = await created.json();
     const parsed = SavedRoute.parse(savedRoute);
@@ -60,7 +60,7 @@ describe("Users Worker saved-routes wire", () => {
   });
 
   it("returns 503 when the database is unconfigured", async () => {
-    const { app } = await setup();
+    const { app } = setup();
     const response = await app.request("/v1/users/saved-routes", {
       headers: identityHeaders("user-a"),
     }, { ENVIRONMENT: "test" });

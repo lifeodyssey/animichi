@@ -77,9 +77,10 @@ void test("/v1/users with valid auth -> USERS gets X-User identity, no Authoriza
   }, env, stubCtx);
   assert.equal(await res.text(), "users");
   assert.equal(authCalled, true, "the edge must verify the users bearer itself");
-  assert.equal(received?.headers.get("X-User-Id"), "u1");
-  assert.equal(received?.headers.get("X-User-Type"), "human");
-  assert.equal(received?.headers.get("Authorization"), null, "raw bearer must never reach the users service");
+  assert.ok(received);
+  assert.equal(received.headers.get("X-User-Id"), "u1");
+  assert.equal(received.headers.get("X-User-Type"), "human");
+  assert.equal(received.headers.get("Authorization"), null, "raw bearer must never reach the users service");
 });
 
 void test("/v1/users with an invalid credential 401s without hitting USERS", async () => {

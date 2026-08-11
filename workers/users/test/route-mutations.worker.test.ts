@@ -19,7 +19,7 @@ function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   };
 }
 
-async function setup(seed: FakeSavedRouteRow[] = []) {
+function setup(seed: FakeSavedRouteRow[] = []) {
   const store = fakeDb(seed);
   const app = createUsersApp({ makeDb: () => store.db });
   const headers = identityHeaders("user-a", { "content-type": "application/json" });
@@ -52,14 +52,14 @@ function captureDb(ownerRows: unknown[] = []) {
   return { db: { execute }, query: () => requiredMutation(mutation) };
 }
 
-async function setupWith(db: DbExecutor) {
+function setupWith(db: DbExecutor) {
   const app = createUsersApp({ makeDb: () => db });
   return { app, headers: identityHeaders("user-a", { "content-type": "application/json" }) };
 }
 
 describe("saved-route deletion wire", () => {
   it("deletes a saved route owned by the JWT subject", async () => {
-    const { app, headers, rows } = await setup([row()]);
+    const { app, headers, rows } = setup([row()]);
     const response = await deleteSavedRoute(app, headers, SAVED_ROUTE_A);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ deleted: true });
@@ -67,7 +67,7 @@ describe("saved-route deletion wire", () => {
   });
 
   it("returns SAVED_ROUTE_NOT_FOUND for an unknown route", async () => {
-    const { app, headers } = await setup();
+    const { app, headers } = setup();
     const response = await deleteSavedRoute(app, headers, UNKNOWN);
     expect(response.status).toBe(404);
     expect(await response.json()).toMatchObject({
@@ -77,7 +77,7 @@ describe("saved-route deletion wire", () => {
 
   it("cannot delete another user's route", async () => {
     const seed = row({ user_id: "user-b" });
-    const { app, headers, rows } = await setup([seed]);
+    const { app, headers, rows } = setup([seed]);
     const response = await deleteSavedRoute(app, headers, SAVED_ROUTE_A);
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ defined: true, code: "SAVED_ROUTE_NOT_OWNED" });
@@ -86,7 +86,7 @@ describe("saved-route deletion wire", () => {
 
   it("scopes the atomic delete statement to saved-route id and user id", async () => {
     const capture = captureDb([{ user_id: "user-a" }]);
-    const { app, headers } = await setupWith(capture.db);
+    const { app, headers } = setupWith(capture.db);
     expect((await deleteSavedRoute(app, headers, SAVED_ROUTE_A)).status).toBe(200);
     const rendered = new PgDialect().sqlToQuery(capture.query());
     expect(rendered.sql.toLowerCase()).toContain("user_id");
@@ -96,7 +96,7 @@ describe("saved-route deletion wire", () => {
 
 describe("anonymous saved-route claim wire", () => {
   it("claims every anonymous saved route in the session and returns the count", async () => {
-    const { app, headers, rows } = await setup([
+    const { app, headers, rows } = setup([
       row({ claim_session_id: SESSION, user_id: null }),
       row({ id: SAVED_ROUTE_B, claim_session_id: SESSION, user_id: null }),
     ]);
@@ -107,13 +107,13 @@ describe("anonymous saved-route claim wire", () => {
   });
 
   it("is idempotent when the same session is claimed twice", async () => {
-    const { app, headers } = await setup([row({ claim_session_id: SESSION, user_id: null })]);
+    const { app, headers } = setup([row({ claim_session_id: SESSION, user_id: null })]);
     expect(await (await claimSavedRoutes(app, headers)).json()).toEqual({ claimed_count: 1 });
     expect(await (await claimSavedRoutes(app, headers)).json()).toEqual({ claimed_count: 0 });
   });
 
   it("returns zero when the session has no saved routes", async () => {
-    const { app, headers } = await setup();
+    const { app, headers } = setup();
     const response = await claimSavedRoutes(app, headers);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ claimed_count: 0 });
@@ -121,7 +121,7 @@ describe("anonymous saved-route claim wire", () => {
 
   it("cannot steal a route already owned by another user", async () => {
     const seed = row({ claim_session_id: SESSION, user_id: "user-b" });
-    const { app, headers, rows } = await setup([seed]);
+    const { app, headers, rows } = setup([seed]);
     const response = await claimSavedRoutes(app, headers);
     expect(await response.json()).toEqual({ claimed_count: 0 });
     expect(rows).toEqual([seed]);
@@ -129,7 +129,7 @@ describe("anonymous saved-route claim wire", () => {
 
   it("claims only null owners in one session-scoped update", async () => {
     const capture = captureDb();
-    const { app, headers } = await setupWith(capture.db);
+    const { app, headers } = setupWith(capture.db);
     expect((await claimSavedRoutes(app, headers)).status).toBe(200);
     const rendered = new PgDialect().sqlToQuery(capture.query());
     expect(rendered.sql.toLowerCase()).toContain("user_id is null");

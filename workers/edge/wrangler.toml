@@ -33,7 +33,6 @@
 #   SUPABASE_URL               — https://<project>.supabase.co (set via wrangler secret put)
 #   SUPABASE_ANON_KEY          — optional/legacy Env binding; edge JWT verifies public JWKS
 #                                and does not require the anon key (see docs/ops/deployment.md)
-#   NEON_AUTH_ISSUER           — public Neon Auth base URL (set in [vars] when cutover is approved)
 #
 # Container runtime secrets (forwarded to Python backend). Production model
 # policy is MiMo-only (#684): MIMO_API_KEY is the one live model credential.
@@ -92,8 +91,8 @@ main = "src/entry.ts"
 APP_ENV = "development"
 CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "true"
-NEON_AUTH_ENABLED = "false"
-NEON_AUTH_ISSUER = ""
+# NEON_AUTH_JWKS_URL — Neon Auth branch JWKS (AUTH-2 #950): the edge's ONLY
+# identity source. Unset fails closed (no verified bearer).
 # Showcase-mode gate (S0-v2 GOAL C / C9): worker-side sibling of the web app's
 # VITE_SHOWCASE_MODE with the same strict-boolean contract — only the literal
 # "false" opens the functional /v1 routes; "true" denies them with 403 and any
@@ -205,8 +204,8 @@ name = "animichi"
 APP_ENV = "production"
 CATALOG_API_URL = "http://catalog.internal"
 ANON_ACCESS_ENABLED = "false"
-NEON_AUTH_ENABLED = "false"
-NEON_AUTH_ISSUER = ""
+# NEON_AUTH_JWKS_URL — Neon Auth branch JWKS (AUTH-2 #950): the edge's ONLY
+# identity source. Unset fails closed (no verified bearer).
 # Showcase-mode gate (S0-v2 GOAL C / C9): production is landing-only — every
 # functional /v1 route (chat/photo-search/users) and the public catalog read
 # answer 403; only /healthz, /img/* and /tiles/* stay reachable. Strict
@@ -341,8 +340,6 @@ ANON_ACCESS_ENABLED = "true"
 # Neon Auth (Better Auth) tokens against the staging branch's JWKS. Migrated
 # users only — legacy Supabase tokens still verify via the dual-issuer
 # fallback in src/identity/auth.ts (non-EdDSA + non-Neon issuer → verifySupabase).
-NEON_AUTH_ENABLED = "true"
-NEON_AUTH_ISSUER = "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth"
 NEON_AUTH_JWKS_URL = "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.

@@ -29,7 +29,8 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 ## Runtime rules
 
 - Edge verifies identity but does **not** re-authenticate Users: `/v1/users/*` gets
-  `Authorization` passed through untouched; `src/identity/auth.ts` resolves anonymous vs JWT (the
+  `Authorization` stripped and verified identity forwarded as `X-User-Id`/`X-User-Type` (AUTH-2
+  #950); `src/identity/auth.ts` resolves anonymous vs Neon-Auth JWT (the
   `sk_*` API-key path and the `agent` identity class are deleted, AUTH-1 #945), and
   `src/gateway/forward.ts` injects the identity headers.
 - Policy stays in pure functions (`routing-policy.ts`, `catalog-policy.ts`) so it runs under
