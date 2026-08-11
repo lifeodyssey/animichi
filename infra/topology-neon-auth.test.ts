@@ -46,3 +46,13 @@ test("env var names match the edge worker binding and the QA login contract", ()
   assert.equal(QA_NEON_USER_EMAIL_VAR, "QA_NEON_USER_EMAIL");
   assert.equal(QA_NEON_USER_PASSWORD_VAR, "QA_NEON_USER_PASSWORD");
 });
+
+test("issuer derivation matches the edge copy", () => {
+  const url = "https://branch.neonauth.region.neon.tech/neondb/auth/.well-known/jwks.json";
+  const fromInfra = issuerFromJwksUrl(url);
+  // The edge's derivation is identical by contract (workers/edge/src/identity/auth.ts);
+  // import it here would couple infra to the worker package, so assert the
+  // invariant structurally instead: strip the suffix, never mutate the rest.
+  assert.equal(fromInfra, "https://branch.neonauth.region.neon.tech/neondb/auth");
+  assert.equal(fromInfra.endsWith("/.well-known/jwks.json"), false);
+});

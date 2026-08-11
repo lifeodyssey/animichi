@@ -28,9 +28,8 @@ test.use({
 });
 
 test.describe("Neon Auth login", () => {
-  test.skip(!liveAuthReady(), "set NEON_AUTH_BASE_URL + QA_NEON_USER_EMAIL + QA_NEON_USER_PASSWORD");
-
   test("password sign-in reaches the authenticated home and survives a reload", async ({ page, context }) => {
+    test.skip(!liveAuthReady(), "set NEON_AUTH_BASE_URL + QA_NEON_USER_EMAIL + QA_NEON_USER_PASSWORD");
     const response = await context.request.post(`${authBaseUrl}/sign-in/email`, {
       headers: { Origin: "http://localhost:3000" },
       data: { email: qaEmail, password: qaPassword },
