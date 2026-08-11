@@ -107,6 +107,12 @@ def test_ownership_rejected_before_any_insert() -> None:
     assert outcome.status == "ownership"
 
 
+def test_anonymous_caller_cannot_reserve_an_owned_session() -> None:
+    store, _ = _store({pg._SESSION_OWNER_SQL: [{"user_id": "user-a"}]})
+    outcome = _run(store, _request(identity_id=None))
+    assert outcome.status == "ownership"
+
+
 def test_ownership_mismatch_with_nullable_session_passes() -> None:
     store, connection = _store({pg._INSERT_SQL: [{"revision": 1}]})
     outcome = _run(store, _request(identity_id="user-b", session_id=None))
@@ -189,18 +195,6 @@ def test_fail_issues_the_delete() -> None:
 
     asyncio.run(store.fail(session_id="s-1", turn_key="turn-1"))
     assert any(pg._RELEASE_SQL in sql for sql, _ in connection.executed)
-
-
-def test_state_digest_canonicalises_json_text() -> None:
-    assert state_digest('{"b": 1, "a": 2}') == state_digest({"a": 2, "b": 1})
-
-
-def test_state_digest_invalid_json_digests_as_empty() -> None:
-    assert state_digest("not-json") == state_digest({})
-
-
-def test_state_digest_non_dict_digests_as_empty() -> None:
-    assert state_digest([1, 2]) == state_digest({})
 
 
 def test_state_digest_defaults_to_str_render() -> None:

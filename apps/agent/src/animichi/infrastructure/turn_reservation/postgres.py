@@ -56,9 +56,11 @@ _RELEASE_SQL = """
 _PRUNE_SQL = """
     DELETE FROM turn_reservations
     WHERE session_id IS NOT DISTINCT FROM $1
+      AND status = 'completed'
       AND id NOT IN (
           SELECT id FROM turn_reservations
           WHERE session_id IS NOT DISTINCT FROM $1
+            AND status = 'completed'
           ORDER BY revision DESC
           LIMIT $2
       )
@@ -183,10 +185,10 @@ class PostgresTurnReservationStore:
     async def _ownership_ok(
         self, connection: PoolConnection, session_id: str, identity_id: str | None
     ) -> bool:
-        if identity_id is None:
-            return True
         owner = await connection.fetchrow(_SESSION_OWNER_SQL, session_id)
-        return owner is None or owner["user_id"] == identity_id
+        if owner is None:
+            return True
+        return identity_id is not None and owner["user_id"] == identity_id
 
     async def _existing(
         self, connection: PoolConnection, session_id: str | None, turn_key: str

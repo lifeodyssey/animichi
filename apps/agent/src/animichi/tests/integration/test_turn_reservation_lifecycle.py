@@ -109,3 +109,8 @@ async def test_ownership_collapse_is_rejected(db_pool: asyncpg.Pool) -> None:
         assert outcome.status == "ownership"
     finally:
         await _cleanup(db_pool, [session_id])
+        async with db_pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM conversations WHERE session_id = $1", session_id
+            )
+            await conn.execute("DELETE FROM sessions WHERE id = $1", session_id)

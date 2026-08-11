@@ -33,6 +33,7 @@ from animichi.agents.photo_vision import (
     recognize_photo,
 )
 from animichi.application.turn_admission import AdmissionIdentity, AdmissionPolicy
+from animichi.application.turn_admission_port import TurnReservationStore
 from animichi.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from animichi.config.settings import Settings
 from animichi.infrastructure.observability.photo_search import (
@@ -284,7 +285,7 @@ async def handle_photo_search(
 
 
 async def _settle(
-    store: object | None,
+    store: TurnReservationStore | None,
     reserved: bool,
     session_id: str | None,
     turn_key: str,
@@ -293,7 +294,9 @@ async def _settle(
 ) -> None:
     if not reserved or store is None:
         return
-    method = getattr(store, "fail" if fail else "complete")
+    method = getattr(store, "fail" if fail else "complete", None)
+    if method is None:
+        return
     await method(session_id=session_id, turn_key=turn_key)
 
 

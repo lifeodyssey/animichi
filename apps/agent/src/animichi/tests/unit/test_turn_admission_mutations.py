@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock
 
 from turn_admission_fakes import FakeTurnReservationStore, _admission, _request
 
-from animichi.application.turn_admission import TurnAdmission
+from animichi.application.turn_admission import AdmissionIdentity, TurnAdmission
 from animichi.interfaces.admission_policy import AdmissionPolicy
 
 
@@ -59,9 +59,14 @@ async def test_quota_exhaustion_rejects_with_reset_instant() -> None:
 
 async def test_quota_disabled_never_reads_the_counter() -> None:
     store = FakeTurnReservationStore()
-    admission = _admission(store, quota_count=4, policy=AdmissionPolicy(quota=None))
+    quota = AsyncMock()
+    quota.increment_and_count = AsyncMock(return_value=4)
+    admission = TurnAdmission(
+        store=store, policy=AdmissionPolicy(quota=None), anon_quota_repo=quota
+    )
     verdict = await admission(_request())
     assert verdict.admitted is True
+    quota.increment_and_count.assert_not_awaited()
 
 
 async def test_budget_exhaustion_rejects_and_never_reaches_the_counter() -> None:
@@ -81,3 +86,14 @@ async def test_budget_exhaustion_rejects_and_never_reaches_the_counter() -> None
     assert verdict.rejection is not None
     assert verdict.rejection.reason == "budget_exhausted"
     quota.increment_and_count.assert_not_awaited()
+
+
+async def test_byok_without_any_user_id_is_rejected() -> None:
+    store = FakeTurnReservationStore()
+    verdict = await _admission(store)(
+        _request(identity=AdmissionIdentity(user_id=None, user_type=None), is_byok=True)
+    )
+    assert verdict.admitted is False
+    assert verdict.rejection is not None
+    assert verdict.rejection.reason == "byok_requires_login"
+    assert store.reservations == []

@@ -127,8 +127,11 @@ class TurnAdmission:
             request.identity.user_type,
             is_byok=request.is_byok,
         )
-        if request.is_byok and is_anonymous_identity(
-            request.identity.user_id, request.identity.user_type
+        if request.is_byok and (
+            request.identity.user_id is None
+            or is_anonymous_identity(
+                request.identity.user_id, request.identity.user_type
+            )
         ):
             return _rejected("byok_requires_login", payer)
         if payer == "anon":
