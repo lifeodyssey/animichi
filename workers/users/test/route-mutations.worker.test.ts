@@ -3,7 +3,7 @@ import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { createUsersApp } from "../src/index";
 import type { DbExecutor } from "../src/db/client";
-import { authTools, TEST_ENV } from "./neon-auth-fixture";
+import { identityHeaders, TEST_ENV } from "./identity-fixture";
 import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
 
 const SAVED_ROUTE_A = "00000000-0000-4000-8000-00000000000a";
@@ -20,11 +20,9 @@ function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
 }
 
 async function setup(seed: FakeSavedRouteRow[] = []) {
-  const auth = await authTools();
   const store = fakeDb(seed);
-  const app = createUsersApp({ getKey: auth.getKey, makeDb: () => store.db });
-  const token = await auth.makeJwt({ sub: "user-a" });
-  const headers = { Authorization: `Bearer ${token}`, "content-type": "application/json" };
+  const app = createUsersApp({ makeDb: () => store.db });
+  const headers = identityHeaders("user-a", { "content-type": "application/json" });
   return { app, headers, rows: store.rows };
 }
 
@@ -55,10 +53,8 @@ function captureDb(ownerRows: unknown[] = []) {
 }
 
 async function setupWith(db: DbExecutor) {
-  const auth = await authTools();
-  const token = await auth.makeJwt({ sub: "user-a" });
-  const app = createUsersApp({ getKey: auth.getKey, makeDb: () => db });
-  return { app, headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" } };
+  const app = createUsersApp({ makeDb: () => db });
+  return { app, headers: identityHeaders("user-a", { "content-type": "application/json" }) };
 }
 
 describe("saved-route deletion wire", () => {

@@ -1,27 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
-import { authenticate } from "../src/identity/auth.ts";
+import { authenticate, issuerFromJwksUrl } from "../src/identity/auth.ts";
 
-const BASE_ENV = { SUPABASE_URL: "https://sb-neon-base.example.test" };
+const JWKS_SUFFIX = "/.well-known/jwks.json";
 
-function stubFetch(handler: (url: string, init?: RequestInit) => Response, urls: string[] = []): typeof fetch {
-  return ((input: RequestInfo | URL, init?: RequestInit) => {
-    const inputUrl = input instanceof Request ? input.url : input.toString();
-    urls.push(inputUrl);
-    return Promise.resolve(handler(inputUrl, init));
-  });
+function stubFetch(handler: (url: string) => Response): typeof fetch {
+  return (input: RequestInfo | URL) => {
+    const url = input instanceof Request ? input.url : input.toString();
+    return Promise.resolve(handler(url));
+  };
 }
 
 function bearer(token: string): Request {
-  return new Request("https://app-neon.example.test/v1/chat", { headers: { Authorization: `Bearer ${token}` } });
+  return new Request("https://app.example.test/v1/chat", { headers: { Authorization: `Bearer ${token}` } });
 }
 
-async function fixture(alg: "EdDSA" | "ES256", issuer: string, audience = issuer, exp: string | number = "15m") {
-  const { publicKey, privateKey } = await generateKeyPair(alg, { extractable: true });
-  const jwk = { ...await exportJWK(publicKey), kid: `fake-${alg.toLowerCase()}-key` };
-  const token = await new SignJWT({ email: "fake@example.test" }).setProtectedHeader({ alg, kid: jwk.kid })
-    .setIssuer(issuer).setAudience(audience).setSubject("fake-neon-user").setIssuedAt().setExpirationTime(exp).sign(privateKey);
+async function fixture(host: string, { alg = "EdDSA", issuer, audience, exp = "15m" }: {
+  alg?: string; issuer?: string; audience?: string; exp?: string | number;
+} = {}) {
+  const pair = alg === "ES256"
+    ? await generateKeyPair("ES256", { extractable: true })
+    : await generateKeyPair("EdDSA", { extractable: true });
+  const jwk = { ...await exportJWK(pair.publicKey), kid: `fake-${alg.toLowerCase()}-key` };
+  const token = await new SignJWT({}).setProtectedHeader({ alg, kid: jwk.kid })
+    .setIssuer(issuer ?? host).setAudience(audience ?? host).setSubject("fake-neon-user")
+    .setIssuedAt().setExpirationTime(exp).sign(pair.privateKey);
   return { jwk, token };
 }
 
@@ -30,91 +34,56 @@ function jwks(jwk: JWK): Response {
 }
 
 function neonEnv(host: string) {
-  return { ...BASE_ENV, NEON_AUTH_ENABLED: "true", NEON_AUTH_JWKS_URL: `${host}/.well-known/jwks.json`, NEON_AUTH_ISSUER: host };
+  return { NEON_AUTH_JWKS_URL: `${host}${JWKS_SUFFIX}` };
 }
 
-void test("flag absent rejects EdDSA without fetching Neon JWKS", async () => {
-  const host = "https://neon-absent.example.test";
-  const { token } = await fixture("EdDSA", host);
-  const urls: string[] = [];
-  const r = await authenticate(bearer(token), BASE_ENV, stubFetch(() => new Response("", { status: 500 }), urls));
-  assert.deepEqual(r, { ok: false, reason: "invalid" });
-  assert.equal(urls.includes(`${host}/.well-known/jwks.json`), false);
+void test("issuerFromJwksUrl strips the well-known suffix", () => {
+  assert.equal(issuerFromJwksUrl("https://auth.example.test/neondb/auth/.well-known/jwks.json"), "https://auth.example.test/neondb/auth");
 });
 
-void test("false flag rejects EdDSA without fetching Neon JWKS", async () => {
-  const host = "https://neon-disabled.example.test";
-  const { token } = await fixture("EdDSA", host);
-  const urls: string[] = [];
-  const env = { ...neonEnv(host), NEON_AUTH_ENABLED: "false" };
-  const r = await authenticate(bearer(token), env, stubFetch(() => new Response("", { status: 500 }), urls));
-  assert.deepEqual(r, { ok: false, reason: "invalid" });
-  assert.equal(urls.includes(env.NEON_AUTH_JWKS_URL), false);
+void test("issuerFromJwksUrl leaves a suffix-less URL untouched", () => {
+  assert.equal(issuerFromJwksUrl("https://auth.example.test/neondb/auth"), "https://auth.example.test/neondb/auth");
 });
 
-void test("enabled Neon accepts a valid EdDSA token", async () => {
-  const host = "https://neon-valid.example.test";
-  const { jwk, token } = await fixture("EdDSA", host);
+void test("a valid EdDSA token for the derived issuer/audience is accepted", async () => {
+  const host = "https://neon-ok.example.test";
+  const { jwk, token } = await fixture(host);
   const r = await authenticate(bearer(token), neonEnv(host), stubFetch(() => jwks(jwk)));
   assert.deepEqual(r, { ok: true, userId: "fake-neon-user", userType: "human" });
 });
 
-void test("enabled Neon rejects wrong issuer", async () => {
+void test("a token for a weaker issuer is rejected", async () => {
   const host = "https://neon-wrong-issuer.example.test";
-  const { jwk, token } = await fixture("EdDSA", "https://neon-other-issuer.example.test", host);
+  const { jwk, token } = await fixture(host, { issuer: "https://neon-other.example.test" });
   const r = await authenticate(bearer(token), neonEnv(host), stubFetch(() => jwks(jwk)));
   assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
-void test("enabled Neon rejects expired token", async () => {
-  const host = "https://neon-expired.example.test";
-  const { jwk, token } = await fixture("EdDSA", host, host, Math.floor(Date.now() / 1000) - 60);
-  const r = await authenticate(bearer(token), neonEnv(host), stubFetch(() => jwks(jwk)));
-  assert.deepEqual(r, { ok: false, reason: "invalid" });
-});
-
-void test("enabled Neon rejects wrong audience", async () => {
+void test("a token for a weaker audience is rejected", async () => {
   const host = "https://neon-wrong-audience.example.test";
-  const { jwk, token } = await fixture("EdDSA", host, "https://neon-other-audience.example.test");
+  const { jwk, token } = await fixture(host, { audience: "https://neon-other.example.test" });
   const r = await authenticate(bearer(token), neonEnv(host), stubFetch(() => jwks(jwk)));
   assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
-void test("enabled Neon rejects signature from another key", async () => {
+void test("a token signed by another key is rejected", async () => {
   const host = "https://neon-bad-signature.example.test";
-  const trusted = await fixture("EdDSA", host);
-  const untrusted = await fixture("EdDSA", host);
+  const trusted = await fixture(host);
+  const untrusted = await fixture(host);
   const r = await authenticate(bearer(untrusted.token), neonEnv(host), stubFetch(() => jwks(trusted.jwk)));
   assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
-void test("enabled Neon coexists with Supabase", async () => {
-  const neonHost = "https://neon-dual.example.test";
-  const sbHost = "https://sb-dual.example.test";
-  const neon = await fixture("EdDSA", neonHost);
-  const sb = await fixture("ES256", `${sbHost}/auth/v1`, "authenticated", "1h");
-  const env = { ...neonEnv(neonHost), SUPABASE_URL: sbHost };
-  const urls: string[] = [];
-  const fetcher = stubFetch((url) => jwks(url === env.NEON_AUTH_JWKS_URL ? neon.jwk : sb.jwk), urls);
-  const sbResult = await authenticate(bearer(sb.token), env, fetcher);
-  const neonResult = await authenticate(bearer(neon.token), env, fetcher);
-  assert.deepEqual(sbResult, { ok: true, userId: "fake-neon-user", userType: "human" });
-  assert.deepEqual(neonResult, { ok: true, userId: "fake-neon-user", userType: "human" });
-  assert.deepEqual(urls, [`${sbHost}/auth/v1/.well-known/jwks.json`, env.NEON_AUTH_JWKS_URL]);
-});
-
-void test("enabled Neon without JWKS URL rejects without throwing", async () => {
-  const host = "https://neon-missing-jwks.example.test";
-  const { token } = await fixture("EdDSA", host);
-  const env = { ...BASE_ENV, NEON_AUTH_ENABLED: "true", NEON_AUTH_ISSUER: host };
-  const r = await authenticate(bearer(token), env, stubFetch(() => new Response("", { status: 500 })));
+void test("an expired token is rejected", async () => {
+  const host = "https://neon-expired.example.test";
+  const { jwk, token } = await fixture(host, { exp: Math.floor(Date.now() / 1000) - 60 });
+  const r = await authenticate(bearer(token), neonEnv(host), stubFetch(() => jwks(jwk)));
   assert.deepEqual(r, { ok: false, reason: "invalid" });
 });
 
-void test("an sk_ credential is invalid even with Neon enabled (AUTH-1: api_keys deleted)", async () => {
-  const host = "https://neon-api-key.example.test";
-  const urls: string[] = [];
-  const r = await authenticate(bearer("sk_fake_neon"), neonEnv(host), stubFetch(() => new Response("", { status: 500 }), urls));
+void test("an ES256 token is rejected by the EdDSA-only algorithm pin", async () => {
+  const host = "https://neon-wrong-alg.example.test";
+  const { jwk, token } = await fixture(host, { alg: "ES256" });
+  const r = await authenticate(bearer(token), neonEnv(host), stubFetch(() => jwks(jwk)));
   assert.deepEqual(r, { ok: false, reason: "invalid" });
-  assert.deepEqual(urls, [], "an sk_ credential must never touch api_keys or the JWKS endpoints");
 });

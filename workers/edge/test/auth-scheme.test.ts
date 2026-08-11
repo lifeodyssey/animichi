@@ -7,8 +7,8 @@ import assert from "node:assert/strict";
 import { exportJWK, generateKeyPair, type JWK, SignJWT } from "jose";
 import { authenticate } from "../src/identity/auth.ts";
 
-const HOST = "https://sb-441-scheme.example.test";
-const ENV = { SUPABASE_URL: HOST, SUPABASE_SERVICE_ROLE_KEY: "service" };
+const HOST = "https://neon-441-scheme.example.test";
+const ENV = { NEON_AUTH_JWKS_URL: `${HOST}/.well-known/jwks.json` };
 
 function requestedUrl(input: RequestInfo | URL): string {
   if (input instanceof Request) return input.url;
@@ -24,10 +24,10 @@ function authorized(value: string): Request {
 }
 
 async function expiredFixture(): Promise<{ jwk: JWK; token: string }> {
-  const { publicKey, privateKey } = await generateKeyPair("ES256", { extractable: true });
-  const jwk: JWK = { ...await exportJWK(publicKey), kid: "fake-es-key" };
-  const token = await new SignJWT({}).setProtectedHeader({ alg: "ES256", kid: jwk.kid })
-    .setIssuer(`${HOST}/auth/v1`).setAudience("authenticated").setSubject("fake-user")
+  const { publicKey, privateKey } = await generateKeyPair("EdDSA", { extractable: true });
+  const jwk: JWK = { ...await exportJWK(publicKey), kid: "fake-eddsa-key" };
+  const token = await new SignJWT({}).setProtectedHeader({ alg: "EdDSA", kid: jwk.kid })
+    .setIssuer(HOST).setAudience(HOST).setSubject("fake-user")
     .setIssuedAt().setExpirationTime(Math.floor(Date.now() / 1000) - 60).sign(privateKey);
   return { jwk, token };
 }

@@ -1,15 +1,14 @@
 import { SavedRoute } from "@animichi/contract";
 import { describe, expect, it } from "vitest";
 import { createUsersApp } from "../src/index";
-import { authTools, TEST_ENV } from "./neon-auth-fixture";
+import { identityHeaders, TEST_ENV } from "./identity-fixture";
 import { fakeDb } from "./in-memory-routes-db";
 
 async function setup() {
-  const auth = await authTools();
   const store = fakeDb();
-  const app = createUsersApp({ getKey: auth.getKey, makeDb: () => store.db });
-  const token = await auth.makeJwt({ sub: "user-a" });
-  return { app, auth, headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" } };
+  const app = createUsersApp({ makeDb: () => store.db });
+  const headers = identityHeaders("user-a", { "content-type": "application/json" });
+  return { app, headers };
 }
 
 function save(app: Awaited<ReturnType<typeof setup>>["app"], headers: Record<string, string>, body: unknown) {
@@ -19,7 +18,7 @@ function save(app: Awaited<ReturnType<typeof setup>>["app"], headers: Record<str
 }
 
 describe("Users Worker saved-routes wire", () => {
-  it("saves then lists a saved route for the same JWT subject", async () => {
+  it("saves then lists a saved route for the same edge-forwarded identity", async () => {
     const { app, headers } = await setup();
     const created = await save(app, headers, { title: "Tokyo", point_ids: ["p1"] });
     expect(created.status).toBe(200);
@@ -29,7 +28,7 @@ describe("Users Worker saved-routes wire", () => {
     expect(await listed.json()).toMatchObject({ saved_routes: [{ title: "Tokyo" }] });
   });
 
-  it("lists sessions through the authenticated users endpoint", async () => {
+  it("lists sessions through the identity-guarded users endpoint", async () => {
     const { app, headers } = await setup();
     const response = await app.request("/v1/users/sessions?limit=1", { headers }, TEST_ENV);
     expect(response.status).toBe(200);
@@ -47,14 +46,12 @@ describe("Users Worker saved-routes wire", () => {
   });
 
   it("serializes the defined ownership error for a cross-user update", async () => {
-    const { app, auth, headers } = await setup();
+    const { app, headers } = await setup();
     const created = await save(app, headers, { title: "A", point_ids: [] });
     const savedRoute: unknown = await created.json();
     const parsed = SavedRoute.parse(savedRoute);
-    const userB = await auth.makeJwt({ sub: "user-b" });
-    const response = await save(app, {
-      Authorization: `Bearer ${userB}`, "content-type": "application/json",
-    }, { id: parsed.id, title: "B", point_ids: [] });
+    const userB = identityHeaders("user-b", { "content-type": "application/json" });
+    const response = await save(app, userB, { id: parsed.id, title: "B", point_ids: [] });
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({
       defined: true, code: "SAVED_ROUTE_NOT_OWNED", status: 403,
@@ -63,11 +60,10 @@ describe("Users Worker saved-routes wire", () => {
   });
 
   it("returns 503 when the database is unconfigured", async () => {
-    const { app, auth } = await setup();
-    const token = await auth.makeJwt({ sub: "user-a" });
+    const { app } = await setup();
     const response = await app.request("/v1/users/saved-routes", {
-      headers: { Authorization: `Bearer ${token}` },
-    }, { ENVIRONMENT: "test", NEON_AUTH_JWKS_URL: TEST_ENV.NEON_AUTH_JWKS_URL });
+      headers: identityHeaders("user-a"),
+    }, { ENVIRONMENT: "test" });
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "users database not configured" });
   });
