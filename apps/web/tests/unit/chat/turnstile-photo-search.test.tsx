@@ -25,7 +25,7 @@ import { makeJpegWithExif } from "../shiori/_jpeg-fixtures";
 const dict = chatDictFor("ja");
 const URL = `${TEST_ORIGIN}/v1/photo-search`;
 const SITE_KEY = "0x4AAAAAAAsitekey24chars";
-const OK_ENVELOPE = { success: true, status: "ok", intent: "clarify", data: {} };
+const OK_ENVELOPE = { success: true, status: "ok", intent: "clarify", offer_id: "offer-1", data: {} };
 const CHALLENGED = {
   error: { code: "turnstile_required", message: "Turnstile verification required.", retryable: true },
 };

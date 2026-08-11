@@ -110,15 +110,13 @@ async def post_photo_search_confirm(
 
 
 def confirm_body(
-    *, query_type: str, layer_hit: str, candidates_shown: int
+    *, offer_id: str, candidate_id: str | None = None
 ) -> dict[str, object]:
-    """The /v1/photo-search/confirm body; gps_available is always false here."""
-    return {
-        "query_type": query_type,
-        "gps_available": False,
-        "layer_hit": layer_hit,
-        "candidates_shown": candidates_shown,
-    }
+    """The /v1/photo-search/confirm body for a server-issued offer."""
+    body: dict[str, object] = {"offer_id": offer_id}
+    if candidate_id is not None:
+        body["candidate_id"] = candidate_id
+    return body
 
 
 def fake_byok_model(model: Model) -> tuple[ByokModel, AsyncMock]:

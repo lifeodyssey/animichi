@@ -4,21 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
-from typing import Literal, NewType
+from typing import Literal
 
 import logfire
 from pydantic import BaseModel
 
 QuotaTier = Literal["anon", "member"]
 QueryType = Literal["anime_screenshot", "real_world_photo", "vision_unavailable"]
-# The client-submitted confirm signal (anonymous-reachable) may only claim to
-# have seen a real search outcome — never "vision_unavailable" (#502 review
-# round 2): that value backs an ops alert, and there is never a candidate
-# list to confirm on that outcome. Keeping the client type narrower prevents
-# an anonymous caller from injecting fake events into that alert source.
-ClientQueryType = Literal["anime_screenshot", "real_world_photo"]
 LayerHit = Literal["1", "2", "none"]
-QuotaKey = NewType("QuotaKey", str)
 Clock = Callable[[], datetime]
 
 _photo_searches = logfire.metric_counter(
@@ -65,9 +58,9 @@ class PhotoSearchQuota:
 
     def __init__(self, clock: Clock) -> None:
         self._clock = clock
-        self._used: dict[tuple[QuotaTier, QuotaKey, str], int] = {}
+        self._used: dict[tuple[QuotaTier, str, str], int] = {}
 
-    def consume(self, tier: QuotaTier, key: QuotaKey, limit: int | None) -> bool:
+    def consume(self, tier: QuotaTier, key: str, limit: int | None) -> bool:
         if limit is None:
             return True
         slot = (tier, key, self._clock().date().isoformat())

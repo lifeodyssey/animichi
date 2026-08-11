@@ -1,52 +1,61 @@
-"""Photo-search phase 1 boundary: ``POST /v1/photo-search`` (+ confirm ping).
+"""Photo-search boundary (AGENT-1 #952): thin route over the use cases.
 
-Anonymous requests are allowed (metered on the anon tier); the Worker edge
-still owns real auth, and this route only reads the trusted headers.
-
-Recognition itself rides the main agent's multimodal input (``BinaryContent``,
-`animichi.agents.photo_vision`) instead of a standalone Gemini REST client + a
-BYOK-canary router (#656) — this route's own job is unchanged: run
-:class:`TurnAdmission` first (TURN-2 #949), decode/validate the upload,
-enforce the per-use photo tier quota (`photo_search_guards`), resolve a BYOK
-model from the real ``X-BYOK-*`` headers (mirroring `animichi.interfaces.routes.chat`),
-and hand a bound recognition closure to `animichi.agents.photo_search.run_photo_search`.
+The application use cases own the behavior — :class:`SearchPhoto` (image
+validation, quota, recognition through the vision adapter, the resolve/
+degrade pipeline, offer issuance, usage recording, BYOK cleanup) and
+:class:`ConfirmPhotoOffer` (sessionless candidate-offer confirmation). This
+module only parses the generated request DTOs, resolves the BYOK model from
+the trusted headers (mirroring `interfaces.routes.chat`), runs
+:class:`TurnOutcome` first (TURN-2 #949 / TURN-3 #951: admit, dispatch-certainty
+guard, exactly-once settle), and maps neutral results to the generated wire
+models. Runtime construction lives in `interfaces.routes.photo_search_runtime`.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from typing import Annotated, Literal, cast
+from dataclasses import asdict
+from typing import Annotated
 
-import httpx
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
 
-from animichi.agents.base import get_default_model
 from animichi.agents.byok_models import ByokError, ByokModel, build_byok_model
-from animichi.agents.photo_search import GpsPoint, PhotoSearchResponse, run_photo_search
-from animichi.agents.photo_vision import (
-    ModelProvider,
-    RecognizeCall,
-    VisionCallResult,
-    recognize_photo,
+from animichi.application.confirm_photo_offer import (
+    ConfirmPhotoOffer,
+    PhotoOfferRejection,
+)
+from animichi.application.photo_image import PhotoSearchRejection
+from animichi.application.photo_offers import OfferSignals
+from animichi.application.photo_search_envelope import (
+    PhotoCandidate,
+    PhotoPoint,
+    PhotoResults,
+    PhotoSearchData,
+)
+from animichi.application.search_photo import (
+    SearchPhoto,
+    SearchPhotoCommand,
+    SearchPhotoResult,
 )
 from animichi.application.turn_admission import AdmissionIdentity, AdmissionPolicy
-from animichi.application.turn_outcome_port import TurnRef
-from animichi.clients.catalog_client import CatalogClient, CatalogClientProtocol
-from animichi.config.settings import Settings
+from animichi.application.turn_outcome import TurnOutcome
+from animichi.application.turn_outcome_port import SettleOutcome, TurnRef
 from animichi.infrastructure.observability.photo_search import (
-    ClientQueryType,
-    LayerHit,
-    PhotoSearchQuota,
     PhotoSearchSignals,
     record_photo_search,
 )
-from animichi.interfaces.db_repos import usage_repo
-from animichi.interfaces.public_api import record_attributed_usage
+from animichi.interfaces.boundary.agent_models import (
+    PhotoConfirmRequest,
+    PhotoSearchRequest,
+    PhotoSearchResponse,
+    PhotoSearchResponseData,
+    PhotoSearchResponseDataCandidates,
+    PhotoSearchResponseDataResults,
+    PhotoSearchResponseDataResultsRows,
+)
 from animichi.interfaces.routes._deps import (
     TrustedAuthContext,
+    _error_response,
     _get_byok_credential,
     _get_settings_from_request,
     _get_trusted_auth_context,
@@ -57,97 +66,25 @@ from animichi.interfaces.routes.admission import (
     admission_request,
     build_turn_outcome,
 )
-from animichi.interfaces.routes.photo_search_guards import (
-    MAX_IMAGE_BASE64_CHARS,
-    PhotoSearchRejection,
-    _check_quota,
-    _decode_image,
-    _quota_key,
-    _quota_limit,
-    _quota_tier_for,
-    _rejection_response,
-    _scope_user_type,
+from animichi.interfaces.routes.photo_search_runtime import (
+    PhotoSearchRuntime,
+    build_photo_search_runtime,
+    build_search_photo,
+    get_photo_runtime,
+    search_command,
 )
-from animichi.interfaces.usage_metering import (
-    ANONYMOUS_USER_TYPE,
-    UsagePrices,
-    is_anonymous_identity,
-)
+from animichi.interfaces.usage_metering import ANONYMOUS_USER_TYPE
 
-__all__ = ["MAX_IMAGE_BASE64_CHARS", "PhotoSearchRuntime", "build_photo_search_runtime"]
+__all__ = ["PhotoSearchRuntime", "build_photo_search_runtime"]
 
 router = APIRouter(prefix="/v1", tags=["photo-search"])
-
-Locale = Literal["ja", "zh", "en"]
-
-
-class GpsBody(BaseModel):
-    lat: float
-    lng: float
-
-
-class PhotoSearchBody(BaseModel):
-    image_base64: str = Field(min_length=1, max_length=2 * MAX_IMAGE_BASE64_CHARS)
-    mime_type: str
-    gps: GpsBody | None = None
-
-
-class PhotoConfirmBody(BaseModel):
-    query_type: ClientQueryType
-    gps_available: bool
-    layer_hit: LayerHit
-    candidates_shown: int = Field(ge=0)
-
-
-@dataclass
-class PhotoSearchRuntime:
-    """Per-app photo-search wiring, injectable for tests."""
-
-    platform_model: ModelProvider
-    catalog: CatalogClientProtocol
-    quota: PhotoSearchQuota = field(
-        default_factory=lambda: PhotoSearchQuota(clock=lambda: datetime.now(UTC))
-    )
-
-
-def build_photo_search_runtime(
-    settings: Settings, catalog: CatalogClientProtocol, client: httpx.AsyncClient
-) -> PhotoSearchRuntime:
-    del settings  # kept for signature symmetry with `_build_from_state`
-    return PhotoSearchRuntime(
-        platform_model=get_default_model(http_client=client), catalog=catalog
-    )
-
-
-def _build_from_state(request: Request) -> PhotoSearchRuntime:
-    settings = _get_settings_from_request(request)
-    catalog = getattr(request.app.state, "catalog_client", None)
-    if not isinstance(catalog, CatalogClient):
-        catalog = CatalogClient(base_url=settings.catalog_api_url)
-    client = getattr(request.app.state, "model_http_client", None)
-    if not isinstance(client, httpx.AsyncClient):
-        raise RuntimeError("photo-search requires the lifespan HTTP client")
-    return build_photo_search_runtime(settings, catalog, client)
-
-
-def _get_photo_runtime(request: Request) -> PhotoSearchRuntime:
-    existing = getattr(request.app.state, "photo_search", None)
-    if isinstance(existing, PhotoSearchRuntime):
-        return existing
-    runtime = _build_from_state(request)
-    request.app.state.photo_search = runtime
-    return runtime
-
-
-def _locale(request: Request) -> Locale:
-    value = request.headers.get("x-locale", "ja")
-    return cast(Locale, value) if value in ("ja", "zh", "en") else "ja"
 
 
 async def _resolve_byok_model(request: Request) -> ByokModel | None:
     """Parse and build the per-request guarded model, same contract as
     `animichi.interfaces.routes.chat._resolve_byok_model`. The caller MUST
-    `await .client.aclose()` once the turn is over."""
+    `await .client.aclose()` once the turn is over — SearchPhoto does that
+    through its `ByokSession` seam on every exit path."""
     byok = _get_byok_credential(request)
     if byok is None:
         return None
@@ -161,59 +98,130 @@ async def _resolve_byok_model(request: Request) -> ByokModel | None:
         ) from exc
 
 
-def _consume_quota(
-    runtime: PhotoSearchRuntime,
-    request: Request,
-    auth: TrustedAuthContext,
-    is_authenticated: bool,
-) -> None:
-    settings = _get_settings_from_request(request)
-    tier = _quota_tier_for(is_authenticated)
-    quota_ok = runtime.quota.consume(
-        tier, _quota_key(auth, request), _quota_limit(settings, tier)
+def _rejection_response(rejection: PhotoSearchRejection) -> JSONResponse:
+    details = (
+        {"guidance": rejection.guidance} if rejection.guidance is not None else None
     )
-    _check_quota(quota_ok, _has_byok_headers(request))
+    return _error_response(
+        rejection.code,
+        rejection.message,
+        status_code=rejection.status_code,
+        details=details,
+    )
 
 
-async def _prepare_turn(
-    runtime: PhotoSearchRuntime,
-    request: Request,
-    auth: TrustedAuthContext,
-    body: PhotoSearchBody,
-    is_authenticated: bool,
-) -> tuple[bytes, ByokModel | None]:
-    """Every rejecting guard — image validation, then BYOK resolution — runs
-    before the quota slot is spent (#739 review): a request this turn is
-    about to refuse anyway must never cost the caller their daily allowance.
-    Quota is the last check because it is the only one with no rejection
-    reason left to discover once it passes."""
-    image = _decode_image(body.image_base64, body.mime_type)
-    byok_model = await _resolve_byok_model(request)
+def _wire_point(point: PhotoPoint) -> PhotoSearchResponseDataResultsRows:
+    return PhotoSearchResponseDataResultsRows(**asdict(point))
+
+
+def _wire_results(results: PhotoResults) -> PhotoSearchResponseDataResults:
+    return PhotoSearchResponseDataResults(
+        kind="bangumi",
+        bangumi_id=results.bangumi_id,
+        title=results.title,
+        row_count=results.row_count,
+        rows=[_wire_point(row) for row in results.rows],
+    )
+
+
+def _wire_candidate(candidate: PhotoCandidate) -> PhotoSearchResponseDataCandidates:
+    return PhotoSearchResponseDataCandidates(
+        id=candidate.id, title=candidate.title, bangumi_id=candidate.bangumi_id
+    )
+
+
+def _wire_data(data: PhotoSearchData) -> PhotoSearchResponseData:
+    results = _wire_results(data.results) if data.results is not None else None
+    candidates = (
+        [_wire_candidate(candidate) for candidate in data.candidates]
+        if data.candidates
+        else None
+    )
+    return PhotoSearchResponseData(
+        results=results, reason=data.reason, candidates=candidates
+    )
+
+
+def _wire_response(result: SearchPhotoResult) -> PhotoSearchResponse:
+    return PhotoSearchResponse(
+        success=True,
+        status="ok",
+        intent=result.envelope.intent,
+        offer_id=result.offer_id,
+        data=_wire_data(result.envelope.data),
+    )
+
+
+def _search_signals(result: SearchPhotoResult) -> PhotoSearchSignals:
+    return _signals(result.signals, user_confirmed=False)
+
+
+def _confirm_signals(signals: OfferSignals) -> PhotoSearchSignals:
+    return _signals(signals, user_confirmed=True)
+
+
+def _signals(signals: OfferSignals, *, user_confirmed: bool) -> PhotoSearchSignals:
+    return PhotoSearchSignals(
+        query_type=signals.query_type,
+        gps_available=signals.gps_available,
+        layer_hit=signals.layer_hit,
+        candidates_shown=signals.candidates_shown,
+        user_confirmed=user_confirmed,
+    )
+
+
+async def _release_if_reserved(
+    outcome: TurnOutcome,
+    reserved: bool,
+    owner: str | None,
+    turn_ref: TurnRef,
+) -> None:
+    if reserved and owner is not None:
+        await outcome.release(turn_ref, owner=owner)
+
+
+async def _dispatch_certainty(
+    outcome: TurnOutcome,
+    reserved: bool,
+    owner: str | None,
+    turn_ref: TurnRef,
+) -> bool:
+    """Dispatch-certainty guard (TURN-3 #951): never run the vision pipeline
+    for a turn whose lease is already gone."""
+    if not (reserved and owner is not None):
+        return True
+    return await outcome.dispatch(turn_ref, owner=owner)
+
+
+async def _settle_if_reserved(
+    outcome: TurnOutcome,
+    reserved: bool,
+    owner: str | None,
+    turn_ref: TurnRef,
+    result: SettleOutcome,
+) -> None:
+    if reserved and owner is not None:
+        await outcome.settle(turn_ref, owner=owner, outcome=result)
+
+
+async def _run_search_settled(
+    outcome: TurnOutcome,
+    reserved: bool,
+    owner: str | None,
+    turn_ref: TurnRef,
+    search: SearchPhoto,
+    command: SearchPhotoCommand,
+) -> SearchPhotoResult:
     try:
-        _consume_quota(runtime, request, auth, is_authenticated)
+        result = await search(command)
     except PhotoSearchRejection:
-        if byok_model is not None:
-            await byok_model.client.aclose()
+        await _settle_if_reserved(outcome, reserved, owner, turn_ref, "failed")
         raise
-    return image, byok_model
-
-
-def _recognize_call(
-    runtime: PhotoSearchRuntime,
-    byok_model: ModelProvider | None,
-    images: list[bytes],
-    locale: str,
-) -> RecognizeCall:
-    async def call() -> VisionCallResult:
-        return await recognize_photo(runtime.platform_model, byok_model, images, locale)
-
-    return call
-
-
-def _gps(body: PhotoSearchBody) -> GpsPoint | None:
-    if body.gps is None:
-        return None
-    return GpsPoint(lat=body.gps.lat, lng=body.gps.lng)
+    except BaseException:
+        await _settle_if_reserved(outcome, reserved, owner, turn_ref, "failed")
+        raise
+    await _settle_if_reserved(outcome, reserved, owner, turn_ref, "completed")
+    return result
 
 
 @router.post(
@@ -224,14 +232,11 @@ def _gps(body: PhotoSearchBody) -> GpsPoint | None:
 )
 async def handle_photo_search(
     request: Request,
-    body: PhotoSearchBody,
+    body: PhotoSearchRequest,
     auth: Annotated[TrustedAuthContext, Depends(_get_trusted_auth_context)],
 ) -> JSONResponse:
-    """Run the standalone vision pipeline and reply with a chat-shaped envelope."""
-    runtime = _get_photo_runtime(request)
-    is_authenticated = auth.user_id is not None and not is_anonymous_identity(
-        auth.user_id, auth.user_type
-    )
+    """Run the SearchPhoto use case and reply with the generated envelope."""
+    runtime = get_photo_runtime(request)
     settings = _get_settings_from_request(request)
     outcome = build_turn_outcome(
         request,
@@ -246,8 +251,8 @@ async def handle_photo_search(
         session_id=None,
         is_byok=_has_byok_headers(request),
         # No `X-User-Id` is the anonymous tier here (host-keyed), mirroring
-        # `_scope_user_type`: an identified caller without a user-type header
-        # must stay identified, never coerced into the anon scope.
+        # the identity mapping: an identified caller without a user-type
+        # header must stay identified, never coerced into the anon scope.
         identity=AdmissionIdentity(
             user_id=auth.user_id,
             user_type=auth.user_type
@@ -263,80 +268,45 @@ async def handle_photo_search(
     turn_ref = TurnRef(session_id=verdict.session_id, turn_key=admission_req.turn_key)
     owner = verdict.owner
     try:
-        image, byok_model = await _prepare_turn(
-            runtime, request, auth, body, is_authenticated
-        )
+        byok_model = await _resolve_byok_model(request)
     except PhotoSearchRejection as photo_rejection:
-        if reserved and owner is not None:
-            await outcome.release(turn_ref, owner=owner)
+        await _release_if_reserved(outcome, reserved, owner, turn_ref)
         return _rejection_response(photo_rejection)
-    dispatched = True
-    if reserved and owner is not None:
-        # Dispatch-certainty guard (TURN-3 #951): never run the vision
-        # pipeline for a turn whose lease is already gone.
-        dispatched = await outcome.dispatch(turn_ref, owner=owner)
-    if not dispatched:
+    if not await _dispatch_certainty(outcome, reserved, owner, turn_ref):
         return _rejection_response(
             PhotoSearchRejection(
                 409, "turn_lease_lost", "The turn reservation expired; retry."
             )
         )
+    search = build_search_photo(runtime, request, settings, byok_model)
     try:
-        response = await _run_pipeline(runtime, byok_model, image, body, request, auth)
-    except BaseException:
-        if reserved and owner is not None:
-            await outcome.settle(turn_ref, owner=owner, outcome="failed")
-        raise
-    else:
-        if reserved and owner is not None:
-            await outcome.settle(turn_ref, owner=owner, outcome="completed")
-    return response
+        result = await _run_search_settled(
+            outcome,
+            reserved,
+            owner,
+            turn_ref,
+            search,
+            search_command(request, auth, body),
+        )
+    except PhotoSearchRejection as photo_rejection:
+        return _rejection_response(photo_rejection)
+    record_photo_search(_search_signals(result))
+    return JSONResponse(_wire_response(result).model_dump(exclude_none=True))
 
 
-async def _run_pipeline(
-    runtime: PhotoSearchRuntime,
-    byok_model: ByokModel | None,
-    image: bytes,
-    body: PhotoSearchBody,
+@router.post("/photo-search/confirm", status_code=204, response_model=None)
+async def handle_photo_confirm(
     request: Request,
-    auth: TrustedAuthContext,
-) -> JSONResponse:
-    recognize = _recognize_call(
-        runtime,
-        byok_model.model if byok_model is not None else None,
-        [image],
-        _locale(request),
-    )
+    body: PhotoConfirmRequest,
+) -> JSONResponse | None:
+    """Confirm one candidate of a sessionless photo offer (AGENT-1 #952)."""
+    runtime = get_photo_runtime(request)
+    confirm = ConfirmPhotoOffer(offers=runtime.offers)
     try:
-        outcome = await run_photo_search(recognize, runtime.catalog, _gps(body))
-    finally:
-        if byok_model is not None:
-            await byok_model.client.aclose()
-    record_photo_search(outcome.signals)
-    if outcome.usage is not None:
-        settings = _get_settings_from_request(request)
-        await record_attributed_usage(
-            usage_repo(request.app.state.db_client),
-            outcome.usage,
-            auth.user_id,
-            _scope_user_type(auth),
-            UsagePrices(
-                input_usd_per_mtok=settings.model_input_cost_per_mtok_usd,
-                output_usd_per_mtok=settings.model_output_cost_per_mtok_usd,
-            ),
+        outcome = confirm(body.offer_id, body.candidate_id)
+    except PhotoOfferRejection as rejection:
+        return _error_response(
+            rejection.code, rejection.message, status_code=rejection.status_code
         )
-    return JSONResponse(outcome.response.model_dump(exclude_none=True))
-
-
-@router.post("/photo-search/confirm", status_code=204)
-async def handle_photo_confirm(body: PhotoConfirmBody) -> None:
-    """Record the ``user_confirmed`` telemetry signal for a shown candidate."""
-    record_photo_search(
-        PhotoSearchSignals(
-            query_type=body.query_type,
-            gps_available=body.gps_available,
-            layer_hit=body.layer_hit,
-            candidates_shown=body.candidates_shown,
-            user_confirmed=True,
-        )
-    )
+    record_photo_search(_confirm_signals(outcome.signals))
+    return None

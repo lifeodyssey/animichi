@@ -1,19 +1,23 @@
 import type { ChatDataPart } from "@animichi/contract";
+import { PhotoSearchResponse } from "@animichi/contract";
 import type { Locale } from "../../i18n/locales";
 import { sanitizePhoto } from "../shiori/exif-strip";
 import { parseChatDataPart } from "./data-parts";
 import { sessionHeaders } from "./session-headers";
 
-/** Photo-search client (issue #260): upload → `/v1/photo-search`, reply is a
- * chat-shaped envelope rendered through the same registry as text search.
- * Requests carry the shared session headers (auth / Turnstile / session id)
- * plus `x-locale`, and every photo is EXIF-stripped before leaving the
- * browser — GPS reaches the backend only through the explicit `gps` field. */
+/** Photo-search client (issue #260, AGENT-1 #952): upload →
+ * `/v1/photo-search`, reply is the generated photo envelope (a chat-shaped
+ * part plus the server-issued `offer_id`), rendered through the same
+ * registry as text search. Confirmation sends the offer id + chosen
+ * candidate back to `/v1/photo-search/confirm`. Requests carry the shared
+ * session headers (auth / Turnstile / session id) plus `x-locale`, and every
+ * photo is EXIF-stripped before leaving the browser — GPS reaches the
+ * backend only through the explicit `gps` field. */
 
 export type PhotoGuidance = "configure_vision_key" | "switch_vision_endpoint";
 
 export type PhotoSearchOutcome =
-  | { readonly kind: "part"; readonly part: ChatDataPart }
+  | { readonly kind: "part"; readonly part: ChatDataPart; readonly offerId: string }
   | { readonly kind: "quota"; readonly guidance: PhotoGuidance };
 
 export interface PhotoGps {
@@ -76,10 +80,15 @@ async function requestBody(file: File, gps: PhotoGps | undefined): Promise<strin
   });
 }
 
+/** Validates the generated photo envelope and splits it: the chat-shaped
+ * part renders through the shared path, the offer id feeds the confirm. */
 function parseOutcome(payload: unknown): PhotoSearchOutcome {
-  const part = parseChatDataPart(payload);
+  const photo = PhotoSearchResponse.safeParse(payload);
+  if (!photo.success) throw new Error("photo_search_invalid_response");
+  const { offer_id, ...envelope } = photo.data;
+  const part = parseChatDataPart(envelope);
   if (part === null) throw new Error("photo_search_invalid_response");
-  return { kind: "part", part };
+  return { kind: "part", part, offerId: offer_id };
 }
 
 async function photoHeaders(context: PhotoSearchContext): Promise<Record<string, string>> {
@@ -134,19 +143,20 @@ export async function postPhotoSearch(
   return settleResponse(await postJson(baseUrl, "/v1/photo-search", body, context));
 }
 
-export interface PhotoConfirmSignals {
-  readonly query_type: "anime_screenshot" | "real_world_photo";
-  readonly gps_available: boolean;
-  readonly layer_hit: "1" | "2" | "none";
-  readonly candidates_shown: number;
+function confirmBody(offerId: string, candidateId: string | undefined): string {
+  return JSON.stringify({
+    offer_id: offerId,
+    ...(candidateId ? { candidate_id: candidateId } : {}),
+  });
 }
 
-/** Fire-and-forget `user_confirmed` telemetry ping (AC11). */
+/** Confirm one candidate of the sessionless photo offer (AC11, AGENT-1 #952):
+ * the offer id is server-issued and the candidate must belong to it. */
 export function confirmPhotoSearch(
   baseUrl: string,
-  signals: PhotoConfirmSignals,
+  offerId: string,
+  candidateId: string | undefined,
   context: PhotoSearchContext,
 ): void {
-  void postJson(baseUrl, "/v1/photo-search/confirm", JSON.stringify(signals), context)
-    .catch(() => undefined);
+  void postJson(baseUrl, "/v1/photo-search/confirm", confirmBody(offerId, candidateId), context).catch(() => undefined);
 }

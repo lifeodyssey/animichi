@@ -29,8 +29,8 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from animichi.agents.photo_vision import (
     VisionRecognitionFailed,
     recognize_photo,
-    sniff_image_mime,
 )
+from animichi.application.photo_image import sniff_image_mime
 
 _YOURNAME_JPEG = b"\xff\xd8\xff\xe0" + b"fake-jpeg-bytes"
 
