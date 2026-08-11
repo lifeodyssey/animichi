@@ -51,7 +51,7 @@ function samePointIds(actual: readonly string[], expected: readonly string[]): b
 
 function itineraryBody(ids: readonly string[]): z.infer<typeof ItinerarySchema> {
   return {
-    ordered_points: ids.map(orderedPoint),
+    ordered_points: ids.map((id, index) => orderedPoint(id, index)),
     point_count: ids.length,
     timed_itinerary: {
       stops: ids.map((id, index) => ({
