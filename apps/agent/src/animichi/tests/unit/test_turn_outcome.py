@@ -159,3 +159,21 @@ async def test_admit_without_an_admission_use_case_fails_loudly() -> None:
         assert "requires an admission use case" in str(exc)
     else:
         raise AssertionError("expected RuntimeError")
+
+
+class _SweepFailureStore(FakeTurnReservationStore):
+    async def sweep(
+        self,
+        *,
+        now: object,
+        owner: str,
+        batch_size: int,
+        lease_seconds: int,
+    ) -> object:
+        raise RuntimeError("sweep down")
+
+
+async def test_admit_tolerates_a_failed_pre_admission_sweep() -> None:
+    outcome, _ = make_outcome(_SweepFailureStore())
+    verdict = await outcome.admit(_request(session_id="s-1", turn_key="turn-1"))
+    assert verdict.admitted is True

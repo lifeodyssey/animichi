@@ -64,3 +64,21 @@ def test_state_digest_defaults_to_str_render() -> None:
     assert len(state_digest(None)) == 64
     assert isinstance(state_digest(None), str)
     assert state_digest("not-json") != ""
+
+
+def test_cross_session_owner_is_rejected() -> None:
+    store, _ = _store({pg._SESSION_OWNER_SQL: [{"user_id": "other-user"}]})
+    outcome = asyncio.run(store.reserve(_request(identity_id="me")))
+    assert outcome.status == "ownership"
+
+
+def test_expected_revision_mismatch_surfaces_stale_revision() -> None:
+    store, _ = _store({pg._CURRENT_REVISION_SQL: [{"revision": 2}]})
+    outcome = asyncio.run(store.reserve(_request(expected_revision=3)))
+    assert outcome.status == "stale_revision"
+
+
+def test_session_digest_mismatch_surfaces_digest_mismatch() -> None:
+    store, _ = _store({pg._SESSION_STATE_SQL: [{"state": "prior-state"}]})
+    outcome = asyncio.run(store.reserve(_request(session_digest="digest-x")))
+    assert outcome.status == "digest_mismatch"
