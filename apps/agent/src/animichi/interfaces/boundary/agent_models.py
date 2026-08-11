@@ -38,6 +38,12 @@ class RootMetadata(BaseModel):
     endpoints: RootMetadataEndpoints
 
 
+class ByokProbeResponse(BaseModel):
+    vision: bool
+    reachable: bool
+    error_code: str | None
+
+
 AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
     ("GET", "/", "service banner"),
     ("GET", "/healthz", "health and service metadata"),

@@ -72,6 +72,7 @@ class FixedResponseTransport(httpx.AsyncBaseTransport):
         self.content = content
         self.extra_headers = headers or {}
         self.requests: list[httpx.Request] = []
+        self.aclosed = False
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -81,6 +82,9 @@ class FixedResponseTransport(httpx.AsyncBaseTransport):
             headers={"Content-Type": "application/json", **self.extra_headers},
             request=request,
         )
+
+    async def aclose(self) -> None:
+        self.aclosed = True
 
 
 class RaisingTransport(httpx.AsyncBaseTransport):
@@ -129,9 +133,9 @@ async def byok_model_with_transport(
     )
     byok_model = await build_byok_model(credential)
     if apply_probe_cap:
-        from animichi.interfaces.routes.byok import _CappedResponseTransport
+        from animichi.infrastructure.egress_transport import CappedResponseTransport
 
-        transport = _CappedResponseTransport(transport)
+        transport = CappedResponseTransport(transport)
     byok_model.client._transport = transport
     return byok_model
 
