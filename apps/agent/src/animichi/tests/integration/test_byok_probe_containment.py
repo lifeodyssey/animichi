@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
+from animichi.agents import byok_probe as byok_probe_module
 from animichi.interfaces.routes import byok as byok_route
 from animichi.tests.integration._byok_probe_shared import (
     BYOK_HEADERS,
@@ -103,9 +104,20 @@ class _OversizedStreamNoHeaderTransport(httpx.AsyncBaseTransport):
 
 class _TimeoutControl:
     CancelledError = asyncio.CancelledError
+    TimeoutError = asyncio.TimeoutError
 
     def __init__(self) -> None:
         self.entries: list[tuple[float, asyncio.Timeout]] = []
+
+    @staticmethod
+    def create_task(coro: asyncio.Future[object]) -> asyncio.Task[object]:
+        return asyncio.create_task(coro)
+
+    @staticmethod
+    def gather(
+        *tasks: asyncio.Future[object], return_exceptions: bool = False
+    ) -> asyncio.Future[list[object]]:
+        return asyncio.gather(*tasks, return_exceptions=return_exceptions)
 
     def timeout(self, delay: float) -> asyncio.Timeout:
         context = asyncio.timeout(None)
@@ -238,6 +250,7 @@ async def test_the_probe_never_exceeds_its_timeout_ceiling(
     control = _TimeoutControl()
     transport = _TimeoutCancellationTransport(control)
     monkeypatch.setattr(byok_route, "asyncio", control)
+    monkeypatch.setattr(byok_probe_module, "asyncio", control)
     body = await _probe_body(transport)
     assert body == {
         "vision": False,
@@ -248,7 +261,7 @@ async def test_the_probe_never_exceeds_its_timeout_ceiling(
     assert transport.cancelled is True
     assert [delay for delay, _ in control.entries] == [
         byok_route._PROBE_TIMEOUT_SECONDS,
-        byok_route._PROBE_TIMEOUT_SECONDS,
+        byok_probe_module._PROBE_TIMEOUT_SECONDS,
     ]
     assert control.entries[0][1].expired() is True
     assert control.entries[1][1].expired() is False

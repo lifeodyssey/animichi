@@ -266,15 +266,29 @@ async def handle_byok_probe(
             "invalid_request", "X-BYOK-* headers are required.", status_code=400
         )
     byok_model = None
+    probe_task: asyncio.Task[ProbeResult] | None = None
     try:
         async with asyncio.timeout(_PROBE_TIMEOUT_SECONDS):
             byok_model = await _resolve_probe_model(credential)
-            result = await probe_byok_model(byok_model.model)
+            probe_task = asyncio.create_task(probe_byok_model(byok_model.model))
+            result = await probe_task
     except _RouteRejection as rejection:
+        if probe_task is not None:
+            await _cancel_probe_task(probe_task)
         return rejection.response
     except TimeoutError:
+        if probe_task is not None:
+            await _cancel_probe_task(probe_task)
         return _probe_response(_unreachable_result())
     finally:
         if byok_model is not None:
             await byok_model.client.aclose()
     return _probe_response(result)
+
+
+async def _cancel_probe_task(task: asyncio.Task[ProbeResult]) -> None:
+    """Cancel a probe still in flight and wait for its teardown, mirroring
+    ``byok_probe._cancel_and_await``: the probe's own timeout would otherwise
+    keep the user-supplied provider connection open for another full window."""
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)

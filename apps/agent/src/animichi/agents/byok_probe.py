@@ -61,20 +61,39 @@ def _classify_model_http_error(exc: ModelHTTPError) -> ProbeResult:
 
 
 async def probe_byok_model(model: Model) -> ProbeResult:
-    """Run the one-shot probe turn; never lets an exception escape."""
+    """Run the one-shot probe turn; never lets an exception escape.
+
+    The agent's run executes on an explicit task because pydantic-ai
+    schedules the model call on its own inner task: a bare ``await`` under
+    ``asyncio.timeout`` would leave that inner task (and its HTTP transport)
+    running after the timeout fired. We cancel the run task explicitly so the
+    agent's teardown drains the transport (TURN-2 #949 CI finding).
+    """
     probe_agent: Agent[None, str] = Agent(
         model, output_type=str, name="byok_vision_probe"
     )
+    run_task = asyncio.create_task(probe_agent.run(_probe_message()))
     try:
         async with asyncio.timeout(_PROBE_TIMEOUT_SECONDS):
-            await probe_agent.run(_probe_message())
+            await run_task
+    except TimeoutError:
+        await _cancel_and_await(run_task)
+        return _probe_unreachable()
     except ModelHTTPError as exc:
         return _classify_model_http_error(exc)
     except asyncio.CancelledError:
+        await _cancel_and_await(run_task)
         raise
     except Exception:
         return _probe_unreachable()
     return ProbeResult(has_vision=True, reachable=True, error_code=None)
+
+
+async def _cancel_and_await(task: asyncio.Task[object]) -> None:
+    """Cancel an in-flight agent run and wait for its teardown, which drains
+    the inner model-call task (and its HTTP transport) on the way out."""
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
 
 
 def _probe_unreachable() -> ProbeResult:
