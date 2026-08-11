@@ -3,7 +3,7 @@ import { ORPCError } from "@orpc/server";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
+import { NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
 import type { DbExecutor } from "../src/db/client";
@@ -15,7 +15,7 @@ const NOW = "2026-07-13T04:00:00.000Z";
 const FIXED_NOW = { now: () => NOW };
 
 function repo(db: DbExecutor): SavedRouteStore {
-  return new NeonSavedRouteRepo(db);
+  return new NeonSavedRouteStore(db);
 }
 
 function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {

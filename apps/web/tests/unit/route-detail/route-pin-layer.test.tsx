@@ -3,9 +3,9 @@
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { RoutePinLayer } from "../../../src/components/route-detail/RoutePinLayer";
-import { routeDetailCopyFor } from "../../../src/lib/route-detail/copy";
-import type { RoutePin } from "../../../src/lib/route-detail/pin-state";
+import { RoutePinLayer } from "../../../src/features/route-detail/components/RoutePinLayer";
+import { routeDetailCopyFor } from "../../../src/features/route-detail/lib/copy";
+import type { RoutePin } from "../../../src/features/route-detail/lib/pin-state";
 
 afterEach(cleanup);
 

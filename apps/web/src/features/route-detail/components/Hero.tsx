@@ -1,6 +1,6 @@
-import { completedTotals } from "../../lib/route-detail/data-state";
-import type { RouteDataState, RouteDetail } from "../../lib/route-detail/data-state";
-import type { RouteDetailCopy } from "../../lib/route-detail/copy";
+import { completedTotals } from "../lib/data-state";
+import type { RouteDataState, RouteDetail } from "../lib/data-state";
+import type { RouteDetailCopy } from "../lib/copy";
 
 /**
  * Route detail hero (spec-route-detail §1). The completed state lights up a

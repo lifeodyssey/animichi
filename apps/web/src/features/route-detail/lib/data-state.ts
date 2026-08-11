@@ -1,4 +1,3 @@
-// TODO(refactor-skeleton): de-dual-home route-detail lib -> features/route-detail/ — see #842
 import type { SavedRouteStatus, TimedItinerary } from "@animichi/contract";
 
 /**

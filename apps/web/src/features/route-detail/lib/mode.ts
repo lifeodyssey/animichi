@@ -1,4 +1,3 @@
-// TODO(refactor-skeleton): de-dual-home route-detail lib -> features/route-detail/ — see #842
 import { useCallback, useRef, useState } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { RouteDataState } from "./data-state";

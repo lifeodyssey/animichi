@@ -3,8 +3,8 @@
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { GoldBar } from "../../../src/components/route-detail/GoldBar";
-import { ROUTE_DETAIL_SCHEMA_VERSION } from "../../../src/lib/route-detail/data-state";
+import { GoldBar } from "../../../src/features/route-detail/components/GoldBar";
+import { ROUTE_DETAIL_SCHEMA_VERSION } from "../../../src/features/route-detail/lib/data-state";
 
 afterEach(cleanup);
 

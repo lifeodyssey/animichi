@@ -1,6 +1,6 @@
-import type { RouteDetailCopy } from "../../lib/route-detail/copy";
-import { pinBadge, pinSizePx } from "../../lib/route-detail/pin-state";
-import type { PinState, RoutePin } from "../../lib/route-detail/pin-state";
+import type { RouteDetailCopy } from "../lib/copy";
+import { pinBadge, pinSizePx } from "../lib/pin-state";
+import type { PinState, RoutePin } from "../lib/pin-state";
 
 /**
  * The map pin layer (spec-route-detail §5 "pin-is-the-picture"): each stop is a

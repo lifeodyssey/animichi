@@ -8,7 +8,7 @@ import {
   initialMode,
   nextMode,
   useRouteMode,
-} from "../../../src/lib/route-detail/mode";
+} from "../../../src/features/route-detail/lib/mode";
 
 afterEach(cleanup);
 

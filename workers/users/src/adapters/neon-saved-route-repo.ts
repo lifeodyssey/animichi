@@ -1,7 +1,6 @@
 import type {
   ClaimSavedRoutesInput,
   ClaimSavedRoutesResult,
-  ListSavedRoutesResult,
   SaveSavedRouteInput,
   SavedRoute,
   SavedRouteStatus,
@@ -13,6 +12,7 @@ import type { DbExecutor } from "../db/client";
 import type { OwnerLookup } from "../domain/ownership";
 import type { SavedRouteRepo } from "../domain/ports";
 import { isSavedRouteStatus } from "../domain/saved-route-status";
+import type { SavedRouteReader } from "../application/list-saved-routes";
 
 type RecordRow = Record<string, unknown>;
 
@@ -97,24 +97,40 @@ async function claimSavedRouteRows(db: DbExecutor, userId: string, sessionId: st
 }
 
 /**
- * Neon-backed SavedRouteStore + DeleteSavedRouteStore + SavedRouteRepo over
- * the raw SQL executor (Drizzle typing only, see src/db/client.ts). Owns SQL
- * and row mapping only: the SaveSavedRoute action
+ * Neon-backed SavedRouteRepo + SavedRouteReader over the raw SQL executor
+ * (Drizzle typing only, see src/db/client.ts): the claim entry point and the
+ * read journey's store read. Owns SQL and row mapping only — the
+ * ListSavedRoutes action (src/application/list-saved-routes.ts) owns the
+ * newest-update-first ordering policy.
+ */
+export class NeonSavedRouteRepo implements SavedRouteRepo, SavedRouteReader {
+  constructor(private readonly db: DbExecutor) {}
+
+  /** The caller's own saved routes, row-normalized, in store order. */
+  async listOwned(userId: string): Promise<SavedRoute[]> {
+    const result = await this.db.execute(sql`
+      SELECT id, title, point_ids, status, saved_at, updated_at
+      FROM saved_routes WHERE user_id = ${userId}
+    `);
+    return result.rows.map(toSavedRoute);
+  }
+
+  async claimSavedRoutes(userId: string, input: ClaimSavedRoutesInput): Promise<ClaimSavedRoutesResult> {
+    return { claimed_count: (await claimSavedRouteRows(this.db, userId, input.session_id)).length };
+  }
+}
+
+/**
+ * Neon-backed SavedRouteStore + DeleteSavedRouteStore over the raw SQL
+ * executor: the create-or-update save path and the delete path. Owns SQL and
+ * row mapping only: the SaveSavedRoute action
  * (src/application/save-saved-route.ts) and DeleteSavedRoute action
  * (src/application/delete-saved-route.ts) own the ownership decisions and the
  * stable SAVED_ROUTE_* errors; the delete store performs one owner-predicated
  * atomic delete and reports only whether a row was deleted.
  */
-export class NeonSavedRouteRepo implements SavedRouteRepo, SavedRouteStore, DeleteSavedRouteStore {
+export class NeonSavedRouteStore implements SavedRouteStore, DeleteSavedRouteStore {
   constructor(private readonly db: DbExecutor) {}
-
-  async listSavedRoutes(userId: string): Promise<ListSavedRoutesResult> {
-    const result = await this.db.execute(sql`
-      SELECT id, title, point_ids, status, saved_at, updated_at
-      FROM saved_routes WHERE user_id = ${userId} ORDER BY updated_at DESC
-    `);
-    return { saved_routes: result.rows.map(toSavedRoute) };
-  }
 
   async findOwner(id: string): Promise<OwnerLookup | undefined> {
     const result = await this.db.execute(sql`SELECT user_id, saved_at FROM saved_routes WHERE id = ${id}`);
@@ -145,9 +161,5 @@ export class NeonSavedRouteRepo implements SavedRouteRepo, SavedRouteStore, Dele
     return (await existsSavedRouteRow(this.db, savedRouteId)).length > 0
       ? { kind: "not_owned" }
       : { kind: "missing" };
-  }
-
-  async claimSavedRoutes(userId: string, input: ClaimSavedRoutesInput): Promise<ClaimSavedRoutesResult> {
-    return { claimed_count: (await claimSavedRouteRows(this.db, userId, input.session_id)).length };
   }
 }

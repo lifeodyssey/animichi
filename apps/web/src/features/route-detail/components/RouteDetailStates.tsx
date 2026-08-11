@@ -1,8 +1,8 @@
 import { useQueryErrorResetBoundary } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { DEFAULT_LOCALE, isLocale, type Locale } from "../../i18n/locales";
-import { routeDetailCopyFor, type RouteDetailCopy } from "../../lib/route-detail/copy";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "../../../i18n/locales";
+import { routeDetailCopyFor, type RouteDetailCopy } from "../lib/copy";
 
 /**
  * Branded error + pending states for `/routes/:id`, mirroring the anime page's

@@ -1,5 +1,5 @@
-import type { RouteDetailCopy } from "../../lib/route-detail/copy";
-import type { RouteMode } from "../../lib/route-detail/mode";
+import type { RouteDetailCopy } from "../lib/copy";
+import type { RouteMode } from "../lib/mode";
 
 /**
  * The MODE toggle (spec-route-detail §2): a single control that flips the page
