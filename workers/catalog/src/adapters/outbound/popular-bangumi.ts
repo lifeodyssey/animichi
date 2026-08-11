@@ -55,14 +55,6 @@ function parseRow(row: unknown): PopularBangumiRow {
   };
 }
 
-function stringField(value: unknown): string {
-  return typeof value === "string" ? value : "";
-}
-
-function nullableStringField(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
-}
-
-function nullableNumberField(value: unknown): number | null {
-  return typeof value === "number" ? value : null;
-}
+const stringField = (value: unknown) => (typeof value === "string" ? value : "");
+const nullableStringField = (value: unknown) => (typeof value === "string" ? value : null);
+const nullableNumberField = (value: unknown) => (typeof value === "number" ? value : null);

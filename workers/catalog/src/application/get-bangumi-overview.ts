@@ -80,14 +80,18 @@ function buildScenes(rows: OverviewPointRow[]): AnimeScene[] {
 
 function toScene(cluster: LocationCluster<OverviewPointRow>): AnimeScene {
   const rep = representative(cluster);
+  const base = sceneBase(rep, cluster.photoCount);
+  return rep.city ? { ...base, city: rep.city } : base;
+}
+
+function sceneBase(rep: OverviewPointRow, shotCount: number): Omit<AnimeScene, "city"> {
   return {
     id: rep.id,
     name: rep.name,
     screenshot_url: rep.image,
-    shot_count: cluster.photoCount,
+    shot_count: shotCount,
     lat: rep.latitude,
     lng: rep.longitude,
-    city: rep.city ?? undefined,
   };
 }
 

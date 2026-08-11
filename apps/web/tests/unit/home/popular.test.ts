@@ -8,7 +8,7 @@ import { popularEmptyHandler, popularErrorHandler, popularHandler } from "../../
 
 describe("usePopularRanking options", () => {
   it("keys the ranking query by the requested limit", () => {
-    expect(popularRankingOptions(5).queryKey).toEqual(["popular", 5]);
+    expect(popularRankingOptions(5).queryKey).toEqual(["catalog", "popular", 5]);
   });
 
   it("routes through the catalog popular procedure", () => {
