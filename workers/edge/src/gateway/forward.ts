@@ -41,8 +41,8 @@ function stripUntrustedHeaders(headers: Headers): void {
  * (documented as trusted by the container but client-settable — closed
  * until BYOK launches); on authed paths also strips Authorization and
  * injects the worker-verified identity. A trusted `X-Anon-Id` is set only
- * when the caller passes one explicitly (the session-migration route,
- * re-P2-1) — every other route forwards none. `x-session-id` is
+ * when the caller passes one explicitly (the session-adoption route,
+ * SESSION-2 #960 / re-P2-1) — every other route forwards none. `x-session-id` is
  * intentionally forwarded: chat session continuity needs it, so the
  * container must never treat it as a trust signal. */
 export function forwardV1(

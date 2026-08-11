@@ -35,6 +35,25 @@ def test_existing_completed_surfaces_replay() -> None:
     assert connection.executed == []
 
 
+def test_adopt_namespaced_turn_key_never_surfaces_marker_replay() -> None:
+    """SESSION-2 #960: even when a synthetic adoption marker row exists, a
+    client turn_key in the reserved `adopt:` namespace must not see its
+    completed status as a replay — the store rejects the namespace up front."""
+    store, connection = _store(
+        {pg._EXISTING_SQL: [{"status": "completed", "revision": 4}]}
+    )
+    outcome = asyncio.run(store.reserve(_request(turn_key="adopt:s-1")))
+    assert outcome.status != "replay_completed"
+    assert connection.executed == []
+
+
+def test_prune_sql_excludes_adopt_marker_rows() -> None:
+    """SESSION-2 #960: markers are the revision-CAS authority and must persist —
+    `_PRUNE_SQL` excludes the `adopt:` namespace on both the delete predicate
+    and the keep-window subquery, so they never consume a replay slot."""
+    assert pg._PRUNE_SQL.count("turn_key NOT LIKE 'adopt:%'") == 2
+
+
 def test_existing_failed_surfaces_turn_failed() -> None:
     store, _ = _store({pg._EXISTING_SQL: [{"status": "failed", "revision": 3}]})
     outcome = asyncio.run(store.reserve(_request()))

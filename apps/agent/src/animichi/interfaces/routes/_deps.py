@@ -158,7 +158,7 @@ def _require_trusted_user(
 def _require_non_anonymous_user(
     auth: Annotated[TrustedAuthContext, Depends(_get_trusted_auth_context)],
 ) -> TrustedAuthContext:
-    """Reject-anonymous, not allow-list (session_migration, #273 Task 3).
+    """Reject-anonymous, not allow-list (adopt_sessions, SESSION-2 #960).
 
     Delegates to `is_anonymous_identity` — the single canonical predicate,
     also `usage_metering.scope_for_identity`'s classification — rather than
@@ -174,7 +174,7 @@ def _require_non_anonymous_user(
         raise HTTPException(status_code=400, detail="X-User-Id header required.")
     if is_anonymous_identity(auth.user_id, auth.user_type):
         raise HTTPException(
-            status_code=403, detail="Anonymous identity cannot migrate sessions."
+            status_code=403, detail="Anonymous identity cannot adopt sessions."
         )
     return auth
 

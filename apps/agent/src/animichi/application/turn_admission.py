@@ -22,6 +22,7 @@ from animichi.application.admission_limits import (
     anonymous_budget_verdict,
     anonymous_quota_verdict,
 )
+from animichi.application.adopt_sessions import ADOPT_TURN_KEY_PREFIX
 from animichi.application.errors import InvalidInputError
 from animichi.application.identity import (
     UsageScope,
@@ -137,6 +138,11 @@ class TurnAdmission:
         if not request.turn_key.strip():
             raise InvalidInputError(
                 "admission turn_key must not be blank", field="turn_key"
+            )
+        if request.turn_key.startswith(ADOPT_TURN_KEY_PREFIX):
+            raise InvalidInputError(
+                "admission turn_key uses the reserved adopt: namespace",
+                field="turn_key",
             )
         payer = scope_for_identity(
             request.identity.user_id,

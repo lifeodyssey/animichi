@@ -1,11 +1,11 @@
 /**
  * @vitest-environment jsdom
  *
- * #507 review P1-1: migrating the sessions is only half a fix. `/chat?session=`
- * is the ONLY entry that reads a migrated session back — there is no session or
+ * #507 review P1-1: adopting the sessions is only half a fix. `/chat?session=`
+ * is the ONLY entry that reads an adopted session back — there is no session or
  * route list — and all three in-chat login walls passed no return target, so
  * `sanitizeReturnTarget(undefined)` sent every visitor to `/` after a correct
- * migration. These pin the target at each wall.
+ * adoption. These pin the target at each wall.
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -44,7 +44,7 @@ function inChat(node: React.ReactNode, sessionId: string | undefined) {
 }
 
 describe("chatSessionTarget", () => {
-  it("builds the one entry that reads a migrated session back", () => {
+  it("builds the one entry that reads an adopted session back", () => {
     expect(chatSessionTarget(SESSION)).toBe(`/chat?session=${SESSION}`);
   });
 
@@ -59,7 +59,7 @@ describe("chatSessionTarget", () => {
 });
 
 describe("returnTargetNamesSession", () => {
-  it("recognises a session return, which makes a no-op migration an anomaly", () => {
+  it("recognises a session return, which makes a no-op adoption an anomaly", () => {
     expect(returnTargetNamesSession(`/chat?session=${SESSION}`)).toBe(true);
   });
 

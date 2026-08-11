@@ -130,45 +130,89 @@ async def test_check_session_owner_returns_false_when_not_owned(
     assert result is False
 
 
-async def test_migrate_ownership_returns_true_when_rows_changed(
+async def test_adopt_ownership_repoints_and_returns_counts(
     repo: SessionRepository, pool: AsyncMock
 ) -> None:
-    pool.execute.return_value = "UPDATE 2"
-    result = await repo.migrate_ownership("anon_" + "a" * 32, "user-1")
-    assert result is True
-    sql, to_user, from_anon = pool.execute.await_args.args
+    connection = AsyncMock()
+    transaction = MagicMock()
+    connection.transaction = MagicMock(return_value=transaction)
+    acquire = MagicMock()
+    acquire.__aenter__ = AsyncMock(return_value=connection)
+    pool.acquire = MagicMock(return_value=acquire)
+    connection.fetch = AsyncMock(
+        return_value=[{"session_id": "s-a"}, {"session_id": "s-b"}]
+    )
+    connection.fetchrow = AsyncMock(return_value={"session_id": "s-a"})
+
+    result = await repo.adopt_ownership("anon_" + "a" * 32, "user-1")
+
+    assert result.adopted_count == 2
+    assert result.revisions_bumped == 2
+    sql, to_user, from_anon = connection.fetch.await_args.args
     assert "UPDATE conversations" in sql
     assert to_user == "user-1"
     assert from_anon == "anon_" + "a" * 32
 
 
-async def test_migrate_ownership_is_idempotent_second_run_is_a_no_op(
+async def test_adopt_ownership_is_idempotent_second_run_is_a_no_op(
     repo: SessionRepository, pool: AsyncMock
 ) -> None:
-    """Running the transition twice: the second run matches zero rows and
-    reports the no-op outcome without error — an UPDATE, never an INSERT."""
-    pool.execute.return_value = "UPDATE 0"
-    result = await repo.migrate_ownership("anon_" + "a" * 32, "user-1")
-    assert result is False
+    connection = AsyncMock()
+    transaction = MagicMock()
+    connection.transaction = MagicMock(return_value=transaction)
+    acquire = MagicMock()
+    acquire.__aenter__ = AsyncMock(return_value=connection)
+    pool.acquire = MagicMock(return_value=acquire)
+    connection.fetch = AsyncMock(return_value=[])
+
+    result = await repo.adopt_ownership("anon_" + "a" * 32, "user-1")
+
+    assert result.adopted_count == 0
+    assert result.revisions_bumped == 0
+    connection.fetchrow.assert_not_called()
 
 
-async def test_migrate_ownership_where_clause_only_ever_matches_the_anon_param(
+async def test_adopt_ownership_where_clause_only_ever_matches_the_anon_param(
     repo: SessionRepository, pool: AsyncMock
 ) -> None:
     """Structural safety: the WHERE predicate binds to $2 (the anon id), so a
     real user's row is unmatchable by construction, not by a runtime guard."""
-    pool.execute.return_value = "UPDATE 0"
-    await repo.migrate_ownership("anon_" + "a" * 32, "user-1")
-    sql = pool.execute.await_args.args[0]
+    connection = AsyncMock()
+    transaction = MagicMock()
+    connection.transaction = MagicMock(return_value=transaction)
+    acquire = MagicMock()
+    acquire.__aenter__ = AsyncMock(return_value=connection)
+    pool.acquire = MagicMock(return_value=acquire)
+    connection.fetch = AsyncMock(return_value=[])
+
+    await repo.adopt_ownership("anon_" + "a" * 32, "user-1")
+
+    sql = connection.fetch.await_args.args[0]
     assert "WHERE user_id = $2" in sql
     assert "SET user_id = $1" in sql
 
 
-async def test_migrate_ownership_survives_a_malformed_command_tag(
+async def test_adopt_ownership_bumps_each_adopted_session_revision(
     repo: SessionRepository, pool: AsyncMock
 ) -> None:
-    """A command tag with no trailing row count must never raise — a parse
-    failure here would turn a successful mutation into a 500."""
-    pool.execute.return_value = ""
-    result = await repo.migrate_ownership("anon_" + "a" * 32, "user-1")
-    assert result is False
+    """Mutation probe (SESSION-2 #960): the revision bump for each adopted
+    session is the capability invalidation. Omitting it leaves
+    `revisions_bumped` at 0 even though conversations moved."""
+    connection = AsyncMock()
+    transaction = MagicMock()
+    connection.transaction = MagicMock(return_value=transaction)
+    acquire = MagicMock()
+    acquire.__aenter__ = AsyncMock(return_value=connection)
+    pool.acquire = MagicMock(return_value=acquire)
+    connection.fetch = AsyncMock(
+        return_value=[{"session_id": "s-a"}, {"session_id": "s-b"}]
+    )
+    connection.fetchrow = AsyncMock(return_value={"session_id": "s-a"})
+
+    result = await repo.adopt_ownership("anon_" + "a" * 32, "user-1")
+
+    assert result.revisions_bumped == 2
+    assert connection.fetchrow.await_count == 2
+    bump_sql = connection.fetchrow.await_args_list[0].args[0]
+    assert "INSERT INTO turn_reservations" in bump_sql
+    assert "MAX(revision)" in bump_sql

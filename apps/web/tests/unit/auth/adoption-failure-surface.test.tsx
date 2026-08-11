@@ -10,7 +10,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthCallback } from "../../../src/components/auth/AuthCallback";
-import type { SessionMigrationOutcome } from "../../../src/lib/auth/session-migration";
+import type { SessionAdoptionOutcome } from "../../../src/lib/auth/session-adoption";
 import { dictFor } from "../../../src/i18n/dictionaries";
 import { renderWithLocale, setLanguages } from "../_i18n";
 
@@ -27,49 +27,49 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function renderCallback(migrate: () => Promise<SessionMigrationOutcome>, onDone = () => undefined) {
+function renderCallback(adopt: () => Promise<SessionAdoptionOutcome>, onDone = () => undefined) {
   return renderWithLocale(
-    <AuthCallback onDone={onDone} establish={token} replay={noReplay} migrate={migrate} />,
+    <AuthCallback onDone={onDone} establish={token} replay={noReplay} adopt={adopt} />,
   );
 }
 
-describe("the migration failure reaches the visitor", () => {
+describe("the adoption failure reaches the visitor", () => {
   it("renders an alert with a retry and a skip, not a silent success", async () => {
     renderCallback(() => Promise.resolve("failed"));
-    expect(await screen.findByText(auth.callback_migration_failed)).toBeTruthy();
-    expect(screen.getByRole("button", { name: auth.callback_migration_retry })).toBeTruthy();
-    expect(screen.getByRole("button", { name: auth.callback_migration_skip })).toBeTruthy();
+    expect(await screen.findByText(auth.callback_adoption_failed)).toBeTruthy();
+    expect(screen.getByRole("button", { name: auth.callback_adoption_retry })).toBeTruthy();
+    expect(screen.getByRole("button", { name: auth.callback_adoption_skip })).toBeTruthy();
   });
 
   it("does not navigate away while the notice is unanswered", async () => {
     const onDone = vi.fn();
     renderCallback(() => Promise.resolve("failed"), onDone);
-    await screen.findByText(auth.callback_migration_failed);
+    await screen.findByText(auth.callback_adoption_failed);
     expect(onDone).not.toHaveBeenCalled();
   });
 
   it("navigates once the visitor chooses to move on — the login is never blocked", async () => {
     const onDone = vi.fn();
     renderCallback(() => Promise.resolve("failed"), onDone);
-    fireEvent.click(await screen.findByRole("button", { name: auth.callback_migration_skip }));
+    fireEvent.click(await screen.findByRole("button", { name: auth.callback_adoption_skip }));
     await waitFor(() => { expect(onDone).toHaveBeenCalled(); });
   });
 
   it("clears the notice and navigates when a retry lands", async () => {
     const onDone = vi.fn();
-    const migrate = vi.fn<() => Promise<SessionMigrationOutcome>>().mockResolvedValue("failed");
-    renderCallback(migrate, onDone);
-    fireEvent.click(await screen.findByRole("button", { name: auth.callback_migration_retry }));
-    migrate.mockResolvedValue("migrated");
-    fireEvent.click(screen.getByRole("button", { name: auth.callback_migration_retry }));
+    const adopt = vi.fn<() => Promise<SessionAdoptionOutcome>>().mockResolvedValue("failed");
+    renderCallback(adopt, onDone);
+    fireEvent.click(await screen.findByRole("button", { name: auth.callback_adoption_retry }));
+    adopt.mockResolvedValue("adopted");
+    fireEvent.click(screen.getByRole("button", { name: auth.callback_adoption_retry }));
     await waitFor(() => { expect(onDone).toHaveBeenCalled(); });
   });
 
   it("says nothing at all when the claim succeeds", async () => {
     const onDone = vi.fn();
-    renderCallback(() => Promise.resolve("migrated"), onDone);
+    renderCallback(() => Promise.resolve("adopted"), onDone);
     await waitFor(() => { expect(onDone).toHaveBeenCalled(); });
-    expect(screen.queryByText(auth.callback_migration_failed)).toBeNull();
+    expect(screen.queryByText(auth.callback_adoption_failed)).toBeNull();
   });
 });
 
@@ -78,13 +78,13 @@ describe("the cross-device case gets its own copy", () => {
     renderWithLocale(
       <AuthCallback
         onDone={() => undefined}
-        expectsMigration
+        expectsAdoption
         establish={token}
         replay={noReplay}
-        migrate={() => Promise.resolve("nothing")}
+        adopt={() => Promise.resolve("nothing")}
       />,
     );
-    expect(await screen.findByText(auth.callback_migration_missing)).toBeTruthy();
-    expect(screen.queryByText(auth.callback_migration_failed)).toBeNull();
+    expect(await screen.findByText(auth.callback_adoption_missing)).toBeTruthy();
+    expect(screen.queryByText(auth.callback_adoption_failed)).toBeNull();
   });
 });

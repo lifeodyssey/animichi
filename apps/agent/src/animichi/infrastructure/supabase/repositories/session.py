@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Mapping
 
-from animichi.infrastructure.supabase.client_types import AsyncPGPool, Row
-
-_COMMAND_TAG_ROW_COUNT = re.compile(r"(\d+)$")
+from animichi.application.adopt_sessions import ADOPT_TURN_KEY_PREFIX, AdoptionResult
+from animichi.infrastructure.supabase.client_types import (
+    AsyncPGPool,
+    PoolConnection,
+    Row,
+)
 
 _CREATE_SESSION_SQL = """
     INSERT INTO sessions (id, state, metadata) VALUES ($1, $2::jsonb, '{}'::jsonb)
@@ -19,20 +21,24 @@ _CREATE_CONVERSATION_SQL = """
 #: `updated_at = now()` is a deliberate side effect, not an incidental touch:
 #: logging in is itself activity, so a session's liveness clock advances under
 #: a user who just claimed it.
-_MIGRATE_OWNERSHIP_SQL = """
+_ADOPT_OWNERSHIP_SQL = """
     UPDATE conversations SET user_id = $1, updated_at = now() WHERE user_id = $2
+    RETURNING session_id
 """
-
-
-def _rows_affected(status: str) -> int:
-    """Parse asyncpg's command-tag status string (e.g. ``"UPDATE 3"``).
-
-    Falls back to 0 for a tag with no trailing row count (there is no such
-    case for ``UPDATE``/``DELETE`` in practice, but this must never raise —
-    a parse failure here would turn a successful mutation into a 500).
-    """
-    match = _COMMAND_TAG_ROW_COUNT.search(status.rstrip())
-    return int(match.group(1)) if match else 0
+#: Revision CAS (SESSION-2 #960): each adopted session's revision is bumped so
+#: pre-adoption anonymous capabilities (turn reservations, digests) go stale —
+#: a client holding a pre-adoption capability presents an `expected_revision`
+#: that no longer matches, and admission answers 409 `stale_revision`. The
+#: marker row is a `completed` reservation under a reserved `adopt:` turn_key
+#: namespace (never a client turn_key); `ON CONFLICT DO NOTHING` makes a
+#: concurrent reservation that already advanced the revision a no-op.
+_BUMP_REVISION_SQL = """
+    INSERT INTO turn_reservations (session_id, turn_key, payer, identity_id, revision, digest, status)
+    SELECT $1, $2 || $1, 'anon', NULL, COALESCE(MAX(revision), 0) + 1, NULL, 'completed'
+    FROM turn_reservations WHERE session_id = $1
+    ON CONFLICT (session_id, revision) DO NOTHING
+    RETURNING session_id
+"""
 
 
 class SessionRepository:
@@ -197,12 +203,35 @@ class SessionRepository:
         """Delete session state by session ID."""
         await self._pool.execute("DELETE FROM sessions WHERE id = $1", session_id)
 
-    async def migrate_ownership(self, from_anon_id: str, to_user_id: str) -> bool:
-        """Re-point every conversation owned by an anonymous identity to the
-        real user in a single identity-dimensional UPDATE (not INSERT — this
-        never creates a conversation). Idempotent: a second run matches zero
-        rows. Returns True iff at least one row changed."""
-        status = await self._pool.execute(
-            _MIGRATE_OWNERSHIP_SQL, to_user_id, from_anon_id
+    async def adopt_ownership(
+        self, from_anon_id: str, to_user_id: str
+    ) -> AdoptionResult:
+        """Adopt every conversation owned by an anonymous identity, then bump
+        the revision of each adopted session so pre-adoption anonymous
+        capabilities go stale.
+
+        One identity-dimensional UPDATE (never an INSERT — this never creates a
+        conversation), transactional with the revision bumps: a failure rolls
+        the whole adoption back, so partial success is impossible. Idempotent:
+        a second run matches zero rows and bumps nothing.
+        """
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                adopted = await connection.fetch(
+                    _ADOPT_OWNERSHIP_SQL, to_user_id, from_anon_id
+                )
+                bumped = 0
+                for row in adopted:
+                    bumped += int(
+                        await self._bump_revision(connection, row["session_id"])
+                    )
+                return AdoptionResult(
+                    adopted_count=len(adopted), revisions_bumped=bumped
+                )
+
+    async def _bump_revision(self, connection: PoolConnection, session_id: str) -> int:
+        """Advance one adopted session's revision; 1 when the marker landed."""
+        row = await connection.fetchrow(
+            _BUMP_REVISION_SQL, session_id, ADOPT_TURN_KEY_PREFIX
         )
-        return _rows_affected(status) > 0
+        return 1 if row is not None else 0

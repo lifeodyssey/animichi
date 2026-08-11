@@ -37,7 +37,7 @@ function useGoToTarget(next: string | undefined): () => void {
 
 function AuthCallbackRoute() {
   const { next } = Route.useSearch();
-  const props = { hasReturnIntent: carriesPanelIntent(next), expectsMigration: returnTargetNamesSession(next) };
+  const props = { hasReturnIntent: carriesPanelIntent(next), expectsAdoption: returnTargetNamesSession(next) };
   return (
     <LocaleProvider>
       <AuthCallback onDone={useGoToTarget(next)} {...props} />

@@ -46,6 +46,26 @@ void test("a non-allowlisted /catalog/public path answers the same 404 envelope"
   assert.equal(wasCatalogHit, false);
 });
 
+void test("the deleted /v1/session/migrate path is a hard 404, never forwarded (SESSION-2 #960)", async () => {
+  const app = createWorkerApp({});
+  let wasForwarded = false;
+  const env = {
+    EDGE_SHOWCASE_MODE: "false",
+    CONTAINER: {
+      idFromName: () => "id",
+      get: () => ({
+        fetch: () => { wasForwarded = true; return Promise.resolve(new Response("forwarded")); },
+      }),
+    },
+  } as never;
+  const res = await app.request("/v1/session/migrate", { method: "POST" }, env, stubCtx);
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), {
+    error: { code: "not_found", message: "No route matches this request." },
+  });
+  assert.equal(wasForwarded, false);
+});
+
 void test("entry.ts imports nothing from the retired OpenNext bundle", () => {
   assert.doesNotMatch(entrySource(), /\.open-next/);
 });

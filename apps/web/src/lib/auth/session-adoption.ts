@@ -1,7 +1,7 @@
 import { currentChatConfig } from "../../features/chat/config";
 
 /**
- * Anonymous -> signed-in session ownership migration (issue #273 Task 3, #507).
+ * Anonymous -> signed-in session ownership adoption (SESSION-2 #960).
  *
  * The endpoint is **identity-dimensional**: no body and no `session_id` — the
  * magic-link tab has none, and accepting one would re-introduce an
@@ -10,29 +10,30 @@ import { currentChatConfig } from "../../features/chat/config";
  *
  *  - the incoming real user, from the `Authorization` bearer the edge verifies;
  *  - the outgoing `anon_<hex>`, which the client **cannot** name. `aid` is an
- *    `HttpOnly`, worker-signed cookie (`workers/edge/identity/auth.ts`), unreadable from JS by
- *    construction. `credentials: "include"` is therefore the whole mechanism:
- *    the browser attaches `aid`, the edge resolves (never mints) it and
- *    forwards the result as a trusted `X-Anon-Id` on this route alone.
+ *    `HttpOnly`, worker-signed cookie (`workers/edge/identity/auth.ts`),
+ *    unreadable from JS by construction. `credentials: "include"` is therefore
+ *    the whole mechanism: the browser attaches `aid`, the edge resolves (never
+ *    mints) it and forwards the result as a trusted `X-Anon-Id` on this route
+ *    alone.
  *
  * That is also why the base URL is `currentChatConfig().baseUrl` rather than a
  * URL of its own — it is the exact origin `/v1/chat` posts to, i.e. the origin
- * whose cookie jar holds `aid`. A migration aimed anywhere else would carry no
- * anonymous identity and quietly migrate nothing.
+ * whose cookie jar holds `aid`. An adoption aimed anywhere else would carry no
+ * anonymous identity and quietly adopt nothing.
  */
-export const SESSION_MIGRATE_PATH = "/v1/session/migrate";
+export const SESSION_ADOPT_PATH = "/v1/sessions/adopt";
 
 /**
  * The endpoint's two documented successes are kept **distinct** (#507 review
- * P1-2). Folding `{"migrated": false}` into a generic success hid the one case
- * the client can actually detect: a magic link opened on a different device
+ * P1-2). Folding `{"adopted": 0}` into a generic success hid the one case the
+ * client can actually detect: a magic link opened on a different device
  * carries the session in its `next` target but none of this browser's `aid`
- * cookie, so the migration correctly moves nothing — indistinguishable, once
+ * cookie, so the adoption correctly moves nothing — indistinguishable, once
  * collapsed, from a visitor who simply had no anonymous history. That mismatch
  * is also the only signal that would catch a *re-broken* wiring, which is the
  * exact failure mode #507 was.
  */
-export type SessionMigrationOutcome = "migrated" | "nothing" | "failed";
+export type SessionAdoptionOutcome = "adopted" | "nothing" | "failed";
 
 /**
  * Mobile-first budget (#507 review P2). 8s was inherited from the deferred-save
@@ -46,7 +47,7 @@ export type SessionMigrationOutcome = "migrated" | "nothing" | "failed";
  * following a link away while the claim is still in flight. Cheap, and the
  * request carries no body, so the 64KB keepalive ceiling is not in play.
  */
-export const MIGRATE_TIMEOUT_MS = 4_000;
+export const ADOPT_TIMEOUT_MS = 4_000;
 
 function request(token: string): RequestInit {
   return {
@@ -57,11 +58,20 @@ function request(token: string): RequestInit {
   };
 }
 
-async function post(url: string, token: string): Promise<SessionMigrationOutcome> {
+/** `adopted` must be a non-negative integer for the response to be trusted
+ * (SESSION-2 #960): a missing, string, or negative value is an invalid Agent
+ * or Edge response, never a silent ownership transfer. */
+function adoptedOutcome(body: unknown): SessionAdoptionOutcome {
+  if (typeof body !== "object" || body === null) return "failed";
+  const adopted = (body as { adopted?: unknown }).adopted;
+  if (typeof adopted !== "number" || !Number.isInteger(adopted) || adopted < 0) return "failed";
+  return adopted === 0 ? "nothing" : "adopted";
+}
+
+async function post(url: string, token: string): Promise<SessionAdoptionOutcome> {
   const response = await fetch(url, request(token));
   if (!response.ok) return "failed";
-  const body: unknown = await response.json();
-  return (body as { migrated?: unknown }).migrated === true ? "migrated" : "nothing";
+  return adoptedOutcome(await response.json());
 }
 
 /**
@@ -69,7 +79,7 @@ async function post(url: string, token: string): Promise<SessionMigrationOutcome
  *
  * Idempotent by construction on the server: the mutation is
  * `UPDATE … WHERE user_id = $from_anon`, never `INSERT`, so a second run
- * matches zero rows and returns `{"migrated": false}` — which makes a repeated
+ * matches zero rows and returns `{"adopted": 0}` — which makes a repeated
  * magic-link tap, a callback refresh and a retry all harmless. The #507 owner
  * ruling additionally stopped the edge retiring the `aid` cookie — which
  * matters for exactly one failure branch, the client-timeout-but-server-
@@ -79,33 +89,38 @@ async function post(url: string, token: string): Promise<SessionMigrationOutcome
  * Total: a rejected `fetch` (offline, DNS, CORS) or an unparseable body is an
  * outcome, not a throw.
  */
-export function migrateAnonymousSession(
+export function adoptSessions(
   token: string,
   baseUrl: string = currentChatConfig().baseUrl,
-): Promise<SessionMigrationOutcome> {
-  return post(`${baseUrl}${SESSION_MIGRATE_PATH}`, token).catch(
-    (): SessionMigrationOutcome => "failed",
+): Promise<SessionAdoptionOutcome> {
+  return post(`${baseUrl}${SESSION_ADOPT_PATH}`, token).catch(
+    (): SessionAdoptionOutcome => "failed",
   );
 }
 
 /**
- * Why a migration did not land. `failed` is a request that did not succeed;
- * `nothing-migrated` is a 200 that moved no rows when the login demonstrably
- * came from a browser with a session — the cross-device case, and the tell that
- * the wiring has broken again.
+ * Why an adoption did not land. `failed` is a request that did not succeed;
+ * `nothing-adopted` is a 200 that moved no rows when the login demonstrably
+ * came from a browser with a session — the cross-device case, and the tell
+ * that the wiring has broken again.
  */
-export type MigrationAnomaly = "failed" | "nothing-migrated";
+export type AdoptionAnomaly = "failed" | "nothing-adopted";
 
 /**
  * Did this outcome fail the visitor? `expected` says the login's return target
- * named a chat session, so *some* row should have moved.
+ * named a chat session, so *some* row should have moved. `afterTimeout`
+ * rescues the one false negative the timeout race produces (SESSION-2 #960):
+ * when an earlier attempt timed out the server may still have landed it, so a
+ * later `"nothing"` is the retry observing that adoption rather than a genuine
+ * no-op — and the notice must clear.
  */
 export function anomalyOf(
-  outcome: SessionMigrationOutcome,
+  outcome: SessionAdoptionOutcome,
   expected: boolean,
-): MigrationAnomaly | undefined {
+  afterTimeout = false,
+): AdoptionAnomaly | undefined {
   if (outcome === "failed") return "failed";
-  if (outcome === "nothing" && expected) return "nothing-migrated";
+  if (outcome === "nothing" && expected && !afterTimeout) return "nothing-adopted";
   return undefined;
 }
 
@@ -113,9 +128,9 @@ export function anomalyOf(
  * Structured, credential-free record. Deliberately **not** the reporting
  * channel: `apps/web` has no telemetry sink, so a `console.warn` reaches the
  * visitor's own devtools and nobody else (#507 review P1-3). The real outlet is
- * the callback screen's migration-failure surface, which puts a retry in front
+ * the callback screen's adoption-failure surface, which puts a retry in front
  * of the one party who can act on it; this line is a developer aid beside it.
  */
-export function reportMigrationAnomaly(anomaly: MigrationAnomaly): void {
-  console.warn(JSON.stringify({ event: "auth_session_migration", anomaly }));
+export function reportAdoptionAnomaly(anomaly: AdoptionAnomaly): void {
+  console.warn(JSON.stringify({ event: "auth_session_adoption", anomaly }));
 }

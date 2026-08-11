@@ -225,5 +225,5 @@ export const AGENT_PATHS: AgentPath[] = [
   { method: "GET", path: "/v1/search/preview", summary: "search preview" },
   { method: "POST", path: "/v1/photo-search", summary: "photo search" },
   { method: "POST", path: "/v1/photo-search/confirm", summary: "confirm photo offer" },
-  { method: "POST", path: "/v1/session/migrate", summary: "migrate anonymous session" },
+  { method: "POST", path: "/v1/sessions/adopt", summary: "adopt anonymous sessions" },
 ];

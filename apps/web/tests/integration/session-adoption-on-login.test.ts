@@ -1,14 +1,14 @@
 /**
  * @vitest-environment jsdom
  *
- * Issue #507 end-to-end: the migration endpoint was finished, reachable and
+ * Issue #507 end-to-end: the adoption endpoint was finished, reachable and
  * unit-tested on both the edge and the container — and had never once been
  * called, because nothing wired the client half. Every part was green; the
  * chain was not.
  *
  * So this asserts the chain, not a seam. It renders the REAL `<AuthCallback>`
  * with no injected doubles at all — the production `getAuthToken`,
- * `replayDeferredSave` and `migrateAnonymousSession` defaults — and asserts on
+ * `replayDeferredSave` and `adoptSessions` defaults — and asserts on
  * the HTTP request an edge stand-in actually observed. Every collaborator
  * between the rendered component and the socket is the real one.
  */
@@ -26,10 +26,10 @@ import { dictFor } from "../../src/i18n/dictionaries";
 // The integration lane has no locale setup, so jsdom's `en-US` navigator wins.
 const auth = dictFor("en").auth;
 import { clearAuthToken } from "../../src/lib/auth/auth-session";
-import { SESSION_MIGRATE_PATH } from "../../src/lib/auth/session-migration";
+import { SESSION_ADOPT_PATH } from "../../src/lib/auth/session-adoption";
 
 const NEON_AUTH = "http://localhost:3000/neondb/auth";
-const MIGRATE_URL = "http://localhost:3000/v1/session/migrate";
+const ADOPT_URL = "http://localhost:3000/v1/sessions/adopt";
 const JWT = "eyJhbGciOiJFZERTQSJ9.integration.signature";
 
 interface Observed {
@@ -41,10 +41,8 @@ interface Observed {
 }
 
 const observed: Observed[] = [];
-/** Stand-in for the container behind the edge: the first call migrates, every
- * later one matches zero rows and returns the typed no-op — the real
- * `UPDATE ... WHERE user_id = $from_anon` semantics. */
-const migrateHandler = http.post(MIGRATE_URL, async ({ request }) => {
+
+async function observeAdopt(request: Request): Promise<void> {
   observed.push({
     method: request.method,
     authorization: request.headers.get("authorization"),
@@ -52,12 +50,25 @@ const migrateHandler = http.post(MIGRATE_URL, async ({ request }) => {
     body: await request.text(),
     contentLength: request.headers.get("content-length"),
   });
-  return HttpResponse.json({ migrated: observed.length === 1 });
+}
+
+/** Stand-in for the container behind the edge. Declarative fixtures, no branch
+ * in the handler: the FIRST POST adopts one session (consumed once); every
+ * later one matches zero rows and returns the typed no-op — the real
+ * `UPDATE ... WHERE user_id = $from_anon` semantics. */
+const adoptHandler = http.post(ADOPT_URL, async ({ request }) => {
+  await observeAdopt(request);
+  return HttpResponse.json({ adopted: 1, noop_class: "adopted" });
+}, { once: true });
+const adoptNoopHandler = http.post(ADOPT_URL, async ({ request }) => {
+  await observeAdopt(request);
+  return HttpResponse.json({ adopted: 0, noop_class: "no_rows" });
 });
 
 const server = setupServer(
   http.get(`${NEON_AUTH}/token`, () => HttpResponse.json({ token: JWT })),
-  migrateHandler,
+  adoptHandler,
+  adoptNoopHandler,
 );
 
 beforeAll(() => { server.listen({ onUnhandledRequest: "error" }); });
@@ -82,7 +93,7 @@ async function signIn(calls: number): Promise<void> {
   await vi.waitFor(() => { expect(observed).toHaveLength(calls); });
 }
 
-describe("a login drives the session-migration endpoint end to end", () => {
+describe("a login drives the session-adoption endpoint end to end", () => {
   it("issues exactly one POST, carrying the established bearer and the cookie jar", async () => {
     await signIn(1);
     expect(observed[0]?.method).toBe("POST");
@@ -107,26 +118,26 @@ describe("a login drives the session-migration endpoint end to end", () => {
     // #507 review P1-3: `apps/web` has no telemetry sink, so the visitor is the
     // only real outlet. A 503 must reach the DOM, not just a console line.
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    server.use(http.post(MIGRATE_URL, () => HttpResponse.json({}, { status: 503 })));
+    server.use(http.post(ADOPT_URL, () => HttpResponse.json({}, { status: 503 })));
     let isDone = false;
     render(createElement(LocaleProvider, null,
       createElement(AuthCallback, { onDone: () => { isDone = true; } })));
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain(auth.callback_migration_failed);
+    expect(alert.textContent).toContain(auth.callback_adoption_failed);
     expect(isDone).toBe(false);
     expect(warn).toHaveBeenCalledExactlyOnceWith(
-      JSON.stringify({ event: "auth_session_migration", anomaly: "failed" }),
+      JSON.stringify({ event: "auth_session_adoption", anomaly: "failed" }),
     );
     warn.mockRestore();
   });
 
   it("still lets the visitor through — the login is never blocked", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    server.use(http.post(MIGRATE_URL, () => HttpResponse.json({}, { status: 503 })));
+    server.use(http.post(ADOPT_URL, () => HttpResponse.json({}, { status: 503 })));
     let isDone = false;
     render(createElement(LocaleProvider, null,
       createElement(AuthCallback, { onDone: () => { isDone = true; } })));
-    fireEvent.click(await screen.findByRole("button", { name: auth.callback_migration_skip }));
+    fireEvent.click(await screen.findByRole("button", { name: auth.callback_adoption_skip }));
     await vi.waitFor(() => { expect(isDone).toBe(true); });
   });
 });
@@ -137,11 +148,11 @@ describe("a login drives the session-migration endpoint end to end", () => {
  * and a silent rename of either path would recreate it exactly.
  */
 describe("the posted path is the one the edge routes on", () => {
-  it("matches workers/edge/identity/session-migrate.ts's SESSION_MIGRATE_PATH literal", () => {
+  it("matches workers/edge/identity/session-adopt.ts's SESSION_ADOPT_PATH literal", () => {
     const edge = readFileSync(
-      resolve(import.meta.dirname, "../../../../workers/edge/src/identity/session-migrate.ts"),
+      resolve(import.meta.dirname, "../../../../workers/edge/src/identity/session-adopt.ts"),
       "utf8",
     );
-    expect(edge).toContain(`export const SESSION_MIGRATE_PATH = "${SESSION_MIGRATE_PATH}"`);
+    expect(edge).toContain(`export const SESSION_ADOPT_PATH = "${SESSION_ADOPT_PATH}"`);
   });
 });
