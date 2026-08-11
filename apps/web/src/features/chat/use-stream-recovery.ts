@@ -3,7 +3,6 @@ import { clearAuthToken } from "../../lib/auth/auth-session";
 import type { ChatUIMessage } from "./use-chat-session";
 import { fetchHistory } from "./use-conversation-history";
 import type { HistoryEntry } from "./use-conversation-history";
-
 export interface StreamRecovery {
   readonly recover: () => void;
   readonly recoverExpired: () => void;
@@ -26,8 +25,8 @@ function toRecoveredMessage(entry: HistoryEntry, index: number): ChatUIMessage {
 }
 
 async function replaceWithFinalState(baseUrl: string, chat: RecoverableChat, sessionId: string): Promise<void> {
-  const entries = await fetchHistory(baseUrl, sessionId);
-  chat.setMessages(entries.map((entry, index) => toRecoveredMessage(entry, index)));
+  const page = await fetchHistory(baseUrl, sessionId);
+  chat.setMessages(page.entries.map((entry, index) => toRecoveredMessage(entry, index)));
   chat.clearError();
 }
 

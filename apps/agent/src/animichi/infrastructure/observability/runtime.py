@@ -29,6 +29,15 @@ _http_duration = logfire.metric_histogram(
     unit="ms",
     description="HTTP request duration in milliseconds.",
 )
+_history_requests = logfire.metric_counter(
+    "history_requests_total",
+    description="Session-history reads recorded with outcome and message count.",
+)
+_history_duration = logfire.metric_histogram(
+    "history_request_duration_ms",
+    unit="ms",
+    description="Session-history read duration in milliseconds.",
+)
 
 
 def runtime_span(name: str) -> logfire.LogfireSpan:
@@ -81,3 +90,24 @@ def record_agent_run_error(error: BaseException) -> None:
         error_message=str(error)[:500],
         _exc_info=error,
     )
+
+
+def record_history_request(
+    *,
+    duration_ms: float,
+    outcome: str,
+    message_count: int,
+    revision: int,
+) -> None:
+    """Record one session-history read (SESSION-1 #959 telemetry).
+
+    Outcome, message count, and revision only — never an actor identifier or
+    any message content.
+    """
+    attributes: dict[str, str | int] = {
+        "outcome": outcome,
+        "message_count": message_count,
+        "revision": revision,
+    }
+    _history_requests.add(1, attributes)
+    _history_duration.record(duration_ms, attributes)

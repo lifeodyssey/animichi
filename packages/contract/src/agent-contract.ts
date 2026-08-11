@@ -154,6 +154,38 @@ export const PhotoConfirmRequest = z.object({
 });
 export type PhotoConfirmRequest = z.infer<typeof PhotoConfirmRequest>;
 
+// ---------------------------------------------------------------------------
+// Session-history boundary (SESSION-1 #959).
+//
+// GetSessionHistory is the Agent-owned generated boundary over the current
+// Session/Message adapter: one bounded page of the session transcript plus
+// the session revision (the monotonic turn-reservation counter the client
+// uses as its CAS token for recovery reads) and the next page cursor.
+// `response_data` keeps the persistence envelope (intent/success) typed while
+// tolerating a wire `null`; extra envelope keys are intentionally not part of
+// the published surface.
+// ---------------------------------------------------------------------------
+
+/** One persisted transcript row (role, content, envelope, timestamp). */
+export const SessionHistoryMessage = z.object({
+  role: z.string(),
+  content: z.string(),
+  response_data: z.object({
+    intent: z.string().nullish(),
+    success: z.boolean().nullish(),
+  }).nullable().optional(),
+  created_at: z.string(),
+});
+export type SessionHistoryMessage = z.infer<typeof SessionHistoryMessage>;
+
+/** The `GET /v1/conversations/{id}/messages` payload (SESSION-1 #959). */
+export const GetSessionHistoryResponse = z.object({
+  messages: z.array(SessionHistoryMessage),
+  revision: z.number().int().nonnegative(),
+  next_offset: z.number().int().nonnegative().nullable(),
+});
+export type GetSessionHistoryResponse = z.infer<typeof GetSessionHistoryResponse>;
+
 /**
  * Complete Agent path inventory (fastapi_service.py router registrations).
  * `summary` is the inventory entry only — it is not emitted into generated

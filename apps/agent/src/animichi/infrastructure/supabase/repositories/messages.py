@@ -31,16 +31,22 @@ class MessagesRepository:
         )
 
     async def get_messages(
-        self, session_id: str, limit: int = 100
+        self, session_id: str, limit: int = 100, offset: int = 0
     ) -> list[dict[str, object]]:
-        """Fetch chat messages for a conversation."""
+        """Fetch chat messages for a conversation, oldest first, one page.
+
+        Ordering is part of the GetSessionHistory boundary contract: the
+        transcript must always come back in ``created_at`` ascending order so
+        the client can replay it. ``offset`` enables bounded pagination.
+        """
         rows = await self._pool.fetch(
             """SELECT role, content, response_data, created_at
                FROM conversation_messages
                WHERE session_id = $1
                ORDER BY created_at ASC
-               LIMIT $2""",
+               LIMIT $2 OFFSET $3""",
             session_id,
             limit,
+            offset,
         )
         return [dict(r) for r in rows]

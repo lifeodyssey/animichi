@@ -82,3 +82,13 @@ def test_session_digest_mismatch_surfaces_digest_mismatch() -> None:
     store, _ = _store({pg._SESSION_STATE_SQL: [{"state": "prior-state"}]})
     outcome = asyncio.run(store.reserve(_request(session_digest="digest-x")))
     assert outcome.status == "digest_mismatch"
+
+
+def test_current_revision_reads_the_max_reserved_revision() -> None:
+    store, _ = _store({pg._CURRENT_REVISION_SQL: [{"revision": 12}]})
+    assert asyncio.run(store.current_revision("s-1")) == 12
+
+
+def test_current_revision_defaults_to_zero_without_reservations() -> None:
+    store, _ = _store({})
+    assert asyncio.run(store.current_revision("s-1")) == 0

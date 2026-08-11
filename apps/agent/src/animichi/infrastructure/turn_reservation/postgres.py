@@ -169,6 +169,16 @@ class PostgresTurnReservationStore:
         )
         return row is not None
 
+    async def current_revision(self, session_id: str) -> int:
+        """Return the session's current revision (the max ever reserved).
+
+        ``None`` session ids (unreserved) read as ``0``; the value is
+        monotonic because reservation revisions never decrease, so it is a
+        valid client CAS token (SESSION-1 #959 GetSessionHistory).
+        """
+        async with self._pool.acquire() as connection:
+            return await self._current_revision(connection, session_id)
+
     async def release(self, ref: TurnRef, *, owner: str) -> bool:
         row = await self._pool.fetchrow(
             _RELEASE_SQL, ref.session_id, ref.turn_key, owner
