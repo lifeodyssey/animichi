@@ -67,7 +67,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-        run: bash .github/scripts/cutover-close-ingress.sh "${{ inputs.source_revision }}"
+        run: bash .github/scripts/cutover-close-ingress.sh "${SOURCE_REVISION}"
       - name: Record phase C closed
         run: bash .github/scripts/cutover-state.sh record phase=c ingress=closed
 
@@ -99,7 +99,7 @@ jobs:
         run: |
           set -euo pipefail
           bash .github/scripts/cutover-state.sh record phase=d application_schema=resetting
-          bash .github/scripts/cutover-reset-schema.sh "${{ inputs.source_revision }}"
+          bash .github/scripts/cutover-reset-schema.sh "${SOURCE_REVISION}"
           # Retained-surface manifest: every surface must survive the reset.
           for table in public.sessions public.messages public.turn_reservations public.saved_routes public.saved_route_anime public.points public.bangumi public.locations public.location_aliases public.media_assets public.itinerary_snapshots public.daily_usage public.anon_daily_message_count public.request_log public.feedback public.agent_memory public.agent_memory_metadata public.agent_memory_operations public.ingest_jobs public.raw_anitabi public.raw_bangumi; do
             bash .github/scripts/cutover-state.sh record phase=d retained_table="$table"
@@ -125,8 +125,8 @@ jobs:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${{ inputs.source_revision }}"
-          bash .github/scripts/cutover-deploy-consumer.sh catalog "${{ inputs.source_revision }}"
+          test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}"
+          bash .github/scripts/cutover-deploy-consumer.sh catalog "${SOURCE_REVISION}"
       - name: Record catalog deployed
         run: bash .github/scripts/cutover-state.sh record phase=e catalog=deployed
 
@@ -150,8 +150,8 @@ jobs:
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${{ inputs.source_revision }}"
-          bash .github/scripts/cutover-deploy-consumer.sh users "${{ inputs.source_revision }}"
+          test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}"
+          bash .github/scripts/cutover-deploy-consumer.sh users "${SOURCE_REVISION}"
       - name: Record users deployed
         run: bash .github/scripts/cutover-state.sh record phase=e users=deployed
 
@@ -174,8 +174,8 @@ jobs:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${{ inputs.source_revision }}"
-          bash .github/scripts/cutover-deploy-consumer.sh agent "${{ inputs.source_revision }}"
+          test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}"
+          bash .github/scripts/cutover-deploy-consumer.sh agent "${SOURCE_REVISION}"
       - name: Record agent deployed
         run: bash .github/scripts/cutover-state.sh record phase=e agent=deployed
 
@@ -197,8 +197,8 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${{ inputs.source_revision }}"
-          bash .github/scripts/cutover-deploy-consumer.sh web "${{ inputs.source_revision }}"
+          test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}"
+          bash .github/scripts/cutover-deploy-consumer.sh web "${SOURCE_REVISION}"
       - name: Record web deployed
         run: bash .github/scripts/cutover-state.sh record phase=e web=deployed
 
@@ -220,8 +220,8 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${{ inputs.source_revision }}"
-          bash .github/scripts/cutover-deploy-consumer.sh edge "${{ inputs.source_revision }}"
+          test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}"
+          bash .github/scripts/cutover-deploy-consumer.sh edge "${SOURCE_REVISION}"
       - name: Record edge deployed
         run: bash .github/scripts/cutover-state.sh record phase=e edge=deployed
 
@@ -247,7 +247,7 @@ jobs:
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: bash .github/scripts/cutover-private-smoke.sh "${{ inputs.source_revision }}"
+        run: bash .github/scripts/cutover-private-smoke.sh "${SOURCE_REVISION}"
       - name: Record consumers smoked
         run: bash .github/scripts/cutover-state.sh record phase=e consumers=smoked
 
@@ -271,5 +271,5 @@ jobs:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
         run: |
           set -euo pipefail
-          bash .github/scripts/cutover-reopen.sh "${{ inputs.source_revision }}"
+          bash .github/scripts/cutover-reopen.sh "${SOURCE_REVISION}"
           bash .github/scripts/cutover-state.sh record phase=f verdict=complete
