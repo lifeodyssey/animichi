@@ -112,6 +112,23 @@ export const AnimeOverviewInput = z.object({
 });
 export type AnimeOverviewInput = z.infer<typeof AnimeOverviewInput>;
 
+/** One work in the public popularity ranking. */
+export const PopularBangumi = z.object({
+  bangumi_id: z.string(),
+  title: z.string(),
+  title_cn: z.string().nullable(),
+  cover_url: z.string().nullable(),
+  city: z.string().nullable(),
+  points_count: z.number().int().nonnegative(),
+  rating: z.number().nullable(),
+});
+export type PopularBangumi = z.infer<typeof PopularBangumi>;
+
+export const PopularInput = z.object({
+  limit: z.number().int().min(1).max(50).default(8),
+});
+export type PopularInput = z.infer<typeof PopularInput>;
+
 export const catalogContract = {
   search: oc
     .route({ method: "POST", path: "/catalog/search", summary: "Search pilgrimage points by anime title" })
@@ -163,6 +180,14 @@ export const catalogContract = {
     .input(AnimeOverviewInput)
     .errors(pickCatalogErrors(["WORK_NOT_FOUND"]))
     .output(AnimeOverview),
+  popular: oc
+    .route({
+      method: "GET",
+      path: "/catalog/public/popular",
+      summary: "Public popularity ranking: works with published points, rating-descending",
+    })
+    .input(PopularInput)
+    .output(z.object({ bangumi: z.array(PopularBangumi) })),
 };
 
 export type CatalogContract = typeof catalogContract;

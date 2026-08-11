@@ -16,6 +16,7 @@ const PUBLIC_PROCEDURES = [
   "geocode",
   "planItinerary",
   "animeOverview",
+  "popular",
 ] as const;
 
 describe("public catalog procedure surface", () => {

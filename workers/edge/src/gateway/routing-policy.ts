@@ -1,4 +1,4 @@
-const PUBLIC_V1 = ["/v1/search/preview", "/v1/bangumi/popular"];
+const PUBLIC_V1 = ["/v1/search/preview"];
 export function isPublicV1(pathname: string): boolean {
   return PUBLIC_V1.includes(pathname) || /^\/v1\/bangumi\/[^/]+\/guide$/.test(pathname);
 }

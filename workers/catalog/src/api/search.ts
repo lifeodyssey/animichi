@@ -37,7 +37,7 @@ import type { CatalogDb } from "../db/client";
 import { normalizeAlias } from "../lib/alias";
 import { catalogIngestBangumi, type IngestBangumi } from "../ingest/ingest-bangumi";
 import type { FetchLike } from "../ingest/sources";
-import type { Origin, Point } from "../types";
+import type { Origin, Point, SearchResult } from "../types";
 import { previewForQuery, type MissPreview } from "./preview";
 
 export type { Origin, Point };
@@ -72,13 +72,6 @@ export interface SearchDb {
   pointsForBangumi(bangumiId: string): Promise<PublishedPointRow[]>;
   resolvePreview(query: string, fetchImpl?: FetchLike): Promise<MissPreview | null>;
   runFullIngest(bangumiId: string, fetchImpl?: FetchLike): Promise<void>;
-}
-
-/** The search response: rows + freshness, plus `partial` when these are an L1 preview. */
-export interface SearchResult {
-  rows: Point[];
-  synced_at: string;
-  partial?: boolean;
 }
 
 /** Resolve a free-text query to a work's pilgrimage points. */

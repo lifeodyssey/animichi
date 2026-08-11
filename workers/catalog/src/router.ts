@@ -10,7 +10,9 @@ import { pointsByBangumiId, workPointsDb } from "./api/work-points";
 import { nearby as nearbyHandler } from "./api/nearby";
 import { geocode as geocodeHandler } from "./api/geocode";
 import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
-import { animeOverview as animeOverviewHandler, AnimeOverviewNotFoundError } from "./api/anime-overview";
+import { overviewPointsDb } from "./adapters/outbound/overview-points";
+import { popularBangumiDb } from "./adapters/outbound/popular-bangumi";
+import { AnimeOverviewNotFoundError, getBangumiOverview } from "./application/get-bangumi-overview";
 import type { CatalogDb, NeonSql } from "./db/client";
 import { routeTooManyPoints, workNotFound } from "./lib/errors";
 import type { Origin } from "./types";
@@ -82,6 +84,21 @@ const animeOverview = os.animeOverview.handler(async ({ input, context }) =>
   callAnimeOverview(context.db, input),
 );
 
+const popular = os.popular.handler(async ({ input, context }) => {
+  const rows = await popularBangumiDb(context.db).listPopular(input.limit);
+  return {
+    bangumi: rows.map((row) => ({
+      bangumi_id: row.id,
+      title: row.title,
+      title_cn: row.title_cn,
+      cover_url: row.cover_url,
+      city: row.city,
+      points_count: row.points_count,
+      rating: row.rating,
+    })),
+  };
+});
+
 /** Run `spots`, translating a no-points work into an oRPC 404 (else 500). */
 async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Origin }) {
   try {
@@ -95,7 +112,7 @@ async function callSpots(db: CatalogDb, input: { bangumi_id: string; origin?: Or
 /** Run anime overview, translating only an absent anime into the typed 404. */
 async function callAnimeOverview(db: CatalogDb, input: { bangumi_id: string }) {
   try {
-    return await animeOverviewHandler(db, input);
+    return await getBangumiOverview(overviewPointsDb(db), input);
   } catch (err) {
     if (err instanceof AnimeOverviewNotFoundError) throw workNotFound(err.bangumiId);
     throw err;
@@ -133,5 +150,6 @@ export const catalogRouter = {
   geocode,
   planItinerary,
   animeOverview,
+  popular,
 };
 export type CatalogRouter = typeof catalogRouter;

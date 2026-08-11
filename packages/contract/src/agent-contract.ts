@@ -64,7 +64,6 @@ export const AGENT_PATHS: AgentPath[] = [
   { method: "GET", path: "/v1/conversations", summary: "list conversations" },
   { method: "PATCH", path: "/v1/conversations/{session_id}", summary: "rename conversation" },
   { method: "GET", path: "/v1/conversations/{session_id}/messages", summary: "conversation messages" },
-  { method: "GET", path: "/v1/bangumi/popular", summary: "popular works" },
   { method: "GET", path: "/v1/bangumi/{bangumi_id}/guide", summary: "work guide points" },
   { method: "GET", path: "/v1/bangumi/nearby", summary: "nearby points" },
   { method: "GET", path: "/v1/search/preview", summary: "search preview" },

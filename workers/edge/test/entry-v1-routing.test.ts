@@ -8,7 +8,7 @@ void test("/v1 public route -> container, no auth called", async () => {
   const authenticate = () => { authCalled = true; return Promise.resolve({ ok: false, reason: "absent" } as const); };
   const app = createWorkerApp({ authenticate });
   const cap: { req?: Request } = {};
-  const res = await app.request("/v1/bangumi/popular", {}, envWithContainer(cap), stubCtx);
+  const res = await app.request("/v1/search/preview?q=test", {}, envWithContainer(cap), stubCtx);
   assert.equal(await res.text(), "container");
   assert.equal(authCalled, false);
 });
@@ -54,7 +54,8 @@ void test("client-forged X-User-Id is stripped on authed route (worker value win
 void test("client-forged X-User-Id is stripped on PUBLIC route too", async () => {
   const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
   const cap: { req?: Request } = {};
-  await app.request("/v1/bangumi/popular", { headers: { "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
+  const res = await app.request("/v1/search/preview?q=test", { headers: { "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
+  assert.equal(await res.text(), "container");
   assert.equal(cap.req?.headers.get("X-User-Id"), null);
 });
 
