@@ -1,8 +1,6 @@
 import type {
   ClaimSavedRoutesInput,
   ClaimSavedRoutesResult,
-  DeleteSavedRouteInput,
-  DeleteSavedRouteResult,
   ListSessionsInput,
   ListSessionsResult,
   ListSavedRoutesResult,
@@ -99,15 +97,6 @@ export async function listSessions(
 ): Promise<ListSessionsResult> {
   const result = await db.execute(sessionSql(userId, input));
   return sessionPage(result, input);
-}
-
-/** Delete a saved route after explicit ownership validation. */
-export async function deleteSavedRoute(
-  repo: SavedRouteRepo,
-  userId: string,
-  input: DeleteSavedRouteInput,
-): Promise<DeleteSavedRouteResult> {
-  return repo.deleteSavedRoute(userId, input);
 }
 
 /** Atomically assign this session's still-anonymous saved routes to the caller. */
