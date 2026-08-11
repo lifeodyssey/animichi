@@ -1,17 +1,16 @@
-"""Admission lifecycle + runtime construction on /v1/photo-search (TURN-2/3).
+"""Admission lifecycle settlement on /v1/photo-search (TURN-2/3 #949/#951).
 
-Companion to ``test_photo_search_route_quota.py``: a scripted turn-outcome
-store drives the dispatch/settle/release branches — a successful turn settles
-``completed``, a pre-dispatch construction rejection releases, a pipeline
-failure settles ``failed`` — plus runtime construction and caching.
+A scripted turn-outcome store drives the dispatch/settle/release branches:
+a successful turn settles ``completed``, a pre-dispatch construction rejection
+releases, a pipeline failure settles ``failed``, and a GPS payload settles
+like any other turn. Runtime construction/caching lives in
+``test_photo_search_runtime``.
 """
 
 from __future__ import annotations
 
 from dataclasses import replace
 from unittest.mock import MagicMock, patch
-
-import httpx
 
 from animichi.agents.byok_models import ByokError
 from animichi.application.turn_admission_port import (
@@ -120,28 +119,6 @@ async def test_fail_releases_after_a_byok_construction_rejection() -> None:
     assert store.settled == []
 
 
-async def test_runtime_is_built_on_demand_and_cached() -> None:
-    db = build_stub_db()
-    app, _ = build_app(db=db, settings=Settings())
-    app.state.photo_search = None
-    app.state.model_http_client = httpx.AsyncClient()
-    async with async_client(app) as client:
-        first = await client.post("/v1/photo-search", json=body_())
-        second = await client.post("/v1/photo-search", json=body_())
-    assert first.status_code == 200
-    assert second.status_code == 200
-    assert isinstance(app.state.photo_search, PhotoSearchRuntime)
-
-
-async def test_missing_lifespan_http_client_fails_closed() -> None:
-    db = build_stub_db()
-    app, _ = build_app(db=db, settings=Settings())
-    app.state.model_http_client = None
-    async with async_client(app) as client:
-        response = await client.post("/v1/photo-search", json=body_())
-    assert response.status_code == 500
-
-
 async def test_gps_body_reaches_the_pipeline() -> None:
     store = _admitted()
     app, _ = _app_with_store(store)
@@ -194,17 +171,3 @@ async def test_byok_generic_construction_error_maps_to_400() -> None:
             )
     assert response.status_code == 400
     assert len(store.released) == 1
-
-
-async def test_existing_catalog_client_is_reused() -> None:
-    from animichi.clients.catalog_client import CatalogClient
-
-    db = build_stub_db()
-    app, _ = build_app(db=db, settings=Settings())
-    app.state.photo_search = None
-    app.state.model_http_client = httpx.AsyncClient()
-    app.state.catalog_client = CatalogClient(base_url="https://catalog.test")
-    async with async_client(app) as client:
-        response = await client.post("/v1/photo-search", json=body_())
-    assert response.status_code == 200
-    assert isinstance(app.state.photo_search, PhotoSearchRuntime)

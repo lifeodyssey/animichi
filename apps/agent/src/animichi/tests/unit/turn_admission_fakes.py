@@ -14,8 +14,8 @@ import hashlib
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from datetime import UTC, datetime
+from typing import Literal
 from unittest.mock import AsyncMock
 
 from animichi.application.turn_admission import (
@@ -32,6 +32,7 @@ from animichi.application.turn_admission_port import (
 from animichi.application.turn_outcome_port import (
     SettleOutcome,
     SweepReport,
+    TurnOutcomeStore,
     TurnRef,
 )
 
@@ -241,10 +242,6 @@ def _port_status(stored: _ReservationStatus) -> AdmissionStatus:
     return "in_flight"
 
 
-def lease_delta(seconds: int = 300) -> datetime:
-    return datetime.now(UTC) + timedelta(seconds=seconds)
-
-
 ANON_ID = "anon_0123456789abcdef0123456789abcdef"
 ANON = AdmissionIdentity(user_id=ANON_ID, user_type="anonymous")
 HUMAN = AdmissionIdentity(user_id="user-1", user_type="human")
@@ -271,7 +268,7 @@ def _request(
 
 
 def _admission(
-    store: Any,
+    store: TurnOutcomeStore | None,
     *,
     policy: AdmissionPolicy | None = None,
     quota_count: int | None = None,

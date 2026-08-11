@@ -15,12 +15,8 @@ from fastapi import FastAPI
 from animichi.application.turn_admission_port import ReservationOutcome
 from animichi.config.settings import Settings
 from animichi.interfaces.public_api import RuntimeAPI
+from animichi.tests.unit.chat_admission_fakes import ScriptedStore, _app, _body
 from animichi.tests.unit.conftest_fastapi import async_client
-from animichi.tests.unit.test_chat_admission_wire import (
-    ScriptedStore,
-    _app,
-    _body,
-)
 
 BYOK_HEADERS = {
     "X-User-Id": "user-test-0001",

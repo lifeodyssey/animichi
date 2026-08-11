@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cached_property
 from time import perf_counter
@@ -181,6 +182,38 @@ def _input_error_response(
         message=message,
         errors=[error],
     )
+
+
+@dataclass(frozen=True)
+class SettlementContext:
+    """Per-turn inputs shared by the terminal settlement side effects."""
+
+    result: AgentResult | None
+    request: PublicAPIRequest
+    response: PublicAPIResponse | None
+    session_id: str | None
+    elapsed_ms: float
+    intent: str
+    status: str
+    user_message_persisted: bool
+    user_id: str | None
+    user_type: str | None
+    is_byok: bool
+
+    @property
+    def terminal(self) -> SettleOutcome:
+        """Terminal settle outcome for this turn's response."""
+        return "completed" if self.response is not None else "failed"
+
+
+@dataclass(frozen=True)
+class ReservedTurn:
+    """Lease-guarded reservation identity the route hands to settlement."""
+
+    outcome: TurnOutcome
+    turn_ref: TurnRef
+    owner: str
+    dispatched: bool
 
 
 class RuntimeAPI:
@@ -367,38 +400,25 @@ class RuntimeAPI:
                         transport="public_api",
                     )
         finally:
+            settlement = SettlementContext(
+                result=result,
+                request=request,
+                response=response,
+                session_id=session_id,
+                elapsed_ms=(perf_counter() - started_at) * 1000,
+                intent=response.intent if response is not None else "unknown",
+                status=response.status if response is not None else "error",
+                user_message_persisted=user_message_persisted,
+                user_id=user_id,
+                user_type=user_type,
+                is_byok=is_byok,
+            )
             if outcome is not None and turn_ref is not None and owner is not None:
                 await self._settle_reserved_turn(
-                    outcome=outcome,
-                    turn_ref=turn_ref,
-                    owner=owner,
-                    dispatched=dispatched,
-                    response=response,
-                    result=result,
-                    request=request,
-                    session_id=session_id,
-                    elapsed_ms=(perf_counter() - started_at) * 1000,
-                    intent=response.intent if response is not None else "unknown",
-                    status=response.status if response is not None else "error",
-                    user_message_persisted=user_message_persisted,
-                    user_id=user_id,
-                    user_type=user_type,
-                    is_byok=is_byok,
+                    ReservedTurn(outcome, turn_ref, owner, dispatched), settlement
                 )
             else:
-                await self._settle_direct(
-                    result=result,
-                    request=request,
-                    response=response,
-                    session_id=session_id,
-                    elapsed_ms=(perf_counter() - started_at) * 1000,
-                    intent=response.intent if response is not None else "unknown",
-                    status=response.status if response is not None else "error",
-                    user_message_persisted=user_message_persisted,
-                    user_id=user_id,
-                    user_type=user_type,
-                    is_byok=is_byok,
-                )
+                await self._settle_direct(settlement)
 
     def _usage_prices(self) -> UsagePrices:
         return UsagePrices(
@@ -407,153 +427,70 @@ class RuntimeAPI:
         )
 
     async def _settle_reserved_turn(
-        self,
-        *,
-        outcome: TurnOutcome,
-        turn_ref: TurnRef,
-        owner: str,
-        dispatched: bool,
-        response: PublicAPIResponse | None,
-        result: AgentResult | None,
-        request: PublicAPIRequest,
-        session_id: str | None,
-        elapsed_ms: float,
-        intent: str,
-        status: str,
-        user_message_persisted: bool,
-        user_id: str | None,
-        user_type: str | None,
-        is_byok: bool,
+        self, reserved: ReservedTurn, settlement: SettlementContext
     ) -> None:
         """Release a never-dispatched turn, else settle it exactly once."""
-        if not dispatched:
-            await outcome.release(turn_ref, owner=owner)
+        if not reserved.dispatched:
+            await reserved.outcome.release(reserved.turn_ref, owner=reserved.owner)
             return
-        settlement = self._settlement(
-            result=result,
-            request=request,
-            response=response,
-            session_id=session_id,
-            elapsed_ms=elapsed_ms,
-            intent=intent,
-            status=status,
-            user_message_persisted=user_message_persisted,
-            user_id=user_id,
-            user_type=user_type,
-            is_byok=is_byok,
-            settle_quota=True,
-        )
-        terminal: SettleOutcome = "completed" if response is not None else "failed"
-        await outcome.settle(
-            turn_ref, owner=owner, outcome=terminal, on_settled=settlement
+        await self._settle_dispatched(reserved, settlement)
+
+    async def _settle_dispatched(
+        self, reserved: ReservedTurn, settlement: SettlementContext
+    ) -> None:
+        """Settle a dispatched turn exactly once through the CAS guard."""
+        await reserved.outcome.settle(
+            reserved.turn_ref,
+            owner=reserved.owner,
+            outcome=settlement.terminal,
+            on_settled=self._settlement(settlement, settle_quota=True),
         )
 
     def _settlement(
-        self,
-        *,
-        result: AgentResult | None,
-        request: PublicAPIRequest,
-        response: PublicAPIResponse | None,
-        session_id: str | None,
-        elapsed_ms: float,
-        intent: str,
-        status: str,
-        user_message_persisted: bool,
-        user_id: str | None,
-        user_type: str | None,
-        is_byok: bool,
-        settle_quota: bool,
+        self, context: SettlementContext, *, settle_quota: bool
     ) -> Callable[[], Awaitable[None]]:
         """Exactly-once side effects for a settled turn (meter + quota + audit)."""
+        return lambda: self._settle_side_effects(context, settle_quota=settle_quota)
 
-        async def apply() -> None:
-            await self._settle_side_effects(
-                result=result,
-                request=request,
-                response=response,
-                session_id=session_id,
-                elapsed_ms=elapsed_ms,
-                intent=intent,
-                status=status,
-                user_message_persisted=user_message_persisted,
-                user_id=user_id,
-                user_type=user_type,
-                is_byok=is_byok,
-                settle_quota=settle_quota,
-            )
-
-        return apply
-
-    async def _settle_direct(
-        self,
-        *,
-        result: AgentResult | None,
-        request: PublicAPIRequest,
-        response: PublicAPIResponse | None,
-        session_id: str | None,
-        elapsed_ms: float,
-        intent: str,
-        status: str,
-        user_message_persisted: bool,
-        user_id: str | None,
-        user_type: str | None,
-        is_byok: bool,
-    ) -> None:
+    async def _settle_direct(self, context: SettlementContext) -> None:
         """Fallback settlement for non-reserved turns (replay / direct callers)."""
-        await self._settle_side_effects(
-            result=result,
-            request=request,
-            response=response,
-            session_id=session_id,
-            elapsed_ms=elapsed_ms,
-            intent=intent,
-            status=status,
-            user_message_persisted=user_message_persisted,
-            user_id=user_id,
-            user_type=user_type,
-            is_byok=is_byok,
-            settle_quota=False,
-        )
+        await self._settle_side_effects(context, settle_quota=False)
 
     async def _settle_side_effects(
-        self,
-        *,
-        result: AgentResult | None,
-        request: PublicAPIRequest,
-        response: PublicAPIResponse | None,
-        session_id: str | None,
-        elapsed_ms: float,
-        intent: str,
-        status: str,
-        user_message_persisted: bool,
-        user_id: str | None,
-        user_type: str | None,
-        is_byok: bool,
-        settle_quota: bool,
+        self, context: SettlementContext, *, settle_quota: bool
     ) -> None:
         """Meter usage, settle the anon quota, and write the terminal audit."""
-        await self._record_usage(result, user_id, user_type, is_byok=is_byok)
+        await self._meter(context)
         if settle_quota:
-            await self._settle_anon_quota(user_id, user_type, is_byok)
-        await self._log_request(
-            session_id=session_id,
-            request=request,
-            result=result,
-            response=response,
-            elapsed_ms=elapsed_ms,
-            intent=intent,
-            status=status,
-            user_message_persisted=user_message_persisted,
+            await self._settle_anon_quota(context)
+        await self._log_request(context=context)
+
+    async def _meter(self, context: SettlementContext) -> None:
+        """Bank this turn's usage into ``daily_usage`` (SD-18 metering hook)."""
+        await self._record_usage(
+            context.result,
+            context.user_id,
+            context.user_type,
+            is_byok=context.is_byok,
         )
 
-    async def _settle_anon_quota(
-        self, user_id: str | None, user_type: str | None, is_byok: bool
-    ) -> None:
-        """Exactly-once anon quota increment for a settled turn (best-effort)."""
-        if scope_for_identity(user_id, user_type, is_byok=is_byok) != "anon":
-            return
+    async def _settle_anon_quota(self, context: SettlementContext) -> None:
+        """Increment the anon counter exactly once for a settled turn."""
+        if self._is_anon_scope(context):
+            await self._bump_anon_quota(context.user_id or "")
+
+    def _is_anon_scope(self, context: SettlementContext) -> bool:
+        """Whether this identity settles against the anon daily counter."""
+        return (
+            scope_for_identity(
+                context.user_id, context.user_type, is_byok=context.is_byok
+            )
+            == "anon"
+        )
+
+    async def _bump_anon_quota(self, anon_id: str) -> None:
+        """Best-effort exactly-once increment; failures are logged, not raised."""
         repo = anon_quota_repo(self._db)
-        anon_id = user_id or ""
         if repo is None or not anon_quota_eligible(anon_id):
             return
         try:
@@ -864,27 +801,20 @@ class RuntimeAPI:
 
         return _translate
 
-    async def _log_request(
-        self,
-        *,
-        session_id: str | None,
-        request: PublicAPIRequest,
-        result: AgentResult | None,
-        response: PublicAPIResponse | None,
-        elapsed_ms: float,
-        intent: str,
-        status: str,
-        user_message_persisted: bool,
-    ) -> None:
+    async def _log_request(self, *, context: SettlementContext) -> None:
         """Persist user message on error (best-effort) and log request."""
-        if not user_message_persisted and session_id and request.text:
+        if (
+            not context.user_message_persisted
+            and context.session_id
+            and context.request.text
+        ):
             try:
                 await persist_messages(
                     messages_repo=self._messages_repo,
-                    session_id=session_id,
-                    user_text=request.text,
+                    session_id=context.session_id,
+                    user_text=context.request.text,
                     result=None,
-                    response=response
+                    response=context.response
                     or PublicAPIResponse(
                         success=False, status="error", intent="unknown"
                     ),
@@ -893,7 +823,7 @@ class RuntimeAPI:
             except (OSError, RuntimeError, ValueError, TypeError):
                 logger.warning(
                     "finally_persist_user_msg_failed",
-                    session_id=session_id,
+                    session_id=context.session_id,
                 )
 
         if self._request_audit_repo is None:
@@ -901,16 +831,16 @@ class RuntimeAPI:
 
         try:
             await self._request_audit_repo.insert_request_log(
-                session_id=session_id,
-                query_text=request.text,
-                locale=request.locale,
-                plan_steps=extract_plan_steps(result),
-                intent=intent,
-                status=status,
-                latency_ms=int(elapsed_ms),
+                session_id=context.session_id,
+                query_text=context.request.text,
+                locale=context.request.locale,
+                plan_steps=extract_plan_steps(context.result),
+                intent=context.intent,
+                status=context.status,
+                latency_ms=int(context.elapsed_ms),
             )
         except (OSError, RuntimeError, ValueError, TypeError):
-            logger.warning("request_log_failed", session_id=session_id)
+            logger.warning("request_log_failed", session_id=context.session_id)
 
 
 async def handle_public_request(

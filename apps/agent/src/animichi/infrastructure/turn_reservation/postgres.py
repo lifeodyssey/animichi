@@ -3,16 +3,15 @@
 One atomic ``reserve`` per admission (ownership, revision, digest, durable
 single-winner insert, replay/in-flight detection, and the granted lease), plus
 the lease-guarded lifecycle the caller immediately drives: ``dispatch``
-(reserved -> running, the dispatch-certainty point), ``settle`` (running ->
-terminal, exactly-once CAS), ``release`` (delete a never-dispatched reserved
-turn), and the bounded ``sweep`` that reclaims expired leases concurrently
-(``FOR UPDATE SKIP LOCKED``) and tombstone-fails uncertain running turns.
+(reserved -> running), ``settle`` (running -> terminal, exactly-once CAS),
+``release``, and the bounded ``sweep`` reclaiming expired leases concurrently.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, TypeAlias, cast
 
@@ -88,9 +87,7 @@ _PRUNE_SQL = """
           LIMIT $2
       )
 """
-#: Claim stale rows atomically: lock first (SKIP LOCKED so concurrent sweeps
-#: each take disjoint rows), then extend the lease so a second sweep in the
-#: same window cannot re-claim them before this sweep settles them.
+#: Claim stale rows atomically (SKIP LOCKED), re-extending the lease per claim.
 _SWEEP_CLAIM_SQL = """
     WITH stale AS (
         SELECT id FROM turn_reservations
@@ -117,16 +114,18 @@ _SWEEP_FAIL_SQL = """
       AND lease_owner = $3 AND status = 'running'
 """
 
+#: Per-status settlement SQL for one claimed sweep row.
+_SWEEP_ACTIONS: dict[str, str] = {
+    "reserved": _SWEEP_RELEASE_SQL,
+    "running": _SWEEP_FAIL_SQL,
+}
+
 #: Per-session reservation history retained for replay (recent turns only).
 _KEEP_REVISIONS = 16
 
 
 def _port_status(stored: str) -> AdmissionStatus:
-    """Translate a stored row status to the port vocabulary.
-
-    A completed reservation replays; a failed one is the uncertain-provider
-    tombstone (never replayed); active rows mean a turn is in flight.
-    """
+    """Map a stored row status to the port vocabulary (failed never replays)."""
     if stored == "completed":
         return "replay_completed"
     if stored == "failed":
@@ -135,11 +134,7 @@ def _port_status(stored: str) -> AdmissionStatus:
 
 
 def state_digest(state: object) -> str:
-    """Canonical sha256 hex digest of a stored session state envelope.
-
-    asyncpg surfaces ``jsonb`` columns as raw JSON text, so a string payload
-    is parsed before the canonical dump; any other shape digests as empty.
-    """
+    """Canonical sha256 hex digest of a stored session state envelope."""
     if isinstance(state, str):
         try:
             state = json.loads(state)
@@ -183,9 +178,7 @@ class PostgresTurnReservationStore:
     async def sweep(self, *, now: datetime, owner: str, batch_size: int) -> SweepReport:
         async with self._pool.acquire() as connection:
             async with connection.transaction():
-                return await self._sweep(
-                    connection, now=now, owner=owner, batch_size=batch_size
-                )
+                return await self._sweep(connection, now, owner, batch_size)
 
     async def _guarded(
         self, connection: PoolConnection, request: ReserveRequest
@@ -250,28 +243,31 @@ class PostgresTurnReservationStore:
         return ReservationOutcome(status="in_flight", session_id=session_id)
 
     async def _sweep(
-        self,
-        connection: PoolConnection,
-        *,
-        now: datetime,
-        owner: str,
-        batch_size: int,
+        self, connection: PoolConnection, now: datetime, owner: str, batch_size: int
     ) -> SweepReport:
+        """Reclaim expired leases in one bounded, concurrent-safe pass."""
         rows = await connection.fetch(_SWEEP_CLAIM_SQL, now, batch_size, owner)
+        released = await self._count_released(connection, rows, owner)
+        return SweepReport(released=released, failed=len(rows) - released)
+
+    async def _count_released(
+        self, connection: PoolConnection, rows: Sequence[asyncpg.Record], owner: str
+    ) -> int:
+        """How many claimed rows were released (the rest were failed)."""
         released = 0
-        failed = 0
         for row in rows:
-            if row["status"] == "reserved":
-                await connection.execute(
-                    _SWEEP_RELEASE_SQL, row["session_id"], row["turn_key"], owner
-                )
-                released += 1
-            else:
-                await connection.execute(
-                    _SWEEP_FAIL_SQL, row["session_id"], row["turn_key"], owner
-                )
-                failed += 1
-        return SweepReport(released=released, failed=failed)
+            released += int(await self._claim_row(connection, row, owner))
+        return released
+
+    async def _claim_row(
+        self, connection: PoolConnection, row: asyncpg.Record, owner: str
+    ) -> bool:
+        """Settle one claimed row; ``True`` when it was released."""
+        sql = _SWEEP_ACTIONS[row["status"]]
+        await connection.execute(sql, row["session_id"], row["turn_key"], owner)
+        if row["status"] == "reserved":
+            return True
+        return False
 
     async def _ownership_ok(
         self, connection: PoolConnection, session_id: str, identity_id: str | None
@@ -287,11 +283,10 @@ class PostgresTurnReservationStore:
         row = await connection.fetchrow(_EXISTING_SQL, session_id, turn_key)
         if row is None:
             return None
-        revision = cast(int, row["revision"])
         return ReservationOutcome(
             status=_port_status(cast(str, row["status"])),
             session_id=session_id,
-            revision=revision,
+            revision=cast(int, row["revision"]),
         )
 
     async def _current_revision(
