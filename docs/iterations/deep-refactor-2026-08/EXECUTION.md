@@ -76,9 +76,8 @@ USERS-3 (#957) via #982. Issues closed; worktrees cleaned. Note: the GitHub
 ruleset's Maintenance / lint·test·build required checks were dropped with RETENTION-1 (pipeline
 removed) — ruleset now 32 contexts.
 
-**Recovery point (2026-08-11 ~23:05)**: `origin/main` at `2f816b92` (TURN-3) + AGENT-1 #952 merged via #981 (15:00Z, issue closed, worktrees agent-1/agent-1-herdr/turn-3 removed).
-- IN FLIGHT: USERS-2 (#956) → PR #983 (all 7 threads resolved incl. 2 new coderabbit rounds; SonarCloud PASSED, codecov PASS; last Users/test pending on e8134bb5).
-- RUNNING ELSEWHERE: TURN-4 (#955) ralph loop in `.worktrees/turn-4` (22 files touched, no exit yet).
+**Recovery point (2026-08-11 ~23:10)**: `origin/main` at `d46294d8` — AGENT-1 #952 via #981 AND USERS-2 #956 via #983 merged; issues closed; worktrees cleaned. **Waves 0–5 are DONE except TURN-4** (#937–#950, #953, #954, #956, #957, #951, #952 merged; only #955 open of the first five waves).
+- RUNNING ELSEWHERE: TURN-4 (#955) ralph loop in `.worktrees/turn-4` (chat commands through AgentTurn; files actively changing).
 - TODO: TURN-4 #955 → WEB-1 #958 + SESSION-1 #959 (need #955) → SESSION-2 #960 → SESSION-3 #961 → AGENT-3 #962 → EDGE-1 #963.
 
 **SAFE-1 (historical) is DONE**: merged via PR #964 (squash `f44a76e9`-based stack; final head on

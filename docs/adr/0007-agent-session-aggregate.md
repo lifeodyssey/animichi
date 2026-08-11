@@ -1,0 +1,3 @@
+# Agent owns the sole Session aggregate
+
+One Agent Session aggregate is the authority for its identifier, actor binding, lifecycle, Messages, tool state, fact ledger, and in-session memory; Neon Auth and Edge remain the Identity authority. Messages are the durable user-visible transcript, while runtime checkpoints may contain continuation state but cannot become a second transcript. Users does not publish a SessionSummary, read Agent tables, store anonymous SavedRoutes, expose `claim_session_id`, or perform a Session-linked ownership transfer; SavedRoutes are created only by explicit authenticated Save actions. This replaces the split Session/Conversation roots and cross-context claim/read model with a single writer and a smaller boundary.

@@ -34,7 +34,7 @@ Sole navigation for `docs/` — no docs-level README. Paths on the post-reorg la
 | Path | Holds | Write policy |
 |---|---|---|
 | `docs/specs/` | Active, non-superseded design specs (ADRs live flat) | Superseded → `docs/archive/specs/` (one-way) |
-| `docs/adr/` | Registered ADRs 0001–0005 (canonical) | Amend via a new ADR |
+| `docs/adr/` | Registered ADRs 0001–0009 (canonical) | Amend via a new ADR |
 | `docs/ops/` | Live runbooks (deployment, hardening, maintenance, …) | Update in place |
 | `docs/iterations/` | Active iteration artifacts + `README.md` pointer | Per-iteration dirs |
 | `docs/archive/` | `specs/` · `plans/` · `reviews/` · `design-sync/` · `mockups-demo/` · `landing-hero/` · `review-boards/` | Read-only history |
@@ -79,6 +79,10 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Agent tools | `apps/agent/src/animichi/agents/animichi_tools.py` + `web_tools.py` | Typed `TOOLS` lists injected by `build_animichi_agent()` |
 | Catalog service (TS) + data platform | `workers/catalog/src/` — `ingest/` · `enrich/` · `publish/` · `api/` · `router.ts` | realizes the ADR's ingest→enrich→publish |
 | Cross-service contract (zod = SoT) | `packages/contract/src/` (`models.ts`, `contract.ts`, `errors.ts`) + `packages/contract/README.md` | error registry + parity guard live here |
+| Identity authority | `docs/adr/0006-neon-auth-identity-authority.md` | Neon Auth only; Supabase Auth, dual issuer, and `sk_*` identities retire in the deep-refactor cutover |
+| Agent Session ownership | `docs/adr/0007-agent-session-aggregate.md` | One Agent aggregate and one durable Message transcript; no Users Session projection/claim |
+| Published Agent turn interface | `docs/adr/0008-published-turn-interface.md` | `/v1/chat` only; Contract owns turn wire shapes; JSON/SSE share one lifecycle |
+| Production data-lifecycle boundary | `docs/adr/0009-defer-automatic-retention.md` | Current automated Session/quota retention is removed; production TTL/deletion/backup policy is a later pre-production decision |
 | User-domain service | `workers/users/` + `workers/users/AGENTS.md` | Live Hono/oRPC/jose service over Neon, `/v1/users/*` |
 | Edge worker / auth / routing | `workers/edge/src/entry.ts` (+ `src/app.ts`, `src/identity/auth.ts`) | was `worker/worker.js`, then `worker/` (iter6 C2) |
 | Deploy wiring | `workers/edge/wrangler.toml` + `workers/edge/src/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
@@ -96,7 +100,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Iteration specs (live) | `docs/specs/` — 平层只放非 superseded spec(不维护名单;以 superseded 标注与 archive 位为准) | superseded spec 一律入 `docs/archive/specs/`(只进不出,iter6 A6/#640) |
 | Iteration plans | 当前 iteration 的计划在 `docs/iterations/<iterN>/`;历史执行 plan 全部在 `docs/archive/plans/` | 平层不再新增 plan(iter6 A6/#640) |
 | Iteration progress/handoff | `docs/iterations/<iterN>/`(progress、task_plan、handoff、status) | 根目录禁放(File Placement 规则) |
-| Scheduled retention purges | `workers/jobs/` + `docs/ops/jobs-worker.md` | Cloudflare Cron Triggers for anonymous sessions and daily quota counts |
+| Scheduled retention purges | Current runtime: `workers/jobs/` + `docs/ops/jobs-worker.md`; target: `docs/adr/0009-defer-automatic-retention.md` | RETENTION-1 deletes the package, both purge implementations, triggers, credentials, grants, and live staging resources without replacement |
 
 ## Review Check
 
