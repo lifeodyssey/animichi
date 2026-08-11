@@ -11,19 +11,28 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from structlog import testing
 
-from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
+from animichi.interfaces.public_api import (
+    PublicAPIRequest,
+    RuntimeAPI,
+    SettlementContext,
+)
 
 
 async def _log(api: RuntimeAPI, *, persisted: bool) -> None:
     await api._log_request(
-        session_id="s1",
-        request=PublicAPIRequest(text="hello"),
-        result=None,
-        response=None,
-        elapsed_ms=1.0,
-        intent="search",
-        status="empty",
-        user_message_persisted=persisted,
+        context=SettlementContext(
+            session_id="s1",
+            request=PublicAPIRequest(text="hello"),
+            result=None,
+            response=None,
+            elapsed_ms=1.0,
+            intent="search",
+            status="empty",
+            user_message_persisted=persisted,
+            user_id=None,
+            user_type=None,
+            is_byok=False,
+        )
     )
 
 

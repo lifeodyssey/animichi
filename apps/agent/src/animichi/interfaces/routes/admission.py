@@ -23,6 +23,7 @@ from animichi.application.turn_admission import (
     AdmissionVerdict,
     TurnAdmission,
 )
+from animichi.application.turn_outcome import TurnOutcome
 from animichi.interfaces.admission_policy import admission_policy
 from animichi.interfaces.anon_quota import (
     ANON_QUOTA_EXHAUSTED_CODE,
@@ -51,6 +52,9 @@ BYOK_REQUIRES_LOGIN_MESSAGE = "BYOKを使うにはログインが必要です。
 STALE_REVISION_MESSAGE = "会話の状態が新しいようです。最新の状態でやり直してください。"
 DIGEST_MISMATCH_MESSAGE = "会話の状態が一致しません。最新の状態でやり直してください。"
 TURN_IN_FLIGHT_MESSAGE = "リクエストを処理中です。しばらくしてからお試しください。"
+TURN_FAILED_MESSAGE = (
+    "このリクエストは実行途中で中断されました。新しいリクエストでお試しください。"
+)
 CONVERSATION_NOT_FOUND_MESSAGE = "Conversation not found."
 
 
@@ -66,6 +70,21 @@ def build_turn_admission(
         usage_repo=usage_repo(db),
         anon_quota_repo=anon_quota_repo(db),
     )
+
+
+def build_turn_outcome(
+    request: Request, *, policy: AdmissionPolicy | None = None
+) -> TurnOutcome:
+    """Resolve the lifecycle use case (store + admission) for one request."""
+    return TurnOutcome(
+        store=turn_reservation_store(_get_db_from_request(request)),
+        admission=build_turn_admission(request, policy=policy),
+    )
+
+
+def build_startup_turn_outcome(db: object) -> TurnOutcome:
+    """Resolve a sweep-only lifecycle use case for the Agent startup sweep."""
+    return TurnOutcome(store=turn_reservation_store(db))
 
 
 def admission_request(
@@ -119,6 +138,8 @@ def admission_rejection_response(verdict: AdmissionVerdict) -> JSONResponse | No
         return _error_response(
             "session_digest_mismatch", DIGEST_MISMATCH_MESSAGE, status_code=409
         )
+    if rejection.reason == "turn_failed":
+        return _error_response("turn_failed", TURN_FAILED_MESSAGE, status_code=409)
     return _error_response("turn_in_flight", TURN_IN_FLIGHT_MESSAGE, status_code=409)
 
 

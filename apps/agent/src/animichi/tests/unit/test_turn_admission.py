@@ -15,6 +15,7 @@ from animichi.application.turn_admission import (
     AdmissionVerdict,
     TurnAdmission,
 )
+from animichi.application.turn_outcome_port import TurnRef
 from animichi.interfaces.routes.admission import (
     DIGEST_MISMATCH_MESSAGE,
     admission_rejection_response,
@@ -71,8 +72,11 @@ async def test_one_durable_winner_under_concurrency() -> None:
 async def test_completed_turn_replays_without_a_new_reservation() -> None:
     store = FakeTurnReservationStore()
     admission = _admission(store)
-    await admission(_request(session_id="s-1", turn_key="turn-1"))
-    await store.complete(session_id="s-1", turn_key="turn-1")
+    first = await admission(_request(session_id="s-1", turn_key="turn-1"))
+    assert first.owner is not None
+    ref = TurnRef(session_id="s-1", turn_key="turn-1")
+    await store.dispatch(ref, owner=first.owner)
+    await store.settle(ref, owner=first.owner, outcome="completed")
 
     replay = await admission(
         _request(session_id="s-1", turn_key="turn-1", expected_revision=1)
@@ -164,7 +168,7 @@ async def test_blank_turn_key_is_rejected_before_any_store_call() -> None:
 
 async def test_admission_without_a_store_still_gates_quota() -> None:
     quota = AsyncMock()
-    quota.increment_and_count = AsyncMock(return_value=4)
+    quota.count_for = AsyncMock(return_value=4)
     admission = TurnAdmission(
         store=None, policy=AdmissionPolicy(quota=3), anon_quota_repo=quota
     )

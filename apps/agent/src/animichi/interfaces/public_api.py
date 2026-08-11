@@ -7,6 +7,8 @@ session management in ``session_facade``, and persistence in ``persistence``.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cached_property
 from time import perf_counter
@@ -61,7 +63,10 @@ from animichi.agents.translation import (
     translate_title,
     translation_agent,
 )
+from animichi.application.admission_limits import anon_quota_eligible
 from animichi.application.errors import ApplicationError, ErrorCode
+from animichi.application.turn_outcome import TurnOutcome
+from animichi.application.turn_outcome_port import SettleOutcome, TurnRef
 from animichi.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from animichi.config.settings import Settings, get_settings
 from animichi.domain.fact_ledger import record_turn_facts
@@ -80,6 +85,7 @@ from animichi.infrastructure.observability import (
 )
 from animichi.infrastructure.session import SessionStore, create_session_store
 from animichi.interfaces.db_repos import (
+    anon_quota_repo,
     bangumi_repo,
     messages_repo,
     request_audit_repo,
@@ -116,6 +122,7 @@ from animichi.interfaces.usage_metering import (
     UsagePrices,
     record_turn_usage,
     scope_for_identity,
+    utc_today,
 )
 from animichi.utils.language import detect_language, resolve_reply_language
 
@@ -175,6 +182,38 @@ def _input_error_response(
         message=message,
         errors=[error],
     )
+
+
+@dataclass(frozen=True)
+class SettlementContext:
+    """Per-turn inputs shared by the terminal settlement side effects."""
+
+    result: AgentResult | None
+    request: PublicAPIRequest
+    response: PublicAPIResponse | None
+    session_id: str | None
+    elapsed_ms: float
+    intent: str
+    status: str
+    user_message_persisted: bool
+    user_id: str | None
+    user_type: str | None
+    is_byok: bool
+
+    @property
+    def terminal(self) -> SettleOutcome:
+        """Terminal settle outcome for this turn's response."""
+        return "completed" if self.response is not None else "failed"
+
+
+@dataclass(frozen=True)
+class ReservedTurn:
+    """Lease-guarded reservation identity the route hands to settlement."""
+
+    outcome: TurnOutcome
+    turn_ref: TurnRef
+    owner: str
+    dispatched: bool
 
 
 class RuntimeAPI:
@@ -257,105 +296,227 @@ class RuntimeAPI:
         user_id: str | None = None,
         user_type: str | None = None,
         on_step: OnStep | None = None,
+        outcome: TurnOutcome | None = None,
+        turn_ref: TurnRef | None = None,
+        owner: str | None = None,
     ) -> PublicAPIResponse:
-        """Execute the runtime pipeline and normalize its output."""
+        """Execute the runtime pipeline and normalize its output.
+
+        When a reserved turn context (``outcome`` + ``turn_ref`` + ``owner``)
+        is supplied, the reservation is dispatched at the dispatch-certainty
+        point and settled exactly once in the terminal path; otherwise usage
+        and the terminal audit run directly (replay / direct callers).
+        """
         rejection = _input_error_response(request, self._settings.message_max_chars)
         if rejection is not None:
             return rejection
-        session_id, is_new_session = await self._prepare_session(request, user_id)
         started_at = perf_counter()
+        session_id = request.session_id or None
         response: PublicAPIResponse | None = None
-        effective_model = model if model is not None else request.model
-        with runtime_span("runtime.handle") as span:
-            _set_span_request_attrs(span, session_id, request, effective_model, user_id)
-
-            result: AgentResult | None = None
-            user_message_persisted = False
-            try:
-                previous_state, context, message_history = await self._load_session(
-                    None if is_new_session else session_id, request
+        result: AgentResult | None = None
+        user_message_persisted = False
+        dispatched = False
+        try:
+            session_id, is_new_session = await self._prepare_session(request, user_id)
+            effective_model = model if model is not None else request.model
+            with runtime_span("runtime.handle") as span:
+                _set_span_request_attrs(
+                    span, session_id, request, effective_model, user_id
                 )
-                result, response, context_delta = await self._execute_pipeline(
-                    request,
-                    context,
-                    message_history,
-                    effective_model,
-                    on_step,
-                    span,
-                    user_id,
-                    is_byok=is_byok,
+                try:
+                    previous_state, context, message_history = await self._load_session(
+                        None if is_new_session else session_id, request
+                    )
+                    if (
+                        outcome is not None
+                        and turn_ref is not None
+                        and owner is not None
+                    ):
+                        dispatched = await outcome.dispatch(turn_ref, owner=owner)
+                        if not dispatched:
+                            # Dispatch-certainty guard (TURN-3 #951): a
+                            # failed dispatch means the lease is gone — the
+                            # provider call is uncertain and must NEVER run.
+                            # The settlement below releases the reservation.
+                            span.set_attribute("runtime.dispatch_lost", True)
+                            return PublicAPIResponse(
+                                success=False,
+                                status="blocked",
+                                intent="blocked",
+                                errors=[
+                                    PublicAPIError(
+                                        code="turn_lease_lost",
+                                        message=(
+                                            "The turn reservation expired "
+                                            "before dispatch; please retry."
+                                        ),
+                                        action="retry",
+                                    )
+                                ],
+                            )
+                    result, response, context_delta = await self._execute_pipeline(
+                        request,
+                        context,
+                        message_history,
+                        effective_model,
+                        on_step,
+                        span,
+                        user_id,
+                        is_byok=is_byok,
+                    )
+
+                    if session_id is None:
+                        session_id = uuid4().hex
+                        span.set_attribute("runtime.session_id", session_id)
+
+                    response.session_id = session_id
+
+                    (
+                        session_state,
+                        user_message_persisted,
+                        generated_title,
+                    ) = await persist_result(
+                        session_repo=self._session_repo,
+                        bangumi_repo=self._bangumi_repo,
+                        messages_repo=self._messages_repo,
+                        session_store=self._session_store,
+                        session_id=session_id,
+                        request=request,
+                        result=result,
+                        response=response,
+                        context_delta=context_delta,
+                        previous_state=previous_state,
+                        user_id=user_id,
+                    )
+
+                    session_summary, route_history = build_response_session(
+                        session_state
+                    )
+                    response.session = as_json_object(session_summary)
+                    response.route_history = [
+                        as_json_object(r) for r in route_history if isinstance(r, dict)
+                    ]
+                    response.generated_title = generated_title
+                    return response
+                except Exception as exc:
+                    span.record_exception(exc)
+                    raise
+                finally:
+                    elapsed_ms = (perf_counter() - started_at) * 1000
+                    intent = response.intent if response is not None else "unknown"
+                    status = response.status if response is not None else "error"
+                    success = response.success if response is not None else False
+                    error_count = len(response.errors) if response is not None else 1
+
+                    span.set_attribute("runtime.intent", intent)
+                    span.set_attribute("runtime.status", status)
+                    span.set_attribute("runtime.success", success)
+                    span.set_attribute("runtime.error_count", error_count)
+
+                    record_runtime_request(
+                        duration_ms=elapsed_ms,
+                        intent=intent,
+                        status=status,
+                        transport="public_api",
+                    )
+        finally:
+            settlement = SettlementContext(
+                result=result,
+                request=request,
+                response=response,
+                session_id=session_id,
+                elapsed_ms=(perf_counter() - started_at) * 1000,
+                intent=response.intent if response is not None else "unknown",
+                status=response.status if response is not None else "error",
+                user_message_persisted=user_message_persisted,
+                user_id=user_id,
+                user_type=user_type,
+                is_byok=is_byok,
+            )
+            if outcome is not None and turn_ref is not None and owner is not None:
+                await self._settle_reserved_turn(
+                    ReservedTurn(outcome, turn_ref, owner, dispatched), settlement
                 )
-
-                if session_id is None:
-                    session_id = uuid4().hex
-                    span.set_attribute("runtime.session_id", session_id)
-
-                response.session_id = session_id
-
-                (
-                    session_state,
-                    user_message_persisted,
-                    generated_title,
-                ) = await persist_result(
-                    session_repo=self._session_repo,
-                    bangumi_repo=self._bangumi_repo,
-                    messages_repo=self._messages_repo,
-                    session_store=self._session_store,
-                    session_id=session_id,
-                    request=request,
-                    result=result,
-                    response=response,
-                    context_delta=context_delta,
-                    previous_state=previous_state,
-                    user_id=user_id,
-                )
-
-                session_summary, route_history = build_response_session(session_state)
-                response.session = as_json_object(session_summary)
-                response.route_history = [
-                    as_json_object(r) for r in route_history if isinstance(r, dict)
-                ]
-                response.generated_title = generated_title
-                return response
-            except Exception as exc:
-                span.record_exception(exc)
-                raise
-            finally:
-                elapsed_ms = (perf_counter() - started_at) * 1000
-                intent = response.intent if response is not None else "unknown"
-                status = response.status if response is not None else "error"
-                success = response.success if response is not None else False
-                error_count = len(response.errors) if response is not None else 1
-
-                span.set_attribute("runtime.intent", intent)
-                span.set_attribute("runtime.status", status)
-                span.set_attribute("runtime.success", success)
-                span.set_attribute("runtime.error_count", error_count)
-
-                record_runtime_request(
-                    duration_ms=elapsed_ms,
-                    intent=intent,
-                    status=status,
-                    transport="public_api",
-                )
-
-                await self._record_usage(result, user_id, user_type, is_byok=is_byok)
-                await self._log_request(
-                    session_id=session_id,
-                    request=request,
-                    result=result,
-                    response=response,
-                    elapsed_ms=elapsed_ms,
-                    intent=intent,
-                    status=status,
-                    user_message_persisted=user_message_persisted,
-                )
+            else:
+                await self._settle_direct(settlement)
 
     def _usage_prices(self) -> UsagePrices:
         return UsagePrices(
             input_usd_per_mtok=self._settings.model_input_cost_per_mtok_usd,
             output_usd_per_mtok=self._settings.model_output_cost_per_mtok_usd,
         )
+
+    async def _settle_reserved_turn(
+        self, reserved: ReservedTurn, settlement: SettlementContext
+    ) -> None:
+        """Release a never-dispatched turn, else settle it exactly once."""
+        if not reserved.dispatched:
+            await reserved.outcome.release(reserved.turn_ref, owner=reserved.owner)
+            return
+        await self._settle_dispatched(reserved, settlement)
+
+    async def _settle_dispatched(
+        self, reserved: ReservedTurn, settlement: SettlementContext
+    ) -> None:
+        """Settle a dispatched turn exactly once through the CAS guard."""
+        await reserved.outcome.settle(
+            reserved.turn_ref,
+            owner=reserved.owner,
+            outcome=settlement.terminal,
+            on_settled=self._settlement(settlement, settle_quota=True),
+        )
+
+    def _settlement(
+        self, context: SettlementContext, *, settle_quota: bool
+    ) -> Callable[[], Awaitable[None]]:
+        """Exactly-once side effects for a settled turn (meter + quota + audit)."""
+        return lambda: self._settle_side_effects(context, settle_quota=settle_quota)
+
+    async def _settle_direct(self, context: SettlementContext) -> None:
+        """Fallback settlement for non-reserved turns (replay / direct callers)."""
+        await self._settle_side_effects(context, settle_quota=False)
+
+    async def _settle_side_effects(
+        self, context: SettlementContext, *, settle_quota: bool
+    ) -> None:
+        """Meter usage, settle the anon quota, and write the terminal audit."""
+        await self._meter(context)
+        if settle_quota:
+            await self._settle_anon_quota(context)
+        await self._log_request(context=context)
+
+    async def _meter(self, context: SettlementContext) -> None:
+        """Bank this turn's usage into ``daily_usage`` (SD-18 metering hook)."""
+        await self._record_usage(
+            context.result,
+            context.user_id,
+            context.user_type,
+            is_byok=context.is_byok,
+        )
+
+    async def _settle_anon_quota(self, context: SettlementContext) -> None:
+        """Increment the anon counter exactly once for a settled turn."""
+        if self._is_anon_scope(context):
+            await self._bump_anon_quota(context.user_id or "")
+
+    def _is_anon_scope(self, context: SettlementContext) -> bool:
+        """Whether this identity settles against the anon daily counter."""
+        return (
+            scope_for_identity(
+                context.user_id, context.user_type, is_byok=context.is_byok
+            )
+            == "anon"
+        )
+
+    async def _bump_anon_quota(self, anon_id: str) -> None:
+        """Best-effort exactly-once increment; failures are logged, not raised."""
+        repo = anon_quota_repo(self._db)
+        if repo is None or not anon_quota_eligible(anon_id):
+            return
+        try:
+            await repo.increment_and_count(usage_date=utc_today(), anon_id=anon_id)
+        except Exception:
+            logger.warning("anon_quota_settle_failed", exc_info=True)
 
     async def _record_usage(
         self,
@@ -660,27 +821,20 @@ class RuntimeAPI:
 
         return _translate
 
-    async def _log_request(
-        self,
-        *,
-        session_id: str | None,
-        request: PublicAPIRequest,
-        result: AgentResult | None,
-        response: PublicAPIResponse | None,
-        elapsed_ms: float,
-        intent: str,
-        status: str,
-        user_message_persisted: bool,
-    ) -> None:
+    async def _log_request(self, *, context: SettlementContext) -> None:
         """Persist user message on error (best-effort) and log request."""
-        if not user_message_persisted and session_id and request.text:
+        if (
+            not context.user_message_persisted
+            and context.session_id
+            and context.request.text
+        ):
             try:
                 await persist_messages(
                     messages_repo=self._messages_repo,
-                    session_id=session_id,
-                    user_text=request.text,
+                    session_id=context.session_id,
+                    user_text=context.request.text,
                     result=None,
-                    response=response
+                    response=context.response
                     or PublicAPIResponse(
                         success=False, status="error", intent="unknown"
                     ),
@@ -689,7 +843,7 @@ class RuntimeAPI:
             except (OSError, RuntimeError, ValueError, TypeError):
                 logger.warning(
                     "finally_persist_user_msg_failed",
-                    session_id=session_id,
+                    session_id=context.session_id,
                 )
 
         if self._request_audit_repo is None:
@@ -697,16 +851,16 @@ class RuntimeAPI:
 
         try:
             await self._request_audit_repo.insert_request_log(
-                session_id=session_id,
-                query_text=request.text,
-                locale=request.locale,
-                plan_steps=extract_plan_steps(result),
-                intent=intent,
-                status=status,
-                latency_ms=int(elapsed_ms),
+                session_id=context.session_id,
+                query_text=context.request.text,
+                locale=context.request.locale,
+                plan_steps=extract_plan_steps(context.result),
+                intent=context.intent,
+                status=context.status,
+                latency_ms=int(context.elapsed_ms),
             )
         except (OSError, RuntimeError, ValueError, TypeError):
-            logger.warning("request_log_failed", session_id=session_id)
+            logger.warning("request_log_failed", session_id=context.session_id)
 
 
 async def handle_public_request(

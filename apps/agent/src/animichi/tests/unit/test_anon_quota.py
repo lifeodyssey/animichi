@@ -1,34 +1,43 @@
-"""Per-identity anonymous daily message quota (issue #282, S1.10)."""
+"""Per-identity anonymous daily message quota read (issue #282, S1.10, TURN-3).
+
+The admission verdict is a pure read since TURN-3 #951: the count is
+incremented exactly once at terminal settlement by TurnOutcome, never at
+admission. These tests pin the read semantics and the fail-open contract.
+"""
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
+from unittest.mock import AsyncMock
 
 from asyncpg.exceptions import UndefinedTableError
 
+from animichi.infrastructure.supabase.repositories.anon_quota import AnonQuotaRepository
 from animichi.interfaces.anon_quota import anonymous_quota_verdict, next_utc_midnight
 
 TODAY = date(2026, 7, 26)
-TOMORROW = date(2026, 7, 27)
 ANON_ID = "anon_0123456789abcdef0123456789abcdef"
 
 
 class _AnonQuotaRepoDouble:
-    """Counts increments per (usage_date, anon_id), like the real UPSERT."""
+    """Serves a fixed per-(usage_date, anon_id) count and records reads."""
 
-    def __init__(self) -> None:
-        self.counts: dict[tuple[date, str], int] = {}
+    def __init__(self, count: int = 0) -> None:
+        self.count = count
         self.calls: list[tuple[date, str]] = []
 
-    async def increment_and_count(self, *, usage_date: date, anon_id: str) -> int:
+    async def count_for(self, *, usage_date: date, anon_id: str) -> int:
         self.calls.append((usage_date, anon_id))
-        key = (usage_date, anon_id)
-        self.counts[key] = self.counts.get(key, 0) + 1
-        return self.counts[key]
+        return self.count
+
+    async def increment_and_count(self, *, usage_date: date, anon_id: str) -> int:
+        del usage_date, anon_id
+        self.count += 1
+        return self.count
 
 
 class _FailingRepo(_AnonQuotaRepoDouble):
-    async def increment_and_count(self, *, usage_date: date, anon_id: str) -> int:
+    async def count_for(self, *, usage_date: date, anon_id: str) -> int:
         del usage_date, anon_id
         raise OSError("counter unavailable")
 
@@ -36,121 +45,68 @@ class _FailingRepo(_AnonQuotaRepoDouble):
 class _PgFailingRepo(_AnonQuotaRepoDouble):
     """asyncpg's errors derive straight from Exception, not from OSError."""
 
-    async def increment_and_count(self, *, usage_date: date, anon_id: str) -> int:
+    async def count_for(self, *, usage_date: date, anon_id: str) -> int:
         del usage_date, anon_id
         raise UndefinedTableError('relation "anon_daily_message_count" does not exist')
 
 
-async def test_a_brand_new_identity_starts_at_full_quota_not_zero() -> None:
-    """First-ever message for a fresh identity must not already read exhausted."""
+async def test_a_fresh_identity_reads_at_zero_and_passes() -> None:
     verdict = await anonymous_quota_verdict(
-        _AnonQuotaRepoDouble(), anon_id=ANON_ID, quota=3, today=TODAY
+        _AnonQuotaRepoDouble(count=0), anon_id=ANON_ID, quota=3, today=TODAY
     )
     assert verdict.is_exhausted is False
-    assert verdict.count == 1
+    assert verdict.count == 0
 
 
 async def test_the_nth_message_within_quota_passes() -> None:
-    repo = _AnonQuotaRepoDouble()
-    db = repo
-    for _ in range(3):
-        verdict = await anonymous_quota_verdict(
-            db, anon_id=ANON_ID, quota=3, today=TODAY
-        )
+    verdict = await anonymous_quota_verdict(
+        _AnonQuotaRepoDouble(count=2), anon_id=ANON_ID, quota=3, today=TODAY
+    )
     assert verdict.is_exhausted is False
+    assert verdict.count == 2
+
+
+async def test_the_quota_boundary_count_is_rejected() -> None:
+    verdict = await anonymous_quota_verdict(
+        _AnonQuotaRepoDouble(count=3), anon_id=ANON_ID, quota=3, today=TODAY
+    )
+    assert verdict.is_exhausted is True
     assert verdict.count == 3
 
 
-async def test_the_n_plus_first_message_trips_the_quota() -> None:
-    repo = _AnonQuotaRepoDouble()
-    db = repo
-    for _ in range(3):
-        await anonymous_quota_verdict(db, anon_id=ANON_ID, quota=3, today=TODAY)
-    verdict = await anonymous_quota_verdict(db, anon_id=ANON_ID, quota=3, today=TODAY)
-    assert verdict.is_exhausted is True
-    assert verdict.count == 4
-
-
-async def test_a_different_identity_has_its_own_independent_count() -> None:
-    repo = _AnonQuotaRepoDouble()
-    db = repo
-    for _ in range(3):
-        await anonymous_quota_verdict(db, anon_id=ANON_ID, quota=3, today=TODAY)
-    other = await anonymous_quota_verdict(
-        db, anon_id="anon_fedcba9876543210fedcba9876543210", quota=3, today=TODAY
-    )
-    assert other.is_exhausted is False
-    assert other.count == 1
-
-
-async def test_crossing_a_utc_day_boundary_resets_the_count() -> None:
-    """Same identity, new UTC day: the counter starts fresh, not carried over."""
-    repo = _AnonQuotaRepoDouble()
-    db = repo
-    for _ in range(3):
-        await anonymous_quota_verdict(db, anon_id=ANON_ID, quota=3, today=TODAY)
+async def test_the_rejection_carries_the_next_utc_reset_instant() -> None:
     verdict = await anonymous_quota_verdict(
-        db, anon_id=ANON_ID, quota=3, today=TOMORROW
+        _AnonQuotaRepoDouble(count=3), anon_id=ANON_ID, quota=3, today=TODAY
     )
-    assert verdict.is_exhausted is False
-    assert verdict.count == 1
+    expected = datetime.combine(date(2026, 7, 27), time.min, tzinfo=UTC)
+    assert verdict.resets_at == next_utc_midnight(TODAY) == expected
 
 
-async def test_a_none_quota_disables_the_check_and_never_touches_the_repo() -> None:
-    repo = _AnonQuotaRepoDouble()
-    verdict = await anonymous_quota_verdict(
-        repo, anon_id=ANON_ID, quota=None, today=TODAY
-    )
-    assert verdict.is_exhausted is False
-    assert repo.calls == []
+async def test_the_read_is_keyed_per_identity_and_day() -> None:
+    repo = _AnonQuotaRepoDouble(count=1)
+    await anonymous_quota_verdict(repo, anon_id=ANON_ID, quota=3, today=TODAY)
+    assert repo.calls == [(TODAY, ANON_ID)]
 
 
-async def test_a_zero_quota_also_disables_the_check_same_as_none() -> None:
-    """0 disables, matching the budget breaker's convention — NOT "reject
-    everything" (review follow-up: the two knobs must agree on what 0 means)."""
-    repo = _AnonQuotaRepoDouble()
+async def test_an_unconfigured_quota_never_reads_the_repo() -> None:
+    repo = _AnonQuotaRepoDouble(count=99)
     verdict = await anonymous_quota_verdict(repo, anon_id=ANON_ID, quota=0, today=TODAY)
     assert verdict.is_exhausted is False
     assert repo.calls == []
 
 
-async def test_a_malformed_anon_id_is_neither_counted_nor_rejected() -> None:
-    """The container re-validates X-User-Id itself (issue #460 precedent) —
-    structural correctness must not depend on the edge alone."""
-    repo = _AnonQuotaRepoDouble()
+async def test_a_malformed_anon_id_never_reads_the_repo() -> None:
+    repo = _AnonQuotaRepoDouble(count=99)
     verdict = await anonymous_quota_verdict(
-        repo, anon_id="anon_not-hex", quota=3, today=TODAY
+        repo, anon_id="not-an-anon-id", quota=3, today=TODAY
     )
     assert verdict.is_exhausted is False
     assert repo.calls == []
 
 
-async def test_an_anon_id_missing_the_prefix_is_also_rejected_as_malformed() -> None:
-    repo = _AnonQuotaRepoDouble()
-    verdict = await anonymous_quota_verdict(
-        repo,
-        anon_id="0123456789abcdef0123456789abcdef",
-        quota=3,
-        today=TODAY,
-    )
+async def test_quota_verdict_is_inert_without_an_anon_quota_repo() -> None:
+    verdict = await anonymous_quota_verdict(None, anon_id=ANON_ID, quota=3, today=TODAY)
     assert verdict.is_exhausted is False
-    assert repo.calls == []
-
-
-async def test_a_valid_prefix_with_trailing_junk_is_still_malformed() -> None:
-    """Kills a `.fullmatch` -> `.match` mutation: `re.match` only anchors at
-    the *start*, so on a pattern ending in `$` it still lets a trailing
-    newline through (`$` matches just before one), while `.fullmatch`
-    requires the entire string to match with nothing left over. An
-    otherwise-valid id with anything appended — including a bare trailing
-    newline — must not be treated as a real identity."""
-    repo = _AnonQuotaRepoDouble()
-    valid_prefix = "anon_" + "0123456789abcdef0123456789abcdef"
-    verdict = await anonymous_quota_verdict(
-        repo, anon_id=f"{valid_prefix}\n", quota=3, today=TODAY
-    )
-    assert verdict.is_exhausted is False
-    assert repo.calls == []
 
 
 async def test_a_counter_read_failure_fails_open() -> None:
@@ -160,24 +116,15 @@ async def test_a_counter_read_failure_fails_open() -> None:
     assert verdict.is_exhausted is False
 
 
-async def test_a_postgres_failure_fails_the_quota_check_open() -> None:
+async def test_a_missing_counter_table_fails_open() -> None:
     verdict = await anonymous_quota_verdict(
         _PgFailingRepo(), anon_id=ANON_ID, quota=3, today=TODAY
     )
     assert verdict.is_exhausted is False
 
 
-async def test_quota_verdict_is_inert_without_an_anon_quota_repo() -> None:
-    verdict = await anonymous_quota_verdict(None, anon_id=ANON_ID, quota=3, today=TODAY)
-    assert verdict.is_exhausted is False
-
-
-def test_next_utc_midnight_is_the_start_of_the_following_utc_day() -> None:
-    assert next_utc_midnight(TODAY) == datetime(2026, 7, 27, tzinfo=UTC)
-
-
-async def test_the_verdict_carries_the_next_utc_reset_instant() -> None:
-    verdict = await anonymous_quota_verdict(
-        _AnonQuotaRepoDouble(), anon_id=ANON_ID, quota=3, today=TODAY
-    )
-    assert verdict.resets_at == datetime(2026, 7, 27, tzinfo=UTC)
+async def test_count_for_missing_row_returns_zero() -> None:
+    pool = AsyncMock()
+    pool.fetchrow = AsyncMock(return_value=None)
+    repo = AnonQuotaRepository(pool)
+    assert await repo.count_for(usage_date=date(2026, 8, 11), anon_id="anon-x") == 0

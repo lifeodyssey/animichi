@@ -54,25 +54,26 @@ async def test_quota_exhaustion_rejects_with_reset_instant() -> None:
     assert verdict.rejection is not None
     assert verdict.rejection.reason == "quota_exhausted"
     assert verdict.rejection.resets_at is not None
-    assert store.fail_calls == [(None, "turn-1")]
+    assert [call[:2] for call in store.release_calls] == [(None, "turn-1")]
+    assert store.reservations == []
 
 
 async def test_quota_disabled_never_reads_the_counter() -> None:
     store = FakeTurnReservationStore()
     quota = AsyncMock()
-    quota.increment_and_count = AsyncMock(return_value=4)
+    quota.count_for = AsyncMock(return_value=4)
     admission = TurnAdmission(
         store=store, policy=AdmissionPolicy(quota=None), anon_quota_repo=quota
     )
     verdict = await admission(_request())
     assert verdict.admitted is True
-    quota.increment_and_count.assert_not_awaited()
+    quota.count_for.assert_not_awaited()
 
 
 async def test_budget_exhaustion_rejects_and_never_reaches_the_counter() -> None:
     store = FakeTurnReservationStore()
     quota = AsyncMock()
-    quota.increment_and_count = AsyncMock(return_value=1)
+    quota.count_for = AsyncMock(return_value=1)
     usage = AsyncMock()
     usage.total_cost_usd = AsyncMock(return_value=5.0)
     admission = TurnAdmission(
@@ -85,7 +86,7 @@ async def test_budget_exhaustion_rejects_and_never_reaches_the_counter() -> None
     assert verdict.admitted is False
     assert verdict.rejection is not None
     assert verdict.rejection.reason == "budget_exhausted"
-    quota.increment_and_count.assert_not_awaited()
+    quota.count_for.assert_not_awaited()
 
 
 async def test_byok_without_any_user_id_is_rejected() -> None:

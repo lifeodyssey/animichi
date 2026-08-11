@@ -82,7 +82,8 @@ async def test_an_anonymous_byok_caller_is_rejected_before_byok_resolution() -> 
 async def test_budget_exhaustion_never_reaches_the_quota_counter() -> None:
     db = _db(spent=BUDGET)
     db.anon_quota = MagicMock()
-    db.anon_quota.increment_and_count = AsyncMock(return_value=1)
+    db.anon_quota.increment_and_count = AsyncMock(return_value=2)
+    db.anon_quota.count_for = AsyncMock(return_value=1)
     runtime = MagicMock(spec=RuntimeAPI)
     runtime.handle = AsyncMock(
         return_value=PublicAPIResponse(success=True, status="ok", intent="general_qa")
@@ -94,7 +95,7 @@ async def test_budget_exhaustion_never_reaches_the_quota_counter() -> None:
 
     response = await _post(app, ANON_HEADERS)
     assert response.status_code == 403
-    db.anon_quota.increment_and_count.assert_not_awaited()
+    db.anon_quota.count_for.assert_not_awaited()
     assert runtime.handle.await_count == 0
 
 

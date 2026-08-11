@@ -15,12 +15,8 @@ from fastapi import FastAPI
 from animichi.application.turn_admission_port import ReservationOutcome
 from animichi.config.settings import Settings
 from animichi.interfaces.public_api import RuntimeAPI
+from animichi.tests.unit.chat_admission_fakes import ScriptedStore, _app, _body
 from animichi.tests.unit.conftest_fastapi import async_client
-from animichi.tests.unit.test_chat_admission_wire import (
-    ScriptedStore,
-    _app,
-    _body,
-)
 
 BYOK_HEADERS = {
     "X-User-Id": "user-test-0001",
@@ -39,7 +35,7 @@ async def _post(app: FastAPI, headers: dict[str, str]) -> httpx.Response:
         return await client.post("/v1/chat", json=_body(), headers=headers)
 
 
-async def test_byok_construction_failure_returns_400_and_fails_the_reservation() -> (
+async def test_byok_construction_failure_returns_400_and_releases_the_reservation() -> (
     None
 ):
     store = ScriptedStore(
@@ -52,7 +48,7 @@ async def test_byok_construction_failure_returns_400_and_fails_the_reservation()
     ):
         response = await _post(app, BYOK_HEADERS)
     assert response.status_code == 400
-    assert store.failed == [("s-1", "turn-9")]
+    assert store.release_calls == [("s-1", "turn-9", store.requests[0].owner)]
     assert runtime.handle.await_count == 0
 
 
@@ -95,7 +91,10 @@ async def test_admitted_turn_with_byok_closes_the_client_in_background() -> None
     assert runtime.handle.await_count == 1
 
 
-async def test_runtime_failure_after_admission_fails_the_reservation() -> None:
+async def test_runtime_failure_after_admission_does_not_settle_at_the_route() -> None:
+    """Settlement is TurnOutcome/handle-owned since TURN-3 — the route must
+    not call fail/complete on a runtime failure, only hand the lifecycle to
+    the runtime via ``outcome``."""
     from animichi.tests.unit.conftest_fastapi import build_app, build_stub_db
 
     store = ScriptedStore(
@@ -114,4 +113,6 @@ async def test_runtime_failure_after_admission_fails_the_reservation() -> None:
     ):
         response = await _post(app, BYOK_HEADERS)
     assert response.status_code == 200
-    assert store.failed == [("s-1", "turn-9")]
+    assert store.settle_calls == []
+    assert store.release_calls == []
+    assert runtime.handle.await_args.kwargs["outcome"] is not None
