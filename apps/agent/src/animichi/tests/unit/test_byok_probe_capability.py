@@ -13,6 +13,7 @@ asserts (the timeout path uses an immediate-timeout fake `asyncio`).
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Coroutine
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -79,6 +80,7 @@ async def test_the_response_cap_is_installed_at_construction() -> None:
     ):
         await ProbeModelCredential().probe(ANTHROPIC_CREDENTIAL)
 
+    assert build_mock.await_args is not None
     assert build_mock.await_args.kwargs["transport_wrapper"] is CappedResponseTransport
 
 
@@ -145,12 +147,14 @@ class _ImmediateAsyncio:
     TimeoutError = asyncio.TimeoutError
 
     @staticmethod
-    def create_task(coro: object) -> asyncio.Task[object]:
-        return asyncio.create_task(coro)  # type: ignore[arg-type]
+    def create_task(coro: Coroutine[object, object, object]) -> asyncio.Task[object]:
+        return asyncio.create_task(coro)
 
     @staticmethod
-    def gather(*tasks: object, return_exceptions: bool = False) -> object:
-        return asyncio.gather(*tasks, return_exceptions=return_exceptions)  # type: ignore[arg-type]
+    def gather(
+        *tasks: Awaitable[object], return_exceptions: bool = False
+    ) -> asyncio.Future[list[object]]:
+        return asyncio.gather(*tasks, return_exceptions=return_exceptions)
 
     @staticmethod
     def timeout(_delay: float) -> asyncio.Timeout:
