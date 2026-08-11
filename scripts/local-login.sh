@@ -28,10 +28,10 @@ WEB_ENV_FILE="$ROOT/apps/web/.env"
 
 # --- Resolve the Neon Auth base URL ------------------------------------------
 BASE_URL="${NEON_AUTH_BASE_URL:-}"
-if [ -z "$BASE_URL" ] && [ -f "$WEB_ENV_FILE" ]; then
+if [[ -z "$BASE_URL" ]] && [[ -f "$WEB_ENV_FILE" ]]; then
   BASE_URL="$(grep -E '^VITE_NEON_AUTH_BASE_URL=' "$WEB_ENV_FILE" | tail -1 | cut -d= -f2- | tr -d '"' || true)"
 fi
-if [ -z "$BASE_URL" ]; then
+if [[ -z "$BASE_URL" ]]; then
   echo "❌ No Neon Auth base URL. Set VITE_NEON_AUTH_BASE_URL in apps/web/.env" >&2
   echo "   (or export NEON_AUTH_BASE_URL)." >&2
   exit 1
@@ -39,7 +39,7 @@ fi
 BASE_URL="${BASE_URL%/}"
 
 DATABASE_URL="${NEON_DATABASE_URL:-${DATABASE_URL:-}}"
-if [ -z "$DATABASE_URL" ]; then
+if [[ -z "$DATABASE_URL" ]]; then
   echo "❌ NEON_DATABASE_URL not set — need a connection string to the branch" >&2
   echo "   running Neon Auth (the magic-link token lives in its neon_auth.verification)." >&2
   exit 1
@@ -72,11 +72,11 @@ for _ in $(seq 1 20); do
     "SELECT identifier FROM neon_auth.verification \
      WHERE identifier IS NOT NULL AND value::text ILIKE '%$EMAIL%' \
      ORDER BY \"createdAt\" DESC LIMIT 1" 2>/dev/null || true)"
-  [ -n "$TOKEN" ] && break
+  [[ -n "$TOKEN" ]] && break
   sleep 1
 done
 
-if [ -z "$TOKEN" ]; then
+if [[ -z "$TOKEN" ]]; then
   echo "❌ No magic-link token appeared in neon_auth.verification within 20s." >&2
   echo "   Check that NEON_DATABASE_URL points at the branch running Neon Auth." >&2
   exit 1

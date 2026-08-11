@@ -16,7 +16,7 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
 - The users service verifies NOTHING itself (the JWKS/bearer verifier was deleted). It trusts ONLY
   the edge's verified identity, which arrives over the USERS service binding as `X-User-Id`
   (+ `X-User-Type`) after the edge stripped `Authorization` and any caller-supplied identity
-  headers (see `workers/edge/gateway/forward.ts`).
+  headers (see `workers/edge/src/gateway/forward.ts`).
 - A request that still carries `Authorization` is raw bearer access (it did not come from the
   edge) → flat **401**. Missing/empty `X-User-Id` → **401**. Anonymous access is NEVER allowed
   here. Cross-user access to an owned row → defined **403** `ROUTE_NOT_OWNED`.

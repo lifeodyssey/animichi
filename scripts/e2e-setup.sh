@@ -27,7 +27,7 @@ pnpm install --ignore-scripts --filter animichi-e2e 2>/dev/null || pnpm install 
 # arbitrary postinstall script. --no-install forces npx to use the
 # lockfile-pinned node_modules/.bin/playwright rather than fetching and
 # running a package on demand.
-pnpm --dir e2e exec playwright install --with-deps chromium
+"$ROOT/e2e/node_modules/.bin/playwright" install --with-deps chromium
 echo ""
 
 echo "=== 2/3 Checking the web app ==="

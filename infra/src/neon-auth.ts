@@ -15,7 +15,7 @@ const JWKS_SUFFIX = "/.well-known/jwks.json";
 
 /** Derive the edge's JWKS URL from the branch's Better Auth base URL. */
 export function jwksUrlFromAuthBaseUrl(baseUrl: string): string {
-  return `${baseUrl.replace(/\/+$/, "")}${JWKS_SUFFIX}`;
+  return `${baseUrl.replace(/[/]+$/, "")}${JWKS_SUFFIX}`;
 }
 
 /** Derive the issuer/audience (the auth base URL) from a JWKS URL — the mirror

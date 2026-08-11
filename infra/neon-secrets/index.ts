@@ -83,7 +83,8 @@ const roleDefs: { name: string; secretName?: string; comment: string }[] = [
   {
     name: "agent_svc",
     secretName: "AGENT_SVC_DATABASE_URL",
-    comment: "agent container data-plane role DSN (staging; edge Worker binding, forwarded to the container via CONTAINER_ENV_KEYS — replaces SUPABASE_DB_URL once deployed)",
+    comment:
+      "agent container data-plane role DSN (staging; edge Worker binding, forwarded to the container via CONTAINER_ENV_KEYS — replaces SUPABASE_DB_URL once deployed)",
   },
 ];
 
@@ -155,9 +156,10 @@ if (authBaseUrl !== undefined) {
     accountId,
     storeId: secretsStoreId,
     name: "NEON_AUTH_JWKS_URL",
-    value: `${authBaseUrl.replace(/\/+$/, "")}/.well-known/jwks.json`,
+    value: `${authBaseUrl.replace(/[/]+$/, "")}/.well-known/jwks.json`,
     scopes: ["workers"],
-    comment: "staging edge Neon Auth JWKS (derived from the branch auth base URL, AUTH-2 #950)",
+    comment:
+      "staging edge Neon Auth JWKS (derived from the branch auth base URL, AUTH-2 #950)",
   });
 }
 
@@ -191,4 +193,8 @@ export const secretNames = roleDefs
   .filter((def) => def.secretName !== undefined)
   .map((def) => def.secretName as string);
 export const roleNames = roleDefs.map((def) => def.name);
-export const authSecretNames = ["NEON_AUTH_JWKS_URL", "QA_NEON_USER_EMAIL", "QA_NEON_USER_PASSWORD"] as const;
+export const authSecretNames = [
+  "NEON_AUTH_JWKS_URL",
+  "QA_NEON_USER_EMAIL",
+  "QA_NEON_USER_PASSWORD",
+] as const;
