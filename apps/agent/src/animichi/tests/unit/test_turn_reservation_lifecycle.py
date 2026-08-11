@@ -63,7 +63,9 @@ def test_sweep_releases_stale_reserved_and_fails_stale_running() -> None:
             ]
         }
     )
-    report = asyncio.run(store.sweep(now=NOW, owner="sweep", batch_size=50))
+    report = asyncio.run(
+        store.sweep(now=NOW, owner="sweep", batch_size=50, lease_seconds=300)
+    )
     assert report.released == 1
     assert report.failed == 1
     assert any(pg._SWEEP_RELEASE_SQL in sql for sql, _ in connection.executed)
@@ -79,7 +81,9 @@ def test_sweep_is_bounded_by_the_batch() -> None:
             ]
         }
     )
-    report = asyncio.run(store.sweep(now=NOW, owner="sweep", batch_size=1))
+    report = asyncio.run(
+        store.sweep(now=NOW, owner="sweep", batch_size=1, lease_seconds=300)
+    )
     assert report.released == 1
     assert report.failed == 0
     executed = [sql for sql, _ in connection.executed]
@@ -88,6 +92,8 @@ def test_sweep_is_bounded_by_the_batch() -> None:
 
 def test_sweep_claims_nothing_when_no_rows_match() -> None:
     store, connection = _store({})
-    report = asyncio.run(store.sweep(now=NOW, owner="sweep", batch_size=50))
+    report = asyncio.run(
+        store.sweep(now=NOW, owner="sweep", batch_size=50, lease_seconds=300)
+    )
     assert report == pg.SweepReport()
     assert connection.executed == []
