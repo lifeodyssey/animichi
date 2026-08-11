@@ -92,16 +92,6 @@ export const DeleteSavedRouteResult = z.object({ deleted: z.literal(true) });
 /** Inferred delete-saved-route result. */
 export type DeleteSavedRouteResult = z.infer<typeof DeleteSavedRouteResult>;
 
-/** Input for claiming saved routes created during an anonymous session. */
-export const ClaimSavedRoutesInput = z.object({ session_id: z.string().min(1) });
-/** Inferred claim-saved-routes input. */
-export type ClaimSavedRoutesInput = z.infer<typeof ClaimSavedRoutesInput>;
-
-/** Number of anonymous saved routes assigned to the authenticated caller. */
-export const ClaimSavedRoutesResult = z.object({ claimed_count: z.number().int().nonnegative() });
-/** Inferred claim-saved-routes result. */
-export type ClaimSavedRoutesResult = z.infer<typeof ClaimSavedRoutesResult>;
-
 /** Result returned when listing the caller's saved routes. */
 export const ListSavedRoutesResult = z.object({ saved_routes: z.array(SavedRoute) });
 /** Inferred list-saved-routes result. */
@@ -173,15 +163,6 @@ export const usersContract = {
     .input(DeleteSavedRouteInput)
     .errors(pickUsersErrors(["SAVED_ROUTE_NOT_FOUND", "SAVED_ROUTE_NOT_OWNED"]))
     .output(DeleteSavedRouteResult),
-  claimSavedRoutes: oc
-    .route({
-      method: "POST",
-      path: "/v1/users/saved-routes/claim",
-      summary: "Claim anonymous saved routes",
-      spec: requireBearer,
-    })
-    .input(ClaimSavedRoutesInput)
-    .output(ClaimSavedRoutesResult),
 };
 
 /** Users oRPC contract type. */

@@ -30,7 +30,7 @@ function store(db: DbExecutor): NeonSavedRouteStore {
 
 function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   return {
-    id: ID, claim_session_id: null, user_id: "user-a", title: "Tokyo", point_ids: ["p1"],
+    id: ID, user_id: "user-a", title: "Tokyo", point_ids: ["p1"],
     status: "saved", saved_at: RAW, updated_at: RAW, first_query: "Find Tokyo", ...overrides,
   };
 }
@@ -108,7 +108,7 @@ describe("user session handlers", () => {
   });
 
   it("caps next_offset at the contract offset ceiling", async () => {
-    const rows = Array.from({ length: 1050 }, (_, i) => row({ claim_session_id: `s-${String(i)}` }));
+    const rows = Array.from({ length: 1050 }, (_, i) => row({ id: `session-${String(i)}` }));
     const result = await listSessions(fakeDb(rows).db, "user-a", { limit: 30, offset: 980 });
     expect(result.next_offset).toBeNull();
   });

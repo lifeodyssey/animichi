@@ -56,7 +56,7 @@ describe("saved-route row validation", () => {
 
   it("lists a route with a null title as an empty string", async () => {
     const { db } = fakeDb([{
-      id: ID, claim_session_id: null, user_id: "user-a", title: null, point_ids: ["p1"],
+      id: ID, user_id: "user-a", title: null, point_ids: ["p1"],
       status: "saved", saved_at: "2026-07-13T00:00:00Z", updated_at: "2026-07-13T00:00:00Z",
     }]);
     const result = await listSavedRoutesAction(new NeonSavedRouteRepo(db), "user-a");
@@ -84,7 +84,7 @@ describe("session row validation", () => {
 
   it("lists a session with a null title as null", async () => {
     const { db } = fakeDb([{
-      id: ID, claim_session_id: null, user_id: "user-a", title: null, point_ids: ["p1"],
+      id: ID, user_id: "user-a", title: null, point_ids: ["p1"],
       status: "saved", saved_at: "2026-07-13T00:00:00Z", updated_at: "2026-07-13T00:00:00Z",
     }]);
     const result = await listSessions(db, "user-a", { limit: 1, offset: 0 });

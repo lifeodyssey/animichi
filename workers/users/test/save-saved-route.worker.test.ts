@@ -20,7 +20,7 @@ function repo(db: DbExecutor): SavedRouteStore {
 
 function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   return {
-    id: ID, claim_session_id: null, user_id: "user-a", title: "Tokyo", point_ids: ["p1"],
+    id: ID, user_id: "user-a", title: "Tokyo", point_ids: ["p1"],
     status: "saved", saved_at: null, updated_at: NOW, ...overrides,
   };
 }

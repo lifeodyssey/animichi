@@ -12,7 +12,7 @@ const { getAuthToken } = vi.hoisted(() => ({ getAuthToken: vi.fn() }));
 vi.mock("../../../src/lib/auth/auth-session", () => ({ getAuthToken }));
 
 const { replayDeferredSave } = vi.hoisted(() => ({ replayDeferredSave: vi.fn() }));
-vi.mock("../../../src/features/chat/save/create-on-login", () => ({ replayDeferredSave }));
+vi.mock("../../../src/features/chat/save/complete-deferred-save", () => ({ replayDeferredSave }));
 
 beforeEach(() => { replayDeferredSave.mockResolvedValue("none"); });
 afterEach(() => {

@@ -1,16 +1,13 @@
 import type {
-  ClaimSavedRoutesInput,
-  ClaimSavedRoutesResult,
   ListSessionsInput,
   ListSessionsResult,
   UserSession,
 } from "@animichi/contract";
 import { sql, type SQL } from "drizzle-orm";
 import type { DbExecutor } from "../db/client";
-import type { SavedRouteRepo } from "../domain/ports";
 
 /**
- * Thin HTTP mapping over the SavedRouteRepo port (src/domain/ports.ts).
+ * Thin HTTP mapping over the saved-route and session read stores.
  * Saved-route SQL lives in the Neon adapter
  * (src/adapters/neon-saved-route-repo.ts); domain decisions in
  * src/domain/route-rules.ts.
@@ -68,8 +65,8 @@ function sessionPage(
 }
 
 // TODO(refactor-skeleton): the conversation query and row normalization below
-// remain inline because a session summary is not a saved route (not on
-// SavedRouteRepo); extract to a SessionSummaryRepo port when sessions gain
+// remain inline because a session summary is not a saved route (not on the
+// saved-route reader); extract to a SessionSummaryRepo port when sessions gain
 // more operations.
 
 function sessionSql(userId: string, input: ListSessionsInput): SQL {
@@ -91,13 +88,4 @@ export async function listSessions(
 ): Promise<ListSessionsResult> {
   const result = await db.execute(sessionSql(userId, input));
   return sessionPage(result, input);
-}
-
-/** Atomically assign this session's still-anonymous saved routes to the caller. */
-export async function claimSavedRoutes(
-  repo: SavedRouteRepo,
-  userId: string,
-  input: ClaimSavedRoutesInput,
-): Promise<ClaimSavedRoutesResult> {
-  return repo.claimSavedRoutes(userId, input);
 }

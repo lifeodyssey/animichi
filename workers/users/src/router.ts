@@ -6,13 +6,9 @@ import type { DeleteSavedRouteStore } from "./application/delete-saved-route";
 import type { ListSavedRoutesObserverPort, SavedRouteReader } from "./application/list-saved-routes";
 import { saveSavedRoute as saveSavedRouteAction } from "./application/save-saved-route";
 import type { SavedRouteStore } from "./application/save-saved-route";
-import {
-  claimSavedRoutes as claimHandler,
-  listSessions as listSessionsHandler,
-} from "./api/routes";
+import { listSessions as listSessionsHandler } from "./api/routes";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "./adapters/neon-saved-route-repo";
 import type { DbExecutor } from "./db/client";
-import type { SavedRouteRepo } from "./domain/ports";
 
 /** Per-request dependencies established by authentication middleware. */
 export interface UsersContext { db: DbExecutor; userId: string }
@@ -20,7 +16,6 @@ export interface UsersContext { db: DbExecutor; userId: string }
 const os = implement(usersContract).$context<UsersContext>();
 
 /** Stateless Neon adapters bound to the per-request executor. */
-const repo = (context: UsersContext): SavedRouteRepo => new NeonSavedRouteRepo(context.db);
 const reader = (context: UsersContext): SavedRouteReader => new NeonSavedRouteRepo(context.db);
 const store = (context: UsersContext): SavedRouteStore => new NeonSavedRouteStore(context.db);
 const deleteStore = (context: UsersContext): DeleteSavedRouteStore => new NeonSavedRouteStore(context.db);
@@ -46,13 +41,10 @@ const saveSavedRoute = os.saveSavedRoute.handler(async ({ input, context }) =>
 const deleteSavedRoute = os.deleteSavedRoute.handler(async ({ input, context }) =>
   deleteSavedRouteAction(deleteStore(context), context.userId, input),
 );
-const claimSavedRoutes = os.claimSavedRoutes.handler(async ({ input, context }) =>
-  claimHandler(repo(context), context.userId, input),
-);
 
 /** Users service oRPC implementation. */
 export const usersRouter = {
-  listSessions, listSavedRoutes, saveSavedRoute, deleteSavedRoute, claimSavedRoutes,
+  listSessions, listSavedRoutes, saveSavedRoute, deleteSavedRoute,
 };
 /** Users router type. */
 export type UsersRouter = typeof usersRouter;

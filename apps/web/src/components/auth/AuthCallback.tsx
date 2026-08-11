@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useDict } from "../../i18n/LocaleProvider";
 import type { Dict } from "../../i18n/dictionaries";
-import type { DeferredReplayOutcome } from "../../features/chat/save/create-on-login";
+import type { DeferredReplayOutcome } from "../../features/chat/save/complete-deferred-save";
 import { getAuthToken } from "../../lib/auth/auth-session";
 import { useAuthCallback } from "./use-auth-callback";
 import type { AuthCallbackSession, AuthCallbackState } from "./use-auth-callback";

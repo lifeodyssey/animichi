@@ -3,14 +3,15 @@ import { useCallback, useContext, useRef, useState } from "react";
 import type { SaveSavedRouteInput, SavedRoute } from "@animichi/contract";
 import { users } from "../orpc";
 
-/** The one transport call behind both the in-chat save and create-on-login. */
+/** The one transport call behind both the in-chat save and CompleteDeferredSave. */
 export type SaveSavedRouteRequest = (input: SaveSavedRouteInput) => Promise<SavedRoute>;
 
 /**
  * `users.saveSavedRoute` through the memoized oRPC client, so the UI never
  * touches the transport (component -> hook -> client, per `apps/web/AGENTS.md`).
- * Create-on-login calls this outside React, which is why it is a plain function
- * rather than a TanStack mutation: the auth-callback replay has no provider.
+ * CompleteDeferredSave calls this outside React, which is why it is a plain
+ * function rather than a TanStack mutation: the auth-callback replay has no
+ * provider.
  */
 export const saveSavedRouteRequest: SaveSavedRouteRequest = (input) => users().saveSavedRoute.call(input);
 

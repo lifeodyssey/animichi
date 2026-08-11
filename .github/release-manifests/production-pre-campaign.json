@@ -6,7 +6,7 @@
   "atlas": {
     "directory": "migrations/neon",
     "target": "20260811000001",
-    "digest_sha256": "f09d2cfb73ca9dbcd570fff94c3eb6002019729a07b7e030a0bda71ff83fcc8a"
+    "digest_sha256": "1225c55fc54a8571b04bf3fe404450df5af478c9d11538af75aa09dade12b3ca"
   },
   "components": {
     "catalog": {

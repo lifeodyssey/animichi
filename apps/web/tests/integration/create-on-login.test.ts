@@ -16,7 +16,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { AuthCallback } from "../../src/components/auth/AuthCallback";
 import { LocaleProvider } from "../../src/i18n/LocaleProvider";
 import { users } from "../../src/api/orpc";
-import { replayDeferredSave } from "../../src/features/chat/save/create-on-login";
+import { replayDeferredSave } from "../../src/features/chat/save/complete-deferred-save";
 import { DEFERRED_SAVE_KEY, writeDeferredSave } from "../../src/features/chat/save/deferred-save";
 
 const SAVED_ROUTES_URL = "http://localhost:3000/v1/users/saved-routes";
