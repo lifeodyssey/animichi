@@ -42,15 +42,24 @@ class _ChatOwnershipHarness:
         self.store = InMemorySessionStore()
         self.db = build_persistence_supabase_double()
         self.db.session.check_session_owner = AsyncMock(side_effect=self._owns)
-        self.db.session.create_owned_session.side_effect = self._create_owned
-        self.db.session.upsert_conversation.side_effect = self._claim
+        self.db.session.create.side_effect = self._create_owned
+        self.db.session.upsert_session.side_effect = self._claim
         self.app, _ = build_app(runtime_api=_runtime(self.db, self.store), db=self.db)
 
     async def _owns(self, session_id: str, user_id: str) -> bool:
         return self.owners.get(session_id) == user_id
 
-    async def _claim(self, session_id: str, user_id: str, _query: str) -> None:
-        self.owners[session_id] = user_id
+    async def _claim(
+        self,
+        session_id: str,
+        state: object,
+        metadata: object = None,
+        *,
+        user_id: str | None = None,
+    ) -> None:
+        del state, metadata
+        if user_id is not None:
+            self.owners[session_id] = user_id
 
     async def _create_owned(
         self, session_id: str, user_id: str, _query: str, _state: object
@@ -78,8 +87,8 @@ class _ChatOwnershipHarness:
         return (
             self.owners[session_id],
             deepcopy(state),
-            self.db.session.upsert_conversation.await_count,
-            self.db.messages.insert_message.await_count,
+            self.db.session.upsert_session.await_count,
+            self.db.session.insert_message.await_count,
         )
 
 

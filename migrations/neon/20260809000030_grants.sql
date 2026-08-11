@@ -29,14 +29,6 @@ GRANT SELECT ON TABLE public.cluster_version TO readonly;
 
 GRANT SELECT,USAGE ON SEQUENCE public.cluster_version_id_seq TO catalog_svc;
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.conversation_messages TO agent_svc;
-GRANT SELECT,DELETE ON TABLE public.conversation_messages TO jobs_svc;
-
-GRANT SELECT,USAGE ON SEQUENCE public.conversation_messages_id_seq TO agent_svc;
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.conversations TO agent_svc;
-GRANT SELECT,DELETE ON TABLE public.conversations TO jobs_svc;
-
 GRANT SELECT,INSERT,UPDATE ON TABLE public.daily_usage TO agent_svc;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.feedback TO agent_svc;
@@ -85,3 +77,6 @@ GRANT SELECT ON TABLE public.series_edges TO readonly;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.sessions TO agent_svc;
 GRANT SELECT,DELETE ON TABLE public.sessions TO jobs_svc;
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.messages TO agent_svc;
+GRANT SELECT,DELETE ON TABLE public.messages TO jobs_svc;

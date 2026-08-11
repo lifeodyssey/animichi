@@ -13,7 +13,7 @@
 #      config at workers/edge/wrangler.toml.
 #   2. The retained Jobs production surface: maintenance -> workers/jobs,
 #      AGENT_DATABASE_URL, the jobs_svc grants, and both cron schedules.
-#   3. Atlas head is 20260809000031 and migrations/neon/atlas.sum hashes to
+#   3. Atlas head is 20260811000002 and migrations/neon/atlas.sum hashes to
 #      the pinned SHA-256.
 #   4. SAFE-1 target invariants: every production entry point gates on the
 #      eligibility workflow; rollback has no caller version_id and stops
@@ -93,11 +93,14 @@ abort "jobs_svc must exist as a role" \
   unless File.read("migrations/neon/20260809000001_roles.sql").include?("CREATE ROLE jobs_svc")
 expected_grants = [
   "GRANT SELECT,DELETE ON TABLE public.anon_daily_message_count TO jobs_svc;",
-  "GRANT SELECT,DELETE ON TABLE public.conversation_messages TO jobs_svc;",
-  "GRANT SELECT,DELETE ON TABLE public.conversations TO jobs_svc;",
   "GRANT SELECT ON TABLE public.saved_routes TO jobs_svc;",
   "GRANT SELECT,DELETE ON TABLE public.sessions TO jobs_svc;"
 ]
+# SESSION-3 (#961): the staging hard cut deletes the second-root tables, so
+# the fresh chain can no longer carry grants for them. The retained Jobs
+# surface (SAFE-1 pinned manifest) keeps its grants for every table that
+# still exists; production stays on the pre-campaign pinned revision and is
+# never migrated by this cutover.
 missing = expected_grants.reject { |line| grants.include?(line) }
 abort "jobs_svc grants missing: #{missing.join('; ')}" unless missing.empty?
 
@@ -121,10 +124,10 @@ abort "jobs production secrets.required must be exactly AGENT_DATABASE_URL" \
 
 # ── 3. Atlas head + pinned atlas.sum integrity ──
 heads = Dir[File.join("migrations/neon", "*.sql")].map { |f| File.basename(f)[/\A\d+/] }.compact
-abort "Atlas head must be 20260811000001, got #{heads.max.inspect}" unless heads.max == "20260811000001"
+abort "Atlas head must be 20260811000002, got #{heads.max.inspect}" unless heads.max == "20260811000002"
 sum = Digest::SHA256.file("migrations/neon/atlas.sum").hexdigest
-abort "atlas.sum SHA-256 must be 1225c55fc54a8571b04bf3fe404450df5af478c9d11538af75aa09dade12b3ca, got #{sum}" \
-  unless sum == "1225c55fc54a8571b04bf3fe404450df5af478c9d11538af75aa09dade12b3ca"
+abort "atlas.sum SHA-256 must be fff7741d2b6c67f55c01720e4890d5aa2c0b4b67e0b9461aeec4917d44d7116e, got #{sum}" \
+  unless sum == "fff7741d2b6c67f55c01720e4890d5aa2c0b4b67e0b9461aeec4917d44d7116e"
 
 # ── 4. SAFE-1 target invariants (the guard is now wired) ────────────────────
 # 4a. Every production entry point routes through the eligibility workflow and

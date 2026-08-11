@@ -25,15 +25,6 @@ CREATE SEQUENCE public.cluster_version_id_seq
     CACHE 1;
 
 
-CREATE SEQUENCE public.conversation_messages_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
 CREATE SEQUENCE public.itinerary_snapshots_id_seq
     AS integer
     START WITH 1

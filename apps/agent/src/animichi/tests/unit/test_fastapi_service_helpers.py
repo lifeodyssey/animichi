@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from animichi.config.settings import Settings
 from animichi.infrastructure.session.memory import InMemorySessionStore
 from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.supabase.repositories.session import SessionRecord
 from animichi.interfaces import fastapi_service
 from animichi.interfaces.fastapi_service import (
     _call_optional_async,
@@ -37,9 +38,13 @@ def mock_db() -> MagicMock:
     pool.fetch = AsyncMock(return_value=[])
     db.pool = pool
     db.points.search_points_by_location = AsyncMock(return_value=[])
-    db.session.get_conversations = AsyncMock(return_value=[])
-    db.session.get_conversation = AsyncMock(return_value={"user_id": "user-1"})
-    db.messages.get_messages = AsyncMock(return_value=[])
+    db.session.list_sessions = AsyncMock(return_value=[])
+    db.session.load = AsyncMock(
+        return_value=SessionRecord(session_id="sess-1", user_id="user-1")
+    )
+    db.session.get_messages = AsyncMock(return_value=[])
+    db.session.current_revision = AsyncMock(return_value=0)
+    db.session.insert_message = AsyncMock()
     db.feedback.save_feedback = AsyncMock(return_value="feedback-1")
     return db
 
@@ -83,7 +88,9 @@ def test_missing_user_header_returns_structured_invalid_request_error_on_convers
 def test_messages_route_returns_structured_404_when_ownership_mismatch(
     mock_db: MagicMock,
 ) -> None:
-    mock_db.session.get_conversation.return_value = {"user_id": "someone-else"}
+    mock_db.session.load.return_value = SessionRecord(
+        session_id="sess-1", user_id="someone-else"
+    )
     app = create_fastapi_app(
         runtime_api=RuntimeAPI(
             mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()

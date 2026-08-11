@@ -25,8 +25,6 @@ def _make_client(pool: AsyncMock) -> SupabaseClient:
     client._points = None
     client._session = None
     client._feedback = None
-    client._routes = None
-    client._messages = None
     client._init_repos(pool)
     return client
 
@@ -95,47 +93,50 @@ def persistence_db(mock_pool: AsyncMock) -> SupabaseClient:
     return _make_client(mock_pool)
 
 
-class TestUpsertConversation:
-    async def test_inserts_or_touches_conversation(self, persistence_db, mock_pool):
-        await persistence_db.session.upsert_conversation(
+class TestUpsertSession:
+    async def test_inserts_or_touches_session(self, persistence_db, mock_pool):
+        await persistence_db.session.upsert_session(
             session_id="sess-1",
             user_id="user-1",
-            first_query="京吹の聖地を探して",
+            state={"context": {"bangumi_id": "115908"}},
         )
 
         sql = mock_pool.execute.await_args.args[0]
-        assert "INSERT INTO conversations" in sql
+        assert "INSERT INTO sessions" in sql
         assert "ON CONFLICT" in sql
+        assert "user_id = COALESCE(EXCLUDED.user_id, sessions.user_id)" in sql
 
     async def test_does_not_overwrite_existing_first_query(
         self,
         persistence_db,
         mock_pool,
     ):
-        await persistence_db.session.upsert_conversation(
+        await persistence_db.session.upsert_session(
             session_id="sess-1",
             user_id="user-1",
-            first_query="京吹の聖地を探して",
+            state={"context": {"bangumi_id": "115908"}},
         )
 
         sql = mock_pool.execute.await_args.args[0]
         assert "first_query" not in sql.split("DO UPDATE SET", maxsplit=1)[1]
 
 
-class TestUpdateConversationTitle:
-    async def test_updates_conversation_title(self, persistence_db, mock_pool):
-        await persistence_db.session.update_conversation_title("sess-1", "京吹 宇治")
+class TestUpdateTitle:
+    async def test_updates_session_title(self, persistence_db, mock_pool):
+        await persistence_db.session.update_title(
+            "sess-1", "京吹 宇治", user_id="user-1"
+        )
 
-        sql = mock_pool.execute.await_args.args[0]
-        assert "UPDATE conversations" in sql
+        sql = mock_pool.fetchrow.await_args.args[0]
+        assert "UPDATE sessions" in sql
         assert "title" in sql
 
 
-class TestGetConversations:
+class TestListSessions:
     async def test_returns_empty_list_when_no_rows(self, persistence_db, mock_pool):
         mock_pool.fetch.return_value = []
 
-        result = await persistence_db.session.get_conversations("user-1")
+        result = await persistence_db.session.list_sessions("user-1")
 
         assert result == []
 
@@ -150,7 +151,7 @@ class TestGetConversations:
             }
         ]
 
-        result = await persistence_db.session.get_conversations("user-1")
+        result = await persistence_db.session.list_sessions("user-1")
 
         assert len(result) == 1
         assert result[0]["session_id"] == "sess-1"

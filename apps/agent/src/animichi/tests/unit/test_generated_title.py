@@ -30,14 +30,12 @@ def _mock_pipeline(monkeypatch):
 @pytest.fixture
 def mock_db():
     db = MagicMock(spec=SupabaseClient)
-    db.session.create_owned_session = AsyncMock()
+    db.session.create = AsyncMock()
     db.session.upsert_session = AsyncMock()
-    db.session.upsert_conversation = AsyncMock()
-    db.session.update_conversation_title = AsyncMock()
-    # #663: the real repos are nested (db.messages / db.feedback), not flat
+    db.session.insert_message = AsyncMock()
+    # #663: the real repos are nested (db.session / db.feedback), not flat
     # db.insert_message / db.insert_request_log — that flat shape was the
     # production bug.
-    db.messages.insert_message = AsyncMock()
     db.feedback.insert_request_log = AsyncMock()
     return db
 

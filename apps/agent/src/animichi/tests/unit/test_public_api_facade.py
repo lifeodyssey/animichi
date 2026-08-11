@@ -34,10 +34,9 @@ def mock_db():
     pool.fetch = AsyncMock(return_value=[])
     db.pool = pool
     db.points.search_points_by_location = AsyncMock(return_value=[])
-    db.session.create_owned_session = AsyncMock()
+    db.session.create = AsyncMock()
     db.session.upsert_session = AsyncMock()
-    db.session.upsert_conversation = AsyncMock()
-    db.session.update_conversation_title = AsyncMock()
+    db.session.insert_message = AsyncMock()
     return db
 
 
@@ -77,25 +76,25 @@ class TestHandlePublicRequest:
 
 
 class TestUserIdPropagation:
-    async def test_upserts_conversation_when_user_id_present(self, mock_db):
+    async def test_creates_session_with_owner_when_user_id_present(self, mock_db):
         api = RuntimeAPI(
             mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
         )
 
         await api.handle(PublicAPIRequest(text="京吹の聖地"), user_id="user-abc")
 
-        mock_db.session.upsert_conversation.assert_awaited_once()
-        args = mock_db.session.upsert_conversation.await_args.args
+        mock_db.session.create.assert_awaited_once()
+        args = mock_db.session.create.await_args.args
         assert args[1] == "user-abc"
 
-    async def test_skips_user_scoped_db_calls_when_user_id_absent(self, mock_db):
+    async def test_skips_owner_scoped_db_calls_when_user_id_absent(self, mock_db):
         api = RuntimeAPI(
             mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
         )
 
         await api.handle(PublicAPIRequest(text="京吹の聖地"), user_id=None)
 
-        mock_db.session.upsert_conversation.assert_not_awaited()
+        mock_db.session.create.assert_not_awaited()
 
 
 class TestLocalePassthrough:

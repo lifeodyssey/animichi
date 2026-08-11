@@ -104,8 +104,13 @@ def anon_quota_repo(db: object) -> AnonQuotaCounter | None:
 
 
 def messages_repo(db: object) -> ConversationLog | None:
-    """Return *db*'s message log, or ``None`` if it is not wired for use."""
-    repo = _wired_sub_repo(db, "messages", "insert_message")
+    """Return *db*'s session-repo message log, or ``None`` if not wired.
+
+    SESSION-3 (#961): the ordered transcript lives on the sole Session
+    aggregate, so the message port resolves from ``db.session`` (the
+    ``FinalSessionRepository``), not a separate message store.
+    """
+    repo = _wired_sub_repo(db, "session", "insert_message")
     return cast(ConversationLog, repo) if repo is not None else None
 
 
