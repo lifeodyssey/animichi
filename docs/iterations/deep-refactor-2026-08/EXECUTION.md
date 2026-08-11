@@ -80,6 +80,11 @@ removed) — ruleset now 32 contexts.
 - RUNNING ELSEWHERE: TURN-4 (#955) ralph loop in `.worktrees/turn-4` (chat commands through AgentTurn; files actively changing).
 - TODO: TURN-4 #955 → WEB-1 #958 + SESSION-1 #959 (need #955) → SESSION-2 #960 → SESSION-3 #961 → AGENT-3 #962 → EDGE-1 #963.
 
+**Recovery point (2026-08-12 ~07:00)**: `origin/main` at `35491dc0` — SESSION-2 #960 via #987 merged (10-thread coderabbit fix round f941ea28 included: adopt: namespace reservation, body limit, timeout convergence, response validation, edge gates); issue closed; worktree removed. **Waves 0–7 DONE** (#937–#960; only #961/#962/#963 open).
+- RUNNING: SESSION-3 #961 (staging hard cut — FinalSessionRepository + fresh-schema manifest + cutover workflow) ralph loop in `.worktrees/session-3` (w8:p1, 15 max-iterations).
+- NEXT: merge #961 → AGENT-3 #962 (brief ready) → EDGE-1 #963 (brief ready).
+- Eval note: Agent Eval flaked on every recent PR (L3_en_001) — retry once, document, proceed.
+
 **Recovery point (2026-08-12 ~05:30)**: `origin/main` at `e9cf75fc` — SESSION-2 #960 PR #987 open, CI green (codecov 97.6%, SonarCloud pass, invariants pass) but 10 coderabbit threads raised (all FIX): adopt: turn-key spoof/prune exclusion, adopt-body limit, AuthCallback/use-auth-callback nesting + timeout-retry convergence, session-adoption response validation, 2 test-conditional fixes, e2e page-scoped stub, edge route gates (POST-only adopt + explicit migrate-path reject). Fix round running in `.worktrees/session-2` (w7:p1).
 - NEXT: fix round → merge #987 → close #960 → SESSION-3 #961 (brief + prompt ready, staging cutover) → AGENT-3 #962 → EDGE-1 #963.
 - Note: Agent Eval flaked twice on #987 (documented); codecov local/CI discrepancy on the route file resolved by direct-call tests (97.6% ✓); `gh pr merge` CLI false-blocks on stale mergeStateStatus → use REST PUT /pulls/{n}/merge after the two-way gate.
