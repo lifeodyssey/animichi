@@ -62,9 +62,13 @@ class RecordingStore:
         self.order.append("release")
         return await self._inner.release(ref, owner=owner)
 
-    async def sweep(self, *, now: datetime, owner: str, batch_size: int) -> SweepReport:
+    async def sweep(
+        self, *, now: datetime, owner: str, batch_size: int, lease_seconds: int
+    ) -> SweepReport:
         self.order.append("sweep")
-        return await self._inner.sweep(now=now, owner=owner, batch_size=batch_size)
+        return await self._inner.sweep(
+            now=now, owner=owner, batch_size=batch_size, lease_seconds=lease_seconds
+        )
 
 
 def make_outcome(

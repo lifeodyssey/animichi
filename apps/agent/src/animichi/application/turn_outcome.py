@@ -70,7 +70,7 @@ class TurnOutcome:
             now=self._now(),
             owner=self._sweep_owner,
             batch_size=self._sweep_batch,
-            lease_seconds=DEFAULT_LEASE_SECONDS,
+            lease_seconds=self._lease_seconds,
         )
 
     async def dispatch(self, ref: TurnRef, *, owner: str) -> bool:
