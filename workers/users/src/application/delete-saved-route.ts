@@ -69,7 +69,11 @@ function record(
   outcome: DeleteSavedRouteOutcomeLabel,
   startedAt: number,
 ): void {
-  observer.record({ outcome, duration_ms: Date.now() - startedAt });
+  try {
+    observer.record({ outcome, duration_ms: Date.now() - startedAt });
+  } catch {
+    // Observability must never change delete semantics.
+  }
 }
 
 function respond(label: DeleteSavedRouteOutcomeLabel, id: string): DeleteSavedRouteResult {
