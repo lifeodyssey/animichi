@@ -4,7 +4,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthCallback } from "../../../src/components/auth/use-auth-callback";
-import type { DeferredReplayOutcome } from "../../../src/features/chat/save/create-on-login";
+import type { DeferredReplayOutcome } from "../../../src/features/chat/save/complete-deferred-save";
 import type { SessionMigrationOutcome } from "../../../src/lib/auth/session-migration";
 
 // Every collaborator is a module-level constant: the effect's dependency array

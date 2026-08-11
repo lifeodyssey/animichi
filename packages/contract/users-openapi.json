@@ -636,58 +636,6 @@
         ]
       }
     },
-    "/v1/users/saved-routes/claim": {
-      "post": {
-        "operationId": "claimSavedRoutes",
-        "summary": "Claim anonymous saved routes",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "session_id": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": [
-                  "session_id"
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "claimed_count": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    }
-                  },
-                  "required": [
-                    "claimed_count"
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
     "/v1/users/checkins": {
       "post": {
         "operationId": "submitCheckin",

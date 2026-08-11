@@ -2,7 +2,6 @@
 
 CREATE TABLE public.saved_routes (
     id uuid DEFAULT gen_random_uuid() CONSTRAINT routes_id_not_null NOT NULL,
-    claim_session_id text,
     point_ids text[] CONSTRAINT routes_point_ids_not_null NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     user_id text,
@@ -15,8 +14,6 @@ CREATE TABLE public.saved_routes (
 
 ALTER TABLE ONLY public.saved_routes
     ADD CONSTRAINT routes_pkey PRIMARY KEY (id);
-
-CREATE INDEX idx_saved_routes_claim_session ON public.saved_routes USING btree (claim_session_id);
 
 CREATE INDEX idx_saved_routes_user ON public.saved_routes USING btree (user_id);
 

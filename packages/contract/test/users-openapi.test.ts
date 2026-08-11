@@ -24,7 +24,6 @@ describe("users OpenAPI security", () => {
     expect(usersOpenApi.paths["/v1/users/sessions"].get.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/saved-routes"].post.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/saved-routes/{id}"].delete.security).toEqual(BEARER_SECURITY);
-    expect(usersOpenApi.paths["/v1/users/saved-routes/claim"].post.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/checkins"].post.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/checkins"].get.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/shares"].post.security).toEqual(BEARER_SECURITY);

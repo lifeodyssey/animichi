@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 import type { BrowserContext, Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
-import { DEFERRED_SAVE_KEY } from "../apps/web/src/features/chat/save/deferred-save";
+import { dictFor } from "../apps/web/src/i18n/dictionaries";
+import { DEFERRED_SAVE_KEY, DEFERRED_SAVE_TTL_MS } from "../apps/web/src/features/chat/save/deferred-save";
 import { SSE_HEADERS, chatStreamRecording, patchFinalFrame } from "./fixtures/chat-stream";
 
 /**
@@ -24,6 +25,7 @@ test.use({
 });
 
 const ja = chatDictFor("ja");
+const authJa = dictFor("ja").auth;
 
 /** The recording carries a route but no timed itinerary; the CTA row lives on
  * the itinerary, so inject the stops the S1.5 card renders. */
@@ -78,6 +80,42 @@ async function captureSaves(context: BrowserContext, bodies: unknown[]): Promise
 
 async function stubAuthToken(context: BrowserContext): Promise<void> {
   await context.route("**/token", (route) => route.fulfill({ json: { token: "e2e-token" } }));
+}
+
+/** The callback also migrates the browser's anonymous sessions; a normal no-op
+ * keeps the migrate notice off the screen so the save outcome drives the page. */
+async function stubSessionMigrate(context: BrowserContext): Promise<void> {
+  await context.route("**/v1/session/migrate", (route) => route.fulfill({ json: { migrated: false } }));
+}
+
+/** The first save POST 5xxes, the retry succeeds — for the browser-seam retry AC. */
+async function captureSaveWithRetry(context: BrowserContext, bodies: unknown[]): Promise<void> {
+  let posts = 0;
+  await context.route("**/v1/users/saved-routes", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    bodies.push(route.request().postDataJSON());
+    posts += 1;
+    if (posts === 1) return route.fulfill({ status: 503, json: {} });
+    return route.fulfill({
+      json: {
+        id: "11111111-1111-4111-8111-111111111111",
+        title: "saved",
+        point_ids: ["p1", "p2"],
+        status: "saved",
+        saved_at: "2026-07-28T00:00:00.000Z",
+        updated_at: "2026-07-28T00:00:00.000Z",
+      },
+    });
+  });
+}
+
+/** Plant an intent directly in the profile's origin storage, bypassing the wall. */
+async function stashIntent(page: Page, createdAt: number): Promise<void> {
+  await page.goto("/");
+  await page.evaluate(
+    ({ key, intent }) => { localStorage.setItem(key, JSON.stringify(intent)); },
+    { key: DEFERRED_SAVE_KEY, intent: { pointIds: ["p1", "p2"], title: "宇治・2スポット", createdAt } },
+  );
 }
 
 async function planRoute(page: Page): Promise<void> {
@@ -191,4 +229,33 @@ test("a login the save CTA never started replays nothing", async ({ page, contex
   // and therefore the replay decision — has completed. No arbitrary wait.
   await page.waitForURL((url) => url.pathname === "/");
   expect(bodies).toEqual([]);
+});
+
+test("an expired deferred intent does not replay and is erased at the browser seam", async ({ page, context }) => {
+  const bodies: unknown[] = [];
+  await captureSaves(context, bodies);
+  await stubAuthToken(context);
+  await stubSessionMigrate(context);
+  // createdAt sits outside the 30-minute TTL: the callback must treat the
+  // intent as abandoned rather than resurrecting a stale save.
+  await stashIntent(page, Date.now() - DEFERRED_SAVE_TTL_MS - 60_000);
+  await page.goto("/auth/callback");
+  await page.waitForURL((url) => url.pathname === "/");
+  expect(bodies).toEqual([]);
+  expect(await page.evaluate((key) => localStorage.getItem(key), DEFERRED_SAVE_KEY)).toBeNull();
+});
+
+test("a failed replay surfaces the callback retry, and retry completes the save", async ({ page, context }) => {
+  const bodies: unknown[] = [];
+  await captureSaveWithRetry(context, bodies);
+  await stubAuthToken(context);
+  await stubSessionMigrate(context);
+  await stashIntent(page, Date.now());
+  await page.goto("/auth/callback");
+  await expect(page.getByRole("alert")).toBeVisible();
+  await page.getByRole("button", { name: authJa.callback_save_retry }).click();
+  await page.waitForURL((url) => url.pathname === "/");
+  // The failed first attempt and the successful retry both recorded a POST.
+  await expect.poll(() => bodies.length).toBe(2);
+  expect((bodies[1] as { point_ids: string[] }).point_ids).toEqual(["p1", "p2"]);
 });

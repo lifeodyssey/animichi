@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { replayDeferredSave } from "../../features/chat/save/create-on-login";
-import type { DeferredReplayOutcome } from "../../features/chat/save/create-on-login";
+import { replayDeferredSave } from "../../features/chat/save/complete-deferred-save";
+import type { DeferredReplayOutcome } from "../../features/chat/save/complete-deferred-save";
 import { getAuthToken } from "../../lib/auth/auth-session";
 import {
   MIGRATE_TIMEOUT_MS,
