@@ -62,7 +62,9 @@ class ScriptedStore:
         self.release_calls.append((ref.session_id, ref.turn_key, owner))
         return True
 
-    async def sweep(self, *, now: object, owner: str, batch_size: int) -> SweepReport:
+    async def sweep(
+        self, *, now: object, owner: str, batch_size: int, lease_seconds: int
+    ) -> SweepReport:
         del now, owner
         self.sweep_calls.append(batch_size)
         return SweepReport()

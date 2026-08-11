@@ -72,6 +72,8 @@ class TurnOutcomeStore(Protocol):
         """Delete a never-dispatched ``reserved`` turn (lease-guarded)."""
         ...
 
-    async def sweep(self, *, now: datetime, owner: str, batch_size: int) -> SweepReport:
+    async def sweep(
+        self, *, now: datetime, owner: str, batch_size: int, lease_seconds: int
+    ) -> SweepReport:
         """Reclaim expired leases in a bounded batch (concurrent-safe)."""
         ...

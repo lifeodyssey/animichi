@@ -67,7 +67,10 @@ class TurnOutcome:
         if self._store is None:
             return SweepReport()
         return await self._store.sweep(
-            now=self._now(), owner=self._sweep_owner, batch_size=self._sweep_batch
+            now=self._now(),
+            owner=self._sweep_owner,
+            batch_size=self._sweep_batch,
+            lease_seconds=DEFAULT_LEASE_SECONDS,
         )
 
     async def dispatch(self, ref: TurnRef, *, owner: str) -> bool:

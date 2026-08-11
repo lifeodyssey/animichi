@@ -161,7 +161,9 @@ class FakeTurnReservationStore:
         self.reservations.remove(reservation)
         return True
 
-    async def sweep(self, *, now: datetime, owner: str, batch_size: int) -> SweepReport:
+    async def sweep(
+        self, *, now: datetime, owner: str, batch_size: int, lease_seconds: int
+    ) -> SweepReport:
         async with self._lock():
             stale = [
                 r

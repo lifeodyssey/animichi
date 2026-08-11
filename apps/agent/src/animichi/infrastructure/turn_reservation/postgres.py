@@ -97,7 +97,7 @@ _SWEEP_CLAIM_SQL = """
         LIMIT $2
     )
     UPDATE turn_reservations
-    SET lease_owner = $3, lease_expires_at = now() + interval '5 minutes',
+    SET lease_owner = $3, lease_expires_at = now() + make_interval(secs => $4),
         updated_at = now()
     WHERE id IN (SELECT id FROM stale)
     RETURNING session_id, turn_key, status
@@ -175,10 +175,14 @@ class PostgresTurnReservationStore:
         )
         return row is not None
 
-    async def sweep(self, *, now: datetime, owner: str, batch_size: int) -> SweepReport:
+    async def sweep(
+        self, *, now: datetime, owner: str, batch_size: int, lease_seconds: int
+    ) -> SweepReport:
         async with self._pool.acquire() as connection:
             async with connection.transaction():
-                return await self._sweep(connection, now, owner, batch_size)
+                return await self._sweep(
+                    connection, now, owner, batch_size, lease_seconds
+                )
 
     async def _guarded(
         self, connection: PoolConnection, request: ReserveRequest
@@ -243,10 +247,17 @@ class PostgresTurnReservationStore:
         return ReservationOutcome(status="in_flight", session_id=session_id)
 
     async def _sweep(
-        self, connection: PoolConnection, now: datetime, owner: str, batch_size: int
+        self,
+        connection: PoolConnection,
+        now: datetime,
+        owner: str,
+        batch_size: int,
+        lease_seconds: int,
     ) -> SweepReport:
         """Reclaim expired leases in one bounded, concurrent-safe pass."""
-        rows = await connection.fetch(_SWEEP_CLAIM_SQL, now, batch_size, owner)
+        rows = await connection.fetch(
+            _SWEEP_CLAIM_SQL, now, batch_size, owner, lease_seconds
+        )
         released = await self._count_released(connection, rows, owner)
         return SweepReport(released=released, failed=len(rows) - released)
 

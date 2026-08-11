@@ -43,7 +43,9 @@ class _SweepStore:
         del ref, owner
         return True
 
-    async def sweep(self, *, now: object, owner: str, batch_size: int) -> SweepReport:
+    async def sweep(
+        self, *, now: object, owner: str, batch_size: int, lease_seconds: int
+    ) -> SweepReport:
         del now, owner
         self.sweeps.append(batch_size)
         return SweepReport()
