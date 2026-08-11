@@ -55,6 +55,105 @@ class ChatTurnRequest(BaseModel):
     origin_lng: float | None = None
 
 
+class GpsPoint(BaseModel):
+    lat: float
+    lng: float
+
+
+class PhotoSearchRequestGps(BaseModel):
+    lat: float
+    lng: float
+
+
+class PhotoSearchRequest(BaseModel):
+    image_base64: str
+    mime_type: str
+    gps: PhotoSearchRequestGps | None = None
+
+
+class PhotoCandidate(BaseModel):
+    id: str
+    title: str
+    bangumi_id: str | None = None
+
+
+class PhotoPoint(BaseModel):
+    id: str
+    name: str
+    bangumi_id: str
+    episode: int
+    screenshot_url: str
+    latitude: float
+    longitude: float
+    title: str
+    city: str | None = None
+
+
+class PhotoResultsRows(BaseModel):
+    id: str
+    name: str
+    bangumi_id: str
+    episode: int
+    screenshot_url: str
+    latitude: float
+    longitude: float
+    title: str
+    city: str | None = None
+
+
+class PhotoResults(BaseModel):
+    kind: Literal["bangumi"]
+    bangumi_id: str
+    title: str
+    row_count: int
+    rows: list[PhotoResultsRows]
+
+
+class PhotoSearchResponseDataResultsRows(BaseModel):
+    id: str
+    name: str
+    bangumi_id: str
+    episode: int
+    screenshot_url: str
+    latitude: float
+    longitude: float
+    title: str
+    city: str | None = None
+
+
+class PhotoSearchResponseDataResults(BaseModel):
+    kind: Literal["bangumi"]
+    bangumi_id: str
+    title: str
+    row_count: int
+    rows: list[PhotoSearchResponseDataResultsRows]
+
+
+class PhotoSearchResponseDataCandidates(BaseModel):
+    id: str
+    title: str
+    bangumi_id: str | None = None
+
+
+class PhotoSearchResponseData(BaseModel):
+    results: PhotoSearchResponseDataResults | None = None
+    reason: Literal["photo_unrecognized", "photo_ambiguous"] | None = None
+    candidates: list[PhotoSearchResponseDataCandidates] | None = None
+
+
+class PhotoSearchResponse(BaseModel):
+    success: Literal[True]
+    status: Literal["ok"]
+    intent: Literal["search_bangumi", "clarify"]
+    offer_id: str
+    data: PhotoSearchResponseData
+
+
+class PhotoConfirmRequest(BaseModel):
+    offer_id: str
+    candidate_id: str | None = None
+
+
 AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
     ("GET", "/", "service banner"),
     ("GET", "/healthz", "health and service metadata"),
