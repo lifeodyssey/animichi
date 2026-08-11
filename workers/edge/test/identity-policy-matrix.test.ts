@@ -86,7 +86,11 @@ void test("api_keys exists only as append-only history and is dropped by the new
   assert.equal(drops.length, 1, "exactly one migration must drop api_keys");
   const dropName = drops[0] ?? "";
   assert.ok(files.indexOf(dropName) > files.indexOf("20260809000009_table_api_keys.sql"), "the drop must follow the create");
-  assert.equal(files[files.length - 1], dropName, "the drop must be the newest migration — restoring the table fails this check");
+  const afterDrop = files.slice(files.indexOf(dropName) + 1);
+  assert.ok(
+    afterDrop.every((name) => !/create\s+table(?:\s+if\s+not\s+exists\s+)?public\.api_keys/i.test(sql(name))),
+    "api_keys must never be restored after its drop — later migrations may follow the drop, but none may recreate the table",
+  );
 });
 
 void test("anonymous BYOK is never promoted to authenticated (X-User-Type stays anonymous)", async () => {

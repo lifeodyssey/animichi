@@ -44,6 +44,16 @@ class _ControlledAsyncio:
 
     CancelledError = asyncio.CancelledError
 
+    @staticmethod
+    def create_task(coro: asyncio.Future[object]) -> asyncio.Task[object]:
+        return asyncio.create_task(coro)
+
+    @staticmethod
+    def gather(
+        *tasks: asyncio.Future[object], return_exceptions: bool = False
+    ) -> asyncio.Future[list[object]]:
+        return asyncio.gather(*tasks, return_exceptions=return_exceptions)
+
     def __init__(self) -> None:
         self._loop = asyncio.get_running_loop()
         self._outer_timeout: asyncio.Timeout | None = None

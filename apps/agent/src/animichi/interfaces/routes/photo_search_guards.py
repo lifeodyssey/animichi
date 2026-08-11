@@ -1,8 +1,13 @@
-"""Photo-search request guards: image validation, budget, quota, BYOK login gate.
+"""Photo-search request guards: image validation and the per-use tier quota.
 
 Split out of `photo_search.py` to keep that module under the repo's 300-line
 file budget — these are the boundary checks that run before recognition
 (`animichi.agents.photo_vision`) is ever attempted.
+
+The anonymous budget breaker, the BYOK login gate, and identity→payer mapping
+are not duplicated here: every photo-search request passes through
+:class:`TurnAdmission` (`application.turn_admission`) first, exactly like the
+chat boundary.
 """
 
 from __future__ import annotations
@@ -18,20 +23,11 @@ from fastapi.responses import JSONResponse
 from animichi.agents.photo_vision import sniff_image_mime
 from animichi.config.settings import Settings
 from animichi.infrastructure.observability.photo_search import QuotaKey, QuotaTier
-from animichi.interfaces.db_repos import usage_repo
 from animichi.interfaces.routes._deps import (
     TrustedAuthContext,
     _error_response,
-    _get_settings_from_request,
-    _has_byok_headers,
 )
-from animichi.interfaces.routes.chat import BUDGET_EXHAUSTED_MESSAGE
-from animichi.interfaces.usage_metering import (
-    ANON_BUDGET_EXHAUSTED_CODE,
-    ANONYMOUS_USER_TYPE,
-    anonymous_budget_verdict,
-    is_anonymous_identity,
-)
+from animichi.interfaces.usage_metering import ANONYMOUS_USER_TYPE
 
 SUPPORTED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
 GuidancePremise = Literal["configure_vision_key", "switch_vision_endpoint"]
@@ -41,8 +37,6 @@ GuidancePremise = Literal["configure_vision_key", "switch_vision_endpoint"]
 # payloads); the semantic limit below it returns the typed 413.
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 MAX_IMAGE_BASE64_CHARS = ((MAX_IMAGE_BYTES + 2) // 3) * 4
-
-BYOK_REQUIRES_LOGIN_MESSAGE = "BYOKを使うにはログインが必要です。"
 
 
 @dataclass(frozen=True)
@@ -137,66 +131,6 @@ def _check_quota(quota_ok: bool, has_byok: bool) -> None:
         "photo_search_quota_exhausted",
         "The photo-search quota for today is used up.",
         guidance=_quota_guidance(has_byok),
-    )
-
-
-async def _budget_rejection(
-    request: Request, auth: TrustedAuthContext
-) -> JSONResponse | None:
-    # Route through the canonical predicate rather than testing `user_type`
-    # directly: a request carrying `X-User-Id` but no `X-User-Type` is an
-    # identified caller, and a looser check here metered them into the anonymous
-    # scope and could refuse them once the anon budget ran out. The edge sets
-    # both headers together (`workers/edge/app.ts`), so this is defence in depth
-    # rather than a reachable path — but the same concept having two different
-    # answers in the codebase is how it stops being one.
-    if auth.user_id is not None and not is_anonymous_identity(
-        auth.user_id, auth.user_type
-    ):
-        return None
-    settings = _get_settings_from_request(request)
-    verdict = await anonymous_budget_verdict(
-        usage_repo(request.app.state.db_client),
-        budget_usd=settings.anon_daily_cost_budget_usd,
-    )
-    if not verdict.is_exhausted:
-        return None
-    return JSONResponse(
-        status_code=403,
-        content={
-            "error": {
-                "code": ANON_BUDGET_EXHAUSTED_CODE,
-                "message": BUDGET_EXHAUSTED_MESSAGE,
-                "action": "login",
-            }
-        },
-    )
-
-
-def _byok_login_rejection(
-    auth: TrustedAuthContext, request: Request
-) -> JSONResponse | None:
-    """Reject anonymous BYOK presence before parsing its credential shape.
-
-    Routes through `is_anonymous_identity` — the single canonical "is this
-    caller anonymous" predicate (also used below by `_scope_user_type`'s
-    sibling logic and by the route's own `is_authenticated` computation) —
-    rather than a bare `user_type != ANONYMOUS_USER_TYPE` check. A literal
-    check only catches a caller whose `X-User-Type` is exactly
-    `"anonymous"`; an `anon_`-prefixed `X-User-Id` with a missing or
-    mistyped `X-User-Type` is anonymous by the ID convention too, and
-    `is_anonymous_identity` is what the rest of this module (and quota
-    metering) already treats as ground truth. Without this, that same
-    caller would clear the login gate here yet still resolve to the "anon"
-    scope for billing — one request, two different identity verdicts, and
-    the gap between them is a BYOK-vision bypass for anonymous callers.
-    """
-    if not is_anonymous_identity(auth.user_id, auth.user_type) or not _has_byok_headers(
-        request
-    ):
-        return None
-    return _error_response(
-        "byok_requires_login", BYOK_REQUIRES_LOGIN_MESSAGE, status_code=403
     )
 
 

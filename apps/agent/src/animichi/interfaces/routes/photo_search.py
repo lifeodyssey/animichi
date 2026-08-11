@@ -5,9 +5,10 @@ still owns real auth, and this route only reads the trusted headers.
 
 Recognition itself rides the main agent's multimodal input (``BinaryContent``,
 `animichi.agents.photo_vision`) instead of a standalone Gemini REST client + a
-BYOK-canary router (#656) — this route's own job is unchanged: decode/validate
-the upload, enforce budget/quota (`photo_search_guards`), resolve a BYOK model
-from the real ``X-BYOK-*`` headers (mirroring `animichi.interfaces.routes.chat`),
+BYOK-canary router (#656) — this route's own job is unchanged: run
+:class:`TurnAdmission` first (TURN-2 #949), decode/validate the upload,
+enforce the per-use photo tier quota (`photo_search_guards`), resolve a BYOK
+model from the real ``X-BYOK-*`` headers (mirroring `animichi.interfaces.routes.chat`),
 and hand a bound recognition closure to `animichi.agents.photo_search.run_photo_search`.
 """
 
@@ -31,6 +32,8 @@ from animichi.agents.photo_vision import (
     VisionCallResult,
     recognize_photo,
 )
+from animichi.application.turn_admission import AdmissionIdentity, AdmissionPolicy
+from animichi.application.turn_admission_port import TurnReservationStore
 from animichi.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from animichi.config.settings import Settings
 from animichi.infrastructure.observability.photo_search import (
@@ -40,7 +43,7 @@ from animichi.infrastructure.observability.photo_search import (
     PhotoSearchSignals,
     record_photo_search,
 )
-from animichi.interfaces.db_repos import usage_repo
+from animichi.interfaces.db_repos import turn_reservation_store, usage_repo
 from animichi.interfaces.public_api import record_attributed_usage
 from animichi.interfaces.routes._deps import (
     TrustedAuthContext,
@@ -49,11 +52,14 @@ from animichi.interfaces.routes._deps import (
     _get_trusted_auth_context,
     _has_byok_headers,
 )
+from animichi.interfaces.routes.admission import (
+    admission_rejection_response,
+    admission_request,
+    build_turn_admission,
+)
 from animichi.interfaces.routes.photo_search_guards import (
     MAX_IMAGE_BASE64_CHARS,
     PhotoSearchRejection,
-    _budget_rejection,
-    _byok_login_rejection,
     _check_quota,
     _decode_image,
     _quota_key,
@@ -62,7 +68,11 @@ from animichi.interfaces.routes.photo_search_guards import (
     _rejection_response,
     _scope_user_type,
 )
-from animichi.interfaces.usage_metering import UsagePrices, is_anonymous_identity
+from animichi.interfaces.usage_metering import (
+    ANONYMOUS_USER_TYPE,
+    UsagePrices,
+    is_anonymous_identity,
+)
 
 __all__ = ["MAX_IMAGE_BASE64_CHARS", "PhotoSearchRuntime", "build_photo_search_runtime"]
 
@@ -222,25 +232,72 @@ async def handle_photo_search(
     is_authenticated = auth.user_id is not None and not is_anonymous_identity(
         auth.user_id, auth.user_type
     )
-    login_rejection = _byok_login_rejection(auth, request)
-    if login_rejection is not None:
-        return login_rejection
-    # The budget check runs before the image is decoded. It needs only `auth`,
-    # and a breaker that fires after the work it is meant to prevent is most of
-    # a breaker that does not work. The visible consequence: a caller who is both
-    # over budget and sending a malformed image now gets 403 rather than 400 —
-    # the correct precedence, since being over budget is the reason we are not
-    # looking at their image at all.
-    budget_rejection = await _budget_rejection(request, auth)
-    if budget_rejection is not None:
-        return budget_rejection
+    settings = _get_settings_from_request(request)
+    admission = build_turn_admission(
+        request,
+        policy=AdmissionPolicy(
+            quota=None,
+            budget_usd=settings.anon_daily_cost_budget_usd,
+        ),
+    )
+    admission_req = admission_request(
+        request,
+        auth,
+        session_id=None,
+        is_byok=_has_byok_headers(request),
+        # No `X-User-Id` is the anonymous tier here (host-keyed), mirroring
+        # `_scope_user_type`: an identified caller without a user-type header
+        # must stay identified, never coerced into the anon scope.
+        identity=AdmissionIdentity(
+            user_id=auth.user_id,
+            user_type=auth.user_type
+            if auth.user_id is not None
+            else ANONYMOUS_USER_TYPE,
+        ),
+    )
+    verdict = await admission(admission_req)
+    rejection = admission_rejection_response(verdict)
+    if rejection is not None:
+        return rejection
+    store = turn_reservation_store(request.app.state.db_client)
+    reserved = verdict.admitted and not verdict.replayed
     try:
         image, byok_model = await _prepare_turn(
             runtime, request, auth, body, is_authenticated
         )
-    except PhotoSearchRejection as rejection:
-        return _rejection_response(rejection)
-    return await _run_pipeline(runtime, byok_model, image, body, request, auth)
+    except PhotoSearchRejection as photo_rejection:
+        await _settle(
+            store, reserved, verdict.session_id, admission_req.turn_key, fail=True
+        )
+        return _rejection_response(photo_rejection)
+    try:
+        response = await _run_pipeline(runtime, byok_model, image, body, request, auth)
+    except BaseException:
+        await _settle(
+            store, reserved, verdict.session_id, admission_req.turn_key, fail=True
+        )
+        raise
+    else:
+        await _settle(
+            store, reserved, verdict.session_id, admission_req.turn_key, fail=False
+        )
+    return response
+
+
+async def _settle(
+    store: TurnReservationStore | None,
+    reserved: bool,
+    session_id: str | None,
+    turn_key: str,
+    *,
+    fail: bool,
+) -> None:
+    if not reserved or store is None:
+        return
+    method = getattr(store, "fail" if fail else "complete", None)
+    if method is None:
+        return
+    await method(session_id=session_id, turn_key=turn_key)
 
 
 async def _run_pipeline(

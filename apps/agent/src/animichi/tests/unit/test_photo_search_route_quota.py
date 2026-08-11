@@ -11,7 +11,7 @@ import httpx
 
 from animichi.agents.byok_models import ByokModel
 from animichi.config.settings import Settings
-from animichi.interfaces.routes.chat import BUDGET_EXHAUSTED_MESSAGE
+from animichi.interfaces.routes.admission import BUDGET_EXHAUSTED_MESSAGE
 from animichi.tests.unit.conftest_fastapi import async_client
 from animichi.tests.unit.photo_search_route_fixtures import (
     BYOK_HEADERS,
