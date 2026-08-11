@@ -41,6 +41,30 @@ export const RootMetadata = z.object({
 });
 export type RootMetadata = z.infer<typeof RootMetadata>;
 
+/**
+ * The `POST /v1/byok/probe` success body (D5, #953): one bounded
+ * vision-capability probe's verdict. `error_code` is a null-or-opaque-string
+ * field — the server deliberately collapses every non-auth failure to
+ * `provider_unreachable`, so the emitted Pydantic model must keep it nullable
+ * rather than optional (a `null` and an absent key are different wires).
+ */
+export const ByokProbeResponse = z.object({
+  vision: z.boolean(),
+  reachable: z.boolean(),
+  error_code: z.string().nullable(),
+});
+export type ByokProbeResponse = z.infer<typeof ByokProbeResponse>;
+
+/** The agent error envelope (`_error_response`) the probe route shares with
+ * every other `/v1` route: `{"error": {"code", "message"}}`. */
+export const ByokProbeErrorBody = z.object({
+  error: z.object({
+    code: z.string(),
+    message: z.string().optional(),
+  }),
+});
+export type ByokProbeErrorBody = z.infer<typeof ByokProbeErrorBody>;
+
 /** One published Agent path in the complete inventory. */
 export interface AgentPath {
   method: "GET" | "POST" | "PATCH";

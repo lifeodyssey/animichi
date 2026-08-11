@@ -1,13 +1,14 @@
-import { z } from "zod";
+import { ByokProbeErrorBody, ByokProbeResponse } from "@animichi/contract";
 import { sessionHeaders } from "./session-headers";
 
 /**
  * Client for `POST /v1/byok/probe` (issue #284 Task 5/D5, consumed by the
  * Task 6 settings panel). One request does double duty (OQ-2): it validates
- * the saved credential AND detects vision capability. Task 5 is landing in
- * parallel — the response contract below is written against the spec's
- * pinned shape (`{"vision", "reachable", "error_code"}`), and the unit suite
- * exercises it through MSW; the live wire is a Tester browser AC.
+ * the saved credential AND detects vision capability. The wire contract is
+ * the generated boundary from `@animichi/contract` — `ByokProbeResponse`
+ * (the probe verdict) and `ByokProbeErrorBody` (the shared agent error
+ * envelope) — the handwritten zod mirrors are gone (AGENT-2 #953), so the
+ * web caller can never drift from the emitted Pydantic model.
  *
  * The failure taxonomy is deliberately collapsed server-side (spec P2-1):
  * only auth outcomes are distinguishable, everything else is the opaque
@@ -23,14 +24,6 @@ export type ByokProbeOutcome =
   | { readonly kind: "requires_login" }
   | { readonly kind: "error" };
 
-const ProbeBody = z.object({
-  vision: z.boolean(),
-  reachable: z.boolean(),
-  error_code: z.string().nullable(),
-});
-
-const ErrorBody = z.object({ error: z.object({ code: z.string() }) });
-
 export function byokProbeUrl(baseUrl: string): string {
   return new URL("/v1/byok/probe", baseUrl).toString();
 }
@@ -43,14 +36,14 @@ export function byokProbeUrl(baseUrl: string): string {
  * unknown codes fall through to the default arms rather than an exhaustive
  * switch.
  */
-function reachableOutcome(body: z.infer<typeof ProbeBody>): ByokProbeOutcome {
+function reachableOutcome(body: ByokProbeResponse): ByokProbeOutcome {
   if (body.reachable) return { kind: "ok", vision: body.vision, definitive: body.error_code === null };
   if (body.error_code === "byok_credential_rejected") return { kind: "rejected" };
   return { kind: "unreachable" };
 }
 
 async function errorCodeOf(response: Response): Promise<string | undefined> {
-  const parsed = ErrorBody.safeParse(await response.json().catch(() => undefined));
+  const parsed = ByokProbeErrorBody.safeParse(await response.json().catch(() => undefined));
   return parsed.success ? parsed.data.error.code : undefined;
 }
 
@@ -72,7 +65,7 @@ async function failureOutcome(response: Response): Promise<ByokProbeOutcome> {
 }
 
 async function successOutcome(response: Response): Promise<ByokProbeOutcome> {
-  const parsed = ProbeBody.safeParse(await response.json().catch(() => undefined));
+  const parsed = ByokProbeResponse.safeParse(await response.json().catch(() => undefined));
   return parsed.success ? reachableOutcome(parsed.data) : { kind: "error" };
 }
 
