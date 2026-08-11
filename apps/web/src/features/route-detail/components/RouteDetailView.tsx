@@ -1,15 +1,15 @@
-import type { Locale } from "../../i18n/locales";
-import { routeDetailCopyFor } from "../../lib/route-detail/copy";
-import type { RouteDetailCopy } from "../../lib/route-detail/copy";
+import type { Locale } from "../../../i18n/locales";
+import { routeDetailCopyFor } from "../lib/copy";
+import type { RouteDetailCopy } from "../lib/copy";
 import {
   ROUTE_DETAIL_SCHEMA_VERSION,
   deriveRouteDataState,
   isRouteEmpty,
-} from "../../lib/route-detail/data-state";
-import type { RouteDataState, RouteDetail } from "../../lib/route-detail/data-state";
-import { EXPANDED_SHEET_PX, initialMode, useRouteMode } from "../../lib/route-detail/mode";
-import type { RouteMode } from "../../lib/route-detail/mode";
-import { routeProgressLabel, toRoutePins } from "../../lib/route-detail/pin-state";
+} from "../lib/data-state";
+import type { RouteDataState, RouteDetail } from "../lib/data-state";
+import { EXPANDED_SHEET_PX, initialMode, useRouteMode } from "../lib/mode";
+import type { RouteMode } from "../lib/mode";
+import { routeProgressLabel, toRoutePins } from "../lib/pin-state";
 import { GoldBar } from "./GoldBar";
 import { Hero } from "./Hero";
 import { MapCard } from "./MapCard";

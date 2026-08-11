@@ -4,7 +4,7 @@
 import { RouterProvider } from "@tanstack/react-router";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { listSavedRoutesOptions } from "../../../src/api/hooks/use-route-detail";
+import { listSavedRoutesOptions } from "../../../src/features/route-detail/hooks";
 import { getRouter } from "../../../src/router";
 import { server } from "../../msw/node";
 import {

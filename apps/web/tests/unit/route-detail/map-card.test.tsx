@@ -3,10 +3,10 @@
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MapCard } from "../../../src/components/route-detail/MapCard";
-import type { MapCardPayload } from "../../../src/components/route-detail/MapCard";
-import { routeDetailCopyFor } from "../../../src/lib/route-detail/copy";
-import { ROUTE_DETAIL_SCHEMA_VERSION } from "../../../src/lib/route-detail/data-state";
+import { MapCard } from "../../../src/features/route-detail/components/MapCard";
+import type { MapCardPayload } from "../../../src/features/route-detail/components/MapCard";
+import { routeDetailCopyFor } from "../../../src/features/route-detail/lib/copy";
+import { ROUTE_DETAIL_SCHEMA_VERSION } from "../../../src/features/route-detail/lib/data-state";
 
 afterEach(cleanup);
 

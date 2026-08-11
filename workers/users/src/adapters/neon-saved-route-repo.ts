@@ -1,7 +1,6 @@
 import type {
   ClaimSavedRoutesInput,
   ClaimSavedRoutesResult,
-  ListSavedRoutesResult,
   SaveSavedRouteInput,
   SavedRoute,
   SavedRouteStatus,
@@ -13,6 +12,7 @@ import type { DbExecutor } from "../db/client";
 import type { OwnerLookup } from "../domain/ownership";
 import type { SavedRouteRepo } from "../domain/ports";
 import { isSavedRouteStatus } from "../domain/saved-route-status";
+import type { SavedRouteReader } from "../application/list-saved-routes";
 
 type RecordRow = Record<string, unknown>;
 
@@ -105,15 +105,22 @@ async function claimSavedRouteRows(db: DbExecutor, userId: string, sessionId: st
  * stable SAVED_ROUTE_* errors; the delete store performs one owner-predicated
  * atomic delete and reports only whether a row was deleted.
  */
-export class NeonSavedRouteRepo implements SavedRouteRepo, SavedRouteStore, DeleteSavedRouteStore {
+export class NeonSavedRouteRepo implements
+  SavedRouteRepo,
+  SavedRouteStore,
+  DeleteSavedRouteStore,
+  SavedRouteReader {
   constructor(private readonly db: DbExecutor) {}
 
-  async listSavedRoutes(userId: string): Promise<ListSavedRoutesResult> {
+  /** The caller's own saved routes, row-normalized, in store order. The
+   * ListSavedRoutes action (src/application/list-saved-routes.ts) owns the
+   * newest-update-first ordering policy. */
+  async listOwned(userId: string): Promise<SavedRoute[]> {
     const result = await this.db.execute(sql`
       SELECT id, title, point_ids, status, saved_at, updated_at
-      FROM saved_routes WHERE user_id = ${userId} ORDER BY updated_at DESC
+      FROM saved_routes WHERE user_id = ${userId}
     `);
-    return { saved_routes: result.rows.map(toSavedRoute) };
+    return result.rows.map(toSavedRoute);
   }
 
   async findOwner(id: string): Promise<OwnerLookup | undefined> {

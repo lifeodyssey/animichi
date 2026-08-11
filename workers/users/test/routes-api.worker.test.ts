@@ -4,12 +4,10 @@ import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
-import { listSavedRoutes } from "../src/api/routes";
+import { listSavedRoutes as listSavedRoutesAction } from "../src/application/list-saved-routes";
 import { listSessions } from "../src/api/routes";
 import { saveSavedRoute } from "../src/application/save-saved-route";
-import type { SavedRouteStore } from "../src/application/save-saved-route";
 import type { DbExecutor } from "../src/db/client";
-import type { SavedRouteRepo } from "../src/domain/ports";
 import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
 
 const ID = "00000000-0000-4000-8000-000000000009";
@@ -21,11 +19,7 @@ const UPDATE_INPUT: SaveSavedRouteInput = {
 };
 
 /** Real Neon adapter over the fake executor — saved-route SQL still verified. */
-function repo(db: DbExecutor): SavedRouteStore {
-  return new NeonSavedRouteRepo(db);
-}
-
-function repoReads(db: DbExecutor): SavedRouteRepo {
+function repo(db: DbExecutor): NeonSavedRouteRepo {
   return new NeonSavedRouteRepo(db);
 }
 
@@ -53,8 +47,8 @@ function orpcError(error: unknown): ORPCError<string, unknown> {
 }
 
 describe("user saved-route handlers", () => {
-  it("lists an empty store", async () => {
-    expect(await listSavedRoutes(repoReads(fakeDb().db), "user-a")).toEqual({ saved_routes: [] });
+  it("lists an empty store through the ListSavedRoutes action", async () => {
+    expect(await listSavedRoutesAction(repo(fakeDb().db), "user-a")).toEqual({ saved_routes: [] });
   });
 
   it("creates a saved route with normalized timestamps", async () => {
@@ -92,7 +86,7 @@ describe("user saved-route handlers", () => {
   });
 
   it("normalizes raw workerd timestamp strings while listing", async () => {
-    const result = await listSavedRoutes(repoReads(fakeDb([row()]).db), "user-a");
+    const result = await listSavedRoutesAction(repo(fakeDb([row()]).db), "user-a");
     expect(result.saved_routes[0]?.saved_at).toBe("2026-07-13T12:34:56.000Z");
     expect(result.saved_routes[0]?.updated_at).toBe("2026-07-13T12:34:56.000Z");
   });

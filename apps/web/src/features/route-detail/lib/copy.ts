@@ -1,5 +1,4 @@
-// TODO(refactor-skeleton): de-dual-home route-detail lib -> features/route-detail/ — see #842
-import type { Locale } from "../../i18n/locales";
+import type { Locale } from "../../../i18n/locales";
 
 /**
  * Trilingual copy for the route detail shell, local to the feature (the shared

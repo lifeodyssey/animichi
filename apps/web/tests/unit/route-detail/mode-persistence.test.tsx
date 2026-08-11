@@ -3,8 +3,8 @@
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { RouteDetailView } from "../../../src/components/route-detail/RouteDetailView";
-import type { RouteDetail } from "../../../src/lib/route-detail/data-state";
+import { RouteDetailView } from "../../../src/features/route-detail/components/RouteDetailView";
+import type { RouteDetail } from "../../../src/features/route-detail/lib/data-state";
 
 afterEach(cleanup);
 

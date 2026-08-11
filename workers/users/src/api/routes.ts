@@ -3,7 +3,6 @@ import type {
   ClaimSavedRoutesResult,
   ListSessionsInput,
   ListSessionsResult,
-  ListSavedRoutesResult,
   UserSession,
 } from "@animichi/contract";
 import { sql, type SQL } from "drizzle-orm";
@@ -66,11 +65,6 @@ function sessionPage(
   const next = input.offset + input.limit;
   const hasMore = result.rows.length > input.limit && next <= MAX_LIST_OFFSET;
   return { sessions, next_offset: hasMore ? next : null };
-}
-
-/** List saved routes owned by a user, newest update first. */
-export async function listSavedRoutes(repo: SavedRouteRepo, userId: string): Promise<ListSavedRoutesResult> {
-  return repo.listSavedRoutes(userId);
 }
 
 // TODO(refactor-skeleton): the conversation query and row normalization below
