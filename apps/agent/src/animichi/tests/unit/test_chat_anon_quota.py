@@ -40,8 +40,8 @@ def _db(*, next_count: int) -> MagicMock:
     db.usage.accumulate_usage = AsyncMock(return_value=None)
     db.usage.total_cost_usd = AsyncMock(return_value=0.0)
     db.anon_quota = MagicMock()
-    db.anon_quota.increment_and_count = AsyncMock(return_value=next_count + 1)
-    db.anon_quota.count_for = AsyncMock(return_value=next_count)
+    db.anon_quota.increment_and_count = AsyncMock(return_value=next_count)
+    db.anon_quota.count_for = AsyncMock(return_value=next_count - 1)
     return db
 
 

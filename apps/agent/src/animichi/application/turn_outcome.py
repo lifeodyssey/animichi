@@ -14,6 +14,8 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
+import structlog
+
 from animichi.application.turn_admission import (
     DEFAULT_LEASE_SECONDS,
     AdmissionRequest,
@@ -33,6 +35,9 @@ _DEFAULT_SWEEP_OWNER = "sweep"
 
 #: Settlement side effects (usage metering / quota / audit) applied on the win.
 SettleCallback = Callable[[], Awaitable[None]]
+
+
+logger = structlog.get_logger(__name__)
 
 
 class TurnOutcome:
@@ -57,9 +62,14 @@ class TurnOutcome:
 
     async def admit(self, request: AdmissionRequest) -> AdmissionVerdict:
         """Sweep stale leases, then admit (pre-admission reconciliation)."""
-        await self.sweep()
         if self._admission is None:
             raise RuntimeError("TurnOutcome.admit requires an admission use case")
+        try:
+            await self.sweep()
+        except Exception:
+            # Same posture as the startup sweep: a failed reconciliation must
+            # not reject the turn — the stale rows stay for the next pass.
+            logger.warning("pre_admission_sweep_failed", exc_info=True)
         return await self._admission(request)
 
     async def sweep(self) -> SweepReport:

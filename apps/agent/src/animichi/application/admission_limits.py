@@ -128,5 +128,5 @@ async def anonymous_quota_verdict(
             is_exhausted=False, count=0, quota=quota, resets_at=resets_at
         )
     return QuotaVerdict(
-        is_exhausted=count > quota, count=count, quota=quota, resets_at=resets_at
+        is_exhausted=count >= quota, count=count, quota=quota, resets_at=resets_at
     )

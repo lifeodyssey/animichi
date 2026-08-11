@@ -66,17 +66,17 @@ async def test_the_nth_message_within_quota_passes() -> None:
     assert verdict.count == 2
 
 
-async def test_the_n_plus_first_count_is_rejected() -> None:
+async def test_the_quota_boundary_count_is_rejected() -> None:
     verdict = await anonymous_quota_verdict(
-        _AnonQuotaRepoDouble(count=4), anon_id=ANON_ID, quota=3, today=TODAY
+        _AnonQuotaRepoDouble(count=3), anon_id=ANON_ID, quota=3, today=TODAY
     )
     assert verdict.is_exhausted is True
-    assert verdict.count == 4
+    assert verdict.count == 3
 
 
 async def test_the_rejection_carries_the_next_utc_reset_instant() -> None:
     verdict = await anonymous_quota_verdict(
-        _AnonQuotaRepoDouble(count=4), anon_id=ANON_ID, quota=3, today=TODAY
+        _AnonQuotaRepoDouble(count=3), anon_id=ANON_ID, quota=3, today=TODAY
     )
     expected = datetime.combine(date(2026, 7, 27), time.min, tzinfo=UTC)
     assert verdict.resets_at == next_utc_midnight(TODAY) == expected

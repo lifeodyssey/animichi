@@ -53,7 +53,9 @@ class _RecordingStore:
         self.calls.append(("release", ref.session_id or "", ref.turn_key, owner))
         return True
 
-    async def sweep(self, *, now: object, owner: str, batch_size: int) -> SweepReport:
+    async def sweep(
+        self, *, now: object, owner: str, batch_size: int, lease_seconds: int
+    ) -> SweepReport:
         del now, owner, batch_size
         return SweepReport()
 

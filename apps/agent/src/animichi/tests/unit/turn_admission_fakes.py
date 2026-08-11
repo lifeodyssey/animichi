@@ -156,7 +156,7 @@ class FakeTurnReservationStore:
         self.release_calls.append((ref.session_id, ref.turn_key, owner))
         if reservation is None or reservation.status != "reserved":
             return False
-        if reservation.owner != owner:
+        if reservation.owner != owner or not self._lease_valid(reservation):
             return False
         self.reservations.remove(reservation)
         return True

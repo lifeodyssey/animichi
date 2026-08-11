@@ -47,12 +47,29 @@ async def test_admission_headers_reach_the_store_and_the_turn_is_handed_to_handl
 
 
 async def test_startup_and_next_admission_run_the_bounded_sweep() -> None:
+    from fastapi.testclient import TestClient
+
     store = ScriptedStore(
         ReservationOutcome(status="admitted", session_id="s-1", revision=2)
     )
     app, runtime = _app(store)
-    await _post(app, {**ANON_HEADERS, "X-Turn-Id": "turn-9", "X-Session-Id": "s-1"})
-    assert store.sweep_calls  # startup sweep ran; pre-admission sweep runs too
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/chat",
+            json={
+                "messages": [
+                    {
+                        "id": "u1",
+                        "role": "user",
+                        "parts": [{"type": "text", "text": "京吹"}],
+                    }
+                ]
+            },
+            headers={**ANON_HEADERS, "X-Turn-Id": "turn-9", "X-Session-Id": "s-1"},
+        )
+        assert response.status_code == 200
+    # Startup sweep (lifespan) + pre-admission sweep (admit) both ran.
+    assert len(store.sweep_calls) >= 2
 
 
 async def test_replay_admits_without_a_reservation() -> None:
