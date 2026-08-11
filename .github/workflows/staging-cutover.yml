@@ -48,6 +48,12 @@ jobs:
     timeout-minutes: 30
     environment: staging
     steps:
+      - name: Validate source_revision format
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
       - name: Checkout the cutover source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

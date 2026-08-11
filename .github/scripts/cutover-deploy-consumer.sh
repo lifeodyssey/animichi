@@ -13,6 +13,10 @@ set -euo pipefail
 
 COMPONENT="${1:?component required}"
 SOURCE_REVISION="${2:?source_revision required}"
+if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "cutover: source_revision must be a full 40-char commit SHA" >&2
+  exit 2
+fi
 
 cd "$(git rev-parse --show-toplevel)"
 test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}" \
@@ -29,7 +33,7 @@ esac
 
 (
   cd "${DIR}"
-  pnpm install --frozen-lockfile >/dev/null 2>&1 || true
+  pnpm install --frozen-lockfile --ignore-scripts >/dev/null 2>&1 || true
   npx wrangler deploy -c "${CONFIG}" \
     --var SOURCE_REVISION:${SOURCE_REVISION}
 )

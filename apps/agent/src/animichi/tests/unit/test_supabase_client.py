@@ -38,12 +38,24 @@ async def test_search_points_by_location_uses_runtime_contract_query() -> None:
     await client.points.search_points_by_location(34.8843, 135.7997, 5000, limit=10)
 
     sql = pool.fetch.await_args.args[0]
+
+    assert "ST_DWithin" in sql
+    assert "points" in sql
     assert "SELECT *" not in sql
     assert "LEFT JOIN bangumi b ON p.bangumi_id = b.id" in sql
     assert "p.image AS screenshot_url" in sql
     assert "b.title" in sql
     assert "b.title_cn" in sql
     assert "distance_m" in sql
+
+
+@pytest.mark.asyncio
+async def test_constructor_initializes_repository_slots() -> None:
+    client = SupabaseClient("postgresql://test:test@localhost:5432/test")
+
+    assert client._session is None
+    assert client._feedback is None
+    assert client._pool is None
 
 
 class TestFindBangumiByTitle:

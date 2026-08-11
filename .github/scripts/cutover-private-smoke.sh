@@ -18,6 +18,10 @@
 set -euo pipefail
 
 SOURCE_REVISION="${1:?source_revision required}"
+if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "cutover: source_revision must be a full 40-char commit SHA" >&2
+  exit 2
+fi
 STAGING_DOMAIN="https://staging.animichi.com"
 GATE_HEADER=(-H "x-staging-key: ${STAGING_GATE_TOKEN:?STAGING_GATE_TOKEN required}")
 

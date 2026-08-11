@@ -13,6 +13,10 @@
 set -euo pipefail
 
 SOURCE_REVISION="${1:?source_revision required}"
+if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "cutover: source_revision must be a full 40-char commit SHA" >&2
+  exit 2
+fi
 NEON_DATABASE_URL="${NEON_DATABASE_URL:?NEON_DATABASE_URL required}"
 
 cd "$(git rev-parse --show-toplevel)"
