@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { routeDetailCopyFor } from "../../../src/lib/route-detail/copy";
+import { routeDetailCopyFor } from "../../../src/features/route-detail/lib/copy";
 import { LOCALES } from "../../../src/i18n/locales";
 
 describe("routeDetailCopyFor", () => {

@@ -51,7 +51,7 @@ describe("search (alias miss — L1 preview + background ingest)", () => {
   it("returns the L1 lite preview FAST and schedules the full ingest on waitUntil", async () => {
     const { db, resolved, ingested } = fakeDb(
       {},
-      { resolvePreview: () => Promise.resolve({ workId: "10380", points: [PREVIEW_POINT] }) },
+      { resolvePreview: () => Promise.resolve({ bangumiId: "10380", points: [PREVIEW_POINT] }) },
     );
     const { waitUntil, scheduled } = waitUntilSpy();
 
@@ -67,7 +67,7 @@ describe("search (alias miss — L1 preview + background ingest)", () => {
   it("the scheduled promise runs the full ingest when awaited", async () => {
     const { db, ingested } = fakeDb(
       {},
-      { resolvePreview: () => Promise.resolve({ workId: "10380", points: [PREVIEW_POINT] }) },
+      { resolvePreview: () => Promise.resolve({ bangumiId: "10380", points: [PREVIEW_POINT] }) },
     );
     const { waitUntil, scheduled } = waitUntilSpy();
 

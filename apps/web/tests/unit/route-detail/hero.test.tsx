@@ -3,9 +3,9 @@
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { Hero } from "../../../src/components/route-detail/Hero";
-import { routeDetailCopyFor } from "../../../src/lib/route-detail/copy";
-import type { RouteDetail } from "../../../src/lib/route-detail/data-state";
+import { Hero } from "../../../src/features/route-detail/components/Hero";
+import { routeDetailCopyFor } from "../../../src/features/route-detail/lib/copy";
+import type { RouteDetail } from "../../../src/features/route-detail/lib/data-state";
 
 afterEach(cleanup);
 

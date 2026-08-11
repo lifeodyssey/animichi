@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath, URL as NodeURL } from "node:url";
 import { describe, expect, it } from "vitest";
-import { collapseGeocodeHits, type GeocodeHit } from "../src/lib/geocode";
+import { collapseGeocodeHits, type GeocodeHit } from "../src/domain/geocode/collapse";
 import { normalizeAlias } from "../src/lib/alias";
 
 const AUDIT_PATH = fileURLToPath(new NodeURL("../data/gazetteer-audit.csv", import.meta.url));

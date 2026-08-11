@@ -19,20 +19,6 @@ from animichi.interfaces.routes._deps import (
 router = APIRouter(prefix="/v1/bangumi", tags=["bangumi"])
 
 
-@router.get("/popular")
-async def handle_bangumi_popular(
-    request: Request,
-    auth: Annotated[TrustedAuthContext, Depends(_get_trusted_auth_context)],
-    limit: int = 8,
-) -> JSONResponse:
-    if limit < 1:
-        raise HTTPException(status_code=422, detail="limit must be a positive integer.")
-    db = _require_supabase(_get_db_from_request(request))
-    rows_obj: object = await db.bangumi.list_popular(limit=limit)
-    rows: list[object] = list(rows_obj) if isinstance(rows_obj, list) else []
-    return _json_response({"bangumi": rows})
-
-
 @router.get("/{bangumi_id}/guide")
 async def handle_bangumi_guide(
     request: Request,

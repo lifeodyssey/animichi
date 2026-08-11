@@ -1,10 +1,11 @@
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
-import { listSavedRoutes, saveSavedRoute } from "../src/api/routes";
+import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
+import { listSavedRoutes as listSavedRoutesAction } from "../src/application/list-saved-routes";
 import { listSessions } from "../src/api/routes";
+import { saveSavedRoute } from "../src/application/save-saved-route";
+import type { SavedRouteStore } from "../src/application/save-saved-route";
 import type { DbExecutor } from "../src/db/client";
-import type { SavedRouteRepo } from "../src/domain/ports";
 import { fakeDb } from "./in-memory-routes-db";
 
 const ID = "00000000-0000-4000-8000-000000000009";
@@ -22,8 +23,8 @@ function updateRows(rows: Record<string, unknown>[]): DbExecutor {
 }
 
 /** Real Neon adapter over the fixed-answer executor. */
-function repo(db: DbExecutor): SavedRouteRepo {
-  return new NeonSavedRouteRepo(db);
+function repo(db: DbExecutor): SavedRouteStore {
+  return new NeonSavedRouteStore(db);
 }
 
 describe("saved-route row validation", () => {
@@ -58,7 +59,7 @@ describe("saved-route row validation", () => {
       id: ID, claim_session_id: null, user_id: "user-a", title: null, point_ids: ["p1"],
       status: "saved", saved_at: "2026-07-13T00:00:00Z", updated_at: "2026-07-13T00:00:00Z",
     }]);
-    const result = await listSavedRoutes(repo(db), "user-a");
+    const result = await listSavedRoutesAction(new NeonSavedRouteRepo(db), "user-a");
     expect(result.saved_routes[0]?.title).toBe("");
   });
 });

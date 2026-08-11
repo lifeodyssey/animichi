@@ -266,25 +266,3 @@ class TestAC5SSEStream:
         assert "intent" in done
         assert "data" in done
         assert "message" in done
-
-
-# ── AC-6: Popular anime endpoint ─────────────────────────────────────────────
-
-
-class TestAC6BangumiPopular:
-    """Popular anime endpoint returns bangumi list with cover URLs."""
-
-    async def test_popular_returns_200_list(self) -> None:
-        status, body = await _get("/v1/bangumi/popular")
-        assert status == 200
-        assert isinstance(body.get("bangumi"), list)
-        assert len(cast(list[object], body["bangumi"])) > 0
-
-    async def test_popular_items_have_required_fields(self) -> None:
-        status, body = await _get("/v1/bangumi/popular")
-        assert status == 200
-        items = cast(list[dict[str, object]], body["bangumi"])
-        for item in items:
-            assert "id" in item or "bangumi_id" in item
-            assert "title" in item
-            assert "cover_url" in item

@@ -31,7 +31,11 @@ function routeStatus(value: unknown): SavedRouteStatus {
 
 function insertRow(values: unknown[]): FakeSavedRouteRow {
   const status = routeStatus(values[3]);
-  return { ...routeRowBase(values, status), saved_at: status === "draft" ? null : NOW, updated_at: NOW, first_query: "" };
+  return {
+    ...routeRowBase(values, status),
+    saved_at: typeof values[4] === "string" ? values[4] : null,
+    updated_at: NOW, first_query: "",
+  };
 }
 
 function routeRowBase(values: unknown[], status: SavedRouteStatus): Omit<FakeSavedRouteRow, "saved_at" | "updated_at" | "first_query"> {
@@ -55,7 +59,7 @@ function updateRow(row: FakeSavedRouteRow, values: unknown[]): void {
     ? values[1].filter((v): v is string => typeof v === "string")
     : row.point_ids;
   row.status = routeStatus(values[2]);
-  row.saved_at = row.status === "draft" ? null : row.saved_at ?? NOW;
+  row.saved_at = typeof values[3] === "string" ? values[3] : null;
   row.updated_at = NOW;
 }
 
@@ -86,6 +90,7 @@ export function fakeDb(seed: FakeSavedRouteRow[] = []): { db: DbExecutor; rows: 
 /** Dispatch a rendered query to its matching in-memory handler. */
 function executeText(query: { text: string; values: unknown[] }, rows: FakeSavedRouteRow[]): unknown[] {
   const { text, values } = query;
+  if (text.includes("select 1 from saved_routes")) return existsRows(rows, values);
   if (text.includes("select user_id")) return selectUserId(rows, values);
   if (text.includes("insert into saved_routes")) return insertRoute(rows, values);
   if (text.includes("delete from saved_routes")) return deleteRows(rows, values);
@@ -95,9 +100,13 @@ function executeText(query: { text: string; values: unknown[] }, rows: FakeSaved
   return routeRows(rows, values);
 }
 
+function existsRows(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {
+  return rows.some((item) => item.id === values[0]) ? [{ exists: true }] : [];
+}
+
 function selectUserId(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {
   const row = rows.find((item) => item.id === values[0]);
-  return row ? [{ user_id: row.user_id }] : [];
+  return row ? [{ user_id: row.user_id, saved_at: row.saved_at }] : [];
 }
 
 function insertRoute(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {

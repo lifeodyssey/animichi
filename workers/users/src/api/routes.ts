@@ -1,13 +1,8 @@
 import type {
   ClaimSavedRoutesInput,
   ClaimSavedRoutesResult,
-  DeleteSavedRouteInput,
-  DeleteSavedRouteResult,
   ListSessionsInput,
   ListSessionsResult,
-  ListSavedRoutesResult,
-  SaveSavedRouteInput,
-  SavedRoute,
   UserSession,
 } from "@animichi/contract";
 import { sql, type SQL } from "drizzle-orm";
@@ -72,11 +67,6 @@ function sessionPage(
   return { sessions, next_offset: hasMore ? next : null };
 }
 
-/** List saved routes owned by a user, newest update first. */
-export async function listSavedRoutes(repo: SavedRouteRepo, userId: string): Promise<ListSavedRoutesResult> {
-  return repo.listSavedRoutes(userId);
-}
-
 // TODO(refactor-skeleton): the conversation query and row normalization below
 // remain inline because a session summary is not a saved route (not on
 // SavedRouteRepo); extract to a SessionSummaryRepo port when sessions gain
@@ -101,24 +91,6 @@ export async function listSessions(
 ): Promise<ListSessionsResult> {
   const result = await db.execute(sessionSql(userId, input));
   return sessionPage(result, input);
-}
-
-/** Create a saved route or update it after explicit ownership validation. */
-export async function saveSavedRoute(
-  repo: SavedRouteRepo,
-  userId: string,
-  input: SaveSavedRouteInput,
-): Promise<SavedRoute> {
-  return repo.saveSavedRoute(userId, input);
-}
-
-/** Delete a saved route after explicit ownership validation. */
-export async function deleteSavedRoute(
-  repo: SavedRouteRepo,
-  userId: string,
-  input: DeleteSavedRouteInput,
-): Promise<DeleteSavedRouteResult> {
-  return repo.deleteSavedRoute(userId, input);
 }
 
 /** Atomically assign this session's still-anonymous saved routes to the caller. */

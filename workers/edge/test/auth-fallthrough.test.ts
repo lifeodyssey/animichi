@@ -8,7 +8,7 @@ import { authenticate, type AuthResult } from "../src/identity/auth.ts";
 import { createWorkerApp } from "../src/app.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 
-const ENV = { SUPABASE_URL: "https://sb-441.example.test", SUPABASE_SERVICE_ROLE_KEY: "service" };
+const ENV = { NEON_AUTH_JWKS_URL: "https://neon-441.example.test/.well-known/jwks.json" };
 const SECRET = "fixed-test-hmac-key-0000000000000000";
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 
@@ -30,17 +30,22 @@ function bearer(token: string): Request {
   return new Request("https://app.example.test/v1/chat", { headers: { Authorization: `Bearer ${token}` } });
 }
 
-async function esFixture(host: string, exp: string | number = "1h") {
-  const { publicKey, privateKey } = await generateKeyPair("ES256", { extractable: true });
-  const jwk = { ...await exportJWK(publicKey), kid: "fake-es-key" };
-  const token = await new SignJWT({}).setProtectedHeader({ alg: "ES256", kid: jwk.kid })
-    .setIssuer(`${host}/auth/v1`).setAudience("authenticated").setSubject("fake-user")
+async function edFixture(host: string, exp: string | number = "1h") {
+  const { publicKey, privateKey } = await generateKeyPair("EdDSA", { extractable: true });
+  const jwk = { ...await exportJWK(publicKey), kid: "fake-eddsa-key" };
+  const token = await new SignJWT({}).setProtectedHeader({ alg: "EdDSA", kid: jwk.kid })
+    .setIssuer(host).setAudience(host).setSubject("fake-user")
     .setIssuedAt().setExpirationTime(exp).sign(privateKey);
   return { jwk, token };
 }
 
 function jwks(jwk: JWK): Response {
   return new Response(JSON.stringify({ keys: [jwk] }), { status: 200 });
+}
+
+/** The edge's Neon environment for a token issued against `host`. */
+function neonFor(host: string) {
+  return { ...ENV, NEON_AUTH_JWKS_URL: `${host}/.well-known/jwks.json` };
 }
 
 // ── `authenticate` reports WHY it failed ───────────────────────────────────
@@ -58,17 +63,17 @@ void test("a non-Bearer Authorization scheme reports reason absent", async () =>
 });
 
 void test("an expired bearer JWT reports reason invalid", async () => {
-  const host = "https://sb-441-expired.example.test";
-  const { jwk, token } = await esFixture(host, Math.floor(Date.now() / 1000) - 60);
-  const result = await authenticate(bearer(token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => jwks(jwk)));
+  const host = "https://neon-441-expired.example.test";
+  const { jwk, token } = await edFixture(host, Math.floor(Date.now() / 1000) - 60);
+  const result = await authenticate(bearer(token), neonFor(host), stubFetch(() => jwks(jwk)));
   assert.deepEqual(result, { ok: false, reason: "invalid" });
 });
 
 void test("a bearer JWT signed by an untrusted key reports reason invalid", async () => {
-  const host = "https://sb-441-signature.example.test";
-  const trusted = await esFixture(host);
-  const untrusted = await esFixture(host);
-  const result = await authenticate(bearer(untrusted.token), { ...ENV, SUPABASE_URL: host }, stubFetch(() => jwks(trusted.jwk)));
+  const host = "https://neon-441-signature.example.test";
+  const trusted = await edFixture(host);
+  const untrusted = await edFixture(host);
+  const result = await authenticate(bearer(untrusted.token), neonFor(host), stubFetch(() => jwks(trusted.jwk)));
   assert.deepEqual(result, { ok: false, reason: "invalid" });
 });
 
@@ -84,9 +89,8 @@ void test("a bearer scheme with no token reports reason absent", async () => {
   assert.deepEqual(result, { ok: false, reason: "absent" });
 });
 
-void test("an unknown sk_ api key reports reason invalid", async () => {
-  const result = await authenticate(bearer("sk_fake_unknown"), ENV, stubFetch((url) =>
-    url.includes("/rest/v1/api_keys") ? new Response("[]", { status: 200 }) : new Response("", { status: 200 })));
+void test("an sk_ credential reports reason invalid (AUTH-1: api_keys deleted)", async () => {
+  const result = await authenticate(bearer("sk_fake_unknown"), ENV, stubFetch(() => new Response("", { status: 500 })));
   assert.deepEqual(result, { ok: false, reason: "invalid" });
 });
 

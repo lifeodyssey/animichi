@@ -14,9 +14,9 @@ help:
 	@echo ""
 	@echo "Development:"
 	@echo "  make dev-db      Start agent-only Neon Local on postgres-wire port 5432"
-	@echo "  make dev-local   Start everything (Supabase + backend + web app)"
+	@echo "  make dev-local   Start everything (database + backend + web app)"
 	@echo "  make dev-stop    Stop all local dev services"
-	@echo "  make local-login Open browser with magic link login"
+	@echo "  make local-login Open the Neon Auth magic link in your browser (AUTH-2 #950)"
 	@echo "  make install     Install production dependencies"
 	@echo "  make dev         Install all dependencies (including dev)"
 	@echo "  make serve       Run the HTTP runtime service only"
@@ -46,7 +46,7 @@ help:
 	@echo "  db-diff/db-pull/db-reset are retired; use the Atlas targets above"
 	@echo ""
 	@echo "E2E Testing:"
-	@echo "  make e2e-setup   Start Supabase + Edge Function + seed data"
+	@echo "  make e2e-setup   Install E2E deps + Playwright browser (no Supabase; auth E2E is Neon, AUTH-2 #950)"
 	@echo "  make e2e         Run all Playwright E2E tests"
 	@echo "  make visual-check  Pixel mockup comparison (PAGE=landing MODE=day RATIO=0.01; no PAGE = all frames; JSON -> e2e/visual/report/summary.json)"
 	@echo "  make visual-check-self-test  Atom contract check (all frames; needs docker + app up)"
@@ -101,7 +101,7 @@ format:
 	cd apps/agent && uv run ruff check --fix src/animichi/ scripts/
 
 typecheck:
-	cd apps/agent && uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/tests/eval/ src/animichi/scripts/purge_anonymous_sessions.py
+	cd apps/agent && uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/tests/eval/
 
 check: lint typecheck test test-integration
 
@@ -172,24 +172,37 @@ dev-local:
 	@# 0. Kill stale processes from previous runs
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
-	@# 1. Verify Supabase is running (start if not)
-	@supabase status 2>&1 | grep -q "running" || (echo "Starting Supabase..." && supabase start --exclude vector,analytics --ignore-health-check)
-	@# 2. Wait for DB to be ready
-	@echo "Waiting for database..."
-	@for i in $$(seq 1 30); do docker exec supabase_db_seichijunrei-agent psql -U postgres -c "SELECT 1" >/dev/null 2>&1 && break || sleep 1; done
-	@echo "✓ Database ready"
-	@# 3. Seed data if bangumi table is empty
-	@COUNT=$$(docker exec supabase_db_seichijunrei-agent psql -U postgres -d postgres -tAc "SELECT count(*) FROM bangumi" 2>/dev/null || echo "0"); \
-	if [ "$$COUNT" = "0" ]; then \
-		docker exec -i supabase_db_seichijunrei-agent psql -U postgres -d postgres < apps/agent/src/animichi/tests/fixtures/seed.sql; \
-		echo "✓ Seed data applied"; \
+	@# 1. Database — the backend's Postgres only. Auth E2E needs none of this
+	@#    (AUTH-2 #950): apps/web login is Neon Auth, and the Playwright suite
+	@#    stubs every transport. If the supabase CLI is present, start the local
+	@#    DB; otherwise point the backend at a Neon DB (make dev-db) or .env.
+	@-if command -v supabase >/dev/null 2>&1; then \
+		if supabase status >/dev/null 2>&1; then \
+			echo "Supabase already running — using it as the backend database"; \
+		else \
+			echo "Starting Supabase (backend database)..."; \
+			supabase start --exclude vector,analytics --ignore-health-check; \
+		fi; \
 	else \
-		echo "✓ Data exists ($$COUNT bangumi)"; \
+		echo "⚠ supabase CLI not found — backend needs a Postgres (make dev-db)"; \
 	fi
-	@# 4. Start Edge Function for auth emails (with local SITE_URL)
-	@supabase functions serve send-auth-email --no-verify-jwt --env-file supabase/.env.local > /tmp/animichi-edge.log 2>&1 & echo $$! > /tmp/animichi-edge.pid
-	@echo "✓ Edge Function started (SITE_URL=http://localhost:3000)"
-	@# 5. Start backend with .env (background, daemonized)
+	@# 2. Wait for DB to be ready
+	@-if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^supabase_db_seichijunrei-agent$$'; then \
+		echo "Waiting for database..."; \
+		for i in $$(seq 1 30); do docker exec supabase_db_seichijunrei-agent psql -U postgres -c "SELECT 1" >/dev/null 2>&1 && break || sleep 1; done; \
+		echo "✓ Database ready"; \
+	fi
+	@# 3. Seed data if bangumi table is empty
+	@-if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^supabase_db_seichijunrei-agent$$'; then \
+		COUNT=$$(docker exec supabase_db_seichijunrei-agent psql -U postgres -d postgres -tAc "SELECT count(*) FROM bangumi" 2>/dev/null || echo "0"); \
+		if [ "$$COUNT" = "0" ]; then \
+			docker exec -i supabase_db_seichijunrei-agent psql -U postgres -d postgres < apps/agent/src/animichi/tests/fixtures/seed.sql; \
+			echo "✓ Seed data applied"; \
+		else \
+			echo "✓ Data exists ($$COUNT bangumi)"; \
+		fi; \
+	fi
+	@# 4. Start backend with .env (background, daemonized)
 	@env $$(grep -v '^\#' .env | grep -v '^$$' | xargs) bash -c 'cd apps/agent && uv run uvicorn animichi.interfaces.fastapi_service:app --host 0.0.0.0 --port 8080' > /tmp/animichi-backend.log 2>&1 & echo $$! > /tmp/animichi-backend.pid
 	@# 6. Wait for backend health
 	@echo "Waiting for backend..."
@@ -203,19 +216,16 @@ dev-local:
 	@echo "=== Ready ==="
 	@echo "  Web app:   http://localhost:3000"
 	@echo "  Backend:   http://localhost:8080/healthz"
-	@echo "  Mailpit:   http://localhost:54324"
-	@echo "  Studio:    http://localhost:54323"
-	@echo "  Login:     make local-login"
+	@echo "  Login:     make local-login   (Neon Auth magic link; needs VITE_NEON_AUTH_BASE_URL + NEON_DATABASE_URL)"
 	@echo "  Stop:      make dev-stop"
 
 dev-stop:
 	@echo "Stopping local dev services..."
-	@-test -f /tmp/animichi-edge.pid && kill $$(cat /tmp/animichi-edge.pid) 2>/dev/null && rm /tmp/animichi-edge.pid && echo "✓ Edge Function stopped" || true
 	@-test -f /tmp/animichi-backend.pid && kill $$(cat /tmp/animichi-backend.pid) 2>/dev/null && rm /tmp/animichi-backend.pid && echo "✓ Backend stopped" || true
 	@-test -f /tmp/animichi-web.pid && kill $$(cat /tmp/animichi-web.pid) 2>/dev/null && rm /tmp/animichi-web.pid && echo "✓ Web app stopped" || true
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
-	@echo "Done. (Supabase still running — use 'supabase stop' to shut down)"
+	@echo "Done. (The database stays up — use 'supabase stop' or 'make dev-db' cleanup to shut it down)"
 
 # ── E2E Testing ──────────────────────────────────────────────
 

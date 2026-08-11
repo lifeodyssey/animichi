@@ -5,13 +5,12 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from pydantic_ai.usage import RunUsage
-
-from animichi.agents.photo_vision import (
-    RecognizeCall,
-    VisionCallResult,
+from animichi.agents.photo_vision import VisionRecognitionFailed
+from animichi.application.model_turn_port import ModelTurnUsage
+from animichi.application.search_photo import (
+    PhotoVisionResult,
+    RecognizePhoto,
     VisionProviderKind,
-    VisionRecognitionFailed,
 )
 from animichi.clients.catalog_client import (
     AnimeCandidate,
@@ -41,21 +40,21 @@ def digest(image: bytes) -> str:
 
 def recognize_stub(
     titles: list[str], provider_kind: VisionProviderKind = "platform"
-) -> RecognizeCall:
-    """A `RecognizeCall` that always answers with a fixed candidate list —
+) -> RecognizePhoto:
+    """A `RecognizePhoto` that always answers with a fixed candidate list —
     stands in for a resolved `animichi.agents.photo_vision.recognize_photo`
     closure in pipeline tests that don't care how recognition happened."""
 
-    async def call() -> VisionCallResult:
-        return VisionCallResult(titles, provider_kind, RunUsage(requests=1))
+    async def call() -> PhotoVisionResult:
+        return PhotoVisionResult(titles, provider_kind, ModelTurnUsage(requests=1))
 
     return call
 
 
-def recognize_unavailable() -> RecognizeCall:
-    """A `RecognizeCall` standing in for both providers being exhausted."""
+def recognize_unavailable() -> RecognizePhoto:
+    """A `RecognizePhoto` standing in for both providers being exhausted."""
 
-    async def call() -> VisionCallResult:
+    async def call() -> PhotoVisionResult:
         raise VisionRecognitionFailed()
 
     return call

@@ -73,7 +73,6 @@ repos:
             if pkg web; then pnpm --filter web run lint:oxlint || exit 1; fi
             if pkg catalog; then pnpm --filter catalog run lint:oxlint || exit 1; fi
             if pkg users; then pnpm --filter users run lint:oxlint || exit 1; fi
-            if pkg jobs; then pnpm --filter jobs run lint:oxlint || exit 1; fi
             if pkg edge; then pnpm --filter "./workers/edge" run lint:oxlint || exit 1; fi
             if pkg contract; then pnpm exec oxlint --type-aware --deny-warnings packages/contract/src || exit 1; fi
           fi'
@@ -116,7 +115,6 @@ repos:
             if pkg catalog; then pnpm --filter catalog run typecheck || exit 1; fi
             if pkg users; then pnpm --filter users run typecheck || exit 1; fi
             if pkg edge; then pnpm --filter "./workers/edge" run typecheck || exit 1; fi
-            if pkg jobs; then pnpm --filter jobs run typecheck || exit 1; fi
             if pkg contract; then pnpm --filter "@animichi/contract" run typecheck || exit 1; fi
             if pkg infra; then pnpm --filter infra run typecheck || exit 1; fi
           fi'
@@ -140,7 +138,6 @@ repos:
           if pkg web; then pnpm --filter web exec vitest run --config vitest.config.ts || exit 1; fi
           if pkg catalog; then pnpm --filter catalog exec vitest run --config vitest.config.ts || exit 1; fi
           if pkg users; then pnpm --filter users exec vitest run --config vitest.config.ts || exit 1; fi
-          if pkg jobs; then pnpm --filter jobs exec vitest run --config vitest.config.ts || exit 1; fi
           if pkg edge; then pnpm run test:worker || exit 1; fi
           if pkg contract; then pnpm --filter "@animichi/contract" test || exit 1; fi
           if pkg infra; then pnpm --filter infra test || exit 1; fi'

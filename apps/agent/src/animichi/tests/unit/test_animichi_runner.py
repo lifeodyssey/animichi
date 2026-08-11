@@ -5,8 +5,24 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from pydantic_ai import ModelMessagesTypeAdapter
+from pydantic_ai.exceptions import ContentFilterError
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    TextPart,
+    UserPromptPart,
+)
+from pydantic_ai.usage import RunUsage
 
-from animichi.agents.animichi_runner import _seed_tool_state
+from animichi.agents.animichi_runner import (
+    _capped_partial_result,
+    _neutral_usage,
+    _seed_tool_state,
+    deserialize_message_history,
+    to_model_turn_usage,
+)
 from animichi.agents.runtime_deps import RuntimeDeps
 from animichi.agents.session_state import (
     CurrentAnime,
@@ -16,6 +32,7 @@ from animichi.agents.session_state import (
     SearchPayloadState,
     SessionState,
 )
+from animichi.application.model_turn_port import ModelTurnUsage
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 
 
@@ -93,3 +110,34 @@ def test_seed_tool_state_reserves_hydrated_registry_refs() -> None:
     deps = _deps()
     _seed_tool_state(deps, {"session_state_v2": state.model_dump(mode="json")})
     assert deps.ref_factory("search", 3) == "search:3:2"
+
+
+def test_neutral_usage_none_is_empty() -> None:
+    assert _neutral_usage(None) == ModelTurnUsage()
+
+
+def test_to_model_turn_usage_passes_neutral_usage_through() -> None:
+    usage = ModelTurnUsage(completion_tokens=3, prompt_tokens=4, requests=2)
+
+    assert to_model_turn_usage(usage) is usage
+
+
+def test_deserialize_message_history_round_trips_non_empty() -> None:
+    messages: list[ModelMessage] = [
+        ModelRequest(parts=[UserPromptPart(content="hi")]),
+        ModelResponse(parts=[TextPart(content="ok")]),
+    ]
+    raw = ModelMessagesTypeAdapter.dump_python(messages, mode="json")
+
+    rebuilt = deserialize_message_history(raw)
+
+    assert len(rebuilt) == 2
+    assert isinstance(rebuilt[0], ModelRequest)
+    assert isinstance(rebuilt[1], ModelResponse)
+
+
+def test_capped_partial_result_reraises_content_filter() -> None:
+    deps = _deps()
+
+    with pytest.raises(ContentFilterError, match="filtered"):
+        _capped_partial_result(deps, RunUsage(), ContentFilterError("filtered"))

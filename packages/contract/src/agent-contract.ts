@@ -41,12 +41,118 @@ export const RootMetadata = z.object({
 });
 export type RootMetadata = z.infer<typeof RootMetadata>;
 
+/**
+ * The `POST /v1/byok/probe` success body (D5, #953): one bounded
+ * vision-capability probe's verdict. `error_code` is a null-or-opaque-string
+ * field — the server deliberately collapses every non-auth failure to
+ * `provider_unreachable`, so the emitted Pydantic model must keep it nullable
+ * rather than optional (a `null` and an absent key are different wires).
+ */
+export const ByokProbeResponse = z.object({
+  vision: z.boolean(),
+  reachable: z.boolean(),
+  error_code: z.string().nullable(),
+});
+export type ByokProbeResponse = z.infer<typeof ByokProbeResponse>;
+
+/** The agent error envelope (`_error_response`) the probe route shares with
+ * every other `/v1` route: `{"error": {"code", "message"}}`. */
+export const ByokProbeErrorBody = z.object({
+  error: z.object({
+    code: z.string(),
+    message: z.string().optional(),
+  }),
+});
+export type ByokProbeErrorBody = z.infer<typeof ByokProbeErrorBody>;
+
 /** One published Agent path in the complete inventory. */
 export interface AgentPath {
   method: "GET" | "POST" | "PATCH";
   path: string;
   summary: string;
 }
+
+// ---------------------------------------------------------------------------
+// Photo search boundary (AGENT-1 #952).
+//
+// SearchPhoto and ConfirmPhotoOffer own recognition, the sessionless
+// candidate-offer namespace, confirmation, quota, BYOK, and usage policy; the
+// wire shapes below are the generated boundary those use cases publish.
+// `offer_id` is an opaque server-issued identifier for the candidate-offer
+// namespace — never a Session identifier, and never client-derivable.
+// ---------------------------------------------------------------------------
+
+/** 8 MiB image cap (matches the web pre-check); base64 expands ceil(n/3)*4. */
+const PHOTO_MAX_BYTES = 8 * 1024 * 1024;
+export const PHOTO_IMAGE_BASE64_CHARS = Math.floor((PHOTO_MAX_BYTES + 2) / 3) * 4;
+// The request schema caps at 2x as a parse-time belt; the semantic limit is
+// the 1x cap enforced by SearchPhoto's own 413 rejection.
+const PHOTO_IMAGE_BASE64_PARSE_BELT = 2 * PHOTO_IMAGE_BASE64_CHARS;
+
+export const GpsPoint = z.object({
+  lat: z.number(),
+  lng: z.number(),
+});
+export type GpsPoint = z.infer<typeof GpsPoint>;
+
+export const PhotoSearchRequest = z.object({
+  image_base64: z.string().min(1).max(PHOTO_IMAGE_BASE64_PARSE_BELT),
+  mime_type: z.string(),
+  gps: GpsPoint.nullable().optional(),
+});
+export type PhotoSearchRequest = z.infer<typeof PhotoSearchRequest>;
+
+export const PhotoCandidate = z.object({
+  id: z.string(),
+  title: z.string(),
+  bangumi_id: z.string().nullable().optional(),
+});
+export type PhotoCandidate = z.infer<typeof PhotoCandidate>;
+
+export const PhotoPoint = z.object({
+  id: z.string(),
+  name: z.string(),
+  bangumi_id: z.string(),
+  episode: z.number().int(),
+  screenshot_url: z.string(),
+  latitude: z.number(),
+  longitude: z.number(),
+  title: z.string(),
+  city: z.string().nullable().optional(),
+});
+export type PhotoPoint = z.infer<typeof PhotoPoint>;
+
+export const PhotoResults = z.object({
+  kind: z.literal("bangumi"),
+  bangumi_id: z.string(),
+  title: z.string(),
+  row_count: z.number().int().nonnegative(),
+  rows: z.array(PhotoPoint),
+});
+export type PhotoResults = z.infer<typeof PhotoResults>;
+
+/** One photo-response payload; only the branch fields actually set serialize. */
+export const PhotoSearchData = z.object({
+  results: PhotoResults.nullable().optional(),
+  reason: z.enum(["photo_unrecognized", "photo_ambiguous"]).nullable().optional(),
+  candidates: z.array(PhotoCandidate).optional(),
+});
+export type PhotoSearchData = z.infer<typeof PhotoSearchData>;
+
+export const PhotoSearchResponse = z.object({
+  success: z.literal(true),
+  status: z.literal("ok"),
+  intent: z.enum(["search_bangumi", "clarify"]),
+  offer_id: z.string(),
+  data: PhotoSearchData,
+});
+export type PhotoSearchResponse = z.infer<typeof PhotoSearchResponse>;
+
+export const PhotoConfirmRequest = z.object({
+  offer_id: z.string().min(1),
+  candidate_id: z.string().nullable().optional(),
+});
+export type PhotoConfirmRequest = z.infer<typeof PhotoConfirmRequest>;
 
 /**
  * Complete Agent path inventory (fastapi_service.py router registrations).
@@ -64,7 +170,6 @@ export const AGENT_PATHS: AgentPath[] = [
   { method: "GET", path: "/v1/conversations", summary: "list conversations" },
   { method: "PATCH", path: "/v1/conversations/{session_id}", summary: "rename conversation" },
   { method: "GET", path: "/v1/conversations/{session_id}/messages", summary: "conversation messages" },
-  { method: "GET", path: "/v1/bangumi/popular", summary: "popular works" },
   { method: "GET", path: "/v1/bangumi/{bangumi_id}/guide", summary: "work guide points" },
   { method: "GET", path: "/v1/bangumi/nearby", summary: "nearby points" },
   { method: "GET", path: "/v1/search/preview", summary: "search preview" },

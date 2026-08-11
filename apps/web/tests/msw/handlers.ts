@@ -1,5 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { SearchInput, SearchResult } from "@animichi/contract";
+import { catalogPlanItineraryHandler } from "./catalog-itinerary";
 import { contractJsonHandler, orpcErrorResponse } from "./contract-handler";
 import { CATALOG_SEARCH_URL, searchSuccessFixture } from "./fixtures";
 
@@ -46,6 +47,6 @@ export const sessionMigrateHandler = http.post(
   () => HttpResponse.json({ migrated: false }),
 );
 
-export const handlers = [catalogSearchHandler, sessionMigrateHandler];
+export const handlers = [catalogSearchHandler, catalogPlanItineraryHandler, sessionMigrateHandler];
 
 export { orpcErrorResponse };

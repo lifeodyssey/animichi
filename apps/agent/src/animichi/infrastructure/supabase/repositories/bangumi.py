@@ -39,18 +39,6 @@ class BangumiRepository:
             limit,
         )
 
-    async def list_popular(self, *, limit: int = 8) -> list[dict[str, object]]:
-        """List popular bangumi by rating, only those with points."""
-        rows = await self._pool.fetch(
-            """SELECT id, title, title_cn, cover_url, city, points_count, rating
-               FROM bangumi
-               WHERE points_count > 0
-               ORDER BY rating DESC NULLS LAST
-               LIMIT $1""",
-            limit,
-        )
-        return [dict(r) for r in rows]
-
     async def get_bangumi_by_area(
         self, lat: float, lng: float, radius_m: int = 50000
     ) -> list[dict[str, object]]:

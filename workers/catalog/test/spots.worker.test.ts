@@ -6,7 +6,8 @@ import { spots, SpotNotFoundError } from "../src/api/spots";
  * Unit tests for the `spots` read handler (catalog/src/api/spots.ts).
  *
  * No Docker / no live Postgres: the only DB surface `spots` touches is
- * `db.execute(sql`...`)` returning `{ rows }` (the geo-query.ts pattern), so a
+ * `db.execute(sql`...`)` returning `{ rows }` (the outbound adapter pattern,
+ * see adapters/outbound/nearby-points.ts), so a
  * typed fake `execute` returning fixture rows is injected via `fakeDb()` and
  * cast to CatalogDb at the boundary. Asserts the contract shape
  * { point, distance_m? } where `point` is a SINGLE Point.

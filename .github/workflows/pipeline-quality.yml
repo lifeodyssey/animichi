@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
       - name: Ruby syntax check workflow meta scripts
         run: |
-          for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_safe1_production_contract.rb; do
+          for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb; do
             ruby -c "${f}"
           done
         shell: bash
@@ -53,6 +53,14 @@ jobs:
       # PR or merge-group candidate that could change release code runs it.
       - name: SAFE-1 production freeze contract
         run: ruby .github/scripts/test_safe1_production_contract.rb
+        shell: bash
+      # RETENTION-1 (#940): the retired automated-retention surface may exist
+      # only in immutable history and SAFE-1's pinned production allowlist.
+      # Unfiltered like every check in this lane, so any PR or merge-group
+      # candidate that could re-introduce a staging trigger, Worker, role,
+      # credential, or runbook runs it.
+      - name: RETENTION-1 absence contract
+        run: ruby .github/scripts/test_retention1_absence.rb
         shell: bash
       - name: SAFE-1 release manifest resolver self-tests
         run: ruby .github/scripts/release-manifest-resolver.test.rb

@@ -1,4 +1,4 @@
-import type { PopularBangumi } from "../../api/popular";
+import type { PopularBangumi } from "@animichi/contract";
 import { usePopularRanking } from "../../api/hooks/use-popular";
 import type { Dict } from "../../i18n/dictionaries";
 import { useDict, useLocale } from "../../i18n/LocaleProvider";
@@ -11,7 +11,7 @@ function rowTitle(row: PopularBangumi, locale: Locale): string {
 function RankItem({ row, locale, home }: { readonly row: PopularBangumi; readonly locale: Locale; readonly home: Dict["home"] }) {
   return (
     <li>
-      <a className="flex items-baseline gap-3 rounded-xl px-3 py-2 hover:bg-[var(--color-muted)]" href={`/anime/${row.id}`}>
+      <a className="flex items-baseline gap-3 rounded-xl px-3 py-2 hover:bg-[var(--color-muted)]" href={`/anime/${row.bangumi_id}`}>
         <span className="font-bold text-[var(--color-fg)]">{rowTitle(row, locale)}</span>
         <span className="ml-auto text-sm text-[var(--color-muted-fg)]">{row.points_count} {home.popular_spots}</span>
       </a>
@@ -23,7 +23,7 @@ function RankList({ rows, home }: { readonly rows: readonly PopularBangumi[]; re
   const locale = useLocale();
   return (
     <ol className="m-0 list-none p-0">
-      {rows.map((row) => <RankItem key={row.id} row={row} locale={locale} home={home} />)}
+      {rows.map((row) => <RankItem key={row.bangumi_id} row={row} locale={locale} home={home} />)}
     </ol>
   );
 }

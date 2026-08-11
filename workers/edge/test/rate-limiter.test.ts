@@ -131,8 +131,10 @@ void test("the authenticated limiter's config is independent of the anonymous on
   );
 });
 
-void test("authenticated limiter config falls back to the shared defaults", () => {
-  assert.deepEqual(authRateLimitConfigFrom({}), { limit: 20, windowSeconds: 60 });
+void test("authenticated limiter config falls back to the authenticated class default (60/60, not 20/60)", () => {
+  // AUTH-1 #945: the fallback comes from the IdentityPolicy's authenticated
+  // class, which deliberately differs from the anonymous class's 20/60.
+  assert.deepEqual(authRateLimitConfigFrom({}), { limit: 60, windowSeconds: 60 });
 });
 
 void test("the authenticated key is derived from the user id alone", () => {

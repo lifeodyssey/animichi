@@ -41,6 +41,7 @@ def _db(*, next_count: int) -> MagicMock:
     db.usage.total_cost_usd = AsyncMock(return_value=0.0)
     db.anon_quota = MagicMock()
     db.anon_quota.increment_and_count = AsyncMock(return_value=next_count)
+    db.anon_quota.count_for = AsyncMock(return_value=next_count - 1)
     return db
 
 
@@ -76,7 +77,7 @@ async def test_a_brand_new_anonymous_identity_starts_at_full_quota_not_zero() ->
     response = await _post(app, ANON_HEADERS)
     assert response.status_code == 200
     assert runtime.handle.await_count == 1
-    db.anon_quota.increment_and_count.assert_awaited_once()
+    db.anon_quota.count_for.assert_awaited_once()
 
 
 async def test_the_nth_message_within_quota_still_passes() -> None:
@@ -124,8 +125,7 @@ async def test_the_counter_is_keyed_per_identity_not_globally() -> None:
     await _post(app, ANON_HEADERS)
     await _post(app, OTHER_ANON_HEADERS)
     seen_ids = {
-        call.kwargs["anon_id"]
-        for call in db.anon_quota.increment_and_count.await_args_list
+        call.kwargs["anon_id"] for call in db.anon_quota.count_for.await_args_list
     }
     assert seen_ids == {ANON_HEADERS["X-User-Id"], OTHER_ANON_HEADERS["X-User-Id"]}
     assert runtime.handle.await_count == 2
@@ -136,7 +136,7 @@ async def test_logged_in_users_are_never_quota_checked() -> None:
     response = await _post(app, HUMAN_HEADERS)
     assert response.status_code == 200
     assert runtime.handle.await_count == 1
-    db.anon_quota.increment_and_count.assert_not_awaited()
+    db.anon_quota.count_for.assert_not_awaited()
 
 
 async def test_an_unconfigured_quota_never_rejects_and_never_reads_the_repo() -> None:
@@ -144,7 +144,7 @@ async def test_an_unconfigured_quota_never_rejects_and_never_reads_the_repo() ->
     response = await _post(app, ANON_HEADERS)
     assert response.status_code == 200
     assert runtime.handle.await_count == 1
-    db.anon_quota.increment_and_count.assert_not_awaited()
+    db.anon_quota.count_for.assert_not_awaited()
 
 
 async def test_a_malformed_body_is_rejected_before_quota_consumption() -> None:
@@ -155,5 +155,5 @@ async def test_a_malformed_body_is_rejected_before_quota_consumption() -> None:
             "/v1/chat", json={"messages": "not-a-list"}, headers=ANON_HEADERS
         )
     assert response.status_code == 422
-    db.anon_quota.increment_and_count.assert_not_awaited()
+    db.anon_quota.count_for.assert_not_awaited()
     assert runtime.handle.await_count == 0

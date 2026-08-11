@@ -11,7 +11,7 @@ function sqlText(value: unknown): string {
 }
 
 describe("workPointsDb production binding", () => {
-  it("binds the published-row reader to the catalog SQL adapter", async () => {
+  it("binds the published-row reader to the catalog SQL adapter with scene order", async () => {
     const queries: string[] = [];
     const execute = (query: SQL) => {
       queries.push(sqlText(query));
@@ -19,9 +19,11 @@ describe("workPointsDb production binding", () => {
     };
     const db = { execute } as unknown as CatalogDb;
 
-    await expect(workPointsDb(db).pointsForWork("115908")).resolves.toEqual([]);
+    await expect(workPointsDb(db).pointsForBangumi("115908")).resolves.toEqual([]);
 
     expect(queries).toHaveLength(1);
     expect(queries[0]).toContain("FROM points p LEFT JOIN bangumi b");
+    expect(queries[0]).toContain("WHERE p.bangumi_id = ");
+    expect(queries[0]).toContain("ORDER BY p.episode ASC, p.time_seconds ASC, p.id ASC");
   });
 });

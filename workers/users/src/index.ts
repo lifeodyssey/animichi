@@ -1,7 +1,5 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { Hono, type Context, type MiddlewareHandler, type Next } from "hono";
-import type { JWTVerifyGetKey } from "jose";
-import { verifyBearer } from "./auth/jwt";
 import { makeDb as realMakeDb, type DbExecutor } from "./db/client";
 import { usersRouter, type UsersContext } from "./router";
 
@@ -10,12 +8,10 @@ export interface Env {
   ENVIRONMENT?: string;
   HYPERDRIVE?: { connectionString: string };
   DATABASE_URL?: string | SecretsStoreSecret;
-  NEON_AUTH_JWKS_URL?: string;
 }
 
 /** Injectable boundaries used by workerd tests. */
 export interface UsersAppDeps {
-  getKey?: JWTVerifyGetKey;
   makeDb?: (connStr: string) => DbExecutor;
 }
 
@@ -62,21 +58,27 @@ function healthz(c: Context<{ Bindings: Env }>): Response {
 async function requestService(
   c: Context<{ Bindings: Env }>,
   deps: UsersAppDeps,
-): Promise<{ db: DbExecutor; authUrl: string } | Response> {
-  const authUrl = c.env.NEON_AUTH_JWKS_URL;
-  if (!authUrl) return c.json({ error: "users auth not configured" }, 503);
+): Promise<{ db: DbExecutor } | Response> {
   const connStr = await connectionString(c.env);
   if (!connStr) return c.json({ error: "users database not configured" }, 503);
-  return { db: dbFor(connStr, deps.makeDb), authUrl };
+  return { db: dbFor(connStr, deps.makeDb) };
 }
 
-async function requireUser(
-  c: Context<{ Bindings: Env }>,
-  deps: UsersAppDeps,
-  authUrl: string,
-): Promise<{ userId: string } | Response> {
-  const auth = await verifyBearer(c.req.header("Authorization") ?? null, authUrl, deps.getKey);
-  return auth ?? c.json(unauthorized, 401);
+/**
+ * The internal-identity boundary (AUTH-2 #950): the users service trusts ONLY
+ * the edge's verified identity, which arrives over the USERS service binding
+ * as `X-User-Id` (the edge stripped `Authorization` and any caller-supplied
+ * identity headers first — see workers/edge/gateway/forward.ts forwardUsers).
+ *
+ * A request that still carries `Authorization` is raw bearer access: it did not
+ * come from the edge (which deletes the header), so the token is unverified and
+ * the request is flat-401. There is no anonymous path here, so a missing
+ * identity is also 401.
+ */
+function edgeIdentity(c: Context<{ Bindings: Env }>): string | null {
+  if (c.req.header("Authorization") != null) return null;
+  const userId = c.req.header("X-User-Id");
+  return typeof userId === "string" && userId.length > 0 ? userId : null;
 }
 
 async function handleMatched(
@@ -101,9 +103,9 @@ async function guardUsersV1(
 ): Promise<Response | undefined> {
   const ready = await requestService(c, service.deps);
   if (isResponse(ready)) return ready;
-  const user = await requireUser(c, service.deps, ready.authUrl);
-  if (isResponse(user)) return user;
-  return handleMatched(c, next, service.apiHandler, { db: ready.db, userId: user.userId });
+  const userId = edgeIdentity(c);
+  if (userId === null) return c.json(unauthorized, 401);
+  return handleMatched(c, next, service.apiHandler, { db: ready.db, userId });
 }
 
 /** Create an independently injectable Users Hono application. */

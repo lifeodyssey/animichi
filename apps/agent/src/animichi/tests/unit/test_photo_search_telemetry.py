@@ -11,11 +11,10 @@ from animichi.infrastructure.observability import photo_search as telemetry
 from animichi.infrastructure.observability.photo_search import (
     PhotoSearchQuota,
     PhotoSearchSignals,
-    QuotaKey,
     record_photo_search,
 )
 
-_KEY = QuotaKey("user-1")
+_KEY = "user-1"
 
 
 def _signals() -> PhotoSearchSignals:
@@ -73,7 +72,7 @@ def test_tiers_and_keys_are_metered_separately() -> None:
     quota = _quota(FixedClock(datetime(2026, 7, 26, tzinfo=UTC)))
     assert quota.consume("anon", _KEY, 1) is True
     assert quota.consume("member", _KEY, 1) is True
-    assert quota.consume("anon", QuotaKey("user-2"), 1) is True
+    assert quota.consume("anon", "user-2", 1) is True
     assert quota.consume("anon", _KEY, 1) is False
 
 

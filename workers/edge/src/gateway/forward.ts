@@ -74,6 +74,24 @@ export async function authenticatedForward(
   return forwardV1(env, request, auth);
 }
 
+/**
+ * Forward an authenticated /v1/users/* request to the USERS service binding.
+ *
+ * AUTH-2 #950: the edge verifies the Neon bearer itself (verifyNeonIdentity)
+ * and the users service trusts only the worker-verified identity — this is the
+ * internal boundary. `applyIdentity` strips `Authorization` and injects
+ * `X-User-Id`/`X-User-Type`; `stripUntrustedHeaders` removes any forged
+ * caller-supplied identity headers first, so a client can never name a user_id
+ * the edge did not verify. Restoring raw bearer forwarding is the rollback
+ * mutation pinned by entry-v1-routing.test.ts.
+ */
+export function forwardUsers(env: Env, request: Request, auth: { userId: string; userType: string }): Promise<Response> {
+  const headers = new Headers(request.headers);
+  stripUntrustedHeaders(headers);
+  applyIdentity(headers, auth);
+  return env.USERS.fetch(new Request(request, { headers }));
+}
+
 /** Forward a container-originated catalog request to the private CATALOG binding
  * (in-datacenter hop, never the public internet). Wired as the container's
  * outboundByHost handler in entry.ts.

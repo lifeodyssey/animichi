@@ -1,12 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
-import {
-  listSavedRoutesOptions,
-  selectRouteDetail,
-  useSavedRoutes,
-} from "../../api/hooks/use-route-detail";
-import { RouteDetailView } from "../../components/route-detail/RouteDetailView";
-import { RouteDetailErrorState, RouteDetailPendingState } from "../../components/route-detail/RouteDetailStates";
+import { RouteDetailView } from "../../features/route-detail/components/RouteDetailView";
+import { RouteDetailErrorState, RouteDetailPendingState } from "../../features/route-detail/components/RouteDetailStates";
+import { listSavedRoutesOptions } from "../../features/route-detail/hooks";
+import { useRouteDetail } from "../../features/route-detail/hooks";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../../i18n/locales";
 
 /** A real `Error` carrying TanStack's not-found marker (`isNotFound: true`). */
@@ -40,7 +37,6 @@ export const Route = createFileRoute("/routes/$routeId")({
 function RouteDetailRoute() {
   const { locale } = Route.useLoaderData();
   const { routeId } = Route.useParams();
-  const { data } = useSavedRoutes();
-  const detail = selectRouteDetail(data.saved_routes, routeId);
+  const detail = useRouteDetail(routeId);
   return <RouteDetailView detail={detail} locale={locale} now={new Date()} />;
 }

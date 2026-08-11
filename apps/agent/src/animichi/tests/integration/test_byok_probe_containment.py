@@ -22,7 +22,9 @@ from unittest.mock import AsyncMock, patch
 import httpx
 import pytest
 
-from animichi.interfaces.routes import byok as byok_route
+from animichi.agents import byok_probe as byok_probe_module
+from animichi.infrastructure.egress_transport import PROBE_MAX_RESPONSE_BYTES
+from animichi.interfaces.services import byok_probe as probe_capability
 from animichi.tests.integration._byok_probe_shared import (
     BYOK_HEADERS,
     HUMAN_HEADERS,
@@ -103,9 +105,20 @@ class _OversizedStreamNoHeaderTransport(httpx.AsyncBaseTransport):
 
 class _TimeoutControl:
     CancelledError = asyncio.CancelledError
+    TimeoutError = asyncio.TimeoutError
 
     def __init__(self) -> None:
         self.entries: list[tuple[float, asyncio.Timeout]] = []
+
+    @staticmethod
+    def create_task(coro: asyncio.Future[object]) -> asyncio.Task[object]:
+        return asyncio.create_task(coro)
+
+    @staticmethod
+    def gather(
+        *tasks: asyncio.Future[object], return_exceptions: bool = False
+    ) -> asyncio.Future[list[object]]:
+        return asyncio.gather(*tasks, return_exceptions=return_exceptions)
 
     def timeout(self, delay: float) -> asyncio.Timeout:
         context = asyncio.timeout(None)
@@ -143,7 +156,7 @@ async def _probe_body(
     )
     built = app()
     with patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        "animichi.interfaces.services.byok_probe.build_byok_model",
         AsyncMock(return_value=byok_model),
     ):
         response = await post_probe(built, HUMAN_HEADERS | BYOK_HEADERS)
@@ -237,7 +250,8 @@ async def test_the_probe_never_exceeds_its_timeout_ceiling(
     """Expire the real outer timeout after transport entry, without waiting."""
     control = _TimeoutControl()
     transport = _TimeoutCancellationTransport(control)
-    monkeypatch.setattr(byok_route, "asyncio", control)
+    monkeypatch.setattr(probe_capability, "asyncio", control)
+    monkeypatch.setattr(byok_probe_module, "asyncio", control)
     body = await _probe_body(transport)
     assert body == {
         "vision": False,
@@ -247,8 +261,8 @@ async def test_the_probe_never_exceeds_its_timeout_ceiling(
     assert transport.started is True
     assert transport.cancelled is True
     assert [delay for delay, _ in control.entries] == [
-        byok_route._PROBE_TIMEOUT_SECONDS,
-        byok_route._PROBE_TIMEOUT_SECONDS,
+        probe_capability._PROBE_TIMEOUT_SECONDS,
+        byok_probe_module._PROBE_TIMEOUT_SECONDS,
     ]
     assert control.entries[0][1].expired() is True
     assert control.entries[1][1].expired() is False
@@ -261,9 +275,9 @@ def test_the_timeout_ceiling_constant_is_at_most_five_seconds() -> None:
     but it deliberately controls when they expire. This assertion separately
     prevents the production ceiling itself from growing silently.
     """
-    assert byok_route._PROBE_TIMEOUT_SECONDS <= 5.0
+    assert probe_capability._PROBE_TIMEOUT_SECONDS <= 5.0
 
 
 def test_the_response_cap_constant_is_at_most_64_kib() -> None:
     """Same rationale as the timeout pin above, for constraint (c)."""
-    assert byok_route._PROBE_MAX_RESPONSE_BYTES <= 64 * 1024
+    assert PROBE_MAX_RESPONSE_BYTES <= 64 * 1024

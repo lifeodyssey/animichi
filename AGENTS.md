@@ -7,16 +7,15 @@ stack-specific rules live in per-package `AGENTS.md` files and in `.claude/rules
 Animichi is an anime pilgrimage search + route-planning service. **Hybrid microservices**: a
 Python PydanticAI agent (FastAPI, Cloudflare container) + TypeScript Cloudflare Workers (catalog +
 users) + a TanStack web app (rebuild in progress). Data plane = Neon;
-auth = **Neon Auth (Better Auth) integrated in `apps/web`** (SD-31); edge dual-issuer verification is
-implemented but **flag-gated OFF** (`NEON_AUTH_ENABLED`, cutover pending) — Supabase still verifies
-edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth code**.
+auth = **Neon Auth (Better Auth) integrated in `apps/web`** (SD-31); the edge verifies Neon Auth
+JWTs only (AUTH-2 #950 hard cut — Supabase verification deleted); the users worker trusts only the
+edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
 ## Monorepo layout
 
 - `apps/agent/`        — Python PydanticAI agent (FastAPI container). uv. → `apps/agent/AGENTS.md`
 - `workers/catalog/`   — TS Worker: anime catalog API + data platform (ingest/enrich/publish). → `workers/catalog/AGENTS.md`
 - `workers/users/`     — LIVE Hono/oRPC/jose user-data Worker; 21 tests + CI lane. → `workers/users/AGENTS.md`
-- `workers/jobs/` — Scheduled agent-domain Neon retention; no public route. → `workers/jobs/AGENTS.md`
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
 - `workers/edge/`      — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy. No page fallback — unmatched paths 404.
@@ -32,7 +31,7 @@ edge tokens today and backs local-dev/E2E (#561). **Do not add new Supabase-auth
 
 - `make check`         — lint + typecheck + unit + integration; the DB arm defaults offline. **Run before AND after any change.**
 - `make dev-db`        — agent-only Neon Local postgres-wire proxy on `:5432`; not for Workers.
-- `make dev-local`     — Supabase + backend + web app, one command (never start services individually).
+- `make dev-local`     — database + backend + web app, one command (never start services individually). Supabase is no longer required for auth — login is Neon Auth (AUTH-2 #950).
 - `make local-login`   — browser magic-link login for local dev.
 - `make test` — hermetic Python unit tests. `make test-integration` uses the offline Docker arm by
   default; select live Neon with `TEST_DB=neon`, or a disposable BYO database with

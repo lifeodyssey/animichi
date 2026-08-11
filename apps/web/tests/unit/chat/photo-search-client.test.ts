@@ -24,7 +24,7 @@ afterEach(() => {
 const URL = `${TEST_ORIGIN}/v1/photo-search`;
 const CONFIRM_URL = `${TEST_ORIGIN}/v1/photo-search/confirm`;
 const CTX: PhotoSearchContext = { locale: "ja" };
-const OK = { success: true, status: "ok", intent: "clarify", data: {} };
+const OK = { success: true, status: "ok", intent: "clarify", offer_id: "offer-1", data: {} };
 
 function jpegFile(bytes: Uint8Array<ArrayBuffer> = makeJpegWithExif() as Uint8Array<ArrayBuffer>): File {
   return new File([bytes], "photo.jpg", { type: "image/jpeg" });
@@ -94,6 +94,19 @@ describe("photo-search transport (P1-1/P1-4)", () => {
     expect(bodies[1]).not.toHaveProperty("gps");
   });
 
+  it("carries the server-issued offer id on the outcome (AGENT-1 #952)", async () => {
+    capture([]);
+    const outcome = await postPhotoSearch(TEST_ORIGIN, jpegFile(), CTX);
+    expect(outcome).toMatchObject({ kind: "part", offerId: "offer-1" });
+  });
+
+  it("rejects an envelope without an offer id (AGENT-1 #952)", async () => {
+    server.use(
+      http.post(URL, () => HttpResponse.json({ success: true, status: "ok", intent: "clarify", data: {} })),
+    );
+    await expect(postPhotoSearch(TEST_ORIGIN, jpegFile(), CTX)).rejects.toThrow("photo_search_invalid_response");
+  });
+
 });
 
 describe("BYOK headers on photo search (#284 P1-2 — deliberate, not inherited by accident)", () => {
@@ -140,21 +153,29 @@ describe("photo-search outcomes", () => {
     await expect(postPhotoSearch(TEST_ORIGIN, jpegFile(), CTX)).rejects.toThrow("photo_search_failed");
   });
 
-  it("the confirm ping carries the same identity headers", async () => {
-    const headers: Headers[] = [];
+  it("the confirm ping names the offer and the chosen candidate (AGENT-1 #952)", async () => {
+    const bodies: unknown[] = [];
     server.use(
-      http.post(CONFIRM_URL, ({ request }) => {
-        headers.push(request.headers);
+      http.post(CONFIRM_URL, async ({ request }) => {
+        bodies.push(await request.json());
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    confirmPhotoSearch(
-      TEST_ORIGIN,
-      { query_type: "anime_screenshot", gps_available: false, layer_hit: "none", candidates_shown: 0 },
-      { locale: "en", sessionIdOf: () => "sess-1" },
+    confirmPhotoSearch(TEST_ORIGIN, "offer-1", "c-9", { locale: "en", sessionIdOf: () => "sess-1" });
+    await expect.poll(() => bodies.length).toBe(1);
+    expect(bodies[0]).toEqual({ offer_id: "offer-1", candidate_id: "c-9" });
+  });
+
+  it("the confirm ping omits candidate_id when none was chosen", async () => {
+    const bodies: unknown[] = [];
+    server.use(
+      http.post(CONFIRM_URL, async ({ request }) => {
+        bodies.push(await request.json());
+        return new HttpResponse(null, { status: 204 });
+      }),
     );
-    await expect.poll(() => headers.length).toBe(1);
-    expect(headers[0]?.get("x-locale")).toBe("en");
-    expect(headers[0]?.get("x-session-id")).toBe("sess-1");
+    confirmPhotoSearch(TEST_ORIGIN, "offer-1", undefined, { locale: "en" });
+    await expect.poll(() => bodies.length).toBe(1);
+    expect(bodies[0]).toEqual({ offer_id: "offer-1" });
   });
 });

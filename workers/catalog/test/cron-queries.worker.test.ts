@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { Param, SQL } from "drizzle-orm";
 import {
-  listDoneWorkIds,
-  listStaleWorkIds,
+  listDoneBangumiIds,
+  listStaleBangumiIds,
   STALE_AFTER_SECONDS,
 } from "../src/ingest/cron-queries";
 import type { CatalogDb } from "../src/db/client";
@@ -59,11 +59,11 @@ function fakeDb(rows: readonly unknown[]): FakeDb {
   };
 }
 
-describe("listStaleWorkIds SQL shape", () => {
+describe("listStaleBangumiIds SQL shape", () => {
   it("orders by the WEAKEST fetch across both sources, treating a missing row as infinitely old", async () => {
     const fake = fakeDb([{ work_id: "w-1" }]);
 
-    await listStaleWorkIds(fake.db, 5);
+    await listStaleBangumiIds(fake.db, 5);
 
     const sqlText = fake.sqlText();
     expect(sqlText).toContain("FULL OUTER JOIN");
@@ -77,7 +77,7 @@ describe("listStaleWorkIds SQL shape", () => {
   it("floors freshness at the TTL constant and skips works behind a live negative cache", async () => {
     const fake = fakeDb([]);
 
-    await listStaleWorkIds(fake.db, 5);
+    await listStaleBangumiIds(fake.db, 5);
 
     const sqlText = fake.sqlText();
     expect(sqlText).toContain("make_interval");
@@ -96,23 +96,23 @@ describe("listStaleWorkIds SQL shape", () => {
       { work_id: "w-3" },
     ]);
 
-    await expect(listStaleWorkIds(fake.db, 5)).resolves.toEqual(["w-1", "w-2", "w-3"]);
+    await expect(listStaleBangumiIds(fake.db, 5)).resolves.toEqual(["w-1", "w-2", "w-3"]);
   });
 
   it("rejects a non-positive cap before issuing any SQL", async () => {
     const fake = fakeDb([]);
 
-    await expect(listStaleWorkIds(fake.db, 0)).rejects.toThrow("cron batch cap must be a positive integer");
-    await expect(listStaleWorkIds(fake.db, 2.5)).rejects.toThrow("cron batch cap must be a positive integer");
+    await expect(listStaleBangumiIds(fake.db, 0)).rejects.toThrow("cron batch cap must be a positive integer");
+    await expect(listStaleBangumiIds(fake.db, 2.5)).rejects.toThrow("cron batch cap must be a positive integer");
     expect(fake.sqlText()).toBe("");
   });
 });
 
-describe("listDoneWorkIds SQL shape", () => {
+describe("listDoneBangumiIds SQL shape", () => {
   it("filters the checked-in ids to those with a done ingest_jobs row", async () => {
     const fake = fakeDb([{ work_id: "w-2" }]);
 
-    await expect(listDoneWorkIds(fake.db, ["w-1", "w-2", "w-3"])).resolves.toEqual(new Set(["w-2"]));
+    await expect(listDoneBangumiIds(fake.db, ["w-1", "w-2", "w-3"])).resolves.toEqual(new Set(["w-2"]));
 
     const sqlText = fake.sqlText();
     expect(sqlText).toContain("FROM ingest_jobs");
@@ -123,7 +123,7 @@ describe("listDoneWorkIds SQL shape", () => {
   it("returns an empty set without issuing SQL for an empty input", async () => {
     const fake = fakeDb([]);
 
-    await expect(listDoneWorkIds(fake.db, [])).resolves.toEqual(new Set());
+    await expect(listDoneBangumiIds(fake.db, [])).resolves.toEqual(new Set());
     expect(fake.sqlText()).toBe("");
   });
 });

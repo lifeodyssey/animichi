@@ -43,7 +43,8 @@ def _db(*, spent: float, next_count: int) -> MagicMock:
     db.usage.accumulate_usage = AsyncMock(return_value=None)
     db.usage.total_cost_usd = AsyncMock(return_value=spent)
     db.anon_quota = MagicMock()
-    db.anon_quota.increment_and_count = AsyncMock(return_value=next_count)
+    db.anon_quota.increment_and_count = AsyncMock(return_value=next_count + 1)
+    db.anon_quota.count_for = AsyncMock(return_value=next_count)
     return db
 
 
@@ -90,7 +91,7 @@ async def test_the_budget_short_circuit_never_reaches_the_quota_counter() -> Non
 
     await _post(app, ANON_HEADERS)
 
-    db.anon_quota.increment_and_count.assert_not_awaited()
+    db.anon_quota.count_for.assert_not_awaited()
 
 
 async def test_only_quota_exhausted_falls_through_to_the_quota_rejection() -> None:

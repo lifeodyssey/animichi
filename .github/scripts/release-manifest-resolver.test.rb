@@ -79,7 +79,7 @@ abort "FAIL: omitted revision must omit deploy verdict" unless no_rev["eligibili
 # ── Red: tampered manifest — altering any field fails the pinned identity ───
 with_copy("b1-tamper") do |copy|
   mutate_manifest(copy) { |m| m["atlas"]["target"] = "20260909000000" }
-  red_case("altered atlas target fails pinned identity", copy, "root", ["manifest SHA-256", "atlas.target must be pinned 20260809000031"])
+  red_case("altered atlas target fails pinned identity", copy, "root", ["manifest SHA-256", "atlas.target must be pinned 20260811000001"])
 end
 
 # ── Red: unknown top-level field ────────────────────────────────────────────

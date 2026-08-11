@@ -37,7 +37,7 @@ def _stub_dns(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _patched_build(byok_model: ByokModel) -> object:
     return patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        "animichi.interfaces.services.byok_probe.build_byok_model",
         AsyncMock(return_value=byok_model),
     )
 

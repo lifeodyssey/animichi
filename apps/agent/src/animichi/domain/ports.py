@@ -146,8 +146,12 @@ class UsageMeter(Protocol):
 class AnonQuotaCounter(Protocol):
     """Per-identity anonymous daily message counter (issue #282 / S1.10).
 
-    Renamed from ``AnonQuotaRepo`` (iter6 C4).
+    Renamed from ``AnonQuotaRepo`` (iter6 C4). ``count_for`` is the read the
+    admission gate uses; ``increment_and_count`` is the exactly-once settlement
+    write owned by :class:`TurnOutcome` (TURN-3 #951).
     """
+
+    async def count_for(self, *, usage_date: date, anon_id: str) -> int: ...
 
     async def increment_and_count(self, *, usage_date: date, anon_id: str) -> int: ...
 

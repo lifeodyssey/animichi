@@ -3,11 +3,11 @@ import { Hono } from "hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { catalogRouter } from "./router";
 import type { CatalogDb, NeonSql } from "./db/client";
-import { ingestWork as runOrchestratorIngest } from "./ingest/orchestrator";
-import type { IngestResult as OrchestratorIngestResult } from "./ingest/orchestrator";
+import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
+import type { IngestResult } from "./ingest/ingest-bangumi";
 import { SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "./cron-config";
-import { listDoneWorkIds, listStaleWorkIds } from "./ingest/cron-queries";
-import { SEED_WORK_IDS, SEED_WORKS } from "./ingest/seed-works";
+import { listDoneBangumiIds, listStaleBangumiIds } from "./ingest/cron-queries";
+import { SEED_BANGUMI_IDS, SEED_BANGUMI } from "./ingest/seed-works";
 import { serveImage } from "./media/img";
 
 export interface Env {
@@ -118,23 +118,23 @@ export type { CatalogRouter } from "./router";
 /**
  * Internal-only ingest door (#540): a named entrypoint reachable exclusively
  * through a Cloudflare service binding — the public oRPC route is gone, so no
- * HTTP surface can reach the orchestrator. The search-miss and work-points
+ * HTTP surface can reach the ingest pipeline. The search-miss and points-by-id
  * lazy-ingest paths stay internal to this Worker and keep calling the
- * orchestrator directly.
+ * IngestBangumi use case directly.
  */
 export class IngestEntrypoint extends WorkerEntrypoint<Env> {
-  async ingestWork(workId: string): Promise<OrchestratorIngestResult> {
+  async ingestBangumi(bangumiId: string): Promise<IngestResult> {
     const connStr = await connectionString(this.env);
     if (!connStr) throw new Error("catalog database not configured");
     const { db } = await dbFor(connStr);
-    return runOrchestratorIngest(db, workId);
+    return catalogIngestBangumi(db).ingest(bangumiId);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Scheduled ingestion (S0-v2 D4) — Cron Triggers. Shape mirrors
-// workers/jobs/src/index.ts: a fail-closed cron-string dispatcher with
-// injectable dependencies, tested with a fake controller/DB in the worker pool.
+// Scheduled ingestion (S0-v2 D4) — Cron Triggers. Fail-closed cron-string
+// dispatcher with injectable dependencies, tested with a fake controller/DB
+// in the worker pool (the jobs Worker's retired dispatcher was the template).
 // Schedule constants live in src/cron-config.ts (the entry module must not
 // export primitives — workerd rejects them at boot).
 // ---------------------------------------------------------------------------
@@ -159,16 +159,16 @@ export interface CronJobResult {
 /** Injectable seams for the cron jobs; tests substitute every one. */
 export interface CronDependencies {
   connect: (connectionString: string) => Promise<CatalogDb>;
-  ingestWork: (db: CatalogDb, workId: string) => Promise<OrchestratorIngestResult>;
-  listDoneWorkIds: (db: CatalogDb, workIds: readonly string[]) => Promise<ReadonlySet<string>>;
-  listStaleWorkIds: (db: CatalogDb, cap: number) => Promise<readonly string[]>;
+  ingestBangumi: (db: CatalogDb, bangumiId: string) => Promise<IngestResult>;
+  listDoneBangumiIds: (db: CatalogDb, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
+  listStaleBangumiIds: (db: CatalogDb, cap: number) => Promise<readonly string[]>;
 }
 
 const DEFAULT_DEPENDENCIES: CronDependencies = {
   connect: async (connStr) => (await dbFor(connStr)).db,
-  ingestWork: runOrchestratorIngest,
-  listDoneWorkIds,
-  listStaleWorkIds,
+  ingestBangumi: (db, bangumiId) => catalogIngestBangumi(db).ingest(bangumiId),
+  listDoneBangumiIds,
+  listStaleBangumiIds,
 };
 
 export function createScheduledHandler(
@@ -192,14 +192,14 @@ async function runCron(
   throw new Error(`Unknown catalog cron: ${cron}`);
 }
 
-/** Seed pass: ingest the checked-in works that have no `done` ingest_jobs row. */
+/** Seed pass: ingest the checked-in titles that have no `done` ingest_jobs row. */
 export async function runSeedJob(
   db: CatalogDb,
   dependencies: CronDependencies,
 ): Promise<CronJobResult> {
-  const done = await dependencies.listDoneWorkIds(db, SEED_WORK_IDS);
-  const pending = SEED_WORKS.filter((work) => !done.has(work.bangumiId)).map(
-    (work) => work.bangumiId,
+  const done = await dependencies.listDoneBangumiIds(db, SEED_BANGUMI_IDS);
+  const pending = SEED_BANGUMI.filter((title) => !done.has(title.bangumiId)).map(
+    (title) => title.bangumiId,
   );
   return ingestBatch(db, dependencies, pending);
 }
@@ -209,7 +209,7 @@ export async function runTtlJob(
   db: CatalogDb,
   dependencies: CronDependencies,
 ): Promise<CronJobResult> {
-  const stale = await dependencies.listStaleWorkIds(db, TTL_BATCH_CAP);
+  const stale = await dependencies.listStaleBangumiIds(db, TTL_BATCH_CAP);
   return ingestBatch(db, dependencies, stale.slice(0, TTL_BATCH_CAP));
 }
 
@@ -217,25 +217,25 @@ export async function runTtlJob(
 async function ingestBatch(
   db: CatalogDb,
   dependencies: CronDependencies,
-  workIds: readonly string[],
+  bangumiIds: readonly string[],
 ): Promise<CronJobResult> {
   let ingested = 0;
-  for (const workId of workIds) {
-    if (await ingestOne(db, dependencies, workId)) ingested++;
+  for (const bangumiId of bangumiIds) {
+    if (await ingestOne(db, dependencies, bangumiId)) ingested++;
   }
-  return { attempted: workIds.length, ingested, skipped: workIds.length - ingested };
+  return { attempted: bangumiIds.length, ingested, skipped: bangumiIds.length - ingested };
 }
 
 /** One work's ingest, throwing-free — a failure counts as skipped, the batch continues. */
 async function ingestOne(
   db: CatalogDb,
   dependencies: CronDependencies,
-  workId: string,
+  bangumiId: string,
 ): Promise<boolean> {
   try {
-    return (await dependencies.ingestWork(db, workId)).status === "ingested";
+    return (await dependencies.ingestBangumi(db, bangumiId)).status === "ingested";
   } catch (err) {
-    console.error(`[cron] ingest failed for work ${workId}: ${String(err)}`);
+    console.error(`[cron] ingest failed for work ${bangumiId}: ${String(err)}`);
     return false;
   }
 }

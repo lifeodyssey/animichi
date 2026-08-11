@@ -8,7 +8,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
 [![TanStack Start](https://img.shields.io/badge/TanStack_Start-SSR-FF4154.svg)](https://tanstack.com/start)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
-[![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e.svg?logo=supabase)](https://supabase.com)
+[![Neon](https://img.shields.io/badge/Neon-Postgres-30cf9e.svg?logo=neon)](https://neon.tech)
 [![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/animichi)](https://github.com/lifeodyssey/animichi/commits/main)
 [![GitHub stars](https://img.shields.io/github/stars/lifeodyssey/animichi?style=flat)](https://github.com/lifeodyssey/animichi)
 
@@ -87,13 +87,13 @@ make db-push           # 对 NEON_DATABASE_URL 应用迁移
 **必需（agent 容器 / 本地 serve）：**
 | 变量 | 用途 |
 |---|---|
-| `SUPABASE_DB_URL` | agent 域 Postgres 连接字符串 |
-| `SUPABASE_URL` | Supabase 项目 URL（auth + API key 查询面） |
-| `SUPABASE_SERVICE_ROLE_KEY` | 服务端 Supabase 认证 / `api_keys` 查询 |
+| `SUPABASE_DB_URL` | agent 域 Postgres 连接字符串（旧数据面。Neon 上由 `AGENT_SVC_DATABASE_URL` 取代，#912 跟进） |
 | `MIMO_API_KEY` | 主模型供应商密钥 |
 | `DEEPSEEK_API_KEY` | 边缘 container-env 容器启动必填（转发进容器） |
 
-**Worker 边缘：** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`（JWT 用公开 JWKS 校验 — 边缘不需要 `SUPABASE_ANON_KEY`）。catalog/users/jobs 还需各自 Neon DSN — 见 [`docs/ops/deployment.md`](docs/ops/deployment.md)。
+**Worker 边缘：** `NEON_AUTH_JWKS_URL`（边缘**唯一** identity 来源 — AUTH-2 #950。用分支 JWKS 校验 Neon Auth EdDSA JWT；生产分支未就绪前不设置＝fail-closed）。catalog/users/jobs 还需各自 Neon DSN — 见 [`docs/ops/deployment.md`](docs/ops/deployment.md)。
+
+**Web（`apps/web`）：** `VITE_NEON_AUTH_BASE_URL`（Better Auth 客户端登录源 + JWT 交换）— 见 [`apps/web/.env.example`](apps/web/.env.example)。
 
 **可选：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -112,10 +112,10 @@ async def main() -> None:
         print(result.output)
 ```
 
-**HTTP（API Key）：**
+**HTTP（已认证）：**
 ```bash
 curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
-  -H 'Authorization: Bearer sk_your_key_here' \
+  -H 'Authorization: Bearer <neon_auth_jwt>' \
   -H 'Content-Type: application/json' \
   -d '{"text":"吹響の聖地","locale":"ja"}'
 ```
@@ -125,12 +125,11 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `apps/agent/` — Python 运行时：agents、interfaces、infrastructure、tests、tools
 - `workers/catalog/` — 动漫目录 API + 数据平台 Cloudflare Worker（TypeScript）
 - `workers/users/` — 用户域数据 Worker（`/v1/users/*`）
-- `workers/jobs/` — 定时 Neon 保留 Worker（无公网路由）
 - `packages/contract/` — 共享 oRPC/zod 契约（catalog ↔ agent ↔ users）
 - `apps/web/` — TanStack Start SSR Web 应用（**唯一浏览器面**）
 - `workers/edge/` — Cloudflare Worker 入口：认证与 `/v1` 路由
 - `migrations/neon/` — Neon 数据面的 Atlas 迁移与生成的 checksum
-- `supabase/` — auth/旧版兼容迁移与 Supabase 项目资产
+- `supabase/` — 旧版兼容迁移与 Supabase 项目资产（auth 已迁至 Neon Auth，AUTH-2 #950）
 - `docs/` — 架构文档、运维文档、迭代资料与实现计划
 - `Makefile`、`package.json` — 根目录工具入口；`apps/agent/Dockerfile`（容器镜像）与 `workers/edge/wrangler.toml`（edge Worker 配置）随代码存放
 

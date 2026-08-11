@@ -80,8 +80,8 @@ describe("catalog has no public host", () => {
     expect(toml).not.toMatch(/^\s*routes\s*=/m);
   });
 
-  // Byte-identical cron strings in every environment (maintenance AGENTS.md
-  // rule); keep in sync with SEED_CRON / TTL_REFRESH_CRON in src/cron-config.ts.
+  // Byte-identical cron strings in every environment; keep in sync with
+  // SEED_CRON / TTL_REFRESH_CRON in src/cron-config.ts.
   it("declares both ingest schedules for default, staging, and production", () => {
     expect(toml.split('crons = ["0 4 * * *", "17 * * * *"]')).toHaveLength(4);
   });

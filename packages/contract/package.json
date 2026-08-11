@@ -8,6 +8,7 @@
   "types": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./identity": "./src/identity-contract.ts",
     "./models": "./src/models.ts",
     "./contract": "./src/contract.ts",
     "./agent-contract": "./src/agent-contract.ts",

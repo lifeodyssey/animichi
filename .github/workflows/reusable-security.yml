@@ -51,7 +51,11 @@ jobs:
           persist-credentials: false
       - uses: trufflesecurity/trufflehog@6f3c981e7b77f235fd2702dd74af25fc4b72bf11 # v3.96.0
         with:
-          extra_args: --results=verified --only-verified
+          # --exclude-detectors=Lob: this repo uses no Lob (mail) service; the
+          # Lob detector treats test_ + exactly-35-char snake_case test names
+          # (e.g. test_admission_precedes_the_runtime_turn) as a verified test
+          # API key (TURN-2 #949 CI). 35+-char test names are our house style.
+          extra_args: --results=verified --only-verified --exclude-detectors=Lob
 
   # ── Dependency / lockfile CVE scanning ───────────────────────
 

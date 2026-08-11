@@ -6,7 +6,6 @@ to avoid TestClient event loop conflicts with asyncpg.
 
 Endpoints under test:
   POST /v1/runtime
-  GET  /v1/bangumi/popular
   GET  /v1/routes
   GET  /v1/conversations/{session_id}/messages
 """
@@ -138,22 +137,6 @@ async def test_runtime_clarify_candidate_has_required_fields(async_client):
     assert "cover_url" in c
     assert "points_count" in c
     assert "city" in c
-
-
-# ── Popular bangumi ───────────────────────────────────────────────────
-
-
-@pytest.mark.integration
-async def test_popular_bangumi_has_cover_and_titles(async_client):
-    resp = await async_client.get("/v1/bangumi/popular", headers=_HEADERS)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "bangumi" in data
-    if not data["bangumi"]:
-        pytest.skip("No popular bangumi in testcontainer seed")
-    item = data["bangumi"][0]
-    assert "title" in item
-    assert "cover_url" in item
 
 
 # ── Routes ────────────────────────────────────────────────────────────

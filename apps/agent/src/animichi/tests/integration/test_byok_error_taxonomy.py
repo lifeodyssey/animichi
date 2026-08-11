@@ -93,7 +93,7 @@ async def test_byok_turn_never_falls_back_to_the_server_default_model() -> None:
             new=AsyncMock(side_effect=ModelHTTPError(401, "byok-model")),
         ),
         patch(
-            "animichi.interfaces.public_api.get_default_model",
+            "animichi.agents.animichi_runner.get_default_model",
             side_effect=AssertionError("must not fall back to the server default"),
         ),
     ):

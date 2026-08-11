@@ -15,10 +15,10 @@ ledger's growth bounded across many turns. The record cap and the encoded
 byte budget are both enforced here, in the write path, not only asserted by
 tests.
 
-Anonymous-session purge note: route-bearing anonymous sessions are exempt
-from the retention purge (#460) and can therefore live indefinitely; the
-per-field record cap and byte budget below are what keep such a
-long-lived session's ledger bounded regardless of session age.
+Anonymous-session note: anonymous identities may keep long-lived sessions
+(route-bearing ones in particular); the per-field record cap and byte budget
+below are what keep such a long-lived session's ledger bounded regardless of
+session age.
 """
 
 from __future__ import annotations
