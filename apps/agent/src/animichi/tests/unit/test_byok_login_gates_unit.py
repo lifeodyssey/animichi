@@ -14,14 +14,17 @@ patch coverage, not just end-to-end coverage.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 from fastapi import FastAPI
 
+from animichi.interfaces.boundary.agent_models import ByokProbeResponse
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.schemas import PublicAPIResponse
+from animichi.interfaces.services.byok_probe import ProbeRejection
 from animichi.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
 
 pytestmark = pytest.mark.unit
@@ -121,3 +124,94 @@ async def test_probe_gate_route_never_constructs_a_model_for_the_rejected_caller
                 "/v1/byok/probe", json={}, headers=ANON_HEADERS | BYOK_HEADERS
             )
     assert response.status_code == 403
+
+
+async def test_probe_success_maps_the_capability_response() -> None:
+    """A logged-in caller with full BYOK headers reaches the capability and
+    gets the generated response model back verbatim (route delegation arc)."""
+    db = build_stub_db()
+    app, _ = build_app(db=db)
+    with patch(
+        "animichi.interfaces.routes.byok._probe_model_credential",
+        SimpleNamespace(
+            probe=AsyncMock(
+                return_value=ByokProbeResponse(
+                    vision=True, reachable=True, error_code=None
+                )
+            )
+        ),
+    ):
+        async with async_client(app) as client:
+            response = await client.post(
+                "/v1/byok/probe", json={}, headers=HUMAN_HEADERS | BYOK_HEADERS
+            )
+    assert response.status_code == 200
+    assert response.json() == {"vision": True, "reachable": True, "error_code": None}
+
+
+async def test_probe_maps_a_capability_rejection_to_its_code() -> None:
+    """A `ProbeRejection` from the capability surfaces as a 400 error
+    envelope carrying the machine-readable code (egress_blocked etc.)."""
+    db = build_stub_db()
+    app, _ = build_app(db=db)
+    with patch(
+        "animichi.interfaces.routes.byok._probe_model_credential",
+        SimpleNamespace(
+            probe=AsyncMock(
+                side_effect=ProbeRejection(
+                    "egress_blocked", "base_url failed egress validation."
+                )
+            )
+        ),
+    ):
+        async with async_client(app) as client:
+            response = await client.post(
+                "/v1/byok/probe", json={}, headers=HUMAN_HEADERS | BYOK_HEADERS
+            )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "egress_blocked"
+
+
+async def test_probe_route_success_maps_to_the_generated_boundary() -> None:
+    """`handle_byok_probe`'s success arc: probe returns a generated
+    `ByokProbeResponse` (AGENT-2 #953) and the route serializes it."""
+    from unittest.mock import patch
+
+    from animichi.interfaces.boundary.agent_models import ByokProbeResponse
+    from animichi.interfaces.services.byok_probe import ProbeModelCredential
+
+    db = build_stub_db()
+    app, _ = build_app(db=db)
+    with patch.object(
+        ProbeModelCredential,
+        "probe",
+        AsyncMock(
+            return_value=ByokProbeResponse(vision=True, reachable=True, error_code=None)
+        ),
+    ):
+        async with async_client(app) as client:
+            response = await client.post(
+                "/v1/byok/probe", json={}, headers=HUMAN_HEADERS | BYOK_HEADERS
+            )
+    assert response.status_code == 200
+    assert response.json() == {"vision": True, "reachable": True, "error_code": None}
+
+
+async def test_probe_route_maps_rejection_to_the_stable_envelope() -> None:
+    from unittest.mock import patch
+
+    from animichi.interfaces.services.byok_probe import ProbeModelCredential
+
+    db = build_stub_db()
+    app, _ = build_app(db=db)
+    with patch.object(
+        ProbeModelCredential,
+        "probe",
+        AsyncMock(side_effect=ProbeRejection("egress_blocked", "egress blocked")),
+    ):
+        async with async_client(app) as client:
+            response = await client.post(
+                "/v1/byok/probe", json={}, headers=HUMAN_HEADERS | BYOK_HEADERS
+            )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "egress_blocked"
