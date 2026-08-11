@@ -32,9 +32,14 @@ from animichi.application.photo_search_envelope import (
     PhotoResults,
     PhotoSearchData,
 )
-from animichi.application.search_photo import SearchPhotoResult
+from animichi.application.search_photo import (
+    SearchPhoto,
+    SearchPhotoCommand,
+    SearchPhotoResult,
+)
 from animichi.application.turn_admission import AdmissionIdentity, AdmissionPolicy
-from animichi.application.turn_outcome_port import TurnRef
+from animichi.application.turn_outcome import TurnOutcome
+from animichi.application.turn_outcome_port import SettleOutcome, TurnRef
 from animichi.infrastructure.observability.photo_search import (
     PhotoSearchSignals,
     record_photo_search,
@@ -165,6 +170,60 @@ def _signals(signals: OfferSignals, *, user_confirmed: bool) -> PhotoSearchSigna
     )
 
 
+async def _release_if_reserved(
+    outcome: TurnOutcome,
+    reserved: bool,
+    owner: str | None,
+    turn_ref: TurnRef,
+) -> None:
+    if reserved and owner is not None:
+        await outcome.release(turn_ref, owner=owner)
+
+
+async def _dispatch_certainty(
+    outcome: TurnOutcome,
+    reserved: bool,
+    owner: str | None,
+    turn_ref: TurnRef,
+) -> bool:
+    """Dispatch-certainty guard (TURN-3 #951): never run the vision pipeline
+    for a turn whose lease is already gone."""
+    if not (reserved and owner is not None):
+        return True
+    return await outcome.dispatch(turn_ref, owner=owner)
+
+
+async def _settle_if_reserved(
+    outcome: TurnOutcome,
+    reserved: bool,
+    owner: str | None,
+    turn_ref: TurnRef,
+    result: SettleOutcome,
+) -> None:
+    if reserved and owner is not None:
+        await outcome.settle(turn_ref, owner=owner, outcome=result)
+
+
+async def _run_search_settled(
+    outcome: TurnOutcome,
+    reserved: bool,
+    owner: str | None,
+    turn_ref: TurnRef,
+    search: SearchPhoto,
+    command: SearchPhotoCommand,
+) -> SearchPhotoResult:
+    try:
+        result = await search(command)
+    except PhotoSearchRejection as photo_rejection:
+        await _settle_if_reserved(outcome, reserved, owner, turn_ref, "failed")
+        raise photo_rejection
+    except BaseException:
+        await _settle_if_reserved(outcome, reserved, owner, turn_ref, "failed")
+        raise
+    await _settle_if_reserved(outcome, reserved, owner, turn_ref, "completed")
+    return result
+
+
 @router.post(
     "/photo-search",
     response_model=PhotoSearchResponse,
@@ -211,34 +270,23 @@ async def handle_photo_search(
     try:
         byok_model = await _resolve_byok_model(request)
     except PhotoSearchRejection as photo_rejection:
-        if reserved and owner is not None:
-            await outcome.release(turn_ref, owner=owner)
+        await _release_if_reserved(outcome, reserved, owner, turn_ref)
         return _rejection_response(photo_rejection)
-    dispatched = True
-    if reserved and owner is not None:
-        # Dispatch-certainty guard (TURN-3 #951): never run the vision
-        # pipeline for a turn whose lease is already gone.
-        dispatched = await outcome.dispatch(turn_ref, owner=owner)
-    if not dispatched:
+    if not await _dispatch_certainty(outcome, reserved, owner, turn_ref):
         return _rejection_response(
             PhotoSearchRejection(
                 409, "turn_lease_lost", "The turn reservation expired; retry."
             )
         )
     search = build_search_photo(runtime, request, settings, byok_model)
-    try:
-        result = await search(search_command(request, auth, body))
-    except PhotoSearchRejection as photo_rejection:
-        if reserved and owner is not None:
-            await outcome.settle(turn_ref, owner=owner, outcome="failed")
-        return _rejection_response(photo_rejection)
-    except BaseException:
-        if reserved and owner is not None:
-            await outcome.settle(turn_ref, owner=owner, outcome="failed")
-        raise
-    else:
-        if reserved and owner is not None:
-            await outcome.settle(turn_ref, owner=owner, outcome="completed")
+    result = await _run_search_settled(
+        outcome,
+        reserved,
+        owner,
+        turn_ref,
+        search,
+        search_command(request, auth, body),
+    )
     record_photo_search(_search_signals(result))
     return JSONResponse(_wire_response(result).model_dump(exclude_none=True))
 
