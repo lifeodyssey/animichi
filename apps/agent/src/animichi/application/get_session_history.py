@@ -86,6 +86,9 @@ def _to_message(row: SessionRow) -> GetSessionHistoryResponseMessages:
     )
 
 
+_NEXT_OFFSET_CAP = 1_000
+
+
 async def get_session_history(
     adapter: SessionHistoryAdapter,
     *,
@@ -103,8 +106,11 @@ async def get_session_history(
     page = sorted(rows, key=_order_key)[:limit]
     revision = await adapter.current_revision(session_id)
     has_more = len(rows) > limit
+    next_offset = offset + limit if has_more else None
+    if next_offset is not None and next_offset > _NEXT_OFFSET_CAP:
+        next_offset = None
     return GetSessionHistoryResponse(
         messages=[_to_message(row) for row in page],
         revision=revision,
-        next_offset=offset + limit if has_more else None,
+        next_offset=next_offset,
     )

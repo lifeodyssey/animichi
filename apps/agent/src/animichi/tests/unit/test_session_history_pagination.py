@@ -100,10 +100,34 @@ async def test_pagination_bounds_are_enforced_by_the_route() -> None:
         negative_offset = await client.get(
             "/v1/conversations/s-1/messages?offset=-1", headers=_AUTH_HEADERS
         )
+        huge_offset = await client.get(
+            "/v1/conversations/s-1/messages?offset=1001", headers=_AUTH_HEADERS
+        )
 
     assert too_small.status_code == 422
     assert too_large.status_code == 422
     assert negative_offset.status_code == 422
+    assert huge_offset.status_code == 422
+
+
+async def test_next_offset_is_capped_at_the_route_ceiling() -> None:
+    db = build_stub_db()
+    db.session.get_conversation = AsyncMock(
+        return_value={"user_id": "user-1", "session_id": "s-1"}
+    )
+    db.messages.get_messages = AsyncMock(
+        return_value=[_message(f"2026-08-01T{i:02d}:00:00Z") for i in range(11)]
+    )
+    app, _ = build_app(db=db)
+    async with async_client(app) as client:
+        resp = await client.get(
+            "/v1/conversations/s-1/messages?limit=10&offset=995",
+            headers=_AUTH_HEADERS,
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["next_offset"] is None
+    db.messages.get_messages.assert_awaited_once_with("s-1", limit=11, offset=995)
 
 
 async def test_response_parses_as_the_generated_boundary() -> None:
