@@ -24,9 +24,11 @@ test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}" \
   || { echo "cutover-reset-schema: HEAD != source_revision" >&2; exit 1; }
 
 # 1. Evidence: inventory of application schema objects, no row content.
+SCHEMA_BEFORE="$(mktemp "${TMPDIR:-/tmp}/cutover-schema-before.XXXXXX")"
+trap 'rm -f "${SCHEMA_BEFORE}"' EXIT
 psql "${NEON_DATABASE_URL}" -tAc \
   "SELECT table_schema || '.' || table_name FROM information_schema.tables \
-   WHERE table_schema = 'public' ORDER BY 1;" > /tmp/cutover-schema-before.txt
+   WHERE table_schema = 'public' ORDER BY 1;" > "${SCHEMA_BEFORE}"
 
 # 2. Verify the reset target excludes Neon Auth-owned schemas. The Neon Auth
 #    schema is a separate schema/principal boundary; the application reset
