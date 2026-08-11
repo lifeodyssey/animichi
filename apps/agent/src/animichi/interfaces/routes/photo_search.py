@@ -214,9 +214,9 @@ async def _run_search_settled(
 ) -> SearchPhotoResult:
     try:
         result = await search(command)
-    except PhotoSearchRejection as photo_rejection:
+    except PhotoSearchRejection:
         await _settle_if_reserved(outcome, reserved, owner, turn_ref, "failed")
-        raise photo_rejection
+        raise
     except BaseException:
         await _settle_if_reserved(outcome, reserved, owner, turn_ref, "failed")
         raise
@@ -279,14 +279,17 @@ async def handle_photo_search(
             )
         )
     search = build_search_photo(runtime, request, settings, byok_model)
-    result = await _run_search_settled(
-        outcome,
-        reserved,
-        owner,
-        turn_ref,
-        search,
-        search_command(request, auth, body),
-    )
+    try:
+        result = await _run_search_settled(
+            outcome,
+            reserved,
+            owner,
+            turn_ref,
+            search,
+            search_command(request, auth, body),
+        )
+    except PhotoSearchRejection as photo_rejection:
+        return _rejection_response(photo_rejection)
     record_photo_search(_search_signals(result))
     return JSONResponse(_wire_response(result).model_dump(exclude_none=True))
 
