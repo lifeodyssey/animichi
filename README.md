@@ -8,7 +8,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
 [![TanStack Start](https://img.shields.io/badge/TanStack_Start-SSR-FF4154.svg)](https://tanstack.com/start)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
-[![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e.svg?logo=supabase)](https://supabase.com)
+[![Neon](https://img.shields.io/badge/Neon-Postgres-30cf9e.svg?logo=neon)](https://neon.tech)
 [![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/animichi)](https://github.com/lifeodyssey/animichi/commits/main)
 [![GitHub stars](https://img.shields.io/github/stars/lifeodyssey/animichi?style=flat)](https://github.com/lifeodyssey/animichi)
 
@@ -45,7 +45,7 @@ A single PydanticAI agent handles planning and tool dispatch. Tools use `ModelRe
 - **Geo retrieval** — find pilgrimage spots near any coordinate or station name
 - **Route planning** — nearest-neighbor ordering with optional user-selected points
 - **Generative UI** — three-column layout with chat panel + interactive result panel
-- **Edge auth** — JWT (magic-link) and API key auth enforced at Cloudflare Worker
+- **Edge auth** — Neon Auth (Better Auth) JWT (magic-link) enforced at Cloudflare Worker against the branch JWKS
 - **Eval harness** — 50+ plan-quality cases across 3 locales via pydantic_evals
 
 ## Quick Start
@@ -89,12 +89,16 @@ order. Apply migrations in a dedicated deploy step, not at application startup.
 **Required (agent container / local serve):**
 | Variable | Purpose |
 |---|---|
-| `SUPABASE_DB_URL` | Agent-domain Postgres connection string |
-| `SUPABASE_URL` | Supabase project URL (auth plane) |
+| `SUPABASE_DB_URL` | Agent-domain Postgres connection string (legacy data plane; superseded by `AGENT_SVC_DATABASE_URL` on Neon, #912 follow-up) |
 | `MIMO_API_KEY` | Primary model provider key |
 | `DEEPSEEK_API_KEY` | Required by edge container-env for agent boot (forwarded into the container) |
 
-**Worker edge:** `SUPABASE_URL` (JWT verifies public JWKS — `SUPABASE_ANON_KEY` is not required at the edge). Catalog/users/jobs also need their Neon DSNs — see [`docs/ops/deployment.md`](docs/ops/deployment.md).
+**Worker edge:** `NEON_AUTH_JWKS_URL` (the edge's ONLY identity source — AUTH-2 #950; verifies
+Neon Auth EdDSA JWTs against the branch JWKS; production stays unset/fails closed until its branch
+is provisioned). Catalog/users/jobs also need their Neon DSNs — see [`docs/ops/deployment.md`](docs/ops/deployment.md).
+
+**Web (`apps/web`):** `VITE_NEON_AUTH_BASE_URL` — the Better Auth client origin (login UI + JWT
+exchange); `VITE_TURNSTILE_SITE_KEY`, `VITE_SHOWCASE_MODE` — see [`apps/web/.env.example`](apps/web/.env.example).
 
 **Optional:** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -116,7 +120,7 @@ async def main() -> None:
 **HTTP (authenticated):**
 ```bash
 curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
-  -H 'Authorization: Bearer <supabase_jwt>' \
+  -H 'Authorization: Bearer <neon_auth_jwt>' \
   -H 'Content-Type: application/json' \
   -d '{"text":"吹響の聖地","locale":"ja"}'
 ```
@@ -130,7 +134,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `apps/web/` — TanStack Start SSR web app (**the only browser surface**)
 - `workers/edge/` — Cloudflare Worker entrypoint for auth and `/v1` routing
 - `migrations/neon/` — Atlas migrations and generated checksum for the Neon data plane
-- `supabase/` — auth/legacy compatibility migrations and Supabase project assets
+- `supabase/` — legacy compatibility migrations and Supabase project assets (auth retired to Neon, AUTH-2 #950)
 - `docs/` — architecture, ops runbooks, iteration artifacts, and implementation plans
 - `Makefile`, `package.json` — root tooling entrypoints; `apps/agent/Dockerfile` (container image) and `workers/edge/wrangler.toml` (edge Worker config) live beside their code
 

@@ -76,7 +76,7 @@ The deployment target stays intentionally thin. The Worker owns routing and edge
 | Layer | Responsibility | Secrets/config it should see |
 |---|---|---|
 | Web app (`apps/web`) | SSR browser surface, deployed as its own Worker on its own route | none of this Worker's secrets |
-| Worker edge | Route match, JWT auth, identity injection | `SUPABASE_URL` (+ optional `NEON_AUTH_*`) |
+| Worker edge | Route match, JWT auth, identity injection | `NEON_AUTH_JWKS_URL` |
 | Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
 
 Current hardening rule: the Worker strips the raw `Authorization` header before proxying and forwards only trusted `X-User-Id` / `X-User-Type` identity headers to the container.
@@ -85,10 +85,10 @@ Current hardening rule: the Worker strips the raw `Authorization` header before 
 
 Worker auth is implemented in `workers/edge/src/identity/auth.ts`:
 
-- JWT flow: `authenticate()` verifies the token signature locally against the issuer JWKS (jose `createRemoteJWKSet`, cached per isolate) — no per-request `/auth/v1/user` round-trip. Supabase tokens verify as ES256/RS256 against `SUPABASE_URL/auth/v1/.well-known/jwks.json` (issuer `SUPABASE_URL/auth/v1`, audience `authenticated`, `exp` checked); the injected `X-User-Id` is the token `sub`.
-- Dual-issuer readiness: a flag-gated Neon Auth (Better Auth, EdDSA) verification path exists but is OFF by default — active only when `NEON_AUTH_ENABLED=true` and both `NEON_AUTH_JWKS_URL` and `NEON_AUTH_ISSUER` are set. Tokens route by `alg`/`iss`, so Supabase and Neon issuers coexist without a cutover.
+- JWT flow: `authenticate()` verifies the token signature locally against the branch's Neon Auth JWKS (jose `createRemoteJWKSet`, cached per isolate) — no per-request round-trip to the auth origin. AUTH-2 #950 hard cut: `NEON_AUTH_JWKS_URL` is the edge's ONLY identity source; issuer/audience are derived from it (EdDSA), and the injected `X-User-Id` is the token `sub`.
+- Production JWKS is unset — the production edge Worker fails closed on any bearer until its Neon Auth branch is provisioned.
 - `sk_*` API keys are gone (AUTH-1 #945): an `sk_*` Bearer token is rejected as invalid — there is no `api_keys` lookup and no "agent" identity class.
-- Forwarding flow: the Worker injects `X-User-Id` and `X-User-Type`, deletes `Authorization`, and proxies the request to `CONTAINER` (unchanged)
+- Forwarding flow: the Worker injects `X-User-Id` and `X-User-Type`, deletes `Authorization`, and proxies the request to `CONTAINER` (unchanged); `/v1/users/*` goes to the `USERS` service binding with the same identity headers (users trusts only the edge-forwarded identity).
 
 Auth expectations:
 
@@ -116,10 +116,9 @@ Default bind settings:
 
 Required at deploy time:
 
-- `SUPABASE_URL`
-- optional: `NEON_AUTH_ENABLED`, `NEON_AUTH_JWKS_URL`, `NEON_AUTH_ISSUER` (dual-issuer readiness; leave unset to keep the Neon path off)
+- `NEON_AUTH_JWKS_URL` (staging; production unset — fails closed until its Neon Auth branch is provisioned)
 
-These secrets stay in the Worker environment and are not forwarded into the container runtime. `SUPABASE_ANON_KEY` is no longer required at the edge — the JWT path verifies against the public Supabase JWKS and sends no `apikey` header.
+These secrets stay in the Worker environment and are not forwarded into the container runtime. The edge JWT path verifies against the branch's public JWKS — no Supabase/anon key is involved (AUTH-2 #950).
 
 ### Container runtime
 
@@ -259,7 +258,7 @@ Requirements:
 Routing defined by `wrangler.toml`:
 
 - `/v1/*` and `/healthz` run through the Worker and proxy to `CONTAINER`
-- `/v1/users/*` goes to the `USERS` service binding (it verifies its own JWT)
+- `/v1/users/*` goes to the `USERS` service binding, trusting only the edge-forwarded identity headers (it no longer verifies its own JWT — AUTH-2 #950)
 - `/catalog/public/anime-overview/:id` is the one allowlisted anonymous catalog read
 - `/img/*` runs through the Worker image proxy/cache
 - everything else answers a JSON `404 not_found`

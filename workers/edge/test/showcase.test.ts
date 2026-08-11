@@ -162,10 +162,10 @@ void test("AC: showcase=false — authenticated /v1/chat reaches the container, 
 
 // test-type: unit
 void test("AC: showcase=false — /v1/users/saved-routes and the public catalog read work as before", async () => {
-  const app = createWorkerApp({});
+  const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const) });
   const touched = { count: 0 };
   const env = { ...(functionalEnv(touched) as object), EDGE_SHOWCASE_MODE: "false" };
-  const users = await app.request("/v1/users/saved-routes", {}, env, stubCtx);
+  const users = await app.request("/v1/users/saved-routes", { headers: { Authorization: "Bearer jwt" } }, env, stubCtx);
   assert.equal(await users.text(), "users");
   const catalog = await app.request("/catalog/public/anime-overview/3302", {}, env, stubCtx);
   assert.equal(await catalog.text(), "cat");

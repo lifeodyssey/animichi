@@ -184,8 +184,10 @@ Budget about **30–45 seconds** for the cached offline arm and **6–7 minutes*
 The offline image build itself needs network once; the Neon arm always needs network and consumes a
 temporary branch. See `docs/ops/neon-test-infra.md` for operator details.
 
-`supabase start` remains only for GoTrue-coupled magic-link E2E, the auth half of `make dev-local`,
-and Supabase-side migration tooling. **`supabase start` is an auth appliance, not a test database.**
+`supabase start` is **no longer needed for auth E2E** (AUTH-2 #950): the auth plane is Neon Auth,
+login E2E is `e2e/web-neon-login.spec.ts` (live Neon origin, self-skipping), and `make e2e-setup`
+installs deps only. `supabase start` remains only as the agent backend's local Postgres in
+`make dev-local` and for Supabase-side migration tooling. **`supabase start` is an auth appliance, not a test database.**
 
 **FastAPI Dependency Override (official pattern):**
 
@@ -477,11 +479,12 @@ Weekly CI run without cassettes verifies APIs haven't changed.
 
 - Agent: `localhost:8080` (FastAPI container/service; choose its DB arm separately)
 - Web: `apps/web` Vite dev / Wrangler preview (default `E2E_WEB_BASE_URL=http://localhost:3000`)
-- Auth: local Supabase GoTrue + `send-auth-email` + Mailpit (until Neon Auth cutover)
-- **Nothing is mocked**
+- Auth: **Neon Auth (Better Auth)** — live login E2E signs in against the real Neon origin
+  (AUTH-2 #950); Supabase GoTrue + `send-auth-email` + Mailpit are retired
+- **Nothing is mocked** (the unit suite's MSW lane is separate)
 
-`make e2e-setup` starts the retained auth appliance and seeds its compatibility database. That
-database is specific to the magic-link browser flow; agent integration tests do not reuse it.
+`make e2e-setup` installs E2E deps and the Playwright browser; it no longer starts Supabase or
+seeds a compatibility database (the auth E2E database was specific to the retired magic-link flow).
 
 ### Core Journeys
 

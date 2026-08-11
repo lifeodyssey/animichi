@@ -11,16 +11,17 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
 - `pnpm test` / `pnpm run test:worker` (`vitest-pool-workers`) · `pnpm run typecheck`
   (TypeScript 7.0.2) · `pnpm run lint:oxlint` (type-aware, strict, warnings denied).
 
-## Trust model (S2.8 — DIFFERENT from the container `/v1/*` path)
+## Trust model (AUTH-2 #950 — internal identity boundary, NO self-verification)
 
-- Every `/v1/users/*` request must carry a **Neon Auth JWT** as `Authorization: Bearer`. This
-  service verifies it ITSELF with jose: `createRemoteJWKSet` against `env.NEON_AUTH_JWKS_URL`
-  (cached per URL — never refetched per request), EdDSA only, `iss` == `aud` == the JWKS URL minus
-  `/.well-known/jwks.json`. `sub` becomes the row-scoping `user_id`.
-- No valid JWT → flat **401**. Anonymous access is NEVER allowed here (do not conflate with Chat's
-  anonymous `/v1/*` model). Cross-user access to an owned row → defined **403** `ROUTE_NOT_OWNED`
-  (rejected here, not silently at the DB layer).
-- The edge Worker passes `Authorization` through untouched; it does not pre-authenticate this path.
+- The users service verifies NOTHING itself (the JWKS/bearer verifier was deleted). It trusts ONLY
+  the edge's verified identity, which arrives over the USERS service binding as `X-User-Id`
+  (+ `X-User-Type`) after the edge stripped `Authorization` and any caller-supplied identity
+  headers (see `workers/edge/src/gateway/forward.ts`).
+- A request that still carries `Authorization` is raw bearer access (it did not come from the
+  edge) → flat **401**. Missing/empty `X-User-Id` → **401**. Anonymous access is NEVER allowed
+  here. Cross-user access to an owned row → defined **403** `ROUTE_NOT_OWNED`.
+- There is no service-to-service secret beyond this no-public-route premise: the users worker has
+  no route that is reachable outside the edge binding.
 
 ## Stack + workerd gotchas (mirrors catalog — read `../catalog/AGENTS.md` for the long form)
 
@@ -38,16 +39,16 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
 
 ## Config / secrets
 
-- `wrangler.toml` `[vars]` holds ENVIRONMENT only. `DATABASE_URL` + `NEON_AUTH_JWKS_URL` are
-  secrets (`.dev.vars` locally — see `.dev.vars.example`; `wrangler secret put` / deploy-lane env
-  in CI). Never commit real Neon URLs or project ids.
+- `wrangler.toml` `[vars]` holds ENVIRONMENT only. `DATABASE_URL` is a secret
+  (`.dev.vars` locally — see `.dev.vars.example`; `wrangler secret put` / deploy-lane env
+  in CI). The users worker no longer reads `NEON_AUTH_JWKS_URL` (identity arrives as headers).
 - Envs: `[env.staging]` = `users-staging`, `[env.production]` = `users` (routeless; binding-only).
 - DB schema changes ride `migrations/neon/` (atlas, timestamped files + `atlas migrate hash`).
 
 ## Tests
 
-TDD via `vitest-pool-workers` (`test/*.worker.test.ts`, ≤200 lines each). JWTs are minted in-test
-(Ed25519 + `createLocalJWKSet`) and injected through `createUsersApp({ getKey, makeDb })`; the fake
-executor renders queries with `PgDialect.sqlToQuery` — no drizzle-internals guessing. Real-DB
+TDD via `vitest-pool-workers` (`test/*.worker.test.ts`, ≤200 lines each). Identity is injected as
+the edge-forwarded `X-User-Id` header (`identity-fixture.ts`); the fake executor renders queries
+with `PgDialect.sqlToQuery` — no drizzle-internals guessing. Real-DB
 round-trips (neon-http array/timestamptz serialization) are NOT covered here yet — verify against a
 real Postgres before building on top (leftover from S2.8).

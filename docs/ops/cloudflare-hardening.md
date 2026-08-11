@@ -40,25 +40,25 @@ The only bearer credential type is a human JWT, validated at the Worker edge:
 
 | Credential | Format | Validation |
 |---|---|---|
-| Human JWT | `Bearer <supabase_jwt>` | `authenticate()` verifies the signature locally against the Supabase JWKS (ES256/RS256 via jose `createRemoteJWKSet`), checking issuer/audience/exp — no `/auth/v1/user` round-trip. Flag-gated Neon Auth (EdDSA) issuer is off by default. |
+| Human JWT | `Bearer <neon_auth_jwt>` | `authenticate()` verifies the signature locally against the branch's Neon Auth JWKS (EdDSA via jose `createRemoteJWKSet`), checking issuer/audience/exp — no round-trip to the auth origin. AUTH-2 #950 hard cut: `NEON_AUTH_JWKS_URL` is the edge's ONLY identity source; the Supabase verifier and the dual-issuer flag are deleted. |
 
 The `sk_*` API-key credential and the `api_keys` table are deleted (AUTH-1 #945): an `sk_*`
 Bearer token is rejected as invalid, never mapped to an "agent" identity. Anonymous access uses a
 worker-minted cookie identity, not a credential.
 
-On success the Worker sets `X-User-Id` and `X-User-Type`, deletes the `Authorization` header, and forwards to the container. The container never sees raw bearer tokens.
+On success the Worker sets `X-User-Id` and `X-User-Type`, deletes the `Authorization` header, and forwards to the container. The container never sees raw bearer tokens. `/v1/users/*` likewise gets `Authorization` stripped and the verified identity forwarded as `X-User-Id`/`X-User-Type` (AUTH-2 #950) — the users Worker trusts only that header.
 
 ## Env Var Boundary
 
 | Variable | Boundary | Notes |
 |---|---|---|
-| `SUPABASE_URL` | Worker-only | JWKS fetch (`/auth/v1/.well-known/jwks.json`) for local JWT verification |
-| `NEON_AUTH_ENABLED` / `NEON_AUTH_JWKS_URL` / `NEON_AUTH_ISSUER` | Worker-only (optional) | Dual-issuer readiness — Neon Auth EdDSA JWKS verification; absent or `false` ⇒ Neon path off (default) |
-| `SUPABASE_DB_URL` | Container-only | Direct Postgres connection for asyncpg |
+| `NEON_AUTH_JWKS_URL` | Worker-only | Branch JWKS — the edge's ONLY identity source (AUTH-2 #950). issuer/audience are derived from it in `workers/edge/src/identity/auth.ts`; production is unset (fails closed) until its Neon Auth branch is provisioned |
+| `SUPABASE_DB_URL` | Container-only | Direct Postgres connection for asyncpg (legacy data plane; agent container) |
 | `CORS_ALLOWED_ORIGIN` | Container-only | Agent CORS allowlist |
 | `GOOGLE_MAPS_API_KEY` | Container-only (optional) | Geocoding |
 | `LOGFIRE_TOKEN` | Container-only (optional) | Observability |
 | `VITE_*` (web build) | `apps/web` build-time only | Injected by CI into the web Worker; not root-Worker secrets |
+| `VITE_NEON_AUTH_BASE_URL` | `apps/web` build-time only | Better Auth client origin (login UI + JWT exchange) |
 
 The full container env allowlist is `CONTAINER_ENV_KEYS` / `CONTAINER_REQUIRED_KEYS` in
 `workers/edge/src/container/container-env.ts` (consumed by `workers/edge/src/entry.ts`).
@@ -66,7 +66,7 @@ The full container env allowlist is `CONTAINER_ENV_KEYS` / `CONTAINER_REQUIRED_K
 ## Current Trust Boundary
 
 - Browser clients hit `apps/web`; API clients hit the root edge Worker hostname
-- Worker-only auth secrets stay at the edge: `SUPABASE_URL` (+ optional `NEON_AUTH_*`); the edge JWT path verifies against the public Supabase JWKS, so no `SUPABASE_ANON_KEY` is needed there
+- Worker-only auth secrets stay at the edge: `NEON_AUTH_JWKS_URL`; the edge JWT path verifies against the branch's public JWKS, so no Supabase/anon key is involved
 - Container runtime receives only its explicit allowlist from `workers/edge/src/container/container-env.ts`
 - Agent auth trust starts from `X-User-Id` and `X-User-Type`, not from raw bearer tokens
 

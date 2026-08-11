@@ -6,7 +6,7 @@ import {
   type IdentityPolicy,
 } from "@animichi/contract/identity";
 import { verifyEdDsaJwt } from "@animichi/contract/jwt";
-import { createRemoteJWKSet, customFetch, decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
+import { createRemoteJWKSet, customFetch } from "jose";
 
 /**
  * Identity classes the container may be told about. `"anonymous"` (issue #274)
@@ -73,11 +73,15 @@ const INVALID: AuthResult = Object.freeze({ ok: false, reason: "invalid" });
  */
 export const BEARER_SCHEME = /^bearer[ \t]+/i;
 
+/**
+ * AUTH-2 #950: the edge verifies Neon Auth JWTs and nothing else. The
+ * Supabase verifier, the `NEON_AUTH_ENABLED` activation flag and the split
+ * `NEON_AUTH_ISSUER` var are deleted — the branch's JWKS URL is the single
+ * source of truth, and the issuer/audience are derived from it (the same
+ * derivation the retired `workers/users/src/auth/jwt.ts` used).
+ */
 export interface AuthEnv {
-  SUPABASE_URL: string;
-  NEON_AUTH_ENABLED?: string;
   NEON_AUTH_JWKS_URL?: string;
-  NEON_AUTH_ISSUER?: string;
 }
 
 export type { AnonymousEnv } from "./anonymous-id.ts";
@@ -89,6 +93,13 @@ export {
   resolveAnonymousReadOnly,
   type AnonymousIdentity,
 } from "./anonymous-id.ts";
+
+const JWKS_SUFFIX = "/.well-known/jwks.json";
+
+/** Derive the Neon Auth issuer/audience base URL from its JWKS URL. */
+export function issuerFromJwksUrl(jwksUrl: string): string {
+  return jwksUrl.endsWith(JWKS_SUFFIX) ? jwksUrl.slice(0, -JWKS_SUFFIX.length) : jwksUrl;
+}
 
 const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
@@ -106,44 +117,19 @@ function human(sub: unknown): AuthResult {
     : INVALID;
 }
 
-function supabaseJwks(env: AuthEnv, f: typeof fetch): ReturnType<typeof createRemoteJWKSet> {
-  return remoteJwks(`${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`, f);
-}
-
-async function verifySupabase(token: string, env: AuthEnv, f: typeof fetch): Promise<AuthResult> {
+/**
+ * Verify a Neon Auth EdDSA bearer against the branch's JWKS. `iss` and `aud`
+ * must both equal the JWKS URL minus `/.well-known/jwks.json`, EdDSA only —
+ * every one of those is pinned by a test in auth-neon.test.ts, and weakening
+ * any of them is the rollback mutation.
+ */
+export async function verifyNeonIdentity(token: string, env: AuthEnv, fetchImpl: typeof fetch): Promise<AuthResult> {
+  const jwksUrl = env.NEON_AUTH_JWKS_URL;
+  if (typeof jwksUrl !== "string" || jwksUrl.length === 0) return INVALID;
   try {
-    const { payload } = await jwtVerify(token, supabaseJwks(env, f), {
-      issuer: `${env.SUPABASE_URL}/auth/v1`, audience: "authenticated", algorithms: ["ES256", "RS256"],
-    });
+    const issuer = issuerFromJwksUrl(jwksUrl);
+    const payload = await verifyEdDsaJwt({ token, key: remoteJwks(jwksUrl, fetchImpl), issuer, audience: issuer });
     return human(payload.sub);
-  } catch {
-    return INVALID;
-  }
-}
-
-async function verifyNeon(token: string, env: AuthEnv, f: typeof fetch): Promise<AuthResult> {
-  try {
-    const issuer = env.NEON_AUTH_ISSUER ?? "";
-    const jwks = remoteJwks(env.NEON_AUTH_JWKS_URL ?? "", f);
-    const payload = await verifyEdDsaJwt({ token, key: jwks, issuer, audience: issuer });
-    return human(payload.sub);
-  } catch {
-    return INVALID;
-  }
-}
-
-function neonEnabled(env: AuthEnv): boolean {
-  return env.NEON_AUTH_ENABLED === "true"
-    && typeof env.NEON_AUTH_JWKS_URL === "string" && env.NEON_AUTH_JWKS_URL.length > 0
-    && typeof env.NEON_AUTH_ISSUER === "string" && env.NEON_AUTH_ISSUER.length > 0;
-}
-
-async function verifyJwt(token: string, env: AuthEnv, f: typeof fetch): Promise<AuthResult> {
-  try {
-    const header = decodeProtectedHeader(token);
-    const payload = decodeJwt(token);
-    const useNeon = neonEnabled(env) && (header.alg === "EdDSA" || payload.iss === env.NEON_AUTH_ISSUER);
-    return useNeon ? await verifyNeon(token, env, f) : await verifySupabase(token, env, f);
   } catch {
     return INVALID;
   }
@@ -159,8 +145,8 @@ function bearerToken(request: Request): string | null {
 }
 
 /**
- * Authenticate a /v1 request (AUTH-1 #945): only a JWT can produce an
- * identity (`"human"`); any legacy API-key credential is `"invalid"` — the
+ * Authenticate a /v1 request (AUTH-1 #945): only a Neon Auth JWT can produce
+ * an identity (`"human"`); any legacy API-key credential is `"invalid"` — the
  * API-key mint/verify path and its backing table are deleted, so nothing here
  * ever consults them. The matrix's other classes are produced by the caller:
  * `"public"` never reaches this function (routing-policy), and `"anonymous"`
@@ -172,5 +158,5 @@ export async function authenticate(
   void ctx;
   const token = bearerToken(request);
   if (token === null) return ABSENT;
-  return verifyJwt(token, env, fetchImpl);
+  return verifyNeonIdentity(token, env, fetchImpl);
 }

@@ -4,7 +4,7 @@
 import { Hono, type Context } from "hono";
 import { type AuthResult, authenticate as realAuthenticate } from "./identity/auth.ts";
 import type { Env, WorkerExecutionContext } from "./env.ts";
-import { authenticatedForward, forwardPublicCatalog, forwardV1 } from "./gateway/forward.ts";
+import { authenticatedForward, forwardPublicCatalog, forwardUsers, forwardV1 } from "./gateway/forward.ts";
 import { handleAnonymousV1 } from "./identity/anonymous-flow.ts";
 import { handleImageProxy } from "./proxy/image-proxy.ts";
 import { NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./gateway/responses.ts";
@@ -165,14 +165,28 @@ async function handleV1Request(
   return anonymousOrUnauthorized(c, deps, pathname);
 }
 
-// /v1/users/* bypasses the container entirely: the users service verifies the Neon
-// Auth JWT itself (jose JWKS), so the edge passes Authorization through untouched.
+/** /v1/users/* never allows anonymous access: absent is a flat 401. A verified
+ * identity is forwarded over the USERS service binding with Authorization
+ * stripped (see forwardUsers); an invalid credential is the usual logged 401. */
+async function handleUsersRequest(
+  c: Context<{ Bindings: Env }>, deps: V1Deps,
+): Promise<Response> {
+  const { pathname } = new URL(c.req.url);
+  const auth = await deps.authenticate(c.req.raw, c.env, c.executionCtx);
+  if (auth.ok) return forwardUsers(c.env, c.req.raw, auth);
+  if (auth.reason === "invalid") return unauthorized(pathname);
+  return c.json(UNAUTHORIZED_BODY, 401);
+}
+
+// /v1/users/* bypasses the container entirely: the edge verifies the Neon Auth
+// JWT itself (verifyNeonIdentity) and forwards the worker-verified identity to
+// the users service — which no longer re-authenticates (AUTH-2 #950).
 function registerV1Routes(
   app: WorkerApp, authenticate: V1Deps["authenticate"], turnstileGate: TurnstileGate, showcaseMode: ShowcaseMode,
 ): void {
   app.all("/v1/users/*", (c) => {
     if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
-    return c.env.USERS.fetch(c.req.raw);
+    return handleUsersRequest(c, { authenticate, turnstileGate });
   });
   app.all("/v1/*", (c) => {
     if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
