@@ -15,21 +15,44 @@ of this module's ``daily_usage`` table.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
-from typing import Literal
+from datetime import date
 
 import structlog
 
+from animichi.application.admission_limits import (
+    BudgetVerdict,
+    anonymous_budget_verdict,
+    utc_today,
+)
+from animichi.application.identity import (
+    ANON_USER_ID_PREFIX,
+    ANONYMOUS_USER_TYPE,
+    UsageScope,
+    is_anonymous_identity,
+    scope_for_identity,
+)
 from animichi.application.model_turn_port import ModelTurnUsage
 from animichi.domain.ports import UsageMeter
 
 logger = structlog.get_logger(__name__)
 
-UsageScope = Literal["anon", "user", "byok"]
+#: Re-exported for every consumer that imports the canonical payer-scope
+#: classification and the budget breaker from this module (the definitions
+#: live in application.identity / application.admission_limits).
+__all__ = [
+    "ANON_BUDGET_EXHAUSTED_CODE",
+    "ANON_USER_ID_PREFIX",
+    "ANONYMOUS_USER_TYPE",
+    "BudgetVerdict",
+    "UsageScope",
+    "anonymous_budget_verdict",
+    "is_anonymous_identity",
+    "record_turn_usage",
+    "scope_for_identity",
+    "usage_cost_usd",
+    "utc_today",
+]
 
-#: Prefix the edge stamps on every anonymous ``X-User-Id`` (workers/edge/auth.ts).
-ANON_USER_ID_PREFIX = "anon_"
-ANONYMOUS_USER_TYPE = "anonymous"
 ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted"
 
 _TOKENS_PER_MILLION = 1_000_000
@@ -52,44 +75,6 @@ class UsagePrices:
 
     input_usd_per_mtok: float
     output_usd_per_mtok: float
-
-
-@dataclass(frozen=True)
-class BudgetVerdict:
-    """The container ingress's authoritative anonymous-budget decision."""
-
-    is_exhausted: bool
-    spent_usd: float
-    budget_usd: float
-
-
-def utc_today(now: datetime | None = None) -> date:
-    """The UTC calendar day the budget and the meter are keyed on."""
-    return (now or datetime.now(UTC)).astimezone(UTC).date()
-
-
-def is_anonymous_identity(user_id: str | None, user_type: str | None) -> bool:
-    """Prefer the typed edge marker, with the ID convention as a fallback."""
-    if user_type == ANONYMOUS_USER_TYPE:
-        return True
-    return user_id is not None and user_id.startswith(ANON_USER_ID_PREFIX)
-
-
-def scope_for_identity(
-    user_id: str | None, user_type: str | None, *, is_byok: bool = False
-) -> UsageScope:
-    """Classify a turn's spend by who paid for it.
-
-    A BYOK turn is checked first: the caller supplied and paid for the model
-    call directly, so it is never folded into the anonymous or user scopes
-    even when it also happens to carry an anonymous-shaped identity (BYOK is
-    login-gated, so in practice it never does — see `byok_requires_login`).
-    """
-    if is_byok:
-        return "byok"
-    if is_anonymous_identity(user_id, user_type):
-        return "anon"
-    return "user"
 
 
 def usage_cost_usd(usage: ModelTurnUsage, prices: UsagePrices) -> float:
@@ -121,29 +106,3 @@ async def record_turn_usage(
         )
     except _METER_ERRORS:
         logger.warning("daily_usage_record_failed", scope=scope, exc_info=True)
-
-
-async def anonymous_budget_verdict(
-    usage_repo: UsageMeter | None,
-    *,
-    budget_usd: float,
-    today: date | None = None,
-) -> BudgetVerdict:
-    """Read today's anonymous spend and compare it with the configured ceiling.
-
-    A non-positive budget disables the breaker. A read failure fails OPEN: an
-    unavailable meter must not take the anonymous surface down, and the edge
-    latch only ever caches an explicit ``is_exhausted`` verdict.
-    """
-    if budget_usd <= 0 or usage_repo is None:
-        return BudgetVerdict(is_exhausted=False, spent_usd=0.0, budget_usd=budget_usd)
-    try:
-        spent = await usage_repo.total_cost_usd(
-            usage_date=today or utc_today(), scope="anon"
-        )
-    except _METER_ERRORS:
-        logger.warning("daily_usage_read_failed", exc_info=True)
-        return BudgetVerdict(is_exhausted=False, spent_usd=0.0, budget_usd=budget_usd)
-    return BudgetVerdict(
-        is_exhausted=spent >= budget_usd, spent_usd=spent, budget_usd=budget_usd
-    )

@@ -20,6 +20,9 @@ from animichi.infrastructure.supabase.repositories.messages import MessagesRepos
 from animichi.infrastructure.supabase.repositories.points import PointsRepository
 from animichi.infrastructure.supabase.repositories.session import SessionRepository
 from animichi.infrastructure.supabase.repositories.usage import UsageRepository
+from animichi.infrastructure.turn_reservation.postgres import (
+    PostgresTurnReservationStore,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -54,6 +57,7 @@ class SupabaseClient:
         self._messages: MessagesRepository | None = None
         self._usage: UsageRepository | None = None
         self._anon_quota: AnonQuotaRepository | None = None
+        self._turn_reservation: PostgresTurnReservationStore | None = None
 
     async def connect(self) -> None:
         """Create the connection pool and initialise repositories."""
@@ -102,6 +106,7 @@ class SupabaseClient:
         self._messages = MessagesRepository(pool)
         self._usage = UsageRepository(pool)
         self._anon_quota = AnonQuotaRepository(pool)
+        self._turn_reservation = PostgresTurnReservationStore(pool)
 
     @property
     def bangumi(self) -> BangumiRepository:
@@ -156,3 +161,11 @@ class SupabaseClient:
                 "AnonQuotaRepository not initialized — call connect() first"
             )
         return self._anon_quota
+
+    @property
+    def turn_reservation(self) -> PostgresTurnReservationStore:
+        if self._turn_reservation is None:
+            raise RuntimeError(
+                "TurnReservationStore not initialized — call connect() first"
+            )
+        return self._turn_reservation
