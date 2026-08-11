@@ -155,3 +155,23 @@ function cappedFixture(): FixtureRow[] {
     }),
   );
 }
+
+describe("getBangumiOverview tie-breaks and representatives", () => {
+  it("orders equal-count circles by region name", async () => {
+    const rows = [
+      row("c1", 35.0, 139.0, "Zed"),
+      row("c2", 36.0, 140.0, "Alpha"),
+    ];
+    const result = await getBangumiOverview(overviewPointsDb(fakeDb(rows)), { bangumi_id: "400" });
+    expect(result.circles.map((circle) => circle.region)).toEqual(["Alpha", "Zed"]);
+  });
+
+  it("uses a member without an image as representative, keeping screenshot null", async () => {
+    const rows = [
+      row("b-first", 35.0, 139.0, "Tokyo", null),
+      row("a-second", 35.00001, 139.00001, "Tokyo", null),
+    ];
+    const result = await getBangumiOverview(overviewPointsDb(fakeDb(rows)), { bangumi_id: "401" });
+    expect(result.scenes[0]).toMatchObject({ screenshot_url: null, shot_count: 2 });
+  });
+});

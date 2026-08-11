@@ -90,3 +90,10 @@ describe("popular procedure bounds", () => {
     expect(PopularInput.parse({ limit: 50 }).limit).toBe(50);
   });
 });
+
+describe("popularBangumiDb edge rows", () => {
+  it("coerces non-string optional fields to null/empty", async () => {
+    const rows = await popularBangumiDb(fakeDb([row({ title_cn: 123 as unknown as string, cover_url: null, city: null })])).listPopular(8);
+    expect(rows[0]).toMatchObject({ title_cn: null, cover_url: null, city: null });
+  });
+});
