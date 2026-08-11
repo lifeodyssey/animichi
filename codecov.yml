@@ -23,3 +23,9 @@ coverage:
       default:
         target: 95%
         threshold: 0%
+
+# Pure-protocol files carry no executable statements (ellipsis bodies); their
+# lines can never be covered, so they are excluded from the patch gate
+# (TURN-3 #951: turn_outcome_port.py is one such file).
+ignore:
+  - "apps/agent/src/animichi/application/turn_outcome_port.py"
