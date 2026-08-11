@@ -11,8 +11,8 @@ SHA256_RE = /\A[0-9a-f]{64}\z/
 ATLAS_TARGET_RE = /\A\d{14}\z/
 SECRET_NAME_RE = /\A[A-Z][A-Z0-9_]*\z/
 
-PINNED_ATLAS_TARGET = "20260809000032"
-PINNED_ATLAS_DIGEST_SHA256 = "90c8dbc121247e16fc9e1e4cf516e39df69263ff272cdf92ddd311cfe8c4816c"
+PINNED_ATLAS_TARGET = "20260811000000"
+PINNED_ATLAS_DIGEST_SHA256 = "5d968ca2b05f93b882c56a14af618ebbcf5aa67ab2605c61721b171ddf585960"
 
 # Expected component surface (from SAFE-1 §2 and the ci.yml/deploy.yml
 # production jobs). The manifest must match this exactly — a drift in worker

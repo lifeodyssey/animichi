@@ -98,7 +98,7 @@ async def test_budget_exhaustion_never_reaches_the_quota_counter() -> None:
     assert runtime.handle.await_count == 0
 
 
-async def test_admission_precedes_the_runtime_turn() -> None:
+async def test_admission_precedes_runtime() -> None:
     """An admitted turn reaches the runtime exactly once after passing
     admission — the runtime is the last thing admission orders."""
     app, runtime = _app(spent=0.0)

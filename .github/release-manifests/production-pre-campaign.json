@@ -5,8 +5,8 @@
   "source_revision": "b94c30ab6a519f1cce9eb0a3f7885953f8ff54cf",
   "atlas": {
     "directory": "migrations/neon",
-    "target": "20260809000032",
-    "digest_sha256": "90c8dbc121247e16fc9e1e4cf516e39df69263ff272cdf92ddd311cfe8c4816c"
+    "target": "20260811000000",
+    "digest_sha256": "5d968ca2b05f93b882c56a14af618ebbcf5aa67ab2605c61721b171ddf585960"
   },
   "components": {
     "catalog": {

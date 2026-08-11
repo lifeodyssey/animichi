@@ -140,7 +140,7 @@ async def test_byok_pass_skips_budget_and_quota() -> None:
     assert verdict.payer == "byok"
 
 
-async def test_anonymous_byok_presence_is_rejected() -> None:
+async def test_anonymous_byok_rejected() -> None:
     store = FakeTurnReservationStore()
     verdict = await _admission(store)(_request(is_byok=True))
     assert verdict.admitted is False
