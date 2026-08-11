@@ -38,9 +38,11 @@ describe("ListSavedRoutes application action", () => {
   it("does not mutate the reader's row order in place", async () => {
     const older = route("00000000-0000-4000-8000-000000000001", "2026-07-12T00:00:00Z");
     const newer = route("00000000-0000-4000-8000-000000000002", "2026-07-13T00:00:00Z");
-    const reader = stubReader([older, newer]);
+    const owned = [older, newer];
+    const reader = stubReader(owned);
     await listSavedRoutes(reader, "user-a");
     expect(reader.listOwned).toHaveBeenCalledOnce();
+    expect(owned).toEqual([older, newer]);
   });
 
   it("records a redacted loaded observation with the injected clock's duration", async () => {
