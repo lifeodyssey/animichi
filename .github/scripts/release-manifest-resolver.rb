@@ -31,8 +31,8 @@ SOURCE_REVISION = ARGV[2]
 
 # ── Pinned identities (computed at B1 creation; recompute only with a new
 #    manifest version and a deliberate re-pin) ──────────────────────────────
-PINNED_MANIFEST_SHA256 = "8aa84c218837a35f240b5612103070aa580f6cafa63f32764a1300f669e64d5d"
-PINNED_MANIFEST_BLOB_ID = "fde4cb4710c15882eff5ba631d18d5dffd113df2"
+PINNED_MANIFEST_SHA256 = "75cfc14bba4910c5988062b6aaccbc0007745e5fba88a84dedd3b312c4363233"
+PINNED_MANIFEST_BLOB_ID = "e1211f618a2801f0b7c52c5efda737219fbb7ed6"
 
 unless MANIFEST_PATH && COMPONENT_KEY
   warn "usage: ruby release-manifest-resolver.rb <manifest.json> <component> [source_revision]"

@@ -1,4 +1,4 @@
-h1:m+B/4SZBWf2W4gzh71omAZ+mSqnEimoKWfTS/Jlgg5M=
+h1:+hS4O4s7Ik2GN7+9wbbtlTZEQg53xg3o8AJhLYYN6wE=
 20260809000000_extensions.sql h1:XzPNLqiklzUF0Ai/EOHeRvgY0cgBdYDiPZBLCAb2uXs=
 20260809000001_roles.sql h1:tC5LMDmhuaIPYM4Mo9LzNkPpeQ7NLgczK33fpX/UAto=
 20260809000002_functions.sql h1:dDDSamjOHxEp/uzlgi3LWl2BgQRy24ymYwS0QrWC8T8=
@@ -32,4 +32,4 @@ h1:m+B/4SZBWf2W4gzh71omAZ+mSqnEimoKWfTS/Jlgg5M=
 20260809000030_grants.sql h1:kAGPtK96wEQp93Fs6XKjY2AGl1UehYBi6AHiElLSTSM=
 20260809000031_defaults.sql h1:cg4As35JU032UttGmangHKfO5lhLRNR2LkTO95b5L2Y=
 20260809000032_drop_api_keys.sql h1:kwWZ2xnbTGPuiDNQluqlxijjMaW/4QPMkR3suFK3G/M=
-20260811000000_table_turn_reservations.sql h1:MVFiBfQg2UnmiN8ILfBuZ7P7ES6xYmrrdyrJ63AFrnU=
+20260811000000_table_turn_reservations.sql h1:VhO3Rym8A4cv2qfyOzjxgZSWWrkpvm0S98TW7F4ZNOo=

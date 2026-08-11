@@ -12,9 +12,9 @@ CREATE TABLE public.turn_reservations (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT turn_reservations_payer_check
-        CHECK ((payer = ANY (ARRAY['anon'::text, 'user'::text, 'byok'::text]))),
+        CHECK ((payer = ANY(ARRAY['anon'::text, 'user'::text, 'byok'::text]))),
     CONSTRAINT turn_reservations_status_check
-        CHECK ((status = ANY (ARRAY['in_flight'::text, 'completed'::text])))
+        CHECK ((status = ANY(ARRAY['in_flight'::text, 'completed'::text])))
 );
 
 ALTER TABLE ONLY public.turn_reservations
