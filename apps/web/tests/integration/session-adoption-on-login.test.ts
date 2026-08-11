@@ -41,10 +41,8 @@ interface Observed {
 }
 
 const observed: Observed[] = [];
-/** Stand-in for the container behind the edge: the first call adopts, every
- * later one matches zero rows and returns the typed no-op — the real
- * `UPDATE ... WHERE user_id = $from_anon` semantics. */
-const adoptHandler = http.post(ADOPT_URL, async ({ request }) => {
+
+async function observeAdopt(request: Request): Promise<void> {
   observed.push({
     method: request.method,
     authorization: request.headers.get("authorization"),
@@ -52,12 +50,25 @@ const adoptHandler = http.post(ADOPT_URL, async ({ request }) => {
     body: await request.text(),
     contentLength: request.headers.get("content-length"),
   });
-  return HttpResponse.json({ adopted: observed.length === 1 ? 1 : 0, noop_class: "no_rows" });
+}
+
+/** Stand-in for the container behind the edge. Declarative fixtures, no branch
+ * in the handler: the FIRST POST adopts one session (consumed once); every
+ * later one matches zero rows and returns the typed no-op — the real
+ * `UPDATE ... WHERE user_id = $from_anon` semantics. */
+const adoptHandler = http.post(ADOPT_URL, async ({ request }) => {
+  await observeAdopt(request);
+  return HttpResponse.json({ adopted: 1, noop_class: "adopted" });
+}, { once: true });
+const adoptNoopHandler = http.post(ADOPT_URL, async ({ request }) => {
+  await observeAdopt(request);
+  return HttpResponse.json({ adopted: 0, noop_class: "no_rows" });
 });
 
 const server = setupServer(
   http.get(`${NEON_AUTH}/token`, () => HttpResponse.json({ token: JWT })),
   adoptHandler,
+  adoptNoopHandler,
 );
 
 beforeAll(() => { server.listen({ onUnhandledRequest: "error" }); });

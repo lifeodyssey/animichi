@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 
-from animichi.application.adopt_sessions import AdoptionResult
+from animichi.application.adopt_sessions import ADOPT_TURN_KEY_PREFIX, AdoptionResult
 from animichi.infrastructure.supabase.client_types import (
     AsyncPGPool,
     PoolConnection,
@@ -34,7 +34,7 @@ _ADOPT_OWNERSHIP_SQL = """
 #: concurrent reservation that already advanced the revision a no-op.
 _BUMP_REVISION_SQL = """
     INSERT INTO turn_reservations (session_id, turn_key, payer, identity_id, revision, digest, status)
-    SELECT $1, 'adopt:' || $1, 'anon', NULL, COALESCE(MAX(revision), 0) + 1, NULL, 'completed'
+    SELECT $1, $2 || $1, 'anon', NULL, COALESCE(MAX(revision), 0) + 1, NULL, 'completed'
     FROM turn_reservations WHERE session_id = $1
     ON CONFLICT (session_id, revision) DO NOTHING
     RETURNING session_id
@@ -231,5 +231,7 @@ class SessionRepository:
 
     async def _bump_revision(self, connection: PoolConnection, session_id: str) -> int:
         """Advance one adopted session's revision; 1 when the marker landed."""
-        row = await connection.fetchrow(_BUMP_REVISION_SQL, session_id)
+        row = await connection.fetchrow(
+            _BUMP_REVISION_SQL, session_id, ADOPT_TURN_KEY_PREFIX
+        )
         return 1 if row is not None else 0

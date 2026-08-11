@@ -24,6 +24,12 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
+#: Reserved `turn_reservations.turn_key` namespace for the synthetic adoption
+#: marker rows (SESSION-2 #960). Markers are the revision-CAS authority and must
+#: persist; a client turn_key in this namespace would both spoof a completed
+#: replay and consume a prune slot, so admission rejects the prefix outright.
+ADOPT_TURN_KEY_PREFIX = "adopt:"
+
 
 class NoOpClass(StrEnum):
     """Why this adoption changed nothing (or everything)."""

@@ -58,11 +58,20 @@ function request(token: string): RequestInit {
   };
 }
 
+/** `adopted` must be a non-negative integer for the response to be trusted
+ * (SESSION-2 #960): a missing, string, or negative value is an invalid Agent
+ * or Edge response, never a silent ownership transfer. */
+function adoptedOutcome(body: unknown): SessionAdoptionOutcome {
+  if (typeof body !== "object" || body === null) return "failed";
+  const adopted = (body as { adopted?: unknown }).adopted;
+  if (typeof adopted !== "number" || !Number.isInteger(adopted) || adopted < 0) return "failed";
+  return adopted === 0 ? "nothing" : "adopted";
+}
+
 async function post(url: string, token: string): Promise<SessionAdoptionOutcome> {
   const response = await fetch(url, request(token));
   if (!response.ok) return "failed";
-  const body: unknown = await response.json();
-  return (body as { adopted?: unknown }).adopted === 0 ? "nothing" : "adopted";
+  return adoptedOutcome(await response.json());
 }
 
 /**
@@ -99,14 +108,19 @@ export type AdoptionAnomaly = "failed" | "nothing-adopted";
 
 /**
  * Did this outcome fail the visitor? `expected` says the login's return target
- * named a chat session, so *some* row should have moved.
+ * named a chat session, so *some* row should have moved. `afterTimeout`
+ * rescues the one false negative the timeout race produces (SESSION-2 #960):
+ * when an earlier attempt timed out the server may still have landed it, so a
+ * later `"nothing"` is the retry observing that adoption rather than a genuine
+ * no-op — and the notice must clear.
  */
 export function anomalyOf(
   outcome: SessionAdoptionOutcome,
   expected: boolean,
+  afterTimeout = false,
 ): AdoptionAnomaly | undefined {
   if (outcome === "failed") return "failed";
-  if (outcome === "nothing" && expected) return "nothing-adopted";
+  if (outcome === "nothing" && expected && !afterTimeout) return "nothing-adopted";
   return undefined;
 }
 

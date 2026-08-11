@@ -13,6 +13,13 @@ export const NOT_FOUND_BODY = {
   error: { code: "not_found", message: "No route matches this request." },
 } as const;
 
+/** Method gate for the POST-only session-adoption route (SESSION-2 #960): a
+ * 405 in the same envelope as the other edge rejections, answered before the
+ * container is reached. */
+export const METHOD_NOT_ALLOWED_BODY = {
+  error: { code: "method_not_allowed", message: "Method not allowed." },
+} as const;
+
 /** Structured, credential-free record of a rejected credential (issue #441).
  *
  * #441 itself only surfaced through anomalous anonymous spend. Its inverse — a

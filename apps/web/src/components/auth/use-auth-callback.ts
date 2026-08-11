@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { replayDeferredSave } from "../../features/chat/save/complete-deferred-save";
 import type { DeferredReplayOutcome } from "../../features/chat/save/complete-deferred-save";
 import { getAuthToken } from "../../lib/auth/auth-session";
@@ -29,6 +29,14 @@ type SetState = (state: AuthCallbackState) => void;
 /** `undefined` = landed; `"dismissed"` = the visitor chose to move on. */
 type AdoptionState = AdoptionAnomaly | "dismissed" | undefined;
 
+/** One adoption attempt's timeout memory, shared across the initial run and
+ * every retry (SESSION-2 #960): a timed-out attempt's outcome is unknown, so a
+ * later `"nothing"` may be observing the server landing the earlier one — and
+ * must not be flagged as a no-op anomaly. */
+interface AdoptionTimeline {
+  timedOut: boolean;
+}
+
 const FAILED_REPLAY: DeferredReplayOutcome = "failed";
 
 function stateFor(outcome: DeferredReplayOutcome): AuthCallbackState {
@@ -50,6 +58,21 @@ async function withTimeout<T>(run: () => Promise<T>, ms: number, onTimeout: T): 
   ]);
 }
 
+/** Runs `run` under a `ms` timeout, reporting whether the timeout fired so the
+ * caller can remember an unknown outcome (SESSION-2 #960). `async` on purpose:
+ * a *synchronous* throw from `run` becomes a rejection that `.catch` folds
+ * into `onTimeout` — it never rejects the caller. */
+async function timedRace<T>(
+  run: () => Promise<T>, ms: number, onTimeout: T,
+): Promise<{ value: T; timedOut: boolean }> {
+  let timedOut = false;
+  const value = await Promise.race([
+    Promise.resolve().then(run).catch((): T => onTimeout),
+    new Promise<T>((resolve) => { setTimeout(() => { timedOut = true; resolve(onTimeout); }, ms); }),
+  ]);
+  return { value, timedOut };
+}
+
 /**
  * Structurally incapable of rejecting (#507 review P2). It rides a
  * `Promise.all` beside the replay, so a throw here would reject the whole
@@ -58,19 +81,24 @@ async function withTimeout<T>(run: () => Promise<T>, ms: number, onTimeout: T): 
  * fragile version — this makes it a property of the call site, and a
  * throwing-adopt test pins it.
  *
- * A timeout is recorded as `failed`. The `withTimeout` race does not abort the
- * request, so the server may still succeed afterwards and this becomes a false
- * negative. This is **the one** case the #507 owner ruling actually rescues:
- * under the old edge the server's success would have retired the `aid`
- * cookie, leaving the retry with no identity to present. Every other failure
- * branch already kept its cookie — retirement was gated on success — so
- * "keeping the cookie makes failures recoverable" is true for this timing race
- * and not in general. Either way the retry is the same idempotent `UPDATE`.
+ * A timeout is recorded as `failed` (and remembered in `timeline`). The race
+ * does not abort the request, so the server may still succeed afterwards and
+ * this becomes a false negative. This is **the one** case the #507 owner
+ * ruling actually rescues: under the old edge the server's success would have
+ * retired the `aid` cookie, leaving the retry with no identity to present.
+ * Every other failure branch already kept its cookie — retirement was gated on
+ * success — so "keeping the cookie makes failures recoverable" is true for
+ * this timing race and not in general. Either way the retry is the same
+ * idempotent `UPDATE`; the remembered timeout lets that retry recognise a
+ * late-landed success as success (SESSION-2 #960).
  */
-async function runAdoption(adopt: Adopt, token: string, expected: boolean): Promise<AdoptionState> {
-  const outcome = await withTimeout(() => adopt(token), ADOPT_TIMEOUT_MS, "failed")
-    .catch((): SessionAdoptionOutcome => "failed");
-  const anomaly = anomalyOf(outcome, expected);
+async function runAdoption(
+  adopt: Adopt, token: string, expected: boolean, timeline: AdoptionTimeline,
+): Promise<AdoptionState> {
+  const priorTimeout = timeline.timedOut;
+  const { value: outcome, timedOut } = await timedRace(() => adopt(token), ADOPT_TIMEOUT_MS, "failed");
+  timeline.timedOut ||= timedOut;
+  const anomaly = anomalyOf(outcome, expected, priorTimeout);
   if (anomaly !== undefined) reportAdoptionAnomaly(anomaly);
   return anomaly;
 }
@@ -96,12 +124,12 @@ interface RedeemResult {
  * client-held point ids), and both already hold the token `establish` returned.
  * Serialising them would add the adoption's budget to this interstitial's
  * worst case to buy an ordering nothing depends on. */
-async function redeem(c: Collaborators): Promise<RedeemResult> {
+async function redeem(c: Collaborators, timeline: AdoptionTimeline): Promise<RedeemResult> {
   const token = await c.establish();
   if (!token) return { state: "error", adoption: undefined };
   const [outcome, adoption] = await Promise.all([
     withTimeout(c.replay, REPLAY_TIMEOUT_MS, FAILED_REPLAY),
-    runAdoption(c.adopt, token, c.expectsAdoption),
+    runAdoption(c.adopt, token, c.expectsAdoption, timeline),
   ]);
   return { state: stateFor(outcome), adoption };
 }
@@ -110,18 +138,18 @@ type SetAdoption = (adoption: AdoptionState) => void;
 
 /** Redeems the token once, dropping the result if the component unmounted first.
  * A rejection is a failed login, not an unhandled promise. */
-function establishEffect(c: Collaborators, setState: SetState, setAdoption: SetAdoption): () => void {
+function establishEffect(c: Collaborators, setState: SetState, setAdoption: SetAdoption, timeline: AdoptionTimeline): () => void {
   let isActive = true;
   const apply = (r: RedeemResult) => { if (isActive) { setAdoption(r.adoption); setState(r.state); } };
-  void redeem(c).catch((): RedeemResult => ({ state: "error", adoption: undefined })).then(apply);
+  void redeem(c, timeline).catch((): RedeemResult => ({ state: "error", adoption: undefined })).then(apply);
   return () => { isActive = false; };
 }
 
-function useEstablishOnce(c: Collaborators, setState: SetState, setAdoption: SetAdoption): void {
+function useEstablishOnce(c: Collaborators, setState: SetState, setAdoption: SetAdoption, timeline: AdoptionTimeline): void {
   const { establish, replay, adopt, expectsAdoption } = c;
   useEffect(
-    () => establishEffect({ establish, replay, adopt, expectsAdoption }, setState, setAdoption),
-    [establish, replay, adopt, expectsAdoption, setState, setAdoption],
+    () => establishEffect({ establish, replay, adopt, expectsAdoption }, setState, setAdoption, timeline),
+    [establish, replay, adopt, expectsAdoption, setState, setAdoption, timeline],
   );
 }
 
@@ -152,19 +180,25 @@ function useRetrySave(replay: Replay, setState: SetState): () => void {
 }
 
 /** The claim needs a bearer of its own; `establish` re-reads the cached token. */
-async function retriedAdoption(c: Collaborators): Promise<AdoptionState> {
+async function retriedAdoption(c: Collaborators, timeline: AdoptionTimeline): Promise<AdoptionState> {
   const token = await c.establish();
   if (!token) return "failed";
-  return runAdoption(c.adopt, token, c.expectsAdoption);
+  return runAdoption(c.adopt, token, c.expectsAdoption, timeline);
 }
 
-function useRetryAdoption(c: Collaborators, setAdoption: SetAdoption): () => void {
+/** Completes the retry: the safety catch, then the state write. Extracted so
+ * `useRetryAdoption`'s callback body stays within the two-level limit. */
+function settleRetry(attempt: Promise<AdoptionState>, setAdoption: SetAdoption): void {
+  void attempt
+    .catch((): AdoptionState => "failed")
+    .then(setAdoption);
+}
+
+function useRetryAdoption(c: Collaborators, setAdoption: SetAdoption, timeline: AdoptionTimeline): () => void {
   const { establish, adopt, replay, expectsAdoption } = c;
   return useCallback(() => {
-    void retriedAdoption({ establish, adopt, replay, expectsAdoption })
-      .catch((): AdoptionState => "failed")
-      .then(setAdoption);
-  }, [establish, adopt, replay, expectsAdoption, setAdoption]);
+    settleRetry(retriedAdoption({ establish, adopt, replay, expectsAdoption }, timeline), setAdoption);
+  }, [establish, adopt, replay, expectsAdoption, setAdoption, timeline]);
 }
 
 /** The save surface wins while it is showing: it is the thing the visitor
@@ -197,9 +231,10 @@ export function useAuthCallback(
 function useCallbackSession(c: Collaborators): AuthCallbackSession {
   const [state, setState] = useState<AuthCallbackState>("pending");
   const [adoption, setAdoption] = useState<AdoptionState>(undefined);
-  useEstablishOnce(c, setState, setAdoption);
+  const timeline = useRef<AdoptionTimeline>({ timedOut: false }).current;
+  useEstablishOnce(c, setState, setAdoption, timeline);
   const surfaced = { state: derivedState(state, adoption), adoption: shown(adoption) };
-  return { ...surfaced, ...useSaveActions(c.replay, setState), ...useClaimActions(c, setAdoption) };
+  return { ...surfaced, ...useSaveActions(c.replay, setState), ...useClaimActions(c, setAdoption, timeline) };
 }
 
 /** A dismissed notice is gone, not merely hidden: nothing should re-render it. */
@@ -214,9 +249,9 @@ function useSaveActions(replay: Replay, setState: SetState) {
   };
 }
 
-function useClaimActions(c: Collaborators, setAdoption: SetAdoption) {
+function useClaimActions(c: Collaborators, setAdoption: SetAdoption, timeline: AdoptionTimeline) {
   return {
-    retryAdoption: useRetryAdoption(c, setAdoption),
+    retryAdoption: useRetryAdoption(c, setAdoption, timeline),
     dismissAdoption: useCallback(() => { setAdoption("dismissed"); }, [setAdoption]),
   };
 }

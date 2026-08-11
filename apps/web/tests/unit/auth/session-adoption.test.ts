@@ -35,6 +35,14 @@ function capture(sink: Seen[], adopted = 1) {
   });
 }
 
+/** 200s whose `adopted` is missing, a string, or negative: an invalid Agent or
+ * Edge response, never a silent ownership transfer (SESSION-2 #960). */
+const INVALID_RESPONSES: [string, Record<string, unknown>][] = [
+  ["an empty object", {}],
+  ["a string-valued adopted", { adopted: "0", noop_class: "no_rows" }],
+  ["a negative adopted", { adopted: -1, noop_class: "no_rows" }],
+];
+
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe("adoptSessions", () => {
@@ -68,6 +76,11 @@ describe("adoptSessions", () => {
     expect(await adoptSessions("jwt-1", BASE)).toBe("nothing");
   });
 
+  it.each(INVALID_RESPONSES)("treats %s as an invalid response, not a silent adoption", async (_label, body) => {
+    server.use(http.post(URL, () => HttpResponse.json(body)));
+    expect(await adoptSessions("jwt-1", BASE)).toBe("failed");
+  });
+
   it("reports `failed` on a non-2xx (a 403 from the reject-anonymous predicate)", async () => {
     server.use(http.post(URL, () => HttpResponse.json({ error: "forbidden" }, { status: 403 })));
     expect(await adoptSessions("jwt-1", BASE)).toBe("failed");
@@ -84,8 +97,10 @@ describe("adoptSessions", () => {
   });
 
   it("is safe to repeat: the second call is issued and the server no-ops it", async () => {
-    let calls = 0;
-    server.use(http.post(URL, () => HttpResponse.json({ adopted: ++calls === 1 ? 1 : 0, noop_class: "no_rows" })));
+    server.use(
+      http.post(URL, () => HttpResponse.json({ adopted: 1, noop_class: "adopted" }), { once: true }),
+      http.post(URL, () => HttpResponse.json({ adopted: 0, noop_class: "no_rows" })),
+    );
     expect(await adoptSessions("jwt-1", BASE)).toBe("adopted");
     expect(await adoptSessions("jwt-1", BASE)).toBe("nothing");
   });
@@ -102,6 +117,13 @@ describe("anomalyOf", () => {
     // travel, so 0 rows move and the mismatch is the only available signal.
     expect(anomalyOf("nothing", true)).toBe("nothing-adopted");
     expect(anomalyOf("nothing", false)).toBeUndefined();
+  });
+
+  it("converges a no-op after a prior timeout instead of flagging it", () => {
+    // SESSION-2 #960: the first attempt timed out, the retry observes the
+    // late-landed adoption as 0 rows — that is success, not an anomaly.
+    expect(anomalyOf("nothing", true, true)).toBeUndefined();
+    expect(anomalyOf("nothing", false, true)).toBeUndefined();
   });
 
   it("never flags an adoption that moved rows", () => {

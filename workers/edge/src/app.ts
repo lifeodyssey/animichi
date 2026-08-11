@@ -7,12 +7,17 @@ import type { Env, WorkerExecutionContext } from "./env.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardUsers, forwardV1 } from "./gateway/forward.ts";
 import { handleAnonymousV1 } from "./identity/anonymous-flow.ts";
 import { handleImageProxy } from "./proxy/image-proxy.ts";
-import { NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./gateway/responses.ts";
+import { METHOD_NOT_ALLOWED_BODY, NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./gateway/responses.ts";
 import { isAnonymousV1, isPublicV1 } from "./gateway/routing-policy.ts";
 import { createShowcaseMode, type ShowcaseMode } from "./proxy/showcase.ts";
 import { handleSessionAdopt, SESSION_ADOPT_PATH } from "./identity/session-adopt.ts";
 import { handleTiles } from "./proxy/tiles.ts";
 import { createTurnstileGate, type TurnstileGate } from "./protect/turnstile.ts";
+
+/** The legacy anonymous-session migration path deleted with AdoptSessions
+ * (SESSION-2 #960, cc577cbb). Explicitly rejected here so the /v1/* fallback
+ * can never forward a request to a route that no longer exists. */
+const SESSION_MIGRATE_PATH = "/v1/session/migrate";
 
 export type { Env } from "./env.ts";
 export { catalogOutbound } from "./gateway/forward.ts";
@@ -187,6 +192,18 @@ function registerV1Routes(
   app.all("/v1/users/*", (c) => {
     if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
     return handleUsersRequest(c, { authenticate, turnstileGate });
+  });
+  // Explicit gates registered BEFORE the /v1/* fallback so it can never
+  // forward them (SESSION-2 #960): adoption is POST-only, and the deleted
+  // legacy migration path is a hard 404.
+  app.all(SESSION_ADOPT_PATH, (c) => {
+    if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
+    if (c.req.method !== "POST") return c.json(METHOD_NOT_ALLOWED_BODY, 405);
+    return handleV1Request(c, { authenticate, turnstileGate });
+  });
+  app.all(SESSION_MIGRATE_PATH, (c) => {
+    if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();
+    return c.notFound();
   });
   app.all("/v1/*", (c) => {
     if (showcaseMode.isEnabled(c.env.EDGE_SHOWCASE_MODE)) return showcaseDenied();

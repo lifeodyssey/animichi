@@ -106,6 +106,33 @@ describe("useAuthCallback adoption recovery (#507 review)", () => {
     await waitFor(() => { expect(view.result.current.state).toBe("done"); });
   });
 
+  it("converges: a timed-out first claim whose retry lands the late success clears the notice", async () => {
+    // SESSION-2 #960: the first request times out (outcome unknown), the retry
+    // observes the server already adopted the sessions (0 rows) — that is the
+    // first request having landed, so the notice must clear, not persist.
+    const adopt = vi.fn(stalledAdoption);
+    const view = renderHook(() => useAuthCallback(token, noReplay, adopt, true));
+    vi.useFakeTimers();
+    await vi.advanceTimersByTimeAsync(4_000);
+    vi.useRealTimers();
+    await waitFor(() => { expect(view.result.current.state).toBe("adoption-failed"); });
+    adopt.mockImplementation(nothingAdopted);
+    act(() => { view.result.current.retryAdoption(); });
+    await waitFor(() => { expect(view.result.current.state).toBe("done"); });
+    expect(view.result.current.adoption).toBeUndefined();
+  });
+
+  it("still flags a no-op retry when no prior attempt timed out", async () => {
+    // The genuine no-op: the first claim failed outright (a 5xx, not a
+    // timeout), and the retry still moves nothing — that stays an anomaly.
+    const adopt = vi.fn(failedAdoption).mockImplementationOnce(failedAdoption);
+    const view = renderHook(() => useAuthCallback(token, noReplay, adopt, true));
+    await waitFor(() => { expect(view.result.current.state).toBe("adoption-failed"); });
+    adopt.mockImplementation(nothingAdopted);
+    act(() => { view.result.current.retryAdoption(); });
+    await waitFor(() => { expect(view.result.current.adoption).toBe("nothing-adopted"); });
+  });
+
   it("lets the visitor move on, which navigates rather than stranding them", async () => {
     const view = renderHook(() => useAuthCallback(token, noReplay, failedAdoption));
     await waitFor(() => { expect(view.result.current.state).toBe("adoption-failed"); });

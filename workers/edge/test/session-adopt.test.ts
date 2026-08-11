@@ -58,6 +58,16 @@ void test("a valid aid cookie reaches the container as X-Anon-Id, exactly", asyn
   assert.equal(cap.req?.headers.get("X-Anon-Id"), "anon_" + "a".repeat(32));
 });
 
+void test("a non-POST adopt request answers 405 and is never forwarded (SESSION-2 #960)", async () => {
+  const cap: { req?: Request } = {};
+  const app = createWorkerApp({ authenticate: authOk });
+  const res = await app.request(
+    "/v1/sessions/adopt", { method: "GET" }, environmentWithContainer(cap), stubCtx,
+  );
+  assert.equal(res.status, 405);
+  assert.equal(cap.req, undefined);
+});
+
 void test("no aid cookie -> no X-Anon-Id forwarded, and no Set-Cookie on the response", async () => {
   const cap: { req?: Request } = {};
   const app = createWorkerApp({ authenticate: authOk });

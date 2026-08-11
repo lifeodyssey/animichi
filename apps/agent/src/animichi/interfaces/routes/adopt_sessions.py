@@ -34,6 +34,10 @@ router = APIRouter(prefix="/v1", tags=["session"])
 
 _SESSION_ID_QUERY_KEY = "session_id"
 _SESSION_ID_HEADER = "x-session-id"
+#: The endpoint is identity-dimensional and accepts no body; anything sent is
+#: only ever probed for a Session id. Bound the read so a hostile payload
+#: cannot fill memory before the JSON probe.
+_MAX_BODY_BYTES = 1024
 
 
 async def _reject_client_session_id(request: Request) -> None:
@@ -46,7 +50,12 @@ async def _reject_client_session_id(request: Request) -> None:
         raise HTTPException(
             status_code=400, detail="Client session ids are not accepted."
         )
+    length = request.headers.get("content-length")
+    if length is not None and length.isdigit() and int(length) > _MAX_BODY_BYTES:
+        raise HTTPException(status_code=413, detail="Request body too large.")
     raw = await request.body()
+    if len(raw) > _MAX_BODY_BYTES:
+        raise HTTPException(status_code=413, detail="Request body too large.")
     if not raw:
         return
     try:

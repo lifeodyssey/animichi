@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, TypeAlias, cast
 
 import asyncpg
 
+from animichi.application.adopt_sessions import ADOPT_TURN_KEY_PREFIX
 from animichi.application.turn_admission_port import (
     AdmissionStatus,
     ReservationOutcome,
@@ -75,14 +76,20 @@ _RELEASE_SQL = """
       AND status = 'reserved' AND lease_owner = $3
     RETURNING id
 """
+#: Replay-history pruning keeps the `_KEEP_REVISIONS` most recent COMPLETED
+#: client turns. Synthetic adoption marker rows (`adopt:` turn_key namespace)
+#: are the revision-CAS authority and are EXCLUDED on both sides — they never
+#: consume a replay slot and are never pruned (SESSION-2 #960).
 _PRUNE_SQL = """
     DELETE FROM turn_reservations
     WHERE session_id IS NOT DISTINCT FROM $1
       AND status = 'completed'
+      AND turn_key NOT LIKE 'adopt:%'
       AND id NOT IN (
           SELECT id FROM turn_reservations
           WHERE session_id IS NOT DISTINCT FROM $1
             AND status = 'completed'
+            AND turn_key NOT LIKE 'adopt:%'
           ORDER BY revision DESC
           LIMIT $2
       )
@@ -153,6 +160,11 @@ class PostgresTurnReservationStore:
         self._pool = pool
 
     async def reserve(self, request: ReserveRequest) -> ReservationOutcome:
+        if request.turn_key.startswith(ADOPT_TURN_KEY_PREFIX):
+            # Defense in depth: the admission use case already rejects this
+            # namespace, but the store must never surface a synthetic marker as
+            # a client's `replay_completed` (SESSION-2 #960).
+            return ReservationOutcome(status="in_flight", session_id=request.session_id)
         async with self._pool.acquire() as connection:
             async with connection.transaction():
                 return await self._reserve(connection, request)

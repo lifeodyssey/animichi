@@ -31,13 +31,11 @@ function CallbackAction({ label, className, onClick }: ActionProps) {
  * silent "done" that lets the save reappear on some later login.
  */
 function SaveFailure({ auth, session }: FailureProps) {
-  return (
-    <div className="auth-callback__save-failed" role="alert">
-      <p className="auth-callback__message">{auth.callback_save_failed}</p>
-      <CallbackAction label={auth.callback_save_retry} className="auth-callback__retry" onClick={session.retrySave} />
-      <CallbackAction label={auth.callback_save_skip} className="auth-callback__skip" onClick={session.dismissSave} />
-    </div>
-  );
+  return <div className="auth-callback__save-failed" role="alert">
+    <p className="auth-callback__message">{auth.callback_save_failed}</p>
+    <CallbackAction label={auth.callback_save_retry} className="auth-callback__retry" onClick={session.retrySave} />
+    <CallbackAction label={auth.callback_save_skip} className="auth-callback__skip" onClick={session.dismissSave} />
+  </div>;
 }
 
 /**
@@ -50,13 +48,11 @@ function SaveFailure({ auth, session }: FailureProps) {
  */
 function AdoptionFailure({ auth, session }: FailureProps) {
   const text = session.adoption === "nothing-adopted" ? auth.callback_adoption_missing : auth.callback_adoption_failed;
-  return (
-    <div className="auth-callback__save-failed" role="alert">
-      <p className="auth-callback__message">{text}</p>
-      <CallbackAction label={auth.callback_adoption_retry} className="auth-callback__retry" onClick={session.retryAdoption} />
-      <CallbackAction label={auth.callback_adoption_skip} className="auth-callback__skip" onClick={session.dismissAdoption} />
-    </div>
-  );
+  return <div className="auth-callback__save-failed" role="alert">
+    <p className="auth-callback__message">{text}</p>
+    <CallbackAction label={auth.callback_adoption_retry} className="auth-callback__retry" onClick={session.retryAdoption} />
+    <CallbackAction label={auth.callback_adoption_skip} className="auth-callback__skip" onClick={session.dismissAdoption} />
+  </div>;
 }
 
 export interface AuthCallbackProps {

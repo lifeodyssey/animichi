@@ -174,3 +174,19 @@ async def test_client_session_id_in_header_is_rejected_400() -> None:
         resp = await client.post("/v1/sessions/adopt", headers=headers)
     assert resp.status_code == 400
     db.session.adopt_ownership.assert_not_called()
+
+
+async def test_oversized_body_is_rejected_413_and_mutates_nothing() -> None:
+    db = build_stub_db()
+    db.session.adopt_ownership = AsyncMock(
+        return_value=AdoptionResult(adopted_count=1, revisions_bumped=1)
+    )
+    app, _ = build_app(db=db)
+    async with async_client(app) as client:
+        resp = await client.post(
+            "/v1/sessions/adopt",
+            headers=_headers(),
+            content=b"x" * 2048,
+        )
+    assert resp.status_code == 413
+    db.session.adopt_ownership.assert_not_called()

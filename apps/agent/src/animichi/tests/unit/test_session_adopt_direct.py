@@ -24,7 +24,10 @@ _AUTH = TrustedAuthContext(user_id="user-1", user_type="authenticated")
 
 
 def _request(
-    body: bytes = b"", query: str = "", headers: dict[str, str] | None = None
+    body: bytes = b"",
+    query: str = "",
+    headers: dict[str, str] | None = None,
+    body_read: list[bool] | None = None,
 ) -> Request:
     scope: dict[str, object] = {
         "type": "http",
@@ -49,6 +52,8 @@ def _request(
     sent = {"sent": False}
 
     async def receive() -> dict[str, object]:
+        if body_read is not None:
+            body_read.append(True)
         if not sent["sent"]:
             sent["sent"] = True
             return {"type": "http.request", "body": body, "more_body": False}
@@ -103,6 +108,32 @@ async def test_json_body_with_session_id_is_rejected_directly() -> None:
 
 async def test_json_body_without_session_id_passes_directly() -> None:
     await _reject_client_session_id(_request(body=b'{"locale": "ja"}'))
+
+
+async def test_oversized_content_length_is_rejected_413_before_reading_body() -> None:
+    body_read: list[bool] = []
+    request = _request(
+        body=b"{}",
+        headers={"content-length": "99999999999"},
+        body_read=body_read,
+    )
+    try:
+        await _reject_client_session_id(request)
+    except HTTPException as error:
+        assert error.status_code == 413
+    else:
+        raise AssertionError("expected HTTPException")
+    assert body_read == []
+
+
+async def test_oversized_body_without_content_length_is_rejected_413() -> None:
+    request = _request(body=b"x" * 2048)
+    try:
+        await _reject_client_session_id(request)
+    except HTTPException as error:
+        assert error.status_code == 413
+    else:
+        raise AssertionError("expected HTTPException")
 
 
 async def test_handler_runs_the_full_adoption_body_directly() -> None:
