@@ -132,37 +132,46 @@ class TurnAdmission:
         ):
             return _rejected("byok_requires_login", payer)
         if payer == "anon":
-            budget = await anonymous_budget_verdict(
-                self._usage_repo, budget_usd=self._policy.budget_usd
-            )
-            if budget.is_exhausted:
-                return _rejected("budget_exhausted", payer)
+            budget_rejected = await self._budget_verdict(payer)
+            if budget_rejected is not None:
+                return budget_rejected
 
         outcome = await self._reserve(request, payer)
         if outcome.status != "admitted":
             return _outcome_verdict(outcome, payer)
-
         if payer == "anon":
-            quota = await anonymous_quota_verdict(
-                self._anon_quota_repo,
-                anon_id=request.identity.user_id or "",
-                quota=self._policy.quota,
-            )
-            if quota.is_exhausted:
-                await self._fail(request, outcome)
-                return AdmissionVerdict(
-                    admitted=False,
-                    payer=payer,
-                    session_id=outcome.session_id,
-                    rejection=AdmissionRejection(
-                        "quota_exhausted", resets_at=quota.resets_at
-                    ),
-                )
+            quota_rejected = await self._quota_verdict(request, outcome)
+            if quota_rejected is not None:
+                return quota_rejected
         return AdmissionVerdict(
             admitted=True,
             payer=payer,
             revision=outcome.revision,
             session_id=outcome.session_id,
+        )
+
+    async def _budget_verdict(self, payer: UsageScope) -> AdmissionVerdict | None:
+        budget = await anonymous_budget_verdict(
+            self._usage_repo, budget_usd=self._policy.budget_usd
+        )
+        return _rejected("budget_exhausted", payer) if budget.is_exhausted else None
+
+    async def _quota_verdict(
+        self, request: AdmissionRequest, outcome: ReservationOutcome
+    ) -> AdmissionVerdict | None:
+        quota = await anonymous_quota_verdict(
+            self._anon_quota_repo,
+            anon_id=request.identity.user_id or "",
+            quota=self._policy.quota,
+        )
+        if not quota.is_exhausted:
+            return None
+        await self._fail(request, outcome)
+        return AdmissionVerdict(
+            admitted=False,
+            payer="anon",
+            session_id=outcome.session_id,
+            rejection=AdmissionRejection("quota_exhausted", resets_at=quota.resets_at),
         )
 
     async def _reserve(

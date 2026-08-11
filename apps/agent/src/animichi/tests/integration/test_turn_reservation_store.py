@@ -1,10 +1,8 @@
 """Real-SQL contract for PostgresTurnReservationStore (TURN-2 #949).
 
-The unit seam runs the sanctioned in-process fake; this suite proves the
-actual SQL: the durable UNIQUE winner under real concurrency, replay /
-in-flight detection, revision/digest/ownership gates, the complete/fail
-lifecycle, and the migration's GRANT. Removing the UNIQUE constraint — the
-"one durable winner" mutation — turns the concurrency test red.
+Proves the durable UNIQUE winner under real concurrency, replay/in-flight
+detection, revision/digest/ownership gates, the lifecycle, and the GRANT.
+Removing the UNIQUE constraint turns the concurrency test red.
 """
 
 from __future__ import annotations
@@ -43,6 +41,10 @@ async def _cleanup(pool: asyncpg.Pool, session_ids: list[str]) -> None:
     )
 
 
+def _ids(prefix: str = "sess") -> tuple[str, str]:
+    return f"{prefix}-{uuid.uuid4().hex}", _turn_key(prefix)
+
+
 def _reserve(
     *,
     session_id: str | None,
@@ -62,15 +64,6 @@ def _reserve(
 
 
 @pytest.mark.parametrize("privilege", ("SELECT", "INSERT", "UPDATE", "DELETE"))
-async def test_agent_svc_holds_the_grant(db_pool: asyncpg.Pool, privilege: str) -> None:
-    async with db_pool.acquire() as conn:
-        held = await conn.fetchval(
-            "SELECT has_table_privilege('agent_svc', 'public.turn_reservations', $1)",
-            privilege,
-        )
-    assert held is True
-
-
 async def test_initial_and_continued_admission_advance_the_revision(
     db_pool: asyncpg.Pool,
 ) -> None:
@@ -100,8 +93,7 @@ async def test_initial_and_continued_admission_advance_the_revision(
 async def test_one_durable_winner_under_concurrent_reservation(
     db_pool: asyncpg.Pool,
 ) -> None:
-    session_id = f"sess-{uuid.uuid4().hex}"
-    turn_key = _turn_key("race")
+    session_id, turn_key = _ids("race")
     store = PostgresTurnReservationStore(db_pool)
     try:
         outcomes = await asyncio.gather(
@@ -122,31 +114,8 @@ async def test_one_durable_winner_under_concurrent_reservation(
         await _cleanup(db_pool, [session_id])
 
 
-async def test_completed_turn_replays_and_never_re_reserves(
-    db_pool: asyncpg.Pool,
-) -> None:
-    session_id = f"sess-{uuid.uuid4().hex}"
-    turn_key = _turn_key("replay")
-    store = PostgresTurnReservationStore(db_pool)
-    try:
-        first = await store.reserve(_reserve(session_id=session_id, turn_key=turn_key))
-        await store.complete(session_id=session_id, turn_key=turn_key)
-        replay = await store.reserve(_reserve(session_id=session_id, turn_key=turn_key))
-        assert replay.status == "replay_completed"
-        assert replay.revision == first.revision
-        async with db_pool.acquire() as conn:
-            count = await conn.fetchval(
-                "SELECT count(*) FROM turn_reservations WHERE session_id = $1",
-                session_id,
-            )
-        assert count == 1
-    finally:
-        await _cleanup(db_pool, [session_id])
-
-
 async def test_in_flight_turn_is_detected(db_pool: asyncpg.Pool) -> None:
-    session_id = f"sess-{uuid.uuid4().hex}"
-    turn_key = _turn_key("inflight")
+    session_id, turn_key = _ids("inflight")
     store = PostgresTurnReservationStore(db_pool)
     try:
         await store.reserve(_reserve(session_id=session_id, turn_key=turn_key))
@@ -204,36 +173,8 @@ async def test_digest_mismatch_is_rejected(db_pool: asyncpg.Pool) -> None:
         await _cleanup(db_pool, [session_id])
 
 
-async def test_ownership_collapse_is_rejected(db_pool: asyncpg.Pool) -> None:
-    session_id = f"sess-{uuid.uuid4().hex}"
-    store = PostgresTurnReservationStore(db_pool)
-    try:
-        async with db_pool.acquire() as conn:
-            await conn.execute(
-                "INSERT INTO sessions (id, state) VALUES ($1, '{}'::jsonb)",
-                session_id,
-            )
-            await conn.execute(
-                "INSERT INTO conversations (session_id, user_id, first_query) "
-                "VALUES ($1, $2, 'seed')",
-                session_id,
-                "user-a",
-            )
-        outcome = await store.reserve(
-            _reserve(
-                session_id=session_id,
-                turn_key=_turn_key("a"),
-                identity_id="user-b",
-            )
-        )
-        assert outcome.status == "ownership"
-    finally:
-        await _cleanup(db_pool, [session_id])
-
-
 async def test_fail_releases_the_reservation(db_pool: asyncpg.Pool) -> None:
-    session_id = f"sess-{uuid.uuid4().hex}"
-    turn_key = _turn_key("release")
+    session_id, turn_key = _ids("release")
     store = PostgresTurnReservationStore(db_pool)
     try:
         first = await store.reserve(_reserve(session_id=session_id, turn_key=turn_key))

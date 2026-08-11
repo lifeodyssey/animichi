@@ -101,20 +101,10 @@ def admission_rejection_response(verdict: AdmissionVerdict) -> JSONResponse | No
         return None
     if rejection.reason == "ownership":
         return JSONResponse(
-            status_code=404,
-            content={"detail": CONVERSATION_NOT_FOUND_MESSAGE},
+            status_code=404, content={"detail": CONVERSATION_NOT_FOUND_MESSAGE}
         )
     if rejection.reason == "budget_exhausted":
-        return JSONResponse(
-            status_code=403,
-            content={
-                "error": {
-                    "code": ANON_BUDGET_EXHAUSTED_CODE,
-                    "message": BUDGET_EXHAUSTED_MESSAGE,
-                    "action": "login",
-                }
-            },
-        )
+        return _budget_exhausted_response()
     if rejection.reason == "quota_exhausted":
         return _quota_exhausted_response(rejection.resets_at)
     if rejection.reason == "byok_requires_login":
@@ -130,6 +120,19 @@ def admission_rejection_response(verdict: AdmissionVerdict) -> JSONResponse | No
             "session_digest_mismatch", DIGEST_MISMATCH_MESSAGE, status_code=409
         )
     return _error_response("turn_in_flight", TURN_IN_FLIGHT_MESSAGE, status_code=409)
+
+
+def _budget_exhausted_response() -> JSONResponse:
+    return JSONResponse(
+        status_code=403,
+        content={
+            "error": {
+                "code": ANON_BUDGET_EXHAUSTED_CODE,
+                "message": BUDGET_EXHAUSTED_MESSAGE,
+                "action": "login",
+            }
+        },
+    )
 
 
 def _quota_exhausted_response(resets_at: datetime | None) -> JSONResponse:

@@ -100,19 +100,24 @@ class PostgresTurnReservationStore:
         self._pool = pool
 
     async def reserve(self, request: ReserveRequest) -> ReservationOutcome:
+        # Known limit (TURN-2 review): the reservation commits here, while the
+        # quota increment and the fail/complete settlement run in separate
+        # transactions in the caller. A crash between them leaves an orphaned
+        # in_flight row; it is pruned on the session's next insert
+        # (_prune) and retried turns self-heal, but an interrupted session
+        # with no further activity retains the row until the next insert.
         async with self._pool.acquire() as connection:
             async with connection.transaction():
                 return await self._reserve(connection, request)
 
-    async def _reserve(
+    async def _guarded(
         self, connection: PoolConnection, request: ReserveRequest
-    ) -> ReservationOutcome:
+    ) -> ReservationOutcome | None:
         session_id = request.session_id
         if session_id is not None and not await self._ownership_ok(
             connection, session_id, request.identity_id
         ):
             return ReservationOutcome(status="ownership", session_id=session_id)
-
         existing = await self._existing(connection, session_id, request.turn_key)
         if existing is not None:
             return ReservationOutcome(
@@ -120,7 +125,6 @@ class PostgresTurnReservationStore:
                 session_id=session_id,
                 revision=existing.revision,
             )
-
         current = await self._current_revision(connection, session_id)
         if (
             request.expected_revision is not None
@@ -136,8 +140,16 @@ class PostgresTurnReservationStore:
                 return ReservationOutcome(
                     status="digest_mismatch", session_id=session_id
                 )
+        return None
 
-        revision = current + 1
+    async def _reserve(
+        self, connection: PoolConnection, request: ReserveRequest
+    ) -> ReservationOutcome:
+        guarded = await self._guarded(connection, request)
+        if guarded is not None:
+            return guarded
+        revision = (await self._current_revision(connection, request.session_id)) + 1
+        session_id = request.session_id
         inserted = await connection.fetchrow(
             _INSERT_SQL,
             session_id,

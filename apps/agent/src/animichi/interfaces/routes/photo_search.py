@@ -265,25 +265,36 @@ async def handle_photo_search(
             runtime, request, auth, body, is_authenticated
         )
     except PhotoSearchRejection as photo_rejection:
-        if reserved and store is not None:
-            await store.fail(
-                session_id=verdict.session_id, turn_key=admission_req.turn_key
-            )
+        await _settle(
+            store, reserved, verdict.session_id, admission_req.turn_key, fail=True
+        )
         return _rejection_response(photo_rejection)
     try:
         response = await _run_pipeline(runtime, byok_model, image, body, request, auth)
     except BaseException:
-        if reserved and store is not None:
-            await store.fail(
-                session_id=verdict.session_id, turn_key=admission_req.turn_key
-            )
+        await _settle(
+            store, reserved, verdict.session_id, admission_req.turn_key, fail=True
+        )
         raise
     else:
-        if reserved and store is not None:
-            await store.complete(
-                session_id=verdict.session_id, turn_key=admission_req.turn_key
-            )
+        await _settle(
+            store, reserved, verdict.session_id, admission_req.turn_key, fail=False
+        )
     return response
+
+
+async def _settle(
+    store: object | None,
+    reserved: bool,
+    session_id: str | None,
+    turn_key: str,
+    *,
+    fail: bool,
+) -> None:
+    if not reserved or store is None:
+        return
+    method = getattr(store, "fail" if fail else "complete")
+    await method(session_id=session_id, turn_key=turn_key)
 
 
 async def _run_pipeline(
