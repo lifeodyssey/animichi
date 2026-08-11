@@ -54,10 +54,18 @@ jobs:
             echo "source_revision must be a full 40-char commit SHA" >&2
             exit 1
           fi
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
       - name: Checkout the cutover source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.source_revision }}
+          ref: ${{ steps.validate-revision.outputs.revision }}
           fetch-depth: 0
           persist-credentials: false
       - name: Record phase C starting
@@ -79,10 +87,18 @@ jobs:
     environment: staging
     needs: cutover-phase-c-close-ingress
     steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
       - name: Checkout the cutover source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.source_revision }}
+          ref: ${{ steps.validate-revision.outputs.revision }}
           fetch-depth: 0
           persist-credentials: false
       - name: Re-verify retention absent and auth neon-only before reset
@@ -115,10 +131,18 @@ jobs:
     environment: staging
     needs: cutover-phase-d-reset-schema
     steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
       - name: Checkout and verify the cutover source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.source_revision }}
+          ref: ${{ steps.validate-revision.outputs.revision }}
           fetch-depth: 0
           persist-credentials: false
       - name: Deploy catalog from source_revision
@@ -140,10 +164,18 @@ jobs:
     environment: staging
     needs: [cutover-phase-d-reset-schema, cutover-phase-e-deploy-catalog]
     steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
       - name: Checkout and verify the cutover source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.source_revision }}
+          ref: ${{ steps.validate-revision.outputs.revision }}
           fetch-depth: 0
           persist-credentials: false
       - name: Deploy users from source_revision
@@ -166,10 +198,18 @@ jobs:
     environment: staging
     needs: [cutover-phase-d-reset-schema, cutover-phase-e-deploy-users]
     steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
       - name: Checkout and verify the cutover source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.source_revision }}
+          ref: ${{ steps.validate-revision.outputs.revision }}
           fetch-depth: 0
           persist-credentials: false
       - name: Deploy agent from source_revision
@@ -191,10 +231,18 @@ jobs:
     environment: staging
     needs: cutover-phase-d-reset-schema
     steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
       - name: Checkout and verify the cutover source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.source_revision }}
+          ref: ${{ steps.validate-revision.outputs.revision }}
           fetch-depth: 0
           persist-credentials: false
       - name: Deploy web from source_revision
@@ -215,10 +263,18 @@ jobs:
     environment: staging
     needs: [cutover-phase-d-reset-schema, cutover-phase-e-deploy-agent, cutover-phase-e-deploy-web]
     steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
       - name: Checkout and verify the cutover source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.source_revision }}
+          ref: ${{ steps.validate-revision.outputs.revision }}
           fetch-depth: 0
           persist-credentials: false
       - name: Deploy edge routes from source_revision while ingress is closed
@@ -244,10 +300,18 @@ jobs:
       - cutover-phase-e-deploy-web
       - cutover-phase-e-deploy-edge
     steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
       - name: Checkout the cutover source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.source_revision }}
+          ref: ${{ steps.validate-revision.outputs.revision }}
           fetch-depth: 0
           persist-credentials: false
       - name: Run the private smoke suite
@@ -266,10 +330,18 @@ jobs:
     environment: staging
     needs: cutover-phase-e-private-smoke
     steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
       - name: Checkout the cutover source revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.source_revision }}
+          ref: ${{ steps.validate-revision.outputs.revision }}
           fetch-depth: 0
           persist-credentials: false
       - name: Reopen ingress, re-check retention, record verdict
