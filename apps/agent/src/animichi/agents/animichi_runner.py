@@ -240,7 +240,7 @@ async def run_animichi_agent(
         raise InvalidInputError("user message text must not be blank", field="text")
     injected = detect_prompt_injection(text)
     if injected:
-        logger.warning("input_guardrail_injection_detected", text=text[:100])
+        logger.warning("input_guardrail_injection_detected", length=len(text))
     if _input_guard_enabled() and injected:
         return cast(AgentResult, blocked_outcome().output)
     outcome = await turn_port.run(ModelTurnRequest(text=text), events=_NullSink())

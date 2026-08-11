@@ -96,6 +96,8 @@ async def test_byok_credential_rejection_never_leaks_the_key_or_base_url() -> No
             is_byok=True,
             exc=ModelHTTPError(403, "byok-model", body=leaking_body),
         )
+        assert executed.error_code == "byok_credential_rejected"
+        assert executed.error_details is None
         assert _FAKE_KEY not in executed.error_code
         assert _FAKE_BASE_URL not in executed.error_code
     finally:

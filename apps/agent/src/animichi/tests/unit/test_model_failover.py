@@ -144,14 +144,14 @@ async def test_httpx_timeout_error_drives_fallback_model() -> None:
         models.override_allow_model_requests(True),
     ):
         model = get_default_model(http_client=client)
-        result = await Agent(model).run("ping")
-    try:
-        assert result.output == "fallback-ok"
-        assert client.timeout.read == settings.model_attempt_timeout
-        assert len(primary_transport.requests) == 1
-        assert len(fallback_transport.requests) == 1
-    finally:
-        await client.aclose()
+        try:
+            result = await Agent(model).run("ping")
+        finally:
+            await client.aclose()
+    assert result.output == "fallback-ok"
+    assert client.timeout.read == settings.model_attempt_timeout
+    assert len(primary_transport.requests) == 1
+    assert len(fallback_transport.requests) == 1
 
 
 @pytest.mark.parametrize(

@@ -64,17 +64,6 @@ SEEDED = {
 }
 
 
-def _point(pid: str, work: str) -> Point:
-    return Point(
-        id=pid,
-        name=pid,
-        bangumi_id=work,
-        latitude=35.0,
-        longitude=135.0,
-        title=work,
-    )
-
-
 def _pending_state() -> SessionState:
     candidates = [
         OrderedCandidate(id="1", title="One", lat=35.0, lng=135.0),

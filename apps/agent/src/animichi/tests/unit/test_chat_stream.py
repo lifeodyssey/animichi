@@ -188,7 +188,7 @@ async def test_consumer_disconnect_cancels_the_producer_task_without_hanging() -
         import asyncio
 
         await asyncio.Future()
-        return _response()  # pragma: no cover - unreachable
+        raise AssertionError("producer must be cancelled, not awaited")
 
     frames = stream_chat(never_returns)
     first = await anext(frames)

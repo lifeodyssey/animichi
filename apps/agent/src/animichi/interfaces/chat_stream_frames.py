@@ -192,7 +192,11 @@ def _search_results(data: JsonObject) -> JsonObject:
         values["bangumi_id"] = bangumi_id
     metadata = raw.get("metadata")
     if isinstance(metadata, dict):
-        values["title"] = raw.get("title", metadata.get("anime_title"))
+        title = raw.get("title")
+        if title is None:
+            title = metadata.get("anime_title")
+        if title is not None:
+            values["title"] = title
     return values
 
 

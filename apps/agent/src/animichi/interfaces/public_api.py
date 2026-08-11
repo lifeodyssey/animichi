@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from functools import cached_property
+from time import perf_counter
 from typing import Protocol, cast
 from uuid import uuid4
 
@@ -760,6 +761,7 @@ class RuntimeAPI:
             request, model, is_byok, user_id, user_type, on_step, outcome, binding
         )
         with runtime_span("runtime.handle") as span:
+            started_at = perf_counter()
             result = await agent_turn(
                 TurnInput(
                     session_id=request.session_id,
@@ -776,7 +778,7 @@ class RuntimeAPI:
             response = self._response(request, result)
             _record_result_span(span, request, response)
             record_runtime_request(
-                duration_ms=0,
+                duration_ms=int((perf_counter() - started_at) * 1000),
                 intent=response.intent,
                 status=response.status,
                 transport="public_api",

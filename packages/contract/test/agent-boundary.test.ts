@@ -96,8 +96,14 @@ describe("agent boundary emitter", () => {
     ]) {
       expect(rendered).toContain(`    ${field}:`);
     }
+<<<<<<< HEAD
     // Optional fields use the ruff-clean `| None = None` form, and a
     // nullable-optional field must not collapse into required `str | None`.
+=======
+    // Optional fields use the ruff-clean `| None = None` form; a
+    // nullable-optional field emits a single `| None` (fieldType already
+    // appends the null member — never `str | None | None`).
+>>>>>>> ec4ff54d (fix(agent,contract): TURN-4 review round — real runtime latency, selection deadline, settle session_id, no raw text in logs, stream title fallback, emitter single-null, test hardening (TURN-4 #955))
     expect(rendered).toContain("    session_id: str | None = None");
     expect(rendered).toContain("    origin_lat: float | None = None");
   });

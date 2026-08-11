@@ -329,7 +329,7 @@ class AgentTurn:
         """Catastrophic escape: settle (completed when a response was already
         produced, else failed), then re-raise."""
         side = self._side(
-            session_id=None,
+            session_id=turn.session_id,
             output=output,
             intent="error",
             status="error",
@@ -409,7 +409,8 @@ class AgentTurn:
             injected = self._detect_injection(turn.kind.text)
             if injected:
                 logger.warning(
-                    "input_guardrail_injection_detected", text=turn.kind.text[:100]
+                    "input_guardrail_injection_detected",
+                    length=len(turn.kind.text),
                 )
             if self._guard_enabled() and injected:
                 blocked = self._blocked_outcome(snapshot, turn.kind.locale)
@@ -428,12 +429,14 @@ class AgentTurn:
                     on_step=on_step,
                 )
             )
-        return await self._execution.execute(
-            turn.kind,
-            context=snapshot.context,
-            history=(),
-            model=None,
-            on_step=on_step,
+        return await self._timed(
+            self._execution.execute(
+                turn.kind,
+                context=snapshot.context,
+                history=(),
+                model=None,
+                on_step=on_step,
+            )
         )
 
     async def _timed(self, call: Awaitable[ExecutionResult]) -> ExecutionResult:
