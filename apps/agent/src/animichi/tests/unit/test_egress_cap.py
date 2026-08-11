@@ -92,7 +92,7 @@ async def test_oversized_stream_without_content_length_is_rejected() -> None:
     from animichi.agents.byok_models import ByokCredential
 
     class _Chunks(httpx.AsyncByteStream):
-        async def __aiter__(self):
+        async def __aiter__(self) -> object:
             for _ in range(PROBE_MAX_RESPONSE_BYTES // 1024 + 1):
                 yield b"x" * 1024
 
