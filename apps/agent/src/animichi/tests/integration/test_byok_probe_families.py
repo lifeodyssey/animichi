@@ -49,7 +49,7 @@ async def test_anthropic_probe_success_reports_vision_and_reachable() -> None:
     )
     built = app()
     with patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        "animichi.interfaces.services.byok_probe.build_byok_model",
         AsyncMock(return_value=byok_model),
     ):
         response = await post_probe(built, HUMAN_HEADERS | _ANTHROPIC_HEADERS)
@@ -65,7 +65,7 @@ async def test_anthropic_probe_401_reports_credential_rejected() -> None:
     )
     built = app()
     with patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        "animichi.interfaces.services.byok_probe.build_byok_model",
         AsyncMock(return_value=byok_model),
     ):
         response = await post_probe(built, HUMAN_HEADERS | _ANTHROPIC_HEADERS)
@@ -79,7 +79,7 @@ async def test_gemini_probe_success_reports_vision_and_reachable() -> None:
     )
     built = app()
     with patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        "animichi.interfaces.services.byok_probe.build_byok_model",
         AsyncMock(return_value=byok_model),
     ):
         response = await post_probe(built, HUMAN_HEADERS | _GEMINI_HEADERS)
@@ -95,7 +95,7 @@ async def test_gemini_probe_401_reports_credential_rejected() -> None:
     )
     built = app()
     with patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        "animichi.interfaces.services.byok_probe.build_byok_model",
         AsyncMock(return_value=byok_model),
     ):
         response = await post_probe(built, HUMAN_HEADERS | _GEMINI_HEADERS)

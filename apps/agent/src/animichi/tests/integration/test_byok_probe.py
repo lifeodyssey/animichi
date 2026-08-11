@@ -15,7 +15,7 @@ import httpx
 import pytest
 
 from animichi.agents.byok_models import ByokModel
-from animichi.interfaces.routes.byok import _CappedResponseTransport
+from animichi.infrastructure.egress_transport import CappedResponseTransport
 from animichi.tests.integration._byok_probe_shared import (
     ANON_HEADERS,
     BYOK_HEADERS,
@@ -28,6 +28,8 @@ from animichi.tests.integration._byok_probe_shared import (
 )
 
 pytestmark = pytest.mark.integration
+
+_CAPABILITY = "animichi.interfaces.services.byok_probe"
 
 _OK_COMPLETION = b"""{
   "id": "chatcmpl-probe",
@@ -49,7 +51,7 @@ def _stub_dns(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _patched_build(byok_model: ByokModel) -> object:
     return patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        f"{_CAPABILITY}.build_byok_model",
         AsyncMock(return_value=byok_model),
     )
 
@@ -70,7 +72,7 @@ async def test_successful_probe_reports_vision_and_reachable_with_one_upstream_c
 async def test_no_byok_headers_is_invalid_request_with_no_upstream_call() -> None:
     built = app()
     with patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        f"{_CAPABILITY}.build_byok_model",
         AsyncMock(side_effect=AssertionError("must not be called")),
     ):
         response = await post_probe(built, HUMAN_HEADERS)
@@ -84,7 +86,7 @@ async def test_ssrf_blocked_base_url_is_rejected_with_no_socket_opened() -> None
         BYOK_HEADERS | {"X-BYOK-Base-Url": "https://127.0.0.1/v1"}
     )
     with patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        f"{_CAPABILITY}.build_byok_model",
         AsyncMock(side_effect=AssertionError("must not open a socket")),
     ):
         response = await post_probe(built, headers)
@@ -116,7 +118,7 @@ async def test_anon_id_prefix_gates_the_probe_without_the_literal_anonymous_type
     built = app()
     headers = {"X-User-Id": "anon_0123456789abcdef0123456789abcdef"} | user_type_header
     with patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        f"{_CAPABILITY}.build_byok_model",
         AsyncMock(side_effect=AssertionError("must not resolve a BYOK model")),
     ):
         response = await post_probe(built, headers | BYOK_HEADERS)
@@ -129,14 +131,14 @@ async def test_the_cap_transport_is_installed_at_construction_never_reassigned()
 ):
     """#479 P2 review follow-up: the production code path installs the
     response-size cap via `build_byok_model`'s `transport_wrapper` — proven
-    by patching `build_byok_model` itself and asserting the route calls it
-    with a `transport_wrapper` kwarg, rather than mutating `client._transport`
-    after the fact."""
+    by patching `build_byok_model` itself and asserting the capability calls
+    it with a `transport_wrapper` kwarg, rather than mutating
+    `client._transport` after the fact."""
     transport = FixedResponseTransport(200, _OK_COMPLETION)
     byok_model = await byok_model_with_transport(transport)
     built = app()
     with patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        f"{_CAPABILITY}.build_byok_model",
         AsyncMock(return_value=byok_model),
     ) as build_mock:
         await post_probe(built, HUMAN_HEADERS | BYOK_HEADERS)
@@ -164,7 +166,7 @@ async def test_the_cap_transport_passes_a_small_well_formed_response_through_unc
     None
 ):
     """#479 P3 review follow-up: only the *rejecting* paths of
-    `_CappedResponseTransport` had coverage (the oversized/lying-header
+    `CappedResponseTransport` had coverage (the oversized/lying-header
     cases in `test_byok_probe_containment.py`) — its SUCCESS path
     (`_rebuild_response` reconstructing a small, under-the-cap response)
     had none. Exercised directly against the transport, not the whole
@@ -172,7 +174,7 @@ async def test_the_cap_transport_passes_a_small_well_formed_response_through_unc
     inner = _FixedInnerTransport(
         200, _OK_COMPLETION, {"Content-Type": "application/json"}
     )
-    capped = _CappedResponseTransport(inner)
+    capped = CappedResponseTransport(inner)
     request = httpx.Request("POST", "https://byok.example.test/v1/chat/completions")
 
     response = await capped.handle_async_request(request)

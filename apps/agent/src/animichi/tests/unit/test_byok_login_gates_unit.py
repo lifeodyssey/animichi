@@ -113,7 +113,7 @@ async def test_probe_gate_route_never_constructs_a_model_for_the_rejected_caller
     db = build_stub_db()
     app, _ = build_app(db=db)
     with patch(
-        "animichi.interfaces.routes.byok.build_byok_model",
+        "animichi.interfaces.services.byok_probe.build_byok_model",
         AsyncMock(side_effect=AssertionError("must not resolve a BYOK model")),
     ):
         async with async_client(app) as client:

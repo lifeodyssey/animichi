@@ -11,7 +11,7 @@ from typing import TypeAlias
 import httpx
 import pytest
 
-from animichi.interfaces.routes import byok as byok_route
+from animichi.interfaces.services import byok_probe as probe_capability
 from animichi.tests.integration._byok_probe_shared import (
     BYOK_HEADERS,
     HUMAN_HEADERS,
@@ -40,7 +40,7 @@ _GetAddrInfoResult: TypeAlias = list[
 
 
 class _ControlledAsyncio:
-    """Expires the route's outer timeout at the selected DNS boundary."""
+    """Expires the capability's outer timeout at the selected DNS boundary."""
 
     CancelledError = asyncio.CancelledError
 
@@ -134,7 +134,7 @@ def _install_resolver(
         blocked_resolution, controlled_asyncio.expire_outer_timeout
     )
     monkeypatch.setattr(socket, "getaddrinfo", resolver)
-    monkeypatch.setattr(byok_route, "asyncio", controlled_asyncio)
+    monkeypatch.setattr(probe_capability, "asyncio", controlled_asyncio)
     return resolver, controlled_asyncio
 
 
@@ -161,7 +161,7 @@ async def test_shared_deadline_cancels_each_dns_resolution(
     monkeypatch: pytest.MonkeyPatch,
     blocked_resolution: int,
 ) -> None:
-    """The route's one deadline causally cancels DNS calls one, two, and three."""
+    """The capability's one deadline causally cancels DNS calls one, two, and three."""
     resolver, controlled_asyncio = _install_resolver(monkeypatch, blocked_resolution)
     try:
         response = await post_probe(app(), HUMAN_HEADERS | BYOK_HEADERS)

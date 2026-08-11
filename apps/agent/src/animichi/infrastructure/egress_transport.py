@@ -7,12 +7,19 @@ at connect time (its own single resolution), pins the socket to the address
 TOCTOU/DNS-rebinding window: httpcore never resolves the hostname itself,
 because by the time it sees the request the host has already been rewritten
 to a validated IP literal.
+
+`CappedResponseTransport` is the second, complementary guard (#284 Task 5):
+a ≤64 KiB response-size cap layered over a `GuardedAsyncTransport` via
+`build_guarded_async_client(transport_wrapper=...)`, so a hostile BYOK
+endpoint cannot stream unbounded data into the container just because it
+answered.
 """
 
 from __future__ import annotations
 
 import ssl
 from collections.abc import Callable
+from typing import Final
 
 import httpx
 
@@ -23,6 +30,9 @@ from animichi.infrastructure.egress_guard import (
     default_resolve,
     validate_base_url,
 )
+
+#: The ≤64 KiB response read cap for the one-shot BYOK probe (Task 5 (c)).
+PROBE_MAX_RESPONSE_BYTES: Final[int] = 64 * 1024
 
 
 def _format_host_header(hostname: str, port: int) -> str:
@@ -174,3 +184,62 @@ def build_guarded_async_client(
         follow_redirects=False,
         timeout=timeout if timeout is not None else httpx.Timeout(30.0),
     )
+
+
+class _ProbeResponseTooLarge(Exception):
+    """Raised when a probe response exceeds the 64 KiB read cap."""
+
+
+def _rebuild_response(
+    original: httpx.Response, content: bytes, request: httpx.Request
+) -> httpx.Response:
+    return httpx.Response(
+        status_code=original.status_code,
+        headers=original.headers,
+        content=content,
+        request=request,
+    )
+
+
+def _reject_if_content_length_too_large(response: httpx.Response) -> None:
+    content_length = response.headers.get("content-length")
+    if content_length is not None and int(content_length) > PROBE_MAX_RESPONSE_BYTES:
+        raise _ProbeResponseTooLarge()
+
+
+async def _read_capped_body(response: httpx.Response) -> bytes:
+    """Enforce the cap on the actual byte stream too — a hostile endpoint
+    could omit or lie about `Content-Length` and still try to stream
+    unbounded data."""
+    body = bytearray()
+    async for chunk in response.aiter_bytes():
+        body.extend(chunk)
+        if len(body) > PROBE_MAX_RESPONSE_BYTES:
+            await response.aclose()
+            raise _ProbeResponseTooLarge()
+    await response.aclose()
+    return bytes(body)
+
+
+class CappedResponseTransport(httpx.AsyncBaseTransport):
+    """Wraps a transport to enforce the ≤64 KiB probe response cap.
+
+    Installed at client-construction time via `build_byok_model`'s
+    `transport_wrapper` (review follow-up, #479 P2) — never as a post-hoc
+    `client._transport = ...` reassignment, so there is no window where an
+    unwrapped, cap-free transport exists. Applied only to the one-shot probe
+    client — never to the shared BYOK chat transport, whose cap-free
+    behaviour every other BYOK path still depends on.
+    """
+
+    def __init__(self, inner: httpx.AsyncBaseTransport) -> None:
+        self._inner = inner
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        response = await self._inner.handle_async_request(request)
+        _reject_if_content_length_too_large(response)
+        content = await _read_capped_body(response)
+        return _rebuild_response(response, content, request)
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
