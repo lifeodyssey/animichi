@@ -332,8 +332,28 @@ class RuntimeAPI:
                         and turn_ref is not None
                         and owner is not None
                     ):
-                        await outcome.dispatch(turn_ref, owner=owner)
-                        dispatched = True
+                        dispatched = await outcome.dispatch(turn_ref, owner=owner)
+                        if not dispatched:
+                            # Dispatch-certainty guard (TURN-3 #951): a
+                            # failed dispatch means the lease is gone — the
+                            # provider call is uncertain and must NEVER run.
+                            # The settlement below releases the reservation.
+                            span.set_attribute("runtime.dispatch_lost", True)
+                            return PublicAPIResponse(
+                                success=False,
+                                status="blocked",
+                                intent="blocked",
+                                errors=[
+                                    PublicAPIError(
+                                        code="turn_lease_lost",
+                                        message=(
+                                            "The turn reservation expired "
+                                            "before dispatch; please retry."
+                                        ),
+                                        action="retry",
+                                    )
+                                ],
+                            )
                     result, response, context_delta = await self._execute_pipeline(
                         request,
                         context,

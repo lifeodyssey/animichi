@@ -178,3 +178,34 @@ async def test_settlement_side_effects_are_skipped_when_the_cas_loses() -> None:
     assert ("settle", "s-1", "turn-1", OWNER, "completed") in store.calls
     db.usage.accumulate_usage.assert_not_awaited()
     db.anon_quota.increment_and_count.assert_not_awaited()
+
+
+class _DispatchLosingStore(_RecordingStore):
+    async def dispatch(self, ref: TurnRef, *, owner: str) -> bool:
+        self.calls.append(("dispatch", ref.session_id or "", ref.turn_key, owner))
+        return False
+
+
+async def test_dispatch_loss_never_runs_the_provider_and_releases() -> None:
+    """Dispatch-certainty guard: when the lease is already gone, the agent
+    must not run (the call would be uncertain) and the reservation is
+    released, not settled."""
+    db = _db()
+    store = _DispatchLosingStore()
+    with patch(
+        "animichi.interfaces.public_api.run_animichi_agent",
+        side_effect=AssertionError("provider must not run"),
+    ) as run_agent:
+        response = await _api(db).handle(
+            PublicAPIRequest(text="京吹の聖地"),
+            user_id=ANON_USER_ID,
+            user_type="anonymous",
+            outcome=_outcome(store),
+            turn_ref=TURN_REF,
+            owner=OWNER,
+        )
+    run_agent.assert_not_awaited()
+    assert response.success is False
+    assert response.errors[0].code == "turn_lease_lost"
+    assert ("release", "s-1", "turn-1", OWNER) in store.calls
+    assert ("settle",) not in [c[:1] for c in store.calls]

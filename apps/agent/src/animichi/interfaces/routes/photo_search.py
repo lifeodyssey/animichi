@@ -270,8 +270,17 @@ async def handle_photo_search(
         if reserved and owner is not None:
             await outcome.release(turn_ref, owner=owner)
         return _rejection_response(photo_rejection)
+    dispatched = True
     if reserved and owner is not None:
-        await outcome.dispatch(turn_ref, owner=owner)
+        # Dispatch-certainty guard (TURN-3 #951): never run the vision
+        # pipeline for a turn whose lease is already gone.
+        dispatched = await outcome.dispatch(turn_ref, owner=owner)
+    if not dispatched:
+        return _rejection_response(
+            PhotoSearchRejection(
+                409, "turn_lease_lost", "The turn reservation expired; retry."
+            )
+        )
     try:
         response = await _run_pipeline(runtime, byok_model, image, body, request, auth)
     except BaseException:
