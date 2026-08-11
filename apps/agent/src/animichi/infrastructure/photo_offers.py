@@ -9,7 +9,7 @@ shared store is a later ops decision.
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from animichi.application.photo_offers import (
     ConfirmedOffer,
@@ -17,7 +17,6 @@ from animichi.application.photo_offers import (
     PhotoOffer,
 )
 
-DEFAULT_OFFER_TTL = timedelta(minutes=10)
 DEFAULT_MAX_OFFERS = 1_000
 
 
@@ -28,11 +27,9 @@ class InMemoryPhotoOfferStore:
         self,
         *,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
-        ttl: timedelta = DEFAULT_OFFER_TTL,
         max_offers: int = DEFAULT_MAX_OFFERS,
     ) -> None:
         self._clock = clock
-        self._ttl = ttl
         self._max_offers = max_offers
         self._offers: dict[str, PhotoOffer] = {}
 

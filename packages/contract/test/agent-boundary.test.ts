@@ -128,7 +128,7 @@ describe("agent boundary emitter", () => {
       "NullableOptional",
       z.object({ error_code: z.string().nullable().optional() }),
     ).join("\n");
-    expect(rendered).toContain("    error_code: Optional[str | None] | None = None");
+    expect(rendered).toContain("    error_code: str | None = None");
   });
 
   it("ByokProbeErrorBody models the agent error envelope shape", () => {

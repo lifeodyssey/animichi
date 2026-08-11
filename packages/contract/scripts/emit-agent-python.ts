@@ -159,9 +159,13 @@ function renderNestedChildren(name: string, properties: Record<string, JsonSchem
     const inner = unwrapNullable(childProp, childAt).inner;
     if (inner.type === "array") {
       const items = itemSchema(inner, childAt);
-      const childName = nestedClassName(childAt);
-      renderNestedChildren(childName, items.properties ?? {}, childAt, out);
-      renderNestedClass(childName, items, childAt, out);
+      // Only array items that are objects get a nested class; primitive item
+      // types are handled purely through `fieldType` (e.g. `list[str]`).
+      if (items.type === "object" && items.properties) {
+        const childName = nestedClassName(childAt);
+        renderNestedChildren(childName, items.properties, childAt, out);
+        renderNestedClass(childName, items, childAt, out);
+      }
       continue;
     }
     if (inner.type !== "object" || !inner.properties) continue;
