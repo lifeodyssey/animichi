@@ -33,7 +33,7 @@ from animichi.agents.photo_vision import (
     recognize_photo,
 )
 from animichi.application.turn_admission import AdmissionIdentity, AdmissionPolicy
-from animichi.application.turn_admission_port import TurnReservationStore
+from animichi.application.turn_outcome_port import TurnRef
 from animichi.clients.catalog_client import CatalogClient, CatalogClientProtocol
 from animichi.config.settings import Settings
 from animichi.infrastructure.observability.photo_search import (
@@ -43,7 +43,7 @@ from animichi.infrastructure.observability.photo_search import (
     PhotoSearchSignals,
     record_photo_search,
 )
-from animichi.interfaces.db_repos import turn_reservation_store, usage_repo
+from animichi.interfaces.db_repos import usage_repo
 from animichi.interfaces.public_api import record_attributed_usage
 from animichi.interfaces.routes._deps import (
     TrustedAuthContext,
@@ -55,7 +55,7 @@ from animichi.interfaces.routes._deps import (
 from animichi.interfaces.routes.admission import (
     admission_rejection_response,
     admission_request,
-    build_turn_admission,
+    build_turn_outcome,
 )
 from animichi.interfaces.routes.photo_search_guards import (
     MAX_IMAGE_BASE64_CHARS,
@@ -233,7 +233,7 @@ async def handle_photo_search(
         auth.user_id, auth.user_type
     )
     settings = _get_settings_from_request(request)
-    admission = build_turn_admission(
+    outcome = build_turn_outcome(
         request,
         policy=AdmissionPolicy(
             quota=None,
@@ -255,49 +255,33 @@ async def handle_photo_search(
             else ANONYMOUS_USER_TYPE,
         ),
     )
-    verdict = await admission(admission_req)
+    verdict = await outcome.admit(admission_req)
     rejection = admission_rejection_response(verdict)
     if rejection is not None:
         return rejection
-    store = turn_reservation_store(request.app.state.db_client)
     reserved = verdict.admitted and not verdict.replayed
+    turn_ref = TurnRef(session_id=verdict.session_id, turn_key=admission_req.turn_key)
+    owner = verdict.owner
     try:
         image, byok_model = await _prepare_turn(
             runtime, request, auth, body, is_authenticated
         )
     except PhotoSearchRejection as photo_rejection:
-        await _settle(
-            store, reserved, verdict.session_id, admission_req.turn_key, fail=True
-        )
+        if reserved and owner is not None:
+            await outcome.release(turn_ref, owner=owner)
         return _rejection_response(photo_rejection)
+    if reserved and owner is not None:
+        await outcome.dispatch(turn_ref, owner=owner)
     try:
         response = await _run_pipeline(runtime, byok_model, image, body, request, auth)
     except BaseException:
-        await _settle(
-            store, reserved, verdict.session_id, admission_req.turn_key, fail=True
-        )
+        if reserved and owner is not None:
+            await outcome.settle(turn_ref, owner=owner, outcome="failed")
         raise
     else:
-        await _settle(
-            store, reserved, verdict.session_id, admission_req.turn_key, fail=False
-        )
+        if reserved and owner is not None:
+            await outcome.settle(turn_ref, owner=owner, outcome="completed")
     return response
-
-
-async def _settle(
-    store: TurnReservationStore | None,
-    reserved: bool,
-    session_id: str | None,
-    turn_key: str,
-    *,
-    fail: bool,
-) -> None:
-    if not reserved or store is None:
-        return
-    method = getattr(store, "fail" if fail else "complete", None)
-    if method is None:
-        return
-    await method(session_id=session_id, turn_key=turn_key)
 
 
 async def _run_pipeline(

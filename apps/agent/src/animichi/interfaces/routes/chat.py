@@ -17,13 +17,12 @@ from animichi.agents.byok_models import (
 )
 from animichi.agents.error_messages import InputError, build_input_error_message
 from animichi.agents.runtime_deps import OnStep
-from animichi.application.turn_admission_port import TurnReservationStore
-from animichi.interfaces.db_repos import turn_reservation_store
+from animichi.application.turn_outcome import TurnOutcome
+from animichi.application.turn_outcome_port import TurnRef
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.routes._deps import (
     TrustedAuthContext,
     _get_byok_credential,
-    _get_db_from_request,
     _get_runtime_api,
     _get_settings_from_request,
     _get_trusted_auth_context,
@@ -33,7 +32,7 @@ from animichi.interfaces.routes._deps import (
 from animichi.interfaces.routes.admission import (
     admission_rejection_response,
     admission_request,
-    build_turn_admission,
+    build_turn_outcome,
 )
 from animichi.interfaces.routes.chat_body import (
     ChatBody,
@@ -147,29 +146,22 @@ def _chat_handler(
     auth: TrustedAuthContext,
     byok_model: ByokModel | None,
     *,
-    store: TurnReservationStore | None,
-    session_id: str | None,
-    turn_key: str,
-    reserved: bool,
+    outcome: TurnOutcome | None,
+    turn_ref: TurnRef | None,
+    owner: str | None,
 ) -> Callable[[OnStep], Awaitable[PublicAPIResponse]]:
     async def handler(on_step: OnStep) -> PublicAPIResponse:
-        try:
-            result = await runtime_api.handle(
-                api_request,
-                model=byok_model.model if byok_model is not None else None,
-                is_byok=byok_model is not None,
-                user_id=auth.user_id,
-                user_type=auth.user_type,
-                on_step=on_step,
-            )
-        except BaseException:
-            if reserved and store is not None:
-                await store.fail(session_id=session_id, turn_key=turn_key)
-            raise
-        else:
-            if reserved and store is not None:
-                await store.complete(session_id=session_id, turn_key=turn_key)
-        return result
+        return await runtime_api.handle(
+            api_request,
+            model=byok_model.model if byok_model is not None else None,
+            is_byok=byok_model is not None,
+            user_id=auth.user_id,
+            user_type=auth.user_type,
+            on_step=on_step,
+            outcome=outcome,
+            turn_ref=turn_ref,
+            owner=owner,
+        )
 
     return handler
 
@@ -191,37 +183,37 @@ async def handle_chat(
     # slot or a reservation.
     await runtime_api.validate_session_owner(api_request.session_id, auth.user_id)
 
-    admission = build_turn_admission(request)
+    outcome = build_turn_outcome(request)
     admission_req = admission_request(
         request,
         auth,
         session_id=api_request.session_id,
         is_byok=_has_byok_headers(request),
     )
-    verdict = await admission(admission_req)
+    verdict = await outcome.admit(admission_req)
     rejection = admission_rejection_response(verdict)
     if rejection is not None:
         return rejection
 
-    store = turn_reservation_store(_get_db_from_request(request))
     reserved = verdict.admitted and not verdict.replayed
+    turn_ref = TurnRef(session_id=verdict.session_id, turn_key=admission_req.turn_key)
+    owner = verdict.owner
     try:
         byok_model = await _resolve_byok_model(request)
     except BaseException:
-        if reserved and store is not None:
-            await store.fail(
-                session_id=verdict.session_id, turn_key=admission_req.turn_key
-            )
+        # Pre-dispatch failure: the reservation was never dispatched, so it is
+        # released (never replayed) rather than settled.
+        if reserved and owner is not None:
+            await outcome.release(turn_ref, owner=owner)
         raise
     handler = _chat_handler(
         runtime_api,
         api_request,
         auth,
         byok_model,
-        store=store,
-        session_id=verdict.session_id,
-        turn_key=admission_req.turn_key,
-        reserved=reserved,
+        outcome=outcome if reserved else None,
+        turn_ref=turn_ref if reserved else None,
+        owner=owner if reserved else None,
     )
 
     response = StreamingResponse(

@@ -33,6 +33,7 @@ from animichi.interfaces.routes._middleware import (
     register_exception_handlers,
     register_observability_middleware,
 )
+from animichi.interfaces.routes.admission import build_startup_turn_outcome
 from animichi.interfaces.routes.bangumi import router as bangumi_router
 from animichi.interfaces.routes.byok import router as byok_router
 from animichi.interfaces.routes.chat import router as chat_router
@@ -50,6 +51,14 @@ logger = structlog.get_logger(__name__)
 
 # Re-export _call_optional_async for test backward compatibility.
 _call_optional_async = call_optional_async
+
+
+async def _run_startup_sweep(runtime_db: object) -> None:
+    """Best-effort demand-driven sweep on Agent startup (TURN-3 #951)."""
+    try:
+        await build_startup_turn_outcome(runtime_db).sweep()
+    except Exception:
+        logger.warning("startup_sweep_failed", exc_info=True)
 
 
 def _log_connect_failure(task: asyncio.Task[object]) -> None:
@@ -79,6 +88,7 @@ async def _lifespan_with_runtime_api(
     resolved_db = db if db is not None else getattr(runtime_api, "_db", None)
     if resolved_db is not None:
         app.state.db_client = resolved_db
+        await _run_startup_sweep(resolved_db)
     try:
         yield
     finally:
@@ -166,12 +176,28 @@ async def _lifespan_build_runtime(
     # clean 500 — see RuntimeAPI's lazy-repo comment in public_api.py.
     connect_task = asyncio.create_task(call_optional_async(runtime_db, "connect"))
     connect_task.add_done_callback(_log_connect_failure)
+
+    async def _sweep_after_connect() -> None:
+        try:
+            await connect_task
+        except BaseException:
+            return
+        await _run_startup_sweep(runtime_db)
+
+    # Startup reconciliation runs once the pool is up, without blocking
+    # readiness (TURN-3 #951): stale leases are reclaimed before the first
+    # admission reads policy/quota/budget anyway.
+    startup_sweep_task = asyncio.create_task(_sweep_after_connect())
+    app.state.startup_sweep_task = startup_sweep_task
     try:
         yield
     finally:
-        await _close_runtime_resources(
-            connect_task, catalog_client, runtime_session_store, runtime_db
-        )
+        try:
+            await startup_sweep_task
+        finally:
+            await _close_runtime_resources(
+                connect_task, catalog_client, runtime_session_store, runtime_db
+            )
 
 
 def create_fastapi_app(

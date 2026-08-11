@@ -52,7 +52,7 @@ from __future__ import annotations
 from asyncio import iscoroutinefunction
 from typing import cast
 
-from animichi.application.turn_admission_port import TurnReservationStore
+from animichi.application.turn_outcome_port import TurnOutcomeStore
 from animichi.domain.ports import (
     AnonQuotaCounter,
     BangumiRepo,
@@ -115,12 +115,12 @@ def request_audit_repo(db: object) -> RequestAudit | None:
     return cast(RequestAudit, repo) if repo is not None else None
 
 
-def turn_reservation_store(db: object) -> TurnReservationStore | None:
-    """Return *db*'s durable turn-reservation store, or ``None`` if unwired.
+def turn_reservation_store(db: object) -> TurnOutcomeStore | None:
+    """Return *db*'s durable turn-lifecycle store, or ``None`` if unwired.
 
     A plain ``MagicMock`` double without an async ``reserve`` collapses to
     ``None`` so route-level unit tests degrade to admission-without-
     reservation (the budget/quota gates still run through their own repos).
     """
     repo = _wired_sub_repo(db, "turn_reservation", "reserve")
-    return cast(TurnReservationStore, repo) if repo is not None else None
+    return cast(TurnOutcomeStore, repo) if repo is not None else None

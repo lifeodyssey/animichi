@@ -1,15 +1,19 @@
-"""Postgres-backed :class:`TurnReservationStore` (TURN-2 #949).
+"""Postgres-backed :class:`TurnOutcomeStore` (TURN-2 #949, TURN-3 #951).
 
-One atomic ``reserve`` per admission: ownership, revision, digest, the
-durable single-winner insert, and replay/in-flight detection all run inside a
-single connection transaction against the live ``turn_reservations``,
-``sessions`` and ``conversations`` tables.
+One atomic ``reserve`` per admission (ownership, revision, digest, durable
+single-winner insert, replay/in-flight detection, and the granted lease), plus
+the lease-guarded lifecycle the caller immediately drives: ``dispatch``
+(reserved -> running, the dispatch-certainty point), ``settle`` (running ->
+terminal, exactly-once CAS), ``release`` (delete a never-dispatched reserved
+turn), and the bounded ``sweep`` that reclaims expired leases concurrently
+(``FOR UPDATE SKIP LOCKED``) and tombstone-fails uncertain running turns.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from typing import TYPE_CHECKING, TypeAlias, cast
 
 import asyncpg
@@ -18,6 +22,11 @@ from animichi.application.turn_admission_port import (
     AdmissionStatus,
     ReservationOutcome,
     ReserveRequest,
+)
+from animichi.application.turn_outcome_port import (
+    SettleOutcome,
+    SweepReport,
+    TurnRef,
 )
 
 if TYPE_CHECKING:
@@ -39,19 +48,33 @@ _EXISTING_SQL = """
     WHERE session_id IS NOT DISTINCT FROM $1 AND turn_key = $2
 """
 _INSERT_SQL = """
-    INSERT INTO turn_reservations (session_id, turn_key, payer, identity_id, revision, digest, status)
-    VALUES ($1, $2, $3, $4, $5, $6, 'in_flight')
+    INSERT INTO turn_reservations (
+        session_id, turn_key, payer, identity_id, revision, digest,
+        status, lease_owner, lease_expires_at
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, 'reserved', $7, $8)
     ON CONFLICT DO NOTHING
     RETURNING revision
 """
-_COMPLETE_SQL = """
+_DISPATCH_SQL = """
     UPDATE turn_reservations
-    SET status = 'completed', updated_at = now()
-    WHERE session_id IS NOT DISTINCT FROM $1 AND turn_key = $2 AND status = 'in_flight'
+    SET status = 'running', updated_at = now()
+    WHERE session_id IS NOT DISTINCT FROM $1 AND turn_key = $2
+      AND status = 'reserved' AND lease_owner = $3 AND lease_expires_at > now()
+    RETURNING id
+"""
+_SETTLE_SQL = """
+    UPDATE turn_reservations
+    SET status = $3, updated_at = now()
+    WHERE session_id IS NOT DISTINCT FROM $1 AND turn_key = $2
+      AND status = 'running' AND lease_owner = $4 AND lease_expires_at > now()
+    RETURNING id
 """
 _RELEASE_SQL = """
     DELETE FROM turn_reservations
     WHERE session_id IS NOT DISTINCT FROM $1 AND turn_key = $2
+      AND status = 'reserved' AND lease_owner = $3
+    RETURNING id
 """
 _PRUNE_SQL = """
     DELETE FROM turn_reservations
@@ -65,17 +88,50 @@ _PRUNE_SQL = """
           LIMIT $2
       )
 """
+#: Claim stale rows atomically: lock first (SKIP LOCKED so concurrent sweeps
+#: each take disjoint rows), then extend the lease so a second sweep in the
+#: same window cannot re-claim them before this sweep settles them.
+_SWEEP_CLAIM_SQL = """
+    WITH stale AS (
+        SELECT id FROM turn_reservations
+        WHERE status IN ('reserved', 'running') AND lease_expires_at < $1
+        ORDER BY lease_expires_at
+        FOR UPDATE SKIP LOCKED
+        LIMIT $2
+    )
+    UPDATE turn_reservations
+    SET lease_owner = $3, lease_expires_at = now() + interval '5 minutes',
+        updated_at = now()
+    WHERE id IN (SELECT id FROM stale)
+    RETURNING session_id, turn_key, status
+"""
+_SWEEP_RELEASE_SQL = """
+    DELETE FROM turn_reservations
+    WHERE session_id IS NOT DISTINCT FROM $1 AND turn_key = $2
+      AND lease_owner = $3 AND status = 'reserved'
+"""
+_SWEEP_FAIL_SQL = """
+    UPDATE turn_reservations
+    SET status = 'failed', updated_at = now()
+    WHERE session_id IS NOT DISTINCT FROM $1 AND turn_key = $2
+      AND lease_owner = $3 AND status = 'running'
+"""
 
 #: Per-session reservation history retained for replay (recent turns only).
 _KEEP_REVISIONS = 16
 
 
-def _port_status(stored: AdmissionStatus) -> AdmissionStatus:
-    """Translate the stored row status to the port vocabulary: a completed
-    reservation is surfaced as ``replay_completed`` for the admission use case."""
+def _port_status(stored: str) -> AdmissionStatus:
+    """Translate a stored row status to the port vocabulary.
+
+    A completed reservation replays; a failed one is the uncertain-provider
+    tombstone (never replayed); active rows mean a turn is in flight.
+    """
     if stored == "completed":
         return "replay_completed"
-    return stored
+    if stored == "failed":
+        return "turn_failed"
+    return "in_flight"
 
 
 def state_digest(state: object) -> str:
@@ -96,21 +152,40 @@ def state_digest(state: object) -> str:
 
 
 class PostgresTurnReservationStore:
-    """Production adapter: one durable reservation per admission."""
+    """Production adapter: one lease-guarded turn lifecycle per admission."""
 
     def __init__(self, pool: AsyncPGPool) -> None:
         self._pool = pool
 
     async def reserve(self, request: ReserveRequest) -> ReservationOutcome:
-        # Known limit (TURN-2 review): the reservation commits here, while the
-        # quota increment and the fail/complete settlement run in separate
-        # transactions in the caller. A crash between them leaves an orphaned
-        # in_flight row; it is pruned on the session's next insert
-        # (_prune) and retried turns self-heal, but an interrupted session
-        # with no further activity retains the row until the next insert.
         async with self._pool.acquire() as connection:
             async with connection.transaction():
                 return await self._reserve(connection, request)
+
+    async def dispatch(self, ref: TurnRef, *, owner: str) -> bool:
+        row = await self._pool.fetchrow(
+            _DISPATCH_SQL, ref.session_id, ref.turn_key, owner
+        )
+        return row is not None
+
+    async def settle(self, ref: TurnRef, *, owner: str, outcome: SettleOutcome) -> bool:
+        row = await self._pool.fetchrow(
+            _SETTLE_SQL, ref.session_id, ref.turn_key, outcome, owner
+        )
+        return row is not None
+
+    async def release(self, ref: TurnRef, *, owner: str) -> bool:
+        row = await self._pool.fetchrow(
+            _RELEASE_SQL, ref.session_id, ref.turn_key, owner
+        )
+        return row is not None
+
+    async def sweep(self, *, now: datetime, owner: str, batch_size: int) -> SweepReport:
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                return await self._sweep(
+                    connection, now=now, owner=owner, batch_size=batch_size
+                )
 
     async def _guarded(
         self, connection: PoolConnection, request: ReserveRequest
@@ -122,11 +197,7 @@ class PostgresTurnReservationStore:
             return ReservationOutcome(status="ownership", session_id=session_id)
         existing = await self._existing(connection, session_id, request.turn_key)
         if existing is not None:
-            return ReservationOutcome(
-                status=_port_status(existing.status),
-                session_id=session_id,
-                revision=existing.revision,
-            )
+            return existing
         current = await self._current_revision(connection, session_id)
         if (
             request.expected_revision is not None
@@ -160,27 +231,47 @@ class PostgresTurnReservationStore:
             request.identity_id,
             revision,
             request.session_digest,
+            request.owner,
+            request.lease_expires_at,
         )
         if inserted is not None:
             await self._prune(connection, session_id)
             return ReservationOutcome(
-                status="admitted", session_id=session_id, revision=revision
+                status="admitted",
+                session_id=session_id,
+                revision=revision,
+                owner=request.owner,
+                lease_expires_at=request.lease_expires_at,
             )
 
         raced = await self._existing(connection, session_id, request.turn_key)
-        if raced is not None and raced.status == "completed":
-            return ReservationOutcome(
-                status="replay_completed",
-                session_id=session_id,
-                revision=raced.revision,
-            )
+        if raced is not None:
+            return raced
         return ReservationOutcome(status="in_flight", session_id=session_id)
 
-    async def complete(self, *, session_id: str | None, turn_key: str) -> None:
-        await self._pool.execute(_COMPLETE_SQL, session_id, turn_key)
-
-    async def fail(self, *, session_id: str | None, turn_key: str) -> None:
-        await self._pool.execute(_RELEASE_SQL, session_id, turn_key)
+    async def _sweep(
+        self,
+        connection: PoolConnection,
+        *,
+        now: datetime,
+        owner: str,
+        batch_size: int,
+    ) -> SweepReport:
+        rows = await connection.fetch(_SWEEP_CLAIM_SQL, now, batch_size, owner)
+        released = 0
+        failed = 0
+        for row in rows:
+            if row["status"] == "reserved":
+                await connection.execute(
+                    _SWEEP_RELEASE_SQL, row["session_id"], row["turn_key"], owner
+                )
+                released += 1
+            else:
+                await connection.execute(
+                    _SWEEP_FAIL_SQL, row["session_id"], row["turn_key"], owner
+                )
+                failed += 1
+        return SweepReport(released=released, failed=failed)
 
     async def _ownership_ok(
         self, connection: PoolConnection, session_id: str, identity_id: str | None
@@ -196,10 +287,11 @@ class PostgresTurnReservationStore:
         row = await connection.fetchrow(_EXISTING_SQL, session_id, turn_key)
         if row is None:
             return None
-        status = cast(AdmissionStatus, row["status"])
         revision = cast(int, row["revision"])
         return ReservationOutcome(
-            status=status, session_id=session_id, revision=revision
+            status=_port_status(cast(str, row["status"])),
+            session_id=session_id,
+            revision=revision,
         )
 
     async def _current_revision(

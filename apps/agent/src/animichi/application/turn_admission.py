@@ -1,17 +1,22 @@
-"""TurnAdmission (TURN-2 #949) — one durable turn reservation per caller turn.
+"""TurnAdmission (TURN-2 #949, TURN-3 #951) — one durable turn reservation.
 
 Framework-independent: no FastAPI / PydanticAI imports. The use case owns
 identity-to-payer mapping, the BYOK login gate, the anonymous budget/quota
 ordering, and verdict mapping; the durable single-winner reservation is
-delegated to an injected :class:`TurnReservationStore` (``application/
-turn_admission_port``).
+delegated to an injected :class:`TurnOutcomeStore` (``application/
+turn_outcome_port``). Every reservation is granted a lease (owner + expiry) so
+the caller can later drive dispatch/settle/release through :class:`TurnOutcome`.
+Quota is read (never incremented) here: the increment is exactly-once
+settlement owned by :class:`TurnOutcome`.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Literal
+from uuid import uuid4
 
 from animichi.application.admission_limits import (
     anonymous_budget_verdict,
@@ -27,8 +32,8 @@ from animichi.application.turn_admission_port import (
     AdmissionStatus,
     ReservationOutcome,
     ReserveRequest,
-    TurnReservationStore,
 )
+from animichi.application.turn_outcome_port import TurnOutcomeStore, TurnRef
 from animichi.domain.ports import AnonQuotaCounter, UsageMeter
 
 AdmissionRejectionReason = Literal[
@@ -39,7 +44,11 @@ AdmissionRejectionReason = Literal[
     "budget_exhausted",
     "byok_requires_login",
     "in_flight",
+    "turn_failed",
 ]
+
+#: How long a reserved turn may sit before the demand-driven sweep reclaims it.
+DEFAULT_LEASE_SECONDS = 300
 
 
 @dataclass(frozen=True)
@@ -90,7 +99,8 @@ class AdmissionVerdict:
 
     ``replayed`` distinguishes a completed-turn replay from a fresh
     admission; ``revision`` is the session revision to echo back to the
-    caller for the next turn.
+    caller for the next turn. ``owner``/``lease_expires_at`` carry the granted
+    lease for the fresh-reservation path (``None`` on replay).
     """
 
     admitted: bool
@@ -99,6 +109,8 @@ class AdmissionVerdict:
     replayed: bool = False
     session_id: str | None = None
     rejection: AdmissionRejection | None = None
+    owner: str | None = None
+    lease_expires_at: datetime | None = None
 
 
 class TurnAdmission:
@@ -107,15 +119,19 @@ class TurnAdmission:
     def __init__(
         self,
         *,
-        store: TurnReservationStore | None,
+        store: TurnOutcomeStore | None,
         policy: AdmissionPolicy,
         usage_repo: UsageMeter | None = None,
         anon_quota_repo: AnonQuotaCounter | None = None,
+        now: Callable[[], datetime] | None = None,
+        lease_seconds: int = DEFAULT_LEASE_SECONDS,
     ) -> None:
         self._store = store
         self._policy = policy
         self._usage_repo = usage_repo
         self._anon_quota_repo = anon_quota_repo
+        self._now = now or (lambda: datetime.now(UTC))
+        self._lease_seconds = lease_seconds
 
     async def __call__(self, request: AdmissionRequest) -> AdmissionVerdict:
         if not request.turn_key.strip():
@@ -151,6 +167,8 @@ class TurnAdmission:
             payer=payer,
             revision=outcome.revision,
             session_id=outcome.session_id,
+            owner=outcome.owner,
+            lease_expires_at=outcome.lease_expires_at,
         )
 
     async def _budget_verdict(self, payer: UsageScope) -> AdmissionVerdict | None:
@@ -186,6 +204,8 @@ class TurnAdmission:
                 status="admitted",
                 session_id=request.session_id,
                 revision=revision,
+                owner=uuid4().hex,
+                lease_expires_at=self._now() + timedelta(seconds=self._lease_seconds),
             )
         return await self._store.reserve(
             ReserveRequest(
@@ -195,16 +215,21 @@ class TurnAdmission:
                 payer=payer,
                 expected_revision=request.expected_revision,
                 session_digest=request.session_digest,
+                owner=uuid4().hex,
+                lease_expires_at=self._now() + timedelta(seconds=self._lease_seconds),
             )
         )
 
     async def _fail(
         self, request: AdmissionRequest, outcome: ReservationOutcome
     ) -> None:
-        if self._store is not None:
-            await self._store.fail(
-                session_id=outcome.session_id or request.session_id,
-                turn_key=request.turn_key,
+        if self._store is not None and outcome.owner is not None:
+            await self._store.release(
+                TurnRef(
+                    session_id=outcome.session_id or request.session_id,
+                    turn_key=request.turn_key,
+                ),
+                owner=outcome.owner,
             )
 
 
@@ -227,6 +252,8 @@ def _outcome_verdict(
 def _rejection_for(status: AdmissionStatus) -> AdmissionRejectionReason:
     if status == "in_flight":
         return "in_flight"
+    if status == "turn_failed":
+        return "turn_failed"
     if status == "ownership":
         return "ownership"
     if status == "stale_revision":

@@ -184,8 +184,11 @@ def _replay_runtime(response: PublicAPIResponse, steps: list[StepEvent]) -> Magi
         user_id: str | None = None,
         user_type: str | None = None,
         on_step: OnStep | None = None,
+        outcome: object | None = None,
+        turn_ref: object | None = None,
+        owner: object | None = None,
     ) -> PublicAPIResponse:
-        del model, is_byok
+        del model, is_byok, outcome, turn_ref, owner
         for step in steps:
             if on_step is not None:
                 await on_step(step)

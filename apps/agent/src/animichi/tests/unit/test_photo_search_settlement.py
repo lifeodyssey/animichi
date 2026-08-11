@@ -1,19 +1,24 @@
-"""Admission settlement + runtime construction on /v1/photo-search (TURN-2 #949).
+"""Admission lifecycle + runtime construction on /v1/photo-search (TURN-2/3).
 
-Companion to ``test_photo_search_route_quota.py``: a scripted turn-reservation
-store drives the complete/fail settlement branches, the BYOK construction
-rejection settles fail, the photo-search runtime is built on demand (and then
-cached), and a missing lifespan HTTP client fails closed.
+Companion to ``test_photo_search_route_quota.py``: a scripted turn-outcome
+store drives the dispatch/settle/release branches — a successful turn settles
+``completed``, a pre-dispatch construction rejection releases, a pipeline
+failure settles ``failed`` — plus runtime construction and caching.
 """
 
 from __future__ import annotations
 
+from dataclasses import replace
 from unittest.mock import MagicMock, patch
 
 import httpx
 
 from animichi.agents.byok_models import ByokError
-from animichi.application.turn_admission_port import ReservationOutcome
+from animichi.application.turn_admission_port import (
+    ReservationOutcome,
+    ReserveRequest,
+)
+from animichi.application.turn_outcome_port import SweepReport, TurnRef
 from animichi.config.settings import Settings
 from animichi.interfaces.routes.photo_search import PhotoSearchRuntime
 from animichi.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
@@ -27,22 +32,41 @@ from animichi.tests.unit.photo_search_route_fixtures import (
 
 
 class ScriptedStore:
-    """A store that returns scripted outcomes and records settlements."""
+    """A store that returns scripted outcomes and records lifecycle calls."""
 
     def __init__(self, outcome: ReservationOutcome) -> None:
         self.outcome = outcome
-        self.completed: list[tuple[str | None, str]] = []
-        self.failed: list[tuple[str | None, str]] = []
+        self.dispatched: list[tuple[str | None, str]] = []
+        self.settled: list[tuple[str | None, str, str]] = []
+        self.released: list[tuple[str | None, str]] = []
 
-    async def reserve(self, request: object) -> ReservationOutcome:
-        del request
+    async def reserve(self, request: ReserveRequest) -> ReservationOutcome:
+        if self.outcome.status == "admitted":
+            return replace(
+                self.outcome,
+                owner=request.owner,
+                lease_expires_at=request.lease_expires_at,
+            )
         return self.outcome
 
-    async def complete(self, *, session_id: str | None, turn_key: str) -> None:
-        self.completed.append((session_id, turn_key))
+    async def dispatch(self, ref: TurnRef, *, owner: str) -> bool:
+        del owner
+        self.dispatched.append((ref.session_id, ref.turn_key))
+        return True
 
-    async def fail(self, *, session_id: str | None, turn_key: str) -> None:
-        self.failed.append((session_id, turn_key))
+    async def settle(self, ref: TurnRef, *, owner: str, outcome: str) -> bool:
+        del owner
+        self.settled.append((ref.session_id, ref.turn_key, outcome))
+        return True
+
+    async def release(self, ref: TurnRef, *, owner: str) -> bool:
+        del owner
+        self.released.append((ref.session_id, ref.turn_key))
+        return True
+
+    async def sweep(self, *, now: object, owner: str, batch_size: int) -> SweepReport:
+        del now, owner, batch_size
+        return SweepReport()
 
 
 def _app_with_store(store: ScriptedStore) -> tuple[object, object]:
@@ -56,10 +80,14 @@ def _app_with_store(store: ScriptedStore) -> tuple[object, object]:
     return app, db
 
 
-async def test_complete_settles_after_a_successful_turn() -> None:
-    store = ScriptedStore(
+def _admitted() -> ScriptedStore:
+    return ScriptedStore(
         ReservationOutcome(status="admitted", session_id="s-1", revision=1)
     )
+
+
+async def test_complete_settles_after_a_successful_turn() -> None:
+    store = _admitted()
     app, _ = _app_with_store(store)
     async with async_client(app) as client:
         response = await client.post(
@@ -68,15 +96,15 @@ async def test_complete_settles_after_a_successful_turn() -> None:
             headers={"X-User-Id": "user-1", "X-User-Type": "human"},
         )
     assert response.status_code == 200
-    assert len(store.completed) == 1
-    assert store.completed[0][0] == "s-1"
-    assert store.failed == []
+    assert len(store.settled) == 1
+    assert store.settled[0][0] == "s-1"
+    assert store.settled[0][2] == "completed"
+    assert store.dispatched != []
+    assert store.released == []
 
 
-async def test_fail_settles_after_a_byok_construction_rejection() -> None:
-    store = ScriptedStore(
-        ReservationOutcome(status="admitted", session_id="s-1", revision=1)
-    )
+async def test_fail_releases_after_a_byok_construction_rejection() -> None:
+    store = _admitted()
     app, _ = _app_with_store(store)
     with patch(
         "animichi.interfaces.routes.photo_search.build_byok_model",
@@ -87,8 +115,9 @@ async def test_fail_settles_after_a_byok_construction_rejection() -> None:
                 "/v1/photo-search", json=body_(), headers=BYOK_HEADERS
             )
     assert response.status_code == 400
-    assert len(store.failed) == 1
-    assert store.failed[0][0] == "s-1"
+    assert len(store.released) == 1
+    assert store.released[0][0] == "s-1"
+    assert store.settled == []
 
 
 async def test_runtime_is_built_on_demand_and_cached() -> None:
@@ -114,9 +143,7 @@ async def test_missing_lifespan_http_client_fails_closed() -> None:
 
 
 async def test_gps_body_reaches_the_pipeline() -> None:
-    store = ScriptedStore(
-        ReservationOutcome(status="admitted", session_id="s-1", revision=1)
-    )
+    store = _admitted()
     app, _ = _app_with_store(store)
     payload = body_()
     payload["gps"] = {"lat": 35.68, "lng": 139.69}
@@ -127,14 +154,13 @@ async def test_gps_body_reaches_the_pipeline() -> None:
             headers={"X-User-Id": "user-1", "X-User-Type": "human"},
         )
     assert response.status_code == 200
-    assert len(store.completed) == 1
-    assert store.completed[0][0] == "s-1"
+    assert len(store.settled) == 1
+    assert store.settled[0][0] == "s-1"
+    assert store.settled[0][2] == "completed"
 
 
 async def test_pipeline_failure_settles_fail() -> None:
-    store = ScriptedStore(
-        ReservationOutcome(status="admitted", session_id="s-1", revision=1)
-    )
+    store = _admitted()
     db = build_stub_db()
     db.turn_reservation = store
     db.usage = UsageRepo()
@@ -150,14 +176,13 @@ async def test_pipeline_failure_settles_fail() -> None:
             headers={"X-User-Id": "user-1", "X-User-Type": "human"},
         )
     assert response.status_code == 500
-    assert len(store.failed) == 1
-    assert store.failed[0][0] == "s-1"
+    assert len(store.settled) == 1
+    assert store.settled[0][0] == "s-1"
+    assert store.settled[0][2] == "failed"
 
 
 async def test_byok_generic_construction_error_maps_to_400() -> None:
-    store = ScriptedStore(
-        ReservationOutcome(status="admitted", session_id="s-1", revision=1)
-    )
+    store = _admitted()
     app, _ = _app_with_store(store)
     with patch(
         "animichi.interfaces.routes.photo_search.build_byok_model",
@@ -168,7 +193,7 @@ async def test_byok_generic_construction_error_maps_to_400() -> None:
                 "/v1/photo-search", json=body_(), headers=BYOK_HEADERS
             )
     assert response.status_code == 400
-    assert len(store.failed) == 1
+    assert len(store.released) == 1
 
 
 async def test_existing_catalog_client_is_reused() -> None:
