@@ -10,12 +10,11 @@ import type {
 } from "@animichi/contract";
 import { sql } from "drizzle-orm";
 import type { DbExecutor } from "../db/client";
-import {
-  assertSavedRouteOwnedBy,
-  isSavedRouteStatus,
-  savedAtPolicy,
-} from "../domain/route-rules";
+import type { OwnerLookup } from "../domain/ownership";
 import type { SavedRouteRepo } from "../domain/ports";
+import { assertSavedRouteOwnedBy } from "../domain/route-rules";
+import { isSavedRouteStatus } from "../domain/saved-route-status";
+import type { SavedRouteStore } from "../application/save-saved-route";
 import { savedRouteNotFound, savedRouteNotOwned } from "../lib/errors";
 
 type RecordRow = Record<string, unknown>;
@@ -65,6 +64,8 @@ function ownerFrom(value: unknown): string | null | undefined {
     : undefined;
 }
 
+/** Ownership read for the delete path; a missing row is not-found, a mismatch
+ * is not-owned (src/domain/route-rules.ts). */
 async function assertOwner(db: DbExecutor, userId: string, savedRouteId: string): Promise<void> {
   const result = await db.execute(sql`SELECT user_id FROM saved_routes WHERE id = ${savedRouteId}`);
   if (result.rows.length === 0) throw savedRouteNotFound(savedRouteId);
@@ -79,59 +80,21 @@ async function assertOwner(db: DbExecutor, userId: string, savedRouteId: string)
   }
 }
 
-function insertSavedRouteSql(userId: string, input: SaveSavedRouteInput) {
+function insertSavedRouteSql(userId: string, input: SaveSavedRouteInput, savedAt: string | null) {
   return sql`
     INSERT INTO saved_routes (user_id, title, point_ids, status, saved_at)
-    VALUES (${userId}, ${input.title}, ${sql.param(input.point_ids)}::text[], ${input.status},
-      CASE WHEN ${savedAtPolicy(input.status, "insert")} = 'null' THEN NULL ELSE NOW() END)
+    VALUES (${userId}, ${input.title}, ${sql.param(input.point_ids)}::text[], ${input.status}, ${savedAt})
     RETURNING id, title, point_ids, status, saved_at, updated_at
   `;
 }
 
-async function insertSavedRoute(
-  db: DbExecutor, userId: string, input: SaveSavedRouteInput,
-): Promise<unknown[]> {
-  const result = await db.execute(insertSavedRouteSql(userId, input));
-  return result.rows;
-}
-
-async function createSavedRoute(
-  db: DbExecutor,
-  userId: string,
-  input: SaveSavedRouteInput,
-): Promise<SavedRoute> {
-  return toSavedRoute((await insertSavedRoute(db, userId, input))[0]);
-}
-
-function updatedSavedRoute(rows: unknown[], savedRouteId: string): SavedRoute {
-  if (rows.length === 0) throw savedRouteNotOwned(savedRouteId);
-  return toSavedRoute(rows[0]);
-}
-
-function updateSavedRouteSql(userId: string, input: SaveSavedRouteInput & { id: string }) {
+function updateSavedRouteSql(userId: string, input: SaveSavedRouteInput & { id: string }, savedAt: string | null) {
   return sql`
     UPDATE saved_routes SET title = ${input.title}, point_ids = ${sql.param(input.point_ids)}::text[],
-      status = ${input.status}, saved_at = CASE ${savedAtPolicy(input.status, "update")}
-        WHEN 'null' THEN NULL ELSE COALESCE(saved_at, NOW()) END
+      status = ${input.status}, saved_at = ${savedAt}
     WHERE id = ${input.id} AND user_id = ${userId}
     RETURNING id, title, point_ids, status, saved_at, updated_at
   `;
-}
-
-async function updateSavedRouteRow(
-  db: DbExecutor, userId: string, input: SaveSavedRouteInput & { id: string },
-): Promise<unknown[]> {
-  const result = await db.execute(updateSavedRouteSql(userId, input));
-  return result.rows;
-}
-
-async function updateSavedRoute(
-  db: DbExecutor,
-  userId: string,
-  input: SaveSavedRouteInput & { id: string },
-): Promise<SavedRoute> {
-  await assertOwner(db, userId, input.id);
-  return updatedSavedRoute(await updateSavedRouteRow(db, userId, input), input.id);
 }
 
 async function deleteSavedRouteRow(db: DbExecutor, userId: string, savedRouteId: string): Promise<unknown[]> {
@@ -153,12 +116,14 @@ async function claimSavedRouteRows(db: DbExecutor, userId: string, sessionId: st
 }
 
 /**
- * Neon-backed SavedRouteRepo over the raw SQL executor (Drizzle typing only,
- * see src/db/client.ts). Maps SavedRouteNotOwnedError to the oRPC
- * SAVED_ROUTE_NOT_OWNED error and a missing row to SAVED_ROUTE_NOT_FOUND
- * (src/lib/errors.ts).
+ * Neon-backed SavedRouteStore + SavedRouteRepo over the raw SQL executor
+ * (Drizzle typing only, see src/db/client.ts). Owns SQL and row mapping only:
+ * the SaveSavedRoute action (src/application/save-saved-route.ts) owns the
+ * create/update decision, ownership, and saved-at policy; the delete path maps
+ * SavedRouteNotOwnedError to SAVED_ROUTE_NOT_OWNED and a missing row to
+ * SAVED_ROUTE_NOT_FOUND (src/lib/errors.ts).
  */
-export class NeonSavedRouteRepo implements SavedRouteRepo {
+export class NeonSavedRouteRepo implements SavedRouteRepo, SavedRouteStore {
   constructor(private readonly db: DbExecutor) {}
 
   async listSavedRoutes(userId: string): Promise<ListSavedRoutesResult> {
@@ -169,10 +134,24 @@ export class NeonSavedRouteRepo implements SavedRouteRepo {
     return { saved_routes: result.rows.map(toSavedRoute) };
   }
 
-  async saveSavedRoute(userId: string, input: SaveSavedRouteInput): Promise<SavedRoute> {
-    return input.id
-      ? updateSavedRoute(this.db, userId, { ...input, id: input.id })
-      : createSavedRoute(this.db, userId, input);
+  async findOwner(id: string): Promise<OwnerLookup | undefined> {
+    const result = await this.db.execute(sql`SELECT user_id, saved_at FROM saved_routes WHERE id = ${id}`);
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    if (!isRecord(row)) throw new Error("invalid saved route row");
+    const userId = typeof row.user_id === "string" || row.user_id === null ? row.user_id : null;
+    return { userId, savedAt: row.saved_at === undefined ? null : nullableIso(row.saved_at) };
+  }
+
+  async insert(userId: string, input: SaveSavedRouteInput, savedAt: string | null): Promise<SavedRoute> {
+    const result = await this.db.execute(insertSavedRouteSql(userId, input, savedAt));
+    return toSavedRoute(result.rows[0]);
+  }
+
+  async update(userId: string, input: SaveSavedRouteInput & { id: string }, savedAt: string | null): Promise<SavedRoute | null> {
+    const result = await this.db.execute(updateSavedRouteSql(userId, input, savedAt));
+    const row = result.rows[0];
+    return row === undefined ? null : toSavedRoute(row);
   }
 
   async deleteSavedRoute(userId: string, input: DeleteSavedRouteInput): Promise<DeleteSavedRouteResult> {

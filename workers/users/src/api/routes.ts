@@ -6,8 +6,6 @@ import type {
   ListSessionsInput,
   ListSessionsResult,
   ListSavedRoutesResult,
-  SaveSavedRouteInput,
-  SavedRoute,
   UserSession,
 } from "@animichi/contract";
 import { sql, type SQL } from "drizzle-orm";
@@ -101,15 +99,6 @@ export async function listSessions(
 ): Promise<ListSessionsResult> {
   const result = await db.execute(sessionSql(userId, input));
   return sessionPage(result, input);
-}
-
-/** Create a saved route or update it after explicit ownership validation. */
-export async function saveSavedRoute(
-  repo: SavedRouteRepo,
-  userId: string,
-  input: SaveSavedRouteInput,
-): Promise<SavedRoute> {
-  return repo.saveSavedRoute(userId, input);
 }
 
 /** Delete a saved route after explicit ownership validation. */

@@ -1,15 +1,15 @@
 import type {
   ListSavedRoutesResult,
-  SaveSavedRouteInput,
   SavedRoute,
 } from "@animichi/contract";
 import { describe, expect, it, vi } from "vitest";
 import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
+import { saveSavedRoute } from "../src/application/save-saved-route";
+import type { SavedRouteStore } from "../src/application/save-saved-route";
 import {
   claimSavedRoutes,
   deleteSavedRoute,
   listSavedRoutes,
-  saveSavedRoute,
 } from "../src/api/routes";
 import type { SavedRouteRepo } from "../src/domain/ports";
 import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
@@ -17,23 +17,19 @@ import type { DbExecutor } from "../src/db/client";
 
 const ID = "00000000-0000-4000-8000-000000000009";
 const SESSION = "anonymous-session";
-
-const OWNED: SavedRoute = {
-  id: ID, title: "Tokyo", status: "saved", point_ids: [],
-  saved_at: "2026-07-13T04:00:00.000Z", updated_at: "2026-07-13T04:00:00.000Z",
-};
+const NOW = "2026-07-13T04:00:00.000Z";
+const FIXED_NOW = { now: () => NOW };
 
 function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   return {
     id: ID, claim_session_id: null, user_id: "user-a", title: "Tokyo", point_ids: [],
-    status: "saved", saved_at: null, updated_at: "2026-07-13T04:00:00.000Z", ...overrides,
+    status: "saved", saved_at: null, updated_at: NOW, ...overrides,
   };
 }
 
 function stubRepo(): SavedRouteRepo {
   return {
     listSavedRoutes: vi.fn().mockResolvedValue({ saved_routes: [] } satisfies ListSavedRoutesResult),
-    saveSavedRoute: vi.fn().mockResolvedValue(OWNED),
     deleteSavedRoute: vi.fn().mockResolvedValue({ deleted: true }),
     claimSavedRoutes: vi.fn().mockResolvedValue({ claimed_count: 0 }),
   };
@@ -44,13 +40,6 @@ describe("handlers delegate to the SavedRouteRepo port", () => {
     const repo = stubRepo();
     expect(await listSavedRoutes(repo, "user-a")).toEqual({ saved_routes: [] });
     expect(repo.listSavedRoutes).toHaveBeenCalledExactlyOnceWith("user-a");
-  });
-
-  it("saveSavedRoute forwards user id and input", async () => {
-    const repo = stubRepo();
-    const input: SaveSavedRouteInput = { title: "Tokyo", point_ids: [], status: "saved" };
-    expect(await saveSavedRoute(repo, "user-a", input)).toEqual(OWNED);
-    expect(repo.saveSavedRoute).toHaveBeenCalledExactlyOnceWith("user-a", input);
   });
 
   it("deleteSavedRoute forwards user id and input", async () => {
@@ -74,10 +63,11 @@ describe("NeonSavedRouteRepo over the raw executor", () => {
     expect((await repo.listSavedRoutes("user-a")).saved_routes.map((route) => route.id)).toEqual([newer.id, older.id]);
   });
 
-  it("creates a saved route and returns the normalized row", async () => {
-    const repo = new NeonSavedRouteRepo(fakeDb().db);
-    const route = await repo.saveSavedRoute("user-a", { title: "Tokyo", point_ids: ["p1"], status: "saved" });
+  it("creates a saved route through the action and returns the normalized row", async () => {
+    const repo: SavedRouteStore = new NeonSavedRouteRepo(fakeDb().db);
+    const route = await saveSavedRoute(repo, "user-a", { title: "Tokyo", point_ids: ["p1"], status: "saved" }, FIXED_NOW);
     expect(route).toMatchObject({ title: "Tokyo", status: "saved", point_ids: ["p1"] });
+    expect(route.saved_at).toBe(NOW);
   });
 
   it("claims only still-anonymous rows of the session", async () => {
