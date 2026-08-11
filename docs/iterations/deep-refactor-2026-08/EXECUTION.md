@@ -80,10 +80,10 @@ removed) — ruleset now 32 contexts.
 - RUNNING ELSEWHERE: TURN-4 (#955) ralph loop in `.worktrees/turn-4` (chat commands through AgentTurn; files actively changing).
 - TODO: TURN-4 #955 → WEB-1 #958 + SESSION-1 #959 (need #955) → SESSION-2 #960 → SESSION-3 #961 → AGENT-3 #962 → EDGE-1 #963.
 
-**Recovery point (2026-08-12 ~03:15)**: `origin/main` at `221908ab` — TURN-4 #955 via #984 merged (codecov fix round included: patch 96.5%→100%, eval flake documented twice); issue closed; worktree removed. **Waves 0–6 nearly done**:
-- IN FLIGHT: SESSION-1 #959 PR #986 open — 2 review threads FIXED + resolved (next_offset cap at contract ceiling + offset>1000 bounds test); codecov 97.4% ✓, SonarCloud ✓, invariants ✓ (AGENTS.md ref repoint + .ralph untracked); waiting on final CI for head `93cdb5b0`.
-- NEXT: merge #986 → SESSION-2 #960 (brief + ralph prompt ready; needs #955/#958/#959) → SESSION-3 #961 → AGENT-3 #962 → EDGE-1 #963.
-- Wave table: 4 ✓(TURN-3,AGENT-1,AGENT-2,USERS-1) 5 ✓(TURN-4,USERS-2,USERS-3) 6 = WEB-1 ✓, SESSION-1 ~; 7=SESSION-2; 8=SESSION-3; 9=AGENT-3; 10=EDGE-1.
+**Recovery point (2026-08-12 ~03:35)**: `origin/main` at `e9cf75fc` — SESSION-1 #959 via #986 merged; issue closed; worktree removed. **Waves 0–6 DONE** (all 20 tickets of waves 0–6 merged: #937–#950, #951–#959; only #960/#961/#962/#963 open).
+- RUNNING: SESSION-2 #960 ralph loop in `.worktrees/session-2` (w7:p1) — AdoptSessions ownership command (needs #955/#950/#958/#959, all merged).
+- NEXT: SESSION-2 PR → SESSION-3 #961 (needs #960) → AGENT-3 #962 (needs #961) → EDGE-1 #963 (needs #961/#962 + waves 0–6).
+- Note: `gh pr merge` CLI blocks on stale `mergeStateStatus` (copilot-code-review rule) — merge via REST `PUT /pulls/{n}/merge` after the two-way gate; Agent Eval flake retry-once then document; DB/build transient cert failures re-run.
 
 **SAFE-1 (historical) is DONE**: merged via PR #964 (squash `f44a76e9`-based stack; final head on
 `main`), issue closed. The safe-1-promotion-guard worktree and branch are removed; its
