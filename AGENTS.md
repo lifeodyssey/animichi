@@ -31,7 +31,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
 - `make check`         — lint + typecheck + unit + integration; the DB arm defaults offline. **Run before AND after any change.**
 - `make dev-db`        — agent-only Neon Local postgres-wire proxy on `:5432`; not for Workers.
-- `make dev-local`     — Supabase + backend + web app, one command (never start services individually).
+- `make dev-local`     — database + backend + web app, one command (never start services individually). Supabase is no longer required for auth — login is Neon Auth (AUTH-2 #950).
 - `make local-login`   — browser magic-link login for local dev.
 - `make test` — hermetic Python unit tests. `make test-integration` uses the offline Docker arm by
   default; select live Neon with `TEST_DB=neon`, or a disposable BYO database with

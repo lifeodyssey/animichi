@@ -132,9 +132,63 @@ dsnSecrets.forEach(({ def, name, dsn }) => {
   });
 });
 
+// ── Neon Auth staging declarations (AUTH-2 #950) ─────────────────────────────
+// The staging edge verifies JWTs against the branch's JWKS URL (its ONLY
+// identity source since the hard cut). Declaring it here lets the deploy chain
+// source the edge binding from the Secrets Store instead of the checked-in
+// literal in workers/edge/wrangler.toml; it is DERIVED from the branch's
+// Better Auth base URL so the operator sets one value, never two.
+//
+// The QA login creds provision the password user the E2E suite + local-login
+// script use (Path A of docs/ops/auth-migration-neon.md §4). The password is a
+// secret; the email is not.
+//
+// All three are config-gated (optional getters): stacks without the keys apply
+// unchanged — nothing here is created until an operator sets them, so this is
+// declaration, not provisioning.
+//   pulumi config set neonAuthBaseUrl https://<branch>.neonauth.c-2..../neondb/auth
+//   pulumi config set qaNeonUserEmail qa-bot@animichi.test
+//   pulumi config set --secret qaNeonUserPassword <password>
+const authBaseUrl = config.get("neonAuthBaseUrl");
+if (authBaseUrl !== undefined) {
+  new cloudflare.SecretsStoreSecret("neon-auth-jwks-url", {
+    accountId,
+    storeId: secretsStoreId,
+    name: "NEON_AUTH_JWKS_URL",
+    value: `${authBaseUrl.replace(/\/+$/, "")}/.well-known/jwks.json`,
+    scopes: ["workers"],
+    comment: "staging edge Neon Auth JWKS (derived from the branch auth base URL, AUTH-2 #950)",
+  });
+}
+
+const qaNeonUserEmail = config.get("qaNeonUserEmail");
+if (qaNeonUserEmail !== undefined) {
+  new cloudflare.SecretsStoreSecret("qa-neon-user-email", {
+    accountId,
+    storeId: secretsStoreId,
+    name: "QA_NEON_USER_EMAIL",
+    value: qaNeonUserEmail,
+    scopes: ["workers"],
+    comment: "Neon Auth QA login email (Path A, AUTH-2 #950)",
+  });
+}
+
+const qaNeonUserPassword = config.getSecret("qaNeonUserPassword");
+if (qaNeonUserPassword !== undefined) {
+  new cloudflare.SecretsStoreSecret("qa-neon-user-password", {
+    accountId,
+    storeId: secretsStoreId,
+    name: "QA_NEON_USER_PASSWORD",
+    value: qaNeonUserPassword,
+    scopes: ["workers"],
+    comment: "Neon Auth QA login password (secret; Path A, AUTH-2 #950)",
+  });
+}
+
 // Exported for PR2 (wrangler.toml bindings) and operators.
 export const secretsStoreNameOut = secretsStoreName;
 export const secretNames = roleDefs
   .filter((def) => def.secretName !== undefined)
   .map((def) => def.secretName as string);
 export const roleNames = roleDefs.map((def) => def.name);
+export const authSecretNames = ["NEON_AUTH_JWKS_URL", "QA_NEON_USER_EMAIL", "QA_NEON_USER_PASSWORD"] as const;

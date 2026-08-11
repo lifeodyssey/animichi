@@ -168,14 +168,15 @@ rate limit, daily message quota, and daily cost budget. The edge consumes its de
 (`DEFAULT_IDENTITY_POLICY`) and the deployed `wrangler.toml` values are pinned to it by
 `workers/edge/test/identity-policy-matrix.test.ts`:
 
-- `Authorization: Bearer <jwt>` → verified against the issuer JWKS (`jose`) → `X-User-Type: human`
+- `Authorization: Bearer <jwt>` → verified against the branch's Neon Auth JWKS (`jose`, EdDSA) → `X-User-Type: human`. AUTH-2 #950 hard cut: `NEON_AUTH_JWKS_URL` is the edge's ONLY identity source — the Supabase verifier and the dual-issuer flag are deleted, and issuer/audience are derived from the JWKS URL
 - No credentials, on the anonymous allowlist → `X-User-Type: anonymous` (see below)
 - No credentials, anywhere else → 401
 - `sk_*` credentials are rejected as invalid — the API-key mint/verify path and the `api_keys`
   table are deleted; `"agent"` is no longer an identity class
 - `/healthz`, the public catalog/`/v1` allowlist, and static assets bypass auth entirely
 
-Dual-issuer verification for Neon Auth (Better Auth) is implemented but flag-gated OFF (`NEON_AUTH_ENABLED`, SD-31 cutover pending) — Supabase remains the verifying issuer today and backs local-dev/E2E (#561).
+The edge verifies Neon Auth JWTs only (AUTH-2 #950); users and the agent trust the edge-forwarded
+identity headers, never raw bearers.
 
 ### Anonymous access (X5, implemented in S1.8 / issue #274)
 

@@ -8,7 +8,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
 [![TanStack Start](https://img.shields.io/badge/TanStack_Start-SSR-FF4154.svg)](https://tanstack.com/start)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)
-[![Supabase](https://img.shields.io/badge/Supabase-Postgres-3ecf8e.svg?logo=supabase)](https://supabase.com)
+[![Neon](https://img.shields.io/badge/Neon-Postgres-30cf9e.svg?logo=neon)](https://neon.tech)
 [![GitHub last commit](https://img.shields.io/github/last-commit/lifeodyssey/animichi)](https://github.com/lifeodyssey/animichi/commits/main)
 [![GitHub stars](https://img.shields.io/github/stars/lifeodyssey/animichi?style=flat)](https://github.com/lifeodyssey/animichi)
 
@@ -88,12 +88,13 @@ make db-push           # NEON_DATABASE_URL に適用
 **必須（agent コンテナ / ローカル serve）：**
 | 変数名 | 用途 |
 |---|---|
-| `SUPABASE_DB_URL` | agent ドメインの Postgres 接続文字列 |
-| `SUPABASE_URL` | Supabase プロジェクト URL（auth 面） |
+| `SUPABASE_DB_URL` | agent ドメインの Postgres 接続文字列（旧データ面。Neon では `AGENT_SVC_DATABASE_URL` に移行、#912 フォローアップ） |
 | `MIMO_API_KEY` | 主モデルプロバイダキー |
 | `DEEPSEEK_API_KEY` | エッジ container-env がコンテナ起動時に要求（コンテナへ転送） |
 
-**Worker エッジ:** `SUPABASE_URL`（JWT は公開 JWKS で検証 — エッジに `SUPABASE_ANON_KEY` は不要）。catalog/users/jobs は各 Neon DSN も必要 — [`docs/ops/deployment.md`](docs/ops/deployment.md)。
+**Worker エッジ:** `NEON_AUTH_JWKS_URL`（エッジの**唯一の** identity ソース — AUTH-2 #950。Neon Auth の EdDSA JWT をブランチ JWKS で検証。本番はブランチ準備まで未設定＝ fail-closed）。catalog/users/jobs は各 Neon DSN も必要 — [`docs/ops/deployment.md`](docs/ops/deployment.md)。
+
+**Web（`apps/web`）:** `VITE_NEON_AUTH_BASE_URL`（Better Auth クライアントのログイン元 + JWT 交換）— [`apps/web/.env.example`](apps/web/.env.example)。
 
 **オプション：** `SERVICE_HOST`, `SERVICE_PORT`, `OBSERVABILITY_*`, `DEFAULT_AGENT_MODEL`
 
@@ -115,7 +116,7 @@ async def main() -> None:
 **HTTP（認証済み）：**
 ```bash
 curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
-  -H 'Authorization: Bearer <supabase_jwt>' \
+  -H 'Authorization: Bearer <neon_auth_jwt>' \
   -H 'Content-Type: application/json' \
   -d '{"text":"吹響の聖地","locale":"ja"}'
 ```
@@ -129,7 +130,7 @@ curl -X POST https://seichijunrei.zhenjia.org/v1/runtime \
 - `apps/web/` — TanStack Start SSR Web アプリ（**唯一のブラウザ面**）
 - `workers/edge/` — 認証と `/v1` ルーティングの Cloudflare Worker 入口
 - `migrations/neon/` — Neon データ面の Atlas マイグレーションと生成 checksum
-- `supabase/` — auth/旧版互換マイグレーションと Supabase プロジェクト資産
+- `supabase/` — 旧版互換マイグレーションと Supabase プロジェクト資産（auth は Neon Auth へ移行済み、AUTH-2 #950）
 - `docs/` — アーキテクチャ、運用手順、イテレーション資料、実装計画
 - `Makefile`、`package.json` — ルートに残すツール入口。`apps/agent/Dockerfile`（コンテナイメージ）と `workers/edge/wrangler.toml`（edge Worker 設定）はコードの隣に配置
 

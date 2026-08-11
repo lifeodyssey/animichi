@@ -59,7 +59,7 @@ skeleton (apps/agent · workers/* · apps/web). Path renames (PATH-DELTA) follow
 | Candidate | Evidence | Decision |
 |---|---|---|
 | Root `DEPLOYMENT.md` / root-level `todo.md` / `CHANGELOG` / `VERSION` / `atlas.hcl` / `deno.lock` / skills-lock | Already absent from tree (S0-v2 GOAL A partial) | N/A |
-| `scripts/qa_login.sh` hardcodes foreign venv path | Still referenced by `docs/ops/auth-migration-neon.md` until Neon Auth cutover | **Keep** — cutover ticket retires it |
+| `scripts/qa_login.sh` + `scripts/qa_auth.py` (Supabase magic-link QA login) | **Retired by AUTH-2 #950** — the Neon Auth cutover replaced the Supabase login path; local login is `scripts/local-login.sh` (Neon, Path C), live-login E2E is `e2e/web-neon-login.spec.ts` | **Deleted** (cutover) |
 | `apps/agent/.../spikes/codemode/` | Spike residual; S0-v2 GOAL A lists spikes cleanup | **Deferred** (behavior-adjacent; not pure docs HY-1) |
 | Historical `docs/archive/reviews/*` | Pre-rename eng reviews | **Keep** in place (history) |
 

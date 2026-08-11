@@ -30,9 +30,9 @@
 #   CLOUDFLARE_ACCOUNT_ID      — Cloudflare account target
 #
 # Edge runtime secrets (used by src/identity/auth.ts for /v1 auth):
-#   SUPABASE_URL               — https://<project>.supabase.co (set via wrangler secret put)
-#   SUPABASE_ANON_KEY          — optional/legacy Env binding; edge JWT verifies public JWKS
-#                                and does not require the anon key (see docs/ops/deployment.md)
+#   NEON_AUTH_JWKS_URL        — branch JWKS (AUTH-2 #950): the edge's ONLY
+#                               identity source; set as a secret, not a checked
+#                               in var, on production (see infra/src/neon-auth.ts)
 #
 # Container runtime secrets (forwarded to Python backend). Production model
 # policy is MiMo-only (#684): MIMO_API_KEY is the one live model credential.
@@ -336,10 +336,12 @@ EDGE_SHOWCASE_MODE = "false"
 # conflict with.
 CORS_ALLOWED_ORIGIN = "https://animichi-web-staging.zhenjiazhou0127.workers.dev"
 ANON_ACCESS_ENABLED = "true"
-# SD-31 staging cutover (owner-approved 2026-08-03, #312 slice 1): edge verifies
-# Neon Auth (Better Auth) tokens against the staging branch's JWKS. Migrated
-# users only — legacy Supabase tokens still verify via the dual-issuer
-# fallback in src/identity/auth.ts (non-EdDSA + non-Neon issuer → verifySupabase).
+# AUTH-2 #950 hard cut (committed 2026-08-11): edge verifies Neon Auth (Better
+# Auth) JWTs against this branch JWKS ONLY — the dual-issuer flag, the split
+# issuer var, and the Supabase verifier are deleted. issuer/audience are
+# derived from this URL (workers/edge/src/identity/auth.ts). The value is a
+# placeholder until the operator sets the real one (see infra/src/neon-auth.ts,
+# which declares the derivation + the neon-secrets secret).
 NEON_AUTH_JWKS_URL = "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.

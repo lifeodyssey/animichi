@@ -1,10 +1,13 @@
 # Auth Migration: Supabase → Neon Auth (SD-31, Slice 1)
 
-Status: executed 2026-07-10. Users migrated, Neon Auth login-ready, QA login paths validated.
-Scope of this slice: **data migration + new-system configuration + test-login design only. No traffic cutover** — the edge worker JWT check and the login UI still run on Supabase until S0.6/S0.8 (apps/web rebuild). Umbrella epic: #312.
+Status: executed 2026-07-10. **Cutover state as of AUTH-2 #950 (2026-08-11):** the edge verifies
+Neon Auth JWTs only (JWKS-only, no Supabase fallback), `apps/web` logs in through the Better Auth
+client, local login + E2E run on Neon, and the staging issuer/JWKS + QA login are declared in IaC.
+The remaining Supabase surface is the agent container's legacy data-plane DSN (not auth).
+Umbrella epic: #312.
 
-Secret hygiene: this doc uses placeholders only. Real values live in the operator's CLI session, Neon/Supabase dashboards, and env files (`.env.test`, CI secrets). Never commit project IDs, branch IDs, base/JWKS URLs, connection strings, or tokens.
-
+Secret hygiene: this doc uses placeholders only. Real values live in the operator's CLI session,
+Neon/Supabase dashboards, and env files (`.env.test`, CI secrets). Never commit project IDs, branch IDs, base/JWKS URLs, connection strings, or tokens.
 | Placeholder | Meaning | Where to find it |
 |---|---|---|
 | `$NEON_PROJECT_ID` | Neon project id | `neonctl projects list --org-id $NEON_ORG_ID` |
@@ -22,7 +25,7 @@ Secret hygiene: this doc uses placeholders only. Real values live in the operato
 **Supabase (legacy, still serving production login):**
 - Project restored from pause; GoTrue v2.192.0, `GET $SUPABASE_URL/auth/v1/health` → 200.
 - Magic-link only (no OAuth identities, no passwords in practice). Emails sent by the `send-auth-email` Edge Function (Resend in prod, Mailpit locally) — fully Seichijunrei-branded (subject 「聖地巡礼 — ログインリンク」, sender `noreply@seichijunrei.zhenjia.dev`).
-- QA login: `scripts/qa_auth.py` (admin `generate_link`, no email) as `qa-bot@seichijunrei.test`. Stays in place until cutover.
+- QA login: `scripts/qa_auth.py` (admin `generate_link`, no email) as `qa-bot@seichijunrei.test`. **Retired at cutover** (AUTH-2 #950) with the Supabase login path.
 
 **Neon Auth (target):**
 - Provider `better_auth` on the project's default branch, database `neondb`, schema `neon_auth` (tables: `user`, `account`, `session`, `verification`, `jwks`, `organization`, `member`, `invitation`, `project_config`). JWKS provisioned.
@@ -102,13 +105,15 @@ fallback — it bypasses email delivery, so keep Path B in the suite too.
 sign-up POST for the password user against that branch's own base URL (`neonctl neon-auth status
 --branch <id>`), same commands as above.
 
-## 5. Cutover checklist (S0.6 / S0.8 — do NOT start in this slice)
+## 5. Cutover checklist (S0.6 / S0.8 — executed AUTH-2 #950)
 
-- [ ] apps/web login UI on Better Auth client SDK pointed at `$NEON_AUTH_BASE_URL` (magic link + email OTP; Google/Apple/X once prod OAuth creds exist).
-- [ ] Edge worker: replace the remote `${SUPABASE_URL}/auth/v1/user` lookup with **local JWKS verification**: fetch + cache `$NEON_AUTH_JWKS_URL`, verify EdDSA signature by `kid`, check `iss`/`aud` == auth base URL and `exp`. Claims carry `sub`/`id`, `email`, `emailVerified`, `role`, `banned`.
+- [x] apps/web login UI on Better Auth client SDK pointed at `$NEON_AUTH_BASE_URL` (magic link + email OTP; Google/Apple/X once prod OAuth creds exist).
+- [x] Edge worker: **JWKS-only Neon verification** — fetch + cache `$NEON_AUTH_JWKS_URL`, verify EdDSA signature by `kid`, check `iss`/`aud` == auth base URL and `exp`; Supabase verification and the dual-issuer flag are **deleted** (AUTH-2 #950 hard cut). Production JWKS stays unset until its Neon Auth branch is provisioned — empty fails closed.
 - [ ] `neonctl neon-auth domain add <prod-domain>` (trusted redirect origins; keep `allow-localhost` for dev).
 - [ ] Branded email decision: `email-provider update --type standard` with own SMTP **or** webhook `send.magic_link` → own sender function (successor of `send-auth-email`, #312 step 3).
-- [ ] CI: `QA_NEON_USER_EMAIL` var + `QA_NEON_USER_PASSWORD` secret; port E2E login to Path A/B; retire `scripts/qa_auth.py` + `scripts/qa_login.sh` + Mailpit auth-hook infra with the Supabase login path.
+- [x] CI: `QA_NEON_USER_EMAIL` var + `QA_NEON_USER_PASSWORD` secret; E2E login on Path A/B; `scripts/qa_auth.py` + `scripts/qa_login.sh` + Mailpit auth-hook infra retired with the Supabase login path.
+- [x] Local login on Neon: `make local-login` → `scripts/local-login.sh` (magic link, token read from the branch DB — Path C).
+- [x] Staging issuer/JWKS + QA login declared in IaC (`infra/src/neon-auth.ts`, `infra/neon-secrets`) — applied on the next `pulumi up` with the config keys set.
 - [ ] Operational tables (#312 step 2): migrate `sessions`/`messages`/`user_memory` **with user-id remap** (mapping file, §3).
 - [ ] RLS on Neon per Neon Auth docs before exposing user-scoped data.
 - [ ] Supabase retirement (#312 step 4): only after all above verified — dump `auth.users` as backup, then decommission (project, `supabase/` dir, env vars, deps).
@@ -144,60 +149,46 @@ Related API surface (in `@neon/sdk`, mostly unwrapped by CLI): `updateNeonAuthEm
 5. **Supabase-side branding (optional, recommend skip):** live magic-link emails are still Seichijunrei-branded inside the deployed `send-auth-email` Edge Function; changing it means `supabase login` + function redeploy (deploy-coupled). Cutover retires it entirely — spend nothing here unless pre-cutover polish matters.
 6. **Decide** whether the skipped disposable signup (`je***@gmeenramy.com`, never confirmed) should be preserved anywhere before Supabase deletion. Default: let it die with Supabase.
 
-## 8. Staging edge dual-issuer flip (S0-v2 I1, #312 slice 1)
+## 8. Staging cut state (AUTH-2 #950)
 
-Status: **deployed but inert until the real issuer lands** — committed to `main` (28298459,
-owner-approved 2026-08-03) and already deployed to staging (root deploys succeeded twice,
-2026-08-04 19:01Z and 2026-08-05 02:26Z, both containing the flip commit). The flag change is live;
-whether it does anything is decided by the issuer, below.
+Status: **hard cut, committed 2026-08-11** (`0ed18d1c` + `6addec65`). The dual-issuer era is over.
 
-**What verifies staging tokens today:** the edge Worker (`workers/edge/src/identity/auth.ts`) runs in dual-issuer
-mode. `verifyJwt` routes by token header/claims: `alg == "EdDSA"` or `iss == NEON_AUTH_ISSUER` →
-Neon Auth EdDSA verification against `NEON_AUTH_JWKS_URL`; anything else → legacy Supabase
-verification (`ES256`/`RS256` against `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`). The flag
-gates only the Neon branch: `NEON_AUTH_ENABLED = "true"` + non-empty JWKS/issuer env ⇒ Neon path
-active; `false`/absent ⇒ EdDSA tokens reject without a JWKS fetch (fail-closed — no Supabase
-fallback for them). It is **not** a hard switch: legacy Supabase tokens keep verifying.
+**What the edge verifies today:** the edge Worker (`workers/edge/src/identity/auth.ts`) verifies
+Neon Auth EdDSA JWTs against **one** source of truth — `NEON_AUTH_JWKS_URL` — and nothing else.
+The `NEON_AUTH_ENABLED` activation flag and the split `NEON_AUTH_ISSUER` var are deleted;
+issuer/audience are **derived from the JWKS URL** (`issuerFromJwksUrl`, the same derivation the
+retired `workers/users/src/auth/jwt.ts` used). The Supabase verifier is gone; a non-Bearer scheme is
+"absent", and a bearer that fails Neon verification is 401 — no fallback, no silent demotion.
+Users trusts only the edge's forwarded identity (`X-User-Id`), rejecting raw bearer and forged
+headers.
 
-**What the flip changed (staging only, `[env.staging.vars]` in `wrangler.toml`):**
-`NEON_AUTH_ENABLED` `false → "true"`, with the pinned `NEON_AUTH_ISSUER` and derived
-`NEON_AUTH_JWKS_URL`. Root `[vars]` and `[env.production.vars]` stay `"false"` — prod cutover is a
-separate owner-approved step. Locked by `workers/edge/test/auth-config.test.ts` (staging stays on, prod
-stays off, CI/deploy workflows keep their JWKS secret paths).
+**Web seam:** `apps/web` logs in through the Better Auth client (`src/lib/auth/neon-auth.ts`:
+magic-link + JWT exchange), caches the EdDSA JWT in `src/lib/auth/auth-session.ts`, and sends it as
+`Authorization: Bearer` to the edge via `sessionHeaders()`. The browser session cookie lives on the
+Neon Auth origin (`credentials: "include"`), so it survives reloads; the edge verifies the JWT
+against the branch JWKS.
 
-**Prerequisite reality (as of the deploy above):** the flip is **not** yet functionally live on
-staging. The pinned `NEON_AUTH_ISSUER` in `wrangler.toml` `[env.staging.vars]` is a literal
-placeholder (`https://REDACTED-NEON-ENDPOINT.neonauth…`), and that endpoint's JWKS returns HTTP 500.
-Consequence: with `NEON_AUTH_ENABLED = "true"`, real Neon Auth tokens are **rejected** on staging
-today (the Neon path fails closed on the placeholder JWKS), while Supabase tokens are **unaffected**
-(dual mode still verifies them on the Supabase path) — a silent no-op, not an outage. Filling in the
-real issuer is an **owner-sequenced step**: it requires synchronized changes to the issuer-pinning
-tests in `workers/edge/test/auth-config.test.ts` (which assert the exact placeholder string), plus
-re-deploy. Worth converging on in that step: `workers/users` derives its issuer from a single secret
-via `issuerFromJwksUrl()` (`workers/users/src/auth/jwt.ts`), while the edge needs a separate
-plaintext issuer var — the edge's split-var design is the root cause of this placeholder gap.
+**Local login + E2E (no Supabase):** `make local-login` → `scripts/local-login.sh` requests a
+magic link from the Neon Auth origin and opens the verify URL (token read from the branch's
+`neon_auth.verification` — Path C, §4). The Playwright suite stubs every transport and runs
+without `supabase start`; the one live spec (`e2e/web-neon-login.spec.ts`) drives the real Neon
+origin via Path A and self-skips without `QA_NEON_USER_*`.
 
-What is genuinely in place — `NEON_AUTH_JWKS_URL` is **dual-source**, and the two sources feed
-different consumers (rotate the right one):
-- **Checked-in var** — `[env.staging.vars]` in `wrangler.toml` (line 308), pinned by
-  `workers/edge/test/auth-config.test.ts`; consumed **only** by the edge worker's staging dual-issuer
-  path (`workers/edge/src/identity/auth.ts`). Root `[vars]`/`[env.production.vars]` leave it empty and the root
-  worker's `worker_secrets` lists never upload a JWKS secret, so the edge worker has no Neon path
-  in production.
-- **Environment secret (#527, staging + production)** — consumed **only** by `workers/users`:
-  `ci.yml` (staging + production) and `deploy.yml` (production) upload it to that Worker via
-  `worker_secrets`, and `workers/users/src/index.ts` reads it at runtime (deriving the issuer via
-  `issuerFromJwksUrl()`). It is not forwarded to the agent container (`CONTAINER_ENV_KEYS` does
-  not list it) and is not legacy — `workers/users` is its live consumer.
+**IaC declarations (no pulumi run yet):** the staging issuer/JWKS derivation and QA login creds are
+declared in `infra/src/neon-auth.ts` (pure derivation, pinned by `topology-neon-auth.test.ts`),
+exported from `infra/index.ts` (`neonAuthJwksUrl`, `neonAuthIssuer`, `qaNeonUser*`), and provisioned
+as Cloudflare Secrets Store secrets in `infra/neon-secrets` — all config-gated, so stacks apply
+unchanged until an operator sets `neonAuthBaseUrl` / `qaNeonUser*`.
 
-`apps/web` Better Auth client and the `workers/users` EdDSA verification are already Neon-capable.
+**Production:** `NEON_AUTH_JWKS_URL` is **not set for the edge Worker** (wrangler vars leave it
+empty) — the production edge fails closed on any bearer until its Neon Auth branch is provisioned.
+Provisioning the prod Neon Auth branch and setting the JWKS is an owner-sequenced step (tests in
+`workers/edge/test/auth-config.test.ts` pin the unset state). CI still uploads a
+`NEON_AUTH_JWKS_URL` secret to the **users** Worker (staging + prod); that upload is now a dead
+binding — users trusts only the edge-forwarded identity and no longer reads it (AUTH-2 #950), so it
+can be dropped from `worker_secrets` at the next deploy-touch.
 
-**Tests (edge, `workers/edge/test/auth-neon.test.ts`, mock JWKS via jose):** flag absent/false reject
-EdDSA without a JWKS fetch; flag true accepts a valid EdDSA Neon-issuer JWT; wrong issuer /
-expired / wrong audience / wrong key rejected; **dual mode**: a valid legacy Supabase JWT still
-passes with the flag true; missing JWKS URL rejects without throwing. Verified green:
-`pnpm run test:worker`, `workers/users` (42/42), `actionlint .github/workflows/ci.yml`.
-
-**Rollback:** flip `NEON_AUTH_ENABLED` back to `"false"` in `[env.staging.vars]` and redeploy —
-one deploy, no data migration, no token re-issue. The rollback direction never touches legacy
-Supabase tokens (they verify on the Supabase path regardless of the flag).
+**Rollback to dual-issuer is not available** — the flag, the Supabase verifier, and the users
+JWKS/bearer verifier are deleted. Correcting a staging issuer now means fixing the derived JWKS URL
+(`wrangler.toml` `[env.staging.vars]` or the neon-secrets secret) and re-deploying, not flipping a
+switch.
