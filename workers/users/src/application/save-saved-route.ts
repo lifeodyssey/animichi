@@ -9,7 +9,9 @@ export interface SavedRouteStore {
   findOwner(id: string): Promise<OwnerLookup | undefined>;
   /** Persist a brand-new route with the caller-computed saved_at. */
   insert(userId: string, input: SaveSavedRouteInput, savedAt: string | null): Promise<SavedRoute>;
-  /** Persist an owned route; `null` means the row vanished between read and write. */
+  /** Persist an owned route; `null` means the row is no longer owned by this
+   * user (vanished or re-owned between the read and this write) — mapped to
+   * SAVED_ROUTE_NOT_OWNED, matching the pre-action adapter behaviour. */
   update(userId: string, input: SaveSavedRouteInput & { id: string }, savedAt: string | null): Promise<SavedRoute | null>;
 }
 
