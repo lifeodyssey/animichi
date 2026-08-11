@@ -3,7 +3,7 @@ import { ORPCError } from "@orpc/server";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
+import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { listSavedRoutes as listSavedRoutesAction } from "../src/application/list-saved-routes";
 import { listSessions } from "../src/api/routes";
 import { saveSavedRoute } from "../src/application/save-saved-route";
@@ -23,6 +23,11 @@ function repo(db: DbExecutor): NeonSavedRouteRepo {
   return new NeonSavedRouteRepo(db);
 }
 
+/** The write-role adapter split (USERS-2 review: ≤50-line classes). */
+function store(db: DbExecutor): NeonSavedRouteStore {
+  return new NeonSavedRouteStore(db);
+}
+
 function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   return {
     id: ID, claim_session_id: null, user_id: "user-a", title: "Tokyo", point_ids: ["p1"],
@@ -34,7 +39,7 @@ async function caught(
   input: SaveSavedRouteInput, db: DbExecutor = fakeDb([row({ user_id: "user-b" })]).db,
 ): Promise<ORPCError<string, unknown>> {
   try {
-    await saveSavedRoute(repo(db), "user-a", input, FIXED_NOW);
+    await saveSavedRoute(store(db), "user-a", input, FIXED_NOW);
   } catch (error) {
     return orpcError(error);
   }
@@ -52,7 +57,7 @@ describe("user saved-route handlers", () => {
   });
 
   it("creates a saved route with normalized timestamps", async () => {
-    const result = await saveSavedRoute(repo(fakeDb().db), "user-a", {
+    const result = await saveSavedRoute(store(fakeDb().db), "user-a", {
       title: "Tokyo", point_ids: ["p1"], status: "saved",
     }, FIXED_NOW);
     expect(result).toMatchObject({ title: "Tokyo", status: "saved", point_ids: ["p1"] });
@@ -61,7 +66,7 @@ describe("user saved-route handlers", () => {
   });
 
   it("creates a draft with no saved timestamp", async () => {
-    const result = await saveSavedRoute(repo(fakeDb().db), "user-a", {
+    const result = await saveSavedRoute(store(fakeDb().db), "user-a", {
       title: "Draft", point_ids: [], status: "draft",
     }, FIXED_NOW);
     expect(result.saved_at).toBeNull();
@@ -79,7 +84,7 @@ describe("user saved-route handlers", () => {
 
   it("updates an owned saved route and returns the updated row", async () => {
     const { db } = fakeDb([row()]);
-    const result = await saveSavedRoute(repo(db), "user-a", {
+    const result = await saveSavedRoute(store(db), "user-a", {
       id: ID, title: "Renamed", point_ids: ["p2"], status: "saved",
     }, FIXED_NOW);
     expect(result).toMatchObject({ id: ID, title: "Renamed", point_ids: ["p2"], status: "saved" });

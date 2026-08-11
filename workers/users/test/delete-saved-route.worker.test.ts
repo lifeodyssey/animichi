@@ -2,7 +2,7 @@ import type { DeleteSavedRouteInput } from "@animichi/contract";
 import { ORPCError } from "@orpc/server";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
+import { NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { deleteSavedRoute } from "../src/application/delete-saved-route";
 import type {
   DeleteOwnedOutcome,
@@ -17,7 +17,7 @@ const ID = "00000000-0000-4000-8000-000000000009";
 const UNKNOWN = "00000000-0000-4000-8000-000000000008";
 
 function repo(db: DbExecutor): DeleteSavedRouteStore {
-  return new NeonSavedRouteRepo(db);
+  return new NeonSavedRouteStore(db);
 }
 
 function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {

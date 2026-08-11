@@ -39,12 +39,20 @@ export async function listSavedRoutes(
   userId: string,
   opts: ListSavedRoutesOptions = {},
 ): Promise<ListSavedRoutesResult> {
+  return { saved_routes: await readOwnedNewestFirst(reader, userId, opts) };
+}
+
+/** The timed read body: read, sort newest-update-first, then observe. */
+async function readOwnedNewestFirst(
+  reader: SavedRouteReader,
+  userId: string,
+  opts: ListSavedRoutesOptions,
+): Promise<SavedRoute[]> {
   const clock = opts.clock ?? realClock;
   const started = clock.now();
-  const owned = await reader.listOwned(userId);
-  const ordered = [...owned].sort(newestFirst);
+  const ordered = [...(await reader.listOwned(userId))].sort(newestFirst);
   recordIfObserved(opts, ordered.length, started, clock.now());
-  return { saved_routes: ordered };
+  return ordered;
 }
 
 /** Record the redacted observation; duration is the injected clock's span. */

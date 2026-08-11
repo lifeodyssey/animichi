@@ -1,6 +1,6 @@
 import type { SavedRoute } from "@animichi/contract";
 import { describe, expect, it, vi } from "vitest";
-import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
+import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
 import {
@@ -44,7 +44,7 @@ describe("NeonSavedRouteRepo over the raw executor", () => {
   });
 
   it("creates a saved route through the action and returns the normalized row", async () => {
-    const repo: SavedRouteStore = new NeonSavedRouteRepo(fakeDb().db);
+    const repo: SavedRouteStore = new NeonSavedRouteStore(fakeDb().db);
     const route = await saveSavedRoute(repo, "user-a", { title: "Tokyo", point_ids: ["p1"], status: "saved" }, FIXED_NOW);
     expect(route).toMatchObject({ title: "Tokyo", status: "saved", point_ids: ["p1"] });
     expect(route.saved_at).toBe(NOW);
@@ -97,22 +97,22 @@ describe("findOwner defensive cases (USERS-1 coverage)", () => {
   });
 
   it("returns undefined when no row matches", async () => {
-    const repo = new NeonSavedRouteRepo(rawDb([]));
+    const repo = new NeonSavedRouteStore(rawDb([]));
     await expect(repo.findOwner("r-none")).resolves.toBeUndefined();
   });
 
   it("rejects a non-record row", async () => {
-    const repo = new NeonSavedRouteRepo(rawDb([42 as unknown as Record<string, unknown>]));
+    const repo = new NeonSavedRouteStore(rawDb([42 as unknown as Record<string, unknown>]));
     await expect(repo.findOwner("r-x")).rejects.toThrow("invalid saved route row");
   });
 
   it("coerces a non-string user_id to null (unclaimed)", async () => {
-    const repo = new NeonSavedRouteRepo(rawDb([{ id: "r4", user_id: 12345, saved_at: null }]));
+    const repo = new NeonSavedRouteStore(rawDb([{ id: "r4", user_id: 12345, saved_at: null }]));
     await expect(repo.findOwner("r4")).resolves.toEqual({ userId: null, savedAt: null });
   });
 
   it("throws on an unparseable saved_at", async () => {
-    const repo = new NeonSavedRouteRepo(rawDb([{ id: "r5", user_id: "user-a", saved_at: 12345 }]));
+    const repo = new NeonSavedRouteStore(rawDb([{ id: "r5", user_id: "user-a", saved_at: 12345 }]));
     await expect(repo.findOwner("r5")).rejects.toThrow("invalid timestamp row");
   });
 });

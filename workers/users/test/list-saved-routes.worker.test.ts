@@ -1,5 +1,5 @@
 import type { SavedRoute } from "@animichi/contract";
-import { describe, expect, it, vi } from "vitest";
+import { expect, it, vi } from "vitest";
 import { listSavedRoutes } from "../src/application/list-saved-routes";
 import type { ListSavedRoutesObservation, SavedRouteReader } from "../src/application/list-saved-routes";
 
@@ -16,7 +16,6 @@ function stubReader(owned: SavedRoute[]): SavedRouteReader {
   return { listOwned: vi.fn().mockResolvedValue(owned) };
 }
 
-describe("ListSavedRoutes application action", () => {
   it("returns the owned routes newest update first", async () => {
     const older = route("00000000-0000-4000-8000-000000000001", "2026-07-12T00:00:00Z");
     const newer = route("00000000-0000-4000-8000-000000000002", "2026-07-13T00:00:00Z");
@@ -62,4 +61,3 @@ describe("ListSavedRoutes application action", () => {
     });
     expect(observations).toEqual([{ outcome: "empty", count: 0, duration_ms: 0 }]);
   });
-});

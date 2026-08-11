@@ -10,7 +10,7 @@ import {
   claimSavedRoutes as claimHandler,
   listSessions as listSessionsHandler,
 } from "./api/routes";
-import { NeonSavedRouteRepo } from "./adapters/neon-saved-route-repo";
+import { NeonSavedRouteRepo, NeonSavedRouteStore } from "./adapters/neon-saved-route-repo";
 import type { DbExecutor } from "./db/client";
 import type { SavedRouteRepo } from "./domain/ports";
 
@@ -19,11 +19,11 @@ export interface UsersContext { db: DbExecutor; userId: string }
 
 const os = implement(usersContract).$context<UsersContext>();
 
-/** Stateless Neon SavedRouteRepo bound to the per-request executor. */
+/** Stateless Neon adapters bound to the per-request executor. */
 const repo = (context: UsersContext): SavedRouteRepo => new NeonSavedRouteRepo(context.db);
 const reader = (context: UsersContext): SavedRouteReader => new NeonSavedRouteRepo(context.db);
-const store = (context: UsersContext): SavedRouteStore => new NeonSavedRouteRepo(context.db);
-const deleteStore = (context: UsersContext): DeleteSavedRouteStore => new NeonSavedRouteRepo(context.db);
+const store = (context: UsersContext): SavedRouteStore => new NeonSavedRouteStore(context.db);
+const deleteStore = (context: UsersContext): DeleteSavedRouteStore => new NeonSavedRouteStore(context.db);
 
 /** Redacted load observability: outcome, count, duration. Never route/actor ids. */
 function listSavedRoutesObserver(): ListSavedRoutesObserverPort {

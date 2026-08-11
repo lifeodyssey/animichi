@@ -1,6 +1,6 @@
 import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
-import { NeonSavedRouteRepo } from "../src/adapters/neon-saved-route-repo";
+import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { listSavedRoutes as listSavedRoutesAction } from "../src/application/list-saved-routes";
 import { listSessions } from "../src/api/routes";
 import { saveSavedRoute } from "../src/application/save-saved-route";
@@ -24,7 +24,7 @@ function updateRows(rows: Record<string, unknown>[]): DbExecutor {
 
 /** Real Neon adapter over the fixed-answer executor. */
 function repo(db: DbExecutor): SavedRouteStore {
-  return new NeonSavedRouteRepo(db);
+  return new NeonSavedRouteStore(db);
 }
 
 describe("saved-route row validation", () => {
