@@ -59,6 +59,7 @@ jobs:
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Record phase C starting
         run: bash .github/scripts/cutover-state.sh record phase=c ingress=closing
       - name: Close the IaC staging gate and probe closed ingress
@@ -83,6 +84,7 @@ jobs:
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Re-verify retention absent and auth neon-only before reset
         env:
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
@@ -118,6 +120,7 @@ jobs:
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Deploy catalog from source_revision
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -142,6 +145,7 @@ jobs:
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Deploy users from source_revision
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -167,6 +171,7 @@ jobs:
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Deploy agent from source_revision
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -191,6 +196,7 @@ jobs:
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Deploy web from source_revision
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -214,6 +220,7 @@ jobs:
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Deploy edge routes from source_revision while ingress is closed
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -242,6 +249,7 @@ jobs:
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Run the private smoke suite
         env:
           STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
@@ -263,6 +271,7 @@ jobs:
         with:
           ref: ${{ inputs.source_revision }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Reopen ingress, re-check retention, record verdict
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
