@@ -25,6 +25,7 @@ class CredentialRef(StrEnum):
     DEEPSEEK_API_KEY = "deepseek_api_key"
     MIMO_API_KEY = "mimo_api_key"
     OPENAI_COMPAT_API_KEY = "openai_compat_api_key"
+    ZEN_GO_API_KEY = "zen_go_api_key"
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,7 @@ def _host_matches(base_url: str, domain: str) -> bool:
 _CREDENTIAL_DOMAINS = (
     ("xiaomimimo.com", CredentialRef.MIMO_API_KEY),
     ("deepseek.com", CredentialRef.DEEPSEEK_API_KEY),
+    ("opencode.ai", CredentialRef.ZEN_GO_API_KEY),
 )
 
 
@@ -89,6 +91,8 @@ def credential_value(credential_ref: CredentialRef) -> str | None:
         return settings.deepseek_api_key or None
     if credential_ref is CredentialRef.MIMO_API_KEY:
         return settings.mimo_api_key or None
+    if credential_ref is CredentialRef.ZEN_GO_API_KEY:
+        return settings.zen_go_api_key or None
     return settings.openai_compat_api_key or None
 
 
