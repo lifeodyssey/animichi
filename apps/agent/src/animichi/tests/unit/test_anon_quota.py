@@ -8,9 +8,11 @@ admission. These tests pin the read semantics and the fail-open contract.
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, time
+from unittest.mock import AsyncMock
 
 from asyncpg.exceptions import UndefinedTableError
 
+from animichi.infrastructure.supabase.repositories.anon_quota import AnonQuotaRepository
 from animichi.interfaces.anon_quota import anonymous_quota_verdict, next_utc_midnight
 
 TODAY = date(2026, 7, 26)
@@ -119,3 +121,10 @@ async def test_a_missing_counter_table_fails_open() -> None:
         _PgFailingRepo(), anon_id=ANON_ID, quota=3, today=TODAY
     )
     assert verdict.is_exhausted is False
+
+
+async def test_count_for_missing_row_returns_zero() -> None:
+    pool = AsyncMock()
+    pool.fetchrow = AsyncMock(return_value=None)
+    repo = AnonQuotaRepository(pool)
+    assert await repo.count_for(usage_date=date(2026, 8, 11), anon_id="anon-x") == 0

@@ -149,3 +149,13 @@ class _RecordingQuota:
         del usage_date, anon_id
         self.increments += 1
         return 1
+
+
+async def test_admit_without_an_admission_use_case_fails_loudly() -> None:
+    outcome = TurnOutcome(store=None, admission=None)
+    try:
+        await outcome.admit(_request())
+    except RuntimeError as exc:
+        assert "requires an admission use case" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")

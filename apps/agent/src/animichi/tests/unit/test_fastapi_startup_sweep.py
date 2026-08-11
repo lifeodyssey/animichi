@@ -92,3 +92,45 @@ def test_startup_sweep_does_not_block_readiness() -> None:
             assert client.get("/healthz").status_code == 200
         finally:
             release.set()
+
+
+def test_startup_sweep_failure_is_logged_not_fatal() -> None:
+    import animichi.interfaces.fastapi_service as svc
+
+    class _Exploding:
+        def sweep(self) -> object:
+            raise RuntimeError("boom")
+
+    def build(_db: object) -> object:
+        del _db
+        return _Exploding()
+
+    original = svc.build_startup_turn_outcome
+    svc.build_startup_turn_outcome = build
+    try:
+        asyncio.run(svc._run_startup_sweep(object()))
+    finally:
+        svc.build_startup_turn_outcome = original
+
+
+def test_sweep_after_connect_skips_when_connect_fails() -> None:
+
+    store = _SweepStore()
+    db = _db(store)
+
+    async def broken_connect() -> None:
+        raise RuntimeError("pool down")
+
+    db.connect = broken_connect
+    app = create_fastapi_app(
+        db=db,
+        session_store=InMemorySessionStore(),
+        settings=Settings(),
+    )
+    try:
+        with TestClient(app) as client:
+            assert client.get("/healthz").status_code == 200
+    except RuntimeError:
+        # Shutdown awaits the failed connect task; the sweep must not run.
+        pass
+    assert store.sweeps == []
