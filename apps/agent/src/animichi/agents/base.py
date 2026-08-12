@@ -23,7 +23,7 @@ from animichi.config.model_aliases import (
 )
 from animichi.config.settings import Settings, _is_local_base_url
 
-_DEFAULT_MODEL_SPEC = "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
+_DEFAULT_MODEL_SPEC = "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"
 _MODEL_ALIAS_PATTERN = re.compile(r"[a-z0-9_-]+")
 _APP_CLIENT_HEADER = "X-App-Client"
 _LOCAL_DEV_API_KEY = "local-dev-placeholder"
