@@ -9,26 +9,30 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
+from animichi.infrastructure.supabase.repositories.session import (
+    MessageRow,
+    SessionRecord,
+)
 from animichi.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
 
 _AUTH_HEADERS = {"X-User-Id": "user-1", "X-User-Type": "authenticated"}
 
 
-def _with_envelope(response_data: object) -> dict[str, object]:
-    return {
-        "role": "assistant",
-        "content": "x",
-        "response_data": response_data,
-        "created_at": "2026-08-01T10:00:00Z",
-    }
+def _with_envelope(response_data: object) -> MessageRow:
+    return MessageRow(
+        role="assistant",
+        content="x",
+        response_data=response_data,
+        created_at="2026-08-01T10:00:00Z",
+    )
 
 
 async def _page(response_data: object) -> object:
     db = build_stub_db()
-    db.session.get_conversation = AsyncMock(
-        return_value={"user_id": "user-1", "session_id": "s-1"}
+    db.session.load = AsyncMock(
+        return_value=SessionRecord(session_id="s-1", user_id="user-1")
     )
-    db.messages.get_messages = AsyncMock(return_value=[_with_envelope(response_data)])
+    db.session.get_messages = AsyncMock(return_value=[_with_envelope(response_data)])
     app, _ = build_app(db=db)
     async with async_client(app) as client:
         resp = await client.get("/v1/conversations/s-1/messages", headers=_AUTH_HEADERS)

@@ -16,9 +16,8 @@ from animichi.infrastructure.supabase.client_types import AsyncPGPool, Row
 from animichi.infrastructure.supabase.repositories.anon_quota import AnonQuotaRepository
 from animichi.infrastructure.supabase.repositories.bangumi import BangumiRepository
 from animichi.infrastructure.supabase.repositories.feedback import FeedbackRepository
-from animichi.infrastructure.supabase.repositories.messages import MessagesRepository
 from animichi.infrastructure.supabase.repositories.points import PointsRepository
-from animichi.infrastructure.supabase.repositories.session import SessionRepository
+from animichi.infrastructure.supabase.repositories.session import FinalSessionRepository
 from animichi.infrastructure.supabase.repositories.usage import UsageRepository
 from animichi.infrastructure.turn_reservation.postgres import (
     PostgresTurnReservationStore,
@@ -34,7 +33,8 @@ class SupabaseClient:
 
     Access repositories via explicit typed properties:
     ``db.bangumi``, ``db.points``, ``db.session``, ``db.feedback``,
-    ``db.messages``, ``db.usage``, ``db.anon_quota``.
+    ``db.usage``, ``db.anon_quota``. The Session aggregate (state, ordered
+    transcript, ownership) is reached through ``db.session`` (SESSION-3 #961).
     """
 
     def __init__(
@@ -52,9 +52,8 @@ class SupabaseClient:
         self._pool: AsyncPGPool | None = None
         self._bangumi: BangumiRepository | None = None
         self._points: PointsRepository | None = None
-        self._session: SessionRepository | None = None
+        self._session: FinalSessionRepository | None = None
         self._feedback: FeedbackRepository | None = None
-        self._messages: MessagesRepository | None = None
         self._usage: UsageRepository | None = None
         self._anon_quota: AnonQuotaRepository | None = None
         self._turn_reservation: PostgresTurnReservationStore | None = None
@@ -101,9 +100,8 @@ class SupabaseClient:
     def _init_repos(self, pool: AsyncPGPool) -> None:
         self._bangumi = BangumiRepository(pool)
         self._points = PointsRepository(pool)
-        self._session = SessionRepository(pool)
+        self._session = FinalSessionRepository(pool)
         self._feedback = FeedbackRepository(pool)
-        self._messages = MessagesRepository(pool)
         self._usage = UsageRepository(pool)
         self._anon_quota = AnonQuotaRepository(pool)
         self._turn_reservation = PostgresTurnReservationStore(pool)
@@ -125,10 +123,10 @@ class SupabaseClient:
         return self._points
 
     @property
-    def session(self) -> SessionRepository:
+    def session(self) -> FinalSessionRepository:
         if self._session is None:
             raise RuntimeError(
-                "SessionRepository not initialized — call connect() first"
+                "FinalSessionRepository not initialized — call connect() first"
             )
         return self._session
 
@@ -139,14 +137,6 @@ class SupabaseClient:
                 "FeedbackRepository not initialized — call connect() first"
             )
         return self._feedback
-
-    @property
-    def messages(self) -> MessagesRepository:
-        if self._messages is None:
-            raise RuntimeError(
-                "MessagesRepository not initialized — call connect() first"
-            )
-        return self._messages
 
     @property
     def usage(self) -> UsageRepository:

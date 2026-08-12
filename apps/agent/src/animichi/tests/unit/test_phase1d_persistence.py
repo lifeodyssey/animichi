@@ -77,11 +77,11 @@ def _blocked_result() -> AgentResult:
 
 def _db() -> MagicMock:
     db = MagicMock(spec=SupabaseClient)
-    db.session.create_owned_session = AsyncMock()
+    db.session.create = AsyncMock()
     db.session.upsert_session = AsyncMock()
-    # #663: the real repo lives at `db.messages`/`db.feedback`, not a flat
+    # #663: the real repo lives at `db.session`/`db.feedback`, not a flat
     # `db.insert_message`/`db.insert_request_log` — that was the production bug.
-    db.messages.insert_message = AsyncMock()
+    db.session.insert_message = AsyncMock()
     db.feedback.insert_request_log = AsyncMock()
     return db
 
@@ -116,8 +116,8 @@ async def test_partial_with_current_route_persists_assistant_and_route() -> None
     assert "session_state_v2" not in delta
     state = SessionState.model_validate(saved["session_state_v2"])
     assert state.last_result_ref == "search:partial"
-    assert db.messages.insert_message.await_count == 2
-    assert db.messages.insert_message.await_args_list[1].args[1] == "assistant"
+    assert db.session.insert_message.await_count == 2
+    assert db.session.insert_message.await_args_list[1].args[1] == "assistant"
     assert response.route_history[0]["route_id"] is None
 
 
@@ -130,8 +130,8 @@ async def test_message_only_partial_persists_assistant_without_route() -> None:
         response = await RuntimeAPI(
             db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
         ).handle(PublicAPIRequest(text="find it", locale="en"))
-    assert db.messages.insert_message.await_count == 2
-    assert db.messages.insert_message.await_args_list[1].args[1:] == (
+    assert db.session.insert_message.await_count == 2
+    assert db.session.insert_message.await_args_list[1].args[1:] == (
         "assistant",
         "Partial results are shown.",
         {"intent": "partial", "success": False},
@@ -142,8 +142,8 @@ async def test_message_only_partial_persists_assistant_without_route() -> None:
 async def test_blocked_turn_persists_assistant_refusal() -> None:
     db = _db()
     await _run_result(db, _blocked_result())
-    assert db.messages.insert_message.await_count == 2
-    assert db.messages.insert_message.await_args_list[1].args[1:] == (
+    assert db.session.insert_message.await_count == 2
+    assert db.session.insert_message.await_args_list[1].args[1:] == (
         "assistant",
         "Request blocked. Please rephrase it.",
         {"intent": "blocked", "success": False},

@@ -8,6 +8,10 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
+from animichi.infrastructure.supabase.repositories.session import (
+    MessageRow,
+    SessionRecord,
+)
 from animichi.interfaces.boundary.agent_models import (
     GetSessionHistoryResponse,
     GetSessionHistoryResponseMessagesResponse_data,
@@ -18,12 +22,12 @@ _AUTH_HEADERS = {"X-User-Id": "user-1", "X-User-Type": "authenticated"}
 
 
 def _message(created_at: str, *, role: str = "user", content: str = "x"):
-    return {
-        "role": role,
-        "content": content,
-        "response_data": None,
-        "created_at": created_at,
-    }
+    return MessageRow(
+        role=role,
+        content=content,
+        response_data=None,
+        created_at=created_at,
+    )
 
 
 def _assistant(
@@ -32,34 +36,34 @@ def _assistant(
     intent: str | None = "search_bangumi",
     success: bool | None = True,
 ):
-    return {
-        "role": "assistant",
-        "content": "ルートを作成しました。",
-        "response_data": {"intent": intent, "success": success},
-        "created_at": created_at,
-    }
+    return MessageRow(
+        role="assistant",
+        content="ルートを作成しました。",
+        response_data={"intent": intent, "success": success},
+        created_at=created_at,
+    )
+
+
+def _owned() -> SessionRecord:
+    return SessionRecord(session_id="s-1", user_id="user-1")
 
 
 async def test_revision_echoes_the_session_revision() -> None:
     db = build_stub_db()
-    db.session.get_conversation = AsyncMock(
-        return_value={"user_id": "user-1", "session_id": "s-1"}
-    )
-    db.turn_reservation.current_revision = AsyncMock(return_value=7)
+    db.session.load = AsyncMock(return_value=_owned())
+    db.session.current_revision = AsyncMock(return_value=7)
     app, _ = build_app(db=db)
     async with async_client(app) as client:
         resp = await client.get("/v1/conversations/s-1/messages", headers=_AUTH_HEADERS)
 
     assert resp.status_code == 200
     assert resp.json()["revision"] == 7
-    db.turn_reservation.current_revision.assert_awaited_once_with("s-1")
+    db.session.current_revision.assert_awaited_once_with("s-1")
 
 
 async def test_pagination_returns_next_offset_then_final_page() -> None:
     db = build_stub_db()
-    db.session.get_conversation = AsyncMock(
-        return_value={"user_id": "user-1", "session_id": "s-1"}
-    )
+    db.session.load = AsyncMock(return_value=_owned())
     rows = [
         _message("2026-08-01T09:00:00Z", content="m1"),
         _message("2026-08-01T10:00:00Z", content="m2"),
@@ -70,7 +74,7 @@ async def test_pagination_returns_next_offset_then_final_page() -> None:
         assert session_id == "s-1"
         return rows[offset : offset + limit]
 
-    db.messages.get_messages = AsyncMock(side_effect=page_rows)
+    db.session.get_messages = AsyncMock(side_effect=page_rows)
     app, _ = build_app(db=db)
     async with async_client(app) as client:
         first = await client.get(
@@ -112,10 +116,8 @@ async def test_pagination_bounds_are_enforced_by_the_route() -> None:
 
 async def test_next_offset_is_capped_at_the_route_ceiling() -> None:
     db = build_stub_db()
-    db.session.get_conversation = AsyncMock(
-        return_value={"user_id": "user-1", "session_id": "s-1"}
-    )
-    db.messages.get_messages = AsyncMock(
+    db.session.load = AsyncMock(return_value=_owned())
+    db.session.get_messages = AsyncMock(
         return_value=[_message(f"2026-08-01T{i:02d}:00:00Z") for i in range(11)]
     )
     app, _ = build_app(db=db)
@@ -127,20 +129,18 @@ async def test_next_offset_is_capped_at_the_route_ceiling() -> None:
 
     assert resp.status_code == 200
     assert resp.json()["next_offset"] is None
-    db.messages.get_messages.assert_awaited_once_with("s-1", limit=11, offset=995)
+    db.session.get_messages.assert_awaited_once_with("s-1", limit=11, offset=995)
 
 
 async def test_response_parses_as_the_generated_boundary() -> None:
     db = build_stub_db()
-    db.session.get_conversation = AsyncMock(
-        return_value={"user_id": "user-1", "session_id": "s-1"}
-    )
-    db.messages.get_messages = AsyncMock(
+    db.session.load = AsyncMock(return_value=_owned())
+    db.session.get_messages = AsyncMock(
         return_value=[
             _assistant("2026-08-01T12:00:00Z", intent="plan_route", success=True)
         ]
     )
-    db.turn_reservation.current_revision = AsyncMock(return_value=3)
+    db.session.current_revision = AsyncMock(return_value=3)
     app, _ = build_app(db=db)
     async with async_client(app) as client:
         resp = await client.get("/v1/conversations/s-1/messages", headers=_AUTH_HEADERS)

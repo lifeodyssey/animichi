@@ -30,11 +30,10 @@ def mock_db() -> MagicMock:
     pool.fetch = AsyncMock(return_value=[])
     db.pool = pool
     db.points.search_points_by_location = AsyncMock(return_value=[])
-    db.session.create_owned_session = AsyncMock()
+    db.session.create = AsyncMock()
     db.session.upsert_session = AsyncMock()
-    db.session.upsert_conversation = AsyncMock()
+    db.session.insert_message = AsyncMock()
     db.session.check_session_owner = AsyncMock(return_value=True)
-    db.session.update_conversation_title = AsyncMock()
     return db
 
 
@@ -52,9 +51,9 @@ class TestGreetingPersistence:
         _fake = make_run_agent_stub(result)
 
         db = MagicMock()
-        db.session.create_owned_session = AsyncMock()
+        db.session.create = AsyncMock()
         db.session.upsert_session = AsyncMock()
-        db.session.upsert_conversation = AsyncMock()
+        db.session.insert_message = AsyncMock()
         # #663: the real repo lives at `db.feedback`, not a flat
         # `db.insert_request_log` — that was the production bug.
         db.feedback.insert_request_log = AsyncMock()
@@ -80,7 +79,7 @@ class TestGreetingPersistence:
         session_store.get.assert_not_awaited()
         session_store.set.assert_awaited_once()
         db.session.upsert_session.assert_awaited_once()
-        db.session.upsert_conversation.assert_awaited_once()
+        db.session.insert_message.assert_awaited()
         db.feedback.insert_request_log.assert_awaited_once()
 
 

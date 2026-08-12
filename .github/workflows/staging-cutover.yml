@@ -1,0 +1,356 @@
+# SESSION-3 staging hard cut (issue #961).
+#
+# The CI-driven IaC state machine that owns the staging application-schema
+# cutover, exactly as documented in STAGING-CUTOVER.md phases C–F:
+#
+#   C close ingress (before any schema reset)      → close-ingress
+#   D re-verify retention absent + auth neon-only, → reset-schema
+#     reset application schema, apply the fresh
+#     chain, assert the retained manifest
+#   E deploy every consumer from ONE source_revision, → deploy-*/private-smoke
+#     private-smoke each consumer (ingress stays closed)
+#   F reopen ingress + verdict=complete               → reopen
+#
+# The job `needs` graph encodes the order; the order-contract test
+# (test_session3_staging_cutover.rb) fails closed if ingress reopens early,
+# retention remains executable, or any consumer deploys from a different
+# revision. Only this workflow mutates staging during the cut; it never
+# touches production (SAFE-1 pins the production entry points separately).
+#
+# `source_revision` is one full campaign commit SHA. Every phase re-checks the
+# current remote state rather than trusting an earlier job's success.
+
+name: staging-cutover
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_revision:
+        description: One full campaign commit SHA to deploy (cutover source)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-cutover
+  cancel-in-progress: false
+
+env:
+  SOURCE_REVISION: ${{ inputs.source_revision }}
+
+jobs:
+
+  cutover-phase-c-close-ingress:
+    name: C - close ingress
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    steps:
+      - name: Validate source_revision format
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
+      - name: Checkout the cutover source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.validate-revision.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record phase C starting
+        run: bash .github/scripts/cutover-state.sh record phase=c ingress=closing
+      - name: Close the IaC staging gate and probe closed ingress
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+        run: bash .github/scripts/cutover-close-ingress.sh "${SOURCE_REVISION}"
+      - name: Record phase C closed
+        run: bash .github/scripts/cutover-state.sh record phase=c ingress=closed
+
+  cutover-phase-d-reset-schema:
+    name: D - reset and apply fresh schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+    needs: cutover-phase-c-close-ingress
+    steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
+      - name: Checkout the cutover source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.validate-revision.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Re-verify retention absent and auth neon-only before reset
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          # Never trust an earlier job's success: current remote re-check.
+          bash .github/scripts/cutover-verify-prereqs.sh "retention_execution=absent" "auth_boundary=neon_only"
+          bash .github/scripts/cutover-state.sh record phase=d ingress=closed
+          bash .github/scripts/cutover-state.sh record phase=d retention_execution=absent
+          bash .github/scripts/cutover-state.sh record phase=d auth_boundary=neon_only
+      - name: Reset and apply the fresh schema chain
+        env:
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          bash .github/scripts/cutover-state.sh record phase=d application_schema=resetting
+          bash .github/scripts/cutover-reset-schema.sh "${SOURCE_REVISION}"
+          # Retained-surface manifest: every surface must survive the reset.
+          for table in public.sessions public.messages public.turn_reservations public.saved_routes public.saved_route_anime public.points public.bangumi public.locations public.location_aliases public.media_assets public.itinerary_snapshots public.daily_usage public.anon_daily_message_count public.request_log public.feedback public.agent_memory public.agent_memory_metadata public.agent_memory_operations public.ingest_jobs public.raw_anitabi public.raw_bangumi; do
+            bash .github/scripts/cutover-state.sh record phase=d retained_table="$table"
+          done
+          bash .github/scripts/cutover-state.sh record phase=d application_schema=fresh_applied
+
+  cutover-phase-e-deploy-catalog:
+    name: E1 - deploy catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    needs: cutover-phase-d-reset-schema
+    steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
+      - name: Checkout and verify the cutover source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.validate-revision.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Deploy catalog from source_revision
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}"
+          bash .github/scripts/cutover-deploy-consumer.sh catalog "${SOURCE_REVISION}"
+      - name: Record catalog deployed
+        run: bash .github/scripts/cutover-state.sh record phase=e catalog=deployed
+
+  cutover-phase-e-deploy-users:
+    name: E2 - deploy users
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    needs: [cutover-phase-d-reset-schema, cutover-phase-e-deploy-catalog]
+    steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
+      - name: Checkout and verify the cutover source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.validate-revision.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Deploy users from source_revision
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}"
+          bash .github/scripts/cutover-deploy-consumer.sh users "${SOURCE_REVISION}"
+      - name: Record users deployed
+        run: bash .github/scripts/cutover-state.sh record phase=e users=deployed
+
+  cutover-phase-e-deploy-agent:
+    name: E3 - deploy agent
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: staging
+    needs: [cutover-phase-d-reset-schema, cutover-phase-e-deploy-users]
+    steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
+      - name: Checkout and verify the cutover source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.validate-revision.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Deploy agent from source_revision
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}"
+          bash .github/scripts/cutover-deploy-consumer.sh agent "${SOURCE_REVISION}"
+      - name: Record agent deployed
+        run: bash .github/scripts/cutover-state.sh record phase=e agent=deployed
+
+  cutover-phase-e-deploy-web:
+    name: E4 - deploy web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    needs: cutover-phase-d-reset-schema
+    steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
+      - name: Checkout and verify the cutover source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.validate-revision.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Deploy web from source_revision
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}"
+          bash .github/scripts/cutover-deploy-consumer.sh web "${SOURCE_REVISION}"
+      - name: Record web deployed
+        run: bash .github/scripts/cutover-state.sh record phase=e web=deployed
+
+  cutover-phase-e-deploy-edge:
+    name: E5 - deploy edge routes last
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    needs: [cutover-phase-d-reset-schema, cutover-phase-e-deploy-agent, cutover-phase-e-deploy-web]
+    steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
+      - name: Checkout and verify the cutover source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.validate-revision.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Deploy edge routes from source_revision while ingress is closed
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}"
+          bash .github/scripts/cutover-deploy-consumer.sh edge "${SOURCE_REVISION}"
+      - name: Record edge deployed
+        run: bash .github/scripts/cutover-state.sh record phase=e edge=deployed
+
+  cutover-phase-e-private-smoke:
+    name: E6 - private smoke every consumer
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: staging
+    needs:
+      - cutover-phase-e-deploy-catalog
+      - cutover-phase-e-deploy-users
+      - cutover-phase-e-deploy-agent
+      - cutover-phase-e-deploy-web
+      - cutover-phase-e-deploy-edge
+    steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
+      - name: Checkout the cutover source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.validate-revision.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Run the private smoke suite
+        env:
+          STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bash .github/scripts/cutover-private-smoke.sh "${SOURCE_REVISION}"
+      - name: Record consumers smoked
+        run: bash .github/scripts/cutover-state.sh record phase=e consumers=smoked
+
+  cutover-phase-f-reopen:
+    name: F - reopen ingress and record verdict
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    needs: cutover-phase-e-private-smoke
+    steps:
+      - name: Validate source_revision format
+        id: validate-revision
+        run: |
+          if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "source_revision must be a full 40-char commit SHA" >&2
+            exit 1
+          fi
+          echo "revision=${SOURCE_REVISION}" >> "${GITHUB_OUTPUT}"
+      - name: Checkout the cutover source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.validate-revision.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reopen ingress, re-check retention, record verdict
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          bash .github/scripts/cutover-reopen.sh "${SOURCE_REVISION}"
+          bash .github/scripts/cutover-state.sh record phase=f verdict=complete

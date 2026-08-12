@@ -1,6 +1,6 @@
 """Conversation hydration contract tests.
 
-Validates that assistant responses persisted to conversation_messages
+Validates that assistant responses persisted to the sessions/messages tables
 can be correctly hydrated back into RuntimeResponse shape by the frontend.
 
 Uses FunctionModel (no real LLM) + real testcontainer DB to test the

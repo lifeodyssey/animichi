@@ -108,18 +108,20 @@ class _SessionRepo:
         session_id: str,
         session_state: dict[str, object],
         metadata: dict[str, object],
+        *,
+        user_id: str | None = None,
     ) -> None:
-        del session_id, session_state, metadata
+        del session_id, session_state, metadata, user_id
         return None
 
-    async def upsert_conversation(
-        self, session_id: str, user_id: str, first_query: str
+    async def create(
+        self,
+        session_id: str,
+        user_id: str,
+        first_query: str,
+        session_state: dict[str, object],
     ) -> None:
-        del session_id, user_id, first_query
-        return None
-
-    async def update_conversation_title(self, session_id: str, title: str) -> None:
-        del session_id, title
+        del session_id, user_id, first_query, session_state
         return None
 
 

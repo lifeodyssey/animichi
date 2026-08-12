@@ -4,10 +4,11 @@ The ``GET /v1/conversations/{id}/messages`` route publishes this use case as
 the generated ``GetSessionHistoryResponse`` boundary model. The use case is
 the ordering authority (stable ascending ``created_at``), the ownership check
 (missing and forbidden collapse to the same ``None``), and the pagination
-computation; ``SessionHistoryAdapter`` is the read-only port over the current
-Session/Message stores (conversations + conversation_messages +
-turn_reservations). No actor identifier and no message content is ever
-recorded — the route owns the outcome/count/revision/duration telemetry.
+computation; ``SessionHistoryAdapter`` is the read-only port over the sole
+Session aggregate repository (SESSION-3 #961): the ``sessions`` ownership
+row, the ordered ``messages`` transcript, and the ``turn_reservations``
+revision CAS. No actor identifier and no message content is ever recorded —
+the route owns the outcome/count/revision/duration telemetry.
 """
 
 from __future__ import annotations

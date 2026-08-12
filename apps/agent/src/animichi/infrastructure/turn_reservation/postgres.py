@@ -36,7 +36,8 @@ else:
 PoolConnection: TypeAlias = asyncpg.pool.PoolConnectionProxy
 
 _SESSION_STATE_SQL = "SELECT state FROM sessions WHERE id = $1"
-_SESSION_OWNER_SQL = "SELECT user_id FROM conversations WHERE session_id = $1 LIMIT 1"
+#: SESSION-3 (#961): ownership lives on the sole Session aggregate row.
+_SESSION_OWNER_SQL = "SELECT user_id FROM sessions WHERE id = $1 LIMIT 1"
 _CURRENT_REVISION_SQL = """
     SELECT COALESCE(MAX(revision), 0) AS revision
     FROM turn_reservations

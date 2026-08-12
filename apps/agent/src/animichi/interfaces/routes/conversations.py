@@ -33,43 +33,38 @@ def _unauthorized() -> JSONResponse:
     return _error_response("unauthorized", "Missing user identity.", status_code=401)
 
 
-def _as_text(value: object) -> str:
-    return str(value) if isinstance(value, str) else ""
-
-
 class SupabaseSessionHistoryAdapter:
-    """Concrete Session/Message adapter over the Supabase client (SESSION-1)."""
+    """Concrete Session/Message adapter over the sole Session repository
+    (SESSION-1 #959, migrated onto FinalSessionRepository by SESSION-3 #961)."""
 
     def __init__(self, db: SupabaseClient) -> None:
         self._session = db.session
-        self._messages = db.messages
-        self._revision = db.turn_reservation
 
     async def get_conversation(self, session_id: str) -> ConversationRow | None:
-        row = await self._session.get_conversation(session_id)
+        row = await self._session.load(session_id)
         if row is None:
             return None
         return ConversationRow(
-            user_id=_as_text(row.get("user_id")),
-            session_id=_as_text(row.get("session_id")),
+            user_id=row.user_id,
+            session_id=row.session_id,
         )
 
     async def get_messages(
         self, session_id: str, *, limit: int, offset: int
     ) -> list[SessionRow]:
-        rows = await self._messages.get_messages(session_id, limit=limit, offset=offset)
+        rows = await self._session.get_messages(session_id, limit=limit, offset=offset)
         return [
             SessionRow(
-                role=_as_text(row.get("role")),
-                content=_as_text(row.get("content")),
-                response_data=row.get("response_data"),
-                created_at=_as_text(row.get("created_at")),
+                role=row.role,
+                content=row.content,
+                response_data=row.response_data,
+                created_at=row.created_at,
             )
             for row in rows
         ]
 
     async def current_revision(self, session_id: str) -> int:
-        return await self._revision.current_revision(session_id)
+        return await self._session.current_revision(session_id)
 
 
 @router.get("/conversations")
@@ -80,8 +75,8 @@ async def handle_get_conversations(
     if auth.user_id is None:
         return _unauthorized()
     db = _require_supabase(_get_db_from_request(request))
-    conversations_obj: object = await db.session.get_conversations(auth.user_id)
-    return _json_response(conversations_obj)
+    sessions_obj: object = await db.session.list_sessions(auth.user_id)
+    return _json_response(sessions_obj)
 
 
 @router.patch("/conversations/{session_id}")
@@ -94,17 +89,14 @@ async def handle_patch_conversation(
     if auth.user_id is None:
         return _unauthorized()
     db = _require_supabase(_get_db_from_request(request))
-    conversation_obj: object = await db.session.get_conversation(session_id)
-    conversation = conversation_obj if isinstance(conversation_obj, dict) else None
-    if conversation is None or conversation.get("user_id") != auth.user_id:
+    record = await db.session.load(session_id)
+    if record is None or record.user_id != auth.user_id:
         return _error_response(
             "not_found",
             "Conversation not found.",
             status_code=404,
         )
-    await db.session.update_conversation_title(
-        session_id, payload.title, user_id=auth.user_id
-    )
+    await db.session.update_title(session_id, payload.title, user_id=auth.user_id)
     return _json_response({"ok": True})
 
 

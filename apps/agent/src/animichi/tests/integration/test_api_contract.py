@@ -125,15 +125,15 @@ def _mock_runtime_api(
 
 
 async def _seed_conversation(
-    db: SupabaseClient, session_id: str, user_id: str, first_query: str = "test"
+    db: SupabaseClient, session_id: str, user_id: str, first_query: str = "hi"
 ) -> None:
-    """Insert a conversation row for tests that need one."""
+    """Insert a session row for tests that need one."""
     pool = db.pool
     await pool.execute(
         """
-        INSERT INTO conversations (session_id, user_id, first_query)
+        INSERT INTO sessions (id, user_id, first_query)
         VALUES ($1, $2, $3)
-        ON CONFLICT (session_id) DO NOTHING
+        ON CONFLICT (id) DO NOTHING
         """,
         session_id,
         user_id,
@@ -148,7 +148,7 @@ async def _seed_message(
     pool = db.pool
     await pool.execute(
         """
-        INSERT INTO conversation_messages (session_id, role, content)
+        INSERT INTO messages (session_id, role, content)
         VALUES ($1, $2, $3)
         """,
         session_id,
@@ -160,10 +160,8 @@ async def _seed_message(
 async def _cleanup_test_data(db: SupabaseClient) -> None:
     """Remove test-inserted rows to preserve isolation."""
     pool = db.pool
-    await pool.execute(
-        "DELETE FROM conversation_messages WHERE session_id LIKE 'sess-%'"
-    )
-    await pool.execute("DELETE FROM conversations WHERE session_id LIKE 'sess-%'")
+    await pool.execute("DELETE FROM messages WHERE session_id LIKE 'sess-%'")
+    await pool.execute("DELETE FROM sessions WHERE id LIKE 'sess-%'")
     await pool.execute(
         "DELETE FROM feedback WHERE query_text IN ('京吹', 'test', '  ')"
     )

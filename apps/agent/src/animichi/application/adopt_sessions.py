@@ -2,9 +2,10 @@
 
 On login, every session belonging to the calling browser's anonymous identity
 is re-pointed to the real user with a single identity-dimensional
-``UPDATE conversations SET user_id = $to WHERE user_id = $from_anon`` — not
-scoped to any one ``session_id``, so a browser with multiple anonymous
-sessions adopts all of them in one call.
+``UPDATE sessions SET user_id = $to WHERE user_id = $from_anon`` (SESSION-3
+#961: ownership lives on the sole Session aggregate row) — not scoped to any
+one ``session_id``, so a browser with multiple anonymous sessions adopts all
+of them in one call.
 
 Unlike the legacy migration, adoption also bumps each adopted session's
 revision so pre-adoption anonymous capabilities (turn reservations, session

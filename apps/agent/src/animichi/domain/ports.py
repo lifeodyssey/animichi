@@ -87,9 +87,15 @@ class CatalogLookup(Protocol):
 
 
 class SessionRepo(Protocol):
-    """Session-related DB operations used by persistence helpers."""
+    """Session-related DB operations used by persistence helpers.
 
-    async def create_owned_session(
+    SESSION-3 (#961): the sole Session aggregate repository. ``create``
+    inserts the aggregate row (state, ownership, first_query); ``upsert_session``
+    commits state + metadata while recording the owner; ownership checks read
+    the aggregate itself.
+    """
+
+    async def create(
         self,
         session_id: str,
         user_id: str,
@@ -103,20 +109,6 @@ class SessionRepo(Protocol):
         session_state: dict[str, object],
         *,
         metadata: dict[str, object] | None = None,
-    ) -> None: ...
-
-    async def upsert_conversation(
-        self,
-        session_id: str,
-        user_id: str,
-        text: str,
-    ) -> None: ...
-
-    async def update_conversation_title(
-        self,
-        session_id: str,
-        title: str,
-        *,
         user_id: str | None = None,
     ) -> None: ...
 
@@ -159,10 +151,10 @@ class AnonQuotaCounter(Protocol):
 class ConversationLog(Protocol):
     """Chat message persistence used by ``persistence.persist_messages``.
 
-    New protocol (iter6 C4 / issue #663): the fourth positional parameter is
-    named ``response_data`` to mirror the real implementation
-    (``MessagesRepository.insert_message``), not the ``data`` name a stale
-    prior design draft used.
+    SESSION-3 (#961): implemented by the sole Session aggregate repository
+    (``FinalSessionRepository.insert_message``). The fourth positional
+    parameter is named ``response_data`` to mirror the real implementation,
+    not the ``data`` name a stale prior design draft used.
     """
 
     async def insert_message(

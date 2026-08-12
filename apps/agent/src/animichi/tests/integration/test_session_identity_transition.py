@@ -22,7 +22,7 @@ def _anon_id() -> str:
 async def _seed_session(
     db: SupabaseClient, session_id: str, user_id: str, query: str = "hello"
 ) -> None:
-    await db.session.create_owned_session(session_id, user_id, query, {"k": "v"})
+    await db.session.create(session_id, user_id, query, {"k": "v"})
 
 
 @pytest.mark.integration
@@ -32,22 +32,20 @@ async def test_adoption_moves_ownership_and_preserves_content(real_db) -> None:
     anon = _anon_id()
     session_id = f"sess-{uuid.uuid4().hex}"
     await _seed_session(real_db, session_id, anon, "君の名はの聖地は？")
-    await real_db.messages.insert_message(session_id, "user", "君の名はの聖地は？")
-    await real_db.messages.insert_message(
-        session_id, "assistant", "3件見つかりました。"
-    )
-    messages_before = await real_db.messages.get_messages(session_id)
+    await real_db.session.insert_message(session_id, "user", "君の名はの聖地は？")
+    await real_db.session.insert_message(session_id, "assistant", "3件見つかりました。")
+    messages_before = await real_db.session.get_messages(session_id)
 
     result = await real_db.session.adopt_ownership(anon, "real-user-1")
     assert result.adopted_count == 1
     assert result.revisions_bumped == 1
 
-    conversation = await real_db.session.get_conversation(session_id)
-    assert conversation is not None
-    assert conversation["user_id"] == "real-user-1"
+    record = await real_db.session.load(session_id)
+    assert record is not None
+    assert record.user_id == "real-user-1"
     state = await real_db.session.get_session_state(session_id)
     assert state == {"k": "v"}
-    messages_after = await real_db.messages.get_messages(session_id)
+    messages_after = await real_db.session.get_messages(session_id)
     assert messages_after == messages_before
     assert len(messages_after) == 2
 
@@ -66,10 +64,12 @@ async def test_adoption_moves_every_session_for_the_same_anon_identity(
     assert result.adopted_count == 2
     assert result.revisions_bumped == 2
 
-    conv_a = await real_db.session.get_conversation(session_a)
-    conv_b = await real_db.session.get_conversation(session_b)
-    assert conv_a["user_id"] == "real-user-2"
-    assert conv_b["user_id"] == "real-user-2"
+    sess_a = await real_db.session.load(session_a)
+    sess_b = await real_db.session.load(session_b)
+    assert sess_a is not None
+    assert sess_a.user_id == "real-user-2"
+    assert sess_b is not None
+    assert sess_b.user_id == "real-user-2"
 
 
 @pytest.mark.integration
@@ -101,8 +101,9 @@ async def test_replay_adoption_is_a_no_op_and_bumps_nothing(real_db) -> None:
     assert first.revisions_bumped == 1
     assert second.adopted_count == 0
     assert second.revisions_bumped == 0
-    conversation = await real_db.session.get_conversation(session_id)
-    assert conversation["user_id"] == "real-user-4"
+    record = await real_db.session.load(session_id)
+    assert record is not None
+    assert record.user_id == "real-user-4"
 
 
 @pytest.mark.integration
