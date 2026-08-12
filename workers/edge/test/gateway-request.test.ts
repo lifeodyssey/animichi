@@ -1,0 +1,158 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createWorkerApp } from "../src/app.ts";
+import { fakeGuard } from "./doubles/guard-doubles.ts";
+
+// EDGE-1 #963 composed-seam tests: HandleGatewayRequest runs identity,
+// protection, route selection, internal-identity construction, and
+// forwarding in that order. These pin the composition itself — the order
+// guards run relative to forwarding, upstream-failure pass-through, and
+// disconnect (SSE) pass-through — at the seam, not inside any one adapter.
+
+const NOW = Date.UTC(2026, 7, 12, 12, 0, 0);
+
+const stubCtx = {
+  waitUntil(promise: Promise<unknown>) { void promise; },
+  passThroughOnException() { return undefined; },
+} as unknown as ExecutionContext;
+
+function recordingContainer(events: string[], body: Response = new Response("container")) {
+  return {
+    idFromName: () => "id",
+    get: () => ({
+      fetch: () => { events.push("container"); return Promise.resolve(body); },
+    }),
+  };
+}
+
+function authedApp() {
+  return createWorkerApp({
+    authenticate: () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const),
+  });
+}
+
+const POST = { method: "POST", headers: { Authorization: "Bearer jwt" } };
+
+void test("the authenticated limiter runs BEFORE the container — a denied request never forwards", async () => {
+  const events: string[] = [];
+  const guard = fakeGuard(NOW);
+  const env = {
+    EDGE_GUARD: guard.namespace,
+    EDGE_SHOWCASE_MODE: "false",
+    AUTH_RATE_LIMIT: "1",
+    CONTAINER: recordingContainer(events),
+  } as never;
+  const app = authedApp();
+  const first = await app.request("/v1/chat", POST, env, stubCtx);
+  assert.equal(first.status, 200, "the first request spends the one-request window");
+  const denied = await app.request("/v1/chat", POST, env, stubCtx);
+  assert.equal(denied.status, 429);
+  assert.equal(guard.calls.length, 2, "the limiter shard must be consulted for every request");
+  assert.equal(events.length, 1, "forwarding before guards is the rollback mutation — a denied request must not reach the container");
+});
+
+void test("the anonymous pipeline consults turnstile, limiter, budget, then container, in order", async () => {
+  const sequence: string[] = [];
+  const guard = fakeGuard(NOW);
+  const guardNamespace = {
+    idFromName: (name: string) => guard.namespace.idFromName(name),
+    get: (id: DurableObjectId) => ({
+      fetch: (request: Request) => {
+        sequence.push(`guard:${new URL(request.url).pathname}`);
+        return guard.namespace.get(id).fetch(request);
+      },
+    }),
+  };
+  const gate = {
+    check: () => { sequence.push("turnstile"); return Promise.resolve({ ok: true, errorCodes: [] }); },
+  };
+  const app = createWorkerApp({
+    authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
+    turnstileGate: gate,
+  });
+  const env = {
+    ANON_ACCESS_ENABLED: "true",
+    ANON_ID_SECRET: "fixed-test-hmac-key-0000000000000000",
+    TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
+    EDGE_SHOWCASE_MODE: "false",
+    EDGE_GUARD: guardNamespace,
+    CONTAINER: recordingContainer(sequence),
+  } as never;
+  const res = await app.request("/v1/chat", { method: "POST" }, env, stubCtx);
+  assert.equal(res.status, 200);
+  assert.deepEqual(sequence, ["turnstile", "guard:/rate-limit", "guard:/budget", "container"]);
+});
+
+void test("an upstream container failure passes through unchanged", async () => {
+  const env = {
+    EDGE_GUARD: fakeGuard(NOW).namespace,
+    EDGE_SHOWCASE_MODE: "false",
+    CONTAINER: recordingContainer([], new Response("boom", { status: 503 })),
+  } as never;
+  const res = await authedApp().request("/v1/chat", POST, env, stubCtx);
+  assert.equal(res.status, 503);
+  assert.equal(await res.text(), "boom");
+});
+
+void test("a catalog 5xx passes through unchanged on the public overview", async () => {
+  const app = createWorkerApp({});
+  const env = {
+    EDGE_SHOWCASE_MODE: "false",
+    CATALOG: { fetch: () => Promise.resolve(new Response("catalog down", { status: 502 })) },
+  } as never;
+  const res = await app.request("/catalog/public/anime-overview/3302", {}, env, stubCtx);
+  assert.equal(res.status, 502);
+  assert.equal(await res.text(), "catalog down");
+});
+
+void test("a still-open container stream is passed through without draining (disconnect)", async () => {
+  let release: (() => void) | undefined;
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode("data: first\n\n"));
+      release = () => { controller.close(); };
+    },
+  });
+  const env = {
+    EDGE_GUARD: fakeGuard(NOW).namespace,
+    EDGE_SHOWCASE_MODE: "false",
+    CONTAINER: {
+      idFromName: () => "id",
+      get: () => ({
+        fetch: () =>
+          Promise.resolve(new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } })),
+      }),
+    },
+  } as never;
+  const response = await Promise.race([
+    authedApp().fetch(new Request("https://animichi.test/v1/chat", POST), env, stubCtx),
+    new Promise<"drained">((resolve) => { setTimeout(() => { resolve("drained"); }, 1_000); }),
+  ]);
+  assert.notEqual(response, "drained", "the seam drained the stream instead of handing it back");
+  assert.equal((response as Response).status, 200);
+  release?.();
+});
+
+void test("the seam records class, status and duration, never identity material", async () => {
+  const warnings: string[] = [];
+  const original = console.warn;
+  console.warn = (line: unknown) => { warnings.push(String(line)); };
+  try {
+    const env = {
+      EDGE_GUARD: fakeGuard(NOW).namespace,
+      EDGE_SHOWCASE_MODE: "false",
+      CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
+    } as never;
+    await authedApp().request("/v1/chat", POST, env, stubCtx);
+  } finally {
+    console.warn = original;
+  }
+  const record = JSON.parse(warnings[0] ?? "") as Record<string, unknown>;
+  assert.equal(record.event, "edge_gateway_request");
+  assert.equal(record.class, "v1");
+  assert.equal(record.status, 200);
+  assert.equal(typeof record.duration_ms, "number");
+  assert.equal("userId" in record, false);
+  assert.equal("Authorization" in record, false);
+  assert.equal("path" in record, false);
+});

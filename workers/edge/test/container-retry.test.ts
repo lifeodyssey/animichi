@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
+import { stubCtx } from "../src/container/entry-env.ts";
 
 const NOT_RUNNING_BODY = "The container is not running, consider calling start()";
 
@@ -41,7 +42,7 @@ void test("a not-running 500 is retried with 400/800ms backoff and the eventual 
     () => Promise.resolve(new Response("ok")),
   ]);
 
-  const res = await app.request("/healthz", {}, env);
+  const res = await app.request("/healthz", {}, env, stubCtx);
 
   assert.equal(res.status, 200);
   assert.equal(await res.text(), "ok");
@@ -57,7 +58,7 @@ void test("a persistently not-running container returns the final 500 unchanged 
     () => Promise.resolve(new Response(NOT_RUNNING_BODY, { status: 500 })),
   ]);
 
-  const res = await app.request("/healthz", {}, env);
+  const res = await app.request("/healthz", {}, env, stubCtx);
 
   assert.equal(res.status, 500);
   assert.equal(await res.text(), NOT_RUNNING_BODY);
@@ -73,7 +74,7 @@ void test("a thrown not-running fetch error is retried like the 500 body", async
     () => Promise.resolve(new Response("ok")),
   ]);
 
-  const res = await app.request("/healthz", {}, env);
+  const res = await app.request("/healthz", {}, env, stubCtx);
 
   assert.equal(res.status, 200);
   assert.equal(await res.text(), "ok");
@@ -85,7 +86,7 @@ void test("a plain 500 is returned immediately without retrying", async () => {
   const app = createWorkerApp({ sleep: instantSleep(sleeps) });
   const env = notRunningEnv([() => Promise.resolve(new Response("boom", { status: 500 }))]);
 
-  const res = await app.request("/healthz", {}, env);
+  const res = await app.request("/healthz", {}, env, stubCtx);
 
   assert.equal(res.status, 500);
   assert.equal(await res.text(), "boom");
@@ -97,7 +98,7 @@ void test("a non-not-running fetch error passes through without retry", async ()
   const app = createWorkerApp({ sleep: instantSleep(sleeps) });
   const env = notRunningEnv([() => Promise.reject(new Error("disk full"))]);
 
-  const res = await app.request("/healthz", {}, env);
+  const res = await app.request("/healthz", {}, env, stubCtx);
 
   assert.equal(res.status, 500);
   assert.equal(await res.text(), "Internal Server Error");

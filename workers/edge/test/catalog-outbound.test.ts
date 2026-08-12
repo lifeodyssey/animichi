@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { catalogOutbound } from "../src/app.ts";
+import { catalogOutbound } from "../src/gateway/forward.ts";
 import { CATALOG_OUTBOUND_ALLOWLIST } from "../src/gateway/catalog-policy.ts";
 
 const EXPECTED_CATALOG_CALLS = [

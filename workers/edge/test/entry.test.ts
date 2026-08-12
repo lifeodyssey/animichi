@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWorkerApp, catalogOutbound } from "../src/app.ts";
+import { createWorkerApp } from "../src/app.ts";
+import { catalogOutbound } from "../src/gateway/forward.ts";
 import { envWithCatalog, stubCtx } from "../src/container/entry-env.ts";
 
 void test("GET /healthz reaches the container, not OpenNext", async () => {
@@ -12,7 +13,7 @@ void test("GET /healthz reaches the container, not OpenNext", async () => {
       get: () => ({ fetch: () => { wasContainerHit = true; return Promise.resolve(new Response("ok")); } }),
     },
   };
-  const res = await app.request("/healthz", {}, env);
+  const res = await app.request("/healthz", {}, env, stubCtx);
   assert.equal(wasContainerHit, true);
   assert.equal(await res.text(), "ok");
 });

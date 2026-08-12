@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWorkerApp, type Env } from "../src/app.ts";
+import { createWorkerApp } from "../src/app.ts";
+import type { Env } from "../src/env.ts";
 
 // #284 Task 5 / #479 P1 review follow-up (Fable): T5-AC5 — "an
 // unauthenticated POST /v1/byok/probe is rejected with 401 at the edge, and

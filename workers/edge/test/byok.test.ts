@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWorkerApp, type Env } from "../src/app.ts";
+import { createWorkerApp } from "../src/app.ts";
+import type { Env } from "../src/env.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 import { stubCtx } from "../src/container/entry-env.ts";
 
 // Task 9 (#284): per-identity rate limiting on the authenticated /v1/* path,
-// scoped to cost-bearing routes only (chat, byok/probe, runtime*) — not
+// scoped to cost-bearing routes only (chat, byok/probe) — not
 // every authenticated route. Previously no limiter ran here at all; BYOK
 // makes that unbounded. Reads are deliberately NOT counted — see below.
 
@@ -119,16 +120,6 @@ void test("an authenticated read (GET /v1/conversations et al) never consumes th
   }
   const res = await app.request("/v1/chat", req("/v1/chat"), e, stubCtx);
   assert.equal(res.status, 200, "reads must not have spent the one-request /v1/chat window");
-});
-
-// legacy /v1/runtime + /v1/runtime/stream run a full agent turn on the house
-// key (same cost shape as /v1/chat) — Fable's follow-up finding.
-void test("/v1/runtime shares the /v1/chat window (same cost shape, same branch)", async () => {
-  const e = env(fakeGuard(NOW).namespace, { AUTH_RATE_LIMIT: "1" });
-  const app = authedApp();
-  await app.request("/v1/runtime", req("/v1/runtime"), e, stubCtx);
-  const res = await app.request("/v1/chat", req("/v1/chat"), e, stubCtx);
-  assert.equal(res.status, 429, "runtime and chat must share one identity's window");
 });
 
 // ── AC4: fail-open on EVERY guard-outage shape, not just a 500 ─────────────
