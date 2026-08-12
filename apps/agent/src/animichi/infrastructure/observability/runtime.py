@@ -47,6 +47,15 @@ _adoption_duration = logfire.metric_histogram(
     unit="ms",
     description="Session adoption duration in milliseconds.",
 )
+_feedback_requests = logfire.metric_counter(
+    "feedback_requests_total",
+    description="Feedback submissions recorded with rating class, ownership, and outcome.",
+)
+_feedback_duration = logfire.metric_histogram(
+    "feedback_request_duration_ms",
+    unit="ms",
+    description="Feedback submission duration in milliseconds.",
+)
 
 
 def runtime_span(name: str) -> logfire.LogfireSpan:
@@ -141,3 +150,24 @@ def record_adoption_request(
     }
     _adoption_requests.add(1, attributes)
     _adoption_duration.record(duration_ms, attributes)
+
+
+def record_feedback_request(
+    *,
+    duration_ms: float,
+    rating_class: str,
+    ownership: str,
+    outcome: str,
+) -> None:
+    """Record one feedback submission (AGENT-3 #962 telemetry).
+
+    Rating class, ownership class, and outcome only — never the feedback
+    text, an actor identifier, or a Session identifier.
+    """
+    attributes: dict[str, str | int] = {
+        "rating_class": rating_class,
+        "ownership": ownership,
+        "outcome": outcome,
+    }
+    _feedback_requests.add(1, attributes)
+    _feedback_duration.record(duration_ms, attributes)
