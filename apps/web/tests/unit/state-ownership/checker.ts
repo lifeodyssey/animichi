@@ -19,13 +19,17 @@
  */
 
 import {
+  type DynamicImportArg,
   type ImportEdge,
   type Layer,
+  type SourceLang,
+  dynamicImportArgs,
   featureNameOf,
   importEdges,
   layerOf,
   readSource,
   resolveImportTarget,
+  sourceLangOf,
   walkSourceFiles,
   withoutComments,
   withoutExtension,
@@ -86,18 +90,12 @@ export const STORAGE_ADAPTERS: readonly string[] = [
 
 const RUNTIME_PACKAGE_IMPORTS = ["@orpc/client", "@orpc/openapi-client"];
 
-/** Static transport-package matchers: the root package or any of its
- * `/`-subpaths, inside quotes. The two packages are a fixed allowlist, so the
- * patterns are literals — no specifier is ever interpolated into a regex.
- * Shared globals are only driven through fully-consumed `matchAll`, which
- * resets `lastIndex`, so reuse across sources is safe. */
+/** Static transport-package matchers: the root or any `/`-subpath, inside
+ * quotes. A fixed allowlist — no specifier is ever interpolated into a regex. */
 const ORPC_CLIENT_FROM_RE = /import\s+([^;]*?)\s+from\s+["']@orpc\/client(?:\/[^"']*)?["']/gu;
 const ORPC_OPENAPI_FROM_RE = /import\s+([^;]*?)\s+from\s+["']@orpc\/openapi-client(?:\/[^"']*)?["']/gu;
 const ORPC_CLIENT_SIDE_EFFECT_RE = /import\s+["']@orpc\/client(?:\/[^"']*)?["']/gu;
 const ORPC_OPENAPI_SIDE_EFFECT_RE = /import\s+["']@orpc\/openapi-client(?:\/[^"']*)?["']/gu;
-const ORPC_CLIENT_DYNAMIC_RE = /import\s*\(\s*["']@orpc\/client(?:\/[^"']*)?["']\s*\)/gu;
-const ORPC_OPENAPI_DYNAMIC_RE = /import\s*\(\s*["']@orpc\/openapi-client(?:\/[^"']*)?["']\s*\)/gu;
-
 /** Clause of every static `import ... from "<specifier-or-subpath>"` statement
  * in `source`. */
 function fromClauses(source: string, specifier: string): readonly string[] {
@@ -144,18 +142,31 @@ function hasImportForm(source: string, pattern: RegExp): boolean {
   return [...source.matchAll(pattern)].length > 0;
 }
 
+/** Violating forms from every static `from`-clause of a transport package. */
+function fromClauseForms(source: string, specifier: string): readonly string[] {
+  return fromClauses(source, specifier)
+    .map((clause) => clauseViolation(clause))
+    .filter((violation): violation is string => violation !== undefined);
+}
+
+/** A dynamic-import argument of the package (root or `/`-subpath), quoted or
+ * template-literal; a fully dynamic argument is never guessed. */
+function transportArgIsPackage(arg: DynamicImportArg, specifier: string): boolean {
+  return arg.head === specifier || arg.head.startsWith(`${specifier}/`);
+}
+
+/** Any dynamic-import form of the package — quoted or template-literal. */
+function hasDynamicTransportImport(source: string, specifier: string, lang: SourceLang): boolean {
+  return dynamicImportArgs(source, lang).some((arg) => transportArgIsPackage(arg, specifier));
+}
+
 /** The violating runtime import forms of a transport package (exact or
  * subpath, static or dynamic) in `source`. */
-function transportImportForms(source: string, specifier: string): readonly string[] {
-  const forms: string[] = [];
-  for (const clause of fromClauses(source, specifier)) {
-    const violation = clauseViolation(clause);
-    if (violation !== undefined) forms.push(violation);
-  }
+function transportImportForms(source: string, specifier: string, lang: SourceLang): readonly string[] {
+  const forms: string[] = [...fromClauseForms(source, specifier)];
   const sideEffect = specifier === "@orpc/client" ? ORPC_CLIENT_SIDE_EFFECT_RE : ORPC_OPENAPI_SIDE_EFFECT_RE;
-  const dynamic = specifier === "@orpc/client" ? ORPC_CLIENT_DYNAMIC_RE : ORPC_OPENAPI_DYNAMIC_RE;
   if (hasImportForm(source, sideEffect)) forms.push("side-effect");
-  if (hasImportForm(source, dynamic)) forms.push("dynamic");
+  if (hasDynamicTransportImport(source, specifier, lang)) forms.push("dynamic");
   return forms;
 }
 
@@ -163,9 +174,10 @@ function transportImportForms(source: string, specifier: string): readonly strin
  * import or a runtime named import whose sole member is `ORPCError`. */
 export function transportViolations(file: string, source: string): readonly string[] {
   if (layerOf(file) !== "ui") return [];
+  const lang = sourceLangOf(file);
   const violations: string[] = [];
   for (const specifier of RUNTIME_PACKAGE_IMPORTS) {
-    if (transportImportForms(source, specifier).length > 0) {
+    if (transportImportForms(source, specifier, lang).length > 0) {
       violations.push(`${file}: ui imports transport package ${specifier}`);
     }
   }
@@ -213,7 +225,7 @@ function edgeViolations(file: string, source: string, allowlist: readonly string
   const from = layerOf(file);
   if (from === undefined) return [];
   const violations: string[] = [];
-  for (const edge of importEdges(source)) {
+  for (const edge of importEdges(source, sourceLangOf(file))) {
     const message = edgeViolation(file, from, edge, allowlist);
     if (message !== undefined) violations.push(message);
   }

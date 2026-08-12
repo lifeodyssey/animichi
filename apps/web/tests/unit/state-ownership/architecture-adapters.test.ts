@@ -119,3 +119,46 @@ describe("AC2 transport gate: every other import form is rejected", () => {
     ]);
   });
 });
+
+describe("AC2 transport gate: template-literal dynamic imports are rejected", () => {
+  const UI_FILE = "components/TransportProbe.tsx";
+
+  it("rejects a static template-literal dynamic import of a transport package", () => {
+    expect(transportViolations(UI_FILE, "const client = import(`@orpc/client`);")).toEqual([
+      "components/TransportProbe.tsx: ui imports transport package @orpc/client",
+    ]);
+    expect(transportViolations(UI_FILE, "const link = import(`@orpc/openapi-client/fetch`);")).toEqual([
+      "components/TransportProbe.tsx: ui imports transport package @orpc/openapi-client",
+    ]);
+  });
+
+  it("rejects an interpolated template-literal dynamic import whose static head is the package root", () => {
+    expect(transportViolations(UI_FILE, "const client = import(`@orpc/client/${subpath}`);")).toEqual([
+      "components/TransportProbe.tsx: ui imports transport package @orpc/client",
+    ]);
+  });
+
+  it("does not guess an unrelated interpolated dynamic import is the transport package", () => {
+    expect(transportViolations(UI_FILE, "const client = import(`@orpc/${pkg}`);")).toEqual([]);
+  });
+
+  it("does not guess a fully dynamic identifier import is the transport package", () => {
+    expect(transportViolations(UI_FILE, "const client = import(clientFactory);")).toEqual([]);
+  });
+
+  it("ignores transport-looking text inside a comment, a string, and a template literal", () => {
+    const source = [
+      "// import(\"@orpc/client\")",
+      "const s = 'import(\"@orpc/client\")';",
+      "const t = `import(\"@orpc/openapi-client\")`;",
+    ].join("\n");
+    expect(transportViolations(UI_FILE, source)).toEqual([]);
+  });
+
+  it("a TS generic arrow does not hide a dynamic transport import in a .ts UI file", () => {
+    const source = 'const id = <T>(value: T) => value;\nconst client = import("@orpc/client");';
+    expect(transportViolations("components/TransportProbe.ts", source)).toEqual([
+      "components/TransportProbe.ts: ui imports transport package @orpc/client",
+    ]);
+  });
+});

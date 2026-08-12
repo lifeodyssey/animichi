@@ -21,7 +21,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MAP_PRIMITIVE_EDGES, SHARED_UI_FEATURE, dependencyViolations } from "./checker";
-import { importEdges, layerOf, resolveImportTarget, srcRoot, walkSourceFiles, withoutExtension } from "./scan";
+import { importEdges, layerOf, resolveImportTarget, sourceLangOf, srcRoot, walkSourceFiles, withoutExtension } from "./scan";
 
 const SRC = srcRoot();
 const FIXED_NOW = 1_750_000_000_000;
@@ -66,7 +66,7 @@ describe("AC1: import boundaries enforce UI → feature → API/platform", () =>
   it("chat feature files never import from components/ (no feature→ui reverse-edge allowlist)", () => {
     const chatFiles = walkSourceFiles(SRC).filter((file) => file.startsWith("features/chat/"));
     const uiTargets = chatFiles.flatMap((file) =>
-      importEdges(readFileSync(`${SRC}/${file}`, "utf8"))
+      importEdges(readFileSync(`${SRC}/${file}`, "utf8"), sourceLangOf(file))
         .filter((edge) => !edge.typeOnly)
         .map((edge) => withoutExtension(resolveImportTarget(file, edge.specifier)))
         .filter((target) => target.startsWith("components/")),
@@ -86,7 +86,7 @@ describe("AC1: the auth UI boundary is feature-owned, not chat-owned", () => {
       ]),
     );
     const retiredEdges = walkSourceFiles(SRC).flatMap((file) =>
-      importEdges(readFileSync(`${SRC}/${file}`, "utf8"))
+      importEdges(readFileSync(`${SRC}/${file}`, "utf8"), sourceLangOf(file))
         .map((edge) => resolveImportTarget(file, edge.specifier))
         .filter((target) => target.startsWith("features/chat/components/auth/")),
     );
@@ -131,5 +131,66 @@ describe("checker plumbing", () => {
     const edges = importEdges(source);
     expect(edges[0]).toMatchObject({ specifier: "./bundle", typeOnly: false });
     expect(edges[1]).toMatchObject({ specifier: "./errors", typeOnly: false });
+  });
+});
+
+describe("checker plumbing: static dynamic imports", () => {
+  it("parses static dynamic imports of relative specifiers as runtime edges", () => {
+    const source = 'import type { T } from "../types";\nconst map = import("../components/Map");';
+    expect(importEdges(source)).toEqual([
+      { specifier: "../types", typeOnly: true },
+      { specifier: "../components/Map", typeOnly: false },
+    ]);
+  });
+
+  it("ignores non-relative dynamic imports — package edges, not layer edges", () => {
+    const source = 'const query = import("@tanstack/react-query");\nimport "./styles.css";';
+    const edges = importEdges(source);
+    expect(edges.map((edge) => edge.specifier)).toEqual(["./styles.css"]);
+  });
+
+  it("ignores relative dynamic-import text inside a comment and a string literal", () => {
+    const source = `// import("../components/Map")
+const s = 'import("../components/Map")';`;
+    expect(importEdges(source)).toEqual([]);
+  });
+
+  it("does not treat a template-literal dynamic import as an edge", () => {
+    const source = 'const map = import(`../components/${name}`);\nconst plain = import(`./x`);';
+    expect(importEdges(source)).toEqual([]);
+  });
+
+  it("resolves static dynamic imports against the importing file", () => {
+    const source = 'const controller = import("./bubble-map-controller");';
+    const specifier = importEdges(source)[0]?.specifier ?? "";
+    expect(resolveImportTarget("features/chat/components/ChatPage.tsx", specifier)).toBe(
+      "features/chat/components/bubble-map-controller",
+    );
+  });
+});
+
+describe("checker plumbing: parser dialect selection", () => {
+  it("maps real file extensions to their parse dialects", () => {
+    expect(sourceLangOf("routes/chat.tsx")).toBe("tsx");
+    expect(sourceLangOf("lib/auth/session.ts")).toBe("ts");
+  });
+
+  it("a TS generic arrow never hides a following relative dynamic import", () => {
+    const source = 'const id = <T>(value: T) => value;\nconst map = import("../components/Map");';
+    expect(importEdges(source)).toEqual([{ specifier: "../components/Map", typeOnly: false }]);
+    expect(importEdges(source, sourceLangOf("features/chat/lib/snippet.ts"))).toEqual([
+      { specifier: "../components/Map", typeOnly: false },
+    ]);
+  });
+
+  it("the real .tsx checker path parses JSX without dropping dynamic imports", () => {
+    const source = 'const el = <div className="x" />;\nconst map = import("../components/Map");';
+    expect(importEdges(source, sourceLangOf("components/MapHost.tsx"))).toEqual([
+      { specifier: "../components/Map", typeOnly: false },
+    ]);
+  });
+
+  it("fails loudly rather than silently dropping dynamic imports on unparseable source", () => {
+    expect(() => importEdges("const = ;;; ((", "ts")).toThrow();
   });
 });

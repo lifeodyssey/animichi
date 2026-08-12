@@ -18,16 +18,17 @@ import { useSearch as useRouteSearch } from "@tanstack/react-router";
 
 const FactContext = createContext<{ readonly q?: string } | undefined>(undefined);
 
+const SERVER_QUERY_OPTIONS = {
+  queryKey: ["fact"],
+  queryFn: () => Promise.resolve({ q: "x" }),
+};
+
 export function useAliasedHooksFixture() {
   const url = useRouteSearch({ strict: false });
-  const { data: queryQ } = useServerQuery({
-    queryKey: ["fact"],
-    queryFn: () => Promise.resolve({ q: "x" }),
-  });
+  const { data: queryQ } = useServerQuery(SERVER_QUERY_OPTIONS);
   const context = useContext(FactContext);
   const { q } = useRouteSearch({ strict: false });
-  const urlQ = url.q;
-  const queryQValue = queryQ?.q;
+  const urlQ = url.q, queryQValue = queryQ?.q;
   const contextQ = context?.q;
   const [localQ, setLocalQ] = useState(q);
   return { urlQ, queryQValue, contextQ, q, localQ, setLocalQ };
