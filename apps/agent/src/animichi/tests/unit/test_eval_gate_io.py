@@ -96,6 +96,8 @@ def test_l4_trajectory_baseline_is_current_for_the_live_dataset() -> None:
     # errored_count is part of the baseline (the L3 empty-input family
     # errors in the current agent boundary); "current" means dataset + metric
     # vocabulary match, not zero errors.
+    assert record.errored_count == 5
+    assert record.evaluated_count + record.errored_count == record.case_count
     assert set(record.scores) == set(METRIC_NAMES)
 
 

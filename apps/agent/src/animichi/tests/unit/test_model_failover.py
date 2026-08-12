@@ -128,7 +128,7 @@ async def test_primary_failure_uses_fallback_in_order() -> None:
 
 async def test_httpx_timeout_error_drives_fallback_model() -> None:
     settings = Settings(
-        default_agent_model="openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
+        default_agent_model="openai:mimo-v2.5@https://opencode.ai/zen/go/v1",
         fallback_agent_model="deepseek:deepseek-v4-flash",
     )
     primary_transport = _TimeoutTransport()
@@ -136,7 +136,7 @@ async def test_httpx_timeout_error_drives_fallback_model() -> None:
     client = httpx.AsyncClient(
         timeout=settings.model_attempt_timeout,
         mounts={
-            "https://api.xiaomimimo.com": primary_transport,
+            "https://opencode.ai": primary_transport,
             "https://api.deepseek.com": fallback_transport,
         },
     )

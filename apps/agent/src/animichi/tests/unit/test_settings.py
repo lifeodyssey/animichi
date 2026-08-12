@@ -72,18 +72,21 @@ class TestAPIKeyValidation:
                 supabase_db_url="postgresql://local/test",
             )
 
-    def test_prod_default_requires_mimo_not_deepseek(
+    def test_prod_default_requires_zen_go_not_deepseek(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.delenv("DEFAULT_AGENT_MODEL")
         monkeypatch.delenv("FALLBACK_AGENT_MODEL")
         monkeypatch.delenv("DEEPSEEK_API_KEY")
-        monkeypatch.setenv("MIMO_API_KEY", "prod-mimo-key")
+        monkeypatch.delenv("MIMO_API_KEY", raising=False)
         monkeypatch.setenv("ZEN_GO_API_KEY", "prod-zen-go-key")
 
         settings = Settings(_env_file=None)
 
         assert settings.fallback_agent_model == ""
+        assert settings.default_agent_model == (
+            "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"
+        )
         assert settings.validate_api_keys() == []
         missing_zen = settings.model_copy(update={"zen_go_api_key": ""})
         assert "ZEN_GO_API_KEY" in missing_zen.validate_api_keys()
