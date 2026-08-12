@@ -112,8 +112,8 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || steps.f.outputs.agent_behavior == 'true' }}
         run: uv run --frozen pytest src/animichi/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
         env:
-          EVAL_MODEL: openai:mimo-v2.5@https://api.xiaomimimo.com/v1
-          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          EVAL_MODEL: openai:mimo-v2.5@https://opencode.ai/zen/go/v1
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
           EVAL_SMOKE: "1"
           EVAL_MAX_CASES: "80"
           # Settings requires presence; the trajectory tier uses NullDatabase and
