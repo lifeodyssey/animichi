@@ -65,6 +65,26 @@ export const ByokProbeErrorBody = z.object({
 });
 export type ByokProbeErrorBody = z.infer<typeof ByokProbeErrorBody>;
 
+/**
+ * The `POST /v1/chat` turn request (TURN-4 #955): the post-envelope turn
+ * carrier built by the route from the AI SDK message envelope plus headers.
+ * Every field is optional except `text` so the emitted Pydantic model can
+ * validate one turn without the web shipping defaults. Selection turns ride
+ * the AI SDK envelope (`chat-data-parts.ts`); the typed turn kinds live in
+ * `application/agent_turn.py`, not on this wire.
+ */
+export const ChatTurnRequest = z.object({
+  text: z.string(),
+  session_id: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
+  locale: z.enum(["ja", "zh", "en"]).optional(),
+  include_debug: z.boolean().optional(),
+  origin: z.string().nullable().optional(),
+  origin_lat: z.number().optional(),
+  origin_lng: z.number().optional(),
+});
+export type ChatTurnRequest = z.infer<typeof ChatTurnRequest>;
+
 /** One published Agent path in the complete inventory. */
 export interface AgentPath {
   method: "GET" | "POST" | "PATCH";
@@ -154,6 +174,65 @@ export const PhotoConfirmRequest = z.object({
 });
 export type PhotoConfirmRequest = z.infer<typeof PhotoConfirmRequest>;
 
+// ---------------------------------------------------------------------------
+// Session-history boundary (SESSION-1 #959).
+//
+// GetSessionHistory is the Agent-owned generated boundary over the current
+// Session/Message adapter: one bounded page of the session transcript plus
+// the session revision (the monotonic turn-reservation counter the client
+// uses as its CAS token for recovery reads) and the next page cursor.
+// `response_data` keeps the persistence envelope (intent/success) typed while
+// tolerating a wire `null`; extra envelope keys are intentionally not part of
+// the published surface.
+// ---------------------------------------------------------------------------
+
+/** One persisted transcript row (role, content, envelope, timestamp). */
+export const SessionHistoryMessage = z.object({
+  role: z.string(),
+  content: z.string(),
+  response_data: z.object({
+    intent: z.string().nullish(),
+    success: z.boolean().nullish(),
+  }).nullable().optional(),
+  created_at: z.string(),
+});
+export type SessionHistoryMessage = z.infer<typeof SessionHistoryMessage>;
+
+/** The `GET /v1/conversations/{id}/messages` payload (SESSION-1 #959). */
+export const GetSessionHistoryResponse = z.object({
+  messages: z.array(SessionHistoryMessage),
+  revision: z.number().int().nonnegative(),
+  next_offset: z.number().int().nonnegative().nullable(),
+});
+export type GetSessionHistoryResponse = z.infer<typeof GetSessionHistoryResponse>;
+
+// ---------------------------------------------------------------------------
+// Feedback boundary (AGENT-3 #962).
+//
+// SubmitFeedback owns validation, optional Session ownership, persistence,
+// and stable public errors through the final Session and feedback stores; the
+// wire shapes below are the generated boundary that use case publishes.
+// `query_text` carries no length facet here — blank-after-trim is a semantic
+// rule owned by the Python use case, not a parse-time shape, so the emitted
+// Pydantic model and this schema stay exact mirrors of each other.
+// ---------------------------------------------------------------------------
+
+/** The `POST /v1/feedback` request body (AGENT-3 #962). */
+export const SubmitFeedbackRequest = z.object({
+  session_id: z.string().nullable().optional(),
+  query_text: z.string(),
+  intent: z.string().nullable().optional(),
+  rating: z.enum(["good", "bad"]),
+  comment: z.string().nullable().optional(),
+});
+export type SubmitFeedbackRequest = z.infer<typeof SubmitFeedbackRequest>;
+
+/** The `POST /v1/feedback` success body (AGENT-3 #962). */
+export const SubmitFeedbackResult = z.object({
+  feedback_id: z.string(),
+});
+export type SubmitFeedbackResult = z.infer<typeof SubmitFeedbackResult>;
+
 /**
  * Complete Agent path inventory (fastapi_service.py router registrations).
  * `summary` is the inventory entry only — it is not emitted into generated
@@ -162,8 +241,6 @@ export type PhotoConfirmRequest = z.infer<typeof PhotoConfirmRequest>;
 export const AGENT_PATHS: AgentPath[] = [
   { method: "GET", path: "/", summary: "service banner" },
   { method: "GET", path: "/healthz", summary: "health and service metadata" },
-  { method: "POST", path: "/v1/runtime", summary: "runtime request" },
-  { method: "POST", path: "/v1/runtime/stream", summary: "streaming runtime request" },
   { method: "POST", path: "/v1/chat", summary: "chat turn" },
   { method: "POST", path: "/v1/byok/probe", summary: "probe a bring-your-own-key credential" },
   { method: "POST", path: "/v1/feedback", summary: "submit feedback" },
@@ -175,5 +252,5 @@ export const AGENT_PATHS: AgentPath[] = [
   { method: "GET", path: "/v1/search/preview", summary: "search preview" },
   { method: "POST", path: "/v1/photo-search", summary: "photo search" },
   { method: "POST", path: "/v1/photo-search/confirm", summary: "confirm photo offer" },
-  { method: "POST", path: "/v1/session/migrate", summary: "migrate anonymous session" },
+  { method: "POST", path: "/v1/sessions/adopt", summary: "adopt anonymous sessions" },
 ];

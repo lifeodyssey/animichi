@@ -18,6 +18,8 @@ Row: TypeAlias = asyncpg.Record
 
 Connection: TypeAlias = asyncpg.Connection
 
+PoolConnection: TypeAlias = asyncpg.pool.PoolConnectionProxy
+
 # asyncpg.Pool is declared Generic in the stubs but isn't subscriptable at
 # runtime (no __class_getitem__), so the subscripted alias only exists for
 # static type checking; at runtime it's just the plain class.

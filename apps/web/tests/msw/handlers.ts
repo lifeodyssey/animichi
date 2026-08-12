@@ -37,16 +37,16 @@ export const catalogUpstreamErrorHandler = contractJsonHandler({
 });
 
 /**
- * Default session-migration handler (#507). Every login now posts here, so the
- * unit lane needs it to stay hermetic — `{"migrated": false}` is the endpoint's
- * own typed no-op for a caller with no anonymous history, which is exactly what
- * a test-tab login is.
+ * Default session-adoption handler (#507). Every login now posts here, so the
+ * unit lane needs it to stay hermetic — `{"adopted": 0}` is the endpoint's
+ * own typed no-op for a caller with no anonymous history, which is exactly
+ * what a test-tab login is.
  */
-export const sessionMigrateHandler = http.post(
-  "*/v1/session/migrate",
-  () => HttpResponse.json({ migrated: false }),
+export const sessionAdoptHandler = http.post(
+  "*/v1/sessions/adopt",
+  () => HttpResponse.json({ adopted: 0, noop_class: "no_rows" }),
 );
 
-export const handlers = [catalogSearchHandler, catalogPlanItineraryHandler, sessionMigrateHandler];
+export const handlers = [catalogSearchHandler, catalogPlanItineraryHandler, sessionAdoptHandler];
 
 export { orpcErrorResponse };

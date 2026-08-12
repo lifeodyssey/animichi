@@ -97,11 +97,11 @@ export async function resolveAnonymous(
 }
 
 /**
- * Resolve-only variant for the session-migration route (issue #273 Task 3,
+ * Resolve-only variant for the session-adoption route (SESSION-2 #960,
  * re-P2-1): verifies an existing `aid` cookie but never mints one. A missing
  * or tampered cookie returns null rather than a fresh identity, so a request
  * with no anonymous history forwards no `X-Anon-Id` — minting here would
- * silently give the migration endpoint side effects no other route has. The
+ * silently give the adoption endpoint side effects no other route has. The
  * route sets no cookie at all: it does not mint one, and (per the #507 owner
  * ruling reversing S1.7 rev5 P2-b) it no longer retires one either.
  */

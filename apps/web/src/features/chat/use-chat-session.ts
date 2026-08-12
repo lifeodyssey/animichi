@@ -7,8 +7,9 @@ import type { UIMessage } from "ai";
 import { useCallback, useRef } from "react";
 import type { RefObject } from "react";
 import { z } from "zod";
-import type { SelectedPointsBody } from "./lib/selected-points-bypass";
+import type { SelectedPointsBody } from "./selection/use-recompute-turn";
 import { sessionHeaders } from "./session-headers";
+import type { SessionOffer } from "./session-headers";
 
 /**
  * Typed UI message: the `data-response` part carries the contract envelope,
@@ -28,6 +29,11 @@ const dataPartSchemas = {
 interface SessionTracker {
   scope: string;
   id: string | undefined;
+  /** TURN-4 #955: the Session offer echoed by the server — the CAS revision
+   * and the digest of the persisted session envelope. Sent back as
+   * `x-session-revision` / `x-session-digest` on the next turn. */
+  revision: number | undefined;
+  digest: string | undefined;
   lastHttpStatus: number | undefined;
   lastErrorCode: string | undefined;
   /** D12's `quota_resets_at`: when this identity's allowance returns. */
@@ -36,13 +42,15 @@ interface SessionTracker {
 type SessionRef = RefObject<SessionTracker>;
 
 function emptyTracker(scope: string, sessionId: string | undefined): SessionTracker {
-  return {
-    scope,
-    id: sessionId,
-    lastHttpStatus: undefined,
-    lastErrorCode: undefined,
-    lastQuotaResetsAt: undefined,
-  };
+  return { scope, id: sessionId, ...blankOffer(), ...blankRejection() };
+}
+
+function blankOffer(): { revision: undefined; digest: undefined } {
+  return { revision: undefined, digest: undefined };
+}
+
+function blankRejection(): { lastHttpStatus: undefined; lastErrorCode: undefined; lastQuotaResetsAt: undefined } {
+  return { lastHttpStatus: undefined, lastErrorCode: undefined, lastQuotaResetsAt: undefined };
 }
 
 function scopeOf(sessionId?: string): string {
@@ -58,9 +66,16 @@ function useSessionTracker(sessionId: string | undefined, scope: string): Sessio
   return ref;
 }
 
-function captureSessionId(ref: SessionRef, part: Readonly<{ data: ChatDataPart }>): void {
-  const id = part.data.session_id;
-  if (typeof id === "string" && id !== "") ref.current.id = id;
+function captureSessionOffer(ref: SessionRef, part: Readonly<{ data: ChatDataPart }>): void {
+  const { session_id, revision, session_digest } = part.data;
+  if (typeof session_id === "string" && session_id !== "") ref.current.id = session_id;
+  if (typeof revision === "number") ref.current.revision = revision;
+  if (typeof session_digest === "string" && session_digest !== "") ref.current.digest = session_digest;
+}
+
+/** The Session offer to echo on the next turn (TURN-4 #955). */
+function offerOf(ref: SessionRef): SessionOffer {
+  return { sessionId: ref.current.id, revision: ref.current.revision, digest: ref.current.digest };
 }
 
 /**
@@ -76,7 +91,7 @@ function createScopedChat(chatUrl: string, scope: string, ref: SessionRef): Chat
     transport: createSessionTransport(chatUrl, ref),
     dataPartSchemas,
     onData: (part) => {
-      if (ref.current.scope === scope) captureSessionId(ref, part);
+      if (ref.current.scope === scope) captureSessionOffer(ref, part);
     },
   });
 }
@@ -131,7 +146,7 @@ function createTrackingFetch(ref: SessionRef): typeof globalThis.fetch {
 function createSessionTransport(chatUrl: string, ref: SessionRef): DefaultChatTransport<ChatUIMessage> {
   return new DefaultChatTransport({
     api: chatUrl,
-    headers: () => sessionHeaders(ref.current.id),
+    headers: () => sessionHeaders({ ...offerOf(ref), turnId: generateId() }),
     fetch: createTrackingFetch(ref),
   });
 }
@@ -172,10 +187,11 @@ function useScopedChat(chatUrl: string, scope: string, ref: SessionRef): Chat<Ch
  */
 function useTrackerReaders(ref: SessionRef) {
   const sessionIdOf = useCallback(() => ref.current.id, [ref]);
+  const sessionOfferOf = useCallback(() => offerOf(ref), [ref]);
   const lastHttpStatus = useCallback(() => ref.current.lastHttpStatus, [ref]);
   const lastErrorCode = useCallback(() => ref.current.lastErrorCode, [ref]);
   const lastQuotaResetsAt = useCallback(() => ref.current.lastQuotaResetsAt, [ref]);
-  return { sessionIdOf, lastHttpStatus, lastErrorCode, lastQuotaResetsAt };
+  return { sessionIdOf, sessionOfferOf, lastHttpStatus, lastErrorCode, lastQuotaResetsAt };
 }
 
 /** A part-less turn boundary. Without the marker, AI SDK 7.x (verified at 7.0.47) continues the
@@ -210,8 +226,16 @@ export function useChatSession(chatUrl: string, sessionId?: string) {
   const scope = scopeOf(sessionId);
   const ref = useSessionTracker(sessionId, scope);
   const chat = useScopedChat(chatUrl, scope, ref);
+  return useChatSessionHelpers(chat, ref);
+}
+
+function useChatSessionHelpers(chat: Chat<ChatUIMessage>, ref: SessionRef) {
   const helpers = useChat<ChatUIMessage>({ chat });
-  return { ...helpers, sendSelectedPoints: useSendSelectedPoints(helpers), ...useTrackerReaders(ref) };
+  return {
+    ...helpers,
+    sendSelectedPoints: useSendSelectedPoints(helpers),
+    ...useTrackerReaders(ref),
+  };
 }
 
 export type ChatSession = ReturnType<typeof useChatSession>;

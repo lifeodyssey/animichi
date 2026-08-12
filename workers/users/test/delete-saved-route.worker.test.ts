@@ -22,7 +22,7 @@ function repo(db: DbExecutor): DeleteSavedRouteStore {
 
 function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   return {
-    id: ID, claim_session_id: null, user_id: "user-a", title: "Tokyo", point_ids: ["p1"],
+    id: ID, user_id: "user-a", title: "Tokyo", point_ids: ["p1"],
     status: "saved", saved_at: null, updated_at: "2026-07-13T04:00:00.000Z", ...overrides,
   };
 }

@@ -4,7 +4,9 @@
 // source read by entry-container-env.test.ts). Composition root only; all
 // logic lives in identity/ gateway/ protect/ proxy/ container/.
 import { Container } from "@cloudflare/containers";
-import { createWorkerApp, catalogOutbound, type Env } from "./app.ts";
+import { createWorkerApp } from "./app.ts";
+import type { Env } from "./env.ts";
+import { catalogOutbound } from "./gateway/forward.ts";
 import { buildContainerEnvVars, DENIED_EGRESS_HOSTS } from "./container/container-env.ts";
 
 export { EdgeGuard } from "./protect/edge-guard.ts";

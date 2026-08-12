@@ -15,10 +15,11 @@ if TYPE_CHECKING:
     from animichi.config import Settings
 
 os.environ.setdefault("DEEPSEEK_API_KEY", "test-key")
+os.environ.setdefault("ZEN_GO_API_KEY", "test-key")
 os.environ.setdefault("MIMO_API_KEY", "test-key")
 os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
 os.environ.setdefault(
-    "DEFAULT_AGENT_MODEL", "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
+    "DEFAULT_AGENT_MODEL", "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"
 )
 os.environ.setdefault("FALLBACK_AGENT_MODEL", "deepseek:deepseek-v4-flash")
 os.environ.setdefault("OPENAI_COMPAT_BASE_URL", "https://api.xiaomimimo.com/v1")

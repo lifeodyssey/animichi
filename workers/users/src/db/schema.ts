@@ -12,7 +12,6 @@ import {
  */
 export const savedRoutes = pgTable("saved_routes", {
   id: uuid("id").primaryKey().defaultRandom(),
-  claimSessionId: text("claim_session_id"),
   pointIds: text("point_ids").array().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   userId: text("user_id"),

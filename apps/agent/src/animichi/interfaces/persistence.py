@@ -55,15 +55,6 @@ def _spawn_background(coro: object) -> None:
 # asyncpg raises asyncpg.PostgresError (subclass of Exception) for SQL errors
 # and OSError for connection issues. We also catch RuntimeError (pool closed)
 # and ValueError (malformed data).
-#
-# asyncpg.PostgresError is included deliberately (iter6 C4 review follow-up):
-# once #663's fix made persist_messages actually write, an anonymous turn
-# (no user_id, so persist_conversation never creates the owning `conversations`
-# row) hits a real ForeignKeyViolationError on `conversation_messages` — a
-# schema fact the #663 bug had been silently hiding since the insert never
-# ran. conversation_messages is scoped to authenticated conversation history
-# by design; message persistence for anonymous turns degrades to a logged
-# no-op rather than crashing the turn.
 _PERSIST_ERRORS = (
     OSError,
     RuntimeError,
@@ -126,13 +117,7 @@ async def persist_result(
         session_state["route_history"] = route_history[-MAX_ROUTE_HISTORY:]
 
     await persist_session(
-        session_repo, session_store, session_id, session_state, response
-    )
-    await persist_conversation(
-        session_repo=session_repo,
-        session_id=session_id,
-        user_id=user_id,
-        request=request,
+        session_repo, session_store, session_id, session_state, response, user_id
     )
     await persist_messages(
         messages_repo=messages_repo,
@@ -177,15 +162,16 @@ async def persist_messages(
     response: PublicAPIResponse,
     persist_user_only: bool = False,
 ) -> None:
-    """Persist user and bot messages to conversation_messages (best-effort).
+    """Persist user and bot messages to the ordered transcript (best-effort).
 
     Issue #663: this used to reflect ``getattr(db, "insert_message", None)``,
     which only matched a ``SupabaseClient`` that exposed a flat top-level
     ``insert_message`` method. The real implementation lives on the nested
-    ``messages`` repo (``MessagesRepository.insert_message``), so the probe
-    always missed in production and every turn's messages silently went
-    unwritten. ``messages_repo`` is now the exact typed repo, resolved once
-    by the caller (``animichi.interfaces.db_repos.messages_repo``).
+    session repo (``FinalSessionRepository.insert_message``, SESSION-3 #961),
+    so the probe always missed in production and every turn's messages
+    silently went unwritten. ``messages_repo`` is now the exact typed repo,
+    resolved once by the caller
+    (``animichi.interfaces.db_repos.messages_repo``).
     """
     if messages_repo is None:
         return
@@ -224,6 +210,7 @@ async def persist_session(
     session_id: str,
     session_state: dict[str, object],
     response: PublicAPIResponse,
+    user_id: str | None,
 ) -> None:
     await session_store.set(session_id, session_state)
 
@@ -233,25 +220,9 @@ async def persist_session(
             "status": response.status,
             "updated_at": session_state["updated_at"],
         }
-        await session_repo.upsert_session(session_id, session_state, metadata=metadata)
-
-
-async def persist_conversation(
-    *,
-    session_repo: SessionRepo | None,
-    session_id: str,
-    user_id: str | None,
-    request: PublicAPIRequest,
-) -> None:
-    """Persist the authenticated user's conversation index entry."""
-    if not user_id:
-        return
-
-    if session_repo is not None:
-        await session_repo.upsert_conversation(session_id, user_id, request.text)
-        # DECISION(2026-07-07): auto-generated conversation titles stay
-        # disabled pending the conversation-history feature landing —
-        # tracked in docs/archive/plans/2026-07-07-refactor-backlog.md.
+        await session_repo.upsert_session(
+            session_id, session_state, metadata=metadata, user_id=user_id
+        )
 
 
 async def create_owned_session(
@@ -261,12 +232,10 @@ async def create_owned_session(
     first_query: str,
     session_state: dict[str, object],
 ) -> None:
-    """Create one authenticated session and ownership row atomically."""
+    """Create one authenticated Session aggregate row atomically."""
     if session_repo is None:
         raise RuntimeError("authenticated sessions require a session repository")
-    await session_repo.create_owned_session(
-        session_id, user_id, first_query, session_state
-    )
+    await session_repo.create(session_id, user_id, first_query, session_state)
 
 
 async def load_session_state(

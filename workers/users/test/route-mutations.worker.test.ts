@@ -7,13 +7,11 @@ import { identityHeaders, TEST_ENV } from "./identity-fixture";
 import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
 
 const SAVED_ROUTE_A = "00000000-0000-4000-8000-00000000000a";
-const SAVED_ROUTE_B = "00000000-0000-4000-8000-00000000000b";
 const UNKNOWN = "00000000-0000-4000-8000-00000000000f";
-const SESSION = "anonymous-session";
 
 function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   return {
-    id: SAVED_ROUTE_A, claim_session_id: null, user_id: "user-a", title: "Tokyo",
+    id: SAVED_ROUTE_A, user_id: "user-a", title: "Tokyo",
     point_ids: [], status: "saved", saved_at: null,
     updated_at: "2026-07-13T04:00:00.000Z", ...overrides,
   };
@@ -28,12 +26,6 @@ function setup(seed: FakeSavedRouteRow[] = []) {
 
 function deleteSavedRoute(app: Awaited<ReturnType<typeof setup>>["app"], headers: HeadersInit, id: string) {
   return app.request(`/v1/users/saved-routes/${id}`, { method: "DELETE", headers }, TEST_ENV);
-}
-
-function claimSavedRoutes(app: Awaited<ReturnType<typeof setup>>["app"], headers: HeadersInit) {
-  return app.request("/v1/users/saved-routes/claim", {
-    method: "POST", headers,     body: JSON.stringify({ session_id: SESSION }),
-  }, TEST_ENV);
 }
 
 function requiredMutation(mutation: SQL | undefined): SQL {
@@ -91,48 +83,5 @@ describe("saved-route deletion wire", () => {
     const rendered = new PgDialect().sqlToQuery(capture.query());
     expect(rendered.sql.toLowerCase()).toContain("user_id");
     expect(rendered.params).toEqual([SAVED_ROUTE_A, "user-a"]);
-  });
-});
-
-describe("anonymous saved-route claim wire", () => {
-  it("claims every anonymous saved route in the session and returns the count", async () => {
-    const { app, headers, rows } = setup([
-      row({ claim_session_id: SESSION, user_id: null }),
-      row({ id: SAVED_ROUTE_B, claim_session_id: SESSION, user_id: null }),
-    ]);
-    const response = await claimSavedRoutes(app, headers);
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ claimed_count: 2 });
-    expect(rows.map((item) => item.user_id)).toEqual(["user-a", "user-a"]);
-  });
-
-  it("is idempotent when the same session is claimed twice", async () => {
-    const { app, headers } = setup([row({ claim_session_id: SESSION, user_id: null })]);
-    expect(await (await claimSavedRoutes(app, headers)).json()).toEqual({ claimed_count: 1 });
-    expect(await (await claimSavedRoutes(app, headers)).json()).toEqual({ claimed_count: 0 });
-  });
-
-  it("returns zero when the session has no saved routes", async () => {
-    const { app, headers } = setup();
-    const response = await claimSavedRoutes(app, headers);
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ claimed_count: 0 });
-  });
-
-  it("cannot steal a route already owned by another user", async () => {
-    const seed = row({ claim_session_id: SESSION, user_id: "user-b" });
-    const { app, headers, rows } = setup([seed]);
-    const response = await claimSavedRoutes(app, headers);
-    expect(await response.json()).toEqual({ claimed_count: 0 });
-    expect(rows).toEqual([seed]);
-  });
-
-  it("claims only null owners in one session-scoped update", async () => {
-    const capture = captureDb();
-    const { app, headers } = setupWith(capture.db);
-    expect((await claimSavedRoutes(app, headers)).status).toBe(200);
-    const rendered = new PgDialect().sqlToQuery(capture.query());
-    expect(rendered.sql.toLowerCase()).toContain("user_id is null");
-    expect(rendered.params).toEqual(["user-a", SESSION]);
   });
 });

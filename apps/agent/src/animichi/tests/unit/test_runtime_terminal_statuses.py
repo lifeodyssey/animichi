@@ -1,34 +1,17 @@
-"""HTTP status pins for typed runtime terminals."""
+"""HTTP status pins for typed runtime terminals (TURN-4 #955).
+
+The legacy /v1/runtime JSON route is gone; the terminal-status taxonomy is
+pinned through the pure ``_http_status_for_response`` mapping the remaining
+JSON surfaces (admission rejections, error envelopes) share with it.
+"""
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
-
-import httpx
 import pytest
 
-from animichi.infrastructure.session.memory import InMemorySessionStore
-from animichi.interfaces.public_api import RuntimeAPI, _invalid_selection_response
+from animichi.interfaces.public_api import _invalid_selection_response
+from animichi.interfaces.routes._deps import _http_status_for_response
 from animichi.interfaces.schemas import PublicAPIResponse
-from animichi.tests.unit.conftest_fastapi import (
-    async_client,
-    build_app,
-    build_stub_db,
-)
-
-
-def _runtime(response: PublicAPIResponse) -> MagicMock:
-    runtime = MagicMock(spec=RuntimeAPI)
-    runtime.handle = AsyncMock(return_value=response)
-    runtime._db = build_stub_db()
-    runtime._session_store = InMemorySessionStore()
-    return runtime
-
-
-async def _post(response: PublicAPIResponse) -> httpx.Response:
-    app, _ = build_app(runtime_api=_runtime(response))
-    async with async_client(app) as client:
-        return await client.post("/v1/runtime", json={"text": "test"})
 
 
 def _terminal(status: str, intent: str) -> PublicAPIResponse:
@@ -41,12 +24,8 @@ async def test_place_ambiguity_clarify_returns_200() -> None:
     response = _terminal("needs_clarification", "clarify")
     response.data = {"reason": "place_ambiguity"}
 
-    result = await _post(response)
-
-    assert (result.status_code, result.json()["data"]["reason"]) == (
-        200,
-        "place_ambiguity",
-    )
+    assert _http_status_for_response(response) == 200
+    assert response.data["reason"] == "place_ambiguity"
 
 
 @pytest.mark.parametrize(
@@ -59,17 +38,14 @@ async def test_place_ambiguity_clarify_returns_200() -> None:
     ],
 )
 async def test_renderable_terminal_returns_200(status: str, intent: str) -> None:
-    result = await _post(_terminal(status, intent))
+    response = _terminal(status, intent)
 
-    assert (result.status_code, result.json()["status"]) == (200, status)
+    assert _http_status_for_response(response) == 200
+    assert response.status == status
 
 
 async def test_stale_invalid_selection_returns_400() -> None:
     response = _invalid_selection_response("This choice expired; please try again.")
 
-    result = await _post(response)
-
-    assert (result.status_code, result.json()["errors"][0]["code"]) == (
-        400,
-        "invalid_selection",
-    )
+    assert _http_status_for_response(response) == 400
+    assert response.errors[0].code == "invalid_selection"

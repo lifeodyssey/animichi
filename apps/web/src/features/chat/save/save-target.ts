@@ -4,7 +4,7 @@ import type { SpotRow } from "../components/Cards";
 import type { ChatDict } from "../i18n";
 import { saveSavedRouteTitle } from "../route-copy";
 
-/** Everything create-on-login needs from a rendered route card. */
+/** Everything CompleteDeferredSave needs from a rendered route card. */
 export interface SaveTarget {
   readonly pointIds: readonly string[];
   readonly title: string;

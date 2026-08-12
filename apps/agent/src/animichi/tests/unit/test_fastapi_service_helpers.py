@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from animichi.config.settings import Settings
 from animichi.infrastructure.session.memory import InMemorySessionStore
 from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.supabase.repositories.session import SessionRecord
 from animichi.interfaces import fastapi_service
 from animichi.interfaces.fastapi_service import (
     _call_optional_async,
@@ -37,9 +38,13 @@ def mock_db() -> MagicMock:
     pool.fetch = AsyncMock(return_value=[])
     db.pool = pool
     db.points.search_points_by_location = AsyncMock(return_value=[])
-    db.session.get_conversations = AsyncMock(return_value=[])
-    db.session.get_conversation = AsyncMock(return_value={"user_id": "user-1"})
-    db.messages.get_messages = AsyncMock(return_value=[])
+    db.session.list_sessions = AsyncMock(return_value=[])
+    db.session.load = AsyncMock(
+        return_value=SessionRecord(session_id="sess-1", user_id="user-1")
+    )
+    db.session.get_messages = AsyncMock(return_value=[])
+    db.session.current_revision = AsyncMock(return_value=0)
+    db.session.insert_message = AsyncMock()
     db.feedback.save_feedback = AsyncMock(return_value="feedback-1")
     return db
 
@@ -83,7 +88,9 @@ def test_missing_user_header_returns_structured_invalid_request_error_on_convers
 def test_messages_route_returns_structured_404_when_ownership_mismatch(
     mock_db: MagicMock,
 ) -> None:
-    mock_db.session.get_conversation.return_value = {"user_id": "someone-else"}
+    mock_db.session.load.return_value = SessionRecord(
+        session_id="sess-1", user_id="someone-else"
+    )
     app = create_fastapi_app(
         runtime_api=RuntimeAPI(
             mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
@@ -100,83 +107,6 @@ def test_messages_route_returns_structured_404_when_ownership_mismatch(
     assert response.status_code == 404
     body = response.json()
     assert body["error"]["code"] == "not_found"
-
-
-def test_feedback_validation_rejects_blank_query_text(mock_db: MagicMock) -> None:
-    app = create_fastapi_app(
-        runtime_api=RuntimeAPI(
-            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
-        ),
-        settings=Settings(),
-    )
-
-    with TestClient(app) as client:
-        response = client.post(
-            "/v1/feedback",
-            json={"rating": "good", "query_text": "   "},
-        )
-
-    assert response.status_code == 422
-    body = response.json()
-    assert body["error"]["code"] == "invalid_request"
-
-
-def test_feedback_validation_rejects_invalid_rating(mock_db: MagicMock) -> None:
-    app = create_fastapi_app(
-        runtime_api=RuntimeAPI(
-            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
-        ),
-        settings=Settings(),
-    )
-
-    with TestClient(app) as client:
-        response = client.post(
-            "/v1/feedback",
-            json={"rating": "great", "query_text": "京吹"},
-        )
-
-    assert response.status_code == 422
-    body = response.json()
-    assert body["error"]["code"] == "invalid_request"
-
-
-def test_feedback_success_persists(mock_db: MagicMock) -> None:
-    app = create_fastapi_app(
-        runtime_api=RuntimeAPI(
-            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
-        ),
-        settings=Settings(),
-    )
-
-    with TestClient(app) as client:
-        response = client.post(
-            "/v1/feedback",
-            json={"rating": "good", "query_text": "京吹", "intent": "search_bangumi"},
-        )
-
-    assert response.status_code == 200
-    assert response.json() == {"feedback_id": "feedback-1"}
-
-
-def test_sse_stream_returns_structured_error_event_on_runtime_failure(
-    mock_db: MagicMock,
-) -> None:
-    runtime_api = MagicMock()
-    runtime_api.handle = AsyncMock(side_effect=RuntimeError("boom"))
-    app = create_fastapi_app(runtime_api=runtime_api, settings=Settings())
-
-    with TestClient(app) as client:
-        with client.stream(
-            "POST",
-            "/v1/runtime/stream",
-            json={"text": "京吹"},
-            headers={"X-User-Id": "user-1"},
-        ) as response:
-            body = "".join(response.iter_text())
-
-    assert response.status_code == 200
-    assert "event: error" in body
-    assert '"code": "internal_error"' in body
 
 
 def test_http_error_code_maps_404() -> None:

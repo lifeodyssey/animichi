@@ -127,6 +127,14 @@ class PublicAPIResponse(BaseModel):
     status: str
     intent: str
     session_id: str | None = None
+    revision: int | None = Field(
+        default=None,
+        description="Session revision echoed for the next turn's CAS admission",
+    )
+    session_digest: str | None = Field(
+        default=None,
+        description="Canonical digest of the persisted session envelope (Session offer)",
+    )
     message: str = ""
     data: JsonObject = Field(default_factory=dict)
     session: JsonObject = Field(default_factory=dict)

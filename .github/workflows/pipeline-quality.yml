@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
       - name: Ruby syntax check workflow meta scripts
         run: |
-          for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb; do
+          for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb; do
             ruby -c "${f}"
           done
         shell: bash
@@ -61,6 +61,15 @@ jobs:
       # credential, or runbook runs it.
       - name: RETENTION-1 absence contract
         run: ruby .github/scripts/test_retention1_absence.rb
+        shell: bash
+      # SESSION-3 (#961): the staging hard-cut contract — the fresh-schema
+      # retained manifest, the sole-repository Session adapters, and the
+      # cutover workflow-order state machine (reopen after every consumer
+      # smokes, reset only after ingress closed + retention absent, every
+      # consumer deployed from one source_revision). Unfiltered like every
+      # check in this lane.
+      - name: SESSION-3 staging cutover contract
+        run: ruby .github/scripts/test_session3_staging_cutover.rb
         shell: bash
       - name: SAFE-1 release manifest resolver self-tests
         run: ruby .github/scripts/release-manifest-resolver.test.rb

@@ -31,7 +31,7 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
   template via the minimal `DbExecutor` (`execute` only). The fluent builder hangs under
   workerd + neon-http.
 - **Arrays**: interpolating a JS array in the `sql` template expands to a tuple (`($1,$2)`; empty
-  → invalid `()`). Bind arrays as ONE param: `${sql.param(arr)}::text[]` (see `src/api/routes.ts`).
+  → invalid `()`). Bind arrays as ONE param: `${sql.param(arr)}::text[]` (see `src/adapters/neon-saved-route-repo.ts`).
 - **timestamptz** returns raw strings under workerd → normalize `new Date(v).toISOString()` at the
   boundary.
 - zod value imports only at the contract/handler boundary; internals `import type` from

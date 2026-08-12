@@ -14,7 +14,7 @@ set -euo pipefail
 #   stdout         — resolver verdict JSON (see release-manifest-resolver.rb)
 #   exit           — 0 when the manifest is valid and resolvable; 1 otherwise.
 
-PINNED_MANIFEST_BLOB_ID="e25a262562f61246f07f3b08817727ee2b1856ef"
+PINNED_MANIFEST_BLOB_ID="a06984210bfbc4e640fea297e64858b2a4a87f82"
 REPOSITORY="${GITHUB_REPOSITORY:-lifeodyssey/animichi}"
 
 component="${1:?component required}"

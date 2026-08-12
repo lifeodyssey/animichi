@@ -44,6 +44,17 @@ class ByokProbeResponse(BaseModel):
     error_code: str | None
 
 
+class ChatTurnRequest(BaseModel):
+    text: str
+    session_id: str | None = None
+    model: str | None = None
+    locale: Literal["ja", "zh", "en"] | None = None
+    include_debug: bool | None = None
+    origin: str | None = None
+    origin_lat: float | None = None
+    origin_lng: float | None = None
+
+
 class GpsPoint(BaseModel):
     lat: float
     lng: float
@@ -143,11 +154,51 @@ class PhotoConfirmRequest(BaseModel):
     candidate_id: str | None = None
 
 
+class SessionHistoryMessageResponse_data(BaseModel):
+    intent: str | None = None
+    success: bool | None = None
+
+
+class SessionHistoryMessage(BaseModel):
+    role: str
+    content: str
+    response_data: SessionHistoryMessageResponse_data | None = None
+    created_at: str
+
+
+class GetSessionHistoryResponseMessagesResponse_data(BaseModel):
+    intent: str | None = None
+    success: bool | None = None
+
+
+class GetSessionHistoryResponseMessages(BaseModel):
+    role: str
+    content: str
+    response_data: GetSessionHistoryResponseMessagesResponse_data | None = None
+    created_at: str
+
+
+class GetSessionHistoryResponse(BaseModel):
+    messages: list[GetSessionHistoryResponseMessages]
+    revision: int
+    next_offset: int | None
+
+
+class SubmitFeedbackRequest(BaseModel):
+    session_id: str | None = None
+    query_text: str
+    intent: str | None = None
+    rating: Literal["good", "bad"]
+    comment: str | None = None
+
+
+class SubmitFeedbackResult(BaseModel):
+    feedback_id: str
+
+
 AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
     ("GET", "/", "service banner"),
     ("GET", "/healthz", "health and service metadata"),
-    ("POST", "/v1/runtime", "runtime request"),
-    ("POST", "/v1/runtime/stream", "streaming runtime request"),
     ("POST", "/v1/chat", "chat turn"),
     ("POST", "/v1/byok/probe", "probe a bring-your-own-key credential"),
     ("POST", "/v1/feedback", "submit feedback"),
@@ -159,5 +210,5 @@ AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
     ("GET", "/v1/search/preview", "search preview"),
     ("POST", "/v1/photo-search", "photo search"),
     ("POST", "/v1/photo-search/confirm", "confirm photo offer"),
-    ("POST", "/v1/session/migrate", "migrate anonymous session"),
+    ("POST", "/v1/sessions/adopt", "adopt anonymous sessions"),
 )

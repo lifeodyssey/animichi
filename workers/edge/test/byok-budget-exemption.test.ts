@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWorkerApp, type Env } from "../src/app.ts";
+import { createWorkerApp } from "../src/app.ts";
+import type { Env } from "../src/env.ts";
 import { latchBudget, utcDayKey } from "../src/protect/cost-breaker.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 

@@ -98,21 +98,58 @@ SPECIAL_CASES = (
 )
 
 
+class _SessionRepo:
+    async def check_session_owner(self, session_id: str, user_id: str) -> bool:
+        del session_id, user_id
+        return True
+
+    async def upsert_session(
+        self,
+        session_id: str,
+        session_state: dict[str, object],
+        metadata: dict[str, object],
+        *,
+        user_id: str | None = None,
+    ) -> None:
+        del session_id, session_state, metadata, user_id
+        return None
+
+    async def create(
+        self,
+        session_id: str,
+        user_id: str,
+        first_query: str,
+        session_state: dict[str, object],
+    ) -> None:
+        del session_id, user_id, first_query, session_state
+        return None
+
+
+class _Db:
+    session = _SessionRepo()
+
+
 async def _map_exception(exc: Exception, *, is_byok: bool = False) -> PublicAPIResponse:
-    api = RuntimeAPI(object(), model_http_client=MagicMock())
-    dispatch = AsyncMock(side_effect=exc)
-    with patch.object(api, "_dispatch_request", new=dispatch):
-        _, response, _ = await api._execute_pipeline(
-            PublicAPIRequest(text="hello"),
-            None,
-            [],
-            None,
-            None,
-            object(),
-            None,
+    from animichi.infrastructure.session.memory import InMemorySessionStore
+
+    api = RuntimeAPI(
+        _Db(),
+        session_store=InMemorySessionStore(),
+        model_http_client=MagicMock(),
+    )
+    with patch(
+        "animichi.interfaces.public_api.run_animichi_agent",
+        new=AsyncMock(side_effect=exc),
+    ):
+        return await api.handle(
+            PublicAPIRequest(
+                text="hello",
+                session_id=None if not is_byok else "s-1",
+            ),
             is_byok=is_byok,
+            user_id=None if not is_byok else "user-1",
+            user_type=None if not is_byok else "human",
         )
-    return response
 
 
 @pytest.mark.parametrize(("code", "http_status", "safe_message"), APPLICATION_CASES)

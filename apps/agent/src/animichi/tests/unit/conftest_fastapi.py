@@ -1,6 +1,6 @@
 """Shared fixtures for FastAPI service tests.
 
-Imported by test_routes_health, test_routes_runtime, test_routes_data.
+Imported by test_routes_health, test_routes_data.
 Not a conftest.py to avoid polluting other unit tests with these fixtures.
 """
 
@@ -14,6 +14,7 @@ from fastapi import FastAPI
 from animichi.config.settings import Settings
 from animichi.infrastructure.session.memory import InMemorySessionStore
 from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.supabase.repositories.session import SessionRecord
 from animichi.interfaces.fastapi_service import create_fastapi_app
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.schemas import PublicAPIResponse
@@ -25,12 +26,16 @@ def build_stub_db() -> MagicMock:
     db.points = MagicMock()
     db.session = MagicMock()
     db.feedback = MagicMock()
-    db.messages = MagicMock()
-    db.messages.get_messages = AsyncMock(return_value=[])
+    db.turn_reservation = MagicMock()
+    db.session.get_messages = AsyncMock(return_value=[])
+    db.session.current_revision = AsyncMock(return_value=0)
+    db.session.insert_message = AsyncMock()
+    db.session.load = AsyncMock(
+        return_value=SessionRecord(session_id="s-1", user_id="user-1")
+    )
+    db.session.list_sessions = AsyncMock(return_value=[])
+    db.session.update_title = AsyncMock(return_value=True)
     db.feedback.save_feedback = AsyncMock(return_value="fb-001")
-    db.session.get_conversations = AsyncMock(return_value=[])
-    db.session.get_conversation = AsyncMock(return_value={"user_id": "user-1"})
-    db.session.update_conversation_title = AsyncMock(return_value=None)
     return db
 
 

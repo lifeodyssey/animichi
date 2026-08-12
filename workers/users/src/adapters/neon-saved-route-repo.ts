@@ -1,6 +1,4 @@
 import type {
-  ClaimSavedRoutesInput,
-  ClaimSavedRoutesResult,
   SaveSavedRouteInput,
   SavedRoute,
   SavedRouteStatus,
@@ -10,7 +8,6 @@ import type { DeleteOwnedOutcome, DeleteSavedRouteStore } from "../application/d
 import type { SavedRouteStore } from "../application/save-saved-route";
 import type { DbExecutor } from "../db/client";
 import type { OwnerLookup } from "../domain/ownership";
-import type { SavedRouteRepo } from "../domain/ports";
 import { isSavedRouteStatus } from "../domain/saved-route-status";
 import type { SavedRouteReader } from "../application/list-saved-routes";
 
@@ -85,25 +82,13 @@ async function existsSavedRouteRow(db: DbExecutor, savedRouteId: string): Promis
   return result.rows;
 }
 
-/** Atomic claim: only rows whose owner passes canClaimUnownedSavedRoute
- * (user_id IS NULL, src/domain/route-rules.ts) are touched — owned rows are
- * left intact. */
-async function claimSavedRouteRows(db: DbExecutor, userId: string, sessionId: string): Promise<unknown[]> {
-  const result = await db.execute(sql`
-    UPDATE saved_routes SET user_id = ${userId}
-    WHERE claim_session_id = ${sessionId} AND user_id IS NULL RETURNING id
-  `);
-  return result.rows;
-}
-
 /**
- * Neon-backed SavedRouteRepo + SavedRouteReader over the raw SQL executor
- * (Drizzle typing only, see src/db/client.ts): the claim entry point and the
- * read journey's store read. Owns SQL and row mapping only — the
- * ListSavedRoutes action (src/application/list-saved-routes.ts) owns the
- * newest-update-first ordering policy.
+ * Neon-backed SavedRouteReader over the raw SQL executor (Drizzle typing only,
+ * see src/db/client.ts). Owns SQL and row mapping only — the ListSavedRoutes
+ * action (src/application/list-saved-routes.ts) owns the newest-update-first
+ * ordering policy.
  */
-export class NeonSavedRouteRepo implements SavedRouteRepo, SavedRouteReader {
+export class NeonSavedRouteRepo implements SavedRouteReader {
   constructor(private readonly db: DbExecutor) {}
 
   /** The caller's own saved routes, row-normalized, in store order. */
@@ -113,10 +98,6 @@ export class NeonSavedRouteRepo implements SavedRouteRepo, SavedRouteReader {
       FROM saved_routes WHERE user_id = ${userId}
     `);
     return result.rows.map(toSavedRoute);
-  }
-
-  async claimSavedRoutes(userId: string, input: ClaimSavedRoutesInput): Promise<ClaimSavedRoutesResult> {
-    return { claimed_count: (await claimSavedRouteRows(this.db, userId, input.session_id)).length };
   }
 }
 

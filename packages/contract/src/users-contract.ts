@@ -92,59 +92,13 @@ export const DeleteSavedRouteResult = z.object({ deleted: z.literal(true) });
 /** Inferred delete-saved-route result. */
 export type DeleteSavedRouteResult = z.infer<typeof DeleteSavedRouteResult>;
 
-/** Input for claiming saved routes created during an anonymous session. */
-export const ClaimSavedRoutesInput = z.object({ session_id: z.string().min(1) });
-/** Inferred claim-saved-routes input. */
-export type ClaimSavedRoutesInput = z.infer<typeof ClaimSavedRoutesInput>;
-
-/** Number of anonymous saved routes assigned to the authenticated caller. */
-export const ClaimSavedRoutesResult = z.object({ claimed_count: z.number().int().nonnegative() });
-/** Inferred claim-saved-routes result. */
-export type ClaimSavedRoutesResult = z.infer<typeof ClaimSavedRoutesResult>;
-
 /** Result returned when listing the caller's saved routes. */
 export const ListSavedRoutesResult = z.object({ saved_routes: z.array(SavedRoute) });
 /** Inferred list-saved-routes result. */
 export type ListSavedRoutesResult = z.infer<typeof ListSavedRoutesResult>;
 
-/** Bounded page controls for listing the caller's sessions. */
-export const ListSessionsInput = z.strictObject({
-  limit: z.coerce.number().int().min(1).max(50).default(30),
-  offset: z.coerce.number().int().nonnegative().max(1_000).default(0),
-});
-/** Inferred session-list page controls. */
-export type ListSessionsInput = z.infer<typeof ListSessionsInput>;
-
-/** Conversation summary for one authenticated session. */
-export const UserSession = z.strictObject({
-  session_id: z.string().min(1),
-  title: z.string().nullable(),
-  first_query: z.string(),
-  created_at: z.iso.datetime({ offset: true }),
-  updated_at: z.iso.datetime({ offset: true }),
-});
-/** Inferred authenticated session summary. */
-export type UserSession = z.infer<typeof UserSession>;
-
-/** One bounded page of the caller's sessions. */
-export const ListSessionsResult = z.strictObject({
-  sessions: z.array(UserSession).max(50),
-  next_offset: z.number().int().nonnegative().nullable(),
-});
-/** Inferred session-list result. */
-export type ListSessionsResult = z.infer<typeof ListSessionsResult>;
-
 /** oRPC contract for authenticated saved-route operations. */
 export const usersContract = {
-  listSessions: oc
-    .route({
-      method: "GET",
-      path: "/v1/users/sessions",
-      summary: "List the caller's sessions",
-      spec: requireBearer,
-    })
-    .input(ListSessionsInput)
-    .output(ListSessionsResult),
   listSavedRoutes: oc
     .route({
       method: "GET",
@@ -173,15 +127,6 @@ export const usersContract = {
     .input(DeleteSavedRouteInput)
     .errors(pickUsersErrors(["SAVED_ROUTE_NOT_FOUND", "SAVED_ROUTE_NOT_OWNED"]))
     .output(DeleteSavedRouteResult),
-  claimSavedRoutes: oc
-    .route({
-      method: "POST",
-      path: "/v1/users/saved-routes/claim",
-      summary: "Claim anonymous saved routes",
-      spec: requireBearer,
-    })
-    .input(ClaimSavedRoutesInput)
-    .output(ClaimSavedRoutesResult),
 };
 
 /** Users oRPC contract type. */

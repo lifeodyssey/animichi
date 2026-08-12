@@ -1,4 +1,4 @@
-"""Vercel AI SDK envelope over the unified runtime boundary."""
+"""Vercel AI SDK envelope over the AgentTurn use case (TURN-4 #955)."""
 
 from __future__ import annotations
 
@@ -17,8 +17,10 @@ from animichi.agents.byok_models import (
 )
 from animichi.agents.error_messages import InputError, build_input_error_message
 from animichi.agents.runtime_deps import OnStep
+from animichi.application.turn_admission import AdmissionVerdict
 from animichi.application.turn_outcome import TurnOutcome
 from animichi.application.turn_outcome_port import TurnRef
+from animichi.interfaces.boundary.agent_models import ChatTurnRequest
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.routes._deps import (
     TrustedAuthContext,
@@ -78,13 +80,26 @@ def _chat_text(body: ChatBody, limit: int, locale: Locale) -> str:
 
 
 def _runtime_request(request: Request, body: ChatBody, limit: int) -> PublicAPIRequest:
+    """Validate the turn through the generated /v1/chat wire model, then map
+    it onto the internal request carrier (selection fields ride the AI SDK
+    envelope; the typed turn kinds live in ``application/agent_turn``)."""
     locale = request_locale(request)
     text = _chat_text(body, limit, locale)
-    return PublicAPIRequest(
-        text=text,
-        session_id=request.headers.get("x-session-id"),
-        locale=locale,
-        **body.model_dump(exclude={"messages"}),
+    wire = ChatTurnRequest.model_validate(
+        {
+            "text": text,
+            "session_id": request.headers.get("x-session-id"),
+            "locale": locale,
+            "origin": body.origin,
+            "origin_lat": body.origin_lat,
+            "origin_lng": body.origin_lng,
+        }
+    )
+    selection = body.model_dump(
+        exclude={"messages", "origin", "origin_lat", "origin_lng"}, exclude_none=True
+    )
+    return PublicAPIRequest.model_validate(
+        {**wire.model_dump(exclude_none=True), **selection}, extra="ignore"
     )
 
 
@@ -149,6 +164,8 @@ def _chat_handler(
     outcome: TurnOutcome | None,
     turn_ref: TurnRef | None,
     owner: str | None,
+    verdict: AdmissionVerdict,
+    turn_key: str,
 ) -> Callable[[OnStep], Awaitable[PublicAPIResponse]]:
     async def handler(on_step: OnStep) -> PublicAPIResponse:
         return await runtime_api.handle(
@@ -161,6 +178,8 @@ def _chat_handler(
             outcome=outcome,
             turn_ref=turn_ref,
             owner=owner,
+            verdict=verdict,
+            turn_key=turn_key,
         )
 
     return handler
@@ -214,6 +233,8 @@ async def handle_chat(
         outcome=outcome if reserved else None,
         turn_ref=turn_ref if reserved else None,
         owner=owner if reserved else None,
+        verdict=verdict,
+        turn_key=admission_req.turn_key,
     )
 
     response = StreamingResponse(

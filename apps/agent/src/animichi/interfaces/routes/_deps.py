@@ -6,7 +6,7 @@ import inspect
 import re
 from collections.abc import Awaitable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated, Literal, cast
+from typing import TYPE_CHECKING, Annotated, cast
 
 import structlog
 from fastapi import Depends, Header, HTTPException, Request
@@ -76,30 +76,6 @@ class ConversationPatchRequest(BaseModel):
         return title
 
 
-class FeedbackRequest(BaseModel):
-    session_id: str | None = None
-    query_text: str
-    intent: str | None = None
-    rating: Literal["good", "bad"]
-    comment: str | None = None
-
-    @field_validator("session_id", "intent", "comment")
-    @classmethod
-    def normalize_optional_text(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        text = value.strip()
-        return text or None
-
-    @field_validator("query_text")
-    @classmethod
-    def validate_query_text(cls, value: str) -> str:
-        query_text = value.strip()
-        if not query_text:
-            raise ValueError("query_text is required.")
-        return query_text
-
-
 def _normalize_optional_header(value: str | None) -> str | None:
     if value is None:
         return None
@@ -158,7 +134,7 @@ def _require_trusted_user(
 def _require_non_anonymous_user(
     auth: Annotated[TrustedAuthContext, Depends(_get_trusted_auth_context)],
 ) -> TrustedAuthContext:
-    """Reject-anonymous, not allow-list (session_migration, #273 Task 3).
+    """Reject-anonymous, not allow-list (adopt_sessions, SESSION-2 #960).
 
     Delegates to `is_anonymous_identity` — the single canonical predicate,
     also `usage_metering.scope_for_identity`'s classification — rather than
@@ -174,7 +150,7 @@ def _require_non_anonymous_user(
         raise HTTPException(status_code=400, detail="X-User-Id header required.")
     if is_anonymous_identity(auth.user_id, auth.user_type):
         raise HTTPException(
-            status_code=403, detail="Anonymous identity cannot migrate sessions."
+            status_code=403, detail="Anonymous identity cannot adopt sessions."
         )
     return auth
 
@@ -268,13 +244,6 @@ def _require_supabase(db: object) -> SupabaseClient:
     if not isinstance(db, SupabaseClient):
         raise HTTPException(status_code=500, detail="Database client not available.")
     return db
-
-
-def _public_api_response(response: PublicAPIResponse) -> JSONResponse:
-    return _json_response(
-        response.model_dump(mode="json"),
-        status_code=_http_status_for_response(response),
-    )
 
 
 def _json_response(payload: object, status_code: int = 200) -> JSONResponse:

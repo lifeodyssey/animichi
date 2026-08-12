@@ -6,7 +6,6 @@ import type { DbExecutor } from "../src/db/client";
 /** Mutable row representation owned by the reusable fake executor. */
 export interface FakeSavedRouteRow {
   id: string;
-  claim_session_id: string | null;
   user_id: string | null;
   title: string | null;
   point_ids: string[];
@@ -34,14 +33,13 @@ function insertRow(values: unknown[]): FakeSavedRouteRow {
   return {
     ...routeRowBase(values, status),
     saved_at: typeof values[4] === "string" ? values[4] : null,
-    updated_at: NOW, first_query: "",
+    updated_at: NOW,
   };
 }
 
-function routeRowBase(values: unknown[], status: SavedRouteStatus): Omit<FakeSavedRouteRow, "saved_at" | "updated_at" | "first_query"> {
+function routeRowBase(values: unknown[], status: SavedRouteStatus): Omit<FakeSavedRouteRow, "saved_at" | "updated_at"> {
   return {
     id: NEW_ID,
-    claim_session_id: null,
     user_id: typeof values[0] === "string" ? values[0] : null,
     title: typeof values[1] === "string" ? values[1] : "",
     point_ids: stringList(values[2]),
@@ -71,14 +69,6 @@ function deleteRows(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {
   return deleted ? [{ id: deleted.id }] : [];
 }
 
-function claimRows(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {
-  const [userId, sessionId] = values;
-  if (typeof userId !== "string" || typeof sessionId !== "string") return [];
-  const claimed = rows.filter((row) => row.claim_session_id === sessionId && row.user_id === null);
-  for (const row of claimed) row.user_id = userId;
-  return claimed.map((row) => ({ id: row.id }));
-}
-
 /** In-memory raw-SQL executor matching every saved-route query. */
 export function fakeDb(seed: FakeSavedRouteRow[] = []): { db: DbExecutor; rows: FakeSavedRouteRow[] } {
   const rows = [...seed];
@@ -94,8 +84,6 @@ function executeText(query: { text: string; values: unknown[] }, rows: FakeSaved
   if (text.includes("select user_id")) return selectUserId(rows, values);
   if (text.includes("insert into saved_routes")) return insertRoute(rows, values);
   if (text.includes("delete from saved_routes")) return deleteRows(rows, values);
-  if (text.includes("set user_id")) return claimRows(rows, values);
-  if (text.includes("from conversations")) return conversationPage(rows, values);
   if (text.includes("update saved_routes")) return updateRoute(rows, values);
   return routeRows(rows, values);
 }
@@ -128,24 +116,4 @@ function routeRows(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {
   const matches = rows.filter((item) => item.user_id === userId);
   matches.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   return matches;
-}
-
-function conversationPage(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {
-  const userId = values[0];
-  const matches = rows.filter((item) => item.user_id === userId);
-  matches.sort((a, b) => b.updated_at.localeCompare(a.updated_at) ||
-    (b.id.localeCompare(a.id)));
-  const limit = Number(values[1]);
-  const offset = Number(values[2]);
-  return matches.slice(offset, offset + limit).map(conversationRow);
-}
-
-function conversationRow(item: FakeSavedRouteRow) {
-  return {
-    session_id: item.id,
-    title: item.title,
-    first_query: item.first_query ?? "",
-    created_at: item.updated_at,
-    updated_at: item.updated_at,
-  };
 }

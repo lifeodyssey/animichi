@@ -17,9 +17,16 @@ from pydantic_ai.settings import ModelSettings
 
 from animichi.agents.agent_result import AgentResult
 from animichi.agents.base import get_default_model, resolve_model, resolve_model_alias
+from animichi.agents.runtime_models import QAResponseModel
+from animichi.agents.session_state import SessionState
+from animichi.application.agent_turn import TextTurn
 from animichi.clients.catalog_client import CatalogClientProtocol
 from animichi.config.settings import Settings
-from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
+from animichi.interfaces.public_api import (
+    PublicAPIRequest,
+    RuntimeAPI,
+    _RuntimeTurnExecution,
+)
 
 
 class _FailModel(TestModel):
@@ -121,6 +128,7 @@ async def test_primary_failure_uses_fallback_in_order() -> None:
 
 async def test_httpx_timeout_error_drives_fallback_model() -> None:
     settings = Settings(
+        default_agent_model="openai:mimo-v2.5@https://opencode.ai/zen/go/v1",
         fallback_agent_model="deepseek:deepseek-v4-flash",
     )
     primary_transport = _TimeoutTransport()
@@ -128,7 +136,7 @@ async def test_httpx_timeout_error_drives_fallback_model() -> None:
     client = httpx.AsyncClient(
         timeout=settings.model_attempt_timeout,
         mounts={
-            "https://api.xiaomimimo.com": primary_transport,
+            "https://opencode.ai": primary_transport,
             "https://api.deepseek.com": fallback_transport,
         },
     )
@@ -137,14 +145,14 @@ async def test_httpx_timeout_error_drives_fallback_model() -> None:
         models.override_allow_model_requests(True),
     ):
         model = get_default_model(http_client=client)
-        result = await Agent(model).run("ping")
-    try:
-        assert result.output == "fallback-ok"
-        assert client.timeout.read == settings.model_attempt_timeout
-        assert len(primary_transport.requests) == 1
-        assert len(fallback_transport.requests) == 1
-    finally:
-        await client.aclose()
+        try:
+            result = await Agent(model).run("ping")
+        finally:
+            await client.aclose()
+    assert result.output == "fallback-ok"
+    assert client.timeout.read == settings.model_attempt_timeout
+    assert len(primary_transport.requests) == 1
+    assert len(fallback_transport.requests) == 1
 
 
 @pytest.mark.parametrize(
@@ -219,21 +227,22 @@ async def test_production_default_is_mimo_only(
     monkeypatch.delenv("FALLBACK_AGENT_MODEL")
     monkeypatch.delenv("DEEPSEEK_API_KEY")
     monkeypatch.setenv("MIMO_API_KEY", "prod-mimo-key")
+    monkeypatch.setenv("ZEN_GO_API_KEY", "prod-zen-go-key")
     settings = Settings(_env_file=None)
     client = httpx.AsyncClient()
     with patch("animichi.config.get_settings", return_value=settings):
         model = get_default_model(http_client=client)
     try:
         assert settings.default_agent_model == (
-            "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
+            "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"
         )
         assert settings.fallback_agent_model == ""
         assert not isinstance(model, FallbackModel)
         assert model.model_name == "mimo-v2.5"
         assert str(model.client.base_url).rstrip("/") == (
-            "https://api.xiaomimimo.com/v1"
+            "https://opencode.ai/zen/go/v1"
         )
-        assert model.client.api_key == "prod-mimo-key"
+        assert model.client.api_key == "prod-zen-go-key"
         assert model.client.max_retries == 0
     finally:
         await client.aclose()
@@ -243,6 +252,7 @@ async def test_explicit_deepseek_fallback_still_works() -> None:
     settings = Settings(
         fallback_agent_model="deepseek:deepseek-v4-flash",
         mimo_api_key="prod-mimo-key",
+        zen_go_api_key="prod-zen-go-key",
         deepseek_api_key="prod-deepseek-key",
     )
     client = httpx.AsyncClient()
@@ -253,9 +263,9 @@ async def test_explicit_deepseek_fallback_still_works() -> None:
         primary, fallback = model.models
         assert primary.model_name == "mimo-v2.5"
         assert str(primary.client.base_url).rstrip("/") == (
-            "https://api.xiaomimimo.com/v1"
+            "https://opencode.ai/zen/go/v1"
         )
-        assert primary.client.api_key == "prod-mimo-key"
+        assert primary.client.api_key == "prod-zen-go-key"
         assert fallback.model_name == "deepseek-v4-flash"
         assert str(fallback.client.base_url).rstrip("/") == ("https://api.deepseek.com")
         assert fallback.client.api_key == "prod-deepseek-key"
@@ -271,29 +281,48 @@ def test_runtime_api_requires_model_http_client() -> None:
 
 async def test_alias_override_reuses_injected_model_client() -> None:
     client = httpx.AsyncClient()
-    result = cast(AgentResult, object())
+    result = AgentResult(
+        output=QAResponseModel(message="ok"),
+        intent="general_qa",
+        session_state=SessionState(),
+    )
     api = RuntimeAPI(
         object(),
         catalog=cast(CatalogClientProtocol, object()),
         model_http_client=client,
+    )
+    execution = _RuntimeTurnExecution(
+        api,
+        request=PublicAPIRequest(text="hello"),
+        model="mimo",
+        is_byok=False,
+        user_id=None,
+        on_step=None,
     )
     with (
         patch(
             "animichi.agents.animichi_runner.resolve_model_alias",
             wraps=resolve_model_alias,
         ) as resolve,
-        patch.object(api, "_model_request", new=AsyncMock(return_value=result)),
+        patch(
+            "animichi.interfaces.public_api.run_animichi_agent",
+            new=AsyncMock(return_value=result),
+        ),
         patch(
             "animichi.agents.base.build_model_http_client",
             side_effect=AssertionError("fresh model client built"),
         ),
     ):
-        dispatched = await api._dispatch_request(
-            PublicAPIRequest(text="hello"), None, [], "mimo", None
+        executed = await execution.execute(
+            TextTurn(text="hello", locale="ja"),
+            context=None,
+            history=(),
+            model="mimo",
+            on_step=None,
         )
     try:
         resolve.assert_called_once_with("mimo", http_client=client)
-        assert dispatched[0] is result
+        assert executed.output is result
     finally:
         await client.aclose()
 
@@ -307,22 +336,35 @@ async def test_default_model_reuses_injected_model_client() -> None:
         catalog=cast(CatalogClientProtocol, object()),
         model_http_client=client,
     )
+    run = AsyncMock(return_value=result)
+    execution = _RuntimeTurnExecution(
+        api,
+        request=PublicAPIRequest(text="hello"),
+        model=None,
+        is_byok=False,
+        user_id=None,
+        on_step=None,
+    )
     with (
         patch("animichi.config.get_settings", return_value=settings),
         patch(
             "animichi.agents.animichi_runner.get_default_model", wraps=get_default_model
         ),
-        patch.object(api, "_model_request", new=AsyncMock(return_value=result)),
+        patch("animichi.interfaces.public_api.run_animichi_agent", new=run),
         patch(
             "animichi.agents.base.build_model_http_client",
             side_effect=AssertionError("fresh model client built"),
         ),
     ):
-        dispatched = await api._dispatch_request(
-            PublicAPIRequest(text="hello"), None, [], None, None
+        await execution.execute(
+            TextTurn(text="hello", locale="ja"),
+            context=None,
+            history=(),
+            model=None,
+            on_step=None,
         )
     try:
-        selected = dispatched[1]
+        selected = run.await_args.kwargs["model"]
         assert isinstance(selected, FallbackModel)
         assert all(model.client._client is client for model in selected.models)
     finally:

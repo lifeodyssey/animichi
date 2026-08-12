@@ -34,6 +34,8 @@ export function chatStreamFixture(name: ChatStreamFixture): string {
 export interface ChatStreamOptions {
   /** Patch the recorded final frame's `session_id` (recordings capture null). */
   readonly sessionId?: string;
+  /** Patch the recorded final frame's Session offer (TURN-4 #955). */
+  readonly sessionOffer?: { readonly revision?: number; readonly digest?: string };
   /** Observe each request hitting the chat endpoint (headers assertions). */
   readonly spy?: (request: Request) => void;
   /** Corrupt the recorded final frame (type-invalid `success`) to probe schema guards. */
@@ -55,11 +57,20 @@ function patchSessionIdLine(line: string, sessionId: string): string {
   return mapFinalFrameData(line, (data) => ({ ...data, session_id: sessionId }));
 }
 
-export function patchSessionId(text: string, sessionId?: string): string {
-  if (!sessionId) return text;
+function patchOfferLine(line: string, offer: NonNullable<ChatStreamOptions["sessionOffer"]>): string {
+  return mapFinalFrameData(line, (data) => ({
+    ...data,
+    ...(offer.revision === undefined ? {} : { revision: offer.revision }),
+    ...(offer.digest === undefined ? {} : { session_digest: offer.digest }),
+  }));
+}
+
+export function patchSessionId(text: string, sessionId?: string, offer?: ChatStreamOptions["sessionOffer"]): string {
+  if (!sessionId && !offer) return text;
   return text
     .split("\n")
-    .map((line) => patchSessionIdLine(line, sessionId))
+    .map((line) => (sessionId ? patchSessionIdLine(line, sessionId) : line))
+    .map((line) => (offer ? patchOfferLine(line, offer) : line))
     .join("\n");
 }
 
@@ -70,7 +81,7 @@ function corruptFinalFrame(text: string, malformed?: boolean): string {
 
 export function streamText(name: ChatStreamFixture, options: ChatStreamOptions): string {
   return corruptFinalFrame(
-    patchSessionId(chatStreamFixture(name), options.sessionId),
+    patchSessionId(chatStreamFixture(name), options.sessionId, options.sessionOffer),
     options.malformedFinal,
   );
 }

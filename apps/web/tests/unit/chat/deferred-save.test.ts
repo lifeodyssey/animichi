@@ -9,7 +9,7 @@ import {
   readDeferredSave,
   writeDeferredSave,
 } from "../../../src/features/chat/save/deferred-save";
-import { replayDeferredSave } from "../../../src/features/chat/save/create-on-login";
+import { replayDeferredSave } from "../../../src/features/chat/save/complete-deferred-save";
 
 afterEach(() => {
   vi.restoreAllMocks();

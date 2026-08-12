@@ -21,6 +21,7 @@ from animichi.agents.animichi_runner import (
     _neutral_usage,
     _seed_tool_state,
     deserialize_message_history,
+    run_animichi_agent,
     to_model_turn_usage,
 )
 from animichi.agents.runtime_deps import RuntimeDeps
@@ -32,6 +33,7 @@ from animichi.agents.session_state import (
     SearchPayloadState,
     SessionState,
 )
+from animichi.application.errors import InvalidInputError
 from animichi.application.model_turn_port import ModelTurnUsage
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 
@@ -141,3 +143,13 @@ def test_capped_partial_result_reraises_content_filter() -> None:
 
     with pytest.raises(ContentFilterError, match="filtered"):
         _capped_partial_result(deps, RunUsage(), ContentFilterError("filtered"))
+
+
+async def test_run_animichi_agent_rejects_blank_text() -> None:
+    with pytest.raises(InvalidInputError, match="must not be blank"):
+        await run_animichi_agent(
+            text="   ",
+            db=MagicMock(),
+            locale="ja",
+            catalog=MockCatalogClient(),
+        )

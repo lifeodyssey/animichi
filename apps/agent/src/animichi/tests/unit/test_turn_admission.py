@@ -166,6 +166,16 @@ async def test_blank_turn_key_is_rejected_before_any_store_call() -> None:
     assert len(store.reservations) == 0
 
 
+async def test_adopt_namespaced_turn_key_is_rejected_before_any_store_call() -> None:
+    """SESSION-2 #960: the `adopt:` turn_key namespace is reserved for the
+    synthetic adoption marker rows; a client key in it must never replay a
+    marker's completed status."""
+    store = FakeTurnReservationStore()
+    with pytest.raises(InvalidInputError):
+        await _admission(store)(_request(turn_key="adopt:s-1"))
+    assert len(store.reservations) == 0
+
+
 async def test_admission_without_a_store_still_gates_quota() -> None:
     quota = AsyncMock()
     quota.count_for = AsyncMock(return_value=4)

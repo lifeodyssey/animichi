@@ -29,8 +29,17 @@ afterEach(() => {
 
 describe("sessionHeaders() identity headers (regression, pre-BYOK behaviour)", () => {
   it("emits x-session-id only when a session id is known", async () => {
-    expect(await sessionHeaders("s-1")).toMatchObject({ "x-session-id": "s-1" });
-    expect(await sessionHeaders()).not.toHaveProperty("x-session-id");
+    expect(await sessionHeaders({ sessionId: "s-1" })).toMatchObject({ "x-session-id": "s-1" });
+    expect(await sessionHeaders({})).not.toHaveProperty("x-session-id");
+  });
+
+  it("echoes the Session offer revision and digest (TURN-4 #955)", async () => {
+    expect(await sessionHeaders({ sessionId: "s-1", revision: 3, digest: "deadbeef" })).toMatchObject({
+      "x-session-id": "s-1",
+      "x-session-revision": "3",
+      "x-session-digest": "deadbeef",
+    });
+    expect(await sessionHeaders({ sessionId: "s-1" })).not.toHaveProperty("x-session-revision");
   });
 
   it("injects the Bearer token in place of a Turnstile header once signed in", async () => {
@@ -41,7 +50,7 @@ describe("sessionHeaders() identity headers (regression, pre-BYOK behaviour)", (
 
 describe("sessionHeaders() BYOK injection (#284 Task 6)", () => {
   it("emits exactly today's header set when nothing is saved", async () => {
-    expect(await sessionHeaders("s-1")).toEqual({ "x-session-id": "s-1" });
+    expect(await sessionHeaders({ sessionId: "s-1" })).toEqual({ "x-session-id": "s-1" });
   });
 
   it("adds the full X-BYOK-* set for openai-compatible on top of the identity headers", async () => {
@@ -52,7 +61,7 @@ describe("sessionHeaders() BYOK injection (#284 Task 6)", () => {
       model: "gpt-5",
       baseUrl: "https://api.example.com/v1",
     });
-    expect(await sessionHeaders("s-1")).toEqual({
+    expect(await sessionHeaders({ sessionId: "s-1" })).toEqual({
       "x-session-id": "s-1",
       Authorization: "Bearer jwt",
       "X-BYOK-Provider": "openai-compatible",
@@ -85,7 +94,7 @@ describe("sessionHeaders() BYOK headers vs the armed Turnstile wait (#463 rebase
   it("applies BYOK headers on top once an awaited, late-arriving challenge resolves", async () => {
     vi.stubEnv("VITE_TURNSTILE_SITE_KEY", SITE_KEY);
     saveByokConfig({ provider: "gemini", apiKey: "gk", model: "gemini-2.5-flash" });
-    const pending = sessionHeaders("s-armed");
+    const pending = sessionHeaders({ sessionId: "s-armed" });
     await Promise.resolve();
     rememberTurnstileToken("late-token");
     expect(await pending).toEqual({

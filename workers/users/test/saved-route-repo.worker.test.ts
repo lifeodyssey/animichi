@@ -1,41 +1,21 @@
 import type { SavedRoute } from "@animichi/contract";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
-import {
-  claimSavedRoutes,
-} from "../src/api/routes";
-import type { SavedRouteRepo } from "../src/domain/ports";
 import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
 import type { DbExecutor } from "../src/db/client";
 
 const ID = "00000000-0000-4000-8000-000000000009";
-const SESSION = "anonymous-session";
 const NOW = "2026-07-13T04:00:00.000Z";
 const FIXED_NOW = { now: () => NOW };
 
 function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   return {
-    id: ID, claim_session_id: null, user_id: "user-a", title: "Tokyo", point_ids: [],
+    id: ID, user_id: "user-a", title: "Tokyo", point_ids: [],
     status: "saved", saved_at: null, updated_at: NOW, ...overrides,
   };
 }
-
-function stubRepo(): SavedRouteRepo {
-  return {
-    claimSavedRoutes: vi.fn().mockResolvedValue({ claimed_count: 0 }),
-  };
-}
-
-describe("handlers delegate to the SavedRouteRepo port", () => {
-
-  it("claimSavedRoutes forwards user id and input", async () => {
-    const repo = stubRepo();
-    expect(await claimSavedRoutes(repo, "user-a", { session_id: SESSION })).toEqual({ claimed_count: 0 });
-    expect(repo.claimSavedRoutes).toHaveBeenCalledExactlyOnceWith("user-a", { session_id: SESSION });
-  });
-});
 
 describe("NeonSavedRouteRepo over the raw executor", () => {
   it("reads owned saved routes through listOwned", async () => {
@@ -48,16 +28,6 @@ describe("NeonSavedRouteRepo over the raw executor", () => {
     const route = await saveSavedRoute(repo, "user-a", { title: "Tokyo", point_ids: ["p1"], status: "saved" }, FIXED_NOW);
     expect(route).toMatchObject({ title: "Tokyo", status: "saved", point_ids: ["p1"] });
     expect(route.saved_at).toBe(NOW);
-  });
-
-  it("claims only still-anonymous rows of the session", async () => {
-    const store = fakeDb([
-      row({ claim_session_id: SESSION, user_id: null }),
-      row({ id: "00000000-0000-4000-8000-000000000002", claim_session_id: SESSION, user_id: "user-b" }),
-    ]);
-    const repo = new NeonSavedRouteRepo(store.db);
-    expect(await repo.claimSavedRoutes("user-a", { session_id: SESSION })).toEqual({ claimed_count: 1 });
-    expect(store.rows.map((item) => item.user_id)).toEqual(["user-a", "user-b"]);
   });
 });
 

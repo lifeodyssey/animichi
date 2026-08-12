@@ -12,9 +12,15 @@ from pydantic_ai.usage import RunUsage
 from animichi.agents.agent_result import AgentResult
 from animichi.agents.runtime_deps import TitleTranslator
 from animichi.agents.translation import TranslationContext, TranslationResult
+from animichi.application.agent_turn import TextTurn, TurnSideEffects
 from animichi.clients.catalog_client import CatalogClientProtocol
 from animichi.config.settings import Settings
-from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
+from animichi.interfaces.public_api import (
+    PublicAPIRequest,
+    RuntimeAPI,
+    _RuntimeTurnExecution,
+    _RuntimeTurnSettlement,
+)
 from animichi.interfaces.usage_metering import UsageScope
 from animichi.tests.unit.conftest_public_api import make_result
 
@@ -74,6 +80,43 @@ def _result(message: str) -> AgentResult:
     return result
 
 
+def _execution(
+    api: RuntimeAPI, *, model: TestModel, is_byok: bool
+) -> _RuntimeTurnExecution:
+    return _RuntimeTurnExecution(
+        api,
+        request=PublicAPIRequest(text="请翻译", locale="zh"),
+        model=model,
+        is_byok=is_byok,
+        user_id="user-1",
+        on_step=None,
+    )
+
+
+async def _settle_usage(api: RuntimeAPI, result: AgentResult, *, is_byok: bool) -> None:
+    settlement = _RuntimeTurnSettlement(
+        api,
+        request=PublicAPIRequest(text="请翻译", locale="zh"),
+        user_id="user-1",
+        user_type="human",
+        is_byok=is_byok,
+    )
+    await settlement.settle(
+        TurnSideEffects(
+            result=result,
+            session_id=None,
+            user_id="user-1",
+            user_type="human",
+            is_byok=is_byok,
+            settle_quota=False,
+            elapsed_ms=0,
+            intent="qa",
+            status="ok",
+            request_text="请翻译",
+        )
+    )
+
+
 async def _run_pipeline(
     api: RuntimeAPI,
     result: AgentResult,
@@ -81,19 +124,18 @@ async def _run_pipeline(
     *,
     is_byok: bool,
 ) -> None:
-    dispatch = AsyncMock(return_value=(result, model, True))
-    with patch.object(api, "_dispatch_request", new=dispatch):
-        await api._execute_pipeline(
-            PublicAPIRequest(text="请翻译", locale="zh"),
-            None,
-            [],
-            model,
-            None,
-            object(),
-            "user-1",
-            is_byok=is_byok,
+    with patch(
+        "animichi.interfaces.public_api.run_animichi_agent",
+        new=AsyncMock(return_value=result),
+    ):
+        await _execution(api, model=model, is_byok=is_byok).execute(
+            TextTurn(text="请翻译", locale="zh"),
+            context=None,
+            history=(),
+            model=model,
+            on_step=None,
         )
-    await api._record_usage(result, "user-1", "human", is_byok=is_byok)
+    await _settle_usage(api, result, is_byok=is_byok)
 
 
 async def _translated_text(
@@ -175,16 +217,14 @@ async def test_byok_title_translation_platform_usage_is_billed_to_user_scope() -
             new=AsyncMock(side_effect=_translated_title),
         ),
     ):
-        result = await api._model_request(
-            PublicAPIRequest(text="translate title"),
-            None,
-            [],
-            TestModel(),
-            None,
-            "user-1",
-            is_byok=True,
+        executed = await _execution(api, model=TestModel(), is_byok=True).execute(
+            TextTurn(text="translate title", locale="ja"),
+            context=None,
+            history=(),
+            model=TestModel(),
+            on_step=None,
         )
-    await api._record_usage(result, "user-1", "human", is_byok=True)
+    await _settle_usage(api, executed.output, is_byok=True)
     assert [(call.scope, call.cost_usd) for call in repo.calls] == [
         ("byok", 0.0),
         ("user", 10.0),
