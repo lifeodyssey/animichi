@@ -31,7 +31,7 @@ expect_status() {
   shift 2
   local actual
   actual=$(curl -sS -o /dev/null -w "%{http_code}" "${GATE_HEADER[@]}" "$@" "${url}" || true)
-  test "${actual}" = "${expected}" \
+  [[ "${actual}" = "${expected}" ]]\
     || { echo "cutover-private-smoke: ${url} expected ${expected}, got ${actual}" >&2; exit 1; }
 }
 

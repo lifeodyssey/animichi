@@ -27,7 +27,7 @@ record() {
   for kv in "$@"; do
     local field="${kv%%=*}"
     local value="${kv#*=}"
-    if [[ ! "${field}" =~ ^${ALLOWED_FIELDS}$ ]]; then
+    if [[ ! "${field}" =~ ^(${ALLOWED_FIELDS})$ ]]; then
       echo "cutover-state: disallowed state field: ${field}" >&2
       exit 2
     fi

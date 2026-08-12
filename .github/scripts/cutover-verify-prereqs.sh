@@ -41,13 +41,15 @@ if [[ "${workers}" == *"jobs"* ]]; then
   exit 1
 fi
 
-if [[ -n "${NEON_DATABASE_URL:-}" ]]; then
-  triggers=$(psql "${NEON_DATABASE_URL}" -tAc \
-    "SELECT count(*) FROM information_schema.tables WHERE table_name = 'cron.job';" 2>/dev/null || echo "0")
-  if [[ "${triggers}" != "0" ]]; then
-    echo "cutover-verify-prereqs: staging still exposes cron triggers (${triggers})" >&2
-    exit 1
-  fi
+if [[ -z "${NEON_DATABASE_URL:-}" ]]; then
+  echo "cutover-verify-prereqs: NEON_DATABASE_URL is required to verify retention absence" >&2
+  exit 1
+fi
+triggers=$(psql "${NEON_DATABASE_URL}" -tAc \
+  "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'cron' AND table_name = 'job';" 2>/dev/null || echo "0")
+if [[ "${triggers}" != "0" ]]; then
+  echo "cutover-verify-prereqs: staging still exposes cron triggers (${triggers})" >&2
+  exit 1
 fi
 
 echo "OK: retention_execution=absent, auth_boundary=neon_only (current remote state)"

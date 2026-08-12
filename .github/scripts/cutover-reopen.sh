@@ -22,24 +22,29 @@ fi
 STAGING_DOMAIN="https://staging.animichi.com"
 
 cd "$(git rev-parse --show-toplevel)"
-test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}" \
+[[ "$(git rev-parse HEAD)" = "${SOURCE_REVISION}" ]]\
   || { echo "cutover-reopen: HEAD != source_revision" >&2; exit 1; }
 
-# 1. Open the IaC staging gate.
+# 1. Verify prerequisites BEFORE opening the IaC staging gate, so a
+#    failing check cannot leave public ingress open (fail closed).
+bash .github/scripts/cutover-verify-prereqs.sh \
+  "retention_execution=absent" "auth_boundary=neon_only"
+
+# 2. Open the IaC staging gate.
 pulumi --stack staging config set stagingGateEnabled false
 pulumi --stack staging up --yes
 sleep 30
 
-# 2. Recheck retention remains absent after the final deployment.
+# 3. Recheck retention remains absent after the final deployment.
 bash .github/scripts/cutover-verify-prereqs.sh \
   "retention_execution=absent" "auth_boundary=neon_only"
 
 # 3. Smallest critical public journeys pass on the reopened ingress.
 status=$(curl -sS -o /dev/null -w "%{http_code}" "${STAGING_DOMAIN}/healthz" || true)
-test "${status}" = "200" \
+[[ "${status}" = "200" ]]\
   || { echo "cutover-reopen: public /healthz failed (HTTP ${status}); keeping ingress closed" >&2; exit 1; }
 status=$(curl -sS -o /dev/null -w "%{http_code}" "${STAGING_DOMAIN}/api/bangumi/popular" || true)
-test "${status}" = "200" \
+[[ "${status}" = "200" ]]\
   || { echo "cutover-reopen: public popular read failed (HTTP ${status}); keeping ingress closed" >&2; exit 1; }
 
 echo "OK: ingress reopened at ${SOURCE_REVISION}, retention absent, verdict complete"

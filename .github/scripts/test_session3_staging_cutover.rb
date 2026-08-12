@@ -194,7 +194,7 @@ def workflow_order_violations(wf)
   # `present` (retention left executable) is red.
   reset_steps = reset.is_a?(Hash) ? reset.fetch("steps", []) : []
   reset_script = reset_steps.map { |s| s["run"].to_s }.join("\n")
-  unless reset_script.include?('cutover-verify-prereqs.sh "retention_execution=absent')
+  unless reset_script.include?('cutover-verify-prereqs.sh "retention_execution=absent" "auth_boundary=neon_only"')
     found << "reset-schema must re-verify retention_execution=absent before reset"
   end
   unless reset_script.match?(/auth_boundary=neon_only/)

@@ -20,7 +20,7 @@ fi
 NEON_DATABASE_URL="${NEON_DATABASE_URL:?NEON_DATABASE_URL required}"
 
 cd "$(git rev-parse --show-toplevel)"
-test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}" \
+[[ "$(git rev-parse HEAD)" = "${SOURCE_REVISION}" ]]\
   || { echo "cutover-reset-schema: HEAD != source_revision" >&2; exit 1; }
 
 # 1. Evidence: inventory of application schema objects, no row content.
@@ -49,9 +49,9 @@ atlas migrate apply \
 
 # 5. Verify the applied head/digest against the source checkout.
 APPLIED_HEAD=$(psql "${NEON_DATABASE_URL}" -tAc \
-  "SELECT version FROM public.schema_migrations ORDER BY id DESC LIMIT 1;")
+  "SELECT version FROM public.atlas_schema_revisions ORDER BY executed_at DESC LIMIT 1;")
 EXPECTED_HEAD=$(ls migrations/neon/*.sql | sort | tail -1 | xargs basename | cut -d_ -f1)
-test "${APPLIED_HEAD}" = "${EXPECTED_HEAD}" \
+[[ "${APPLIED_HEAD}" = "${EXPECTED_HEAD}" ]]\
   || { echo "cutover-reset-schema: applied head ${APPLIED_HEAD} != source head ${EXPECTED_HEAD}" >&2; exit 1; }
 
 echo "OK: application schema reset and fresh chain applied at ${EXPECTED_HEAD}"

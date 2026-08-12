@@ -107,7 +107,7 @@ jobs:
         run: |
           set -euo pipefail
           # Never trust an earlier job's success: current remote re-check.
-          bash .github/scripts/cutover-verify-prereqs.sh "retention_execution=absent,retention=absent" "auth_boundary=neon_only"
+          bash .github/scripts/cutover-verify-prereqs.sh "retention_execution=absent" "auth_boundary=neon_only"
           bash .github/scripts/cutover-state.sh record phase=d ingress=closed
           bash .github/scripts/cutover-state.sh record phase=d retention_execution=absent
           bash .github/scripts/cutover-state.sh record phase=d auth_boundary=neon_only

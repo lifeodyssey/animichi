@@ -17,7 +17,7 @@ if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 
 cd "$(git rev-parse --show-toplevel)"
-test "$(git rev-parse HEAD)" = "${SOURCE_REVISION}" \
+[[ "$(git rev-parse HEAD)" = "${SOURCE_REVISION}" ]]\
   || { echo "cutover-close-ingress: HEAD != source_revision" >&2; exit 1; }
 
 # 1. Close the IaC staging gate (the `stagingGateEnabled` flag IS the gate:
