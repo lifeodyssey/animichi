@@ -71,6 +71,9 @@ class Settings(BaseSettings):
         default="", description="DeepSeek API key (required when fallback is enabled)"
     )
     mimo_api_key: str = Field(default="", description="MiMo API key (required)")
+    zen_go_api_key: str = Field(
+        default="", description="zen/go gateway API key (opencode.ai)"
+    )
     openai_compat_api_key: str = Field(
         default="",
         description="API key for the OpenAI-compatible fallback provider",
@@ -160,8 +163,8 @@ class Settings(BaseSettings):
 
     # Agent model
     default_agent_model: str = Field(
-        default="openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
-        description="Default primary LLM model (MiMo V2.5)",
+        default="openai:mimo-v2.5@https://opencode.ai/zen/go/v1",
+        description="Default primary LLM model (MiMo V2.5 via the zen/go gateway)",
     )
     # Temporarily MiMo-only: the DeepSeek fallback is disabled pending a DeepSeek
     # account recharge (402 Insufficient Balance). Re-enable by setting this back to
@@ -336,6 +339,7 @@ class Settings(BaseSettings):
             "DEEPSEEK_API_KEY": self.deepseek_api_key,
             "MIMO_API_KEY": self.mimo_api_key,
             "OPENAI_COMPAT_API_KEY": self.openai_compat_api_key,
+            "ZEN_GO_API_KEY": self.zen_go_api_key,
         }
         return bool(values.get(credential_env))
 
