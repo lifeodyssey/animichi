@@ -1,7 +1,7 @@
 # Dual-seat final focused approval — round 4
 
-Date: 2026-08-10  
-Input: Draft v9 after the sole round-3 documentation-consistency correction  
+Date: 2026-08-10
+Input: Draft v9 after the sole round-3 documentation-consistency correction
 Scope: final read-only confirmation of the production Jobs exception across Spec, ADR-0009, Jobs context, and current workflow/IaC wiring
 
 | Seat | Verdict | Blocking findings | Owner questions |

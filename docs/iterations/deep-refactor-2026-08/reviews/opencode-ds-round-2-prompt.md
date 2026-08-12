@@ -35,4 +35,3 @@ Return exactly:
 - `RATCHET:` with story AC count, test-annotation count, task count, and any task lacking mutation/deletion proof.
 
 Do not praise, summarize, propose implementation code, create files, or modify the worktree.
-

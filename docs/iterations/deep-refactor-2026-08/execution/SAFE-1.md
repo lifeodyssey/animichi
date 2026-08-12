@@ -1,9 +1,9 @@
 # SAFE-1 execution playbook
 
-> Issue: [#937](https://github.com/lifeodyssey/animichi/issues/937)  
-> Worktree: `/Users/lumimamini/Documents/Seichijunrei-agent/.worktrees/safe-1-promotion-guard`  
-> Branch: `codex/safe-1-promotion-guard`  
-> Current HEAD: `50be86d5`  
+> Issue: [#937](https://github.com/lifeodyssey/animichi/issues/937)
+> Worktree: `/Users/lumimamini/Documents/Seichijunrei-agent/.worktrees/safe-1-promotion-guard`
+> Branch: `codex/safe-1-promotion-guard`
+> Current HEAD: `50be86d5`
 > Base: `b94c30ab6a519f1cce9eb0a3f7885953f8ff54cf`
 
 ## 1. Result

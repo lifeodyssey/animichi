@@ -1,7 +1,7 @@
 # Dual-seat adversarial review — round 1
 
-Date: 2026-08-10  
-Planning base: `origin/main` at `b94c30ab`  
+Date: 2026-08-10
+Planning base: `origin/main` at `b94c30ab`
 Worktree: `/Users/lumimamini/Documents/Seichijunrei-agent/.worktrees/deep-refactor-spec`
 
 ## Seats

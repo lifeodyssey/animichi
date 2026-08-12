@@ -1,7 +1,7 @@
 # Dual-seat adversarial review — round 2
 
-Date: 2026-08-10  
-Input: Draft v7 after round-1 remediation  
+Date: 2026-08-10
+Input: Draft v7 after round-1 remediation
 Scope: focused closure review; read-only
 
 | Seat | Verdict | Findings |
@@ -31,4 +31,3 @@ Neither seat modified the worktree. Neither returned an owner question.
 - Task rows with explicit acceptance mutation or deletion proof: 27/27.
 - Owner questions: none.
 - Next gate: focused round-3 approval; no new design exploration.
-

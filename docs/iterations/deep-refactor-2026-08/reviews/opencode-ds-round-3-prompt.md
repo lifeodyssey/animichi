@@ -25,4 +25,3 @@ Return exactly:
 - `RATCHET:` with stories, AC annotations, task rows, mutation/deletion proof, and dependency-cycle result.
 
 Do not summarize, praise, propose implementation code, create files, or modify the worktree.
-

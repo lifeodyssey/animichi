@@ -1,7 +1,7 @@
 # Deep-refactor published tickets
 
-Parent: [#936 — Deep Code Refactor: One Turn, One Contract, One Owner](https://github.com/lifeodyssey/animichi/issues/936)  
-Published: 2026-08-10  
+Parent: [#936 — Deep Code Refactor: One Turn, One Contract, One Owner](https://github.com/lifeodyssey/animichi/issues/936)
+Published: 2026-08-10
 State: 27 of 27 tickets carry `ready-for-agent`, are native sub-issues of #936, and have native GitHub dependency counts matching the owner-approved Spec.
 
 | Card | Issue | Blocked by |
