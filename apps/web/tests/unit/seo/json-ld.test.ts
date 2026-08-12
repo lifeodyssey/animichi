@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { JsonLdNode } from "../../../src/features/anime/structured-data";
-import { jsonLdScripts, serializeJsonLd } from "../../../src/features/seo/json-ld";
+import type { JsonLdNode } from "../../../src/lib/json-ld";
+import { jsonLdScripts, serializeJsonLd } from "../../../src/lib/json-ld";
 
 const NODES: JsonLdNode[] = [
   { "@context": "https://schema.org", "@type": "CreativeWork", "@id": "https://x/anime/1" },

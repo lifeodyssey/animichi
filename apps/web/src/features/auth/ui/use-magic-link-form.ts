@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { type MagicLinkResult, sendMagicLink } from "../../lib/auth/neon-auth";
-import { sanitizeReturnTarget } from "../../lib/auth/return-target";
+import { type MagicLinkResult, sendMagicLink } from "../../../lib/auth/neon-auth";
+import { sanitizeReturnTarget } from "../../../lib/auth/return-target";
 
 export type ValidationKey = "email_required" | "email_invalid";
 export type FormStatus = "idle" | "submitting" | MagicLinkResult;

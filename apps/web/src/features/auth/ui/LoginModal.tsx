@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import type { Dict } from "../../i18n/dictionaries";
-import { useDict } from "../../i18n/LocaleProvider";
+import type { Dict } from "../../../i18n/dictionaries";
+import { useDict } from "../../../i18n/LocaleProvider";
 import { LoginForm } from "./LoginForm";
 import type { SendCommitted } from "./use-magic-link-form";
 
