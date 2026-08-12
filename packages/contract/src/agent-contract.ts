@@ -206,6 +206,33 @@ export const GetSessionHistoryResponse = z.object({
 });
 export type GetSessionHistoryResponse = z.infer<typeof GetSessionHistoryResponse>;
 
+// ---------------------------------------------------------------------------
+// Feedback boundary (AGENT-3 #962).
+//
+// SubmitFeedback owns validation, optional Session ownership, persistence,
+// and stable public errors through the final Session and feedback stores; the
+// wire shapes below are the generated boundary that use case publishes.
+// `query_text` carries no length facet here — blank-after-trim is a semantic
+// rule owned by the Python use case, not a parse-time shape, so the emitted
+// Pydantic model and this schema stay exact mirrors of each other.
+// ---------------------------------------------------------------------------
+
+/** The `POST /v1/feedback` request body (AGENT-3 #962). */
+export const SubmitFeedbackRequest = z.object({
+  session_id: z.string().nullable().optional(),
+  query_text: z.string(),
+  intent: z.string().nullable().optional(),
+  rating: z.enum(["good", "bad"]),
+  comment: z.string().nullable().optional(),
+});
+export type SubmitFeedbackRequest = z.infer<typeof SubmitFeedbackRequest>;
+
+/** The `POST /v1/feedback` success body (AGENT-3 #962). */
+export const SubmitFeedbackResult = z.object({
+  feedback_id: z.string(),
+});
+export type SubmitFeedbackResult = z.infer<typeof SubmitFeedbackResult>;
+
 /**
  * Complete Agent path inventory (fastapi_service.py router registrations).
  * `summary` is the inventory entry only — it is not emitted into generated

@@ -6,7 +6,7 @@ import inspect
 import re
 from collections.abc import Awaitable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Annotated, Literal, cast
+from typing import TYPE_CHECKING, Annotated, cast
 
 import structlog
 from fastapi import Depends, Header, HTTPException, Request
@@ -74,30 +74,6 @@ class ConversationPatchRequest(BaseModel):
         if not title:
             raise ValueError("title must be a non-empty string.")
         return title
-
-
-class FeedbackRequest(BaseModel):
-    session_id: str | None = None
-    query_text: str
-    intent: str | None = None
-    rating: Literal["good", "bad"]
-    comment: str | None = None
-
-    @field_validator("session_id", "intent", "comment")
-    @classmethod
-    def normalize_optional_text(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        text = value.strip()
-        return text or None
-
-    @field_validator("query_text")
-    @classmethod
-    def validate_query_text(cls, value: str) -> str:
-        query_text = value.strip()
-        if not query_text:
-            raise ValueError("query_text is required.")
-        return query_text
 
 
 def _normalize_optional_header(value: str | None) -> str | None:

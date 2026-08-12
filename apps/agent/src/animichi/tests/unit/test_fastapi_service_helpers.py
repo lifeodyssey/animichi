@@ -109,62 +109,6 @@ def test_messages_route_returns_structured_404_when_ownership_mismatch(
     assert body["error"]["code"] == "not_found"
 
 
-def test_feedback_validation_rejects_blank_query_text(mock_db: MagicMock) -> None:
-    app = create_fastapi_app(
-        runtime_api=RuntimeAPI(
-            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
-        ),
-        settings=Settings(),
-    )
-
-    with TestClient(app) as client:
-        response = client.post(
-            "/v1/feedback",
-            json={"rating": "good", "query_text": "   "},
-        )
-
-    assert response.status_code == 422
-    body = response.json()
-    assert body["error"]["code"] == "invalid_request"
-
-
-def test_feedback_validation_rejects_invalid_rating(mock_db: MagicMock) -> None:
-    app = create_fastapi_app(
-        runtime_api=RuntimeAPI(
-            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
-        ),
-        settings=Settings(),
-    )
-
-    with TestClient(app) as client:
-        response = client.post(
-            "/v1/feedback",
-            json={"rating": "great", "query_text": "京吹"},
-        )
-
-    assert response.status_code == 422
-    body = response.json()
-    assert body["error"]["code"] == "invalid_request"
-
-
-def test_feedback_success_persists(mock_db: MagicMock) -> None:
-    app = create_fastapi_app(
-        runtime_api=RuntimeAPI(
-            mock_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
-        ),
-        settings=Settings(),
-    )
-
-    with TestClient(app) as client:
-        response = client.post(
-            "/v1/feedback",
-            json={"rating": "good", "query_text": "京吹", "intent": "search_bangumi"},
-        )
-
-    assert response.status_code == 200
-    assert response.json() == {"feedback_id": "feedback-1"}
-
-
 def test_http_error_code_maps_404() -> None:
     assert _http_error_code(404) == "not_found"
 

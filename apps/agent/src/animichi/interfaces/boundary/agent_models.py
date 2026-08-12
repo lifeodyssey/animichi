@@ -184,6 +184,18 @@ class GetSessionHistoryResponse(BaseModel):
     next_offset: int | None
 
 
+class SubmitFeedbackRequest(BaseModel):
+    session_id: str | None = None
+    query_text: str
+    intent: str | None = None
+    rating: Literal["good", "bad"]
+    comment: str | None = None
+
+
+class SubmitFeedbackResult(BaseModel):
+    feedback_id: str
+
+
 AGENT_PATH_INVENTORY: tuple[tuple[str, str, str], ...] = (
     ("GET", "/", "service banner"),
     ("GET", "/healthz", "health and service metadata"),
