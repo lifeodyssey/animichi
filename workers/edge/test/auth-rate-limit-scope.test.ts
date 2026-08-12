@@ -1,25 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWorkerApp, isAuthRateLimited, type Env } from "../src/app.ts";
+import { createWorkerApp } from "../src/app.ts";
+import type { Env } from "../src/env.ts";
+import { isAuthRateLimited } from "../src/gateway/routing-policy.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 
 // P2-5 (issue #284 / Task 9, round 3): the authenticated cost-path allowlist
 // was an exact-match `Array.includes`, so a trailing slash on the path
 // bypassed the limiter outright — "/v1/byok/probe/" counted for nothing.
-// Fable's follow-up finding: /v1/runtime + /v1/runtime/stream run a full
+// Fable's follow-up finding: /v1/runtime + /v1/runtime/stream ran a full
 // agent turn on the house model key (same cost shape as /v1/chat) and reach
-// this same authenticated branch, but were never on the allowlist at all.
+// this same authenticated branch — both routes are RETIRED now (TURN-4 #955);
+// route-inventory.test.ts pins that they match no table.
 
 void test("the exact cost-bearing routes are limited", () => {
   assert.equal(isAuthRateLimited("/v1/chat"), true);
-  assert.equal(isAuthRateLimited("/v1/runtime"), true);
-  assert.equal(isAuthRateLimited("/v1/runtime/stream"), true);
 });
 
 void test("a trailing slash on an exact route still counts (P2-5)", () => {
   assert.equal(isAuthRateLimited("/v1/chat/"), true);
-  assert.equal(isAuthRateLimited("/v1/runtime/"), true);
-  assert.equal(isAuthRateLimited("/v1/runtime/stream/"), true);
 });
 
 void test("every route under /v1/byok/ counts, by prefix, not by an exact list", () => {

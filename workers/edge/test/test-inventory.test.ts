@@ -6,12 +6,12 @@ import { URL, fileURLToPath } from "node:url";
 const TEST_DIR = fileURLToPath(new URL(".", import.meta.url));
 const testFiles = readdirSync(TEST_DIR).filter((name) => name.endsWith(".test.ts"));
 
-// Floor ratchet: 34 .test.ts files (including this one) after the 1-10-50
-// splits added entry-container-env, entry-v1-routing, turnstile-siteverify,
-// denied-egress (#1050) and AUTH-1 #945 added identity-policy-matrix. The
+// Floor ratchet: 38 .test.ts files (including this one) after EDGE-1 #963
+// added route-inventory, gateway-request, composition-shell and
+// retired-surface (the composed-seam + derived-route-table suite). The
 // floor RISES when new test files are added; it may only be lowered in the
 // same PR that legitimately deletes a test file, with review.
-const MIN_TEST_FILES = 34;
+const MIN_TEST_FILES = 38;
 
 void test("test-inventory: the worker test directory holds at least the pinned floor of test files", () => {
   const found = testFiles.length;
