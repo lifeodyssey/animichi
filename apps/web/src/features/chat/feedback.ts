@@ -34,9 +34,7 @@ async function postJson(
   headers: HeadersInit,
   payload: SubmitFeedbackInput,
 ): Promise<Response> {
-  return fetch(url, {
-    method: "POST",
-    headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  const h = new Headers(headers);
+  h.set("Content-Type", "application/json");
+  return fetch(url, { method: "POST", headers: h, body: JSON.stringify(payload) });
 }
