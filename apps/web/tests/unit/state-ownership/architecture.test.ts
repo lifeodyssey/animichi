@@ -155,9 +155,9 @@ const s = 'import("../components/Map")';`;
     expect(importEdges(source)).toEqual([]);
   });
 
-  it("does not treat a template-literal dynamic import as an edge", () => {
+  it("keeps a static no-substitution template import as an edge; ignores interpolated templates", () => {
     const source = 'const map = import(`../components/${name}`);\nconst plain = import(`./x`);';
-    expect(importEdges(source)).toEqual([]);
+    expect(importEdges(source)).toEqual([{ specifier: "./x", typeOnly: false }]);
   });
 
   it("resolves static dynamic imports against the importing file", () => {

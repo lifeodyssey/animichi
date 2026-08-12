@@ -7,8 +7,9 @@
  * keeps the escaped braces readable) — specifiers are captured and matched,
  * never interpolated into a regex. Dynamic imports (`import("../x")`) are
  * parsed with the oxc TypeScript parser, so only real `import(...)` call
- * nodes with a string-literal argument count; text inside comments, strings,
- * or template literals never does. The parser dialect follows the source
+ * nodes with a literal argument (a string or a no-substitution template)
+ * count; text inside comments, strings, or interpolated templates never does.
+ * The parser dialect follows the source
  * file extension (`sourceLangOf`); a snippet API without a file defaults to
  * the TS dialect and retries the sibling dialect on a parse error so a
  * dialect mismatch never silently hides a dynamic import.
@@ -102,7 +103,9 @@ export function sourceLangOf(file: string): SourceLang {
 }
 
 /** The module argument of a dynamic import: a string literal's full specifier,
- * or a template literal's static head (the text before the first `${`). */
+ * or a template literal's static head (the text before the first `${`). A
+ * template is `literal` only when it has no substitution, so its whole text is
+ * the specifier. */
 export interface DynamicImportArg {
   readonly head: string;
   readonly literal: boolean;
@@ -133,7 +136,7 @@ function importArg(node: ImportExpression): DynamicImportArg | undefined {
     return { head: source.value, literal: true };
   }
   if (source.type === "TemplateLiteral") {
-    return { head: source.quasis[0]?.value.cooked ?? "", literal: false };
+    return { head: source.quasis[0]?.value.cooked ?? "", literal: source.expressions.length === 0 };
   }
   return undefined;
 }
@@ -160,7 +163,8 @@ function parseDynamicProgram(source: string, lang: SourceLang): Program {
 
 /** AST-derived module arguments of every `import(...)` call in `source`, in
  * source order. Template arguments carry their static head; a string-literal
- * argument carries its full specifier. No argument is ever guessed. */
+ * or no-substitution template argument carries its full specifier and is
+ * `literal`. No argument is ever guessed. */
 export function dynamicImportArgs(source: string, lang: SourceLang = "ts"): readonly DynamicImportArg[] {
   const args: DynamicImportArg[] = [];
   for (const statement of parseDynamicProgram(source, lang).body) {
