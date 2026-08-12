@@ -1,6 +1,6 @@
 # Animichi Production-Readiness Refactor
 
-- Status: REVIEWED — owner waived the unavailable Fable seat; Codex adversarial review complete; pending owner sign-off
+- Status: REVIEWED — owner waived the unavailable Fable seat; Codex adversarial review complete; owner signed off; tickets and the execution Goal are published
 - Scope: repository-wide production-readiness target and remaining execution program
 - Tracking: GitHub Issue #1004
 - Existing execution inputs: repo close-out #904; persistence/PG18/UUIDv7 #992 and #993–#1003
@@ -213,7 +213,7 @@ The finished repository has one current architecture story, one active execution
 ### Local gates, CI, review, and deployment
 
 - Mechanically decidable rules are automated. Semantic design questions are reviewer-owned. Measurable but judgment-dependent properties produce automated evidence for reviewer disposition.
-- Pre-commit remains fast and staged-file scoped: formatting, lint, secret scanning, forbidden syntax/policy checks, and other deterministic checks that complete in seconds. Its changed-package router derives scope from the staged tracked diff, including additions, modifications, renames, and deletions; it does not rely only on commits already present in `HEAD`.
+- Pre-commit remains fast and staged-file scoped: formatting, lint, secret scanning, forbidden syntax/policy checks, and other deterministic checks that complete in seconds. Its changed-package router derives scope from the staged tracked diff, including additions, modifications, renames, and deletions; it does not rely only on commits already present in `HEAD`. Untracked content is not inspected before staging: pre-commit ignores untracked files until they are staged.
 - Pre-push runs the complete locally reproducible static, type, architecture, contract, generated-artifact, unit, and affected integration gates. When a changed scope requires Docker-backed evidence, an unavailable local prerequisite fails with an actionable setup message rather than silently skipping the gate; CI still repeats the evidence authoritatively.
 - CI repeats every trust-boundary gate and adds hermetic PostgreSQL containers, mutation testing, coverage, production builds, browser tests, IaC preview, and checks requiring controlled services.
 - Every hard rule has a scope, owner, execution point, evidence artifact, and exception process. Hard-gate exceptions are centralized, owner-approved, time-bounded, and never implemented as inline suppression.
@@ -225,6 +225,7 @@ The finished repository has one current architecture story, one active execution
 - Comment triage and fresh-head verification are repository required checks, not merely a local CLI hook, so the same rule applies to UI, API, automation, and agent merges.
 - Deployment is CI/CD-only. Staging receives merged component revisions automatically; production promotes the exact same revision and artifact after staging evidence and environment approval.
 - Component-scoped manifests identify source revision, schema compatibility, artifact digest, SBOM/attestation, configuration schema, and dependencies. Artifacts are built once and verified by digest in both environments; production does not rebuild a promoted component.
+- Production eligibility is the SAFE-1 trust boundary: the eligibility gate resolves each component manifest from its pinned immutable GitHub blob — never from the working tree — and compares the candidate against staging evidence. The mutable checkout guard scripts that implement that resolution are the narrow, documented SAFE-1 exception.
 - Browser bundles are environment-neutral. Environment-varying public configuration is injected or selected at runtime under a versioned schema rather than compiled into separate staging and production artifacts.
 - CI/CD failure alerts use the existing GitHub, Cloudflare, and Logfire channels with deduplication and actionable component/revision context.
 
@@ -245,9 +246,9 @@ The finished repository has one current architecture story, one active execution
 
 - Tests assert externally observable state and protocol behavior, not private methods, ORM-generated SQL text, component implementation details, or executor claims.
 - The highest stable seam is mandatory: public contract for API behavior; repository/application port over PostgreSQL for persistence; complete ingest-to-snapshot pipeline for Catalog; browser journey for frontend; Pulumi preview plus deployed smoke for infrastructure.
-- Each acceptance criterion has one primary test type: `unit`, `integration`, `eval`, `browser`, or `api`. Lower-level tests are added only for algorithms, deterministic edge cases, or failure localization.
+- Each acceptance criterion declares one primary test type — `unit`, `integration`, `eval`, `browser`, or `api` — and has a corresponding test present in the same pull-request diff. Lower-level tests are added only for algorithms, deterministic edge cases, or failure localization.
 - Tests are written before behavior changes. They use controlled clocks, deterministic fixtures, no conditional assertions, no skips, and no retry-until-green.
-- Every changed key assertion is mutation-probed: deliberately breaking the behavior must make the relevant test fail before the original implementation is restored.
+- Mutation testing is the authoritative green-light proof: every changed key assertion is mutation-probed — deliberately breaking the behavior must make the relevant test fail (red) before the original implementation is restored (green).
 
 ### Required behavioral evidence
 
@@ -269,7 +270,7 @@ The finished repository has one current architecture story, one active execution
 - `[integration]` Staging proves closed-roster Auth, synthetic identities, WAF outer control, no production user data, daily public Catalog import, manual crawler canary, and deployed component revisions.
 - `[integration]` Pulumi previews and policy checks prove environment separation, no production credential binding in staging, schedule ownership, object-store permissions, and component manifest wiring.
 - `[unit]` Documentation and repository checks reject broken current links, stale package/release references, duplicate source-of-truth claims, invalid agent pointers, and generated-artifact drift.
-- `[unit]` Local-gate routing tests use temporary repositories to prove staged tracked additions, modifications, renames, deletions, untracked files, and root-level changes select the intended packages.
+- `[unit]` Local-gate routing tests use temporary repositories to prove staged tracked additions, modifications, renames, deletions, and root-level changes select the intended packages, and that untracked files are ignored until staged.
 - `[api]` Pull-request gate tests prove acknowledgments become stale after a new head revision or managed finding and that UI/API merge paths cannot bypass the required check.
 - `[integration]` Promotion evidence proves staging and production use identical source revisions and artifacts and that production cannot proceed without staging success and approval.
 
@@ -301,7 +302,7 @@ The finished repository has one current architecture story, one active execution
 
 ## Further Notes
 
-- Spec review record (2026-08-13, base `7c4cb6b63ce40c85f67ee2d8e50e97b60174f8b7`): the owner waived the unavailable Fable seat and requested Codex self-review. The review resolved program-authority drift, phantom OpenAPI behavior, immutable-deployment versus public-package ambiguity, pre-push prerequisite skipping, stale PR acknowledgment bypass, ORM/schema parity evidence, and current Auth/Jobs/domain facts. No unresolved design finding remains; owner sign-off is still required before `/to-tickets` publication.
+- Spec review record (2026-08-13, base `7c4cb6b63ce40c85f67ee2d8e50e97b60174f8b7`): the owner waived the unavailable Fable seat and requested Codex adversarial review, which completed with no unresolved design finding. The review resolved program-authority drift, phantom OpenAPI behavior, immutable-deployment versus public-package ambiguity, pre-push prerequisite skipping, stale PR acknowledgment bypass, ORM/schema parity evidence, and current Auth/Jobs/domain facts. The owner signed off; the #1004 tickets and the execution Goal are now published. No separate verdict artifact exists, so the fields it would hold — head SHA, brief/spec digest, mutation results, comment-surface triage, reviewer identity/time — are not recorded; this record links only evidence that exists.
 - Repo close-out #904 is superseded as the program authority. Its still-open tickets remain valid inputs and are retained, revised, or superseded explicitly during `/to-tickets` reconciliation.
 - Persistence umbrella #992 and child tickets #993–#1003 remain the authority for the active ORM/PG18/UUIDv7/Supabase-removal cutover. This spec adds cross-program invariants but does not duplicate those tickets.
 - The implementation checkout for #992 contained uncommitted work when this spec was written. Planning work was isolated in a separate worktree and must not overwrite or absorb that implementation diff.
@@ -311,4 +312,4 @@ The finished repository has one current architecture story, one active execution
 - Production-domain activation remains an explicit owner/HITL deployment step; repository configuration at specification time does not prove that the apex is live.
 - The `Idempotency-Key` field is an Animichi API contract based on the established HTTPAPI pattern; its exact behavior is documented locally rather than depending on the IETF draft becoming a final RFC.
 - Initial Catalog schedule and staleness values are operational defaults: daily production ingest, daily staging import, production stale after 36 hours, staging stale after 48 hours. Changes require measured evidence and an operations-document update, not a source-code magic number.
-- Completion requires: every derived ticket closed or explicitly superseded; every existing linked track reconciled; all hard gates green; local reviewer verdicts recorded; pull-request comment gates resolved; staging evidence complete; current docs and repository metadata truthful; and the final execution Goal fully checked.
+- Completion requires: every derived ticket closed or explicitly superseded; every existing linked track reconciled; all hard gates green; every acceptance criterion with a declared test type, a corresponding test in the same pull-request diff, and red/green mutation evidence as the authoritative green-light proof; local reviewer verdicts recorded; pull-request comment gates resolved; staging evidence complete; current docs and repository metadata truthful; and the final execution Goal fully checked.

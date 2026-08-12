@@ -1,6 +1,6 @@
 # GOAL — Animichi Production Readiness
 
-- Status: READY — spec reviewed; tickets published; owner approved breakdown; execution Goal creation waits for the paused #992 Goal to resume/finish
+- Status: ACTIVE — spec reviewed; tickets published; owner approved breakdown; execution has started with the #992 and #1009 lanes
 - Spec: GitHub #1004 and `docs/specs/2026-08-13-production-readiness-refactor-spec.md`
 - Final gate: #1018
 - Authority: this file replaces the former repo-closeout/refactor-skeleton execution board; ADRs remain authoritative for architectural decisions
@@ -13,8 +13,8 @@ Completion means #1018 closes with evidence. “Code exists,” “tests passed 
 
 ## Non-negotiable execution policy
 
-1. OpenCode is the only implementation writer. Every code/config/test/migration/doc change performed during a ticket is dispatched through `/implement`.
-2. The coordinator writes briefs, manages worktrees, verifies diffs and gates, performs review, commits approved work, opens PRs, triages comments, and updates this Goal. The coordinator does not write implementation code.
+1. OpenCode is the only implementation writer. Every code/config/test/migration/doc change performed during a ticket is dispatched through `/implement`. Coordinator-owned operational artifacts are exempt: ticket briefs, review/triage records, and this Goal's status metadata are written directly by the coordinator, not through `/implement`.
+2. The coordinator writes briefs, manages worktrees, verifies diffs and gates, performs review, commits approved work, opens PRs, triages comments, and updates this Goal. The coordinator does not write implementation code; the exemption in rule 1 covers only coordinator-owned operational artifacts.
 3. One `opencode serve` instance owns all sessions. Default model is `opencode-go/deepseek-v4-flash --variant max`; fallback is `opencode-go/gpt-5.6-luna --variant max` only after a failed health probe.
 4. One ticket = one worktree = one OpenCode writer = one PR, except the already-approved #992 coordinated cutover.
 5. Dispatch every native-blocker-zero ticket whose write set does not overlap an active writer. There is no artificial wave cap. Shared contracts, migration rewrites, layout moves, CI orchestration, and final cutovers serialize only when their real write/rollout dependency requires it.
@@ -44,10 +44,12 @@ BLOCKED → READY → BRIEFED → IMPLEMENTING → VERIFYING → REVIEWING
 ### VERIFYING
 
 - Read the actual diff; executor narration is not evidence.
+- Run the repository-mandated `make check` before and after every change, including after any post-review fix; it supplements, never replaces, the focused gates below.
 - Run the ticket's AC-tagged tests plus affected package lint/typecheck/build/coverage/integration gates.
 - Run repository policy gates selected by the changed-package router.
+- Every acceptance criterion declares a test type (`unit`|`integration`|`eval`|`browser`|`api`) and has a corresponding test present in the same PR diff; record the exact command and exit status.
+- Mutation is the green-light proof: for every criterion's corresponding test, break the behavior → expected red; restore → green.
 - Record exact commands, exit status, blockers, and environmental limits.
-- Mutation-probe key assertions: break behavior → expected red; restore → green.
 
 ### REVIEWING
 
@@ -70,7 +72,7 @@ BLOCKED → READY → BRIEFED → IMPLEMENTING → VERIFYING → REVIEWING
 - Required checks run against the fresh head.
 - Read both GitHub surfaces: unresolved line-level review threads and top-level issue comments/findings.
 - Fix true findings through OpenCode `/implement`, rerun verification and review, then push a new head.
-- Record authorized triage bound to PR number, current head SHA, and latest managed-findings snapshot. An older acknowledgment cannot release a newer head/finding.
+- Record the findings judgment as an authorized maintainer top-level PR comment, bound to the PR number, the current head SHA, and the latest managed-findings snapshot; that comment must exist before merge. An older acknowledgment cannot release a newer head/finding.
 - Merge only when both comment surfaces are clear, required checks pass, the local verdict matches head, and repository ruleset permits merge.
 
 ## Maximum-parallel dependency frontier
@@ -90,7 +92,7 @@ GitHub native sub-issues and `blocked by` edges are authoritative. This table is
 | #541 | Production domain/DNS preparation | HITL activation later |
 | #915 | History-rewrite preparation only | Freeze/force operation remains last HITL |
 
-#1006 is native-blocked by #992 and begins as soon as #992 closes. #1007 waits for #679, which waits for #1003.
+Issue #1006 is native-blocked by #992 and begins as soon as #992 closes. #1007 waits for #679, which waits for #1003.
 
 ### API and frontend fan-out
 
@@ -120,7 +122,7 @@ GitHub native sub-issues and `blocked by` edges are authoritative. This table is
 
 ### Final convergence
 
-#1018 is blocked by the terminal evidence tickets: #855, #541, #915, #1002, #1011, #1014, #680, #1015, #1010, #678, and #1017.
+Issue #1018 is blocked by the terminal evidence tickets: #855, #541, #915, #1002, #1011, #1014, #680, #1015, #1010, #678, and #1017.
 
 ## HITL stops
 
@@ -139,7 +141,7 @@ Preparation, read-only inspection, tests, previews, backups, and dry runs contin
 
 - [ ] #992 and #993–#1002 are complete; the current paused Goal has been resumed and closed honestly.
 - [ ] Every #1004 sub-issue is closed or explicitly superseded with a linked reason and replacement evidence.
-- [ ] Every implementation PR has an AC-complete test record, mutation evidence, and a head-matching Standards∥Spec approval.
+- [ ] Every implementation PR has an AC-complete test record — each acceptance criterion declares a test type, a corresponding test in the same PR diff, exact command/status, and red/green mutation evidence, with mutation as the green-light proof — plus a head-matching Standards∥Spec approval.
 - [ ] Every PR has zero unresolved review threads and no untriaged top-level managed finding.
 - [ ] PostgreSQL 18/Atlas/ORM parity, UUIDv7, soft-delete/audit classification, scoped roles, and user isolation are proven.
 - [ ] API/runtime parity, compatibility, idempotency, Chat exactly-once, and rate-limit policy are proven.
