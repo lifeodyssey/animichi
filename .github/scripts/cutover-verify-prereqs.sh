@@ -31,7 +31,7 @@ if [[ "${EXPECTED_AUTH}" != "auth_boundary=neon_only" ]]; then
   exit 2
 fi
 
-workers=$(curl -fsSL \
+workers=$(curl -fsSL --proto =https --proto-redir =https \
   -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN required}" \
   "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID required}/workers/scripts" \
   | jq -r '.result[].id // empty' || true)
