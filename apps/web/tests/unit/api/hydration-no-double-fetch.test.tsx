@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider, dehydrate, hydrate } from "@tanstack/
 import { http, HttpResponse } from "msw";
 import type { JsonBodyType } from "msw";
 import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ListSavedRoutesResult } from "@animichi/contract";
 import { users } from "../../../src/api/orpc";
 import { makeQueryClient } from "../../../src/api/query-client";
@@ -20,7 +20,22 @@ import { draftRoute, USERS_SAVED_ROUTES_URL } from "../../msw/users";
  * the exact handoff the emitted Worker performs between its server render and
  * the browser's first render. The counting handler proves the fetch count:
  * zero after hydration, one for a cold client.
+ *
+ * The suite pins a deterministic fixed clock (issue #1009 review) so the
+ * hydration handoff never depends on wall-clock time.
  */
+
+const FIXED_NOW = 1_750_000_000_000;
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(FIXED_NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  server.resetHandlers();
+});
 
 function countingSavedRoutesHandler(counter: { readonly calls: () => void }): ReturnType<typeof http.get> {
   return http.get(USERS_SAVED_ROUTES_URL, () => {
@@ -41,10 +56,6 @@ function ContinueFromValue() {
   const state = useContinueFrom();
   return <p>{state.route?.title ?? "no draft"}</p>;
 }
-
-afterEach(() => {
-  server.resetHandlers();
-});
 
 describe("AC3: hydration serves the dehydrated cache without a double fetch", () => {
   it("renders from the hydrated cache with zero network calls", async () => {

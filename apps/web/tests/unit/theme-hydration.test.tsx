@@ -8,17 +8,26 @@
  * without an oscillating write and a later toggle is never re-read back.
  */
 import { act, cleanup, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DayNightToggle } from "../../src/components/landing/DayNightToggle";
 import { THEME_STORAGE_KEY } from "../../src/features/config/lib/theme-storage";
 import { renderWithLocale, setLanguages } from "./_i18n";
 
+/**
+ * The suite pins a deterministic fixed clock (issue #1009 review): the
+ * hydration barrier and the toggle reads never depend on wall-clock time.
+ */
+const FIXED_NOW = 1_750_000_000_000;
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(FIXED_NOW);
   setLanguages(["ja-JP"]);
   window.localStorage.clear();
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   delete document.documentElement.dataset.theme;
 });

@@ -2,6 +2,10 @@
  * File-walking + import-parsing plumbing for the state-ownership checker
  * (issue #1009). Pure, regex-level source analysis shared by `channels.ts`
  * and `checker.ts`; no rule decisions live here.
+ *
+ * The two import patterns are static literals (String.raw keeps the escaped
+ * braces readable) — specifiers are captured and matched, never interpolated
+ * into a regex.
  */
 
 import { readFileSync, readdirSync } from "node:fs";
@@ -73,26 +77,40 @@ export interface ImportEdge {
   readonly typeOnly: boolean;
 }
 
-const IMPORT_RE =
-  /(^|\n)\s*(import|export)\s+(?:["']([^"']+)["']|([^;]*?)\s+from\s+["']([^"']+)["'])/gmu;
+/** Bare imports (`import "./styles.css"`). */
+const SIDE_EFFECT_IMPORT_RE = /(^|\n)\s*(?:import|export)\s+["']([^"']+)["']/gmu;
+
+/** Clause imports (`import type { T } from "./x"`, `export { x } from "./y"`). */
+const NAMED_IMPORT_RE = new RegExp(
+  String.raw`(^|\n)\s*(?:import|export)\s+([^;]*?)\s+from\s+["']([^"']+)["']`,
+  "gmu",
+);
 
 function isRelativeSpecifier(specifier: string): boolean {
   return specifier.startsWith("./") || specifier.startsWith("../");
 }
 
+/** A clause is type-only when it leads with `type` (`type { T }`, `type X`,
+ * `type * as ns`) or every named member is inline-typed (`{ type A }`,
+ * `{ type A as B }`). A mixed clause (`{ type A, B }`) is a runtime edge. */
+function clauseIsTypeOnly(clause: string): boolean {
+  if (/^\s*type\b/u.test(clause)) return true;
+  const body = /\{\s*([\s\S]*?)\s*\}/u.exec(clause)?.[1];
+  if (body === undefined) return false;
+  const members = body
+    .split(",")
+    .map((member) => member.trim())
+    .filter((member) => member !== "");
+  return members.length > 0 && members.every((member) => /^type\s+[A-Za-z_$]/u.test(member));
+}
+
 function namedEdge(clause: string, specifier: string): ImportEdge | undefined {
   if (!isRelativeSpecifier(specifier)) return undefined;
-  return { specifier, typeOnly: /^\s*type\b/.test(clause) };
+  return { specifier, typeOnly: clauseIsTypeOnly(clause) };
 }
 
 function sideEffectEdge(specifier: string): ImportEdge | undefined {
   return isRelativeSpecifier(specifier) ? { specifier, typeOnly: false } : undefined;
-}
-
-function edgeFromMatch(match: RegExpMatchArray): ImportEdge | undefined {
-  const sideEffectSpecifier = match[3];
-  if (sideEffectSpecifier !== undefined) return sideEffectEdge(sideEffectSpecifier);
-  return namedEdge(match[4] ?? "", match[5] ?? "");
 }
 
 /** Relative import specifiers (`./x`, `../x`) with a type-only flag, including
@@ -100,8 +118,12 @@ function edgeFromMatch(match: RegExpMatchArray): ImportEdge | undefined {
  * cross-layer edge past the gate. */
 export function importEdges(source: string): readonly ImportEdge[] {
   const edges: ImportEdge[] = [];
-  for (const match of source.matchAll(IMPORT_RE)) {
-    const edge = edgeFromMatch(match);
+  for (const match of source.matchAll(SIDE_EFFECT_IMPORT_RE)) {
+    const edge = sideEffectEdge(match[2] ?? "");
+    if (edge !== undefined) edges.push(edge);
+  }
+  for (const match of source.matchAll(NAMED_IMPORT_RE)) {
+    const edge = namedEdge(match[2] ?? "", match[3] ?? "");
     if (edge !== undefined) edges.push(edge);
   }
   return edges;

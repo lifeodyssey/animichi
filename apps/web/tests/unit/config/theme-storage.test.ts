@@ -39,4 +39,16 @@ describe("theme storage adapter (issue #1009: the only localStorage owner for th
     });
     expect(readStoredTheme()).toBeNull();
   });
+
+  it("degrades to null and skips writes when reading window.localStorage throws", () => {
+    // Partitioned/blocked storage can make the `window.localStorage` accessor
+    // itself throw — before any method call — so the adapter must treat the
+    // whole store as unavailable, not just a failed read.
+    const spy = vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+      throw new Error("blocked accessor");
+    });
+    expect(readStoredTheme()).toBeNull();
+    expect(() => { writeStoredTheme("day"); }).not.toThrow();
+    spy.mockRestore();
+  });
 });

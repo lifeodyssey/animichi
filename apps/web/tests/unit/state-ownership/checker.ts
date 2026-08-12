@@ -86,19 +86,22 @@ export const STORAGE_ADAPTERS: readonly string[] = [
 
 const RUNTIME_PACKAGE_IMPORTS = ["@orpc/client", "@orpc/openapi-client"];
 
-function escapedSpecifier(specifier: string): string {
-  return specifier.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
-}
-
-/** A transport package specifier or any of its `/`-subpaths, inside quotes. */
-function transportSpecifier(specifier: string): string {
-  return `${escapedSpecifier(specifier)}(?:/[^"']*)?`;
-}
+/** Static transport-package matchers: the root package or any of its
+ * `/`-subpaths, inside quotes. The two packages are a fixed allowlist, so the
+ * patterns are literals — no specifier is ever interpolated into a regex.
+ * Shared globals are only driven through fully-consumed `matchAll`, which
+ * resets `lastIndex`, so reuse across sources is safe. */
+const ORPC_CLIENT_FROM_RE = /import\s+([^;]*?)\s+from\s+["']@orpc\/client(?:\/[^"']*)?["']/gu;
+const ORPC_OPENAPI_FROM_RE = /import\s+([^;]*?)\s+from\s+["']@orpc\/openapi-client(?:\/[^"']*)?["']/gu;
+const ORPC_CLIENT_SIDE_EFFECT_RE = /import\s+["']@orpc\/client(?:\/[^"']*)?["']/gu;
+const ORPC_OPENAPI_SIDE_EFFECT_RE = /import\s+["']@orpc\/openapi-client(?:\/[^"']*)?["']/gu;
+const ORPC_CLIENT_DYNAMIC_RE = /import\s*\(\s*["']@orpc\/client(?:\/[^"']*)?["']\s*\)/gu;
+const ORPC_OPENAPI_DYNAMIC_RE = /import\s*\(\s*["']@orpc\/openapi-client(?:\/[^"']*)?["']\s*\)/gu;
 
 /** Clause of every static `import ... from "<specifier-or-subpath>"` statement
  * in `source`. */
 function fromClauses(source: string, specifier: string): readonly string[] {
-  const pattern = new RegExp(`import\\s+([^;]*?)\\s+from\\s+["']${transportSpecifier(specifier)}["']`, "gu");
+  const pattern = specifier === "@orpc/client" ? ORPC_CLIENT_FROM_RE : ORPC_OPENAPI_FROM_RE;
   return [...source.matchAll(pattern)].map((match) => match[1] ?? "");
 }
 
@@ -137,12 +140,8 @@ function clauseViolation(clause: string): string | undefined {
   return "default";
 }
 
-function hasSideEffectImport(source: string, specifier: string): boolean {
-  return new RegExp(`import\\s+["']${transportSpecifier(specifier)}["']`, "gu").test(source);
-}
-
-function hasDynamicImport(source: string, specifier: string): boolean {
-  return new RegExp(`import\\s*\\(\\s*["']${transportSpecifier(specifier)}["']\\s*\\)`, "gu").test(source);
+function hasImportForm(source: string, pattern: RegExp): boolean {
+  return [...source.matchAll(pattern)].length > 0;
 }
 
 /** The violating runtime import forms of a transport package (exact or
@@ -153,8 +152,10 @@ function transportImportForms(source: string, specifier: string): readonly strin
     const violation = clauseViolation(clause);
     if (violation !== undefined) forms.push(violation);
   }
-  if (hasSideEffectImport(source, specifier)) forms.push("side-effect");
-  if (hasDynamicImport(source, specifier)) forms.push("dynamic");
+  const sideEffect = specifier === "@orpc/client" ? ORPC_CLIENT_SIDE_EFFECT_RE : ORPC_OPENAPI_SIDE_EFFECT_RE;
+  const dynamic = specifier === "@orpc/client" ? ORPC_CLIENT_DYNAMIC_RE : ORPC_OPENAPI_DYNAMIC_RE;
+  if (hasImportForm(source, sideEffect)) forms.push("side-effect");
+  if (hasImportForm(source, dynamic)) forms.push("dynamic");
   return forms;
 }
 

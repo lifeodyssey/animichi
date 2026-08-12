@@ -22,43 +22,48 @@ test.use({
 });
 
 /**
- * Seed a night theme on first load only: the init script guards on the key
- * being absent, so the night value is never re-seeded over a choice the
- * visitor already made — the day persisted by the toggle below must survive
- * the reload.
+ * Seed a night theme unconditionally, and only after the page has navigated:
+ * the seed must not run before first load (that would let the app's own theme
+ * choice be overwritten) and must not be conditional (a later persisted day
+ * must survive the reload because it is the visitor's choice, not because the
+ * seed happened to guard on the key).
  */
-async function seedNightOnce(page: Page): Promise<void> {
-  await page.addInitScript((key: string) => {
-    if (window.localStorage.getItem(key) === null) window.localStorage.setItem(key, "night");
+async function seedNight(page: Page): Promise<void> {
+  await page.evaluate((key: string) => {
+    window.localStorage.setItem(key, "night");
   }, THEME_STORAGE_KEY);
 }
 
 /**
- * AC3 — the stored theme is the single authority: the bootstrap script applies
- * the seeded night before hydration, the toggle reports it checked, a click
- * persists day, and a reload honours that persisted day instead of re-seeding
- * night. The toggle's `aria-checked` flips to true only once React adopted the
- * stored value, so awaiting it doubles as the hydration barrier (clicking a
- * pre-hydration toggle would drop the handler).
+ * AC3 — the stored theme is the single authority: after the seed the bootstrap
+ * script applies night on the reload, the toggle reports it checked, a click
+ * persists day, and a further reload honours that persisted day. The theme is
+ * asserted through the toggle's accessible state — `aria-checked` (the switch
+ * signal) and its locale-aware accessible name (夜/昼) — never through the
+ * `data-theme` implementation detail on `<html>`. The toggle's `aria-checked`
+ * flips to true only once React adopted the stored value, so awaiting it
+ * doubles as the hydration barrier (clicking a pre-hydration toggle would
+ * drop the handler).
  */
 test("a seeded night theme survives a toggle to day and a reload", { tag: "@browser" }, async ({ page }) => {
   await page.route("**/api/auth/get-session", (route) =>
     route.fulfill({ status: 401, json: { error: "no session" } }),
   );
-  await seedNightOnce(page);
   await page.goto("/");
+  await seedNight(page);
+  await page.reload();
 
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "night");
   const toggle = page.getByRole("switch");
   await expect(toggle).toHaveAttribute("aria-checked", "true");
+  await expect(toggle).toHaveAccessibleName("夜");
 
   await toggle.click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "day");
   await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await expect(toggle).toHaveAccessibleName("昼");
 
   await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "day");
   await expect(page.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+  await expect(page.getByRole("switch")).toHaveAccessibleName("昼");
 });
 
 /**
