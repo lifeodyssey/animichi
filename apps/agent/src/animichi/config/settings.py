@@ -339,6 +339,7 @@ class Settings(BaseSettings):
             "DEEPSEEK_API_KEY": self.deepseek_api_key,
             "MIMO_API_KEY": self.mimo_api_key,
             "OPENAI_COMPAT_API_KEY": self.openai_compat_api_key,
+            "ZEN_GO_API_KEY": self.zen_go_api_key,
         }
         return bool(values.get(credential_env))
 

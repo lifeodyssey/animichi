@@ -23,13 +23,14 @@ class TestGCPConfiguration:
 class TestAPIKeyValidation:
     """Test API key validation."""
 
-    def test_prod_default_hard_requires_mimo_key(
+    def test_prod_default_hard_requires_zen_go_key(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.delenv("DEFAULT_AGENT_MODEL")
         monkeypatch.delenv("FALLBACK_AGENT_MODEL")
         monkeypatch.delenv("DEEPSEEK_API_KEY")
-        with pytest.raises(ValueError, match="MIMO_API_KEY"):
+        monkeypatch.delenv("ZEN_GO_API_KEY")
+        with pytest.raises(ValueError, match="ZEN_GO_API_KEY"):
             Settings(_env_file=None, mimo_api_key="")
 
     def test_explicit_fallback_hard_requires_deepseek_key(self):
@@ -78,13 +79,14 @@ class TestAPIKeyValidation:
         monkeypatch.delenv("FALLBACK_AGENT_MODEL")
         monkeypatch.delenv("DEEPSEEK_API_KEY")
         monkeypatch.setenv("MIMO_API_KEY", "prod-mimo-key")
+        monkeypatch.setenv("ZEN_GO_API_KEY", "prod-zen-go-key")
 
         settings = Settings(_env_file=None)
 
         assert settings.fallback_agent_model == ""
         assert settings.validate_api_keys() == []
-        missing_mimo = settings.model_copy(update={"mimo_api_key": ""})
-        assert "MIMO_API_KEY" in missing_mimo.validate_api_keys()
+        missing_zen = settings.model_copy(update={"zen_go_api_key": ""})
+        assert "ZEN_GO_API_KEY" in missing_zen.validate_api_keys()
 
     def test_validate_api_keys_deepseek_inline_url(self):
         """DeepSeek with inline @url uses its provider setting, not compat config."""
@@ -102,6 +104,7 @@ class TestAPIKeyValidation:
         settings = Settings(
             openai_compat_api_key="compat_key",
             openai_compat_base_url="https://api.univibe.cc/openai",
+            zen_go_api_key="zen-go-key",
         )
         missing = settings.validate_api_keys()
         assert missing == []

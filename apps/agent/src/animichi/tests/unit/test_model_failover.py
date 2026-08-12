@@ -128,6 +128,7 @@ async def test_primary_failure_uses_fallback_in_order() -> None:
 
 async def test_httpx_timeout_error_drives_fallback_model() -> None:
     settings = Settings(
+        default_agent_model="openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
         fallback_agent_model="deepseek:deepseek-v4-flash",
     )
     primary_transport = _TimeoutTransport()
@@ -226,21 +227,22 @@ async def test_production_default_is_mimo_only(
     monkeypatch.delenv("FALLBACK_AGENT_MODEL")
     monkeypatch.delenv("DEEPSEEK_API_KEY")
     monkeypatch.setenv("MIMO_API_KEY", "prod-mimo-key")
+    monkeypatch.setenv("ZEN_GO_API_KEY", "prod-zen-go-key")
     settings = Settings(_env_file=None)
     client = httpx.AsyncClient()
     with patch("animichi.config.get_settings", return_value=settings):
         model = get_default_model(http_client=client)
     try:
         assert settings.default_agent_model == (
-            "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
+            "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"
         )
         assert settings.fallback_agent_model == ""
         assert not isinstance(model, FallbackModel)
         assert model.model_name == "mimo-v2.5"
         assert str(model.client.base_url).rstrip("/") == (
-            "https://api.xiaomimimo.com/v1"
+            "https://opencode.ai/zen/go/v1"
         )
-        assert model.client.api_key == "prod-mimo-key"
+        assert model.client.api_key == "prod-zen-go-key"
         assert model.client.max_retries == 0
     finally:
         await client.aclose()
@@ -250,6 +252,7 @@ async def test_explicit_deepseek_fallback_still_works() -> None:
     settings = Settings(
         fallback_agent_model="deepseek:deepseek-v4-flash",
         mimo_api_key="prod-mimo-key",
+        zen_go_api_key="prod-zen-go-key",
         deepseek_api_key="prod-deepseek-key",
     )
     client = httpx.AsyncClient()
@@ -260,9 +263,9 @@ async def test_explicit_deepseek_fallback_still_works() -> None:
         primary, fallback = model.models
         assert primary.model_name == "mimo-v2.5"
         assert str(primary.client.base_url).rstrip("/") == (
-            "https://api.xiaomimimo.com/v1"
+            "https://opencode.ai/zen/go/v1"
         )
-        assert primary.client.api_key == "prod-mimo-key"
+        assert primary.client.api_key == "prod-zen-go-key"
         assert fallback.model_name == "deepseek-v4-flash"
         assert str(fallback.client.base_url).rstrip("/") == ("https://api.deepseek.com")
         assert fallback.client.api_key == "prod-deepseek-key"

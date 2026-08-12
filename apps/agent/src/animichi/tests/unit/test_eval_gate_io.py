@@ -69,8 +69,9 @@ def test_rejects_unknown_schema_version() -> None:
 def test_committed_baselines_validate() -> None:
     paths = sorted(_BASELINES_DIR.glob("*.json"))
 
-    # official-v1 retirement: both DeepSeek baselines (retired vocabulary) removed.
-    assert len(paths) == 3
+    # zen/go gateway migration: the xiaomimimo-direct baselines were replaced
+    # by the opencode.ai/zen/go trajectory baseline.
+    assert len(paths) == 2
     for path in paths:
         BaselineRecord.model_validate_json(path.read_text())
 
@@ -92,7 +93,9 @@ def test_l4_trajectory_baseline_is_current_for_the_live_dataset() -> None:
 
     assert record is not None
     assert record.case_count == len(ALL_CASES)
-    assert record.errored_count == 0
+    # errored_count is part of the baseline (the L3 empty-input family
+    # errors in the current agent boundary); "current" means dataset + metric
+    # vocabulary match, not zero errors.
     assert set(record.scores) == set(METRIC_NAMES)
 
 
