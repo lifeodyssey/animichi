@@ -125,6 +125,17 @@ jobs:
       - name: SAFE-1 release eligibility self-tests
         run: bash .github/scripts/release-eligibility.test.sh
         shell: bash
+      # #1007: build-once promotion manifest + AC4 rejection matrix. The
+      # primitive is produced at build time, consumed at staging, and checked
+      # at production eligibility; these tests run unfiltered in every quality
+      # lane so a regression in schema/digest/evidence/dependency handling
+      # fails closed.
+      - name: Build-once promotion manifest unit tests
+        run: python3 .github/scripts/test_promotion_manifest.py
+        shell: bash
+      - name: Build-once promotion flow (AC2/AC3/AC4)
+        run: bash scripts/local-gates/promotion-manifest-e2e.test.sh
+        shell: bash
       # S0-v2 B4: the retired repository-quality-gate's contents moved here —
       # this lane is the fixed point that never path-filters, so the checks
       # that test the CI contract itself must live here (a gate that cannot

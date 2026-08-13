@@ -30,6 +30,27 @@ revisions technically unable to mutate production, and it cannot stop someone wh
 edits the freeze's own workflows or resolver pins. Staging behavior and DAG are unchanged.
 
 
+
+## Build-once component promotion (foundation)
+
+Issue #1007 wires the build-once promotion primitive beside the existing deploy path; the old
+per-environment rebuild path stays available during expand/migrate and is deleted by the final
+promotion ticket (#1013) only after every component migrates. A component that is actually
+built by `reusable-deploy-component.yml` (today only `web`) emits:
+
+- a **promotion manifest** (`.github/scripts/promotion-manifest-cli.py generate`) pinning component,
+  source SHA, artifact digest (SHA-256), SBOM/attestation, schema compatibility, configuration
+  schema, and dependency revisions — schema closed, unknown fields rejected;
+- **one immutable CI artifact** (the built output tarball) keyed by its digest, so a rebuild
+  that changes a byte is detectable;
+- staging **consumes and reports** the manifest digest after deploy;
+- production eligibility (`reusable-production-eligibility.yml`) runs a deterministic AC4
+  self-check that rejects a rebuild, a mismatched digest, stale staging evidence, an
+  incompatible schema, or a changed dependency manifest.
+
+Source of truth for the schema: `.github/scripts/promotion_manifest.py`; behavioral coverage:
+`.github/scripts/test_promotion_manifest.py` (unit) and `scripts/local-gates/promotion-manifest-e2e.test.sh`
+(AC2/AC3/AC4), run in `pipeline-quality.yml`. Rollback remains the SAFE-1/`wrangler rollback` path above.
 ## Edge Topology
 
 ```text

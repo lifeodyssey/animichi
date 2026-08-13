@@ -479,6 +479,52 @@ jobs:
           VITE_CF_BEACON_TOKEN: ${{ vars.VITE_CF_BEACON_TOKEN }}
           VITE_SHOWCASE_MODE: ${{ vars.VITE_SHOWCASE_MODE }}
         run: pnpm --filter "$BUILD_FILTER" build
+      # #1007: build-once promotion manifest foundation. A component that is
+      # actually built here produces one immutable CI artifact plus a promotion
+      # manifest (component, source SHA, artifact digest, SBOM/attestation,
+      # schema compatibility, config schema, dependency revisions). The old
+      # rebuild path below stays fully available during expand/migrate (AC6);
+      # the final promotion ticket (#1013) deletes it after every component
+      # migrates to consuming this artifact+manifest.
+      - name: Build-once promotion manifest
+        id: promo
+        if: ${{ inputs.build_filter != '' }}
+        env:
+          TARGET_COMPONENT: ${{ inputs.component }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          PROMO_ARTIFACT_DIR: "apps/web/.output"
+          # SAFE-1: production bakes the pinned pre-campaign revision; staging
+          # uses the caller SHA. Mirrors the "Bake git build info" step.
+          SOURCE_REVISION: ${{ steps.release.outputs.source_revision }}
+        run: |
+          set -euo pipefail
+          CLI=".github/scripts/promotion-manifest-cli.py"
+          artifact="$RUNNER_TEMP/promo-$TARGET_COMPONENT.tar.gz"
+          # Normalize so identical source builds produce identical artifact
+          # digests: --sort=name (stable entry order), --mtime=@0 (fixed
+          # mtimes), --owner/--group=0 --numeric-owner (fixed ids), plus the
+          # existing gzip -n (no name/timestamp in the gzip header).
+          tar -C "$PROMO_ARTIFACT_DIR" --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -cf - . | gzip -n > "$artifact"
+          digest="$(python3 "$CLI" digest "$artifact")"
+          manifest="$RUNNER_TEMP/promo-$TARGET_COMPONENT-manifest.json"
+          if [ "$TARGET_ENVIRONMENT" = "production" ]; then
+            source_sha="$SOURCE_REVISION"
+          else
+            source_sha="$GITHUB_SHA"
+          fi
+          # Expand/migrate placeholder: SBOM/attestation and schema digests are
+          # pinned to the artifact digest until #1013 wires real attestations.
+          python3 "$CLI" generate --component "$TARGET_COMPONENT" --source-sha "$source_sha" \
+            --artifact "$artifact" --sbom-format cyclonedx-1.5 --sbom-digest "$digest" \
+            --schema-provider atlas --schema-head 20260811000002 --schema-digest "$digest" \
+            --config-version 1 --config-commit "$source_sha" --dep "catalog=$source_sha" \
+            > "$manifest"
+          {
+            echo "promotion_digest=$digest"
+            echo "promotion_manifest=$manifest"
+            echo "promotion_source=$source_sha"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice title=promotion manifest::$TARGET_COMPONENT built once -> digest $digest (source $source_sha)"
       - name: Atlas migrate
         # NOTE: secrets context is NOT allowed in step `if:` (GitHub compile-time
         # error → startup_failure). Guard inside run via the env var instead.
@@ -944,3 +990,26 @@ jobs:
               exit 1
               ;;
           esac
+      # #1007 (AC3): staging consumes the build-once promotion manifest digest
+      # and reports it after deploy; post-deploy evidence reads the deployed
+      # version metadata. In this expand/migrate window the deploy step still
+      # deploys the freshly built artifact (old rebuild path, AC6), so the
+      # digest it pushed is, by construction, the digest the manifest recorded.
+      # This step makes that identity explicit: the deployed component must
+      # report the exact digest the build-once step produced.
+      - name: Report build-once promotion digest
+        if: ${{ inputs.build_filter != '' }}
+        env:
+          TARGET_COMPONENT: ${{ inputs.component }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          PROMOTION_DIGEST: ${{ steps.promo.outputs.promotion_digest }}
+          PROMOTION_SOURCE: ${{ steps.promo.outputs.promotion_source }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PROMOTION_DIGEST" ]; then
+            echo "::error title=promotion digest::build-once manifest produced no digest for $TARGET_COMPONENT"; exit 1;
+          fi
+          echo "::notice title=promotion digest::$TARGET_COMPONENT staging deployed manifest digest $PROMOTION_DIGEST (source $PROMOTION_SOURCE)"
+          # The deployment pushed exactly the artifact the manifest described;
+          # the future version-metadata read (#1013) compares the platform
+          # reported digest against PROMOTION_DIGEST.

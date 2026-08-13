@@ -199,5 +199,29 @@ end
 abort "reusable deploy must bake the pinned revision for production" \
   unless reusable_source.include?("pinned-pre-campaign")
 
+
+# ── 5. #1007 build-once promotion foundation (AC6: old path stays, new
+#       primitive wired alongside; #1013 deletes the old path later) ────────
+# The build-once primitive is produced at build time (deploy workflow), runs
+# an AC4 self-check at production eligibility, is covered by unit + e2e tests
+# in the quality lane, and the old rebuild path (Deploy Worker) remains.
+promotion_scripts = %w[
+  .github/scripts/promotion_manifest.py
+  .github/scripts/promotion-manifest-cli.py
+  .github/scripts/release-promotion-selfcheck.sh
+  scripts/local-gates/promotion-manifest-e2e.sh
+  scripts/local-gates/promotion-manifest-e2e.test.sh
+].freeze
+promotion_scripts.each do |entry|
+  abort "build-once promotion primitive missing: #{entry}" unless File.exist?(entry)
+end
+abort "reusable deploy must produce a build-once promotion manifest at build time" \
+  unless reusable_source.include?("Build-once promotion manifest")
+abort "reusable deploy must keep the old rebuild path (Deploy Worker) during expand/migrate" \
+  unless reusable_source.include?("- name: Deploy Worker")
+abort "production eligibility must execute the build-once AC4 self-check" \
+  unless eligibility_source.include?("release-promotion-selfcheck.sh")
+abort "quality lane must run the build-once unit + e2e tests" \
+  unless File.read(File.join(WORKFLOWS, "pipeline-quality.yml")).include?("promotion-manifest-e2e.test.sh")
 puts "SAFE-1 freeze: eligibility gate on all production entry points; rollback version_id " \
      "removed; pinned manifest resolution for checkout, Atlas target, build metadata, smokes"
