@@ -79,7 +79,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - name: Build + output-layout integration test
+      # Runs build-output + bundle-budget integration tests (issue #1010 AC4):
+      # the bundle gate fails here and names the offending chunk on an
+      # unexpected route/component growth.
+      - name: Build + output-layout + bundle-budget integration test
         env:
           # showcase.ts fails closed at module init — CI builds are never showcase.
           VITE_SHOWCASE_MODE: "false"
@@ -153,9 +156,11 @@ jobs:
     permissions:
       contents: read
     # Reuses the build artifact; the Playwright CWV spec (e2e/web-cwv.spec.ts)
-    # asserts CLS (blocking at 0.1) and warns on LCP (2500ms) per the shared
-    # thresholds in apps/web/web-cwv.config.ts. Not in any required-checks
-    # ruleset yet — report-only until real-world numbers exist (S0-v2 C5).
+    # asserts CLS (blocking at 0.1), LCP (blocking at 2500ms) and an INP proxy
+    # (blocking at 200ms) per the shared release-grade thresholds in
+    # apps/web/web-cwv.config.ts (issue #1010). This job IS the CWV release
+    # gate: a violation fails the job, so it must be listed as a required
+    # status check on the main branch alongside the other release lanes.
     needs: [build]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -191,7 +196,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
       - name: Install Playwright browser
         run: pnpm --dir e2e exec playwright install --with-deps chromium
-      - name: Core Web Vitals (CLS gate, LCP warn)
+      - name: Core Web Vitals (LCP/CLS/INP release gate)
         env:
           # showcase.ts fails closed at module init — CI serves are never showcase.
           VITE_SHOWCASE_MODE: "false"
