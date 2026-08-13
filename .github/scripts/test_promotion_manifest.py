@@ -10,6 +10,7 @@ Run: python3 .github/scripts/test_promotion_manifest.py
 """
 
 import importlib.util
+import io
 import sys
 import unittest
 from pathlib import Path
@@ -26,7 +27,19 @@ def load_module():
     return module
 
 
+CLI_PATH = REPO_ROOT / ".github/scripts/promotion-manifest-cli.py"
+
+
+def load_cli():
+    spec = importlib.util.spec_from_file_location("promotion_manifest_cli", CLI_PATH)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["promotion_manifest_cli"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 pm = None
+cli = None
 
 
 class PromotionManifestUnitTest(unittest.TestCase):
@@ -44,8 +57,9 @@ class PromotionManifestUnitTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        global pm
+        global pm, cli
         pm = load_module()
+        cli = load_cli()
 
     def valid_manifest(self):
         return {
@@ -108,6 +122,36 @@ class PromotionManifestUnitTest(unittest.TestCase):
             any("schema_compatibility" in e for e in pm.validate_manifest(manifest))
         )
 
+    # ── AC1 (closure): unknown keys are rejected INSIDE nested objects ─────
+    def test_manifest_schema_rejects_unknown_sbom_attestation_key(self):
+        manifest = self.valid_manifest()
+        manifest["sbom_attestation"]["surprise"] = "x"
+        errors = pm.validate_manifest(manifest)
+        self.assertTrue(any("unknown" in e for e in errors))
+
+    def test_manifest_schema_rejects_unknown_schema_compatibility_key(self):
+        manifest = self.valid_manifest()
+        manifest["schema_compatibility"]["surprise"] = "x"
+        errors = pm.validate_manifest(manifest)
+        self.assertTrue(any("unknown" in e for e in errors))
+
+    def test_manifest_schema_rejects_unknown_config_schema_key(self):
+        manifest = self.valid_manifest()
+        manifest["config_schema"]["surprise"] = "x"
+        errors = pm.validate_manifest(manifest)
+        self.assertTrue(any("unknown" in e for e in errors))
+
+    def test_manifest_schema_rejects_unknown_dependency_key(self):
+        manifest = self.valid_manifest()
+        manifest["dependencies"]["catalog"]["surprise"] = "x"
+        errors = pm.validate_manifest(manifest)
+        self.assertTrue(any("unknown" in e for e in errors))
+
+    def test_manifest_schema_accepts_known_nested_keys(self):
+        # A fully valid manifest must still pass with zero errors after the
+        # nested allowlists are enforced (guards against over-restriction).
+        self.assertEqual(pm.validate_manifest(self.valid_manifest()), [])
+
     # ── Verify: a manifest re-validated against its own generated inputs ────
     def test_verify_passes_for_matching_inputs(self):
         manifest = self.valid_manifest()
@@ -117,6 +161,14 @@ class PromotionManifestUnitTest(unittest.TestCase):
                 "component": "web",
                 "source_sha": manifest["source_sha"],
                 "artifact_digest": manifest["artifact_digest"],
+                # Verify is fail-closed about pins: every manifest dependency
+                # must be pinned in expected, so supply the manifest's catalog
+                # pin here.
+                "dependencies": {
+                    "catalog": {
+                        "revision": manifest["dependencies"]["catalog"]["revision"]
+                    }
+                },
             },
         )
         self.assertEqual(errors, [])
@@ -182,6 +234,96 @@ class PromotionManifestUnitTest(unittest.TestCase):
             },
         )
         self.assertTrue(any("dependencies.catalog.revision" in e for e in errors))
+
+    # ── Verify fails closed: empty/partial expectations and exact pin sets ─
+    def test_verify_rejects_empty_expected(self):
+        manifest = self.valid_manifest()
+        errors = pm.verify_manifest(manifest, expected={})
+        self.assertTrue(any("expected must be non-empty" in e for e in errors))
+
+    def test_verify_rejects_schema_compatibility_mismatch(self):
+        manifest = self.valid_manifest()
+        errors = pm.verify_manifest(
+            manifest,
+            expected={
+                "schema_compatibility": {
+                    "provider": "supabase",
+                    "migration_head": "other",
+                    "digest_sha256": "9" * 64,
+                }
+            },
+        )
+        self.assertTrue(any("schema_compatibility" in e for e in errors))
+
+    def test_verify_rejects_config_schema_mismatch(self):
+        manifest = self.valid_manifest()
+        errors = pm.verify_manifest(
+            manifest,
+            expected={"config_schema": {"version": 2, "commit_sha": "9" * 40}},
+        )
+        self.assertTrue(any("config_schema" in e for e in errors))
+
+    def test_verify_accepts_matching_schema_compatibility_and_config_schema(self):
+        manifest = self.valid_manifest()
+        errors = pm.verify_manifest(
+            manifest,
+            expected={
+                "schema_compatibility": manifest["schema_compatibility"],
+                "config_schema": manifest["config_schema"],
+                # The manifest pins catalog, so expected must pin it too.
+                "dependencies": {
+                    "catalog": {
+                        "revision": manifest["dependencies"]["catalog"]["revision"]
+                    }
+                },
+            },
+        )
+        self.assertEqual(errors, [])
+
+    def test_verify_rejects_extra_dependency_pin_in_manifest(self):
+        manifest = self.valid_manifest()
+        # The manifest pins catalog (+ nothing else); assert supplying an
+        # expected dict that omits the manifest's pin is rejected.
+        errors = pm.verify_manifest(manifest, expected={"component": "web"})
+        self.assertTrue(any("dependencies" in e for e in errors))
+
+        # The manifest must also match the exact expected pin set: a manifest
+        # that adds a dep the expected dict does not pin is rejected.
+        manifest["dependencies"]["edge"] = {"revision": "1" * 40}
+        errors = pm.verify_manifest(
+            manifest,
+            expected={"dependencies": {"catalog": {"revision": "e" * 40}}},
+        )
+        self.assertTrue(any("dependencies.edge" in e for e in errors))
+
+    def test_verify_rejects_missing_expected_dep_pin(self):
+        manifest = self.valid_manifest()
+        errors = pm.verify_manifest(
+            manifest,
+            expected={"dependencies": {"users": {"revision": "1" * 40}}},
+        )
+        self.assertTrue(any("dependencies.users" in e for e in errors))
+
+    def test_verify_accepts_exact_dependency_pin_set(self):
+        manifest = self.valid_manifest()
+        errors = pm.verify_manifest(
+            manifest,
+            expected={"dependencies": {"catalog": {"revision": "e" * 40}}},
+        )
+        self.assertEqual(errors, [])
+
+    # ── CLI: usage errors must not raise tracebacks ────────────────────────
+    def test_cli_trailing_dep_is_usage_error(self):
+        # A --dep as the final argument is a missing-value usage error, not a
+        # traceback: _read_gen_args must return None so the CLI emits usage.
+        self.assertIsNone(cli._read_gen_args(["--dep"]))
+
+        # Drive the full generate path: a trailing --dep must exit 1 with a
+        # usage error on stderr, never raise IndexError.
+        err = io.StringIO()
+        exit_code = cli.main(["generate", "--dep"], out=io.StringIO(), err=err)
+        self.assertEqual(exit_code, 1)
+        self.assertIn("usage:", err.getvalue())
 
     # ── AC5: an unchanged component is not selected because another changed ─
     def test_unchanged_component_is_not_selected_when_sibling_changed(self):

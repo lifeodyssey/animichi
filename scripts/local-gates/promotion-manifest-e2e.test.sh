@@ -48,13 +48,20 @@ drv build "$C" web v1-new
 DA="$(drv digest "$A" web)"
 DB="$(drv digest "$B" web)"
 DC="$(drv digest "$C" web)"
-[ -n "$DA" ] && [ "$DA" = "$DB" ] || fail "AC2: deterministic build must yield the same digest"
-[ "$DA" != "$DC" ] || fail "AC2: a changed build must change the digest"
+[[ -n "$DA" ]] && [[ "$DA" = "$DB" ]] || fail "AC2: deterministic build must yield the same digest"
+[[ "$DA" != "$DC" ]] || fail "AC2: a changed build must change the digest"
 echo "  PASS: deterministic build -> identical digest; changed build -> different digest"
 
 drv upload "$A" web "$DA"
 drv upload "$A" web "$DA"
 echo "  PASS: one immutable artifact uploaded by digest (idempotent)"
+
+# Upload must fail closed when the source artifact does not actually hash to
+# the requested digest (its real digest is $DA, not $BAD).
+if drv upload "$A" web "$BAD" >/dev/null 2>&1; then
+  fail "AC2: upload must reject a source artifact that does not hash to the requested digest"
+fi
+echo "  PASS: rejects an upload whose source artifact digest mismatch"
 
 echo "== AC3: staging consumes + reports the manifest digest =="
 
@@ -63,7 +70,7 @@ DIGEST_S="$(drv digest "$S" web)"
 drv gendoc "$S" web "$SHA999" "$SHA888" > "$S/manifest.json"
 drv stage "$S" web "$S/manifest.json"
 DEPLOYED="$(drv version "$S" web)"
-[ -n "$DEPLOYED" ] && [ "$DEPLOYED" = "$DIGEST_S" ] || fail "AC3: post-deploy evidence must read the deployed digest"
+[[ -n "$DEPLOYED" ]] && [[ "$DEPLOYED" = "$DIGEST_S" ]] || fail "AC3: post-deploy evidence must read the deployed digest"
 echo "  PASS: staging reports the manifest digest; post-deploy reads the deployed version"
 
 echo "== AC4: production promotion rejection matrix =="
@@ -121,7 +128,7 @@ if drv approve "$E" web "$E/manifest.json" "$SHA999" "$DIGEST_E" >/dev/null 2>&1
 fi
 echo "  PASS: rejects changed dependency manifest"
 
-if [ "$FAIL_COUNT" -ne 0 ]; then
+if [[ "$FAIL_COUNT" -ne 0 ]]; then
   echo "FAILED: $FAIL_COUNT promotion-manifest e2e assertion(s)" >&2
   exit 1
 fi

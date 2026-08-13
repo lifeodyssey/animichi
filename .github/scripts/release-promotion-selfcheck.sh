@@ -15,7 +15,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 E2E_TEST="$REPO_ROOT/scripts/local-gates/promotion-manifest-e2e.test.sh"
 
-if [ ! -f "$E2E_TEST" ]; then
+if [[ ! -f "$E2E_TEST" ]]; then
   echo "::error::promotion selfcheck: missing $E2E_TEST" >&2
   exit 1
 fi

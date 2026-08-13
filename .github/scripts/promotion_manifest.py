@@ -45,6 +45,14 @@ REQUIRED_FIELDS = (
 )
 SUPPORTED_KEYS = set(REQUIRED_FIELDS)
 
+# Closed schema at every nesting level: each nested object has its own exact
+# allowlist, so an unknown key inside sbom_attestation, schema_compatibility,
+# config_schema, or a dependency object is rejected (not silently ignored).
+SBOM_ATTESTATION_KEYS = ("format", "digest_sha256")
+SCHEMA_COMPATIBILITY_KEYS = ("provider", "migration_head", "digest_sha256")
+CONFIG_SCHEMA_KEYS = ("version", "commit_sha")
+DEPENDENCY_KEYS = ("revision",)
+
 
 def _add(errors, msg):
     errors.append(f"error: {msg}")
@@ -64,7 +72,17 @@ def _expect_hex(errors, field, value, regex, length):
         _add(errors, f"{field} must be a hex string of length {length}")
 
 
+def _expect_child_keys(errors, prefix, value, allowed):
+    """Reject any key in a nested object outside its exact allowlist."""
+    if not isinstance(value, dict):
+        return
+    unknown = sorted(set(value) - set(allowed))
+    if unknown:
+        _add(errors, f"{prefix} unknown field(s): {', '.join(unknown)}")
+
+
 def _expect_sbv(errors, sbom):
+    _expect_child_keys(errors, "sbom_attestation", sbom, SBOM_ATTESTATION_KEYS)
     if sbom.get("format") not in SBOM_FORMATS:
         _add(errors, f"sbom_attestation.format must be one of {SBOM_FORMATS}")
     _expect_hex(
@@ -77,6 +95,9 @@ def _expect_sbv(errors, sbom):
 
 
 def _expect_schema(errors, schema):
+    _expect_child_keys(
+        errors, "schema_compatibility", schema, SCHEMA_COMPATIBILITY_KEYS
+    )
     if schema.get("provider") not in SCHEMA_PROVIDERS:
         _add(errors, f"schema_compatibility.provider must be one of {SCHEMA_PROVIDERS}")
     if (
@@ -94,6 +115,7 @@ def _expect_schema(errors, schema):
 
 
 def _expect_config(errors, config):
+    _expect_child_keys(errors, "config_schema", config, CONFIG_SCHEMA_KEYS)
     if not isinstance(config.get("version"), int) or config["version"] < 1:
         _add(errors, "config_schema.version must be a positive integer")
     if "commit_sha" in config:
@@ -111,6 +133,8 @@ def _expect_deps(errors, deps):
         _add(errors, "dependencies must be an object")
         return
     for name, dep in deps.items():
+        if isinstance(dep, dict):
+            _expect_child_keys(errors, f"dependencies.{name}", dep, DEPENDENCY_KEYS)
         revision = dep.get("revision") if isinstance(dep, dict) else None
         _expect_hex(
             errors, f"dependencies.{name}.revision", revision, FULL_SHA_RE, FULL_SHA_LEN
@@ -173,13 +197,23 @@ def validate_manifest(manifest):
 
 
 def _expect_dep_pins(errors, manifest, expected):
-    for name, dep in expected.get("dependencies", {}).items():
-        want = dep.get("revision") if isinstance(dep, dict) else None
-        current = None
-        real = manifest.get("dependencies", {}).get(name)
-        if isinstance(real, dict):
-            current = real.get("revision")
-        if want is not None and current != want:
+    manifest_deps = manifest.get("dependencies", {})
+    if not isinstance(manifest_deps, dict):
+        return
+    expected_deps = expected.get("dependencies", {})
+    if not isinstance(expected_deps, dict):
+        return
+    # Exact pin-set match over the union of the two dep name sets: a manifest
+    # dependency that is not pinned in expected, and an expected pin whose
+    # name is absent from the manifest, are both rejected — never silently
+    # accepted.
+    for name in set(manifest_deps) | set(expected_deps):
+        real = manifest_deps.get(name)
+        real = real if isinstance(real, dict) else {}
+        want_dep = expected_deps.get(name)
+        want = want_dep.get("revision") if isinstance(want_dep, dict) else None
+        current = real.get("revision")
+        if current != want:
             _add(
                 errors,
                 f"dependencies.{name}.revision mismatch: manifest {current!r} != expected {want!r}",
@@ -187,9 +221,18 @@ def _expect_dep_pins(errors, manifest, expected):
 
 
 def verify_manifest(manifest, expected):
-    """Verify a manifest against the inputs that must be true at promotion."""
+    """Verify a manifest against the inputs that must be true at promotion.
+
+    Fails closed: an empty expected dict verifies nothing and is rejected, the
+    (optional) schema_compatibility / config_schema expectations are compared
+    by whole-object equality, and scalar/missing/digest expectations must
+    match exactly.
+    """
     errors = list(validate_manifest(manifest))
     if errors or not isinstance(expected, dict):
+        return errors
+    if not expected:
+        _add(errors, "expected must be non-empty")
         return errors
     for field in ("component", "source_sha", "artifact_digest"):
         want = expected.get(field)
@@ -197,6 +240,12 @@ def verify_manifest(manifest, expected):
             _add(
                 errors,
                 f"{field} mismatch: manifest {manifest.get(field)!r} != expected {want!r}",
+            )
+    for field in ("schema_compatibility", "config_schema"):
+        if field in expected and expected[field] != manifest.get(field):
+            _add(
+                errors,
+                f"{field} mismatch: manifest {manifest.get(field)!r} != expected {expected[field]!r}",
             )
     _expect_dep_pins(errors, manifest, expected)
     return errors

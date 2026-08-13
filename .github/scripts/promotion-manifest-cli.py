@@ -67,6 +67,8 @@ def _read_gen_args(argv):
     while index < len(argv):
         token = argv[index]
         if token == "--dep":
+            if index + 1 >= len(argv):
+                return None
             name, _, rev = argv[index + 1].partition("=")
             opts["deps"].append((name, rev))
             index += 2

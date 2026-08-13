@@ -47,8 +47,12 @@ cmd_upload() {
   local dir="$1" component="$2" digest="$3"
   local key="$dir/store/$digest.tar.gz"
   mkdir -p "$dir/store"
-  if [ -f "$key" ]; then
-    [ "$(shasum -a 256 "$key" | awk '{print $1}')" = "$digest" ] \
+  # The source artifact must actually hash to the requested digest before the
+  # store key is examined or written — a lying caller must fail closed.
+  [[ "$(shasum -a 256 "$dir/$component.tar.gz" | awk '{print $1}')" = "$digest" ]] \
+    || fail "source artifact digest mismatch"
+  if [[ -f "$key" ]]; then
+    [[ "$(shasum -a 256 "$key" | awk '{print $1}')" = "$digest" ]] \
       || fail "immutable store collision at digest $digest"
     return 0
   fi
@@ -106,14 +110,14 @@ PY
 
 cmd_approve() {
   local dir="$1" component="$2" manifest="$3" source="$4" digest="$5" manifest_source
-  [ "$(cmd_digest "$dir" "$component")" = "$digest" ] \
+  [[ "$(cmd_digest "$dir" "$component")" = "$digest" ]] \
     || fail "rebuild detected: artifact digest differs from approved $digest"
-  [ -f "$dir/evidence/$component-staging.json" ] \
+  [[ -f "$dir/evidence/$component-staging.json" ]] \
     || fail "stale/missing staging evidence"
-  [ "$(cmd_version "$dir" "$component")" = "$digest" ] \
+  [[ "$(cmd_version "$dir" "$component")" = "$digest" ]] \
     || fail "deployed version differs from approved $digest"
   manifest_source="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source_sha"])' "$manifest")"
-  [ "$manifest_source" = "$source" ] \
+  [[ "$manifest_source" = "$source" ]] \
     || fail "schema/source mismatch: manifest $manifest_source != approved $source"
   printf '{"component":"%s","source_sha":"%s","artifact_digest":"%s","dependencies":{"catalog":{"revision":"%s"}}}\n' \
     "$component" "$source" "$digest" "$SHA888" > "$dir/expected.json"

@@ -500,7 +500,11 @@ jobs:
           set -euo pipefail
           CLI=".github/scripts/promotion-manifest-cli.py"
           artifact="$RUNNER_TEMP/promo-$TARGET_COMPONENT.tar.gz"
-          tar -C "$PROMO_ARTIFACT_DIR" -cf - . | gzip -n > "$artifact"
+          # Normalize so identical source builds produce identical artifact
+          # digests: --sort=name (stable entry order), --mtime=@0 (fixed
+          # mtimes), --owner/--group=0 --numeric-owner (fixed ids), plus the
+          # existing gzip -n (no name/timestamp in the gzip header).
+          tar -C "$PROMO_ARTIFACT_DIR" --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -cf - . | gzip -n > "$artifact"
           digest="$(python3 "$CLI" digest "$artifact")"
           manifest="$RUNNER_TEMP/promo-$TARGET_COMPONENT-manifest.json"
           if [ "$TARGET_ENVIRONMENT" = "production" ]; then

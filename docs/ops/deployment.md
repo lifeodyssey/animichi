@@ -33,7 +33,7 @@ edits the freeze's own workflows or resolver pins. Staging behavior and DAG are 
 
 ## Build-once component promotion (foundation)
 
-#1007 wires the build-once promotion primitive beside the existing deploy path; the old
+Issue #1007 wires the build-once promotion primitive beside the existing deploy path; the old
 per-environment rebuild path stays available during expand/migrate and is deleted by the final
 promotion ticket (#1013) only after every component migrates. A component that is actually
 built by `reusable-deploy-component.yml` (today only `web`) emits:
