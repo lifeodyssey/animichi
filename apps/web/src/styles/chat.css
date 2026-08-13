@@ -1252,3 +1252,14 @@
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
+
+/* WCAG 2.2.2 Pause/Stop/Hide (+ 2.3.3): decorative looping motion yields to
+ * the reduce preference. Chat animations are status cues, not content, so the
+ * visual states are preserved — only the animation is disabled. */
+@media (prefers-reduced-motion: reduce) {
+  .chat-typing__dot,
+  .chat-step[data-status="running"],
+  .chat-card--skeleton {
+    animation: none;
+  }
+}
