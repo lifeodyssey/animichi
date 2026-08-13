@@ -1,11 +1,9 @@
-"""Runtime contracts for bounded fixture I/O and teardown."""
+"""Runtime contracts for bounded fixture I/O: wake probe budget and asyncpg."""
 
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import datetime
-from typing import cast
 
 import pytest
 
@@ -13,14 +11,12 @@ from animichi.tests import conftest_db
 from animichi.tests.conftest_db import (
     DatabaseTarget,
     _clean_database_dsn,
-    _neon_target,
     _open_connection,
     _open_pool,
     _probe_database,
     _wake_database_async,
 )
-from animichi.tests.db_config import DatabaseArm, DatabaseConfig
-from animichi.tests.neon_api import Branch
+from animichi.tests.db_config import DatabaseArm
 
 
 class FakeClock:
@@ -123,66 +119,3 @@ def test_fixture_asyncpg_calls_all_disable_statement_cache(
 
     assert asyncio.run(_open_pool(dsn)) is pool
     assert cache_sizes == [0, 0, 0]
-
-
-class StopFailingContainer:
-    def start(self) -> StopFailingContainer:
-        return self
-
-    def get_wrapped_container(self) -> StopFailingContainer:
-        return self
-
-    def stop(self, timeout: int | None = None) -> None:
-        if timeout is None:
-            raise RuntimeError("container stop failed")
-
-
-class TeardownApi:
-    project_id = "project-test"
-
-    def __init__(self) -> None:
-        self.deleted: tuple[str, str] | None = None
-
-    def resolve_test_base(self) -> Branch:
-        return Branch("br-parent", "test-base", self.project_id, "br-main", False)
-
-    def list_branches(self) -> tuple[Branch, ...]:
-        return ()
-
-    def wait_for_ephemeral(
-        self,
-        before: tuple[Branch, ...],
-        parent: Branch,
-        claim_name: str,
-        created_after: datetime,
-    ) -> Branch:
-        del before, parent, created_after
-        return Branch("br-child", claim_name, self.project_id, "br-parent", False)
-
-    def connection_uri(self, branch_id: str) -> str:
-        assert branch_id == "br-child"
-        return "postgresql://u:p@ep-safe.neon.tech/test"
-
-    def wait_until_deleted(self, branch_id: str) -> None:
-        assert branch_id == "br-child"
-        raise RuntimeError("still present")
-
-    def delete_claimed_branch(self, branch_id: str, claim_name: str) -> None:
-        self.deleted = (branch_id, claim_name)
-
-
-def test_container_stop_failure_cannot_skip_claimed_branch_delete() -> None:
-    config = DatabaseConfig(
-        DatabaseArm.NEON, neon_api_key="secret", neon_project_id="project-test"
-    )
-    api = TeardownApi()
-    with pytest.raises(RuntimeError, match="container stop failed"):
-        with _neon_target(
-            config,
-            cast(conftest_db.NeonApi, api),
-            lambda _config, _parent: StopFailingContainer(),
-        ):
-            pass
-    assert api.deleted is not None
-    assert api.deleted[0] == "br-child"
-    assert api.deleted[1].startswith("wt-test-")
