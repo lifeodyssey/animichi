@@ -2,8 +2,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { webCwvConfig } from "../apps/web/web-cwv.config";
+import { median } from "../apps/web/src/features/telemetry/lib/vitals-stats";
 
-type CwvMetrics = { cls: number; lcp: number };
+type CwvMetrics = { cls: number; lcp: number; inp: number };
 
 declare global {
   interface Window {
@@ -11,8 +12,16 @@ declare global {
   }
 }
 
+// AC1 — the harness is a fixed cold-start MOBILE profile derived from the
+// shared config: viewport, DPR, touch/Android emulation. CPU/network/cache
+// throttling is pushed per-run over CDP (applyProfile), and a cold start is
+// forced between runs (clearBrowserCache).
 test.use({
   baseURL: process.env.E2E_WEB_BASE_URL ?? new URL(webCwvConfig.url).origin,
+  viewport: webCwvConfig.profile.viewport,
+  isMobile: webCwvConfig.profile.isMobile,
+  hasTouch: webCwvConfig.profile.hasTouch,
+  deviceScaleFactor: webCwvConfig.profile.deviceScaleFactor,
 });
 
 const reportDir = join(__dirname, "..", "apps", "web", webCwvConfig.reportDir);
@@ -20,7 +29,7 @@ const reportDir = join(__dirname, "..", "apps", "web", webCwvConfig.reportDir);
 /** Browser-side observer sources are strings: addInitScript serializes one
  * function with no closure, so Node helpers (webCwvConfig, Page) can never be
  * reached from the page context. */
-const INIT_METRICS_SOURCE = `Object.defineProperty(window, "__cwv", { value: { cls: 0, lcp: 0 } });`;
+const INIT_METRICS_SOURCE = `Object.defineProperty(window, "__cwv", { value: { cls: 0, lcp: 0, inp: 0 } });`;
 
 const CLS_OBSERVER_SOURCE = `new PerformanceObserver((list) => {
   const metrics = window.__cwv;
@@ -35,19 +44,61 @@ const LCP_OBSERVER_SOURCE = `new PerformanceObserver((list) => {
   window.__cwv.lcp = entries[entries.length - 1]?.startTime ?? 0;
 }).observe({ type: "largest-contentful-paint", buffered: true });`;
 
+// AC2 — INP interaction proxy: the Event Timing observer reports interaction
+// duration (processing + presentation) for every real input, which is the
+// regression signal the field INP would later carry. buffered reads the past
+// as well as future events, so a driven click always lands.
+const INP_OBSERVER_SOURCE = `new PerformanceObserver((list) => {
+  const metrics = window.__cwv;
+  for (const entry of list.getEntries()) {
+    const duration = entry.duration;
+    if (entry.interactionId > 0 && Number.isFinite(duration) && duration > metrics.inp) {
+      metrics.inp = duration;
+    }
+  }
+}).observe({ type: "event", buffered: true, durationThreshold: 0 });`;
+
 const installObservers = async (page: Page): Promise<void> => {
   await page.addInitScript({ content: INIT_METRICS_SOURCE });
   await page.addInitScript({ content: CLS_OBSERVER_SOURCE });
   await page.addInitScript({ content: LCP_OBSERVER_SOURCE });
+  await page.addInitScript({ content: INP_OBSERVER_SOURCE });
 };
 
-const measureRun = async (page: Page): Promise<CwvMetrics> => {
-  await page.goto("/", { waitUntil: "load" });
+/** Apply the controlled cold-start profile over CDP: CPU throttle, ~3G
+ * network, and (per AC1 profile.cache === "none") a cleared browser cache so
+ * every run is a true cold start. */
+const applyProfile = async (page: Page): Promise<void> => {
+  const session = await page.context().newCDPSession(page);
+  await session.send("Emulation.setCPUThrottlingRate", {
+    rate: webCwvConfig.profile.cpuThrottleRate,
+  });
+  await session.send("Network.enable");
+  await session.send("Network.emulateNetworkConditions", {
+    offline: false,
+    latency: webCwvConfig.profile.network.latency,
+    downloadThroughput: webCwvConfig.profile.network.downloadThroughput,
+    uploadThroughput: webCwvConfig.profile.network.uploadThroughput,
+  });
+  if (webCwvConfig.profile.cache === "none") {
+    await session.send("Network.clearBrowserCache");
+  }
+  await session.detach();
+};
+
+const measureRoute = async (page: Page, route: string): Promise<CwvMetrics> => {
+  await page.goto(route, { waitUntil: "load" });
   await page.waitForFunction(() => (window.__cwv?.lcp ?? 0) > 0);
   return page.evaluate(() => ({
     cls: window.__cwv?.cls ?? 0,
     lcp: window.__cwv?.lcp ?? 0,
+    inp: window.__cwv?.inp ?? 0,
   }));
+};
+
+const measureRun = async (page: Page, route: string): Promise<CwvMetrics> => {
+  await applyProfile(page);
+  return measureRoute(page, route);
 };
 
 const writeRunReport = async (run: number, metrics: CwvMetrics): Promise<void> => {
@@ -58,34 +109,54 @@ const writeRunReport = async (run: number, metrics: CwvMetrics): Promise<void> =
   );
 };
 
-const median = (values: number[]): number => {
-  const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.floor(sorted.length / 2)] ?? 0;
-};
-
-const warnIfLcpSlow = (lcp: number): void => {
-  if (lcp <= webCwvConfig.thresholds.lcp.warn) return;
-  const message = `median LCP ${lcp}ms exceeds ${webCwvConfig.thresholds.lcp.warn}ms warning threshold`;
-  console.warn(message);
-  test.info().annotations.push({ type: "warn", description: message });
-};
-
-const collectRuns = async (page: Page): Promise<CwvMetrics[]> => {
+const collectRuns = async (page: Page, route: string): Promise<CwvMetrics[]> => {
   const runs: CwvMetrics[] = [];
   for (let run = 1; run <= webCwvConfig.numberOfRuns; run++) {
-    const metrics = await measureRun(page);
+    const metrics = await measureRun(page, route);
     await writeRunReport(run, metrics);
     runs.push(metrics);
   }
   return runs;
 };
 
-test("median CLS over 3 runs stays at or below the 0.1 good boundary", async ({ page }) => {
+const assertWithin = (metric: number, limit: number, name: string): void => {
+  expect(metric, name).toBeLessThanOrEqual(limit);
+};
+
+// AC1 + AC2 — every controlled cold-start run over the fixed route inventory
+// must land LCP and CLS within their BLOCKING thresholds (median of 3 runs).
+test(`median LCP and CLS over ${webCwvConfig.numberOfRuns} cold-start runs stay at or below good boundaries`, async ({ page }) => {
   await installObservers(page);
-  const runs = await collectRuns(page);
-  const cls = median(runs.map((run) => run.cls));
-  const lcp = median(runs.map((run) => run.lcp));
+  const route = webCwvConfig.routes[0];
+  const runs = await collectRuns(page, route);
+  const lcp = median(runs.map((run) => run.lcp)) ?? 0;
+  const cls = median(runs.map((run) => run.cls)) ?? 0;
   test.info().annotations.push({ type: "lcp", description: `median LCP ${lcp}ms` });
-  warnIfLcpSlow(lcp);
-  expect(cls).toBeLessThanOrEqual(webCwvConfig.thresholds.cls.error);
+  assertWithin(lcp, webCwvConfig.thresholds.lcp.error, "median LCP");
+  assertWithin(cls, webCwvConfig.thresholds.cls.error, "median CLS");
+});
+
+// AC3 — one representative interaction flow (the mobile-first Start
+// Exploring CTA) must produce an Interaction-to-Next-Paint proxy well inside
+// the 200ms "good" boundary. Same cold-start profile and median aggregation.
+test(`a representative mobile interaction drives INP at or below ${webCwvConfig.thresholds.inp.error}ms`, async ({ page }) => {
+  await installObservers(page);
+  const route = webCwvConfig.routes[0];
+  const inpRuns: number[] = [];
+  for (let run = 1; run <= webCwvConfig.numberOfRuns; run++) {
+    await applyProfile(page);
+    await page.goto(route, { waitUntil: "load" });
+    await page.waitForFunction(() => (window.__cwv?.lcp ?? 0) > 0);
+    // Representative mobile interaction: the mobile-first CTA (Start Exploring)
+    // triggers a React state update + modal open, a real main-thread task that
+    // Event Timing records as an interaction. It is unique to the mobile
+    // layout (no desktop duplicate), so Playwright auto-waits for actionability
+    // without a :visible race during the throttled hydration.
+    await page.locator(".mobile-fox__cta").click();
+    await page.waitForFunction(() => (window.__cwv?.inp ?? 0) > 0);
+    inpRuns.push(await page.evaluate(() => window.__cwv?.inp ?? 0));
+  }
+  const inp = median(inpRuns) ?? 0;
+  test.info().annotations.push({ type: "inp", description: `median INP ${inp}ms` });
+  assertWithin(inp, webCwvConfig.thresholds.inp.error, "median INP");
 });
