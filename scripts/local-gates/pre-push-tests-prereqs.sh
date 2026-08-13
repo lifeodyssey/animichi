@@ -26,3 +26,10 @@ test_any_atlas_version_passes_prereqs() {
   [ "$rc" = "0" ] || { echo "FAIL: unpinned atlas version must pass prereqs (exit $rc)" >&2; exit 1; }
   echo "ok: atlas != v0.30.0 passes the prereq check"
 }
+
+test_malformed_node_version_fails_prereqs() {
+  local rc
+  rc="$(GATE_CHANGED_PACKAGES=all GATE_NODE_MALFORMED=1 run_gate "$GATE_STUB_ROOT/malformed-node.log")" || true
+  [ "$rc" != "0" ] || { echo "FAIL: malformed node version (vunknown) must fail prereqs" >&2; exit 1; }
+  echo "ok: malformed node version fails the prereq check"
+}

@@ -54,6 +54,7 @@ check_node_version() {
   command -v node >/dev/null 2>&1 || return 0
   local version major
   version="$(node -v 2>/dev/null)"
+  case "$version" in v[0-9]*.*|v[0-9]*) ;; *) printf 'prerequisite version mismatch: node %s\n' "$version" >&2; return 1 ;; esac
   major="${version#v}"; major="${major%%.*}"
   [ "${major:-0}" -lt 24 ] || return 0
   printf 'prerequisite version mismatch: node %s — %s\n' "$version" "$(prereq_hint node)" >&2

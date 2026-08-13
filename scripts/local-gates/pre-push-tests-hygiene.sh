@@ -38,13 +38,15 @@ join_continuations() {
 }
 
 # strip_inline_comments: drop a `#` that starts a comment from each
-# executable line. A comment start is a `#` at line start (after optional
-# whitespace) or a `#` preceded by whitespace; a `#` glued to a token
-# (shebang, URL fragment) is not a comment and is left intact. Reads stdin
-# (the piped continuation-joined output), so it must not take a filename
-# under `set -u`.
+# executable line. Character-by-character awk keeps shell quoting in mind
+# (#1003): inside a single-quoted string everything is literal until the
+# closing quote, inside a double-quoted string backslash escapes are honoured,
+# and only a `#` at line start (unless `#!` — the shebang) or a `#`
+# preceded by whitespace outside quotes starts a comment. Reads stdin (the
+# piped continuation-joined output), so it must not take a filename under
+# `set -u`.
 strip_inline_comments() {
-  sed -e 's/^[[:space:]]*#[^!].*$//' -e 's/[[:space:]][[:space:]]*#.*$//'
+  awk 'BEGIN{in_s=0;in_d=0}{out="";for(i=1;i<=length($0);i++){c=substr($0,i,1);if(in_s){if(c=="\047")in_s=0;out=out c;continue}if(in_d){if(c=="\\"){i++;out=out c substr($0,i,1);continue}if(c=="\"")in_d=0;out=out c;continue}if(c=="\047"){in_s=1;out=out c;continue}if(c=="\""){in_d=1;out=out c;continue}if(c=="#"&&substr($0,1,2)=="#!"&&i==1){out=out c;continue}if(c=="#"&&(i==1||substr($0,i-1,1)~/[[:space:]]/))break;out=out c}print out}'
 }
 
 executable_lines() {
@@ -150,6 +152,15 @@ test_split_continuation_forbidden_command_fails_scan() {
     exit 1
   fi
   echo "ok: a command split across a shell continuation fails the scan"
+}
+
+test_hash_inside_quotes_does_not_hide_forbidden_command() {
+  printf "#!/usr/bin/env bash\nprintf '%%s' ' # marker' && pulumi up\n" > "$GATE_STUB_ROOT/scan-quoted-hash.sh"
+  if ( assert_script_hygiene "$GATE_STUB_ROOT/scan-quoted-hash.sh" ) 2>/dev/null; then
+    echo "FAIL: a # inside a quoted string must not hide a forbidden pulumi up" >&2
+    exit 1
+  fi
+  echo "ok: a # inside a quoted string is not treated as a comment"
 }
 
 assert_prereq_out() {

@@ -44,6 +44,8 @@ case "$tool:$*" in
   node:-v*)
     if [ "${GATE_NODE_OLD:-}" = "1" ]; then
       printf 'v20.0.0\n'
+    elif [ "${GATE_NODE_MALFORMED:-}" = "1" ]; then
+      printf 'vunknown\n'
     else
       printf 'v24.0.0\n'
     fi
