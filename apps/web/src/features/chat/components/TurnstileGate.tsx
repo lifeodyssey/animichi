@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import type { ChatDict } from "../features/chat/i18n";
-import { clearTurnstileToken, rememberTurnstileToken } from "../lib/turnstile/token-store";
+import type { ChatDict } from "../i18n";
+import { clearTurnstileToken, rememberTurnstileToken } from "../../../lib/turnstile/token-store";
 
 /** Cloudflare's widget loader. `async defer` per the official embed. */
 export const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";

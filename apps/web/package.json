@@ -37,7 +37,6 @@
   },
   "devDependencies": {
     "@fontsource/noto-serif-jp": "^5.3.0",
-    "@lhci/cli": "^0.15.1",
     "@storybook/react-vite": "10.5.5",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/nitro-v2-vite-plugin": "^1.155.0",
@@ -53,6 +52,7 @@
     "jsonc-parser": "^3.3.1",
     "msw": "2.15.0",
     "nitropack": "^2.13.1",
+    "oxc-parser": "0.127.0",
     "storybook": "10.5.5",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",

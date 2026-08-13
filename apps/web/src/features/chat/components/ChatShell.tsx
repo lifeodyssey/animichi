@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { TurnstileGate } from "../../../components/TurnstileGate";
+import { TurnstileGate } from "./TurnstileGate";
 import type { Locale } from "../../../i18n/locales";
 import { ByokSettings } from "./ByokSettings";
 import { ColdStart } from "./ColdStart";

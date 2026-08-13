@@ -3,7 +3,7 @@
  */
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LoginModal } from "../../src/components/auth/LoginModal";
+import { LoginModal } from "../../src/features/auth/ui/LoginModal";
 import { renderWithLocale, setLanguages } from "./_i18n";
 
 beforeEach(() => { setLanguages(["ja-JP"]); });

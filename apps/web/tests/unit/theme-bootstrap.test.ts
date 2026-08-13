@@ -2,7 +2,8 @@
  * @vitest-environment jsdom
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { THEME_BOOTSTRAP_SCRIPT, THEME_STORAGE_KEY } from "../../src/components/theme-bootstrap";
+import { THEME_BOOTSTRAP_SCRIPT } from "../../src/components/theme-bootstrap";
+import { THEME_STORAGE_KEY } from "../../src/features/config/lib/theme-storage";
 import { Route } from "../../src/routes/__root";
 
 /** Execute exactly what the served <head> executes: an inline script tag. */

@@ -61,6 +61,13 @@ export function resolveApiConfig(env: Env, location?: { readonly origin: string 
   };
 }
 
+/** The agent service base URL: `VITE_AGENT_URL` or the served origin. Shared
+ * by the chat feature's config and cross-feature consumers (issue #1009 AC1)
+ * so lib/ code never imports a feature for an origin. */
+export function resolveAgentBaseUrl(env: Env, location?: { readonly origin: string }): string {
+  return env.VITE_AGENT_URL ?? resolveOrigin(env, location);
+}
+
 export function currentApiConfig(): ApiConfig {
   const location = typeof window === "undefined" ? undefined : window.location;
   return resolveApiConfig(import.meta.env, location);

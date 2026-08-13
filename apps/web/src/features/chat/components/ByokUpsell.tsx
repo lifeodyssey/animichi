@@ -1,4 +1,4 @@
-import { LoginModal } from "../../../components/auth/LoginModal";
+import { LoginModal } from "../../auth/ui/LoginModal";
 import { BYOK_SETUP_TARGET, useLoginDisclosure } from "../byok-journey";
 import type { ChatDict } from "../i18n";
 

@@ -49,7 +49,7 @@ function AnimeBody({ overview, copy }: ViewProps) {
 
 /**
  * `/anime/:id` presenter: empty-but-valid overviews get the graceful empty
- * state. JSON-LD is emitted by the route's `head()` (see `features/seo/json-ld`),
+ * state. JSON-LD is emitted by the route's `head()` (see `src/lib/json-ld`),
  * not rendered here.
  */
 export function AnimePage({ overview, locale }: AnimePageProps) {
