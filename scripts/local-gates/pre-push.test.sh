@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Behavioral tests for the pre-push gate orchestrator
 # (scripts/local-gates/pre-push.sh).
-#
 # Every tool the orchestrator invokes is stubbed (scripts/local-gates/
 # stub-env.sh + test-stub.sh); the real repo tree is the fixture. The Quality
 # bash checks and git run unstubbed because they are hermetic and sub-second.
@@ -19,7 +18,6 @@
 # route it to Neon — the Docker arm is deterministic, AC3/AC6) and the offline
 # postgres image identity is PG18 everywhere it is referenced (Dockerfile,
 # conftest, db-fresh-schema.sh).
-#
 # This file is the single entry point — pre-push.sh runs it, so the invocation
 # contract lives here. The behavioral tests are split into focused modules
 # (each under the repo's 300-line file limit) sourced below:
@@ -29,7 +27,6 @@
 #   pre-push-tests-hygiene.sh — forbidden cloud mutation + prerequisites
 #   pre-push-tests-prereqs.sh — node >= 24 / atlas any-version version gates
 #   pre-push-tests-hygiene-url.sh — URL-fragment scan regression (#1003)
-#   pre-push-tests-quality.sh — the quality lane's per-file ruby -c loop
 # Routing is injected through GATE_CHANGED_PACKAGES into the DEDICATED test
 # driver (scripts/local-gates/pre-push-test-driver.sh) — the only route seam.
 # The real pre-push entry (pre-push.sh) never reads that variable; it always
