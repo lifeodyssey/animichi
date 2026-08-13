@@ -11,13 +11,12 @@ import { dirname, join } from "node:path";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { OpenAPIGenerator } from "@orpc/openapi";
-import { JSON_SCHEMA_REGISTRY, ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
-import { checkinContract } from "../src/checkin-contract.js";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import type { AgentPath } from "../src/agent-contract.js";
+import { AGENT_PATHS } from "../src/agent-contract.js";
 import { catalogContract } from "../src/contract.js";
-import { HttpsUrl, shareContract } from "../src/share-contract.js";
+import type { ApiDocument, WireOperation } from "../src/operation-set.js";
 import { usersContract } from "../src/users-contract.js";
-
-JSON_SCHEMA_REGISTRY.add(HttpsUrl, { pattern: "^[Hh][Tt][Tt][Pp][Ss]://" });
 
 const generator = new OpenAPIGenerator({
   schemaConverters: [new ZodToJsonSchemaConverter()],
@@ -39,7 +38,7 @@ function resolveOutPath(filename: string): string {
   return join(dirname(fileURLToPath(import.meta.url)), "..", filename);
 }
 
-function writeSpec(spec: GeneratedSpec, filename: string): void {
+function writeSpec(spec: object, filename: string): void {
   const outPath = resolveOutPath(filename);
   writeFileSync(outPath, `${JSON.stringify(spec, null, 2)}\n`, "utf8");
   process.stdout.write(`Wrote ${outPath}\n`);
@@ -64,7 +63,12 @@ await emitOpenApi(catalogContract, "openapi.json", {
   },
 });
 
-await emitOpenApi({ ...usersContract, ...checkinContract, ...shareContract }, "users-openapi.json", {
+// The Users document is emitted from the complete users service contract —
+// the same object the Users worker's `implement(usersContract)` router mounts.
+// A phantom procedure (present in the contract but absent from the mounted
+// router) would still surface here, so the Users-side parity check in
+// workers/users/test/operation-parity.worker.test.ts is what closes that gap.
+await emitOpenApi(usersContract, "users-openapi.json", {
   info: {
     title: "Animichi Users Service",
     version: "0.1.0",
@@ -76,3 +80,33 @@ await emitOpenApi({ ...usersContract, ...checkinContract, ...shareContract }, "u
     },
   },
 });
+
+// The Agent boundary document: emitted from the AGENT_PATHS inventory
+// (CONTRACT-1 #938), the same inventory the edge route tables reference. The
+// Python-side parity check in apps/agent asserts these operations equal the
+// FastAPI router's mounted operations.
+function agentOperation(entry: AgentPath): WireOperation {
+  return {
+    summary: entry.summary,
+    responses: { "200": { description: "Successful response" } },
+  };
+}
+
+function agentPaths(): ApiDocument["paths"] {
+  const paths: ApiDocument["paths"] = {};
+  for (const entry of AGENT_PATHS) {
+    paths[entry.path] = { [entry.method.toLowerCase()]: agentOperation(entry) };
+  }
+  return paths;
+}
+
+function emitAgentOpenApi(): ApiDocument {
+  return {
+    openapi: "3.1.0",
+    info: { title: "Animichi Agent Service", version: "0.1.0" },
+    paths: agentPaths(),
+  };
+}
+
+writeSpec(emitAgentOpenApi(), "agent-openapi.json");
+process.stdout.write("Agent methods: " + AGENT_PATHS.map((entry) => `${entry.method} ${entry.path}`).join(", ") + "\n");

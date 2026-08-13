@@ -12,12 +12,14 @@
     "./models": "./src/models.ts",
     "./contract": "./src/contract.ts",
     "./agent-contract": "./src/agent-contract.ts",
+    "./internal-binding": "./src/internal-binding.ts",
     "./constants": "./src/constants.ts",
     "./jwt": "./src/jwt.ts"
   },
   "scripts": {
     "emit:openapi": "node --import tsx scripts/emit-openapi.ts",
     "emit:agent-python": "node --import tsx scripts/emit-agent-python.ts",
+    "vet:openapi": "node --import tsx scripts/vet-openapi.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

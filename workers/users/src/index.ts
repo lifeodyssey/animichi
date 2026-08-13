@@ -1,5 +1,6 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { Hono, type Context, type MiddlewareHandler, type Next } from "hono";
+import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER } from "@animichi/contract/internal-binding";
 import { makeDb as realMakeDb, type DbExecutor } from "./db/client";
 import { usersRouter, type UsersContext } from "./router";
 
@@ -76,8 +77,8 @@ async function requestService(
  * identity is also 401.
  */
 function edgeIdentity(c: Context<{ Bindings: Env }>): string | null {
-  if (c.req.header("Authorization") != null) return null;
-  const userId = c.req.header("X-User-Id");
+  if (c.req.header(AUTHORIZATION_HEADER) != null) return null;
+  const userId = c.req.header(USER_IDENTITY_HEADER);
   return typeof userId === "string" && userId.length > 0 ? userId : null;
 }
 

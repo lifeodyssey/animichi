@@ -1,0 +1,149 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Animichi Agent Service",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "service banner",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "summary": "health and service metadata",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/chat": {
+      "post": {
+        "summary": "chat turn",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/byok/probe": {
+      "post": {
+        "summary": "probe a bring-your-own-key credential",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/feedback": {
+      "post": {
+        "summary": "submit feedback",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/conversations": {
+      "get": {
+        "summary": "list conversations",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/conversations/{session_id}": {
+      "patch": {
+        "summary": "rename conversation",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/conversations/{session_id}/messages": {
+      "get": {
+        "summary": "conversation messages",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/bangumi/{bangumi_id}/guide": {
+      "get": {
+        "summary": "work guide points",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/bangumi/nearby": {
+      "get": {
+        "summary": "nearby points",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/search/preview": {
+      "get": {
+        "summary": "search preview",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/photo-search": {
+      "post": {
+        "summary": "photo search",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/photo-search/confirm": {
+      "post": {
+        "summary": "confirm photo offer",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    },
+    "/v1/sessions/adopt": {
+      "post": {
+        "summary": "adopt anonymous sessions",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        }
+      }
+    }
+  }
+}
