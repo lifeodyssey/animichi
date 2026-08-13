@@ -31,7 +31,8 @@
       "miniflare>undici": "7.29.0",
       "jsdom>undici": "7.29.0",
       "@ai-sdk/provider-utils>undici": "7.29.0",
-      "tmp": ">=0.2.6"
+      "tmp": ">=0.2.6",
+      "nanoid": "3.3.18"
     }
   },
   "devDependencies": {

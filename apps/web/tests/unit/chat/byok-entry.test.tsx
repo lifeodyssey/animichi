@@ -5,7 +5,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { setLanguages } from "../_i18n";
-import { chatSearch, renderChatPage } from "./_chat-page";
+import { chatSearch, renderChatPage, urlSettings } from "./_chat-page";
 
 const ja = chatDictFor("ja");
 
@@ -21,20 +21,23 @@ describe("BYOK settings entry point (T6, chat input area)", () => {
     expect(screen.queryByRole("heading", { name: ja.byok.title })).toBeNull();
   });
 
-  it("opens and closes the panel from the toggle", async () => {
+  it("opens and closes the panel from the toggle, writing the URL (URL-owned, #1009 AC4)", async () => {
     setLanguages(["ja"]);
-    renderChatPage();
+    const router = renderChatPage();
     fireEvent.click(settingsToggle());
     expect(await screen.findByRole("heading", { name: ja.byok.title })).toBeTruthy();
     expect(settingsToggle().getAttribute("aria-expanded")).toBe("true");
+    expect(urlSettings(router)).toBe("byok");
     fireEvent.click(settingsToggle());
-    expect(screen.queryByRole("heading", { name: ja.byok.title })).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: ja.byok.title })).toBeNull();
+    });
+    expect(urlSettings(router)).toBeUndefined();
   });
 
   it("shows the anonymous teaser inside the panel for a signed-out visitor", async () => {
     setLanguages(["ja"]);
-    renderChatPage();
-    fireEvent.click(settingsToggle());
+    renderChatPage(chatSearch({ settings: "byok" }));
     expect(await screen.findByText(ja.byok.anonymousTeaser)).toBeTruthy();
   });
 });

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { LoginModal } from "../../../../components/auth/LoginModal";
+import { LoginModal } from "../../../auth/ui/LoginModal";
 import { useChatReturnTarget } from "../../ChatReturnTarget";
 import { FallbackRetryButton } from "./FallbackRetryButton";
 
