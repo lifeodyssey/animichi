@@ -10,11 +10,13 @@
  *   node --import tsx scripts/vet-openapi.ts <baseline.json> <candidate.json>
  *     [--allow-breaking]
  *
- * Exit codes: 0 = approved, 1 = violations, 2 = usage error.
+ * Exit codes: 0 = approved, 1 = violations, 2 = usage error. An approved run
+ * prints each waived breaking change as `approved-breaking:` on stdout so
+ * explicit approvals are auditable in CI logs.
  */
 
 import { readFileSync } from "node:fs";
-import { vetOpenApiDiff } from "../src/openapi-vet.js";
+import { vetOpenApiDiff, type VetResult } from "../src/openapi-vet.js";
 import type { ApiDocument } from "../src/operation-set.js";
 
 const [, , baselinePath, candidatePath, flag] = process.argv;
@@ -28,6 +30,14 @@ const baseline = JSON.parse(readFileSync(baselinePath, "utf8")) as ApiDocument;
 const candidate = JSON.parse(readFileSync(candidatePath, "utf8")) as ApiDocument;
 const result = vetOpenApiDiff(baseline, candidate, { allowBreaking: flag === "--allow-breaking" });
 
+function writeApprovedBreaking(gate: VetResult): void {
+  if (!gate.approved) return;
+  for (const change of gate.breaking) {
+    process.stdout.write(`approved-breaking: ${change.message}\n`);
+  }
+}
+
+writeApprovedBreaking(result);
 for (const change of result.additive) {
   process.stdout.write(`additive: ${change.message}\n`);
 }

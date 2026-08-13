@@ -141,6 +141,13 @@ describe("phantom hard-cut classification (baseline bootstrap, #1005 AC3)", () =
     expect(runVet(N_MINUS_ONE_FIXTURE, CURRENT_USERS_DOC).status).toBe(1);
     expect(runVet(N_MINUS_ONE_FIXTURE, CURRENT_USERS_DOC, "--allow-breaking").status).toBe(0);
   });
+
+  it("the explicit approval prints each waived breaking change as approved-breaking", () => {
+    const result = runVet(N_MINUS_ONE_FIXTURE, CURRENT_USERS_DOC, "--allow-breaking");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("approved-breaking: GET /v1/users/checkins was removed");
+    expect(result.stdout).toContain("approved-breaking: POST /v1/users/shares was removed");
+  });
 });
 
 describe("pipeline-contract.yml compat gate wiring", () => {
@@ -174,5 +181,14 @@ describe("pipeline-contract.yml compat gate wiring", () => {
   it("bootstrap lands against the committed post-cut baseline, not the phantom-laden merge-base", () => {
     expect(workflow).toContain('"/v1/users/(checkins|shares)');
     expect(workflow).toContain('git show "HEAD:packages/contract/$doc" > "$RUNNER_TEMP/baseline-$doc"');
+  });
+
+  it("swaps the baseline only when the candidate is already post-cut (never self-compares)", () => {
+    expect(workflow).toContain('! grep -Eq \'"/v1/users/(checkins|shares)\' "$doc"');
+  });
+
+  it("fails closed when neither base SHA context is present (no HEAD fallback)", () => {
+    expect(workflow).not.toContain("'HEAD'");
+    expect(workflow).toContain("no baseline SHA");
   });
 });

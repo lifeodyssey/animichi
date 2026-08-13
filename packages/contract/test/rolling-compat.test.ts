@@ -154,6 +154,7 @@ describe("version-invariant binding protocol", () => {
     const previousByKey = operationMap(nMinusOne);
     const currentByKey = operationMap(current);
     for (const key of currentKeys) {
+      expect(currentByKey.get(key)?.security).toBeDefined();
       expect(previousByKey.get(key)?.security).toEqual(currentByKey.get(key)?.security);
     }
   });

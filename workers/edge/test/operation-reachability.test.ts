@@ -14,6 +14,12 @@ import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 // binding (CONTAINER for Agent, USERS for the Users service).
 
 const PACKAGE_DIR = fileURLToPath(new URL("../../../packages/contract", import.meta.url));
+const HTTP_METHODS = new Set(["get", "put", "post", "delete", "options", "head", "patch", "trace"]);
+
+interface AdvertisedOperation {
+  readonly method: string;
+  readonly path: string;
+}
 
 function readDocument(filename: string): {
   paths: Record<string, Record<string, unknown>>;
@@ -23,10 +29,10 @@ function readDocument(filename: string): {
   };
 }
 
-function operations(document: { paths: Record<string, Record<string, unknown>> }): { method: string; path: string }[] {
-  const result: { method: string; path: string }[] = [];
+function operations(document: { paths: Record<string, Record<string, unknown>> }): AdvertisedOperation[] {
+  const result: AdvertisedOperation[] = [];
   for (const [path, item] of Object.entries(document.paths)) {
-    for (const method of Object.keys(item)) {
+    for (const method of Object.keys(item).filter((key) => HTTP_METHODS.has(key))) {
       result.push({ method: method.toUpperCase(), path });
     }
   }
@@ -57,15 +63,39 @@ function usersEnv(users: { fetch(req: Request): Promise<Response> }) {
   } as never;
 }
 
+/** A USERS binding that records whether a request reached it. */
+function usersBinding(reached: { value: boolean }) {
+  return {
+    fetch: () => {
+      reached.value = true;
+      return Promise.resolve(new Response("users"));
+    },
+  };
+}
+
+async function assertAgentOperationReachable(operation: AdvertisedOperation): Promise<void> {
+  const captured: { req?: Request } = {};
+  const app = createWorkerApp({ authenticate: authed });
+  const res = await app.request(concretePath(operation.path), { method: operation.method }, envWithContainer(captured), stubCtx);
+  assert.equal(res.status !== 404, true, `${operation.method} ${operation.path} must not 404`);
+  assert.ok(captured.req, `${operation.method} ${operation.path} must reach the container binding`);
+}
+
+async function assertUsersOperationReachable(operation: AdvertisedOperation): Promise<void> {
+  assert.equal(operation.path.startsWith(USERS_BINDING_PREFIX), true);
+  const reached = { value: false };
+  const app = createWorkerApp({ authenticate: authed });
+  const env = usersEnv(usersBinding(reached));
+  const res = await app.request(concretePath(operation.path), { method: operation.method }, env, stubCtx);
+  assert.equal(res.status !== 404, true, `${operation.method} ${operation.path} must not 404`);
+  assert.equal(reached.value, true, `${operation.method} ${operation.path} must reach the USERS binding`);
+}
+
 void test("every Agent OpenAPI operation is reachable through the CONTAINER binding", async () => {
   const agentOps = operations(readDocument("agent-openapi.json"));
   assert.ok(agentOps.length > 0, "agent-openapi.json must advertise operations");
   for (const operation of agentOps) {
-    const captured: { req?: Request } = {};
-    const app = createWorkerApp({ authenticate: authed });
-    const res = await app.request(concretePath(operation.path), { method: operation.method }, envWithContainer(captured), stubCtx);
-    assert.equal(res.status !== 404, true, `${operation.method} ${operation.path} must not 404`);
-    assert.ok(captured.req, `${operation.method} ${operation.path} must reach the container binding`);
+    await assertAgentOperationReachable(operation);
   }
 });
 
@@ -73,12 +103,6 @@ void test("every Users OpenAPI operation is reachable through the USERS binding"
   const usersOps = operations(readDocument("users-openapi.json"));
   assert.ok(usersOps.length > 0, "users-openapi.json must advertise operations");
   for (const operation of usersOps) {
-    assert.equal(operation.path.startsWith(USERS_BINDING_PREFIX), true);
-    let reached = false;
-    const app = createWorkerApp({ authenticate: authed });
-    const env = usersEnv({ fetch: () => { reached = true; return Promise.resolve(new Response("users")); } });
-    const res = await app.request(concretePath(operation.path), { method: operation.method }, env, stubCtx);
-    assert.equal(res.status !== 404, true, `${operation.method} ${operation.path} must not 404`);
-    assert.equal(reached, true, `${operation.method} ${operation.path} must reach the USERS binding`);
+    await assertUsersOperationReachable(operation);
   }
 });

@@ -19,7 +19,7 @@ from animichi.tests.unit.conftest_fastapi import build_app
 
 _REPO_ROOT = Path(__file__).resolve().parents[6]
 _AGENT_OPENAPI_PATH = _REPO_ROOT / "packages" / "contract" / "agent-openapi.json"
-_AGENT_METHODS = frozenset({"GET", "POST", "PATCH"})
+_AGENT_METHODS = frozenset({"get", "post", "patch"})
 
 
 def _spec_operations(spec: object) -> list[tuple[str, str]]:
@@ -35,11 +35,8 @@ def _spec_operations(spec: object) -> list[tuple[str, str]]:
 def _operations_in_path(path: object, item: object) -> list[tuple[str, str]]:
     assert isinstance(path, str)
     assert isinstance(item, dict)
-    return [
-        (method.upper(), path)
-        for method in item
-        if isinstance(method, str) and method.upper() in _AGENT_METHODS
-    ]
+    methods = item.keys() & _AGENT_METHODS
+    return [(method.upper(), path) for method in methods]
 
 
 def _generated_operations() -> list[tuple[str, str]]:
@@ -68,6 +65,6 @@ def test_generated_openapi_matches_python_inventory() -> None:
     assert _generated_operations() == _inventory_operations()
 
 
-def test_inventory_has_no_duplicate_paths() -> None:
-    paths = [path for _method, path in _inventory_operations()]
-    assert len(paths) == len(set(paths))
+def test_inventory_has_no_duplicate_operations() -> None:
+    operations = _inventory_operations()
+    assert len(operations) == len(set(operations))

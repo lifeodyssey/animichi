@@ -27,7 +27,7 @@ describe("users OpenAPI security", () => {
     expect(usersOpenApi.paths["/v1/users/shares/resolve/{token}"]).toBeUndefined();
   });
 
-  it("requires bearer authentication for every saved-route mutation", () => {
+  it("requires bearer authentication for every saved-route operation", () => {
     expect(usersOpenApi.paths["/v1/users/saved-routes"].get.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/saved-routes"].post.security).toEqual(BEARER_SECURITY);
     expect(usersOpenApi.paths["/v1/users/saved-routes/{id}"].delete.security).toEqual(BEARER_SECURITY);

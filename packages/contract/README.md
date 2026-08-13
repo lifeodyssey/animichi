@@ -96,8 +96,10 @@ published document (`openapi.json`, `users-openapi.json`, `agent-openapi.json`):
   approved explicitly — it is never wired into the normal PR path silently.
 
 The wiring is pinned by `test/vet-gate.test.ts` (workflow invariant + CLI
-behavior) and the classifier by `test/openapi-diff.test.ts` /
-`test/openapi-gate.test.ts`, so the enforcement cannot silently disappear.
+behavior) and the classifier by `test/openapi-diff-endpoints.test.ts`,
+`test/openapi-diff-schemas.test.ts`, `test/openapi-diff-errors.test.ts`,
+and `test/openapi-gate.test.ts`, so the enforcement cannot silently
+disappear.
 
 ## Error contract
 

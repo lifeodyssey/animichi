@@ -63,6 +63,13 @@ jobs:
     name: Contract / build
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      # Resolve the baseline context here (zizmor: keep `${{ }}` out of run:).
+      # The gate fails closed when neither context is present — a HEAD
+      # fallback would self-compare (`git merge-base HEAD HEAD`) and ungate
+      # every breaking change.
+      PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,7 +97,14 @@ jobs:
             # x-sunset. The normal gate never passes the explicit approval
             # flag: approved breaking changes (e.g. a pre-go-live phantom hard
             # cut) are reviewed and approved explicitly, never wired in here.
-            BASE_SHA="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || 'HEAD' }}"
+            if [ -n "$PR_BASE_SHA" ]; then
+              BASE_SHA="$PR_BASE_SHA"
+            elif [ -n "$MERGE_GROUP_BASE_SHA" ]; then
+              BASE_SHA="$MERGE_GROUP_BASE_SHA"
+            else
+              echo "::error::no baseline SHA available: this run is neither a pull_request nor a merge_group event, so the published baseline cannot be resolved. Run the gate from a pull request or the merge queue." >&2
+              exit 1
+            fi
             MERGE_BASE="$(git merge-base HEAD "$BASE_SHA")"
             for doc in openapi.json users-openapi.json agent-openapi.json; do
               if ! git show "$MERGE_BASE:packages/contract/$doc" > "$RUNNER_TEMP/baseline-$doc" 2>/dev/null; then
@@ -105,10 +119,13 @@ jobs:
               # A merge-base baseline that still carries that retired surface
               # is not the published contract for this landing — the post-cut
               # documents committed in this tree are (and become the
-              # merge-base baseline once this lands). The fallback cannot
-              # trigger for a future PR: the phantom paths never re-enter the
-              # published contract.
-              if grep -Eq '"/v1/users/(checkins|shares)' "$RUNNER_TEMP/baseline-$doc"; then
+              # merge-base baseline once this lands). The swap is one-shot and
+              # self-limiting: it fires only when the baseline still carries
+              # the phantom paths AND the candidate (this tree's committed
+              # document) is already post-cut. A candidate that still contains
+              # them keeps the merge-base baseline — the gate never
+              # self-compares against HEAD.
+              if grep -Eq '"/v1/users/(checkins|shares)' "$RUNNER_TEMP/baseline-$doc" && ! grep -Eq '"/v1/users/(checkins|shares)' "$doc"; then
                 git show "HEAD:packages/contract/$doc" > "$RUNNER_TEMP/baseline-$doc"
               fi
               node --import tsx scripts/vet-openapi.ts "$RUNNER_TEMP/baseline-$doc" "$doc"

@@ -33,21 +33,32 @@ function keysOf(operations: readonly ApiOperation[]): string[] {
   return sortOperations(operations).map(operationKey);
 }
 
+function asDocument(value: unknown): ApiDocument {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("expected an OpenAPI document object");
+  }
+  const paths = (value as Record<string, unknown>)["paths"];
+  if (typeof paths !== "object" || paths === null) {
+    throw new Error("OpenAPI document must declare an object paths field");
+  }
+  return value as ApiDocument;
+}
+
 describe("emitted OpenAPI equals the complete service contract", () => {
   it("users-openapi.json is the complete Users service contract", () => {
-    expect(keysOf(operationsFromOpenApi(usersOpenApi as ApiDocument))).toEqual(
+    expect(keysOf(operationsFromOpenApi(asDocument(usersOpenApi)))).toEqual(
       keysOf(operationsFromContractRouter(usersContract)),
     );
   });
 
   it("openapi.json is the complete Catalog service contract", () => {
-    expect(keysOf(operationsFromOpenApi(catalogOpenApi as ApiDocument))).toEqual(
+    expect(keysOf(operationsFromOpenApi(asDocument(catalogOpenApi)))).toEqual(
       keysOf(operationsFromContractRouter(catalogContract)),
     );
   });
 
   it("agent-openapi.json is the complete Agent path inventory", () => {
-    expect(keysOf(operationsFromOpenApi(agentOpenApi as ApiDocument))).toEqual(
+    expect(keysOf(operationsFromOpenApi(asDocument(agentOpenApi)))).toEqual(
       keysOf(AGENT_PATHS.map((entry) => ({ method: entry.method, path: entry.path }))),
     );
   });
