@@ -71,4 +71,22 @@ describe("LoginModal focus trap", () => {
     fireEvent.keyDown(document, { key: "Tab" });
     expect(document.activeElement).toBe(email);
   });
+
+  it("early-returns when the dialog has no focusables, leaving focus unchanged", () => {
+    renderWithLocale(<LoginModal open onClose={vi.fn()} />);
+    screen.getByLabelText("メールアドレス").setAttribute("disabled", "true");
+    screen.getByRole("button", { name: "ログインリンクを送信" }).setAttribute("disabled", "true");
+    screen.getByRole("button", { name: "閉じる" }).setAttribute("disabled", "true");
+    const before = document.activeElement;
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(before);
+  });
+
+  it("lands initial focus on the email input and ignores a non-Tab key", () => {
+    renderWithLocale(<LoginModal open onClose={vi.fn()} />);
+    const email = screen.getByLabelText("メールアドレス");
+    expect(document.activeElement).toBe(email);
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(email);
+  });
 });
