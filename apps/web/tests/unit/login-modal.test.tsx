@@ -43,3 +43,32 @@ describe("LoginModal", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+describe("LoginModal focus trap", () => {
+  it("wraps Tab from the last focusable back to the first", () => {
+    renderWithLocale(<LoginModal open onClose={vi.fn()} />);
+    const last = screen.getByRole("button", { name: "ログインリンクを送信" });
+    last.focus();
+    expect(document.activeElement).toBe(last);
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "閉じる" }));
+  });
+
+  it("wraps Shift+Tab from the first focusable back to the last", () => {
+    renderWithLocale(<LoginModal open onClose={vi.fn()} />);
+    const first = screen.getByRole("button", { name: "閉じる" });
+    first.focus();
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "ログインリンクを送信" }));
+  });
+
+  it("leaves focus on a middle focusable when Tab is pressed inside the dialog", () => {
+    renderWithLocale(<LoginModal open onClose={vi.fn()} />);
+    const email = screen.getByLabelText("メールアドレス");
+    email.focus();
+    expect(document.activeElement).toBe(email);
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(email);
+  });
+});

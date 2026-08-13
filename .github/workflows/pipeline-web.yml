@@ -81,6 +81,12 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Build + output-layout integration test
         env:
+          # CI-only test key (Cloudflare's published always-passing TEST site
+          # key, not a secret — see TurnstileGate.tsx's TURNSTILE_TEST_SITE_KEY)
+          # so the a11y states suite can arm an anonymous turn against the
+          # built worker. Deploy builds set the real key from vars
+          # (reusable-deploy-component.yml).
+          VITE_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
           # showcase.ts fails closed at module init — CI builds are never showcase.
           VITE_SHOWCASE_MODE: "false"
         run: pnpm --filter web test:integration

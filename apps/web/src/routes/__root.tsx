@@ -103,11 +103,11 @@ export function langFromMatches(matches: readonly LocaleBearingMatch[]): Locale 
 /** WCAG 2.4.1 Bypass Blocks: a keyboard-reachable "skip to content" link as
  * the page's first tab stop. It is visually hidden until it receives focus,
  * then jumps the user's focus into the route's main content region. */
-function skipLabel(lang: Locale): string {
+export function skipLabel(lang: Locale): string {
   return lang === "ja" ? "コンテンツへ移動" : lang === "zh" ? "跳转到主要内容" : "Skip to content";
 }
 
-function SkipLink({ lang }: { readonly lang: Locale }) {
+export function SkipLink({ lang }: { readonly lang: Locale }) {
   return (
     <a className="skip-link" href="#main-content">{skipLabel(lang)}</a>
   );
