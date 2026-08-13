@@ -15,10 +15,10 @@
  *
  *   • the Vite production build (`import.meta.env.PROD`) — `vite dev`, the
  *     test pool and local previews without a token never emit it;
- *   • the token itself (`VITE_CF_BEACON_TOKEN`), injected only by the
- *     production deploy in reusable-deploy-component.yml. Absence — or an
- *     empty value — means no beacon, gracefully. Staging stays beacon-free
- *     as long as the variable is not set for the staging environment.
+ *   • the token itself (`runtimeConfig.cfBeaconToken`, #1013 AC1), supplied
+ *     by the versioned runtime-config payload the deploy provides. Absence —
+ *     or an empty value — means no beacon, gracefully. Staging stays
+ *     beacon-free as long as its runtime config carries no beacon token.
  */
 export const CF_WEB_ANALYTICS_SRC = "https://static.cloudflareinsights.com/beacon.min.js";
 

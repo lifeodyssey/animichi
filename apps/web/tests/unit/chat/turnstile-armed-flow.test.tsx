@@ -11,6 +11,8 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { clearTurnstileToken, rememberTurnstileToken } from "../../../src/lib/turnstile/token-store";
+import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../src/lib/runtime-config/provider";
+import { DEFAULT_RUNTIME_CONFIG } from "../../../src/lib/runtime-config/runtime-config";
 import { server } from "../../msw/node";
 import { armedChatHandler } from "../../msw/chat-handlers";
 import { setLanguages } from "../_i18n";
@@ -27,11 +29,15 @@ const SITE_KEY = "0x4AAAAAAAsitekey24chars";
 const ja = chatDictFor("ja");
 const ANSWER = "宇治の聖地を2件、徒歩ルートにまとめました。";
 
+function armSiteKey(): void {
+  vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, turnstileSiteKey: SITE_KEY });
+}
+
 beforeEach(() => {
   setLanguages(["ja"]);
   clearTurnstileToken();
   getAuthToken.mockReset().mockResolvedValue(undefined);
-  vi.stubEnv("VITE_TURNSTILE_SITE_KEY", SITE_KEY);
+  armSiteKey();
 });
 
 /**
@@ -123,7 +129,7 @@ describe("?q= auto-send against an armed edge", () => {
   });
 
   it("still fires immediately when no challenge is in play", async () => {
-    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "");
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
     vi.stubEnv("DEV", false);
     const seen: (string | null)[] = [];
     server.use(armedChatHandler("search", seen));

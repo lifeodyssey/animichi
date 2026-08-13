@@ -4,6 +4,8 @@
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../msw/node";
+import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../src/lib/runtime-config/provider";
+import { DEFAULT_RUNTIME_CONFIG } from "../../../src/lib/runtime-config/runtime-config";
 import {
   SESSION_ADOPT_PATH,
   adoptSessions,
@@ -146,11 +148,14 @@ describe("adoptSessions default base URL", () => {
     expect(seen[0]?.authorization).toBe("Bearer jwt-1");
   });
 
-  it("falls back to VITE_AGENT_URL when no window exists (SSR)", async () => {
+  it("falls back to api.agentUrl when no window exists (SSR)", async () => {
     // The `aid` cookie only exists in a browser, but the SSR base URL must
     // still resolve deterministically instead of touching a missing window.
     vi.stubGlobal("window", undefined);
-    vi.stubEnv("VITE_AGENT_URL", "http://agent.test");
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, {
+      ...DEFAULT_RUNTIME_CONFIG,
+      api: { agentUrl: "http://agent.test" },
+    });
     server.use(
       http.post("http://agent.test/v1/sessions/adopt", () =>
         HttpResponse.json({ adopted: 0, noop_class: "no_rows" })),

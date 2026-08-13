@@ -10,6 +10,8 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { rememberTurnstileToken } from "../../../src/lib/turnstile/token-store";
+import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../src/lib/runtime-config/provider";
+import { DEFAULT_RUNTIME_CONFIG } from "../../../src/lib/runtime-config/runtime-config";
 import { server } from "../../msw/node";
 import { chatStreamHandler, chatTurnstileRequiredHandler } from "../../msw/chat-handlers";
 import { setLanguages } from "../_i18n";
@@ -31,7 +33,7 @@ const ja = chatDictFor("ja");
 beforeEach(() => {
   setLanguages(["ja"]);
   getAuthToken.mockReset().mockResolvedValue(undefined);
-  vi.stubEnv("VITE_TURNSTILE_SITE_KEY", SITE_KEY);
+  vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, turnstileSiteKey: SITE_KEY });
 });
 
 function widget(): Element | null {
@@ -80,7 +82,7 @@ describe("who gets the widget", () => {
   });
 
   it("renders nothing when a production build configured no site key", async () => {
-    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "");
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
     vi.stubEnv("DEV", false);
     renderChatPage();
     await waitFor(() => {
@@ -98,7 +100,7 @@ describe("who gets the widget", () => {
  */
 describe("a misconfigured build still shows the failure", () => {
   it("falls back to the generic retry strip when no widget can be rendered", async () => {
-    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "");
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
     vi.stubEnv("DEV", false);
     server.use(chatTurnstileRequiredHandler());
     renderChatPage();
@@ -109,7 +111,7 @@ describe("a misconfigured build still shows the failure", () => {
   });
 
   it("never tells a challenged anonymous visitor their session expired", async () => {
-    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "");
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
     vi.stubEnv("DEV", false);
     server.use(chatTurnstileRequiredHandler());
     renderChatPage();

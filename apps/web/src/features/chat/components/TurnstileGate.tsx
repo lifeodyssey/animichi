@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { ChatDict } from "../i18n";
+import { currentRuntimeConfig } from "../../../lib/runtime-config/provider";
 import { clearTurnstileToken, rememberTurnstileToken } from "../../../lib/turnstile/token-store";
 
 /** Cloudflare's widget loader. `async defer` per the official embed. */
@@ -58,30 +59,28 @@ export function resetTurnstileWidget(): void {
   window.turnstile?.reset();
 }
 
-type EnvRecord = Readonly<Record<string, string | undefined>>;
-
 /**
  * Read the public site key, failing loudly on the wrong shape. A 35-character
  * value is the SECRET: pasting it into the public slot would ship it in the
  * client bundle, so that mistake must never reach a render.
  */
-export function resolveTurnstileSiteKey(env: EnvRecord): string {
-  const siteKey = env.VITE_TURNSTILE_SITE_KEY ?? "";
-  if (siteKey.length !== SITE_KEY_LENGTH) throw siteKeyError(siteKey.length);
-  return siteKey;
+export function resolveTurnstileSiteKey(siteKey: string | undefined): string {
+  const value = siteKey ?? "";
+  if (value.length !== SITE_KEY_LENGTH) throw siteKeyError(value.length);
+  return value;
 }
 
 /** Reports the offending LENGTH only — never the value itself. */
 function siteKeyError(actualLength: number): Error {
   return new Error(
-    `VITE_TURNSTILE_SITE_KEY must be ${String(SITE_KEY_LENGTH)} characters ` +
+    `turnstileSiteKey must be ${String(SITE_KEY_LENGTH)} characters ` +
       `(got ${String(actualLength)}). ` +
       "A 35-character value is the Turnstile SECRET and must never reach the client.",
   );
 }
 
 export function currentTurnstileSiteKey(): string {
-  return resolveTurnstileSiteKey(import.meta.env);
+  return resolveTurnstileSiteKey(currentRuntimeConfig().turnstileSiteKey);
 }
 
 /**
@@ -101,10 +100,10 @@ export const TURNSTILE_TEST_SITE_KEY = "1x00000000000000000000AA";
  * pasting the 35-char SECRET must never reach a render.
  */
 export function configuredTurnstileSiteKey(
-  env: EnvRecord = import.meta.env,
+  siteKey: string | undefined = currentRuntimeConfig().turnstileSiteKey,
   dev: boolean = import.meta.env.DEV,
 ): string | undefined {
-  if ((env.VITE_TURNSTILE_SITE_KEY ?? "") !== "") return resolveTurnstileSiteKey(env);
+  if (siteKey !== undefined && siteKey.length > 0) return resolveTurnstileSiteKey(siteKey);
   return dev ? TURNSTILE_TEST_SITE_KEY : undefined;
 }
 

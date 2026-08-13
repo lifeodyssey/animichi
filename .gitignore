@@ -138,6 +138,11 @@ backend/tests/eval/results/agent_openai-mimo-*
 !apps/web/src/lib/
 !apps/web/src/lib/**
 
+# apps/web unit tests live in tests/unit/lib/** — re-include so the versioned
+# runtime-config test suite is tracked (root lib/ rule is too broad; #1013).
+!apps/web/tests/unit/lib/
+!apps/web/tests/unit/lib/**
+
 # Pinned Atlas CLI self-heal cache (#730) — downloaded, checksum-verified
 # binary for `make test-integration`; never checked in, never the global install.
 /.cache/atlas/

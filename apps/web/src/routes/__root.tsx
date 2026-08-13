@@ -11,6 +11,7 @@ import { NotFound } from "../components/NotFound";
 import { Splash } from "../components/Splash";
 import { THEME_BOOTSTRAP_SCRIPT } from "../components/theme-bootstrap";
 import { cfWebAnalyticsScripts } from "../features/seo/analytics";
+import { currentRuntimeConfig, RUNTIME_CONFIG_GLOBAL_KEY } from "../lib/runtime-config/provider";
 import { useFieldVitals } from "../features/telemetry/lib/use-field-vitals";
 import { SITE_ICON_LINKS, SITE_META } from "../features/seo/head";
 import { SITE_DESCRIPTION, SITE_TITLE } from "../features/seo/site";
@@ -40,6 +41,17 @@ type RootDocumentProps = Readonly<{
   children: ReactNode;
 }>;
 
+
+/** Inline script that seeds the versioned runtime config global once (#1013).
+ * Uses `?? ` so an earlier-set value (deploy injection or the E2E seam) wins
+ * over the SSR default — the ONE artifact never re-bakes env after the browser
+ * provides it. */
+export function runtimeConfigInlineScript(config: ReturnType<typeof currentRuntimeConfig>): string {
+  const key = JSON.stringify(RUNTIME_CONFIG_GLOBAL_KEY);
+  const payload = JSON.stringify(config);
+  return 'window[' + key + '] ??= ' + payload + ';';
+}
+
 export const rootHead = {
   links: [
     { rel: "stylesheet", href: globalsUrl },
@@ -47,12 +59,16 @@ export const rootHead = {
     ...SITE_ICON_LINKS,
   ],
   // Pre-hydration theme init: every route honors the stored preference,
-  // and the landing page cannot flash the day default. The Cloudflare Web
-  // Analytics beacon joins the head only in production builds with an
-  // injected token (see features/seo/analytics.ts).
+  // and the landing page cannot flash the day default. The versioned runtime
+  // config (#1013 AC1) is injected as a global so browser and SSR agree; the
+  // beacon joins the head only in PRODUCTION builds with a configured token
+  // (see features/seo/analytics.ts). The global is set only when absent so a
+  // deploy-provided value (or the E2E seam) is never overwritten by the SSR
+  // default.
   scripts: [
     { children: THEME_BOOTSTRAP_SCRIPT },
-    ...cfWebAnalyticsScripts(import.meta.env.VITE_CF_BEACON_TOKEN, import.meta.env.PROD),
+    { children: runtimeConfigInlineScript(currentRuntimeConfig()) },
+    ...cfWebAnalyticsScripts(currentRuntimeConfig().cfBeaconToken, import.meta.env.PROD),
   ],
   // Social-card defaults live at the root so every route has a card; deeper
   // routes override `title` only, which is why og:title stays the site title.

@@ -11,13 +11,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { clearByokConfig, saveByokConfig } from "../../../src/lib/byok/byok-storage";
 import { sessionHeaders } from "../../../src/features/chat/session-headers";
+import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../src/lib/runtime-config/provider";
+import { DEFAULT_RUNTIME_CONFIG } from "../../../src/lib/runtime-config/runtime-config";
 import { clearTurnstileToken, rememberTurnstileToken } from "../../../src/lib/turnstile/token-store";
 
 /** 24 characters — the shape `configuredTurnstileSiteKey()` accepts as a real
- * public key (see turnstile-armed-flow.test.tsx). The global
- * `turnstile-hermetic.ts` setup stubs the site key empty for every other
- * describe block in this file; these tests deliberately re-arm it. */
+ * public key (see turnstile-armed-flow.test.tsx). The shared
+ * `runtime-config.ts` setup leaves the site key `undefined` for every other
+ * describe block in this file; these tests deliberately re-arm it via the
+ * versioned runtime config global (#1013 AC1). */
 const SITE_KEY = "0x4AAAAAAAsitekey24chars";
+
+function armSiteKey(): void {
+  vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, turnstileSiteKey: SITE_KEY });
+}
 
 const { authHeaders } = vi.hoisted(() => ({ authHeaders: vi.fn().mockResolvedValue({}) }));
 vi.mock("../../../src/lib/auth/auth-session", () => ({ authHeaders }));
@@ -92,7 +99,7 @@ describe("sessionHeaders() BYOK headers vs the armed Turnstile wait (#463 rebase
   });
 
   it("applies BYOK headers on top once an awaited, late-arriving challenge resolves", async () => {
-    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", SITE_KEY);
+    armSiteKey();
     saveByokConfig({ provider: "gemini", apiKey: "gk", model: "gemini-2.5-flash" });
     const pending = sessionHeaders({ sessionId: "s-armed" });
     await Promise.resolve();
@@ -107,7 +114,7 @@ describe("sessionHeaders() BYOK headers vs the armed Turnstile wait (#463 rebase
   });
 
   it("skips the wait once authenticated, and still applies BYOK headers", async () => {
-    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", SITE_KEY);
+    armSiteKey();
     authHeaders.mockResolvedValue({ Authorization: "Bearer jwt" });
     saveByokConfig({ provider: "anthropic", apiKey: "ak", model: "claude-sonnet-4-5" });
     expect(await sessionHeaders()).toEqual({
