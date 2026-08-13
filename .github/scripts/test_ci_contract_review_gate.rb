@@ -5,6 +5,7 @@
 # Usage: ruby test_ci_contract_review_gate.rb [WORKFLOW_PATH]
 
 require "yaml"
+require_relative "test_ci_contract_review_gate_steps"
 
 QUALITY_YML = ".github/workflows/pipeline-quality.yml"
 
@@ -83,69 +84,6 @@ def assert_head_status_steps(invariants, quality_yml)
   gate = assert_gate_step(steps, quality_yml)
   final = assert_final_status_step(steps, quality_yml)
   [resolve, pending, gate, final]
-end
-
-# CI contract must keep GitHub template expressions in env, never inline in run
-# (repo rule: all expressions arrive via env: — zizmor template-injection gate).
-def env_mapped?(env, var, expression)
-  key = var.sub(/\A\$/, "")
-  line = env.split("\n").find { |entry| entry.start_with?("#{key}=${{") }
-  !line.nil? && line.include?(expression) && line.end_with?("}}")
-end
-
-def assert_env_mapping(step, run, vars, expressions, message_prefix)
-  env = Array(step["env"]).map { |name, value| "#{name}=#{value}" }.join("\n")
-  abort "#{message_prefix} run must not inline template expressions" if run.include?("${{")
-  missing = vars.reject { |var| run.include?(var) }
-  abort "#{message_prefix} run must pass #{missing.join(', ')} from env" unless missing.empty?
-  pairs = vars.zip(expressions).reject { |var, expression| env_mapped?(env, var, expression) }
-  abort "#{message_prefix} env must map #{pairs.map { |var, expression| "#{var} to #{expression}" }.join(', ')}" unless pairs.empty?
-end
-
-def assert_resolve_head_step(steps, quality_yml)
-  resolve = steps.find { |step| step.fetch("id", "") == "review-gate-head" }
-  abort "#{quality_yml} must resolve the PR review-gate head early (id: review-gate-head)" if resolve.nil?
-  resolve_if = resolve.fetch("if")
-  missing = %w[pull_request pull_request_review pull_request_review_comment issue_comment].reject { |event| resolve_if.include?(event) }
-  abort "#{quality_yml} head-resolution must run on #{missing.join('/')} events" unless missing.empty?
-  resolve_run = resolve.fetch("run")
-  abort "#{quality_yml} head-resolution run must invoke pr-review-gate-step.sh resolve-head and expose the head via GITHUB_OUTPUT" unless resolve_run.include?("resolve-head") && resolve_run.include?("GITHUB_OUTPUT")
-  assert_env_mapping(resolve, resolve_run, %w[$EVENT_NAME $REPO $PR_NUMBER $ISSUE_NUMBER $ISSUE_PULL_URL], %w[github.event_name github.event.repository.full_name github.event.pull_request.number github.event.issue.number github.event.issue.pull_request.url], "#{quality_yml} head-resolution")
-  resolve
-end
-
-def assert_pending_status_step(steps, quality_yml)
-  pending_steps = steps.select { |step| step.fetch("run", "").include?("pending") && step.fetch("run", "").include?("pr-review-check.sh status") }
-  abort "#{quality_yml} must post the pending review-gate status on the PR head" if pending_steps.empty?
-  pending = pending_steps.fetch(0)
-  abort "#{quality_yml} pending status must run only when a PR head was resolved" unless pending.fetch("if").include?("review-gate-head.outputs.has_pr")
-  pending_run = pending.fetch("run")
-  abort "#{quality_yml} pending status run must use the required ruleset context and pass $REPO / $HEAD_SHA from env" unless pending_run.include?("pending") && pending_run.include?("$REPO") && pending_run.include?("$HEAD_SHA")
-  assert_env_mapping(pending, pending_run, %w[$REPO $HEAD_SHA], %w[github.event.repository.full_name review-gate-head.outputs.head_sha], "#{quality_yml} pending status")
-  pending
-end
-
-def assert_gate_step(steps, quality_yml)
-  gate_steps = steps.select { |step| step.fetch("run", "").include?("collect-check") }
-  gate = gate_steps.fetch(0, {})
-  abort "#{quality_yml} invariants job must run the required PR review gate step without continue-on-error" if gate_steps.empty? || gate["continue-on-error"] == true
-  abort "#{quality_yml} PR gate step must run only when a PR head was resolved and provide GH_TOKEN" unless gate.fetch("if").include?("review-gate-head.outputs.has_pr") && gate.fetch("env").fetch("GH_TOKEN") == "${{ github.token }}"
-  gate_run = gate.fetch("run")
-  abort "#{quality_yml} PR gate step run must delegate collect-check passing $REPO / $HEAD_SHA / $EVENT_NAME / $PR_NUMBER / $ISSUE_NUMBER / $ISSUE_PULL_URL from env" unless gate_run.include?("collect-check") && gate_run.include?("$REPO") && gate_run.include?("$HEAD_SHA") && gate_run.include?("$EVENT_NAME") && gate_run.include?("$PR_NUMBER") && gate_run.include?("$ISSUE_NUMBER") && gate_run.include?("$ISSUE_PULL_URL")
-  abort "#{quality_yml} PR gate step must not read the local verdict artifact" if gate_run.include?("--verdict")
-  assert_env_mapping(gate, gate_run, %w[$REPO $HEAD_SHA $EVENT_NAME $PR_NUMBER $ISSUE_NUMBER $ISSUE_PULL_URL], %w[github.event.repository.full_name review-gate-head.outputs.head_sha github.event_name github.event.pull_request.number github.event.issue.number github.event.issue.pull_request.url], "#{quality_yml} PR gate step")
-  gate
-end
-
-def assert_final_status_step(steps, quality_yml)
-  final_steps = steps.select { |step| step.fetch("run", "").include?("final-status") }
-  abort "#{quality_yml} must post the final review-gate status on the PR head" if final_steps.empty?
-  final = final_steps.fetch(0)
-  abort "#{quality_yml} final status must use if: always() semantics" unless final.fetch("if").include?("always()")
-  final_run = final.fetch("run")
-  abort "#{quality_yml} final status run must pass $REPO / $HEAD_SHA / $JOB_STATUS from env" unless final_run.include?("$REPO") && final_run.include?("$HEAD_SHA") && final_run.include?("$JOB_STATUS")
-  assert_env_mapping(final, final_run, %w[$REPO $HEAD_SHA $JOB_STATUS], %w[github.event.repository.full_name review-gate-head.outputs.head_sha job.status], "#{quality_yml} final status")
-  final
 end
 
 def assert_step_order(step_list, resolve, pending, gate, final, quality_yml)
