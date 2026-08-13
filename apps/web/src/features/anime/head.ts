@@ -1,6 +1,5 @@
-import { type JsonLdScriptTag, jsonLdScripts } from "../seo/json-ld";
+import { type JsonLdNode, type JsonLdScriptTag, jsonLdScripts } from "../../lib/json-ld";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../../i18n/locales";
-import type { JsonLdNode } from "./structured-data";
 
 /**
  * Head builder for `/anime/:id`: hreflang bootstrap + per-locale titles.

@@ -1,4 +1,4 @@
-import { LoginModal } from "../../../components/auth/LoginModal";
+import { LoginModal } from "../../auth/ui/LoginModal";
 import { useChatReturnTarget } from "../ChatReturnTarget";
 import type { ItineraryLeg, ItineraryStation, ItineraryView } from "../lib/itinerary";
 import type { ChatDict } from "../i18n";

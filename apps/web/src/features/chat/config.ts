@@ -1,4 +1,4 @@
-import { resolveOrigin } from "../../api/config";
+import { resolveAgentBaseUrl } from "../../api/config";
 
 /** Chat talks to the Python agent through the `/v1` edge routes. */
 export interface ChatApiConfig {
@@ -12,7 +12,7 @@ export function resolveChatConfig(
   env: Env,
   location?: { readonly origin: string },
 ): ChatApiConfig {
-  const baseUrl = env.VITE_AGENT_URL ?? resolveOrigin(env, location);
+  const baseUrl = resolveAgentBaseUrl(env, location);
   return { baseUrl, chatUrl: `${baseUrl}/v1/chat` };
 }
 

@@ -1,7 +1,7 @@
 import type { ChatDataPart } from "@animichi/contract";
 import { PhotoSearchResponse } from "@animichi/contract";
 import type { Locale } from "../../i18n/locales";
-import { sanitizePhoto } from "../shiori/exif-strip";
+import { sanitizePhoto } from "../../lib/exif-strip";
 import { parseChatDataPart } from "./data-parts";
 import { sessionHeaders } from "./session-headers";
 

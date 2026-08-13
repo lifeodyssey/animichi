@@ -1,6 +1,6 @@
 import type { ChangeEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LoginModal } from "../../../components/auth/LoginModal";
+import { LoginModal } from "../../auth/ui/LoginModal";
 import type { AuthStatus } from "../../../lib/auth/session";
 import { clearByokConfig, getByokConfig } from "../../../lib/byok/byok-storage";
 import type { ByokProvider } from "../../../lib/byok/byok-storage";

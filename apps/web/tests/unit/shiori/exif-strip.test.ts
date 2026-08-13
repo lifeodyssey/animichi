@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { sanitizePhoto, stripJpegMetadata } from "../../../src/features/shiori/exif-strip";
+import { sanitizePhoto, stripJpegMetadata } from "../../../src/lib/exif-strip";
 import {
   APP0_JFIF,
   ascii,

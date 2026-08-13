@@ -1,0 +1,34 @@
+[
+  {
+    "author_association": "MEMBER",
+    "login": "coderabbitai[bot]",
+    "author_type": "Bot",
+    "id": "IC_1",
+    "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-1",
+    "body": "<code>🐞 Bugs (2)</code> <code>Rule violations (0)</code>"
+  },
+  {
+    "author_association": "MEMBER",
+    "login": "sonarcloud[bot]",
+    "author_type": "Bot",
+    "id": "IC_2",
+    "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-2",
+    "body": "## Quality Gate Failed"
+  },
+  {
+    "author_association": "OWNER",
+    "login": "owner",
+    "author_type": "User",
+    "id": "IC_3",
+    "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-3",
+    "body": "线程判定: Bugs (2) are pre-existing; quality gate failure is a known infra flake. snapshot=915347165d867606b58e409f594c661a05bf822442d99c85ecd7e8e5575f4aed\nreview-gate approval: standards=approve spec=approve base=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb brief=3aab50ac2fa74c0cceccdca0226067152880096f2d6a925175863f6cb03436d1"
+  },
+  {
+    "author_association": "MEMBER",
+    "login": "qodo-merge[bot]",
+    "author_type": "Bot",
+    "id": "IC_4",
+    "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-4",
+    "body": "Code review update: Bugs (2)"
+  }
+]
