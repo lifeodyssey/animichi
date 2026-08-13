@@ -30,6 +30,8 @@ the Neon Auth login. Root guide: `../AGENTS.md`.
   against the real Neon Auth origin via `context.request`, then the app's `/auth/callback`
   exchange. Self-skips without `NEON_AUTH_BASE_URL` + `QA_NEON_USER_EMAIL` + `QA_NEON_USER_PASSWORD`
   (Path A, `docs/ops/auth-migration-neon.md` §4).
+- `web-cwv.spec.ts` — CWV observer spec for `apps/web` (CLS gate + LCP warn), sharing thresholds
+  from `apps/web/web-cwv.config.ts`.
 - `../scripts/e2e-setup.sh` — dependency + browser install; no Supabase/Mailpit preparation.
 
 ## Pitfalls
