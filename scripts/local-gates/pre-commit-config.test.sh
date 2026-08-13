@@ -64,11 +64,18 @@ grep -qF 'changed="$(bash scripts/local-gates/changed-packages.sh)"' "$ORCH" \
 # A temp config with zero pre-push stages must exit nonzero AND print the
 # message (the `|| true` regression): without it, `grep -c` under set -e
 # aborts the file silently before fail() ever runs.
+assert_zero_prepush_fails_loudly() {
+  local config="$1" out="$2"
+  if ( assert_single_prepush_hook "$config" ) >"$out" 2>&1; then
+    fail "zero pre-push stages must exit nonzero"
+  fi
+}
+
 test_zero_prepush_stages_fail_loudly() {
   local tmp
   tmp="$(mktemp)"
   printf 'repos:\n  - repo: local\n    hooks:\n      - id: oxlint\n' > "$tmp"
-  if ( assert_single_prepush_hook "$tmp" ) >"$tmp.out" 2>&1; then fail "zero pre-push stages must exit nonzero"; fi
+  assert_zero_prepush_fails_loudly "$tmp" "$tmp.out"
   grep -q "expected exactly one pre-push hook" "$tmp.out" || fail "zero pre-push stages must print the message"
   rm -f "$tmp" "$tmp.out"
   echo "ok: zero pre-push stages fail loudly with the message"
