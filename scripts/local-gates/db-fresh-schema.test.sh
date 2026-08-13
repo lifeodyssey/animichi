@@ -47,12 +47,15 @@ assert_lacks() {
   fi
 }
 
+# A bin dir with the atlas stub and bash but NO docker: `command -v
+# docker` must come up empty regardless of what the host has installed
+# (the bash symlink keeps the gate's `#!/usr/bin/env bash` shebang
+# resolvable under a PATH that cannot contain docker).
 make_only_atlas_bin() {
-  # A bin dir with ONLY the atlas stub (no docker): `command -v docker` must
-  # come up empty regardless of what the host has installed.
   local only_atlas="$GATE_STUB_ROOT/only-atlas"
   mkdir -p "$only_atlas"
   ln -s "$GATE_STUB_BIN/atlas" "$only_atlas/atlas"
+  ln -s "$(command -v bash)" "$only_atlas/bash"
   printf '%s\n' "$only_atlas"
 }
 
@@ -68,7 +71,7 @@ run_with_path() {
 
 test_docker_not_installed_fails_closed() {
   local rc
-  rc="$(run_with_path "$(make_only_atlas_bin):/usr/bin:/bin")"
+  rc="$(run_with_path "$(make_only_atlas_bin)")"
   [ "$rc" != "0" ] || { echo "FAIL: missing docker must fail closed" >&2; exit 1; }
   assert_msg "Docker is required"
   assert_msg "colima"

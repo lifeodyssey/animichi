@@ -141,7 +141,10 @@ classify_line() {
 
 diagnostics_only_or_fail() {
   local line
-  while IFS= read -r line; do
+  # `|| [ -n "$line" ]` keeps a final diagnostic that lacks a trailing
+  # newline (read returns 1 at EOF but still fills $line) from being
+  # silently dropped — it must be classified, not ignored.
+  while IFS= read -r line || [ -n "$line" ]; do
     classify_line "$line" || fail_closed "Pulumi preview failed with diagnostics beyond the allowlisted credential/provider/config noise:"
   done <"$OUT"
 }

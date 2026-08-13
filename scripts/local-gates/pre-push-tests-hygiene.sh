@@ -18,7 +18,8 @@
 # test_comment_tokens_do_not_fail_scan / test_inline_comment_tokens_do_not_fail_scan
 # and test_executable_forbidden_command_fails_scan /
 # test_arbitrary_whitespace_forbidden_command_fails_scan /
-# test_split_continuation_forbidden_command_fails_scan pin both directions.
+# test_split_continuation_forbidden_command_fails_scan pin both directions
+# (the URL-fragment case lives in pre-push-tests-hygiene-url.sh).
 
 # join_continuations: fold `\`-newline shell continuations onto one line so a
 # forbidden command split across lines (e.g. `pulumi \` + `up`) is scanned as
@@ -34,12 +35,14 @@ join_continuations() {
   done < "$1"
 }
 
-# strip_inline_comments: drop a `#` that starts a word (a shell comment start)
-# from each executable line; a `#` glued to a token (shebang, URL fragment)
-# is not a comment and is left intact. Reads stdin (the piped continuation-
-# joined output), so it must not take a filename under `set -u`.
+# strip_inline_comments: drop a `#` that starts a comment from each
+# executable line. A comment start is a `#` at line start (after optional
+# whitespace) or a `#` preceded by whitespace; a `#` glued to a token
+# (shebang, URL fragment) is not a comment and is left intact. Reads stdin
+# (the piped continuation-joined output), so it must not take a filename
+# under `set -u`.
 strip_inline_comments() {
-  sed 's/[[:space:]]*#.*$//'
+  sed -e 's/^[[:space:]]*#[^!].*$//' -e 's/[[:space:]][[:space:]]*#.*$//'
 }
 
 executable_lines() {

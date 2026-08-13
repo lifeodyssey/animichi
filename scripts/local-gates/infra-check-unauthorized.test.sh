@@ -66,6 +66,18 @@ test_mixed_noise_and_unauthorized_detail_red() {
   echo "ok: allowlisted noise with an Unauthorized: ... detail stays red"
 }
 
+# #1003 fail-open hole: a final diagnostic WITHOUT a trailing newline must
+# still be classified — `read` returns 1 at EOF but fills $line, and dropping
+# it would let the allowlisted noise alone turn the preview green.
+test_final_line_without_newline_fails_closed() {
+  local rc
+  rc="$(GATE_PULUMI_NO_NL=1 run_gate)" || true
+  [ "$rc" != "0" ] || { echo "FAIL: a final diagnostic without a trailing newline must fail closed" >&2; exit 1; }
+  assert_msg "diagnostics beyond the allowlisted"
+  assert_msg "error:Unauthorized:no-nl"
+  echo "ok: a final unterminated diagnostic is still classified, fails closed"
+}
+
 # #1003 regression: the gate must never delete a PRE-EXISTING
 # infra/Pulumi.preflight.yaml — the stack config file the real `pulumi stack
 # init` creates in the project dir is removed only when the gate itself
@@ -88,5 +100,6 @@ test_preexisting_preflight_yaml_survives() {
 test_complete_unauthorized_shape_is_allowed
 test_unauthorized_with_trailing_detail_fails_closed
 test_mixed_noise_and_unauthorized_detail_red
+test_final_line_without_newline_fails_closed
 test_preexisting_preflight_yaml_survives
 echo "infra-check-unauthorized.test.sh: all green"

@@ -21,7 +21,10 @@
 # allowlisted), and GATE_PULUMI_UNAUTHORIZED_MIXED (rendered plan + allowlisted
 # noise + the COMPACT `error:Unauthorized:unrelated-runtime-failure` — a PLAN_RE
 # `a:b:c` resource-row form the classifier must keep red via
-# is_unknown_diagnostic, the fail-open hole). The default pulumi preview
+# is_unknown_diagnostic, the fail-open hole), and GATE_PULUMI_NO_NL (rendered
+# plan + allowlisted noise + a final `error:Unauthorized:no-nl` printed with
+# no trailing newline — a read-EOF line the classifier must still process).
+# The default pulumi preview
 # emission is the
 # allowed-noise case: a rendered plan line plus credential/provider noise,
 # exiting nonzero.
@@ -65,6 +68,10 @@ case "$tool:$*" in
       printf 'Previewing update (preflight):\n'
       printf 'error: Missing API token for cloudflare\n' >&2
       printf 'error:Unauthorized:unrelated-runtime-failure\n' >&2
+    elif [ "${GATE_PULUMI_NO_NL:-}" = "1" ]; then
+      printf 'Previewing update (preflight):\n'
+      printf 'error: Missing API token for cloudflare\n' >&2
+      printf 'error:Unauthorized:no-nl' >&2
     else
       printf 'Previewing update (preflight):\n'
       printf 'error: Missing API token for cloudflare\n' >&2
