@@ -17,33 +17,28 @@ test.use({
 
 const reportDir = join(__dirname, "..", "apps", "web", webCwvConfig.reportDir);
 
-const initCwvMetrics = (): void => {
-  Object.defineProperty(window, "__cwv", { value: { cls: 0, lcp: 0 } });
-};
+/** Browser-side observer sources are strings: addInitScript serializes one
+ * function with no closure, so Node helpers (webCwvConfig, Page) can never be
+ * reached from the page context. */
+const INIT_METRICS_SOURCE = `Object.defineProperty(window, "__cwv", { value: { cls: 0, lcp: 0 } });`;
 
-const observeCls = (): void => {
-  const metrics = window.__cwv as CwvMetrics;
-  new PerformanceObserver((list) => {
-    for (const entry of list.getEntries()) {
-      const shift = entry as LayoutShift;
-      if (entry.entryType !== "layout-shift" || shift.hadRecentInput) continue;
-      metrics.cls += shift.value;
-    }
-  }).observe({ type: "layout-shift", buffered: true });
-};
+const CLS_OBSERVER_SOURCE = `new PerformanceObserver((list) => {
+  const metrics = window.__cwv;
+  for (const entry of list.getEntries()) {
+    if (entry.entryType !== "layout-shift" || entry.hadRecentInput) continue;
+    metrics.cls += entry.value;
+  }
+}).observe({ type: "layout-shift", buffered: true });`;
 
-const observeLcp = (): void => {
-  const metrics = window.__cwv as CwvMetrics;
-  new PerformanceObserver((list) => {
-    const entries = list.getEntries();
-    metrics.lcp = entries[entries.length - 1]?.startTime ?? 0;
-  }).observe({ type: "largest-contentful-paint", buffered: true });
-};
+const LCP_OBSERVER_SOURCE = `new PerformanceObserver((list) => {
+  const entries = list.getEntries();
+  window.__cwv.lcp = entries[entries.length - 1]?.startTime ?? 0;
+}).observe({ type: "largest-contentful-paint", buffered: true });`;
 
 const installObservers = async (page: Page): Promise<void> => {
-  await page.addInitScript(initCwvMetrics);
-  await page.addInitScript(observeCls);
-  await page.addInitScript(observeLcp);
+  await page.addInitScript({ content: INIT_METRICS_SOURCE });
+  await page.addInitScript({ content: CLS_OBSERVER_SOURCE });
+  await page.addInitScript({ content: LCP_OBSERVER_SOURCE });
 };
 
 const measureRun = async (page: Page): Promise<CwvMetrics> => {

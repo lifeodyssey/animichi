@@ -138,12 +138,12 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
-      - name: Browser test (branded 404 on downloaded worker)
+      - name: Browser test (branded 404, maplibre canary, state ownership on downloaded worker)
         run: |
           pnpm --filter web exec wrangler dev --port 8799 &
           WRANGLER_PID=$!
           for _ in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8799/ && break; sleep 1; done
-          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts
+          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts web-state-ownership.spec.ts
           kill "$WRANGLER_PID"
 
   lighthouse:

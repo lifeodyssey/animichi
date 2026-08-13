@@ -56,6 +56,13 @@ describe("AC4: query results are never copied into local state", () => {
     expect(source).toMatch(/pickContinueFrom\(query\.data\.saved_routes\)/);
     expect(source).not.toMatch(/useState/);
   });
+
+  it("the BYOK panel derives open from the URL and writes it back (use-byok-panel)", () => {
+    const source = readFileSync(`${SRC}/features/chat/use-byok-panel.ts`, "utf8");
+    expect(source).toMatch(/open\s*=\s*search\.settings\s*===\s*"byok"/);
+    expect(source).toMatch(/router\.navigate/);
+    expect(source).not.toMatch(/useState|useReducer/);
+  });
 });
 
 describe("AC6: the reviewer fixture trips the duplicate-ownership detector", () => {

@@ -1,5 +1,4 @@
-import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 /**
  * Issue #1009 AC3 + AC5 (parent spec #1004) browser evidence: the two durable
@@ -34,6 +33,25 @@ async function seedNight(page: Page): Promise<void> {
   }, THEME_STORAGE_KEY);
 }
 
+/** Signed-out session stub shared by both ownership journeys. */
+async function stubSignedOut(page: Page): Promise<void> {
+  await page.route("**/api/auth/get-session", (route) =>
+    route.fulfill({ status: 401, json: { error: "no session" } }),
+  );
+}
+
+/** The toggle in its night position: checked + 夜 accessible name. */
+async function expectNight(toggle: Locator): Promise<void> {
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+  await expect(toggle).toHaveAccessibleName("夜");
+}
+
+/** The toggle in its day position: unchecked + 昼 accessible name. */
+async function expectDay(toggle: Locator): Promise<void> {
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await expect(toggle).toHaveAccessibleName("昼");
+}
+
 /**
  * AC3 — the stored theme is the single authority: after the seed the bootstrap
  * script applies night on the reload, the toggle reports it checked, a click
@@ -45,25 +63,21 @@ async function seedNight(page: Page): Promise<void> {
  * doubles as the hydration barrier (clicking a pre-hydration toggle would
  * drop the handler).
  */
-test("a seeded night theme survives a toggle to day and a reload", { tag: "@browser" }, async ({ page }) => {
-  await page.route("**/api/auth/get-session", (route) =>
-    route.fulfill({ status: 401, json: { error: "no session" } }),
-  );
+async function seededNightPage(page: Page): Promise<Locator> {
+  await stubSignedOut(page);
   await page.goto("/");
   await seedNight(page);
   await page.reload();
+  return page.getByRole("switch");
+}
 
-  const toggle = page.getByRole("switch");
-  await expect(toggle).toHaveAttribute("aria-checked", "true");
-  await expect(toggle).toHaveAccessibleName("夜");
-
+test("a seeded night theme survives a toggle to day and a reload", { tag: "@browser" }, async ({ page }) => {
+  const toggle = await seededNightPage(page);
+  await expectNight(toggle);
   await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-checked", "false");
-  await expect(toggle).toHaveAccessibleName("昼");
-
+  await expectDay(toggle);
   await page.reload();
-  await expect(page.getByRole("switch")).toHaveAttribute("aria-checked", "false");
-  await expect(page.getByRole("switch")).toHaveAccessibleName("昼");
+  await expectDay(page.getByRole("switch"));
 });
 
 /**
@@ -77,26 +91,29 @@ test("a seeded night theme survives a toggle to day and a reload", { tag: "@brow
  */
 async function openByokDeepLink(page: Page): Promise<void> {
   await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
-  await page.route("**/api/auth/get-session", (route) =>
-    route.fulfill({ status: 401, json: { error: "no session" } }),
-  );
+  await stubSignedOut(page);
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto("/chat?settings=byok");
   await hydrated;
 }
 
+async function reloadWaitingForHydration(page: Page): Promise<void> {
+  const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
+  await page.reload();
+  await hydrated;
+}
+
+/** The panel is visible and the URL still carries `?settings=byok`. */
+async function expectOpenByokPanel(page: Page, panel: Locator): Promise<void> {
+  await expect(panel).toBeVisible();
+  await expect(page).toHaveURL(/\?settings=byok$/);
+}
+
 test("a URL-owned BYOK panel stays open across a reload", { tag: "@browser" }, async ({ page }) => {
   await openByokDeepLink(page);
-
   const panel = page.locator("#byok-settings-panel");
-  await expect(panel).toBeVisible();
-  await expect(page).toHaveURL(/\?settings=byok$/);
-
-  const rehydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
-  await page.reload();
-  await rehydrated;
-
-  await expect(panel).toBeVisible();
-  await expect(page).toHaveURL(/\?settings=byok$/);
+  await expectOpenByokPanel(page, panel);
+  await reloadWaitingForHydration(page);
+  await expectOpenByokPanel(page, panel);
 });
