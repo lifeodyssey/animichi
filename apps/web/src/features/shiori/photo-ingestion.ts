@@ -4,7 +4,7 @@
  * that fails sanitization is excluded (fail closed), never passed through.
  */
 
-import { sanitizePhoto, type SanitizePhotoOptions } from "./exif-strip";
+import { sanitizePhoto, type SanitizePhotoOptions } from "../../lib/exif-strip";
 import type { SanitizedShioriPhoto, ShioriPhotoInput } from "./types";
 
 export async function ingestShioriPhotos(

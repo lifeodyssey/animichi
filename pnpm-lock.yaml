@@ -19,12 +19,12 @@ overrides:
   brace-expansion: '>=5.0.9'
   '@hono/node-server': '>=2.0.5'
   minimatch: '>=10.2.6'
+  nanoid: 3.3.18
   testcontainers>undici: 8.9.0
   miniflare>undici: 7.29.0
   jsdom>undici: 7.29.0
   '@ai-sdk/provider-utils>undici': 7.29.0
   tmp: '>=0.2.6'
-  nanoid: 3.3.18
 
 importers:
 
@@ -154,6 +154,9 @@ importers:
       nitropack:
         specifier: ^2.13.1
         version: 2.13.4(aws4fetch@1.0.20)(drizzle-orm@0.45.2(@cloudflare/workers-types@5.20260727.1)(@neondatabase/serverless@1.1.0)(@opentelemetry/api@1.9.1)(@types/pg@8.20.0)(kysely@0.29.4)(pg@8.22.0))(oxc-parser@0.127.0)(rolldown@1.1.5)(vite@8.1.5(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)(yaml@2.9.0))
+      oxc-parser:
+        specifier: 0.127.0
+        version: 0.127.0
       storybook:
         specifier: 10.5.5
         version: 10.5.5(@types/react@19.2.17)(prettier@3.9.5)(react@19.2.8)

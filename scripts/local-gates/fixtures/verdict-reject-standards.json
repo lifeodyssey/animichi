@@ -1,0 +1,125 @@
+{
+  "ac_to_test": [
+    {
+      "ac_id": "AC1",
+      "test_path": "scripts/local-gates/review-verdict.test.sh",
+      "test_type": "unit"
+    },
+    {
+      "ac_id": "AC2",
+      "test_path": "scripts/local-gates/review-verdict.test.sh",
+      "test_type": "integration"
+    },
+    {
+      "ac_id": "AC3",
+      "test_path": "scripts/local-gates/review-gate-docs.test.sh",
+      "test_type": "unit"
+    },
+    {
+      "ac_id": "AC4",
+      "test_path": "scripts/local-gates/pr-review-check.test.sh",
+      "test_type": "api"
+    },
+    {
+      "ac_id": "AC5",
+      "test_path": "scripts/local-gates/pr-review-check.test.sh",
+      "test_type": "api"
+    },
+    {
+      "ac_id": "AC6",
+      "test_path": "scripts/local-gates/pr-review-check.test.sh",
+      "test_type": "integration"
+    }
+  ],
+  "axes": {
+    "spec": {
+      "findings": [],
+      "status": "approve"
+    },
+    "standards": {
+      "findings": [
+        {
+          "file": "scripts/local-gates/review_verdict.py",
+          "line": 1,
+          "message": "standards fixture: axis must block",
+          "severity": "P1"
+        }
+      ],
+      "status": "reject"
+    }
+  },
+  "base_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "brief_digest": "3aab50ac2fa74c0cceccdca0226067152880096f2d6a925175863f6cb03436d1",
+  "gate_evidence": [
+    {
+      "command": "shellcheck scripts/local-gates/*.sh scripts/local-gates/*.test.sh",
+      "evidence": "no warnings under --severity=warning",
+      "exit": 0
+    },
+    {
+      "command": "ruff check scripts/local-gates/",
+      "evidence": "E/W/F/I/B/C4/UP/C90/S clean",
+      "exit": 0
+    },
+    {
+      "command": "bash scripts/local-gates/review-verdict.test.sh",
+      "evidence": "schema + axis + head-invalidation probes green",
+      "exit": 0
+    },
+    {
+      "command": "bash scripts/local-gates/pr-review-check.test.sh",
+      "evidence": "threads/findings/ack staleness + AC6 flow green",
+      "exit": 0
+    },
+    {
+      "command": "bash scripts/local-gates/review-gate-docs.test.sh",
+      "evidence": "single-source guidance assertion green",
+      "exit": 0
+    }
+  ],
+  "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "mutation_evidence": [
+    {
+      "green": true,
+      "mutation": "dropped head_sha field check",
+      "probe": "schema validation",
+      "red": true,
+      "restore": true
+    },
+    {
+      "green": true,
+      "mutation": "gate approves when spec rejects",
+      "probe": "axis rejection",
+      "red": true,
+      "restore": true
+    },
+    {
+      "green": true,
+      "mutation": "gate ignores head_sha mismatch",
+      "probe": "head invalidation",
+      "red": true,
+      "restore": true
+    },
+    {
+      "green": true,
+      "mutation": "ack ignores snapshot",
+      "probe": "findings-snapshot invalidation",
+      "red": true,
+      "restore": true
+    },
+    {
+      "green": true,
+      "mutation": "ack counts bot self-dismissal",
+      "probe": "authorized acknowledgement",
+      "red": true,
+      "restore": true
+    }
+  ],
+  "reviewed_at": "2026-08-13T09:30:00+00:00",
+  "reviewer": {
+    "identity": "reviewer-seat-opus-5",
+    "role": "reviewer-seat"
+  },
+  "schema_version": 1,
+  "ac_total": 6
+}

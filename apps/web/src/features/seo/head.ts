@@ -1,4 +1,4 @@
-import { type JsonLdScriptTag, jsonLdScripts } from "./json-ld";
+import { type JsonLdScriptTag, jsonLdScripts } from "../../lib/json-ld";
 import { buildHomeJsonLd } from "./home-structured-data";
 import {
   APPLE_ICON_PATH,

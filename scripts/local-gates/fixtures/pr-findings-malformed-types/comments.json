@@ -1,0 +1,18 @@
+[
+  {
+    "author_association": "MEMBER",
+    "login": "coderabbitai[bot]",
+    "body": "<code>🐞 Bugs (2)</code> <code>Rule violations (0)</code>",
+    "author_type": 1,
+    "id": 1,
+    "url": ""
+  },
+  {
+    "author_association": "OWNER",
+    "login": "owner",
+    "body": "线程判定: triaged. snapshot=0000000000000000000000000000000000000000000000000000000000000000\nreview-gate approval: standards=approve spec=approve base=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb brief=3aab50ac2fa74c0cceccdca0226067152880096f2d6a925175863f6cb03436d1",
+    "author_type": "User",
+    "id": "IC_malformed-ack",
+    "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-malformed-ack"
+  }
+]

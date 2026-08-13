@@ -17,7 +17,7 @@ import {
   currentTurnstileSiteKey,
   resetTurnstileWidget,
   resolveTurnstileSiteKey,
-} from "../../../src/components/TurnstileGate";
+} from "../../../src/features/chat/components/TurnstileGate";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import {
   clearTurnstileToken,

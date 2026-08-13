@@ -1,4 +1,4 @@
-import { configuredTurnstileSiteKey } from "../../components/TurnstileGate";
+import { configuredTurnstileSiteKey } from "./components/TurnstileGate";
 import { authHeaders } from "../../lib/auth/auth-session";
 import { byokHeaders } from "../../lib/byok/byok-storage";
 import { awaitTurnstileToken, turnstileHeaders } from "../../lib/turnstile/token-store";

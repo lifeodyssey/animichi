@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { configuredTurnstileSiteKey, resetTurnstileWidget } from "../../components/TurnstileGate";
+import { configuredTurnstileSiteKey, resetTurnstileWidget } from "./components/TurnstileGate";
 import { getAuthToken } from "../../lib/auth/auth-session";
 import {
   awaitTurnstileToken,
