@@ -270,6 +270,12 @@ class_name = "RuntimeContainer"
 name = "EDGE_GUARD"
 class_name = "EdgeGuard"
 
+
+[[env.production.ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "REPLACE_WITH_OPERATOR_PROVISIONED_RATELIMIT_NAMESPACE_ID"  # NOTE: deploy requires provisioning the ratelimit namespace first
+simple = { limit = 60, period = 60 }
+
 [[env.production.migrations]]
 tag = "v1"
 new_sqlite_classes = ["RuntimeContainer"]
@@ -419,6 +425,12 @@ class_name = "RuntimeContainer"
 name = "EDGE_GUARD"
 class_name = "EdgeGuard"
 
+
+[[env.staging.ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "REPLACE_WITH_OPERATOR_PROVISIONED_RATELIMIT_NAMESPACE_ID"  # NOTE: deploy requires provisioning the ratelimit namespace first
+simple = { limit = 60, period = 60 }
+
 [[env.staging.migrations]]
 tag = "v1"
 new_sqlite_classes = ["RuntimeContainer"]
@@ -426,3 +438,21 @@ new_sqlite_classes = ["RuntimeContainer"]
 [[env.staging.migrations]]
 tag = "v2"
 new_sqlite_classes = ["EdgeGuard"]
+# Cloudflare-native rate-limit binding (issue #680) — the COARSE best-effort
+# burst damper. Worker-side sibling of the zone-level WAF damper in
+# infra/src/hardening.ts; it drives the edge's "native" tier (cacheable public
+# reads + the coarse outer wall for durable classes). A GLOBAL (multi-PoP)
+# counter, so no per-isolate local limiter can bypass it.
+#
+# Schema: [[ratelimits]] with name = the binding variable (env.RATE_LIMITER),
+# a REQUIRED namespace_id (provisioned in the Cloudflare dashboard), and a
+# simple fixed window { limit, period } where period is 10 or 60. Wrangler
+# requires the binding in every named environment, so it is repeated under
+# [env.production] and [env.staging]. The placeholder namespace_id MUST be
+# replaced by the operator before deploy; absent the binding entirely the
+# worker fails the native tier open with an alert (never a 500). The exact
+# durable/fail-closed tier remains the EDGE_GUARD Durable Object.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "REPLACE_WITH_OPERATOR_PROVISIONED_RATELIMIT_NAMESPACE_ID"  # NOTE: deploy requires provisioning the ratelimit namespace first
+simple = { limit = 60, period = 60 }

@@ -9,7 +9,10 @@ import { handleTiles } from "../proxy/tiles.ts";
 import type { ShowcaseMode } from "../proxy/showcase.ts";
 import type { TurnstileGate } from "../protect/turnstile.ts";
 import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
+import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
+import { guardPolicy } from "../protect/burst-guard.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardUsers, forwardV1 } from "./forward.ts";
+import { classifyRatePolicy } from "./rate-policy.ts";
 import { METHOD_NOT_ALLOWED_BODY, NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./responses.ts";
 import { isAnonymousV1, isPublicV1 } from "./routing-policy.ts";
 
@@ -160,8 +163,18 @@ function healthzResponse(env: Env, request: Request, sleep: (ms: number) => Prom
   return fetchContainerWithStartupRetry((inner) => container.fetch(inner), request, sleep);
 }
 
-function publicCatalogResponse(env: Env, request: Request): Promise<Response> {
+/** Coarse key for a credential-free public read: the connecting IP when the
+ * platform supplies it (best-effort identity isolation on the native damper),
+ * else a shared literal so the damper still counts per-request. */
+function publicReadKey(request: Request): string {
+  const ip = request.headers.get("CF-Connecting-IP");
+  return ip && ip.length > 0 ? `ip:${ip}` : "public-read";
+}
+
+async function publicCatalogResponse(env: Env, request: Request): Promise<Response> {
   if (new URL(request.url).search) return Promise.resolve(new Response("Unexpected query parameters", { status: 400 }));
+  const guarded = await guardPolicy(env, classifyRatePolicy(request.method, new URL(request.url).pathname), publicReadKey(request), authRateLimitConfigFrom(env));
+  if (guarded !== null) return guarded;
   return forwardPublicCatalog(env, request);
 }
 
@@ -169,8 +182,18 @@ async function usersResponse(
   env: Env, request: Request, ctx: WorkerExecutionContext, deps: GatewayDeps,
 ): Promise<Response> {
   const auth = await deps.authenticate(request, env, ctx);
-  if (auth.ok) return forwardUsers(env, request, auth);
-  return authenticationRejection(request, auth);
+  if (!auth.ok) return authenticationRejection(request, auth);
+  // User-account mutations (POST/DELETE) are an exact durable fail-closed
+  // write class (AC2/AC4) per the route policy; GET reads classify unmanaged
+  // and are never metered. One decision path: classify then `guardPolicy`.
+  const guarded = await guardPolicy(
+    env,
+    classifyRatePolicy(request.method, new URL(request.url).pathname),
+    authenticatedRateLimitKey(auth.userId),
+    authRateLimitConfigFrom(env),
+  );
+  if (guarded !== null) return guarded;
+  return forwardUsers(env, request, auth);
 }
 
 async function adoptResponse(
@@ -179,13 +202,28 @@ async function adoptResponse(
   if (request.method !== "POST") return methodNotAllowed();
   const auth = await deps.authenticate(request, env, ctx);
   if (!auth.ok) return authenticationRejection(request, auth);
+  // Adoption is a state-migrating WRITE: the route policy classifies it as a
+  // durable fail-closed mutation, so it rides the same `guardPolicy` seam.
+  const guarded = await guardPolicy(
+    env,
+    classifyRatePolicy(request.method, new URL(request.url).pathname),
+    authenticatedRateLimitKey(auth.userId),
+    authRateLimitConfigFrom(env),
+  );
+  if (guarded !== null) return guarded;
   return handleSessionAdopt(env, request, auth);
 }
 
 async function agentV1Response(
   env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string, deps: GatewayDeps,
 ): Promise<Response> {
-  if (isPublicV1(pathname)) return forwardV1(env, request);
+  if (isPublicV1(pathname)) {
+    // Cacheable public reads are the policy's native fail-open cell; guard
+    // via the same `guardPolicy` seam using the request's public key.
+    const guarded = await guardPolicy(env, classifyRatePolicy(request.method, pathname), publicReadKey(request), authRateLimitConfigFrom(env));
+    if (guarded !== null) return guarded;
+    return forwardV1(env, request);
+  }
   const auth = await deps.authenticate(request, env, ctx);
   if (auth.ok) return authenticatedForward(env, request, auth, pathname);
   if (auth.reason === "invalid") return unauthorized(pathname);

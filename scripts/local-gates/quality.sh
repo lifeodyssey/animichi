@@ -48,6 +48,7 @@ run bash "$GS/check-actions-pinned.test.sh"
 run bash "$GS/check-actions-pinned.sh"
 run bash "$GS/check-web-runtime-config-payloads.test.sh"
 run bash "$GS/check-web-runtime-config-payloads.sh"
+run bash "$GS/check-edge-ratelimit-namespace.test.sh"
 run ruby "$GS/test_ci_contract.rb"
 run ruby "$GS"/test_*cov_patch.rb
 run actionlint

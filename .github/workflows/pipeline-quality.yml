@@ -186,9 +186,15 @@ jobs:
         run: bash .github/scripts/check-actions-pinned.test.sh
       - name: Actions pinning check
         run: bash .github/scripts/check-actions-pinned.sh
+      # #1013: web runtime-config payload recursion guard (self-test + check).
       - name: Web runtime-config payload recursion guard (self-test + check)
         run: bash .github/scripts/check-web-runtime-config-payloads.test.sh && bash .github/scripts/check-web-runtime-config-payloads.sh
         shell: bash
+      # #680 deploy-gate sanity: the edge ratelimit-namespace placeholder
+      # precheck (wired fail-closed into the edge build lane) is mechanically
+      # self-tested here so the quality lane covers the script's behavior.
+      - name: Edge ratelimit namespace precheck self-tests
+        run: bash .github/scripts/check-edge-ratelimit-namespace.test.sh
       - name: Verify CI contract
         run: ruby .github/scripts/test_ci_contract.rb
       # AC6 (#679): the ruleset migration contract — a new required check must

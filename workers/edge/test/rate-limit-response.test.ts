@@ -1,0 +1,80 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createWorkerApp } from "../src/app.ts";
+import { RATE_LIMIT_ENVELOPE_FIELDS, classifyRatePolicy } from "../src/gateway/rate-policy.ts";
+import { RATE_LIMIT_UNAVAILABLE_BODY, rateLimitedResponse, rateLimitUnavailableResponse } from "../src/gateway/responses.ts";
+import { fakeGuard } from "./doubles/guard-doubles.ts";
+import { stubCtx, alwaysAllowGuard } from "../src/container/entry-env.ts";
+
+// AC3 (#680): limited requests return a typed 429 with Retry-After and
+// the DOCUMENTED rate-limit fields; rate limit stays DISTINCT from daily
+// quota (the 403 budget code). This file pins the wire contract at the
+// public response seam and through the composed app.
+
+const NOW = Date.UTC(2026, 7, 4, 12, 0, 0);
+
+void test("rateLimitedResponse is a typed 429 with Retry-After and the documented envelope", async () => {
+  const res = rateLimitedResponse(42);
+  assert.equal(res.status, 429);
+  assert.equal(res.headers.get("Retry-After"), "42");
+  assert.equal(res.headers.get("Content-Type"), "application/json");
+  const parsed = (await res.json()) as { error: { code: string; message: string; retry_after_seconds: number } };
+  const err = parsed.error;
+  assert.equal(err.code, "rate_limited");
+  assert.ok(typeof err.message === "string" && err.message.length > 0);
+  assert.equal(err.retry_after_seconds, 42);
+  assert.deepEqual(Object.keys(err), [...RATE_LIMIT_ENVELOPE_FIELDS]);
+});
+
+void test("the fail-closed limiter outage response is a DISTINCT typed 503, not a 429", () => {
+  const res = rateLimitUnavailableResponse();
+  assert.equal(res.status, 503);
+  assert.deepEqual(RATE_LIMIT_UNAVAILABLE_BODY.error, { code: "rate_limit_unavailable", message: "Rate limiter temporarily unavailable. Please retry." });
+});
+
+// Rate limit and daily quota are distinct in the ROUTE POLICY too (AC3 + AC1):
+// the policy names quota as a SEPARATE cell from the limiter.
+void test("the policy keeps rate limit and daily quota as SEPARATE cells", () => {
+  const p = classifyRatePolicy("POST", "/v1/chat");
+  assert.equal(p.limiter, "durable");
+  assert.equal(p.quota, "none");
+});
+
+// Through the composed app: anonymous burst 429 (rate-limited) is distinct
+// from the daily-budget 403 (quota).
+const SECRET = "fixed-test-hmac-key-0000000000000000";
+const ANON = { ANON_ACCESS_ENABLED: "true", ANON_ID_SECRET: SECRET, TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000", EDGE_SHOWCASE_MODE: "false" };
+const passingGate = { check: () => Promise.resolve({ ok: true, errorCodes: [] }) };
+
+function anonApp() {
+  return createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }), turnstileGate: passingGate });
+}
+
+void test("an anonymous burst 429 is typed rate_limited, distinct from the quota code", async () => {
+  const captured = { requests: [] as Request[] };
+  const env = {
+    ...ANON,
+    ANON_RATE_LIMIT: "1",
+    EDGE_GUARD: fakeGuard(NOW).namespace,
+    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: (r: Request) => { captured.requests.push(r); return Promise.resolve(new Response("ok")); } }) },
+  } as never;
+  const app = anonApp();
+  const cookie = String((await app.request("/v1/chat", { method: "POST" }, env, stubCtx)).headers.get("Set-Cookie")).split(";")[0] ?? "";
+  const res = await app.request("/v1/chat", { method: "POST", headers: { Cookie: cookie } }, env, stubCtx);
+  assert.equal(res.status, 429);
+  const body = (await res.json()) as { error: { code: string } };
+  assert.equal(body.error.code, "rate_limited", "burst rejection must be rate_limited, not a quota code");
+});
+
+void test("the daily-budget breaker stays a DISTINCT 403 (quota), not a 429 (rate limit)", async () => {
+  const captured = { requests: [] as Request[] };
+  const env = {
+    ...ANON,
+    EDGE_GUARD: alwaysAllowGuard,
+    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: (r: Request) => { captured.requests.push(r); return Promise.resolve(new Response(JSON.stringify({ error: { code: "anon_budget_exhausted" } }), { status: 403 })); } }) },
+  } as never;
+  const res = await anonApp().request("/v1/chat", { method: "POST" }, env, stubCtx);
+  assert.equal(res.status, 403);
+  const body = (await res.json()) as { error: { code: string } };
+  assert.equal(body.error.code, "anon_budget_exhausted", "daily quota exhaustion is a 403, not a rate-limit 429");
+});

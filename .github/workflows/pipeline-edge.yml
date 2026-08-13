@@ -70,6 +70,13 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+      # Deploy precheck (#680): the [[ratelimits]] binding needs an
+      # operator-provisioned Cloudflare ratelimit namespace_id. A commit that
+      # still ships the placeholder token cannot deploy, so this fails
+      # CLOSED here in the build lane (visibly red) instead of silently
+      # blocking — or worse, silently deploying — later.
+      - name: Edge ratelimit namespace placeholder check
+        run: bash .github/scripts/check-edge-ratelimit-namespace.sh
       # The edge worker's config is workers/edge/wrangler.toml (invoked from
       # the repo root via -c, #853); bundle-check the
       # production config (wrangler dev/deploy bundle server-side). dry-run

@@ -475,6 +475,10 @@ That runbook covers:
 - rollback steps for over-blocking rules
 - the future AI Gateway insertion point
 
+The edge's layered rate-limit rollback procedure (native vs durable tiers, and
+the rate-policy decision table) is `docs/ops/rate-limit-rollback.md`; it belongs
+next to any `/v1/*`-rate-limiting incident run.
+
 ## AI Gateway Insertion Path
 
 If AI Gateway is enabled later, it belongs between the container and the upstream model provider.
