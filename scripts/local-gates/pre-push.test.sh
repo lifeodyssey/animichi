@@ -27,6 +27,7 @@
 #   pre-push-tests-gates.sh   — fail-fast, canonical coverage, env stripping,
 #                               PG18 image identity consistency
 #   pre-push-tests-hygiene.sh — forbidden cloud mutation + prerequisites
+#   pre-push-tests-prereqs.sh — node >= 24 / atlas any-version version gates
 #   pre-push-tests-hygiene-url.sh — URL-fragment scan regression (#1003)
 #   pre-push-tests-quality.sh — the quality lane's per-file ruby -c loop
 # Routing is injected through GATE_CHANGED_PACKAGES into the DEDICATED test
@@ -171,6 +172,7 @@ test_command_fixtures_integrity() {
 source "$SCRIPT_DIR/pre-push-tests-routing.sh"
 source "$SCRIPT_DIR/pre-push-tests-gates.sh"
 source "$SCRIPT_DIR/pre-push-tests-hygiene.sh"
+source "$SCRIPT_DIR/pre-push-tests-prereqs.sh"
 source "$SCRIPT_DIR/pre-push-tests-hygiene-url.sh"
 source "$SCRIPT_DIR/pre-push-tests-quality.sh"
 
@@ -195,5 +197,7 @@ test_arbitrary_whitespace_forbidden_command_fails_scan
 test_split_continuation_forbidden_command_fails_scan
 test_url_fragment_does_not_hide_forbidden_command
 test_missing_prerequisite_fails
+test_old_node_version_fails_prereqs
+test_any_atlas_version_passes_prereqs
 test_missing_later_ruby_file_fails
 echo "pre-push.test.sh: all green"

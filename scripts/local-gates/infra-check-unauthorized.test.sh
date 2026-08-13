@@ -81,19 +81,41 @@ test_final_line_without_newline_fails_closed() {
 # #1003 regression: the gate must never delete a PRE-EXISTING
 # infra/Pulumi.preflight.yaml — the stack config file the real `pulumi stack
 # init` creates in the project dir is removed only when the gate itself
-# created it.
-rm_preflight_test_file() {
-  rm -f "$REPO_ROOT/infra/Pulumi.preflight.yaml"
+# created it. The test backs up a real developer file to mktemp before
+# overwriting it and restores it on EXIT, so the repo file survives the test
+# run byte-for-byte; when the file did not exist before, only the file this
+# test created is removed.
+restore_preflight_test_file() {
+  if [ -n "${PREFLIGHT_TEST_BACKUP:-}" ]; then
+    cp "$PREFLIGHT_TEST_BACKUP" "$REPO_ROOT/infra/Pulumi.preflight.yaml"
+    rm -f "$PREFLIGHT_TEST_BACKUP"
+  else
+    rm -f "$REPO_ROOT/infra/Pulumi.preflight.yaml"
+  fi
+}
+
+backup_preflight_test_file() {
+  local preflight="$REPO_ROOT/infra/Pulumi.preflight.yaml"
+  PREFLIGHT_TEST_BACKUP=""
+  if [ -e "$preflight" ]; then
+    PREFLIGHT_TEST_BACKUP="$(mktemp)"
+    cp "$preflight" "$PREFLIGHT_TEST_BACKUP"
+  fi
+}
+
+assert_preflight_kept() {
+  [ "$2" = "0" ] || { echo "FAIL: gate exited $2 with a pre-existing stack file" >&2; exit 1; }
+  grep -qF "keep" "$1" || { echo "FAIL: a pre-existing infra/Pulumi.preflight.yaml was deleted" >&2; exit 1; }
 }
 
 test_preexisting_preflight_yaml_survives() {
   local preflight rc
   preflight="$REPO_ROOT/infra/Pulumi.preflight.yaml"
+  backup_preflight_test_file
+  trap restore_preflight_test_file EXIT
   printf 'keep\n' > "$preflight"
-  trap rm_preflight_test_file EXIT
   rc="$(run_gate)" || true
-  [ "$rc" = "0" ] || { echo "FAIL: gate exited $rc with a pre-existing stack file" >&2; exit 1; }
-  grep -qF "keep" "$preflight" || { echo "FAIL: a pre-existing infra/Pulumi.preflight.yaml was deleted" >&2; exit 1; }
+  assert_preflight_kept "$preflight" "$rc"
   echo "ok: a pre-existing infra/Pulumi.preflight.yaml is never deleted"
 }
 

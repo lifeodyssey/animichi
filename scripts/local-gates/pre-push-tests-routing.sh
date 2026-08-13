@@ -137,7 +137,7 @@ populate_web_probe() {
 clone_deterministic_repo() {
   local dst="$1"
   git clone -q "$REPO_ROOT" "$dst"
-  mkdir -p "$dst/scripts"
+  mkdir -p "$dst/scripts/local-gates" "$dst/.github"
   cp -R "$SCRIPT_DIR/." "$dst/scripts/local-gates/"
   cp -R "$REPO_ROOT/.github/scripts" "$dst/.github"
   populate_web_probe "$dst"

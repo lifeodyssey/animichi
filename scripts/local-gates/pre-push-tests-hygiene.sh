@@ -20,6 +20,8 @@
 # test_arbitrary_whitespace_forbidden_command_fails_scan /
 # test_split_continuation_forbidden_command_fails_scan pin both directions
 # (the URL-fragment case lives in pre-push-tests-hygiene-url.sh).
+# Version-gate semantics (node >= 24; atlas accepts any printed version) are
+# tested in pre-push-tests-prereqs.sh.
 
 # join_continuations: fold `\`-newline shell continuations onto one line so a
 # forbidden command split across lines (e.g. `pulumi \` + `up`) is scanned as
@@ -150,18 +152,8 @@ test_split_continuation_forbidden_command_fails_scan() {
   echo "ok: a command split across a shell continuation fails the scan"
 }
 
-assert_atlas_hint() {
-  grep -qi "atlas" "$GATE_STUB_ROOT/prereq.out" || {
-    echo "FAIL: prereq failure lacks an actionable atlas hint" >&2
-    exit 1
-  }
-}
-
-assert_install_hint() {
-  grep -qi "install" "$GATE_STUB_ROOT/prereq.out" || {
-    echo "FAIL: prereq failure lacks an install hint" >&2
-    exit 1
-  }
+assert_prereq_out() {
+  grep -qi "$1" "$GATE_STUB_ROOT/prereq.out" || { echo "FAIL: prereq failure output lacks: $1" >&2; exit 1; }
 }
 
 make_no_atlas_bin() {
@@ -169,7 +161,7 @@ make_no_atlas_bin() {
   mkdir -p "$no_atlas_bin"
   local tool
   for tool in uv pnpm node pulumi docker actionlint; do
-    ln -s "$GATE_STUB_BIN/$tool" "$no_atlas_bin/$tool"
+    ln -sf "$GATE_STUB_BIN/$tool" "$no_atlas_bin/$tool"
   done
   printf '%s\n' "$no_atlas_bin"
 }
@@ -190,7 +182,7 @@ test_missing_prerequisite_fails() {
   local rc
   rc="$(run_no_atlas_gate "$(make_no_atlas_bin)")"
   [ "$rc" != "0" ] || { echo "FAIL: missing prerequisite must fail" >&2; exit 1; }
-  assert_atlas_hint
-  assert_install_hint
+  assert_prereq_out "atlas"
+  assert_prereq_out "install"
   echo "ok: missing prerequisite fails with an install hint"
 }

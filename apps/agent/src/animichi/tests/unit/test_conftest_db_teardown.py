@@ -59,18 +59,25 @@ class TeardownApi:
         self.deleted = (branch_id, claim_name)
 
 
-def test_container_stop_failure_cannot_skip_claimed_branch_delete() -> None:
-    config = DatabaseConfig(
+def neon_config() -> DatabaseConfig:
+    return DatabaseConfig(
         DatabaseArm.NEON, neon_api_key="secret", neon_project_id="project-test"
     )
-    api = TeardownApi()
+
+
+def run_failing_teardown(api: TeardownApi) -> None:
     with pytest.raises(RuntimeError, match="container stop failed"):
         with _neon_target(
-            config,
+            neon_config(),
             cast(conftest_db.NeonApi, api),
             lambda _config, _parent: StopFailingContainer(),
         ):
             pass
+
+
+def test_container_stop_failure_cannot_skip_claimed_branch_delete() -> None:
+    api = TeardownApi()
+    run_failing_teardown(api)
     assert api.deleted is not None
     assert api.deleted[0] == "br-child"
     assert api.deleted[1].startswith("wt-test-")

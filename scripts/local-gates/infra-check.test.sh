@@ -150,6 +150,14 @@ test_plan_without_diagnostic_red_restore_green() {
   echo "ok: rendered plan with no allowlisted diagnostic is red, restores to green"
 }
 
+test_clean_preview_is_green() {
+  local rc
+  rc="$(GATE_PULUMI_CLEAN=1 run_gate)" || true
+  [ "$rc" = "0" ] || { echo "FAIL: a clean preview must exit green (exit $rc)" >&2; exit 1; }
+  assert_msg "Pulumi program load: OK (preview exited clean)"
+  echo "ok: a clean preview exits green"
+}
+
 test_compile_failure_fails
 test_credential_noise_is_non_blocking
 test_stack_init_failure_fails
@@ -160,4 +168,5 @@ test_capitalized_error_red_restore_green
 test_typeerror_red_restore_green
 test_unknown_plain_text_red_restore_green
 test_plan_without_diagnostic_red_restore_green
+test_clean_preview_is_green
 echo "infra-check.test.sh: all green"

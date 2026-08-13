@@ -31,20 +31,53 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
-# Prerequisite data (tool: install-hint). The loop in check_prereqs keeps the
-# rest of each line (including colons in URLs) as the hint, exactly as CI's
-# install docs state.
+# Prerequisite data (tool: install-hint). The presence loop keeps the rest of
+# each line (including colons in URLs) as the hint, exactly as CI's install
+# docs state.
 PREREQ_TOOLS=(
   "uv: https://docs.astral.sh/uv/ — curl -LsSf https://astral.sh/uv/install.sh | sh"
   "pnpm: corepack enable, or npm install -g pnpm@10.33.2"
   "node: Node >= 24 required (nvm or Homebrew)"
   "ruby: system Ruby is sufficient"
-  "atlas: pinned v0.30.0 — brew install ariga/tap/atlas, or download the darwin/linux binary for your arch from https://release.ariga.io/atlas/ (checksum in .github/workflows/pipeline-db.yml)"
+  "atlas: must print a version (CI pins v0.30.0) — brew install ariga/tap/atlas, or download the darwin/linux binary for your arch from https://release.ariga.io/atlas/ (checksum in .github/workflows/pipeline-db.yml)"
   "pulumi: brew install pulumi/tap/pulumi"
   "docker: Docker Desktop/colima with the daemon running (fresh-schema + agent integration; the gate fails closed when it is unavailable)"
   "actionlint: brew install actionlint (CI pins v1.7.7)"
   "git: required for the contract drift checks"
 )
+
+prereq_hint() {
+  printf '%s\n' "${PREREQ_TOOLS[@]}" | sed -n "s/^$1://p"
+}
+
+check_node_version() {
+  command -v node >/dev/null 2>&1 || return 0
+  local version major
+  version="$(node -v 2>/dev/null)"
+  major="${version#v}"; major="${major%%.*}"
+  [ "${major:-0}" -lt 24 ] || return 0
+  printf 'prerequisite version mismatch: node %s — %s\n' "$version" "$(prereq_hint node)" >&2
+  return 1
+}
+
+check_atlas_version() {
+  command -v atlas >/dev/null 2>&1 || return 0
+  local version
+  version="$(atlas version 2>/dev/null | head -n1)"
+  [ -n "$version" ] && return 0
+  printf 'prerequisite version mismatch: atlas produced no version — %s\n' "$(prereq_hint atlas)" >&2
+  return 1
+}
+report_missing_prereqs() {
+  local tool hint missing=0
+  while IFS=: read -r tool hint; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      printf 'missing prerequisite: %s (%s)\n' "$tool" "$hint" >&2
+      missing=1
+    fi
+  done <<< "$(printf '%s\n' "${PREREQ_TOOLS[@]}")"
+  [ "$missing" -eq 0 ]
+}
 
 fail_prereqs() {
   printf 'install the missing prerequisites, then retry the push.\n' >&2
@@ -52,13 +85,10 @@ fail_prereqs() {
 }
 
 check_prereqs() {
-  local missing=0 tool hint
-  while IFS=: read -r tool hint; do
-    if ! command -v "$tool" >/dev/null 2>&1; then
-      printf 'missing prerequisite: %s (%s)\n' "$tool" "$hint" >&2
-      missing=1
-    fi
-  done <<< "$(printf '%s\n' "${PREREQ_TOOLS[@]}")"
+  local missing=0
+  report_missing_prereqs || missing=1
+  check_node_version || missing=1
+  check_atlas_version || missing=1
   [ "$missing" -eq 0 ] || fail_prereqs
 }
 

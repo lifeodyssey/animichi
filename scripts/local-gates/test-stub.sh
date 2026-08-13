@@ -24,20 +24,49 @@
 # is_unknown_diagnostic, the fail-open hole), and GATE_PULUMI_NO_NL (rendered
 # plan + allowlisted noise + a final `error:Unauthorized:no-nl` printed with
 # no trailing newline — a read-EOF line the classifier must still process).
-# The default pulumi preview
+# GATE_PULUMI_CLEAN makes preview print a rendered plan and exit 0 (the gate's
+# green path). The default pulumi preview
 # emission is the
 # allowed-noise case: a rendered plan line plus credential/provider noise,
 # exiting nonzero.
+#
+# `node -v` and `atlas version` are SILENT probes: check_prereqs runs them on
+# every gate run, and the invocation log must stay the record of GATES that
+# ran (tests assert_lacks "atlas"/"pulumi" on it). They exit 0, printing the
+# pinned-compliant versions unless GATE_NODE_OLD=1 / GATE_ATLAS_OLD=1 ask for
+# the documented-mismatch versions.
 set -u
 
 log() { printf '%s :: %s %s\n' "$PWD" "$(basename "$0")" "$*" >> "${GATE_TEST_LOG:?}"; }
 
-log "$@"
 tool="$(basename "$0")"
+case "$tool:$*" in
+  node:-v*)
+    if [ "${GATE_NODE_OLD:-}" = "1" ]; then
+      printf 'v20.0.0\n'
+    else
+      printf 'v24.0.0\n'
+    fi
+    exit 0 ;;
+  atlas:version*)
+    if [ "${GATE_ATLAS_OLD:-}" = "1" ]; then
+      printf 'atlas version v0.29.9\n'
+    else
+      printf 'atlas version v0.30.0\n'
+    fi
+    exit 0 ;;
+esac
+
+log "$@"
 case "$tool:$*" in
   pnpm:*) printf 'env VITE_SHOWCASE_MODE=%s\n' "${VITE_SHOWCASE_MODE:-}" >> "${GATE_TEST_LOG:?}" ;;
   pulumi:stack\ init*) [ "${GATE_PULUMI_INIT_FAIL:-}" = "1" ] && exit 1 ;;
   pulumi:preview*)
+    if [ "${GATE_PULUMI_CLEAN:-}" = "1" ]; then
+      printf 'Previewing update (preflight):\n'
+      printf '+   pulumi:pulumi:Stack seichijunrei-infra create\n' >&2
+      exit 0
+    fi
     if [ "${GATE_PULUMI_COMPILE_FAIL:-}" = "1" ]; then
       printf 'error: TSError: failed to compile the infra program\n' >&2
     elif [ "${GATE_PULUMI_UNKNOWN_FAIL:-}" = "1" ]; then
