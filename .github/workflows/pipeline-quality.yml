@@ -61,9 +61,14 @@ jobs:
         id: review-gate-head
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.event.repository.full_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_PULL_URL: ${{ github.event.issue.pull_request.url }}
         run: |
           set -euo pipefail
-          PR_SHA="$(scripts/local-gates/pr-review-gate-step.sh resolve-head "${{ github.event_name }}" "${{ github.event.repository.full_name }}" "${{ github.event.pull_request.number }}" "${{ github.event.issue.number }}" "${{ github.event.issue.pull_request.url }}")"
+          PR_SHA="$(scripts/local-gates/pr-review-gate-step.sh resolve-head "$EVENT_NAME" "$REPO" "$PR_NUMBER" "$ISSUE_NUMBER" "$ISSUE_PULL_URL")"
           if [ -n "$PR_SHA" ]; then
             printf 'has_pr=true\n' >> "$GITHUB_OUTPUT"
             printf 'head_sha=%s\n' "$PR_SHA" >> "$GITHUB_OUTPUT"
@@ -73,7 +78,9 @@ jobs:
         if: ${{ steps.review-gate-head.outputs.has_pr == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/local-gates/pr-review-check.sh status "${{ github.event.repository.full_name }}" "${{ steps.review-gate-head.outputs.head_sha }}" pending
+          REPO: ${{ github.event.repository.full_name }}
+          HEAD_SHA: ${{ steps.review-gate-head.outputs.head_sha }}
+        run: scripts/local-gates/pr-review-check.sh status "$REPO" "$HEAD_SHA" pending
         shell: bash
       - name: Ruby syntax check workflow meta scripts
         run: |
@@ -161,7 +168,13 @@ jobs:
         id: review-gate
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/local-gates/pr-review-gate-step.sh collect-check "${{ github.event.repository.full_name }}" "${{ steps.review-gate-head.outputs.head_sha }}" "${{ github.event_name }}" "${{ github.event.pull_request.number }}" "${{ github.event.issue.number }}" "${{ github.event.issue.pull_request.url }}"
+          REPO: ${{ github.event.repository.full_name }}
+          HEAD_SHA: ${{ steps.review-gate-head.outputs.head_sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_PULL_URL: ${{ github.event.issue.pull_request.url }}
+        run: scripts/local-gates/pr-review-gate-step.sh collect-check "$REPO" "$HEAD_SHA" "$EVENT_NAME" "$PR_NUMBER" "$ISSUE_NUMBER" "$ISSUE_PULL_URL"
         shell: bash
       - name: Download actionlint
         run: |
@@ -190,5 +203,8 @@ jobs:
         if: ${{ always() && steps.review-gate-head.outputs.has_pr == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/local-gates/pr-review-gate-step.sh final-status "${{ github.event.repository.full_name }}" "${{ steps.review-gate-head.outputs.head_sha }}" "${{ job.status }}"
+          REPO: ${{ github.event.repository.full_name }}
+          HEAD_SHA: ${{ steps.review-gate-head.outputs.head_sha }}
+          JOB_STATUS: ${{ job.status }}
+        run: scripts/local-gates/pr-review-gate-step.sh final-status "$REPO" "$HEAD_SHA" "$JOB_STATUS"
         shell: bash
