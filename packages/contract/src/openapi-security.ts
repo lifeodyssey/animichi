@@ -4,8 +4,3 @@ import type { OpenAPI } from "@orpc/contract";
 export function requireBearer(operation: OpenAPI.OperationObject): OpenAPI.OperationObject {
   return { ...operation, security: [{ bearerAuth: [] }] };
 }
-
-/** Mark an OpenAPI operation as intentionally anonymous. */
-export function allowAnonymous(operation: OpenAPI.OperationObject): OpenAPI.OperationObject {
-  return { ...operation, security: [] };
-}

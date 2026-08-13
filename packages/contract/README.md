@@ -69,6 +69,36 @@ import type { ... } from "../../packages/contract/src/models";
 
 After the workspace link lands, switch to `@animichi/contract/models`.
 
+## OpenAPI compatibility gate (`/v1`)
+
+`scripts/vet-openapi.ts` (`pnpm run vet:openapi <baseline.json> <candidate.json>`,
+issue #1005 AC4/AC5) classifies a published-baseline → candidate OpenAPI change
+across endpoints, schemas (including request/response schema presence),
+requiredness (properties and the request-body `required` flag), enum members,
+and error responses. Breaking changes exit 1, additive changes exit 0, and a
+future major path (`/v2/…`) is rejected unless its superseded `/v1` operation
+carries `deprecated: true` + `x-sunset`.
+
+`pipeline-contract.yml` (the `Contract / build` stage) runs the gate for every
+published document (`openapi.json`, `users-openapi.json`, `agent-openapi.json`):
+
+- **Baseline** = the same document at the merge-base with the PR's base branch
+  (the published contract). A brand-new document has no baseline and is
+  all-additive. Baseline bootstrap (#1005 AC3): a merge-base baseline that
+  still carries the retired phantom check-in/share surface is replaced by the
+  post-cut documents committed in this tree — this landing only; after it
+  lands, merge-base is the post-cut contract and the fallback cannot trigger.
+- **Candidate** = the regenerated document (byte-stable emission; drift fails
+  first).
+- The **normal gate never passes `--allow-breaking`**. Unapproved breaking
+  `/v1` changes fail closed; additive changes pass. An approved breaking
+  change (for example the pre-go-live phantom hard cut) is reviewed and
+  approved explicitly — it is never wired into the normal PR path silently.
+
+The wiring is pinned by `test/vet-gate.test.ts` (workflow invariant + CLI
+behavior) and the classifier by `test/openapi-diff.test.ts` /
+`test/openapi-gate.test.ts`, so the enforcement cannot silently disappear.
+
 ## Error contract
 
 Errors cross the catalog → agent boundary as oRPC error envelopes. A thrown

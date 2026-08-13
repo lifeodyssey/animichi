@@ -21,7 +21,7 @@ function entrySource(): string {
 
 void test("an unmatched path is 404, not a rendered page", async () => {
   const app = createWorkerApp({});
-  const res = await app.request("/", {}, {}, stubCtx);
+  const res = await app.request("/unmatched/path", {}, {}, stubCtx);
   assert.equal(res.status, 404);
 });
 

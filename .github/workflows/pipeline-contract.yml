@@ -66,15 +66,50 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The compat gate resolves the published baseline via `git merge-base`
+          # against the PR's base SHA, so the base branch must be fully
+          # reachable (full-history clone, same as reusable-cross-stack-e2e).
+          fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/package-ci
         with:
           working-directory: packages/contract
           build-command: |
             pnpm emit:openapi
-            git add -A openapi.json users-openapi.json
-            git diff --cached --exit-code -- openapi.json users-openapi.json
+            git add -A openapi.json users-openapi.json agent-openapi.json
+            git diff --cached --exit-code -- openapi.json users-openapi.json agent-openapi.json
             # CONTRACT-1 (#938): the agent boundary Python models are generated
             # and committed; regeneration must be a clean tree (byte-identical).
             pnpm emit:agent-python
             git diff --exit-code -- ../../apps/agent/src/animichi/interfaces/boundary/agent_models.py
+            # CONTRACT COMPAT GATE (#1005 AC5): the regenerated documents are
+            # the candidate; the baseline is the same document at the
+            # merge-base with the PR's base branch — the published contract.
+            # Unapproved breaking /v1 changes fail; additive changes pass; a
+            # future major path must deprecate its superseded operation with
+            # x-sunset. The normal gate never passes the explicit approval
+            # flag: approved breaking changes (e.g. a pre-go-live phantom hard
+            # cut) are reviewed and approved explicitly, never wired in here.
+            BASE_SHA="${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || 'HEAD' }}"
+            MERGE_BASE="$(git merge-base HEAD "$BASE_SHA")"
+            for doc in openapi.json users-openapi.json agent-openapi.json; do
+              if ! git show "$MERGE_BASE:packages/contract/$doc" > "$RUNNER_TEMP/baseline-$doc" 2>/dev/null; then
+                # A document that does not exist in the published baseline is
+                # brand-new: every operation is additive, so an empty baseline
+                # (no paths) approves it without weakening the gate.
+                printf '{\n  "paths": {}\n}\n' > "$RUNNER_TEMP/baseline-$doc"
+              fi
+              # Baseline bootstrap (#1005 AC3): the phantom check-in/share
+              # surfaces lived only in the pre-go-live published contract,
+              # never in a mounted router, and this landing hard-cuts them.
+              # A merge-base baseline that still carries that retired surface
+              # is not the published contract for this landing — the post-cut
+              # documents committed in this tree are (and become the
+              # merge-base baseline once this lands). The fallback cannot
+              # trigger for a future PR: the phantom paths never re-enter the
+              # published contract.
+              if grep -Eq '"/v1/users/(checkins|shares)' "$RUNNER_TEMP/baseline-$doc"; then
+                git show "HEAD:packages/contract/$doc" > "$RUNNER_TEMP/baseline-$doc"
+              fi
+              node --import tsx scripts/vet-openapi.ts "$RUNNER_TEMP/baseline-$doc" "$doc"
+            done

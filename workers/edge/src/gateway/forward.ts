@@ -3,6 +3,7 @@ import type { Env } from "../env.ts";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom, checkRateLimit } from "../protect/rate-limiter.ts";
 import { rateLimitedResponse } from "./responses.ts";
 import { isAuthRateLimited } from "./routing-policy.ts";
+import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER } from "@animichi/contract/internal-binding";
 
 const PUBLIC_CATALOG_HEADERS = ["Accept"] as const;
 
@@ -23,15 +24,15 @@ export function forwardPublicCatalog(env: Env, request: Request): Promise<Respon
 
 /** The worker-verified identity replaces the caller's own headers. */
 function applyIdentity(headers: Headers, auth: { userId: string; userType: string }): void {
-  headers.delete("Authorization");
-  headers.set("X-User-Id", auth.userId);
-  headers.set("X-User-Type", auth.userType);
+  headers.delete(AUTHORIZATION_HEADER);
+  headers.set(USER_IDENTITY_HEADER, auth.userId);
+  headers.set(USER_TYPE_HEADER, auth.userType);
 }
 
 /** Client-supplied identity headers are anti-forgery: always stripped. */
 function stripUntrustedHeaders(headers: Headers): void {
-  headers.delete("X-User-Id");
-  headers.delete("X-User-Type");
+  headers.delete(USER_IDENTITY_HEADER);
+  headers.delete(USER_TYPE_HEADER);
   headers.delete("x-byok-endpoint");
   headers.delete("X-Anon-Id");
 }

@@ -8,6 +8,7 @@ import { handleImageProxy } from "../proxy/image-proxy.ts";
 import { handleTiles } from "../proxy/tiles.ts";
 import type { ShowcaseMode } from "../proxy/showcase.ts";
 import type { TurnstileGate } from "../protect/turnstile.ts";
+import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 import { authenticatedForward, forwardPublicCatalog, forwardUsers, forwardV1 } from "./forward.ts";
 import { METHOD_NOT_ALLOWED_BODY, NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./responses.ts";
 import { isAnonymousV1, isPublicV1 } from "./routing-policy.ts";
@@ -29,7 +30,7 @@ const SESSION_MIGRATE_PATH = "/v1/session/migrate";
 /** The one allowlisted public catalog read (issue #537 / CATALOG-5 #946). */
 const PUBLIC_CATALOG_PATTERN = /^\/catalog\/public\/anime-overview\/\d+$/;
 
-const USERS_PREFIX = "/v1/users/";
+const USERS_PREFIX = USERS_BINDING_PREFIX;
 
 /** Container cold-start hardening (issue #694): while a container is still
  * starting, its fetch answers a 500 whose body carries this marker (or throws
@@ -39,7 +40,7 @@ const NOT_RUNNING_MARKER = "The container is not running";
 const NOT_RUNNING_RETRIES = 3;
 
 type RequestClass =
-  | { kind: "landing"; asset: "healthz" | "tiles" | "img" }
+  | { kind: "landing"; asset: "healthz" | "banner" | "tiles" | "img" }
   | { kind: "public-catalog" }
   | { kind: "users" }
   | { kind: "adopt" }
@@ -50,6 +51,11 @@ type RequestClass =
 /** The landing surface, which the showcase gate never denies. */
 function landingClass(method: string, pathname: string): RequestClass | null {
   if (pathname === "/healthz" && method === "GET") return { kind: "landing", asset: "healthz" };
+  // The agent's JSON service banner at the root (CONTRACT-1 #938). Not an HTML
+  // page — #537 retired the page renderer, not the container's root JSON — so
+  // forwarding it to the container keeps every advertised Agent operation
+  // reachable through the CONTAINER binding (#1005 AC1).
+  if (pathname === "/" && method === "GET") return { kind: "landing", asset: "banner" };
   if (pathname.startsWith("/tiles/")) return { kind: "landing", asset: "tiles" };
   if (pathname.startsWith("/img/")) return { kind: "landing", asset: "img" };
   return null;
@@ -134,11 +140,19 @@ function dispatch(route: RequestClass, env: Env, request: Request, ctx: WorkerEx
 }
 
 function landingResponse(
-  env: Env, request: Request, ctx: WorkerExecutionContext, asset: "healthz" | "tiles" | "img", sleep: (ms: number) => Promise<void>,
+  env: Env, request: Request, ctx: WorkerExecutionContext, asset: "healthz" | "banner" | "tiles" | "img", sleep: (ms: number) => Promise<void>,
 ): Promise<Response> {
   if (asset === "healthz") return healthzResponse(env, request, sleep);
+  if (asset === "banner") return bannerResponse(env, request);
   if (asset === "tiles") return handleTiles(request, env.MAP_TILES, ctx);
   return handleImageProxy(request, ctx);
+}
+
+/** Forward `GET /` to the container's root banner (no startup retry needed —
+ * a missed banner is a soft miss, unlike the readiness probe). */
+function bannerResponse(env: Env, request: Request): Promise<Response> {
+  const container = env.CONTAINER.get(env.CONTAINER.idFromName("default"));
+  return container.fetch(request);
 }
 
 function healthzResponse(env: Env, request: Request, sleep: (ms: number) => Promise<void>): Promise<Response> {
