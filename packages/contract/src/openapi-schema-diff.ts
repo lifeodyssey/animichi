@@ -85,16 +85,22 @@ function diffEnumShape(baseline: WireSchema, candidate: WireSchema, at: string, 
   }
 }
 
+function diffCollectionSchema(baseline: WireSchema, candidate: WireSchema, at: string, out: ApiChange[]): void {
+  if (baseline.type === "array") {
+    diffArrayItems(baseline, candidate, at, out);
+    return;
+  }
+  if (baseline.type === "object") {
+    diffObjectSchema(baseline, candidate, at, out);
+  }
+}
+
 function diffSameTypeSchema(baseline: WireSchema, candidate: WireSchema, at: string, out: ApiChange[]): void {
   if (baseline.enum !== undefined || candidate.enum !== undefined) {
     diffEnumShape(baseline, candidate, at, out);
     return;
   }
-  if (baseline.type === "array") {
-    diffArrayItems(baseline, candidate, at, out);
-  } else if (baseline.type === "object") {
-    diffObjectSchema(baseline, candidate, at, out);
-  }
+  diffCollectionSchema(baseline, candidate, at, out);
 }
 
 function removedMembers(baseline: readonly unknown[], candidate: readonly unknown[]): unknown[] {
