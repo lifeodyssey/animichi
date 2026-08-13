@@ -50,8 +50,7 @@ needle = (
     '    if comment.url:\n'
     '        return comment.url\n'
     '    raise ValueError(\n'
-    '        "managed-finding comment has no stable identity; "\n'
-    '        "both id and url are empty"\n'
+    '        "managed-finding comment has no stable identity; both id and url are empty"\n'
     '    )'
 )
 assert needle in source, "stable identity not found in pr_findings.py"

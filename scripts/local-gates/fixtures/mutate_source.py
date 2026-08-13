@@ -61,7 +61,11 @@ def _drop_ac_unique(source: str) -> str:
 
 def _drop_ac_count(source: str) -> str:
     return source.replace(
-        "    if isinstance(total, int) and not isinstance(total, bool) and len(mappings) != total:",
+        "    if (\n"
+        "        isinstance(total, int)\n"
+        "        and not isinstance(total, bool)\n"
+        "        and len(mappings) != total\n"
+        "    ):",
         "    if False:  # mutated: ac_total count validation dropped",
         1,
     )
