@@ -1,0 +1,18 @@
+[
+  {
+    "author_association": "MEMBER",
+    "login": "coderabbitai[bot]",
+    "author_type": "Bot",
+    "id": "IC_1",
+    "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-1",
+    "body": "<code>🐞 Bugs (2)</code> <code>Rule violations (0)</code>"
+  },
+  {
+    "author_association": "MEMBER",
+    "login": "sonarcloud[bot]",
+    "author_type": "Bot",
+    "id": "IC_2",
+    "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-2",
+    "body": "## Quality Gate Failed"
+  }
+]

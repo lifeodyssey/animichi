@@ -1,0 +1,18 @@
+[
+  {
+    "data": {
+      "repository": {
+        "pullRequest": {
+          "reviewThreads": {
+            "nodes": [
+              { "isResolved": false, "isOutdated": true },
+              { "isResolved": false, "isOutdated": false },
+              { "isResolved": true, "isOutdated": false }
+            ],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+          }
+        }
+      }
+    }
+  }
+]

@@ -127,25 +127,22 @@ Canonical workflow: `docs/workflow.md` (Matt flow × Policy C, per-stage machine
 Role definitions live in `.claude/agents/`:
 - planner — grilling → to-spec → to-tickets (blocking edges); spec dual-review (Fable + Codex GPT Sol xhigh) before owner sign-off.
 - executor — **opencode CLI** via one `opencode serve` instance (model `ds-flash-max` → `luna-max`), brief-driven, never commits.
-- reviewer — card-level final review: one Opus 5 seat reading diff vs brief, verdict to a verdict file; spec-level: dual seats. **Mutation testing is the only valid green-light proof.**
+- reviewer — card-level final review: one Opus 5 seat reading diff vs brief, verdict to the head-bound
+  artifact (contract: `docs/ops/review-gate.md`); spec-level: dual seats. **Mutation testing is the only valid green-light proof.**
 - tester — Playwright Test Agents pipeline (planner/generator/healer, promotion gates) + staging validation with evidence.
 **Quality Ratchet**: every AC carries a test-type (`unit`|`integration`|`eval`|`browser`|`api`) and a test in the PR diff (`ac_total == ac_with_test`); Reviewer wants Codecov patch ≥95%. Merge requires the two-way comment gate + fresh-head gate. Hooks: `block-secrets-in-pr`, `block-local-deploy`, `block-codex-exec-codewrite`.
 
-## PR 合并前的两路检查(hook 强制)
+## PR 合并前的两路检查(单一来源)
 
-合并任何 PR 前,**行级线程与顶层评论都要看**——它们是两种对象,查一路会漏另一路:
-
-| 载体 | 查法 | 典型内容 |
-|---|---|---|
-| review threads(行级) | GraphQL `reviewThreads(isResolved:false)` | coderabbit/qodo 的逐行建议 |
-| issue comments(顶层) | `gh pr view <n> --json comments` | **qodo 的 Code Review 汇总(Bugs/Rule violations 计数)、SonarCloud Quality Gate、codecov** |
-
-2026-08-03 的教训:只查前者、连合 24 个 PR,而 qodo 的 Bugs 计数与 SonarCloud 的失败门一直没人看——因为它们不产生线程,前者的计数永远显示零。
-
-`~/.claude/hooks/check-pr-comments.sh`(**全局** hook,对所有仓库生效)在 `gh pr merge` 前强制两路检查:有未解决线程、或顶层出现非零 Bugs/Rule violations、或 Quality Gate Failed 即拦截。判定完成后留一条含「线程判定」或「findings triaged」的评论即可放行:
-`gh issue comment <PR 号> -R <owner/name> --body '线程判定: ...'`(PR 也是 issue,这条对 PR 生效)。
-该评论必须来自 OWNER / MEMBER / COLLABORATOR —— 否则任何能评论的人(包括被判定的机器人自己)
-都能清掉自己的 findings。hook 只坚持判断被记录下来,判断本身仍归人。
+两路评论闸(行级线程 + 顶层 managed findings)与本地 Standards∥Spec review gate 的**单一来源**是
+`docs/ops/review-gate.md`(issue #1008)——不变量、评审方法、reviewer 权限/产出、流程顺序、票级范围
+都只在那里,本文件不复制清单以免两份漂移。2026-08-03 的教训:只查 `reviewThreads` 会漏掉 qodo/Sonar
+的顶层汇总,连合 24 个 PR —— 因此 `~/.claude/hooks/check-pr-comments.sh`(全局 hook,对所有仓库生效)
+在 `gh pr merge` 前强制走**唯一**闸逻辑:本仓库委托给 `scripts/local-gates/pr-review-check.sh`
+(collect + check,含身份感知的 findings-snapshot、bot 拒绝、review-approval marker、fail-closed);
+判定必须由 OWNER/MEMBER/COLLABORATOR 的**人类**评论记录下来(判定词与 findings-snapshot 绑定、
+review-approval marker 与 head/base/brief 绑定,见 `docs/ops/review-gate.md` §6)。非本仓库时 hook
+回退内联两路检查,全局仍受保护。hook 只坚持判断被记录,判断本身仍归人。
 
 ## File placement
 

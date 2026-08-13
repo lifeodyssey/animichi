@@ -11,6 +11,13 @@ name: Quality
 
 on:
   pull_request:
+    types: [opened, synchronize, edited, reopened, ready_for_review, converted_to_draft]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  pull_request_review_comment:
+    types: [created, edited, deleted]
+  issue_comment:
+    types: [created, edited, deleted]
   merge_group:
     branches: [main]
   push:
@@ -19,26 +26,60 @@ on:
 permissions:
   contents: read
 
-# Template concurrency (design CI-1): PR runs cancel on a fresh push; queue
-# runs and main runs never cancel (cancelling a queue run wedges the queue).
+# Template concurrency (design CI-1): every PR-bearing event — pull_request
+# (synchronize and edited included), pull_request_review,
+# pull_request_review_comment, and issue_comment — cancels the in-progress run
+# so a newer review/thread/comment/finding can never wait behind an older run
+# that posts a stale success (issue #1008 finding 2). Queue (merge_group) and
+# main (push) runs never cancel: cancelling a queue run wedges the queue.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.event.issue.number || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_review' || github.event_name == 'pull_request_review_comment' || github.event_name == 'issue_comment' }}
 
 jobs:
   invariants:
     name: Quality / invariants
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Issue #1008 §7 head-bound review-gate status: the pending status is
+      # posted at the very beginning of the PR-only path, before any expensive
+      # quality step, so a PR comment/review change can never leave the previous
+      # success merge-eligible while those steps run (finding 1). The head is
+      # resolved once here and pinned through collect/check and the final
+      # status (finding 2). Plain issue comments, push, and merge_group resolve
+      # to no PR and post nothing (no fake PR-review status).
+      - name: Resolve PR review-gate head
+        if: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_review' || github.event_name == 'pull_request_review_comment' || github.event_name == 'issue_comment' }}
+        id: review-gate-head
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PR_SHA="$(scripts/local-gates/pr-review-gate-step.sh resolve-head "${{ github.event_name }}" "${{ github.event.repository.full_name }}" "${{ github.event.pull_request.number }}" "${{ github.event.issue.number }}" "${{ github.event.issue.pull_request.url }}")"
+          if [ -n "$PR_SHA" ]; then
+            printf 'has_pr=true\n' >> "$GITHUB_OUTPUT"
+            printf 'head_sha=%s\n' "$PR_SHA" >> "$GITHUB_OUTPUT"
+          fi
+        shell: bash
+      - name: Post pending review-gate status on the PR head
+        if: ${{ steps.review-gate-head.outputs.has_pr == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/local-gates/pr-review-check.sh status "${{ github.event.repository.full_name }}" "${{ steps.review-gate-head.outputs.head_sha }}" pending
+        shell: bash
       - name: Ruby syntax check workflow meta scripts
         run: |
-          for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb; do
+            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb; do
             ruby -c "${f}"
-          done
+            done
         shell: bash
       - name: Workflow invariant behavioral tests
         run: ruby .github/scripts/assert-workflow-invariants.test.rb
@@ -111,6 +152,17 @@ jobs:
         run: ruby .github/scripts/test_ci_contract.rb
       - name: Verify patch coverage policy
         run: ruby .github/scripts/test_codecov_patch.rb
+      # The head pinned by the early resolve step now runs collect + check. The
+      # step exits non-zero when the live PR head advanced past the pin, when
+      # collect cannot read GitHub state, or when check rejects — the required
+      # job fails and GitHub blocks merges (fail closed, no continue-on-error).
+      - name: Required PR review gate (collect + check)
+        if: ${{ steps.review-gate-head.outputs.has_pr == 'true' }}
+        id: review-gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/local-gates/pr-review-gate-step.sh collect-check "${{ github.event.repository.full_name }}" "${{ steps.review-gate-head.outputs.head_sha }}" "${{ github.event_name }}" "${{ github.event.pull_request.number }}" "${{ github.event.issue.number }}" "${{ github.event.issue.pull_request.url }}"
+        shell: bash
       - name: Download actionlint
         run: |
           ACTIONLINT_VERSION="1.7.7"
@@ -126,4 +178,17 @@ jobs:
         shell: bash
       - name: Run actionlint
         run: ./actionlint -color
+        shell: bash
+      # The final head-bound status posts with `if: always()` semantics, so a
+      # failed/cancelled collect-check (or any earlier failure) can never leave
+      # the pinned head stale-green. It is the LAST step of the job and derives
+      # success from the whole-job outcome (`job.status`), not just the gate
+      # step: success only when every earlier quality step, collect/check, and
+      # the actionlint gate all succeeded, otherwise failure on the exact
+      # pinned head (issue #1008 finding 1).
+      - name: Post final review-gate status on the PR head
+        if: ${{ always() && steps.review-gate-head.outputs.has_pr == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/local-gates/pr-review-gate-step.sh final-status "${{ github.event.repository.full_name }}" "${{ steps.review-gate-head.outputs.head_sha }}" "${{ job.status }}"
         shell: bash
