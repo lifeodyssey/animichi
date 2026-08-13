@@ -1,0 +1,49 @@
+{
+  "comments": [
+    {
+      "author": {
+        "login": "coderabbitai[bot]"
+      },
+      "authorAssociation": "MEMBER",
+      "body": "<code>🐞 Bugs (2)</code> <code>Rule violations (0)</code>",
+      "createdAt": "2026-08-13T01:00:00Z",
+      "id": "IC_kwDOcamel1",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": null,
+      "reactionGroups": [],
+      "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-1",
+      "viewerDidAuthor": false
+    },
+    {
+      "author": {
+        "login": "sonarcloud[bot]"
+      },
+      "authorAssociation": "MEMBER",
+      "body": "## Quality Gate Failed",
+      "createdAt": "2026-08-13T01:05:00Z",
+      "id": "IC_kwDOcamel2",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": null,
+      "reactionGroups": [],
+      "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-2",
+      "viewerDidAuthor": false
+    },
+    {
+      "author": {
+        "login": "owner"
+      },
+      "authorAssociation": "OWNER",
+      "body": "线程判定: Bugs (2) are pre-existing; quality gate failure is a known infra flake. snapshot=69debc66588ff4c77cbab914136284be9e1c6d1f1dea26dd847ae7f36cf0c20c\nreview-gate approval: standards=approve spec=approve base=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb brief=3aab50ac2fa74c0cceccdca0226067152880096f2d6a925175863f6cb03436d1",
+      "createdAt": "2026-08-13T01:10:00Z",
+      "id": "IC_kwDOcamel3",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": null,
+      "reactionGroups": [],
+      "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-3",
+      "viewerDidAuthor": false
+    }
+  ]
+}

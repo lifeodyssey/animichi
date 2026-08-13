@@ -1,0 +1,34 @@
+{
+  "comments": [
+    {
+      "author": {
+        "login": "coderabbitai[bot]"
+      },
+      "authorAssociation": "MEMBER",
+      "id": "IC_kwDOcamel1",
+      "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-IC_kwDOcamel1",
+      "createdAt": "2026-08-13T01:00:00Z",
+      "body": "<code>🐞 Bugs (2)</code> <code>Rule violations (0)</code>"
+    },
+    {
+      "author": {
+        "login": "sonarcloud[bot]"
+      },
+      "authorAssociation": "MEMBER",
+      "id": "IC_kwDOcamel2",
+      "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-IC_kwDOcamel2",
+      "createdAt": "2026-08-13T01:05:00Z",
+      "body": "## Quality Gate Failed"
+    },
+    {
+      "author": {
+        "login": "qodo-merge[bot]"
+      },
+      "authorAssociation": "MEMBER",
+      "id": "IC_kwDOcamel4",
+      "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-IC_kwDOcamel4",
+      "createdAt": "2026-08-13T01:10:00Z",
+      "body": "findings triaged: all resolved by bot. snapshot=69debc66588ff4c77cbab914136284be9e1c6d1f1dea26dd847ae7f36cf0c20c\nreview-gate approval: standards=approve spec=approve base=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa head=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb brief=3aab50ac2fa74c0cceccdca0226067152880096f2d6a925175863f6cb03436d1"
+    }
+  ]
+}

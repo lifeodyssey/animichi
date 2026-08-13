@@ -1,0 +1,26 @@
+[
+  {
+    "author_association": "MEMBER",
+    "login": "coderabbitai[bot]",
+    "author_type": "Bot",
+    "id": "IC_1",
+    "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-1",
+    "body": "<code>🐞 Bugs (2)</code> <code>Rule violations (0)</code>"
+  },
+  {
+    "author_association": "MEMBER",
+    "login": "sonarcloud[bot]",
+    "author_type": "Bot",
+    "id": "IC_2",
+    "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-2",
+    "body": "## Quality Gate Failed"
+  },
+  {
+    "author_association": "NONE",
+    "login": "qodo-merge[bot]",
+    "author_type": "Bot",
+    "id": "IC_3",
+    "url": "https://github.com/lifeodyssey/animichi/pull/1#issuecomment-3",
+    "body": "findings triaged: all resolved by bot. snapshot=915347165d867606b58e409f594c661a05bf822442d99c85ecd7e8e5575f4aed"
+  }
+]

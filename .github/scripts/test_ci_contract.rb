@@ -129,3 +129,16 @@ orphans = required - producers
 abort "ruleset-target.json required checks with no producing job: #{orphans.join(', ')}" unless orphans.empty?
 
 puts "Ruleset target: #{required.size} required checks all have a producing job (#{producers.size} producer contexts)"
+
+# Issue #1008 (review gate, docs/ops/review-gate.md §7): the PR comment gate is
+# wired into the already-required `Quality / invariants` job. The workflow
+# independently checks the current PR's active unresolved review threads,
+# top-level managed findings, snapshot-bound acknowledgement, and the
+# head/base/brief-bound human review-approval marker — check runs WITHOUT
+# --verdict, and the head-bound status contract (resolve once -> pending before
+# the quality steps -> collect/check against the pinned head -> final status
+# with if: always() as the last step, whole-job outcome) is asserted in
+# test_ci_contract_review_gate.rb, whose red/restore/green mutation probes live
+# in test_ci_contract_review_gate_mutation.rb.
+require_relative "test_ci_contract_review_gate"
+require_relative "test_ci_contract_review_gate_mutation"
