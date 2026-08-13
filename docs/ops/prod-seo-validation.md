@@ -17,7 +17,8 @@ from a deploy without the GitHub `production` environment approval.
   (`public/ab12ab12ab12ab12ab12ab12ab12ab12.txt`,
   `src/features/seo/indexnow.ts`). The static-files unit suite pins them.
 - Lighthouse lane in CI: `Web / lighthouse` (`pipeline-web.yml`) — CLS
-  blocking at 0.10, LCP warn at 2500ms (`apps/web/lighthouserc.cjs`).
+  blocking at 0.10, LCP warn at 2500ms (Playwright CWV spec
+  `e2e/web-cwv.spec.ts` + `apps/web/web-cwv.config.ts`).
 - Pulumi consumption logic: `infra/src/web-routes.ts` (apex Custom Domain on
   `animichi-web` + `/v1`, `/img`, `/tiles`, `/healthz` edge routes + www
   placeholder/301 + optional legacy-domain redirects) and
@@ -112,9 +113,10 @@ and answers 403 without the `x-staging-key` header.
 
 ### 2. Lighthouse
 
-The `Web / lighthouse` lane (`pipeline-web.yml`, `apps/web/lighthouserc.cjs`)
-is already part of CI per-package gates; no extra step. Its CLS gate is the
-only hard assertion today.
+The `Web / lighthouse` lane (`pipeline-web.yml`, Playwright CWV spec
+`e2e/web-cwv.spec.ts` driven by `apps/web/web-cwv.config.ts`) is already part
+of CI per-package gates; no extra step. Its CLS gate is the only hard
+assertion today.
 
 ### 3. Owner dashboard spot-checks
 

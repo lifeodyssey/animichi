@@ -152,9 +152,10 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-    # Reuses the build artifact; the config (apps/web/lighthouserc.cjs) asserts
-    # CLS (blocking) and LCP (warn-only). Not in any required-checks ruleset
-    # yet — report-only until real-world numbers exist (S0-v2 C5).
+    # Reuses the build artifact; the Playwright CWV spec (e2e/web-cwv.spec.ts)
+    # asserts CLS (blocking at 0.1) and warns on LCP (2500ms) per the shared
+    # thresholds in apps/web/web-cwv.config.ts. Not in any required-checks
+    # ruleset yet — report-only until real-world numbers exist (S0-v2 C5).
     needs: [build]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -175,9 +176,32 @@ jobs:
           test "$META_COMMIT_SHA" = "$GITHUB_SHA"
           printf '%s  %s\n' "$META_SHA256" "$BUNDLE_PATH" | sha256sum --check --strict
           tar -C apps/web -xzf "$BUNDLE_PATH"
-      - name: Lighthouse CI (CLS gate, LCP warn)
-        run: pnpm --filter web exec lhci autorun --config=./lighthouserc.cjs
-      - name: Upload lighthouse report
+
+      # PR and merge-queue runs may only restore this release-reachable cache.
+      # The trusted push-to-main run is the sole writer.
+      - name: Resolve Playwright version
+        run: |
+          PLAYWRIGHT_VERSION="$(pnpm --dir e2e exec playwright --version)"
+          echo "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION#Version }" >> "$GITHUB_ENV"
+        shell: bash
+      - name: Restore Playwright browser cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
+      - name: Install Playwright browser
+        run: pnpm --dir e2e exec playwright install --with-deps chromium
+      - name: Core Web Vitals (CLS gate, LCP warn)
+        env:
+          # showcase.ts fails closed at module init — CI serves are never showcase.
+          VITE_SHOWCASE_MODE: "false"
+        run: |
+          pnpm --filter web exec wrangler dev --port 8799 &
+          WRANGLER_PID=$!
+          for _ in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8799/ && break; sleep 1; done
+          E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-cwv.spec.ts
+          kill "$WRANGLER_PID"
+      - name: Upload CWV report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
