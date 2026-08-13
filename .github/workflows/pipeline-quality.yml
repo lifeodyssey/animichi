@@ -84,7 +84,7 @@ jobs:
         shell: bash
       - name: Ruby syntax check workflow meta scripts
         run: |
-            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb; do
+            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_routing_consistency.rb .github/scripts/test_ci_contract_ruleset_migration.rb .github/scripts/test_ci_contract_ruleset_migration_mutation.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb; do
             ruby -c "${f}"
             done
         shell: bash
@@ -157,8 +157,19 @@ jobs:
         run: bash .github/scripts/check-actions-pinned.sh
       - name: Verify CI contract
         run: ruby .github/scripts/test_ci_contract.rb
+      # AC6 (#679): the ruleset migration contract — a new required check must
+      # be added (and producible on merge_group) before old names are retired;
+      # the mutation probes prove each hazard is rejected and the pristine
+      # snapshot passes (red/restore/green).
+      - name: Verify ruleset migration contract
+        run: ruby .github/scripts/test_ci_contract_ruleset_migration_mutation.rb
       - name: Verify patch coverage policy
         run: ruby .github/scripts/test_codecov_patch.rb
+      # AC3 (#679): the changed-component router (pre-push) must fan out to the
+      # same lanes CI's pipeline-*.yml push paths do — a local pass cannot be
+      # skipped by CI path filtering and vice-versa.
+      - name: Verify CI routing consistency
+        run: ruby .github/scripts/test_ci_routing_consistency.rb
       # The head pinned by the early resolve step now runs collect + check. The
       # step exits non-zero when the live PR head advanced past the pin, when
       # collect cannot read GitHub state, or when check rejects — the required
