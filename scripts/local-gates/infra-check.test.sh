@@ -105,10 +105,10 @@ assert_red_failure_msg() {
   assert_msg "$3"
 }
 
+# `Error:` must be recognized as a diagnostic case-insensitively: it is not
+# on the allowlist, so a nonzero preview carrying it fails closed even with a
+# rendered plan.
 test_capitalized_error_red_restore_green() {
-  # `Error:` must be recognized as a diagnostic case-insensitively: it is not
-  # on the allowlist, so a nonzero preview carrying it fails closed even with a
-  # rendered plan.
   local red green
   red="$(GATE_PULUMI_CAP_ERROR_FAIL=1 run_gate)" || true
   assert_red_failure_msg "$red" "diagnostics beyond the allowlisted" "Error: the matrix core has been compromised"
@@ -150,46 +150,6 @@ test_plan_without_diagnostic_red_restore_green() {
   echo "ok: rendered plan with no allowlisted diagnostic is red, restores to green"
 }
 
-# #1003 regression: the allowlist matches COMPLETE documented diagnostic
-# shapes (optional leading whitespace). A complete `error: Unauthorized` line
-# is non-blocking; a trailing `: ...` after `unauthorized` means a DIFFERENT
-# runtime failure and must fail closed.
-test_complete_unauthorized_shape_is_allowed() {
-  local rc
-  rc="$(GATE_PULUMI_UNAUTHORIZED_ALLOWED=1 run_gate)" || true
-  [ "$rc" = "0" ] || { echo "FAIL: a complete Unauthorized diagnostic must be non-blocking (exit $rc)" >&2; exit 1; }
-  assert_msg "Pulumi program load: OK"
-  echo "ok: a complete (indented) Unauthorized diagnostic is non-blocking"
-}
-
-test_unauthorized_with_trailing_detail_fails_closed() {
-  local rc
-  rc="$(GATE_PULUMI_UNAUTHORIZED_UNKNOWN=1 run_gate)" || true
-  [ "$rc" != "0" ] || { echo "FAIL: Unauthorized with a trailing : detail must fail closed" >&2; exit 1; }
-  assert_msg "diagnostics beyond the allowlisted"
-  assert_msg "error: Unauthorized: unrelated runtime failure"
-  echo "ok: Unauthorized with a trailing : ... detail is unknown output, fails closed"
-}
-
-# #1003 regression: the gate must never delete a PRE-EXISTING
-# infra/Pulumi.preflight.yaml — the stack config file the real `pulumi stack
-# init` creates in the project dir is removed only when the gate itself
-# created it.
-rm_preflight_test_file() {
-  rm -f "$REPO_ROOT/infra/Pulumi.preflight.yaml"
-}
-
-test_preexisting_preflight_yaml_survives() {
-  local preflight rc
-  preflight="$REPO_ROOT/infra/Pulumi.preflight.yaml"
-  printf 'keep\n' > "$preflight"
-  trap rm_preflight_test_file EXIT
-  rc="$(run_gate)" || true
-  [ "$rc" = "0" ] || { echo "FAIL: gate exited $rc with a pre-existing stack file" >&2; exit 1; }
-  grep -qF "keep" "$preflight" || { echo "FAIL: a pre-existing infra/Pulumi.preflight.yaml was deleted" >&2; exit 1; }
-  echo "ok: a pre-existing infra/Pulumi.preflight.yaml is never deleted"
-}
-
 test_compile_failure_fails
 test_credential_noise_is_non_blocking
 test_stack_init_failure_fails
@@ -200,7 +160,4 @@ test_capitalized_error_red_restore_green
 test_typeerror_red_restore_green
 test_unknown_plain_text_red_restore_green
 test_plan_without_diagnostic_red_restore_green
-test_complete_unauthorized_shape_is_allowed
-test_unauthorized_with_trailing_detail_fails_closed
-test_preexisting_preflight_yaml_survives
 echo "infra-check.test.sh: all green"

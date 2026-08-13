@@ -15,11 +15,16 @@
 # GATE_PULUMI_TYPEERROR_FAIL (rendered plan + TypeError:), GATE_PULUMI_PLAIN_FAIL
 # (rendered plan + unknown plain text), GATE_PULUMI_PLAN_ONLY_FAIL (rendered
 # plan with no diagnostic at all), GATE_PULUMI_UNAUTHORIZED_ALLOWED (rendered
-# plan + a complete indented `error: Unauthorized` line), and
+# plan + a complete indented `error: Unauthorized` line),
 # GATE_PULUMI_UNAUTHORIZED_UNKNOWN (rendered plan + `error: Unauthorized:
 # unrelated runtime failure` — a trailing `: ...` after unauthorized is NOT
-# allowlisted). The default pulumi preview emission is the allowed-noise case:
-# a rendered plan line plus credential/provider noise, exiting nonzero.
+# allowlisted), and GATE_PULUMI_UNAUTHORIZED_MIXED (rendered plan + allowlisted
+# noise + the COMPACT `error:Unauthorized:unrelated-runtime-failure` — a PLAN_RE
+# `a:b:c` resource-row form the classifier must keep red via
+# is_unknown_diagnostic, the fail-open hole). The default pulumi preview
+# emission is the
+# allowed-noise case: a rendered plan line plus credential/provider noise,
+# exiting nonzero.
 set -u
 
 log() { printf '%s :: %s %s\n' "$PWD" "$(basename "$0")" "$*" >> "${GATE_TEST_LOG:?}"; }
@@ -56,6 +61,10 @@ case "$tool:$*" in
     elif [ "${GATE_PULUMI_UNAUTHORIZED_UNKNOWN:-}" = "1" ]; then
       printf 'Previewing update (preflight):\n'
       printf 'error: Unauthorized: unrelated runtime failure\n' >&2
+    elif [ "${GATE_PULUMI_UNAUTHORIZED_MIXED:-}" = "1" ]; then
+      printf 'Previewing update (preflight):\n'
+      printf 'error: Missing API token for cloudflare\n' >&2
+      printf 'error:Unauthorized:unrelated-runtime-failure\n' >&2
     else
       printf 'Previewing update (preflight):\n'
       printf 'error: Missing API token for cloudflare\n' >&2

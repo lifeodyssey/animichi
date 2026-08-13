@@ -105,26 +105,42 @@ test_contract_union_routing() {
 # with exactly one committed web change), so it always runs — it can never
 # skip on the live worktree's route (e.g. when the working tree edits these
 # very gate scripts) and the route can never include `scripts` (no recursion).
+configure_test_git() {
+  git config user.email gate@test.invalid
+  git config user.name "gate test"
+  git config commit.gpgsign false
+}
+
+# Pin the merge-base to the pre-change HEAD: the source repo's own main may be
+# stale (feature-branch work), which would make the clone's route depend on the
+# source state. With origin/main pinned, the router's merge-base diff is
+# exactly the committed web change.
+pin_origin_main() {
+  git update-ref refs/remotes/origin/main HEAD
+}
+
+commit_web_change() {
+  printf 'x\n' >> apps/web/a.ts
+  git add apps/web/a.ts
+  git commit -qm web-change
+}
+
+populate_web_probe() {
+  (
+    cd "$1" || exit
+    configure_test_git
+    pin_origin_main
+    commit_web_change
+  )
+}
+
 clone_deterministic_repo() {
   local dst="$1"
   git clone -q "$REPO_ROOT" "$dst"
   mkdir -p "$dst/scripts"
   cp -R "$SCRIPT_DIR/." "$dst/scripts/local-gates/"
   cp -R "$REPO_ROOT/.github/scripts" "$dst/.github"
-  (
-    cd "$dst" || exit
-    git config user.email gate@test.invalid
-    git config user.name "gate test"
-    git config commit.gpgsign false
-    # Pin the merge-base to the pre-change HEAD: the source repo's own main
-    # may be stale (feature-branch work), which would make the clone's route
-    # depend on the source state. With origin/main pinned, the router's
-    # merge-base diff is exactly the committed web change.
-    git update-ref refs/remotes/origin/main HEAD
-    printf 'x\n' >> apps/web/a.ts
-    git add apps/web/a.ts
-    git commit -qm web-change
-  )
+  populate_web_probe "$dst"
 }
 
 run_real_entry_in() {

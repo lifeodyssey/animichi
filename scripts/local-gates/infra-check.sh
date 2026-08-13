@@ -120,17 +120,22 @@ has_allowlisted_noise() {
   grep -qiE "$NOISE_RE" "$OUT"
 }
 
+# is_unknown_diagnostic: a diagnostic-prefixed line (any case) that the caller
+# has already checked is NOT on the allowlist is unknown output — it must never
+# be accepted as a rendered-plan row (an `error: Unauthorized: ...` detail is
+# a different runtime failure, not a plan line).
+is_unknown_diagnostic() {
+  grep -qiE '^[[:space:]]*(error|warning|info):' <<<"$1"
+}
+
 # classify_line: 0 = acceptable plan/noise line, 1 = unknown output. Whitespace-
 # only lines are plan separators. Anything that is neither an allowlisted
 # diagnostic nor a rendered-plan line is unknown plain text and fails closed.
 classify_line() {
-  local line="$1"
-  case "$line" in
-    *[![:space:]]*) ;;
-    *) return 0 ;;
-  esac
-  grep -qiE "$NOISE_RE" <<<"$line" && return 0
-  grep -qE "$PLAN_RE" <<<"$line" && return 0
+  grep -q '[^[:space:]]' <<<"$1" || return 0
+  grep -qiE "$NOISE_RE" <<<"$1" && return 0
+  is_unknown_diagnostic "$1" && return 1
+  grep -qE "$PLAN_RE" <<<"$1" && return 0
   return 1
 }
 

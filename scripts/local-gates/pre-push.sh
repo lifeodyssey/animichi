@@ -231,13 +231,21 @@ run_package_gates() {
 
 # ── run_full_scripts_suite: the gates' own behavioral tests (self-testing
 # orchestration surface, AC5).
+SCRIPT_SUITE=(
+  pre-push.test.sh
+  changed-packages.test.sh
+  db-fresh-schema.test.sh
+  infra-check.test.sh
+  infra-check-unauthorized.test.sh
+  pre-commit-config.test.sh
+  contract-drift.test.sh
+)
+
 run_full_scripts_suite() {
-  run bash scripts/local-gates/pre-push.test.sh
-  run bash scripts/local-gates/changed-packages.test.sh
-  run bash scripts/local-gates/db-fresh-schema.test.sh
-  run bash scripts/local-gates/infra-check.test.sh
-  run bash scripts/local-gates/pre-commit-config.test.sh
-  run bash scripts/local-gates/contract-drift.test.sh
+  local f
+  for f in "${SCRIPT_SUITE[@]}"; do
+    run bash "scripts/local-gates/$f"
+  done
 }
 
 # ── run_scripts_self_tests (AC5): an explicit `scripts` change runs the full
