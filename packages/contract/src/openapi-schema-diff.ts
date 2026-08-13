@@ -65,10 +65,32 @@ export function diffSchema(baseline: WireSchema, candidate: WireSchema, at: stri
   diffSameTypeSchema(baseline, candidate, at, out);
 }
 
-function diffSameTypeSchema(baseline: WireSchema, candidate: WireSchema, at: string, out: ApiChange[]): void {
+function gainedEnumConstraint(baseline: WireSchema, candidate: WireSchema, at: string, out: ApiChange[]): void {
+  if (baseline.enum === undefined && candidate.enum !== undefined) {
+    pushChange(out, "enum-constraint-added", at, "gained an enum constraint");
+  }
+}
+
+function lostEnumConstraint(baseline: WireSchema, candidate: WireSchema, at: string, out: ApiChange[]): void {
+  if (baseline.enum !== undefined && candidate.enum === undefined) {
+    pushChange(out, "enum-constraint-removed", at, "lost its enum constraint");
+  }
+}
+
+function diffEnumShape(baseline: WireSchema, candidate: WireSchema, at: string, out: ApiChange[]): void {
+  gainedEnumConstraint(baseline, candidate, at, out);
+  lostEnumConstraint(baseline, candidate, at, out);
   if (baseline.enum !== undefined && candidate.enum !== undefined) {
     diffEnumMembers(baseline.enum, candidate.enum, at, out);
-  } else if (baseline.type === "array") {
+  }
+}
+
+function diffSameTypeSchema(baseline: WireSchema, candidate: WireSchema, at: string, out: ApiChange[]): void {
+  if (baseline.enum !== undefined || candidate.enum !== undefined) {
+    diffEnumShape(baseline, candidate, at, out);
+    return;
+  }
+  if (baseline.type === "array") {
     diffArrayItems(baseline, candidate, at, out);
   } else if (baseline.type === "object") {
     diffObjectSchema(baseline, candidate, at, out);

@@ -35,6 +35,7 @@ export const BREAKING_KINDS = new Set([
   "schema-property-type-changed",
   "schema-property-required",
   "enum-member-removed",
+  "enum-constraint-added",
   "request-schema-removed",
   "response-schema-removed",
   "request-body-required",

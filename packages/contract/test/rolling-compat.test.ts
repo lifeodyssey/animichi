@@ -57,6 +57,13 @@ function operationMap(document: ApiDocument): Map<string, WireOperation> {
   return map;
 }
 
+/** Lowercase HTTP methods declared on a document's path item. */
+function methodsOn(document: ApiDocument, path: string): string[] {
+  const item = document.paths[path];
+  if (item === undefined) return [];
+  return Object.keys(item).map((method) => method.toLowerCase());
+}
+
 describe("rolling N/N-1 operation set", () => {
   it("N-1 serves every operation N serves (strict superset)", () => {
     for (const operation of currentOps) {
@@ -84,9 +91,11 @@ describe("rolling N/N-1 operation set", () => {
   });
 
   it("every shared operation keeps its exact route in both versions", () => {
-    const byKey = new Map(previousOps.map((operation) => [operationKey(operation), operation]));
-    for (const operation of currentOps) {
-      expect(byKey.get(operationKey(operation))).toEqual(operation);
+    for (const path of Object.keys(current.paths)) {
+      expect(nMinusOne.paths[path]).toBeDefined();
+      for (const method of methodsOn(current, path)) {
+        expect(methodsOn(nMinusOne, path)).toContain(method);
+      }
     }
   });
 

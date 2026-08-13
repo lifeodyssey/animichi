@@ -130,4 +130,17 @@ describe("enum changes", () => {
     expect(diff.breaking).toEqual([]);
     expect(diff.additive.map((change) => change.kind)).toEqual(["enum-member-added"]);
   });
+
+  it("classifies gaining an enum constraint as breaking", () => {
+    const candidate = doc({ "/v1/users/saved-routes": { post: op({ type: "object", properties: { status: { type: "string" } }, required: ["status"] }) } });
+    const diff = diffOpenApi(candidate, baseline);
+    expect(breakingKinds(diff)).toEqual(["enum-constraint-added"]);
+  });
+
+  it("classifies losing an enum constraint as additive", () => {
+    const candidate = doc({ "/v1/users/saved-routes": { post: op({ type: "object", properties: { status: { type: "string" } }, required: ["status"] }) } });
+    const diff = diffOpenApi(baseline, candidate);
+    expect(diff.breaking).toEqual([]);
+    expect(diff.additive.map((change) => change.kind)).toEqual(["enum-constraint-removed"]);
+  });
 });

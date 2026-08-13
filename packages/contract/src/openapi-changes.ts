@@ -20,6 +20,8 @@ export type ApiChangeKind =
   | "schema-property-optional"
   | "enum-member-added"
   | "enum-member-removed"
+  | "enum-constraint-added"
+  | "enum-constraint-removed"
   | "request-schema-added"
   | "request-schema-removed"
   | "response-schema-added"
@@ -44,6 +46,7 @@ const BREAKING_KIND: ReadonlySet<ApiChangeKind> = new Set<ApiChangeKind>([
   "schema-property-type-changed",
   "schema-property-required",
   "enum-member-removed",
+  "enum-constraint-added",
   "request-schema-removed",
   "response-schema-removed",
   "request-body-required",

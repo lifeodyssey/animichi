@@ -32,6 +32,7 @@ const CURRENT_USERS_DOC = join(PACKAGE_ROOT, "users-openapi.json");
 interface CliResult {
   readonly status: number | null;
   readonly stderr: string;
+  readonly stdout: string;
 }
 
 function runVet(baseline: string, candidate: string, flag?: string): CliResult {
@@ -40,7 +41,7 @@ function runVet(baseline: string, candidate: string, flag?: string): CliResult {
     cwd: PACKAGE_ROOT,
     encoding: "utf8",
   }) as CliResult;
-  return { status: result.status, stderr: result.stderr };
+  return { status: result.status, stderr: result.stderr, stdout: result.stdout };
 }
 
 function writeFixture(dir: string, name: string, document: ApiDocument): string {
@@ -82,13 +83,14 @@ describe("vet-openapi CLI", () => {
     tempDir = mkdtempSync(join(tmpdir(), "vet-gate-"));
     const additive = JSON.parse(JSON.stringify(baseline)) as ApiDocument;
     additive.paths["/v1/users/saved-routes/export"] = {
-      responses: { "200": { description: "OK" } },
+      get: { responses: { "200": { description: "OK" } } },
     };
     const baselinePath = writeFixture(tempDir, "baseline.json", baseline);
     const candidatePath = writeFixture(tempDir, "candidate.json", additive);
     const result = runVet(baselinePath, candidatePath);
     expect(result.status).toBe(0);
     expect(result.stderr).not.toContain("rejected:");
+    expect(result.stdout).toContain("/v1/users/saved-routes/export");
   });
 
   it("rejects a future major path unless the superseded operation is deprecated (exit 1)", () => {
