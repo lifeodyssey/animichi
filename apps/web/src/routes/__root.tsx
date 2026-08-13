@@ -11,6 +11,7 @@ import { NotFound } from "../components/NotFound";
 import { Splash } from "../components/Splash";
 import { THEME_BOOTSTRAP_SCRIPT } from "../components/theme-bootstrap";
 import { cfWebAnalyticsScripts } from "../features/seo/analytics";
+import { useFieldVitals } from "../features/telemetry/lib/use-field-vitals";
 import { SITE_ICON_LINKS, SITE_META } from "../features/seo/head";
 import { SITE_DESCRIPTION, SITE_TITLE } from "../features/seo/site";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../i18n/locales";
@@ -71,6 +72,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootComponent() {
+  useFieldVitals();
   return (
     <RootDocument>
       <Outlet />
