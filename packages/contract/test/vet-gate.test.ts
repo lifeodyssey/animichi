@@ -191,4 +191,9 @@ describe("pipeline-contract.yml compat gate wiring", () => {
     expect(workflow).not.toContain("'HEAD'");
     expect(workflow).toContain("no baseline SHA");
   });
+
+  it("maps the push-event before-SHA as the last baseline fallback", () => {
+    expect(workflow).toContain("PUSH_BEFORE_SHA: ${{ github.event.before }}");
+    expect(workflow).toContain('"$PUSH_BEFORE_SHA"');
+  });
 });

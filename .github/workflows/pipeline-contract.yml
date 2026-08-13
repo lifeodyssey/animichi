@@ -65,11 +65,13 @@ jobs:
     timeout-minutes: 10
     env:
       # Resolve the baseline context here (zizmor: keep `${{ }}` out of run:).
-      # The gate fails closed when neither context is present — a HEAD
-      # fallback would self-compare (`git merge-base HEAD HEAD`) and ungate
-      # every breaking change.
+      # PR/merge-group runs carry their base SHA; push runs carry the
+      # pre-push head as `before` (all zeros on a new branch). The gate fails
+      # closed when none are usable — a HEAD fallback would self-compare
+      # (`git merge-base HEAD HEAD`) and ungate every breaking change.
       PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
       MERGE_GROUP_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+      PUSH_BEFORE_SHA: ${{ github.event.before }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -101,6 +103,8 @@ jobs:
               BASE_SHA="$PR_BASE_SHA"
             elif [ -n "$MERGE_GROUP_BASE_SHA" ]; then
               BASE_SHA="$MERGE_GROUP_BASE_SHA"
+            elif [ -n "$PUSH_BEFORE_SHA" ] && [ "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+              BASE_SHA="$PUSH_BEFORE_SHA"
             else
               echo "::error::no baseline SHA available: this run is neither a pull_request nor a merge_group event, so the published baseline cannot be resolved. Run the gate from a pull request or the merge queue." >&2
               exit 1
