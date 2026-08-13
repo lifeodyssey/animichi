@@ -148,6 +148,8 @@ jobs:
       ATLAS_VERSION: "0.30.0"
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
       NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+      # Settings requires presence; integration tests never call the gateway, so a placeholder satisfies the validator.
+      ZEN_GO_API_KEY: test-key
       # Settings requires presence; integration tests do not use these endpoints.
       SUPABASE_DB_URL: postgresql://test:test@localhost:5432/test
       MIMO_API_KEY: test-key
