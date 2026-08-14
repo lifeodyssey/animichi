@@ -274,7 +274,7 @@ class_name = "EdgeGuard"
 [[env.production.ratelimits]]
 name = "RATE_LIMITER"
 # Chosen integer, distinct per environment so production counters stay
-# independent of dev/staging. Do not reuse across unrelated bindings.
+# independent of local/staging. Do not reuse across unrelated bindings.
 namespace_id = "100003"
 simple = { limit = 60, period = 60 }
 
@@ -431,7 +431,7 @@ class_name = "EdgeGuard"
 [[env.staging.ratelimits]]
 name = "RATE_LIMITER"
 # Chosen integer, distinct per environment so staging counters stay
-# independent of dev/production. Do not reuse across unrelated bindings.
+# independent of local/production. Do not reuse across unrelated bindings.
 namespace_id = "100002"
 simple = { limit = 60, period = 60 }
 
@@ -454,7 +454,7 @@ new_sqlite_classes = ["EdgeGuard"]
 # the dashboard), e.g. "1001" — and a simple fixed window { limit, period }
 # where period is 10 or 60. Wrangler requires the binding in every named
 # environment, so it is repeated under [env.production] and [env.staging] as
-# distinct ids (100001/100002/100003) so dev/staging/production counters stay
+# distinct ids (100001/100002/100003: base/local default, staging, production) so local/staging/production counters stay
 # independent. Do NOT reuse a namespace_id for any unrelated binding on the
 # same account: two bindings sharing one namespace_id share one global
 # counter (intentional cross-Worker sharing). Absent the binding entirely the
@@ -463,7 +463,7 @@ new_sqlite_classes = ["EdgeGuard"]
 [[ratelimits]]
 name = "RATE_LIMITER"
 # namespace_id is a CHOSEN positive integer (per CF docs, not a dashboard/
-# API-provisioned resource). 100001 is the base/dev namespace. Do NOT reuse
+# API-provisioned resource). 100001 is the base (local default) namespace — used by `wrangler dev` and un-named deploys; there is no dev environment, only staging and production. Do NOT reuse
 # this id for any other binding on this account: two bindings that share a
 # namespace_id share one global counter (intentional cross-Worker sharing).
 namespace_id = "100001"
