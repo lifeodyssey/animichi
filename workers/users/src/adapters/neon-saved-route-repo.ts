@@ -42,7 +42,7 @@ function requireSavedRouteRow(value: RecordRow): { id: string; title: unknown; s
 }
 
 /** Narrow and normalize one raw database row into the public saved-route model. */
-function toSavedRoute(value: unknown): SavedRoute {
+export function toSavedRoute(value: unknown): SavedRoute {
   if (!isRecord(value)) throw new Error("invalid saved route row");
   const { id, title, status } = requireSavedRouteRow(value);
   const safeTitle = typeof title === "string" ? title : "";
@@ -53,7 +53,7 @@ function toSavedRoute(value: unknown): SavedRoute {
 }
 
 /** The columns every read / RETURNING path selects, so callers get one shape. */
-function savedRouteReturning() {
+export function savedRouteReturning() {
   return {
     id: savedRoutes.id, title: savedRoutes.title, point_ids: savedRoutes.pointIds,
     status: savedRoutes.status, saved_at: savedRoutes.savedAt, updated_at: savedRoutes.updatedAt,

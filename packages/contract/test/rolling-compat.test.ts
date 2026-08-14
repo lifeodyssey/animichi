@@ -64,6 +64,17 @@ function methodsOn(document: ApiDocument, path: string): string[] {
   return Object.keys(item).map((method) => method.toLowerCase());
 }
 
+/** The request + success-response wire surface a client depends on; additive
+ * optional headers and new error responses (issue #1011) are excluded because
+ * they never change what N-1 clients send or receive on success. */
+function clientWireShape(operation: WireOperation | undefined): unknown {
+  if (operation === undefined) return undefined;
+  return {
+    requestBody: operation.requestBody,
+    success: operation.responses["200"],
+  };
+}
+
 describe("rolling N/N-1 operation set", () => {
   it("N-1 serves every operation N serves (strict superset)", () => {
     for (const operation of currentOps) {
@@ -106,19 +117,26 @@ describe("rolling N/N-1 operation set", () => {
 });
 
 describe("rolling N/N-1 wire compatibility", () => {
-  it("the N-1 → N transition classifies as exactly the phantom cut", () => {
+  it("the N-1 → N transition is the phantom cut plus the additive issue-#1011 surface", () => {
     const diff = diffOpenApi(nMinusOne, current);
     const kinds = diff.breaking.map((item) => item.kind);
     expect(kinds).toHaveLength(5);
     expect(kinds.every((kind) => kind === "endpoint-removed")).toBe(true);
-    expect(diff.additive).toEqual([]);
+    // Issue #1011 adds an optional Idempotency-Key header and a typed 400
+    // (IDEMPOTENCY_KEY_INVALID) and 409 to saveSavedRoute. All three are
+    // additive on a shared operation — they never change the request/success
+    // wire shape an N-1 client relies on.
+    expect(diff.additive.map((item) => item.message)).toEqual([
+      "POST /v1/users/saved-routes gained 400 error response",
+      "POST /v1/users/saved-routes gained 409 error response",
+    ]);
   });
 
-  it("every shared operation keeps its exact wire shape in both versions", () => {
+  it("every shared operation keeps its client-facing wire shape in both versions", () => {
     const previousByKey = operationMap(nMinusOne);
     const currentByKey = operationMap(current);
     for (const key of currentKeys) {
-      expect(previousByKey.get(key)).toEqual(currentByKey.get(key));
+      expect(clientWireShape(previousByKey.get(key))).toEqual(clientWireShape(currentByKey.get(key)));
     }
   });
 

@@ -78,9 +78,11 @@ describe("additive changes pass", () => {
   });
 
   it("adding an error response is additive and passes", () => {
+    // 422 is not yet declared on the committed POST (issue #1011 added 409);
+    // a genuinely new error response must be approved without approval flags.
     const candidate = clone(BASELINE);
     const responses = candidate.paths["/v1/users/saved-routes"].post.responses;
-    responses["409"] = { description: "conflict" };
+    responses["422"] = { description: "conflict" };
     const result = vetOpenApiDiff(BASELINE, candidate, { allowBreaking: false });
     expect(result.approved).toBe(true);
     expect(result.additive.some((change) => change.kind === "error-response-added")).toBe(true);

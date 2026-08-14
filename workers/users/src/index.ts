@@ -1,7 +1,9 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { Hono, type Context, type MiddlewareHandler, type Next } from "hono";
+import { IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_MAX_LENGTH } from "@animichi/contract";
 import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER } from "@animichi/contract/internal-binding";
 import { makeDb as realMakeDb, type UsersDb } from "./db/client";
+import { USERS_ERRORS } from "./lib/errors";
 import { usersRouter, type UsersContext } from "./router";
 
 /** Users Worker bindings. Secrets are supplied outside wrangler vars. */
@@ -48,6 +50,12 @@ const unauthorized = {
   error: { code: "unauthorized", message: "Valid credentials required." },
 };
 
+/** Typed 400 envelope for an over-long Idempotency-Key (abuse-bounded #1011). */
+const idempotencyKeyInvalid = {
+  defined: true, code: "IDEMPOTENCY_KEY_INVALID", status: 400,
+  message: USERS_ERRORS.IDEMPOTENCY_KEY_INVALID.message, data: {},
+};
+
 function isResponse(value: unknown): value is Response {
   return value instanceof Response;
 }
@@ -86,7 +94,7 @@ async function handleMatched(
   c: Context<{ Bindings: Env }>,
   next: Next,
   apiHandler: OpenAPIHandler<UsersContext>,
-  context: { db: UsersDb; userId: string },
+  context: UsersContext,
 ): Promise<Response | undefined> {
   const { matched, response } = await apiHandler.handle(c.req.raw, { context });
   if (matched) return c.newResponse(response.body, response);
@@ -106,7 +114,14 @@ async function guardUsersV1(
   if (isResponse(ready)) return ready;
   const userId = edgeIdentity(c);
   if (userId === null) return c.json(unauthorized, 401);
-  return handleMatched(c, next, service.apiHandler, { db: ready.db, userId });
+  // The retry-safe create key, forwarded unchanged from the edge; the save
+  // handler only honors it for a create (no id). Reject an over-long token
+  // here, before dispatch, so the ledger never sees an unbounded PK key value.
+  const idempotencyKey = c.req.header(IDEMPOTENCY_KEY_HEADER);
+  if (idempotencyKey !== undefined && idempotencyKey.length > IDEMPOTENCY_KEY_MAX_LENGTH) {
+    return c.json(idempotencyKeyInvalid, 400);
+  }
+  return handleMatched(c, next, service.apiHandler, { db: ready.db, userId, idempotencyKey });
 }
 
 /** Create an independently injectable Users Hono application. */
