@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { createAuthClient } from "better-auth/client";
+import { currentRuntimeConfig } from "../runtime-config/provider";
 
 /** Root-route auth gate state; `pending` renders the anonymous Landing (S5.5). */
 export type AuthStatus = "pending" | "authenticated" | "anonymous";
 
 function authBaseUrl(): string | undefined {
-  const value = import.meta.env.VITE_NEON_AUTH_BASE_URL;
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  return currentRuntimeConfig().neonAuthBaseUrl;
 }
 
 async function resolveAuthStatus(): Promise<AuthStatus> {

@@ -18,6 +18,8 @@ import {
   clearTurnstileToken,
   rememberTurnstileToken,
 } from "../../../src/lib/turnstile/token-store";
+import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../src/lib/runtime-config/provider";
+import { DEFAULT_RUNTIME_CONFIG } from "../../../src/lib/runtime-config/runtime-config";
 import { TEST_ORIGIN } from "../../msw/fixtures";
 import { server } from "../../msw/node";
 import { makeJpegWithExif } from "../shiori/_jpeg-fixtures";
@@ -32,7 +34,7 @@ const CHALLENGED = {
 
 beforeEach(() => {
   clearTurnstileToken();
-  vi.stubEnv("VITE_TURNSTILE_SITE_KEY", SITE_KEY);
+  vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, turnstileSiteKey: SITE_KEY });
 });
 
 afterEach(() => {
@@ -87,7 +89,7 @@ describe("the shared header path waits for the widget", () => {
   });
 
   it("resolves headers straight away when this build renders no widget", async () => {
-    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "");
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
     vi.stubEnv("DEV", false);
     let wasSettled = false;
     void sessionHeaders().then(() => { wasSettled = true; });
@@ -123,7 +125,7 @@ describe("an upload waits for the challenge instead of walking into a 403", () =
   });
 
   it("does not wait at all when this build renders no widget", async () => {
-    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "");
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
     vi.stubEnv("DEV", false);
     const seen: (string | null)[] = [];
     tokenSpy(seen);

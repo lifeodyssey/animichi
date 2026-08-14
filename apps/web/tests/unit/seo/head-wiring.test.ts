@@ -7,21 +7,21 @@ import { rootHead } from "../../../src/routes/__root";
 /** A head fragment is only SEO if a route actually emits it. */
 describe("root route head", () => {
   it("titles and describes the document with the budgeted site copy", () => {
-    expect(rootHead.meta).toContainEqual({ title: SITE_TITLE });
-    expect(rootHead.meta).toContainEqual({ name: "description", content: SITE_DESCRIPTION });
+    expect(rootHead().meta).toContainEqual({ title: SITE_TITLE });
+    expect(rootHead().meta).toContainEqual({ name: "description", content: SITE_DESCRIPTION });
   });
 
   it("emits every og and twitter tag", () => {
     for (const tag of SITE_META) {
-      expect(rootHead.meta).toContainEqual(tag);
+      expect(rootHead().meta).toContainEqual(tag);
     }
   });
 
   it("emits the brand icons without dropping the stylesheet", () => {
     for (const link of SITE_ICON_LINKS) {
-      expect(rootHead.links).toContainEqual(link);
+      expect(rootHead().links).toContainEqual(link);
     }
-    expect(rootHead.links.some((link) => link.rel === "stylesheet")).toBe(true);
+    expect(rootHead().links.some((link) => link.rel === "stylesheet")).toBe(true);
   });
 });
 

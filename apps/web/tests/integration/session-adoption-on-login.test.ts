@@ -27,6 +27,8 @@ import { dictFor } from "../../src/i18n/dictionaries";
 const auth = dictFor("en").auth;
 import { clearAuthToken } from "../../src/lib/auth/auth-session";
 import { SESSION_ADOPT_PATH } from "../../src/lib/auth/session-adoption";
+import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../src/lib/runtime-config/provider";
+import { DEFAULT_RUNTIME_CONFIG } from "../../src/lib/runtime-config/runtime-config";
 
 const NEON_AUTH = "http://localhost:3000/neondb/auth";
 const ADOPT_URL = "http://localhost:3000/v1/sessions/adopt";
@@ -75,7 +77,7 @@ beforeAll(() => { server.listen({ onUnhandledRequest: "error" }); });
 afterAll(() => { server.close(); });
 
 beforeEach(() => {
-  vi.stubEnv("VITE_NEON_AUTH_BASE_URL", NEON_AUTH);
+  vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, neonAuthBaseUrl: NEON_AUTH });
   observed.length = 0;
   localStorage.clear();
   clearAuthToken();
@@ -84,7 +86,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   server.resetHandlers();
-  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 /** The real component, the real hook, the real defaults — no injection. */

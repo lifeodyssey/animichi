@@ -13,24 +13,26 @@ vi.mock("better-auth/client", () => ({
 vi.mock("better-auth/client/plugins", () => ({ jwtClient, magicLinkClient: () => ({}) }));
 
 import { fetchAuthToken, isNeonAuthConfigured, sendMagicLink } from "../../src/lib/auth/neon-auth";
+import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../src/lib/runtime-config/provider";
+import { DEFAULT_RUNTIME_CONFIG } from "../../src/lib/runtime-config/runtime-config";
 
 const request = { email: "fan@example.com", callbackURL: "https://app.test/auth/callback" };
 
 beforeEach(() => {
-  // Hermetic baseline: neutralize any ambient VITE_NEON_AUTH_BASE_URL (e.g. a dev
-  // machine's apps/web/.env.local) so "unset" cases don't false-red. Passing
-  // undefined deletes the key from import.meta.env (vitest vi.stubEnv contract).
-  vi.stubEnv("VITE_NEON_AUTH_BASE_URL", undefined);
+  // Hermetic baseline: neutralize any ambient Neon Auth base URL (e.g. a dev
+  // machine's injected runtime config) so "unset" cases don't false-red. The
+  // value now lives in the versioned runtime config global (#1013 AC1).
+  vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
   createAuthClient.mockReturnValue({ signIn: { magicLink }, token });
 });
 
 afterEach(() => {
-  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
 function configure(base = "https://auth.test/neondb/auth"): void {
-  vi.stubEnv("VITE_NEON_AUTH_BASE_URL", base);
+  vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, neonAuthBaseUrl: base });
 }
 
 describe("neon auth magic link", () => {
@@ -40,8 +42,11 @@ describe("neon auth magic link", () => {
     expect(magicLink).not.toHaveBeenCalled();
   });
 
-  it("treats an empty base URL as unconfigured", () => {
-    vi.stubEnv("VITE_NEON_AUTH_BASE_URL", "");
+  it("treats an unset base URL as unconfigured", () => {
+    // An explicitly-empty value is rejected at load by the runtime-config
+    // schema (fail-closed, covered by the loader's tests); an ABSENT field is
+    // the documented "auth not configured" shape.
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
     expect(isNeonAuthConfigured()).toBe(false);
   });
 

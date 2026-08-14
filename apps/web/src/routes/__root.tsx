@@ -11,6 +11,7 @@ import { NotFound } from "../components/NotFound";
 import { Splash } from "../components/Splash";
 import { THEME_BOOTSTRAP_SCRIPT } from "../components/theme-bootstrap";
 import { cfWebAnalyticsScripts } from "../features/seo/analytics";
+import { currentRuntimeConfig, RUNTIME_CONFIG_GLOBAL_KEY } from "../lib/runtime-config/provider";
 import { useFieldVitals } from "../features/telemetry/lib/use-field-vitals";
 import { SITE_ICON_LINKS, SITE_META } from "../features/seo/head";
 import { SITE_DESCRIPTION, SITE_TITLE } from "../features/seo/site";
@@ -40,33 +41,50 @@ type RootDocumentProps = Readonly<{
   children: ReactNode;
 }>;
 
-export const rootHead = {
-  links: [
-    { rel: "stylesheet", href: globalsUrl },
-    ...FONT_PRELOADS,
-    ...SITE_ICON_LINKS,
-  ],
-  // Pre-hydration theme init: every route honors the stored preference,
-  // and the landing page cannot flash the day default. The Cloudflare Web
-  // Analytics beacon joins the head only in production builds with an
-  // injected token (see features/seo/analytics.ts).
-  scripts: [
+
+/** Inline script that seeds the versioned runtime config global once (#1013).
+ * Uses `?? ` so an earlier-set value (deploy injection or the E2E seam) wins
+ * over the SSR default — the ONE artifact never re-bakes env after the browser
+ * provides it. */
+export function runtimeConfigInlineScript(config: ReturnType<typeof currentRuntimeConfig>): string {
+  const key = JSON.stringify(RUNTIME_CONFIG_GLOBAL_KEY);
+  const payload = JSON.stringify(config);
+  return 'window[' + key + '] ??= ' + payload + ';';
+}
+
+const ROOT_LINKS = [
+  { rel: "stylesheet", href: globalsUrl },
+  ...FONT_PRELOADS,
+  ...SITE_ICON_LINKS,
+];
+
+// Social-card defaults live at the root so every route has a card; deeper
+// routes override `title` only, which is why og:title stays the site title.
+const ROOT_META = [
+  { charSet: "utf-8" },
+  { name: "viewport", content: "width=device-width, initial-scale=1" },
+  { title: SITE_TITLE },
+  { name: "description", content: SITE_DESCRIPTION },
+  ...SITE_META,
+];
+
+/** Pre-hydration theme init + the versioned runtime config seed (so browser
+ * and SSR agree); the beacon joins only in PRODUCTION with a token (#1013). */
+function rootScripts(config: ReturnType<typeof currentRuntimeConfig>) {
+  return [
     { children: THEME_BOOTSTRAP_SCRIPT },
-    ...cfWebAnalyticsScripts(import.meta.env.VITE_CF_BEACON_TOKEN, import.meta.env.PROD),
-  ],
-  // Social-card defaults live at the root so every route has a card; deeper
-  // routes override `title` only, which is why og:title stays the site title.
-  meta: [
-    { charSet: "utf-8" },
-    { name: "viewport", content: "width=device-width, initial-scale=1" },
-    { title: SITE_TITLE },
-    { name: "description", content: SITE_DESCRIPTION },
-    ...SITE_META,
-  ],
-};
+    ...cfWebAnalyticsScripts(config.cfBeaconToken, import.meta.env.PROD),
+  ];
+}
+
+/** Root head, resolved per render so the runtime config is live (#1013). */
+export function rootHead() {
+  const config = currentRuntimeConfig();
+  return { links: ROOT_LINKS, scripts: rootScripts(config), meta: ROOT_META };
+}
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  head: () => rootHead,
+  head: rootHead,
   component: RootComponent,
   notFoundComponent: () => <NotFound />,
 });
@@ -115,12 +133,22 @@ export function SkipLink({ lang }: { readonly lang: Locale }) {
   );
 }
 
+/** Body-level runtime-config seed (#1013), independent of head serialization. */
+function RuntimeConfigSeed() {
+  return (
+    <script
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{ __html: runtimeConfigInlineScript(currentRuntimeConfig()) }}
+    />
+  );
+}
+
 function RootDocument({ children }: RootDocumentProps) {
   const lang = langFromMatches(useMatches());
   return (
     <html lang={lang}>
       <head><HeadContent /></head>
-      <body><Splash /><SkipLink lang={lang} /><div id="main-content" tabIndex={-1}>{children}</div><Scripts /></body>
+      <body><Splash /><SkipLink lang={lang} /><RuntimeConfigSeed /><div id="main-content" tabIndex={-1}>{children}</div><Scripts /></body>
     </html>
   );
 }

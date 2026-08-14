@@ -1,4 +1,5 @@
 import { resolveAgentBaseUrl } from "../../api/config";
+import { currentRuntimeConfig } from "../runtime-config/provider";
 
 /**
  * Anonymous -> signed-in session ownership adoption (SESSION-2 #960).
@@ -77,7 +78,7 @@ async function post(url: string, token: string): Promise<SessionAdoptionOutcome>
 
 function defaultAdoptBaseUrl(): string {
   return resolveAgentBaseUrl(
-    import.meta.env,
+    currentRuntimeConfig().api,
     typeof window === "undefined" ? undefined : window.location,
   );
 }

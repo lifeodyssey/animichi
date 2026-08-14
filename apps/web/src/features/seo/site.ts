@@ -5,11 +5,10 @@ import { LOCALES } from "../../i18n/locales";
  * The single definition site for the production origin (SD-0: the apex is
  * canonical, `www` 301s onto it).
  *
- * It is a constant rather than a `VITE_*` read on purpose: `VITE_*` values are
- * inlined at build time, and the origin variable the deploy injects
- * (`VITE_SITE_ORIGIN`) feeds the API base URLs, not SEO meta — reusing it for
- * the canonical would silently ship relative canonicals on any build where the
- * var is unset (`""`). `public/robots.txt` and `public/sitemap.xml` are copied
+ * It is a constant rather than a runtime-config read on purpose: the
+ * `api.siteOrigin` field feeds the API base URLs, not SEO meta — reusing it
+ * for the canonical would silently ship relative canonicals on any deploy
+ * where the field is unset. `public/robots.txt` and `public/sitemap.xml` are copied
  * verbatim and cannot be templated at all, so the origin has to be a literal
  * somewhere; keeping exactly one literal — asserted by a test — makes a future
  * domain change a one-line edit.
