@@ -5,8 +5,10 @@ import { catalogRouter } from "./router";
 import type { CatalogDb } from "./db/client";
 import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
 import type { IngestResult } from "./ingest/ingest-bangumi";
-import { SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "./cron-config";
+import { DAILY_DISCOVER_CRON, SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "./cron-config";
 import { listDoneBangumiIds, listStaleBangumiIds } from "./ingest/cron-queries";
+import { catalogDailyRun } from "./ingest/catalog-daily-run";
+import { buildDailyInventory } from "./ingest/daily-discovery";
 import { SEED_BANGUMI_IDS, SEED_BANGUMI } from "./ingest/seed-works";
 import { serveImage } from "./media/img";
 
@@ -161,6 +163,7 @@ export interface CronDependencies {
   ingestBangumi: (db: CatalogDb, bangumiId: string) => Promise<IngestResult>;
   listDoneBangumiIds: (db: CatalogDb, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
   listStaleBangumiIds: (db: CatalogDb, cap: number) => Promise<readonly string[]>;
+  runDailyIngest: (db: CatalogDb) => Promise<unknown>;
 }
 
 const DEFAULT_DEPENDENCIES: CronDependencies = {
@@ -168,6 +171,7 @@ const DEFAULT_DEPENDENCIES: CronDependencies = {
   ingestBangumi: (db, bangumiId) => catalogIngestBangumi(db).ingest(bangumiId),
   listDoneBangumiIds,
   listStaleBangumiIds,
+  runDailyIngest: (db) => runDailyJob(db),
 };
 
 export function createScheduledHandler(
@@ -188,6 +192,10 @@ async function runCron(
 ): Promise<CronJobResult> {
   if (cron === SEED_CRON) return runSeedJob(db, dependencies);
   if (cron === TTL_REFRESH_CRON) return runTtlJob(db, dependencies);
+  if (cron === DAILY_DISCOVER_CRON) {
+    await dependencies.runDailyIngest(db);
+    return { attempted: 0, ingested: 0, skipped: 0 };
+  }
   throw new Error(`Unknown catalog cron: ${cron}`);
 }
 
@@ -210,6 +218,23 @@ export async function runTtlJob(
 ): Promise<CronJobResult> {
   const stale = await dependencies.listStaleBangumiIds(db, TTL_BATCH_CAP);
   return ingestBatch(db, dependencies, stale.slice(0, TTL_BATCH_CAP));
+}
+
+/** The production daily discovery + ingest run (#1006). */
+export async function runDailyJob(db: CatalogDb): Promise<unknown> {
+  const inventory = await buildDailyInventory(db);
+  return catalogDailyRun(db, Date.now(), inventory, dailyPolicy());
+}
+
+/** Production budget/tier policy for the daily run (operational config, not magic). */
+function dailyPolicy() {
+  return {
+    staleRunningMs: 6 * 60 * 60 * 1000,
+    tierIntervals: { high: 24 * 60 * 60 * 1000, medium: 7 * 24 * 60 * 60 * 1000, low: 30 * 24 * 60 * 60 * 1000 },
+    newWorkCap: 20,
+    keepHistory: 2,
+    budget: { workLimit: 50, requestLimit: 400, runtimeLimitMs: 10 * 60 * 1000 },
+  };
 }
 
 /** Sequential per-work ingest; one failure never aborts the rest of the batch. */

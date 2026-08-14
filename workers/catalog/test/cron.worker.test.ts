@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "../src/cron-config";
+import { DAILY_DISCOVER_CRON, SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "../src/cron-config";
 import {
   createScheduledHandler,
   runSeedJob,
@@ -26,6 +26,7 @@ function dependencies(overrides: Partial<CronDependencies> = {}): CronDependenci
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue(INGESTED),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set<string>()),
     listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([]),
+    runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -59,6 +60,17 @@ describe("scheduled handler", () => {
     expect(stale).toHaveBeenCalledWith(db, TTL_BATCH_CAP);
     expect(deps.listDoneBangumiIds).not.toHaveBeenCalled();
     expect(deps.ingestBangumi).toHaveBeenCalledTimes(2);
+  });
+
+  it("routes the daily 06:00 UTC discovery cron to the daily run", async () => {
+    const deps = dependencies();
+    const runDaily = vi.mocked(deps.runDailyIngest);
+
+    await createScheduledHandler(deps)({ cron: DAILY_DISCOVER_CRON }, ENV);
+
+    expect(DAILY_DISCOVER_CRON).toBe("0 6 * * *");
+    expect(runDaily).toHaveBeenCalledTimes(1);
+    expect(deps.ingestBangumi).not.toHaveBeenCalled();
   });
 
   it("fails closed when the catalog DSN is absent", async () => {

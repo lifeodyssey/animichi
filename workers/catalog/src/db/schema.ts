@@ -23,7 +23,7 @@
 
 import { sql } from "drizzle-orm";
 import {
-  boolean, customType, doublePrecision, integer, jsonb, pgTable, real,
+  bigserial, boolean, customType, doublePrecision, integer, jsonb, pgTable, real,
   text, timestamp, uuid,
 } from "drizzle-orm/pg-core";
 
@@ -200,4 +200,42 @@ export const savedRouteAnime = pgTable("saved_route_anime", {
   savedRouteId: uuid("saved_route_id").notNull(),
   bangumiId: text("bangumi_id").notNull().references(() => bangumi.id),
   position: integer("position").notNull().default(0),
+});
+
+// 20260812000000_catalog_daily_run.sql — durable daily discovery/ingest run (AC1).
+export const catalogRuns = pgTable("catalog_runs", {
+  runId: text("run_id").primaryKey(),
+  status: text("status").notNull().default("pending"),
+  targets: jsonb("targets"),
+  sourceOutcomes: jsonb("source_outcomes"),
+  budgetUsed: jsonb("budget_used"),
+  failures: jsonb("failures"),
+  publishedVersions: jsonb("published_versions"),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 20260812000000_catalog_daily_run.sql — latest+previous raw payload history (AC5).
+export const rawPayloadHistory = pgTable("raw_payload_history", {
+  seq: bigserial("seq", { mode: "number" }).primaryKey(),
+  workId: text("work_id").notNull(),
+  source: text("source").notNull(),
+  payload: jsonb("payload").notNull(),
+  runId: text("run_id"),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// 20260812000000_catalog_daily_run.sql — provenance/attribution/source-map (AC4).
+export const catalogProvenance = pgTable("catalog_provenance", {
+  id: uuid("id").default(sql`uuidv7()`).primaryKey(),
+  scope: text("scope").notNull(),
+  entityId: text("entity_id").notNull(),
+  workId: text("work_id"),
+  source: text("source").notNull(),
+  upstreamId: text("upstream_id"),
+  attribution: text("attribution"),
+  license: text("license"),
+  fieldMap: jsonb("field_map"),
+  capturedAt: timestamp("captured_at", { withTimezone: true }).defaultNow().notNull(),
 });

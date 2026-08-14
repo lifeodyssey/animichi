@@ -14,3 +14,6 @@ export const SEED_CRON = "0 4 * * *";
 export const TTL_REFRESH_CRON = "17 * * * *";
 /** TTL refresh batch cap — one run never ingests more works than this. */
 export const TTL_BATCH_CAP = 5;
+
+/** Daily discovery + ingest — one durable production run per UTC day. */
+export const DAILY_DISCOVER_CRON = "0 6 * * *";
