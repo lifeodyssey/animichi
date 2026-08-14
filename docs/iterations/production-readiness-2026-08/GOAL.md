@@ -1,6 +1,6 @@
 # GOAL — Animichi Production Readiness
 
-- Status: ACTIVE — spec reviewed; tickets published; owner approved breakdown; execution has started with the #992 and #1009 lanes
+- Status: ACTIVE — 2026-08-14 checkpoint. Merged: #992 wave (#993–#1002 via PR #1031), #1003 (#1023), #1005 (#1022), #1008 (#1021), #1009 (#1020), #1010, #1011 (#1033), #1013, #1015, #1006 (#1032), #1012 (#1034), #1014 (#1035), #679, #680. Open PR: #1000 → #1036 (staging-neutral removal; production deploy-surface changes and AC1 verification DEFERRED to closeout, tracked in **#1037**). Owner-gated remainder: #1001 staging rebuild (HITL) → unblocks #1016 (includes per-env schedule config per spec §173/§183) → #678; #1017 waits on external #666/#655; #1018 closeout waits on terminal evidence incl. #1037 items; Neon test-base cleanup awaiting owner authorization.
 - Spec: GitHub #1004 and `docs/specs/2026-08-13-production-readiness-refactor-spec.md`
 - Final gate: #1018
 - Authority: this file replaces the former repo-closeout/refactor-skeleton execution board; ADRs remain authoritative for architectural decisions
