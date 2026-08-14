@@ -28,7 +28,10 @@ function dependencies(overrides: Partial<CronDependencies> = {}): CronDependenci
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue(INGESTED),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set<string>()),
     listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([]),
-    runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue(undefined),
+    runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue("complete"),
+    snapshotStore: vi.fn<CronDependencies["snapshotStore"]>().mockReturnValue(null),
+    publishRun: vi.fn<CronDependencies["publishRun"]>().mockResolvedValue({ status: "invalid", reason: "no-op" }),
+    gcSnapshots: vi.fn<CronDependencies["gcSnapshots"]>().mockResolvedValue({ deleted: 0, retained: [] }),
     ...overrides,
   };
 }

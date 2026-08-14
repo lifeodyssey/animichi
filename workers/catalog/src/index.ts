@@ -13,6 +13,13 @@ import { fetchCurrentSeason } from "./ingest/season";
 import type { SourceConfig } from "./ingest/sources";
 import { SEED_BANGUMI_IDS, SEED_BANGUMI } from "./ingest/seed-works";
 import { serveImage } from "./media/img";
+import { mountSnapshotRoutes } from "./api/snapshot";
+import type { ObjectStore } from "./publish/object-store";
+import { r2ObjectStore } from "./publish/object-store";
+import { publishSnapshot, type PublishResult } from "./publish/snapshot";
+import { gcSnapshots, type GcResult } from "./publish/snapshot-gc";
+import type { RunStatus } from "./ingest/daily-run";
+import { publishAfterRun } from "./publish/daily-snapshot";
 
 export interface Env {
   ENVIRONMENT?: string;
@@ -22,9 +29,15 @@ export interface Env {
   DATABASE_URL?: string | SecretsStoreSecret;
   /** R2 bucket for lazy-cached pilgrimage point photos (see media/img.ts). */
   MEDIA_BUCKET?: R2Bucket;
+  /** R2 bucket for immutable public catalog snapshots (issue #1012, see publish/). */
+  SNAPSHOT_BUCKET?: R2Bucket;
+  /** Operational secret guarding POST /catalog/snapshot/rollback (401 when wrong). */
+  SNAPSHOT_ADMIN_TOKEN?: string;
 }
 
 export const app = new Hono<{ Bindings: Env }>();
+
+mountSnapshotRoutes(app);
 
 app.get("/healthz", (c) =>
   c.json({ status: "ok", service: "catalog", env: c.env.ENVIRONMENT ?? "unknown" }),
@@ -42,12 +55,7 @@ app.use("/catalog/public/*", async (c, next) => {
 
 const apiHandler = new OpenAPIHandler(catalogRouter);
 
-/**
- * Prefer an explicitly provided pooled binding; otherwise use the Neon URL.
- * In staging the DSN arrives as a Secrets Store binding (#912 PR2): the value
- * is a SecretsStoreSecret whose `.get()` resolves the string. The string
- * branch keeps local dev (.dev.vars) and tests working unchanged.
- */
+/** Prefer HYPERDRIVE, else the Neon URL / Secrets Store secret (#912 PR2). */
 async function connectionString(env?: Env): Promise<string | undefined> {
   if (env?.HYPERDRIVE?.connectionString) return env.HYPERDRIVE.connectionString;
   const url = env?.DATABASE_URL;
@@ -118,13 +126,7 @@ app.use("/catalog/*", async (c, next) => {
 export { catalogRouter };
 export type { CatalogRouter } from "./router";
 
-/**
- * Internal-only ingest door (#540): a named entrypoint reachable exclusively
- * through a Cloudflare service binding — the public oRPC route is gone, so no
- * HTTP surface can reach the ingest pipeline. The search-miss and points-by-id
- * lazy-ingest paths stay internal to this Worker and keep calling the
- * IngestBangumi use case directly.
- */
+/** Internal-only ingest door via Cloudflare service binding (#540). */
 export class IngestEntrypoint extends WorkerEntrypoint<Env> {
   async ingestBangumi(bangumiId: string): Promise<IngestResult> {
     const connStr = await connectionString(this.env);
@@ -135,16 +137,15 @@ export class IngestEntrypoint extends WorkerEntrypoint<Env> {
 }
 
 // ---------------------------------------------------------------------------
-// Scheduled ingestion (S0-v2 D4) — Cron Triggers. Fail-closed cron-string
-// dispatcher with injectable dependencies, tested with a fake controller/DB
-// in the worker pool (the jobs Worker's retired dispatcher was the template).
-// Schedule constants live in src/cron-config.ts (the entry module must not
-// export primitives — workerd rejects them at boot).
+// Scheduled ingestion (S0-v2 D4) — Cron Triggers, injectable-dependency dispatcher.
 // ---------------------------------------------------------------------------
 
 interface ScheduledInput {
   readonly cron: string;
 }
+
+/** Snapshots retained online: N (active) and N-1 (predecessor). */
+const SNAPSHOT_KEEP = 2;
 
 type ScheduledEnvironment = Partial<Env>;
 type ScheduledHandler = (
@@ -165,7 +166,10 @@ export interface CronDependencies {
   ingestBangumi: (db: CatalogDb, bangumiId: string) => Promise<IngestResult>;
   listDoneBangumiIds: (db: CatalogDb, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
   listStaleBangumiIds: (db: CatalogDb, cap: number) => Promise<readonly string[]>;
-  runDailyIngest: (db: CatalogDb) => Promise<unknown>;
+  runDailyIngest: (db: CatalogDb, store: ObjectStore | null) => Promise<RunStatus>;
+  snapshotStore: (bucket: R2Bucket | undefined) => ObjectStore | null;
+  publishRun: (db: CatalogDb, store: ObjectStore, sourceRunId: string, createdAt: string) => Promise<PublishResult>;
+  gcSnapshots: (store: ObjectStore) => Promise<GcResult>;
 }
 
 const DEFAULT_DEPENDENCIES: CronDependencies = {
@@ -174,6 +178,9 @@ const DEFAULT_DEPENDENCIES: CronDependencies = {
   listDoneBangumiIds,
   listStaleBangumiIds,
   runDailyIngest: (db) => runDailyJob(db),
+  snapshotStore: (bucket) => (bucket ? r2ObjectStore(bucket) : null),
+  publishRun: (db, store, sourceRunId, createdAt) => publishSnapshot({ db, store }, { sourceRunId, createdAt }),
+  gcSnapshots: (store) => gcSnapshots(store, SNAPSHOT_KEEP),
 };
 
 export function createScheduledHandler(
@@ -183,7 +190,8 @@ export function createScheduledHandler(
     const connStr = await connectionString(env);
     if (!connStr) throw new Error("catalog database not configured");
     const db = await dependencies.connect(connStr);
-    await runCron(controller.cron, db, dependencies);
+    const store = dependencies.snapshotStore(env.SNAPSHOT_BUCKET);
+    await runCron(controller.cron, db, dependencies, store);
   };
 }
 
@@ -191,11 +199,12 @@ async function runCron(
   cron: string,
   db: CatalogDb,
   dependencies: CronDependencies,
+  store: ObjectStore | null,
 ): Promise<CronJobResult> {
   if (cron === SEED_CRON) return runSeedJob(db, dependencies);
   if (cron === TTL_REFRESH_CRON) return runTtlJob(db, dependencies);
   if (cron === DAILY_DISCOVER_CRON) {
-    await dependencies.runDailyIngest(db);
+    await publishAfterRun(db, store, dependencies);
     return { attempted: 0, ingested: 0, skipped: 0 };
   }
   throw new Error(`Unknown catalog cron: ${cron}`);
@@ -222,13 +231,13 @@ export async function runTtlJob(
   return ingestBatch(db, dependencies, stale.slice(0, TTL_BATCH_CAP));
 }
 
-/** The production daily discovery + ingest run (#1006). */
+/** The production daily discovery + ingest run (#1006). Returns the run status. */
 export async function runDailyJob(
   db: CatalogDb,
   seasonalResolver: SeasonalResolver = bangumiSeasonResolver(),
-): Promise<unknown> {
+): Promise<RunStatus> {
   const inventory = await buildDailyInventory(db, seasonalResolver);
-  return catalogDailyRun(db, Date.now(), inventory, dailyPolicy());
+  return catalogDailyRun(db, Date.now(), inventory, dailyPolicy()).then((run) => run.status);
 }
 
 /**

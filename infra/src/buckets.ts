@@ -1,5 +1,5 @@
 import * as cloudflare from "@pulumi/cloudflare";
-import { accountId, mediaBucketName, mapTilesBucketName } from "./config.ts"
+import { accountId, mediaBucketName, mapTilesBucketName, snapshotBucketName } from "./config.ts"
 
 // ── Catalog: R2 media bucket ──────────────────────────────────────────────────
 // catalog Worker uses MEDIA_BUCKET (see workers/catalog/src/media/r2.ts) for
@@ -27,5 +27,18 @@ export const catalogMediaBucket = new cloudflare.R2Bucket(
 export const mapTilesBucket = new cloudflare.R2Bucket(
   "map-tiles",
   { accountId, name: mapTilesBucketName, location: "apac" },
+  bucketOpts,
+);
+
+// ── Catalog: immutable snapshot bucket (issue #1012) ─────────────────────────
+// catalog publishes an N/N-1 immutable public snapshot set into SNAPSHOT_BUCKET
+// after each successful daily run (workers/catalog/src/publish/*). Retention is
+// enforced by the online gcSnapshots pass (keeps N and N-1 by pointer
+// reachability), NOT by an R2 lifecycle rule: R2 lifecycle rules match a fixed
+// prefix, and "current/previous" changes per publish, so a lifecycle rule cannot
+// express keep-N/N-1. Do not add a lifecycle rule here; GC is the enforcement.
+export const catalogSnapshotBucket = new cloudflare.R2Bucket(
+  "catalog-snapshots",
+  { accountId, name: snapshotBucketName, location: "apac" },
   bucketOpts,
 );

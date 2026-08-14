@@ -9,7 +9,7 @@
  * durable protocol.
  */
 import { dailyRunKey, type DiscoveryInput } from "./discovery";
-import { runDailyIngestWith, type RunPlan, type RunPolicy, type RunPorts } from "./daily-run";
+import { runDailyIngestWith, type RunPlan, type RunPolicy, type RunPorts, type RunSnapshot } from "./daily-run";
 import type { TieredWork } from "./tiers";
 import { beginRunRow, markRunFailedRow, readRunRow, recordRunRow } from "./run-store";
 import { cleanupRawHistory } from "./raw_history";
@@ -29,7 +29,7 @@ export async function catalogDailyRun(
   epochMs: number,
   inputs: DailyRunInputs,
   policy: RunPolicy,
-): Promise<unknown> {
+): Promise<RunSnapshot> {
   const runId = dailyRunKey(epochMs);
   const plan: RunPlan = { runId, epochMs, discovery: inputs.discovery, knownIds: inputs.knownIds, tiered: inputs.tiered, policy };
   return runDailyIngestWith(catalogPorts(db, runId, policy.keepHistory), plan);
