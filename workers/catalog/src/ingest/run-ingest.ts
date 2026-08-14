@@ -7,7 +7,7 @@
  * published pointer is not advanced. Provenance and raw-history capture happen
  * across the CatalogDb seam so the run is diagnosable after the fact.
  */
-import { Budget, spendWork } from "./budgets";
+import { canSpendWork, spendWork, type Budget } from "./budgets";
 import type { RunSource, RunWorkOutcome } from "./daily-run";
 import { appendRawHistory } from "./raw_history";
 import { captureProvenance, pointFieldMap, type ProvenanceRecord } from "./provenance";
@@ -25,7 +25,7 @@ import {
 /** The fetch result: an ok payload pair, or the exact source that failed. */
 type FetchResult =
   | { ok: true; subject: BangumiSubject; points: AnitabiPoint[] }
-  | { ok: false; source: RunSource; reason: string };
+  | { ok: false; source: RunSource; attempted: readonly RunSource[]; reason: string };
 
 /** The narrowed ok sub-variant used after the failure guard. */
 type OkFetch = Extract<FetchResult, { ok: true }>;
@@ -37,10 +37,12 @@ export async function ingestRunWork(
   runId: string,
   budget: Budget,
 ): Promise<RunWorkOutcome> {
-  if (budget.requestExhausted()) return { outcome: "exhausted" };
+  if (!canSpendWork(budget)) return { outcome: "exhausted" };
   spendWork(budget, 2, 0);
   const fetched = await fetchSources(bangumiId);
-  if (!fetched.ok) return { outcome: "fetchFailed", source: fetched.source, reason: fetched.reason };
+  if (!fetched.ok) {
+    return { outcome: "fetchFailed", source: fetched.source, attempted: fetched.attempted, reason: fetched.reason };
+  }
   if (fetched.points.length === 0) return { outcome: "empty", source: "anitabi", reason: "no points" };
   await writeRaw(db, runId, bangumiId, fetched);
   await captureAll(db, runId, bangumiId, fetched);
@@ -51,20 +53,24 @@ export async function ingestRunWork(
 async function fetchSources(bangumiId: string): Promise<FetchResult> {
   const subject = await fetchBangumiSubject(bangumiId).then(
     (value) => ({ ok: true as const, subject: value }),
-    (reason: unknown) => failedResult("bangumi", reason),
+    (reason: unknown) => failedResult("bangumi", reason, ["bangumi"]),
   );
   if (!subject.ok) return subject;
   const points = await fetchAnitabiPoints(bangumiId).then(
     (value) => ({ ok: true as const, points: value }),
-    (reason: unknown) => failedResult("anitabi", reason),
+    (reason: unknown) => failedResult("anitabi", reason, ["bangumi", "anitabi"]),
   );
   if (!points.ok) return points;
   return { ok: true, subject: subject.subject, points: points.points };
 }
 
 /** A fetch-failure result carrying the source + a stable reason string. */
-function failedResult(source: RunSource, reason: unknown): Extract<FetchResult, { ok: false }> {
-  return { ok: false, source, reason: reason instanceof Error ? reason.message : String(reason) };
+function failedResult(
+  source: RunSource,
+  reason: unknown,
+  attempted: readonly RunSource[],
+): Extract<FetchResult, { ok: false }> {
+  return { ok: false, source, attempted, reason: reason instanceof Error ? reason.message : String(reason) };
 }
 
 /** Persist the raw payloads and their history rows. */

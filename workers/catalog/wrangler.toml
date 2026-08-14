@@ -53,9 +53,10 @@ bucket_name = "catalog-media"
 enabled = true
 
 # Scheduled ingestion (S0-v2 D4): a daily seed pass over the checked-in work
-# list (src/ingest/seed-works.ts) plus an hourly TTL refresh of the stalest
-# raw rows (batch cap 5). Both schedules repeat byte-identically in every
-# environment below; keep them in sync with SEED_CRON / TTL_REFRESH_CRON in
+# list (src/ingest/seed-works.ts), a daily discovery + ingest run (#1006), and
+# an hourly TTL refresh of the stalest raw rows (batch cap 5). All three
+# schedules repeat byte-identically in every environment below; keep them in
+# sync with SEED_CRON / DAILY_DISCOVER_CRON / TTL_REFRESH_CRON in
 # src/cron-config.ts. The :17 minute keeps catalog off the top of the hour.
 [triggers]
 crons = ["0 4 * * *", "0 6 * * *", "17 * * * *"]

@@ -36,7 +36,7 @@ function recorder(): Recorder {
   let outcome: RunWorkOutcome = { outcome: "ingested", version: 1 };
   const ports: RunPorts = {
     readRun: () => Promise.resolve(null),
-    beginRun: () => { calls.push("begin"); return Promise.resolve(); },
+    beginRun: () => { calls.push("begin"); return Promise.resolve(true); },
     recordRun: () => { calls.push("record"); return Promise.resolve(); },
     ingestWork: (bangumiId, _tier, budget) => { calls.push("ingest:" + bangumiId); spendRequests(budget, 2); return Promise.resolve(outcome); },
     cleanup: () => { calls.push("cleanup"); return Promise.resolve(0); },
@@ -88,7 +88,7 @@ describe("Daily run protocol — idempotency (AC1)", () => {
 
   it("marks a run failed when no work publishes and never advances a pointer", async () => {
     const rec = recorder();
-    rec.setOutcome({ outcome: "fetchFailed", source: "bangumi", reason: "500" });
+    rec.setOutcome({ outcome: "fetchFailed", source: "bangumi", attempted: ["bangumi"], reason: "500" });
     const snapshot = await runDailyIngestWith(rec.ports, plan("daily-fail"));
     expect(snapshot.status).toBe("failed");
     expect(Object.keys(snapshot.published)).toHaveLength(0);
@@ -118,7 +118,7 @@ describe("Daily run protocol — per-source outcomes (AC1)", () => {
 
   it("tallies a bangumi fetch failure without publishing that work", async () => {
     const rec = recorder();
-    rec.setOutcome({ outcome: "fetchFailed", source: "bangumi", reason: "upstream 500" });
+    rec.setOutcome({ outcome: "fetchFailed", source: "bangumi", attempted: ["bangumi"], reason: "upstream 500" });
     const snapshot = await runDailyIngestWith(rec.ports, plan("daily-fetch"));
     expect(snapshot.sources.bangumi?.failed).toBe(3);
     expect(Object.keys(snapshot.published).length).toBe(0);

@@ -55,6 +55,7 @@ function captureStatement(record: ProvenanceRecord): SQL {
         attribution: sql`EXCLUDED.attribution`,
         license: sql`EXCLUDED.license`,
         fieldMap: sql`EXCLUDED.field_map`,
+        capturedAt: sql`EXCLUDED.captured_at`,
       },
     })
     .getSQL();
@@ -70,7 +71,7 @@ function provenanceValues(record: ProvenanceRecord) {
     upstreamId: record.upstreamId,
     attribution: record.attribution,
     license: record.license,
-    fieldMap: JSON.stringify(record.fieldMap),
+    fieldMap: record.fieldMap,
   };
 }
 

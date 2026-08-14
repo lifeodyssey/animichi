@@ -29,17 +29,23 @@ function readStatement(runId: string): SQL {
     .getSQL();
 }
 
-/** Reserve the run row atomically; a retry that already holds it is a no-op. */
-export async function beginRunRow(db: CatalogDb, runId: string): Promise<void> {
-  await db.execute(beginStatement(runId));
+/** Atomically reserve the run row; false when another invocation owns it. */
+export async function beginRunRow(db: CatalogDb, runId: string): Promise<boolean> {
+  const rows = (await db.execute(beginStatement(runId))).rows;
+  return rows.length > 0;
 }
 
-/** INSERT ... ON CONFLICT (run_id) DO NOTHING, status running. */
+/** INSERT ... ON CONFLICT (run_id) DO UPDATE status running WHERE not already running. */
 function beginStatement(runId: string): SQL {
   return statementBuilder()
     .insert(catalogRuns)
     .values({ runId, status: "running", startedAt: nowSql() })
-    .onConflictDoNothing()
+    .onConflictDoUpdate({
+      target: catalogRuns.runId,
+      set: { status: "running" },
+      setWhere: sql`${catalogRuns.status} <> 'running'`,
+    })
+    .returning({ runId: catalogRuns.runId })
     .getSQL();
 }
 
@@ -54,16 +60,16 @@ function recordStatement(runId: string, snapshot: RunSnapshot): SQL {
     .update(catalogRuns)
     .set({
       status: snapshot.status,
-      targets: json(snapshot.targets),
-      sourceOutcomes: json(snapshot.sources),
-      budgetUsed: json({
+      targets: snapshot.targets,
+      sourceOutcomes: snapshot.sources,
+      budgetUsed: {
         workUsed: snapshot.budgetUsed.workUsed,
         requestUsed: snapshot.budgetUsed.requestUsed,
         runtimeUsedMs: snapshot.budgetUsed.runtimeUsedMs,
         firstExhausted: snapshot.firstExhausted,
-      }),
-      failures: json(snapshot.failures),
-      publishedVersions: json(snapshot.published),
+      },
+      failures: snapshot.failures,
+      publishedVersions: snapshot.published,
       finishedAt: finishedAtValue(snapshot),
     })
     .where(eq(catalogRuns.runId, runId))
@@ -86,7 +92,7 @@ function failStatement(runId: string, reason: string): SQL {
     .update(catalogRuns)
     .set({
       status: "failed",
-      failures: json([{ bangumiId: runId, stage: "reclaim", reason }]),
+      failures: [{ bangumiId: runId, stage: "reclaim", reason }],
       finishedAt: nowSql(),
     })
     .where(eq(catalogRuns.runId, runId))
@@ -96,11 +102,6 @@ function failStatement(runId: string, reason: string): SQL {
 /** NOW() — the transition timestamp. */
 function nowSql(): SQL {
   return sql`NOW()`;
-}
-
-/** JSON.stringify a value for a jsonb bind. */
-function json(value: unknown): string {
-  return JSON.stringify(value);
 }
 
 /** Coerce a catalog_runs row into a snapshot for the protocol's read gate. */

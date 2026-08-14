@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Budget, spendRequests, spendRuntime, spendWork } from "../src/ingest/budgets";
+import { Budget, canSpendWork, spendRequests, spendRuntime, spendWork } from "../src/ingest/budgets";
 
 const LIMITS = { workLimit: 3, requestLimit: 8, runtimeLimitMs: 1000 };
 
@@ -50,5 +50,21 @@ describe("Budget ledger (AC3)", () => {
     spendWork(budget, 4, 10);
     spendWork(budget, 4, 10);
     expect(budget.usage().workUsed).toBe(2);
+  });
+
+});
+
+describe("Budget capacity check (AC3)", () => {
+  it("reports a work ingest no longer fits when one request remains but two are needed", () => {
+    const budget = new Budget({ workLimit: 10, requestLimit: 3, runtimeLimitMs: 1000 });
+    spendRequests(budget, 2);
+    expect(canSpendWork(budget)).toBe(false);
+    expect(budget.blockedBy({ work: 1, requests: 2, runtimeMs: 0 })).toBe("request");
+  });
+
+  it("reports a work ingest fits when both requests remain available", () => {
+    const budget = new Budget({ workLimit: 10, requestLimit: 3, runtimeLimitMs: 1000 });
+    spendRequests(budget, 1);
+    expect(canSpendWork(budget)).toBe(true);
   });
 });

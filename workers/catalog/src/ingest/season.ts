@@ -42,9 +42,17 @@ function collectCalendarIds(items: unknown, ids: string[], seen: Set<string>): v
 
 /** Coerce a subject's `id` (number or numeric string) to a string, else null. */
 function subjectId(id: unknown): string | null {
-  if (typeof id === "number") return String(id);
-  return typeof id === "string" && id.length > 0 ? id : null;
+  if (typeof id === "number") return positiveInt(id) === null ? null : String(id);
+  if (typeof id !== "string" || !POSITIVE_INT_RE.test(id)) return null;
+  return positiveInt(Number(id)) === null ? null : id;
 }
+
+/** A positive safe integer (rejects 0, negatives, floats, overflow). */
+function positiveInt(value: number): number | null {
+  return Number.isSafeInteger(value) && value > 0 ? value : null;
+}
+
+const POSITIVE_INT_RE = /^\d+$/;
 
 /** Narrow an unknown value to a plain JSON object. */
 function isObject(value: unknown): value is Record<string, unknown> {

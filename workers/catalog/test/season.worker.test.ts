@@ -24,6 +24,14 @@ describe("fetchCurrentSeason", () => {
     expect(urls[0]).toBe("https://api.bgm.tv/calendar");
   });
 
+  it("rejects non-numeric, whitespace, and non-positive subject ids", async () => {
+    const { fetch } = mockFetch([
+      { weekday: { en: "mon" }, items: [{ id: 7 }, { id: 0 }, { id: -3 }, { id: "12" }, { id: "  " }, { id: "abc" }, { id: "1.5" }, { id: 1.5 }] },
+    ]);
+    const ids = await fetchCurrentSeason({ fetchImpl: fetch });
+    expect(ids).toEqual(["7", "12"]);
+  });
+
   it("deduplicates ids that appear across weekday buckets", async () => {
     const { fetch } = mockFetch([
       { weekday: { en: "mon" }, items: [{ id: 9 }, { id: 10 }] },

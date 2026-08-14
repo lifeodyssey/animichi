@@ -41,7 +41,7 @@ function appendStatement(args: { workId: string; source: string; payload: unknow
     .values({
       workId: args.workId,
       source: args.source,
-      payload: JSON.stringify(args.payload),
+      payload: args.payload,
       runId: args.runId ?? null,
     })
     .getSQL();
@@ -90,8 +90,8 @@ export async function cleanupRawHistory(
   const rows = (await db.execute(orderedRowsStatement())).rows;
   const deleteCandidates = collectCandidates(rows, keepCount);
   if (deleteCandidates.length === 0) return 0;
-  await db.execute(deleteStatement(deleteCandidates, activeRunId));
-  return deleteCandidates.length;
+  const deleted = await db.execute(deleteStatement(deleteCandidates, activeRunId));
+  return deleted.rows.length;
 }
 
 /** All history rows ordered by work_id, source, seq DESC. */
@@ -129,6 +129,7 @@ function deleteStatement(seqs: readonly number[], activeRunId: string): SQL {
   return statementBuilder()
     .delete(rawPayloadHistory)
     .where(and(inArray(rawPayloadHistory.seq, [...seqs]), notActiveRun(activeRunId)))
+    .returning({ seq: rawPayloadHistory.seq })
     .getSQL();
 }
 

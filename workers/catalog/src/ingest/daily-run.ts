@@ -13,7 +13,7 @@
  * discovery, ingest, provenance, and raw-history persistence through the
  * CatalogDb seam (see `catalogDailyRun`).
  */
-import { Budget, type BudgetLimits } from "./budgets";
+import { Budget, INGEST_WORK_COST, type BudgetLimits } from "./budgets";
 import { mergeDiscovery, type DiscoveryInput, type DiscoveryResult } from "./discovery";
 import { selectDueWorks, tiersFromConfig, type DueWork, type TierName, type TieredWork } from "./tiers";
 
@@ -68,7 +68,7 @@ export type RunSource = "bangumi" | "anitabi";
 export type RunWorkOutcome =
   | { outcome: "ingested"; version: number }
   | { outcome: "empty"; source: RunSource; reason: string }
-  | { outcome: "fetchFailed"; source: RunSource; reason: string }
+  | { outcome: "fetchFailed"; source: RunSource; attempted: readonly RunSource[]; reason: string }
   | { outcome: "pipelineFailed"; stage: "enrich" | "quality"; reason: string }
   | { outcome: "exhausted" };
 
@@ -76,8 +76,8 @@ export type RunWorkOutcome =
 export interface RunPorts {
   /** Read the stable run row (idempotency gate). */
   readRun: (runId: string) => Promise<RunSnapshot | null>;
-  /** Reserve the run row atomically; no-op when a retry already holds it. */
-  beginRun: (runId: string) => Promise<void>;
+  /** Reserve the run row atomically; false when another invocation owns it. */
+  beginRun: (runId: string) => Promise<boolean>;
   /** Persist a run snapshot transition. */
   recordRun: (runId: string, snapshot: RunSnapshot) => Promise<void>;
   /** Ingest one work; consumes budget and reports a per-source outcome. */
@@ -112,7 +112,8 @@ export async function runDailyIngestWith(
   const merged = mergeDiscovery(plan.knownIds, plan.discovery, plan.policy.newWorkCap);
   const due = selectDueWorks(plan.tiered, tiersFromConfig(plan.policy.tierIntervals), plan.epochMs, plan.policy.budget.workLimit);
   const snapshot = freshSnapshot(merged, resume.published);
-  await ports.beginRun(plan.runId);
+  const acquired = await ports.beginRun(plan.runId);
+  if (!acquired) return inFlight();
   const pending = pendingOf(due, resume.published);
   await executeDue(ports, plan, pending, snapshot, budget);
   snapshot.status = finalStatus(due.length, snapshot);
@@ -169,6 +170,11 @@ function freshSnapshot(targets: DiscoveryResult, seed: ReadonlyMap<string, numbe
   };
 }
 
+/** A minimal snapshot for a run owned by another live invocation. */
+function inFlight(): RunSnapshot {
+  return { ...freshSnapshot({ works: [], uniqueSeen: 0, knownCount: 0, newCount: 0, cappedCount: 0 }), status: "running" };
+}
+
 /** An existing run's disposition for this attempt. */
 type ResumePlan =
   | { kind: "fresh" | "stale" | "resume"; published: ReadonlyMap<string, number> }
@@ -194,6 +200,10 @@ async function executeDue(
   for (const work of due) {
     if (budget.firstExhausted() !== null) break;
     const outcome = await ports.ingestWork(work.bangumiId, work.tier, budget);
+    if (outcome.outcome === "exhausted") {
+      snapshot.firstExhausted = budget.blockedBy(INGEST_WORK_COST);
+      break;
+    }
     applyOutcome(snapshot, budget, work.bangumiId, outcome);
   }
   if (budget.firstExhausted() !== null) snapshot.firstExhausted = budget.firstExhausted();
@@ -222,8 +232,9 @@ function applyOutcome(
     return;
   }
   if (outcome.outcome === "fetchFailed") {
-    markSource(snapshot.sources, outcome.source, "failed");
-    markOther(snapshot.sources, outcome.source, "ok");
+    for (const source of outcome.attempted) {
+      markSource(snapshot.sources, source, source === outcome.source ? "failed" : "ok");
+    }
     return;
   }
   snapshot.failures.push({ bangumiId, stage: outcome.stage, reason: outcome.reason });

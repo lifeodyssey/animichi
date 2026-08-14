@@ -34,6 +34,14 @@ export interface BudgetRow {
   runtimeMs: number;
 }
 
+/** The resource cost of one daily-run work ingest (fetch both sources). */
+export const INGEST_WORK_COST: BudgetRow = { work: 1, requests: 2, runtimeMs: 0 };
+
+/** True when the budget can still accommodate a single work ingest. */
+export function canSpendWork(budget: Budget): boolean {
+  return budget.canSpend(INGEST_WORK_COST);
+}
+
 /** Record one ingested work against the budget; throws when exhausted. */
 export function spendWork(budget: Budget, requests: number, runtimeMs: number): void {
   budget.spend({ work: 1, requests: nonNegative(requests), runtimeMs: nonNegative(runtimeMs) });
@@ -70,6 +78,16 @@ export class Budget {
     this.workUsed = next.workUsed;
     this.requestUsed = next.requestUsed;
     this.runtimeUsedMs = next.runtimeUsedMs;
+  }
+
+  /** True when spending `row` now would exceed no limit (non-throwing). */
+  canSpend(row: BudgetRow): boolean {
+    return firstBlocking(this.nextUsage(row), this.limits) === null;
+  }
+
+  /** The dimension `row` would exceed if spent now, or null when it fits. */
+  blockedBy(row: BudgetRow): BudgetKind | null {
+    return firstBlocking(this.nextUsage(row), this.limits);
   }
 
   /** True when the work cap has been reached or exceeded. */
@@ -121,6 +139,14 @@ function assertWithin(next: BudgetUsage, limits: BudgetLimits): void {
   if (next.workUsed > limits.workLimit) throw new Error("work budget exhausted");
   if (next.requestUsed > limits.requestLimit) throw new Error("request budget exhausted");
   if (next.runtimeUsedMs > limits.runtimeLimitMs) throw new Error("runtime budget exhausted");
+}
+
+/** The first limit `next` would exceed, or null when every dimension fits. */
+function firstBlocking(next: BudgetUsage, limits: BudgetLimits): BudgetKind | null {
+  if (next.workUsed > limits.workLimit) return "work";
+  if (next.requestUsed > limits.requestLimit) return "request";
+  if (next.runtimeUsedMs > limits.runtimeLimitMs) return "runtime";
+  return null;
 }
 
 function assertPositive(value: number, name: string): void {

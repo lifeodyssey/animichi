@@ -32,6 +32,17 @@ describe("Daily discovery merge (AC2)", () => {
     expect(result.uniqueSeen).toBe(7);
   });
 
+  it("does not re-count a capped id that reappears in a later input", () => {
+    const season = { source: "current_season" as const, bangumiIds: ["a", "b", "c"] };
+    const later = { source: "historical" as const, bangumiIds: ["c", "d"] };
+    const result = mergeDiscovery(new Set(), [season, later], 1);
+    // cap 1 admits a; b, c are capped. c reappears in the later input and must not be re-counted.
+    expect(result.works.map((w) => w.bangumiId)).toEqual(["a"]);
+    expect(result.uniqueSeen).toBe(4);
+    expect(result.newCount).toBe(1);
+    expect(result.cappedCount).toBe(3);
+  });
+
   it("drops repeated ids within one input without double-counting", () => {
     const dup = { source: "popularity" as const, bangumiIds: ["9", "9", "10"] };
     const result = mergeDiscovery(new Set(), [dup], 10);

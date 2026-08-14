@@ -66,7 +66,7 @@ export function mergeDiscovery(
 
 /** A fresh merge accumulator over the discovery inputs. */
 function emptyAccumulator(knownIds: ReadonlySet<string>, newWorkCap: number): MergeAccumulator {
-  return { knownIds, newWorkCap, ordered: [], freshIndices: new Map(), uniqueSeen: 0, knownCount: 0, newCount: 0, cappedCount: 0 };
+  return { knownIds, newWorkCap, ordered: [], freshIndices: new Map(), cappedIds: new Set(), uniqueSeen: 0, knownCount: 0, newCount: 0, cappedCount: 0 };
 }
 
 /** Fold one input id into the accumulator (dedup, source append, bounded growth). */
@@ -76,10 +76,12 @@ function mergeOne(acc: MergeAccumulator, source: DiscoverySource, bangumiId: str
     existing.sources = appendSource(existing.sources, source);
     return;
   }
+  if (acc.cappedIds.has(bangumiId)) return;
   acc.uniqueSeen += 1;
   const isNew = !acc.knownIds.has(bangumiId);
   if (!allowAdmit(isNew, acc.newCount, acc.newWorkCap)) {
     acc.cappedCount += 1;
+    acc.cappedIds.add(bangumiId);
     return;
   }
   if (isNew) {
@@ -103,6 +105,7 @@ interface MergeAccumulator {
   newWorkCap: number;
   ordered: DiscoveredWork[];
   freshIndices: Map<string, number>;
+  cappedIds: Set<string>;
   uniqueSeen: number;
   knownCount: number;
   newCount: number;

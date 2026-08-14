@@ -51,7 +51,7 @@ async function upsertRaw(
 function rawUpsertStatement(table: RawTable, bangumiId: string, payload: RawPayload): SQL {
   return statementBuilder()
     .insert(table)
-    .values({ workId: bangumiId, payload: JSON.stringify(payload) })
+    .values({ workId: bangumiId, payload })
     .onConflictDoUpdate({
       target: table.workId,
       set: { payload: sqlExprPayload(), fetchedAt: sqlExprNow() },
