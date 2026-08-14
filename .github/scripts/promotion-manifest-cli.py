@@ -10,6 +10,7 @@ Subcommands (exit 0 on success, 1 on failure):
         Build a manifest JSON (digest computed from <file>) to stdout.
   validate <manifest.json>                       - reject invalid manifests
   verify <manifest.json> --expected <pairs.json> - reject mismatch/corrupt
+  artifact-dir <component>                       - per-component artifact dir
 """
 
 import json
@@ -167,11 +168,54 @@ def _cmd_verify(argv, out, err):
     return 0
 
 
+def _cmd_artifact_dir(argv, out, err):
+    # AC3 (final promotion ticket #1013): resolve a component's promotion
+    # artifact directory from the closed component table. An unmapped
+    # component exits 1 (fail closed) instead of printing a bare path.
+    #   usage: artifact-dir <component>
+    if len(argv) != 1:
+        _err(err, "usage: artifact-dir <component>")
+        return 1
+    from promotion_manifest import (
+        component_artifact_dir,
+    )
+
+    try:
+        out.write(component_artifact_dir(argv[0]) + "\n")
+    except ValueError as exc:
+        _err(err, str(exc))
+        return 1
+    return 0
+
+
+def _cmd_bundle_producible(argv, out, err):
+    # AC3 artifact-dir guard (#1013 fix round): exit 0 only for components
+    # whose mapped dir is an actual produced build bundle a promotion may tar +
+    # digest. infra (Pulumi state) and the container components (agent/root)
+    # exit 1 so the deploy step fails closed before tar instead of recording a
+    # wrong digest over a placeholder/source dir.
+    #   usage: bundle-producible <component>
+    if len(argv) != 1:
+        _err(err, "usage: bundle-producible <component>")
+        return 1
+    from promotion_manifest import (
+        BUNDLE_PRODUCIBLE,
+    )
+
+    if argv[0] in BUNDLE_PRODUCIBLE:
+        out.write("true\n")
+        return 0
+    _err(err, f"{argv[0]} is not bundle-producible (no local file bundle)")
+    return 1
+
+
 DISPATCH = {
     "digest": _cmd_digest,
     "generate": _cmd_generate,
     "validate": _cmd_validate,
     "verify": _cmd_verify,
+    "artifact-dir": _cmd_artifact_dir,
+    "bundle-producible": _cmd_bundle_producible,
 }
 
 
@@ -181,7 +225,8 @@ def main(argv=None, out=None, err=None):
     err = err if err is not None else sys.stderr
     if not argv:
         _err(
-            err, "usage: promotion-manifest-cli.py digest|generate|validate|verify ..."
+            err,
+            "usage: promotion-manifest-cli.py digest|generate|validate|verify|artifact-dir|bundle-producible ...",
         )
         return 1
     command = DISPATCH.get(argv[0])

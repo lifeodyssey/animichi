@@ -31,12 +31,16 @@ edits the freeze's own workflows or resolver pins. Staging behavior and DAG are 
 
 
 
-## Build-once component promotion (foundation)
+## Build-once component promotion
 
 Issue #1007 wires the build-once promotion primitive beside the existing deploy path; the old
 per-environment rebuild path stays available during expand/migrate and is deleted by the final
-promotion ticket (#1013) only after every component migrates. A component that is actually
-built by `reusable-deploy-component.yml` (today only `web`) emits:
+promotion ticket (#1013, AC6) only after every component migrates. Issue #1013 slice 2 (AC3/AC4/AC5)
+generalizes the primitive to every deployable component and hardens the production path; the
+AC6 cutover (deleting the legacy `Deploy Worker` rebuild path) is NOT yet done and requires
+staging/prod evidence + owner approval.
+
+A component built by `reusable-deploy-component.yml` emits:
 
 - a **promotion manifest** (`.github/scripts/promotion-manifest-cli.py generate`) pinning component,
   source SHA, artifact digest (SHA-256), SBOM/attestation, schema compatibility, configuration
@@ -46,11 +50,30 @@ built by `reusable-deploy-component.yml` (today only `web`) emits:
 - staging **consumes and reports** the manifest digest after deploy;
 - production eligibility (`reusable-production-eligibility.yml`) runs a deterministic AC4
   self-check that rejects a rebuild, a mismatched digest, stale staging evidence, an
-  incompatible schema, or a changed dependency manifest.
+  incompatible schema, or a changed dependency manifest;
+- **#1013 AC4**: a deployed-version-metadata read (`.github/scripts/promote_deployed.py`) fails
+  when the deployed digest/config schema differs from the approved manifest. For components with
+  no platform metadata yet it fails closed with a documented mechanism (see `promote_deployed.py`
+  `PLATFORM_READ_MECHANISM`); the live read is wired per component once a platform adapter exists.
+
+**AC3 (component generalization):** `promotion_manifest.py` maps every deployable component to its
+artifact dir (`component_artifact_dir()`/`COMPONENT_ARTIFACT_DIRS`) — web → `apps/web/.output`, the
+Cloudflare Workers (catalog/users/edge/root) → their wrangler dry-run bundle dir, infra → Pulumi
+state digest. The deploy workflow resolves `PROMO_ARTIFACT_DIR` from this table (never invented
+inline), so an unmapped component fails closed. The six AC3 manifests (Agent/Edge/Catalog/Users/Web/Infra)
+are covered by `test_promotion_manifest.py` and the `promotion-manifest-e2e.test.sh` AC3 section.
+
+**AC5 (no prod build, no tag deploy):** when a promoted artifact digest is supplied, the deploy
+consumes that artifact (no `pnpm … build` runs for a promoted component); the build and build-once
+manifest steps are gated off by `promotion_artifact_digest == ""`, and the consume step fails closed
+until the immutable digest-keyed store (AC6/#1013 follow-up) lands. Neither `ci.yml` nor `deploy.yml`
+is tag-triggered (asserted by `test_promotion_ac5_contract.rb`).
 
 Source of truth for the schema: `.github/scripts/promotion_manifest.py`; behavioral coverage:
-`.github/scripts/test_promotion_manifest.py` (unit) and `scripts/local-gates/promotion-manifest-e2e.test.sh`
-(AC2/AC3/AC4), run in `pipeline-quality.yml`. Rollback remains the SAFE-1/`wrangler rollback` path above.
+`.github/scripts/test_promotion_manifest.py` (unit), `scripts/local-gates/promotion-manifest-e2e.test.sh`
+(AC2/AC3/AC4), `.github/scripts/test_promote_deployed.py` (AC4 read+gate), and
+`.github/scripts/test_promotion_ac5_contract.rb` (AC5), all run in `pipeline-quality.yml`. Rollback
+remains the SAFE-1/`wrangler rollback` path above.
 ## Edge Topology
 
 ```text

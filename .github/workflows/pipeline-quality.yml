@@ -84,7 +84,7 @@ jobs:
         shell: bash
       - name: Ruby syntax check workflow meta scripts
         run: |
-            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_routing_consistency.rb .github/scripts/test_ci_contract_ruleset_migration.rb .github/scripts/test_ci_contract_ruleset_migration_mutation.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb; do
+            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_routing_consistency.rb .github/scripts/test_ci_contract_ruleset_migration.rb .github/scripts/test_ci_contract_ruleset_migration_mutation.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb .github/scripts/test_promotion_ac5_contract.rb .github/scripts/test_promotion_ac5_mutation.rb; do
             ruby -c "${f}"
             done
         shell: bash
@@ -135,6 +135,26 @@ jobs:
         shell: bash
       - name: Build-once promotion flow (AC2/AC3/AC4)
         run: bash scripts/local-gates/promotion-manifest-e2e.test.sh
+        shell: bash
+      # #1013 (AC4): the deployed-version-metadata read + approval gate fails
+      # closed on a deployed digest/config-schema mismatch and never fakes a
+      # green read for a component with no platform metadata; the platform read
+      # is mocked so this proves the AC4 gate unfiltered in every quality lane.
+      - name: Deployed-version AC4 gate (mocked platform read)
+        run: python3 .github/scripts/test_promote_deployed.py
+        shell: bash
+      # #1013 (AC5): production workflow holds no build command for a promoted
+      # component and tag creation cannot trigger a deploy. This runs unfiltered
+      # so a build step leaking back into the promoted path (or a tag trigger
+      # sneaking into a deploy workflow) fails closed in every quality lane.
+      - name: Promotion AC5 contract (no prod build + no tag deploy)
+        run: ruby .github/scripts/test_promotion_ac5_contract.rb
+        shell: bash
+      # #1013 AC5 mutation hardening (owner commitment #5): the promotion-lane
+      # mutation probes prove each hazard is rejected and the pristine set
+      # passes (red/restore/green).
+      - name: Promotion AC5 mutation probes
+        run: ruby .github/scripts/test_promotion_ac5_mutation.rb
         shell: bash
       # S0-v2 B4: the retired repository-quality-gate's contents moved here —
       # this lane is the fixed point that never path-filters, so the checks

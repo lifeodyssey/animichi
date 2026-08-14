@@ -265,3 +265,102 @@ def select_promotable(candidate_manifest, latest_promoted_source_shas):
             continue
         selected.append(component)
     return selected
+
+
+# AC3: per-component artifact generalization (final promotion ticket #1013).
+# The #1007 foundation hardcoded PROMO_ARTIFACT_DIR to apps/web/.output in the
+# deploy workflow, so only web could produce a build-once manifest. #1013
+# generalizes this: every deployable component maps to the artifact directory
+# (or build output) its promotion manifest digests. The deploy workflow resolves
+# per-component dirs through this table, so an unmapped component fails
+# explicitly instead of silently tarballing the wrong directory.
+#
+# IMPORTANT (spec review): each map value is the EXACT path the corresponding
+# pipeline actually builds/emits - greppable in .github/workflows. Every value
+# either names a directory the build step creates, or a real repo/build-context
+# directory. No value is an invented path. $RUNNER_TEMP appears because the
+# worker dry-run bundle build steps write there and the build-once promotion
+# manifest step runs in the same job (reusable-deploy-component.yml); the deploy
+# step expands $RUNNER_TEMP against the runner value.
+#
+# Artifact semantics per component (established in the existing pipelines):
+#   web - TanStack/Nitro Cloudflare bundle at apps/web/.output (wrangler main
+#         .output/server/index.mjs + ASSETS); created by `pnpm --filter web
+#         build`. The one env-neutral bundle (#1013 slice 1).
+#   catalog - wrangler dry-run bundle, this exact dir (pipeline-catalog.yml:104):
+#         `wrangler deploy --dry-run --outdir "$RUNNER_TEMP/catalog-bundle"`.
+#   users   - wrangler dry-run bundle (pipeline-users.yml:84):
+#         `--outdir "$RUNNER_TEMP/users-bundle"`.
+#   edge    - wrangler dry-run bundle, production config (pipeline-edge.yml:83):
+#         `wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production
+#         --outdir "$RUNNER_TEMP/edge-bundle"`.
+#   agent/root - container image: `docker build -f apps/agent/Dockerfile`
+#         (pipeline-agent.yml:130). The image has no filesystem bundle; the map
+#         points at the real build-context dir apps/agent (exists in the repo)
+#         as the artifact source, and the authoritative digest for a container
+#         promotion is the image digest (docker inspect). Until a packaged agent
+#         bundle exists, an agent promotion must fail closed at the step that
+#         loads the artifact, never silently digest a wrong dir.
+#   infra - Pulumi IaC; its artifact is the immutable Pulumi stack state / plan
+#         digest (no local bundle, state lives in R2). The mapping holds a
+#         documented placeholder (infra/AGENTS.md) resolved by the infra step,
+#         which fails closed until a Pulumi-state digest read is wired.
+COMPONENT_ARTIFACT_DIRS = {
+    "web": "apps/web/.output",
+    "catalog": "$RUNNER_TEMP/catalog-bundle",
+    "users": "$RUNNER_TEMP/users-bundle",
+    "edge": "$RUNNER_TEMP/edge-bundle",
+    "root": "apps/agent",
+    "agent": "apps/agent",
+    "infra": "infra/.pulumi-state",
+}
+# Components whose mapped dir is an actual produced build bundle that a
+# promotion can tar + digest as the artifact. infra (Pulumi state) and the
+# container components (agent/root) have NO local file bundle today: tar/digest
+# over their mapped placeholder/source dir would record a WRONG digest
+# (or fail raw on infra/.pulumi-state). The deploy step must FAIL CLOSED for
+# these before tar (never digest a directory that is not the component artifact).
+# Component keys whose bundle supports digests:
+BUNDLE_PRODUCIBLE = frozenset(["web", "catalog", "users", "edge"])
+# The AC3 manifest surface: Agent, Edge, Catalog, Users, Web, Infra. The deploy
+# workflow keys these by the production-eligibility component name (root is the
+# Agent container worker); the AC3 contract asserts a manifest for each of
+# "agent" | "edge" | "catalog" | "users" | "web" | "infra".
+AC3_COMPONENTS = ("agent", "edge", "catalog", "users", "web", "infra")
+
+
+def component_artifact_dir(component):
+    """Return the artifact directory a component manifest digests.
+
+    AC3: every mapped component resolves to its own artifact dir; an unknown
+    component raises ValueError so a caller fails closed rather than digests a
+    mismatched/empty directory.
+    """
+    try:
+        return COMPONENT_ARTIFACT_DIRS[component]
+    except KeyError:
+        names = ", ".join(sorted(COMPONENT_ARTIFACT_DIRS))
+        msg = (
+            "unknown component "
+            + repr(component)
+            + ": no artifact dir mapped; known components: "
+            + names
+        )
+        raise ValueError(msg) from None
+
+
+def component_bundle_producible(component):
+    """Whether a component produces a local file bundle its manifest can digest.
+
+    AC3 artifact-dir guard (#1013 fix round): only components whose mapped
+    directory is an actual produced build bundle belong in BUNDLE_PRODUCIBLE.
+    infra (Pulumi state) and the container components (agent/root) have no
+    local file bundle; the deploy step must fail closed for them before tar/
+    digest rather than record a wrong digest over a placeholder/source dir.
+    """
+    return component in BUNDLE_PRODUCIBLE
+
+
+def known_component(component):
+    """Whether a component has a mapped promotion artifact dir (AC3)."""
+    return component in COMPONENT_ARTIFACT_DIRS
