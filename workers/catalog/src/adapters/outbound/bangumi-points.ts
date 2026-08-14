@@ -3,13 +3,18 @@
  * Bangumi's published points (joined to bangumi for the anime title) in scene
  * order and maps each raw row to a validated `PublishedPointRow`. This adapter
  * owns the only SQL and the raw row mapping on the points-by-bangumi read path.
+ *
+ * The SELECT is built with the Drizzle query builder over the single seam and
+ * run through `db.execute`, so the dialect parameterises the `bangumi_id`
+ * bound and the ORDER BY defines "scene order".
  */
-
-import { sql } from "drizzle-orm";
+import { asc, eq, sql, type SQL } from "drizzle-orm";
 import type { PointsByBangumiPort, PublishedPointRow } from "../../application/list-points-for-bangumi";
 import {
   nullableNumber, nullableString, nullableTimestamp, requiredNumber, requiredString,
 } from "../../lib/rows";
+import { statementBuilder } from "../../db/client";
+import { bangumi, points } from "../../db/schema";
 
 /** The one DB capability this adapter needs: run a query, get back `{ rows }`. */
 export interface BangumiPointsDb {
@@ -23,15 +28,25 @@ export function bangumiPoints(db: BangumiPointsDb): PointsByBangumiPort {
 
 /** SELECT the Bangumi's points joined to its title metadata, in scene order. */
 async function selectPoints(db: BangumiPointsDb, bangumiId: string): Promise<PublishedPointRow[]> {
-  const result = await db.execute(sql`
-    SELECT p.id, p.name, p.name_cn, p.bangumi_id, p.episode, p.time_seconds,
-           p.image, p.latitude, p.longitude, p.city, b.title, b.title_cn,
-           b.cover_url, b.updated_at AS synced_at
-    FROM points p LEFT JOIN bangumi b ON p.bangumi_id = b.id
-    WHERE p.bangumi_id = ${bangumiId}
-    ORDER BY p.episode ASC, p.time_seconds ASC, p.id ASC
-  `);
+  const result = await db.execute(pointsForBangumiStatement(bangumiId));
   return result.rows.map(readPublishedPointRow);
+}
+
+/** The joined points+bangumi SELECT, ordered episode → time_seconds → id. */
+function pointsForBangumiStatement(bangumiId: string): SQL {
+  return statementBuilder()
+    .select({
+      id: points.id, name: points.name, nameCn: points.nameCn,
+      bangumiId: points.bangumiId, episode: points.episode, timeSeconds: points.timeSeconds,
+      image: points.image, latitude: points.latitude, longitude: points.longitude,
+      city: points.city, title: bangumi.title, titleCn: bangumi.titleCn,
+      coverUrl: bangumi.coverUrl, syncedAt: bangumi.updatedAt,
+    })
+    .from(points)
+    .leftJoin(bangumi, eq(points.bangumiId, bangumi.id))
+    .where(eq(points.bangumiId, bangumiId))
+    .orderBy(asc(points.episode), asc(points.timeSeconds), asc(points.id))
+    .getSQL();
 }
 
 /** Validate and coerce one raw joined row to a `PublishedPointRow`. */

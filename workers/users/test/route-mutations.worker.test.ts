@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { SQL } from "drizzle-orm";
-import { PgDialect } from "drizzle-orm/pg-core";
 import { createUsersApp } from "../src/index";
-import type { DbExecutor } from "../src/db/client";
+import type { UsersDb } from "../src/db/client";
 import { identityHeaders, TEST_ENV } from "./identity-fixture";
-import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
+import { fakeDb, fakeDbFrom, type FakeSavedRouteRow, type RecordedQuery } from "./in-memory-routes-db";
 
 const SAVED_ROUTE_A = "00000000-0000-4000-8000-00000000000a";
 const UNKNOWN = "00000000-0000-4000-8000-00000000000f";
@@ -28,23 +26,22 @@ function deleteSavedRoute(app: Awaited<ReturnType<typeof setup>>["app"], headers
   return app.request(`/v1/users/saved-routes/${id}`, { method: "DELETE", headers }, TEST_ENV);
 }
 
-function requiredMutation(mutation: SQL | undefined): SQL {
+function requiredMutation(mutation: RecordedQuery | undefined): RecordedQuery {
   if (!mutation) throw new Error("expected mutation query");
   return mutation;
 }
 
 function captureDb(ownerRows: unknown[] = []) {
-  let mutation: SQL | undefined;
-  const execute: DbExecutor["execute"] = (query) => {
-    const rendered = new PgDialect().sqlToQuery(query).sql.toLowerCase();
-    if (rendered.includes("select user_id")) return Promise.resolve({ rows: ownerRows });
-    mutation = query;
-    return Promise.resolve({ rows: [{ id: SAVED_ROUTE_A }] });
-  };
-  return { db: { execute }, query: () => requiredMutation(mutation) };
+  let mutation: RecordedQuery | undefined;
+  const db: UsersDb = fakeDbFrom((sql, params) => {
+    if (sql.includes("select \"user_id\"")) return ownerRows;
+    mutation = { sql, params };
+    return [{ id: SAVED_ROUTE_A }];
+  });
+  return { db, query: () => requiredMutation(mutation) };
 }
 
-function setupWith(db: DbExecutor) {
+function setupWith(db: UsersDb) {
   const app = createUsersApp({ makeDb: () => db });
   return { app, headers: identityHeaders("user-a", { "content-type": "application/json" }) };
 }
@@ -80,8 +77,8 @@ describe("saved-route deletion wire", () => {
     const capture = captureDb([{ user_id: "user-a" }]);
     const { app, headers } = setupWith(capture.db);
     expect((await deleteSavedRoute(app, headers, SAVED_ROUTE_A)).status).toBe(200);
-    const rendered = new PgDialect().sqlToQuery(capture.query());
-    expect(rendered.sql.toLowerCase()).toContain("user_id");
+    const rendered = capture.query();
+    expect(rendered.sql.toLowerCase()).toContain("\"user_id\"");
     expect(rendered.params).toEqual([SAVED_ROUTE_A, "user-a"]);
   });
 });

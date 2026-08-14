@@ -17,7 +17,9 @@
  */
 
 import type { CatalogDb } from "../db/client";
-import { sql } from "drizzle-orm";
+import { statementBuilder } from "../db/client";
+import { points as pointsTable } from "../db/schema";
+import { eq, sql } from "drizzle-orm";
 import { haversine } from "../domain/geo";
 import { optional } from "../lib/optional";
 import type { Origin, Point } from "../types";
@@ -48,14 +50,18 @@ export class SpotNotFoundError extends Error {
 
 /** Representative point for a work (lowest id first for a stable pick). */
 function representativeQuery(bangumiId: string) {
-  return sql`
-    SELECT id, name, name_cn, bangumi_id, episode, time_seconds,
-           image, latitude, longitude, city
-    FROM points
-    WHERE bangumi_id = ${bangumiId}
-    ORDER BY id ASC
-    LIMIT 1
-  `;
+  return statementBuilder()
+    .select({
+      id: pointsTable.id, name: pointsTable.name, nameCn: pointsTable.nameCn,
+      bangumiId: pointsTable.bangumiId, episode: pointsTable.episode,
+      timeSeconds: pointsTable.timeSeconds, image: pointsTable.image,
+      latitude: pointsTable.latitude, longitude: pointsTable.longitude, city: pointsTable.city,
+    })
+    .from(pointsTable)
+    .where(eq(pointsTable.bangumiId, bangumiId))
+    .orderBy(sql`id ASC`)
+    .limit(1)
+    .getSQL();
 }
 
 /** Map a DB row to the contract Point shape (omitting null columns). */

@@ -1,7 +1,7 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { Hono, type Context, type MiddlewareHandler, type Next } from "hono";
 import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER } from "@animichi/contract/internal-binding";
-import { makeDb as realMakeDb, type DbExecutor } from "./db/client";
+import { makeDb as realMakeDb, type UsersDb } from "./db/client";
 import { usersRouter, type UsersContext } from "./router";
 
 /** Users Worker bindings. Secrets are supplied outside wrangler vars. */
@@ -13,10 +13,10 @@ export interface Env {
 
 /** Injectable boundaries used by workerd tests. */
 export interface UsersAppDeps {
-  makeDb?: (connStr: string) => DbExecutor;
+  makeDb?: (connStr: string) => UsersDb;
 }
 
-const dbPools = new Map<string, DbExecutor>();
+const dbPools = new Map<string, UsersDb>();
 
 /** In staging the DSN arrives as a Secrets Store binding (#912 PR2): `.get()`
  * resolves the string; the string branch keeps local dev and tests unchanged. */
@@ -27,7 +27,7 @@ async function connectionString(env: Env): Promise<string | undefined> {
   return typeof url === "string" ? url : await url.get();
 }
 
-function realDbFor(connStr: string): DbExecutor {
+function realDbFor(connStr: string): UsersDb {
   const cached = dbPools.get(connStr);
   if (cached) return cached;
   const db = realMakeDb(connStr);
@@ -35,7 +35,7 @@ function realDbFor(connStr: string): DbExecutor {
   return db;
 }
 
-function dbFor(connStr: string, factory?: UsersAppDeps["makeDb"]): DbExecutor {
+function dbFor(connStr: string, factory?: UsersAppDeps["makeDb"]): UsersDb {
   return factory ? factory(connStr) : realDbFor(connStr);
 }
 
@@ -59,7 +59,7 @@ function healthz(c: Context<{ Bindings: Env }>): Response {
 async function requestService(
   c: Context<{ Bindings: Env }>,
   deps: UsersAppDeps,
-): Promise<{ db: DbExecutor } | Response> {
+): Promise<{ db: UsersDb } | Response> {
   const connStr = await connectionString(c.env);
   if (!connStr) return c.json({ error: "users database not configured" }, 503);
   return { db: dbFor(connStr, deps.makeDb) };
@@ -86,7 +86,7 @@ async function handleMatched(
   c: Context<{ Bindings: Env }>,
   next: Next,
   apiHandler: OpenAPIHandler<UsersContext>,
-  context: { db: DbExecutor; userId: string },
+  context: { db: UsersDb; userId: string },
 ): Promise<Response | undefined> {
   const { matched, response } = await apiHandler.handle(c.req.raw, { context });
   if (matched) return c.newResponse(response.body, response);

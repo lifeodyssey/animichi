@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
 import { nearby } from "../src/api/nearby";
 
@@ -54,23 +56,15 @@ const SATTE: DetailRow = {
 
 const DETAILS: DetailRow[] = [WASHINOMIYA, SATTE];
 
-/** Flatten a Drizzle SQL fragment to literal text for routing (cycle-safe). */
-function queryText(query: unknown, seen: Set<object> = new Set<object>()): string {
-  if (query === null || typeof query === "undefined") return "";
-  if (typeof query === "string" || typeof query === "number") return String(query);
-  if (typeof query === "object") {
-    if (seen.has(query)) return "";
-    seen.add(query);
-    const v = (query as { value?: unknown[] });
-    if (Array.isArray(v.value)) return v.value.map((c) => queryText(c, seen)).join("");
-    const q = (query as { queryChunks?: unknown[] });
-    if (Array.isArray(q.queryChunks)) return q.queryChunks.map((c) => queryText(c, seen)).join("");
-  }
-  return "";
+/** Render a Drizzle statement to its dialect SQL (used only for routing). */
+function renderedSql(query: unknown): string {
+  const builder = query as { getSQL?: () => SQL };
+  const sql = builder.getSQL ? builder.getSQL() : (query as SQL);
+  return new PgDialect().sqlToQuery(sql).sql;
 }
 
-const isGeoQuery = (query: unknown) => queryText(query).includes("ST_SetSRID") || queryText(query).includes("<->");
-const isDetailQuery = (query: unknown) => queryText(query).includes("id IN");
+const isGeoQuery = (query: unknown) => renderedSql(query).includes("ST_SetSRID") || renderedSql(query).includes("<->");
+const isDetailQuery = (query: unknown) => renderedSql(query).toLowerCase().includes(" in ");
 
 /**
  * Minimal CatalogDb double: routes the geo PostGIS read and the detail IN-read

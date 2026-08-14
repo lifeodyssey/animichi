@@ -1,20 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogDb } from "../src/db/client";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 import { publishVersion, publishVersionStatements, readPublishedVersion } from "../src/publish/versioning";
 
-/** Flatten a Drizzle SQL fragment to its literal text (for shape assertions). */
-function sqlText(query: unknown, seen: Set<object> = new Set<object>()): string {
-  if (query === null || typeof query === "undefined") return "";
-  if (typeof query === "string" || typeof query === "number") return String(query);
-  if (typeof query === "object") {
-    if (seen.has(query)) return "";
-    seen.add(query);
-    const v = (query as { value?: unknown[] });
-    if (Array.isArray(v.value)) return v.value.map((c) => sqlText(c, seen)).join("");
-    const q = (query as { queryChunks?: unknown[] });
-    if (Array.isArray(q.queryChunks)) return q.queryChunks.map((c) => sqlText(c, seen)).join("");
-  }
-  return "";
+/** Render a Drizzle SQL/builder statement to its dialect SQL (for shape assertions). */
+function sqlText(query: unknown): string {
+  const builder = query as { getSQL?: () => SQL };
+  const sql = builder.getSQL ? builder.getSQL() : (query as SQL);
+  return new PgDialect().sqlToQuery(sql).sql;
 }
 
 /** A fake db recording how mutations reach the driver.
@@ -40,9 +34,9 @@ describe("atomic version publish (story 11)", () => {
     const [flip, insert] = publishVersionStatements("lucky-star");
     const flipText = sqlText(flip).toLowerCase();
     const insertText = sqlText(insert).toLowerCase();
-    expect(flipText).toContain("update cluster_version");
+    expect(flipText).toContain("update \"cluster_version\"");
     expect(flipText).toContain("is_current");
-    expect(insertText).toContain("insert into cluster_version");
+    expect(insertText).toContain("insert into \"cluster_version\"");
     expect(insertText).toContain("max(version)");
   });
 

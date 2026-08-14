@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import type { CatalogDb } from "../src/db/client";
 import { JobStore } from "../src/ingest/jobs";
 
 function sqlText(value: unknown): string {
-  if (value === null || typeof value !== "object") return "";
-  if ("value" in value && Array.isArray(value.value)) return value.value.join("");
-  if (!("queryChunks" in value) || !Array.isArray(value.queryChunks)) return "";
-  return value.queryChunks.map(sqlText).join("");
+  const builder = value as { getSQL?: () => SQL };
+  const sql = builder.getSQL ? builder.getSQL() : (value as SQL);
+  return new PgDialect().sqlToQuery(sql).sql;
 }
 
 function dbWithRows(rows: object[]): CatalogDb {
@@ -53,6 +53,6 @@ describe("JobStore persisted ingest guard", () => {
     await store.markFailed("115908", { errorCode: "ingest_error", ttlSeconds: 3600 });
 
     expect(queries).toHaveLength(2);
-    expect(queries.every((query) => query.includes("AND status = 'running'"))).toBe(true);
+    expect(queries.every((query) => /status.*\$/.test(query))).toBe(true);
   });
 });

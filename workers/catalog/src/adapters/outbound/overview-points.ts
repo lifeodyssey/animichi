@@ -1,9 +1,11 @@
 /**
  * Overview read adapter — the only SQL on the overview projection path
  * (CATALOG-5 #946). Replaces the api/anime-overview.ts raw row projection.
+ * Built with the Drizzle query builder over the single CatalogDb seam.
  */
-
-import { sql } from "drizzle-orm";
+import { asc, eq, sql, type SQL } from "drizzle-orm";
+import { statementBuilder } from "../../db/client";
+import { bangumi, points } from "../../db/schema";
 
 /** A published point row as the overview projection reads it. */
 export interface OverviewPointRow {
@@ -33,18 +35,36 @@ export interface OverviewPointsReader {
 }
 
 async function loadPoints(db: OverviewPointsDb, bangumiId: string): Promise<OverviewPointRow[]> {
-  const result = await db.execute(sql`
-    SELECT id, name, image, latitude, longitude, city
-    FROM points
-    WHERE bangumi_id = ${bangumiId}
-    ORDER BY id ASC
-  `);
+  const result = await db.execute(pointsForWorkStatement(bangumiId));
   return result.rows.map(parseRow);
 }
 
+/** The work's points in stable id order. */
+function pointsForWorkStatement(bangumiId: string): SQL {
+  return statementBuilder()
+    .select({
+      id: points.id, name: points.name, image: points.image,
+      latitude: points.latitude, longitude: points.longitude, city: points.city,
+    })
+    .from(points)
+    .where(eq(points.bangumiId, bangumiId))
+    .orderBy(asc(points.id))
+    .getSQL();
+}
+
 async function loadWorkExists(db: OverviewPointsDb, bangumiId: string): Promise<boolean> {
-  const result = await db.execute(sql`SELECT id FROM bangumi WHERE id = ${bangumiId} LIMIT 1`);
+  const result = await db.execute(workExistsStatement(bangumiId));
   return result.rows.length > 0;
+}
+
+/** Existence probe on the bangumi row (one row is enough). */
+function workExistsStatement(bangumiId: string): SQL {
+  return statementBuilder()
+    .select({ id: bangumi.id })
+    .from(bangumi)
+    .where(eq(bangumi.id, bangumiId))
+    .limit(1)
+    .getSQL();
 }
 
 function parseRow(row: unknown): OverviewPointRow {

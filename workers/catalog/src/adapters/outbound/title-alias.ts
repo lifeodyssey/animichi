@@ -3,13 +3,17 @@
  * candidate enrichment over the Neon alias index and `bangumi` rows. This
  * adapter owns the only SQL on the resolve path; resolution policy stays in
  * the application use case (`application/resolve-bangumi.ts`).
+ *
+ * Statements are built with the Drizzle query builder + expression helpers and
+ * executed through the single `CatalogDb` / `DbExecutor` seam.
  */
-
-import { sql } from "drizzle-orm";
+import { count, eq, inArray, max, sql, type SQL } from "drizzle-orm";
 import { nullableString, requiredNumber, requiredString } from "../../lib/rows";
 import { candidateFromRow, type AliasWork, type TitleAliasPort } from "../../application/resolve-bangumi";
 import type { BangumiRow } from "../../enrich/parse";
 import type { AnimeCandidate } from "../../types";
+import { statementBuilder } from "../../db/client";
+import { aliases, bangumi, points } from "../../db/schema";
 
 /** The one DB capability this adapter needs: run a query, get back `{ rows }`. */
 export interface AliasDb {
@@ -25,23 +29,38 @@ export function titleAlias(db: AliasDb): TitleAliasPort {
 }
 
 async function selectAliasWorks(db: AliasDb, normalized: string): Promise<AliasWork[]> {
-  const result = await db.execute(sql`
-    SELECT bangumi_id, MAX(priority) AS priority
-    FROM aliases WHERE alias_normalized = ${normalized}
-    GROUP BY bangumi_id
-  `);
+  const result = await db.execute(aliasWorksStatement(normalized));
   return result.rows.map(readAliasWork);
 }
 
+/** MAX(priority) per bangumi for a normalized alias (the highest-priority alias). */
+function aliasWorksStatement(normalized: string): SQL {
+  return statementBuilder()
+    .select({ bangumiId: aliases.bangumiId, priority: max(aliases.priority) })
+    .from(aliases)
+    .where(eq(aliases.aliasNormalized, normalized))
+    .groupBy(aliases.bangumiId)
+    .getSQL();
+}
+
 async function selectCandidates(db: AliasDb, workIds: string[]): Promise<AnimeCandidate[]> {
-  const result = await db.execute(sql`
-    SELECT b.id, b.title, b.title_cn, b.cover_url, b.air_date,
-           COUNT(p.id) AS points_count
-    FROM bangumi b LEFT JOIN points p ON p.bangumi_id = b.id
-    WHERE b.id IN (${sql.join(workIds, sql`, `)})
-    GROUP BY b.id, b.title, b.title_cn, b.cover_url, b.air_date
-  `);
+  const result = await db.execute(candidateStatement(workIds));
   return result.rows.map(readStoredCandidate);
+}
+
+/** The bangumi + point-count for `workIds`, via an IN-set + JOIN + GROUP BY. */
+function candidateStatement(workIds: string[]): SQL {
+  return statementBuilder()
+    .select({
+      id: bangumi.id, title: bangumi.title, titleCn: bangumi.titleCn,
+      coverUrl: bangumi.coverUrl, airDate: bangumi.airDate,
+      pointsCount: count(points.id),
+    })
+    .from(bangumi)
+    .leftJoin(points, eq(points.bangumiId, bangumi.id))
+    .where(inArray(bangumi.id, workIds))
+    .groupBy(bangumi.id, bangumi.title, bangumi.titleCn, bangumi.coverUrl, bangumi.airDate)
+    .getSQL();
 }
 
 function readAliasWork(row: Record<string, unknown>): AliasWork {

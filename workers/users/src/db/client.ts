@@ -3,9 +3,9 @@ import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http";
 import type { SQL } from "drizzle-orm";
 import * as schema from "./schema";
 
-/** Typed Drizzle database; queries still use only the raw SQL executor. */
+/** Typed Drizzle database; the single seam for saved-route statements. */
 export type UsersDb = NeonHttpDatabase<typeof schema>;
-/** Minimal executor shared by production Drizzle and test fakes. */
+/** Minimal executor surface (kept for tests that script raw rows). */
 export interface DbExecutor {
   execute: (query: SQL) => Promise<{ rows: unknown[] }>;
 }

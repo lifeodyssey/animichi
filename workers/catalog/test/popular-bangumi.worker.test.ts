@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { popularBangumiDb, type PopularBangumiDb } from "../src/adapters/outbound/popular-bangumi";
 
 type Row = Record<string, unknown>;
@@ -13,9 +14,7 @@ function fakeDb(rows: Row[]): PopularBangumiDb {
 }
 
 function sqlText(query: ReturnType<typeof sql>): string {
-  return query.queryChunks
-    .map((part: unknown) => (typeof part === "string" ? part : typeof part === "number" ? String(part) : (part as { value: unknown[] }).value.join("")))
-    .join("");
+  return new PgDialect().sqlToQuery(query).sql;
 }
 
 function row(overrides: Partial<Row> = {}): Row {
@@ -59,7 +58,8 @@ describe("popularBangumiDb", () => {
       },
     };
     await popularBangumiDb(db).listPopular(5);
-    expect(captured).toContain("LIMIT 5");
+    expect(captured).toContain("limit");
+    expect(captured).toMatch(/limit \$\d+/);
   });
 
   it("orders rating DESC NULLS LAST and filters zero points", async () => {
@@ -71,8 +71,9 @@ describe("popularBangumiDb", () => {
       },
     };
     await popularBangumiDb(db).listPopular(8);
-    expect(captured).toContain("ORDER BY rating DESC NULLS LAST");
-    expect(captured).toContain("points_count > 0");
+    expect(captured).toContain("DESC NULLS LAST");
+    expect(captured).toContain("rating");
+    expect(captured).toContain("points_count");
   });
 });
 

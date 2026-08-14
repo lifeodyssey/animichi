@@ -1,13 +1,11 @@
 import type { SaveSavedRouteInput } from "@animichi/contract";
 import { ORPCError } from "@orpc/server";
-import type { SQL } from "drizzle-orm";
-import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { listSavedRoutes as listSavedRoutesAction } from "../src/application/list-saved-routes";
 import { saveSavedRoute } from "../src/application/save-saved-route";
-import type { DbExecutor } from "../src/db/client";
-import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
+import type { UsersDb } from "../src/db/client";
+import { fakeDb, fakeDbFrom, type FakeSavedRouteRow, type RecordedQuery } from "./in-memory-routes-db";
 
 const ID = "00000000-0000-4000-8000-000000000009";
 const RAW = "2026-07-13 12:34:56+00";
@@ -17,13 +15,13 @@ const UPDATE_INPUT: SaveSavedRouteInput = {
   id: ID, title: "X", point_ids: [], status: "saved",
 };
 
-/** Real Neon adapter over the fake executor — saved-route SQL still verified. */
-function repo(db: DbExecutor): NeonSavedRouteRepo {
+/** Real Neon adapter over the fake Drizzle UsersDb — saved-route SQL still verified. */
+function repo(db: UsersDb): NeonSavedRouteRepo {
   return new NeonSavedRouteRepo(db);
 }
 
 /** The write-role adapter split (USERS-2 review: ≤50-line classes). */
-function store(db: DbExecutor): NeonSavedRouteStore {
+function store(db: UsersDb): NeonSavedRouteStore {
   return new NeonSavedRouteStore(db);
 }
 
@@ -35,7 +33,7 @@ function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
 }
 
 async function caught(
-  input: SaveSavedRouteInput, db: DbExecutor = fakeDb([row({ user_id: "user-b" })]).db,
+  input: SaveSavedRouteInput, db: UsersDb = fakeDb([row({ user_id: "user-b" })]).db,
 ): Promise<ORPCError<string, unknown>> {
   try {
     await saveSavedRoute(store(db), "user-a", input, FIXED_NOW);
@@ -98,31 +96,23 @@ describe("user saved-route handlers", () => {
 
 describe("atomic saved-route updates", () => {
   it("throws SAVED_ROUTE_NOT_OWNED when an owned update loses the race", async () => {
-    const inlineDb: DbExecutor = { execute: (query) => {
-      const rendered = new PgDialect().sqlToQuery(query);
-      if (rendered.sql.toLowerCase().includes("select user_id")) {
-        return Promise.resolve({ rows: [{ user_id: "user-a" }] });
-      }
-      return Promise.resolve({ rows: [] });
-    } };
+    const inlineDb: UsersDb = fakeDbFrom((sql) =>
+      sql.includes("select \"user_id\"") ? [{ user_id: "user-a" }] : [],
+    );
     const error = await caught(UPDATE_INPUT, inlineDb);
     expect(error).toMatchObject({ code: "SAVED_ROUTE_NOT_OWNED", status: 403, defined: true });
   });
 
   it("includes user_id in the atomic update predicate", async () => {
-    let updateQuery: SQL | undefined;
-    const inlineDb: DbExecutor = { execute: (query) => {
-      const rendered = new PgDialect().sqlToQuery(query);
-      if (rendered.sql.toLowerCase().includes("select user_id")) {
-        return Promise.resolve({ rows: [{ user_id: "user-a" }] });
-      }
-      updateQuery = query;
-      return Promise.resolve({ rows: [] });
-    } };
+    let updateQuery: RecordedQuery | undefined;
+    const inlineDb: UsersDb = fakeDbFrom((sql, params) => {
+      if (sql.includes("select \"user_id\"")) return [{ user_id: "user-a" }];
+      updateQuery = { sql, params };
+      return [];
+    });
     await caught(UPDATE_INPUT, inlineDb);
     if (!updateQuery) throw new Error("expected update query");
-    const rendered = new PgDialect().sqlToQuery(updateQuery);
-    expect(rendered.sql).toContain("user_id");
-    expect(rendered.params).toContain("user-a");
+    expect(updateQuery.sql).toContain("\"user_id\"");
+    expect(updateQuery.params).toContain("user-a");
   });
 });

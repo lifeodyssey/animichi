@@ -10,7 +10,7 @@
  * parameterises and binds them flatly.
  */
 
-import { sql, type SQL } from "drizzle-orm";
+import { asc, inArray, type SQL } from "drizzle-orm";
 import { points as pointsTable } from "../../db/schema";
 import * as x from "../../db/expressions";
 import type {
@@ -20,9 +20,10 @@ import type {
   PointDetailsPort,
 } from "../../application/nearby-points";
 import type { DbExecutor } from "../../db/client";
+import { statementBuilder } from "../../db/client";
 
 /** The geo columns the adapter selects; `distance_m` is meters. */
-interface NearbyRow {
+export interface NearbyRow {
   id: string;
   name: string;
   latitude: number;
@@ -40,16 +41,24 @@ export function nearbyGeoPort(db: DbExecutor): NearbyPointsPort {
 
 /** Points within `radiusM` meters of (lat, lng), nearest first (KNN order). */
 async function fetchNearby(db: DbExecutor, lat: number, lng: number, radiusM: number): Promise<NearbyPoint[]> {
-  const point = x.geoPoint(lat, lng);
-  const result = await db.execute(sql`
-    SELECT id, name, latitude, longitude,
-           ${x.distanceMeters(pointsTable.location, point)} AS distance_m
-    FROM points
-    WHERE ${x.withinMeters(pointsTable.location, point, radiusM)}
-    ORDER BY ${x.knnDistance(pointsTable.location, point)}, id
-    LIMIT ${MAX_RESULTS}
-  `);
+  const result = await db.execute(nearbyGeoStatement(lat, lng, radiusM));
   return (result.rows as unknown as NearbyRow[]).map(toNearbyPoint);
+}
+
+/** Build the typed geo SELECT: ST_DWithin filter, KNN order, capped. */
+function nearbyGeoStatement(lat: number, lng: number, radiusM: number): SQL {
+  const point = x.geoPoint(lat, lng);
+  return statementBuilder()
+    .select({
+      id: pointsTable.id, name: pointsTable.name,
+      latitude: pointsTable.latitude, longitude: pointsTable.longitude,
+      distanceM: x.distanceMeters(pointsTable.location, point),
+    })
+    .from(pointsTable)
+    .where(x.withinMeters(pointsTable.location, point, radiusM))
+    .orderBy(x.knnDistance(pointsTable.location, point), asc(pointsTable.id))
+    .limit(MAX_RESULTS)
+    .getSQL();
 }
 
 /** Map a geo row to the port's `NearbyPoint` shape. */
@@ -78,9 +87,13 @@ async function loadDetails(db: DbExecutor, ids: string[]): Promise<Map<string, P
 
 /** Build the detail IN-select as a typed query-builder statement. */
 function detailsQuery(ids: string[]): SQL {
-  return sql`
-    SELECT id, bangumi_id, name_cn, image, episode, time_seconds, origin, city
-    FROM points
-    WHERE id IN (${sql.join(ids, sql`, `)})
-  `;
+  return statementBuilder()
+    .select({
+      id: pointsTable.id, bangumiId: pointsTable.bangumiId, nameCn: pointsTable.nameCn,
+      image: pointsTable.image, episode: pointsTable.episode,
+      timeSeconds: pointsTable.timeSeconds, origin: pointsTable.origin, city: pointsTable.city,
+    })
+    .from(pointsTable)
+    .where(inArray(pointsTable.id, ids))
+    .getSQL();
 }

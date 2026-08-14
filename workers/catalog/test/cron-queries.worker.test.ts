@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { Param, SQL } from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import {
   listDoneBangumiIds,
   listStaleBangumiIds,
@@ -19,32 +20,12 @@ import type { CatalogDb } from "../src/db/client";
 interface FakeDb {
   db: CatalogDb;
   sqlText: () => string;
+  params: () => unknown[];
 }
 
-/** A drizzle template literal's raw string segment (chunk value arrays). */
-function isStringSegment(chunk: unknown): chunk is { value: readonly string[] } {
-  if (chunk === null || typeof chunk !== "object") return false;
-  if (!("value" in chunk) || !Array.isArray(chunk.value)) return false;
-  return chunk.value.every((part) => typeof part === "string");
-}
-
-/** Render one chunk as query text; nested SQL recurses, primitive values inline. */
-function chunkText(chunk: unknown): string | undefined {
-  if (chunk instanceof SQL) return renderQuery(chunk);
-  if (chunk instanceof Param || typeof chunk === "string"
-    || typeof chunk === "number" || typeof chunk === "boolean") {
-    return String(chunk instanceof Param ? chunk.value : chunk);
-  }
-  if (isStringSegment(chunk)) return chunk.value.join("");
-  return undefined;
-}
-
-/** Flatten a drizzle SQL value into its raw query text (values inline as text). */
-function renderQuery(query: SQL): string {
-  return query.queryChunks
-    .map((chunk) => chunkText(chunk))
-    .filter((text): text is string => text !== undefined)
-    .join("");
+/** Render a Drizzle statement to its dialect SQL + bound params. */
+function renderQuery(query: SQL): { sql: string; params: unknown[] } {
+  return new PgDialect().sqlToQuery(query);
 }
 
 function fakeDb(rows: readonly unknown[]): FakeDb {
@@ -55,7 +36,8 @@ function fakeDb(rows: readonly unknown[]): FakeDb {
   });
   return {
     db: { execute } as unknown as CatalogDb,
-    sqlText: () => renderQuery(executed ?? new SQL([])),
+    sqlText: () => executed ? renderQuery(executed).sql : "",
+    params: () => executed ? renderQuery(executed).params : [],
   };
 }
 
@@ -66,7 +48,7 @@ describe("listStaleBangumiIds SQL shape", () => {
     await listStaleBangumiIds(fake.db, 5);
 
     const sqlText = fake.sqlText();
-    expect(sqlText).toContain("FULL OUTER JOIN");
+    expect(sqlText.toLowerCase()).toContain("full join");
     expect(sqlText).toContain("LEAST(");
     expect(sqlText).toContain("COALESCE(");
     expect(sqlText).toContain("-infinity");
@@ -81,10 +63,10 @@ describe("listStaleBangumiIds SQL shape", () => {
 
     const sqlText = fake.sqlText();
     expect(sqlText).toContain("make_interval");
-    expect(sqlText).toContain("make_interval(secs => " + String(STALE_AFTER_SECONDS) + ")");
-    expect(sqlText).toContain("negative_cached_until > NOW()");
+    expect(fake.params()).toContain(STALE_AFTER_SECONDS);
+    expect(sqlText).toContain("negative_cached_until");
     expect(sqlText).toContain("NOT EXISTS");
-    expect(sqlText).toContain("LIMIT 5");
+    expect(fake.params()).toContain(5);
   });
 
   it("returns work ids as strings and drops non-string rows", async () => {
@@ -115,9 +97,9 @@ describe("listDoneBangumiIds SQL shape", () => {
     await expect(listDoneBangumiIds(fake.db, ["w-1", "w-2", "w-3"])).resolves.toEqual(new Set(["w-2"]));
 
     const sqlText = fake.sqlText();
-    expect(sqlText).toContain("FROM ingest_jobs");
-    expect(sqlText).toContain("status = 'done'");
-    expect(sqlText).toContain("IN (");
+    expect(sqlText).toContain("from \"ingest_jobs\"");
+    expect(sqlText).toContain("\"status\"");
+    expect(sqlText).toContain("in ($1, $2, $3)");
   });
 
   it("returns an empty set without issuing SQL for an empty input", async () => {

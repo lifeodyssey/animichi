@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import type { AliasDb } from "../src/adapters/outbound/title-alias";
 import { titleAlias } from "../src/adapters/outbound/title-alias";
 import { bangumiTitleSearch } from "../src/adapters/outbound/bangumi-search";
 import type { FetchLike } from "../src/ingest/sources";
 
 function sqlText(value: unknown): string {
-  if (value === null || typeof value !== "object") return "";
-  if ("value" in value && Array.isArray(value.value)) return value.value.join("");
-  if (!("queryChunks" in value) || !Array.isArray(value.queryChunks)) return "";
-  return value.queryChunks.map(sqlText).join("");
+  const builder = value as { getSQL?: () => SQL };
+  const sql = builder.getSQL ? builder.getSQL() : (value as SQL);
+  return new PgDialect().sqlToQuery(sql).sql;
 }
 
 function aliasDb(responses: Record<string, unknown>[][], queries: string[]): AliasDb {
@@ -39,8 +39,8 @@ describe("titleAlias Neon adapter", () => {
       bangumi_id: "3302", title: "らき☆すた", title_cn: "幸运星",
       cover_url: "cover.jpg", year: 2007, points_count: 2,
     }]);
-    expect(queries[0]).toContain("GROUP BY bangumi_id");
-    expect(queries[1]).toContain("COUNT(p.id) AS points_count");
+    expect(queries[0]).toContain("group by");
+    expect(queries[1]).toContain('count("points"."id")');
   });
 
   it("maps an empty alias read to no works", async () => {

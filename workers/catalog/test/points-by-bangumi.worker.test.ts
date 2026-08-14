@@ -13,6 +13,7 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import type { SQL } from "drizzle-orm";
+import { PgDialect } from "drizzle-orm/pg-core";
 import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 import {
@@ -44,10 +45,7 @@ function fakePort(rows: PublishedPointRow[]): PointsByBangumiPort {
 }
 
 function sqlText(value: unknown): string {
-  if (value === null || typeof value !== "object") return "";
-  if ("value" in value && Array.isArray(value.value)) return value.value.join("");
-  if (!("queryChunks" in value) || !Array.isArray(value.queryChunks)) return "";
-  return value.queryChunks.map(sqlText).join("");
+  return new PgDialect().sqlToQuery(value as SQL).sql;
 }
 
 function pointsDb(rows: unknown[]): { db: BangumiPointsDb; queries: string[] } {
@@ -108,9 +106,9 @@ describe("bangumiPoints outbound adapter (ONE Neon read port)", () => {
     const { db, queries } = pointsDb([ROW]);
     await bangumiPoints(db).pointsForBangumi("1");
     expect(queries).toHaveLength(1);
-    expect(queries[0]).toContain("FROM points p LEFT JOIN bangumi b");
-    expect(queries[0]).toContain("WHERE p.bangumi_id = ");
-    expect(queries[0]).toContain("ORDER BY p.episode ASC, p.time_seconds ASC, p.id ASC");
+    expect(queries[0]).toContain("\"points\" left join \"bangumi\"");
+    expect(queries[0]).toContain("\"points\".\"bangumi_id\" = $1");
+    expect(queries[0]).toContain("\"points\".\"episode\" asc");
   });
 
   it("maps a valid joined row to a validated PublishedPointRow", async () => {

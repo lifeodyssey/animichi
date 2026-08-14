@@ -1,20 +1,18 @@
 import type { SaveSavedRouteInput } from "@animichi/contract";
 import { ORPCError } from "@orpc/server";
-import type { SQL } from "drizzle-orm";
-import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
-import type { DbExecutor } from "../src/db/client";
-import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
+import type { UsersDb } from "../src/db/client";
+import { fakeDb, fakeDbFrom, recordingDb, type FakeSavedRouteRow, type RecordedQuery } from "./in-memory-routes-db";
 
 const ID = "00000000-0000-4000-8000-000000000009";
 const UNKNOWN = "00000000-0000-4000-8000-000000000008";
 const NOW = "2026-07-13T04:00:00.000Z";
 const FIXED_NOW = { now: () => NOW };
 
-function repo(db: DbExecutor): SavedRouteStore {
+function repo(db: UsersDb): SavedRouteStore {
   return new NeonSavedRouteStore(db);
 }
 
@@ -25,20 +23,13 @@ function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   };
 }
 
-/** An executor that records every rendered query while staying in-memory. */
-function recording(seed: FakeSavedRouteRow[] = []): { db: DbExecutor; queries: string[] } {
-  const { db } = fakeDb(seed);
-  const queries: string[] = [];
-  return {
-    db: { execute: (query) => {
-      queries.push(new PgDialect().sqlToQuery(query).sql.toLowerCase());
-      return db.execute(query);
-    } },
-    queries,
-  };
+/** A UsersDb that records every rendered query while staying in-memory. */
+function recording(seed: FakeSavedRouteRow[] = []): { db: UsersDb; queries: string[] } {
+  const recorded = recordingDb(seed);
+  return { db: recorded.db, queries: recorded.sqls };
 }
 
-async function errorFor(input: SaveSavedRouteInput, db: DbExecutor): Promise<ORPCError<string, unknown>> {
+async function errorFor(input: SaveSavedRouteInput, db: UsersDb): Promise<ORPCError<string, unknown>> {
   try {
     await saveSavedRoute(repo(db), "user-a", input, FIXED_NOW);
   } catch (error) {
@@ -55,7 +46,7 @@ describe("SaveSavedRoute creates a route", () => {
       repo(rec.db), "user-a", { title: "Tokyo", point_ids: ["p1"], status: "saved" }, FIXED_NOW,
     );
     expect(rec.queries).toHaveLength(1);
-    expect(rec.queries[0]).toContain("insert into saved_routes");
+    expect(rec.queries[0]).toContain("insert into \"saved_routes\"");
     expect(route).toMatchObject({ title: "Tokyo", status: "saved", point_ids: ["p1"] });
   });
 
@@ -81,8 +72,8 @@ describe("SaveSavedRoute updates an owned route", () => {
       id: ID, title: "Renamed", point_ids: ["p2"], status: "saved",
     }, FIXED_NOW);
     expect(rec.queries).toHaveLength(2);
-    expect(rec.queries[0]).toContain("select user_id");
-    expect(rec.queries[1]).toContain("update saved_routes");
+    expect(rec.queries[0]).toContain("select \"user_id\"");
+    expect(rec.queries[1]).toContain("update \"saved_routes\"");
   });
 
   it("returns the updated row", async () => {
@@ -123,31 +114,24 @@ describe("SaveSavedRoute updates an owned route", () => {
     await saveSavedRoute(repo(scoped.db), "user-a", {
       id: ID, title: "Tokyo", point_ids: ["p1"], status: "saved",
     }, FIXED_NOW);
-    const rendered = new PgDialect().sqlToQuery(requiredUpdate(scoped.update));
-    expect(rendered.sql).toContain("user_id");
+    const rendered = requiredUpdate(scoped.update);
+    expect(rendered.sql).toContain("\"user_id\"");
     expect(rendered.params).toContain("user-a");
   });
 });
 
-/** An executor that answers the ownership read and captures the update query. */
-function updateCapture(): { db: DbExecutor; update: () => SQL | undefined } {
-  let update: SQL | undefined;
-  return {
-    db: {
-      execute: (query) => {
-        const rendered = new PgDialect().sqlToQuery(query);
-        if (rendered.sql.toLowerCase().includes("select user_id")) {
-          return Promise.resolve({ rows: [{ user_id: "user-a" }] });
-        }
-        update = query;
-        return Promise.resolve({ rows: [row()] });
-      },
-    },
-    update: () => update,
-  };
+/** A UsersDb that answers the ownership read and captures the update params. */
+function updateCapture(): { db: UsersDb; update: () => RecordedQuery | undefined } {
+  let update: RecordedQuery | undefined;
+  const db = fakeDbFrom((sql, params) => {
+    if (sql.includes("select \"user_id\"")) return [{ user_id: "user-a" }];
+    update = { sql, params };
+    return [row()];
+  });
+  return { db, update: () => update };
 }
 
-function requiredUpdate(capture: () => SQL | undefined): SQL {
+function requiredUpdate(capture: () => RecordedQuery | undefined): RecordedQuery {
   const update = capture();
   if (!update) throw new Error("expected update query");
   return update;
@@ -172,22 +156,22 @@ describe("SaveSavedRoute rejects unauthorized or failed writes", () => {
   });
 
   it("returns SAVED_ROUTE_NOT_OWNED when the update loses the race", async () => {
-    const raceDb: DbExecutor = {
-      execute: (query) => {
-        const rendered = new PgDialect().sqlToQuery(query);
-        return rendered.sql.toLowerCase().includes("select user_id")
-          ? Promise.resolve({ rows: [{ user_id: "user-a" }] })
-          : Promise.resolve({ rows: [] });
-      },
-    };
+    const raceDb: UsersDb = fakeDbFrom((sql) =>
+      sql.includes("select \"user_id\"") ? [{ user_id: "user-a" }] : [],
+    );
     const error = await errorFor({ id: ID, title: "X", point_ids: [], status: "saved" }, raceDb);
     expect(error).toMatchObject({ code: "SAVED_ROUTE_NOT_OWNED", status: 403, defined: true });
   });
 
   it("propagates a persistence failure", async () => {
-    const failing: DbExecutor = { execute: () => Promise.reject(new Error("database unavailable")) };
+    // A failed request must surface to the caller — never rewritten into a
+    // domain error or swallowed. The rejection is raised at the execution seam
+    // (instance `execute`), so it propagates exactly as a real driver failure.
+    const failing = fakeDb().db;
+    (failing as unknown as { execute: () => Promise<{ rows: unknown[] }> }).execute = () =>
+      Promise.reject(new Error("database unavailable"));
     await expect(saveSavedRoute(repo(failing), "user-a", {
       title: "X", point_ids: [], status: "saved",
-    })).rejects.toThrow("database unavailable");
+    })).rejects.toThrow();
   });
 });

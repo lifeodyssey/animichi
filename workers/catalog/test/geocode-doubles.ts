@@ -1,4 +1,6 @@
 import { vi } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
+import type { SQL } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
 import { NeonGazetteer } from "../src/adapters/outbound/neon/gazetteer";
 import type { GeocodeHit } from "../src/domain/geocode/collapse";
@@ -36,9 +38,9 @@ export function hit(overrides: Partial<GeocodeHit>): GeocodeHit {
 
 export function sqlText(value: unknown): string {
   if (typeof value !== "object" || value === null) return "";
-  if ("value" in value && Array.isArray(value.value)) return value.value.join("");
-  if (!("queryChunks" in value) || !Array.isArray(value.queryChunks)) return "";
-  return value.queryChunks.map(sqlText).join("");
+  const builder = value as { getSQL?: () => SQL };
+  const sql = builder.getSQL ? builder.getSQL() : (value as SQL);
+  return new PgDialect().sqlToQuery(sql).sql;
 }
 
 export async function fuzzySql(): Promise<string> {

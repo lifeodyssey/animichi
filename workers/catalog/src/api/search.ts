@@ -30,10 +30,12 @@
  * they are re-exported so existing consumers keep importing them from here.
  */
 
-import { sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { bangumiPoints } from "../adapters/outbound/bangumi-points";
 import { pointsByBangumi, type PublishedPointRow } from "../application/list-points-for-bangumi";
 import type { CatalogDb } from "../db/client";
+import { statementBuilder } from "../db/client";
+import { aliases } from "../db/schema";
 import { normalizeAlias } from "../lib/alias";
 import { catalogIngestBangumi, type IngestBangumi } from "../ingest/ingest-bangumi";
 import type { FetchLike } from "../ingest/sources";
@@ -142,10 +144,15 @@ async function runFullIngest(
 }
 
 /** Exact-match the normalized alias -> the highest-priority bangumi id.
- * Raw `sql` (not the Drizzle query builder) — the builder hangs under workerd. */
+ * Built with the Drizzle query builder (highest-priority alias wins). */
 async function firstBangumiId(db: CatalogDb, normalized: string): Promise<string | undefined> {
-  const result = await db.execute(
-    sql`SELECT bangumi_id FROM aliases WHERE alias_normalized = ${normalized} ORDER BY priority DESC LIMIT 1`,
-  );
+  const statement = statementBuilder()
+    .select({ bangumiId: aliases.bangumiId })
+    .from(aliases)
+    .where(eq(aliases.aliasNormalized, normalized))
+    .orderBy(desc(aliases.priority))
+    .limit(1)
+    .getSQL();
+  const result = await db.execute(statement);
   return (result.rows as { bangumi_id: string }[])[0]?.bangumi_id;
 }

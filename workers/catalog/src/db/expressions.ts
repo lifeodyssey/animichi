@@ -73,6 +73,38 @@ export function coalesce(column: PgColumn, fallback: unknown): SQL {
   return sql`COALESCE(${column}, ${fallback})`;
 }
 
+/** `column IS NOT NULL` — a predicate fragment for a nullable column. */
+export function isNotNull(column: PgColumn): SQL {
+  return sql`${column} IS NOT NULL`;
+}
+
+/**
+ * A work's raw-zone freshness: the WEAKER of its two source fetches (a source
+ * with no raw row reads as `-infinity`). `aFetch`/`bFetch` are the raw table
+ * aliases; the fragment is composed inside the crawl-stale builder subquery.
+ */
+export function weakestRawFreshness(aFetch: string, bFetch: string): SQL {
+  return sql`LEAST(COALESCE(${sql.raw(aFetch)}.fetched_at, '-infinity'), COALESCE(${sql.raw(bFetch)}.fetched_at, '-infinity'))`;
+}
+
+/**
+ * A row is stale when its heartbeat (the first non-null of `primary` /
+ * `fallback`) is older than `seconds`. Used by the singleflight gate.
+ */
+export function staleWithinSeconds(primary: PgColumn, fallback: PgColumn, seconds: number): SQL {
+  return sql`COALESCE(${primary}, ${fallback}) <= NOW() - make_interval(secs => ${seconds})`;
+}
+
+/**
+ * The next blue/green version for `cluster_version`: a correlated scalar
+ * subquery `COALESCE(MAX(version), 0) + 1` over the same work. Atomic —
+ * rendered inside an INSERT built with the query builder so the whole publish
+ * stays one row-safe statement.
+ */
+export function nextVersionFor(bangumiId: string): SQL {
+  return sql`(SELECT COALESCE(MAX(version), 0) + 1 FROM cluster_version WHERE bangumi_id = ${bangumiId})`;
+}
+
 function assertNonNegative(seconds: number): void {
   if (!Number.isInteger(seconds) || seconds < 0) {
     throw new Error("interval seconds must be a non-negative integer");
