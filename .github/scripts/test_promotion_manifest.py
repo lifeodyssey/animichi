@@ -249,7 +249,7 @@ class PromotionManifestUnitTest(unittest.TestCase):
             manifest,
             expected={
                 "schema_compatibility": {
-                    "provider": "supabase",
+                    "provider": "atlas",
                     "migration_head": "other",
                     "digest_sha256": "9" * 64,
                 }
