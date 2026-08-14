@@ -21,13 +21,23 @@ if ! [[ "${SOURCE_REVISION}" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 STAGING_DOMAIN="https://staging.animichi.com"
 
-cd "$(git rev-parse --show-toplevel)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "${REPO_ROOT}"
 [[ "$(git rev-parse HEAD)" = "${SOURCE_REVISION}" ]]\
   || { echo "cutover-reopen: HEAD != source_revision" >&2; exit 1; }
 
+# Pulumi must run from infra/ (the project dir) or it cannot find Pulumi.yaml
+# (#1001). Fail fast with a clear message instead of pulumi's cryptic
+# "no Pulumi.yaml project file found".
+cd infra
+if [[ ! -f Pulumi.yaml ]]; then
+  echo "cutover-reopen: no infra/Pulumi.yaml found — pulumi must run from infra/" >&2
+  exit 1
+fi
+
 # 1. Verify prerequisites BEFORE opening the IaC staging gate, so a
 #    failing check cannot leave public ingress open (fail closed).
-bash .github/scripts/cutover-verify-prereqs.sh \
+bash "${REPO_ROOT}/.github/scripts/cutover-verify-prereqs.sh" \
   "retention_execution=absent" "auth_boundary=neon_only"
 
 # 2. Open the IaC staging gate.
@@ -36,7 +46,7 @@ pulumi --stack staging up --yes
 sleep 30
 
 # 3. Recheck retention remains absent after the final deployment.
-bash .github/scripts/cutover-verify-prereqs.sh \
+bash "${REPO_ROOT}/.github/scripts/cutover-verify-prereqs.sh" \
   "retention_execution=absent" "auth_boundary=neon_only"
 
 # 3. Smallest critical public journeys pass on the reopened ingress.
