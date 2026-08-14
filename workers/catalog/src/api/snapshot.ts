@@ -43,11 +43,19 @@ export function mountSnapshotRoutes(app: Hono<{ Bindings: Env }>): void {
       return c.json({ error: "snapshot rollback not configured" }, 503);
     }
     const auth = c.req.header("authorization");
-    if (auth !== "Bearer " + token) return c.json({ error: "unauthorized" }, 401);
+    if (!timingSafeEqual(auth ?? "", "Bearer " + token)) return c.json({ error: "unauthorized" }, 401);
     const deps = snapshotDeps(c.env.SNAPSHOT_BUCKET);
     if (deps === null) return c.json({ error: "snapshots not configured" }, 503);
     const manifest = await rollbackToPrevious(deps);
     if (manifest === null) return c.json({ error: "nothing to roll back to" }, 404);
     return c.json(manifest);
   });
+}
+
+/** Constant-time string comparison for the bearer-token guard (timing-safe). */
+function timingSafeEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let i = 0; i < left.length; i += 1) difference |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  return difference === 0;
 }

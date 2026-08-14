@@ -9,7 +9,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { createScheduledHandler, type CronDependencies } from "../src/index";
-import { publishAfterRun } from "../src/publish/daily-snapshot";
+import { publishAfterRun, type DailyRunOutcome } from "../src/publish/daily-snapshot";
 import { publishSnapshot } from "../src/publish/snapshot";
 import { gcSnapshots } from "../src/publish/snapshot-gc";
 import { fakeCatalogDb } from "./fakes/fake-catalog-db";
@@ -19,6 +19,9 @@ import { DAILY_DISCOVER_CRON } from "../src/cron-config";
 const ENV = { DATABASE_URL: "postgresql://u:p@host/db" };
 const db = fakeCatalogDb({});
 
+/** A complete run outcome carrying the real run id + createdAt the gate must thread through. */
+const COMPLETE: DailyRunOutcome = { status: "complete", runId: "daily-2026-08-14", createdAt: "2026-08-14T00:00:00Z" };
+
 /** The four seams the publish gate depends on, in-memory store + real publish. */
 function gateDeps(overrides: Partial<CronDependencies> = {}): CronDependencies {
   const store = inMemoryObjectStore().store;
@@ -27,7 +30,7 @@ function gateDeps(overrides: Partial<CronDependencies> = {}): CronDependencies {
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", version: 1, pointCount: 4 }),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set()),
     listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([]),
-    runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue("complete"),
+    runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue(COMPLETE),
     snapshotStore: vi.fn<CronDependencies["snapshotStore"]>().mockReturnValue(store),
     publishRun: vi.fn<CronDependencies["publishRun"]>().mockImplementation((d, s, runId, at) =>
       publishSnapshot({ db: d, store: s }, { sourceRunId: runId, createdAt: at }),
@@ -55,7 +58,7 @@ describe("daily snapshot publish gate (AC3/AC6)", () => {
 
   it("a failed run never publishes (AC6: no partial publishes)", async () => {
     const deps = gateDeps({
-      runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue("failed"),
+      runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue({ status: "failed", runId: "daily-x", createdAt: "t" }),
     });
     await createScheduledHandler(deps)({ cron: DAILY_DISCOVER_CRON }, ENV);
     expect(deps.publishRun).not.toHaveBeenCalled();
@@ -64,7 +67,7 @@ describe("daily snapshot publish gate (AC3/AC6)", () => {
 
   it("a partial (not complete) run never publishes", async () => {
     const deps = gateDeps({
-      runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue("partial"),
+      runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue({ status: "partial", runId: "daily-x", createdAt: "t" }),
     });
     await createScheduledHandler(deps)({ cron: DAILY_DISCOVER_CRON }, ENV);
     expect(deps.publishRun).not.toHaveBeenCalled();
@@ -84,7 +87,7 @@ describe("daily snapshot publish gate (AC3/AC6)", () => {
 describe("publishAfterRun unit gate", () => {
   it("publishes then GCs when the run is complete and a store is present", async () => {
     const store = inMemoryObjectStore().store;
-    const run = vi.fn().mockResolvedValue("complete");
+    const run = vi.fn().mockResolvedValue(COMPLETE);
     const publish = vi.fn().mockResolvedValue({ status: "published", snapshot: {} });
     const gc = vi.fn().mockResolvedValue({ deleted: 0, retained: [] });
     await publishAfterRun(db, store, {
@@ -92,6 +95,7 @@ describe("publishAfterRun unit gate", () => {
     });
     expect(run).toHaveBeenCalledWith(db, store);
     expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish).toHaveBeenCalledWith(db, store, COMPLETE.runId, COMPLETE.createdAt);
     expect(gc).toHaveBeenCalledTimes(1);
   });
 
@@ -100,9 +104,20 @@ describe("publishAfterRun unit gate", () => {
     const publish = vi.fn().mockResolvedValue({ status: "invalid", reason: "bad" });
     const gc = vi.fn().mockResolvedValue({ deleted: 0, retained: [] });
     await publishAfterRun(db, store, {
-      runDailyIngest: vi.fn().mockResolvedValue("complete"),
+      runDailyIngest: vi.fn().mockResolvedValue(COMPLETE),
       publishRun: publish, gcSnapshots: gc,
     });
     expect(gc).not.toHaveBeenCalled();
+  });
+
+  it("threads the completed run's own runId and createdAt into publishRun (never the wall clock)", async () => {
+    const store = inMemoryObjectStore().store;
+    const publish = vi.fn().mockResolvedValue({ status: "published", snapshot: {} });
+    const gc = vi.fn().mockResolvedValue({ deleted: 0, retained: [] });
+    await publishAfterRun(db, store, {
+      runDailyIngest: vi.fn().mockResolvedValue({ status: "complete", runId: "daily-2026-08-30", createdAt: "2026-08-30T04:00:00Z" }),
+      publishRun: publish, gcSnapshots: gc,
+    });
+    expect(publish).toHaveBeenCalledWith(db, store, "daily-2026-08-30", "2026-08-30T04:00:00Z");
   });
 });

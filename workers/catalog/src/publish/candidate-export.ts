@@ -11,6 +11,7 @@
  * Statements are built with the Drizzle query builder + executed through the
  * single CatalogDb seam; no complete SQL lives here.
  */
+import { asc } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { statementBuilder } from "../db/client";
 import { jsonToArrayBuffer } from "./bytes";
@@ -105,6 +106,7 @@ async function readWorks(db: CatalogDb): Promise<unknown[]> {
       updatedAt: bangumi.updatedAt,
     })
     .from(bangumi)
+    .orderBy(asc(bangumi.id))
     .getSQL();
   return (await db.execute(statement)).rows;
 }
@@ -118,6 +120,7 @@ async function readPoints(db: CatalogDb): Promise<unknown[]> {
       origin: points.origin, originUrl: points.originUrl, city: points.city,
     })
     .from(points)
+    .orderBy(asc(points.id))
     .getSQL();
   return (await db.execute(statement)).rows;
 }
@@ -129,6 +132,7 @@ async function readAliases(db: CatalogDb): Promise<unknown[]> {
       aliasNormalized: aliases.aliasNormalized, source: aliases.source, priority: aliases.priority,
     })
     .from(aliases)
+    .orderBy(asc(aliases.id))
     .getSQL();
   return (await db.execute(statement)).rows;
 }
@@ -141,6 +145,7 @@ async function readSeries(db: CatalogDb): Promise<unknown[]> {
       relation: seriesEdges.relation,
     })
     .from(seriesEdges)
+    .orderBy(asc(seriesEdges.fromBangumiId), asc(seriesEdges.toBangumiId), asc(seriesEdges.relation))
     .getSQL();
   return (await db.execute(statement)).rows;
 }
@@ -155,6 +160,7 @@ async function readProvenance(db: CatalogDb): Promise<unknown[]> {
       capturedAt: catalogProvenance.capturedAt,
     })
     .from(catalogProvenance)
+    .orderBy(asc(catalogProvenance.id))
     .getSQL();
   return (await db.execute(statement)).rows;
 }
@@ -166,6 +172,7 @@ async function readMedia(db: CatalogDb): Promise<unknown[]> {
       contentHash: mediaAssets.contentHash, tombstoned: mediaAssets.tombstoned,
     })
     .from(mediaAssets)
+    .orderBy(asc(mediaAssets.pointId))
     .getSQL();
   return (await db.execute(statement)).rows;
 }

@@ -5,8 +5,9 @@
  * the CatalogDb seam for reads and the ObjectStore seam for durable objects.
  * Activation is a single atomic pointer write (see pointer.ts), so validation
  * success moves previous->old and activates the new run; validation failure
- * deletes the staged candidate objects (never leaking unbounded candidates) and
- * leaves the current snapshot untouched.
+ * deletes NOTHING (no objects are staged until activation), and a staging
+ * failure removes only the keys this attempt staged — never objects belonging
+ * to a snapshot activated by an earlier attempt.
  */
 import type { CatalogDb } from "../db/client";
 import { exportCandidate, type CandidateExport, EXPORTED_TABLES } from "./candidate-export";
@@ -53,13 +54,12 @@ export async function publishSnapshot(
 ): Promise<PublishResult> {
   const snapshotId = snapshotIdFor(input.sourceRunId);
   const candidate = await exportCandidate(deps.db, dataPrefix(snapshotId));
-  if (!(await validate(candidate)).valid) return rejectAndClean(deps.store, snapshotId);
+  if (!(await validate(candidate)).valid) return invalid();
   return activate(deps, candidate, snapshotId, input);
 }
 
-/** Validation failed: remove the staged candidate and report the invalidity. */
-async function rejectAndClean(store: ObjectStore, snapshotId: string): Promise<PublishResult> {
-  await cleanupCandidate(store, snapshotId);
+/** Validation failure reports invalidity and deletes NOTHING (nothing is staged yet). */
+function invalid(): PublishResult {
   return { status: "invalid", reason: "candidate validation failed" };
 }
 
@@ -68,11 +68,17 @@ async function activate(
   deps: SnapshotDeps, candidate: CandidateExport, snapshotId: string, input: PublishInput,
 ): Promise<PublishResult> {
   const manifest = buildManifest(candidate, snapshotId, input.sourceRunId, input.createdAt);
-  await stageObjects(deps.store, candidate);
-  await deps.store.put(manifestKey(snapshotId), { body: textToArrayBuffer(manifestJson(manifest)), contentType: "application/json" });
-  const pointer = await readPointer(deps.store);
-  await writePointer(deps.store, { current: snapshotId, previous: pointer.current });
-  return { status: "published", snapshot: manifest };
+  let staged: readonly string[] = [];
+  try {
+    staged = await stageObjects(deps.store, candidate);
+    await deps.store.put(manifestKey(snapshotId), { body: textToArrayBuffer(manifestJson(manifest)), contentType: "application/json" });
+    const pointer = await readPointer(deps.store);
+    await writePointer(deps.store, { current: snapshotId, previous: pointer.current });
+    return { status: "published", snapshot: manifest };
+  } catch {
+    await deleteKeys(deps.store, staged);
+    return invalid();
+  }
 }
 
 /** The default candidate validation: allowlist + well-formed hashes (AC1/AC2). */
@@ -88,17 +94,19 @@ export function validateExport(export_: CandidateExport): Promise<{ valid: boole
   return Promise.resolve({ valid: true });
 }
 
-/** Stage every exported object to the store (immutable, write-once). */
-async function stageObjects(store: ObjectStore, export_: CandidateExport): Promise<void> {
+/** Stage every exported object; returns the keys THIS attempt put (AC6 cleanup scope). */
+async function stageObjects(store: ObjectStore, export_: CandidateExport): Promise<readonly string[]> {
+  const staged: string[] = [];
   for (const object of export_.objects) {
     await store.put(object.key, { body: object.body, contentType: "application/json" });
+    staged.push(object.key);
   }
+  return staged;
 }
 
-/** Delete the candidate prefix on failure so a bad publish leaks nothing (AC6). */
-async function cleanupCandidate(store: ObjectStore, snapshotId: string): Promise<void> {
-  const prefix = snapshotPrefix(snapshotId);
-  for (const key of await store.list(prefix)) await store.delete(key);
+/** Delete only the exact keys a failed activation attempt staged (never prior snapshots). */
+async function deleteKeys(store: ObjectStore, keys: readonly string[]): Promise<void> {
+  for (const key of keys) await store.delete(key);
 }
 
 /** Read the complete current snapshot manifest, or null when none exists. */
@@ -115,10 +123,10 @@ export async function readManifest(store: ObjectStore, snapshotId: string): Prom
   return JSON.parse(arrayBufferToText(entry.body)) as SnapshotManifest;
 }
 
-/** Deliberately roll back the public reader to the previous snapshot (AC5). */
+/** Deliberately roll back the public reader to the previous snapshot (AC5). Returns null when there is nothing to roll back to (no current or no previous). */
 export async function rollbackToPrevious(deps: SnapshotDeps): Promise<SnapshotManifest | null> {
   const pointer = await readPointer(deps.store);
-  if (pointer.current === null || pointer.previous === null) return readManifest(deps.store, pointer.current ?? "");
+  if (pointer.current === null || pointer.previous === null) return null;
   await writePointer(deps.store, { current: pointer.previous, previous: pointer.current });
   return readManifest(deps.store, pointer.previous);
 }

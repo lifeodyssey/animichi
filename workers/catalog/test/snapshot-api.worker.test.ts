@@ -77,6 +77,18 @@ describe("GET /catalog/snapshot (AC5)", () => {
 });
 
 describe("POST /catalog/snapshot/rollback (AC5)", () => {
+  it("404s when there is no previous snapshot to roll back to", async () => {
+    const bucket = fakeBucket();
+    const db = fakeCatalogDb({ bangumi: [{ id: "w1", title: "Lucky Star" }] });
+    await publishSnapshot({ db, store: r2ObjectStore(bucket) }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
+    const res = await app.request(
+      "/catalog/snapshot/rollback",
+      { method: "POST", headers: { authorization: "Bearer ops-token" } },
+      envOf(bucket, "ops-token"),
+    );
+    expect(res.status).toBe(404);
+  });
+
   it("rolls back to the previous snapshot with the correct bearer token", async () => {
     const bucket = fakeBucket();
     await seed(bucket);

@@ -54,4 +54,12 @@ describe("candidate export content (AC1 support)", () => {
       "snapshots/snap-a/data/works.json",
     ]);
   });
+
+  it("produces identical hashes for two exports of the same rows (deterministic order)", async () => {
+    const db = fakeCatalogDb(ROWS);
+    const first = await exportCandidate(db, "snapshots/snap-a/data");
+    const second = await exportCandidate(db, "snapshots/snap-a/data");
+    expect(first.objects.map((o) => o.hash)).toEqual(second.objects.map((o) => o.hash));
+    expect(first.objects.map((o) => [o.kind, o.hash])).toEqual(second.objects.map((o) => [o.kind, o.hash]));
+  });
 });

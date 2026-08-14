@@ -36,7 +36,7 @@ async function seedPublic(): Promise<void> {
     ('work', 'w1', 'w1', 'bangumi', null, null),
     ('point', 'p1', 'w1', 'anitabi', 'Anitabi', 'https://anitabi.cn')`);
   await db.execute(sql`INSERT INTO media_assets (point_id, r2_key, content_hash, tombstoned) VALUES
-    ('p1', 'points/p1', 'aa'.repeat(32), false)`);
+    ('p1', 'points/p1', ${'aa'.repeat(32)}, false)`);
 }
 
 async function seedPrivate(): Promise<void> {
@@ -74,6 +74,13 @@ databaseDescribe("Candidate export contains only public catalog data (AC1)", () 
       expect(EXPORTED_TABLES).not.toContain(privateTable);
     }
   });
+
+  it("produces identical object hashes across two exports of the same rows (deterministic ORDER BY)", async () => {
+    const first = await exportCandidate(db, "snapshots/snap-det/data");
+    const second = await exportCandidate(db, "snapshots/snap-det/data");
+    expect(first.objects.map((o) => o.hash)).toEqual(second.objects.map((o) => o.hash));
+    expect(first.objects.map((o) => [o.kind, o.key])).toEqual(second.objects.map((o) => [o.kind, o.key]));
+  });
 });
 
 databaseDescribe("Manifest shape (AC2)", () => {
@@ -90,7 +97,7 @@ databaseDescribe("Manifest shape (AC2)", () => {
 });
 
 databaseDescribe("Atomic activation (AC3)", () => {
-  it("a validation failure leaves the current pointer unchanged and cleans the candidate", async () => {
+  it("a validation failure leaves the store untouched and the pointer unchanged", async () => {
     const { store, keys } = inMemoryObjectStore();
     const reject = () => Promise.resolve({ valid: false, reason: "forced" });
     const first = await publishSnapshot({ db, store }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
@@ -99,6 +106,17 @@ databaseDescribe("Atomic activation (AC3)", () => {
     const pointer = await readPointer(store);
     expect(pointer.current).toBe("snap-daily-1");
     expect(keys().some((k) => k.includes("snap-daily-2"))).toBe(false);
+  });
+
+  it("a same-run-id re-publish that fails validation never deletes the live snapshot", async () => {
+    const { store, keys } = inMemoryObjectStore();
+    const reject = () => Promise.resolve({ valid: false, reason: "forced" });
+    await publishSnapshot({ db, store }, { sourceRunId: "daily-9", createdAt: "2026-08-22T00:00:00Z" });
+    const liveDataKeys = keys().filter((k) => k.startsWith("snapshots/snap-daily-9/data/"));
+    expect(liveDataKeys.length).toBeGreaterThan(0);
+    await publishSnapshot({ db, store }, { sourceRunId: "daily-9", createdAt: "2026-08-22T00:00:00Z" }, reject);
+    expect((await readPointer(store)).current).toBe("snap-daily-9");
+    for (const key of liveDataKeys) expect(keys()).toContain(key);
   });
 
   it("valid publish moves previous to old and activates the new run atomically", async () => {

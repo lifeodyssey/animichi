@@ -18,8 +18,7 @@ import type { ObjectStore } from "./publish/object-store";
 import { r2ObjectStore } from "./publish/object-store";
 import { publishSnapshot, type PublishResult } from "./publish/snapshot";
 import { gcSnapshots, type GcResult } from "./publish/snapshot-gc";
-import type { RunStatus } from "./ingest/daily-run";
-import { publishAfterRun } from "./publish/daily-snapshot";
+import { publishAfterRun, type DailyRunOutcome } from "./publish/daily-snapshot";
 
 export interface Env {
   ENVIRONMENT?: string;
@@ -166,7 +165,7 @@ export interface CronDependencies {
   ingestBangumi: (db: CatalogDb, bangumiId: string) => Promise<IngestResult>;
   listDoneBangumiIds: (db: CatalogDb, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
   listStaleBangumiIds: (db: CatalogDb, cap: number) => Promise<readonly string[]>;
-  runDailyIngest: (db: CatalogDb, store: ObjectStore | null) => Promise<RunStatus>;
+  runDailyIngest: (db: CatalogDb, store: ObjectStore | null) => Promise<DailyRunOutcome>;
   snapshotStore: (bucket: R2Bucket | undefined) => ObjectStore | null;
   publishRun: (db: CatalogDb, store: ObjectStore, sourceRunId: string, createdAt: string) => Promise<PublishResult>;
   gcSnapshots: (store: ObjectStore) => Promise<GcResult>;
@@ -235,9 +234,9 @@ export async function runTtlJob(
 export async function runDailyJob(
   db: CatalogDb,
   seasonalResolver: SeasonalResolver = bangumiSeasonResolver(),
-): Promise<RunStatus> {
+): Promise<DailyRunOutcome> {
   const inventory = await buildDailyInventory(db, seasonalResolver);
-  return catalogDailyRun(db, Date.now(), inventory, dailyPolicy()).then((run) => run.status);
+  return catalogDailyRun(db, Date.now(), inventory, dailyPolicy());
 }
 
 /**

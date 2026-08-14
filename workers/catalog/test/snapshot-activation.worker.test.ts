@@ -3,14 +3,14 @@
  *
  * Drives publishSnapshot with a fake db (empty public rows → a minimal candidate)
  * and an in-memory object store. Proves the AC3 contract: a validation failure
- * leaves the current pointer untouched AND deletes the staged candidate objects
- * (AC6 — a failed publish leaks nothing); a valid candidate atomically moves
- * previous to old and activates the new run. The authoritative integration
- * proofs run in the spike suite.
+ * leaves the store ENTIRELY untouched (nothing is staged until activation) and
+ * the pointer unchanged; a same-run-id re-publish that fails validation never
+ * deletes the live snapshot's objects (issue #1012 live-snapshot-deletion). The
+ * authoritative integration proofs run in the spike suite.
  */
 import { describe, expect, it } from "vitest";
 import { publishSnapshot, type PublishInput, type ValidatePort } from "../src/publish/snapshot";
-import { POINTER_KEY, readPointer } from "../src/publish/pointer";
+import { readPointer } from "../src/publish/pointer";
 import { fakeCatalogDb } from "./fakes/fake-catalog-db";
 import { inMemoryObjectStore } from "./fakes/in-memory-object-store";
 
@@ -21,13 +21,24 @@ function reject(): ValidatePort {
 }
 
 describe("publishSnapshot atomic activation (AC3 support)", () => {
-  it("a validation failure leaves the current pointer unchanged and deletes staged candidates", async () => {
+  it("a validation failure leaves the store untouched and the pointer unchanged", async () => {
     const { store, keys } = inMemoryObjectStore();
     const db = fakeCatalogDb({});
     await publishSnapshot({ db, store }, INPUT, reject());
     expect(await readPointer(store)).toEqual({ current: null, previous: null });
-    expect(keys().some((key) => key === POINTER_KEY)).toBe(false);
-    expect(keys().filter((key) => key.startsWith("snapshots/")).length).toBe(0);
+    expect(keys()).toEqual([]);
+  });
+
+  it("a same-run-id re-publish that fails validation never deletes the live snapshot", async () => {
+    const { store, keys } = inMemoryObjectStore();
+    const db = fakeCatalogDb({ bangumi: [{ id: "w1" }] });
+    const first = await publishSnapshot({ db, store }, INPUT);
+    expect(first.status).toBe("published");
+    const liveDataKeys = keys().filter((key) => key.startsWith("snapshots/snap-daily-1/data/"));
+    expect(liveDataKeys.length).toBeGreaterThan(0);
+    await publishSnapshot({ db, store }, INPUT, reject());
+    expect(await readPointer(store)).toEqual({ current: "snap-daily-1", previous: null });
+    for (const key of liveDataKeys) expect(keys()).toContain(key);
   });
 
   it("a valid candidate atomically moves previous to old current and activates the new run", async () => {
