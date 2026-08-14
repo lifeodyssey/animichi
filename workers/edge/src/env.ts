@@ -21,6 +21,10 @@ export interface Env {
    * sibling of the web app's VITE_SHOWCASE_MODE. Only the literal "false"
    * opens functional routes; unset/empty/malformed values fail closed (deny). */
   EDGE_SHOWCASE_MODE?: string;
+  /** Cloudflare-native `ratelimit` binding (issue #680): the COARSE
+   * best-effort burst damper. Absent (unit tests, a config without the
+   * binding) is treated as an outage — coarseBurstAllow fails open + alerts. */
+  RATE_LIMITER?: RateLimit;
   [key: string]: unknown;
 }
 
