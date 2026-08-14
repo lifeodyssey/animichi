@@ -176,9 +176,11 @@ dev-local:
 	@# 0. Kill stale processes from previous runs
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
-	@# 1. Database — the backend's local Postgres. Auth E2E needs none of this
-	@#    (AUTH-2 #950): apps/web login is Neon Auth, and the Playwright suite
-	@#    stubs every transport. The local Postgres is Neon Local via `make dev-db`.
+	@# 1. Database — the backend's local Postgres, independent of auth E2E (AUTH-2
+	@#    #950): apps/web login is Neon Auth. Most of the Playwright suite stubs
+	@#    every transport, except e2e/web-neon-login.spec.ts, which drives the real
+	@#    Neon Auth origin (live, self-skipping without QA creds). The local
+	@#    Postgres is Neon Local via `make dev-db`.
 	@#    If the supabase CLI is present, it is also accepted as a legacy way to
 	@#    bring up a local Postgres for the backend (equal to make dev-db) — but it
 	@#    is never an auth plane. Otherwise the backend needs a Neon DB (make
@@ -232,7 +234,7 @@ dev-stop:
 	@-test -f /tmp/animichi-web.pid && kill $$(cat /tmp/animichi-web.pid) 2>/dev/null && rm /tmp/animichi-web.pid && echo "✓ Web app stopped" || true
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
-	@echo "Done. (The database stays up — stop the local Postgres with 'make dev-db' cleanup, or 'supabase stop' if the legacy supabase fallback was used)"
+	@echo "Done. (The database stays up — stop Neon Local with: docker stop animichi-neon-local ; or 'supabase stop' if the legacy supabase fallback was used)"
 
 # ── E2E Testing ──────────────────────────────────────────────
 

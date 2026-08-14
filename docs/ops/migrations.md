@@ -1,8 +1,8 @@
 # Database migration boundary
 
 This is the operational source of truth for schema changes in the hybrid runtime. It
-separates the Neon data plane from the historical Supabase compatibility archive (issue
-#1000) so a query schema cannot quietly become a second migration system.
+separates the Neon data plane from the historical Supabase compatibility archive
+(issue #1000) so a query schema cannot quietly become a second migration system.
 
 ## Authorities
 
@@ -96,8 +96,10 @@ approved, it would follow its own owner/runbook and must not add or alter Neon d
   worker migration-boundary test also checks that workflows contain the Atlas command and do
   not reintroduce `supabase db push` or a Drizzle migration command.
 - The main promotion workflow applies Atlas to the target Neon branch before the catalog/users
-  Worker rollout. The manual production workflow validates the directory but intentionally does
-  not mutate a production database; use the approval-gated promotion for schema changes.
+  Worker rollout. The manual production path (`deploy.yml`) runs the same
+  `reusable-deploy-component.yml` as the promotion, so it applies `migrations/neon/`
+  (`atlas migrate apply`) when `NEON_DATABASE_URL` is set — it is **not** a migration-free
+  path (see `docs/ops/deployment.md`). Use the approval-gated promotion for schema changes.
 - A schema change that needs both old and new application versions uses expand/contract:
   add the replacement, deploy compatible readers/writers, then remove the old shape in a later
   migration. A Worker rollback never rolls back a database migration.

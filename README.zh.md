@@ -103,17 +103,26 @@ make db-push           # 对 NEON_DATABASE_URL 应用迁移
 
 **Python（直接调用）：**
 ```python
+import os
+
 from animichi.agents.animichi_runner import run_animichi_agent
+from animichi.infrastructure.persistence.database import create_database_lifecycle
 from animichi.infrastructure.persistence.repositories.composite import PersistenceRepos
 from animichi.clients.catalog_client import CatalogClient
 
 async def main() -> None:
-    repos = PersistenceRepos.build(session_factory)          # SQLModel repos over one Neon session
-    catalog = CatalogClient(base_url="https://catalog.example")
-    result = await run_animichi_agent(
-        text="吹響ユーフォニアムの聖地", db=repos, locale="ja", catalog=catalog
-    )
-    print(result.output)
+    # One session factory per app: the Neon agent_svc DSN (AGENT_SVC_DATABASE_URL)
+    # plus its async_sessionmaker, owned by DatabaseLifecycle.
+    lifecycle = create_database_lifecycle(os.environ["AGENT_SVC_DATABASE_URL"])
+    try:
+        repos = PersistenceRepos.build(lifecycle.sessionmaker)   # SQLModel repos over one Neon session
+        catalog = CatalogClient(base_url="https://catalog.example")
+        result = await run_animichi_agent(
+            text="吹響ユーフォニアムの聖地", db=repos, locale="ja", catalog=catalog
+        )
+        print(result.output)
+    finally:
+        await lifecycle.close()
 ```
 
 **HTTP（已认证）：**

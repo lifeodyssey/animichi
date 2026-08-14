@@ -116,7 +116,7 @@ sign-up POST for the password user against that branch's own base URL (`neonctl 
 - [x] Staging issuer/JWKS + QA login declared in IaC (`infra/src/neon-auth.ts`, `infra/neon-secrets`) — applied on the next `pulumi up` with the config keys set.
 - [ ] Operational tables (#312 step 2): migrate `sessions`/`messages`/`user_memory` **with user-id remap** (mapping file, §3).
 - [ ] RLS on Neon per Neon Auth docs before exposing user-scoped data.
-- [ ] Supabase retirement (#312 step 4): the `supabase/` dir is now **archived (historical, issue #1000)** — only the non-code decommission remains: dump `auth.users` as backup, then decommission the project and teardown the legacy env vars (#312 step 4).
+- [ ] Supabase retirement (#312 step 4): the `supabase/` dir is now **archived (historical, issue #1000)** — only the non-code decommission remains: dump `auth.users` as backup, then decommission the project and teardown the legacy **auth-plane** env vars (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`; #312 step 4). **Explicitly retain** `SUPABASE_DB_URL` — the transitional container-DSN name (a Neon DSN, not a live Supabase plane) must stay until the #855 production DSN cutover.
 
 ## 6. Command reference (as executed)
 

@@ -1,8 +1,11 @@
 # supabase/ — Historical archive (NOT live architecture)
 
 > **STATUS: HISTORICAL — retired by the Neon-only hard cut (#1000 / #992 wave).**
-> This directory is kept for **historical context only** and is **no longer
-> applied, deployed, or validated** by any CI, deployment, or runtime path.
+> This directory is kept for **historical context only** and is **no longer applied
+> or deployed** by any live CI, deployment, or runtime path. Committed
+> historical-reader tests may still inspect and validate specific migrations
+> (e.g. `test_phase1c_route_persistence.py`) — those tests just never run a
+> Supabase apply or deploy.
 
 Animichi has completed the Neon-only cutover. Auth is **Neon Auth (Better Auth,
 integrated in `apps/web`)** and the data plane is **Neon Postgres (Atlas

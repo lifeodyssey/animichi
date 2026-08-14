@@ -92,7 +92,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
   | Server | Use it for |
   |---|---|
-  | `supabase-seichijunrei` | **Legacy** Supabase ops — `list_tables`, `get_logs`, `get_advisors`, edge functions, `apply_migration`. Auth is Neon Auth (edge, #950) and the data plane is Neon Postgres, so use this only for inspecting the archived `supabase/` history. |
+  | `supabase-seichijunrei` | Read-only inspection of the **archived** `supabase/` history only (`list_tables`, `get_logs`, `get_advisors`, edge functions) — no mutation-capable ops (`apply_migration`) are listed any more (#1000). Auth is Neon Auth (edge, #950) and the data plane is Neon Postgres. |
   | Neon (`mcp__Neon__*`) | The **data plane** (catalog/user tables, Drizzle). Branch/query Neon. |
   | Cloudflare (`cloudflare-*`) | Workers/Wrangler docs, bindings, builds, observability for the edge/catalog. |
   | context7 | Current library docs for the exact stack (Hono, Drizzle, oRPC, AI SDK, TanStack Start, pydantic-ai). Prefer over memory. |
