@@ -3,7 +3,6 @@ import {
   DEFAULT_RUNTIME_CONFIG,
   RUNTIME_CONFIG_SCHEMA_VERSION,
   parseRuntimeConfig,
-  type RuntimeConfigErrorCode,
 } from "../../../../src/lib/runtime-config/runtime-config";
 
 /** A complete, valid production-shaped config. */
@@ -22,14 +21,10 @@ const PROD = {
   featureFlags: {},
 };
 
-function codeOf(fn: () => unknown): RuntimeConfigErrorCode | undefined {
-  try {
-    fn();
-    return undefined;
-  } catch (error) {
-    if (error instanceof Error && "code" in error) return (error as { code: RuntimeConfigErrorCode }).code;
-    throw error;
-  }
+// Conditional-free rejection helper: asserts the loader throws with the typed
+// runtime-config error prefix naming the failure code.
+function rejectsWith(raw: unknown, code: string): void {
+  expect(() => parseRuntimeConfig(raw)).toThrow(`runtime config ${code}:`);
 }
 
 describe("parseRuntimeConfig schema versioning", () => {
@@ -49,36 +44,56 @@ describe("parseRuntimeConfig schema versioning", () => {
   });
 
   it("REJECTS a future/bad schema_version", () => {
-    expect(codeOf(() => parseRuntimeConfig({ ...PROD, schemaVersion: 2 }))).toBe("wrong_version");
+    rejectsWith({ ...PROD, schemaVersion: 2 }, "wrong_version");
   });
 
   it("REJECTS a missing schema_version", () => {
     const { schemaVersion: _drop, ...rest } = PROD;
-    expect(codeOf(() => parseRuntimeConfig(rest))).toBe("wrong_version");
+    rejectsWith(rest, "wrong_version");
   });
 
   it("REJECTS unknown top-level fields (strict contract)", () => {
-    expect(codeOf(() => parseRuntimeConfig({ ...PROD, injectedSecret: "hunter2" }))).toBe(
-      "unknown_field",
-    );
+    rejectsWith({ ...PROD, injectedSecret: "hunter2" }, "unknown_field");
+  });
+
+  it("REJECTS unknown nested keys inside api (strict api contract)", () => {
+    rejectsWith({ ...PROD, api: { ...PROD.api, saiteOrigin: "https://x.test" } }, "unknown_field");
   });
 
   it("REJECTS non-object input", () => {
-    expect(codeOf(() => parseRuntimeConfig("not-json"))).toBe("invalid_json");
+    rejectsWith("not-json", "invalid_json");
   });
 
   it("REJECTS a JSON string that is not an object", () => {
-    expect(codeOf(() => parseRuntimeConfig("[1,2]"))).toBe("invalid");
+    rejectsWith("[1,2]", "invalid");
   });
 
   it("REJECTS missing/typed showcaseMode on an otherwise-false config", () => {
-    expect(codeOf(() => parseRuntimeConfig({ schemaVersion: 1 }))).toBe("invalid");
-    expect(codeOf(() => parseRuntimeConfig({ schemaVersion: 1, showcaseMode: "TRUE" }))).toBe("invalid");
+    rejectsWith({ schemaVersion: 1 }, "invalid");
+    rejectsWith({ schemaVersion: 1, showcaseMode: "TRUE" }, "invalid");
   });
 
   it("REJECTS a non-boolean feature flag value", () => {
-    expect(
-      codeOf(() => parseRuntimeConfig({ ...PROD, featureFlags: { newChat: "yes" } })),
-    ).toBe("invalid");
+    rejectsWith({ ...PROD, featureFlags: { newChat: "yes" } }, "invalid");
+  });
+});
+
+describe("turnstileSiteKey public-key shape", () => {
+  it.each([
+    "1x00000000000000000000AA",
+    "2x00000000000000000000AA",
+    "3x00000000000000000000AA",
+    "0x4AAAAAAAsitekey24chars",
+  ])("accepts the 24-char alphanumeric production/CI key %s", (siteKey) => {
+    expect(parseRuntimeConfig({ ...PROD, turnstileSiteKey: siteKey }).turnstileSiteKey).toBe(siteKey);
+  });
+
+  it.each([
+    "0x4AAAAAAAsitekey24ch",
+    "not-a-site-key",
+    "0x4AAAAAAAsitekey24chars!",
+    "this is far too long for a site key indeed",
+  ])("rejects a malformed site key %s", (siteKey) => {
+    rejectsWith({ ...PROD, turnstileSiteKey: siteKey }, "invalid");
   });
 });

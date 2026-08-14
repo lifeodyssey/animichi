@@ -72,12 +72,13 @@ describe("site key shape assertion", () => {
     expect(currentTurnstileSiteKey()).toBe(SITE_KEY);
   });
 
-  it("currentTurnstileSiteKey fails loudly on a wrong-length config value", () => {
-    // A non-empty but wrong-length value reaches the site-key shape check
-    // (an empty value is instead rejected at load time by the runtime-config
-    // schema, fail-closed, and covered by the loader's own tests).
+  it("currentTurnstileSiteKey fails loudly on a malformed config value", () => {
+    // A wrong-shape key is now rejected at LOAD time by the runtime-config
+    // schema (24-char alphanumeric pattern, fail-closed) — the loader surfaces
+    // that error instead of a use-time site-key shape check. The standalone
+    // resolveTurnstileSiteKey 24-char check still covers programmatic configs.
     vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, turnstileSiteKey: "x".repeat(25) });
-    expect(() => currentTurnstileSiteKey()).toThrow(/24 characters/);
+    expect(() => currentTurnstileSiteKey()).toThrow(/runtime config invalid/);
   });
 });
 

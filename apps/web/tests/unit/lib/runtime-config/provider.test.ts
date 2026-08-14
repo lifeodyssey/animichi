@@ -20,7 +20,7 @@ const STAGING = {
     agentUrl: "https://agent.staging.animichi.com",
   },
   neonAuthBaseUrl: "https://auth.staging.animichi.com/neondb/auth",
-  turnstileSiteKey: "staging-sitekey-24-chars-0000",
+  turnstileSiteKey: "2x00000000000000000000AA",
   showcaseMode: "false",
   cfBeaconToken: "11111111-1111-1111-1111-111111111111",
   featureFlags: { betaSearch: true },

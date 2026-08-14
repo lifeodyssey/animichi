@@ -20,17 +20,23 @@ export const RUNTIME_CONFIG_SCHEMA_VERSION = 1 as const;
 
 const UrlOptional = z.url().optional();
 
-const ApiSchema = z.object({
-  /** Served-origin override (falls back to the request origin at runtime). */
-  siteOrigin: UrlOptional,
-  catalogUrl: UrlOptional,
-  usersUrl: UrlOptional,
-  agentUrl: UrlOptional,
-});
+const ApiSchema = z
+  .object({
+    /** Served-origin override (falls back to the request origin at runtime). */
+    siteOrigin: UrlOptional,
+    catalogUrl: UrlOptional,
+    usersUrl: UrlOptional,
+    agentUrl: UrlOptional,
+  })
+  .strict();
 
 const BeaconTokenSchema = z.string().nonempty();
 
-const TurnstileSiteKeySchema = z.string().nonempty();
+/** Public Turnstile site key shape — exactly 24 alphanumeric chars, mirroring
+ * TurnstileGate.tsx's `SITE_KEY_LENGTH`/alphanumeric contract (test keys
+ * 1x...AA, 2x..., 3x... included). A misspelled/malformed key is rejected here
+ * in the contract, fail-closed, rather than silently shipping no widget. */
+const TurnstileSiteKeySchema = z.string().regex(/^[A-Za-z0-9]{24}$/);
 
 /** Exactly the strict camel-case boolean string the landing branch reads. */
 const ShowcaseModeSchema = z.literal("false").or(z.literal("true"));
