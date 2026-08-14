@@ -30,6 +30,10 @@ from animichi.infrastructure.persistence.models.message import (
     MessageModel,
     message_table,
 )
+from animichi.infrastructure.persistence.models.outbox import (
+    TurnOutboxModel,
+    outbox_table,
+)
 from animichi.infrastructure.persistence.models.points import (
     PointModel,
     points_table,
@@ -62,6 +66,7 @@ __all__ = [
     "PointModel",
     "RequestLogModel",
     "SessionModel",
+    "TurnOutboxModel",
     "TurnReservationModel",
     "anon_quota_table",
     "bangumi_table",
@@ -70,6 +75,7 @@ __all__ = [
     "memory_operations_table",
     "memory_table",
     "message_table",
+    "outbox_table",
     "points_table",
     "request_log_table",
     "reservation_table",

@@ -62,10 +62,21 @@ class SQLModelTurnReservationStore:
                 result = await session.execute(_dispatch_statement(ref, owner))
                 return result.scalar_one_or_none() is not None
 
-    async def settle(self, ref: TurnRef, *, owner: str, outcome: SettleOutcome) -> bool:
+    async def settle(
+        self,
+        ref: TurnRef,
+        *,
+        owner: str,
+        outcome: SettleOutcome,
+        outcome_payload: object | None = None,
+    ) -> bool:
         async with self._sessionmaker() as session:
             async with session.begin():
-                result = await session.execute(_settle_statement(ref, owner, outcome))
+                result = await session.execute(
+                    _settle_statement(
+                        ref, owner, outcome, outcome_payload=outcome_payload
+                    )
+                )
                 return result.scalar_one_or_none() is not None
 
     async def current_revision(self, session_id: str | None) -> int:

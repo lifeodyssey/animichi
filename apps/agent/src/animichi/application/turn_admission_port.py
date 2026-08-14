@@ -40,6 +40,8 @@ class ReserveRequest:
     session_digest: str | None = None
     owner: str | None = None
     lease_expires_at: datetime | None = None
+    #: Canonical sha256 hex of the turn request (AC4 conflict detection).
+    request_digest: str | None = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +59,10 @@ class ReservationOutcome:
     revision: int | None = None
     owner: str | None = None
     lease_expires_at: datetime | None = None
+    #: The committed turn's canonical request digest / serialized output on a
+    #: replay_completed verdict (AC4 conflict check / AC3 result recovery).
+    request_digest: str | None = None
+    outcome_payload: object | None = None
 
 
 class TurnReservationStore(Protocol):

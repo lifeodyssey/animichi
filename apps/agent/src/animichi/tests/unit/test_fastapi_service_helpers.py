@@ -42,6 +42,7 @@ def _aggregate_double() -> PersistenceRepos:
         anon_quota=MagicMock(),
         feedback=MagicMock(),
         memory=MagicMock(),
+        outbox=MagicMock(),
     )
 
 

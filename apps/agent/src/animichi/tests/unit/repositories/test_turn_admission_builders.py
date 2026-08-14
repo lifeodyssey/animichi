@@ -80,8 +80,8 @@ async def test_prune_keep_and_prune_statement_shape() -> None:
 
 
 async def test_existing_select_returns_select() -> None:
-    assert isinstance(ta._existing_select("sess-1", "turn-1"), Select)
-    assert isinstance(ta._existing_select(None, "turn-1"), Select)
+    assert isinstance(ta._existing_select("sess-1", "turn-1", None), Select)
+    assert isinstance(ta._existing_select(None, "turn-1", None), Select)
 
 
 async def test_where_clauses_carry_lease_guards() -> None:
@@ -109,14 +109,14 @@ async def test_ownership_ok_matches_identity_or_none() -> None:
 
 async def test_existing_maps_or_returns_none() -> None:
     factory = RecordingSessionFactory()
-    factory.session.result_for([("reserved", 2)])
-    outcome = await ta._existing(factory.session, "sess-1", "turn-1")
+    factory.session.result_for([("reserved", 2, None, None)])
+    outcome = await ta._existing(factory.session, "sess-1", "turn-1", None)
     assert outcome is not None
     assert outcome.status == "in_flight"
     assert outcome.revision == 2
     assert outcome.session_id == "sess-1"
     factory2 = RecordingSessionFactory()
-    assert await ta._existing(factory2.session, "sess-1", "turn-1") is None
+    assert await ta._existing(factory2.session, "sess-1", "turn-1", None) is None
 
 
 async def test_current_and_next_revision() -> None:
@@ -184,7 +184,7 @@ async def test_try_insert_success_and_conflict() -> None:
 
 async def test_replay_or_inflight_returns_existing_or_in_flight() -> None:
     factory = RecordingSessionFactory()
-    factory.session.result_for([("completed", 2)])
+    factory.session.result_for([("completed", 2, None, None)])
     outcome = await ta._replay_or_inflight(factory.session, _request())
     assert outcome is not None and outcome.status == "replay_completed"
     factory2 = RecordingSessionFactory()

@@ -56,6 +56,16 @@ async def tc_db(pg_container: DatabaseTarget) -> AsyncIterator[PersistenceRepos]
         await lifecycle.close()
 
 
+@pytest.fixture
+async def repos(pg_container: DatabaseTarget) -> AsyncIterator[PersistenceRepos]:
+    """The composed repository aggregate, shared by store-contract tests."""
+    lifecycle: DatabaseLifecycle = create_database_lifecycle(pg_container.dsn)
+    try:
+        yield PersistenceRepos.build(lifecycle.sessionmaker)
+    finally:
+        await lifecycle.close()
+
+
 _CLARIFY_CANDIDATES = [
     OrderedCandidate(id="11291", title="凉宫春日的忧郁", points_count=2, city="西宫"),
     OrderedCandidate(id="3375", title="凉宫春日的消失", points_count=1, city="西宫"),

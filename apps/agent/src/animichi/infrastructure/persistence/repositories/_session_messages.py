@@ -181,6 +181,19 @@ class _SessionMessagesMixin:
             response_data,
         )
 
+    async def insert_message_on(
+        self,
+        session: AsyncSession,
+        session_id: str,
+        role: str,
+        content: str,
+        response_data: ResponseData | None = None,
+    ) -> None:
+        """Append one transcript row on a caller-owned transaction (AC5)."""
+        await session.execute(
+            _message_insert(session_id, role, content, response_data),
+        )
+
     async def get_messages(
         self,
         session_id: str,

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import cast
 
 import httpx
 import structlog
@@ -23,6 +24,11 @@ from animichi.infrastructure.persistence.repositories.composite import (
 )
 from animichi.infrastructure.session import SessionStore
 from animichi.infrastructure.session.cached_session_store import SessionStateStore
+from animichi.interfaces.outbox_drain import (
+    DEFAULT_OUTBOX_DRAIN_INTERVAL,
+    _outbox_drain_loop,
+    _run_startup_outbox_drain,
+)
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.routes._deps import (  # noqa: F401
     _contains_json_invalid_error,
@@ -82,6 +88,7 @@ async def _lifespan_with_runtime_api(
     if resolved_db is not None:
         app.state.db_client = resolved_db
         await _run_startup_sweep(resolved_db)
+        await _run_startup_outbox_drain(resolved_db, cast(Settings, app.state.settings))
     try:
         yield
     finally:
@@ -98,10 +105,7 @@ def _resolve_session_store(
         return session_store
     if session_repo is not None:
         return build_session_store(session_repo)
-    raise RuntimeError(
-        "create_fastapi_app(..., db=...) requires session_store"
-        " for non-persistence db adapters."
-    )
+    raise RuntimeError("create_fastapi_app requires session_store for db adapters")
 
 
 async def _close_stores(
@@ -167,15 +171,27 @@ async def _lifespan_build_runtime(
         memory_store=postgres_memory_store(runtime_db),
     )
     app.state.db_client = runtime_db
-    # The startup sweep must not gate the container's readiness (issue #694):
-    # it runs in the background so the port binds immediately. The engine
-    # connects lazily on first use; a failed sweep logs and is retried by the
-    # next admission's own sweep pass (TURN-3 #951).
+    # Startup sweep runs in the background (not readiness-gating, issue #694);
+    # a failed sweep logs and is retried by the next admission sweep (TURN-3).
     startup_sweep_task = asyncio.create_task(_run_startup_sweep(runtime_db))
     app.state.startup_sweep_task = startup_sweep_task
+    outbox_drain_loop: asyncio.Task[None] | None = None
+    if isinstance(runtime_db, PersistenceRepos):
+        startup_outbox_drain_task = asyncio.create_task(
+            _run_startup_outbox_drain(runtime_db, resolved_settings)
+        )
+        app.state.startup_outbox_drain_task = startup_outbox_drain_task
+        outbox_drain_loop = asyncio.create_task(
+            _outbox_drain_loop(
+                runtime_db, resolved_settings, DEFAULT_OUTBOX_DRAIN_INTERVAL
+            )
+        )
+        app.state.outbox_drain_loop = outbox_drain_loop
     try:
         yield
     finally:
+        if outbox_drain_loop is not None:
+            outbox_drain_loop.cancel()
         try:
             await startup_sweep_task
         finally:

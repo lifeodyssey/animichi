@@ -63,9 +63,10 @@ from animichi.agents.translation import (
     translation_agent,
 )
 from animichi.agents.web_trust import detect_prompt_injection
-from animichi.application.admission_limits import anon_quota_eligible
 from animichi.application.agent_turn import AgentTurn
 from animichi.application.errors import ApplicationError, ErrorCode
+from animichi.application.outbox_payload import SettlementPayload, UsageItem
+from animichi.application.outbox_port import OutboxEntry, OutboxKind, OutboxStore
 from animichi.application.turn_admission import (
     AdmissionIdentity,
     AdmissionVerdict,
@@ -116,6 +117,7 @@ from animichi.interfaces.db_repos import (
     anon_quota_repo,
     bangumi_repo,
     messages_repo,
+    outbox_repo,
     request_audit_repo,
     session_repo,
     turn_reservation_store,
@@ -131,7 +133,6 @@ from animichi.interfaces.persistence import (
     create_owned_session,
     extract_plan_steps,
     load_session_state,
-    persist_messages,
     persist_result,
 )
 from animichi.interfaces.response_builder import agent_result_to_response
@@ -151,7 +152,6 @@ from animichi.interfaces.usage_metering import (
     UsagePrices,
     record_turn_usage,
     scope_for_identity,
-    utc_today,
 )
 from animichi.utils.language import detect_language, resolve_reply_language
 
@@ -221,6 +221,26 @@ def _invalid_selection_response(_message: str | None = None) -> PublicAPIRespons
         intent="clarify",
         ui={"component": "Clarification"},
     )
+
+
+def _request_digest(request: PublicAPIRequest) -> str:
+    """Canonical sha256 hex of the turn request for exactly-once conflicts (AC4).
+
+    Two retries of the same user turn must hash identically so admission can
+    tell a safe replay from a same-key/different-request conflict.
+    """
+    import hashlib
+
+    payload = "\n".join(
+        [
+            request.text or "",
+            request.session_id or "",
+            "|".join(request.selected_point_ids or ()),
+            "|".join(request.selected_candidate_ids or ()),
+            str(request.clarification_id or ""),
+        ]
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _kind_from_request(request: PublicAPIRequest) -> TurnKind:
@@ -563,7 +583,17 @@ class _RuntimeSessionGateway:
 
 
 class _RuntimeTurnSettlement:
-    """TurnSettlement port: meter usage, quota, and the terminal audit."""
+    """TurnSettlement port: ENQUEUE the effects, never apply them inline (AC5).
+
+    On the CAS-win path the three external effects (usage metering / quota
+    increment / request audit) are recorded as durable outbox rows. Enqueue is
+    idempotent on ``(turn_key, kind)``, so a replayed settle of an
+    already-settled turn creates NO new row (``created`` is ``False``) and
+    applies nothing. The effects are applied exactly once by the transactional
+    background drain, which runs each row's effect and its delivered-mark in
+    one transaction — so a crash can never double-charge a non-idempotent
+    effect nor leave it applied-but-undelivered (AC5).
+    """
 
     def __init__(
         self,
@@ -581,77 +611,41 @@ class _RuntimeTurnSettlement:
         self._is_byok = is_byok
 
     async def settle(self, side: TurnSideEffects) -> None:
-        await self._meter(side)
-        if side.settle_quota:
-            await self._settle_anon_quota(side)
-        await self._log_request(side)
+        """Record the durable effects; the drain applies them exactly once."""
+        payload = self._payload(side)
+        outbox = self._api._outbox
+        if outbox is None:
+            return
+        json_payload = payload.to_json()
+        for kind in _OUTBOX_KINDS:
+            await outbox.enqueue(
+                OutboxEntry(
+                    turn_key=side.turn_key,
+                    kind=kind,
+                    session_id=side.session_id,
+                    payload=json_payload,
+                )
+            )
 
-    async def _meter(self, side: TurnSideEffects) -> None:
+    def _payload(self, side: TurnSideEffects) -> SettlementPayload:
+        """Extract every external effect into a serializable settlement payload."""
         result = side.result if isinstance(side.result, AgentResult) else None
-        if result is None:
-            return
-        for item in _attributed_usage(result, side.is_byok):
-            await _record_attributed_usage(
-                self._api._usage_repo,
-                item,
-                side.user_id,
-                side.user_type,
-                self._api._usage_prices(),
-            )
-
-    async def _settle_anon_quota(self, side: TurnSideEffects) -> None:
-        if not self._is_anon_scope(side):
-            return
-        repo = anon_quota_repo(self._api._db)
-        anon_id = side.user_id or ""
-        if repo is None or not anon_quota_eligible(anon_id):
-            return
-        try:
-            await repo.increment_and_count(usage_date=utc_today(), anon_id=anon_id)
-        except Exception:
-            logger.warning("anon_quota_settle_failed", exc_info=True)
-
-    def _is_anon_scope(self, side: TurnSideEffects) -> bool:
-        return (
-            scope_for_identity(side.user_id, side.user_type, is_byok=side.is_byok)
-            == "anon"
+        usage_items = _usage_items(result, side.is_byok) if result is not None else ()
+        return SettlementPayload(
+            session_id=side.session_id,
+            user_id=side.user_id,
+            user_type=side.user_type,
+            is_byok=side.is_byok,
+            settle_quota=side.settle_quota,
+            elapsed_ms=side.elapsed_ms,
+            intent=side.intent,
+            status=side.status,
+            request_text=side.request_text,
+            locale=self._request.locale,
+            user_message_persisted=side.user_message_persisted,
+            usage=usage_items,
+            plan_steps=extract_plan_steps(result),
         )
-
-    async def _log_request(self, side: TurnSideEffects) -> None:
-        """Persist user message on error (best-effort) and log the request."""
-        if not side.user_message_persisted and side.session_id and side.request_text:
-            try:
-                await persist_messages(
-                    messages_repo=self._api._messages_repo,
-                    session_id=side.session_id,
-                    user_text=side.request_text,
-                    result=None,
-                    response=PublicAPIResponse(
-                        success=False, status="error", intent="unknown"
-                    ),
-                    persist_user_only=True,
-                )
-            except (OSError, RuntimeError, ValueError, TypeError):
-                logger.warning(
-                    "finally_persist_user_msg_failed",
-                    session_id=side.session_id,
-                )
-        if self._api._request_audit_repo is None:
-            return
-        try:
-            await self._api._request_audit_repo.insert_request_log(
-                session_id=side.session_id,
-                query_text=side.request_text,
-                locale=self._request.locale,
-                plan_steps=extract_plan_steps(
-                    side.result if isinstance(side.result, AgentResult) else None
-                ),
-                intent=side.intent,
-                status=side.status,
-                latency_ms=side.elapsed_ms,
-            )
-        except (OSError, RuntimeError, ValueError, TypeError):
-            logger.warning("request_log_failed", session_id=side.session_id)
 
 
 class RuntimeAPI:
@@ -719,6 +713,10 @@ class RuntimeAPI:
     def _request_audit_repo(self) -> RequestAudit | None:
         return request_audit_repo(self._db)
 
+    @cached_property
+    def _outbox(self) -> OutboxStore | None:
+        return outbox_repo(self._db)
+
     @property
     def model_http_client(self) -> httpx.AsyncClient:
         """Return the required shared model transport."""
@@ -780,6 +778,7 @@ class RuntimeAPI:
                     turn_key=turn_key or uuid4().hex,
                     identity=AdmissionIdentity(user_id=user_id, user_type=user_type),
                     kind=_kind_from_request(request),
+                    request_digest=_request_digest(request),
                     is_byok=is_byok,
                     model=model if model is not None else request.model,
                     verdict=verdict,
@@ -898,7 +897,7 @@ class RuntimeAPI:
             response = (
                 agent_result_to_response(output, include_debug=request.include_debug)
                 if isinstance(output, AgentResult)
-                else PublicAPIResponse(success=True, status="ok", intent="unknown")
+                else _replayed_response(output, result.outcome == "replayed")
             )
         response.session_id = result.session_id
         response.revision = result.revision
@@ -948,6 +947,18 @@ class RuntimeAPI:
             return result
 
         return _translate
+
+
+def _replayed_response(output: object, replayed: bool) -> PublicAPIResponse:
+    """Rebuild a committed response from a recovered (idempotency) payload.
+
+    On a replay (AC3) the committed ``PublicAPIResponse`` is recovered from the
+    reservation, not recomputed by the model; a dict payload is validated back
+    onto the typed wire carrier.
+    """
+    if replayed and isinstance(output, dict):
+        return PublicAPIResponse.model_validate(output, from_attributes=False)
+    return PublicAPIResponse(success=True, status="ok", intent="unknown")
 
 
 def _rejection_response(rejection: AdmissionRejection | None) -> PublicAPIResponse:
@@ -1077,6 +1088,23 @@ def _attributed_usage(result: AgentResult, is_byok: bool) -> list[AttributedUsag
     payer: UsagePayer = "byok" if is_byok else "platform"
     primary = [] if result.usage is None else [AttributedUsage(result.usage, payer)]
     return [*primary, *result.supplemental_usage]
+
+
+#: The three external effects a settled turn records durably (AC5).
+_OUTBOX_KINDS: tuple[OutboxKind, ...] = ("usage", "quota", "audit")
+
+
+def _usage_items(result: AgentResult, is_byok: bool) -> tuple[UsageItem, ...]:
+    """Reduce the turn's metered calls to JSON-safe items for the outbox."""
+    return tuple(
+        UsageItem(
+            payer=item.payer,
+            requests=item.usage.requests,
+            prompt_tokens=item.usage.input_tokens,
+            completion_tokens=item.usage.output_tokens,
+        )
+        for item in _attributed_usage(result, is_byok)
+    )
 
 
 async def _record_attributed_usage(

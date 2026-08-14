@@ -39,6 +39,7 @@ def build_stub_db() -> PersistenceRepos:
         anon_quota=MagicMock(),
         feedback=MagicMock(),
         memory=MagicMock(),
+        outbox=MagicMock(),
     )
     db.session.get_messages = AsyncMock(return_value=[])
     db.session.current_revision = AsyncMock(return_value=0)

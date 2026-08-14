@@ -9,12 +9,19 @@ import pytest
 from animichi.agents.agent_result import AgentResult
 from animichi.agents.runtime_models import GreetingResponseModel
 from animichi.agents.session_state import SessionState
+from animichi.application.outbox import TurnOutbox
 from animichi.infrastructure.session.memory import InMemorySessionStore
+from animichi.interfaces.outbox_dispatch import (
+    SettlementInputs,
+    SettlementOutboxDispatcher,
+)
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
+from animichi.interfaces.usage_metering import UsagePrices
 from animichi.tests.unit.conftest_public_api import (
     install_mock_pipeline,
     make_run_agent_stub,
 )
+from animichi.tests.unit.outbox_fakes import MemoryOutbox
 
 
 @pytest.fixture(autouse=True)
@@ -51,8 +58,11 @@ class TestGreetingPersistence:
         db.session.upsert_session = AsyncMock()
         db.session.insert_message = AsyncMock()
         # #663: the real repo lives at `db.feedback`, not a flat
-        # `db.insert_request_log` — that was the production bug.
-        db.feedback.insert_request_log = AsyncMock()
+        # `db.insert_request_log` — that was the production bug. Settle enqueues
+        # the audit row; the drain writes the request log (AC5).
+        db.feedback.insert_request_log_on = AsyncMock()
+        outbox = MemoryOutbox()
+        db.outbox = outbox
 
         session_store = MagicMock()
         session_store.get = AsyncMock(return_value=None)
@@ -67,6 +77,17 @@ class TestGreetingPersistence:
                 db=db, session_store=session_store, model_http_client=MagicMock()
             )
             response = await api.handle(PublicAPIRequest(text="hi"), user_id="u1")
+        await TurnOutbox(store=outbox).drain(
+            SettlementOutboxDispatcher(
+                SettlementInputs(
+                    usage_repo=db.usage,
+                    anon_quota_repo=None,
+                    request_audit_repo=db.feedback,
+                    messages_repo=db.session,
+                    prices=UsagePrices(0.0, 0.0),
+                )
+            )
+        )
 
         assert response.intent == "greet_user"
         assert response.session_id is not None
@@ -76,7 +97,7 @@ class TestGreetingPersistence:
         session_store.set.assert_awaited_once()
         db.session.upsert_session.assert_awaited_once()
         db.session.insert_message.assert_awaited()
-        db.feedback.insert_request_log.assert_awaited_once()
+        db.feedback.insert_request_log_on.assert_awaited_once()
 
 
 class TestRuntimeAPISession:
