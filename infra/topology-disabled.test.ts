@@ -19,7 +19,16 @@ test("only private R2 buckets exist when an ungated stack is built", () => {
   assert.deepEqual(types, [
     "cloudflare:index/r2Bucket:R2Bucket",
     "cloudflare:index/r2Bucket:R2Bucket",
+    "cloudflare:index/r2Bucket:R2Bucket",
   ]);
+});
+
+test("no R2 custom domain is declared, so every bucket stays private", () => {
+  // An R2 bucket is private unless an R2CustomDomain is attached to it. None
+  // of the three buckets (catalog-media, map-tiles, catalog-snapshots) may get
+  // one, or catalog data would leak without going through the edge Worker.
+  const customDomains = built.filter((r) => r.type.includes("cloudflare:index/r2CustomDomain:R2CustomDomain"));
+  assert.deepEqual(customDomains, []);
 });
 
 test("nothing that could publish the site or harden the zone is declared", () => {

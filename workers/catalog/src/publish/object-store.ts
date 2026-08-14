@@ -5,7 +5,7 @@
  * atomic current/previous pointer — live in R2, the same bucket family as the
  * lazy-cached point photos (catalog-media, see ../media/img.ts). Production
  * wraps the real R2Bucket binding; tests inject an in-memory fake so the
- * purge/GC + failed-publish lifecycle is verifiable without a live bucket.
+ * GC + failed-publish lifecycle is verifiable without a live bucket.
  *
  * The seam surface is deliberately narrow (put/get/list/delete under a prefix)
  * so reachability GC and candidate cleanup can be proven deterministically.
