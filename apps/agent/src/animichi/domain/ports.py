@@ -8,7 +8,9 @@ satisfy these protocols structurally (PEP 544) — no inheritance needed.
 Only methods actually *used* by the agent layer are declared here.
 
 Return types use the concrete row TypedDicts in ``animichi.domain.repo_types``
-(the #992 JSONB-modeling pass replaced every ``dict[str, object]`` return).
+(the #992 JSONB-modeling pass replaced every ``dict[str, object]`` return;
+the session-state envelope rides ``SessionStateData`` on the
+``infrastructure.session`` store protocol as well).
 Protocol signatures mirror the implementation types for structural subtyping.
 
 Iter6 C4: this module used to also carry seven ``get_*_repo``/``has_*_repo``

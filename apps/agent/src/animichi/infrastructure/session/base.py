@@ -7,7 +7,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Protocol, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
+
+from animichi.domain.repo_types import SessionMetadata, SessionStateData
 
 
 @dataclass
@@ -21,8 +23,8 @@ class SessionData:
     session_id: str
     """Unique session identifier."""
 
-    state: dict[str, object] = field(default_factory=dict)
-    """Session state dictionary."""
+    state: SessionStateData = field(default_factory=lambda: cast(SessionStateData, {}))
+    """Session state envelope (typed by ``SessionStateData``)."""
 
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     """When the session was created."""
@@ -30,7 +32,7 @@ class SessionData:
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     """When the session was last updated."""
 
-    metadata: dict[str, object] = field(default_factory=dict)
+    metadata: SessionMetadata = field(default_factory=lambda: cast(SessionMetadata, {}))
     """Additional session metadata."""
 
     def is_expired(self, ttl_seconds: float) -> bool:
@@ -51,23 +53,23 @@ class SessionStore(Protocol):
     This follows the simplified interface from the task specification.
     """
 
-    async def get(self, session_id: str) -> dict[str, object] | None:
+    async def get(self, session_id: str) -> SessionStateData | None:
         """Retrieve session state by ID.
 
         Args:
             session_id: The unique session identifier.
 
         Returns:
-            Session state dictionary if found, None otherwise.
+            Session state envelope if found, None otherwise.
         """
         ...
 
-    async def set(self, session_id: str, state: dict[str, object]) -> None:
+    async def set(self, session_id: str, state: SessionStateData) -> None:
         """Store or update session state.
 
         Args:
             session_id: The unique session identifier.
-            state: The state dictionary to store.
+            state: The session state envelope to store.
         """
         ...
 

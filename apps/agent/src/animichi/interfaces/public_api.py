@@ -102,6 +102,7 @@ from animichi.domain.ports import (
     SessionRepo,
     UsageMeter,
 )
+from animichi.domain.repo_types import SessionStateData
 from animichi.infrastructure.observability import (
     record_runtime_request,
     runtime_span,
@@ -472,7 +473,7 @@ class _RuntimeSessionGateway:
         self._api = api
         self._request = request
         self._user_id = user_id
-        self._previous_state: dict[str, object] | None = None
+        self._previous_state: SessionStateData | None = None
 
     async def check_owner(self, session_id: str | None, user_id: str | None) -> bool:
         if session_id is None or user_id is None:

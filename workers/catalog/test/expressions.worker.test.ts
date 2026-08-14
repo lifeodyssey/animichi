@@ -3,6 +3,14 @@ import type { SQL } from "drizzle-orm";
 import { points } from "../src/db/schema";
 import * as x from "../src/db/expressions";
 
+// Sanctioned exception to Spec Testing Decisions + STORY 24 (no rendered-SQL
+// assertions): this unit-test target is the `typed-expression` module itself
+// (src/db/expressions.ts), which exists solely to assemble PostGIS / pg_trgm /
+// interval fragments from inputs. `sqlText` below flattens a *fragment* as it
+// is being constructed from arguments — it is not the terraformed complete
+// statement a worker ships to Neon, so asserting its fragments is the module's
+// contract and is intentionally exempt from the adapter-level rule.
+
 /** Flatten a Drizzle SQL fragment to its literal text (chunks + placeholders). */
 function sqlText(value: unknown): string {
   if (value === null || typeof value === "undefined") return "";

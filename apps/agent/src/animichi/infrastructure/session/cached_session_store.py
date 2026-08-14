@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from animichi.domain.repo_types import SessionStateData
 from animichi.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -19,10 +20,10 @@ logger = get_logger(__name__)
 class SessionStateStore(Protocol):
     """The three state-envelope operations the cache needs from a repository."""
 
-    async def get_session_state(self, session_id: str) -> dict[str, object] | None: ...
+    async def get_session_state(self, session_id: str) -> SessionStateData | None: ...
 
     async def upsert_session_state(
-        self, session_id: str, state: dict[str, object]
+        self, session_id: str, state: SessionStateData
     ) -> None: ...
 
     async def delete_session_state(self, session_id: str) -> None: ...
@@ -37,10 +38,10 @@ class CachedSessionStore:
 
     def __init__(self, store: SessionStateStore, cache_size: int = 256) -> None:
         self._store = store
-        self._cache: dict[str, dict[str, object]] = {}
+        self._cache: dict[str, SessionStateData] = {}
         self._cache_size = cache_size
 
-    async def get(self, session_id: str) -> dict[str, object] | None:
+    async def get(self, session_id: str) -> SessionStateData | None:
         """Retrieve session state, checking cache first."""
         if session_id in self._cache:
             logger.debug("session_cache_hit", session_id=session_id)
@@ -53,7 +54,7 @@ class CachedSessionStore:
             logger.debug("session_cache_miss_loaded", session_id=session_id)
         return state
 
-    async def set(self, session_id: str, state: dict[str, object]) -> None:
+    async def set(self, session_id: str, state: SessionStateData) -> None:
         """Write-through: update cache and persist to DB."""
         self._evict_if_full()
         self._cache[session_id] = state

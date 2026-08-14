@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
-from typing import cast
 
 import structlog
 from pydantic_core import to_jsonable_python
@@ -75,9 +74,9 @@ async def persist_result(
     result: AgentResult | None,
     response: PublicAPIResponse,
     context_delta: dict[str, object],
-    previous_state: dict[str, object],
+    previous_state: SessionStateData,
     user_id: str | None,
-) -> tuple[dict[str, object], bool, str | None]:
+) -> tuple[SessionStateData, bool, str | None]:
     """Persist session state, route, user state, and messages.
 
     Returns (session_state, user_message_persisted, generated_title).
@@ -208,7 +207,7 @@ async def persist_session(
     session_repo: SessionRepo | None,
     session_store: SessionStore,
     session_id: str,
-    session_state: dict[str, object],
+    session_state: SessionStateData,
     response: PublicAPIResponse,
     user_id: str | None,
 ) -> None:
@@ -222,7 +221,7 @@ async def persist_session(
         }
         await session_repo.upsert_session(
             session_id,
-            cast(SessionStateData, session_state),
+            session_state,
             metadata=metadata,
             user_id=user_id,
         )
@@ -233,19 +232,17 @@ async def create_owned_session(
     session_id: str,
     user_id: str,
     first_query: str,
-    session_state: dict[str, object],
+    session_state: SessionStateData,
 ) -> None:
     """Create one authenticated Session aggregate row atomically."""
     if session_repo is None:
         raise RuntimeError("authenticated sessions require a session repository")
-    await session_repo.create(
-        session_id, user_id, first_query, cast(SessionStateData, session_state)
-    )
+    await session_repo.create(session_id, user_id, first_query, session_state)
 
 
 async def load_session_state(
     session_store: SessionStore, session_id: str
-) -> dict[str, object]:
+) -> SessionStateData:
     state = await session_store.get(session_id)
     return normalize_session_state(state)
 
@@ -352,7 +349,7 @@ def _distinct_work_ids(rows: list[PointState]) -> list[str]:
 
 
 def build_response_session(
-    session_state: dict[str, object],
+    session_state: SessionStateData,
 ) -> tuple[dict[str, object], list[object]]:
     """Build session summary and route history for response."""
     session = build_session_summary(session_state)

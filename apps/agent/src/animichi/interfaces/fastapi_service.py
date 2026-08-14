@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import cast
 
 import httpx
 import structlog
@@ -91,14 +90,14 @@ async def _lifespan_with_runtime_api(
 
 def _resolve_session_store(
     session_store: SessionStore | None,
-    session_repo: object | None,
+    session_repo: SessionStateStore | None,
 ) -> SessionStore:
     """Resolve the session store from the provided store or the SQLModel
     session repository (#994)."""
     if session_store is not None:
         return session_store
     if session_repo is not None:
-        return build_session_store(cast(SessionStateStore, session_repo))
+        return build_session_store(session_repo)
     raise RuntimeError(
         "create_fastapi_app(..., db=...) requires session_store"
         " for non-persistence db adapters."

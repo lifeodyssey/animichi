@@ -2,7 +2,6 @@ import { vi } from "vitest";
 import { PgDialect } from "drizzle-orm/pg-core";
 import type { SQL } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
-import { NeonGazetteer } from "../src/adapters/outbound/neon/gazetteer";
 import type { GeocodeHit } from "../src/domain/geocode/collapse";
 
 export const NISHINOMIYA: GeocodeHit = {
@@ -21,6 +20,10 @@ export interface FakeDb extends CatalogDb {
   executeSpy: ReturnType<typeof vi.fn>;
 }
 
+/** A fake CatalogDb recording every `execute` call and replaying scripted rows.
+ *  The DB is the oracle for SQL semantics (distinct on / order by / trigram):
+ *  return rows in the order a real query would, and assert the adapter echoes
+ *  them — never rendered-SQL strings (Spec Testing Decisions + STORY 24). */
 export function fakeDb(...responses: GeocodeHit[][]): FakeDb {
   const pending = [...responses];
   const executeSpy = vi.fn((_query: unknown) =>
@@ -36,15 +39,12 @@ export function hit(overrides: Partial<GeocodeHit>): GeocodeHit {
   return { ...NISHINOMIYA, ...overrides };
 }
 
-export function sqlText(value: unknown): string {
-  if (typeof value !== "object" || value === null) return "";
+/** The bound-parameter list of a recorded statement — the behavioural data a
+ *  real query sends. Allows asserting semantic inputs (alias term, trigram
+ *  threshold, result limit) without asserting rendered-SQL text. */
+export function queryParams(value: unknown): unknown[] {
+  if (typeof value !== "object" || value === null) return [];
   const builder = value as { getSQL?: () => SQL };
   const sql = builder.getSQL ? builder.getSQL() : (value as SQL);
-  return new PgDialect().sqlToQuery(sql).sql;
-}
-
-export async function fuzzySql(): Promise<string> {
-  const db = fakeDb([], []);
-  await new NeonGazetteer(db).fuzzy("西宮北口");
-  return sqlText(db.executeSpy.mock.calls[0]?.[0]);
+  return new PgDialect().sqlToQuery(sql).params;
 }
