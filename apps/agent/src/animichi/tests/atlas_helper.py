@@ -16,8 +16,6 @@ from collections.abc import Sequence
 from pathlib import Path
 from urllib.parse import urlparse
 
-import httpx
-
 PINNED_ATLAS_VERSION = "0.30.0"
 # Upgrade policy (review by 2027-01): Atlas supports only the newest two minors,
 # and release binaries may disappear after roughly six months. Keep the pin,
@@ -122,6 +120,9 @@ def _global_atlas_matching_pin() -> Path | None:
 
 
 def _fetch_atlas_artifact(url: str) -> bytes:
+    import httpx  # lazy: only the download fallback needs it; the ubuntu
+
+    # runner's system python3 has no httpx but never reaches this path (#1041).
     response = httpx.get(
         url, timeout=ATLAS_DOWNLOAD_TIMEOUT_SECONDS, follow_redirects=True
     )
@@ -151,6 +152,12 @@ def _download_pinned_atlas(system: str, machine: str) -> Path:
     inside one failure boundary: any of them raising must read as "the
     integration arm did NOT run", never as an unrelated filesystem error.
     """
+    # httpx is only needed on this download fallback path, so it is imported
+    # lazily (function-local) rather than at module import time. The ubuntu
+    # runner's system python3 has no httpx, but there the pinned Atlas binary
+    # is already on PATH, so this branch is never reached on that path (#1041).
+    import httpx
+
     artifact = ATLAS_ARTIFACTS.get((system, machine))
     if artifact is None:
         raise RuntimeError(
