@@ -11,7 +11,7 @@
 import { dailyRunKey, type DiscoveryInput } from "./discovery";
 import { runDailyIngestWith, type RunPlan, type RunPolicy, type RunPorts } from "./daily-run";
 import type { TieredWork } from "./tiers";
-import { beginRunRow, readRunRow, recordRunRow } from "./run-store";
+import { beginRunRow, markRunFailedRow, readRunRow, recordRunRow } from "./run-store";
 import { cleanupRawHistory } from "./raw_history";
 import { ingestRunWork } from "./run-ingest";
 import type { CatalogDb } from "../db/client";
@@ -43,5 +43,6 @@ export function catalogPorts(db: CatalogDb, runId: string, keepHistory: number):
     recordRun: (id, snapshot) => recordRunRow(db, id, snapshot),
     ingestWork: (bangumiId, tier, budget) => ingestRunWork(db, bangumiId, runId, budget),
     cleanup: (id) => cleanupRawHistory(db, id, keepHistory),
+    markRunFailed: (id, reason) => markRunFailedRow(db, id, reason),
   };
 }

@@ -28,10 +28,10 @@ export interface SourceOutcome {
   empty: number;
 }
 
-/** A recorded failure: which work, which stage, and the reason. */
+/** A recorded failure: which work, which stage, and the reason. `reclaim` marks a stale running run reclaimed by a retry. */
 export interface RunFailure {
   bangumiId: string;
-  stage: "fetch" | "enrich" | "quality";
+  stage: "fetch" | "enrich" | "quality" | "reclaim";
   reason: string;
 }
 
@@ -44,6 +44,8 @@ export interface RunSnapshot {
   firstExhausted: string | null;
   failures: RunFailure[];
   published: Record<string, number>;
+  /** When the run row was started (ms epoch); null when unknown. Drives stale reclaim. */
+  startedAtMs: number | null;
 }
 
 /** Non-source-code knobs for the run (all caller-supplied). */
@@ -82,6 +84,8 @@ export interface RunPorts {
   ingestWork: (bangumiId: string, tier: TierName, budget: Budget) => Promise<RunWorkOutcome>;
   /** Bounded raw-history cleanup after the run (protects this run's evidence). */
   cleanup: (runId: string) => Promise<number>;
+  /** Mark a run failed with a reason (stale reclaim before a retry re-runs it). */
+  markRunFailed: (runId: string, reason: string) => Promise<void>;
 }
 
 /** Plan inputs for one run. */
@@ -99,28 +103,60 @@ export async function runDailyIngestWith(
   ports: RunPorts,
   plan: RunPlan,
 ): Promise<RunSnapshot> {
-  const completed = await readCompleted(ports, plan.runId);
-  if (completed) return completed;
+  const existing = await ports.readRun(plan.runId);
+  if (existing?.status === "complete") return existing;
+  const resume = resumeOf(existing, plan);
+  if (resume.kind === "skip") return resume.existing;
+  if (resume.kind === "stale") await ports.markRunFailed(plan.runId, "stale-reclaimed");
   const budget = new Budget(plan.policy.budget);
   const merged = mergeDiscovery(plan.knownIds, plan.discovery, plan.policy.newWorkCap);
   const due = selectDueWorks(plan.tiered, tiersFromConfig(plan.policy.tierIntervals), plan.epochMs, plan.policy.budget.workLimit);
-  const snapshot = freshSnapshot(merged);
+  const snapshot = freshSnapshot(merged, resume.published);
   await ports.beginRun(plan.runId);
-  await executeDue(ports, plan, due, snapshot, budget);
+  const pending = pendingOf(due, resume.published);
+  await executeDue(ports, plan, pending, snapshot, budget);
   snapshot.status = finalStatus(due.length, snapshot);
   await ports.cleanup(plan.runId);
   await ports.recordRun(plan.runId, snapshot);
   return snapshot;
 }
 
-/** A completed run is an idempotent no-op for the same stable run id. */
-async function readCompleted(ports: RunPorts, runId: string): Promise<RunSnapshot | null> {
-  const existing = await ports.readRun(runId);
-  return existing?.status === "complete" ? existing : null;
+/**
+ * Decide how to handle an existing run row: skip an in-flight run, reclaim a
+ * stale `running` run, or resume past already-published works.
+ */
+function resumeOf(existing: RunSnapshot | null, plan: RunPlan): ResumePlan {
+  if (existing === null || existing.status === "pending") return { kind: "fresh", published: emptyPublished() };
+  if (existing.status === "running") {
+    if (isStale(existing.startedAtMs, plan.epochMs, plan.policy.staleRunningMs)) return { kind: "stale", published: emptyPublished() };
+    return { kind: "skip", existing };
+  }
+  return { kind: "resume", published: publishedOf(existing.published) };
 }
 
-/** A zeroed snapshot for a fresh/reclaimed run. */
-function freshSnapshot(targets: DiscoveryResult): RunSnapshot {
+/** A running run is stale once it has outlived the reclaim threshold. */
+function isStale(startedAtMs: number | null, nowMs: number, staleRunningMs: number): boolean {
+  if (startedAtMs === null) return true;
+  return nowMs - startedAtMs > staleRunningMs;
+}
+
+/** A retry resumes by recording every work already published under this run id. */
+function publishedOf(published: Record<string, number>): ReadonlyMap<string, number> {
+  return new Map(Object.entries(published));
+}
+
+function emptyPublished(): ReadonlyMap<string, number> {
+  return new Map();
+}
+
+/** Due works not already published by an earlier attempt of this stable run id. */
+function pendingOf(due: readonly DueWork[], published: ReadonlyMap<string, number>): readonly DueWork[] {
+  if (published.size === 0) return due;
+  return due.filter((work) => !published.has(work.bangumiId));
+}
+
+/** A zeroed snapshot for a fresh run, seeding any resumed publish versions. */
+function freshSnapshot(targets: DiscoveryResult, seed: ReadonlyMap<string, number> = emptyPublished()): RunSnapshot {
   return {
     status: "running",
     targets,
@@ -128,9 +164,15 @@ function freshSnapshot(targets: DiscoveryResult): RunSnapshot {
     budgetUsed: { workUsed: 0, requestUsed: 0, runtimeUsedMs: 0 },
     firstExhausted: null,
     failures: [],
-    published: {},
+    published: Object.fromEntries(seed),
+    startedAtMs: null,
   };
 }
+
+/** An existing run's disposition for this attempt. */
+type ResumePlan =
+  | { kind: "fresh" | "stale" | "resume"; published: ReadonlyMap<string, number> }
+  | { kind: "skip"; existing: RunSnapshot };
 
 /** A zeroed per-source ledger for the two upstream sources. */
 function sourceLedger(): Record<string, SourceOutcome> {

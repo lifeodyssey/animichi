@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runDailyIngestWith, type RunPlan, type RunPorts, type RunPolicy, type RunSnapshot, type RunWorkOutcome } from "../src/ingest/daily-run";
+import { runDailyIngestWith, type RunPlan, type RunPorts, type RunPolicy, type RunSnapshot, type RunStatus, type RunWorkOutcome } from "../src/ingest/daily-run";
 import { spendRequests } from "../src/ingest/budgets";
 
 const POLICY: RunPolicy = {
@@ -40,6 +40,7 @@ function recorder(): Recorder {
     recordRun: () => { calls.push("record"); return Promise.resolve(); },
     ingestWork: (bangumiId, _tier, budget) => { calls.push("ingest:" + bangumiId); spendRequests(budget, 2); return Promise.resolve(outcome); },
     cleanup: () => { calls.push("cleanup"); return Promise.resolve(0); },
+    markRunFailed: () => { calls.push("reclaim"); return Promise.resolve(); },
   };
   return { ports, calls: () => calls, setOutcome: (o) => { outcome = o; } };
 }
@@ -123,3 +124,64 @@ describe("Daily run protocol — per-source outcomes (AC1)", () => {
     expect(Object.keys(snapshot.published).length).toBe(0);
   });
 });
+describe("Daily run protocol — stale running reclaim (MAJOR-2)", () => {
+  it("reclaims a stale running run before re-running it", async () => {
+    const rec = recorder();
+    const staleStarted = DATA_EPOCH - 10 * 60 * 60 * 1000; // older than the 15 min threshold
+    rec.ports.readRun = () => Promise.resolve(snapshot("running", { startedAtMs: staleStarted }));
+    const result = await runDailyIngestWith(rec.ports, plan("daily-reclaim"));
+    expect(rec.calls()).toContain("reclaim");
+    expect(rec.calls()).toContain("begin");
+    expect(rec.calls().filter((c) => c.startsWith("ingest:")).length).toBe(3);
+    expect(result.status).toBe("complete");
+  });
+
+  it("does not reclaim or re-run an in-flight non-stale running run", async () => {
+    const rec = recorder();
+    const recentStarted = DATA_EPOCH - 1000;
+    const existing = snapshot("running", { startedAtMs: recentStarted });
+    rec.ports.readRun = () => Promise.resolve(existing);
+    const result = await runDailyIngestWith(rec.ports, plan("daily-inflight"));
+    expect(rec.calls()).not.toContain("reclaim");
+    expect(rec.calls().filter((c) => c.startsWith("ingest:")).length).toBe(0);
+    expect(result).toBe(existing);
+  });
+});
+
+describe("Daily run protocol — partial/failed resume is idempotent (MAJOR-2)", () => {
+  it("skips already-published works and re-ingests only the remainder", async () => {
+    const rec = recorder();
+    rec.ports.readRun = () => Promise.resolve(snapshot("partial", { published: { "1": 4, "2": 5 } }));
+    const result = await runDailyIngestWith(rec.ports, plan("daily-resume"));
+    const ingested = rec.calls().filter((c) => c.startsWith("ingest:")).map((c) => c.slice("ingest:".length));
+    expect(ingested).toEqual(["3"]);
+    // Retained versions stay; work 3 publishes at the recorder default version 1.
+    expect(result.published).toEqual({ "1": 4, "2": 5, "3": 1 });
+    expect(result.status).toBe("complete");
+  });
+
+  it("does not re-run anything when every due work is already published", async () => {
+    const rec = recorder();
+    rec.ports.readRun = () => Promise.resolve(snapshot("failed", { published: { "1": 1, "2": 2, "3": 3 } }));
+    const result = await runDailyIngestWith(rec.ports, plan("daily-all-done"));
+    expect(rec.calls().filter((c) => c.startsWith("ingest:")).length).toBe(0);
+    expect(result.status).toBe("complete");
+  });
+});
+
+/** DATA_EPOCH matches the shared run plan clock. */
+const DATA_EPOCH = 1723000000000;
+
+/** Build a minimal existing-run snapshot for the read gate. */
+function snapshot(status: RunStatus, overrides: Partial<Pick<RunSnapshot, "startedAtMs" | "published">> = {}): RunSnapshot {
+  return {
+    status,
+    targets: null,
+    sources: { bangumi: { attempted: 0, ok: 0, failed: 0, empty: 0 }, anitabi: { attempted: 0, ok: 0, failed: 0, empty: 0 } },
+    budgetUsed: { workUsed: 0, requestUsed: 0, runtimeUsedMs: 0 },
+    firstExhausted: null,
+    failures: [],
+    published: overrides.published ?? {},
+    startedAtMs: overrides.startedAtMs ?? null,
+  };
+}

@@ -8,7 +8,9 @@ import type { IngestResult } from "./ingest/ingest-bangumi";
 import { DAILY_DISCOVER_CRON, SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "./cron-config";
 import { listDoneBangumiIds, listStaleBangumiIds } from "./ingest/cron-queries";
 import { catalogDailyRun } from "./ingest/catalog-daily-run";
-import { buildDailyInventory } from "./ingest/daily-discovery";
+import { buildDailyInventory, type SeasonalResolver } from "./ingest/daily-discovery";
+import { fetchCurrentSeason } from "./ingest/season";
+import type { SourceConfig } from "./ingest/sources";
 import { SEED_BANGUMI_IDS, SEED_BANGUMI } from "./ingest/seed-works";
 import { serveImage } from "./media/img";
 
@@ -221,9 +223,28 @@ export async function runTtlJob(
 }
 
 /** The production daily discovery + ingest run (#1006). */
-export async function runDailyJob(db: CatalogDb): Promise<unknown> {
-  const inventory = await buildDailyInventory(db);
+export async function runDailyJob(
+  db: CatalogDb,
+  seasonalResolver: SeasonalResolver = bangumiSeasonResolver(),
+): Promise<unknown> {
+  const inventory = await buildDailyInventory(db, seasonalResolver);
   return catalogDailyRun(db, Date.now(), inventory, dailyPolicy());
+}
+
+/**
+ * The production current-season resolver: the Bangumi calendar week, fetched
+ * through the shared injectable source config (defaults to the real HTTP client).
+ * An upstream outage degrades to an empty season so popularity + historical
+ * discovery still feed the run rather than aborting it.
+ */
+export function bangumiSeasonResolver(cfg: SourceConfig = {}): SeasonalResolver {
+  return () => fetchCurrentSeason(cfg).catch(seasonFallback);
+}
+
+/** A failed season fetch logs and yields no season ids (never aborts the run). */
+function seasonFallback(error: unknown): readonly string[] {
+  console.error("[daily] current-season fetch failed: " + String(error));
+  return [];
 }
 
 /** Production budget/tier policy for the daily run (operational config, not magic). */

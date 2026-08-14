@@ -20,10 +20,10 @@ export async function readRunRow(db: CatalogDb, runId: string): Promise<RunSnaps
   return parseRunSnapshot(rows[0]);
 }
 
-/** The SELECT of status for one run id. */
+/** The SELECT of status + reclaim signals for one run id. */
 function readStatement(runId: string): SQL {
   return statementBuilder()
-    .select({ status: catalogRuns.status })
+    .select({ status: catalogRuns.status, startedAt: catalogRuns.startedAt, publishedVersions: catalogRuns.publishedVersions })
     .from(catalogRuns)
     .where(eq(catalogRuns.runId, runId))
     .getSQL();
@@ -75,6 +75,24 @@ function finishedAtValue(snapshot: RunSnapshot): SQL | null {
   return snapshot.status === "running" || snapshot.status === "pending" ? null : nowSql();
 }
 
+/** Mark a run failed with a reason (stale reclaim before a retry re-runs it). */
+export async function markRunFailedRow(db: CatalogDb, runId: string, reason: string): Promise<void> {
+  await db.execute(failStatement(runId, reason));
+}
+
+/** UPDATE the run row to failed with a reclaim marker and a finished timestamp. */
+function failStatement(runId: string, reason: string): SQL {
+  return statementBuilder()
+    .update(catalogRuns)
+    .set({
+      status: "failed",
+      failures: json([{ bangumiId: runId, stage: "reclaim", reason }]),
+      finishedAt: nowSql(),
+    })
+    .where(eq(catalogRuns.runId, runId))
+    .getSQL();
+}
+
 /** NOW() — the transition timestamp. */
 function nowSql(): SQL {
   return sql`NOW()`;
@@ -85,7 +103,7 @@ function json(value: unknown): string {
   return JSON.stringify(value);
 }
 
-/** Coerce a catalog_runs row into a snapshot; only status is needed for reads. */
+/** Coerce a catalog_runs row into a snapshot for the protocol's read gate. */
 function parseRunSnapshot(value: unknown): RunSnapshot | null {
   if (value === null || typeof value !== "object") return null;
   const record = value as Record<string, unknown>;
@@ -98,6 +116,37 @@ function parseRunSnapshot(value: unknown): RunSnapshot | null {
     budgetUsed: { workUsed: 0, requestUsed: 0, runtimeUsedMs: 0 },
     firstExhausted: null,
     failures: [],
-    published: {},
+    published: parsePublished(record.publishedVersions),
+    startedAtMs: parseStartedAt(record.startedAt),
   };
+}
+
+/** Read the recorded `published_versions` JSONB as a version map, else empty. */
+function parsePublished(value: unknown): Record<string, number> {
+  if (!isRecord(value)) return {};
+  const out: Record<string, number> = {};
+  for (const key of Object.keys(value)) {
+    const version = value[key];
+    if (typeof version === "number") out[key] = version;
+  }
+  return out;
+}
+
+/** Coerce a timestamptz started_at (string or Date) to an ms epoch, else null. */
+function parseStartedAt(value: unknown): number | null {
+  if (value instanceof Date) return isValidDate(value) ? value.getTime() : null;
+  if (typeof value === "string" && value.length > 0) {
+    const ms = Date.parse(value);
+    return Number.isNaN(ms) ? null : ms;
+  }
+  return null;
+}
+
+function isValidDate(value: Date): boolean {
+  return !Number.isNaN(value.getTime());
+}
+
+/** A narrow object guard for JSONB payloads read back from the driver. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
