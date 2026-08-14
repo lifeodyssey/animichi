@@ -14,6 +14,9 @@ from animichi.application.get_session_history import (
     get_session_history,
 )
 from animichi.infrastructure.observability.runtime import record_history_request
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 from animichi.infrastructure.persistence.repositories.session import (
     SQLModelSessionRepository,
 )
@@ -48,8 +51,8 @@ class SessionHistoryAdapter:
     """Concrete Session/Message adapter over the sole Session repository
     (SESSION-1 #959, SQLModel implementation by #994)."""
 
-    def __init__(self, session: SQLModelSessionRepository) -> None:
-        self._session = session
+    def __init__(self, db: PersistenceRepos) -> None:
+        self._session = db.session
 
     async def get_conversation(self, session_id: str) -> ConversationRow | None:
         row = await self._session.load(session_id)
@@ -130,10 +133,10 @@ async def handle_get_messages(
     """
     if auth.user_id is None:
         return _unauthorized()
-    repo = _session_repo(request)
+    db = _require_db(_get_db_from_request(request))
     started = time.monotonic()
     history = await get_session_history(
-        SessionHistoryAdapter(repo),
+        SessionHistoryAdapter(db),
         session_id=session_id,
         user_id=auth.user_id,
         limit=limit,
