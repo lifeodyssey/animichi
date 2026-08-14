@@ -122,10 +122,12 @@ describe("rolling N/N-1 wire compatibility", () => {
     const kinds = diff.breaking.map((item) => item.kind);
     expect(kinds).toHaveLength(5);
     expect(kinds.every((kind) => kind === "endpoint-removed")).toBe(true);
-    // Issue #1011 adds an optional Idempotency-Key header and a typed 409 to
-    // saveSavedRoute. Both are additive on a shared operation — they never
-    // change the request/success wire shape an N-1 client relies on.
+    // Issue #1011 adds an optional Idempotency-Key header and a typed 400
+    // (IDEMPOTENCY_KEY_INVALID) and 409 to saveSavedRoute. All three are
+    // additive on a shared operation — they never change the request/success
+    // wire shape an N-1 client relies on.
     expect(diff.additive.map((item) => item.message)).toEqual([
+      "POST /v1/users/saved-routes gained 400 error response",
       "POST /v1/users/saved-routes gained 409 error response",
     ]);
   });
