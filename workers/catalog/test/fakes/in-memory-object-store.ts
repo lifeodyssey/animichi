@@ -6,8 +6,7 @@
  */
 import type { ObjectStore } from "../../src/publish/object-store";
 
-/** Create an in-memory object store over a Map of key -> ArrayBuffer. */
-/** Create an in-memory ObjectStore; returns helpers to inspect stored keys. */
+/** Create an in-memory object store over a Map of key -> ArrayBuffer, returning helpers to inspect stored keys. */
 export function inMemoryObjectStore(): {
   store: ObjectStore;
   keys: () => string[];
