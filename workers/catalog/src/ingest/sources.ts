@@ -44,7 +44,7 @@ export interface BangumiSearchConfig extends SourceConfig {
 export type UpstreamName = "anitabi" | "bangumi";
 
 const ANITABI_BASE = "https://api.anitabi.cn/bangumi";
-const BANGUMI_BASE = "https://api.bgm.tv";
+export const BANGUMI_BASE = "https://api.bgm.tv";
 const USER_AGENT =
   "Animichi/1.0 (https://github.com/lifeodyssey/animichi)";
 
@@ -206,7 +206,7 @@ function searchLimit(limit: number): number {
 }
 
 /** GET + JSON-decode with retry + status guarding; throws on a non-2xx response. */
-async function fetchJson(url: string, upstream: UpstreamName, cfg: SourceConfig = {}): Promise<unknown> {
+export async function fetchJson(url: string, upstream: UpstreamName, cfg: SourceConfig = {}): Promise<unknown> {
   const res = await fetchWithRetry(url, upstream, cfg, { headers: { "User-Agent": USER_AGENT } });
   if (res.status === 404) throw new UpstreamNotFoundError(url);
   if (!res.ok) throw new UpstreamFetchError(`${url} (${String(res.status)})`, upstream);
