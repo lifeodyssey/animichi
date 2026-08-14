@@ -8,7 +8,6 @@ import {
 } from "../domain/saved-route-idempotency";
 import { savedAtForStatus } from "../domain/saved-route-status";
 import { savedRouteIdempotencyConflict, savedRouteIdempotencyInFlight } from "../lib/errors";
-import type { SavedRouteStore } from "./save-saved-route";
 
 /** The current idempotency row facts the action needs, normalized to ISO strings. */
 export interface IdempotencyRow {
@@ -17,6 +16,33 @@ export interface IdempotencyRow {
   readonly result: SavedRoute | null;
   readonly createdAt: string | null;
   readonly expiresAt: string;
+}
+
+/**
+ * The atomic winner write for an idempotent create (AC2, #1011): the new
+ * SavedRoute and the ledger's commitment to it must land together. Neon's HTTP
+ * driver has no client-side transactions, so the adapter fulfils this with a
+ * single server-side batch (db.batch), which neon-http runs as one
+ * non-interactive Postgres transaction — a half-failure rolls BOTH the route
+ * insert and the ledger update back, so an orphaned saved route can never hide
+ * behind an in_progress ledger row (which would later reclaim into a duplicate
+ * create). See the neon-atomic-commit adapter for the trade-off in choosing a
+ * worker-generated UUIDv7 id (both batch statements must agree on the route id
+ * without a round-trip, since the DB default id is invisible to the second
+ * statement).
+ */
+export interface AtomicCommitStore {
+  insertRouteAndCommit(params: {
+    userId: string;
+    input: SaveSavedRouteInput;
+    savedAt: string | null;
+    /** Action clock time (ms); drives updated_at so the ledger snapshot and the
+     * inserted row stay byte-identical (AC4 deterministic replay). */
+    now: number;
+    ownerUserId: string;
+    op: string;
+    key: string;
+  }): Promise<SavedRoute>;
 }
 
 /** The one outbound write seam for the idempotency ledger. */
@@ -63,7 +89,7 @@ function classifyRead(row: IdempotencyRow | undefined, fingerprint: string, now:
 /** A create that is safe to retry under an Idempotency-Key. The action owns the
  * claim/commit/replay policy and the typed errors; the stores own the SQL. */
 export async function saveSavedRouteIdempotent(
-  savedRouteStore: SavedRouteStore,
+  atomicStore: AtomicCommitStore,
   idempotencyStore: IdempotencyStore,
   userId: string,
   input: SaveSavedRouteInput,
@@ -76,24 +102,25 @@ export async function saveSavedRouteIdempotent(
     fingerprint: canonicalFingerprint(input), expiresAt: retentionExpiry(now),
   };
   const first = await idempotencyStore.claim(claim);
-  if (first.kind === "claimed") return executeAndCommit(savedRouteStore, idempotencyStore, claim, userId, input, now);
-  if (isExpired(first.row.expiresAt, now)) return reclaimOrExecute(idempotencyStore, savedRouteStore, claim, userId, input, now);
+  if (first.kind === "claimed") return executeAndCommit(atomicStore, claim, userId, input, now);
+  if (isExpired(first.row.expiresAt, now)) return reclaimOrExecute(idempotencyStore, atomicStore, claim, userId, input, now);
   if (first.row.fingerprint !== claim.fingerprint) throw savedRouteIdempotencyConflict();
-  return replay(idempotencyStore, claim, first.row, userId, input, opts, savedRouteStore, now);
+  return replay(idempotencyStore, claim, first.row, userId, input, opts, atomicStore, now);
 }
 
-/** The winner's path: insert the SavedRoute, then commit the ledger row with it. */
+/** The winner's path: atomically insert the SavedRoute and commit the ledger. */
 async function executeAndCommit(
-  savedRouteStore: SavedRouteStore,
-  idempotencyStore: IdempotencyStore,
+  atomicStore: AtomicCommitStore,
   claim: ClaimConfig,
   userId: string,
   input: SaveSavedRouteInput,
   now: number,
 ): Promise<SavedRoute> {
-  const route = await savedRouteStore.insert(userId, input, savedAtForStatus(input.status, null, new Date(now).toISOString()));
-  await idempotencyStore.commit({ ...claim, result: route });
-  return route;
+  return atomicStore.insertRouteAndCommit({
+    userId, input,
+    savedAt: savedAtForStatus(input.status, null, new Date(now).toISOString()),
+    now, ownerUserId: userId, op: claim.op, key: claim.key,
+  });
 }
 
 /** A live, identical-payload non-winner: replay a committed result or wait out
@@ -106,25 +133,25 @@ async function replay(
   userId: string,
   input: SaveSavedRouteInput,
   opts: IdempotentSaveOptions,
-  savedRouteStore: SavedRouteStore,
+  atomicStore: AtomicCommitStore,
   now: number,
 ): Promise<SavedRoute> {
   if (row.state === "committed" && row.result !== null) return row.result;
-  if (!isInFlight(row.createdAt, now)) return reclaimOrExecute(idempotencyStore, savedRouteStore, claim, userId, input, now);
-  return waitForCommit(idempotencyStore, claim, userId, input, opts, savedRouteStore, now);
+  if (!isInFlight(row.createdAt, now)) return reclaimOrExecute(idempotencyStore, atomicStore, claim, userId, input, now);
+  return waitForCommit(idempotencyStore, claim, userId, input, opts, atomicStore, now);
 }
 
 /** Reclaim an expired/orphaned row as this caller's fresh claim and execute. */
 async function reclaimOrExecute(
   idempotencyStore: IdempotencyStore,
-  savedRouteStore: SavedRouteStore,
+  atomicStore: AtomicCommitStore,
   claim: ClaimConfig,
   userId: string,
   input: SaveSavedRouteInput,
   now: number,
 ): Promise<SavedRoute> {
   const outcome = await idempotencyStore.reclaim(claim);
-  if (outcome.kind === "claimed") return executeAndCommit(savedRouteStore, idempotencyStore, claim, userId, input, now);
+  if (outcome.kind === "claimed") return executeAndCommit(atomicStore, claim, userId, input, now);
   throw savedRouteIdempotencyInFlight();
 }
 
@@ -136,7 +163,7 @@ async function waitForCommit(
   userId: string,
   input: SaveSavedRouteInput,
   opts: IdempotentSaveOptions,
-  savedRouteStore: SavedRouteStore,
+  atomicStore: AtomicCommitStore,
   now: number,
 ): Promise<SavedRoute> {
   const retries = opts.retries ?? 3;
@@ -147,7 +174,7 @@ async function waitForCommit(
     const resolution = classifyRead(row, claim.fingerprint, now);
     if (resolution.kind === "committed") return resolution.result;
     if (resolution.kind === "conflict") throw savedRouteIdempotencyConflict();
-    if (resolution.kind === "stale") return reclaimOrExecute(idempotencyStore, savedRouteStore, claim, userId, input, now);
+    if (resolution.kind === "stale") return reclaimOrExecute(idempotencyStore, atomicStore, claim, userId, input, now);
   }
   throw savedRouteIdempotencyInFlight();
 }

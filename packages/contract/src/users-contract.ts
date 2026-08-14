@@ -28,13 +28,18 @@ export type IdempotencyErrorData = z.infer<typeof IdempotencyErrorData>;
 /** The documented request header enabling retry-safe SavedRoute creation (issue #1011 AC1). */
 export const IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
-/** Idempotency key rules: a bounded opaque token a caller supplies to make a
- * create retry-safe. It is scoped to (authenticated owner, operation) server-side. */
+/** Hard upper bound (bytes) on a supplied Idempotency-Key; enforced
+ * server-side so an over-long token is rejected with a typed 400 (issue #1011
+ * "abuse-bounded"). The browser's payload-derived key is a 64-bit FNV-1a hex,
+ * well under this. */
+export const IDEMPOTENCY_KEY_MAX_LENGTH = 128 as const;
+/** Idempotency-key contract rule: a bounded opaque token scoped to the
+ * (authenticated owner, operation) server-side, max IDEMPOTENCY_KEY_MAX_LENGTH. */
 export const IdempotencyKeyRule = z.object({
   header: z.literal(IDEMPOTENCY_KEY_HEADER),
   scope: z.literal("owner+operation"),
   format: z.literal("opaque"),
-  maxLength: z.number().int().positive(),
+  maxLength: z.literal(IDEMPOTENCY_KEY_MAX_LENGTH),
 });
 /** Inferred idempotency-key contract rule. */
 export type IdempotencyKeyRule = z.infer<typeof IdempotencyKeyRule>;
@@ -47,7 +52,7 @@ export const IDEMPOTENCY_KEY_PARAM: OpenAPI.ParameterObject = {
     "Retry-safe SavedRoute creation key, scoped to the authenticated owner + this operation. " +
     "Same key/payload returns the original result; same key/different payload returns 409; " +
     "concurrent retries create exactly one route.",
-  schema: { type: "string", maxLength: 128 },
+  schema: { type: "string", maxLength: IDEMPOTENCY_KEY_MAX_LENGTH },
 };
 
 interface UsersErrorDefItem {
@@ -81,6 +86,12 @@ export const USERS_ERROR_DEFS = {
     status: 409,
     category: "retryable",
     message: "A save with this Idempotency-Key is still in progress; retry shortly",
+    data: IdempotencyErrorData,
+  },
+  IDEMPOTENCY_KEY_INVALID: {
+    status: 400,
+    category: "user_actionable",
+    message: "The Idempotency-Key is malformed or too long",
     data: IdempotencyErrorData,
   },
 } as const satisfies Record<string, UsersErrorDefItem>;
@@ -142,8 +153,7 @@ export type ListSavedRoutesResult = z.infer<typeof ListSavedRoutesResult>;
 /** requireBearer plus the documented Idempotency-Key header (AC1). */
 function idempotentSaveSpec(operation: OpenAPI.OperationObject): OpenAPI.OperationObject {
   return {
-    ...operation,
-    security: [{ bearerAuth: [] }],
+    ...requireBearer(operation),
     parameters: [...(operation.parameters ?? []), IDEMPOTENCY_KEY_PARAM],
   };
 }
@@ -173,7 +183,7 @@ export const usersContract = {
     .input(SaveSavedRouteInput)
     .errors(pickUsersErrors([
       "SAVED_ROUTE_NOT_FOUND", "SAVED_ROUTE_NOT_OWNED",
-      "IDEMPOTENCY_CONFLICT", "IDEMPOTENCY_IN_FLIGHT",
+      "IDEMPOTENCY_CONFLICT", "IDEMPOTENCY_IN_FLIGHT", "IDEMPOTENCY_KEY_INVALID",
     ]))
     .output(SavedRoute),
   deleteSavedRoute: oc

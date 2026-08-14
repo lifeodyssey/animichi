@@ -25,6 +25,10 @@ export const USERS_ERRORS = {
     status: 409, category: "retryable",
     message: "A save with this Idempotency-Key is still in progress; retry shortly",
   },
+  IDEMPOTENCY_KEY_INVALID: {
+    status: 400, category: "user_actionable",
+    message: "The Idempotency-Key is malformed or too long",
+  },
 } as const;
 
 /** Construct a defined saved-route-not-found oRPC error. */

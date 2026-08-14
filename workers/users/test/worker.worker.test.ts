@@ -1,4 +1,4 @@
-import { SavedRoute } from "@animichi/contract";
+import { IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_MAX_LENGTH, SavedRoute } from "@animichi/contract";
 import { describe, expect, it } from "vitest";
 import { createUsersApp } from "../src/index";
 import { identityHeaders, TEST_ENV } from "./identity-fixture";
@@ -42,6 +42,22 @@ describe("Users Worker saved-routes wire", () => {
   ])("returns 400 for %s (%s)", async (body, _label) => {
     const { app, headers } = setup();
     expect((await save(app, headers, body)).status).toBe(400);
+  });
+
+});
+
+describe("Users Worker error serialization", () => {
+  it("rejects an over-long Idempotency-Key with a typed 400", async () => {
+    const { app, headers } = setup();
+    const response = await save(
+      app, { ...headers, [IDEMPOTENCY_KEY_HEADER]: "k".repeat(IDEMPOTENCY_KEY_MAX_LENGTH + 1) },
+      { title: "Tokyo", point_ids: ["p1"] },
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      defined: true, code: "IDEMPOTENCY_KEY_INVALID", status: 400,
+      message: "The Idempotency-Key is malformed or too long", data: {},
+    });
   });
 
   it("serializes the defined ownership error for a cross-user update", async () => {

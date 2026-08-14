@@ -1,10 +1,10 @@
 import type { SavedRoute, SaveSavedRouteInput } from "@animichi/contract";
 import { describe, expect, it } from "vitest";
+import { NeonAtomicCommitStore } from "../src/adapters/neon-atomic-commit";
 import { NeonIdempotencyStore } from "../src/adapters/neon-idempotency-store";
-import { NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { saveSavedRouteIdempotent } from "../src/application/save-saved-route-idempotent";
 import { canonicalFingerprint } from "../src/domain/saved-route-idempotency";
-import { idemFakeDb, type FakeIdempotencyRow } from "./in-memory-routes-db";
+import { idemFakeDb, recordingDb, type FakeIdempotencyRow } from "./in-memory-routes-db";
 
 function singleLedger(db: ReturnType<typeof idemFakeDb>): FakeIdempotencyRow {
   const row = [...db.idemRows.values()][0];
@@ -25,7 +25,7 @@ function flushMicrotasks(): Promise<void> {
 
 function make(db: ReturnType<typeof idemFakeDb>["db"]) {
   return {
-    savedRouteStore: new NeonSavedRouteStore(db),
+    atomicStore: new NeonAtomicCommitStore(db),
     idemStore: new NeonIdempotencyStore(db),
   };
 }
@@ -41,8 +41,20 @@ async function save(
   key: string,
   opts: Parameters<typeof saveSavedRouteIdempotent>[5] = fixedNow,
 ): Promise<SavedRoute> {
-  const { savedRouteStore, idemStore } = make(db.db);
-  return saveSavedRouteIdempotent(savedRouteStore, idemStore, userId, input, key, opts);
+  const { atomicStore, idemStore } = make(db.db);
+  return saveSavedRouteIdempotent(atomicStore, idemStore, userId, input, key, opts);
+}
+
+async function saveRecorded(
+  rec: ReturnType<typeof recordingDb>,
+  userId: string,
+  input: SaveSavedRouteInput,
+  key: string,
+): Promise<SavedRoute> {
+  return saveSavedRouteIdempotent(
+    new NeonAtomicCommitStore(rec.db), new NeonIdempotencyStore(rec.db),
+    userId, input, key, fixedNow,
+  );
 }
 
 describe("AC2: idempotent create atomically records key/fingerprint/state/result (integration)", () => {
@@ -151,5 +163,38 @@ describe("AC4: deterministic retry semantics", () => {
     await expect(save(db, "user-a", INPUT, KEY))
       .rejects.toMatchObject({ code: "IDEMPOTENCY_IN_FLIGHT", status: 409, defined: true });
     expect(rowCount(db)).toBe(0);
+  });
+});
+
+describe("AC2 atomicity: insert and ledger commit are indivisible (integration)", () => {
+  it("inserts the route row exactly once for a fresh key and never on a replay", async () => {
+    const rec = recordingDb();
+    await saveRecorded(rec, "user-a", INPUT, KEY);
+    const inserts = rec.queries.filter((q) => q.sql.includes("insert into \"saved_routes\"")).length;
+    const commits = rec.queries.filter((q) => q.sql.includes("update \"saved_route_idempotency\"")).length;
+    expect(inserts).toBe(1);
+    expect(commits).toBe(1);
+    await saveRecorded(rec, "user-a", INPUT, KEY);
+    expect(rec.queries.filter((q) => q.sql.includes("insert into \"saved_routes\""))).toHaveLength(1);
+  });
+
+  it("a rolled-back batch orphan (no route behind in_progress) is reclaimed into ONE route", async () => {
+    // Atomic rollback leaves an in_progress ledger with NO route; the old
+    // split-by-request flow would instead leave a committed route row that a
+    // later reclaim re-inserted into a DUPLICATE.
+    const db = idemFakeDb();
+    db.idemRows.set("user-a:saveSavedRoute:" + KEY, {
+      owner_user_id: "user-a", op: "saveSavedRoute", key: KEY,
+      fingerprint: canonicalFingerprint(INPUT), state: "in_progress",
+      result: null, result_id: null, created_at: new Date(NOW).toISOString(),
+      expires_at: new Date(NOW + 86_400_000).toISOString(),
+    });
+    await expect(save(db, "user-a", INPUT, KEY))
+      .rejects.toMatchObject({ code: "IDEMPOTENCY_IN_FLIGHT", status: 409, defined: true });
+    expect(rowCount(db)).toBe(0);
+    const retry = await save(db, "user-a", INPUT, KEY, { now: () => NOW + 86_400_000 + 1 });
+    expect(retry).toBeTruthy();
+    expect(rowCount(db)).toBe(1);
+    expect(singleLedger(db).state).toBe("committed");
   });
 });

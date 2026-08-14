@@ -3,6 +3,19 @@ import type { SaveSavedRouteInput } from "@animichi/contract";
 /** The operation namespace every SavedRoute-create idempotency key belongs to. */
 export const SAVED_ROUTE_OP = "saveSavedRoute" as const;
 
+/**
+ * AC6 boundary: the Idempotency-Key is CLIENT-supplied (the users worker never
+ * derives one from the payload). The same key + same fingerprint REPLAYS; the
+ * same key + different fingerprint is a typed 409 (AC3). A browser/reload client
+ * therefore must issue ONE stable key per user intent to get reload/multi-tab
+ * dedup (AC6). The worker deliberately does NOT append a nonce/timestamp to the
+ * key: that would defeat reload dedup (each reload would mint a fresh key and
+ * create a duplicate route). Consequently a client that reuses a weak key across
+ * two genuinely independent intents with identical attributes is de-duplicated
+ * (one route) — an accepted trade-off documented here, and the fingerprint still
+ * guarantees a 409 whenever the same key is reused with a different payload.
+ */
+
 /** Idempotency liveness window for an in_flight claim (AC4 timeout-after-commit). */
 export const IDEMPOTENCY_EXECUTION_TIMEOUT_MS = 10_000;
 

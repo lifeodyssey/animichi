@@ -5,9 +5,10 @@ import { deleteSavedRoute as deleteSavedRouteAction } from "./application/delete
 import type { DeleteSavedRouteStore } from "./application/delete-saved-route";
 import type { ListSavedRoutesObserverPort, SavedRouteReader } from "./application/list-saved-routes";
 import { saveSavedRouteIdempotent } from "./application/save-saved-route-idempotent";
-import type { IdempotencyStore } from "./application/save-saved-route-idempotent";
+import type { AtomicCommitStore, IdempotencyStore } from "./application/save-saved-route-idempotent";
 import { saveSavedRoute as saveSavedRouteAction } from "./application/save-saved-route";
 import type { SavedRouteStore } from "./application/save-saved-route";
+import { NeonAtomicCommitStore } from "./adapters/neon-atomic-commit";
 import { NeonIdempotencyStore } from "./adapters/neon-idempotency-store";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "./adapters/neon-saved-route-repo";
 import type { UsersDb } from "./db/client";
@@ -21,6 +22,7 @@ const os = implement(usersContract).$context<UsersContext>();
 const reader = (context: UsersContext): SavedRouteReader => new NeonSavedRouteRepo(context.db);
 const store = (context: UsersContext): SavedRouteStore => new NeonSavedRouteStore(context.db);
 const idemStore = (context: UsersContext): IdempotencyStore => new NeonIdempotencyStore(context.db);
+const atomicStore = (context: UsersContext): AtomicCommitStore => new NeonAtomicCommitStore(context.db);
 const deleteStore = (context: UsersContext): DeleteSavedRouteStore => new NeonSavedRouteStore(context.db);
 
 /** Redacted load observability: outcome, count, duration. Never route/actor ids. */
@@ -40,7 +42,7 @@ const listSavedRoutes = os.listSavedRoutes.handler(async ({ context }) =>
  * key-less create uses the plain create-or-update action. */
 const saveSavedRoute = os.saveSavedRoute.handler(async ({ input, context }) => {
   if (input.id === undefined && context.idempotencyKey !== undefined) {
-    return saveSavedRouteIdempotent(store(context), idemStore(context), context.userId, input, context.idempotencyKey);
+    return saveSavedRouteIdempotent(atomicStore(context), idemStore(context), context.userId, input, context.idempotencyKey);
   }
   return saveSavedRouteAction(store(context), context.userId, input);
 });

@@ -8,7 +8,13 @@ export type SaveSavedRouteRequest = (input: SaveSavedRouteInput) => Promise<Save
 
 /** FNV-1a 64-bit hash (BigInt): deterministic, dependency-free, and bounded,
  * so the same create payload yields the same Idempotency-Key across a reload
- * and across tabs (AC6). Not a security primitive. */
+ * and across tabs (AC6). Not a security primitive. A 64-bit seed/primes carry a
+ * ~2^-64 per-pair collision: two distinct payloads could hash to the same key
+ * and fail server-side as a spurious 409. That is a safe-fail (the user saves
+ * again under a fresh intent rather than ever overwriting/merging the wrong
+ * route), so the tiny collision risk is accepted. The server additionally
+ * compares a full canonicalFingerprint under the same key, so a same-key/diff-
+ * payload 409 is the only collision surface. */
 function fnv1a64(input: string): string {
   let hash = 0xcbf29ce484222325n;
   const prime = 0x100000001b3n;

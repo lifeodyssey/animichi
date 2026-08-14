@@ -130,17 +130,23 @@ function parsePgArray(value: unknown): string[] {
   return inner.length === 0 ? [] : inner.split(",").map((part) => part.replace(/^"(.*)"$/, "$1"));
 }
 
-/** Build an in-memory row from the builder's INSERT values. */
+function cell(values: unknown[], at: number): string | null {
+  const value = values[at];
+  return typeof value === "string" ? value : null;
+}
+
 function insertRow(values: unknown[]): FakeSavedRouteRow {
-  const status = routeStatus(values[3]);
+  const hasExplicitId = values.length === 7;
+  const offset = hasExplicitId ? 1 : 0;
+  const status = routeStatus(values[offset + 3]);
   return {
-    id: NEW_ID,
-    user_id: typeof values[1] === "string" ? values[1] : null,
-    title: typeof values[2] === "string" ? values[2] : "",
-    point_ids: parsePgArray(values[0]),
+    id: hasExplicitId ? String(values[0]) : NEW_ID,
+    user_id: cell(values, offset + 1),
+    title: cell(values, offset + 2) ?? "",
+    point_ids: parsePgArray(values[offset]),
     status,
-    saved_at: typeof values[4] === "string" ? values[4] : null,
-    updated_at: NOW,
+    saved_at: cell(values, offset + 4),
+    updated_at: hasExplicitId ? String(values[offset + 5]) : NOW,
   };
 }
 
@@ -223,10 +229,14 @@ function executeText(
   return routeRows(rows, values);
 }
 
-/** A fake neon query function driving a real Drizzle `UsersDb` seam. */
+/** Fake neon client driving the Drizzle `UsersDb` seam, with a
+ * `transaction` so NeonHttpSession.batch dispatches to the same store. */
 function fakeNeonClient(rows: FakeSavedRouteRow[], idemRows: Map<string, FakeIdempotencyRow>) {
-  return (sql: string, params: unknown[]): Promise<{ rows: unknown[] }> =>
+  const run = (sql: string, params: unknown[]): Promise<{ rows: unknown[] }> =>
     Promise.resolve({ rows: executeText(sql, params, rows, idemRows) });
+  return Object.assign(run, {
+    transaction: (queries: Promise<{ rows: unknown[] }>[]): Promise<{ rows: unknown[] }[]> => Promise.all(queries),
+  });
 }
 
 /**
@@ -279,13 +289,12 @@ export function recordingDb(seed: FakeSavedRouteRow[] = []): {
   const sqls: string[] = [];
   const client = (sql: string, params: unknown[]): Promise<{ rows: unknown[] }> =>
     Promise.resolve({ rows: executeText(sql, params, rows, idem) });
-  const db = drizzle({
-    client: (async (sql: string, params: unknown[]) => {
-      sqls.push(sql.toLowerCase());
-      queries.push({ sql: sql.toLowerCase(), params });
-      return client(sql, params);
-    }) as never,
-    schema,
-  });
+  const outer = async (sql: string, params: unknown[]): Promise<{ rows: unknown[] }> => {
+    sqls.push(sql.toLowerCase());
+    queries.push({ sql: sql.toLowerCase(), params });
+    return client(sql, params);
+  };
+  Object.assign(outer, { transaction: (q: Promise<{ rows: unknown[] }>[]) => Promise.all(q) });
+  const db = drizzle({ client: outer as never, schema });
   return { db, rows, queries, sqls };
 }
