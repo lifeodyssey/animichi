@@ -1,0 +1,24 @@
+# Policy (raw-SQL slice, #999): `sql.raw()` is an unparameterised SQL escape
+# hatch and is banned across runtime code. The ONLY sanctioned caller is the
+# typed expression module, where it composes an uninterpreted identifier into
+# a Drizzle fragment.
+#
+# Narrow exception (documented in .semgrep/README.md): ONLY
+#   workers/catalog/src/db/expressions.ts
+rules:
+  - id: ts-no-sql-raw
+    languages: [ts]
+    severity: ERROR
+    message: >-
+      `sql.raw()` used in runtime code. This unparameterised escape hatch
+      bypasses the ORM boundary (#999, #992). raw()/raw SQL is confined to
+      workers/catalog/src/db/expressions.ts; use typed Drizzle expressions and
+      bound parameters instead.
+    paths:
+      include:
+        - /workers/catalog/src
+        - /workers/users/src
+      exclude:
+        # Sanctioned typed-expression seam (the sole raw() caller).
+        - /workers/catalog/src/db/expressions.ts
+    pattern: sql.raw(...)

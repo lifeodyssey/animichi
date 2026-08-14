@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
 import type { Env } from "../src/env.ts";
-import { isAuthRateLimited } from "../src/gateway/routing-policy.ts";
+import { classifyRatePolicy } from "../src/gateway/rate-policy.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 
 // P2-5 (issue #284 / Task 9, round 3): the authenticated cost-path allowlist
@@ -12,31 +12,41 @@ import { fakeGuard } from "./doubles/guard-doubles.ts";
 // agent turn on the house model key (same cost shape as /v1/chat) and reach
 // this same authenticated branch — both routes are RETIRED now (TURN-4 #955);
 // route-inventory.test.ts pins that they match no table.
+//
+// The rate-limit DECISION now lives in ONE table, `classifyRatePolicy`, and
+// routing delegates every branch to it (review REJECT #680). These unit
+// assertions pin that table at the classification seam; the app-level tests
+// below prove it holds through the real routing pipeline.
+
+function isLimited(method: string, path: string): boolean {
+  return classifyRatePolicy(method, path).limiter !== "none";
+}
 
 void test("the exact cost-bearing routes are limited", () => {
-  assert.equal(isAuthRateLimited("/v1/chat"), true);
+  assert.equal(isLimited("POST", "/v1/chat"), true);
 });
 
 void test("a trailing slash on an exact route still counts (P2-5)", () => {
-  assert.equal(isAuthRateLimited("/v1/chat/"), true);
+  assert.equal(isLimited("POST", "/v1/chat/"), true);
 });
 
 void test("every route under /v1/byok/ counts, by prefix, not by an exact list", () => {
-  assert.equal(isAuthRateLimited("/v1/byok/probe"), true);
-  assert.equal(isAuthRateLimited("/v1/byok/probe/"), true, "a trailing slash must not bypass the BYOK prefix");
-  assert.equal(isAuthRateLimited("/v1/byok/anything-future"), true, "new BYOK routes are covered without an edit here");
+  assert.equal(isLimited("POST", "/v1/byok/probe"), true);
+  assert.equal(isLimited("POST", "/v1/byok/probe/"), true, "a trailing slash must not bypass the BYOK prefix");
+  assert.equal(isLimited("POST", "/v1/byok/anything-future"), true, "new BYOK routes are covered without an edit here");
 });
 
-void test("authenticated reads and unrelated routes are NOT limited", () => {
-  assert.equal(isAuthRateLimited("/v1/conversations"), false);
-  assert.equal(isAuthRateLimited("/v1/conversations/abc/messages"), false);
-  assert.equal(isAuthRateLimited("/v1/conversations/abc/routes"), false);
-  assert.equal(isAuthRateLimited("/v1/users/profile"), false);
+void test("authenticated reads are NOT limited; writes are", () => {
+  assert.equal(isLimited("GET", "/v1/conversations"), false);
+  assert.equal(isLimited("GET", "/v1/conversations/abc/messages"), false);
+  assert.equal(isLimited("GET", "/v1/conversations/abc/routes"), false);
+  assert.equal(isLimited("GET", "/v1/users/profile"), false);
+  assert.equal(isLimited("PATCH", "/v1/conversations/abc"), true, "a PATCH write is a guarded mutation class");
 });
 
 void test("a sibling path is not mistaken for a byok route by a naive substring check", () => {
-  assert.equal(isAuthRateLimited("/v1/byoke/probe"), false);
-  assert.equal(isAuthRateLimited("/v1/byok"), false, "the prefix requires the trailing slash boundary");
+  assert.equal(isLimited("POST", "/v1/byoke/probe"), false);
+  assert.equal(isLimited("POST", "/v1/byok"), false, "the prefix requires the trailing slash boundary");
 });
 
 // #479 P1-1 review follow-up (closes the #464 follow-up too): `URL.pathname`
@@ -45,15 +55,16 @@ void test("a sibling path is not mistaken for a byok route by a naive substring 
 // read here as "not /v1/byok/" — zero limiter calls — while still landing on
 // `handle_byok_probe` in the container: an authenticated caller could burst
 // an unbounded number of real outbound probe calls by percent-encoding one
-// letter per request.
+// letter per request. classifyRatePolicy percent-decodes, so the split-brain
+// is closed inside the single decision table.
 
-void test("a percent-encoded BYOK path is still counted (isAuthRateLimited unit)", () => {
-  assert.equal(isAuthRateLimited("/v1/%62yok/probe"), true);
-  assert.equal(isAuthRateLimited("/v1/byok/%70robe"), true);
+void test("a percent-encoded BYOK path is still counted (policy unit)", () => {
+  assert.equal(isLimited("POST", "/v1/%62yok/probe"), true);
+  assert.equal(isLimited("POST", "/v1/byok/%70robe"), true);
 });
 
-void test("a percent-encoded chat path is still counted (isAuthRateLimited unit)", () => {
-  assert.equal(isAuthRateLimited("/v1/%63hat"), true);
+void test("a percent-encoded chat path is still counted (policy unit)", () => {
+  assert.equal(isLimited("POST", "/v1/%63hat"), true);
 });
 
 void test("a malformed percent-encoding fails CLOSED (counted), not open", () => {
@@ -64,17 +75,16 @@ void test("a malformed percent-encoding fails CLOSED (counted), not open", () =>
   // (instead of failing closed) would still match the prefix check and
   // read as limited, for the wrong reason. These fixtures instead put the
   // malformed escape INSIDE the prefix/route token itself, so only the
-  // real fail-closed branch — not an accidental prefix/exact match on the
-  // untouched raw string — can make the assertion pass.
-  assert.equal(isAuthRateLimited("/v1/%zzyok/probe"), true);
-  assert.equal(isAuthRateLimited("/v1/%zzhat"), true);
+  // real fail-closed branch (a durable cell for an undecodable /v1 path)
+  // can make the assertion pass.
+  assert.equal(isLimited("POST", "/v1/%zzyok/probe"), true);
+  assert.equal(isLimited("POST", "/v1/%zzhat"), true);
 });
 
 // ── Real `app.request` regression: the fix must hold through the actual
-// routing pipeline, not just the pure `isAuthRateLimited` function in
+// routing pipeline, not just the pure `classifyRatePolicy` function in
 // isolation — a pure-function-only suite would pass even if some OTHER
-// path (e.g. `authenticatedForward`) stopped calling `isAuthRateLimited`
-// with the value this fix actually changes. ──────────────────────────────
+// path (e.g. `authenticatedForward`) stopped consulting the policy.
 
 const NOW = Date.UTC(2026, 6, 29, 12, 0, 0);
 const stubCtx = {

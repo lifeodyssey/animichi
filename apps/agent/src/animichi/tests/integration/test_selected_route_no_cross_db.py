@@ -15,7 +15,7 @@ from animichi.clients.catalog_client import Point
 from animichi.infrastructure.session.memory import InMemorySessionStore
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from animichi.interfaces.schemas import PublicAPIResponse
-from animichi.tests.db_doubles import build_persistence_supabase_double
+from animichi.tests.db_doubles import build_persistence_double
 from animichi.tests.eval.mock_catalog_client import FIXTURE_POINTS, MockCatalogClient
 
 _STALE_SUPABASE_ROWS = [
@@ -40,7 +40,7 @@ def _catalog_points() -> list[Point]:
 
 @pytest.fixture
 def divergent_db() -> MagicMock:
-    db = build_persistence_supabase_double()
+    db = build_persistence_double()
     db.points.get_points_by_ids = AsyncMock(return_value=_STALE_SUPABASE_ROWS)
     return db
 

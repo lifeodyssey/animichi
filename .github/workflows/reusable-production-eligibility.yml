@@ -70,3 +70,12 @@ jobs:
             echo "reason=$reason"
           } >> "$GITHUB_OUTPUT"
           echo "::notice title=production eligibility::$reason"
+      # #1007 (AC4): the build-once promotion gate is enforced at the
+      # production trust boundary. During expand/migrate (#1013 not yet cut
+      # over) the eligibility workflow asserts the primitive itself is healthy
+      # by replaying the deterministic approval baseline; #1013 replaces this
+      # with a check against the actual staging-tested artifact digest. Every
+      # production eligibility resolution exercises the AC4 rejection matrix.
+      - name: Verify build-once promotion gate (AC4 self-check)
+        shell: bash
+        run: bash .github/scripts/release-promotion-selfcheck.sh

@@ -1,25 +1,30 @@
-"""Real-SQL contract for AnonQuotaRepository (issue #282 PR #472 review, P1-2).
+"""Real-Postgres contract for the SQLModel anon-quota repository (#995).
 
-The unit suite (`tests/unit/repositories/test_anon_quota_repo.py`) only
-asserts on the SQL string against a mocked pool — it never executes the
-statement, so a wrong column name, a missing grant, or a conflict target that
-doesn't match the table's primary key would all still show green there and
-only fail in production as a swallowed `_QUOTA_ERRORS` warning (the quota
-fails open by design). This suite runs the real UPSERT against Postgres,
-including the one correctness dimension neither the mocked unit test nor a
-sequential integration test can prove: that the atomic UPSERT's row lock
-actually serializes concurrent writers for the same key with no lost update.
+Runs the SQLModel repository's atomic UPSERT against PostgreSQL 18 — the one
+correctness dimension a mocked-session unit test structurally cannot prove:
+the row lock actually serializes concurrent writers for the same key with no
+lost update. Grant assertions probe the Atlas migration's GRANT layer
+directly and remain asyncpg infra checks (Atlas migration SQL is outside the
+repository raw-SQL policy, #999).
 """
 
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from datetime import date
 
 import asyncpg
 import pytest
 
-from animichi.infrastructure.supabase.repositories.anon_quota import AnonQuotaRepository
+from animichi.infrastructure.persistence.database import (
+    DatabaseLifecycle,
+    create_database_lifecycle,
+)
+from animichi.infrastructure.persistence.repositories.anon_quota import (
+    SQLModelAnonQuotaRepository,
+)
+from animichi.tests.conftest_db import DatabaseTarget
 
 pytestmark = pytest.mark.integration
 
@@ -32,11 +37,27 @@ def _anon_id(suffix: str) -> str:
     return f"anon_{suffix.rjust(32, '0')}"
 
 
-async def _cleanup(pool: asyncpg.Pool, anon_ids: list[str]) -> None:
-    await pool.execute(
-        "DELETE FROM anon_daily_message_count WHERE anon_id = ANY($1::text[])",
-        anon_ids,
-    )
+async def _cleanup(repo: SQLModelAnonQuotaRepository, anon_ids: list[str]) -> None:
+    from sqlalchemy import delete
+
+    from animichi.infrastructure.persistence.models import anon_quota_table
+
+    async with repo._sessionmaker() as session:
+        async with session.begin():
+            await session.execute(
+                delete(anon_quota_table).where(anon_quota_table.c.anon_id.in_(anon_ids))
+            )
+
+
+@pytest.fixture
+async def repo(
+    pg_container: DatabaseTarget,
+) -> AsyncIterator[SQLModelAnonQuotaRepository]:
+    lifecycle: DatabaseLifecycle = create_database_lifecycle(pg_container.dsn)
+    try:
+        yield SQLModelAnonQuotaRepository(lifecycle.sessionmaker)
+    finally:
+        await lifecycle.close()
 
 
 # The repo's operations against this table (issue #661): the UPSERT
@@ -62,21 +83,21 @@ async def test_agent_svc_holds_the_grant(db_pool: asyncpg.Pool, privilege: str) 
     assert held is True
 
 
-async def test_the_same_key_increments_across_calls(db_pool: asyncpg.Pool) -> None:
-    repo = AnonQuotaRepository(db_pool)
+async def test_the_same_key_increments_across_calls(
+    repo: SQLModelAnonQuotaRepository,
+) -> None:
     anon_id = _anon_id("aaa1")
     try:
         first = await repo.increment_and_count(usage_date=TODAY, anon_id=anon_id)
         second = await repo.increment_and_count(usage_date=TODAY, anon_id=anon_id)
         assert (first, second) == (1, 2)
     finally:
-        await _cleanup(db_pool, [anon_id])
+        await _cleanup(repo, [anon_id])
 
 
 async def test_different_identities_are_counted_independently(
-    db_pool: asyncpg.Pool,
+    repo: SQLModelAnonQuotaRepository,
 ) -> None:
-    repo = AnonQuotaRepository(db_pool)
     identity_a, identity_b = _anon_id("aaa2"), _anon_id("bbb2")
     try:
         await repo.increment_and_count(usage_date=TODAY, anon_id=identity_a)
@@ -85,11 +106,12 @@ async def test_different_identities_are_counted_independently(
         assert count_a == 2
         assert count_b == 1
     finally:
-        await _cleanup(db_pool, [identity_a, identity_b])
+        await _cleanup(repo, [identity_a, identity_b])
 
 
-async def test_different_dates_are_counted_independently(db_pool: asyncpg.Pool) -> None:
-    repo = AnonQuotaRepository(db_pool)
+async def test_different_dates_are_counted_independently(
+    repo: SQLModelAnonQuotaRepository,
+) -> None:
     anon_id = _anon_id("aaa3")
     try:
         today_count = await repo.increment_and_count(usage_date=TODAY, anon_id=anon_id)
@@ -99,18 +121,18 @@ async def test_different_dates_are_counted_independently(db_pool: asyncpg.Pool) 
         assert today_count == 1
         assert tomorrow_count == 1
     finally:
-        await _cleanup(db_pool, [anon_id])
+        await _cleanup(repo, [anon_id])
 
 
 async def test_concurrent_increments_for_the_same_key_have_no_lost_update(
-    db_pool: asyncpg.Pool,
+    repo: SQLModelAnonQuotaRepository,
 ) -> None:
     """N concurrent callers hitting the same (day, anon_id) row: the UPSERT's
     row lock must serialize them so the returned counts are exactly the set
     {1..N} — no duplicate value (a lost update) and no gap. This is the one
-    correctness dimension a mocked-pool unit test structurally cannot cover.
+    correctness dimension a mocked-session unit test structurally cannot
+    cover.
     """
-    repo = AnonQuotaRepository(db_pool)
     anon_id = _anon_id("ccc4")
     concurrent_callers = 20
     try:
@@ -122,4 +144,4 @@ async def test_concurrent_increments_for_the_same_key_have_no_lost_update(
         )
         assert set(results) == set(range(1, concurrent_callers + 1))
     finally:
-        await _cleanup(db_pool, [anon_id])
+        await _cleanup(repo, [anon_id])

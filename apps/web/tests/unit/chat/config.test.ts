@@ -6,8 +6,8 @@ import {
 } from "../../../src/features/chat/config";
 
 describe("resolveChatConfig", () => {
-  it("prefers VITE_AGENT_URL for the chat base", () => {
-    const config = resolveChatConfig({ VITE_AGENT_URL: "https://agent.test" });
+  it("prefers api.agentUrl for the chat base", () => {
+    const config = resolveChatConfig({ agentUrl: "https://agent.test" });
     expect(config).toEqual({
       baseUrl: "https://agent.test",
       chatUrl: "https://agent.test/v1/chat",
@@ -20,7 +20,7 @@ describe("resolveChatConfig", () => {
   });
 
   it("fails loud without any origin source instead of degrading to a relative base", () => {
-    expect(() => resolveChatConfig({})).toThrow(/VITE_SITE_ORIGIN/);
+    expect(() => resolveChatConfig({})).toThrow(/api\.siteOrigin/);
   });
 });
 

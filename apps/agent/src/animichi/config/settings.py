@@ -147,14 +147,9 @@ class Settings(BaseSettings):
         default="0.1.0",
         description="Service version reported to observability backends",
     )
-    # Supabase (legacy name — the value is a plain asyncpg DSN)
-    supabase_db_url: str = Field(
-        default="", description="Direct Postgres DSN for asyncpg"
-    )
-    # Neon agent_svc role DSN (#912 follow-up): the container's least-privilege
-    # data-plane URL, forwarded by the edge Worker when the environment has the
-    # Secrets Store binding. Wins over SUPABASE_DB_URL when both are set;
-    # production keeps SUPABASE_DB_URL until the #855 cutover.
+    # Neon agent_svc role DSN (#912): the container's least-privilege
+    # data-plane URL, forwarded by the edge Worker when the environment has
+    # the Secrets Store binding.
     agent_svc_database_url: str = Field(
         default="", description="Neon agent_svc role DSN for asyncpg"
     )
@@ -238,8 +233,8 @@ class Settings(BaseSettings):
     def validate_required_env(self) -> "Settings":
         """Fail fast with clear errors if critical env vars are missing."""
         missing: list[str] = []
-        if not self.supabase_db_url and not self.agent_svc_database_url:
-            missing.append("AGENT_SVC_DATABASE_URL (or SUPABASE_DB_URL)")
+        if not self.agent_svc_database_url:
+            missing.append("AGENT_SVC_DATABASE_URL")
         missing.extend(
             credential
             for credential in self._required_model_credentials()
@@ -274,9 +269,8 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        """Runtime Postgres DSN — the role-scoped Neon URL when provisioned
-        (AGENT_SVC_DATABASE_URL), the legacy SUPABASE_DB_URL otherwise."""
-        return self.agent_svc_database_url or self.supabase_db_url
+        """Runtime Postgres DSN — the role-scoped Neon URL (AGENT_SVC_DATABASE_URL)."""
+        return self.agent_svc_database_url
 
     def get_runtime_config(self) -> dict[str, str | int | float | bool]:
         """Get non-secret runtime configuration (safe to log).

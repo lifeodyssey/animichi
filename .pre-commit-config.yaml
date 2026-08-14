@@ -1,17 +1,21 @@
 # Local gates — two stages, routed by changed package (contract:
-# docs/ops/local-gates.md, merged #903):
+# docs/ops/local-gates.md):
 #
 #   pre-commit (fast, <10s): universal checks (format, yaml/toml syntax,
 #     secret scan, shell/workflow lint, repo-wide ruff) + oxlint for the TS
-#     packages this branch actually touched — the router is
-#     scripts/local-gates/changed-packages.sh, which maps the HEAD diff onto
-#     the package set.
+#     packages actually staged. The router is
+#     scripts/local-gates/changed-packages.sh --staged, which maps the staged
+#     tracked diff (add/modify/rename/delete) plus intentional untracked
+#     inputs onto the package set.
 #
-#   pre-push (medium, <2min): typecheck + fast unit suites for the changed
-#     packages only, plus integrity gates (atlas for db, CI invariants for
-#     ci, docs consistency for docs). Unknown paths fall back to a full
-#     typecheck. Integration tests stay in CI — they need Neon/browser/
-#     container environments (make test-integration / make e2e).
+#   pre-push (medium): ONE orchestrator, scripts/local-gates/pre-push.sh,
+#     invoked as a single hook. It re-reads the router in merge-base-to-head
+#     mode and runs the deterministic Quality lane, then each affected
+#     package's CI-equivalent gate set (lint + typecheck + unit + coverage +
+#     build, contract drift, fresh-schema apply, credential-free Pulumi load)
+#     with canonical floors from the packages themselves (agent 87 — nothing
+#     weaker is duplicated here). Checks needing browser e2e / live Neon /
+#     cloud deploys stay in CI.
 #
 # Install: pre-commit install && pre-commit install --hook-type pre-push
 # Policy: fix a failing gate or document an environmental exemption — no
@@ -50,10 +54,10 @@ repos:
 
   - repo: local
     hooks:
-      # Oxlint for the TS packages this branch touched, decided by the router
-      # script — a push touching only workers/users lints workers/users only
-      # (edge keeps its own lint:oxlint). `all` (unknown paths) lints
-      # everything: the conservative fallback.
+      # Oxlint for the TS packages actually staged, decided by the router
+      # script in --staged mode — a push touching only workers/users lints
+      # workers/users only (edge keeps its own lint:oxlint). `all` (unknown
+      # paths) lints everything: the conservative fallback.
       #
       # contract lints via the root oxlint binary, scoped to src/: its test/
       # files sit outside the tsconfig include (src+scripts only), so a
@@ -63,7 +67,7 @@ repos:
         name: oxlint (changed TS packages)
         entry: |
           bash -c '
-          changed="$(scripts/local-gates/changed-packages.sh)" || exit 1
+          changed="$(scripts/local-gates/changed-packages.sh --staged)" || exit 1
           pkg() { printf "%s\n" "$changed" | grep -qx "$1"; }
           if pkg all; then
             pnpm run lint:oxlint || exit 1
@@ -96,96 +100,28 @@ repos:
         language: system
         files: ^\.github/workflows/.*\.ya?ml$
 
-      # --- pre-push stage: changed-package routing. ---
-      # Each hook re-reads the router and no-ops when its package is not in
-      # the changed set. `all` (unknown/root paths) runs every package's
-      # typecheck — the conservative fallback.
-      - id: typecheck
-        name: typecheck (changed packages)
-        entry: |
-          bash -c '
-          changed="$(scripts/local-gates/changed-packages.sh)" || exit 1
-          pkg() { printf "%s\n" "$changed" | grep -qx "$1"; }
-          if pkg all; then
-            pnpm -r --if-present typecheck || exit 1
-            (cd apps/agent && uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/) || exit 1
-          else
-            if pkg agent; then (cd apps/agent && uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/) || exit 1; fi
-            if pkg web; then pnpm --filter web run typecheck || exit 1; fi
-            if pkg catalog; then pnpm --filter catalog run typecheck || exit 1; fi
-            if pkg users; then pnpm --filter users run typecheck || exit 1; fi
-            if pkg edge; then pnpm --filter "./workers/edge" run typecheck || exit 1; fi
-            if pkg contract; then pnpm --filter "@animichi/contract" run typecheck || exit 1; fi
-            if pkg infra; then pnpm --filter infra run typecheck || exit 1; fi
-          fi'
+      # ORM-only database access (raw-SQL policy, #999). Runs the repository
+      # Semgrep ruleset (.semgrep/, six rules) on staged Python + TypeScript.
+      # Python rules are scoped to /apps/agent, TypeScript to /workers/catalog/src
+      # and /workers/users/src (paths.include), so unrelated staged files simply
+      # match nothing and pass. semgrep is installed via uv tool (same version as
+      # the reusable-security CI job — 1.172.0). Atlas migration SQL and the
+      # sanctioned typed-expression seams are excluded by the rules themselves.
+      - id: semgrep-orm
+        name: semgrep (ORM-only DB access)
+        entry: uv tool run --no-build semgrep@1.172.0 --config .semgrep --error
         language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-push]
+        files: \.(py|ts)$
 
-      - id: unit-tests
-        name: unit tests (changed packages)
-        entry: |
-          bash -c '
-          changed="$(scripts/local-gates/changed-packages.sh)" || exit 1
-          pkg() { printf "%s\n" "$changed" | grep -qx "$1"; }
-          # Coverage floors are an intentional local/CI split: agent runs at
-          # --cov-fail-under=82 as a fast signal (CI owns the canonical 87);
-          # TS suites run without the coverage flag — the vitest.config.ts
-          # floors are CI ratchets and a partial local change must not fail
-          # them.
-          if pkg agent; then (cd apps/agent && SUPABASE_DB_URL=postgresql://unused@db.invalid/unused DEEPSEEK_API_KEY=test-key uv run pytest src/animichi/tests/unit/ -q --cov --cov-fail-under=82) || exit 1; fi
-          if pkg web; then pnpm --filter web exec vitest run --config vitest.config.ts || exit 1; fi
-          if pkg catalog; then pnpm --filter catalog exec vitest run --config vitest.config.ts || exit 1; fi
-          if pkg users; then pnpm --filter users exec vitest run --config vitest.config.ts || exit 1; fi
-          if pkg edge; then pnpm run test:worker || exit 1; fi
-          if pkg contract; then pnpm --filter "@animichi/contract" test || exit 1; fi
-          if pkg infra; then pnpm --filter infra test || exit 1; fi'
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-push]
-
-      # Atlas chain integrity: checksum + parse, sub-second. Catches a stale
-      # atlas.sum or unparseable migration before CI's pipeline-db. The
-      # file:// scheme is the Makefile-canonical form (atlas >=1.2 rejects a
-      # bare --dir).
-      - id: atlas-validate
-        name: atlas migrate validate (db changed)
-        entry: |
-          bash -c '
-          if printf "%s\n" "$(scripts/local-gates/changed-packages.sh)" | grep -qx db; then
-            ATLAS_BIN="$(command -v atlas || echo /tmp/atlas-bin/atlas)"; "$ATLAS_BIN" migrate validate --dir "file://migrations/neon"
-          fi'
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-push]
-
-      # CI integrity: pinned actions + workflow invariants (the CI contract,
-      # #826) — cheap and every workflow change deserves them.
-      - id: ci-gates
-        name: CI gates (pinned actions + workflow invariants)
-        entry: |
-          bash -c '
-          if printf "%s\n" "$(scripts/local-gates/changed-packages.sh)" | grep -qx ci; then
-            bash .github/scripts/check-actions-pinned.sh || exit 1
-            ruby .github/scripts/assert-workflow-invariants.rb || exit 1
-          fi'
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [pre-push]
-
-      # Docs consistency subset: the two unit tests that assert docs/CI
-      # content stay in sync with the code (full suite is CI's lane).
-      - id: docs-gates
-        name: docs consistency (docs changed)
-        entry: |
-          bash -c '
-          if printf "%s\n" "$(scripts/local-gates/changed-packages.sh)" | grep -qx docs; then
-            (cd apps/agent && uv run pytest src/animichi/tests/unit/test_secrets_docs_consistency.py src/animichi/tests/unit/test_documentation_guardrails.py -q --no-cov) || exit 1
-          fi'
+      # --- pre-push stage: the single orchestration surface (#1003). ---
+      # scripts/local-gates/pre-push.sh is the sole pre-push entrypoint. It
+      # re-reads the router in merge-base-to-head mode, runs the deterministic
+      # Quality lane, then each affected package's CI-equivalent gates with
+      # canonical floors from the packages themselves, and fails fast. The
+      # earlier per-hook typecheck/unit/atlas/CI/docs duplication is gone.
+      - id: pre-push
+        name: pre-push orchestrator (scripts/local-gates/pre-push.sh)
+        entry: bash scripts/local-gates/pre-push.sh
         language: system
         pass_filenames: false
         always_run: true

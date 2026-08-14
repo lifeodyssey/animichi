@@ -16,7 +16,6 @@ from pydantic_ai.usage import RunUsage
 from animichi.agents.agent_result import AttributedUsage
 from animichi.agents.runtime_deps import StepEvent
 from animichi.application.turn_types import TurnStageEvent
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.public_api import (
     PublicAPIRequest,
     RuntimeAPI,
@@ -35,14 +34,12 @@ from animichi.tests.unit.conftest_public_api import make_result
 
 
 def _api(db: MagicMock | None = None) -> RuntimeAPI:
-    return RuntimeAPI(
-        db or MagicMock(spec=SupabaseClient), model_http_client=MagicMock()
-    )
+    return RuntimeAPI(db or MagicMock(), model_http_client=MagicMock())
 
 
 def test_model_http_client_property_returns_the_bound_client() -> None:
     client = MagicMock()
-    api = RuntimeAPI(MagicMock(spec=SupabaseClient), model_http_client=client)
+    api = RuntimeAPI(MagicMock(), model_http_client=client)
 
     assert api.model_http_client is client
 
@@ -123,7 +120,7 @@ async def test_gateway_check_owner_false_without_a_wired_repo() -> None:
 
 
 async def test_gateway_check_owner_true_when_the_repo_confirms() -> None:
-    db = MagicMock(spec=SupabaseClient)
+    db = MagicMock()
     db.session = AsyncMock()
     db.session.check_session_owner = AsyncMock(return_value=True)
     gateway = _RuntimeSessionGateway(

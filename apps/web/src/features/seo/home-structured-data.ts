@@ -1,4 +1,4 @@
-import type { JsonLdNode } from "../anime/structured-data";
+import type { JsonLdNode } from "../../lib/json-ld";
 import { HOME_URL, LOGO_URL, SAME_AS, SITE_DESCRIPTION, SITE_NAME } from "./site";
 
 /**

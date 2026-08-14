@@ -42,7 +42,8 @@ coverage.xml
 .hypothesis/
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
@@ -77,6 +78,8 @@ e2e/.auth/
 .env.local
 .env.test
 .env.production
+# Wrangler local dev vars (runtime-generated for e2e lanes, never committed)
+.dev.vars
 secrets/
 credentials/
 anitabi/
@@ -137,6 +140,11 @@ backend/tests/eval/results/agent_openai-mimo-*
 # apps/web TS source — re-include (root lib/ rule is too broad)
 !apps/web/src/lib/
 !apps/web/src/lib/**
+
+# apps/web unit tests live in tests/unit/lib/** — re-include so the versioned
+# runtime-config test suite is tracked (root lib/ rule is too broad; #1013).
+!apps/web/tests/unit/lib/
+!apps/web/tests/unit/lib/**
 
 # Pinned Atlas CLI self-heal cache (#730) — downloaded, checksum-verified
 # binary for `make test-integration`; never checked in, never the global install.

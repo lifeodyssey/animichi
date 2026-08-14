@@ -58,12 +58,12 @@ ANON_BUDGET_EXHAUSTED_CODE = "anon_budget_exhausted"
 _TOKENS_PER_MILLION = 1_000_000
 #: Metering is best-effort and runs from ``RuntimeAPI.handle``'s ``finally``, so
 #: nothing it raises may replace a successful turn's return value. An explicit
-#: tuple cannot express that: asyncpg's ``PostgresError`` and ``InterfaceError``
-#: derive straight from ``Exception``, so the most likely real failures — a
-#: missing ``daily_usage`` table on a deploy that outran its migration, a missing
-#: grant, a pool ``InterfaceError`` — would escape a narrower catch and surface
+#: tuple cannot express that: SQLAlchemy's statement/dialect errors derive
+#: straight from ``Exception``, so the most likely real failures — a missing
+#: ``daily_usage`` table on a deploy that outran its migration, a missing
+#: grant, an engine disposal — would escape a narrower catch and surface
 #: as a user-facing turn failure. The budget read has the same requirement: its
-#: contract is to fail *open*, and a ``PostgresError`` escaping would instead
+#: contract is to fail *open*, and a ``StatementError`` escaping would instead
 #: 500 every anonymous turn. Both log with the exception attached, so a swallowed
 #: programming error is still visible in the logs rather than silent.
 _METER_ERRORS = Exception

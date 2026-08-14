@@ -27,7 +27,7 @@ from animichi.interfaces.routes._deps import (
     _error_response,
     _get_db_from_request,
     _get_trusted_auth_context,
-    _require_supabase,
+    _require_db,
 )
 
 router = APIRouter(prefix="/v1", tags=["feedback"])
@@ -47,7 +47,7 @@ async def handle_feedback(
     # while it is still being imported (same pattern as `_deps._raw_byok_headers`).
     from animichi.application.submit_feedback import FeedbackRejection, submit_feedback
 
-    db = _require_supabase(_get_db_from_request(request))
+    db = _require_db(_get_db_from_request(request))
     started = time.monotonic()
     try:
         result = await submit_feedback(

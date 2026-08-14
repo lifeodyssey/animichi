@@ -9,10 +9,19 @@
 # zero every time. Remembering to look at both is exactly the kind of thing
 # that fails silently; this makes it fail loudly instead.
 #
-# Passes when: no unresolved reviewThreads AND no unaddressed bot findings in
-# the top-level comments. An explicit ACK marker in a maintainer comment
-# (see ACK_PATTERN) satisfies the second half — judgement still belongs to the
-# human/agent, the hook only insists that judgement was recorded.
+# One source of gate logic (issue #1008 review finding 6): when the repo carries
+# the canonical gate (scripts/local-gates/pr-review-check.sh), the hook delegates
+# entirely to it — collect + check, including the review-approval marker, the
+# exact findings snapshot, bot rejection, outdated-thread handling, and
+# fail-closed behavior. The local head-bound verdict artifact pair is passed
+# through --verdict only when supplied explicitly via REVIEW_VERDICT_FILE /
+# REVIEW_BRIEF_FILE (never defaulted to the repo root, issue #1008 finding 7).
+# For repositories without the canonical gate the hook falls back to the inline
+# two-path check (threads + top-level qodo/Sonar findings with an authorized
+# human ACK marker) so the global guard keeps protecting every repo. The
+# fallback reads comments over GitHub GraphQL and requires the ack author to be
+# a real User with an OWNER/MEMBER/COLLABORATOR association — a MEMBER bot can
+# never clear its own findings (issue #1008 finding 3 rework).
 #
 # Fail-closed by design. Every failure mode handled below was a real bypass
 # found in review of the first version, and each one made the guard *silently*
@@ -113,10 +122,57 @@ if [ -z "$PR" ]; then
 Pass the PR explicitly, e.g. \`gh pr merge 123\`."
 fi
 
-# 1. Line-level review threads. --paginate walks past the first page: a large PR
-# can carry more than 100 threads, and the ones beyond page 1 were invisible.
-# Quoted heredoc: the $-prefixed names are GraphQL variables and must reach the
-# server unexpanded.
+# Canonical gate path: any repo carrying scripts/local-gates/pr-review-check.sh
+# delegates to the single source of gate logic (issue #1008 finding 6). Claude
+# Code runs hooks with the project root as cwd.
+ROOT="$(pwd)"
+CANONICAL_GATE="$ROOT/scripts/local-gates/pr-review-check.sh"
+
+# Resolve the explicit REVIEW_VERDICT_FILE / REVIEW_BRIEF_FILE pair into
+# CHECK_ARGS. Early-returns when neither is set (marker path); fails closed
+# when only one of the pair is set or either file is missing, then builds the
+# --verdict/--brief arguments the canonical gate consumes.
+resolve_verdict_pair() {
+  [ -n "${REVIEW_VERDICT_FILE:-}" ] || [ -n "${REVIEW_BRIEF_FILE:-}" ] || return 0
+  [ -n "${REVIEW_VERDICT_FILE:-}" ] && [ -n "${REVIEW_BRIEF_FILE:-}" ] || fail "BLOCKED: REVIEW_VERDICT_FILE and REVIEW_BRIEF_FILE must be provided together. The gate cannot verify the pinned brief digest without the reviewed brief."
+  [ -f "$REVIEW_VERDICT_FILE" ] || fail "BLOCKED: verdict artifact not found at $REVIEW_VERDICT_FILE. Provide the reviewed head-bound verdict artifact and its brief via REVIEW_VERDICT_FILE / REVIEW_BRIEF_FILE."
+  [ -f "$REVIEW_BRIEF_FILE" ] || fail "BLOCKED: verdict brief not found at $REVIEW_BRIEF_FILE. The gate cannot verify the pinned brief digest without the reviewed brief."
+  CHECK_ARGS=(--verdict "$REVIEW_VERDICT_FILE" --brief "$REVIEW_BRIEF_FILE")
+}
+
+if [ -f "$CANONICAL_GATE" ]; then
+  collect_dir="$(mktemp -d)"
+  trap 'rm -rf "$collect_dir"' EXIT
+  "$CANONICAL_GATE" collect "$collect_dir" --pr "$PR" --repo "$REPO" || \
+    fail "BLOCKED: could not collect the PR review state for PR #$PR (GitHub API call failed).
+Check \`gh auth status\` and network. Refusing to merge without having looked."
+
+  # The local head-bound verdict artifact pair is supplied EXPLICITLY via
+  # REVIEW_VERDICT_FILE / REVIEW_BRIEF_FILE only — never defaulted to the repo
+  # root (root-artifact prohibition, issue #1008 finding 7). The pair must
+  # come together: a verdict artifact without its brief cannot verify the
+  # pinned brief digest, so that is a block, not a silent marker-path fallback.
+  CHECK_ARGS=()
+  resolve_verdict_pair
+
+  OUT="$("$CANONICAL_GATE" check "$collect_dir" ${CHECK_ARGS[@]+"${CHECK_ARGS[@]}"} 2>&1)" && rc=0 || rc=$?
+  if [ "$rc" = "0" ]; then
+    exit 0
+  fi
+  REASON="$(printf '%s' "$OUT" | python3 -c 'import json,sys;
+try: print(json.load(sys.stdin).get("reason",""))
+except Exception: print("")' 2>/dev/null)"
+  fail "BLOCKED: PR #$PR does not pass the local review gate (docs/ops/review-gate.md).
+${REASON}
+Resolve the unresolved threads, acknowledge the managed findings with an authorized
+human comment bound to the exact findings snapshot, and record the review-approval
+marker (or supply the local verdict artifact + brief explicitly via
+REVIEW_VERDICT_FILE / REVIEW_BRIEF_FILE)."
+fi
+
+# 1. Line-level review threads (fallback for repositories without the canonical
+# gate). --paginate walks past the first page: a large PR can carry more than
+# 100 threads, and the ones beyond page 1 were invisible.
 THREAD_QUERY="$(cat <<'GRAPHQL'
 query($owner:String!,$name:String!,$pr:Int!,$endCursor:String){
   repository(owner:$owner,name:$name){
@@ -153,27 +209,52 @@ if [ "$THREADS" != "0" ]; then
 Read each one, fix it or record why not, then resolve it. Do not batch-resolve unread."
 fi
 
-# 2. Top-level bot findings — the half that has no thread to resolve.
-COMMENTS="$(gh pr view "$PR" -R "$REPO" --json comments \
-  --jq '.comments[] | "\(.authorAssociation)\t\(.author.login)\t\(.body)"')" || \
+# 2. Top-level bot findings — the half that has no thread to resolve. The
+# fallback reads comments over GitHub GraphQL requesting `author { __typename
+# login }`: the legacy `--json comments` shape omits the author type, so an
+# association-only ACK would let a MEMBER bot clear its own findings. An ACK
+# counts only when the author is a real GitHub User (author type `User`) with
+# an authorized association; an unreadable author type never authorizes (fail
+# closed, issue #1008 finding 3 rework).
+FALLBACK_COMMENTS_QUERY="$(cat <<'GRAPHQL'
+query($owner:String!,$name:String!,$pr:Int!,$endCursor:String){
+  repository(owner:$owner,name:$name){
+    pullRequest(number:$pr){
+      comments(first:100,after:$endCursor){
+        nodes{ id url body authorAssociation author{ __typename login } }
+        pageInfo{ hasNextPage endCursor }
+      }
+    }
+  }
+}
+GRAPHQL
+)"
+
+ALL_COMMENTS="$(gh api graphql --paginate \
+  -f query="$FALLBACK_COMMENTS_QUERY" -F owner="${REPO%%/*}" -F name="${REPO##*/}" -F pr="$PR" \
+  --jq '[.data.repository.pullRequest.comments.nodes[] | {author_association: (.authorAssociation // ""), login: (.author.login // ""), author_type: (.author.__typename // ""), body: (.body // "")}]' \
+  | jq -s 'add')" || \
   fail "BLOCKED: cannot read top-level comments on PR #$PR (GitHub API call failed).
 Check \`gh auth status\` and network. Refusing to merge without having looked."
 
 # A maintainer comment containing this marker records that the findings were
-# judged. The association check matters: without it anyone who can comment —
+# judged. The author-type check matters: without it anyone who can comment —
 # including the bots being triaged — could clear their own findings.
 ACK_PATTERN='线程判定|findings triaged|评论判定|toplevel triaged'
-if printf '%s' "$COMMENTS" | grep -E '^(OWNER|MEMBER|COLLABORATOR)	' | grep -qE "$ACK_PATTERN"; then
+if printf '%s' "$ALL_COMMENTS" | jq -r \
+  '.[] | select(.author_type == "User" and (.author_association == "OWNER" or .author_association == "MEMBER" or .author_association == "COLLABORATOR")) | .body' \
+  | grep -qE "$ACK_PATTERN"; then
   exit 0
 fi
 
+FINDING_BODIES="$(printf '%s' "$ALL_COMMENTS" | jq -r '.[] | .body')"
 PENDING=""
 # qodo prints counts like: <code>🐞 Bugs (1)</code> / Rule violations (2)
-if printf '%s' "$COMMENTS" | grep -qE 'Bugs \([1-9]|Rule violations \([1-9]'; then
+if printf '%s' "$FINDING_BODIES" | grep -qE 'Bugs \([1-9]|Rule violations \([1-9]'; then
   PENDING="$PENDING
   - qodo reports non-zero Bugs / Rule violations in its Code Review summary"
 fi
-if printf '%s' "$COMMENTS" | grep -q 'Quality Gate Failed'; then
+if printf '%s' "$FINDING_BODIES" | grep -q 'Quality Gate Failed'; then
   PENDING="$PENDING
   - SonarCloud Quality Gate failed"
 fi

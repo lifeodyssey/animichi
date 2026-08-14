@@ -7,10 +7,20 @@ them. Root guide: `../../AGENTS.md`; detailed mirror checklist: `README.md`.
 ## Commands (from `packages/contract/`)
 
 - `pnpm run typecheck` — TypeScript 7.0.2 `tsc --noEmit`.
-- `pnpm run emit:openapi` — regenerate `openapi.json` and `users-openapi.json`.
+- `pnpm run emit:openapi` — regenerate `openapi.json`, `users-openapi.json`, and `agent-openapi.json`.
+- `pnpm run vet:openapi <baseline.json> <candidate.json>` — OpenAPI compat gate
+  (issue #1005 AC4/AC5): fails on unapproved breaking changes, approves additive
+  ones, and rejects a future major path unless its superseded operation carries
+  `deprecated: true` + `x-sunset`. `--allow-breaking` is the explicit approval
+  flag — never pass it in the normal CI gate.
 
 OpenAPI emission is byte-stable: JSON is pretty-printed with one trailing newline. Regenerate on
-every contract change and commit both outputs. CI reruns emission and fails on committed drift.
+every contract change and commit all three outputs. CI reruns emission and fails on committed drift,
+then runs `vet:openapi` for each document against the merge-base baseline (the published contract)
+in the `Contract / build` stage — unapproved breaking `/v1` changes fail closed there. Baseline
+bootstrap (#1005 AC3): a merge-base baseline still carrying the retired phantom check-in/share
+surface is replaced by the post-cut documents committed in this tree — that fallback can only fire
+on this landing, because after it lands merge-base IS the post-cut contract.
 
 ## Conventions
 
@@ -29,7 +39,13 @@ every contract change and commit both outputs. CI reruns emission and fails on c
 - `src/users-contract.ts` — users-service procedures and errors.
 - `src/errors.ts` — canonical catalog error registry.
 - `scripts/emit-openapi.ts` — deterministic OpenAPI emitter.
-- `openapi.json` · `users-openapi.json` — committed generated wire artifacts.
+- `scripts/vet-openapi.ts` — OpenAPI compat gate CLI (merge-base baseline vs candidate).
+- `openapi.json` · `users-openapi.json` · `agent-openapi.json` — committed generated wire artifacts.
+- `src/openapi-changes.ts` · `src/openapi-schema-diff.ts` · `src/openapi-diff.ts` ·
+  `src/openapi-vet.ts` · `test/openapi-diff-endpoints.test.ts` ·
+  `test/openapi-diff-schemas.test.ts` · `test/openapi-diff-errors.test.ts` ·
+  `test/openapi-gate.test.ts` · `test/vet-gate.test.ts` — change vocabulary, classifier,
+  gate decisions, and the workflow-wiring invariant.
 
 ## Pitfalls
 

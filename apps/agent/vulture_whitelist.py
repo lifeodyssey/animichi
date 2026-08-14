@@ -13,8 +13,14 @@ Regenerate (then re-annotate):  uv run vulture src/animichi/ --make-whitelist
 
 # async/sync context-manager dunder signatures: __aexit__/__exit__ must accept
 # (exc_type, exc_val, exc_tb) per the Python protocol; the body ignores exc_tb.
-# Sites: supabase/client_types.py, utils/logger.py
+# Sites: utils/logger.py
 exc_tb
+
+# SQLAlchemy UserDefinedType.get_col_spec(**kw) override contract: SQLAlchemy
+# dispatches column kwargs positionally; the PostGIS geography/geometry specs
+# ignore them.
+# Site: src/animichi/infrastructure/persistence/expressions.py
+kw
 
 # No-op metrics interface mirroring OpenTelemetry Counter.add / Histogram.record;
 # `amount` is part of the public signature even though the no-op ignores it.
@@ -25,18 +31,6 @@ amount
 # the decorator contract even when the validator body never touches it.
 # Site: src/animichi/clients/catalog_errors.py (_coerce_unknown)
 cls
-
-# Protocol method signatures (asyncpg abstraction): params declared on `...`
-# stub methods so concrete impls and call sites type-check.
-# Site: src/animichi/infrastructure/supabase/client_types.py
-command  # executemany(command, args)
-min_size  # create_pool(dsn, *, min_size, max_size)
-
-# pydantic-ai Model.request override signature: (messages, model_settings,
-# model_request_parameters) is the abstract contract; failover test doubles
-# that simulate a slow/failing provider ignore the parameters.
-# Site: src/animichi/tests/unit/test_model_failover.py
-model_request_parameters
 
 # PlainDsnContainer Protocol mirrors testcontainers' real keyword signature;
 # the parameter name must stay `driver` for structural typing.

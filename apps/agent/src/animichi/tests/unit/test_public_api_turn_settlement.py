@@ -18,7 +18,6 @@ from animichi.application.turn_admission_port import ReservationOutcome, Reserve
 from animichi.application.turn_outcome import TurnOutcome
 from animichi.application.turn_outcome_port import SweepReport, TurnRef
 from animichi.config.settings import Settings
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from animichi.tests.unit.conftest_public_api import make_result, make_run_agent_stub
 
@@ -61,8 +60,7 @@ class _RecordingStore:
 
 
 def _db() -> MagicMock:
-    db = MagicMock(spec=SupabaseClient)
-    db.pool.fetch = AsyncMock(return_value=[])
+    db = MagicMock()
     db.session = AsyncMock()
     db.usage = AsyncMock()
     db.usage.accumulate_usage = AsyncMock(return_value=None)

@@ -1,5 +1,6 @@
 import { createAuthClient } from "better-auth/client";
 import { jwtClient, magicLinkClient } from "better-auth/client/plugins";
+import { currentRuntimeConfig } from "../runtime-config/provider";
 
 /**
  * Neon Auth (Better Auth base) magic-link client.
@@ -7,9 +8,10 @@ import { jwtClient, magicLinkClient } from "better-auth/client/plugins";
  * Uses the official Better Auth client SDK (`createAuthClient` + the
  * `magicLinkClient` plugin) pointed at the per-branch Neon Auth base URL
  * (`…/neondb/auth`, see `docs/ops/auth-migration-neon.md` §4). The base URL is
- * operator-supplied via `VITE_NEON_AUTH_BASE_URL`; when absent the caller
- * surfaces a "not configured" state rather than a fabricated success. The
- * client is built lazily at call time so tests and SSR resolve the env freshly.
+ * operator-supplied via the versioned runtime-config field `neonAuthBaseUrl`
+ * (#1013 AC1); when absent the caller surfaces a "not configured" state
+ * rather than a fabricated success. The client is built lazily at call time
+ * so tests and SSR resolve the config freshly.
  */
 export type MagicLinkResult = "sent" | "not_configured" | "error";
 
@@ -19,8 +21,9 @@ export interface MagicLinkRequest {
 }
 
 function baseUrl(): string | undefined {
-  const value = import.meta.env.VITE_NEON_AUTH_BASE_URL;
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  // The runtime-config loader guarantees the field is undefined-or-valid-URL,
+  // so an absent field is the documented "auth not configured" shape.
+  return currentRuntimeConfig().neonAuthBaseUrl;
 }
 
 export function isNeonAuthConfigured(): boolean {

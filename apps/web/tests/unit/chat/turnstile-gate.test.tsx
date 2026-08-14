@@ -17,13 +17,15 @@ import {
   currentTurnstileSiteKey,
   resetTurnstileWidget,
   resolveTurnstileSiteKey,
-} from "../../../src/components/TurnstileGate";
+} from "../../../src/features/chat/components/TurnstileGate";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import {
   clearTurnstileToken,
   currentTurnstileToken,
   rememberTurnstileToken,
 } from "../../../src/lib/turnstile/token-store";
+import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../src/lib/runtime-config/provider";
+import { DEFAULT_RUNTIME_CONFIG } from "../../../src/lib/runtime-config/runtime-config";
 import { LOCALES } from "../../../src/i18n/locales";
 
 const SITE_KEY = "0x4AAAAAAAsitekey24chars";
@@ -46,53 +48,57 @@ function widget(): Element {
 
 describe("site key shape assertion", () => {
   it("accepts a 24-character site key", () => {
-    expect(resolveTurnstileSiteKey({ VITE_TURNSTILE_SITE_KEY: SITE_KEY })).toBe(SITE_KEY);
+    expect(resolveTurnstileSiteKey(SITE_KEY)).toBe(SITE_KEY);
   });
 
   it("rejects a 35-character value — that length is the SECRET", () => {
     const secretShaped = "x".repeat(35);
-    expect(() => resolveTurnstileSiteKey({ VITE_TURNSTILE_SITE_KEY: secretShaped })).toThrow(/SECRET/);
+    expect(() => resolveTurnstileSiteKey(secretShaped)).toThrow(/SECRET/);
   });
 
   it("rejects a missing site key", () => {
-    expect(() => resolveTurnstileSiteKey({})).toThrow(/24 characters/);
+    expect(() => resolveTurnstileSiteKey(undefined)).toThrow(/24 characters/);
   });
 
   it("never echoes the offending value in the error message", () => {
     const secretShaped = "WRONG-LENGTH-VALUE-NOT-A-SITE-KEY";
-    const read = () => resolveTurnstileSiteKey({ VITE_TURNSTILE_SITE_KEY: secretShaped });
+    const read = () => resolveTurnstileSiteKey(secretShaped);
     expect(read).toThrow(/must be 24 characters/);
     expect(read).not.toThrow(new RegExp(secretShaped));
   });
 
-  it("currentTurnstileSiteKey reads VITE_TURNSTILE_SITE_KEY from the bundle env", () => {
-    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", SITE_KEY);
+  it("currentTurnstileSiteKey reads the injected runtime config site key", () => {
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, turnstileSiteKey: SITE_KEY });
     expect(currentTurnstileSiteKey()).toBe(SITE_KEY);
   });
 
-  it("currentTurnstileSiteKey fails loudly when the env slot is empty", () => {
-    vi.stubEnv("VITE_TURNSTILE_SITE_KEY", "");
-    expect(() => currentTurnstileSiteKey()).toThrow(/24 characters/);
+  it("currentTurnstileSiteKey fails loudly on a malformed config value", () => {
+    // A wrong-shape key is now rejected at LOAD time by the runtime-config
+    // schema (24-char alphanumeric pattern, fail-closed) — the loader surfaces
+    // that error instead of a use-time site-key shape check. The standalone
+    // resolveTurnstileSiteKey 24-char check still covers programmatic configs.
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, turnstileSiteKey: "x".repeat(25) });
+    expect(() => currentTurnstileSiteKey()).toThrow(/runtime config invalid/);
   });
 });
 
 describe("optional site key (issue #447 mount decision)", () => {
   it("reports no site key for an unconfigured production build", () => {
-    expect(configuredTurnstileSiteKey({ VITE_TURNSTILE_SITE_KEY: "" }, false)).toBeUndefined();
-    expect(configuredTurnstileSiteKey({}, false)).toBeUndefined();
+    expect(configuredTurnstileSiteKey("", false)).toBeUndefined();
+    expect(configuredTurnstileSiteKey(undefined, false)).toBeUndefined();
   });
 
   it("falls back to Cloudflare's always-passing test key in dev", () => {
-    expect(configuredTurnstileSiteKey({}, true)).toBe(TURNSTILE_TEST_SITE_KEY);
+    expect(configuredTurnstileSiteKey(undefined, true)).toBe(TURNSTILE_TEST_SITE_KEY);
     expect(TURNSTILE_TEST_SITE_KEY).toHaveLength(24);
   });
 
   it("prefers a configured 24-character key over the dev fallback", () => {
-    expect(configuredTurnstileSiteKey({ VITE_TURNSTILE_SITE_KEY: SITE_KEY }, true)).toBe(SITE_KEY);
+    expect(configuredTurnstileSiteKey(SITE_KEY, true)).toBe(SITE_KEY);
   });
 
   it("still throws on a secret-shaped value — a wrong key must never render", () => {
-    expect(() => configuredTurnstileSiteKey({ VITE_TURNSTILE_SITE_KEY: "x".repeat(35) }, true)).toThrow(/SECRET/);
+    expect(() => configuredTurnstileSiteKey("x".repeat(35), true)).toThrow(/SECRET/);
   });
 });
 

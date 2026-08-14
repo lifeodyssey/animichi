@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic_evals import Case, Dataset
@@ -8,6 +9,9 @@ from pydantic_evals.reporting import EvaluationReport, ReportCase, ReportCaseFai
 
 from animichi.agents.agent_result import AgentResult
 from animichi.agents.animichi_agent import animichi_agent
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 from animichi.tests.eval import eval_gate_flow, run_agent_eval
 from animichi.tests.eval.eval_gate_flow import finish_cli_report, gate_exit_code
 from animichi.tests.eval.eval_harness import (
@@ -49,9 +53,6 @@ def test_fullstack_db_url_prefers_secret_test_database_url(
     expected = "postgresql://owner:password@ep-safe.example/neondb?sslmode=require"
     monkeypatch.setenv("EVAL_FULLSTACK", "1")
     monkeypatch.setenv("TEST_DATABASE_URL", expected)
-    monkeypatch.setenv(
-        "SUPABASE_DB_URL", "postgresql://legacy:placeholder@localhost/legacy"
-    )
 
     assert _db_url() == expected
 
@@ -75,11 +76,9 @@ def test_fullstack_db_url_has_no_localhost_fallback(
 
 
 @pytest.mark.asyncio
-async def test_fullstack_target_runs_shared_byo_preflight_before_connect(
+async def test_fullstack_target_runs_shared_byo_preflight_before_build(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from animichi.infrastructure.supabase import client as supabase_client
-
     db_url = "postgresql://owner:password@localhost:5432/test"
     events: list[str] = []
     monkeypatch.setenv("TEST_DATABASE_URL", db_url)
@@ -89,18 +88,39 @@ async def test_fullstack_target_runs_shared_byo_preflight_before_connect(
         del config, target
         events.append("preflight")
 
-    class FakeSupabaseClient:
-        def __init__(self, url: str, *, statement_cache_size: int) -> None:
-            assert url == db_url and statement_cache_size == 0
+    class _FakeLifecycle:
+        def __init__(self) -> None:
+            self.sessionmaker = MagicMock()
 
-        async def connect(self) -> None:
-            events.append("connect")
+        async def close(self) -> None:
+            events.append("close")
+
+    def fake_build(sessionmaker: object) -> PersistenceRepos:
+        del sessionmaker
+        events.append("build")
+        return PersistenceRepos(
+            sessionmaker=MagicMock(),
+            session=MagicMock(),
+            turn_reservation=MagicMock(),
+            bangumi=MagicMock(),
+            points=MagicMock(),
+            usage=MagicMock(),
+            anon_quota=MagicMock(),
+            feedback=MagicMock(),
+            memory=MagicMock(),
+        )
 
     monkeypatch.setattr(run_agent_eval, "preflight_byo_database", preflight)
-    monkeypatch.setattr(supabase_client, "SupabaseClient", FakeSupabaseClient)
+    monkeypatch.setattr(
+        "animichi.infrastructure.persistence.database.create_database_lifecycle",
+        lambda _dsn: _FakeLifecycle(),
+    )
+    monkeypatch.setattr(PersistenceRepos, "build", staticmethod(fake_build))
     target = await _fullstack_target()
-    assert target.db.__class__ is FakeSupabaseClient
-    assert events == ["preflight", "connect"]
+    assert isinstance(target.db, PersistenceRepos)
+    assert target.on_close is not None
+    await target.on_close()
+    assert events == ["preflight", "build", "close"]
 
 
 @pytest.mark.asyncio

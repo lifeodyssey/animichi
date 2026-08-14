@@ -1,61 +1,76 @@
-"""Unit tests for AnonQuotaRepository (issue #282 / S1.10)."""
+"""Unit tests for the SQLModel anon-quota counter (#995).
+
+Behavior-level assertions on the typed statements the repository builds — no
+SQL strings are compared and nothing is executed (raw-SQL policy, #999).
+Concurrency and lost-update guarantees live in the integration contract
+suite (`test_anon_quota_repo_contract.py`).
+"""
 
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import AsyncMock
 
-import pytest
+from sqlalchemy.dialects.postgresql.dml import Insert
 
-from animichi.infrastructure.supabase.repositories.anon_quota import AnonQuotaRepository
+from animichi.infrastructure.persistence.models import anon_quota_table
+from animichi.infrastructure.persistence.repositories.anon_quota import (
+    SQLModelAnonQuotaRepository,
+)
+from animichi.tests.unit.repositories._session_fake import RecordingSessionFactory
 
 TODAY = date(2026, 7, 26)
 ANON_ID = "anon_0123456789abcdef0123456789abcdef"
 
 
-@pytest.fixture
-def pool() -> AsyncMock:
-    return AsyncMock()
+def _only_statement(factory: RecordingSessionFactory) -> Insert:
+    assert len(factory.session.executed) == 1
+    statement = factory.session.executed[0]
+    assert isinstance(statement, Insert)
+    return statement
 
 
-@pytest.fixture
-def repo(pool: AsyncMock) -> AnonQuotaRepository:
-    return AnonQuotaRepository(pool)
+async def test_increment_and_count_builds_an_upsert_on_the_day_anon_key() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for(1)
+    repo = SQLModelAnonQuotaRepository(factory)
+
+    count = await repo.increment_and_count(usage_date=TODAY, anon_id=ANON_ID)
+
+    assert count == 1
+    statement = _only_statement(factory)
+    assert statement.table is anon_quota_table
+    assert statement._values["usage_date"].value == TODAY
+    assert statement._values["anon_id"].value == ANON_ID
+    assert statement._values["message_count"].value == 1
 
 
-async def test_increment_and_count_upserts_on_the_day_and_identity_key(
-    repo: AnonQuotaRepository, pool: AsyncMock
-) -> None:
-    await repo.increment_and_count(usage_date=TODAY, anon_id=ANON_ID)
-    sql = pool.fetchrow.await_args.args[0]
-    assert "INSERT INTO anon_daily_message_count" in sql
-    assert "ON CONFLICT (usage_date, anon_id) DO UPDATE" in sql
+async def test_increment_and_count_conflicts_on_the_day_anon_key() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for(2)
+    repo = SQLModelAnonQuotaRepository(factory)
+
+    count = await repo.increment_and_count(usage_date=TODAY, anon_id=ANON_ID)
+
+    assert count == 2
+    conflict = _only_statement(factory)._post_values_clause
+    assert list(conflict.inferred_target_elements) == [
+        anon_quota_table.c.usage_date,
+        anon_quota_table.c.anon_id,
+    ]
+    assert anon_quota_table.c.message_count.name in dict(conflict.update_values_to_set)
 
 
-async def test_increment_and_count_adds_to_the_existing_total(
-    repo: AnonQuotaRepository, pool: AsyncMock
-) -> None:
-    await repo.increment_and_count(usage_date=TODAY, anon_id=ANON_ID)
-    sql = pool.fetchrow.await_args.args[0]
-    assert "message_count = anon_daily_message_count.message_count + 1" in sql
+async def test_count_for_reads_zero_when_no_row_exists() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for(None)
+    repo = SQLModelAnonQuotaRepository(factory)
+
+    assert await repo.count_for(usage_date=TODAY, anon_id=ANON_ID) == 0
 
 
-async def test_increment_and_count_binds_the_day_and_identity(
-    repo: AnonQuotaRepository, pool: AsyncMock
-) -> None:
-    await repo.increment_and_count(usage_date=TODAY, anon_id=ANON_ID)
-    assert pool.fetchrow.await_args.args[1:] == (TODAY, ANON_ID)
+async def test_count_for_reads_the_stored_count() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for(3)
+    repo = SQLModelAnonQuotaRepository(factory)
 
-
-async def test_increment_and_count_returns_the_new_total(
-    repo: AnonQuotaRepository, pool: AsyncMock
-) -> None:
-    pool.fetchrow.return_value = {"message_count": 4}
-    assert await repo.increment_and_count(usage_date=TODAY, anon_id=ANON_ID) == 4
-
-
-async def test_increment_and_count_is_zero_when_the_row_is_unexpectedly_absent(
-    repo: AnonQuotaRepository, pool: AsyncMock
-) -> None:
-    pool.fetchrow.return_value = None
-    assert await repo.increment_and_count(usage_date=TODAY, anon_id=ANON_ID) == 0
+    assert await repo.count_for(usage_date=TODAY, anon_id=ANON_ID) == 3

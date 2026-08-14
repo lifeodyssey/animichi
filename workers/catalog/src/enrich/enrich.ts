@@ -3,8 +3,8 @@
  *
  * Composes the committed kernels into one work-scoped pass:
  *   1. read raw_bangumi + raw_anitabi for the work (throw if either is absent);
- *   2. parse -> UPSERT the `bangumi` row + the `points` rows (raw `sql`, ON
- *      CONFLICT (id) so a re-enrich from raw is idempotent — no dup rows);
+ *   2. parse -> UPSERT the `bangumi` row + the `points` rows (ON CONFLICT (id) so a
+ *      re-enrich from raw is idempotent — no dup rows);
  *   3. cluster the points (clusterByLocation, 50m). The `points` table has NO
  *      cluster_id column (see remote_schema.sql), so clusters are COMPUTED and
  *      counted here, NOT persisted — route planning re-clusters at query time
@@ -15,18 +15,20 @@
  *   5. append the ordered publish statements to the same atomic batch, bumping
  *      cluster_version as a blue/green pointer switch.
  *
- * Writes go through raw `sql` (the Drizzle read schema is query-only), parameterized
- * to keep the JSON trust boundary safe. Each function stays <=10 lines.
+ * Statements are built with the Drizzle query builder (array VALUES +
+ * `onConflictDoUpdate`) over the single CatalogDb seam, parameterised to keep
+ * the JSON trust boundary safe. Each function stays <=10 lines.
  *
  * KNOWN GAP: enrich only UPSERTs; a point REMOVED upstream is not deleted and
  * lingers in the served catalog (delete-not-in-set is a later-wave fix).
  * LATER / optional (noted, NOT built): city_backfill, series-edge graph, and
  * quality-isolation of low-confidence points.
  */
-import { sql, type SQL } from "drizzle-orm";
+import { eq, sql, type SQL } from "drizzle-orm";
 import type { CatalogDb, DbExecutor } from "../db/client";
+import { statementBuilder } from "../db/client";
 import { clusterByLocation } from "../domain/clustering/cluster";
-import { rankAliases, Source, type RankedAlias, type RawAlias } from "../lib/alias";
+import { rankAliases, Source, type RawAlias } from "../lib/alias";
 import { publishVersionStatements, readPublishedVersion } from "../publish/versioning";
 import {
   parseAnitabiPoints,
@@ -34,6 +36,7 @@ import {
   type BangumiRow,
   type PointRow,
 } from "./parse";
+import { aliases as aliasesTable, bangumi as bangumiTable, points as pointsTable, rawAnitabi, rawBangumi } from "../db/schema";
 
 /** Outcome of enriching one work: the published version + point count. */
 export interface EnrichResult {
@@ -90,59 +93,53 @@ async function rawPayloadRows(
   table: "raw_anitabi" | "raw_bangumi",
   bangumiId: string,
 ): Promise<{ payload: unknown }[]> {
-  return (
-    await db.execute(sql`SELECT payload FROM ${sql.raw(table)} WHERE work_id = ${bangumiId}`)
-  ).rows as { payload: unknown }[];
+  const source = table === "raw_bangumi" ? rawBangumi : rawAnitabi;
+  const statement = statementBuilder()
+    .select({ payload: source.payload })
+    .from(source)
+    .where(eq(source.workId, bangumiId))
+    .getSQL();
+  return (await db.execute(statement)).rows as { payload: unknown }[];
 }
 
 /** UPSERT the `bangumi` row keyed by id (re-enrich overwrites in place). */
 function upsertBangumi(row: BangumiRow): SQL {
-  return sql`
-    INSERT INTO bangumi (id, title, title_cn, cover_url, summary, rating, eps_count, air_date)
-    VALUES (${row.id}, ${row.title}, ${row.title_cn}, ${row.cover_url}, ${row.summary},
-            ${row.rating}, ${row.eps_count}, ${row.air_date})
-    ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, title_cn = EXCLUDED.title_cn,
-      cover_url = EXCLUDED.cover_url, summary = EXCLUDED.summary, rating = EXCLUDED.rating,
-      eps_count = EXCLUDED.eps_count, air_date = EXCLUDED.air_date
-  `;
+  return statementBuilder()
+    .insert(bangumiTable)
+    .values({
+      id: row.id, title: row.title, titleCn: row.title_cn, coverUrl: row.cover_url,
+      summary: row.summary, rating: row.rating, epsCount: row.eps_count, airDate: row.air_date,
+    })
+    .onConflictDoUpdate({
+      target: bangumiTable.id,
+      set: {
+        title: row.title, titleCn: row.title_cn, coverUrl: row.cover_url,
+        summary: row.summary, rating: row.rating, epsCount: row.eps_count, airDate: row.air_date,
+      },
+    })
+    .getSQL();
 }
 
 /** UPSERT all point rows in one statement; an empty point set remains a no-op. */
 function upsertPoints(rows: PointRow[]): SQL[] {
   if (rows.length === 0) return [];
-  return [sql`
-    INSERT INTO points (id, bangumi_id, name, name_cn, latitude, longitude,
-                        image, episode, time_seconds, origin, origin_url)
-    VALUES ${sql.join(rows.map(pointValues), sql`, `)}
-    ${pointConflictClauseSql()}
-  `];
-}
-
-let pointConflictClause: SQL | undefined;
-
-/**
- * ON CONFLICT update clause shared by the bulk point UPSERT.
- *
- * Built lazily on first use, not at module top level: evaluating a `sql`
- * template during module evaluation crashes the *bundled* Worker runtime
- * (esbuild's lazy-ESM ordering leaves drizzle's StringChunk class in the TDZ
- * until its init module runs — the vitest pool evaluates unbundled modules
- * with correct ESM order, so only the deployed bundle ever sees it).
- */
-function pointConflictClauseSql(): SQL {
-  pointConflictClause ??= sql`ON CONFLICT (id) DO UPDATE SET
-    bangumi_id = EXCLUDED.bangumi_id, name = EXCLUDED.name, name_cn = EXCLUDED.name_cn,
-    latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, image = EXCLUDED.image,
-    episode = EXCLUDED.episode, time_seconds = EXCLUDED.time_seconds,
-    origin = EXCLUDED.origin, origin_url = EXCLUDED.origin_url`;
-  return pointConflictClause;
-}
-
-/** Parameterized VALUES tuple for the bulk point UPSERT. */
-function pointValues(row: PointRow): SQL {
-  return sql`(${row.id}, ${row.bangumi_id}, ${row.name}, ${row.name_cn},
-              ${row.latitude}, ${row.longitude}, ${row.image}, ${row.episode},
-              ${row.time_seconds}, ${row.origin}, ${row.origin_url})`;
+  return [statementBuilder()
+    .insert(pointsTable)
+    .values(rows.map((row) => ({
+      id: row.id, bangumiId: row.bangumi_id, name: row.name, nameCn: row.name_cn,
+      latitude: row.latitude, longitude: row.longitude, image: row.image,
+      episode: row.episode, timeSeconds: row.time_seconds, origin: row.origin, originUrl: row.origin_url,
+    })))
+    .onConflictDoUpdate({
+      target: pointsTable.id,
+      set: {
+        bangumiId: sql`EXCLUDED.bangumi_id`, name: sql`EXCLUDED.name`, nameCn: sql`EXCLUDED.name_cn`,
+        latitude: sql`EXCLUDED.latitude`, longitude: sql`EXCLUDED.longitude`, image: sql`EXCLUDED.image`,
+        episode: sql`EXCLUDED.episode`, timeSeconds: sql`EXCLUDED.time_seconds`,
+        origin: sql`EXCLUDED.origin`, originUrl: sql`EXCLUDED.origin_url`,
+      },
+    })
+    .getSQL()];
 }
 
 /** Compute 50m clusters (no cluster_id column to persist) and log the count. */
@@ -155,12 +152,17 @@ function logClusters(bangumiId: string, points: PointRow[]): number {
 /** Rank the work's title aliases and UPSERT them in one statement. */
 function upsertAliases(bangumiId: string, b: BangumiRow): SQL {
   const aliases = rankAliases(titleAliases(b));
-  return sql`
-    INSERT INTO aliases (bangumi_id, alias, alias_normalized, source, priority)
-    VALUES ${sql.join(aliases.map((alias) => aliasValues(bangumiId, alias)), sql`, `)}
-    ON CONFLICT (bangumi_id, alias, source)
-    DO UPDATE SET alias_normalized = EXCLUDED.alias_normalized, priority = EXCLUDED.priority
-  `;
+  return statementBuilder()
+    .insert(aliasesTable)
+    .values(aliases.map((alias) => ({
+      bangumiId, alias: alias.alias, aliasNormalized: alias.alias_normalized,
+      source: alias.source, priority: alias.priority,
+    })))
+    .onConflictDoUpdate({
+      target: [aliasesTable.bangumiId, aliasesTable.alias, aliasesTable.source],
+      set: { aliasNormalized: sql`EXCLUDED.alias_normalized`, priority: sql`EXCLUDED.priority` },
+    })
+    .getSQL();
 }
 
 /** Collect candidate aliases from the bangumi title fields (Bangumi source). */
@@ -168,9 +170,4 @@ function titleAliases(b: BangumiRow): RawAlias[] {
   const raw: RawAlias[] = [{ alias: b.title, source: Source.Bangumi }];
   if (b.title_cn) raw.push({ alias: b.title_cn, source: Source.Bangumi });
   return raw;
-}
-
-/** Parameterized VALUES tuple for the bulk alias UPSERT. */
-function aliasValues(bangumiId: string, a: RankedAlias): SQL {
-  return sql`(${bangumiId}, ${a.alias}, ${a.alias_normalized}, ${a.source}, ${a.priority})`;
 }

@@ -81,9 +81,10 @@ describe("catalog has no public host", () => {
   });
 
   // Byte-identical cron strings in every environment; keep in sync with
-  // SEED_CRON / TTL_REFRESH_CRON in src/cron-config.ts.
-  it("declares both ingest schedules for default, staging, and production", () => {
-    expect(toml.split('crons = ["0 4 * * *", "17 * * * *"]')).toHaveLength(4);
+  // SEED_CRON / TTL_REFRESH_CRON / DAILY_DISCOVER_CRON in src/cron-config.ts.
+  it("declares all three ingest schedules for default, staging, and production", () => {
+    const daily = toml.split('crons = ["0 4 * * *", "0 6 * * *", "17 * * * *"]');
+    expect(daily).toHaveLength(4);
   });
 
   it.each(Object.entries(PRIVACY))("%s declares %s", (name, expected) => {

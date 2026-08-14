@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "../src/cron-config";
+import { DAILY_DISCOVER_CRON, SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "../src/cron-config";
 import {
+  bangumiSeasonResolver,
   createScheduledHandler,
   runSeedJob,
   runTtlJob,
   type CronDependencies,
   type CronJobResult,
 } from "../src/index";
+import { mockFetch } from "./mock-fetch-sequence";
 import type { IngestResult } from "../src/ingest/ingest-bangumi";
 import type { CatalogDb } from "../src/db/client";
 import { SEED_BANGUMI_IDS } from "../src/ingest/seed-works";
@@ -26,6 +28,7 @@ function dependencies(overrides: Partial<CronDependencies> = {}): CronDependenci
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue(INGESTED),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set<string>()),
     listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([]),
+    runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -61,6 +64,17 @@ describe("scheduled handler", () => {
     expect(deps.ingestBangumi).toHaveBeenCalledTimes(2);
   });
 
+  it("routes the daily 06:00 UTC discovery cron to the daily run", async () => {
+    const deps = dependencies();
+    const runDaily = vi.mocked(deps.runDailyIngest);
+
+    await createScheduledHandler(deps)({ cron: DAILY_DISCOVER_CRON }, ENV);
+
+    expect(DAILY_DISCOVER_CRON).toBe("0 6 * * *");
+    expect(runDaily).toHaveBeenCalledTimes(1);
+    expect(deps.ingestBangumi).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the catalog DSN is absent", async () => {
     const deps = dependencies();
 
@@ -86,6 +100,20 @@ describe("scheduled handler", () => {
   });
 });
 
+
+describe("bangumiSeasonResolver (MAJOR-1)", () => {
+  it("resolves current-season ids from the Bangumi calendar via the injected fetch", async () => {
+    const { fetch } = mockFetch([{ weekday: { en: "mon" }, items: [{ id: 7 }, { id: 8 }] }]);
+    const resolver = bangumiSeasonResolver({ fetchImpl: fetch, bangumiBaseUrl: "https://bgm.test" });
+    await expect(resolver()).resolves.toEqual(["7", "8"]);
+  });
+
+  it("degrades to an empty season on an upstream failure so discovery still runs", async () => {
+    const { fetch } = mockFetch(null, { ok: false, status: 503 });
+    const resolver = bangumiSeasonResolver({ fetchImpl: fetch, bangumiBaseUrl: "https://bgm.test" });
+    await expect(resolver()).resolves.toEqual([]);
+  });
+});
 describe("seed job", () => {
   it("skips works that already have a done ingest_jobs row", async () => {
     const doneIds = new Set(SEED_BANGUMI_IDS.slice(0, 3));

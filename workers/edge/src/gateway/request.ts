@@ -8,7 +8,11 @@ import { handleImageProxy } from "../proxy/image-proxy.ts";
 import { handleTiles } from "../proxy/tiles.ts";
 import type { ShowcaseMode } from "../proxy/showcase.ts";
 import type { TurnstileGate } from "../protect/turnstile.ts";
+import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
+import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
+import { guardPolicy } from "../protect/burst-guard.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardUsers, forwardV1 } from "./forward.ts";
+import { classifyRatePolicy } from "./rate-policy.ts";
 import { METHOD_NOT_ALLOWED_BODY, NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./responses.ts";
 import { isAnonymousV1, isPublicV1 } from "./routing-policy.ts";
 
@@ -29,7 +33,7 @@ const SESSION_MIGRATE_PATH = "/v1/session/migrate";
 /** The one allowlisted public catalog read (issue #537 / CATALOG-5 #946). */
 const PUBLIC_CATALOG_PATTERN = /^\/catalog\/public\/anime-overview\/\d+$/;
 
-const USERS_PREFIX = "/v1/users/";
+const USERS_PREFIX = USERS_BINDING_PREFIX;
 
 /** Container cold-start hardening (issue #694): while a container is still
  * starting, its fetch answers a 500 whose body carries this marker (or throws
@@ -39,7 +43,7 @@ const NOT_RUNNING_MARKER = "The container is not running";
 const NOT_RUNNING_RETRIES = 3;
 
 type RequestClass =
-  | { kind: "landing"; asset: "healthz" | "tiles" | "img" }
+  | { kind: "landing"; asset: "healthz" | "banner" | "tiles" | "img" }
   | { kind: "public-catalog" }
   | { kind: "users" }
   | { kind: "adopt" }
@@ -50,6 +54,11 @@ type RequestClass =
 /** The landing surface, which the showcase gate never denies. */
 function landingClass(method: string, pathname: string): RequestClass | null {
   if (pathname === "/healthz" && method === "GET") return { kind: "landing", asset: "healthz" };
+  // The agent's JSON service banner at the root (CONTRACT-1 #938). Not an HTML
+  // page — #537 retired the page renderer, not the container's root JSON — so
+  // forwarding it to the container keeps every advertised Agent operation
+  // reachable through the CONTAINER binding (#1005 AC1).
+  if (pathname === "/" && method === "GET") return { kind: "landing", asset: "banner" };
   if (pathname.startsWith("/tiles/")) return { kind: "landing", asset: "tiles" };
   if (pathname.startsWith("/img/")) return { kind: "landing", asset: "img" };
   return null;
@@ -134,11 +143,19 @@ function dispatch(route: RequestClass, env: Env, request: Request, ctx: WorkerEx
 }
 
 function landingResponse(
-  env: Env, request: Request, ctx: WorkerExecutionContext, asset: "healthz" | "tiles" | "img", sleep: (ms: number) => Promise<void>,
+  env: Env, request: Request, ctx: WorkerExecutionContext, asset: "healthz" | "banner" | "tiles" | "img", sleep: (ms: number) => Promise<void>,
 ): Promise<Response> {
   if (asset === "healthz") return healthzResponse(env, request, sleep);
+  if (asset === "banner") return bannerResponse(env, request);
   if (asset === "tiles") return handleTiles(request, env.MAP_TILES, ctx);
   return handleImageProxy(request, ctx);
+}
+
+/** Forward `GET /` to the container's root banner (no startup retry needed —
+ * a missed banner is a soft miss, unlike the readiness probe). */
+function bannerResponse(env: Env, request: Request): Promise<Response> {
+  const container = env.CONTAINER.get(env.CONTAINER.idFromName("default"));
+  return container.fetch(request);
 }
 
 function healthzResponse(env: Env, request: Request, sleep: (ms: number) => Promise<void>): Promise<Response> {
@@ -146,8 +163,18 @@ function healthzResponse(env: Env, request: Request, sleep: (ms: number) => Prom
   return fetchContainerWithStartupRetry((inner) => container.fetch(inner), request, sleep);
 }
 
-function publicCatalogResponse(env: Env, request: Request): Promise<Response> {
+/** Coarse key for a credential-free public read: the connecting IP when the
+ * platform supplies it (best-effort identity isolation on the native damper),
+ * else a shared literal so the damper still counts per-request. */
+function publicReadKey(request: Request): string {
+  const ip = request.headers.get("CF-Connecting-IP");
+  return ip && ip.length > 0 ? `ip:${ip}` : "public-read";
+}
+
+async function publicCatalogResponse(env: Env, request: Request): Promise<Response> {
   if (new URL(request.url).search) return Promise.resolve(new Response("Unexpected query parameters", { status: 400 }));
+  const guarded = await guardPolicy(env, classifyRatePolicy(request.method, new URL(request.url).pathname), publicReadKey(request), authRateLimitConfigFrom(env));
+  if (guarded !== null) return guarded;
   return forwardPublicCatalog(env, request);
 }
 
@@ -155,8 +182,18 @@ async function usersResponse(
   env: Env, request: Request, ctx: WorkerExecutionContext, deps: GatewayDeps,
 ): Promise<Response> {
   const auth = await deps.authenticate(request, env, ctx);
-  if (auth.ok) return forwardUsers(env, request, auth);
-  return authenticationRejection(request, auth);
+  if (!auth.ok) return authenticationRejection(request, auth);
+  // User-account mutations (POST/DELETE) are an exact durable fail-closed
+  // write class (AC2/AC4) per the route policy; GET reads classify unmanaged
+  // and are never metered. One decision path: classify then `guardPolicy`.
+  const guarded = await guardPolicy(
+    env,
+    classifyRatePolicy(request.method, new URL(request.url).pathname),
+    authenticatedRateLimitKey(auth.userId),
+    authRateLimitConfigFrom(env),
+  );
+  if (guarded !== null) return guarded;
+  return forwardUsers(env, request, auth);
 }
 
 async function adoptResponse(
@@ -165,13 +202,28 @@ async function adoptResponse(
   if (request.method !== "POST") return methodNotAllowed();
   const auth = await deps.authenticate(request, env, ctx);
   if (!auth.ok) return authenticationRejection(request, auth);
+  // Adoption is a state-migrating WRITE: the route policy classifies it as a
+  // durable fail-closed mutation, so it rides the same `guardPolicy` seam.
+  const guarded = await guardPolicy(
+    env,
+    classifyRatePolicy(request.method, new URL(request.url).pathname),
+    authenticatedRateLimitKey(auth.userId),
+    authRateLimitConfigFrom(env),
+  );
+  if (guarded !== null) return guarded;
   return handleSessionAdopt(env, request, auth);
 }
 
 async function agentV1Response(
   env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string, deps: GatewayDeps,
 ): Promise<Response> {
-  if (isPublicV1(pathname)) return forwardV1(env, request);
+  if (isPublicV1(pathname)) {
+    // Cacheable public reads are the policy's native fail-open cell; guard
+    // via the same `guardPolicy` seam using the request's public key.
+    const guarded = await guardPolicy(env, classifyRatePolicy(request.method, pathname), publicReadKey(request), authRateLimitConfigFrom(env));
+    if (guarded !== null) return guarded;
+    return forwardV1(env, request);
+  }
   const auth = await deps.authenticate(request, env, ctx);
   if (auth.ok) return authenticatedForward(env, request, auth, pathname);
   if (auth.reason === "invalid") return unauthorized(pathname);

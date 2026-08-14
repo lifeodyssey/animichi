@@ -1,6 +1,9 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { Hono, type Context, type MiddlewareHandler, type Next } from "hono";
-import { makeDb as realMakeDb, type DbExecutor } from "./db/client";
+import { IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_MAX_LENGTH } from "@animichi/contract";
+import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER } from "@animichi/contract/internal-binding";
+import { makeDb as realMakeDb, type UsersDb } from "./db/client";
+import { USERS_ERRORS } from "./lib/errors";
 import { usersRouter, type UsersContext } from "./router";
 
 /** Users Worker bindings. Secrets are supplied outside wrangler vars. */
@@ -12,10 +15,10 @@ export interface Env {
 
 /** Injectable boundaries used by workerd tests. */
 export interface UsersAppDeps {
-  makeDb?: (connStr: string) => DbExecutor;
+  makeDb?: (connStr: string) => UsersDb;
 }
 
-const dbPools = new Map<string, DbExecutor>();
+const dbPools = new Map<string, UsersDb>();
 
 /** In staging the DSN arrives as a Secrets Store binding (#912 PR2): `.get()`
  * resolves the string; the string branch keeps local dev and tests unchanged. */
@@ -26,7 +29,7 @@ async function connectionString(env: Env): Promise<string | undefined> {
   return typeof url === "string" ? url : await url.get();
 }
 
-function realDbFor(connStr: string): DbExecutor {
+function realDbFor(connStr: string): UsersDb {
   const cached = dbPools.get(connStr);
   if (cached) return cached;
   const db = realMakeDb(connStr);
@@ -34,7 +37,7 @@ function realDbFor(connStr: string): DbExecutor {
   return db;
 }
 
-function dbFor(connStr: string, factory?: UsersAppDeps["makeDb"]): DbExecutor {
+function dbFor(connStr: string, factory?: UsersAppDeps["makeDb"]): UsersDb {
   return factory ? factory(connStr) : realDbFor(connStr);
 }
 
@@ -45,6 +48,12 @@ export function closeDbPools(): void {
 
 const unauthorized = {
   error: { code: "unauthorized", message: "Valid credentials required." },
+};
+
+/** Typed 400 envelope for an over-long Idempotency-Key (abuse-bounded #1011). */
+const idempotencyKeyInvalid = {
+  defined: true, code: "IDEMPOTENCY_KEY_INVALID", status: 400,
+  message: USERS_ERRORS.IDEMPOTENCY_KEY_INVALID.message, data: {},
 };
 
 function isResponse(value: unknown): value is Response {
@@ -58,7 +67,7 @@ function healthz(c: Context<{ Bindings: Env }>): Response {
 async function requestService(
   c: Context<{ Bindings: Env }>,
   deps: UsersAppDeps,
-): Promise<{ db: DbExecutor } | Response> {
+): Promise<{ db: UsersDb } | Response> {
   const connStr = await connectionString(c.env);
   if (!connStr) return c.json({ error: "users database not configured" }, 503);
   return { db: dbFor(connStr, deps.makeDb) };
@@ -76,8 +85,8 @@ async function requestService(
  * identity is also 401.
  */
 function edgeIdentity(c: Context<{ Bindings: Env }>): string | null {
-  if (c.req.header("Authorization") != null) return null;
-  const userId = c.req.header("X-User-Id");
+  if (c.req.header(AUTHORIZATION_HEADER) != null) return null;
+  const userId = c.req.header(USER_IDENTITY_HEADER);
   return typeof userId === "string" && userId.length > 0 ? userId : null;
 }
 
@@ -85,7 +94,7 @@ async function handleMatched(
   c: Context<{ Bindings: Env }>,
   next: Next,
   apiHandler: OpenAPIHandler<UsersContext>,
-  context: { db: DbExecutor; userId: string },
+  context: UsersContext,
 ): Promise<Response | undefined> {
   const { matched, response } = await apiHandler.handle(c.req.raw, { context });
   if (matched) return c.newResponse(response.body, response);
@@ -105,7 +114,14 @@ async function guardUsersV1(
   if (isResponse(ready)) return ready;
   const userId = edgeIdentity(c);
   if (userId === null) return c.json(unauthorized, 401);
-  return handleMatched(c, next, service.apiHandler, { db: ready.db, userId });
+  // The retry-safe create key, forwarded unchanged from the edge; the save
+  // handler only honors it for a create (no id). Reject an over-long token
+  // here, before dispatch, so the ledger never sees an unbounded PK key value.
+  const idempotencyKey = c.req.header(IDEMPOTENCY_KEY_HEADER);
+  if (idempotencyKey !== undefined && idempotencyKey.length > IDEMPOTENCY_KEY_MAX_LENGTH) {
+    return c.json(idempotencyKeyInvalid, 400);
+  }
+  return handleMatched(c, next, service.apiHandler, { db: ready.db, userId, idempotencyKey });
 }
 
 /** Create an independently injectable Users Hono application. */

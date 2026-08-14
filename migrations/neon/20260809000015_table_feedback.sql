@@ -1,7 +1,7 @@
 -- Table feedback (indexes/constraints/triggers)
 
 CREATE TABLE public.feedback (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    id uuid DEFAULT uuidv7() NOT NULL,
     session_id text,
     query_text text NOT NULL,
     intent text,

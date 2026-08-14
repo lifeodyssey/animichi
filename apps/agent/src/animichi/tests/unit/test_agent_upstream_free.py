@@ -44,7 +44,7 @@ def test_catalog_tool_modules_stay_within_file_limit() -> None:
 _FORBIDDEN_IMPORT_FRAGMENTS = (
     "gateways",  # anitabi / bangumi upstream gateways
     "retriever",  # DB Retriever read path
-    "infrastructure.supabase",  # direct legacy DB client
+    "infrastructure.persistence",  # direct repository read path
     "domain.ports",  # direct database ports
     "execute_resolve_anime",
     "execute_search_bangumi",

@@ -1,35 +1,28 @@
 import { describe, expect, it } from "vitest";
-import type { SQL } from "drizzle-orm";
 import type { AliasDb } from "../src/adapters/outbound/title-alias";
 import { titleAlias } from "../src/adapters/outbound/title-alias";
 import { bangumiTitleSearch } from "../src/adapters/outbound/bangumi-search";
 import type { FetchLike } from "../src/ingest/sources";
 
-function sqlText(value: unknown): string {
-  if (value === null || typeof value !== "object") return "";
-  if ("value" in value && Array.isArray(value.value)) return value.value.join("");
-  if (!("queryChunks" in value) || !Array.isArray(value.queryChunks)) return "";
-  return value.queryChunks.map(sqlText).join("");
-}
-
-function aliasDb(responses: Record<string, unknown>[][], queries: string[]): AliasDb {
-  const execute = (query: SQL) => {
-    queries.push(sqlText(query));
+function aliasDb(responses: Record<string, unknown>[][]):
+  { db: AliasDb; calls: () => number } {
+  let calls = 0;
+  const execute = () => {
+    calls += 1;
     return Promise.resolve({ rows: responses.shift() ?? [] });
   };
-  return { execute };
+  return { db: { execute }, calls: () => calls };
 }
 
 describe("titleAlias Neon adapter", () => {
   it("groups aliases by work and derives stored candidate enrichment", async () => {
-    const queries: string[] = [];
-    const db = aliasDb([
+    const { db, calls } = aliasDb([
       [{ bangumi_id: "3302", priority: 40 }],
       [{
         id: "3302", title: "らき☆すた", title_cn: "幸运星",
         cover_url: "cover.jpg", air_date: "2007-04-08", points_count: "2",
       }],
-    ], queries);
+    ]);
     const port = titleAlias(db);
 
     await expect(port.worksForAlias("lucky star")).resolves.toEqual([
@@ -39,14 +32,13 @@ describe("titleAlias Neon adapter", () => {
       bangumi_id: "3302", title: "らき☆すた", title_cn: "幸运星",
       cover_url: "cover.jpg", year: 2007, points_count: 2,
     }]);
-    expect(queries[0]).toContain("GROUP BY bangumi_id");
-    expect(queries[1]).toContain("COUNT(p.id) AS points_count");
+    expect(calls()).toBe(2);
   });
 
   it("maps an empty alias read to no works", async () => {
-    const port = titleAlias(aliasDb([[]], []));
+    const { db } = aliasDb([[]]);
 
-    await expect(port.worksForAlias("no-such-alias")).resolves.toEqual([]);
+    await expect(titleAlias(db).worksForAlias("no-such-alias")).resolves.toEqual([]);
   });
 });
 

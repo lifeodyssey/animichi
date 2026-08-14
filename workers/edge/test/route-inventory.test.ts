@@ -3,18 +3,20 @@ import assert from "node:assert/strict";
 import { AGENT_PATHS } from "@animichi/contract/agent-contract";
 import {
   ANON_V1_PATHS,
-  AUTH_RATE_LIMITED_PATHS,
-  AUTH_RATE_LIMITED_PREFIX,
   PUBLIC_V1_PATHS,
   isAnonymousV1,
-  isAuthRateLimited,
   isPublicV1,
 } from "../src/gateway/routing-policy.ts";
+import { classifyRatePolicy } from "../src/gateway/rate-policy.ts";
 
 // EDGE-1 #963: the edge's route tables derive from the AGENT_PATHS inventory
 // (CONTRACT-1 #938) instead of floating as hand-maintained magic strings. A
 // table entry that is not in the inventory fails module load (fail closed),
 // so a retired path can never silently re-enter an allowlist.
+//
+// Rate-limit classification itself is one decision table in
+// `rate-policy.ts`; this file only pins the identity-class tables in the
+// routing policy.
 
 const inventoryPaths = new Set(AGENT_PATHS.map((entry) => entry.path));
 
@@ -36,24 +38,11 @@ void test("every ANON_V1 table entry exists in the AGENT_PATHS inventory", () =>
   assertEveryEntryInInventory(ANON_V1_PATHS, "ANON_V1");
 });
 
-void test("every AUTH_RATE_LIMITED entry exists in the AGENT_PATHS inventory", () => {
-  assertEveryEntryInInventory(AUTH_RATE_LIMITED_PATHS, "AUTH_RATE_LIMITED");
-});
-
-void test("the BYOK rate-limit prefix derives from the inventory's byok route", () => {
-  assert.equal(AUTH_RATE_LIMITED_PREFIX, "/v1/byok/");
-  assert.equal(
-    AGENT_PATHS.some((entry) => entry.path.startsWith(AUTH_RATE_LIMITED_PREFIX)),
-    true,
-    "the prefix must point at a route the inventory actually carries",
-  );
-});
-
-void test("retired /v1/runtime paths match no route table (TURN-4 #955)", () => {
+void test("retired /v1/runtime paths match no inventory and classify as unmanaged", () => {
   assert.equal(inventoryPaths.has("/v1/runtime"), false);
   assert.equal(inventoryPaths.has("/v1/runtime/stream"), false);
-  assert.equal(isAuthRateLimited("/v1/runtime"), false);
-  assert.equal(isAuthRateLimited("/v1/runtime/stream"), false);
+  assert.equal(classifyRatePolicy("POST", "/v1/runtime").limiter, "none", "a retired path must not be classified into a guarded cell");
+  assert.equal(classifyRatePolicy("POST", "/v1/runtime/stream").limiter, "none");
 });
 
 void test("the guide route pattern derives from the inventory's parameter template", () => {

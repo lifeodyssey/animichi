@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import type { AnimeOverview } from "@animichi/contract";
 import { resolveOrigin } from "../../api/config";
+import { currentRuntimeConfig } from "../../lib/runtime-config/provider";
 import { animeOverviewOptions, useAnimeOverview } from "../../api/hooks/use-anime-overview";
 import { AnimePage } from "../../features/anime/AnimePage";
 import { animeHead } from "../../features/anime/head";
@@ -34,7 +35,7 @@ function parseSearch(search: Record<string, unknown>): AnimeSearch {
 function siteOrigin(): string {
   const location = typeof window === "undefined" ? undefined : window.location;
   try {
-    return resolveOrigin(import.meta.env, location);
+    return resolveOrigin(currentRuntimeConfig().api, location);
   } catch {
     return "";
   }

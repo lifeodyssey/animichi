@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from animichi.infrastructure.session.memory import InMemorySessionStore
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.public_api import (
     PublicAPIRequest,
     RuntimeAPI,
@@ -29,10 +28,7 @@ def _mock_pipeline(monkeypatch):
 
 @pytest.fixture
 def mock_db():
-    db = MagicMock(spec=SupabaseClient)
-    pool = AsyncMock()
-    pool.fetch = AsyncMock(return_value=[])
-    db.pool = pool
+    db = MagicMock()
     db.points.search_points_by_location = AsyncMock(return_value=[])
     db.session.create = AsyncMock()
     db.session.upsert_session = AsyncMock()

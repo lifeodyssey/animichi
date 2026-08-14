@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
-import asyncpg
 import structlog
 from pydantic_core import to_jsonable_python
 
@@ -24,6 +23,7 @@ from animichi.domain.ports import (
     ConversationLog,
     SessionRepo,
 )
+from animichi.domain.repo_types import SessionMetadata, SessionStateData
 from animichi.infrastructure.session import SessionStore
 from animichi.interfaces.schemas import (
     GRACEFUL_TERMINAL_STATUSES,
@@ -52,15 +52,14 @@ def _spawn_background(coro: object) -> None:
 
 
 # Common exception base for best-effort DB/IO persistence calls.
-# asyncpg raises asyncpg.PostgresError (subclass of Exception) for SQL errors
-# and OSError for connection issues. We also catch RuntimeError (pool closed)
-# and ValueError (malformed data).
+# SQLAlchemy surfaces connection failures as OSError subclasses (asyncpg
+# wraps them) and deadlocks/statement errors as its own exceptions; we also
+# catch RuntimeError (engine disposed) and ValueError (malformed data).
 _PERSIST_ERRORS = (
     OSError,
     RuntimeError,
     ValueError,
     TypeError,
-    asyncpg.PostgresError,
 )
 
 
@@ -75,9 +74,9 @@ async def persist_result(
     result: AgentResult | None,
     response: PublicAPIResponse,
     context_delta: dict[str, object],
-    previous_state: dict[str, object],
+    previous_state: SessionStateData,
     user_id: str | None,
-) -> tuple[dict[str, object], bool, str | None]:
+) -> tuple[SessionStateData, bool, str | None]:
     """Persist session state, route, user state, and messages.
 
     Returns (session_state, user_message_persisted, generated_title).
@@ -208,20 +207,23 @@ async def persist_session(
     session_repo: SessionRepo | None,
     session_store: SessionStore,
     session_id: str,
-    session_state: dict[str, object],
+    session_state: SessionStateData,
     response: PublicAPIResponse,
     user_id: str | None,
 ) -> None:
     await session_store.set(session_id, session_state)
 
     if session_repo is not None:
-        metadata = {
+        metadata: SessionMetadata = {
             "intent": response.intent,
             "status": response.status,
             "updated_at": session_state["updated_at"],
         }
         await session_repo.upsert_session(
-            session_id, session_state, metadata=metadata, user_id=user_id
+            session_id,
+            session_state,
+            metadata=metadata,
+            user_id=user_id,
         )
 
 
@@ -230,7 +232,7 @@ async def create_owned_session(
     session_id: str,
     user_id: str,
     first_query: str,
-    session_state: dict[str, object],
+    session_state: SessionStateData,
 ) -> None:
     """Create one authenticated Session aggregate row atomically."""
     if session_repo is None:
@@ -240,7 +242,7 @@ async def create_owned_session(
 
 async def load_session_state(
     session_store: SessionStore, session_id: str
-) -> dict[str, object]:
+) -> SessionStateData:
     state = await session_store.get(session_id)
     return normalize_session_state(state)
 
@@ -314,7 +316,7 @@ async def _existing_anime_ids(
         return anime_ids
     try:
         return await bangumi_repo.filter_existing_ids(anime_ids)
-    except asyncpg.PostgresError:
+    except _PERSIST_ERRORS:
         logger.warning("filter_route_anime_failed", session_id=session_id)
         return []
 
@@ -347,7 +349,7 @@ def _distinct_work_ids(rows: list[PointState]) -> list[str]:
 
 
 def build_response_session(
-    session_state: dict[str, object],
+    session_state: SessionStateData,
 ) -> tuple[dict[str, object], list[object]]:
     """Build session summary and route history for response."""
     session = build_session_summary(session_state)

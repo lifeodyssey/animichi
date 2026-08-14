@@ -1,5 +1,6 @@
 import type { AnimeOverview, AnimeScene } from "@animichi/contract";
 import type { Locale } from "../../i18n/locales";
+import type { JsonLdNode } from "../../lib/json-ld";
 import { animeTitle } from "./head";
 
 /**
@@ -10,11 +11,8 @@ import { animeTitle } from "./head";
  * a `CreativeWork` whose `additionalProperty` set encodes this work's unique
  * spot/region/scene counts (SD-27C "one entity, one page + unique data"),
  * a `BreadcrumbList`, and one licensed `ImageObject` per famous-scene frame.
+ * The `JsonLdNode` type is shared from `src/lib/json-ld.ts`.
  */
-export type JsonLdValue = string | number | boolean | null | JsonLdNode | readonly JsonLdValue[];
-export interface JsonLdNode {
-  readonly [key: string]: JsonLdValue;
-}
 
 const SCHEMA = "https://schema.org";
 const LICENSE = "https://creativecommons.org/licenses/by-nc-sa/4.0/";

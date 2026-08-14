@@ -2,8 +2,9 @@ import { type AnonymousIdentity, resolveAnonymous } from "./auth.ts";
 import { budgetGuidanceResponse, budgetLatched, isBudgetRejection, latchBudget, utcDayKey } from "../protect/cost-breaker.ts";
 import type { Env } from "../env.ts";
 import { forwardV1 } from "../gateway/forward.ts";
-import { checkRateLimit, rateLimitConfigFrom } from "../protect/rate-limiter.ts";
-import { rateLimitedResponse } from "../gateway/responses.ts";
+import { rateLimitConfigFrom } from "../protect/rate-limiter.ts";
+import { guardPolicy } from "../protect/burst-guard.ts";
+import { classifyRatePolicy } from "../gateway/rate-policy.ts";
 import { type TurnstileGate, guardTurnstile } from "../protect/turnstile.ts";
 
 function withAnonymousCookie(response: Response, setCookie: string | null): Response {
@@ -24,9 +25,8 @@ async function guardBudget(env: Env, response: Response, dayKey: string): Promis
   return budgetGuidanceResponse();
 }
 
-async function limitedOrNull(env: Env, identity: string): Promise<Response | null> {
-  const limit = await checkRateLimit(env.EDGE_GUARD, identity, rateLimitConfigFrom(env));
-  return limit !== null && !limit.allowed ? rateLimitedResponse(limit.retryAfterSeconds) : null;
+async function limitedOrNull(env: Env, request: Request, identity: string): Promise<Response | null> {
+  return guardPolicy(env, classifyRatePolicy(request.method, new URL(request.url).pathname), identity, rateLimitConfigFrom(env));
 }
 
 async function anonymousForward(
@@ -41,8 +41,11 @@ async function anonymousForward(
 /**
  * Mark this request as anonymously trusted and forward it, or return null when
  * anonymous access is not enabled (leaving the caller on the 401 path). The
- * limiter fails open — a guard outage must not take chat down — while the
- * budget breaker fails closed only on an explicit container verdict.
+ * durable limiter FAILS CLOSED (`#680` AC4): an anonymous chat turn is a
+ * high-cost write, so one that cannot be metered is rejected (503) rather
+ * than run unmetered on a limiter outage. The daily budget latch still fails
+ * closed only on an explicit container verdict, and Turnstile stays the outer
+ * wall.
  *
  * Issue #447 arms the S1.9 Turnstile gate here, and the order is the point:
  *  - AFTER `resolveAnonymous`, so a challenge is only ever raised for a caller
@@ -58,7 +61,7 @@ export async function handleAnonymousV1(env: Env, request: Request, nowMs: numbe
   if (identity === null) return null;
   const challenged = await guardTurnstile(request, env, gate, identity.userId);
   if (challenged !== null) return challenged;
-  const limited = await limitedOrNull(env, identity.userId);
+  const limited = await limitedOrNull(env, request, identity.userId);
   if (limited !== null) return limited;
   return withAnonymousCookie(await anonymousForward(env, request, identity, nowMs), identity.setCookie);
 }

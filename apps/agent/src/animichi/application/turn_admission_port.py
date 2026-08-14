@@ -1,9 +1,9 @@
 """Neutral turn-reservation port (TURN-2 #949, TURN-3 #951).
 
 The admission use case (``application.turn_admission``) speaks this port; the
-production adapter (``infrastructure.turn_reservation``) owns the durable
-``turn_reservations`` row. ``ReserveRequest``/``ReservationOutcome`` carry the
-lease (``owner`` + ``lease_expires_at``) TURN-3 grants on every reservation.
+production adapter (``infrastructure.persistence.repositories.turn_reservation``)
+owns the durable ``turn_reservations`` row. ``ReserveRequest``/``ReservationOutcome``
+carry the lease (``owner`` + ``lease_expires_at``) TURN-3 grants on every reservation.
 The full lifecycle port (dispatch/settle/release/sweep) lives in
 ``application.turn_outcome_port``. No FastAPI / PydanticAI import may appear
 in this module or any consumer of it.

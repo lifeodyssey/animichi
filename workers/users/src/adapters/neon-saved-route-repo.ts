@@ -3,10 +3,11 @@ import type {
   SavedRoute,
   SavedRouteStatus,
 } from "@animichi/contract";
-import { sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { DeleteOwnedOutcome, DeleteSavedRouteStore } from "../application/delete-saved-route";
 import type { SavedRouteStore } from "../application/save-saved-route";
-import type { DbExecutor } from "../db/client";
+import type { UsersDb } from "../db/client";
+import { savedRoutes } from "../db/schema";
 import type { OwnerLookup } from "../domain/ownership";
 import { isSavedRouteStatus } from "../domain/saved-route-status";
 import type { SavedRouteReader } from "../application/list-saved-routes";
@@ -41,7 +42,7 @@ function requireSavedRouteRow(value: RecordRow): { id: string; title: unknown; s
 }
 
 /** Narrow and normalize one raw database row into the public saved-route model. */
-function toSavedRoute(value: unknown): SavedRoute {
+export function toSavedRoute(value: unknown): SavedRoute {
   if (!isRecord(value)) throw new Error("invalid saved route row");
   const { id, title, status } = requireSavedRouteRow(value);
   const safeTitle = typeof title === "string" ? title : "";
@@ -51,70 +52,97 @@ function toSavedRoute(value: unknown): SavedRoute {
   };
 }
 
-function insertSavedRouteSql(userId: string, input: SaveSavedRouteInput, savedAt: string | null) {
-  return sql`
-    INSERT INTO saved_routes (user_id, title, point_ids, status, saved_at)
-    VALUES (${userId}, ${input.title}, ${sql.param(input.point_ids)}::text[], ${input.status}, ${savedAt})
-    RETURNING id, title, point_ids, status, saved_at, updated_at
-  `;
+/** The columns every read / RETURNING path selects, so callers get one shape. */
+export function savedRouteReturning() {
+  return {
+    id: savedRoutes.id, title: savedRoutes.title, point_ids: savedRoutes.pointIds,
+    status: savedRoutes.status, saved_at: savedRoutes.savedAt, updated_at: savedRoutes.updatedAt,
+  };
 }
 
-function updateSavedRouteSql(userId: string, input: SaveSavedRouteInput & { id: string }, savedAt: string | null) {
-  return sql`
-    UPDATE saved_routes SET title = ${input.title}, point_ids = ${sql.param(input.point_ids)}::text[],
-      status = ${input.status}, saved_at = ${savedAt}
-    WHERE id = ${input.id} AND user_id = ${userId}
-    RETURNING id, title, point_ids, status, saved_at, updated_at
-  `;
+/** Convert a nullable ISO timestamp to the Date the Drizzle timestamp maps on bind. */
+function savedAtToDriver(savedAt: string | null): Date | null {
+  return savedAt === null ? null : new Date(savedAt);
 }
 
-async function deleteSavedRouteRow(db: DbExecutor, userId: string, savedRouteId: string): Promise<unknown[]> {
-  const result = await db.execute(sql`
-    DELETE FROM saved_routes WHERE id = ${savedRouteId} AND user_id = ${userId} RETURNING id
-  `);
-  return result.rows;
+/** Owner-scoped INSERT ... RETURNING, built with the Drizzle query builder. */
+function insertSavedRouteStatement(userId: string, input: SaveSavedRouteInput, savedAt: string | null) {
+  return (db: UsersDb) =>
+    db.insert(savedRoutes)
+      .values({
+        userId, title: input.title, pointIds: input.point_ids,
+        status: input.status, savedAt: savedAtToDriver(savedAt),
+      })
+      .returning(savedRouteReturning());
+}
+
+/** Owner-scoped UPDATE ... RETURNING, built with the Drizzle query builder. */
+function updateSavedRouteStatement(userId: string, input: SaveSavedRouteInput & { id: string }, savedAt: string | null) {
+  return (db: UsersDb) =>
+    db.update(savedRoutes)
+      .set({
+        title: input.title, pointIds: input.point_ids,
+        status: input.status, savedAt: savedAtToDriver(savedAt),
+      })
+      .where(and(eq(savedRoutes.id, input.id), eq(savedRoutes.userId, userId)))
+      .returning(savedRouteReturning());
+}
+
+/** Owner-predicated atomic DELETE ... RETURNING id, built with the builder. */
+function deleteOwnedStatement(userId: string, savedRouteId: string) {
+  return (db: UsersDb) =>
+    db.delete(savedRoutes)
+      .where(and(eq(savedRoutes.id, savedRouteId), eq(savedRoutes.userId, userId)))
+      .returning({ id: savedRoutes.id });
 }
 
 /** Id-only existence probe used to classify a delete that lost the race;
  * never reveals the owner, so it is not a cross-owner oracle. */
-async function existsSavedRouteRow(db: DbExecutor, savedRouteId: string): Promise<unknown[]> {
-  const result = await db.execute(sql`SELECT 1 FROM saved_routes WHERE id = ${savedRouteId}`);
-  return result.rows;
+function existsStatement(savedRouteId: string) {
+  return (db: UsersDb) =>
+    db.select({ id: savedRoutes.id }).from(savedRoutes).where(eq(savedRoutes.id, savedRouteId));
 }
 
 /**
- * Neon-backed SavedRouteReader over the raw SQL executor (Drizzle typing only,
- * see src/db/client.ts). Owns SQL and row mapping only — the ListSavedRoutes
+ * Neon-backed SavedRouteReader over the Drizzle query builder + `UsersDb`
+ * executor seam (see src/db/client.ts). Statements are built with the query
+ * builder and run through `db.execute`, so the dialect binds and parameterises
+ * them. Owns statement building and row mapping only — the ListSavedRoutes
  * action (src/application/list-saved-routes.ts) owns the newest-update-first
  * ordering policy.
  */
 export class NeonSavedRouteRepo implements SavedRouteReader {
-  constructor(private readonly db: DbExecutor) {}
+  constructor(private readonly db: UsersDb) {}
 
   /** The caller's own saved routes, row-normalized, in store order. */
   async listOwned(userId: string): Promise<SavedRoute[]> {
-    const result = await this.db.execute(sql`
-      SELECT id, title, point_ids, status, saved_at, updated_at
-      FROM saved_routes WHERE user_id = ${userId}
-    `);
+    const statement = this.db
+      .select(savedRouteReturning())
+      .from(savedRoutes)
+      .where(eq(savedRoutes.userId, userId));
+    const result = await this.db.execute(statement);
     return result.rows.map(toSavedRoute);
   }
 }
 
 /**
- * Neon-backed SavedRouteStore + DeleteSavedRouteStore over the raw SQL
- * executor: the create-or-update save path and the delete path. Owns SQL and
- * row mapping only: the SaveSavedRoute action
+ * Neon-backed SavedRouteStore + DeleteSavedRouteStore over the query builder +
+ * `UsersDb` executor seam: the create-or-update save path and the delete path.
+ * Owns statement building and row mapping only: the SaveSavedRoute action
  * (src/application/save-saved-route.ts) and DeleteSavedRoute action
  * (src/application/delete-saved-route.ts) own the ownership decisions and the
  * stable SAVED_ROUTE_* errors; the delete store performs one owner-predicated
  * atomic delete and reports only whether a row was deleted.
  */
 export class NeonSavedRouteStore implements SavedRouteStore, DeleteSavedRouteStore {
-  constructor(private readonly db: DbExecutor) {}
+  constructor(private readonly db: UsersDb) {}
 
   async findOwner(id: string): Promise<OwnerLookup | undefined> {
-    const result = await this.db.execute(sql`SELECT user_id, saved_at FROM saved_routes WHERE id = ${id}`);
+    const statement = this.db
+      .select({ userId: savedRoutes.userId, savedAt: savedRoutes.savedAt })
+      .from(savedRoutes)
+      .where(eq(savedRoutes.id, id));
+    const result = await this.db.execute(statement);
     const row = result.rows[0];
     if (row === undefined) return undefined;
     if (!isRecord(row)) throw new Error("invalid saved route row");
@@ -123,12 +151,12 @@ export class NeonSavedRouteStore implements SavedRouteStore, DeleteSavedRouteSto
   }
 
   async insert(userId: string, input: SaveSavedRouteInput, savedAt: string | null): Promise<SavedRoute> {
-    const result = await this.db.execute(insertSavedRouteSql(userId, input, savedAt));
+    const result = await this.db.execute(insertSavedRouteStatement(userId, input, savedAt)(this.db));
     return toSavedRoute(result.rows[0]);
   }
 
   async update(userId: string, input: SaveSavedRouteInput & { id: string }, savedAt: string | null): Promise<SavedRoute | null> {
-    const result = await this.db.execute(updateSavedRouteSql(userId, input, savedAt));
+    const result = await this.db.execute(updateSavedRouteStatement(userId, input, savedAt)(this.db));
     const row = result.rows[0];
     return row === undefined ? null : toSavedRoute(row);
   }
@@ -136,10 +164,10 @@ export class NeonSavedRouteStore implements SavedRouteStore, DeleteSavedRouteSto
   /** One owner-predicated atomic delete; a lost delete is classified without
    * exposing the owner (src/application/delete-saved-route.ts). */
   async deleteOwned(userId: string, savedRouteId: string): Promise<DeleteOwnedOutcome> {
-    if ((await deleteSavedRouteRow(this.db, userId, savedRouteId)).length > 0) {
+    if ((await this.db.execute(deleteOwnedStatement(userId, savedRouteId)(this.db))).rows.length > 0) {
       return { kind: "deleted" };
     }
-    return (await existsSavedRouteRow(this.db, savedRouteId)).length > 0
+    return (await this.db.execute(existsStatement(savedRouteId)(this.db))).rows.length > 0
       ? { kind: "not_owned" }
       : { kind: "missing" };
   }

@@ -3,7 +3,7 @@ import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { makeNeonSql, type CatalogDb, type NeonSql } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 import {
   aliasInsert,
@@ -19,7 +19,6 @@ import {
 } from "./fixtures/catalog-seed";
 import {
   databaseDescribe,
-  localDatabaseUrl,
   openDirectPool,
   openServerlessDb,
   restoreNeonConfig,
@@ -29,11 +28,10 @@ import {
 /**
  * Resolver SQL proof against the ephemeral branch's direct cloud endpoint.
  *
- * GUARD: the context must carry a REAL `NeonSql` built from the spike DSN.
- * Resolve's raw-SQL path (the July geocoding wave) is part of its contract, so
- * stubbing `neonSql` to something like `() => Promise.resolve([])` does not
- * fail loudly — it silently turns every resolve into a miss and an on-demand
- * ingest. Do not stub it.
+ * GUARD: the context must carry a REAL Drizzle `db` built from the spike DSN.
+ * Resolve's alias-index path (the July geocoding wave) is part of its contract, so
+ * stubbing the DB to something like an empty execute does not fail loudly — it
+ * silently turns every resolve into a miss and an on-demand ingest. Do not stub it.
  *
  * Seeds and expectations are built by `./fixtures/catalog-seed`, so a work id
  * that `pointsByBangumiId` would reject with a 400 cannot be written here (#363).
@@ -59,7 +57,6 @@ const ALIASES = [
 
 let pool: pg.Pool;
 let db: CatalogDb;
-let neonSql: NeonSql;
 
 async function run(statement: SeedStatement): Promise<void> {
   await pool.query(statement.text, statement.values);
@@ -72,7 +69,7 @@ async function seed(): Promise<void> {
 }
 
 function context(): CatalogContext {
-  return { db, neonSql };
+  return { db };
 }
 
 async function call(method: string, payload: unknown): Promise<unknown> {
@@ -109,7 +106,6 @@ function pointKeys(value: unknown): string[] {
 
 beforeAll(async () => {
   await openServerlessDb();
-  neonSql = makeNeonSql(localDatabaseUrl());
   pool = await openDirectPool();
   db = drizzle(pool) as unknown as CatalogDb;
   await truncateCatalogPool(pool);

@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/lifeodyssey/animichi/main/scripts/local-gates/review-schema.json",
+  "title": "Local review verdict artifact",
+  "description": "One head-bound verdict per reviewed card (issue #1008). The executable authority is scripts/local-gates/review_verdict.py; this file is the declarative contract it implements.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "base_sha",
+    "head_sha",
+    "brief_digest",
+    "reviewer",
+    "reviewed_at",
+    "axes",
+    "ac_total",
+    "ac_to_test",
+    "gate_evidence",
+    "mutation_evidence"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "base_sha": { "$ref": "#/definitions/sha40" },
+    "head_sha": { "$ref": "#/definitions/sha40" },
+    "brief_digest": { "$ref": "#/definitions/sha256" },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "role"],
+      "properties": {
+        "identity": { "type": "string", "minLength": 1 },
+        "role": { "const": "reviewer-seat" }
+      }
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "axes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["standards", "spec"],
+      "properties": {
+        "standards": { "$ref": "#/definitions/axis" },
+        "spec": { "$ref": "#/definitions/axis" }
+      }
+    },
+    "ac_total": { "type": "integer", "minimum": 1 },
+    "ac_to_test": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/acMapping" }
+    },
+    "gate_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/gateRun" }
+    },
+    "mutation_evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/mutationRun" }
+    },
+    "repair_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["local-deterministic-harness", "opencode"] },
+        "command": { "type": "string", "minLength": 1 },
+        "session": { "type": "string", "minLength": 1 },
+        "log_digest": { "$ref": "#/definitions/sha256" }
+      }
+    }
+  },
+  "definitions": {
+    "sha40": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "axis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "findings"],
+      "properties": {
+        "status": { "enum": ["approve", "reject"] },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file", "line", "severity", "message"],
+            "properties": {
+              "file": { "type": "string", "minLength": 1 },
+              "line": { "type": "integer", "minimum": 1 },
+              "severity": { "enum": ["P0", "P1", "P2"] },
+              "message": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "acMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ac_id", "test_type", "test_path"],
+      "properties": {
+        "ac_id": { "type": "string", "minLength": 1 },
+        "test_type": { "enum": ["unit", "integration", "eval", "browser", "api"] },
+        "test_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "gateRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "exit", "evidence"],
+      "properties": {
+        "command": { "type": "string", "minLength": 1 },
+        "exit": { "type": "integer" },
+        "evidence": { "type": "string", "minLength": 1 }
+      }
+    },
+    "mutationRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["probe", "mutation", "red", "restore", "green"],
+      "properties": {
+        "probe": { "type": "string", "minLength": 1 },
+        "mutation": { "type": "string", "minLength": 1 },
+        "red": { "type": "boolean" },
+        "restore": { "type": "boolean" },
+        "green": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -1,8 +1,9 @@
 import { catalogRequestAllowed } from "./catalog-policy.ts";
 import type { Env } from "../env.ts";
-import { authenticatedRateLimitKey, authRateLimitConfigFrom, checkRateLimit } from "../protect/rate-limiter.ts";
-import { rateLimitedResponse } from "./responses.ts";
-import { isAuthRateLimited } from "./routing-policy.ts";
+import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
+import { guardPolicy } from "../protect/burst-guard.ts";
+import { classifyRatePolicy } from "./rate-policy.ts";
+import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER } from "@animichi/contract/internal-binding";
 
 const PUBLIC_CATALOG_HEADERS = ["Accept"] as const;
 
@@ -23,15 +24,15 @@ export function forwardPublicCatalog(env: Env, request: Request): Promise<Respon
 
 /** The worker-verified identity replaces the caller's own headers. */
 function applyIdentity(headers: Headers, auth: { userId: string; userType: string }): void {
-  headers.delete("Authorization");
-  headers.set("X-User-Id", auth.userId);
-  headers.set("X-User-Type", auth.userType);
+  headers.delete(AUTHORIZATION_HEADER);
+  headers.set(USER_IDENTITY_HEADER, auth.userId);
+  headers.set(USER_TYPE_HEADER, auth.userType);
 }
 
 /** Client-supplied identity headers are anti-forgery: always stripped. */
 function stripUntrustedHeaders(headers: Headers): void {
-  headers.delete("X-User-Id");
-  headers.delete("X-User-Type");
+  headers.delete(USER_IDENTITY_HEADER);
+  headers.delete(USER_TYPE_HEADER);
   headers.delete("x-byok-endpoint");
   headers.delete("X-Anon-Id");
 }
@@ -57,20 +58,22 @@ export function forwardV1(
 }
 
 /**
- * Forward an authenticated /v1 request, first spending one unit of that
- * identity's per-identity limiter when the path is cost-bearing. The key is
- * the worker-verified user id only (never a header the caller controls), and
- * the check fails open on a guard outage, matching the anonymous path's
- * contract.
+ * Forward an authenticated /v1 request, spending one unit of that identity's
+ * limiter exactly when the route policy puts the op in a guarded cell. One
+ * decision path (issue #680 review REJECT): this route classifies the request
+ * with `classifyRatePolicy` and delegates to `guardPolicy`, so a
+ * durable cell (high-cost/write/BYOK) FAILS CLOSED on outage (AC4 — an
+ * unmeterable turn must not run), a native cell fails open + alerts, and an
+ * unmanaged read is forwarded without touching a binding. The key is the
+ * worker-verified user id only (never a header the caller controls).
  */
 export async function authenticatedForward(
   env: Env, request: Request, auth: { userId: string; userType: string }, pathname: string,
 ): Promise<Response> {
-  if (!isAuthRateLimited(pathname)) return forwardV1(env, request, auth);
-  const key = authenticatedRateLimitKey(auth.userId);
-  const config = authRateLimitConfigFrom(env);
-  const limit = await checkRateLimit(env.EDGE_GUARD, key, config);
-  if (limit !== null && !limit.allowed) return rateLimitedResponse(limit.retryAfterSeconds);
+  const guarded = await guardPolicy(
+    env, classifyRatePolicy(request.method, pathname), authenticatedRateLimitKey(auth.userId), authRateLimitConfigFrom(env),
+  );
+  if (guarded !== null) return guarded;
   return forwardV1(env, request, auth);
 }
 

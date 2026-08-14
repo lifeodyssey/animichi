@@ -11,13 +11,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from animichi.agents.agent_result import AttributedUsage
 from animichi.infrastructure.session.memory import InMemorySessionStore
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 
 
 def _db() -> MagicMock:
-    db = MagicMock(spec=SupabaseClient)
+    db = MagicMock()
     db.session = AsyncMock()
     db.usage = AsyncMock()
     return db

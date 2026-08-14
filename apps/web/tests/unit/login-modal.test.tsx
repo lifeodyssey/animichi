@@ -3,7 +3,7 @@
  */
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LoginModal } from "../../src/components/auth/LoginModal";
+import { LoginModal } from "../../src/features/auth/ui/LoginModal";
 import { renderWithLocale, setLanguages } from "./_i18n";
 
 beforeEach(() => { setLanguages(["ja-JP"]); });
@@ -41,5 +41,52 @@ describe("LoginModal", () => {
     renderWithLocale(<LoginModal open onClose={onClose} />);
     fireEvent.keyDown(document, { key: "a" });
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("LoginModal focus trap", () => {
+  it("wraps Tab from the last focusable back to the first", () => {
+    renderWithLocale(<LoginModal open onClose={vi.fn()} />);
+    const last = screen.getByRole("button", { name: "ログインリンクを送信" });
+    last.focus();
+    expect(document.activeElement).toBe(last);
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "閉じる" }));
+  });
+
+  it("wraps Shift+Tab from the first focusable back to the last", () => {
+    renderWithLocale(<LoginModal open onClose={vi.fn()} />);
+    const first = screen.getByRole("button", { name: "閉じる" });
+    first.focus();
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "ログインリンクを送信" }));
+  });
+
+  it("leaves focus on a middle focusable when Tab is pressed inside the dialog", () => {
+    renderWithLocale(<LoginModal open onClose={vi.fn()} />);
+    const email = screen.getByLabelText("メールアドレス");
+    email.focus();
+    expect(document.activeElement).toBe(email);
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(email);
+  });
+
+  it("early-returns when the dialog has no focusables, leaving focus unchanged", () => {
+    renderWithLocale(<LoginModal open onClose={vi.fn()} />);
+    screen.getByLabelText("メールアドレス").setAttribute("disabled", "true");
+    screen.getByRole("button", { name: "ログインリンクを送信" }).setAttribute("disabled", "true");
+    screen.getByRole("button", { name: "閉じる" }).setAttribute("disabled", "true");
+    const before = document.activeElement;
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(before);
+  });
+
+  it("lands initial focus on the email input and ignores a non-Tab key", () => {
+    renderWithLocale(<LoginModal open onClose={vi.fn()} />);
+    const email = screen.getByLabelText("メールアドレス");
+    expect(document.activeElement).toBe(email);
+    fireEvent.keyDown(document, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(email);
   });
 });

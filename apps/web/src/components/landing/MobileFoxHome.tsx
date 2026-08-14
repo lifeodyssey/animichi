@@ -20,13 +20,18 @@ function MobileFoxBrand() {
 
 function MobileFoxBar({ onLogin }: { onLogin: () => void }) {
   const landing = useDict().landing;
-  return (<header className="mobile-fox__bar">
+  // A <div>, not a <header>, so the landing exposes exactly ONE banner
+  // landmark (the desktop LandingBar). The mobile bar is a CSS-switched view
+  // of the same brand+login affordances, and two banner landmarks on one page
+  // is a WCAG 1.3.1 landmark pollution (the desktop bar stays in the DOM and
+  // remains the page's banner).
+  return (<div className="mobile-fox__bar">
     <MobileFoxBrand />
     <div className="mobile-fox__bar-actions">
       <LocaleSwitcher />
       <button className="landing__login" type="button" onClick={onLogin}>{landing.login}</button>
     </div>
-  </header>);
+  </div>);
 }
 
 function MobileFoxGuide() {

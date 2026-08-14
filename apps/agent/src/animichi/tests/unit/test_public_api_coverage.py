@@ -21,7 +21,6 @@ from animichi.application.turn_admission import (
 from animichi.config.settings import Settings
 from animichi.infrastructure.session import SessionStore
 from animichi.infrastructure.session.memory import InMemorySessionStore
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from animichi.tests.unit.conftest_public_api import make_result, make_run_agent_stub
 
@@ -30,7 +29,7 @@ ANON_ID = "anon_0123456789abcdef0123456789abcdef"
 
 def _db() -> MagicMock:
     """A db double whose sub-repos are async (wired, per _wired_sub_repo)."""
-    db = MagicMock(spec=SupabaseClient)
+    db = MagicMock()
     db.session = AsyncMock()
     db.usage = AsyncMock()
     return db

@@ -118,7 +118,7 @@ jobs:
           EVAL_MAX_CASES: "80"
           # Settings requires presence; the trajectory tier uses NullDatabase and
           # never opens this endpoint (mirrors the python-integration job).
-          SUPABASE_DB_URL: postgresql://test:test@localhost:5432/test
+          AGENT_SVC_DATABASE_URL: postgresql://test:test@localhost:5432/test
 
   # ── Neon test infrastructure (non-gating during calibration) ──
 
@@ -148,8 +148,10 @@ jobs:
       ATLAS_VERSION: "0.30.0"
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
       NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+      # Settings requires presence; integration tests never call the gateway, so a placeholder satisfies the validator.
+      ZEN_GO_API_KEY: test-key
       # Settings requires presence; integration tests do not use these endpoints.
-      SUPABASE_DB_URL: postgresql://test:test@localhost:5432/test
+      AGENT_SVC_DATABASE_URL: postgresql://test:test@localhost:5432/test
       MIMO_API_KEY: test-key
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -174,18 +176,7 @@ jobs:
       # (see pipeline-agent.yml).
       - run: uv sync --frozen --all-extras
 
-      - name: Install pinned Atlas CLI
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/atlas-bin"
-          curl --proto '=https' --tlsv1.2 -sSfL \
-            "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0" \
-            -o "$RUNNER_TEMP/atlas-bin/atlas"
-          # Keep synchronized with apps/agent/src/animichi/tests/atlas_helper.py.
-          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas" \
-            | sha256sum --check --strict
-          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
-          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/install-atlas
 
       - name: Run Neon integration tests
         if: ${{ github.event_name == 'workflow_dispatch' || steps.f.outputs.neon_agent == 'true' || steps.f.outputs.neon_migrations == 'true' }}
@@ -243,15 +234,7 @@ jobs:
 
       - uses: ./.github/actions/setup
 
-      - name: Install pinned Atlas CLI
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/atlas-bin"
-          curl --proto '=https' --tlsv1.2 -sSfL             "https://release.ariga.io/atlas/atlas-community-linux-amd64-v0.30.0"             -o "$RUNNER_TEMP/atlas-bin/atlas"
-          # Keep synchronized with apps/agent/src/animichi/tests/atlas_helper.py.
-          echo "dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6e0011a  $RUNNER_TEMP/atlas-bin/atlas"             | sha256sum --check --strict
-          chmod +x "$RUNNER_TEMP/atlas-bin/atlas"
-          echo "$RUNNER_TEMP/atlas-bin" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/install-atlas
 
       - name: Run catalog spike tests
         if: ${{ github.event_name == 'workflow_dispatch' || steps.f.outputs.neon_catalog == 'true' || steps.f.outputs.neon_migrations == 'true' }}

@@ -2,11 +2,15 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import { Hono } from "hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { catalogRouter } from "./router";
-import type { CatalogDb, NeonSql } from "./db/client";
+import type { CatalogDb } from "./db/client";
 import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
 import type { IngestResult } from "./ingest/ingest-bangumi";
-import { SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "./cron-config";
+import { DAILY_DISCOVER_CRON, SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "./cron-config";
 import { listDoneBangumiIds, listStaleBangumiIds } from "./ingest/cron-queries";
+import { catalogDailyRun } from "./ingest/catalog-daily-run";
+import { buildDailyInventory, type SeasonalResolver } from "./ingest/daily-discovery";
+import { fetchCurrentSeason } from "./ingest/season";
+import type { SourceConfig } from "./ingest/sources";
 import { SEED_BANGUMI_IDS, SEED_BANGUMI } from "./ingest/seed-works";
 import { serveImage } from "./media/img";
 
@@ -64,17 +68,16 @@ function waitUntilFor(
 
 interface DbEntry {
   db: CatalogDb;
-  neonSql: NeonSql;
 }
 
-// One client pair per connection string, reused across requests.
+// One client per connection string, reused across requests.
 const dbPools = new Map<string, DbEntry>();
 
 async function dbFor(connStr: string): Promise<DbEntry> {
   const cached = dbPools.get(connStr);
   if (cached) return cached;
-  const { makeDb, makeNeonSql } = await import("./db/client");
-  const entry: DbEntry = { db: makeDb(connStr), neonSql: makeNeonSql(connStr) };
+  const { makeDb } = await import("./db/client");
+  const entry: DbEntry = { db: makeDb(connStr) };
   dbPools.set(connStr, entry);
   return entry;
 }
@@ -102,9 +105,9 @@ app.use("/catalog/*", async (c, next) => {
   if (!connStr) {
     return c.json({ error: "catalog database not configured" }, 503);
   }
-  const { db, neonSql } = await dbFor(connStr);
+  const { db } = await dbFor(connStr);
   const { matched, response } = await apiHandler.handle(c.req.raw, {
-    context: { db, neonSql, fetchImpl: fetch, waitUntil: waitUntilFor(c) },
+    context: { db, fetchImpl: fetch, waitUntil: waitUntilFor(c) },
   });
   if (matched) {
     return c.newResponse(response.body, response);
@@ -162,6 +165,7 @@ export interface CronDependencies {
   ingestBangumi: (db: CatalogDb, bangumiId: string) => Promise<IngestResult>;
   listDoneBangumiIds: (db: CatalogDb, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
   listStaleBangumiIds: (db: CatalogDb, cap: number) => Promise<readonly string[]>;
+  runDailyIngest: (db: CatalogDb) => Promise<unknown>;
 }
 
 const DEFAULT_DEPENDENCIES: CronDependencies = {
@@ -169,6 +173,7 @@ const DEFAULT_DEPENDENCIES: CronDependencies = {
   ingestBangumi: (db, bangumiId) => catalogIngestBangumi(db).ingest(bangumiId),
   listDoneBangumiIds,
   listStaleBangumiIds,
+  runDailyIngest: (db) => runDailyJob(db),
 };
 
 export function createScheduledHandler(
@@ -189,6 +194,10 @@ async function runCron(
 ): Promise<CronJobResult> {
   if (cron === SEED_CRON) return runSeedJob(db, dependencies);
   if (cron === TTL_REFRESH_CRON) return runTtlJob(db, dependencies);
+  if (cron === DAILY_DISCOVER_CRON) {
+    await dependencies.runDailyIngest(db);
+    return { attempted: 0, ingested: 0, skipped: 0 };
+  }
   throw new Error(`Unknown catalog cron: ${cron}`);
 }
 
@@ -211,6 +220,42 @@ export async function runTtlJob(
 ): Promise<CronJobResult> {
   const stale = await dependencies.listStaleBangumiIds(db, TTL_BATCH_CAP);
   return ingestBatch(db, dependencies, stale.slice(0, TTL_BATCH_CAP));
+}
+
+/** The production daily discovery + ingest run (#1006). */
+export async function runDailyJob(
+  db: CatalogDb,
+  seasonalResolver: SeasonalResolver = bangumiSeasonResolver(),
+): Promise<unknown> {
+  const inventory = await buildDailyInventory(db, seasonalResolver);
+  return catalogDailyRun(db, Date.now(), inventory, dailyPolicy());
+}
+
+/**
+ * The production current-season resolver: the Bangumi calendar week, fetched
+ * through the shared injectable source config (defaults to the real HTTP client).
+ * An upstream outage degrades to an empty season so popularity + historical
+ * discovery still feed the run rather than aborting it.
+ */
+export function bangumiSeasonResolver(cfg: SourceConfig = {}): SeasonalResolver {
+  return () => fetchCurrentSeason(cfg).catch(seasonFallback);
+}
+
+/** A failed season fetch logs and yields no season ids (never aborts the run). */
+function seasonFallback(error: unknown): readonly string[] {
+  console.error("[daily] current-season fetch failed: " + String(error));
+  return [];
+}
+
+/** Production budget/tier policy for the daily run (operational config, not magic). */
+function dailyPolicy() {
+  return {
+    staleRunningMs: 6 * 60 * 60 * 1000,
+    tierIntervals: { high: 24 * 60 * 60 * 1000, medium: 7 * 24 * 60 * 60 * 1000, low: 30 * 24 * 60 * 60 * 1000 },
+    newWorkCap: 20,
+    keepHistory: 2,
+    budget: { workLimit: 50, requestLimit: 400, runtimeLimitMs: 10 * 60 * 1000 },
+  };
 }
 
 /** Sequential per-work ingest; one failure never aborts the rest of the batch. */

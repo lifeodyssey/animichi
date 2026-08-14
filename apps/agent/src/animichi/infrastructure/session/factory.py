@@ -1,40 +1,36 @@
 """Factory function for session store creation.
 
 Provides a unified way to create session stores based on configuration.
-Returns SupabaseSessionStore when a DB client is provided, otherwise
+Returns CachedSessionStore when a state store is provided, otherwise
 falls back to InMemorySessionStore.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from animichi.infrastructure.session.base import SessionStore
+from animichi.infrastructure.session.cached_session_store import SessionStateStore
 from animichi.infrastructure.session.memory import InMemorySessionStore
 from animichi.utils.logger import get_logger
-
-if TYPE_CHECKING:
-    from animichi.infrastructure.supabase.client import SupabaseClient
 
 logger = get_logger(__name__)
 
 
 def create_session_store(
-    db: SupabaseClient | None = None,
+    db: SessionStateStore | None = None,
 ) -> SessionStore:
     """Create a session store.
 
-    If a SupabaseClient is provided, returns a SupabaseSessionStore that
+    If a state store is provided, returns a CachedSessionStore that
     persists state across container restarts. Otherwise returns the
     in-memory store suitable for local development.
     """
     if db is not None:
-        from animichi.infrastructure.session.supabase_session import (
-            SupabaseSessionStore,
+        from animichi.infrastructure.session.cached_session_store import (
+            CachedSessionStore,
         )
 
-        logger.info("Creating Supabase-backed session store")
-        return SupabaseSessionStore(db)
+        logger.info("Creating database-backed session store")
+        return CachedSessionStore(db)
 
     logger.info("Creating in-memory session store")
     return InMemorySessionStore()

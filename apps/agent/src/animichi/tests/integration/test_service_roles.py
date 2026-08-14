@@ -47,16 +47,18 @@ async def test_agent_svc_can_select_points(db_pool: asyncpg.Pool) -> None:
 async def test_agent_svc_allowed_insert_on_operational_table(
     db_pool: asyncpg.Pool,
 ) -> None:
-    """agent_svc holds INSERT on operational tables, including conversations."""
+    """agent_svc holds INSERT on the operational tables it writes (#992: the
+    legacy ``conversations`` table was deleted with the fresh-schema session
+    manifest — the aggregate is ``sessions`` + ``messages``)."""
     async with db_pool.acquire() as conn:
         sessions_grant = await conn.fetchval(
             "SELECT has_table_privilege('agent_svc', 'public.sessions', 'INSERT')"
         )
-        conversations_grant = await conn.fetchval(
-            "SELECT has_table_privilege('agent_svc', 'public.conversations', 'INSERT')"
+        messages_grant = await conn.fetchval(
+            "SELECT has_table_privilege('agent_svc', 'public.messages', 'INSERT')"
         )
     assert sessions_grant is True
-    assert conversations_grant is True
+    assert messages_grant is True
 
 
 async def test_catalog_svc_allowed_insert_on_points(db_pool: asyncpg.Pool) -> None:

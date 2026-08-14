@@ -3,7 +3,7 @@ import type { Dict } from "../../i18n/dictionaries";
 import { useDict } from "../../i18n/LocaleProvider";
 import { LocaleSwitcher } from "../../i18n/LocaleSwitcher";
 import { isShowcase } from "../../features/config/showcase";
-import { LoginModal } from "../auth/LoginModal";
+import { LoginModal } from "../../features/auth/ui/LoginModal";
 import { chatSearchPath } from "../home/search-target";
 import { ComingSoonPopup } from "./ComingSoonPopup";
 import { DayNightToggle } from "./DayNightToggle";

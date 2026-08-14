@@ -17,7 +17,6 @@ async def test_keyless_localhost_model_builds_but_remote_model_fails() -> None:
         default_agent_model="openai:local@http://localhost:1234/v1",
         fallback_agent_model=None,
         openai_compat_api_key="",
-        supabase_db_url="postgresql://local/test",
     )
     client = httpx.AsyncClient()
     try:

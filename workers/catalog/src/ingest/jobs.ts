@@ -11,12 +11,14 @@
  * retried on every request; once that TTL elapses the same statement
  * re-acquires, so a failed job never gets permanently stuck.
  *
- * Writes only: the Drizzle read schema (`src/db/schema.ts`) is query-only, so
- * these mutations go through raw `sql` execute, consistent with the pipeline
- * cards owning all inserts/updates.
+ * Statements are built with the Drizzle query builder + the typed expression
+ * helpers and run through the single `CatalogDb` seam.
  */
-import { sql, type SQL } from "drizzle-orm";
+import { and, eq, or, sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
+import { statementBuilder } from "../db/client";
+import { ingestJobs } from "../db/schema";
+import * as x from "../db/expressions";
 
 const RUNNING_TTL_SECONDS = 15 * 60;
 
@@ -62,31 +64,28 @@ export class JobStore {
 }
 
 async function acquireJob(db: CatalogDb, bangumiId: string): Promise<boolean> {
-  const result = await db.execute(sql`
-    INSERT INTO ingest_jobs (work_id, status, started_at) VALUES (${bangumiId}, 'running', NOW())
-    ON CONFLICT (work_id) DO UPDATE SET status = 'running', started_at = NOW()
-    WHERE (ingest_jobs.status <> 'running'
-           AND (ingest_jobs.negative_cached_until IS NULL OR ingest_jobs.negative_cached_until <= NOW()))
-       OR (ingest_jobs.status = 'running' AND ${runningStaleSql()})
-    RETURNING work_id
-  `);
+  const result = await db.execute(acquireStatement(bangumiId));
   return result.rows.length > 0;
 }
 
-let runningStale: SQL | undefined;
-
-/**
- * A `running` job whose heartbeat looks dead: expired, or never started.
- *
- * Built lazily on first use, not at module top level: evaluating a `sql`
- * template during module evaluation crashes the *bundled* Worker runtime
- * (esbuild's lazy-ESM ordering leaves drizzle's StringChunk class in the TDZ
- * until its init module runs — the vitest pool evaluates unbundled modules
- * with correct ESM order, so only the deployed bundle ever sees it).
- */
-function runningStaleSql(): SQL {
-  runningStale ??= sql`COALESCE(ingest_jobs.started_at, ingest_jobs.created_at) <= NOW() - make_interval(secs => ${RUNNING_TTL_SECONDS})`;
-  return runningStale;
+/** The singleflight acquire: INSERT-or-UPDATE, gated by status + stale presence. */
+function acquireStatement(bangumiId: string): SQL {
+  return statementBuilder()
+    .insert(ingestJobs)
+    .values({ workId: bangumiId, status: "running", startedAt: x.now() })
+    .onConflictDoUpdate({
+      target: ingestJobs.workId,
+      set: { status: "running", startedAt: x.now() },
+      setWhere: or(
+        and(
+          sql`${ingestJobs.status} <> 'running'`,
+          or(sql`${ingestJobs.negativeCachedUntil} IS NULL`, sql`${ingestJobs.negativeCachedUntil} <= NOW()`),
+        ),
+        and(eq(ingestJobs.status, "running"), x.staleWithinSeconds(ingestJobs.startedAt, ingestJobs.createdAt, RUNNING_TTL_SECONDS)),
+      ),
+    })
+    .returning({ workId: ingestJobs.workId })
+    .getSQL();
 }
 
 async function readGuard(db: CatalogDb, bangumiId: string): Promise<IngestGuard> {
@@ -97,32 +96,65 @@ async function readGuard(db: CatalogDb, bangumiId: string): Promise<IngestGuard>
 }
 
 async function readGuardRow(db: CatalogDb, bangumiId: string): Promise<GuardRow | undefined> {
-  const result = await db.execute(sql`
-    SELECT error_code,
-           COALESCE(status = 'running' AND ${runningStaleSql()}, FALSE) AS running_live,
-           COALESCE(negative_cached_until > NOW(), FALSE) AS cache_live
-    FROM ingest_jobs WHERE work_id = ${bangumiId}
-  `);
+  const result = await db.execute(guardStatement(bangumiId));
   return parseGuardRow(result.rows[0]);
 }
 
+/** The live guard: running-stale flag and negative-cache-until flag. */
+function guardStatement(bangumiId: string): SQL {
+  return statementBuilder()
+    .select({
+      errorCode: ingestJobs.errorCode,
+      runningLive: sqlFlag(
+        and(eq(ingestJobs.status, "running"), x.staleWithinSeconds(ingestJobs.startedAt, ingestJobs.createdAt, RUNNING_TTL_SECONDS)),
+      ),
+      cacheLive: sqlFlag(sql`${ingestJobs.negativeCachedUntil} > NOW()`),
+    })
+    .from(ingestJobs)
+    .where(eq(ingestJobs.workId, bangumiId))
+    .getSQL();
+}
+
 async function markJobDone(db: CatalogDb, bangumiId: string): Promise<void> {
-  await db.execute(sql`
-    UPDATE ingest_jobs
-    SET status = 'done', finished_at = NOW(),
-        error = NULL, error_code = NULL, negative_cached_until = NULL
-    WHERE work_id = ${bangumiId} AND status = 'running'
-  `);
+  await db.execute(markDoneStatement(bangumiId));
+}
+
+function markDoneStatement(bangumiId: string): SQL {
+  return statementBuilder()
+    .update(ingestJobs)
+    .set({
+      status: "done", finishedAt: x.now(),
+      error: null, errorCode: null, negativeCachedUntil: null,
+    })
+    .where(and(eq(ingestJobs.workId, bangumiId), eq(ingestJobs.status, "running")))
+    .getSQL();
 }
 
 async function markJobFailed(db: CatalogDb, bangumiId: string, opts: FailureOptions): Promise<void> {
-  await db.execute(sql`
-    UPDATE ingest_jobs
-    SET status = 'failed', finished_at = NOW(),
-        error = ${opts.error ?? null}, error_code = ${opts.errorCode},
-        negative_cached_until = NOW() + make_interval(secs => ${opts.ttlSeconds})
-    WHERE work_id = ${bangumiId} AND status = 'running'
-  `);
+  await db.execute(markFailedStatement(bangumiId, opts));
+}
+
+function markFailedStatement(bangumiId: string, opts: FailureOptions): SQL {
+  return statementBuilder()
+    .update(ingestJobs)
+    .set({
+      status: "failed", finishedAt: x.now(),
+      error: opts.error ?? null, errorCode: opts.errorCode,
+      negativeCachedUntil: addIntervalSeconds(opts.ttlSeconds),
+    })
+    .where(and(eq(ingestJobs.workId, bangumiId), eq(ingestJobs.status, "running")))
+    .getSQL();
+}
+
+/** `COALESCE(condition, FALSE)` — a computed boolean projection field. */
+function sqlFlag(condition: SQL | undefined): SQL {
+  const cond = condition ?? sql`FALSE`;
+  return sql`COALESCE(${cond}, FALSE)`;
+}
+
+/** `NOW() + make_interval(secs => n)` — a park-until bound in seconds. */
+function addIntervalSeconds(seconds: number): SQL {
+  return sql`NOW() + make_interval(secs => ${seconds})`;
 }
 
 function parseGuardRow(value: unknown): GuardRow | undefined {

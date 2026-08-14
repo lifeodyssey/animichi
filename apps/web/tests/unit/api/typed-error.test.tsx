@@ -20,7 +20,7 @@ describe("typed error parity across SSR and client navigation", () => {
   it("decodes the same typed oRPC error on both paths", async () => {
     server.use(catalogUpstreamErrorHandler);
     // SSR resolves origin from env (no window); the client reads location.origin.
-    const ssr = createCatalogClient({ url: resolveApiConfig({ VITE_SITE_ORIGIN: TEST_ORIGIN }).catalogUrl });
+    const ssr = createCatalogClient({ url: resolveApiConfig({ siteOrigin: TEST_ORIGIN }).catalogUrl });
     const browser = createCatalogClient({ url: resolveApiConfig({}, window.location).catalogUrl });
 
     const ssrError = await searchError(ssr);

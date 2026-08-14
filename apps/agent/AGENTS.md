@@ -108,7 +108,10 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
   (`runtime_span` / `http_span`, `record_*`); `setup_logfire` calls
   `logfire.configure(send_to_logfire="if-token-present")`, which no-ops without `LOGFIRE_TOKEN`.
   Test spans via `logfire.testing.capfire`.
-- **Typed DB** — asyncpg with the `asyncpg-stubs` dev dep; no untyped pool/record access.
+- **Persistence = SQLModel/SQLAlchemy repositories** (#994/#995) — `infrastructure/persistence/`
+  (models + repositories) is the only persistence path, expressed via typed SQLAlchemy expressions
+  (raw-SQL policy, #999). asyncpg is the underlying driver (with `asyncpg-stubs`); repositories open
+  one short-lived `AsyncSession` from an injected factory and never touch untyped pool/record access.
 
 ## Test environment reality
 

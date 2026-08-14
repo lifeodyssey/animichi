@@ -1,9 +1,12 @@
 /**
  * Popular-bangumi read adapter — the only SQL on the popularity ranking path
  * (CATALOG-5 #946). Replaces the agent-side Supabase list_popular query.
+ * Built with the Drizzle query builder + expression helpers over the single
+ * CatalogDb seam.
  */
-
-import { sql } from "drizzle-orm";
+import { gt, sql, type SQL } from "drizzle-orm";
+import { statementBuilder } from "../../db/client";
+import { bangumi } from "../../db/schema";
 
 /** One ranked work row. */
 export interface PopularBangumiRow {
@@ -32,14 +35,23 @@ export interface PopularBangumiReader {
 }
 
 async function loadPopular(db: PopularBangumiDb, limit: number): Promise<PopularBangumiRow[]> {
-  const result = await db.execute(sql`
-    SELECT id, title, title_cn, cover_url, city, points_count, rating
-    FROM bangumi
-    WHERE points_count > 0
-    ORDER BY rating DESC NULLS LAST
-    LIMIT ${limit}
-  `);
+  const result = await db.execute(popularStatement(limit));
   return result.rows.map(parseRow);
+}
+
+/** The ranking SELECT: works with points, best-rated first (nulls last). */
+function popularStatement(limit: number): SQL {
+  return statementBuilder()
+    .select({
+      id: bangumi.id, title: bangumi.title, titleCn: bangumi.titleCn,
+      coverUrl: bangumi.coverUrl, city: bangumi.city,
+      pointsCount: bangumi.pointsCount, rating: bangumi.rating,
+    })
+    .from(bangumi)
+    .where(gt(bangumi.pointsCount, 0))
+    .orderBy(sql`${bangumi.rating} DESC NULLS LAST`)
+    .limit(limit)
+    .getSQL();
 }
 
 function parseRow(row: unknown): PopularBangumiRow {

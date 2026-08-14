@@ -1,28 +1,25 @@
-import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { listSavedRoutes as listSavedRoutesAction } from "../src/application/list-saved-routes";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
-import type { DbExecutor } from "../src/db/client";
-import { fakeDb } from "./in-memory-routes-db";
+import type { UsersDb } from "../src/db/client";
+import { fakeDb, fakeDbFrom } from "./in-memory-routes-db";
+
+const isOwnershipRead = (sql: string): boolean =>
+  sql.toLowerCase().includes('"user_id"') && sql.toLowerCase().includes("saved_routes");
 
 const ID = "00000000-0000-4000-8000-000000000009";
 
-/** A DbExecutor that answers ownership checks and serves fixed update rows. */
-function updateRows(rows: Record<string, unknown>[]): DbExecutor {
-  return {
-    execute: (query) => {
-      const rendered = new PgDialect().sqlToQuery(query);
-      return rendered.sql.toLowerCase().includes("select user_id")
-        ? Promise.resolve({ rows: [{ user_id: "user-a" }] })
-        : Promise.resolve({ rows });
-    },
-  };
+/** A UsersDb that answers ownership checks and serves fixed update rows. */
+function updateRows(rows: Record<string, unknown>[]): UsersDb {
+  return fakeDbFrom((sql) =>
+    isOwnershipRead(sql) ? [{ user_id: "user-a" }] : rows,
+  );
 }
 
-/** Real Neon adapter over the fixed-answer executor. */
-function repo(db: DbExecutor): SavedRouteStore {
+/** Real Neon adapter over the fixed-answer database. */
+function repo(db: UsersDb): SavedRouteStore {
   return new NeonSavedRouteStore(db);
 }
 
@@ -40,14 +37,9 @@ describe("saved-route row validation", () => {
   });
 
   it("throws on a route row that is not an object", async () => {
-    const nonObjectDb: DbExecutor = {
-      execute: (query) => {
-        const rendered = new PgDialect().sqlToQuery(query);
-        return rendered.sql.toLowerCase().includes("select user_id")
-          ? Promise.resolve({ rows: [{ user_id: "user-a" }] })
-          : Promise.resolve({ rows: ["not-an-object"] });
-      },
-    };
+    const nonObjectDb: UsersDb = fakeDbFrom((sql) =>
+      isOwnershipRead(sql) ? [{ user_id: "user-a" }] : ["not-an-object"],
+    );
     await expect(saveSavedRoute(repo(nonObjectDb), "user-a", {
       id: ID, title: "X", point_ids: [], status: "saved",
     })).rejects.toThrow("invalid saved route row");

@@ -123,14 +123,15 @@ def test_smoke_job_has_no_kill_switch_and_wires_the_zero_error_direct_gate() -> 
     assert "test_translation.py" not in job  # translation stays L1-only (nightly)
 
 
-def test_smoke_job_sets_supabase_db_url_so_settings_import_succeeds() -> None:
-    """Regression: settings require SUPABASE_DB_URL at import time (NullDatabase
-    never opens it), mirroring the dummy value python-integration already sets."""
+def test_smoke_job_sets_agent_svc_database_url_so_settings_import_succeeds() -> None:
+    """Regression: settings require AGENT_SVC_DATABASE_URL at import time
+    (NullDatabase never opens it), mirroring the dummy value python-integration
+    already sets."""
     job = _named_workflow_job(
         _CI_WORKFLOW.read_text(encoding="utf-8"), "agent-eval-smoke"
     )
 
-    assert re.search(r"(?m)^\s*SUPABASE_DB_URL:\s*\S+", job)
+    assert re.search(r"(?m)^\s*AGENT_SVC_DATABASE_URL:\s*\S+", job)
 
 
 def test_no_disabled_eval_gate_remains_in_ci() -> None:

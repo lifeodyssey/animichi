@@ -13,14 +13,13 @@ import { spots as spotsHandler, SpotNotFoundError } from "./api/spots";
 import { overviewPointsDb } from "./adapters/outbound/overview-points";
 import { popularBangumiDb } from "./adapters/outbound/popular-bangumi";
 import { AnimeOverviewNotFoundError, getBangumiOverview } from "./application/get-bangumi-overview";
-import type { CatalogDb, NeonSql } from "./db/client";
+import type { CatalogDb } from "./db/client";
 import { routeTooManyPoints, workNotFound } from "./lib/errors";
 import type { Origin } from "./types";
 
 /** Per-request dependencies injected by the Hono boundary in `index.ts`. */
 export interface CatalogContext {
   db: CatalogDb;
-  neonSql: NeonSql;
   fetchImpl?: typeof fetch;
   waitUntil?: (promise: Promise<unknown>) => void;
 }
@@ -56,7 +55,7 @@ const spots = os.spots.handler(async ({ input, context }) =>
 );
 
 const nearby = os.nearby.handler(async ({ input, context }) =>
-  nearbyHandler(context.db, context.neonSql, input),
+  nearbyHandler(context.db, input),
 );
 
 const geocode = os.geocode.handler(async ({ input, context }) =>

@@ -6,9 +6,9 @@ describe("resolveOrigin", () => {
     expect(resolveOrigin({}, { origin: "https://animichi.app" })).toBe("https://animichi.app");
   });
 
-  it("prefers the VITE_SITE_ORIGIN override on the server", () => {
-    const env = { VITE_SITE_ORIGIN: "https://ssr.animichi.app" };
-    expect(resolveOrigin(env, undefined, () => "https://request.test")).toBe(
+  it("prefers the api.siteOrigin override on the server", () => {
+    const api = { siteOrigin: "https://ssr.animichi.app" };
+    expect(resolveOrigin(api, undefined, () => "https://request.test")).toBe(
       "https://ssr.animichi.app",
     );
   });
@@ -20,11 +20,11 @@ describe("resolveOrigin", () => {
   });
 
   it("fails loud instead of degrading when the server has no origin source", () => {
-    expect(() => resolveOrigin({}, undefined, () => undefined)).toThrow(/VITE_SITE_ORIGIN/);
+    expect(() => resolveOrigin({}, undefined, () => undefined)).toThrow(/api\.siteOrigin/);
   });
 
   it("fails loud with the default request-context source outside a request", () => {
-    expect(() => resolveOrigin({})).toThrow(/VITE_SITE_ORIGIN/);
+    expect(() => resolveOrigin({})).toThrow(/api\.siteOrigin/);
   });
 });
 
@@ -39,7 +39,7 @@ describe("resolveApiConfig", () => {
 
   it("keeps catalog and users base URLs separate when overridden", () => {
     const config = resolveApiConfig(
-      { VITE_CATALOG_URL: "https://catalog.test", VITE_USERS_URL: "https://users.test" },
+      { catalogUrl: "https://catalog.test", usersUrl: "https://users.test" },
       { origin: "https://animichi.app" },
     );
     expect(config.catalogUrl).toBe("https://catalog.test");
@@ -47,9 +47,9 @@ describe("resolveApiConfig", () => {
   });
 
   it("never resolves the origin when both service URLs are configured", () => {
-    const env = { VITE_CATALOG_URL: "https://catalog.test", VITE_USERS_URL: "https://users.test" };
-    expect(() => resolveApiConfig(env)).not.toThrow();
-    expect(resolveApiConfig(env)).toEqual({
+    const api = { catalogUrl: "https://catalog.test", usersUrl: "https://users.test" };
+    expect(() => resolveApiConfig(api)).not.toThrow();
+    expect(resolveApiConfig(api)).toEqual({
       catalogUrl: "https://catalog.test",
       usersUrl: "https://users.test",
     });

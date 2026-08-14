@@ -13,7 +13,7 @@ import { stubCtx } from "../src/container/entry-env.ts";
 const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 
 /** Fetch rejects outright (dropped connection / overloaded DO), not a
- * well-formed error response — must fail open (T9-AC4), see OUTAGES below. */
+ * well-formed error response — must fail closed (AC4), see OUTAGES below. */
 function rejectingGuard() {
   return {
     idFromName: (name: string) => name as unknown as DurableObjectId,
@@ -122,7 +122,10 @@ void test("an authenticated read (GET /v1/conversations et al) never consumes th
   assert.equal(res.status, 200, "reads must not have spent the one-request /v1/chat window");
 });
 
-// ── AC4: fail-open on EVERY guard-outage shape, not just a 500 ─────────────
+// ── AC4 (#680): high-cost classes FAIL CLOSED on EVERY guard-outage shape.
+// This deliberately supersedes T9-AC4's fail-open contract for /v1/chat: a
+// cost-bearing LLM turn that cannot be metered must NOT run unmetered. The
+// fail-open-with-alert path now belongs to cacheable public reads only. ─────
 
 const OUTAGES: [string, () => ReturnType<typeof brokenGuard>][] = [
   ["a server error", brokenGuard],
@@ -131,9 +134,11 @@ const OUTAGES: [string, () => ReturnType<typeof brokenGuard>][] = [
 ];
 
 for (const [label, guard] of OUTAGES) {
-  void test(`the limiter fails open when the shard answers with ${label}`, async () => {
+  void test(`the limiter fails CLOSED when the shard answers with ${label}`, async () => {
     const res = await authedApp().request("/v1/chat", req("/v1/chat"), env(guard()), stubCtx);
-    assert.equal(res.status, 200);
+    assert.equal(res.status, 503, "a high-cost turn must not execute on a limiter outage (AC4)");
+    const body = (await res.json()) as { error: { code: string } };
+    assert.equal(body.error.code, "rate_limit_unavailable");
   });
 }
 

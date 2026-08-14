@@ -1,4 +1,5 @@
-import { currentChatConfig } from "../../features/chat/config";
+import { resolveAgentBaseUrl } from "../../api/config";
+import { currentRuntimeConfig } from "../runtime-config/provider";
 
 /**
  * Anonymous -> signed-in session ownership adoption (SESSION-2 #960).
@@ -16,10 +17,11 @@ import { currentChatConfig } from "../../features/chat/config";
  *    mints) it and forwards the result as a trusted `X-Anon-Id` on this route
  *    alone.
  *
- * That is also why the base URL is `currentChatConfig().baseUrl` rather than a
- * URL of its own — it is the exact origin `/v1/chat` posts to, i.e. the origin
- * whose cookie jar holds `aid`. An adoption aimed anywhere else would carry no
- * anonymous identity and quietly adopt nothing.
+ * That is also why the base URL is the agent origin resolved by
+ * `resolveAgentBaseUrl` rather than a URL of its own — it is the exact origin
+ * `/v1/chat` posts to, i.e. the origin whose cookie jar holds `aid`. An
+ * adoption aimed anywhere else would carry no anonymous identity and quietly
+ * adopt nothing.
  */
 export const SESSION_ADOPT_PATH = "/v1/sessions/adopt";
 
@@ -74,6 +76,13 @@ async function post(url: string, token: string): Promise<SessionAdoptionOutcome>
   return adoptedOutcome(await response.json());
 }
 
+function defaultAdoptBaseUrl(): string {
+  return resolveAgentBaseUrl(
+    currentRuntimeConfig().api,
+    typeof window === "undefined" ? undefined : window.location,
+  );
+}
+
 /**
  * Claim this browser's anonymous work for the just-authenticated user.
  *
@@ -91,11 +100,9 @@ async function post(url: string, token: string): Promise<SessionAdoptionOutcome>
  */
 export function adoptSessions(
   token: string,
-  baseUrl: string = currentChatConfig().baseUrl,
+  baseUrl: string = defaultAdoptBaseUrl(),
 ): Promise<SessionAdoptionOutcome> {
-  return post(`${baseUrl}${SESSION_ADOPT_PATH}`, token).catch(
-    (): SessionAdoptionOutcome => "failed",
-  );
+  return post(`${baseUrl}${SESSION_ADOPT_PATH}`, token).catch((): SessionAdoptionOutcome => "failed");
 }
 
 /**

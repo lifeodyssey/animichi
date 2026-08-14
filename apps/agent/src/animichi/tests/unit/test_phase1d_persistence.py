@@ -18,7 +18,6 @@ from animichi.agents.session_state import (
     SessionState,
 )
 from animichi.infrastructure.session.memory import InMemorySessionStore
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 
 
@@ -76,7 +75,7 @@ def _blocked_result() -> AgentResult:
 
 
 def _db() -> MagicMock:
-    db = MagicMock(spec=SupabaseClient)
+    db = MagicMock()
     db.session.create = AsyncMock()
     db.session.upsert_session = AsyncMock()
     # #663: the real repo lives at `db.session`/`db.feedback`, not a flat

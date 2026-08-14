@@ -6,7 +6,9 @@
   --landing-cta: #e8742e;
   --landing-cta-hover: #dd6a25;
   --landing-cta-press: #b85a1e;
-  --landing-cta-fg: #fffdf8;
+  /* Dark text on the orange CTA (#3b1c05 on #e8742e = 5.2:1) clears WCAG AA;
+   * near-white on orange only reached 2.9:1. */
+  --landing-cta-fg: #3b1c05;
   --landing-chip-mint: #7fd8c4;
   --landing-chip-gold: #f0c24b;
   --landing-gold-press: #c99a2e;
@@ -59,7 +61,8 @@
   min-height: 42px;
   padding: 8px 22px;
   background: var(--color-focus);
-  color: var(--color-fg);
+  /* Dark text on the gold pill (#574525 on #ffcc00 = 6.1:1) clears WCAG AA. */
+  color: #574525;
   font: inherit;
   font-weight: 800;
   box-shadow: 0 3px 0 0 var(--shadow-3d);
@@ -94,7 +97,8 @@
 }
 
 .locale-switcher__option[aria-pressed="true"] {
-  background: var(--color-primary);
+  /* White on primary teal fails AA (2.1:1); the active pill uses primary-strong. */
+  background: var(--color-primary-strong);
   color: var(--color-primary-fg);
 }
 
@@ -268,10 +272,13 @@
 
 .hero-chip--mint {
   background: var(--landing-chip-mint);
+  /* fg #725d42 on mint only cleared 3.7:1; this darker ink reaches 5.8:1. */
+  color: #54402c;
 }
 
 .hero-chip--gold {
   background: var(--landing-chip-gold);
+  color: #54402c;
 }
 
 .hero-chip--plain {
@@ -645,5 +652,24 @@
 
   .scene-card {
     margin-top: 0;
+  }
+}
+
+/* WCAG 2.2.2 + 2.3.3 (Animation from Interactions): lift-bearing hover/press
+ * transforms are purely decorative; they are clamped to a movement-free
+ * interaction under the reduce preference. Links and buttons keep their
+ * colour/affordance — only the spatial motion is dropped. */
+@media (prefers-reduced-motion: reduce) {
+  .landing__login,
+  .mobile-fox__cta,
+  .hero-search__cta,
+  .hero-chip {
+    transition: none;
+  }
+  .hero-search__cta:active,
+  .hero-chip:hover,
+  .landing__login:hover,
+  .mobile-fox__cta:hover {
+    transform: none;
   }
 }

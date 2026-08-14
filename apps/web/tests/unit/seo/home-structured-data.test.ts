@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { JsonLdNode } from "../../../src/features/anime/structured-data";
+import type { JsonLdNode } from "../../../src/lib/json-ld";
 import { buildHomeJsonLd } from "../../../src/features/seo/home-structured-data";
 import { CANONICAL_ORIGIN, HOME_URL } from "../../../src/features/seo/site";
 

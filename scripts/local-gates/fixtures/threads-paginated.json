@@ -1,0 +1,31 @@
+[
+  {
+    "data": {
+      "repository": {
+        "pullRequest": {
+          "reviewThreads": {
+            "nodes": [
+              { "isResolved": false, "isOutdated": true },
+              { "isResolved": false, "isOutdated": true }
+            ],
+            "pageInfo": { "hasNextPage": true, "endCursor": "thread-cursor-1" }
+          }
+        }
+      }
+    }
+  },
+  {
+    "data": {
+      "repository": {
+        "pullRequest": {
+          "reviewThreads": {
+            "nodes": [
+              { "isResolved": false, "isOutdated": false }
+            ],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+          }
+        }
+      }
+    }
+  }
+]

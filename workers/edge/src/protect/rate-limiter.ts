@@ -155,9 +155,10 @@ interface GuardShard {
  * Call the shard and parse its verdict, returning null on ANY failure mode —
  * a non-2xx status, a rejected fetch promise (DO overload, a dropped network
  * connection, a mid-deploy reset), or a 200 whose body isn't the JSON we
- * expect. All three are real Durable Object outage shapes, not just the
- * non-ok-status case; a caller must never see them as anything but "the
- * guard is unavailable, fail open" (issue #284 / Task 9, T9-AC4).
+ * expect. All three are real Durable Object outage shapes. A caller turns a
+ * `null` into the class's POLICY failure mode: `#680` made high-cost/write
+ * classes fail CLOSED on this outage, while the anonymous coarse burst (its
+ * outer walls are Turnstile + the daily budget latch) still fails open.
  */
 async function fetchDecision(shard: GuardShard, config: RateLimitConfig): Promise<RateLimitDecision | null> {
   try {
@@ -180,4 +181,26 @@ export function checkRateLimit(
   config: RateLimitConfig,
 ): Promise<RateLimitDecision | null> {
   return fetchDecision(guard.get(guard.idFromName(`rate:${identity}`)), config);
+}
+/** The durable tier's verdict for one check. `outage` means the Durable
+ * Object was unreachable; the CALLER applies the class's failure mode
+ * (fail-closed for high-cost/write per `#680` AC4). */
+export type DurableVerdict =
+  | { readonly kind: "allowed" }
+  | { readonly kind: "limited"; readonly retryAfterSeconds: number }
+  | { readonly kind: "outage" };
+
+/** Run the exact per-identity durable check and surface the outage as a
+ * distinct verdict so fail-closed classes can reject on it (AC4). This is
+ * still one single-key transaction on the identity's own shard. */
+export async function durableBurstCheck(
+  guard: GuardNamespace,
+  identity: string,
+  config: RateLimitConfig,
+): Promise<DurableVerdict> {
+  const limit = await checkRateLimit(guard, identity, config);
+  if (limit === null) return { kind: "outage" };
+  return limit.allowed
+    ? { kind: "allowed" }
+    : { kind: "limited", retryAfterSeconds: limit.retryAfterSeconds };
 }

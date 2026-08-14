@@ -8,7 +8,7 @@ import pytest
 
 from animichi.agents.agent_result import AgentResult, StepRecord
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
-from animichi.tests.db_doubles import build_persistence_supabase_double
+from animichi.tests.db_doubles import build_persistence_double
 from animichi.tests.unit.conftest_public_api import install_mock_pipeline
 from animichi.tests.unit.conftest_public_api import make_result as _make_result
 
@@ -20,7 +20,7 @@ def _mock_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def mock_db() -> MagicMock:
-    db = build_persistence_supabase_double()
+    db = build_persistence_double()
     db.points.search_points_by_location = AsyncMock(return_value=[])
     return db
 

@@ -58,3 +58,16 @@ export function rateLimitedResponse(retryAfterSeconds: number): Response {
     headers: { "Content-Type": "application/json", "Retry-After": String(retryAfterSeconds) },
   });
 }
+
+/** The fail-CLOSED rejection for a class whose durable limiter is unavailable
+ * (`#680` AC4). A 503 (typed `rate_limit_unavailable`) tells the client the
+ * request did NOT execute and may be retried — distinct from a `429`
+ * `rate_limited` (the burst window was exceeded) and from any `quota_*`
+ * code, so the three meter kinds stay separable on the wire. */
+export const RATE_LIMIT_UNAVAILABLE_BODY = {
+  error: { code: "rate_limit_unavailable", message: "Rate limiter temporarily unavailable. Please retry." },
+} as const;
+
+export function rateLimitUnavailableResponse(): Response {
+  return Response.json(RATE_LIMIT_UNAVAILABLE_BODY, { status: 503 });
+}

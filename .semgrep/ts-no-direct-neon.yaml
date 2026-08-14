@@ -1,0 +1,31 @@
+# Policy (raw-SQL slice, #999): database access in the TS workers must flow
+# through the single Drizzle adapter seam — CatalogDb
+# (workers/catalog/src/db/client.ts) and UsersDb (workers/users/src/db/client.ts).
+# Calling `neon()`/`neonsql()` directly in any other module bypasses that seam
+# and opens a second client / raw-query channel.
+#
+# Narrow exclusions (documented in .semgrep/README.md): ONLY the seam files that
+# construct the typed Drizzle client:
+#   workers/catalog/src/db/client.ts
+#   workers/users/src/db/client.ts
+rules:
+  - id: ts-no-direct-neon-seam-bypass
+    languages: [ts]
+    severity: ERROR
+    message: >-
+      Direct Neon client construction in runtime code. `neon()` must only be
+      called inside the sanctioned database seam (db/client.ts); every other
+      module must depend on the typed CatalogDb / UsersDb client (#999, #992).
+    paths:
+      include:
+        - /workers/catalog/src
+        - /workers/users/src
+      exclude:
+        # Sanctioned seam files that build the single Drizzle client.
+        - /workers/catalog/src/db/client.ts
+        - /workers/users/src/db/client.ts
+    patterns:
+      - pattern-either:
+          - pattern: neon(...)
+          - pattern: neonsql(...)
+          - pattern: new NeonSql(...)

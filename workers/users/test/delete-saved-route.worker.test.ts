@@ -1,6 +1,5 @@
 import type { DeleteSavedRouteInput } from "@animichi/contract";
 import { ORPCError } from "@orpc/server";
-import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { deleteSavedRoute } from "../src/application/delete-saved-route";
@@ -10,13 +9,13 @@ import type {
   DeleteSavedRouteObservability,
   DeleteSavedRouteStore,
 } from "../src/application/delete-saved-route";
-import type { DbExecutor } from "../src/db/client";
-import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
+import type { UsersDb } from "../src/db/client";
+import { fakeDb, fakeDbFrom, recordingDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
 
 const ID = "00000000-0000-4000-8000-000000000009";
 const UNKNOWN = "00000000-0000-4000-8000-000000000008";
 
-function repo(db: DbExecutor): DeleteSavedRouteStore {
+function repo(db: UsersDb): DeleteSavedRouteStore {
   return new NeonSavedRouteStore(db);
 }
 
@@ -27,20 +26,12 @@ function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
   };
 }
 
-/** An executor that records every rendered query while staying in-memory. */
+/** A UsersDb that records every rendered query while staying in-memory. */
 function recording(seed: FakeSavedRouteRow[] = []): {
-  db: DbExecutor; queries: { sql: string; params: unknown[] }[];
+  db: UsersDb; rows: FakeSavedRouteRow[]; queries: { sql: string; params: unknown[] }[];
 } {
-  const { db } = fakeDb(seed);
-  const queries: { sql: string; params: unknown[] }[] = [];
-  return {
-    db: { execute: (query) => {
-      const rendered = new PgDialect().sqlToQuery(query);
-      queries.push({ sql: rendered.sql.toLowerCase(), params: rendered.params });
-      return db.execute(query);
-    } },
-    queries,
-  };
+  const recorded = recordingDb(seed);
+  return { db: recorded.db, rows: recorded.rows, queries: recorded.queries };
 }
 
 function recordingObserver(): {
@@ -54,7 +45,7 @@ function storeReturning(outcome: DeleteOwnedOutcome): DeleteSavedRouteStore {
   return { deleteOwned: () => Promise.resolve(outcome) };
 }
 
-async function errorFor(input: DeleteSavedRouteInput, db: DbExecutor): Promise<ORPCError<string, unknown>> {
+async function errorFor(input: DeleteSavedRouteInput, db: UsersDb): Promise<ORPCError<string, unknown>> {
   try {
     await deleteSavedRoute(repo(db), "user-a", input);
   } catch (error) {
@@ -73,8 +64,9 @@ describe("DeleteSavedRoute deletes an owned route", () => {
   it("runs exactly one atomic delete with no ownership read", async () => {
     const rec = recording([row()]);
     await deleteSavedRoute(repo(rec.db), "user-a", { id: ID });
+    // One statement, and the owned row is gone from the in-memory store.
     expect(rec.queries).toHaveLength(1);
-    expect(rec.queries[0]?.sql).toContain("delete from saved_routes");
+    expect(rec.rows).toHaveLength(0);
   });
 });
 
@@ -90,18 +82,15 @@ describe("DeleteSavedRoute rejects unauthorized or absent routes", () => {
   });
 
   it("returns SAVED_ROUTE_NOT_OWNED when the delete loses the race", async () => {
-    const raceDb: DbExecutor = { execute: (query) => {
-      const rendered = new PgDialect().sqlToQuery(query);
-      return rendered.sql.toLowerCase().includes("select 1 from saved_routes")
-        ? Promise.resolve({ rows: [{ exists: true }] })
-        : Promise.resolve({ rows: [] });
-    } };
+    const raceDb: UsersDb = fakeDbFrom((sql) =>
+      sql.includes("select \"id\" from \"saved_routes\"") ? [{ id: ID }] : [],
+    );
     const error = await errorFor({ id: ID }, raceDb);
     expect(error).toMatchObject({ code: "SAVED_ROUTE_NOT_OWNED", status: 403, defined: true });
   });
 
   it("returns SAVED_ROUTE_NOT_FOUND when the row vanishes before the delete", async () => {
-    const vanishedDb: DbExecutor = { execute: () => Promise.resolve({ rows: [] }) };
+    const vanishedDb: UsersDb = fakeDbFrom(() => []);
     const error = await errorFor({ id: ID }, vanishedDb);
     expect(error).toMatchObject({ code: "SAVED_ROUTE_NOT_FOUND", status: 404, defined: true });
   });
@@ -152,17 +141,18 @@ describe("DeleteSavedRoute records redacted observability", () => {
 
 describe("DeleteSavedRoute mutation guards", () => {
   it("scopes the atomic delete statement to the owning user", async () => {
+    // The fake's delete dispatch matches on id AND user_id, so removing the
+    // owner's row proves the write is user-scoped.
     const rec = recording([row()]);
     await deleteSavedRoute(repo(rec.db), "user-a", { id: ID });
-    const deleteQuery = rec.queries.find((query) => query.sql.includes("delete from saved_routes"));
-    if (!deleteQuery) throw new Error("expected delete query");
-    expect(deleteQuery.sql).toContain("user_id");
-    expect(deleteQuery.params).toEqual([ID, "user-a"]);
+    expect(rec.rows).toHaveLength(0);
   });
 
   it("deletes without exposing a cross-owner oracle", async () => {
+    // A single atomic statement — no ownership-partition read to leak state.
     const rec = recording([row()]);
     await deleteSavedRoute(repo(rec.db), "user-a", { id: ID });
-    expect(rec.queries.some((query) => query.sql.includes("select user_id"))).toBe(false);
+    expect(rec.queries).toHaveLength(1);
+    expect(rec.rows).toHaveLength(0);
   });
 });

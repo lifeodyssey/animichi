@@ -3,8 +3,8 @@ interrupted by an auth challenge.
 
 The browser ACs pin that no login dialog opens before the 「保存する」 tap. This is
 the server-side half of the same invariant: the identical flow driven through
-the runtime endpoint returns no 401/403, so the login wall is a product decision
-made in the client rather than something the backend forces.
+the /v1/chat endpoint returns no 401/403, so the login wall is a product
+decision made in the client rather than something the backend forces.
 
 Every assertion here is on **app** behaviour — the route's declared security, the
 `_reject_credentialed_anonymous` guard, and the missing-identity status — rather
@@ -30,6 +30,7 @@ from animichi.agents.session_state import (
     PendingClarification,
     SessionState,
 )
+from animichi.config.settings import Settings
 from animichi.infrastructure.session.memory import InMemorySessionStore
 from animichi.interfaces.fastapi_service import create_fastapi_app
 from animichi.interfaces.public_api import RuntimeAPI
@@ -92,6 +93,7 @@ async def anon_client(tc_db):
         tc_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
     )
     app = create_fastapi_app(runtime_api=runtime_api, db=tc_db)
+    app.state.settings = Settings()
     app.state.runtime_api = runtime_api
     app.state.db_client = tc_db
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
@@ -104,10 +106,17 @@ async def anon_client(tc_db):
             yield client
 
 
+def _chat_body(text: str) -> dict[str, object]:
+    """The Vercel AI SDK chat envelope (/v1/chat, TURN-4 #955)."""
+    return {
+        "messages": [
+            {"id": "u1", "role": "user", "parts": [{"type": "text", "text": text}]}
+        ]
+    }
+
+
 async def _turn(client: httpx.AsyncClient, text: str) -> httpx.Response:
-    return await client.post(
-        "/v1/runtime", json={"text": text, "locale": "zh"}, headers=_ANON_HEADERS
-    )
+    return await client.post("/v1/chat", json=_chat_body(text), headers=_ANON_HEADERS)
 
 
 @pytest.mark.integration
@@ -129,7 +138,7 @@ async def test_runtime_declares_no_bearer_requirement(anon_client) -> None:
     production change that would break the anonymous flow — turns this red.
     """
     schema = (await anon_client.get("/openapi.json")).json()
-    operation = schema["paths"]["/v1/runtime"]["post"]
+    operation = schema["paths"]["/v1/chat"]["post"]
     assert not operation.get("security"), operation.get("security")
     assert not schema.get("components", {}).get("securitySchemes")
 
@@ -146,8 +155,8 @@ async def test_anonymous_stamp_with_a_credential_is_rejected(anon_client) -> Non
     header while signed out, turns this red.
     """
     resp = await anon_client.post(
-        "/v1/runtime",
-        json={"text": _FLOW[0], "locale": "zh"},
+        "/v1/chat",
+        json=_chat_body(_FLOW[0]),
         headers={**_ANON_HEADERS, "Authorization": "Bearer stale-token"},
     )
     assert resp.status_code == 401
@@ -165,8 +174,6 @@ async def test_identityless_request_is_never_auth_challenged(anon_client) -> Non
     status is deliberately not pinned, so a future stricter *request* validation
     stays free to return 4xx without faking an auth challenge.
     """
-    resp = await anon_client.post(
-        "/v1/runtime", json={"text": _FLOW[0], "locale": "zh"}
-    )
+    resp = await anon_client.post("/v1/chat", json=_chat_body(_FLOW[0]))
     assert resp.status_code not in _AUTH_CHALLENGES
     assert "www-authenticate" not in {name.lower() for name in resp.headers}

@@ -4,6 +4,8 @@
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { server } from "../../msw/node";
+import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../src/lib/runtime-config/provider";
+import { DEFAULT_RUNTIME_CONFIG } from "../../../src/lib/runtime-config/runtime-config";
 import {
   SESSION_ADOPT_PATH,
   adoptSessions,
@@ -35,15 +37,21 @@ function capture(sink: Seen[], adopted = 1) {
   });
 }
 
-/** 200s whose `adopted` is missing, a string, or negative: an invalid Agent or
- * Edge response, never a silent ownership transfer (SESSION-2 #960). */
+/** 200s whose `adopted` is missing, a string, fractional, or negative: an
+ * invalid Agent or Edge response, never a silent ownership transfer
+ * (SESSION-2 #960). */
 const INVALID_RESPONSES: [string, Record<string, unknown>][] = [
   ["an empty object", {}],
   ["a string-valued adopted", { adopted: "0", noop_class: "no_rows" }],
+  ["a fractional adopted", { adopted: 0.5, noop_class: "no_rows" }],
   ["a negative adopted", { adopted: -1, noop_class: "no_rows" }],
 ];
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 
 describe("adoptSessions", () => {
   it("POSTs the bearer token to /v1/sessions/adopt with no body at all", async () => {
@@ -76,6 +84,17 @@ describe("adoptSessions", () => {
     expect(await adoptSessions("jwt-1", BASE)).toBe("nothing");
   });
 
+  it("is safe to repeat: the second call is issued and the server no-ops it", async () => {
+    server.use(
+      http.post(URL, () => HttpResponse.json({ adopted: 1, noop_class: "adopted" }), { once: true }),
+      http.post(URL, () => HttpResponse.json({ adopted: 0, noop_class: "no_rows" })),
+    );
+    expect(await adoptSessions("jwt-1", BASE)).toBe("adopted");
+    expect(await adoptSessions("jwt-1", BASE)).toBe("nothing");
+  });
+});
+
+describe("adoptSessions invalid responses", () => {
   it.each(INVALID_RESPONSES)("treats %s as an invalid response, not a silent adoption", async (_label, body) => {
     server.use(http.post(URL, () => HttpResponse.json(body)));
     expect(await adoptSessions("jwt-1", BASE)).toBe("failed");
@@ -96,13 +115,52 @@ describe("adoptSessions", () => {
     await expect(adoptSessions("jwt-1", BASE)).resolves.toBe("failed");
   });
 
-  it("is safe to repeat: the second call is issued and the server no-ops it", async () => {
+  it("reports `failed` for a 200 whose JSON body is not an object", async () => {
+    // A parseable but non-object body (a JSON string or null) never carries an
+    // ownership transfer, so it is an invalid Agent/Edge response too.
+    server.use(http.post(URL, () => HttpResponse.json("no_rows")));
+    await expect(adoptSessions("jwt-1", BASE)).resolves.toBe("failed");
+    server.use(http.post(URL, () => HttpResponse.json(null)));
+    await expect(adoptSessions("jwt-1", BASE)).resolves.toBe("failed");
+  });
+});
+
+describe("adoptSessions default base URL", () => {
+  it("resolves the agent origin from window.location when the browser provides it", async () => {
+    // No `baseUrl` argument: the origin is `window.location.origin`, the same
+    // origin whose cookie jar holds `aid` (the edge forwards it as
+    // `X-Anon-Id` on this route alone).
+    const seen: Seen[] = [];
     server.use(
-      http.post(URL, () => HttpResponse.json({ adopted: 1, noop_class: "adopted" }), { once: true }),
-      http.post(URL, () => HttpResponse.json({ adopted: 0, noop_class: "no_rows" })),
+      http.post("http://localhost:3000/v1/sessions/adopt", async ({ request }) => {
+        seen.push({
+          method: request.method,
+          authorization: request.headers.get("authorization"),
+          credentials: request.credentials,
+          body: await request.text(),
+          keepalive: request.keepalive,
+        });
+        return HttpResponse.json({ adopted: 1, noop_class: "adopted" });
+      }),
     );
-    expect(await adoptSessions("jwt-1", BASE)).toBe("adopted");
-    expect(await adoptSessions("jwt-1", BASE)).toBe("nothing");
+    expect(await adoptSessions("jwt-1")).toBe("adopted");
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.authorization).toBe("Bearer jwt-1");
+  });
+
+  it("falls back to api.agentUrl when no window exists (SSR)", async () => {
+    // The `aid` cookie only exists in a browser, but the SSR base URL must
+    // still resolve deterministically instead of touching a missing window.
+    vi.stubGlobal("window", undefined);
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, {
+      ...DEFAULT_RUNTIME_CONFIG,
+      api: { agentUrl: "http://agent.test" },
+    });
+    server.use(
+      http.post("http://agent.test/v1/sessions/adopt", () =>
+        HttpResponse.json({ adopted: 0, noop_class: "no_rows" })),
+    );
+    expect(await adoptSessions("jwt-1")).toBe("nothing");
   });
 });
 

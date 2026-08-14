@@ -34,14 +34,14 @@ async def test_cluster_version_allows_one_current_per_work(
     db_pool: asyncpg.Pool,
 ) -> None:
     async with db_pool.acquire() as conn:
-        await conn.execute("DELETE FROM cluster_version WHERE work_id = 'cv_test'")
+        await conn.execute("DELETE FROM cluster_version WHERE bangumi_id = 'cv_test'")
         await conn.execute(
-            "INSERT INTO cluster_version (work_id, version, is_current) "
+            "INSERT INTO cluster_version (bangumi_id, version, is_current) "
             "VALUES ('cv_test', 1, true)"
         )
         with pytest.raises(asyncpg.UniqueViolationError):
             await conn.execute(
-                "INSERT INTO cluster_version (work_id, version, is_current) "
+                "INSERT INTO cluster_version (bangumi_id, version, is_current) "
                 "VALUES ('cv_test', 2, true)"
             )
 
@@ -67,23 +67,25 @@ async def test_cluster_version_atomic_switch(db_pool: asyncpg.Pool) -> None:
     The partial unique index forces this ordering (insert-then-flip would violate it).
     """
     async with db_pool.acquire() as conn:
-        await conn.execute("DELETE FROM cluster_version WHERE work_id = 'switch_test'")
         await conn.execute(
-            "INSERT INTO cluster_version (work_id, version, is_current) "
+            "DELETE FROM cluster_version WHERE bangumi_id = 'switch_test'"
+        )
+        await conn.execute(
+            "INSERT INTO cluster_version (bangumi_id, version, is_current) "
             "VALUES ('switch_test', 1, true)"
         )
         async with conn.transaction():
             await conn.execute(
                 "UPDATE cluster_version SET is_current = false "
-                "WHERE work_id = 'switch_test' AND is_current"
+                "WHERE bangumi_id = 'switch_test' AND is_current"
             )
             await conn.execute(
-                "INSERT INTO cluster_version (work_id, version, is_current) "
+                "INSERT INTO cluster_version (bangumi_id, version, is_current) "
                 "VALUES ('switch_test', 2, true)"
             )
         current = await conn.fetch(
             "SELECT version FROM cluster_version "
-            "WHERE work_id = 'switch_test' AND is_current"
+            "WHERE bangumi_id = 'switch_test' AND is_current"
         )
 
     assert [r["version"] for r in current] == [2]

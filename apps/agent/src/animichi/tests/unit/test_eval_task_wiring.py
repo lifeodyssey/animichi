@@ -170,3 +170,24 @@ async def test_selection_task_dispatches_place_pending_to_place_handler() -> Non
     )
     assert result.intent == "search_nearby"
     assert [step.tool for step in result.steps] == ["search_nearby"]
+
+
+async def test_agent_task_converts_blank_input_to_blocked_result() -> None:
+    """#984 rejects blank input with InvalidInputError; the eval task turns it
+    into a graceful blocked AgentResult so the L0 empty_input smoke case is not
+    counted as an agent error."""
+    from animichi.application.errors import InvalidInputError
+
+    agent_input, make_agent_task = _load_task_factory()
+    task = cast(
+        Task,
+        make_agent_task(NullDatabase(), MockCatalogClient, _web_driver("any")),
+    )
+
+    result = await task(agent_input(query="", locale="en"))
+
+    assert result.status == "blocked"
+    assert result.intent == "general_qa"
+    assert result.success is False
+    assert "blocked" in type(result.output).__name__.lower()
+    assert InvalidInputError  # import guard

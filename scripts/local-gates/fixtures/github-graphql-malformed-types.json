@@ -1,0 +1,22 @@
+[
+  {
+    "data": {
+      "repository": {
+        "pullRequest": {
+          "comments": {
+            "nodes": [
+              {
+                "author": { "__typename": 1, "login": "coderabbitai[bot]" },
+                "authorAssociation": "MEMBER",
+                "body": "<code>🐞 Bugs (2)</code> <code>Rule violations (0)</code>",
+                "id": 1,
+                "url": ""
+              }
+            ],
+            "pageInfo": { "hasNextPage": false, "endCursor": null }
+          }
+        }
+      }
+    }
+  }
+]

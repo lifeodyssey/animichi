@@ -30,6 +30,50 @@ revisions technically unable to mutate production, and it cannot stop someone wh
 edits the freeze's own workflows or resolver pins. Staging behavior and DAG are unchanged.
 
 
+
+## Build-once component promotion
+
+Issue #1007 wires the build-once promotion primitive beside the existing deploy path; the old
+per-environment rebuild path stays available during expand/migrate and is deleted by the final
+promotion ticket (#1013, AC6) only after every component migrates. Issue #1013 slice 2 (AC3/AC4/AC5)
+generalizes the primitive to every deployable component and hardens the production path; the
+AC6 cutover (deleting the legacy `Deploy Worker` rebuild path) is NOT yet done and requires
+staging/prod evidence + owner approval.
+
+A component built by `reusable-deploy-component.yml` emits:
+
+- a **promotion manifest** (`.github/scripts/promotion-manifest-cli.py generate`) pinning component,
+  source SHA, artifact digest (SHA-256), SBOM/attestation, schema compatibility, configuration
+  schema, and dependency revisions — schema closed, unknown fields rejected;
+- **one immutable CI artifact** (the built output tarball) keyed by its digest, so a rebuild
+  that changes a byte is detectable;
+- staging **consumes and reports** the manifest digest after deploy;
+- production eligibility (`reusable-production-eligibility.yml`) runs a deterministic AC4
+  self-check that rejects a rebuild, a mismatched digest, stale staging evidence, an
+  incompatible schema, or a changed dependency manifest;
+- **#1013 AC4**: a deployed-version-metadata read (`.github/scripts/promote_deployed.py`) fails
+  when the deployed digest/config schema differs from the approved manifest. For components with
+  no platform metadata yet it fails closed with a documented mechanism (see `promote_deployed.py`
+  `PLATFORM_READ_MECHANISM`); the live read is wired per component once a platform adapter exists.
+
+**AC3 (component generalization):** `promotion_manifest.py` maps every deployable component to its
+artifact dir (`component_artifact_dir()`/`COMPONENT_ARTIFACT_DIRS`) — web → `apps/web/.output`, the
+Cloudflare Workers (catalog/users/edge/root) → their wrangler dry-run bundle dir, infra → Pulumi
+state digest. The deploy workflow resolves `PROMO_ARTIFACT_DIR` from this table (never invented
+inline), so an unmapped component fails closed. The six AC3 manifests (Agent/Edge/Catalog/Users/Web/Infra)
+are covered by `test_promotion_manifest.py` and the `promotion-manifest-e2e.test.sh` AC3 section.
+
+**AC5 (no prod build, no tag deploy):** when a promoted artifact digest is supplied, the deploy
+consumes that artifact (no `pnpm … build` runs for a promoted component); the build and build-once
+manifest steps are gated off by `promotion_artifact_digest == ""`, and the consume step fails closed
+until the immutable digest-keyed store (AC6/#1013 follow-up) lands. Neither `ci.yml` nor `deploy.yml`
+is tag-triggered (asserted by `test_promotion_ac5_contract.rb`).
+
+Source of truth for the schema: `.github/scripts/promotion_manifest.py`; behavioral coverage:
+`.github/scripts/test_promotion_manifest.py` (unit), `scripts/local-gates/promotion-manifest-e2e.test.sh`
+(AC2/AC3/AC4), `.github/scripts/test_promote_deployed.py` (AC4 read+gate), and
+`.github/scripts/test_promotion_ac5_contract.rb` (AC5), all run in `pipeline-quality.yml`. Rollback
+remains the SAFE-1/`wrangler rollback` path above.
 ## Edge Topology
 
 ```text
@@ -40,7 +84,7 @@ Browser
   ├─ /catalog/* ─────────────────────────────────▶ Worker → CATALOG service binding → catalog Worker
   │                                                          └─ Neon Postgres/PostGIS via neon-http (`DATABASE_URL`)
   └─ /v1/* ── auth at Worker edge ───────────────▶ Worker → RuntimeContainer → FastAPI service
-                                                            ├─ Supabase Postgres (`SUPABASE_DB_URL`)
+                                                            ├─ Neon Postgres (`AGENT_SVC_DATABASE_URL`)
                                                             ├─ catalog read path (`CATALOG_API_URL` → /catalog/*)
                                                             └─ MiMo primary (`MIMO_API_KEY`)
                                                                └─ DeepSeek fallback temporarily disabled
@@ -77,7 +121,7 @@ The deployment target stays intentionally thin. The Worker owns routing and edge
 |---|---|---|
 | Web app (`apps/web`) | SSR browser surface, deployed as its own Worker on its own route | none of this Worker's secrets |
 | Worker edge | Route match, JWT auth, identity injection | `NEON_AUTH_JWKS_URL` |
-| Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
+| Container runtime | Backend service, DB, model/provider calls | `AGENT_SVC_DATABASE_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
 
 Current hardening rule: the Worker strips the raw `Authorization` header before proxying and forwards only trusted `X-User-Id` / `X-User-Type` identity headers to the container.
 
@@ -124,10 +168,10 @@ These secrets stay in the Worker environment and are not forwarded into the cont
 
 Required:
 
-- `AGENT_SVC_DATABASE_URL` **or** `SUPABASE_DB_URL` — the Postgres DSN. Staging supplies
-  the role-scoped Neon DSN (`agent_svc` role) via the edge Worker's Secrets Store binding,
-  forwarded into the container and preferred over `SUPABASE_DB_URL` (which remains the
-  production container DSN until the #855 cutover); see `docs/ops/prod-dsn-cutover.md`.
+- `AGENT_SVC_DATABASE_URL` — the Postgres DSN (#995: the `SUPABASE_DB_URL` fallback
+  was deleted from settings). The role-scoped Neon DSN (`agent_svc` role) is supplied
+  via the edge Worker's Secrets Store binding and forwarded into the container;
+  see `docs/ops/prod-dsn-cutover.md`.
 - `MIMO_API_KEY` for the primary `mimo-v2.5` model
 - `DEEPSEEK_API_KEY` remains deploy-required and provisioned for the dormant DeepSeek fallback
 - `APP_ENV` — forwarded from `wrangler.toml`'s per-environment `[vars]` block (`development` /
@@ -224,7 +268,7 @@ Run the image locally:
 
 ```bash
 docker run --rm -p 8080:8080 \
-  -e SUPABASE_DB_URL \
+  -e AGENT_SVC_DATABASE_URL \
   -e MIMO_API_KEY \
   -e DEEPSEEK_API_KEY \
   -e CORS_ALLOWED_ORIGIN \
@@ -430,6 +474,10 @@ That runbook covers:
 - coarse prompt-injection WAF filters
 - rollback steps for over-blocking rules
 - the future AI Gateway insertion point
+
+The edge's layered rate-limit rollback procedure (native vs durable tiers, and
+the rate-policy decision table) is `docs/ops/rate-limit-rollback.md`; it belongs
+next to any `/v1/*`-rate-limiting incident run.
 
 ## AI Gateway Insertion Path
 
@@ -652,7 +700,7 @@ After the old feat/ssr-cloudflare merge, operators used these checks:
 
 2. **Backfill city for existing points** — one-time, run after migrations:
    ```bash
-   SUPABASE_DB_URL=<production_dsn> uv run python -m backend.scripts.backfill_city
+   AGENT_SVC_DATABASE_URL=<production_dsn> uv run python -m backend.scripts.backfill_city
    ```
    This reverse-geocodes all points with `city IS NULL` using GeoNames data (~12MB).
    Expected: ~1000+ points across ~50 cities. Takes <30 seconds.

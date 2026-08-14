@@ -270,6 +270,14 @@ class_name = "RuntimeContainer"
 name = "EDGE_GUARD"
 class_name = "EdgeGuard"
 
+
+[[env.production.ratelimits]]
+name = "RATE_LIMITER"
+# Chosen integer, distinct per environment so production counters stay
+# independent of local/staging. Do not reuse across unrelated bindings.
+namespace_id = "100003"
+simple = { limit = 60, period = 60 }
+
 [[env.production.migrations]]
 tag = "v1"
 new_sqlite_classes = ["RuntimeContainer"]
@@ -419,6 +427,14 @@ class_name = "RuntimeContainer"
 name = "EDGE_GUARD"
 class_name = "EdgeGuard"
 
+
+[[env.staging.ratelimits]]
+name = "RATE_LIMITER"
+# Chosen integer, distinct per environment so staging counters stay
+# independent of local/production. Do not reuse across unrelated bindings.
+namespace_id = "100002"
+simple = { limit = 60, period = 60 }
+
 [[env.staging.migrations]]
 tag = "v1"
 new_sqlite_classes = ["RuntimeContainer"]
@@ -426,3 +442,29 @@ new_sqlite_classes = ["RuntimeContainer"]
 [[env.staging.migrations]]
 tag = "v2"
 new_sqlite_classes = ["EdgeGuard"]
+# Cloudflare-native rate-limit binding (issue #680) — the COARSE best-effort
+# burst damper. Worker-side sibling of the zone-level WAF damper in
+# infra/src/hardening.ts; it drives the edge's "native" tier (cacheable public
+# reads + the coarse outer wall for durable classes). A GLOBAL (multi-PoP)
+# counter, so no per-isolate local limiter can bypass it.
+#
+# Schema: [[ratelimits]] with name = the binding variable (env.RATE_LIMITER),
+# a REQUIRED namespace_id — a CHOSEN POSITIVE INTEGER per CF docs (not a
+# dashboard/API-provisioned resource; ratelimit bindings are not visible in
+# the dashboard), e.g. "1001" — and a simple fixed window { limit, period }
+# where period is 10 or 60. Wrangler requires the binding in every named
+# environment, so it is repeated under [env.production] and [env.staging] as
+# distinct ids (100001/100002/100003: base/local default, staging, production) so local/staging/production counters stay
+# independent. Do NOT reuse a namespace_id for any unrelated binding on the
+# same account: two bindings sharing one namespace_id share one global
+# counter (intentional cross-Worker sharing). Absent the binding entirely the
+# worker fails the native tier open with an alert (never a 500). The exact
+# durable/fail-closed tier remains the EDGE_GUARD Durable Object.
+[[ratelimits]]
+name = "RATE_LIMITER"
+# namespace_id is a CHOSEN positive integer (per CF docs, not a dashboard/
+# API-provisioned resource). 100001 is the base (local default) namespace — used by `wrangler dev` and un-named deploys; there is no dev environment, only staging and production. Do NOT reuse
+# this id for any other binding on this account: two bindings that share a
+# namespace_id share one global counter (intentional cross-Worker sharing).
+namespace_id = "100001"
+simple = { limit = 60, period = 60 }

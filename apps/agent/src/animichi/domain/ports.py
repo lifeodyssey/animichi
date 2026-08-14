@@ -1,14 +1,17 @@
 """Domain port protocols for infrastructure dependencies.
 
 These protocols define the interface that the agent/handler layer requires
-from the database. The concrete ``SupabaseClient`` satisfies these protocols
-structurally (PEP 544) — no inheritance needed.
+from the database. The concrete SQLModel repositories (composed by
+``infrastructure.persistence.repositories.composite.PersistenceRepos``)
+satisfy these protocols structurally (PEP 544) — no inheritance needed.
 
 Only methods actually *used* by the agent layer are declared here.
 
-Note: Return types use ``dict[str, object]`` to match the asyncpg Record-to-dict
-conversion in the concrete repositories. Protocol signatures must mirror
-the implementation types for structural subtyping to work.
+Return types use the concrete row TypedDicts in ``animichi.domain.repo_types``
+(the #992 JSONB-modeling pass replaced every ``dict[str, object]`` return;
+the session-state envelope rides ``SessionStateData`` on the
+``infrastructure.session`` store protocol as well).
+Protocol signatures mirror the implementation types for structural subtyping.
 
 Iter6 C4: this module used to also carry seven ``get_*_repo``/``has_*_repo``
 reflective accessors (``getattr`` + ``iscoroutinefunction`` + ``cast``,
@@ -32,6 +35,16 @@ from __future__ import annotations
 from datetime import date
 from typing import Protocol, runtime_checkable
 
+from animichi.domain.repo_types import (
+    BangumiCandidateRow,
+    BangumiTitleRow,
+    NearbyPointRow,
+    PointRow,
+    ResponseData,
+    SessionMetadata,
+    SessionStateData,
+)
+
 
 class BangumiRepo(Protocol):
     """Bangumi-related DB operations used by handlers (read-only, #839).
@@ -43,11 +56,11 @@ class BangumiRepo(Protocol):
 
     async def find_bangumi_by_title(self, title: str) -> str | None: ...
 
-    async def find_all_by_title(self, title: str) -> list[dict[str, object]]: ...
+    async def find_all_by_title(self, title: str) -> list[BangumiTitleRow]: ...
 
     async def find_candidate_details_by_titles(
         self, titles: list[str]
-    ) -> list[dict[str, object]]: ...
+    ) -> list[BangumiCandidateRow]: ...
 
     async def filter_existing_ids(self, bangumi_ids: list[str]) -> list[str]: ...
 
@@ -62,11 +75,9 @@ class PointsRepo(Protocol):
         radius_m: int,
         *,
         limit: int = 50,
-    ) -> list[dict[str, object]]: ...
+    ) -> list[NearbyPointRow]: ...
 
-    async def get_points_by_ids(
-        self, point_ids: list[str]
-    ) -> list[dict[str, object]]: ...
+    async def get_points_by_ids(self, point_ids: list[str]) -> list[PointRow]: ...
 
 
 @runtime_checkable
@@ -100,15 +111,15 @@ class SessionRepo(Protocol):
         session_id: str,
         user_id: str,
         first_query: str,
-        session_state: dict[str, object],
+        session_state: SessionStateData,
     ) -> None: ...
 
     async def upsert_session(
         self,
         session_id: str,
-        session_state: dict[str, object],
+        session_state: SessionStateData,
         *,
-        metadata: dict[str, object] | None = None,
+        metadata: SessionMetadata | None = None,
         user_id: str | None = None,
     ) -> None: ...
 
@@ -162,7 +173,7 @@ class ConversationLog(Protocol):
         session_id: str,
         role: str,
         content: str,
-        response_data: dict[str, object] | None = None,
+        response_data: ResponseData | None = None,
     ) -> None: ...
 
 

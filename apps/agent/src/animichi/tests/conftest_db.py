@@ -21,7 +21,13 @@ import pytest
 from testcontainers.core.container import DockerContainer
 from testcontainers.postgres import PostgresContainer
 
-from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.persistence.database import (
+    DatabaseLifecycle,
+    create_database_lifecycle,
+)
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 from animichi.tests.atlas_helper import apply_migrations, expected_revisions
 from animichi.tests.db_config import (
     DatabaseArm,
@@ -35,7 +41,7 @@ from animichi.tests.neon_api import Branch, NeonApi
 
 ROOT = Path(__file__).resolve().parents[5]
 SEED_FILE = Path(__file__).parent / "fixtures" / "seed.sql"
-OFFLINE_IMAGE = "animichi-test-postgres:16-3.4-pgvector-0.8.5"
+OFFLINE_IMAGE = "animichi-test-postgres:18-3.6-pgvector-0.8.5"
 OFFLINE_DOCKERFILE = ROOT / "apps" / "agent" / "docker" / "test-postgres" / "Dockerfile"
 NEON_LOCAL_IMAGE = "neondatabase/neon_local:latest"
 WAKE_TIMEOUT_SECONDS = 91.0
@@ -88,20 +94,38 @@ def _offline_build_command() -> str:
     return f"docker build -f {relative} -t {OFFLINE_IMAGE} ."
 
 
-def _require_offline_image() -> None:
-    if not _docker_available():
-        raise RuntimeError("Docker is required for the default TEST_DB=docker arm")
+def _offline_image_present() -> bool:
     result = subprocess.run(
         # literal (not OFFLINE_IMAGE): ruff S603 requires fully-literal subprocess args.
-        ["docker", "image", "inspect", "animichi-test-postgres:16-3.4-pgvector-0.8.5"],
+        ["docker", "image", "inspect", "animichi-test-postgres:18-3.6-pgvector-0.8.5"],
         capture_output=True,
         timeout=10,
         check=False,
     )
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"offline test image is missing; run: {_offline_build_command()}"
-        )
+    return result.returncode == 0
+
+
+def _require_docker_available() -> None:
+    if _docker_available():
+        return
+    raise RuntimeError(
+        "Docker is required for the default TEST_DB=docker arm; install "
+        "Docker Desktop (https://docs.docker.com/desktop/) or colima "
+        "(brew install colima && colima start), then retry"
+    )
+
+
+def _require_offline_image_present() -> None:
+    if _offline_image_present():
+        return
+    raise RuntimeError(
+        f"offline test image is missing; run: {_offline_build_command()}"
+    )
+
+
+def _require_offline_image() -> None:
+    _require_docker_available()
+    _require_offline_image_present()
 
 
 def _clean_database_dsn(base_dsn: str, name: str) -> str:
@@ -406,10 +430,14 @@ async def db_pool(pg_container: DatabaseTarget) -> AsyncIterator[asyncpg.Pool]:
 
 
 @pytest.fixture
-async def real_db(pg_container: DatabaseTarget) -> AsyncIterator[SupabaseClient]:
-    client = SupabaseClient(
-        pg_container.dsn, min_pool_size=1, max_pool_size=2, statement_cache_size=0
-    )
-    await client.connect()
-    yield client
-    await client.close()
+async def real_db(pg_container: DatabaseTarget) -> AsyncIterator[PersistenceRepos]:
+    """The composed SQLModel repository aggregate over the test database.
+
+    One engine + session factory for the test session (#994/#995): every
+    repository shares it, and the fixture owns (and closes) the lifecycle.
+    """
+    lifecycle: DatabaseLifecycle = create_database_lifecycle(pg_container.dsn)
+    try:
+        yield PersistenceRepos.build(lifecycle.sessionmaker)
+    finally:
+        await lifecycle.close()

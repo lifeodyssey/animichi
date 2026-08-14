@@ -21,7 +21,7 @@ The pytest fixture selects exactly one arm per session:
 ```bash
 # One-time image build; this step needs network.
 docker build -f apps/agent/docker/test-postgres/Dockerfile \
-  -t animichi-test-postgres:16-3.4-pgvector-0.8.5 .
+  -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
 
 # Offline after the image and Atlas 0.30.0 are cached. Typical: 30-45 seconds.
 ATLAS_VERSION=0.30.0 TEST_DB=docker make test-integration
@@ -32,8 +32,10 @@ ATLAS_VERSION=0.30.0 TEST_DB=neon \
   make test-integration
 ```
 
-The offline arm does not cover neon-http behavior, and the Neon arm is not offline. Unit tests and
-the pre-push unit hook use neither arm and make no database connection.
+The offline arm does not cover neon-http behavior, and the Neon arm is not offline. Unit tests
+still make no database connection at all; the pre-push agent/db gates use the offline Docker arm
+(`animichi-test-postgres:18-3.6-pgvector-0.8.5`) and never the live Neon arm — see
+`docs/ops/local-gates.md` for the exact commands.
 
 ## Agent-only Neon Local development
 
@@ -65,7 +67,7 @@ make dev-db
 Point the Python backend at the static local DSN in another shell:
 
 ```bash
-SUPABASE_DB_URL='postgresql://neon:npg@localhost:5432/neondb?sslmode=require' make serve
+AGENT_SVC_DATABASE_URL='postgresql://neon:npg@localhost:5432/neondb?sslmode=require' make serve
 ```
 
 For `wrangler dev`, create a standing branch once with

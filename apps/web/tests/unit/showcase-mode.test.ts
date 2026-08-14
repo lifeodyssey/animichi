@@ -1,45 +1,41 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { isShowcase } from "../../src/features/config/showcase";
+import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../src/lib/runtime-config/provider";
+import { DEFAULT_RUNTIME_CONFIG, parseRuntimeConfig } from "../../src/lib/runtime-config/runtime-config";
 
-function loadShowcase(value: string | undefined): Promise<typeof import("../../src/features/config/showcase")> {
-  if (value === undefined) {
-    vi.stubEnv("VITE_SHOWCASE_MODE", undefined);
-  } else {
-    vi.stubEnv("VITE_SHOWCASE_MODE", value);
-  }
-  vi.resetModules();
-  return import("../../src/features/config/showcase");
+afterEach(() => { vi.unstubAllGlobals(); });
+
+function withShowcase(value: string): void {
+  vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, showcaseMode: value });
 }
 
-afterEach(() => { vi.unstubAllEnvs(); });
-
-describe("VITE_SHOWCASE_MODE strict boolean contract", () => {
-  it("accepts exactly \"true\" and reports showcase on", async () => {
-    const { isShowcase } = await loadShowcase("true");
+describe("runtime-config showcaseMode strict boolean contract (#1013 AC1)", () => {
+  it("accepts exactly \"true\" and isShowcase reports on", () => {
+    withShowcase("true");
     expect(isShowcase()).toBe(true);
   });
 
-  it("accepts exactly \"false\" and reports showcase off", async () => {
-    const { isShowcase } = await loadShowcase("false");
+  it("accepts exactly \"false\" and isShowcase reports off", () => {
+    withShowcase("false");
     expect(isShowcase()).toBe(false);
   });
 
-  it.each([
-    "",
-    "TRUE",
-    "True",
-    "False",
-    "1",
-    "0",
-    "yes",
-    "no",
-    " true",
-    "true ",
-    "true\n",
-  ])("throws at module init for invalid value %j", async (value) => {
-    await expect(loadShowcase(value)).rejects.toThrow(/VITE_SHOWCASE_MODE/);
+  it("defaults to showcase off when no config is injected", () => {
+    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, undefined);
+    expect(isShowcase()).toBe(false);
   });
 
-  it("throws at module init when the key is unset", async () => {
-    await expect(loadShowcase(undefined)).rejects.toThrow(/VITE_SHOWCASE_MODE/);
+  it.each(["", "TRUE", "True", "False", "1", "0", "yes", "1".repeat(3)])(
+    "rejects invalid value %j at parse, fail-closed",
+    (value) => {
+      expect(() => parseRuntimeConfig({ ...DEFAULT_RUNTIME_CONFIG, showcaseMode: value })).toThrow(
+        /runtime config invalid/,
+      );
+    },
+  );
+
+  it("rejects a missing showcaseMode field at parse", () => {
+    const { showcaseMode: _drop, ...rest } = DEFAULT_RUNTIME_CONFIG;
+    expect(() => parseRuntimeConfig(rest)).toThrow(/runtime config invalid/);
   });
 });

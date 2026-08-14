@@ -1,24 +1,57 @@
 import { QueryClientContext } from "@tanstack/react-query";
 import { useCallback, useContext, useRef, useState } from "react";
-import type { SaveSavedRouteInput, SavedRoute } from "@animichi/contract";
+import { IDEMPOTENCY_KEY_HEADER, type SaveSavedRouteInput, type SavedRoute } from "@animichi/contract";
 import { users } from "../orpc";
 
 /** The one transport call behind both the in-chat save and CompleteDeferredSave. */
 export type SaveSavedRouteRequest = (input: SaveSavedRouteInput) => Promise<SavedRoute>;
 
-/**
- * `users.saveSavedRoute` through the memoized oRPC client, so the UI never
- * touches the transport (component -> hook -> client, per `apps/web/AGENTS.md`).
- * CompleteDeferredSave calls this outside React, which is why it is a plain
- * function rather than a TanStack mutation: the auth-callback replay has no
- * provider.
- */
-export const saveSavedRouteRequest: SaveSavedRouteRequest = (input) => users().saveSavedRoute.call(input);
+/** FNV-1a 64-bit hash (BigInt): deterministic, dependency-free, and bounded,
+ * so the same create payload yields the same Idempotency-Key across a reload
+ * and across tabs (AC6). Not a security primitive. A 64-bit seed/primes carry a
+ * ~2^-64 per-pair collision: two distinct payloads could hash to the same key
+ * and fail server-side as a spurious 409. That is a safe-fail (the user saves
+ * again under a fresh intent rather than ever overwriting/merging the wrong
+ * route), so the tiny collision risk is accepted. The server additionally
+ * compares a full canonicalFingerprint under the same key, so a same-key/diff-
+ * payload 409 is the only collision surface. */
+function fnv1a64(input: string): string {
+  let hash = 0xcbf29ce484222325n;
+  const prime = 0x100000001b3n;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash ^ BigInt(input.charCodeAt(i))) & 0xffffffffffffffffn;
+    hash = (hash * prime) & 0xffffffffffffffffn;
+  }
+  return hash.toString(16).padStart(16, "0");
+}
+
+/** The retry-safe key for a create: a stable hash of the canonical payload, so
+ * double clicks, a reload, and a second tab re-sending the same route all reuse
+ * one server-side idempotency row (issue #1011 AC6). */
+export function idempotencyKeyFor(input: SaveSavedRouteInput): string {
+  const canonical = JSON.stringify({
+    v: 1, title: input.title, status: input.status, point_ids: input.point_ids,
+  });
+  return fnv1a64(canonical);
+}
 
 /**
- * `unauthorized` sends the caller back through the login wall; `permanent` is a
- * 4xx that retrying cannot fix — offering "retry" there would be a dead loop;
- * `retryable` covers 5xx, transport failures and the transient 4xx codes.
+ * users.saveSavedRoute through the memoized oRPC client, so the UI never
+ * touches the transport (component -> hook -> client, per apps/web/AGENTS.md).
+ * CompleteDeferredSave calls this outside React, which is why it is a plain
+ * function rather than a TanStack mutation: the auth-callback replay has no
+ * provider. Every create carries the payload-derived Idempotency-Key header so
+ * reload and multi-tab retries dedupe server-side (issue #1011 AC6).
+ */
+export const saveSavedRouteRequest: SaveSavedRouteRequest = (input) =>
+  users().saveSavedRoute.call(input, {
+    context: { headers: { [IDEMPOTENCY_KEY_HEADER]: idempotencyKeyFor(input) } },
+  });
+
+/**
+ * unauthorized sends the caller back through the login wall; permanent is a
+ * 4xx that retrying cannot fix — offering retry there would be a dead loop;
+ * retryable covers 5xx, transport failures and the transient 4xx codes.
  */
 export type SaveSavedRouteFailure = "unauthorized" | "permanent" | "retryable";
 export type SaveSavedRouteStatus = "idle" | "saving" | "saved" | SaveSavedRouteFailure;
@@ -59,7 +92,7 @@ async function runSave(request: SaveSavedRouteRequest, input: SaveSavedRouteInpu
   return outcome;
 }
 
-/** A saved route changes `listSavedRoutes`; invalidate it when a provider is
+/** A saved route changes listSavedRoutes; invalidate it when a provider is
  * present (the chat page has one, a bare card render does not). */
 function useInvalidateSavedRoutes(): () => void {
   const client = useContext(QueryClientContext);

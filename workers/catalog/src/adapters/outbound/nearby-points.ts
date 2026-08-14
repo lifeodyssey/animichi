@@ -1,27 +1,29 @@
 /**
  * Outbound adapter for the nearby-points path (card CATALOG-3): the PostGIS
  * read (`NearbyPointsPort`) and the point-detail enrichment (`PointDetailsPort`).
- * Owns the only geo SQL in the worker — `ST_DWithin` / `ST_Distance` with KNN
- * ordering — plus the detail IN-read.
+ * Owns the only geo read in the worker and, as of the #992 one-adapter-seam
+ * cutover (story 10), runs through the Drizzle `db` seam like every other
+ * adapter — the previous direct Neon tagged-query channel is gone.
  *
- * Values are bound inline, never as a nested Drizzle fragment: a fragment
- * interpolated into the `neon()` template rendered as `?`-riddled text, which
- * the direct-cloud endpoint rejects with "parse error - invalid geometry" (the
- * #883 local proxy masked it locally). Flat binding keeps the same SQL valid
- * over pg in the spike lane.
+ * The PostGIS predicates / ordering are composed from the typed expression
+ * helpers (`../db/expressions`) and the Drizzle query builder, so the dialect
+ * parameterises and binds them flatly.
  */
 
-import { sql } from "drizzle-orm";
+import { asc, inArray, type SQL } from "drizzle-orm";
+import { points as pointsTable } from "../../db/schema";
+import * as x from "../../db/expressions";
 import type {
   NearbyPoint,
   NearbyPointsPort,
   PointDetail,
   PointDetailsPort,
 } from "../../application/nearby-points";
-import type { DbExecutor, NeonSql } from "../../db/client";
+import type { DbExecutor } from "../../db/client";
+import { statementBuilder } from "../../db/client";
 
 /** The geo columns the adapter selects; `distance_m` is meters. */
-interface NearbyRow {
+export interface NearbyRow {
   id: string;
   name: string;
   latitude: number;
@@ -32,22 +34,31 @@ interface NearbyRow {
 /** Cap on returned points — the radius bounds the result, never a page count. */
 const MAX_RESULTS = 200;
 
-/** Build the `NearbyPointsPort` backed by the Neon template tag. */
-export function nearbyGeoPort(neonSql: NeonSql): NearbyPointsPort {
-  return { pointsWithin: (lat, lng, radiusM) => fetchNearby(neonSql, lat, lng, radiusM) };
+/** Build the `NearbyPointsPort` backed by the Drizzle `db` seam. */
+export function nearbyGeoPort(db: DbExecutor): NearbyPointsPort {
+  return { pointsWithin: (lat, lng, radiusM) => fetchNearby(db, lat, lng, radiusM) };
 }
 
 /** Points within `radiusM` meters of (lat, lng), nearest first (KNN order). */
-async function fetchNearby(neonSql: NeonSql, lat: number, lng: number, radiusM: number): Promise<NearbyPoint[]> {
-  const rows = await neonSql`
-    SELECT id, name, latitude, longitude,
-           ST_Distance(location, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography) AS distance_m
-    FROM points
-    WHERE ST_DWithin(location, ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, ${radiusM})
-    ORDER BY location <-> ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography, id
-    LIMIT ${MAX_RESULTS}
-  `;
-  return (rows as unknown as NearbyRow[]).map(toNearbyPoint);
+async function fetchNearby(db: DbExecutor, lat: number, lng: number, radiusM: number): Promise<NearbyPoint[]> {
+  const result = await db.execute(nearbyGeoStatement(lat, lng, radiusM));
+  return (result.rows as unknown as NearbyRow[]).map(toNearbyPoint);
+}
+
+/** Build the typed geo SELECT: ST_DWithin filter, KNN order, capped. */
+function nearbyGeoStatement(lat: number, lng: number, radiusM: number): SQL {
+  const point = x.geoPoint(lat, lng);
+  return statementBuilder()
+    .select({
+      id: pointsTable.id, name: pointsTable.name,
+      latitude: pointsTable.latitude, longitude: pointsTable.longitude,
+      distanceM: x.distanceMeters(pointsTable.location, point),
+    })
+    .from(pointsTable)
+    .where(x.withinMeters(pointsTable.location, point, radiusM))
+    .orderBy(x.knnDistance(pointsTable.location, point), asc(pointsTable.id))
+    .limit(MAX_RESULTS)
+    .getSQL();
 }
 
 /** Map a geo row to the port's `NearbyPoint` shape. */
@@ -66,15 +77,23 @@ export function nearbyDetailsPort(db: DbExecutor): PointDetailsPort {
   return { detailsFor: (ids) => loadDetails(db, ids) };
 }
 
-/** The point detail columns for `ids`. Raw `sql` (the Drizzle query builder
- * hangs under workerd), matching the IN pattern in route-points.ts. */
+/** The point detail columns for `ids`, via the query builder. */
 async function loadDetails(db: DbExecutor, ids: string[]): Promise<Map<string, PointDetail>> {
   if (ids.length === 0) return new Map();
-  const result = await db.execute(sql`
-    SELECT id, bangumi_id, name_cn, image, episode, time_seconds, origin, city
-    FROM points
-    WHERE id IN (${sql.join(ids, sql`, `)})
-  `);
+  const result = await db.execute(detailsQuery(ids));
   const rows = result.rows as unknown as PointDetail[];
   return new Map(rows.map((row) => [row.id, row]));
+}
+
+/** Build the detail IN-select as a typed query-builder statement. */
+function detailsQuery(ids: string[]): SQL {
+  return statementBuilder()
+    .select({
+      id: pointsTable.id, bangumiId: pointsTable.bangumiId, nameCn: pointsTable.nameCn,
+      image: pointsTable.image, episode: pointsTable.episode,
+      timeSeconds: pointsTable.timeSeconds, origin: pointsTable.origin, city: pointsTable.city,
+    })
+    .from(pointsTable)
+    .where(inArray(pointsTable.id, ids))
+    .getSQL();
 }

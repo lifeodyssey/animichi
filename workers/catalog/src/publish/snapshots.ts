@@ -1,7 +1,7 @@
 /**
  * Itinerary-snapshot storage over `itinerary_snapshots`
- * (`migrations/neon/20260623000001_init.sql`, renamed by the #852 catalog
- * migration): id, bangumi_id, cluster_version, payload JSONB, created_at.
+ * (`migrations/neon/20260809000017_table_itinerary_snapshots.sql`):
+ *   id, bangumi_id, cluster_version, payload JSONB, created_at.
  *
  * A snapshot is bound to a specific cluster_version so an itinerary computed
  * against an old version keeps its exact payload after a newer version
@@ -9,32 +9,39 @@
  * immutable per (bangumi_id, version) and survives version GC; the read path
  * keys on (bangumi_id, version).
  *
- * Writes go through raw `sql` execute (the Drizzle read schema is query-only),
- * consistent with the ingest/raw-store and versioning cards owning all mutations.
+ * Statements are built with the Drizzle query builder + the typed expression
+ * helpers, then executed through the single `CatalogDb` seam.
  */
-import { sql } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
+import { statementBuilder } from "../db/client";
+import { itinerarySnapshots } from "../db/schema";
 
 /** A JSON-serializable itinerary snapshot payload. */
 export type SnapshotPayload = Record<string, unknown> | unknown[];
 
-/** UPSERT an itinerary snapshot bound to (bangumi_id, version) so it never drifts. */
+/** INSERT an itinerary snapshot bound to (bangumi_id, version). */
 export async function saveItinerarySnapshot(
   db: CatalogDb, bangumiId: string, version: number, payload: SnapshotPayload,
 ): Promise<void> {
-  await db.execute(sql`
-    INSERT INTO itinerary_snapshots (bangumi_id, cluster_version, payload)
-    VALUES (${bangumiId}, ${version}, ${JSON.stringify(payload)}::jsonb)
-  `);
+  const statement = statementBuilder()
+    .insert(itinerarySnapshots)
+    .values({ bangumiId, clusterVersion: version, payload: JSON.stringify(payload) })
+    .getSQL();
+  await db.execute(statement);
 }
 
 /** Read back the snapshot payload bound to (bangumi_id, version), or null. */
 export async function getItinerarySnapshot(
   db: CatalogDb, bangumiId: string, version: number,
 ): Promise<SnapshotPayload | null> {
-  const rows = (await db.execute(sql`
-      SELECT payload FROM itinerary_snapshots
-      WHERE bangumi_id = ${bangumiId} AND cluster_version = ${version} ORDER BY id DESC LIMIT 1
-    `)).rows as { payload: SnapshotPayload }[];
+  const statement = statementBuilder()
+    .select({ payload: itinerarySnapshots.payload })
+    .from(itinerarySnapshots)
+    .where(and(eq(itinerarySnapshots.bangumiId, bangumiId), eq(itinerarySnapshots.clusterVersion, version)))
+    .orderBy(desc(itinerarySnapshots.id))
+    .limit(1)
+    .getSQL();
+  const rows = (await db.execute(statement)).rows as { payload: SnapshotPayload }[];
   return rows[0]?.payload ?? null;
 }

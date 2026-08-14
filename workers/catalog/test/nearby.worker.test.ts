@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
-import type { CatalogDb, NeonSql } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
 import { nearby } from "../src/api/nearby";
 
 /**
  * Unit tests for the `nearby` transport (card CATALOG-3): wiring only. Radius
  * policy, distance ordering, and typed empty results are unit-tested in
  * nearby-points.worker.test.ts and proven against real PostGIS in
- * nearby-points.spike.test.ts. Here the two reads `nearby()` performs are
- * faked: the geo read via the `neonSql` tag (the geo port's adapter) and the
- * detail read via `db.execute(sql)` (the details port's adapter).
+ * nearby-points.spike.test.ts. Here both reads `nearby()` performs go through
+ * the single `db.execute` seam (the #992 one-adapter cutover): the PostGIS
+ * geo read (via the geo port's adapter) and the detail IN-read (via the
+ * details port's adapter). The fake `db.execute` returns the geo read on its
+ * first call and the detail read on its second (the geo query is always issued
+ * first).
  *
  * Named *.worker.test.ts so the existing vitest-pool-workers config picks it
  * up; the logic is runtime-agnostic.
@@ -52,23 +55,22 @@ const SATTE: DetailRow = {
 
 const DETAILS: DetailRow[] = [WASHINOMIYA, SATTE];
 
-/** Minimal CatalogDb double: handles the detail-load IN read via db.execute(sql). */
-function fakeDb(details: DetailRow[]): CatalogDb {
-  return {
-    execute: (_query: unknown) => Promise.resolve({ rows: details }),
-  } as unknown as CatalogDb;
-}
-
-/** Minimal NeonSql double: returns geo rows for the adapter's template tag. */
-function fakeNeonSql(geo: GeoRow[]): NeonSql {
-  return Object.assign(
-    (_strings: TemplateStringsArray, ..._values: unknown[]) => Promise.resolve(geo),
-    { transaction: undefined },
-  ) as unknown as NeonSql;
+/**
+ * Minimal CatalogDb double: the geo PostGIS read (first execute) then the
+ * detail IN-read (second execute) through the one `db.execute` seam.
+ */
+function fakeDb(geo: GeoRow[], details: DetailRow[]): CatalogDb {
+  let call = 0;
+  const execute = () => {
+    const rows = call === 0 ? geo : details;
+    call += 1;
+    return Promise.resolve({ rows });
+  };
+  return { execute } as unknown as CatalogDb;
 }
 
 const run = (geo: GeoRow[], details: DetailRow[]) =>
-  nearby(fakeDb(details), fakeNeonSql(geo), { lat: 36.1019, lng: 139.6586, radius_m: 10_000 });
+  nearby(fakeDb(geo, details), { lat: 36.1019, lng: 139.6586, radius_m: 10_000 });
 
 describe("nearby (api/nearby.ts)", () => {
   it("returns rows nearest-first with distance_m carried from the geo read", async () => {

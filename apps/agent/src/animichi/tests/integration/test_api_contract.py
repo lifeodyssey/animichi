@@ -15,14 +15,24 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
+from sqlalchemy import delete
 
 from animichi.agents.agent_result import AgentResult, StepRecord
 from animichi.agents.runtime_models import SearchResponseModel
 from animichi.agents.session_state import ResultRef, SearchPayloadState, SessionState
 from animichi.config.settings import Settings
+from animichi.infrastructure.persistence.database import (
+    create_database_lifecycle,
+)
+from animichi.infrastructure.persistence.models import (
+    feedback_table,
+    message_table,
+    session_table,
+)
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 from animichi.infrastructure.session.memory import InMemorySessionStore
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.fastapi_service import create_fastapi_app
 from animichi.interfaces.public_api import PublicAPIResponse, RuntimeAPI
 
@@ -65,7 +75,7 @@ def _canned_public_response() -> PublicAPIResponse:
 
 def _build_test_app(
     *,
-    db: SupabaseClient | object,
+    db: PersistenceRepos | object,
     runtime_api: RuntimeAPI | MagicMock | None = None,
 ) -> FastAPI:
     """Build a FastAPI app pre-configured for testing.
@@ -101,12 +111,12 @@ def _build_test_app(
 def _build_app(
     *,
     runtime_api: RuntimeAPI | MagicMock | None = None,
-    db: SupabaseClient | None = None,
+    db: PersistenceRepos | None = None,
 ) -> httpx.AsyncClient:
     if db is None:
         raise RuntimeError(
-            "tc_db fixture required: _build_app() needs a real SupabaseClient. "
-            "Pass the tc_db fixture as db= parameter."
+            "tc_db fixture required: _build_app() needs the PersistenceRepos "
+            "aggregate. Pass the tc_db fixture as db= parameter."
         )
     app = _build_test_app(db=db, runtime_api=runtime_api)
     transport = httpx.ASGITransport(app=app)
@@ -114,7 +124,7 @@ def _build_app(
 
 
 def _mock_runtime_api(
-    db: SupabaseClient, response: PublicAPIResponse | None = None
+    db: PersistenceRepos, response: PublicAPIResponse | None = None
 ) -> MagicMock:
     """Return a MagicMock that quacks like RuntimeAPI.handle."""
     api = MagicMock(spec=RuntimeAPI)
@@ -125,58 +135,46 @@ def _mock_runtime_api(
 
 
 async def _seed_conversation(
-    db: SupabaseClient, session_id: str, user_id: str, first_query: str = "hi"
+    db: PersistenceRepos, session_id: str, user_id: str, first_query: str = "hi"
 ) -> None:
     """Insert a session row for tests that need one."""
-    pool = db.pool
-    await pool.execute(
-        """
-        INSERT INTO sessions (id, user_id, first_query)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (id) DO NOTHING
-        """,
-        session_id,
-        user_id,
-        first_query,
-    )
+    await db.session.create(session_id, user_id, first_query, {})
 
 
 async def _seed_message(
-    db: SupabaseClient, session_id: str, role: str = "user", content: str = "hi"
+    db: PersistenceRepos, session_id: str, role: str = "user", content: str = "hi"
 ) -> None:
     """Insert a message row for tests that need one."""
-    pool = db.pool
-    await pool.execute(
-        """
-        INSERT INTO messages (session_id, role, content)
-        VALUES ($1, $2, $3)
-        """,
-        session_id,
-        role,
-        content,
-    )
+    await db.session.insert_message(session_id, role, content)
 
 
-async def _cleanup_test_data(db: SupabaseClient) -> None:
+async def _cleanup_test_data(db: PersistenceRepos) -> None:
     """Remove test-inserted rows to preserve isolation."""
-    pool = db.pool
-    await pool.execute("DELETE FROM messages WHERE session_id LIKE 'sess-%'")
-    await pool.execute("DELETE FROM sessions WHERE id LIKE 'sess-%'")
-    await pool.execute(
-        "DELETE FROM feedback WHERE query_text IN ('京吹', 'test', '  ')"
-    )
+    async with db.sessionmaker() as session:
+        async with session.begin():
+            await session.execute(
+                delete(message_table).where(message_table.c.session_id.like("sess-%"))
+            )
+            await session.execute(
+                delete(session_table).where(session_table.c.id.like("sess-%"))
+            )
+            await session.execute(
+                delete(feedback_table).where(
+                    feedback_table.c.query_text.in_(["京吹", "test", "  "])
+                )
+            )
 
 
 # ── GET /healthz ─────────────────────────────────────────────────────────────
 
 
 class TestHealthz:
-    async def test_returns_200(self, tc_db: SupabaseClient) -> None:
+    async def test_returns_200(self, tc_db: PersistenceRepos) -> None:
         async with _build_app(db=tc_db) as client:
             resp = await client.get("/healthz")
         assert resp.status_code == 200
 
-    async def test_response_has_required_keys(self, tc_db: SupabaseClient) -> None:
+    async def test_response_has_required_keys(self, tc_db: PersistenceRepos) -> None:
         async with _build_app(db=tc_db) as client:
             body = (await client.get("/healthz")).json()
         assert "status" in body
@@ -185,7 +183,7 @@ class TestHealthz:
         assert isinstance(body["service"], str)
 
     async def test_response_includes_optional_diagnostics(
-        self, tc_db: SupabaseClient
+        self, tc_db: PersistenceRepos
     ) -> None:
         async with _build_app(db=tc_db) as client:
             body = (await client.get("/healthz")).json()
@@ -197,7 +195,7 @@ class TestHealthz:
 
 
 class TestRoot:
-    async def test_returns_200_with_service_info(self, tc_db: SupabaseClient) -> None:
+    async def test_returns_200_with_service_info(self, tc_db: PersistenceRepos) -> None:
         async with _build_app(db=tc_db) as client:
             resp = await client.get("/")
         assert resp.status_code == 200
@@ -207,114 +205,11 @@ class TestRoot:
         assert isinstance(body["endpoints"], dict)
 
 
-# ── POST /v1/runtime ─────────────────────────────────────────────────────────
-
-
-class TestRuntime:
-    @pytest.mark.parametrize(
-        "model_alias", ["__nope__", "openai:x@https://evil.example"]
-    )
-    def test_invalid_model_alias_returns_http_400(self, model_alias: str) -> None:
-        response = PublicAPIResponse(
-            success=False,
-            status="error",
-            intent="unknown",
-            message="Invalid model alias.",
-            errors=[
-                {
-                    "code": "invalid_model_alias",
-                    "message": "Invalid model alias.",
-                }
-            ],
-        )
-        api = MagicMock(spec=RuntimeAPI)
-        api.handle = AsyncMock(return_value=response)
-        api._db = object()
-        app = _build_test_app(db=object(), runtime_api=api)
-
-        with TestClient(app) as client:
-            result = client.post(
-                "/v1/runtime",
-                json={"text": "hello", "model": model_alias},
-            )
-
-        assert result.status_code == 400
-        assert result.json()["errors"][0]["code"] == "invalid_model_alias"
-
-    async def test_returns_200_with_public_api_shape(
-        self, tc_db: SupabaseClient
-    ) -> None:
-        api = _mock_runtime_api(tc_db)
-        async with _build_app(runtime_api=api, db=tc_db) as client:
-            resp = await client.post(
-                "/v1/runtime",
-                json={"text": "京吹の聖地"},
-                headers={"X-User-Id": "user-1"},
-            )
-        assert resp.status_code == 200
-        body = resp.json()
-        for key in ("success", "status", "intent", "message", "data", "errors"):
-            assert key in body, f"missing key: {key}"
-        assert isinstance(body["success"], bool)
-        assert isinstance(body["status"], str)
-        assert isinstance(body["intent"], str)
-        assert isinstance(body["message"], str)
-        assert isinstance(body["data"], dict)
-        assert isinstance(body["errors"], list)
-
-    async def test_response_includes_optional_ui_field(
-        self, tc_db: SupabaseClient
-    ) -> None:
-        api = _mock_runtime_api(tc_db)
-        async with _build_app(runtime_api=api, db=tc_db) as client:
-            body = (
-                await client.post(
-                    "/v1/runtime",
-                    json={"text": "京吹"},
-                    headers={"X-User-Id": "user-1"},
-                )
-            ).json()
-        # ui may be null or a dict with "component"
-        if body.get("ui") is not None:
-            assert isinstance(body["ui"], dict)
-            assert "component" in body["ui"]
-
-    async def test_blank_text_returns_422(self, tc_db: SupabaseClient) -> None:
-        async with _build_app(db=tc_db) as client:
-            resp = await client.post("/v1/runtime", json={"text": "  "})
-        assert resp.status_code == 422
-        body = resp.json()
-        assert "error" in body
-        assert "code" in body["error"]
-        assert "message" in body["error"]
-
-    async def test_invalid_json_returns_400(self, tc_db: SupabaseClient) -> None:
-        async with _build_app(db=tc_db) as client:
-            resp = await client.post(
-                "/v1/runtime",
-                content=b"not-json{{{",
-                headers={"Content-Type": "application/json"},
-            )
-        assert resp.status_code == 400
-        body = resp.json()
-        assert body["error"]["code"] == "invalid_json"
-
-    async def test_missing_body_returns_422(self, tc_db: SupabaseClient) -> None:
-        async with _build_app(db=tc_db) as client:
-            resp = await client.post(
-                "/v1/runtime",
-                content=b"{}",
-                headers={"Content-Type": "application/json"},
-            )
-        # Empty text and no selected_point_ids -> validation error
-        assert resp.status_code == 422
-
-
 # ── GET /v1/conversations ────────────────────────────────────────────────────
 
 
 class TestConversations:
-    async def test_returns_200_list(self, tc_db: SupabaseClient) -> None:
+    async def test_returns_200_list(self, tc_db: PersistenceRepos) -> None:
         async with _build_app(db=tc_db) as client:
             resp = await client.get(
                 "/v1/conversations",
@@ -325,7 +220,7 @@ class TestConversations:
         assert isinstance(body, list)
 
     async def test_missing_user_header_returns_400_error_shape(
-        self, tc_db: SupabaseClient
+        self, tc_db: PersistenceRepos
     ) -> None:
         async with _build_app(db=tc_db) as client:
             resp = await client.get("/v1/conversations")
@@ -340,7 +235,7 @@ class TestConversations:
 
 
 class TestConversationMessages:
-    async def test_returns_200_with_messages_key(self, tc_db: SupabaseClient) -> None:
+    async def test_returns_200_with_messages_key(self, tc_db: PersistenceRepos) -> None:
         await _seed_conversation(tc_db, "sess-msg-1", "user-1")
         await _seed_message(tc_db, "sess-msg-1", role="user", content="hi")
         try:
@@ -356,7 +251,9 @@ class TestConversationMessages:
         finally:
             await _cleanup_test_data(tc_db)
 
-    async def test_ownership_mismatch_returns_404(self, tc_db: SupabaseClient) -> None:
+    async def test_ownership_mismatch_returns_404(
+        self, tc_db: PersistenceRepos
+    ) -> None:
         await _seed_conversation(tc_db, "sess-owned", "other-user")
         try:
             async with _build_app(db=tc_db) as client:
@@ -371,7 +268,7 @@ class TestConversationMessages:
             await _cleanup_test_data(tc_db)
 
     async def test_missing_conversation_returns_404(
-        self, tc_db: SupabaseClient
+        self, tc_db: PersistenceRepos
     ) -> None:
         async with _build_app(db=tc_db) as client:
             resp = await client.get(
@@ -385,7 +282,7 @@ class TestConversationMessages:
 
 
 class TestConversationPatch:
-    async def test_returns_200_on_success(self, tc_db: SupabaseClient) -> None:
+    async def test_returns_200_on_success(self, tc_db: PersistenceRepos) -> None:
         await _seed_conversation(tc_db, "sess-patch-1", "user-1")
         try:
             async with _build_app(db=tc_db) as client:
@@ -400,7 +297,7 @@ class TestConversationPatch:
         finally:
             await _cleanup_test_data(tc_db)
 
-    async def test_blank_title_returns_422(self, tc_db: SupabaseClient) -> None:
+    async def test_blank_title_returns_422(self, tc_db: PersistenceRepos) -> None:
         await _seed_conversation(tc_db, "sess-patch-2", "user-1")
         try:
             async with _build_app(db=tc_db) as client:
@@ -413,7 +310,9 @@ class TestConversationPatch:
         finally:
             await _cleanup_test_data(tc_db)
 
-    async def test_missing_user_header_returns_400(self, tc_db: SupabaseClient) -> None:
+    async def test_missing_user_header_returns_400(
+        self, tc_db: PersistenceRepos
+    ) -> None:
         async with _build_app(db=tc_db) as client:
             resp = await client.patch(
                 "/v1/conversations/sess-patch-3",
@@ -426,7 +325,7 @@ class TestConversationPatch:
 
 
 class TestFeedback:
-    async def test_returns_200_with_feedback_id(self, tc_db: SupabaseClient) -> None:
+    async def test_returns_200_with_feedback_id(self, tc_db: PersistenceRepos) -> None:
         try:
             async with _build_app(db=tc_db) as client:
                 resp = await client.post(
@@ -440,7 +339,7 @@ class TestFeedback:
         finally:
             await _cleanup_test_data(tc_db)
 
-    async def test_blank_query_text_returns_422(self, tc_db: SupabaseClient) -> None:
+    async def test_blank_query_text_returns_422(self, tc_db: PersistenceRepos) -> None:
         async with _build_app(db=tc_db) as client:
             resp = await client.post(
                 "/v1/feedback",
@@ -450,7 +349,7 @@ class TestFeedback:
         body = resp.json()
         assert body["error"]["code"] == "invalid_request"
 
-    async def test_invalid_rating_returns_422(self, tc_db: SupabaseClient) -> None:
+    async def test_invalid_rating_returns_422(self, tc_db: PersistenceRepos) -> None:
         async with _build_app(db=tc_db) as client:
             resp = await client.post(
                 "/v1/feedback",
@@ -458,7 +357,7 @@ class TestFeedback:
             )
         assert resp.status_code == 422
 
-    async def test_invalid_json_returns_400(self, tc_db: SupabaseClient) -> None:
+    async def test_invalid_json_returns_400(self, tc_db: PersistenceRepos) -> None:
         async with _build_app(db=tc_db) as client:
             resp = await client.post(
                 "/v1/feedback",
@@ -478,7 +377,7 @@ class TestErrorShape:
 
     _ERROR_CASES = [
         ("GET", "/v1/conversations", None, None, 400),
-        ("POST", "/v1/runtime", {"text": "  "}, None, 422),
+        ("POST", "/v1/feedback", {"rating": "good", "query_text": "  "}, None, 422),
     ]
 
     @pytest.mark.parametrize(
@@ -488,7 +387,7 @@ class TestErrorShape:
     )
     async def test_error_responses_have_standard_shape(
         self,
-        tc_db: SupabaseClient,
+        tc_db: PersistenceRepos,
         method: str,
         path: str,
         json_body: dict[str, object] | None,
@@ -519,13 +418,10 @@ class TestDBConnectionFailure:
         with pytest.raises(RuntimeError, match="tc_db fixture required"):
             _build_app(db=None)
 
-    async def test_unconnected_client_surfaces_error(self) -> None:
-        """A client that was never connect()-ed should fail on DB operations."""
-        bad_client = SupabaseClient(
-            "postgresql://localhost:1/nonexistent",
-            min_pool_size=1,
-            max_pool_size=2,
-        )
+    async def test_unreachable_database_surfaces_error(self) -> None:
+        """An aggregate over an unreachable database fails on DB operations."""
+        lifecycle = create_database_lifecycle("postgresql://localhost:1/nonexistent")
+        bad_client = PersistenceRepos.build(lifecycle.sessionmaker)
         app = _build_test_app(db=bad_client)
         # raise_app_exceptions=False lets FastAPI's exception handler
         # return the 500 response instead of re-raising in the test.

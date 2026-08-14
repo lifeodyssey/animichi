@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TypeVar
@@ -79,6 +79,7 @@ class EvalTierTarget:
     tier: str
     source: str
     web_mocks: EvalWebMocks = field(default_factory=EvalWebMocks)
+    on_close: Callable[[], Awaitable[None]] | None = None
 
 
 def trajectory_web_mocks() -> EvalWebMocks:

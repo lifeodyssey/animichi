@@ -1,0 +1,19 @@
+# Policy (raw-SQL slice, #999): the Agent talks to Postgres only through the
+# SQLAlchemy async ORM (create_async_engine / AsyncSession). Calling
+# cursor.execute() / conn.execute() / executemany() with an inline SQL string
+# literal in runtime code bypasses the ORM boundary and is forbidden.
+#
+# Scope: runtime code under /apps/agent (tests/ are excluded by .semgrepignore).
+rules:
+  - id: py-no-inline-sql-execute
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Raw SQL executed via an inline string literal (cursor/conn execute). This
+      bypasses the SQLAlchemy ORM boundary (#999, #992). Express the operation
+      with the ORM query builder / repositories; PostgreSQL-specific fragments
+      live only in apps/agent/src/animichi/infrastructure/persistence/expressions.py.
+    paths:
+      include:
+        - /apps/agent
+    pattern-regex: "(?i)\\.(?:execute|executemany)\\s*\\(\\s*[fbru]*[\"']\\s*(select|insert|update|delete|create|drop|alter|with)\\b"

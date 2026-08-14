@@ -1,4 +1,5 @@
-import { resolveOrigin } from "../../api/config";
+import { type ApiOriginInput, resolveAgentBaseUrl } from "../../api/config";
+import { currentRuntimeConfig } from "../../lib/runtime-config/provider";
 
 /** Chat talks to the Python agent through the `/v1` edge routes. */
 export interface ChatApiConfig {
@@ -6,19 +7,17 @@ export interface ChatApiConfig {
   readonly chatUrl: string;
 }
 
-type Env = Readonly<Record<string, string | undefined>>;
-
 export function resolveChatConfig(
-  env: Env,
+  api: ApiOriginInput,
   location?: { readonly origin: string },
 ): ChatApiConfig {
-  const baseUrl = env.VITE_AGENT_URL ?? resolveOrigin(env, location);
+  const baseUrl = resolveAgentBaseUrl(api, location);
   return { baseUrl, chatUrl: `${baseUrl}/v1/chat` };
 }
 
 export function currentChatConfig(): ChatApiConfig {
   const location = typeof window === "undefined" ? undefined : window.location;
-  return resolveChatConfig(import.meta.env, location);
+  return resolveChatConfig(currentRuntimeConfig().api, location);
 }
 
 export function healthzUrl(baseUrl: string): string {

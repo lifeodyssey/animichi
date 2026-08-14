@@ -1,6 +1,6 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
-import type { CatalogDb, NeonSql } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 import type { UpstreamUnavailableData } from "../src/lib/errors";
 
@@ -25,15 +25,13 @@ async function handleRequest(body: unknown, context: CatalogContext) {
 function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogContext {
   const execute = () => Promise.resolve({ rows: responses.shift() ?? [] });
   const db = { execute } as unknown as CatalogDb;
-  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
-  return { db, neonSql, fetchImpl };
+  return { db, fetchImpl };
 }
 
 function unreachableContext(): CatalogContext {
   const execute = () => { throw new Error("db should not be reached"); };
   const db = { execute } as unknown as CatalogDb;
-  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
-  return { db, neonSql };
+  return { db };
 }
 
 describe("work-id contract on the OpenAPI wire", () => {

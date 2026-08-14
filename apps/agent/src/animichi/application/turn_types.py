@@ -21,6 +21,7 @@ from animichi.application.turn_admission import (
 )
 from animichi.application.turn_outcome import TurnOutcome
 from animichi.application.turn_outcome_port import TurnRef
+from animichi.domain.repo_types import SessionStateData
 
 logger = structlog.get_logger(__name__)
 
@@ -110,7 +111,7 @@ class SessionSnapshot:
     """A loaded (or freshly created) session and its derived context."""
 
     session_id: str | None
-    session_state: dict[str, object]
+    session_state: SessionStateData
     context: dict[str, object] | None
     history: Sequence[object]
     is_new: bool = False
@@ -120,7 +121,7 @@ class SessionSnapshot:
 class PersistOutcome:
     """The stored session envelope plus its generated title."""
 
-    session_state: dict[str, object]
+    session_state: SessionStateData
     generated_title: str | None = None
     user_message_persisted: bool = True
 
