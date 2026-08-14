@@ -273,7 +273,9 @@ class_name = "EdgeGuard"
 
 [[env.production.ratelimits]]
 name = "RATE_LIMITER"
-namespace_id = "REPLACE_WITH_OPERATOR_PROVISIONED_RATELIMIT_NAMESPACE_ID"  # NOTE: deploy requires provisioning the ratelimit namespace first
+# Chosen integer, distinct per environment so production counters stay
+# independent of dev/staging. Do not reuse across unrelated bindings.
+namespace_id = "100003"
 simple = { limit = 60, period = 60 }
 
 [[env.production.migrations]]
@@ -428,7 +430,9 @@ class_name = "EdgeGuard"
 
 [[env.staging.ratelimits]]
 name = "RATE_LIMITER"
-namespace_id = "REPLACE_WITH_OPERATOR_PROVISIONED_RATELIMIT_NAMESPACE_ID"  # NOTE: deploy requires provisioning the ratelimit namespace first
+# Chosen integer, distinct per environment so staging counters stay
+# independent of dev/production. Do not reuse across unrelated bindings.
+namespace_id = "100002"
 simple = { limit = 60, period = 60 }
 
 [[env.staging.migrations]]
@@ -445,14 +449,22 @@ new_sqlite_classes = ["EdgeGuard"]
 # counter, so no per-isolate local limiter can bypass it.
 #
 # Schema: [[ratelimits]] with name = the binding variable (env.RATE_LIMITER),
-# a REQUIRED namespace_id (provisioned in the Cloudflare dashboard), and a
-# simple fixed window { limit, period } where period is 10 or 60. Wrangler
-# requires the binding in every named environment, so it is repeated under
-# [env.production] and [env.staging]. The placeholder namespace_id MUST be
-# replaced by the operator before deploy; absent the binding entirely the
+# a REQUIRED namespace_id — a CHOSEN POSITIVE INTEGER per CF docs (not a
+# dashboard/API-provisioned resource; ratelimit bindings are not visible in
+# the dashboard), e.g. "1001" — and a simple fixed window { limit, period }
+# where period is 10 or 60. Wrangler requires the binding in every named
+# environment, so it is repeated under [env.production] and [env.staging] as
+# distinct ids (100001/100002/100003) so dev/staging/production counters stay
+# independent. Do NOT reuse a namespace_id for any unrelated binding on the
+# same account: two bindings sharing one namespace_id share one global
+# counter (intentional cross-Worker sharing). Absent the binding entirely the
 # worker fails the native tier open with an alert (never a 500). The exact
 # durable/fail-closed tier remains the EDGE_GUARD Durable Object.
 [[ratelimits]]
 name = "RATE_LIMITER"
-namespace_id = "REPLACE_WITH_OPERATOR_PROVISIONED_RATELIMIT_NAMESPACE_ID"  # NOTE: deploy requires provisioning the ratelimit namespace first
+# namespace_id is a CHOSEN positive integer (per CF docs, not a dashboard/
+# API-provisioned resource). 100001 is the base/dev namespace. Do NOT reuse
+# this id for any other binding on this account: two bindings that share a
+# namespace_id share one global counter (intentional cross-Worker sharing).
+namespace_id = "100001"
 simple = { limit = 60, period = 60 }
