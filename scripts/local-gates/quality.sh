@@ -46,6 +46,8 @@ run bash "$GS/check-e2e-promotion.test.sh"
 run bash "$GS/check-e2e-promotion.sh"
 run bash "$GS/check-actions-pinned.test.sh"
 run bash "$GS/check-actions-pinned.sh"
+run bash "$GS/check-web-runtime-config-payloads.test.sh"
+run bash "$GS/check-web-runtime-config-payloads.sh"
 run ruby "$GS/test_ci_contract.rb"
 run ruby "$GS"/test_*cov_patch.rb
 run actionlint

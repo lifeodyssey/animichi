@@ -106,7 +106,7 @@ jobs:
           # lane writes the payload there (the file is runtime-generated, never
           # committed). See src/lib/runtime-config + runtime-config-plugin.ts.
           DEV_VARS=apps/web/.dev.vars
-          RUNTIME_CONFIG='{"schemaVersion":1,"api":{"agentUrl":"http://127.0.0.1:9001","siteOrigin":"http://localhost:8799"},"neonAuthBaseUrl":"http://127.0.0.1:9","turnstileSiteKey":"1x00000000000000000000AA","showcaseMode":"false""featureFlags":{}}'
+          RUNTIME_CONFIG='{"schemaVersion":1,"api":{"agentUrl":"http://127.0.0.1:9001","siteOrigin":"http://localhost:8799"},"neonAuthBaseUrl":"http://127.0.0.1:9","turnstileSiteKey":"1x00000000000000000000AA","showcaseMode":"false","featureFlags":{}}'
           printf 'RUNTIME_CONFIG=%s\n' "$RUNTIME_CONFIG" > "$DEV_VARS"
           trap 'kill "$wrangler_pid" 2>/dev/null || true; rm -f "$DEV_VARS"' EXIT
           pnpm --filter web exec wrangler dev --port 8799 &

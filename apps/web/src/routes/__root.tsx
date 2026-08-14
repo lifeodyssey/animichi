@@ -73,7 +73,6 @@ const ROOT_META = [
 function rootScripts(config: ReturnType<typeof currentRuntimeConfig>) {
   return [
     { children: THEME_BOOTSTRAP_SCRIPT },
-    { children: runtimeConfigInlineScript(config) },
     ...cfWebAnalyticsScripts(config.cfBeaconToken, import.meta.env.PROD),
   ];
 }
@@ -134,12 +133,22 @@ export function SkipLink({ lang }: { readonly lang: Locale }) {
   );
 }
 
+/** Body-level runtime-config seed (#1013), independent of head serialization. */
+function RuntimeConfigSeed() {
+  return (
+    <script
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{ __html: runtimeConfigInlineScript(currentRuntimeConfig()) }}
+    />
+  );
+}
+
 function RootDocument({ children }: RootDocumentProps) {
   const lang = langFromMatches(useMatches());
   return (
     <html lang={lang}>
       <head><HeadContent /></head>
-      <body><Splash /><SkipLink lang={lang} /><div id="main-content" tabIndex={-1}>{children}</div><Scripts /></body>
+      <body><Splash /><SkipLink lang={lang} /><RuntimeConfigSeed /><div id="main-content" tabIndex={-1}>{children}</div><Scripts /></body>
     </html>
   );
 }

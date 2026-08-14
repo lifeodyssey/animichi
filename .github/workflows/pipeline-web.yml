@@ -149,14 +149,15 @@ jobs:
           # #1013: env-neutral bundle -> supply runtime config so the Worker does
           # not degrade to the env-neutral default in these browser lanes.
           DEV_VARS=apps/web/.dev.vars
-          RUNTIME_CONFIG='{"schemaVersion":1,"api":{"agentUrl":"http://127.0.0.1:9001","siteOrigin":"http://localhost:8799"},"neonAuthBaseUrl":"http://127.0.0.1:9","turnstileSiteKey":"1x00000000000000000000AA","showcaseMode":"false""featureFlags":{}}'
+          RUNTIME_CONFIG='{"schemaVersion":1,"api":{"agentUrl":"http://127.0.0.1:9001","siteOrigin":"http://localhost:8799"},"neonAuthBaseUrl":"http://127.0.0.1:9","turnstileSiteKey":"1x00000000000000000000AA","showcaseMode":"false","featureFlags":{}}'
           printf 'RUNTIME_CONFIG=%s\n' "$RUNTIME_CONFIG" > "$DEV_VARS"
+          # Failure-proof cleanup: a failing spec must not strand a wrangler
+          # process or a .dev.vars file in the workspace (#1013).
           pnpm --filter web exec wrangler dev --port 8799 &
           WRANGLER_PID=$!
+          trap 'kill "$WRANGLER_PID" 2>/dev/null || true; rm -f "$DEV_VARS"' EXIT
           for _ in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8799/ && break; sleep 1; done
           E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts web-state-ownership.spec.ts
-          kill "$WRANGLER_PID"
-          rm -f "$DEV_VARS"
 
   accessibility:
     # Issue #1015 AC6: WCAG 2.2 AA on the critical journeys is a required
@@ -210,14 +211,15 @@ jobs:
           VITE_SHOWCASE_MODE: "false"
         run: |
           DEV_VARS=apps/web/.dev.vars
-          RUNTIME_CONFIG='{"schemaVersion":1,"api":{"agentUrl":"http://127.0.0.1:9001","siteOrigin":"http://localhost:8799"},"neonAuthBaseUrl":"http://127.0.0.1:9","turnstileSiteKey":"1x00000000000000000000AA","showcaseMode":"false""featureFlags":{}}'
+          RUNTIME_CONFIG='{"schemaVersion":1,"api":{"agentUrl":"http://127.0.0.1:9001","siteOrigin":"http://localhost:8799"},"neonAuthBaseUrl":"http://127.0.0.1:9","turnstileSiteKey":"1x00000000000000000000AA","showcaseMode":"false","featureFlags":{}}'
           printf 'RUNTIME_CONFIG=%s\n' "$RUNTIME_CONFIG" > "$DEV_VARS"
+          # Failure-proof cleanup: a failing axe/keyboard/states spec must not
+          # strand a wrangler process or a .dev.vars file (#1013).
           pnpm --filter web exec wrangler dev --port 8799 &
           WRANGLER_PID=$!
+          trap 'kill "$WRANGLER_PID" 2>/dev/null || true; rm -f "$DEV_VARS"' EXIT
           for _ in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8799/ && break; sleep 1; done
           E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-a11y-axe.spec.ts web-a11y-keyboard.spec.ts web-a11y-states.spec.ts
-          kill "$WRANGLER_PID"
-          rm -f "$DEV_VARS"
 
   lighthouse:
     name: Web / lighthouse

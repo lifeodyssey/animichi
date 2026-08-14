@@ -77,6 +77,8 @@ e2e/.auth/
 .env.local
 .env.test
 .env.production
+# Wrangler local dev vars (runtime-generated for e2e lanes, never committed)
+.dev.vars
 secrets/
 credentials/
 anitabi/
