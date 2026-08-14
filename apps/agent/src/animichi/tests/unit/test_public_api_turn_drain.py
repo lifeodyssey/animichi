@@ -135,16 +135,16 @@ async def test_a_turn_that_raises_after_the_agent_ran_still_settles_and_meters()
             "animichi.interfaces.public_api.persist_result",
             new=AsyncMock(side_effect=RuntimeError("session store down")),
         ),
-        pytest.raises(RuntimeError),
     ):
-        await api.handle(
-            request,
-            user_id=ANON_USER_ID,
-            user_type="anonymous",
-            outcome=outcome,
-            turn_ref=TURN_REF,
-            owner=OWNER,
-        )
+        with pytest.raises(RuntimeError):
+            await api.handle(
+                request,
+                user_id=ANON_USER_ID,
+                user_type="anonymous",
+                outcome=outcome,
+                turn_ref=TURN_REF,
+                owner=OWNER,
+            )
     assert ("settle", "s-1", "turn-1", OWNER, "completed") in store.calls
     assert not any(c[0] == "release" for c in store.calls)
     assert outbox.pending_kinds() == {"usage", "quota", "audit"}
@@ -169,16 +169,16 @@ async def test_a_turn_that_dies_before_dispatch_is_released_not_settled() -> Non
             "animichi.interfaces.public_api.create_owned_session",
             side_effect=_session_boom,
         ),
-        pytest.raises(RuntimeError),
     ):
-        await api.handle(
-            request,
-            user_id=ANON_USER_ID,
-            user_type="anonymous",
-            outcome=outcome,
-            turn_ref=TURN_REF,
-            owner=OWNER,
-        )
+        with pytest.raises(RuntimeError):
+            await api.handle(
+                request,
+                user_id=ANON_USER_ID,
+                user_type="anonymous",
+                outcome=outcome,
+                turn_ref=TURN_REF,
+                owner=OWNER,
+            )
     assert ("release", "s-1", "turn-1", OWNER) in store.calls
     assert not any(c[0] == "settle" for c in store.calls)
     assert outbox.pending_kinds() == set()
