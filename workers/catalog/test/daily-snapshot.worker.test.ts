@@ -16,7 +16,9 @@ import { fakeCatalogDb } from "./fakes/fake-catalog-db";
 import { inMemoryObjectStore } from "./fakes/in-memory-object-store";
 import { DAILY_DISCOVER_CRON } from "../src/cron-config";
 
-const ENV = { DATABASE_URL: "postgresql://u:p@host/db" };
+// Daily-snapshot publish is a production-lineage behaviour (the daily ingest
+// discover cron runs only in production per the per-env AC1 guard).
+const ENV = { DATABASE_URL: "postgresql://u:p@host/db", ENVIRONMENT: "production" };
 const db = fakeCatalogDb({});
 
 /** A complete run outcome carrying the real run id + createdAt the gate must thread through. */
@@ -36,6 +38,8 @@ function gateDeps(overrides: Partial<CronDependencies> = {}): CronDependencies {
       publishSnapshot({ db: d, store: s }, { sourceRunId: runId, createdAt: at }),
     ),
     gcSnapshots: vi.fn<CronDependencies["gcSnapshots"]>().mockImplementation((s) => gcSnapshots(s, 2)),
+    importSource: vi.fn<CronDependencies["importSource"]>().mockReturnValue(null),
+    runImport: vi.fn<CronDependencies["runImport"]>().mockResolvedValue({ status: "invalid", reason: "no-op" }),
     ...overrides,
   };
 }
@@ -77,7 +81,7 @@ describe("daily snapshot publish gate (AC3/AC6)", () => {
     const deps = gateDeps({
       snapshotStore: vi.fn().mockReturnValue(null),
     });
-    await createScheduledHandler(deps)({ cron: DAILY_DISCOVER_CRON }, { DATABASE_URL: "dsn" });
+    await createScheduledHandler(deps)({ cron: DAILY_DISCOVER_CRON }, { DATABASE_URL: "dsn", ENVIRONMENT: "production" });
     expect(deps.runDailyIngest).toHaveBeenCalledTimes(1);
     expect(deps.publishRun).not.toHaveBeenCalled();
     expect(deps.gcSnapshots).not.toHaveBeenCalled();

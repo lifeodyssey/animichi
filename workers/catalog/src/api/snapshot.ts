@@ -16,6 +16,7 @@ import { Hono } from "hono";
 import type { Env } from "../index";
 import type { CatalogDb } from "../db/client";
 import { r2ObjectStore } from "../publish/object-store";
+import { timingSafeEqual } from "../lib/timing";
 import { readCurrentSnapshot, rollbackToPrevious, type SnapshotDeps } from "../publish/snapshot";
 
 /** A db that must never be queried: snapshot reads/rollback are store-only. */
@@ -50,12 +51,4 @@ export function mountSnapshotRoutes(app: Hono<{ Bindings: Env }>): void {
     if (manifest === null) return c.json({ error: "nothing to roll back to" }, 404);
     return c.json(manifest);
   });
-}
-
-/** Constant-time string comparison for the bearer-token guard (timing-safe). */
-function timingSafeEqual(left: string, right: string): boolean {
-  if (left.length !== right.length) return false;
-  let difference = 0;
-  for (let i = 0; i < left.length; i += 1) difference |= left.charCodeAt(i) ^ right.charCodeAt(i);
-  return difference === 0;
 }

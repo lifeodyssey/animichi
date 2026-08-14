@@ -80,11 +80,29 @@ describe("catalog has no public host", () => {
     expect(toml).not.toMatch(/^\s*routes\s*=/m);
   });
 
-  // Byte-identical cron strings in every environment; keep in sync with
-  // SEED_CRON / TTL_REFRESH_CRON / DAILY_DISCOVER_CRON in src/cron-config.ts.
-  it("declares all three ingest schedules for default, staging, and production", () => {
-    const daily = toml.split('crons = ["0 4 * * *", "0 6 * * *", "17 * * * *"]');
-    expect(daily).toHaveLength(4);
+  // Per-environment schedules (issue #1016, spec §183): production alone
+  // declares the three ingest crons; staging declares ONLY the daily import
+  // cron; development (top-level) declares none. Keep in sync with the
+  // SEED_CRON / DAILY_DISCOVER_CRON / TTL_REFRESH_CRON / DAILY_IMPORT_CRON
+  // strings in src/cron-config.ts.
+  it("declares the three ingest schedules for production only", () => {
+    expect(toml.split('crons = ["0 4 * * *", "0 6 * * *", "17 * * * *"]')).toHaveLength(2);
+  });
+
+  it("declares only the daily import cron for staging", () => {
+    const staging = toml.split('crons = ["0 3 * * *"]');
+    expect(staging).toHaveLength(2);
+    expect(toml.split('["0 4 * * *", "0 6 * * *", "17 * * * *"]')).toHaveLength(2);
+  });
+
+  it("declares no crons for the development environment", () => {
+    expect(toml.split('crons = []')).toHaveLength(2);
+  });
+
+  it("wires staging's daily import to a private read-only binding (AC2)", () => {
+    expect(toml).toContain('[[env.staging.services]]');
+    expect(toml).toContain('binding = "PROD_SNAPSHOT"');
+    expect(toml).toContain('service = "catalog"');
   });
 
   it.each(Object.entries(PRIVACY))("%s declares %s", (name, expected) => {
