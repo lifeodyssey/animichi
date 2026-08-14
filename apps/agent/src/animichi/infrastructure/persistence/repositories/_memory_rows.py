@@ -92,13 +92,13 @@ def _update_statement(
         update(memory_table)
         .where(memory_table.c.path == path)
         .where(cast(memory_table.c.version, Text) == expected_version)
-        .values(**_update_values(path, content, operation))
+        .values(**_update_values(content, operation))
         .returning(memory_table.c.version)
     )
 
 
 def _update_values(
-    path: str, content: str, operation: MemoryOperation | None
+    content: str, operation: MemoryOperation | None
 ) -> dict[str, object]:
     "The versioned columns updated by compare-and-set."
     return {

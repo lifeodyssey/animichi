@@ -48,7 +48,7 @@ const vectorDim = (dimensions: number) =>
         .slice(1, -1)
         .split(",")
         .filter((part) => part.length > 0)
-        .map((part) => Number(part));
+        .map(Number);
     },
   });
 

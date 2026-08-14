@@ -210,7 +210,8 @@ class TestSSEToolPartShape:
 
         input_frames = [f for f in frames if f["type"] == "tool-input-available"]
         output_frames = [f for f in frames if f["type"] == "tool-output-available"]
-        assert input_frames and output_frames
+        assert input_frames
+        assert output_frames
         for frame in input_frames:
             assert frame["toolName"] == "search_bangumi"
         for frame in output_frames:

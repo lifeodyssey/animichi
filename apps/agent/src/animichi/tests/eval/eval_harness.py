@@ -321,18 +321,38 @@ async def _agent_task(
     title_translator: TitleTranslator | None,
 ) -> AgentResult:
     from animichi.agents.animichi_runner import run_animichi_agent
+    from animichi.application.errors import InvalidInputError
 
-    return await run_animichi_agent(
-        text=inp.query,
-        db=db,
-        model=model,
-        locale=inp.locale,
-        context=dict(inp.context) if inp.context is not None else None,
-        message_history=_message_history(inp.context),
-        catalog=catalog_factory(),
-        web_searcher=web_searcher,
-        title_translator=title_translator,
-    )
+    try:
+        return await run_animichi_agent(
+            text=inp.query,
+            db=db,
+            model=model,
+            locale=inp.locale,
+            context=dict(inp.context) if inp.context is not None else None,
+            message_history=_message_history(inp.context),
+            catalog=catalog_factory(),
+            web_searcher=web_searcher,
+            title_translator=title_translator,
+        )
+    except InvalidInputError:
+        # #984 rejects blank input with InvalidInputError; the production
+        # AgentTurn boundary turns that into a graceful rejection result (not a
+        # crash). Mirror it here so the L0 empty_input smoke case evaluates as a
+        # produced result instead of an agent error.
+        from pydantic_ai.usage import RunUsage
+
+        from animichi.agents.runtime_models import BlockedResponseModel
+        from animichi.agents.session_state import SessionState
+
+        return AgentResult(
+            output=BlockedResponseModel(message="Empty message."),
+            intent="general_qa",
+            session_state=SessionState(),
+            usage=RunUsage(),
+            status="blocked",
+            success_override=False,
+        )
 
 
 def make_agent_task(

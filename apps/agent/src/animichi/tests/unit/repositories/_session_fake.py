@@ -45,6 +45,10 @@ class _ScalarResult:
         self._maybe_raise()
         return self._value
 
+    def scalar_one(self) -> object | None:
+        self._maybe_raise()
+        return self._value
+
     def scalars(self) -> _ScalarSequence:
         self._maybe_raise()
         values = self._value if isinstance(self._value, list) else []

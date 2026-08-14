@@ -11,7 +11,7 @@ import pytest
 from animichi.infrastructure.session.cached_session_store import CachedSessionStore
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_db() -> AsyncMock:
     db = AsyncMock()
     db.get_session_state.return_value = None

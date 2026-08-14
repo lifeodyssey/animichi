@@ -83,7 +83,7 @@ forbidden || fail=1
 approved || fail=1
 baseline || fail=1
 
-if [ "${fail}" -eq 0 ]; then
+if [[ "${fail}" -eq 0 ]]; then
   echo "Pass: raw-SQL policy gate self-test succeeded."
 else
   echo "Fail: raw-SQL policy gate self-test reported errors above." >&2

@@ -103,6 +103,6 @@ void test("Dependabot reports incomplete verification without an autonomous writ
 void test("Dependabot runs tests from source without installing the local project", () => {
   const backend = stepNamed("Backend quality + tests");
   assert.match(backend, /uv run --no-build --no-sync python -m pytest/);
-  assert.match(backend, /SUPABASE_DB_URL: postgresql:\/\/test:test@127\.0\.0\.1:5432\/test/);
+  assert.match(backend, /AGENT_SVC_DATABASE_URL: postgresql:\/\/test:test@127\.0\.0\.1:5432\/test/);
   assert.match(backend, /MIMO_API_KEY: test-only/);
 });
