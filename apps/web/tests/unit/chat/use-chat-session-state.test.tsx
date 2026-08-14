@@ -99,7 +99,7 @@ describe("session switch resets the chat instance", () => {
     await sendAndSettle(view, "ユーフォ");
     const count = view.result.current.messages.length;
     view.rerender({ sessionId: "A" });
-    expect(view.result.current.messages.length).toBe(count);
+    expect(view.result.current.messages).toHaveLength(count);
   });
 });
 

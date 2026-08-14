@@ -82,7 +82,8 @@ async def test_catastrophic_settlement_escape_on_replay_settles_failed() -> None
     first = await harness.agent(_input())
     assert first.outcome == "completed"
 
+    replay = _input()
     with pytest.raises(RuntimeError, match="settle boom"):
-        await harness.agent(_input())
+        await harness.agent(replay)
     # terminal settle + the catastrophic settle_failed fallback both fire.
     assert boom_settlement.boots == 3

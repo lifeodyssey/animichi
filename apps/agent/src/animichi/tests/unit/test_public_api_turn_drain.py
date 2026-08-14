@@ -126,6 +126,9 @@ async def test_a_turn_that_raises_after_the_agent_ran_still_settles_and_meters()
     db, outbox = _db()
     store = _RecordingStore()
     stub = make_run_agent_stub(_metered_result())
+    request = PublicAPIRequest(text="京吹の聖地")
+    outcome = _outcome(store)
+    api = _api(db)
     with (
         patch("animichi.interfaces.public_api.run_animichi_agent", side_effect=stub),
         patch(
@@ -134,11 +137,11 @@ async def test_a_turn_that_raises_after_the_agent_ran_still_settles_and_meters()
         ),
         pytest.raises(RuntimeError),
     ):
-        await _api(db).handle(
-            PublicAPIRequest(text="京吹の聖地"),
+        await api.handle(
+            request,
             user_id=ANON_USER_ID,
             user_type="anonymous",
-            outcome=_outcome(store),
+            outcome=outcome,
             turn_ref=TURN_REF,
             owner=OWNER,
         )
@@ -158,6 +161,9 @@ async def test_a_turn_that_dies_before_dispatch_is_released_not_settled() -> Non
     async def _session_boom(*_args: object, **_kwargs: object) -> None:
         raise RuntimeError("session store down")
 
+    request = PublicAPIRequest(text="京吹の聖地")
+    outcome = _outcome(store)
+    api = _api(db)
     with (
         patch(
             "animichi.interfaces.public_api.create_owned_session",
@@ -165,11 +171,11 @@ async def test_a_turn_that_dies_before_dispatch_is_released_not_settled() -> Non
         ),
         pytest.raises(RuntimeError),
     ):
-        await _api(db).handle(
-            PublicAPIRequest(text="京吹の聖地"),
+        await api.handle(
+            request,
             user_id=ANON_USER_ID,
             user_type="anonymous",
-            outcome=_outcome(store),
+            outcome=outcome,
             turn_ref=TURN_REF,
             owner=OWNER,
         )

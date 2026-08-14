@@ -74,8 +74,9 @@ async def test_session_load_failure_releases_the_reservation_then_reraises() -> 
     harness = Harness(FakeTurnReservationStore())
     harness.agent = _agent(harness, session=_LoadFailingSession())
 
+    failing_input = _input(session_id="s-1")
     with pytest.raises(RuntimeError, match="session store down"):
-        await harness.agent(_input(session_id="s-1"))
+        await harness.agent(failing_input)
 
     assert harness.store.release_calls[0][:2] == ("s-1", "turn-1")
     assert harness.store.settle_calls == []
@@ -90,8 +91,9 @@ async def test_replay_session_load_failure_reraised_without_release() -> None:
     assert first.outcome == "completed"
     harness.store.release_calls.clear()
 
+    replay = _input()
     with pytest.raises(RuntimeError, match="session store down"):
-        await harness.agent(_input())
+        await harness.agent(replay)
 
     assert harness.store.release_calls == []
     assert len(harness.settlement.calls) == 1
