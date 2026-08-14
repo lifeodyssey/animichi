@@ -25,4 +25,3 @@ ALTER TABLE ONLY public.messages
 CREATE INDEX idx_messages_session_created ON public.messages USING btree (session_id, created_at);
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.messages TO agent_svc;
-GRANT SELECT,DELETE ON TABLE public.messages TO jobs_svc;

@@ -12,7 +12,9 @@ fallback for rows that do not map 1:1 onto an existing SQLModel class
 
 from __future__ import annotations
 
-from typing import TypedDict
+# typing.TypedDict is rejected by pydantic 2.13 on Python <3.12 (CI runs 3.11);
+# typing_extensions is a guaranteed transitive dependency.
+from typing_extensions import TypedDict
 
 
 class PointRow(TypedDict, total=False):

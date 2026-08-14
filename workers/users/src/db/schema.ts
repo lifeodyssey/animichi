@@ -13,7 +13,8 @@ import {
  * cutover (stories 17/18/22). The builder omits `id` so the DB default
  * applies; `defaultRandom()` would force client-side UUIDv4 and is banned
  * here. This schema never generates or applies migrations — the Atlas SQL
- * files under migrations/neon are authoritative.
+ * files under migrations/neon are authoritative. It is query-only runtime
+ * metadata for the Drizzle query builder, never a DDL authority.
  */
 export const savedRoutes = pgTable("saved_routes", {
   id: uuid("id").default(sql`uuidv7()`).primaryKey(),

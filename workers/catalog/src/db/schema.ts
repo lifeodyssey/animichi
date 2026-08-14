@@ -8,6 +8,10 @@
  * expression helpers in `./expressions` (which return fragments only, never
  * complete statements).
  *
+ * Runtime-only: this schema never generates or applies migrations. It is
+ * query-only runtime metadata for the Drizzle query builder; Atlas migrations
+ * (migrations/neon/*.sql) remain the sole DDL authority.
+ *
  * - Geography (`points.location`, `locations.location`) is PostGIS
  *   GEOGRAPHY(Point,4326). Drizzle has no native geography column, so it is
  *   modelled via `customType`: the driver returns the EWKB hex string on read
