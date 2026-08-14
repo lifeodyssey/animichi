@@ -37,7 +37,14 @@ class _SweepStore:
         del ref, owner
         return True
 
-    async def settle(self, ref: TurnRef, *, owner: str, outcome: str) -> bool:
+    async def settle(
+        self,
+        ref: TurnRef,
+        *,
+        owner: str,
+        outcome: str,
+        outcome_payload: object | None = None,
+    ) -> bool:
         del ref, owner, outcome
         return True
 

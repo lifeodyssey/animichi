@@ -69,6 +69,7 @@ class TurnInput:
     kind: TurnKind
     expected_revision: int | None = None
     session_digest: str | None = None
+    request_digest: str | None = None
     is_byok: bool = False
     model: object | None = None
     verdict: AdmissionVerdict | None = None

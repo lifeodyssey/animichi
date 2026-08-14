@@ -109,7 +109,7 @@ async def test_ownership_ok_matches_identity_or_none() -> None:
 
 async def test_existing_maps_or_returns_none() -> None:
     factory = RecordingSessionFactory()
-    factory.session.result_for([("reserved", 2)])
+    factory.session.result_for([("reserved", 2, None, None)])
     outcome = await ta._existing(factory.session, "sess-1", "turn-1")
     assert outcome is not None
     assert outcome.status == "in_flight"
@@ -184,7 +184,7 @@ async def test_try_insert_success_and_conflict() -> None:
 
 async def test_replay_or_inflight_returns_existing_or_in_flight() -> None:
     factory = RecordingSessionFactory()
-    factory.session.result_for([("completed", 2)])
+    factory.session.result_for([("completed", 2, None, None)])
     outcome = await ta._replay_or_inflight(factory.session, _request())
     assert outcome is not None and outcome.status == "replay_completed"
     factory2 = RecordingSessionFactory()

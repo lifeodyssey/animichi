@@ -156,6 +156,10 @@ class AgentTurn:
     ) -> TurnResult:
         """Execute, persist, and settle the terminal path."""
         session_id = snapshot.session_id
+        if verdict.replayed:
+            return await self._run_replay(
+                turn, verdict, outcome, ref, owner, session_id, started_at
+            )
         try:
             executed = await self._execute(turn, snapshot, on_step)
         except TimeoutError:
@@ -264,6 +268,44 @@ class AgentTurn:
             session_id=session_id,
             revision=verdict.revision,
             persisted=persisted,
+        )
+
+    async def _run_replay(
+        self,
+        turn: TurnInput,
+        verdict: AdmissionVerdict,
+        outcome: TurnOutcome,
+        ref: TurnRef,
+        owner: str,
+        session_id: str | None,
+        started_at: float,
+    ) -> TurnResult:
+        """Recover a committed turn without re-invoking the model (AC3).
+
+        A replay returns the stored outcome payload (never calls the execution
+        port) and does not re-persist the transcript, so no duplicate user
+        message is created. Settlement still runs with quota off so the
+        terminal audit/metering is consistent but never double-charged.
+        """
+        await self._terminal(
+            outcome,
+            ref,
+            owner,
+            False,
+            session_id,
+            verdict.outcome_payload,
+            "replayed",
+            "ok",
+            turn,
+            started_at,
+            user_message_persisted=True,
+        )
+        return TurnResult(
+            outcome="replayed",
+            output=verdict.outcome_payload,
+            session_id=session_id or verdict.session_id,
+            revision=verdict.revision,
+            persisted=None,
         )
 
     async def _error_turn(
@@ -377,6 +419,7 @@ class AgentTurn:
                 ref,
                 owner=owner,
                 outcome="completed",
+                outcome_payload=output,
                 on_settled=lambda: self._settlement.settle(side),
             )
         else:
@@ -391,6 +434,7 @@ class AgentTurn:
                 turn_key=turn.turn_key,
                 expected_revision=turn.expected_revision,
                 session_digest=turn.session_digest,
+                request_digest=turn.request_digest,
                 is_byok=turn.is_byok,
             )
         )

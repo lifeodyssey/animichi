@@ -155,6 +155,7 @@ def _input(
     session_id: str | None = None,
     expected_revision: int | None = None,
     session_digest: str | None = None,
+    request_digest: str | None = None,
 ) -> TurnInput:
     return TurnInput(
         session_id=session_id,
@@ -163,4 +164,5 @@ def _input(
         kind=TextTurn(text=text, locale="ja"),
         expected_revision=expected_revision,
         session_digest=session_digest,
+        request_digest=request_digest,
     )

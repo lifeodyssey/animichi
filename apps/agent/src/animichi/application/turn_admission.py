@@ -46,6 +46,7 @@ AdmissionRejectionReason = Literal[
     "byok_requires_login",
     "in_flight",
     "turn_failed",
+    "request_conflict",
 ]
 
 #: How long a reserved turn may sit before the demand-driven sweep reclaims it.
@@ -83,6 +84,7 @@ class AdmissionRequest:
     session_id: str | None = None
     expected_revision: int | None = None
     session_digest: str | None = None
+    request_digest: str | None = None
     is_byok: bool = False
 
 
@@ -112,6 +114,10 @@ class AdmissionVerdict:
     rejection: AdmissionRejection | None = None
     owner: str | None = None
     lease_expires_at: datetime | None = None
+    #: The committed turn request digest / serialized output on a replay
+    #: verdict (AC4 conflict check / AC3 exactly-once result recovery).
+    request_digest: str | None = None
+    outcome_payload: object | None = None
 
 
 class TurnAdmission:
@@ -163,7 +169,9 @@ class TurnAdmission:
 
         outcome = await self._reserve(request, payer)
         if outcome.status != "admitted":
-            return _outcome_verdict(outcome, payer)
+            return _outcome_verdict(
+                outcome, payer, request_digest=request.request_digest
+            )
         if payer == "anon":
             quota_rejected = await self._quota_verdict(request, outcome)
             if quota_rejected is not None:
@@ -221,6 +229,7 @@ class TurnAdmission:
                 payer=payer,
                 expected_revision=request.expected_revision,
                 session_digest=request.session_digest,
+                request_digest=request.request_digest,
                 owner=uuid4().hex,
                 lease_expires_at=self._now() + timedelta(seconds=self._lease_seconds),
             )
@@ -240,15 +249,26 @@ class TurnAdmission:
 
 
 def _outcome_verdict(
-    outcome: ReservationOutcome, payer: UsageScope
+    outcome: ReservationOutcome,
+    payer: UsageScope,
+    *,
+    request_digest: str | None = None,
 ) -> AdmissionVerdict:
     if outcome.status == "replay_completed":
+        if (
+            request_digest is not None
+            and outcome.request_digest is not None
+            and request_digest != outcome.request_digest
+        ):
+            return _rejected("request_conflict", payer, session_id=outcome.session_id)
         return AdmissionVerdict(
             admitted=True,
             payer=payer,
             revision=outcome.revision,
             replayed=True,
             session_id=outcome.session_id,
+            request_digest=outcome.request_digest,
+            outcome_payload=outcome.outcome_payload,
         )
     return _rejected(
         _rejection_for(outcome.status), payer, session_id=outcome.session_id

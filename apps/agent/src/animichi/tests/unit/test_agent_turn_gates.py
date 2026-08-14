@@ -44,8 +44,15 @@ async def test_lease_loss_releases_and_never_executes() -> None:
 
 
 class _SettleLosingStore(FakeTurnReservationStore):
-    async def settle(self, ref: TurnRef, *, owner: str, outcome: str) -> bool:
-        del ref, owner, outcome
+    async def settle(
+        self,
+        ref: TurnRef,
+        *,
+        owner: str,
+        outcome: str,
+        outcome_payload: object | None = None,
+    ) -> bool:
+        del ref, owner, outcome, outcome_payload
         return False
 
 

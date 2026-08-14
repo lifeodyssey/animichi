@@ -42,7 +42,15 @@ class _RecordingStore:
         self.calls.append(("dispatch", ref.session_id or "", ref.turn_key, owner))
         return True
 
-    async def settle(self, ref: TurnRef, *, owner: str, outcome: str) -> bool:
+    async def settle(
+        self,
+        ref: TurnRef,
+        *,
+        owner: str,
+        outcome: str,
+        outcome_payload: object | None = None,
+    ) -> bool:
+        del outcome_payload
         self.calls.append(
             ("settle", ref.session_id or "", ref.turn_key, owner, outcome)
         )

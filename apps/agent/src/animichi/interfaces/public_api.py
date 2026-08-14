@@ -223,6 +223,26 @@ def _invalid_selection_response(_message: str | None = None) -> PublicAPIRespons
     )
 
 
+def _request_digest(request: PublicAPIRequest) -> str:
+    """Canonical sha256 hex of the turn request for exactly-once conflicts (AC4).
+
+    Two retries of the same user turn must hash identically so admission can
+    tell a safe replay from a same-key/different-request conflict.
+    """
+    import hashlib
+
+    payload = "\n".join(
+        [
+            request.text or "",
+            request.session_id or "",
+            "|".join(request.selected_point_ids or ()),
+            "|".join(request.selected_candidate_ids or ()),
+            str(request.clarification_id or ""),
+        ]
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _kind_from_request(request: PublicAPIRequest) -> TurnKind:
     """Map the request carrier onto its typed turn kind."""
     if request.selected_point_ids is not None:
@@ -780,6 +800,7 @@ class RuntimeAPI:
                     turn_key=turn_key or uuid4().hex,
                     identity=AdmissionIdentity(user_id=user_id, user_type=user_type),
                     kind=_kind_from_request(request),
+                    request_digest=_request_digest(request),
                     is_byok=is_byok,
                     model=model if model is not None else request.model,
                     verdict=verdict,
@@ -898,7 +919,7 @@ class RuntimeAPI:
             response = (
                 agent_result_to_response(output, include_debug=request.include_debug)
                 if isinstance(output, AgentResult)
-                else PublicAPIResponse(success=True, status="ok", intent="unknown")
+                else _replayed_response(output, result.outcome == "replayed")
             )
         response.session_id = result.session_id
         response.revision = result.revision
@@ -948,6 +969,18 @@ class RuntimeAPI:
             return result
 
         return _translate
+
+
+def _replayed_response(output: object, replayed: bool) -> PublicAPIResponse:
+    """Rebuild a committed response from a recovered (idempotency) payload.
+
+    On a replay (AC3) the committed ``PublicAPIResponse`` is recovered from the
+    reservation, not recomputed by the model; a dict payload is validated back
+    onto the typed wire carrier.
+    """
+    if replayed and isinstance(output, dict):
+        return PublicAPIResponse.model_validate(output, from_attributes=False)
+    return PublicAPIResponse(success=True, status="ok", intent="unknown")
 
 
 def _rejection_response(rejection: AdmissionRejection | None) -> PublicAPIResponse:

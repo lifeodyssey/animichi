@@ -16,6 +16,7 @@ from animichi.application.turn_types import ExecutionResult
 from animichi.tests.unit.agent_turn_fakes import (
     FakeExecution,
     FakeSession,
+    FakeSettlement,
     Harness,
     _input,
 )
@@ -152,7 +153,7 @@ async def test_error_turn_persist_failure_is_absorbed_and_still_settles() -> Non
     assert harness.store.settle_calls[0][3] == "completed"
 
 
-async def test_catastrophic_escape_on_replay_settles_without_reservation() -> None:
+async def test_replay_never_re_invokes_the_execution_port() -> None:
     harness = Harness(FakeTurnReservationStore())
     boom = _BoomOnReplay()
     harness.agent = _agent(harness, execution=boom)
@@ -160,11 +161,37 @@ async def test_catastrophic_escape_on_replay_settles_without_reservation() -> No
     first = await harness.agent(_input())
     assert first.outcome == "completed"
 
-    with pytest.raises(RuntimeError, match="replay boom"):
-        await harness.agent(_input())
+    # AC3: a replay recovers the committed result WITHOUT re-invoking the
+    # model, so the second-call guard never trips and runs stays 1.
+    second = await harness.agent(_input())
 
-    assert harness.settlement.calls[-1].settle_quota is False
-    assert harness.settlement.calls[-1].status == "error"
+    assert second.outcome == "replayed"
+    assert boom.runs == 1
+    assert len(harness.session.persists) == 1
+
+
+async def test_catastrophic_settlement_escape_on_replay_settles_failed() -> None:
+    harness = Harness(FakeTurnReservationStore())
+
+    class _BoomOnReplaySettlement(FakeSettlement):
+        boots = 0
+
+        async def settle(self, side) -> None:
+            del side
+            self.boots += 1
+            if self.boots > 1:
+                raise RuntimeError("settle boom")
+
+    boom_settlement = _BoomOnReplaySettlement()
+    harness.settlement = boom_settlement
+    harness.agent = _agent(harness)
+    first = await harness.agent(_input())
+    assert first.outcome == "completed"
+
+    with pytest.raises(RuntimeError, match="settle boom"):
+        await harness.agent(_input())
+    # terminal settle + the catastrophic settle_failed fallback both fire.
+    assert boom_settlement.boots == 3
 
 
 async def test_timeout_none_runs_execution_without_wait_for() -> None:

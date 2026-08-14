@@ -53,7 +53,14 @@ class ScriptedStore:
         self.dispatched.append((ref.session_id, ref.turn_key))
         return True
 
-    async def settle(self, ref: TurnRef, *, owner: str, outcome: str) -> bool:
+    async def settle(
+        self,
+        ref: TurnRef,
+        *,
+        owner: str,
+        outcome: str,
+        outcome_payload: object | None = None,
+    ) -> bool:
         del owner
         self.settled.append((ref.session_id, ref.turn_key, outcome))
         return True

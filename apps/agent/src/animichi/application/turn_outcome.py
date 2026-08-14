@@ -102,17 +102,23 @@ class TurnOutcome:
         owner: str,
         outcome: SettleOutcome,
         on_settled: SettleCallback | None = None,
+        outcome_payload: object | None = None,
     ) -> bool:
         """Land the turn in a terminal state, applying side effects once.
 
         Without a store (no reservation seam) the side effects run directly —
-        the direct-handle fallback for replay/direct turn paths.
+        the direct-handle fallback for replay/direct turn paths. A
+        ``completed`` settle may carry ``outcome_payload`` (the opaque
+        committed output) so the store persists it for exactly-once replay
+        recovery (AC3).
         """
         if self._store is None:
             if on_settled is not None:
                 await on_settled()
             return True
-        won = await self._store.settle(ref, owner=owner, outcome=outcome)
+        won = await self._store.settle(
+            ref, owner=owner, outcome=outcome, outcome_payload=outcome_payload
+        )
         if won and on_settled is not None:
             await on_settled()
         return won

@@ -13,6 +13,9 @@ import {
   chatStreamHandler,
   chatStreamHeldOpenHandler,
 } from "../../msw/chat-handlers";
+import { recordingHead } from "../../msw/chat-stream-base";
+import { SSE_HEADERS } from "../../msw/chat-sse";
+import { http, HttpResponse } from "msw";
 
 const { authHeaders } = vi.hoisted(() => ({ authHeaders: vi.fn().mockResolvedValue({}) }));
 vi.mock("../../../src/lib/auth/auth-session", () => ({ authHeaders }));
@@ -217,5 +220,55 @@ describe("auth header injection", () => {
     const view = renderSession("auth-1");
     await sendAndSettle(view, "ユーフォ");
     expect(seen).toEqual(["Bearer jwt-chat"]);
+  });
+});
+
+describe("stable turn idempotency key (AC6 #1014)", () => {
+  function dropperSeen(seen: (string | null)[]) {
+    return http.post(CHAT_URL, ({ request }) => {
+      seen.push(request.headers.get("x-turn-id"));
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(recordingHead("search")));
+          controller.error(new Error("connection lost"));
+        },
+      });
+      return new HttpResponse(body, { headers: SSE_HEADERS });
+    });
+  }
+
+  it("reuses the pinned x-turn-id when a stream-interrupted send is retried", async () => {
+    const seen: (string | null)[] = [];
+    server.use(dropperSeen(seen));
+    const view = renderSession();
+    act(() => {
+      void view.result.current.sendMessage({ text: "ユーフォ" }).catch(() => undefined);
+    });
+    await waitFor(() => {
+      expect(view.result.current.error).toBeTruthy();
+    });
+    expect(seen).toHaveLength(1);
+
+    server.use(chatStreamHandler("search", { spy: (request) => seen.push(request.headers.get("x-turn-id")) }));
+    await sendAndSettle(view, "続きも教えて");
+    expect(seen).toHaveLength(2);
+    expect(seen[1]).toBeTruthy();
+    // The retried turn must reuse the interrupted turn id, not mint a new one.
+    expect(seen[1]).toBe(seen[0]);
+  });
+
+  it("mints a fresh x-turn-id only after the previous turn completed", async () => {
+    const seen: (string | null)[] = [];
+    function completingSpy(request: Request) {
+      seen.push(request.headers.get("x-turn-id"));
+    }
+    server.use(chatStreamHandler("search", { spy: completingSpy }));
+    const view = renderSession();
+    await sendAndSettle(view, "ユーフォ");
+    await sendAndSettle(view, "続きも教えて");
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).toBeTruthy();
+    expect(seen[1]).toBeTruthy();
+    expect(seen[1]).not.toBe(seen[0]);
   });
 });

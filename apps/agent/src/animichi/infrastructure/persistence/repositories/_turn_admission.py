@@ -50,6 +50,7 @@ def _reserve_identity(request: ReserveRequest) -> dict[str, object]:
         "payer": request.payer,
         "identity_id": request.identity_id,
         "digest": request.session_digest,
+        "request_digest": request.request_digest,
         "lease_owner": request.owner,
     }
 
@@ -92,6 +93,8 @@ def _existing_select(session_id: str | None, turn_key: str) -> Select:
     return select(
         reservation_table.c.status,
         reservation_table.c.revision,
+        reservation_table.c.request_digest,
+        reservation_table.c.outcome_payload,
     ).where(
         reservation_table.c.session_id.is_not_distinct_from(session_id),
         reservation_table.c.turn_key == turn_key,
@@ -137,12 +140,19 @@ def _dispatch_statement(ref: TurnRef, owner: str) -> ReturningUpdate:
 
 
 def _settle_statement(
-    ref: TurnRef, owner: str, outcome: SettleOutcome
+    ref: TurnRef,
+    owner: str,
+    outcome: SettleOutcome,
+    *,
+    outcome_payload: object | None = None,
 ) -> ReturningUpdate:
+    values: dict[str, object] = {"status": outcome, "updated_at": func.now()}
+    if outcome_payload is not None:
+        values["outcome_payload"] = outcome_payload
     return (
         update(reservation_table)
         .where(*_settle_where(ref, owner))
-        .values(status=outcome, updated_at=func.now())
+        .values(**values)
         .returning(reservation_table.c.id)
     )
 
@@ -180,11 +190,13 @@ async def _existing(
     row = (await session.execute(_existing_select(session_id, turn_key))).first()
     if row is None:
         return None
-    status, revision = row
+    status, revision, request_digest, outcome_payload = row
     return ReservationOutcome(
         status=_port_status(str(status)),
         session_id=session_id,
         revision=int(revision),
+        request_digest=(str(request_digest) if request_digest is not None else None),
+        outcome_payload=outcome_payload,
     )
 
 
