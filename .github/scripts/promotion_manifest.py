@@ -301,9 +301,6 @@ def select_promotable(candidate_manifest, latest_promoted_source_shas):
 #         promotion is the image digest (docker inspect). Until a packaged agent
 #         bundle exists, an agent promotion must fail closed at the step that
 #         loads the artifact, never silently digest a wrong dir.
-#   maintenance - workers/jobs has no bundle-producing pipeline build today; the
-#         map holds the real build-context dir (exists) and the step fails closed
-#         until a bundle is produced.
 #   infra - Pulumi IaC; its artifact is the immutable Pulumi stack state / plan
 #         digest (no local bundle, state lives in R2). The mapping holds a
 #         documented placeholder (infra/AGENTS.md) resolved by the infra step,
@@ -315,9 +312,16 @@ COMPONENT_ARTIFACT_DIRS = {
     "edge": "$RUNNER_TEMP/edge-bundle",
     "root": "apps/agent",
     "agent": "apps/agent",
-    "maintenance": "workers/jobs",
     "infra": "infra/.pulumi-state",
 }
+# Components whose mapped dir is an actual produced build bundle that a
+# promotion can tar + digest as the artifact. infra (Pulumi state) and the
+# container components (agent/root) have NO local file bundle today: tar/digest
+# over their mapped placeholder/source dir would record a WRONG digest
+# (or fail raw on infra/.pulumi-state). The deploy step must FAIL CLOSED for
+# these before tar (never digest a directory that is not the component artifact).
+# Component keys whose bundle supports digests:
+BUNDLE_PRODUCIBLE = frozenset(["web", "catalog", "users", "edge"])
 # The AC3 manifest surface: Agent, Edge, Catalog, Users, Web, Infra. The deploy
 # workflow keys these by the production-eligibility component name (root is the
 # Agent container worker); the AC3 contract asserts a manifest for each of
@@ -343,6 +347,18 @@ def component_artifact_dir(component):
             + names
         )
         raise ValueError(msg) from None
+
+
+def component_bundle_producible(component):
+    """Whether a component produces a local file bundle its manifest can digest.
+
+    AC3 artifact-dir guard (#1013 fix round): only components whose mapped
+    directory is an actual produced build bundle belong in BUNDLE_PRODUCIBLE.
+    infra (Pulumi state) and the container components (agent/root) have no
+    local file bundle; the deploy step must fail closed for them before tar/
+    digest rather than record a wrong digest over a placeholder/source dir.
+    """
+    return component in BUNDLE_PRODUCIBLE
 
 
 def known_component(component):

@@ -35,6 +35,12 @@ on:
       # records an explicit "AC4 not asserted" notice instead of faking a green
       # read (see promote_deployed.py PLATFORM_READ_MECHANISM).
       promotion_deployed_digest: { required: false, type: string, default: "" }
+      # #1013 (AC4): optional deployed config_schema (JSON) reported by the
+      # platform read. When supplied, the AC4 gate also compares it against the
+      # approved manifest config_schema and fails on mismatch; when omitted the
+      # gate asserts the digest only and records an explicit "config_schema not
+      # asserted" notice - it never fakes a green schema read.
+      promotion_deployed_config_schema: { required: false, type: string, default: "" }
       # #1013 (AC5): when the caller supplies the staging-tested promotion
       # artifact digest, the deploy consumes THAT promoted artifact instead of
       # running a build command - no build command runs for a promoted
@@ -541,6 +547,19 @@ jobs:
           # worker/edge dry-run bundle path resolves to this job's runner temp,
           # where the dry-run bundle build step wrote it.
           PROMO_ARTIFACT_DIR="${PROMO_ARTIFACT_DIR//\$RUNNER_TEMP/$RUNNER_TEMP}"
+          # AC3 artifact-dir guard (#1013 fix round): NEVER digest a directory
+          # that is not the component artifact. Infra (Pulumi state) and the
+          # container components (agent/root) have no local file bundle - tar
+          # would fail raw on infra/.pulumi-state or record a WRONG source-tree
+          # digest for agent/root. Fail closed first with a readable reason.
+          if ! python3 "$CLI" bundle-producible "$TARGET_COMPONENT" >/dev/null 2>&1; then
+            echo "::error title=DEPLOY-BLOCKED promotion manifest::$TARGET_COMPONENT is not bundle-producible (no local file bundle): the build-once promotion step refuses to digest a non-artifact directory. AC3/AC6: wire a real bundle (worker dry-run --outdir, container image digest, Pulumi state) before enabling this component."
+            exit 1
+          fi
+          if [ ! -d "$PROMO_ARTIFACT_DIR" ] || [ -z "$(find "$PROMO_ARTIFACT_DIR" -mindepth 1 -print -quit 2>/dev/null)" ]; then
+            echo "::error title=DEPLOY-BLOCKED promotion manifest::$TARGET_COMPONENT resolved promotion artifact dir does not exist or is empty: $PROMO_ARTIFACT_DIR (expected the build step to produce it in this job)."
+            exit 1
+          fi
           artifact="$RUNNER_TEMP/promo-$TARGET_COMPONENT.tar.gz"
           # Normalize so identical source builds produce identical artifact
           # digests: --sort=name (stable entry order), --mtime=@0 (fixed
@@ -1070,6 +1089,7 @@ jobs:
           # #1013 (AC4): when the caller supplies the staging-tested digest,
           # this step reads the deployed version metadata and fails on mismatch.
           PROMOTE_DEPLOYED_DIGEST: ${{ inputs.promotion_deployed_digest }}
+          PROMOTE_DEPLOYED_CONFIG_SCHEMA: ${{ inputs.promotion_deployed_config_schema }}
           PROMO_MANIFEST: ${{ steps.promo.outputs.promotion_manifest }}
         run: |
           set -euo pipefail
@@ -1087,11 +1107,17 @@ jobs:
           if [ -n "$PROMOTE_DEPLOYED_DIGEST" ]; then
             tmpdir="$(mktemp -d)"
             trap 'rm -rf "$tmpdir"' EXIT
-            # The deployed read is the caller-supplied platform digest; the
-            # manifest is the approved build-once manifest (artifact_digest =
-            # PROMOTION_DIGEST). AC4 compares the two and fails closed on a
-            # digest/config-schema mismatch.
-            printf '{"digest":"%s"}' "$PROMOTE_DEPLOYED_DIGEST" > "$tmpdir/deployed.json"
+            # The deployed read is the caller-supplied platform digest; when a
+            # deployed config schema is also supplied, include it in deployed.json
+            # so check_deployed compares it against the approved manifest
+            # config_schema and fails closed on a mismatch. The manifest is the
+            # approved build-once manifest (artifact_digest = PROMOTION_DIGEST).
+            if [ -n "$PROMOTE_DEPLOYED_CONFIG_SCHEMA" ]; then
+              printf '{"digest":"%s","config_schema":%s}' "$PROMOTE_DEPLOYED_DIGEST" "$PROMOTE_DEPLOYED_CONFIG_SCHEMA" > "$tmpdir/deployed.json"
+            else
+              echo "::warning title=AC4 config_schema::$TARGET_COMPONENT config_schema not asserted (promotion_deployed_config_schema empty): the AC4 gate checked the digest only."
+              printf '{"digest":"%s"}' "$PROMOTE_DEPLOYED_DIGEST" > "$tmpdir/deployed.json"
+            fi
             if ! python3 .github/scripts/promote_deployed.py check "$PROMO_MANIFEST" "$tmpdir/deployed.json" >/dev/null 2>&1; then
               echo "::error title=AC4 deployed-version gate::$TARGET_COMPONENT deployed version metadata does not match approved staging-tested digest $PROMOTION_DIGEST"
               exit 1

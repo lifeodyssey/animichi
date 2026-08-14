@@ -126,7 +126,6 @@ PLATFORM_READ_MECHANISM = {
     "edge": ("wrangler deployments list (edge Worker, workers/edge/wrangler.toml)."),
     "catalog": ("wrangler deployments list (workers/catalog/wrangler.toml)."),
     "users": ("wrangler deployments list (workers/users/wrangler.toml)."),
-    "maintenance": ("wrangler deployments list (workers/jobs/wrangler.toml)."),
     "infra": (
         "Pulumi outputs / stack export digest (infra/AGENTS.md rollback backup)."
     ),
