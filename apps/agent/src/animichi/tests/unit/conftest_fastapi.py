@@ -12,21 +12,34 @@ import httpx
 from fastapi import FastAPI
 
 from animichi.config.settings import Settings
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
+from animichi.infrastructure.persistence.repositories.session import SessionRecord
 from animichi.infrastructure.session.memory import InMemorySessionStore
-from animichi.infrastructure.supabase.client import SupabaseClient
-from animichi.infrastructure.supabase.repositories.session import SessionRecord
 from animichi.interfaces.fastapi_service import create_fastapi_app
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.schemas import PublicAPIResponse
 
 
-def build_stub_db() -> MagicMock:
-    db = MagicMock(spec=SupabaseClient)
-    db.bangumi = MagicMock()
-    db.points = MagicMock()
-    db.session = MagicMock()
-    db.feedback = MagicMock()
-    db.turn_reservation = MagicMock()
+def build_stub_db() -> PersistenceRepos:
+    """A real PersistenceRepos aggregate whose sub-repos are mock doubles.
+
+    Route handlers resolve the aggregate through ``isinstance``
+    (``_deps._require_db``), so the double must be a genuine aggregate
+    instance; its children stay auto-vivifying mocks the tests can wire.
+    """
+    db = PersistenceRepos(
+        sessionmaker=MagicMock(),
+        session=MagicMock(),
+        turn_reservation=MagicMock(),
+        bangumi=MagicMock(),
+        points=MagicMock(),
+        usage=MagicMock(),
+        anon_quota=MagicMock(),
+        feedback=MagicMock(),
+        memory=MagicMock(),
+    )
     db.session.get_messages = AsyncMock(return_value=[])
     db.session.current_revision = AsyncMock(return_value=0)
     db.session.insert_message = AsyncMock()
@@ -52,7 +65,7 @@ def inject_state(
     app: FastAPI,
     settings: Settings,
     runtime_api: RuntimeAPI | MagicMock,
-    db: MagicMock,
+    db: PersistenceRepos,
 ) -> None:
     app.state.settings = settings
     app.state.runtime_api = runtime_api
@@ -62,9 +75,9 @@ def inject_state(
 def build_app(
     *,
     runtime_api: RuntimeAPI | MagicMock | None = None,
-    db: MagicMock | None = None,
+    db: PersistenceRepos | None = None,
     settings: Settings | None = None,
-) -> tuple[FastAPI, MagicMock]:
+) -> tuple[FastAPI, PersistenceRepos]:
     mock_db = db or build_stub_db()
     resolved_settings = settings or Settings()
     if runtime_api is None:

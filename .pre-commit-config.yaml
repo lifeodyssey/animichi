@@ -100,6 +100,19 @@ repos:
         language: system
         files: ^\.github/workflows/.*\.ya?ml$
 
+      # ORM-only database access (raw-SQL policy, #999). Runs the repository
+      # Semgrep ruleset (.semgrep/, six rules) on staged Python + TypeScript.
+      # Python rules are scoped to /apps/agent, TypeScript to /workers/catalog/src
+      # and /workers/users/src (paths.include), so unrelated staged files simply
+      # match nothing and pass. semgrep is installed via uv tool (same version as
+      # the reusable-security CI job — 1.172.0). Atlas migration SQL and the
+      # sanctioned typed-expression seams are excluded by the rules themselves.
+      - id: semgrep-orm
+        name: semgrep (ORM-only DB access)
+        entry: uv tool run --no-build semgrep@1.172.0 --config .semgrep --error
+        language: system
+        files: \.(py|ts)$
+
       # --- pre-push stage: the single orchestration surface (#1003). ---
       # scripts/local-gates/pre-push.sh is the sole pre-push entrypoint. It
       # re-reads the router in merge-base-to-head mode, runs the deterministic

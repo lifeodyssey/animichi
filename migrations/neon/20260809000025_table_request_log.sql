@@ -1,7 +1,7 @@
 -- Table request_log (indexes/constraints/triggers)
 
 CREATE TABLE public.request_log (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    id uuid DEFAULT uuidv7() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     session_id text,
     query_text text NOT NULL,

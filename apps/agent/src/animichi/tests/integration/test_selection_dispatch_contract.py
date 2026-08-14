@@ -3,14 +3,18 @@
 from unittest.mock import MagicMock
 
 import pytest
+from sqlalchemy import delete
 
 from animichi.agents.session_state import (
     OrderedCandidate,
     PendingClarification,
     SessionState,
 )
+from animichi.infrastructure.persistence.models import session_table
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 from animichi.infrastructure.session.memory import InMemorySessionStore
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from animichi.interfaces.session_facade import normalize_session_state
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
@@ -47,7 +51,7 @@ async def _seed_pending(
 
 @pytest.mark.integration
 async def test_anime_selection_bypasses_model_and_returns_multi_route(
-    real_db: SupabaseClient,
+    real_db: PersistenceRepos,
 ) -> None:
     session_id = "phase1c-multi-dispatch"
     store = InMemorySessionStore()
@@ -74,15 +78,16 @@ async def test_anime_selection_bypasses_model_and_returns_multi_route(
         assert (response.intent, response.success) == ("plan_multi", True)
         assert {"results", "route"} <= response.data.keys()
     finally:
-        await real_db.pool.execute(
-            "DELETE FROM saved_routes WHERE claim_session_id = $1", session_id
-        )
-        await real_db.pool.execute("DELETE FROM sessions WHERE id = $1", session_id)
+        async with real_db.sessionmaker() as session:
+            async with session.begin():
+                await session.execute(
+                    delete(session_table).where(session_table.c.id == session_id)
+                )
 
 
 @pytest.mark.integration
 async def test_place_selection_dispatches_to_staged_nearby_search(
-    real_db: SupabaseClient,
+    real_db: PersistenceRepos,
 ) -> None:
     session_id = "phase1c-place-dispatch"
     store = InMemorySessionStore()
@@ -104,4 +109,8 @@ async def test_place_selection_dispatches_to_staged_nearby_search(
         assert (response.intent, response.success) == ("search_nearby", True)
         assert all(call[0] != "geocode" for call in catalog.calls)
     finally:
-        await real_db.pool.execute("DELETE FROM sessions WHERE id = $1", session_id)
+        async with real_db.sessionmaker() as session:
+            async with session.begin():
+                await session.execute(
+                    delete(session_table).where(session_table.c.id == session_id)
+                )

@@ -1,0 +1,17 @@
+# Policy (raw-SQL slice, #999): sqlalchemy.text() is a raw-SQL escape hatch.
+# A text() call carrying a complete DML string bypasses the typed ORM / typed
+# expression layer and is forbidden in runtime code. The sanctioned typed
+# expression module never uses text().
+rules:
+  - id: py-no-sqlalchemy-text-literal
+    languages: [python]
+    severity: ERROR
+    message: >-
+      sqlalchemy.text() with an inline SQL string. This bypasses the typed ORM
+      boundary (#999, #992). Build queries with the ORM / repositories, or use
+      the typed expressions in persistence/expressions.py; never hand-write a
+      DML text() call.
+    paths:
+      include:
+        - /apps/agent
+    pattern-regex: "(?i)\\btext\\s*\\(\\s*[fbru]*[\"']\\s*(select|insert|update|delete|create|drop|alter|with|set)\\b"

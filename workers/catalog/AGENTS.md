@@ -44,10 +44,13 @@ Root guide: `../../AGENTS.md`.
 
 ## workerd gotchas (Drizzle / timestamptz)
 
-- **Drizzle is queries-only through the raw `sql` tagged template** — reads and geo run through `sql`
-  passed to Drizzle's `execute`, **never the fluent query builder** (its `select` / `from` chain
-  **hangs** under workerd + the Neon HTTP driver; see the warning at `src/api/nearby.ts`).
-  `src/db/schema.ts` (`drizzle-orm/pg-core`) exists for typing only.
+- **Drizzle via the single adapter seam** — every statement is built with the Drizzle **query
+  builder** through `statementBuilder()` (`src/db/client.ts`) plus the typed expression helpers in
+  `src/db/expressions.ts`, then executed through `CatalogDb` (`db.execute` / `db.batch`). Raw `sql`
+  tagged template is reserved for narrow fragments (PostGIS, pg_trgm, interval) inside the
+  expressions module. Every complete-SQL statement runs through the builder so the worker pool can
+  test through fakes; the remaining live-Neon caveat (builder execution under workerd + neon-http
+  still needs a real-Neon validation) is documented on `statementBuilder()`.
 - **timestamptz comes back as a raw string under workerd** (the pg driver doesn't parse it to `Date`;
   Node would). Normalize at the boundary — `new Date(stamp).toISOString()` (see `src/api/search.ts`).
 - **zod runs only at the handler/contract boundary** to validate untrusted public input — the one

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
@@ -14,7 +14,12 @@ from animichi.application.get_session_history import (
     get_session_history,
 )
 from animichi.infrastructure.observability.runtime import record_history_request
-from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
+from animichi.infrastructure.persistence.repositories.session import (
+    SQLModelSessionRepository,
+)
 from animichi.interfaces.boundary.agent_models import GetSessionHistoryResponse
 from animichi.interfaces.routes._deps import (
     ConversationPatchRequest,
@@ -22,7 +27,7 @@ from animichi.interfaces.routes._deps import (
     _error_response,
     _get_db_from_request,
     _json_response,
-    _require_supabase,
+    _require_db,
     _require_trusted_user,
 )
 
@@ -33,11 +38,20 @@ def _unauthorized() -> JSONResponse:
     return _error_response("unauthorized", "Missing user identity.", status_code=401)
 
 
-class SupabaseSessionHistoryAdapter:
-    """Concrete Session/Message adapter over the sole Session repository
-    (SESSION-1 #959, migrated onto FinalSessionRepository by SESSION-3 #961)."""
+def _session_repo(request: Request) -> SQLModelSessionRepository:
+    """The lifespan-owned SQLModel session repository (#994), falling back to
+    the persistence aggregate's repo for test doubles."""
+    repo = getattr(request.app.state, "session_repo", None)
+    if repo is not None:
+        return cast(SQLModelSessionRepository, repo)
+    return _require_db(_get_db_from_request(request)).session
 
-    def __init__(self, db: SupabaseClient) -> None:
+
+class SessionHistoryAdapter:
+    """Concrete Session/Message adapter over the sole Session repository
+    (SESSION-1 #959, SQLModel implementation by #994)."""
+
+    def __init__(self, db: PersistenceRepos) -> None:
         self._session = db.session
 
     async def get_conversation(self, session_id: str) -> ConversationRow | None:
@@ -74,8 +88,8 @@ async def handle_get_conversations(
 ) -> JSONResponse:
     if auth.user_id is None:
         return _unauthorized()
-    db = _require_supabase(_get_db_from_request(request))
-    sessions_obj: object = await db.session.list_sessions(auth.user_id)
+    repo = _session_repo(request)
+    sessions_obj: object = await repo.list_sessions(auth.user_id)
     return _json_response(sessions_obj)
 
 
@@ -88,15 +102,15 @@ async def handle_patch_conversation(
 ) -> JSONResponse:
     if auth.user_id is None:
         return _unauthorized()
-    db = _require_supabase(_get_db_from_request(request))
-    record = await db.session.load(session_id)
+    repo = _session_repo(request)
+    record = await repo.load(session_id)
     if record is None or record.user_id != auth.user_id:
         return _error_response(
             "not_found",
             "Conversation not found.",
             status_code=404,
         )
-    await db.session.update_title(session_id, payload.title, user_id=auth.user_id)
+    await repo.update_title(session_id, payload.title, user_id=auth.user_id)
     return _json_response({"ok": True})
 
 
@@ -119,10 +133,10 @@ async def handle_get_messages(
     """
     if auth.user_id is None:
         return _unauthorized()
-    db = _require_supabase(_get_db_from_request(request))
+    db = _require_db(_get_db_from_request(request))
     started = time.monotonic()
     history = await get_session_history(
-        SupabaseSessionHistoryAdapter(db),
+        SessionHistoryAdapter(db),
         session_id=session_id,
         user_id=auth.user_id,
         limit=limit,

@@ -1,7 +1,7 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import assert from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
-import type { CatalogDb, NeonSql } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 
 const handler = new OpenAPIHandler(catalogRouter);
@@ -9,8 +9,7 @@ const handler = new OpenAPIHandler(catalogRouter);
 function context(responses: unknown[][], fetchImpl?: typeof fetch): CatalogContext {
   const execute = () => Promise.resolve({ rows: responses.shift() ?? [] });
   const db = { execute } as unknown as CatalogDb;
-  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
-  return { db, neonSql, fetchImpl };
+  return { db, fetchImpl };
 }
 
 async function call(path: string, body: unknown, ctx: CatalogContext): Promise<Response> {

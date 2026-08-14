@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from animichi.domain.repo_types import SessionStateData
 from animichi.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -21,17 +22,17 @@ class InMemorySessionStore:
 
     def __init__(self) -> None:
         """Initialize the in-memory store."""
-        self._sessions: dict[str, dict[str, object]] = {}
-        self._metadata: dict[str, dict[str, object]] = {}
+        self._sessions: dict[str, SessionStateData] = {}
+        self._metadata: dict[str, dict[str, datetime]] = {}
 
-    async def get(self, session_id: str) -> dict[str, object] | None:
+    async def get(self, session_id: str) -> SessionStateData | None:
         """Retrieve session state by ID.
 
         Args:
             session_id: The unique session identifier.
 
         Returns:
-            Session state dictionary if found, None otherwise.
+            Session state envelope if found, None otherwise.
         """
         state = self._sessions.get(session_id)
         if state is not None:
@@ -41,12 +42,12 @@ class InMemorySessionStore:
             logger.debug("Session retrieved", session_id=session_id)
         return state
 
-    async def set(self, session_id: str, state: dict[str, object]) -> None:
+    async def set(self, session_id: str, state: SessionStateData) -> None:
         """Store or update session state.
 
         Args:
             session_id: The unique session identifier.
-            state: The state dictionary to store.
+            state: The session state envelope to store.
         """
         is_new = session_id not in self._sessions
         self._sessions[session_id] = state

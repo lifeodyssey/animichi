@@ -21,8 +21,8 @@ from animichi.domain.ports import AnonQuotaCounter, UsageMeter
 logger = structlog.get_logger(__name__)
 
 #: Best-effort like the budget breaker's own metering hook — an explicit tuple
-#: cannot express asyncpg's PostgresError/InterfaceError derivation straight
-#: from Exception, so the most likely real failures are caught here instead of
+#: cannot express SQLAlchemy's statement/dialect error derivation straight from
+#: Exception, so the most likely real failures are caught here instead of
 #: escaping as a user-facing turn failure.
 _METER_ERRORS = Exception
 

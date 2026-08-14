@@ -10,37 +10,18 @@
  *     live failure negative-cache are excluded, and a TTL floor stops the
  *     refresh pass from re-picking everything every hour.
  *
- * Writes only flow through the existing pipeline (IngestBangumi/raw-store);
- * these reads go through raw `sql` execute, consistent with the ingest layer.
+ * Reads are built with the Drizzle query builder + typed expression helpers over
+ * the single CatalogDb seam; the crawl-stale query composes a FULL OUTER JOIN
+ * source and a NOT EXISTS subfilter as builder subqueries.
  */
-import { sql, type SQL } from "drizzle-orm";
+import { and, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
+import { statementBuilder } from "../db/client";
+import { ingestJobs, rawAnitabi, rawBangumi } from "../db/schema";
+import * as x from "../db/expressions";
 
 /** TTL freshness floor: works whose weakest fetch is younger than this are not stale. */
 export const STALE_AFTER_SECONDS = 24 * 60 * 60;
-
-let weakestFreshness: SQL | undefined;
-
-/**
- * A work's freshness: the WEAKER of its two source fetches. A source with no
- * raw row at all reads as `-infinity`, so a missing source keeps the work
- * stale instead of hiding behind the other source's fresh fetch.
- *
- * Built lazily on first use, not at module top level: evaluating a `sql`
- * template during module evaluation crashes the *bundled* Worker runtime
- * (esbuild's lazy-ESM ordering leaves drizzle's StringChunk class in the TDZ
- * until its init module runs — the vitest pool evaluates unbundled modules
- * with correct ESM order, so only the deployed bundle ever sees it).
- */
-function weakestFreshnessSql(): SQL {
-  weakestFreshness ??= sql`
-  LEAST(
-    COALESCE(a.fetched_at, '-infinity'),
-    COALESCE(b.fetched_at, '-infinity')
-  )
-`;
-  return weakestFreshness;
-}
 
 /** Work ids with a `done` ingest_jobs row; empty input yields an empty set. */
 export async function listDoneBangumiIds(
@@ -48,12 +29,17 @@ export async function listDoneBangumiIds(
   bangumiIds: readonly string[],
 ): Promise<ReadonlySet<string>> {
   if (bangumiIds.length === 0) return new Set();
-  const ids = sql.join(bangumiIds.map((id) => sql`${id}`), sql`, `);
-  const result = await db.execute(sql`
-    SELECT work_id FROM ingest_jobs
-    WHERE work_id IN (${ids}) AND status = 'done'
-  `);
+  const result = await db.execute(doneBangumiIdsStatement(bangumiIds));
   return new Set(bangumiIdsOf(result.rows));
+}
+
+/** Select the seeded works that already carry a `done` row. */
+function doneBangumiIdsStatement(bangumiIds: readonly string[]): SQL {
+  return statementBuilder()
+    .select({ workId: ingestJobs.workId })
+    .from(ingestJobs)
+    .where(and(inArray(ingestJobs.workId, [...bangumiIds]), eq(ingestJobs.status, "done")))
+    .getSQL();
 }
 
 /** The `cap` stalest works past the TTL floor; live negative caches are skipped. */
@@ -63,21 +49,48 @@ export async function listStaleBangumiIds(
   maxAgeSeconds: number = STALE_AFTER_SECONDS,
 ): Promise<readonly string[]> {
   assertPositiveCap(cap);
-  const rows = (await db.execute(staleWorksSql(cap, maxAgeSeconds))).rows;
+  const rows = (await db.execute(staleWorksStatement(cap, maxAgeSeconds))).rows;
   return bangumiIdsOf(rows);
 }
 
-/** Stale-set query: staleness is the weaker source fetch (missing row = -infinity). */
-function staleWorksSql(cap: number, maxAgeSeconds: number): SQL {
-  return sql`
-    SELECT staleness.work_id
-    FROM (SELECT work_id, ${weakestFreshnessSql()} AS freshness
-      FROM raw_anitabi a FULL OUTER JOIN raw_bangumi b USING (work_id)) staleness
-    WHERE staleness.freshness < NOW() - make_interval(secs => ${maxAgeSeconds})
-      AND NOT EXISTS (SELECT 1 FROM ingest_jobs j WHERE j.work_id = staleness.work_id AND j.negative_cached_until > NOW())
-    ORDER BY staleness.freshness ASC
-    LIMIT ${cap}
-  `;
+/**
+ * Stale-set query: staleness is the weaker source fetch (missing row = -infinity)
+ * over a FULL OUTER JOIN of both raw sources, excluding works behind a live
+ * negative cache. The LEAST freshness aggregate is an expression-helper fragment
+ * composed into a builder subquery.
+ * LIVE-NEON: the FULL OUTER JOIN + LEAST rendering can only be validated against a
+ * real Postgres — needs live-Neon validation.
+ */
+function staleWorksStatement(cap: number, maxAgeSeconds: number): SQL {
+  const staleness = statementBuilder()
+    .select({
+      workId: sql`CASE WHEN a.work_id IS NULL THEN b.work_id ELSE a.work_id END`.as("work_id"),
+      freshness: x.weakestRawFreshness("anitabi", "bangumi").as("freshness"),
+    })
+    .from(rawAnitabi)
+    .fullJoin(rawBangumi, eq(rawAnitabi.workId, rawBangumi.workId))
+    .as("staleness");
+  const excluded = statementBuilder()
+    .select({ workId: ingestJobs.workId })
+    .from(ingestJobs)
+    .where(gt(ingestJobs.negativeCachedUntil, sql`NOW()`));
+  return statementBuilder()
+    .select({ workId: staleness.workId })
+    .from(staleness)
+    .where(
+      and(
+        sql`staleness.freshness < NOW() - make_interval(secs => ${maxAgeSeconds})`,
+        negatedExists(excluded),
+      ),
+    )
+    .orderBy(sql`staleness.freshness ASC`)
+    .limit(cap)
+    .getSQL();
+}
+
+/** `NOT EXISTS (subquery)` — works behind a live negative cache are skipped. */
+function negatedExists(subquery: { getSQL(): SQL }): SQL {
+  return sql`NOT EXISTS (${subquery.getSQL()})`;
 }
 
 /** The cap is interpolated into a LIMIT clause — never interpolate raw input. */

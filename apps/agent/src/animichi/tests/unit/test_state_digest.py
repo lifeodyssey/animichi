@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from animichi.infrastructure.turn_reservation.postgres import state_digest
+from animichi.infrastructure.persistence.repositories.turn_reservation import (
+    state_digest,
+)
 
 
 def test_state_digest_canonicalises_json_text() -> None:

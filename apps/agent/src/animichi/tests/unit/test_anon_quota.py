@@ -8,12 +8,14 @@ admission. These tests pin the read semantics and the fail-open contract.
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, time
-from unittest.mock import AsyncMock
 
-from asyncpg.exceptions import UndefinedTableError
+from sqlalchemy.exc import StatementError
 
-from animichi.infrastructure.supabase.repositories.anon_quota import AnonQuotaRepository
+from animichi.infrastructure.persistence.repositories.anon_quota import (
+    SQLModelAnonQuotaRepository,
+)
 from animichi.interfaces.anon_quota import anonymous_quota_verdict, next_utc_midnight
+from animichi.tests.unit.repositories._session_fake import RecordingSessionFactory
 
 TODAY = date(2026, 7, 26)
 ANON_ID = "anon_0123456789abcdef0123456789abcdef"
@@ -42,12 +44,15 @@ class _FailingRepo(_AnonQuotaRepoDouble):
         raise OSError("counter unavailable")
 
 
-class _PgFailingRepo(_AnonQuotaRepoDouble):
-    """asyncpg's errors derive straight from Exception, not from OSError."""
+class _SqlFailingRepo(_AnonQuotaRepoDouble):
+    """SQLAlchemy's statement errors derive straight from Exception, not
+    from OSError — the same fail-open shape the asyncpg errors had."""
 
     async def count_for(self, *, usage_date: date, anon_id: str) -> int:
         del usage_date, anon_id
-        raise UndefinedTableError('relation "anon_daily_message_count" does not exist')
+        raise StatementError(
+            'relation "anon_daily_message_count" does not exist', None, None
+        )
 
 
 async def test_a_fresh_identity_reads_at_zero_and_passes() -> None:
@@ -118,13 +123,13 @@ async def test_a_counter_read_failure_fails_open() -> None:
 
 async def test_a_missing_counter_table_fails_open() -> None:
     verdict = await anonymous_quota_verdict(
-        _PgFailingRepo(), anon_id=ANON_ID, quota=3, today=TODAY
+        _SqlFailingRepo(), anon_id=ANON_ID, quota=3, today=TODAY
     )
     assert verdict.is_exhausted is False
 
 
 async def test_count_for_missing_row_returns_zero() -> None:
-    pool = AsyncMock()
-    pool.fetchrow = AsyncMock(return_value=None)
-    repo = AnonQuotaRepository(pool)
+    factory = RecordingSessionFactory()
+    factory.session.result_for(None)
+    repo = SQLModelAnonQuotaRepository(factory)
     assert await repo.count_for(usage_date=date(2026, 8, 11), anon_id="anon-x") == 0

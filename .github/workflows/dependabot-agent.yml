@@ -92,7 +92,7 @@ jobs:
         id: backend
         working-directory: apps/agent
         env:
-          SUPABASE_DB_URL: postgresql://test:test@127.0.0.1:5432/test
+          AGENT_SVC_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/test
           MIMO_API_KEY: test-only
         run: |
           uv run --no-build --no-sync ruff format --check src/animichi/

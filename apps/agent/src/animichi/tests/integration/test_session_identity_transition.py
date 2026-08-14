@@ -7,8 +7,12 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from sqlalchemy import delete
 
-from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.persistence.models import reservation_table
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 
 # `animichi.tests.conftest_db` is already registered by the directory-level
 # `tests/integration/conftest.py` (`pytest_plugins`) — redeclaring it here
@@ -20,13 +24,15 @@ def _anon_id() -> str:
 
 
 async def _seed_session(
-    db: SupabaseClient, session_id: str, user_id: str, query: str = "hello"
+    db: PersistenceRepos, session_id: str, user_id: str, query: str = "hello"
 ) -> None:
     await db.session.create(session_id, user_id, query, {"k": "v"})
 
 
 @pytest.mark.integration
-async def test_adoption_moves_ownership_and_preserves_content(real_db) -> None:
+async def test_adoption_moves_ownership_and_preserves_content(
+    real_db: PersistenceRepos,
+) -> None:
     """Reading state AND message history after the adoption must match the
     pre-login read exactly — the adoption re-points ownership only."""
     anon = _anon_id()
@@ -52,7 +58,7 @@ async def test_adoption_moves_ownership_and_preserves_content(real_db) -> None:
 
 @pytest.mark.integration
 async def test_adoption_moves_every_session_for_the_same_anon_identity(
-    real_db,
+    real_db: PersistenceRepos,
 ) -> None:
     anon = _anon_id()
     session_a = f"sess-{uuid.uuid4().hex}"
@@ -74,7 +80,7 @@ async def test_adoption_moves_every_session_for_the_same_anon_identity(
 
 @pytest.mark.integration
 async def test_original_anon_identity_loses_ownership_after_adoption(
-    real_db,
+    real_db: PersistenceRepos,
 ) -> None:
     anon = _anon_id()
     session_id = f"sess-{uuid.uuid4().hex}"
@@ -87,7 +93,9 @@ async def test_original_anon_identity_loses_ownership_after_adoption(
 
 
 @pytest.mark.integration
-async def test_replay_adoption_is_a_no_op_and_bumps_nothing(real_db) -> None:
+async def test_replay_adoption_is_a_no_op_and_bumps_nothing(
+    real_db: PersistenceRepos,
+) -> None:
     """Replaying the adoption (a repeated magic-link tap) matches zero rows and
     bumps no revision — the second run is a typed no-op, never an error."""
     anon = _anon_id()
@@ -108,7 +116,7 @@ async def test_replay_adoption_is_a_no_op_and_bumps_nothing(real_db) -> None:
 
 @pytest.mark.integration
 async def test_adoption_bumps_revision_so_pre_adoption_capabilities_go_stale(
-    real_db,
+    real_db: PersistenceRepos,
 ) -> None:
     """Capability invalidation: adoption bumps the adopted session's revision,
     so a pre-adoption capability (the reservation at the old revision) is
@@ -127,7 +135,7 @@ async def test_adoption_bumps_revision_so_pre_adoption_capabilities_go_stale(
 
 @pytest.mark.integration
 async def test_pre_adoption_anonymous_capability_is_stale_after_adoption(
-    real_db,
+    real_db: PersistenceRepos,
 ) -> None:
     """A pre-adoption anonymous capability (a reservation at the old revision)
     is invalidated by the adoption's revision bump: the newly adopted user
@@ -180,6 +188,10 @@ async def test_pre_adoption_anonymous_capability_is_stale_after_adoption(
     assert resumed.rejection is not None
     assert resumed.rejection.reason == "stale_revision"
 
-    await real_db.pool.execute(
-        "DELETE FROM turn_reservations WHERE session_id = $1", session_id
-    )
+    async with real_db.sessionmaker() as session:
+        async with session.begin():
+            await session.execute(
+                delete(reservation_table).where(
+                    reservation_table.c.session_id == session_id
+                )
+            )

@@ -191,7 +191,16 @@ jobs:
       - name: Run Semgrep
         # Sonar S8544: run line must carry the version too (uv tool run is an
         # on-demand install when absent); follows the zizmor@"$VERSION" pattern.
-        run: uv tool run --no-build semgrep@"$SEMGREP_VERSION" --config p/python --config p/typescript --config p/javascript --error . # v1.172.0
+        # --config .semgrep adds the repository-owned raw-SQL / ORM-boundary
+        # ruleset (#999, six rules) alongside the generic p/python / p/typescript / p/javascript
+        # configs; --error is unchanged (the repo ruleset is fail-closed).
+        run: uv tool run --no-build semgrep@"$SEMGREP_VERSION" --config p/python --config p/typescript --config p/javascript --config .semgrep --error . # v1.172.0
+        shell: bash
+      # Fail-closed proof that the ORM-only ruleset actually gates: the
+      # self-test flags every forbidden raw-SQL example (non-zero) and accepts
+      # the sanctioned typed-expression seams (zero) plus a clean live baseline.
+      - name: Verify raw-SQL ruleset self-test
+        run: scripts/semgrep-raw-sql-test.sh
         shell: bash
 
   # ── SQL migration lint ───────────────────────────────────────

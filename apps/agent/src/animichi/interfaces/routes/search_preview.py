@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from animichi.interfaces.routes._deps import (
     _get_db_from_request,
     _json_response,
-    _require_supabase,
+    _require_db,
 )
 
 router = APIRouter(prefix="/v1/search", tags=["search"])
@@ -54,7 +54,7 @@ async def handle_search_preview(
     if not query:
         raise HTTPException(status_code=422, detail="q parameter required.")
 
-    db = _require_supabase(_get_db_from_request(request))
+    db = _require_db(_get_db_from_request(request))
 
     bangumi_id = await db.bangumi.find_bangumi_by_title(query)
     if not bangumi_id:

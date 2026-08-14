@@ -84,7 +84,7 @@ Browser
   ├─ /catalog/* ─────────────────────────────────▶ Worker → CATALOG service binding → catalog Worker
   │                                                          └─ Neon Postgres/PostGIS via neon-http (`DATABASE_URL`)
   └─ /v1/* ── auth at Worker edge ───────────────▶ Worker → RuntimeContainer → FastAPI service
-                                                            ├─ Supabase Postgres (`SUPABASE_DB_URL`)
+                                                            ├─ Neon Postgres (`AGENT_SVC_DATABASE_URL`)
                                                             ├─ catalog read path (`CATALOG_API_URL` → /catalog/*)
                                                             └─ MiMo primary (`MIMO_API_KEY`)
                                                                └─ DeepSeek fallback temporarily disabled
@@ -121,7 +121,7 @@ The deployment target stays intentionally thin. The Worker owns routing and edge
 |---|---|---|
 | Web app (`apps/web`) | SSR browser surface, deployed as its own Worker on its own route | none of this Worker's secrets |
 | Worker edge | Route match, JWT auth, identity injection | `NEON_AUTH_JWKS_URL` |
-| Container runtime | Backend service, DB, model/provider calls | `SUPABASE_DB_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
+| Container runtime | Backend service, DB, model/provider calls | `AGENT_SVC_DATABASE_URL`, `MIMO_API_KEY`, `DEEPSEEK_API_KEY`, `CORS_ALLOWED_ORIGIN`, optional observability keys |
 
 Current hardening rule: the Worker strips the raw `Authorization` header before proxying and forwards only trusted `X-User-Id` / `X-User-Type` identity headers to the container.
 
@@ -168,10 +168,10 @@ These secrets stay in the Worker environment and are not forwarded into the cont
 
 Required:
 
-- `AGENT_SVC_DATABASE_URL` **or** `SUPABASE_DB_URL` — the Postgres DSN. Staging supplies
-  the role-scoped Neon DSN (`agent_svc` role) via the edge Worker's Secrets Store binding,
-  forwarded into the container and preferred over `SUPABASE_DB_URL` (which remains the
-  production container DSN until the #855 cutover); see `docs/ops/prod-dsn-cutover.md`.
+- `AGENT_SVC_DATABASE_URL` — the Postgres DSN (#995: the `SUPABASE_DB_URL` fallback
+  was deleted from settings). The role-scoped Neon DSN (`agent_svc` role) is supplied
+  via the edge Worker's Secrets Store binding and forwarded into the container;
+  see `docs/ops/prod-dsn-cutover.md`.
 - `MIMO_API_KEY` for the primary `mimo-v2.5` model
 - `DEEPSEEK_API_KEY` remains deploy-required and provisioned for the dormant DeepSeek fallback
 - `APP_ENV` — forwarded from `wrangler.toml`'s per-environment `[vars]` block (`development` /
@@ -268,7 +268,7 @@ Run the image locally:
 
 ```bash
 docker run --rm -p 8080:8080 \
-  -e SUPABASE_DB_URL \
+  -e AGENT_SVC_DATABASE_URL \
   -e MIMO_API_KEY \
   -e DEEPSEEK_API_KEY \
   -e CORS_ALLOWED_ORIGIN \
@@ -700,7 +700,7 @@ After the old feat/ssr-cloudflare merge, operators used these checks:
 
 2. **Backfill city for existing points** — one-time, run after migrations:
    ```bash
-   SUPABASE_DB_URL=<production_dsn> uv run python -m backend.scripts.backfill_city
+   AGENT_SVC_DATABASE_URL=<production_dsn> uv run python -m backend.scripts.backfill_city
    ```
    This reverse-geocodes all points with `city IS NULL` using GeoNames data (~12MB).
    Expected: ~1000+ points across ~50 cities. Takes <30 seconds.

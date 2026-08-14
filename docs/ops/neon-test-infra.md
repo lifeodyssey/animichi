@@ -67,7 +67,7 @@ make dev-db
 Point the Python backend at the static local DSN in another shell:
 
 ```bash
-SUPABASE_DB_URL='postgresql://neon:npg@localhost:5432/neondb?sslmode=require' make serve
+AGENT_SVC_DATABASE_URL='postgresql://neon:npg@localhost:5432/neondb?sslmode=require' make serve
 ```
 
 For `wrangler dev`, create a standing branch once with

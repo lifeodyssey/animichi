@@ -21,7 +21,13 @@ import pytest
 from testcontainers.core.container import DockerContainer
 from testcontainers.postgres import PostgresContainer
 
-from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.persistence.database import (
+    DatabaseLifecycle,
+    create_database_lifecycle,
+)
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 from animichi.tests.atlas_helper import apply_migrations, expected_revisions
 from animichi.tests.db_config import (
     DatabaseArm,
@@ -424,10 +430,14 @@ async def db_pool(pg_container: DatabaseTarget) -> AsyncIterator[asyncpg.Pool]:
 
 
 @pytest.fixture
-async def real_db(pg_container: DatabaseTarget) -> AsyncIterator[SupabaseClient]:
-    client = SupabaseClient(
-        pg_container.dsn, min_pool_size=1, max_pool_size=2, statement_cache_size=0
-    )
-    await client.connect()
-    yield client
-    await client.close()
+async def real_db(pg_container: DatabaseTarget) -> AsyncIterator[PersistenceRepos]:
+    """The composed SQLModel repository aggregate over the test database.
+
+    One engine + session factory for the test session (#994/#995): every
+    repository shares it, and the fixture owns (and closes) the lifecycle.
+    """
+    lifecycle: DatabaseLifecycle = create_database_lifecycle(pg_container.dsn)
+    try:
+        yield PersistenceRepos.build(lifecycle.sessionmaker)
+    finally:
+        await lifecycle.close()

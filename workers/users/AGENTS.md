@@ -27,9 +27,10 @@ Root guide: `../../AGENTS.md`. Template sibling: `../catalog/AGENTS.md`.
 
 - Hono + oRPC; contract source of truth = `packages/contract/src/users-contract.ts`
   (error registry mirror: `src/lib/errors.ts` — keep in lockstep).
-- **Drizzle is typing only** (`src/db/schema.ts`); every query goes through the raw `sql` tagged
-  template via the minimal `DbExecutor` (`execute` only). The fluent builder hangs under
-  workerd + neon-http.
+- **Drizzle via the `UsersDb` seam** — statements are built with the Drizzle **query builder**
+  (`src/adapters/neon-saved-route-repo.ts`) and executed through the `UsersDb` seam
+  (`db.execute`); the raw `sql` tagged template is reserved for bound array params (`sql.param`).
+  "Builder hangs" concerns were retired by the #992 query-builder cutover.
 - **Arrays**: interpolating a JS array in the `sql` template expands to a tuple (`($1,$2)`; empty
   → invalid `()`). Bind arrays as ONE param: `${sql.param(arr)}::text[]` (see `src/adapters/neon-saved-route-repo.ts`).
 - **timestamptz** returns raw strings under workerd → normalize `new Date(v).toISOString()` at the

@@ -1,7 +1,7 @@
 -- Table saved_routes (indexes/constraints/triggers)
 
 CREATE TABLE public.saved_routes (
-    id uuid DEFAULT gen_random_uuid() CONSTRAINT routes_id_not_null NOT NULL,
+    id uuid DEFAULT uuidv7() CONSTRAINT routes_id_not_null NOT NULL,
     point_ids text[] CONSTRAINT routes_point_ids_not_null NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     user_id text,

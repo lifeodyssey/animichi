@@ -13,7 +13,6 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 from animichi.application.adopt_sessions import AdoptionResult
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.routes._deps import TrustedAuthContext
 from animichi.interfaces.routes.adopt_sessions import (
     _reject_client_session_id,
@@ -137,12 +136,29 @@ async def test_oversized_body_without_content_length_is_rejected_413() -> None:
 
 
 async def test_handler_runs_the_full_adoption_body_directly() -> None:
-    db = MagicMock(spec=SupabaseClient)
+    from animichi.infrastructure.persistence.repositories.composite import (
+        PersistenceRepos,
+    )
+
+    db = PersistenceRepos(
+        sessionmaker=MagicMock(),
+        session=MagicMock(),
+        turn_reservation=MagicMock(),
+        bangumi=MagicMock(),
+        points=MagicMock(),
+        usage=MagicMock(),
+        anon_quota=MagicMock(),
+        feedback=MagicMock(),
+        memory=MagicMock(),
+    )
     db.session.adopt_ownership = AsyncMock(
         return_value=AdoptionResult(adopted_count=1, revisions_bumped=1)
     )
     request = _request()
     request.app.state.db_client = db
+    # Mirrors the real lifespan (#994): with an injected db the attribute is
+    # explicitly None, so the route falls back to the db-client locator.
+    request.app.state.session_repo = None
 
     resp = await handle_adopt_sessions(
         request, auth=_AUTH, from_anon_id="anon_" + "a" * 32

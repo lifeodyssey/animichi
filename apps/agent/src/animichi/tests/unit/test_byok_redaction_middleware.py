@@ -16,7 +16,6 @@ from starlette.responses import Response
 
 import animichi.interfaces.fastapi_service as fastapi_service_module
 from animichi.infrastructure.session.memory import InMemorySessionStore
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.routes._middleware import (
     SENSITIVE_HEADERS,
@@ -210,7 +209,7 @@ async def test_real_app_registration_order_redacts_before_observability_slot(
         recording_register_observability,
     )
 
-    db = MagicMock(spec=SupabaseClient)
+    db = MagicMock()
     runtime_api = RuntimeAPI(
         db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
     )

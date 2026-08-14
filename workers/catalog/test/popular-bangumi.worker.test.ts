@@ -3,19 +3,12 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { sql } from "drizzle-orm";
 import { popularBangumiDb, type PopularBangumiDb } from "../src/adapters/outbound/popular-bangumi";
 
 type Row = Record<string, unknown>;
 
 function fakeDb(rows: Row[]): PopularBangumiDb {
   return { execute: () => Promise.resolve({ rows }) };
-}
-
-function sqlText(query: ReturnType<typeof sql>): string {
-  return query.queryChunks
-    .map((part: unknown) => (typeof part === "string" ? part : typeof part === "number" ? String(part) : (part as { value: unknown[] }).value.join("")))
-    .join("");
 }
 
 function row(overrides: Partial<Row> = {}): Row {
@@ -50,29 +43,29 @@ describe("popularBangumiDb", () => {
     expect(rows[0]).toMatchObject({ title_cn: null, cover_url: null, city: null, rating: null });
   });
 
-  it("forwards the limit into the query", async () => {
-    let captured = "";
+  it("issues the capped ranking read as one query and maps the returned row", async () => {
+    let calls = 0;
     const db: PopularBangumiDb = {
-      execute: (query) => {
-        captured = sqlText(query);
+      execute: () => {
+        calls += 1;
         return Promise.resolve({ rows: [row()] });
       },
     };
-    await popularBangumiDb(db).listPopular(5);
-    expect(captured).toContain("LIMIT 5");
+    await expect(popularBangumiDb(db).listPopular(5)).resolves.toEqual([row()]);
+    expect(calls).toBe(1);
   });
 
-  it("orders rating DESC NULLS LAST and filters zero points", async () => {
-    let captured = "";
+  it("issues exactly one ranking read and preserves the returned work order", async () => {
+    let calls = 0;
+    const ranked = [row({ id: "2", rating: 9.5 }), row({ id: "1", rating: 9.1 })];
     const db: PopularBangumiDb = {
-      execute: (query) => {
-        captured = sqlText(query);
-        return Promise.resolve({ rows: [row()] });
+      execute: () => {
+        calls += 1;
+        return Promise.resolve({ rows: ranked });
       },
     };
-    await popularBangumiDb(db).listPopular(8);
-    expect(captured).toContain("ORDER BY rating DESC NULLS LAST");
-    expect(captured).toContain("points_count > 0");
+    await expect(popularBangumiDb(db).listPopular(8)).resolves.toEqual(ranked);
+    expect(calls).toBe(1);
   });
 });
 

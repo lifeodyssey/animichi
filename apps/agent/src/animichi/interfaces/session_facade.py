@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from animichi.agents.agent_result import AgentResult
 from animichi.agents.session_state import SessionState
+from animichi.domain.repo_types import SessionStateData
 from animichi.interfaces.schemas import PublicAPIRequest
 
 logger = structlog.get_logger(__name__)
@@ -32,9 +33,9 @@ class SessionUpdate:
     new_messages_serialized: list[object] = field(default_factory=list)
 
 
-def normalize_session_state(state: dict[str, object] | None) -> dict[str, object]:
+def normalize_session_state(state: SessionStateData | None) -> SessionStateData:
     """Return the storage envelope with stable collection fields."""
-    normalized: dict[str, object] = {
+    normalized: SessionStateData = {
         "interactions": [],
         "route_history": [],
         "last_intent": None,
@@ -56,8 +57,8 @@ def _list(value: object) -> list[object]:
 
 
 def build_updated_session_state(
-    previous_state: dict[str, object], update: SessionUpdate
-) -> dict[str, object]:
+    previous_state: SessionStateData, update: SessionUpdate
+) -> SessionStateData:
     """Append history and overwrite the one envelope-level typed snapshot."""
     context_delta = dict(update.context_delta or {})
     runtime_state = context_delta.pop("session_state_v2", None)
@@ -68,10 +69,10 @@ def build_updated_session_state(
 
 
 def _updated_envelope(
-    previous_state: dict[str, object],
+    previous_state: SessionStateData,
     update: SessionUpdate,
     context_delta: dict[str, object],
-) -> dict[str, object]:
+) -> SessionStateData:
     interactions = _list(previous_state.get("interactions"))
     interactions.append(_interaction(update, context_delta))
     return {
@@ -98,7 +99,7 @@ def _interaction(
     }
 
 
-def build_message_history(session_state: dict[str, object]) -> list[object]:
+def build_message_history(session_state: SessionStateData) -> list[object]:
     """Collect validated-at-read model messages in interaction order."""
     history: list[object] = []
     for interaction in _list(session_state.get("interactions")):
@@ -108,7 +109,7 @@ def build_message_history(session_state: dict[str, object]) -> list[object]:
     return history
 
 
-def build_session_summary(state: dict[str, object]) -> dict[str, object]:
+def build_session_summary(state: SessionStateData) -> dict[str, object]:
     """Build the public, compact session summary."""
     return {
         "interaction_count": len(_list(state.get("interactions"))),
@@ -162,7 +163,7 @@ def _latest_runtime_state(interactions: list[object]) -> SessionState | None:
 
 
 def build_context_block(
-    session_state: dict[str, object],
+    session_state: SessionStateData,
 ) -> dict[str, object] | None:
     """Restore the latest typed state; an explicit empty state is a clear."""
     runtime_state = (

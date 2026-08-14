@@ -19,8 +19,8 @@
  *
  * The pipeline phases live as module-level functions over a bundled
  * {@link IngestRuntime}; the class keeps only the public lifecycle surface.
- * Writes go through the `store` port's raw `sql` execute (the Drizzle read
- * schema is query-only), consistent with the ingest layer owning all mutations.
+ * Writes go through the `store` port's Drizzle query-builder statements over
+ * the single adapter seam, consistent with the ingest layer owning all mutations.
  */
 import type { CatalogDb } from "../db/client";
 import { enrichWork, type EnrichResult } from "../enrich/enrich";

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import { planItinerary, type ItineraryObservation, type ItineraryPoint, type PointsForRoutePort } from "../src/application/plan-itinerary";
 import { pointsForRoute, type RouteDb } from "../src/adapters/outbound/route-points";
-import type { CatalogDb, NeonSql } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 
 /**
@@ -120,12 +120,10 @@ describe("planItinerary redacted observability", () => {
 
 describe("pointsForRoute outbound adapter — SQL fetch wired to the port", () => {
   it("loads requested ids in ids order and drops unknown ids", async () => {
+    // The fake returns every point row; the adapter keeps only the requested ids
+    // and reassembles them in the requested order, dropping unknown ids.
     const fakeDb: RouteDb = {
-      execute: (query) => {
-        const text = JSON.stringify(query);
-        const matched = POINTS.filter((p) => text.includes(`"${p.id}"`));
-        return Promise.resolve({ rows: matched });
-      },
+      execute: () => Promise.resolve({ rows: POINTS }),
     };
     const port = pointsForRoute(fakeDb);
     expect(ids(await port.loadPoints(["c", "nope", "a"]))).toEqual(["c", "a"]);
@@ -148,8 +146,7 @@ const seamHandler = new OpenAPIHandler(catalogRouter);
 function seamContext(rows: unknown[][]): CatalogContext {
   const execute = () => Promise.resolve({ rows: rows.shift() ?? [] });
   const db = { execute } as unknown as CatalogDb;
-  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
-  return { db, neonSql };
+  return { db };
 }
 function seamRow(id: string, lat: number, image: string): unknown {
   return {

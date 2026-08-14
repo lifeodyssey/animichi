@@ -21,6 +21,7 @@ ALLOWED_ROOT_ENTRIES=(
   .nvmrc
   .oxlintrc.json
   .pre-commit-config.yaml
+  .semgrep
   .semgrepignore
   .serena
   .sonarcloud.properties

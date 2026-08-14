@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
-import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
-import type { DbExecutor } from "../src/db/client";
+import { fakeDb, fakeDbFrom, type FakeSavedRouteRow } from "./in-memory-routes-db";
+import type { UsersDb } from "../src/db/client";
 
 const ID = "00000000-0000-4000-8000-000000000009";
 const NOW = "2026-07-13T04:00:00.000Z";
@@ -32,9 +32,8 @@ describe("NeonSavedRouteRepo over the raw executor", () => {
 });
 
 describe("NeonSavedRouteRepo defensive normalization", () => {
-  const rawDb = (row: Record<string, unknown>): DbExecutor => ({
-    execute: () => Promise.resolve({ rows: [row] }),
-  });
+  const rawDb = (row: Record<string, unknown>): UsersDb =>
+    fakeDbFrom(() => [row]);
 
   it("normalizes malformed row fields instead of crashing", async () => {
     const repo = new NeonSavedRouteRepo(
@@ -62,9 +61,8 @@ describe("NeonSavedRouteRepo defensive normalization", () => {
 });
 
 describe("findOwner defensive cases (USERS-1 coverage)", () => {
-  const rawDb = (rows: Record<string, unknown>[]): DbExecutor => ({
-    execute: () => Promise.resolve({ rows }),
-  });
+  const rawDb = (rows: Record<string, unknown>[]): UsersDb =>
+    fakeDbFrom(() => rows);
 
   it("returns undefined when no row matches", async () => {
     const repo = new NeonSavedRouteStore(rawDb([]));

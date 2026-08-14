@@ -13,8 +13,6 @@ GRANT SELECT,USAGE ON SEQUENCE public.agent_memory_versions TO agent_svc;
 GRANT ALL ON TABLE public.aliases TO catalog_svc;
 GRANT SELECT ON TABLE public.aliases TO readonly;
 
-GRANT SELECT,USAGE ON SEQUENCE public.aliases_id_seq TO catalog_svc;
-
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.anon_daily_message_count TO agent_svc;
 GRANT SELECT,DELETE ON TABLE public.anon_daily_message_count TO jobs_svc;
 
@@ -27,8 +25,6 @@ GRANT SELECT ON TABLE public.bangumi TO readonly;
 GRANT ALL ON TABLE public.cluster_version TO catalog_svc;
 GRANT SELECT ON TABLE public.cluster_version TO readonly;
 
-GRANT SELECT,USAGE ON SEQUENCE public.cluster_version_id_seq TO catalog_svc;
-
 GRANT SELECT,INSERT,UPDATE ON TABLE public.daily_usage TO agent_svc;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.feedback TO agent_svc;
@@ -37,8 +33,6 @@ GRANT ALL ON TABLE public.ingest_jobs TO catalog_svc;
 
 GRANT ALL ON TABLE public.itinerary_snapshots TO catalog_svc;
 GRANT SELECT ON TABLE public.itinerary_snapshots TO readonly;
-
-GRANT SELECT,USAGE ON SEQUENCE public.itinerary_snapshots_id_seq TO catalog_svc;
 
 GRANT ALL ON TABLE public.leg_cache TO catalog_svc;
 GRANT SELECT ON TABLE public.leg_cache TO readonly;
@@ -77,6 +71,3 @@ GRANT SELECT ON TABLE public.series_edges TO readonly;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.sessions TO agent_svc;
 GRANT SELECT,DELETE ON TABLE public.sessions TO jobs_svc;
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.messages TO agent_svc;
-GRANT SELECT,DELETE ON TABLE public.messages TO jobs_svc;

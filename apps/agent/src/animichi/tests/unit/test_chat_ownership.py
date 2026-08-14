@@ -14,7 +14,7 @@ from animichi.agents.runtime_models import BlockedResponseModel, GreetingRespons
 from animichi.agents.session_state import SessionState
 from animichi.infrastructure.session.memory import InMemorySessionStore
 from animichi.interfaces.public_api import RuntimeAPI
-from animichi.tests.db_doubles import build_persistence_supabase_double
+from animichi.tests.db_doubles import build_persistence_double
 from animichi.tests.unit.conftest_fastapi import async_client, build_app
 
 SessionSnapshot: TypeAlias = tuple[str, dict[str, object], int, int]
@@ -40,7 +40,7 @@ class _ChatOwnershipHarness:
     def __init__(self) -> None:
         self.owners: dict[str, str] = {}
         self.store = InMemorySessionStore()
-        self.db = build_persistence_supabase_double()
+        self.db = build_persistence_double()
         self.db.session.check_session_owner = AsyncMock(side_effect=self._owns)
         self.db.session.create.side_effect = self._create_owned
         self.db.session.upsert_session.side_effect = self._claim

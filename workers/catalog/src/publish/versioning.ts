@@ -11,11 +11,15 @@
  * The batch makes the swap all-or-nothing, so a reader never sees zero or two
  * current rows.
  *
- * Writes go through raw `sql` execute (the Drizzle read schema is query-only),
- * consistent with the ingest/raw-store cards owning all mutations.
+ * Statements are built with the Drizzle query builder + the typed expression
+ * helpers (`../db/expressions`), then executed through the single `CatalogDb`
+ * seam (`db.batch` / `db.execute`), consistent with the #992 one-adapter-seam
+ * cutover (story 10).
  */
-import { sql, type SQL } from "drizzle-orm";
+import { and, eq, max, sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
+import { statementBuilder } from "../db/client";
+import { clusterVersion } from "../db/schema";
 
 interface PublishedVersionRow extends Record<string, unknown> {
   version: number;
@@ -31,7 +35,7 @@ export async function publishVersion(db: CatalogDb, bangumiId: string): Promise<
   return readPublishedVersion(inserted);
 }
 
-/** Ordered flip + insert-select statements shared by standalone and enrich batches. */
+/** Ordered flip + insert statements shared by standalone and enrich batches. */
 export function publishVersionStatements(
   bangumiId: string,
 ): readonly [SQL, SQL<PublishedVersionRow>] {
@@ -40,17 +44,34 @@ export function publishVersionStatements(
 
 /** Flip the work's current row (if any) to is_current=false. */
 function flipCurrentOff(bangumiId: string): SQL {
-  return sql`UPDATE cluster_version SET is_current = FALSE WHERE bangumi_id = ${bangumiId} AND is_current`;
+  return statementBuilder()
+    .update(clusterVersion)
+    .set({ isCurrent: false })
+    .where(and(eq(clusterVersion.bangumiId, bangumiId), eq(clusterVersion.isCurrent, true)))
+    .getSQL();
 }
 
 /** Atomically derive and insert max(version)+1 (1 when no row exists). */
 function insertCurrent(bangumiId: string): SQL<PublishedVersionRow> {
-  return sql<PublishedVersionRow>`
-    INSERT INTO cluster_version (bangumi_id, version, is_current)
-    SELECT ${bangumiId}, COALESCE(MAX(version), 0) + 1, TRUE
-    FROM cluster_version WHERE bangumi_id = ${bangumiId}
-    RETURNING version
-  `;
+  return statementBuilder()
+    .insert(clusterVersion)
+    .values({ bangumiId, version: nextVersionSubquery(bangumiId), isCurrent: true })
+    .returning({ version: clusterVersion.version }) as unknown as SQL<PublishedVersionRow>;
+}
+
+/**
+ * The next blue/green version for `cluster_version`: a correlated scalar subquery
+ * `COALESCE(MAX(version), 0) + 1` over the same work. Built with the Drizzle
+ * query builder through the `statementBuilder()` seam so no complete SELECT lives
+ * in the fragments-only expressions module — only the arithmetic wrapper string is
+ * composed here at the call site.
+ */
+function nextVersionSubquery(bangumiId: string): SQL {
+  const maxVersion = statementBuilder()
+    .select({ v: max(clusterVersion.version) })
+    .from(clusterVersion)
+    .where(eq(clusterVersion.bangumiId, bangumiId));
+  return sql`COALESCE((${maxVersion}), 0) + 1`;
 }
 
 /** Read and validate the INSERT ... RETURNING version batch result. */

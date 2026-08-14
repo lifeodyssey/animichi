@@ -17,14 +17,17 @@ from animichi.clients.catalog_client import CatalogClient
 from animichi.config.settings import Settings, get_settings
 from animichi.infrastructure.gateways.geocoding import aclose_geocoding_client
 from animichi.infrastructure.memory import postgres_memory_store
+from animichi.infrastructure.persistence.database import create_database_lifecycle
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 from animichi.infrastructure.session import SessionStore
-from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.session.cached_session_store import SessionStateStore
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.routes._deps import (  # noqa: F401
     _contains_json_invalid_error,
     _http_error_code,
     build_session_store,
-    build_supabase_client,
     call_optional_async,
     setup_logfire,
 )
@@ -60,15 +63,6 @@ async def _run_startup_sweep(runtime_db: object) -> None:
         logger.warning("startup_sweep_failed", exc_info=True)
 
 
-def _log_connect_failure(task: asyncio.Task[object]) -> None:
-    """Warn immediately when the background pool connect fails (issue #694)."""
-    if not task.cancelled() and task.exception() is not None:
-        logger.warning(
-            "database pool connect failed in the background",
-            error=task.exception(),
-        )
-
-
 def build_catalog_client(settings: Settings) -> CatalogClient:
     """Construct the shared Catalog read-path client from settings."""
     return CatalogClient(base_url=settings.catalog_api_url)
@@ -96,25 +90,18 @@ async def _lifespan_with_runtime_api(
 
 def _resolve_session_store(
     session_store: SessionStore | None,
-    runtime_db: object,
+    session_repo: SessionStateStore | None,
 ) -> SessionStore:
-    """Resolve the session store from the provided store or the DB client."""
+    """Resolve the session store from the provided store or the SQLModel
+    session repository (#994)."""
     if session_store is not None:
         return session_store
-    if isinstance(runtime_db, SupabaseClient):
-        return build_session_store(runtime_db)
+    if session_repo is not None:
+        return build_session_store(session_repo)
     raise RuntimeError(
         "create_fastapi_app(..., db=...) requires session_store"
-        " for non-Supabase db adapters."
+        " for non-persistence db adapters."
     )
-
-
-async def _close_clients(catalog_client: CatalogClient) -> None:
-    """Close catalog then geocoding clients; both attempts run."""
-    try:
-        await catalog_client.aclose()
-    finally:
-        await aclose_geocoding_client()
 
 
 async def _close_stores(
@@ -128,22 +115,6 @@ async def _close_stores(
         await call_optional_async(runtime_db, "close")
 
 
-async def _close_runtime_resources(
-    connect_task: asyncio.Task[object],
-    catalog_client: CatalogClient,
-    runtime_session_store: SessionStore,
-    runtime_db: object,
-) -> None:
-    """Close runtime resources; every close attempt still runs."""
-    try:
-        await connect_task
-    finally:
-        try:
-            await _close_clients(catalog_client)
-        finally:
-            await _close_stores(runtime_session_store, runtime_db)
-
-
 @asynccontextmanager
 async def _lifespan_build_runtime(
     app: FastAPI,
@@ -153,40 +124,54 @@ async def _lifespan_build_runtime(
     model_http_client: httpx.AsyncClient,
 ) -> AsyncIterator[None]:
     """Lifespan branch: build RuntimeAPI from scratch (normal startup)."""
-    runtime_db = db if db is not None else build_supabase_client(resolved_settings)
-    runtime_session_store = _resolve_session_store(session_store, runtime_db)
-    # Schema changes are never applied by the application. Neon catalog/user migrations run
-    # through Atlas from migrations/neon; the remaining Supabase compatibility surface has its
-    # own operator path. See docs/ops/migrations.md.
+    # The lifespan owns the single async engine + session factory (#994) and
+    # composes every SQLModel repository over it (#995). An explicitly
+    # injected ``db`` (test doubles) means the caller owns the database
+    # surface: the lifecycle is skipped and the locator path stays.
+    persistence = (
+        create_database_lifecycle(resolved_settings.database_url)
+        if db is None
+        else None
+    )
+    runtime_db = (
+        PersistenceRepos.build(persistence.sessionmaker)
+        if persistence is not None
+        else db
+    )
+    if runtime_db is None:
+        raise RuntimeError("a db adapter is required to build the runtime")
+    session_repo = (
+        runtime_db.session if isinstance(runtime_db, PersistenceRepos) else None
+    )
+    turn_store = (
+        runtime_db.turn_reservation
+        if isinstance(runtime_db, PersistenceRepos)
+        else None
+    )
+    runtime_session_store = _resolve_session_store(session_store, session_repo)
+    # Schema changes are never applied by the application. Neon catalog/user
+    # migrations run through Atlas from migrations/neon; see docs/ops/migrations.md.
     catalog_client = build_catalog_client(resolved_settings)
     app.state.catalog_client = catalog_client
+    app.state.persistence = persistence
+    app.state.session_repo = session_repo
+    app.state.turn_store = turn_store
     app.state.runtime_api = RuntimeAPI(
         runtime_db,
         session_store=runtime_session_store,
+        session_repo=session_repo,
+        turn_store=turn_store,
         catalog=catalog_client,
         settings=resolved_settings,
         model_http_client=model_http_client,
         memory_store=postgres_memory_store(runtime_db),
     )
     app.state.db_client = runtime_db
-    # The pool connect must not gate the container's readiness (issue #694):
-    # it runs in the background so the port binds immediately. Until it
-    # completes, DB work surfaces the client's "call connect() first" as a
-    # clean 500 — see RuntimeAPI's lazy-repo comment in public_api.py.
-    connect_task = asyncio.create_task(call_optional_async(runtime_db, "connect"))
-    connect_task.add_done_callback(_log_connect_failure)
-
-    async def _sweep_after_connect() -> None:
-        try:
-            await connect_task
-        except BaseException:
-            return
-        await _run_startup_sweep(runtime_db)
-
-    # Startup reconciliation runs once the pool is up, without blocking
-    # readiness (TURN-3 #951): stale leases are reclaimed before the first
-    # admission reads policy/quota/budget anyway.
-    startup_sweep_task = asyncio.create_task(_sweep_after_connect())
+    # The startup sweep must not gate the container's readiness (issue #694):
+    # it runs in the background so the port binds immediately. The engine
+    # connects lazily on first use; a failed sweep logs and is retried by the
+    # next admission's own sweep pass (TURN-3 #951).
+    startup_sweep_task = asyncio.create_task(_run_startup_sweep(runtime_db))
     app.state.startup_sweep_task = startup_sweep_task
     try:
         yield
@@ -194,9 +179,17 @@ async def _lifespan_build_runtime(
         try:
             await startup_sweep_task
         finally:
-            await _close_runtime_resources(
-                connect_task, catalog_client, runtime_session_store, runtime_db
-            )
+            try:
+                await _close_stores(runtime_session_store, runtime_db)
+            finally:
+                try:
+                    await catalog_client.aclose()
+                finally:
+                    try:
+                        await aclose_geocoding_client()
+                    finally:
+                        if persistence is not None:
+                            await persistence.close()
 
 
 def create_fastapi_app(

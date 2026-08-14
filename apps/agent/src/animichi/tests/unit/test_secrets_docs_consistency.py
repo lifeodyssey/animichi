@@ -12,10 +12,10 @@ workers/edge/src/identity/auth.ts.
 
 Set A (things that must be documented): every name used as `${{ secrets.X }}` anywhere under
 `.github/workflows/**`, plus every credential-shaped name in `workers/edge/src/container/container-env.ts`'s
-`CONTAINER_ENV_KEYS` (`_API_KEY`/`_TOKEN`/`_SECRET` suffix, plus the one exception
-`SUPABASE_DB_URL`). The non-credential majority of `CONTAINER_ENV_KEYS` (`LOG_LEVEL`,
-`CACHE_TTL_SECONDS`, ...) is plain runtime config with no GitHub secret behind it and is out
-of scope here by the doc's own stated division of labor with `deployment.md`.
+`CONTAINER_ENV_KEYS` (`_API_KEY`/`_TOKEN`/`_SECRET` suffix). The non-credential majority of
+`CONTAINER_ENV_KEYS` (`LOG_LEVEL`, `CACHE_TTL_SECONDS`, ...) is plain runtime config with no
+GitHub secret behind it and is out of scope here by the doc's own stated division of labor
+with `deployment.md`.
 
 `GITHUB_TOKEN` is excluded: it is the GitHub Actions built-in token, never provisioned via
 `gh secret set`, and structurally present in every workflow — documenting it here would be
@@ -44,7 +44,6 @@ SECRETS_DOC = ROOT / "docs" / "ops" / "secrets.md"
 
 SECRET_REF_RE = re.compile(r"\$\{\{\s*secrets\.([A-Z0-9_]+)\s*\}\}")
 CREDENTIAL_SUFFIXES = ("_API_KEY", "_TOKEN", "_SECRET")
-CREDENTIAL_EXCEPTIONS = {"SUPABASE_DB_URL"}
 BUILTIN_TOKENS = {"GITHUB_TOKEN"}
 
 
@@ -65,11 +64,7 @@ def _container_env_keys() -> list[str]:
 
 
 def _credential_shaped_container_keys() -> set[str]:
-    return {
-        key
-        for key in _container_env_keys()
-        if key in CREDENTIAL_EXCEPTIONS or key.endswith(CREDENTIAL_SUFFIXES)
-    }
+    return {key for key in _container_env_keys() if key.endswith(CREDENTIAL_SUFFIXES)}
 
 
 def _required_names() -> set[str]:

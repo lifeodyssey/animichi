@@ -12,20 +12,21 @@
  *
  * `points.image` is already a full URL (parse.ts expands Anitabi's leading-slash
  * paths to image.anitabi.cn at enrich time); we re-expand defensively here too.
+ *
+ * Statements are built with the Drizzle query builder + expression helpers over
+ * the single CatalogDb seam.
  */
-import { sql } from "drizzle-orm";
+import { eq, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
+import { statementBuilder } from "../db/client";
+import { mediaAssets, points } from "../db/schema";
+import * as x from "../db/expressions";
 import { getImage, putImage } from "./r2";
 
 const IMAGE_BASE = "https://image.anitabi.cn";
 const CACHE_CONTROL = "public, max-age=604800, s-maxage=2592000";
 const DEFAULT_CONTENT_TYPE = "image/jpeg";
 
-/**
- * Minimal binary-fetch surface for the origin pull (satisfied by the global
- * `fetch`). Unlike `sources.ts`'s JSON `FetchLike`, the media path reads raw
- * bytes + the content-type header, so it needs `arrayBuffer()` and `headers`.
- */
 export type ImageFetchLike = (
   input: string,
   init?: { headers?: Record<string, string> },
@@ -59,9 +60,12 @@ export async function serveImage(deps: ImgDeps, pointId: string): Promise<Respon
 
 /** Read the existing `media_assets` row for a point, or null on first request. */
 async function loadAsset(db: CatalogDb, pointId: string): Promise<MediaAsset | null> {
-  const result = await db.execute(
-    sql`SELECT r2_key, tombstoned FROM media_assets WHERE point_id = ${pointId}`,
-  );
+  const statement = statementBuilder()
+    .select({ r2Key: mediaAssets.r2Key, tombstoned: mediaAssets.tombstoned })
+    .from(mediaAssets)
+    .where(eq(mediaAssets.pointId, pointId))
+    .getSQL();
+  const result = await db.execute(statement);
   return (result.rows as unknown as MediaAsset[])[0] ?? null;
 }
 
@@ -96,7 +100,12 @@ async function storeAndServe(
 
 /** Look up the point's origin image URL, expanding leading-slash paths. */
 async function originUrl(db: CatalogDb, pointId: string): Promise<string | null> {
-  const result = await db.execute(sql`SELECT image FROM points WHERE id = ${pointId}`);
+  const statement = statementBuilder()
+    .select({ image: points.image })
+    .from(points)
+    .where(eq(points.id, pointId))
+    .getSQL();
+  const result = await db.execute(statement);
   const image = (result.rows as { image: string | null }[])[0]?.image;
   if (!image) return null;
   return image.startsWith("/") ? `${IMAGE_BASE}${image}` : image;
@@ -106,22 +115,37 @@ async function originUrl(db: CatalogDb, pointId: string): Promise<string | null>
 async function recordAsset(
   db: CatalogDb, pointId: string, key: string, hash: string,
 ): Promise<void> {
-  await db.execute(sql`
-    INSERT INTO media_assets (point_id, r2_key, content_hash, last_origin_pull, tombstoned)
-    VALUES (${pointId}, ${key}, ${hash}, NOW(), FALSE)
-    ON CONFLICT (point_id) DO UPDATE SET r2_key = EXCLUDED.r2_key,
-      content_hash = EXCLUDED.content_hash, last_origin_pull = NOW(), tombstoned = FALSE
-  `);
+  await db.execute(assetUpsertStatement(pointId, key, hash));
+}
+
+/** The asset-record UPSERT (over writes, clears the tombstone). */
+function assetUpsertStatement(pointId: string, key: string, hash: string): SQL {
+  return statementBuilder()
+    .insert(mediaAssets)
+    .values({ pointId, r2Key: key, contentHash: hash, tombstoned: false })
+    .onConflictDoUpdate({
+      target: mediaAssets.pointId,
+      set: { r2Key: key, contentHash: hash, tombstoned: false, lastOriginPull: x.now() },
+    })
+    .getSQL();
 }
 
 /** Mark a point's asset tombstoned (origin gone) and serve the fallback. */
 async function tombstoneAsset(db: CatalogDb, pointId: string): Promise<Response> {
-  await db.execute(sql`
-    INSERT INTO media_assets (point_id, last_origin_pull, tombstoned)
-    VALUES (${pointId}, NOW(), TRUE)
-    ON CONFLICT (point_id) DO UPDATE SET last_origin_pull = NOW(), tombstoned = TRUE
-  `);
+  await db.execute(tombstoneStatement(pointId));
   return tombstone();
+}
+
+/** The tombstone UPSERT: origin pull timestamp + the tombstone flag. */
+function tombstoneStatement(pointId: string): SQL {
+  return statementBuilder()
+    .insert(mediaAssets)
+    .values({ pointId, tombstoned: true })
+    .onConflictDoUpdate({
+      target: mediaAssets.pointId,
+      set: { tombstoned: true, lastOriginPull: x.now() },
+    })
+    .getSQL();
 }
 
 /** SHA-256 hex digest of the stored bytes (asset content_hash). */

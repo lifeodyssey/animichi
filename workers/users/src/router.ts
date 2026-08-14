@@ -7,10 +7,10 @@ import type { ListSavedRoutesObserverPort, SavedRouteReader } from "./applicatio
 import { saveSavedRoute as saveSavedRouteAction } from "./application/save-saved-route";
 import type { SavedRouteStore } from "./application/save-saved-route";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "./adapters/neon-saved-route-repo";
-import type { DbExecutor } from "./db/client";
+import type { UsersDb } from "./db/client";
 
 /** Per-request dependencies established by authentication middleware. */
-export interface UsersContext { db: DbExecutor; userId: string }
+export interface UsersContext { db: UsersDb; userId: string }
 
 const os = implement(usersContract).$context<UsersContext>();
 

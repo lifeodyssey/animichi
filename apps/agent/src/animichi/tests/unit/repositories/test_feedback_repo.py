@@ -1,28 +1,34 @@
-"""Unit tests for FeedbackRepository."""
+"""Unit tests for the SQLModel feedback + request-audit repository (#995).
+
+Behavior-level assertions on the typed statements the repository builds — no
+SQL strings are compared and nothing is executed (raw-SQL policy, #999).
+The real-Postgres insert/receipt behavior is covered by the integration
+contract suite.
+"""
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
-
 import pytest
+from sqlalchemy.dialects.postgresql.dml import Insert
+from sqlalchemy.sql.elements import ClauseElement
 
-from animichi.infrastructure.supabase.repositories.feedback import FeedbackRepository
-
-
-@pytest.fixture
-def pool() -> AsyncMock:
-    return AsyncMock()
-
-
-@pytest.fixture
-def repo(pool: AsyncMock) -> FeedbackRepository:
-    return FeedbackRepository(pool)
+from animichi.infrastructure.persistence.models import feedback_table
+from animichi.infrastructure.persistence.repositories.feedback import (
+    SQLModelFeedbackRepository,
+)
+from animichi.tests.unit.repositories._session_fake import RecordingSessionFactory
 
 
-async def test_save_feedback_returns_feedback_id(
-    repo: FeedbackRepository, pool: AsyncMock
-) -> None:
-    pool.fetchrow.return_value = {"id": "fb-uuid-123"}
+def _only_statement(factory: RecordingSessionFactory) -> ClauseElement:
+    assert len(factory.session.executed) == 1
+    return factory.session.executed[0]
+
+
+async def test_save_feedback_returns_the_returned_feedback_id() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for("fb-uuid-123")
+    repo = SQLModelFeedbackRepository(factory)
+
     result = await repo.save_feedback(
         session_id="sess-1",
         query_text="Where is Liz filmed?",
@@ -30,17 +36,21 @@ async def test_save_feedback_returns_feedback_id(
         rating="good",
         comment="Helpful!",
     )
+
     assert result == "fb-uuid-123"
-    pool.fetchrow.assert_awaited_once()
-    sql = pool.fetchrow.await_args.args[0]
-    assert "INSERT INTO feedback" in sql
-    assert "RETURNING id" in sql
+    statement = _only_statement(factory)
+    assert isinstance(statement, Insert)
+    assert statement.table is feedback_table
+    assert statement._values["query_text"].value == "Where is Liz filmed?"
+    assert statement._values["rating"].value == "good"
+    assert statement._values["comment"].value == "Helpful!"
 
 
-async def test_save_feedback_raises_when_no_row_returned(
-    repo: FeedbackRepository, pool: AsyncMock
-) -> None:
-    pool.fetchrow.return_value = None
+async def test_save_feedback_raises_when_no_row_returned() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for(None)
+    repo = SQLModelFeedbackRepository(factory)
+
     with pytest.raises(RuntimeError, match="save_feedback"):
         await repo.save_feedback(
             session_id="sess-1",
@@ -50,10 +60,11 @@ async def test_save_feedback_raises_when_no_row_returned(
         )
 
 
-async def test_insert_request_log_returns_id(
-    repo: FeedbackRepository, pool: AsyncMock
-) -> None:
-    pool.fetchrow.return_value = {"id": "log-uuid-456"}
+async def test_insert_request_log_returns_the_returned_log_id() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for("log-uuid-456")
+    repo = SQLModelFeedbackRepository(factory)
+
     result = await repo.insert_request_log(
         session_id="sess-1",
         query_text="test query",
@@ -63,33 +74,38 @@ async def test_insert_request_log_returns_id(
         status="ok",
         latency_ms=120,
     )
+
     assert result == "log-uuid-456"
-
-
-async def test_fetch_bad_feedback_returns_list(
-    repo: FeedbackRepository, pool: AsyncMock
-) -> None:
-    pool.fetch.return_value = [
-        {
-            "id": "1",
-            "query_text": "bad result",
-            "intent": None,
-            "comment": "wrong",
-            "created_at": "2026-01-01",
-        }
+    statement = _only_statement(factory)
+    assert isinstance(statement, Insert)
+    assert statement._values["plan_steps"].value == [
+        "resolve_anime",
+        "search_bangumi",
     ]
+    assert statement._values["latency_ms"].value == 120
+
+
+async def test_fetch_bad_feedback_returns_the_typed_read_rows() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for(
+        [{"id": "1", "query_text": "bad result", "intent": None}]
+    )
+    repo = SQLModelFeedbackRepository(factory)
+
     result = await repo.fetch_bad_feedback(limit=10)
+
     assert len(result) == 1
     assert result[0]["query_text"] == "bad result"
 
 
-async def test_update_request_log_score_calls_execute(
-    repo: FeedbackRepository, pool: AsyncMock
-) -> None:
-    pool.execute.return_value = None
+async def test_update_request_log_score_builds_a_scoped_update() -> None:
+    from sqlalchemy.sql.dml import Update
+
+    factory = RecordingSessionFactory()
+    repo = SQLModelFeedbackRepository(factory)
+
     await repo.update_request_log_score(log_id="log-1", score=0.85)
-    pool.execute.assert_awaited_once()
-    call_args = pool.execute.await_args.args
-    assert "UPDATE request_log" in call_args[0]
-    assert call_args[1] == 0.85
-    assert call_args[2] == "log-1"
+
+    statement = _only_statement(factory)
+    assert isinstance(statement, Update)
+    assert statement._values["plan_quality_score"].value == 0.85

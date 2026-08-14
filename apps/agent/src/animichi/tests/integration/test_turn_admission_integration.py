@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import uuid
 
-import asyncpg
 import pytest
+from sqlalchemy import delete, func, select
 
 from animichi.application.admission_limits import utc_today
 from animichi.application.turn_admission import (
@@ -19,30 +19,47 @@ from animichi.application.turn_admission import (
     AdmissionRequest,
     TurnAdmission,
 )
-from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.persistence.models import (
+    anon_quota_table,
+    daily_usage_table,
+    reservation_table,
+)
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 
 pytestmark = pytest.mark.integration
 
-ANON_ID = "anon_0123456789abcdef0123456789abcdef"
-ANON = AdmissionIdentity(user_id=ANON_ID, user_type="anonymous")
+
+def _anon_id() -> str:
+    """A unique anonymous identity per test run — the admission suite must
+    not collide with other suites' settled anon-quota rows for today."""
+    return f"anon_{uuid.uuid4().hex}"
+
+
+ANON = AdmissionIdentity(user_id=_anon_id(), user_type="anonymous")
 HUMAN = AdmissionIdentity(user_id="user-1", user_type="human")
 
 
 async def _cleanup(
-    pool: asyncpg.Pool, session_ids: list[str], anon_ids: list[str]
+    db: PersistenceRepos, session_ids: list[str], anon_ids: list[str]
 ) -> None:
-    await pool.execute(
-        "DELETE FROM turn_reservations WHERE session_id = ANY($1::text[])",
-        session_ids,
-    )
-    await pool.execute(
-        "DELETE FROM anon_daily_message_count WHERE anon_id = ANY($1::text[])",
-        anon_ids,
-    )
-    await pool.execute(
-        "DELETE FROM daily_usage WHERE usage_date = $1 AND scope = 'anon'",
-        utc_today(),
-    )
+    async with db.sessionmaker() as session:
+        async with session.begin():
+            await session.execute(
+                delete(reservation_table).where(
+                    reservation_table.c.session_id.in_(session_ids)
+                )
+            )
+            await session.execute(
+                delete(anon_quota_table).where(anon_quota_table.c.anon_id.in_(anon_ids))
+            )
+            await session.execute(
+                delete(daily_usage_table).where(
+                    daily_usage_table.c.usage_date == utc_today(),
+                    daily_usage_table.c.scope == "anon",
+                )
+            )
 
 
 def _request(
@@ -62,7 +79,27 @@ def _request(
     )
 
 
-def _admission(db: SupabaseClient, *, policy: AdmissionPolicy) -> TurnAdmission:
+async def _reservation_count(db: PersistenceRepos, session_id: str) -> int:
+    async with db.sessionmaker() as session:
+        result = await session.execute(
+            select(func.count())
+            .select_from(reservation_table)
+            .where(reservation_table.c.session_id == session_id)
+        )
+    return int(result.scalar_one())
+
+
+async def _anon_quota_count(db: PersistenceRepos, anon_id: str) -> int:
+    async with db.sessionmaker() as session:
+        result = await session.execute(
+            select(func.count())
+            .select_from(anon_quota_table)
+            .where(anon_quota_table.c.anon_id == anon_id)
+        )
+    return int(result.scalar_one())
+
+
+def _admission(db: PersistenceRepos, *, policy: AdmissionPolicy) -> TurnAdmission:
     return TurnAdmission(
         store=db.turn_reservation,
         policy=policy,
@@ -72,7 +109,7 @@ def _admission(db: SupabaseClient, *, policy: AdmissionPolicy) -> TurnAdmission:
 
 
 async def test_initial_and_continued_admission_through_the_live_store(
-    real_db: SupabaseClient,
+    real_db: PersistenceRepos,
 ) -> None:
     session_id = f"sess-{uuid.uuid4().hex}"
     admission = _admission(real_db, policy=AdmissionPolicy())
@@ -89,17 +126,20 @@ async def test_initial_and_continued_admission_through_the_live_store(
         assert second.admitted is True
         assert second.revision == 2
     finally:
-        await _cleanup(real_db.pool, [session_id], [])
+        await _cleanup(real_db, [session_id], [])
 
 
 async def test_quota_exhaustion_rejects_and_releases_the_reservation(
-    real_db: SupabaseClient,
+    real_db: PersistenceRepos,
 ) -> None:
     session_id = f"sess-{uuid.uuid4().hex}"
     admission = _admission(real_db, policy=AdmissionPolicy(quota=1, budget_usd=0))
     try:
         first = await admission(_request(session_id=session_id))
         assert first.admitted is True
+        await real_db.anon_quota.increment_and_count(
+            usage_date=utc_today(), anon_id=str(ANON.user_id)
+        )
         exhausted = await admission(
             _request(
                 session_id=session_id,
@@ -109,47 +149,40 @@ async def test_quota_exhaustion_rejects_and_releases_the_reservation(
         assert exhausted.admitted is False
         assert exhausted.rejection is not None
         assert exhausted.rejection.reason == "quota_exhausted"
-        async with real_db.pool.acquire() as conn:
-            count = await conn.fetchval(
-                "SELECT count(*) FROM turn_reservations WHERE session_id = $1",
-                session_id,
-            )
+        count = await _reservation_count(real_db, session_id)
         # Only the exhausted attempt's reservation was released; the first
         # admitted turn's reservation persists as the session's revision 1.
         assert count == 1
     finally:
-        await _cleanup(real_db.pool, [session_id], [ANON_ID])
+        await _cleanup(real_db, [session_id], [str(ANON.user_id)])
 
 
 async def test_budget_exhaustion_rejects_before_any_reservation(
-    real_db: SupabaseClient,
+    real_db: PersistenceRepos,
 ) -> None:
     session_id = f"sess-{uuid.uuid4().hex}"
     admission = _admission(real_db, policy=AdmissionPolicy(budget_usd=5.0))
     try:
-        async with real_db.pool.acquire() as conn:
-            await conn.execute(
-                "INSERT INTO daily_usage (usage_date, scope, cost_usd) "
-                "VALUES ($1, 'anon', 5.0) "
-                "ON CONFLICT (usage_date, scope) DO UPDATE SET cost_usd = 5.0",
-                utc_today(),
-            )
+        await real_db.usage.accumulate_usage(
+            usage_date=utc_today(),
+            scope="anon",
+            requests=1,
+            input_tokens=0,
+            output_tokens=0,
+            cost_usd=5.0,
+        )
         verdict = await admission(_request(session_id=session_id))
         assert verdict.admitted is False
         assert verdict.rejection is not None
         assert verdict.rejection.reason == "budget_exhausted"
-        async with real_db.pool.acquire() as conn:
-            count = await conn.fetchval(
-                "SELECT count(*) FROM turn_reservations WHERE session_id = $1",
-                session_id,
-            )
+        count = await _reservation_count(real_db, session_id)
         assert count == 0
     finally:
-        await _cleanup(real_db.pool, [session_id], [])
+        await _cleanup(real_db, [session_id], [])
 
 
 async def test_byok_passes_without_consuming_anon_quota(
-    real_db: SupabaseClient,
+    real_db: PersistenceRepos,
 ) -> None:
     session_id = f"sess-{uuid.uuid4().hex}"
     admission = _admission(real_db, policy=AdmissionPolicy(quota=1))
@@ -159,11 +192,7 @@ async def test_byok_passes_without_consuming_anon_quota(
         )
         assert verdict.admitted is True
         assert verdict.payer == "byok"
-        async with real_db.pool.acquire() as conn:
-            count = await conn.fetchval(
-                "SELECT count(*) FROM anon_daily_message_count WHERE anon_id = $1",
-                ANON_ID,
-            )
+        count = await _anon_quota_count(real_db, str(ANON.user_id))
         assert count == 0
     finally:
-        await _cleanup(real_db.pool, [session_id], [])
+        await _cleanup(real_db, [session_id], [])
