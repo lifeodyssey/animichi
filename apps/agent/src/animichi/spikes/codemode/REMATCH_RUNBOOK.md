@@ -11,7 +11,7 @@ Run from the repository root. `MIMO_API_KEY` must already be available in the sh
 ```bash
 cd apps/agent
 : "${MIMO_API_KEY:?set MIMO_API_KEY before running the rematch}"
-export SUPABASE_DB_URL="${SUPABASE_DB_URL:-postgresql://unused:unused@127.0.0.1:1/unused}"
+export AGENT_SVC_DATABASE_URL="${AGENT_SVC_DATABASE_URL:-postgresql://unused:unused@127.0.0.1:1/unused}"
 export EVAL_MODEL='openai:mimo-v2.5@https://api.xiaomimimo.com/v1'
 export EVAL_MAX_CASES=80
 export EVAL_CONCURRENCY=10
@@ -30,7 +30,7 @@ the CLIs take no path arguments by design (S8707: no user-controlled paths).
 The two 80-case arms are expected to cost roughly **$1–2 total**. The JSON reports use the
 same deterministic prefix-stratified case IDs and include the official-v1 eight metrics,
 request p95, input/output/total tokens, and a MiMo-rate cost estimate.
-The fallback `SUPABASE_DB_URL` only satisfies import-time settings validation; the trajectory
+The fallback `AGENT_SVC_DATABASE_URL` only satisfies import-time settings validation; the trajectory
 fixtures do not connect to it.
 
 ## Teaching treatment

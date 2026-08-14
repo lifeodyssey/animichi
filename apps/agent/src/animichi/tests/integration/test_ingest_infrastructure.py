@@ -2,8 +2,8 @@
 
 AC1 singleflight, AC2 atomic version pointer, AC4 negative cache.
 AC3 (catalog SELECT-only role) is a structural guarantee that requires distinct
-DB roles; the testcontainer runs as superuser, so it is enforced in
-ops/Supabase (documented), not asserted here.
+DB roles; the testcontainer runs as superuser, so it is enforced in the
+catalog role/GRANT migrations (docs/ops/migrations.md), not asserted here.
 """
 
 import asyncpg

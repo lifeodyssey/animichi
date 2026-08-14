@@ -170,8 +170,9 @@ Required:
 
 - `AGENT_SVC_DATABASE_URL` — the Postgres DSN (#995: the `SUPABASE_DB_URL` fallback
   was deleted from settings). The role-scoped Neon DSN (`agent_svc` role) is supplied
-  via the edge Worker's Secrets Store binding and forwarded into the container;
-  see `docs/ops/prod-dsn-cutover.md`.
+  via the edge Worker's Secrets Store binding and forwarded into the container. The legacy
+  `SUPABASE_DB_URL` name remains only as a **transitional container-DSN env name** (a Neon DSN,
+  not a live Supabase plane) pending the #855 rename; see `docs/ops/prod-dsn-cutover.md`.
 - `MIMO_API_KEY` for the primary `mimo-v2.5` model
 - `DEEPSEEK_API_KEY` remains deploy-required and provisioned for the dormant DeepSeek fallback
 - `APP_ENV` — forwarded from `wrangler.toml`'s per-environment `[vars]` block (`development` /
@@ -452,9 +453,9 @@ Its current order is:
 
 The manual path runs the same `reusable-deploy-component.yml` as the CI promotion, so it applies
 `migrations/neon/` (when `NEON_DATABASE_URL` is set) exactly like the CI path — it is not a
-migration-free path. The frozen Supabase compatibility directory is never applied by either path;
-an explicitly approved auth migration follows the separate Supabase owner/runbook and must not be
-used to change Neon catalog or user tables.
+migration-free path. The Supabase compatibility directory (`supabase/`) is **archived/historical
+(issue #1000)** and never applied by either path; an explicitly approved auth migration would follow
+the separate Supabase owner/runbook and must not be used to change Neon catalog or user tables.
 
 Do not use version tags as a deploy trigger for the current pipeline.
 

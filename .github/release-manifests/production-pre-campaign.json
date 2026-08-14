@@ -85,9 +85,6 @@
       "run_pulumi": false,
       "build_filter": "",
       "worker_secrets": [
-        "SUPABASE_URL",
-        "SUPABASE_ANON_KEY",
-        "SUPABASE_SERVICE_ROLE_KEY",
         "SUPABASE_DB_URL",
         "MIMO_API_KEY",
         "DEEPSEEK_API_KEY",

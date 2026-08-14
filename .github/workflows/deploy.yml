@@ -141,9 +141,6 @@ jobs:
       working_directory: "."
       run_pulumi: false
       worker_secrets: |
-        SUPABASE_URL
-        SUPABASE_ANON_KEY
-        SUPABASE_SERVICE_ROLE_KEY
         SUPABASE_DB_URL
         MIMO_API_KEY
         DEEPSEEK_API_KEY
@@ -158,9 +155,6 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
