@@ -20,6 +20,15 @@ cd "$(git rev-parse --show-toplevel)"
 [[ "$(git rev-parse HEAD)" = "${SOURCE_REVISION}" ]]\
   || { echo "cutover-close-ingress: HEAD != source_revision" >&2; exit 1; }
 
+# Pulumi must run from infra/ (the project dir) or it cannot find Pulumi.yaml
+# (#1001). Fail fast with a clear message instead of pulumi's cryptic
+# "no Pulumi.yaml project file found".
+cd infra
+if [[ ! -f Pulumi.yaml ]]; then
+  echo "cutover-close-ingress: no infra/Pulumi.yaml found — pulumi must run from infra/" >&2
+  exit 1
+fi
+
 # 1. Close the IaC staging gate (the `stagingGateEnabled` flag IS the gate:
 #    true = WAF blocks everything except the gate token exchange path).
 pulumi --stack staging config set stagingGateEnabled true
