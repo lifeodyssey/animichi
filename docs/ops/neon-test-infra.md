@@ -98,8 +98,8 @@ rails pass.
 
 `migrations/neon/` is the integration-test and Neon data-plane **schema** source. New catalog/user
 changes are authored there directly, and `atlas.sum` is regenerated in the same change. The
-older `supabase/migrations/` files are frozen compatibility history for the remaining Supabase
-surface; do not create an auth-stripped twin or copy a new data-plane change into both trees.
+older `supabase/migrations/` files are archived/historical (issue #1000) and are not an apply or
+source surface; do not create an auth-stripped twin or copy a new data-plane change into both trees.
 The gazetteer seed is **not** a migration — it lives at `workers/catalog/data/gazetteer_seed.sql`
 and is loaded idempotently (`make seed-gazetteer` / the `neon-test-base.sh` seed step) after the
 schema exists.

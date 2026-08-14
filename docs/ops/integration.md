@@ -62,7 +62,7 @@ image.anitabi.cn ───────┘      ↓ raw_anitabi / raw_bangumi(JSO
                           Publish → cluster_version(蓝绿指针);媒体 → R2 catalog-media
 agent(Python 容器)= catalog 的只读消费者(不在请求期调外部 API)
 users Worker = 用户数据(Hono/oRPC);maintenance Worker = 定时清理(cron 范式的参照实现)
-数据库 = Neon(Atlas 迁移,migrations/neon);Supabase 仅存量 auth(SD-31 迁移中,冻结)
+数据库 + 认证 = Neon(Atlas 迁移 migrations/neon;auth = Neon Auth,edge 仅验 Neon JWKS,AUTH-2 #950 已切净;无 Supabase 依赖)
 ```
 
 ## 4. 部署链
@@ -78,7 +78,7 @@ merge → main push → ci.yml:staging 四组件(catalog+Pulumi / web / users / 
 
 ## 5. 本地开发
 
-- `make dev-local`(Supabase + 后端 + web,一条命令;禁止逐个起服务)· `make local-login`(浏览器 magic link)
+- `make dev-local`(Neon 本地 DB + 后端 + web,一条命令;禁止逐个起服务)· `make local-login`(浏览器 magic link)
 - `make dev-db`(agent 专用 Neon Local `:5432`)· `make check`(改动前后必跑)
 - `make e2e-setup` → `make e2e`(Playwright;S0-v2 起 Test Agents 产物走晋升闸,见 launch spec)
 - 排障入口:`/healthz` 的 `git_commit/git_branch` 先核对「打的是哪个后端」

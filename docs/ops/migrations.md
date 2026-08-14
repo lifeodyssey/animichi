@@ -1,8 +1,8 @@
 # Database migration boundary
 
 This is the operational source of truth for schema changes in the hybrid runtime. It
-separates the Neon data plane from the remaining Supabase authentication/compatibility
-surface so a query schema cannot quietly become a second migration system.
+separates the Neon data plane from the historical Supabase compatibility archive
+(issue #1000) so a query schema cannot quietly become a second migration system.
 
 ## Authorities
 
@@ -10,7 +10,7 @@ surface so a query schema cannot quietly become a second migration system.
 |---|---|---|---|
 | Neon catalog and user data | `migrations/neon/*.sql` plus the generated `migrations/neon/atlas.sum` | Pinned Atlas CLI (`0.30.0`) | The only versioned schema and data migration history for Neon. The chain is schema-only; reference/seed data (e.g. the gazetteer at `workers/catalog/data/gazetteer_seed.sql`) is loaded separately and idempotently (`make seed-gazetteer`) |
 | Catalog/users runtime access | `workers/catalog/src/db/schema.ts` and `workers/users/src/db/schema.ts` | Drizzle `neon-http` client with raw `sql` queries | Runtime column/type metadata and query typing only; never a migration source |
-| Supabase auth/legacy compatibility | `supabase/migrations/` | Supabase CLI, only when an auth owner explicitly schedules it | Not a source for new Neon catalog or user tables |
+| Supabase auth/legacy compatibility (**HISTORICAL**) | `supabase/migrations/` | **Not applied** — archived/historical only (issue #1000); never a live apply or source surface | `migrations/neon/*.sql` is the single authority; never a source for new Neon catalog or user tables |
 
 `migrations/neon/` is append-only once a migration has reached a shared environment. Do not
 edit an applied file, hand-edit `atlas.sum`, or copy a Drizzle schema into a second SQL
@@ -86,9 +86,9 @@ For a non-mutating review against a disposable or explicitly approved target, us
 command with `--dry-run`. CI always runs `atlas migrate validate`; a live dry-run/apply only
 runs when the corresponding protected connection secret is present.
 
-The Supabase CLI is not a substitute for this command. If an auth-only Supabase migration is
-explicitly approved, it follows its own owner/runbook and must not add or alter Neon data-plane
-tables.
+The Supabase CLI is not a substitute for this command. The archived `supabase/migrations/`
+directory is historical and never applied; if an auth-only Supabase migration were explicitly
+approved, it would follow its own owner/runbook and must not add or alter Neon data-plane tables.
 
 ## CI and deployment order
 
@@ -96,8 +96,10 @@ tables.
   worker migration-boundary test also checks that workflows contain the Atlas command and do
   not reintroduce `supabase db push` or a Drizzle migration command.
 - The main promotion workflow applies Atlas to the target Neon branch before the catalog/users
-  Worker rollout. The manual production workflow validates the directory but intentionally does
-  not mutate a production database; use the approval-gated promotion for schema changes.
+  Worker rollout. The manual production path (`deploy.yml`) runs the same
+  `reusable-deploy-component.yml` as the promotion, so it applies `migrations/neon/`
+  (`atlas migrate apply`) when `NEON_DATABASE_URL` is set — it is **not** a migration-free
+  path (see `docs/ops/deployment.md`). Use the approval-gated promotion for schema changes.
 - A schema change that needs both old and new application versions uses expand/contract:
   add the replacement, deploy compatible readers/writers, then remove the old shape in a later
   migration. A Worker rollback never rolls back a database migration.

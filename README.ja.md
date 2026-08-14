@@ -70,8 +70,9 @@ make check             # lint + 型チェック + テスト
 Neon の catalog/user データ面のスキーマ変更は `migrations/neon/` に記録し、固定した
 Atlas CLI で適用します。`migrations/neon/atlas.sum` は生成される整合性マニフェストなので、
 マイグレーションと同じ変更で再生成してください。Worker の Drizzle schema は実行時の
-クエリ/型情報だけを提供し、マイグレーションを生成・適用しません。残る Supabase の
-マイグレーションは auth/旧版互換用で、Neon の新しいテーブルのソースではありません。
+クエリ/型情報だけを提供し、マイグレーションを生成・適用しません。`supabase/` は
+アーカイブ対象の歴史的 Supabase マイグレーションツリー（issue #1000）で、適用されず
+Neon の新しいテーブルのソースでもありません。
 
 ```bash
 make db-list           # リポジトリ内の Atlas マイグレーション一覧
@@ -88,7 +89,7 @@ make db-push           # NEON_DATABASE_URL に適用
 **必須（agent コンテナ / ローカル serve）：**
 | 変数名 | 用途 |
 |---|---|
-| `SUPABASE_DB_URL` | agent ドメインの Postgres 接続文字列（旧データ面。Neon では `AGENT_SVC_DATABASE_URL` に移行、#912 フォローアップ） |
+| `AGENT_SVC_DATABASE_URL` | Neon agent_svc ロール DSN（asyncpg)——agent コンテナが必要とするデータ面接続（#912）。旧称 `SUPABASE_DB_URL` は #855 プロダクション切替まで暫定の容器-DSN 名として残る |
 | `MIMO_API_KEY` | 主モデルプロバイダキー |
 | `DEEPSEEK_API_KEY` | エッジ container-env がコンテナ起動時に要求（コンテナへ転送） |
 
@@ -104,13 +105,26 @@ make db-push           # NEON_DATABASE_URL に適用
 
 **Python（直接呼び出し）：**
 ```python
+import os
+
 from animichi.agents.animichi_runner import run_animichi_agent
-from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.persistence.database import create_database_lifecycle
+from animichi.infrastructure.persistence.repositories.composite import PersistenceRepos
+from animichi.clients.catalog_client import CatalogClient
 
 async def main() -> None:
-    async with SupabaseClient(db_url) as db:
-        result = await run_animichi_agent("吹響ユーフォニアムの聖地", db, locale="ja")
+    # One session factory per app: the Neon agent_svc DSN (AGENT_SVC_DATABASE_URL)
+    # plus its async_sessionmaker, owned by DatabaseLifecycle.
+    lifecycle = create_database_lifecycle(os.environ["AGENT_SVC_DATABASE_URL"])
+    try:
+        repos = PersistenceRepos.build(lifecycle.sessionmaker)   # SQLModel repos over one Neon session
+        catalog = CatalogClient(base_url="https://catalog.example")
+        result = await run_animichi_agent(
+            text="吹響ユーフォニアムの聖地", db=repos, locale="ja", catalog=catalog
+        )
         print(result.output)
+    finally:
+        await lifecycle.close()
 ```
 
 **HTTP（認証済み）：**

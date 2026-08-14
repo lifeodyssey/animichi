@@ -72,12 +72,6 @@ on:
         required: false
       NEON_AUTH_JWKS_URL:
         required: false
-      SUPABASE_URL:
-        required: false
-      SUPABASE_ANON_KEY:
-        required: false
-      SUPABASE_SERVICE_ROLE_KEY:
-        required: false
       SUPABASE_DB_URL:
         required: false
       MIMO_API_KEY:
@@ -817,9 +811,6 @@ jobs:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -946,9 +937,6 @@ jobs:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}

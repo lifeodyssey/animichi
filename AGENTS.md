@@ -19,7 +19,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
 - `workers/edge/`      — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy. No page fallback — unmatched paths 404.
-- `migrations/neon/`    — Atlas/Neon migrations (moved from `db/migrations`); Supabase migrations stay auth-only in `supabase/`. → `migrations/AGENTS.md`
+- `migrations/neon/`    — Atlas/Neon migrations (moved from `db/migrations`); `supabase/` is an archived historical Supabase migration dir (issue #1000), not a live surface. → `migrations/AGENTS.md`
 - `e2e/`               — Playwright browser suite for `apps/web`. → `e2e/AGENTS.md`
 - `infra/`             — Pulumi Cloudflare IaC. → `infra/AGENTS.md`
 
@@ -92,7 +92,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
   | Server | Use it for |
   |---|---|
-  | `supabase-seichijunrei` | Auth/Supabase ops — `list_tables`, `get_logs`, `get_advisors`, edge functions, `apply_migration`. Start here to debug auth/DB. |
+  | `supabase-seichijunrei` | Read-only inspection of the **archived** `supabase/` history only (`list_tables`, `get_logs`, `get_advisors`, edge functions) — no mutation-capable ops (`apply_migration`) are listed any more (#1000). Auth is Neon Auth (edge, #950) and the data plane is Neon Postgres. |
   | Neon (`mcp__Neon__*`) | The **data plane** (catalog/user tables, Drizzle). Branch/query Neon. |
   | Cloudflare (`cloudflare-*`) | Workers/Wrangler docs, bindings, builds, observability for the edge/catalog. |
   | context7 | Current library docs for the exact stack (Hono, Drizzle, oRPC, AI SDK, TanStack Start, pydantic-ai). Prefer over memory. |

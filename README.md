@@ -70,8 +70,8 @@ make check             # lint + typecheck + test
 Neon catalog and user schema changes are versioned in `migrations/neon/` and applied by the
 pinned Atlas CLI. `migrations/neon/atlas.sum` is generated metadata and must be regenerated in
 the same change. Drizzle schemas in the Workers are runtime query/type metadata only; they do
-not generate or apply migrations. The remaining Supabase migration directory is reserved for
-auth/legacy compatibility work and is not a source for new Neon tables.
+not generate or apply migrations. `supabase/` is an archived historical Supabase migration
+tree (issue #1000); it is not applied and is not a source for new Neon tables.
 
 ```bash
 make db-list           # list checked-in Atlas migrations
@@ -89,7 +89,7 @@ order. Apply migrations in a dedicated deploy step, not at application startup.
 **Required (agent container / local serve):**
 | Variable | Purpose |
 |---|---|
-| `SUPABASE_DB_URL` | Agent-domain Postgres connection string (legacy data plane; superseded by `AGENT_SVC_DATABASE_URL` on Neon, #912 follow-up) |
+| `AGENT_SVC_DATABASE_URL` | Neon agent_svc role DSN (asyncpg) — the required agent-container data-plane connection (#912). The legacy `SUPABASE_DB_URL` name is still provisioned as the transitional container-DSN name pending the #855 prod cutover |
 | `MIMO_API_KEY` | Primary model provider key |
 | `DEEPSEEK_API_KEY` | Required by edge container-env for agent boot (forwarded into the container) |
 
@@ -108,13 +108,26 @@ See [`apps/agent/src/animichi/config/settings.py`](apps/agent/src/animichi/confi
 
 **Python (direct):**
 ```python
+import os
+
 from animichi.agents.animichi_runner import run_animichi_agent
-from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.persistence.database import create_database_lifecycle
+from animichi.infrastructure.persistence.repositories.composite import PersistenceRepos
+from animichi.clients.catalog_client import CatalogClient
 
 async def main() -> None:
-    async with SupabaseClient(db_url) as db:
-        result = await run_animichi_agent("吹響ユーフォニアムの聖地", db, locale="ja")
+    # One session factory per app: the Neon agent_svc DSN (AGENT_SVC_DATABASE_URL)
+    # plus its async_sessionmaker, owned by DatabaseLifecycle.
+    lifecycle = create_database_lifecycle(os.environ["AGENT_SVC_DATABASE_URL"])
+    try:
+        repos = PersistenceRepos.build(lifecycle.sessionmaker)   # SQLModel repos over one Neon session
+        catalog = CatalogClient(base_url="https://catalog.example")
+        result = await run_animichi_agent(
+            text="吹響ユーフォニアムの聖地", db=repos, locale="ja", catalog=catalog
+        )
         print(result.output)
+    finally:
+        await lifecycle.close()
 ```
 
 **HTTP (authenticated):**

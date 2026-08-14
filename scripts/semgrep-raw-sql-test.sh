@@ -70,8 +70,13 @@ approved() {
 
 baseline() {
   # The live runtime trees must already be clean — no pre-existing violations.
-  if ! (cd "${REPO_ROOT}" && "${SEMGREP_BIN}" --config "${RULES}" --error \
-      workers/catalog/src workers/users/src apps/agent/src/animichi >/dev/null 2>&1); then
+  # Scan the whole repo ROOT as a dot target from REPO_ROOT, mirroring the CI
+  # scan. The anchored paths.include (/apps/agent, /workers/catalog/src, ...)
+  # resolve against the git/scan root, so a '.' target guarantees every rule
+  # fires and .semgrepignore still applies (test/ and tests/ are excluded).
+  # Scanning the three include dirs explicitly would scope the check only to
+  # those subtrees and miss any violation elsewhere in the repo.
+  if ! (cd "${REPO_ROOT}" && "${SEMGREP_BIN}" --config "${RULES}" --error . >/dev/null 2>&1); then
     echo "FAIL: existing runtime source already violates the raw-SQL policy." >&2
     return 1
   fi

@@ -14,9 +14,9 @@ Consumer rules: `docs/agents/domain.md` (when present). Per-package `CONTEXT.md`
 | **Agent** | [`apps/agent/CONTEXT.md`](./apps/agent/CONTEXT.md) | `apps/agent` |
 | **Edge** | [`workers/edge/CONTEXT.md`](./workers/edge/CONTEXT.md) | `workers/edge` |
 | **Web** | `apps/web/CONTEXT.md` (lazy) | `apps/web` |
-| **Migrations** | `migrations/CONTEXT.md` (lazy) | `migrations/neon`, `migrations/supabase` (target paths) |
+| **Migrations** | `migrations/CONTEXT.md` (lazy) | `migrations/neon` (single authority, Atlas); `supabase/migrations/` is archived history (issue #1000) |
 | **Infra** | `infra/CONTEXT.md` (lazy) | `infra` |
-| **Auth appliance** | — | `supabase/` (auth-only, no package guide) |
+| **Auth appliance** | — | Neon Auth (Better Auth) integrated in `apps/web`; the edge verifies Neon JWKS only (AUTH-2 #950). `supabase/` is archived history, no package guide |
 | **Browser E2E** | `e2e/CONTEXT.md` (lazy) | `e2e/` |
 
 System-wide ADRs: `docs/adr/` (0002 published language · [0003 secrets architecture](./docs/adr/0003-secrets-architecture.md) · [0004 campaign merge](./docs/adr/0004-campaign-merge.md) · [0005 force-push policy](./docs/adr/0005-repo-force-push-policy.md)).

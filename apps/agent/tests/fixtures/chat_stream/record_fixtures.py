@@ -22,7 +22,9 @@ from typing import TYPE_CHECKING
 # Settings validation demands these at import time; the recorder never uses a
 # real DB or model, so stub values keep the script runnable and reproducible.
 os.environ.setdefault("MIMO_API_KEY", "recording-stub")
-os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
+os.environ.setdefault(
+    "AGENT_SVC_DATABASE_URL", "postgresql://test:test@localhost:5432/test"
+)
 
 if TYPE_CHECKING:
     from animichi.agents.runtime_deps import OnStep, StepEvent, StepStatus

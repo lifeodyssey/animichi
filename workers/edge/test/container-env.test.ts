@@ -48,7 +48,8 @@ void test("buildContainerEnvVars forwards the provided APP_ENV value unchanged",
 // [[env.staging.secrets_store_secrets]]). It is deliberately NOT required —
 // production has no binding until the #855 cutover, so it must not fail-closed
 // every environment; the per-environment requirement lives in the agent's
-// settings (AGENT_SVC_DATABASE_URL or the legacy SUPABASE_DB_URL).
+// settings (AGENT_SVC_DATABASE_URL is the only DSN it reads — the legacy
+// SUPABASE_DB_URL fallback is gone, issue #1000).
 void test("AGENT_SVC_DATABASE_URL is forwarded to the container when set (#912)", () => {
   const environmentVars = buildContainerEnvVars({
     ...requiredContainerEnv(),
