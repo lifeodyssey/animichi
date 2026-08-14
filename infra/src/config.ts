@@ -26,8 +26,16 @@ export function mapTilesBucketNameFor(stackName: string): string {
   return `map-tiles-${stackName}`;
 }
 
+/** Immutable-snapshot bucket follows the media naming scheme (issue #1012). */
+export function snapshotBucketNameFor(stackName: string): string {
+  if (stackName === "prod") return "catalog-snapshots";
+  if (stackName === "staging") return "catalog-snapshots-staging";
+  return `catalog-snapshots-${stackName}`;
+}
+
 export const mediaBucketName = mediaBucketNameFor(stack);
 export const mapTilesBucketName = mapTilesBucketNameFor(stack);
+export const snapshotBucketName = snapshotBucketNameFor(stack);
 export const accountId = config.require("cloudflareAccountId");
 export const webRoutesEnabled = config.getBoolean("webRoutesEnabled") ?? false;
 

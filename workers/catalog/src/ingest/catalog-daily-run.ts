@@ -10,6 +10,7 @@
  */
 import { dailyRunKey, type DiscoveryInput } from "./discovery";
 import { runDailyIngestWith, type RunPlan, type RunPolicy, type RunPorts } from "./daily-run";
+import type { DailyRunOutcome } from "../publish/daily-snapshot";
 import type { TieredWork } from "./tiers";
 import { beginRunRow, markRunFailedRow, readRunRow, recordRunRow } from "./run-store";
 import { cleanupRawHistory } from "./raw_history";
@@ -23,16 +24,17 @@ export interface DailyRunInputs {
   tiered: readonly TieredWork[];
 }
 
-/** Run the daily ingest for `epochMs` against the catalog database. */
+/** Run the daily ingest for `epochMs`; returns the run outcome (id + createdAt) so the published snapshot matches the run that produced it (issue #1012). */
 export async function catalogDailyRun(
   db: CatalogDb,
   epochMs: number,
   inputs: DailyRunInputs,
   policy: RunPolicy,
-): Promise<unknown> {
+): Promise<DailyRunOutcome> {
   const runId = dailyRunKey(epochMs);
   const plan: RunPlan = { runId, epochMs, discovery: inputs.discovery, knownIds: inputs.knownIds, tiered: inputs.tiered, policy };
-  return runDailyIngestWith(catalogPorts(db, runId, policy.keepHistory), plan);
+  const run = await runDailyIngestWith(catalogPorts(db, runId, policy.keepHistory), plan);
+  return { status: run.status, runId, createdAt: new Date(epochMs).toISOString() };
 }
 
 /** The RunPorts bound to a CatalogDb for one run id. */

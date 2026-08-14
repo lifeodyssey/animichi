@@ -49,6 +49,14 @@ preview_urls = false
 binding = "MEDIA_BUCKET"
 bucket_name = "catalog-media"
 
+# R2 bucket for immutable public catalog snapshots (issue #1012, see src/publish/).
+# Every successful daily run publishes an N/N-1 snapshot set here; the online
+# gcSnapshots pass (keep N and N-1) IS the retention enforcement, so no R2
+# lifecycle rule is required. Provisioned by Pulumi as `catalog-snapshots`.
+[[r2_buckets]]
+binding = "SNAPSHOT_BUCKET"
+bucket_name = "catalog-snapshots"
+
 [observability]
 enabled = true
 
@@ -102,6 +110,10 @@ crons = ["0 4 * * *", "0 6 * * *", "17 * * * *"]
 binding = "MEDIA_BUCKET"
 bucket_name = "catalog-media-staging"
 
+[[env.staging.r2_buckets]]
+binding = "SNAPSHOT_BUCKET"
+bucket_name = "catalog-snapshots-staging"
+
 [env.production]
 name = "catalog"
 workers_dev = false
@@ -122,3 +134,7 @@ crons = ["0 4 * * *", "0 6 * * *", "17 * * * *"]
 [[env.production.r2_buckets]]
 binding = "MEDIA_BUCKET"
 bucket_name = "catalog-media"
+
+[[env.production.r2_buckets]]
+binding = "SNAPSHOT_BUCKET"
+bucket_name = "catalog-snapshots"

@@ -24,6 +24,7 @@ export {
   wave0,
   catalogBucketName,
   tilesBucketName,
+  snapshotBucketName,
 } from "./src/outputs.ts"
 
 // ── Neon Auth staging declarations (AUTH-2 #950) ─────────────────────────────
