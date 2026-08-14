@@ -13,7 +13,9 @@ import type { IngestResult } from "../src/ingest/ingest-bangumi";
 import type { CatalogDb } from "../src/db/client";
 import { SEED_BANGUMI_IDS } from "../src/ingest/seed-works";
 
-const ENV = { DATABASE_URL: "postgresql://user:password@catalog.example/animichi" };
+// Production lineage: the per-env AC1 guard allows ingest crons only in
+// production, so the routing tests below run as the production environment.
+const ENV = { DATABASE_URL: "postgresql://user:password@catalog.example/animichi", ENVIRONMENT: "production" };
 const INGESTED: IngestResult = { status: "ingested", version: 1, pointCount: 4 };
 const IN_PROGRESS: IngestResult = { status: "in_progress" };
 const db = {} as unknown as CatalogDb;
@@ -32,6 +34,8 @@ function dependencies(overrides: Partial<CronDependencies> = {}): CronDependenci
     snapshotStore: vi.fn<CronDependencies["snapshotStore"]>().mockReturnValue(null),
     publishRun: vi.fn<CronDependencies["publishRun"]>().mockResolvedValue({ status: "invalid", reason: "no-op" }),
     gcSnapshots: vi.fn<CronDependencies["gcSnapshots"]>().mockResolvedValue({ deleted: 0, retained: [] }),
+    importSource: vi.fn<CronDependencies["importSource"]>().mockReturnValue(null),
+    runImport: vi.fn<CronDependencies["runImport"]>().mockResolvedValue({ status: "invalid", reason: "no-op" }),
     ...overrides,
   };
 }
