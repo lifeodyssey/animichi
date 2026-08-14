@@ -66,14 +66,36 @@ class PersistenceRepos:
     @classmethod
     def build(cls, sessionmaker: AsyncSessionFactory) -> PersistenceRepos:
         """Compose the full repository set over one shared session factory."""
-        return cls(
-            sessionmaker=sessionmaker,
-            session=SQLModelSessionRepository(sessionmaker),
-            turn_reservation=SQLModelTurnReservationStore(sessionmaker),
-            bangumi=SQLModelBangumiRepository(sessionmaker),
-            points=SQLModelPointsRepository(sessionmaker),
-            usage=SQLModelUsageRepository(sessionmaker),
-            anon_quota=SQLModelAnonQuotaRepository(sessionmaker),
-            feedback=SQLModelFeedbackRepository(sessionmaker),
-            memory=SQLModelMemoryStore(sessionmaker),
-        )
+        return _build_repos(sessionmaker)
+
+
+def _build_repos(
+    sessionmaker: AsyncSessionFactory,
+) -> PersistenceRepos:
+    "Instantiate every repository over one shared session factory."
+    repos = PersistenceRepos.__new__(PersistenceRepos)
+    _assign_factory(repos, sessionmaker)
+    _assign_agent(repos, sessionmaker)
+    _assign_catalog(repos, sessionmaker)
+    return repos
+
+
+def _assign_factory(repos: PersistenceRepos, sessionmaker: AsyncSessionFactory) -> None:
+    "Attach the shared session factory."
+    repos.sessionmaker = sessionmaker
+
+
+def _assign_agent(repos: PersistenceRepos, sessionmaker: AsyncSessionFactory) -> None:
+    "Attach the agent-owned repositories over the shared factory."
+    repos.session = SQLModelSessionRepository(sessionmaker)
+    repos.turn_reservation = SQLModelTurnReservationStore(sessionmaker)
+    repos.usage = SQLModelUsageRepository(sessionmaker)
+    repos.anon_quota = SQLModelAnonQuotaRepository(sessionmaker)
+    repos.feedback = SQLModelFeedbackRepository(sessionmaker)
+    repos.memory = SQLModelMemoryStore(sessionmaker)
+
+
+def _assign_catalog(repos: PersistenceRepos, sessionmaker: AsyncSessionFactory) -> None:
+    "Attach the read-only catalog repositories over the shared factory."
+    repos.bangumi = SQLModelBangumiRepository(sessionmaker)
+    repos.points = SQLModelPointsRepository(sessionmaker)

@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { PgDialect } from "drizzle-orm/pg-core";
-import type { SQL } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
 import { nearby } from "../src/api/nearby";
 
@@ -11,8 +9,9 @@ import { nearby } from "../src/api/nearby";
  * nearby-points.spike.test.ts. Here both reads `nearby()` performs go through
  * the single `db.execute` seam (the #992 one-adapter cutover): the PostGIS
  * geo read (via the geo port's adapter) and the detail IN-read (via the
- * details port's adapter). The fake `db.execute` routes rows by which query
- * it is handed.
+ * details port's adapter). The fake `db.execute` returns the geo read on its
+ * first call and the detail read on its second (the geo query is always issued
+ * first).
  *
  * Named *.worker.test.ts so the existing vitest-pool-workers config picks it
  * up; the logic is runtime-agnostic.
@@ -56,25 +55,16 @@ const SATTE: DetailRow = {
 
 const DETAILS: DetailRow[] = [WASHINOMIYA, SATTE];
 
-/** Render a Drizzle statement to its dialect SQL (used only for routing). */
-function renderedSql(query: unknown): string {
-  const builder = query as { getSQL?: () => SQL };
-  const sql = builder.getSQL ? builder.getSQL() : (query as SQL);
-  return new PgDialect().sqlToQuery(sql).sql;
-}
-
-const isGeoQuery = (query: unknown) => renderedSql(query).includes("ST_SetSRID") || renderedSql(query).includes("<->");
-const isDetailQuery = (query: unknown) => renderedSql(query).toLowerCase().includes(" in ");
-
 /**
- * Minimal CatalogDb double: routes the geo PostGIS read and the detail IN-read
- * through the one `execute` seam by inspecting the query.
+ * Minimal CatalogDb double: the geo PostGIS read (first execute) then the
+ * detail IN-read (second execute) through the one `db.execute` seam.
  */
 function fakeDb(geo: GeoRow[], details: DetailRow[]): CatalogDb {
-  const execute = (query: unknown) => {
-    if (isGeoQuery(query)) return Promise.resolve({ rows: geo });
-    if (isDetailQuery(query)) return Promise.resolve({ rows: details });
-    return Promise.resolve({ rows: [] });
+  let call = 0;
+  const execute = () => {
+    const rows = call === 0 ? geo : details;
+    call += 1;
+    return Promise.resolve({ rows });
   };
   return { execute } as unknown as CatalogDb;
 }

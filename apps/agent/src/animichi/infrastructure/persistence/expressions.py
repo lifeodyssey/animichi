@@ -2,7 +2,7 @@
 
 Everything PostgreSQL-specific that SQLAlchemy's portable expression layer
 cannot express directly lives here and only here: the PostGIS geography type
-and the ``ST_*`` functions over it, the ``unnest(ARRAY) WITH ORDINALITY``
+and the ST_* functions over it, the ``unnest(ARRAY) WITH ORDINALITY``
 table function, and the ILIKE escaping convention. This is the Agent-side
 counterpart of the dedicated typed expression module the raw-SQL policy
 (#999) exempts.
@@ -16,9 +16,8 @@ Rules enforced here:
 
 from __future__ import annotations
 
-from typing import Any
-
-from sqlalchemy import ARRAY, Text, cast, func
+from sqlalchemy import ARRAY, ColumnElement, Text, cast, func
+from sqlalchemy.sql.selectable import FromClause
 from sqlalchemy.types import UserDefinedType
 
 
@@ -27,7 +26,7 @@ class Geography(UserDefinedType):
 
     cache_ok = True
 
-    def get_col_spec(self, **kw: Any) -> str:
+    def get_col_spec(self, **kw: object) -> str:
         return "geography"
 
 
@@ -36,23 +35,23 @@ class Geometry(UserDefinedType):
 
     cache_ok = True
 
-    def get_col_spec(self, **kw: Any) -> str:
+    def get_col_spec(self, **kw: object) -> str:
         return "geometry"
 
 
-def st_makepoint(longitude: object, latitude: object) -> Any:
+def st_makepoint(longitude: object, latitude: object) -> ColumnElement[object]:
     """``ST_MakePoint(lon, lat)`` — 4326 lon/lat order, matching the legacy SQL."""
     return func.ST_MakePoint(longitude, latitude)
 
 
-def st_set_srid(point: object, srid: int) -> Any:
+def st_set_srid(point: object, srid: int) -> ColumnElement[object]:
     """``ST_SetSRID(point, srid)`` — legacy fallback coordinates are 4326."""
     return func.ST_SetSRID(point, srid)
 
 
 def location_or_fallback(
     location_col: object, longitude_col: object, latitude_col: object
-) -> Any:
+) -> ColumnElement[object]:
     """``COALESCE(location, ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography)``.
 
     The schema keeps ``location`` null for legacy rows and syncs coordinates
@@ -64,27 +63,37 @@ def location_or_fallback(
     )
 
 
-def st_dwithin(location: Any, point: Any, radius_m: Any) -> Any:
+def st_dwithin(
+    location: ColumnElement[object],
+    point: ColumnElement[object],
+    radius_m: object,
+) -> ColumnElement[object]:
     """``ST_DWithin(location, point, radius_m)`` — meters, geography semantics."""
     return func.ST_DWithin(location, point, radius_m)
 
 
-def st_distance(location: Any, point: Any) -> Any:
+def st_distance(
+    location: ColumnElement[object], point: ColumnElement[object]
+) -> ColumnElement[object]:
     """``ST_Distance(location, point)`` — meters between two geographies."""
     return func.ST_Distance(location, point)
 
 
-def latitude_with_fallback(latitude_col: Any, location_col: Any) -> Any:
+def latitude_with_fallback(
+    latitude_col: object, location_col: object
+) -> ColumnElement[object]:
     """``COALESCE(latitude, ST_Y(location::geometry))``."""
     return func.coalesce(latitude_col, func.ST_Y(cast(location_col, Geometry)))
 
 
-def longitude_with_fallback(longitude_col: Any, location_col: Any) -> Any:
+def longitude_with_fallback(
+    longitude_col: object, location_col: object
+) -> ColumnElement[object]:
     """``COALESCE(longitude, ST_X(location::geometry))``."""
     return func.coalesce(longitude_col, func.ST_X(cast(location_col, Geometry)))
 
 
-def unnest_with_ordinality(values: list[str], *, column: str = "title") -> Any:
+def unnest_with_ordinality(values: list[str], *, column: str = "title") -> FromClause:
     """``unnest(values::text[]) WITH ORDINALITY`` as a table-valued alias.
 
     The alias exposes the requested ``column`` plus the ``ord`` column, the

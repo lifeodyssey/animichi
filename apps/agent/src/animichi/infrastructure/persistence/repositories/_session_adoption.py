@@ -1,8 +1,8 @@
 """Identity adoption for the Session repository (#994).
 
-``_SessionAdoptionMixin`` adopts every anon-owned Session to a signed-in
-user and bumps each session's revision so pre-adoption capabilities go
-stale. Split out of ``session.py`` (1-10-50).
+Adopts every anon-owned Session to a signed-in user and bumps each
+session's revision so pre-adoption capabilities go stale. Split out of
+``session.py`` (1-10-50).
 """
 
 from __future__ import annotations
@@ -10,6 +10,8 @@ from __future__ import annotations
 from sqlalchemy import func, literal, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.dml import ReturningInsert
+from sqlalchemy.sql.selectable import Select
 
 from animichi.application.adopt_sessions import (
     ADOPT_TURN_KEY_PREFIX,
@@ -17,6 +19,57 @@ from animichi.application.adopt_sessions import (
 )
 from animichi.infrastructure.persistence.database import AsyncSessionFactory
 from animichi.infrastructure.persistence.models import reservation_table, session_table
+
+
+def _bump_source(adopted_session_id: str) -> Select:
+    return select(
+        literal(adopted_session_id),
+        literal(ADOPT_TURN_KEY_PREFIX + adopted_session_id),
+        literal("anon"),
+        literal(None),
+        func.coalesce(func.max(reservation_table.c.revision), 0) + 1,
+        literal(None),
+        literal("completed"),
+    ).where(reservation_table.c.session_id == adopted_session_id)
+
+
+#: The column order of the adoption revision-bump ``INSERT ... SELECT``.
+_BUMP_COLUMNS = [
+    "session_id",
+    "turn_key",
+    "payer",
+    "identity_id",
+    "revision",
+    "digest",
+    "status",
+]
+
+
+def _bump_statement(adopted_session_id: str) -> ReturningInsert:
+    return (
+        pg_insert(reservation_table)
+        .from_select(_BUMP_COLUMNS, _bump_source(adopted_session_id))
+        .on_conflict_do_nothing(constraint="turn_reservations_session_revision")
+        .returning(reservation_table.c.session_id)
+    )
+
+
+async def _bump_revision(session: AsyncSession, adopted_session_id: str) -> int:
+    """Mirror the legacy ``INSERT ... SELECT`` exactly; 1 on insertion."""
+    result = await session.execute(_bump_statement(adopted_session_id))
+    return 1 if result.scalar_one_or_none() is not None else 0
+
+
+async def _adopt_rows(
+    session: AsyncSession, from_anon_id: str, to_user_id: str
+) -> list[object]:
+    result = await session.execute(
+        session_table.update()
+        .where(session_table.c.user_id == from_anon_id)
+        .values(user_id=to_user_id, updated_at=func.now())
+        .returning(session_table.c.id)
+    )
+    return list(result.scalars())
 
 
 class _SessionAdoptionMixin:
@@ -27,70 +80,24 @@ class _SessionAdoptionMixin:
     async def adopt_ownership(
         self, from_anon_id: str, to_user_id: str
     ) -> AdoptionResult:
-        """Adopt every anonymous-owned Session and bump its revision so
-        pre-adoption capabilities go stale (one identity-dimensional UPDATE,
-        transactional with the bumps, idempotent on a second run)."""
         async with self._sessionmaker() as session:
             async with session.begin():
-                adopted = (
-                    (
-                        await session.execute(
-                            session_table.update()
-                            .where(session_table.c.user_id == from_anon_id)
-                            .values(user_id=to_user_id, updated_at=func.now())
-                            .returning(session_table.c.id)
-                        )
-                    )
-                    .scalars()
-                    .all()
-                )
-                bumped = 0
-                for adopted_session_id in adopted:
-                    bumped += int(
-                        await self._bump_revision(session, str(adopted_session_id))
-                    )
+                adopted = await _adopt_rows(session, from_anon_id, to_user_id)
+                bumped = await self._bump_all(session, adopted)
                 return AdoptionResult(
-                    adopted_count=len(adopted), revisions_bumped=bumped
+                    adopted_count=len(adopted),
+                    revisions_bumped=bumped,
                 )
 
-    async def _bump_revision(
-        self, session: AsyncSession, adopted_session_id: str
+    async def _bump_all(
+        self,
+        session: AsyncSession,
+        adopted: list[object],
     ) -> int:
-        """Advance one adopted session's revision; 1 when the marker landed.
-
-        Mirrors the legacy ``INSERT ... SELECT`` exactly: the marker is only
-        written when the session already has a reservation row, uses the
-        synthetic ``adopt:`` turn_key namespace with the fixed ``anon`` payer,
-        and is a no-op on a concurrent revision race.
-        """
-        source = select(
-            literal(adopted_session_id),
-            literal(ADOPT_TURN_KEY_PREFIX + adopted_session_id),
-            literal("anon"),
-            literal(None),
-            func.coalesce(func.max(reservation_table.c.revision), 0) + 1,
-            literal(None),
-            literal("completed"),
-        ).where(reservation_table.c.session_id == adopted_session_id)
-        statement = (
-            pg_insert(reservation_table)
-            .from_select(
-                [
-                    "session_id",
-                    "turn_key",
-                    "payer",
-                    "identity_id",
-                    "revision",
-                    "digest",
-                    "status",
-                ],
-                source,
-            )
-            .on_conflict_do_nothing(constraint="turn_reservations_session_revision")
-            .returning(reservation_table.c.session_id)
-        )
-        result = await session.execute(statement)
-        return 1 if result.scalar_one_or_none() is not None else 0
+        bumped = 0
+        for adopted_session_id in adopted:
+            bumped += int(await _bump_revision(session, str(adopted_session_id)))
+        return bumped
 
 
 __all__ = ["_SessionAdoptionMixin"]

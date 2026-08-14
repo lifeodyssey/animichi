@@ -11,18 +11,31 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from typing import cast
+
+from animichi.domain.repo_types import ResponseData, SessionMetadata, SessionStateData
 
 
 def _as_text(value: object) -> str:
     return str(value) if isinstance(value, str) else ""
 
 
-def _as_state(raw: object) -> dict[str, object] | None:
+def _as_state(raw: object) -> SessionStateData | None:
     if isinstance(raw, str):
         parsed = json.loads(raw)
-        return parsed if isinstance(parsed, dict) else None
+        return cast(SessionStateData, parsed) if isinstance(parsed, dict) else None
     if isinstance(raw, Mapping):
-        return dict(raw)
+        return cast(SessionStateData, dict(raw))
+    return None
+
+
+def _as_metadata(raw: object) -> SessionMetadata | None:
+    """Coerce the sessions.metadata envelope the same way as state."""
+    if isinstance(raw, str):
+        parsed = json.loads(raw)
+        return cast(SessionMetadata, parsed) if isinstance(parsed, dict) else None
+    if isinstance(raw, Mapping):
+        return cast(SessionMetadata, dict(raw))
     return None
 
 
@@ -39,15 +52,15 @@ class SessionRecord:
     user_id: str
     title: str | None = None
     first_query: str | None = None
-    state: dict[str, object] | None = None
-    metadata: dict[str, object] | None = None
+    state: SessionStateData | None = None
+    metadata: SessionMetadata | None = None
 
 
 @dataclass(frozen=True)
 class MessageRow:
     role: str
     content: str
-    response_data: object | None
+    response_data: ResponseData | None
     created_at: str
 
 

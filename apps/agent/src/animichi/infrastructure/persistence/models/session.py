@@ -14,6 +14,8 @@ from sqlalchemy import Column, DateTime, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
+from animichi.domain.repo_types import SessionMetadata, SessionStateData
+
 
 class SessionModel(SQLModel, table=True):
     """Row of ``sessions`` — the sole Session aggregate root."""
@@ -28,11 +30,11 @@ class SessionModel(SQLModel, table=True):
     user_id: str | None = Field(default=None, sa_column=Column(Text))
     title: str | None = Field(default=None, sa_column=Column(Text))
     first_query: str | None = Field(default=None, sa_column=Column(Text))
-    state: dict[str, object] = Field(sa_column=Column(JSONB, nullable=False))
+    state: SessionStateData = Field(sa_column=Column(JSONB, nullable=False))
     #: Mapped under ``metadata_``: ``metadata`` is reserved on declarative
     #: classes (the SQLModel registry), so the attribute is renamed while the
     #: physical column keeps its ``metadata`` name.
-    metadata_: dict[str, object] | None = Field(
+    metadata_: SessionMetadata | None = Field(
         default=None, sa_column=Column("metadata", JSONB)
     )
     lifecycle: str = Field(sa_column=Column(Text, nullable=False))

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+from typing import cast
 
 import structlog
 from pydantic_core import to_jsonable_python
@@ -23,6 +24,7 @@ from animichi.domain.ports import (
     ConversationLog,
     SessionRepo,
 )
+from animichi.domain.repo_types import SessionMetadata, SessionStateData
 from animichi.infrastructure.session import SessionStore
 from animichi.interfaces.schemas import (
     GRACEFUL_TERMINAL_STATUSES,
@@ -213,13 +215,16 @@ async def persist_session(
     await session_store.set(session_id, session_state)
 
     if session_repo is not None:
-        metadata = {
+        metadata: SessionMetadata = {
             "intent": response.intent,
             "status": response.status,
             "updated_at": session_state["updated_at"],
         }
         await session_repo.upsert_session(
-            session_id, session_state, metadata=metadata, user_id=user_id
+            session_id,
+            cast(SessionStateData, session_state),
+            metadata=metadata,
+            user_id=user_id,
         )
 
 
@@ -233,7 +238,9 @@ async def create_owned_session(
     """Create one authenticated Session aggregate row atomically."""
     if session_repo is None:
         raise RuntimeError("authenticated sessions require a session repository")
-    await session_repo.create(session_id, user_id, first_query, session_state)
+    await session_repo.create(
+        session_id, user_id, first_query, cast(SessionStateData, session_state)
+    )
 
 
 async def load_session_state(

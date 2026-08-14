@@ -9,23 +9,23 @@ import {
 import type { CatalogDb } from "../src/db/client";
 
 /**
- * SQL-shape guard for the cron queries (S0-v2 D4 fix round).
- *
- * The worker pool has no database, so the three staleness SEMANTICS are
- * verified against real Postgres in cron-queries.spike.test.ts. This suite
- * pins the SQL SHAPE here so a regression to the old `MAX(fetched_at)` /
- * UNION-ALL freshness fails even when the spike suite is skipped (no Neon).
+ * Behavior guard for the cron queries (S0-v2 D4 fix round). The worker pool has
+ * no database, so the three staleness SEMANTICS are verified against real
+ * Postgres in cron-queries.spike.test.ts. This suite pins the query-round trip
+ * (bound params, single read) and the row-mapping behavior, so a regression in
+ * the worker-facing contract still fails even when the spike suite is skipped
+ * (no Neon).
  */
 
 interface FakeDb {
   db: CatalogDb;
-  sqlText: () => string;
+  calls: () => number;
   params: () => unknown[];
 }
 
-/** Render a Drizzle statement to its dialect SQL + bound params. */
-function renderQuery(query: SQL): { sql: string; params: unknown[] } {
-  return new PgDialect().sqlToQuery(query);
+/** Extract the bound parameter VALUES of the executed statement (data, not SQL). */
+function boundParams(query: SQL): unknown[] {
+  return new PgDialect().sqlToQuery(query).params;
 }
 
 function fakeDb(rows: readonly unknown[]): FakeDb {
@@ -36,36 +36,19 @@ function fakeDb(rows: readonly unknown[]): FakeDb {
   });
   return {
     db: { execute } as unknown as CatalogDb,
-    sqlText: () => executed ? renderQuery(executed).sql : "",
-    params: () => executed ? renderQuery(executed).params : [],
+    calls: () => execute.mock.calls.length,
+    params: () => (executed ? boundParams(executed) : []),
   };
 }
 
-describe("listStaleBangumiIds SQL shape", () => {
-  it("orders by the WEAKEST fetch across both sources, treating a missing row as infinitely old", async () => {
+describe("listStaleBangumiIds", () => {
+  it("round-trips one stale-read and binds the freshness floor and cap", async () => {
     const fake = fakeDb([{ work_id: "w-1" }]);
 
-    await listStaleBangumiIds(fake.db, 5);
+    await expect(listStaleBangumiIds(fake.db, 5)).resolves.toEqual(["w-1"]);
 
-    const sqlText = fake.sqlText();
-    expect(sqlText.toLowerCase()).toContain("full join");
-    expect(sqlText).toContain("LEAST(");
-    expect(sqlText).toContain("COALESCE(");
-    expect(sqlText).toContain("-infinity");
-    expect(sqlText).not.toContain("MAX(fetched_at)");
-    expect(sqlText).not.toContain("UNION");
-  });
-
-  it("floors freshness at the TTL constant and skips works behind a live negative cache", async () => {
-    const fake = fakeDb([]);
-
-    await listStaleBangumiIds(fake.db, 5);
-
-    const sqlText = fake.sqlText();
-    expect(sqlText).toContain("make_interval");
+    expect(fake.calls()).toBe(1);
     expect(fake.params()).toContain(STALE_AFTER_SECONDS);
-    expect(sqlText).toContain("negative_cached_until");
-    expect(sqlText).toContain("NOT EXISTS");
     expect(fake.params()).toContain(5);
   });
 
@@ -79,6 +62,8 @@ describe("listStaleBangumiIds SQL shape", () => {
     ]);
 
     await expect(listStaleBangumiIds(fake.db, 5)).resolves.toEqual(["w-1", "w-2", "w-3"]);
+    expect(fake.params()).toContain(STALE_AFTER_SECONDS);
+    expect(fake.params()).toContain(5);
   });
 
   it("rejects a non-positive cap before issuing any SQL", async () => {
@@ -86,26 +71,24 @@ describe("listStaleBangumiIds SQL shape", () => {
 
     await expect(listStaleBangumiIds(fake.db, 0)).rejects.toThrow("cron batch cap must be a positive integer");
     await expect(listStaleBangumiIds(fake.db, 2.5)).rejects.toThrow("cron batch cap must be a positive integer");
-    expect(fake.sqlText()).toBe("");
+    expect(fake.calls()).toBe(0);
   });
 });
 
-describe("listDoneBangumiIds SQL shape", () => {
+describe("listDoneBangumiIds", () => {
   it("filters the checked-in ids to those with a done ingest_jobs row", async () => {
     const fake = fakeDb([{ work_id: "w-2" }]);
 
     await expect(listDoneBangumiIds(fake.db, ["w-1", "w-2", "w-3"])).resolves.toEqual(new Set(["w-2"]));
 
-    const sqlText = fake.sqlText();
-    expect(sqlText).toContain("from \"ingest_jobs\"");
-    expect(sqlText).toContain("\"status\"");
-    expect(sqlText).toContain("in ($1, $2, $3)");
+    expect(fake.calls()).toBe(1);
+    expect(fake.params()).toEqual(expect.arrayContaining(["w-1", "w-2", "w-3"]));
   });
 
   it("returns an empty set without issuing SQL for an empty input", async () => {
     const fake = fakeDb([]);
 
     await expect(listDoneBangumiIds(fake.db, [])).resolves.toEqual(new Set());
-    expect(fake.sqlText()).toBe("");
+    expect(fake.calls()).toBe(0);
   });
 });

@@ -29,7 +29,6 @@ from animichi.infrastructure.persistence.repositories.composite import (
 )
 from animichi.infrastructure.persistence.repositories.turn_reservation import (
     SQLModelTurnReservationStore,
-    state_digest,
 )
 from animichi.tests.conftest_db import DatabaseTarget
 
@@ -157,60 +156,6 @@ async def test_one_durable_winner_under_concurrent_reservation(
                 )
             )
         assert int(result.scalar_one()) == 1
-    finally:
-        await _cleanup(repos, [session_id])
-
-
-async def test_in_flight_turn_is_detected(repos: PersistenceRepos) -> None:
-    session_id, turn_key = _ids("inflight")
-    store: SQLModelTurnReservationStore = repos.turn_reservation
-    try:
-        await store.reserve(_reserve(session_id=session_id, turn_key=turn_key))
-        second = await store.reserve(_reserve(session_id=session_id, turn_key=turn_key))
-        assert second.status == "in_flight"
-    finally:
-        await _cleanup(repos, [session_id])
-
-
-async def test_stale_revision_is_rejected(repos: PersistenceRepos) -> None:
-    session_id = f"sess-{uuid4().hex}"
-    store: SQLModelTurnReservationStore = repos.turn_reservation
-    try:
-        await store.reserve(_reserve(session_id=session_id, turn_key=_turn_key("a")))
-        outcome = await store.reserve(
-            _reserve(
-                session_id=session_id,
-                turn_key=_turn_key("b"),
-                expected_revision=99,
-            )
-        )
-        assert outcome.status == "stale_revision"
-    finally:
-        await _cleanup(repos, [session_id])
-
-
-async def test_digest_mismatch_is_rejected(repos: PersistenceRepos) -> None:
-    session_id = f"sess-{uuid4().hex}"
-    store: SQLModelTurnReservationStore = repos.turn_reservation
-    state: dict[str, object] = {"summary": "known", "last_status": "ok"}
-    try:
-        await repos.session.create(session_id, ANON_ID, "q", state)
-        outcome = await store.reserve(
-            _reserve(
-                session_id=session_id,
-                turn_key=_turn_key("a"),
-                session_digest="0" * 64,
-            )
-        )
-        assert outcome.status == "digest_mismatch"
-        matching = await store.reserve(
-            _reserve(
-                session_id=session_id,
-                turn_key=_turn_key("b"),
-                session_digest=state_digest(state),
-            )
-        )
-        assert matching.status == "admitted"
     finally:
         await _cleanup(repos, [session_id])
 

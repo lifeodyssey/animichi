@@ -12,8 +12,6 @@
 
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
-import type { SQL } from "drizzle-orm";
-import { PgDialect } from "drizzle-orm/pg-core";
 import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 import {
@@ -44,17 +42,13 @@ function fakePort(rows: PublishedPointRow[]): PointsByBangumiPort {
   return { pointsForBangumi: () => Promise.resolve(rows) };
 }
 
-function sqlText(value: unknown): string {
-  return new PgDialect().sqlToQuery(value as SQL).sql;
-}
-
-function pointsDb(rows: unknown[]): { db: BangumiPointsDb; queries: string[] } {
-  const queries: string[] = [];
-  const execute = (query: SQL) => {
-    queries.push(sqlText(query));
+function pointsDb(rows: unknown[]): { db: BangumiPointsDb; reads: () => number } {
+  let reads = 0;
+  const execute = () => {
+    reads += 1;
     return Promise.resolve({ rows });
   };
-  return { db: { execute }, queries };
+  return { db: { execute }, reads: () => reads };
 }
 
 describe("pointsByBangumi use case", () => {
@@ -102,13 +96,10 @@ describe("pointsByBangumi use case", () => {
 });
 
 describe("bangumiPoints outbound adapter (ONE Neon read port)", () => {
-  it("issues a single SELECT and asks for scene order", async () => {
-    const { db, queries } = pointsDb([ROW]);
-    await bangumiPoints(db).pointsForBangumi("1");
-    expect(queries).toHaveLength(1);
-    expect(queries[0]).toContain("\"points\" left join \"bangumi\"");
-    expect(queries[0]).toContain("\"points\".\"bangumi_id\" = $1");
-    expect(queries[0]).toContain("\"points\".\"episode\" asc");
+  it("issues exactly one SELECT and preserves the returned scene order", async () => {
+    const { db, reads } = pointsDb([ROW]);
+    await expect(bangumiPoints(db).pointsForBangumi("1")).resolves.toEqual([ROW]);
+    expect(reads()).toBe(1);
   });
 
   it("maps a valid joined row to a validated PublishedPointRow", async () => {

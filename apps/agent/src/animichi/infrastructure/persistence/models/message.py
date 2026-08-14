@@ -15,6 +15,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlmodel import Field, SQLModel
 
+from animichi.domain.repo_types import ResponseData
+
 
 class MessageModel(SQLModel, table=True):
     """Row of ``messages`` — one turn transcript entry under a Session."""
@@ -38,9 +40,7 @@ class MessageModel(SQLModel, table=True):
     )
     role: str = Field(sa_column=Column(Text, nullable=False))
     content: str = Field(sa_column=Column(Text, nullable=False))
-    response_data: dict[str, object] | None = Field(
-        default=None, sa_column=Column(JSONB)
-    )
+    response_data: ResponseData | None = Field(default=None, sa_column=Column(JSONB))
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False)
     )

@@ -36,17 +36,21 @@ class DatabaseLifecycle:
 
 
 def _asyncpg_url(dsn: str) -> str:
-    """Libpq DSN -> SQLAlchemy async URL (asyncpg driver), query params stripped.
-
-    ``postgres://`` is libpq shorthand for ``postgresql://``; SQLAlchemy only
-    knows the long scheme, and asyncpg rejects unsupported libpq query
-    parameters such as ``sslmode`` (the integration fixtures connect to local
-    Docker targets without TLS).
-    """
+    """Libpq DSN -> SQLAlchemy async URL (asyncpg driver), query params stripped."""
     scheme, _, rest = dsn.partition("://")
     normalized = "postgresql" if scheme == "postgres" else scheme
-    bare = urlunsplit((normalized, *urlsplit(f"{normalized}://{rest}")[1:3], "", ""))
-    return f"{normalized}+asyncpg://{bare.partition('://')[2]}"
+    return _driver_url(normalized, rest)
+
+
+def _driver_url(scheme: str, rest: str) -> str:
+    """Prefix a libpq scheme with the asyncpg driver and strip query params.
+
+    ``urlsplit``/``urlunsplit`` drop unsupported libpq parameters such as
+    ``sslmode`` (integration fixtures connect to local Docker targets without
+    TLS), then the ``+asyncpg`` driver is injected before the netloc.
+    """
+    bare = urlunsplit((scheme, *urlsplit(f"{scheme}://{rest}")[1:3], "", ""))
+    return f"{scheme}+asyncpg://{bare.partition('://')[2]}"
 
 
 def create_database_lifecycle(dsn: str) -> DatabaseLifecycle:

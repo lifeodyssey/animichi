@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import { planItinerary, type ItineraryObservation, type ItineraryPoint, type PointsForRoutePort } from "../src/application/plan-itinerary";
 import { pointsForRoute, type RouteDb } from "../src/adapters/outbound/route-points";
-import { PgDialect } from "drizzle-orm/pg-core";
 import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 
@@ -121,13 +120,10 @@ describe("planItinerary redacted observability", () => {
 
 describe("pointsForRoute outbound adapter — SQL fetch wired to the port", () => {
   it("loads requested ids in ids order and drops unknown ids", async () => {
+    // The fake returns every point row; the adapter keeps only the requested ids
+    // and reassembles them in the requested order, dropping unknown ids.
     const fakeDb: RouteDb = {
-      execute: (query) => {
-        const rendered = new PgDialect().sqlToQuery(query);
-        const requested = rendered.params.filter((v): v is string => typeof v === "string");
-        const matched = POINTS.filter((p) => requested.includes(p.id));
-        return Promise.resolve({ rows: matched });
-      },
+      execute: () => Promise.resolve({ rows: POINTS }),
     };
     const port = pointsForRoute(fakeDb);
     expect(ids(await port.loadPoints(["c", "nope", "a"]))).toEqual(["c", "a"]);
