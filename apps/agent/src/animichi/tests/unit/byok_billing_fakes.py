@@ -2,6 +2,7 @@
 
 Both BYOK billing test files drive settle + the durable-outbox drain, so the
 fakes and ``_run_pipeline``/``_settle_and_drain`` plumbing are shared here.
+The translation-fallback stubs live in ``byok_translation_fakes``.
 Not a test module: nothing here starts with ``test_``.
 """
 
@@ -15,8 +16,6 @@ from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
 
 from animichi.agents.agent_result import AgentResult
-from animichi.agents.runtime_deps import TitleTranslator
-from animichi.agents.translation import TranslationContext, TranslationResult
 from animichi.application.agent_turn import TextTurn, TurnSideEffects
 from animichi.application.outbox import TurnOutbox
 from animichi.clients.catalog_client import CatalogClientProtocol
@@ -172,44 +171,3 @@ async def _run_pipeline(
             on_step=None,
         )
     await _settle_and_drain(api, outbox, repo, result, is_byok=is_byok)
-
-
-async def _translated_text(
-    text: str,
-    *,
-    target_locale: str,
-    ctx: TranslationContext | None = None,
-) -> str:
-    del text, target_locale
-    assert ctx is not None
-    ctx.usage.requests += 1
-    ctx.usage.input_tokens += 1_000_000
-    ctx.usage.output_tokens += 1_000_000
-    return "已翻译"
-
-
-async def _translated_title(
-    title: str,
-    *,
-    target_locale: str,
-    kind: str,
-    catalog: CatalogClientProtocol,
-    ctx: TranslationContext | None = None,
-) -> TranslationResult:
-    del target_locale, kind, catalog
-    assert ctx is not None
-    ctx.usage.requests += 1
-    ctx.usage.input_tokens += 1_000_000
-    ctx.usage.output_tokens += 1_000_000
-    return TranslationResult(title, "Title", "llm")
-
-
-async def _run_with_title_translation(
-    *,
-    title_translator: TitleTranslator | None = None,
-    **kwargs: object,
-) -> AgentResult:
-    del kwargs
-    assert title_translator is not None
-    await title_translator("タイトル", "en")
-    return _result("already English")

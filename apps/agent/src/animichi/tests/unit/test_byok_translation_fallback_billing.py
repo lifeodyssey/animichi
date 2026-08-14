@@ -18,8 +18,10 @@ from animichi.tests.unit.byok_billing_fakes import (
     _execution,
     _result,
     _run_pipeline,
-    _run_with_title_translation,
     _settle_and_drain,
+)
+from animichi.tests.unit.byok_translation_fakes import (
+    _run_with_title_translation,
     _translated_text,
     _translated_title,
 )

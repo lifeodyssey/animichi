@@ -17,8 +17,8 @@ from animichi.tests.unit.byok_billing_fakes import (
     _api,
     _result,
     _run_pipeline,
-    _translated_text,
 )
+from animichi.tests.unit.byok_translation_fakes import _translated_text
 
 
 async def test_byok_without_translation_stays_zero_cost() -> None:
