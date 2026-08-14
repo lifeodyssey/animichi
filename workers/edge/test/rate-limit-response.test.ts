@@ -78,3 +78,37 @@ void test("the daily-budget breaker stays a DISTINCT 403 (quota), not a 429 (rat
   const body = (await res.json()) as { error: { code: string } };
   assert.equal(body.error.code, "anon_budget_exhausted", "daily quota exhaustion is a 403, not a rate-limit 429");
 });
+// AC5 (#1011): the EDGE applies the accepted user/write cost class to a users
+// mutation and the limited reply is the typed 429 with Retry-After and the
+// documented rate-limit fields — DISTINCT from the daily quota 403. This is
+// the composed-app assertion for the users write cell specifically.
+function authedUsersApp() {
+  return createWorkerApp({ authenticate: () => Promise.resolve({ ok: true, userId: "u-ac5", userType: "human" } as const) });
+}
+
+function usersEnv(guard: unknown): Record<string, unknown> {
+  return {
+    EDGE_SHOWCASE_MODE: "false",
+    AUTH_RATE_LIMIT: "1",
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: "60",
+    EDGE_GUARD: guard,
+    USERS: { fetch: () => Promise.resolve(new Response("users")) },
+    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
+  };
+}
+
+void test("a limited users POST via the durable user/write class returns a typed 429 with Retry-After and the envelope", async () => {
+  const app = authedUsersApp();
+  const env = usersEnv(fakeGuard(NOW).namespace);
+  const post = { method: "POST", headers: { Authorization: "Bearer jwt" } };
+  const first = await app.request("/v1/users/saved-routes", post, env, stubCtx);
+  assert.equal(first.status, 200, "the first users write spends the one-slot window");
+  const limited = await app.request("/v1/users/saved-routes", post, env, stubCtx);
+  assert.equal(limited.status, 429);
+  assert.ok(limited.headers.get("Retry-After"), "the typed 429 must carry Retry-After");
+  const body = (await limited.json()) as { error: { code: string; message: string; retry_after_seconds: number } };
+  assert.equal(body.error.code, "rate_limited", "a limited write must be rate_limited, never a quota 403");
+  assert.ok(typeof body.error.message === "string" && body.error.message.length > 0);
+  assert.ok(body.error.retry_after_seconds >= 1);
+  assert.deepEqual(Object.keys(body.error), [...RATE_LIMIT_ENVELOPE_FIELDS]);
+});

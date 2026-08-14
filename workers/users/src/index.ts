@@ -1,5 +1,6 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { Hono, type Context, type MiddlewareHandler, type Next } from "hono";
+import { IDEMPOTENCY_KEY_HEADER } from "@animichi/contract";
 import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER } from "@animichi/contract/internal-binding";
 import { makeDb as realMakeDb, type UsersDb } from "./db/client";
 import { usersRouter, type UsersContext } from "./router";
@@ -86,7 +87,7 @@ async function handleMatched(
   c: Context<{ Bindings: Env }>,
   next: Next,
   apiHandler: OpenAPIHandler<UsersContext>,
-  context: { db: UsersDb; userId: string },
+  context: UsersContext,
 ): Promise<Response | undefined> {
   const { matched, response } = await apiHandler.handle(c.req.raw, { context });
   if (matched) return c.newResponse(response.body, response);
@@ -106,7 +107,10 @@ async function guardUsersV1(
   if (isResponse(ready)) return ready;
   const userId = edgeIdentity(c);
   if (userId === null) return c.json(unauthorized, 401);
-  return handleMatched(c, next, service.apiHandler, { db: ready.db, userId });
+  // The retry-safe create key, forwarded unchanged from the edge; the save
+  // handler only honors it for a create (no id). Missing header → null.
+  const idempotencyKey = c.req.header(IDEMPOTENCY_KEY_HEADER);
+  return handleMatched(c, next, service.apiHandler, { db: ready.db, userId, idempotencyKey });
 }
 
 /** Create an independently injectable Users Hono application. */

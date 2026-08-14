@@ -95,6 +95,7 @@
       "post": {
         "operationId": "saveSavedRoute",
         "summary": "Create or update a saved route",
+        "description": "Creating a saved route (no id) is retry-safe when an Idempotency-Key is supplied: the key is scoped to the authenticated owner + this operation, so retrying the same key/payload returns the original result, a different payload under the same key returns 409, and concurrent retries create exactly one route.",
         "requestBody": {
           "required": true,
           "content": {
@@ -333,11 +334,113 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "409",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "IDEMPOTENCY_CONFLICT"
+                        },
+                        "status": {
+                          "const": 409
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "Idempotency-Key was already used with a different payload"
+                        },
+                        "data": {
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": true
+                        },
+                        "code": {
+                          "const": "IDEMPOTENCY_IN_FLIGHT"
+                        },
+                        "status": {
+                          "const": 409
+                        },
+                        "message": {
+                          "type": "string",
+                          "default": "A save with this Idempotency-Key is still in progress; retry shortly"
+                        },
+                        "data": {
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message",
+                        "data"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "defined": {
+                          "const": false
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "data": {}
+                      },
+                      "required": [
+                        "defined",
+                        "code",
+                        "status",
+                        "message"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Retry-safe SavedRoute creation key, scoped to the authenticated owner + this operation. Same key/payload returns the original result; same key/different payload returns 409; concurrent retries create exactly one route.",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
           }
         ]
       }

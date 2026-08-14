@@ -1,6 +1,6 @@
 /** Self-contained models, errors, and oRPC contract for the Users service. */
 
-import { oc } from "@orpc/contract";
+import { oc, type OpenAPI } from "@orpc/contract";
 import { z } from "zod";
 import { pickErrors } from "./error-registry.js";
 import { requireBearer } from "./openapi-security.js";
@@ -19,6 +19,36 @@ export type SavedRouteNotFoundData = z.infer<typeof SavedRouteNotFoundData>;
 export const SavedRouteNotOwnedData = z.object({ saved_route_id: z.string() });
 /** Inferred saved-route-not-owned data. */
 export type SavedRouteNotOwnedData = z.infer<typeof SavedRouteNotOwnedData>;
+
+/** No data on the idempotency rejections; identity is never echoed back. */
+export const IdempotencyErrorData = z.object({});
+/** Inferred idempotency-rejection data. */
+export type IdempotencyErrorData = z.infer<typeof IdempotencyErrorData>;
+
+/** The documented request header enabling retry-safe SavedRoute creation (issue #1011 AC1). */
+export const IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+
+/** Idempotency key rules: a bounded opaque token a caller supplies to make a
+ * create retry-safe. It is scoped to (authenticated owner, operation) server-side. */
+export const IdempotencyKeyRule = z.object({
+  header: z.literal(IDEMPOTENCY_KEY_HEADER),
+  scope: z.literal("owner+operation"),
+  format: z.literal("opaque"),
+  maxLength: z.number().int().positive(),
+});
+/** Inferred idempotency-key contract rule. */
+export type IdempotencyKeyRule = z.infer<typeof IdempotencyKeyRule>;
+
+/** The documented Idempotency-Key header as an OpenAPI parameter (AC1). */
+export const IDEMPOTENCY_KEY_PARAM: OpenAPI.ParameterObject = {
+  name: IDEMPOTENCY_KEY_HEADER,
+  in: "header",
+  description:
+    "Retry-safe SavedRoute creation key, scoped to the authenticated owner + this operation. " +
+    "Same key/payload returns the original result; same key/different payload returns 409; " +
+    "concurrent retries create exactly one route.",
+  schema: { type: "string", maxLength: 128 },
+};
 
 interface UsersErrorDefItem {
   readonly status: number;
@@ -40,6 +70,18 @@ export const USERS_ERROR_DEFS = {
     category: "user_actionable",
     message: "Route belongs to another user",
     data: SavedRouteNotOwnedData,
+  },
+  IDEMPOTENCY_CONFLICT: {
+    status: 409,
+    category: "user_actionable",
+    message: "Idempotency-Key was already used with a different payload",
+    data: IdempotencyErrorData,
+  },
+  IDEMPOTENCY_IN_FLIGHT: {
+    status: 409,
+    category: "retryable",
+    message: "A save with this Idempotency-Key is still in progress; retry shortly",
+    data: IdempotencyErrorData,
   },
 } as const satisfies Record<string, UsersErrorDefItem>;
 
@@ -97,6 +139,15 @@ export const ListSavedRoutesResult = z.object({ saved_routes: z.array(SavedRoute
 /** Inferred list-saved-routes result. */
 export type ListSavedRoutesResult = z.infer<typeof ListSavedRoutesResult>;
 
+/** requireBearer plus the documented Idempotency-Key header (AC1). */
+function idempotentSaveSpec(operation: OpenAPI.OperationObject): OpenAPI.OperationObject {
+  return {
+    ...operation,
+    security: [{ bearerAuth: [] }],
+    parameters: [...(operation.parameters ?? []), IDEMPOTENCY_KEY_PARAM],
+  };
+}
+
 /** oRPC contract for authenticated saved-route operations. */
 export const usersContract = {
   listSavedRoutes: oc
@@ -112,10 +163,18 @@ export const usersContract = {
       method: "POST",
       path: "/v1/users/saved-routes",
       summary: "Create or update a saved route",
-      spec: requireBearer,
+      description:
+        "Creating a saved route (no id) is retry-safe when an " + IDEMPOTENCY_KEY_HEADER +
+        " is supplied: the key is scoped to the authenticated owner + this operation, so " +
+        "retrying the same key/payload returns the original result, a different payload under " +
+        "the same key returns 409, and concurrent retries create exactly one route.",
+      spec: idempotentSaveSpec,
     })
     .input(SaveSavedRouteInput)
-    .errors(pickUsersErrors(["SAVED_ROUTE_NOT_FOUND", "SAVED_ROUTE_NOT_OWNED"]))
+    .errors(pickUsersErrors([
+      "SAVED_ROUTE_NOT_FOUND", "SAVED_ROUTE_NOT_OWNED",
+      "IDEMPOTENCY_CONFLICT", "IDEMPOTENCY_IN_FLIGHT",
+    ]))
     .output(SavedRoute),
   deleteSavedRoute: oc
     .route({

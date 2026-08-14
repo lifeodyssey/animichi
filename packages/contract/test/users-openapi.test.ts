@@ -33,3 +33,25 @@ describe("users OpenAPI security", () => {
     expect(usersOpenApi.paths["/v1/users/saved-routes/{id}"].delete.security).toEqual(BEARER_SECURITY);
   });
 });
+
+describe("retry-safe SavedRoute creation is documented and owner-scoped (issue #1011 AC1)", () => {
+  it("documents an optional Idempotency-Key header on the save operation", () => {
+    const parameters = usersOpenApi.paths["/v1/users/saved-routes"].post.parameters;
+    const header = parameters?.find((p) => p.name === "Idempotency-Key" && p.in === "header");
+    expect(header).toBeDefined();
+    expect(header && header.name).toBe("Idempotency-Key");
+    expect(header && header.required).not.toBe(true);
+  });
+
+  it("scopes the key by mentioning owner + operation in the header contract", () => {
+    const parameters = usersOpenApi.paths["/v1/users/saved-routes"].post.parameters;
+    const header = parameters?.find((p) => p.name === "Idempotency-Key" && p.in === "header");
+    const description = header && header.description ? header.description : "";
+    expect(description).toMatch(/owner/);
+    expect(description).toMatch(/operation/);
+  });
+
+  it("advertises the typed 409 the retry contract returns under a reused key", () => {
+    expect(usersOpenApi.paths["/v1/users/saved-routes"].post.responses["409"]).toBeDefined();
+  });
+});
