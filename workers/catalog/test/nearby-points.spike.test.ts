@@ -2,7 +2,9 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import type pg from "pg";
 import { MAX_RADIUS_M, nearbyPoints } from "../src/application/nearby-points";
 import { nearbyDetailsPort, nearbyGeoPort } from "../src/adapters/outbound/nearby-points";
-import type { CatalogDb, NeonSql } from "../src/db/client";
+import { drizzle as pgDrizzle } from "drizzle-orm/node-postgres";
+import * as schema from "../src/db/schema";
+import type { CatalogDb } from "../src/db/client";
 import {
   pointInsert,
   pointSeed,
@@ -40,17 +42,13 @@ const POINTS = [
   pointSeed("oarai", GIRLS_UND_PANZER, "大洗磯前神社", 36.3142, 140.5876),
 ];
 
-/** Bind the adapter's `neon()` template over a pg pool (same interpolation shape). */
-function neonSqlOver(pool: pg.Pool): NeonSql {
-  const tag = (strings: TemplateStringsArray, ...values: unknown[]) => {
-    const text = String.raw(strings, ...values.map((_, index) => `$${String(index + 1)}`));
-    return pool.query<Record<string, unknown>>(text, values).then((result) => result.rows);
-  };
-  return Object.assign(tag, { transaction: undefined }) as unknown as NeonSql;
-}
-
 let pool: pg.Pool;
 let db: CatalogDb;
+/** The pg-bound Drizzle client: the PostGIS geo read runs over pg direct (the
+ * neon_local proxy #883 mangles geography bytea over the serverless fetch
+ * protocol), which is exactly why the geo adapter takes a single `execute`
+ * seam. */
+let geoDb: ReturnType<typeof pgDrizzle>;
 
 async function run(statement: SeedStatement): Promise<void> {
   await pool.query(statement.text, statement.values);
@@ -63,7 +61,7 @@ async function seed(): Promise<void> {
 
 /** The use case over the real adapters: geo via pg direct, details via Drizzle. */
 function around(lat: number, lng: number, radius_m: number) {
-  return nearbyPoints(nearbyGeoPort(neonSqlOver(pool)), nearbyDetailsPort(db), { lat, lng, radius_m });
+  return nearbyPoints(nearbyGeoPort(geoDb), nearbyDetailsPort(db), { lat, lng, radius_m });
 }
 
 /** Read a seeded row back through the same driver, without the geo predicate. */
@@ -75,6 +73,7 @@ async function seededRow(id: string): Promise<unknown> {
 beforeAll(async () => {
   pool = await openDirectPool();
   db = await openServerlessDb();
+  geoDb = pgDrizzle(pool, { schema });
   await truncateCatalogPool(pool);
   await seed();
 }, 120_000);
@@ -121,8 +120,9 @@ databaseDescribe("nearbyPoints through the PostGIS adapter", () => {
   it("propagates a database failure from the PostGIS read", async () => {
     const dead = await openDirectPool();
     await dead.end();
+    const deadGeoDb = pgDrizzle(dead, { schema });
     await expect(
-      nearbyPoints(nearbyGeoPort(neonSqlOver(dead)), nearbyDetailsPort(db), {
+      nearbyPoints(nearbyGeoPort(deadGeoDb), nearbyDetailsPort(db), {
         lat: 36.1019, lng: 139.6586, radius_m: 1_000,
       }),
     ).rejects.toThrow();

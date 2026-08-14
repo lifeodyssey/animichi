@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { describe, expect, it, vi } from "vitest";
 import { planItinerary, type ItineraryObservation, type ItineraryPoint, type PointsForRoutePort } from "../src/application/plan-itinerary";
 import { pointsForRoute, type RouteDb } from "../src/adapters/outbound/route-points";
-import type { CatalogDb, NeonSql } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 
 /**
@@ -148,8 +148,7 @@ const seamHandler = new OpenAPIHandler(catalogRouter);
 function seamContext(rows: unknown[][]): CatalogContext {
   const execute = () => Promise.resolve({ rows: rows.shift() ?? [] });
   const db = { execute } as unknown as CatalogDb;
-  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
-  return { db, neonSql };
+  return { db };
 }
 function seamRow(id: string, lat: number, image: string): unknown {
   return {

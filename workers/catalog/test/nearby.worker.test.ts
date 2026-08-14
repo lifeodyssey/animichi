@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
-import type { CatalogDb, NeonSql } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
 import { nearby } from "../src/api/nearby";
 
 /**
  * Unit tests for the `nearby` transport (card CATALOG-3): wiring only. Radius
  * policy, distance ordering, and typed empty results are unit-tested in
  * nearby-points.worker.test.ts and proven against real PostGIS in
- * nearby-points.spike.test.ts. Here the two reads `nearby()` performs are
- * faked: the geo read via the `neonSql` tag (the geo port's adapter) and the
- * detail read via `db.execute(sql)` (the details port's adapter).
+ * nearby-points.spike.test.ts. Here both reads `nearby()` performs go through
+ * the single `db.execute` seam (the #992 one-adapter cutover): the PostGIS
+ * geo read (via the geo port's adapter) and the detail IN-read (via the
+ * details port's adapter). The fake `db.execute` routes rows by which query
+ * it is handed.
  *
  * Named *.worker.test.ts so the existing vitest-pool-workers config picks it
  * up; the logic is runtime-agnostic.
@@ -52,23 +54,39 @@ const SATTE: DetailRow = {
 
 const DETAILS: DetailRow[] = [WASHINOMIYA, SATTE];
 
-/** Minimal CatalogDb double: handles the detail-load IN read via db.execute(sql). */
-function fakeDb(details: DetailRow[]): CatalogDb {
-  return {
-    execute: (_query: unknown) => Promise.resolve({ rows: details }),
-  } as unknown as CatalogDb;
+/** Flatten a Drizzle SQL fragment to literal text for routing (cycle-safe). */
+function queryText(query: unknown, seen: Set<object> = new Set<object>()): string {
+  if (query === null || typeof query === "undefined") return "";
+  if (typeof query === "string" || typeof query === "number") return String(query);
+  if (typeof query === "object") {
+    if (seen.has(query)) return "";
+    seen.add(query);
+    const v = (query as { value?: unknown[] });
+    if (Array.isArray(v.value)) return v.value.map((c) => queryText(c, seen)).join("");
+    const q = (query as { queryChunks?: unknown[] });
+    if (Array.isArray(q.queryChunks)) return q.queryChunks.map((c) => queryText(c, seen)).join("");
+  }
+  return "";
 }
 
-/** Minimal NeonSql double: returns geo rows for the adapter's template tag. */
-function fakeNeonSql(geo: GeoRow[]): NeonSql {
-  return Object.assign(
-    (_strings: TemplateStringsArray, ..._values: unknown[]) => Promise.resolve(geo),
-    { transaction: undefined },
-  ) as unknown as NeonSql;
+const isGeoQuery = (query: unknown) => queryText(query).includes("ST_SetSRID") || queryText(query).includes("<->");
+const isDetailQuery = (query: unknown) => queryText(query).includes("id IN");
+
+/**
+ * Minimal CatalogDb double: routes the geo PostGIS read and the detail IN-read
+ * through the one `execute` seam by inspecting the query.
+ */
+function fakeDb(geo: GeoRow[], details: DetailRow[]): CatalogDb {
+  const execute = (query: unknown) => {
+    if (isGeoQuery(query)) return Promise.resolve({ rows: geo });
+    if (isDetailQuery(query)) return Promise.resolve({ rows: details });
+    return Promise.resolve({ rows: [] });
+  };
+  return { execute } as unknown as CatalogDb;
 }
 
 const run = (geo: GeoRow[], details: DetailRow[]) =>
-  nearby(fakeDb(details), fakeNeonSql(geo), { lat: 36.1019, lng: 139.6586, radius_m: 10_000 });
+  nearby(fakeDb(geo, details), { lat: 36.1019, lng: 139.6586, radius_m: 10_000 });
 
 describe("nearby (api/nearby.ts)", () => {
   it("returns rows nearest-first with distance_m carried from the geo read", async () => {

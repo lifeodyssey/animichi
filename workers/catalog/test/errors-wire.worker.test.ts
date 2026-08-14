@@ -1,7 +1,7 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import { catalogRouter, type CatalogContext } from "../src/router";
-import type { CatalogDb, NeonSql } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
 import type {
   RouteTooManyPointsData,
   UpstreamUnavailableData,
@@ -63,15 +63,13 @@ async function callOverview(bangumiId: string, context: CatalogContext): Promise
 /** Build a minimal CatalogContext; casts stay at the test fake boundary. */
 function context(rows: unknown[], fetchImpl?: typeof fetch): CatalogContext {
   const db = { execute: () => Promise.resolve({ rows }) } as unknown as CatalogDb;
-  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
-  return { db, neonSql, fetchImpl };
+  return { db, fetchImpl };
 }
 
 /** Context whose DB must not be touched. */
 function unreachableContext(): CatalogContext {
   const db = { execute: () => { throw new Error("db should not be reached"); } } as unknown as CatalogDb;
-  const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
-  return { db, neonSql };
+  return { db };
 }
 
 /** Joined point+bangumi rows spaced far enough apart to produce distinct clusters. */

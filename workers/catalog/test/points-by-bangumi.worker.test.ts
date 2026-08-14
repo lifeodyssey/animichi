@@ -13,7 +13,7 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { describe, expect, it } from "vitest";
 import type { SQL } from "drizzle-orm";
-import type { CatalogDb, NeonSql } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
 import { catalogRouter, type CatalogContext } from "../src/router";
 import {
   pointsByBangumi,
@@ -146,8 +146,7 @@ describe("pointsByBangumiId route seam", () => {
   function context(rows: unknown[][]): CatalogContext {
     const execute = () => Promise.resolve({ rows: rows.shift() ?? [] });
     const db = { execute } as unknown as CatalogDb;
-    const neonSql = (() => Promise.resolve([])) as unknown as NeonSql;
-    return { db, neonSql };
+    return { db };
   }
 
   async function call(body: unknown, ctx: CatalogContext): Promise<Response> {

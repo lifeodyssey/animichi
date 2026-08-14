@@ -2,7 +2,7 @@ import { WorkerEntrypoint } from "cloudflare:workers";
 import { Hono } from "hono";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { catalogRouter } from "./router";
-import type { CatalogDb, NeonSql } from "./db/client";
+import type { CatalogDb } from "./db/client";
 import { catalogIngestBangumi } from "./ingest/ingest-bangumi";
 import type { IngestResult } from "./ingest/ingest-bangumi";
 import { SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "./cron-config";
@@ -64,17 +64,16 @@ function waitUntilFor(
 
 interface DbEntry {
   db: CatalogDb;
-  neonSql: NeonSql;
 }
 
-// One client pair per connection string, reused across requests.
+// One client per connection string, reused across requests.
 const dbPools = new Map<string, DbEntry>();
 
 async function dbFor(connStr: string): Promise<DbEntry> {
   const cached = dbPools.get(connStr);
   if (cached) return cached;
-  const { makeDb, makeNeonSql } = await import("./db/client");
-  const entry: DbEntry = { db: makeDb(connStr), neonSql: makeNeonSql(connStr) };
+  const { makeDb } = await import("./db/client");
+  const entry: DbEntry = { db: makeDb(connStr) };
   dbPools.set(connStr, entry);
   return entry;
 }
@@ -102,9 +101,9 @@ app.use("/catalog/*", async (c, next) => {
   if (!connStr) {
     return c.json({ error: "catalog database not configured" }, 503);
   }
-  const { db, neonSql } = await dbFor(connStr);
+  const { db } = await dbFor(connStr);
   const { matched, response } = await apiHandler.handle(c.req.raw, {
-    context: { db, neonSql, fetchImpl: fetch, waitUntil: waitUntilFor(c) },
+    context: { db, fetchImpl: fetch, waitUntil: waitUntilFor(c) },
   });
   if (matched) {
     return c.newResponse(response.body, response);
