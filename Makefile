@@ -176,19 +176,22 @@ dev-local:
 	@# 0. Kill stale processes from previous runs
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
-	@# 1. Database — the backend's Postgres only. Auth E2E needs none of this
+	@# 1. Database — the backend's local Postgres. Auth E2E needs none of this
 	@#    (AUTH-2 #950): apps/web login is Neon Auth, and the Playwright suite
-	@#    stubs every transport. If the supabase CLI is present, start the local
-	@#    DB; otherwise point the backend at a Neon DB (make dev-db) or .env.
+	@#    stubs every transport. The local Postgres is Neon Local via `make dev-db`.
+	@#    If the supabase CLI is present, it is also accepted as a legacy way to
+	@#    bring up a local Postgres for the backend (equal to make dev-db) — but it
+	@#    is never an auth plane. Otherwise the backend needs a Neon DB (make
+	@#    dev-db) or a .env DSN.
 	@-if command -v supabase >/dev/null 2>&1; then \
 		if supabase status >/dev/null 2>&1; then \
-			echo "Supabase already running — using it as the backend database"; \
+			echo "Local Postgres already up via supabase — using it as the local DB (Neon Local: make dev-db)"; \
 		else \
-			echo "Starting Supabase (backend database)..."; \
+			echo "Starting a local Postgres via supabase CLI (backed by Neon Local, make dev-db)..."; \
 			supabase start --exclude vector,analytics --ignore-health-check; \
 		fi; \
 	else \
-		echo "⚠ supabase CLI not found — backend needs a Postgres (make dev-db)"; \
+		echo "⚠ supabase CLI not found — start the backend's local Postgres with make dev-db"; \
 	fi
 	@# 2. Wait for DB to be ready
 	@-if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^supabase_db_seichijunrei-agent$$'; then \
@@ -229,7 +232,7 @@ dev-stop:
 	@-test -f /tmp/animichi-web.pid && kill $$(cat /tmp/animichi-web.pid) 2>/dev/null && rm /tmp/animichi-web.pid && echo "✓ Web app stopped" || true
 	@-lsof -ti :8080 | xargs kill 2>/dev/null; true
 	@-lsof -ti :3000 | xargs kill 2>/dev/null; true
-	@echo "Done. (The database stays up — use 'supabase stop' or 'make dev-db' cleanup to shut it down)"
+	@echo "Done. (The database stays up — stop the local Postgres with 'make dev-db' cleanup, or 'supabase stop' if the legacy supabase fallback was used)"
 
 # ── E2E Testing ──────────────────────────────────────────────
 

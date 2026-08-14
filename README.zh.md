@@ -69,8 +69,8 @@ make check             # lint + 类型检查 + 测试
 
 Neon catalog 与 user 数据面的 schema 变更统一记录在 `migrations/neon/`，由固定版本的
 Atlas CLI 应用；`migrations/neon/atlas.sum` 是生成的完整性清单，必须和迁移文件一起更新。
-Worker 中的 Drizzle schema 仅用于运行时查询和类型，不生成也不执行迁移。剩余的
-Supabase 迁移目录只服务 auth/旧版兼容面，不能作为 Neon 新表的来源。
+Worker 中的 Drizzle schema 仅用于运行时查询和类型，不生成也不执行迁移。`supabase/`
+是已归档的历史 Supabase 迁移树（issue #1000），不应用，也不能作为 Neon 新表的来源。
 
 ```bash
 make db-list           # 列出仓库中的 Atlas 迁移
@@ -87,7 +87,7 @@ make db-push           # 对 NEON_DATABASE_URL 应用迁移
 **必需（agent 容器 / 本地 serve）：**
 | 变量 | 用途 |
 |---|---|
-| `SUPABASE_DB_URL` | agent 域 Postgres 连接字符串（旧数据面。Neon 上由 `AGENT_SVC_DATABASE_URL` 取代，#912 跟进） |
+| `AGENT_SVC_DATABASE_URL` | Neon agent_svc 角色 DSN（asyncpg）——agent 容器必需的数据面连接（#912）。旧名 `SUPABASE_DB_URL` 仍作为过渡期容器-DSN 名保留到 #855 生产切换 |
 | `MIMO_API_KEY` | 主模型供应商密钥 |
 | `DEEPSEEK_API_KEY` | 边缘 container-env 容器启动必填（转发进容器） |
 
@@ -104,12 +104,16 @@ make db-push           # 对 NEON_DATABASE_URL 应用迁移
 **Python（直接调用）：**
 ```python
 from animichi.agents.animichi_runner import run_animichi_agent
-from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.persistence.repositories.composite import PersistenceRepos
+from animichi.clients.catalog_client import CatalogClient
 
 async def main() -> None:
-    async with SupabaseClient(db_url) as db:
-        result = await run_animichi_agent("吹響ユーフォニアムの聖地", db, locale="ja")
-        print(result.output)
+    repos = PersistenceRepos.build(session_factory)          # SQLModel repos over one Neon session
+    catalog = CatalogClient(base_url="https://catalog.example")
+    result = await run_animichi_agent(
+        text="吹響ユーフォニアムの聖地", db=repos, locale="ja", catalog=catalog
+    )
+    print(result.output)
 ```
 
 **HTTP（已认证）：**
