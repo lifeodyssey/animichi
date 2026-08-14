@@ -128,6 +128,27 @@ if drv approve "$E" web "$E/manifest.json" "$SHA999" "$DIGEST_E" >/dev/null 2>&1
 fi
 echo "  PASS: rejects changed dependency manifest"
 
+echo "== AC3: every AC3 component promotion manifest points at the staging-tested digest =="
+# The final promotion ticket (#1013) requires Agent, Edge, Catalog, Users, Web,
+# and Infra to each produce a promotion manifest whose artifact_digest equals
+# the digest staging consumed (the "staging-tested digest"). This replays the
+# promote-by-digest loop for every AC3 component, not just web:
+#   build -> digest -> gendoc(manifest) -> stage(evidence) -> version read
+# and asserts the recorded manifest digest equals the stage-tested digest.
+AC3=(web agent edge catalog users infra)
+T="$(mktemp -d)"
+trap 'rm -rf "$A" "$B" "$C" "$S" "$P" "$R" "$W" "$E" "$T"' EXIT
+for component in "${AC3[@]}"; do
+  drv build "$T" "$component" "v1-ac3"
+  manifest_digest="$(drv digest "$T" "$component")"
+  [[ -n "$manifest_digest" ]] || { fail "AC3: $component produced no artifact digest"; continue; }
+  drv gendoc "$T" "$component" "$SHA999" "$SHA888" > "$T/$component-manifest.json"
+  drv stage "$T" "$component" "$T/$component-manifest.json"
+  stage_digest="$(drv version "$T" "$component")"
+  [[ "$stage_digest" = "$manifest_digest" ]] \
+    || fail "AC3: $component staging-tested digest $stage_digest != manifest digest $manifest_digest"
+done
+echo "  PASS: all ${#AC3[@]} AC3 components produce a manifest pointing at their staging-tested digest"
 if [[ "$FAIL_COUNT" -ne 0 ]]; then
   echo "FAILED: $FAIL_COUNT promotion-manifest e2e assertion(s)" >&2
   exit 1

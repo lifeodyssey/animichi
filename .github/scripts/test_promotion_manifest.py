@@ -351,3 +351,81 @@ class PromotionManifestUnitTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+    # --- AC3: per-component artifact generalization ----------------------
+    def test_ac3_every_mapped_component_resolves_an_artifact_dir(self):
+        # Agent, Edge, Catalog, Users, Web, Infra each resolve to their own
+        # artifact directory; a manifest digests that dir.
+        self.assertTrue(set(pm.AC3_COMPONENTS) <= set(pm.COMPONENT_ARTIFACT_DIRS))
+        dirs = {c: pm.component_artifact_dir(c) for c in pm.AC3_COMPONENTS}
+        self.assertEqual(
+            len(set(dirs.values())),
+            len(dirs),
+            "each AC3 component resolves to a distinct artifact dir",
+        )
+        self.assertEqual(pm.component_artifact_dir("web"), "apps/web/.output")
+        self.assertIn(".output", dirs["web"])
+
+    def test_ac3_unknown_component_fails_closed(self):
+        with self.assertRaises(ValueError):
+            pm.component_artifact_dir("not-a-component")
+        self.assertFalse(pm.known_component("not-a-component"))
+        self.assertTrue(pm.known_component("web"))
+
+    def test_ac3_all_components_produce_staging_tested_manifest(self):
+        # For every AC3 component, a manifest generated over its artifact dir
+        # records an artifact_digest equal to the digest computed from that
+        # same dir (the "staging-tested digest"). This closes the AC3 loop at
+        # the unit level: the digest a caller approves equals the digest the
+        # artifact dir produced, never a rebuilt/different artifact.
+        import os
+        import tempfile
+
+        for component in pm.AC3_COMPONENTS:
+            with self.subTest(component=component):
+                d = pm.component_artifact_dir(component)
+                artifact = os.path.basename(d.rstrip("/")) + ".tar.gz"
+                with tempfile.TemporaryDirectory() as tmp:
+                    src = os.path.join(tmp, "src")
+                    os.makedirs(os.path.join(src, d), exist_ok=True)
+                    with open(os.path.join(src, d, "f"), "w") as handle:
+                        handle.write(component)
+                    p = os.path.join(tmp, artifact)
+                    # Deterministic tar (same flags as the deploy workflow).
+                    import subprocess
+
+                    with open(p, "wb") as out:
+                        subprocess.run(
+                            [
+                                "tar",
+                                "-C",
+                                src,
+                                "--sort=name",
+                                "--mtime=@0",
+                                "--owner=0",
+                                "--group=0",
+                                "--numeric-owner",
+                                "-cf",
+                                "-",
+                                d,
+                            ],
+                            check=True,
+                            stdout=out,
+                        )
+                    computed = pm.digest_file(p)
+                    manifest = cli._gen_manifest(
+                        {
+                            "component": component,
+                            "source_sha": "a" * 40,
+                            "artifact": p,
+                            "sbom_format": "cyclonedx-1.5",
+                            "sbom_digest": "b" * 64,
+                            "schema_provider": "atlas",
+                            "schema_head": "20260811000002",
+                            "schema_digest": "c" * 64,
+                            "config_version": 1,
+                            "deps": [],
+                        }
+                    )
+                    self.assertEqual(manifest["artifact_digest"], computed)
+                    self.assertEqual(manifest["component"], component)

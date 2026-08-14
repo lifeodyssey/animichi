@@ -10,6 +10,7 @@ Subcommands (exit 0 on success, 1 on failure):
         Build a manifest JSON (digest computed from <file>) to stdout.
   validate <manifest.json>                       - reject invalid manifests
   verify <manifest.json> --expected <pairs.json> - reject mismatch/corrupt
+  artifact-dir <component>                       - per-component artifact dir
 """
 
 import json
@@ -167,11 +168,32 @@ def _cmd_verify(argv, out, err):
     return 0
 
 
+def _cmd_artifact_dir(argv, out, err):
+    # AC3 (final promotion ticket #1013): resolve a component's promotion
+    # artifact directory from the closed component table. An unmapped
+    # component exits 1 (fail closed) instead of printing a bare path.
+    #   usage: artifact-dir <component>
+    if len(argv) != 1:
+        _err(err, "usage: artifact-dir <component>")
+        return 1
+    from promotion_manifest import (
+        component_artifact_dir,
+    )
+
+    try:
+        out.write(component_artifact_dir(argv[0]) + "\n")
+    except ValueError as exc:
+        _err(err, str(exc))
+        return 1
+    return 0
+
+
 DISPATCH = {
     "digest": _cmd_digest,
     "generate": _cmd_generate,
     "validate": _cmd_validate,
     "verify": _cmd_verify,
+    "artifact-dir": _cmd_artifact_dir,
 }
 
 

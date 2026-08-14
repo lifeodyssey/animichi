@@ -27,6 +27,21 @@ on:
       # below and in the `env:` map of the "Push post-deploy secrets" step —
       # adding a new post-deploy secret means adding it in those three places.
       post_deploy_secrets: { required: false, type: string, default: "" }
+      # #1013 (AC4): when the caller supplies the staging-tested artifact digest
+      # (the digest the approved promotion manifest records), the deploy
+      # post-deploy step performs a REAL deployed-version-metadata read and
+      # fails when it differs from this digest. Empty (today) means the live
+      # platform read is not yet wired for this component - the step then
+      # records an explicit "AC4 not asserted" notice instead of faking a green
+      # read (see promote_deployed.py PLATFORM_READ_MECHANISM).
+      promotion_deployed_digest: { required: false, type: string, default: "" }
+      # #1013 (AC5): when the caller supplies the staging-tested promotion
+      # artifact digest, the deploy consumes THAT promoted artifact instead of
+      # running a build command - no build command runs for a promoted
+      # component. Empty (today, until the immutable store lands) keeps the
+      # legacy build path. The consume step fails closed if the approved
+      # artifact cannot be loaded (immutable store = #1013 follow-up).
+      promotion_artifact_digest: { required: false, type: string, default: "" }
     secrets:
       NEON_DATABASE_URL:
         required: false
@@ -466,8 +481,25 @@ jobs:
           VITE_CF_BEACON_TOKEN: ${{ vars.VITE_CF_BEACON_TOKEN }}
           VITE_SHOWCASE_MODE: ${{ vars.VITE_SHOWCASE_MODE }}
         run: bash .github/scripts/vite-env-preflight.sh VITE_SITE_ORIGIN VITE_CATALOG_URL VITE_USERS_URL VITE_AGENT_URL VITE_TURNSTILE_SITE_KEY VITE_NEON_AUTH_BASE_URL VITE_CF_BEACON_TOKEN VITE_SHOWCASE_MODE
+      - name: Consume approved promotion artifact
+        # #1013 (AC5): when a promoted artifact digest is supplied, deploy
+        # consumes that already-built/staging-tested artifact instead of
+        # building - no build command runs for a promoted component. The
+        # artifact is loaded from the immutable store (digest-keyed); the store
+        # is the #1013 follow-up, so loading fails closed until it lands.
+        if: ${{ inputs.promotion_artifact_digest != '' }}
+        env:
+          TARGET_COMPONENT: ${{ inputs.component }}
+          PROMOTION_ARTIFACT_DIGEST: ${{ inputs.promotion_artifact_digest }}
+        run: |
+          set -euo pipefail
+          # The immutable digest-keyed store (commitment #2, #1013 follow-up) is
+          # not yet wired; until it is, an approved artifact cannot be loaded.
+          # Fail closed instead of hanging a deploy on a digest with no artifact.
+          echo "::error title=promotion artifact::approved promotion artifact digest $PROMOTION_ARTIFACT_DIGEST for $TARGET_COMPONENT cannot be loaded yet: the immutable digest-keyed store (AC6/#1013) is not wired. Refusing to deploy a promoted component with no artifact."
+          exit 1
       - name: Build component
-        if: ${{ inputs.build_filter != '' }}
+        if: ${{ inputs.build_filter != '' && inputs.promotion_artifact_digest == '' }}
         env:
           BUILD_FILTER: ${{ inputs.build_filter }}
           VITE_SITE_ORIGIN: ${{ vars.VITE_SITE_ORIGIN }}
@@ -488,17 +520,22 @@ jobs:
       # migrates to consuming this artifact+manifest.
       - name: Build-once promotion manifest
         id: promo
-        if: ${{ inputs.build_filter != '' }}
+        if: ${{ inputs.build_filter != '' && inputs.promotion_artifact_digest == '' }}
         env:
           TARGET_COMPONENT: ${{ inputs.component }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
-          PROMO_ARTIFACT_DIR: "apps/web/.output"
+          # #1007 hardcoded PROMO_ARTIFACT_DIR to apps/web/.output; #1013 (AC3)
+          # generalizes it: the per-component artifact dir is resolved from the
+          # closed component table in promotion_manifest.py (never invented
+          # inline), so an unmapped/misnamed component fails closed instead of
+          # silently tarballing the wrong directory.
           # SAFE-1: production bakes the pinned pre-campaign revision; staging
           # uses the caller SHA. Mirrors the "Bake git build info" step.
           SOURCE_REVISION: ${{ steps.release.outputs.source_revision }}
         run: |
           set -euo pipefail
           CLI=".github/scripts/promotion-manifest-cli.py"
+          PROMO_ARTIFACT_DIR="$(python3 "$CLI" artifact-dir "$TARGET_COMPONENT")"
           artifact="$RUNNER_TEMP/promo-$TARGET_COMPONENT.tar.gz"
           # Normalize so identical source builds produce identical artifact
           # digests: --sort=name (stable entry order), --mtime=@0 (fixed
@@ -1019,18 +1056,42 @@ jobs:
       # This step makes that identity explicit: the deployed component must
       # report the exact digest the build-once step produced.
       - name: Report build-once promotion digest
-        if: ${{ inputs.build_filter != '' }}
+        if: ${{ inputs.build_filter != '' && inputs.promotion_artifact_digest == '' }}
         env:
           TARGET_COMPONENT: ${{ inputs.component }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           PROMOTION_DIGEST: ${{ steps.promo.outputs.promotion_digest }}
           PROMOTION_SOURCE: ${{ steps.promo.outputs.promotion_source }}
+          # #1013 (AC4): when the caller supplies the staging-tested digest,
+          # this step reads the deployed version metadata and fails on mismatch.
+          PROMOTE_DEPLOYED_DIGEST: ${{ inputs.promotion_deployed_digest }}
+          PROMO_MANIFEST: ${{ steps.promo.outputs.promotion_manifest }}
         run: |
           set -euo pipefail
           if [ -z "$PROMOTION_DIGEST" ]; then
             echo "::error title=promotion digest::build-once manifest produced no digest for $TARGET_COMPONENT"; exit 1;
           fi
           echo "::notice title=promotion digest::$TARGET_COMPONENT staging deployed manifest digest $PROMOTION_DIGEST (source $PROMOTION_SOURCE)"
-          # The deployment pushed exactly the artifact the manifest described;
-          # the future version-metadata read (#1013) compares the platform
-          # reported digest against PROMOTION_DIGEST.
+          # AC4: the deploy only asserts a real deployed-version-metadata match
+          # when a staging-tested digest is supplied; otherwise it records an
+          # explicit "AC4 not asserted" notice - it never fakes a green read.
+          # The platform READ mechanism (wrangler deployments list, container
+          # image digest, Pulumi outputs, web RUNTIME_CONFIG) is documented in
+          # .github/scripts/promote_deployed.py PLATFORM_READ_MECHANISM; the
+          # live platform adapter + cross-job evidence is the #1013 follow-up.
+          if [ -n "$PROMOTE_DEPLOYED_DIGEST" ]; then
+            tmpdir="$(mktemp -d)"
+            trap 'rm -rf "$tmpdir"' EXIT
+            # The deployed read is the caller-supplied platform digest; the
+            # manifest is the approved build-once manifest (artifact_digest =
+            # PROMOTION_DIGEST). AC4 compares the two and fails closed on a
+            # digest/config-schema mismatch.
+            printf '{"digest":"%s"}' "$PROMOTE_DEPLOYED_DIGEST" > "$tmpdir/deployed.json"
+            if ! python3 .github/scripts/promote_deployed.py check "$PROMO_MANIFEST" "$tmpdir/deployed.json" >/dev/null 2>&1; then
+              echo "::error title=AC4 deployed-version gate::$TARGET_COMPONENT deployed version metadata does not match approved staging-tested digest $PROMOTION_DIGEST"
+              exit 1
+            fi
+            echo "::notice title=AC4 deployed-version gate::$TARGET_COMPONENT deployed version matches approved staging-tested digest $PROMOTION_DIGEST"
+          else
+            echo "::warning title=AC4 deployed-version gate::$TARGET_COMPONENT AC4 deployed-version read not yet wired (promotion_deployed_digest empty): NOT asserted against the platform. Mechanism: promote_deployed.py PLATFORM_READ_MECHANISM. Tracker: #1013."
+          fi

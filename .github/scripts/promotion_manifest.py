@@ -265,3 +265,65 @@ def select_promotable(candidate_manifest, latest_promoted_source_shas):
             continue
         selected.append(component)
     return selected
+
+
+# AC3: per-component artifact generalization (final promotion ticket #1013).
+# The #1007 foundation hardcoded PROMO_ARTIFACT_DIR to apps/web/.output in the
+# deploy workflow, so only web could produce a build-once manifest. #1013
+# generalizes this: every deployable component maps to the artifact directory
+# (or build output) its promotion manifest digests. The deploy workflow resolves
+# per-component dirs through this table, so an unmapped component fails
+# explicitly instead of silently tarballing the wrong directory.
+#
+# Artifact semantics per component (established in the existing pipelines):
+#   web - TanStack/Nitro Cloudflare bundle at apps/web/.output (wrangler main
+#         .output/server/index.mjs + ASSETS); the one env-neutral bundle
+#         (#1013 slice 1) carried to deploy as a tarball.
+#   catalog, users, edge, agent/root, maintenance - Cloudflare Workers whose
+#         wrangler deploy bundles TS source server-side. Each pipeline build stage
+#         already produces a hermetic dry-run bundle via
+#         wrangler deploy --dry-run --outdir <dir>; that bundle is the build-once
+#         artifact.
+#   infra - Pulumi IaC; its artifact is the immutable Pulumi stack state / plan
+#         digest (no local bundle). The mapping holds the project dir so a
+#         manifest can still be generated for the stack digest (infra/AGENTS.md).
+COMPONENT_ARTIFACT_DIRS = {
+    "web": "apps/web/.output",
+    "catalog": "workers/catalog/.wrangler-build",
+    "users": "workers/users/.wrangler-build",
+    "edge": "workers/edge/.wrangler-build",
+    "root": "apps/agent/.wrangler-build",
+    "agent": "apps/agent/.wrangler-build",
+    "maintenance": "workers/jobs/.wrangler-build",
+    "infra": "infra/.pulumi-state",
+}
+# The AC3 manifest surface: Agent, Edge, Catalog, Users, Web, Infra. The deploy
+# workflow keys these by the production-eligibility component name (root is the
+# Agent container worker); the AC3 contract asserts a manifest for each of
+# "agent" | "edge" | "catalog" | "users" | "web" | "infra".
+AC3_COMPONENTS = ("agent", "edge", "catalog", "users", "web", "infra")
+
+
+def component_artifact_dir(component):
+    """Return the artifact directory a component manifest digests.
+
+    AC3: every mapped component resolves to its own artifact dir; an unknown
+    component raises ValueError so a caller fails closed rather than digests a
+    mismatched/empty directory.
+    """
+    try:
+        return COMPONENT_ARTIFACT_DIRS[component]
+    except KeyError:
+        names = ", ".join(sorted(COMPONENT_ARTIFACT_DIRS))
+        msg = (
+            "unknown component "
+            + repr(component)
+            + ": no artifact dir mapped; known components: "
+            + names
+        )
+        raise ValueError(msg) from None
+
+
+def known_component(component):
+    """Whether a component has a mapped promotion artifact dir (AC3)."""
+    return component in COMPONENT_ARTIFACT_DIRS
