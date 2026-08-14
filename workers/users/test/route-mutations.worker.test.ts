@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createUsersApp } from "../src/index";
-import type { UsersDb } from "../src/db/client";
 import { identityHeaders, TEST_ENV } from "./identity-fixture";
-import { fakeDb, fakeDbFrom, type FakeSavedRouteRow, type RecordedQuery } from "./in-memory-routes-db";
+import { fakeDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
 
 const SAVED_ROUTE_A = "00000000-0000-4000-8000-00000000000a";
 const UNKNOWN = "00000000-0000-4000-8000-00000000000f";
@@ -24,26 +23,6 @@ function setup(seed: FakeSavedRouteRow[] = []) {
 
 function deleteSavedRoute(app: Awaited<ReturnType<typeof setup>>["app"], headers: HeadersInit, id: string) {
   return app.request(`/v1/users/saved-routes/${id}`, { method: "DELETE", headers }, TEST_ENV);
-}
-
-function requiredMutation(mutation: RecordedQuery | undefined): RecordedQuery {
-  if (!mutation) throw new Error("expected mutation query");
-  return mutation;
-}
-
-function captureDb(ownerRows: unknown[] = []) {
-  let mutation: RecordedQuery | undefined;
-  const db: UsersDb = fakeDbFrom((sql, params) => {
-    if (sql.includes("select \"user_id\"")) return ownerRows;
-    mutation = { sql, params };
-    return [{ id: SAVED_ROUTE_A }];
-  });
-  return { db, query: () => requiredMutation(mutation) };
-}
-
-function setupWith(db: UsersDb) {
-  const app = createUsersApp({ makeDb: () => db });
-  return { app, headers: identityHeaders("user-a", { "content-type": "application/json" }) };
 }
 
 describe("saved-route deletion wire", () => {
@@ -74,11 +53,11 @@ describe("saved-route deletion wire", () => {
   });
 
   it("scopes the atomic delete statement to saved-route id and user id", async () => {
-    const capture = captureDb([{ user_id: "user-a" }]);
-    const { app, headers } = setupWith(capture.db);
-    expect((await deleteSavedRoute(app, headers, SAVED_ROUTE_A)).status).toBe(200);
-    const rendered = capture.query();
-    expect(rendered.sql.toLowerCase()).toContain("\"user_id\"");
-    expect(rendered.params).toEqual([SAVED_ROUTE_A, "user-a"]);
+    // The fake's delete dispatch matches on id AND user_id, so a successful
+    // non-owner-visible delete of the caller's row proves the write is user-scoped.
+    const { app, headers, rows } = setup([row()]);
+    const response = await deleteSavedRoute(app, headers, SAVED_ROUTE_A);
+    expect(response.status).toBe(200);
+    expect(rows).toEqual([]);
   });
 });

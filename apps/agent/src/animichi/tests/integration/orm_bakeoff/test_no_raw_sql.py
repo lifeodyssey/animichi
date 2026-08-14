@@ -1,9 +1,9 @@
-"""Static gate: candidate implementations must carry zero raw SQL.
+"""Static gate: the candidate implementation must carry zero raw SQL.
 
-Scans the production SQLModel store and the remaining Tortoise candidate
-module for raw-SQL escape hatches and DML string literals. Fixture SQL in
-the test helpers is out of scope; the implementation modules must express
-the whole contract through typed ORM APIs.
+Scans the production SQLModel store (``turn_reservation``) for raw-SQL escape
+hatches and DML string literals. Fixture SQL in the test helpers is out of
+scope; the implementation module must express the whole contract through
+typed ORM APIs.
 """
 
 from __future__ import annotations
@@ -11,12 +11,8 @@ from __future__ import annotations
 import ast
 import inspect
 import re
-from types import ModuleType
-
-import pytest
 
 from animichi.infrastructure.persistence.repositories import turn_reservation
-from animichi.tests.integration.orm_bakeoff import store_tortoise
 
 _DML_KEYWORDS = re.compile(
     r"\b(select|insert|update|delete|from|where|join|values|returning)\b",
@@ -62,14 +58,9 @@ def _violations(source: str) -> list[str]:
     return found
 
 
-@pytest.mark.parametrize(
-    "module",
-    [turn_reservation, store_tortoise],
-    ids=["sqlmodel", "tortoise"],
-)
-def test_candidate_modules_have_no_raw_sql_escape_hatches(
-    module: ModuleType,
-) -> None:
-    source = inspect.getsource(module)
+def test_candidate_modules_have_no_raw_sql_escape_hatches() -> None:
+    source = inspect.getsource(turn_reservation)
     violations = _violations(source)
-    assert violations == [], f"raw-SQL escape hatch found in {module.__name__}"
+    assert violations == [], (
+        f"raw-SQL escape hatch found in {turn_reservation.__name__}"
+    )

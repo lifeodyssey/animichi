@@ -16,11 +16,10 @@
  * seam (`db.batch` / `db.execute`), consistent with the #992 one-adapter-seam
  * cutover (story 10).
  */
-import { and, eq, type SQL } from "drizzle-orm";
+import { and, eq, max, sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { statementBuilder } from "../db/client";
 import { clusterVersion } from "../db/schema";
-import { nextVersionFor } from "../db/expressions";
 
 interface PublishedVersionRow extends Record<string, unknown> {
   version: number;
@@ -56,8 +55,23 @@ function flipCurrentOff(bangumiId: string): SQL {
 function insertCurrent(bangumiId: string): SQL<PublishedVersionRow> {
   return statementBuilder()
     .insert(clusterVersion)
-    .values({ bangumiId, version: nextVersionFor(bangumiId), isCurrent: true })
+    .values({ bangumiId, version: nextVersionSubquery(bangumiId), isCurrent: true })
     .returning({ version: clusterVersion.version }) as unknown as SQL<PublishedVersionRow>;
+}
+
+/**
+ * The next blue/green version for `cluster_version`: a correlated scalar subquery
+ * `COALESCE(MAX(version), 0) + 1` over the same work. Built with the Drizzle
+ * query builder through the `statementBuilder()` seam so no complete SELECT lives
+ * in the fragments-only expressions module — only the arithmetic wrapper string is
+ * composed here at the call site.
+ */
+function nextVersionSubquery(bangumiId: string): SQL {
+  const maxVersion = statementBuilder()
+    .select({ v: max(clusterVersion.version) })
+    .from(clusterVersion)
+    .where(eq(clusterVersion.bangumiId, bangumiId));
+  return sql`COALESCE((${maxVersion}), 0) + 1`;
 }
 
 /** Read and validate the INSERT ... RETURNING version batch result. */

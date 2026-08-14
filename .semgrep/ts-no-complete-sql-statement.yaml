@@ -1,0 +1,31 @@
+# Policy (raw-SQL slice, #999): runtime code must access the Neon data plane
+# exclusively through the Drizzle query builder + the typed expression helpers
+# in workers/catalog/src/db/expressions.ts. A backtick-tagged `sql` template that
+# STARTS a complete SELECT / INSERT / UPDATE / DELETE is a hand-written raw SQL
+# statement and bypasses the ORM boundary.
+#
+# Narrow exception (documented in .semgrep/README.md): ONLY
+#   workers/catalog/src/db/expressions.ts  (typed fragments, never complete DML).
+# Atlas migrations in migrations/neon are excluded by language scope (SQL files).
+rules:
+  - id: ts-no-complete-sql-statement
+    languages: [ts]
+    severity: ERROR
+    message: >-
+      Raw SQL statement built with the sql tagged template. This is a
+      hand-written SELECT/INSERT/UPDATE/DELETE that bypasses the Drizzle ORM
+      boundary (#999, #992). Build the statement with the Drizzle query builder
+      and compose any PostgreSQL-specific fragment via
+      workers/catalog/src/db/expressions.ts. Complete raw DML lives only in
+      that expression module (fragments) and in Atlas migrations
+      (migrations/neon).
+    paths:
+      include:
+        - /workers/catalog/src
+        - /workers/users/src
+      exclude:
+        # Sanctioned typed-expression seam: fragments only, never a complete DML.
+        - /workers/catalog/src/db/expressions.ts
+    patterns:
+      - pattern: sql`...`
+      - pattern-regex: '(?is)\bsql`\s*(select|insert|update|delete)\b'

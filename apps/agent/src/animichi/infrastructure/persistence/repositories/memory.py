@@ -9,18 +9,17 @@ operation receipts in ``agent_memory_operations``. Every statement is a
 typed SQLAlchemy expression — this module never accepts or executes an
 unchecked SQL string (raw-SQL policy, #999). Schema DDL stays Atlas-owned;
 no runtime CREATE/ALTER runs here.
+
+The operation-receipt helpers live in ``_memory_receipts`` (1-10-50).
 """
 
 from __future__ import annotations
-
-from dataclasses import dataclass
 
 from pydantic_ai_harness.memory import (
     MemoryConflictError,
     MemoryFile,
     MemoryMutation,
     MemoryOperation,
-    MemoryOperationConflictError,
     MemorySearchResult,
 )
 from pydantic_ai_harness.memory._store import (
@@ -30,12 +29,13 @@ from pydantic_ai_harness.memory._store import (
 )
 from sqlalchemy import Sequence, Text, cast, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from animichi.infrastructure.persistence.database import AsyncSessionFactory
 from animichi.infrastructure.persistence.models import (
-    memory_operations_table,
     memory_table,
+)
+from animichi.infrastructure.persistence.repositories._memory_receipts import (
+    MemoryReceiptMixin,
 )
 
 #: The Atlas-owned version sequence (migration 20260809000003); typed via
@@ -43,17 +43,7 @@ from animichi.infrastructure.persistence.models import (
 _VERSION_SEQUENCE = Sequence("agent_memory_versions")
 
 
-@dataclass(frozen=True)
-class _OperationRow:
-    """The receipt columns the store reads back from the operations table."""
-
-    fingerprint: str
-    version: str | None
-    existed: bool
-    completed: bool
-
-
-class SQLModelMemoryStore:
+class SQLModelMemoryStore(MemoryReceiptMixin):
     """The harness Memory store contract over the shared session factory."""
 
     def __init__(self, sessionmaker: AsyncSessionFactory) -> None:
@@ -254,77 +244,6 @@ class SQLModelMemoryStore:
             scanned=result.scanned,
             truncated=result.truncated
             or any(int(str(row[2])) > max_file_chars for row in rows),
-        )
-
-    async def _operation_row(
-        self, session: AsyncSession, operation: MemoryOperation
-    ) -> _OperationRow | None:
-        row = (
-            await session.execute(
-                select(
-                    memory_operations_table.c.fingerprint,
-                    memory_operations_table.c.version,
-                    memory_operations_table.c.existed,
-                    memory_operations_table.c.completed,
-                ).where(memory_operations_table.c.id == operation.id)
-            )
-        ).first()
-        if row is None:
-            return None
-        fingerprint, version, existed, completed = row
-        if str(fingerprint) != operation.fingerprint:
-            raise MemoryOperationConflictError(
-                f"operation id {operation.id!r} was reused with different arguments"
-            )
-        return _OperationRow(
-            fingerprint=str(fingerprint),
-            version=str(version) if version is not None else None,
-            existed=bool(existed),
-            completed=bool(completed),
-        )
-
-    async def _reserve_operation(
-        self, session: AsyncSession, operation: MemoryOperation
-    ) -> MemoryMutation | None:
-        inserted = await session.execute(
-            pg_insert(memory_operations_table)
-            .values(
-                id=operation.id,
-                fingerprint=operation.fingerprint,
-                version=None,
-                existed=False,
-                completed=False,
-            )
-            .on_conflict_do_nothing()
-            .returning(memory_operations_table.c.id)
-        )
-        if inserted.scalar_one_or_none() is not None:
-            return None
-        receipt = await self._operation_row(session, operation)
-        if receipt is None or not receipt.completed:
-            raise RuntimeError(
-                f"operation {operation.id!r} did not produce a committed receipt"
-            )
-        return MemoryMutation(
-            version=receipt.version,
-            replayed=True,
-            existed=receipt.existed,
-        )
-
-    async def _complete_operation(
-        self,
-        session: AsyncSession,
-        operation: MemoryOperation,
-        mutation: MemoryMutation,
-    ) -> None:
-        await session.execute(
-            update(memory_operations_table)
-            .where(memory_operations_table.c.id == operation.id)
-            .values(
-                version=mutation.version,
-                existed=mutation.existed,
-                completed=True,
-            )
         )
 
 

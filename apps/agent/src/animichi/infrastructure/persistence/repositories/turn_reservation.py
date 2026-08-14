@@ -9,15 +9,13 @@ the lease-guarded lifecycle the caller immediately drives: ``dispatch``
 This adapter replaces the asyncpg ``PostgresTurnReservationStore`` on the
 migrated path; every statement is expressed through typed SQLAlchemy
 expressions — no raw SQL text exists in this module (enforced by the
-repository raw-SQL policy, #999).
+repository raw-SQL policy, #999). Status mapping/digest helpers and the
+lease sweep live in ``_turn_digest`` / ``_turn_sweep`` (1-10-50).
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
-from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -25,7 +23,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from animichi.application.adopt_sessions import ADOPT_TURN_KEY_PREFIX
 from animichi.application.turn_admission_port import (
-    AdmissionStatus,
     ReservationOutcome,
     ReserveRequest,
 )
@@ -39,39 +36,19 @@ from animichi.infrastructure.persistence.models import (
     reservation_table,
     session_table,
 )
-
-_RESERVED = "reserved"
-_RUNNING = "running"
-_FAILED = "failed"
-_SWEEP_STATUSES = ("reserved", "running")
-
-#: Per-session reservation history retained for replay (recent turns only).
-_KEEP_REVISIONS = 16
-
-
-def _port_status(stored: str) -> AdmissionStatus:
-    """Map a stored row status to the port vocabulary (failed never replays)."""
-    if stored == "completed":
-        return "replay_completed"
-    if stored == "failed":
-        return "turn_failed"
-    return "in_flight"
+from animichi.infrastructure.persistence.repositories._turn_digest import (
+    _KEEP_REVISIONS,
+    _RESERVED,
+    _RUNNING,
+    _port_status,
+    state_digest,
+)
+from animichi.infrastructure.persistence.repositories._turn_sweep import (
+    _TurnSweepMixin,
+)
 
 
-def state_digest(state: object) -> str:
-    """Canonical sha256 hex digest of a stored session state envelope."""
-    if isinstance(state, str):
-        try:
-            state = json.loads(state)
-        except json.JSONDecodeError:
-            state = {}
-    if not isinstance(state, dict):
-        state = {}
-    payload = json.dumps(state, sort_keys=True, default=str)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-
-class SQLModelTurnReservationStore:
+class SQLModelTurnReservationStore(_TurnSweepMixin):
     """Production adapter: one lease-guarded turn lifecycle per admission."""
 
     def __init__(self, sessionmaker: AsyncSessionFactory) -> None:
@@ -297,72 +274,6 @@ class SQLModelTurnReservationStore:
                 reservation_table.c.id.not_in(keep),
             )
         )
-
-    async def _sweep(
-        self,
-        session: AsyncSession,
-        now: datetime,
-        owner: str,
-        batch_size: int,
-        lease_seconds: int,
-    ) -> SweepReport:
-        """Claim stale rows atomically with a skip-locked select, re-extending
-        the lease per claim."""
-        rows = (
-            await session.execute(
-                select(
-                    reservation_table.c.id,
-                    reservation_table.c.status,
-                )
-                .where(reservation_table.c.status.in_(_SWEEP_STATUSES))
-                .where(reservation_table.c.lease_expires_at < now)
-                .order_by(reservation_table.c.lease_expires_at)
-                .limit(batch_size)
-                .with_for_update(skip_locked=True)
-            )
-        ).all()
-        claimed = [(row[0], str(row[1])) for row in rows]
-        if not claimed:
-            return SweepReport()
-        await self._claim(session, claimed, owner, now, lease_seconds)
-        released = 0
-        for rid, status in claimed:
-            released += int(await self._claim_row(session, rid, status))
-        return SweepReport(released=released, failed=len(claimed) - released)
-
-    async def _claim(
-        self,
-        session: AsyncSession,
-        claimed: Sequence[tuple[object, str]],
-        owner: str,
-        now: datetime,
-        lease_seconds: int,
-    ) -> None:
-        ids = [rid for rid, _status in claimed]
-        await session.execute(
-            update(reservation_table)
-            .where(reservation_table.c.id.in_(ids))
-            .values(
-                lease_owner=owner,
-                lease_expires_at=now + timedelta(seconds=lease_seconds),
-                updated_at=func.now(),
-            )
-        )
-
-    async def _claim_row(self, session: AsyncSession, rid: object, status: str) -> bool:
-        """Settle one claimed row; ``True`` when it was released."""
-        released = status == _RESERVED
-        if released:
-            await session.execute(
-                delete(reservation_table).where(reservation_table.c.id == rid)
-            )
-        else:
-            await session.execute(
-                update(reservation_table)
-                .where(reservation_table.c.id == rid)
-                .values(status=_FAILED, updated_at=func.now())
-            )
-        return released
 
 
 __all__ = ["SQLModelTurnReservationStore", "state_digest"]

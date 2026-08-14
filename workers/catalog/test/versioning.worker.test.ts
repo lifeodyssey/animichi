@@ -37,7 +37,10 @@ describe("atomic version publish (story 11)", () => {
     expect(flipText).toContain("update \"cluster_version\"");
     expect(flipText).toContain("is_current");
     expect(insertText).toContain("insert into \"cluster_version\"");
-    expect(insertText).toContain("max(version)");
+    // The version is a builder-built scalar subquery deriving max(version)+1,
+    // composed through the statementBuilder() seam (not a raw `nextVersionFor` fragment).
+    expect(insertText).toContain("coalesce(((select max(\"version\") from \"cluster_version\"");
+    expect(insertText).toContain("+ 1");
   });
 
   it("submits the flip+insert in one atomic batch (never two independent executes)", async () => {

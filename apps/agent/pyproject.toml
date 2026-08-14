@@ -206,8 +206,5 @@ dev = [
     "sqlfluff>=4.2.2",
     "testcontainers[postgres]>=4.14.2",
     "vulture>=2.16",
-    # ORM bake-off comparison (tests/integration/orm_bakeoff): Tortoise stays
-    # test-only — SQLModel is the production ORM (project dependency).
-    "tortoise-orm>=0.24.0",
     "ty>=0.0.64",
 ]

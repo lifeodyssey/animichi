@@ -1,0 +1,27 @@
+# Policy (raw-SQL slice, #999): the Agent owns exactly one sanctioned database
+# engine module - apps/agent/src/animichi/infrastructure/persistence/database.py -
+# which owns the AsyncEngine/async_sessionmaker lifecycle (asyncpg driver under
+# SQLAlchemy). Constructing an asyncpg/psycopg connection or using
+# raw_connection() anywhere else opens a second DB channel and is forbidden.
+#
+# Narrow exclusion (documented in .semgrep/README.md): ONLY database.py.
+rules:
+  - id: py-no-direct-driver-client
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Direct asyncpg/psycopg client construction or raw_connection() outside the
+      sanctioned engine module. All DB access must flow through the single
+      AsyncEngine/session factory in persistence/database.py (#999, #992).
+    paths:
+      include:
+        - /apps/agent
+      exclude:
+        - /apps/agent/src/animichi/infrastructure/persistence/database.py
+    patterns:
+      - pattern-either:
+          - pattern: asyncpg.connect(...)
+          - pattern: asyncpg.create_pool(...)
+          - pattern: psycopg.connect(...)
+          - pattern: psycopg2.connect(...)
+          - pattern: $X.raw_connection(...)

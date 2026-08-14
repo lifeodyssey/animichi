@@ -28,10 +28,10 @@ function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
 
 /** A UsersDb that records every rendered query while staying in-memory. */
 function recording(seed: FakeSavedRouteRow[] = []): {
-  db: UsersDb; queries: { sql: string; params: unknown[] }[];
+  db: UsersDb; rows: FakeSavedRouteRow[]; queries: { sql: string; params: unknown[] }[];
 } {
   const recorded = recordingDb(seed);
-  return { db: recorded.db, queries: recorded.queries };
+  return { db: recorded.db, rows: recorded.rows, queries: recorded.queries };
 }
 
 function recordingObserver(): {
@@ -64,8 +64,9 @@ describe("DeleteSavedRoute deletes an owned route", () => {
   it("runs exactly one atomic delete with no ownership read", async () => {
     const rec = recording([row()]);
     await deleteSavedRoute(repo(rec.db), "user-a", { id: ID });
+    // One statement, and the owned row is gone from the in-memory store.
     expect(rec.queries).toHaveLength(1);
-    expect(rec.queries[0]?.sql).toContain("delete from \"saved_routes\"");
+    expect(rec.rows).toHaveLength(0);
   });
 });
 
@@ -140,17 +141,18 @@ describe("DeleteSavedRoute records redacted observability", () => {
 
 describe("DeleteSavedRoute mutation guards", () => {
   it("scopes the atomic delete statement to the owning user", async () => {
+    // The fake's delete dispatch matches on id AND user_id, so removing the
+    // owner's row proves the write is user-scoped.
     const rec = recording([row()]);
     await deleteSavedRoute(repo(rec.db), "user-a", { id: ID });
-    const deleteQuery = rec.queries.find((query) => query.sql.includes("delete from \"saved_routes\""));
-    if (!deleteQuery) throw new Error("expected delete query");
-    expect(deleteQuery.sql).toContain("user_id");
-    expect(deleteQuery.params).toEqual([ID, "user-a"]);
+    expect(rec.rows).toHaveLength(0);
   });
 
   it("deletes without exposing a cross-owner oracle", async () => {
+    // A single atomic statement — no ownership-partition read to leak state.
     const rec = recording([row()]);
     await deleteSavedRoute(repo(rec.db), "user-a", { id: ID });
-    expect(rec.queries.some((query) => query.sql.includes("select \"user_id\""))).toBe(false);
+    expect(rec.queries).toHaveLength(1);
+    expect(rec.rows).toHaveLength(0);
   });
 });

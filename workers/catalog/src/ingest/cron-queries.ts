@@ -65,7 +65,7 @@ function staleWorksStatement(cap: number, maxAgeSeconds: number): SQL {
   const staleness = statementBuilder()
     .select({
       workId: sql`CASE WHEN a.work_id IS NULL THEN b.work_id ELSE a.work_id END`.as("work_id"),
-      freshness: x.weakestRawFreshness("a", "b").as("freshness"),
+      freshness: x.weakestRawFreshness("anitabi", "bangumi").as("freshness"),
     })
     .from(rawAnitabi)
     .fullJoin(rawBangumi, eq(rawAnitabi.workId, rawBangumi.workId))

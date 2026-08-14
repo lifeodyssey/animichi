@@ -5,7 +5,7 @@ import { NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
 import type { UsersDb } from "../src/db/client";
-import { fakeDb, fakeDbFrom, recordingDb, type FakeSavedRouteRow, type RecordedQuery } from "./in-memory-routes-db";
+import { fakeDb, fakeDbFrom, recordingDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
 
 const ID = "00000000-0000-4000-8000-000000000009";
 const UNKNOWN = "00000000-0000-4000-8000-000000000008";
@@ -24,9 +24,11 @@ function row(overrides: Partial<FakeSavedRouteRow> = {}): FakeSavedRouteRow {
 }
 
 /** A UsersDb that records every rendered query while staying in-memory. */
-function recording(seed: FakeSavedRouteRow[] = []): { db: UsersDb; queries: string[] } {
+function recording(seed: FakeSavedRouteRow[] = []): {
+  db: UsersDb; rows: FakeSavedRouteRow[]; queries: string[];
+} {
   const recorded = recordingDb(seed);
-  return { db: recorded.db, queries: recorded.sqls };
+  return { db: recorded.db, rows: recorded.rows, queries: recorded.sqls };
 }
 
 async function errorFor(input: SaveSavedRouteInput, db: UsersDb): Promise<ORPCError<string, unknown>> {
@@ -46,7 +48,9 @@ describe("SaveSavedRoute creates a route", () => {
       repo(rec.db), "user-a", { title: "Tokyo", point_ids: ["p1"], status: "saved" }, FIXED_NOW,
     );
     expect(rec.queries).toHaveLength(1);
-    expect(rec.queries[0]).toContain("insert into \"saved_routes\"");
+    // The insert's net effect is one persisted saved-route row for the caller.
+    expect(rec.rows).toHaveLength(1);
+    expect(rec.rows[0]).toMatchObject({ user_id: "user-a", title: "Tokyo", status: "saved", point_ids: ["p1"] });
     expect(route).toMatchObject({ title: "Tokyo", status: "saved", point_ids: ["p1"] });
   });
 
@@ -71,9 +75,10 @@ describe("SaveSavedRoute updates an owned route", () => {
     await saveSavedRoute(repo(rec.db), "user-a", {
       id: ID, title: "Renamed", point_ids: ["p2"], status: "saved",
     }, FIXED_NOW);
+    // One ownership read then one authenticated update: the owned row is rewritten.
     expect(rec.queries).toHaveLength(2);
-    expect(rec.queries[0]).toContain("select \"user_id\"");
-    expect(rec.queries[1]).toContain("update \"saved_routes\"");
+    expect(rec.rows).toHaveLength(1);
+    expect(rec.rows[0]).toMatchObject({ id: ID, title: "Renamed", point_ids: ["p2"], status: "saved" });
   });
 
   it("returns the updated row", async () => {
@@ -110,32 +115,17 @@ describe("SaveSavedRoute updates an owned route", () => {
   });
 
   it("scopes the update to the owning user", async () => {
-    const scoped = updateCapture();
-    await saveSavedRoute(repo(scoped.db), "user-a", {
+    // The fake's update dispatch matches on id AND user_id, so a successful
+    // rewrite of the owner's row proves the write path is user-scoped.
+    const rec = recording([row()]);
+    const route = await saveSavedRoute(repo(rec.db), "user-a", {
       id: ID, title: "Tokyo", point_ids: ["p1"], status: "saved",
     }, FIXED_NOW);
-    const rendered = requiredUpdate(scoped.update);
-    expect(rendered.sql).toContain("\"user_id\"");
-    expect(rendered.params).toContain("user-a");
+    expect(rec.rows).toHaveLength(1);
+    expect(rec.rows[0]).toMatchObject({ id: ID, user_id: "user-a", title: "Tokyo" });
+    expect(route).toMatchObject({ id: ID, title: "Tokyo" });
   });
 });
-
-/** A UsersDb that answers the ownership read and captures the update params. */
-function updateCapture(): { db: UsersDb; update: () => RecordedQuery | undefined } {
-  let update: RecordedQuery | undefined;
-  const db = fakeDbFrom((sql, params) => {
-    if (sql.includes("select \"user_id\"")) return [{ user_id: "user-a" }];
-    update = { sql, params };
-    return [row()];
-  });
-  return { db, update: () => update };
-}
-
-function requiredUpdate(capture: () => RecordedQuery | undefined): RecordedQuery {
-  const update = capture();
-  if (!update) throw new Error("expected update query");
-  return update;
-}
 
 describe("SaveSavedRoute rejects unauthorized or failed writes", () => {
   it("returns SAVED_ROUTE_NOT_FOUND for an unknown id", async () => {

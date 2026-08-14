@@ -79,29 +79,12 @@ export function isNotNull(column: PgColumn): SQL {
 }
 
 /**
- * Valid raw-source fetch aliases the crawl-stale builder subquery uses.
- * Static identifiers live here as a safe literal whitelist — never interpolated
- * caller input — so the raw-zone column references are baked in as template
- * text with no runtime raw-string interpolation.
- */
-export const RAW_FETCH_ALIASES = { anitabi: "a", bangumi: "b" } as const;
-export type RawFetchAlias = keyof typeof RAW_FETCH_ALIASES;
-
-/** Raw-zone `fetched_at` column reference per alias (static SQL values). */
-const FETCHED_AT_BY_ALIAS: Record<RawFetchAlias, SQL> = {
-  anitabi: sql`a.fetched_at`,
-  bangumi: sql`b.fetched_at`,
-};
-
-/**
  * A work's raw-zone freshness: the WEAKER of its two source fetches (a source
- * with no raw row reads as `-infinity`). Composed inside the crawl-stale builder
- * subquery; the raw-fetch aliases are drawn from the `RAW_FETCH_ALIASES` whitelist.
+ * with no raw row reads as `-infinity`). `aFetch`/`bFetch` are the raw table
+ * aliases; the fragment is composed inside the crawl-stale builder subquery.
  */
-export function weakestRawFreshness(aFetch: RawFetchAlias, bFetch: RawFetchAlias): SQL {
-  const aFetchedAt = FETCHED_AT_BY_ALIAS[aFetch];
-  const bFetchedAt = FETCHED_AT_BY_ALIAS[bFetch];
-  return sql`LEAST(COALESCE(${aFetchedAt}, '-infinity'), COALESCE(${bFetchedAt}, '-infinity'))`;
+export function weakestRawFreshness(aFetch: string, bFetch: string): SQL {
+  return sql`LEAST(COALESCE(${sql.raw(aFetch)}.fetched_at, '-infinity'), COALESCE(${sql.raw(bFetch)}.fetched_at, '-infinity'))`;
 }
 
 /**
@@ -111,7 +94,27 @@ export function weakestRawFreshness(aFetch: RawFetchAlias, bFetch: RawFetchAlias
 export function staleWithinSeconds(primary: PgColumn, fallback: PgColumn, seconds: number): SQL {
   return sql`COALESCE(${primary}, ${fallback}) <= NOW() - make_interval(secs => ${seconds})`;
 }
+
+/**
+ * A row is stale when its heartbeat (the first non-null of `primary` /
+ * `fallback`) is older than `seconds`. Used by the singleflight gate.
+ */
+export function staleWithinSeconds(primary: PgColumn, fallback: PgColumn, seconds: number): SQL {
+  return sql`COALESCE(${primary}, ${fallback}) <= NOW() - make_interval(secs => ${seconds})`;
+}
+
+/**
+ * The next blue/green version for `cluster_version` moved out of the fragments
+ * module: the correlated scalar subquery is now built at the publish call site
+ * with the Drizzle query builder through the `statementBuilder()` seam (see
+ * `publish/versioning.ts`).
+ */
+
 function assertNonNegative(seconds: number): void {
+  if (!Number.isInteger(seconds) || seconds < 0) {
+    throw new Error("interval seconds must be a non-negative integer");
+  }
+}
   if (!Number.isInteger(seconds) || seconds < 0) {
     throw new Error("interval seconds must be a non-negative integer");
   }

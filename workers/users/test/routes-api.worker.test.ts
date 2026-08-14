@@ -5,7 +5,7 @@ import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-sa
 import { listSavedRoutes as listSavedRoutesAction } from "../src/application/list-saved-routes";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { UsersDb } from "../src/db/client";
-import { fakeDb, fakeDbFrom, type FakeSavedRouteRow, type RecordedQuery } from "./in-memory-routes-db";
+import { fakeDb, fakeDbFrom, recordingDb, type FakeSavedRouteRow } from "./in-memory-routes-db";
 
 const ID = "00000000-0000-4000-8000-000000000009";
 const RAW = "2026-07-13 12:34:56+00";
@@ -103,16 +103,13 @@ describe("atomic saved-route updates", () => {
     expect(error).toMatchObject({ code: "SAVED_ROUTE_NOT_OWNED", status: 403, defined: true });
   });
 
-  it("includes user_id in the atomic update predicate", async () => {
-    let updateQuery: RecordedQuery | undefined;
-    const inlineDb: UsersDb = fakeDbFrom((sql, params) => {
-      if (sql.includes("select \"user_id\"")) return [{ user_id: "user-a" }];
-      updateQuery = { sql, params };
-      return [];
-    });
-    await caught(UPDATE_INPUT, inlineDb);
-    if (!updateQuery) throw new Error("expected update query");
-    expect(updateQuery.sql).toContain("\"user_id\"");
-    expect(updateQuery.params).toContain("user-a");
+  it("scopes the atomic update to the owning user", async () => {
+    // The fake's update dispatch matches on id AND user_id, so rewriting the
+    // owner's row proves the update path is user-scoped.
+    const rec = recordingDb([row()]);
+    const result = await saveSavedRoute(store(rec.db), "user-a", UPDATE_INPUT, FIXED_NOW);
+    expect(rec.rows).toHaveLength(1);
+    expect(rec.rows[0]).toMatchObject({ id: ID, user_id: "user-a", title: "X" });
+    expect(result).toMatchObject({ id: ID, title: "X" });
   });
 });
