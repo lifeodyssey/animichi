@@ -23,7 +23,7 @@ export function inMemoryObjectStore(): {
       const body = blobs.get(key);
       return Promise.resolve(body === undefined ? null : { body });
     },
-    list: (prefix) => Promise.resolve([...blobs.keys()].filter((key) => key.startsWith(prefix)).sort()),
+    list: (prefix) => Promise.resolve([...blobs.keys()].filter((key) => key.startsWith(prefix)).sort((a, b) => a.localeCompare(b))),
     delete: (key) => {
       blobs.delete(key);
       return Promise.resolve();
@@ -31,7 +31,7 @@ export function inMemoryObjectStore(): {
   };
   return {
     store,
-    keys: () => [...blobs.keys()].sort(),
+    keys: () => [...blobs.keys()].sort((a, b) => a.localeCompare(b)),
     size: (key) => blobs.get(key)?.byteLength ?? 0,
   };
 }
