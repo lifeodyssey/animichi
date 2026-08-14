@@ -3,8 +3,10 @@
 
 Covers AC1 (the manifest schema pins component, source SHA, artifact digest,
 SBOM/attestation, schema compatibility, configuration schema, and dependency
-revisions) and AC5 (an unchanged component is not selected merely because
-another component is promoted).
+revisions), AC3 (per-component artifact generalization - every AC3 component
+resolves to its own artifact dir and produces a manifest whose digest equals
+the staging-tested artifact digest), and AC5 (an unchanged component is not
+selected merely because another component is promoted).
 
 Run: python3 .github/scripts/test_promotion_manifest.py
 """

@@ -536,6 +536,11 @@ jobs:
           set -euo pipefail
           CLI=".github/scripts/promotion-manifest-cli.py"
           PROMO_ARTIFACT_DIR="$(python3 "$CLI" artifact-dir "$TARGET_COMPONENT")"
+          # $RUNNER_TEMP is a literal inside the resolved path (command-substitution
+          # output is not re-expanded by the shell); expand it here so a
+          # worker/edge dry-run bundle path resolves to this job's runner temp,
+          # where the dry-run bundle build step wrote it.
+          PROMO_ARTIFACT_DIR="${PROMO_ARTIFACT_DIR//\$RUNNER_TEMP/$RUNNER_TEMP}"
           artifact="$RUNNER_TEMP/promo-$TARGET_COMPONENT.tar.gz"
           # Normalize so identical source builds produce identical artifact
           # digests: --sort=name (stable entry order), --mtime=@0 (fixed

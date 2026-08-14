@@ -275,26 +275,47 @@ def select_promotable(candidate_manifest, latest_promoted_source_shas):
 # per-component dirs through this table, so an unmapped component fails
 # explicitly instead of silently tarballing the wrong directory.
 #
+# IMPORTANT (spec review): each map value is the EXACT path the corresponding
+# pipeline actually builds/emits - greppable in .github/workflows. Every value
+# either names a directory the build step creates, or a real repo/build-context
+# directory. No value is an invented path. $RUNNER_TEMP appears because the
+# worker dry-run bundle build steps write there and the build-once promotion
+# manifest step runs in the same job (reusable-deploy-component.yml); the deploy
+# step expands $RUNNER_TEMP against the runner value.
+#
 # Artifact semantics per component (established in the existing pipelines):
 #   web - TanStack/Nitro Cloudflare bundle at apps/web/.output (wrangler main
-#         .output/server/index.mjs + ASSETS); the one env-neutral bundle
-#         (#1013 slice 1) carried to deploy as a tarball.
-#   catalog, users, edge, agent/root, maintenance - Cloudflare Workers whose
-#         wrangler deploy bundles TS source server-side. Each pipeline build stage
-#         already produces a hermetic dry-run bundle via
-#         wrangler deploy --dry-run --outdir <dir>; that bundle is the build-once
-#         artifact.
+#         .output/server/index.mjs + ASSETS); created by `pnpm --filter web
+#         build`. The one env-neutral bundle (#1013 slice 1).
+#   catalog - wrangler dry-run bundle, this exact dir (pipeline-catalog.yml:104):
+#         `wrangler deploy --dry-run --outdir "$RUNNER_TEMP/catalog-bundle"`.
+#   users   - wrangler dry-run bundle (pipeline-users.yml:84):
+#         `--outdir "$RUNNER_TEMP/users-bundle"`.
+#   edge    - wrangler dry-run bundle, production config (pipeline-edge.yml:83):
+#         `wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production
+#         --outdir "$RUNNER_TEMP/edge-bundle"`.
+#   agent/root - container image: `docker build -f apps/agent/Dockerfile`
+#         (pipeline-agent.yml:130). The image has no filesystem bundle; the map
+#         points at the real build-context dir apps/agent (exists in the repo)
+#         as the artifact source, and the authoritative digest for a container
+#         promotion is the image digest (docker inspect). Until a packaged agent
+#         bundle exists, an agent promotion must fail closed at the step that
+#         loads the artifact, never silently digest a wrong dir.
+#   maintenance - workers/jobs has no bundle-producing pipeline build today; the
+#         map holds the real build-context dir (exists) and the step fails closed
+#         until a bundle is produced.
 #   infra - Pulumi IaC; its artifact is the immutable Pulumi stack state / plan
-#         digest (no local bundle). The mapping holds the project dir so a
-#         manifest can still be generated for the stack digest (infra/AGENTS.md).
+#         digest (no local bundle, state lives in R2). The mapping holds a
+#         documented placeholder (infra/AGENTS.md) resolved by the infra step,
+#         which fails closed until a Pulumi-state digest read is wired.
 COMPONENT_ARTIFACT_DIRS = {
     "web": "apps/web/.output",
-    "catalog": "workers/catalog/.wrangler-build",
-    "users": "workers/users/.wrangler-build",
-    "edge": "workers/edge/.wrangler-build",
-    "root": "apps/agent/.wrangler-build",
-    "agent": "apps/agent/.wrangler-build",
-    "maintenance": "workers/jobs/.wrangler-build",
+    "catalog": "$RUNNER_TEMP/catalog-bundle",
+    "users": "$RUNNER_TEMP/users-bundle",
+    "edge": "$RUNNER_TEMP/edge-bundle",
+    "root": "apps/agent",
+    "agent": "apps/agent",
+    "maintenance": "workers/jobs",
     "infra": "infra/.pulumi-state",
 }
 # The AC3 manifest surface: Agent, Edge, Catalog, Users, Web, Infra. The deploy
