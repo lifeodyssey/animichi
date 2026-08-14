@@ -16,6 +16,7 @@ from decimal import Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.selectable import Select
 
@@ -125,6 +126,21 @@ class SQLModelUsageRepository:
         """Upsert one day-scope row, adding the turn to any existing."""
         metrics = _UsageMetrics(requests, input_tokens, output_tokens, cost_usd)
         await _accumulate_many(self._sessionmaker, usage_date, scope, metrics)
+
+    async def accumulate_usage_on(
+        self,
+        session: AsyncSession,
+        *,
+        usage_date: date,
+        scope: str,
+        requests: int,
+        input_tokens: int,
+        output_tokens: int,
+        cost_usd: float,
+    ) -> None:
+        """Upsert one day-scope row on a caller-owned transaction (AC5)."""
+        metrics = _UsageMetrics(requests, input_tokens, output_tokens, cost_usd)
+        await session.execute(_usage_statement(usage_date, scope, metrics))
 
     async def total_cost_usd(self, *, usage_date: date, scope: str) -> float:
         """The day-scope cumulative spend; 0.0 when no row exists yet."""

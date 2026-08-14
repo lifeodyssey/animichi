@@ -14,7 +14,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from animichi.agents.base import build_model_http_client
-from animichi.application.outbox import TurnOutbox
 from animichi.clients.catalog_client import CatalogClient
 from animichi.config.settings import Settings, get_settings
 from animichi.infrastructure.gateways.geocoding import aclose_geocoding_client
@@ -25,9 +24,10 @@ from animichi.infrastructure.persistence.repositories.composite import (
 )
 from animichi.infrastructure.session import SessionStore
 from animichi.infrastructure.session.cached_session_store import SessionStateStore
-from animichi.interfaces.outbox_dispatch import (
-    SettlementInputs,
-    SettlementOutboxDispatcher,
+from animichi.interfaces.outbox_drain import (
+    DEFAULT_OUTBOX_DRAIN_INTERVAL,
+    _outbox_drain_loop,
+    _run_startup_outbox_drain,
 )
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.routes._deps import (  # noqa: F401
@@ -54,12 +54,8 @@ from animichi.interfaces.routes.feedback import router as feedback_router
 from animichi.interfaces.routes.health import router as health_router
 from animichi.interfaces.routes.photo_search import router as photo_search_router
 from animichi.interfaces.routes.search_preview import router as search_preview_router
-from animichi.interfaces.usage_metering import UsagePrices
 
 logger = structlog.get_logger(__name__)
-
-#: Interval between outbox drain passes (seconds); bounded, demand-driven (AC5).
-DEFAULT_OUTBOX_DRAIN_INTERVAL = 60.0
 
 # Re-export _call_optional_async for test backward compatibility.
 _call_optional_async = call_optional_async
@@ -71,63 +67,6 @@ async def _run_startup_sweep(runtime_db: object) -> None:
         await build_startup_turn_outcome(runtime_db).sweep()
     except Exception:
         logger.warning("startup_sweep_failed", exc_info=True)
-
-
-def _outbox_inputs(
-    runtime_db: PersistenceRepos, settings: Settings
-) -> SettlementInputs:
-    """Build the repository inputs the durable-outbox drain applies through."""
-    return SettlementInputs(
-        usage_repo=runtime_db.usage,
-        anon_quota_repo=runtime_db.anon_quota,
-        request_audit_repo=runtime_db.feedback,
-        messages_repo=runtime_db.session,
-        prices=UsagePrices(
-            input_usd_per_mtok=settings.model_input_cost_per_mtok_usd,
-            output_usd_per_mtok=settings.model_output_cost_per_mtok_usd,
-        ),
-    )
-
-
-async def _drain_outbox_once(runtime_db: PersistenceRepos, settings: Settings) -> int:
-    """One bounded drain pass over the durable outbox (AC5).
-
-    Applies every undelivered external effect exactly once and returns how many
-    deliveries were made. Best-effort: a failure logs and leaves rows pending
-    for the next pass.
-    """
-    outbox = TurnOutbox(store=runtime_db.outbox)
-    dispatcher = SettlementOutboxDispatcher(_outbox_inputs(runtime_db, settings))
-    return await outbox.drain(dispatcher)
-
-
-async def _outbox_drain_loop(
-    runtime_db: PersistenceRepos,
-    settings: Settings,
-    interval: float,
-) -> None:
-    """Background drain loop recovering undelivered outbox rows (AC5)."""
-    while True:
-        try:
-            await asyncio.sleep(interval)
-            await _drain_outbox_once(runtime_db, settings)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.warning("outbox_drain_failed", exc_info=True)
-
-
-async def _run_startup_outbox_drain(
-    runtime_db: object,
-    settings: Settings,
-) -> None:
-    """Best-effort outbox drain on Agent startup (AC5 crash recovery)."""
-    if not isinstance(runtime_db, PersistenceRepos):
-        return
-    try:
-        await _drain_outbox_once(runtime_db, settings)
-    except Exception:
-        logger.warning("startup_outbox_drain_failed", exc_info=True)
 
 
 def build_catalog_client(settings: Settings) -> CatalogClient:
@@ -166,10 +105,7 @@ def _resolve_session_store(
         return session_store
     if session_repo is not None:
         return build_session_store(session_repo)
-    raise RuntimeError(
-        "create_fastapi_app(..., db=...) requires session_store"
-        " for non-persistence db adapters."
-    )
+    raise RuntimeError("create_fastapi_app requires session_store for db adapters")
 
 
 async def _close_stores(
@@ -235,10 +171,8 @@ async def _lifespan_build_runtime(
         memory_store=postgres_memory_store(runtime_db),
     )
     app.state.db_client = runtime_db
-    # The startup sweep must not gate the container's readiness (issue #694):
-    # it runs in the background so the port binds immediately. The engine
-    # connects lazily on first use; a failed sweep logs and is retried by the
-    # next admission's own sweep pass (TURN-3 #951).
+    # Startup sweep runs in the background (not readiness-gating, issue #694);
+    # a failed sweep logs and is retried by the next admission sweep (TURN-3).
     startup_sweep_task = asyncio.create_task(_run_startup_sweep(runtime_db))
     app.state.startup_sweep_task = startup_sweep_task
     outbox_drain_loop: asyncio.Task[None] | None = None

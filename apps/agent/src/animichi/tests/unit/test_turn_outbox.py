@@ -28,30 +28,34 @@ class _MemoryOutbox:
         }
         return True
 
-    async def drain(self, *, now: datetime, batch_size: int) -> list[OutboxRow]:
+    async def process_undelivered(
+        self,
+        *,
+        now: datetime,
+        batch_size: int,
+        applier: object,
+    ) -> int:
         del now
-        result: list[OutboxRow] = []
-        for (turn_key, kind), row in self.rows.items():
-            if len(result) >= batch_size:
+        delivered = 0
+        for key in list(self.rows):
+            if delivered >= batch_size:
                 break
-            if (turn_key, kind) not in self.delivered:
-                result.append(
-                    OutboxRow(
-                        id=(turn_key, kind),
-                        session_id=str(row["session_id"])
-                        if row["session_id"] is not None
-                        else None,
-                        turn_key=turn_key,
-                        kind=kind,
-                        payload=row["payload"],
-                    )
-                )
-        return result
-
-    async def mark_delivered(self, row_id: object, *, success: bool) -> bool:
-        if success:
-            self.delivered.add(row_id)
-        return True
+            if key in self.delivered:
+                continue
+            row = OutboxRow(
+                id=key,
+                session_id=str(self.rows[key]["session_id"])
+                if self.rows[key]["session_id"] is not None
+                else None,
+                turn_key=key[0],
+                kind=key[1],
+                payload=self.rows[key]["payload"],
+            )
+            ok = await applier(None, row)
+            if ok:
+                self.delivered.add(key)
+                delivered += 1
+        return delivered
 
 
 class _RecordingDispatcher:
@@ -61,7 +65,7 @@ class _RecordingDispatcher:
         self.applied: list[OutboxRow] = []
         self._fail = fail or set()
 
-    async def apply(self, row: OutboxRow) -> bool:
+    async def apply_session(self, session: object, row: OutboxRow) -> bool:
         self.applied.append(row)
         return row.kind not in self._fail
 

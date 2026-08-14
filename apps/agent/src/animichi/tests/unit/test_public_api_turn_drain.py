@@ -1,16 +1,15 @@
-"""RuntimeAPI.handle settlement through TurnOutcome (TURN-3 #951).
+"""RuntimeAPI.handle settlement on turn failure paths (TURN-3 #951).
 
-Proves the reserved-turn lifecycle at the handle boundary: dispatch at the
-dispatch-certainty point, exactly-once terminal settlement (settle enqueues
-usage + quota + audit rows; the drain applies them once), and CAS-loss /
-dispatch-loss paths. The raising-turn and pre-dispatch-death paths live in
-``test_public_api_turn_drain.py``.
+Proves the reserved-turn failure branches at the handle boundary: a turn that
+raises after the agent ran still settles completed and enqueues its usage for
+a later drain; a turn that dies before dispatch is released, not settled.
 """
 
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from pydantic_ai.usage import RunUsage
 
 from animichi.agents.agent_result import AgentResult
@@ -80,12 +79,6 @@ class _RecordingStore:
         return SweepReport()
 
 
-class _DispatchLosingStore(_RecordingStore):
-    async def dispatch(self, ref: TurnRef, *, owner: str) -> bool:
-        self.calls.append(("dispatch", ref.session_id or "", ref.turn_key, owner))
-        return False
-
-
 def _db() -> tuple[MagicMock, MemoryOutbox]:
     outbox = MemoryOutbox()
     db = MagicMock()
@@ -126,11 +119,21 @@ async def _drain(db: MagicMock, outbox: MemoryOutbox) -> None:
     )
 
 
-async def test_reserved_turn_dispatches_and_settles_completed_exactly_once() -> None:
+async def test_a_turn_that_raises_after_the_agent_ran_still_settles_and_meters() -> (
+    None
+):
+    """Provider ran before persistence blew up; turn settles completed."""
     db, outbox = _db()
     store = _RecordingStore()
     stub = make_run_agent_stub(_metered_result())
-    with patch("animichi.interfaces.public_api.run_animichi_agent", side_effect=stub):
+    with (
+        patch("animichi.interfaces.public_api.run_animichi_agent", side_effect=stub),
+        patch(
+            "animichi.interfaces.public_api.persist_result",
+            new=AsyncMock(side_effect=RuntimeError("session store down")),
+        ),
+        pytest.raises(RuntimeError),
+    ):
         await _api(db).handle(
             PublicAPIRequest(text="京吹の聖地"),
             user_id=ANON_USER_ID,
@@ -139,21 +142,29 @@ async def test_reserved_turn_dispatches_and_settles_completed_exactly_once() -> 
             turn_ref=TURN_REF,
             owner=OWNER,
         )
-    assert ("dispatch", "s-1", "turn-1", OWNER) in store.calls
     assert ("settle", "s-1", "turn-1", OWNER, "completed") in store.calls
-    assert ("release",) not in [c[:1] for c in store.calls]
-    # Settle enqueued the effects; draining applies usage + quota exactly once.
+    assert not any(c[0] == "release" for c in store.calls)
     assert outbox.pending_kinds() == {"usage", "quota", "audit"}
+    # A later drain meters the burned tokens exactly once.
     await _drain(db, outbox)
     db.usage.accumulate_usage_on.assert_awaited_once()
     db.anon_quota.increment_and_count_on.assert_awaited_once()
 
 
-async def test_settlement_side_effects_are_skipped_when_the_cas_loses() -> None:
+async def test_a_turn_that_dies_before_dispatch_is_released_not_settled() -> None:
     db, outbox = _db()
-    store = _RecordingStore(settle_wins=False)
-    stub = make_run_agent_stub(_metered_result())
-    with patch("animichi.interfaces.public_api.run_animichi_agent", side_effect=stub):
+    store = _RecordingStore()
+
+    async def _session_boom(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("session store down")
+
+    with (
+        patch(
+            "animichi.interfaces.public_api.create_owned_session",
+            side_effect=_session_boom,
+        ),
+        pytest.raises(RuntimeError),
+    ):
         await _api(db).handle(
             PublicAPIRequest(text="京吹の聖地"),
             user_id=ANON_USER_ID,
@@ -162,30 +173,8 @@ async def test_settlement_side_effects_are_skipped_when_the_cas_loses() -> None:
             turn_ref=TURN_REF,
             owner=OWNER,
         )
-    assert ("settle", "s-1", "turn-1", OWNER, "completed") in store.calls
+    assert ("release", "s-1", "turn-1", OWNER) in store.calls
+    assert not any(c[0] == "settle" for c in store.calls)
     assert outbox.pending_kinds() == set()
     db.usage.accumulate_usage_on.assert_not_awaited()
     db.anon_quota.increment_and_count_on.assert_not_awaited()
-
-
-async def test_dispatch_loss_never_runs_the_provider_and_releases() -> None:
-    """Dispatch-certainty guard: provider never runs; reservation released."""
-    db, outbox = _db()
-    store = _DispatchLosingStore()
-    with patch(
-        "animichi.interfaces.public_api.run_animichi_agent",
-        side_effect=AssertionError("provider must not run"),
-    ) as run_agent:
-        response = await _api(db).handle(
-            PublicAPIRequest(text="京吹の聖地"),
-            user_id=ANON_USER_ID,
-            user_type="anonymous",
-            outcome=_outcome(store),
-            turn_ref=TURN_REF,
-            owner=OWNER,
-        )
-    run_agent.assert_not_awaited()
-    assert response.success is False
-    assert response.errors[0].code == "turn_lease_lost"
-    assert ("release", "s-1", "turn-1", OWNER) in store.calls
-    assert ("settle",) not in [c[:1] for c in store.calls]

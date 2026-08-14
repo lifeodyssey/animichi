@@ -1,9 +1,10 @@
 """Unit tests for the runtime settlement request-audit failure paths.
 
-The consolidated ``SettlementApplier._apply_audit`` swallows repository
-failures best-effort: a failed user-message persistence logs
-``finally_persist_user_msg_failed`` and a failed audit-log insert logs
-``request_log_failed`` without raising (AC5 drain path).
+The consolidated ``SettlementApplier`` swallows repository failures best-effort:
+a failed user-message persistence logs ``finally_persist_user_msg_failed`` and
+a failed audit-log insert logs ``request_log_failed`` without raising. Effects
+run on the drain's session (``apply_session``); successful rows report True so
+the store marks them delivered (AC5 drain path).
 """
 
 from __future__ import annotations
@@ -22,11 +23,11 @@ ANON_ID = "anon_0123456789abcdef0123456789abcdef"
 def _db() -> MagicMock:
     db = MagicMock()
     db.usage = AsyncMock()
-    db.usage.accumulate_usage = AsyncMock(return_value=None)
+    db.usage.accumulate_usage_on = AsyncMock(return_value=None)
     db.anon_quota = MagicMock()
-    db.anon_quota.increment_and_count = AsyncMock(return_value=1)
+    db.anon_quota.increment_and_count_on = AsyncMock(return_value=1)
     db.feedback = MagicMock()
-    db.feedback.insert_request_log = AsyncMock(return_value=None)
+    db.feedback.insert_request_log_on = AsyncMock(return_value=None)
     db.session = AsyncMock()
     return db
 
@@ -60,27 +61,23 @@ def _applier(db: MagicMock) -> SettlementApplier:
 
 
 async def test_audit_warns_when_persist_user_message_fails() -> None:
-    applier = _applier(_db())
+    db = _db()
+    db.session.insert_message_on = AsyncMock(side_effect=RuntimeError("db down"))
+    applier = _applier(db)
 
-    async def boom(*_args: object, **_kwargs: object) -> None:
-        raise RuntimeError("db down")
-
-    from unittest.mock import patch
-
-    with (
-        patch("animichi.interfaces.persistence.persist_messages", side_effect=boom),
-        testing.capture_logs() as captured,
-    ):
-        await applier.apply(_payload(persisted=False))
+    with testing.capture_logs() as captured:
+        await applier.apply_session(object(), _payload(persisted=False))
 
     assert any(e.get("event") == "finally_persist_user_msg_failed" for e in captured)
 
 
 async def test_audit_warns_when_audit_insert_fails() -> None:
     db = _db()
-    db.feedback.insert_request_log = AsyncMock(side_effect=RuntimeError("audit down"))
+    db.feedback.insert_request_log_on = AsyncMock(
+        side_effect=RuntimeError("audit down")
+    )
     with testing.capture_logs() as captured:
-        await _applier(db).apply(_payload(persisted=True))
+        await _applier(db).apply_session(object(), _payload(persisted=True))
 
     assert any(e.get("event") == "request_log_failed" for e in captured)
 
@@ -107,8 +104,8 @@ async def test_dispatcher_applies_row_payload_and_marks_success() -> None:
         kind="audit",
         payload=payload.to_json(),
     )
-    assert await dispatcher.apply(row) is True
-    db.feedback.insert_request_log.assert_awaited_once()
+    assert await dispatcher.apply_session(object(), row) is True
+    db.feedback.insert_request_log_on.assert_awaited_once()
 
 
 async def test_dispatcher_rejects_a_malformed_payload() -> None:
@@ -132,7 +129,7 @@ async def test_dispatcher_rejects_a_malformed_payload() -> None:
         kind="usage",
         payload={"usage": "not-a-list"},
     )
-    assert await dispatcher.apply(row) is False
+    assert await dispatcher.apply_session(object(), row) is False
 
 
 async def test_dispatcher_applies_only_the_row_kind_effect() -> None:
@@ -174,12 +171,12 @@ async def test_dispatcher_applies_only_the_row_kind_effect() -> None:
     quota_row = OutboxRow(
         id="r-q", session_id="s1", turn_key="turn-3", kind="quota", payload=dict(base)
     )
-    assert await dispatcher.apply(quota_row) is True
-    db.anon_quota.increment_and_count.assert_awaited_once()
-    db.feedback.insert_request_log.assert_not_awaited()
+    assert await dispatcher.apply_session(object(), quota_row) is True
+    db.anon_quota.increment_and_count_on.assert_awaited_once()
+    db.feedback.insert_request_log_on.assert_not_awaited()
 
     usage_row = OutboxRow(
         id="r-u", session_id="s1", turn_key="turn-4", kind="usage", payload=dict(base)
     )
-    assert await dispatcher.apply(usage_row) is True
-    db.usage.accumulate_usage.assert_awaited_once()
+    assert await dispatcher.apply_session(object(), usage_row) is True
+    db.usage.accumulate_usage_on.assert_awaited_once()

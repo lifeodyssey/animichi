@@ -1,10 +1,11 @@
 """Real-Postgres contract for the durable turn outbox (issue #1014, AC5).
 
-Proves enqueue persistence, exactly-once drain (delivered_at CAS), and the
-process-failure recovery guarantee on ``SQLModelOutboxStore``: a row enqueued
-but not drained before a crash is delivered exactly once after restart.
-Drain dispatches are counted, not mocked, so double-delivery is impossible to
-hide. Type: integration (issue declares AC5 = integration).
+Proves enqueue persistence, idempotency on (turn_key, kind), exactly-once
+drain (delivered_at CAS), and the crash-recovery guarantee on
+``SQLModelOutboxStore``: rows enqueued by settle but not yet drained are
+applied exactly once by a later drain. Each row\'s dispatch is counted (not
+mocked), and a replayed settle of the same turn creates no rows and re-applies
+nothing. Type: integration.
 """
 
 from __future__ import annotations
@@ -26,13 +27,14 @@ pytestmark = pytest.mark.integration
 
 
 class _CountingDispatcher:
-    """Records each row it applies; fails on request for retry checks."""
+    """Records each row applied on the drain\'s own transaction."""
 
     def __init__(self, *, fail_kinds: set[str] | None = None) -> None:
         self.applied: list[OutboxRow] = []
         self.fail_kinds = fail_kinds or set()
 
-    async def apply(self, row: OutboxRow) -> bool:
+    async def apply_session(self, session: object, row: OutboxRow) -> bool:
+        del session
         self.applied.append(row)
         return row.kind not in self.fail_kinds
 
@@ -41,7 +43,6 @@ class _CountingDispatcher:
 async def repos(
     pg_container: object,
 ) -> AsyncIterator[PersistenceRepos]:
-
     lifecycle: DatabaseLifecycle = create_database_lifecycle(str(pg_container.dsn))
     try:
         yield PersistenceRepos.build(lifecycle.sessionmaker)
@@ -77,7 +78,25 @@ async def test_enqueue_persists_and_drain_delivers_exactly_once(
         dispatcher = _CountingDispatcher()
         assert await outbox.drain(dispatcher) == 2
         assert len(dispatcher.applied) == 2
-        # Already delivered rows are not re-drained on a restart pass.
+        assert await outbox.drain(_CountingDispatcher()) == 0
+    finally:
+        await _cleanup(repos, turn)
+
+
+async def test_enqueue_applies_each_kind_exactly_once(
+    repos: PersistenceRepos,
+) -> None:
+    """usage/quota/audit rows are each dispatched exactly one delivery."""
+    store: SQLModelOutboxStore = repos.outbox
+    outbox = TurnOutbox(store=store)
+    turn = "kinds-1"
+    try:
+        for kind in ("usage", "quota", "audit"):
+            assert await outbox.enqueue(_entry(turn, kind)) is True
+        dispatcher = _CountingDispatcher()
+        assert await outbox.drain(dispatcher) == 3
+        assert {r.kind for r in dispatcher.applied} == {"usage", "quota", "audit"}
+        # Re-draining after delivery applies nothing further.
         assert await outbox.drain(_CountingDispatcher()) == 0
     finally:
         await _cleanup(repos, turn)
@@ -99,23 +118,21 @@ async def test_enqueue_is_idempotent_on_turn_key_and_kind(
         await _cleanup(repos, turn)
 
 
-async def test_crash_before_drain_recovers_exactly_once_on_restart(
+async def test_crash_between_settle_and_drain_recovers_exactly_once(
     repos: PersistenceRepos,
 ) -> None:
+    """Settle committed pending rows, crashed before drain; drain applies once."""
     store: SQLModelOutboxStore = repos.outbox
-    """Enqueue (settle committed), crash before drain; restart drains once."""
+    outbox = TurnOutbox(store=store)
     turn = "crash-1"
-    outbox1 = TurnOutbox(store=store)
     try:
-        assert await outbox1.enqueue(_entry(turn)) is True
-        assert await outbox1.enqueue(_entry(turn, "audit")) is True
-        # Simulate the process dying before any drain ran.
+        assert await outbox.enqueue(_entry(turn)) is True
+        assert await outbox.enqueue(_entry(turn, "audit")) is True
         first = _CountingDispatcher()
-        assert await outbox1.drain(first) == 2
+        assert await outbox.drain(first) == 2
         assert len(first.applied) == 2
-        # A second 'restart' drain must not redeliver (exactly once).
         restarted = _CountingDispatcher()
-        assert await outbox1.drain(restarted) == 0
+        assert await outbox.drain(restarted) == 0
         assert len(restarted.applied) == 0
     finally:
         await _cleanup(repos, turn)
@@ -134,5 +151,24 @@ async def test_failed_apply_stays_pending_and_is_retried(
         succeeding = _CountingDispatcher()
         assert await outbox.drain(succeeding) == 1
         assert len(succeeding.applied) == 1
+    finally:
+        await _cleanup(repos, turn)
+
+
+async def test_replayed_settle_creates_no_rows_and_applies_nothing(
+    repos: PersistenceRepos,
+) -> None:
+    """A replayed settle enqueues idempotently; drain re-applies nothing."""
+    store: SQLModelOutboxStore = repos.outbox
+    outbox = TurnOutbox(store=store)
+    turn = "replay-1"
+    try:
+        assert await outbox.enqueue(_entry(turn)) is True
+        # Replayed settle of the same (turn_key, kind) creates no new row.
+        assert await outbox.enqueue(_entry(turn)) is False
+        dispatcher = _CountingDispatcher()
+        assert await outbox.drain(dispatcher) == 1
+        assert len(dispatcher.applied) == 1
+        assert await outbox.drain(_CountingDispatcher()) == 0
     finally:
         await _cleanup(repos, turn)

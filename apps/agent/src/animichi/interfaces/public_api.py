@@ -128,10 +128,6 @@ from animichi.interfaces.error_registry import (
     public_error_response,
     timeout_error_response,
 )
-from animichi.interfaces.outbox_dispatch import (
-    SettlementApplier,
-    SettlementInputs,
-)
 from animichi.interfaces.persistence import (
     build_response_session,
     create_owned_session,
@@ -587,14 +583,16 @@ class _RuntimeSessionGateway:
 
 
 class _RuntimeTurnSettlement:
-    """TurnSettlement port: record effects durably, then apply them once (AC5).
+    """TurnSettlement port: ENQUEUE the effects, never apply them inline (AC5).
 
     On the CAS-win path the three external effects (usage metering / quota
-    increment / request audit) are enqueued to the durable outbox and
-    applied exactly once. Enqueue is idempotent on ``(turn_key, kind)``, so a
-    replayed settle of an already-settled turn creates no new row (``created``
-    is ``False``) and never re-applies the effects (dedup, AC5/C3). A process
-    crash after enqueue but before mark is recovered by the background drain.
+    increment / request audit) are recorded as durable outbox rows. Enqueue is
+    idempotent on ``(turn_key, kind)``, so a replayed settle of an
+    already-settled turn creates NO new row (``created`` is ``False``) and
+    applies nothing. The effects are applied exactly once by the transactional
+    background drain, which runs each row's effect and its delivered-mark in
+    one transaction — so a crash can never double-charge a non-idempotent
+    effect nor leave it applied-but-undelivered (AC5).
     """
 
     def __init__(
@@ -613,27 +611,21 @@ class _RuntimeTurnSettlement:
         self._is_byok = is_byok
 
     async def settle(self, side: TurnSideEffects) -> None:
-        """Enqueue the durable effects, apply them once, then mark delivered."""
+        """Record the durable effects; the drain applies them exactly once."""
         payload = self._payload(side)
         outbox = self._api._outbox
-        created = False
-        if outbox is not None:
-            json_payload = payload.to_json()
-            for kind in _OUTBOX_KINDS:
-                entry = OutboxEntry(
+        if outbox is None:
+            return
+        json_payload = payload.to_json()
+        for kind in _OUTBOX_KINDS:
+            await outbox.enqueue(
+                OutboxEntry(
                     turn_key=side.turn_key,
                     kind=kind,
                     session_id=side.session_id,
                     payload=json_payload,
                 )
-                if await outbox.enqueue(entry):
-                    created = True
-        await self._applier().apply(payload)
-        if outbox is not None and created:
-            for kind in _OUTBOX_KINDS:
-                await outbox.mark_delivered_for(
-                    side.session_id, side.turn_key, kind, success=True
-                )
+            )
 
     def _payload(self, side: TurnSideEffects) -> SettlementPayload:
         """Extract every external effect into a serializable settlement payload."""
@@ -653,17 +645,6 @@ class _RuntimeTurnSettlement:
             user_message_persisted=side.user_message_persisted,
             usage=usage_items,
             plan_steps=extract_plan_steps(result),
-        )
-
-    def _applier(self) -> SettlementApplier:
-        return SettlementApplier(
-            SettlementInputs(
-                usage_repo=self._api._usage_repo,
-                anon_quota_repo=anon_quota_repo(self._api._db),
-                request_audit_repo=self._api._request_audit_repo,
-                messages_repo=self._api._messages_repo,
-                prices=self._api._usage_prices(),
-            )
         )
 
 

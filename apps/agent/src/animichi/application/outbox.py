@@ -13,6 +13,8 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Protocol
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from animichi.application.outbox_port import OutboxEntry, OutboxRow, OutboxStore
 
 #: Bounded batch ceiling for every drain pass (demand-driven).
@@ -20,9 +22,15 @@ DEFAULT_OUTBOX_BATCH = 50
 
 
 class OutboxDispatcher(Protocol):
-    """Port: apply one undelivered outbox row to its external system."""
+    """Apply one undelivered outbox row on a caller-owned transaction (AC5).
 
-    async def apply(self, row: OutboxRow) -> bool: ...
+    ``apply_session`` runs the row's external effect on the supplied
+    transaction; the store commits it together with the delivered-mark, so a
+    crash cannot leave the effect applied but undelivered (double-charge) nor
+    delivered-but-unapplied (lost).
+    """
+
+    async def apply_session(self, session: AsyncSession, row: OutboxRow) -> bool: ...
 
 
 class TurnOutbox:
@@ -49,14 +57,14 @@ class TurnOutbox:
         *,
         now: datetime | None = None,
     ) -> int:
-        """Apply undelivered rows exactly once; return deliveries made."""
+        """Apply undelivered rows exactly once; return deliveries made.
+
+        Delegates to the store's per-row transactional processing so each effect
+        and its delivered-mark commit together (AC5).
+        """
         current = now or (self._now() if self._now is not None else datetime.now())
-        undelivered = await self._store.drain(now=current, batch_size=self._batch_size)
-        delivered = 0
-        for row in undelivered:
-            if await dispatcher.apply(row):
-                await self._store.mark_delivered(row.id, success=True)
-                delivered += 1
-            else:
-                await self._store.mark_delivered(row.id, success=False)
-        return delivered
+        return await self._store.process_undelivered(
+            now=current,
+            batch_size=self._batch_size,
+            applier=dispatcher.apply_session,
+        )

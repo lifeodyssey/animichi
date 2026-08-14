@@ -1,77 +1,52 @@
 """Wire the durable outbox into turn settlement (issue #1014, AC5).
 
-Proves ``_RuntimeTurnSettlement.settle`` enqueues the three external effects
-on a fresh settle, applies them once, and marks the rows delivered; and that
-a replayed settle of the same turn (enqueue idempotent on (turn_key, kind))
-creates no new row and never re-applies the effects (C3 exact-once dedup).
+``_RuntimeTurnSettlement.settle`` ENQUEUES only — a fresh settle records the
+three durable rows (never applying inline), and the transactional background
+drain applies each effect exactly once on the store\'s session. This file
+owns the fresh-settle path; the replay-dedup contract lives in
+``test_turn_outbox_drain.py``.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from pydantic_ai.usage import RunUsage
 
 from animichi.agents.agent_result import AgentResult
-from animichi.application.outbox_port import OutboxEntry, OutboxRow
+from animichi.application.outbox import TurnOutbox
 from animichi.application.turn_admission_port import ReservationOutcome, ReserveRequest
 from animichi.application.turn_outcome import TurnOutcome
 from animichi.application.turn_outcome_port import SweepReport, TurnRef
 from animichi.config.settings import Settings
+from animichi.interfaces.outbox_dispatch import (
+    SettlementInputs,
+    SettlementOutboxDispatcher,
+)
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
+from animichi.interfaces.usage_metering import UsagePrices
 from animichi.tests.unit.conftest_public_api import make_result, make_run_agent_stub
+from animichi.tests.unit.outbox_fakes import MemoryOutbox
 
 ANON_USER_ID = "anon_0123456789abcdef0123456789abcdef"
 PRICED = Settings(model_input_cost_per_mtok_usd=2.0, model_output_cost_per_mtok_usd=8.0)
-KINDS = ("usage", "quota", "audit")
 
 
-class _FakeOutbox:
-    """A durable in-memory OutboxStore: enqueue idempotent, CAS delivered."""
-
-    def __init__(self) -> None:
-        self.rows: dict[tuple[str, str], object] = {}
-        self.delivered: set[tuple[str, str]] = set()
-        self.enqueue_calls: list[OutboxEntry] = []
-        self.mark_calls: list[tuple[str, str, str]] = []
-
-    async def enqueue(self, entry: OutboxEntry) -> bool:
-        self.enqueue_calls.append(entry)
-        key = (entry.turn_key, entry.kind)
-        if key in self.rows:
-            return False
-        self.rows[key] = entry
-        return True
-
-    async def drain(self, *, now: datetime, batch_size: int) -> list[OutboxRow]:
-        return []
-
-    async def mark_delivered(self, row_id: object, *, success: bool) -> bool:
-        return True
-
-    async def mark_delivered_for(
-        self,
-        session_id: str | None,
-        turn_key: str,
-        kind: str,
-        *,
-        success: bool,
-    ) -> bool:
-        self.mark_calls.append((str(session_id), turn_key, kind))
-        return True
-
-
-def _db(outbox: _FakeOutbox) -> MagicMock:
+def _db() -> tuple[MagicMock, MemoryOutbox]:
+    """A db double with a recording usage meter and a durable outbox."""
+    outbox = MemoryOutbox()
     db = MagicMock()
     db.session = AsyncMock()
     db.outbox = outbox
     db.usage = AsyncMock()
     db.usage.accumulate_usage = AsyncMock(return_value=None)
+    db.usage.accumulate_usage_on = AsyncMock(return_value=None)
     db.anon_quota = MagicMock()
     db.anon_quota.increment_and_count = AsyncMock(return_value=1)
+    db.anon_quota.increment_and_count_on = AsyncMock(return_value=1)
     db.feedback = MagicMock()
-    return db
+    db.feedback.insert_request_log_on = AsyncMock(return_value=None)
+    return db, outbox
 
 
 def _metered() -> AgentResult:
@@ -82,6 +57,18 @@ def _metered() -> AgentResult:
 
 def _api(db: MagicMock) -> RuntimeAPI:
     return RuntimeAPI(db, settings=PRICED, model_http_client=MagicMock())
+
+
+def _dispatcher(db: MagicMock) -> SettlementOutboxDispatcher:
+    return SettlementOutboxDispatcher(
+        SettlementInputs(
+            usage_repo=db.usage,
+            anon_quota_repo=db.anon_quota,
+            request_audit_repo=db.feedback,
+            messages_repo=db.session,
+            prices=UsagePrices(0.0, 0.0),
+        )
+    )
 
 
 class _RecordingStore:
@@ -111,7 +98,12 @@ class _RecordingStore:
         return True
 
     async def sweep(
-        self, *, now: object, owner: str, batch_size: int, lease_seconds: int
+        self,
+        *,
+        now: object,
+        owner: str,
+        batch_size: int,
+        lease_seconds: int,
     ) -> SweepReport:
         del now, owner, batch_size, lease_seconds
         return SweepReport()
@@ -121,9 +113,8 @@ def _outcome() -> TurnOutcome:
     return TurnOutcome(store=_RecordingStore(), admission=None)
 
 
-async def test_fresh_settle_enqueues_applies_and_marks_delivered() -> None:
-    outbox = _FakeOutbox()
-    db = _db(outbox)
+async def test_fresh_settle_enqueues_and_drain_applies_once() -> None:
+    db, outbox = _db()
     stub = make_run_agent_stub(_metered())
     with patch("animichi.interfaces.public_api.run_animichi_agent", side_effect=stub):
         await _api(db).handle(
@@ -134,56 +125,16 @@ async def test_fresh_settle_enqueues_applies_and_marks_delivered() -> None:
             turn_ref=TurnRef(session_id="s-1", turn_key="turn-1"),
             owner="owner-1",
         )
-    assert len(outbox.enqueue_calls) == 3
-    assert {e.kind for e in outbox.enqueue_calls} == {"usage", "quota", "audit"}
-    # The stored payload is JSON-safe (dict), not the frozen dataclass.
-    for e in outbox.enqueue_calls:
-        assert isinstance(e.payload, dict)
-        assert isinstance(e.payload.get("usage"), list)
-        assert e.payload.get("session_id") is not None
-    assert {c[2] for c in outbox.mark_calls} == {"usage", "quota", "audit"}
-    db.usage.accumulate_usage.assert_awaited_once()
-    db.anon_quota.increment_and_count.assert_awaited_once()
-
-
-async def test_replay_of_already_settled_turn_does_not_reapply() -> None:
-    """A replay hits the idempotent enqueue (rows exist) so settle skips apply."""
-    outbox = _FakeOutbox()
-    # Pre-populate the durable rows as if the first settle already ran.
-    for kind in KINDS:
-        await outbox.enqueue(
-            OutboxEntry(turn_key="turn-r", kind=kind, session_id="s-r")
-        )
-    outbox.mark_calls.clear()
-    db = _db(outbox)
-
-    # A direct replay re-settles; verify enqueue (rows exist) suppresses apply.
-    from animichi.application.turn_types import TurnSideEffects
-    from animichi.interfaces.public_api import _RuntimeTurnSettlement
-
-    settlement = _RuntimeTurnSettlement(
-        _api(db),
-        request=PublicAPIRequest(text="x"),
-        user_id=None,
-        user_type=None,
-        is_byok=False,
-    )
-    await settlement.settle(
-        TurnSideEffects(
-            result=None,
-            session_id="s-r",
-            turn_key="turn-r",
-            user_id=None,
-            user_type=None,
-            is_byok=False,
-            settle_quota=False,
-            elapsed_ms=1,
-            intent="replayed",
-            status="ok",
-            request_text="x",
-        )
-    )
-    assert outbox.enqueue_calls[-1].kind == "audit"
-    assert not outbox.mark_calls  # nothing new was created, so no mark
+    # Settle only enqueues the three durable rows; nothing applied inline.
+    assert len(outbox.rows) == 3
+    assert {e.kind for e in outbox.rows} == {"usage", "quota", "audit"}
     db.usage.accumulate_usage.assert_not_awaited()
     db.anon_quota.increment_and_count.assert_not_awaited()
+    # The drain applies usage + quota exactly once via the store transaction.
+    delivered = await TurnOutbox(store=outbox).drain(_dispatcher(db))
+    assert delivered == 3
+    db.usage.accumulate_usage_on.assert_awaited_once()
+    db.anon_quota.increment_and_count_on.assert_awaited_once()
+    # Delivered rows are not re-applied on a second drain.
+    assert await TurnOutbox(store=outbox).drain(_dispatcher(db)) == 0
+    db.usage.accumulate_usage_on.assert_awaited_once()
