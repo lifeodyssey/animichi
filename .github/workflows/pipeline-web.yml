@@ -84,13 +84,10 @@ jobs:
       # unexpected route/component growth.
       - name: Build + output-layout + bundle-budget integration test
         env:
-          # CI-only test key (Cloudflare's published always-passing TEST site
-          # key, not a secret — see TurnstileGate.tsx's TURNSTILE_TEST_SITE_KEY)
-          # so the a11y states suite can arm an anonymous turn against the
-          # built worker. Deploy builds set the real key from vars
-          # (reusable-deploy-component.yml).
+          # #1013: the bundle is env-neutral (AC1) — VITE_* values are no longer
+          # baked into the artifact; they are kept here for parity with the build
+          # preflight. The browser lanes feed runtime values via RUNTIME_CONFIG.
           VITE_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
-          # showcase.ts fails closed at module init — CI builds are never showcase.
           VITE_SHOWCASE_MODE: "false"
         run: pnpm --filter web test:integration
       - name: Package build artifact
@@ -149,11 +146,17 @@ jobs:
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
       - name: Browser test (branded 404, maplibre canary, state ownership on downloaded worker)
         run: |
+          # #1013: env-neutral bundle -> supply runtime config so the Worker does
+          # not degrade to the env-neutral default in these browser lanes.
+          DEV_VARS=apps/web/.dev.vars
+          RUNTIME_CONFIG='{"schemaVersion":1,"api":{"agentUrl":"http://127.0.0.1:9001","siteOrigin":"http://localhost:8799"},"neonAuthBaseUrl":"http://127.0.0.1:9","turnstileSiteKey":"1x00000000000000000000AA","showcaseMode":"false""featureFlags":{}}'
+          printf 'RUNTIME_CONFIG=%s\n' "$RUNTIME_CONFIG" > "$DEV_VARS"
           pnpm --filter web exec wrangler dev --port 8799 &
           WRANGLER_PID=$!
           for _ in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8799/ && break; sleep 1; done
           E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-404.spec.ts web-maplibre-canary.spec.ts web-state-ownership.spec.ts
           kill "$WRANGLER_PID"
+          rm -f "$DEV_VARS"
 
   accessibility:
     # Issue #1015 AC6: WCAG 2.2 AA on the critical journeys is a required
@@ -198,15 +201,23 @@ jobs:
           key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
       - name: Install Playwright browser
         run: pnpm --dir e2e exec playwright install --with-deps chromium
+      # #1013: the env-neutral bundle reads runtime config at runtime; the a11y
+      # states suite arms an anonymous Turnstile turn, so the WCAG-gate Worker
+      # must be given the e2e runtime config (test site key) or the challenge
+      # widget never renders (src/lib/runtime-config + runtime-config-plugin).
       - name: WCAG 2.2 AA gate (axe + keyboard + states)
         env:
           VITE_SHOWCASE_MODE: "false"
         run: |
+          DEV_VARS=apps/web/.dev.vars
+          RUNTIME_CONFIG='{"schemaVersion":1,"api":{"agentUrl":"http://127.0.0.1:9001","siteOrigin":"http://localhost:8799"},"neonAuthBaseUrl":"http://127.0.0.1:9","turnstileSiteKey":"1x00000000000000000000AA","showcaseMode":"false""featureFlags":{}}'
+          printf 'RUNTIME_CONFIG=%s\n' "$RUNTIME_CONFIG" > "$DEV_VARS"
           pnpm --filter web exec wrangler dev --port 8799 &
           WRANGLER_PID=$!
           for _ in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8799/ && break; sleep 1; done
           E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-a11y-axe.spec.ts web-a11y-keyboard.spec.ts web-a11y-states.spec.ts
           kill "$WRANGLER_PID"
+          rm -f "$DEV_VARS"
 
   lighthouse:
     name: Web / lighthouse

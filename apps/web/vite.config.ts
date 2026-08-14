@@ -13,7 +13,7 @@ export default defineConfig({
     nitroV2Plugin({
       preset: "cloudflare-module",
       compatibilityDate: "2025-07-15",
-      plugins: ["./src/server/noindex-plugin.ts"],
+      plugins: ["./src/server/noindex-plugin.ts", "./src/server/runtime-config-plugin.ts"],
     }),
     viteReact(),
   ],

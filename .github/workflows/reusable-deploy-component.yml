@@ -822,6 +822,27 @@ jobs:
           GIT_COMMIT = "${baked_commit}"
           GIT_BRANCH = "${branch}"
           EOF
+      # #1013: the ONE env-neutral web bundle reads its environment-varying PUBLIC
+      # config at runtime from the RUNTIME_CONFIG binding. This mirrors the legacy
+      # VITE_* build-time injection into the Worker runtime vars so staging and
+      # production deploy with their real origins/site keys instead of the
+      # env-neutral default. Only PUBLIC values move here (the Turnstile SECRET
+      # stays server-side). Runs BEFORE deploy so `wrangler deploy --env X` reads
+      # the injected var; the artifact itself stays env-neutral (AC1).
+      - name: Inject web runtime config
+        if: ${{ inputs.component == 'web' && inputs.build_filter != '' }}
+        shell: bash
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          VITE_SITE_ORIGIN: ${{ vars.VITE_SITE_ORIGIN }}
+          VITE_CATALOG_URL: ${{ vars.VITE_CATALOG_URL }}
+          VITE_USERS_URL: ${{ vars.VITE_USERS_URL }}
+          VITE_AGENT_URL: ${{ vars.VITE_AGENT_URL }}
+          VITE_NEON_AUTH_BASE_URL: ${{ vars.VITE_NEON_AUTH_BASE_URL }}
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          VITE_SHOWCASE_MODE: ${{ vars.VITE_SHOWCASE_MODE }}
+          VITE_CF_BEACON_TOKEN: ${{ vars.VITE_CF_BEACON_TOKEN }}
+        run: node .github/scripts/inject-web-runtime-config.mjs
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:

@@ -34,11 +34,11 @@ describe("cfWebAnalyticsScripts", () => {
 
 describe("root head beacon wiring", () => {
   it("keeps the theme bootstrap script ahead of any analytics tag", () => {
-    const first = (rootHead.scripts as readonly object[])[0];
+    const first = (rootHead().scripts as readonly object[])[0];
     expect(JSON.stringify(first)).toContain("animichi-theme");
   });
 
   it("never renders the beacon under the unit-test build", () => {
-    expect(JSON.stringify(rootHead.scripts)).not.toContain("cloudflareinsights");
+    expect(JSON.stringify(rootHead().scripts)).not.toContain("cloudflareinsights");
   });
 });

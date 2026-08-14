@@ -52,37 +52,40 @@ export function runtimeConfigInlineScript(config: ReturnType<typeof currentRunti
   return 'window[' + key + '] ??= ' + payload + ';';
 }
 
-export const rootHead = {
-  links: [
-    { rel: "stylesheet", href: globalsUrl },
-    ...FONT_PRELOADS,
-    ...SITE_ICON_LINKS,
-  ],
-  // Pre-hydration theme init: every route honors the stored preference,
-  // and the landing page cannot flash the day default. The versioned runtime
-  // config (#1013 AC1) is injected as a global so browser and SSR agree; the
-  // beacon joins the head only in PRODUCTION builds with a configured token
-  // (see features/seo/analytics.ts). The global is set only when absent so a
-  // deploy-provided value (or the E2E seam) is never overwritten by the SSR
-  // default.
-  scripts: [
+const ROOT_LINKS = [
+  { rel: "stylesheet", href: globalsUrl },
+  ...FONT_PRELOADS,
+  ...SITE_ICON_LINKS,
+];
+
+// Social-card defaults live at the root so every route has a card; deeper
+// routes override `title` only, which is why og:title stays the site title.
+const ROOT_META = [
+  { charSet: "utf-8" },
+  { name: "viewport", content: "width=device-width, initial-scale=1" },
+  { title: SITE_TITLE },
+  { name: "description", content: SITE_DESCRIPTION },
+  ...SITE_META,
+];
+
+/** Pre-hydration theme init + the versioned runtime config seed (so browser
+ * and SSR agree); the beacon joins only in PRODUCTION with a token (#1013). */
+function rootScripts(config: ReturnType<typeof currentRuntimeConfig>) {
+  return [
     { children: THEME_BOOTSTRAP_SCRIPT },
-    { children: runtimeConfigInlineScript(currentRuntimeConfig()) },
-    ...cfWebAnalyticsScripts(currentRuntimeConfig().cfBeaconToken, import.meta.env.PROD),
-  ],
-  // Social-card defaults live at the root so every route has a card; deeper
-  // routes override `title` only, which is why og:title stays the site title.
-  meta: [
-    { charSet: "utf-8" },
-    { name: "viewport", content: "width=device-width, initial-scale=1" },
-    { title: SITE_TITLE },
-    { name: "description", content: SITE_DESCRIPTION },
-    ...SITE_META,
-  ],
-};
+    { children: runtimeConfigInlineScript(config) },
+    ...cfWebAnalyticsScripts(config.cfBeaconToken, import.meta.env.PROD),
+  ];
+}
+
+/** Root head, resolved per render so the runtime config is live (#1013). */
+export function rootHead() {
+  const config = currentRuntimeConfig();
+  return { links: ROOT_LINKS, scripts: rootScripts(config), meta: ROOT_META };
+}
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  head: () => rootHead,
+  head: rootHead,
   component: RootComponent,
   notFoundComponent: () => <NotFound />,
 });
