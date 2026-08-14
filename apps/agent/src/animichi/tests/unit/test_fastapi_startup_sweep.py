@@ -71,6 +71,7 @@ def _db(store: _SweepStore) -> PersistenceRepos:
         anon_quota=MagicMock(),
         feedback=MagicMock(),
         memory=MagicMock(),
+        outbox=MagicMock(),
     )
     return db
 

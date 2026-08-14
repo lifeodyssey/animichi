@@ -77,6 +77,40 @@ def _mark_success_statement(row_id: object) -> Update:
     )
 
 
+def _mark_success_for_statement(
+    session_id: str | None,
+    turn_key: str,
+    kind: OutboxKind,
+) -> Update:
+    return (
+        update(outbox_table)
+        .where(
+            outbox_table.c.session_id.is_not_distinct_from(session_id),
+            outbox_table.c.turn_key == turn_key,
+            outbox_table.c.kind == kind,
+            outbox_table.c.delivered_at.is_(None),
+        )
+        .values(delivered_at=func.now(), updated_at=func.now())
+    )
+
+
+def _mark_failure_for_statement(
+    session_id: str | None,
+    turn_key: str,
+    kind: OutboxKind,
+) -> Update:
+    return (
+        update(outbox_table)
+        .where(
+            outbox_table.c.session_id.is_not_distinct_from(session_id),
+            outbox_table.c.turn_key == turn_key,
+            outbox_table.c.kind == kind,
+            outbox_table.c.delivered_at.is_(None),
+        )
+        .values(attempts=outbox_table.c.attempts + 1, updated_at=func.now())
+    )
+
+
 async def _enqueue(session: AsyncSession, entry: OutboxEntry) -> bool:
     inserted = await session.execute(_enqueue_statement(entry))
     return inserted.scalar_one_or_none() is not None
@@ -109,6 +143,22 @@ async def _finish(session: AsyncSession, row_id: object, *, success: bool) -> No
     await session.execute(statement)
 
 
+async def _finish_for(
+    session: AsyncSession,
+    session_id: str | None,
+    turn_key: str,
+    kind: OutboxKind,
+    *,
+    success: bool,
+) -> None:
+    statement = (
+        _mark_success_for_statement(session_id, turn_key, kind)
+        if success
+        else _mark_failure_for_statement(session_id, turn_key, kind)
+    )
+    await session.execute(statement)
+
+
 class SQLModelOutboxStore:
     """Production adapter: one durable external-effect handoff per turn."""
 
@@ -129,6 +179,19 @@ class SQLModelOutboxStore:
         async with self._sessionmaker() as session:
             async with session.begin():
                 await _finish(session, row_id, success=success)
+                return True
+
+    async def mark_delivered_for(
+        self,
+        session_id: str | None,
+        turn_key: str,
+        kind: OutboxKind,
+        *,
+        success: bool,
+    ) -> bool:
+        async with self._sessionmaker() as session:
+            async with session.begin():
+                await _finish_for(session, session_id, turn_key, kind, success=success)
                 return True
 
 

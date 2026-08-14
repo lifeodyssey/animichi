@@ -255,11 +255,11 @@ def _outcome_verdict(
     request_digest: str | None = None,
 ) -> AdmissionVerdict:
     if outcome.status == "replay_completed":
-        if (
-            request_digest is not None
-            and outcome.request_digest is not None
-            and request_digest != outcome.request_digest
-        ):
+        if request_digest != outcome.request_digest:
+            # Fail closed (AC4): a replay is only a safe idempotent retry when
+            # the caller re-sends the exact committed request. A missing digest
+            # on either side means we cannot prove that, so refuse with a typed
+            # conflict instead of silently replaying an unknown request.
             return _rejected("request_conflict", payer, session_id=outcome.session_id)
         return AdmissionVerdict(
             admitted=True,

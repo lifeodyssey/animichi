@@ -79,6 +79,7 @@ def _reserve(
     identity_id: str | None = ANON_ID,
     expected_revision: int | None = None,
     session_digest: str | None = None,
+    request_digest: str | None = None,
     owner: str | None = "integration-test",
     lease_expires_at: datetime | None = None,
     payer: UsageScope = "anon",
@@ -91,6 +92,7 @@ def _reserve(
         payer=payer,
         expected_revision=expected_revision,
         session_digest=session_digest,
+        request_digest=request_digest,
         owner=owner,
         lease_expires_at=expires_at,
     )
@@ -129,6 +131,36 @@ async def test_initial_and_continued_admission_advance_the_revision(
         )
         assert second.status == "admitted"
         assert second.revision == 2
+    finally:
+        await _cleanup(repos, [session_id])
+
+
+async def test_completed_replay_carries_digest_for_fail_closed_conflict(
+    repos: PersistenceRepos,
+) -> None:
+    """AC4: a replayed completed turn surfaces the stored request digest so the
+    application layer can fail closed on a client that omits or changes it."""
+    session_id, turn_key = _ids("replay")
+    owner = uuid4().hex
+    store: SQLModelTurnReservationStore = repos.turn_reservation
+    try:
+        await store.reserve(
+            _reserve(
+                session_id=session_id,
+                turn_key=turn_key,
+                owner=owner,
+                request_digest="digest-a",
+            )
+        )
+        ref = TurnRef(session_id=session_id, turn_key=turn_key)
+        assert await store.dispatch(ref, owner=owner)
+        assert await store.settle(
+            ref, owner=owner, outcome="completed", outcome_payload={"out": 1}
+        )
+        replay = await store.reserve(_reserve(session_id=session_id, turn_key=turn_key))
+        assert replay.status == "replay_completed"
+        assert replay.request_digest == "digest-a"
+        assert replay.outcome_payload == {"out": 1}
     finally:
         await _cleanup(repos, [session_id])
 

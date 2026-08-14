@@ -105,6 +105,7 @@ async def _settle_usage(api: RuntimeAPI, result: AgentResult, *, is_byok: bool) 
         TurnSideEffects(
             result=result,
             session_id=None,
+            turn_key="turn-1",
             user_id="user-1",
             user_type="human",
             is_byok=is_byok,

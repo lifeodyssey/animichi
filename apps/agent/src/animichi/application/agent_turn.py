@@ -501,6 +501,7 @@ class AgentTurn:
         user_message_persisted: bool = False,
     ) -> TurnSideEffects:
         return TurnSideEffects(
+            turn_key=turn.turn_key,
             result=output,
             session_id=session_id,
             user_id=turn.identity.user_id,

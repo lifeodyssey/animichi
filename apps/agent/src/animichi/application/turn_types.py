@@ -195,6 +195,7 @@ class TurnSideEffects:
 
     result: object | None
     session_id: str | None
+    turn_key: str
     user_id: str | None
     user_type: str | None
     is_byok: bool

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import cast
 
 import httpx
 import structlog
@@ -13,6 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from animichi.agents.base import build_model_http_client
+from animichi.application.outbox import TurnOutbox
 from animichi.clients.catalog_client import CatalogClient
 from animichi.config.settings import Settings, get_settings
 from animichi.infrastructure.gateways.geocoding import aclose_geocoding_client
@@ -23,6 +25,10 @@ from animichi.infrastructure.persistence.repositories.composite import (
 )
 from animichi.infrastructure.session import SessionStore
 from animichi.infrastructure.session.cached_session_store import SessionStateStore
+from animichi.interfaces.outbox_dispatch import (
+    SettlementInputs,
+    SettlementOutboxDispatcher,
+)
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.routes._deps import (  # noqa: F401
     _contains_json_invalid_error,
@@ -48,8 +54,12 @@ from animichi.interfaces.routes.feedback import router as feedback_router
 from animichi.interfaces.routes.health import router as health_router
 from animichi.interfaces.routes.photo_search import router as photo_search_router
 from animichi.interfaces.routes.search_preview import router as search_preview_router
+from animichi.interfaces.usage_metering import UsagePrices
 
 logger = structlog.get_logger(__name__)
+
+#: Interval between outbox drain passes (seconds); bounded, demand-driven (AC5).
+DEFAULT_OUTBOX_DRAIN_INTERVAL = 60.0
 
 # Re-export _call_optional_async for test backward compatibility.
 _call_optional_async = call_optional_async
@@ -61,6 +71,63 @@ async def _run_startup_sweep(runtime_db: object) -> None:
         await build_startup_turn_outcome(runtime_db).sweep()
     except Exception:
         logger.warning("startup_sweep_failed", exc_info=True)
+
+
+def _outbox_inputs(
+    runtime_db: PersistenceRepos, settings: Settings
+) -> SettlementInputs:
+    """Build the repository inputs the durable-outbox drain applies through."""
+    return SettlementInputs(
+        usage_repo=runtime_db.usage,
+        anon_quota_repo=runtime_db.anon_quota,
+        request_audit_repo=runtime_db.feedback,
+        messages_repo=runtime_db.session,
+        prices=UsagePrices(
+            input_usd_per_mtok=settings.model_input_cost_per_mtok_usd,
+            output_usd_per_mtok=settings.model_output_cost_per_mtok_usd,
+        ),
+    )
+
+
+async def _drain_outbox_once(runtime_db: PersistenceRepos, settings: Settings) -> int:
+    """One bounded drain pass over the durable outbox (AC5).
+
+    Applies every undelivered external effect exactly once and returns how many
+    deliveries were made. Best-effort: a failure logs and leaves rows pending
+    for the next pass.
+    """
+    outbox = TurnOutbox(store=runtime_db.outbox)
+    dispatcher = SettlementOutboxDispatcher(_outbox_inputs(runtime_db, settings))
+    return await outbox.drain(dispatcher)
+
+
+async def _outbox_drain_loop(
+    runtime_db: PersistenceRepos,
+    settings: Settings,
+    interval: float,
+) -> None:
+    """Background drain loop recovering undelivered outbox rows (AC5)."""
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            await _drain_outbox_once(runtime_db, settings)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("outbox_drain_failed", exc_info=True)
+
+
+async def _run_startup_outbox_drain(
+    runtime_db: object,
+    settings: Settings,
+) -> None:
+    """Best-effort outbox drain on Agent startup (AC5 crash recovery)."""
+    if not isinstance(runtime_db, PersistenceRepos):
+        return
+    try:
+        await _drain_outbox_once(runtime_db, settings)
+    except Exception:
+        logger.warning("startup_outbox_drain_failed", exc_info=True)
 
 
 def build_catalog_client(settings: Settings) -> CatalogClient:
@@ -82,6 +149,7 @@ async def _lifespan_with_runtime_api(
     if resolved_db is not None:
         app.state.db_client = resolved_db
         await _run_startup_sweep(resolved_db)
+        await _run_startup_outbox_drain(resolved_db, cast(Settings, app.state.settings))
     try:
         yield
     finally:
@@ -173,9 +241,23 @@ async def _lifespan_build_runtime(
     # next admission's own sweep pass (TURN-3 #951).
     startup_sweep_task = asyncio.create_task(_run_startup_sweep(runtime_db))
     app.state.startup_sweep_task = startup_sweep_task
+    outbox_drain_loop: asyncio.Task[None] | None = None
+    if isinstance(runtime_db, PersistenceRepos):
+        startup_outbox_drain_task = asyncio.create_task(
+            _run_startup_outbox_drain(runtime_db, resolved_settings)
+        )
+        app.state.startup_outbox_drain_task = startup_outbox_drain_task
+        outbox_drain_loop = asyncio.create_task(
+            _outbox_drain_loop(
+                runtime_db, resolved_settings, DEFAULT_OUTBOX_DRAIN_INTERVAL
+            )
+        )
+        app.state.outbox_drain_loop = outbox_drain_loop
     try:
         yield
     finally:
+        if outbox_drain_loop is not None:
+            outbox_drain_loop.cancel()
         try:
             await startup_sweep_task
         finally:

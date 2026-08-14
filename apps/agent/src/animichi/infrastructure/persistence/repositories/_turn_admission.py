@@ -89,7 +89,9 @@ def _prune_statement(session_id: str | None) -> Delete:
     )
 
 
-def _existing_select(session_id: str | None, turn_key: str) -> Select:
+def _existing_select(
+    session_id: str | None, turn_key: str, identity_id: str | None
+) -> Select:
     return select(
         reservation_table.c.status,
         reservation_table.c.revision,
@@ -98,6 +100,7 @@ def _existing_select(session_id: str | None, turn_key: str) -> Select:
     ).where(
         reservation_table.c.session_id.is_not_distinct_from(session_id),
         reservation_table.c.turn_key == turn_key,
+        reservation_table.c.identity_id.is_not_distinct_from(identity_id),
     )
 
 
@@ -185,9 +188,14 @@ async def _session_state(session: AsyncSession, session_id: str) -> object | Non
 
 
 async def _existing(
-    session: AsyncSession, session_id: str | None, turn_key: str
+    session: AsyncSession,
+    session_id: str | None,
+    turn_key: str,
+    identity_id: str | None,
 ) -> ReservationOutcome | None:
-    row = (await session.execute(_existing_select(session_id, turn_key))).first()
+    row = (
+        await session.execute(_existing_select(session_id, turn_key, identity_id))
+    ).first()
     if row is None:
         return None
     status, revision, request_digest, outcome_payload = row
@@ -259,7 +267,9 @@ async def _guard(
     outcome = await _ownership_gate(session, request)
     if outcome is not None:
         return outcome
-    outcome = await _existing(session, request.session_id, request.turn_key)
+    outcome = await _existing(
+        session, request.session_id, request.turn_key, request.identity_id
+    )
     if outcome is not None:
         return outcome
     outcome = await _revision_gate(session, request)
@@ -294,7 +304,9 @@ async def _try_insert(
 async def _replay_or_inflight(
     session: AsyncSession, request: ReserveRequest
 ) -> ReservationOutcome:
-    raced = await _existing(session, request.session_id, request.turn_key)
+    raced = await _existing(
+        session, request.session_id, request.turn_key, request.identity_id
+    )
     if raced is not None:
         return raced
     return ReservationOutcome(status="in_flight", session_id=request.session_id)

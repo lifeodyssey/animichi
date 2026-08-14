@@ -108,6 +108,7 @@ async def test_fullstack_target_runs_shared_byo_preflight_before_build(
             anon_quota=MagicMock(),
             feedback=MagicMock(),
             memory=MagicMock(),
+            outbox=MagicMock(),
         )
 
     monkeypatch.setattr(run_agent_eval, "preflight_byo_database", preflight)

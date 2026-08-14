@@ -52,6 +52,7 @@ from __future__ import annotations
 from asyncio import iscoroutinefunction
 from typing import cast
 
+from animichi.application.outbox_port import OutboxStore
 from animichi.application.turn_outcome_port import TurnOutcomeStore
 from animichi.domain.ports import (
     AnonQuotaCounter,
@@ -95,6 +96,12 @@ def usage_repo(db: object) -> UsageMeter | None:
     """Return *db*'s usage repo, or ``None`` if it is not wired for use."""
     repo = _wired_sub_repo(db, "usage", "accumulate_usage")
     return cast(UsageMeter, repo) if repo is not None else None
+
+
+def outbox_repo(db: object) -> OutboxStore | None:
+    """Return *db*'s durable outbox store, or ``None`` if not wired."""
+    repo = _wired_sub_repo(db, "outbox", "enqueue")
+    return cast(OutboxStore, repo) if repo is not None else None
 
 
 def anon_quota_repo(db: object) -> AnonQuotaCounter | None:

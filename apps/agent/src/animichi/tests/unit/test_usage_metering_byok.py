@@ -93,6 +93,7 @@ async def _record_usage(
         TurnSideEffects(
             result=result,
             session_id=None,
+            turn_key="turn-1",
             user_id=user_id,
             user_type=user_type,
             is_byok=is_byok,

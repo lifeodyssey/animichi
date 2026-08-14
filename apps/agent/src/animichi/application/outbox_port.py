@@ -57,3 +57,15 @@ class OutboxStore(Protocol):
     async def mark_delivered(self, row_id: object, *, success: bool) -> bool:
         """Mark a claimed row delivered (CAS); ``False`` when already delivered."""
         ...
+
+    async def mark_delivered_for(
+        self,
+        session_id: str | None,
+        turn_key: str,
+        kind: OutboxKind,
+        *,
+        success: bool,
+    ) -> bool:
+        """Mark the row for one ``(session_id, turn_key, kind)`` delivered;
+        ``False`` when no matching undelivered row exists."""
+        ...
