@@ -16,7 +16,6 @@ from pydantic_ai.usage import RunUsage
 
 from animichi.agents.agent_result import AgentResult
 from animichi.config.settings import Settings
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from animichi.tests.unit.conftest_public_api import make_result, make_run_agent_stub
 
@@ -26,8 +25,7 @@ PRICED = Settings(model_input_cost_per_mtok_usd=2.0, model_output_cost_per_mtok_
 
 def _db() -> MagicMock:
     """A db double whose repos are async, with a recording usage meter."""
-    db = MagicMock(spec=SupabaseClient)
-    db.pool.fetch = AsyncMock(return_value=[])
+    db = MagicMock()
     db.session = AsyncMock()
     db.usage = AsyncMock()
     db.usage.accumulate_usage = AsyncMock(return_value=None)

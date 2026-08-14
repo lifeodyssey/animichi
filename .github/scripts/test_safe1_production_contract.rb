@@ -126,8 +126,8 @@ abort "jobs production secrets.required must be exactly AGENT_DATABASE_URL" \
 heads = Dir[File.join("migrations/neon", "*.sql")].map { |f| File.basename(f)[/\A\d+/] }.compact
 abort "Atlas head must be 20260811000002, got #{heads.max.inspect}" unless heads.max == "20260811000002"
 sum = Digest::SHA256.file("migrations/neon/atlas.sum").hexdigest
-abort "atlas.sum SHA-256 must be fff7741d2b6c67f55c01720e4890d5aa2c0b4b67e0b9461aeec4917d44d7116e, got #{sum}" \
-  unless sum == "fff7741d2b6c67f55c01720e4890d5aa2c0b4b67e0b9461aeec4917d44d7116e"
+abort "atlas.sum SHA-256 must be d2c125caa6bfc549e6b1b9992eb5c693492de910235f34c13e0377a5df41f3b9, got #{sum}" \
+  unless sum == "d2c125caa6bfc549e6b1b9992eb5c693492de910235f34c13e0377a5df41f3b9"
 
 # ── 4. SAFE-1 target invariants (the guard is now wired) ────────────────────
 # 4a. Every production entry point routes through the eligibility workflow and

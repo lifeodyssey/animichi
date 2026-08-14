@@ -9,7 +9,6 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 
-import asyncpg
 import structlog
 from pydantic_core import to_jsonable_python
 
@@ -52,15 +51,14 @@ def _spawn_background(coro: object) -> None:
 
 
 # Common exception base for best-effort DB/IO persistence calls.
-# asyncpg raises asyncpg.PostgresError (subclass of Exception) for SQL errors
-# and OSError for connection issues. We also catch RuntimeError (pool closed)
-# and ValueError (malformed data).
+# SQLAlchemy surfaces connection failures as OSError subclasses (asyncpg
+# wraps them) and deadlocks/statement errors as its own exceptions; we also
+# catch RuntimeError (engine disposed) and ValueError (malformed data).
 _PERSIST_ERRORS = (
     OSError,
     RuntimeError,
     ValueError,
     TypeError,
-    asyncpg.PostgresError,
 )
 
 
@@ -314,7 +312,7 @@ async def _existing_anime_ids(
         return anime_ids
     try:
         return await bangumi_repo.filter_existing_ids(anime_ids)
-    except asyncpg.PostgresError:
+    except _PERSIST_ERRORS:
         logger.warning("filter_route_anime_failed", session_id=session_id)
         return []
 

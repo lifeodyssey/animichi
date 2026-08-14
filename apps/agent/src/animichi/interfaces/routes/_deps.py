@@ -22,8 +22,11 @@ from animichi.agents.byok_models import (
 )
 from animichi.clients.catalog_client import CatalogClientProtocol
 from animichi.config.settings import Settings
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 from animichi.infrastructure.session import SessionStore, create_session_store
-from animichi.infrastructure.supabase.client import SupabaseClient
+from animichi.infrastructure.session.cached_session_store import SessionStateStore
 from animichi.interfaces.error_registry import (
     error_code_for_http_status,
     http_status_for_error_codes,
@@ -240,8 +243,8 @@ def _get_catalog_client(request: Request) -> CatalogClientProtocol | None:
     return cast("CatalogClientProtocol | None", catalog)
 
 
-def _require_supabase(db: object) -> SupabaseClient:
-    if not isinstance(db, SupabaseClient):
+def _require_db(db: object) -> PersistenceRepos:
+    if not isinstance(db, PersistenceRepos):
         raise HTTPException(status_code=500, detail="Database client not available.")
     return db
 
@@ -291,16 +294,9 @@ def _http_status_for_response(response: PublicAPIResponse) -> int:
 # -- lifespan infrastructure helpers -----------------------------------
 
 
-def build_supabase_client(settings: Settings) -> SupabaseClient:
-    dsn = settings.database_url.strip()
-    if not dsn:
-        raise RuntimeError(
-            "AGENT_SVC_DATABASE_URL or SUPABASE_DB_URL is required to run the HTTP service."
-        )
-    return SupabaseClient(dsn)
-
-
-def build_session_store(db: SupabaseClient | None = None) -> SessionStore:
+def build_session_store(
+    db: SessionStateStore | None = None,
+) -> SessionStore:
     return create_session_store(db=db)
 
 
@@ -382,4 +378,5 @@ def _instrument_logfire(app: object | None) -> None:
     # module. It is the sole BYOK client transport, so there is no second,
     # unprotected way to build one.
     logfire.instrument_httpx()
+    logfire.instrument_sqlalchemy()
     logfire.instrument_asyncpg()

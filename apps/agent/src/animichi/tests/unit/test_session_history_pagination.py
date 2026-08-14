@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
-from animichi.infrastructure.supabase.repositories.session import (
+from animichi.infrastructure.persistence.repositories.session import (
     MessageRow,
     SessionRecord,
 )

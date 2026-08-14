@@ -118,7 +118,7 @@ jobs:
           EVAL_MAX_CASES: "80"
           # Settings requires presence; the trajectory tier uses NullDatabase and
           # never opens this endpoint (mirrors the python-integration job).
-          SUPABASE_DB_URL: postgresql://test:test@localhost:5432/test
+          AGENT_SVC_DATABASE_URL: postgresql://test:test@localhost:5432/test
 
   # ── Neon test infrastructure (non-gating during calibration) ──
 
@@ -151,7 +151,7 @@ jobs:
       # Settings requires presence; integration tests never call the gateway, so a placeholder satisfies the validator.
       ZEN_GO_API_KEY: test-key
       # Settings requires presence; integration tests do not use these endpoints.
-      SUPABASE_DB_URL: postgresql://test:test@localhost:5432/test
+      AGENT_SVC_DATABASE_URL: postgresql://test:test@localhost:5432/test
       MIMO_API_KEY: test-key
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

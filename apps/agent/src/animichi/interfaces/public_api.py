@@ -72,7 +72,7 @@ from animichi.application.turn_admission import (
     TurnAdmission,
 )
 from animichi.application.turn_outcome import TurnOutcome
-from animichi.application.turn_outcome_port import TurnRef
+from animichi.application.turn_outcome_port import TurnOutcomeStore, TurnRef
 from animichi.application.turn_types import (
     AdmissionRejection,
     CandidateSelectionTurn,
@@ -106,8 +106,10 @@ from animichi.infrastructure.observability import (
     record_runtime_request,
     runtime_span,
 )
+from animichi.infrastructure.persistence.repositories.turn_reservation import (
+    state_digest,
+)
 from animichi.infrastructure.session import SessionStore, create_session_store
-from animichi.infrastructure.turn_reservation.postgres import state_digest
 from animichi.interfaces.admission_policy import admission_policy
 from animichi.interfaces.db_repos import (
     anon_quota_repo,
@@ -659,6 +661,8 @@ class RuntimeAPI:
         db: object,
         *,
         session_store: SessionStore | None = None,
+        session_repo: SessionRepo | None = None,
+        turn_store: TurnOutcomeStore | None = None,
         catalog: CatalogClientProtocol | None = None,
         settings: Settings | None = None,
         model_http_client: httpx.AsyncClient,
@@ -666,6 +670,11 @@ class RuntimeAPI:
     ) -> None:
         self._db = db
         self._session_store = session_store or create_session_store()
+        #: Explicit repository injection (#994): the SQLModel repositories are
+        #: constructed by the lifespan and passed in; the db-client locator is
+        #: only the fallback for the not-yet-migrated repos and test doubles.
+        self._session_repo_override = session_repo
+        self._turn_store_override = turn_store
         self._catalog: CatalogClientProtocol = catalog or default_catalog_client()
         self._settings = settings or get_settings()
         self._model_http_client = model_http_client
@@ -677,18 +686,15 @@ class RuntimeAPI:
 
     # Iter6 C4: each repo is resolved at most once *per instance*, lazily,
     # on first actual use — never reflected on every call. `cached_property`
-    # (not eager resolution in `__init__`) is deliberate: a `db` whose pool
-    # hasn't been connected yet raises `RuntimeError` from these properties
-    # (`SupabaseClient.session`/`.bangumi`/etc — "call connect() first"), and
-    # that must surface where a caller can catch it — inside a request
-    # handled by `handle()`, wrapped by FastAPI's exception handlers, not
-    # while merely constructing the `RuntimeAPI` facade itself (which is not
-    # request-scoped and has no exception handler around it). Eagerly
-    # resolving all seven in `__init__` was tried first and reverted after
-    # `test_unconnected_client_surfaces_error` caught it turning a clean 500
-    # into an app-construction-time crash — see the C4 PR discussion.
+    # (not eager resolution in `__init__`) is deliberate: a `db` that is not
+    # wired for a repo surfaces ``None`` here, which callers treat as
+    # "feature unavailable" where they can respond gracefully, not while
+    # merely constructing the `RuntimeAPI` facade itself (which is not
+    # request-scoped and has no exception handler around it).
     @cached_property
     def _session_repo(self) -> SessionRepo | None:
+        if self._session_repo_override is not None:
+            return self._session_repo_override
         return session_repo(self._db)
 
     @cached_property
@@ -701,6 +707,11 @@ class RuntimeAPI:
 
     @cached_property
     def _messages_repo(self) -> ConversationLog | None:
+        #: #994: on the migrated path the injected SQLModel session repository
+        #: owns the ordered transcript; the locator is the test-double
+        #: fallback only.
+        if self._session_repo_override is not None:
+            return cast(ConversationLog, self._session_repo_override)
         return messages_repo(self._db)
 
     @cached_property
@@ -824,7 +835,9 @@ class RuntimeAPI:
     def _lifecycle_outcome(self) -> TurnOutcome:
         """Build a lifecycle use case for direct (non-route) callers."""
         db = self._db
-        store = turn_reservation_store(db)
+        store = self._turn_store_override
+        if store is None:
+            store = turn_reservation_store(db)
         return TurnOutcome(
             store=store,
             admission=TurnAdmission(

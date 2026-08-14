@@ -171,25 +171,32 @@ def _trajectory_target() -> EvalTierTarget:
 
 
 async def _fullstack_target() -> EvalTierTarget:
-    from animichi.infrastructure.supabase.client import SupabaseClient
+    from animichi.infrastructure.persistence.database import (
+        DatabaseLifecycle,
+        create_database_lifecycle,
+    )
+    from animichi.infrastructure.persistence.repositories.composite import (
+        PersistenceRepos,
+    )
 
     config = _db_config()
     db_url = config.database_url
     assert db_url is not None
     await preflight_byo_database(config, DatabaseTarget(db_url, DatabaseArm.BYO))
-    db = SupabaseClient(db_url, statement_cache_size=0)
-    await db.connect()
+    lifecycle: DatabaseLifecycle = create_database_lifecycle(db_url)
+    db = PersistenceRepos.build(lifecycle.sessionmaker)
     return EvalTierTarget(
         db=db,
         catalog_factory=default_catalog_client,
         layer="agent_l4",
         tier="fullstack",
         source=_db_source(db_url),
+        on_close=lifecycle.close,
     )
 
 
 async def _close_target(target: EvalTierTarget) -> None:
-    close = getattr(target.db, "close", None)
+    close = getattr(target, "on_close", None)
     if close is not None:
         await close()
 

@@ -17,7 +17,9 @@ if TYPE_CHECKING:
 os.environ.setdefault("DEEPSEEK_API_KEY", "test-key")
 os.environ.setdefault("ZEN_GO_API_KEY", "test-key")
 os.environ.setdefault("MIMO_API_KEY", "test-key")
-os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
+os.environ.setdefault(
+    "AGENT_SVC_DATABASE_URL", "postgresql://test:test@localhost:5432/test"
+)
 os.environ.setdefault(
     "DEFAULT_AGENT_MODEL", "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"
 )

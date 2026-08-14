@@ -1,8 +1,9 @@
 """Domain port protocols for infrastructure dependencies.
 
 These protocols define the interface that the agent/handler layer requires
-from the database. The concrete ``SupabaseClient`` satisfies these protocols
-structurally (PEP 544) — no inheritance needed.
+from the database. The concrete SQLModel repositories (composed by
+``infrastructure.persistence.repositories.composite.PersistenceRepos``)
+satisfy these protocols structurally (PEP 544) — no inheritance needed.
 
 Only methods actually *used* by the agent layer are declared here.
 

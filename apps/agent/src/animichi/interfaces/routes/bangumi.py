@@ -13,7 +13,7 @@ from animichi.interfaces.routes._deps import (
     _get_db_from_request,
     _get_trusted_auth_context,
     _json_response,
-    _require_supabase,
+    _require_db,
 )
 
 router = APIRouter(prefix="/v1/bangumi", tags=["bangumi"])
@@ -26,7 +26,7 @@ async def handle_bangumi_guide(
     locale: Annotated[str, Query()] = "ja",
 ) -> JSONResponse:
     """Public anime pilgrimage guide — all spots, no auth required."""
-    db = _require_supabase(_get_db_from_request(request))
+    db = _require_db(_get_db_from_request(request))
     bangumi = await db.bangumi.get_bangumi(bangumi_id)
     if not bangumi:
         raise HTTPException(status_code=404, detail="Bangumi not found.")
@@ -115,7 +115,7 @@ async def handle_bangumi_nearby(
         raise HTTPException(status_code=422, detail="lng must be between -180 and 180.")
     if radius_m < 1:
         raise HTTPException(status_code=422, detail="radius_m must be positive.")
-    db = _require_supabase(_get_db_from_request(request))
+    db = _require_db(_get_db_from_request(request))
     rows_obj: object = await db.bangumi.get_bangumi_by_area(lat, lng, radius_m)
     rows: list[object] = list(rows_obj) if isinstance(rows_obj, list) else []
     return _json_response({"bangumi": rows})

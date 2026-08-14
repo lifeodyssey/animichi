@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from typing import cast
 from uuid import uuid4
 
 from fastapi import Request
@@ -24,6 +25,7 @@ from animichi.application.turn_admission import (
     TurnAdmission,
 )
 from animichi.application.turn_outcome import TurnOutcome
+from animichi.application.turn_outcome_port import TurnOutcomeStore
 from animichi.interfaces.admission_policy import admission_policy
 from animichi.interfaces.anon_quota import (
     ANON_QUOTA_EXHAUSTED_CODE,
@@ -58,6 +60,15 @@ TURN_FAILED_MESSAGE = (
 CONVERSATION_NOT_FOUND_MESSAGE = "Conversation not found."
 
 
+def _store_from_request(request: Request) -> TurnOutcomeStore | None:
+    """Resolve the durable turn store: the lifespan-owned SQLModel store
+    (#994) first, the db-client locator as the test-double fallback."""
+    store = getattr(request.app.state, "turn_store", None)
+    if store is not None:
+        return cast(TurnOutcomeStore, store)
+    return turn_reservation_store(_get_db_from_request(request))
+
+
 def build_turn_admission(
     request: Request, *, policy: AdmissionPolicy | None = None
 ) -> TurnAdmission:
@@ -65,7 +76,7 @@ def build_turn_admission(
     db = _get_db_from_request(request)
     settings = _get_settings_from_request(request)
     return TurnAdmission(
-        store=turn_reservation_store(db),
+        store=_store_from_request(request),
         policy=policy or admission_policy(settings),
         usage_repo=usage_repo(db),
         anon_quota_repo=anon_quota_repo(db),
@@ -77,7 +88,7 @@ def build_turn_outcome(
 ) -> TurnOutcome:
     """Resolve the lifecycle use case (store + admission) for one request."""
     return TurnOutcome(
-        store=turn_reservation_store(_get_db_from_request(request)),
+        store=_store_from_request(request),
         admission=build_turn_admission(request, policy=policy),
     )
 

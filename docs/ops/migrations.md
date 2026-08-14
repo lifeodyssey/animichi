@@ -23,6 +23,29 @@ The application never runs migrations at startup. A Worker may construct a Drizz
 and execute a query, but it must not import `drizzle-kit`, call a Drizzle migration API, or
 run `drizzle-kit generate`, `migrate`, `push`, or `pull`.
 
+## Approved pre-production history rewrite (2026-08-12, #992)
+
+The persistence cutover (#992) is an **owner-approved one-time exception** to the append-only
+policy: no business migration has reached production, so the business chain was rewritten in
+place and rehashed instead of accumulating compatibility migrations. The rewrite, applied by
+#993, makes the chain reproducible from an empty PostgreSQL 18 database and moves every
+Animichi-owned persistent entity primary key to `uuid DEFAULT uuidv7()` (native PostgreSQL 18
+`uuidv7()`):
+
+- **Retired serial identities:** `aliases.id`, `cluster_version.id`, `itinerary_snapshots.id`
+  (integer serial), `turn_reservations.id`, `messages.id` (bigint identity) — now `uuid`
+  with a `uuidv7()` default; their `*_id_seq` sequences and grants were removed.
+- **Default migration:** `feedback.id`, `request_log.id`, `saved_routes.id`, and the dropped
+  `api_keys.id` moved from `gen_random_uuid()` to `uuidv7()`.
+- **Unchanged external/semantic keys** (documented ownership): `sessions.id` (anonymous
+  `anon_*` / Neon Auth subject), `bangumi.id`, `points.id`, `locations.id`,
+  `media_assets.point_id` (Anitabi point id), `ingest_jobs.work_id`, `raw_anitabi.work_id`,
+  `raw_bangumi.work_id`, memory operation/ledger ids, and composite keys
+  (`daily_usage`, `anon_daily_message_count`, `leg_cache`, `location_aliases`,
+  `saved_route_anime`, `series_edges`, `agent_memory.path`).
+
+After this cutover, the normal append-only policy resumes for every shared environment.
+
 ## Authoring a Neon migration
 
 1. Confirm that the change belongs to the Neon catalog/user data plane and that an existing

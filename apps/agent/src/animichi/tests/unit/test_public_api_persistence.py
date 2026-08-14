@@ -10,7 +10,6 @@ from animichi.agents.agent_result import AgentResult
 from animichi.agents.runtime_models import GreetingResponseModel
 from animichi.agents.session_state import SessionState
 from animichi.infrastructure.session.memory import InMemorySessionStore
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
 from animichi.tests.unit.conftest_public_api import (
     install_mock_pipeline,
@@ -25,10 +24,7 @@ def _mock_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def mock_db() -> MagicMock:
-    db = MagicMock(spec=SupabaseClient)
-    pool = AsyncMock()
-    pool.fetch = AsyncMock(return_value=[])
-    db.pool = pool
+    db = MagicMock()
     db.points.search_points_by_location = AsyncMock(return_value=[])
     db.session.create = AsyncMock()
     db.session.upsert_session = AsyncMock()
@@ -163,6 +159,67 @@ class TestConversationPersistence:
             )
 
         create_task.assert_not_called()
+
+
+class TestSQLModelRepositoryInjection:
+    """#994: the migrated path injects the SQLModel repositories; the db-client
+    locator must not be consulted for the Session aggregate or the transcript."""
+
+    @pytest.fixture
+    def db_without_repos(self) -> MagicMock:
+        db = MagicMock()
+        db.session = None
+        db.feedback = MagicMock()
+        db.feedback.insert_request_log = AsyncMock()
+        return db
+
+    async def test_injected_session_repo_owns_persistence(
+        self, db_without_repos: MagicMock
+    ) -> None:
+        repo = MagicMock()
+        repo.create = AsyncMock()
+        repo.upsert_session = AsyncMock()
+        repo.insert_message = AsyncMock()
+
+        with patch(
+            "animichi.interfaces.public_api.run_animichi_agent",
+            side_effect=make_run_agent_stub(
+                AgentResult(
+                    output=GreetingResponseModel(
+                        message="こんにちは！聖地巡礼のお手伝いをします。"
+                    ),
+                    intent="greet_user",
+                    session_state=SessionState(),
+                )
+            ),
+        ):
+            api = RuntimeAPI(
+                db_without_repos,
+                session_repo=repo,
+                session_store=InMemorySessionStore(),
+                model_http_client=MagicMock(),
+            )
+            response = await api.handle(PublicAPIRequest(text="hi"), user_id="u1")
+
+        assert response.session_id is not None
+        repo.upsert_session.assert_awaited_once()
+        repo.insert_message.assert_awaited()
+
+    async def test_messages_repo_resolves_to_the_injected_repo(
+        self, db_without_repos: MagicMock
+    ) -> None:
+        repo = MagicMock()
+        api = RuntimeAPI(
+            db_without_repos,
+            session_repo=repo,
+            session_store=InMemorySessionStore(),
+            model_http_client=MagicMock(),
+        )
+
+        messages_repo = api._messages_repo
+
+        assert messages_repo is repo
+        assert api._session_repo is repo
 
 
 # TODO: re-enable when session compaction is wired back

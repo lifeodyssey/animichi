@@ -19,15 +19,19 @@ from typing import Annotated, cast
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from animichi.application.adopt_sessions import adopt_sessions
+from animichi.application.adopt_sessions import (
+    SupportsAdoption,
+    SupportsSessionRepo,
+    adopt_sessions,
+)
 from animichi.infrastructure.observability.runtime import record_adoption_request
 from animichi.interfaces.routes._deps import (
     TrustedAuthContext,
     _get_db_from_request,
     _get_trusted_anon_id,
     _json_response,
+    _require_db,
     _require_non_anonymous_user,
-    _require_supabase,
 )
 
 router = APIRouter(prefix="/v1", tags=["session"])
@@ -38,6 +42,27 @@ _SESSION_ID_HEADER = "x-session-id"
 #: only ever probed for a Session id. Bound the read so a hostile payload
 #: cannot fill memory before the JSON probe.
 _MAX_BODY_BYTES = 1024
+
+
+class _SessionRepoAdapter:
+    """Expose the lifespan-owned Session repository under the
+    ``SupportsSessionRepo`` shape the adopt use case consumes (#994)."""
+
+    def __init__(self, repo: SupportsAdoption) -> None:
+        self._repo = repo
+
+    @property
+    def session(self) -> SupportsAdoption:
+        return self._repo
+
+
+def _adoption_source(request: Request) -> SupportsSessionRepo:
+    """The SQLModel session repository (#994), falling back to the
+    persistence aggregate for test doubles."""
+    repo = getattr(request.app.state, "session_repo", None)
+    if repo is not None:
+        return _SessionRepoAdapter(repo)
+    return cast(SupportsSessionRepo, _require_db(_get_db_from_request(request)))
 
 
 async def _reject_client_session_id(request: Request) -> None:
@@ -77,12 +102,15 @@ async def handle_adopt_sessions(
     from_anon_id: Annotated[str | None, Depends(_get_trusted_anon_id)],
 ) -> JSONResponse:
     await _reject_client_session_id(request)
-    db = _require_supabase(_get_db_from_request(request))
     # `_require_non_anonymous_user` raises before this handler runs unless
     # `auth.user_id` is set; the cast documents that contract for mypy.
     to_user_id = cast(str, auth.user_id)
     started = time.monotonic()
-    outcome = await adopt_sessions(db, from_anon_id=from_anon_id, to_user_id=to_user_id)
+    outcome = await adopt_sessions(
+        _adoption_source(request),
+        from_anon_id=from_anon_id,
+        to_user_id=to_user_id,
+    )
     record_adoption_request(
         duration_ms=(time.monotonic() - started) * 1000,
         adopted_count=outcome.adopted_count,

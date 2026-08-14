@@ -1,7 +1,7 @@
 -- Table api_keys (indexes/constraints/triggers)
 
 CREATE TABLE public.api_keys (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    id uuid DEFAULT uuidv7() NOT NULL,
     user_id uuid NOT NULL,
     name text NOT NULL,
     key_hash text NOT NULL,

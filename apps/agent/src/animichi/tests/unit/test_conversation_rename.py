@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
-from animichi.infrastructure.supabase.repositories.session import SessionRecord
+from animichi.infrastructure.persistence.repositories.session import SessionRecord
 from animichi.tests.unit.conftest_fastapi import (
     async_client,
     build_app,

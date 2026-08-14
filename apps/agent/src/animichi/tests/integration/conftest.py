@@ -33,25 +33,27 @@ from animichi.agents.session_state import (
     TimedItineraryState,
 )
 from animichi.config.settings import Settings
+from animichi.infrastructure.persistence.database import (
+    DatabaseLifecycle,
+    create_database_lifecycle,
+)
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 from animichi.infrastructure.session import create_session_store
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.fastapi_service import create_fastapi_app
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.tests.conftest_db import DatabaseTarget
 
 
 @pytest.fixture
-async def tc_db(pg_container: DatabaseTarget) -> AsyncIterator[SupabaseClient]:
-    """A real SupabaseClient connected to the testcontainer PostgreSQL."""
-    client = SupabaseClient(
-        pg_container.dsn,
-        min_pool_size=1,
-        max_pool_size=5,
-        statement_cache_size=0,
-    )
-    await client.connect()
-    yield client
-    await client.close()
+async def tc_db(pg_container: DatabaseTarget) -> AsyncIterator[PersistenceRepos]:
+    """The composed SQLModel repository aggregate over the test PostgreSQL."""
+    lifecycle: DatabaseLifecycle = create_database_lifecycle(pg_container.dsn)
+    try:
+        yield PersistenceRepos.build(lifecycle.sessionmaker)
+    finally:
+        await lifecycle.close()
 
 
 _CLARIFY_CANDIDATES = [
@@ -187,7 +189,7 @@ def _make_agent_result(text: str, _locale: str) -> AgentResult:
     )
 
 
-def _build_test_app(db: SupabaseClient) -> FastAPI:
+def _build_test_app(db: PersistenceRepos) -> FastAPI:
     settings = Settings()
     settings_store = create_session_store(db=db)
     runtime_api = RuntimeAPI(
@@ -267,7 +269,7 @@ def _parse_sse_events(raw: str) -> list[dict[str, object]]:
 
 
 @pytest.fixture
-def client(tc_db: SupabaseClient) -> AsyncIterator[_AuthedClient]:
+def client(tc_db: PersistenceRepos) -> AsyncIterator[_AuthedClient]:
     async def _fake_run_animichi_agent(
         *,
         text: str,
@@ -303,7 +305,7 @@ def client(tc_db: SupabaseClient) -> AsyncIterator[_AuthedClient]:
 
 
 @pytest.fixture
-def sse_client(tc_db: SupabaseClient) -> AsyncIterator[_SSEClient]:
+def sse_client(tc_db: PersistenceRepos) -> AsyncIterator[_SSEClient]:
     async def _fake_run_animichi_agent(
         *,
         text: str,

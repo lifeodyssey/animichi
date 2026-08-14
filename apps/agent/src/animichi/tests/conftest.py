@@ -24,7 +24,9 @@ if test_env.exists():
 # instantiates Settings; provide the same zero-entropy defaults the unit
 # conftest uses so collection works without ambient env.
 os.environ.setdefault("MIMO_API_KEY", "test-key")
-os.environ.setdefault("SUPABASE_DB_URL", "postgresql://test:test@localhost:5432/test")
+os.environ.setdefault(
+    "AGENT_SVC_DATABASE_URL", "postgresql://test:test@localhost:5432/test"
+)
 
 
 @pytest.fixture(autouse=True)

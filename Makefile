@@ -1,6 +1,6 @@
 # Animichi Agent - Makefile
 
-.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck check clean build db-new db-list db-hash db-validate db-push db-push-dry seed-gazetteer test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
+.PHONY: help install dev dev-db dev-local serve test test-all test-cov test-integration test-eval test-eval-fullstack test-docs lint format typecheck typecheck-ty check clean build db-new db-list db-hash db-validate db-push db-push-dry seed-gazetteer test-worker e2e-setup e2e local-login dev-stop visual-canonicalize visual-check visual-check-self-test
 
 UV_CACHE_DIR ?= $(CURDIR)/.uv_cache
 export UV_CACHE_DIR
@@ -33,6 +33,7 @@ help:
 	@echo "  make lint        Run linters (ruff)"
 	@echo "  make format      Format code (ruff)"
 	@echo "  make typecheck   Run mypy type checker"
+	@echo "  make typecheck-ty Run the non-blocking ty baseline checker"
 	@echo "  make check       Run all checks (lint + typecheck + test)"
 	@echo ""
 	@echo "Database:"
@@ -102,6 +103,9 @@ format:
 
 typecheck:
 	cd apps/agent && uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/ src/animichi/tests/eval/
+
+typecheck-ty:
+	cd apps/agent && uv run ty check src/animichi/
 
 check: lint typecheck test test-integration
 

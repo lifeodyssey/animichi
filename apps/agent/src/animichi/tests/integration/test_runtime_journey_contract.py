@@ -1,17 +1,16 @@
 """Runtime journey contract tests.
 
-Tests that the runtime endpoint returns correct stage contracts for
-frontend journey rendering. Uses httpx.AsyncClient with ASGITransport
-to avoid TestClient event loop conflicts with asyncpg.
+Tests that the /v1/chat stream's data part returns the correct stage
+contracts for frontend journey rendering. Uses httpx.AsyncClient with
+ASGITransport to avoid TestClient event loop conflicts with asyncpg.
 
 Endpoints under test:
-  POST /v1/runtime
-  GET  /v1/routes
-  GET  /v1/conversations/{session_id}/messages
+  POST /v1/chat            (the AI SDK message stream, TURN-4 #955)
 """
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -27,6 +26,7 @@ from animichi.agents.session_state import (
     PendingClarification,
     SessionState,
 )
+from animichi.config.settings import Settings
 from animichi.infrastructure.session.memory import InMemorySessionStore
 from animichi.interfaces.public_api import RuntimeAPI
 
@@ -73,7 +73,33 @@ def _make_qa_result() -> AgentResult:
     )
 
 
-def _build_app(tc_db: object) -> httpx.AsyncClient:
+def _chat_body(text: str) -> dict[str, object]:
+    """The Vercel AI SDK chat envelope the web app sends."""
+    return {
+        "messages": [
+            {"id": "u1", "role": "user", "parts": [{"type": "text", "text": text}]}
+        ]
+    }
+
+
+def _done_payload(raw: str) -> dict[str, object]:
+    """The last ``data-response`` frame — the full wire payload."""
+    payload: dict[str, object] = {}
+    for line in raw.split("\n"):
+        if not line.startswith("data: ") or line[6:] == "[DONE]":
+            continue
+        try:
+            frame = json.loads(line[len("data: ") :])
+        except json.JSONDecodeError:
+            continue
+        if frame.get("type") == "data-response":
+            data = frame.get("data")
+            if isinstance(data, dict):
+                payload = data
+    return payload
+
+
+def _build_app(tc_db: object) -> tuple[httpx.AsyncClient, object]:
     """Build an async test client with mocked pipeline."""
     from animichi.interfaces.fastapi_service import create_fastapi_app
 
@@ -87,6 +113,7 @@ def _build_app(tc_db: object) -> httpx.AsyncClient:
         tc_db, session_store=InMemorySessionStore(), model_http_client=MagicMock()
     )
     app = create_fastapi_app(runtime_api=runtime_api, db=tc_db)
+    app.state.settings = Settings()
     app.state.runtime_api = runtime_api
     app.state.db_client = tc_db
 
@@ -105,20 +132,28 @@ async def async_client(tc_db):
             yield client
 
 
+async def _turn(async_client: httpx.AsyncClient, text: str) -> dict[str, object]:
+    resp = await async_client.post(
+        "/v1/chat",
+        json=_chat_body(text),
+        headers=_HEADERS,
+    )
+    assert resp.status_code == 200
+    return _done_payload(resp.text)
+
+
 # ── Clarify contract ──────────────────────────────────────────────────
 
 
 @pytest.mark.integration
-async def test_runtime_clarify_response_has_full_contract(async_client):
-    resp = await async_client.post(
-        "/v1/runtime", json={"text": "凉宫", "locale": "zh"}, headers=_HEADERS
-    )
-    assert resp.status_code == 200
-    payload = resp.json()
+async def test_runtime_clarify_response_has_full_contract(async_client) -> None:
+    payload = await _turn(async_client, "凉宫")
+
     assert payload["intent"] == "clarify"
     assert payload["message"]
     assert payload["status"] == "needs_clarification"
     data = payload["data"]
+    assert isinstance(data, dict)
     assert data["reason"] == "anime_ambiguity"
     assert data["clarification_id"] == 1
     assert "candidates" in data
@@ -126,43 +161,31 @@ async def test_runtime_clarify_response_has_full_contract(async_client):
 
 
 @pytest.mark.integration
-async def test_runtime_clarify_candidate_has_required_fields(async_client):
-    resp = await async_client.post(
-        "/v1/runtime", json={"text": "涼宮", "locale": "zh"}, headers=_HEADERS
-    )
-    candidates = resp.json()["data"].get("candidates", [])
+async def test_runtime_clarify_candidate_has_required_fields(async_client) -> None:
+    payload = await _turn(async_client, "涼宮")
+
+    data = payload["data"]
+    assert isinstance(data, dict)
+    candidates = data.get("candidates", [])
+    assert isinstance(candidates, list)
     assert len(candidates) >= 1
-    c = candidates[0]
-    assert "title" in c
-    assert "cover_url" in c
-    assert "points_count" in c
-    assert "city" in c
-
-
-# ── Routes ────────────────────────────────────────────────────────────
-
-
-@pytest.mark.integration
-async def test_route_history_loads(async_client):
-    resp = await async_client.get("/v1/routes", headers=_HEADERS)
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "routes" in data
-    assert isinstance(data["routes"], list)
+    candidate = candidates[0]
+    assert isinstance(candidate, dict)
+    for key in ("id", "title", "points_count"):
+        assert key in candidate
 
 
 # ── Message quality ───────────────────────────────────────────────────
 
 
 @pytest.mark.integration
-async def test_message_is_not_static_template(async_client):
-    resp = await async_client.post(
-        "/v1/runtime", json={"text": "你好", "locale": "zh"}, headers=_HEADERS
-    )
-    msg = resp.json().get("message", "")
-    assert msg, "message must be non-empty"
+async def test_message_is_not_static_template(async_client) -> None:
+    payload = await _turn(async_client, "你好")
+
+    message = str(payload.get("message", ""))
+    assert message, "message must be non-empty"
     static_patterns = [
         "該当する巡礼地が見つかりませんでした",
         "没有找到相关的巡礼地",
     ]
-    assert msg not in static_patterns
+    assert message not in static_patterns

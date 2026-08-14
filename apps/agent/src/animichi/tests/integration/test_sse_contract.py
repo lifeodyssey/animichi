@@ -1,11 +1,13 @@
-"""Contract tests for the SSE streaming endpoint.
+"""Contract tests for the /v1/chat AI SDK message stream (TURN-4 #955).
 
-Validates that ``POST /v1/runtime/stream`` emits Server-Sent Events in the
-expected order (``planning`` -> ``step*`` -> ``done``) and that the final
-``done`` payload conforms to the PublicAPIResponse shape.
+Validates that ``POST /v1/chat`` emits the AI SDK UI-message-stream frames
+in the expected order (``start`` -> ``start-step`` -> tool parts ->
+``data-response`` -> ``finish-step`` -> ``finish`` -> ``done``), that the
+data part carries the full ``PublicAPIResponse`` wire payload, and that
+runtime errors surface as an ``error`` frame with no exception detail.
 
 Uses a real PostgreSQL testcontainer for the DB layer; RuntimeAPI is still
-mocked so we test SSE framing, not pipeline logic.
+mocked so we test stream framing, not pipeline logic.
 """
 
 from __future__ import annotations
@@ -18,8 +20,10 @@ from pydantic_ai.models import Model
 
 from animichi.agents.runtime_deps import StepEvent
 from animichi.config.settings import Settings
+from animichi.infrastructure.persistence.repositories.composite import (
+    PersistenceRepos,
+)
 from animichi.infrastructure.session.memory import InMemorySessionStore
-from animichi.infrastructure.supabase.client import SupabaseClient
 from animichi.interfaces.fastapi_service import create_fastapi_app
 from animichi.interfaces.public_api import PublicAPIResponse, RuntimeAPI
 
@@ -38,32 +42,38 @@ def _canned_response() -> PublicAPIResponse:
     )
 
 
-def _parse_sse_events(raw: str) -> list[dict[str, object]]:
-    """Parse raw SSE text into a list of {event, data} dicts."""
-    events: list[dict[str, object]] = []
-    current_event: str | None = None
-    current_data_lines: list[str] = []
+def _chat_body(text: str) -> dict[str, object]:
+    """The Vercel AI SDK chat envelope the web app sends."""
+    return {
+        "messages": [
+            {"id": "u1", "role": "user", "parts": [{"type": "text", "text": text}]}
+        ]
+    }
 
+
+def _parse_frames(raw: str) -> list[dict[str, object]]:
+    """Parse every ``data: ...`` SSE line into its chunk dict.
+
+    The AI SDK ``done`` chunk is the literal ``data: [DONE]`` — mapped to a
+    ``{"type": "done"}`` frame so ordering assertions can name it.
+    """
+    frames: list[dict[str, object]] = []
     for line in raw.split("\n"):
-        if line.startswith("event: "):
-            current_event = line[len("event: ") :]
-        elif line.startswith("data: "):
-            current_data_lines.append(line[len("data: ") :])
-        elif line == "" and current_event is not None:
-            data_str = "\n".join(current_data_lines)
-            try:
-                data = json.loads(data_str)
-            except json.JSONDecodeError:
-                data = data_str
-            events.append({"event": current_event, "data": data})
-            current_event = None
-            current_data_lines = []
-
-    return events
+        if not line.startswith("data: "):
+            continue
+        payload = line[len("data: ") :]
+        if payload == "[DONE]":
+            frames.append({"type": "done"})
+            continue
+        try:
+            frames.append(json.loads(payload))
+        except json.JSONDecodeError:
+            continue
+    return frames
 
 
 def _build_runtime_api_mock(
-    db: SupabaseClient,
+    db: PersistenceRepos,
     response: PublicAPIResponse | None = None,
     *,
     emit_steps: bool = True,
@@ -79,9 +89,16 @@ def _build_runtime_api_mock(
         *,
         model: Model | None = None,
         user_id: str | None = None,
+        user_type: str | None = None,
+        is_byok: bool = False,
         on_step: object = None,
+        outcome: object = None,
+        turn_ref: object = None,
+        owner: object = None,
+        verdict: object = None,
+        turn_key: str | None = None,
     ) -> PublicAPIResponse:
-        del model
+        del model, is_byok, outcome, turn_ref, owner, verdict, turn_key
         if emit_steps and on_step is not None and callable(on_step):
             await on_step(
                 StepEvent(
@@ -107,195 +124,128 @@ def _build_runtime_api_mock(
     return api
 
 
-# ── SSE event ordering ───────────────────────────────────────────────────────
+def _stream_frames(
+    db: PersistenceRepos, api: MagicMock, text: str = "京吹の聖地"
+) -> list[dict[str, object]]:
+    app = create_fastapi_app(runtime_api=api, settings=Settings())
+    with TestClient(app) as client:
+        with client.stream(
+            "POST",
+            "/v1/chat",
+            json=_chat_body(text),
+            headers={"X-User-Id": "user-1"},
+        ) as resp:
+            body = "".join(resp.iter_text())
+    return _parse_frames(body)
 
 
-class TestSSEEventOrdering:
-    async def test_stream_starts_with_planning_event(
-        self, tc_db: SupabaseClient
+# ── Frame ordering ───────────────────────────────────────────────────────────
+
+
+class TestSSEFrameOrdering:
+    async def test_stream_starts_with_start_and_ends_with_done(
+        self, tc_db: PersistenceRepos
     ) -> None:
         api = _build_runtime_api_mock(tc_db)
-        app = create_fastapi_app(runtime_api=api, settings=Settings())
-        with TestClient(app) as client:
-            with client.stream(
-                "POST",
-                "/v1/runtime/stream",
-                json={"text": "京吹の聖地"},
-                headers={"X-User-Id": "user-1"},
-            ) as resp:
-                body = "".join(resp.iter_text())
+        frames = _stream_frames(tc_db, api)
 
-        events = _parse_sse_events(body)
-        assert len(events) >= 1
-        assert events[0]["event"] == "planning"
+        assert len(frames) >= 1
+        assert frames[0]["type"] == "start"
+        assert frames[-1]["type"] == "done"
 
-    async def test_stream_ends_with_done_event(self, tc_db: SupabaseClient) -> None:
+    async def test_stream_emits_exactly_one_done_frame(
+        self, tc_db: PersistenceRepos
+    ) -> None:
         api = _build_runtime_api_mock(tc_db)
-        app = create_fastapi_app(runtime_api=api, settings=Settings())
-        with TestClient(app) as client:
-            with client.stream(
-                "POST",
-                "/v1/runtime/stream",
-                json={"text": "京吹の聖地"},
-                headers={"X-User-Id": "user-1"},
-            ) as resp:
-                body = "".join(resp.iter_text())
+        frames = _stream_frames(tc_db, api)
 
-        events = _parse_sse_events(body)
-        done_events = [e for e in events if e["event"] == "done"]
-        assert len(done_events) == 1
+        done_frames = [f for f in frames if f["type"] == "done"]
+        assert len(done_frames) == 1
 
-    async def test_event_order_is_planning_then_steps_then_done(
-        self, tc_db: SupabaseClient
+    async def test_order_is_start_step_data_finish_done(
+        self, tc_db: PersistenceRepos
     ) -> None:
         api = _build_runtime_api_mock(tc_db, emit_steps=True)
-        app = create_fastapi_app(runtime_api=api, settings=Settings())
-        with TestClient(app) as client:
-            with client.stream(
-                "POST",
-                "/v1/runtime/stream",
-                json={"text": "京吹の聖地"},
-                headers={"X-User-Id": "user-1"},
-            ) as resp:
-                body = "".join(resp.iter_text())
+        frames = _stream_frames(tc_db, api)
 
-        events = _parse_sse_events(body)
-        event_names = [e["event"] for e in events]
-
-        # First event must be planning
-        assert event_names[0] == "planning"
-        # Last event must be done
-        assert event_names[-1] == "done"
-        # Middle events (if any) must be step
-        for name in event_names[1:-1]:
-            assert name == "step"
+        types = [str(f["type"]) for f in frames]
+        assert types[0] == "start"
+        assert types[1] == "start-step"
+        assert types[-3:] == ["finish-step", "finish", "done"]
+        assert "data-response" in types
 
 
-# ── Done event shape ─────────────────────────────────────────────────────────
+# ── Data part shape ──────────────────────────────────────────────────────────
 
 
-class TestSSEDoneEventShape:
-    async def test_done_event_contains_public_api_response_keys(
-        self, tc_db: SupabaseClient
+class TestSSEDataPartShape:
+    async def test_data_part_contains_public_api_response_keys(
+        self, tc_db: PersistenceRepos
     ) -> None:
         api = _build_runtime_api_mock(tc_db)
-        app = create_fastapi_app(runtime_api=api, settings=Settings())
-        with TestClient(app) as client:
-            with client.stream(
-                "POST",
-                "/v1/runtime/stream",
-                json={"text": "京吹の聖地"},
-                headers={"X-User-Id": "user-1"},
-            ) as resp:
-                body = "".join(resp.iter_text())
+        frames = _stream_frames(tc_db, api)
 
-        events = _parse_sse_events(body)
-        done_events = [e for e in events if e["event"] == "done"]
-        assert len(done_events) == 1
-
-        data = done_events[0]["data"]
-        assert isinstance(data, dict)
+        data_parts = [f for f in frames if f["type"] == "data-response"]
+        assert data_parts, "expected at least one data-response frame"
+        payload = data_parts[-1]["data"]
+        assert isinstance(payload, dict)
         for key in ("success", "status", "intent", "message", "data", "errors"):
-            assert key in data, f"done event missing key: {key}"
+            assert key in payload, f"data part missing key: {key}"
 
-        assert isinstance(data["success"], bool)
-        assert isinstance(data["status"], str)
-        assert isinstance(data["intent"], str)
-        assert isinstance(data["errors"], list)
-
-
-# ── Step event shape ─────────────────────────────────────────────────────────
+        assert isinstance(payload["success"], bool)
+        assert isinstance(payload["status"], str)
+        assert isinstance(payload["intent"], str)
+        assert isinstance(payload["errors"], list)
 
 
-class TestSSEStepEventShape:
-    async def test_step_events_have_required_keys(self, tc_db: SupabaseClient) -> None:
+# ── Tool part shape ──────────────────────────────────────────────────────────
+
+
+class TestSSEToolPartShape:
+    async def test_tool_parts_carry_the_tool_name(
+        self, tc_db: PersistenceRepos
+    ) -> None:
         api = _build_runtime_api_mock(tc_db, emit_steps=True)
-        app = create_fastapi_app(runtime_api=api, settings=Settings())
-        with TestClient(app) as client:
-            with client.stream(
-                "POST",
-                "/v1/runtime/stream",
-                json={"text": "京吹の聖地"},
-                headers={"X-User-Id": "user-1"},
-            ) as resp:
-                body = "".join(resp.iter_text())
+        frames = _stream_frames(tc_db, api)
 
-        events = _parse_sse_events(body)
-        step_events = [e for e in events if e["event"] == "step"]
-        assert len(step_events) >= 1
-
-        for step in step_events:
-            data = step["data"]
-            assert isinstance(data, dict)
-            for key in ("tool", "status"):
-                assert key in data, f"step event missing key: {key}"
-            assert isinstance(data["tool"], str)
-            assert isinstance(data["status"], str)
+        input_frames = [f for f in frames if f["type"] == "tool-input-available"]
+        output_frames = [f for f in frames if f["type"] == "tool-output-available"]
+        assert input_frames and output_frames
+        for frame in input_frames:
+            assert frame["toolName"] == "search_bangumi"
+        for frame in output_frames:
+            assert frame["toolCallId"] == "integration-call"
+            assert "output" in frame
 
 
-# ── Planning event shape ─────────────────────────────────────────────────────
+# ── Error shape ──────────────────────────────────────────────────────────────
 
 
-class TestSSEPlanningEventShape:
-    async def test_planning_event_has_status(self, tc_db: SupabaseClient) -> None:
-        api = _build_runtime_api_mock(tc_db)
-        app = create_fastapi_app(runtime_api=api, settings=Settings())
-        with TestClient(app) as client:
-            with client.stream(
-                "POST",
-                "/v1/runtime/stream",
-                json={"text": "京吹の聖地"},
-                headers={"X-User-Id": "user-1"},
-            ) as resp:
-                body = "".join(resp.iter_text())
-
-        events = _parse_sse_events(body)
-        planning = [e for e in events if e["event"] == "planning"]
-        assert len(planning) == 1
-        data = planning[0]["data"]
-        assert isinstance(data, dict)
-        assert "status" in data
-
-
-# ── Error event shape ────────────────────────────────────────────────────────
-
-
-class TestSSEErrorEvent:
-    async def test_runtime_error_emits_error_event_with_code_and_message(
-        self, tc_db: SupabaseClient
+class TestSSEError:
+    async def test_runtime_error_emits_error_frame_without_exception_detail(
+        self, tc_db: PersistenceRepos
     ) -> None:
         api = MagicMock(spec=RuntimeAPI)
         api.handle = AsyncMock(side_effect=RuntimeError("boom"))
         api._db = tc_db
         api._session_store = InMemorySessionStore()
-        app = create_fastapi_app(runtime_api=api, settings=Settings())
+        frames = _stream_frames(tc_db, api)
 
-        with TestClient(app) as client:
-            with client.stream(
-                "POST",
-                "/v1/runtime/stream",
-                json={"text": "京吹の聖地"},
-                headers={"X-User-Id": "user-1"},
-            ) as resp:
-                body = "".join(resp.iter_text())
+        error_frames = [f for f in frames if f["type"] == "error"]
+        assert len(error_frames) == 1
+        payload = error_frames[0]
+        assert "boom" not in json.dumps(payload)
+        assert payload.get("errorText")
 
-        events = _parse_sse_events(body)
-        error_events = [e for e in events if e["event"] == "error"]
-        assert len(error_events) == 1
-        data = error_events[0]["data"]
-        assert isinstance(data, dict)
-        assert "code" in data
-        assert "message" in data
-
-    async def test_blank_text_on_stream_returns_422(
-        self, tc_db: SupabaseClient
+    async def test_blank_text_on_chat_returns_422(
+        self, tc_db: PersistenceRepos
     ) -> None:
         api = _build_runtime_api_mock(tc_db)
         app = create_fastapi_app(runtime_api=api, settings=Settings())
         with TestClient(app) as client:
             resp = client.post(
-                "/v1/runtime/stream",
-                json={"text": "  "},
+                "/v1/chat",
+                json=_chat_body("   "),
                 headers={"X-User-Id": "user-1"},
             )
         assert resp.status_code == 422

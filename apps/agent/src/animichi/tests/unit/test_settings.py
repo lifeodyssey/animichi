@@ -57,7 +57,6 @@ class TestAPIKeyValidation:
             default_agent_model="openai:local@http://localhost:1234/v1",
             fallback_agent_model=None,
             openai_compat_api_key="",
-            supabase_db_url="postgresql://local/test",
         )
 
         assert settings.validate_api_keys() == []
@@ -69,7 +68,6 @@ class TestAPIKeyValidation:
                 default_agent_model="openai:remote@https://models.example/v1",
                 fallback_agent_model=None,
                 openai_compat_api_key="",
-                supabase_db_url="postgresql://local/test",
             )
 
     def test_prod_default_requires_zen_go_not_deepseek(
@@ -130,26 +128,10 @@ class TestAPIKeyValidation:
 
 
 class TestAgentDatabaseUrl:
-    """Container DSN resolution (#912 follow-up): AGENT_SVC_DATABASE_URL wins
-    over the legacy SUPABASE_DB_URL when both are set, and either one
-    satisfies the required-env check."""
+    """Container DSN resolution (#912, #995): AGENT_SVC_DATABASE_URL is the
+    only production DSN source — the legacy SUPABASE_DB_URL fallback is gone."""
 
-    def test_agent_svc_dsn_wins_over_supabase(self) -> None:
-        settings = Settings(
-            _env_file=None,
-            mimo_api_key="k",
-            supabase_db_url="postgresql://legacy/db",
-            agent_svc_database_url="postgresql://agent_svc@neon/db",
-        )
-        assert settings.database_url == "postgresql://agent_svc@neon/db"
-
-    def test_supabase_dsn_is_fallback_when_no_agent_dsn(self) -> None:
-        settings = Settings(
-            _env_file=None, mimo_api_key="k", supabase_db_url="postgresql://legacy/db"
-        )
-        assert settings.database_url == "postgresql://legacy/db"
-
-    def test_agent_dsn_alone_satisfies_required_env(self) -> None:
+    def test_agent_svc_dsn_is_the_runtime_database_url(self) -> None:
         settings = Settings(
             _env_file=None,
             mimo_api_key="k",
@@ -157,11 +139,10 @@ class TestAgentDatabaseUrl:
         )
         assert settings.database_url == "postgresql://agent_svc@neon/db"
 
-    def test_missing_both_dsns_raises(self) -> None:
+    def test_missing_dsn_raises(self) -> None:
         with pytest.raises(ValueError, match="AGENT_SVC_DATABASE_URL"):
             Settings(
                 _env_file=None,
                 mimo_api_key="k",
-                supabase_db_url="",
                 agent_svc_database_url="",
             )
