@@ -45,7 +45,22 @@ describe("authorized admin command (AC5)", () => {
       headers: { authorization: "Bearer ops-token" },
     }, authorizedEnv());
     expect(res.status).toBe(200);
-    expect(runner).toHaveBeenCalledWith(db, 1_700_000_000_000);
+    // No store is configured, so the full-ingest runner is called with a null store.
+    expect(runner).toHaveBeenCalledWith(db, 1_700_000_000_000, null);
+  });
+
+  it("passes the resolved snapshot store to the full-ingest runner (publish mirror)", async () => {
+    const runner = vi.fn<AdminDeps["runFull"]>().mockResolvedValue(COMPLETE);
+    const deps: AdminDeps = { runFull: runner, runCanary: vi.fn() };
+    const testApp = new Hono<{ Bindings: Env }>();
+    const store = { put: vi.fn(), get: vi.fn(), list: vi.fn(), delete: vi.fn() } as import("../src/publish/object-store").ObjectStore;
+    mountAdminRoutes(testApp, deps, () => 1_700_000_000_000, () => Promise.resolve(db), () => store);
+    const res = await testApp.request("/catalog/admin/full-ingest", {
+      method: "POST",
+      headers: { authorization: "Bearer ops-token" },
+    }, authorizedEnv());
+    expect(res.status).toBe(200);
+    expect(runner).toHaveBeenCalledWith(db, 1_700_000_000_000, store);
   });
 
   it("the canary pipeline is the production pipeline (injected runner called)", async () => {
@@ -58,7 +73,7 @@ describe("authorized admin command (AC5)", () => {
       headers: { authorization: "Bearer ops-token" },
     }, authorizedEnv());
     expect(res.status).toBe(200);
-    expect(runCanary).toHaveBeenCalledWith(db, 1_700_000_000_000);
+    expect(runCanary).toHaveBeenCalledWith(db, 1_700_000_000_000, null);
   });
 });
 

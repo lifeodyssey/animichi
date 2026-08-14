@@ -110,6 +110,16 @@ describe("catalog has no public host", () => {
     expect(section?.lines).toEqual(expect.arrayContaining(expected));
   });
 
+  // AC2: without `entrypoint`, PROD_SNAPSHOT binds to the worker default
+  // export (a plain fetch/scheduled Fetcher) which has no
+  // currentManifest()/readObject() - the staging import would throw at runtime.
+  it("pins PROD_SNAPSHOT to the SnapshotReadEntrypoint (AC2)", () => {
+    const block = toml.slice(toml.indexOf('[[env.staging.services]]'));
+    expect(block).toContain('binding = "PROD_SNAPSHOT"');
+    expect(block).toContain('service = "catalog"');
+    expect(block).toContain('entrypoint = "SnapshotReadEntrypoint"');
+  });
+
   it("finds exactly the environments the file declares", () => {
     // Guards the parser and the table together: a new [env.X] that nobody adds
     // to PRIVACY fails here rather than being silently skipped by it.each.

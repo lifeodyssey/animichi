@@ -114,9 +114,17 @@ crons = ["0 3 * * *"]
 # credentials or database access — only the SnapshotReadService read surface
 # (currentManifest + readObject) crosses this binding. The production Worker
 # script is named "catalog" (see [env.production].name).
+#
+# `entrypoint` is REQUIRED, not cosmetic: without it PROD_SNAPSHOT binds to the
+# worker's default export (a plain fetch/scheduled Fetcher) which has no
+# currentManifest()/readObject(), so the staging daily import would throw
+# "currentManifest is not a function" at runtime. The entrypoint pins the
+# binding to SnapshotReadEntrypoint and is asserted by
+# test/wrangler-private.worker.test.ts.
 [[env.staging.services]]
 binding = "PROD_SNAPSHOT"
 service = "catalog"
+entrypoint = "SnapshotReadEntrypoint"
 
 [[env.staging.r2_buckets]]
 binding = "MEDIA_BUCKET"

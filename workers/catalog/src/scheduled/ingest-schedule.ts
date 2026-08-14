@@ -29,7 +29,7 @@ import { dailyPolicy, runtimeEnvironment, type RuntimeEnvironment } from "../ope
 import type { Env } from "../index";
 
 /** The injected snapshot pool keeps N (active) and N-1 (predecessor). */
-const SNAPSHOT_KEEP = 2;
+export const SNAPSHOT_KEEP = 2;
 
 interface ScheduledInput {
   readonly cron: string;

@@ -67,6 +67,12 @@ describe("environment guard (AC1)", () => {
     expect(guardCron(cronKind(DAILY_DISCOVER_CRON), "production").denied).toBe(false);
   });
 
+  it("denies an unknown cron in any environment (fail-closed)", () => {
+    expect(guardCron("unknown", "production").denied).toBe(true);
+    expect(guardCron("unknown", "staging").denied).toBe(true);
+    expect(guardCron("unknown", "development").denied).toBe(true);
+  });
+
   it("allows the import cron only in staging", () => {
     expect(allowsImportCron("staging")).toBe(true);
     expect(allowsImportCron("production")).toBe(false);

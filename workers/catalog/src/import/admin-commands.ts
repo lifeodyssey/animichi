@@ -4,17 +4,22 @@
  * Staging runs no automatic upstream crawler (§183), but a Catalog developer
  * must be able to exercise the crawler changes through an EXPLICIT protected
  * command. fullIngest runs the same production daily pipeline (catalogDailyRun
- * with the production daily policy + discovery inventory); canary runs a fixed
- * regression set plus a deterministic daily rotating sample through the same
- * pipeline with a bounded policy. Both are exposed as admin routes guarded by
+ * with the production daily policy + discovery inventory) and mirrors the
+ * production cron's publish-after-run gate; canary runs a fixed regression set
+ * plus a deterministic daily rotating sample through the same pipeline with a
+ * bounded policy, ingest-only. Both are exposed as admin routes guarded by
  * CATALOG_ADMIN_TOKEN and reject public/unauthorized callers.
  */
 import type { CatalogDb } from "../db/client";
 import { catalogDailyRun } from "../ingest/catalog-daily-run";
 import { buildDailyInventory, type SeasonalResolver } from "../ingest/daily-discovery";
 import { dailyPolicy } from "../operational-config";
-import { bangumiSeasonResolver } from "../index";
+import { bangumiSeasonResolver, SNAPSHOT_KEEP } from "../scheduled/ingest-schedule";
 import type { DailyRunInputs } from "../ingest/catalog-daily-run";
+import { publishAfterRun, type DailyPublishPorts } from "../publish/daily-snapshot";
+import { publishSnapshot } from "../publish/snapshot";
+import { gcSnapshots } from "../publish/snapshot-gc";
+import type { ObjectStore } from "../publish/object-store";
 import type { DailyRunOutcome } from "../publish/daily-snapshot";
 import type { TierName, TieredWork } from "../ingest/tiers";
 
@@ -46,17 +51,53 @@ export function canaryPolicy() {
   return { ...base, newWorkCap: 5, budget: { workLimit: 6, requestLimit: 40, runtimeLimitMs: 3 * 60 * 1000 } };
 }
 
-/** Run the explicit full ingest through the production daily pipeline (AC5). */
+/**
+ * Run the explicit full ingest through the production daily pipeline (AC5).
+ *
+ * Mirrors the production cron exactly: it runs the same downstream daily
+ * pipeline (discovery inventory + catalogDailyRun under the production daily
+ * policy) and then, when the run completes AND a snapshot store is present,
+ * publishes the immutable snapshot and GCs the N/N-1 pool — the same
+ * publish-after-run gate the dailyDiscover cron performs. The controlled epoch
+ * keeps scheduling deterministic in tests; the store is threaded from the route.
+ */
 export async function fullIngest(
   db: CatalogDb,
   epochMs: number,
+  store: ObjectStore | null,
   seasonalResolver: SeasonalResolver = bangumiSeasonResolver(),
 ): Promise<DailyRunOutcome> {
-  const inventory = await buildDailyInventory(db, seasonalResolver);
-  return catalogDailyRun(db, epochMs, inventory, dailyPolicy());
+  const outcome = controlledDailyRun(db, epochMs, seasonalResolver);
+  const ports: DailyPublishPorts = {
+    runDailyIngest: () => outcome,
+    publishRun: (d, s, sourceRunId, createdAt) =>
+      publishSnapshot({ db: d, store: s }, { sourceRunId, createdAt }),
+    gcSnapshots: (s) => gcSnapshots(s, SNAPSHOT_KEEP),
+  };
+  await publishAfterRun(db, store, ports);
+  return outcome;
 }
 
-/** Run the protected canary through the production daily pipeline (AC5). */
+/** The production daily pipeline over a controlled epoch (discovery + run). */
+function controlledDailyRun(
+  db: CatalogDb,
+  epochMs: number,
+  seasonalResolver: SeasonalResolver,
+): Promise<DailyRunOutcome> {
+  return buildDailyInventory(db, seasonalResolver).then((inventory) =>
+    catalogDailyRun(db, epochMs, inventory, dailyPolicy()),
+  );
+}
+
+/**
+ * Run the protected canary through the production daily pipeline (AC5).
+ *
+ * Deliberately INGEST-ONLY: the canary exercises a bounded slice of the crawler
+ * pipeline (fixed regression works + one rotating sample) and NEVER publishes a
+ * snapshot or runs the publish-after-run gate. It must never mutate the
+ * published catalog, and publishing a partial or rotating run would corrupt the
+ * N/N-1 snapshot pool — so no ObjectStore is threaded to this command.
+ */
 export async function runCanaryCommand(
   db: CatalogDb,
   epochMs: number,

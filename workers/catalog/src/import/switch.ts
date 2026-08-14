@@ -24,7 +24,7 @@ import {
   seriesEdges,
 } from "../db/schema";
 import * as x from "../db/expressions";
-import type { ImportCandidate, ImportKind } from "./import-snapshot";
+import { IMPORT_KINDS, type ImportCandidate, type ImportKind } from "./import-snapshot";
 
 /** The atomic-switch seam the import orchestrator calls (AC4). */
 export interface ImportActivation {
@@ -45,10 +45,6 @@ const TABLE_BY_KIND: Record<ImportKind, AnyPgTable> = {
   provenance: catalogProvenance,
   media: mediaAssets,
 };
-
-const IMPORT_KINDS: readonly ImportKind[] = [
-  "works", "points", "aliases", "series", "provenance", "media",
-];
 
 /** Atomic replace: clear every public table, load the candidate, record the run. */
 export async function importBatch(db: CatalogDb, candidate: ImportCandidate): Promise<void> {

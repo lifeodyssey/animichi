@@ -16,7 +16,7 @@ import {
   type ImportObject,
 } from "../src/import/import-snapshot";
 import { MANIFEST_SCHEMA_VERSION, COMPATIBILITY, type SnapshotManifest } from "../src/publish/manifest";
-import { jsonToArrayBuffer } from "../src/publish/bytes";
+import { jsonToArrayBuffer, textToArrayBuffer } from "../src/publish/bytes";
 import { fakeSnapshotSource } from "./fakes/fake-snapshot-source";
 
 async function sha256(body: ArrayBuffer): Promise<string> {
@@ -135,6 +135,17 @@ describe("importSnapshot orchestration (AC3/AC4)", () => {
     const result = await importSnapshot(source.source, {} as never, undefined, activate);
     expect(result).toEqual({ status: "imported", snapshotId: "snap-daily-2026-08-14" });
     expect(activated).toBe(1);
+  });
+
+  it("reports invalid when an object body is malformed JSON", async () => {
+    const { source } = await seed();
+    const activation = { calls: 0 };
+    const activate = { switchCatalog: () => { activation.calls += 1; return Promise.resolve(); } };
+    // Replace one object body with bytes that are not valid JSON rows.
+    source.objects().set("data/works.json", { body: textToArrayBuffer("{not valid json") });
+    const result = await importSnapshot(source.source, {} as never, undefined, activate);
+    expect(result.status).toBe("invalid");
+    expect(activation.calls).toBe(0);
   });
 
   it("reports invalid when no snapshot is available", async () => {

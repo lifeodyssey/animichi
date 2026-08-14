@@ -92,10 +92,14 @@ async function loadObjects(
   return loaded;
 }
 
-/** Parse an object body (a JSON array of rows); non-array fails closed as empty. */
+/** Parse an object body (a JSON array of rows); malformed JSON or a non-array fails closed as empty. */
 function parseRows(body: ArrayBuffer): readonly unknown[] {
-  const value = JSON.parse(arrayBufferToText(body)) as unknown;
-  return Array.isArray(value) ? value : [];
+  try {
+    const value = JSON.parse(arrayBufferToText(body)) as unknown;
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
 }
 
 /** The default validation over candidate + manifest (AC3). */
@@ -139,7 +143,7 @@ function checkSchemaCompatibility(manifest: SnapshotManifest): { valid: boolean;
 }
 
 /** The snapshot kinds that map to public catalog tables (nothing private). */
-const IMPORT_KINDS: readonly ImportKind[] = [
+export const IMPORT_KINDS: readonly ImportKind[] = [
   "works", "points", "aliases", "series", "provenance", "media",
 ];
 

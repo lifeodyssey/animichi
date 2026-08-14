@@ -7,6 +7,7 @@ import type { IngestResult } from "./ingest/ingest-bangumi";
 import { serveImage } from "./media/img";
 import { mountSnapshotRoutes } from "./api/snapshot";
 import { r2SnapshotSource, type SnapshotReadService, type SnapshotSource } from "./import/snapshot-source";
+import { r2ObjectStore, type ObjectStore } from "./publish/object-store";
 import { mountAdminRoutes } from "./import/admin-routes";
 import { connectionString, dbFor } from "./db/connections";
 import { createScheduledHandler } from "./scheduled/ingest-schedule";
@@ -23,7 +24,13 @@ export interface Env {
   SNAPSHOT_BUCKET?: R2Bucket;
   /** Operational secret guarding POST /catalog/snapshot/rollback (401 when wrong). */
   SNAPSHOT_ADMIN_TOKEN?: string;
-  /** Private read-only binding to PRODUCTION's catalog Worker (staging import, AC2). */
+  /**
+   * Private read-only binding to PRODUCTION's catalog Worker (staging import, AC2).
+   * The wrangler binding MUST pin `entrypoint = "SnapshotReadEntrypoint"` (asserted by
+   * test/wrangler-private.worker.test.ts): without it the service binding is a plain
+   * fetch/scheduled Fetcher with no currentManifest()/readObject(), and the staging
+   * daily import would throw at runtime.
+   */
   PROD_SNAPSHOT?: SnapshotReadService;
   /** Operational secret guarding POST /catalog/admin/* commands (AC5, 401 when wrong). */
   CATALOG_ADMIN_TOKEN?: string;
@@ -38,8 +45,14 @@ async function adminDbResolver(env: Env): Promise<import("./db/client").CatalogD
   return (await dbFor(connStr)).db;
 }
 
+/** Resolve the admin command snapshot store (full ingest mirrors the cron publish). */
+function adminStoreResolver(env: Env): ObjectStore | null {
+  const bucket = env.SNAPSHOT_BUCKET;
+  return bucket === undefined ? null : r2ObjectStore(bucket);
+}
+
 mountSnapshotRoutes(app);
-mountAdminRoutes(app, undefined, undefined, adminDbResolver);
+mountAdminRoutes(app, undefined, undefined, adminDbResolver, adminStoreResolver);
 
 app.get("/healthz", (c) =>
   c.json({ status: "ok", service: "catalog", env: c.env.ENVIRONMENT ?? "unknown" }),

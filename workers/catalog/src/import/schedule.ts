@@ -47,7 +47,7 @@ export function guardCron(
         ? { denied: false }
         : { denied: true, reason: "the import schedule is staging-only" };
     case "unknown":
-      return { denied: false };
+      return { denied: true, reason: "unknown cron kind" };
   }
 }
 
