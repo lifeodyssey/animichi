@@ -348,10 +348,6 @@ class PromotionManifestUnitTest(unittest.TestCase):
         self.assertEqual(selected, ["web"])
         self.assertNotIn("users", selected)
 
-
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
     # --- AC3: per-component artifact generalization ----------------------
     def test_ac3_every_mapped_component_resolves_an_artifact_dir(self):
         # Agent, Edge, Catalog, Users, Web, Infra each resolve to their own
@@ -391,27 +387,20 @@ if __name__ == "__main__":
                     with open(os.path.join(src, d, "f"), "w") as handle:
                         handle.write(component)
                     p = os.path.join(tmp, artifact)
-                    # Deterministic tar (same flags as the deploy workflow).
-                    import subprocess
+                    # Deterministic tar via tarfile (matches the deploy flow's
+                    # fixed mtime/uid/gid normalization without relying on a
+                    # platform tar implementation / GNU-only flags).
+                    import tarfile
 
-                    with open(p, "wb") as out:
-                        subprocess.run(
-                            [
-                                "tar",
-                                "-C",
-                                src,
-                                "--sort=name",
-                                "--mtime=@0",
-                                "--owner=0",
-                                "--group=0",
-                                "--numeric-owner",
-                                "-cf",
-                                "-",
-                                d,
-                            ],
-                            check=True,
-                            stdout=out,
-                        )
+                    with tarfile.open(p, "w:gz", format=tarfile.USTAR_FORMAT) as tf:
+                        info = tf.gettarinfo(os.path.join(src, d), arcname=d)
+                        info.mtime = 0
+                        info.uid = 0
+                        info.gid = 0
+                        info.uname = "root"
+                        info.gname = "root"
+                        with open(os.path.join(src, d, "f"), "rb") as fh:
+                            tf.addfile(info, fh)
                     computed = pm.digest_file(p)
                     manifest = cli._gen_manifest(
                         {
@@ -429,3 +418,7 @@ if __name__ == "__main__":
                     )
                     self.assertEqual(manifest["artifact_digest"], computed)
                     self.assertEqual(manifest["component"], component)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
