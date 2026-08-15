@@ -86,6 +86,37 @@ const roleDefs: { name: string; secretName?: string; comment: string }[] = [
     comment:
       "agent container data-plane role DSN (staging; edge Worker binding, forwarded to the container via CONTAINER_ENV_KEYS — replaces SUPABASE_DB_URL once deployed)",
   },
+  // #1050 — dedicated migrator role (Migration Executor, spec §"Database identity").
+  //
+  // Provisions the `migrator` LOGIN role via the same Neon-API path as the
+  // runtime roles and writes its DSN to the store once as MIGRATOR_DATABASE_URL.
+  // The secret is deliberately NEVER bound by any runtime Worker or container
+  // env allowlist — it exists for the migration-executor container only, and
+  // that isolation is machine-asserted (migrator-role-isolation contract test).
+  //
+  // Ceiling (spec): the migration chain needs CREATE EXTENSION / CREATE ROLE /
+  // blanket GRANTs, so on Neon this role is necessarily neon_superuser-grade;
+  // numeric narrowing is limited. Minimization is behavioral, three rules:
+  //  (1) single-purpose — it is never a runtime DSN for any service;
+  //  (2) non-resident — injected only into the migration container for the
+  //      seconds it runs, present in no Worker's standing environment;
+  //  (3) independently rotatable — a Neon role password unentangled from every
+  //      runtime credential (rotation path per ADR 0003).
+  //
+  // Roles are PROJECT-scoped in Neon, so creating `migrator` here also makes it
+  // available on every branch (production `main` compute included); GRANTs and
+  // ownership are branch-scoped and shipped as Atlas migrations
+  // (migrations/neon/*). The DSN here composes against THIS branch's
+  // read-write endpoint; the production stack (Pulumi.production.yaml, landed
+  // by #1048 on the same branch of this program) writes the same secret name
+  // against the main-branch endpoint. Until #1048's prod stack lands, the
+  // production DSN is not yet written to the store.
+  {
+    name: "migrator",
+    secretName: "MIGRATOR_DATABASE_URL",
+    comment:
+      "dedicated migration-executor role DSN (#1050): single-purpose, non-resident, independently rotatable; bound to NO runtime worker or container (isolation asserted by contract test)",
+  },
 ];
 
 const roles = roleDefs.map(
