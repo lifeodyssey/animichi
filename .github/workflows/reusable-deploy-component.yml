@@ -665,6 +665,10 @@ jobs:
       - name: Install Pulumi CLI
         if: ${{ inputs.run_pulumi }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          # #1069: pin the Pulumi CLI to 3.255.0 (gocloud v0.46.0); see the
+          #       neon-secrets workflow for the R2 InvalidDigest root cause.
+          pulumi-version-file: .pulumi.version
       # #522: `pulumi up` below failed on every run with "It looks like the
       # Pulumi SDK has not been installed" because infra/node_modules never
       # existed. pulumi/actions@v7 stopped auto-installing project
@@ -790,6 +794,8 @@ jobs:
           command: up
           stack-name: ${{ inputs.pulumi_stack }}
           work-dir: infra
+          # #1069: pin Pulumi 3.255.0 (gocloud v0.46.0) — see neon-secrets deploy for R2 InvalidDigest root cause.
+          pulumi-version-file: .pulumi.version
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}

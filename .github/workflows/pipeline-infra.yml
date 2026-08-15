@@ -120,6 +120,10 @@ jobs:
           cache-dependency-path: infra/neon-secrets/pnpm-lock.yaml
       - name: Install Pulumi CLI
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          # #1069: pin the Pulumi CLI to 3.255.0 (gocloud v0.46.0); see the
+          #       neon-secrets workflow for the R2 InvalidDigest root cause.
+          pulumi-version-file: .pulumi.version
       - name: Generate Neon provider SDK
         run: |
           pulumi package add terraform-provider kislerdm/neon
@@ -209,6 +213,10 @@ jobs:
       - name: Install Pulumi CLI
         if: ${{ steps.pulumi_gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || steps.f.outputs.infra == 'true') }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          # #1069: pin the Pulumi CLI to 3.255.0 (gocloud v0.46.0); see the
+          #       neon-secrets workflow for the R2 InvalidDigest root cause.
+          pulumi-version-file: .pulumi.version
       - name: Pulumi preview (staging)
         if: ${{ steps.pulumi_gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || steps.f.outputs.infra == 'true') }}
         # pulumi/actions' automation-api login chokes on the query-string s3:// R2
