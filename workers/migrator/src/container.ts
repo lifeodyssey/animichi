@@ -13,8 +13,15 @@ import { Container } from "@cloudflare/containers";
  * loaded only by the deployed entry (src/index.ts) and never by the plain node
  * vitest HTTP-seam suite. The runner's exit/timeout logic is unit-tested in
  * src/runner.ts against a narrow handle seam.
+ *
+ * #1093: requiredPorts is deliberately NOT overridden (no '= []'). With an
+ * empty array, @cloudflare/containers@0.3.7's start() resolves portToCheck to
+ * 'requiredPorts[0]' = undefined and the platform's getTcpPort(undefined)
+ * throws 'Invalid port number: 0' (surfaced via #1091). Leaving the field at
+ * the library default falls back to FALLBACK_PORT_TO_CHECK (33); the
+ * healthcheck ping to an unlistening port is tolerated for running containers
+ * ('isNotListeningError && container.running'), so the batch job starts.
  */
 export class MigrationContainer extends Container {
-  requiredPorts: number[] = [];
   enableInternet = true;
 }
