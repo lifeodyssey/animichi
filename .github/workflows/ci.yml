@@ -214,7 +214,8 @@ jobs:
   migrate-staging:
     name: Migrate staging (schema first)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # #1095: raised above the 10-min container cap (first-run cold start).
+    timeout-minutes: 20
     environment: staging
     permissions:
       contents: read
@@ -254,7 +255,7 @@ jobs:
             "$MIGRATOR_URL/migrate" \
             -H "Authorization: Bearer $(cat "$RUNNER_TEMP/oidc-token")" \
             -H 'content-type: application/json' \
-            --max-time 560 \
+            --max-time 900 \
             -d "$body")"
           if [ "$code" != "200" ]; then
             echo "::error::migrator returned HTTP $code"; cat "$RUNNER_TEMP/migrate.json"; exit 1
