@@ -29,10 +29,14 @@
 #   CLOUDFLARE_API_TOKEN       — Wrangler deploy auth
 #   CLOUDFLARE_ACCOUNT_ID      — Cloudflare account target
 #
-# Edge runtime secrets (used by src/identity/auth.ts for /v1 auth):
+# Edge runtime configuration:
 #   NEON_AUTH_JWKS_URL        — branch JWKS (AUTH-2 #950): the edge's ONLY
-#                               identity source; set as a secret, not a checked
-#                               in var, on production (see infra/src/neon-auth.ts)
+#                               identity source. Public config (a URL), so it is
+#                               a per-environment wrangler var, NOT a GitHub
+#                               secret (CI no longer ferries it; issue #1047).
+#                               declared in [env.staging.vars]; production stays
+#                               unset (fails closed) until its branch is
+#                               provisioned (see infra/src/neon-auth.ts).
 #
 # Container runtime secrets (forwarded to Python backend). Production model
 # policy is MiMo-only (#684): MIMO_API_KEY is the one live model credential.
@@ -54,7 +58,9 @@
 #   OPENAI_COMPAT_API_KEY      — wired-but-disabled compat fallback provider key
 #   GOOGLE_MAPS_API_KEY        — optional geocoding provider key
 #   LOGFIRE_TOKEN              — optional observability token
-#   CORS_ALLOWED_ORIGIN        — backend CORS allowlist
+#
+# Edge/container public configuration (vars, not secrets — issue #1047):
+#   CORS_ALLOWED_ORIGIN        — backend CORS allowlist (public origin)
 #
 # Anonymous access (issue #274 / S1.8) — anonymous chat is OPT-IN and stays off
 # until BOTH of these are present:
@@ -234,6 +240,14 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 # unrelated in-flight chat turn. Left unset this falls back to the
 # authenticated class default in @animichi/contract identity-contract (60/60s);
 # 60/60s gives normal chat usage headroom above the anonymous burst ceiling.
+# CORS_ALLOWED_ORIGIN — backend CORS allowlist (public origin; issue #1047
+# demotes it from a GitHub secret to a wrangler var). The production frontend
+# origin is the canonical https://animichi.com origin (apps/web
+# runtime-config CANONICAL_ORIGIN). ASSUMPTION (reviewer: verify against the
+# current production CORS secret before the orchestrator deletes it): the
+# secret's value is this same origin; if production was provisioned with a
+# different value, update this var to match before deploy.
+CORS_ALLOWED_ORIGIN = "https://animichi.com"
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 

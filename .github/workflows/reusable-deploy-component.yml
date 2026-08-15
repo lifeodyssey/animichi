@@ -70,8 +70,9 @@ on:
         required: false
       R2_SECRET_ACCESS_KEY:
         required: false
-      NEON_AUTH_JWKS_URL:
-        required: false
+      # NEON_AUTH_JWKS_URL / CORS_ALLOWED_ORIGIN are deliberately NOT secret
+      # inputs (issue #1047): both are public config carried as edge wrangler
+      # vars, so CI no longer ferries them as worker secrets.
       SUPABASE_DB_URL:
         required: false
       MIMO_API_KEY:
@@ -81,8 +82,6 @@ on:
       GOOGLE_MAPS_API_KEY:
         required: false
       LOGFIRE_TOKEN:
-        required: false
-      CORS_ALLOWED_ORIGIN:
         required: false
       TURNSTILE_SECRET:
         required: false
@@ -106,7 +105,7 @@ on:
       # under `on.workflow_call.secrets` AND in the caller's `secrets:` map.
       # When
       # the name is present, the job's `environment:` wins over whatever the
-      # caller passed (verified: users' NEON_AUTH_JWKS_URL resolves to the
+      # caller passed (verified: users' NEON_DATABASE_URL resolves to the
       # staging-environment value, not the caller's, under exactly this
       # pattern — see the "Report resolved secret shape" step's #527 note).
       # With the declaration absent (#886's fix), the environment secret
@@ -224,14 +223,14 @@ jobs:
       # https://docs.github.com/en/actions/using-workflows/reusing-workflows#access-to-secrets).
       # #527's original diagnosis assumed this resolution was broken; a real
       # workflow_dispatch diagnostic run (staging) proved it already works —
-      # NEON_AUTH_JWKS_URL and NEON_DATABASE_URL both resolved to their
-      # staging-environment values even when the caller job (which has no
-      # environment context of its own) passed an empty stand-in.
+      # NEON_DATABASE_URL resolved to its staging-environment value even when
+      # the caller job (which has no environment context of its own) passed an
+      # empty stand-in.
       #
       # This step keeps that verification live on every future deploy —
       # staging AND production — WITHOUT ever printing a raw value:
-      #   - NEON_DATABASE_URL / NEON_AUTH_JWKS_URL / PULUMI_BACKEND_URL /
-      #     LOGFIRE_TOKEN are high-entropy, arbitrary-content secrets where
+      #   - NEON_DATABASE_URL / PULUMI_BACKEND_URL / LOGFIRE_TOKEN are
+      #     high-entropy, arbitrary-content secrets where
       #     length carries no meaning of its own. For these, print the first
       #     8 hex chars of a sha256 of the value instead of its length: two
       #     runs with the SAME hash prefix are, for all practical purposes,
@@ -260,12 +259,11 @@ jobs:
       #           value space; hashing it doesn't protect it, it just hands
       #           an attacker a dictionary-attackable commitment to the
       #           value. Never apply this pattern to that class of secret.
-      #   - CORS_ALLOWED_ORIGIN is deliberately excluded from this step
-      #     entirely: as of #528 (P1-A) it is a plain `vars` entry in
-      #     `wrangler.toml` for staging (a domain name, not a secret) and
-      #     only remains a GH environment secret for production — mixing
-      #     the two sources here would need per-environment branching for
-      #     no real benefit.
+      #   - CORS_ALLOWED_ORIGIN and NEON_AUTH_JWKS_URL are deliberately excluded
+      #     from this step entirely (issue #1047): both are public config, now
+      #     carried as `vars` entries in `wrangler.toml` (a domain name / a JWKS
+      #     URL, not secrets), so CI no longer ferries them and there is nothing
+      #     to hash here.
       #
       # None of this claims the two environments hold different VALUES on
       # its own — a matching hash prefix is strong (not certain, given
@@ -282,7 +280,6 @@ jobs:
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           TARGET_COMPONENT: ${{ inputs.component }}
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
         run: |
@@ -292,7 +289,6 @@ jobs:
           }
           echo "environment=$TARGET_ENVIRONMENT component=$TARGET_COMPONENT"
           echo "  NEON_DATABASE_URL   set=$([ -n "$NEON_DATABASE_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_DATABASE_URL")"
-          echo "  NEON_AUTH_JWKS_URL  set=$([ -n "$NEON_AUTH_JWKS_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_AUTH_JWKS_URL")"
           echo "  PULUMI_BACKEND_URL  set=$([ -n "$PULUMI_BACKEND_URL" ] && echo true || echo false) sha256_8=$(hash8 "$PULUMI_BACKEND_URL")"
           echo "  LOGFIRE_TOKEN       set=$([ -n "$LOGFIRE_TOKEN" ] && echo true || echo false) sha256_8=$(hash8 "$LOGFIRE_TOKEN")"
       # Validates BEFORE anything deploys — including before "Atlas migrate"
@@ -810,13 +806,11 @@ jobs:
           # DSN as the DATABASE_URL worker secret until the #912 cutover.
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
-          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
         run: |
           effective="$REQUIRED_LIST"
           while IFS= read -r name; do
@@ -936,13 +930,11 @@ jobs:
           # DATABASE_URL until the #912 cutover.
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
-          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       # Deliberately NOT part of the wrangler-action `secrets:` list above (the
       # one populating `worker_secrets`): that list is uploaded via
       # wrangler-action's own `uploadSecrets()`, which runs `wrangler secret
