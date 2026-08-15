@@ -154,6 +154,14 @@ fetch() {
   # untouched. The header name matches the gate ruleset expression in
   # infra/index.ts exactly.
   [ -n "${STAGING_GATE_TOKEN:-}" ] && args+=(-H "x-staging-key: ${STAGING_GATE_TOKEN}")
+  # #1054 (OIDC phase 2): the CI smoke step exchanges the pipeline's GitHub
+  # OIDC identity at the staging gate's /staging-gate/exchange for a short-lived
+  # gate session (STAGING_GATE_OIDC_SESSION, exported by reusable-post-deploy-test.yml).
+  # It is presented as the `x-staging-session` header so the CI channel is
+  # authorized by the OIDC-derived session alongside the shared token during the
+  # transition; after the orchestrator deletes STAGING_GATE_TOKEN the session is
+  # the CI channel's sole credential. Absent (non-staging) → no header.
+  [ -n "${STAGING_GATE_OIDC_SESSION:-}" ] && args+=(-H "x-staging-session: ${STAGING_GATE_OIDC_SESSION}")
   local attempt status rc retry_reason
   for attempt in 1 2 3 4 5; do
     status="$(curl "${args[@]}")" && rc=0 || rc=$?

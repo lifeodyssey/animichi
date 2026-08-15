@@ -71,3 +71,11 @@ export const RATE_LIMIT_UNAVAILABLE_BODY = {
 export function rateLimitUnavailableResponse(): Response {
   return Response.json(RATE_LIMIT_UNAVAILABLE_BODY, { status: 503 });
 }
+
+export function notFoundResponse(): Response {
+  return Response.json(NOT_FOUND_BODY, { status: 404 });
+}
+
+export function methodNotAllowed(): Response {
+  return Response.json(METHOD_NOT_ALLOWED_BODY, { status: 405 });
+}

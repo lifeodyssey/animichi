@@ -17,10 +17,14 @@ import { config, stack, webRoutesEnabled } from "./config.ts"
 // Three ways in: an allowlisted source IP (`stagingAllowedIps` — the #769 human
 // path), the legacy `animichi_staging` cookie (set once per browser by hand) or
 // `x-staging-key` header (CI, curl) — #769 card 3 removes the cookie/header
-// path — and the future OIDC exchange endpoint `/staging-gate/exchange` (card 2
-// builds it; passing the WAF is harmless before it exists because unmatched
-// paths 404 at the edge worker). No regex — `matches` is Business+ and this
-// zone is on Free, which allows 5 custom rules.
+// path — and the CI-channel OIDC exchange endpoint `/staging-gate/exchange`
+// (#1054 phase 2): CI swaps its GitHub OIDC identity there for a short-lived
+// gate session. The WAF cannot cryptographically verify that opaque session, so
+// through the OIDC rollout it remains the static gate token that lets the CI
+// smoke past the WAF; deleting STAGING_GATE_TOKEN from GitHub Secrets (the
+// ORCHESTRATOR's post-merge step once the OIDC switch is verified) is what
+// moves the CI channel to the session. No regex — `matches` is Business+ and
+// this zone is on Free, which allows 5 custom rules.
 //
 // This only works because `workers_dev = false` everywhere (#539): a
 // `*.workers.dev` hostname is not on the zone and would bypass the WAF outright.
