@@ -44,6 +44,16 @@ describe("POST /migrate — container outcomes", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true, exitCode: 0, appliedHead: null });
   });
+
+  it("surfaces an unexpected orchestration throw as a 500 with the error message (#1091 US-27)", async () => {
+    const { app, token } = await makeApp({
+      runContainer: (): Promise<ContainerOutcome> =>
+        Promise.reject(new Error("container start failed: image not found")),
+    });
+    const res = await app.request(post({}, token), {}, testEnv());
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ success: false, error: "container start failed: image not found" });
+  });
 });
 
 it("exposes /healthz", async () => {

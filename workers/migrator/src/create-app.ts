@@ -109,11 +109,19 @@ async function handleMigrate(
   if (!body.ok) return c.json({ error: "invalid request body" }, 400);
   const dsn = await resolveDsn(c.env);
   if (dsn === undefined) return c.json({ error: "migrator database not configured" }, 503);
-  const runContainer = await runContainerFor(c.env, deps);
-  const readAppliedHead = deps.readAppliedHead ??
-    ((value: string) => new NeonMigrationsLedger().readAppliedHead(value));
-  const result = await runMigration(dsn, { runContainer, readAppliedHead });
-  return outcomeResponse(result);
+  try {
+    const runContainer = await runContainerFor(c.env, deps);
+    const readAppliedHead = deps.readAppliedHead ??
+      ((value: string) => new NeonMigrationsLedger().readAppliedHead(value));
+    const result = await runMigration(dsn, { runContainer, readAppliedHead });
+    return outcomeResponse(result);
+  } catch (error) {
+    // #1091 (US-27): an unexpected orchestration throw must be observable —
+    // the bare Hono 500 hid the failure reason on the first real trigger run.
+    // Surface the exception message only (never a DSN or credential).
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ success: false, error: message }, 500);
+  }
 }
 
 /**
