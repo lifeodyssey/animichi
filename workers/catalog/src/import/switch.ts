@@ -10,7 +10,7 @@
  * valid import atomically replaces staging's active Catalog. Statements are
  * built with the Drizzle builder through the single CatalogDb seam.
  */
-import { type SQL } from "drizzle-orm";
+import { getTableColumns, type SQL } from "drizzle-orm";
 import type { AnyPgTable } from "drizzle-orm/pg-core";
 import type { CatalogDb } from "../db/client";
 import { statementBuilder } from "../db/client";
@@ -24,7 +24,7 @@ import {
   seriesEdges,
 } from "../db/schema";
 import * as x from "../db/expressions";
-import { IMPORT_KINDS, type ImportCandidate, type ImportKind } from "./import-snapshot";
+import { type ImportCandidate, type ImportKind } from "./import-snapshot";
 
 /** The atomic-switch seam the import orchestrator calls (AC4). */
 export interface ImportActivation {
@@ -54,8 +54,13 @@ export async function importBatch(db: CatalogDb, candidate: ImportCandidate): Pr
 /** Every switch statement in mandatory order: the record first, then per-kind pairs. */
 function buildStatements(candidate: ImportCandidate): [SQL, ...SQL[]] {
   const middle: SQL[] = [];
-  for (const kind of IMPORT_KINDS) {
+  // Delete children before parents, insert parents before children, so the
+  // one-batch FK-safe switch holds with real rows in staging (card 1049 — the
+  // prior works-first delete order violated points_refs_bangumi on re-import).
+  for (const kind of DELETE_ORDER) {
     middle.push(deleteTable(TABLE_BY_KIND[kind]));
+  }
+  for (const kind of INSERT_ORDER) {
     const object = candidate.objects.find((o) => o.kind === kind);
     if (object !== undefined && object.rows.length > 0) {
       middle.push(insertRows(TABLE_BY_KIND[kind], object.rows));
@@ -63,6 +68,16 @@ function buildStatements(candidate: ImportCandidate): [SQL, ...SQL[]] {
   }
   return [recordImportStatement(candidate), ...middle];
 }
+
+/** Delete order: child tables before the parents that reference them. */
+const DELETE_ORDER: readonly ImportKind[] = [
+  "media", "provenance", "series", "aliases", "points", "works",
+];
+
+/** Insert order: parent tables before the tables that reference them. */
+const INSERT_ORDER: readonly ImportKind[] = [
+  "works", "points", "aliases", "series", "provenance", "media",
+];
 
 /** Convert ordered SQL into lazy Drizzle batch items without executing them. */
 function prepareBatch(db: CatalogDb, statements: readonly [SQL, ...SQL[]]) {
@@ -83,7 +98,30 @@ function insertRows(table: AnyPgTable, rows: readonly unknown[]): SQL {
 
 /** Cast a validated import row to the target table's insert value. */
 function importInsertValue(table: AnyPgTable, row: unknown): InsertValueFor<typeof table> {
-  return row as InsertValueFor<typeof table>;
+  if (!isRecord(row)) return row as InsertValueFor<typeof table>;
+  // The export serializes rows under their DB column names; Drizzle insert keys
+  // are the TS column names, so remap (e.g. entity_id -> entityId) before insert
+  // (card 1049: provenance/points were imported with nulled columns otherwise).
+  const byDbName = new Map<string, string>();
+  const timestampKeys = new Set<string>();
+  const cols = getTableColumns(table) as Record<string, { name: string; columnType: string }>;
+  for (const [tsKey, column] of Object.entries(cols)) {
+    byDbName.set(column.name, tsKey);
+    if (column.columnType === "PgTimestamp" || column.columnType === "PgTimestampWithTimezone") timestampKeys.add(tsKey);
+  }
+  const remapped: Record<string, unknown> = {};
+  for (const key of Object.keys(row)) {
+    const target = byDbName.get(key) ?? key;
+    // The export serializes timestamps to ISO strings; restore them to Date so
+    // Drizzle's timestamp mapper can encode them (card 1049).
+    const raw = row[key];
+    remapped[target] = timestampKeys.has(target) && typeof raw === "string" ? new Date(raw) : raw;
+  }
+  return remapped;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 /** The object shape Drizzle accepts in .values() for a table (boundary cast). */

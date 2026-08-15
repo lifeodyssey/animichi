@@ -97,7 +97,11 @@ async function readGuard(db: CatalogDb, bangumiId: string): Promise<IngestGuard>
 
 async function readGuardRow(db: CatalogDb, bangumiId: string): Promise<GuardRow | undefined> {
   const result = await db.execute(guardStatement(bangumiId));
-  return parseGuardRow(result.rows[0]);
+  console.log('GUARDRAW', JSON.stringify(result.rows));
+  console.log('GUARDROW0', JSON.stringify(result.rows[0]));
+  const parsed = parseGuardRow(result.rows[0]);
+  console.log('GUARDPARSED', JSON.stringify(parsed));
+  return parsed;
 }
 
 /** The live guard: running-stale flag and negative-cache-until flag. */
@@ -107,8 +111,8 @@ function guardStatement(bangumiId: string): SQL {
       errorCode: ingestJobs.errorCode,
       runningLive: sqlFlag(
         and(eq(ingestJobs.status, "running"), x.staleWithinSeconds(ingestJobs.startedAt, ingestJobs.createdAt, RUNNING_TTL_SECONDS)),
-      ),
-      cacheLive: sqlFlag(sql`${ingestJobs.negativeCachedUntil} > NOW()`),
+      ).as("running_live"),
+      cacheLive: sqlFlag(sql`${ingestJobs.negativeCachedUntil} > NOW()`).as("cache_live"),
     })
     .from(ingestJobs)
     .where(eq(ingestJobs.workId, bangumiId))

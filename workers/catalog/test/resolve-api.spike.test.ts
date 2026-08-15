@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { drizzle } from "drizzle-orm/node-postgres";
+import * as schema from "../src/db/schema";
 import pg from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import type { CatalogDb } from "../src/db/client";
@@ -107,7 +108,7 @@ function pointKeys(value: unknown): string[] {
 beforeAll(async () => {
   await openServerlessDb();
   pool = await openDirectPool();
-  db = drizzle(pool) as unknown as CatalogDb;
+  db = drizzle(pool, { schema }) as unknown as CatalogDb;
   await truncateCatalogPool(pool);
   await seed();
 }, 120_000);
