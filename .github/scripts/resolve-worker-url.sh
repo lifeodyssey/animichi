@@ -37,7 +37,7 @@
 # has. Same defect class either way: a static assumption about where a
 # Worker lives, disconnected from Cloudflare's actual state.
 #
-# Usage: resolve-worker-url.sh <root|web> <staging|production>
+# Usage: resolve-worker-url.sh <root|web|migrator> <staging|production>
 # Requires CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID in the environment
 # (same secrets `wrangler deploy` already needs — one source for one value,
 # not two; see issue #484 / PR #493 if revisiting the token-scoping
@@ -51,8 +51,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 API_BASE="${CLOUDFLARE_API_BASE_URL:-https://api.cloudflare.com/client/v4}"
 
-component="${1:?usage: resolve-worker-url.sh <root|web> <staging|production>}"
-environment="${2:?usage: resolve-worker-url.sh <root|web> <staging|production>}"
+component="${1:?usage: resolve-worker-url.sh <root|web|migrator> <staging|production>}"
+environment="${2:?usage: resolve-worker-url.sh <root|web|migrator> <staging|production>}"
 
 : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required to resolve the deployed Worker URL}"
 : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID is required to resolve the deployed Worker URL}"
@@ -83,6 +83,16 @@ resolve_worker_name() {
       # stripping `//`-prefixed lines before handing it to jq is safe here.
       grep -v '^[[:space:]]*//' "${REPO_ROOT}/apps/web/wrangler.jsonc" \
         | jq -r --arg env "${environment}" '.env[$env].name // empty'
+      ;;
+    migrator)
+      # Same per-environment name resolution as root (#1083): the staging
+      # deploy publishes `[env.staging].name` ("migrator-staging"); there is
+      # no [env.production] block by design until #1055.
+      awk -v want="[env.${environment}]" '
+        $0 == want { found=1; next }
+        found && /^\[/ { exit }
+        found && /^name[[:space:]]*=/ { print; exit }
+      ' "${REPO_ROOT}/workers/migrator/wrangler.toml" | sed -E 's/^name[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/'
       ;;
     *)
       fail "unknown component: ${component}"
