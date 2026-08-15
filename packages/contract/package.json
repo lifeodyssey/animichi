@@ -14,7 +14,8 @@
     "./agent-contract": "./src/agent-contract.ts",
     "./internal-binding": "./src/internal-binding.ts",
     "./constants": "./src/constants.ts",
-    "./jwt": "./src/jwt.ts"
+    "./jwt": "./src/jwt.ts",
+    "./oidc-github": "./src/oidc-github.ts"
   },
   "scripts": {
     "emit:openapi": "node --import tsx scripts/emit-openapi.ts",
