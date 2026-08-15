@@ -83,7 +83,7 @@ def test_ensure_pinned_atlas_downloads_and_verifies_into_cache(
     digest = hashlib.sha256(payload).hexdigest()
     _fixture_cache(monkeypatch, tmp_path)
     system, machine = _pin_current_platform(monkeypatch, digest)
-    monkeypatch.setattr(atlas_helper.httpx, "get", _stub_get(payload))
+    monkeypatch.setattr(httpx, "get", _stub_get(payload))
 
     bin_dir = ensure_pinned_atlas()
 
@@ -118,7 +118,7 @@ def test_ensure_pinned_atlas_redownloads_a_corrupted_cache(
     cached_binary = atlas_helper._cached_atlas_binary(system, machine)
     cached_binary.parent.mkdir(parents=True)
     cached_binary.write_bytes(b"corrupted stale bytes")
-    monkeypatch.setattr(atlas_helper.httpx, "get", _stub_get(good_payload))
+    monkeypatch.setattr(httpx, "get", _stub_get(good_payload))
 
     bin_dir = ensure_pinned_atlas()
 
@@ -134,7 +134,7 @@ def test_ensure_pinned_atlas_rejects_a_tampered_download(
     digest = hashlib.sha256(real_payload).hexdigest()
     _fixture_cache(monkeypatch, tmp_path)
     system, machine = _pin_current_platform(monkeypatch, digest)
-    monkeypatch.setattr(atlas_helper.httpx, "get", _stub_get(real_payload + b"X"))
+    monkeypatch.setattr(httpx, "get", _stub_get(real_payload + b"X"))
 
     with pytest.raises(RuntimeError, match="did NOT run.*checksum mismatch"):
         ensure_pinned_atlas()
@@ -150,7 +150,7 @@ def test_ensure_pinned_atlas_network_failure_says_arm_did_not_run(
     def _raise_network_error(url: str, **kwargs: object) -> httpx.Response:
         raise httpx.ConnectError("no route to host")
 
-    monkeypatch.setattr(atlas_helper.httpx, "get", _raise_network_error)
+    monkeypatch.setattr(httpx, "get", _raise_network_error)
     with pytest.raises(RuntimeError, match="did NOT run.*could not prepare"):
         ensure_pinned_atlas()
 
@@ -160,7 +160,7 @@ def test_ensure_pinned_atlas_unmapped_platform_fails_before_any_download(
 ) -> None:
     _fixture_cache(monkeypatch, tmp_path)
     monkeypatch.setattr(atlas_helper, "ATLAS_ARTIFACTS", {})
-    monkeypatch.setattr(atlas_helper.httpx, "get", _forbidden_get)
+    monkeypatch.setattr(httpx, "get", _forbidden_get)
 
     with pytest.raises(RuntimeError, match="did NOT run.*no pinned Atlas artifact"):
         ensure_pinned_atlas()

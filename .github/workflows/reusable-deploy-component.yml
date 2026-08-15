@@ -48,6 +48,14 @@ on:
       # legacy build path. The consume step fails closed if the approved
       # artifact cannot be loaded (immutable store = #1013 follow-up).
       promotion_artifact_digest: { required: false, type: string, default: "" }
+      # #1052: whether this deploy runs the pinned Atlas migrate step. The
+      # staging path ("schema before app") applies the committed chain via the
+      # migrator trigger (migrate-staging in ci.yml) and must therefore contain
+      # NO Atlas invocation and NO database credential - staging callers set
+      # run_atlas: false. Production keeps the SAFE-1 pinned apply (#937) until
+      # #1055 removes the per-component Atlas path entirely; production callers
+      # omit this input (default true) so the pinned apply keeps running.
+      run_atlas: { required: false, type: boolean, default: true }
     secrets:
       NEON_DATABASE_URL:
         required: false
@@ -577,9 +585,16 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "::notice title=promotion manifest::$TARGET_COMPONENT built once -> digest $digest (source $source_sha)"
       - name: Atlas migrate
-        # NOTE: secrets context is NOT allowed in step `if:` (GitHub compile-time
-        # error → startup_failure). Guard inside run via the env var instead.
-        #
+        # #1052: run_atlas: false (every staging caller) skips this step entirely
+        # so the staging path carries no Atlas invocation and no database
+        # credential - the migrator trigger (migrate-staging in ci.yml) is the only
+        # schema applier for staging. Production callers omit run_atlas (default
+        # true) and keep the SAFE-1 pinned apply until #1055. inputs context is
+        # allowed in step if: (only the secrets context is not). The empty-DSN
+        # guard inside the run below is kept: it is what makes a production call
+        # fail closed when NEON_DATABASE_URL is missing.
+        if: ${{ inputs.run_atlas }}
+
         # #516: this Neon database also hosts `neon_auth` (9 tables Neon Auth
         # itself provisions and owns — Atlas must never touch them) alongside
         # `public` (the schema Atlas actually manages). Without scoping,

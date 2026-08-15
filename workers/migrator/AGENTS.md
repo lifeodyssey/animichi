@@ -38,7 +38,7 @@ asserts it is not bound by any runtime worker.
 
 ## Tests
 
-TDD at the HTTP seam (`test/migrate.worker.test.ts`): valid test-signed JWT →
+TDD at the HTTP seam (`test/migrate.worker.auth.test.ts`): valid test-signed JWT →
 container started + success + applied head; wrong repo / wrong audience /
 expired → 403; non-zero container exit → failure; hung container → 504. The
 container binding is faked and the JWKS injected (plain vitest — `create-app.ts`
