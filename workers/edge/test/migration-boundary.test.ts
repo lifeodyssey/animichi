@@ -46,7 +46,9 @@ void test("CI and deploy workflows use Atlas, never the old all-schema push", ()
   const deploy = read(".github/workflows/deploy.yml");
   const promotion = read(".github/workflows/reusable-deploy-component.yml");
   assert.match(dbLane, /atlas migrate validate --dir file:\/\/migrations\/neon/);
-  assert.match(dbLane, /atlas migrate apply --dry-run[\s\S]*--revisions-schema public/);
+  // #1053: the live Neon dry-run was dropped with the test-infra retirement;
+  // pipeline-db is hermetic (no DSN) — the boundary guard + validate remain.
+  assert.doesNotMatch(dbLane, /atlas migrate apply --dry-run/);
   // #486 thin caller: the manual path cannot skip Atlas — every job runs the reusable pipeline.
   assert.match(deploy, /uses: \.\/\.github\/workflows\/reusable-deploy-component\.yml/);
   assert.match(promotion, /atlas migrate apply --dir ["']?file:\/\/migrations\/neon[\s\S]*--revisions-schema public/);

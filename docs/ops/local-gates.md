@@ -70,7 +70,9 @@ The local gate never overrides a coverage floor. Agent runs `uv run pytest src/a
 ### Fail-closed Docker gates
 
 - **db fresh-schema** (`db-fresh-schema.sh`) is REQUIRED: it fails with an actionable message when Docker is not installed, when the daemon is not running, or when the offline `animichi-test-postgres:18-3.6-pgvector-0.8.5` image is missing (it prints the one-time `docker build` command). It never silently skips. The postgis image pre-initialises `POSTGRES_DB` (the `postgres` admin database) with the tiger/topology objects, so Atlas is never applied to that database: the gate waits for the admin database, creates the pristine target `gate` database from `template1` (the same clean-schema semantics as `conftest_db.py`), and applies Atlas only to that disposable `127.0.0.1` container.
-- **agent integration** is invoked through `env -u TEST_DB -u TEST_DATABASE_URL -u TEST_DB_ALLOW_MUTATION -u NEON_API_KEY -u NEON_PROJECT_ID` (plus `NEON_ENDPOINT_SUFFIX`), so an exported live/BYO selector can never route the local gate to Neon or a mutable external database — the Docker arm is deterministic. It needs Docker + the cached `animichi-test-postgres:18-3.6-pgvector-0.8.5` image, and `conftest_db.py` fails closed with actionable guidance (install Docker Desktop or start colima; run the one-time build command) when either is missing. `TEST_DB=neon` (live Neon) is deliberately NOT a local-gate concern — it stays in CI.
+- **agent integration** is invoked through `env -u TEST_DB -u TEST_DATABASE_URL -u TEST_DB_ALLOW_MUTATION -u NEON_API_KEY -u NEON_PROJECT_ID` (plus `NEON_ENDPOINT_SUFFIX`), so an exported live/BYO selector can never route the local gate to Neon or a mutable external database — the Docker arm is deterministic. It needs Docker + the cached `animichi-test-postgres:18-3.6-pgvector-0.8.5` image, and `conftest_db.py` fails closed with actionable guidance (install Docker Desktop or start colima; run the one-time build command) when either is missing. `TEST_DB=neon` (live Neon, personal `NEON_API_KEY`) is deliberately NOT a local-gate concern: it
+is a manual local/dev option only, and since the test-infra retirement (#1053) it is no longer a
+CI lane — CI's DB-backed integration lane runs hermetically (`TEST_DB=docker`).
 
 ### Credential-free Pulumi load
 
@@ -78,12 +80,12 @@ The local gate never overrides a coverage floor. Agent runs `uv run pytest src/a
 
 Exit handling is fail-closed. A **zero preview exit is green**. A **nonzero preview exit is green only when the captured output proves the program loaded** (a rendered plan) **and every diagnostic is on the allowlist**. Diagnostic classification is strict, anchored, and case-insensitive: prefixes (`error:`, `Error:`, `TypeError:`, `warning:`, `info:`, …) are recognized case-insensitively, every diagnostic line must be allowlisted cloudflare credential/provider/config noise (`Missing API token for cloudflare`, current-user/auth lookup failures, `Unauthorized`) or config noise (`Missing required configuration variable`), and the preview must carry **at least one** allowlisted diagnostic — a rendered plan alone is not proof of health. Unknown plain-text lines (no recognized prefix), unknown diagnostics, and a rendered plan with no allowlisted diagnostic at all all fail closed with the captured output dumped. TypeScript/runtime/compiler/load errors (`TSError`, `TypeError`, `Unable to compile`, `SyntaxError`), `failed with an unhandled exception`, `Could not find entry point`, `Cannot find module` / `MODULE_NOT_FOUND`, unknown failures, and output without a rendered plan are always red. The preview exit code is captured explicitly; the gate never uses `|| true` to swallow a failure, so an arbitrary preview failure cannot turn the check green.
 
-## Why browser e2e / live Neon / evals / deploys stay in CI
+## Why browser e2e / live Neon / evals / deploys stay out of the local gates
 
 The local gates cover every deterministic check that can run without mutating shared cloud infrastructure. These intentionally do **not** run locally:
 
 - **Playwright browser e2e** (`make e2e`) — cross-stack browser automation.
-- **Live-Neon integration** (`TEST_DB=neon`, needs `NEON_API_KEY` + `NEON_PROJECT_ID`) and BYO mutation DBs (`TEST_DB_ALLOW_MUTATION=1`) — touching real data planes.
+- **Live-Neon integration** (`TEST_DB=neon`, needs a personal `NEON_API_KEY` + `NEON_PROJECT_ID`) and BYO mutation DBs (`TEST_DB_ALLOW_MUTATION=1`) — touching real data planes. Live Neon is a manual local option (not a CI lane since #1053); BYO mutation remains a local opt-in with the protected-lineage check.
 - **Model-backed evals** (`make test-eval`) — paid, non-deterministic model calls.
 - **Deploys / cloud commands** — `codecov` upload, `lighthouse`/`lhci`, `gh pr`, `wrangler secret`, mutating `pulumi`; the gate scripts are scanned to forbid them (see `test_no_forbidden_cloud_mutation_commands` in `pre-push.test.sh`).
 

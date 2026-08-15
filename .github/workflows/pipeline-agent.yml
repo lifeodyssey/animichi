@@ -118,6 +118,82 @@ jobs:
           use_oidc: true
           flags: unit
 
+  # Hermetic Docker Postgres integration lane (MED-3, #1053): the retired
+  # Neon Python-integration lane was the only DB-backed CI coverage, so this
+  # lane stands it back up against the offline arm (TEST_DB=docker), mirroring
+  # the #1049 catalog spike pattern: build the pinned postgis+pgvector image,
+  # install the pinned Atlas, and let conftest_db.py apply migrations/neon via
+  # atlas_helper on every run. Runs on the same triggers the Neon lane ran on
+  # (same-repo PRs + workflow_dispatch); hermetic, so no Neon credential is
+  # involved. The integration arm alone is legitimately far below the unit
+  # coverage floor, so no --cov-fail-under is applied here (the enforced floor
+  # lives in apps/agent/pyproject.toml for the unit arm).
+  integration:
+    timeout-minutes: 30
+    name: Agent / integration (Docker Postgres)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # codecov OIDC upload needs id-token
+    # Same trigger set as the retired Neon python-integration lane.
+    if: >-
+      ${{
+        (github.event_name == 'workflow_dispatch' ||
+          (github.event_name == 'pull_request' &&
+            github.event.pull_request.head.repo.full_name == github.repository))
+      }}
+    concurrency:
+      group: agent-integration-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: apps/agent
+    env:
+      TEST_DB: docker
+      # Settings requires presence; integration tests do not use these endpoints.
+      AGENT_SVC_DATABASE_URL: postgresql://test:test@localhost:5432/test
+      MIMO_API_KEY: test-key
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+
+      # Sonar S8541: --no-build blocks third-party sdist builds (setup-script
+      # execution); --no-binary-package animichi exempts the project's own
+      # wheel-less editable install, which blanket --no-build rejects (uv #17416).
+      - run: uv sync --frozen --all-extras --no-build --no-binary-package animichi
+
+      - uses: ./.github/actions/install-atlas
+
+      # Build once; conftest_db.py boots it per session via testcontainers and
+      # applies migrations/neon from the pinned Atlas on PATH.
+      # Docker resolves -f relative to the step cwd; the job's
+      # defaults.run working-directory is apps/agent, so this step must override
+      # it back to the repo root or the -f path becomes apps/agent/apps/agent/...
+      # (which does not exist). Matches conftest_db.py's offline build and the
+      # #1049 catalog spike job, which both build from the repo root.
+      - name: Build hermetic Postgres+PostGIS+pgvector test image
+        working-directory: .
+        run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+
+      - name: Integration suite (Docker Postgres)
+        run: uv run --frozen --no-build --no-binary-package animichi pytest src/animichi/tests/integration -q --cov --cov-report=xml --cov-fail-under=0
+
+      - name: Upload coverage (integration)
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: apps/agent/coverage.xml
+          fail_ci_if_error: true
+          use_oidc: true
+          flags: integration
+
   build:
     name: Agent / build
     runs-on: ubuntu-latest
