@@ -1,6 +1,7 @@
-# Neon-backed test jobs are non-gating and stay outside every deploy `needs:` chain.
-# Promote only after 10 consecutive greens on main-bound PRs; quota-class failures
-# are excluded from the streak but tracked separately (the agnix precedent below).
+# Credentialed, non-gating verify jobs (agent eval smoke) stay outside every
+# deploy `needs:` chain. The Neon-backed Python integration lane and its
+# test-base refresh surfaced were retired with the test-infra retirement
+# (#1053); DB-backed integration now runs hermetically in pipeline-agent.yml.
 name: CI
 
 on:
@@ -18,8 +19,8 @@ permissions:
   contents: read
   # Scopes beyond contents: read live at job level (S0-v2 B7 "permissions"
   # assertion, ci.md "Least privilege"): the security job declares its own
-  # `pull-requests: read`, as do the step-level dorny/paths-filter users
-  # (agent-eval-smoke, python-integration).
+  # `pull-requests: read`, as does the step-level dorny/paths-filter user
+  # (agent-eval-smoke).
 
 env:
   PYTHON_VERSION: "3.11"
@@ -40,9 +41,10 @@ jobs:
   # The component CI lanes moved out of this workflow into their own
   # pipeline-*.yml files (CI-1 union method, S0-v2 B4); the changes aggregation
   # job and the gate layer were retired with them. This workflow keeps the
-  # non-gating verify lanes (credentialed eval/Neon), the security lane, and
-  # the deploy promotion chain; the repo-hygiene checks moved into
-  # pipeline-quality.yml (the unfiltered fixed point). Per-lane path gating on
+  # non-gating verify lanes (credentialed eval; the Neon lane retired with
+  # the test-infra retirement #1053), the security lane, and the deploy
+  # promotion chain; the repo-hygiene checks moved into pipeline-quality.yml
+  # (the unfiltered fixed point). Per-lane path gating on
   # PRs is now a step-level dorny filter inside each lane (the cross-workflow
   # tradeoff documented in docs/ops/deployment.md).
 
@@ -117,84 +119,8 @@ jobs:
           EVAL_SMOKE: "1"
           EVAL_MAX_CASES: "80"
           # Settings requires presence; the trajectory tier uses NullDatabase and
-          # never opens this endpoint (mirrors the python-integration job).
+          # never opens this endpoint.
           AGENT_SVC_DATABASE_URL: postgresql://test:test@localhost:5432/test
-
-  # ── Neon test infrastructure (non-gating during calibration) ──
-
-  python-integration:
-    timeout-minutes: 30
-    name: Python integration (Neon)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-      id-token: write # codecov OIDC upload needs id-token
-    # Same-repo PRs only (fork PRs cannot reach the Neon credentials); push and
-    # merge_group runs skip this lane entirely, as they did under the changes job.
-    if: >-
-      ${{
-        (github.event_name == 'workflow_dispatch' ||
-          (github.event_name == 'pull_request' &&
-            github.event.pull_request.head.repo.full_name == github.repository))
-      }}
-    concurrency:
-      group: neon-tests-${{ github.ref }}
-      cancel-in-progress: true
-    defaults:
-      run:
-        working-directory: apps/agent
-    env:
-      ATLAS_VERSION: "0.30.0"
-      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
-      # Settings requires presence; integration tests never call the gateway, so a placeholder satisfies the validator.
-      ZEN_GO_API_KEY: test-key
-      # Settings requires presence; integration tests do not use these endpoints.
-      AGENT_SVC_DATABASE_URL: postgresql://test:test@localhost:5432/test
-      MIMO_API_KEY: test-key
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
-        id: f
-        with:
-          filters: |
-            neon_agent: ['apps/agent/**']
-            neon_migrations: ['migrations/neon/**']
-
-      - uses: ./.github/actions/setup
-        with:
-          python: "true"
-
-      - run: uv python install ${{ env.PYTHON_VERSION }}
-
-      # --no-build rejected: this project's own editable package has no wheel
-      # (see pipeline-agent.yml).
-      - run: uv sync --frozen --all-extras
-
-      - uses: ./.github/actions/install-atlas
-
-      - name: Run Neon integration tests
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.f.outputs.neon_agent == 'true' || steps.f.outputs.neon_migrations == 'true' }}
-        env:
-          TEST_DB: neon
-        # No --cov-fail-under here: the enforced floor belongs to the unit arm
-        # (apps/agent/pyproject.toml); the integration arm alone is legitimately
-        # far below it. Coverage is uploaded to codecov under the integration flag.
-        run: uv run --frozen --no-build --no-binary-package animichi pytest src/animichi/tests/integration -q --cov --cov-report=xml --cov-fail-under=0
-
-      - name: Upload coverage (integration)
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.f.outputs.neon_agent == 'true' || steps.f.outputs.neon_migrations == 'true' }}
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
-        with:
-          files: apps/agent/coverage.xml
-          fail_ci_if_error: true
-          use_oidc: true
-          flags: integration
 
   # ── Cross-stack browser lane ──────────────────────────────────
   # The reusable workflow is intentionally broad and path-gates itself with a

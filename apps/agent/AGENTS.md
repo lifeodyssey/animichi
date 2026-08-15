@@ -124,9 +124,11 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
   all-error runs. Never refresh a baseline merely to pass a gate.
 - DB-backed pytest suites select one arm in this order: `TEST_DATABASE_URL` (BYO), explicit
   `TEST_DB=docker|neon`, then the offline Docker default. The offline arm needs Docker/Colima, the
-  cached `animichi-test-postgres` image, and Atlas 0.30.0; `TEST_DB=neon` additionally needs
-  `NEON_API_KEY` + `NEON_PROJECT_ID`. BYO mutation requires `TEST_DB_ALLOW_MUTATION=1` and rejects
-  protected Neon lineage. The standalone full-stack eval runner accepts `TEST_DATABASE_URL` only.
+  cached `animichi-test-postgres` image, and Atlas 0.30.0; `TEST_DB=neon` additionally needs a
+  personal `NEON_API_KEY` + `NEON_PROJECT_ID` and is a local-only path since #1053 (CI's DB-backed
+  integration lane runs `TEST_DB=docker`). BYO mutation requires `TEST_DB_ALLOW_MUTATION=1` and
+  rejects protected Neon lineage. The standalone full-stack eval runner accepts `TEST_DATABASE_URL`
+  only.
 - The local backend Postgres is Neon Local (`make dev-db`); `supabase start` is no longer needed
   for auth or the integration-test database (auth is Neon Auth, AUTH-2 #950). Unit tests need
   neither Docker nor network.
