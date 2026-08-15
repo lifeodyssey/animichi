@@ -29,10 +29,6 @@ function hasAssignment(block: string, key: string, value: string): boolean {
   return new RegExp(`^${key}\\s*=\\s*"${escapeRegExp(value)}"$`, "m").test(block);
 }
 
-function countMatches(source: string, pattern: RegExp): number {
-  return source.match(pattern)?.length ?? 0;
-}
-
 function parsedWorkerName(environment: string): string {
   return execFileSync(
     process.execPath,
@@ -74,40 +70,29 @@ void test("named Wrangler environments pass the real config parser", () => {
   }
 });
 
-void test("ci.yml keeps both JWKS secret paths complete", () => {
-  const workflowText = readFileSync(`${ROOT}.github/workflows/ci.yml`, "utf8");
-  assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL\s*$/gm), 2, "ci.yml JWKS secret lists must stay complete");
-  assert.equal(
-    countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL: \$\{\{ secrets\.NEON_AUTH_JWKS_URL \}\}$/gm),
-    2,
-    "ci.yml JWKS secret mappings must stay complete",
-  );
-  assert.equal(workflowText.includes("NEON_AUTH_ENABLED"), false, "ci.yml must not turn the disabled public var into a secret");
-  assert.equal(workflowText.includes("NEON_AUTH_ISSUER"), false, "ci.yml must not turn the public issuer into a secret");
+function workflowFile(name: string): string {
+  return readFileSync(`${ROOT}.github/workflows/${name}`, "utf8");
+}
+
+void test("CORS_ALLOWED_ORIGIN is a wrangler var for staging and production (issue #1047)", () => {
+  const staging = blockFor("[env.staging.vars]");
+  const prod = blockFor("[env.production.vars]");
+  assert.equal(hasAssignment(staging, "CORS_ALLOWED_ORIGIN", "https://animichi-web-staging.zhenjiazhou0127.workers.dev"), true, "staging CORS is a wrangler var");
+  assert.equal(hasAssignment(prod, "CORS_ALLOWED_ORIGIN", "https://animichi.com"), true, "production CORS is a wrangler var");
 });
 
-void test("deploy.yml keeps its JWKS secret path complete", () => {
-  const workflowText = readFileSync(`${ROOT}.github/workflows/deploy.yml`, "utf8");
-  assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL\s*$/gm), 1, "deploy.yml JWKS secret list must stay complete");
-  assert.equal(
-    countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL: \$\{\{ secrets\.NEON_AUTH_JWKS_URL \}\}$/gm),
-    1,
-    "deploy.yml JWKS secret mapping must stay complete",
-  );
-  assert.equal(workflowText.includes("NEON_AUTH_ENABLED"), false, "deploy.yml must not turn the disabled public var into a secret");
-  assert.equal(workflowText.includes("NEON_AUTH_ISSUER"), false, "deploy.yml must not turn the public issuer into a secret");
+void test("deploy workflows carry neither value as a GitHub secret (issue #1047)", () => {
+  for (const name of ["ci.yml", "deploy.yml", "reusable-deploy-component.yml"]) {
+    const text = workflowFile(name);
+    assert.equal(text.includes("secrets.NEON_AUTH_JWKS_URL"), false, `${name} must not reference secrets.NEON_AUTH_JWKS_URL`);
+    assert.equal(text.includes("secrets.CORS_ALLOWED_ORIGIN"), false, `${name} must not reference secrets.CORS_ALLOWED_ORIGIN`);
+  }
 });
 
-void test("reusable-deploy-component.yml keeps its JWKS declaration and paths complete", () => {
-  const workflowText = readFileSync(`${ROOT}.github/workflows/reusable-deploy-component.yml`, "utf8");
-  assert.equal(countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL:\s*$/gm), 1, "reusable-deploy-component.yml must declare JWKS");
-  // PR #751's resolve step legitimately repeats the env block for bash indirect expansion,
-  // so NEON_AUTH_JWKS_URL appears once in wrangler env, once in the post-deploy env, and once in the resolve-step env.
-  assert.equal(
-    countMatches(workflowText, /^\s+NEON_AUTH_JWKS_URL: \$\{\{ secrets\.NEON_AUTH_JWKS_URL \}\}$/gm),
-    3,
-    "reusable-deploy-component.yml JWKS secret mappings must stay complete (wrangler env + post-deploy env + resolve-step env)",
-  );
-  assert.equal(workflowText.includes("NEON_AUTH_ENABLED"), false, "reusable-deploy-component.yml must not turn the disabled public var into a secret");
-  assert.equal(workflowText.includes("NEON_AUTH_ISSUER"), false, "reusable-deploy-component.yml must not turn the public issuer into a secret");
+void test("NEON_AUTH_ENABLED and NEON_AUTH_ISSUER remain absent from deploy workflows", () => {
+  for (const name of ["ci.yml", "deploy.yml", "reusable-deploy-component.yml"]) {
+    const text = workflowFile(name);
+    assert.equal(text.includes("NEON_AUTH_ENABLED"), false, `${name} must not turn the disabled public var into a secret`);
+    assert.equal(text.includes("NEON_AUTH_ISSUER"), false, `${name} must not turn the public issuer into a secret`);
+  }
 });
