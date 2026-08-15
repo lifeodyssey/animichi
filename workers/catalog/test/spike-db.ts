@@ -2,17 +2,14 @@ import { neonConfig } from "@neondatabase/serverless";
 import { sql } from "drizzle-orm";
 import pg from "pg";
 import { describe, inject } from "vitest";
-import { makeDb, type CatalogDb } from "../src/db/client";
+import type { CatalogDb } from "../src/db/client";
+import { makePgCatalog } from "./spike-db-global/pg-catalog";
 
-export type SpikeDatabaseContext =
-  | { enabled: false; skipMessage: string }
-  | {
-    enabled: true;
-    localDsn: string;
-    localHost: string;
-    localPort: number;
-    directDsn: string;
-  };
+/** The suite-owned Postgres context, always provided by the Docker arm setup. */
+export interface SpikeDatabaseContext {
+  enabled: boolean;
+  dsn: string;
+}
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -48,6 +45,11 @@ export interface NeonConfigSnapshot {
 const context = inject("spikeDatabase");
 const initialConfig = captureNeonConfig();
 
+let poolCache: pg.Pool | null = null;
+
+const UNAVAILABLE =
+  "spike database is unavailable — the Docker Postgres arm must run (docker + the animichi-test-postgres image)";
+
 export function captureNeonConfig(): NeonConfigSnapshot {
   return {
     fetchEndpoint: neonConfig.fetchEndpoint,
@@ -64,83 +66,35 @@ export function restoreNeonConfig(snapshot: NeonConfigSnapshot = initialConfig):
   neonConfig.wsProxy = snapshot.wsProxy;
 }
 
-function enabledContext(): Extract<SpikeDatabaseContext, { enabled: true }> {
-  if (!context.enabled) throw new Error(context.skipMessage);
+function requireEnabled(): SpikeDatabaseContext {
+  if (!context.enabled) throw new Error(UNAVAILABLE);
   return context;
 }
 
-/**
- * Serverless-driver config for the DIRECT cloud endpoint (directDsn).
- *
- * The neon_local container proxy (#883) is 11 months old and does not bind
- * 5432 on current runners; routing the driver through it produced both the
- * 180s port timeout and the "parse error - invalid geometry" bytea mangling.
- * Node 22+ ships a native WebSocket, so poolQueryViaFetch=false gives a
- * direct encrypted connection to the ephemeral branch with no container.
- */
-function configureDirectDriver(): void {
-  neonConfig.poolQueryViaFetch = false;
-  neonConfig.useSecureWebSocket = true;
+/** The suite DSN — absolute to the clean database the Docker arm prepared. */
+export function localDatabaseUrl(): string {
+  return requireEnabled().dsn;
 }
 
-function pause(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+/** A single shared pg.Pool rooted at the suite database. */
+export function sharedPool(): pg.Pool {
+  poolCache ??= new pg.Pool(directPoolConfig(localDatabaseUrl()));
+  return poolCache;
 }
 
-async function ready(db: CatalogDb): Promise<boolean> {
-  try {
-    await db.execute(sql`SELECT 1`);
-    return true;
-  } catch {
-    return false;
-  }
+/** The pg-backed CatalogDb the "serverless" seam now resolves to. */
+export function pgCatalog(): CatalogDb {
+  return makePgCatalog(sharedPool());
 }
 
-async function waitUntilReady(db: CatalogDb): Promise<void> {
-  for (const delay of [0, 1_000, 2_000, 4_000, 8_000, 16_000]) {
-    if (delay > 0) await pause(delay);
-    if (await ready(db)) return;
-  }
-  throw new Error("Neon Local serverless endpoint was not ready within 31 seconds");
-}
-
-export async function openServerlessDb(): Promise<CatalogDb> {
-  configureDirectDriver();
-  const db = makeDb(enabledContext().directDsn);
-  await readyOrRestore(db);
-  return db;
-}
-
-async function readyOrRestore(db: CatalogDb): Promise<void> {
-  try {
-    await waitUntilReady(db);
-  } catch (error) {
-    restoreNeonConfig();
-    throw error;
-  }
-}
-
-async function poolReady(pool: pg.Pool): Promise<boolean> {
-  try {
-    await pool.query("SELECT 1");
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function waitUntilPoolReady(pool: pg.Pool): Promise<void> {
-  for (const delay of [0, 1_000, 2_000, 4_000, 8_000, 16_000]) {
-    if (delay > 0) await pause(delay);
-    if (await poolReady(pool)) return;
-  }
-  throw new Error("Neon direct cloud endpoint was not ready after six bounded attempts");
+export function openServerlessDb(): Promise<CatalogDb> {
+  return Promise.resolve(pgCatalog());
 }
 
 export async function openDirectPool(): Promise<pg.Pool> {
-  const pool = new pg.Pool(directPoolConfig(enabledContext().directDsn));
+  const pool = new pg.Pool(directPoolConfig(localDatabaseUrl()));
   try {
-    await waitUntilPoolReady(pool);
+    await pool.query("SELECT 1");
     return pool;
   } catch (error) {
     await pool.end();
@@ -152,10 +106,6 @@ export function directPoolConfig(connectionString: string): pg.PoolConfig {
   return { connectionString, connectionTimeoutMillis: 10_000 };
 }
 
-export function localDatabaseUrl(): string {
-  return enabledContext().directDsn;
-}
-
 export function catalogTruncateSql(): string {
   const identifiers = CATALOG_TABLES.map((table) => `"${table}"`).join(", ");
   return `TRUNCATE ${identifiers} RESTART IDENTITY`;
@@ -165,9 +115,7 @@ export async function truncateCatalog(db: CatalogDb): Promise<void> {
   try {
     await db.execute(sql.raw(catalogTruncateSql()));
   } catch (error) {
-    throw new Error("catalog spike isolation failed; review the FK-closed table set", {
-      cause: error,
-    });
+    throw new Error("catalog spike isolation failed; review the FK-closed table set", { cause: error });
   }
 }
 
@@ -175,24 +123,19 @@ export async function truncateCatalogPool(pool: pg.Pool): Promise<void> {
   try {
     await pool.query(catalogTruncateSql());
   } catch (error) {
-    throw new Error("catalog spike isolation failed; review the FK-closed table set", {
-      cause: error,
-    });
+    throw new Error("catalog spike isolation failed; review the FK-closed table set", { cause: error });
   }
 }
 
+/** Gate tests on a live suite database. Fails loudly when the DB is down —
+ * the old silent-skip mode is removed (card 1049 AC2). */
 export function databaseDescribe(name: string, factory: () => void): void {
-  if (context.enabled) {
-    describe(name, factory);
-    return;
-  }
-  describe.skip(`${name} — ${context.skipMessage}`, factory);
+  requireEnabled();
+  describe(name, factory);
 }
 
-/**
- * Suite with a KNOWN live failure tracked by a GitHub issue. Skipped until the
- * issue is fixed so the spike gate stays honest without going red.
- */
+/** Suite with a KNOWN live failure tracked by a GitHub issue. Skipped until the
+ * issue is fixed so the spike gate stays honest without going red. */
 export function databaseDescribeKnownFailing(
   issue: string, name: string, factory: () => void,
 ): void {

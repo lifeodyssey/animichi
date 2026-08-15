@@ -107,8 +107,8 @@ function guardStatement(bangumiId: string): SQL {
       errorCode: ingestJobs.errorCode,
       runningLive: sqlFlag(
         and(eq(ingestJobs.status, "running"), x.staleWithinSeconds(ingestJobs.startedAt, ingestJobs.createdAt, RUNNING_TTL_SECONDS)),
-      ),
-      cacheLive: sqlFlag(sql`${ingestJobs.negativeCachedUntil} > NOW()`),
+      ).as("running_live"),
+      cacheLive: sqlFlag(sql`${ingestJobs.negativeCachedUntil} > NOW()`).as("cache_live"),
     })
     .from(ingestJobs)
     .where(eq(ingestJobs.workId, bangumiId))

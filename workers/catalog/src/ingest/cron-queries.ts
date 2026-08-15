@@ -14,11 +14,10 @@
  * the single CatalogDb seam; the crawl-stale query composes a FULL OUTER JOIN
  * source and a NOT EXISTS subfilter as builder subqueries.
  */
-import { and, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { statementBuilder } from "../db/client";
 import { ingestJobs, rawAnitabi, rawBangumi } from "../db/schema";
-import * as x from "../db/expressions";
 
 /** TTL freshness floor: works whose weakest fetch is younger than this are not stale. */
 export const STALE_AFTER_SECONDS = 24 * 60 * 60;
@@ -64,33 +63,25 @@ export async function listStaleBangumiIds(
 function staleWorksStatement(cap: number, maxAgeSeconds: number): SQL {
   const staleness = statementBuilder()
     .select({
-      workId: sql`CASE WHEN a.work_id IS NULL THEN b.work_id ELSE a.work_id END`.as("work_id"),
-      freshness: x.weakestRawFreshness("anitabi", "bangumi").as("freshness"),
+      workId: sql`CASE WHEN ${rawAnitabi.workId} IS NULL THEN ${rawBangumi.workId} ELSE ${rawAnitabi.workId} END`.as("work_id"),
+      freshness: sql`LEAST(COALESCE(${rawAnitabi.fetchedAt}, '-infinity'), COALESCE(${rawBangumi.fetchedAt}, '-infinity'))`.as("freshness"),
     })
     .from(rawAnitabi)
     .fullJoin(rawBangumi, eq(rawAnitabi.workId, rawBangumi.workId))
     .as("staleness");
-  const excluded = statementBuilder()
-    .select({ workId: ingestJobs.workId })
-    .from(ingestJobs)
-    .where(gt(ingestJobs.negativeCachedUntil, sql`NOW()`));
   return statementBuilder()
     .select({ workId: staleness.workId })
     .from(staleness)
     .where(
       and(
         sql`staleness.freshness < NOW() - make_interval(secs => ${maxAgeSeconds})`,
-        negatedExists(excluded),
+        // Correlated: skip only works whose OWN ingest job is under a live negative cache.
+        sql`NOT EXISTS (SELECT 1 FROM ingest_jobs WHERE ingest_jobs.work_id = staleness.work_id AND ingest_jobs.negative_cached_until > NOW())`,
       ),
     )
     .orderBy(sql`staleness.freshness ASC`)
     .limit(cap)
     .getSQL();
-}
-
-/** `NOT EXISTS (subquery)` — works behind a live negative cache are skipped. */
-function negatedExists(subquery: { getSQL(): SQL }): SQL {
-  return sql`NOT EXISTS (${subquery.getSQL()})`;
 }
 
 /** The cap is interpolated into a LIMIT clause — never interpolate raw input. */

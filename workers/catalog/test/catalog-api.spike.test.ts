@@ -22,6 +22,17 @@ vi.mock("cloudflare:workers", () => ({
   },
 }));
 
+vi.mock("../src/db/connections", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../src/db/connections")>();
+  return {
+    ...original,
+    dbFor: async (connStr: string) => {
+      const { localDatabaseUrl, pgCatalog } = await import("./spike-db");
+      return connStr === localDatabaseUrl() ? { db: pgCatalog() } : await original.dbFor(connStr);
+    },
+  };
+});
+
 /**
  * End-to-end proof for the wired Catalog service (Wave 2 capstone).
  *
@@ -144,7 +155,7 @@ async function assertRoute(): Promise<void> {
 }
 
 async function routeOut(): Promise<RouteBody> {
-  return call<RouteBody>("route", { point_ids: ["washinomiya", "washinomiya-torii"] });
+  return call<RouteBody>("itinerary", { point_ids: ["washinomiya", "washinomiya-torii"] });
 }
 
 async function assertOverviewHit(): Promise<void> {

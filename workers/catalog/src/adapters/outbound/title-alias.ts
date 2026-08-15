@@ -36,7 +36,7 @@ async function selectAliasWorks(db: AliasDb, normalized: string): Promise<AliasW
 /** MAX(priority) per bangumi for a normalized alias (the highest-priority alias). */
 function aliasWorksStatement(normalized: string): SQL {
   return statementBuilder()
-    .select({ bangumiId: aliases.bangumiId, priority: max(aliases.priority) })
+    .select({ bangumiId: aliases.bangumiId, priority: max(aliases.priority).as("priority") })
     .from(aliases)
     .where(eq(aliases.aliasNormalized, normalized))
     .groupBy(aliases.bangumiId)
@@ -54,7 +54,7 @@ function candidateStatement(workIds: string[]): SQL {
     .select({
       id: bangumi.id, title: bangumi.title, titleCn: bangumi.titleCn,
       coverUrl: bangumi.coverUrl, airDate: bangumi.airDate,
-      pointsCount: count(points.id),
+      pointsCount: count(points.id).as("points_count"),
     })
     .from(bangumi)
     .leftJoin(points, eq(points.bangumiId, bangumi.id))

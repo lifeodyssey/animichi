@@ -114,7 +114,7 @@ databaseDescribe("nearbyPoints through the PostGIS adapter", () => {
 
   it("merges detail columns from the serverless read onto the rows", async () => {
     const { rows } = await around(36.1019, 139.6586, 10_000);
-    expect(rows[0]).toMatchObject({ name_cn: "鹫宮神社", bangumi_id: "lucky-star" });
+    expect(rows[0]).toMatchObject({ name: "鷲宮神社", bangumi_id: "3701" });
   });
 
   it("propagates a database failure from the PostGIS read", async () => {

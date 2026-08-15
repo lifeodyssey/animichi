@@ -30,7 +30,7 @@ async function seedStagingBaseline(): Promise<void> {
   await db.execute(sql`INSERT INTO bangumi (id, title) VALUES ('old1', 'OLD')`);
   await db.execute(sql`INSERT INTO points (id, bangumi_id, name, latitude, longitude) VALUES ('op1', 'old1', 'old', 1, 1)`);
   await db.execute(sql`INSERT INTO sessions (id) VALUES (gen_random_uuid())`);
-  await db.execute(sql`INSERT INTO request_log (id) VALUES (gen_random_uuid())`);
+  await db.execute(sql`INSERT INTO request_log (id, query_text) VALUES (gen_random_uuid(), 'seed')`);
 }
 
 async function buildSnapshotSource(): Promise<ReturnType<typeof fakeSnapshotSource>> {

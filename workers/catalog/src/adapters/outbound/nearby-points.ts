@@ -52,7 +52,7 @@ function nearbyGeoStatement(lat: number, lng: number, radiusM: number): SQL {
     .select({
       id: pointsTable.id, name: pointsTable.name,
       latitude: pointsTable.latitude, longitude: pointsTable.longitude,
-      distanceM: x.distanceMeters(pointsTable.location, point),
+      distanceM: x.distanceMeters(pointsTable.location, point).as("distance_m"),
     })
     .from(pointsTable)
     .where(x.withinMeters(pointsTable.location, point, radiusM))

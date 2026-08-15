@@ -20,6 +20,17 @@ vi.mock("cloudflare:workers", () => ({
   },
 }));
 
+vi.mock("../src/db/connections", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../src/db/connections")>();
+  return {
+    ...original,
+    dbFor: async (connStr: string) => {
+      const { localDatabaseUrl, pgCatalog } = await import("./spike-db");
+      return connStr === localDatabaseUrl() ? { db: pgCatalog() } : await original.dbFor(connStr);
+    },
+  };
+});
+
 databaseDescribe("Catalog ingest end-to-end (fetch stub -> raw -> enrich -> publish -> search)", () => {
   it("IngestEntrypoint publishes the work, then /search returns the fresh points", async () => {
     stubUpstream();

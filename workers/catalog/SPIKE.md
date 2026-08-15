@@ -44,7 +44,7 @@ catalog table set without `CASCADE`.
 
 ## Why two vitest configs
 
-The Worker pool (workerd) and the Neon-backed spikes (Node + testcontainers) have incompatible
+The Worker pool (workerd) and the Docker Postgres-backed spikes (Node + testcontainers) have incompatible
 runtimes, so they run as two configs that `pnpm test` runs in sequence:
 - `vitest.config.ts` → workerd pool, `*.worker.test.ts`
 - `vitest.spike.config.ts` → Node, `*.spike.test.ts`
@@ -60,11 +60,12 @@ runtimes, so they run as two configs that `pnpm test` runs in sequence:
 ```bash
 cd workers/catalog
 pnpm install
-pnpm test          # worker tests, then Neon-backed spikes
+pnpm test          # worker tests, then Docker Postgres-backed spikes
 pnpm run typecheck
 ```
 
-DB spikes skip actionably when Neon credentials are absent. A live run needs Docker/Colima,
-`NEON_API_KEY`, and `NEON_PROJECT_ID`; the global setup removes its temporary branch at teardown.
+The DB spikes are **hermetic and fail-loudly** (card 1049): they boot a Docker Postgres+PostGIS
+container, apply the committed `migrations/neon` Atlas chain to a clean database, and need **zero
+Neon credentials** — a setup failure throws instead of skipping.
 
 The live counts and timings belong in CI evidence, not this stable stack verdict.
