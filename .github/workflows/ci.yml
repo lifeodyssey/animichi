@@ -251,6 +251,91 @@ jobs:
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
     concurrency: deploy-neon-secrets-staging
 
+  # #1051 — the migrator (Migration Executor, staging): deploy the migrator
+  # worker first, then trigger it via its GitHub OIDC identity BEFORE any
+  # component deploys — schema before app. The migrator's DSN lives only in
+  # the Cloudflare Secrets Store and is
+  # injected into the batch container for the seconds it runs; neither this
+  # deploy call nor the trigger pass it as a GitHub secret, and the trigger
+  # carries no stored credential (see workers/edge/test/migrator-role-isolation).
+  deploy-migrator-staging:
+    name: Deploy migrator staging
+    needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging]
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/reusable-deploy-component.yml
+    with:
+      component: migrator
+      environment: staging
+      pulumi_stack: staging
+      working_directory: workers/migrator
+      run_pulumi: false
+      # The migrator reads its DSN from the Secrets Store binding;
+      # there is nothing to upload from CI (no worker_secrets).
+      worker_secrets: ""
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    concurrency: deploy-migrator-staging
+
+  # Trigger the migrator (schema first). The job uses its GitHub OIDC identity
+  # (id-token: write) — no stored secret — requesting the fixed migrator
+  # audience, and fails the run unless the migrator's applied head equals the
+  # committed chain's head. Runs at the top of the deploy DAG: every component
+  # deploy below depends on it.
+  migrate-staging:
+    name: Migrate staging (schema first)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    needs: [deploy-migrator-staging]
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    env:
+      # CI-reachable migrator URL; the operator sets the account host once the
+      # migrator-staging Worker is provisioned (workers/migrator/wrangler.toml).
+      MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Resolve expected migration head
+        id: head
+        run: echo "expected_head=$(./scripts/migration-head.sh)" >> "$GITHUB_OUTPUT"
+      - name: Request OIDC token for the migrator audience
+        id: oidc
+        env:
+          AUDIENCE: "animichi:github-actions:migrator"
+        run: |
+          curl -sSfL \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUDIENCE" \
+            | jq -r .value > "$RUNNER_TEMP/oidc-token"
+      - name: Trigger migrator and verify applied head
+        run: |
+          set -euo pipefail
+          head="${{ steps.head.outputs.expected_head }}"
+          body="$(printf '{\"expectedHead\":\"%s\"}' "$head")"
+          code="$(curl -sS -o "$RUNNER_TEMP/migrate.json" -w '%{http_code}' -X POST \
+            "$MIGRATOR_URL/migrate" \
+            -H "Authorization: Bearer $(cat "$RUNNER_TEMP/oidc-token")" \
+            -H 'content-type: application/json' \
+            --max-time 560 \
+            -d "$body")"
+          if [ "$code" != "200" ]; then
+            echo "::error::migrator returned HTTP $code"; cat "$RUNNER_TEMP/migrate.json"; exit 1
+          fi
+          success="$(jq -r .success "$RUNNER_TEMP/migrate.json")"
+          applied="$(jq -r .appliedHead "$RUNNER_TEMP/migrate.json")"
+          [ "$success" = "true" ] || { echo "::error::migration failed"; cat "$RUNNER_TEMP/migrate.json"; exit 1; }
+          if [ "$applied" != "$head" ]; then
+            echo "::error::applied head $applied does not equal expected head $head"; exit 1
+          fi
+          echo "migrated to head $applied"
+    concurrency: migrate-staging
+
   # push main -> production: provision the prod-role Secrets Store DSNs BEFORE
   # the production Workers deploy (their wrangler.toml bindings read the store).
   # Gated on the SAFE-1 production-eligibility gate + the GitHub production
@@ -278,7 +363,7 @@ jobs:
   # push main → staging
   deploy-staging:
     name: Deploy staging
-    needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging]
+    needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging, migrate-staging]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
@@ -307,7 +392,7 @@ jobs:
 
   deploy-web-staging:
     name: Deploy web staging
-    needs: [security, ci-cross-stack-e2e]
+    needs: [security, ci-cross-stack-e2e, migrate-staging]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
@@ -335,7 +420,7 @@ jobs:
 
   deploy-users-staging:
     name: Deploy users staging
-    needs: [deploy-staging]
+    needs: [deploy-staging, migrate-staging]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
@@ -365,7 +450,7 @@ jobs:
 
   deploy-root-staging:
     name: Deploy root staging
-    needs: [deploy-staging, deploy-users-staging]
+    needs: [deploy-staging, deploy-users-staging, migrate-staging]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()

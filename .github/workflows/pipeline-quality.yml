@@ -84,7 +84,7 @@ jobs:
         shell: bash
       - name: Ruby syntax check workflow meta scripts
         run: |
-            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_routing_consistency.rb .github/scripts/test_ci_contract_ruleset_migration.rb .github/scripts/test_ci_contract_ruleset_migration_mutation.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb .github/scripts/test_promotion_ac5_contract.rb .github/scripts/test_promotion_ac5_mutation.rb .github/scripts/test_prod_dsn_store_contract.rb; do
+            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_routing_consistency.rb .github/scripts/test_ci_contract_ruleset_migration.rb .github/scripts/test_ci_contract_ruleset_migration_mutation.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb .github/scripts/test_promotion_ac5_contract.rb .github/scripts/test_promotion_ac5_mutation.rb .github/scripts/test_prod_dsn_store_contract.rb .github/scripts/test_migrator_trigger_contract.rb; do
             ruby -c "${f}"
             done
         shell: bash
@@ -125,6 +125,13 @@ jobs:
       # check in this lane, so any PR touching the deploy path runs it.
       - name: PROD DSN store contract
         run: ruby .github/scripts/test_prod_dsn_store_contract.rb
+        shell: bash
+      # #1051 (US-24 / amendment 3): the migrator trigger precedes component
+      # deploys, is OIDC-identity-gated with the fixed audience, and the
+      # migrator path carries no Atlas invocation and no database-credential
+      # reference. Unfiltered like every check in this lane.
+      - name: Migrator trigger contract
+        run: ruby .github/scripts/test_migrator_trigger_contract.rb
         shell: bash
       - name: SAFE-1 release manifest resolver self-tests
         run: ruby .github/scripts/release-manifest-resolver.test.rb
