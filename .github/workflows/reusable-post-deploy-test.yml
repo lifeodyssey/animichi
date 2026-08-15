@@ -118,6 +118,15 @@ permissions:
 
 jobs:
   post-deploy-test:
+    # #1054 (OIDC phase 2): the CI smoke channel requests the pipeline's GitHub
+    # OIDC identity (job-scoped id-token: write per ci.md least-privilege) to
+    # exchange it at the staging gate's /staging-gate/exchange for a short-lived
+    # gate session instead of relying on the shared token as the sole credential.
+    # id-token: write is the narrowest scope that lets the job request its own
+    # per-run OIDC token (ACTIONS_ID_TOKEN_REQUEST_URL); nothing else is added.
+    permissions:
+      contents: read
+      id-token: write
     timeout-minutes: 30
     name: Post-deploy ${{ inputs.suite }} (${{ inputs.environment }})
     runs-on: ubuntu-latest
@@ -164,6 +173,48 @@ jobs:
           # header before finding anything).
           edge_showcase_mode="$(bash .github/scripts/edge-showcase-mode.sh workers/edge/wrangler.toml "${ENVIRONMENT}")"
           echo "EDGE_SHOWCASE_MODE=${edge_showcase_mode}" >> "$GITHUB_ENV"
+
+      # ── CI-channel OIDC exchange (issue #1054, phase 2) ──────────────
+      # The staging-gate CI channel accepts the pipeline's GitHub OIDC identity:
+      # request a per-run OIDC token (id-token: write), exchange it at the
+      # gate's /staging-gate/exchange (a path the staging WAF passes through),
+      # and present the resulting short-lived gate session to the smoke steps
+      # instead of relying on the shared STAGING_GATE_TOKEN alone. The audience
+      # is the FIXED staging-gate value (DISTINCT from the migrator's #1051) the
+      # gate's verifier requires. On a non-staging environment the exchange is
+      # skipped and the smoke falls back to the browser-token channel unchanged.
+      - name: Obtain staging-gate OIDC session (CI channel)
+        if: ${{ inputs.environment == 'staging' }}
+        shell: bash
+        env:
+          ROOT_URL: ${{ steps.urls.outputs.root_url }}
+          STAGING_GATE_OIDC_AUDIENCE: animichi:github-actions:staging-gate
+        run: |
+          set -euo pipefail
+          oidc_token=$(
+            curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+              "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=${STAGING_GATE_OIDC_AUDIENCE}" \
+              | jq -r '.value'
+          )
+          if [ -z "$oidc_token" ] || [ "$oidc_token" = "null" ]; then
+            echo "::error title=staging-gate OIDC::failed to request the GitHub OIDC token"
+            exit 1
+          fi
+          # Exchange it for a short-lived gate session; a non-2xx means the
+          # gate rejected the CI identity — fail the smoke loudly.
+          response=$(mktemp)
+          status="$(curl -sS -o "$response" -w '%{http_code}' -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${oidc_token}" \
+            "${ROOT_URL}/staging-gate/exchange")"
+          if [ "${status}" != 200 ]; then
+            echo "::error title=staging-gate OIDC::exchange rejected status=${status}: $(head -c 300 "$response")"
+            exit 1
+          fi
+          session=$(jq -r ".session" "$response")
+          rm -f "$response"
+          echo "STAGING_GATE_OIDC_SESSION=${session}" >> "$GITHUB_ENV"
+          echo "Staging-gate OIDC session obtained (CI channel)."
 
       # ── checks that run for every suite/environment (issue #484 P1-2:
       # every invocation of this workflow is a real gate, so every

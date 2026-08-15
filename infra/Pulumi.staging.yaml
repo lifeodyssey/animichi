@@ -31,6 +31,14 @@ config:
   # `x-staging-key` header. `bash scripts/setup-staging-gate.sh --rotate`
   # replaces both together — a mismatch locks CI out of staging.
   #
+  # #1054 (OIDC phase 2): the CI channel of the staging gate is switching to the
+  # pipeline's GitHub OIDC identity — CI exchanges it at /staging-gate/exchange for
+  # a short-lived gate session (distinct audience animichi:github-actions:staging-gate).
+  # Deleting the STAGING_GATE_TOKEN GitHub secret is the ORCHESTRATOR's post-merge step,
+  # taken ONLY after the OIDC smoke switch is verified in a real deploy (issue #1054 AC5).
+  # The WAF cannot verify the opaque session, so the static token stays the WAF credential
+  # for the CI transit until that cutover; the human browser cookie/header channel is unchanged.
+  #
   #   pulumi config set cloudflareZoneId <animichi.com zone id> --stack staging
   #   pulumi config set stagingDomain staging.animichi.com      --stack staging
   #   pulumi config set stagingGateEnabled true                 --stack staging

@@ -6,6 +6,7 @@ import type { Env, WorkerExecutionContext } from "./env.ts";
 import type { AuthResult } from "./identity/auth.ts";
 import { authenticate as realAuthenticate } from "./identity/auth.ts";
 import { HandleGatewayRequest, type GatewayDeps } from "./gateway/request.ts";
+import { defaultStagingGateExchange } from "./staging-gate/exchange.ts";
 import { createTurnstileGate, type TurnstileGate } from "./protect/turnstile.ts";
 import { createShowcaseMode, type ShowcaseMode } from "./proxy/showcase.ts";
 
@@ -29,6 +30,9 @@ export interface WorkerDeps {
   sleep?: (ms: number) => Promise<void>;
   /** Injectable showcase gate (tests capture its warning / isolate it per case). */
   showcaseMode?: ShowcaseMode;
+  /** Injectable staging-gate OIDC exchange (CI channel, #1054); tests substitute
+   * it to avoid hitting GitHub's remote JWKS. */
+  stagingGateExchange?: (request: Request, env: Env) => Promise<Response>;
 }
 
 function realSleep(ms: number): Promise<void> {
@@ -44,6 +48,7 @@ function resolveGates(deps: WorkerDeps): GatewayDeps {
     turnstileGate: deps.turnstileGate ?? createTurnstileGate(),
     showcaseMode: deps.showcaseMode ?? createShowcaseMode(),
     sleep: deps.sleep ?? realSleep,
+    stagingGateExchange: deps.stagingGateExchange ?? defaultStagingGateExchange,
   };
 }
 

@@ -13,8 +13,11 @@ import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/r
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardUsers, forwardV1 } from "./forward.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
-import { METHOD_NOT_ALLOWED_BODY, NOT_FOUND_BODY, UNAUTHORIZED_BODY, showcaseDenied, unauthorized } from "./responses.ts";
+import { UNAUTHORIZED_BODY, methodNotAllowed, notFoundResponse, showcaseDenied, unauthorized } from "./responses.ts";
+import { publicReadKey } from "./read-key.ts";
 import { isAnonymousV1, isPublicV1 } from "./routing-policy.ts";
+import { STAGING_GATE_EXCHANGE_PATH } from "../staging-gate/session.ts";
+import { stagingGateExchangeResponse } from "../staging-gate/exchange.ts";
 
 // ── EDGE-1 #963: the composed gateway seam ─────────────────────────────────
 //
@@ -44,6 +47,7 @@ const NOT_RUNNING_RETRIES = 3;
 
 type RequestClass =
   | { kind: "landing"; asset: "healthz" | "banner" | "tiles" | "img" }
+  | { kind: "staging-gate-exchange" }
   | { kind: "public-catalog" }
   | { kind: "users" }
   | { kind: "adopt" }
@@ -71,15 +75,20 @@ function classify(request: Request): RequestClass {
   if (landing !== null) return landing;
   if (request.method === "GET" && PUBLIC_CATALOG_PATTERN.test(pathname)) return { kind: "public-catalog" };
   if (pathname === SESSION_MIGRATE_PATH) return { kind: "retired" };
+  if (pathname === STAGING_GATE_EXCHANGE_PATH) return { kind: "staging-gate-exchange" };
   if (pathname.startsWith(USERS_PREFIX)) return { kind: "users" };
   if (pathname === SESSION_ADOPT_PATH) return { kind: "adopt" };
   if (pathname.startsWith("/v1/")) return { kind: "v1", pathname };
   return { kind: "not-found" };
 }
 
-/** Functional routes are denied in showcase mode; the landing surface stays. */
+/** Functional routes are denied in showcase mode; the landing surface and the
+ * staging-gate OIDC exchange (the CI auth endpoint, reachable past the WAF
+ * regardless of showcase) stay. */
 function isFunctionalRoute(route: RequestClass): boolean {
-  return route.kind !== "landing" && route.kind !== "not-found";
+  return route.kind !== "landing" &&
+    route.kind !== "not-found" &&
+    route.kind !== "staging-gate-exchange";
 }
 
 /** Structured, credential-free request record (EDGE-1 #963): identity kind
@@ -92,14 +101,6 @@ function observe(route: RequestClass, response: Response, startedMs: number): vo
     status: response.status,
     duration_ms: Date.now() - startedMs,
   }));
-}
-
-function notFoundResponse(): Response {
-  return Response.json(NOT_FOUND_BODY, { status: 404 });
-}
-
-function methodNotAllowed(): Response {
-  return Response.json(METHOD_NOT_ALLOWED_BODY, { status: 405 });
 }
 
 type AuthFailure = Extract<AuthResult, { ok: false }>;
@@ -116,6 +117,11 @@ export interface GatewayDeps {
   turnstileGate: TurnstileGate;
   showcaseMode: ShowcaseMode;
   sleep: (ms: number) => Promise<void>;
+  /** The staging-gate OIDC exchange (CI channel, #1054). Reuses the shared
+   * @animichi/contract/oidc-github verifier; valid CI identity authorizes the
+   * private smoke path, invalid is rejected. Injectable so tests drive it
+   * without Cloudflare bindings (same seam as MigratorDeps.verifier). */
+  stagingGateExchange?: (request: Request, env: Env) => Promise<Response>;
 }
 
 export async function HandleGatewayRequest(
@@ -133,6 +139,7 @@ export async function HandleGatewayRequest(
 function dispatch(route: RequestClass, env: Env, request: Request, ctx: WorkerExecutionContext, deps: GatewayDeps): Promise<Response> {
   switch (route.kind) {
     case "landing": return landingResponse(env, request, ctx, route.asset, deps.sleep);
+    case "staging-gate-exchange": return stagingGateExchangeResponse(env, request, deps);
     case "public-catalog": return publicCatalogResponse(env, request);
     case "users": return usersResponse(env, request, ctx, deps);
     case "adopt": return adoptResponse(env, request, ctx, deps);
@@ -161,14 +168,6 @@ function bannerResponse(env: Env, request: Request): Promise<Response> {
 function healthzResponse(env: Env, request: Request, sleep: (ms: number) => Promise<void>): Promise<Response> {
   const container = env.CONTAINER.get(env.CONTAINER.idFromName("default"));
   return fetchContainerWithStartupRetry((inner) => container.fetch(inner), request, sleep);
-}
-
-/** Coarse key for a credential-free public read: the connecting IP when the
- * platform supplies it (best-effort identity isolation on the native damper),
- * else a shared literal so the damper still counts per-request. */
-function publicReadKey(request: Request): string {
-  const ip = request.headers.get("CF-Connecting-IP");
-  return ip && ip.length > 0 ? `ip:${ip}` : "public-read";
 }
 
 async function publicCatalogResponse(env: Env, request: Request): Promise<Response> {
