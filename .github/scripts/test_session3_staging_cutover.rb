@@ -23,6 +23,7 @@
 # SQL survives in live source or the migration chain.
 
 require "yaml"
+require "tmpdir"
 
 ROOT = File.expand_path("../..", __dir__)
 MIGRATIONS = File.join(ROOT, "migrations/neon")
@@ -214,6 +215,100 @@ def manifest_guard_violations(wf)
 
   ["reset-schema manifest assertion must name every retained table (missing: #{missing.join(', ')})"]
 end
+# ---- 3. Two-key reset contract (issue #1056) ------------------------------
+# The staging cutover reset is TWO-KEY: the destructive DROP
+# (DROP SCHEMA public CASCADE / CREATE SCHEMA public) binds to the
+# break-glass owner DSN (CUTOVER_BREAK_GLASS_DSN - only break-glass may
+# destroy), and the rebuild apply binds to the migrator DSN
+# (MIGRATOR_DATABASE_URL, the staging store secret base name per #1050).
+# The reset script refuses to run with either key missing. Phase order is
+# preserved: C close -> D reset -> E deploy -> F reopen, and ingress
+# never reopens before the reset. A non-destructive 'rehearsal' dispatch
+# input must exist so the launcher validates without ever running the DROP.
+BREAK_GLASS_ENV = "CUTOVER_BREAK_GLASS_DSN"
+MIGRATOR_ENV = "MIGRATOR_DATABASE_URL"
+RESET_SCRIPT = File.join(ROOT, ".github/scripts/cutover-reset-schema.sh")
+
+def two_key_reset_violations(wf)
+  found = []
+  jobs = wf.fetch("jobs")
+
+  dispatch = wf.fetch("on", {}).fetch("workflow_dispatch", {})
+  inputs = dispatch.fetch("inputs", {})
+  unless inputs.key?("rehearsal")
+    found << "staging-cutover.yml must expose a workflow_dispatch 'rehearsal' input (non-destructive validation dispatch)"
+  end
+
+  reset = jobs["cutover-phase-d-reset-schema"]
+  unless reset.is_a?(Hash)
+    found << "missing reset-schema phase job for two-key reset"
+    return found
+  end
+  reset_envs = {}
+  reset.fetch("steps", []).each do |s|
+    reset_envs.merge!(s.fetch("env", {}) || {})
+  end
+
+  unless reset_envs.key?(BREAK_GLASS_ENV)
+    found << "reset-schema must bind DROP to #{BREAK_GLASS_ENV}"
+  end
+  unless reset_envs.key?(MIGRATOR_ENV)
+    found << "reset-schema must bind rebuild apply to #{MIGRATOR_ENV}"
+  end
+
+  if reset_envs.key?(BREAK_GLASS_ENV) && reset_envs.key?(MIGRATOR_ENV)
+    bg = reset_envs[BREAK_GLASS_ENV].to_s
+    mg = reset_envs[MIGRATOR_ENV].to_s
+    if bg.strip == mg.strip
+      found << "reset-schema must use two DISTINCT keys (same value bound to both)"
+    end
+    unless bg.include?("NEON_DATABASE_URL")
+      found << "#{BREAK_GLASS_ENV} must source from the cutover NEON_DATABASE_URL secret"
+    end
+    unless mg.include?("migrator_database_url") || mg.include?("MIGRATOR_DATABASE_URL")
+      found << "#{MIGRATOR_ENV} must source from the owner-injected migrator DSN input"
+    end
+  end
+
+  if File.exist?(RESET_SCRIPT)
+    script = File.read(RESET_SCRIPT)
+    unless script.include?(BREAK_GLASS_ENV + ":?")
+      found << "cutover-reset-schema.sh must require #{BREAK_GLASS_ENV} (refuse when missing)"
+    end
+    unless script.include?(MIGRATOR_ENV + ":?")
+      found << "cutover-reset-schema.sh must require #{MIGRATOR_ENV} (refuse when missing)"
+    end
+    unless script.include?("pg_get_userbyid") || script.include?("relowner") || script.include?("pg_user")
+      found << "cutover-reset-schema.sh must assert ownership-from-birth (migrator owns rebuilt tables)"
+    end
+  else
+    found << "cutover-reset-schema.sh missing (RESET_SCRIPT)"
+  end
+
+  found
+end
+
+# ---- 4. Two-key reset refuses with either key missing (unit-behavior) -----
+# Proves the reset script exits non-zero when either key is unset, before any
+# psql/atlas call. psql/atlas do not exist in the controlled PATH, so if the
+# missing-env guard were bypassed the probe would fail closed on their absence.
+def reset_script_refusal_violations
+  return [] unless File.exist?(RESET_SCRIPT)
+
+  found = []
+  tmp = Dir.mktmpdir
+  begin
+    ok = system("env", "-i", "PATH=#{ENV['PATH']}", "HOME=#{tmp}",
+      "CUTOVER_BREAK_GLASS_DSN=", "MIGRATOR_DATABASE_URL=",
+      "bash", RESET_SCRIPT, "0" * 40, out: File::NULL, err: File::NULL)
+    found << "cutover-reset-schema.sh did not refuse when both keys are unset" if ok
+  rescue StandardError
+    found << "reset refusal probe raised unexpectedly: #{$!}"
+  ensure
+    FileUtils.remove_entry_secure(tmp) if File.directory?(tmp)
+  end
+  found
+end
 
 def main
   found = source_structure_violations
@@ -223,14 +318,15 @@ def main
     wf = load_workflow(WORKFLOW)
     found.concat(workflow_order_violations(wf))
     found.concat(manifest_guard_violations(wf))
+    found.concat(two_key_reset_violations(wf))
   end
+  found.concat(reset_script_refusal_violations)
 
   if found.empty?
-    puts "OK: fresh-schema manifest, sole-repository adapters, and cutover workflow order all hold"
+    puts "OK: fresh-schema manifest, sole-repository adapters, two-key reset, and cutover workflow order all hold"
   else
     puts found.sort
     abort "SESSION-3 staging cutover contract violated (#{found.length} issue(s))"
   end
 end
-
 main

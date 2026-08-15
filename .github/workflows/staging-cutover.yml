@@ -29,6 +29,24 @@ on:
         description: One full campaign commit SHA to deploy (cutover source)
         required: true
         type: string
+      # #1056 two-key reset + non-destructive rehearsal.
+      # rehearsal=true runs the launcher state machine (C close -> D validate
+      # prereqs -> E deploy -> F reopen) but SKIPS phase D's destructive schema
+      # reset, so the launcher validates without destroying anything.
+      rehearsal:
+        description: Non-destructive validation dispatch (skip the phase-D destructive reset)
+        required: false
+        default: "false"
+        type: boolean
+      # The migrator DSN (the staging Secrets Store secret base name MIGRATOR_DATABASE_URL,
+      # #1050) is operator-owned, injected at dispatch time rather than stored as a
+      # persistent CI secret (the spec stops CI ferrying DSNs). It feeds the rebuild
+      # apply; the destructive DROP still comes from the cutover break-glass
+      # NEON_DATABASE_URL secret. Only required when rehearsal != true.
+      migrator_database_url:
+        description: Migrator role DSN for the rebuild apply (blank in a rehearsal dispatch)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -103,7 +121,11 @@ jobs:
           persist-credentials: false
       - name: Re-verify retention absent and auth neon-only before reset
         env:
-          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          # Read-only prereq check (#1056): uses the migrator DSN (the apply key),
+          # NOT the break-glass DSN -- only the destructive DROP needs break-glass.
+          MIGRATOR_DATABASE_URL: ${{ inputs.migrator_database_url }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
           # Never trust an earlier job's success: current remote re-check.
@@ -113,11 +135,26 @@ jobs:
           bash .github/scripts/cutover-state.sh record phase=d auth_boundary=neon_only
       - name: Reset and apply the fresh schema chain
         env:
-          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          # #1056 two-key reset: the destructive DROP binds to the break-glass
+          # owner DSN (CUTOVER_BREAK_GLASS_DSN); the rebuild apply runs as the
+          # migrator role (MIGRATOR_DATABASE_URL) so every table is owned by
+          # migrator from birth. Refusal (either key missing) is enforced by the
+          # cutover-reset-schema.sh two-key guards and the contract test.
+          CUTOVER_BREAK_GLASS_DSN: ${{ secrets.NEON_DATABASE_URL }}
+          MIGRATOR_DATABASE_URL: ${{ inputs.migrator_database_url }}
         run: |
           set -euo pipefail
+          # Never leak the operator-supplied migrator DSN into the run log.
+          echo "::add-mask::${MIGRATOR_DATABASE_URL}" || true
           bash .github/scripts/cutover-state.sh record phase=d application_schema=resetting
-          bash .github/scripts/cutover-reset-schema.sh "${SOURCE_REVISION}"
+          # Rehearsal dispatch (no destructive phases): skip the DROP/apply. The
+          # two-key script shape + refusal semantics are enforced by the SESSION-3
+          # cutover contract test (test_session3_staging_cutover.rb) in CI.
+          if [[ "${{ inputs.rehearsal }}" != "true" ]]; then
+            bash .github/scripts/cutover-reset-schema.sh "${SOURCE_REVISION}"
+          else
+            echo "rehearsal: destructive schema reset skipped (two-key script shape validated by contract test)"
+          fi
           # Retained-surface manifest: every surface must survive the reset.
           for table in public.sessions public.messages public.turn_reservations public.saved_routes public.saved_route_anime public.points public.bangumi public.locations public.location_aliases public.media_assets public.itinerary_snapshots public.daily_usage public.anon_daily_message_count public.request_log public.feedback public.agent_memory public.agent_memory_metadata public.agent_memory_operations public.ingest_jobs public.raw_anitabi public.raw_bangumi; do
             bash .github/scripts/cutover-state.sh record phase=d retained_table="$table"
@@ -347,6 +384,8 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Read-only retention recheck at reopen uses the migrator DSN (two-key #1056).
+          MIGRATOR_DATABASE_URL: ${{ inputs.migrator_database_url }}
           PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
         run: |
