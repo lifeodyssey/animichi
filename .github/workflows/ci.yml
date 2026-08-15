@@ -270,8 +270,9 @@ jobs:
   # BEFORE any Worker deploy consumes them (PR2's wrangler.toml bindings will
   # read the store; #926 CI wiring). Runs first in the staging chain:
   # deploy-staging (catalog) waits on it, so users/maintenance/root cascade
-  # behind it. Production has no neon-secrets job: the stack is staging-only
-  # today (no Pulumi.prod.yaml, no prod branch roles — #912 follow-up).
+  # behind it. #1048 adds the production stack: deploy-neon-secrets-prod
+  # runs the same Pulumi project against Pulumi.prod.yaml (prod branch roles
+  # + DSN secrets, "_PROD"-suffixed store names) ahead of the prod Workers.
   deploy-neon-secrets-staging:
     name: Deploy neon-secrets staging
     needs: [security, ci-cross-stack-e2e]
@@ -294,6 +295,30 @@ jobs:
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
     concurrency: deploy-neon-secrets-staging
+
+  # push main -> production: provision the prod-role Secrets Store DSNs BEFORE
+  # the production Workers deploy (their wrangler.toml bindings read the store).
+  # Gated on the SAFE-1 production-eligibility gate + the GitHub production
+  # environment approval, exactly like every other production mutation.
+  deploy-neon-secrets-prod:
+    name: Deploy neon-secrets production
+    needs: [post-staging, production-eligibility]
+    # The store deploy is itself a production mutation: it only runs on the
+    # eligible push to main, never from a PR.
+    if: ${{ needs.production-eligibility.outputs.eligible == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/reusable-deploy-neon-secrets.yml
+    with:
+      environment: production
+      pulumi_stack: prod
+    secrets:
+      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+    concurrency: deploy-neon-secrets-prod
 
   # push main → staging
   deploy-staging:
@@ -470,7 +495,7 @@ jobs:
   # reusable-deploy-component.yml). needs: post-staging guarantees staging passed api tests.
   deploy-prod:
     name: Deploy production
-    needs: [post-staging, production-eligibility]
+    needs: [post-staging, production-eligibility, deploy-neon-secrets-prod]
     if: ${{ needs.production-eligibility.outputs.eligible == 'true' }}
     uses: ./.github/workflows/reusable-deploy-component.yml
     with:
@@ -478,7 +503,9 @@ jobs:
       environment: production
       pulumi_stack: prod
       working_directory: workers/catalog
-      worker_secrets: DATABASE_URL
+      # #1048: production catalog reads its DSN from the Secrets Store
+      # binding (CATALOG_DATABASE_URL_PROD) — no DATABASE_URL worker-secret
+      # upload. NEON_DATABASE_URL is still passed for the pinned Atlas apply.
     secrets:
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -519,9 +546,10 @@ jobs:
       pulumi_stack: prod
       working_directory: workers/users
       run_pulumi: false
-      worker_secrets: |
-        DATABASE_URL
-        NEON_AUTH_JWKS_URL
+      worker_secrets: NEON_AUTH_JWKS_URL
+      # #1048: production users reads its DSN from the Secrets Store binding
+      # (USERS_DATABASE_URL_PROD) — no DATABASE_URL worker-secret upload.
+      # NEON_DATABASE_URL is still passed for the pinned Atlas apply.
     secrets:
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

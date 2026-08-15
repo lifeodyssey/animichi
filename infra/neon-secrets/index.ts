@@ -5,7 +5,8 @@ import * as neon from "@pulumi/neon";
 // ─────────────────────────────────────────────────────────────────────────────
 // animichi-neon-secrets — ADR 0003 / #912 PR1.
 //
-// Manages, for one branch (staging):
+// Manages, for one Neon branch (the branch is stack config: staging =
+// Pulumi.staging.yaml, production = Pulumi.prod.yaml):
 //   - Neon service roles. The pre-existing roles were created by the SQL
 //     migrations (migrations/neon/20260809000001_roles.sql) as
 //     NOLOGIN roles WITHOUT a control-plane-stored password:
@@ -16,10 +17,8 @@ import * as neon from "@pulumi/neon";
 //     Neon API (auto-generated + stored password, LOGIN) — i.e. this stack
 //     creates the roles, it does not import them. One-time bootstrap:
 //       1. DELETE the SQL-created role via the Neon API (per branch; the
-//          staging roles have no live consumers — the deploy chain still
-//          falls back to the owner DSN until the Secrets Store binding lands,
-//          and the staging environment has no CATALOG/USERS/AGENT_SVC_DATABASE_URL
-//          secrets provisioned).
+//          roles have no live consumers — the deploy chain still
+//          falls back to the owner DSN until the Secrets Store binding lands).
 //       2. `pulumi up` — the role is created here with a Neon-generated
 //          password that the provider can always read back (reveal_password).
 //       3. Re-run the idempotent grant migration against the branch
@@ -29,21 +28,24 @@ import * as neon from "@pulumi/neon";
 //     Rollback: re-run the migrations to recreate the NOLOGIN roles and point
 //     the deploy chain back at the owner DSN; the store/secrets are additive.
 //   - A Cloudflare Secrets Store holding one secret per component DSN,
-//     composed from the role password + branch endpoint host. PR2 declares
-//     the wrangler.toml Secrets Store bindings.
+//     composed from the role password + branch endpoint host. PR2/PR3 declare
+//     the wrangler.toml Secrets Store bindings (staging base names; prod
+//     "_PROD"-suffixed names, see secretNameSuffix below).
 //
 //     Store creation note: the account already has Cloudflare's built-in
 //     `default_secrets_store`, and the account plan refuses a second store
 //     (`maximum_stores_exceeded`, HTTP 400 code 1003). This stack therefore
 //     IMPORTS the account's default store (`secretsStoreId` config) instead
 //     of creating one; the store name is only the logical resource name here.
+//     Staging and production SHARE this single store, which is exactly why the
+//     production DSN secrets carry a "_PROD" suffix.
 //
 //     RETENTION-1 (#940): the staging retention role and its store secret are
 //     retired from this stack — deleting the role resource removes the staging
 //     retention grants with it (grants die with the role), while the immutable
 //     role/grant migrations keep the SAFE-1-pinned production surface.
 //
-// The DSN host/db follow the staging NEON_DATABASE_URL: same branch endpoint,
+// The DSN host/db follow the environment's NEON_DATABASE_URL: branch endpoint,
 // database `neondb`, sslmode=require.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -57,13 +59,21 @@ const secretsStoreName = config.get("secretsStoreName") ?? "animichi-secrets";
 
 const secretsStoreId = config.require("secretsStoreId");
 
+// #1048 production runtime DSNs: staging and production share the account's
+// single default Secrets Store, so the store-secret NAMES must not collide
+// across stacks. Production appends a "_PROD" suffix to each role DSN secret;
+// staging keeps the base names (#912) so the adopted staging resources and
+// their wrangler.toml bindings are untouched. Derived from the Pulumi stack
+// name ("prod"), so the staging stack is behaviorally byte-identical.
+const secretNameSuffix = pulumi.getStack() === "prod" ? "_PROD" : "";
+
 const neonProvider = new neon.Provider("neon", {
   apiKey: config.requireSecret("neonApiKey"),
 });
 
-// Role -> staging secret mapping (#832): the secrets carry the same names the
-// deploy chain passes to `wrangler secret put` today, so PR2 only needs to
-// swap the source of the value.
+// Role -> secret mapping (#832): the secrets carry the same names the deploy
+// chain passes to `wrangler secret put` today, so the wrangler binding only
+// needs to swap the source of the value (plus the _PROD suffix for prod).
 //
 // agent_svc DSN (#912 follow-up): the agent is a CONTAINER, not a Worker, so
 // it has no Secrets Store binding of its own — the edge Worker binds
@@ -73,18 +83,18 @@ const roleDefs: { name: string; secretName?: string; comment: string }[] = [
   {
     name: "catalog_svc",
     secretName: "CATALOG_DATABASE_URL",
-    comment: "catalog Worker DATABASE_URL (staging)",
+    comment: "catalog Worker DATABASE_URL (runtime role DSN)",
   },
   {
     name: "users_svc",
     secretName: "USERS_DATABASE_URL",
-    comment: "users Worker DATABASE_URL (staging)",
+    comment: "users Worker DATABASE_URL (runtime role DSN)",
   },
   {
     name: "agent_svc",
     secretName: "AGENT_SVC_DATABASE_URL",
     comment:
-      "agent container data-plane role DSN (staging; edge Worker binding, forwarded to the container via CONTAINER_ENV_KEYS — replaces SUPABASE_DB_URL once deployed)",
+      "agent container data-plane role DSN (edge Worker binding, forwarded to the container via CONTAINER_ENV_KEYS — replaces SUPABASE_DB_URL once deployed)",
   },
   // #1050 — dedicated migrator role (Migration Executor, spec §"Database identity").
   //
@@ -147,11 +157,16 @@ const store = cloudflare.SecretsStore.get(
 const dsnFor = (role: neon.Role, name: string) =>
   pulumi.interpolate`postgresql://${name}:${role.password.apply(encodeURIComponent)}@${host}:5432/${databaseName}?sslmode=require`;
 
-const dsnSecrets = roleDefs.flatMap((def, i) =>
-  def.secretName === undefined
-    ? []
-    : [{ def, name: def.secretName, dsn: dsnFor(roles[i], def.name) }],
-);
+const dsnSecrets = roleDefs.flatMap((def, i) => {
+  if (def.secretName === undefined) return [];
+  return [
+    {
+      def,
+      name: `${def.secretName}${secretNameSuffix}`,
+      dsn: dsnFor(roles[i], def.name),
+    },
+  ];
+});
 
 dsnSecrets.forEach(({ def, name, dsn }) => {
   new cloudflare.SecretsStoreSecret(name, {
@@ -164,12 +179,12 @@ dsnSecrets.forEach(({ def, name, dsn }) => {
   });
 });
 
-// ── Neon Auth staging declarations (AUTH-2 #950) ─────────────────────────────
-// The staging edge verifies JWTs against the branch's JWKS URL (its ONLY
-// identity source since the hard cut). Declaring it here lets the deploy chain
-// source the edge binding from the Secrets Store instead of the checked-in
-// literal in workers/edge/wrangler.toml; it is DERIVED from the branch's
-// Better Auth base URL so the operator sets one value, never two.
+// ── Neon Auth declarations (AUTH-2 #950) ────────────────────────────────────
+// The edge verifies JWTs against the branch's JWKS URL (its ONLY identity
+// source since the hard cut). Declaring it here lets the deploy chain source
+// the edge binding from the Secrets Store instead of the checked-in literal in
+// workers/edge/wrangler.toml; it is DERIVED from the branch's Better Auth base
+// URL so the operator sets one value, never two.
 //
 // The QA login creds provision the password user the E2E suite + local-login
 // script use (Path A of docs/ops/auth-migration-neon.md §4). The password is a
@@ -189,8 +204,7 @@ if (authBaseUrl !== undefined) {
     name: "NEON_AUTH_JWKS_URL",
     value: `${authBaseUrl.replace(/[/]+$/, "")}/.well-known/jwks.json`,
     scopes: ["workers"],
-    comment:
-      "staging edge Neon Auth JWKS (derived from the branch auth base URL, AUTH-2 #950)",
+    comment: "edge Neon Auth JWKS (derived from the branch auth base URL, AUTH-2 #950)",
   });
 }
 
@@ -218,11 +232,11 @@ if (qaNeonUserPassword !== undefined) {
   });
 }
 
-// Exported for PR2 (wrangler.toml bindings) and operators.
+// Exported for the wrangler.toml bindings (PR2/PR3) and operators.
 export const secretsStoreNameOut = secretsStoreName;
-export const secretNames = roleDefs
-  .filter((def) => def.secretName !== undefined)
-  .map((def) => def.secretName as string);
+export const secretNames = roleDefs.flatMap((def) =>
+  def.secretName === undefined ? [] : [`${def.secretName}${secretNameSuffix}`],
+);
 export const roleNames = roleDefs.map((def) => def.name);
 export const authSecretNames = [
   "NEON_AUTH_JWKS_URL",

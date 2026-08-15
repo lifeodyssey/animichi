@@ -266,3 +266,29 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
+      # #1048: production neon-secrets preview, mirroring the staging one.
+      # The prod stack is provisioned first by the owner-gated deploy; before
+      # that the stack does not exist on R2 and/or the prod `neonApiKey` secret
+      # config is not set, so this degrades to a warning instead of failing.
+      - name: Pulumi preview (neon-secrets production)
+        if: ${{ steps.pulumi_gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || steps.f.outputs.infra == 'true') }}
+        working-directory: infra/neon-secrets
+        run: |
+          pulumi login "$PULUMI_BACKEND_URL"
+          if ! pulumi stack select prod 2>/dev/null; then
+            echo "::warning::neon-secrets stack 'prod' does not exist yet on the R2 backend (created by the first production deploy). Skipping preview."
+            exit 0
+          fi
+          if ! pulumi config get animichi-neon-secrets:neonApiKey >/dev/null 2>&1; then
+            echo "::warning::neon-secrets prod stack has no neonApiKey secret config yet; set it (owner-gated provisioning) before the first prod deploy to preview the plan."
+            exit 0
+          fi
+          pulumi preview --non-interactive --diff
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
