@@ -395,8 +395,10 @@ jobs:
       pulumi_stack: staging
       working_directory: workers/users
       run_pulumi: false
-      worker_secrets: |
-        NEON_AUTH_JWKS_URL
+      # NEON_AUTH_JWKS_URL is no longer a worker secret on any component
+      # (issue #1047): the users worker trusts only the edge-forwarded identity
+      # and the edge reads the JWKS from wrangler vars. CI no longer ferries it.
+      worker_secrets: ""
     secrets:
       # #912 PR2: the staging DSN now arrives via the wrangler.toml Secrets
       # Store binding — no DATABASE_URL upload, no USERS_DATABASE_URL secret.
@@ -404,7 +406,6 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
     concurrency: deploy-users-staging
 
   deploy-root-staging:
@@ -546,16 +547,15 @@ jobs:
       pulumi_stack: prod
       working_directory: workers/users
       run_pulumi: false
-      worker_secrets: NEON_AUTH_JWKS_URL
       # #1048: production users reads its DSN from the Secrets Store binding
       # (USERS_DATABASE_URL_PROD) — no DATABASE_URL worker-secret upload.
-      # NEON_DATABASE_URL is still passed for the pinned Atlas apply.
+      # #1047: NEON_AUTH_JWKS_URL no longer ferried — users worker reads only
+      # the edge-forwarded identity; JWKS lives in edge wrangler vars.
     secrets:
       NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
     concurrency: deploy-users-prod
 
   deploy-maintenance-prod:
@@ -587,13 +587,15 @@ jobs:
       pulumi_stack: prod
       working_directory: "."
       run_pulumi: false
+      # CORS_ALLOWED_ORIGIN demoted to a wrangler var (issue #1047): it is a
+      # public origin (see [env.staging.vars] / [env.production.vars]), not a
+      # GitHub secret; CI no longer ferries it as a worker secret.
       worker_secrets: |
         SUPABASE_DB_URL
         MIMO_API_KEY
         DEEPSEEK_API_KEY
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
-        CORS_ALLOWED_ORIGIN
       optional_worker_secrets: ""
       post_deploy_secrets: |
         TURNSTILE_SECRET
@@ -607,7 +609,6 @@ jobs:
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-      CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
       ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
       # #826: passed for parity with deploy-root-staging (the environment-

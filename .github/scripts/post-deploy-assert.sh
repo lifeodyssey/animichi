@@ -343,10 +343,11 @@ cmd_data_plane_probe() {
   assert_bangumi_answer "${status}"
 }
 
-# NEON_AUTH_JWKS_URL is a GitHub environment SECRET; NEON_AUTH_ISSUER is a
-# `wrangler.toml` VAR. workers/edge/auth-config.test.ts pins their relationship
-# (jwks == ${issuer}/.well-known/jwks.json) at CONFIG time, but it can only
-# ever see the var — never the secret's real deployed value. The runtime
+# NEON_AUTH_JWKS_URL is a `wrangler.toml` VAR (public config, issue #1047
+# dropped it from the GitHub-environment secret path). The edge derives the
+# issuer/audience from the JWKS URL at runtime (see workers/edge/src/identity/
+# auth.ts); the AUTH-2 #950 hard cut deleted the NEON_AUTH_ISSUER var entirely,
+# and workers/edge/auth-config.test.ts asserts ISSUER stays ABSENT. The runtime
 # drift check (GET /internal/auth-config, issue #709) was retired 2026-08-04
 # by owner ruling: the real-path staging login E2E replaces it later.
 main() {
