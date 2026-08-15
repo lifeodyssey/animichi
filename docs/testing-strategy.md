@@ -169,8 +169,11 @@ local run into the live arm.
 
 The priority is therefore `TEST_DATABASE_URL` > explicit `TEST_DB=docker|neon` > offline default.
 All container arms apply `migrations/neon/` with the pinned Atlas CLI, reapply the idempotent seed,
-and run the same pgvector/HNSW contract. A BYO database is not writable until
-`TEST_DB_ALLOW_MUTATION=1`; Neon BYO additionally passes the protected-lineage check.
+and run the same pgvector/HNSW contract. Since the test-infra retirement (#1053), `TEST_DB=neon`
+is a **local-only** path (personal key): CI's DB-backed integration lane runs the offline Docker arm
+in `pipeline-agent.yml` and references neither the live Neon arm nor a Neon credential. A BYO
+database is not writable until `TEST_DB_ALLOW_MUTATION=1`; Neon BYO additionally passes the
+protected-lineage check.
 
 Offline recipe (network-free after the immutable image and Atlas are cached):
 
@@ -180,9 +183,10 @@ docker build -f apps/agent/docker/test-postgres/Dockerfile \
 ATLAS_VERSION=0.30.0 TEST_DB=docker make test-integration
 ```
 
-Budget about **30–45 seconds** for the cached offline arm and **6–7 minutes** for a live Neon arm.
-The offline image build itself needs network once; the Neon arm always needs network and consumes a
-temporary branch. See `docs/ops/neon-test-infra.md` for operator details.
+Budget about **30–45 seconds** for the cached offline arm and **6–7 minutes** for a live Neon arm
+(manual local runs only since #1053; CI uses the Docker arm). The offline image build itself needs
+network once; the Neon arm always needs network and consumes a temporary branch. See
+`docs/ops/neon-test-infra.md` for operator details.
 
 `supabase start` is **no longer needed for auth E2E** (AUTH-2 #950): the auth plane is Neon Auth,
 login E2E is `e2e/web-neon-login.spec.ts` (live Neon origin, self-skipping), and `make e2e-setup`
@@ -417,7 +421,7 @@ The test fixture never parses, filters, splits, or swallows migration SQL. Atlas
 then assert required tables, extensions, the `vector(1024)` column, and its HNSW index. New
 catalog/user schema changes are authored in `migrations/neon/` directly; the archived Supabase
 compatibility files (`supabase/`, issue #1000) are not a source and never require an Atlas twin. See
-`docs/ops/neon-test-infra.md` for the source rule and `test-base` refresh.
+`docs/ops/neon-test-infra.md` for the source rule; `test-base` refresh is manual since #1053.
 
 ### SQL Review Standards
 

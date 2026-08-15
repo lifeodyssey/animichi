@@ -3,8 +3,8 @@
 # runs ignore path filters, so a filtered PR lane would diverge from the queue).
 # lint validates the Atlas migration directory (hermetic); build runs the
 # migration boundary guard (node:test, hermetic — also part of the edge suite,
-# matching the retired db-validate job) plus the optional credentialed
-# dry-run against real Neon when the environment secret exists.
+# matching the retired db-validate job). The live Neon dry-run was dropped with
+# the Neon test-infra retirement (#1053): pipeline-db is green without any DSN.
 # The push paths carry the old migrations filter's read closure: the boundary
 # guard reads ci.yml/deploy.yml, docs/ops/migrations.md, README*, Makefile and
 # migrations/neon/atlas.sum itself.
@@ -39,9 +39,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-
 jobs:
   lint:
     name: DB / lint
@@ -71,13 +68,3 @@ jobs:
           node-version: "24"
       - name: Run migration boundary guard
         run: node --test workers/edge/test/migration-boundary.test.ts
-      - uses: ./.github/actions/install-atlas
-      - name: Dry-run Neon migrations
-        if: env.NEON_DATABASE_URL != ''
-        run: |
-          case "$NEON_DATABASE_URL" in
-            *\?*) scoped_url="${NEON_DATABASE_URL}&search_path=public" ;;
-            *) scoped_url="${NEON_DATABASE_URL}?search_path=public" ;;
-          esac
-          atlas migrate apply --dry-run --dir "file://migrations/neon" \
-            --url "$scoped_url" --revisions-schema public

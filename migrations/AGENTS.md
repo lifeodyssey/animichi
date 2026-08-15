@@ -33,7 +33,8 @@ Authentication-only legacy migrations remain under `supabase/migrations/`. Root 
 - **Gazetteer seed is NOT a migration** (`workers/catalog/data/gazetteer_seed.sql`): do not add it
   back to this directory. It is a header-declared **GENERATED ARTIFACT**, exempt from the 300-line
   rule, never edited by hand, and loaded idempotently after the schema exists
-  (`DATABASE_URL=... make seed-gazetteer`, or the `scripts/neon-test-base.sh` seed step).
+  (`DATABASE_URL=... make seed-gazetteer`; the retired Neon test-base refresh script that
+  also loaded it was removed with the Neon test-infra retirement #1053).
 - Regenerate it and the audit CSV from repo root — no Atlas hash step:
   `node --import tsx workers/catalog/scripts/build-gazetteer.ts --stations data/raw/N02-23_Station.geojson --cities data/raw/cities500.txt --out-sql workers/catalog/data/gazetteer_seed.sql --out-audit workers/catalog/data/gazetteer-audit.csv`.
 - The generator verifies pinned source SHA256 values in

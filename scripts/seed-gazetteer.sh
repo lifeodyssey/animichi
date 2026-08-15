@@ -28,7 +28,7 @@ for command in psql python3; do
 done
 
 # Credential hygiene: never put the DSN (which embeds the password) on a
-# process argv. Derive a pg_service.conf + pgpass like scripts/neon-test-base.sh
+# process argv. Derive a pg_service.conf + pgpass like the retired Neon test-base script.
 # does, then connect by service name only.
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
