@@ -23,6 +23,7 @@
 # SQL survives in live source or the migration chain.
 
 require "yaml"
+require "tmpdir"
 
 ROOT = File.expand_path("../..", __dir__)
 MIGRATIONS = File.join(ROOT, "migrations/neon")
@@ -214,6 +215,123 @@ def manifest_guard_violations(wf)
 
   ["reset-schema manifest assertion must name every retained table (missing: #{missing.join(', ')})"]
 end
+# ---- 3. Two-key reset contract (issue #1056) ------------------------------
+# The staging cutover reset is TWO-KEY: the destructive DROP
+# (DROP SCHEMA public CASCADE / CREATE SCHEMA public) binds to the
+# break-glass owner DSN (CUTOVER_BREAK_GLASS_DSN - only break-glass may
+# destroy), and the rebuild apply binds to the migrator DSN
+# (MIGRATOR_DATABASE_URL, the staging store secret base name per #1050).
+# The reset script refuses to run with either key missing. Phase order is
+# preserved: C close -> D reset -> E deploy -> F reopen, and ingress
+# never reopens before the reset. A non-destructive 'rehearsal' dispatch
+# input must exist so the launcher validates without ever running the DROP.
+BREAK_GLASS_ENV = "CUTOVER_BREAK_GLASS_DSN"
+MIGRATOR_ENV = "MIGRATOR_DATABASE_URL"
+RESET_SCRIPT = File.join(ROOT, ".github/scripts/cutover-reset-schema.sh")
+
+def two_key_reset_violations(wf)
+  found = []
+  jobs = wf.fetch("jobs")
+
+  dispatch = wf.fetch("on", {}).fetch("workflow_dispatch", {})
+  inputs = dispatch.fetch("inputs", {})
+  unless inputs.key?("rehearsal")
+    found << "staging-cutover.yml must expose a workflow_dispatch 'rehearsal' input (non-destructive validation dispatch)"
+  end
+
+  reset = jobs["cutover-phase-d-reset-schema"]
+  unless reset.is_a?(Hash)
+    found << "missing reset-schema phase job for two-key reset"
+    return found
+  end
+  reset_steps = reset.fetch("steps", [])
+  # The two-key binding must live on the ACTUAL reset/apply step (the one that
+  # invokes cutover-reset-schema.sh), not merely merged across the whole job.
+  # Merging env over every step would let the read-only prereq step (which also
+  # binds MIGRATOR_DATABASE_URL) mask a regression that dropped the DROP/apply
+  # keys from the real reset step.
+  apply_step = reset_steps.find { |s| s["run"].to_s.include?("cutover-reset-schema.sh") }
+  unless apply_step.is_a?(Hash)
+    found << "reset-schema must run cutover-reset-schema.sh in a step (apply-step keys binding)"
+    return found
+  end
+  apply_env = apply_step.fetch("env", {}) || {}
+
+  unless apply_env.key?(BREAK_GLASS_ENV)
+    found << "reset/apply step must bind DROP to #{BREAK_GLASS_ENV}"
+  end
+  unless apply_env.key?(MIGRATOR_ENV)
+    found << "reset/apply step must bind rebuild apply to #{MIGRATOR_ENV}"
+  end
+
+  if apply_env.key?(BREAK_GLASS_ENV) && apply_env.key?(MIGRATOR_ENV)
+    bg = apply_env[BREAK_GLASS_ENV].to_s
+    mg = apply_env[MIGRATOR_ENV].to_s
+    if bg.strip == mg.strip
+      found << "reset/apply step must use two DISTINCT keys (same value bound to both)"
+    end
+    unless bg.include?("NEON_DATABASE_URL")
+      found << "#{BREAK_GLASS_ENV} must source from the cutover NEON_DATABASE_URL secret"
+    end
+    unless mg.include?("migrator_database_url") || mg.include?("MIGRATOR_DATABASE_URL")
+      found << "#{MIGRATOR_ENV} must source from the owner-injected migrator DSN input"
+    end
+  end
+
+  # The phase-D read-only prereq (cutover-verify-prereqs.sh) fails closed when
+  # MIGRATOR_DATABASE_URL is unset. A rehearsal dispatch passes that DSN blank,
+  # so the prereq step MUST be gated on `inputs.rehearsal != true`; otherwise a
+  # documented rehearsal cannot pass its own phase-D prereq. Asserting the gate
+  # lets CI catch this regression (the step running unconditionally again).
+  prereq_step = reset_steps.find do |s|
+    s["run"].to_s.include?("cutover-verify-prereqs.sh") && (s.fetch("env", {}) || {}).key?(MIGRATOR_ENV)
+  end
+  unless prereq_step.is_a?(Hash) && prereq_step["if"].to_s == "inputs.rehearsal != true"
+    found << "reset-schema phase-D prereq step must be gated on `inputs.rehearsal != true` (rehearsal passes MIGRATOR_DATABASE_URL blank and must not require DB creds)"
+  end
+  if File.exist?(RESET_SCRIPT)
+    script = File.read(RESET_SCRIPT)
+    unless script.include?(BREAK_GLASS_ENV + ":?")
+      found << "cutover-reset-schema.sh must require #{BREAK_GLASS_ENV} (refuse when missing)"
+    end
+    unless script.include?(MIGRATOR_ENV + ":?")
+      found << "cutover-reset-schema.sh must require #{MIGRATOR_ENV} (refuse when missing)"
+    end
+    # Ownership-from-birth (issue #1056): assert the actual ownership predicate
+    # (every owned public object resolved to an owner via pg_get_userbyid compared
+    # to migrator), not merely that any one of several loose tokens appears. A
+    # 3-way substring OR lets a broken or trivial ownership query stay green.
+    unless script.include?("pg_get_userbyid(c.relowner) <> \'migrator\'")
+      found << "cutover-reset-schema.sh must assert ownership-from-birth (rebuilt public objects owned by migrator, via `pg_get_userbyid(c.relowner) <> 'migrator'`)"
+    end
+  else
+    found << "cutover-reset-schema.sh missing (RESET_SCRIPT)"
+  end
+
+  found
+end
+
+# ---- 4. Two-key reset refuses with either key missing (unit-behavior) -----
+# Proves the reset script exits non-zero when either key is unset, before any
+# psql/atlas call. psql/atlas do not exist in the controlled PATH, so if the
+# missing-env guard were bypassed the probe would fail closed on their absence.
+def reset_script_refusal_violations
+  return [] unless File.exist?(RESET_SCRIPT)
+
+  found = []
+  tmp = Dir.mktmpdir
+  begin
+    ok = system("env", "-i", "PATH=#{ENV['PATH']}", "HOME=#{tmp}",
+      "CUTOVER_BREAK_GLASS_DSN=", "MIGRATOR_DATABASE_URL=",
+      "bash", RESET_SCRIPT, "0" * 40, out: File::NULL, err: File::NULL)
+    found << "cutover-reset-schema.sh did not refuse when both keys are unset" if ok
+  rescue StandardError
+    found << "reset refusal probe raised unexpectedly: #{$!}"
+  ensure
+    FileUtils.remove_entry_secure(tmp) if File.directory?(tmp)
+  end
+  found
+end
 
 def main
   found = source_structure_violations
@@ -223,14 +341,15 @@ def main
     wf = load_workflow(WORKFLOW)
     found.concat(workflow_order_violations(wf))
     found.concat(manifest_guard_violations(wf))
+    found.concat(two_key_reset_violations(wf))
   end
+  found.concat(reset_script_refusal_violations)
 
   if found.empty?
-    puts "OK: fresh-schema manifest, sole-repository adapters, and cutover workflow order all hold"
+    puts "OK: fresh-schema manifest, sole-repository adapters, two-key reset, and cutover workflow order all hold"
   else
     puts found.sort
     abort "SESSION-3 staging cutover contract violated (#{found.length} issue(s))"
   end
 end
-
 main

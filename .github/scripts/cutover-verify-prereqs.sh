@@ -41,11 +41,11 @@ if [[ "${workers}" == *"jobs"* ]]; then
   exit 1
 fi
 
-if [[ -z "${NEON_DATABASE_URL:-}" ]]; then
-  echo "cutover-verify-prereqs: NEON_DATABASE_URL is required to verify retention absence" >&2
+if [[ -z "${MIGRATOR_DATABASE_URL:-}" ]]; then
+  echo "cutover-verify-prereqs: MIGRATOR_DATABASE_URL is required to verify retention absence (read-only check, two-key cutover #1056)" >&2
   exit 1
 fi
-triggers=$(psql "${NEON_DATABASE_URL}" -tAc \
+triggers=$(psql "${MIGRATOR_DATABASE_URL}" -tAc \
   "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'cron' AND table_name = 'job';" 2>/dev/null || echo "0")
 if [[ "${triggers}" != "0" ]]; then
   echo "cutover-verify-prereqs: staging still exposes cron triggers (${triggers})" >&2
