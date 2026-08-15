@@ -79,8 +79,8 @@ void test("every runtime role is created and granted BY the chain", () => {
 });
 
 void test("the migrator role is not a runtime-serving role in the chain", () => {
-  const rolesSql = chain.find((m) => m.name.includes("00000001_roles"))?.body ?? "";
-  const grantsSql = chain.find((m) => m.name.includes("00000030_grants"))?.body ?? "";
+  const rolesSql = chain.find((m) => m.name.includes("_roles.sql"))?.body ?? "";
+  const grantsSql = chain.find((m) => m.name.includes("_grants.sql"))?.body ?? "";
   assert.doesNotMatch(rolesSql, /CREATE ROLE migrator\b/i, "runtime roles migration must not create a migrator LOGIN (scoped IaC, #1050)");
   assert.doesNotMatch(grantsSql, /TO migrator\b/i, "grants migration must not grant runtime privileges to a migrator role");
 });
