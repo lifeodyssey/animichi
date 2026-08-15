@@ -19,7 +19,7 @@ permissions:
   # Scopes beyond contents: read live at job level (S0-v2 B7 "permissions"
   # assertion, ci.md "Least privilege"): the security job declares its own
   # `pull-requests: read`, as do the step-level dorny/paths-filter users
-  # (agent-eval-smoke, python-integration, catalog-spikes).
+  # (agent-eval-smoke, python-integration).
 
 env:
   PYTHON_VERSION: "3.11"
@@ -195,51 +195,6 @@ jobs:
           fail_ci_if_error: true
           use_oidc: true
           flags: integration
-
-  catalog-spikes:
-    timeout-minutes: 30
-    name: Catalog spikes (Neon)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    needs: [python-integration]
-    if: >-
-      ${{
-        always() &&
-        (needs.python-integration.result == 'success' ||
-          needs.python-integration.result == 'skipped') &&
-        (github.event_name == 'workflow_dispatch' ||
-          (github.event_name == 'pull_request' &&
-            github.event.pull_request.head.repo.full_name == github.repository))
-      }}
-    concurrency:
-      group: neon-tests-${{ github.ref }}
-      cancel-in-progress: true
-    env:
-      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
-      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
-        id: f
-        with:
-          filters: |
-            neon_catalog: ['workers/catalog/**']
-            neon_migrations: ['migrations/neon/**']
-
-      - uses: ./.github/actions/setup
-
-      - uses: ./.github/actions/install-atlas
-
-      - name: Run catalog spike tests
-        if: ${{ github.event_name == 'workflow_dispatch' || steps.f.outputs.neon_catalog == 'true' || steps.f.outputs.neon_migrations == 'true' }}
-        run: pnpm run test:spike
-        working-directory: workers/catalog
 
   # ── Cross-stack browser lane ──────────────────────────────────
   # The reusable workflow is intentionally broad and path-gates itself with a

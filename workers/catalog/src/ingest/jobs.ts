@@ -97,11 +97,7 @@ async function readGuard(db: CatalogDb, bangumiId: string): Promise<IngestGuard>
 
 async function readGuardRow(db: CatalogDb, bangumiId: string): Promise<GuardRow | undefined> {
   const result = await db.execute(guardStatement(bangumiId));
-  console.log('GUARDRAW', JSON.stringify(result.rows));
-  console.log('GUARDROW0', JSON.stringify(result.rows[0]));
-  const parsed = parseGuardRow(result.rows[0]);
-  console.log('GUARDPARSED', JSON.stringify(parsed));
-  return parsed;
+  return parseGuardRow(result.rows[0]);
 }
 
 /** The live guard: running-stale flag and negative-cache-until flag. */
