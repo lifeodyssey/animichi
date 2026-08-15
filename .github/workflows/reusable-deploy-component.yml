@@ -1068,6 +1068,18 @@ jobs:
             users)
               echo "::notice title=post-deploy smoke::users has no public route in any environment by design (private, USERS service binding only); reachability is verified end-to-end by reusable-post-deploy-test.yml's users-probe once root is deployed in the same environment"
               ;;
+            migrator)
+              # #1083: the migrator is a live OIDC-gated endpoint (workers.dev
+              # enabled, staging only until #1055), so the deploy smoke probes
+              # its READ-ONLY /ledger-head and asserts the ledger sits at the
+              # expected head (scripts/migration-head.sh) — the same contract
+              # the migrate-staging trigger enforced minutes earlier, re-verified
+              # against the freshly deployed worker.
+              url="$(bash .github/scripts/resolve-worker-url.sh migrator "$ENVIRONMENT")"
+              echo "Resolved migrator@$ENVIRONMENT -> $url"
+              expected="$(bash scripts/migration-head.sh)"
+              MIGRATOR_URL="$url" EXPECTED_MIGRATION_HEAD="$expected" bash .github/scripts/post-deploy-assert.sh ledger-head-equals-expected
+              ;;
             *)
               echo "::error title=post-deploy smoke::unknown component '$COMPONENT'"
               exit 1
