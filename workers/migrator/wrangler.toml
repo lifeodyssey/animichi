@@ -32,6 +32,10 @@ preview_urls = false
 
 [vars]
 ENVIRONMENT = "development"
+# #1095: the one-shot container may take several minutes on first-run cold
+# start (image pull + boot + apply); cap raised above that (the migrate-staging
+# trigger curl waits 900s and the job timeout is 20min).
+CONTAINER_TIMEOUT_MS = "600000"
 
 # The one-shot Atlas batch container (no ports; entrypoint runs atlas apply
 # and exits). Image built from the monorepo root context so it can COPY the
@@ -71,6 +75,8 @@ secret_name = "MIGRATOR_DATABASE_URL"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
+# #1095: same 10-min cap as the dev default (first-run cold start).
+CONTAINER_TIMEOUT_MS = "600000"
 
 [[env.staging.containers]]
 class_name = "MigrationContainer"
