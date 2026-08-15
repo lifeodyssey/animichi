@@ -54,7 +54,14 @@ class RecordingStore:
         self.order.append("dispatch")
         return await self._inner.dispatch(ref, owner=owner)
 
-    async def settle(self, ref: TurnRef, *, owner: str, outcome: SettleOutcome) -> bool:
+    async def settle(
+        self,
+        ref: TurnRef,
+        *,
+        owner: str,
+        outcome: SettleOutcome,
+        outcome_payload: object | None = None,
+    ) -> bool:
         self.order.append("settle")
         return await self._inner.settle(ref, owner=owner, outcome=outcome)
 

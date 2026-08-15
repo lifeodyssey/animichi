@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from datetime import date
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from animichi.application.admission_limits import (
     BudgetVerdict,
@@ -33,6 +34,9 @@ from animichi.application.identity import (
 )
 from animichi.application.model_turn_port import ModelTurnUsage
 from animichi.domain.ports import UsageMeter
+from animichi.infrastructure.persistence.repositories.usage import (
+    SQLModelUsageRepository,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -48,6 +52,7 @@ __all__ = [
     "anonymous_budget_verdict",
     "is_anonymous_identity",
     "record_turn_usage",
+    "record_turn_usage_on",
     "scope_for_identity",
     "usage_cost_usd",
     "utc_today",
@@ -97,6 +102,32 @@ async def record_turn_usage(
         return
     try:
         await usage_repo.accumulate_usage(
+            usage_date=today or utc_today(),
+            scope=scope,
+            requests=usage.requests,
+            input_tokens=usage.prompt_tokens,
+            output_tokens=usage.completion_tokens,
+            cost_usd=usage_cost_usd(usage, prices),
+        )
+    except _METER_ERRORS:
+        logger.warning("daily_usage_record_failed", scope=scope, exc_info=True)
+
+
+async def record_turn_usage_on(
+    session: AsyncSession,
+    usage_repo: SQLModelUsageRepository | None,
+    *,
+    usage: ModelTurnUsage | None,
+    scope: UsageScope,
+    prices: UsagePrices,
+    today: date | None = None,
+) -> None:
+    """Accumulate one turn into ``daily_usage`` on a shared transaction (AC5)."""
+    if usage_repo is None or usage is None:
+        return
+    try:
+        await usage_repo.accumulate_usage_on(
+            session,
             usage_date=today or utc_today(),
             scope=scope,
             requests=usage.requests,

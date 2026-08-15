@@ -13,7 +13,7 @@
 #      config at workers/edge/wrangler.toml.
 #   2. The retained Jobs production surface: maintenance -> workers/jobs,
 #      AGENT_DATABASE_URL, the jobs_svc grants, and both cron schedules.
-#   3. Atlas head is 20260812000000 and migrations/neon/atlas.sum hashes to
+#   3. Atlas head is 20260814191301 and migrations/neon/atlas.sum hashes to
 #      the pinned SHA-256.
 #   4. SAFE-1 target invariants: every production entry point gates on the
 #      eligibility workflow; rollback has no caller version_id and stops
@@ -124,10 +124,10 @@ abort "jobs production secrets.required must be exactly AGENT_DATABASE_URL" \
 
 # ── 3. Atlas head + pinned atlas.sum integrity ──
 heads = Dir[File.join("migrations/neon", "*.sql")].map { |f| File.basename(f)[/\A\d+/] }.compact
-abort "Atlas head must be 20260812000000, got #{heads.max.inspect}" unless heads.max == "20260812000000"
+abort "Atlas head must be 20260814191301, got #{heads.max.inspect}" unless heads.max == "20260814191301"
 sum = Digest::SHA256.file("migrations/neon/atlas.sum").hexdigest
-abort "atlas.sum SHA-256 must be a2ffc5a11639e063ce93e0234220b799ccd393ac8774d4906a92a8a582b76a9b, got #{sum}" \
-  unless sum == "a2ffc5a11639e063ce93e0234220b799ccd393ac8774d4906a92a8a582b76a9b"
+abort "atlas.sum SHA-256 must be 408d6b353b073dee99da33dc93cdb518354cd41f47ea87e24ef2301feeaef484, got #{sum}" \
+  unless sum == "408d6b353b073dee99da33dc93cdb518354cd41f47ea87e24ef2301feeaef484"
 
 # ── 4. SAFE-1 target invariants (the guard is now wired) ────────────────────
 # 4a. Every production entry point routes through the eligibility workflow and

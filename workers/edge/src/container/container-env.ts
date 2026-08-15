@@ -12,14 +12,19 @@
 
 export const CONTAINER_ENV_KEYS = [
   "DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUPABASE_DB_URL", "CATALOG_API_URL",
+  // Compatibility surface (#1000): SUPABASE_DB_URL remains a forwarded (and
+  // CONTAINER_REQUIRED_KEYS-listed) container env key because production still
+  // provisions the container DSN under that name until the #855 prod cutover
+  // replaces it with AGENT_SVC_DATABASE_URL. The agent settings no longer read
+  // SUPABASE_DB_URL, so this is transitional-compat pending that cutover.
   // #912 follow-up: the agent container's Neon agent_svc role DSN, sourced
   // from the edge Worker's Secrets Store binding (staging; wrangler.toml
   // [[env.staging.secrets_store_secrets]]). Deliberately NOT in
   // CONTAINER_REQUIRED_KEYS: production has no binding until the #855
   // cutover, and a missing value must not fail-closed every environment.
   // The per-environment requirement lives in apps/agent settings
-  // (validate_required_env accepts AGENT_SVC_DATABASE_URL or the legacy
-  // SUPABASE_DB_URL).
+  // (validate_required_env requires AGENT_SVC_DATABASE_URL; the legacy
+  // SUPABASE_DB_URL fallback is gone — issue #1000).
   "AGENT_SVC_DATABASE_URL",
   // APP_ENV also joined CONTAINER_REQUIRED_KEYS below (issue #498): it is kept
   // listed here too so the standard forwarding allowlist stays a complete

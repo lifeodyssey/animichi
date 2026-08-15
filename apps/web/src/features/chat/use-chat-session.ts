@@ -34,6 +34,10 @@ interface SessionTracker {
    * `x-session-revision` / `x-session-digest` on the next turn. */
   revision: number | undefined;
   digest: string | undefined;
+  /** Issue #1014 AC6: the idempotency key minted once per logical turn and
+   * reused across a retried send, so a stream-interrupted retry carries the
+   * SAME x-turn-id and the server dedups it instead of charging a rerun. */
+  pendingTurnId: string | undefined;
   lastHttpStatus: number | undefined;
   lastErrorCode: string | undefined;
   /** D12's `quota_resets_at`: when this identity's allowance returns. */
@@ -42,7 +46,7 @@ interface SessionTracker {
 type SessionRef = RefObject<SessionTracker>;
 
 function emptyTracker(scope: string, sessionId: string | undefined): SessionTracker {
-  return { scope, id: sessionId, ...blankOffer(), ...blankRejection() };
+  return { scope, id: sessionId, pendingTurnId: undefined, ...blankOffer(), ...blankRejection() };
 }
 
 function blankOffer(): { revision: undefined; digest: undefined } {
@@ -79,20 +83,54 @@ function offerOf(ref: SessionRef): SessionOffer {
 }
 
 /**
- * A Chat whose transport and onData are fixed at construction: `scope` is the
- * immutable epoch. `useChat`'s own onData delegates through a latest-render
- * ref, so a late frame from a previous scope's stream would invoke the new
- * scope's callback; constructing the Chat ourselves pins the callback to its
- * epoch, and the guard drops frames once the tracker moved to another scope.
+ * Mint (or reuse) the idempotency key for the current logical turn (AC6).
+ * The first header call of a send pins `pendingTurnId`; a retry of the same
+ * send (e.g. after a mid-stream disconnect) returns the SAME id so the server
+ * dedups it. A genuinely new send gets a fresh id once the previous turn ends.
  */
+function nextTurnId(ref: SessionRef): string {
+  ref.current.pendingTurnId ??= generateId();
+  return ref.current.pendingTurnId;
+}
+
+/** Clear the per-turn idempotency key once a turn genuinely completes. */
+function endTurn(ref: SessionRef): void {
+  ref.current.pendingTurnId = undefined;
+}
+
+/** The AI SDK finish signal; a turn completes only absent all of these. */
+interface FinishInfo {
+  isAbort: boolean;
+  isDisconnect: boolean;
+  isError: boolean;
+}
+
+/** AC6: free the per-turn idempotency key only on genuine completion so a
+ * disconnected/aborted/errored turn's retry keeps the SAME x-turn-id. */
+function handleFinish(ref: SessionRef, finish: FinishInfo): void {
+  if (finish.isAbort || finish.isDisconnect || finish.isError) return;
+  endTurn(ref);
+}
+
+/** Handlers pinned to their scope epoch so a late frame from a previous
+ * scope's stream cannot fire the current callback. */
+function chatHandlers(scope: string, ref: SessionRef) {
+  return {
+    onData: (part: { data: ChatDataPart }) => {
+      if (ref.current.scope === scope) captureSessionOffer(ref, part);
+    },
+    onFinish: (finish: FinishInfo) => {
+      handleFinish(ref, finish);
+    },
+  };
+}
+
 function createScopedChat(chatUrl: string, scope: string, ref: SessionRef): Chat<ChatUIMessage> {
   return new Chat<ChatUIMessage>({
     id: scope,
     transport: createSessionTransport(chatUrl, ref),
     dataPartSchemas,
-    onData: (part) => {
-      if (ref.current.scope === scope) captureSessionOffer(ref, part);
-    },
+    ...chatHandlers(scope, ref),
   });
 }
 
@@ -146,7 +184,7 @@ function createTrackingFetch(ref: SessionRef): typeof globalThis.fetch {
 function createSessionTransport(chatUrl: string, ref: SessionRef): DefaultChatTransport<ChatUIMessage> {
   return new DefaultChatTransport({
     api: chatUrl,
-    headers: () => sessionHeaders({ ...offerOf(ref), turnId: generateId() }),
+    headers: () => sessionHeaders({ ...offerOf(ref), turnId: nextTurnId(ref) }),
     fetch: createTrackingFetch(ref),
   });
 }

@@ -49,17 +49,27 @@ preview_urls = false
 binding = "MEDIA_BUCKET"
 bucket_name = "catalog-media"
 
+# R2 bucket for immutable public catalog snapshots (issue #1012, see src/publish/).
+# Every successful daily run publishes an N/N-1 snapshot set here; the online
+# gcSnapshots pass (keep N and N-1) IS the retention enforcement, so no R2
+# lifecycle rule is required. Provisioned by Pulumi as `catalog-snapshots`.
+[[r2_buckets]]
+binding = "SNAPSHOT_BUCKET"
+bucket_name = "catalog-snapshots"
+
 [observability]
 enabled = true
 
-# Scheduled ingestion (S0-v2 D4): a daily seed pass over the checked-in work
-# list (src/ingest/seed-works.ts), a daily discovery + ingest run (#1006), and
-# an hourly TTL refresh of the stalest raw rows (batch cap 5). All three
-# schedules repeat byte-identically in every environment below; keep them in
-# sync with SEED_CRON / DAILY_DISCOVER_CRON / TTL_REFRESH_CRON in
-# src/cron-config.ts. The :17 minute keeps catalog off the top of the hour.
+# Per-environment schedules (issue #1016, spec §183): the upstream ingest
+# crons — SEED_CRON (0 4 * * *), DAILY_DISCOVER_CRON (0 6 * * *), TTL_REFRESH_CRON
+# (17 * * * *) — belong to PRODUCTION ALONE; staging declares only the daily
+# snapshot import cron DAILY_IMPORT_CRON (0 3 * * *). The development
+# (top-level) environment declares none. Keep the strings in sync with
+# src/cron-config.ts; the runtime handler additionally guards on ENVIRONMENT so
+# a wrongly-routed event fails closed. The :17 minute keeps catalog off the top
+# of the hour.
 [triggers]
-crons = ["0 4 * * *", "0 6 * * *", "17 * * * *"]
+crons = []
 
 # NOTE: keep this block to ENVIRONMENT only. The vitest-pool-workers test env
 # reads [vars]; test/worker.worker.test.ts asserts that /catalog/* returns 503
@@ -96,11 +106,33 @@ secret_name = "CATALOG_DATABASE_URL"
 ENVIRONMENT = "staging"
 
 [env.staging.triggers]
-crons = ["0 4 * * *", "0 6 * * *", "17 * * * *"]
+crons = ["0 3 * * *"]
+
+# #1016 AC2: staging's daily import reads the PRODUCTION snapshot through this
+# private read-only service binding (the production catalog Worker's
+# SnapshotReadEntrypoint). Staging never holds production object-store
+# credentials or database access — only the SnapshotReadService read surface
+# (currentManifest + readObject) crosses this binding. The production Worker
+# script is named "catalog" (see [env.production].name).
+#
+# `entrypoint` is REQUIRED, not cosmetic: without it PROD_SNAPSHOT binds to the
+# worker's default export (a plain fetch/scheduled Fetcher) which has no
+# currentManifest()/readObject(), so the staging daily import would throw
+# "currentManifest is not a function" at runtime. The entrypoint pins the
+# binding to SnapshotReadEntrypoint and is asserted by
+# test/wrangler-private.worker.test.ts.
+[[env.staging.services]]
+binding = "PROD_SNAPSHOT"
+service = "catalog"
+entrypoint = "SnapshotReadEntrypoint"
 
 [[env.staging.r2_buckets]]
 binding = "MEDIA_BUCKET"
 bucket_name = "catalog-media-staging"
+
+[[env.staging.r2_buckets]]
+binding = "SNAPSHOT_BUCKET"
+bucket_name = "catalog-snapshots-staging"
 
 [env.production]
 name = "catalog"
@@ -122,3 +154,7 @@ crons = ["0 4 * * *", "0 6 * * *", "17 * * * *"]
 [[env.production.r2_buckets]]
 binding = "MEDIA_BUCKET"
 bucket_name = "catalog-media"
+
+[[env.production.r2_buckets]]
+binding = "SNAPSHOT_BUCKET"
+bucket_name = "catalog-snapshots"

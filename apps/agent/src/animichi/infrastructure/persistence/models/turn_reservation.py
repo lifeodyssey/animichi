@@ -11,6 +11,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import Column, DateTime, Integer, Table, Text, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlmodel import Field, SQLModel
 
@@ -47,6 +48,10 @@ class TurnReservationModel(SQLModel, table=True):
     lease_expires_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), nullable=False)
     )
+    #: Canonical sha256 hex of the turn request (AC4 conflict detection).
+    request_digest: str | None = Field(default=None, sa_column=Column(Text))
+    #: Serialized committed wire output, recoverable on replay (AC3).
+    outcome_payload: object | None = Field(default=None, sa_column=Column(JSONB))
 
 
 reservation_table: Table = TurnReservationModel.__table__

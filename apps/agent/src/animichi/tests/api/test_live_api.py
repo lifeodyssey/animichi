@@ -1,11 +1,11 @@
 """Local live API tests — the full hybrid chain against a running stack.
 
 Validates, end to end, what was confirmed live on 2026-06-21:
-  Python agent (LLM) -> CatalogClient -> TS catalog Worker -> Supabase Postgres.
+  Python agent (LLM) -> CatalogClient -> TS catalog Worker -> Neon Postgres.
 
 Run after starting the local stack:
-  supabase start -x studio,imgproxy,vector,analytics   # + apply migrations
-  (cd catalog && npx wrangler dev --port 8787)         # DATABASE_URL in .dev.vars
+  make dev-db                                     # Neon Local agent postgres-wire proxy
+  (cd workers/catalog && pnpm wrangler dev --port 8787)  # DATABASE_URL in .dev.vars
   CATALOG_API_URL=http://127.0.0.1:8787 \
     DEFAULT_AGENT_MODEL=openai:mimo-v2.5@https://api.xiaomimimo.com/v1 \
     uv run animichi-api                                 # agent on :8080
@@ -33,7 +33,7 @@ def _reachable(url: str) -> bool:
 
 skip_no_stack = pytest.mark.skipif(
     not (_reachable(CATALOG_URL) and _reachable(AGENT_URL)),
-    reason="local stack not running (supabase + catalog wrangler dev + agent serve)",
+    reason="local stack not running (neon + catalog wrangler dev + agent serve)",
 )
 
 

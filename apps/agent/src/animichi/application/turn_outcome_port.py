@@ -60,11 +60,20 @@ class TurnOutcomeStore(Protocol):
         """
         ...
 
-    async def settle(self, ref: TurnRef, *, owner: str, outcome: SettleOutcome) -> bool:
+    async def settle(
+        self,
+        ref: TurnRef,
+        *,
+        owner: str,
+        outcome: SettleOutcome,
+        outcome_payload: object | None = None,
+    ) -> bool:
         """Transition ``running`` -> terminal, exactly once (CAS guard).
 
         Only the lease holder wins; a concurrent sweep or a second settle gets
-        ``False`` so settlement side effects apply exactly once.
+        ``False`` so settlement side effects apply exactly once. A ``completed``
+        settle may carry the opaque committed output (``outcome_payload``) the
+        store persists for exactly-once replay recovery (AC3).
         """
         ...
 

@@ -30,6 +30,7 @@ from animichi.infrastructure.persistence.repositories.feedback import (
 from animichi.infrastructure.persistence.repositories.memory import (
     SQLModelMemoryStore,
 )
+from animichi.infrastructure.persistence.repositories.outbox import SQLModelOutboxStore
 from animichi.infrastructure.persistence.repositories.points import (
     SQLModelPointsRepository,
 )
@@ -62,6 +63,7 @@ class PersistenceRepos:
     anon_quota: SQLModelAnonQuotaRepository
     feedback: SQLModelFeedbackRepository
     memory: SQLModelMemoryStore
+    outbox: SQLModelOutboxStore
 
     @classmethod
     def build(cls, sessionmaker: AsyncSessionFactory) -> PersistenceRepos:
@@ -93,6 +95,7 @@ def _assign_agent(repos: PersistenceRepos, sessionmaker: AsyncSessionFactory) ->
     repos.anon_quota = SQLModelAnonQuotaRepository(sessionmaker)
     repos.feedback = SQLModelFeedbackRepository(sessionmaker)
     repos.memory = SQLModelMemoryStore(sessionmaker)
+    repos.outbox = SQLModelOutboxStore(sessionmaker)
 
 
 def _assign_catalog(repos: PersistenceRepos, sessionmaker: AsyncSessionFactory) -> None:

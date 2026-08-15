@@ -127,8 +127,9 @@ Anitabi (`api.anitabi.cn`) + Bangumi (`api.bgm.tv`) share Bangumi.tv subject IDs
   cached `animichi-test-postgres` image, and Atlas 0.30.0; `TEST_DB=neon` additionally needs
   `NEON_API_KEY` + `NEON_PROJECT_ID`. BYO mutation requires `TEST_DB_ALLOW_MUTATION=1` and rejects
   protected Neon lineage. The standalone full-stack eval runner accepts `TEST_DATABASE_URL` only.
-- `supabase start` is reserved for GoTrue-coupled magic-link E2E and auth development; it does not
-  provision the agent integration-test database. Unit tests need neither Docker nor network.
+- The local backend Postgres is Neon Local (`make dev-db`); `supabase start` is no longer needed
+  for auth or the integration-test database (auth is Neon Auth, AUTH-2 #950). Unit tests need
+  neither Docker nor network.
 
 ## Eval: cost, run recipe, and the post-redesign baseline (2026-07-17)
 

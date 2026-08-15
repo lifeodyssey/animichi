@@ -49,6 +49,8 @@ class _Reservation:
     status: _ReservationStatus
     owner: str | None
     lease_expires_at: datetime | None
+    request_digest: str | None = None
+    outcome_payload: object | None = None
 
 
 def _digest(state: dict[str, object]) -> str:
@@ -85,6 +87,8 @@ class FakeTurnReservationStore:
                 status=_port_status(existing.status),
                 session_id=session_id,
                 revision=existing.revision,
+                request_digest=existing.request_digest,
+                outcome_payload=existing.outcome_payload,
             )
 
         current = max((r.revision for r in self._for_session(session_id)), default=0)
@@ -111,6 +115,8 @@ class FakeTurnReservationStore:
                         status=_port_status(raced.status),
                         session_id=session_id,
                         revision=raced.revision,
+                        request_digest=raced.request_digest,
+                        outcome_payload=raced.outcome_payload,
                     )
             self.reservations.append(
                 _Reservation(
@@ -118,6 +124,7 @@ class FakeTurnReservationStore:
                     session_id=session_id,
                     revision=revision,
                     digest=request.session_digest,
+                    request_digest=request.request_digest,
                     status="reserved",
                     owner=request.owner,
                     lease_expires_at=request.lease_expires_at,
@@ -141,7 +148,14 @@ class FakeTurnReservationStore:
         reservation.status = "running"
         return True
 
-    async def settle(self, ref: TurnRef, *, owner: str, outcome: SettleOutcome) -> bool:
+    async def settle(
+        self,
+        ref: TurnRef,
+        *,
+        owner: str,
+        outcome: SettleOutcome,
+        outcome_payload: object | None = None,
+    ) -> bool:
         reservation = self._by_turn_key(ref.session_id, ref.turn_key)
         self.settle_calls.append((ref.session_id, ref.turn_key, owner, outcome))
         if reservation is None or reservation.status != "running":
@@ -149,6 +163,8 @@ class FakeTurnReservationStore:
         if reservation.owner != owner or not self._lease_valid(reservation):
             return False
         reservation.status = outcome
+        if outcome == "completed" and outcome_payload is not None:
+            reservation.outcome_payload = outcome_payload
         return True
 
     async def release(self, ref: TurnRef, *, owner: str) -> bool:

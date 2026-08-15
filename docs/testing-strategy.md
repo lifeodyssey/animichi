@@ -72,7 +72,7 @@ Stack: FastAPI + asyncpg + PydanticAI (`apps/agent`), TanStack Start + React (`a
 - Session facade
 
 **Mock strategy:**
-- DB → `AsyncMock` (mock `SupabaseClient` methods)
+- DB → `AsyncMock` (mock the SQLModel persistence repos)
 - External API gateway → `MagicMock`
 - LLM → `TestModel` / `FunctionModel` via `Agent.override`
 - Settings → `mock_settings` fixture
@@ -186,8 +186,9 @@ temporary branch. See `docs/ops/neon-test-infra.md` for operator details.
 
 `supabase start` is **no longer needed for auth E2E** (AUTH-2 #950): the auth plane is Neon Auth,
 login E2E is `e2e/web-neon-login.spec.ts` (live Neon origin, self-skipping), and `make e2e-setup`
-installs deps only. `supabase start` remains only as the agent backend's local Postgres in
-`make dev-local` and for Supabase-side migration tooling. **`supabase start` is an auth appliance, not a test database.**
+installs deps only. The agent backend's local Postgres in `make dev-local` comes from Neon Local
+(`make dev-db`); `supabase/` is **archived history** (issue #1000), so `supabase start` is no longer used
+as the backend database or for migration tooling. **`supabase start` is an auth appliance, not a test database.**
 
 **FastAPI Dependency Override (official pattern):**
 
@@ -414,8 +415,8 @@ dependencies and failure modes differ.
 The test fixture never parses, filters, splits, or swallows migration SQL. Atlas 0.30.0 applies
 `migrations/neon/` transactionally and records revisions in `public.atlas_schema_revisions`; tests
 then assert required tables, extensions, the `vector(1024)` column, and its HNSW index. New
-catalog/user schema changes are authored in `migrations/neon/` directly; the older Supabase
-compatibility files are not a second source and do not require an Atlas twin. See
+catalog/user schema changes are authored in `migrations/neon/` directly; the archived Supabase
+compatibility files (`supabase/`, issue #1000) are not a source and never require an Atlas twin. See
 `docs/ops/neon-test-infra.md` for the source rule and `test-base` refresh.
 
 ### SQL Review Standards

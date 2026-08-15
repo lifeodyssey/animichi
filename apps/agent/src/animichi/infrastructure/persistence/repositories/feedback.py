@@ -15,6 +15,7 @@ from typing import cast
 
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.dml import ReturningInsert, Update
 from sqlalchemy.sql.selectable import Select
 
@@ -194,6 +195,24 @@ async def _insert_request_log(
     return _require_id(raw, operation="insert_request_log")
 
 
+async def _insert_request_log_on(
+    session: AsyncSession,
+    session_id: str | None,
+    query_text: str,
+    locale: str,
+    plan_steps: list[str] | None,
+    intent: str | None,
+    status: str,
+    latency_ms: int | None,
+) -> str:
+    "Insert one audit row on a caller-owned transaction; returns the UUID."
+    statement = _request_log_insert(
+        session_id, query_text, locale, plan_steps, intent, status, latency_ms
+    )
+    raw = (await session.execute(statement)).scalar_one_or_none()
+    return _require_id(raw, operation="insert_request_log")
+
+
 async def _fetch_bad_feedback(
     sessionmaker: AsyncSessionFactory, limit: int
 ) -> list[FeedbackBadRow]:
@@ -252,6 +271,29 @@ class _FeedbackWriteMixin:
     ) -> str:
         return await _insert_request_log(
             self._sessionmaker,
+            session_id,
+            query_text,
+            locale,
+            plan_steps,
+            intent,
+            status,
+            latency_ms,
+        )
+
+    async def insert_request_log_on(
+        self,
+        session: AsyncSession,
+        *,
+        session_id: str | None,
+        query_text: str,
+        locale: str,
+        plan_steps: list[str] | None,
+        intent: str | None,
+        status: str,
+        latency_ms: int | None,
+    ) -> str:
+        return await _insert_request_log_on(
+            session,
             session_id,
             query_text,
             locale,

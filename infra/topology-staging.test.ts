@@ -131,9 +131,15 @@ test("an ordinary input on this same stack is NOT sealed", () => {
   assert.equal(unseal(routes[0].inputs.pattern).isSecret, false);
 });
 
-test("staging map bucket is isolated from production", () => {
+test("staging buckets are isolated from production and stay private", () => {
   const buckets = ofType(built, "cloudflare:index/r2Bucket:R2Bucket");
-  assert.equal(buckets.length, 2);
-  assert.deepEqual(buckets.map((bucket) => bucket.inputs.name), ["catalog-media-staging", "map-tiles-staging"]);
+  assert.equal(buckets.length, 3);
+  assert.deepEqual(buckets.map((bucket) => bucket.inputs.name), [
+    "catalog-media-staging",
+    "map-tiles-staging",
+    "catalog-snapshots-staging",
+  ]);
   assert.equal(buckets.every((bucket) => bucket.inputs.accountId === "acct"), true);
+  const customDomains = ofType(built, "cloudflare:index/r2CustomDomain:R2CustomDomain");
+  assert.deepEqual(customDomains, []);
 });

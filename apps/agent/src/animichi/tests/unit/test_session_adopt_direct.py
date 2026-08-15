@@ -150,6 +150,7 @@ async def test_handler_runs_the_full_adoption_body_directly() -> None:
         anon_quota=MagicMock(),
         feedback=MagicMock(),
         memory=MagicMock(),
+        outbox=MagicMock(),
     )
     db.session.adopt_ownership = AsyncMock(
         return_value=AdoptionResult(adopted_count=1, revisions_bumped=1)

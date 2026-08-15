@@ -101,17 +101,31 @@ repos:
         files: ^\.github/workflows/.*\.ya?ml$
 
       # ORM-only database access (raw-SQL policy, #999). Runs the repository
-      # Semgrep ruleset (.semgrep/, six rules) on staged Python + TypeScript.
-      # Python rules are scoped to /apps/agent, TypeScript to /workers/catalog/src
-      # and /workers/users/src (paths.include), so unrelated staged files simply
-      # match nothing and pass. semgrep is installed via uv tool (same version as
-      # the reusable-security CI job — 1.172.0). Atlas migration SQL and the
+      # Semgrep ruleset (.semgrep/, six rules) on Python + TypeScript. Python
+      # rules are scoped to /apps/agent, TypeScript to /workers/catalog/src and
+      # /workers/users/src (paths.include); unrelated files simply match nothing
+      # and pass. semgrep is installed via uv tool (same version as the
+      # reusable-security CI job — 1.172.0). Atlas migration SQL and the
       # sanctioned typed-expression seams are excluded by the rules themselves.
+      #
+      # We scan the repo ROOT (target '.') rather than passing the staged files
+      # explicitly: semgrep applies .semgrepignore (which excludes test/ and
+      # tests/) only to directory scans, and applies the rules' anchored
+      # paths.include only when target-relative paths keep the /apps/agent,
+      # /workers/... prefix. Listing individual payload files bypasses BOTH of
+      # those — the pre-commit hook would flag pre-existing raw SQL in test
+      # fixtures (e.g. apps/agent/**/tests/**) that the CI scan (.semgrepignore)
+      # skips. Scanning '.' reproduces the CI job's behavior exactly, and
+      # --exclude mirrors the test/test directory exclusions explicitly.
       - id: semgrep-orm
         name: semgrep (ORM-only DB access)
-        entry: uv tool run --no-build semgrep@1.172.0 --config .semgrep --error
+        # pass_filenames:false so pre-commit does NOT append the changed files as
+        # explicit targets (that bypasses .semgrepignore). The files regex still
+        # gates the hook to commits that touch a Python/TypeScript file.
+        entry: uv tool run --no-build semgrep@1.172.0 --config .semgrep --error . --exclude '**/tests/**' --exclude '**/test/**'
         language: system
         files: \.(py|ts)$
+        pass_filenames: false
 
       # --- pre-push stage: the single orchestration surface (#1003). ---
       # scripts/local-gates/pre-push.sh is the sole pre-push entrypoint. It

@@ -4,7 +4,7 @@
 # lint validates the Atlas migration directory (hermetic); build runs the
 # migration boundary guard (node:test, hermetic — also part of the edge suite,
 # matching the retired db-validate job) plus the optional credentialed
-# dry-runs against real Neon/Supabase when the environment secrets exist.
+# dry-run against real Neon when the environment secret exists.
 # The push paths carry the old migrations filter's read closure: the boundary
 # guard reads ci.yml/deploy.yml, docs/ops/migrations.md, README*, Makefile and
 # migrations/neon/atlas.sum itself.
@@ -21,7 +21,6 @@ on:
       - ".github/scripts/**"
       - ".github/workflows/pipeline-db.yml"
       - "migrations/**"
-      - "supabase/migrations/**"
       - "docs/ops/migrations.md"
       - "docs/ops/deployment.md"
       - "README*"
@@ -42,7 +41,6 @@ concurrency:
 
 env:
   NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
 
 jobs:
   lint:
@@ -83,10 +81,3 @@ jobs:
           esac
           atlas migrate apply --dry-run --dir "file://migrations/neon" \
             --url "$scoped_url" --revisions-schema public
-      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
-        if: env.SUPABASE_DB_URL != ''
-        with:
-          version: "2.26.9"
-      - name: Validate frozen Supabase auth/compatibility migrations
-        if: env.SUPABASE_DB_URL != ''
-        run: supabase migration list --db-url "$SUPABASE_DB_URL"

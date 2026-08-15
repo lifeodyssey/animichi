@@ -311,11 +311,11 @@ cmd_catalog_probe() {
 # Data-plane connectivity probe (issue #484 P1-3): healthz only proves the
 # container process is up; catalog-probe covers the Neon-backed catalog
 # Worker specifically. Neither exercises the agent container's OWN Postgres
-# connection (env.SUPABASE_DB_URL — despite the name, a plain asyncpg DSN;
-# see apps/agent/src/animichi/infrastructure/supabase/client.py). GET /v1/bangumi/
-# popular is in PUBLIC_V1 (no auth, no LLM call, zero cost) and reads through
-# that connection via BangumiRepository — a misconfigured/unreachable DSN
-# there throws and surfaces as a non-200, not a silent empty success.
+# connection (env.AGENT_SVC_DATABASE_URL — the Neon agent_svc role DSN). GET
+# /v1/bangumi/ popular is in PUBLIC_V1 (no auth, no LLM call, zero cost) and
+# reads through that connection via BangumiRepository — a misconfigured/
+# unreachable DSN there throws and surfaces as a non-200, not a silent empty
+# success.
 #
 # Showcase mode (S0-v2 GOAL C / C9): the data plane is deliberately
 # unreachable — /v1/bangumi/popular is a functional route and is denied like
@@ -324,8 +324,9 @@ cmd_catalog_probe() {
 # Postgres proof resumes when the environment's EDGE_SHOWCASE_MODE returns to
 # "false". healthz still proves container liveness in the meantime.
 # A classic data-plane-probe answer: a 200 whose body carries a non-empty
-# bangumi array (proves the edge → container → agent Postgres [SUPABASE_DB_URL]
-# round-trip; a misconfigured DSN throws and surfaces as a non-200).
+# bangumi array (proves the edge → container → agent Postgres
+# [AGENT_SVC_DATABASE_URL] round-trip; a misconfigured DSN throws and
+# surfaces as a non-200).
 assert_bangumi_answer() {
   local status="$1"
   [ "${status}" = "200" ] || fail "GET bangumi/popular expected 200 (edge→container→agent Postgres round-trip), got ${status}"

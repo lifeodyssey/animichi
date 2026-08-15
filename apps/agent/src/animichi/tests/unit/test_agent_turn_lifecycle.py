@@ -1,12 +1,13 @@
-"""AgentTurn lifecycle (TURN-4 #955): admission, dispatch, settle, replay.
+"""AgentTurn lifecycle (TURN-4 #955): admission, dispatch, and settle.
 
-The use case owns one turn through Session, Catalog, ModelTurnPort, and
-TurnOutcome. These tests pin initial/continued turns, replay without
-dispatch/quota, and the CAS revision/digest rejections.
+Pins the fresh-turn path: initial/continued turns, text routing through the
+execution port, the stale-revision and digest guards, and the concurrent-duplicate
+exactly-once guarantee (AC2).
 """
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 from typing import cast
 
@@ -58,22 +59,6 @@ async def test_every_text_command_routes_through_the_execution_port() -> None:
         assert harness.execution.kinds == [TextTurn(text=text, locale="ja")]
 
 
-async def test_replay_runs_direct_without_dispatch_or_quota_settlement() -> None:
-    harness = Harness(FakeTurnReservationStore())
-    await harness.agent(_input())
-    harness.store.dispatch_calls.clear()
-    harness.store.settle_calls.clear()
-    harness.settlement.calls.clear()
-
-    result = await harness.agent(_input())
-
-    assert result.outcome == "replayed"
-    assert result.revision == 1
-    assert harness.store.dispatch_calls == []
-    assert harness.store.settle_calls == []
-    assert harness.settlement.calls[0].settle_quota is False
-
-
 async def test_stale_revision_is_rejected_before_any_dispatch() -> None:
     store = FakeTurnReservationStore()
     store.session_state["s-1"] = {"state": "earlier"}
@@ -102,3 +87,24 @@ async def test_digest_mismatch_is_rejected_before_any_dispatch() -> None:
     assert result.rejection.reason == "digest_mismatch"
     assert harness.store.dispatch_calls == []
     assert harness.execution.kinds == []
+
+
+async def test_concurrent_duplicate_turns_produce_one_of_each() -> None:
+    harness = Harness(FakeTurnReservationStore())
+
+    results = await asyncio.gather(
+        harness.agent(_input(session_id="s-1")),
+        harness.agent(_input(session_id="s-1")),
+    )
+
+    outcomes = [r.outcome for r in results]
+    assert outcomes.count("completed") == 1
+    # The loser either races (in-flight rejection) or replays after the winner
+    # committed — either way it never executes again.
+    # AC2: one user message persisted, one model execution reservation, one
+    # quota-charging settlement, and one committed assistant result.
+    assert len(harness.session.persists) == 1
+    assert len(harness.execution.kinds) == 1
+    assert len([c for c in harness.settlement.calls if c.settle_quota]) == 1
+    assert len(harness.store.dispatch_calls) == 1
+    assert len(harness.store.settle_calls) == 1

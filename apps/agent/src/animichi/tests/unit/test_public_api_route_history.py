@@ -7,10 +7,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from animichi.agents.agent_result import AgentResult, StepRecord
+from animichi.application.outbox import TurnOutbox
+from animichi.interfaces.outbox_dispatch import (
+    SettlementInputs,
+    SettlementOutboxDispatcher,
+)
 from animichi.interfaces.public_api import PublicAPIRequest, RuntimeAPI
+from animichi.interfaces.usage_metering import UsagePrices
 from animichi.tests.db_doubles import build_persistence_double
 from animichi.tests.unit.conftest_public_api import install_mock_pipeline
 from animichi.tests.unit.conftest_public_api import make_result as _make_result
+from animichi.tests.unit.outbox_fakes import MemoryOutbox
 
 
 @pytest.fixture(autouse=True)
@@ -107,15 +114,29 @@ async def test_request_log_called_after_response(
     db = MagicMock()
     db.session.upsert_session = AsyncMock()
     # #663: the real repo lives at `db.feedback`, not a flat
-    # `db.insert_request_log` — that was the production bug.
-    db.feedback.insert_request_log = AsyncMock(return_value="log-1")
+    # `db.insert_request_log` — that was the production bug. Settle enqueues
+    # the audit row; the drain writes the request log (AC5).
+    db.feedback.insert_request_log_on = AsyncMock(return_value="log-1")
+    outbox = MemoryOutbox()
+    db.outbox = outbox
 
     await RuntimeAPI(db=db, model_http_client=MagicMock()).handle(
         PublicAPIRequest(text="吹響の聖地", locale="ja", session_id="s1")
     )
+    await TurnOutbox(store=outbox).drain(
+        SettlementOutboxDispatcher(
+            SettlementInputs(
+                usage_repo=db.usage,
+                anon_quota_repo=None,
+                request_audit_repo=db.feedback,
+                messages_repo=db.session,
+                prices=UsagePrices(0.0, 0.0),
+            )
+        )
+    )
 
-    kwargs = db.feedback.insert_request_log.call_args.kwargs
-    assert db.feedback.insert_request_log.await_count == 1
+    kwargs = db.feedback.insert_request_log_on.call_args.kwargs
+    assert db.feedback.insert_request_log_on.await_count == 1
     assert (kwargs["query_text"], kwargs["locale"], kwargs["intent"]) == (
         "吹響の聖地",
         "ja",

@@ -11,6 +11,7 @@ from datetime import date
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.dml import ReturningInsert
 from sqlalchemy.sql.selectable import Select
 
@@ -78,4 +79,13 @@ class SQLModelAnonQuotaRepository:
                 raw = (
                     await session.execute(_increment_statement(usage_date, anon_id))
                 ).scalar_one_or_none()
+        return int(raw) if raw is not None else 0
+
+    async def increment_and_count_on(
+        self, session: AsyncSession, *, usage_date: date, anon_id: str
+    ) -> int:
+        """Increment the (day, identity) counter on a caller-owned transaction."""
+        raw = (
+            await session.execute(_increment_statement(usage_date, anon_id))
+        ).scalar_one_or_none()
         return int(raw) if raw is not None else 0

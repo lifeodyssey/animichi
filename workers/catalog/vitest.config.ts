@@ -29,10 +29,11 @@ export default defineConfig({
       // available — istanbul is the supported provider for vitest-pool-workers.
       provider: "istanbul",
       include: ["src/**/*.ts"],
-      // Spike-only modules (ingest/enrich/publish/media) are exercised by the
-      // *.spike.test.ts Node suite against a real container, not the workerd
-      // pool, so they are excluded from this worker-runtime coverage scope.
-      exclude: ["src/ingest/**", "src/enrich/**", "src/publish/**", "src/media/**"],
+      // Spike-only modules (ingest/enrich/publish/media/import/scheduled) are
+      // exercised by the *.spike.test.ts Node suite against a real container +
+      // the import-integration spike (AC4 atomic switch), not the workerd pool,
+      // so they are excluded from this worker-runtime coverage scope.
+      exclude: ["src/ingest/**", "src/enrich/**", "src/publish/**", "src/media/**", "src/import/**", "src/scheduled/**"],
       reporter: ["text", "lcov"],
       // Ratcheted to the measured floor (94.69/95.63/92.69/78.37). UP only —
       // never lower these to make a change fit.

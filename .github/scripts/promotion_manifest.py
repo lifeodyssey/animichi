@@ -29,7 +29,9 @@ FULL_SHA_LEN = 40
 SHA256_LEN = 64
 FULL_SHA_RE = re.compile(rf"\A[0-9a-f]{{{FULL_SHA_LEN}}}\Z")
 SHA256_RE = re.compile(rf"\A[0-9a-f]{{{SHA256_LEN}}}\Z")
-SCHEMA_PROVIDERS = ("atlas", "supabase")
+SCHEMA_PROVIDERS = (
+    "atlas",
+)  # Neon (Atlas) only — "supabase" retired with the Supabase cutover (issue #1000)
 SBOM_FORMATS = ("cyclonedx-1.5", "spdx-2.3")
 
 REQUIRED_FIELDS = (

@@ -1,8 +1,9 @@
 """Unit tests for the composed PersistenceRepos aggregate (#995).
 
-The aggregate is the structural successor of the deleted ``SupabaseClient``
-facade: every production repository is composed over one session factory,
-and each attribute resolves to its own repository instance.
+Every production repository is composed over one session factory, and each
+attribute resolves to its own repository instance. (The aggregate is the
+structural successor of the pre-Neon ``SupabaseClient`` facade, retired in
+the #992/#995 Neon-only cutover.)
 """
 
 from __future__ import annotations
