@@ -365,6 +365,25 @@ cmd_data_plane_probe() {
 # committed chain's head via scripts/migration-head.sh, already verified at trigger
 # time by the migrate-staging step, re-verified here after component deploys). This
 # is the integration proof that schema-before-app left the ledger at the target.
+# #1089: the component-deploy Smoke asserts REACHABILITY only (the migrator
+# worker is live and its read-only ledger query works). The ledger EQUALITY
+# contract lives in the migrate-staging trigger job (applied == expected,
+# #1051) and the post-deploy staging suite (ledger-head-equals-expected after
+# the trigger ran, #1052) — asserting equality at deploy time would deadlock
+# the first catch-up deploy (staging's ledger is older than the repo head
+# until the trigger has run once; the deploy smoke failing then skips the
+# trigger via needs, keeping the ledger stale forever).
+cmd_ledger_head() {
+  : "${MIGRATOR_URL:?MIGRATOR_URL is required}"
+  local status head
+  status="$(fetch GET "${MIGRATOR_URL}/ledger-head")"
+  diag "${status}"
+  [ "${status}" = "200" ] || fail "GET ${MIGRATOR_URL}/ledger-head expected 200, got ${status}"
+  head="$(jq -r '.head // "unknown"' "${BODY_FILE}")"
+  [ "${head}" = "unknown" ] && fail "GET ${MIGRATOR_URL}/ledger-head returned no readable head"
+  echo "Migrator ledger-head reachable: ${head}"
+}
+
 cmd_ledger_head_equals_expected() {
   : "${MIGRATOR_URL:?MIGRATOR_URL is required}"
   : "${EXPECTED_MIGRATION_HEAD:?EXPECTED_MIGRATION_HEAD is required}"
@@ -378,7 +397,7 @@ cmd_ledger_head_equals_expected() {
 }
 
 main() {
-  local cmd="${1:?usage: post-deploy-assert.sh <healthz|auth-probe|users-probe|anon-gate-staging|anon-disabled-production|web-landing|catalog-probe|data-plane-probe|ledger-head-equals-expected>}"
+  local cmd="${1:?usage: post-deploy-assert.sh <healthz|auth-probe|users-probe|anon-gate-staging|anon-disabled-production|web-landing|catalog-probe|data-plane-probe|ledger-head|ledger-head-equals-expected>}"
   case "${cmd}" in
     healthz) cmd_healthz ;;
     auth-probe) cmd_auth_probe ;;
@@ -388,6 +407,7 @@ main() {
     web-landing) cmd_web_landing ;;
     catalog-probe) cmd_catalog_probe ;;
     data-plane-probe) cmd_data_plane_probe ;;
+    ledger-head) cmd_ledger_head ;;
     ledger-head-equals-expected) cmd_ledger_head_equals_expected ;;
     *) fail "unknown check: ${cmd}" ;;
   esac
