@@ -203,5 +203,54 @@ test_cf_edge_404_then_recovers
 test_html_only_origin_is_accepted
 test_ledger_head_matches_expected
 test_ledger_head_mismatch_fails
+test_ledger_head_reachable() {
+  local port=18903 counter_file pid rc=0 LED_BODY='{"head":"20260811000001"}'
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'''${LED_BODY}''')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}" "${counter_file}.ready"
+  # #1089: reachability-only command — a stale-but-honest ledger must PASS
+  # (the equality contract lives in the trigger + post-deploy suite).
+  MIGRATOR_URL="http://127.0.0.1:${port}" STAGING_GATE_TOKEN="" bash "${ASSERT_SH}" ledger-head >/tmp/ledger_reach.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  rm -f "${counter_file}"
+  [ "${rc}" -eq 0 ] || fail_test "ledger-head reachability should pass, got exit ${rc}: $(cat /tmp/ledger_reach.out)"
+  grep -q "Migrator ledger-head reachable: 20260811000001" /tmp/ledger_reach.out || fail_test "missing ledger-head reachability diagnostic"
+  echo "PASS: ledger-head reachable with a stale-but-honest head (exit 0)"
+}
+
+test_ledger_head_missing_head_fails() {
+  local port=18904 counter_file pid rc=0 LED_BODY='{"error":"boom"}'
+  counter_file="$(mktemp)"
+  rm -f "${counter_file}"
+  start_mock "${port}" "${counter_file}" "
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(b'''${LED_BODY}''')
+    def log_message(self, *a): pass
+"
+  pid=$!
+  wait_for_port "${port}" "${counter_file}.ready"
+  MIGRATOR_URL="http://127.0.0.1:${port}" STAGING_GATE_TOKEN="" bash "${ASSERT_SH}" ledger-head >/tmp/ledger_noh.out 2>&1 || rc=$?
+  stop_mock "${pid}"
+  rm -f "${counter_file}"
+  [ "${rc}" -ne 0 ] || fail_test "ledger-head without a readable head should fail, got exit 0"
+  grep -q "no readable head" /tmp/ledger_noh.out || fail_test "missing no-readable-head diagnostic"
+  echo "PASS: ledger-head with no readable head fails closed (exit ${rc})"
+}
+test_ledger_head_reachable
+test_ledger_head_missing_head_fails
 
 echo "All post-deploy-assert.sh transport tests passed."

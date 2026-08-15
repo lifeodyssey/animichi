@@ -1069,16 +1069,17 @@ jobs:
               echo "::notice title=post-deploy smoke::users has no public route in any environment by design (private, USERS service binding only); reachability is verified end-to-end by reusable-post-deploy-test.yml's users-probe once root is deployed in the same environment"
               ;;
             migrator)
-              # #1083: the migrator is a live OIDC-gated endpoint (workers.dev
-              # enabled, staging only until #1055), so the deploy smoke probes
-              # its READ-ONLY /ledger-head and asserts the ledger sits at the
-              # expected head (scripts/migration-head.sh) — the same contract
-              # the migrate-staging trigger enforced minutes earlier, re-verified
-              # against the freshly deployed worker.
+              # #1083/#1089: the migrator is a live OIDC-gated endpoint (workers.dev
+              # enabled, staging only until #1055); the deploy smoke asserts the
+              # worker is REACHABLE and its read-only /ledger-head answers (the
+              # DB read path works). Ledger EQUALITY is enforced by the
+              # migrate-staging trigger response (applied == expected, #1051) and
+              # the post-deploy staging suite (#1052) — not here, or the first
+              # catch-up deploy deadlocks (stale ledger fails the smoke, which
+              # skips the trigger via needs).
               url="$(bash .github/scripts/resolve-worker-url.sh migrator "$ENVIRONMENT")"
               echo "Resolved migrator@$ENVIRONMENT -> $url"
-              expected="$(bash scripts/migration-head.sh)"
-              MIGRATOR_URL="$url" EXPECTED_MIGRATION_HEAD="$expected" bash .github/scripts/post-deploy-assert.sh ledger-head-equals-expected
+              MIGRATOR_URL="$url" bash .github/scripts/post-deploy-assert.sh ledger-head
               ;;
             *)
               echo "::error title=post-deploy smoke::unknown component '$COMPONENT'"
