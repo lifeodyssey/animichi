@@ -68,7 +68,7 @@ Roles today (migrations/neon/20260809000001_roles.sql, _grants, head): catalog_s
 
 ## Q4 — test-base (scripts/neon-test-base.sh)
 
-Current: CI-run (neon-test-base.yml; NEON_API_KEY + NEON_PROJECT_ID + ATLAS_VERSION). scripts/neon-test-base.sh {provision|refresh} test-base: guarded DROP DATABASE + CREATE DATABASE (provision) -> atlas_helper apply (pinned 0.30.0) -> gazetteer seed -> fixture seed -> GRANT catalog_svc, agent_svc. Heavy identity rails on branch/project/id/name; DSNs hidden via pg_service/pgpass.
+(Retired by #1053 — text below describes the pre-retirement state, kept as a point-in-time record.) Previously CI-run (neon-test-base.yml; NEON_API_KEY + NEON_PROJECT_ID + ATLAS_VERSION). scripts/neon-test-base.sh {provision|refresh} test-base: guarded DROP DATABASE + CREATE DATABASE (provision) -> atlas_helper apply (pinned 0.30.0) -> gazetteer seed -> fixture seed -> GRANT catalog_svc, agent_svc. Heavy identity rails on branch/project/id/name; DSNs hidden via pg_service/pgpass.
 
 - test-base is a **fixture parent** (docs/ops/neon-test-infra.md: TEST_DB=neon creates a child; the offline Docker arm uses animichi-test-postgres) — an ephemeral branch, not user data.
 - Atlas has no "CI-applied on fixture branches" doctrine, but the Q1 CI/CD doc fully permits CI-applying to an ephemeral target.
