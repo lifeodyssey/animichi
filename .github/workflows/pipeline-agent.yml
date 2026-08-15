@@ -149,7 +149,6 @@ jobs:
       run:
         working-directory: apps/agent
     env:
-      ATLAS_VERSION: "0.30.0"
       TEST_DB: docker
       # Settings requires presence; integration tests do not use these endpoints.
       AGENT_SVC_DATABASE_URL: postgresql://test:test@localhost:5432/test
@@ -175,7 +174,13 @@ jobs:
 
       # Build once; conftest_db.py boots it per session via testcontainers and
       # applies migrations/neon from the pinned Atlas on PATH.
+      # Docker resolves -f relative to the step cwd; the job's
+      # defaults.run working-directory is apps/agent, so this step must override
+      # it back to the repo root or the -f path becomes apps/agent/apps/agent/...
+      # (which does not exist). Matches conftest_db.py's offline build and the
+      # #1049 catalog spike job, which both build from the repo root.
       - name: Build hermetic Postgres+PostGIS+pgvector test image
+        working-directory: .
         run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
 
       - name: Integration suite (Docker Postgres)
