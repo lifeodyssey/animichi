@@ -441,6 +441,13 @@ jobs:
   post-staging:
     name: Post-deploy (staging)
     needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-root-staging]
+    # #1085: the nested post-deploy-test job declares id-token: write (its
+    # staging-gate OIDC exchange step, #1054); GitHub requires the caller to
+    # grant it. Job-level replaces the top-level contents: read, so both are
+    # listed. The token is only exchanged on staging (step is env-gated).
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/reusable-post-deploy-test.yml
     with:
       environment: staging
@@ -598,6 +605,12 @@ jobs:
     name: Post-deploy (production)
     needs: [production-eligibility, deploy-prod, deploy-web-prod, deploy-users-prod, deploy-maintenance-prod, deploy-root-prod]
     if: ${{ needs.production-eligibility.outputs.eligible == 'true' }}
+    # #1085: same grant as post-staging (the reusable declares id-token:
+    # write; the exchange step is staging-gated, so production holds a
+    # dormant permission matching the #1054 triage note).
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/reusable-post-deploy-test.yml
     with:
       environment: production
