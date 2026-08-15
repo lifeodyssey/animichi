@@ -27,6 +27,14 @@ const MIGRATIONS = ROOT + "migrations/neon/";
 // to its SAFE-1-pinned production declarations.
 const RUNTIME_ROLES = ["catalog_svc", "users_svc", "agent_svc", "readonly"];
 
+// Extracted so the mutation scan below stays within the 1-10-50 depth budget.
+function mutatedRuntimeRole(windowText: string): string | null {
+  for (const role of RUNTIME_ROLES) {
+    if (new RegExp("\\b" + role + "\\b", "i").test(windowText)) return role;
+  }
+  return null;
+}
+
 function readMigrations(): { name: string; body: string }[] {
   return readdirSync(MIGRATIONS)
     .filter((file) => file.endsWith(".sql"))
@@ -55,10 +63,9 @@ void test("no migration mutates a runtime role (DROP ROLE / REASSIGN / ALTER ROL
   let match = mutation.exec(joined);
   while (match !== null) {
     const windowText = joined.slice(Math.max(0, match.index - 120), match.index + 120);
-    for (const role of RUNTIME_ROLES) {
-      if (new RegExp("\\b" + role + "\\b", "i").test(windowText)) {
-        assert.fail("chain must not mutate runtime role " + role + ": " + windowText.trim());
-      }
+    const role = mutatedRuntimeRole(windowText);
+    if (role !== null) {
+      assert.fail("chain must not mutate runtime role " + role + ": " + windowText.trim());
     }
     match = mutation.exec(joined);
   }
