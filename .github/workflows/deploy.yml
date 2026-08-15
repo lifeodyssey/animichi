@@ -196,6 +196,11 @@ jobs:
     name: Post-deploy (production)
     needs: [production-eligibility, deploy-prod, deploy-web-prod, deploy-users-prod, deploy-maintenance-prod, deploy-root-prod]
     if: ${{ needs.production-eligibility.outputs.eligible == 'true' }}
+    # #1085: same grant as ci.yml's post-prod (the reusable declares
+    # id-token: write; the exchange step is staging-gated).
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/reusable-post-deploy-test.yml
     with:
       environment: production
