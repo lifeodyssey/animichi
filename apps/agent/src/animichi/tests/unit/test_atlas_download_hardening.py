@@ -43,7 +43,7 @@ def test_download_pinned_atlas_follows_redirects(
         ) as client:
             return client.get("http://release.test/redirect-me", timeout=timeout)
 
-    monkeypatch.setattr(atlas_helper.httpx, "get", _get)
+    monkeypatch.setattr(httpx, "get", _get)
 
     bin_dir = ensure_pinned_atlas()
 
@@ -60,7 +60,7 @@ def test_download_pinned_atlas_mkdir_failure_says_arm_did_not_run(
     _fixture_cache(monkeypatch, tmp_path)
     monkeypatch.setattr(atlas_helper, "ATLAS_CACHE_DIR", blocker / "nested")
     _pin_current_platform(monkeypatch, "0" * 64)
-    monkeypatch.setattr(atlas_helper.httpx, "get", _forbidden_get)
+    monkeypatch.setattr(httpx, "get", _forbidden_get)
 
     with pytest.raises(RuntimeError, match="did NOT run.*could not prepare"):
         ensure_pinned_atlas()

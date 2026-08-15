@@ -154,6 +154,9 @@ jobs:
           # cutover-reset-schema.sh two-key guards and the contract test.
           CUTOVER_BREAK_GLASS_DSN: ${{ secrets.NEON_DATABASE_URL }}
           MIGRATOR_DATABASE_URL: ${{ inputs.migrator_database_url }}
+          # zizmor template-injection: the rehearsal flag must not expand into
+          # the run block; env is not code-injectable.
+          REHEARSAL: ${{ inputs.rehearsal }}
         run: |
           set -euo pipefail
           # Never leak the operator-supplied migrator DSN into the run log.
@@ -162,7 +165,7 @@ jobs:
           # Rehearsal dispatch (no destructive phases): skip the DROP/apply. The
           # two-key script shape + refusal semantics are enforced by the SESSION-3
           # cutover contract test (test_session3_staging_cutover.rb) in CI.
-          if [[ "${{ inputs.rehearsal }}" != "true" ]]; then
+          if [[ "$REHEARSAL" != "true" ]]; then
             bash .github/scripts/cutover-reset-schema.sh "${SOURCE_REVISION}"
           else
             echo "rehearsal: destructive schema reset skipped (two-key script shape validated by contract test)"

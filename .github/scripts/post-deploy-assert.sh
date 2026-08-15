@@ -350,8 +350,27 @@ cmd_data_plane_probe() {
 # and workers/edge/auth-config.test.ts asserts ISSUER stays ABSENT. The runtime
 # drift check (GET /internal/auth-config, issue #709) was retired 2026-08-04
 # by owner ruling: the real-path staging login E2E replaces it later.
+# #1052 (AC5 / US-13,14): the post-staging smoke asserts the migration ledger
+# head equals the expected target. The migrator exposes a READ-ONLY /ledger-head
+# endpoint (the applied head from public.atlas_schema_revisions after apply); the
+# smoke requests it and compares .head to the target we expected to apply (the
+# committed chain's head via scripts/migration-head.sh, already verified at trigger
+# time by the migrate-staging step, re-verified here after component deploys). This
+# is the integration proof that schema-before-app left the ledger at the target.
+cmd_ledger_head_equals_expected() {
+  : "${MIGRATOR_URL:?MIGRATOR_URL is required}"
+  : "${EXPECTED_MIGRATION_HEAD:?EXPECTED_MIGRATION_HEAD is required}"
+  local status head
+  status="$(fetch GET "${MIGRATOR_URL}/ledger-head")"
+  diag "${status}"
+  [ "${status}" = "200" ] || fail "GET ${MIGRATOR_URL}/ledger-head expected 200, got ${status}"
+  head="$(jq -r '.head // "unknown"' "${BODY_FILE}")"
+  [ "${head}" = "${EXPECTED_MIGRATION_HEAD}" ] || fail "migrator ledger-head=${head} != expected migration head ${EXPECTED_MIGRATION_HEAD} -- the schema is not at the target the deploy expected (a migration did not land, or landed a different head)"
+  echo "Ledger head matches expected target: ${head}"
+}
+
 main() {
-  local cmd="${1:?usage: post-deploy-assert.sh <healthz|auth-probe|users-probe|anon-gate-staging|anon-disabled-production|web-landing|catalog-probe|data-plane-probe>}"
+  local cmd="${1:?usage: post-deploy-assert.sh <healthz|auth-probe|users-probe|anon-gate-staging|anon-disabled-production|web-landing|catalog-probe|data-plane-probe|ledger-head-equals-expected>}"
   case "${cmd}" in
     healthz) cmd_healthz ;;
     auth-probe) cmd_auth_probe ;;
@@ -361,6 +380,7 @@ main() {
     web-landing) cmd_web_landing ;;
     catalog-probe) cmd_catalog_probe ;;
     data-plane-probe) cmd_data_plane_probe ;;
+    ledger-head-equals-expected) cmd_ledger_head_equals_expected ;;
     *) fail "unknown check: ${cmd}" ;;
   esac
 }

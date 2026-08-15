@@ -68,8 +68,12 @@ After this cutover, the normal append-only policy resumes for every shared envir
 
 ## Applying a Neon migration
 
-The deploy workflows apply the same checked-in directory before deploying the Worker that
-uses it. The connection URL is environment-scoped and must never be committed or printed:
+The apply mechanism changed in #1052: **staging is now schema-before-app**, executed by the
+migration executor (migrator worker + one-shot Atlas batch container) as the first post-build
+stage, so staging component deploys carry no per-component Atlas step and no database
+credential. **Production keeps the pinned per-component apply** until #1055 removes it. The
+apply targets the same checked-in directory before the catalog/users Worker rollout. The
+connection URL is environment-scoped and must never be committed or printed:
 
 ```bash
 atlas migrate apply \
@@ -93,16 +97,32 @@ approved, it would follow its own owner/runbook and must not add or alter Neon d
 ## CI and deployment order
 
 - Pull requests and migration-path changes run the static Atlas checksum/SQL validation. The
-  worker migration-boundary test also checks that workflows contain the Atlas command and do
-  not reintroduce `supabase db push` or a Drizzle migration command.
+  worker migration-boundary test also checks the split apply posture: **staging** deploy
+  workflows contain no Atlas invocation and no `NEON_DATABASE_URL`/`NEON_API_KEY` reference
+  (the migrator trigger runs schema first), the migrator trigger precedes every component
+  deploy in the needs-graph (a failed trigger blocks all deploys), and the production path
+  keeps the Atlas command. It never reintroduces `supabase db push` or a Drizzle migration
+  command.
 - The main promotion workflow applies Atlas to the target Neon branch before the catalog/users
   Worker rollout. The manual production path (`deploy.yml`) runs the same
   `reusable-deploy-component.yml` as the promotion, so it applies `migrations/neon/`
   (`atlas migrate apply`) when `NEON_DATABASE_URL` is set — it is **not** a migration-free
   path (see `docs/ops/deployment.md`). Use the approval-gated promotion for schema changes.
-- A schema change that needs both old and new application versions uses expand/contract:
-  add the replacement, deploy compatible readers/writers, then remove the old shape in a later
-  migration. A Worker rollback never rolls back a database migration.
+- **Expand/contract is a rule (US25/#1052)**: every schema change must be **compatible with the
+  currently deployed consumers one version back**. Schema and component deploys are never
+  atomic, so both deploy-order windows must stay safe by rule, not by luck:
+  - **New schema, old code (rollout window)**: schema applies before components deploy, and
+    components deploy one at a time — during the rollout some replicas still run the previous
+    code against the new schema. New columns/indexes must be additive (add-only), and an
+    existing column's type/constraint may only change if it remains readable/writable by the
+    old consumers.
+  - **Old schema, new code (rollback window)**: a Worker rollback never rolls back a database
+    migration, so a rollback can put new code on the older schema. Any code merged after a
+    migration must also tolerate the pre-migration shape (guard on missing columns, default
+    values, optional reads) until the follow-up migration that removes the old shape has
+    shipped. The removal itself is a **later** expand/contract step: add the replacement, deploy
+    compatible readers/writers, confirm the old path is unused, then drop the old shape. A
+    Worker rollback never rolls back a database migration.
 
 ## Verification boundary
 

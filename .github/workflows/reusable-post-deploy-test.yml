@@ -220,6 +220,23 @@ jobs:
           EDGE_SHOWCASE_MODE: ${{ env.EDGE_SHOWCASE_MODE }}
         run: bash .github/scripts/post-deploy-assert.sh data-plane-probe
 
+      # #1052 (AC5 / US-13,14): post-staging smoke asserts the migration ledger
+      # head equals the expected target. The migrator's read-only /ledger-head
+      # endpoint reports the applied head; the smoke compares it to the committed
+      # chain's head (scripts/migration-head.sh) — the integration proof that
+      # schema-before-app left the ledger at the head the deploy expected. Gated
+      # to staging; production keeps the pinned Atlas path until #1055.
+      - name: "migration ledger head equals the expected target (staging)"
+        if: ${{ inputs.environment == 'staging' }}
+        shell: bash
+        env:
+          MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
+        run: |
+          set -euo pipefail
+          expected="$(bash ./scripts/migration-head.sh)"
+          echo "EXPECTED MIGRATION HEAD: ${expected}"
+          EXPECTED_MIGRATION_HEAD="${expected}" bash .github/scripts/post-deploy-assert.sh ledger-head-equals-expected
+
       # ── environment-gated: ANON_ACCESS_ENABLED differs by environment,
       # not by suite — see header note ──
       - name: "anonymous Turnstile gate is armed (staging)"

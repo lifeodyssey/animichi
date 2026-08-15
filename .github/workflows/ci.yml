@@ -195,6 +195,8 @@ jobs:
       pulumi_stack: staging
       working_directory: workers/migrator
       run_pulumi: false
+      # #1052: the migrator deploy is a staging path; no per-component migration apply.
+      run_atlas: false
       # The migrator reads its DSN from the Secrets Store binding;
       # there is nothing to upload from CI (no worker_secrets).
       worker_secrets: ""
@@ -240,9 +242,13 @@ jobs:
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUDIENCE" \
             | jq -r .value > "$RUNNER_TEMP/oidc-token"
       - name: Trigger migrator and verify applied head
+        env:
+          # zizmor template-injection: the expected head must not expand into
+          # the run block; env is not code-injectable.
+          EXPECTED_HEAD: ${{ steps.head.outputs.expected_head }}
         run: |
           set -euo pipefail
-          head="${{ steps.head.outputs.expected_head }}"
+          head="$EXPECTED_HEAD"
           body="$(printf '{\"expectedHead\":\"%s\"}' "$head")"
           code="$(curl -sS -o "$RUNNER_TEMP/migrate.json" -w '%{http_code}' -X POST \
             "$MIGRATOR_URL/migrate" \
@@ -303,10 +309,10 @@ jobs:
       environment: staging
       pulumi_stack: staging
       working_directory: workers/catalog
+      # #1052: staging applies schema via the migrator trigger (migrate-staging);
+      # the per-component migration apply is disabled (run_atlas: false) and no DSN is passed.
+      run_atlas: false
     secrets:
-      # #912 PR2: the staging DSN now arrives via the wrangler.toml Secrets
-      # Store binding — no DATABASE_URL upload, no CATALOG_DATABASE_URL secret.
-      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -334,6 +340,8 @@ jobs:
       working_directory: apps/web
       build_filter: web
       run_pulumi: false
+      # #1052: staging applies schema via the migrator trigger; no per-component migration apply.
+      run_atlas: false
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
@@ -361,14 +369,14 @@ jobs:
       pulumi_stack: staging
       working_directory: workers/users
       run_pulumi: false
+      # #1052: staging applies schema via the migrator trigger; the per-component
+      # migration apply is disabled (run_atlas: false) and no DSN is passed.
+      run_atlas: false
       # NEON_AUTH_JWKS_URL is no longer a worker secret on any component
       # (issue #1047): the users worker trusts only the edge-forwarded identity
       # and the edge reads the JWKS from wrangler vars. CI no longer ferries it.
       worker_secrets: ""
     secrets:
-      # #912 PR2: the staging DSN now arrives via the wrangler.toml Secrets
-      # Store binding — no DATABASE_URL upload, no USERS_DATABASE_URL secret.
-      NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -391,6 +399,8 @@ jobs:
       pulumi_stack: staging
       working_directory: "."
       run_pulumi: false
+      # #1052: staging applies schema via the migrator trigger; no per-component migration apply.
+      run_atlas: false
       # #527/#528 (P1-A): CORS_ALLOWED_ORIGIN is NOT listed here anymore, and
       # this is NOT "staging doesn't need CORS restriction" — that framing
       # was reasoned, not verified, and turned out wrong. It's provisioned
