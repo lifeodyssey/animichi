@@ -31,8 +31,10 @@ on:
         type: string
       # #1056 two-key reset + non-destructive rehearsal.
       # rehearsal=true runs the launcher state machine (C close -> D validate
-      # prereqs -> E deploy -> F reopen) but SKIPS phase D's destructive schema
-      # reset, so the launcher validates without destroying anything.
+      # prereqs -> E deploy -> F reopen) but SKIPS phase D: both the read-only
+      # DB prereq (which fails closed when MIGRATOR_DATABASE_URL is unset) and
+      # the destructive schema reset. Rehearsal validates the launcher shape and
+      # phase order only, without requiring DB credentials or destroying anything.
       rehearsal:
         description: Non-destructive validation dispatch (skip the phase-D destructive reset)
         required: false
@@ -42,7 +44,8 @@ on:
       # #1050) is operator-owned, injected at dispatch time rather than stored as a
       # persistent CI secret (the spec stops CI ferrying DSNs). It feeds the rebuild
       # apply; the destructive DROP still comes from the cutover break-glass
-      # NEON_DATABASE_URL secret. Only required when rehearsal != true.
+      # NEON_DATABASE_URL secret. Only required when rehearsal != true (a rehearsal
+      # dispatch passes it blank and skips the phase-D prereq and reset).
       migrator_database_url:
         description: Migrator role DSN for the rebuild apply (blank in a rehearsal dispatch)
         required: false
@@ -120,6 +123,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Re-verify retention absent and auth neon-only before reset
+        # #1056: the prereq is a read-only DB check that fails closed when
+        # MIGRATOR_DATABASE_URL is unset. A rehearsal dispatch passes the migrator
+        # DSN blank (rehearsal must not require DB creds), so the prereq only runs
+        # on a real cutover. Rehearsal validates the launcher shape + order only,
+        # and the destructive reset below is likewise skipped.
+        if: inputs.rehearsal != true
         env:
           # Read-only prereq check (#1056): uses the migrator DSN (the apply key),
           # NOT the break-glass DSN -- only the destructive DROP needs break-glass.
@@ -128,6 +137,9 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
+          # Never leak the operator-supplied migrator DSN into the run log (F4):
+          # same masking as the reset step.
+          echo "::add-mask::${MIGRATOR_DATABASE_URL}" || true
           # Never trust an earlier job's success: current remote re-check.
           bash .github/scripts/cutover-verify-prereqs.sh "retention_execution=absent" "auth_boundary=neon_only"
           bash .github/scripts/cutover-state.sh record phase=d ingress=closed
@@ -390,5 +402,8 @@ jobs:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
         run: |
           set -euo pipefail
+          # F4: mask the operator-supplied migrator DSN here too (flows through
+          # the reopen read-only retention recheck), consistent with the reset.
+          echo "::add-mask::${MIGRATOR_DATABASE_URL}" || true
           bash .github/scripts/cutover-reopen.sh "${SOURCE_REVISION}"
           bash .github/scripts/cutover-state.sh record phase=f verdict=complete

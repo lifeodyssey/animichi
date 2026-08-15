@@ -244,23 +244,31 @@ def two_key_reset_violations(wf)
     found << "missing reset-schema phase job for two-key reset"
     return found
   end
-  reset_envs = {}
-  reset.fetch("steps", []).each do |s|
-    reset_envs.merge!(s.fetch("env", {}) || {})
+  reset_steps = reset.fetch("steps", [])
+  # The two-key binding must live on the ACTUAL reset/apply step (the one that
+  # invokes cutover-reset-schema.sh), not merely merged across the whole job.
+  # Merging env over every step would let the read-only prereq step (which also
+  # binds MIGRATOR_DATABASE_URL) mask a regression that dropped the DROP/apply
+  # keys from the real reset step.
+  apply_step = reset_steps.find { |s| s["run"].to_s.include?("cutover-reset-schema.sh") }
+  unless apply_step.is_a?(Hash)
+    found << "reset-schema must run cutover-reset-schema.sh in a step (apply-step keys binding)"
+    return found
+  end
+  apply_env = apply_step.fetch("env", {}) || {}
+
+  unless apply_env.key?(BREAK_GLASS_ENV)
+    found << "reset/apply step must bind DROP to #{BREAK_GLASS_ENV}"
+  end
+  unless apply_env.key?(MIGRATOR_ENV)
+    found << "reset/apply step must bind rebuild apply to #{MIGRATOR_ENV}"
   end
 
-  unless reset_envs.key?(BREAK_GLASS_ENV)
-    found << "reset-schema must bind DROP to #{BREAK_GLASS_ENV}"
-  end
-  unless reset_envs.key?(MIGRATOR_ENV)
-    found << "reset-schema must bind rebuild apply to #{MIGRATOR_ENV}"
-  end
-
-  if reset_envs.key?(BREAK_GLASS_ENV) && reset_envs.key?(MIGRATOR_ENV)
-    bg = reset_envs[BREAK_GLASS_ENV].to_s
-    mg = reset_envs[MIGRATOR_ENV].to_s
+  if apply_env.key?(BREAK_GLASS_ENV) && apply_env.key?(MIGRATOR_ENV)
+    bg = apply_env[BREAK_GLASS_ENV].to_s
+    mg = apply_env[MIGRATOR_ENV].to_s
     if bg.strip == mg.strip
-      found << "reset-schema must use two DISTINCT keys (same value bound to both)"
+      found << "reset/apply step must use two DISTINCT keys (same value bound to both)"
     end
     unless bg.include?("NEON_DATABASE_URL")
       found << "#{BREAK_GLASS_ENV} must source from the cutover NEON_DATABASE_URL secret"
@@ -270,6 +278,17 @@ def two_key_reset_violations(wf)
     end
   end
 
+  # The phase-D read-only prereq (cutover-verify-prereqs.sh) fails closed when
+  # MIGRATOR_DATABASE_URL is unset. A rehearsal dispatch passes that DSN blank,
+  # so the prereq step MUST be gated on `inputs.rehearsal != true`; otherwise a
+  # documented rehearsal cannot pass its own phase-D prereq. Asserting the gate
+  # lets CI catch this regression (the step running unconditionally again).
+  prereq_step = reset_steps.find do |s|
+    s["run"].to_s.include?("cutover-verify-prereqs.sh") && (s.fetch("env", {}) || {}).key?(MIGRATOR_ENV)
+  end
+  unless prereq_step.is_a?(Hash) && prereq_step["if"].to_s == "inputs.rehearsal != true"
+    found << "reset-schema phase-D prereq step must be gated on `inputs.rehearsal != true` (rehearsal passes MIGRATOR_DATABASE_URL blank and must not require DB creds)"
+  end
   if File.exist?(RESET_SCRIPT)
     script = File.read(RESET_SCRIPT)
     unless script.include?(BREAK_GLASS_ENV + ":?")
@@ -278,8 +297,12 @@ def two_key_reset_violations(wf)
     unless script.include?(MIGRATOR_ENV + ":?")
       found << "cutover-reset-schema.sh must require #{MIGRATOR_ENV} (refuse when missing)"
     end
-    unless script.include?("pg_get_userbyid") || script.include?("relowner") || script.include?("pg_user")
-      found << "cutover-reset-schema.sh must assert ownership-from-birth (migrator owns rebuilt tables)"
+    # Ownership-from-birth (issue #1056): assert the actual ownership predicate
+    # (every owned public object resolved to an owner via pg_get_userbyid compared
+    # to migrator), not merely that any one of several loose tokens appears. A
+    # 3-way substring OR lets a broken or trivial ownership query stay green.
+    unless script.include?("pg_get_userbyid(c.relowner) <> \'migrator\'")
+      found << "cutover-reset-schema.sh must assert ownership-from-birth (rebuilt public objects owned by migrator, via `pg_get_userbyid(c.relowner) <> 'migrator'`)"
     end
   else
     found << "cutover-reset-schema.sh missing (RESET_SCRIPT)"
