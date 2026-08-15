@@ -6,7 +6,7 @@
  * atomically-swapped publish/import primitive — is emulated on the pool as one
  * BEGIN/COMMIT transaction, keeping the flip-then-insert ordering and the
  * all-or-nothing semantics the neon-http batch() documents. */
-import { type SQL } from "drizzle-orm";
+import { type SQL, QueryPromise } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { PgDialect } from "drizzle-orm/pg-core";
 import pg from "pg";
@@ -16,25 +16,29 @@ import * as schema from "../../src/db/schema";
 /** The row shape every execute()/batch() result resolves to (mirrors pg rows). */
 interface RowsResult { rows: unknown[] }
 
-/** A lazy single-statement query: await it directly, or hand it to batch(),
- * which unwinds .query into one shared transaction. Direct awaits trigger the
- * runner exactly once through the PromiseLike .then. */
-class DeferredQuery implements PromiseLike<RowsResult> {
+/** A single compiled statement. Await it to run it exactly once, or hand it to
+ * batch(), which unwinds .query into one shared transaction. It extends
+ * drizzle's QueryPromise (the same thenable base as the neon driver's PgRaw) so
+ * awaiting triggers run() lazily; DeferredQuery declares no then itself. */
+class DeferredQuery extends QueryPromise<RowsResult> {
   readonly query: SQL | { getSQL(): SQL };
   private readonly runner: () => Promise<RowsResult>;
   private settled: Promise<RowsResult> | null = null;
 
   constructor(query: SQL | { getSQL(): SQL }, runner: () => Promise<RowsResult>) {
+    super();
     this.query = query;
     this.runner = runner;
   }
 
-  then<TResult1, TResult2>(
-    onfulfilled?: (value: RowsResult) => TResult1 | PromiseLike<TResult1>,
-    onrejected?: (reason: unknown) => TResult2 | PromiseLike<TResult2>,
-  ): Promise<TResult1 | TResult2> {
-    const running = this.settled ??= this.runner();
-    return running.then(onfulfilled, onrejected);
+  /** Run the statement; repeat calls await the same settled result. */
+  run(): Promise<RowsResult> {
+    return (this.settled ??= this.runner());
+  }
+
+  /** QueryPromise hook: awaited DeferredQuerys execute through run(). */
+  execute(): Promise<RowsResult> {
+    return this.run();
   }
 }
 
@@ -73,7 +77,7 @@ export function makePgCatalog(pool: pg.Pool): CatalogDb {
   const inner = drizzle(pool, { schema });
   const dialect = new PgDialect();
   const db = {
-    execute: (query: SQL | { getSQL(): SQL }): PromiseLike<RowsResult> =>
+    execute: (query: SQL | { getSQL(): SQL }): DeferredQuery =>
       new DeferredQuery(query, () => runOne(pool, dialect, query)),
     batch: (queries: DeferredQuery[]): Promise<RowsResult[]> => runBatch(pool, dialect, queries),
     select: inner.select.bind(inner),
