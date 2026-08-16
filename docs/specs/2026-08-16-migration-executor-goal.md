@@ -1,6 +1,7 @@
 # GOAL — Migration Executor × CI Secrets 归零战役
 
 - Status: ACTIVE(owner 授权拆卡 2026-08-16;spec = #1046 / `docs/specs/2026-08-16-migration-executor-spec.md`)
+- **Status checkpoint(2026-08-16 下午)**:connectivity 补丁拆卡 —— 设计 spec `docs/specs/2026-08-16-migrator-neon-connectivity-spec.md`(Option 1:IPv4 pin + fail-fast probe → sleepAfter 30m + stop-on-timeout + 504 诊断体;Option 2 = worker 侧 neon-http apply,证伪后才开)。卡片 **#1100/#1101**(ready-for-agent);staging 真实触发仅在 #1100+#1101 均合入后。诊断结论:504 是掩码(容器内 atlas 无法完成到 Neon 的会话建立,sleepAfter 10m 与超时赛跑),与迁移内容/DSN/atlas 版本/worker 代码无关。
 - **Status checkpoint(2026-08-16 深夜)**:#1052/#1053/#1054/#1069/#1083/#1085/#1087/#1089/#1091/#1093/#1095 全部落地并关卡(main 上 migrator 路径已通电:neon-secrets 供给 lane 首次全绿、migrator worker 部署+smoke 绿、/ledger-head 200、trigger 到达容器——首轮真实 apply 正在冷启动窗口内验证中;NEON_API_KEY 按契约保留于 provisioning lane,#1057 终局再清)。合并链上的既有阻塞已清(Edge lint、Agent atlas-httpx、zizmor template-injection、id-token caller 授权、CI startup_failure;SNAPSHOT_KEEP 为非 required 跟进项)。剩余 frontier:#1055(等 ≥3 次 staging 真实迁移证据 + SAFE-1 重钉,owner)、#1057(终局删除,cutover 窗口,owner);#1054 AC5(STAGING_GATE_TOKEN 删除,真实部署验证 session 通道后)。
 - 卡片:#1047–#1057(11 张,全部为 #1046 的 sub-issue,`ready-for-agent`;blockers 记在各卡 Body 的 Blocked-by 段 + 下方 DAG——本 plan 无原生 GitHub issue-dependency 边,追踪权威是卡体 Blocked-by 清单,由 orchestrator 与本 DAG 保持同步)
 - 配套既有票:#1045(残余凭据圈权,收尾)· #1001(cutover 窗口的 auth-roster 侧)· #1004(parent track)
@@ -26,6 +27,11 @@
   #1051 → #1052 staging 流水线重排(schema before app,删组件 Atlas step)
        AC 含 US24/US25 契约测试(新代码 vs 旧 schema 双向窗口安全)
   #1051 → #1054 staging gate 的 OIDC 通道(删 STAGING_GATE_TOKEN)
+  #1051 → #1100 → #1101 connectivity 补丁(Option 1,spec 见 docs/specs/2026-08-16-migrator-neon-connectivity-spec.md)
+       #1100:entrypoint IPv4 pin(hostaddr)+ 拒绝 -pooler + 30s fail-fast status probe(apply 前)
+       #1101:sleepAfter 30m + renewActivityTimeout(每 poll)+ stop-on-timeout(释放 max_instances=1 槽位)+ 504 诊断体(ranMs/lastStatus/exitCode)
+       触发 staging 仅在 #1100+#1101 均合入后;若 Option 1 证伪 → 开 Option 2(worker 侧 neon-http apply,另行卡)
+
        ⚠️ MED-2/Seat1(c):#1051 与 #1054 用**各自的固定 audience**,防跨服务 replay
   #1052 → #1055 production 切换(pinned target;前置证据:≥3 次 staging 真实迁移)
        ⚠️ MED-1:生产侧执行以 SAFE-1 重钉为前置(owner 动作)
