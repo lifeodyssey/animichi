@@ -15,7 +15,7 @@ export const FIXED_NOW = new Date("2026-03-01T00:00:00.000Z");
 export type ContainerOutcome =
   | { kind: "success"; exitCode: 0 }
   | { kind: "failure"; exitCode: number }
-  | { kind: "timeout" };
+  | { kind: "timeout"; ranMs: number; lastStatus: string; exitCode?: number };
 
 const DSN = "postgresql://fake:migrator@db.test/neondb";
 
