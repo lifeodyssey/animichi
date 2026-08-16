@@ -50,6 +50,16 @@ export function instanceNameFor(nowMs: number): string {
   return "migrator-job-" + String(nowMs);
 }
 
+/** #1101: bound on each stop()/destroy() cleanup call. A wedged stop RPC must
+ * not hang the timeout/error flow — cleanup settles within this bound and
+ * never throws (on bound expiry the caller just continues). */
+export const CLEANUP_STOP_BOUND_MS = 3000;
+
+/** Pooled timer for the cleanup bound (injectable under fake timers). */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Real runner over the worker's MIGRATOR_CONTAINER Durable Object binding.
  * `namespace` is the binding (`env.MIGRATOR_CONTAINER`); the durable object
@@ -144,22 +154,33 @@ function timeoutOutcome(
   return state.exitCode === undefined ? base : { ...base, exitCode: state.exitCode };
 }
 
-/** Best-effort stop (destroy fallback) that never throws, so slot cleanup
- * itself can never mask the deadline or the original error. */
-async function bestEffortStop(stub: MigrationContainerHandle): Promise<void> {
+/** #1101: race a cleanup call against CLEANUP_STOP_BOUND_MS so a wedged
+ * stop()/destroy() RPC can never hang the timeout/error flow. Always settles
+ * within the bound and never throws. Returns true when the call rejected
+ * (caller may try the destroy fallback); false when it resolved or the bound
+ * expired (just continue and report the original outcome). */
+async function boundedCleanup(call: () => Promise<void>): Promise<boolean> {
   try {
-    await stub.stop();
+    await Promise.race([call(), sleep(CLEANUP_STOP_BOUND_MS)]);
+    return false;
   } catch {
+    return true;
+  }
+}
+
+/** Best-effort stop (destroy fallback) that never throws and is bounded, so
+ * slot cleanup itself can never mask the deadline or the original error. */
+async function bestEffortStop(stub: MigrationContainerHandle): Promise<void> {
+  if (await boundedCleanup(() => stub.stop())) {
     await bestEffortDestroy(stub);
   }
 }
 
-/** Best-effort destroy (SIGKILL) fallback when stop() rejects; never throws. */
+/** Best-effort destroy (SIGKILL) fallback when stop() rejects; bounded, never
+ * throws. If the slot cannot be freed the caller still reports the original
+ * outcome. */
 async function bestEffortDestroy(stub: MigrationContainerHandle): Promise<void> {
-  if (stub.destroy === undefined) return;
-  try {
-    await stub.destroy();
-  } catch {
-    // Slot cannot be freed; the caller still reports the original outcome.
-  }
+  const destroy = stub.destroy;
+  if (destroy === undefined) return;
+  await boundedCleanup(destroy);
 }

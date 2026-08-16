@@ -10,6 +10,12 @@ export interface FakeState {
   exitCode?: number;
 }
 
+// A promise that never settles — models a wedged stop()/destroy() RPC for the
+// #1101 bounded-cleanup tests (fired off via fake timers, never wall-clock).
+export function neverResolve(): Promise<void> {
+  return new Promise<void>(() => undefined);
+}
+
 export interface FakeCalls {
   start: number;
   stop: number;
