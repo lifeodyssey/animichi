@@ -35,6 +35,7 @@ export interface GitHubOidcClaims {
   workflow_ref?: string;
   job_workflow_ref?: string;
   environment?: string;
+  sha?: string;
 }
 
 /**
