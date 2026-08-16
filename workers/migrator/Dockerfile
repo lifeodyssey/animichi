@@ -31,7 +31,7 @@ RUN chmod +x /usr/local/bin/atlas \
 # "database is not clean" check) and run the pinned apply to head.
 # Build context is the monorepo root (image_build_context = "../../"), so the
 # entrypoint is copied from the worker's docker dir under that root context.
-COPY --chmod=0755 workers/migrator/docker/entrypoint.sh /entrypoint.sh
+COPY --chmod=0755 workers/migrator/docker/entrypoint.sh workers/migrator/docker/dsn.sh /entrypoint.sh /dsn.sh
 
 # docker:S6471 — non-root runtime user. Alpine ships adduser/addgroup, so we
 # create a dedicated service account instead of reusing a Distroless nonroot
