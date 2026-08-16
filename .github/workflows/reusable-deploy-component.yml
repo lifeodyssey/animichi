@@ -48,6 +48,14 @@ on:
       # legacy build path. The consume step fails closed if the approved
       # artifact cannot be loaded (immutable store = #1013 follow-up).
       promotion_artifact_digest: { required: false, type: string, default: "" }
+      # #1052: whether this deploy runs the pinned Atlas migrate step. The
+      # staging path ("schema before app") applies the committed chain via the
+      # migrator trigger (migrate-staging in ci.yml) and must therefore contain
+      # NO Atlas invocation and NO database credential - staging callers set
+      # run_atlas: false. Production keeps the SAFE-1 pinned apply (#937) until
+      # #1055 removes the per-component Atlas path entirely; production callers
+      # omit this input (default true) so the pinned apply keeps running.
+      run_atlas: { required: false, type: boolean, default: true }
     secrets:
       NEON_DATABASE_URL:
         required: false
@@ -70,8 +78,9 @@ on:
         required: false
       R2_SECRET_ACCESS_KEY:
         required: false
-      NEON_AUTH_JWKS_URL:
-        required: false
+      # NEON_AUTH_JWKS_URL / CORS_ALLOWED_ORIGIN are deliberately NOT secret
+      # inputs (issue #1047): both are public config carried as edge wrangler
+      # vars, so CI no longer ferries them as worker secrets.
       SUPABASE_DB_URL:
         required: false
       MIMO_API_KEY:
@@ -81,8 +90,6 @@ on:
       GOOGLE_MAPS_API_KEY:
         required: false
       LOGFIRE_TOKEN:
-        required: false
-      CORS_ALLOWED_ORIGIN:
         required: false
       TURNSTILE_SECRET:
         required: false
@@ -106,7 +113,7 @@ on:
       # under `on.workflow_call.secrets` AND in the caller's `secrets:` map.
       # When
       # the name is present, the job's `environment:` wins over whatever the
-      # caller passed (verified: users' NEON_AUTH_JWKS_URL resolves to the
+      # caller passed (verified: users' NEON_DATABASE_URL resolves to the
       # staging-environment value, not the caller's, under exactly this
       # pattern — see the "Report resolved secret shape" step's #527 note).
       # With the declaration absent (#886's fix), the environment secret
@@ -224,14 +231,14 @@ jobs:
       # https://docs.github.com/en/actions/using-workflows/reusing-workflows#access-to-secrets).
       # #527's original diagnosis assumed this resolution was broken; a real
       # workflow_dispatch diagnostic run (staging) proved it already works —
-      # NEON_AUTH_JWKS_URL and NEON_DATABASE_URL both resolved to their
-      # staging-environment values even when the caller job (which has no
-      # environment context of its own) passed an empty stand-in.
+      # NEON_DATABASE_URL resolved to its staging-environment value even when
+      # the caller job (which has no environment context of its own) passed an
+      # empty stand-in.
       #
       # This step keeps that verification live on every future deploy —
       # staging AND production — WITHOUT ever printing a raw value:
-      #   - NEON_DATABASE_URL / NEON_AUTH_JWKS_URL / PULUMI_BACKEND_URL /
-      #     LOGFIRE_TOKEN are high-entropy, arbitrary-content secrets where
+      #   - NEON_DATABASE_URL / PULUMI_BACKEND_URL / LOGFIRE_TOKEN are
+      #     high-entropy, arbitrary-content secrets where
       #     length carries no meaning of its own. For these, print the first
       #     8 hex chars of a sha256 of the value instead of its length: two
       #     runs with the SAME hash prefix are, for all practical purposes,
@@ -260,12 +267,11 @@ jobs:
       #           value space; hashing it doesn't protect it, it just hands
       #           an attacker a dictionary-attackable commitment to the
       #           value. Never apply this pattern to that class of secret.
-      #   - CORS_ALLOWED_ORIGIN is deliberately excluded from this step
-      #     entirely: as of #528 (P1-A) it is a plain `vars` entry in
-      #     `wrangler.toml` for staging (a domain name, not a secret) and
-      #     only remains a GH environment secret for production — mixing
-      #     the two sources here would need per-environment branching for
-      #     no real benefit.
+      #   - CORS_ALLOWED_ORIGIN and NEON_AUTH_JWKS_URL are deliberately excluded
+      #     from this step entirely (issue #1047): both are public config, now
+      #     carried as `vars` entries in `wrangler.toml` (a domain name / a JWKS
+      #     URL, not secrets), so CI no longer ferries them and there is nothing
+      #     to hash here.
       #
       # None of this claims the two environments hold different VALUES on
       # its own — a matching hash prefix is strong (not certain, given
@@ -282,7 +288,6 @@ jobs:
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           TARGET_COMPONENT: ${{ inputs.component }}
           NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
         run: |
@@ -292,7 +297,6 @@ jobs:
           }
           echo "environment=$TARGET_ENVIRONMENT component=$TARGET_COMPONENT"
           echo "  NEON_DATABASE_URL   set=$([ -n "$NEON_DATABASE_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_DATABASE_URL")"
-          echo "  NEON_AUTH_JWKS_URL  set=$([ -n "$NEON_AUTH_JWKS_URL" ] && echo true || echo false) sha256_8=$(hash8 "$NEON_AUTH_JWKS_URL")"
           echo "  PULUMI_BACKEND_URL  set=$([ -n "$PULUMI_BACKEND_URL" ] && echo true || echo false) sha256_8=$(hash8 "$PULUMI_BACKEND_URL")"
           echo "  LOGFIRE_TOKEN       set=$([ -n "$LOGFIRE_TOKEN" ] && echo true || echo false) sha256_8=$(hash8 "$LOGFIRE_TOKEN")"
       # Validates BEFORE anything deploys — including before "Atlas migrate"
@@ -581,9 +585,16 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "::notice title=promotion manifest::$TARGET_COMPONENT built once -> digest $digest (source $source_sha)"
       - name: Atlas migrate
-        # NOTE: secrets context is NOT allowed in step `if:` (GitHub compile-time
-        # error → startup_failure). Guard inside run via the env var instead.
-        #
+        # #1052: run_atlas: false (every staging caller) skips this step entirely
+        # so the staging path carries no Atlas invocation and no database
+        # credential - the migrator trigger (migrate-staging in ci.yml) is the only
+        # schema applier for staging. Production callers omit run_atlas (default
+        # true) and keep the SAFE-1 pinned apply until #1055. inputs context is
+        # allowed in step if: (only the secrets context is not). The empty-DSN
+        # guard inside the run below is kept: it is what makes a production call
+        # fail closed when NEON_DATABASE_URL is missing.
+        if: ${{ inputs.run_atlas }}
+
         # #516: this Neon database also hosts `neon_auth` (9 tables Neon Auth
         # itself provisions and owns — Atlas must never touch them) alongside
         # `public` (the schema Atlas actually manages). Without scoping,
@@ -654,6 +665,10 @@ jobs:
       - name: Install Pulumi CLI
         if: ${{ inputs.run_pulumi }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          # #1069: pin the Pulumi CLI to 3.255.0 (gocloud v0.46.0); see the
+          #       neon-secrets workflow for the R2 InvalidDigest root cause.
+          pulumi-version-file: .pulumi.version
       # #522: `pulumi up` below failed on every run with "It looks like the
       # Pulumi SDK has not been installed" because infra/node_modules never
       # existed. pulumi/actions@v7 stopped auto-installing project
@@ -779,6 +794,8 @@ jobs:
           command: up
           stack-name: ${{ inputs.pulumi_stack }}
           work-dir: infra
+          # #1069: pin Pulumi 3.255.0 (gocloud v0.46.0) — see neon-secrets deploy for R2 InvalidDigest root cause.
+          pulumi-version-file: .pulumi.version
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
@@ -810,13 +827,11 @@ jobs:
           # DSN as the DATABASE_URL worker secret until the #912 cutover.
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
-          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
         run: |
           effective="$REQUIRED_LIST"
           while IFS= read -r name; do
@@ -936,13 +951,11 @@ jobs:
           # DATABASE_URL until the #912 cutover.
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
-          NEON_AUTH_JWKS_URL: ${{ secrets.NEON_AUTH_JWKS_URL }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-          CORS_ALLOWED_ORIGIN: ${{ secrets.CORS_ALLOWED_ORIGIN }}
       # Deliberately NOT part of the wrangler-action `secrets:` list above (the
       # one populating `worker_secrets`): that list is uploaded via
       # wrangler-action's own `uploadSecrets()`, which runs `wrangler secret
@@ -1054,6 +1067,19 @@ jobs:
               ;;
             users)
               echo "::notice title=post-deploy smoke::users has no public route in any environment by design (private, USERS service binding only); reachability is verified end-to-end by reusable-post-deploy-test.yml's users-probe once root is deployed in the same environment"
+              ;;
+            migrator)
+              # #1083/#1089: the migrator is a live OIDC-gated endpoint (workers.dev
+              # enabled, staging only until #1055); the deploy smoke asserts the
+              # worker is REACHABLE and its read-only /ledger-head answers (the
+              # DB read path works). Ledger EQUALITY is enforced by the
+              # migrate-staging trigger response (applied == expected, #1051) and
+              # the post-deploy staging suite (#1052) — not here, or the first
+              # catch-up deploy deadlocks (stale ledger fails the smoke, which
+              # skips the trigger via needs).
+              url="$(bash .github/scripts/resolve-worker-url.sh migrator "$ENVIRONMENT")"
+              echo "Resolved migrator@$ENVIRONMENT -> $url"
+              MIGRATOR_URL="$url" bash .github/scripts/post-deploy-assert.sh ledger-head
               ;;
             *)
               echo "::error title=post-deploy smoke::unknown component '$COMPONENT'"

@@ -64,12 +64,14 @@ Root guide: `../../AGENTS.md`.
 - `*.worker.test.ts` runs inside workerd via `vitest.config.ts`; its filesystem is sandboxed.
 - `*.spike.test.ts` runs in the Node pool via `vitest.spike.config.ts` for filesystem, TCP, Docker,
   or child-process work. Filesystem parity checks belong here, not in Worker tests — **unless the
-  check must never be skippable**. Two mechanisms make the spike pool skippable: `globalSetup`
-  provides `{ enabled: false }` without `NEON_API_KEY`/`NEON_PROJECT_ID` and `databaseDescribe`
-  turns that into `describe.skip`; and, decisively, the `catalog-spikes` CI job's `if:`
-  (`ci.yml`) restricts it to `workflow_dispatch` and same-repo `pull_request` — **on a push to
-  `main`, or on any fork PR, it does not run at all**. Config-as-data guards that must always run
-  therefore belong in the worker pool, reading their file via Vite's `?raw` suffix (inlined at
-  transform time, so the sandboxed filesystem never comes into it).
+  check must never be skippable**. The suite is **hermetic and fail-loudly** (card 1049): its
+  `globalSetup` (`test/spike-db-global.ts`) boots a **Docker Postgres+PostGIS** container, applies
+  the committed `migrations/neon` Atlas chain to a clean database, and any setup failure throws —
+  there is no silent-skip path and **zero Neon environment variables**. It runs on every
+  `pnpm test:spike`, including the push-to-main CI arm in `pipeline-catalog.yml`'s
+  `Catalog / spike (Docker Postgres)` job (which builds the `animichi-test-postgres` image first).
+  Config-as-data guards that must always run therefore belong in the worker pool, reading their file
+  via Vite's `?raw` suffix (inlined at transform time, so the sandboxed filesystem never comes
+  into it).
   See `test/wrangler-private.worker.test.ts`.
 - TDD via `vitest-pool-workers`; keep `test/contract-parity.worker.test.ts` green.

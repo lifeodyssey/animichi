@@ -16,6 +16,7 @@ on:
       - ".github/scripts/**"
       - ".github/workflows/pipeline-catalog.yml"
       - ".oxlintrc.json"
+      - "migrations/neon/**"
       - "workers/catalog/**"
       - "packages/contract/**"
       - "package.json"
@@ -68,6 +69,26 @@ jobs:
           flags: catalog
           fail_ci_if_error: true
           use_oidc: true
+
+
+  spike:
+    name: Catalog / spike (Docker Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/install-atlas
+      # Reuse the agent's offline arm image (postgis + pgvector, pinned digest);
+      # the spike global setup boots it and applies migrations/neon to a clean DB.
+      - name: Build hermetic Postgres+PostGIS test image
+        run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+      - name: Spike suite (PostGIS, atomic publish, schema contract)
+        run: pnpm run test:spike
+        working-directory: workers/catalog
+
 
   # Boots the REAL deploy bundle in workerd (wrangler dev + /healthz). The
   # vitest worker pool evaluates unbundled modules, so bundle-only startup

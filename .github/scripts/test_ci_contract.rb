@@ -50,7 +50,8 @@ pipelines = {
   "pipeline-edge.yml" => ["Edge / lint", "Edge / test", "Edge / build"],
   "pipeline-contract.yml" => ["Contract / lint", "Contract / test", "Contract / build"],
   "pipeline-infra.yml" => ["Infra / lint", "Infra / test", "Infra / build"],
-  "pipeline-db.yml" => ["DB / lint", "DB / build"]
+  "pipeline-db.yml" => ["DB / lint", "DB / build"],
+  "pipeline-migrator.yml" => ["Migrator / lint", "Migrator / test", "Migrator / build"]
 }
 
 # `on:` is a YAML 1.1 boolean, so old psych versions parse it as the key `true`

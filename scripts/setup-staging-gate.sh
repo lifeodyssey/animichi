@@ -15,6 +15,13 @@ set -euo pipefail
 #      resolve it from a job-level `environment:` and a repo-level value
 #      would never reach them).
 #
+#
+# #1054 (OIDC phase 2): the CI channel of the staging gate is switching to the
+# pipeline's GitHub OIDC identity (exchanged at /staging-gate/exchange for a
+# short-lived gate session). Deleting the STAGING_GATE_TOKEN GitHub secret is the
+# ORCHESTRATOR's post-merge step, taken ONLY after the OIDC smoke switch is verified
+# in a real deploy; until then the static token is what lets CI past the WAF.
+#
 # A mismatch between the two locks CI out of staging with no useful symptom,
 # which is the whole reason this is a script and not a checklist.
 #

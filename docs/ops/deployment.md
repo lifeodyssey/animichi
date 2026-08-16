@@ -395,6 +395,13 @@ On a push to `main`, the current promotion chain is:
    Re-requiring the external `codecov/patch` status (95% patch coverage) is a tracked backlog
    item for the orchestrator; until then the repo-side policy check
    (`pipeline-quality.yml` "Verify patch coverage policy") is the only 95% enforcement.
+0. **Schema before app (migrator, #1051/#1052)**: `deploy-migrator-staging` deploys the migrator
+   worker (its DSN arrives from the Cloudflare Secrets Store binding, never from CI), then
+   `migrate-staging` triggers it via GitHub OIDC (no stored secret), applies the committed chain
+   to head, and fails the run unless the applied head equals the expected target. Every staging
+   component deploy below depends on `migrate-staging` in its `needs:` graph, so a failed
+   trigger blocks all component deploys. The routine staging path carries NO `NEON_DATABASE_URL`.
+
 2. `deploy-staging` and `deploy-web-staging` wait only on the lanes that still live in `ci.yml`
    (`security` and the self-gated cross-stack lane), then call
    `reusable-deploy-component.yml` with `component: catalog` / `web`, `environment: staging`,
@@ -428,11 +435,29 @@ On a push to `main`, the current promotion chain is:
    staging-only (single branch, no `Pulumi.prod.yaml`); the production stack is a #912
    follow-up.
 4. `reusable-deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
-   repo, runs the shared setup action, applies Atlas migrations when `NEON_DATABASE_URL` is set,
-   runs `pulumi up` in `infra/`, deploys `workers/${{ inputs.component }}` with Wrangler, and runs
-   the component smoke step.
+   repo, runs the shared setup action, and runs the `run_atlas` migration step ONLY when the
+   caller leaves it on. **#1052 schema-before-app**: every **staging** caller passes
+   `run_atlas: false` and carries no `NEON_DATABASE_URL` - the schema is applied by the
+   **migrator trigger** (`migrate-staging` in ci.yml, step 0) BEFORE any component deploy, so a
+   staging deployment never holds the database credential. **Production** callers keep
+   `run_atlas` on and the pinned per-component Atlas apply (`NEON_DATABASE_URL` present) until
+   #1055 removes it. The component then runs `pulumi up` in `infra/`, deploys
+   `workers/${{ inputs.component }}` with Wrangler, and runs the component smoke step.
 5. the web, users, and root staging deploys complete in the same promotion stage.
-6. `post-staging` runs the API post-deploy suite against staging.
+6. `post-staging` runs the API post-deploy suite against staging, including the **migration
+   ledger-head smoke** (#1052 AC5): it reads the migrator's read-only `/ledger-head` endpoint and
+   fails unless the applied head equals the expected committed head (schema-before-app proven
+   post-deploy).
+
+**#1052 AC7 - real staging deploy with a schema change lands green, CI-run post-merge**: merging a
+PR that contains (a) a new `migrations/neon/*.sql` + rehashed `atlas.sum` and (b) the code that
+consumes it is the CI-run verification that a real staging deploy with a schema change lands
+green end-to-end: on the post-merge push to `main`, `ci.yml` deploys the migrator, the OIDC
+trigger applies the new chain head, every component deploy runs `run_atlas: false` against the
+new schema, and `post-staging` re-asserts the ledger head equals the target. The required
+`Quality / invariants` lane and the `migration-boundary` contract guard run on the PR before the
+merge; the deploy + smoke run on the merge. A red staging deploy or smoke is CI visible and
+blocks promotion.
 7. `deploy-prod` and the other production component jobs deploy catalog, web, users, and root with
    `environment: production`; `pulumi_stack: prod` remains catalog-only. The GitHub
    `production` environment is the human approval gate.

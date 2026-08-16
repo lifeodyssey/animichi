@@ -26,7 +26,7 @@ export async function saveItinerarySnapshot(
 ): Promise<void> {
   const statement = statementBuilder()
     .insert(itinerarySnapshots)
-    .values({ bangumiId, clusterVersion: version, payload: JSON.stringify(payload) })
+    .values({ bangumiId, clusterVersion: version, payload } as typeof itinerarySnapshots.$inferInsert)
     .getSQL();
   await db.execute(statement);
 }

@@ -1,0 +1,29 @@
+{
+  "name": "migrator",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Animichi migrator — GitHub-OIDC-gated one-shot Atlas apply on Cloudflare Containers",
+  "scripts": {
+    "dev": "wrangler dev",
+    "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "test": "vitest run",
+    "test:worker": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@animichi/contract": "workspace:*",
+    "@cloudflare/containers": "^0.3.7",
+    "@neondatabase/serverless": "^1.1.0",
+    "hono": ">=4.12.34",
+    "jose": "^6.2.4"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260727.1",
+    "@types/node": "^26.1.1",
+    "@vitest/coverage-istanbul": "4.1.10",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.114.0"
+  }
+}

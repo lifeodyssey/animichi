@@ -1,0 +1,2 @@
+# Local-only migrator DSN (never a real credential).
+# MIGRATOR_DATABASE_URL=postgresql://migrator:CHANGE_ME@localhost:5432/neondb?sslmode=require

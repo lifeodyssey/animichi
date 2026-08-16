@@ -1,0 +1,156 @@
+import { createRemoteJWKSet } from "jose";
+import { Hono, type Context } from "hono";
+import {
+  createGitHubOidcVerifier,
+  type GitHubOidcVerifier,
+} from "@animichi/contract/oidc-github";
+import { NeonMigrationsLedger } from "./ledger";
+import { runMigration, type ContainerOutcome, type MigrationRunResult } from "./migration";
+import {
+  GITHUB_OIDC_JWKS_URL,
+  STAGING_OIDC_POLICY,
+} from "./policy";
+
+/**
+ * #1051 — the migrator's Hono application + environment, kept free of any
+ * @cloudflare/containers import so the HTTP-seam tests run under plain vitest
+ * (the package's ESM build imports `cloudflare:workers`, which only resolves
+ * under workerd). The default container runner is loaded lazily (see the
+ * `runContainer` default) and the deployed entry (src/index.ts) statically
+ * wires the MigrationContainer class.
+ */
+
+/** Migrator Worker bindings (staging Secrets Store DSN + container binding). */
+export interface Env {
+  ENVIRONMENT?: string;
+  MIGRATOR_DATABASE_URL?: string | SecretsStoreSecret;
+  MIGRATOR_CONTAINER: DurableObjectNamespace;
+  /** Optional per-deploy cap on the one-shot container run, in ms. */
+  CONTAINER_TIMEOUT_MS?: string;
+}
+
+/** Injectable boundaries used by the worker HTTP-seam tests. */
+export interface MigratorDeps {
+  verifier?: GitHubOidcVerifier;
+  runContainer?: (dsn: string) => Promise<ContainerOutcome>;
+  readAppliedHead?: (dsn: string) => Promise<string | null>;
+}
+
+const REMOTE_JWKS = createRemoteJWKSet(new URL(GITHUB_OIDC_JWKS_URL));
+
+async function resolveDsn(env: Env): Promise<string | undefined> {
+  const url = env.MIGRATOR_DATABASE_URL;
+  if (url == null) return undefined;
+  return typeof url === "string" ? url : await url.get();
+}
+
+function timeoutMs(env: Env): number {
+  const value = Number(env.CONTAINER_TIMEOUT_MS);
+  return Number.isFinite(value) && value > 0 ? value : 5 * 60 * 1000;
+}
+
+function bearerToken(request: Request): string | null {
+  const header = request.headers.get("Authorization") ?? "";
+  const scheme = /^bearer[ \t]+/i.exec(header);
+  if (scheme === null) return null;
+  const token = header.slice(scheme[0].length).trim();
+  return token.length > 0 ? token : null;
+}
+
+function healthz(c: Context<{ Bindings: Env }>): Response {
+  return c.json({ status: "ok", service: "migrator", env: c.env.ENVIRONMENT ?? "unknown" });
+}
+
+/** JSON.parse returns `any`; narrow to `unknown` at the only parse site. */
+function parseJson(raw: string): unknown {
+  return JSON.parse(raw) as unknown;
+}
+
+/** Parse the optional JSON body into an object; a non-object body is a 400. */
+async function parseBody(request: Request): Promise<{ ok: true } | { ok: false }> {
+  try {
+    const raw = await request.text();
+    const parsed = parseJson(raw.length === 0 ? "{}" : raw);
+    return typeof parsed === "object" && parsed !== null ? { ok: true } : { ok: false };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function outcomeResponse(result: MigrationRunResult): Response {
+  if (result.kind === "failure") {
+    return Response.json({ success: false, exitCode: result.exitCode, appliedHead: null }, { status: 500 });
+  }
+  if (result.kind === "timeout") {
+    // #1101: richer 504 — carry ranMs + lastStatus (+ exitCode when present);
+    // never include the DSN (it is not on the outcome type). Status stays 504.
+    const body =
+      result.exitCode === undefined
+        ? { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus }
+        : { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus, exitCode: result.exitCode };
+    return Response.json(body, { status: 504 });
+  }
+  return Response.json({ success: true, exitCode: 0, appliedHead: result.appliedHead });
+}
+
+async function runContainerFor(
+  env: Env,
+  deps: MigratorDeps,
+): Promise<(dsn: string) => Promise<ContainerOutcome>> {
+  if (deps.runContainer !== undefined) return deps.runContainer;
+  const { CloudflareContainerRunner } = await import("./runner");
+  return (value: string) => new CloudflareContainerRunner(env.MIGRATOR_CONTAINER).start(value, timeoutMs(env));
+}
+
+async function handleMigrate(
+  c: Context<{ Bindings: Env }>,
+  deps: MigratorDeps,
+): Promise<Response> {
+  const token = bearerToken(c.req.raw);
+  if (token === null) return c.json({ error: "unauthorized" }, 401);
+  const verifier = deps.verifier ?? createGitHubOidcVerifier(STAGING_OIDC_POLICY, REMOTE_JWKS);
+  const verified = await verifier.verify(token);
+  if (!verified.ok) return c.json({ error: "forbidden", message: verified.reason }, 403);
+  const body = await parseBody(c.req.raw);
+  if (!body.ok) return c.json({ error: "invalid request body" }, 400);
+  const dsn = await resolveDsn(c.env);
+  if (dsn === undefined) return c.json({ error: "migrator database not configured" }, 503);
+  try {
+    const runContainer = await runContainerFor(c.env, deps);
+    const readAppliedHead = deps.readAppliedHead ??
+      ((value: string) => new NeonMigrationsLedger().readAppliedHead(value));
+    const result = await runMigration(dsn, { runContainer, readAppliedHead });
+    return outcomeResponse(result);
+  } catch (error) {
+    // #1091 (US-27): an unexpected orchestration throw must be observable —
+    // the bare Hono 500 hid the failure reason on the first real trigger run.
+    // Surface the exception message only (never a DSN or credential).
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ success: false, error: message }, 500);
+  }
+}
+
+/**
+ * #1052 (AC5) - read-only applied-head report for the post-staging smoke.
+ * Resolves the migrator DSN transiently and reads the applied head from the
+ * ledger (the same read-only query /migrate uses on a clean exit). No
+ * container runs and no mutation is possible. It is unauthenticated because
+ * the head equals the newest committed migrations/neon basename (public info,
+ * scripts/migration-head.sh), and the smoke's post-staging job carries no OIDC.
+ */
+async function handleLedgerHead(c: Context<{ Bindings: Env }>, deps: MigratorDeps): Promise<Response> {
+  const dsn = await resolveDsn(c.env);
+  if (dsn === undefined) return c.json({ error: "migrator database not configured" }, 503);
+  const readAppliedHead = deps.readAppliedHead ?? ((value: string) => new NeonMigrationsLedger().readAppliedHead(value));
+  const head = await readAppliedHead(dsn);
+  return c.json({ head });
+}
+
+/** Create an independently injectable migrator Hono application. */
+export function createMigratorApp(deps: MigratorDeps = {}): Hono<{ Bindings: Env }> {
+  const app = new Hono<{ Bindings: Env }>();
+  app.get("/healthz", healthz);
+  app.get("/ledger-head", (c) => handleLedgerHead(c, deps));
+  app.post("/migrate", (c) => handleMigrate(c, deps));
+  return app;
+}

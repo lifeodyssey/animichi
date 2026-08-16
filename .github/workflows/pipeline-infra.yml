@@ -120,6 +120,10 @@ jobs:
           cache-dependency-path: infra/neon-secrets/pnpm-lock.yaml
       - name: Install Pulumi CLI
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          # #1069: pin the Pulumi CLI to 3.255.0 (gocloud v0.46.0); see the
+          #       neon-secrets workflow for the R2 InvalidDigest root cause.
+          pulumi-version-file: .pulumi.version
       - name: Generate Neon provider SDK
         run: |
           pulumi package add terraform-provider kislerdm/neon
@@ -209,6 +213,10 @@ jobs:
       - name: Install Pulumi CLI
         if: ${{ steps.pulumi_gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || steps.f.outputs.infra == 'true') }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          # #1069: pin the Pulumi CLI to 3.255.0 (gocloud v0.46.0); see the
+          #       neon-secrets workflow for the R2 InvalidDigest root cause.
+          pulumi-version-file: .pulumi.version
       - name: Pulumi preview (staging)
         if: ${{ steps.pulumi_gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || steps.f.outputs.infra == 'true') }}
         # pulumi/actions' automation-api login chokes on the query-string s3:// R2
@@ -259,6 +267,32 @@ jobs:
           # provider reads CLOUDFLARE_API_TOKEN, the R2 backend the AWS_* pair.
           # The Neon API key needs no secret — it decrypts from the committed
           # stack config with PULUMI_CONFIG_PASSPHRASE.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+      # #1048: production neon-secrets preview, mirroring the staging one.
+      # The prod stack is provisioned first by the owner-gated deploy; before
+      # that the stack does not exist on R2 and/or the prod `neonApiKey` secret
+      # config is not set, so this degrades to a warning instead of failing.
+      - name: Pulumi preview (neon-secrets production)
+        if: ${{ steps.pulumi_gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || steps.f.outputs.infra == 'true') }}
+        working-directory: infra/neon-secrets
+        run: |
+          pulumi login "$PULUMI_BACKEND_URL"
+          if ! pulumi stack select prod 2>/dev/null; then
+            echo "::warning::neon-secrets stack 'prod' does not exist yet on the R2 backend (created by the first production deploy). Skipping preview."
+            exit 0
+          fi
+          if ! pulumi config get animichi-neon-secrets:neonApiKey >/dev/null 2>&1; then
+            echo "::warning::neon-secrets prod stack has no neonApiKey secret config yet; set it (owner-gated provisioning) before the first prod deploy to preview the plan."
+            exit 0
+          fi
+          pulumi preview --non-interactive --diff
+        env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}

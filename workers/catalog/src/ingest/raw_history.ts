@@ -60,15 +60,10 @@ export async function historyCount(
 /** The COUNT over the work/source group. */
 function countStatement(workId: string, source: string): SQL {
   return statementBuilder()
-    .select({ n: countRows() })
+    .select({ n: sql`COUNT(*)::int`.as("n") })
     .from(rawPayloadHistory)
     .where(and(eqWork(workId), eqSource(source)))
     .getSQL();
-}
-
-/** Count(*)::int — a typed scalar aggregate fragment. */
-function countRows(): SQL {
-  return sql`COUNT(*)::int`;
 }
 
 /** The work_id = ? predicate fragment. */
@@ -142,12 +137,18 @@ function notActiveRun(activeRunId: string): SQL {
 function rowOf(value: unknown): HistoryRow[] {
   if (value === null || typeof value !== "object") return [];
   const record = value as Record<string, unknown>;
-  const seq = record.seq;
+  const seq = numeric(record.seq);
   const workId = record.work_id;
   const source = record.source;
   const runId = record.run_id;
-  if (typeof seq !== "number" || typeof workId !== "string" || typeof source !== "string") return [];
+  if (seq === undefined || typeof workId !== "string" || typeof source !== "string") return [];
   return [{ seq, workId, source, runId: typeof runId === "string" ? runId : null }];
+}
+
+/** A bigserial value arrives as a string under a raw execute; normalise it. */
+function numeric(value: unknown): number | undefined {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : undefined;
 }
 
 function readCount(rows: readonly unknown[]): number {

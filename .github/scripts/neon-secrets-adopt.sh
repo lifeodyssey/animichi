@@ -66,6 +66,17 @@ RESOURCES=(
   "neon:index/role:Role|agent_svc|<projectId>/<branchId>/agent_svc"
   "cloudflare:index/secretsStoreSecret:SecretsStoreSecret|CATALOG_DATABASE_URL|<accountId>/<storeId>/e14b4f8b8c7e4fe485807921d952cb1a"
   "cloudflare:index/secretsStoreSecret:SecretsStoreSecret|USERS_DATABASE_URL|<accountId>/<storeId>/891fd7994212451a8483e67adc09426a"
+  # #1050: the dedicated migrator ROLE is imported like the runtime roles so a
+  # fresh stack (production, landed by #1048) owns it instead of re-creating it
+  # (Neon rejects a duplicate role create; the role is project-scoped, created
+  # once by the first stack that applies). Its import ID is fully derivable from
+  # the stack config like the runtime roles — no secret UUID needed here.
+  #
+  # The migrator DSN store secret (MIGRATOR_DATABASE_URL) is NOT listed here:
+  # its store-item UUID is only knowable from a live `pulumi stack export` after
+  # the first staging apply creates it. #1048's prod DSN cutover must populate
+  # that entry (cloudflare:index/secretsStoreSecret:...|MIGRATOR_DATABASE_URL|<accountId>/<storeId>/<uuid>) from the live export, following the #926 provenance pattern above.
+  "neon:index/role:Role|migrator|<projectId>/<branchId>/migrator"
 )
 
 project_id="$(pulumi config get animichi-neon-secrets:neonProjectId)"

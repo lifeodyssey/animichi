@@ -9,7 +9,7 @@
 | --- | --- | --- | --- | --- |
 | **production** (`main` compute) | Live user data | **No wipe** | CI deploy only (migrator DSN); human approval on prod deploy | Soft baseline only for history squash (#845/#849) |
 | **staging** | Pre-prod integration | Wipe **allowed** with owner go (campaign W6 may wipe or soft-baseline) | **CI deploy path only** (Atlas via reusable-deploy); owner break-glass CLI only with explicit HITL, not routine | Target for #832 min-privilege DSN cutover first |
-| **test-base** | Hermetic / integration fixture parent | Wipe + reseed **expected** | CI `neon-test-base` / scripts | Not production-like traffic |
+| **test-base** | Integration fixture parent | Wipe + reseed **expected** | Refreshed manually with a personal `NEON_API_KEY` (#1053 retired the CI workflow; the branch is data, not CI) | Not production-like traffic; no DB-backed CI lane connects to it (that lane is hermetic Docker) |
 | **dev** (personal / shared dev branch) | Local and ad-hoc agent work | Wipe OK | Developer with branch DSN | Prefer branch-per-PR when available |
 | **preview / PR** (optional Neon branch) | Isolated PR schema checks | Ephemeral; delete with PR | CI create-branch + migrate on branch URL | Use Neon create-branch Action if enabled |
 
@@ -24,7 +24,7 @@
 
 ## Apply path (current)
 
-1. **PR / package CI:** `pipeline-db` → `atlas migrate validate` (+ dry-run when URL present).
+1. **PR / package CI:** `pipeline-db` → `atlas migrate validate` (hermetic; the live-Neon dry-run was dropped with the test-infra retirement #1053).
 2. **Deploy:** `reusable-deploy-component` → Atlas migrate with `NEON_DATABASE_URL` and `search_path=public` (avoids `neon_auth` dirty checks).
 3. **Local:** same Atlas pin as CI for **empty/dev/test-base** only. Staging/prod apply is the deploy workflow; laptop apply to staging/prod requires explicit owner HITL (not routine).
 

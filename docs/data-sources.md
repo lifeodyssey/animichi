@@ -57,5 +57,8 @@ DATABASE_URL='postgres://user:pass@host/db' make seed-gazetteer
 # or: DATABASE_URL=... scripts/seed-gazetteer.sh
 ```
 
-`scripts/neon-test-base.sh` loads it as part of both `provision` and `refresh` of the
-`test-base` branch, so ephemeral branches inherit the gazetteer from their parent.
+The retired Neon test-base refresh script (test-infra retirement, #1053) loaded it as part of
+`provision`/`refresh` of the `test-base` branch; `test-base` is now refreshed manually with a
+personal Neon key (data, not CI). `make seed-gazetteer`, `atlas_helper`, and the hermetic
+Docker integration lane (`conftest_db.py` applying `migrations/neon/`) all still load the
+gazetteer idempotently.

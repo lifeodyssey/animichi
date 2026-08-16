@@ -6,7 +6,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "lint:oxlint": "pnpm --filter catalog --filter users --filter web run lint:oxlint",
+    "lint:oxlint": "pnpm --filter catalog --filter users --filter web --filter migrator run lint:oxlint",
     "test:worker": "pnpm --filter edge-worker test",
     "verify:dependabot": "pnpm run lint:oxlint && pnpm run test:worker && pnpm -r --if-present typecheck && pnpm --filter web build"
   },

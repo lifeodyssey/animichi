@@ -1,8 +1,12 @@
 # Neon Test Infrastructure Runbook
 
-This runbook covers the agent's three database-test arms, agent-only Neon Local development,
-`test-base` maintenance, branch quota, and cleanup. The catalog and users Workers use a standing
-cloud dev branch through neon-http; they do not use the agent's local postgres-wire proxy.
+This runbook covers the agent's database-test arms, agent-only Neon Local development,
+`test-base` maintenance, branch quota, and cleanup. Since the Neon **test-infra retirement**
+(#1053) the DB-backed Python integration lane in CI is hermetic: it runs against the offline
+Docker arm (`TEST_DB=docker`), so no Neon credential is involved in CI. `test-base`&apos;s refresh
+workflow and script are retired — the branch itself remains in Neon as data and is refreshed
+manually with a personal `NEON_API_KEY`. The catalog and users Workers use a standing cloud dev
+branch through neon-http; they do not use the agent's local postgres-wire proxy.
 
 ## Test arm selection
 
@@ -15,8 +19,11 @@ The pytest fixture selects exactly one arm per session:
 | `TEST_DB=neon` | Neon | Neon Local creates a child of `test-base`; tests use its direct cloud DSN |
 | No selector | Offline default | Same as explicit `TEST_DB=docker` |
 
-`TEST_DATABASE_URL` and `TEST_DB` together are an error. `TEST_DB=neon` requires
-`NEON_API_KEY` and `NEON_PROJECT_ID`; credentials alone do not opt into live testing.
+`TEST_DATABASE_URL` and `TEST_DB` together are an error. `TEST_DB=neon` requires a
+**personal** `NEON_API_KEY` + `NEON_PROJECT_ID`; credentials alone do not opt into live testing.
+Since #1053 `TEST_DB=neon` is a **local-only** dev path — CI no longer references it. CI's
+DB-backed Python integration lane runs the offline Docker arm (`TEST_DB=docker`) hermetically
+in `pipeline-agent.yml`.
 
 ```bash
 # One-time image build; this step needs network.
@@ -26,7 +33,8 @@ docker build -f apps/agent/docker/test-postgres/Dockerfile \
 # Offline after the image and Atlas 0.30.0 are cached. Typical: 30-45 seconds.
 ATLAS_VERSION=0.30.0 TEST_DB=docker make test-integration
 
-# Live Neon arm. Typical: 6-7 minutes and one temporary branch.
+# Live Neon arm (local only, personal key; NOT a CI lane since #1053).
+# Typical: 6-7 minutes and one temporary branch.
 ATLAS_VERSION=0.30.0 TEST_DB=neon \
   NEON_API_KEY="$NEON_API_KEY" NEON_PROJECT_ID="$NEON_PROJECT_ID" \
   make test-integration
@@ -81,18 +89,20 @@ project ID; applies `migrations/neon/` with Atlas 0.30.0; reapplies the idempote
 seed first, then the fixture seed); and restores the service-role grants. It never runs the
 provisioner's database-wipe path.
 
+`.github/workflows/neon-test-base.yml` and `scripts/neon-test-base.sh` were **retired** with the
+test-infra retirement (#1053): no CI lane may mint a Neon DSN, so the branch is refreshed
+manually whenever its schema/seed moves. The script no longer ships in the tree; recover the
+retired script from git history to refresh:
 ```bash
-export NEON_API_KEY='<secret>'
+git show <pre-retirement-sha>:scripts/neon-test-base.sh > /tmp/neon-test-base.sh && chmod +x /tmp/neon-test-base.sh
+export NEON_API_KEY='<personal-secret>'
 export NEON_PROJECT_ID='<project-id>'
-ATLAS_VERSION=0.30.0 scripts/neon-test-base.sh refresh test-base
+ATLAS_VERSION=0.30.0 /tmp/neon-test-base.sh refresh test-base
 ```
-
-Phase C's `.github/workflows/neon-test-base.yml` runs the same `refresh test-base` command after a
-push to `main` that changes `migrations/neon/**`,
-`apps/agent/src/animichi/tests/fixtures/seed.sql`, or
-`workers/catalog/data/gazetteer_seed.sql`. Use `provision test-base` only for an owner-approved
+Refresh manually after a change to `migrations/neon/**`, `apps/agent/src/animichi/tests/fixtures/seed.sql`,
+or `workers/catalog/data/gazetteer_seed.sql`. Use `provision test-base` only for an owner-approved
 deterministic rebuild; that mode drops and recreates the target database after the same identity
-rails pass.
+rails pass. The branch itself stays in Neon (it is data), but nothing in CI references it.
 
 ## Migration source rule
 
@@ -101,8 +111,8 @@ changes are authored there directly, and `atlas.sum` is regenerated in the same 
 older `supabase/migrations/` files are archived/historical (issue #1000) and are not an apply or
 source surface; do not create an auth-stripped twin or copy a new data-plane change into both trees.
 The gazetteer seed is **not** a migration — it lives at `workers/catalog/data/gazetteer_seed.sql`
-and is loaded idempotently (`make seed-gazetteer` / the `neon-test-base.sh` seed step) after the
-schema exists.
+and is loaded idempotently (`make seed-gazetteer`; the retired test-base refresh script also
+loaded it) after the schema exists.
 
 Never reintroduce Python migration splitting, statement filtering, pgvector neutralization, or
 swallowed migration failures. Atlas owns ordering, checksums, transactions, and the revision
@@ -128,9 +138,9 @@ even when the mutation flag is set. Non-Neon BYO hosts still require the explici
 Budget against 10 concurrent branches in this project:
 
 - Standing: `main` + `staging` + `test-base` + zero or one dev branch.
-- Ephemeral: one per live Python integration or catalog-spike session.
-- Phase C serializes catalog spikes after Python integration and uses
-  `neon-tests-${{ github.ref }}` with cancellation, keeping each PR's peak at one branch.
+- Ephemeral: one per local `TEST_DB=neon` run. CI no longer opens ephemeral Neon
+  branches for test lanes (the Python integration lane is hermetic Docker since
+  #1053).
 
 Two PRs + one local run + four standing branches is 7 (pathological); 4-6 is typical. Check the
 Neon Console before a live run. The Free plan has no paid-overage escape hatch, so treat its

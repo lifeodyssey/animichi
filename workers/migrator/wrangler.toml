@@ -1,0 +1,94 @@
+# #1051 — the migrator Worker (staging first).
+#
+# Migration Executor (spec §"Migration executor"): a GitHub-OIDC-gated Worker
+# that, on a valid identity, starts a one-shot batch container running the
+# pinned Atlas apply against the committed migrations directory, waits for it
+# to exit, and reports the outcome + applied head. The migrator DSN
+# (MIGRATOR_DATABASE_URL, the dedicated `migrator` role, #1050) arrives as a
+# Cloudflare Secrets Store binding and is injected into the batch container
+# ONLY for the seconds it runs — it is never in a standing Workder bindings
+# surface, and it is bound to NO runtime worker (see
+# workers/edge/test/migrator-role-isolation.test.ts).
+#
+# Reached by the deploy pipeline at POST /migrate. The staging URL is supplied
+# to CI as the `MIGRATOR_STAGING_URL` workflow variable (the account's
+# workers.dev / custom host is provisioned by the operator on first deploy).
+#
+# Separated worker + container image by design: this card wires STAGING.
+# The production migrator path (separate worker + DSN, sub-anchored allowlist)
+# is #1055 and deliberately has no [env.production] here.
+
+name = "migrator"
+main = "src/index.ts"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# The migrator is a live helper endpoint (OIDC-protected) the deploy pipeline
+# calls, so it exposes a CI-reachable host. Staging uses the account's
+# workers.dev host (a public config, not a credential); stateful/private
+# Workers keep workers_dev = false (see catalog/users).
+workers_dev = true
+preview_urls = false
+
+[vars]
+ENVIRONMENT = "development"
+# #1095: the one-shot container may take several minutes on first-run cold
+# start (image pull + boot + apply); cap raised above that (the migrate-staging
+# trigger curl waits 900s and the job timeout is 20min).
+CONTAINER_TIMEOUT_MS = "600000"
+
+# The one-shot Atlas batch container (no ports; entrypoint runs atlas apply
+# and exits). Image built from the monorepo root context so it can COPY the
+# committed migrations directory. Kept minimal (lite is below the import
+# peak of a bare atlas process; basic for safety headroom).
+[[containers]]
+name = "animichi-migrator"
+class_name = "MigrationContainer"
+image = "./Dockerfile"
+image_build_context = "../../"
+max_instances = 1
+instance_type = "basic"
+
+[[durable_objects.bindings]]
+name = "MIGRATOR_CONTAINER"
+class_name = "MigrationContainer"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["MigrationContainer"]
+
+[observability]
+enabled = true
+
+[env.staging]
+name = "migrator-staging"
+workers_dev = true
+preview_urls = false
+
+# #1050: the staging migrator DSN comes from the Cloudflare Secrets Store
+# (secret MIGRATOR_DATABASE_URL, provisioned by infra/neon-secrets). env.
+# MIGRATOR_DATABASE_URL is a SecretsStoreSecret; src/index.ts awaits .get().
+[[env.staging.secrets_store_secrets]]
+binding = "MIGRATOR_DATABASE_URL"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "MIGRATOR_DATABASE_URL"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+# #1095: same 10-min cap as the dev default (first-run cold start).
+CONTAINER_TIMEOUT_MS = "600000"
+
+[[env.staging.containers]]
+class_name = "MigrationContainer"
+image = "./Dockerfile"
+image_build_context = "../../"
+max_instances = 1
+instance_type = "basic"
+
+[[env.staging.durable_objects.bindings]]
+name = "MIGRATOR_CONTAINER"
+class_name = "MigrationContainer"
+
+[[env.staging.migrations]]
+tag = "v1"
+new_sqlite_classes = ["MigrationContainer"]
