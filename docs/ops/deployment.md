@@ -403,12 +403,13 @@ On a push to `main`, the current promotion chain is:
    trigger blocks all component deploys. The routine staging path carries NO `NEON_DATABASE_URL`.
 
 2. `deploy-infra-staging` always runs on the deploy lane (no path filter) and applies the
-   main `infra/` stack (`reusable-deploy-infra.yml`). `deploy-staging` / `deploy-web-staging`
-   (and users/root) `needs` that job **and** `migrate-staging`, then call
+   main `infra/` stack (`reusable-deploy-infra.yml`). `deploy-staging` (and users/root) `needs`
+   that job **and** `migrate-staging`, then call
    `reusable-deploy-component.yml` with `run_pulumi: false`. Accepted tradeoff: staging deploys
    no longer wait on any package pipeline, because GitHub cannot express `needs:` across
    workflows — protection comes from the required merge contexts in the ruleset instead, plus
    the future merge queue.
+   #1075: staging web rings the Builds doorbell (`reusable-ring-doorbell.yml`); `vars.DOORBELL_STAGING_URL` is public config.
 3. `deploy-neon-secrets-staging` runs **before** `deploy-staging` (catalog waits on it, so
    users/root cascade behind it): the Neon service roles and the Cloudflare Secrets
    Store DSN secrets (`infra/neon-secrets/`, ADR 0003 / #912) must exist before any Worker deploy

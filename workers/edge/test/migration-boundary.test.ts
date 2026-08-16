@@ -97,6 +97,16 @@ void test("STAGING: deploy workflows carry no Atlas and no database credential; 
     "deploy-migrator-staging",
   ];
 
+  // #1075: deploy-web-staging rings the Builds doorbell (reusable-ring-doorbell)
+  // instead of the shared component, so it no longer passes run_atlas; the
+  // remaining staging callers must flip the shared component's Atlas step off.
+  const stagingRunAtlasJobs = [
+    "deploy-staging",
+    "deploy-users-staging",
+    "deploy-root-staging",
+    "deploy-migrator-staging",
+  ];
+
   // Extract each job's YAML block from the raw ci.yml source by slicing from its
   // two-space-indented header to the next two-space job header (or EOF).
   const lines = ci.split(/\r?\n/);
@@ -119,6 +129,9 @@ void test("STAGING: deploy workflows carry no Atlas and no database credential; 
     assert.doesNotMatch(seg, /\batlas\b/i, `${id} must not invoke Atlas`);
     assert.doesNotMatch(seg, /NEON_DATABASE_URL/, `${id} must not reference NEON_DATABASE_URL`);
     assert.doesNotMatch(seg, /NEON_API_KEY/, `${id} must not reference NEON_API_KEY`);
+  }
+  for (const id of stagingRunAtlasJobs) {
+    const seg = segmentOf(id);
     // Every staging caller must flip the shared component's Atlas step off.
     assert.match(seg, /run_atlas:\s*false/, `${id} must pass run_atlas: false`);
   }

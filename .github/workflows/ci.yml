@@ -369,24 +369,13 @@ jobs:
     # undeployed for three runs. Gate failures still block: they surface as
     # failure(), not skipped.
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/reusable-deploy-component.yml
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-ring-doorbell.yml
     with:
       component: web
       environment: staging
-      pulumi_stack: staging
-      working_directory: apps/web
-      build_filter: web
-      run_pulumi: false
-      # #1052: staging applies schema via the migrator trigger; no per-component migration apply.
-      run_atlas: false
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      # #826: the Smoke step sends this as `x-staging-key` past the staging
-      # WAF gate. Must be passed (the name must appear here) for the called
-      # workflow's job-level `environment: staging` to resolve its value.
-      STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
     concurrency: deploy-web-staging
 
   deploy-users-staging:
