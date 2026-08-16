@@ -131,6 +131,8 @@ abort "ruleset-target.json required checks with no producing job: #{orphans.join
 
 puts "Ruleset target: #{required.size} required checks all have a producing job (#{producers.size} producer contexts)"
 
+require_relative "test_ci_contract_infra_split"
+
 # Issue #1008 (review gate, docs/ops/review-gate.md §7): the PR comment gate is
 # wired into the already-required `Quality / invariants` job. The workflow
 # independently checks the current PR's active unresolved review threads,

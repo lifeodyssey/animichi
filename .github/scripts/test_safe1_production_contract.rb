@@ -199,7 +199,6 @@ end
 abort "reusable deploy must bake the pinned revision for production" \
   unless reusable_source.include?("pinned-pre-campaign")
 
-
 # ── 5. #1007 build-once promotion foundation (AC6: old path stays, new
 #       primitive wired alongside; #1013 deletes the old path later) ────────
 # The build-once primitive is produced at build time (deploy workflow), runs
