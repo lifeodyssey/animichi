@@ -17,7 +17,7 @@ afterAll(() => {
   vi.useRealTimers();
 });
 
-describe("POST /migrate — container outcomes", () => {
+describe("POST /migrate — container exit + error mapping", () => {
   it("reports a non-zero container exit as a failure response", async () => {
     const { app, token } = await makeApp({
       runContainer: (): Promise<ContainerOutcome> => Promise.resolve({ kind: "failure", exitCode: 3 }),
@@ -25,15 +25,6 @@ describe("POST /migrate — container outcomes", () => {
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ success: false, exitCode: 3, appliedHead: null });
-  });
-
-  it("answers 504 when the container hangs past the timeout", async () => {
-    const { app, token } = await makeApp({
-      runContainer: (): Promise<ContainerOutcome> => Promise.resolve({ kind: "timeout" }),
-    });
-    const res = await app.request(post({}, token), {}, testEnv());
-    expect(res.status).toBe(504);
-    expect(await res.json()).toEqual({ success: false, error: "timeout" });
   });
 
   it("returns success with a null applied head when the ledger has no revisions row", async () => {
@@ -53,6 +44,44 @@ describe("POST /migrate — container outcomes", () => {
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ success: false, error: "container start failed: image not found" });
+  });
+});
+
+describe("POST /migrate — timeout 504 body (#1101)", () => {
+  // #1101 AC5: a timeout 504 carries ranMs + lastStatus (+ exitCode when the
+  // state had one) and NEVER leaks the DSN; the HTTP status stays 504.
+  it("answers 504 with ranMs + lastStatus and no DSN when the container hangs past the timeout", async () => {
+    const { app, token } = await makeApp({
+      runContainer: (): Promise<ContainerOutcome> =>
+        Promise.resolve({ kind: "timeout", ranMs: 600_123, lastStatus: "running", exitCode: 2 }),
+    });
+    const res = await app.request(post({}, token), {}, testEnv());
+    expect(res.status).toBe(504);
+    const body = JSON.stringify(await res.json());
+    expect(JSON.parse(body)).toEqual({
+      success: false,
+      error: "timeout",
+      ranMs: 600_123,
+      lastStatus: "running",
+      exitCode: 2,
+    });
+    expect(body).not.toContain("postgresql://");
+    expect(body).not.toContain("db.test");
+  });
+
+  it("answers 504 without exitCode when the timed-out state has none", async () => {
+    const { app, token } = await makeApp({
+      runContainer: (): Promise<ContainerOutcome> =>
+        Promise.resolve({ kind: "timeout", ranMs: 12_345, lastStatus: "running" }),
+    });
+    const res = await app.request(post({}, token), {}, testEnv());
+    expect(res.status).toBe(504);
+    expect(await res.json()).toEqual({
+      success: false,
+      error: "timeout",
+      ranMs: 12_345,
+      lastStatus: "running",
+    });
   });
 });
 

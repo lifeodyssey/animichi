@@ -82,7 +82,13 @@ function outcomeResponse(result: MigrationRunResult): Response {
     return Response.json({ success: false, exitCode: result.exitCode, appliedHead: null }, { status: 500 });
   }
   if (result.kind === "timeout") {
-    return Response.json({ success: false, error: "timeout" }, { status: 504 });
+    // #1101: richer 504 — carry ranMs + lastStatus (+ exitCode when present);
+    // never include the DSN (it is not on the outcome type). Status stays 504.
+    const body =
+      result.exitCode === undefined
+        ? { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus }
+        : { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus, exitCode: result.exitCode };
+    return Response.json(body, { status: 504 });
   }
   return Response.json({ success: true, exitCode: 0, appliedHead: result.appliedHead });
 }

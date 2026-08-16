@@ -24,4 +24,7 @@ import { Container } from "@cloudflare/containers";
  */
 export class MigrationContainer extends Container {
   enableInternet = true;
+  /** #1101: strictly longer than CONTAINER_TIMEOUT_MS (10m) so a genuinely
+   * long apply is not frozen by the platform activity timer mid-flight. */
+  sleepAfter = "30m";
 }
