@@ -15,7 +15,7 @@
       "wrangler_config": "workers/catalog/wrangler.toml",
       "environment": "production",
       "pulumi_stack": "prod",
-      "run_pulumi": true,
+      "run_pulumi": false,
       "build_filter": "",
       "worker_secrets": [
         "DATABASE_URL"

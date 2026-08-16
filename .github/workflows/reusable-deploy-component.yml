@@ -726,11 +726,8 @@ jobs:
         # new exposure surface, using credentials (`R2_ACCESS_KEY_ID`/
         # `R2_SECRET_ACCESS_KEY`) already present in this step's env.
         #
-        # NOTE: `run_pulumi` defaults to true and only `component: catalog`
-        # jobs leave it at that default — web/users/root all pass
-        # `run_pulumi: false` (see ci.yml). So in practice this step only ever
-        # runs under the catalog deploy jobs; look there for the backup, not
-        # under a root/web/users run.
+        # NOTE: catalog/web/users/root callers now pass `run_pulumi: false`
+        # (#1074). Main-stack apply lives in reusable-deploy-infra.yml.
         if: ${{ inputs.run_pulumi }}
         # #933: `pulumi stack select "$PULUMI_STACK"` must run from inside the
         # `infra/` project directory. From the repo root there is no

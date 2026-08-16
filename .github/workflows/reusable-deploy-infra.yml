@@ -1,0 +1,92 @@
+# Reusable workflow (called by ci.yml / deploy.yml; not triggered directly).
+# Pulumi-only apply of the main infra stack (`infra/`, stacks staging / prod).
+# Sibling of reusable-deploy-neon-secrets.yml: no Wrangler, no smoke, no Atlas.
+# Catalog/users/web/root publish jobs need this job plus the migrator (#1074).
+#
+# Sequence matches the former catalog-job Pulumi path: R2 login, stack export
+# (#485 rollback backup), then `pulumi up`. Work dir is the main infra
+# project, not the neon-secrets sibling.
+name: deploy-infra
+permissions:
+  contents: read
+on:
+  workflow_call:
+    inputs:
+      environment: { required: true, type: string }
+      pulumi_stack: { required: true, type: string }
+    secrets:
+      # Same six secrets the main-stack Pulumi steps consume. All
+      # `required: false` and guarded at the step so a missing value fails
+      # with a readable message instead of a Pulumi stack trace.
+      PULUMI_CONFIG_PASSPHRASE: { required: false }
+      PULUMI_BACKEND_URL: { required: false }
+      CLOUDFLARE_PULUMI_API_TOKEN: { required: false }
+      CLOUDFLARE_ACCOUNT_ID: { required: false }
+      R2_ACCESS_KEY_ID: { required: false }
+      R2_SECRET_ACCESS_KEY: { required: false }
+jobs:
+  deploy:
+    timeout-minutes: 30
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          # #1069: pin Pulumi 3.255.0 (gocloud v0.46.0); see neon-secrets
+          # for the R2 InvalidDigest root cause.
+          pulumi-version-file: .pulumi.version
+      # Snapshot state BEFORE `up` mutates it. Public-repo artifacts are
+      # world-readable, so the backup goes to the same R2 bucket as live
+      # state (`rollback-backups/`), never a GitHub artifact (#485).
+      - name: Pulumi stack export (rollback backup)
+        working-directory: infra
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          PULUMI_STACK: ${{ inputs.pulumi_stack }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          if [ -z "$PULUMI_BACKEND_URL" ]; then
+            echo "PULUMI_BACKEND_URL not set — skipping stack export"; exit 0
+          fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID not set — cannot derive the R2 endpoint for the rollback backup upload. Refusing to proceed to 'pulumi up' without a rollback snapshot."
+            exit 1
+          fi
+          pulumi login "$PULUMI_BACKEND_URL"
+          pulumi stack select "$PULUMI_STACK"
+          backup_file="$RUNNER_TEMP/pulumi-$PULUMI_STACK-backup.json"
+          pulumi stack export --file "$backup_file"
+          if [ ! -s "$backup_file" ]; then
+            echo "::error::pulumi stack export produced no (or an empty) backup file despite PULUMI_BACKEND_URL being set. Refusing to silently proceed to 'pulumi up' without a rollback snapshot."
+            exit 1
+          fi
+          bucket="${PULUMI_BACKEND_URL#s3://}"
+          bucket="${bucket%%\?*}"
+          aws s3 cp --endpoint-url "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com" \
+            "$backup_file" "s3://$bucket/rollback-backups/pulumi-$PULUMI_STACK-$GITHUB_RUN_ID.json"
+      - name: Pulumi up
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          command: up
+          stack-name: ${{ inputs.pulumi_stack }}
+          work-dir: infra
+          pulumi-version-file: .pulumi.version
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
