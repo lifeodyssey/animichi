@@ -39,7 +39,7 @@ so the runner reports `timeout`.
 
 This spec ships **Option 1** first: keep Atlas in the one-shot container;
 fail-fast a `migrate status` probe with a short connect timeout; pin the
-DSN to IPv4 via `hostaddr`; reject `-pooler` hosts; set `sleepAfter`
+DSN to IPv4 via host-substitution onto the URL host field (+ `options=endpoint`); reject `-pooler` hosts; set `sleepAfter`
 strictly longer than the worker deadline and renew the activity timer on
 each poll so a *successful* apply is not frozen; **and `stop()` the
 container when the runner decides timeout** so `max_instances = 1` does
@@ -114,8 +114,10 @@ no process exit”:
    ever completing TLS/startup. The process does not exit. Atlas
    v0.30.0 `sql/postgres.ParseURL` passes `u.String()` to
    `sql.Open("postgres", dsn)`, so `hostaddr` / `connect_timeout` /
-   `sslmode` / `search_path` reach the driver. Pinning `hostaddr=<ipv4>`
-   is the connect experiment.
+   `sslmode` / `search_path` reach the driver. Pinning `hostaddr=<ipv4>` was
+   the first hypothesis, but `hostaddr` is a no-op in Atlas 0.30.0 (verified
+   against the pinned binary + live staging DSN), so the experiment is the
+   later-corrected host-substitution (`host=<ipv4>:5432` + `options=endpoint`).
 2. **Unbounded connect + no status probe.** The entrypoint runs
    `atlas migrate apply` with no `connect_timeout` and no prior
    `migrate status`. A hung dial never becomes a non-zero exit, so the
@@ -201,7 +203,7 @@ the root-cause design.
 
 1. **Option 1 first, one card, falsifiable.**
    Keep Atlas in the one-shot container. Fail-fast a status probe, pin
-   IPv4 via `hostaddr`, reject pooler hosts, unmask a hung apply
+   IPv4 via host-substitution, reject pooler hosts, unmask a hung apply
    (`sleepAfter = "30m"` + `renewActivityTimeout()` per poll), and
    **`stop()` the VM when the runner hits the deadline**. Rationale:
    the hang is connect/TLS (most likely AAAA) plus a matching activity
@@ -366,14 +368,26 @@ Neon endpoints publish A + AAAA. If container IPv6 is a black hole, an
 AAAA SYN hangs.
 
 1. Parse the host out of the DSN **without printing the DSN**.
-2. Reject a hostname containing `-pooler` (see §5) before resolving.
+2. Reject a hostname containing `-pooler` (see §5) **case-insensitively**
+   (lowercase-normalize the extracted host before the match) before resolving.
 3. Resolve **A only**: `getent ahostsv4 "$host"` (STREAM row). If
    `getent` is missing or empty, fall back to BusyBox
-   `nslookup -type=a`. If IPv4 resolve fails, exit non-zero with
-   `resolve: no A record` (no host, no DSN).
-4. Rewrite the URL with `hostaddr=<ipv4>` while keeping `host=` for TLS
-   SNI / hostname verify (libpq/pgx: `hostaddr` is the TCP target; `host`
-   remains the name). Do not strip `sslmode`.
+   `nslookup -type=a`. Both the getent and the nslookup call are wrapped
+   in the same BusyBox `timeout $((PROBE_SECS + 5))` as the probe so a
+   resolver hang cannot outlive the probe bound. If IPv4 resolve fails,
+   exit non-zero with `resolve: no A record` (no host, no DSN).
+4. Rewrite the URL by **substituting the resolved IPv4 into the URL host
+   field** (`host=<ipv4>:5432`): `hostaddr` is a no-op in Atlas 0.30.0
+   Postgres's driver (empirically verified against the pinned binary + live
+   staging DSN), so an IP-in-host is the only address pin that takes effect.
+   Keep `/`:5432 as the port. Because the IP is now in the host field, also
+   append `options=endpoint%3D<endpoint-id>` (URL-encoded `=`) where
+   `<endpoint-id>` is the **first dot-segment of the original hostname**
+   (e.g. `ep-broad-frost-aopp3uqq` from
+   `ep-broad-frost-aopp3uqq.eu-central-1.aws.neon.tech`) — Neon requires
+   this to route SNI once the hostname is gone. Keep `sslmode=require`:
+   `require` does not verify the hostname, so an IP-in-host is TLS-safe.
+   Do not strip any existing `sslmode`.
 
 Do not `apk add bind-tools`. Stock `alpine:3.20` already provides
 `getent` via `musl-utils` (including `ahostsv4`) and BusyBox
@@ -501,8 +515,9 @@ append_q() {
 }
 ```
 
-`resolve_ipv4`, `rewrite_scope` (hostaddr + connect_timeout +
-search_path), `probe_status`, and `apply_chain` follow the same rule:
+`resolve_ipv4`, `rewrite_scope` (host-substitution + `options=endpoint` +
+connect_timeout + search_path), `probe_status`, and `apply_chain` follow the
+same rule:
 no prints of the URL, ≤10 lines each.
 
 `connect_timeout` is locked at **30** seconds (`PROBE_SECS=30`). Do
@@ -579,7 +594,7 @@ sequenceDiagram
   W->>DO: start(envVars DSN)
   Note over DO: sleepAfter=30m
   DO->>C: entrypoint
-  C->>C: reject -pooler / resolve A / hostaddr
+  C->>C: reject -pooler / resolve A / host-substitution
   C->>N: atlas migrate status (connect_timeout=30s)
   alt probe fails
     C-->>W: stopped_with_code != 0
@@ -1005,22 +1020,26 @@ opened only after Option 1 is falsified on live staging.
     a one-line pointer (prefer not)
 - **Depends on:** nothing (entrypoint only). Safe to merge alone:
   fail-fast does not extend `sleepAfter`.
-- **Description:** Entrypoint rejects `-pooler`, resolves A, rewrites
-  `hostaddr` + `connect_timeout` + `search_path` without printing the
-  DSN, runs `atlas migrate status` with a 30s connect bound, applies
-  only on success. Secret-free logs. Do **not** add
+- **Description:** Entrypoint rejects `-pooler` (case-insensitive), resolves A
+  (getent/nslookup, timeout-bound), rewrites the URL host field to
+  `<ipv4>:5432` + `options=endpoint` + `connect_timeout` + `search_path`
+  without printing the DSN, runs `atlas migrate status` with a 30s
+  connect bound, applies only on success. Secret-free logs. Do **not** add
   `apk add ca-certificates` as a connectivity change (stock
   `alpine:3.20` already has the bundle). Optional scripts-package
   install is hygiene only and has **no** AC.
 - **ACs (each with a test):**
-  - AC1 `integration`: fixture DSN whose host contains `-pooler` →
-    non-zero exit, stderr mentions pooled endpoint, stdout/stderr do
-    not contain the DSN/password.
+  - AC1 `integration`: fixture DSN whose host contains `-pooler` (lowercase
+    or UPPERCASE — the match is case-insensitive) → non-zero exit, stderr
+    mentions pooled endpoint, stdout/stderr do not contain the DSN/password.
   - AC2 `integration`: IPv4 resolve failure (injected empty resolver)
     → non-zero, message `resolve: no A record`, no DSN.
   - AC3 `integration`: injected A record → rewritten URL passed to a
-    fake `atlas` keeps `host=` and adds `hostaddr=` + `connect_timeout`
-    + `search_path=public`; script stdout never contains the URL.
+    fake `atlas` has `host=<ipv4>` (the resolved address substituted into
+    the host field, `/`:5432) plus `options=endpoint=<id>` + `connect_timeout`
+    + `search_path=public`; script stdout never contains the URL. A second
+    fixture asserts the resolver (getent) is wrapped by the same BusyBox
+    timeout bound as the probe.
   - AC4 `integration`: fake `atlas` status non-zero → apply is **not**
     invoked; process exits non-zero.
   - AC5 `integration`: fake `atlas` status zero → apply invoked once;
