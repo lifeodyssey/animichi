@@ -341,6 +341,11 @@ end
 # change. Discover pulumi-executing steps from parsed workflow behavior
 # (run text, or an invoked script that contains a pulumi command) rather
 # than pinning job names or line numbers.
+#
+# Credential *source* is the whole GitHub expression `${{ secrets.NAME }}`
+# (inner whitespace optional). A substring check would accept a different
+# secret whose name only *starts with* the required one, e.g.
+# `${{ secrets.R2_ACCESS_KEY_ID_BACKUP }}`.
 R2_BACKEND_KEYS = %w[
   AWS_ACCESS_KEY_ID
   AWS_SECRET_ACCESS_KEY
@@ -368,12 +373,16 @@ def pulumi_executing_steps(job)
   job.fetch("steps", []).select { |s| s.is_a?(Hash) && step_executes_pulumi?(s) }
 end
 
+def github_secret_expr?(value, secret_name)
+  value.to_s.match?(/\A\$\{\{\s*secrets\.#{Regexp.escape(secret_name)}\s*\}\}\z/)
+end
+
 def r2_backend_source_violations(job_name, env)
   found = []
   found << "#{job_name}: AWS_ACCESS_KEY_ID must source from secrets.R2_ACCESS_KEY_ID" \
-    unless env["AWS_ACCESS_KEY_ID"].to_s.include?("secrets.R2_ACCESS_KEY_ID")
+    unless github_secret_expr?(env["AWS_ACCESS_KEY_ID"], "R2_ACCESS_KEY_ID")
   found << "#{job_name}: AWS_SECRET_ACCESS_KEY must source from secrets.R2_SECRET_ACCESS_KEY" \
-    unless env["AWS_SECRET_ACCESS_KEY"].to_s.include?("secrets.R2_SECRET_ACCESS_KEY")
+    unless github_secret_expr?(env["AWS_SECRET_ACCESS_KEY"], "R2_SECRET_ACCESS_KEY")
   found << "#{job_name}: AWS_DEFAULT_REGION must be auto" \
     unless env["AWS_DEFAULT_REGION"].to_s == "auto"
   found
@@ -417,4 +426,4 @@ def main
     abort "SESSION-3 staging cutover contract violated (#{found.length} issue(s))"
   end
 end
-main
+main if $PROGRAM_NAME == __FILE__

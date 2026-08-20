@@ -24,6 +24,7 @@ for ruby_file in \
   "$GS/test_safe1_production_contract.rb" \
   "$GS/test_retention1_absence.rb" \
   "$GS/test_session3_staging_cutover.rb" \
+  "$GS/test_session3_staging_cutover.test.rb" \
   "$GS/test_prod_dsn_store_contract.rb" \
   "$GS/test_migrator_trigger_contract.rb"; do
   run ruby -c "$ruby_file"
@@ -33,6 +34,7 @@ run ruby "$GS/assert-workflow-invariants.rb"
 run ruby "$GS/test_safe1_production_contract.rb"
 run ruby "$GS/test_retention1_absence.rb"
 run ruby "$GS/test_session3_staging_cutover.rb"
+run ruby "$GS/test_session3_staging_cutover.test.rb"
 run ruby "$GS/test_prod_dsn_store_contract.rb"
 run ruby "$GS/test_migrator_trigger_contract.rb"
 run ruby "$GS/release-manifest-resolver.test.rb"
