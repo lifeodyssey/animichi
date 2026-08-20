@@ -3,21 +3,23 @@
 **Status: OPEN — 报告完成待 owner 决策**
 调研票:#1106(`wayfinder:research` + `ready-for-agent`)
 任务书(权威、自足):`docs/specs/2026-08-17-agent-ts-research-spec.md`
-本报告基于 8 路侦察 + 1 轮复核判决(15 项抽查裁定:13 CONFIRMED / 1 REFUTED / 1 UNVERIFIED)综合写成。
+本报告分**两轮复核,统计不得混算**:
+- **初始复核**(2026-08-17,§一–§八;处理声明见 §六):8 路侦察 + 15 项抽查裁定(**13 CONFIRMED / 1 REFUTED / 1 UNVERIFIED**)。
+- **补充复核**(2026-08-18,§九):6 路反向搜寻 + 5 项候选抽查(**2 HOLDS / 1 OVERSOLD / 2 WRONG**)。§九是对断言 A(eval 零等价物)与断言 B(undici SSRF)的最新裁决;被它修订的正文结论以 §九为准,旧表述保留为"初始复核"并显式标注。
 
 ---
 
 ## 一、一页结论
 
-**建议:conditional-go**——重开 SD-4 的"不再议"锁定状态本身是 go(founding premise 已不成立,见理由①);但不建议据此立即整体切换到 TS,迁移需先过三项前置 spike 再分波次推进(见第七节)。
+**建议:conditional-go**——重开 SD-4 的"不再议"锁定状态本身是 go(founding premise 已不成立,见理由①);但不建议据此立即整体切换到 TS,迁移需先过 Wave 0 前置 spike(Spike B/C 必做;Spike A 走 Node 路径、Spike D 走 Workers 路径,运行时未终选则两条都做)再分波次推进(见第七节)。
 
 **三条最硬的理由:**
 
 1. **SD-4 的立论基础已从两个方向同时松动。** 原始决策的唯一护城河——"输出层校验失败自动回喂"——在 TS 侧已显著收窄:AI SDK v6 补齐了工具执行错误自动回喂(`tool-error` part,已默认开启);`repairToolCall` 已转正;且本轮复核**新发现** LangChain.js `createAgent()+toolStrategy()` 默认 `handleError: true`,校验失败会自动回喂模型重试——这是全目录里唯一一个默认开启、且被一个真实 bug 修复(#9426→PR #9434)证实运行时确实生效的闭环,直接对上 pydantic-ai `output_validator` 的语义。与此同时,支撑 SD-4"保容器"结论的另一半理由——X2 容器保温 SLO——**复核确认从未在代码里落地**(`wrangler.toml` 三处 `[[containers]]` 块均无 `min_instances`,无 keep-warm cron):当年"为保 X2 才留容器"的论据,可能从未真正兑现过。
-2. **但真正决定成本的重心已经转移、且比预期更重。** eval 体系是本轮调研确认的最大成本项:pydantic-evals 的 5 个官方 agentic evaluator(ArgumentCorrectness/ToolCorrectness/TrajectoryMatch/MaxToolCalls/MaxModelRequests)在 TS 生态**零等价物**——`logfire-js` 的 `/evals` 子路径号称"wire-format-compatible",但直接读取其完整导出列表(复核当场核实)只搬了 SpanTree/SpanQuery 地基,五个评估器一个都没有;Mastra 有原生 Scorers 但语义是否对齐(ANY-of-N 析取、occurrence-based 参数比对)未经验证。这意味着 eval 基础设施(~3600-3700 行 + 18 个专项测试文件)是同量级从零重建,不是"薄封装"。
-3. **一处 2026-07-06 从未被评估过的高危缺口本轮才浮现:Node/undici 没有一等的 SSRF/connect-time IP pinning 方案。** `nodejs/undici#2019` 截至核查时仍 open(3 年多未定型官方模式),且有真实 CVE 级案例(Budibase GHSA-v42f-v8xc-j435)证明"照搬 Node 传统 `http.Agent` 的 `lookup` 选项做 IP pinning,在 undici fetch dispatcher 路径下被静默绕过"这个坑是现实存在的翻车模式。animichi 现有 ~500 行的 egress 安全基建(`egress_transport.py`+`egress_guard.py`)若照搬迁移会重演已知漏洞类型,必须在 undici 低层 `Dispatcher`/`connect` API 上重新设计并做专项安全复核(预估 3-5 倍工程量、1-2 周)。这条风险在原始 SD-4 决策范围之外,是本轮扩大调研范围(9 scope vs 原来聚焦重试基建)才发现的。
+2. **但真正决定成本的重心已经转移、且仍重,只是不是"5/5 全称零等价"。** eval 体系仍是最大成本项。初始复核把 pydantic-evals 的 5 个官方 agentic evaluator 写成 TS 生态**零等价物**、基础设施同量级从零重建——**该全称判断已被 §九修订为 WEAKENED**:ToolCorrectness、MaxToolCalls 有独立验证的现成等价物;ArgumentCorrectness 有算法级对应(需自抄私有代码);仅 TrajectoryMatch 的默认渐进 F1 模式与 MaxModelRequests 确认零等价。`logfire-js` `/evals` 当场核实仍只搬了 SpanTree/SpanQuery 地基、五个官方评估器一个都没有——那条对 **logfire-js** 的核实仍成立,不能外推成"全 TS 生态无货"。ANY-of-N 析取是 animichi 自己的 userland wrapper,不是官方类自带语义。统计闸(557 行纯 stdlib)全场零等价,须机械迁移。
+3. **一处 2026-07-06 从未被评估过的高危缺口本轮才浮现,且必须按运行时拆开。** **Node/容器路径**:undici 没有一等的 SSRF/connect-time IP pinning 方案(`nodejs/undici#2019` 截至核查仍 open;Budibase GHSA-v42f-v8xc-j435 证明传统 `http.Agent` `lookup` 在 undici fetch dispatcher 下被静默绕过);§九进一步证实 `connect:{blockList}` 对 HTTPS 静默失效。animichi 现有 ~500 行 egress 基建若照搬会重演已知漏洞类型,必须在 undici 低层 `Dispatcher`/`connect` 上重新设计(预估 3-5 倍工程量、1-2 周)。**这条估算不是运行时无关的"迁移总体风险"**——若终选 Workers,workerd 默认 `Network.allow=["public"]` 可能把主战场从 undici 挪走;该证据未过独立复核,要靠 Wave 0 **Spike D** 实测,当前不预先划掉成本。原始 SD-4 决策范围之外。
 
-**一句话:** 当年让 SD-4"锁死"的唯一理由(输出校验回喂)已经明显不再是唯一或最硬的理由——但调研范围一旦从"重试基建"扩大到全部 9 项绑定面,eval 生态与出口安全这两个当年根本没被纳入评估的维度,变成了比原来更硬的新理由。两头都要认账,所以是 conditional-go 而非直接 go。
+**一句话:** 当年让 SD-4"锁死"的唯一理由(输出校验回喂)已经明显不再是唯一或最硬的理由——但调研范围一旦从"重试基建"扩大到全部 9 项绑定面,eval 生态(缺口收窄后仍有算法级硬缺口)与出口安全(Node 路径被强化、Workers 路径未证实)这两个当年没被纳入评估的维度,变成了比原来更硬的新理由。两头都要认账,所以是 conditional-go 而非直接 go。
 
 ---
 
@@ -31,12 +33,12 @@
 | 2 | 工具输入校验回喂 | 5 | 5/5 原生 | 4/5 AI SDK `repairToolCall` 已转正但需开发者接线(~48 行范例);LangChain.js 默认开启可达 5/5 | scope1、scope7(CONFIRMED) |
 | 3 | 最终输出校验回喂 | 8 | 8/8 原生 `output_validator` | **3/8** AI SDK 路径需自建 ~65-100 行且无官方 hook;若改选 LangChain.js `toolStrategy(handleError:true)` 可上探至 ~6/8(但需换主框架,牵动第 3/9 行) | scope1(REFUTED 澄清见下)、scope7(CONFIRMED) |
 | 4 | Streaming / typed output 渐进 | 6 | 6/6 能力具备(`run_stream`+`allow_partial`),但当前生产**未使用**(单次落地) | 5/6 wire 协议零改动(CONFIRMED);`partialOutputStream` 只保证 JSON 语法合法、无 schema 校验,且语义对象不同(模型自产文本 vs 工具结果投影) | scope1、scope3(CONFIRMED) |
-| 5 | Eval 生态对齐 | 10 | 10/10 官方 pydantic-evals,5 个 agentic evaluator + 自研统计闸全部生产可用 | **3/10** 无任何候选覆盖 5 个官方 evaluator;`logfire-js` 只搬地基;bootstrap 统计闸(557 行纯 stdlib)全场零等价,须机械迁移 | scope2(CONFIRMED,决定性) |
+| 5 | Eval 生态对齐 | 10 | 10/10 官方 pydantic-evals,5 个 agentic evaluator + 自研统计闸全部生产可用 | **5/10**(初始复核 3/10,已被 §九修订) ToolCorrectness、MaxToolCalls 有独立验证的现成等价物;ArgumentCorrectness 算法级对应需自抄私有代码;TrajectoryMatch 仅 exact 布尔子集(默认渐进 F1 仍零等价);MaxModelRequests 确认零等价;`logfire-js` 仍只搬地基;bootstrap 统计闸全场零等价,须机械迁移 | scope2(初始 CONFIRMED 全称零等价;§九 WEAKENED) |
 | 6 | Harness capabilities(compaction/memory/组合) | 8 | 8/8 生产绑定(三层 compaction+Memory+可排序 capability 组合) | **3/8** 两家框架均无阈值触发分层压缩(AI SDK cookbook 仅 ~50 行纯截断);Memory 官方明确不提供;CF Think harness 钩子非独立可插拔 | scope4(CONFIRMED) |
-| 7 | BYOK 多 provider | 6 | 6/6 三家族生产可用、SSRF-guarded、测试重 | 3/6 provider 构造小改(原语齐全,confirmed);**SSRF/egress 守卫无一等等价物**,需 undici 低层重建+专项安全复核 | scope5(CONFIRMED) |
+| 7 | BYOK 多 provider | 6 | 6/6 三家族生产可用、SSRF-guarded、测试重 | 3/6 provider 构造小改(原语齐全,confirmed);**SSRF/egress 守卫无一等等价物**(Node/undici 路径,§九 STANDS 且强化;Workers/workerd 边界未过独立复核,不预先下修) | scope5(CONFIRMED;§九加运行时限定) |
 | 8 | 运行时/部署适配 | 6 | 4/6 现役但携带真实运维债(3 处重复配置+代理层+CI build-arg 绕过+220s 冷启动探针预算),且 X2 保温 SLO **从未落地** | **6/6** Workers 计费模型对"等 LLM"负载结构性更省;7 工具多轮 loop 无平台硬伤;容器退役收益可量化 | scope6(CONFIRMED) |
 | 9 | 框架成熟度/生态维护 | 6 | 6/6 单一连贯框架,已生产验证 | 5/6 AI SDK/Mastra/LangChain.js 均确认活跃维护,但生态内也有真实"僵尸"候选(Genkit CF 不兼容、Inngest AgentKit 停更 3.5+ 月与营销文案矛盾),需要谨慎选型 | scope7(CONFIRMED) |
-| | **合计** | **60** | **58/60** | **37/60** | |
+| | **合计** | **60** | **58/60** | **39/60**(初始复核 37/60;第 5 行 3→5 已按 §九回写) | |
 
 **关于第 3 行的 REFUTED 澄清(重要,已从结论中剔除误判):** 侦察原始表述称 GitHub #4906/#10856 证明"该缺口未被 Vercel 官方认领"——复核判决为 **REFUTED**:#4906 实际已被合并 PR(#4937)修复,只是修复落在**已弃用**的 `generateObject()` 上,未移植到当前 `generateText`+`Output.object()` 路径(maintainer 明确表态"repairText 太复杂,不想再要",转而提供范围更窄的 `extractJsonMiddleware`,只做语法级 JSON 提取,不做语义校验重试);#10856 也不是"零回应"——Vercel collaborator 两次回复,主动保持 open 作为待定方向。**准确表述应为:"官方曾经有过等价方案但主动收窄/未移植到新 API,而非从未理会。"**
 
@@ -52,14 +54,15 @@
 - CONFIRMED:streaming 下 `partialOutputStream` 只保证 JSON 语法合法,不做 schema 校验(pydantic-ai 的 `allow_partial=True` 是真正类型化部分校验)——但此差距对 SD-9 当前是**理论性非现实性**:仓库实测 `chat_stream.py:54-69` 证实 /v1/chat 从未走渐进式 typed-output 路径,`data_frames()` 只在 `agent.run()` 整体跑完后调用一次。
 - Low-confidence 风险:`repairToolCall` 存在一例未确认修复的触发失效报告(#8240,Vertex AI 场景),建议 go 前实测钉死,而非只信文档。
 
-### Scope 2 — eval 体系(预期最大成本项,复核确认属实)
-**结论:** 这是全部 9 个 scope 里唯一被复核裁定为"决定性"(decisive)且无争议的最大成本项。TS 侧没有任何候选可以替代官方 5 个 agentic evaluator,必须从零手写。
+### Scope 2 — eval 体系(预期最大成本项;全称"零等价"已被 §九下修)
+**结论(§九最新裁决,WEAKENED):** 仍是 9 个 scope 里最大的成本项,但不是"5 个官方 evaluator 全无 TS 候选、必须同量级从零手写"。逐评估器:ToolCorrectness、MaxToolCalls 有独立验证的现成等价物(`agentevals` unordered/superset、Mastra `checks.maxToolCalls`);ArgumentCorrectness 有算法级对应但需自抄私有 `_exactMatch`/`_supersetMatch`;TrajectoryMatch 只覆盖 `order='exact'` 布尔判定,pydantic **默认**渐进 F1(`in_order` LCS / `any_order` multiset)六路搜寻零命中;MaxModelRequests 确认零等价。ANY-of-N 析取是 animichi 自己的 userland wrapper,不是官方类缺口。完整对照表见 §九断言 A。
+**初始复核结论(已被 §九修订,保留备查):** 当时写"TS 侧没有任何候选可以替代官方 5 个 agentic evaluator,必须从零手写",并据此打 3/10、把基础设施标成同量级从零重建。对 **`logfire-js` `/evals`** 的核实(只搬地基、五个官方评估器一个都没有)仍成立,不能外推成全生态无货。
 **关键 findings:**
-- CONFIRMED(复核当场重新抓取源码验证):`logfire-js` `/evals` 自述与 pydantic-evals wire-format 兼容,移植了 SpanTree/SpanQuery 基础设施(433 行),**但只导出 7 个 case-level 内建 evaluator(Contains/Equals/EqualsExpected/HasMatchingSpan/IsInstance/LLMJudge/MaxDuration),5 个官方 agentic evaluator 一个都不存在**——只搬地基,没搬评估器实现。
-- 权威数据集实测 **662 条**(`agent_eval_v3.json`),既非任务书引用的 617,也非 `AGENTS.md` 记载的 655——三处数字互不一致,后续估算以实测 662 为准。
+- CONFIRMED(初始复核当场重新抓取源码验证):`logfire-js` `/evals` 自述与 pydantic-evals wire-format 兼容,移植了 SpanTree/SpanQuery 基础设施(433 行),**但只导出 7 个 case-level 内建 evaluator(Contains/Equals/EqualsExpected/HasMatchingSpan/IsInstance/LLMJudge/MaxDuration),5 个官方 agentic evaluator 一个都不存在**——只搬地基,没搬评估器实现。
+- 权威数据集实测 **662 条**(`agent_eval_v3.json`),既非任务书起草时的 617,也非 `AGENTS.md` 记载的 655——三处数字互不一致,后续估算以实测 662 为准。
 - 归档承诺澄清:2026-07-06 规划文档写"存档已迁 Logfire Experiments",但当场核查 Python 侧代码(`eval_harness.py` 显式 `send_to_logfire=False`)证实这是**未兑现的既定意图**,不是需要兼容的活依赖——降低了这一项的迁移风险(不存在"从 Logfire Experiments 迁回"的额外成本)。
 - 统计闸(分层 bootstrap + Clopper-Pearson,557 行纯 stdlib)全场无任何框架提供等价能力,是唯一与框架选型无关、可原样机械迁移的低风险模块。
-- UNVERIFIED(未在复核轮独立重跑):eval 非测试基础设施 ~3600-3700 行 + 18 个专项测试文件的精确行数为仓库内部计数,未重新核验,但不影响方向性结论(evaluator 缺口已由 `logfire-js` 导出列表独立、确定性地证实)。
+- UNVERIFIED(未在初始复核轮独立重跑):eval 非测试基础设施 ~3600-3700 行 + 18 个专项测试文件的精确行数为仓库内部计数,未重新核验,但不影响方向性结论(evaluator 缺口分级见 §九,不再依赖"5/5 全无")。
 
 ### Scope 3 — streaming 协议等价性
 **结论:** wire 协议 = **零改动**,`packages/contract/src/chat-data-parts.ts` 的 zod 契约不需要变。这一项实际上是支持 go 的证据,而非阻碍。
@@ -79,7 +82,7 @@
 - ManagedPrompt 底层原语(Logfire remote variables)在 `logfire-js` 的 `vars` 模块确实存在,但因生产未绑定,不构成真实迁移成本。
 
 ### Scope 5 — BYOK 多 provider(SD-11)
-**结论:** Provider 构造层是小改(原语齐全);**egress/SSRF 守卫层是本轮调研发现的最高风险单项**,且不在原始 SD-4 评估范围内。
+**结论:** Provider 构造层是小改(原语齐全);**egress/SSRF 守卫层是本轮调研发现的最高风险单项**(§九:断言 B 在 Node/undici 路径 STANDS 且被强化;Workers/workerd 边界未过独立复核,成本不预先下修),且不在原始 SD-4 评估范围内。
 **关键 findings:**
 - CONFIRMED:`createOpenAI`/`createAnthropic`/`createGoogleGenerativeAI`/`createOpenAICompatible` 四个官方一等工厂均支持每请求覆盖 apiKey/baseURL/headers/fetch,构造零 I/O,与 Python 侧模式一一对应。
 - CONFIRMED(复核当场重新读取 issue 全文):`nodejs/undici#2019` 讨论 SSRF 防护支持,截至核查仍 open、无官方推荐 connect-time IP pinning 模式;真实 CVE 案例(Budibase)证明"沿用传统 `http.Agent` lookup 选项在 undici fetch dispatcher 下被静默绕过"是现实翻车模式,不是假设。
@@ -127,24 +130,24 @@
 | 模型工具 | 6 个(4 catalog+2 web) | 工具本体逻辑近 1:1 迁移;tool-loop 原语框架原生覆盖 | scope8 finding#2 |
 | Agent 构造点 | 6 处(5 生产模块+1 spike) | 视是否合并为单一 orchestrator,预估 3-6 处 | scope8 finding#3 |
 | eval 权威数据集 | 662 条(`agent_eval_v3.json`)+33 held-out+~125 其他专项 case | JSON→JSON 结构化迁移低成本;真正成本在评估器逻辑非 case 数 | scope2 finding#4 |
-| eval 基础设施(非测试) | ~3600-3700 行(gate/stats/evaluators/harness/mock 等 17 文件) | **同量级从零重建**——无 TS 候选覆盖 5 个官方 agentic evaluator | scope2(evaluator 缺口 CONFIRMED;行数 UNVERIFIED 待复核) |
+| eval 基础设施(非测试) | ~3600-3700 行(gate/stats/evaluators/harness/mock 等 17 文件) | **收窄重建**(初始复核"同量级从零重建"已被 §九修订)——ToolCorrectness/MaxToolCalls 可基于现成布尔匹配原语搭建(仍需 spans→messages 转接);TrajectoryMatch 默认渐进 F1 仍须从零手写;MaxModelRequests 从零手写;ANY-of-N 两侧同等成本 | scope2(§九 WEAKENED;行数 UNVERIFIED 待复核) |
 | eval 专项单测 | 18 文件 / ~2000+ 行 | 同步重建以维持覆盖对等 | scope2 |
 | streaming 协议层 | 681 行(chat_stream_frames+chat_stream+tool_event_bridge) | **预期净简化**(createUIMessageStream 原生覆盖) | scope3(CONFIRMED 协议零改动) |
 | harness compaction | 237 行(三层编排) | 250-350 行从零重建 | scope4(两家框架均无阈值分层压缩) |
 | harness memory | 未精确统计(open question) | 自建 或 引入第三方(Mem0/Hindsight 类) | scope4 open question |
 | BYOK provider 构造 | 289 行 | 150-300 行,低风险 | scope5(原语齐全) |
-| BYOK egress/SSRF 守卫 | 498 行 | **3-5 倍工程量,1-2 周(含专项安全复核)** | scope5(CONFIRMED undici 无一等方案+真实 CVE precedent) |
+| BYOK egress/SSRF 守卫 | 498 行 | **Node/容器路径:3-5 倍工程量,1-2 周(含专项安全复核)**;Workers 路径可能大幅下修,需 Spike D 实测后才能改数字,当前不预先下修 | scope5(CONFIRMED undici 无一等方案+真实 CVE;§九限定运行时) |
 | BYOK 测试 | 42 文件 / ~5,907 行 | 同步重建 | scope5 |
 | 输出校验回喂自建 | 0(原生) | AI SDK 路径 ~65-100 行;LangChain.js 路径显著更低(默认闭环) | scope1(修正后)、scope7 |
 
-**总量级判断(非 executor 级估算,供 owner 决策参考):** 主导成本不是"行数搬运"而是**从零手写的评估器逻辑 + 高风险的安全基建重建**,二者都不随迁移行数线性缩放。若选定框架并完成三项前置 spike(见下节),粗量级落在**数周至两三个月**,取决于并行度与分波次策略;精确人天数字应在框架终选后由 executor 侧另行拆解(遵循仓库既有纪律:调研票不代做实现估算)。
+**总量级判断(非 executor 级估算,供 owner 决策参考):** 主导成本不是"行数搬运"而是**残留的评估器硬缺口(TrajectoryMatch 默认 F1 + MaxModelRequests) + 高风险的安全基建重建(按运行时分支)**,二者都不随迁移行数线性缩放。若选定框架并完成 Wave 0 前置 spike(见下节),粗量级落在**数周至两三个月**,取决于并行度与分波次策略;精确人天数字应在框架终选后由 executor 侧另行拆解(遵循仓库既有纪律:调研票不代做实现估算)。
 
 ---
 
 ## 五、风险与 Open Questions 汇总
 
 **高优先级(影响 go/no-go 或框架选型,建议纳入第七节 Wave 0 spike):**
-- `nodejs/undici#2019` 的 SSRF 防护"官方无推荐模式"与"技术不可行"之间的边界未定,需要一次独立 spike(动手写 undici `Dispatcher`-based IP pinning demo + DNS-rebinding 测试用例验证)。
+- Node 路径:§九已把"官方无推荐模式"做成可复现结论(含 TLSSocket silent-bypass);剩余工作是 HTTP+HTTPS 都生效的 connect-time 方案(Spike A 改形)。Workers 路径:workerd 默认 SSRF 边界未过独立复核,需 Spike D 实测,不能把 Node 估算当成运行时无关成本。
 - LangChain.js `toolStrategy(handleError:true)` 的回喂,是否覆盖 animichi 实际使用的**业务语义校验**(而不仅是 JSON schema 形状校验)——需要针对性验证而非只信文档/bug 记录。
 - `logfire-js` "wire-format-compatible" 的自述,是否对 `agent_eval_v3.json` 经 `--export-dataset` 导出后的形态**真正字节兼容**——只核实了源码注释设计意图,未做端到端实测,是整条 eval 迁移路径成本估算里杠杆最大的未知项。
 
@@ -161,10 +164,10 @@
 
 ## 六、关于 REFUTED 与 UNVERIFIED 的处理声明
 
-本报告已按任务书要求处理复核判决:
+本节只覆盖**初始复核**(2026-08-17)的 15 项抽查,与 §九补充复核的 2 HOLDS / 1 OVERSOLD / 2 WRONG **不得混算**。本报告已按任务书要求处理该轮判决:
 - **REFUTED**(1 项):`[Scope1]` 关于 GitHub #4906/#10856 证明"Vercel 官方未认领该缺口"的表述——已在第二节表格脚注与第三节 Scope 1 明确标注并用更准确的表述替代,**未进入第一节结论**。
-- **UNVERIFIED**(1 项):`[Scope2]` eval 基础设施 ~3600-3700 行的精确计数——已列入第五节 open questions,**不作为决定性数字使用**,但不影响方向性结论(evaluator 缺口本身是 CONFIRMED)。
-- 其余 13 项复核裁定均为 **CONFIRMED**,已原样吸收进对应 scope 小节与评分表。
+- **UNVERIFIED**(1 项):`[Scope2]` eval 基础设施 ~3600-3700 行的精确计数——已列入第五节 open questions,**不作为决定性数字使用**。该轮把 evaluator 缺口本身标为 CONFIRMED,是针对 `logfire-js` 导出列表的核实;全生态"5/5 零等价"的全称判断已被 §九下修,不在本轮 15 项统计里改写。
+- 其余 13 项初始复核裁定均为 **CONFIRMED**,已原样吸收进对应 scope 小节与评分表(其中 Scope 2 评分与"从零重建"表述随后被 §九修订,见第二节第 5 行与第三节 Scope 2)。
 
 ---
 
@@ -173,18 +176,19 @@
 **前提:** 每波独立可发布、可回滚;eval 基线对照策略统一采用"双跑并行核对":Python 跑分器与 TS 跑分器对同一批 case 并行跑,逐 case 逐 metric 比对(现有 schema-v2 `BaselineRecord` 已存 per-case 分数,对比工具本质是 dict-diff),直到**连续 ≥2 次全量跑分数一致**才允许该波推进/合并。增量运行成本 ≈ 现有单次全量跑成本($3-7,MiMo v2.5,~662 cases,~21 分钟)的 2 倍,持续到对齐为止。
 
 - **Wave 0(前置 spike,门控后续所有波次)**
-  - Spike A:undici `Dispatcher`-based SSRF/IP-pinning demo + DNS-rebinding 测试用例,把"官方无推荐模式"从 medium confidence 提到可执行结论。
-  - Spike B:在选定 TS 运行时的 OTel `ai.toolCall.*` span 之上手工复刻 **1 个**官方 agentic evaluator(如 ToolCorrectness),对一小批 eval case 验证分数与 Python 基线一致——验证"整条 eval 迁移路径可行"这个最大不确定性。
-  - Spike C:针对 animichi 实际业务校验器验证 LangChain.js `toolStrategy(handleError:true)` 的回喂行为,据此在 AI SDK-centric 组合与 LangChain.js/LangGraph.js-centric 组合之间终选主框架。
-  - 交付物:三份 spike 报告 + owner 签核的框架终选决定,作为 Wave 1 的门禁。
+  - Spike A(Node 路径,已改形):原定目标"把'官方无推荐模式'从 medium confidence 提到可执行结论"**已被 §九完成且强化**(TLSSocket silent-bypass,含可复现实测)。剩余工作 = 设计并验证一个 HTTP+HTTPS 都生效的 connect-time 方案。若终选 Workers,Spike A 由 Spike D 取代,不再单独执行。
+  - Spike B:工作量从"从零手写整套匹配算法"降档为"基于 `agentevals` 现成 `unordered`/`superset` 布尔匹配原语,补一层 span→messages 转接,对 ToolCorrectness 做双跑核对";并回答 gate 是否依赖 TrajectoryMatch 默认连续 F1(若否,该缺口可忽略)。
+  - Spike C:针对 animichi 实际业务校验器验证 LangChain.js `toolStrategy(handleError:true)` 的回喂行为,据此在 AI SDK-centric 组合与 LangChain.js/LangGraph.js-centric 组合之间终选主框架。(不受 §九影响)
+  - Spike D(Workers 路径,§九新增):部署探针 Worker,对 `10.x`/`169.254.169.254`/`100.64.0.1`(CGNAT)/`100.100.100.200`(阿里云元数据 IP)发起 `fetch()`,确认默认 `Network.allow=["public"]` 是否挡下这些目标,并验证 redirect 链是否逐跳复核。结果直接决定第二节 #7 行与 BYOK egress 成本是否下修。
+  - 交付物:Spike B/C 必做;Spike A 或 D 按终选运行时二选一(运行时未终选则两条都做)+ owner 签核的框架终选决定,作为 Wave 1 的门禁。
 
-- **Wave 1(最低风险,独立可发布)**:streaming 协议层(zero-cost 已确认)+ BYOK provider 构造(小改)迁移,部署在 Workers 上,非关键流量做旁路对照(不切主流量)。
+- **Wave 1(最低风险,独立可发布)**:streaming 协议层(zero-cost 已确认)+ **不含用户可控 `baseURL` 的** BYOK provider 构造(Anthropic / Gemini 工厂,以及 OpenAI-compat **不转发**请求里的 `baseURL`)。`docs/specs/2026-07-28-284-byok-design.md` Goal 5 要求凡用户可影响的出口必须先过 post-resolution IP SSRF 守卫;请求可控的 `baseURL`(OpenAI-compatible 家族的核心路径)留到 Wave 4 与 egress guard 一并落地,不得以"非关键旁路"提前暴露。部署在 Workers 上,非关键流量做旁路对照(不切主流量)。
 
 - **Wave 2**:harness capabilities 对等重建——compaction 三层 + memory,用生产会话回放日志验证 token 预算行为与现有系统一致。
 
-- **Wave 3(门控 Wave 4 的关键波次)**:eval 生态全量重建——5 个 agentic evaluator + bootstrap 统计闸机械迁移,双跑并行核对直至连续 ≥2 次全量对齐。没有这一波,后续波次无法用 eval 验证正确性。
+- **Wave 3(门控 Wave 4 的关键波次)**:eval 生态重建(按 §九收窄)——ToolCorrectness/MaxToolCalls 基于现成布尔匹配原语+span 转接;TrajectoryMatch 默认渐进 F1 与 MaxModelRequests 从零手写;bootstrap 统计闸机械迁移。双跑并行核对直至连续 ≥2 次全量对齐。没有这一波,后续波次无法用 eval 验证正确性。
 
-- **Wave 4**:agent 主循环整体切换(工具+BYOK egress guard+输出校验回喂),Workers 与 Python 容器双跑一个完整 eval 周期 + 一段 canary 流量观察期,两轮干净周期后才进入 Wave 5。
+- **Wave 4**:agent 主循环整体切换(工具+BYOK egress guard——含请求可控 `baseURL` 的 OpenAI-compat 出口+输出校验回喂),Workers 与 Python 容器双跑一个完整 eval 周期 + 一段 canary 流量观察期,两轮干净周期后才进入 Wave 5。
 
 - **Wave 5(收尾,独立可发布/可随时回滚)**:容器基础设施退役——移除 3 处重复 `[[containers]]` 配置块、专用代理层(`container-env.ts`)、CI build-arg 绕过步骤、220 秒冷启动探针预算。
 
@@ -230,11 +234,13 @@
 
 ---
 
-*报告作者:综合席(Sonnet)。所有"框架/平台/库 有/无能力 X"类断言均附当场核查的 primary source URL 或仓库 file:line;REFUTED 断言已剔除结论,UNVERIFIED 断言已降级进 open questions,未凭训练记忆下任何未核实断言。*
+*报告作者:综合席(Sonnet)。§八 Sources 按章节/厂商**聚合**,不是逐条 claim→URL 映射。"框架/平台/库 有/无能力 X"类断言多数能在对应章节的 source 块里找到出处,但**没有**做到任务书 §六要求的逐条可审计引用——这是已知局限,本修订不补做映射。仓库内部计数(行数、test 函数、工具数)的可复现口径见 Scope 8,未逐条挂 file:line。REFUTED 断言已剔除结论,UNVERIFIED 断言已降级进 open questions。*
 
 ---
 
 ## 九、补充调研(2026-08-18):对"零等价物"断言的反向复查
+
+本节是**补充复核**,与 §一头部 / §六的初始复核统计分列,两组数字不得加总或改写对方。被本节修订的正文结论(评分表第 5 行、Scope 2、Wave 0、SSRF 运行时范围)以本节为准。
 
 **触发**:owner 质疑第二节 scope2(eval evaluator)与 scope5(SSRF)两条"TS 生态零等价物"断言下得太快。本节以反向偏置(拼命找现成货推翻断言)重跑 6 路搜寻 + 1 轮独立复核判决(5 项候选抽查:2 HOLDS / 1 OVERSOLD / 2 WRONG),结论:两条断言均未被推翻,但断言 A 的严重程度需下修,断言 B 意外获得了比原报告更具体、更新的证据,同时浮现一个未经验证的运行时错位问题。
 
@@ -279,7 +285,7 @@ npm 候选枚举(request-filtering-agent/ssrf-req-filter/ssrf-safe-fetch/dssrf/s
 | # | 维度 | 原分 | 修订分 | 理由 |
 |---|---|---|---|---|
 | 5 | Eval 生态对齐 | 3/10 | **5/10** | ToolCorrectness+MaxToolCalls 有独立验证为真的现成等价物(agentevals+Mastra checks),ArgumentCorrectness 算法级对应但需自抄私有代码,TrajectoryMatch 仅 exact 子集覆盖(默认渐进 F1 模式仍零等价),MaxModelRequests 确认零等价物;`agentevals` 硬依赖 langchain/@langchain/openai/langsmith 是真实安装摩擦,不是零成本迁移 |
-| 7 | BYOK 多 provider | 3/6(含"3-5倍工程量,undici 无一等方案") | **维持 3/6,加注运行时分支**:Node/undici 层结论不变(甚至加固——新发现 blockList 对 HTTPS 静默失效);若最终确认 Workers 部署(呼应 Scope 6 的 6/6 结论),workerd 平台层默认 SSRF 防护可能大幅收窄该项成本,但该证据未过独立复核,**需 Wave-0 Spike D 实测后才能改分**,当前不预先下修 |
+| 7 | BYOK 多 provider | 3/6(含"3-5倍工程量,undici 无一等方案") | **维持 3/6,加注运行时分支** | Node/undici 层结论不变(甚至加固——新发现 blockList 对 HTTPS 静默失效);若最终确认 Workers 部署(呼应 Scope 6 的 6/6 结论),workerd 平台层默认 SSRF 防护可能大幅收窄该项成本,但该证据未过独立复核,**需 Wave-0 Spike D 实测后才能改分**,当前不预先下修 |
 
 ### 对第四节成本表的修订
 

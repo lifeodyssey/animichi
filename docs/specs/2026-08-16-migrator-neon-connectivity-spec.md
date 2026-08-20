@@ -342,6 +342,29 @@ observed** — the success path is unreachable regardless of TLS. The
 repair card therefore also makes bare `stopped` terminal and adopts the
 **ledger head vs expected head** comparison as the success criterion.
 
+**Expected-head contract (landed in PR #1109, branch `fix/migrator-depin`;
+this document does not change code).** `POST /migrate` parses
+`expectedHead` from the JSON body (`create-app.ts`) and passes it to
+`runMigration`. Bare `stopped` is `unknown_exit` and is judged against
+the ledger; it is not success by default. Pending vs extra revisions are
+not separate HTTP outcomes — they collapse into applied-head equality
+(an extra applied revision that changes the newest basename mismatches;
+unapplied pending files do not change the head).
+
+| Condition | Worker conclusion |
+|---|---|
+| `expectedHead` absent or non-string (`null` equivalent) on `unknown_exit` | `head_mismatch` (expected recorded as `null`) → HTTP **500**. Absence does **not** skip the check |
+| `unknown_exit` and post-run applied head ≠ expected | `head_mismatch` → HTTP **500**, body carries both heads |
+| post-run ledger read throws | not swallowed; HTTP **500** `{ success:false, error }` |
+| pre-run ledger snapshot throws (fresh DB / no revisions table) | treated as `null` (legal pre-state); the container still starts |
+| `unknown_exit`, post-head == expected, ledger **advanced** | success, `pathVerification: "verified"` |
+| `unknown_exit`, post-head == expected, ledger **unchanged** (no-op / already at head) | success, `pathVerification: "unverified"` — schema is at the target; this run did not prove the container. #1055's ≥3 evidence counts **verified** only |
+| coded exit 0 | success + `verified`; the worker does **not** re-compare `expectedHead` here. CI still fails unless `appliedHead` equals the expected head it sent (executor spec Trigger contract) |
+| coded non-zero | HTTP **500**, unchanged |
+
+CI continues to gate on `success` / `appliedHead` only; `pathVerification`
+is additive.
+
 ---
 
 ## Proposed Design
