@@ -66,30 +66,51 @@ function parseJson(raw: string): unknown {
   return JSON.parse(raw) as unknown;
 }
 
+type ParsedBody = { ok: true; expectedHead: string | undefined } | { ok: false };
+
+function expectedHeadOf(parsed: object): string | undefined {
+  if (!("expectedHead" in parsed)) return undefined;
+  return typeof parsed.expectedHead === "string" ? parsed.expectedHead : undefined;
+}
+
 /** Parse the optional JSON body into an object; a non-object body is a 400. */
-async function parseBody(request: Request): Promise<{ ok: true } | { ok: false }> {
+async function parseBody(request: Request): Promise<ParsedBody> {
   try {
     const raw = await request.text();
     const parsed = parseJson(raw.length === 0 ? "{}" : raw);
-    return typeof parsed === "object" && parsed !== null ? { ok: true } : { ok: false };
+    if (typeof parsed !== "object" || parsed === null) return { ok: false };
+    return { ok: true, expectedHead: expectedHeadOf(parsed) };
   } catch {
     return { ok: false };
   }
+}
+
+function timeoutResponse(result: Extract<MigrationRunResult, { kind: "timeout" }>): Response {
+  const body =
+    result.exitCode === undefined
+      ? { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus }
+      : { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus, exitCode: result.exitCode };
+  return Response.json(body, { status: 504 });
+}
+
+function headLabel(head: string | null): string {
+  return head ?? "null";
+}
+
+function mismatchResponse(result: Extract<MigrationRunResult, { kind: "head_mismatch" }>): Response {
+  const error = `applied head ${headLabel(result.appliedHead)} does not equal expected head ${headLabel(result.expectedHead)}`;
+  return Response.json(
+    { success: false, exitCode: 1, appliedHead: result.appliedHead, error },
+    { status: 500 },
+  );
 }
 
 function outcomeResponse(result: MigrationRunResult): Response {
   if (result.kind === "failure") {
     return Response.json({ success: false, exitCode: result.exitCode, appliedHead: null }, { status: 500 });
   }
-  if (result.kind === "timeout") {
-    // #1101: richer 504 — carry ranMs + lastStatus (+ exitCode when present);
-    // never include the DSN (it is not on the outcome type). Status stays 504.
-    const body =
-      result.exitCode === undefined
-        ? { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus }
-        : { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus, exitCode: result.exitCode };
-    return Response.json(body, { status: 504 });
-  }
+  if (result.kind === "timeout") return timeoutResponse(result);
+  if (result.kind === "head_mismatch") return mismatchResponse(result);
   return Response.json({ success: true, exitCode: 0, appliedHead: result.appliedHead });
 }
 
@@ -119,7 +140,7 @@ async function handleMigrate(
     const runContainer = await runContainerFor(c.env, deps);
     const readAppliedHead = deps.readAppliedHead ??
       ((value: string) => new NeonMigrationsLedger().readAppliedHead(value));
-    const result = await runMigration(dsn, { runContainer, readAppliedHead });
+    const result = await runMigration(dsn, { runContainer, readAppliedHead }, body.expectedHead);
     return outcomeResponse(result);
   } catch (error) {
     // #1091 (US-27): an unexpected orchestration throw must be observable —

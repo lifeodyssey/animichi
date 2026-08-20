@@ -16,20 +16,44 @@ export interface MigrationsLedger {
   readAppliedHead(dsn: string): Promise<string | null>;
 }
 
+/** One row of Atlas's `public.atlas_schema_revisions` ledger. */
+export interface AtlasRevisionRow {
+  readonly version: unknown;
+  readonly description: unknown;
+}
+
+/** Newest revisions row for a transient migrator DSN. */
+export type LatestAtlasRevision = (dsn: string) => Promise<AtlasRevisionRow | undefined>;
+
 /**
  * Neon HTTP-backed ledger reader. `readAppliedHead` opens a transient
  * connection against the migrator DSN purely to read the ledger, matching the
  * "non-resident" rule: the DSN is not retained in any standing environment.
  */
 export class NeonMigrationsLedger implements MigrationsLedger {
+  constructor(private readonly latestRevision: LatestAtlasRevision = selectLatestRevision) {}
+
   async readAppliedHead(dsn: string): Promise<string | null> {
-    const sql = neon(dsn);
-    // #1087: the Atlas v0.30 revisions table has NO id column — its primary
-    // key is `version` (timestamped, append-only migration basenames), so
-    // version DESC is the newest applied head and matches scripts/migration-head.sh.
-    // ORDER BY id would fail at runtime (column id does not exist).
-    const rows = await sql`SELECT version FROM public.atlas_schema_revisions ORDER BY version DESC LIMIT 1`;
-    const row = rows[0];
-    return row !== undefined && typeof row.version === "string" ? row.version : null;
+    return basenameOf(await this.latestRevision(dsn));
   }
+}
+
+async function selectLatestRevision(dsn: string): Promise<AtlasRevisionRow | undefined> {
+  const sql = neon(dsn);
+  // #1087: Atlas v0.30 revisions have no `id` column — `version` is the PK.
+  // Atlas splits the file basename at the first `_` into version + description.
+  const rows = await sql`SELECT version, description FROM public.atlas_schema_revisions ORDER BY version DESC LIMIT 1`;
+  const row = rows[0];
+  if (row === undefined) return undefined;
+  return { version: row.version, description: row.description };
+}
+
+function basenameOf(row: AtlasRevisionRow | undefined): string | null {
+  if (row === undefined || typeof row.version !== "string" || row.version.length === 0) {
+    return null;
+  }
+  if (typeof row.description !== "string" || row.description.length === 0) {
+    return row.version;
+  }
+  return `${row.version}_${row.description}`;
 }

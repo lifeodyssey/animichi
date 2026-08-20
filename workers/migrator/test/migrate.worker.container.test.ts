@@ -47,6 +47,36 @@ describe("POST /migrate — container exit + error mapping", () => {
   });
 });
 
+describe("POST /migrate — unknown-exit ledger judgment", () => {
+  it("returns success when the container stops without an exit code and the ledger matches expectedHead", async () => {
+    const { app, token } = await makeApp({
+      runContainer: (): Promise<ContainerOutcome> => Promise.resolve({ kind: "unknown_exit" }),
+    });
+    const res = await app.request(post({}, token), {}, testEnv());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      exitCode: 0,
+      appliedHead: "20260814191301_turn_idempotency_outbox",
+    });
+  });
+
+  it("returns failure with applied and expected heads when a stop without exit code mismatches the ledger", async () => {
+    const { app, token } = await makeApp({
+      runContainer: (): Promise<ContainerOutcome> => Promise.resolve({ kind: "unknown_exit" }),
+      readAppliedHead: (): Promise<string | null> => Promise.resolve("20260811000001"),
+    });
+    const res = await app.request(post({}, token), {}, testEnv());
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      success: false,
+      exitCode: 1,
+      appliedHead: "20260811000001",
+      error: "applied head 20260811000001 does not equal expected head 20260814191301_turn_idempotency_outbox",
+    });
+  });
+});
+
 describe("POST /migrate — timeout 504 body (#1101)", () => {
   // #1101 AC5: a timeout 504 carries ranMs + lastStatus (+ exitCode when the
   // state had one) and NEVER leaks the DSN; the HTTP status stays 504.

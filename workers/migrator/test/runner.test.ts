@@ -43,6 +43,18 @@ describe("CloudflareContainerRunner exit mapping", () => {
     const f = fakeSlot({ status: "stopped_with_code" });
     await expect(f.runner.start("postgresql://x", 10_000)).resolves.toEqual({ kind: "failure", exitCode: 1 });
   });
+
+  it("treats platform stopped without an exit code as a terminal unknown-exit outcome", async () => {
+    const f = fakeSlot({ status: "stopped" });
+    const result = await driveStart(f.runner, "postgresql://x", 0, 1000);
+    expect(result.ok && result.value).toEqual({ kind: "unknown_exit" });
+  });
+
+  it("maps stopped with exit code 0 to success", async () => {
+    const f = fakeSlot({ status: "stopped", exitCode: 0 });
+    const result = await driveStart(f.runner, "postgresql://x", 0, 1000);
+    expect(result.ok && result.value).toEqual({ kind: "success", exitCode: 0 });
+  });
 });
 
 describe("CloudflareContainerRunner timeout path — renew + stop", () => {
