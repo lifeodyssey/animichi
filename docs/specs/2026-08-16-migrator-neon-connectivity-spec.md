@@ -301,6 +301,49 @@ failure.
 
 ---
 
+## Verdict (2026-08-20): the IPv4 pin **is** the bug — Option 1's own mechanism
+
+The diagnosis above stopped one step short: it proved the container never
+becomes a Postgres client, and inferred a *platform* fault. A local
+bisection falsifies that inference. Same image
+(`docker build --platform linux/amd64 -f workers/migrator/Dockerfile`),
+same staging migrator DSN, three arms:
+
+| Arm | What ran | Result |
+|---|---|---|
+| a — control | `nc -z <neon-host> 5432` inside the container | **pass** — container egress is healthy; the harness is valid |
+| b — pinned | the shipped entrypoint path (`resolve_ipv4` -> `rewrite_url` host->IP + `options=endpoint`) | **fail**, 30s, `sql/migrate: read revisions: context canceled` — the production symptom, reproduced off-platform |
+| c — un-pinned | same image, domain DSN, `atlas migrate status --revisions-schema public` | **pass**, 29s, ledger read (head `20260811000001`, 51 executed / 4 pending) |
+
+**Mechanism.** With `host` rewritten to a literal IP, the TLS ClientHello
+carries no SNI (RFC 6066 forbids an IP there), so Neon's SNI-routed proxy
+cannot select the endpoint; `options=endpoint=<id>` does not compensate
+under Atlas 0.30's pg driver. Arm (c) proves the rest of the stack is
+innocent: Alpine/musl, the Go TLS stack, and the pinned Atlas binary all
+connect normally over the domain. **No base-image change is required.**
+
+**Consequences for this spec.**
+
+- The "Option 1 falsification" section is superseded. What the live
+  staging 504 falsified was **the pin**, not the container path. Option
+  1's other two parts (fail-fast probe, stop-on-timeout) are sound and stay.
+- **Option 2 (worker-side `neon-http` apply) is demoted to a contingency.**
+  It is not opened on the strength of the 2026-08-16 trigger failure.
+- The fix is subtractive: drop the resolve/rewrite block from
+  `docker/entrypoint.sh` (keep the `-pooler` reject, the probe,
+  `search_path=public`), paired with the runner change below —
+  connectivity alone is not sufficient.
+
+**The second, independent failure (still true).** CF batch containers
+never deliver an exit-code event; the live 504 body carried
+`lastStatus: "stopped"` with no `exitCode`. `runner.ts` only treats
+`stopped_with_code` as terminal, so **even a successful apply cannot be
+observed** — the success path is unreachable regardless of TLS. The
+repair card therefore also makes bare `stopped` terminal and adopts the
+**ledger head vs expected head** comparison as the success criterion.
+
+---
+
 ## Proposed Design
 
 ### Current runtime (as shipped)
