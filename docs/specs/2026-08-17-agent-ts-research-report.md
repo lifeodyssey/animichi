@@ -6,6 +6,7 @@
 本报告分**两轮复核,统计不得混算**:
 - **初始复核**(2026-08-17,§一–§八;处理声明见 §六):8 路侦察 + 15 项抽查裁定(**13 CONFIRMED / 1 REFUTED / 1 UNVERIFIED**)。
 - **补充复核**(2026-08-18,§九):6 路反向搜寻 + 5 项候选抽查(**2 HOLDS / 1 OVERSOLD / 2 WRONG**)。§九是对断言 A(eval 零等价物)与断言 B(undici SSRF)的最新裁决;被它修订的正文结论以 §九为准,旧表述保留为"初始复核"并显式标注。
+- **口径修订**(2026-08-21,docs-only,不改上述两轮统计):任务书原稿与本报告覆盖面写过 AI SDK v6/v7,已核证据止于 **v6**;v7 完整能力复核未做,登记为 §五缺口、挂 Wave 0 Spike C。`generateObject` 弃用改引 [AI SDK 6 migration guide](https://ai-sdk.dev/docs/migration-guides/migration-guide-6-0#generateobject-and-streamobject-deprecation)(v6 博文只支撑"统一工具循环 + 结构化输出")。
 
 ---
 
@@ -40,7 +41,7 @@
 | 9 | 框架成熟度/生态维护 | 6 | 6/6 单一连贯框架,已生产验证 | 5/6 AI SDK/Mastra/LangChain.js 均确认活跃维护,但生态内也有真实"僵尸"候选(Genkit CF 不兼容、Inngest AgentKit 停更 3.5+ 月与营销文案矛盾),需要谨慎选型 | scope7(CONFIRMED) |
 | | **合计** | **60** | **58/60** | **39/60**(初始复核 37/60;第 5 行 3→5 已按 §九回写) | |
 
-**关于第 3 行的 REFUTED 澄清(重要,已从结论中剔除误判):** 侦察原始表述称 GitHub #4906/#10856 证明"该缺口未被 Vercel 官方认领"——复核判决为 **REFUTED**:#4906 实际已被合并 PR(#4937)修复,只是修复落在**已弃用**的 `generateObject()` 上,未移植到当前 `generateText`+`Output.object()` 路径(maintainer 明确表态"repairText 太复杂,不想再要",转而提供范围更窄的 `extractJsonMiddleware`,只做语法级 JSON 提取,不做语义校验重试);#10856 也不是"零回应"——Vercel collaborator 两次回复,主动保持 open 作为待定方向。**准确表述应为:"官方曾经有过等价方案但主动收窄/未移植到新 API,而非从未理会。"**
+**关于第 3 行的 REFUTED 澄清(重要,已从结论中剔除误判):** 侦察原始表述称 GitHub #4906/#10856 证明"该缺口未被 Vercel 官方认领"——复核判决为 **REFUTED**:#4906 实际已被合并 PR(#4937)修复,只是修复落在**已弃用**的 `generateObject()` 上([AI SDK 6 migration guide](https://ai-sdk.dev/docs/migration-guides/migration-guide-6-0#generateobject-and-streamobject-deprecation)),未移植到当前 `generateText`+`Output.object()` 路径(maintainer 明确表态"repairText 太复杂,不想再要",转而提供范围更窄的 `extractJsonMiddleware`,只做语法级 JSON 提取,不做语义校验重试);#10856 也不是"零回应"——Vercel collaborator 两次回复,主动保持 open 作为待定方向。**准确表述应为:"官方曾经有过等价方案但主动收窄/未移植到新 API,而非从未理会。"**
 
 ---
 
@@ -59,7 +60,7 @@
 **初始复核结论(已被 §九修订,保留备查):** 当时写"TS 侧没有任何候选可以替代官方 5 个 agentic evaluator,必须从零手写",并据此打 3/10、把基础设施标成同量级从零重建。对 **`logfire-js` `/evals`** 的核实(只搬地基、五个官方评估器一个都没有)仍成立,不能外推成全生态无货。
 **关键 findings:**
 - CONFIRMED(初始复核当场重新抓取源码验证):`logfire-js` `/evals` 自述与 pydantic-evals wire-format 兼容,移植了 SpanTree/SpanQuery 基础设施(433 行),**但只导出 7 个 case-level 内建 evaluator(Contains/Equals/EqualsExpected/HasMatchingSpan/IsInstance/LLMJudge/MaxDuration),5 个官方 agentic evaluator 一个都不存在**——只搬地基,没搬评估器实现。
-- 权威数据集实测 **662 条**(`agent_eval_v3.json`),既非任务书起草时的 617,也非 `AGENTS.md` 记载的 655——三处数字互不一致,后续估算以实测 662 为准。
+- 权威数据集实测 **662 条**(`apps/agent/src/animichi/tests/eval/datasets/agent_eval_v3.json`,顶层 JSON 数组;`python3 -c "import json;print(len(json.load(open('apps/agent/src/animichi/tests/eval/datasets/agent_eval_v3.json'))))"`),既非任务书起草时的 617,也非 `AGENTS.md` 记载的 655——三处数字互不一致,后续估算以实测 662 为准(对应本 PR 的 base `origin/main`,后续变更需重跑)。
 - 归档承诺澄清:2026-07-06 规划文档写"存档已迁 Logfire Experiments",但当场核查 Python 侧代码(`eval_harness.py` 显式 `send_to_logfire=False`)证实这是**未兑现的既定意图**,不是需要兼容的活依赖——降低了这一项的迁移风险(不存在"从 Logfire Experiments 迁回"的额外成本)。
 - 统计闸(分层 bootstrap + Clopper-Pearson,557 行纯 stdlib)全场无任何框架提供等价能力,是唯一与框架选型无关、可原样机械迁移的低风险模块。
 - UNVERIFIED(未在初始复核轮独立重跑):eval 非测试基础设施 ~3600-3700 行 + 18 个专项测试文件的精确行数为仓库内部计数,未重新核验,但不影响方向性结论(evaluator 缺口分级见 §九,不再依赖"5/5 全无")。
@@ -77,7 +78,7 @@
 **关键 findings:**
 - "capabilities 组合"机制(`AgentCapability`/`Hooks`/`CombinedCapability`)来自**原生 pydantic-ai**,不是 harness——生产真正绑定的 harness 子模块只有 `memory` 与 `compaction` 两个。
 - CodeMode 只存在于 `spikes/codemode/`,从未进入生产 `build_animichi_agent()`。
-- CONFIRMED:AI SDK 官方"Harnesses"是假朋友——不是能力组合系统,而是接外部 CLI runtime(Claude Code/Codex/Pi)的适配层,experimental 状态,不能拿来对标。
+- CONFIRMED:AI SDK 官方"Harnesses"是假朋友——不是能力组合系统,而是接外部 CLI runtime(Claude Code/Codex/Pi)的适配层,experimental 状态,不能拿来对标。(v6 证据;v7 新增 `HarnessAgent` 一等 API,完整复核未做,见 §五,挂 Spike C)
 - CONFIRMED:AI SDK 官方 cookbook 的 compaction 方案只是 `prepareStep`+`pruneMessages` 纯截断(~50 行,无 LLM 摘要/无实体挽留),而 animichi 的 `history_compaction.py` 是 237 行三层系统,迁移需整体自建(预估 250-350 行)。
 - ManagedPrompt 底层原语(Logfire remote variables)在 `logfire-js` 的 `vars` 模块确实存在,但因生产未绑定,不构成真实迁移成本。
 
@@ -103,14 +104,14 @@
 - CONFIRMED(复核用真实 bug 追证):LangChain.js v1 `createAgent()+toolStrategy()` 默认 `handleError: true`,是全目录唯一一个**默认开启**的最终结构化输出校验回喂闭环,由真实 bug(#9426,"文档说会重试/实测不重试")经 PR #9434 修复证实运行时确实生效——这是本轮调研里对 SD-4 决定性缺口最有力的正面证据。
 - CONFIRMED:Genkit 因 CF Workers/edge runtime 禁用 `eval()`/`new Function()`(其默认校验库 ajv 依赖两者)在维度①出局,官方文档自认非一等部署目标;Claude Agent SDK TS 因架构要求 spawn 长驻 CLI 子进程(容器模型非 Workers isolate)出局,选它等于换语言不换基础设施痛点。
 - CONFIRMED(复核用 gh api/npm view 当场证伪):Inngest AgentKit 营销文案称"活跃维护",但 repo 最后 push 距今 3.5+ 月、最新 release 9+ 月前——与"仓库记忆"教训"调研必须先枚举厂商全目录、陈旧≠无效"正面吻合。
-- Bonus(复核新发现):CF Agents SDK 除 v6 外**也已支持 v7**(2026-07-23 changelog),锁定风险比侦察原判断更低。
+- Bonus(复核新发现):CF Agents SDK 除 v6 外**也已支持 v7**(2026-07-23 changelog),锁定风险比侦察原判断更低。这条是 CF 作为 AI SDK 消费者的 changelog,不是本轮对 AI SDK 7 能力面的复核(见 §五)。
 - Mastra 有原生 evals Scorers,若选它可能为 scope 2 的最大成本项省下部分脚手架,但语义对齐未经验证(open question)。
 
 ### Scope 8 — 仓库绑定面盘点(迁移成本的事实底座)
 **结论:** 仓库现状比任务书背景假设更薄也更宽——数字用于第四节迁移成本估算,直接取代任务书里已过时的估算。
 **关键 findings(均 CONFIRMED,git/wc -l 实测):**
 - 生产 src(不含 spikes)= **179 文件 / 23,563 行**;测试代码 = **356 文件 / 47,967 行**;全仓 `def test_` 计数 = **1,815 个**(任务书背景"800+ 测试"已过时,实测超出两倍以上)。
-- 模型可调用工具实际 **6 个**(4 catalog + 2 web),非任务书假设的 7 个。
+- 模型可调用工具实际 **6 个**(4 catalog + 2 web),非任务书假设的 7 个。注册点 `apps/agent/src/animichi/agents/animichi_agent.py:414` `tools=[*ANIMICHI_TOOLS, *WEB_TOOLS]`;`agents/animichi_tools.py` 的 `TOOLS`(4)=`resolve_anime` / `search_bangumi` / `search_nearby` / `plan_route`;`agents/web_tools.py:145` 的 `TOOLS`(2)=`web_search` / `translate_anime_title`;spikes 下的工具不计,未进入 `build_animichi_agent()`。对应本 PR 的 base `origin/main`,后续变更需重跑。
 - `Agent(` 构造点 **6 处,分散在 5 个生产模块** + 1 个 spike,不是单一主 agent。
 - `VercelAIAdapter`/`ManagedPrompt` 生产代码零引用,均已确认为"未启用"或"已退役"。
 - open question:任务书引用的"~30.6k 行 Python"口径既不等于生产源码单算(23.5k)也不等于生产+测试合算(71.5k),原始口径未知,本报告后续以**实测数字**为准。
@@ -150,6 +151,12 @@
 - Node 路径:§九已把"官方无推荐模式"做成可复现结论(含 TLSSocket silent-bypass);剩余工作是 HTTP+HTTPS 都生效的 connect-time 方案(Spike A 改形)。Workers 路径:workerd 默认 SSRF 边界未过独立复核,需 Spike D 实测,不能把 Node 估算当成运行时无关成本。
 - LangChain.js `toolStrategy(handleError:true)` 的回喂,是否覆盖 animichi 实际使用的**业务语义校验**(而不仅是 JSON schema 形状校验)——需要针对性验证而非只信文档/bug 记录。
 - `logfire-js` "wire-format-compatible" 的自述,是否对 `agent_eval_v3.json` 经 `--export-dataset` 导出后的形态**真正字节兼容**——只核实了源码注释设计意图,未做端到端实测,是整条 eval 迁移路径成本估算里杠杆最大的未知项。
+- **AI SDK 7 完整能力复核未做**(任务书原稿写覆盖 v6/v7,本轮已核证据止于 v6;本 PR 不补做全面调研)。已从官方源核到、但未纳入能力对标的事实:
+  - 发布于 2026-06-25([AI SDK 7](https://vercel.com/blog/ai-sdk-7))。
+  - 要求 Node.js ≥22([migration-guide-7-0 · Minimum Node.js Version](https://ai-sdk.dev/docs/migration-guides/migration-guide-7-0#minimum-nodejs-version))。
+  - ESM-only,不再支持 `require()`([migration-guide-7-0 · ESM Only](https://ai-sdk.dev/docs/migration-guides/migration-guide-7-0#esm-only--commonjs-support-removed))。
+  - 新增 agent harness 层(`HarnessAgent` + 适配器),官方点名可接 Claude Code / Codex / Deep Agents / OpenCode / Pi([博文](https://vercel.com/blog/ai-sdk-7);[Harness Adapters](https://ai-sdk.dev/docs/ai-sdk-harnesses/harness-adapters);概览同样写 Claude Code / Codex / Pi,[Harnesses overview](https://ai-sdk.dev/docs/ai-sdk-harnesses/overview))。
+  对迁移成本:Node 22 / ESM-only 对 Workers 影响小(Workers 已是 ESM,runtime 也不是 Node 18/20);对本地 harness 与构建链有影响(dev/eval 机器、`package.json` `engines`、仍走 `require()` 的脚本)。harness 层与 Scope 4(v6 把官方 Harnesses 判为接外部 CLI 的适配层、不能拿来对标 compaction)和 Scope 7(框架终选)相关——v7 把 `HarnessAgent` 做成一等 experimental API,是否改写那两条结论,**本轮不补做**,放 Wave 0 Spike C。
 
 **中优先级(进 open_questions,不阻塞 go/no-go 但影响执行期估算):**
 - eval 非测试基础设施 ~3600-3700 行的精确计数未在复核轮独立重跑(UNVERIFIED),建议定稿前 `wc -l` 复核一次。
@@ -168,6 +175,7 @@
 - **REFUTED**(1 项):`[Scope1]` 关于 GitHub #4906/#10856 证明"Vercel 官方未认领该缺口"的表述——已在第二节表格脚注与第三节 Scope 1 明确标注并用更准确的表述替代,**未进入第一节结论**。
 - **UNVERIFIED**(1 项):`[Scope2]` eval 基础设施 ~3600-3700 行的精确计数——已列入第五节 open questions,**不作为决定性数字使用**。该轮把 evaluator 缺口本身标为 CONFIRMED,是针对 `logfire-js` 导出列表的核实;全生态"5/5 零等价"的全称判断已被 §九下修,不在本轮 15 项统计里改写。
 - 其余 13 项初始复核裁定均为 **CONFIRMED**,已原样吸收进对应 scope 小节与评分表(其中 Scope 2 评分与"从零重建"表述随后被 §九修订,见第二节第 5 行与第三节 Scope 2)。
+- **口径修订**(2026-08-21,docs-only):不进入本轮 15 项、也不进入 §九 5 项抽查统计。v6/v7 覆盖面收窄与 v7 缺口登记见文首分层与 §五。
 
 ---
 
@@ -178,7 +186,7 @@
 - **Wave 0(前置 spike,门控后续所有波次)**
   - Spike A(Node 路径,已改形):原定目标"把'官方无推荐模式'从 medium confidence 提到可执行结论"**已被 §九完成且强化**(TLSSocket silent-bypass,含可复现实测)。剩余工作 = 设计并验证一个 HTTP+HTTPS 都生效的 connect-time 方案。若终选 Workers,Spike A 由 Spike D 取代,不再单独执行。
   - Spike B:工作量从"从零手写整套匹配算法"降档为"基于 `agentevals` 现成 `unordered`/`superset` 布尔匹配原语,补一层 span→messages 转接,对 ToolCorrectness 做双跑核对";并回答 gate 是否依赖 TrajectoryMatch 默认连续 F1(若否,该缺口可忽略)。
-  - Spike C:针对 animichi 实际业务校验器验证 LangChain.js `toolStrategy(handleError:true)` 的回喂行为,据此在 AI SDK-centric 组合与 LangChain.js/LangGraph.js-centric 组合之间终选主框架。(不受 §九影响)
+  - Spike C:针对 animichi 实际业务校验器验证 LangChain.js `toolStrategy(handleError:true)` 的回喂行为,据此在 AI SDK-centric 组合与 LangChain.js/LangGraph.js-centric 组合之间终选主框架。(不受 §九影响)。**AI SDK 7 的完整能力评估也在这里做,不在本调研补做**——至少覆盖 Node 22 / ESM-only 对本地 harness 与构建链的成本,以及 v7 `HarnessAgent` 适配层(Claude Code / Codex / Deep Agents / OpenCode / Pi)是否改写 Scope 4/7 把官方 Harnesses 判为"假朋友"的结论。
   - Spike D(Workers 路径,§九新增):部署探针 Worker,对 `10.x`/`169.254.169.254`/`100.64.0.1`(CGNAT)/`100.100.100.200`(阿里云元数据 IP)发起 `fetch()`,确认默认 `Network.allow=["public"]` 是否挡下这些目标,并验证 redirect 链是否逐跳复核。结果直接决定第二节 #7 行与 BYOK egress 成本是否下修。
   - 交付物:Spike B/C 必做;Spike A 或 D 按终选运行时二选一(运行时未终选则两条都做)+ owner 签核的框架终选决定,作为 Wave 1 的门禁。
 
@@ -196,9 +204,9 @@
 
 ## 八、Sources(primary source,已去重)
 
-**AI SDK 官方文档(`ai-sdk.dev`)**:`/docs/ai-sdk-core/generating-structured-data` · `/docs/reference/ai-sdk-core/generate-text` · `/docs/agents/loop-control` · `/docs/reference/ai-sdk-core/stream-object` · `/docs/ai-sdk-core/tools-and-tool-calling` · `/docs/ai-sdk-ui/chatbot-tool-usage` · `/docs/migration-guides/migration-guide-6-0` · `/docs/ai-sdk-ui/streaming-data` · `/docs/ai-sdk-ui/stream-protocol` · `/docs/reference/ai-sdk-ui/create-ui-message-stream` · `/docs/reference/ai-sdk-ui/use-object` · `/docs/agents/building-agents` · `/docs/ai-sdk-harnesses/overview` · `/providers/ai-sdk-providers/{openai,anthropic,google}` · `/providers/openai-compatible-providers`(+`/custom-providers`)· `/docs/ai-sdk-core/{provider-management,telemetry,testing}` · `/docs/reference/ai-sdk-core/tool-loop-agent` · `/v7/cookbook/guides/agent-context-compaction`
+**AI SDK 官方文档(`ai-sdk.dev`)**:`/docs/ai-sdk-core/generating-structured-data` · `/docs/reference/ai-sdk-core/generate-text` · `/docs/agents/loop-control` · `/docs/reference/ai-sdk-core/stream-object` · `/docs/ai-sdk-core/tools-and-tool-calling` · `/docs/ai-sdk-ui/chatbot-tool-usage` · `/docs/migration-guides/migration-guide-6-0`(+`#generateobject-and-streamobject-deprecation`)· `/docs/migration-guides/migration-guide-7-0`(+`#minimum-nodejs-version`、`#esm-only--commonjs-support-removed`;v7 能力面未复核,只核平台约束与 harness 层存在)· `/docs/ai-sdk-ui/streaming-data` · `/docs/ai-sdk-ui/stream-protocol` · `/docs/reference/ai-sdk-ui/create-ui-message-stream` · `/docs/reference/ai-sdk-ui/use-object` · `/docs/agents/building-agents` · `/docs/ai-sdk-harnesses/overview` · `/docs/ai-sdk-harnesses/harness-adapters` · `/providers/ai-sdk-providers/{openai,anthropic,google}` · `/providers/openai-compatible-providers`(+`/custom-providers`)· `/docs/ai-sdk-core/{provider-management,telemetry,testing}` · `/docs/reference/ai-sdk-core/tool-loop-agent` · `/v7/cookbook/guides/agent-context-compaction`
 
-**Vercel 官方**:vercel.com/blog/ai-sdk-6 · vercel.com/kb/guide/an-introduction-to-evals · vercel.com/docs/ai-gateway/ecosystem/framework-integrations/mastra
+**Vercel 官方**:vercel.com/blog/ai-sdk-6 · vercel.com/blog/ai-sdk-7(发布日 2026-06-25;harness 层点名 Codex / Claude Code / Deep Agents / OpenCode / Pi)· vercel.com/kb/guide/an-introduction-to-evals · vercel.com/docs/ai-gateway/ecosystem/framework-integrations/mastra
 
 **vercel/ai GitHub(issues/PR,gh api 当场核实)**:github.com/vercel/ai/issues/{4906,10856,8240,11696} · github.com/vercel/ai/pull/4937
 
@@ -234,7 +242,7 @@
 
 ---
 
-*报告作者:综合席(Sonnet)。§八 Sources 按章节/厂商**聚合**,不是逐条 claim→URL 映射。"框架/平台/库 有/无能力 X"类断言多数能在对应章节的 source 块里找到出处,但**没有**做到任务书 §六要求的逐条可审计引用——这是已知局限,本修订不补做映射。仓库内部计数(行数、test 函数、工具数)的可复现口径见 Scope 8,未逐条挂 file:line。REFUTED 断言已剔除结论,UNVERIFIED 断言已降级进 open questions。*
+*报告作者:综合席(Sonnet)。§八 Sources 按章节/厂商**聚合**,不是逐条 claim→URL 映射。"框架/平台/库 有/无能力 X"类断言多数能在对应章节的 source 块里找到出处,但**没有**做到任务书 §六要求的逐条可审计引用——这是已知局限,本修订不补做映射。仓库内部计数(行数、test 函数)的可复现口径见 Scope 8;`662` 与 `6` 的路径与命令见 Scope 2 / Scope 8 与任务书 `[^baseline-numbers]`。REFUTED 断言已剔除结论,UNVERIFIED 断言已降级进 open questions。2026-08-21 口径修订:已核证据止于 AI SDK v6,v7 缺口见 §五。*
 
 ---
 
@@ -296,7 +304,7 @@ npm 候选枚举(request-filtering-agent/ssrf-req-filter/ssrf-safe-fetch/dssrf/s
 
 - **Spike A**(undici IP-pinning demo + DNS-rebinding 测试):原定目标"把'官方无推荐模式'从 medium confidence 提到可执行结论"**已被本轮完成且强化**(新发现 TLSSocket silent-bypass,含可复现实测脚本)。剩余工作改形为:若仍走 Node 路线,需设计并验证一个 HTTP+HTTPS 都生效的 connect-time 方案(候选:自定义 `lookup`+手动 pinned connect,或 `'connect'` 事件 post-check——后者 Firecrawl 实测有私网段遗漏史,需专项覆盖);若确认 Workers 路线,Spike A 由新增的 Spike D 取代,不再需要单独执行。
 - **Spike B**(手工复刻 1 个官方 evaluator 验证分数与 Python 基线一致):工作量从"从零手写整套匹配算法"降档为"基于 `agentevals` 现成 `unordered`/`superset` 布尔匹配原语,补一层 span→messages 转接,对 ToolCorrectness 做双跑核对";应在 spike 中一并回答新增 open question——animichi 的 gate 逻辑是否依赖 TrajectoryMatch 默认模式的连续 F1 分数(而非布尔阈值),若依赖则 LCS/multiset-F1 打分算法仍需专项开发,若不依赖(仅用布尔阈值即可)则该缺口可忽略。
-- **Spike C**(LangChain.js `handleError` 业务语义校验):不受本轮影响,维持原计划不变。
+- **Spike C**(LangChain.js `handleError` 业务语义校验):不受本轮(§九)影响,维持原计划不变。2026-08-21 口径修订把 **AI SDK 7 完整能力评估**也挂到 Spike C(见 §五 / §七),不改写本节对 §九 的结论。
 - **新增 Spike D**(workerd 平台 SSRF 边界实测):部署探针 Worker,对 `10.x`/`169.254.169.254`/`100.64.0.1`(CGNAT)/`100.100.100.200`(阿里云元数据 IP)发起 `fetch()`,确认默认 `Network.allow=["public"]` 是否真的挡下这些目标;同时验证 redirect 链跨 IP 时是否逐跳复核同一策略。此 spike 结果直接决定第二节 #7 行与第四节 BYOK egress 行是否需要进一步下修。
 
 ### 新增 Sources

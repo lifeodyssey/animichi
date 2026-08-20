@@ -17,13 +17,15 @@ SD-4(`docs/specs/2026-07-06-frontend-rebuild-inputs.md:227`)定案 agent 运行�
 
 ## 二、2026-08-17 初步核查(已验,含来源)
 
-| 闭环 | pydantic-ai | AI SDK v6/v7 现状 |
+| 闭环 | pydantic-ai | AI SDK v6 现状 |
 |---|---|---|
 | 工具执行出错 → 回喂模型继续 | 内建 | **已补齐**:多步循环(`stopWhen`)里 tool 执行错误作为 `tool-error` part 自动回传([tools-and-tool-calling](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling)) |
 | 工具输入无效 → 回喂修复 | 内建 | **半补齐**:`repairToolCall` 已转正 + 官方 re-ask 策略示例(~40 行,钩子需自填、非默认开启) |
 | 最终输出校验失败 → 回喂重试 | 内建(`output_validator`) | **仍缺**:`Output.object()` 校验失败抛 `NoObjectGeneratedError`,官方教 try/catch 自包(~30-50 行);`maxRetries` 仅网络层指数退避([generating-structured-data](https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data)) |
 
-- AI SDK 6 已统一"工具循环 + 末端结构化输出"(当年需 `generateText`/`generateObject` 手工串接;`generateObject` 现已 deprecated,统一到 `generateText` + `output`)([AI SDK 6](https://vercel.com/blog/ai-sdk-6))。
+任务书原稿此列写"AI SDK v6/v7 现状"。**已核证据止于 v6**;v7 于 2026-06-25 发布([AI SDK 7](https://vercel.com/blog/ai-sdk-7)),完整能力复核未做(缺口登记在报告 §五,评估挂 Wave 0 Spike C,本 PR 不补做)。
+
+- AI SDK 6 已统一"工具循环 + 末端结构化输出"(当年需 `generateText`/`generateObject` 手工串接)([AI SDK 6](https://vercel.com/blog/ai-sdk-6));`generateObject` 现已 deprecated,统一到 `generateText` + `output`([AI SDK 6 migration guide](https://ai-sdk.dev/docs/migration-guides/migration-guide-6-0#generateobject-and-streamobject-deprecation))。
 - CF Agents SDK 定位 = **运行时层**(Durable Objects 状态 / 调度 / `needsApproval` / WebSocket),模型编排层就是 AI SDK(v0.3.0 起对齐 v6,[changelog](https://developers.cloudflare.com/changelog/post/2025-12-22-agents-sdk-ai-sdk-v6/));其 v0.5.0 `this.retry()` 为网络层指数退避,**非**校验回喂([changelog](https://developers.cloudflare.com/changelog/post/2026-02-17-agents-sdk-v0.5.0/))。
 - 小结:重试基建差距 ~100 行 → ~50 行。**预期的最大成本项已不在重试基建,而在 eval 体系绑定**(实测 662 case + pydantic evals 官方 runner + SD-30 双轴评估 + official-v1 八指标签核基线,2026-07-18 校准;任务书起草时写的是 617,来源不明,以报告实测为准)。
 
@@ -57,4 +59,4 @@ SD-4(`docs/specs/2026-07-06-frontend-rebuild-inputs.md:227`)定案 agent 运行�
 - [ ] go/no-go 建议 + 迁移成本区间。
 - [ ] owner 决策(重开或维持 SD-4)记录在 #1106 评论。
 
-[^baseline-numbers]: 任务书起草时写的是 617 eval case / 800+ tests / 7 tools / ~30.6k 行 Python,来源不明。报告 Scope 8 用 `git`/`wc -l`/`def test_` 实测后取代这些数字;旧数字本身是调研结论之一(口径对不上),不是仍可用的规划基线。
+[^baseline-numbers]: 任务书起草时写的是 617 eval case / 800+ tests / 7 tools / ~30.6k 行 Python,来源不明。报告 Scope 8 用 `git`/`wc -l`/`def test_` 实测后取代这些数字;旧数字本身是调研结论之一(口径对不上),不是仍可用的规划基线。**662** 与 **6** 的复现命令如下(对应本 PR 的 base `origin/main`;后续变更需重跑)。权威数据集 `apps/agent/src/animichi/tests/eval/datasets/agent_eval_v3.json` 顶层是 JSON 数组:`python3 -c "import json;print(len(json.load(open('apps/agent/src/animichi/tests/eval/datasets/agent_eval_v3.json'))))"` → **662**。生产模型工具注册点是 `apps/agent/src/animichi/agents/animichi_agent.py:414` 的 `tools=[*ANIMICHI_TOOLS, *WEB_TOOLS]`: `agents/animichi_tools.py` 的 `TOOLS`(4)=`resolve_anime` / `search_bangumi` / `search_nearby` / `plan_route`;`agents/web_tools.py:145` 的 `TOOLS`(2)=`web_search` / `translate_anime_title`;4+2=**6**。spikes 下的工具不计,未进入 `build_animichi_agent()`。
