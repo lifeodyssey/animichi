@@ -33,6 +33,7 @@ describe("POST /migrate — valid identity", () => {
       success: true,
       exitCode: 0,
       appliedHead: "20260814191301_turn_idempotency_outbox",
+      pathVerification: "verified",
     });
   });
 

@@ -105,13 +105,22 @@ function mismatchResponse(result: Extract<MigrationRunResult, { kind: "head_mism
   );
 }
 
+function successResponse(result: Extract<MigrationRunResult, { kind: "success" }>): Response {
+  return Response.json({
+    success: true,
+    exitCode: 0,
+    appliedHead: result.appliedHead,
+    pathVerification: result.pathVerification,
+  });
+}
+
 function outcomeResponse(result: MigrationRunResult): Response {
   if (result.kind === "failure") {
     return Response.json({ success: false, exitCode: result.exitCode, appliedHead: null }, { status: 500 });
   }
   if (result.kind === "timeout") return timeoutResponse(result);
   if (result.kind === "head_mismatch") return mismatchResponse(result);
-  return Response.json({ success: true, exitCode: 0, appliedHead: result.appliedHead });
+  return successResponse(result);
 }
 
 async function runContainerFor(

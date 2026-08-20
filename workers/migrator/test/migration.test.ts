@@ -12,10 +12,43 @@ function bounds(outcome: ContainerOutcome, head: string | null = HEAD): Migratio
   };
 }
 
+/** Ledger that moves from `before` to `after` only when the container runs. */
+function unknownExitLedger(before: string | null, after: string | null): MigrationBoundaries {
+  let head = before;
+  return {
+    runContainer: (): Promise<ContainerOutcome> => {
+      head = after;
+      return Promise.resolve({ kind: "unknown_exit" });
+    },
+    readAppliedHead: (): Promise<string | null> => Promise.resolve(head),
+  };
+}
+
+/** Pre-run and post-run ledger reads differ; the post-run value appears only after the container starts. */
+function headsAroundContainer(
+  outcome: ContainerOutcome,
+  preRun: () => Promise<string | null>,
+  postRun: () => Promise<string | null>,
+): MigrationBoundaries {
+  let started = false;
+  return {
+    runContainer: (): Promise<ContainerOutcome> => {
+      started = true;
+      return Promise.resolve(outcome);
+    },
+    readAppliedHead: (): Promise<string | null> => (started ? postRun : preRun)(),
+  };
+}
+
 describe("runMigration coded exits", () => {
   it("keeps a clean coded exit as success with the applied head", async () => {
     const result = await runMigration(DSN, bounds({ kind: "success", exitCode: 0 }), HEAD);
-    expect(result).toEqual({ kind: "success", exitCode: 0, appliedHead: HEAD });
+    expect(result).toEqual({
+      kind: "success",
+      exitCode: 0,
+      appliedHead: HEAD,
+      pathVerification: "verified",
+    });
   });
 
   it("passes a coded failure through unchanged", async () => {
@@ -25,9 +58,24 @@ describe("runMigration coded exits", () => {
 });
 
 describe("runMigration unknown-exit ledger judgment", () => {
-  it("succeeds when the applied head equals the expected head", async () => {
-    const result = await runMigration(DSN, bounds({ kind: "unknown_exit" }), HEAD);
-    expect(result).toEqual({ kind: "success", exitCode: 0, appliedHead: HEAD });
+  it("succeeds as unverified when unknown_exit leaves the ledger at the expected head", async () => {
+    const result = await runMigration(DSN, unknownExitLedger(HEAD, HEAD), HEAD);
+    expect(result).toEqual({
+      kind: "success",
+      exitCode: 0,
+      appliedHead: HEAD,
+      pathVerification: "unverified",
+    });
+  });
+
+  it("succeeds as verified when unknown_exit advances the ledger to the expected head", async () => {
+    const result = await runMigration(DSN, unknownExitLedger(OTHER, HEAD), HEAD);
+    expect(result).toEqual({
+      kind: "success",
+      exitCode: 0,
+      appliedHead: HEAD,
+      pathVerification: "verified",
+    });
   });
 
   it("fails with applied and expected heads when they differ", async () => {
@@ -38,5 +86,40 @@ describe("runMigration unknown-exit ledger judgment", () => {
   it("fails with both heads when expectedHead is absent", async () => {
     const result = await runMigration(DSN, bounds({ kind: "unknown_exit" }));
     expect(result).toEqual({ kind: "head_mismatch", appliedHead: HEAD, expectedHead: null });
+  });
+});
+
+describe("runMigration pre-run ledger snapshot", () => {
+  it("starts the container and reports verified when the pre-run ledger snapshot cannot be read", async () => {
+    const result = await runMigration(
+      DSN,
+      headsAroundContainer(
+        { kind: "unknown_exit" },
+        () => Promise.reject(new Error('relation "public.atlas_schema_revisions" does not exist')),
+        () => Promise.resolve(HEAD),
+      ),
+      HEAD,
+    );
+    expect(result).toEqual({
+      kind: "success",
+      exitCode: 0,
+      appliedHead: HEAD,
+      pathVerification: "verified",
+    });
+  });
+
+  it("propagates a post-run ledger read failure", async () => {
+    const failure = new Error("ledger read failed");
+    await expect(
+      runMigration(
+        DSN,
+        headsAroundContainer(
+          { kind: "unknown_exit" },
+          () => Promise.resolve(HEAD),
+          () => Promise.reject(failure),
+        ),
+        HEAD,
+      ),
+    ).rejects.toBe(failure);
   });
 });
