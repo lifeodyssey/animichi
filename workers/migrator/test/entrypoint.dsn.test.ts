@@ -158,6 +158,8 @@ describe("entrypoint probe + apply (domain DSN)", () => {
     expect(combined).toContain("elapsed_ms=");
     expect(combined).toContain("apply: start");
     expect(combined).not.toContain("resolve:");
-    expect(h.atlasLog().split("\n").filter((line) => line.includes(APPLY))).toHaveLength(1);
+    const log = h.atlasLog();
+    expect(log.split("\n").filter((line) => line.includes(APPLY))).toHaveLength(1);
+    expect(atlasLine(log, APPLY)).toContain("--revisions-schema public");
   });
 });
