@@ -99,10 +99,14 @@ describe("catalog has no public host", () => {
     expect(toml.split('crons = []')).toHaveLength(2);
   });
 
-  it("wires staging's daily import to a private read-only binding (AC2)", () => {
-    expect(toml).toContain('[[env.staging.services]]');
-    expect(toml).toContain('binding = "PROD_SNAPSHOT"');
-    expect(toml).toContain('service = "catalog"');
+  it("does not bind PROD_SNAPSHOT while production catalog is undeployed", () => {
+    // wrangler 10143: service bindings require the target Worker to exist.
+    // Production `catalog` has never been deployed (apply frozen). Live
+    // [[env.staging.services]] therefore blocks staging deploy (#1148).
+    // snapshotSourceFor already falls back to SNAPSHOT_BUCKET.
+    const live = contentLines(toml).join("\n");
+    expect(live).not.toContain("[[env.staging.services]]");
+    expect(live).not.toContain('binding = "PROD_SNAPSHOT"');
   });
 
   it.each(Object.entries(PRIVACY))("%s declares %s", (name, expected) => {
@@ -113,11 +117,11 @@ describe("catalog has no public host", () => {
   // AC2: without `entrypoint`, PROD_SNAPSHOT binds to the worker default
   // export (a plain fetch/scheduled Fetcher) which has no
   // currentManifest()/readObject() - the staging import would throw at runtime.
-  it("pins PROD_SNAPSHOT to the SnapshotReadEntrypoint (AC2)", () => {
-    const block = toml.slice(toml.indexOf('[[env.staging.services]]'));
-    expect(block).toContain('binding = "PROD_SNAPSHOT"');
-    expect(block).toContain('service = "catalog"');
-    expect(block).toContain('entrypoint = "SnapshotReadEntrypoint"');
+  it("keeps the PROD_SNAPSHOT restore lines commented until Worker catalog exists", () => {
+    expect(toml).toContain("# [[env.staging.services]]");
+    expect(toml).toContain('# binding = "PROD_SNAPSHOT"');
+    expect(toml).toContain('# service = "catalog"');
+    expect(toml).toContain('# entrypoint = "SnapshotReadEntrypoint"');
   });
 
   it("finds exactly the environments the file declares", () => {
