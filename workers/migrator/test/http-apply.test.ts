@@ -81,7 +81,7 @@ describe("HTTP apply SQL failure", () => {
     const db = new FakeSql();
     db.failBody = BODY_B;
     const outcome = await applyFixture(db);
-    expect(outcome).toEqual({ kind: "failure", exitCode: 1 });
+    expect(outcome).toEqual({ kind: "failure", exitCode: 1, error: "sql failed" });
     expect(db.units).toEqual([BODY_A, BODY_B]);
     expect(db.revisions[0]).toMatchObject({ version: "20260811000001", applied: 1 });
     expect(db.revisions[1]).toMatchObject({
@@ -107,7 +107,7 @@ describe("HTTP apply multi-statement (req 7)", () => {
     const db = new FakeSql();
     db.failBody = STMT_2;
     const outcome = await applyFixture(db, { source: twoStmtChain });
-    expect(outcome).toEqual({ kind: "failure", exitCode: 1 });
+    expect(outcome).toEqual({ kind: "failure", exitCode: 1, error: "sql failed" });
     expect(db.revisions).toHaveLength(1);
     expect(db.revisions[0]).toMatchObject({
       version: "20260821000000",
@@ -128,7 +128,11 @@ describe("HTTP apply multi-statement (req 7)", () => {
     const db = new FakeSql();
     const body = `${STMT_1} ${CONCURRENT_BODY}`;
     const outcome = await applyFixture(db, { source: chainOf("20260821000002_mixed.sql", body) });
-    expect(outcome).toEqual({ kind: "failure", exitCode: 1 });
+    expect(outcome).toEqual({
+      kind: "failure",
+      exitCode: 1,
+      error: "migration mixes transactional statements with CREATE INDEX CONCURRENTLY",
+    });
     expect(db.transactions).toEqual([]);
     expect(db.units).toEqual([]);
     expect(db.revisions[0]).toMatchObject({

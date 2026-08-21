@@ -108,10 +108,22 @@ function successResponse(result: Extract<MigrationRunResult, { kind: "success" }
   });
 }
 
-function outcomeResponse(result: MigrationRunResult): Response {
-  if (result.kind === "failure") {
-    return Response.json({ success: false, exitCode: result.exitCode, appliedHead: null }, { status: 500 });
+interface FailureJson {
+  success: false;
+  exitCode: number;
+  appliedHead: null;
+  error?: string;
+}
+
+function failureBody(result: Extract<MigrationRunResult, { kind: "failure" }>): FailureJson {
+  if (result.error === undefined) {
+    return { success: false, exitCode: result.exitCode, appliedHead: null };
   }
+  return { success: false, exitCode: result.exitCode, appliedHead: null, error: result.error };
+}
+
+function outcomeResponse(result: MigrationRunResult): Response {
+  if (result.kind === "failure") return Response.json(failureBody(result), { status: 500 });
   if (result.kind === "timeout") return timeoutResponse(result);
   if (result.kind === "head_mismatch") return mismatchResponse(result);
   return successResponse(result);

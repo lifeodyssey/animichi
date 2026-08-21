@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { FIXED_NOW, makeApp, post, testEnv } from "./migrate.worker.helpers";
-import { FakeSql, HEAD_B, workerHttpDeps } from "./http-apply.helpers";
+import { BODY_B, FakeSql, HEAD_B, workerHttpDeps } from "./http-apply.helpers";
 
 // #1124 AC5 + extra — HTTP seam is OIDC + empty/object {expectedHead?} only;
 // POST /migrate with expectedHead matching the applied chain returns 200.
@@ -51,6 +51,22 @@ describe("POST /migrate HTTP apply default", () => {
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ success: false, error: "migrator apply lock not configured" });
+  });
+});
+
+describe("POST /migrate HTTP apply SQL error", () => {
+  it("includes the SQL error message on a failed apply", async () => {
+    const db = new FakeSql();
+    db.failBody = BODY_B;
+    const { app, token } = await makeApp(workerHttpDeps(db));
+    const res = await app.request(post({}, token), {}, testEnv());
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      success: false,
+      exitCode: 1,
+      appliedHead: null,
+      error: "sql failed",
+    });
   });
 });
 
