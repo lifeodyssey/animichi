@@ -1,14 +1,11 @@
-# #1051 — the migrator Worker (staging first).
+# #1051 / #1124 — the migrator Worker (staging first).
 #
-# Migration Executor (spec §"Migration executor"): a GitHub-OIDC-gated Worker
-# that, on a valid identity, starts a one-shot batch container running the
-# pinned Atlas apply against the committed migrations directory, waits for it
-# to exit, and reports the outcome + applied head. The migrator DSN
-# (MIGRATOR_DATABASE_URL, the dedicated `migrator` role, #1050) arrives as a
-# Cloudflare Secrets Store binding and is injected into the batch container
-# ONLY for the seconds it runs — it is never in a standing Workder bindings
-# surface, and it is bound to NO runtime worker (see
-# workers/edge/test/migrator-role-isolation.test.ts).
+# Option 2 (#1124): POST /migrate applies the committed Atlas chain over
+# neon-http from this Worker (fixed-name DO mutex). The one-shot Atlas
+# container binding stays until staging proof — do not delete [[containers]]
+# in this PR. The migrator DSN (MIGRATOR_DATABASE_URL, dedicated `migrator`
+# role, #1050) is a Secrets Store binding, never in GitHub, never on a runtime
+# worker (workers/edge/test/migrator-role-isolation.test.ts).
 #
 # Reached by the deploy pipeline at POST /migrate. The staging URL is supplied
 # to CI as the `MIGRATOR_STAGING_URL` workflow variable (the account's
@@ -22,6 +19,17 @@ name = "migrator"
 main = "src/index.ts"
 compatibility_date = "2026-06-01"
 compatibility_flags = ["nodejs_compat"]
+
+# Compile-time Text modules for migrations/neon/*.sql + atlas.sum (#1124).
+[[rules]]
+type = "Text"
+globs = ["**/*.sql"]
+fallthrough = true
+
+[[rules]]
+type = "Text"
+globs = ["**/*.sum"]
+fallthrough = true
 
 # The migrator is a live helper endpoint (OIDC-protected) the deploy pipeline
 # calls, so it exposes a CI-reachable host. Staging uses the account's
@@ -38,9 +46,7 @@ ENVIRONMENT = "development"
 CONTAINER_TIMEOUT_MS = "600000"
 
 # The one-shot Atlas batch container (no ports; entrypoint runs atlas apply
-# and exits). Image built from the monorepo root context so it can COPY the
-# committed migrations directory. Kept minimal (lite is below the import
-# peak of a bare atlas process; basic for safety headroom).
+# and exits). Kept until Option 2 is proven on staging — then delete.
 [[containers]]
 name = "animichi-migrator"
 class_name = "MigrationContainer"
@@ -53,9 +59,17 @@ instance_type = "basic"
 name = "MIGRATOR_CONTAINER"
 class_name = "MigrationContainer"
 
+[[durable_objects.bindings]]
+name = "MIGRATOR_APPLY_LOCK"
+class_name = "MigratorApplyLock"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["MigrationContainer"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["MigratorApplyLock"]
 
 [observability]
 enabled = true
@@ -89,6 +103,14 @@ instance_type = "basic"
 name = "MIGRATOR_CONTAINER"
 class_name = "MigrationContainer"
 
+[[env.staging.durable_objects.bindings]]
+name = "MIGRATOR_APPLY_LOCK"
+class_name = "MigratorApplyLock"
+
 [[env.staging.migrations]]
 tag = "v1"
 new_sqlite_classes = ["MigrationContainer"]
+
+[[env.staging.migrations]]
+tag = "v2"
+new_sqlite_classes = ["MigratorApplyLock"]

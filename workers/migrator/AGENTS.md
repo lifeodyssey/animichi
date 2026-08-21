@@ -1,11 +1,11 @@
 # workers/migrator — AGENTS.md
 
-TypeScript Cloudflare Worker + one-shot batch container: the **migration
-executor** (spec `docs/specs/2026-08-16-migration-executor-spec.md`, issue
-#1051). A request authenticated by a GitHub Actions OIDC token starts a
-one-shot Atlas batch container that applies the committed Neon migration
-chain; the worker returns success + the applied head. Staging first;
-production is #1055. Root guide: `../../AGENTS.md`.
+TypeScript Cloudflare Worker: the **migration executor** (spec
+`docs/specs/2026-08-16-migration-executor-spec.md`, issue #1051; Option 2
+connectivity spec / #1124). A request authenticated by a GitHub Actions OIDC
+token applies the committed Neon Atlas chain over neon-http and returns
+success + the applied head. Staging first; production is #1055. Root guide:
+`../../AGENTS.md`.
 
 ## Commands (from `workers/migrator/`)
 
@@ -24,34 +24,35 @@ production is #1055. Root guide: `../../AGENTS.md`.
    audience is the fixed `animichi:github-actions:migrator`, DISTINCT from the
    staging-gate verifier audience (#1054). The reusable verifier lives in
    `packages/contract/src/oidc-github.ts` (`@animichi/contract/oidc-github`).
-2. **Run the container**: starts the `MigrationContainer` Durable Object
-   (batch-job mode; no ports) with `MIGRATOR_DATABASE_URL` injected as env.
-   Two terminal states: `stopped_with_code` (exit code reported) and
-   `stopped` without a code (`unknown_exit`). `runMigration` snapshots the
-   ledger head before start and reads it again after stop. `unknown_exit`
-   is judged against that pair: post-head ≠ expected → `head_mismatch`
-   (HTTP 500); post-head = expected and the ledger advanced → success
-   with `pathVerification: "verified"`; post-head = expected with no
-   ledger change → success with `pathVerification: "unverified"` (schema
-   is at the target head, but this run did not prove the container). A
-   failed pre-run read is unobserved and cannot count as advancement
-   (`unverified`); empty/missing ledger `null → X` remains `verified`.
-   A coded exit 0 is `verified`.
+2. **Apply the chain over neon-http (#1124)**: after OIDC, a fixed-name
+   Durable Object mutex (`migrator-apply-lock`, not `migrator-job-*`)
+   serializes apply. The Worker executes committed `migrations/neon` files
+   (compile-time Text modules + `atlas.sum` order) via
+   `@neondatabase/serverless`, writes `public.atlas_schema_revisions` with
+   Atlas v0.30 version/hash semantics (`operator_version =
+   animichi-http-apply/0.30.0`), and skips already-applied versions. A
+   `-pooler` DSN is rejected before SQL. SQL is never taken from the
+   request body (OIDC + optional `{expectedHead?}` only). The batch
+   container classes stay until staging proof; `POST /migrate` no longer
+   starts them. Tests may inject `runContainer` (including unknown_exit
+   ledger judgment).
 3. **Report**: returns success + applied head from
    `public.atlas_schema_revisions` (`src/ledger.ts`) + `pathVerification`.
    CI fails unless applied head == expected head; it does not gate on
    `pathVerification`.
 
 Capability boundary: NO destructive path — no schema drop, no arbitrary SQL,
-no down-migration. The migrator role's DSN is injected only for the seconds
-the container runs (non-resident); `workers/edge/test/migrator-role-isolation.test.ts`
-asserts it is not bound by any runtime worker.
+no down-migration. The migrator DSN is Secrets Store only (non-resident);
+`workers/edge/test/migrator-role-isolation.test.ts` asserts it is not bound
+by any runtime worker.
 
 ## Tests
 
-TDD at the HTTP seam (`test/migrate.worker.auth.test.ts`): valid test-signed JWT →
-container started + success + applied head; wrong repo / wrong audience /
-expired → 403; non-zero container exit → failure; hung container → 504. The
-container binding is faked and the JWKS injected (plain vitest — `create-app.ts`
-stays free of `@cloudflare/containers`, whose ESM build needs workerd). The
-container image build + staging deploy are CI-verified.
+TDD at the HTTP seam (`test/migrate.worker.auth.test.ts` +
+`test/migrate.worker.http.test.ts` + `test/http-apply*.test.ts`): valid
+test-signed JWT → apply + success + applied head; wrong repo / wrong audience /
+expired → 403; HTTP apply of a fixture chain against a fake `neon()`;
+`-pooler` rejected before SQL; fake-lock concurrency; hung-container injection
+→ 504. The container binding is faked and the JWKS injected (plain vitest —
+`create-app.ts` stays free of `@cloudflare/containers`). The container image
+build + staging deploy are CI-verified.
