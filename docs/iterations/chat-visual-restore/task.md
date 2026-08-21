@@ -124,18 +124,38 @@ white-space: nowrap;
 - **既有 AA 破损**:用户气泡 `#ffffff` on `#19c8b9` = **2.10:1**(AA 要 4.5);设计稿用 `#073f3a` = 5.62:1
 - **描边太硬**:实现 `--color-border:#aaa69d`,设计稿 `--line:#e8e2d6` 几乎只是"暗示"
 
-### 第 2 批 🔄 进行中(owner 2026-08-21「按照设计稿来」)
+### 第 2 批 ✅ 已完成(commit `edc2b5b1`)
 
 `--color-bg` → `#f0e8d8`;新增 `--color-paper` / `--color-border-soft` / `--color-primary-ink`;
 body 两层光斑渐变;夜间同步。**影响全站** —— 22 处 `var(--color-bg)` 语义分三类
 (页面底 / 纸面 / 拿底色当文字色),必须逐处判断。`shiori.css:18,149` 风险最高。
 
-### 第 3 批 — 卡片语言
+### 第 3 批 ✅ 已完成(commit `e316a83a`)— 输入区 composer(按 executor 建议提前)
+
+页面底变暖后,底部白色直角输入条成了整屏最刺眼的元素。改成设计稿的圆角胶囊 dock,
+并实现 spec §G 的五态。**关键做法**:按压影挂在 enabled 键上、`:disabled` 移除它 ——
+「能否按」与「有无影」是同一个事实,不会漂移。同批把情绪卡渐变整体压暗
+(白字最差点 2.10 → 5.01);夜间 `--color-primary-fg` 会翻转,故夜间单独一套。
+
+### 第 4 批 ✅ 已完成(commit `dcb27c60`)— appbar + dock 对齐 + 夜间软线
+
+- appbar:鸟居+狐狸叠标、三语字标(en=Animichi)、AI GUIDE 副行三语都保持拉丁
+  (它是 mark 的字距锁定块,不是句子);
+- **⊕ 新会话必须是整页导航**:会话身份是 `chat:${sessionId ?? "draft"}`,从 draft 跳 `/chat`
+  scope 不变、组件不重建;只清 messages 又会留下 tracker 里的 server session id;
+- 身份槽:pending 不渲染任何占位、anonymous 给登录按钮而非假头像;
+- appbar 在 notices **之上且之外**:chrome 不该被瞬时状态挤动,`role="alert"` 也不该被当站点 chrome 念;
+- **夜间软线的真正理由是落影消失,不是"夜里更暗"**(按比值夜间 1.37 反而高于日间 1.21):
+  日间 `#bdaea0` 投影在 `#f0e8d8` 上有 1.77:1 光晕,胶囊无边框也找得到;夜间投影仅 1.12:1、
+  光晕消失,**边框成为唯一边界**,1.4.11 的 3:1 才完整适用。设计稿的"软描边"意图是在
+  **有投影托底**的前提下成立的。
+
+### 第 5 批 — 卡片语言(尚未开始)
 
 按 §4.1/4.2 统一 `.chat-card` / `.chat-itinerary` / `.chat-spot-card` / 失败态卡片:
 2px 边、18px 圆角、柔投影、`cardPop` 入场、3D 按压按钮。
 
-### 第 4 批 — 输入区(composer)
+### (已完成,见上)第 4 批原计划 — 输入区(composer)
 
 设计稿 `.composer`:
 ```
@@ -147,7 +167,7 @@ padding: 8px 8px 8px 18px;  box-shadow: 0 12px 28px -16px #5a3c2055;
 ```
 当前实现是**直角横条 + 1px 上边框**,差距最大的一处。
 
-### 第 5 批 — 顶栏 appbar
+### (已完成,见上)第 5 批原计划 — 顶栏 appbar
 
 2px 底边 + torii 叠狐狸的双拼色字标 + 3D 按压按钮 + 38px 头像。
 `chat.css` 目前**完全没有 appbar 相关规则**。
@@ -202,3 +222,60 @@ V1 仍是 generative UI —— registry(intent→组件)不变,变的只是挂�
 - 禁止一切抑制指令;命名按 `.claude/rules/naming-ownership.md`。
 - `chat.css` 已 1265 行,分区按 issue(S1.x)组织;改既有规则优先于新增。
 - 素材:`apps/web/public/images/chat/fox-guide.webp`、`fox-thinking.webp`。
+
+
+## 9. 2026-08-22 追加发现
+
+### 9.1 CTA 层级:设计稿在这一点上是「旧屏未回刷」
+
+`docs/DESIGN.md` §142-143(動森キャンプ 视觉规范,CI-locked)**点名了具体按钮**:
+
+> **Explore**: Pumpkin orange ≈ `#e8742e` — the primary marketing action color —
+> `Start Exploring`, `Save my route`, `Send login link`. …
+> Reserved for the single dominant action per surface; **the header Login stays a quiet cream pill**.
+> **CTA**: Gold `#f0b429`. … on marketing/landing surfaces, prefer explore orange —
+> gold read as low-contrast "disabled" at hero scale.
+
+`DS 补全 - Chat 桌面.html` 的 decision log 同向:「CTA 层级改判:金=唯一主行动、teal 降为
+interactive、explore 橙仅 marketing+send 键 → **旧屏 teal CTA 待回刷**」。
+
+⇒ `Landing - Seichijunrei.html` 把 CTA 画成 teal 属于**未回刷的旧屏**。owner 2026-08-22 拍板回刷
+(commit `9c8b248f`)。**教训:HTML 设计稿不是最高权威,DESIGN.md + DS decision log 才是。**
+
+### 9.2 上游组件库验证了第 2 批的取值
+
+`node_modules/animal-island-ui-tailwind`(owner 指引参考)的 token 与第 2 批**逐一相同**:
+`--animal-bg-color #f8f8f0`(=我们的 `--color-paper`)、`--animal-bg-color-secondary #f0e8d8`
+(=`--color-bg`)、`--animal-bg-color-content #f7f3df`(=`--color-card`)、
+`--animal-border-color-light #e8e2d6`(=`--color-border-soft`)。
+
+⇒ 第 2 批不是自创,是把上游本来就有的三层补了回来(实现此前漏用了 `-secondary` 那层)。
+**上游整个色板没有橙**(只有 teal/gold/red/green),所以 explore 橙是我们品牌层的扩展,
+不是组件库资产 —— 这正是 `--color-explore-*` 会漂移成一对 teal 的原因。
+
+### 9.3 `bubble-ink #073f3a` 是正式裁决,但只覆盖成段正文
+
+`DS 补全 - Chat 桌面.html` decision log:07-02 待裁决(A 底加深 `#0e8578` / B 深字 `#073f3a`),
+**07-03 定 B 案**,token 名 `bubble-ink`。裁决理由明确区分:
+「上游对**短标签**接受低对比白字 on teal;**气泡是成段正文,按 AA 取正文级**」。
+
+⚠️ 实现侧第 2 批新增的 token 叫 `--color-primary-ink`,与 DS 的 `bubble-ink` **命名不一致**,
+是个待对齐点。
+
+### 9.4 并行瓶颈已解
+
+同树多 executor 并发跑 vitest 会互删 `coverage/.tmp/*.json` 产生 ENOENT 假红。
+**解法(已实测有效)**:`pnpm exec vitest run --coverage --coverage.reportsDirectory=<独立目录>`。
+不必为每个 executor 单开 worktree。
+
+### 9.5 未决 / 待办
+
+| 项 | 状态 |
+|---|---|
+| `web-a11y-axe` login-modal 红 | 根因 `globals.css:598` 白字 on teal 2.09;DESIGN.md 点名该按钮属 explore 橙。**修复进行中** |
+| `e2e/web-splash.spec.ts` + `web-cwv.config.ts` | 移动端流程变更的连带失效。**修复进行中** |
+| 日间 `--color-border` 2.28:1 / `--color-border-soft` 1.21:1 | 按 1.4.11 同样不达标(axe 不查非文字对比故不红)。改动影响全站视觉,**待 owner 定** |
+| `chat.css` 1566 行 | 远超 300 行上限,建议按 S1.x 分区拆成 `@import`。独立重构 |
+| 空态 hero 收口 | 设计稿 chips 是奶油底,实现是三色 tint;lead 气泡文案密度不同 |
+| 登录态 appbar 实机验证 | 需 `make local-login`,建议交给 tester |
+| `compare/anime.jpg` 版权 | 1920×1080 全帧、带 CoMix Wave Films 水印、现为首页主视觉;许可未确认。见 `apps/web/public/images/landing/ATTRIBUTIONS.md` |
