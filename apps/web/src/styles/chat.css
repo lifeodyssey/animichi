@@ -311,7 +311,7 @@
   padding: 0.875rem 1rem;
   border-radius: 14px;
   color: var(--color-primary-fg);
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
+  background: linear-gradient(135deg, var(--color-primary-strong), var(--color-primary-ink));
   box-shadow: 0 3px 0 var(--shadow-3d);
 }
 
@@ -366,40 +366,96 @@
   cursor: pointer;
 }
 
+/* G1 composer (design sync `.composer`): a floating pill above the page floor,
+   not a bar welded to the bottom edge. */
 .chat-input {
   display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--color-border);
-  background: var(--color-card);
+  align-items: center;
+  gap: 0.625rem;
+  width: min(calc(100% - 2rem), 47.5rem);
+  margin: 0.25rem auto 1rem;
+  padding: 8px 8px 8px 18px;
+  border: 2px solid var(--color-border-soft);
+  border-radius: 50px;
+  background: var(--color-paper);
+  box-shadow: 0 12px 28px -16px var(--shadow-3d);
+  transition: border-color 0.15s, box-shadow 0.15s, opacity 0.25s;
+}
+
+/* G4: a running turn dims the dock but never takes the field away. */
+.chat-input--busy {
+  opacity: 0.75;
+}
+
+/* Design sync `.composer:focus-within`: the teal edge answers any focus inside. */
+.chat-input:focus-within {
+  border-color: var(--color-primary);
+}
+
+/* G2 keyboard focus. The teal edge alone is 1.8:1 against paper, so the ring is
+   two bands — --color-focus inside for the design's yellow, --color-primary-strong
+   outside to carry the 3:1 that 1.4.11 asks of a focus indicator — plus the glow. */
+.chat-input:has(.chat-input__field:focus-visible) {
+  box-shadow:
+    0 0 0 2px var(--color-focus),
+    0 0 0 4px var(--color-primary-strong),
+    0 0 14px 3px color-mix(in srgb, var(--color-focus) 45%, transparent),
+    0 12px 28px -16px var(--shadow-3d);
 }
 
 .chat-input__field {
   flex: 1;
+  min-width: 0;
   min-height: 44px;
-  padding: 0 0.875rem;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-paper);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--color-fg);
+  font-family: inherit;
+  font-size: 15.5px;
 }
 
+.chat-input__field::placeholder {
+  color: var(--color-muted-fg);
+}
+
+/* The ring is drawn by the pill; an inner outline would double-draw it. */
 .chat-input__field:focus-visible {
-  outline: 2px solid var(--color-focus);
+  outline: none;
 }
 
 .chat-input__send {
-  min-height: 44px;
-  padding: 0 1.25rem;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: 50%;
   background: var(--color-primary);
   color: var(--color-primary-ink);
-  box-shadow: 0 3px 0 var(--shadow-3d);
+  box-shadow: 0 3px 0 var(--color-primary-strong);
   cursor: pointer;
+  transition: background 0.15s, box-shadow 0.1s, transform 0.1s;
 }
 
-.chat-input__send:disabled,
+.chat-input__send:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--color-primary-strong);
+}
+
+/* G3: the press shadow IS the affordance. Nothing to send, nothing to press —
+   so the key goes muted and flat rather than merely translucent. */
+.chat-input__send:disabled {
+  background: var(--color-muted);
+  color: var(--color-muted-fg);
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
 .chat-chip:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -534,7 +590,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
+  background: linear-gradient(135deg, var(--color-primary-strong), var(--color-primary-ink));
   color: var(--color-primary-fg);
   font-size: 0.6875rem;
   font-weight: 700;
@@ -1277,15 +1333,25 @@
   color: var(--color-fg);
 }
 
+/* The quiet key of the pill (design sync `.composer .att`): a circle sunk into
+   the page floor, no press shadow — the send key owns the composer's emphasis. */
 .chat-input__settings {
-  min-height: 44px;
-  min-width: 44px;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-card);
-  color: var(--color-fg);
-  box-shadow: 0 3px 0 var(--shadow-3d);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-bg);
+  color: var(--color-muted-fg);
   cursor: pointer;
+}
+
+.chat-input__settings:hover {
+  color: var(--color-primary-strong);
 }
 
 .chat-input__settings[aria-expanded="true"] {
@@ -1298,7 +1364,6 @@
 .chat-byok__save:hover,
 .chat-byok__signin:hover,
 .chat-byok__clear:hover,
-.chat-input__settings:hover,
 .chat-byok-rejected__open:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 0 var(--shadow-3d);
@@ -1307,7 +1372,6 @@
 .chat-byok__save:active,
 .chat-byok__signin:active,
 .chat-byok__clear:active,
-.chat-input__settings:active,
 .chat-byok-rejected__open:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 var(--shadow-3d);
@@ -1354,4 +1418,13 @@
   .chat-cold-start__fox {
     animation: none;
   }
+}
+
+/* Night flips --color-primary-fg to an ink, so the day card's white-on-teal
+ * reading would invert into ink-on-teal at 3.4:1. The night card keeps the
+ * light-text reading by sinking the gradient to the page floor instead. */
+[data-theme="night"] .chat-mood,
+[data-theme="night"] .chat-scene-thumb--fallback {
+  background: linear-gradient(135deg, var(--color-primary-ink), var(--color-bg));
+  color: var(--color-fg);
 }

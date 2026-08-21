@@ -105,6 +105,8 @@ export interface ChatDict {
   readonly chipsLabel: string;
   readonly chips: readonly [string, string, string];
   readonly inputPlaceholder: string;
+  /** G4: the placeholder while a turn is running — the field stays open. */
+  readonly busyPlaceholder: string;
   readonly send: string;
   readonly errorBanner: string;
   readonly retry: string;
@@ -182,6 +184,7 @@ const ja: ChatDict = {
     "近くの聖地をさがして",
   ],
   inputPlaceholder: "作品名やエリアを話しかけてね…",
+  busyPlaceholder: "考え中…",
   send: "送信",
   errorBanner: "サーバーに接続できません",
   retry: "再試行",
@@ -212,6 +215,7 @@ const zh: ChatDict = {
   chipsLabel: "可以这样问我",
   chips: ["吹响吧!上低音号的圣地", "帮我规划你的名字。的路线", "找找附近的圣地"],
   inputPlaceholder: "告诉我作品名或想去的地区…",
+  busyPlaceholder: "思考中…",
   send: "发送",
   errorBanner: "无法连接服务器",
   retry: "重试",
@@ -246,6 +250,7 @@ const en: ChatDict = {
     "Find spots near me",
   ],
   inputPlaceholder: "Tell me a title or an area…",
+  busyPlaceholder: "Thinking…",
   send: "Send",
   errorBanner: "Can't reach the server",
   retry: "Retry",

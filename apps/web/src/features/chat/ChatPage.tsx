@@ -145,11 +145,18 @@ function useChatPage(search: ChatSearch) {
 
 type PageState = ReturnType<typeof useChatPage>;
 
-/** A5 soft-lock, busy turns, and the A3 history gate all lock the composer. */
-function isInputLocked(entry: ChatEntryState, chat: ChatSession, history: ConversationHistory): boolean {
-  const busy = chat.status === "submitted" || chat.status === "streaming";
+/** What the composer is allowed to do this render (spec group G): A5 and the
+ * A3 history gate take the field away, a running turn only takes the send key,
+ * and a failed turn owes the visitor their words back. */
+export type ComposerGate = Readonly<{ locked: boolean; busy: boolean; failed: boolean }>;
+
+function composerGateOf(entry: ChatEntryState, chat: ChatSession, history: ConversationHistory, failure: TurnFailureView | undefined): ComposerGate {
   const historyBlocked = entry === "A3" && history.status !== "success";
-  return entry === "A5" || busy || historyBlocked;
+  return {
+    locked: entry === "A5" || historyBlocked,
+    busy: chat.status === "submitted" || chat.status === "streaming",
+    failed: failure !== undefined,
+  };
 }
 
 /** Plain page-level assembly (not a component): the `.chat-body` order spans
@@ -175,11 +182,11 @@ function chatDock(departure: DeparturePromptState, dict: ChatDict, baseUrl: stri
 }
 
 /** Plain page-level assembly: the BYOK panel, the input, the Turnstile hint. */
-function chatComposer(dict: ChatDict, baseUrl: string, byok: ByokPanel, challenge: TurnstileChallenge | undefined, quota: QuotaLock, onSend: (text: string) => void, disabled: boolean): ReactNode {
+function chatComposer(dict: ChatDict, baseUrl: string, byok: ByokPanel, challenge: TurnstileChallenge | undefined, quota: QuotaLock, onSend: (text: string) => void, gate: ComposerGate): ReactNode {
   return (
     <>
       <ByokPanelGate dict={dict} baseUrl={baseUrl} byok={byok} />
-      <ChatInput dict={dict} disabled={disabled} quotaLocked={quota.locked} onSend={onSend} settingsOpen={byok.open} onToggleSettings={byok.toggle} />
+      <ChatInput dict={dict} disabled={gate.locked} busy={gate.busy} sendFailed={gate.failed} quotaLocked={quota.locked} onSend={onSend} settingsOpen={byok.open} onToggleSettings={byok.toggle} />
       <ChallengeGate dict={dict} challenge={challenge} />
     </>
   );
@@ -191,7 +198,7 @@ function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: Pag
     notices={<ChatNotices entry={entry} onRetry={page.health.retry} history={page.history} dict={page.dict} />}
     body={chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale, page.byok)}
     dock={chatDock(page.departure, page.dict, page.config.baseUrl, page.photo, page.chat, page.recompute)}
-    composer={chatComposer(page.dict, page.config.baseUrl, page.byok, page.challenge, page.quota, page.departure.onSend, isInputLocked(entry, page.chat, page.history))}
+    composer={chatComposer(page.dict, page.config.baseUrl, page.byok, page.challenge, page.quota, page.departure.onSend, composerGateOf(entry, page.chat, page.history, page.failure))}
   />;
 }
 
