@@ -78,6 +78,16 @@ describe("runMigration unknown-exit ledger judgment", () => {
     });
   });
 
+  it("succeeds as verified when unknown_exit applies the first revision onto an empty ledger", async () => {
+    const result = await runMigration(DSN, unknownExitLedger(null, HEAD), HEAD);
+    expect(result).toEqual({
+      kind: "success",
+      exitCode: 0,
+      appliedHead: HEAD,
+      pathVerification: "verified",
+    });
+  });
+
   it("fails with applied and expected heads when they differ", async () => {
     const result = await runMigration(DSN, bounds({ kind: "unknown_exit" }, OTHER), HEAD);
     expect(result).toEqual({ kind: "head_mismatch", appliedHead: OTHER, expectedHead: HEAD });
@@ -89,8 +99,8 @@ describe("runMigration unknown-exit ledger judgment", () => {
   });
 });
 
-describe("runMigration pre-run ledger snapshot", () => {
-  it("starts the container and reports verified when the pre-run ledger snapshot cannot be read", async () => {
+describe("runMigration pre-run missing ledger", () => {
+  it("reports verified when unknown_exit applies onto a missing revisions table", async () => {
     const result = await runMigration(
       DSN,
       headsAroundContainer(
@@ -105,6 +115,45 @@ describe("runMigration pre-run ledger snapshot", () => {
       exitCode: 0,
       appliedHead: HEAD,
       pathVerification: "verified",
+    });
+  });
+
+  it("reports verified when a pre-run undefined_table SQLSTATE is an empty ledger", async () => {
+    const missing = Object.assign(new Error("undefined_table"), { code: "42P01" });
+    const result = await runMigration(
+      DSN,
+      headsAroundContainer(
+        { kind: "unknown_exit" },
+        () => Promise.reject(missing),
+        () => Promise.resolve(HEAD),
+      ),
+      HEAD,
+    );
+    expect(result).toEqual({
+      kind: "success",
+      exitCode: 0,
+      appliedHead: HEAD,
+      pathVerification: "verified",
+    });
+  });
+});
+
+describe("runMigration ledger read failures", () => {
+  it("reports unverified when a pre-run ledger read fails and unknown_exit lands at expectedHead", async () => {
+    const result = await runMigration(
+      DSN,
+      headsAroundContainer(
+        { kind: "unknown_exit" },
+        () => Promise.reject(new Error("connect timeout")),
+        () => Promise.resolve(HEAD),
+      ),
+      HEAD,
+    );
+    expect(result).toEqual({
+      kind: "success",
+      exitCode: 0,
+      appliedHead: HEAD,
+      pathVerification: "unverified",
     });
   });
 

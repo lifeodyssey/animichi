@@ -2,12 +2,13 @@
  * #1051 — the migrator's core orchestration flow.
  *
  * Pure over injected boundaries so it is unit-testable at the HTTP seam:
- * snapshot the ledger (a missing ledger at start is a legal pre-state), run
- * the one-shot batch container (DSN injected), then read the applied head
- * again. No destructive path exists here: no schema
- * drop, no arbitrary SQL, no down-migration (spec §"Migration executor",
- * capability boundary). A platform `stopped` with no exit code is judged
- * against expected head plus whether this run advanced the ledger.
+ * snapshot the ledger (empty / missing table is a legal pre-state; a read
+ * failure is unobserved and cannot prove advancement), run the one-shot
+ * batch container (DSN injected), then read the applied head again. No
+ * destructive path exists here: no schema drop, no arbitrary SQL, no
+ * down-migration (spec §"Migration executor", capability boundary). A
+ * platform `stopped` with no exit code is judged against expected head
+ * plus whether this run advanced the ledger.
  */
 
 export type ContainerOutcome =
@@ -37,19 +38,34 @@ function succeeded(appliedHead: string | null, pathVerification: PathVerificatio
   return { kind: "success", exitCode: 0, appliedHead, pathVerification };
 }
 
-function unknownExitProof(preHead: string | null, postHead: string | null): PathVerification {
-  return preHead === postHead ? "unverified" : "verified";
+/** Observed empty/missing ledger is `null`; a failed read is not that `null`. */
+type PreRunSnapshot =
+  | { kind: "observed"; head: string | null }
+  | { kind: "unobserved" };
+
+function isUndefinedTable(error: unknown): boolean {
+  if (typeof error === "object" && error !== null && "code" in error && error.code === "42P01") {
+    return true;
+  }
+  return error instanceof Error
+    && error.message.includes("atlas_schema_revisions")
+    && error.message.includes("does not exist");
 }
 
-/** Pre-run ledger snapshot. A missing ledger is a legal starting state, not a failure. */
+function unknownExitProof(pre: PreRunSnapshot, postHead: string | null): PathVerification {
+  if (pre.kind === "unobserved") return "unverified";
+  return pre.head === postHead ? "unverified" : "verified";
+}
+
+/** Pre-run snapshot. Missing/empty is observed null; a read failure is unobserved. */
 async function snapshotPreRunHead(
   dsn: string,
   boundaries: MigrationBoundaries,
-): Promise<string | null> {
+): Promise<PreRunSnapshot> {
   try {
-    return await boundaries.readAppliedHead(dsn);
-  } catch {
-    return null;
+    return { kind: "observed", head: await boundaries.readAppliedHead(dsn) };
+  } catch (error) {
+    return isUndefinedTable(error) ? { kind: "observed", head: null } : { kind: "unobserved" };
   }
 }
 
@@ -57,11 +73,11 @@ async function judgeUnknownExit(
   dsn: string,
   boundaries: MigrationBoundaries,
   expectedHead: string | undefined,
-  preHead: string | null,
+  pre: PreRunSnapshot,
 ): Promise<MigrationRunResult> {
   const postHead = await boundaries.readAppliedHead(dsn);
   if (expectedHead === undefined || postHead !== expectedHead) return mismatch(postHead, expectedHead);
-  return succeeded(postHead, unknownExitProof(preHead, postHead));
+  return succeeded(postHead, unknownExitProof(pre, postHead));
 }
 
 /** Run the chain and report the outcome + applied head. */
@@ -70,10 +86,10 @@ export async function runMigration(
   boundaries: MigrationBoundaries,
   expectedHead?: string,
 ): Promise<MigrationRunResult> {
-  const preHead = await snapshotPreRunHead(dsn, boundaries);
+  const pre = await snapshotPreRunHead(dsn, boundaries);
   const outcome = await boundaries.runContainer(dsn);
   if (outcome.kind === "failure") return { kind: "failure", exitCode: outcome.exitCode };
   if (outcome.kind === "timeout") return { ...outcome };
-  if (outcome.kind === "unknown_exit") return judgeUnknownExit(dsn, boundaries, expectedHead, preHead);
+  if (outcome.kind === "unknown_exit") return judgeUnknownExit(dsn, boundaries, expectedHead, pre);
   return succeeded(await boundaries.readAppliedHead(dsn), "verified");
 }

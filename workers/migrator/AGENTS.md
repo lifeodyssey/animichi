@@ -34,7 +34,9 @@ production is #1055. Root guide: `../../AGENTS.md`.
    with `pathVerification: "verified"`; post-head = expected with no
    ledger change → success with `pathVerification: "unverified"` (schema
    is at the target head, but this run did not prove the container). A
-   coded exit 0 is `verified`.
+   failed pre-run read is unobserved and cannot count as advancement
+   (`unverified`); empty/missing ledger `null → X` remains `verified`.
+   A coded exit 0 is `verified`.
 3. **Report**: returns success + applied head from
    `public.atlas_schema_revisions` (`src/ledger.ts`) + `pathVerification`.
    CI fails unless applied head == expected head; it does not gate on

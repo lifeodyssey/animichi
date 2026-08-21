@@ -352,10 +352,10 @@ not separate HTTP outcomes — they collapse into applied-head equality
 unapplied pending files do not change the head).
 
 **Three `null`-looking states — keep them distinct** (2026-08-21
-CodeRabbit re-review; docs-only in this PR). A missing / illegal
-`expectedHead`, a legal empty ledger, and a pre-run read failure are
-not the same `null`. Collapsing them is how a no-op run can be marked
-`verified`.
+CodeRabbit re-review; implementation aligned in #1115). A missing /
+illegal `expectedHead`, a legal empty ledger, and a pre-run read
+failure are not the same `null`. Collapsing them is how a no-op run
+can be marked `verified`.
 
 | State | What it is | Contract |
 |---|---|---|
@@ -363,25 +363,22 @@ not the same `null`. Collapsing them is how a no-op run can be marked
 | ② Ledger empty, or the revisions table does not exist | Legal first-apply pre-state. `preHead` is genuinely `null`. | Legal `null` pre-state; the container still starts. Advancement `null → X` is a real apply. |
 | ③ Pre-run ledger read failed (transient I/O) | Observation failed; the actual head may already be `X`. | Must **not** treat this as "ledger advanced". Conservative conclusion: `unverified` — do not award `verified` on a `null→X` comparison whose `null` is an I/O miss. |
 
-**Landed vs contract on ② vs ③.** PR #1109 already implements ①
-correctly. The pre-run snapshot still swallows any exception and
-returns `null`, so ② and ③ are not distinguishable in code. If the
-ledger was already at head `X`, a transient pre-read failure
-(`preHead=null`) plus a no-op run (`postHead=X=expected`) is scored
-as "ledger advanced" → false `verified`. That is the mirror of the
-masked-success defect this campaign already fixed (bad container
-counted as success; here, a no-op counted as verified).
-**Implementation-side split is an independent follow-up after PR
-#1109; this document does not change code.**
+**② vs ③ alignment (#1115).** PR #1109 already implements ① correctly.
+The pre-run snapshot is a tagged observation: empty / missing
+revisions table is `observed` `null` (state ②); any other thrown read
+is `unobserved` (state ③) and must not assert advancement. `null → X`
+from an observed empty ledger remains `verified`. An unobserved
+pre-run plus `postHead == expected` is `unverified`. Post-run ledger
+reads still throw.
 
-| Condition | Worker conclusion (landed) |
+| Condition | Worker conclusion |
 |---|---|
 | `expectedHead` absent or non-string on `unknown_exit` | `head_mismatch` (expected recorded as `null`) → HTTP **500**. Absence does **not** skip the check. Distinct from a ledger-head `null` (state ①) |
 | `unknown_exit` and post-run applied head ≠ expected | `head_mismatch` → HTTP **500**, body carries both heads |
 | post-run ledger read throws | not swallowed; HTTP **500** `{ success:false, error }` |
-| pre-run ledger snapshot: empty ledger / missing revisions table | treated as `null` (legal pre-state, state ②); the container still starts |
-| pre-run ledger snapshot throws for any other reason (transient read failure) | **landed: also treated as `null`** (collapsed with ②). Contract (state ③): must not assert advancement from that `null`; conservative `unverified`. Follow-up after PR #1109, not this PR |
-| `unknown_exit`, post-head == expected, ledger **advanced** (`preHead` ≠ `postHead`) | success, `pathVerification: "verified"`. Landed advancement is `preHead !== postHead`. Because ②/③ still collapse, a swallowed pre-read (`preHead=null`) plus a no-op (`postHead=X`) looks like advancement — that is the false-`verified` case in state ③ |
+| pre-run ledger snapshot: empty ledger / missing revisions table | `observed` `null` (legal pre-state, state ②); the container still starts |
+| pre-run ledger snapshot throws for any other reason (transient read failure) | `unobserved` (state ③): must not assert advancement; conservative `unverified` |
+| `unknown_exit`, post-head == expected, ledger **advanced** (observed `preHead` ≠ `postHead`) | success, `pathVerification: "verified"`. An unobserved pre-run never counts as advancement |
 | `unknown_exit`, post-head == expected, ledger **unchanged** (no-op / already at head) | success, `pathVerification: "unverified"` — schema is at the target; this run did not prove the container. #1055's ≥3 evidence counts **verified** only |
 | coded exit 0 | success + `verified`; the worker does **not** re-compare `expectedHead` here. CI still fails unless `appliedHead` equals the expected head it sent (executor spec Trigger contract) |
 | coded non-zero | HTTP **500**, unchanged |
