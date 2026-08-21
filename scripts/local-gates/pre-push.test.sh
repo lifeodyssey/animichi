@@ -65,7 +65,9 @@ ALL_COMMANDS=(
   "pnpm --filter web test:integration"
   # catalog: CI lint/test/smoke/build
   "pnpm run test:smoke"
+  "pnpm run test:spike"
   # edge: CI build (production-config dry-run from repo root)
+  "check-edge-ratelimit-namespace.sh"
   "pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir"
   # contract: CI build drift checks
   "pnpm emit:openapi"
@@ -76,6 +78,7 @@ ALL_COMMANDS=(
   # db: checksum validate + migration boundary guard + fresh-schema apply
   "atlas migrate validate --dir file://migrations/neon"
   "node --test workers/edge/test/migration-boundary.test.ts"
+  "sqlfluff lint ../../migrations/neon"
   "atlas migrate apply --dir file://migrations/neon"
   # docs: the doc-consistency subset that asserts docs/CI sync
   "uv run pytest src/animichi/tests/unit/test_secrets_docs_consistency.py src/animichi/tests/unit/test_documentation_guardrails.py -q --no-cov"
