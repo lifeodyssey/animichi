@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import chatCss from "../../../src/styles/chat.css?raw";
-import { lastRuleDeclaration, ruleDeclaration } from "../_token-helpers";
+import { contrastRatio, lastRuleDeclaration, parseTokens, ruleDeclaration, tokenValue } from "../_token-helpers";
+import globalsCss from "../../../src/styles/globals.css?raw";
 
 describe("nook tri-color chip tiles", () => {
   it.each([
@@ -148,5 +149,69 @@ describe("S1.9 Turnstile dock slot (issue #447)", () => {
     expect(ruleDeclaration(chatCss, ".turnstile-gate__retry", "background")).toBe("var(--color-primary)");
     expect(ruleDeclaration(chatCss, ".turnstile-gate__retry", "box-shadow")).toBe("0 3px 0 var(--shadow-3d)");
     expect(ruleDeclaration(chatCss, ".turnstile-gate__error", "color")).toBe("var(--color-error-strong)");
+  });
+});
+
+describe("A2 bubbles: the design spec's geometry and 3D depth", () => {
+  it("paints the AI bubble on the card token with a 2px line and a 6px top-left notch", () => {
+    expect(ruleDeclaration(chatCss, ".chat-bubble", "background")).toBe("var(--color-card)");
+    expect(ruleDeclaration(chatCss, ".chat-bubble", "border")).toBe("2px solid var(--color-border)");
+    expect(ruleDeclaration(chatCss, ".chat-bubble", "border-radius")).toBe("20px");
+    expect(ruleDeclaration(chatCss, ".chat-bubble", "border-top-left-radius")).toBe("6px");
+  });
+
+  it("keeps the AI bubble text above the WCAG AA 4.5:1 floor on the cream card", () => {
+    const tokens = parseTokens(globalsCss);
+    const ratio = contrastRatio(tokenValue(tokens, "--color-fg"), tokenValue(tokens, "--color-card"));
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("gives the user bubble the full 4px teal press shadow, not a grey half-depth", () => {
+    const user = ".chat-message--user .chat-bubble";
+    expect(ruleDeclaration(chatCss, user, "box-shadow")).toBe("0 4px 0 var(--color-primary-strong)");
+    expect(ruleDeclaration(chatCss, user, "border-top-right-radius")).toBe("6px");
+  });
+});
+
+describe("A1 hero: the fox owns the first screen", () => {
+  it("floats a 108px fox with the bob keyframes", () => {
+    expect(ruleDeclaration(chatCss, ".chat-cold-start__fox", "width")).toBe("108px");
+    expect(ruleDeclaration(chatCss, ".chat-cold-start__fox", "animation")).toContain("chat-fox-bob");
+    expect(chatCss).toContain("@keyframes chat-fox-bob");
+  });
+
+  it("sets the headline in the rounded display face", () => {
+    expect(ruleDeclaration(chatCss, ".chat-cold-start__title", "font-family")).toContain("Zen Maru Gothic");
+  });
+
+  it("gives the lead bubble the same notched cream shape as an AI bubble", () => {
+    expect(ruleDeclaration(chatCss, ".chat-cold-start__lead", "background")).toBe("var(--color-card)");
+    expect(ruleDeclaration(chatCss, ".chat-cold-start__lead", "border-top-left-radius")).toBe("6px");
+  });
+});
+
+describe("A3 chips: pill tiles with a same-family 3D edge", () => {
+  it("rounds the chip to a pill and keeps the 44px touch target", () => {
+    expect(ruleDeclaration(chatCss, ".chat-chip", "border-radius")).toBe("50px");
+    expect(ruleDeclaration(chatCss, ".chat-chip", "min-height")).toBe("44px");
+  });
+
+  it.each(["explore", "walk", "primary"])("tints the %s tile's edge from its own tone", (tone) => {
+    const selector = `.chat-chip[data-tone="${tone}"]`;
+    expect(ruleDeclaration(chatCss, selector, "border-color")).toContain("color-mix");
+    expect(ruleDeclaration(chatCss, selector, "box-shadow")).toContain("color-mix");
+  });
+});
+
+describe("WCAG 2.2.2: the new looping motion yields to the reduce preference", () => {
+  it("disables the row-in and bob animations under reduced motion", () => {
+    const block = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*)\}/u.exec(chatCss)?.[1] ?? "";
+    expect(block).toContain(".chat-message");
+    expect(block).toContain(".chat-cold-start__fox");
+  });
+
+  it("animates each landed turn with the row-in keyframes", () => {
+    expect(ruleDeclaration(chatCss, ".chat-message", "animation")).toContain("chat-row-in");
+    expect(chatCss).toContain("@keyframes chat-row-in");
   });
 });

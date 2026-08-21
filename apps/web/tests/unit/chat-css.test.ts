@@ -8,7 +8,7 @@ describe("chat bubble sizing", () => {
   });
 
   it("keeps a readable max width on bubbles", () => {
-    expect(ruleDeclaration(chatCss, ".chat-bubble", "max-width")).toBe("42rem");
+    expect(ruleDeclaration(chatCss, ".chat-bubble", "max-width")).toBe("78%");
   });
 
   it("aligns user bubbles to the end of the column", () => {

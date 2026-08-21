@@ -22,23 +22,27 @@
 
 .chat-bubble {
   width: fit-content;
-  max-width: 42rem;
-  padding: 0.75rem 1rem;
-  border-radius: 18px;
+  max-width: 78%;
+  padding: 13px 17px;
+  border-radius: 20px;
+  border-top-left-radius: 6px;
+  border: 2px solid var(--color-border);
   background: var(--color-card);
-  box-shadow: 0 2px 0 var(--shadow-3d);
-}
-
-.chat-bubble--ai {
-  background: var(--color-primary-soft);
+  font-size: 15.5px;
+  line-height: 1.62;
+  font-weight: 500;
 }
 
 .chat-message--user .chat-bubble {
   align-self: flex-end;
   margin-left: auto;
-  border-bottom-right-radius: 6px;
+  border-radius: 20px;
+  border-top-right-radius: 6px;
+  border-color: transparent;
   background: var(--color-primary);
   color: var(--color-primary-fg);
+  font-weight: 600;
+  box-shadow: 0 4px 0 var(--color-primary-strong);
 }
 
 .chat-messages,
@@ -51,6 +55,16 @@
   margin: 0;
 }
 
+/* Design spec `rowIn`: each turn slides up as it lands. */
+@keyframes chat-row-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.chat-message {
+  animation: chat-row-in 0.34s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
 .chat-chips {
   display: flex;
   flex-wrap: wrap;
@@ -59,43 +73,119 @@
 
 .chat-chip {
   min-height: 44px;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 17px;
+  border: 2px solid var(--color-border);
+  border-radius: 50px;
   background: var(--color-card);
   color: var(--color-fg);
+  font-size: 14px;
+  font-weight: 800;
   box-shadow: 0 3px 0 var(--shadow-3d);
   cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.chat-chip:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.chat-chip:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 var(--shadow-3d);
 }
 
 .chat-chip[data-tone="explore"] {
   background: var(--color-explore-bg);
   color: var(--color-explore-fg);
+  border-color: color-mix(in srgb, var(--color-explore-fg) 22%, var(--color-explore-bg));
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--color-explore-fg) 30%, var(--color-explore-bg));
 }
 
 .chat-chip[data-tone="walk"] {
   background: var(--color-walk-bg);
   color: var(--color-walk-fg);
+  border-color: color-mix(in srgb, var(--color-walk-fg) 22%, var(--color-walk-bg));
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--color-walk-fg) 30%, var(--color-walk-bg));
 }
 
 .chat-chip[data-tone="primary"] {
   background: var(--color-primary-soft);
   color: var(--color-primary-strong);
+  border-color: color-mix(in srgb, var(--color-primary-strong) 22%, var(--color-primary-soft));
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--color-primary-strong) 30%, var(--color-primary-soft));
 }
 
-.chat-greeting {
+/* A1 empty-state hero: the fox is the whole first screen on mobile. */
+.chat-cold-start {
+  flex: 1;
   display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 14px;
+  padding: 14px 0 30px;
+}
+
+@keyframes chat-fox-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+.chat-cold-start__fox {
+  width: 108px;
+  height: 108px;
+  filter: drop-shadow(0 8px 10px color-mix(in srgb, var(--shadow-3d) 45%, transparent));
+  animation: chat-fox-bob 4s ease-in-out infinite;
+}
+
+.chat-cold-start__title {
+  margin: 0;
+  font-family: "Zen Maru Gothic", "Zen Maru Gothic fallback", "Noto Sans SC", sans-serif;
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--color-fg);
+}
+
+.chat-cold-start__lead {
+  margin: 0;
+  max-width: 33em;
+  padding: 13px 18px;
+  border: 2px solid var(--color-border);
+  border-radius: 20px;
+  border-top-left-radius: 6px;
+  background: var(--color-card);
+  font-size: 15px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.chat-cold-start__chips-label {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--color-muted-fg);
+}
+
+.chat-cold-start .chat-chips {
+  justify-content: center;
+  max-width: 580px;
+  gap: 10px;
 }
 
 .chat-fox-avatar {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 38px;
+  height: 38px;
+  padding: 2px;
   border-radius: 50%;
-  object-fit: cover;
+  border: 2px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-primary-soft));
+  object-fit: contain;
   background: var(--color-primary-soft);
-  box-shadow: 0 2px 0 var(--shadow-3d);
 }
 
 .chat-typing {
@@ -1259,7 +1349,9 @@
 @media (prefers-reduced-motion: reduce) {
   .chat-typing__dot,
   .chat-step[data-status="running"],
-  .chat-card--skeleton {
+  .chat-card--skeleton,
+  .chat-message,
+  .chat-cold-start__fox {
     animation: none;
   }
 }

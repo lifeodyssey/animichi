@@ -99,6 +99,10 @@ const enTurnstile: ChatTurnstileDict = {
 /** Chat-page copy, kept feature-local to avoid the shared dictionary hot file. */
 export interface ChatDict {
   readonly greeting: string;
+  /** A1 hero headline above the greeting bubble (design spec: empty-state hero). */
+  readonly heroTitle: string;
+  /** Label introducing the example chips. */
+  readonly chipsLabel: string;
   readonly chips: readonly [string, string, string];
   readonly inputPlaceholder: string;
   readonly send: string;
@@ -170,6 +174,8 @@ const enToolSteps: ChatToolStepsDict = {
 
 const ja: ChatDict = {
   greeting: "アニミチだよ。どのアニメの聖地をめぐってみたい?",
+  heroTitle: "どの聖地へ行きますか?",
+  chipsLabel: "こんな風に聞けます",
   chips: [
     "響け!ユーフォニアムの聖地",
     "君の名は。のルートを組んで",
@@ -202,6 +208,8 @@ const ja: ChatDict = {
 
 const zh: ChatDict = {
   greeting: "我是 Animichi。想去哪部作品的圣地巡礼?",
+  heroTitle: "想去哪个圣地?",
+  chipsLabel: "可以这样问我",
   chips: ["吹响吧!上低音号的圣地", "帮我规划你的名字。的路线", "找找附近的圣地"],
   inputPlaceholder: "告诉我作品名或想去的地区…",
   send: "发送",
@@ -230,6 +238,8 @@ const zh: ChatDict = {
 
 const en: ChatDict = {
   greeting: "I'm Animichi. Which anime's real-world spots shall we visit?",
+  heroTitle: "Which spot shall we visit?",
+  chipsLabel: "Try asking like this",
   chips: [
     "Hibike! Euphonium spots",
     "Plan a Your Name. route",
