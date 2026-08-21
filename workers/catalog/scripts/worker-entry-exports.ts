@@ -8,9 +8,13 @@ const MAIN_TOML = /^main\s*=\s*"([^"]+)"/;
 const MAIN_JSON = /"main"\s*:\s*"([^"]+)"/;
 const WRANGLER_FILE = /\/wrangler\.(toml|jsonc|json)$/;
 
+function isCommentLine(line: string): boolean {
+  return line.startsWith("#") || line.startsWith("//") || (line.startsWith("/*") && line.endsWith("*/"));
+}
+
 function mainFromRawLine(raw: string): string | undefined {
   const line = raw.trim();
-  if (line.startsWith("#") || line.startsWith("//")) return undefined;
+  if (isCommentLine(line)) return undefined;
   return (MAIN_TOML.exec(line) ?? MAIN_JSON.exec(line))?.[1];
 }
 

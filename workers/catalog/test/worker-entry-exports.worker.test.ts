@@ -43,6 +43,25 @@ describe("wrangler main discovery", () => {
     );
   });
 
+  it("does not treat a JSONC whole-line block comment as wrangler main", () => {
+    expect(
+      wranglerMain('/* "main": "commented.ts" */\n{ "main": "src/entry.ts" }\n'),
+    ).toBe("src/entry.ts");
+  });
+
+  it("fails closed when the only jsonc main key is inside a block comment", () => {
+    expect(wranglerMain('/* "main": "commented.ts" */\n{ "name": "x" }\n')).toBeUndefined();
+  });
+
+  it("still flags the live jsonc main after a block-commented main", () => {
+    expect(
+      starExportViolations({
+        "apps/web/wrangler.jsonc": '/* "main": "src/missing.ts" */\n{ "main": "src/entry.ts" }\n',
+        "apps/web/src/entry.ts": 'export * from "./handlers";\n',
+      }),
+    ).toEqual(['apps/web/src/entry.ts: export * from "./handlers";']);
+  });
+
   it("discovers configs only under workers/* and apps/*", () => {
     const paths = wranglerConfigPaths({
       "workers/catalog/wrangler.toml": 'main = "src/index.ts"',
