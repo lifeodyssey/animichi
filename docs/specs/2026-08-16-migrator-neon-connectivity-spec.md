@@ -301,6 +301,96 @@ failure.
 
 ---
 
+## Verdict (2026-08-20): the IPv4 pin **is** the bug — Option 1's own mechanism
+
+The diagnosis above stopped one step short: it proved the container never
+becomes a Postgres client, and inferred a *platform* fault. A local
+bisection falsifies that inference. Same image
+(`docker build --platform linux/amd64 -f workers/migrator/Dockerfile`),
+same staging migrator DSN, three arms:
+
+| Arm | What ran | Result |
+|---|---|---|
+| a — control | `nc -z <neon-host> 5432` inside the container | **pass** — container egress is healthy; the harness is valid |
+| b — pinned | the shipped entrypoint path (`resolve_ipv4` -> `rewrite_url` host->IP + `options=endpoint`) | **fail**, 30s, `sql/migrate: read revisions: context canceled` — the production symptom, reproduced off-platform |
+| c — un-pinned | same image, domain DSN, `atlas migrate status --revisions-schema public` | **pass**, 29s, ledger read (head `20260811000001`, 51 executed / 4 pending) |
+
+**Mechanism.** With `host` rewritten to a literal IP, the TLS ClientHello
+carries no SNI (RFC 6066 forbids an IP there), so Neon's SNI-routed proxy
+cannot select the endpoint; `options=endpoint=<id>` does not compensate
+under Atlas 0.30's pg driver. Arm (c) proves the rest of the stack is
+innocent: Alpine/musl, the Go TLS stack, and the pinned Atlas binary all
+connect normally over the domain. **No base-image change is required.**
+
+**Consequences for this spec.**
+
+- The "Option 1 falsification" section is superseded. What the live
+  staging 504 falsified was **the pin**, not the container path. Option
+  1's other two parts (fail-fast probe, stop-on-timeout) are sound and stay.
+- **Option 2 (worker-side `neon-http` apply) is demoted to a contingency.**
+  It is not opened on the strength of the 2026-08-16 trigger failure.
+- The fix is subtractive: drop the resolve/rewrite block from
+  `docker/entrypoint.sh` (keep the `-pooler` reject, the probe,
+  `search_path=public`), paired with the runner change below —
+  connectivity alone is not sufficient.
+
+**The second, independent failure (still true).** CF batch containers
+never deliver an exit-code event; the live 504 body carried
+`lastStatus: "stopped"` with no `exitCode`. `runner.ts` only treats
+`stopped_with_code` as terminal, so **even a successful apply cannot be
+observed** — the success path is unreachable regardless of TLS. The
+repair card therefore also makes bare `stopped` terminal and adopts the
+**ledger head vs expected head** comparison as the success criterion.
+
+**Expected-head contract (landed in PR #1109, branch `fix/migrator-depin`;
+this document does not change code).** `POST /migrate` parses
+`expectedHead` from the JSON body (`create-app.ts`) and passes it to
+`runMigration`. Bare `stopped` is `unknown_exit` and is judged against
+the ledger; it is not success by default. Pending vs extra revisions are
+not separate HTTP outcomes — they collapse into applied-head equality
+(an extra applied revision that changes the newest basename mismatches;
+unapplied pending files do not change the head).
+
+**Three `null`-looking states — keep them distinct** (2026-08-21
+CodeRabbit re-review; docs-only in this PR). A missing / illegal
+`expectedHead`, a legal empty ledger, and a pre-run read failure are
+not the same `null`. Collapsing them is how a no-op run can be marked
+`verified`.
+
+| State | What it is | Contract |
+|---|---|---|
+| ① `expectedHead` missing or non-string | Caller sent no usable expected head. Landed: `expectedHeadOf` returns `undefined`; `judgeUnknownExit` mismatches when `expectedHead === undefined` **without** comparing it to `postHead: null`. | Fail immediately (`head_mismatch`, expected recorded as `null`). Absence does **not** skip the check. This is **not** a ledger-head `null`. |
+| ② Ledger empty, or the revisions table does not exist | Legal first-apply pre-state. `preHead` is genuinely `null`. | Legal `null` pre-state; the container still starts. Advancement `null → X` is a real apply. |
+| ③ Pre-run ledger read failed (transient I/O) | Observation failed; the actual head may already be `X`. | Must **not** treat this as "ledger advanced". Conservative conclusion: `unverified` — do not award `verified` on a `null→X` comparison whose `null` is an I/O miss. |
+
+**Landed vs contract on ② vs ③.** PR #1109 already implements ①
+correctly. The pre-run snapshot still swallows any exception and
+returns `null`, so ② and ③ are not distinguishable in code. If the
+ledger was already at head `X`, a transient pre-read failure
+(`preHead=null`) plus a no-op run (`postHead=X=expected`) is scored
+as "ledger advanced" → false `verified`. That is the mirror of the
+masked-success defect this campaign already fixed (bad container
+counted as success; here, a no-op counted as verified).
+**Implementation-side split is an independent follow-up after PR
+#1109; this document does not change code.**
+
+| Condition | Worker conclusion (landed) |
+|---|---|
+| `expectedHead` absent or non-string on `unknown_exit` | `head_mismatch` (expected recorded as `null`) → HTTP **500**. Absence does **not** skip the check. Distinct from a ledger-head `null` (state ①) |
+| `unknown_exit` and post-run applied head ≠ expected | `head_mismatch` → HTTP **500**, body carries both heads |
+| post-run ledger read throws | not swallowed; HTTP **500** `{ success:false, error }` |
+| pre-run ledger snapshot: empty ledger / missing revisions table | treated as `null` (legal pre-state, state ②); the container still starts |
+| pre-run ledger snapshot throws for any other reason (transient read failure) | **landed: also treated as `null`** (collapsed with ②). Contract (state ③): must not assert advancement from that `null`; conservative `unverified`. Follow-up after PR #1109, not this PR |
+| `unknown_exit`, post-head == expected, ledger **advanced** (`preHead` ≠ `postHead`) | success, `pathVerification: "verified"`. Landed advancement is `preHead !== postHead`. Because ②/③ still collapse, a swallowed pre-read (`preHead=null`) plus a no-op (`postHead=X`) looks like advancement — that is the false-`verified` case in state ③ |
+| `unknown_exit`, post-head == expected, ledger **unchanged** (no-op / already at head) | success, `pathVerification: "unverified"` — schema is at the target; this run did not prove the container. #1055's ≥3 evidence counts **verified** only |
+| coded exit 0 | success + `verified`; the worker does **not** re-compare `expectedHead` here. CI still fails unless `appliedHead` equals the expected head it sent (executor spec Trigger contract) |
+| coded non-zero | HTTP **500**, unchanged |
+
+CI continues to gate on `success` / `appliedHead` only; `pathVerification`
+is additive.
+
+---
+
 ## Proposed Design
 
 ### Current runtime (as shipped)
