@@ -588,12 +588,26 @@
   clip-path: inset(0 calc(100% - var(--reveal)) 0 0);
 }
 
+/* Design parity: the mockup's .frame is a 1fr/1fr grid inside a 16/11 box, so
+ * each still is cropped by an 8/11 cell centred on its own half. The slider
+ * keeps one shared 16/11 box, so each photo is instead drawn at full height
+ * (natural width) and centred on its half's midpoint — the same pixels land in
+ * the same place, and the railway crossing stays continuous across the seam. */
 .comparison__photo {
   position: absolute;
-  inset: 0;
-  width: 100%;
+  top: 0;
   height: 100%;
-  object-fit: cover;
+  width: auto;
+  max-width: none;
+  transform: translateX(-50%);
+}
+
+.comparison__pane--anime .comparison__photo {
+  left: 25%;
+}
+
+.comparison__pane--real .comparison__photo {
+  left: 75%;
 }
 
 .comparison__tag {
@@ -917,6 +931,12 @@
   }
 
   .landing__page {
+    display: none;
+  }
+
+  /* MobileFoxHome is a separate design with no day/night control; the fixed
+   * capsule would otherwise sit on top of its bottom "Start Exploring" CTA. */
+  .day-night-toggle {
     display: none;
   }
 }
