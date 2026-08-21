@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { URL, fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (path: string): string => readFileSync(`${ROOT}${path}`, "utf8");
+const grantSql = (): string =>
+  read("infra/neon-secrets/grant-migrator-ddl.sql").replaceAll(/^--.*$/gm, "");
 
 const GRANT_STEP = "- name: Grant migrator DDL on staging public";
 const PROD_JOB = "deploy-neon-secrets-prod:";
@@ -18,7 +21,7 @@ function namedBlock(source: string, marker: string, width: number): string {
 }
 
 void test("staging GRANT gives migrator CREATE on public", () => {
-  const sql = read("infra/neon-secrets/grant-migrator-ddl.sql").replaceAll(/^--.*$/gm, "");
+  const sql = grantSql();
   assert.match(sql, /GRANT USAGE,\s*CREATE ON SCHEMA public TO migrator;/);
   assert.match(sql, /GRANT REFERENCES ON TABLE public.sessions TO migrator;/);
   assert.doesNotMatch(sql, /ALL TABLES/);
@@ -54,4 +57,32 @@ void test("deploy.yml production neon-secrets job does not run the GRANT", () =>
   const deployProd = namedBlock(read(".github/workflows/deploy.yml"), PROD_JOB, 1500);
   assert.match(deployProd, /environment: production/);
   assert.doesNotMatch(deployProd, /grant-migrator-ddl/);
+});
+
+void test("GRANT SQL still grants REFERENCES on sessions", () => {
+  assert.match(grantSql(), /GRANT REFERENCES ON TABLE public\.sessions TO migrator;/);
+});
+
+void test("GRANT SQL EXISTS check is on conversation_messages", () => {
+  assert.match(grantSql(), /EXISTS \([\s\S]*t\.relname = 'conversation_messages'/);
+});
+
+void test("GRANT SQL renames leftover to idx_conversation_messages_session_created", () => {
+  assert.match(grantSql(), /RENAME TO idx_conversation_messages_session_created;/);
+});
+
+void test("GRANT SQL does not drop tables or indexes", () => {
+  const sql = grantSql();
+  assert.doesNotMatch(sql, /DROP TABLE/i);
+  assert.doesNotMatch(sql, /DROP INDEX/i);
+});
+
+void test("Atlas 20260811000002 creates idx_messages_session_created on messages", () => {
+  const sql = read("migrations/neon/20260811000002_table_messages.sql");
+  assert.match(sql, /CREATE INDEX idx_messages_session_created ON public\.messages/);
+});
+
+void test("atlas.sum SHA-256 matches the SAFE-1 production pin", () => {
+  const buf = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
+  assert.equal(createHash("sha256").update(buf).digest("hex"), "408d6b353b073dee99da33dc93cdb518354cd41f47ea87e24ef2301feeaef484");
 });
