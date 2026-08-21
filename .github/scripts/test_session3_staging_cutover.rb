@@ -406,6 +406,40 @@ def pulumi_r2_backend_violations(wf)
   found
 end
 
+# ---- 6. Pulumi CLI pin (issue #1152) --------------------------------------
+# #1069 pinned deploy / neon-secrets / pipeline-infra to `.pulumi.version`
+# (3.255.0, gocloud v0.46.0). Cutover C/F invoke `pulumi` and must install
+# the same CLI; otherwise they pick 3.256/3.257 and R2 PutObject returns
+# InvalidDigest. Discover pulumi-executing jobs from parsed workflow
+# behavior (same as the R2 backend check), then require a pulumi/actions
+# step with `pulumi-version-file: .pulumi.version`.
+PULUMI_VERSION_FILE = ".pulumi.version"
+
+def step_pins_pulumi_cli?(step)
+  uses = step["uses"].to_s
+  with = step["with"]
+  return false unless uses.include?("pulumi/actions")
+  return false unless with.is_a?(Hash)
+
+  with["pulumi-version-file"].to_s == PULUMI_VERSION_FILE
+end
+
+def job_pins_pulumi_cli?(job)
+  job.fetch("steps", []).any? { |s| s.is_a?(Hash) && step_pins_pulumi_cli?(s) }
+end
+
+def pulumi_cli_pin_violations(wf)
+  found = []
+  wf.fetch("jobs").each do |name, job|
+    next unless job.is_a?(Hash)
+    next if pulumi_executing_steps(job).empty?
+    next if job_pins_pulumi_cli?(job)
+
+    found << "#{name}: pulumi-executing job must install CLI via pulumi-version-file: #{PULUMI_VERSION_FILE}"
+  end
+  found
+end
+
 def main
   found = source_structure_violations
   unless File.exist?(WORKFLOW)
@@ -416,11 +450,12 @@ def main
     found.concat(manifest_guard_violations(wf))
     found.concat(two_key_reset_violations(wf))
     found.concat(pulumi_r2_backend_violations(wf))
+    found.concat(pulumi_cli_pin_violations(wf))
   end
   found.concat(reset_script_refusal_violations)
 
   if found.empty?
-    puts "OK: fresh-schema manifest, sole-repository adapters, two-key reset, R2 backend credentials, and cutover workflow order all hold"
+    puts "OK: fresh-schema manifest, sole-repository adapters, two-key reset, R2 backend credentials, Pulumi CLI pin, and cutover workflow order all hold"
   else
     puts found.sort
     abort "SESSION-3 staging cutover contract violated (#{found.length} issue(s))"

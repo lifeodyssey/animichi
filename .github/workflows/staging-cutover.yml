@@ -89,6 +89,31 @@ jobs:
           ref: ${{ steps.validate-revision.outputs.revision }}
           fetch-depth: 0
           persist-credentials: false
+      # Installs the Pulumi CLI onto PATH without running a command (omitting
+      # `command:` is the documented install-only mode) so the plain `pulumi`
+      # invoked by cutover-close-ingress.sh can use it.
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          # #1069: pin the Pulumi CLI to 3.255.0 (gocloud v0.46.0) — 3.256.0 /
+          # 3.257.0 pin a gocloud.dev commit whose s3blob sends
+          # `x-amz-checksum-sha256: UNSIGNED-PAYLOAD` under WhenRequired, which
+          # Cloudflare R2 rejects (InvalidDigest). Single source of truth in
+          # .pulumi.version.
+          pulumi-version-file: .pulumi.version
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      # #522: pulumi/actions@v7 no longer auto-installs project dependencies.
+      # cutover-close-ingress.sh runs `pulumi up` (the infra program), so the
+      # workspace packages must exist first — same command as reusable-deploy.
+      - name: Install infra dependencies (root workspace)
+        run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Record phase C starting
         run: bash .github/scripts/cutover-state.sh record phase=c ingress=closing
       - name: Close the IaC staging gate and probe closed ingress
@@ -398,6 +423,31 @@ jobs:
           ref: ${{ steps.validate-revision.outputs.revision }}
           fetch-depth: 0
           persist-credentials: false
+      # Installs the Pulumi CLI onto PATH without running a command (omitting
+      # `command:` is the documented install-only mode) so the plain `pulumi`
+      # invoked by cutover-reopen.sh can use it.
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          # #1069: pin the Pulumi CLI to 3.255.0 (gocloud v0.46.0) — 3.256.0 /
+          # 3.257.0 pin a gocloud.dev commit whose s3blob sends
+          # `x-amz-checksum-sha256: UNSIGNED-PAYLOAD` under WhenRequired, which
+          # Cloudflare R2 rejects (InvalidDigest). Single source of truth in
+          # .pulumi.version.
+          pulumi-version-file: .pulumi.version
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.33.2
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      # #522: pulumi/actions@v7 no longer auto-installs project dependencies.
+      # cutover-reopen.sh runs `pulumi up` (the infra program), so the
+      # workspace packages must exist first — same command as reusable-deploy.
+      - name: Install infra dependencies (root workspace)
+        run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Reopen ingress, re-check retention, record verdict
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
