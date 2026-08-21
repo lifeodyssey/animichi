@@ -7,7 +7,7 @@ YAML="$ROOT/infra/neon-secrets/Pulumi.staging.yaml"
 SQL="$ROOT/infra/neon-secrets/grant-migrator-ddl.sql"
 
 require_key() {
-  test -n "${NEON_API_KEY:-}" || { echo "NEON_API_KEY is required" >&2; exit 1; }
+  [[ -n "${NEON_API_KEY:-}" ]] || { echo "NEON_API_KEY is required" >&2; exit 1; }
 }
 
 yaml_value() {
@@ -18,8 +18,11 @@ apply_sql() {
   local project branch
   project="$(yaml_value neonProjectId)"
   branch="$(yaml_value neonBranchId)"
-  test -n "$project" && test -n "$branch"
-  npx --yes neonctl@latest psql "$branch" --project-id "$project" --role-name neondb_owner \
+  if [[ -z "$project" || -z "$branch" ]]; then
+    echo "Failed to read neonProjectId/neonBranchId from $YAML" >&2
+    exit 1
+  fi
+  npx --yes neonctl@3.6.0 psql "$branch" --project-id "$project" --role-name neondb_owner \
     --database-name neondb -- -v ON_ERROR_STOP=1 -f "$SQL"
 }
 
