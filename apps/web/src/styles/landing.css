@@ -211,31 +211,38 @@
   right: 18px;
   bottom: 18px;
   z-index: 99;
-  display: flex;
-  gap: 5px;
-  padding: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
   border: 2px solid var(--landing-line);
-  border-radius: 50px;
+  border-radius: 50%;
   background: var(--landing-paper);
+  color: var(--landing-ink);
+  cursor: pointer;
   box-shadow: 0 4px 0 0 rgb(0 0 0 / 15%);
 }
 
-.day-night-toggle button {
-  padding: 7px 15px;
-  border: 0;
-  border-radius: 50px;
-  background: transparent;
-  color: var(--landing-ink-body);
-  font: inherit;
-  font-weight: 900;
-  font-size: 13px;
-  cursor: pointer;
+.day-night-toggle[aria-checked="true"] {
+  background: var(--landing-teal-bg);
+  box-shadow: 0 4px 0 0 rgb(0 0 0 / 15%), inset 0 0 0 2px var(--landing-teal);
 }
 
-.day-night-toggle button[aria-pressed="true"] {
-  background: var(--landing-teal-bg);
-  color: var(--landing-ink);
-  box-shadow: inset 0 0 0 2px var(--landing-teal);
+.day-night-toggle:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 0 rgb(0 0 0 / 15%);
+}
+
+.day-night-toggle svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* ── Hero ── */
@@ -561,26 +568,16 @@
   clip-path: inset(0 calc(100% - var(--reveal)) 0 0);
 }
 
-/* Design parity: the mockup's .frame is a 1fr/1fr grid inside a 16/11 box, so
- * each still is cropped by an 8/11 cell centred on its own half. The slider
- * keeps one shared 16/11 box, so each photo is instead drawn at full height
- * (natural width) and centred on its half's midpoint — the same pixels land in
- * the same place, and the railway crossing stays continuous across the seam. */
+/* Both stills are the same pixel-aligned frame of the same level crossing, so
+ * the reveal only works when they fully overlap: one shared box, each photo
+ * covering all of it. Offsetting them by half-frame would leak the backdrop at
+ * one edge and double the subject at the other. */
 .comparison__photo {
   position: absolute;
-  top: 0;
+  inset: 0;
+  width: 100%;
   height: 100%;
-  width: auto;
-  max-width: none;
-  transform: translateX(-50%);
-}
-
-.comparison__pane--anime .comparison__photo {
-  left: 25%;
-}
-
-.comparison__pane--real .comparison__photo {
-  left: 75%;
+  object-fit: cover;
 }
 
 .comparison__tag {

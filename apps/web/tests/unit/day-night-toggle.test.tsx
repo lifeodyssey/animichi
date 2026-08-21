@@ -12,49 +12,56 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-function dayButton(): HTMLElement {
-  return screen.getByRole("button", { name: "昼" });
+/** The single circular switch; its accessible name is the mode in force. */
+function themeSwitch(): HTMLElement {
+  return screen.getByRole("switch");
 }
 
-function nightButton(): HTMLElement {
-  return screen.getByRole("button", { name: "夜" });
+/** Which face the switch is currently showing, from the glyph's own marker. */
+function shownGlyph(): string | null {
+  return themeSwitch().querySelector("svg")?.getAttribute("data-glyph") ?? null;
 }
 
 describe("DayNightToggle", () => {
-  it("defaults to the day mode and persists it", () => {
+  it("defaults to the day mode, showing the sun and persisting day", () => {
     renderWithLocale(<DayNightToggle />);
-    expect(dayButton().getAttribute("aria-pressed")).toBe("true");
-    expect(nightButton().getAttribute("aria-pressed")).toBe("false");
+    expect(themeSwitch().getAttribute("aria-checked")).toBe("false");
+    expect(themeSwitch().getAttribute("aria-label")).toBe("昼");
+    expect(shownGlyph()).toBe("sun");
     expect(window.localStorage.getItem("animichi-theme")).toBe("day");
   });
 
-  it("switches to night from the night button, updating aria, storage, and the document theme", () => {
+  it("switches to night on click, updating aria, glyph, storage, and the document theme", () => {
     renderWithLocale(<DayNightToggle />);
-    act(() => { nightButton().click(); });
-    expect(nightButton().getAttribute("aria-pressed")).toBe("true");
-    expect(dayButton().getAttribute("aria-pressed")).toBe("false");
+    act(() => { themeSwitch().click(); });
+    expect(themeSwitch().getAttribute("aria-checked")).toBe("true");
+    expect(themeSwitch().getAttribute("aria-label")).toBe("夜");
+    expect(shownGlyph()).toBe("moon");
     expect(window.localStorage.getItem("animichi-theme")).toBe("night");
     expect(document.documentElement.dataset.theme).toBe("night");
   });
 
-  it("switches back to day from the day button", () => {
+  it("switches back to day on a second click", () => {
     renderWithLocale(<DayNightToggle />);
-    act(() => { nightButton().click(); });
-    act(() => { dayButton().click(); });
-    expect(dayButton().getAttribute("aria-pressed")).toBe("true");
-    expect(nightButton().getAttribute("aria-pressed")).toBe("false");
+    act(() => { themeSwitch().click(); });
+    act(() => { themeSwitch().click(); });
+    expect(themeSwitch().getAttribute("aria-checked")).toBe("false");
+    expect(shownGlyph()).toBe("sun");
     expect(window.localStorage.getItem("animichi-theme")).toBe("day");
+    expect(document.documentElement.dataset.theme).toBe("day");
   });
 
   it("restores a stored night preference on mount", () => {
     window.localStorage.setItem("animichi-theme", "night");
     renderWithLocale(<DayNightToggle />);
-    expect(nightButton().getAttribute("aria-pressed")).toBe("true");
+    expect(themeSwitch().getAttribute("aria-checked")).toBe("true");
+    expect(shownGlyph()).toBe("moon");
   });
 
   it("ignores an invalid stored value and stays on day", () => {
     window.localStorage.setItem("animichi-theme", "sepia");
     renderWithLocale(<DayNightToggle />);
-    expect(dayButton().getAttribute("aria-pressed")).toBe("true");
+    expect(themeSwitch().getAttribute("aria-checked")).toBe("false");
+    expect(shownGlyph()).toBe("sun");
   });
 });
