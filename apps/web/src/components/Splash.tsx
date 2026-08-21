@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 
-const SPLASH_MARKUP: ReactElement = (
-  <div className="app-splash" data-splash="static" aria-hidden="true">
+const SPLASH_FRAMES: ReactElement = (
+  <>
     <div className="app-splash__frame phone day">
       <SplashStatusBar time="9:41" />
       <SplashMiddle icon="/splash-day.svg" />
@@ -12,7 +12,7 @@ const SPLASH_MARKUP: ReactElement = (
       <SplashMiddle icon="/splash-night.svg" />
       <SplashFooter />
     </div>
-  </div>
+  </>
 );
 
 function SplashStatusBar({ time }: { time: string }): ReactElement {
@@ -46,7 +46,13 @@ function SplashFooter(): ReactElement {
   );
 }
 
-/** Static, system-themed splash; dismissal is driven by CSS, never a JS timer. */
-export function Splash(): ReactElement {
-  return SPLASH_MARKUP;
+/** Static, system-themed splash; dismissal is driven by CSS, never a JS timer.
+ * `dwell` marks the mobile index route, where CSS holds the splash up until the
+ * /chat hand-off so the landing underneath is never flashed (owner 2026-08-21). */
+export function Splash({ dwell = false }: { readonly dwell?: boolean }): ReactElement {
+  return (
+    <div className="app-splash" data-splash="static" data-splash-dwell={dwell ? "mobile" : undefined} aria-hidden="true">
+      {SPLASH_FRAMES}
+    </div>
+  );
 }

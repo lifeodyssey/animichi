@@ -1,8 +1,10 @@
+import { useCallback } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppHome } from "../components/home/AppHome";
 import { makeSearchHandler } from "../components/home/search-target";
 import { LandingPage } from "../components/landing/LandingPage";
 import { homeHead } from "../features/seo/head";
+import { useMobileSplashHandoff } from "../features/splash/mobile-splash-handoff";
 import { LocaleProvider } from "../i18n/LocaleProvider";
 import { useAuthStatus } from "../lib/auth/session";
 
@@ -16,9 +18,18 @@ function AuthedHome() {
   return <AppHome onSearch={makeSearchHandler((target) => { void navigate(target); })} />;
 }
 
+/** Owner 2026-08-21: the mobile splash hands `/` off to chat. `replace` is
+ * required — a pushed entry would send Back to `/`, which would bounce the
+ * visitor straight into chat again. */
+function useChatEntry(): () => void {
+  const navigate = useNavigate();
+  return useCallback(() => { void navigate({ to: "/chat", replace: true }); }, [navigate]);
+}
+
 /** Single root route, dual state: App Home for authenticated users (spec S5.5),
  * the S0.6 marketing Landing for everyone else (pending resolves to Landing). */
 export function HomeView() {
+  useMobileSplashHandoff(useChatEntry());
   return useAuthStatus() === "authenticated" ? <AuthedHome /> : <LandingPage />;
 }
 

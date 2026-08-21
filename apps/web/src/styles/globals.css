@@ -154,6 +154,25 @@ h1 {
   to { opacity: 0; visibility: hidden; pointer-events: none; }
 }
 
+/*
+ * Owner 2026-08-21: on mobile the index route dwells on the splash and then
+ * enters /chat. The real dismissal is the navigation itself — leaving `/` drops
+ * the dwell attribute, the 320ms rule takes over and the splash is gone on the
+ * very frame chat mounts, so the landing underneath is never exposed.
+ *
+ * This delay is therefore not the dwell; it is the "JavaScript never arrived"
+ * bail-out. It has to outlast hydration + the 1500ms dwell, because the JS timer
+ * only starts once React hydrates while this clock starts at stylesheet apply —
+ * measured at ~3.2s on a cold dev server, where a 1800ms bail-out uncovered
+ * MobileFoxHome for over a second. 4000ms clears that with margin and still puts
+ * a hard bound on a scripting-disabled visitor's wait.
+ */
+@media (max-width: 640px) {
+  .app-splash[data-splash-dwell="mobile"] {
+    animation-delay: 4000ms;
+  }
+}
+
 .app-splash__frame.phone {
   position: absolute;
   inset: 0;

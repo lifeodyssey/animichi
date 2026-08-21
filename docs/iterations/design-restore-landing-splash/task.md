@@ -162,5 +162,9 @@ Splash 已大体接近静态版,差:聖地巡礼字体应为 Zen Maru Gothic 900
 - mobile(≤640px)目前切换为 MobileFoxHome(另一套设计),本次不动;
   mockup 的 ≤680px hero 规则只影响 641–1080px 区间。
 - fox SVG 单个 ~260KB,后续可考虑优化(本次先还原视觉)。
-- 移动端 Splash 无动画静态版是刻意决策(≤800ms 即出即走),勿加 JS 动画。
+- 移动端 Splash:owner 2026-08-21 新决策取代了旧的「≤800ms 即出即走、勿加 JS 动画」约束。
+  移动端(≤640px)在 `/` 停留 1500ms 后自动 `replace` 进 `/chat`;停留与跳过由
+  `src/features/splash/mobile-splash-handoff.ts` 的 JS 计时器驱动,CSS 侧
+  `.app-splash[data-splash-dwell="mobile"]` 把消失延迟拉到 1800ms 与之对齐。
+  Splash 本身仍无动画(只有 1ms 离散可见性翻转);桌面端仍是 320ms 即出即走。
 - design-sync 的 animated Splash(Splash - Seichijunrei.html)只是展示板,不是实现目标。
