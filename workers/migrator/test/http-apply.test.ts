@@ -4,12 +4,18 @@ import { OPERATOR_VERSION } from "../src/http-apply";
 import {
   BODY_A,
   BODY_B,
+  CONCURRENT_BODY,
   DSN,
   FakeSql,
   HASH_A,
   HASH_B,
   HEAD_B,
+  STMT_1,
+  STMT_2,
+  TWO_BODY,
   applyFixture,
+  chainOf,
+  twoStmtChain,
 } from "./http-apply.helpers";
 
 // #1124 AC1 / AC2 — fixture chain vs fake neon(): one apply unit per file,
@@ -20,6 +26,7 @@ describe("HTTP apply units (AC1)", () => {
     const db = new FakeSql();
     await applyFixture(db);
     expect(db.units).toEqual([BODY_A, BODY_B]);
+    expect(db.transactions).toEqual([[BODY_A], [BODY_B]]);
   });
 
   it("skips versions already in atlas_schema_revisions", async () => {
@@ -27,6 +34,7 @@ describe("HTTP apply units (AC1)", () => {
     db.alreadyApplied("20260811000001");
     await applyFixture(db);
     expect(db.units).toEqual([BODY_B]);
+    expect(db.transactions).toEqual([[BODY_B]]);
   });
 });
 
@@ -81,5 +89,36 @@ describe("HTTP apply SQL failure", () => {
       errorStmt: BODY_B,
       hash: HASH_B,
     });
+  });
+});
+
+describe("HTTP apply multi-statement (req 7)", () => {
+  it("records a transaction of two queries, not one query of the whole body", async () => {
+    const db = new FakeSql();
+    await applyFixture(db, { source: twoStmtChain });
+    expect(db.transactions).toEqual([[STMT_1, STMT_2]]);
+    expect(db.units).toEqual([STMT_1, STMT_2]);
+    expect(db.statements).not.toContain(TWO_BODY);
+  });
+
+  it("writes error/error_stmt on a failed two-statement file and does not mark applied", async () => {
+    const db = new FakeSql();
+    db.failBody = STMT_2;
+    const outcome = await applyFixture(db, { source: twoStmtChain });
+    expect(outcome).toEqual({ kind: "failure", exitCode: 1 });
+    expect(db.revisions).toHaveLength(1);
+    expect(db.revisions[0]).toMatchObject({
+      version: "20260821000000",
+      applied: 0,
+      error: "sql failed",
+      errorStmt: TWO_BODY,
+    });
+  });
+
+  it("applies CREATE INDEX CONCURRENTLY outside a transaction", async () => {
+    const db = new FakeSql();
+    await applyFixture(db, { source: chainOf("20260821000001_concurrent.sql", CONCURRENT_BODY) });
+    expect(db.transactions).toEqual([]);
+    expect(db.units).toEqual([CONCURRENT_BODY]);
   });
 });

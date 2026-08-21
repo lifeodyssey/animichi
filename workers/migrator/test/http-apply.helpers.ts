@@ -1,5 +1,6 @@
-import type { ChainSource } from "../src/chain";
+import { mapSource, type ChainSource } from "../src/chain";
 import { QueueLock } from "../src/lock";
+import type { ContainerOutcome } from "../src/migration";
 import type { SqlClient, SqlParam, SqlParams } from "../src/sql";
 import { applyHttp, type HttpApplyInput } from "../src/http-apply";
 
@@ -17,6 +18,11 @@ export const HASH_B = "h1:hash-turn-outbox-bbbbbbbbbbbbbbbbbbbbbbbb=";
 export const BODY_A = "CREATE TABLE public.turn_outcome (id int);";
 export const BODY_B = "CREATE TABLE public.turn_outbox_events (id int);";
 export const HEAD_B = "20260814191301_turn_idempotency_outbox";
+export const STMT_1 = "CREATE TABLE public.t1 (id int);";
+export const STMT_2 = "CREATE TABLE public.t2 (id int);";
+export const TWO_BODY = `${STMT_1} ${STMT_2}`;
+export const TWO_FILE = "20260821000000_two_stmt.sql";
+export const CONCURRENT_BODY = "CREATE INDEX CONCURRENTLY idx_t ON public.t (id);";
 
 const BODIES: Record<string, string> = { [FILE_A]: BODY_A, [FILE_B]: BODY_B };
 const FIXTURE_SUM = ["h1:fixture-directory-sum", `${FILE_A} ${HASH_A}`, `${FILE_B} ${HASH_B}`, ""].join("\n");
@@ -25,6 +31,8 @@ export const fixtureChain: ChainSource = {
   atlasSum: (): string => FIXTURE_SUM,
   file: (name: string): string => bodyOf(BODIES, name),
 };
+
+export const twoStmtChain: ChainSource = chainOf(TWO_FILE, TWO_BODY);
 
 export interface RevisionInsert {
   version: string;
@@ -41,10 +49,11 @@ export interface RevisionInsert {
 export class FakeSql implements SqlClient {
   readonly units: string[] = [];
   readonly statements: string[] = [];
+  readonly transactions: string[][] = [];
   readonly revisions: RevisionInsert[] = [];
   failBody: string | undefined;
-  private gate: Promise<void> | undefined;
-  private gateBody: string | undefined;
+  gate: Promise<void> | undefined;
+  gateBody: string | undefined;
 
   alreadyApplied(version: string): void {
     this.revisions.push(appliedRow(version));
@@ -56,35 +65,43 @@ export class FakeSql implements SqlClient {
   }
 
   connect = (_dsn: string): SqlClient => this;
-
-  async query(sql: string, params?: SqlParams): Promise<unknown> {
-    this.statements.push(sql);
-    if (sql.includes("SELECT") && sql.includes("atlas_schema_revisions")) return this.selectApplied();
-    if (sql.includes("INSERT") && sql.includes("atlas_schema_revisions")) return this.insert(params);
-    return await this.execUnit(sql);
-  }
+  query = (sql: string, params?: SqlParams): Promise<unknown> => fakeQuery(this, sql, params);
+  transaction = (statements: readonly string[]): Promise<unknown> => fakeTx(this, statements);
 
   head(): string | null {
     const row = this.revisions.at(-1);
     if (row === undefined || row.applied < 1) return null;
     return `${row.version}_${row.description}`;
   }
+}
 
-  private selectApplied(): { version: string }[] {
-    return this.revisions.filter((row) => row.applied >= 1).map((row) => ({ version: row.version }));
-  }
+async function fakeQuery(db: FakeSql, sql: string, params?: SqlParams): Promise<unknown> {
+  db.statements.push(sql);
+  if (sql.includes("SELECT") && sql.includes("atlas_schema_revisions")) return selectApplied(db);
+  if (sql.includes("INSERT") && sql.includes("atlas_schema_revisions")) return insertRevision(db, params);
+  return execUnit(db, sql);
+}
 
-  private insert(params?: SqlParams): unknown[] {
-    this.revisions.push(revisionFrom(params ?? []));
-    return [];
-  }
+async function fakeTx(db: FakeSql, statements: readonly string[]): Promise<unknown> {
+  db.transactions.push([...statements]);
+  for (const stmt of statements) await execUnit(db, stmt);
+  return [];
+}
 
-  private async execUnit(sql: string): Promise<unknown[]> {
-    this.units.push(sql);
-    if (this.gateBody === sql && this.gate !== undefined) await this.gate;
-    if (this.failBody === sql) throw new Error("sql failed");
-    return [];
-  }
+function selectApplied(db: FakeSql): { version: string }[] {
+  return db.revisions.filter((row) => row.applied >= 1).map((row) => ({ version: row.version }));
+}
+
+function insertRevision(db: FakeSql, params?: SqlParams): unknown[] {
+  db.revisions.push(revisionFrom(params ?? []));
+  return [];
+}
+
+async function execUnit(db: FakeSql, sql: string): Promise<unknown[]> {
+  db.units.push(sql);
+  if (db.gateBody === sql && db.gate !== undefined) await db.gate;
+  if (db.failBody === sql) throw new Error("sql failed");
+  return [];
 }
 
 function bodyOf(files: Record<string, string>, name: string): string {
@@ -94,10 +111,11 @@ function bodyOf(files: Record<string, string>, name: string): string {
 }
 
 function appliedRow(version: string): RevisionInsert {
+  return { ...revisionStamp(), version, description: "preapplied", applied: 1 };
+}
+
+function revisionStamp(): Omit<RevisionInsert, "version" | "description" | "applied"> {
   return {
-    version,
-    description: "preapplied",
-    applied: 1,
     executedAt: FIXED_NOW.toISOString(),
     executionTime: 0,
     error: null,
@@ -108,12 +126,21 @@ function appliedRow(version: string): RevisionInsert {
 }
 
 function revisionFrom(params: SqlParams): RevisionInsert {
+  return { ...revisionHead(params), ...revisionTail(params) };
+}
+
+function revisionHead(params: SqlParams): Pick<RevisionInsert, "version" | "description" | "applied" | "executedAt" | "executionTime"> {
   return {
     version: str(params, 0),
     description: str(params, 1),
     applied: num(params, 2),
     executedAt: str(params, 3),
     executionTime: num(params, 4),
+  };
+}
+
+function revisionTail(params: SqlParams): Pick<RevisionInsert, "error" | "errorStmt" | "hash" | "operatorVersion"> {
+  return {
     error: nullable(params[5]),
     errorStmt: nullable(params[6]),
     hash: str(params, 7),
@@ -133,7 +160,11 @@ function nullable(value: SqlParam | undefined): string | null {
   return typeof value === "string" ? value : null;
 }
 
-export function applyFixture(db: FakeSql, extra: Partial<HttpApplyInput> = {}): Promise<unknown> {
+export function chainOf(filename: string, body: string): ChainSource {
+  return mapSource(`h1:sum\n${filename} h1:hash-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=\n`, { [filename]: body });
+}
+
+export function applyFixture(db: FakeSql, extra: Partial<HttpApplyInput> = {}): Promise<ContainerOutcome> {
   return applyHttp({
     dsn: DSN,
     source: fixtureChain,
@@ -142,4 +173,11 @@ export function applyFixture(db: FakeSql, extra: Partial<HttpApplyInput> = {}): 
     now: (): Date => FIXED_NOW,
     ...extra,
   });
+}
+
+export function workerHttpDeps(db: FakeSql) {
+  return {
+    runContainer: (dsn: string) => applyFixture(db, { dsn }),
+    readAppliedHead: (): Promise<string | null> => Promise.resolve(db.head()),
+  };
 }

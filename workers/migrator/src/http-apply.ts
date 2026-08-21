@@ -2,6 +2,7 @@ import { filesFrom, type ChainFile, type ChainSource } from "./chain";
 import type { ApplyLock } from "./lock";
 import type { ContainerOutcome } from "./migration";
 import { assertDirectDsn, type SqlClient, type SqlFactory, type SqlParam } from "./sql";
+import { needsTxNone, splitSql } from "./sql-split";
 
 /**
  * Atlas v0.30 `public.atlas_schema_revisions` shape this path writes:
@@ -82,12 +83,26 @@ async function applyOne(
 }
 
 async function execUnit(sql: SqlClient, body: string): Promise<Error | undefined> {
+  return execCaught(() => applyStatements(sql, splitSql(body)));
+}
+
+async function execCaught(run: () => Promise<unknown>): Promise<Error | undefined> {
   try {
-    await sql.query(body);
+    await run();
     return undefined;
   } catch (error) {
     return error instanceof Error ? error : new Error(String(error));
   }
+}
+
+function applyStatements(sql: SqlClient, statements: readonly string[]): Promise<unknown> {
+  if (statements.length === 0) return Promise.resolve();
+  if (statements.some(needsTxNone)) return runSerial(sql, statements);
+  return sql.transaction(statements);
+}
+
+async function runSerial(sql: SqlClient, statements: readonly string[]): Promise<void> {
+  for (const stmt of statements) await sql.query(stmt);
 }
 
 async function recordFailure(sql: SqlClient, file: ChainFile, error: Error, at: Date): Promise<ContainerOutcome> {

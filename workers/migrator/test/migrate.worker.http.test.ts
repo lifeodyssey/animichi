@@ -1,8 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { applyHttp } from "../src/http-apply";
-import { QueueLock } from "../src/lock";
 import { FIXED_NOW, makeApp, post, testEnv } from "./migrate.worker.helpers";
-import { FakeSql, HEAD_B, fixtureChain } from "./http-apply.helpers";
+import { FakeSql, HEAD_B, workerHttpDeps } from "./http-apply.helpers";
 
 // #1124 AC5 + extra — HTTP seam is OIDC + empty/object {expectedHead?} only;
 // POST /migrate with expectedHead matching the applied chain returns 200.
@@ -16,24 +14,10 @@ afterAll(() => {
   vi.useRealTimers();
 });
 
-function httpDeps(db: FakeSql) {
-  return {
-    runContainer: (dsn: string) =>
-      applyHttp({
-        dsn,
-        source: fixtureChain,
-        connect: db.connect,
-        lock: new QueueLock(),
-        now: (): Date => FIXED_NOW,
-      }),
-    readAppliedHead: (): Promise<string | null> => Promise.resolve(db.head()),
-  };
-}
-
 describe("POST /migrate HTTP seam (AC5)", () => {
   it("ignores raw SQL and a down-migration in the request body", async () => {
     const db = new FakeSql();
-    const { app, token } = await makeApp(httpDeps(db));
+    const { app, token } = await makeApp(workerHttpDeps(db));
     const res = await app.request(
       post({ sql: DROP_SQL, down: true, migration: DROP_SQL }, token),
       {},
@@ -46,7 +30,7 @@ describe("POST /migrate HTTP seam (AC5)", () => {
 
   it("accepts an empty JSON object body", async () => {
     const db = new FakeSql();
-    const { app, token } = await makeApp(httpDeps(db));
+    const { app, token } = await makeApp(workerHttpDeps(db));
     const res = await app.request(
       new Request("https://migrator.test/migrate", {
         method: "POST",
@@ -73,7 +57,7 @@ describe("POST /migrate HTTP apply default", () => {
 describe("POST /migrate HTTP apply (expectedHead)", () => {
   it("returns 200 and appliedHead equal to expected when the chain matches", async () => {
     const db = new FakeSql();
-    const { app, token } = await makeApp(httpDeps(db));
+    const { app, token } = await makeApp(workerHttpDeps(db));
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
