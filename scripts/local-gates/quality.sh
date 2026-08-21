@@ -89,6 +89,7 @@ run bash "$GS/post-deploy-assert-probes.test.sh"
 run bash "$GS/resolve-worker-url.test.sh"
 run bash "$GS/vite-env-preflight.test.sh"
 run shellcheck "$GS/post-deploy-assert.sh" "$GS/post-deploy-assert.test.sh" "$GS/post-deploy-assert-probes.test.sh" "$GS/edge-showcase-mode.sh" "$GS/mock-origin.sh" "$GS/resolve-worker-url.sh" "$GS/resolve-worker-url.test.sh" "$GS/vite-env-preflight.sh" "$GS/vite-env-preflight.test.sh"
+run bash scripts/semgrep-raw-sql-test.sh
 run actionlint
 
 printf 'quality: all checks passed\n'

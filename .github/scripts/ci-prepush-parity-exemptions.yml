@@ -1,64 +1,79 @@
-# CI checkpoints that pre-push does not run. Every entry needs a reason
-# naming the CI-only resource: secrets / OIDC / cloud / deploy.
-# Identity is a discovered fingerprint (script/cmd/uses), not a job name.
+# CI checkpoints that pre-push does not run. Every entry needs a structured
+# reason: `<class>: <CI-only resource> — …` with class one of
+# secrets / OIDC / cloud / deploy. Identity is a discovered fingerprint
+# (script/cmd/uses), not a job name.
 exemptions:
   - id: cmd:$BUILD_FILTER::pnpm build
-    reason: deploy — reusable component build runs on the staging/prod deploy path
+    reason: "deploy: staging/prod deploy path — reusable component build"
   - id: cmd:agent::pytest src/animichi/tests/eval/test_agent_eval.py::test_agent_trajectory integration
-    reason: secrets — paid model evals need ZEN_GO_API_KEY
+    reason: "secrets: ZEN_GO_API_KEY — paid model evals"
   - id: cmd:atlas migrate apply
-    reason: secrets — live Neon DSN on the deploy/cutover path
+    reason: "secrets: live Neon DSN — Atlas apply on the deploy/cutover path"
   - id: cmd:e2e::pnpm exec playwright test
-    reason: cloud — Playwright browsers against a CI-built worker artifact
+    reason: "cloud: CI-built worker artifact — Playwright browsers against the emitted Worker"
+  - id: cmd:infra/neon-secrets::pnpm typecheck
+    reason: "cloud: terraform-provider kislerdm/neon — neon-secrets tsc needs the generated gitignored Neon SDK"
+  - id: cmd:infra/neon-secrets::pulumi login
+    reason: "secrets: Pulumi backend credentials (R2 + passphrase) — neon-secrets stack"
+  - id: cmd:infra/neon-secrets::pulumi preview
+    reason: "secrets: Pulumi R2 state backend — neon-secrets credentialed preview"
+  - id: cmd:infra/neon-secrets::pulumi stack
+    reason: "secrets: Pulumi stack export — neon-secrets deploy-path live state"
+  - id: cmd:infra/neon-secrets::pulumi up
+    reason: "deploy: staging/prod — neon-secrets mutating pulumi up"
   - id: cmd:infra::pulumi login
-    reason: secrets — Pulumi backend credentials (R2 + passphrase)
+    reason: "secrets: Pulumi backend credentials (R2 + passphrase)"
   - id: cmd:infra::pulumi preview
-    reason: secrets — credentialed preview against the live R2 state backend
+    reason: "secrets: Pulumi R2 state backend — credentialed preview"
   - id: cmd:infra::pulumi stack
-    reason: secrets — live Pulumi stack select/export on the deploy path
-  - id: cmd:infra::pulumi up
-    reason: deploy — mutating pulumi up is the staging/prod apply
+    reason: "secrets: Pulumi stack select/export — deploy-path live state"
   - id: "cmd:python3 $CLI generate --component $TARGET_COMPONENT --source-sha $source_sha --artifact $artifact --sbom-format cyclonedx-1.5 --sbom-digest $digest --schema-provider atlas --schema-head 20260811000002 --schema-digest $digest --config-version 1 --config-commit $source_sha --dep catalog=$source_sha > $manifest"
-    reason: deploy — promotion manifest is generated from the deploy-path artifact
+    reason: "deploy: deploy-path artifact — promotion manifest generation"
   - id: cmd:uv tool run semgrep@$SEMGREP_VERSION --config p/python --config p/typescript --config p/javascript --config .semgrep --error .
-    reason: cloud — Semgrep registry rule packs (p/python, p/typescript, p/javascript)
+    reason: "cloud: Semgrep registry (p/python, p/typescript, p/javascript)"
   - id: cmd:uvx zizmor@$ZIZMOR_VERSION --cache-dir ~/.cache/zizmor .
-    reason: secrets — zizmor impostor-commit audits the GitHub API with GH_TOKEN
+    reason: "secrets: GH_TOKEN — zizmor impostor-commit GitHub API audit"
+  - id: script:.github/scripts/edge-showcase-mode.sh
+    reason: "deploy: live worker environment — showcase-mode read on the post-deploy path"
   - id: script:.github/scripts/inject-web-runtime-config.mjs
-    reason: deploy — runtime-config injection is a deploy-artifact step
+    reason: "deploy: deploy-artifact — runtime-config injection"
   - id: script:.github/scripts/neon-secrets-adopt.sh
-    reason: secrets — adopts Neon role DSNs into the Cloudflare secrets store
+    reason: "secrets: Neon role DSNs — Cloudflare secrets store adoption"
+  - id: script:.github/scripts/post-deploy-assert.sh
+    reason: "deploy: live worker URL — post-deploy smoke against the deployed origin"
   - id: script:.github/scripts/promote_deployed.py
-    reason: deploy — reads platform deployed-version metadata with deploy credentials
+    reason: "deploy: platform deployed-version metadata — deploy credentials"
   - id: script:.github/scripts/release-eligibility.sh
-    reason: deploy — production eligibility gate against the pinned revision
+    reason: "deploy: production eligibility — pinned revision gate"
   - id: script:.github/scripts/release-promotion-selfcheck.sh
-    reason: deploy — production promotion self-check on the deploy path
+    reason: "deploy: production promotion self-check"
+  - id: script:.github/scripts/resolve-worker-url.sh
+    reason: "deploy: Cloudflare API — resolve the deployed worker URL"
+  - id: script:.github/scripts/vite-env-preflight.sh
+    reason: "deploy: production VITE_* build env — secret-shape preflight on the deploy path"
   - id: script:scripts/local-gates/pr-review-check.sh
-    reason: secrets — GitHub token to collect PR review threads and post statuses
+    reason: "secrets: GITHUB_TOKEN — PR review threads and statuses"
   - id: script:scripts/local-gates/pr-review-gate-step.sh
-    reason: secrets — GitHub token to pin the PR head and post the review-gate status
+    reason: "secrets: GITHUB_TOKEN — PR head pin and review-gate status"
   - id: script:scripts/migration-head.sh
-    reason: secrets — reads the live Atlas/Neon migration head
-  - id: script:scripts/semgrep-raw-sql-test.sh
-    reason: cloud — Semgrep CLI is the security-lane scanner, not a pre-push prerequisite
+    reason: "secrets: live Atlas/Neon migration head"
   - id: script:scripts/vet-openapi.ts
-    reason: cloud — published-contract baseline is the GitHub PR/merge-group base SHA
+    reason: "cloud: GitHub PR/merge-group base SHA — published-contract baseline"
   - id: uses:cloudflare/wrangler-action
-    reason: deploy — wrangler-action ships workers to Cloudflare
+    reason: "deploy: cloudflare/wrangler-action — ships workers to Cloudflare"
   - id: uses:codecov/codecov-action
-    reason: OIDC — Codecov upload authenticates with GitHub OIDC
+    reason: "OIDC: codecov-action — coverage upload authenticates with GitHub OIDC"
   - id: uses:github/codeql-action/analyze
-    reason: cloud — CodeQL analysis on GitHub-hosted runners
+    reason: "cloud: GitHub-hosted CodeQL runners — analyze"
   - id: uses:github/codeql-action/init
-    reason: cloud — CodeQL init on GitHub-hosted runners
+    reason: "cloud: GitHub-hosted CodeQL runners — init"
   - id: uses:gitleaks/gitleaks-action
-    reason: secrets — gitleaks-action needs GITHUB_TOKEN / GITLEAKS_LICENSE
+    reason: "secrets: GITHUB_TOKEN / GITLEAKS_LICENSE — gitleaks-action"
   - id: uses:google/osv-scanner-action/osv-scanner-action
-    reason: cloud — OSV scanner queries the live OSV vulnerability API
+    reason: "cloud: live OSV vulnerability API — osv-scanner-action"
   - id: uses:pulumi/actions
-    reason: deploy — pulumi/actions with a command is the deploy-path apply
+    reason: "deploy: pulumi/actions — deploy-path apply"
   - id: uses:pypa/gh-action-pip-audit
-    reason: cloud — pip-audit GitHub Action is not a local agent extra
+    reason: "cloud: pypa/gh-action-pip-audit — GitHub Action queries the live PyPI/OSV advisory API"
   - id: uses:trufflesecurity/trufflehog
-    reason: cloud — TruffleHog verified-secret detectors call live APIs
+    reason: "cloud: TruffleHog verified-secret detectors — live APIs"

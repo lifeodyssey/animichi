@@ -14,7 +14,8 @@ require_relative "ci_prepush_parity_extract"
 
 ParityPaths = Struct.new(:root, :workflows, :quality, :pre_push, :exemptions, keyword_init: true)
 
-REASON_RE = /\b(secret|secrets|oidc|cloud|deploy)\b/i
+REASON_CLASS = /\A(secrets|OIDC|cloud|deploy):\s+\S/
+REASON_WAFFLE = /\bnot a (?:pre-push prerequisite|local agent extra)\b/i
 DRIFT_ALIAS = "cmd:contract::git diff --cached --exit-code -- openapi.json users-openapi.json agent-openapi.json"
 
 def default_parity_paths
@@ -29,19 +30,25 @@ def default_parity_paths
 end
 
 def discover_ci_checkpoints(paths)
-  found = []
-  seen = {}
-  queue = enqueue_merge_gating(paths.workflows)
+  found, seen, queue = [], {}, enqueue_merge_gating(paths.workflows)
+  drain_workflow_queue(queue, seen, found, paths.root)
+  found.uniq.sort
+end
+
+def drain_workflow_queue(queue, seen, found, root)
   until queue.empty?
     path = queue.shift
     next if seen[path]
 
     seen[path] = true
-    fps, reusables = workflow_checkpoints(path, paths.root)
-    found.concat(fps)
-    enqueue_reusables(queue, paths.root, reusables)
+    take_workflow(path, root, found, queue)
   end
-  found.uniq.sort
+end
+
+def take_workflow(path, root, found, queue)
+  fps, reusables = workflow_checkpoints(path, root)
+  found.concat(fps)
+  enqueue_reusables(queue, root, reusables)
 end
 
 def enqueue_reusables(queue, root, reusables)
@@ -55,29 +62,35 @@ def workflow_checkpoints(path, root)
   wf = load_yaml_file(path)
   return [[], []] unless wf.is_a?(Hash) && wf["jobs"].is_a?(Hash)
 
-  found = []
-  reusables = []
-  wf["jobs"].each_value do |job|
-    next unless job.is_a?(Hash)
-    next if skip_dependabot_job?(job)
+  collect_jobs(wf["jobs"], root)
+end
 
-    collect_job(job, root, found, reusables)
-  end
+def collect_jobs(jobs, root)
+  found, reusables = [], []
+  jobs.each_value { |job| collect_one_job(job, root, found, reusables) }
   [found, reusables]
 end
 
+def collect_one_job(job, root, found, reusables)
+  return unless job.is_a?(Hash)
+  return if skip_dependabot_job?(job)
+
+  collect_job(job, root, found, reusables)
+end
+
 def collect_job(job, root, found, reusables)
-  if local_reusable?(job["uses"].to_s)
-    reusables << uses_action_name(job["uses"])
-    return
-  end
+  return enqueue_job_reusable(job, reusables) if local_reusable?(job["uses"].to_s)
 
+  collect_steps(job, root, found)
+end
+
+def enqueue_job_reusable(job, reusables)
+  reusables << uses_action_name(job["uses"])
+end
+
+def collect_steps(job, root, found)
   wd = job_working_directory(job)
-  Array(job["steps"]).each do |step|
-    next unless step.is_a?(Hash)
-
-    found.concat(step_checkpoints(step, wd, root))
-  end
+  Array(job["steps"]).each { |step| found.concat(step_checkpoints(step, wd, root)) if step.is_a?(Hash) }
 end
 
 def step_checkpoints(step, wd, root)
@@ -104,15 +117,19 @@ def composite_command_fps(name, inputs, step_wd, root)
   path = File.join(root, name, "action.yml")
   return [] unless File.exist?(path)
 
-  wd = inputs["working-directory"] || step_wd
-  found = []
-  inputs.each do |key, val|
-    next unless key.end_with?("command")
-    next if val.to_s.strip.empty?
+  command_input_fps(inputs, inputs["working-directory"] || step_wd)
+end
 
-    found.concat(fingerprints_from_run(val.to_s, wd))
-  end
+def command_input_fps(inputs, wd)
+  found = []
+  inputs.each { |key, val| append_command_input(found, key, val, wd) }
   found
+end
+
+def append_command_input(found, key, val, wd)
+  return unless key.end_with?("command") && !val.to_s.strip.empty?
+
+  found.concat(fingerprints_from_run(val.to_s, wd))
 end
 
 def ruff_action_fp(step, wd)
@@ -132,7 +149,7 @@ end
 def quality_checkpoints(quality_path)
   text = expand_gate_vars(File.read(quality_path))
   found = run_line_fps(text)
-  found.concat(text.scan(LISTED_SCRIPTS).map { |path| "script:#{path}" })
+  found.concat(syntax_script_fps(text))
   found.concat(glob_cov_patch(text, quality_path))
 end
 
@@ -166,16 +183,14 @@ def gate_checkpoints(pre_push_path)
 end
 
 def gate_body_fps(body)
-  found = []
-  body.lines.each do |line|
-    stripped = strip_shell_comment(line)
-    if stripped =~ /\bgate\s+(\S+)\s+(.+)/
-      found.concat(fingerprints_from_run(Regexp.last_match(2), Regexp.last_match(1)))
-    elsif stripped =~ /\brun\s+(.+)/
-      found.concat(fingerprints_from_run(Regexp.last_match(1), nil))
-    end
-  end
-  found
+  body.lines.flat_map { |line| gate_line_fps(strip_shell_comment(line)) }
+end
+
+def gate_line_fps(stripped)
+  return fingerprints_from_run(Regexp.last_match(2), Regexp.last_match(1)) if stripped =~ /\bgate\s+(\S+)\s+(.+)/
+  return fingerprints_from_run(Regexp.last_match(1), nil) if stripped =~ /\brun\s+(.+)/
+
+  []
 end
 
 def load_exemptions(path)
@@ -196,32 +211,27 @@ def exemption_ids(list)
 end
 
 def reason_violations(list)
-  found = []
-  list.each do |entry|
-    msg = reason_violation(entry)
-    found << msg if msg
-  end
-  found
+  list.map { |entry| reason_violation(entry) }.compact
 end
 
 def reason_violation(entry)
   reason = entry["reason"]
   return "#{entry['id']}: exemption is missing a reason field" unless reason.is_a?(String)
   return "#{entry['id']}: exemption reason is empty" if reason.strip.empty?
-  return nil if reason.match?(REASON_RE)
+  return nil if structured_reason?(reason)
 
-  "#{entry['id']}: reason must name secrets / OIDC / cloud / deploy"
+  "#{entry['id']}: reason must name a CI-only resource (secrets|OIDC|cloud|deploy: <resource>)"
+end
+
+def structured_reason?(reason)
+  reason.match?(REASON_CLASS) && !reason.match?(REASON_WAFFLE)
 end
 
 def parity_violations(paths)
-  ci = discover_ci_checkpoints(paths)
-  covered = discover_prepush_coverage(paths)
-  remainder = ci - covered
+  remainder = discover_ci_checkpoints(paths) - discover_prepush_coverage(paths)
   list = load_exemptions(paths.exemptions)
   ids = exemption_ids(list)
-  leftover = remainder - ids
-  stale = ids - remainder
-  reason_violations(list) + leftover_lines(leftover) + stale_lines(stale)
+  reason_violations(list) + leftover_lines(remainder - ids) + stale_lines(ids - remainder)
 end
 
 def leftover_lines(leftover)

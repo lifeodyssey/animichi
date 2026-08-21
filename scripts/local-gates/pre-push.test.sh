@@ -67,6 +67,7 @@ ALL_COMMANDS=(
   "pnpm run test:smoke"
   "pnpm run test:spike"
   # edge: CI build (production-config dry-run from repo root)
+  "check-edge-ratelimit-namespace.sh"
   "pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir"
   # contract: CI build drift checks
   "pnpm emit:openapi"

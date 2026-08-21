@@ -2,35 +2,38 @@
 
 # Command/script fingerprints from a workflow `run:` block or a gate script
 # line. Identity is the invoked script path or a normalized check command —
-# not a job name and not a YAML line number (#1114).
-
-CHECK_PREFIX = /\A(?:ruby(?:\s+-c)?|bash|sh|python3?|uvx|uv\s+tool\s+run|pnpm|npm|npx|node|atlas|actionlint|docker\s+build|wrangler|pulumi|sqlfluff|semgrep|playwright|make|ruff|mypy|vulture|pytest|shellcheck|git\s+diff)\b/
+# not a job name and not a YAML line number (#1114). Working-directory is
+# part of the identity (`infra/neon-secrets` ≠ `infra`). `ruby -c` is
+# syntax-check-only (`syntax:`), not execution (`script:`).
 
 SCRIPT_INVOKE = %r{
-  (?:ruby(?:\s+-c)?|bash|python3?|node(?:\s+--test)?|uv\s+run\s+--script)
+  (?:ruby|bash|python3?|node(?:\s+--test)?|uv\s+run\s+--script)
   (?:\s+--import\s+\S+)*
   \s+
   ([.\w/-]+\.(?:rb|sh|py|ts|mjs))
 }x
 
+RUBY_SYNTAX = /ruby\s+-c\s+([.\w.\/"-]+\.rb)/
 LISTED_SCRIPTS = %r{(?:\.github/scripts|scripts/local-gates)/[\w.-]+\.(?:rb|sh|py)}
-
 SHELL_NOISE = /\A(?:if|then|fi|for|do|done|case|esac|while|else|elif|in|return|exit|break|continue|local|export|declare|trap|shift|set|source|:)\b/
 ASSIGNMENT_ONLY = /\A[A-Za-z_][A-Za-z0-9_]*=(?:\S.*)?\z/
-TEST_BRACKET = /\A(?:\[|\[\[|test)\b/
+TEST_BRACKET = /\A(?:\[{1,2}|test)(?:\s|\z)/
+PLUMBING = /\A(?:curl|tar|mkdir|mv|cp|chmod|sha256sum|corepack|sleep|kill|tee|gh|echo|printf|cat|aws|jq|awk|sed|grep|rm|cd|true|false|read|cut|head|tail|find|tr|sort|uniq|wc|basename|dirname|date|ln|touch|install|cmp|diff|eval|exec|hash|wait|xargs)\b/
+CHECK_TOKEN = /\A[a-z][\w.-]*(?:\s|\z)/
+FOLDERS = %i[fold_script_rel fold_pytest fold_ruff fold_git_diff fold_playwright fold_atlas_apply fold_pulumi].freeze
 
 def strip_shell_comment(line)
-  in_s = false
-  in_d = false
-  out = +""
-  i = 0
-  while i < line.length
-    c = line[i]
-    consumed = comment_char(line, i, c, in_s, in_d, out)
+  ctx = { s: false, d: false, i: 0, out: +"" }
+  drain_comment(line, ctx)
+  ctx[:out].strip
+end
+
+def drain_comment(line, ctx)
+  while ctx[:i] < line.length
+    consumed = comment_char(line, ctx[:i], line[ctx[:i]], ctx[:s], ctx[:d], ctx[:out])
     break if consumed == :comment
-    in_s, in_d, i = consumed
+    ctx[:s], ctx[:d], ctx[:i] = consumed
   end
-  out.strip
 end
 
 def comment_char(line, i, char, in_s, in_d, out)
@@ -93,7 +96,7 @@ def package_from_dir(dir)
   return nil if parts.empty? || parts[0].include?("$") || parts[0].include?("{")
   return parts[1] if %w[apps workers packages].include?(parts[0]) && parts.size >= 2
 
-  parts[0]
+  parts.join("/")
 end
 
 def pnpm_filter(cmd)
@@ -115,20 +118,37 @@ def pnpm_dir_flag(cmd)
 end
 
 def strip_prefix_assignments(cmd)
-  cmd.sub(/\A(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S+)\s+)+/, "")
+  cmd.sub(/\A(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|[^\s$]+)\s+)+/, "")
 end
 
 def normalize_cmd(cmd)
-  s = strip_prefix_assignments(cmd.dup)
+  s = fold_uv_wrappers(strip_expanders(strip_prefix_assignments(cmd.dup)))
+  strip_cmd_noise(s)
+  collapse_pytest(s)
+end
+
+def strip_expanders(s)
   s.gsub!(/\$\{\{[^}]+\}\}/, "")
   s.gsub!(/\benv(?:\s+-u\s+\S+|\s+[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S+))*\s+/, "")
+  s
+end
+
+def fold_uv_wrappers(s)
   s.gsub!(/\buv run(?:\s+--(?:frozen|no-build|script|locked|no-sync)|\s+--no-binary-package\s+\S+)+/, "uv run")
   s.gsub!(/\buv tool run(?:\s+--no-build)?/, "uv tool run")
   s.gsub!(/\buvx(?:\s+--no-build)?/, "uvx")
+  s
+end
+
+def strip_cmd_noise(s)
   s.gsub!(/\s+--outdir\s+\S+/, "")
   s.gsub!(/\s+(?:-color|--color)\b/, "")
   s.gsub!(%r{\A\./actionlint\b}, "actionlint")
   s.gsub!(/\s+--env=""/, " --env=")
+  s
+end
+
+def collapse_pytest(s)
   s.gsub!(/\Auv run /, "")
   s.gsub!(/\Apython(?:3)? -m pytest\b/, "pytest")
   s.gsub(/\s+/, " ").strip
@@ -136,41 +156,36 @@ end
 
 def skip_check_cmd?(cmd)
   return true if cmd.empty? || cmd.match?(SHELL_NOISE) || cmd.match?(ASSIGNMENT_ONLY)
-  return true if cmd.match?(TEST_BRACKET) || cmd.start_with?("{", "}", "(", ")", ";;")
+  return true if cmd.match?(TEST_BRACKET) || cmd.start_with?("{", "}", "(", ")", ";;", "-")
+  return true if cmd.match?(/\A\w+\(\)/) || cmd.include?("+=")
   return true if setup_install?(cmd) || plumbing_cmd?(cmd)
-  return true if cmd.match?(/\Apython(?:3)? -c\b/) || cmd.include?("wrangler dev")
-  return true if cmd.match?(/\Aruby -c "\$/)
+  return true if cmd.match?(/\A(?:python(?:3)?|ruby) -c\b/) || cmd.include?("wrangler dev")
 
   false
 end
 
 def setup_install?(cmd)
-  cmd.match?(/\A(?:uv python install|uv sync|pnpm install|npm install)\b/) ||
+  cmd.match?(/\A(?:uv python install|uv sync|uv tool install|pnpm install|npm install)\b/) ||
     cmd.include?("playwright install") ||
     cmd.include?("playwright --version")
 end
 
 def plumbing_cmd?(cmd)
-  cmd.match?(/\A(?:curl|tar|mkdir|mv|cp|chmod|sha256sum|corepack|sleep|kill|tee|gh)\b/) ||
-    cmd.match?(/\Apulumi package add\b/) ||
-    cmd.match?(/\Agit (?:checkout --|add)\b/) ||
+  cmd.match?(PLUMBING) ||
+    cmd.match?(/\Apulumi (?:package add|config)\b/) ||
+    cmd.match?(/\Agit (?:checkout --detach|checkout --|add|show|rev-parse|merge-base)(?:\s|\z)/) ||
     cmd.include?("GITHUB_OUTPUT") ||
     cmd.include?("GITHUB_ENV") ||
     cmd.match?(%r{\Adocker build -f apps/agent/docker/})
 end
 
 def canonical_fingerprint(fp)
-  s = fp.gsub('"', "")
-  s = s.sub("::npm ", "::pnpm ").sub("::pnpm run ", "::pnpm ")
-  s = s.gsub("../../apps/agent/", "apps/agent/")
-  s = fold_script_rel(s)
-  s = fold_pytest(s)
-  s = fold_ruff(s)
-  s = fold_git_diff(s)
-  s = fold_playwright(s)
-  s = fold_atlas_apply(s)
-  s = fold_pulumi(s)
-  s
+  s = fold_cmd_aliases(fp.gsub('"', ""))
+  FOLDERS.reduce(s) { |acc, name| send(name, acc) }
+end
+
+def fold_cmd_aliases(s)
+  s.sub("::npm ", "::pnpm ").sub("::pnpm run ", "::pnpm ").gsub("../../apps/agent/", "apps/agent/")
 end
 
 def fold_script_rel(fp)
@@ -220,9 +235,18 @@ end
 
 def invoked_script_fps(text)
   found = text.scan(SCRIPT_INVOKE).flatten.map { |path| "script:#{path.sub(%r{\A\./}, "")}" }
-  return found unless text.include?("ruby -c")
+  found.concat(syntax_script_fps(text))
+end
 
-  found.concat(text.scan(LISTED_SCRIPTS).map { |path| "script:#{path}" })
+def syntax_script_fps(text)
+  found = text.scan(RUBY_SYNTAX).flatten.map { |path| "syntax:#{path.gsub(/["']/, "")}" }
+  found.concat(ruby_c_for_list(text).map { |path| "syntax:#{path}" })
+end
+
+def ruby_c_for_list(text)
+  return [] unless text.include?("ruby -c") && text =~ /for\s+\w+\s+in\s+([\s\S]*?)\s+do/
+
+  Regexp.last_match(1).scan(LISTED_SCRIPTS)
 end
 
 def direct_script_cmd(cmd)
@@ -240,20 +264,26 @@ def command_fps(text, workdir)
   found
 end
 
+def skip_raw?(raw)
+  s = strip_shell_comment(raw).strip
+  return true if s.match?(/\A(?:\*|[A-Za-z][\w.-]*)\)/)
+  return true if s.start_with?("$", "'", "/", "+", "*", "!", "#")
+  s.match?(/\A(?:EOF|esac|in_block|check_matches)\b/)
+end
+
 def one_command_fp(raw, workdir)
+  return nil if skip_raw?(raw)
   cmd = normalize_cmd(raw)
   return nil if skip_check_cmd?(cmd) || cmd.match?(SCRIPT_INVOKE)
-
   script_fp = direct_script_cmd(cmd)
   return script_fp if script_fp
-
   pkg_command_fp(cmd, workdir)
 end
 
 def pkg_command_fp(cmd, workdir)
   pkg, rest = pnpm_filter(cmd)
   rest = normalize_cmd(rest)
-  return nil unless rest.match?(CHECK_PREFIX)
+  return nil if rest.empty? || !rest.match?(CHECK_TOKEN)
 
   pkg ||= package_from_dir(workdir)
   prefix = pkg ? "#{pkg}::" : ""

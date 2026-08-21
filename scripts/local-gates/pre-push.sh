@@ -46,6 +46,7 @@ PREREQ_TOOLS=(
   "docker: Docker Desktop/colima with the daemon running (fresh-schema + agent integration; the gate fails closed when it is unavailable)"
   "actionlint: brew install actionlint (CI pins v1.7.7)"
   "shellcheck: brew install shellcheck"
+  "semgrep: uv tool install semgrep==1.172.0 (CI pins 1.172.0)"
   "git: required for the contract drift checks"
 )
 
@@ -98,6 +99,7 @@ check_prereqs() {
 
 run() {
   printf '\n==> %s\n' "$*"
+  [ -n "${GATE_TEST_LOG:-}" ] && printf '%s :: %s\n' "$PWD" "$*" >> "$GATE_TEST_LOG"
   "$@"
 }
 
@@ -106,7 +108,6 @@ gate() {
   printf '\n==> [%s] %s\n' "$dir" "$*"
   (cd "$dir" && "$@")
 }
-
 # Routing state: bound by init_route, consumed by route_has / route_includes.
 changed=""
 ALL=false
@@ -151,7 +152,6 @@ setup_gate_env() {
   GATE_OUTDIR="$(mktemp -d)"
   trap 'rm -rf "${GATE_OUTDIR:-}"' EXIT
 }
-
 # finish_gate: the pass banner (the behavioral tests assert its exact format).
 finish_gate() {
   printf '\npre-push gate: deterministic set for [%s] passed.\n' "${1//$'\n'/,}"
