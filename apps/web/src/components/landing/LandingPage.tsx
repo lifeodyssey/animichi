@@ -106,17 +106,31 @@ function BrandMark() {
   );
 }
 
-function LandingBar({ onLogin }: { onLogin: () => void }) {
+/** Two-tone lettering: plain ink first half, teal-block accent second half. */
+function LandingWordmark() {
   const landing = useDict().landing;
   return (
+    <span className="landing__wordmark">
+      <span className="landing__wordmark-pre">{landing.brand_pre}</span>
+      <span className="landing__wordmark-accent">{landing.brand_accent}</span>
+    </span>
+  );
+}
+
+/** Brand lockup: the torii/fox emblem beside the wordmark. */
+function LandingBrand() {
+  return (
+    <span className="landing__brand">
+      <BrandMark />
+      <LandingWordmark />
+    </span>
+  );
+}
+
+function LandingBar({ onLogin }: { onLogin: () => void }) {
+  return (
     <header className="landing__bar">
-      <span className="landing__brand">
-        <BrandMark />
-        <span className="landing__wordmark">
-          <span className="landing__wordmark-pre">{landing.brand_pre}</span>
-          <span className="landing__wordmark-accent">{landing.brand_accent}</span>
-        </span>
-      </span>
+      <LandingBrand />
       <BarActions onLogin={onLogin} />
     </header>
   );
@@ -139,16 +153,23 @@ function LandingFooter() {
   );
 }
 
-/** Marketing landing: journal-card hero on desktop, fox welcome on mobile (CSS-switched). */
-export function LandingPage() {
-  const entry = useEntryPoint();
-  return <main className="landing">
+/** The wide-viewport landing surface: decor, nav bar, hero and footer. */
+function DesktopLanding({ entry }: { entry: EntryPoint }) {
+  return (
     <div className="landing__page">
       <LandingDeco />
       <LandingBar onLogin={entry.openPlain} />
       <Hero onStart={entry.openSearch} />
       <LandingFooter />
     </div>
+  );
+}
+
+/** Marketing landing: journal-card hero on desktop, fox welcome on mobile (CSS-switched). */
+export function LandingPage() {
+  const entry = useEntryPoint();
+  return <main className="landing">
+    <DesktopLanding entry={entry} />
     <MobileFoxHome onLogin={entry.openPlain} onStart={entry.openPlain} />
     <DayNightToggle />
     <EntryGate entry={entry} />

@@ -72,15 +72,26 @@ function chipStyleFor(index: number) {
   return CHIP_STYLES[index % CHIP_STYLES.length] ?? CHIP_STYLES[0];
 }
 
-function ChipList({ onPick }: { onPick: (example: string) => void }) {
+interface ExampleChipProps {
+  example: string;
+  index: number;
+  onPick: (example: string) => void;
+}
+
+/** One coloured example chip: its tone and icon come from its position. */
+function ExampleChip({ example, index, onPick }: ExampleChipProps) {
+  const { tone, Icon } = chipStyleFor(index);
+  return (
+    <button type="button" className={`hero-chip hero-chip--${tone}`} onClick={() => { onPick(example); }}><Icon />{example}</button>
+  );
+}
+
+function ExampleChips({ onPick }: { onPick: (example: string) => void }) {
   const landing = useDict().landing;
   return (<div className="hero-search__chips">
-    {landing.examples.map((example, index) => {
-      const { tone, Icon } = chipStyleFor(index);
-      return (
-        <button key={example} type="button" className={`hero-chip hero-chip--${tone}`} onClick={() => { onPick(example); }}><Icon />{example}</button>
-      );
-    })}
+    {landing.examples.map((example, index) => (
+      <ExampleChip key={example} example={example} index={index} onPick={onPick} />
+    ))}
   </div>);
 }
 
@@ -91,6 +102,6 @@ export function HeroSearch({ onSubmit }: HeroSearchProps) {
   return (
     <div className="hero-search">
       <SearchBar search={search} />
-      <ChipList onPick={pick} />
+      <ExampleChips onPick={pick} />
     </div>);
 }
