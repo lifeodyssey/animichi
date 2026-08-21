@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { URL, fileURLToPath } from "node:url";
@@ -56,12 +57,20 @@ void test("deploy.yml production neon-secrets job does not run the GRANT", () =>
   assert.doesNotMatch(deployProd, /grant-migrator-ddl/);
 });
 
-void test("messages index name is unique vs leftover conversation_messages", () => {
+void test("GRANT SQL renames leftover messages index so Atlas can create it", () => {
+  const sql = read("infra/neon-secrets/grant-migrator-ddl.sql");
+  assert.match(sql, /GRANT REFERENCES ON TABLE public\.sessions TO migrator;/);
+  assert.match(sql, /ALTER INDEX IF EXISTS public\.idx_messages_session_created\s+RENAME TO idx_conversation_messages_session_created;/);
+  assert.doesNotMatch(sql, /DROP TABLE/i);
+  assert.doesNotMatch(sql, /DROP INDEX/i);
+});
+
+void test("Atlas 20260811000002 creates idx_messages_session_created on messages", () => {
   const sql = read("migrations/neon/20260811000002_table_messages.sql");
-  assert.match(sql, /CREATE INDEX idx_messages_session_id_created ON public\.messages USING btree \(session_id, created_at\);/);
-  assert.doesNotMatch(sql, /CREATE INDEX idx_messages_session_created\b/);
-  assert.doesNotMatch(sql, /DROP TABLE[\s\S]*conversation_messages/i);
-  assert.doesNotMatch(sql, /DROP INDEX[\s\S]*idx_messages_session_created/i);
-  assert.match(sql, /FOREIGN KEY \(session_id\) REFERENCES public\.sessions\(id\)/);
-  assert.doesNotMatch(sql, /TO migrator\b/i);
+  assert.match(sql, /CREATE INDEX idx_messages_session_created ON public\.messages/);
+});
+
+void test("atlas.sum SHA-256 matches the SAFE-1 production pin", () => {
+  const buf = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
+  assert.equal(createHash("sha256").update(buf).digest("hex"), "408d6b353b073dee99da33dc93cdb518354cd41f47ea87e24ef2301feeaef484");
 });

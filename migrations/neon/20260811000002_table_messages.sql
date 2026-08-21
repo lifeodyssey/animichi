@@ -22,6 +22,6 @@ ALTER TABLE ONLY public.messages
 ALTER TABLE ONLY public.messages
     ADD CONSTRAINT messages_session_id_fkey FOREIGN KEY (session_id) REFERENCES public.sessions(id) ON DELETE CASCADE;
 
-CREATE INDEX idx_messages_session_id_created ON public.messages USING btree (session_id, created_at);
+CREATE INDEX idx_messages_session_created ON public.messages USING btree (session_id, created_at);
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.messages TO agent_svc;
