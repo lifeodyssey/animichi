@@ -55,3 +55,11 @@ void test("deploy.yml production neon-secrets job does not run the GRANT", () =>
   assert.match(deployProd, /environment: production/);
   assert.doesNotMatch(deployProd, /grant-migrator-ddl/);
 });
+
+void test("messages index name is unique vs leftover conversation_messages", () => {
+  const sql = read("migrations/neon/20260811000002_table_messages.sql");
+  assert.match(sql, /CREATE INDEX idx_messages_session_id_created ON public\.messages USING btree \(session_id, created_at\);/);
+  assert.doesNotMatch(sql, /CREATE INDEX idx_messages_session_created\b/);
+  assert.match(sql, /FOREIGN KEY \(session_id\) REFERENCES public\.sessions\(id\)/);
+  assert.doesNotMatch(sql, /TO migrator\b/i);
+});
