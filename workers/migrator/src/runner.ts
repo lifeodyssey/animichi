@@ -128,7 +128,7 @@ export class CloudflareContainerRunner implements ContainerRunner {
     let state = { status: "running" };
     for (;;) {
       state = await this.pollOnce(stub);
-      if (state.status === "stopped_with_code") return terminalOutcome(state);
+      if (isTerminalStatus(state.status)) return terminalOutcome(state);
       if (Date.now() >= deadline) break;
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     }
@@ -139,10 +139,16 @@ export class CloudflareContainerRunner implements ContainerRunner {
   }
 }
 
-/** Map a stopped container's exit code onto success/failure. */
+function isTerminalStatus(status: string): boolean {
+  return status === "stopped_with_code" || status === "stopped";
+}
+
+/** Map a stopped container onto success, failure, or unknown-exit. */
 function terminalOutcome(state: { status: string; exitCode?: number }): ContainerOutcome {
-  const code = state.exitCode;
-  return code === 0 ? { kind: "success", exitCode: 0 } : { kind: "failure", exitCode: code ?? 1 };
+  if (state.exitCode === 0) return { kind: "success", exitCode: 0 };
+  if (state.exitCode !== undefined) return { kind: "failure", exitCode: state.exitCode };
+  if (state.status === "stopped_with_code") return { kind: "failure", exitCode: 1 };
+  return { kind: "unknown_exit" };
 }
 
 /** Timeout outcome carrying ranMs, the last observed status, exitCode when present. */

@@ -25,11 +25,20 @@ production is #1055. Root guide: `../../AGENTS.md`.
    staging-gate verifier audience (#1054). The reusable verifier lives in
    `packages/contract/src/oidc-github.ts` (`@animichi/contract/oidc-github`).
 2. **Run the container**: starts the `MigrationContainer` Durable Object
-   (batch-job mode; no ports) with `MIGRATOR_DATABASE_URL` injected as env,
-   waits for `stopped_with_code`, reports the exit code.
-3. **Report**: on exit 0, reads the applied head from
-   `public.atlas_schema_revisions` (`src/ledger.ts`) and returns it. CI
-   fails unless applied head == expected head.
+   (batch-job mode; no ports) with `MIGRATOR_DATABASE_URL` injected as env.
+   Two terminal states: `stopped_with_code` (exit code reported) and
+   `stopped` without a code (`unknown_exit`). `runMigration` snapshots the
+   ledger head before start and reads it again after stop. `unknown_exit`
+   is judged against that pair: post-head ≠ expected → `head_mismatch`
+   (HTTP 500); post-head = expected and the ledger advanced → success
+   with `pathVerification: "verified"`; post-head = expected with no
+   ledger change → success with `pathVerification: "unverified"` (schema
+   is at the target head, but this run did not prove the container). A
+   coded exit 0 is `verified`.
+3. **Report**: returns success + applied head from
+   `public.atlas_schema_revisions` (`src/ledger.ts`) + `pathVerification`.
+   CI fails unless applied head == expected head; it does not gate on
+   `pathVerification`.
 
 Capability boundary: NO destructive path — no schema drop, no arbitrary SQL,
 no down-migration. The migrator role's DSN is injected only for the seconds

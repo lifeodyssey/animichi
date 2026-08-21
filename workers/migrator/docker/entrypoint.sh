@@ -2,11 +2,9 @@
 # #1051/#1100 — one-shot Atlas apply to head.
 #
 # The worker injects MIGRATOR_DATABASE_URL only for the seconds this container
-# runs. PR1 of the Neon-connectivity spec makes connect fail-fast: reject a
-# -pooler (PgBouncer) endpoint case-insensitively, resolve A only (getent
-# ahostsv4 / nslookup, timeout-bound), then pin IPv4 by substituting the
-# resolved address into the URL host field (hostaddr is a no-op in Atlas
-# 0.30's pg driver) with options=endpoint=<id> for Neon SNI + sslmode; run
+# runs. Connect fail-fast: reject a -pooler (PgBouncer) endpoint
+# case-insensitively, keep the DSN host as a domain (IPv4 pin strips TLS SNI
+# and Neon cannot route), append connect_timeout + search_path=public, run
 # `atlas migrate status` with a 30s connect bound and apply only when it
 # succeeds. Nothing here echoes the DSN / URL / password; logs are secret-free.
 set -eu
@@ -19,16 +17,8 @@ DSN="${MIGRATOR_DATABASE_URL:?MIGRATOR_DATABASE_URL is required}"
 HOST="$(dsn_host "$DSN")"
 dsn_reject_pooler "$HOST"
 
-IP="$(resolve_ipv4 "$HOST")" || IP=""
-if [ -n "$IP" ]; then
-  echo "resolve: family=A"
-else
-  echo "resolve: no A record" >&2
-  exit 1
-fi
-
-EP_ID="$(dsn_endpoint_id "$HOST")"
-SCOPE="$(rewrite_url "$DSN" "$IP" "$EP_ID")"
+SCOPE="$(append_query "$DSN" "connect_timeout=$PROBE_SECS")"
+SCOPE="$(append_query "$SCOPE" "search_path=public")"
 
 echo "probe: start"
 probe_start="$(date +%s)"

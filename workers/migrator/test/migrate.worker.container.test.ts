@@ -33,7 +33,12 @@ describe("POST /migrate — container exit + error mapping", () => {
     });
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ success: true, exitCode: 0, appliedHead: null });
+    expect(await res.json()).toEqual({
+      success: true,
+      exitCode: 0,
+      appliedHead: null,
+      pathVerification: "verified",
+    });
   });
 
   it("surfaces an unexpected orchestration throw as a 500 with the error message (#1091 US-27)", async () => {
@@ -44,6 +49,62 @@ describe("POST /migrate — container exit + error mapping", () => {
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ success: false, error: "container start failed: image not found" });
+  });
+});
+
+function unknownExitLedger(before: string | null, after: string | null) {
+  let head = before;
+  return {
+    runContainer: (): Promise<ContainerOutcome> => {
+      head = after;
+      return Promise.resolve({ kind: "unknown_exit" });
+    },
+    readAppliedHead: (): Promise<string | null> => Promise.resolve(head),
+  };
+}
+
+describe("POST /migrate — unknown-exit ledger judgment", () => {
+  it("returns unverified success when unknown_exit leaves the ledger at expectedHead", async () => {
+    const { app, token } = await makeApp(
+      unknownExitLedger("20260814191301_turn_idempotency_outbox", "20260814191301_turn_idempotency_outbox"),
+    );
+    const res = await app.request(post({}, token), {}, testEnv());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      exitCode: 0,
+      appliedHead: "20260814191301_turn_idempotency_outbox",
+      pathVerification: "unverified",
+    });
+  });
+
+  it("returns verified success when unknown_exit advances the ledger to expectedHead", async () => {
+    const { app, token } = await makeApp(
+      unknownExitLedger("20260811000001_turn_outcome", "20260814191301_turn_idempotency_outbox"),
+    );
+    const res = await app.request(post({}, token), {}, testEnv());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      success: true,
+      exitCode: 0,
+      appliedHead: "20260814191301_turn_idempotency_outbox",
+      pathVerification: "verified",
+    });
+  });
+
+  it("returns failure with applied and expected heads when a stop without exit code mismatches the ledger", async () => {
+    const { app, token } = await makeApp({
+      runContainer: (): Promise<ContainerOutcome> => Promise.resolve({ kind: "unknown_exit" }),
+      readAppliedHead: (): Promise<string | null> => Promise.resolve("20260811000001_turn_outcome"),
+    });
+    const res = await app.request(post({}, token), {}, testEnv());
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      success: false,
+      exitCode: 1,
+      appliedHead: "20260811000001_turn_outcome",
+      error: "applied head 20260811000001_turn_outcome does not equal expected head 20260814191301_turn_idempotency_outbox",
+    });
   });
 });
 
