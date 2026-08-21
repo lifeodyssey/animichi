@@ -103,7 +103,7 @@ if [ -n "$input" ]; then
 fi
 
 # contract is the cross-service source of truth: any consumer change implies it.
-if printf '%s\n' "$packages" | grep -qE '^(agent|web|catalog|users|edge|migrator)$'; then
+if printf '%s\n' "$packages" | grep -qE '^(agent|web|catalog|users|edge|migrator|doorbell)$'; then
   packages="$(printf '%s\ncontract\n' "$packages")"
 fi
 

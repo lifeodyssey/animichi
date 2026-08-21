@@ -1,16 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { createGitHubOidcVerifier } from "@animichi/contract/oidc-github";
-import { createDoorbellApp } from "../src/create-app";
-import { DOORBELL_OIDC_POLICY, TRUSTED_DEPLOY_WORKFLOW } from "../src/policy";
 import {
   FIXED_NOW,
   OTHER_SHA,
   PINNED_REVISION,
+  PRODUCTION_CLAIMS,
   TOKEN_SHA,
-  issuedToken,
-  joseEnv,
+  makeApp,
   post,
-  recordingBuilds,
   testEnv,
 } from "./doorbell.worker.helpers";
 
@@ -18,21 +14,7 @@ import {
 // SAFE-1 pinned revision recorded in the manifest at the token's sha.
 
 async function productionApp() {
-  const { token, jwk } = await issuedToken({
-    environment: "production",
-    sub: "repo:lifeodyssey/animichi:environment:production",
-    sha: TOKEN_SHA,
-    workflow_ref: TRUSTED_DEPLOY_WORKFLOW,
-    job_workflow_ref: TRUSTED_DEPLOY_WORKFLOW,
-  });
-  const builds = recordingBuilds();
-  const app = createDoorbellApp({
-    verifier: createGitHubOidcVerifier(DOORBELL_OIDC_POLICY, joseEnv(jwk)),
-    builds,
-    readPin: (sha: string): Promise<string | null> =>
-      Promise.resolve(sha === TOKEN_SHA ? PINNED_REVISION : null),
-  });
-  return { app, token, builds };
+  return makeApp({}, PRODUCTION_CLAIMS);
 }
 
 beforeAll(() => {
