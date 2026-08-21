@@ -20,7 +20,8 @@ function namedBlock(source: string, marker: string, width: number): string {
 void test("staging GRANT gives migrator CREATE on public", () => {
   const sql = read("infra/neon-secrets/grant-migrator-ddl.sql").replaceAll(/^--.*$/gm, "");
   assert.match(sql, /GRANT USAGE,\s*CREATE ON SCHEMA public TO migrator;/);
-  assert.match(sql, /GRANT REFERENCES ON ALL TABLES IN SCHEMA public TO migrator;/);
+  assert.match(sql, /GRANT REFERENCES ON TABLE public.sessions TO migrator;/);
+  assert.doesNotMatch(sql, /ALL TABLES/);
   assert.doesNotMatch(sql, /GRANT migrator TO/);
   assert.doesNotMatch(sql, /OWNER TO/);
   assert.doesNotMatch(sql, /Pulumi\.prod|production/i);
