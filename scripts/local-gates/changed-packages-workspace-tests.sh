@@ -4,7 +4,8 @@
 #
 # Independent SoT for the package list is pnpm-workspace.yaml (sed) plus
 # directories that contain package.json (bash glob). Gate functions are
-# grepped from pre-push.sh. This file must not source workspace-packages.sh.
+# grepped from pre-push.sh and pre-push-worker-gates.sh. This file must not
+# source workspace-packages.sh.
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PRE_PUSH="$SCRIPT_DIR/pre-push.sh"
 
@@ -56,7 +57,7 @@ independent_workspace_names() {
 }
 
 gate_defined_in() {
-  grep -qE "^gate_$1\(\)" "$2"
+  grep -qE "^gate_$1\(\)" "$2" "$SCRIPT_DIR/pre-push-worker-gates.sh"
 }
 
 assert_every_workspace_package_has_gate() {

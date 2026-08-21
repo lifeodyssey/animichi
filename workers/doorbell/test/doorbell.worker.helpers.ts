@@ -8,6 +8,7 @@ import { createDoorbellApp, type DoorbellDeps, type Env } from "../src/create-ap
 import {
   DOORBELL_OIDC_AUDIENCE,
   DOORBELL_OIDC_POLICY,
+  TRUSTED_DEPLOY_WORKFLOW,
   TRUSTED_WORKFLOW,
 } from "../src/policy";
 
@@ -45,6 +46,15 @@ export const STAGING_CLAIMS = {
   job_workflow_ref: TRUSTED_WORKFLOW,
   sub: "repo:lifeodyssey/animichi:environment:staging",
   sha: STAGING_SHA,
+};
+
+/** Default production claims for test tokens (per-test overridable). */
+export const PRODUCTION_CLAIMS = {
+  environment: "production",
+  sub: "repo:lifeodyssey/animichi:environment:production",
+  sha: TOKEN_SHA,
+  workflow_ref: TRUSTED_DEPLOY_WORKFLOW,
+  job_workflow_ref: TRUSTED_DEPLOY_WORKFLOW,
 };
 
 export async function issuedToken(overrides: Record<string, unknown> = {}): Promise<{
@@ -101,8 +111,11 @@ function pinReaderFor(tokenSha: string): Promise<string | null> {
   return Promise.resolve(tokenSha === TOKEN_SHA ? PINNED_REVISION : null);
 }
 
-export async function makeApp(overrides: Partial<DoorbellDeps> = {}) {
-  const { token, jwk } = await issuedToken();
+export async function makeApp(
+  overrides: Partial<DoorbellDeps> = {},
+  claims: Record<string, unknown> = {},
+) {
+  const { token, jwk } = await issuedToken(claims);
   const builds = overrides.builds ?? recordingBuilds();
   const deps: DoorbellDeps = {
     verifier: createGitHubOidcVerifier(DOORBELL_OIDC_POLICY, joseEnv(jwk)),
