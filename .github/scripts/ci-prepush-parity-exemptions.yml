@@ -29,6 +29,10 @@ exemptions:
     reason: "secrets: Pulumi stack select/export — deploy-path live state"
   - id: "cmd:python3 $CLI generate --component $TARGET_COMPONENT --source-sha $source_sha --artifact $artifact --sbom-format cyclonedx-1.5 --sbom-digest $digest --schema-provider atlas --schema-head 20260811000002 --schema-digest $digest --config-version 1 --config-commit $source_sha --dep catalog=$source_sha > $manifest"
     reason: "deploy: deploy-path artifact — promotion manifest generation"
+  - id: cmd:sudo apt-get install -y postgresql-client
+    reason: "cloud: ubuntu-latest runner — postgresql-client for neonctl psql on staging GRANT"
+  - id: cmd:sudo apt-get update -qq
+    reason: "cloud: ubuntu-latest runner — apt index for postgresql-client on staging GRANT"
   - id: cmd:uv tool run semgrep@$SEMGREP_VERSION --config p/python --config p/typescript --config p/javascript --config .semgrep --error .
     reason: "cloud: Semgrep registry (p/python, p/typescript, p/javascript)"
   - id: cmd:uvx zizmor@$ZIZMOR_VERSION --cache-dir ~/.cache/zizmor .
@@ -51,6 +55,8 @@ exemptions:
     reason: "deploy: Cloudflare API — resolve the deployed worker URL"
   - id: script:.github/scripts/vite-env-preflight.sh
     reason: "deploy: production VITE_* build env — secret-shape preflight on the deploy path"
+  - id: script:infra/neon-secrets/grant-migrator-ddl.sh
+    reason: "secrets: NEON_API_KEY — staging-only owner GRANT on live Neon public schema"
   - id: script:scripts/local-gates/pr-review-check.sh
     reason: "secrets: GITHUB_TOKEN — PR review threads and statuses"
   - id: script:scripts/local-gates/pr-review-gate-step.sh
