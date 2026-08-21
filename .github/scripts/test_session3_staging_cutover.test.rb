@@ -2,7 +2,8 @@
 # frozen_string_literal: true
 
 # Behavioral tests for the SESSION-3 R2 backend credential-source matcher
-# (`r2_backend_source_violations` in test_session3_staging_cutover.rb).
+# and the #1152 Pulumi CLI pin (`r2_backend_source_violations` /
+# `pulumi_cli_pin_violations` in test_session3_staging_cutover.rb).
 #
 # The contract script had no host of its own. This file is that host, in the
 # same abort-on-fail / throwaway-copy shape as assert-workflow-invariants.test.rb
@@ -49,6 +50,15 @@ def with_mutated_workflow
     text = File.read(path)
     File.write(path, yield(text))
     pulumi_r2_backend_violations(load_workflow(path))
+  end
+end
+
+def with_mutated_pin
+  Dir.mktmpdir("session3-pin") do |dir|
+    path = File.join(dir, "staging-cutover.yml")
+    FileUtils.cp(WORKFLOW, path)
+    File.write(path, yield(File.read(path)))
+    pulumi_cli_pin_violations(load_workflow(path))
   end
 end
 
@@ -99,4 +109,17 @@ assert_violation(
 # ── Green: the checked-in workflow still satisfies the R2 source contract ──
 assert_clean("pristine staging-cutover.yml", pulumi_r2_backend_violations(load_workflow(WORKFLOW)))
 
-puts "All test_session3_staging_cutover R2 source tests passed."
+# ── Red: throwaway copy — job C drops the .pulumi.version pin (#1152) ─────
+assert_violation(
+  "job C pulumi-version-file replaced with an inline 3.257.0 pin",
+  with_mutated_pin { |text| text.sub(
+    "pulumi-version-file: .pulumi.version",
+    "pulumi-version: 3.257.0"
+  ) },
+  "#{JOB_C}: pulumi-executing job must install CLI via pulumi-version-file: .pulumi.version"
+)
+
+# ── Green: the checked-in workflow pins every pulumi-executing job ────────
+assert_clean("pristine staging-cutover.yml Pulumi CLI pin", pulumi_cli_pin_violations(load_workflow(WORKFLOW)))
+
+puts "All test_session3_staging_cutover R2 source and Pulumi CLI pin tests passed."
