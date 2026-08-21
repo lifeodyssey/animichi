@@ -20,9 +20,9 @@ test_env = Path(__file__).parent / ".env.test"
 if test_env.exists():
     load_dotenv(test_env)
 
-# DB-free integration tests import app modules at collection time, which
-# instantiates Settings; provide the same zero-entropy defaults the unit
-# conftest uses so collection works without ambient env.
+# DB-free collection instantiates Settings; dummy DSN so import works
+# without ambient env. zen/go is stubbed in unit/integration conftests so
+# eval can still fill ZEN_GO_API_KEY from .env (real_env_updates).
 os.environ.setdefault("MIMO_API_KEY", "test-key")
 os.environ.setdefault(
     "AGENT_SVC_DATABASE_URL", "postgresql://test:test@localhost:5432/test"

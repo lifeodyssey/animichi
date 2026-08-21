@@ -1,37 +1,12 @@
 #!/usr/bin/env bash
 # Behavioral tests for the pre-push gate orchestrator
-# (scripts/local-gates/pre-push.sh).
-# Every tool the orchestrator invokes is stubbed (scripts/local-gates/
-# stub-env.sh + test-stub.sh); the real repo tree is the fixture. The Quality
-# bash checks and git run unstubbed because they are hermetic and sub-second.
-# Tests prove the AC routing contract: `all` runs every package's full gate
-# set (AC2), an affected package runs only its CI-equivalent gates (AC4),
-# fail-fast exits propagate, canonical coverage commands are selected, no
-# forbidden cloud-mutation command exists in the gate scripts, and missing
-# prerequisites fail with an install hint. The agent command contract mirrors
-# pipeline-agent.yml's deterministic surface — ruff lint + format check, mypy,
-# vulture, coverage-enabled unit suite, offline docker-arm integration, and the
-# container build (docker build -f apps/agent/Dockerfile -t animichi-agent:ci
-# .) — so removing any one of them fails the all-route test. Two
-# hermetic-consistency tests are coupled here too: the agent integration gate
-# strips every live/BYO database selector (so an exported TEST_DB can never
-# route it to Neon — the Docker arm is deterministic, AC3/AC6) and the offline
-# postgres image identity is PG18 everywhere it is referenced (Dockerfile,
-# conftest, db-fresh-schema.sh).
-# This file is the single entry point — pre-push.sh runs it, so the invocation
-# contract lives here. The behavioral tests are split into focused modules
-# (each under the repo's 300-line file limit) sourced below:
-#   pre-push-tests-routing.sh — AC routing (all/affected/union/self-test)
-#   pre-push-tests-gates.sh   — fail-fast, canonical coverage, env stripping,
-#                               PG18 image identity consistency
-#   pre-push-tests-hygiene.sh — forbidden cloud mutation + prerequisites
-#   pre-push-tests-prereqs.sh — node >= 24 / atlas any-version version gates
-#   pre-push-tests-hygiene-url.sh — URL-fragment scan regression (#1003)
-# Routing is injected through GATE_CHANGED_PACKAGES into the DEDICATED test
-# driver (scripts/local-gates/pre-push-test-driver.sh) — the only route seam.
-# The real pre-push entry (pre-push.sh) never reads that variable; it always
-# routes via scripts/local-gates/changed-packages.sh. The router itself is
-# covered separately by changed-packages.test.sh in a temporary repository.
+# (scripts/local-gates/pre-push.sh). Tools are stubbed (stub-env.sh +
+# test-stub.sh); Quality bash checks and git run unstubbed (hermetic).
+# This file is the single entry — modules: pre-push-tests-routing.sh,
+# pre-push-tests-gates.sh, pre-push-tests-hygiene.sh,
+# pre-push-tests-prereqs.sh, pre-push-tests-hygiene-url.sh,
+# pre-push-tests-quality.sh. Routes inject via GATE_CHANGED_PACKAGES into
+# pre-push-test-driver.sh only; the real entry never reads that variable.
 # Add new cases to the matching module, not here.
 set -euo pipefail
 
@@ -90,7 +65,9 @@ ALL_COMMANDS=(
   "pnpm --filter web test:integration"
   # catalog: CI lint/test/smoke/build
   "pnpm run test:smoke"
+  "pnpm run test:spike"
   # edge: CI build (production-config dry-run from repo root)
+  "check-edge-ratelimit-namespace.sh"
   "pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir"
   # contract: CI build drift checks
   "pnpm emit:openapi"
@@ -101,6 +78,7 @@ ALL_COMMANDS=(
   # db: checksum validate + migration boundary guard + fresh-schema apply
   "atlas migrate validate --dir file://migrations/neon"
   "node --test workers/edge/test/migration-boundary.test.ts"
+  "sqlfluff lint ../../migrations/neon"
   "atlas migrate apply --dir file://migrations/neon"
   # docs: the doc-consistency subset that asserts docs/CI sync
   "uv run pytest src/animichi/tests/unit/test_secrets_docs_consistency.py src/animichi/tests/unit/test_documentation_guardrails.py -q --no-cov"
@@ -111,6 +89,10 @@ PACKAGE_DIR_COMMANDS=(
   "$REPO_ROOT/workers/catalog :: pnpm exec tsc --noEmit"
   "$REPO_ROOT/workers/users :: pnpm exec tsc --noEmit"
   "$REPO_ROOT/workers/edge :: pnpm run lint:oxlint"
+  "$REPO_ROOT/workers/migrator :: pnpm exec tsc --noEmit"
+  "$REPO_ROOT/workers/migrator :: pnpm run lint:oxlint"
+  "$REPO_ROOT/workers/migrator :: pnpm run test"
+  "$REPO_ROOT/workers/migrator :: pnpm exec wrangler deploy --dry-run"
   "$REPO_ROOT/packages/contract :: pnpm exec tsc --noEmit"
   "$REPO_ROOT/infra :: pnpm run typecheck"
   "$REPO_ROOT/infra :: pnpm test"
@@ -177,6 +159,7 @@ test_command_fixtures_integrity
 test_all_selects_every_package_gate
 test_arguments_do_not_route
 test_affected_packages_only
+test_migrator_package_gates
 test_all_route_runs_config_contract_self_test
 test_contract_union_routing
 test_real_entry_ignores_route_override

@@ -84,7 +84,7 @@ jobs:
         shell: bash
       - name: Ruby syntax check workflow meta scripts
         run: |
-            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_routing_consistency.rb .github/scripts/test_ci_contract_ruleset_migration.rb .github/scripts/test_ci_contract_ruleset_migration_mutation.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb .github/scripts/test_neon_test_infra_absence.rb .github/scripts/test_promotion_ac5_contract.rb .github/scripts/test_promotion_ac5_mutation.rb .github/scripts/test_prod_dsn_store_contract.rb .github/scripts/test_migrator_trigger_contract.rb; do
+            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_routing_consistency.rb .github/scripts/test_ci_contract_ruleset_migration.rb .github/scripts/test_ci_contract_ruleset_migration_mutation.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb .github/scripts/test_session3_staging_cutover.test.rb .github/scripts/test_neon_test_infra_absence.rb .github/scripts/test_promotion_ac5_contract.rb .github/scripts/test_promotion_ac5_mutation.rb .github/scripts/test_prod_dsn_store_contract.rb .github/scripts/test_migrator_trigger_contract.rb .github/scripts/ci_prepush_parity.rb .github/scripts/ci_prepush_parity_yaml.rb .github/scripts/ci_prepush_parity_extract.rb .github/scripts/test_ci_prepush_parity.rb .github/scripts/test_ci_prepush_parity.test.rb; do
             ruby -c "${f}"
             done
         shell: bash
@@ -118,6 +118,9 @@ jobs:
       # check in this lane.
       - name: SESSION-3 staging cutover contract
         run: ruby .github/scripts/test_session3_staging_cutover.rb
+        shell: bash
+      - name: SESSION-3 R2 backend credential source tests
+        run: ruby .github/scripts/test_session3_staging_cutover.test.rb
         shell: bash
       # #1048: the production runtime DSN cutover contract — production catalog/users
       # consume catalog_svc/users_svc role DSNs from the Secrets Store bindings and
@@ -231,6 +234,13 @@ jobs:
       # skipped by CI path filtering and vice-versa.
       - name: Verify CI routing consistency
         run: ruby .github/scripts/test_ci_routing_consistency.rb
+      # #1114: CI↔pre-push parity — a locally-runnable CI check that is not
+      # hung on pre-push (and not on the exemption list with a CI-only reason)
+      # fails closed here and in scripts/local-gates/quality.sh.
+      - name: Verify CI pre-push parity contract
+        run: ruby .github/scripts/test_ci_prepush_parity.rb
+      - name: CI pre-push parity mutation probes
+        run: ruby .github/scripts/test_ci_prepush_parity.test.rb
       # The head pinned by the early resolve step now runs collect + check. The
       # step exits non-zero when the live PR head advanced past the pin, when
       # collect cannot read GitHub state, or when check rejects — the required

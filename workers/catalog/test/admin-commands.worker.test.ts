@@ -7,7 +7,8 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { Hono } from "hono";
-import { app, type Env } from "../src/index";
+import type { Env } from "../src/index";
+import { catalogRequest } from "./catalog-request";
 import { mountAdminRoutes, type AdminDeps } from "../src/import/admin-routes";
 import { canarySelection } from "../src/import/admin-commands";
 import type { CatalogDb } from "../src/db/client";
@@ -21,7 +22,7 @@ function authorizedEnv(): Env {
 
 describe("admin token guard (AC5)", () => {
   it("rejects a public caller with 401 on the mounted app", async () => {
-    const res = await app.request("/catalog/admin/full-ingest", {
+    const res = await catalogRequest("/catalog/admin/full-ingest", {
       method: "POST",
       headers: { authorization: "Bearer wrong" },
     }, authorizedEnv());
@@ -29,7 +30,7 @@ describe("admin token guard (AC5)", () => {
   });
 
   it("rejects a public caller with 401 when no token is configured", async () => {
-    const res = await app.request("/catalog/admin/canary", { method: "POST" }, { ENVIRONMENT: "staging" });
+    const res = await catalogRequest("/catalog/admin/canary", { method: "POST" }, { ENVIRONMENT: "staging" });
     expect(res.status).toBe(401);
   });
 });

@@ -7,3 +7,10 @@ declare module "*?raw" {
   const content: string;
   export default content;
 }
+
+interface ImportMeta {
+  glob<T>(
+    pattern: string | readonly string[],
+    options: { query: "?raw"; eager: true; import: "default" },
+  ): Record<string, T>;
+}

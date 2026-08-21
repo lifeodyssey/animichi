@@ -32,11 +32,11 @@ const ApiSchema = z
 
 const BeaconTokenSchema = z.string().nonempty();
 
-/** Public Turnstile site key shape — exactly 24 alphanumeric chars, mirroring
- * TurnstileGate.tsx's `SITE_KEY_LENGTH`/alphanumeric contract (test keys
- * 1x...AA, 2x..., 3x... included). A misspelled/malformed key is rejected here
- * in the contract, fail-closed, rather than silently shipping no widget. */
-const TurnstileSiteKeySchema = z.string().regex(/^[A-Za-z0-9]{24}$/);
+/** Public Turnstile site key shape — exactly 24 chars, matching
+ * TurnstileGate.tsx `SITE_KEY_LENGTH` (test keys `1x…AA` and live
+ * `0x4AAAAAA…` keys, which may include hyphens). A 35-char SECRET must
+ * still fail closed here rather than ship in the client bundle. */
+const TurnstileSiteKeySchema = z.string().regex(/^[A-Za-z0-9-]{24}$/);
 
 /** Exactly the strict camel-case boolean string the landing branch reads. */
 const ShowcaseModeSchema = z.literal("false").or(z.literal("true"));

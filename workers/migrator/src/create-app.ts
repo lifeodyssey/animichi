@@ -12,19 +12,18 @@ import {
 } from "./policy";
 
 /**
- * #1051 — the migrator's Hono application + environment, kept free of any
- * @cloudflare/containers import so the HTTP-seam tests run under plain vitest
- * (the package's ESM build imports `cloudflare:workers`, which only resolves
- * under workerd). The default container runner is loaded lazily (see the
- * `runContainer` default) and the deployed entry (src/index.ts) statically
- * wires the MigrationContainer class.
+ * #1051 / #1124 — the migrator's Hono application + environment, kept free of
+ * @cloudflare/containers so HTTP-seam tests run under plain vitest. Default
+ * apply is neon-http (lazy lock + chain); tests inject `runContainer`.
  */
 
-/** Migrator Worker bindings (staging Secrets Store DSN + container binding). */
+/** Migrator Worker bindings (Secrets Store DSN + apply-lock DO + container). */
 export interface Env {
   ENVIRONMENT?: string;
   MIGRATOR_DATABASE_URL?: string | SecretsStoreSecret;
   MIGRATOR_CONTAINER: DurableObjectNamespace;
+  /** Fixed-name mutex for HTTP apply. Required on the production default path. */
+  MIGRATOR_APPLY_LOCK?: DurableObjectNamespace;
   /** Optional per-deploy cap on the one-shot container run, in ms. */
   CONTAINER_TIMEOUT_MS?: string;
 }
@@ -44,11 +43,6 @@ async function resolveDsn(env: Env): Promise<string | undefined> {
   return typeof url === "string" ? url : await url.get();
 }
 
-function timeoutMs(env: Env): number {
-  const value = Number(env.CONTAINER_TIMEOUT_MS);
-  return Number.isFinite(value) && value > 0 ? value : 5 * 60 * 1000;
-}
-
 function bearerToken(request: Request): string | null {
   const header = request.headers.get("Authorization") ?? "";
   const scheme = /^bearer[ \t]+/i.exec(header);
@@ -66,31 +60,73 @@ function parseJson(raw: string): unknown {
   return JSON.parse(raw) as unknown;
 }
 
+type ParsedBody = { ok: true; expectedHead: string | undefined } | { ok: false };
+
+function expectedHeadOf(parsed: object): string | undefined {
+  if (!("expectedHead" in parsed)) return undefined;
+  return typeof parsed.expectedHead === "string" ? parsed.expectedHead : undefined;
+}
+
 /** Parse the optional JSON body into an object; a non-object body is a 400. */
-async function parseBody(request: Request): Promise<{ ok: true } | { ok: false }> {
+async function parseBody(request: Request): Promise<ParsedBody> {
   try {
     const raw = await request.text();
     const parsed = parseJson(raw.length === 0 ? "{}" : raw);
-    return typeof parsed === "object" && parsed !== null ? { ok: true } : { ok: false };
+    if (typeof parsed !== "object" || parsed === null) return { ok: false };
+    return { ok: true, expectedHead: expectedHeadOf(parsed) };
   } catch {
     return { ok: false };
   }
 }
 
+function timeoutResponse(result: Extract<MigrationRunResult, { kind: "timeout" }>): Response {
+  const body =
+    result.exitCode === undefined
+      ? { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus }
+      : { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus, exitCode: result.exitCode };
+  return Response.json(body, { status: 504 });
+}
+
+function headLabel(head: string | null): string {
+  return head ?? "null";
+}
+
+function mismatchResponse(result: Extract<MigrationRunResult, { kind: "head_mismatch" }>): Response {
+  const error = `applied head ${headLabel(result.appliedHead)} does not equal expected head ${headLabel(result.expectedHead)}`;
+  return Response.json(
+    { success: false, exitCode: 1, appliedHead: result.appliedHead, error },
+    { status: 500 },
+  );
+}
+
+function successResponse(result: Extract<MigrationRunResult, { kind: "success" }>): Response {
+  return Response.json({
+    success: true,
+    exitCode: 0,
+    appliedHead: result.appliedHead,
+    pathVerification: result.pathVerification,
+  });
+}
+
+interface FailureJson {
+  success: false;
+  exitCode: number;
+  appliedHead: null;
+  error?: string;
+}
+
+function failureBody(result: Extract<MigrationRunResult, { kind: "failure" }>): FailureJson {
+  if (result.error === undefined) {
+    return { success: false, exitCode: result.exitCode, appliedHead: null };
+  }
+  return { success: false, exitCode: result.exitCode, appliedHead: null, error: result.error };
+}
+
 function outcomeResponse(result: MigrationRunResult): Response {
-  if (result.kind === "failure") {
-    return Response.json({ success: false, exitCode: result.exitCode, appliedHead: null }, { status: 500 });
-  }
-  if (result.kind === "timeout") {
-    // #1101: richer 504 — carry ranMs + lastStatus (+ exitCode when present);
-    // never include the DSN (it is not on the outcome type). Status stays 504.
-    const body =
-      result.exitCode === undefined
-        ? { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus }
-        : { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus, exitCode: result.exitCode };
-    return Response.json(body, { status: 504 });
-  }
-  return Response.json({ success: true, exitCode: 0, appliedHead: result.appliedHead });
+  if (result.kind === "failure") return Response.json(failureBody(result), { status: 500 });
+  if (result.kind === "timeout") return timeoutResponse(result);
+  if (result.kind === "head_mismatch") return mismatchResponse(result);
+  return successResponse(result);
 }
 
 async function runContainerFor(
@@ -98,8 +134,16 @@ async function runContainerFor(
   deps: MigratorDeps,
 ): Promise<(dsn: string) => Promise<ContainerOutcome>> {
   if (deps.runContainer !== undefined) return deps.runContainer;
-  const { CloudflareContainerRunner } = await import("./runner");
-  return (value: string) => new CloudflareContainerRunner(env.MIGRATOR_CONTAINER).start(value, timeoutMs(env));
+  const { productionApply } = await import("./lock");
+  return httpApplyBound(env, productionApply);
+}
+
+function httpApplyBound(
+  env: Env,
+  bind: (ns: DurableObjectNamespace) => (dsn: string) => Promise<ContainerOutcome>,
+): (dsn: string) => Promise<ContainerOutcome> {
+  if (env.MIGRATOR_APPLY_LOCK === undefined) throw new Error("migrator apply lock not configured");
+  return bind(env.MIGRATOR_APPLY_LOCK);
 }
 
 async function handleMigrate(
@@ -119,7 +163,7 @@ async function handleMigrate(
     const runContainer = await runContainerFor(c.env, deps);
     const readAppliedHead = deps.readAppliedHead ??
       ((value: string) => new NeonMigrationsLedger().readAppliedHead(value));
-    const result = await runMigration(dsn, { runContainer, readAppliedHead });
+    const result = await runMigration(dsn, { runContainer, readAppliedHead }, body.expectedHead);
     return outcomeResponse(result);
   } catch (error) {
     // #1091 (US-27): an unexpected orchestration throw must be observable —

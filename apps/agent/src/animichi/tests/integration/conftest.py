@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from unittest.mock import MagicMock, patch
@@ -10,6 +11,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+# Eval fills ZEN_GO_API_KEY from .env only when still unset; stub here — not
+# in the shared parent — before model_aliases instantiates Settings.
+os.environ.setdefault("ZEN_GO_API_KEY", "test-key")
 
 from animichi.agents.agent_result import AgentResult, StepRecord
 from animichi.agents.runtime_deps import OnStep, StepEvent, new_step_call_id

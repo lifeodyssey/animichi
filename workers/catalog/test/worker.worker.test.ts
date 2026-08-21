@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { app } from "../src/index";
 import type { Env } from "../src/index";
+import { catalogRequest } from "./catalog-request";
 
 /**
  * Proves vitest-pool-workers can run a test inside the workerd runtime that
@@ -12,7 +12,7 @@ import type { Env } from "../src/index";
  */
 describe("catalog Worker (vitest-pool-workers)", () => {
   it("serves /healthz without a database", async () => {
-    const res = await app.request("/healthz", {}, env);
+    const res = await catalogRequest("/healthz", {}, env);
     expect(res.status).toBe(200);
     const json: unknown = await res.json();
     const body = json as { status: string; service: string };
@@ -28,7 +28,7 @@ describe("catalog Worker (vitest-pool-workers)", () => {
     // the auto-generated Cloudflare.Env type used by cloudflare:workers).
     const appEnv = env as unknown as Env;
     const noDbEnv: Env = { ENVIRONMENT: appEnv.ENVIRONMENT ?? "test" };
-    const res = await app.request(
+    const res = await catalogRequest(
       "/catalog/nearby",
       {
         method: "POST",
@@ -45,7 +45,7 @@ describe("catalog Worker (vitest-pool-workers)", () => {
 
   it("rejects unexpected public query parameters before database access", async () => {
     const path = "/catalog/public/anime-overview/3302?nonce=fixed";
-    const res = await app.request(path, {}, {} satisfies Env);
+    const res = await catalogRequest(path, {}, {} satisfies Env);
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "unexpected query parameters" });
   });

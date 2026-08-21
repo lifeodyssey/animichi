@@ -30,6 +30,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
+source "$ROOT/scripts/local-gates/workspace-packages.sh"
+load_workspace_packages
 
 # Prerequisite data (tool: install-hint). The presence loop keeps the rest of
 # each line (including colons in URLs) as the hint, exactly as CI's install
@@ -43,6 +45,8 @@ PREREQ_TOOLS=(
   "pulumi: brew install pulumi/tap/pulumi"
   "docker: Docker Desktop/colima with the daemon running (fresh-schema + agent integration; the gate fails closed when it is unavailable)"
   "actionlint: brew install actionlint (CI pins v1.7.7)"
+  "shellcheck: brew install shellcheck"
+  "semgrep: uv tool install semgrep==1.172.0 (CI pins 1.172.0)"
   "git: required for the contract drift checks"
 )
 
@@ -95,6 +99,7 @@ check_prereqs() {
 
 run() {
   printf '\n==> %s\n' "$*"
+  [ -n "${GATE_TEST_LOG:-}" ] && printf '%s :: %s\n' "$PWD" "$*" >> "$GATE_TEST_LOG"
   "$@"
 }
 
@@ -103,7 +108,6 @@ gate() {
   printf '\n==> [%s] %s\n' "$dir" "$*"
   (cd "$dir" && "$@")
 }
-
 # Routing state: bound by init_route, consumed by route_has / route_includes.
 changed=""
 ALL=false
@@ -148,24 +152,13 @@ setup_gate_env() {
   GATE_OUTDIR="$(mktemp -d)"
   trap 'rm -rf "${GATE_OUTDIR:-}"' EXIT
 }
-
 # finish_gate: the pass banner (the behavioral tests assert its exact format).
 finish_gate() {
   printf '\npre-push gate: deterministic set for [%s] passed.\n' "${1//$'\n'/,}"
 }
 
-# ── agent (AC3): the full deterministic CI surface from
-# .github/workflows/pipeline-agent.yml in CI's job order — ruff lint (check),
-# ruff format check, mypy, vulture, then the canonical unit coverage floor from
-# pyproject addopts (--cov-fail-under=87 — never overridden here), the offline
-# docker-arm integration against a disposable fresh schema, and the container
-# image build (docker build -f apps/agent/Dockerfile -t animichi-agent:ci .,
-# from the repo root exactly as the CI build job runs it). The integration
-# pytest is invoked through `env -u` on every live/BYO selector so an exported
-# TEST_DB / TEST_DATABASE_URL can never route the local gate to Neon or a
-# mutable external database — it deterministically uses the Docker arm
-# (conftest_db.py fails closed when the offline image is missing; nothing is
-# silently skipped).
+# ── agent: pipeline-agent.yml order. env -u strips live/BYO selectors so an
+# exported TEST_DB can never route this gate to Neon (Docker arm only).
 gate_agent() {
   gate apps/agent uv run ruff check
   gate apps/agent uv run ruff format --check src/animichi/
@@ -191,6 +184,7 @@ gate_catalog() {
   gate workers/catalog pnpm exec tsc --noEmit
   gate workers/catalog pnpm run lint:oxlint
   gate workers/catalog pnpm run test:worker
+  gate workers/catalog pnpm run test:spike
   gate workers/catalog pnpm run test:smoke
   gate workers/catalog pnpm exec wrangler deploy --dry-run --env= --outdir "$GATE_OUTDIR/catalog-bundle"
 }
@@ -208,16 +202,28 @@ gate_users() {
 gate_edge() {
   gate workers/edge pnpm run lint:oxlint
   run pnpm run test:worker
+  run bash .github/scripts/check-edge-ratelimit-namespace.sh
   run pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir "$GATE_OUTDIR/edge-bundle"
 }
 
-# ── contract (AC2): CI lint + tests + the build-stage drift checks (OpenAPI
-# documents and the generated agent Python models must regenerate clean).
-# The OpenAPI drift check mirrors pipeline-contract.yml's build stage: it
-# emits, stages the generated documents into a throwaway index, and fails on
-# `git diff --cached` (scripts/local-gates/contract-drift.sh). The agent-model
-# drift check compares the regenerated file to HEAD (`git diff HEAD`) — a
-# staged correction cannot mask drift against the committed snapshot.
+# ── migrator: pipeline-migrator.yml lint/test/build. Scripts from
+# workers/migrator/package.json (typecheck + lint:oxlint + test) plus the
+# CI wrangler dry-run. Migrator is a contract consumer (oidc-github).
+gate_migrator() {
+  gate workers/migrator pnpm exec tsc --noEmit
+  gate workers/migrator pnpm run lint:oxlint
+  gate workers/migrator pnpm run test
+  gate workers/migrator pnpm exec wrangler deploy --dry-run --env=staging --outdir "$GATE_OUTDIR/migrator-bundle"
+}
+
+# ── e2e: workspace member, so it must have a registered gate. Playwright is
+# not a local-gate surface (docs/ops/local-gates.md).
+gate_e2e() {
+  printf '\n==> [e2e] Playwright is not a local-gate surface\n'
+}
+
+# ── contract: lint + tests + OpenAPI drift (throwaway index) + agent-model
+# drift vs HEAD (a staged correction must not mask committed drift).
 gate_contract() {
   gate packages/contract pnpm exec tsc --noEmit
   gate packages/contract pnpm run test
@@ -227,41 +233,37 @@ gate_contract() {
   run git diff --exit-code HEAD -- apps/agent/src/animichi/interfaces/boundary/agent_models.py
 }
 
-# ── infra (AC4/AC7): CI typecheck + topology tests, then the credential-free
-# Pulumi program-load check that catches loader/compiler incompatibility
-# ordinary tsc --noEmit misses (TS5096 class).
+# ── infra: typecheck + topology tests + credential-free Pulumi program-load.
 gate_infra() {
   gate infra pnpm run typecheck
   gate infra pnpm test
   run bash scripts/local-gates/infra-check.sh
 }
 
-# ── db (AC3): checksum+parse validation, the migration boundary guard, and a
-# fresh-schema apply on a disposable postgres container (never shared Neon).
+# ── db: atlas validate + migration-boundary guard + disposable fresh-schema.
 gate_db() {
   run atlas migrate validate --dir file://migrations/neon
   run node --test workers/edge/test/migration-boundary.test.ts
+  gate apps/agent uv run sqlfluff lint ../../migrations/neon --dialect postgres --config ../../db/.sqlfluff
   run bash scripts/local-gates/db-fresh-schema.sh
 }
 
-# ── docs (AC2/AC7): the two agent unit tests that assert docs/CI content stay
-# in sync with the code (the full doc suite runs with the agent unit gate).
+# ── docs: the docs/CI consistency subset (full doc suite is with agent unit).
 gate_docs() {
   gate apps/agent uv run pytest src/animichi/tests/unit/test_secrets_docs_consistency.py src/animichi/tests/unit/test_documentation_guardrails.py -q --no-cov
 }
 
-# ── run_package_gates: every package's CI-equivalent gate set, routed by the
-# current route. A failing gate aborts the whole push (set -euo pipefail);
-# a route that does not include the package simply skips it.
+# Workspace names from pnpm-workspace.yaml; db/docs are path buckets.
+BUCKET_GATE_PACKAGES="db docs"
+
 run_package_gates() {
   local pkg
-  for pkg in agent web catalog users edge contract infra db docs; do
+  for pkg in $WORKSPACE_NAMES $BUCKET_GATE_PACKAGES; do
     if route_includes "$pkg"; then "gate_$pkg"; fi
   done
 }
 
-# ── run_full_scripts_suite: the gates' own behavioral tests (self-testing
-# orchestration surface, AC5).
+# Self-testing orchestration surface (AC5).
 SCRIPT_SUITE=(
   pre-push.test.sh
   changed-packages.test.sh
@@ -279,12 +281,8 @@ run_full_scripts_suite() {
   done
 }
 
-# ── run_scripts_self_tests (AC5): an explicit `scripts` change runs the full
-# suite; the `all` fallback (root config, unknown paths) still runs the config
-# contract self-test so a root-only `.pre-commit-config.yaml` change cannot
-# skip it. The recursive pre-push.test.sh stays scoped to an EXPLICIT
-# `scripts` change — letting `all` nest the local-gates suite into itself
-# would recurse. Uses route_has (raw membership), never the `all` expansion.
+# Explicit `scripts` → full suite. `all` still runs pre-commit-config.test.sh
+# (route_has, never all-expansion — nesting pre-push.test.sh would recurse).
 run_scripts_self_tests() {
   if route_has scripts; then
     run_full_scripts_suite

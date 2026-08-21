@@ -7,7 +7,7 @@ import {
   runTtlJob,
   type CronDependencies,
   type CronJobResult,
-} from "../src/index";
+} from "../src/scheduled/ingest-schedule";
 import { mockFetch } from "./mock-fetch-sequence";
 import type { IngestResult } from "../src/ingest/ingest-bangumi";
 import type { CatalogDb } from "../src/db/client";

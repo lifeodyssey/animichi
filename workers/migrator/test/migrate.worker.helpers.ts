@@ -5,6 +5,7 @@ import {
   type GitHubOidcPolicy,
 } from "@animichi/contract/oidc-github";
 import { createMigratorApp, type Env as MigratorEnv, type MigratorDeps } from "../src/create-app";
+import type { ContainerOutcome } from "../src/migration";
 import { TRUSTED_WORKFLOW, MIGRATOR_OIDC_AUDIENCE } from "../src/policy";
 
 // #1051 — shared HTTP-seam fixtures for the migrator worker tests: faked
@@ -12,10 +13,7 @@ import { TRUSTED_WORKFLOW, MIGRATOR_OIDC_AUDIENCE } from "../src/policy";
 // exp against the wall clock, so the clock is pinned to a fixed instant.
 export const FIXED_NOW = new Date("2026-03-01T00:00:00.000Z");
 
-export type ContainerOutcome =
-  | { kind: "success"; exitCode: 0 }
-  | { kind: "failure"; exitCode: number }
-  | { kind: "timeout"; ranMs: number; lastStatus: string; exitCode?: number };
+export type { ContainerOutcome };
 
 const DSN = "postgresql://fake:migrator@db.test/neondb";
 
