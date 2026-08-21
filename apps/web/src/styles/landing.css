@@ -12,7 +12,18 @@
   --landing-teal-hover: #3dd4c6;
   --landing-teal-press: #11a89b;
   --landing-teal-bg: #e6f9f6;
+  /* The bright teal ground cannot carry white text (2.10:1); this is the ink
+     that clears AA on it, mirroring globals' --color-primary-ink (DS 07-03). */
+  --landing-teal-ink: #073f3a;
+  /* Explore orange — the single dominant marketing action (docs/DESIGN.md
+     "Explore": oklch(67% 0.17 47)). Hover/press are the teal ramp's own
+     lightness steps (+3.91pp / -9.15pp in OKLCH) applied to that base. */
+  --landing-explore: #e8742e;
+  --landing-explore-hover: #f48241;
+  --landing-explore-press: #c15e21;
+  --landing-explore-ink: #411f00;
   --landing-line: #e8e2d6;
+  --landing-shadow-pill: #bdaea0;
   --landing-shadow-soft: 0 14px 40px -14px rgb(107 86 58 / 25%);
   --landing-shadow-card: 0 22px 60px -22px rgb(90 60 32 / 33%);
   min-height: 100vh;
@@ -30,7 +41,13 @@
   --landing-ink-body: #d8c9ac;
   --landing-ink-soft: #a2916f;
   --landing-teal-bg: #14342e;
+  /* Night lifts the orange (OKLCH L 68.35% -> 72%, chroma eased to 0.145) so it
+     keeps its prominence against the dark ground; the same dark ink rides it. */
+  --landing-explore: #ec854d;
+  --landing-explore-hover: #f8935d;
+  --landing-explore-press: #c66e3d;
   --landing-line: #453a24;
+  --landing-shadow-pill: #17110a;
   --landing-shadow-soft: 0 14px 40px -14px rgb(0 0 0 / 40%);
   --landing-shadow-card: 0 22px 60px -22px rgb(0 0 0 / 53%);
   background:
@@ -160,7 +177,7 @@
   padding: 2px 10px;
   border-radius: 10px;
   background: var(--landing-teal);
-  color: #fff;
+  color: var(--landing-teal-ink);
 }
 
 .landing__bar-actions {
@@ -174,29 +191,28 @@
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  padding: 13px 26px;
-  border: 0;
+  padding: 11px 24px;
+  border: 2px solid var(--landing-line);
   border-radius: 50px;
-  background: var(--landing-teal);
-  color: #fff;
+  background: var(--landing-paper);
+  color: var(--landing-ink);
   font: inherit;
   font-weight: 700;
   font-size: 17px;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 4px 0 0 var(--landing-teal-press), 0 12px 22px -10px var(--landing-teal-press);
+  box-shadow: 0 3px 0 0 var(--landing-shadow-pill);
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
 
 .landing__login:hover {
-  background: var(--landing-teal-hover);
   transform: translateY(-1px);
-  box-shadow: 0 5px 0 0 var(--landing-teal-press), 0 16px 26px -10px var(--landing-teal-press);
+  box-shadow: 0 4px 0 0 var(--landing-shadow-pill);
 }
 
 .landing__login:active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 0 var(--landing-teal-press);
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 0 var(--landing-shadow-pill);
 }
 
 .landing__login svg {
@@ -413,26 +429,26 @@
   padding: 14px 30px;
   border: 0;
   border-radius: 50px;
-  background: var(--landing-teal);
-  color: #fff;
+  background: var(--landing-explore);
+  color: var(--landing-explore-ink);
   font: inherit;
   font-weight: 800;
   font-size: 18px;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 4px 0 0 var(--landing-teal-press), 0 12px 22px -10px var(--landing-teal-press);
+  box-shadow: 0 4px 0 0 var(--landing-explore-press), 0 12px 22px -10px var(--landing-explore-press);
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
 
 .hero-search__cta:hover {
-  background: var(--landing-teal-hover);
+  background: var(--landing-explore-hover);
   transform: translateY(-1px);
-  box-shadow: 0 5px 0 0 var(--landing-teal-press), 0 16px 26px -10px var(--landing-teal-press);
+  box-shadow: 0 5px 0 0 var(--landing-explore-press), 0 16px 26px -10px var(--landing-explore-press);
 }
 
 .hero-search__cta:active {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 0 var(--landing-teal-press);
+  box-shadow: 0 1px 0 0 var(--landing-explore-press);
 }
 
 /* ── Example chips ── */
@@ -471,13 +487,13 @@
 .hero-chip--green {
   border-color: #d4ebbf;
   background: #e7f4dd;
-  color: #4e7a2c;
+  color: #4c7728;
 }
 
 .hero-chip--yellow {
   border-color: #f6e3a6;
   background: #fdf1cf;
-  color: #a8801a;
+  color: #876610;
 }
 
 .hero-chip--blue {
@@ -961,7 +977,7 @@
 
   .landing__login {
     gap: 7px;
-    padding: 10px 16px;
+    padding: 8px 14px;
     font-size: 15px;
   }
 
