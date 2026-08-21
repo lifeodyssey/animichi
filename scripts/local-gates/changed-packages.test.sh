@@ -177,4 +177,12 @@ test_empty_change_outputs_nothing
 test_origin_main_fallback_to_head
 test_merge_base_diff_failure_fails_closed
 test_no_merge_base_fails_closed
+
+source "$SCRIPT_DIR/changed-packages-workspace-tests.sh"
+test_migrator_change_routes_to_migrator
+test_workspace_packages_have_gate_sets
+test_missing_gate_set_fails_closed_on_copy
+test_router_has_no_handwritten_workspace_cases
+test_literal_glob_without_package_json_is_skipped
+test_extra_gate_dirs_are_unioned
 echo "changed-packages.test.sh: all green"

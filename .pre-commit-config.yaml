@@ -54,32 +54,13 @@ repos:
 
   - repo: local
     hooks:
-      # Oxlint for the TS packages actually staged, decided by the router
-      # script in --staged mode — a push touching only workers/users lints
-      # workers/users only (edge keeps its own lint:oxlint). `all` (unknown
-      # paths) lints everything: the conservative fallback.
-      #
-      # contract lints via the root oxlint binary, scoped to src/: its test/
-      # files sit outside the tsconfig include (src+scripts only), so a
-      # type-aware run cannot resolve them and collapses every symbol to the
-      # TS 7 `error` type (no-unsafe-* noise). src/ is the type-aware surface.
+      # Oxlint for the TS packages actually staged. Dispatch is derived from
+      # the workspace set (scripts/local-gates/oxlint-changed.sh): a package
+      # with lint:oxlint is picked up automatically. contract still lints
+      # src/ only (test/ is outside tsconfig; type-aware collapse otherwise).
       - id: oxlint
         name: oxlint (changed TS packages)
-        entry: |
-          bash -c '
-          changed="$(scripts/local-gates/changed-packages.sh --staged)" || exit 1
-          pkg() { printf "%s\n" "$changed" | grep -qx "$1"; }
-          if pkg all; then
-            pnpm run lint:oxlint || exit 1
-            pnpm --filter "./workers/edge" run lint:oxlint || exit 1
-            pnpm exec oxlint --type-aware --deny-warnings packages/contract/src || exit 1
-          else
-            if pkg web; then pnpm --filter web run lint:oxlint || exit 1; fi
-            if pkg catalog; then pnpm --filter catalog run lint:oxlint || exit 1; fi
-            if pkg users; then pnpm --filter users run lint:oxlint || exit 1; fi
-            if pkg edge; then pnpm --filter "./workers/edge" run lint:oxlint || exit 1; fi
-            if pkg contract; then pnpm exec oxlint --type-aware --deny-warnings packages/contract/src || exit 1; fi
-          fi'
+        entry: bash scripts/local-gates/oxlint-changed.sh
         language: system
         pass_filenames: false
         always_run: true

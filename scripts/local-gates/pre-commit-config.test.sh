@@ -13,16 +13,32 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 CONFIG="$REPO_ROOT/.pre-commit-config.yaml"
 ORCH="$SCRIPT_DIR/pre-push.sh"
+OXLINT="$SCRIPT_DIR/oxlint-changed.sh"
 
 [ -f "$CONFIG" ] || { echo "FAIL: missing $CONFIG" >&2; exit 1; }
 [ -x "$ORCH" ] || { echo "FAIL: missing executable $ORCH" >&2; exit 1; }
+[ -f "$OXLINT" ] || { echo "FAIL: missing $OXLINT" >&2; exit 1; }
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# AC1: pre-commit routing reads the staged diff (the router call in the
-# oxlint hook must carry --staged; the default merge-base mode is pre-push's).
-grep -qF "changed-packages.sh --staged" "$CONFIG" \
-  || fail "pre-commit router call lost --staged"
+assert_eq() {
+  local expected="$1" actual="$2" label="$3"
+  [ "$actual" = "$expected" ] && return 0
+  printf 'FAIL [%s]:\nexpected:\n%s\nactual:\n%s\n' "$label" "$expected" "$actual" >&2
+  exit 1
+}
+
+# AC1: pre-commit routing reads the staged diff (the oxlint dispatcher
+# calls the router with --staged; the default merge-base mode is pre-push's).
+grep -qF 'changed-packages.sh' "$OXLINT" \
+  || fail "oxlint dispatcher no longer calls changed-packages.sh"
+grep -qF -- '--staged' "$OXLINT" \
+  || fail "oxlint dispatcher lost --staged"
+grep -qF "entry: bash scripts/local-gates/oxlint-changed.sh" "$CONFIG" \
+  || fail "oxlint hook no longer invokes oxlint-changed.sh"
+if grep -qE 'if pkg (web|catalog|users|edge|migrator)' "$CONFIG"; then
+  fail "oxlint hook must not hand-write per-package pkg branches"
+fi
 
 # Old 82% floor must not come back: the orchestrator uses the canonical 87
 # from apps/agent/pyproject.toml addopts and never overrides it with a CLI
@@ -82,4 +98,64 @@ test_zero_prepush_stages_fail_loudly() {
 }
 
 test_zero_prepush_stages_fail_loudly
+
+independent_star_dirs() {
+  local prefix="$1" d
+  for d in "$REPO_ROOT/$prefix"/*; do
+    [ -f "$d/package.json" ] || continue
+    printf '%s\n' "$prefix/${d##*/}"
+  done
+}
+
+independent_ws_dirs() {
+  independent_star_dirs workers
+  independent_star_dirs apps
+  independent_star_dirs packages
+  if [ -f "$REPO_ROOT/e2e/package.json" ]; then printf 'e2e\n'; fi
+  if [ -f "$REPO_ROOT/infra/package.json" ]; then printf 'infra\n'; fi
+}
+
+independent_oxlint_dirs() {
+  local dir
+  while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
+    [ "$dir" = packages/contract ] && { printf '%s\n' "$dir"; continue; }
+    grep -q '"lint:oxlint"' "$REPO_ROOT/$dir/package.json" || continue
+    printf '%s\n' "$dir"
+  done <<< "$(independent_ws_dirs | sort -u)" | sort
+}
+
+test_oxlint_list_matches_independent_sot() {
+  assert_eq \
+    "$(independent_oxlint_dirs)" \
+    "$(bash "$OXLINT" --list | sort)" \
+    "oxlint --list matches independent lint:oxlint + contract"
+  echo "ok: oxlint --list covers every derived lint:oxlint package + contract"
+}
+
+mutate_oxlint_skip_migrator() {
+  sed 's/|| dir_has_oxlint_script "\$dir"/|| { [ "$dir" != workers\/migrator ] \&\& dir_has_oxlint_script "$dir"; }/' \
+    "$OXLINT"
+}
+
+assert_list_lacks_migrator() {
+  if printf '%s\n' "$1" | grep -qx workers/migrator; then
+    fail "mutated --list still includes workers/migrator"
+  fi
+}
+
+test_oxlint_list_dropping_migrator_fails_on_copy() {
+  local copy listed
+  copy="$(mktemp)"
+  mutate_oxlint_skip_migrator > "$copy"
+  listed="$(GATE_REPO_ROOT="$REPO_ROOT" bash "$copy" --list | sort)"
+  rm -f "$copy"
+  [ "$listed" != "$(independent_oxlint_dirs)" ] \
+    || fail "copy that skips migrator must not match the independent oxlint set"
+  assert_list_lacks_migrator "$listed"
+  echo "ok: dropping migrator from the oxlint list is red on a copy"
+}
+
+test_oxlint_list_matches_independent_sot
+test_oxlint_list_dropping_migrator_fails_on_copy
 echo "pre-commit-config.test.sh: all green"

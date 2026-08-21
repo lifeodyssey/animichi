@@ -17,9 +17,11 @@
 #
 #   `all` = any path that maps to no package (root config, lockfiles, unknown
 #           dirs) — the conservative fallback: hooks run the full set.
-#   contract is unioned in whenever one of its consumers (agent, web, catalog,
-#           users, edge) changed — contract is the cross-service source
-#           of truth.
+#   Workspace members are derived from pnpm-workspace.yaml (plus EXTRA_GATE_DIRS
+#           for any non-pnpm package that still needs a gate). Path buckets
+#           (db, ci, scripts, docs) stay explicit. contract is unioned in
+#           whenever one of its consumers (agent, web, catalog, users, edge,
+#           migrator) changed — contract is the cross-service source of truth.
 #
 # Usage: changed="$(scripts/local-gates/changed-packages.sh --staged)"
 #
@@ -27,6 +29,10 @@
 # pipeline) so its variable updates survive; and the case statement must not
 # appear inside $(...), which the stock macOS bash 3.2 mis-parses.
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/workspace-packages.sh"
+load_workspace_packages
 
 staged=false
 case "${1:-}" in
@@ -72,29 +78,32 @@ else
   input="$(printf '%s\n' "$files" | sed '/^$/d')"
 fi
 
+route_path_bucket() {
+  case "$1" in
+    migrations/*) packages+="db"$'\n' ;;
+    .github/scripts/*) packages+="scripts"$'\n' ;;
+    .github/*) packages+="ci"$'\n' ;;
+    scripts/*) packages+="scripts"$'\n' ;;
+    docs/*) packages+="docs"$'\n' ;;
+    *) return 1 ;;
+  esac
+}
+
+route_one_path() {
+  route_path_bucket "$1" && return
+  match_workspace_package "$1" && { packages+="$matched_pkg"$'\n'; return; }
+  packages+="all"$'\n'
+}
+
 packages=""
 if [ -n "$input" ]; then
   while IFS= read -r path; do
-    case "$path" in
-      apps/agent/*) packages+="agent"$'\n' ;;
-      apps/web/*) packages+="web"$'\n' ;;
-      workers/catalog/*) packages+="catalog"$'\n' ;;
-      workers/users/*) packages+="users"$'\n' ;;
-      workers/edge/*) packages+="edge"$'\n' ;;
-      packages/contract/*) packages+="contract"$'\n' ;;
-      infra/*) packages+="infra"$'\n' ;;
-      migrations/*) packages+="db"$'\n' ;;
-      .github/scripts/*) packages+="scripts"$'\n' ;;
-      .github/*) packages+="ci"$'\n' ;;
-      scripts/*) packages+="scripts"$'\n' ;;
-      docs/*) packages+="docs"$'\n' ;;
-      *) packages+="all"$'\n' ;;
-    esac
+    route_one_path "$path"
   done <<< "$input"
 fi
 
 # contract is the cross-service source of truth: any consumer change implies it.
-if printf '%s\n' "$packages" | grep -qE '^(agent|web|catalog|users|edge)$'; then
+if printf '%s\n' "$packages" | grep -qE '^(agent|web|catalog|users|edge|migrator)$'; then
   packages="$(printf '%s\ncontract\n' "$packages")"
 fi
 
