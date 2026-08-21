@@ -84,13 +84,16 @@ const STAGING_COMPONENT_JOBS = [
   "deploy-migrator-staging",
 ] as const;
 
-// #1075: deploy-web-staging rings reusable-ring-doorbell and no longer passes run_atlas.
-const STAGING_RUN_ATLAS_JOBS = [
+// #1076: catalog/users/web/root staging ring doorbell; only migrator still
+// calls reusable-deploy-component and must pass run_atlas: false.
+const STAGING_DOORBELL_JOBS = [
   "deploy-staging",
+  "deploy-web-staging",
   "deploy-users-staging",
   "deploy-root-staging",
-  "deploy-migrator-staging",
 ] as const;
+
+const STAGING_RUN_ATLAS_JOBS = ["deploy-migrator-staging"] as const;
 
 const STAGING_APP_JOBS = [
   "deploy-staging",
@@ -135,6 +138,15 @@ void test("STAGING: shared-component callers pass run_atlas: false", () => {
   const ci = read(".github/workflows/ci.yml");
   for (const id of STAGING_RUN_ATLAS_JOBS) {
     assert.match(yamlJobSegment(ci, id), /run_atlas:\s*false/, `${id} must pass run_atlas: false`);
+  }
+});
+
+void test("STAGING: doorbell rings do not pass run_atlas", () => {
+  const ci = read(".github/workflows/ci.yml");
+  for (const id of STAGING_DOORBELL_JOBS) {
+    const seg = yamlJobSegment(ci, id);
+    assert.match(seg, /reusable-ring-doorbell\.yml/, `${id} must ring doorbell`);
+    assert.doesNotMatch(seg, /run_atlas:/, `${id} must not pass run_atlas`);
   }
 });
 
