@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# #1076 — staging catalog, users, and root ring the Builds doorbell.
+# #1076 — staging catalog, users, web, and root ring the Builds doorbell.
 # Path filters skip those rings on infra-only changes; infra stays unfiltered.
 
 require "yaml"
@@ -11,6 +11,7 @@ WORKERS_USES = "./.github/workflows/reusable-ring-doorbell.yml"
 PATHS_JOB = "staging-worker-paths"
 COMPONENTS = {
   "deploy-staging" => "catalog",
+  "deploy-web-staging" => "web",
   "deploy-users-staging" => "users",
   "deploy-root-staging" => "root"
 }.freeze
@@ -18,7 +19,8 @@ INFRA_ONLY = %w[infra/src/hardening.ts infra/index.ts].freeze
 WORKER_TOUCH = {
   "catalog" => %w[workers/catalog/src/index.ts],
   "users" => %w[workers/users/src/index.ts],
-  "root" => %w[workers/edge/src/entry.ts]
+  "root" => %w[workers/edge/src/entry.ts],
+  "web" => %w[apps/web/src/index.ts apps/web/wrangler.jsonc]
 }.freeze
 AGENT_TOUCH = %w[apps/agent/src/animichi/foo.py].freeze
 
@@ -94,7 +96,7 @@ def rings?(filters, component, paths)
 end
 
 def assert_silent_on_infra(filters)
-  %w[catalog users root].each do |name|
+  COMPONENTS.each_value do |name|
     abort "infra-only must not ring #{name}" if rings?(filters, name, INFRA_ONLY)
   end
 end
@@ -109,7 +111,7 @@ end
 def assert_paths_job(jobs)
   job = jobs.fetch(PATHS_JOB)
   abort "#{PATHS_JOB} must run on push to main" unless job["if"].to_s.include?("refs/heads/main")
-  %w[catalog users root].each do |name|
+  COMPONENTS.each_value do |name|
     abort "#{PATHS_JOB} must output #{name}" unless job.fetch("outputs").key?(name)
   end
 end
@@ -118,10 +120,6 @@ def assert_infra_unfiltered(jobs)
   infra = jobs.fetch("deploy-infra-staging")
   abort "infra must not need #{PATHS_JOB}" if workers_needs(infra).include?(PATHS_JOB)
   abort "infra must not skip on worker paths" if infra["if"].to_s.include?(PATHS_JOB)
-end
-
-def assert_web_unfiltered(jobs)
-  abort "web must not skip on worker paths" if jobs.fetch("deploy-web-staging")["if"].to_s.include?(PATHS_JOB)
 end
 
 def assert_root_full_deploy
@@ -148,12 +146,11 @@ assert_no_worker_creds(publish_surface, "ci")
 COMPONENTS.each { |id, name| assert_ring_job(ci_jobs, id, name) }
 assert_paths_job(ci_jobs)
 assert_infra_unfiltered(ci_jobs)
-assert_web_unfiltered(ci_jobs)
 filters = path_filters(ci_jobs)
 assert_silent_on_infra(filters)
 assert_worker_rings(filters)
 assert_root_full_deploy
-puts "CI contract: #1076 staging catalog/users/root ring doorbell (infra-only does not)"
+puts "CI contract: #1076 staging catalog/users/web/root ring doorbell (infra-only does not)"
 
 expect_worker_reject("catalog gains CLOUDFLARE_API_TOKEN") do
   assert_no_worker_creds("#{caller_segment('deploy-staging')}\nCLOUDFLARE_API_TOKEN", "mut")
@@ -168,8 +165,18 @@ expect_worker_reject("infra-only path set still rings a worker") do
   mutated["catalog"] = Array(mutated["catalog"]) + ["infra/**"]
   assert_silent_on_infra(mutated)
 end
+expect_worker_reject("infra-only path set still rings web") do
+  mutated = Marshal.load(Marshal.dump(filters))
+  mutated["web"] = Array(mutated["web"]) + ["infra/**"]
+  assert_silent_on_infra(mutated)
+end
 expect_worker_reject("worker path set does not ring") do
   mutated = Marshal.load(Marshal.dump(filters))
   mutated["catalog"] = []
+  assert_worker_rings(mutated)
+end
+expect_worker_reject("web path set does not ring") do
+  mutated = Marshal.load(Marshal.dump(filters))
+  mutated["web"] = []
   assert_worker_rings(mutated)
 end

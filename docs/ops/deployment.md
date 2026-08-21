@@ -404,9 +404,9 @@ On a push to `main`, the current promotion chain is:
 
 2. `deploy-infra-staging` always runs on the deploy lane (no path filter) and applies the
    main `infra/` stack (`reusable-deploy-infra.yml`). Staging catalog, users, web, and root
-   `needs` that job **and** `migrate-staging`. Catalog, users, and root ring the Builds
+   `needs` that job **and** `migrate-staging`. Catalog, users, web, and root ring the Builds
    doorbell (`reusable-ring-doorbell.yml`); `staging-worker-paths` skips those rings when
-   their tree did not change. Staging web also rings the doorbell (#1075).
+   their tree did not change.
    `vars.DOORBELL_STAGING_URL` is public config. Accepted tradeoff: staging deploys
    no longer wait on any package pipeline, because GitHub cannot express `needs:` across
    workflows — protection comes from the required merge contexts in the ruleset instead, plus
