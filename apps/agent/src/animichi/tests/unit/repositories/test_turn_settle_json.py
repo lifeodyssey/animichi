@@ -22,62 +22,50 @@ class _Unknown:
         return "opaque-outcome"
 
 
-def _bound_outcome_payload(statement: object) -> object:
-    params = statement.compile().params
-    return params["outcome_payload"]
+def _recording_store() -> tuple[SQLModelTurnReservationStore, RecordingSessionFactory]:
+    factory = RecordingSessionFactory()
+    factory.session.result_for("row-id")
+    return SQLModelTurnReservationStore(factory), factory
+
+
+async def _settle_completed(
+    store: SQLModelTurnReservationStore, payload: object | None = None
+) -> bool:
+    return await store.settle(
+        TurnRef(session_id="sess-1", turn_key="turn-1"),
+        owner="owner-a",
+        outcome="completed",
+        outcome_payload=payload,
+    )
+
+
+def _bound_outcome_payload(factory: RecordingSessionFactory) -> object:
+    return factory.session.executed[0].compile().params["outcome_payload"]
 
 
 async def test_settle_binds_json_serializable_dataclass_payload() -> None:
-    factory = RecordingSessionFactory()
-    factory.session.result_for("row-id")
-    store = SQLModelTurnReservationStore(factory)
-    won = await store.settle(
-        TurnRef(session_id="sess-1", turn_key="turn-1"),
-        owner="owner-a",
-        outcome="completed",
-        outcome_payload=_Opaque(intent="clarify"),
-    )
+    store, factory = _recording_store()
+    won = await _settle_completed(store, _Opaque(intent="clarify"))
     assert won is True
-    payload = _bound_outcome_payload(factory.session.executed[0])
-    assert json.loads(json.dumps(payload)) == {"intent": "clarify"}
+    assert json.loads(json.dumps(_bound_outcome_payload(factory))) == {
+        "intent": "clarify"
+    }
 
 
 async def test_settle_passes_mapping_payload_through() -> None:
-    factory = RecordingSessionFactory()
-    factory.session.result_for("row-id")
-    store = SQLModelTurnReservationStore(factory)
+    store, factory = _recording_store()
     raw = {"out": 1}
-    await store.settle(
-        TurnRef(session_id="sess-1", turn_key="turn-1"),
-        owner="owner-a",
-        outcome="completed",
-        outcome_payload=raw,
-    )
-    assert _bound_outcome_payload(factory.session.executed[0]) == raw
+    await _settle_completed(store, raw)
+    assert _bound_outcome_payload(factory) == raw
 
 
 async def test_settle_stringifies_unknown_payload_via_fallback() -> None:
-    factory = RecordingSessionFactory()
-    factory.session.result_for("row-id")
-    store = SQLModelTurnReservationStore(factory)
-    await store.settle(
-        TurnRef(session_id="sess-1", turn_key="turn-1"),
-        owner="owner-a",
-        outcome="completed",
-        outcome_payload=_Unknown(),
-    )
-    payload = _bound_outcome_payload(factory.session.executed[0])
-    assert json.loads(json.dumps(payload)) == "opaque-outcome"
+    store, factory = _recording_store()
+    await _settle_completed(store, _Unknown())
+    assert json.loads(json.dumps(_bound_outcome_payload(factory))) == "opaque-outcome"
 
 
 async def test_settle_omits_none_payload() -> None:
-    factory = RecordingSessionFactory()
-    factory.session.result_for("row-id")
-    store = SQLModelTurnReservationStore(factory)
-    await store.settle(
-        TurnRef(session_id="sess-1", turn_key="turn-1"),
-        owner="owner-a",
-        outcome="completed",
-    )
-    params = factory.session.executed[0].compile().params
-    assert "outcome_payload" not in params
+    store, factory = _recording_store()
+    await _settle_completed(store)
+    assert "outcome_payload" not in factory.session.executed[0].compile().params

@@ -36,6 +36,17 @@ def _named_workflow_job(source: str, job_id: str) -> str:
     return job["body"]
 
 
+def _agent_pipeline_job(job_id: str) -> str:
+    path = _REPO_ROOT / ".github" / "workflows" / "pipeline-agent.yml"
+    return _named_workflow_job(path.read_text(encoding="utf-8"), job_id)
+
+
+def _agent_conftest(rel: str) -> str:
+    return (_REPO_ROOT / "apps/agent/src/animichi/tests" / rel).read_text(
+        encoding="utf-8"
+    )
+
+
 def _matches_any(path: str, patterns: list[str]) -> bool:
     return any(fnmatch(path, pattern) for pattern in patterns)
 
@@ -135,34 +146,18 @@ def test_smoke_job_sets_agent_svc_database_url_so_settings_import_succeeds() -> 
 
 
 def test_integration_job_stubs_zen_go_key_so_settings_import_succeeds() -> None:
-    """#1112: default model is zen/go. The Docker-Postgres lane must stub
-    ZEN_GO_API_KEY as a dummy (same as MIMO_API_KEY), not the live secret —
-    integration tests never call the gateway."""
-    job = _named_workflow_job(
-        (_REPO_ROOT / ".github" / "workflows" / "pipeline-agent.yml").read_text(
-            encoding="utf-8"
-        ),
-        "integration",
-    )
+    """#1112: Docker-Postgres stubs ZEN_GO_API_KEY; never the live secret."""
+    job = _agent_pipeline_job("integration")
     assert re.search(r"(?m)^\s*ZEN_GO_API_KEY:\s*test-key\s*$", job)
     assert "${{ secrets.ZEN_GO_API_KEY }}" not in job
 
 
 def test_integration_conftest_zen_go_stub_is_overrideable() -> None:
-    """#1112: setdefault so a pre-set ZEN_GO_API_KEY (eval .env) is not clobbered.
-
-    Source-pin, not a conftest reimport: reloading integration conftest pulls
-    FastAPI/DB fixtures and is order-dependent under pytest.
-    """
-    integration = (
-        _REPO_ROOT / "apps/agent/src/animichi/tests/integration/conftest.py"
-    ).read_text(encoding="utf-8")
-    parent = (_REPO_ROOT / "apps/agent/src/animichi/tests/conftest.py").read_text(
-        encoding="utf-8"
-    )
+    """#1112: setdefault so eval .env is not clobbered; not in the shared parent."""
+    integration = _agent_conftest("integration/conftest.py")
+    parent = _agent_conftest("conftest.py")
     assert 'os.environ.setdefault("ZEN_GO_API_KEY", "test-key")' in integration
-    clobber = re.search(r"os\.environ\[.ZEN_GO_API_KEY.\]\s*=", integration)
-    assert clobber is None
+    assert re.search(r"os\.environ\[.ZEN_GO_API_KEY.\]\s*=", integration) is None
     assert 'setdefault("ZEN_GO_API_KEY"' not in parent
 
 
