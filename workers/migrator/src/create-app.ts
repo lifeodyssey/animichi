@@ -108,8 +108,17 @@ function successResponse(result: Extract<MigrationRunResult, { kind: "success" }
   });
 }
 
-function failureBody(result: Extract<MigrationRunResult, { kind: "failure" }>): object {
-  if (result.error === undefined) return { success: false, exitCode: result.exitCode, appliedHead: null };
+interface FailureJson {
+  success: false;
+  exitCode: number;
+  appliedHead: null;
+  error?: string;
+}
+
+function failureBody(result: Extract<MigrationRunResult, { kind: "failure" }>): FailureJson {
+  if (result.error === undefined) {
+    return { success: false, exitCode: result.exitCode, appliedHead: null };
+  }
   return { success: false, exitCode: result.exitCode, appliedHead: null, error: result.error };
 }
 
