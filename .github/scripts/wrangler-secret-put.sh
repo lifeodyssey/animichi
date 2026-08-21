@@ -33,7 +33,7 @@ trim_name() {
 }
 
 run_wrangler() {
-  if [ -n "${WRANGLER_BIN:-}" ]; then
+  if [[ -n "${WRANGLER_BIN:-}" ]]; then
     "${WRANGLER_BIN}" "$@"
     return
   fi
@@ -43,32 +43,32 @@ run_wrangler() {
 put_one() {
   local name="$1" value="$2"
   local extra=()
-  [ "$TARGET_COMPONENT" = "root" ] && extra=(-c "${ROOT_CONFIG}")
+  [[ "$TARGET_COMPONENT" = "root" ]] && extra=(-c "${ROOT_CONFIG}")
   printf '%s' "$value" | run_wrangler secret put "$name" "${extra[@]}" \
     --env "$TARGET_ENVIRONMENT"
 }
 
 handle_empty() {
   local name="$1"
-  if [ "$EMPTY_POLICY" = "skip" ]; then
+  if [[ "$EMPTY_POLICY" = "skip" ]]; then
     echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — skipping the push."
     return 0
   fi
   fail "$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT. Refusing to push an empty Worker secret."
 }
 
-if [ "$EMPTY_POLICY" != "fail" ] && [ "$EMPTY_POLICY" != "skip" ]; then
+if [[ "$EMPTY_POLICY" != "fail" ]] && [[ "$EMPTY_POLICY" != "skip" ]]; then
   fail "EMPTY_POLICY must be fail or skip, got '$EMPTY_POLICY'"
 fi
 
-while IFS= read -r raw || [ -n "$raw" ]; do
+while IFS= read -r raw || [[ -n "$raw" ]]; do
   name="$(trim_name "$raw")"
-  [ -z "$name" ] && continue
+  [[ -z "$name" ]] && continue
   if ! [[ "$name" =~ ^[A-Z][A-Z0-9_]*$ ]]; then
     fail "invalid secret name '$name' (expected ^[A-Z][A-Z0-9_]*$)"
   fi
   value="${!name-}"
-  if [ -z "$value" ]; then
+  if [[ -z "$value" ]]; then
     handle_empty "$name"
     continue
   fi

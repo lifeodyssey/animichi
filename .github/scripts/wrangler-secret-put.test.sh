@@ -58,7 +58,7 @@ write_fake
 test_root_passes_config_path() {
   local rc
   rc="$(run_put root staging MIMO_API_KEY fail mimokey)"
-  [ "${rc}" -eq 0 ] || fail_test "root put should pass, got ${rc}: $(cat "${TMP_DIR}/out")"
+  [[ "${rc}" -eq 0 ]] || fail_test "root put should pass, got ${rc}: $(cat "${TMP_DIR}/out")"
   grep -q 'argv:secret put MIMO_API_KEY -c workers/edge/wrangler.toml --env staging' "${LOG}" \
     || fail_test "root argv missing -c workers/edge/wrangler.toml: $(cat "${LOG}")"
   echo "PASS: root secret put passes -c workers/edge/wrangler.toml"
@@ -68,7 +68,7 @@ test_root_passes_config_path() {
 test_catalog_has_no_config_path() {
   local rc
   rc="$(run_put catalog staging MIMO_API_KEY fail mimokey)"
-  [ "${rc}" -eq 0 ] || fail_test "catalog put should pass, got ${rc}: $(cat "${TMP_DIR}/out")"
+  [[ "${rc}" -eq 0 ]] || fail_test "catalog put should pass, got ${rc}: $(cat "${TMP_DIR}/out")"
   grep -q 'argv:secret put MIMO_API_KEY --env staging' "${LOG}" \
     || fail_test "catalog argv should be secret put without -c: $(cat "${LOG}")"
   grep -q 'workers/edge/wrangler.toml' "${LOG}" \
@@ -80,10 +80,10 @@ test_catalog_has_no_config_path() {
 test_empty_fail_closed() {
   local rc
   rc="$(run_put root staging MIMO_API_KEY fail)"
-  [ "${rc}" -eq 1 ] || fail_test "empty required secret should exit 1, got ${rc}"
+  [[ "${rc}" -eq 1 ]] || fail_test "empty required secret should exit 1, got ${rc}"
   grep -q 'MIMO_API_KEY is empty' "${TMP_DIR}/out" \
     || fail_test "empty fail should name the secret: $(cat "${TMP_DIR}/out")"
-  [ ! -s "${LOG}" ] || fail_test "fail-closed must not call wrangler: $(cat "${LOG}")"
+  [[ ! -s "${LOG}" ]] || fail_test "fail-closed must not call wrangler: $(cat "${LOG}")"
   echo "PASS: empty required secret fails closed"
 }
 
@@ -91,7 +91,7 @@ test_empty_fail_closed() {
 test_empty_skip_puts_remaining() {
   local rc
   rc="$(run_put root staging $'MIMO_API_KEY\nLOGFIRE_TOKEN' skip "" logfirevalue)"
-  [ "${rc}" -eq 0 ] || fail_test "skip policy should pass, got ${rc}: $(cat "${TMP_DIR}/out")"
+  [[ "${rc}" -eq 0 ]] || fail_test "skip policy should pass, got ${rc}: $(cat "${TMP_DIR}/out")"
   grep -q 'MIMO_API_KEY is empty' "${TMP_DIR}/out" \
     || fail_test "skip should warn on empty MIMO_API_KEY: $(cat "${TMP_DIR}/out")"
   grep -q 'argv:secret put LOGFIRE_TOKEN -c workers/edge/wrangler.toml --env staging' "${LOG}" \
@@ -105,7 +105,7 @@ test_empty_skip_puts_remaining() {
 test_value_is_stdin_not_argv() {
   local rc
   rc="$(run_put root staging MIMO_API_KEY fail 'secret-value-must-not-leak')"
-  [ "${rc}" -eq 0 ] || fail_test "put should pass, got ${rc}: $(cat "${TMP_DIR}/out")"
+  [[ "${rc}" -eq 0 ]] || fail_test "put should pass, got ${rc}: $(cat "${TMP_DIR}/out")"
   grep -q 'stdin:secret-value-must-not-leak' "${LOG}" \
     || fail_test "value must be on stdin: $(cat "${LOG}")"
   grep -q 'secret-value-must-not-leak' "${LOG}" || fail_test "missing value in log"
@@ -118,7 +118,7 @@ test_value_is_stdin_not_argv() {
 test_unknown_policy_fails() {
   local rc
   rc="$(run_put root staging MIMO_API_KEY maybe mimokey)"
-  [ "${rc}" -eq 1 ] || fail_test "unknown EMPTY_POLICY should exit 1, got ${rc}"
+  [[ "${rc}" -eq 1 ]] || fail_test "unknown EMPTY_POLICY should exit 1, got ${rc}"
   grep -q "EMPTY_POLICY must be fail or skip" "${TMP_DIR}/out" \
     || fail_test "unknown policy should refuse to guess: $(cat "${TMP_DIR}/out")"
   echo "PASS: unknown EMPTY_POLICY fails closed"

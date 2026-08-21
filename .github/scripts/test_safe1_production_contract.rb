@@ -62,8 +62,7 @@ end
 # wrangler-action uploadSecrets() ignores `-c` from `command` (#1150). Root
 # secrets skip that bulk upload (`|| ''` is load-bearing: without it GHA
 # interpolates boolean false and wrangler-action tries to upload a secret
-# named "false") and are put after Deploy Worker. include? of the helper
-# still passes if that step is deleted, because post-deploy secrets use it.
+# named "false") and are put after Deploy Worker via WORKER_SECRET_PUT.
 ROOT_SKIP_ACTION_SECRETS =
   "${{ inputs.component != 'root' && steps.effective_secrets.outputs.list || '' }}"
 WORKER_SECRET_PUT = "bash .github/scripts/wrangler-secret-put.sh"
@@ -89,14 +88,18 @@ def assert_root_secret_put_after(steps, deploy_idx)
 end
 
 def assert_root_secret_put_step(step)
-  abort "root worker-secret put must gate on inputs.component == 'root' (#1150)" \
-    unless step.fetch("if").to_s.include?("inputs.component == 'root'")
+  condition = step.fetch("if").to_s
+  abort "root worker-secret put must gate on root and non-empty effective secrets (#1150)" \
+    unless condition.include?("inputs.component == 'root'") &&
+      condition.include?("steps.effective_secrets.outputs.list != ''")
   run = step["run"].to_s
   abort "root worker-secret put must run wrangler-secret-put.sh (#1150), got #{run.inspect}" \
-    unless run == WORKER_SECRET_PUT || run.include?(".github/scripts/wrangler-secret-put.sh")
+    unless run == WORKER_SECRET_PUT
   names = step.dig("env", "SECRET_NAMES")
   abort "root worker-secret put SECRET_NAMES must be effective_secrets list (#1150), got #{names.inspect}" \
     unless names == "${{ steps.effective_secrets.outputs.list }}"
+  abort "root worker-secret put must fail on empty secrets (#1150)" \
+    unless step.dig("env", "EMPTY_POLICY") == "fail"
 end
 
 # ── 1. The five production component mappings, identical in both callers ──
