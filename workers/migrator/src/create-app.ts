@@ -12,19 +12,18 @@ import {
 } from "./policy";
 
 /**
- * #1051 — the migrator's Hono application + environment, kept free of any
- * @cloudflare/containers import so the HTTP-seam tests run under plain vitest
- * (the package's ESM build imports `cloudflare:workers`, which only resolves
- * under workerd). The default container runner is loaded lazily (see the
- * `runContainer` default) and the deployed entry (src/index.ts) statically
- * wires the MigrationContainer class.
+ * #1051 / #1124 — the migrator's Hono application + environment, kept free of
+ * @cloudflare/containers so HTTP-seam tests run under plain vitest. Default
+ * apply is neon-http (lazy lock + chain); tests inject `runContainer`.
  */
 
-/** Migrator Worker bindings (staging Secrets Store DSN + container binding). */
+/** Migrator Worker bindings (Secrets Store DSN + apply-lock DO + container). */
 export interface Env {
   ENVIRONMENT?: string;
   MIGRATOR_DATABASE_URL?: string | SecretsStoreSecret;
   MIGRATOR_CONTAINER: DurableObjectNamespace;
+  /** Fixed-name mutex for HTTP apply. Required on the production default path. */
+  MIGRATOR_APPLY_LOCK?: DurableObjectNamespace;
   /** Optional per-deploy cap on the one-shot container run, in ms. */
   CONTAINER_TIMEOUT_MS?: string;
 }
@@ -42,11 +41,6 @@ async function resolveDsn(env: Env): Promise<string | undefined> {
   const url = env.MIGRATOR_DATABASE_URL;
   if (url == null) return undefined;
   return typeof url === "string" ? url : await url.get();
-}
-
-function timeoutMs(env: Env): number {
-  const value = Number(env.CONTAINER_TIMEOUT_MS);
-  return Number.isFinite(value) && value > 0 ? value : 5 * 60 * 1000;
 }
 
 function bearerToken(request: Request): string | null {
@@ -128,8 +122,16 @@ async function runContainerFor(
   deps: MigratorDeps,
 ): Promise<(dsn: string) => Promise<ContainerOutcome>> {
   if (deps.runContainer !== undefined) return deps.runContainer;
-  const { CloudflareContainerRunner } = await import("./runner");
-  return (value: string) => new CloudflareContainerRunner(env.MIGRATOR_CONTAINER).start(value, timeoutMs(env));
+  const { productionApply } = await import("./lock");
+  return httpApplyBound(env, productionApply);
+}
+
+function httpApplyBound(
+  env: Env,
+  bind: (ns: DurableObjectNamespace) => (dsn: string) => Promise<ContainerOutcome>,
+): (dsn: string) => Promise<ContainerOutcome> {
+  if (env.MIGRATOR_APPLY_LOCK === undefined) throw new Error("migrator apply lock not configured");
+  return bind(env.MIGRATOR_APPLY_LOCK);
 }
 
 async function handleMigrate(
