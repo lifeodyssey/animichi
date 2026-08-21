@@ -17,6 +17,11 @@ class _Opaque:
     intent: str
 
 
+class _Unknown:
+    def __str__(self) -> str:
+        return "opaque-outcome"
+
+
 def _bound_outcome_payload(statement: object) -> object:
     params = statement.compile().params
     return params["outcome_payload"]
@@ -49,3 +54,30 @@ async def test_settle_passes_mapping_payload_through() -> None:
         outcome_payload=raw,
     )
     assert _bound_outcome_payload(factory.session.executed[0]) == raw
+
+
+async def test_settle_stringifies_unknown_payload_via_fallback() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for("row-id")
+    store = SQLModelTurnReservationStore(factory)
+    await store.settle(
+        TurnRef(session_id="sess-1", turn_key="turn-1"),
+        owner="owner-a",
+        outcome="completed",
+        outcome_payload=_Unknown(),
+    )
+    payload = _bound_outcome_payload(factory.session.executed[0])
+    assert json.loads(json.dumps(payload)) == "opaque-outcome"
+
+
+async def test_settle_omits_none_payload() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for("row-id")
+    store = SQLModelTurnReservationStore(factory)
+    await store.settle(
+        TurnRef(session_id="sess-1", turn_key="turn-1"),
+        owner="owner-a",
+        outcome="completed",
+    )
+    params = factory.session.executed[0].compile().params
+    assert "outcome_payload" not in params

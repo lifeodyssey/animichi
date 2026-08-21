@@ -44,7 +44,7 @@ from animichi.infrastructure.persistence.repositories._turn_sweep import _sweep
 
 
 def _jsonable_outcome(payload: object | None) -> object | None:
-    return None if payload is None else to_jsonable_python(payload)
+    return None if payload is None else to_jsonable_python(payload, fallback=str)
 
 
 class SQLModelTurnReservationStore:

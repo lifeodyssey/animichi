@@ -148,6 +148,24 @@ def test_integration_job_stubs_zen_go_key_so_settings_import_succeeds() -> None:
     assert "${{ secrets.ZEN_GO_API_KEY }}" not in job
 
 
+def test_integration_conftest_zen_go_stub_is_overrideable() -> None:
+    """#1112: setdefault so a pre-set ZEN_GO_API_KEY (eval .env) is not clobbered.
+
+    Source-pin, not a conftest reimport: reloading integration conftest pulls
+    FastAPI/DB fixtures and is order-dependent under pytest.
+    """
+    integration = (
+        _REPO_ROOT / "apps/agent/src/animichi/tests/integration/conftest.py"
+    ).read_text(encoding="utf-8")
+    parent = (_REPO_ROOT / "apps/agent/src/animichi/tests/conftest.py").read_text(
+        encoding="utf-8"
+    )
+    assert 'os.environ.setdefault("ZEN_GO_API_KEY", "test-key")' in integration
+    clobber = re.search(r"os\.environ\[.ZEN_GO_API_KEY.\]\s*=", integration)
+    assert clobber is None
+    assert 'setdefault("ZEN_GO_API_KEY"' not in parent
+
+
 def test_no_disabled_eval_gate_remains_in_ci() -> None:
     """Regression tripwire: the always-off `&& false` gate must never return."""
     assert "&& false" not in _CI_WORKFLOW.read_text(encoding="utf-8")
