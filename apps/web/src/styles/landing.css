@@ -15,13 +15,6 @@
   /* The bright teal ground cannot carry white text (2.10:1); this is the ink
      that clears AA on it, mirroring globals' --color-primary-ink (DS 07-03). */
   --landing-teal-ink: #073f3a;
-  /* Explore orange — the single dominant marketing action (docs/DESIGN.md
-     "Explore": oklch(67% 0.17 47)). Hover/press are the teal ramp's own
-     lightness steps (+3.91pp / -9.15pp in OKLCH) applied to that base. */
-  --landing-explore: #e8742e;
-  --landing-explore-hover: #f48241;
-  --landing-explore-press: #c15e21;
-  --landing-explore-ink: #411f00;
   --landing-line: #e8e2d6;
   --landing-shadow-pill: #bdaea0;
   --landing-shadow-soft: 0 14px 40px -14px rgb(107 86 58 / 25%);
@@ -41,11 +34,6 @@
   --landing-ink-body: #d8c9ac;
   --landing-ink-soft: #a2916f;
   --landing-teal-bg: #14342e;
-  /* Night lifts the orange (OKLCH L 68.35% -> 72%, chroma eased to 0.145) so it
-     keeps its prominence against the dark ground; the same dark ink rides it. */
-  --landing-explore: #ec854d;
-  --landing-explore-hover: #f8935d;
-  --landing-explore-press: #c66e3d;
   --landing-line: #453a24;
   --landing-shadow-pill: #17110a;
   --landing-shadow-soft: 0 14px 40px -14px rgb(0 0 0 / 40%);
@@ -429,26 +417,26 @@
   padding: 14px 30px;
   border: 0;
   border-radius: 50px;
-  background: var(--landing-explore);
-  color: var(--landing-explore-ink);
+  background: var(--color-explore-action);
+  color: var(--color-explore-action-ink);
   font: inherit;
   font-weight: 800;
   font-size: 18px;
   white-space: nowrap;
   cursor: pointer;
-  box-shadow: 0 4px 0 0 var(--landing-explore-press), 0 12px 22px -10px var(--landing-explore-press);
+  box-shadow: 0 4px 0 0 var(--color-explore-action-active), 0 12px 22px -10px var(--color-explore-action-active);
   transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
 }
 
 .hero-search__cta:hover {
-  background: var(--landing-explore-hover);
+  background: var(--color-explore-action-hover);
   transform: translateY(-1px);
-  box-shadow: 0 5px 0 0 var(--landing-explore-press), 0 16px 26px -10px var(--landing-explore-press);
+  box-shadow: 0 5px 0 0 var(--color-explore-action-active), 0 16px 26px -10px var(--color-explore-action-active);
 }
 
 .hero-search__cta:active {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 0 var(--landing-explore-press);
+  box-shadow: 0 1px 0 0 var(--color-explore-action-active);
 }
 
 /* ── Example chips ── */

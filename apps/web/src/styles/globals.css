@@ -17,6 +17,17 @@
   /* Text on the bright teal ground: white only reaches 2.10:1, this ink 5.62:1.
    * Teal is theme-invariant, so the ink needs no night override. */
   --color-primary-ink: #073f3a;
+  /* Explore action — DESIGN.md §142's single dominant marketing ground
+   * (oklch(67% 0.17 47)). Distinct from --color-explore-bg/-fg, which are the
+   * teal explore-MODE tint pair; this family is the solid action ground.
+   * Hover/press are the teal ramp's own OKLCH lightness steps (+3.91pp /
+   * -9.15pp) applied to this base, so the ramp stays derived, not invented. */
+  --color-explore-action: #e8742e;
+  --color-explore-action-hover: #f48241;
+  --color-explore-action-active: #c15e21;
+  /* Orange this bright cannot carry white either (3.01:1); this deep brown
+   * clears AA on the base, the hover, and the night lift alike. */
+  --color-explore-action-ink: #411f00;
   /* 動森 cream stack (design-sync --bg/--content/--paper): the page floor is
    * the darkest, so cards and bubbles float above it as lighter paper. */
   --color-bg: #f0e8d8;
@@ -415,6 +426,11 @@ h1 {
   --color-paper: #2e2415;
   --color-primary-fg: #10201d;
   --color-primary-soft: #123f39;
+  /* Night lifts the orange (OKLCH L 68.35% -> 72%, chroma eased to 0.145) so it
+   * keeps its prominence on the dark ground; the same deep ink rides it. */
+  --color-explore-action: #ec854d;
+  --color-explore-action-hover: #f8935d;
+  --color-explore-action-active: #c66e3d;
   --color-explore-bg: #0f3531;
   --color-explore-fg: #7fdcd2;
   --color-walk-bg: #1c3320;
@@ -602,25 +618,30 @@ h1 {
   border-color: var(--color-primary);
 }
 
+/* "Send login link" is a DESIGN.md §142 explore action, so it takes the orange
+ * ground rather than the brand teal — which at 2.09:1 under white text was the
+ * modal's only WCAG AA failure. Night needs no override here: the token block
+ * already swaps the ramp under [data-theme="night"]. */
 .login-modal .ds-button--primary {
   width: 100%;
+  border-color: var(--color-explore-action-active);
   border-radius: 16px;
   padding: 15px;
-  background: var(--color-primary);
-  color: #fff;
+  background: var(--color-explore-action);
+  color: var(--color-explore-action-ink);
   font-weight: 800;
   font-size: 1.06rem;
-  box-shadow: 0 4px 0 0 #11a89b;
+  box-shadow: 0 4px 0 0 var(--color-explore-action-active);
   transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.12s ease;
 }
 
 .login-modal .ds-button--primary:hover {
-  background: var(--color-primary-hover);
+  background: var(--color-explore-action-hover);
 }
 
 .login-modal .ds-button--primary:active {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 0 #11a89b;
+  box-shadow: 0 1px 0 0 var(--color-explore-action-active);
 }
 
 .login-form__feedback {

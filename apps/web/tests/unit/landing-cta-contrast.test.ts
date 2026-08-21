@@ -1,17 +1,25 @@
 import { describe, expect, it } from "vitest";
 import landingCss from "../../src/styles/landing.css?raw";
+import globalsCss from "../../src/styles/globals.css?raw";
 import {
   contrastRatio,
   normalizeHex,
   parseBlockTokens,
+  parseTokens,
   relativeLuminance,
   tokenValue,
   type TokenMap,
 } from "./_token-helpers";
 
-const dayTokens = parseBlockTokens(landingCss, ".landing");
+/* The landing spends both its own scoped tokens and the global ramp, so a
+ * resolver that only knows `.landing` would fail to follow `var(--color-*)`. */
+const dayTokens: TokenMap = {
+  ...parseTokens(globalsCss),
+  ...parseBlockTokens(landingCss, ".landing"),
+};
 const nightTokens: TokenMap = {
   ...dayTokens,
+  ...parseBlockTokens(globalsCss, '[data-theme="night"]'),
   ...parseBlockTokens(landingCss, '[data-theme="night"] .landing'),
 };
 
@@ -70,34 +78,34 @@ describe("landing colour pairs clear WCAG AA (>= 4.5:1)", () => {
 describe("explore orange owns the single dominant landing action", () => {
   it("paints Start Exploring with the explore token, never the teal one", () => {
     const background = ruleDeclaration(".hero-search__cta", "background");
-    expect(background).toBe("var(--landing-explore)");
+    expect(background).toBe("var(--color-explore-action)");
   });
 
   it("holds the DS explore hue — pumpkin orange, not gold", () => {
-    expect(tokenValue(dayTokens, "--landing-explore")).toBe("#e8742e");
+    expect(tokenValue(dayTokens, "--color-explore-action")).toBe("#e8742e");
   });
 
   it("presses into a darker orange so the 3D shadow reads as depth", () => {
-    const base = relativeLuminance(tokenValue(dayTokens, "--landing-explore"));
-    const press = relativeLuminance(tokenValue(dayTokens, "--landing-explore-press"));
-    const hover = relativeLuminance(tokenValue(dayTokens, "--landing-explore-hover"));
+    const base = relativeLuminance(tokenValue(dayTokens, "--color-explore-action"));
+    const press = relativeLuminance(tokenValue(dayTokens, "--color-explore-action-active"));
+    const hover = relativeLuminance(tokenValue(dayTokens, "--color-explore-action-hover"));
     expect(press).toBeLessThan(base);
     expect(hover).toBeGreaterThan(base);
   });
 
   it("spends the explore press colour on the CTA's 3D shadow", () => {
     const shadow = ruleDeclaration(".hero-search__cta", "box-shadow") ?? "";
-    expect(shadow).toContain("var(--landing-explore-press)");
+    expect(shadow).toContain("var(--color-explore-action-active)");
     expect(shadow).not.toContain("teal");
   });
 
   it("lifts the orange at night instead of leaving the day value behind", () => {
-    const night = parseBlockTokens(landingCss, '[data-theme="night"] .landing');
-    for (const name of ["--landing-explore", "--landing-explore-hover", "--landing-explore-press"]) {
+    const night = parseBlockTokens(globalsCss, '[data-theme="night"]');
+    for (const name of ["--color-explore-action", "--color-explore-action-hover", "--color-explore-action-active"]) {
       expect(tokenValue(night, name)).not.toBe(tokenValue(dayTokens, name));
     }
-    expect(relativeLuminance(tokenValue(nightTokens, "--landing-explore")))
-      .toBeGreaterThan(relativeLuminance(tokenValue(dayTokens, "--landing-explore")));
+    expect(relativeLuminance(tokenValue(nightTokens, "--color-explore-action")))
+      .toBeGreaterThan(relativeLuminance(tokenValue(dayTokens, "--color-explore-action")));
   });
 });
 
