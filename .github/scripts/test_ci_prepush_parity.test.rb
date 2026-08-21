@@ -145,6 +145,13 @@ def waffle_reason_copy
   end
 end
 
+def placeholder_reason_copy
+  with_paths("parity-placeholder") do |dir, paths|
+    paths.exemptions = rewrite_reason(dir, CODECOV_REASON, 'reason: "cloud: n/a — skip locally"')
+    assert_red("exemption reason with a placeholder CI-only resource", paths, "must name a CI-only resource")
+  end
+end
+
 def dir_scoped_copy
   extra = "      - name: Dir-scoped check\n        working-directory: infra/uncovered\n        run: pnpm run lint\n"
   with_paths("parity-dir") do |dir, paths|
@@ -160,6 +167,7 @@ strip_prepush_copy
 add_ci_check_copy
 empty_reason_copy
 waffle_reason_copy
+placeholder_reason_copy
 dir_scoped_copy
 assert_green("pristine tree (restore/green)", real_paths)
 puts "All CI↔pre-push parity mutation probes passed."

@@ -77,6 +77,3 @@ def enqueue_merge_gating(workflows_dir)
   end
 end
 
-def reusable_path(root, uses)
-  File.join(root, uses_action_name(uses))
-end

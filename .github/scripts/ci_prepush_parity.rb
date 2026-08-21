@@ -14,7 +14,7 @@ require_relative "ci_prepush_parity_extract"
 
 ParityPaths = Struct.new(:root, :workflows, :quality, :pre_push, :exemptions, keyword_init: true)
 
-REASON_CLASS = /\A(secrets|OIDC|cloud|deploy):\s+\S/
+REASON_CLASS = /\A(secrets|OIDC|cloud|deploy):\s+(?!(?i:n\/a|na|none|skip)\b)\S/
 REASON_WAFFLE = /\bnot a (?:pre-push prerequisite|local agent extra)\b/i
 DRIFT_ALIAS = "cmd:contract::git diff --cached --exit-code -- openapi.json users-openapi.json agent-openapi.json"
 
