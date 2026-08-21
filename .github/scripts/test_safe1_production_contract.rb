@@ -77,6 +77,14 @@ end
 deploy_source = File.read(File.join(WORKFLOWS, "reusable-deploy-component.yml"))
 abort "reusable deploy must point root at workers/edge/wrangler.toml" \
   unless deploy_source.include?("deploy -c workers/edge/wrangler.toml")
+# wrangler-action uploadSecrets() ignores `-c` from `command` (#1150):
+# root Worker secrets must not go through that bulk upload.
+abort "reusable deploy must skip wrangler-action secrets for root (#1150)" \
+  unless deploy_source.include?("inputs.component != 'root' && steps.effective_secrets.outputs.list")
+abort "reusable deploy must put Worker secrets via wrangler-secret-put.sh (#1150)" \
+  unless deploy_source.include?("bash .github/scripts/wrangler-secret-put.sh")
+abort "reusable deploy must not feed effective_secrets to wrangler-action unconditionally (#1150)" \
+  if deploy_source.include?("secrets: ${{ steps.effective_secrets.outputs.list }}")
 rollback_source = File.read(File.join(WORKFLOWS, "rollback.yml"))
 abort "rollback must point root at workers/edge/wrangler.toml" \
   unless rollback_source.include?("-c workers/edge/wrangler.toml")

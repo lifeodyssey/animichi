@@ -55,6 +55,8 @@ exemptions:
     reason: "deploy: Cloudflare API — resolve the deployed worker URL"
   - id: script:.github/scripts/vite-env-preflight.sh
     reason: "deploy: production VITE_* build env — secret-shape preflight on the deploy path"
+  - id: script:.github/scripts/wrangler-secret-put.sh
+    reason: "deploy: Cloudflare Worker secrets — wrangler secret put on the deploy path"
   - id: script:infra/neon-secrets/grant-migrator-ddl.sh
     reason: "secrets: NEON_API_KEY — staging-only owner GRANT on live Neon public schema"
   - id: script:scripts/local-gates/pr-review-check.sh
