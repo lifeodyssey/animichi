@@ -1,0 +1,64 @@
+# CI checkpoints that pre-push does not run. Every entry needs a reason
+# naming the CI-only resource: secrets / OIDC / cloud / deploy.
+# Identity is a discovered fingerprint (script/cmd/uses), not a job name.
+exemptions:
+  - id: cmd:$BUILD_FILTER::pnpm build
+    reason: deploy — reusable component build runs on the staging/prod deploy path
+  - id: cmd:agent::pytest src/animichi/tests/eval/test_agent_eval.py::test_agent_trajectory integration
+    reason: secrets — paid model evals need ZEN_GO_API_KEY
+  - id: cmd:atlas migrate apply
+    reason: secrets — live Neon DSN on the deploy/cutover path
+  - id: cmd:e2e::pnpm exec playwright test
+    reason: cloud — Playwright browsers against a CI-built worker artifact
+  - id: cmd:infra::pulumi login
+    reason: secrets — Pulumi backend credentials (R2 + passphrase)
+  - id: cmd:infra::pulumi preview
+    reason: secrets — credentialed preview against the live R2 state backend
+  - id: cmd:infra::pulumi stack
+    reason: secrets — live Pulumi stack select/export on the deploy path
+  - id: cmd:infra::pulumi up
+    reason: deploy — mutating pulumi up is the staging/prod apply
+  - id: "cmd:python3 $CLI generate --component $TARGET_COMPONENT --source-sha $source_sha --artifact $artifact --sbom-format cyclonedx-1.5 --sbom-digest $digest --schema-provider atlas --schema-head 20260811000002 --schema-digest $digest --config-version 1 --config-commit $source_sha --dep catalog=$source_sha > $manifest"
+    reason: deploy — promotion manifest is generated from the deploy-path artifact
+  - id: cmd:uv tool run semgrep@$SEMGREP_VERSION --config p/python --config p/typescript --config p/javascript --config .semgrep --error .
+    reason: cloud — Semgrep registry rule packs (p/python, p/typescript, p/javascript)
+  - id: cmd:uvx zizmor@$ZIZMOR_VERSION --cache-dir ~/.cache/zizmor .
+    reason: secrets — zizmor impostor-commit audits the GitHub API with GH_TOKEN
+  - id: script:.github/scripts/inject-web-runtime-config.mjs
+    reason: deploy — runtime-config injection is a deploy-artifact step
+  - id: script:.github/scripts/neon-secrets-adopt.sh
+    reason: secrets — adopts Neon role DSNs into the Cloudflare secrets store
+  - id: script:.github/scripts/promote_deployed.py
+    reason: deploy — reads platform deployed-version metadata with deploy credentials
+  - id: script:.github/scripts/release-eligibility.sh
+    reason: deploy — production eligibility gate against the pinned revision
+  - id: script:.github/scripts/release-promotion-selfcheck.sh
+    reason: deploy — production promotion self-check on the deploy path
+  - id: script:scripts/local-gates/pr-review-check.sh
+    reason: secrets — GitHub token to collect PR review threads and post statuses
+  - id: script:scripts/local-gates/pr-review-gate-step.sh
+    reason: secrets — GitHub token to pin the PR head and post the review-gate status
+  - id: script:scripts/migration-head.sh
+    reason: secrets — reads the live Atlas/Neon migration head
+  - id: script:scripts/semgrep-raw-sql-test.sh
+    reason: cloud — Semgrep CLI is the security-lane scanner, not a pre-push prerequisite
+  - id: script:scripts/vet-openapi.ts
+    reason: cloud — published-contract baseline is the GitHub PR/merge-group base SHA
+  - id: uses:cloudflare/wrangler-action
+    reason: deploy — wrangler-action ships workers to Cloudflare
+  - id: uses:codecov/codecov-action
+    reason: OIDC — Codecov upload authenticates with GitHub OIDC
+  - id: uses:github/codeql-action/analyze
+    reason: cloud — CodeQL analysis on GitHub-hosted runners
+  - id: uses:github/codeql-action/init
+    reason: cloud — CodeQL init on GitHub-hosted runners
+  - id: uses:gitleaks/gitleaks-action
+    reason: secrets — gitleaks-action needs GITHUB_TOKEN / GITLEAKS_LICENSE
+  - id: uses:google/osv-scanner-action/osv-scanner-action
+    reason: cloud — OSV scanner queries the live OSV vulnerability API
+  - id: uses:pulumi/actions
+    reason: deploy — pulumi/actions with a command is the deploy-path apply
+  - id: uses:pypa/gh-action-pip-audit
+    reason: cloud — pip-audit GitHub Action is not a local agent extra
+  - id: uses:trufflesecurity/trufflehog
+    reason: cloud — TruffleHog verified-secret detectors call live APIs

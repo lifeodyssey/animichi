@@ -45,6 +45,7 @@ PREREQ_TOOLS=(
   "pulumi: brew install pulumi/tap/pulumi"
   "docker: Docker Desktop/colima with the daemon running (fresh-schema + agent integration; the gate fails closed when it is unavailable)"
   "actionlint: brew install actionlint (CI pins v1.7.7)"
+  "shellcheck: brew install shellcheck"
   "git: required for the contract drift checks"
 )
 
@@ -183,6 +184,7 @@ gate_catalog() {
   gate workers/catalog pnpm exec tsc --noEmit
   gate workers/catalog pnpm run lint:oxlint
   gate workers/catalog pnpm run test:worker
+  gate workers/catalog pnpm run test:spike
   gate workers/catalog pnpm run test:smoke
   gate workers/catalog pnpm exec wrangler deploy --dry-run --env= --outdir "$GATE_OUTDIR/catalog-bundle"
 }
@@ -200,6 +202,7 @@ gate_users() {
 gate_edge() {
   gate workers/edge pnpm run lint:oxlint
   run pnpm run test:worker
+  run bash .github/scripts/check-edge-ratelimit-namespace.sh
   run pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir "$GATE_OUTDIR/edge-bundle"
 }
 
@@ -241,6 +244,7 @@ gate_infra() {
 gate_db() {
   run atlas migrate validate --dir file://migrations/neon
   run node --test workers/edge/test/migration-boundary.test.ts
+  gate apps/agent uv run sqlfluff lint ../../migrations/neon --dialect postgres --config ../../db/.sqlfluff
   run bash scripts/local-gates/db-fresh-schema.sh
 }
 
