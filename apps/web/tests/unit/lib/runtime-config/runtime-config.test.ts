@@ -84,7 +84,8 @@ describe("turnstileSiteKey public-key shape", () => {
     "2x00000000000000000000AA",
     "3x00000000000000000000AA",
     "0x4AAAAAAAsitekey24chars",
-  ])("accepts the 24-char alphanumeric production/CI key %s", (siteKey) => {
+    "0x4AAAAAAD-SYZJEDljOH-SB",
+  ])("accepts the 24-char production/CI key %s", (siteKey) => {
     expect(parseRuntimeConfig({ ...PROD, turnstileSiteKey: siteKey }).turnstileSiteKey).toBe(siteKey);
   });
 
