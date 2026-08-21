@@ -26,6 +26,7 @@ void test("staging GRANT gives migrator CREATE on public", () => {
   assert.match(sql, /GRANT REFERENCES ON TABLE public.sessions TO migrator;/);
   assert.doesNotMatch(sql, /ALL TABLES/);
   assert.doesNotMatch(sql, /GRANT migrator TO/);
+  assert.doesNotMatch(sql, /GRANT neondb_owner TO/);
   assert.doesNotMatch(sql, /OWNER TO/);
   assert.doesNotMatch(sql, /Pulumi\.prod|production/i);
 });
@@ -85,4 +86,46 @@ void test("Atlas 20260811000002 creates idx_messages_session_created on messages
 void test("atlas.sum SHA-256 matches the SAFE-1 production pin", () => {
   const buf = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
   assert.equal(createHash("sha256").update(buf).digest("hex"), "408d6b353b073dee99da33dc93cdb518354cd41f47ea87e24ef2301feeaef484");
+});
+
+function atlasSumHash(file: string): string {
+  const line = read("migrations/neon/atlas.sum")
+    .split("\n")
+    .find((row) => row.startsWith(`${file} `));
+  assert.ok(line, file);
+  const hash = line.slice(file.length + 1).trim();
+  assert.match(hash, /^h1:/);
+  return hash;
+}
+
+void test("GRANT SQL adds turn_reservations digest columns IF NOT EXISTS", () => {
+  const sql = grantSql();
+  assert.match(sql, /ALTER TABLE public\.turn_reservations\s+ADD COLUMN IF NOT EXISTS request_digest text;/);
+  assert.match(sql, /ALTER TABLE public\.turn_reservations\s+ADD COLUMN IF NOT EXISTS outcome_payload jsonb;/);
+});
+
+void test("GRANT SQL creates turn_outbox_events IF NOT EXISTS", () => {
+  const sql = grantSql();
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.turn_outbox_events/);
+  assert.match(sql, /CONSTRAINT turn_outbox_events_pkey PRIMARY KEY \(id\)/);
+  assert.match(sql, /CONSTRAINT turn_outbox_events_turn_kind UNIQUE \(turn_key, kind\)/);
+  assert.match(sql, /CREATE INDEX IF NOT EXISTS idx_turn_outbox_undelivered/);
+  assert.match(sql, /GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public\.turn_outbox_events TO agent_svc;/);
+  assert.match(sql, /GRANT SELECT ON TABLE public\.turn_outbox_events TO readonly;/);
+});
+
+void test("GRANT SQL records 20260814191301 applied with atlas.sum hash", () => {
+  const hash = atlasSumHash("20260814191301_turn_idempotency_outbox.sql");
+  const sql = grantSql();
+  assert.match(sql, /INSERT INTO public\.atlas_schema_revisions/);
+  assert.match(sql, /'20260814191301'/);
+  assert.match(sql, new RegExp(hash.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(sql, /applied\s*=\s*EXCLUDED\.applied/);
+});
+
+void test("Atlas 20260814191301 still ALTERs turn_reservations without IF NOT EXISTS", () => {
+  const sql = read("migrations/neon/20260814191301_turn_idempotency_outbox.sql");
+  assert.match(sql, /ALTER TABLE public\.turn_reservations\s+ADD COLUMN request_digest text;/);
+  assert.match(sql, /ALTER TABLE public\.turn_reservations\s+ADD COLUMN outcome_payload jsonb;/);
+  assert.doesNotMatch(sql, /IF NOT EXISTS/);
 });
