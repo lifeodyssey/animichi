@@ -17,6 +17,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from pydantic_core import to_jsonable_python
+from sqlalchemy.sql.dml import ReturningDelete, ReturningUpdate
+
 from animichi.application.adopt_sessions import ADOPT_TURN_KEY_PREFIX
 from animichi.application.turn_admission_port import (
     ReservationOutcome,
@@ -41,6 +44,19 @@ from animichi.infrastructure.persistence.repositories._turn_digest import (
 from animichi.infrastructure.persistence.repositories._turn_sweep import _sweep
 
 
+def _jsonable_outcome(payload: object | None) -> object | None:
+    return None if payload is None else to_jsonable_python(payload, fallback=str)
+
+
+async def _execute(
+    sessionmaker: AsyncSessionFactory, statement: ReturningUpdate | ReturningDelete
+) -> bool:
+    async with sessionmaker() as session:
+        async with session.begin():
+            result = await session.execute(statement)
+            return result.scalar_one_or_none() is not None
+
+
 class SQLModelTurnReservationStore:
     """Production adapter: one lease-guarded turn lifecycle per admission."""
 
@@ -57,10 +73,7 @@ class SQLModelTurnReservationStore:
                 return await _admit(session, request)
 
     async def dispatch(self, ref: TurnRef, *, owner: str) -> bool:
-        async with self._sessionmaker() as session:
-            async with session.begin():
-                result = await session.execute(_dispatch_statement(ref, owner))
-                return result.scalar_one_or_none() is not None
+        return await _execute(self._sessionmaker, _dispatch_statement(ref, owner))
 
     async def settle(
         self,
@@ -70,14 +83,9 @@ class SQLModelTurnReservationStore:
         outcome: SettleOutcome,
         outcome_payload: object | None = None,
     ) -> bool:
-        async with self._sessionmaker() as session:
-            async with session.begin():
-                result = await session.execute(
-                    _settle_statement(
-                        ref, owner, outcome, outcome_payload=outcome_payload
-                    )
-                )
-                return result.scalar_one_or_none() is not None
+        payload = _jsonable_outcome(outcome_payload)
+        statement = _settle_statement(ref, owner, outcome, outcome_payload=payload)
+        return await _execute(self._sessionmaker, statement)
 
     async def current_revision(self, session_id: str | None) -> int:
         """Return the session current revision (max ever reserved); ``None``s read as 0."""
@@ -85,10 +93,7 @@ class SQLModelTurnReservationStore:
             return await _current_revision(session, session_id)
 
     async def release(self, ref: TurnRef, *, owner: str) -> bool:
-        async with self._sessionmaker() as session:
-            async with session.begin():
-                result = await session.execute(_release_statement(ref, owner))
-                return result.scalar_one_or_none() is not None
+        return await _execute(self._sessionmaker, _release_statement(ref, owner))
 
     async def sweep(
         self, *, now: datetime, owner: str, batch_size: int, lease_seconds: int
