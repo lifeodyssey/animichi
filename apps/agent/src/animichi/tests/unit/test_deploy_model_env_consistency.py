@@ -95,7 +95,9 @@ def test_container_required_keys_are_forwarded_and_deployed() -> None:
 def test_ci_staging_root_rings_doorbell_without_wrangler_secrets() -> None:
     # #1076: staging root rings the Builds doorbell; secrets already live on
     # the Worker. CI must not wrangler-secret-put on this path.
-    staging = _named_workflow_job(_CI_WORKFLOW.read_text(encoding="utf-8"), "deploy-root-staging")
+    staging = _named_workflow_job(
+        _CI_WORKFLOW.read_text(encoding="utf-8"), "deploy-root-staging"
+    )
     assert "reusable-ring-doorbell.yml" in staging
     assert "worker_secrets:" not in staging
 
