@@ -1,7 +1,8 @@
-# Reusable workflow (called by ci.yml / deploy.yml; not triggered directly).
-# Pulumi-only apply of the main infra stack (`infra/`, stacks staging / prod).
+# Reusable workflow (called by ci.yml deploy-infra-staging; not triggered directly).
+# Pulumi-only apply of the main infra stack (`infra/`, staging). Production catalog
+# still runs pulumi in reusable-deploy-component.yml (SAFE-1 freeze).
 # Sibling of reusable-deploy-neon-secrets.yml: no Wrangler, no smoke, no Atlas.
-# Catalog/users/web/root publish jobs need this job plus the migrator (#1074).
+# Staging catalog/users/web/root publish jobs need this job plus the migrator (#1074).
 #
 # Sequence matches the former catalog-job Pulumi path: R2 login, stack export
 # (#485 rollback backup), then `pulumi up`. Work dir is the main infra

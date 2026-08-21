@@ -24,7 +24,7 @@ EXPECTED_COMPONENTS = {
     wrangler_config: "workers/catalog/wrangler.toml",
     environment: "production",
     pulumi_stack: "prod",
-    run_pulumi: false,
+    run_pulumi: true,
     build_filter: "",
     worker_secrets: %w[DATABASE_URL],
     post_deploy_secrets: [],
@@ -197,17 +197,4 @@ def validate_manifest(errors, manifest, requested_key)
     add_error(errors, "atlas must be an object")
   end
   validate_components(errors, manifest["components"], requested_key)
-end
-
-if $PROGRAM_NAME == __FILE__
-  require "json"
-  path = File.expand_path("../release-manifests/production-pre-campaign.json", __dir__)
-  errors = []
-  validate_manifest(errors, JSON.parse(File.read(path)), "catalog")
-  if errors.empty?
-    puts "release-manifest-validation: catalog.run_pulumi=#{EXPECTED_COMPONENTS.dig('catalog', :run_pulumi)}"
-  else
-    warn errors.join("\n")
-    abort "release-manifest-validation failed (#{errors.size})"
-  end
 end

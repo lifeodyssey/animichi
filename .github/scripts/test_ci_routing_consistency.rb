@@ -32,6 +32,7 @@ COMPONENTS = {
   "workers/users" => ["users", "pipeline-users.yml"],
   "workers/edge" => ["edge", "pipeline-edge.yml"],
   "workers/migrator" => ["migrator", "pipeline-migrator.yml"],
+  "workers/doorbell" => ["doorbell", "pipeline-doorbell.yml"],
   "packages/contract" => ["contract", "pipeline-contract.yml"],
   "infra" => ["infra", "pipeline-infra.yml"],
   "migrations" => ["db", "pipeline-db.yml"]

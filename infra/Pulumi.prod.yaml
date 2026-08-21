@@ -38,6 +38,6 @@ config:
   # #914).
   #
   # Prod applies run through CI behind the GitHub `production` environment
-  # approval — `deploy-infra-prod` applies this stack (see
+  # approval — `run_pulumi: true` only on the deploy-prod catalog job (see
   # ../docs/ops/deployment.md and .github/workflows/ci.yml). There is no
   # staging gate here; `stagingGateEnabled` is read only on the staging stack.

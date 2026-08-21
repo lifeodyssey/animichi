@@ -71,6 +71,24 @@ def assert_doorbell_trusts_ring_workflow
   abort "doorbell policy.ts must trust reusable-ring-doorbell.yml" unless policy.include?("reusable-ring-doorbell.yml")
 end
 
+def assert_poll_refreshes_oidc
+  src = File.read(REUSABLE_PATH)
+  helper = ".github/scripts/request-github-oidc-token.sh"
+  abort "OIDC refresh helper missing" unless File.exist?(helper)
+  start = src.index("while")
+  abort "doorbell reusable must poll in a while loop" if start.nil?
+  abort "doorbell poll loop must refresh the OIDC token" unless src[start..].include?("request-github-oidc-token.sh")
+  abort "OIDC token helper tests failed" unless system("bash", ".github/scripts/request-github-oidc-token.test.sh")
+end
+
+def assert_builds_injects_runtime_config
+  script = File.read("apps/web/scripts/builds-staging.sh")
+  abort "staging web Builds command must inject runtime config" unless script.include?("inject-web-runtime-config")
+  abort "staging web Builds command must set TARGET_ENVIRONMENT=staging" unless script.include?("TARGET_ENVIRONMENT=staging")
+  jsonc = File.read("apps/web/wrangler.jsonc")
+  abort "wrangler.jsonc must document the staging Builds command" unless jsonc.include?("builds-staging.sh")
+end
+
 def assert_web_doorbell(jobs, ci_src, label)
   job = jobs.fetch("deploy-web-staging")
   assert_uses_doorbell(job)
@@ -96,6 +114,8 @@ ci_source = File.read(CI_PATH)
 assert_web_doorbell(ci_jobs, ci_source, "ci")
 assert_preview_urls_off
 assert_doorbell_trusts_ring_workflow
+assert_poll_refreshes_oidc
+assert_builds_injects_runtime_config
 puts "CI contract: #1075 staging web rings doorbell (no CF token / wrangler / pulumi / esc)"
 
 expect_reject("deploy-web-staging gains CLOUDFLARE_API_TOKEN") do

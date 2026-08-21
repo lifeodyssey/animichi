@@ -24,29 +24,24 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Request OIDC token for the doorbell audience
-        env:
-          AUDIENCE: "animichi:github-actions:doorbell"
-        run: |
-          curl -sSfL \
-            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=$AUDIENCE" \
-            | jq -r .value > "$RUNNER_TEMP/oidc-token"
       - name: Ring doorbell and wait for the build
         env:
           # zizmor: do not expand ${{ }} inside run.
           COMPONENT: ${{ inputs.component }}
           COMMIT: ${{ github.sha }}
+          OIDC_AUDIENCE: animichi:github-actions:doorbell
         run: |
           set -euo pipefail
           if [ -z "$DOORBELL_URL" ]; then
             echo "::error::vars.DOORBELL_STAGING_URL is empty (staging doorbell URL required)"
             exit 1
           fi
+          token_file="$RUNNER_TEMP/oidc-token"
+          bash .github/scripts/request-github-oidc-token.sh "$OIDC_AUDIENCE" "$token_file"
           body="$(printf '{"component":"%s","commit":"%s"}' "$COMPONENT" "$COMMIT")"
           code="$(curl -sS -o "$RUNNER_TEMP/doorbell-start.json" -w '%{http_code}' -X POST \
             "$DOORBELL_URL/builds" \
-            -H "Authorization: Bearer $(cat "$RUNNER_TEMP/oidc-token")" \
+            -H "Authorization: Bearer $(cat "$token_file")" \
             -H 'content-type: application/json' \
             -d "$body")"
           if [ "$code" != "200" ]; then
@@ -62,9 +57,10 @@ jobs:
           fi
           deadline=$((SECONDS + 1200))
           while [ "$SECONDS" -lt "$deadline" ]; do
+            bash .github/scripts/request-github-oidc-token.sh "$OIDC_AUDIENCE" "$token_file"
             code="$(curl -sS -o "$RUNNER_TEMP/doorbell-status.json" -w '%{http_code}' \
               "$DOORBELL_URL/builds/$id" \
-              -H "Authorization: Bearer $(cat "$RUNNER_TEMP/oidc-token")")"
+              -H "Authorization: Bearer $(cat "$token_file")")"
             if [ "$code" != "200" ]; then
               echo "::error::doorbell status returned HTTP $code"
               cat "$RUNNER_TEMP/doorbell-status.json"

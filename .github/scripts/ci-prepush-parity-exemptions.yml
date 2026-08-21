@@ -47,6 +47,8 @@ exemptions:
     reason: "deploy: production eligibility — pinned revision gate"
   - id: script:.github/scripts/release-promotion-selfcheck.sh
     reason: "deploy: production promotion self-check"
+  - id: script:.github/scripts/request-github-oidc-token.sh
+    reason: "OIDC: GitHub Actions ACTIONS_ID_TOKEN_REQUEST_TOKEN — mint a job JWT for the doorbell poll"
   - id: script:.github/scripts/resolve-worker-url.sh
     reason: "deploy: Cloudflare API — resolve the deployed worker URL"
   - id: script:.github/scripts/vite-env-preflight.sh

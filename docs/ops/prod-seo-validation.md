@@ -49,8 +49,9 @@ is in the account, (b) the plan permits the apex Custom Domain + the
 
 Order matters: hardening activates as soon as `cloudflareZoneId` is set (step
 1), CAA on `webDomain` (step 2), and only `webRoutesEnabled` (step 4)
-publishes the apex. The four committed keys are applied by CI's
-`deploy-infra-prod` job (GitHub `production` environment approval is the gate).
+publishes the apex. The four committed keys are applied by CI's `deploy-prod`
+job (`run_pulumi: true` is catalog-only; GitHub `production` environment
+approval is the gate).
 
 From `infra/`:
 

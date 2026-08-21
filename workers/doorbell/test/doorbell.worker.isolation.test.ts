@@ -13,6 +13,13 @@ function read(relative: string): string {
   return readFileSync(`${HERE}${relative}`, "utf8");
 }
 
+function triggerMapValue(toml: string, key: string): string {
+  const match = new RegExp(`${key} = "([^"]*)"`).exec(toml);
+  expect(match).not.toBeNull();
+  if (match === null) throw new Error(`${key} missing`);
+  return match[1] ?? "";
+}
+
 describe("doorbell bindings are Builds-token-shaped only", () => {
   it("never binds the migrator DSN or any DATABASE_URL", () => {
     const toml = read("../wrangler.toml");
@@ -35,11 +42,19 @@ describe("doorbell bindings are Builds-token-shaped only", () => {
 });
 
 describe("committed trigger maps", () => {
-  it("never name the doorbell itself", () => {
-    const toml = read("../wrangler.toml");
-    const staging = /STAGING_TRIGGER_MAP = "([^"]*)"/.exec(toml)?.[1] ?? "";
-    const production = /PRODUCTION_TRIGGER_MAP = "([^"]*)"/.exec(toml)?.[1] ?? "";
-    expect(staging).not.toContain("doorbell");
-    expect(production).not.toContain("doorbell");
+  it("staging trigger map is present", () => {
+    expect(/STAGING_TRIGGER_MAP = "([^"]*)"/.exec(read("../wrangler.toml"))).not.toBeNull();
+  });
+
+  it("staging trigger map never names the doorbell itself", () => {
+    expect(triggerMapValue(read("../wrangler.toml"), "STAGING_TRIGGER_MAP")).not.toContain("doorbell");
+  });
+
+  it("production trigger map is present", () => {
+    expect(/PRODUCTION_TRIGGER_MAP = "([^"]*)"/.exec(read("../wrangler.toml"))).not.toBeNull();
+  });
+
+  it("production trigger map never names the doorbell itself", () => {
+    expect(triggerMapValue(read("../wrangler.toml"), "PRODUCTION_TRIGGER_MAP")).not.toContain("doorbell");
   });
 });

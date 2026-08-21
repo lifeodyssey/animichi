@@ -83,6 +83,16 @@ test_migrator_change_routes_to_migrator() {
   echo "ok: workers/migrator/ change routes to migrator (contract union)"
 }
 
+test_doorbell_change_routes_to_doorbell() {
+  seed_base
+  mkdir -p workers/doorbell
+  touch workers/doorbell/foo.ts
+  git add workers/doorbell/foo.ts
+  assert_eq $'contract\ndoorbell' "$(run_staged)" \
+    "doorbell-only change routes to doorbell+contract, not all"
+  echo "ok: workers/doorbell/ change routes to doorbell (contract union)"
+}
+
 test_workspace_packages_have_gate_sets() {
   assert_every_workspace_package_has_gate "$PRE_PUSH" \
     || { echo "FAIL: every derived workspace package must have a gate set" >&2; exit 1; }

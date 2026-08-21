@@ -93,6 +93,10 @@ PACKAGE_DIR_COMMANDS=(
   "$REPO_ROOT/workers/migrator :: pnpm run lint:oxlint"
   "$REPO_ROOT/workers/migrator :: pnpm run test"
   "$REPO_ROOT/workers/migrator :: pnpm exec wrangler deploy --dry-run"
+  "$REPO_ROOT/workers/doorbell :: pnpm exec tsc --noEmit"
+  "$REPO_ROOT/workers/doorbell :: pnpm run lint:oxlint"
+  "$REPO_ROOT/workers/doorbell :: pnpm run test"
+  "$REPO_ROOT/workers/doorbell :: pnpm exec wrangler deploy --dry-run"
   "$REPO_ROOT/packages/contract :: pnpm exec tsc --noEmit"
   "$REPO_ROOT/infra :: pnpm run typecheck"
   "$REPO_ROOT/infra :: pnpm test"
@@ -160,6 +164,7 @@ test_all_selects_every_package_gate
 test_arguments_do_not_route
 test_affected_packages_only
 test_migrator_package_gates
+test_doorbell_package_gates
 test_all_route_runs_config_contract_self_test
 test_contract_union_routing
 test_real_entry_ignores_route_override

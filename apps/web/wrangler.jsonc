@@ -35,6 +35,9 @@
       // would bypass the staging WAF gate (workers.dev is not on the zone).
       // `preview_urls` is off for the same reason: per-version preview URLs
       // bypass the WAF the same way.
+      // #1075 Workers Builds (staging): build command is `bash scripts/builds-staging.sh`
+      // (env-neutral vite build + inject-web-runtime-config). Deploy command is
+      // `wrangler deploy --env staging`. GitHub does not run Wrangler for staging web.
       "workers_dev": false,
       "preview_urls": false,
       "vars": { "APP_ENV": "staging" }
