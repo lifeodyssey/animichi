@@ -134,6 +134,20 @@ def test_smoke_job_sets_agent_svc_database_url_so_settings_import_succeeds() -> 
     assert re.search(r"(?m)^\s*AGENT_SVC_DATABASE_URL:\s*\S+", job)
 
 
+def test_integration_job_stubs_zen_go_key_so_settings_import_succeeds() -> None:
+    """#1112: default model is zen/go. The Docker-Postgres lane must stub
+    ZEN_GO_API_KEY as a dummy (same as MIMO_API_KEY), not the live secret —
+    integration tests never call the gateway."""
+    job = _named_workflow_job(
+        (_REPO_ROOT / ".github" / "workflows" / "pipeline-agent.yml").read_text(
+            encoding="utf-8"
+        ),
+        "integration",
+    )
+    assert re.search(r"(?m)^\s*ZEN_GO_API_KEY:\s*test-key\s*$", job)
+    assert "${{ secrets.ZEN_GO_API_KEY }}" not in job
+
+
 def test_no_disabled_eval_gate_remains_in_ci() -> None:
     """Regression tripwire: the always-off `&& false` gate must never return."""
     assert "&& false" not in _CI_WORKFLOW.read_text(encoding="utf-8")

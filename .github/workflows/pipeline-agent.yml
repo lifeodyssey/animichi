@@ -153,6 +153,7 @@ jobs:
       # Settings requires presence; integration tests do not use these endpoints.
       AGENT_SVC_DATABASE_URL: postgresql://test:test@localhost:5432/test
       MIMO_API_KEY: test-key
+      ZEN_GO_API_KEY: test-key
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

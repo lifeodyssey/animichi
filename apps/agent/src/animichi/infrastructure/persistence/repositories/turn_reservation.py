@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from pydantic_core import to_jsonable_python
+
 from animichi.application.adopt_sessions import ADOPT_TURN_KEY_PREFIX
 from animichi.application.turn_admission_port import (
     ReservationOutcome,
@@ -39,6 +41,10 @@ from animichi.infrastructure.persistence.repositories._turn_digest import (
     state_digest,
 )
 from animichi.infrastructure.persistence.repositories._turn_sweep import _sweep
+
+
+def _jsonable_outcome(payload: object | None) -> object | None:
+    return None if payload is None else to_jsonable_python(payload)
 
 
 class SQLModelTurnReservationStore:
@@ -74,7 +80,10 @@ class SQLModelTurnReservationStore:
             async with session.begin():
                 result = await session.execute(
                     _settle_statement(
-                        ref, owner, outcome, outcome_payload=outcome_payload
+                        ref,
+                        owner,
+                        outcome,
+                        outcome_payload=_jsonable_outcome(outcome_payload),
                     )
                 )
                 return result.scalar_one_or_none() is not None
