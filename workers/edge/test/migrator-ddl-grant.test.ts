@@ -17,14 +17,11 @@ function namedBlock(source: string, marker: string, width: number): string {
   return block;
 }
 
-void test("staging owner GRANT gives migrator CREATE on public", () => {
-  const sql = read("infra/neon-secrets/grant-migrator-ddl.sql");
+void test("staging GRANT gives migrator CREATE on public", () => {
+  const sql = read("infra/neon-secrets/grant-migrator-ddl.sql").replaceAll(/^--.*$/gm, "");
   assert.match(sql, /GRANT USAGE,\s*CREATE ON SCHEMA public TO migrator;/);
-  const membership = sql.indexOf("GRANT migrator TO neondb_owner WITH SET TRUE;");
-  const ownerAlter = sql.indexOf("ALTER TABLE public.turn_reservations OWNER TO migrator;");
-  assert.notEqual(membership, -1);
-  assert.notEqual(ownerAlter, -1);
-  assert.ok(membership < ownerAlter);
+  assert.doesNotMatch(sql, /GRANT migrator TO/);
+  assert.doesNotMatch(sql, /OWNER TO/);
   assert.doesNotMatch(sql, /Pulumi\.prod|production/i);
 });
 
