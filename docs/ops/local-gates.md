@@ -95,7 +95,7 @@ The local gates cover every deterministic check that can run without mutating sh
 
 ## Prerequisites and durations
 
-Prerequisites (checked up front by `pre-push.sh`; missing ones fail with an install hint): `uv`, `pnpm`, `node` ≥ 24, `ruby` (system), `atlas` (pinned v0.30.0), `pulumi`, `docker` (daemon running for fresh-schema + agent integration), `actionlint`, `git`.
+Prerequisites (checked up front by `pre-push.sh`; missing ones fail with an install hint): `uv`, `pnpm`, `node` ≥ 24, `ruby` (system), `atlas` (pinned v0.30.0), `pulumi`, `docker` (daemon running for fresh-schema + agent integration), `actionlint`, `shellcheck`, `semgrep` (CI pins 1.172.0; `uv tool install semgrep==1.172.0`), `git`.
 
 Durations: pre-commit `<10s`; pre-push depends on the affected set — a single-package push is roughly 1–3 min, a full `all` push is many minutes (agent ruff/mypy/vulture + unit + coverage + offline Docker integration + container build, web coverage + integration, all worker suites, contract drift, fresh-schema apply). The first push that touches `db` or runs agent integration also needs the offline image built once (network required).
 

@@ -72,7 +72,7 @@ def local_composite?(uses)
 end
 
 def enqueue_merge_gating(workflows_dir)
-  Dir.glob(File.join(workflows_dir, "*.yml")).sort.select do |path|
+  Dir.glob(File.join(workflows_dir, "*.{yml,yaml}")).sort.select do |path|
     merge_gating_workflow?(load_yaml_file(path))
   end
 end

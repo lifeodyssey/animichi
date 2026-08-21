@@ -39,7 +39,7 @@ end
 
 def copy_workflows(src, dst)
   Dir.mkdir(dst)
-  Dir.glob(File.join(src, "*.yml")).each { |path| FileUtils.cp(path, dst) }
+  Dir.glob(File.join(src, "*.{yml,yaml}")).each { |path| FileUtils.cp(path, dst) }
 end
 
 def assert_red(label, paths, fragment)
@@ -160,6 +160,25 @@ def dir_scoped_copy
   end
 end
 
+def yaml_workflow_copy
+  with_paths("parity-yaml") do |dir, paths|
+    paths.workflows = planted_workflows(dir, "")
+    File.write(File.join(paths.workflows, "extra-local.yaml"), YAML_ONLY_WORKFLOW)
+    assert_red("merge-gating .yaml workflow is discovered", paths,
+               "uncovered CI checkpoint not on the exemption list: script:.github/scripts/yaml-only-local-check.rb")
+  end
+end
+
+YAML_ONLY_WORKFLOW = <<~YAML
+  on:
+    pull_request:
+  jobs:
+    extra:
+      runs-on: ubuntu-latest
+      steps:
+        - run: ruby .github/scripts/yaml-only-local-check.rb
+YAML
+
 test_workdir_fingerprint
 test_ruby_c_distinct
 test_typos_checkpoint
@@ -169,5 +188,6 @@ empty_reason_copy
 waffle_reason_copy
 placeholder_reason_copy
 dir_scoped_copy
+yaml_workflow_copy
 assert_green("pristine tree (restore/green)", real_paths)
 puts "All CI↔pre-push parity mutation probes passed."

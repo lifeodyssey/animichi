@@ -20,6 +20,7 @@ DRIFT_ALIAS = "cmd:contract::git diff --cached --exit-code -- openapi.json users
 
 def default_parity_paths
   root = `git rev-parse --show-toplevel`.strip
+  abort "cannot resolve the repository root (git rev-parse --show-toplevel failed)" unless $?.success? && !root.empty? && Dir.exist?(root)
   ParityPaths.new(
     root: root,
     workflows: File.join(root, ".github/workflows"),
