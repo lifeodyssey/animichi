@@ -10,7 +10,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SEED_CRON, DAILY_DISCOVER_CRON, TTL_REFRESH_CRON, DAILY_IMPORT_CRON } from "../src/cron-config";
 import { cronKind, guardCron } from "../src/import/schedule";
-import { createScheduledHandler, type CronDependencies } from "../src/index";
+import { createScheduledHandler, type CronDependencies } from "../src/scheduled/ingest-schedule";
 import {
   PRODUCTION_STALE_SECONDS,
   STAGING_STALE_SECONDS,

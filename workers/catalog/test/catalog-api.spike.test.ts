@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import type pg from "pg";
 import type { CatalogDb } from "../src/db/client";
-import { closeDbPools } from "../src/index";
+import { closeDbPools } from "../src/db/connections";
 import { databaseDescribe, openDirectPool, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./spike-db";
 import { call, getPublic, type ApiPoint, type OverviewBody, type RouteBody } from "./catalog-spike-client";
 import { seed } from "./fixtures/spike-suite-seed";

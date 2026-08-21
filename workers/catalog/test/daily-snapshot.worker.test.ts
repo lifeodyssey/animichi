@@ -8,7 +8,7 @@
  * same injectable CronDependencies the scheduled handler uses.
  */
 import { describe, expect, it, vi } from "vitest";
-import { createScheduledHandler, type CronDependencies } from "../src/index";
+import { createScheduledHandler, type CronDependencies } from "../src/scheduled/ingest-schedule";
 import { publishAfterRun, type DailyRunOutcome } from "../src/publish/daily-snapshot";
 import { publishSnapshot } from "../src/publish/snapshot";
 import { gcSnapshots } from "../src/publish/snapshot-gc";

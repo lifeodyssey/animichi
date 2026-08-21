@@ -1,14 +1,14 @@
 /**
  * Immutable-snapshot public reader + guarded rollback HTTP surface (issue #1012
- * AC5) — api-typed test over the worker boundary (app.request).
+ * AC5) — api-typed test over the worker fetch boundary.
  *
  * Seeds a real R2-backed snapshot pair through r2ObjectStore + publishSnapshot,
  * then exercises GET /catalog/snapshot (manifest metadata only) and the guarded
  * POST /catalog/snapshot/rollback.
  */
 import { describe, expect, it } from "vitest";
-import { app } from "../src/index";
 import type { Env } from "../src/index";
+import { catalogRequest } from "./catalog-request";
 import { r2ObjectStore } from "../src/publish/object-store";
 import { publishSnapshot } from "../src/publish/snapshot";
 import { fakeCatalogDb } from "./fakes/fake-catalog-db";
@@ -53,7 +53,7 @@ describe("GET /catalog/snapshot (AC5)", () => {
   it("returns the current snapshot manifest metadata", async () => {
     const bucket = fakeBucket();
     await seed(bucket);
-    const res = await app.request("/catalog/snapshot", {}, envOf(bucket));
+    const res = await catalogRequest("/catalog/snapshot", {}, envOf(bucket));
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       snapshotId: string; sourceRunId: string; createdAt: string; counts: Record<string, number>; compatibility: { min: string; max: string };
@@ -66,12 +66,12 @@ describe("GET /catalog/snapshot (AC5)", () => {
   });
 
   it("404s before any snapshot publishes", async () => {
-    const res = await app.request("/catalog/snapshot", {}, envOf(fakeBucket()));
+    const res = await catalogRequest("/catalog/snapshot", {}, envOf(fakeBucket()));
     expect(res.status).toBe(404);
   });
 
   it("503s when no snapshot bucket is bound", async () => {
-    const res = await app.request("/catalog/snapshot", {}, { ENVIRONMENT: "test" });
+    const res = await catalogRequest("/catalog/snapshot", {}, { ENVIRONMENT: "test" });
     expect(res.status).toBe(503);
   });
 });
@@ -81,7 +81,7 @@ describe("POST /catalog/snapshot/rollback (AC5)", () => {
     const bucket = fakeBucket();
     const db = fakeCatalogDb({ bangumi: [{ id: "w1", title: "Lucky Star" }] });
     await publishSnapshot({ db, store: r2ObjectStore(bucket) }, { sourceRunId: "daily-1", createdAt: "2026-08-14T00:00:00Z" });
-    const res = await app.request(
+    const res = await catalogRequest(
       "/catalog/snapshot/rollback",
       { method: "POST", headers: { authorization: "Bearer ops-token" } },
       envOf(bucket, "ops-token"),
@@ -92,7 +92,7 @@ describe("POST /catalog/snapshot/rollback (AC5)", () => {
   it("rolls back to the previous snapshot with the correct bearer token", async () => {
     const bucket = fakeBucket();
     await seed(bucket);
-    const res = await app.request(
+    const res = await catalogRequest(
       "/catalog/snapshot/rollback",
       { method: "POST", headers: { authorization: "Bearer ops-token" } },
       envOf(bucket, "ops-token"),
@@ -105,7 +105,7 @@ describe("POST /catalog/snapshot/rollback (AC5)", () => {
   it("rejects a wrong bearer token with 401", async () => {
     const bucket = fakeBucket();
     await seed(bucket);
-    const res = await app.request(
+    const res = await catalogRequest(
       "/catalog/snapshot/rollback",
       { method: "POST", headers: { authorization: "Bearer wrong" } },
       envOf(bucket, "ops-token"),
@@ -116,7 +116,7 @@ describe("POST /catalog/snapshot/rollback (AC5)", () => {
   it("is disabled (503) when the admin token is not configured", async () => {
     const bucket = fakeBucket();
     await seed(bucket);
-    const res = await app.request(
+    const res = await catalogRequest(
       "/catalog/snapshot/rollback",
       { method: "POST", headers: { authorization: "Bearer anything" } },
       envOf(bucket),

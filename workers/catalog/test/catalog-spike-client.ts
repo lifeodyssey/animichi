@@ -1,6 +1,6 @@
 import { expect } from "vitest";
-import { app } from "../src/index";
 import { localDatabaseUrl } from "./spike-db";
+import { catalogRequest } from "./catalog-request";
 
 export interface ApiPoint {
   id: string;
@@ -37,7 +37,7 @@ export async function call<T>(method: string, payload: unknown, expectStatus = 2
 }
 
 async function appRequest(method: string, payload: unknown): Promise<Response> {
-  return await app.request(
+  return await catalogRequest(
     `/catalog/${method}`,
     { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) },
     { ENVIRONMENT: "test", DATABASE_URL: localDatabaseUrl() },
@@ -47,7 +47,7 @@ async function appRequest(method: string, payload: unknown): Promise<Response> {
 /** GET through the public OpenAPI wire (anonymous, no body). Returns the raw
  * response so tests can assert both the JSON body and cache headers. */
 export async function getPublic(path: string, expectStatus = 200): Promise<Response> {
-  const res = await app.request(
+  const res = await catalogRequest(
     `/catalog/public/${path}`,
     { method: "GET" },
     { ENVIRONMENT: "test", DATABASE_URL: localDatabaseUrl() },
