@@ -204,33 +204,6 @@
   height: 18px;
 }
 
-.locale-switcher {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  border: 2px solid var(--landing-line);
-  border-radius: 999px;
-  background: var(--landing-paper);
-}
-
-.locale-switcher__option {
-  border: 0;
-  border-radius: 999px;
-  padding: 4px 12px;
-  min-height: 32px;
-  background: transparent;
-  color: var(--landing-ink-soft);
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.locale-switcher__option[aria-pressed="true"] {
-  /* White on primary teal fails AA (2.1:1); the active pill uses primary-strong. */
-  background: var(--color-primary-strong);
-  color: var(--color-primary-fg);
-}
-
 /* ── Fixed day/night toggle (bottom-right) ── */
 
 .day-night-toggle {
@@ -813,10 +786,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.mobile-fox__bar-actions .locale-switcher__option {
-  padding: 4px 8px;
 }
 
 .mobile-fox__scene {

@@ -77,9 +77,9 @@ describe("LandingPage", () => {
 });
 
 describe("LandingPage i18n", () => {
-  it("re-renders all copy in English with no ja fallback leaking", () => {
+  it("renders all copy in English with no ja fallback leaking", () => {
+    setLanguages(["en-US"]);
     renderWithLocale(<LandingPage />);
-    act(() => { screen.getAllByRole("button", { name: "EN" })[0]?.click(); });
     expect(screen.getAllByRole("button", { name: "Start Exploring" }).length).toBe(2);
     expect(screen.getByText("FROM SCREEN TO STREET")).toBeTruthy();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Plan the real route behind an");

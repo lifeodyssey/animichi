@@ -1,9 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, cleanup, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { ReactNode } from "react";
 import { PrivacyPolicy } from "../../src/components/legal/PrivacyPolicy";
+import { Route as PrivacyRoute } from "../../src/routes/privacy";
 import { dictFor } from "../../src/i18n/dictionaries";
 import { renderWithLocale, setLanguages } from "./_i18n";
 
@@ -21,13 +23,21 @@ describe("PrivacyPolicy", () => {
     expect(screen.getByRole("link", { name: dictFor("ja").privacy.contact_link }).getAttribute("href")).toContain("github.com");
   });
 
-  it("switches every visible policy heading and intro without Japanese fallback copy", () => {
+  it("renders every visible policy heading and intro in Chinese without Japanese fallback copy", () => {
+    setLanguages(["zh-CN"]);
     renderWithLocale(<PrivacyPolicy />);
-    act(() => { screen.getByRole("button", { name: "中文" }).click(); });
     expect(screen.getByRole("heading", { name: dictFor("zh").privacy.title })).toBeTruthy();
     expect(screen.getByText(dictFor("zh").privacy.intro)).toBeTruthy();
     expect(screen.getByText(dictFor("zh").privacy.improvement_body)).toBeTruthy();
     expect(screen.queryByText(dictFor("ja").privacy.intro)).toBeNull();
+  });
+
+  it("negotiates the browser locale through the route's own provider", () => {
+    setLanguages(["en-US"]);
+    const renderRoute = PrivacyRoute.options.component as () => ReactNode;
+    render(<>{renderRoute()}</>);
+    expect(screen.getByRole("heading", { name: dictFor("en").privacy.title })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: dictFor("ja").privacy.title })).toBeNull();
   });
 
   it.each(["ja", "zh", "en"] as const)("states the evaluation safeguards in %s", (locale) => {

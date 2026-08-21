@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, cleanup, screen } from "@testing-library/react";
+import { cleanup, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MobileFoxHome } from "../../src/components/landing/MobileFoxHome";
 import { renderWithLocale, setLanguages } from "./_i18n";
@@ -52,17 +52,6 @@ describe("MobileFoxHome", () => {
     expect(onLogin).toHaveBeenCalledTimes(1);
   });
 
-  it("exposes a language switcher in the top bar", () => {
-    renderWithLocale(<MobileFoxHome onLogin={noop} onStart={noop} />);
-    expect(screen.getByRole("group", { name: "Language" })).toBeTruthy();
-  });
-
-  it("switches the title to Animichi when the English locale is picked", () => {
-    renderWithLocale(<MobileFoxHome onLogin={noop} onStart={noop} />);
-    expect(screen.getByRole("heading", { name: "聖地巡礼" })).toBeTruthy();
-    act(() => { screen.getByRole("button", { name: "EN" }).click(); });
-    expect(screen.getByRole("heading", { name: "Animichi" })).toBeTruthy();
-  });
 });
 
 /** Elements the mobile-fox-home.html mockup's settled scene actually shows. */
@@ -94,8 +83,10 @@ describe("MobileFoxHome i18n", () => {
     setLanguages(["en-US"]);
     renderWithLocale(<MobileFoxHome onLogin={noop} onStart={noop} />);
     expect(screen.getByText("This way!")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Animichi" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Start Exploring" })).toBeTruthy();
     expect(screen.queryByText("こっち！")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "聖地巡礼" })).toBeNull();
   });
 
   it("renders Chinese copy when the browser locale is Chinese", () => {

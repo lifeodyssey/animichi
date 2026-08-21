@@ -1,6 +1,5 @@
 import { useDict } from "../../i18n/LocaleProvider";
 import type { Dict } from "../../i18n/dictionaries";
-import { LocaleSwitcher } from "../../i18n/LocaleSwitcher";
 
 type PrivacyCopy = Dict["privacy"];
 
@@ -39,7 +38,7 @@ function PrivacyContact({ copy }: { copy: PrivacyCopy }) {
 export function PrivacyPolicy() {
   const copy = useDict().privacy;
   return <main className="privacy-page" aria-labelledby="privacy-title">
-    <div className="privacy-page__nav"><a className="privacy-page__back" href="/">← {copy.back_home}</a><LocaleSwitcher /></div>
+    <div className="privacy-page__nav"><a className="privacy-page__back" href="/">← {copy.back_home}</a></div>
     <header className="privacy-page__header"><p className="eyebrow">Animichi</p><h1 id="privacy-title">{copy.title}</h1><p className="privacy-page__updated">{copy.updated}</p><p className="privacy-page__version">{copy.version}</p><p className="privacy-page__intro">{copy.intro}</p></header>
     <PrivacyCoreSections copy={copy} />
     <PrivacySafeguardSections copy={copy} />
