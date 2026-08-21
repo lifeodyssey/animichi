@@ -37,7 +37,7 @@ function factEntries(summary: FactSummary, copy: AnimeCopy): FactEntry[] {
 
 function Fact({ label, sentence }: FactEntry) {
   return (
-    <div className="rounded-xl bg-[var(--color-bg)] px-3 py-2">
+    <div className="rounded-xl bg-[var(--color-paper)] px-3 py-2">
       <dt className="text-sm font-bold text-[var(--color-muted-fg)]">{label}</dt>
       <dd className="m-0 text-[var(--color-fg)]">{sentence}</dd>
     </div>

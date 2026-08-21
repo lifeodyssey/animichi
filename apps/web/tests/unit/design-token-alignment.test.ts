@@ -8,6 +8,7 @@ import {
   parseBlockTokens,
   parseFontFaces,
   parseTokens,
+  relativeLuminance,
   srcForCodepoint,
   tokenValue,
   type TokenMap,
@@ -24,9 +25,11 @@ const alignment: TokenMap = {
   "--color-primary-active": "--animal-primary-color-active",
   "--color-primary-soft": "--animal-primary-color-bg",
   "--color-fg": "--animal-text-color-body",
-  "--color-bg": "--animal-bg-color",
+  "--color-bg": "--animal-bg-color-secondary",
+  "--color-paper": "--animal-bg-color",
   "--color-card": "--animal-bg-color-content",
   "--color-border": "--animal-border-color",
+  "--color-border-soft": "--animal-border-color-light",
   "--color-focus": "--animal-focus-yellow",
   "--color-success-fg": "--animal-success-color",
   "--color-warning-fg": "--animal-warning-color",
@@ -74,13 +77,26 @@ describe("semantic token backfills", () => {
   });
 });
 
-describe("cream base triad (動森 spec)", () => {
+describe("cream base stack (動森 spec)", () => {
   it.each([
-    ["--color-bg", "#f8f8f0"],
+    ["--color-bg", "#f0e8d8"],
+    ["--color-paper", "#f8f8f0"],
     ["--color-card", "#f7f3df"],
     ["--color-muted", "#e8ddc8"],
   ])("pins %s to %s", (token, expected) => {
     expect(tokenValue(semanticTokens, token)).toBe(expected);
+  });
+
+  it("floats paper and card above the page floor, never below it", () => {
+    const floor = relativeLuminance(tokenValue(semanticTokens, "--color-bg"));
+    expect(relativeLuminance(tokenValue(semanticTokens, "--color-card"))).toBeGreaterThan(floor);
+    expect(relativeLuminance(tokenValue(semanticTokens, "--color-paper"))).toBeGreaterThan(floor);
+  });
+
+  it("keeps the same floor-below-surfaces order at night", () => {
+    const floor = relativeLuminance(tokenValue(nightTokens, "--color-bg"));
+    expect(relativeLuminance(tokenValue(nightTokens, "--color-card"))).toBeGreaterThan(floor);
+    expect(relativeLuminance(tokenValue(nightTokens, "--color-paper"))).toBeGreaterThan(floor);
   });
 
   it("derives the press shadow from the 3d shadow token", () => {
@@ -95,6 +111,8 @@ describe("night theme coverage", () => {
     "--color-explore-fg",
     "--color-walk-bg",
     "--color-walk-fg",
+    "--color-paper",
+    "--color-border-soft",
     "--shadow-3d",
   ])("overrides %s at night", (token) => {
     expect(tokenValue(nightTokens, token)).not.toBe(tokenValue(semanticTokens, token));
@@ -110,6 +128,27 @@ describe("night theme coverage", () => {
     const foreground = tokenValue(nightTokens, "--color-walk-fg");
     const background = tokenValue(nightTokens, "--color-walk-bg");
     expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("page floor glow (design-sync body)", () => {
+  const bodyBackground = (css: string, selector: string): string => {
+    const escaped = selector.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+    const rule = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, "u").exec(css)?.[1] ?? "";
+    return /background:([^;]+)/u.exec(rule)?.[1] ?? "";
+  };
+
+  it("layers two overflowing top glows over the page floor", () => {
+    const background = bodyBackground(globalsCss, "body");
+    expect([...background.matchAll(/radial-gradient/gu)]).toHaveLength(2);
+    expect(background.trimEnd().endsWith("var(--color-bg)")).toBe(true);
+  });
+
+  it("swaps the glows for the night pair instead of leaving the day tints", () => {
+    const background = bodyBackground(globalsCss, '[data-theme="night"] body');
+    expect([...background.matchAll(/radial-gradient/gu)]).toHaveLength(2);
+    expect(background).not.toContain("#e7f1fb");
+    expect(background.trimEnd().endsWith("var(--color-bg)")).toBe(true);
   });
 });
 
@@ -136,5 +175,29 @@ describe("accessible semantic colors", () => {
     const foreground = tokenValue(semanticTokens, "--color-primary-fg");
     const background = tokenValue(semanticTokens, "--color-primary-strong");
     expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps body text readable on the darker page floor", () => {
+    const foreground = tokenValue(semanticTokens, "--color-fg");
+    expect(contrastRatio(foreground, tokenValue(semanticTokens, "--color-bg"))).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(foreground, tokenValue(semanticTokens, "--color-paper"))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps night text readable on the night paper surface", () => {
+    const foreground = tokenValue(nightTokens, "--color-fg");
+    expect(contrastRatio(foreground, tokenValue(nightTokens, "--color-paper"))).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokenValue(nightTokens, "--color-muted-fg"), tokenValue(nightTokens, "--color-paper"))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("gives the bright teal ground an ink that clears AA where white cannot", () => {
+    const teal = tokenValue(semanticTokens, "--color-primary");
+    expect(contrastRatio(tokenValue(semanticTokens, "--color-primary-fg"), teal)).toBeLessThan(4.5);
+    expect(contrastRatio(tokenValue(semanticTokens, "--color-primary-ink"), teal)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("reuses that ink at night, where the teal ground is unchanged", () => {
+    expect(nightTokens["--color-primary-ink"]).toBeUndefined();
+    const ink = tokenValue(semanticTokens, "--color-primary-ink");
+    expect(contrastRatio(ink, tokenValue(semanticTokens, "--color-primary"))).toBeGreaterThanOrEqual(4.5);
   });
 });

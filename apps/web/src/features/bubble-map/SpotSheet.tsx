@@ -59,7 +59,7 @@ function SheetHeader({ title, close, onClose }: Readonly<{ title: string; close:
 /** Shot-angle (機位) sheet for a tapped region; graceful when a spot has no photo. */
 export function SpotSheet({ region, scenes, copy, onClose }: Props) {
   return (
-    <aside role="dialog" aria-label={copy.sheetTitle(region)} className="rounded-2xl bg-[var(--color-bg)] p-4 shadow-lg">
+    <aside role="dialog" aria-label={copy.sheetTitle(region)} className="rounded-2xl bg-[var(--color-paper)] p-4 shadow-lg">
       <SheetHeader title={copy.sheetTitle(region)} close={copy.close} onClose={onClose} />
       <SpotList scenes={scenes} copy={copy} />
     </aside>

@@ -8,7 +8,7 @@ describe("pinFill", () => {
   it.each([
     ["start", "var(--color-map-pin-teal)"],
     ["highlight", "var(--color-map-pin-orange)"],
-    ["normal", "var(--color-bg)"],
+    ["normal", "var(--color-paper)"],
   ] as const)("uses a semantic token for the %s pin", (kind, token) => {
     expect(pinFill(kind)).toBe(token);
   });
@@ -20,9 +20,16 @@ describe("pinStroke and pinTextFill", () => {
     expect(pinTextFill("normal")).toBe("var(--color-map-pin-teal)");
   });
 
-  it("outlines a filled pin in ink with foreground text", () => {
+  it("outlines a filled pin in ink", () => {
     expect(pinStroke("highlight")).toBe("var(--color-fg)");
-    expect(pinTextFill("start")).toBe("var(--color-primary-fg)");
+  });
+
+  it("labels the teal start pin with the dark ink, not the 2.10:1 white", () => {
+    expect(pinTextFill("start")).toBe("var(--color-primary-ink)");
+  });
+
+  it("keeps the white foreground on the orange highlight pin", () => {
+    expect(pinTextFill("highlight")).toBe("var(--color-primary-fg)");
   });
 });
 

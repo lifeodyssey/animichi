@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import chatCss from "../../../src/styles/chat.css?raw";
-import { contrastRatio, lastRuleDeclaration, parseTokens, ruleDeclaration, tokenValue } from "../_token-helpers";
+import {
+  contrastRatio,
+  lastRuleDeclaration,
+  parseTokens,
+  relativeLuminance,
+  ruleDeclaration,
+  tokenValue,
+} from "../_token-helpers";
 import globalsCss from "../../../src/styles/globals.css?raw";
 
 describe("nook tri-color chip tiles", () => {
@@ -155,7 +162,7 @@ describe("S1.9 Turnstile dock slot (issue #447)", () => {
 describe("A2 bubbles: the design spec's geometry and 3D depth", () => {
   it("paints the AI bubble on the card token with a 2px line and a 6px top-left notch", () => {
     expect(ruleDeclaration(chatCss, ".chat-bubble", "background")).toBe("var(--color-card)");
-    expect(ruleDeclaration(chatCss, ".chat-bubble", "border")).toBe("2px solid var(--color-border)");
+    expect(ruleDeclaration(chatCss, ".chat-bubble", "border")).toBe("2px solid var(--color-border-soft)");
     expect(ruleDeclaration(chatCss, ".chat-bubble", "border-radius")).toBe("20px");
     expect(ruleDeclaration(chatCss, ".chat-bubble", "border-top-left-radius")).toBe("6px");
   });
@@ -170,6 +177,28 @@ describe("A2 bubbles: the design spec's geometry and 3D depth", () => {
     const user = ".chat-message--user .chat-bubble";
     expect(ruleDeclaration(chatCss, user, "box-shadow")).toBe("0 4px 0 var(--color-primary-strong)");
     expect(ruleDeclaration(chatCss, user, "border-top-right-radius")).toBe("6px");
+  });
+
+  it("writes the user bubble in the teal ink, the only value that clears AA there", () => {
+    const tokens = parseTokens(globalsCss);
+    const userBubble = /\.chat-message--user \.chat-bubble\s*\{([^}]*)\}/u.exec(chatCss)?.[1] ?? "";
+    expect(userBubble).toContain("\n  color: var(--color-primary-ink);");
+    const ratio = contrastRatio(tokenValue(tokens, "--color-primary-ink"), tokenValue(tokens, "--color-primary"));
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("floats the AI bubble above the page floor instead of sinking below it", () => {
+    const tokens = parseTokens(globalsCss);
+    expect(ruleDeclaration(chatCss, ".chat-page", "background")).toBe("var(--color-bg)");
+    expect(relativeLuminance(tokenValue(tokens, "--color-card")))
+      .toBeGreaterThan(relativeLuminance(tokenValue(tokens, "--color-bg")));
+  });
+
+  it("edges the bubble with the soft line, the loud border being for operable chrome", () => {
+    const tokens = parseTokens(globalsCss);
+    const soft = relativeLuminance(tokenValue(tokens, "--color-border-soft"));
+    expect(soft).toBeGreaterThan(relativeLuminance(tokenValue(tokens, "--color-border")));
+    expect(ruleDeclaration(chatCss, ".chat-input__field", "border")).toBe("1px solid var(--color-border)");
   });
 });
 
@@ -187,6 +216,7 @@ describe("A1 hero: the fox owns the first screen", () => {
   it("gives the lead bubble the same notched cream shape as an AI bubble", () => {
     expect(ruleDeclaration(chatCss, ".chat-cold-start__lead", "background")).toBe("var(--color-card)");
     expect(ruleDeclaration(chatCss, ".chat-cold-start__lead", "border-top-left-radius")).toBe("6px");
+    expect(ruleDeclaration(chatCss, ".chat-cold-start__lead", "border")).toBe("2px solid var(--color-border-soft)");
   });
 });
 
@@ -194,6 +224,10 @@ describe("A3 chips: pill tiles with a same-family 3D edge", () => {
   it("rounds the chip to a pill and keeps the 44px touch target", () => {
     expect(ruleDeclaration(chatCss, ".chat-chip", "border-radius")).toBe("50px");
     expect(ruleDeclaration(chatCss, ".chat-chip", "min-height")).toBe("44px");
+  });
+
+  it("draws the cream chip's edge with the soft line the design uses", () => {
+    expect(ruleDeclaration(chatCss, ".chat-chip", "border")).toBe("2px solid var(--color-border-soft)");
   });
 
   it.each(["explore", "walk", "primary"])("tints the %s tile's edge from its own tone", (tone) => {
