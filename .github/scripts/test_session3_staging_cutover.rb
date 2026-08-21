@@ -333,6 +333,79 @@ def reset_script_refusal_violations
   found
 end
 
+# ---- 5. Pulumi R2 backend credentials (issue #1056 AC1) -------------------
+# Every step that actually runs pulumi talks to the R2 (S3-compatible) state
+# backend. Working Pulumi lanes bind AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+# / AWS_DEFAULT_REGION sourced from R2_* secrets; without them the AWS SDK
+# falls back to EC2 IMDS and the first pulumi command fails before any state
+# change. Discover pulumi-executing steps from parsed workflow behavior
+# (run text, or an invoked script that contains a pulumi command) rather
+# than pinning job names or line numbers.
+#
+# Credential *source* is the whole GitHub expression `${{ secrets.NAME }}`
+# (inner whitespace optional). A substring check would accept a different
+# secret whose name only *starts with* the required one, e.g.
+# `${{ secrets.R2_ACCESS_KEY_ID_BACKUP }}`.
+R2_BACKEND_KEYS = %w[
+  AWS_ACCESS_KEY_ID
+  AWS_SECRET_ACCESS_KEY
+  AWS_DEFAULT_REGION
+].freeze
+
+def referenced_scripts(run)
+  run.to_s.scan(%r{\.github/scripts/[\w.-]+\.sh}).map { |rel| File.join(ROOT, rel) }
+end
+
+def contains_pulumi_command?(text)
+  text.match?(/^\s*pulumi\s/m)
+end
+
+def step_executes_pulumi?(step)
+  run = step["run"].to_s
+  return true if contains_pulumi_command?(run)
+
+  referenced_scripts(run).any? do |path|
+    File.file?(path) && contains_pulumi_command?(File.read(path))
+  end
+end
+
+def pulumi_executing_steps(job)
+  job.fetch("steps", []).select { |s| s.is_a?(Hash) && step_executes_pulumi?(s) }
+end
+
+def github_secret_expr?(value, secret_name)
+  value.to_s.match?(/\A\$\{\{\s*secrets\.#{Regexp.escape(secret_name)}\s*\}\}\z/)
+end
+
+def r2_backend_source_violations(job_name, env)
+  found = []
+  found << "#{job_name}: AWS_ACCESS_KEY_ID must source from secrets.R2_ACCESS_KEY_ID" \
+    unless github_secret_expr?(env["AWS_ACCESS_KEY_ID"], "R2_ACCESS_KEY_ID")
+  found << "#{job_name}: AWS_SECRET_ACCESS_KEY must source from secrets.R2_SECRET_ACCESS_KEY" \
+    unless github_secret_expr?(env["AWS_SECRET_ACCESS_KEY"], "R2_SECRET_ACCESS_KEY")
+  found << "#{job_name}: AWS_DEFAULT_REGION must be auto" \
+    unless env["AWS_DEFAULT_REGION"].to_s == "auto"
+  found
+end
+
+def pulumi_step_r2_violations(job_name, step)
+  env = step.fetch("env", {}) || {}
+  missing = R2_BACKEND_KEYS.reject { |key| env.key?(key) }
+  return ["#{job_name}: pulumi-executing step must provide R2 backend credentials (missing: #{missing.join(', ')})"] unless missing.empty?
+
+  r2_backend_source_violations(job_name, env)
+end
+
+def pulumi_r2_backend_violations(wf)
+  found = []
+  wf.fetch("jobs").each do |name, job|
+    next unless job.is_a?(Hash)
+
+    pulumi_executing_steps(job).each { |step| found.concat(pulumi_step_r2_violations(name, step)) }
+  end
+  found
+end
+
 def main
   found = source_structure_violations
   unless File.exist?(WORKFLOW)
@@ -342,14 +415,15 @@ def main
     found.concat(workflow_order_violations(wf))
     found.concat(manifest_guard_violations(wf))
     found.concat(two_key_reset_violations(wf))
+    found.concat(pulumi_r2_backend_violations(wf))
   end
   found.concat(reset_script_refusal_violations)
 
   if found.empty?
-    puts "OK: fresh-schema manifest, sole-repository adapters, two-key reset, and cutover workflow order all hold"
+    puts "OK: fresh-schema manifest, sole-repository adapters, two-key reset, R2 backend credentials, and cutover workflow order all hold"
   else
     puts found.sort
     abort "SESSION-3 staging cutover contract violated (#{found.length} issue(s))"
   end
 end
-main
+main if $PROGRAM_NAME == __FILE__
