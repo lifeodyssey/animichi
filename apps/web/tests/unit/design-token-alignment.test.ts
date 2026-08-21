@@ -36,15 +36,17 @@ const alignment: TokenMap = {
 describe("design token font foundation", () => {
   it("vendors every required Zen Maru Gothic subset", () => {
     const zenFaces = fontFaces.filter(({ family }) => family === "Zen Maru Gothic");
-    expect(zenFaces.map(({ weight }) => weight)).toEqual([500, 500, 700, 700]);
+    expect(zenFaces.map(({ weight }) => weight)).toEqual([500, 500, 700, 700, 900, 900]);
     expect(zenFaces.map(({ src }) => src)).toEqual([
       'url("/fonts/zen-maru-gothic-japanese-500-normal.woff2") format("woff2")',
       'url("/fonts/zen-maru-gothic-latin-500-normal.woff2") format("woff2")',
       'url("/fonts/zen-maru-gothic-japanese-700-normal.woff2") format("woff2")',
       'url("/fonts/zen-maru-gothic-latin-700-normal.woff2") format("woff2")',
+      'url("/fonts/zen-maru-gothic-japanese-900-normal.woff2") format("woff2")',
+      'url("/fonts/zen-maru-gothic-latin-900-normal.woff2") format("woff2")',
     ]);
     expect(zenFaces.map(({ unicodeRange }) => unicodeRange === null)).toEqual([
-      true, false, true, false,
+      true, false, true, false, true, false,
     ]);
   });
 

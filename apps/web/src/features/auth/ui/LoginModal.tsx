@@ -75,6 +75,7 @@ function LoginDialog({ auth, onClose, onSendCommitted, returnTarget, panelRef }:
   return (
     <div className="login-modal" role="dialog" aria-modal="true" aria-label={auth.title} tabIndex={-1} ref={panelRef} onClick={(event) => { event.stopPropagation(); }}>
       <button className="login-modal__close" type="button" aria-label={auth.close} onClick={onClose}>×</button>
+      <img className="login-modal__fox" src="/images/landing/fox/fox-welcome.svg" alt="" aria-hidden="true" width={88} height={88} />
       <h2 className="login-modal__title">{auth.title}</h2>
       <p className="login-modal__subtitle">{auth.subtitle}</p>
       <LoginForm onSendCommitted={onSendCommitted} returnTarget={returnTarget} />

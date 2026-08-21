@@ -1,8 +1,6 @@
-import type { ChangeEvent, KeyboardEvent } from "react";
+import type { ChangeEvent, KeyboardEvent, ReactElement } from "react";
 import { useState } from "react";
 import { useDict } from "../../i18n/LocaleProvider";
-
-const CHIP_TONES = ["mint", "gold", "plain"] as const;
 
 interface HeroSearchProps {
   onSubmit: (query: string) => void;
@@ -22,9 +20,9 @@ function useSearch(onSubmit: (query: string) => void): SearchState {
 
 function SearchGlyph() {
   return (
-    <svg className="hero-search__glyph" viewBox="0 0 24 24" width={19} height={19} fill="none" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-      <path d="m20 20-3.8-3.8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <svg className="hero-search__glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.2-3.2" />
     </svg>
   );
 }
@@ -40,34 +38,59 @@ function SearchBar({ search }: { search: SearchState }) {
   </div>);
 }
 
-function toneFor(index: number): string {
-  return CHIP_TONES[index % CHIP_TONES.length] ?? "plain";
+function StarDotsIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" /><circle cx="12" cy="5.5" r="2.6" /><circle cx="12" cy="18.5" r="2.6" /><circle cx="5.5" cy="12" r="2.6" /><circle cx="18.5" cy="12" r="2.6" />
+    </svg>
+  );
+}
+
+function MusicNoteIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+      <path d="M9 18V5l10-2v13" /><circle cx="6" cy="18" r="3" fill="currentColor" stroke="none" /><circle cx="16" cy="16" r="3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function CloudIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M7 18a4 4 0 0 1 .4-8A5 5 0 0 1 17 10.2 3.5 3.5 0 0 1 16.5 18Z" />
+    </svg>
+  );
+}
+
+const CHIP_STYLES = [
+  { tone: "green", Icon: StarDotsIcon },
+  { tone: "yellow", Icon: MusicNoteIcon },
+  { tone: "blue", Icon: CloudIcon },
+] as const;
+
+function chipStyleFor(index: number) {
+  return CHIP_STYLES[index % CHIP_STYLES.length] ?? CHIP_STYLES[0];
 }
 
 function ChipList({ onPick }: { onPick: (example: string) => void }) {
   const landing = useDict().landing;
   return (<div className="hero-search__chips">
-    {landing.examples.map((example, index) => (
-      <button key={example} type="button" className={`hero-chip hero-chip--${toneFor(index)}`} onClick={() => { onPick(example); }}>{example}</button>
-    ))}
+    {landing.examples.map((example, index) => {
+      const { tone, Icon } = chipStyleFor(index);
+      return (
+        <button key={example} type="button" className={`hero-chip hero-chip--${tone}`} onClick={() => { onPick(example); }}><Icon />{example}</button>
+      );
+    })}
   </div>);
 }
 
-function ExampleChips({ onPick }: { onPick: (example: string) => void }) {
-  const landing = useDict().landing;
-  return (<div className="hero-search__examples">
-    <p className="hero-search__examples-label">{landing.try_example}</p>
-    <ChipList onPick={onPick} />
-  </div>);
-}
-
-/** Hero pill search: field + pumpkin CTA + "try an example" chips that fill and submit. */
+/** Hero pill search: field + teal CTA + colored example chips that fill and submit. */
 export function HeroSearch({ onSubmit }: HeroSearchProps) {
   const search = useSearch(onSubmit);
   const pick = (example: string) => { search.setQuery(example); onSubmit(example); };
   return (
     <div className="hero-search">
       <SearchBar search={search} />
-      <ExampleChips onPick={pick} />
+      <ChipList onPick={pick} />
     </div>);
 }

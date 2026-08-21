@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(pnpm:*)",
+      "Shell(ls apps/web/public/images/landing/fox/ apps/web/public/images/landing/compare/ && head -c 200 apps/web/public/images/landing/foliage-tr.svg; echo; ls apps/web/ATTRIBUTIONS.md apps/web/public/ATTRIBUTIONS.md 2>/dev/null; find apps/web -name \"ATTRIBUTIONS.md\" -not -path \"*/node_modules/*\" 2>/dev/null)",
+      "Shell(node \"$COMMANDCODE_SCRATCHPAD/shot-compare.cjs\" \"$COMMANDCODE_SCRATCHPAD\")",
+      "Shell(NODE_PATH=/Users/lumimamini/Documents/Seichijunrei-agent/.worktrees/design-restore/node_modules node \"$COMMANDCODE_SCRATCHPAD/shot-compare.cjs\" \"$COMMANDCODE_SCRATCHPAD\")",
+      "Shell(NODE_PATH=/Users/lumimamini/Documents/Seichijunrei-agent/.worktrees/design-restore/node_modules node \"$COMMANDCODE_SCRATCHPAD/shot-modal.cjs\" \"$COMMANDCODE_SCRATCHPAD\")"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

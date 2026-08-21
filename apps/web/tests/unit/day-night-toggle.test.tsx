@@ -12,39 +12,49 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+function dayButton(): HTMLElement {
+  return screen.getByRole("button", { name: "昼" });
+}
+
+function nightButton(): HTMLElement {
+  return screen.getByRole("button", { name: "夜" });
+}
+
 describe("DayNightToggle", () => {
-  it("defaults to the day theme and persists it", () => {
+  it("defaults to the day mode and persists it", () => {
     renderWithLocale(<DayNightToggle />);
-    const toggle = screen.getByRole("switch");
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(dayButton().getAttribute("aria-pressed")).toBe("true");
+    expect(nightButton().getAttribute("aria-pressed")).toBe("false");
     expect(window.localStorage.getItem("animichi-theme")).toBe("day");
   });
 
-  it("toggles to night, updating aria, storage, and the document theme", () => {
+  it("switches to night from the night button, updating aria, storage, and the document theme", () => {
     renderWithLocale(<DayNightToggle />);
-    act(() => { screen.getByRole("switch").click(); });
-    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe("true");
+    act(() => { nightButton().click(); });
+    expect(nightButton().getAttribute("aria-pressed")).toBe("true");
+    expect(dayButton().getAttribute("aria-pressed")).toBe("false");
     expect(window.localStorage.getItem("animichi-theme")).toBe("night");
     expect(document.documentElement.dataset.theme).toBe("night");
   });
 
-  it("toggles back to day on a second press", () => {
+  it("switches back to day from the day button", () => {
     renderWithLocale(<DayNightToggle />);
-    act(() => { screen.getByRole("switch").click(); });
-    act(() => { screen.getByRole("switch").click(); });
-    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe("false");
+    act(() => { nightButton().click(); });
+    act(() => { dayButton().click(); });
+    expect(dayButton().getAttribute("aria-pressed")).toBe("true");
+    expect(nightButton().getAttribute("aria-pressed")).toBe("false");
     expect(window.localStorage.getItem("animichi-theme")).toBe("day");
   });
 
   it("restores a stored night preference on mount", () => {
     window.localStorage.setItem("animichi-theme", "night");
     renderWithLocale(<DayNightToggle />);
-    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe("true");
+    expect(nightButton().getAttribute("aria-pressed")).toBe("true");
   });
 
   it("ignores an invalid stored value and stays on day", () => {
     window.localStorage.setItem("animichi-theme", "sepia");
     renderWithLocale(<DayNightToggle />);
-    expect(screen.getByRole("switch").getAttribute("aria-checked")).toBe("false");
+    expect(dayButton().getAttribute("aria-pressed")).toBe("true");
   });
 });

@@ -40,7 +40,7 @@ function SplashFooter(): ReactElement {
     <div className="app-splash__footer">
       <img src="/images/splash/fox-stand.webp" width="72" height="72" alt="" />
       <span className="app-splash__ground" />
-      <small>アニメの舞台を、歩きに行こう。</small>
+      <small>画像・座標:Anitabi (CC BY-NC-SA 4.0)</small>
       <span className="app-splash__bar" />
     </div>
   );

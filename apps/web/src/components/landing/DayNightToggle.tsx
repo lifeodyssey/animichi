@@ -1,13 +1,28 @@
 import { useDict } from "../../i18n/LocaleProvider";
+import type { Theme } from "../../features/config/lib/theme-storage";
 import { useTheme } from "./use-theme";
 
-/** Day/night switch — persistence lives in useTheme. */
+interface ModeButtonProps {
+  mode: Theme;
+  label: string;
+  active: boolean;
+  onPick: (mode: Theme) => void;
+}
+
+function ModeButton({ mode, label, active, onPick }: ModeButtonProps) {
+  return (
+    <button type="button" aria-pressed={active} onClick={() => { onPick(mode); }}>{label}</button>
+  );
+}
+
+/** Fixed bottom-right day/night pair — persistence lives in useTheme. */
 export function DayNightToggle() {
   const landing = useDict().landing;
-  const { theme, toggle } = useTheme();
-  const isNight = theme === "night";
-  const label = isNight ? landing.theme_night : landing.theme_day;
+  const { theme, set } = useTheme();
   return (
-    <button type="button" className="day-night-toggle" role="switch" aria-checked={isNight} aria-label={label} onClick={toggle}>{label}</button>
+    <div className="day-night-toggle">
+      <ModeButton mode="day" label={landing.theme_day} active={theme === "day"} onPick={set} />
+      <ModeButton mode="night" label={landing.theme_night} active={theme === "night"} onPick={set} />
+    </div>
   );
 }

@@ -31,7 +31,7 @@ function applyThemeAfterAdoption(isInitialApply: { current: boolean }, theme: Th
 
 export interface ThemeControl {
   theme: Theme;
-  toggle: () => void;
+  set: (theme: Theme) => void;
 }
 
 /** Day/night theme, persisted through the `theme-storage` adapter; SSR renders
@@ -47,6 +47,6 @@ export function useTheme(): ThemeControl {
   useEffect(() => { adoptStoredTheme(setTheme); }, []);
   useEffect(() => { applyThemeAfterAdoption(isInitialApply, theme); }, [theme]);
 
-  const toggle = useCallback(() => { setTheme((current) => (current === "day" ? "night" : "day")); }, []);
-  return { theme, toggle };
+  const set = useCallback((next: Theme) => { setTheme(next); }, []);
+  return { theme, set };
 }

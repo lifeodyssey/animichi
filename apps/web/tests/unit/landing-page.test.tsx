@@ -20,11 +20,17 @@ afterEach(() => {
 });
 
 describe("LandingPage", () => {
-  it("renders the journal eyebrow, serif headline, and search CTA", () => {
+  it("renders the eyebrow, split serif headline, and search CTA", () => {
     renderWithLocale(<LandingPage />);
-    expect(screen.getByText("アニメ旅行ジャーナル")).toBeTruthy();
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("アニメの場面を");
+    expect(screen.getByText("FROM SCREEN TO STREET")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("アニメのあのシーンを");
     expect(screen.getAllByRole("button", { name: "巡礼をはじめる" }).length).toBe(2);
+  });
+
+  it("renders the two-tone brand wordmark in the bar", () => {
+    renderWithLocale(<LandingPage />);
+    expect(screen.getByText("聖地")).toBeTruthy();
+    expect(screen.getByText("巡礼")).toBeTruthy();
   });
 
   it("renders the mobile fox welcome section alongside the desktop hero", () => {
@@ -75,9 +81,12 @@ describe("LandingPage i18n", () => {
     renderWithLocale(<LandingPage />);
     act(() => { screen.getAllByRole("button", { name: "EN" })[0]?.click(); });
     expect(screen.getAllByRole("button", { name: "Start Exploring" }).length).toBe(2);
-    expect(screen.getByText("Anime Travel Journal")).toBeTruthy();
+    expect(screen.getByText("FROM SCREEN TO STREET")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Plan the real route behind an");
+    expect(screen.getByText("Ani")).toBeTruthy();
+    expect(screen.getByText("michi")).toBeTruthy();
     expect(screen.queryByText("巡礼をはじめる")).toBeNull();
-    expect(screen.queryByText("アニメ旅行ジャーナル")).toBeNull();
+    expect(screen.queryByText("アニメのあのシーンを、")).toBeNull();
   });
 });
 
