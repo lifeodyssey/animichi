@@ -86,10 +86,10 @@ export async function runMigration(
   boundaries: MigrationBoundaries,
   expectedHead?: string,
 ): Promise<MigrationRunResult> {
-  const preHead = await snapshotPreRunHead(dsn, boundaries);
+  const pre = await snapshotPreRunHead(dsn, boundaries);
   const outcome = await boundaries.runContainer(dsn);
   if (outcome.kind === "failure") return { kind: "failure", exitCode: outcome.exitCode };
   if (outcome.kind === "timeout") return { ...outcome };
-  if (outcome.kind === "unknown_exit") return judgeUnknownExit(dsn, boundaries, expectedHead, preHead);
+  if (outcome.kind === "unknown_exit") return judgeUnknownExit(dsn, boundaries, expectedHead, pre);
   return succeeded(await boundaries.readAppliedHead(dsn), "verified");
 }
