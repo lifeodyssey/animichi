@@ -94,6 +94,7 @@ describe("turnstileSiteKey public-key shape", () => {
     "not-a-site-key",
     "0x4AAAAAAAsitekey24chars!",
     "this is far too long for a site key indeed",
+    "abcdefghijklmnopqrstuvwxyz123456789",
   ])("rejects a malformed site key %s", (siteKey) => {
     rejectsWith({ ...PROD, turnstileSiteKey: siteKey }, "invalid");
   });
