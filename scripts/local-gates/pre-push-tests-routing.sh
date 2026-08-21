@@ -51,6 +51,7 @@ assert_no_other_package_gates() {
   assert_lacks "$GATE_STUB_ROOT/run3.log" "workers/catalog :: pnpm exec tsc"
   assert_lacks "$GATE_STUB_ROOT/run3.log" "workers/users :: pnpm exec tsc"
   assert_lacks "$GATE_STUB_ROOT/run3.log" "workers/edge :: pnpm run lint:oxlint"
+  assert_lacks "$GATE_STUB_ROOT/run3.log" "workers/migrator ::"
   assert_lacks "$GATE_STUB_ROOT/run3.log" "pnpm emit:openapi"
   assert_lacks "$GATE_STUB_ROOT/run3.log" "pnpm --filter infra"
   assert_lacks "$GATE_STUB_ROOT/run3.log" "atlas"
@@ -64,6 +65,23 @@ test_affected_packages_only() {
   assert_web_only_gates
   assert_no_other_package_gates
   echo "ok: an affected package runs only its own CI-equivalent gates"
+}
+
+assert_migrator_gates() {
+  assert_has "$1" "$REPO_ROOT/workers/migrator :: pnpm exec tsc --noEmit"
+  assert_has "$1" "$REPO_ROOT/workers/migrator :: pnpm run lint:oxlint"
+  assert_has "$1" "$REPO_ROOT/workers/migrator :: pnpm run test"
+  assert_has "$1" "$REPO_ROOT/workers/migrator :: pnpm exec wrangler deploy --dry-run"
+}
+
+test_migrator_package_gates() {
+  local rc log="$GATE_STUB_ROOT/run-migrator.log"
+  rc="$(GATE_CHANGED_PACKAGES=migrator run_gate "$log")" || true
+  [ "$rc" = "0" ] || { echo "FAIL: migrator-only run exited $rc" >&2; exit 1; }
+  assert_migrator_gates "$log"
+  assert_lacks "$log" "uv run mypy"
+  assert_lacks "$log" "workers/catalog :: pnpm exec tsc"
+  echo "ok: migrator runs typecheck + lint + its own tests"
 }
 
 test_all_route_runs_config_contract_self_test() {

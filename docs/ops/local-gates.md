@@ -12,6 +12,8 @@ Campaign lesson: code repeatedly reached CI that local gates should have caught 
 
 ## Package map (diff path → gate set)
 
+Workspace members are **derived** from `pnpm-workspace.yaml` (directories matching the globs that contain `package.json`; route name = directory basename). Path buckets (`db`, `ci`, `scripts`, `docs`) stay explicit — they are not workspace packages. A new workspace package without a `gate_<name>` in `pre-push.sh` fails `changed-packages.test.sh` immediately.
+
 | Path prefix | Package | pre-commit lint | pre-push orchestrator gate set |
 |---|---|---|---|
 | `apps/agent/` | agent | ruff + ruff-format (py) | `ruff check` + `ruff format --check src/animichi/` + mypy + `vulture src/animichi/ vulture_whitelist.py` + unit `pytest --cov` (canonical 87 floor, below) + offline Docker-arm integration `pytest .../integration --no-cov` + `docker build -f apps/agent/Dockerfile -t animichi-agent:ci .` (CI `pipeline-agent.yml` job order) |
@@ -19,15 +21,17 @@ Campaign lesson: code repeatedly reached CI that local gates should have caught 
 | `workers/catalog/` | catalog | oxlint | `tsc --noEmit` + `lint:oxlint` + `test:worker` + `test:smoke` + `wrangler deploy --dry-run` |
 | `workers/users/` | users | oxlint | `tsc --noEmit` + `lint:oxlint` + `test:worker` + `wrangler deploy --dry-run` |
 | `workers/edge/` | edge | oxlint | `lint:oxlint` + `test:worker` + production-config `wrangler deploy --dry-run` |
+| `workers/migrator/` | migrator | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (`pipeline-migrator.yml`; scripts from `workers/migrator/package.json`) |
 | `packages/contract/` | contract | oxlint | `tsc --noEmit` + `test` + staged-snapshot OpenAPI drift (`contract-drift.sh`, mirrors CI) + agent-model regeneration drift |
 | `infra/` | infra | — | `typecheck` + `test` + credential-free Pulumi program-load (`infra-check.sh`) |
+| `e2e/` | e2e | — | registered no-op (Playwright stays in CI; an e2e-only change is not `all`) |
 | `migrations/` | db | — | `atlas migrate validate` + migration-boundary guard + disposable fresh-schema apply (`db-fresh-schema.sh`) |
 | `.github/` | ci | actionlint (workflows) | Quality lane (pinned actions + workflow invariants + SAFE-1/RETENTION-1/SESSION-3 + docs/root-allowlist/e2e-promotion guards + coverage-patch policy + actionlint) |
 | `scripts/`, `.github/scripts/` | scripts | shellcheck (shell) + ruff (py) | the gates' own behavioral tests (self-testing orchestration surface) |
 | `docs/` | docs | — | doc-consistency subset (`test_secrets_docs_consistency.py` + `test_documentation_guardrails.py`) |
 | anything else / unknown | — | — | `all`: every package's full gate set (conservative fallback) |
 
-`packages/contract` is treated as changed whenever any of its consumers changed (contract is the cross-service source of truth) — the router unions: changed packages ∪ {contract if any agent/web/catalog/users/edge changed}.
+`packages/contract` is treated as changed whenever any of its consumers changed (contract is the cross-service source of truth) — the router unions: changed packages ∪ {contract if any agent/web/catalog/users/edge/migrator changed}.
 
 ## Changed-package detection
 
@@ -53,7 +57,7 @@ Universal (always, sub-second):
 - ruff `--fix` + `ruff format` (all repo Python — ruff is fast enough to run repo-wide)
 
 Changed packages (routed via `changed-packages.sh --staged`):
-- web/catalog/users/edge/contract → `oxlint --type-aware --deny-warnings` scoped to the package
+- web/catalog/users/edge/migrator/contract → `oxlint --type-aware --deny-warnings` scoped to the package
 
 ## pre-push (one orchestrator, `scripts/local-gates/pre-push.sh`)
 
@@ -106,6 +110,8 @@ Environmental note: the full Quality lane SIGBUSes on the stock macOS `/bin/bash
 ## Files
 
 - `scripts/local-gates/changed-packages.sh` — the router (`--staged` / merge-base modes)
+- `scripts/local-gates/workspace-packages.sh` — workspace package derivation from `pnpm-workspace.yaml`
+- `scripts/local-gates/oxlint-changed.sh` — pre-commit oxlint dispatch (derived; `--staged`)
 - `scripts/local-gates/pre-push.sh` — the pre-push orchestrator (single surface; routes only via the router)
 - `scripts/local-gates/pre-push-test-driver.sh` — the test-only route-injection seam (never wired into hooks)
 - `scripts/local-gates/quality.sh` — the deterministic Quality lane
