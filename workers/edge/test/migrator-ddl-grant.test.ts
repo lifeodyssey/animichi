@@ -6,6 +6,8 @@ import { URL, fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (path: string): string => readFileSync(`${ROOT}${path}`, "utf8");
+const grantSql = (): string =>
+  read("infra/neon-secrets/grant-migrator-ddl.sql").replaceAll(/^--.*$/gm, "");
 
 const GRANT_STEP = "- name: Grant migrator DDL on staging public";
 const PROD_JOB = "deploy-neon-secrets-prod:";
@@ -19,7 +21,7 @@ function namedBlock(source: string, marker: string, width: number): string {
 }
 
 void test("staging GRANT gives migrator CREATE on public", () => {
-  const sql = read("infra/neon-secrets/grant-migrator-ddl.sql").replaceAll(/^--.*$/gm, "");
+  const sql = grantSql();
   assert.match(sql, /GRANT USAGE,\s*CREATE ON SCHEMA public TO migrator;/);
   assert.match(sql, /GRANT REFERENCES ON TABLE public.sessions TO migrator;/);
   assert.doesNotMatch(sql, /ALL TABLES/);
@@ -57,10 +59,20 @@ void test("deploy.yml production neon-secrets job does not run the GRANT", () =>
   assert.doesNotMatch(deployProd, /grant-migrator-ddl/);
 });
 
-void test("GRANT SQL renames leftover messages index so Atlas can create it", () => {
-  const sql = read("infra/neon-secrets/grant-migrator-ddl.sql");
-  assert.match(sql, /GRANT REFERENCES ON TABLE public\.sessions TO migrator;/);
-  assert.match(sql, /ALTER INDEX IF EXISTS public\.idx_messages_session_created\s+RENAME TO idx_conversation_messages_session_created;/);
+void test("GRANT SQL still grants REFERENCES on sessions", () => {
+  assert.match(grantSql(), /GRANT REFERENCES ON TABLE public\.sessions TO migrator;/);
+});
+
+void test("GRANT SQL EXISTS check is on conversation_messages", () => {
+  assert.match(grantSql(), /EXISTS \([\s\S]*t\.relname = 'conversation_messages'/);
+});
+
+void test("GRANT SQL renames leftover to idx_conversation_messages_session_created", () => {
+  assert.match(grantSql(), /RENAME TO idx_conversation_messages_session_created;/);
+});
+
+void test("GRANT SQL does not drop tables or indexes", () => {
+  const sql = grantSql();
   assert.doesNotMatch(sql, /DROP TABLE/i);
   assert.doesNotMatch(sql, /DROP INDEX/i);
 });
