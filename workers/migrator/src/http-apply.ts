@@ -2,7 +2,7 @@ import { filesFrom, type ChainFile, type ChainSource } from "./chain";
 import type { ApplyLock } from "./lock";
 import type { ContainerOutcome } from "./migration";
 import { assertDirectDsn, type SqlClient, type SqlFactory, type SqlParam } from "./sql";
-import { needsTxNone, splitSql } from "./sql-split";
+import { mixedTxMode, needsTxNone, splitSql } from "./sql-split";
 
 /**
  * Atlas v0.30 `public.atlas_schema_revisions` shape this path writes:
@@ -13,6 +13,7 @@ import { needsTxNone, splitSql } from "./sql-split";
  * - on SQL failure: error + error_stmt, then stop (do not set applied=total)
  */
 export const OPERATOR_VERSION = "animichi-http-apply/0.30.0";
+const MIXED_TX = "migration mixes transactional statements with CREATE INDEX CONCURRENTLY";
 
 const APPLIED_SQL = "SELECT version FROM public.atlas_schema_revisions WHERE applied >= total";
 const UPSERT_SQL = `INSERT INTO public.atlas_schema_revisions (version, description, type, applied, total, executed_at, execution_time, error, error_stmt, hash, operator_version) VALUES ($1, $2, 2, $3, 1, $4, $5, $6, $7, $8, $9) ON CONFLICT (version) DO UPDATE SET applied = EXCLUDED.applied, total = EXCLUDED.total, execution_time = EXCLUDED.execution_time, error = EXCLUDED.error, error_stmt = EXCLUDED.error_stmt, hash = EXCLUDED.hash, operator_version = EXCLUDED.operator_version`;
@@ -97,6 +98,7 @@ async function execCaught(run: () => Promise<unknown>): Promise<Error | undefine
 
 function applyStatements(sql: SqlClient, statements: readonly string[]): Promise<unknown> {
   if (statements.length === 0) return Promise.resolve();
+  if (mixedTxMode(statements)) return Promise.reject(new Error(MIXED_TX));
   if (statements.some(needsTxNone)) return runSerial(sql, statements);
   return sql.transaction(statements);
 }

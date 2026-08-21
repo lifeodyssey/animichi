@@ -52,7 +52,7 @@ TDD at the HTTP seam (`test/migrate.worker.auth.test.ts` +
 `test/migrate.worker.http.test.ts` + `test/http-apply*.test.ts`): valid
 test-signed JWT → apply + success + applied head; wrong repo / wrong audience /
 expired → 403; HTTP apply of a fixture chain against a fake `neon()`;
-`-pooler` rejected before SQL; fake-lock concurrency; hung container inject
+`-pooler` rejected before SQL; fake-lock concurrency; hung-container injection
 → 504. The container binding is faked and the JWKS injected (plain vitest —
 `create-app.ts` stays free of `@cloudflare/containers`). The container image
 build + staging deploy are CI-verified.

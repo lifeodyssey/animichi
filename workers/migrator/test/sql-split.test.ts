@@ -4,7 +4,7 @@ import functionsSql from "../../../migrations/neon/20260809000002_functions.sql"
 import messagesSql from "../../../migrations/neon/20260811000002_table_messages.sql";
 import outboxSql from "../../../migrations/neon/20260814191301_turn_idempotency_outbox.sql";
 import rolesSql from "../../../migrations/neon/20260809000001_roles.sql";
-import { needsTxNone, splitSql } from "../src/sql-split";
+import { mixedTxMode, needsTxNone, splitSql } from "../src/sql-split";
 
 const FN = "CREATE FUNCTION f() RETURNS void LANGUAGE plpgsql AS $$\nBEGIN\n  PERFORM 1;\nEND;\n$$;";
 const TAGGED = "DO $body$\nBEGIN\n  PERFORM 1;\nEND;\n$body$;";
@@ -90,5 +90,19 @@ describe("needsTxNone", () => {
 
   it("ignores CONCURRENTLY inside dollar-quoted bodies", () => {
     expect(needsTxNone(FN_CONCUR)).toBe(false);
+  });
+});
+
+describe("mixedTxMode", () => {
+  it("is false when every statement is transactional", () => {
+    expect(mixedTxMode(["CREATE TABLE t (id int);", "CREATE TABLE u (id int);"])).toBe(false);
+  });
+
+  it("is false when every statement is CONCURRENTLY", () => {
+    expect(mixedTxMode([CONCUR, UNIQUE_CONCUR])).toBe(false);
+  });
+
+  it("is true when transactional DDL and CONCURRENTLY share a file", () => {
+    expect(mixedTxMode(["CREATE TABLE t (id int);", CONCUR])).toBe(true);
   });
 });

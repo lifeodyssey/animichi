@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NeonMigrationsLedger } from "../src/ledger";
+import { productionChain } from "../src/bundled-chain";
+import { filesFrom } from "../src/chain";
 import { OPERATOR_VERSION } from "../src/http-apply";
 import {
   BODY_A,
@@ -120,5 +122,30 @@ describe("HTTP apply multi-statement (req 7)", () => {
     await applyFixture(db, { source: chainOf("20260821000001_concurrent.sql", CONCURRENT_BODY) });
     expect(db.transactions).toEqual([]);
     expect(db.units).toEqual([CONCURRENT_BODY]);
+  });
+
+  it("rejects a mixed transactional+CONCURRENTLY file before SQL", async () => {
+    const db = new FakeSql();
+    const body = `${STMT_1} ${CONCURRENT_BODY}`;
+    const outcome = await applyFixture(db, { source: chainOf("20260821000002_mixed.sql", body) });
+    expect(outcome).toEqual({ kind: "failure", exitCode: 1 });
+    expect(db.transactions).toEqual([]);
+    expect(db.units).toEqual([]);
+    expect(db.revisions[0]).toMatchObject({
+      version: "20260821000002",
+      applied: 0,
+      error: "migration mixes transactional statements with CREATE INDEX CONCURRENTLY",
+    });
+  });
+});
+
+describe("bundled chain vs atlas.sum", () => {
+  it("resolves every atlas.sum SQL file with a non-empty body", () => {
+    const files = filesFrom(productionChain);
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      expect(file.body.length).toBeGreaterThan(0);
+      expect(file.hash.startsWith("h1:")).toBe(true);
+    }
   });
 });

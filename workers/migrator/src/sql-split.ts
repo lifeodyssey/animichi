@@ -25,6 +25,12 @@ export function needsTxNone(sql: string): boolean {
   return /\bCREATE\s+(UNIQUE\s+)?INDEX\s+CONCURRENTLY\b/i.test(codeText(sql));
 }
 
+/** True when a file mixes transactional DDL with CREATE INDEX CONCURRENTLY. */
+export function mixedTxMode(statements: readonly string[]): boolean {
+  const n = statements.filter(needsTxNone).length;
+  return n > 0 && n < statements.length;
+}
+
 function cursor(src: string): Cursor {
   return { src, i: 0 };
 }
