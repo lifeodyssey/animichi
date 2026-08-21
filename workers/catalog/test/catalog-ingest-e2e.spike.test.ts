@@ -1,5 +1,6 @@
 import { afterAll, expect, it, vi } from "vitest";
-import { closeDbPools, IngestEntrypoint } from "../src/index";
+import { closeDbPools } from "../src/db/connections";
+import { IngestEntrypoint } from "../src/index";
 import { databaseDescribe, localDatabaseUrl } from "./spike-db";
 import { call, type ApiPoint } from "./catalog-spike-client";
 import { ANITABI_POINTS, MISS_TITLE, MISS_WORK_ID, NEW_TITLE, NEW_WORK_ID } from "./fixtures/spike-suite-seed";

@@ -36,7 +36,7 @@ export interface Env {
   CATALOG_ADMIN_TOKEN?: string;
 }
 
-export const app = new Hono<{ Bindings: Env }>();
+const app = new Hono<{ Bindings: Env }>();
 
 /** Resolve the admin command DB from the env, else null (503, fail-closed). */
 async function adminDbResolver(env: Env): Promise<import("./db/client").CatalogDb | null> {
@@ -109,9 +109,6 @@ app.use("/catalog/*", async (c, next) => {
   await next();
 });
 
-export { catalogRouter };
-export type { CatalogRouter } from "./router";
-
 /** Internal-only ingest door via Cloudflare service binding (#540). */
 export class IngestEntrypoint extends WorkerEntrypoint<Env> {
   async ingestBangumi(bangumiId: string): Promise<IngestResult> {
@@ -145,14 +142,6 @@ export class SnapshotReadEntrypoint extends WorkerEntrypoint<Env> implements Sna
     return source === null ? null : source.readObject(key);
   }
 }
-
-// Scheduled-ingestion runtime (cron dispatcher, per-env guard, seed/TTL/daily
-// jobs, staging import) lives in ./scheduled/ingest-schedule.ts and is
-// re-exported here so the Worker's public symbol surface is unchanged.
-export * from "./scheduled/ingest-schedule";
-
-// Test-teardown helper kept on the entry surface; it lives in ./db/connections.
-export { closeDbPools } from "./db/connections";
 
 export default {
   fetch: app.fetch,
