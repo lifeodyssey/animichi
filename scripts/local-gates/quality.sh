@@ -43,7 +43,8 @@ for ruby_file in \
   "$GS/test_ci_prepush_parity.rb" \
   "$GS/test_ci_prepush_parity.test.rb" \
   "$GS/test_ci_contract_doorbell_web.rb" \
-  "$GS/test_ci_contract_infra_split.rb"; do
+  "$GS/test_ci_contract_infra_split.rb" \
+  "$GS/test_ci_contract_doorbell_workers.rb"; do
   run ruby -c "$ruby_file"
 done
 run ruby "$GS/assert-workflow-invariants.test.rb"
@@ -80,6 +81,7 @@ run bash "$GS/check-edge-ratelimit-namespace.test.sh"
 run ruby "$GS/test_ci_contract.rb"
 run ruby "$GS/test_ci_contract_doorbell_web.rb"
 run ruby "$GS/test_ci_contract_infra_split.rb"
+run ruby "$GS/test_ci_contract_doorbell_workers.rb"
 run ruby "$GS/test_neon_test_infra_absence.rb"
 run ruby "$GS/test_ci_contract_ruleset_migration_mutation.rb"
 run ruby "$GS"/test_*cov_patch.rb

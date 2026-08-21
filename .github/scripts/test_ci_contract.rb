@@ -134,6 +134,7 @@ puts "Ruleset target: #{required.size} required checks all have a producing job 
 
 require_relative "test_ci_contract_infra_split"
 require_relative "test_ci_contract_doorbell_web"
+require_relative "test_ci_contract_doorbell_workers"
 
 # Issue #1008 (review gate, docs/ops/review-gate.md §7): the PR comment gate is
 # wired into the already-required `Quality / invariants` job. The workflow

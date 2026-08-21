@@ -314,6 +314,10 @@ routes = []
 # outright (see infra/index.ts "Why WAF and not Cloudflare Access").
 # `preview_urls` is pinned to `false` for the same reason — per-version preview
 # URLs are not a surface the gate (or anything else) is meant to expose.
+# #1076 Workers Builds (staging): deploy command is
+# `bash workers/edge/scripts/builds-staging.sh` (full `wrangler deploy`,
+# not versions-upload, so the agent container image updates). GitHub does
+# not run Wrangler for staging root.
 workers_dev = false
 preview_urls = false
 

@@ -403,13 +403,14 @@ On a push to `main`, the current promotion chain is:
    trigger blocks all component deploys. The routine staging path carries NO `NEON_DATABASE_URL`.
 
 2. `deploy-infra-staging` always runs on the deploy lane (no path filter) and applies the
-   main `infra/` stack (`reusable-deploy-infra.yml`). `deploy-staging` (and users/root) `needs`
-   that job **and** `migrate-staging`, then call
-   `reusable-deploy-component.yml` with `run_pulumi: false`. Accepted tradeoff: staging deploys
+   main `infra/` stack (`reusable-deploy-infra.yml`). Staging catalog, users, web, and root
+   `needs` that job **and** `migrate-staging`. Catalog, users, and root ring the Builds
+   doorbell (`reusable-ring-doorbell.yml`); `staging-worker-paths` skips those rings when
+   their tree did not change. Staging web also rings the doorbell (#1075).
+   `vars.DOORBELL_STAGING_URL` is public config. Accepted tradeoff: staging deploys
    no longer wait on any package pipeline, because GitHub cannot express `needs:` across
    workflows — protection comes from the required merge contexts in the ruleset instead, plus
    the future merge queue.
-   #1075: staging web rings the Builds doorbell (`reusable-ring-doorbell.yml`); `vars.DOORBELL_STAGING_URL` is public config.
 3. `deploy-neon-secrets-staging` runs **before** `deploy-staging` (catalog waits on it, so
    users/root cascade behind it): the Neon service roles and the Cloudflare Secrets
    Store DSN secrets (`infra/neon-secrets/`, ADR 0003 / #912) must exist before any Worker deploy
@@ -443,9 +444,9 @@ On a push to `main`, the current promotion chain is:
    **migrator trigger** (`migrate-staging` in ci.yml, step 0) BEFORE any component deploy, so a
    staging deployment never holds the database credential. **Production** callers keep
    `run_atlas` on and the pinned per-component Atlas apply (`NEON_DATABASE_URL` present) until
-   #1055 removes it. Staging catalog/users/root deploys skip `pulumi up` (#1074: that apply
-   lives in `deploy-infra-staging`). Production catalog still runs `pulumi up` in this
-   reusable (SAFE-1 freeze). Staging web rings the Builds doorbell instead of Wrangler.
+   #1055 removes it. Staging catalog/users/web/root skip this reusable (#1076 doorbell;
+   #1074 infra job). Production catalog still runs `pulumi up` in this reusable
+   (SAFE-1 freeze). Production Worker publish still uses Wrangler.
 5. the web, users, and root staging deploys complete in the same promotion stage.
 6. `post-staging` runs the API post-deploy suite against staging, including the **migration
    ledger-head smoke** (#1052 AC5): it reads the migrator's read-only `/ledger-head` endpoint and

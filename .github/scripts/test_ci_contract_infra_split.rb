@@ -25,8 +25,13 @@ def assert_infra_job(jobs, label, infra_id)
 end
 
 def assert_catalog_no_pulumi(jobs, label, catalog_id)
-  abort "#{label}: #{catalog_id} must pass run_pulumi: false" \
-    unless jobs.fetch(catalog_id).fetch("with")["run_pulumi"] == false
+  job = jobs.fetch(catalog_id)
+  with = job.fetch("with")
+  doorbell = job["uses"].to_s.include?("reusable-ring-doorbell.yml")
+  abort "#{label}: doorbell catalog must not pass run_pulumi" if doorbell && with.key?("run_pulumi")
+  return if doorbell
+
+  abort "#{label}: #{catalog_id} must pass run_pulumi: false" unless with["run_pulumi"] == false
 end
 
 def assert_publish_needs(jobs, label, publish, infra_id)
