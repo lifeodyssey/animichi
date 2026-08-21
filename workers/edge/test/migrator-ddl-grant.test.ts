@@ -26,6 +26,7 @@ void test("staging GRANT gives migrator CREATE on public", () => {
   assert.match(sql, /GRANT REFERENCES ON TABLE public.sessions TO migrator;/);
   assert.doesNotMatch(sql, /ALL TABLES/);
   assert.doesNotMatch(sql, /GRANT migrator TO/);
+  assert.doesNotMatch(sql, /GRANT neondb_owner TO/);
   assert.doesNotMatch(sql, /OWNER TO/);
   assert.doesNotMatch(sql, /Pulumi\.prod|production/i);
 });
@@ -71,9 +72,11 @@ void test("GRANT SQL renames leftover to idx_conversation_messages_session_creat
   assert.match(grantSql(), /RENAME TO idx_conversation_messages_session_created;/);
 });
 
-void test("GRANT SQL does not drop tables or indexes", () => {
+void test("GRANT SQL does not drop leftover or migrator-owned tables", () => {
   const sql = grantSql();
-  assert.doesNotMatch(sql, /DROP TABLE/i);
+  assert.doesNotMatch(sql, /DROP TABLE public\.conversation_messages/i);
+  assert.doesNotMatch(sql, /DROP TABLE public\.sessions/i);
+  assert.doesNotMatch(sql, /DROP TABLE public\.messages/i);
   assert.doesNotMatch(sql, /DROP INDEX/i);
 });
 
@@ -85,4 +88,28 @@ void test("Atlas 20260811000002 creates idx_messages_session_created on messages
 void test("atlas.sum SHA-256 matches the SAFE-1 production pin", () => {
   const buf = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
   assert.equal(createHash("sha256").update(buf).digest("hex"), "408d6b353b073dee99da33dc93cdb518354cd41f47ea87e24ef2301feeaef484");
+});
+
+void test("GRANT SQL drops turn_reservations only when owned by neondb_owner", () => {
+  const sql = grantSql();
+  assert.match(sql, /c\.relname = 'turn_reservations'/);
+  assert.match(sql, /r\.rolname = 'neondb_owner'/);
+  assert.match(sql, /DROP TABLE public\.turn_reservations CASCADE;/);
+  assert.doesNotMatch(sql, /ADD COLUMN IF NOT EXISTS/);
+  assert.doesNotMatch(sql, /INSERT INTO public\.atlas_schema_revisions/);
+});
+
+void test("GRANT SQL un-applies turn_reservations Atlas versions when the table is gone", () => {
+  const sql = grantSql();
+  assert.match(sql, /DELETE FROM public\.atlas_schema_revisions/);
+  assert.match(sql, /'20260811000000'/);
+  assert.match(sql, /'20260811000001'/);
+  assert.match(sql, /'20260814191301'/);
+});
+
+void test("Atlas 20260814191301 still ALTERs turn_reservations without IF NOT EXISTS", () => {
+  const sql = read("migrations/neon/20260814191301_turn_idempotency_outbox.sql");
+  assert.match(sql, /ALTER TABLE public\.turn_reservations\s+ADD COLUMN request_digest text;/);
+  assert.match(sql, /ALTER TABLE public\.turn_reservations\s+ADD COLUMN outcome_payload jsonb;/);
+  assert.doesNotMatch(sql, /IF NOT EXISTS/);
 });
