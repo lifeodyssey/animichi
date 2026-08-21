@@ -403,8 +403,15 @@ h1 {
   --color-card: #2b2318;
   --color-muted: #362c1e;
   --color-muted-fg: #cbbfa8;
-  --color-border: #4a3d2b;
-  --color-border-soft: #453a24;
+  /* Night line stack. By day the composer pill is findable without its border:
+   * its drop shadow (--shadow-3d #bdaea0 on the #f0e8d8 floor) carries 1.77:1
+   * of halo. At night that same shadow (#120d07 on #201a12) carries 1.12:1 —
+   * the halo is gone, so the border becomes the ONLY boundary of an operable
+   * surface and 1.4.11's 3:1 applies to it in full. Measured against the night
+   * paper #2e2415: soft 3.03:1, loud 4.31:1 — the soft line stays the quieter
+   * of the two, as by day, but no longer below the operable floor. */
+  --color-border: #968763;
+  --color-border-soft: #7d6d52;
   --color-paper: #2e2415;
   --color-primary-fg: #10201d;
   --color-primary-soft: #123f39;

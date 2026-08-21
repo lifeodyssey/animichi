@@ -1,6 +1,8 @@
 import type { Locale } from "../../i18n/locales";
 import { enByok, jaByok, zhByok } from "./byok-i18n";
 import type { ChatByokDict } from "./byok-i18n";
+import { enAppBar, jaAppBar, zhAppBar } from "./appbar-i18n";
+import type { ChatAppBarDict } from "./appbar-i18n";
 import {
   enClarify,
   enDeparture,
@@ -31,6 +33,7 @@ import type { ChatSearchDict } from "./search-i18n";
 export type { ChatRouteDict } from "./route-i18n";
 export type { ChatSearchDict } from "./search-i18n";
 export type { ChatByokDict } from "./byok-i18n";
+export type { ChatAppBarDict } from "./appbar-i18n";
 export type {
   ChatClarifyDict,
   ChatDepartureDict,
@@ -120,6 +123,7 @@ export interface ChatDict {
   readonly footprintDetails: string;
   /** E1 badge on a superseded living-document card (issues #271/#273). */
   readonly previousVersion: string;
+  readonly appbar: ChatAppBarDict;
   readonly errorStates: ChatErrorStatesDict;
   readonly toolSteps: ChatToolStepsDict;
   readonly search: ChatSearchDict;
@@ -197,6 +201,7 @@ const ja: ChatDict = {
   waitingSubtitle: "いま さがしてるよ…",
   footprintDetails: "詳細を見る",
   previousVersion: "以前の版",
+  appbar: jaAppBar,
   errorStates: jaErrorStates,
   toolSteps: jaToolSteps,
   search: jaSearch,
@@ -228,6 +233,7 @@ const zh: ChatDict = {
   waitingSubtitle: "正在帮你找…",
   footprintDetails: "查看详情",
   previousVersion: "旧版本",
+  appbar: zhAppBar,
   errorStates: zhErrorStates,
   toolSteps: zhToolSteps,
   search: zhSearch,
@@ -263,6 +269,7 @@ const en: ChatDict = {
   waitingSubtitle: "Looking that up…",
   footprintDetails: "View details",
   previousVersion: "Previous version",
+  appbar: enAppBar,
   errorStates: enErrorStates,
   toolSteps: enToolSteps,
   search: enSearch,

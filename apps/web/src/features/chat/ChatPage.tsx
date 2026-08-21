@@ -7,6 +7,7 @@ import { ChatActionsProvider, sendWithOriginOf } from "./ChatActions";
 import type { ChatActions } from "./ChatActions";
 import { ByokPanelGate, ChallengeGate, ChatIntro, ChatNotices, ChatShell, DepartureGate, DockTray, ScrollAnchor, TurnStream } from "./components/ChatShell";
 import { ChatInput } from "./components/ChatInput";
+import { ChatAppBar } from "./components/ChatAppBar";
 import { currentChatConfig } from "./config";
 import { deriveEntryState, resolveRouteReference } from "./entry-state";
 import type { ChatEntryState } from "./entry-state";
@@ -140,7 +141,7 @@ function useChatPage(search: ChatSearch) {
   const actions = useLockedActions(live, tray.quota.locked);
   const surfaces = usePageSurfaces(chat, actions, gps);
   useAutoSendFromQuery(search, health, actions.send, useTurnstileReady(challenge !== undefined));
-  return { config, health, chat, history, actions, challenge, byok: useByokPanel(search, auth), ...surfaces, ...tray };
+  return { config, health, chat, history, actions, auth, challenge, byok: useByokPanel(search, auth), ...surfaces, ...tray };
 }
 
 type PageState = ReturnType<typeof useChatPage>;
@@ -195,6 +196,7 @@ function chatComposer(dict: ChatDict, baseUrl: string, byok: ByokPanel, challeng
 function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
   const entry = entryStateOf(search, page.health);
   return <ChatShell
+    appbar={<ChatAppBar dict={page.dict} status={page.auth} />}
     notices={<ChatNotices entry={entry} onRetry={page.health.retry} history={page.history} dict={page.dict} />}
     body={chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale, page.byok)}
     dock={chatDock(page.departure, page.dict, page.config.baseUrl, page.photo, page.chat, page.recompute)}
