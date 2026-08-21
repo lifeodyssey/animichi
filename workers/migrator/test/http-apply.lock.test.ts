@@ -36,9 +36,18 @@ describe("HTTP apply mutex (AC4)", () => {
   });
 
   it("MigratorApplyLock serializes with blockConcurrencyWhile", () => {
-    const here = dirname(fileURLToPath(import.meta.url));
-    const source = readFileSync(join(here, "../src/apply-lock.ts"), "utf8");
+    const source = applyLockSource();
     expect(source).toContain("blockConcurrencyWhile");
     expect(source).not.toMatch(/migrator-job-/);
   });
+
+  it("MigratorApplyLock extends DurableObject so stub.run RPC is enabled", () => {
+    const source = applyLockSource();
+    expect(source).toContain('from "cloudflare:workers"');
+    expect(source).toMatch(/class MigratorApplyLock extends DurableObject/);
+  });
 });
+
+function applyLockSource(): string {
+  return readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../src/apply-lock.ts"), "utf8");
+}
