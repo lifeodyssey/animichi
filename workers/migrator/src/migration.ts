@@ -13,7 +13,7 @@
 
 export type ContainerOutcome =
   | { kind: "success"; exitCode: 0 }
-  | { kind: "failure"; exitCode: number }
+  | { kind: "failure"; exitCode: number; error?: string }
   | { kind: "unknown_exit" }
   | { kind: "timeout"; ranMs: number; lastStatus: string; exitCode?: number };
 
@@ -21,7 +21,7 @@ export type PathVerification = "verified" | "unverified";
 
 export type MigrationRunResult =
   | { kind: "success"; exitCode: 0; appliedHead: string | null; pathVerification: PathVerification }
-  | { kind: "failure"; exitCode: number }
+  | { kind: "failure"; exitCode: number; error?: string }
   | { kind: "head_mismatch"; appliedHead: string | null; expectedHead: string | null }
   | { kind: "timeout"; ranMs: number; lastStatus: string; exitCode?: number };
 
@@ -32,6 +32,11 @@ export interface MigrationBoundaries {
 
 function mismatch(appliedHead: string | null, expectedHead: string | undefined): MigrationRunResult {
   return { kind: "head_mismatch", appliedHead, expectedHead: expectedHead ?? null };
+}
+
+function failOf(outcome: Extract<ContainerOutcome, { kind: "failure" }>): MigrationRunResult {
+  if (outcome.error === undefined) return { kind: "failure", exitCode: outcome.exitCode };
+  return { kind: "failure", exitCode: outcome.exitCode, error: outcome.error };
 }
 
 function succeeded(appliedHead: string | null, pathVerification: PathVerification): MigrationRunResult {
@@ -88,7 +93,7 @@ export async function runMigration(
 ): Promise<MigrationRunResult> {
   const pre = await snapshotPreRunHead(dsn, boundaries);
   const outcome = await boundaries.runContainer(dsn);
-  if (outcome.kind === "failure") return { kind: "failure", exitCode: outcome.exitCode };
+  if (outcome.kind === "failure") return failOf(outcome);
   if (outcome.kind === "timeout") return { ...outcome };
   if (outcome.kind === "unknown_exit") return judgeUnknownExit(dsn, boundaries, expectedHead, pre);
   return succeeded(await boundaries.readAppliedHead(dsn), "verified");

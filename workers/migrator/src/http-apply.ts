@@ -109,7 +109,7 @@ async function runSerial(sql: SqlClient, statements: readonly string[]): Promise
 
 async function recordFailure(sql: SqlClient, file: ChainFile, error: Error, at: Date): Promise<ContainerOutcome> {
   await writeRevision(sql, failRow(file, error, at));
-  return { kind: "failure", exitCode: 1 };
+  return { kind: "failure", exitCode: 1, error: error.message };
 }
 
 async function loadApplied(sql: SqlClient): Promise<Set<string>> {
