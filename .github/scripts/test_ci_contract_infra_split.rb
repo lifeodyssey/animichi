@@ -6,7 +6,7 @@ require "yaml"
 
 INFRA_REUSABLE = "./.github/workflows/reusable-deploy-infra.yml"
 STAGING_PUBLISH = %w[deploy-staging deploy-web-staging deploy-users-staging deploy-root-staging].freeze
-PROD_PUBLISH = %w[deploy-prod deploy-web-prod deploy-users-prod deploy-maintenance-prod deploy-root-prod].freeze
+# Production catalog still applies Pulumi (#1074 is staging-only).
 
 def job_needs(job)
   Array(job.fetch("needs"))
@@ -43,17 +43,13 @@ def assert_staging_infra_split(jobs, label)
   assert_publish_needs(jobs, label, STAGING_PUBLISH, "migrate-staging")
 end
 
-def assert_prod_infra_split(jobs, label)
-  assert_infra_job(jobs, label, "deploy-infra-prod")
-  assert_catalog_no_pulumi(jobs, label, "deploy-prod")
-  assert_publish_needs(jobs, label, PROD_PUBLISH, "deploy-infra-prod")
-end
-
 ci_jobs = YAML.safe_load(File.read(".github/workflows/ci.yml")).fetch("jobs")
 assert_staging_infra_split(ci_jobs, "ci staging")
-assert_prod_infra_split(ci_jobs, "ci prod")
+abort "ci.yml must not declare deploy-infra-prod (#1074 is staging-only)" \
+  if ci_jobs.key?("deploy-infra-prod")
 deploy_jobs = YAML.safe_load(File.read(".github/workflows/deploy.yml")).fetch("jobs")
-assert_prod_infra_split(deploy_jobs, "deploy.yml")
+abort "deploy.yml must not declare deploy-infra-prod (#1074 is staging-only)" \
+  if deploy_jobs.key?("deploy-infra-prod")
 
 infra_src = File.read(".github/workflows/reusable-deploy-infra.yml")
 abort "infra reusable must apply work-dir infra" unless infra_src.include?("work-dir: infra")
