@@ -169,3 +169,59 @@ export function gradientStop(from: string, to: string, position: number): string
 export function referencedTokens(declaration: string): readonly string[] {
   return [...declaration.matchAll(/var\((--[\w-]+)\)/gu)].map((match) => match[1] ?? "");
 }
+
+/** Which of the two palettes globals.css ships a stylesheet is read under. */
+export type Theme = "day" | "night";
+
+/** WCAG 1.4.3 AA for body-size text. */
+export const AA_CONTRAST = 4.5;
+
+/** `color` / `background`, never `border-color` — the parser interpolates raw. */
+export const TEXT_COLOR = String.raw`(?<![-\w])color`;
+export const GROUND_COLOR = String.raw`(?<![-\w])background`;
+
+export type DeclarationReader = (css: string, selector: string, property: string) => string | null;
+
+export interface SkinContrastSpec {
+  /** The stylesheet whose rules are being read back. */
+  readonly sheet: string;
+  /** Every token in scope by day — globals `:root` plus any skin-local block. */
+  readonly day: TokenMap;
+  /** Only the tokens `[data-theme="night"]` overrides. */
+  readonly night: TokenMap;
+  /** Defaults to `ruleDeclaration`; pass `lastRuleDeclaration` where the cascade decides. */
+  readonly declarationOf?: DeclarationReader;
+}
+
+/** One skin's stylesheet, read the way the browser would compute its colours. */
+export class SkinContrast {
+  readonly #spec: SkinContrastSpec;
+  readonly #declarationOf: DeclarationReader;
+
+  constructor(spec: SkinContrastSpec) {
+    this.#spec = spec;
+    this.#declarationOf = spec.declarationOf ?? ruleDeclaration;
+  }
+
+  palette(theme: Theme): TokenMap {
+    return theme === "night" ? { ...this.#spec.day, ...this.#spec.night } : this.#spec.day;
+  }
+
+  /** Follow a declared value through its `var(--…)` chain down to a literal colour. */
+  resolve(value: string, theme: Theme): string {
+    const target = /var\((--[\w-]+)\)/u.exec(value)?.[1];
+    if (target === undefined) return value;
+    return this.resolve(tokenValue(this.palette(theme), target), theme);
+  }
+
+  /** The colour a rule really paints. */
+  paint(selector: string, property: string, theme: Theme): string {
+    const declared = this.#declarationOf(this.#spec.sheet, selector, property);
+    if (declared === null) throw new Error(`${selector} declares no ${property}`);
+    return this.resolve(declared, theme);
+  }
+
+  readability(selector: string, ground: string, theme: Theme): number {
+    return contrastRatio(this.paint(selector, TEXT_COLOR, theme), this.paint(ground, GROUND_COLOR, theme));
+  }
+}
