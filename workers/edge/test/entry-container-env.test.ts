@@ -85,10 +85,16 @@ function jobSegment(source: string, id: string): string {
   return lines.slice(start, end === -1 ? undefined : start + 1 + end).join("\n");
 }
 
+function workerSecretList(job: string): string {
+  const match = /worker_secrets:\s*\|\n((?:[ \t]+[A-Z][A-Z0-9_]*\n)+)/.exec(`${job}\n`);
+  assert.ok(match?.[1], "missing worker_secrets list");
+  return match[1];
+}
+
 void test("staging root deploy uploads ZEN_GO_API_KEY (#1160)", () => {
   const ci = readFileSync(new URL("../../../.github/workflows/ci.yml", import.meta.url).pathname, "utf8");
   const staging = jobSegment(ci, "deploy-root-staging");
-  assert.match(staging, /worker_secrets:[\s\S]*ZEN_GO_API_KEY/);
+  assert.match(workerSecretList(staging), /ZEN_GO_API_KEY/);
   assert.match(staging, /ZEN_GO_API_KEY: \$\{\{ secrets\.ZEN_GO_API_KEY \}\}/);
 });
 

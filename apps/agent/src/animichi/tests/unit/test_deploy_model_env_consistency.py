@@ -92,39 +92,43 @@ def test_container_required_keys_are_forwarded_and_deployed() -> None:
     assert required - _NON_SECRET_REQUIRED_KEYS <= provisioned
 
 
-def test_ci_root_deploys_match_manual_root_secrets() -> None:
+# CORS is a wrangler var on staging (#527/#528). ZEN_GO is staging-only (#1160).
+_STAGING_EXEMPT_SECRETS = {"CORS_ALLOWED_ORIGIN"}
+_STAGING_ONLY_SECRETS = {"ZEN_GO_API_KEY"}
+
+
+def _root_jobs() -> tuple[str, str, str, str]:
     deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
-    # The literal lists live in the deploy-root-prod JOB (a thin caller of
-    # reusable-deploy-component.yml); the reusable workflow owns optional-secret
-    # resolution, so there is no inline "Resolve effective worker secrets"
-    # step to read anymore (issue #486).
-    root_job = _named_workflow_job(deploy, "deploy-root-prod")
-    manual_secrets = _wrangler_secret_names(root_job)
     ci = _CI_WORKFLOW.read_text(encoding="utf-8")
-    staging = _named_workflow_job(ci, "deploy-root-staging")
-    production = _named_workflow_job(ci, "deploy-root-prod")
     reusable = _REUSABLE_DEPLOY_WORKFLOW.read_text(encoding="utf-8")
-
-    # CORS_ALLOWED_ORIGIN is a deliberate staging exception (#527/#528): staging
-    # gets its value from wrangler.toml's [env.staging.vars] (a plain domain
-    # name, not a secret — see that block's comment), while production and the
-    # manual deploy.yml path still provision it as a real GitHub secret. This
-    # is why staging is no longer a strict match against manual_secrets.
-    STAGING_EXEMPT_SECRETS = {"CORS_ALLOWED_ORIGIN"}
-    # ZEN_GO_API_KEY is the inverse (#1160): staging root uploads it so the
-    # container can boot the zen/go default model; production worker_secrets
-    # stay frozen.
-    STAGING_ONLY_SECRETS = {"ZEN_GO_API_KEY"}
-
-    assert (
-        _wrangler_secret_names(staging)
-        == (manual_secrets - STAGING_EXEMPT_SECRETS) | STAGING_ONLY_SECRETS
+    return (
+        _named_workflow_job(deploy, "deploy-root-prod"),
+        _named_workflow_job(ci, "deploy-root-staging"),
+        _named_workflow_job(ci, "deploy-root-prod"),
+        reusable,
     )
-    assert _wrangler_secret_names(production) == manual_secrets
-    assert manual_secrets - STAGING_EXEMPT_SECRETS <= _mapped_secret_names(staging)
-    assert STAGING_ONLY_SECRETS <= _mapped_secret_names(staging)
-    assert manual_secrets <= _mapped_secret_names(production)
-    assert manual_secrets | STAGING_ONLY_SECRETS <= _mapped_secret_names(reusable)
+
+
+def test_ci_staging_root_secrets_include_zen_go() -> None:
+    manual_job, staging_job, _, _ = _root_jobs()
+    manual = _wrangler_secret_names(manual_job)
+    expected = (manual - _STAGING_EXEMPT_SECRETS) | _STAGING_ONLY_SECRETS
+    assert _wrangler_secret_names(staging_job) == expected
+
+
+def test_ci_production_root_secrets_match_manual() -> None:
+    manual_job, _, production_job, _ = _root_jobs()
+    assert _wrangler_secret_names(production_job) == _wrangler_secret_names(manual_job)
+
+
+def test_ci_root_secret_maps_cover_provisioned_names() -> None:
+    manual_job, staging_job, production_job, reusable = _root_jobs()
+    manual = _wrangler_secret_names(manual_job)
+    staging_mapped = _mapped_secret_names(staging_job)
+    assert manual - _STAGING_EXEMPT_SECRETS <= staging_mapped
+    assert _STAGING_ONLY_SECRETS <= staging_mapped
+    assert manual <= _mapped_secret_names(production_job)
+    assert manual | _STAGING_ONLY_SECRETS <= _mapped_secret_names(reusable)
 
 
 def test_dockerfile_does_not_hardcode_a_privileged_app_env() -> None:
