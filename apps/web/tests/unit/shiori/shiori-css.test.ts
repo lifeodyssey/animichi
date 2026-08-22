@@ -15,10 +15,10 @@ describe("§4.1 card language", () => {
     expect(ruleDeclaration(css, ".shiori-card", "aspect-ratio")).toBe("9 / 16");
   });
 
-  it("enters with shiori-card-pop on the shared curve", () => {
+  it("enters with the shared cardPop curve", () => {
     expect(ruleDeclaration(css, ".shiori-card", "animation"))
-      .toBe("shiori-card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both");
-    expect(css).toContain("transform: translateY(10px) scale(0.985)");
+      .toBe("card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both");
+    expect(css).not.toContain("@keyframes shiori-card-pop");
   });
 
   it("keeps the card's resting shadow separate from control press feedback", () => {

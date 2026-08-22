@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
 import animeCss from "../../../src/styles/anime.css?raw";
 import globalsCss from "../../../src/styles/globals.css?raw";
-import { contrastRatio, parseBlockTokens, ruleDeclaration, tokenValue } from "../stylesheet-probe";
-import type { TokenMap } from "../stylesheet-probe";
+import {
+  AA_CONTRAST,
+  GROUND_COLOR,
+  SkinContrast,
+  TEXT_COLOR,
+  contrastRatio,
+  parseBlockTokens,
+  ruleDeclaration,
+  tokenValue,
+} from "../stylesheet-probe";
+import type { Theme, TokenMap } from "../stylesheet-probe";
 
 /**
  * WCAG 1.4.3 AA (4.5:1) for every text pair the anime skin actually paints, in
@@ -12,33 +21,7 @@ import type { TokenMap } from "../stylesheet-probe";
 const DAY: TokenMap = parseBlockTokens(globalsCss, ":root");
 const NIGHT: TokenMap = parseBlockTokens(globalsCss, '[data-theme="night"]');
 
-const AA = 4.5;
-
-/** `color` / `background`, never `border-color` — the helper interpolates raw. */
-const TEXT = String.raw`(?<![-\w])color`;
-const GROUND = String.raw`(?<![-\w])background`;
-
-function palette(night: boolean): TokenMap {
-  return night ? { ...DAY, ...NIGHT } : DAY;
-}
-
-/** Follow a declared value through its `var(--…)` chain down to a literal colour. */
-function resolve(value: string, night: boolean): string {
-  const target = /var\((--[\w-]+)\)/u.exec(value)?.[1];
-  if (target === undefined) return value;
-  return resolve(tokenValue(palette(night), target), night);
-}
-
-/** The colour a rule really paints, as the browser would compute it. */
-function paint(selector: string, property: string, night: boolean): string {
-  const declared = ruleDeclaration(animeCss, selector, property);
-  if (declared === null) throw new Error(`${selector} declares no ${property}`);
-  return resolve(declared, night);
-}
-
-function readability(selector: string, ground: string, night: boolean): number {
-  return contrastRatio(paint(selector, TEXT, night), paint(ground, GROUND, night));
-}
+const skin = new SkinContrast({ day: DAY, night: NIGHT, sheet: animeCss });
 
 describe("every surface the skin paints has a night override", () => {
   it.each(["--color-paper", "--color-card", "--color-muted", "--color-border-soft"])(
@@ -47,58 +30,53 @@ describe("every surface the skin paints has a night override", () => {
     });
 
   it("repaints the card ground itself, not just the text on it", () => {
-    expect(paint(".anime-card", GROUND, true)).not.toBe(paint(".anime-card", GROUND, false));
+    expect(skin.paint(".anime-card", GROUND_COLOR, "night"))
+      .not.toBe(skin.paint(".anime-card", GROUND_COLOR, "day"));
   });
 });
 
-describe.each([
-  ["day", false],
-  ["night", true],
-])("text contrast on the %s surfaces", (_label, night: boolean) => {
+describe.each(["day", "night"] as const)("text contrast on the %s surfaces", (theme: Theme) => {
   it("hero title and subtitle over the page floor", () => {
-    expect(contrastRatio(paint(".anime-hero__title", TEXT, night), resolve("var(--color-bg)", night)))
-      .toBeGreaterThanOrEqual(AA);
-    expect(contrastRatio(paint(".anime-hero__subtitle", TEXT, night), resolve("var(--color-bg)", night)))
-      .toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(skin.paint(".anime-hero__title", TEXT_COLOR, theme), skin.resolve("var(--color-bg)", theme)))
+      .toBeGreaterThanOrEqual(AA_CONTRAST);
+    expect(contrastRatio(skin.paint(".anime-hero__subtitle", TEXT_COLOR, theme), skin.resolve("var(--color-bg)", theme)))
+      .toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
   it("section heading over the page floor", () => {
-    expect(contrastRatio(paint(".anime-sechead__label", TEXT, night), resolve("var(--color-bg)", night)))
-      .toBeGreaterThanOrEqual(AA);
+    expect(contrastRatio(skin.paint(".anime-sechead__label", TEXT_COLOR, theme), skin.resolve("var(--color-bg)", theme)))
+      .toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
   it("fact label and sentence on the nested panel cream", () => {
-    expect(readability(".anime-fact__label", ".anime-fact", night)).toBeGreaterThanOrEqual(AA);
-    expect(readability(".anime-fact__value", ".anime-fact", night)).toBeGreaterThanOrEqual(AA);
+    expect(skin.readability(".anime-fact__label", ".anime-fact", theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
+    expect(skin.readability(".anime-fact__value", ".anime-fact", theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
-  it("scene name, meta and empty prose on the card paper", () => {
-    for (const selector of [".anime-scene__name", ".anime-scene__meta", ".anime-empty__body"]) {
-      expect(readability(selector, ".anime-card", night)).toBeGreaterThanOrEqual(AA);
-    }
-  });
+  it.each([".anime-scene__name", ".anime-scene__meta", ".anime-empty__body"])(
+    "%s reads on the card paper", (selector: string) => {
+      expect(skin.readability(selector, ".anime-card", theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
+    });
 
   it("area row name on the card paper", () => {
-    expect(readability(".anime-area__name", ".anime-card", night)).toBeGreaterThanOrEqual(AA);
+    expect(skin.readability(".anime-area__name", ".anime-card", theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
-  it("every pill tone reads on its own ground", () => {
-    for (const tone of ["teal", "gold", "plain"]) {
-      const pill = `.anime-pill--${tone}`;
-      expect(readability(pill, pill, night)).toBeGreaterThanOrEqual(AA);
-    }
+  it.each(["teal", "gold", "plain"])("the %s pill reads on its own ground", (tone: string) => {
+    const pill = `.anime-pill--${tone}`;
+    expect(skin.readability(pill, pill, theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
   it("press-button label on its own cream ground", () => {
-    expect(readability(".anime-press", ".anime-press", night)).toBeGreaterThanOrEqual(AA);
+    expect(skin.readability(".anime-press", ".anime-press", theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 });
 
 describe("the known solid-gold trap stays shut", () => {
   it("never pairs --color-gold-fg with the solid gold, which fails at night", () => {
-    expect(paint(".anime-pill--gold", GROUND, false)).toBe(resolve("var(--color-gold-soft)", false));
+    expect(skin.paint(".anime-pill--gold", GROUND_COLOR, "day")).toBe(skin.resolve("var(--color-gold-soft)", "day"));
     expect(contrastRatio(tokenValue(DAY, "--color-gold-fg"), tokenValue(DAY, "--color-gold")))
-      .toBeLessThan(AA);
+      .toBeLessThan(AA_CONTRAST);
   });
 });
 
@@ -111,17 +89,16 @@ describe("the known solid-gold trap stays shut", () => {
  * night lifts --color-border and why the 3:1 floor is asserted there.
  */
 describe("WCAG 1.4.11 non-text contrast for the operable control", () => {
-  const floor = (night: boolean): string => resolve("var(--color-bg)", night);
-  const halo = (night: boolean): number =>
-    contrastRatio(resolve("var(--shadow-3d)", night), floor(night));
+  const halo = (theme: Theme): number =>
+    contrastRatio(skin.resolve("var(--shadow-3d)", theme), skin.resolve("var(--color-bg)", theme));
 
   it("keeps the border as the night boundary, above the 3:1 floor", () => {
-    const border = resolve("var(--color-border)", true);
-    expect(contrastRatio(border, paint(".anime-press", GROUND, true))).toBeGreaterThanOrEqual(3);
+    const border = skin.resolve("var(--color-border)", "night");
+    expect(contrastRatio(border, skin.paint(".anime-press", GROUND_COLOR, "night"))).toBeGreaterThanOrEqual(3);
   });
 
   it("hangs the day boundary on the 3D halo the night ground cannot carry", () => {
     expect(ruleDeclaration(animeCss, ".anime-press", "box-shadow")).toContain("var(--shadow-3d)");
-    expect(halo(false)).toBeGreaterThan(halo(true));
+    expect(halo("day")).toBeGreaterThan(halo("night"));
   });
 });

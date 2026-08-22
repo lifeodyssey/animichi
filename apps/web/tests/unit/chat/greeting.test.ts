@@ -3,6 +3,10 @@ import { LOCALES } from "../../../src/i18n/locales";
 import { greetingRuns } from "../../../src/features/chat/greeting";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 
+/** Every (locale, emphasised phrase) pair the dictionaries ship. */
+const EMPHASISED_PHRASES = LOCALES.flatMap((locale) =>
+  chatDictFor(locale).greetingEmphasis.map((phrase) => [locale, phrase] as const));
+
 describe("greetingRuns", () => {
   it("cuts the text at a marked phrase and keeps both sides", () => {
     expect(greetingRuns("hello brave world", ["brave"])).toEqual([
@@ -39,10 +43,12 @@ describe("greetingRuns", () => {
 });
 
 describe("the lead bubble's copy in every locale", () => {
-  it.each(LOCALES)("%s marks phrases that really occur in its greeting", (locale) => {
-    const dict = chatDictFor(locale);
-    expect(dict.greetingEmphasis.length).toBeGreaterThan(1);
-    for (const phrase of dict.greetingEmphasis) expect(dict.greeting).toContain(phrase);
+  it.each(LOCALES)("%s marks more than one phrase", (locale) => {
+    expect(chatDictFor(locale).greetingEmphasis.length).toBeGreaterThan(1);
+  });
+
+  it.each(EMPHASISED_PHRASES)("the %s greeting really contains %s", (locale, phrase) => {
+    expect(chatDictFor(locale).greeting).toContain(phrase);
   });
 
   it.each(LOCALES)("%s reassembles to exactly the greeting it was cut from", (locale) => {

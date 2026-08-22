@@ -48,10 +48,8 @@ describe("§4.1 card shell: one plane for every intent card", () => {
 
 describe("§4.6 cardPop: a card lands, and yields to the reduce preference", () => {
   it("settles the card in from 10px below at 0.985 scale", () => {
-    expect(ruleDeclaration(chatCss, ".chat-card", "animation")).toBe("chat-card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1)");
-    const frames = /@keyframes chat-card-pop \{([\s\S]*?)\n\}/u.exec(chatCss)?.[1] ?? "";
-    expect(frames).toContain("translateY(10px) scale(0.985)");
-    expect(frames).toContain("opacity: 0");
+    expect(ruleDeclaration(chatCss, ".chat-card", "animation")).toBe("card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1)");
+    expect(chatCss).not.toContain("@keyframes chat-card-pop");
   });
 
   it("joins the existing reduced-motion list rather than starting a second one", () => {

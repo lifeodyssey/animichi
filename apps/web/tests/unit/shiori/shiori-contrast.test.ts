@@ -4,6 +4,10 @@ import css from "../../../src/styles/shiori.css?raw";
 import photosCss from "../../../src/styles/shiori-photos.css?raw";
 import generatorCss from "../../../src/styles/shiori-generator.css?raw";
 import {
+  AA_CONTRAST,
+  GROUND_COLOR,
+  SkinContrast,
+  TEXT_COLOR,
   contrastRatio,
   lastRuleDeclaration,
   normalizeHex,
@@ -11,40 +15,17 @@ import {
   ruleDeclaration,
   tokenValue,
 } from "../stylesheet-probe";
-import type { TokenMap } from "../stylesheet-probe";
+import type { Theme, TokenMap } from "../stylesheet-probe";
 
 /** WCAG 1.4.3 AA for the しおり skin in both themes and its saved artifact. */
 const DAY: TokenMap = parseBlockTokens(globalsCss, ":root");
 const NIGHT: TokenMap = parseBlockTokens(globalsCss, '[data-theme="night"]');
 const LOCAL: TokenMap = parseBlockTokens(css, ".shiori-card");
 
-const AA = 4.5;
-
-/** `color` / `background`, never `border-color` — the parser interpolates raw. */
-const TEXT = String.raw`(?<![-\w])color`;
-const GROUND = String.raw`(?<![-\w])background`;
-
-function palette(night: boolean): TokenMap {
-  return night ? { ...DAY, ...LOCAL, ...NIGHT } : { ...DAY, ...LOCAL };
-}
-
-/** Follow a declared value through its `var(--…)` chain to a literal colour. */
-function resolve(value: string, night: boolean): string {
-  const target = /var\((--[\w-]+)\)/u.exec(value)?.[1];
-  if (target === undefined) return value;
-  return resolve(tokenValue(palette(night), target), night);
-}
-
-/** The colour a rule really paints, as the browser would compute it. */
-function paint(sheet: string, selector: string, property: string, night: boolean): string {
-  const declared = lastRuleDeclaration(sheet, selector, property);
-  if (declared === null) throw new Error(`${selector} declares no ${property}`);
-  return resolve(declared, night);
-}
-
-function readability(sheet: string, selector: string, ground: string, night: boolean): number {
-  return contrastRatio(paint(sheet, selector, TEXT, night), paint(sheet, ground, GROUND, night));
-}
+/** Both sheets read under one palette; the cascade decides, so last rule wins. */
+const themed = { day: { ...DAY, ...LOCAL }, declarationOf: lastRuleDeclaration, night: NIGHT };
+const card = new SkinContrast({ ...themed, sheet: css });
+const generator = new SkinContrast({ ...themed, sheet: generatorCss });
 
 describe("every surface the skin paints has a night override", () => {
   it.each(["--color-paper", "--color-card", "--color-muted", "--color-border-soft"])(
@@ -54,38 +35,36 @@ describe("every surface the skin paints has a night override", () => {
   );
 
   it("repaints the card ground itself, not just the text on it", () => {
-    expect(paint(css, ".shiori-card", GROUND, true)).not.toBe(paint(css, ".shiori-card", GROUND, false));
+    expect(card.paint(".shiori-card", GROUND_COLOR, "night"))
+      .not.toBe(card.paint(".shiori-card", GROUND_COLOR, "day"));
   });
 });
 
-describe.each([
-  ["day", false],
-  ["night", true],
-])("text contrast on the %s surfaces", (_label, night: boolean) => {
+describe.each(["day", "night"] as const)("text contrast on the %s surfaces", (theme: Theme) => {
   it("keeps heading copy readable on the card paper", () => {
-    expect(readability(css, ".shiori-head__eyebrow", ".shiori-card", night)).toBeGreaterThanOrEqual(AA);
-    expect(readability(css, ".shiori-head__sub", ".shiori-card", night)).toBeGreaterThanOrEqual(AA);
+    expect(card.readability(".shiori-head__eyebrow", ".shiori-card", theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
+    expect(card.readability(".shiori-head__sub", ".shiori-card", theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
   it("keeps the window pill readable on its own ground", () => {
-    expect(readability(css, ".shiori-window", ".shiori-window", night)).toBeGreaterThanOrEqual(AA);
+    expect(card.readability(".shiori-window", ".shiori-window", theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
   it("keeps the poster check readable on its own ground", () => {
-    expect(readability(css, ".shiori-poster-stop__check", ".shiori-poster-stop__check", night))
-      .toBeGreaterThanOrEqual(AA);
+    expect(card.readability(".shiori-poster-stop__check", ".shiori-poster-stop__check", theme))
+      .toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
   it("keeps completion readable on its soft gold ground", () => {
-    expect(readability(generatorCss, ".shiori-generator__completion", ".shiori-generator__completion", night))
-      .toBeGreaterThanOrEqual(AA);
+    expect(generator.readability(".shiori-generator__completion", ".shiori-generator__completion", theme))
+      .toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
   it("keeps generator stats readable on the paper ground", () => {
     expect(contrastRatio(
-      paint(generatorCss, ".shiori-generator__stats", TEXT, night),
-      resolve("var(--color-paper)", night),
-    )).toBeGreaterThanOrEqual(AA);
+      generator.paint(".shiori-generator__stats", TEXT_COLOR, theme),
+      generator.resolve("var(--color-paper)", theme),
+    )).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 });
 
@@ -110,19 +89,19 @@ describe("exported artifact", () => {
     expect(contrastRatio(
       tokenValue(LOCAL, "--shiori-export-ink"),
       tokenValue(LOCAL, "--shiori-export-ground"),
-    )).toBeGreaterThanOrEqual(AA);
+    )).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
   it("keeps gold seal ink readable on solid gold", () => {
     expect(contrastRatio(
       tokenValue(LOCAL, "--shiori-gold-ink"),
       tokenValue(DAY, "--color-gold"),
-    )).toBeGreaterThanOrEqual(AA);
+    )).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
   it("keeps the plus-N scrim readable over the brightest possible photo", () => {
     const ratio = contrastRatio(scrimOver("#ffffff"), tokenValue(LOCAL, "--shiori-export-ink"));
-    expect(ratio).toBeGreaterThanOrEqual(AA);
+    expect(ratio).toBeGreaterThanOrEqual(AA_CONTRAST);
     expect(ratio).toBeCloseTo(5.54, 2);
   });
 
@@ -141,6 +120,6 @@ describe("exported artifact", () => {
     expect(contrastRatio(
       tokenValue(LOCAL, "--shiori-export-ink"),
       tokenValue(LOCAL, "--shiori-export-ground"),
-    )).toBeGreaterThanOrEqual(AA);
+    )).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 });
