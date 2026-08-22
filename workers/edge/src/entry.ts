@@ -43,7 +43,7 @@ export class RuntimeContainer extends Container {
   requiredPorts = [8080];
   enableInternet = true;
   deniedHosts = DENIED_EGRESS_HOSTS;
-  #workerEnv: Record<string, unknown>;
+  readonly #workerEnv: Record<string, unknown>;
   #envResolved = false;
   constructor(ctx: DurableObjectState<object>, env: Record<string, unknown>) {
     super(ctx, env);
