@@ -96,11 +96,22 @@ async function handleStatus(c: Context<{ Bindings: Env }>, deps: DoorbellDeps): 
   return c.json(report);
 }
 
+async function guarded(
+  c: Context<{ Bindings: Env }>,
+  run: () => Promise<Response>,
+): Promise<Response> {
+  try {
+    return await run();
+  } catch {
+    return c.json({ error: "upstream unavailable" }, 503);
+  }
+}
+
 /** Create an independently injectable doorbell Hono application. */
 export function createDoorbellApp(deps: DoorbellDeps = {}): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
   app.get("/healthz", healthz);
-  app.post("/builds", (c) => handleStart(c, deps));
-  app.get("/builds/:id", (c) => handleStatus(c, deps));
+  app.post("/builds", (c) => guarded(c, () => handleStart(c, deps)));
+  app.get("/builds/:id", (c) => guarded(c, () => handleStatus(c, deps)));
   return app;
 }

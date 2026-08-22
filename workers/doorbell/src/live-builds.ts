@@ -58,20 +58,23 @@ async function postHeaders(env: Env): Promise<Record<string, string>> {
   return { "content-type": "application/json", authorization: `Bearer ${await apiToken(env)}` };
 }
 
+async function readEnvelope(response: Response): Promise<unknown> {
+  if (!response.ok) throw new Error("builds api unavailable");
+  return response.json();
+}
+
 async function startBuild(env: Env, input: StartBuildInput): Promise<BuildHandle> {
   const response = await fetch(buildsUrl(env, input.triggerId), {
     method: "POST",
     headers: await postHeaders(env),
     body: JSON.stringify({ commit_hash: input.commit }),
   });
-  const envelope = await response.json();
-  return { buildId: buildIdOf(envelope) };
+  return { buildId: buildIdOf(await readEnvelope(response)) };
 }
 
 async function fetchStatus(env: Env, buildId: string): Promise<BuildStatus> {
   const response = await fetch(statusUrl(env, buildId), {
     headers: { authorization: `Bearer ${await apiToken(env)}` },
   });
-  const envelope = await response.json();
-  return statusOf(envelope, buildId);
+  return statusOf(await readEnvelope(response), buildId);
 }

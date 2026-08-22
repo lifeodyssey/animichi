@@ -60,6 +60,9 @@ abort "infra reusable must not invoke Atlas" if infra_src.include?("atlas migrat
    CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY].each do |name|
   abort "infra reusable must declare #{name}" unless infra_src.include?(name)
 end
+up_env = infra_src.split("name: Pulumi up", 2)[1]
+abort "infra reusable must have a Pulumi up step" if up_env.nil?
+abort "Pulumi up must pass CLOUDFLARE_ACCOUNT_ID" unless up_env.include?("CLOUDFLARE_ACCOUNT_ID")
 puts "CI contract: #1074 infra split (catalog run_pulumi false; infra job applies main stack)"
 
 def expect_reject(label)
