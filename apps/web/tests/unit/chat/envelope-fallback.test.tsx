@@ -28,14 +28,14 @@ describe("EnvelopeFallback D1 (recognition failure)", () => {
     expect(screen.getByText(ja.errorStates.d1Subtitle)).toBeTruthy();
     expect(screen.getByText(ja.errorStates.d1Title)).toBeTruthy();
     expect(screen.getByText(ja.errorStates.d1Hint)).toBeTruthy();
-    for (const chip of ja.chips) expect(screen.getByRole("button", { name: chip })).toBeTruthy();
+    for (const chip of ja.chips) expect(screen.getByRole("button", { name: chip.text })).toBeTruthy();
   });
 
   it("sends a suggestion chip as the next user message", () => {
     const send = vi.fn();
     renderWithActions(<EnvelopeFallback state="D1" dict={ja} />, actions({ send }));
-    fireEvent.click(screen.getByRole("button", { name: ja.chips[1] }));
-    expect(send).toHaveBeenCalledWith(ja.chips[1]);
+    fireEvent.click(screen.getByRole("button", { name: ja.chips[1].text }));
+    expect(send).toHaveBeenCalledWith(ja.chips[1].text);
   });
 });
 
@@ -44,7 +44,7 @@ describe("EnvelopeFallback D2 (zero pilgrimage spots)", () => {
     renderWithActions(<EnvelopeFallback state="D2" dict={ja} />, actions());
     expect(screen.getByText(ja.errorStates.d2Title)).toBeTruthy();
     expect(screen.getByText(ja.errorStates.d2Hint)).toBeTruthy();
-    expect(screen.getByRole("button", { name: ja.chips[0] })).toBeTruthy();
+    expect(screen.getByRole("button", { name: ja.chips[0].text })).toBeTruthy();
   });
 });
 

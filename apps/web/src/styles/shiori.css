@@ -1,65 +1,168 @@
-/* しおり layout family (S4.1). Semantic tokens only; layout is pure CSS. */
+/* しおり family skin against the design-sync canvases `しおり demo.html` and
+ * `しおり share 状态总览.html`, in the six shared visual languages of
+ * docs/iterations/chat-visual-restore/task.md §4. A しおり is an exported 9:16
+ * image (1080×1920), so the colours inside the card are theme-invariant: the
+ * artifact must not repaint when the viewer flips to night. */
 
 .shiori-card {
+  /* THE EXPORT PALETTE. A しおり is a 1080x1920 image the user saves and sends,
+   * so the theme they happened to be in when they saved must not be baked into
+   * the file. The card re-declares on itself every token its subtree spends
+   * that `[data-theme="night"]` flips, frozen at the design-sync canvas values
+   * (the day palette — that is the canvas it was drawn against). A property
+   * declared on the element beats the same one on `:root`, so the subtree
+   * resolves to these whatever the theme; `export-theme-invariance.test.ts`
+   * welds each to its `globals.css` counterpart so the copies cannot drift.
+   *
+   * It is also what lets the card keep sharing `card-plane.css`, which paints
+   * every family's ground with `var(--color-paper)`: the しおり needs no plane
+   * of its own to escape the theme, only a different `--color-paper` under the
+   * shared one. */
+  --color-bg: #f0e8d8;
+  --color-paper: #f8f8f0;
+  --color-fg: #725d42;
+  --color-card: #f7f3df;
+  --color-muted-fg: #6f6353;
+  --color-border: #aaa69d;
+  --color-border-soft: #e8e2d6;
+  /* The poster's own floor (design-sync #2b2012) and ink: dark by design, not
+   * by theme, and frozen for the same reason as the seven above. */
+  --shiori-export-ground: #2b2012;
+  --shiori-export-ink: #f8f8f0;
+
   container-type: inline-size;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
-  width: min(320px, 100%);
-  padding: 14px;
-  border: 1.5px solid var(--color-border);
-  border-radius: 16px;
-  background: var(--color-card);
-  box-shadow: var(--shadow-press);
+  width: min(324px, 100%);
+  aspect-ratio: 9 / 16;
+  padding: 14px 18px 16px;
   font-family: var(--app-font-body);
 }
 
+.shiori-card--ticket {
+  position: relative;
+}
+
+.shiori-card--single-panel {
+  justify-content: space-between;
+}
+
+.shiori-card--album-grid {
+  justify-content: flex-start;
+}
+
+/* The top stop is 74% ground on transparent, and this shorthand REPLACES the
+ * shared plane's background rather than sitting on it — so as one layer what
+ * showed through was the page floor and the poster's top third still repainted
+ * at night. The second layer is that floor, from the frozen `--color-bg`. */
 .shiori-card--poster-fallback {
-  background: var(--color-fg);
-  color: var(--color-paper);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--shiori-export-ground) 74%, transparent) 0%, var(--shiori-export-ground) 72%),
+    var(--color-bg);
+  color: var(--shiori-export-ink);
+}
+
+.shiori-card--poster-fallback .shiori-head__eyebrow {
+  color: inherit;
+  opacity: 0.78;
+}
+
+.shiori-card--poster-fallback .shiori-head__sub {
+  color: inherit;
+  opacity: 0.78;
+}
+
+/* On the poster every ink is the export ink: --color-fg is the day-palette
+ * brown and measures 2.55:1 on the export ground. */
+.shiori-card--poster-fallback .shiori-head__title {
+  color: inherit;
+}
+
+.shiori-card--poster-fallback .shiori-poster-stop__name {
+  color: inherit;
+}
+
+.shiori-card--poster-fallback .shiori-poster-stop__time {
+  color: inherit;
+  opacity: 0.75;
+}
+
+/* The seal stays at the top; title block and ✓ list are the poster's foot. */
+.shiori-card--poster-fallback .shiori-head {
+  margin-top: auto;
+}
+
+.shiori-card--poster-fallback .shiori-poster-stops {
+  flex: 0 0 auto;
 }
 
 .shiori-head {
-  display: grid;
-  gap: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .shiori-head__eyebrow {
   margin: 0;
   color: var(--color-muted-fg);
   font-size: 0.625rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-}
-
-.shiori-card--poster-fallback .shiori-head__eyebrow {
-  color: inherit;
-  opacity: 0.82;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  line-height: 1.2;
 }
 
 .shiori-head__title {
   margin: 0;
+  color: var(--color-fg);
   font-family: var(--app-font-display);
-  font-size: 1.125rem;
+  font-size: 1.3125rem;
   font-weight: 900;
-  line-height: 1.3;
+  line-height: 1.08;
 }
 
 .shiori-head__sub {
   margin: 0;
   color: var(--color-muted-fg);
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   font-weight: 700;
+  line-height: 1.35;
 }
 
-.shiori-card--poster-fallback .shiori-head__sub {
-  color: inherit;
-  opacity: 0.82;
+/* §4.5 block divider. On the ticket the canvas draws it as a perforation
+ * (.perf): a dashed rule with a punched notch biting in from each edge. The
+ * notches read as the floor through the card, so they take the frozen
+ * --color-bg — frozen, because they are inside the saved image. */
+.shiori-card--ticket .shiori-head {
+  position: relative;
+  padding-bottom: 12px;
+}
+
+.shiori-card--ticket .shiori-head::before {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  left: 4px;
+  border-top: 2px dashed var(--color-border);
+}
+
+.shiori-card--ticket .shiori-head::after {
+  content: "";
+  position: absolute;
+  right: -18px;
+  bottom: -4px;
+  left: -18px;
+  height: 14px;
+  background: radial-gradient(circle 7px at 0 50%, var(--color-bg) 98%, transparent 100%), radial-gradient(circle 7px at 100% 50%, var(--color-bg) 98%, transparent 100%);
 }
 
 .shiori-stops,
 .shiori-poster-stops {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -68,27 +171,45 @@
 .shiori-stop,
 .shiori-poster-stop {
   display: grid;
-  grid-template-columns: 44px 1fr auto;
-  align-items: baseline;
-  column-gap: 8px;
-  font-size: 0.8125rem;
-  font-weight: 700;
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px dashed var(--color-border-soft);
+  padding: 6px 0;
 }
 
 .shiori-stop {
-  grid-template-columns: 44px 1fr;
+  grid-template-columns: 3rem minmax(0, 1fr);
+}
+
+.shiori-poster-stop {
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+}
+
+.shiori-stop:last-child,
+.shiori-poster-stop:last-child {
+  border-bottom: 0;
 }
 
 .shiori-stop__time,
 .shiori-poster-stop__time {
   color: var(--color-muted-fg);
-  font-family: var(--app-font-mono);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
 }
 
-.shiori-card--poster-fallback .shiori-poster-stop__time {
-  color: inherit;
-  opacity: 0.75;
+.shiori-stop__name,
+.shiori-poster-stop__name {
+  min-width: 0;
+  color: var(--color-fg);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.shiori-card--poster-fallback .shiori-poster-stop {
+  border-bottom-color: color-mix(in srgb, var(--shiori-export-ink) 22%, transparent);
 }
 
 .shiori-poster-stop__check {
@@ -96,136 +217,73 @@
   place-items: center;
   width: 18px;
   height: 18px;
-  border-radius: 999px;
+  border-radius: 50%;
   background: var(--color-primary);
   color: var(--color-primary-ink);
   font-size: 0.6875rem;
   font-weight: 900;
 }
 
+/* A <p> in a fixed 9:16 box, where a 1em margin is height nothing gives back.
+ * Preflight zeroes it, but preflight is a layered base rule and every other
+ * paragraph here states its own margin rather than banking on that; this one
+ * had stopped, and had grown a size larger than the type it was cut in. */
 .shiori-empty {
-  margin: 0;
-  padding: 12px;
-  border: 1.5px dashed var(--color-border);
-  border-radius: 12px;
-  background: var(--color-muted);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.shiori-window {
-  margin: 0;
-  color: var(--color-muted-fg);
-  font-size: 0.6875rem;
-  font-weight: 800;
-}
-
-.shiori-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-@container (min-width: 240px) {
-  .shiori-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-.shiori-grid__cell {
-  position: relative;
-}
-
-.shiori-grid__overflow {
-  position: absolute;
-  inset: 0;
   display: grid;
   place-items: center;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--color-fg) 55%, transparent);
-  color: var(--color-paper);
-  font-size: 1rem;
-  font-weight: 900;
-}
-
-.shiori-tile {
-  display: grid;
-  gap: 0;
+  min-height: 120px;
+  /* The dashed placeholder box is the only edge carrying the meaning
+   * "nothing here yet", so it keeps the 3:1 control-grade line rather than
+   * the 1.21:1 content line. */
+  border: 2px dashed var(--color-border);
+  border-radius: 12px;
   margin: 0;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background: var(--color-paper);
-}
-
-.shiori-tile img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-}
-
-.shiori-tile__caption {
-  display: flex;
-  justify-content: space-between;
-  gap: 4px;
-  padding: 3px 7px;
-  background: var(--color-muted);
-  font-size: 0.625rem;
-  font-weight: 800;
-}
-
-.shiori-tile__time {
+  padding: 18px;
+  background: var(--color-card);
   color: var(--color-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-align: center;
 }
 
-.shiori-hero,
-.shiori-second {
-  display: grid;
-  gap: 6px;
-}
-
-.shiori-second {
-  grid-template-columns: 72px 1fr;
-  align-items: center;
-}
-
-.shiori-hero__caption {
-  display: flex;
-  justify-content: space-between;
-  margin: 0;
-  font-size: 0.8125rem;
-  font-weight: 900;
-}
-
-.shiori-hero__counter,
-.shiori-second__note {
+/* §4.3 pill, pushed to the card foot. */
+.shiori-window {
+  align-self: flex-start;
+  margin: auto 0 0;
+  border-radius: 50px;
+  padding: 3px 10px;
+  background: var(--color-card);
   color: var(--color-muted-fg);
   font-size: 0.6875rem;
-  font-weight: 800;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
-.shiori-second__note {
-  margin: 0;
+.shiori-card--poster-fallback .shiori-window {
+  background: color-mix(in srgb, var(--shiori-export-ink) 16%, transparent);
+  color: var(--shiori-export-ink);
 }
 
+/* The seal is an object stamped on the poster, not a §4.3 label, so it keeps
+ * the SOLID gold ground — and with it --color-gold-ink rather than
+ * --color-gold-fg, which pairs with the soft tint and falls to 1.18:1 here. */
 .shiori-badge {
   display: grid;
   justify-items: center;
   gap: 2px;
   justify-self: end;
+  align-self: flex-end;
   margin: 0;
-  padding: 8px 10px;
+  border: 2.5px dashed color-mix(in srgb, var(--color-gold-ink) 40%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--color-paper) 16%, transparent);
-  border: 1.5px solid var(--color-focus);
+  padding: 10px 12px;
+  background: var(--color-gold);
+  box-shadow: 0 3px 0 0 var(--color-gold-deep);
+  color: var(--color-gold-ink);
+  transform: rotate(8deg);
 }
 
 .shiori-badge__count {
-  color: var(--color-focus);
   font-size: 0.875rem;
   font-weight: 900;
   line-height: 1;
@@ -234,4 +292,10 @@
 .shiori-badge__label {
   font-size: 0.625rem;
   font-weight: 800;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shiori-card {
+    animation: none;
+  }
 }

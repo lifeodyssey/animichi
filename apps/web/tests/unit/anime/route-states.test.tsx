@@ -35,6 +35,15 @@ describe("/anime/$bangumiId error state", () => {
     expect(screen.getByRole("link", { name: "ホームに戻る" }).getAttribute("href")).toBe("/");
   });
 
+  it("gives both recovery actions the 3D press button, not a bare text link", async () => {
+    server.use(animeOverviewOutageHandler);
+    await openAnime("123");
+    const retry = await screen.findByRole("button", { name: "もう一度試す" });
+    expect(retry.className).toContain("anime-press");
+    expect(screen.getByRole("link", { name: "ホームに戻る" }).className).toContain("anime-press");
+    expect(retry.closest("main")?.className).toContain("anime-error");
+  });
+
   it("localizes the error screen when hl=zh is in the search", async () => {
     server.use(animeOverviewOutageHandler);
     await openAnime("123", { hl: "zh" });

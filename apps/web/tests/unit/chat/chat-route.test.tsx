@@ -6,6 +6,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { getRouter } from "../../../src/router";
+import { leadBubbleWith } from "./_lead-bubble";
 import { setLanguages } from "../_i18n";
 import { server } from "../../msw/node";
 import { healthzOkHandler } from "../../msw/chat-handlers";
@@ -25,7 +26,7 @@ describe("/chat route", () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/chat");
     });
-    expect(await screen.findByText(chatDictFor("ja").greeting)).toBeTruthy();
+    expect(await screen.findByText(leadBubbleWith(chatDictFor("ja").greeting))).toBeTruthy();
   });
 
   it("validates search params through parseChatSearch", async () => {

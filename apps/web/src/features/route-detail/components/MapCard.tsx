@@ -1,16 +1,19 @@
 import type { RouteDetailCopy } from "../lib/copy";
-import { MODE_EASING, MODE_TRANSITION_MS } from "../lib/mode";
 import type { RouteMode } from "../lib/mode";
 import type { RoutePin } from "../lib/pin-state";
 import { ModeToggle } from "./ModeToggle";
 import { RoutePinLayer } from "./RoutePinLayer";
 
 /**
- * The map card (spec-route-detail §2/§5). A product-specific generative
- * component (SD-13 catalog): its payload carries a `schema_version` for
- * additive-only evolution and is partial-tolerant — a payload missing its pins
- * renders the skeleton slot rather than crashing, so a legacy Chat registry
- * payload is safe. Idle ⇄ map-expanded is a 360ms FLIP; a gold pill shows N/5.
+ * The map card (spec-route-detail §2/§5). The map is the card's face: the gold
+ * route pill (N/5) floats over the stage and the operable row sits under it as
+ * the card's foot, divided by the 2px block line. Idle ⇄ map-expanded animates
+ * the stage over the 360ms FLIP budget (`--route-mode-ms` in route-detail.css).
+ *
+ * A product-specific generative component (SD-13 catalog): its payload carries
+ * a `schema_version` for additive-only evolution and is partial-tolerant — a
+ * payload missing its pins renders the skeleton slot rather than crashing, so a
+ * legacy Chat registry payload is safe.
  */
 export interface MapCardPayload {
   readonly schema_version: number;
@@ -27,29 +30,21 @@ interface MapCardProps {
 }
 
 function MapCardSkeleton({ copy }: { readonly copy: RouteDetailCopy }) {
-  return (
-    <div role="status" aria-label={copy.loadingLabel}
-      className="h-36 w-full animate-pulse rounded-2xl bg-[var(--color-muted)]" />
-  );
+  return <div role="status" aria-label={copy.loadingLabel} className="route-skeleton route-skeleton--map" />;
 }
 
 function RouteProgressPill({ progress, copy }: { readonly progress: string; readonly copy: RouteDetailCopy }) {
   return (
-    <span aria-label={copy.progressAria}
-      className="rounded-full bg-[var(--color-focus)] px-3 py-1 text-sm font-bold text-[var(--color-fg)]">
+    <span aria-label={copy.progressAria} className="route-pill route-pill--gold route-map__pill">
       {progress}
     </span>
   );
 }
 
-interface MapHeaderProps extends MapCardProps {
-  readonly progress?: string;
-}
-
-function MapCardHeader({ progress, mode, onToggle, copy }: Omit<MapHeaderProps, "payload">) {
+function MapCardBar({ mode, onToggle, copy }: Omit<MapCardProps, "payload">) {
   return (
-    <div className="flex items-center justify-between">
-      {progress ? <RouteProgressPill progress={progress} copy={copy} /> : null}
+    <div className="route-map__bar">
+      <span className="route-map__hint">{copy.mapHint}</span>
       <ModeToggle mode={mode} onToggle={onToggle} copy={copy} />
     </div>
   );
@@ -60,13 +55,13 @@ interface MapStageProps {
   readonly pins: readonly RoutePin[];
   readonly copy: RouteDetailCopy;
   readonly placeholder: string;
+  readonly progress?: string;
 }
 
-function MapStage({ mode, pins, copy, placeholder }: MapStageProps) {
-  const minHeight = mode === "expanded" ? "18rem" : "9rem";
+function MapStage({ mode, pins, copy, placeholder, progress }: MapStageProps) {
   return (
-    <div style={{ minHeight, transition: `min-height ${String(MODE_TRANSITION_MS)}ms ${MODE_EASING}` }}
-      className="grid place-items-center gap-3 rounded-2xl bg-[var(--color-muted)] p-4 text-[var(--color-muted-fg)]">
+    <div data-mode={mode} className="route-map__stage">
+      {progress ? <RouteProgressPill progress={progress} copy={copy} /> : null}
       <span>{placeholder}</span>
       <RoutePinLayer pins={pins} copy={copy} />
     </div>
@@ -76,10 +71,10 @@ function MapStage({ mode, pins, copy, placeholder }: MapStageProps) {
 export function MapCard({ payload, copy, mode, onToggle }: MapCardProps) {
   if (!payload.pins) return <MapCardSkeleton copy={copy} />;
   return (
-    <section aria-label="地図" aria-expanded={mode === "expanded"} className="flex flex-col gap-3">
-      <MapCardHeader progress={payload.progress} mode={mode} onToggle={onToggle} copy={copy} />
-      <MapStage mode={mode} pins={payload.pins} copy={copy}
+    <section aria-label="地図" className="route-card">
+      <MapStage mode={mode} pins={payload.pins} copy={copy} progress={payload.progress}
         placeholder={payload.placeholder ?? copy.mapPlaceholder} />
+      <MapCardBar mode={mode} onToggle={onToggle} copy={copy} />
     </section>
   );
 }

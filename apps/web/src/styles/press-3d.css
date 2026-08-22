@@ -1,0 +1,87 @@
+/* §4.2 3D press button — ONE declaration of the pill shape, the cream ledge,
+ * the hover lift and the pressed sink (task.md §4.2). Each family keeps its
+ * own ground, line token, padding and type in its own stylesheet; only the
+ * depth — which IS the affordance — is shared. Before this file the same three
+ * steps were restated in `anime.css`, `route-detail.css` and `chat.css`, and
+ * chat's copy had lost the hover half of the pattern entirely.
+ *
+ * `:not(:disabled)` guards both interactive rules so a disabled retry stays
+ * put; it is inert on the anchors in this list, which can never match it.
+ *
+ * `--press-ledge` is the one thing about the depth that IS a family's own: the
+ * cream families rest on `--shadow-3d`, the gold bar on its own `--gold-deep`
+ * step, and a family that says nothing gets the cream ledge from the fallback.
+ * A fallback rather than a declaration in the rule below, because the skins are
+ * imported by their components while this file comes through `globals.css`:
+ * bundling order between the two is not ours to fix, and `var(x, y)` does not
+ * care about it while two competing declarations of `--press-ledge` would.
+ *
+ * UNLAYERED, unlike `card-plane.css`. A cascade layer here would lose the hover
+ * line: every family declares its own resting edge with the `border` SHORTHAND
+ * in its own unlayered sheet, and an unlayered shorthand beats a layered
+ * `border-color` no matter how specific. Left alone the hover half would set
+ * `transform` and silently drop the teal — the exact half-applied pattern this
+ * file exists to end. Unlayered, `:hover:not(:disabled)` outranks the bare
+ * class on specificity and the teal lands; nothing in the shared base collides
+ * with a family's own rule, so no layer is needed to hold them apart. */
+.anime-press,
+.route-press,
+.route-goldbar,
+.chat-error-banner__retry,
+.chat-fallback__retry,
+.chat-interruption__retry,
+.chat-session-expired__login,
+.chat-session-expired__resume,
+.chat-budget-exhausted__login,
+.chat-quota-exhausted__login {
+  border-radius: 50px;
+  box-shadow: 0 3px 0 0 var(--press-ledge, var(--shadow-3d));
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.anime-press:hover:not(:disabled),
+.route-press:hover:not(:disabled),
+.route-goldbar:hover:not(:disabled),
+.chat-error-banner__retry:hover:not(:disabled),
+.chat-fallback__retry:hover:not(:disabled),
+.chat-interruption__retry:hover:not(:disabled),
+.chat-session-expired__login:hover:not(:disabled),
+.chat-session-expired__resume:hover:not(:disabled),
+.chat-budget-exhausted__login:hover:not(:disabled),
+.chat-quota-exhausted__login:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--color-primary);
+}
+
+.anime-press:active:not(:disabled),
+.route-press:active:not(:disabled),
+.route-goldbar:active:not(:disabled),
+.chat-error-banner__retry:active:not(:disabled),
+.chat-fallback__retry:active:not(:disabled),
+.chat-interruption__retry:active:not(:disabled),
+.chat-session-expired__login:active:not(:disabled),
+.chat-session-expired__resume:active:not(:disabled),
+.chat-budget-exhausted__login:active:not(:disabled),
+.chat-quota-exhausted__login:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 0 var(--press-ledge, var(--shadow-3d));
+}
+
+/* §4.6: the lift and the sink are motion, so they yield to the preference.
+ * Declared here rather than in each skin's own reduce block, because the
+ * transition it stills is declared here too. */
+@media (prefers-reduced-motion: reduce) {
+  .anime-press,
+  .route-press,
+  .route-goldbar,
+  .chat-error-banner__retry,
+  .chat-fallback__retry,
+  .chat-interruption__retry,
+  .chat-session-expired__login,
+  .chat-session-expired__resume,
+  .chat-budget-exhausted__login,
+  .chat-quota-exhausted__login {
+    transition: none;
+  }
+}

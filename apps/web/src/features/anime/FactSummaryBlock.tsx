@@ -35,11 +35,12 @@ function factEntries(summary: FactSummary, copy: AnimeCopy): FactEntry[] {
   return [...headFacts(summary, copy), ...durationFacts(summary, copy), ...tailFacts(summary, copy)];
 }
 
+/** One fact panel: --color-card is the nested-panel ground on the card's paper. */
 function Fact({ label, sentence }: FactEntry) {
   return (
-    <div className="rounded-xl bg-[var(--color-paper)] px-3 py-2">
-      <dt className="text-sm font-bold text-[var(--color-muted-fg)]">{label}</dt>
-      <dd className="m-0 text-[var(--color-fg)]">{sentence}</dd>
+    <div className="anime-fact">
+      <dt className="anime-fact__label">{label}</dt>
+      <dd className="anime-fact__value">{sentence}</dd>
     </div>
   );
 }
@@ -47,9 +48,9 @@ function Fact({ label, sentence }: FactEntry) {
 /** Above-the-fold SEO/GEO fact block: `<section>+<dl>`, one citable sentence per fact. */
 export function FactSummaryBlock({ summary, copy }: Props) {
   return (
-    <section aria-labelledby="anime-facts" className="rounded-2xl bg-[var(--color-card)] p-4">
-      <h2 id="anime-facts" className="mt-0 text-lg">{copy.factsHeading}</h2>
-      <dl className="m-0 grid gap-2">
+    <section aria-labelledby="anime-facts" className="anime-card anime-facts">
+      <h2 id="anime-facts" className="anime-sechead__label">{copy.factsHeading}</h2>
+      <dl className="anime-facts__list">
         {factEntries(summary, copy).map((fact) => <Fact key={fact.label} {...fact} />)}
       </dl>
     </section>

@@ -23,21 +23,22 @@ function makeDetail(overrides: Partial<RouteDetail> = {}): RouteDetail {
   };
 }
 
-function mapSlot(): HTMLElement {
-  return screen.getByRole("region", { name: "地図" });
+/** The mode the map is in, read off the toggle's `aria-pressed` (see MapCard). */
+function mapExpanded(): string | null {
+  return screen.getByRole("button", { name: /地図を/u }).getAttribute("aria-pressed");
 }
 
 describe("RouteDetailView data-illuminated states", () => {
   it("shows the gold bar and auto-expands the map in the today state", () => {
     render(<RouteDetailView detail={makeDetail({ scheduledDate: "2026-07-20" })} locale="ja" now={TODAY} />);
     expect(screen.getByRole("link", { name: /巡礼日/ })).toBeTruthy();
-    expect(mapSlot().getAttribute("aria-expanded")).toBe("true");
+    expect(mapExpanded()).toBe("true");
   });
 
   it("hides the gold bar and keeps the map collapsed in the weekday state", () => {
     render(<RouteDetailView detail={makeDetail({ scheduledDate: "2026-07-19" })} locale="ja" now={TODAY} />);
     expect(screen.queryByRole("link", { name: /巡礼日/ })).toBeNull();
-    expect(mapSlot().getAttribute("aria-expanded")).toBe("false");
+    expect(mapExpanded()).toBe("false");
   });
 
   it("renders the 完走 badge in the completed state", () => {

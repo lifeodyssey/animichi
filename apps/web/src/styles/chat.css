@@ -217,7 +217,10 @@
   padding: 10px 17px;
   border: 2px solid var(--color-border-soft);
   border-radius: 50px;
-  background: var(--color-card);
+  /* Design sync `.chip2.work` / `.hbtn` / `.rbtn.ghost`: paper is the press
+     surface everywhere in this design, and it is the ground an example chip
+     gets precisely because it carries no tone of its own. */
+  background: var(--color-paper);
   color: var(--color-fg);
   font-size: 14px;
   font-weight: 800;
@@ -414,12 +417,33 @@
   clip-path: inset(50%);
 }
 
+/* Design sync's one card language (`.gcard` / `.itin` / `.fcard` are the same
+   shell): a paper plane, a 2px soft line, an 18px corner, and a wide low-lying
+   ground shadow instead of the button's hard 3px ledge — a card is landed, not
+   pressable. Every intent card IS this element, so the itinerary, the search
+   result, the spot grid and the fallback states all inherit the language here
+   rather than each restating it. The plane itself is now declared once in
+   card-plane.css — including the deep-brown drop this copy had drifted off,
+   onto a --shadow-3d mix that flipped to near-black at night while the other
+   three skins kept the spec colour. What is left here is this family's own
+   padding. */
 .chat-card {
   padding: 0.875rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: var(--color-card);
-  box-shadow: 0 3px 0 var(--shadow-3d);
+}
+
+/* §4.3 pill label: ONE geometry for every scrap of text that names a fact
+   about a card — pacing, leg mode, episode, card version, route badge. The
+   grounds differ per family below; the shape never does. */
+.chat-spot-card__ep,
+.chat-card__version-badge,
+.chat-pacing-pill,
+.chat-itinerary__capsule,
+.chat-route-pill {
+  border-radius: 50px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .chat-card--skeleton {
@@ -493,15 +517,6 @@
   padding: 0.625rem 1rem;
   background: var(--color-error-bg);
   color: var(--color-error-strong);
-}
-
-.chat-error-banner__retry {
-  border: 0;
-  border-radius: 10px;
-  padding: 0.375rem 0.875rem;
-  background: var(--color-paper);
-  color: var(--color-fg);
-  cursor: pointer;
 }
 
 /* G1 composer (design sync `.composer`): a floating pill above the page floor,
@@ -612,19 +627,25 @@
   color: var(--color-error-strong);
 }
 
+/* §4.2 3D press, chat's half: the paper ground, the 800 weight and the 44px
+   touch floor that lifted this family off the old 36px. The pill, the ledge,
+   the hover lift and the pressed sink are the shared half and live in
+   press-3d.css — this group used to declare the sink without ever declaring
+   the lift, which is the drift that reunification fixes. */
+.chat-error-banner__retry,
+.chat-fallback__retry,
 .chat-interruption__retry,
 .chat-session-expired__login,
 .chat-session-expired__resume,
 .chat-budget-exhausted__login,
 .chat-quota-exhausted__login {
-  border: 0;
-  border-radius: 10px;
-  min-height: 36px;
-  padding: 0.375rem 0.875rem;
+  min-height: 44px;
+  border: 2px solid var(--color-border-soft);
+  padding: 0.5rem 1rem;
   background: var(--color-paper);
   color: var(--color-fg);
-  box-shadow: 0 2px 0 var(--shadow-3d);
-  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
 }
 
 .chat-interruption__retry:disabled,
@@ -683,17 +704,6 @@
   color: var(--color-muted-fg);
 }
 
-.chat-fallback__retry {
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  min-height: 44px;
-  padding: 0.5rem 1rem;
-  background: var(--color-card);
-  color: var(--color-fg);
-  box-shadow: 0 3px 0 var(--shadow-3d);
-  cursor: pointer;
-}
-
 .chat-short-route {
   display: flex;
   flex-direction: column;
@@ -701,7 +711,7 @@
   gap: 0.5rem;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px dashed var(--color-border);
+  border-top: 2px solid var(--color-border-soft);
 }
 
 .chat-short-route__notice {
@@ -710,10 +720,26 @@
   color: var(--color-muted-fg);
 }
 
+/* The route card's spot strip (design sync `.srow` list). */
+.chat-card__spots {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .chat-spot {
   display: flex;
   align-items: center;
   gap: 0.625rem;
+}
+
+/* §4.5: rows inside one block are parted by a hairline dash; the 2px solid
+   line is reserved for parting whole blocks. The design's `--line2` sits
+   between our two line tokens, so it is mixed from them rather than invented. */
+.chat-spot + .chat-spot {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed color-mix(in srgb, var(--color-border) 45%, var(--color-border-soft));
 }
 
 .chat-scene-thumb {
@@ -806,15 +832,29 @@
   list-style: none;
 }
 
+/* A tile nested in the card plane: same 2px soft line, one corner step down
+   from the 18px shell, and the content cream so it reads as a layer ON paper.
+   No press ledge — the tile is not the control, its checkbox is. */
 .chat-spot-card {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
   padding: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border: 2px solid var(--color-border-soft);
+  border-radius: 14px;
   background: var(--color-card);
-  box-shadow: 0 2px 0 var(--shadow-3d);
+}
+
+/* §4.4 picked: the teal ground plus the teal press depth, as the design's
+   `.srow.on .pcb` marks a chosen row. */
+.chat-spot-card:has(.chat-spot-card__check:checked) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  box-shadow: 0 3px 0 var(--color-primary-strong);
+}
+
+.chat-spot-card__check {
+  accent-color: var(--color-primary);
 }
 
 .chat-spot-card .chat-scene-thumb {
@@ -824,10 +864,6 @@
 
 .chat-spot-card__ep {
   align-self: flex-start;
-  padding: 0 0.375rem;
-  border-radius: 6px;
-  font-size: 0.6875rem;
-  font-weight: 700;
   background: var(--color-primary-soft);
   color: var(--color-primary-strong);
 }
@@ -850,7 +886,7 @@
   position: relative;
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  border: 1px solid var(--color-border);
+  border: 2px solid var(--color-border-soft);
   border-radius: 14px;
   background: var(--color-muted);
 }
@@ -915,13 +951,8 @@
 
 .chat-pacing-pill {
   align-self: flex-start;
-  padding: 0.125rem 0.625rem;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
   background: var(--color-muted);
   color: var(--color-fg);
-  font-size: 0.75rem;
-  font-weight: 700;
 }
 
 .chat-itinerary__timeline {
@@ -959,11 +990,8 @@
 }
 
 .chat-itinerary__capsule {
-  padding: 0.125rem 0.625rem;
-  border-radius: 999px;
   background: var(--color-walk-bg);
   color: var(--color-walk-fg);
-  font-size: 0.75rem;
 }
 
 .chat-itinerary__leg[data-mode="transit"] .chat-itinerary__capsule {
@@ -1039,13 +1067,8 @@
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  padding: 0.125rem 0.625rem;
-  border: 1px solid var(--color-gold);
-  border-radius: 999px;
   background: var(--color-gold-soft);
   color: var(--color-gold-fg);
-  font-size: 0.75rem;
-  font-weight: 700;
 }
 
 /* --- E1 living document: superseded cards (issues #271/#273) --- */
@@ -1054,13 +1077,12 @@
   opacity: 0.55;
 }
 
+/* The badge's ink is the body ink, not the muted one: at pill size the muted
+   pair reads 4.35:1 on the muted ground, just under AA. */
 .chat-card__version-badge {
   align-self: flex-start;
-  padding: 0.0625rem 0.5rem;
-  border-radius: 999px;
   background: var(--color-muted);
-  color: var(--color-muted-fg);
-  font-size: 0.6875rem;
+  color: var(--color-fg);
 }
 
 /* --- E2 selection tray + recompute footprint (issue #273 S1.7) ---
@@ -1163,8 +1185,12 @@
   background: var(--color-primary-soft);
 }
 
+/* §4.4: once one option is taken, its siblings fade to the design's .42. The
+   design also sets `pointer-events:none` there, but that is the prototype
+   standing in for a disabled control — ClarifyCard already marks these buttons
+   `disabled`, so restating it in CSS would be the same fact written twice. */
 .chat-clarify__option--faded {
-  opacity: 0.35;
+  opacity: 0.42;
   transition: opacity 0.3s ease;
 }
 
@@ -1552,6 +1578,7 @@
   .chat-typing__dot,
   .chat-step[data-status="running"],
   .chat-card--skeleton,
+  .chat-card,
   .chat-message,
   .chat-cold-start__fox {
     animation: none;

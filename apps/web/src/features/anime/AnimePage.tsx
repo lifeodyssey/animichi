@@ -1,3 +1,4 @@
+import "../../styles/anime.css";
 import type { AnimeOverview } from "@animichi/contract";
 import type { Locale } from "../../i18n/locales";
 import { CirclesSection } from "./CirclesSection";
@@ -10,22 +11,33 @@ export type AnimePageProps = Readonly<{ overview: AnimeOverview; locale: Locale 
 
 type ViewProps = Readonly<{ overview: AnimeOverview; copy: AnimeCopy }>;
 
+/** Canvas hero meta row: the work's counts as plain pills (design §4.3). */
+function HeroMeta({ overview, copy }: ViewProps) {
+  return (
+    <ul className="anime-hero__meta">
+      <li className="anime-pill anime-pill--plain">{copy.spotUnit(overview.points_length)}</li>
+      <li className="anime-pill anime-pill--plain">{copy.areaUnit(overview.circles.length)}</li>
+    </ul>
+  );
+}
+
 function AnimeHero({ overview, copy }: ViewProps) {
   return (
-    <header>
+    <header className="anime-hero">
       <p className="eyebrow">Animichi</p>
-      <h1 className="mt-1 mb-2">{copy.h1}</h1>
-      <p className="mt-0 text-[var(--color-muted-fg)]">{copy.heroSubtitle(overview.bangumi_id)}</p>
+      <h1 className="anime-hero__title">{copy.h1}</h1>
+      <p className="anime-hero__subtitle">{copy.heroSubtitle(overview.bangumi_id)}</p>
+      {overview.points_length > 0 ? <HeroMeta overview={overview} copy={copy} /> : null}
     </header>
   );
 }
 
 function AnimeEmpty({ overview, copy }: ViewProps) {
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <main className="anime-page">
       <AnimeHero overview={overview} copy={copy} />
-      <section className="rounded-2xl bg-[var(--color-card)] p-6 text-center">
-        <p className="m-0 text-[var(--color-muted-fg)]">{copy.empty}</p>
+      <section className="anime-card anime-empty">
+        <p className="anime-empty__body">{copy.empty}</p>
       </section>
     </main>
   );
@@ -33,7 +45,7 @@ function AnimeEmpty({ overview, copy }: ViewProps) {
 
 function AnimeFull({ overview, copy }: ViewProps) {
   return (
-    <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8">
+    <main className="anime-page">
       <AnimeHero overview={overview} copy={copy} />
       <FactSummaryBlock summary={buildFactSummary(overview)} copy={copy} />
       <ScenesSection scenes={rankScenes(overview.scenes)} copy={copy} />
