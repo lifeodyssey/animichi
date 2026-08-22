@@ -9,6 +9,7 @@ export default defineConfig({
       "tests/setup/viewport-hermetic.ts",
       "tests/setup/runtime-config.ts",
       "tests/setup/auth-hermetic.ts",
+      "tests/setup/neon-auth-sdk.ts",
       "tests/setup/turnstile-hermetic.ts",
       "tests/setup/showcase-hermetic.ts",
       "tests/setup/msw-lifecycle.ts",

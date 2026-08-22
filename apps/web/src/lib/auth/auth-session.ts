@@ -1,12 +1,12 @@
-import { fetchAuthToken } from "./neon-auth";
+import { fetchAuthToken, redeemAuthToken } from "./neon-auth";
 
 /**
  * In-memory Neon Auth JWT cache.
  *
- * `fetchAuthToken` exchanges the Better Auth session cookie for an EdDSA JWT;
- * caching it until shortly before its own `exp` avoids a network round trip to
- * the Neon Auth origin on every outgoing chat/history/users request. Module
- * state only (no storage) — a page reload re-derives it from the cookie.
+ * `fetchAuthToken` exchanges the session cookie for an EdDSA JWT; caching it
+ * until shortly before its own `exp` avoids a network round trip to the Neon
+ * Auth origin on every outgoing chat/history/users request. Module state only
+ * (no storage) — a page reload re-derives it from the cookie.
  */
 interface CachedToken {
   readonly token: string;
@@ -44,10 +44,18 @@ function expiresAt(token: string): number | undefined {
   }
 }
 
+function cacheToken(token: string): void {
+  const expiry = expiresAt(token);
+  cached = expiry === undefined ? undefined : { token, expiresAt: expiry };
+}
+
 async function refreshToken(): Promise<string | undefined> {
   const token = await fetchAuthToken();
-  const expiry = token === undefined ? undefined : expiresAt(token);
-  cached = token !== undefined && expiry !== undefined ? { token, expiresAt: expiry } : undefined;
+  if (token === undefined) {
+    cached = undefined;
+    return undefined;
+  }
+  cacheToken(token);
   return token;
 }
 
@@ -55,6 +63,20 @@ async function refreshToken(): Promise<string | undefined> {
 export async function getAuthToken(now: number = Date.now()): Promise<string | undefined> {
   if (isFresh(cached, now)) return cached.token;
   return refreshToken();
+}
+
+/**
+ * Callback redeem: same cache as `getAuthToken`, but a failed SDK `/token`
+ * throws `error.message` so the callback screen can render it verbatim.
+ */
+export async function establishAuthSession(): Promise<string> {
+  const result = await redeemAuthToken();
+  if ("token" in result) {
+    cacheToken(result.token);
+    return result.token;
+  }
+  cached = undefined;
+  throw new Error(result.error.message);
 }
 
 /** Drop the cached token, forcing the next call to re-derive it from the cookie. */

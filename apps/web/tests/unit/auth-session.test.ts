@@ -1,10 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { fetchAuthToken } = vi.hoisted(() => ({ fetchAuthToken: vi.fn() }));
+const { fetchAuthToken, redeemAuthToken } = vi.hoisted(() => ({
+  fetchAuthToken: vi.fn(),
+  redeemAuthToken: vi.fn(),
+}));
 
-vi.mock("../../src/lib/auth/neon-auth", () => ({ fetchAuthToken }));
+vi.mock("../../src/lib/auth/neon-auth", () => ({ fetchAuthToken, redeemAuthToken }));
 
-import { authHeaders, clearAuthToken, getAuthToken } from "../../src/lib/auth/auth-session";
+import {
+  authHeaders, clearAuthToken, establishAuthSession, getAuthToken,
+} from "../../src/lib/auth/auth-session";
 
 const NOW = 2_000_000_000_000;
 const REFRESH_MARGIN_MS = 60_000;
@@ -91,5 +96,20 @@ describe("getAuthToken cache expiry", () => {
     await getAuthToken();
     await getAuthToken();
     expect(fetchAuthToken).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("establishAuthSession", () => {
+  it("returns the token and seeds the in-memory cache", async () => {
+    const token = jwt(NOW + 5 * 60_000);
+    redeemAuthToken.mockResolvedValue({ token });
+    expect(await establishAuthSession()).toBe(token);
+    expect(await getAuthToken()).toBe(token);
+    expect(fetchAuthToken).not.toHaveBeenCalled();
+  });
+
+  it("throws the SDK error.message when redeem fails", async () => {
+    redeemAuthToken.mockResolvedValue({ error: { message: "INVALID_TOKEN" } });
+    await expect(establishAuthSession()).rejects.toThrow("INVALID_TOKEN");
   });
 });

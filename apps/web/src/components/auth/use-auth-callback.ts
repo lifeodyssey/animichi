@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { replayDeferredSave } from "../../features/chat/save/complete-deferred-save";
 import type { DeferredReplayOutcome } from "../../features/chat/save/complete-deferred-save";
-import { getAuthToken } from "../../lib/auth/auth-session";
+import { establishAuthSession } from "../../lib/auth/auth-session";
+import { authErrorMessage } from "../../lib/auth/neon-auth";
 import {
   ADOPT_TIMEOUT_MS,
   adoptSessions,
@@ -113,6 +114,7 @@ interface Collaborators {
 interface RedeemResult {
   readonly state: AuthCallbackState;
   readonly adoption: AdoptionState;
+  readonly errorMessage?: string;
 }
 
 /** Create-on-login: a login the save CTA started replays its deferred intent;
@@ -134,27 +136,51 @@ async function redeem(c: Collaborators, timeline: AdoptionTimeline): Promise<Red
   return { state: stateFor(outcome), adoption };
 }
 
+function failedLogin(error: unknown): RedeemResult {
+  return { state: "error", adoption: undefined, errorMessage: authErrorMessage(error) };
+}
+
 type SetAdoption = (adoption: AdoptionState) => void;
+type SetErrorMessage = (message: string | undefined) => void;
+
+function applyRedeem(
+  r: RedeemResult, isActive: boolean,
+  setState: SetState, setAdoption: SetAdoption, setError: SetErrorMessage,
+): void {
+  if (!isActive) return;
+  setAdoption(r.adoption);
+  setState(r.state);
+  setError(r.errorMessage);
+}
 
 /** Redeems the token once, dropping the result if the component unmounted first.
  * A rejection is a failed login, not an unhandled promise. */
-function establishEffect(c: Collaborators, setState: SetState, setAdoption: SetAdoption, timeline: AdoptionTimeline): () => void {
+function establishEffect(
+  c: Collaborators, setState: SetState, setAdoption: SetAdoption,
+  setError: SetErrorMessage, timeline: AdoptionTimeline,
+): () => void {
   let isActive = true;
-  const apply = (r: RedeemResult) => { if (isActive) { setAdoption(r.adoption); setState(r.state); } };
-  void redeem(c, timeline).catch((): RedeemResult => ({ state: "error", adoption: undefined })).then(apply);
+  void redeem(c, timeline).catch(failedLogin).then((r) => {
+    applyRedeem(r, isActive, setState, setAdoption, setError);
+  });
   return () => { isActive = false; };
 }
 
-function useEstablishOnce(c: Collaborators, setState: SetState, setAdoption: SetAdoption, timeline: AdoptionTimeline): void {
+function useEstablishOnce(
+  c: Collaborators, setState: SetState, setAdoption: SetAdoption,
+  setError: SetErrorMessage, timeline: AdoptionTimeline,
+): void {
   const { establish, replay, adopt, expectsAdoption } = c;
   useEffect(
-    () => establishEffect({ establish, replay, adopt, expectsAdoption }, setState, setAdoption, timeline),
-    [establish, replay, adopt, expectsAdoption, setState, setAdoption, timeline],
+    () => establishEffect({ establish, replay, adopt, expectsAdoption }, setState, setAdoption, setError, timeline),
+    [establish, replay, adopt, expectsAdoption, setState, setAdoption, setError, timeline],
   );
 }
 
 export interface AuthCallbackSession {
   readonly state: AuthCallbackState;
+  /** SDK `error.message` when redeem failed; absent on every other state. */
+  readonly errorMessage?: string;
   /** Which anomaly the adoption notice is reporting, for its copy. */
   readonly adoption: AdoptionAnomaly | undefined;
   /** Re-run only the create-on-login replay; the session is already redeemed. */
@@ -210,8 +236,8 @@ function derivedState(state: AuthCallbackState, adoption: AdoptionState): AuthCa
 }
 
 /**
- * Redeems the Better Auth session cookie (set on the Neon Auth origin by the
- * magic-link verify redirect) for the app's cached bearer token, then replays a
+ * Redeems the Neon Auth session (cookie and/or `neon_auth_session_verifier`)
+ * for the app's cached bearer token, then replays a
  * deferred save when the login came from the 「保存する」 CTA, and claims the
  * browser's anonymous sessions for the new account (#507). `establish`,
  * `replay` and `adopt` are injectable for tests; production callers — every
@@ -221,7 +247,7 @@ function derivedState(state: AuthCallbackState, adoption: AdoptionState): AuthCa
  * `{"adopted": 0}` is an anomaly rather than a normal no-op.
  */
 export function useAuthCallback(
-  establish: Establish = getAuthToken, replay: Replay = replayDeferredSave,
+  establish: Establish = establishAuthSession, replay: Replay = replayDeferredSave,
   adopt?: Adopt, expectsAdoption = false,
 ): AuthCallbackSession {
   const resolvedAdopt = adopt ?? adoptSessions;
@@ -231,9 +257,10 @@ export function useAuthCallback(
 function useCallbackSession(c: Collaborators): AuthCallbackSession {
   const [state, setState] = useState<AuthCallbackState>("pending");
   const [adoption, setAdoption] = useState<AdoptionState>(undefined);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const timeline = useRef<AdoptionTimeline>({ timedOut: false }).current;
-  useEstablishOnce(c, setState, setAdoption, timeline);
-  const surfaced = { state: derivedState(state, adoption), adoption: shown(adoption) };
+  useEstablishOnce(c, setState, setAdoption, setErrorMessage, timeline);
+  const surfaced = { state: derivedState(state, adoption), adoption: shown(adoption), errorMessage };
   return { ...surfaced, ...useSaveActions(c.replay, setState), ...useClaimActions(c, setAdoption, timeline) };
 }
 
