@@ -47,6 +47,8 @@ exemptions:
     reason: "deploy: live worker URL — post-deploy smoke against the deployed origin"
   - id: script:.github/scripts/promote_deployed.py
     reason: "deploy: platform deployed-version metadata — deploy credentials"
+  - id: script:.github/scripts/request-github-oidc-token.sh
+    reason: "OIDC: ACTIONS_ID_TOKEN_REQUEST_TOKEN — GitHub Actions OIDC mint for doorbell rings"
   - id: script:.github/scripts/release-eligibility.sh
     reason: "deploy: production eligibility — pinned revision gate"
   - id: script:.github/scripts/release-promotion-selfcheck.sh

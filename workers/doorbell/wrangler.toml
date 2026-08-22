@@ -27,7 +27,7 @@ enabled = true
 
 [vars]
 ENVIRONMENT = "development"
-CLOUDFLARE_ACCOUNT_ID = ""
+CLOUDFLARE_ACCOUNT_ID = "021233c1880a43aa68565496100e1f8c"
 STAGING_TRIGGER_MAP = "{}"
 PRODUCTION_TRIGGER_MAP = "{}"
 
@@ -38,14 +38,14 @@ preview_urls = false
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
-CLOUDFLARE_ACCOUNT_ID = ""
-STAGING_TRIGGER_MAP = "{}"
+CLOUDFLARE_ACCOUNT_ID = "021233c1880a43aa68565496100e1f8c"
+STAGING_TRIGGER_MAP = "{\"web\":\"4fb45713-28f6-4c2d-a58f-b289dd120339\",\"catalog\":\"ea1bfb43-8196-4354-9617-a496dfdad1ab\",\"users\":\"ef72f050-6cc8-4e84-a878-c20f177b2451\",\"root\":\"edc85a40-68bb-4587-8ed1-ca3b3395e887\"}"
 PRODUCTION_TRIGGER_MAP = "{}"
 
 [[env.staging.secrets_store_secrets]]
 binding = "BUILDS_API_TOKEN"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
-secret_name = "BUILDS_API_TOKEN"
+secret_name = "BUILDS_API_TOKEN_STAGING"
 
 [env.production]
 name = "doorbell"
@@ -54,7 +54,7 @@ preview_urls = false
 
 [env.production.vars]
 ENVIRONMENT = "production"
-CLOUDFLARE_ACCOUNT_ID = ""
+CLOUDFLARE_ACCOUNT_ID = "021233c1880a43aa68565496100e1f8c"
 STAGING_TRIGGER_MAP = "{}"
 PRODUCTION_TRIGGER_MAP = "{}"
 

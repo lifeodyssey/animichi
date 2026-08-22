@@ -25,8 +25,10 @@ def assert_infra_job(jobs, label, infra_id)
 end
 
 def assert_catalog_no_pulumi(jobs, label, catalog_id)
-  abort "#{label}: #{catalog_id} must pass run_pulumi: false" \
-    unless jobs.fetch(catalog_id).fetch("with")["run_pulumi"] == false
+  job = jobs.fetch(catalog_id)
+  abort "#{label}: #{catalog_id} must call ring-doorbell" \
+    unless job["uses"].to_s.include?("reusable-ring-doorbell.yml")
+  abort "#{label}: doorbell catalog must not pass run_pulumi" if job.fetch("with").key?("run_pulumi")
 end
 
 def assert_publish_needs(jobs, label, publish, infra_id)
@@ -70,7 +72,7 @@ abort "empty PULUMI_BACKEND_URL must fail closed" unless infra_src.include?("ref
 up_env = infra_src.split("name: Pulumi up", 2)[1]
 abort "infra reusable must have a Pulumi up step" if up_env.nil?
 abort "Pulumi up must pass CLOUDFLARE_ACCOUNT_ID" unless up_env.include?("CLOUDFLARE_ACCOUNT_ID")
-puts "CI contract: #1074 infra split (catalog run_pulumi false; infra job applies main stack)"
+puts "CI contract: #1074 staging infra split (catalog rings doorbell; prod unsplit)"
 
 def expect_reject(label)
   begin
@@ -86,6 +88,11 @@ end
 expect_reject("catalog run_pulumi true") do
   copy = Marshal.load(Marshal.dump(ci_jobs))
   copy.fetch("deploy-staging").fetch("with")["run_pulumi"] = true
+  assert_staging_infra_split(copy, "mut")
+end
+expect_reject("catalog leaves doorbell") do
+  copy = Marshal.load(Marshal.dump(ci_jobs))
+  copy.fetch("deploy-staging")["uses"] = "./.github/workflows/reusable-deploy-component.yml"
   assert_staging_infra_split(copy, "mut")
 end
 expect_reject("publish job drops infra need") do

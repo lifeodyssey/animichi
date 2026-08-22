@@ -67,8 +67,19 @@ const adoptNoopHandler = http.post(ADOPT_URL, async ({ request }) => {
   return HttpResponse.json({ adopted: 0, noop_class: "no_rows" });
 });
 
+function neonSessionResponse(): ReturnType<typeof HttpResponse.json> {
+  // #1169: redeem uses getSession (GET /get-session, JWT in session.token
+  // and set-auth-jwt). Keep /token so a non-merged head still redeems.
+  return HttpResponse.json(
+    { session: { token: JWT }, user: { id: "u" } },
+    { headers: { "set-auth-jwt": JWT } },
+  );
+}
+
 const server = setupServer(
   http.get(`${NEON_AUTH}/token`, () => HttpResponse.json({ token: JWT })),
+  http.get(`${NEON_AUTH}/get-session`, neonSessionResponse),
+  http.get("/neondb/auth/get-session", neonSessionResponse),
   adoptHandler,
   adoptNoopHandler,
 );

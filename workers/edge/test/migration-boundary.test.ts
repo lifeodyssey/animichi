@@ -7,6 +7,33 @@ const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const MIGRATIONS = `${ROOT}migrations/neon/`;
 const read = (path: string): string => readFileSync(`${ROOT}${path}`, "utf8");
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const STAGING_APP_JOBS = [
+  "deploy-staging",
+  "deploy-web-staging",
+  "deploy-users-staging",
+  "deploy-root-staging",
+  "deploy-migrator-staging",
+] as const;
+const STAGING_DOORBELL_JOBS = [
+  "deploy-staging",
+  "deploy-web-staging",
+  "deploy-users-staging",
+  "deploy-root-staging",
+] as const;
+
+function nextJobIndex(lines: string[], start: number): number {
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:$/.test(lines[i] ?? "")) return i;
+  }
+  return lines.length;
+}
+
+function yamlJobSegment(source: string, id: string): string {
+  const lines = source.split(/\r?\n/);
+  const start = lines.findIndex((line) => line === `  ${id}:`);
+  assert.notEqual(start, -1, `ci.yml must contain a ${id} job`);
+  return lines.slice(start, nextJobIndex(lines, start)).join("\n");
+}
 
 void test("Atlas files are the only Neon migration authority", () => {
   const files = readdirSync(MIGRATIONS).filter((file) => file.endsWith(".sql")).sort();
@@ -76,69 +103,35 @@ void test("historical deployment notes cannot look like the current migration pa
   assert.match(deployment, /Historical Supabase schema event \(not a current apply\)/);
 });
 
-void test("STAGING: deploy workflows carry no Atlas and no database credential; schema-before-app", () => {
-  // #1052 (US-24/25): the staging path is "schema before app" - the migrator
-  // trigger (migrate-staging) is the ONLY applier of the committed chain, so the
-  // staging component deploys must contain NO Atlas invocation and NO database
-  // credential reference (NEON_DATABASE_URL / NEON_API_KEY). The reusable
-  // component keeps the Atlas path only for production (SAFE-1 pinned apply until
-  // #1055); its Atlas step is gated on the run_atlas input, and every staging
-  // caller passes run_atlas: false so it never runs for staging. The production
-  // assertions in the "CI and deploy workflows use Atlas" test above stay until
-  // #1055 removes them.
+void test("STAGING: component jobs carry no Atlas and no database credential", () => {
   const ci = read(".github/workflows/ci.yml");
-  const promotion = read(".github/workflows/reusable-deploy-component.yml");
-
-  const stagingComponentJobs = [
-    "deploy-staging",
-    "deploy-web-staging",
-    "deploy-users-staging",
-    "deploy-root-staging",
-    "deploy-migrator-staging",
-  ];
-
-  // Extract each job's YAML block from the raw ci.yml source by slicing from its
-  // two-space-indented header to the next two-space job header (or EOF).
-  const lines = ci.split(/\r?\n/);
-  const jobIndex = (id: string): number => lines.findIndex((l) => l === `  ${id}:`);
-  const segmentOf = (id: string): string => {
-    const start = jobIndex(id);
-    assert.notEqual(start, -1, `ci.yml must contain a ${id} job`);
-    let end = lines.length;
-    for (let i = start + 1; i < lines.length; i++) {
-      if (/^ {2}[a-zA-Z][a-zA-Z0-9_-]*:$/.test(lines[i] ?? "")) {
-        end = i;
-        break;
-      }
-    }
-    return lines.slice(start, end).join("\n");
-  };
-
-  for (const id of stagingComponentJobs) {
-    const seg = segmentOf(id);
+  for (const id of STAGING_APP_JOBS) {
+    const seg = yamlJobSegment(ci, id);
     assert.doesNotMatch(seg, /\batlas\b/i, `${id} must not invoke Atlas`);
     assert.doesNotMatch(seg, /NEON_DATABASE_URL/, `${id} must not reference NEON_DATABASE_URL`);
     assert.doesNotMatch(seg, /NEON_API_KEY/, `${id} must not reference NEON_API_KEY`);
-    // Every staging caller must flip the shared component's Atlas step off.
-    assert.match(seg, /run_atlas:\s*false/, `${id} must pass run_atlas: false`);
   }
+});
 
-  // The shared component ships the Atlas step ONLY behind run_atlas (default true
-  // for the production path). Removing the gate (or the input) must go red.
+void test("STAGING: app jobs ring doorbell; migrator keeps run_atlas false", () => {
+  const ci = read(".github/workflows/ci.yml");
+  const promotion = read(".github/workflows/reusable-deploy-component.yml");
+  for (const id of STAGING_DOORBELL_JOBS) {
+    const seg = yamlJobSegment(ci, id);
+    assert.match(seg, /reusable-ring-doorbell\.yml/, `${id} must ring doorbell`);
+    assert.doesNotMatch(seg, /run_atlas:/, `${id} must not pass run_atlas`);
+  }
+  assert.match(yamlJobSegment(ci, "deploy-migrator-staging"), /run_atlas:\s*false/);
   assert.match(promotion, /run_atlas:\s*\{\s*required:\s*false,\s*type:\s*boolean,\s*default:\s*true\s*}/);
-  const atlasStepGated = /- name: Atlas migrate[\s\S]*?if: \$\{\{ inputs\.run_atlas \}\}/.test(promotion);
-  assert.ok(atlasStepGated, "reusable-deploy-component.yml Atlas step must be gated on inputs.run_atlas");
+  assert.ok(/- name: Atlas migrate[\s\S]*?if: \$\{\{ inputs\.run_atlas \}\}/.test(promotion));
+});
 
-  // #1052 / #1051: the migrator trigger job must precede every component deploy in
-  // the needs-graph. This is also the failure-semantics assertion (AC): because each
-  // component deploy names migrate-staging in needs, a failed trigger step fails the
-  // trigger job and GitHub blocks every dependent component deploy - components are
-  // never deployed on a failed schema apply.
-  assert.ok(jobIndex("migrate-staging") !== -1, "ci.yml must contain a migrate-staging trigger job");
-  for (const id of ["deploy-staging", "deploy-web-staging", "deploy-users-staging", "deploy-root-staging"]) {
-    const seg = segmentOf(id);
-    const needsLine = seg.split(/\r?\n/).find((l) => l.trim().startsWith("needs:"));
-    assert.ok(needsLine, `${id} must declare a needs array`);
-    assert.match(needsLine, /migrate-staging/, `${id} must depend on migrate-staging (schema before app; failed trigger blocks this deploy)`);
+void test("STAGING: doorbell rings need migrate-staging (schema before app)", () => {
+  const ci = read(".github/workflows/ci.yml");
+  assert.match(ci, /^ {2}migrate-staging:$/m);
+  for (const id of STAGING_DOORBELL_JOBS) {
+    const needsLine = yamlJobSegment(ci, id).split(/\r?\n/).find((line) => line.trim().startsWith("needs:"));
+    assert.ok(needsLine, `${id} must declare needs`);
+    assert.match(needsLine, /migrate-staging/, `${id} must depend on migrate-staging`);
   }
 });
