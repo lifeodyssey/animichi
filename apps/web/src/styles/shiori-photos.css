@@ -1,0 +1,134 @@
+/* 対比図 surfaces of the しおり (grid, tile, hero, second strip); the ink/ground
+ * tokens they spend are declared on `.shiori-card` and inherit. */
+
+.shiori-grid {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.shiori-grid__cell {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.shiori-grid__overflow {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  /* 70%: the worst case is a white photo underneath, where the ink still
+   * reads 5.54:1. The canvas's .52 measures 3.47:1 there and fails AA. */
+  background: color-mix(in srgb, var(--shiori-export-ground) 70%, transparent);
+  color: var(--shiori-export-ink);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.shiori-tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 10px;
+  background: var(--color-paper);
+}
+
+.shiori-tile img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 8 / 9;
+  object-fit: cover;
+}
+
+.shiori-tile__caption {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 4px 8px;
+  background: var(--color-card);
+}
+
+.shiori-tile__scene {
+  min-width: 0;
+  color: var(--color-fg);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shiori-tile__time {
+  color: var(--color-muted-fg);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The hero is the composite plus its own cream foot bar — the canvas never
+ * floats the caption over the photo. */
+.shiori-hero {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.shiori-hero .shiori-tile {
+  min-height: 0;
+  border-bottom: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.shiori-hero .shiori-tile img {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.shiori-hero__caption {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0;
+  border: 1px solid var(--color-border-soft);
+  border-top: 0;
+  border-radius: 0 0 10px 10px;
+  padding: 5px 8px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.shiori-hero__counter {
+  flex-shrink: 0;
+  color: var(--color-muted-fg);
+  font-size: 0.6875rem;
+  font-weight: 800;
+}
+
+.shiori-second {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.shiori-second__note {
+  margin: 0;
+  color: var(--color-muted-fg);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
