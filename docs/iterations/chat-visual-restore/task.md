@@ -228,7 +228,7 @@ V1 仍是 generative UI —— registry(intent→组件)不变,变的只是挂�
 
 ### 9.1 CTA 层级:设计稿在这一点上是「旧屏未回刷」
 
-`docs/DESIGN.md` §142-143(動森キャンプ 视觉规范,CI-locked)**点名了具体按钮**:
+`docs/archive/design-sync/docs/DESIGN.md` §142-143(動森キャンプ 视觉规范,CI-locked)**点名了具体按钮**:
 
 > **Explore**: Pumpkin orange ≈ `#e8742e` — the primary marketing action color —
 > `Start Exploring`, `Save my route`, `Send login link`. …
