@@ -17,19 +17,11 @@ Copied from `frontend/public/images/landing/` (legacy frontend) at the apps/web 
 - Use: low-resolution scene reference for the anime-vs-real comparison
 - License: source license not confirmed
 
-## fox-peek.webp
-
-- Project-owned mascot artwork (fox guide v3 set); no external attribution required.
-
-## fox-welcome.webp
-
-- Project-owned mascot artwork (fox guide v3 set, from `docs/mockups/mobile-fox-home-assets/`);
-  no external attribution required.
-
-## shrine-approach.webp
-
-- Project-owned hand-drawn shrine-approach background (mobile fox home mockup set); webp re-encode
-  of `docs/mockups/mobile-fox-home-assets/shrine-approach.png`.
+> Removed 2026-08-22 with `MobileFoxHome`: `fox-welcome.webp` and `shrine-approach.webp`
+> (the component was their only consumer) plus `fox-peek.webp`, which had already lost
+> its last reference with the `.scene-card__fox` landing scene. All three were
+> project-owned artwork needing no external attribution, and the originals remain in
+> `docs/mockups/mobile-fox-home-assets/`.
 
 ---
 

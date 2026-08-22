@@ -29,6 +29,17 @@ describe("/chat route", () => {
     expect(await screen.findByText(leadBubbleWith(chatDictFor("ja").greeting))).toBeTruthy();
   });
 
+  it("releases the mobile splash once the route has actually rendered", async () => {
+    setLanguages(["ja"]);
+    server.use(healthzOkHandler);
+    const router = getRouter();
+    await router.navigate({ to: "/chat" });
+    expect(document.documentElement.hasAttribute("data-splash-release")).toBe(false);
+    render(<RouterProvider router={router} />);
+    await screen.findByText(leadBubbleWith(chatDictFor("ja").greeting));
+    expect(document.documentElement.hasAttribute("data-splash-release")).toBe(true);
+  });
+
   it("validates search params through parseChatSearch", async () => {
     server.use(healthzOkHandler);
     const router = getRouter();

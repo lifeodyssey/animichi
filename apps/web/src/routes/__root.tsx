@@ -11,6 +11,7 @@ import { NotFound } from "../components/NotFound";
 import { Splash } from "../components/Splash";
 import { THEME_BOOTSTRAP_SCRIPT } from "../components/theme-bootstrap";
 import { cfWebAnalyticsScripts } from "../features/seo/analytics";
+import { SPLASH_SCRIPTING_MARK_SCRIPT } from "../features/splash/splash-release";
 import { currentRuntimeConfig, RUNTIME_CONFIG_GLOBAL_KEY } from "../lib/runtime-config/provider";
 import { useFieldVitals } from "../features/telemetry/lib/use-field-vitals";
 import { SITE_ICON_LINKS, SITE_META } from "../features/seo/head";
@@ -68,11 +69,13 @@ const ROOT_META = [
   ...SITE_META,
 ];
 
-/** Pre-hydration theme init + the versioned runtime config seed (so browser
- * and SSR agree); the beacon joins only in PRODUCTION with a token (#1013). */
+/** Pre-hydration theme init, the splash scripting mark (so the mobile index
+ * splash only holds when JS can actually arrive), and the versioned runtime
+ * config seed; the beacon joins only in PRODUCTION with a token (#1013). */
 function rootScripts(config: ReturnType<typeof currentRuntimeConfig>) {
   return [
     { children: THEME_BOOTSTRAP_SCRIPT },
+    { children: SPLASH_SCRIPTING_MARK_SCRIPT },
     ...cfWebAnalyticsScripts(config.cfBeaconToken, import.meta.env.PROD),
   ];
 }
@@ -160,7 +163,7 @@ function RootDocument({ children }: RootDocumentProps) {
   return (
     <html lang={lang}>
       <head><HeadContent /></head>
-      <body><Splash dwell={isIndexMatch(matches)} /><SkipLink lang={lang} /><RuntimeConfigSeed /><div id="main-content" tabIndex={-1}>{children}</div><Scripts /></body>
+      <body><Splash hold={isIndexMatch(matches)} /><SkipLink lang={lang} /><RuntimeConfigSeed /><div id="main-content" tabIndex={-1}>{children}</div><Scripts /></body>
     </html>
   );
 }

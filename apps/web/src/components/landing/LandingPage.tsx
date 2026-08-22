@@ -8,7 +8,6 @@ import { ComingSoonPopup } from "./ComingSoonPopup";
 import { DayNightToggle } from "./DayNightToggle";
 import { Hero } from "./Hero";
 import { LandingDeco } from "./LandingDeco";
-import { MobileFoxHome } from "./MobileFoxHome";
 import { ToriiMark } from "./ToriiMark";
 
 const REPO_URL = "https://github.com/lifeodyssey/animichi";
@@ -151,8 +150,8 @@ function LandingFooter() {
   );
 }
 
-/** The wide-viewport landing surface: decor, nav bar, hero and footer. */
-function DesktopLanding({ entry }: { entry: EntryPoint }) {
+/** The landing surface: decor, nav bar, hero and footer. */
+function LandingSurface({ entry }: { entry: EntryPoint }) {
   return (
     <div className="landing__page">
       <LandingDeco />
@@ -163,12 +162,11 @@ function DesktopLanding({ entry }: { entry: EntryPoint }) {
   );
 }
 
-/** Marketing landing: journal-card hero on desktop, fox welcome on mobile (CSS-switched). */
+/** Marketing landing: one journal-card surface that reflows down to phone widths. */
 export function LandingPage() {
   const entry = useEntryPoint();
   return <main className="landing">
-    <DesktopLanding entry={entry} />
-    <MobileFoxHome onLogin={entry.openPlain} onStart={entry.openPlain} />
+    <LandingSurface entry={entry} />
     <DayNightToggle />
     <EntryGate entry={entry} />
   </main>;

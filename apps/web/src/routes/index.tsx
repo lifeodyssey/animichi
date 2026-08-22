@@ -18,9 +18,9 @@ function AuthedHome() {
   return <AppHome onSearch={makeSearchHandler((target) => { void navigate(target); })} />;
 }
 
-/** Owner 2026-08-21: the mobile splash hands `/` off to chat. `replace` is
- * required — a pushed entry would send Back to `/`, which would bounce the
- * visitor straight into chat again. */
+/** Owner 2026-08-22: the mobile index hands `/` off to chat as soon as the
+ * client takes over. `replace` is required — a pushed entry would send Back to
+ * `/`, which would bounce the visitor straight into chat again. */
 function useChatEntry(): () => void {
   const navigate = useNavigate();
   return useCallback(() => { void navigate({ to: "/chat", replace: true }); }, [navigate]);

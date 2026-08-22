@@ -263,30 +263,54 @@ button, input, select, textarea, [role="button"] {
   overflow: hidden;
   background: #f0e8d8;
   isolation: isolate;
-  animation: app-splash-dismiss 1ms step-end 320ms forwards;
-}
-
-@keyframes app-splash-dismiss {
-  from { opacity: 1; visibility: visible; pointer-events: auto; }
-  to { opacity: 0; visibility: hidden; pointer-events: none; }
+  animation: app-splash-dismiss 320ms step-end 320ms forwards;
 }
 
 /*
- * Owner 2026-08-21: on mobile the index route dwells on the splash and then
- * enters /chat. The real dismissal is the navigation itself — leaving `/` drops
- * the dwell attribute, the 320ms rule takes over and the splash is gone on the
- * very frame chat mounts, so the landing underneath is never exposed.
+ * The dismissal is one discrete step, but it is asserted over a range rather
+ * than at the animation's last instant. A two-keyframe from/to would put the
+ * hidden state exactly on the boundary, and Chrome's iteration progress lands a
+ * float epsilon short of 1 there (measured: 0.99999999999989 at a 3s delay), so
+ * step-end picks `from` and the splash stays up forever. Holding hidden from 1%
+ * to 100% — and therefore through the forwards fill too — removes the edge for
+ * every delay value.
+ */
+@keyframes app-splash-dismiss {
+  0% { opacity: 1; visibility: visible; pointer-events: auto; }
+  1%, 100% { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+
+/*
+ * Owner 2026-08-23: below 640px the index route is a doorway — it hands off to
+ * /chat on its first client effect. The splash must not lift on a clock: it
+ * lifts on the EVENT of chat having painted. Chat's first commit stamps
+ * `data-splash-release` on the document (features/splash/splash-release.ts),
+ * which drops the hold back to the plain delay. More than 320ms of the
+ * animation clock has always elapsed by then, so the step-end keyframe applies
+ * on the very frame chat paints — however slow the network or the CPU.
  *
- * This delay is therefore not the dwell; it is the "JavaScript never arrived"
- * bail-out. It has to outlast hydration + the 1500ms dwell, because the JS timer
- * only starts once React hydrates while this clock starts at stylesheet apply —
- * measured at ~3.2s on a cold dev server, where a 1800ms bail-out uncovered
- * MobileFoxHome for over a second. 4000ms clears that with margin and still puts
- * a hard bound on a scripting-disabled visitor's wait.
+ * The hold itself is gated on `data-splash-scripting`, stamped before first
+ * paint by an inline script. With scripting disabled the hold never applies at
+ * all, so those visitors get the plain 320ms splash over the landing and never
+ * wait on a hand-off that can no longer happen.
+ *
+ * The remaining 30s is therefore not a dwell and not the normal exit: it is the
+ * bail-out for the one case neither mark covers — scripting enabled but
+ * hydration or the chat chunk never arriving at all. Measured on a throttled
+ * production build (200kbps + 150ms RTT, CPU 1x/4x/8x) chat paints at
+ * 15.7s/17.5s/17.6s, so anything near ten seconds loses the race against a
+ * merely slow client and re-opens the flash. 30s clears the slowest of those by
+ * ~1.7x and still bounds a broken client's wait, after which the landing
+ * underneath — plain SSR HTML, fully usable — renders normally.
  */
 @media (max-width: 640px) {
-  .app-splash[data-splash-dwell="mobile"] {
-    animation-delay: 4000ms;
+  [data-splash-scripting] .app-splash[data-splash-hold="mobile"] {
+    animation-delay: 30000ms;
+  }
+
+  /* Source order matters: same specificity as the hold, so this must come after. */
+  [data-splash-release] .app-splash[data-splash-hold="mobile"] {
+    animation-delay: 320ms;
   }
 }
 

@@ -40,13 +40,6 @@ describe("LandingPage showcase wiring", () => {
     expect(screen.getByRole("dialog", { name: "ただいま準備中です" })).toBeTruthy();
   });
 
-  it("opens the popup from the mobile fox CTA when showcase is on", () => {
-    isShowcaseMock.mockReturnValue(true);
-    renderWithLocale(<LandingPage />);
-    act(() => { screen.getAllByRole("button", { name: "巡礼をはじめる" })[1]?.click(); });
-    expect(screen.getByRole("dialog", { name: "ただいま準備中です" })).toBeTruthy();
-  });
-
   it("closes the popup from its close control", () => {
     isShowcaseMock.mockReturnValue(true);
     renderWithLocale(<LandingPage />);
@@ -77,14 +70,6 @@ describe("LandingPage showcase-off passthrough", () => {
     isShowcaseMock.mockReturnValue(false);
     renderWithLocale(<LandingPage />);
     act(() => { screen.getByRole("button", { name: "響け！ユーフォニアム" }).click(); });
-    expect(screen.getByLabelText("メールアドレス")).toBeTruthy();
-    expect(screen.queryByRole("dialog", { name: "ただいま準備中です" })).toBeNull();
-  });
-
-  it("passes the mobile fox CTA through to the login modal when showcase is off", () => {
-    isShowcaseMock.mockReturnValue(false);
-    renderWithLocale(<LandingPage />);
-    act(() => { screen.getAllByRole("button", { name: "巡礼をはじめる" })[1]?.click(); });
     expect(screen.getByLabelText("メールアドレス")).toBeTruthy();
     expect(screen.queryByRole("dialog", { name: "ただいま準備中です" })).toBeNull();
   });

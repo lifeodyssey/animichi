@@ -24,7 +24,7 @@ describe("LandingPage", () => {
     renderWithLocale(<LandingPage />);
     expect(screen.getByText("FROM SCREEN TO STREET")).toBeTruthy();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("アニメのあのシーンを");
-    expect(screen.getAllByRole("button", { name: "巡礼をはじめる" }).length).toBe(2);
+    expect(screen.getAllByRole("button", { name: "巡礼をはじめる" }).length).toBe(1);
   });
 
   it("renders the two-tone brand wordmark in the bar", () => {
@@ -33,21 +33,9 @@ describe("LandingPage", () => {
     expect(screen.getByText("巡礼")).toBeTruthy();
   });
 
-  it("renders the mobile fox welcome section alongside the desktop hero", () => {
-    renderWithLocale(<LandingPage />);
-    expect(screen.getByRole("heading", { name: "聖地巡礼" })).toBeTruthy();
-    expect(screen.getByText("こっち！")).toBeTruthy();
-  });
-
   it("opens the login modal from the desktop search CTA", () => {
     renderWithLocale(<LandingPage />);
     act(() => { screen.getAllByRole("button", { name: "巡礼をはじめる" })[0]?.click(); });
-    expect(screen.getByRole("dialog")).toBeTruthy();
-  });
-
-  it("opens the login modal from the mobile fox CTA", () => {
-    renderWithLocale(<LandingPage />);
-    act(() => { screen.getAllByRole("button", { name: "巡礼をはじめる" })[1]?.click(); });
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
@@ -80,7 +68,7 @@ describe("LandingPage i18n", () => {
   it("renders all copy in English with no ja fallback leaking", () => {
     setLanguages(["en-US"]);
     renderWithLocale(<LandingPage />);
-    expect(screen.getAllByRole("button", { name: "Start Exploring" }).length).toBe(2);
+    expect(screen.getAllByRole("button", { name: "Start Exploring" }).length).toBe(1);
     expect(screen.getByText("FROM SCREEN TO STREET")).toBeTruthy();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Plan the real route behind an");
     expect(screen.getByText("Ani")).toBeTruthy();

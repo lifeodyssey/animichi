@@ -36,16 +36,29 @@ describe("static splash", () => {
   });
 
   it("dismisses within the 800ms budget without a JavaScript timer", () => {
-    const delay = /app-splash-dismiss 1ms step-end (\d+)ms forwards/.exec(styleSource)?.[1];
+    const delay = /app-splash-dismiss \d+ms step-end (\d+)ms forwards/.exec(styleSource)?.[1];
     expect(Number(delay)).toBeGreaterThan(0);
     expect(Number(delay)).toBeLessThanOrEqual(400);
     expect(componentSource).not.toMatch(/setTimeout|setInterval|requestAnimationFrame/);
   });
 
-  it("marks the dwelling index splash and leaves every other route bare", () => {
-    const { container } = render(<Splash dwell />);
-    expect(container.querySelector('[data-splash-dwell="mobile"]')).toBeTruthy();
+  /**
+   * Regression guard for the boundary bug found on 2026-08-23: with a plain
+   * from/to pair the hidden state exists only at the animation's last instant,
+   * where Chrome's progress lands an epsilon below 1 and step-end picks `from`
+   * instead — the splash then never lifts. The hidden keyframe must therefore
+   * start before 100% and run to it.
+   */
+  it("asserts the hidden state over a range, not on the final instant", () => {
+    const frames = /@keyframes app-splash-dismiss \{([^}]*\}[^}]*)\}/.exec(styleSource)?.[1] ?? "";
+    expect(frames).toMatch(/\n\s*1%,\s*100% \{[^}]*visibility: hidden/);
+    expect(frames).not.toMatch(/\bto \{/);
+  });
+
+  it("marks the held index splash and leaves every other route bare", () => {
+    const { container } = render(<Splash hold />);
+    expect(container.querySelector('[data-splash-hold="mobile"]')).toBeTruthy();
     const bare = render(<Splash />);
-    expect(bare.container.querySelector("[data-splash-dwell]")).toBeNull();
+    expect(bare.container.querySelector("[data-splash-hold]")).toBeNull();
   });
 });
