@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { buildContainerEnvVars } from "../src/container/container-env.ts";
+import { buildContainerEnvVars, resolveContainerEnvVars } from "../src/container/container-env.ts";
 
 function requiredEnv(): Record<string, string> {
   return { DEEPSEEK_API_KEY: "k", MIMO_API_KEY: "k", SUPABASE_DB_URL: "postgres://x", APP_ENV: "development" };
@@ -38,4 +38,24 @@ void test("photo-search quota settings reach the container", () => {
 void test("entry.ts re-exports ContainerProxy from @cloudflare/containers", () => {
   const entrySource = readFileSync(new URL("../src/entry.ts", import.meta.url).pathname, "utf8");
   assert.match(entrySource, /export\s*\{\s*ContainerProxy\s*\}\s*from\s*["']@cloudflare\/containers["']/);
+});
+
+void test("entry.ts hydrates Secrets Store env before container start (#1157)", () => {
+  const entrySource = readFileSync(new URL("../src/entry.ts", import.meta.url).pathname, "utf8");
+  assert.match(entrySource, /resolveContainerEnvVars/);
+  assert.match(entrySource, /override async start\(/);
+  assert.match(entrySource, /override async startAndWaitForPorts\(/);
+});
+
+void test("resolveContainerEnvVars omits absent AGENT_SVC_DATABASE_URL (#1157)", async () => {
+  const environmentVars = await resolveContainerEnvVars(requiredEnv());
+  assert.equal("AGENT_SVC_DATABASE_URL" in environmentVars, false);
+});
+
+void test("resolveContainerEnvVars omits an empty store AGENT_SVC_DATABASE_URL (#1157)", async () => {
+  const environmentVars = await resolveContainerEnvVars({
+    ...requiredEnv(),
+    AGENT_SVC_DATABASE_URL: { get: () => Promise.resolve("") },
+  });
+  assert.equal("AGENT_SVC_DATABASE_URL" in environmentVars, false);
 });
