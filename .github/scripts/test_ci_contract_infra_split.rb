@@ -14,7 +14,8 @@ end
 
 def assert_no_path_skip(job, label)
   abort "#{label} must not declare paths" if job.key?("paths")
-  abort "#{label} must not path-filter the deploy lane" if job["if"].to_s.match?(/paths/)
+  cond = job["if"].to_s
+  abort "#{label} must not path-filter the deploy lane" if cond.match?(/paths|needs\.changes/)
 end
 
 def assert_infra_job(jobs, label, infra_id)
@@ -60,6 +61,12 @@ abort "infra reusable must not invoke Atlas" if infra_src.include?("atlas migrat
    CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY].each do |name|
   abort "infra reusable must declare #{name}" unless infra_src.include?(name)
 end
+export_at = infra_src.index("name: Pulumi stack export")
+up_at = infra_src.index("name: Pulumi up")
+abort "infra reusable must export the stack before Pulumi up" if export_at.nil? || up_at.nil? || export_at > up_at
+cp_at = infra_src.index("aws s3 cp")
+abort "infra reusable must upload the rollback backup before Pulumi up" if cp_at.nil? || cp_at > up_at
+abort "empty PULUMI_BACKEND_URL must fail closed" unless infra_src.include?("refusing to run pulumi up without a rollback snapshot")
 up_env = infra_src.split("name: Pulumi up", 2)[1]
 abort "infra reusable must have a Pulumi up step" if up_env.nil?
 abort "Pulumi up must pass CLOUDFLARE_ACCOUNT_ID" unless up_env.include?("CLOUDFLARE_ACCOUNT_ID")
@@ -89,5 +96,10 @@ end
 expect_reject("infra job path-filtered") do
   copy = Marshal.load(Marshal.dump(ci_jobs))
   copy.fetch("deploy-infra-staging")["if"] = "${{ needs.changes.outputs.paths }}"
+  assert_staging_infra_split(copy, "mut")
+end
+expect_reject("infra job skipped by changes output") do
+  copy = Marshal.load(Marshal.dump(ci_jobs))
+  copy.fetch("deploy-infra-staging")["if"] = "${{ needs.changes.outputs.infra == 'true' }}"
   assert_staging_infra_split(copy, "mut")
 end

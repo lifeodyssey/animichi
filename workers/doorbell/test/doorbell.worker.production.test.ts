@@ -64,4 +64,15 @@ describe("POST /builds — production pin gate", () => {
     expect(res.status).toBe(403);
     expect(builds.starts).toEqual([]);
   });
+
+  it("uses the production trigger map when only the sub anchor is present", async () => {
+    const { app, token, builds } = await makeApp({}, { ...PRODUCTION_CLAIMS, environment: "" });
+    const res = await app.request(
+      post({ component: "catalog", commit: PINNED_REVISION }, token),
+      {},
+      testEnv(),
+    );
+    expect(res.status).toBe(200);
+    expect(builds.starts).toEqual([{ triggerId: "trig-catalog-prd", commit: PINNED_REVISION }]);
+  });
 });

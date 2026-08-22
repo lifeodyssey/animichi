@@ -8,9 +8,6 @@ export default defineConfig({
     coverage: {
       provider: "istanbul",
       include: ["src/**/*.ts"],
-      // live-builds.ts is the Cloudflare Builds HTTP adapter (verified
-      // against the real API by the deploy smoke; tests never call it).
-      exclude: ["src/live-builds.ts"],
       reporter: ["text", "lcov"],
       thresholds: { lines: 80, functions: 75, statements: 80, branches: 55 },
     },

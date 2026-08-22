@@ -33,16 +33,25 @@ function resultOf(envelope: unknown): Record<string, unknown> | null {
   return isRecord(envelope) && isRecord(envelope.result) ? envelope.result : null;
 }
 
+function stringField(record: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return undefined;
+}
+
 function buildIdOf(envelope: unknown): string {
   const result = resultOf(envelope);
-  if (result === null || typeof result.id !== "string") throw new Error("unexpected Builds API envelope");
-  return result.id;
+  const id = result === null ? undefined : stringField(result, ["id", "build_uuid"]);
+  if (id === undefined) throw new Error("builds api unavailable");
+  return id;
 }
 
 function statusOf(envelope: unknown, buildId: string): BuildStatus {
   const result = resultOf(envelope);
-  const status = result !== null && typeof result.status === "string" ? result.status : "unknown";
-  const outcome = result !== null && typeof result.outcome === "string" ? result.outcome : undefined;
+  const status = result === null ? "unknown" : (stringField(result, ["status"]) ?? "unknown");
+  const outcome = result === null ? undefined : stringField(result, ["outcome", "build_outcome"]);
   return outcome === undefined ? { id: buildId, status } : { id: buildId, status, outcome };
 }
 

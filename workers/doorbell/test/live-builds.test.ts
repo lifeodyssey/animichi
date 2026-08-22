@@ -25,4 +25,28 @@ describe("live Builds client", () => {
       liveBuildsClient(testEnv()).start({ triggerId: "trig", commit: "abc" }),
     ).rejects.toThrow(/builds api unavailable/);
   });
+
+  it("accepts documented build_uuid on start", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(jsonResponse(200, { result: { build_uuid: "build-uuid-1" } }))),
+    );
+    await expect(
+      liveBuildsClient(testEnv()).start({ triggerId: "trig", commit: "abc" }),
+    ).resolves.toEqual({ buildId: "build-uuid-1" });
+  });
+
+  it("accepts documented build_outcome on status", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(jsonResponse(200, { result: { status: "completed", build_outcome: "success" } })),
+      ),
+    );
+    await expect(liveBuildsClient(testEnv()).status("build-1")).resolves.toEqual({
+      id: "build-1",
+      status: "completed",
+      outcome: "success",
+    });
+  });
 });

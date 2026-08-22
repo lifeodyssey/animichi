@@ -66,6 +66,7 @@ void test("doorbell wrangler.toml bindings are Builds-token-shaped only", () => 
   const toml = read("workers/doorbell/wrangler.toml");
   assert.doesNotMatch(toml, migratorSecretRegex);
   assert.doesNotMatch(toml, /DATABASE_URL/);
+  assert.doesNotMatch(toml, /CLOUDFLARE_API_TOKEN/);
   assert.match(toml, /BUILDS_API_TOKEN/);
 });
 

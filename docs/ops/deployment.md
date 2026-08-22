@@ -442,8 +442,10 @@ On a push to `main`, the current promotion chain is:
    **migrator trigger** (`migrate-staging` in ci.yml, step 0) BEFORE any component deploy, so a
    staging deployment never holds the database credential. **Production** callers keep
    `run_atlas` on and the pinned per-component Atlas apply (`NEON_DATABASE_URL` present) until
-   #1055 removes it. The component deploys `workers/${{ inputs.component }}` with Wrangler
-   and runs the component smoke step — it does not run `pulumi up` (#1074).
+   #1055 removes it. The component deploys from `inputs.working_directory` with Wrangler
+   (catalog/users under `workers/`, web at `apps/web`, root at the repo with
+   `workers/edge/wrangler.toml`) and runs the component smoke step — it does not run
+   `pulumi up` (#1074).
 5. the web, users, and root staging deploys complete in the same promotion stage.
 6. `post-staging` runs the API post-deploy suite against staging, including the **migration
    ledger-head smoke** (#1052 AC5): it reads the migrator's read-only `/ledger-head` endpoint and

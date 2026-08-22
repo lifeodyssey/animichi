@@ -6,7 +6,7 @@ import {
   type GitHubOidcVerifier,
 } from "@animichi/contract/oidc-github";
 import type { BuildsClient } from "./builds";
-import { commitEligible } from "./commit";
+import { commitEligible, triggerEnvironment } from "./commit";
 import { bearerToken, parseStartBody, type StartBody } from "./http";
 import { releaseManifestPinReader, type PinReader } from "./pin";
 import {
@@ -72,7 +72,7 @@ async function handleStartBody(c: Context<{ Bindings: Env }>, deps: DoorbellDeps
   if (isBannedComponent(body.component)) return c.json({ error: "self-publish forbidden" }, 403);
   const builds = deps.builds;
   if (builds === undefined) return c.json({ error: "builds client not configured" }, 503);
-  const triggerId = triggerIdFor(mapForEnvironment(c.env, claims.environment), body.component);
+  const triggerId = triggerIdFor(mapForEnvironment(c.env, triggerEnvironment(claims)), body.component);
   if (triggerId === null) return c.json({ error: "unknown component" }, 404);
   return startBuild(c, builds, deps, claims, body, triggerId);
 }

@@ -18,6 +18,7 @@ describe("doorbell bindings are Builds-token-shaped only", () => {
     const toml = read("../wrangler.toml");
     expect(toml).not.toContain("MIGRATOR_DATABASE_URL");
     expect(toml).not.toContain("DATABASE_URL");
+    expect(toml).not.toContain("CLOUDFLARE_API_TOKEN");
     expect(toml).toContain("BUILDS_API_TOKEN");
   });
 

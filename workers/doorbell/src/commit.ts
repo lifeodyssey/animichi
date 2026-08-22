@@ -24,6 +24,11 @@ export async function productionCommitEligible(
   return pin !== null && pin.length > 0 && pin === commit;
 }
 
+export function triggerEnvironment(claims: GitHubOidcClaims): string | undefined {
+  if (isProductionAnchor(claims)) return "production";
+  return claims.environment;
+}
+
 export async function commitEligible(
   claims: GitHubOidcClaims,
   commit: string,
