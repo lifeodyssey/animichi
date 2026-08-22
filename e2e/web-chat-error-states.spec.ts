@@ -71,7 +71,7 @@ test("D1 recognition failure renders the apology card with suggestion chips", as
   await send(page, "知らない作品");
   await expect(page.getByText(states.d1Title)).toBeVisible();
   await expect(page.getByText(states.d1Subtitle)).toBeVisible();
-  await expect(page.getByRole("button", { name: ja.chips[0] })).toBeVisible();
+  await expect(page.getByRole("button", { name: ja.chips[0].text })).toBeVisible();
 });
 
 test("D2 zero spots renders the no-spots copy with recommendations", async ({ page }) => {
@@ -79,7 +79,7 @@ test("D2 zero spots renders the no-spots copy with recommendations", async ({ pa
   await openChat(page);
   await send(page, "マイナー作品");
   await expect(page.getByText(states.d2Title)).toBeVisible();
-  await expect(page.getByRole("button", { name: ja.chips[1] })).toBeVisible();
+  await expect(page.getByRole("button", { name: ja.chips[1].text })).toBeVisible();
 });
 
 test("D3 short route keeps the spot cards and proposes widening", async ({ page }) => {

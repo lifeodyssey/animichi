@@ -99,14 +99,30 @@ const enTurnstile: ChatTurnstileDict = {
   retry: "Try again",
 };
 
+/**
+ * What a cold-start chip IS, which is what the design colours it by: an
+ * `example` demonstrates how to ask and is drawn as plain paper, because its
+ * content is a sample sentence rather than a feature; `nearbySearch` is a door
+ * into a capability and wears that capability's tone. Kind travels with the
+ * copy so the tone can never drift away from the meaning again.
+ */
+export type ChatChipKind = "example" | "nearbySearch";
+
+export interface ChatChip {
+  readonly text: string;
+  readonly kind: ChatChipKind;
+}
+
 /** Chat-page copy, kept feature-local to avoid the shared dictionary hot file. */
 export interface ChatDict {
   readonly greeting: string;
+  /** Phrases the lead bubble sets in bold, in the order they appear. */
+  readonly greetingEmphasis: readonly string[];
   /** A1 hero headline above the greeting bubble (design spec: empty-state hero). */
   readonly heroTitle: string;
   /** Label introducing the example chips. */
   readonly chipsLabel: string;
-  readonly chips: readonly [string, string, string];
+  readonly chips: readonly [ChatChip, ChatChip, ChatChip];
   readonly inputPlaceholder: string;
   /** G4: the placeholder while a turn is running — the field stays open. */
   readonly busyPlaceholder: string;
@@ -179,13 +195,14 @@ const enToolSteps: ChatToolStepsDict = {
 };
 
 const ja: ChatDict = {
-  greeting: "アニミチだよ。どのアニメの聖地をめぐってみたい?",
+  greeting: "ようこそ、アニミチへ。行きたいアニメの聖地を教えてね。作品名・駅名・シーンの写真、どれでも大丈夫だよ。",
+  greetingEmphasis: ["アニミチ", "作品名・駅名・シーンの写真"],
   heroTitle: "どの聖地へ行きますか?",
   chipsLabel: "こんな風に聞けます",
   chips: [
-    "響け!ユーフォニアムの聖地",
-    "君の名は。のルートを組んで",
-    "近くの聖地をさがして",
+    { text: "響け!ユーフォニアムの聖地", kind: "example" },
+    { text: "君の名は。のルートを組んで", kind: "example" },
+    { text: "近くの聖地をさがして", kind: "nearbySearch" },
   ],
   inputPlaceholder: "作品名やエリアを話しかけてね…",
   busyPlaceholder: "考え中…",
@@ -215,10 +232,15 @@ const ja: ChatDict = {
 };
 
 const zh: ChatDict = {
-  greeting: "我是 Animichi。想去哪部作品的圣地巡礼?",
+  greeting: "欢迎来到 Animichi。告诉我你想去哪部作品的圣地吧。作品名、车站名、场景截图,哪一种都可以。",
+  greetingEmphasis: ["Animichi", "作品名、车站名、场景截图"],
   heroTitle: "想去哪个圣地?",
   chipsLabel: "可以这样问我",
-  chips: ["吹响吧!上低音号的圣地", "帮我规划你的名字。的路线", "找找附近的圣地"],
+  chips: [
+    { text: "吹响吧!上低音号的圣地", kind: "example" },
+    { text: "帮我规划你的名字。的路线", kind: "example" },
+    { text: "找找附近的圣地", kind: "nearbySearch" },
+  ],
   inputPlaceholder: "告诉我作品名或想去的地区…",
   busyPlaceholder: "思考中…",
   send: "发送",
@@ -247,13 +269,14 @@ const zh: ChatDict = {
 };
 
 const en: ChatDict = {
-  greeting: "I'm Animichi. Which anime's real-world spots shall we visit?",
+  greeting: "Welcome to Animichi. Tell me which anime's spots you'd like to walk. A title, a station, or a screenshot — any of them works.",
+  greetingEmphasis: ["Animichi", "A title, a station, or a screenshot"],
   heroTitle: "Which spot shall we visit?",
   chipsLabel: "Try asking like this",
   chips: [
-    "Hibike! Euphonium spots",
-    "Plan a Your Name. route",
-    "Find spots near me",
+    { text: "Hibike! Euphonium spots", kind: "example" },
+    { text: "Plan a Your Name. route", kind: "example" },
+    { text: "Find spots near me", kind: "nearbySearch" },
   ],
   inputPlaceholder: "Tell me a title or an area…",
   busyPlaceholder: "Thinking…",

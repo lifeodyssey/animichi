@@ -16,7 +16,7 @@ describe("nook tri-color chip tiles", () => {
 
 describe("P5 save CTA: cream, so the single gold CTA stays reserved", () => {
   it("inherits the base chip's cream press style", () => {
-    expect(ruleDeclaration(chatCss, ".chat-chip", "background")).toBe("var(--color-card)");
+    expect(ruleDeclaration(chatCss, ".chat-chip", "background")).toBe("var(--color-paper)");
     expect(ruleDeclaration(chatCss, ".chat-chip", "color")).toBe("var(--color-fg)");
   });
 
