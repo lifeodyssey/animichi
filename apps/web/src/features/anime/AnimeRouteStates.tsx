@@ -1,3 +1,4 @@
+import "../../styles/anime.css";
 import { useQueryErrorResetBoundary } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -32,9 +33,9 @@ type ErrorCopyProps = Readonly<{ copy: AnimeCopy }>;
 
 function AnimeErrorActions({ copy, onRetry }: ErrorCopyProps & Readonly<{ onRetry: () => void }>) {
   return (
-    <p className="m-0 flex items-center justify-center gap-4">
-      <button type="button" className="home-link" onClick={onRetry}>{copy.errorRetry}</button>
-      <a className="home-link" href="/">{copy.errorHome}</a>
+    <p className="anime-actions">
+      <button type="button" className="anime-press" onClick={onRetry}>{copy.errorRetry}</button>
+      <a className="anime-press" href="/">{copy.errorHome}</a>
     </p>
   );
 }
@@ -53,7 +54,7 @@ export function AnimeErrorState() {
   const handleRetry = useRetry();
   const copy = animeCopyFor(useErrorLocale());
   return (
-    <main className="app-shell hero compact" aria-labelledby="anime-error-title">
+    <main className="app-shell hero compact anime-error" aria-labelledby="anime-error-title">
       <AnimeErrorHeading copy={copy} />
       <AnimeErrorActions copy={copy} onRetry={handleRetry} />
     </main>
@@ -62,10 +63,10 @@ export function AnimeErrorState() {
 
 export function AnimePendingState() {
   return (
-    <main role="status" aria-label="Loading" className="mx-auto grid max-w-3xl gap-6 px-4 py-8">
-      <div className="h-24 animate-pulse rounded-2xl bg-[var(--color-card)]" />
-      <div className="h-40 animate-pulse rounded-2xl bg-[var(--color-card)]" />
-      <div className="h-64 animate-pulse rounded-2xl bg-[var(--color-card)]" />
+    <main role="status" aria-label="Loading" className="anime-page">
+      <div className="anime-skeleton h-24" />
+      <div className="anime-skeleton h-40" />
+      <div className="anime-skeleton h-64" />
     </main>
   );
 }
