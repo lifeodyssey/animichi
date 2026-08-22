@@ -176,6 +176,8 @@ end
 
 def gate_checkpoints(pre_push_path)
   text = File.read(pre_push_path)
+  extra = File.join(File.dirname(pre_push_path), "pre-push-worker-gates.sh")
+  text += File.read(extra) if File.exist?(extra)
   found = []
   text.scan(/^gate_(\w+)\(\) \{([\s\S]*?)^\}/) do |_pkg, body|
     found.concat(gate_body_fps(body))

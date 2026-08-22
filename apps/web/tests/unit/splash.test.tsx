@@ -41,4 +41,11 @@ describe("static splash", () => {
     expect(Number(delay)).toBeLessThanOrEqual(400);
     expect(componentSource).not.toMatch(/setTimeout|setInterval|requestAnimationFrame/);
   });
+
+  it("marks the dwelling index splash and leaves every other route bare", () => {
+    const { container } = render(<Splash dwell />);
+    expect(container.querySelector('[data-splash-dwell="mobile"]')).toBeTruthy();
+    const bare = render(<Splash />);
+    expect(bare.container.querySelector("[data-splash-dwell]")).toBeNull();
+  });
 });

@@ -10,11 +10,15 @@ interface Feedback {
   text: string;
 }
 
+function isSdkError(status: FormStatus): status is { readonly error: string } {
+  return typeof status === "object";
+}
+
 function feedbackFor(auth: Auth, status: FormStatus, validation: ValidationKey | null): Feedback | null {
   if (validation) return { tone: "error", text: auth[validation] };
   if (status === "sent") return { tone: "status", text: auth.sent };
-  if (status === "error") return { tone: "error", text: auth.error };
   if (status === "not_configured") return { tone: "error", text: auth.not_configured };
+  if (isSdkError(status)) return { tone: "error", text: status.error };
   return null;
 }
 

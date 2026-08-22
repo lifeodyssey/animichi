@@ -24,8 +24,9 @@ import type { ChatSession } from "../use-chat-session";
 import type { TurnstileChallenge } from "../use-turnstile-challenge";
 import { useTurnTiming } from "../use-turn-timing";
 
-/** The chat-page frame: ChatPage assembles the four regions it owns. */
+/** The chat-page frame: ChatPage assembles the five regions it owns. */
 export type ChatShellProps = Readonly<{
+  appbar: ReactNode;
   notices: ReactNode;
   body: ReactNode;
   dock: ReactNode;
@@ -107,16 +108,16 @@ export function ScrollAnchor({ count }: Readonly<{ count: number }>) {
   return <div ref={ref} aria-hidden="true" />;
 }
 
-/** Owns the page frame: notices above the chat body, dock and composer below. */
-export function ChatShell({ notices, body, dock, composer }: ChatShellProps) {
-  return (
-    <main className="chat-page">
-      {notices}
-      <section className="chat-body">{body}</section>
-      {dock}
-      {composer}
-    </main>
-  );
+/** Owns the page frame: the appbar and notices above the chat body, the dock
+ * rail and the composer below. */
+export function ChatShell({ appbar, notices, body, dock, composer }: ChatShellProps) {
+  return <main className="chat-page">
+    {appbar}
+    {notices}
+    <section className="chat-body">{body}</section>
+    <div className="chat-dock">{dock}</div>
+    {composer}
+  </main>;
 }
 
 /** C2t chips render only while a route request is held for departure info. */

@@ -152,3 +152,20 @@ export function contrastRatio(first: string, second: string): number {
   const darker = Math.min(relativeLuminance(first), relativeLuminance(second));
   return (lighter + 0.05) / (darker + 0.05);
 }
+
+function channelAt(from: string, to: string, index: number, position: number): number {
+  const pair = [from, to].map((hex) => Number.parseInt(normalizeHex(hex).slice(1 + index * 2, 3 + index * 2), 16));
+  const [start = 0, end = 0] = pair;
+  return Math.round(start + (end - start) * position);
+}
+
+/** The colour a two-stop sRGB gradient shows at `position` (0 = from, 1 = to). */
+export function gradientStop(from: string, to: string, position: number): string {
+  const channels = [0, 1, 2].map((index) => channelAt(from, to, index, position));
+  return `#${channels.map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** The token names a declaration spends, in the order it spends them. */
+export function referencedTokens(declaration: string): readonly string[] {
+  return [...declaration.matchAll(/var\((--[\w-]+)\)/gu)].map((match) => match[1] ?? "");
+}

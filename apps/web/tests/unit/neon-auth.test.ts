@@ -1,18 +1,21 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createAuthClient, jwtClient, magicLink, token } = vi.hoisted(() => ({
+const { createAuthClient, BetterAuthVanillaAdapter, magicLink, getSession } = vi.hoisted(() => ({
   createAuthClient: vi.fn(),
-  jwtClient: vi.fn(() => ({ id: "jwt" })),
+  BetterAuthVanillaAdapter: vi.fn(() => vi.fn()),
   magicLink: vi.fn(),
-  token: vi.fn(),
+  getSession: vi.fn(),
 }));
 
-vi.mock("better-auth/client", () => ({
-  createAuthClient,
-}));
-vi.mock("better-auth/client/plugins", () => ({ jwtClient, magicLinkClient: () => ({}) }));
+vi.mock("@neondatabase/auth", () => ({ createAuthClient }));
+vi.mock("@neondatabase/auth/vanilla", () => ({ BetterAuthVanillaAdapter }));
 
-import { fetchAuthToken, isNeonAuthConfigured, sendMagicLink } from "../../src/lib/auth/neon-auth";
+import {
+  fetchAuthToken, isNeonAuthConfigured, redeemAuthToken, sendMagicLink,
+} from "../../src/lib/auth/neon-auth";
 import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../src/lib/runtime-config/provider";
 import { DEFAULT_RUNTIME_CONFIG } from "../../src/lib/runtime-config/runtime-config";
 
@@ -23,7 +26,7 @@ beforeEach(() => {
   // machine's injected runtime config) so "unset" cases don't false-red. The
   // value now lives in the versioned runtime config global (#1013 AC1).
   vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
-  createAuthClient.mockReturnValue({ signIn: { magicLink }, token });
+  createAuthClient.mockReturnValue({ signIn: { magicLink }, getSession });
 });
 
 afterEach(() => {
@@ -43,9 +46,6 @@ describe("neon auth magic link", () => {
   });
 
   it("treats an unset base URL as unconfigured", () => {
-    // An explicitly-empty value is rejected at load by the runtime-config
-    // schema (fail-closed, covered by the loader's tests); an ABSENT field is
-    // the documented "auth not configured" shape.
     vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
     expect(isNeonAuthConfigured()).toBe(false);
   });
@@ -57,16 +57,16 @@ describe("neon auth magic link", () => {
     expect(magicLink).toHaveBeenCalledWith(request);
   });
 
-  it("returns error when the client responds with an error envelope", async () => {
+  it("returns the SDK error.message from an error envelope", async () => {
     configure();
     magicLink.mockResolvedValue({ data: null, error: { message: "boom" } });
-    expect(await sendMagicLink(request)).toBe("error");
+    expect(await sendMagicLink(request)).toEqual({ error: "boom" });
   });
 
-  it("returns error when the client rejects", async () => {
+  it("returns the thrown error.message when the client rejects", async () => {
     configure();
     magicLink.mockRejectedValue(new Error("network"));
-    expect(await sendMagicLink(request)).toBe("error");
+    expect(await sendMagicLink(request)).toEqual({ error: "network" });
   });
 });
 
@@ -75,32 +75,45 @@ describe("fetchAuthToken", () => {
     expect(await fetchAuthToken()).toBeUndefined();
   });
 
-  it("returns the JWT from a signed-in session's /token response", async () => {
+  it("returns the JWT the SDK injects into getSession's session.token", async () => {
     configure();
-    token.mockResolvedValue({ data: { token: "jwt-xyz" }, error: null });
+    getSession.mockResolvedValue({ data: { session: { token: "jwt-xyz" } }, error: null });
     expect(await fetchAuthToken()).toBe("jwt-xyz");
   });
 
-  it("uses jwtClient with cross-origin credentials included", async () => {
+  it("builds the Neon Auth client with cross-origin credentials included", async () => {
     configure();
-    token.mockResolvedValue({ data: { token: "jwt-xyz" }, error: null });
+    getSession.mockResolvedValue({ data: { session: { token: "jwt-xyz" } }, error: null });
     await fetchAuthToken();
-    expect(jwtClient).toHaveBeenCalledTimes(1);
-    expect(createAuthClient).toHaveBeenCalledWith(expect.objectContaining({
-      baseURL: "https://auth.test/neondb/auth",
+    expect(BetterAuthVanillaAdapter).toHaveBeenCalledWith({
       fetchOptions: { credentials: "include" },
-    }));
+    });
+    expect(createAuthClient.mock.calls[0]?.[0]).toBe("https://auth.test/neondb/auth");
   });
 
-  it("returns undefined when jwtClient reports no session", async () => {
+  it("returns undefined when getSession reports no session", async () => {
     configure();
-    token.mockResolvedValue({ data: null, error: { status: 401 } });
+    getSession.mockResolvedValue({ data: null, error: null });
     expect(await fetchAuthToken()).toBeUndefined();
   });
 
-  it("returns undefined when jwtClient throws", async () => {
+  it("returns undefined when getSession throws", async () => {
     configure();
-    token.mockRejectedValue(new Error("network"));
+    getSession.mockRejectedValue(new Error("network"));
     expect(await fetchAuthToken()).toBeUndefined();
+  });
+});
+
+describe("redeemAuthToken", () => {
+  it("keeps the SDK error.message from a failed getSession envelope", async () => {
+    configure();
+    getSession.mockResolvedValue({ data: null, error: { message: "Unauthorized" } });
+    expect(await redeemAuthToken()).toEqual({ error: { message: "Unauthorized" } });
+  });
+
+  it("keeps the thrown error.message when getSession rejects", async () => {
+    configure();
+    getSession.mockRejectedValue(new Error("network"));
+    expect(await redeemAuthToken()).toEqual({ error: { message: "network" } });
   });
 });

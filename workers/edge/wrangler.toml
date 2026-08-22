@@ -38,18 +38,19 @@
 #                               unset (fails closed) until its branch is
 #                               provisioned (see infra/src/neon-auth.ts).
 #
-# Container runtime secrets (forwarded to Python backend). Production model
-# policy is MiMo-only (#684): MIMO_API_KEY is the one live model credential.
-# The DeepSeek and generic OpenAI-compat fallbacks stay wired but DISABLED
-# (settings.fallback_agent_model is empty; re-enabling is a config flip, not a
-# secret add) — so their keys remain provisioned, not deleted:
+# Container runtime secrets (forwarded to Python backend). Live model
+# credential is ZEN_GO_API_KEY (MiMo via opencode.ai/zen/go, #1160). MIMO_API_KEY
+# stays forwarded for rollback to api.xiaomimimo.com. The DeepSeek and generic
+# OpenAI-compat fallbacks stay wired but DISABLED (settings.fallback_agent_model
+# is empty; re-enabling is a config flip, not a secret add):
 #   SUPABASE_DB_URL            — postgres://... for asyncpg (legacy plane; still
 #                                the prod container DSN until the #855 cutover)
 #   AGENT_SVC_DATABASE_URL     — Neon agent_svc role DSN (staging, via the
 #                                Secrets Store binding below; forwarded into the
 #                                container and preferred over SUPABASE_DB_URL by
 #                                apps/agent settings, #912 follow-up)
-#   MIMO_API_KEY               — required primary model key (MiMo V2.5)
+#   ZEN_GO_API_KEY             — live primary model key (zen/go gateway)
+#   MIMO_API_KEY               — rollback key for api.xiaomimimo.com direct routing
 #   DEEPSEEK_API_KEY           — wired-but-disabled fallback model key (DeepSeek)
 #   (photo-search recognition rides the same chat model credentials above —
 #   #656 retired the standalone Gemini vision provider in favor of the main
@@ -395,9 +396,9 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 # #912 follow-up: the agent container's Neon role DSN comes from the
 # Cloudflare Secrets Store (secret AGENT_SVC_DATABASE_URL, provisioned by the
 # infra/neon-secrets Pulumi stack) instead of `wrangler secret put` in CI.
-# env.AGENT_SVC_DATABASE_URL is then a SecretsStoreSecret that
-# buildContainerEnvVars forwards into the container when set (it is NOT in
-# CONTAINER_REQUIRED_KEYS — production has no binding yet, #855 cutover).
+# env.AGENT_SVC_DATABASE_URL is a SecretsStoreSecret. RuntimeContainer unwraps
+# `.get()` via resolveContainerEnvVars before start (#1157). Not in
+# CONTAINER_REQUIRED_KEYS — production has no binding yet (#855 cutover).
 # Do NOT add AGENT_SVC_DATABASE_URL to `secrets.required` here: wrangler
 # rejects a name assigned to both a Secrets Store Secret binding and a Secret
 # binding; the binding's deploy-time store/secret validation is the fail-closed

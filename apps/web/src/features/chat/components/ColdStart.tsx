@@ -1,5 +1,5 @@
 import type { ChatDict } from "../i18n";
-import { FoxAvatar } from "./FoxAvatar";
+import { FOX_IMAGES } from "./FoxAvatar";
 
 type Props = Readonly<{
   dict: ChatDict;
@@ -18,20 +18,28 @@ function ExampleChips({ dict, onChip, disabled }: Props) {
   return <div className="chat-chips">{chips}</div>;
 }
 
-function FoxGreeting({ dict }: Readonly<{ dict: ChatDict }>) {
+function HeroFox({ alt }: Readonly<{ alt: string }>) {
   return (
-    <div className="chat-greeting">
-      <FoxAvatar pose="guide" alt={dict.foxAlt} />
-      <p className="chat-bubble chat-bubble--ai">{dict.greeting}</p>
-    </div>
+    <img className="chat-cold-start__fox" src={FOX_IMAGES.guide} alt={alt} width={108} height={108} />
   );
 }
 
-/** A1 cold start: fox greeting bubble + 3 nook tri-color example chips. */
+function ColdStartHero({ dict }: Readonly<{ dict: ChatDict }>) {
+  return (
+    <>
+      <HeroFox alt={dict.foxAlt} />
+      <h1 className="chat-cold-start__title">{dict.heroTitle}</h1>
+      <p className="chat-cold-start__lead">{dict.greeting}</p>
+      <p className="chat-cold-start__chips-label">{dict.chipsLabel}</p>
+    </>
+  );
+}
+
+/** A1 cold start: fox hero, lead bubble, and 3 nook tri-color example chips. */
 export function ColdStart(props: Props) {
   return (
     <div className="chat-cold-start">
-      <FoxGreeting dict={props.dict} />
+      <ColdStartHero dict={props.dict} />
       <ExampleChips {...props} />
     </div>
   );

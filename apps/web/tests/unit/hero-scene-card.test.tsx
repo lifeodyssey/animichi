@@ -15,10 +15,10 @@ describe("HeroSceneCard", () => {
     expect(screen.getByRole("slider", { name: "アニメと実写を比較するスライダー" })).toBeTruthy();
   });
 
-  it("perches the decorative fox on the card corner", () => {
+  it("leans the decorative fox over the card corner", () => {
     renderWithLocale(<HeroSceneCard />);
     const fox = document.querySelector("img.scene-card__fox");
-    expect(fox?.getAttribute("src")).toBe("/images/landing/fox-peek.webp");
+    expect(fox?.getAttribute("src")).toBe("/images/landing/fox/fox-lean.svg");
     expect(fox?.getAttribute("alt")).toBe("");
     expect(fox?.getAttribute("aria-hidden")).toBe("true");
   });

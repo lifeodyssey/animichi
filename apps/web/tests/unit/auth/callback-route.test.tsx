@@ -8,8 +8,11 @@ import { getRouter } from "../../../src/router";
 import { setLanguages } from "../_i18n";
 import { dictFor } from "../../../src/i18n/dictionaries";
 
-const { getAuthToken } = vi.hoisted(() => ({ getAuthToken: vi.fn() }));
-vi.mock("../../../src/lib/auth/auth-session", () => ({ getAuthToken }));
+const { establishAuthSession } = vi.hoisted(() => ({ establishAuthSession: vi.fn() }));
+vi.mock("../../../src/lib/auth/auth-session", () => ({
+  establishAuthSession,
+  getAuthToken: () => Promise.resolve(undefined),
+}));
 
 const { replayDeferredSave } = vi.hoisted(() => ({ replayDeferredSave: vi.fn() }));
 vi.mock("../../../src/features/chat/save/complete-deferred-save", () => ({ replayDeferredSave }));
@@ -22,7 +25,7 @@ afterEach(() => {
 
 describe("/auth/callback route", () => {
   it("establishes the session and redirects home once a token is obtained", async () => {
-    getAuthToken.mockResolvedValue("jwt-callback");
+    establishAuthSession.mockResolvedValue("jwt-callback");
     const router = getRouter();
     await router.navigate({ to: "/auth/callback" });
     render(<RouterProvider router={router} />);
@@ -32,7 +35,7 @@ describe("/auth/callback route", () => {
   });
 
   it("returns to a validated relative next target once the session is established (#284 T8)", async () => {
-    getAuthToken.mockResolvedValue("jwt-callback");
+    establishAuthSession.mockResolvedValue("jwt-callback");
     const router = getRouter();
     await router.navigate({ to: "/auth/callback", search: { next: "/chat?settings=byok" } });
     render(<RouterProvider router={router} />);
@@ -45,7 +48,7 @@ describe("/auth/callback route", () => {
   it.each(["https://evil.test/", "//evil.test", "/\\evil.test"])(
     "falls back to / for the T14 vector %j instead of redirecting off-origin",
     async (vector) => {
-      getAuthToken.mockResolvedValue("jwt-callback");
+      establishAuthSession.mockResolvedValue("jwt-callback");
       const router = getRouter();
       await router.navigate({ to: "/auth/callback", search: { next: vector } });
       render(<RouterProvider router={router} />);
@@ -56,7 +59,7 @@ describe("/auth/callback route", () => {
   );
 
   it("keeps today's behaviour for an empty next (navigate to /)", async () => {
-    getAuthToken.mockResolvedValue("jwt-callback");
+    establishAuthSession.mockResolvedValue("jwt-callback");
     const router = getRouter();
     await router.navigate({ to: "/auth/callback", search: { next: "   " } });
     render(<RouterProvider router={router} />);
@@ -65,6 +68,26 @@ describe("/auth/callback route", () => {
     });
   });
 
+});
+
+describe("/auth/callback route — Neon session verifier", () => {
+  it("keeps the Neon session verifier on the callback URL so the client can redeem it", async () => {
+    const router = getRouter();
+    establishAuthSession.mockImplementation(() => {
+      expect(router.state.location.search).toEqual(
+        expect.objectContaining({ neon_auth_session_verifier: "ml-abc" }),
+      );
+      return Promise.resolve("jwt-callback");
+    });
+    await router.navigate({
+      to: "/auth/callback",
+      search: { neon_auth_session_verifier: "ml-abc" },
+    });
+    render(<RouterProvider router={router} />);
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/");
+    });
+  });
 });
 
 describe("/auth/callback route — dual intent (#480 P1-2)", () => {
@@ -78,7 +101,7 @@ describe("/auth/callback route — dual intent (#480 P1-2)", () => {
    */
   it("holds the save-retry surface for a plain session return (#507 review P1-1)", async () => {
     setLanguages(["ja"]);
-    getAuthToken.mockResolvedValue("jwt-callback");
+    establishAuthSession.mockResolvedValue("jwt-callback");
     replayDeferredSave.mockResolvedValue("failed");
     const router = getRouter();
     await router.navigate({ to: "/auth/callback", search: { next: "/chat?session=sess-1" } });
@@ -89,7 +112,7 @@ describe("/auth/callback route — dual intent (#480 P1-2)", () => {
   });
 
   it("reaches the BYOK deep link even when the deferred-save replay failed", async () => {
-    getAuthToken.mockResolvedValue("jwt-callback");
+    establishAuthSession.mockResolvedValue("jwt-callback");
     replayDeferredSave.mockResolvedValue("failed");
     const router = getRouter();
     await router.navigate({ to: "/auth/callback", search: { next: "/chat?settings=byok" } });
@@ -101,14 +124,14 @@ describe("/auth/callback route — dual intent (#480 P1-2)", () => {
 });
 
 describe("/auth/callback route — failure", () => {
-  it("shows an on-brand error and does not redirect when no session was established", async () => {
+  it("shows the SDK error.message and does not redirect when sign-in failed", async () => {
     setLanguages(["ja"]);
-    getAuthToken.mockResolvedValue(undefined);
+    establishAuthSession.mockRejectedValue(new Error("INVALID_TOKEN"));
     const router = getRouter();
     await router.navigate({ to: "/auth/callback" });
     render(<RouterProvider router={router} />);
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toBeTruthy();
+      expect(screen.getByRole("alert").textContent).toBe("INVALID_TOKEN");
     });
     expect(router.state.location.pathname).toBe("/auth/callback");
   });

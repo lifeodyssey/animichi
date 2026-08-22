@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import chatCss from "../../src/styles/chat.css?raw";
 import globalsCss from "../../src/styles/globals.css?raw";
-import { normalizeHex, parseTokens, ruleDeclaration, tokenValue } from "./_token-helpers";
+import { normalizeHex, parseTokens, ruleDeclaration, tokenValue } from "./stylesheet-probe";
 
 const tokens = parseTokens(globalsCss);
 

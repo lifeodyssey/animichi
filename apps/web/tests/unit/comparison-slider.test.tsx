@@ -18,10 +18,10 @@ describe("ComparisonSlider", () => {
 
   it("shows the anime frame and the real photo with localized alt text", () => {
     renderWithLocale(<ComparisonSlider />);
-    const anime = screen.getByAltText("『君の名は。』須賀神社の階段のアニメカット");
-    const real = screen.getByAltText("須賀神社の階段の実写写真");
-    expect(anime.getAttribute("src")).toBe("/images/landing/suga-shrine-anime-source.webp");
-    expect(real.getAttribute("src")).toBe("/images/landing/suga-shrine-reality-perspective-v2.webp");
+    const anime = screen.getByAltText("『秒速5センチメートル』桜舞う踏切のアニメカット");
+    const real = screen.getByAltText("桜咲く実在の踏切の写真");
+    expect(anime.getAttribute("src")).toBe("/images/landing/compare/anime.jpg");
+    expect(real.getAttribute("src")).toBe("/images/landing/compare/real.jpg");
   });
 
   it("drives the reveal width from the range input", () => {

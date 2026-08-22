@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createAuthClient } from "better-auth/client";
+import { neonAuthClient } from "./neon-auth";
 import { currentRuntimeConfig } from "../runtime-config/provider";
 
 /** Root-route auth gate state; `pending` renders the anonymous Landing (S5.5). */
@@ -13,7 +13,7 @@ async function resolveAuthStatus(): Promise<AuthStatus> {
   const base = authBaseUrl();
   if (!base) return "anonymous";
   try {
-    const { data } = await createAuthClient({ baseURL: base }).getSession();
+    const { data } = await neonAuthClient(base).getSession();
     return data ? "authenticated" : "anonymous";
   } catch {
     return "anonymous";

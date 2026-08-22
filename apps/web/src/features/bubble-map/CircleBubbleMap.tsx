@@ -21,7 +21,7 @@ type BubbleProps = Readonly<{
 }>;
 
 const BUBBLE_CLASS =
-  "absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--color-border)] bg-[var(--color-primary)]/80 text-xs font-bold text-[var(--color-primary-fg)] shadow-md aria-pressed:ring-2 aria-pressed:ring-[var(--color-accent)]";
+  "absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--color-border)] bg-[var(--color-primary)]/80 text-xs font-bold text-[var(--color-primary-ink)] shadow-md aria-pressed:ring-2 aria-pressed:ring-[var(--color-accent)]";
 
 function bubbleStyle(placement: BubblePlacement): CSSProperties {
   const diameter = placement.radius * 2;

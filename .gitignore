@@ -163,3 +163,6 @@ test-results/
 
 # B8 PR-comment-debt scratch (round-2 re-evidence fetches; regenerable)
 /.tmp-b8/
+
+# Command Code workspace settings (tool-local, never shared)
+.commandcode/

@@ -118,7 +118,7 @@ describe("the modal reports a dispatched send to its caller", () => {
    * kept intent is bounded by consume-once + TTL while a cleared one is lost. */
   it("still reports a send that came back as an error", async () => {
     const onSendCommitted = vi.fn();
-    send.mockResolvedValue("error");
+    send.mockResolvedValue({ error: "rate limited" });
     renderWithLocale(<LoginModal open onClose={vi.fn()} onSendCommitted={onSendCommitted} />);
     fireEvent.change(screen.getByLabelText("メールアドレス"), { target: { value: "fan@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "ログインリンクを送信" }));

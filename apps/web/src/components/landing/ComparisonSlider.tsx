@@ -2,8 +2,8 @@ import type { CSSProperties, ChangeEvent } from "react";
 import { useState } from "react";
 import { useDict } from "../../i18n/LocaleProvider";
 
-const ANIME_SRC = "/images/landing/suga-shrine-anime-source.webp";
-const REAL_SRC = "/images/landing/suga-shrine-reality-perspective-v2.webp";
+const ANIME_SRC = "/images/landing/compare/anime.jpg";
+const REAL_SRC = "/images/landing/compare/real.jpg";
 
 interface Reveal {
   reveal: number;
@@ -42,7 +42,9 @@ function Pane({ variant, src, alt, label }: PaneProps) {
 function SliderOverlay() {
   return (<>
     <span className="comparison__seam" aria-hidden="true" />
-    <span className="comparison__handle" aria-hidden="true">‹›</span>
+    <span className="comparison__handle" aria-hidden="true">
+      <svg viewBox="0 0 12 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 2 1 7l3.5 5" /><path d="M7.5 2 11 7l-3.5 5" /></svg>
+    </span>
   </>);
 }
 

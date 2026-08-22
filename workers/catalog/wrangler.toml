@@ -108,23 +108,15 @@ ENVIRONMENT = "staging"
 [env.staging.triggers]
 crons = ["0 3 * * *"]
 
-# #1016 AC2: staging's daily import reads the PRODUCTION snapshot through this
-# private read-only service binding (the production catalog Worker's
-# SnapshotReadEntrypoint). Staging never holds production object-store
-# credentials or database access — only the SnapshotReadService read surface
-# (currentManifest + readObject) crosses this binding. The production Worker
-# script is named "catalog" (see [env.production].name).
-#
-# `entrypoint` is REQUIRED, not cosmetic: without it PROD_SNAPSHOT binds to the
-# worker's default export (a plain fetch/scheduled Fetcher) which has no
-# currentManifest()/readObject(), so the staging daily import would throw
-# "currentManifest is not a function" at runtime. The entrypoint pins the
-# binding to SnapshotReadEntrypoint and is asserted by
-# test/wrangler-private.worker.test.ts.
-[[env.staging.services]]
-binding = "PROD_SNAPSHOT"
-service = "catalog"
-entrypoint = "SnapshotReadEntrypoint"
+# #1016 AC2 / #1148: restore this binding when production Worker `catalog`
+# exists. Wrangler rejects deploy with 10143 if the target script is missing;
+# production catalog has never been deployed (apply frozen). Until then
+# snapshotSourceFor falls back to SNAPSHOT_BUCKET. `entrypoint` is required
+# on restore — without it the binding hits the default fetch export.
+# [[env.staging.services]]
+# binding = "PROD_SNAPSHOT"
+# service = "catalog"
+# entrypoint = "SnapshotReadEntrypoint"
 
 [[env.staging.r2_buckets]]
 binding = "MEDIA_BUCKET"

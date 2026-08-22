@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import type { Dict } from "../../i18n/dictionaries";
 import { useDict } from "../../i18n/LocaleProvider";
-import { LocaleSwitcher } from "../../i18n/LocaleSwitcher";
 import { isShowcase } from "../../features/config/showcase";
 import { LoginModal } from "../../features/auth/ui/LoginModal";
 import { chatSearchPath } from "../home/search-target";
 import { ComingSoonPopup } from "./ComingSoonPopup";
 import { DayNightToggle } from "./DayNightToggle";
 import { Hero } from "./Hero";
+import { LandingDeco } from "./LandingDeco";
 import { MobileFoxHome } from "./MobileFoxHome";
 import { ToriiMark } from "./ToriiMark";
 
@@ -77,22 +77,58 @@ function EntryGate({ entry }: { entry: EntryPoint }) {
   return <LoginModal open={entry.login.open} onClose={entry.login.closeAuth} returnTarget={entry.login.returnTarget} />;
 }
 
+function LoginIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M5 21a7 7 0 0 1 14 0" />
+    </svg>
+  );
+}
+
 function BarActions({ onLogin }: { onLogin: () => void }) {
   const landing = useDict().landing;
   return (
     <div className="landing__bar-actions">
-      <LocaleSwitcher />
-      <DayNightToggle />
-      <button className="landing__login" type="button" onClick={onLogin}>{landing.login}</button>
+      <button className="landing__login" type="button" onClick={onLogin}><LoginIcon />{landing.login}</button>
     </div>
   );
 }
 
-function LandingBar({ onLogin }: { onLogin: () => void }) {
+function BrandMark() {
+  return (
+    <span className="landing__brand-mark">
+      <img className="landing__brand-torii" src="/images/landing/torii.svg" alt="" width={50} height={50} />
+      <img className="landing__brand-fox" src="/images/landing/fox/fox-curious.svg" alt="" width={32} height={32} />
+    </span>
+  );
+}
+
+/** Two-tone lettering: plain ink first half, teal-block accent second half. */
+function LandingWordmark() {
   const landing = useDict().landing;
   return (
+    <span className="landing__wordmark">
+      <span className="landing__wordmark-pre">{landing.brand_pre}</span>
+      <span className="landing__wordmark-accent">{landing.brand_accent}</span>
+    </span>
+  );
+}
+
+/** Brand lockup: the torii/fox emblem beside the wordmark. */
+function LandingBrand() {
+  return (
+    <span className="landing__brand">
+      <BrandMark />
+      <LandingWordmark />
+    </span>
+  );
+}
+
+function LandingBar({ onLogin }: { onLogin: () => void }) {
+  return (
     <header className="landing__bar">
-      <span className="landing__wordmark"><ToriiMark size={24} />{landing.hero}</span>
+      <LandingBrand />
       <BarActions onLogin={onLogin} />
     </header>
   );
@@ -115,14 +151,25 @@ function LandingFooter() {
   );
 }
 
+/** The wide-viewport landing surface: decor, nav bar, hero and footer. */
+function DesktopLanding({ entry }: { entry: EntryPoint }) {
+  return (
+    <div className="landing__page">
+      <LandingDeco />
+      <LandingBar onLogin={entry.openPlain} />
+      <Hero onStart={entry.openSearch} />
+      <LandingFooter />
+    </div>
+  );
+}
+
 /** Marketing landing: journal-card hero on desktop, fox welcome on mobile (CSS-switched). */
 export function LandingPage() {
   const entry = useEntryPoint();
   return <main className="landing">
-    <LandingBar onLogin={entry.openPlain} />
-    <Hero onStart={entry.openSearch} />
+    <DesktopLanding entry={entry} />
     <MobileFoxHome onLogin={entry.openPlain} onStart={entry.openPlain} />
-    <LandingFooter />
+    <DayNightToggle />
     <EntryGate entry={entry} />
   </main>;
 }

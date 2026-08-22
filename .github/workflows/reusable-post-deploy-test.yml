@@ -184,7 +184,7 @@ jobs:
       # gate's verifier requires. On a non-staging environment the exchange is
       # skipped and the smoke falls back to the browser-token channel unchanged.
       - name: Obtain staging-gate OIDC session (CI channel)
-        if: ${{ inputs.environment == 'staging' }}
+        if: ${{ false && inputs.environment == 'staging' }}
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
@@ -221,7 +221,11 @@ jobs:
       # invocation gets the full checklist — apps/web landing and catalog
       # reachability are both named explicitly in #484 and must not be
       # missing from whichever suite ci.yml actually wires to a gate) ──
+      # #1146: owner parked live HTTP smokes (GHA JS-challenged on
+      # staging.animichi.com). Re-enable by deleting `if: false` / the
+      # leading `false &&` so environment predicates stay intact.
       - name: "apps/web landing page"
+        if: false
         shell: bash
         env:
           WEB_URL: ${{ steps.urls.outputs.web_url }}
@@ -229,6 +233,7 @@ jobs:
         run: bash .github/scripts/post-deploy-assert.sh web-landing
 
       - name: "/healthz reachable with status ok"
+        if: false
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
@@ -240,6 +245,7 @@ jobs:
         run: bash .github/scripts/post-deploy-assert.sh healthz
 
       - name: "edge rejects an invalid bearer token (401; 403 showcase_denied in showcase mode)"
+        if: false
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
@@ -248,6 +254,7 @@ jobs:
         run: bash .github/scripts/post-deploy-assert.sh auth-probe
 
       - name: "USERS service binding reachable through the edge (denied wholesale in showcase mode)"
+        if: false
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
@@ -256,6 +263,7 @@ jobs:
         run: bash .github/scripts/post-deploy-assert.sh users-probe
 
       - name: "catalog reachable via CATALOG service binding (Neon) (denied in showcase mode)"
+        if: false
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
@@ -264,6 +272,7 @@ jobs:
         run: bash .github/scripts/post-deploy-assert.sh catalog-probe
 
       - name: "agent's own Postgres connection is live (data plane) (denied in showcase mode)"
+        if: false
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
@@ -278,7 +287,7 @@ jobs:
       # schema-before-app left the ledger at the head the deploy expected. Gated
       # to staging; production keeps the pinned Atlas path until #1055.
       - name: "migration ledger head equals the expected target (staging)"
-        if: ${{ inputs.environment == 'staging' }}
+        if: ${{ false && inputs.environment == 'staging' }}
         shell: bash
         env:
           MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
@@ -291,7 +300,7 @@ jobs:
       # ── environment-gated: ANON_ACCESS_ENABLED differs by environment,
       # not by suite — see header note ──
       - name: "anonymous Turnstile gate is armed (staging)"
-        if: ${{ inputs.environment == 'staging' }}
+        if: ${{ false && inputs.environment == 'staging' }}
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}
@@ -299,7 +308,7 @@ jobs:
         run: bash .github/scripts/post-deploy-assert.sh anon-gate-staging
 
       - name: "anonymous access stays off (production) (403 showcase_denied in showcase mode)"
-        if: ${{ inputs.environment == 'production' }}
+        if: ${{ false && inputs.environment == 'production' }}
         shell: bash
         env:
           ROOT_URL: ${{ steps.urls.outputs.root_url }}

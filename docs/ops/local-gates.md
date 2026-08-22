@@ -22,6 +22,7 @@ Workspace members are **derived** from `pnpm-workspace.yaml` (directories matchi
 | `workers/users/` | users | oxlint | `tsc --noEmit` + `lint:oxlint` + `test:worker` + `wrangler deploy --dry-run` |
 | `workers/edge/` | edge | oxlint | `lint:oxlint` + `test:worker` + ratelimit-namespace check + production-config `wrangler deploy --dry-run` |
 | `workers/migrator/` | migrator | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (`pipeline-migrator.yml`; scripts from `workers/migrator/package.json`) |
+| `workers/doorbell/` | doorbell | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (`pipeline-doorbell.yml`; scripts from `workers/doorbell/package.json`) |
 | `packages/contract/` | contract | oxlint | `tsc --noEmit` + `test` + staged-snapshot OpenAPI drift (`contract-drift.sh`, mirrors CI) + agent-model regeneration drift |
 | `infra/` | infra | — | `typecheck` + `test` + credential-free Pulumi program-load (`infra-check.sh`) |
 | `e2e/` | e2e | — | registered no-op (Playwright stays in CI; an e2e-only change is not `all`) |
@@ -31,7 +32,7 @@ Workspace members are **derived** from `pnpm-workspace.yaml` (directories matchi
 | `docs/` | docs | — | doc-consistency subset (`test_secrets_docs_consistency.py` + `test_documentation_guardrails.py`) |
 | anything else / unknown | — | — | `all`: every package's full gate set (conservative fallback) |
 
-`packages/contract` is treated as changed whenever any of its consumers changed (contract is the cross-service source of truth) — the router unions: changed packages ∪ {contract if any agent/web/catalog/users/edge/migrator changed}.
+`packages/contract` is treated as changed whenever any of its consumers changed (contract is the cross-service source of truth) — the router unions: changed packages ∪ {contract if any agent/web/catalog/users/edge/migrator/doorbell changed}.
 
 ## Changed-package detection
 

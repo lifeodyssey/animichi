@@ -8,7 +8,7 @@ import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
 import { MessageList } from "../../../src/features/chat/components/MessageList";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import chatCss from "../../../src/styles/chat.css?raw";
-import { ruleDeclaration } from "../_token-helpers";
+import { ruleDeclaration } from "../stylesheet-probe";
 import { routePartRaw, ujiPoints } from "./_route-fixtures";
 
 afterEach(cleanup);

@@ -120,6 +120,17 @@ export function langFromMatches(matches: readonly LocaleBearingMatch[]): Locale 
   return DEFAULT_LOCALE;
 }
 
+interface RouteIdBearingMatch {
+  readonly routeId: string;
+}
+
+/** The mobile splash dwell applies to the index route only; every other route
+ * keeps the 320ms get-in-get-out splash (owner 2026-08-21). Resolved from the
+ * matches, so SSR and hydration agree without reading `window`. */
+export function isIndexMatch(matches: readonly RouteIdBearingMatch[]): boolean {
+  return matches.at(-1)?.routeId === "/";
+}
+
 /** WCAG 2.4.1 Bypass Blocks: a keyboard-reachable "skip to content" link as
  * the page's first tab stop. It is visually hidden until it receives focus,
  * then jumps the user's focus into the route's main content region. */
@@ -144,11 +155,12 @@ function RuntimeConfigSeed() {
 }
 
 function RootDocument({ children }: RootDocumentProps) {
-  const lang = langFromMatches(useMatches());
+  const matches = useMatches();
+  const lang = langFromMatches(matches);
   return (
     <html lang={lang}>
       <head><HeadContent /></head>
-      <body><Splash /><SkipLink lang={lang} /><RuntimeConfigSeed /><div id="main-content" tabIndex={-1}>{children}</div><Scripts /></body>
+      <body><Splash dwell={isIndexMatch(matches)} /><SkipLink lang={lang} /><RuntimeConfigSeed /><div id="main-content" tabIndex={-1}>{children}</div><Scripts /></body>
     </html>
   );
 }

@@ -156,6 +156,13 @@ describe("use-auth-callback", () => {
     await waitFor(() => { expect(view.result.current.state).toBe("error"); });
   });
 
+  it("surfaces the SDK error.message when establish rejects", async () => {
+    const establish = vi.fn().mockRejectedValue(new Error("INVALID_TOKEN"));
+    const view = renderHook(() => useAuthCallback(establish));
+    await waitFor(() => { expect(view.result.current.state).toBe("error"); });
+    expect(view.result.current.errorMessage).toBe("INVALID_TOKEN");
+  });
+
   it("ignores a late resolution after unmount", async () => {
     let resolve!: (token: string | undefined) => void;
     const establish = vi.fn(() => new Promise<string | undefined>((r) => { resolve = r; }));

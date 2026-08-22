@@ -59,6 +59,49 @@ def fetch_prod_job(jobs, component)
   job
 end
 
+# wrangler-action uploadSecrets() ignores `-c` from `command` (#1150). Root
+# secrets skip that bulk upload (`|| ''` is load-bearing: without it GHA
+# interpolates boolean false and wrangler-action tries to upload a secret
+# named "false") and are put after Deploy Worker via WORKER_SECRET_PUT.
+ROOT_SKIP_ACTION_SECRETS =
+  "${{ inputs.component != 'root' && steps.effective_secrets.outputs.list || '' }}"
+WORKER_SECRET_PUT = "bash .github/scripts/wrangler-secret-put.sh"
+
+def named_step(steps, name)
+  steps.each_with_index.find { |step, _i| step.is_a?(Hash) && step["name"] == name }
+end
+
+def assert_deploy_worker_root_secrets(steps)
+  step, idx = named_step(steps, "Deploy Worker")
+  abort "reusable deploy must have a Deploy Worker step (#1150)" if step.nil?
+  secrets = step.dig("with", "secrets")
+  abort "Deploy Worker secrets: must skip root via || '' (#1150), got #{secrets.inspect}" \
+    unless secrets == ROOT_SKIP_ACTION_SECRETS
+  idx
+end
+
+def assert_root_secret_put_after(steps, deploy_idx)
+  later = steps[(deploy_idx + 1)..] || []
+  step = later.find { |s| s.is_a?(Hash) && s["name"] == "Push worker secrets to Worker" }
+  abort "reusable deploy must Push worker secrets to Worker after Deploy Worker (#1150)" if step.nil?
+  assert_root_secret_put_step(step)
+end
+
+def assert_root_secret_put_step(step)
+  condition = step.fetch("if").to_s
+  abort "root worker-secret put must gate on root and non-empty effective secrets (#1150)" \
+    unless condition.include?("inputs.component == 'root'") &&
+      condition.include?("steps.effective_secrets.outputs.list != ''")
+  run = step["run"].to_s
+  abort "root worker-secret put must run wrangler-secret-put.sh (#1150), got #{run.inspect}" \
+    unless run == WORKER_SECRET_PUT
+  names = step.dig("env", "SECRET_NAMES")
+  abort "root worker-secret put SECRET_NAMES must be effective_secrets list (#1150), got #{names.inspect}" \
+    unless names == "${{ steps.effective_secrets.outputs.list }}"
+  abort "root worker-secret put must fail on empty secrets (#1150)" \
+    unless step.dig("env", "EMPTY_POLICY") == "fail"
+end
+
 # ── 1. The five production component mappings, identical in both callers ──
 %w[ci.yml deploy.yml].each do |file|
   jobs = load_workflow(file).fetch("jobs")
@@ -77,6 +120,11 @@ end
 deploy_source = File.read(File.join(WORKFLOWS, "reusable-deploy-component.yml"))
 abort "reusable deploy must point root at workers/edge/wrangler.toml" \
   unless deploy_source.include?("deploy -c workers/edge/wrangler.toml")
+deploy_steps = load_workflow("reusable-deploy-component.yml")
+  .fetch("jobs").fetch("deploy").fetch("steps")
+assert_root_secret_put_after(deploy_steps, assert_deploy_worker_root_secrets(deploy_steps))
+abort "reusable deploy must not feed effective_secrets to wrangler-action unconditionally (#1150)" \
+  if deploy_source.include?("secrets: ${{ steps.effective_secrets.outputs.list }}")
 rollback_source = File.read(File.join(WORKFLOWS, "rollback.yml"))
 abort "rollback must point root at workers/edge/wrangler.toml" \
   unless rollback_source.include?("-c workers/edge/wrangler.toml")

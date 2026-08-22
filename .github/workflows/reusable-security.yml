@@ -246,7 +246,8 @@ jobs:
             .github/scripts/post-deploy-assert-probes.test.sh \
             .github/scripts/edge-showcase-mode.sh .github/scripts/mock-origin.sh \
             .github/scripts/resolve-worker-url.sh .github/scripts/resolve-worker-url.test.sh \
-            .github/scripts/vite-env-preflight.sh .github/scripts/vite-env-preflight.test.sh
+            .github/scripts/vite-env-preflight.sh .github/scripts/vite-env-preflight.test.sh \
+            .github/scripts/wrangler-secret-put.sh .github/scripts/wrangler-secret-put.test.sh
         shell: bash
       # #522: this is the gate that decides whether a real 404 (app broken,
       # or the branded 404 page) fails a deploy immediately versus a
@@ -277,4 +278,10 @@ jobs:
       # reusable-deploy-component.yml.
       - name: vite-env-preflight.sh behavioral tests
         run: bash .github/scripts/vite-env-preflight.test.sh
+        shell: bash
+      # #1150: wrangler-secret-put.sh is the post-deploy path that must pass
+      # `-c workers/edge/wrangler.toml` for root (wrangler-action uploadSecrets
+      # does not inherit `-c` from `command`). Values stay on stdin, never argv.
+      - name: wrangler-secret-put.sh behavioral tests
+        run: bash .github/scripts/wrangler-secret-put.test.sh
         shell: bash

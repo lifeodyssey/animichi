@@ -85,6 +85,8 @@ on:
         required: false
       MIMO_API_KEY:
         required: false
+      ZEN_GO_API_KEY:
+        required: false
       DEEPSEEK_API_KEY:
         required: false
       GOOGLE_MAPS_API_KEY:
@@ -724,11 +726,8 @@ jobs:
         # new exposure surface, using credentials (`R2_ACCESS_KEY_ID`/
         # `R2_SECRET_ACCESS_KEY`) already present in this step's env.
         #
-        # NOTE: `run_pulumi` defaults to true and only `component: catalog`
-        # jobs leave it at that default — web/users/root all pass
-        # `run_pulumi: false` (see ci.yml). So in practice this step only ever
-        # runs under the catalog deploy jobs; look there for the backup, not
-        # under a root/web/users run.
+        # NOTE: catalog/web/users/root callers now pass `run_pulumi: false`
+        # (#1074). Main-stack apply lives in reusable-deploy-infra.yml.
         if: ${{ inputs.run_pulumi }}
         # #933: `pulumi stack select "$PULUMI_STACK"` must run from inside the
         # `infra/` project directory. From the repo root there is no
@@ -829,6 +828,7 @@ jobs:
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
@@ -943,7 +943,8 @@ jobs:
           # lines to resolve. Point wrangler at the moved config explicitly.
           command: ${{ inputs.component == 'root' && 'deploy -c workers/edge/wrangler.toml' || 'deploy' }}
           environment: ${{ inputs.environment }}
-          secrets: ${{ steps.effective_secrets.outputs.list }}
+          # wrangler-action uploadSecrets() ignores `-c` from `command` (#1150).
+          secrets: ${{ inputs.component != 'root' && steps.effective_secrets.outputs.list || '' }}
         env:
           # #912 PR2: mirror of the "Resolve effective worker secrets" map —
           # staging catalog/users take their DSN from the Secrets Store binding
@@ -953,9 +954,34 @@ jobs:
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+      # wrangler-action uploadSecrets() runs `secret bulk --env` BEFORE deploy
+      # and does not inherit `-c` from `command` (#1150). Root's config is at
+      # workers/edge/wrangler.toml while cwd stays the repo root, so Worker
+      # secrets for root are put here after deploy, with `-c`.
+      - name: Push worker secrets to Worker
+        if: ${{ inputs.component == 'root' && steps.effective_secrets.outputs.list != '' }}
+        working-directory: ${{ inputs.working_directory }}
+        shell: bash
+        env:
+          TARGET_COMPONENT: ${{ inputs.component }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          SECRET_NAMES: ${{ steps.effective_secrets.outputs.list }}
+          EMPTY_POLICY: fail
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bash .github/scripts/wrangler-secret-put.sh
       # Deliberately NOT part of the wrangler-action `secrets:` list above (the
       # one populating `worker_secrets`): that list is uploaded via
       # wrangler-action's own `uploadSecrets()`, which runs `wrangler secret
@@ -975,19 +1001,19 @@ jobs:
       # names for THIS component/environment's Worker (e.g. root's
       # TURNSTILE_SECRET + ANON_ID_SECRET). Adding a new one means: add the
       # name to the caller's `post_deploy_secrets` list, add it to `secrets:`
-      # above, and add one line to the `env:` map immediately below so the
-      # bash indirect-expansion lookup (`${!name}`) can find its value —
-      # GitHub Actions has no dynamic `secrets.<computed-name>` lookup, so this
-      # env map is the one place that still needs a per-secret line.
+      # above, and add one line to the `env:` map immediately below so
+      # wrangler-secret-put.sh's indirect-expansion lookup (`${!name}`) can
+      # find its value — GitHub Actions has no dynamic `secrets.<computed-name>`
+      # lookup, so this env map is the one place that still needs a per-secret
+      # line.
       #
-      # Empty values are skipped, not failed, here — the "Preflight" step
-      # above already decided whether an empty value is fatal (flag-gated
-      # secret whose feature is off in this environment) or fine to proceed
-      # past. If this step still fails, it is a real, unexpected condition:
-      # the Worker has already been deployed by the step above and this
-      # failure does NOT undo that — it only means the secret push itself
-      # didn't complete, which is a real (if narrow) gap between deploy and
-      # push worth re-running by hand.
+      # EMPTY_POLICY=skip: the "Preflight" step above already decided whether
+      # an empty value is fatal (flag-gated secret whose feature is off in this
+      # environment) or fine to proceed past. If this step still fails, it is a
+      # real, unexpected condition: the Worker has already been deployed by the
+      # step above and this failure does NOT undo that — it only means the
+      # secret push itself didn't complete, which is a real (if narrow) gap
+      # between deploy and push worth re-running by hand.
       - name: Push post-deploy secrets to Worker
         if: ${{ inputs.post_deploy_secrets != '' }}
         working-directory: ${{ inputs.working_directory }}
@@ -995,24 +1021,13 @@ jobs:
         env:
           TARGET_COMPONENT: ${{ inputs.component }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
-          POST_DEPLOY_SECRETS: ${{ inputs.post_deploy_secrets }}
+          SECRET_NAMES: ${{ inputs.post_deploy_secrets }}
+          EMPTY_POLICY: skip
           TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
           ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          while IFS= read -r name; do
-            [ -z "$name" ] && continue
-            value="${!name-}"
-            if [ -z "$value" ]; then
-              echo "::warning::$name is empty/unset for component=$TARGET_COMPONENT, environment=$TARGET_ENVIRONMENT — skipping the push (the preflight step already validated it is safe to skip here)."
-              continue
-            fi
-            config_flag=""
-            [ "$TARGET_COMPONENT" = "root" ] && config_flag="-c workers/edge/wrangler.toml"
-            read -r -a config_args <<< "$config_flag"
-            printf '%s' "$value" | pnpm exec wrangler secret put "$name" "${config_args[@]}" --env "$TARGET_ENVIRONMENT"
-          done <<< "$POST_DEPLOY_SECRETS"
+        run: bash .github/scripts/wrangler-secret-put.sh
       # Real per-component smoke checks (issue #484). `web` and `root` are
       # each self-contained (no dependency on other components in the same
       # environment) so they get a direct HTTP assertion right after their
@@ -1021,7 +1036,11 @@ jobs:
       # reachability through the edge is instead verified end-to-end by
       # reusable-post-deploy-test.yml (`catalog-probe` / `users-probe`) once every
       # component in the environment, including `root`, is deployed.
+      # #1146: owner parked live HTTP smokes. GitHub-hosted curl gets a
+      # Cloudflare JS challenge (`Just a moment...`) on staging.animichi.com
+      # even with x-staging-key. Re-enable by deleting this `if: false`.
       - name: Smoke
+        if: false
         env:
           COMPONENT: ${{ inputs.component }}
           ENVIRONMENT: ${{ inputs.environment }}

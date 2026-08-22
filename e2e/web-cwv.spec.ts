@@ -101,11 +101,14 @@ const measureRun = async (page: Page, route: string): Promise<CwvMetrics> => {
   return measureRoute(page, route);
 };
 
-const writeRunReport = async (run: number, metrics: CwvMetrics): Promise<void> => {
+/** The report records the measured route, not the bare origin — the route
+ * inventory is what the gate is about, so a report saying "/" while the run
+ * measured /chat would be the exact drift AC1 exists to prevent. */
+const writeRunReport = async (run: number, route: string, metrics: CwvMetrics): Promise<void> => {
   await mkdir(reportDir, { recursive: true });
   await writeFile(
     join(reportDir, `web-cwv-run-${run}.json`),
-    JSON.stringify({ run, url: webCwvConfig.url, ...metrics }, null, 2),
+    JSON.stringify({ run, url: new URL(route, webCwvConfig.url).toString(), ...metrics }, null, 2),
   );
 };
 
@@ -113,7 +116,7 @@ const collectRuns = async (page: Page, route: string): Promise<CwvMetrics[]> => 
   const runs: CwvMetrics[] = [];
   for (let run = 1; run <= webCwvConfig.numberOfRuns; run++) {
     const metrics = await measureRun(page, route);
-    await writeRunReport(run, metrics);
+    await writeRunReport(run, route, metrics);
     runs.push(metrics);
   }
   return runs;
@@ -136,9 +139,9 @@ test(`median LCP and CLS over ${webCwvConfig.numberOfRuns} cold-start runs stay 
   assertWithin(cls, webCwvConfig.thresholds.cls.error, "median CLS");
 });
 
-// AC3 — one representative interaction flow (the mobile-first Start
-// Exploring CTA) must produce an Interaction-to-Next-Paint proxy well inside
-// the 200ms "good" boundary. Same cold-start profile and median aggregation.
+// AC3 — one representative interaction flow on the measured route must produce
+// an Interaction-to-Next-Paint proxy well inside the 200ms "good" boundary.
+// Same cold-start profile and median aggregation.
 test(`a representative mobile interaction drives INP at or below ${webCwvConfig.thresholds.inp.error}ms`, async ({ page }) => {
   await installObservers(page);
   const route = webCwvConfig.routes[0];
@@ -147,12 +150,13 @@ test(`a representative mobile interaction drives INP at or below ${webCwvConfig.
     await applyProfile(page);
     await page.goto(route, { waitUntil: "load" });
     await page.waitForFunction(() => (window.__cwv?.lcp ?? 0) > 0);
-    // Representative mobile interaction: the mobile-first CTA (Start Exploring)
-    // triggers a React state update + modal open, a real main-thread task that
-    // Event Timing records as an interaction. It is unique to the mobile
-    // layout (no desktop duplicate), so Playwright auto-waits for actionability
-    // without a :visible race during the throttled hydration.
-    await page.locator(".mobile-fox__cta").click();
+    // Representative interaction on /chat: the composer's settings toggle opens
+    // the BYOK panel — a React state update plus a panel mount, a real
+    // main-thread task that Event Timing records as an interaction. It is the
+    // one composer control that stays enabled with no session and no backend
+    // (the field and send button are withheld until a turn is allowed), so
+    // Playwright auto-waits for actionability instead of racing hydration.
+    await page.locator(".chat-input__settings").click();
     await page.waitForFunction(() => (window.__cwv?.inp ?? 0) > 0);
     inpRuns.push(await page.evaluate(() => window.__cwv?.inp ?? 0));
   }

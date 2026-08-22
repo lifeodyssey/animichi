@@ -12,7 +12,7 @@ describe("web-cwv.config.ts", () => {
   it("collects 3 cold-start runs of the fixed route inventory from the locally served build", () => {
     expect(webCwvConfig.url).toBe("http://localhost:8799/");
     expect(webCwvConfig.numberOfRuns).toBe(3);
-    expect(webCwvConfig.routes).toEqual(["/"]);
+    expect(webCwvConfig.routes).toEqual(["/chat"]);
     expect(webCwvConfig.startServerCommand).toContain("wrangler dev");
   });
 

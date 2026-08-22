@@ -406,6 +406,76 @@ def pulumi_r2_backend_violations(wf)
   found
 end
 
+# ---- 6. Pulumi CLI pin (issue #1152) --------------------------------------
+# #1069 pinned deploy / neon-secrets / pipeline-infra to `.pulumi.version`
+# (3.255.0, gocloud v0.46.0). Cutover C/F invoke `pulumi` and must install
+# the same CLI; otherwise they pick 3.256/3.257 and R2 PutObject returns
+# InvalidDigest. Discover pulumi-executing jobs from parsed workflow
+# behavior (same as the R2 backend check), then require a pulumi/actions
+# step with `pulumi-version-file: .pulumi.version`.
+PULUMI_VERSION_FILE = ".pulumi.version"
+
+def step_pins_pulumi_cli?(step)
+  uses = step["uses"].to_s
+  with = step["with"]
+  return false unless uses.include?("pulumi/actions")
+  return false unless with.is_a?(Hash)
+
+  with["pulumi-version-file"].to_s == PULUMI_VERSION_FILE
+end
+
+def job_pins_pulumi_cli?(job)
+  job.fetch("steps", []).any? { |s| s.is_a?(Hash) && step_pins_pulumi_cli?(s) }
+end
+
+def pulumi_cli_pin_violations(wf)
+  found = []
+  wf.fetch("jobs").each do |name, job|
+    next unless job.is_a?(Hash)
+    next if pulumi_executing_steps(job).empty?
+    next if job_pins_pulumi_cli?(job)
+
+    found << "#{name}: pulumi-executing job must install CLI via pulumi-version-file: #{PULUMI_VERSION_FILE}"
+  end
+  found
+end
+
+# ---- 7. Close-ingress gate token (issue #1154) ----------------------------
+# cutover-close-ingress.sh probes /healthz with x-staging-key from
+# STAGING_GATE_TOKEN (`:?` fail-closed). E6 already maps the secret; Phase C
+# must too, or rehearsal dies after a successful pulumi up. Discover steps
+# from run text rather than pinning the job name.
+STAGING_GATE_TOKEN_ENV = "STAGING_GATE_TOKEN"
+
+def close_ingress_steps(wf)
+  wf.fetch("jobs").each_with_object([]) do |(name, job), found|
+    next unless job.is_a?(Hash)
+
+    job.fetch("steps", []).each do |step|
+      next unless step.is_a?(Hash) && step["run"].to_s.include?("cutover-close-ingress.sh")
+
+      found << [name, step]
+    end
+  end
+end
+
+def close_ingress_step_token_violations(job_name, step)
+  env = step.fetch("env", {}) || {}
+  unless env.key?(STAGING_GATE_TOKEN_ENV)
+    return ["#{job_name}: close-ingress step must provide #{STAGING_GATE_TOKEN_ENV}"]
+  end
+  return [] if github_secret_expr?(env[STAGING_GATE_TOKEN_ENV], STAGING_GATE_TOKEN_ENV)
+
+  ["#{job_name}: #{STAGING_GATE_TOKEN_ENV} must source from secrets.#{STAGING_GATE_TOKEN_ENV}"]
+end
+
+def close_ingress_gate_token_violations(wf)
+  steps = close_ingress_steps(wf)
+  return ["no step invokes cutover-close-ingress.sh"] if steps.empty?
+
+  steps.flat_map { |name, step| close_ingress_step_token_violations(name, step) }
+end
+
 def main
   found = source_structure_violations
   unless File.exist?(WORKFLOW)
@@ -416,11 +486,13 @@ def main
     found.concat(manifest_guard_violations(wf))
     found.concat(two_key_reset_violations(wf))
     found.concat(pulumi_r2_backend_violations(wf))
+    found.concat(pulumi_cli_pin_violations(wf))
+    found.concat(close_ingress_gate_token_violations(wf))
   end
   found.concat(reset_script_refusal_violations)
 
   if found.empty?
-    puts "OK: fresh-schema manifest, sole-repository adapters, two-key reset, R2 backend credentials, and cutover workflow order all hold"
+    puts "OK: fresh-schema manifest, sole-repository adapters, two-key reset, R2 backend credentials, Pulumi CLI pin, close-ingress gate token, and cutover workflow order all hold"
   else
     puts found.sort
     abort "SESSION-3 staging cutover contract violated (#{found.length} issue(s))"

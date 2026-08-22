@@ -90,7 +90,7 @@ assert_script_hygiene() {
 
 test_no_forbidden_cloud_mutation_commands() {
   local script
-  for script in "$SCRIPT_DIR"/{pre-push,quality,infra-check,db-fresh-schema,changed-packages,contract-drift}.sh; do
+  for script in "$SCRIPT_DIR"/{pre-push,pre-push-worker-gates,quality,infra-check,db-fresh-schema,changed-packages,contract-drift}.sh; do
     assert_script_hygiene "$script"
   done
   echo "ok: no forbidden cloud-mutation command in gate scripts"

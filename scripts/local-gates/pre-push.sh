@@ -206,18 +206,10 @@ gate_edge() {
   run pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir "$GATE_OUTDIR/edge-bundle"
 }
 
-# ── migrator: pipeline-migrator.yml lint/test/build. Scripts from
-# workers/migrator/package.json (typecheck + lint:oxlint + test) plus the
-# CI wrangler dry-run. Migrator is a contract consumer (oidc-github).
-gate_migrator() {
-  gate workers/migrator pnpm exec tsc --noEmit
-  gate workers/migrator pnpm run lint:oxlint
-  gate workers/migrator pnpm run test
-  gate workers/migrator pnpm exec wrangler deploy --dry-run --env=staging --outdir "$GATE_OUTDIR/migrator-bundle"
-}
+# ── migrator + doorbell: pipeline-*.yml lint/test/build (contract consumers).
+source "$ROOT/scripts/local-gates/pre-push-worker-gates.sh"
 
-# ── e2e: workspace member, so it must have a registered gate. Playwright is
-# not a local-gate surface (docs/ops/local-gates.md).
+# ── e2e: workspace member; Playwright is not a local-gate surface.
 gate_e2e() {
   printf '\n==> [e2e] Playwright is not a local-gate surface\n'
 }

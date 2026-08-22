@@ -8,8 +8,11 @@ import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../src/lib/runtime-config/provi
 import { DEFAULT_RUNTIME_CONFIG } from "../../../src/lib/runtime-config/runtime-config";
 
 const getSessionMock = vi.fn();
-vi.mock("better-auth/client", () => ({
+vi.mock("@neondatabase/auth", () => ({
   createAuthClient: () => ({ getSession: getSessionMock }),
+}));
+vi.mock("@neondatabase/auth/vanilla", () => ({
+  BetterAuthVanillaAdapter: () => () => ({}),
 }));
 
 afterEach(() => {
