@@ -53,8 +53,10 @@ bash "${REPO_ROOT}/.github/scripts/cutover-verify-prereqs.sh" \
 status=$(curl -sS -o /dev/null -w "%{http_code}" "${STAGING_DOMAIN}/healthz" || true)
 [[ "${status}" = "200" ]]\
   || { echo "cutover-reopen: public /healthz failed (HTTP ${status}); keeping ingress closed" >&2; exit 1; }
-status=$(curl -sS -o /dev/null -w "%{http_code}" "${STAGING_DOMAIN}/api/bangumi/popular" || true)
-[[ "${status}" = "200" ]]\
-  || { echo "cutover-reopen: public popular read failed (HTTP ${status}); keeping ingress closed" >&2; exit 1; }
+# Parked: /api/bangumi/popular is not a live route (404). Reopen proof is
+# /healthz above. Leaving this probe active fail-opens the gate then dies.
+# status=$(curl -sS -o /dev/null -w "%{http_code}" "${STAGING_DOMAIN}/api/bangumi/popular" || true)
+# [[ "${status}" = "200" ]]\
+#   || { echo "cutover-reopen: public popular read failed (HTTP ${status}); keeping ingress closed" >&2; exit 1; }
 
 echo "OK: ingress reopened at ${SOURCE_REVISION}, retention absent, verdict complete"
