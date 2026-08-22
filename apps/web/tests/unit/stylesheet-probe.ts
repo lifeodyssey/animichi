@@ -54,6 +54,31 @@ export function lastRuleDeclaration(css: string, selector: string, property: str
   return declarationValue(body, property);
 }
 
+/** Every leaf rule in a stylesheet, as `[selector list, body]`, comments gone. */
+function leafRules(css: string): readonly (readonly [string, string])[] {
+  const bare = css.replaceAll(/\/\*[\S\s]*?\*\//gu, "");
+  return [...bare.matchAll(/([^{}]*)\{([^{}]*)\}/gu)]
+    .map((rule) => [rule[1] ?? "", rule[2] ?? ""] as const);
+}
+
+/**
+ * The declaration a selector gets from the last rule whose selector LIST names
+ * it. `ruleDeclaration` anchors on `selector {`, so it cannot see a shared
+ * plane like `card-plane.css`'s one rule for four card families; this can.
+ * Concatenate the shared sheet BEFORE the skin's own, so the skin's unlayered
+ * overrides stay the last word, exactly as the cascade has them. Rules that do
+ * not mention the property are passed over rather than counted as a null, the
+ * way a media-query override of one property leaves the others standing.
+ */
+export function sharedRuleDeclaration(css: string, selector: string, property: string): string | null {
+  const bodies = leafRules(css)
+    .filter(([list]) => list.split(",").some((one) => one.trim() === selector))
+    .map(([, body]) => body);
+  if (bodies.length === 0) throw new Error(`Missing rule: ${selector}`);
+  const declaring = [...bodies].reverse().find((body) => declarationValue(body, property) !== null);
+  return declaring === undefined ? null : declarationValue(declaring, property);
+}
+
 function requiredDeclaration(body: string, property: string): string {
   const value = declarationValue(body, property);
   if (value === null) throw new Error(`Missing font-face declaration: ${property}`);

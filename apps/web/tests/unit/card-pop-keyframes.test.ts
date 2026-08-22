@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import animeCss from "../../src/styles/anime.css?raw";
+import cardPlaneCss from "../../src/styles/card-plane.css?raw";
 import chatCss from "../../src/styles/chat.css?raw";
 import globalsCss from "../../src/styles/globals.css?raw";
 import routeCss from "../../src/styles/route-detail.css?raw";
@@ -17,13 +18,17 @@ describe("shared cardPop keyframes", () => {
     expect([...globalsCss.matchAll(/@keyframes card-pop\b/gu)]).toHaveLength(1);
   });
 
+  it("spends them once, from the shared card plane", () => {
+    expect(cardPlaneCss).toContain("animation: card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both");
+  });
+
   it.each([
     ["anime", animeCss],
     ["route-detail", routeCss],
     ["shiori", shioriCss],
     ["chat", chatCss],
-  ])("spends the shared frames from %s.css instead of restating them", (_name, css) => {
-    expect(css).toContain("animation: card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1)");
+  ])("leaves %s.css restating neither the frames nor the entry", (_name, css) => {
+    expect(css).not.toContain("animation: card-pop");
     expect(css).not.toMatch(/@keyframes [\w-]*card-pop\b/u);
   });
 });

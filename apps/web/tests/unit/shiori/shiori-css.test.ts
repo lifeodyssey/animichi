@@ -6,24 +6,16 @@ import { lastRuleDeclaration, parseBlockTokens, ruleDeclaration, tokenValue } fr
 
 /** The しおり skin against the design-sync canvas and its six visual languages. */
 describe("§4.1 card language", () => {
-  it("draws the exported card as clipped paper on the shared curve", () => {
-    expect(ruleDeclaration(css, ".shiori-card", "border")).toBe("2px solid var(--color-border-soft)");
-    expect(ruleDeclaration(css, ".shiori-card", "border-radius")).toBe("18px");
-    expect(ruleDeclaration(css, ".shiori-card", "background")).toBe("var(--color-paper)");
-    expect(ruleDeclaration(css, ".shiori-card", "box-shadow")).toBe("0 14px 30px -20px rgb(90 60 32 / 40%)");
-    expect(ruleDeclaration(css, ".shiori-card", "overflow")).toBe("hidden");
+  it("keeps only the poster's own 9:16 geometry, the plane being shared", () => {
     expect(ruleDeclaration(css, ".shiori-card", "aspect-ratio")).toBe("9 / 16");
-  });
-
-  it("enters with the shared cardPop curve", () => {
-    expect(ruleDeclaration(css, ".shiori-card", "animation"))
-      .toBe("card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both");
+    expect(ruleDeclaration(css, ".shiori-card", "border")).toBeNull();
+    expect(ruleDeclaration(css, ".shiori-card", "background")).toBeNull();
     expect(css).not.toContain("@keyframes shiori-card-pop");
   });
 
-  it("keeps the card's resting shadow separate from control press feedback", () => {
+  it("never reaches for the control press step as a resting card shadow", () => {
     // --shadow-press is the press step for controls.
-    expect(ruleDeclaration(css, ".shiori-card", "box-shadow")).not.toContain("--shadow-press");
+    expect(css).not.toContain("--shadow-press");
   });
 });
 
@@ -34,10 +26,20 @@ describe("§4.3 pill labels", () => {
     expect(ruleDeclaration(generatorCss, ".shiori-generator__completion", "border-radius")).toBe("50px");
   });
 
-  it("gives the gold seal its own ink and deep step", () => {
+  it("cuts both pills to the ONE §4.3 geometry, not a per-surface guess", () => {
+    expect(ruleDeclaration(css, ".shiori-window", "padding")).toBe("3px 10px");
+    expect(ruleDeclaration(generatorCss, ".shiori-generator__completion", "padding")).toBe("3px 10px");
+    expect(ruleDeclaration(generatorCss, ".shiori-generator__completion", "font-size")).toBe("11.5px");
+  });
+
+  it("stamps the seal in SOLID gold on the shared ink and the shared deep step", () => {
     expect(ruleDeclaration(css, ".shiori-badge", "background")).toBe("var(--color-gold)");
-    expect(ruleDeclaration(css, ".shiori-badge", "color")).toBe("var(--shiori-gold-ink)");
-    expect(ruleDeclaration(css, ".shiori-badge", "box-shadow")).toBe("0 3px 0 0 var(--shiori-gold-deep)");
+    expect(ruleDeclaration(css, ".shiori-badge", "color")).toBe("var(--color-gold-ink)");
+    expect(ruleDeclaration(css, ".shiori-badge", "box-shadow")).toBe("0 3px 0 0 var(--color-gold-deep)");
+  });
+
+  it("keeps no feature-local copy of the gold ink or the gold ledge", () => {
+    expect(css).not.toContain("--shiori-gold");
   });
 });
 
@@ -114,7 +116,7 @@ describe("§4.6 motion", () => {
 describe("export invariance", () => {
   it("keeps the saved artifact on local ground and ink tokens", () => {
     const local = parseBlockTokens(css, ".shiori-card");
-    for (const name of ["--shiori-export-ground", "--shiori-export-ink", "--shiori-gold-ink", "--shiori-gold-deep"]) {
+    for (const name of ["--shiori-export-ground", "--shiori-export-ink"]) {
       expect(tokenValue(local, name)).toBeDefined();
     }
 

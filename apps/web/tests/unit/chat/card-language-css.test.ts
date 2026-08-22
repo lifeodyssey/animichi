@@ -25,18 +25,15 @@ const PRESS_FAMILY = [
 ].join(",\n");
 
 describe("§4.1 card shell: one plane for every intent card", () => {
-  it("gives the card the design's paper ground, 2px soft line and 18px corner", () => {
-    expect(ruleDeclaration(chatCss, ".chat-card", "background")).toBe("var(--color-paper)");
-    expect(ruleDeclaration(chatCss, ".chat-card", "border")).toBe("2px solid var(--color-border-soft)");
-    expect(ruleDeclaration(chatCss, ".chat-card", "border-radius")).toBe("18px");
-    expect(ruleDeclaration(chatCss, ".chat-card", "overflow")).toBe("hidden");
+  it("keeps only its own padding, the plane coming from card-plane.css", () => {
+    expect(ruleDeclaration(chatCss, ".chat-card", "padding")).toBe("0.875rem 1rem");
+    expect(ruleDeclaration(chatCss, ".chat-card", "background")).toBeNull();
+    expect(ruleDeclaration(chatCss, ".chat-card", "border-radius")).toBeNull();
   });
 
-  it("lays the card on a wide soft ground shadow, not the button's hard ledge", () => {
-    const shadow = ruleDeclaration(chatCss, ".chat-card", "box-shadow") ?? "";
-    expect(shadow).toContain("var(--shadow-3d)");
-    expect(shadow).toContain("30px -20px");
-    expect(shadow).not.toBe("0 3px 0 var(--shadow-3d)");
+  it("drops the theme-flipping drop shadow this copy had drifted onto", () => {
+    expect(ruleDeclaration(chatCss, ".chat-card", "box-shadow")).toBeNull();
+    expect(chatCss).not.toContain("30px -20px");
   });
 
   it("floats the card above the page floor it sits on", () => {
@@ -47,8 +44,8 @@ describe("§4.1 card shell: one plane for every intent card", () => {
 });
 
 describe("§4.6 cardPop: a card lands, and yields to the reduce preference", () => {
-  it("settles the card in from 10px below at 0.985 scale", () => {
-    expect(ruleDeclaration(chatCss, ".chat-card", "animation")).toBe("card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1)");
+  it("leaves the entry to the shared plane and keeps no private copy of it", () => {
+    expect(ruleDeclaration(chatCss, ".chat-card", "animation")).toBeNull();
     expect(chatCss).not.toContain("@keyframes chat-card-pop");
   });
 
@@ -85,21 +82,16 @@ describe("§4.3 pill label: one geometry, many grounds", () => {
 });
 
 describe("§4.2 3D press: depth IS the affordance, declared once", () => {
-  it("gives every in-thread action the same pill, ledge and touch target", () => {
+  it("gives every in-thread action the same ground and touch target", () => {
     expect(chatCss).toContain(`${PRESS_FAMILY} {`);
-    expect(ruleDeclaration(chatCss, PRESS_FAMILY, "border-radius")).toBe("50px");
     expect(ruleDeclaration(chatCss, PRESS_FAMILY, "min-height")).toBe("44px");
-    expect(ruleDeclaration(chatCss, PRESS_FAMILY, "box-shadow")).toBe("0 3px 0 var(--shadow-3d)");
     expect(ruleDeclaration(chatCss, PRESS_FAMILY, "background")).toBe("var(--color-paper)");
   });
 
-  it("sinks every pressed button 2px onto a shallower ledge", () => {
-    const pressed = /\.chat-error-banner__retry:active,([\s\S]*?)\{([^}]*)\}/u.exec(chatCss);
-    expect(pressed?.[2]).toContain("transform: translateY(2px)");
-    expect(pressed?.[2]).toContain("box-shadow: 0 1px 0 var(--shadow-3d)");
-    for (const one of PRESS_FAMILY.split(",\n").slice(1)) {
-      expect(pressed?.[1]).toContain(`${one}:active`);
-    }
+  it("leaves the depth itself to press-3d.css, lift and sink together", () => {
+    expect(ruleDeclaration(chatCss, PRESS_FAMILY, "border-radius")).toBeNull();
+    expect(ruleDeclaration(chatCss, PRESS_FAMILY, "box-shadow")).toBeNull();
+    expect(chatCss).not.toContain("__retry:active");
   });
 });
 

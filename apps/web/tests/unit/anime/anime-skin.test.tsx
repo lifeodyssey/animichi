@@ -91,9 +91,9 @@ describe("scene ranking", () => {
 });
 
 describe("area rows", () => {
-  it("counts each region in the teal canvas pill", () => {
+  it("counts each region in the same plain pill the hero counts wear", () => {
     renderFull();
-    const counts = document.querySelectorAll(".anime-area .anime-pill--teal");
+    const counts = document.querySelectorAll(".anime-area .anime-pill--plain");
     expect([...counts].map((count) => count.textContent)).toEqual(["2件", "3件", "1件"]);
   });
 });

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import animeCss from "../../../src/styles/anime.css?raw";
+import cardPlaneCss from "../../../src/styles/card-plane.css?raw";
+import pressCss from "../../../src/styles/press-3d.css?raw";
 import globalsCss from "../../../src/styles/globals.css?raw";
 import {
   AA_CONTRAST,
@@ -8,7 +10,7 @@ import {
   TEXT_COLOR,
   contrastRatio,
   parseBlockTokens,
-  ruleDeclaration,
+  sharedRuleDeclaration,
   tokenValue,
 } from "../stylesheet-probe";
 import type { Theme, TokenMap } from "../stylesheet-probe";
@@ -21,7 +23,16 @@ import type { Theme, TokenMap } from "../stylesheet-probe";
 const DAY: TokenMap = parseBlockTokens(globalsCss, ":root");
 const NIGHT: TokenMap = parseBlockTokens(globalsCss, '[data-theme="night"]');
 
-const skin = new SkinContrast({ day: DAY, night: NIGHT, sheet: animeCss });
+/* The card plane and the press depth are declared once, in their own sheets;
+ * the browser reads them together with this skin, and so does this suite. The
+ * shared sheets come FIRST, because they are layered and therefore lose to the
+ * skin's own rules — `sharedRuleDeclaration` takes the last word. */
+const skin = new SkinContrast({
+  day: DAY,
+  night: NIGHT,
+  sheet: `${cardPlaneCss}\n${pressCss}\n${animeCss}`,
+  declarationOf: sharedRuleDeclaration,
+});
 
 describe("every surface the skin paints has a night override", () => {
   it.each(["--color-paper", "--color-card", "--color-muted", "--color-border-soft"])(
@@ -62,7 +73,7 @@ describe.each(["day", "night"] as const)("text contrast on the %s surfaces", (th
     expect(skin.readability(".anime-area__name", ".anime-card", theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
-  it.each(["teal", "gold", "plain"])("the %s pill reads on its own ground", (tone: string) => {
+  it.each(["gold", "plain"])("the %s pill reads on its own ground", (tone: string) => {
     const pill = `.anime-pill--${tone}`;
     expect(skin.readability(pill, pill, theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
@@ -98,7 +109,7 @@ describe("WCAG 1.4.11 non-text contrast for the operable control", () => {
   });
 
   it("hangs the day boundary on the 3D halo the night ground cannot carry", () => {
-    expect(ruleDeclaration(animeCss, ".anime-press", "box-shadow")).toContain("var(--shadow-3d)");
+    expect(sharedRuleDeclaration(pressCss, ".anime-press", "box-shadow")).toContain("var(--shadow-3d)");
     expect(halo("day")).toBeGreaterThan(halo("night"));
   });
 });

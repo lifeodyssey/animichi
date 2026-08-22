@@ -5,6 +5,8 @@
 @import "./shiori-photos.css";
 @import "./shiori-generator.css";
 @import "./chat.css";
+@import "./card-plane.css";
+@import "./press-3d.css";
 
 :root {
   color-scheme: light;
@@ -69,6 +71,11 @@
    * riding it needs a theme-invariant ink the way `--color-primary-ink` does.
    * Design-sync `Chat 完整状态.html` calls this `--gold-ink`; 5.31:1 on gold. */
   --color-gold-ink: #5c4813;
+  /* design-sync `--gold-deep` — one step darker than the solid gold, i.e. the
+   * §4.2 3D ledge for the gold family, the way `--shadow-3d` is the ledge for
+   * the cream family. `route-detail.css` and `shiori.css` each used to carry
+   * their own copy of this same hex; this is the single declaration. */
+  --color-gold-deep: #d9a412;
   --shadow-3d: #bdaea0;
   --shadow-press: 0 5px 0 0 var(--shadow-3d);
   --app-font-display: "Noto Serif JP", "Noto Serif JP fallback", "Hiragino Mincho ProN", Georgia, serif;
@@ -129,6 +136,7 @@
   --color-gold-soft: var(--color-gold-soft);
   --color-gold-fg: var(--color-gold-fg);
   --color-gold-ink: var(--color-gold-ink);
+  --color-gold-deep: var(--color-gold-deep);
   --font-display: var(--app-font-display);
   --font-body: var(--app-font-body);
 }

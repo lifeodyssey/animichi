@@ -8,7 +8,7 @@ function CircleItem({ circle, copy }: Readonly<{ circle: AnimeOverviewCircle; co
   return (
     <li className="anime-area">
       <span className="anime-area__name">{circle.region}</span>
-      <span className="anime-pill anime-pill--teal">{copy.spotUnit(circle.count)}</span>
+      <span className="anime-pill anime-pill--plain">{copy.spotUnit(circle.count)}</span>
     </li>
   );
 }

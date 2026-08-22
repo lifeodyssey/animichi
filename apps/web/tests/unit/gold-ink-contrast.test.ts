@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import chatCss from "../../src/styles/chat.css?raw";
 import globalsCss from "../../src/styles/globals.css?raw";
+import routeCss from "../../src/styles/route-detail.css?raw";
+import shioriCss from "../../src/styles/shiori.css?raw";
 import {
   contrastRatio,
   lastRuleDeclaration,
   normalizeHex,
   parseBlockTokens,
   parseTokens,
+  relativeLuminance,
   ruleDeclaration,
   tokenValue,
   type TokenMap,
@@ -32,6 +35,30 @@ describe("the solid gold ground carries its own theme-invariant ink", () => {
     const night = parseBlockTokens(globalsCss, '[data-theme="night"]');
     expect(night["--color-gold"]).toBeUndefined();
     expect(night["--color-gold-ink"]).toBeUndefined();
+  });
+});
+
+/**
+ * `--gold-deep` on the design-sync canvas: the §4.2 ledge under the gold
+ * family, as `--shadow-3d` is the ledge under the cream one. `route-detail.css`
+ * and `shiori.css` each used to declare their own copy of this hex.
+ */
+describe("the gold family has one ledge colour, not one per feature", () => {
+  it("names the design-sync deep gold, a real step darker than the gold itself", () => {
+    expect(tokenValue(dayTokens, "--color-gold-deep")).toBe("#d9a412");
+    expect(relativeLuminance(tokenValue(dayTokens, "--color-gold-deep")))
+      .toBeLessThan(relativeLuminance(tokenValue(dayTokens, "--color-gold")));
+  });
+
+  it("stays theme-invariant, like the gold it sits under", () => {
+    expect(parseBlockTokens(globalsCss, '[data-theme="night"]')["--color-gold-deep"]).toBeUndefined();
+  });
+
+  it("is the only declaration of that step — no skin keeps a private copy", () => {
+    for (const sheet of [routeCss, shioriCss]) {
+      expect(sheet).not.toContain("#d9a412");
+      expect(sheet).toContain("var(--color-gold-deep)");
+    }
   });
 });
 

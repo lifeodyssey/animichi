@@ -1,0 +1,28 @@
+/* §4.1 card — ONE declaration of the design's card plane
+ * (docs/iterations/chat-visual-restore/task.md §4.1): a paper ground, a 2px
+ * soft line, an 18px corner, a clipped face, a wide warm drop, and the
+ * `card-pop` entry. The four page skins each restated all six, which is how
+ * they drifted: chat's drop had become a `--shadow-3d` mix — a cream that
+ * flips to near-black at night — while the other three kept the spec's deep
+ * brown. One fact, one place.
+ *
+ * `@layer components` is load-bearing, not decoration. `globals.css` imports
+ * this file, and an UNLAYERED rule beats every layered one regardless of
+ * source order — so the layer is what keeps each family's own unlayered
+ * modifiers winning over the shared plane exactly as they did when the plane
+ * lived in their own stylesheet: `.chat-card--skeleton`'s `chat-pulse`,
+ * `.chat-card--fallback`'s muted ground, `.shiori-card--poster-fallback`'s
+ * export gradient, and the expanded route sheet's flattened card. */
+@layer components {
+  .anime-card,
+  .chat-card,
+  .route-card,
+  .shiori-card {
+    overflow: hidden;
+    border: 2px solid var(--color-border-soft);
+    border-radius: 18px;
+    background: var(--color-paper);
+    box-shadow: 0 14px 30px -20px rgb(90 60 32 / 40%);
+    animation: card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+}

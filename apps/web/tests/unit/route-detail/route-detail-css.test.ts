@@ -1,46 +1,25 @@
 import { describe, expect, it } from "vitest";
 import css from "../../../src/styles/route-detail.css?raw";
 import { MODE_EASING, MODE_TRANSITION_MS } from "../../../src/features/route-detail/lib/mode";
-import { parseBlockTokens, ruleDeclaration, tokenValue } from "../stylesheet-probe";
+import { TEXT_COLOR, parseBlockTokens, ruleDeclaration, tokenValue } from "../stylesheet-probe";
 
 /**
  * The route-detail skin against the design-sync canvas ("路线详情 状态总览.html")
  * and the six shared visual languages (chat-visual-restore/task.md §4).
  */
 describe("§4.1 card language", () => {
-  it("draws every card as 2px line, 18px radius, clipped paper", () => {
-    expect(ruleDeclaration(css, ".route-card", "border")).toBe("2px solid var(--color-border-soft)");
-    expect(ruleDeclaration(css, ".route-card", "border-radius")).toBe("18px");
-    expect(ruleDeclaration(css, ".route-card", "background")).toBe("var(--color-paper)");
-    expect(ruleDeclaration(css, ".route-card", "overflow")).toBe("hidden");
-  });
-
-  it("floats the card on the warm drop shadow instead of a hard edge", () => {
-    expect(ruleDeclaration(css, ".route-card", "box-shadow")).toBe("0 14px 30px -20px rgb(90 60 32 / 40%)");
-  });
-
-  it("enters with cardPop on the shared curve", () => {
-    expect(ruleDeclaration(css, ".route-card", "animation"))
-      .toBe("card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both");
+  it("inherits the plane from card-plane.css rather than restating it", () => {
+    expect(css).not.toContain("\n.route-card {");
     expect(css).not.toContain("@keyframes route-card-pop");
   });
 });
 
 describe("§4.2 3D press button", () => {
-  it("wears the pill shape on the cream 3D step", () => {
-    expect(ruleDeclaration(css, ".route-press", "border-radius")).toBe("50px");
-    expect(ruleDeclaration(css, ".route-press", "font-weight")).toBe("800");
-    expect(ruleDeclaration(css, ".route-press", "box-shadow")).toBe("0 3px 0 0 var(--shadow-3d)");
-  });
-
-  it("sinks into its own shadow when pressed", () => {
-    expect(ruleDeclaration(css, ".route-press:active", "transform")).toBe("translateY(2px)");
-    expect(ruleDeclaration(css, ".route-press:active", "box-shadow")).toBe("0 1px 0 0 var(--shadow-3d)");
-  });
-
-  it("lifts and turns teal on hover", () => {
-    expect(ruleDeclaration(css, ".route-press:hover", "transform")).toBe("translateY(-2px)");
-    expect(ruleDeclaration(css, ".route-press:hover", "border-color")).toBe("var(--color-primary)");
+  it("keeps its own operable line and leaves the depth to press-3d.css", () => {
+    expect(ruleDeclaration(css, ".route-press", "border")).toBe("2px solid var(--color-border)");
+    expect(ruleDeclaration(css, ".route-press", "box-shadow")).toBeNull();
+    expect(css).not.toContain(".route-press:hover");
+    expect(css).not.toContain(".route-press:active");
   });
 });
 
@@ -49,12 +28,19 @@ describe("§4.3 pill labels", () => {
     expect(ruleDeclaration(css, ".route-pill", "border-radius")).toBe("50px");
     expect(ruleDeclaration(css, ".route-pill", "font-weight")).toBe("900");
     expect(ruleDeclaration(css, ".route-pill", "white-space")).toBe("nowrap");
+    expect(ruleDeclaration(css, ".route-pill", "padding")).toBe("3px 10px");
+    expect(ruleDeclaration(css, ".route-pill", "font-size")).toBe("11.5px");
   });
 
-  it("gives the gold family its own ink and deep step", () => {
-    expect(ruleDeclaration(css, ".route-pill--gold", "background")).toBe("var(--color-gold)");
-    expect(ruleDeclaration(css, ".route-pill--gold", "color")).toBe("var(--route-gold-ink)");
-    expect(ruleDeclaration(css, ".route-pill--gold", "box-shadow")).toBe("0 2.5px 0 0 var(--route-gold-deep)");
+  it("labels the gold fact with the TINT, not a solid ground under a ledge", () => {
+    expect(ruleDeclaration(css, ".route-pill--gold", "background")).toBe("var(--color-gold-soft)");
+    expect(ruleDeclaration(css, ".route-pill--gold", "color")).toBe("var(--color-gold-fg)");
+    expect(ruleDeclaration(css, ".route-pill--gold", "box-shadow")).toBeNull();
+  });
+
+  it("keeps no feature-local copy of the gold ink or the gold ledge", () => {
+    expect(css).not.toContain("--route-gold-ink");
+    expect(css).not.toContain("--route-gold-deep");
   });
 
   it("renders the today gold bar as a pressable soft-gold pill (spec §1)", () => {
@@ -80,6 +66,7 @@ describe("§5 map pins are framed markers, not dots", () => {
     expect(ruleDeclaration(css, '.route-pin[data-state="current"]', "box-shadow"))
       .toBe("0 0 0 3px rgb(240 180 41 / 45%), 0 3px 0 rgb(122 95 61 / 32%)");
     expect(ruleDeclaration(css, '.route-pin[data-state="visited"]', "background")).toBe("var(--color-map-pin-teal)");
+    expect(ruleDeclaration(css, '.route-pin[data-state="current"]', TEXT_COLOR)).toBe("var(--color-gold-ink)");
   });
 });
 
