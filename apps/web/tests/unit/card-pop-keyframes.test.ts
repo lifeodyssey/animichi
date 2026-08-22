@@ -5,13 +5,12 @@ import chatCss from "../../src/styles/chat.css?raw";
 import globalsCss from "../../src/styles/globals.css?raw";
 import routeCss from "../../src/styles/route-detail.css?raw";
 import shioriCss from "../../src/styles/shiori.css?raw";
-
-const CARD_POP = /@keyframes card-pop \{([\s\S]*?)\n\}/u;
+import { atRuleBody } from "./stylesheet-probe";
 
 /** Every card family enters on ONE set of frames, declared once in globals. */
 describe("shared cardPop keyframes", () => {
   it("declares the frames once, in globals.css", () => {
-    const frames = CARD_POP.exec(globalsCss)?.[1] ?? "";
+    const frames = atRuleBody(globalsCss, "@keyframes card-pop");
     expect(frames).toContain("opacity: 0");
     expect(frames).toContain("transform: translateY(10px) scale(0.985)");
     expect(frames).toContain("transform: none");

@@ -38,6 +38,18 @@ function declarationValue(body: string, property: string): string | null {
   return new RegExp(String.raw`(?<![-\w])${property}\s*:\s*([^;]+)`, "u").exec(body)?.[1]?.trim() ?? null;
 }
 
+/**
+ * The body of an at-rule block — `@layer base`, `@keyframes card-pop`. Absence
+ * is a failure naming the block, not an empty string that silently passes
+ * every `toContain` a test then makes of it.
+ */
+export function atRuleBody(css: string, prelude: string): string {
+  const escaped = prelude.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+  const body = new RegExp(`${escaped}\\s*\\{([\\S\\s]*?)\\n\\}`, "u").exec(css)?.[1];
+  if (body === undefined) throw new Error(`Missing at-rule: ${prelude}`);
+  return body;
+}
+
 export function ruleDeclaration(css: string, selector: string, property: string): string | null {
   const escaped = selector.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
   const body = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, "u").exec(css)?.[1];

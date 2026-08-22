@@ -59,9 +59,8 @@ interface MapStageProps {
 }
 
 function MapStage({ mode, pins, copy, placeholder, progress }: MapStageProps) {
-  const minHeight = mode === "expanded" ? "18rem" : "9rem";
   return (
-    <div style={{ minHeight }} className="route-map__stage">
+    <div data-mode={mode} className="route-map__stage">
       {progress ? <RouteProgressPill progress={progress} copy={copy} /> : null}
       <span>{placeholder}</span>
       <RoutePinLayer pins={pins} copy={copy} />
@@ -72,7 +71,7 @@ function MapStage({ mode, pins, copy, placeholder, progress }: MapStageProps) {
 export function MapCard({ payload, copy, mode, onToggle }: MapCardProps) {
   if (!payload.pins) return <MapCardSkeleton copy={copy} />;
   return (
-    <section aria-label="地図" aria-expanded={mode === "expanded"} className="route-card">
+    <section aria-label="地図" className="route-card">
       <MapStage mode={mode} pins={payload.pins} copy={copy} progress={payload.progress}
         placeholder={payload.placeholder ?? copy.mapPlaceholder} />
       <MapCardBar mode={mode} onToggle={onToggle} copy={copy} />

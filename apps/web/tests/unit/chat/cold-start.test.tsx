@@ -40,23 +40,27 @@ describe("A1 fox greeting", () => {
   });
 });
 
+/**
+ * The complete A1 row: which kind each of the three chips IS, and the tone the
+ * design paints that kind in. `null` is the plain paper chip, which carries no
+ * `data-tone` at all. Stated per chip so neither the kinds nor the tones can
+ * drift while a "at least one of each" check still passes.
+ */
+const CHIPS = [
+  { chip: ja.chips[0], kind: "example", tone: null },
+  { chip: ja.chips[1], kind: "example", tone: null },
+  { chip: ja.chips[2], kind: "nearbySearch", tone: "primary" },
+] as const;
+
 describe("A1 chips: tone follows meaning", () => {
-  it("leaves the how-to-ask examples on the plain paper chip", () => {
-    renderColdStart();
-    const examples = ja.chips.filter((chip) => chip.kind === "example");
-    expect(examples.length).toBeGreaterThan(0);
-    for (const chip of examples) {
-      expect(screen.getByRole("button", { name: chip.text }).hasAttribute("data-tone")).toBe(false);
-    }
+  it("ships exactly the three kinds the design tones, in order", () => {
+    expect(ja.chips.map((chip) => chip.kind)).toEqual(CHIPS.map((row) => row.kind));
   });
 
-  it("tones the nearby-search entry with the capability's own colour", () => {
+  it.each(CHIPS)("draws the $kind chip $chip.text in the $tone tone", ({ chip, kind, tone }) => {
     renderColdStart();
-    const entries = ja.chips.filter((chip) => chip.kind === "nearbySearch");
-    expect(entries.length).toBeGreaterThan(0);
-    for (const chip of entries) {
-      expect(screen.getByRole("button", { name: chip.text }).getAttribute("data-tone")).toBe("primary");
-    }
+    expect(chip.kind).toBe(kind);
+    expect(screen.getByRole("button", { name: chip.text }).getAttribute("data-tone")).toBe(tone);
   });
 
   it("sends the chip text when a tile is clicked", () => {

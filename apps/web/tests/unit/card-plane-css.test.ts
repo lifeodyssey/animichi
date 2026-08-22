@@ -24,10 +24,10 @@ describe("§4.1 the card plane is declared once", () => {
   });
 
   it("floats every card on the SAME deep brown, never a theme-flipping mix", () => {
-    const drop = sharedRuleDeclaration(css, ".chat-card", "box-shadow") ?? "";
-    expect(drop).toBe("0 14px 30px -20px rgb(90 60 32 / 40%)");
-    // A token here would follow the theme; the four skins must not diverge again.
-    expect(drop).not.toContain("var(");
+    // A token here would follow the theme; the four skins must not diverge again,
+    // so the literal itself is the contract — a missing rule fails as a null.
+    expect(sharedRuleDeclaration(css, ".chat-card", "box-shadow"))
+      .toBe("0 14px 30px -20px rgb(90 60 32 / 40%)");
   });
 
   it("lands every card on the one shared cardPop", () => {

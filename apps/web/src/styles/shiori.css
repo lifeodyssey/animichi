@@ -29,6 +29,7 @@
    * by theme, and frozen for the same reason as the seven above. */
   --shiori-export-ground: #2b2012;
   --shiori-export-ink: #f8f8f0;
+
   container-type: inline-size;
   display: flex;
   flex-direction: column;

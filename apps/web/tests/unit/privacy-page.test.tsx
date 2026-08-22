@@ -32,6 +32,19 @@ describe("PrivacyPolicy", () => {
     expect(globalsCss).not.toContain("privacy.css");
   });
 
+  /**
+   * The migration off privacy.css kept its one-off pixel values on purpose, to
+   * prove the move changed nothing. The two that the shared spacing scale can
+   * already say exactly — 38px and 42px are 9.5 and 10.5 steps of the 0.25rem
+   * scale this file already spends as gap-6.5 and pb-18 — now say it that way.
+   */
+  it("spaces the page off the shared scale rather than one-off pixel margins", () => {
+    renderWithLocale(<PrivacyPolicy />);
+    expect(screen.getByRole("complementary").className).toContain("mt-9.5");
+    expect(screen.getByRole("main").innerHTML).toContain("mb-10.5");
+    expect(screen.getByRole("main").innerHTML).not.toMatch(/\bm[bt]-\[/u);
+  });
+
   it("renders every visible policy heading and intro in Chinese without Japanese fallback copy", () => {
     setLanguages(["zh-CN"]);
     renderWithLocale(<PrivacyPolicy />);

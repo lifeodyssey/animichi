@@ -14,6 +14,21 @@ import { TEST_ORIGIN } from "./fixtures";
 export const ANIME_OVERVIEW_PATH = `${TEST_ORIGIN}/catalog/public/anime-overview/:bangumi_id`;
 
 /** A known anime with spots across three cities; circles arrive unsorted. */
+/**
+ * The fixture's Hida scene, named rather than reached for by index: the scene
+ * ranking suite builds a four-deep ranking out of it, and a test must not have
+ * to guard against an empty `scenes` array to do so.
+ */
+export const hidaFurukawaStation = {
+  id: "scene-2",
+  name: "Hida Furukawa Station",
+  screenshot_url: "https://cdn.test/scene-2.jpg",
+  shot_count: 2,
+  lat: 36.2381,
+  lng: 137.1863,
+  city: "Hida",
+};
+
 export const fullOverviewFixture = {
   bangumi_id: "123",
   points_length: 6,
@@ -23,15 +38,7 @@ export const fullOverviewFixture = {
     { region: "Hida", count: 1, lat: 36.2381, lng: 137.1863 },
   ],
   scenes: [
-    {
-      id: "scene-2",
-      name: "Hida Furukawa Station",
-      screenshot_url: "https://cdn.test/scene-2.jpg",
-      shot_count: 2,
-      lat: 36.2381,
-      lng: 137.1863,
-      city: "Hida",
-    },
+    hidaFurukawaStation,
     {
       id: "scene-1",
       name: "Suga Shrine Stairs",

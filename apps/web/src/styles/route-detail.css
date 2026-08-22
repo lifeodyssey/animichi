@@ -11,6 +11,13 @@
 .route-detail {
   --route-mode-ms: 360ms;
   --route-mode-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* The two heights the map stage animates between (spec §2). Named here
+   * beside the motion budget so the whole geometry of the mode toggle is
+   * legible in one block; the component only says WHICH mode it is in. */
+  --route-map-idle: 9rem;
+  --route-map-expanded: 18rem;
+
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -50,6 +57,7 @@
  * rule reads it. */
 .route-goldbar {
   --press-ledge: var(--color-gold-deep);
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -91,6 +99,7 @@
  * the operable row sits under it as the card's foot (§4.5 block divider). */
 .route-map__stage {
   position: relative;
+  min-height: var(--route-map-idle);
   display: grid;
   gap: 12px;
   place-items: center;
@@ -100,6 +109,10 @@
   font-size: 13px;
   font-weight: 700;
   transition: min-height var(--route-mode-ms) var(--route-mode-ease);
+}
+
+.route-map__stage[data-mode="expanded"] {
+  min-height: var(--route-map-expanded);
 }
 
 .route-map__pill {
@@ -154,7 +167,7 @@
   place-items: center;
   border: 2.5px solid var(--color-paper);
   border-radius: 13px;
-  box-shadow: 0 3px 0 rgb(122 95 61 / 32%);
+  box-shadow: var(--shadow-pin);
   font-size: 15px;
   font-weight: 900;
 }
@@ -177,7 +190,7 @@
 .route-pin[data-state="current"] {
   border-color: var(--color-gold);
   background: var(--color-gold);
-  box-shadow: 0 0 0 3px rgb(240 180 41 / 45%), 0 3px 0 rgb(122 95 61 / 32%);
+  box-shadow: var(--shadow-pin-ring), var(--shadow-pin);
   color: var(--color-gold-ink);
 }
 
@@ -225,7 +238,7 @@
   overflow-y: auto;
   border-radius: 24px 24px 0 0;
   background: var(--color-paper);
-  box-shadow: 0 -8px 28px rgb(122 95 61 / 20%);
+  box-shadow: var(--shadow-sheet);
 }
 
 /* Inside the sheet the timetable is the sheet's own face, not a second card. */

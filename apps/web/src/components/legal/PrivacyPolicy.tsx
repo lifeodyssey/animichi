@@ -35,7 +35,7 @@ function PrivacySafeguardSections({ copy }: { copy: PrivacyCopy }) {
 }
 
 function PrivacyContact({ copy }: { copy: PrivacyCopy }) {
-  return <aside className="mt-[38px] grid gap-1.5 rounded-2xl border-2 border-border bg-card p-5"><p className="font-extrabold">{copy.contact}</p><a className={STRONG_LINK} href="https://github.com/lifeodyssey/animichi/issues" target="_blank" rel="noreferrer">{copy.contact_link}</a></aside>;
+  return <aside className="mt-9.5 grid gap-1.5 rounded-2xl border-2 border-border bg-card p-5"><p className="font-extrabold">{copy.contact}</p><a className={STRONG_LINK} href="https://github.com/lifeodyssey/animichi/issues" target="_blank" rel="noreferrer">{copy.contact_link}</a></aside>;
 }
 
 function PrivacyHeader({ copy }: { copy: PrivacyCopy }) {
@@ -46,7 +46,7 @@ function PrivacyHeader({ copy }: { copy: PrivacyCopy }) {
 export function PrivacyPolicy() {
   const copy = useDict().privacy;
   return <main className="mx-auto w-[min(860px,calc(100%_-_32px))] pt-8 pb-18" aria-labelledby="privacy-title">
-    <div className="mb-[42px] flex items-center justify-between gap-4"><a className="inline-block font-extrabold text-primary-strong no-underline hover:underline hover:underline-offset-[3px] focus-visible:underline focus-visible:underline-offset-[3px]" href="/">← {copy.back_home}</a></div>
+    <div className="mb-10.5 flex items-center justify-between gap-4"><a className="inline-block font-extrabold text-primary-strong no-underline hover:underline hover:underline-offset-[3px] focus-visible:underline focus-visible:underline-offset-[3px]" href="/">← {copy.back_home}</a></div>
     <PrivacyHeader copy={copy} />
     <PrivacyCoreSections copy={copy} />
     <PrivacySafeguardSections copy={copy} />
