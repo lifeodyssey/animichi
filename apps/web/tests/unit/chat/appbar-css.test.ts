@@ -7,7 +7,7 @@ import {
   parseTokens,
   ruleDeclaration,
   tokenValue,
-} from "../_token-helpers";
+} from "../stylesheet-probe";
 
 const day = parseTokens(globalsCss);
 const night = parseBlockTokens(globalsCss, '[data-theme="night"]');

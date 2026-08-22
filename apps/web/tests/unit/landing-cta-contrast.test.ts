@@ -9,7 +9,7 @@ import {
   relativeLuminance,
   tokenValue,
   type TokenMap,
-} from "./_token-helpers";
+} from "./stylesheet-probe";
 
 /* The landing spends both its own scoped tokens and the global ramp, so a
  * resolver that only knows `.landing` would fail to follow `var(--color-*)`. */

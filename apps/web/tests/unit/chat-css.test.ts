@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import chatCss from "../../src/styles/chat.css?raw";
-import { ruleDeclaration } from "./_token-helpers";
+import { ruleDeclaration } from "./stylesheet-probe";
 
 describe("chat bubble sizing", () => {
   it("shrinks bubbles to their content instead of the full column", () => {

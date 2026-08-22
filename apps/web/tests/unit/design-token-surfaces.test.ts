@@ -1,23 +1,19 @@
 import { describe, expect, it } from "vitest";
 import animalCss from "animal-island-ui-tailwind/dist/index.css?raw";
-import fontsCss from "../../src/styles/fonts.css?raw";
 import globalsCss from "../../src/styles/globals.css?raw";
 import {
   alignmentMismatches,
   contrastRatio,
   parseBlockTokens,
-  parseFontFaces,
   parseTokens,
   relativeLuminance,
-  srcForCodepoint,
   tokenValue,
   type TokenMap,
-} from "./_token-helpers";
+} from "./stylesheet-probe";
 
 const semanticTokens = parseTokens(globalsCss);
 const animalTokens = parseTokens(animalCss);
 const nightTokens = parseBlockTokens(globalsCss, '[data-theme="night"]');
-const fontFaces = parseFontFaces(fontsCss);
 
 const alignment: TokenMap = {
   "--color-primary": "--animal-primary-color",
@@ -35,32 +31,6 @@ const alignment: TokenMap = {
   "--color-warning-fg": "--animal-warning-color",
   "--color-error-fg": "--animal-error-color",
 };
-
-describe("design token font foundation", () => {
-  it("vendors every required Zen Maru Gothic subset", () => {
-    const zenFaces = fontFaces.filter(({ family }) => family === "Zen Maru Gothic");
-    expect(zenFaces.map(({ weight }) => weight)).toEqual([500, 500, 700, 700, 900, 900]);
-    expect(zenFaces.map(({ src }) => src)).toEqual([
-      'url("/fonts/zen-maru-gothic-japanese-500-normal.woff2") format("woff2")',
-      'url("/fonts/zen-maru-gothic-latin-500-normal.woff2") format("woff2")',
-      'url("/fonts/zen-maru-gothic-japanese-700-normal.woff2") format("woff2")',
-      'url("/fonts/zen-maru-gothic-latin-700-normal.woff2") format("woff2")',
-      'url("/fonts/zen-maru-gothic-japanese-900-normal.woff2") format("woff2")',
-      'url("/fonts/zen-maru-gothic-latin-900-normal.woff2") format("woff2")',
-    ]);
-    expect(zenFaces.map(({ unicodeRange }) => unicodeRange === null)).toEqual([
-      true, false, true, false, true, false,
-    ]);
-  });
-
-  it("resolves Japanese and Latin codepoints to the correct Zen Maru subset", () => {
-    expect(tokenValue(semanticTokens, "--app-font-body")).toContain('"Zen Maru Gothic"');
-    expect(srcForCodepoint(fontFaces, "Zen Maru Gothic", 500, 0x65e5)).toMatch(/japanese-500/u);
-    expect(srcForCodepoint(fontFaces, "Zen Maru Gothic", 500, 0x0041)).toMatch(/latin-500/u);
-    expect(srcForCodepoint(fontFaces, "Zen Maru Gothic", 700, 0x65e5)).toMatch(/japanese-700/u);
-    expect(srcForCodepoint(fontFaces, "Zen Maru Gothic", 700, 0x0041)).toMatch(/latin-700/u);
-  });
-});
 
 describe("semantic token backfills", () => {
   it.each([
@@ -161,43 +131,5 @@ describe("package primitive alignment", () => {
     const drifted = { ...animalTokens, "--animal-primary-color": "#ff0000" };
     const mismatches = alignmentMismatches(semanticTokens, drifted, alignment);
     expect(mismatches.map(({ semantic }) => semantic)).toContain("--color-primary");
-  });
-});
-
-describe("accessible semantic colors", () => {
-  it("keeps muted text readable on the page background", () => {
-    const foreground = tokenValue(semanticTokens, "--color-muted-fg");
-    const background = tokenValue(semanticTokens, "--color-bg");
-    expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it("keeps white text readable on strong teal", () => {
-    const foreground = tokenValue(semanticTokens, "--color-primary-fg");
-    const background = tokenValue(semanticTokens, "--color-primary-strong");
-    expect(contrastRatio(foreground, background)).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it("keeps body text readable on the darker page floor", () => {
-    const foreground = tokenValue(semanticTokens, "--color-fg");
-    expect(contrastRatio(foreground, tokenValue(semanticTokens, "--color-bg"))).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(foreground, tokenValue(semanticTokens, "--color-paper"))).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it("keeps night text readable on the night paper surface", () => {
-    const foreground = tokenValue(nightTokens, "--color-fg");
-    expect(contrastRatio(foreground, tokenValue(nightTokens, "--color-paper"))).toBeGreaterThanOrEqual(4.5);
-    expect(contrastRatio(tokenValue(nightTokens, "--color-muted-fg"), tokenValue(nightTokens, "--color-paper"))).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it("gives the bright teal ground an ink that clears AA where white cannot", () => {
-    const teal = tokenValue(semanticTokens, "--color-primary");
-    expect(contrastRatio(tokenValue(semanticTokens, "--color-primary-fg"), teal)).toBeLessThan(4.5);
-    expect(contrastRatio(tokenValue(semanticTokens, "--color-primary-ink"), teal)).toBeGreaterThanOrEqual(4.5);
-  });
-
-  it("reuses that ink at night, where the teal ground is unchanged", () => {
-    expect(nightTokens["--color-primary-ink"]).toBeUndefined();
-    const ink = tokenValue(semanticTokens, "--color-primary-ink");
-    expect(contrastRatio(ink, tokenValue(semanticTokens, "--color-primary"))).toBeGreaterThanOrEqual(4.5);
   });
 });

@@ -9,7 +9,7 @@ import {
   ruleDeclaration,
   tokenValue,
   type TokenMap,
-} from "./_token-helpers";
+} from "./stylesheet-probe";
 
 const AA = 4.5;
 const dayTokens = parseTokens(globalsCss);
