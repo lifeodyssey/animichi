@@ -3,6 +3,7 @@ import chatCss from "../../src/styles/chat.css?raw";
 import globalsCss from "../../src/styles/globals.css?raw";
 import {
   contrastRatio,
+  lastRuleDeclaration,
   normalizeHex,
   parseBlockTokens,
   parseTokens,
@@ -57,14 +58,14 @@ describe("the recompute action reads on solid gold in both themes", () => {
 
 describe("the tinted gold ground keeps its own foreground", () => {
   it("keeps the route pill on the soft pair", () => {
-    expect(ruleDeclaration(chatCss, ".chat-route-pill", "background")).toBe("var(--color-gold-soft)");
-    expect(ruleDeclaration(chatCss, ".chat-route-pill", "color")).toBe("var(--color-gold-fg)");
+    expect(lastRuleDeclaration(chatCss, ".chat-route-pill", "background")).toBe("var(--color-gold-soft)");
+    expect(lastRuleDeclaration(chatCss, ".chat-route-pill", "color")).toBe("var(--color-gold-fg)");
   });
 
   it("clears AA on the soft pair in both themes", () => {
     for (const tokens of [dayTokens, nightTokens]) {
-      const ink = paintAsHex(tokens, ruleDeclaration(chatCss, ".chat-route-pill", "color"));
-      const ground = paintAsHex(tokens, ruleDeclaration(chatCss, ".chat-route-pill", "background"));
+      const ink = paintAsHex(tokens, lastRuleDeclaration(chatCss, ".chat-route-pill", "color"));
+      const ground = paintAsHex(tokens, lastRuleDeclaration(chatCss, ".chat-route-pill", "background"));
       expect(contrastRatio(ink, ground)).toBeGreaterThanOrEqual(AA);
     }
   });

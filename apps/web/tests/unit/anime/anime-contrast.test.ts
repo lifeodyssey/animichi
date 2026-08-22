@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import animeCss from "../../../src/styles/anime.css?raw";
 import globalsCss from "../../../src/styles/globals.css?raw";
-import { contrastRatio, parseBlockTokens, ruleDeclaration, tokenValue } from "../_token-helpers";
-import type { TokenMap } from "../_token-helpers";
+import { contrastRatio, parseBlockTokens, ruleDeclaration, tokenValue } from "../stylesheet-probe";
+import type { TokenMap } from "../stylesheet-probe";
 
 /**
  * WCAG 1.4.3 AA (4.5:1) for every text pair the anime skin actually paints, in

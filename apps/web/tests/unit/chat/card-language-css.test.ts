@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import chatCss from "../../../src/styles/chat.css?raw";
 import globalsCss from "../../../src/styles/globals.css?raw";
-import { contrastRatio, lastRuleDeclaration, parseBlockTokens, parseTokens, ruleDeclaration, tokenValue } from "../_token-helpers";
+import { contrastRatio, lastRuleDeclaration, parseBlockTokens, parseTokens, ruleDeclaration, tokenValue } from "../stylesheet-probe";
 
 const day = parseTokens(globalsCss);
 const night = parseBlockTokens(globalsCss, '[data-theme="night"]');
