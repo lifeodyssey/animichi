@@ -111,12 +111,19 @@ def test_ci_root_deploys_match_manual_root_secrets() -> None:
     # manual deploy.yml path still provision it as a real GitHub secret. This
     # is why staging is no longer a strict match against manual_secrets.
     STAGING_EXEMPT_SECRETS = {"CORS_ALLOWED_ORIGIN"}
+    # ZEN_GO_API_KEY is the inverse (#1160): staging root uploads it so the
+    # container can boot the zen/go default model; production worker_secrets
+    # stay frozen.
+    STAGING_ONLY_SECRETS = {"ZEN_GO_API_KEY"}
 
-    assert _wrangler_secret_names(staging) == manual_secrets - STAGING_EXEMPT_SECRETS
+    assert _wrangler_secret_names(staging) == (
+        manual_secrets - STAGING_EXEMPT_SECRETS
+    ) | STAGING_ONLY_SECRETS
     assert _wrangler_secret_names(production) == manual_secrets
     assert manual_secrets - STAGING_EXEMPT_SECRETS <= _mapped_secret_names(staging)
+    assert STAGING_ONLY_SECRETS <= _mapped_secret_names(staging)
     assert manual_secrets <= _mapped_secret_names(production)
-    assert manual_secrets <= _mapped_secret_names(reusable)
+    assert manual_secrets | STAGING_ONLY_SECRETS <= _mapped_secret_names(reusable)
 
 
 def test_dockerfile_does_not_hardcode_a_privileged_app_env() -> None:
