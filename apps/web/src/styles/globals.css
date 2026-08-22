@@ -281,13 +281,19 @@ button, input, select, textarea, [role="button"] {
 }
 
 /*
- * Owner 2026-08-23: below 640px the index route is a doorway — it hands off to
- * /chat on its first client effect. The splash must not lift on a clock: it
- * lifts on the EVENT of chat having painted. Chat's first commit stamps
+ * Owner 2026-08-23: the index route is a doorway at EVERY viewport — it hands
+ * off to /chat on its first client effect. The splash must not lift on a clock:
+ * it lifts on the EVENT of chat having painted. Chat's first commit stamps
  * `data-splash-release` on the document (features/splash/splash-release.ts),
  * which drops the hold back to the plain delay. More than 320ms of the
  * animation clock has always elapsed by then, so the step-end keyframe applies
  * on the very frame chat paints — however slow the network or the CPU.
+ *
+ * Deliberately NOT inside a media query. These rules used to be scoped to
+ * `(max-width: 640px)` back when only narrow viewports handed off; now that
+ * desktop hands off too, a breakpoint here would leave every width above it
+ * uncovered for the whole navigation — the exact flash this mechanism exists to
+ * prevent, and worse on desktop because the landing paints more of itself.
  *
  * The hold itself is gated on `data-splash-scripting`, stamped before first
  * paint by an inline script. With scripting disabled the hold never applies at
@@ -303,15 +309,13 @@ button, input, select, textarea, [role="button"] {
  * ~1.7x and still bounds a broken client's wait, after which the landing
  * underneath — plain SSR HTML, fully usable — renders normally.
  */
-@media (max-width: 640px) {
-  [data-splash-scripting] .app-splash[data-splash-hold="mobile"] {
-    animation-delay: 30000ms;
-  }
+[data-splash-scripting] .app-splash[data-splash-hold="handoff"] {
+  animation-delay: 30000ms;
+}
 
-  /* Source order matters: same specificity as the hold, so this must come after. */
-  [data-splash-release] .app-splash[data-splash-hold="mobile"] {
-    animation-delay: 320ms;
-  }
+/* Source order matters: same specificity as the hold, so this must come after. */
+[data-splash-release] .app-splash[data-splash-hold="handoff"] {
+  animation-delay: 320ms;
 }
 
 .app-splash__frame.phone {

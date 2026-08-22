@@ -57,7 +57,7 @@ describe("static splash", () => {
 
   it("marks the held index splash and leaves every other route bare", () => {
     const { container } = render(<Splash hold />);
-    expect(container.querySelector('[data-splash-hold="mobile"]')).toBeTruthy();
+    expect(container.querySelector('[data-splash-hold="handoff"]')).toBeTruthy();
     const bare = render(<Splash />);
     expect(bare.container.querySelector("[data-splash-hold]")).toBeNull();
   });

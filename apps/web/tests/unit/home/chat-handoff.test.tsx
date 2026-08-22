@@ -10,7 +10,6 @@ import { popularEmptyHandler } from "../../msw/popular";
 import { usersSavedRoutesEmptyHandler } from "../../msw/users";
 import { setLanguages } from "../_i18n";
 import { renderHome } from "./_render";
-import { MOBILE_SPLASH_BREAKPOINT_PX } from "../../../src/features/splash/mobile-splash-handoff";
 import { isIndexMatch } from "../../../src/routes/__root";
 
 const navigate = vi.fn();
@@ -25,9 +24,10 @@ const { HomeView } = await import("../../../src/routes/index");
 const CHAT_TARGET = { to: "/chat", replace: true };
 const GLOBALS_CSS = readFileSync(resolve(process.cwd(), "src/styles/globals.css"), "utf8");
 const HANDOFF_SOURCE = readFileSync(
-  resolve(process.cwd(), "src/features/splash/mobile-splash-handoff.ts"),
+  resolve(process.cwd(), "src/features/splash/chat-handoff.ts"),
   "utf8",
 );
+const HOLD_SELECTOR = '.app-splash[data-splash-hold="handoff"]';
 
 function splashDismissDelayMs(): number {
   return Number(/app-splash-dismiss \d+ms step-end (\d+)ms forwards/.exec(GLOBALS_CSS)?.[1]);
@@ -35,8 +35,25 @@ function splashDismissDelayMs(): number {
 
 function splashHoldDelayMs(): number {
   return Number(
-    /\.app-splash\[data-splash-hold="mobile"\]\s*\{\s*animation-delay:\s*(\d+)ms/.exec(GLOBALS_CSS)?.[1],
+    /\.app-splash\[data-splash-hold="handoff"\]\s*\{\s*animation-delay:\s*(\d+)ms/.exec(GLOBALS_CSS)?.[1],
   );
+}
+
+/** Body of the `@media` block that starts at `open`, by brace matching. */
+function mediaBodyFrom(open: number): string {
+  let depth = 0;
+  for (let i = open; i < GLOBALS_CSS.length; i += 1) {
+    depth += Number(GLOBALS_CSS[i] === "{") - Number(GLOBALS_CSS[i] === "}");
+    if (depth === 0) return GLOBALS_CSS.slice(open, i);
+  }
+  return GLOBALS_CSS.slice(open);
+}
+
+/** Every `@media` body in the sheet that contains `selector`. */
+function mediaScopedRulesFor(selector: string): readonly string[] {
+  return [...GLOBALS_CSS.matchAll(/@media[^{]*\{/g)]
+    .map((match) => mediaBodyFrom(match.index + match[0].length - 1))
+    .filter((body) => body.includes(selector));
 }
 
 beforeEach(() => {
@@ -47,38 +64,23 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-describe("mobile splash hand-off to chat", () => {
-  it("replaces / with /chat on the first client effect, with no timer to wait out", () => {
-    window.innerWidth = 375;
+describe("index hand-off to chat", () => {
+  it.each([320, 640, 641, 1280, 1600])("replaces / with /chat at %ipx", (width) => {
+    window.innerWidth = width;
     renderHome(<HomeView />);
     expect(navigate).toHaveBeenCalledWith(CHAT_TARGET);
     expect(navigate).toHaveBeenCalledTimes(1);
   });
 
   it("does not schedule the hand-off behind any clock", () => {
-    window.innerWidth = 375;
+    window.innerWidth = 1600;
     renderHome(<HomeView />);
     expect(vi.getTimerCount()).toBe(0);
     expect(HANDOFF_SOURCE).not.toMatch(/setTimeout|setInterval|requestAnimationFrame/);
   });
 
-  it("stays on the landing on a desktop viewport", () => {
-    window.innerWidth = 1280;
-    renderHome(<HomeView />);
-    vi.advanceTimersByTime(10_000);
-    expect(navigate).not.toHaveBeenCalled();
-  });
-
-  it("stays on the landing one pixel above the mobile breakpoint", () => {
-    window.innerWidth = MOBILE_SPLASH_BREAKPOINT_PX + 1;
-    renderHome(<HomeView />);
-    expect(navigate).not.toHaveBeenCalled();
-  });
-
-  it("hands off exactly at the mobile breakpoint", () => {
-    window.innerWidth = MOBILE_SPLASH_BREAKPOINT_PX;
-    renderHome(<HomeView />);
-    expect(navigate).toHaveBeenCalledWith(CHAT_TARGET);
+  it("reads no viewport, so no width can opt out of the doorway", () => {
+    expect(HANDOFF_SOURCE).not.toMatch(/matchMedia|innerWidth|max-width/);
   });
 });
 
@@ -94,15 +96,17 @@ describe("splash hold wiring", () => {
    * plain dismissal by a wide margin, so nothing but chat's own release
    * (tests/unit/splash-release.test.tsx) can uncover `/` first.
    */
-  it("holds the mobile index splash strictly longer than the plain dismissal", () => {
+  it("holds the index splash strictly longer than the plain dismissal", () => {
     expect(splashDismissDelayMs()).toBeGreaterThan(0);
     expect(splashHoldDelayMs()).toBeGreaterThan(splashDismissDelayMs());
   });
 
-  it("scopes the hold to the same breakpoint the hand-off reads", () => {
-    const scoped = new RegExp(
-      `@media \\(max-width: ${String(MOBILE_SPLASH_BREAKPOINT_PX)}px\\) \\{\\s*\\[data-splash-scripting\\] \\.app-splash\\[data-splash-hold="mobile"\\]`,
-    );
-    expect(GLOBALS_CSS).toMatch(scoped);
+  /**
+   * Owner 2026-08-23: desktop hands off too, so a viewport-scoped hold would
+   * leave the landing bare for the whole navigation above the breakpoint.
+   */
+  it("holds at every viewport: no media query may scope the hold or its release", () => {
+    expect(GLOBALS_CSS).toContain(HOLD_SELECTOR);
+    expect(mediaScopedRulesFor(HOLD_SELECTOR)).toEqual([]);
   });
 });

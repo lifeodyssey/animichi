@@ -8,6 +8,15 @@ import { getRouter } from "../../../src/router";
 import { setLanguages } from "../_i18n";
 import { dictFor } from "../../../src/i18n/dictionaries";
 
+/**
+ * Owner 2026-08-23: `/` is a doorway at every viewport — it `replace`s into
+ * `/chat` on its first client effect. A callback that returns "home" therefore
+ * SETTLES on `/chat`; `/` is where it lands, not where it stops. The T14
+ * open-redirect guard stays sharp all the same: the honoured deep link arrives
+ * with its search intact, while a rejected vector arrives with none.
+ */
+const SETTLED_HOME = "/chat";
+
 const { establishAuthSession } = vi.hoisted(() => ({ establishAuthSession: vi.fn() }));
 vi.mock("../../../src/lib/auth/auth-session", () => ({
   establishAuthSession,
@@ -30,7 +39,7 @@ describe("/auth/callback route", () => {
     await router.navigate({ to: "/auth/callback" });
     render(<RouterProvider router={router} />);
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/");
+      expect(router.state.location.pathname).toBe(SETTLED_HOME);
     });
   });
 
@@ -53,8 +62,9 @@ describe("/auth/callback route", () => {
       await router.navigate({ to: "/auth/callback", search: { next: vector } });
       render(<RouterProvider router={router} />);
       await waitFor(() => {
-        expect(router.state.location.pathname).toBe("/");
+        expect(router.state.location.pathname).toBe(SETTLED_HOME);
       });
+      expect(router.state.location.search).toEqual({});
     },
   );
 
@@ -64,7 +74,7 @@ describe("/auth/callback route", () => {
     await router.navigate({ to: "/auth/callback", search: { next: "   " } });
     render(<RouterProvider router={router} />);
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/");
+      expect(router.state.location.pathname).toBe(SETTLED_HOME);
     });
   });
 
@@ -85,7 +95,7 @@ describe("/auth/callback route — Neon session verifier", () => {
     });
     render(<RouterProvider router={router} />);
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/");
+      expect(router.state.location.pathname).toBe(SETTLED_HOME);
     });
   });
 });

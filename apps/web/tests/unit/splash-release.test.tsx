@@ -1,8 +1,8 @@
 /**
  * @vitest-environment jsdom
  *
- * The no-flash invariant, at the level it actually lives: the mobile index
- * splash is lifted by chat having painted, never by a clock running out.
+ * The no-flash invariant, at the level it actually lives: the index splash is
+ * lifted by chat having painted, never by a clock running out.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -23,8 +23,8 @@ const RELEASE_SOURCE = readFileSync(
   "utf8",
 );
 
-const HOLD_RULE = `[${SPLASH_SCRIPTING_ATTRIBUTE}] .app-splash[data-splash-hold="mobile"]`;
-const RELEASE_RULE = `[${SPLASH_RELEASE_ATTRIBUTE}] .app-splash[data-splash-hold="mobile"]`;
+const HOLD_RULE = `[${SPLASH_SCRIPTING_ATTRIBUTE}] .app-splash[data-splash-hold="handoff"]`;
+const RELEASE_RULE = `[${SPLASH_RELEASE_ATTRIBUTE}] .app-splash[data-splash-hold="handoff"]`;
 
 function delayAfter(rule: string): number {
   const at = GLOBALS_CSS.indexOf(rule);
