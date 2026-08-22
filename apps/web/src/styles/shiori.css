@@ -11,14 +11,6 @@
    * invariant by intent, not by omission. */
   --shiori-export-ground: #2b2012;
   --shiori-export-ink: #f8f8f0;
-  /* Ink on the SOLID gold seal (design-sync --gold-tx, 5.31:1 on --color-gold).
-   * --color-gold-fg pairs with the soft gold TINT and flips light at night,
-   * where it drops to 1.18:1 on solid gold. route-detail.css declares the same
-   * value as --route-gold-ink; promote both to --color-gold-ink in globals.css
-   * (owned by #1158). */
-  --shiori-gold-ink: #5c4813;
-  /* design-sync --gold-deep — the 3D step under the gold family. */
-  --shiori-gold-deep: #d9a412;
   container-type: inline-size;
   display: flex;
   flex-direction: column;
@@ -26,13 +18,7 @@
   width: min(324px, 100%);
   aspect-ratio: 9 / 16;
   padding: 14px 18px 16px;
-  overflow: hidden;
-  border: 2px solid var(--color-border-soft);
-  border-radius: 18px;
-  background: var(--color-paper);
-  box-shadow: 0 14px 30px -20px rgb(90 60 32 / 40%);
   font-family: var(--app-font-body);
-  animation: card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both;
 }
 
 .shiori-card--ticket {
@@ -249,6 +235,10 @@
   color: var(--shiori-export-ink);
 }
 
+/* The seal is an object stamped on the poster, not a §4.3 label, so it keeps
+ * the SOLID gold ground — and therefore the theme-invariant --color-gold-ink
+ * rather than --color-gold-fg, which pairs with the soft tint and flips light
+ * at night, where it falls to 1.18:1 on solid gold. */
 .shiori-badge {
   display: grid;
   justify-items: center;
@@ -256,12 +246,12 @@
   justify-self: end;
   align-self: flex-end;
   margin: 0;
-  border: 2.5px dashed color-mix(in srgb, var(--shiori-gold-ink) 40%, transparent);
+  border: 2.5px dashed color-mix(in srgb, var(--color-gold-ink) 40%, transparent);
   border-radius: 999px;
   padding: 10px 12px;
   background: var(--color-gold);
-  box-shadow: 0 3px 0 0 var(--shiori-gold-deep);
-  color: var(--shiori-gold-ink);
+  box-shadow: 0 3px 0 0 var(--color-gold-deep);
+  color: var(--color-gold-ink);
   transform: rotate(8deg);
 }
 

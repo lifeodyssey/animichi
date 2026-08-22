@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import globalsCss from "../../../src/styles/globals.css?raw";
+import cardPlaneCss from "../../../src/styles/card-plane.css?raw";
 import routeCss from "../../../src/styles/route-detail.css?raw";
 import {
   AA_CONTRAST,
@@ -7,6 +8,7 @@ import {
   SkinContrast,
   contrastRatio,
   parseBlockTokens,
+  sharedRuleDeclaration,
   tokenValue,
 } from "../stylesheet-probe";
 import type { Theme, TokenMap } from "../stylesheet-probe";
@@ -22,7 +24,15 @@ const DAY: TokenMap = parseBlockTokens(globalsCss, ":root");
 const NIGHT: TokenMap = parseBlockTokens(globalsCss, '[data-theme="night"]');
 const LOCAL: TokenMap = parseBlockTokens(routeCss, ".route-detail");
 
-const skin = new SkinContrast({ day: { ...DAY, ...LOCAL }, night: NIGHT, sheet: routeCss });
+/* The card plane is declared once, in card-plane.css; the browser reads it
+ * together with this skin, and so does this suite. It comes FIRST because it is
+ * layered and loses to the skin's own rules. */
+const skin = new SkinContrast({
+  day: { ...DAY, ...LOCAL },
+  night: NIGHT,
+  sheet: `${cardPlaneCss}\n${routeCss}`,
+  declarationOf: sharedRuleDeclaration,
+});
 
 describe("every surface the skin paints has a night override", () => {
   it.each(["--color-paper", "--color-card", "--color-muted", "--color-border-soft"])(
@@ -56,7 +66,7 @@ describe.each(["day", "night"] as const)("text contrast on the %s surfaces", (th
     expect(skin.readability(".route-goldbar", ".route-goldbar", theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
-  it("gold pill ink on the solid gold ground", () => {
+  it("gold pill ink on its soft gold tint", () => {
     expect(skin.readability(".route-pill--gold", ".route-pill--gold", theme)).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
 
@@ -69,7 +79,7 @@ describe.each(["day", "night"] as const)("text contrast on the %s surfaces", (th
 describe("the solid gold family is theme-invariant", () => {
   it("keeps one gold ground in both themes, so its ink must not flip", () => {
     expect(NIGHT["--color-gold"]).toBeUndefined();
-    expect(tokenValue(LOCAL, "--route-gold-ink")).not.toBe(tokenValue(DAY, "--color-gold-fg"));
+    expect(tokenValue(DAY, "--color-gold-ink")).not.toBe(tokenValue(DAY, "--color-gold-fg"));
     expect(contrastRatio(tokenValue(DAY, "--color-gold-fg"), tokenValue(DAY, "--color-gold"))).toBeLessThan(AA_CONTRAST);
   });
 });

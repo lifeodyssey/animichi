@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import globalsCss from "../../../src/styles/globals.css?raw";
+import cardPlaneCss from "../../../src/styles/card-plane.css?raw";
 import css from "../../../src/styles/shiori.css?raw";
 import photosCss from "../../../src/styles/shiori-photos.css?raw";
 import generatorCss from "../../../src/styles/shiori-generator.css?raw";
@@ -13,6 +14,7 @@ import {
   normalizeHex,
   parseBlockTokens,
   ruleDeclaration,
+  sharedRuleDeclaration,
   tokenValue,
 } from "../stylesheet-probe";
 import type { Theme, TokenMap } from "../stylesheet-probe";
@@ -24,7 +26,13 @@ const LOCAL: TokenMap = parseBlockTokens(css, ".shiori-card");
 
 /** Both sheets read under one palette; the cascade decides, so last rule wins. */
 const themed = { day: { ...DAY, ...LOCAL }, declarationOf: lastRuleDeclaration, night: NIGHT };
-const card = new SkinContrast({ ...themed, sheet: css });
+/* The card plane lives in card-plane.css now; it is read alongside this skin,
+ * shared sheet first because the layer makes it lose to the skin's own rules. */
+const card = new SkinContrast({
+  ...themed,
+  sheet: `${cardPlaneCss}\n${css}`,
+  declarationOf: sharedRuleDeclaration,
+});
 const generator = new SkinContrast({ ...themed, sheet: generatorCss });
 
 describe("every surface the skin paints has a night override", () => {
@@ -94,7 +102,7 @@ describe("exported artifact", () => {
 
   it("keeps gold seal ink readable on solid gold", () => {
     expect(contrastRatio(
-      tokenValue(LOCAL, "--shiori-gold-ink"),
+      tokenValue(DAY, "--color-gold-ink"),
       tokenValue(DAY, "--color-gold"),
     )).toBeGreaterThanOrEqual(AA_CONTRAST);
   });
@@ -106,7 +114,7 @@ describe("exported artifact", () => {
   });
 
   it("does not reuse --color-gold-fg for solid gold", () => {
-    const ink = tokenValue(LOCAL, "--shiori-gold-ink");
+    const ink = tokenValue(DAY, "--color-gold-ink");
     expect(ink).not.toBe(tokenValue(DAY, "--color-gold-fg"));
     expect(ink).not.toBe(tokenValue(NIGHT, "--color-gold-fg"));
   });

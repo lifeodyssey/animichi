@@ -422,15 +422,13 @@
    ground shadow instead of the button's hard 3px ledge — a card is landed, not
    pressable. Every intent card IS this element, so the itinerary, the search
    result, the spot grid and the fallback states all inherit the language here
-   rather than each restating it. */
+   rather than each restating it. The plane itself is now declared once in
+   card-plane.css — including the deep-brown drop this copy had drifted off,
+   onto a --shadow-3d mix that flipped to near-black at night while the other
+   three skins kept the spec colour. What is left here is this family's own
+   padding. */
 .chat-card {
   padding: 0.875rem 1rem;
-  border: 2px solid var(--color-border-soft);
-  border-radius: 18px;
-  overflow: hidden;
-  background: var(--color-paper);
-  box-shadow: 0 14px 30px -20px color-mix(in srgb, var(--shadow-3d) 65%, transparent);
-  animation: card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
 /* §4.3 pill label: ONE geometry for every scrap of text that names a fact
@@ -629,11 +627,11 @@
   color: var(--color-error-strong);
 }
 
-/* §4.2 3D press: a pill on paper, an 800 weight, a solid same-family ledge,
-   and a 2px sink on :active. These five retries/log-ins used to carry three
-   different radii and two shadow depths for the same affordance; the depth is
-   the affordance, so it is declared once. The 44px floor also lifts this
-   family off the old 36px, which was under the touch-target minimum. */
+/* §4.2 3D press, chat's half: the paper ground, the 800 weight and the 44px
+   touch floor that lifted this family off the old 36px. The pill, the ledge,
+   the hover lift and the pressed sink are the shared half and live in
+   press-3d.css — this group used to declare the sink without ever declaring
+   the lift, which is the drift that reunification fixes. */
 .chat-error-banner__retry,
 .chat-fallback__retry,
 .chat-interruption__retry,
@@ -643,25 +641,11 @@
 .chat-quota-exhausted__login {
   min-height: 44px;
   border: 2px solid var(--color-border-soft);
-  border-radius: 50px;
   padding: 0.5rem 1rem;
   background: var(--color-paper);
   color: var(--color-fg);
   font: inherit;
   font-weight: 800;
-  box-shadow: 0 3px 0 var(--shadow-3d);
-  cursor: pointer;
-}
-
-.chat-error-banner__retry:active,
-.chat-fallback__retry:active,
-.chat-interruption__retry:active:not(:disabled),
-.chat-session-expired__login:active,
-.chat-session-expired__resume:active:not(:disabled),
-.chat-budget-exhausted__login:active,
-.chat-quota-exhausted__login:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 var(--shadow-3d);
 }
 
 .chat-interruption__retry:disabled,

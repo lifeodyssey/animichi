@@ -8,20 +8,8 @@ import { ruleDeclaration } from "../stylesheet-probe";
  * (docs/iterations/chat-visual-restore/task.md §4).
  */
 describe("§4.1 card language", () => {
-  it("draws every card as 2px line, 18px radius, clipped paper", () => {
-    expect(ruleDeclaration(css, ".anime-card", "border")).toBe("2px solid var(--color-border-soft)");
-    expect(ruleDeclaration(css, ".anime-card", "border-radius")).toBe("18px");
-    expect(ruleDeclaration(css, ".anime-card", "background")).toBe("var(--color-paper)");
-    expect(ruleDeclaration(css, ".anime-card", "overflow")).toBe("hidden");
-  });
-
-  it("floats the card on the warm drop shadow instead of a hard edge", () => {
-    expect(ruleDeclaration(css, ".anime-card", "box-shadow")).toBe("0 14px 30px -20px rgb(90 60 32 / 40%)");
-  });
-
-  it("enters with cardPop on the shared curve", () => {
-    expect(ruleDeclaration(css, ".anime-card", "animation"))
-      .toBe("card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both");
+  it("inherits the plane from card-plane.css rather than restating it", () => {
+    expect(css).not.toContain(".anime-card {");
     expect(css).not.toContain("@keyframes anime-card-pop");
   });
 
@@ -31,20 +19,11 @@ describe("§4.1 card language", () => {
 });
 
 describe("§4.2 3D press button", () => {
-  it("wears the pill shape on the cream 3D step", () => {
-    expect(ruleDeclaration(css, ".anime-press", "border-radius")).toBe("50px");
+  it("keeps its own type and leaves the depth to press-3d.css", () => {
     expect(ruleDeclaration(css, ".anime-press", "font-weight")).toBe("800");
-    expect(ruleDeclaration(css, ".anime-press", "box-shadow")).toBe("0 3px 0 0 var(--shadow-3d)");
-  });
-
-  it("sinks into its own shadow when pressed", () => {
-    expect(ruleDeclaration(css, ".anime-press:active", "transform")).toBe("translateY(2px)");
-    expect(ruleDeclaration(css, ".anime-press:active", "box-shadow")).toBe("0 1px 0 0 var(--shadow-3d)");
-  });
-
-  it("lifts and turns teal on hover", () => {
-    expect(ruleDeclaration(css, ".anime-press:hover", "transform")).toBe("translateY(-2px)");
-    expect(ruleDeclaration(css, ".anime-press:hover", "border-color")).toBe("var(--color-primary)");
+    expect(ruleDeclaration(css, ".anime-press", "box-shadow")).toBeNull();
+    expect(css).not.toContain(".anime-press:hover");
+    expect(css).not.toContain(".anime-press:active");
   });
 
   it("keeps the operable border loud, since WCAG 1.4.11 governs a control edge", () => {
@@ -61,9 +40,9 @@ describe("§4.3 pill labels", () => {
     expect(ruleDeclaration(css, ".anime-pill", "font-size")).toBe("11.5px");
   });
 
-  it("paints the canvas count pill in the explore teal pair", () => {
-    expect(ruleDeclaration(css, ".anime-pill--teal", "background")).toBe("var(--color-explore-bg)");
-    expect(ruleDeclaration(css, ".anime-pill--teal", "color")).toBe("var(--color-explore-fg)");
+  it("spends no explore-mode token on a count that is not a mode", () => {
+    expect(css).not.toContain("--color-explore");
+    expect(css).not.toContain("anime-pill--teal");
   });
 
   it("puts the gold rank on the SOFT gold tint, the only ground its ink survives", () => {
@@ -96,7 +75,6 @@ describe("§4.6 motion", () => {
     expect(block).toContain(".anime-card");
     expect(block).toContain(".anime-skeleton");
     expect(block).toContain("animation: none");
-    expect(block).toContain("transition: none");
   });
 });
 

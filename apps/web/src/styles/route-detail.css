@@ -9,16 +9,6 @@
  * night override, so cards float above the floor in both themes.
  */
 .route-detail {
-  /* design-sync --gold-deep: the 3D press shadow under the gold family. The
-   * global layer has --color-gold but no deep step yet; promote on the next
-   * token pass (globals.css is owned by #1158). */
-  --route-gold-deep: #d9a412;
-  /* Ink on the SOLID gold ground (design-sync --gold-tx, 5.31:1 on --color-gold).
-   * --color-gold-fg is the pair for the soft gold *tint* and flips light at
-   * night, while --color-gold itself has no night override — so solid gold
-   * needs its own theme-invariant ink, exactly as --color-primary-ink does for
-   * the bright teal. Promote alongside --route-gold-deep. */
-  --route-gold-ink: #5c4813;
   --route-mode-ms: 360ms;
   --route-mode-ease: cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -30,29 +20,22 @@
   padding: 16px 16px 40px;
 }
 
-/* §4.1 card: paper ground, 2px line, 18px radius, soft warm drop, cardPop in. */
-.route-card {
-  overflow: hidden;
-  border: 2px solid var(--color-border-soft);
-  border-radius: 18px;
-  background: var(--color-paper);
-  box-shadow: 0 14px 30px -20px rgb(90 60 32 / 40%);
-  animation: card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both;
-}
-
 /* §4.3 pill: 50px radius, 900 weight, small nowrap label. */
 .route-pill {
   border-radius: 50px;
-  padding: 5px 12px;
+  padding: 3px 10px;
   font-size: 11.5px;
   font-weight: 900;
   white-space: nowrap;
 }
 
+/* §4.3's gold row is a TINT (canvas #fdf1cf on #a8801a), not solid gold: a pill
+ * only labels a fact, and a solid ground under a ledge reads as something you
+ * can press. Solid gold stays where the gold really is an object — the 現在 pin
+ * below, and the しおり seal. */
 .route-pill--gold {
-  background: var(--color-gold);
-  box-shadow: 0 2.5px 0 0 var(--route-gold-deep);
-  color: var(--route-gold-ink);
+  background: var(--color-gold-soft);
+  color: var(--color-gold-fg);
 }
 
 /* Today's gold bar (spec §1): information, not the CTA — soft gold ground with
@@ -66,7 +49,7 @@
   border-radius: 50px;
   padding: 8px 16px;
   background: var(--color-gold-soft);
-  box-shadow: 0 3px 0 0 var(--route-gold-deep);
+  box-shadow: 0 3px 0 0 var(--color-gold-deep);
   color: var(--color-gold-fg);
   font-size: 13px;
   font-weight: 900;
@@ -77,7 +60,7 @@
 
 .route-goldbar:active {
   transform: translateY(2px);
-  box-shadow: 0 1px 0 0 var(--route-gold-deep);
+  box-shadow: 0 1px 0 0 var(--color-gold-deep);
 }
 
 /* Hero (spec §1): title left, 完走 badge right — the badge only lights up in
@@ -143,26 +126,12 @@
 /* §4.2 3D press button, cream family (deep step = --shadow-3d). */
 .route-press {
   border: 2px solid var(--color-border);
-  border-radius: 50px;
   padding: 7px 14px;
   background: var(--color-card);
-  box-shadow: 0 3px 0 0 var(--shadow-3d);
   color: var(--color-fg);
   font-family: inherit;
   font-size: 13px;
   font-weight: 800;
-  cursor: pointer;
-  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
-}
-
-.route-press:hover {
-  transform: translateY(-2px);
-  border-color: var(--color-primary);
-}
-
-.route-press:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 0 var(--shadow-3d);
 }
 
 /* Map pins (spec §5, 図釘即画面): a framed marker with a paper edge and a
@@ -208,7 +177,7 @@
   border-color: var(--color-gold);
   background: var(--color-gold);
   box-shadow: 0 0 0 3px rgb(240 180 41 / 45%), 0 3px 0 rgb(122 95 61 / 32%);
-  color: var(--route-gold-ink);
+  color: var(--color-gold-ink);
 }
 
 .route-pin[data-state="current"]::after {
@@ -307,8 +276,7 @@
   }
 
   .route-goldbar,
-  .route-map__stage,
-  .route-press {
+  .route-map__stage {
     transition: none;
   }
 }

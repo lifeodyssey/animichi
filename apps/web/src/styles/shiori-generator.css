@@ -44,10 +44,10 @@
   margin: 0;
   border: 2px solid var(--color-gold);
   border-radius: 50px;
-  padding: 4px 14px;
+  padding: 3px 10px;
   background: var(--color-gold-soft);
   color: var(--color-gold-fg);
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 900;
   white-space: nowrap;
 }
