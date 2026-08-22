@@ -3,7 +3,7 @@ import animeCss from "../../src/styles/anime.css?raw";
 import chatCss from "../../src/styles/chat.css?raw";
 import css from "../../src/styles/press-3d.css?raw";
 import routeCss from "../../src/styles/route-detail.css?raw";
-import { sharedRuleDeclaration } from "./stylesheet-probe";
+import { ruleDeclaration, sharedRuleDeclaration } from "./stylesheet-probe";
 
 /**
  * §4.2 of docs/iterations/chat-visual-restore/task.md: pill, ledge, hover lift,
@@ -14,6 +14,7 @@ import { sharedRuleDeclaration } from "./stylesheet-probe";
 const MEMBERS = [
   ".anime-press",
   ".route-press",
+  ".route-goldbar",
   ".chat-error-banner__retry",
   ".chat-fallback__retry",
   ".chat-interruption__retry",
@@ -26,7 +27,8 @@ const MEMBERS = [
 describe("§4.2 one pill, one ledge, for every family", () => {
   it.each(MEMBERS)("%s reads its depth off the shared rule", (member) => {
     expect(sharedRuleDeclaration(css, member, "border-radius")).toBe("50px");
-    expect(sharedRuleDeclaration(css, member, "box-shadow")).toBe("0 3px 0 0 var(--shadow-3d)");
+    expect(sharedRuleDeclaration(css, member, "box-shadow"))
+      .toBe("0 3px 0 0 var(--press-ledge, var(--shadow-3d))");
     expect(sharedRuleDeclaration(css, member, "cursor")).toBe("pointer");
   });
 
@@ -41,7 +43,21 @@ describe("§4.2 one pill, one ledge, for every family", () => {
     expect(sharedRuleDeclaration(css, `${member}:active:not(:disabled)`, "transform"))
       .toBe("translateY(2px)");
     expect(sharedRuleDeclaration(css, `${member}:active:not(:disabled)`, "box-shadow"))
-      .toBe("0 1px 0 0 var(--shadow-3d)");
+      .toBe("0 1px 0 0 var(--press-ledge, var(--shadow-3d))");
+  });
+
+  /* The gold bar declared the ledge and the sink itself and got no hover at
+   * all — the same half of the pattern chat's seven buttons were missing. It
+   * joins the group; only the colour of its step is its own. */
+  it("steps the gold bar down onto ITS ledge, the shared rule reading the family's", () => {
+    expect(ruleDeclaration(routeCss, ".route-goldbar", "--press-ledge")).toBe("var(--color-gold-deep)");
+    expect(routeCss).not.toContain("0 3px 0 0 var(--color-gold-deep)");
+    expect(routeCss).not.toContain(".route-goldbar:active");
+  });
+
+  it("leaves a family that names no ledge on the cream one", () => {
+    expect(ruleDeclaration(animeCss, ".anime-press", "--press-ledge")).toBeNull();
+    expect(css).toContain("var(--press-ledge, var(--shadow-3d))");
   });
 
   it("holds a disabled button still, rather than lifting it under the pointer", () => {

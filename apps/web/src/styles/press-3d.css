@@ -8,6 +8,14 @@
  * `:not(:disabled)` guards both interactive rules so a disabled retry stays
  * put; it is inert on the anchors in this list, which can never match it.
  *
+ * `--press-ledge` is the one thing about the depth that IS a family's own: the
+ * cream families rest on `--shadow-3d`, the gold bar on its own `--gold-deep`
+ * step, and a family that says nothing gets the cream ledge from the fallback.
+ * A fallback rather than a declaration in the rule below, because the skins are
+ * imported by their components while this file comes through `globals.css`:
+ * bundling order between the two is not ours to fix, and `var(x, y)` does not
+ * care about it while two competing declarations of `--press-ledge` would.
+ *
  * UNLAYERED, unlike `card-plane.css`. A cascade layer here would lose the hover
  * line: every family declares its own resting edge with the `border` SHORTHAND
  * in its own unlayered sheet, and an unlayered shorthand beats a layered
@@ -18,6 +26,7 @@
  * with a family's own rule, so no layer is needed to hold them apart. */
 .anime-press,
 .route-press,
+.route-goldbar,
 .chat-error-banner__retry,
 .chat-fallback__retry,
 .chat-interruption__retry,
@@ -26,13 +35,14 @@
 .chat-budget-exhausted__login,
 .chat-quota-exhausted__login {
   border-radius: 50px;
-  box-shadow: 0 3px 0 0 var(--shadow-3d);
+  box-shadow: 0 3px 0 0 var(--press-ledge, var(--shadow-3d));
   cursor: pointer;
   transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
 }
 
 .anime-press:hover:not(:disabled),
 .route-press:hover:not(:disabled),
+.route-goldbar:hover:not(:disabled),
 .chat-error-banner__retry:hover:not(:disabled),
 .chat-fallback__retry:hover:not(:disabled),
 .chat-interruption__retry:hover:not(:disabled),
@@ -46,6 +56,7 @@
 
 .anime-press:active:not(:disabled),
 .route-press:active:not(:disabled),
+.route-goldbar:active:not(:disabled),
 .chat-error-banner__retry:active:not(:disabled),
 .chat-fallback__retry:active:not(:disabled),
 .chat-interruption__retry:active:not(:disabled),
@@ -54,7 +65,7 @@
 .chat-budget-exhausted__login:active:not(:disabled),
 .chat-quota-exhausted__login:active:not(:disabled) {
   transform: translateY(2px);
-  box-shadow: 0 1px 0 0 var(--shadow-3d);
+  box-shadow: 0 1px 0 0 var(--press-ledge, var(--shadow-3d));
 }
 
 /* §4.6: the lift and the sink are motion, so they yield to the preference.
@@ -63,6 +74,7 @@
 @media (prefers-reduced-motion: reduce) {
   .anime-press,
   .route-press,
+  .route-goldbar,
   .chat-error-banner__retry,
   .chat-fallback__retry,
   .chat-interruption__retry,

@@ -46,7 +46,10 @@ describe("§4.3 pill labels", () => {
   it("renders the today gold bar as a pressable soft-gold pill (spec §1)", () => {
     expect(ruleDeclaration(css, ".route-goldbar", "border")).toBe("2px solid var(--color-gold)");
     expect(ruleDeclaration(css, ".route-goldbar", "background")).toBe("var(--color-gold-soft)");
-    expect(ruleDeclaration(css, ".route-goldbar:active", "transform")).toBe("translateY(2px)");
+    // The press step itself is press-3d.css's (see press-3d-css.test.ts); this
+    // sheet keeps only the gold ground, the gold line, and the gold ledge.
+    expect(ruleDeclaration(css, ".route-goldbar", "--press-ledge")).toBe("var(--color-gold-deep)");
+    expect(ruleDeclaration(css, ".route-goldbar", "box-shadow")).toBeNull();
   });
 });
 

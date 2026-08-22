@@ -6,7 +6,6 @@ import photosCss from "../../../src/styles/shiori-photos.css?raw";
 import generatorCss from "../../../src/styles/shiori-generator.css?raw";
 import {
   AA_CONTRAST,
-  GROUND_COLOR,
   SkinContrast,
   TEXT_COLOR,
   contrastRatio,
@@ -24,8 +23,16 @@ const DAY: TokenMap = parseBlockTokens(globalsCss, ":root");
 const NIGHT: TokenMap = parseBlockTokens(globalsCss, '[data-theme="night"]');
 const LOCAL: TokenMap = parseBlockTokens(css, ".shiori-card");
 
-/** Both sheets read under one palette; the cascade decides, so last rule wins. */
-const themed = { day: { ...DAY, ...LOCAL }, declarationOf: lastRuleDeclaration, night: NIGHT };
+/** Both sheets read under one palette; the cascade decides, so last rule wins.
+ * `LOCAL` goes on top of the night overrides as well as the day ones: it is
+ * declared on `.shiori-card` itself, which outranks `[data-theme="night"]` on
+ * `:root` for every element in the card. That is what makes the exported
+ * artifact theme-invariant (export-theme-invariance.test.ts). */
+const themed = {
+  day: { ...DAY, ...LOCAL },
+  declarationOf: lastRuleDeclaration,
+  night: { ...NIGHT, ...LOCAL },
+};
 /* The card plane lives in card-plane.css now; it is read alongside this skin,
  * shared sheet first because the layer makes it lose to the skin's own rules. */
 const card = new SkinContrast({
@@ -33,19 +40,13 @@ const card = new SkinContrast({
   sheet: `${cardPlaneCss}\n${css}`,
   declarationOf: sharedRuleDeclaration,
 });
-const generator = new SkinContrast({ ...themed, sheet: generatorCss });
-
-describe("every surface the skin paints has a night override", () => {
-  it.each(["--color-paper", "--color-card", "--color-muted", "--color-border-soft"])(
-    "%s flips for night, so no day cream is left on the dark floor", (name: string) => {
-      expect(NIGHT[name]).toBeDefined();
-    },
-  );
-
-  it("repaints the card ground itself, not just the text on it", () => {
-    expect(card.paint(".shiori-card", GROUND_COLOR, "night"))
-      .not.toBe(card.paint(".shiori-card", GROUND_COLOR, "day"));
-  });
+/* The generator is the chrome AROUND the card, not part of the saved artifact,
+ * so it reads the plain themed palette and is expected to repaint at night. */
+const generator = new SkinContrast({
+  day: DAY,
+  declarationOf: lastRuleDeclaration,
+  night: NIGHT,
+  sheet: generatorCss,
 });
 
 describe.each(["day", "night"] as const)("text contrast on the %s surfaces", (theme: Theme) => {
