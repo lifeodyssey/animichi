@@ -26,7 +26,8 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 - `src/neon-auth.ts` — pure Neon Auth derivation (JWKS URL ↔ issuer base URL, env-var names); pinned by `topology-neon-auth.test.ts`.
 - `Pulumi.yaml` — project metadata and base encrypted config.
 - `Pulumi.staging.yaml` · `Pulumi.prod.yaml` — live environment stacks.
-- `../.github/workflows/reusable-deploy-component.yml` — Pulumi `up` and Worker deploy sequence.
+- `../.github/workflows/reusable-deploy-infra.yml` — main-stack Pulumi `up` (R2 backup then apply).
+- `../.github/workflows/reusable-deploy-component.yml` — Worker deploy sequence.
 - `../docs/ops/deployment.md` — environment and approval runbook.
 
 ## Pitfalls
@@ -46,7 +47,7 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
   `stagingGateToken` secret.
 - No Hyperdrive: catalog reaches Neon over `@neondatabase/serverless` HTTP.
 - **`pulumi stack export` runs unmodified before every `pulumi up`** (rollback backup, #485;
-  `reusable-deploy-component.yml`'s "Pulumi stack export" step), then is copied to the **R2 bucket the
+  `reusable-deploy-infra.yml`'s "Pulumi stack export" step), then is copied to the **R2 bucket the
   Pulumi state backend already lives in** (`rollback-backups/` prefix) via `aws s3 cp` — deliberately
   **not** a GitHub Actions artifact, because this repo is **public**: a public repo's workflow
   artifacts are downloadable by any signed-in GitHub account, not just people with repo access. It is

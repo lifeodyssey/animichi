@@ -150,10 +150,11 @@ jobs:
   # push main → staging: neon-secrets roles + Secrets Store DSNs must exist
   # BEFORE any Worker deploy consumes them (PR2's wrangler.toml bindings will
   # read the store; #926 CI wiring). Runs first in the staging chain:
-  # deploy-staging (catalog) waits on it, so users/maintenance/root cascade
-  # behind it. #1048 adds the production stack: deploy-neon-secrets-prod
-  # runs the same Pulumi project against Pulumi.prod.yaml (prod branch roles
-  # + DSN secrets, "_PROD"-suffixed store names) ahead of the prod Workers.
+  # deploy-infra-staging and deploy-staging (catalog) wait on it, so
+  # users/root cascade behind them. #1048 adds the production stack:
+  # deploy-neon-secrets-prod runs the same Pulumi project against
+  # Pulumi.prod.yaml (prod branch roles + DSN secrets, "_PROD"-suffixed
+  # store names) ahead of the prod infra apply and Workers.
   deploy-neon-secrets-staging:
     name: Deploy neon-secrets staging
     needs: [security, ci-cross-stack-e2e]
@@ -269,6 +270,25 @@ jobs:
           echo "migrated to head $applied"
     concurrency: migrate-staging
 
+  # #1074: main-stack `pulumi up` is its own job. Always runs on the deploy
+  # lane (no path filter). Does not need migrate-staging (no cycle).
+  deploy-infra-staging:
+    name: Deploy infra staging
+    needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging]
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/reusable-deploy-infra.yml
+    with:
+      environment: staging
+      pulumi_stack: staging
+    secrets:
+      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    concurrency: deploy-infra-staging
+
   # push main -> production: provision the prod-role Secrets Store DSNs BEFORE
   # the production Workers deploy (their wrangler.toml bindings read the store).
   # Gated on the SAFE-1 production-eligibility gate + the GitHub production
@@ -296,7 +316,7 @@ jobs:
   # push main → staging
   deploy-staging:
     name: Deploy staging
-    needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging, migrate-staging]
+    needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging, migrate-staging, deploy-infra-staging]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
@@ -310,22 +330,19 @@ jobs:
       environment: staging
       pulumi_stack: staging
       working_directory: workers/catalog
+      # #1074: main-stack pulumi up moved to deploy-infra-staging.
+      run_pulumi: false
       # #1052: staging applies schema via the migrator trigger (migrate-staging);
       # the per-component migration apply is disabled (run_atlas: false) and no DSN is passed.
       run_atlas: false
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     concurrency: deploy-staging
 
   deploy-web-staging:
     name: Deploy web staging
-    needs: [security, ci-cross-stack-e2e, migrate-staging]
+    needs: [security, ci-cross-stack-e2e, migrate-staging, deploy-infra-staging]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
@@ -355,7 +372,7 @@ jobs:
 
   deploy-users-staging:
     name: Deploy users staging
-    needs: [deploy-staging, migrate-staging]
+    needs: [deploy-staging, migrate-staging, deploy-infra-staging]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
@@ -385,7 +402,7 @@ jobs:
 
   deploy-root-staging:
     name: Deploy root staging
-    needs: [deploy-staging, deploy-users-staging, migrate-staging]
+    needs: [deploy-staging, deploy-users-staging, migrate-staging, deploy-infra-staging]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()

@@ -402,12 +402,13 @@ On a push to `main`, the current promotion chain is:
    component deploy below depends on `migrate-staging` in its `needs:` graph, so a failed
    trigger blocks all component deploys. The routine staging path carries NO `NEON_DATABASE_URL`.
 
-2. `deploy-staging` and `deploy-web-staging` wait only on the lanes that still live in `ci.yml`
-   (`security` and the self-gated cross-stack lane), then call
-   `reusable-deploy-component.yml` with `component: catalog` / `web`, `environment: staging`,
-   and `pulumi_stack: staging`. Accepted tradeoff: staging deploys no longer wait on any package
-   pipeline, because GitHub cannot express `needs:` across workflows — protection comes from the
-   required merge contexts in the ruleset instead, plus the future merge queue.
+2. `deploy-infra-staging` always runs on the deploy lane (no path filter) and applies the
+   main `infra/` stack (`reusable-deploy-infra.yml`). `deploy-staging` / `deploy-web-staging`
+   (and users/root) `needs` that job **and** `migrate-staging`, then call
+   `reusable-deploy-component.yml` with `run_pulumi: false`. Accepted tradeoff: staging deploys
+   no longer wait on any package pipeline, because GitHub cannot express `needs:` across
+   workflows — protection comes from the required merge contexts in the ruleset instead, plus
+   the future merge queue.
 3. `deploy-neon-secrets-staging` runs **before** `deploy-staging` (catalog waits on it, so
    users/root cascade behind it): the Neon service roles and the Cloudflare Secrets
    Store DSN secrets (`infra/neon-secrets/`, ADR 0003 / #912) must exist before any Worker deploy
@@ -441,8 +442,10 @@ On a push to `main`, the current promotion chain is:
    **migrator trigger** (`migrate-staging` in ci.yml, step 0) BEFORE any component deploy, so a
    staging deployment never holds the database credential. **Production** callers keep
    `run_atlas` on and the pinned per-component Atlas apply (`NEON_DATABASE_URL` present) until
-   #1055 removes it. The component then runs `pulumi up` in `infra/`, deploys
-   `workers/${{ inputs.component }}` with Wrangler, and runs the component smoke step.
+   #1055 removes it. The component deploys from `inputs.working_directory` with Wrangler
+   (catalog/users under `workers/`, web at `apps/web`, root at the repo with
+   `workers/edge/wrangler.toml`) and runs the component smoke step — it does not run
+   `pulumi up` (#1074).
 5. the web, users, and root staging deploys complete in the same promotion stage.
 6. `post-staging` runs the API post-deploy suite against staging, including the **migration
    ledger-head smoke** (#1052 AC5): it reads the migrator's read-only `/ledger-head` endpoint and
@@ -458,9 +461,10 @@ new schema, and `post-staging` re-asserts the ledger head equals the target. The
 `Quality / invariants` lane and the `migration-boundary` contract guard run on the PR before the
 merge; the deploy + smoke run on the merge. A red staging deploy or smoke is CI visible and
 blocks promotion.
-7. `deploy-prod` and the other production component jobs deploy catalog, web, users, and root with
-   `environment: production`; `pulumi_stack: prod` remains catalog-only. The GitHub
-   `production` environment is the human approval gate.
+7. `deploy-infra-prod` applies the main `infra/` stack (`pulumi_stack: prod`), then
+   `deploy-prod` and the other production component jobs deploy catalog, web, users, and root
+   with `environment: production` and `run_pulumi: false`. The GitHub `production`
+   environment is the human approval gate.
 8. `post-prod` runs the production smoke post-deploy suite.
 
 ### Manual production path (`.github/workflows/deploy.yml`)
@@ -471,10 +475,11 @@ Its current order is:
 
 1. install workspace dependencies (`pnpm install --frozen-lockfile`); there is no app build
    step — the root Worker ships as TypeScript source
-2. deploy the catalog Worker first, because the root Worker service binding depends on it
-3. deploy the users Worker before the root Worker, because the root `USERS` binding depends on it
-4. verify `Dockerfile` exists
-5. deploy the root Worker/container with Wrangler
+2. `deploy-infra-prod` applies the main `infra/` stack
+3. deploy the catalog Worker first, because the root Worker service binding depends on it
+4. deploy the users Worker before the root Worker, because the root `USERS` binding depends on it
+5. verify `Dockerfile` exists
+6. deploy the root Worker/container with Wrangler
 
 The manual path runs the same `reusable-deploy-component.yml` as the CI promotion, so it applies
 `migrations/neon/` (when `NEON_DATABASE_URL` is set) exactly like the CI path — it is not a
@@ -592,7 +597,7 @@ Steps:
 
 ### Pulumi rollback
 
-`reusable-deploy-component.yml`'s "Pulumi stack export (rollback backup)" step runs `pulumi stack export`
+`reusable-deploy-infra.yml`'s "Pulumi stack export (rollback backup)" step runs `pulumi stack export`
 immediately before every `pulumi up` **that actually runs**, then uploads the result to the **same
 R2 bucket the Pulumi state backend already lives in** (`aws s3 cp`, using the `R2_ACCESS_KEY_ID`/
 `R2_SECRET_ACCESS_KEY` credentials already present in that step) under a `rollback-backups/`
@@ -608,9 +613,9 @@ connection string, retained for however long the artifact lived. Writing to the 
 keeps the backup exactly as private as the Pulumi state it's a snapshot of — no new exposure surface,
 same trust boundary, same credentials this step already holds.
 
-`run_pulumi` defaults to `true`, but every caller except `component: catalog` explicitly sets
-`run_pulumi: false` (see `ci.yml`), so **this step currently only ever runs under the catalog deploy
-jobs** (`deploy-staging` / `deploy-prod`) — don't go looking for a backup from a root/web/users run.
+Catalog/users/web/root callers pass `run_pulumi: false` (`ci.yml` / `deploy.yml`). The main-stack
+apply lives in `deploy-infra-staging` / `deploy-infra-prod` — look there for the backup, not under
+a catalog/root/web/users run.
 
 To roll back a bad Pulumi apply:
 

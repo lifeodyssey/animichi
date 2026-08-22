@@ -38,7 +38,7 @@ void test("MIGRATOR_DATABASE_URL is NOT in the container required-keys list", ()
 });
 
 void test("no runtime worker wrangler.toml binds the migrator DSN", () => {
-  const workers = ["catalog", "users", "edge", "jobs"];
+  const workers = ["catalog", "users", "edge", "jobs", "doorbell"];
   for (const worker of workers) {
     const toml = read(`workers/${worker}/wrangler.toml`);
     assert.doesNotMatch(toml, migratorSecretRegex, `${worker} wrangler.toml must not reference MIGRATOR_DATABASE_URL`);
@@ -60,4 +60,18 @@ void test("the neon-secrets IaC DOES provision the migrator role + MIGRATOR_DATA
   const neonSecrets = read("infra/neon-secrets/index.ts");
   assert.match(neonSecrets, /name: "migrator"/, "neon-secrets index.ts must declare the migrator role");
   assert.match(neonSecrets, migratorSecretRegex, "neon-secrets index.ts must declare the MIGRATOR_DATABASE_URL store secret");
+});
+
+void test("doorbell wrangler.toml bindings are Builds-token-shaped only", () => {
+  const toml = read("workers/doorbell/wrangler.toml");
+  assert.doesNotMatch(toml, migratorSecretRegex);
+  assert.doesNotMatch(toml, /DATABASE_URL/);
+  assert.doesNotMatch(toml, /CLOUDFLARE_API_TOKEN/);
+  assert.match(toml, /BUILDS_API_TOKEN/);
+});
+
+void test("migrator wrangler.toml has no Builds token binding", () => {
+  const toml = read("workers/migrator/wrangler.toml");
+  assert.doesNotMatch(toml, /BUILDS_API_TOKEN/);
+  assert.doesNotMatch(toml, /CLOUDFLARE_API_TOKEN/);
 });
