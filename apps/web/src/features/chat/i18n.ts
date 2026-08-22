@@ -1,6 +1,8 @@
 import type { Locale } from "../../i18n/locales";
 import { enByok, jaByok, zhByok } from "./byok-i18n";
 import type { ChatByokDict } from "./byok-i18n";
+import { enAppBar, jaAppBar, zhAppBar } from "./appbar-i18n";
+import type { ChatAppBarDict } from "./appbar-i18n";
 import {
   enClarify,
   enDeparture,
@@ -31,6 +33,7 @@ import type { ChatSearchDict } from "./search-i18n";
 export type { ChatRouteDict } from "./route-i18n";
 export type { ChatSearchDict } from "./search-i18n";
 export type { ChatByokDict } from "./byok-i18n";
+export type { ChatAppBarDict } from "./appbar-i18n";
 export type {
   ChatClarifyDict,
   ChatDepartureDict,
@@ -99,8 +102,14 @@ const enTurnstile: ChatTurnstileDict = {
 /** Chat-page copy, kept feature-local to avoid the shared dictionary hot file. */
 export interface ChatDict {
   readonly greeting: string;
+  /** A1 hero headline above the greeting bubble (design spec: empty-state hero). */
+  readonly heroTitle: string;
+  /** Label introducing the example chips. */
+  readonly chipsLabel: string;
   readonly chips: readonly [string, string, string];
   readonly inputPlaceholder: string;
+  /** G4: the placeholder while a turn is running — the field stays open. */
+  readonly busyPlaceholder: string;
   readonly send: string;
   readonly errorBanner: string;
   readonly retry: string;
@@ -114,6 +123,7 @@ export interface ChatDict {
   readonly footprintDetails: string;
   /** E1 badge on a superseded living-document card (issues #271/#273). */
   readonly previousVersion: string;
+  readonly appbar: ChatAppBarDict;
   readonly errorStates: ChatErrorStatesDict;
   readonly toolSteps: ChatToolStepsDict;
   readonly search: ChatSearchDict;
@@ -170,12 +180,15 @@ const enToolSteps: ChatToolStepsDict = {
 
 const ja: ChatDict = {
   greeting: "アニミチだよ。どのアニメの聖地をめぐってみたい?",
+  heroTitle: "どの聖地へ行きますか?",
+  chipsLabel: "こんな風に聞けます",
   chips: [
     "響け!ユーフォニアムの聖地",
     "君の名は。のルートを組んで",
     "近くの聖地をさがして",
   ],
   inputPlaceholder: "作品名やエリアを話しかけてね…",
+  busyPlaceholder: "考え中…",
   send: "送信",
   errorBanner: "サーバーに接続できません",
   retry: "再試行",
@@ -188,6 +201,7 @@ const ja: ChatDict = {
   waitingSubtitle: "いま さがしてるよ…",
   footprintDetails: "詳細を見る",
   previousVersion: "以前の版",
+  appbar: jaAppBar,
   errorStates: jaErrorStates,
   toolSteps: jaToolSteps,
   search: jaSearch,
@@ -202,8 +216,11 @@ const ja: ChatDict = {
 
 const zh: ChatDict = {
   greeting: "我是 Animichi。想去哪部作品的圣地巡礼?",
+  heroTitle: "想去哪个圣地?",
+  chipsLabel: "可以这样问我",
   chips: ["吹响吧!上低音号的圣地", "帮我规划你的名字。的路线", "找找附近的圣地"],
   inputPlaceholder: "告诉我作品名或想去的地区…",
+  busyPlaceholder: "思考中…",
   send: "发送",
   errorBanner: "无法连接服务器",
   retry: "重试",
@@ -216,6 +233,7 @@ const zh: ChatDict = {
   waitingSubtitle: "正在帮你找…",
   footprintDetails: "查看详情",
   previousVersion: "旧版本",
+  appbar: zhAppBar,
   errorStates: zhErrorStates,
   toolSteps: zhToolSteps,
   search: zhSearch,
@@ -230,12 +248,15 @@ const zh: ChatDict = {
 
 const en: ChatDict = {
   greeting: "I'm Animichi. Which anime's real-world spots shall we visit?",
+  heroTitle: "Which spot shall we visit?",
+  chipsLabel: "Try asking like this",
   chips: [
     "Hibike! Euphonium spots",
     "Plan a Your Name. route",
     "Find spots near me",
   ],
   inputPlaceholder: "Tell me a title or an area…",
+  busyPlaceholder: "Thinking…",
   send: "Send",
   errorBanner: "Can't reach the server",
   retry: "Retry",
@@ -248,6 +269,7 @@ const en: ChatDict = {
   waitingSubtitle: "Looking that up…",
   footprintDetails: "View details",
   previousVersion: "Previous version",
+  appbar: enAppBar,
   errorStates: enErrorStates,
   toolSteps: enToolSteps,
   search: enSearch,

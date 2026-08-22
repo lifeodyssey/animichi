@@ -13,9 +13,9 @@ interface RoutePinLayerProps {
 }
 
 const PIN_TONE: Record<PinState, string> = {
-  visited: "bg-[var(--color-map-pin-teal)] text-[var(--color-primary-fg)]",
+  visited: "bg-[var(--color-map-pin-teal)] text-[var(--color-primary-ink)]",
   current: "bg-[var(--color-focus)] text-[var(--color-fg)] ring-4 ring-[var(--color-focus)]",
-  unvisited: "bg-[var(--color-bg)] text-[var(--color-fg)] border border-[var(--color-muted-fg)]",
+  unvisited: "bg-[var(--color-paper)] text-[var(--color-fg)] border border-[var(--color-muted-fg)]",
 };
 
 function pinName(state: PinState, copy: RouteDetailCopy): string {

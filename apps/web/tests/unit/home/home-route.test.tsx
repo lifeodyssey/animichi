@@ -29,7 +29,7 @@ describe("root route dual state", () => {
   it("renders the marketing Landing for an anonymous visitor", () => {
     mockStatus = "anonymous";
     renderHome(<HomeView />);
-    expect(screen.getByText("アニメ旅行ジャーナル")).toBeTruthy();
+    expect(screen.getByText("FROM SCREEN TO STREET")).toBeTruthy();
     expect(screen.queryByRole("searchbox")).toBeNull();
   });
 
@@ -44,6 +44,6 @@ describe("root route dual state", () => {
   it("wraps the view in the locale provider via HomeRoute", () => {
     mockStatus = "anonymous";
     renderHome(<HomeRoute />);
-    expect(screen.getByText("アニメ旅行ジャーナル")).toBeTruthy();
+    expect(screen.getByText("FROM SCREEN TO STREET")).toBeTruthy();
   });
 });

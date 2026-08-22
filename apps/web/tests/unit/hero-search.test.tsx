@@ -38,10 +38,13 @@ describe("HeroSearch", () => {
     expect(onSubmit).toHaveBeenCalledWith("響け！ユーフォニアム");
   });
 
-  it("renders the try-an-example label with all three example chips", () => {
+  it("renders all three colored example chips with no try-an-example label", () => {
     renderWithLocale(<HeroSearch onSubmit={vi.fn()} />);
-    expect(screen.getByText("例から試す")).toBeTruthy();
     expect(screen.getByRole("button", { name: "君の名は。" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "響け！ユーフォニアム" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "天気の子" })).toBeTruthy();
+    expect(document.querySelector(".hero-chip--green")).toBeTruthy();
+    expect(document.querySelector(".hero-chip--yellow")).toBeTruthy();
+    expect(document.querySelector(".hero-chip--blue")).toBeTruthy();
   });
 });

@@ -8,6 +8,136 @@
   color: var(--color-fg);
 }
 
+/* Appbar (design sync `.appbar`): the chat's chrome — brand, new conversation,
+   identity. First in `.chat-page`, above the notices, so a banner arriving or
+   leaving never shifts the brand. */
+.chat-appbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px clamp(16px, 4vw, 28px);
+  background: var(--color-paper);
+  border-bottom: 2px solid var(--color-border-soft);
+}
+
+.chat-appbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-inline-end: auto;
+}
+
+.chat-appbar__mark {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+
+.chat-appbar__torii {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 40px;
+  height: 40px;
+}
+
+.chat-appbar__fox {
+  position: absolute;
+  left: -8px;
+  bottom: -6px;
+  width: 24px;
+  height: 24px;
+  transform: scaleX(-1);
+}
+
+.chat-appbar__wordmark {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.chat-appbar__name {
+  font-family: "Zen Maru Gothic", "Zen Maru Gothic fallback", "Noto Sans SC", sans-serif;
+  font-weight: 700;
+  font-size: 19px;
+  color: var(--color-fg);
+}
+
+/* The design's bright teal reads 1.97:1 on paper — the deep teal is the only
+   member of the family that carries this 10.5px lockup at AA by day. */
+.chat-appbar__tagline {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--color-primary-strong);
+}
+
+.chat-appbar__new,
+.chat-appbar__login {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 14px;
+  border: 2px solid var(--color-border);
+  border-radius: 50px;
+  background: var(--color-paper);
+  color: var(--color-fg);
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 13.5px;
+  text-decoration: none;
+  box-shadow: 0 3px 0 var(--shadow-3d);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.chat-appbar__new:active,
+.chat-appbar__login:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--shadow-3d);
+}
+
+.chat-appbar__new:focus-visible,
+.chat-appbar__login:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.chat-appbar__plus {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+/* Signed-in disc (design sync `.ava`): reports identity, opens nothing. */
+.chat-appbar__avatar {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid var(--color-paper);
+  box-shadow: 0 3px 8px -3px var(--color-primary);
+}
+
+/* Design sync's own narrow rule: the plus keeps its 44px target, the word goes. */
+@media (max-width: 520px) {
+  .chat-appbar__new-label {
+    display: none;
+  }
+
+  .chat-appbar__new {
+    padding: 8px 11px;
+  }
+}
+
 .chat-body {
   flex: 1;
   overflow-y: auto;
@@ -20,25 +150,37 @@
   gap: 0.75rem;
 }
 
-.chat-bubble {
-  width: fit-content;
-  max-width: 42rem;
-  padding: 0.75rem 1rem;
-  border-radius: 18px;
-  background: var(--color-card);
-  box-shadow: 0 2px 0 var(--shadow-3d);
+/* The dock rail shares the composer's centred column (design sync `.dock .di`),
+   so the photo chip and the live hint line up with the pill above them instead
+   of hugging the page's left edge. */
+.chat-dock {
+  width: min(calc(100% - 2rem), 47.5rem);
+  margin-inline: auto;
 }
 
-.chat-bubble--ai {
-  background: var(--color-primary-soft);
+.chat-bubble {
+  width: fit-content;
+  max-width: 78%;
+  padding: 13px 17px;
+  border-radius: 20px;
+  border-top-left-radius: 6px;
+  border: 2px solid var(--color-border-soft);
+  background: var(--color-card);
+  font-size: 15.5px;
+  line-height: 1.62;
+  font-weight: 500;
 }
 
 .chat-message--user .chat-bubble {
   align-self: flex-end;
   margin-left: auto;
-  border-bottom-right-radius: 6px;
+  border-radius: 20px;
+  border-top-right-radius: 6px;
+  border-color: transparent;
   background: var(--color-primary);
-  color: var(--color-primary-fg);
+  color: var(--color-primary-ink);
+  font-weight: 600;
+  box-shadow: 0 4px 0 var(--color-primary-strong);
 }
 
 .chat-messages,
@@ -51,6 +193,16 @@
   margin: 0;
 }
 
+/* Design spec `rowIn`: each turn slides up as it lands. */
+@keyframes chat-row-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.chat-message {
+  animation: chat-row-in 0.34s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
 .chat-chips {
   display: flex;
   flex-wrap: wrap;
@@ -59,43 +211,119 @@
 
 .chat-chip {
   min-height: 44px;
-  padding: 0.5rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 17px;
+  border: 2px solid var(--color-border-soft);
+  border-radius: 50px;
   background: var(--color-card);
   color: var(--color-fg);
+  font-size: 14px;
+  font-weight: 800;
   box-shadow: 0 3px 0 var(--shadow-3d);
   cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.chat-chip:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.chat-chip:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 var(--shadow-3d);
 }
 
 .chat-chip[data-tone="explore"] {
   background: var(--color-explore-bg);
   color: var(--color-explore-fg);
+  border-color: color-mix(in srgb, var(--color-explore-fg) 22%, var(--color-explore-bg));
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--color-explore-fg) 30%, var(--color-explore-bg));
 }
 
 .chat-chip[data-tone="walk"] {
   background: var(--color-walk-bg);
   color: var(--color-walk-fg);
+  border-color: color-mix(in srgb, var(--color-walk-fg) 22%, var(--color-walk-bg));
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--color-walk-fg) 30%, var(--color-walk-bg));
 }
 
 .chat-chip[data-tone="primary"] {
   background: var(--color-primary-soft);
   color: var(--color-primary-strong);
+  border-color: color-mix(in srgb, var(--color-primary-strong) 22%, var(--color-primary-soft));
+  box-shadow: 0 3px 0 color-mix(in srgb, var(--color-primary-strong) 30%, var(--color-primary-soft));
 }
 
-.chat-greeting {
+/* A1 empty-state hero: the fox is the whole first screen on mobile. */
+.chat-cold-start {
+  flex: 1;
   display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 14px;
+  padding: 14px 0 30px;
+}
+
+@keyframes chat-fox-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+.chat-cold-start__fox {
+  width: 108px;
+  height: 108px;
+  filter: drop-shadow(0 8px 10px color-mix(in srgb, var(--shadow-3d) 45%, transparent));
+  animation: chat-fox-bob 4s ease-in-out infinite;
+}
+
+.chat-cold-start__title {
+  margin: 0;
+  font-family: "Zen Maru Gothic", "Zen Maru Gothic fallback", "Noto Sans SC", sans-serif;
+  font-size: 27px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--color-fg);
+}
+
+.chat-cold-start__lead {
+  margin: 0;
+  max-width: 33em;
+  padding: 13px 18px;
+  border: 2px solid var(--color-border-soft);
+  border-radius: 20px;
+  border-top-left-radius: 6px;
+  background: var(--color-card);
+  font-size: 15px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.chat-cold-start__chips-label {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--color-muted-fg);
+}
+
+.chat-cold-start .chat-chips {
+  justify-content: center;
+  max-width: 580px;
+  gap: 10px;
 }
 
 .chat-fox-avatar {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 38px;
+  height: 38px;
+  padding: 2px;
   border-radius: 50%;
-  object-fit: cover;
+  border: 2px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-primary-soft));
+  object-fit: contain;
   background: var(--color-primary-soft);
-  box-shadow: 0 2px 0 var(--shadow-3d);
 }
 
 .chat-typing {
@@ -221,7 +449,7 @@
   padding: 0.875rem 1rem;
   border-radius: 14px;
   color: var(--color-primary-fg);
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
+  background: linear-gradient(135deg, var(--color-primary-strong), var(--color-primary-ink));
   box-shadow: 0 3px 0 var(--shadow-3d);
 }
 
@@ -271,45 +499,101 @@
   border: 0;
   border-radius: 10px;
   padding: 0.375rem 0.875rem;
-  background: var(--color-bg);
+  background: var(--color-paper);
   color: var(--color-fg);
   cursor: pointer;
 }
 
+/* G1 composer (design sync `.composer`): a floating pill above the page floor,
+   not a bar welded to the bottom edge. */
 .chat-input {
   display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--color-border);
-  background: var(--color-card);
+  align-items: center;
+  gap: 0.625rem;
+  width: min(calc(100% - 2rem), 47.5rem);
+  margin: 0.25rem auto 1rem;
+  padding: 8px 8px 8px 18px;
+  border: 2px solid var(--color-border-soft);
+  border-radius: 50px;
+  background: var(--color-paper);
+  box-shadow: 0 12px 28px -16px var(--shadow-3d);
+  transition: border-color 0.15s, box-shadow 0.15s, opacity 0.25s;
+}
+
+/* G4: a running turn dims the dock but never takes the field away. */
+.chat-input--busy {
+  opacity: 0.75;
+}
+
+/* Design sync `.composer:focus-within`: the teal edge answers any focus inside. */
+.chat-input:focus-within {
+  border-color: var(--color-primary);
+}
+
+/* G2 keyboard focus. The teal edge alone is 1.8:1 against paper, so the ring is
+   two bands — --color-focus inside for the design's yellow, --color-primary-strong
+   outside to carry the 3:1 that 1.4.11 asks of a focus indicator — plus the glow. */
+.chat-input:has(.chat-input__field:focus-visible) {
+  box-shadow:
+    0 0 0 2px var(--color-focus),
+    0 0 0 4px var(--color-primary-strong),
+    0 0 14px 3px color-mix(in srgb, var(--color-focus) 45%, transparent),
+    0 12px 28px -16px var(--shadow-3d);
 }
 
 .chat-input__field {
   flex: 1;
+  min-width: 0;
   min-height: 44px;
-  padding: 0 0.875rem;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-bg);
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--color-fg);
+  font-family: inherit;
+  font-size: 15.5px;
 }
 
+.chat-input__field::placeholder {
+  color: var(--color-muted-fg);
+}
+
+/* The ring is drawn by the pill; an inner outline would double-draw it. */
 .chat-input__field:focus-visible {
-  outline: 2px solid var(--color-focus);
+  outline: none;
 }
 
 .chat-input__send {
-  min-height: 44px;
-  padding: 0 1.25rem;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: 50%;
   background: var(--color-primary);
-  color: var(--color-primary-fg);
-  box-shadow: 0 3px 0 var(--shadow-3d);
+  color: var(--color-primary-ink);
+  box-shadow: 0 3px 0 var(--color-primary-strong);
   cursor: pointer;
+  transition: background 0.15s, box-shadow 0.1s, transform 0.1s;
 }
 
-.chat-input__send:disabled,
+.chat-input__send:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--color-primary-strong);
+}
+
+/* G3: the press shadow IS the affordance. Nothing to send, nothing to press —
+   so the key goes muted and flat rather than merely translucent. */
+.chat-input__send:disabled {
+  background: var(--color-muted);
+  color: var(--color-muted-fg);
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
 .chat-chip:disabled {
   opacity: 0.55;
   cursor: not-allowed;
@@ -337,7 +621,7 @@
   border-radius: 10px;
   min-height: 36px;
   padding: 0.375rem 0.875rem;
-  background: var(--color-bg);
+  background: var(--color-paper);
   color: var(--color-fg);
   box-shadow: 0 2px 0 var(--shadow-3d);
   cursor: pointer;
@@ -444,7 +728,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
+  background: linear-gradient(135deg, var(--color-primary-strong), var(--color-primary-ink));
   color: var(--color-primary-fg);
   font-size: 0.6875rem;
   font-weight: 700;
@@ -589,7 +873,7 @@
   transform: translate(-50%, -100%);
   border-radius: 50% 50% 50% 0;
   background: var(--color-map-pin-teal);
-  border: 2px solid var(--color-bg);
+  border: 2px solid var(--color-paper);
 }
 
 .chat-map-bubble {
@@ -602,7 +886,7 @@
   border: 1px solid var(--color-border);
   border-radius: 50%;
   background: var(--color-primary);
-  color: var(--color-primary-fg);
+  color: var(--color-primary-ink);
   font-size: 0.625rem;
   font-weight: 700;
   cursor: pointer;
@@ -618,7 +902,7 @@
 
 .chat-map-bubble__count {
   font-size: 0.8125rem;
-  color: var(--color-primary-fg);
+  color: var(--color-primary-ink);
 }
 
 /* --- S1.5 route card: timed itinerary (issue #271) --- */
@@ -739,10 +1023,10 @@
   width: 1.125rem;
   height: 1.125rem;
   transform: translate(-50%, -50%);
-  border: 2px solid var(--color-bg);
+  border: 2px solid var(--color-paper);
   border-radius: 50%;
   background: var(--color-map-pin-teal);
-  color: var(--color-primary-fg);
+  color: var(--color-primary-ink);
   font-size: 0.625rem;
   font-weight: 700;
 }
@@ -820,7 +1104,7 @@
   border-radius: 999px;
   padding: 0.5625rem 1rem;
   background: var(--color-gold);
-  color: var(--color-gold-fg);
+  color: var(--color-gold-ink);
   font-size: 0.8125rem;
   font-weight: 700;
   box-shadow: 0 3px 0 var(--shadow-3d);
@@ -909,7 +1193,7 @@
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: var(--color-primary);
-  color: var(--color-primary-fg);
+  color: var(--color-primary-ink);
   padding: 0.35rem 0.9rem;
   cursor: pointer;
 }
@@ -926,7 +1210,7 @@
 .chat-location__input {
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
-  background: var(--color-bg);
+  background: var(--color-paper);
   color: var(--color-fg);
   padding: 0.35rem 0.6rem;
 }
@@ -1021,7 +1305,7 @@
   border: 0;
   border-radius: 12px;
   background: var(--color-primary);
-  color: var(--color-primary-fg);
+  color: var(--color-primary-ink);
   box-shadow: 0 3px 0 var(--shadow-3d);
   font: inherit;
   cursor: pointer;
@@ -1084,7 +1368,7 @@
   padding: 0.375rem 0.75rem;
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  background: var(--color-bg);
+  background: var(--color-paper);
   color: var(--color-fg);
 }
 
@@ -1187,15 +1471,25 @@
   color: var(--color-fg);
 }
 
+/* The quiet key of the pill (design sync `.composer .att`): a circle sunk into
+   the page floor, no press shadow — the send key owns the composer's emphasis. */
 .chat-input__settings {
-  min-height: 44px;
-  min-width: 44px;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-card);
-  color: var(--color-fg);
-  box-shadow: 0 3px 0 var(--shadow-3d);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-bg);
+  color: var(--color-muted-fg);
   cursor: pointer;
+}
+
+.chat-input__settings:hover {
+  color: var(--color-primary-strong);
 }
 
 .chat-input__settings[aria-expanded="true"] {
@@ -1208,7 +1502,6 @@
 .chat-byok__save:hover,
 .chat-byok__signin:hover,
 .chat-byok__clear:hover,
-.chat-input__settings:hover,
 .chat-byok-rejected__open:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 0 var(--shadow-3d);
@@ -1217,7 +1510,6 @@
 .chat-byok__save:active,
 .chat-byok__signin:active,
 .chat-byok__clear:active,
-.chat-input__settings:active,
 .chat-byok-rejected__open:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 var(--shadow-3d);
@@ -1242,7 +1534,7 @@
   border-radius: 10px;
   min-height: 36px;
   padding: 0.375rem 0.875rem;
-  background: var(--color-bg);
+  background: var(--color-paper);
   color: var(--color-fg);
   box-shadow: 0 2px 0 var(--shadow-3d);
   cursor: pointer;
@@ -1259,7 +1551,26 @@
 @media (prefers-reduced-motion: reduce) {
   .chat-typing__dot,
   .chat-step[data-status="running"],
-  .chat-card--skeleton {
+  .chat-card--skeleton,
+  .chat-message,
+  .chat-cold-start__fox {
     animation: none;
   }
+}
+
+/* Night flips --color-primary-fg to an ink, so the day card's white-on-teal
+ * reading would invert into ink-on-teal at 3.4:1. The night card keeps the
+ * light-text reading by sinking the gradient to the page floor instead. */
+[data-theme="night"] .chat-mood,
+[data-theme="night"] .chat-scene-thumb--fallback {
+  background: linear-gradient(135deg, var(--color-primary-ink), var(--color-bg));
+  color: var(--color-fg);
+}
+
+/* Teal is theme-invariant, so the tagline swaps which end of the family it
+ * uses rather than needing a night token: the deep teal that carries AA on day
+ * paper reads only 3.04:1 on night paper, while the bright teal — unusable by
+ * day at 1.97:1 — reads 7.25:1 there. */
+[data-theme="night"] .chat-appbar__tagline {
+  color: var(--color-primary);
 }

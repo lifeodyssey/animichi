@@ -16,11 +16,18 @@ function renderColdStart(onChip = vi.fn()) {
 }
 
 describe("A1 fox greeting", () => {
-  it("renders the fox guide avatar beside the greeting bubble", () => {
+  it("renders the fox guide hero beside the greeting lead", () => {
     renderColdStart();
     const avatar = screen.getByAltText(ja.foxAlt);
     expect(avatar.getAttribute("src")).toBe("/images/chat/fox-guide.webp");
+    expect(avatar.getAttribute("width")).toBe("108");
     expect(screen.getByText(ja.greeting)).toBeTruthy();
+  });
+
+  it("headlines the hero and labels the chip row", () => {
+    renderColdStart();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(ja.heroTitle);
+    expect(screen.getByText(ja.chipsLabel)).toBeTruthy();
   });
 });
 

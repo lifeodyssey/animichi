@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import chatCss from "../../src/styles/chat.css?raw";
-import { ruleDeclaration } from "./_token-helpers";
+import { ruleDeclaration } from "./stylesheet-probe";
 
 describe("chat bubble sizing", () => {
   it("shrinks bubbles to their content instead of the full column", () => {
@@ -8,7 +8,7 @@ describe("chat bubble sizing", () => {
   });
 
   it("keeps a readable max width on bubbles", () => {
-    expect(ruleDeclaration(chatCss, ".chat-bubble", "max-width")).toBe("42rem");
+    expect(ruleDeclaration(chatCss, ".chat-bubble", "max-width")).toBe("78%");
   });
 
   it("aligns user bubbles to the end of the column", () => {

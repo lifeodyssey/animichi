@@ -71,12 +71,22 @@ interface LoginDialogProps {
   panelRef: RefObject<HTMLDivElement | null>;
 }
 
+/** The dialog's welcome header: greeting fox above the title and subtitle. */
+function LoginWelcome({ auth }: { auth: Dict["auth"] }) {
+  return (
+    <>
+      <img className="login-modal__fox" src="/images/landing/fox/fox-welcome.svg" alt="" aria-hidden="true" width={88} height={88} />
+      <h2 className="login-modal__title">{auth.title}</h2>
+      <p className="login-modal__subtitle">{auth.subtitle}</p>
+    </>
+  );
+}
+
 function LoginDialog({ auth, onClose, onSendCommitted, returnTarget, panelRef }: LoginDialogProps) {
   return (
     <div className="login-modal" role="dialog" aria-modal="true" aria-label={auth.title} tabIndex={-1} ref={panelRef} onClick={(event) => { event.stopPropagation(); }}>
       <button className="login-modal__close" type="button" aria-label={auth.close} onClick={onClose}>×</button>
-      <h2 className="login-modal__title">{auth.title}</h2>
-      <p className="login-modal__subtitle">{auth.subtitle}</p>
+      <LoginWelcome auth={auth} />
       <LoginForm onSendCommitted={onSendCommitted} returnTarget={returnTarget} />
     </div>
   );

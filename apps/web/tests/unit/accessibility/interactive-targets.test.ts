@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import globalsCss from "../../../src/styles/globals.css?raw";
-import { ruleDeclaration } from "../_token-helpers";
+import { ruleDeclaration } from "../stylesheet-probe";
 
 /**
  * WCAG 2.5.8 Target Size (Minimum): 24x24 CSS px for user-actuated controls.

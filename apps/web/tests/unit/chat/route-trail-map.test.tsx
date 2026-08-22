@@ -8,7 +8,7 @@ import type { AttachBasemap } from "../../../src/features/chat/components/Search
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { pointPlacements } from "../../../src/features/bubble-map/bubble-geometry";
 import type { LocatedSpot } from "../../../src/features/chat/lib/spot-clusters";
-import { ruleDeclaration } from "../_token-helpers";
+import { ruleDeclaration } from "../stylesheet-probe";
 import chatCss from "../../../src/styles/chat.css?raw";
 
 afterEach(cleanup);

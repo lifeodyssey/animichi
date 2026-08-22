@@ -14,14 +14,34 @@
   --color-primary-fg: #ffffff;
   /* Accessible teal from ds-审计.md; white text clears WCAG AA. */
   --color-primary-strong: #0e7d72;
-  /* 動森 cream triad: page < card < muted (spec 2026-05-31 + legacy globals). */
-  --color-bg: #f8f8f0;
+  /* Text on the bright teal ground: white only reaches 2.10:1, this ink 5.62:1.
+   * Teal is theme-invariant, so the ink needs no night override. */
+  --color-primary-ink: #073f3a;
+  /* Explore action — DESIGN.md §142's single dominant marketing ground
+   * (oklch(67% 0.17 47)). Distinct from --color-explore-bg/-fg, which are the
+   * teal explore-MODE tint pair; this family is the solid action ground.
+   * Hover/press are the teal ramp's own OKLCH lightness steps (+3.91pp /
+   * -9.15pp) applied to this base, so the ramp stays derived, not invented. */
+  --color-explore-action: #e8742e;
+  --color-explore-action-hover: #f48241;
+  --color-explore-action-active: #c15e21;
+  /* Orange this bright cannot carry white either (3.01:1); this deep brown
+   * clears AA on the base, the hover, and the night lift alike. */
+  --color-explore-action-ink: #411f00;
+  /* 動森 cream stack (design-sync --bg/--content/--paper): the page floor is
+   * the darkest, so cards and bubbles float above it as lighter paper. */
+  --color-bg: #f0e8d8;
+  --color-paper: #f8f8f0;
   --color-fg: #725d42;
   --color-card: #f7f3df;
   --color-muted: #e8ddc8;
   /* Accessible secondary text; clears WCAG AA on cream (#6f6353 on card #f7f3df = 5.25:1). */
   --color-muted-fg: #6f6353;
   --color-border: #aaa69d;
+  /* The design-sync line colour — a hint of an edge, for surfaces that read as
+   * content rather than as an operable control (WCAG 1.4.11 keeps the loud
+   * border for anything the user can actually operate). */
+  --color-border-soft: #e8e2d6;
   /* Modal mask scrim (login + coming-soon dialogs). */
   --color-overlay: rgb(0 0 0 / 45%);
   --color-focus: #ffcc00;
@@ -43,6 +63,11 @@
   --color-gold: #f5c31c;
   --color-gold-soft: #fbf0cf;
   --color-gold-fg: #6b5200;
+  /* Ink for the SOLID gold ground. `--color-gold-fg` belongs to the tinted
+   * `--color-gold-soft` ground and flips at night; solid gold does not flip, so
+   * riding it needs a theme-invariant ink the way `--color-primary-ink` does.
+   * Design-sync `Chat 完整状态.html` calls this `--gold-ink`; 5.31:1 on gold. */
+  --color-gold-ink: #5c4813;
   --shadow-3d: #bdaea0;
   --shadow-press: 0 5px 0 0 var(--shadow-3d);
   --app-font-display: "Noto Serif JP", "Noto Serif JP fallback", "Hiragino Mincho ProN", Georgia, serif;
@@ -57,7 +82,12 @@
 body {
   margin: 0;
   min-width: 320px;
-  background: var(--color-bg);
+  /* Two overflowing top glows over the page floor, mirroring the design-sync
+   * chat/landing body. Same authoring shape as landing.css's radial stack. */
+  background:
+    radial-gradient(60% 38% at 84% -6%, #e7f1fb 0%, rgb(231 241 251 / 0%) 60%),
+    radial-gradient(50% 34% at 10% -2%, #fbe6ef 0%, rgb(251 230 239 / 0%) 58%),
+    var(--color-bg);
   color: var(--color-fg);
   font-family: var(--app-font-body);
 }
@@ -154,6 +184,25 @@ h1 {
   to { opacity: 0; visibility: hidden; pointer-events: none; }
 }
 
+/*
+ * Owner 2026-08-21: on mobile the index route dwells on the splash and then
+ * enters /chat. The real dismissal is the navigation itself — leaving `/` drops
+ * the dwell attribute, the 320ms rule takes over and the splash is gone on the
+ * very frame chat mounts, so the landing underneath is never exposed.
+ *
+ * This delay is therefore not the dwell; it is the "JavaScript never arrived"
+ * bail-out. It has to outlast hydration + the 1500ms dwell, because the JS timer
+ * only starts once React hydrates while this clock starts at stylesheet apply —
+ * measured at ~3.2s on a cold dev server, where a 1800ms bail-out uncovered
+ * MobileFoxHome for over a second. 4000ms clears that with margin and still puts
+ * a hard bound on a scripting-disabled visitor's wait.
+ */
+@media (max-width: 640px) {
+  .app-splash[data-splash-dwell="mobile"] {
+    animation-delay: 4000ms;
+  }
+}
+
 .app-splash__frame.phone {
   position: absolute;
   inset: 0;
@@ -229,7 +278,7 @@ h1 {
 
 .app-splash__middle strong {
   margin-top: 6px;
-  font-family: var(--app-font-display);
+  font-family: "Zen Maru Gothic", "Zen Maru Gothic fallback", "Noto Sans SC", sans-serif;
   font-size: 2.25rem;
   font-weight: 900;
   letter-spacing: 0.06em;
@@ -345,7 +394,7 @@ h1 {
   height: 34px;
   border: 3px solid var(--color-map-pin-teal);
   border-radius: 999px;
-  background: var(--color-bg);
+  background: var(--color-paper);
   color: var(--color-map-pin-teal);
   font-weight: 800;
 }
@@ -353,7 +402,7 @@ h1 {
 .map-spike__pin--start {
   border-color: var(--color-fg);
   background: var(--color-map-pin-teal);
-  color: var(--color-primary-fg);
+  color: var(--color-primary-ink);
 }
 
 .map-spike__pin--highlight {
@@ -370,9 +419,23 @@ h1 {
   --color-card: #2b2318;
   --color-muted: #362c1e;
   --color-muted-fg: #cbbfa8;
-  --color-border: #4a3d2b;
+  /* Night line stack. By day the composer pill is findable without its border:
+   * its drop shadow (--shadow-3d #bdaea0 on the #f0e8d8 floor) carries 1.77:1
+   * of halo. At night that same shadow (#120d07 on #201a12) carries 1.12:1 —
+   * the halo is gone, so the border becomes the ONLY boundary of an operable
+   * surface and 1.4.11's 3:1 applies to it in full. Measured against the night
+   * paper #2e2415: soft 3.03:1, loud 4.31:1 — the soft line stays the quieter
+   * of the two, as by day, but no longer below the operable floor. */
+  --color-border: #968763;
+  --color-border-soft: #7d6d52;
+  --color-paper: #2e2415;
   --color-primary-fg: #10201d;
   --color-primary-soft: #123f39;
+  /* Night lifts the orange (OKLCH L 68.35% -> 72%, chroma eased to 0.145) so it
+   * keeps its prominence on the dark ground; the same deep ink rides it. */
+  --color-explore-action: #ec854d;
+  --color-explore-action-hover: #f8935d;
+  --color-explore-action-active: #c66e3d;
   --color-explore-bg: #0f3531;
   --color-explore-fg: #7fdcd2;
   --color-walk-bg: #1c3320;
@@ -381,6 +444,13 @@ h1 {
   --color-gold-fg: #f0d98a;
   /* Press shadow follows via var(--shadow-3d) in :root. */
   --shadow-3d: #120d07;
+}
+
+[data-theme="night"] body {
+  background:
+    radial-gradient(60% 38% at 84% -6%, #2a3350 0%, rgb(42 51 80 / 0%) 60%),
+    radial-gradient(50% 34% at 10% -2%, #3c2536 0%, rgb(60 37 54 / 0%) 58%),
+    var(--color-bg);
 }
 
 /* A stored app choice wins over the OS hint after the bootstrap script runs. */
@@ -438,7 +508,7 @@ h1 {
   border-radius: 12px;
   padding: 12px 14px;
   min-height: 44px;
-  background: var(--color-bg);
+  background: var(--color-paper);
   color: var(--color-fg);
   font: inherit;
 }
@@ -455,53 +525,128 @@ h1 {
   display: grid;
   place-items: center;
   padding: 16px;
-  background: var(--color-overlay);
+  background: rgb(61 52 40 / 46%);
+  backdrop-filter: blur(3px);
 }
 
 .login-modal {
   position: relative;
   width: 100%;
   max-width: 420px;
-  padding: 28px;
-  border-radius: 18px;
-  border: 3px solid var(--color-border);
-  background: var(--color-card);
-  box-shadow: var(--shadow-press);
+  padding: 30px 30px 26px;
+  border-radius: 28px;
+  border: 2px solid #e8e2d6;
+  background: var(--color-paper);
+  box-shadow: 0 40px 80px -28px rgb(61 52 40 / 60%);
+  text-align: center;
+}
+
+[data-theme="night"] .login-modal {
+  border-color: #453a24;
 }
 
 .login-modal__close {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 36px;
-  height: 36px;
+  top: 14px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   border: 0;
   border-radius: 999px;
-  background: transparent;
+  background: var(--color-muted);
   color: var(--color-muted-fg);
-  font-size: 1.5rem;
+  font-size: 1.25rem;
+  line-height: 1;
   cursor: pointer;
 }
 
+.login-modal__close:hover {
+  background: #e8e2d6;
+}
+
+.login-modal__fox {
+  display: block;
+  width: 88px;
+  height: 88px;
+  margin: -4px auto 4px;
+  object-fit: contain;
+}
+
 .login-modal__title {
-  margin: 0 0 6px;
-  color: var(--color-fg);
+  margin: 0 0 8px;
+  color: #794f27;
+  font-family: "Lora", "Noto Serif JP", Georgia, serif;
+  font-size: 1.5rem;
+}
+
+[data-theme="night"] .login-modal__title {
+  color: #f2e6cf;
 }
 
 .login-modal__subtitle {
-  margin: 0 0 18px;
-  color: var(--color-muted-fg);
+  margin: 0 auto 18px;
+  max-width: 30em;
+  color: var(--color-fg);
+  font-size: 0.9rem;
   line-height: 1.6;
 }
 
 .login-form {
   display: grid;
   gap: 12px;
+  text-align: left;
 }
 
 .login-form__label {
   font-weight: 700;
   color: var(--color-fg);
+}
+
+.login-modal .ds-input {
+  border: 2px solid #e8e2d6;
+  border-radius: 16px;
+  padding: 13px 15px;
+  background: #f0e8d8;
+  font-size: 1rem;
+}
+
+[data-theme="night"] .login-modal .ds-input {
+  border-color: #453a24;
+  background: #241b0f;
+}
+
+.login-modal .ds-input:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* "Send login link" is a DESIGN.md §142 explore action, so it takes the orange
+ * ground rather than the brand teal — which at 2.09:1 under white text was the
+ * modal's only WCAG AA failure. Night needs no override here: the token block
+ * already swaps the ramp under [data-theme="night"]. */
+.login-modal .ds-button--primary {
+  width: 100%;
+  border-color: var(--color-explore-action-active);
+  border-radius: 16px;
+  padding: 15px;
+  background: var(--color-explore-action);
+  color: var(--color-explore-action-ink);
+  font-weight: 800;
+  font-size: 1.06rem;
+  box-shadow: 0 4px 0 0 var(--color-explore-action-active);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.12s ease;
+}
+
+.login-modal .ds-button--primary:hover {
+  background: var(--color-explore-action-hover);
+}
+
+.login-modal .ds-button--primary:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 var(--color-explore-action-active);
 }
 
 .login-form__feedback {
@@ -517,7 +662,8 @@ h1 {
 .login-form__hint {
   margin: 4px 0 0;
   color: var(--color-muted-fg);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
+  text-align: center;
 }
 
 /* ComingSoonPopup — showcase-mode "under construction" dialog (tokens only:
@@ -555,7 +701,7 @@ h1 {
   padding: 4px 14px;
   border-radius: 999px;
   background: var(--color-primary);
-  color: var(--color-primary-fg);
+  color: var(--color-primary-ink);
   font-size: 0.8rem;
   font-weight: 800;
 }
@@ -619,7 +765,7 @@ h1 {
   clip-path: inset(50%);
   border: 2px solid var(--color-focus);
   border-radius: 8px;
-  background: var(--color-bg);
+  background: var(--color-paper);
   color: var(--color-fg);
   font-weight: 700;
 }
