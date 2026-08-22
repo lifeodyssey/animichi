@@ -17,12 +17,9 @@ export const CONTAINER_ENV_KEYS = [
   // provisions the container DSN under that name until the #855 prod cutover
   // replaces it with AGENT_SVC_DATABASE_URL. The agent settings no longer read
   // SUPABASE_DB_URL, so this is transitional-compat pending that cutover.
-  // #912 follow-up: the agent container's Neon agent_svc role DSN, sourced
-  // from the edge Worker's Secrets Store binding (staging; wrangler.toml
-  // [[env.staging.secrets_store_secrets]]). Deliberately NOT in
-  // CONTAINER_REQUIRED_KEYS: production has no binding until the #855
-  // cutover, and a missing value must not fail-closed every environment.
-  // The per-environment requirement lives in apps/agent settings
+  // #912 follow-up: staging DSN is a Secrets Store binding. `buildContainerEnvVars`
+  // only copies strings; `resolveContainerEnvVars` unwraps `.get()` first (#1157).
+  // Not in CONTAINER_REQUIRED_KEYS: production has no binding until #855.
   // (validate_required_env requires AGENT_SVC_DATABASE_URL; the legacy
   // SUPABASE_DB_URL fallback is gone — issue #1000).
   "AGENT_SVC_DATABASE_URL",
@@ -160,4 +157,29 @@ export function buildContainerEnvVars(env: Record<string, unknown>): Record<stri
   requiredEnvVars(env, envVars);
   optionalEnvVars(env, envVars);
   return envVars;
+}
+
+interface StoreSecret { get: () => Promise<string> }
+
+function isStoreSecret(value: unknown): value is StoreSecret {
+  if (typeof value !== "object" || value === null) return false;
+  return "get" in value && typeof value.get === "function";
+}
+
+/** String DSN, or Secrets Store `.get()` (catalog/users DATABASE_URL shape). */
+export async function readStoreOrString(value: unknown): Promise<string | undefined> {
+  if (typeof value === "string") return value.length > 0 ? value : undefined;
+  if (!isStoreSecret(value)) return undefined;
+  const text = await value.get();
+  return typeof text === "string" && text.length > 0 ? text : undefined;
+}
+
+/** Unwrap AGENT_SVC_DATABASE_URL then run the string allowlist (#1157). */
+export async function resolveContainerEnvVars(
+  env: Record<string, unknown>,
+): Promise<Record<string, string>> {
+  const resolved: Record<string, unknown> = { ...env };
+  const dsn = await readStoreOrString(env.AGENT_SVC_DATABASE_URL);
+  if (dsn !== undefined) resolved.AGENT_SVC_DATABASE_URL = dsn;
+  return buildContainerEnvVars(resolved);
 }
