@@ -67,13 +67,14 @@ jobs:
               exit 1
             fi
             status="$(jq -r .status "$RUNNER_TEMP/doorbell-status.json")"
-            case "$status" in
-              success)
+            outcome="$(jq -r '.outcome // empty' "$RUNNER_TEMP/doorbell-status.json")"
+            case "$status:$outcome" in
+              stopped:success|success:*)
                 echo "doorbell build $id succeeded"
                 exit 0
                 ;;
-              failed|failure|cancelled|error)
-                echo "::error::doorbell build $id $status"
+              stopped:fail|stopped:failure|stopped:skipped|stopped:cancelled|stopped:terminated|failed:*|failure:*|cancelled:*|error:*)
+                echo "::error::doorbell build $id status=$status outcome=${outcome:-unknown}"
                 cat "$RUNNER_TEMP/doorbell-status.json"
                 exit 1
                 ;;
