@@ -63,6 +63,11 @@
   --color-gold: #f5c31c;
   --color-gold-soft: #fbf0cf;
   --color-gold-fg: #6b5200;
+  /* Ink for the SOLID gold ground. `--color-gold-fg` belongs to the tinted
+   * `--color-gold-soft` ground and flips at night; solid gold does not flip, so
+   * riding it needs a theme-invariant ink the way `--color-primary-ink` does.
+   * Design-sync `Chat 完整状态.html` calls this `--gold-ink`; 5.31:1 on gold. */
+  --color-gold-ink: #5c4813;
   --shadow-3d: #bdaea0;
   --shadow-press: 0 5px 0 0 var(--shadow-3d);
   --app-font-display: "Noto Serif JP", "Noto Serif JP fallback", "Hiragino Mincho ProN", Georgia, serif;

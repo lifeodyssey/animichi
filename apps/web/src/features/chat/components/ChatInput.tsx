@@ -35,9 +35,10 @@ function makeSubmit(text: string, commit: (sent: string) => void) {
   };
 }
 
-/** G5: a failed turn took the visitor's words with it — put them back verbatim
- * rather than making the visitor retype. Assigning the value is what parks the
- * caret at the end (HTML: setting `value` collapses the selection there). */
+/** G5: a failed turn took the visitor's words with it — put the trimmed payload
+ * that `makeSubmit` handed off back in the field rather than making the visitor
+ * retype. Assigning the value is what parks the caret at the end (HTML: setting
+ * `value` collapses the selection there). */
 function useFailedSendRefill(sendFailed: boolean, sent: { current: string }, setText: (text: string) => void) {
   useEffect(() => {
     if (!sendFailed || sent.current === "") return;
