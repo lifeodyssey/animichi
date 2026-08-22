@@ -44,3 +44,21 @@ describe("committed trigger maps", () => {
     expect(production).not.toContain("doorbell");
   });
 });
+
+describe("committed account id", () => {
+  it("pins the Cloudflare account on every env", () => {
+    const toml = read("../wrangler.toml");
+    const ids = [...toml.matchAll(/CLOUDFLARE_ACCOUNT_ID = "([^"]*)"/g)].map((m) => m[1]);
+    expect(ids.length).toBe(3);
+    expect(new Set(ids)).toEqual(new Set(["021233c1880a43aa68565496100e1f8c"]));
+  });
+});
+
+describe("secrets-store names", () => {
+  it("keeps staging and production Builds tokens distinct", () => {
+    const toml = read("../wrangler.toml");
+    expect(toml).toContain('secret_name = "BUILDS_API_TOKEN_STAGING"');
+    expect(toml).toContain('secret_name = "BUILDS_API_TOKEN_PROD"');
+    expect(toml).not.toMatch(/secret_name = "BUILDS_API_TOKEN"/);
+  });
+});

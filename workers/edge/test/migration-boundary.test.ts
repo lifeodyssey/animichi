@@ -114,14 +114,25 @@ void test("STAGING: deploy workflows carry no Atlas and no database credential; 
     return lines.slice(start, end).join("\n");
   };
 
+  const doorbellJobs = [
+    "deploy-staging",
+    "deploy-web-staging",
+    "deploy-users-staging",
+    "deploy-root-staging",
+  ];
   for (const id of stagingComponentJobs) {
     const seg = segmentOf(id);
     assert.doesNotMatch(seg, /\batlas\b/i, `${id} must not invoke Atlas`);
     assert.doesNotMatch(seg, /NEON_DATABASE_URL/, `${id} must not reference NEON_DATABASE_URL`);
     assert.doesNotMatch(seg, /NEON_API_KEY/, `${id} must not reference NEON_API_KEY`);
-    // Every staging caller must flip the shared component's Atlas step off.
-    assert.match(seg, /run_atlas:\s*false/, `${id} must pass run_atlas: false`);
   }
+  for (const id of doorbellJobs) {
+    const seg = segmentOf(id);
+    assert.match(seg, /reusable-ring-doorbell\.yml/, `${id} must ring doorbell`);
+    assert.doesNotMatch(seg, /run_atlas:/, `${id} must not pass run_atlas`);
+  }
+  const migratorSeg = segmentOf("deploy-migrator-staging");
+  assert.match(migratorSeg, /run_atlas:\s*false/, "deploy-migrator-staging must pass run_atlas: false");
 
   // The shared component ships the Atlas step ONLY behind run_atlas (default true
   // for the production path). Removing the gate (or the input) must go red.
