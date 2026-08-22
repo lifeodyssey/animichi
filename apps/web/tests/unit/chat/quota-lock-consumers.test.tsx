@@ -42,7 +42,7 @@ describe("D12 lock reaches every ChatActions consumer, not just the composer", (
   it("swallows the D1 suggestion chips", () => {
     const [chip] = dict.chips;
     const actions = renderLocked(<EnvelopeFallback state="D1" dict={dict} />);
-    fireEvent.click(screen.getByRole("button", { name: chip }));
+    fireEvent.click(screen.getByRole("button", { name: chip.text }));
     expect(actions.send).not.toHaveBeenCalled();
   });
 

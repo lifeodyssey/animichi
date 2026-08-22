@@ -53,7 +53,7 @@ describe("D1 recognition failure", () => {
     sendText("知らない作品");
     expect(await screen.findByText(states.d1Title)).toBeTruthy();
     expect(screen.getByText(states.d1Subtitle)).toBeTruthy();
-    expect(screen.getByRole("button", { name: ja.chips[0] })).toBeTruthy();
+    expect(screen.getByRole("button", { name: ja.chips[0].text })).toBeTruthy();
     expect(screen.queryByText("resolver miss")).toBeNull();
   });
 });
@@ -64,7 +64,7 @@ describe("D2 zero pilgrimage spots", () => {
     renderChatPage();
     sendText("マイナー作品");
     expect(await screen.findByText(states.d2Title)).toBeTruthy();
-    expect(screen.getByRole("button", { name: ja.chips[1] })).toBeTruthy();
+    expect(screen.getByRole("button", { name: ja.chips[1].text })).toBeTruthy();
   });
 });
 

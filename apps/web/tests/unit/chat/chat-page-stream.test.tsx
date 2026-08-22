@@ -75,10 +75,10 @@ describe("A1 example chips", () => {
   it("sends the chip text as a user message on click", async () => {
     server.use(chatStreamHandler("clarify"));
     renderChatPage();
-    const chip = await screen.findByRole("button", { name: ja.chips[0] });
+    const chip = await screen.findByRole("button", { name: ja.chips[0].text });
     fireEvent.click(chip);
     await screen.findByText("どの作品でしょうか？");
-    expect(screen.getAllByText(ja.chips[0]).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(ja.chips[0].text).length).toBeGreaterThan(0);
   });
 });
 
