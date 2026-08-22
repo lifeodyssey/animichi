@@ -132,6 +132,22 @@ describe("export invariance", () => {
   });
 });
 
+describe("the empty placeholder inside a fixed 9:16 card", () => {
+  /* It is a <p> in a box whose height is pinned by aspect-ratio, so a 1em
+   * margin top and bottom is space nothing can give back. Preflight's reset
+   * happens to zero it, but preflight lives in `@layer base` and every other
+   * paragraph in this sheet states its own margin rather than banking on a
+   * layered base rule; this one had stopped. */
+  it("states its own margin rather than banking on the reset", () => {
+    expect(ruleDeclaration(css, ".shiori-empty", "margin")).toBe("0");
+  });
+
+  it("keeps the compact card type it was cut in", () => {
+    expect(ruleDeclaration(css, ".shiori-empty", "font-size")).toBe("0.75rem");
+    expect(ruleDeclaration(css, ".shiori-empty", "font-weight")).toBe("800");
+  });
+});
+
 describe("control edges", () => {
   it("keeps the empty state on the loud control border", () => {
     const border = ruleDeclaration(css, ".shiori-empty", "border");

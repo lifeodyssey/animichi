@@ -39,28 +39,29 @@
 }
 
 /* Today's gold bar (spec §1): information, not the CTA — soft gold ground with
- * the gold line around it, pressable because it links into Walk Mode. */
+ * the gold line around it, pressable because it links into Walk Mode.
+ *
+ * It is a §4.2 press member like `.route-press`, so the pill, the ledge, the
+ * hover lift and the pressed sink all come from `press-3d.css`. It restated
+ * the ledge and the sink here and got no hover at all, which is exactly the
+ * half-applied pattern that file exists to end. The one thing that stays its
+ * own is the ledge COLOUR: the gold family steps down onto `--color-gold-deep`
+ * rather than the cream `--shadow-3d`, and `--press-ledge` is where the shared
+ * rule reads it. */
 .route-goldbar {
+  --press-ledge: var(--color-gold-deep);
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 44px;
   border: 2px solid var(--color-gold);
-  border-radius: 50px;
   padding: 8px 16px;
   background: var(--color-gold-soft);
-  box-shadow: 0 3px 0 0 var(--color-gold-deep);
   color: var(--color-gold-fg);
   font-size: 13px;
   font-weight: 900;
   text-align: center;
   text-decoration: none;
-  transition: transform 150ms ease, box-shadow 150ms ease;
-}
-
-.route-goldbar:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 0 var(--color-gold-deep);
 }
 
 /* Hero (spec §1): title left, 完走 badge right — the badge only lights up in
@@ -275,7 +276,8 @@
     animation: none;
   }
 
-  .route-goldbar,
+  /* The gold bar's transition is declared in `press-3d.css`, and so is the
+   * reduce switch-off that stills it; only the map stage's own is left here. */
   .route-map__stage {
     transition: none;
   }

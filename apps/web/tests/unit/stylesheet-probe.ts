@@ -30,8 +30,12 @@ export function parseTokens(css: string): TokenMap {
   return parseBlockTokens(css, ":root");
 }
 
+/* The lookbehind is what stops `border` from reading back `--color-border`'s
+ * value: a block that declares its own tokens alongside its properties (the
+ * しおり card's frozen export palette does) otherwise answers every property
+ * lookup whose name is the tail of a token name. */
 function declarationValue(body: string, property: string): string | null {
-  return new RegExp(`${property}\\s*:\\s*([^;]+)`, "u").exec(body)?.[1]?.trim() ?? null;
+  return new RegExp(String.raw`(?<![-\w])${property}\s*:\s*([^;]+)`, "u").exec(body)?.[1]?.trim() ?? null;
 }
 
 export function ruleDeclaration(css: string, selector: string, property: string): string | null {

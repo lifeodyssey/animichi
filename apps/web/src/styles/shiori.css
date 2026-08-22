@@ -1,14 +1,32 @@
 /* しおり family skin against the design-sync canvases `しおり demo.html` and
- * `しおり share 状态总览.html`, expressed in the six shared visual languages of
+ * `しおり share 状态总览.html`, in the six shared visual languages of
  * docs/iterations/chat-visual-restore/task.md §4. A しおり is an exported 9:16
- * image (1080×1920), so the colours inside the card are deliberately theme-
- * invariant: the artifact must not repaint itself when the viewer flips to night. */
+ * image (1080×1920), so the colours inside the card are theme-invariant: the
+ * artifact must not repaint when the viewer flips to night. */
 
 .shiori-card {
-  /* design-sync poster floor (#2b2012) and its ink. A しおり is exported as an
-   * image, so its ground cannot follow the viewer's theme: --color-fg flips
-   * light at night and would invert the poster in the saved file. Theme-
-   * invariant by intent, not by omission. */
+  /* THE EXPORT PALETTE. A しおり is a 1080x1920 image the user saves and sends,
+   * so the theme they happened to be in when they saved must not be baked into
+   * the file. The card re-declares on itself every token its subtree spends
+   * that `[data-theme="night"]` flips, frozen at the design-sync canvas values
+   * (the day palette — that is the canvas it was drawn against). A property
+   * declared on the element beats the same one on `:root`, so the subtree
+   * resolves to these whatever the theme; `export-theme-invariance.test.ts`
+   * welds each to its `globals.css` counterpart so the copies cannot drift.
+   *
+   * It is also what lets the card keep sharing `card-plane.css`, which paints
+   * every family's ground with `var(--color-paper)`: the しおり needs no plane
+   * of its own to escape the theme, only a different `--color-paper` under the
+   * shared one. */
+  --color-bg: #f0e8d8;
+  --color-paper: #f8f8f0;
+  --color-fg: #725d42;
+  --color-card: #f7f3df;
+  --color-muted-fg: #6f6353;
+  --color-border: #aaa69d;
+  --color-border-soft: #e8e2d6;
+  /* The poster's own floor (design-sync #2b2012) and ink: dark by design, not
+   * by theme, and frozen for the same reason as the seven above. */
   --shiori-export-ground: #2b2012;
   --shiori-export-ink: #f8f8f0;
   container-type: inline-size;
@@ -33,8 +51,14 @@
   justify-content: flex-start;
 }
 
+/* The top stop is 74% ground on transparent, and this shorthand REPLACES the
+ * shared plane's background rather than sitting on it — so as one layer what
+ * showed through was the page floor and the poster's top third still repainted
+ * at night. The second layer is that floor, from the frozen `--color-bg`. */
 .shiori-card--poster-fallback {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--shiori-export-ground) 74%, transparent) 0%, var(--shiori-export-ground) 72%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--shiori-export-ground) 74%, transparent) 0%, var(--shiori-export-ground) 72%),
+    var(--color-bg);
   color: var(--shiori-export-ink);
 }
 
@@ -48,9 +72,8 @@
   opacity: 0.78;
 }
 
-/* On the poster every ink comes from the export ink, not the theme palette:
- * --color-fg is the day-palette brown and measures 2.55:1 on the export
- * ground. The card is saved as an image, so its ink is invariant too. */
+/* On the poster every ink is the export ink: --color-fg is the day-palette
+ * brown and measures 2.55:1 on the export ground. */
 .shiori-card--poster-fallback .shiori-head__title {
   color: inherit;
 }
@@ -64,8 +87,7 @@
   opacity: 0.75;
 }
 
-/* The seal stays at the top; the title block and the ✓ list are the poster's
- * foot, exactly as the canvas stacks them. */
+/* The seal stays at the top; title block and ✓ list are the poster's foot. */
 .shiori-card--poster-fallback .shiori-head {
   margin-top: auto;
 }
@@ -108,7 +130,8 @@
 
 /* §4.5 block divider. On the ticket the canvas draws it as a perforation
  * (.perf): a dashed rule with a punched notch biting in from each edge. The
- * notches are the page floor showing through the card, so they use --color-bg. */
+ * notches read as the floor through the card, so they take the frozen
+ * --color-bg — frozen, because they are inside the saved image. */
 .shiori-card--ticket .shiori-head {
   position: relative;
   padding-bottom: 12px;
@@ -200,6 +223,10 @@
   font-weight: 900;
 }
 
+/* A <p> in a fixed 9:16 box, where a 1em margin is height nothing gives back.
+ * Preflight zeroes it, but preflight is a layered base rule and every other
+ * paragraph here states its own margin rather than banking on that; this one
+ * had stopped, and had grown a size larger than the type it was cut in. */
 .shiori-empty {
   display: grid;
   place-items: center;
@@ -209,10 +236,11 @@
    * the 1.21:1 content line. */
   border: 2px dashed var(--color-border);
   border-radius: 12px;
+  margin: 0;
   padding: 18px;
   background: var(--color-card);
   color: var(--color-muted-fg);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 800;
   text-align: center;
 }
@@ -236,9 +264,8 @@
 }
 
 /* The seal is an object stamped on the poster, not a §4.3 label, so it keeps
- * the SOLID gold ground — and therefore the theme-invariant --color-gold-ink
- * rather than --color-gold-fg, which pairs with the soft tint and flips light
- * at night, where it falls to 1.18:1 on solid gold. */
+ * the SOLID gold ground — and with it --color-gold-ink rather than
+ * --color-gold-fg, which pairs with the soft tint and falls to 1.18:1 here. */
 .shiori-badge {
   display: grid;
   justify-items: center;
