@@ -10,8 +10,8 @@ import {
   parseBlockTokens,
   ruleDeclaration,
   tokenValue,
-} from "../_token-helpers";
-import type { TokenMap } from "../_token-helpers";
+} from "../stylesheet-probe";
+import type { TokenMap } from "../stylesheet-probe";
 
 /** WCAG 1.4.3 AA for the しおり skin in both themes and its saved artifact. */
 const DAY: TokenMap = parseBlockTokens(globalsCss, ":root");

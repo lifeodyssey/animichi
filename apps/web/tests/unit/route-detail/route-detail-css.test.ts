@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import css from "../../../src/styles/route-detail.css?raw";
 import { MODE_EASING, MODE_TRANSITION_MS } from "../../../src/features/route-detail/lib/mode";
-import { parseBlockTokens, ruleDeclaration, tokenValue } from "../_token-helpers";
+import { parseBlockTokens, ruleDeclaration, tokenValue } from "../stylesheet-probe";
 
 /**
  * The route-detail skin against the design-sync canvas ("路线详情 状态总览.html")

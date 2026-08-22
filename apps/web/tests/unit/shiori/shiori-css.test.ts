@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import css from "../../../src/styles/shiori.css?raw";
 import photosCss from "../../../src/styles/shiori-photos.css?raw";
 import generatorCss from "../../../src/styles/shiori-generator.css?raw";
-import { lastRuleDeclaration, parseBlockTokens, ruleDeclaration, tokenValue } from "../_token-helpers";
+import { lastRuleDeclaration, parseBlockTokens, ruleDeclaration, tokenValue } from "../stylesheet-probe";
 
 /** The しおり skin against the design-sync canvas and its six visual languages. */
 describe("§4.1 card language", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import css from "../../../src/styles/anime.css?raw";
-import { ruleDeclaration } from "../_token-helpers";
+import { ruleDeclaration } from "../stylesheet-probe";
 
 /**
  * The `/anime/$bangumiId` skin against the design-sync canvas
