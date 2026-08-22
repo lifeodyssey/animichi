@@ -14,7 +14,7 @@ vi.mock("@neondatabase/auth", () => ({ createAuthClient }));
 vi.mock("@neondatabase/auth/vanilla", () => ({ BetterAuthVanillaAdapter }));
 
 import {
-  fetchAuthToken, isNeonAuthConfigured, redeemAuthToken, sendMagicLink,
+  fetchAuthToken, isNeonAuthConfigured, redeemAuthToken, resetNeonAuthClient, sendMagicLink,
 } from "../../src/lib/auth/neon-auth";
 import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../src/lib/runtime-config/provider";
 import { DEFAULT_RUNTIME_CONFIG } from "../../src/lib/runtime-config/runtime-config";
@@ -30,6 +30,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  resetNeonAuthClient();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
@@ -77,13 +78,27 @@ describe("fetchAuthToken", () => {
 
   it("returns the JWT the SDK injects into getSession's session.token", async () => {
     configure();
-    getSession.mockResolvedValue({ data: { session: { token: "jwt-xyz" } }, error: null });
-    expect(await fetchAuthToken()).toBe("jwt-xyz");
+    getSession.mockResolvedValue({ data: { session: { token: "aaa.bbb.ccc" } }, error: null });
+    expect(await fetchAuthToken()).toBe("aaa.bbb.ccc");
+  });
+
+  it("ignores the opaque Better Auth session token that is not a JWT", async () => {
+    configure();
+    getSession.mockResolvedValue({ data: { session: { token: "EHyM6opaqueSession" } }, error: null });
+    expect(await fetchAuthToken()).toBeUndefined();
+  });
+
+  it("reuses one SDK client for login, session, and token reads", async () => {
+    configure();
+    getSession.mockResolvedValue({ data: { session: { token: "aaa.bbb.ccc" } }, error: null });
+    await fetchAuthToken();
+    await fetchAuthToken();
+    expect(createAuthClient).toHaveBeenCalledTimes(1);
   });
 
   it("builds the Neon Auth client with cross-origin credentials included", async () => {
     configure();
-    getSession.mockResolvedValue({ data: { session: { token: "jwt-xyz" } }, error: null });
+    getSession.mockResolvedValue({ data: { session: { token: "aaa.bbb.ccc" } }, error: null });
     await fetchAuthToken();
     expect(BetterAuthVanillaAdapter).toHaveBeenCalledWith({
       fetchOptions: { credentials: "include" },

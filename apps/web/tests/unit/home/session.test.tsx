@@ -3,6 +3,8 @@
  */
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { clearAuthToken } from "../../../src/lib/auth/auth-session";
+import { resetNeonAuthClient } from "../../../src/lib/auth/neon-auth";
 import { fetchAuthStatus, useAuthStatus } from "../../../src/lib/auth/session";
 import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../src/lib/runtime-config/provider";
 import { DEFAULT_RUNTIME_CONFIG } from "../../../src/lib/runtime-config/runtime-config";
@@ -18,6 +20,8 @@ vi.mock("@neondatabase/auth/vanilla", () => ({
 afterEach(() => {
   vi.unstubAllGlobals();
   getSessionMock.mockReset();
+  resetNeonAuthClient();
+  clearAuthToken();
 });
 
 describe("fetchAuthStatus", () => {
@@ -25,9 +29,9 @@ describe("fetchAuthStatus", () => {
     expect(await fetchAuthStatus()).toBe("anonymous");
   });
 
-  it("is authenticated when a session is returned", async () => {
+  it("is authenticated when the SDK session carries a JWT", async () => {
     vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, neonAuthBaseUrl: "https://neon.test/auth" });
-    getSessionMock.mockResolvedValue({ data: { user: { id: "u1" } } });
+    getSessionMock.mockResolvedValue({ data: { session: { token: "aaa.bbb.ccc" } } });
     expect(await fetchAuthStatus()).toBe("authenticated");
   });
 

@@ -94,11 +94,9 @@ export {
   type AnonymousIdentity,
 } from "./anonymous-id.ts";
 
-const JWKS_SUFFIX = "/.well-known/jwks.json";
-
-/** Derive the Neon Auth issuer/audience base URL from its JWKS URL. */
+/** Neon Auth JWTs set `iss`/`aud` to the auth host origin, not `/neondb/auth`. */
 export function issuerFromJwksUrl(jwksUrl: string): string {
-  return jwksUrl.endsWith(JWKS_SUFFIX) ? jwksUrl.slice(0, -JWKS_SUFFIX.length) : jwksUrl;
+  return new URL(jwksUrl).origin;
 }
 
 const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
@@ -119,7 +117,7 @@ function human(sub: unknown): AuthResult {
 
 /**
  * Verify a Neon Auth EdDSA bearer against the branch's JWKS. `iss` and `aud`
- * must both equal the JWKS URL minus `/.well-known/jwks.json`, EdDSA only —
+ * must both equal the JWKS URL origin (Neon Auth's JWT `iss`), EdDSA only —
  * every one of those is pinned by a test in auth-neon.test.ts, and weakening
  * any of them is the rollback mutation.
  */

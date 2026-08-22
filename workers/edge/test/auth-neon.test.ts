@@ -37,12 +37,15 @@ function neonEnv(host: string) {
   return { NEON_AUTH_JWKS_URL: `${host}${JWKS_SUFFIX}` };
 }
 
-void test("issuerFromJwksUrl strips the well-known suffix", () => {
-  assert.equal(issuerFromJwksUrl("https://auth.example.test/neondb/auth/.well-known/jwks.json"), "https://auth.example.test/neondb/auth");
+void test("issuerFromJwksUrl is the Neon Auth host origin, not the /neondb/auth path", () => {
+  assert.equal(
+    issuerFromJwksUrl("https://auth.example.test/neondb/auth/.well-known/jwks.json"),
+    "https://auth.example.test",
+  );
 });
 
-void test("issuerFromJwksUrl leaves a suffix-less URL untouched", () => {
-  assert.equal(issuerFromJwksUrl("https://auth.example.test/neondb/auth"), "https://auth.example.test/neondb/auth");
+void test("issuerFromJwksUrl uses origin when the URL has no well-known suffix", () => {
+  assert.equal(issuerFromJwksUrl("https://auth.example.test/neondb/auth"), "https://auth.example.test");
 });
 
 void test("a valid EdDSA token for the derived issuer/audience is accepted", async () => {
