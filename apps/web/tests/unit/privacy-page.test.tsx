@@ -8,6 +8,7 @@ import { PrivacyPolicy } from "../../src/components/legal/PrivacyPolicy";
 import { Route as PrivacyRoute } from "../../src/routes/privacy";
 import { dictFor } from "../../src/i18n/dictionaries";
 import { renderWithLocale, setLanguages } from "./_i18n";
+import globalsCss from "../../src/styles/globals.css?raw";
 
 beforeEach(() => { setLanguages(["ja-JP"]); });
 afterEach(cleanup);
@@ -21,6 +22,14 @@ describe("PrivacyPolicy", () => {
     expect(screen.getByText(dictFor("ja").privacy.evaluation_body)).toBeTruthy();
     expect(screen.getByRole("link", { name: /Animichiに戻る/ }).getAttribute("href")).toBe("/");
     expect(screen.getByRole("link", { name: dictFor("ja").privacy.contact_link }).getAttribute("href")).toContain("github.com");
+  });
+
+  it("is written in semantic utilities, with no page-private stylesheet left behind", () => {
+    renderWithLocale(<PrivacyPolicy />);
+    const main = screen.getByRole("main");
+    expect(main.className).toContain("mx-auto");
+    expect(main.className).not.toContain("privacy-page");
+    expect(globalsCss).not.toContain("privacy.css");
   });
 
   it("renders every visible policy heading and intro in Chinese without Japanese fallback copy", () => {
