@@ -116,9 +116,10 @@ def test_ci_root_deploys_match_manual_root_secrets() -> None:
     # stay frozen.
     STAGING_ONLY_SECRETS = {"ZEN_GO_API_KEY"}
 
-    assert _wrangler_secret_names(staging) == (
-        manual_secrets - STAGING_EXEMPT_SECRETS
-    ) | STAGING_ONLY_SECRETS
+    assert (
+        _wrangler_secret_names(staging)
+        == (manual_secrets - STAGING_EXEMPT_SECRETS) | STAGING_ONLY_SECRETS
+    )
     assert _wrangler_secret_names(production) == manual_secrets
     assert manual_secrets - STAGING_EXEMPT_SECRETS <= _mapped_secret_names(staging)
     assert STAGING_ONLY_SECRETS <= _mapped_secret_names(staging)
