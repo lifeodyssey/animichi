@@ -1,3 +1,4 @@
+import "../../../styles/route-detail.css";
 import { useQueryErrorResetBoundary } from "@tanstack/react-query";
 import { useRouter, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -57,10 +58,10 @@ export function RouteDetailErrorState() {
 
 export function RouteDetailPendingState() {
   return (
-    <main role="status" aria-label="Loading" className="mx-auto grid max-w-3xl gap-6 px-4 py-8">
-      <div className="h-24 animate-pulse rounded-2xl bg-[var(--color-card)]" />
-      <div className="h-40 animate-pulse rounded-2xl bg-[var(--color-card)]" />
-      <div className="h-64 animate-pulse rounded-2xl bg-[var(--color-card)]" />
+    <main role="status" aria-label="Loading" className="route-detail">
+      <div className="route-skeleton route-skeleton--hero" />
+      <div className="route-skeleton route-skeleton--map" />
+      <div className="route-skeleton route-skeleton--panel" />
     </main>
   );
 }
