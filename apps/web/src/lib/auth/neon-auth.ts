@@ -5,9 +5,10 @@ import { currentRuntimeConfig } from "../runtime-config/provider";
 /**
  * Neon Auth client via the official `@neondatabase/auth` SDK.
  *
- * The SDK forwards `neon_auth_session_verifier` from the callback URL onto
- * `/get-session` and `/token`. Base URL is `neonAuthBaseUrl` (#1013 AC1);
- * absent means "not configured". Auth failures surface `error.message` as-is.
+ * The SDK forwards `neon_auth_session_verifier` onto `/get-session` and injects
+ * the EdDSA JWT from `set-auth-jwt` into `session.token`. Neon Auth's `/token`
+ * route does not accept the verifier (401 Unauthorized). Base URL is
+ * `neonAuthBaseUrl` (#1013 AC1); absent means "not configured".
  */
 export type MagicLinkResult = "sent" | "not_configured" | { readonly error: string };
 
@@ -61,7 +62,8 @@ async function requestMagicLink(base: string, request: MagicLinkRequest): Promis
 
 /**
  * Exchanges the Neon Auth session (cookie and/or `neon_auth_session_verifier`)
- * for an EdDSA JWT. Failures keep the SDK's `error.message`.
+ * for an EdDSA JWT via `getSession` — the SDK path that actually redeems the
+ * verifier. Failures keep the SDK's `error.message`.
  */
 export async function redeemAuthToken(): Promise<AuthTokenResult> {
   const base = baseUrl();
@@ -74,9 +76,14 @@ export async function redeemAuthToken(): Promise<AuthTokenResult> {
 }
 
 async function requestToken(base: string): Promise<AuthTokenResult> {
-  const { data, error } = await neonAuthClient(base).token();
+  const { data, error } = await neonAuthClient(base).getSession();
   if (error) return { error: { message: authErrorMessage(error) } };
-  return { token: data.token };
+  return jwtFromSession(data);
+}
+
+function jwtFromSession(data: { session?: { token?: string } | null } | null): AuthTokenResult {
+  const token = data?.session?.token;
+  return token ? { token } : { error: { message: "" } };
 }
 
 /** Anonymous-safe: no session or a failed redeem is `undefined`, never a throw. */
