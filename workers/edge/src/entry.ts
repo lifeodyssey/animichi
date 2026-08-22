@@ -7,7 +7,11 @@ import { Container } from "@cloudflare/containers";
 import { createWorkerApp } from "./app.ts";
 import type { Env } from "./env.ts";
 import { catalogOutbound } from "./gateway/forward.ts";
-import { buildContainerEnvVars, DENIED_EGRESS_HOSTS } from "./container/container-env.ts";
+import {
+  buildContainerEnvVars,
+  DENIED_EGRESS_HOSTS,
+  resolveContainerEnvVars,
+} from "./container/container-env.ts";
 
 export { EdgeGuard } from "./protect/edge-guard.ts";
 // Required for `deniedHosts`/outbound interception to actually run (#284 Task 7,
@@ -39,9 +43,29 @@ export class RuntimeContainer extends Container {
   requiredPorts = [8080];
   enableInternet = true;
   deniedHosts = DENIED_EGRESS_HOSTS;
+  readonly #workerEnv: Record<string, unknown>;
+  #envResolved = false;
   constructor(ctx: DurableObjectState<object>, env: Record<string, unknown>) {
     super(ctx, env);
+    this.#workerEnv = env;
     this.envVars = buildContainerEnvVars(env);
+  }
+  async #hydrateStoreSecrets(): Promise<void> {
+    if (this.#envResolved) return;
+    this.envVars = await resolveContainerEnvVars(this.#workerEnv);
+    this.#envResolved = true;
+  }
+  override async start(
+    ...args: Parameters<Container["start"]>
+  ): Promise<void> {
+    await this.#hydrateStoreSecrets();
+    return super.start(...args);
+  }
+  override async startAndWaitForPorts(
+    ...args: Parameters<Container["startAndWaitForPorts"]>
+  ): Promise<void> {
+    await this.#hydrateStoreSecrets();
+    return super.startAndWaitForPorts(...args);
   }
 }
 

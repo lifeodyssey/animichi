@@ -3,7 +3,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { CONTAINER_ENV_KEYS, CONTAINER_REQUIRED_KEYS, buildContainerEnvVars } from "../src/container/container-env.ts";
+import {
+  CONTAINER_ENV_KEYS,
+  CONTAINER_REQUIRED_KEYS,
+  buildContainerEnvVars,
+  readStoreOrString,
+  resolveContainerEnvVars,
+} from "../src/container/container-env.ts";
 
 // Issue #498: APP_ENV used to be seeded with a hardcoded "production" default
 // in buildContainerEnvVars, so every container reported APP_ENV=production
@@ -62,6 +68,40 @@ void test("AGENT_SVC_DATABASE_URL is optional: absent without a binding, never r
   assert.equal(CONTAINER_REQUIRED_KEYS.includes("AGENT_SVC_DATABASE_URL"), false);
   const environmentVars = buildContainerEnvVars(requiredContainerEnv());
   assert.equal("AGENT_SVC_DATABASE_URL" in environmentVars, false);
+});
+
+void test("readStoreOrString returns a non-empty string as-is", async () => {
+  assert.equal(await readStoreOrString("postgresql://agent_svc@neon/db"), "postgresql://agent_svc@neon/db");
+});
+
+void test("readStoreOrString omits an empty string", async () => {
+  assert.equal(await readStoreOrString(""), undefined);
+});
+
+void test("readStoreOrString unwraps a Secrets Store .get() binding (#1157)", async () => {
+  const binding = { get: () => Promise.resolve("postgresql://agent_svc@neon/db") };
+  assert.equal(await readStoreOrString(binding), "postgresql://agent_svc@neon/db");
+});
+
+void test("readStoreOrString omits an empty Secrets Store value", async () => {
+  const binding = { get: () => Promise.resolve("") };
+  assert.equal(await readStoreOrString(binding), undefined);
+});
+
+void test("resolveContainerEnvVars forwards a store-bound AGENT_SVC_DATABASE_URL (#1157)", async () => {
+  const environmentVars = await resolveContainerEnvVars({
+    ...requiredContainerEnv(),
+    AGENT_SVC_DATABASE_URL: { get: () => Promise.resolve("postgresql://agent_svc@neon/db") },
+  });
+  assert.equal(environmentVars.AGENT_SVC_DATABASE_URL, "postgresql://agent_svc@neon/db");
+});
+
+void test("resolveContainerEnvVars still forwards a string AGENT_SVC_DATABASE_URL", async () => {
+  const environmentVars = await resolveContainerEnvVars({
+    ...requiredContainerEnv(),
+    AGENT_SVC_DATABASE_URL: "postgresql://agent_svc@neon/db",
+  });
+  assert.equal(environmentVars.AGENT_SVC_DATABASE_URL, "postgresql://agent_svc@neon/db");
 });
 
 void test("buildContainerEnvVars throws (fail-closed) when APP_ENV is missing, instead of seeding a hardcoded default", () => {
