@@ -3,19 +3,19 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createAuthClient, jwtClient, magicLink, token } = vi.hoisted(() => ({
+const { createAuthClient, BetterAuthVanillaAdapter, magicLink, token } = vi.hoisted(() => ({
   createAuthClient: vi.fn(),
-  jwtClient: vi.fn(() => ({ id: "jwt" })),
+  BetterAuthVanillaAdapter: vi.fn(() => vi.fn()),
   magicLink: vi.fn(),
   token: vi.fn(),
 }));
 
-vi.mock("better-auth/client", () => ({
-  createAuthClient,
-}));
-vi.mock("better-auth/client/plugins", () => ({ jwtClient, magicLinkClient: () => ({}) }));
+vi.mock("@neondatabase/auth", () => ({ createAuthClient }));
+vi.mock("@neondatabase/auth/vanilla", () => ({ BetterAuthVanillaAdapter }));
 
-import { fetchAuthToken, isNeonAuthConfigured, sendMagicLink } from "../../src/lib/auth/neon-auth";
+import {
+  fetchAuthToken, isNeonAuthConfigured, redeemAuthToken, sendMagicLink,
+} from "../../src/lib/auth/neon-auth";
 import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../src/lib/runtime-config/provider";
 import { DEFAULT_RUNTIME_CONFIG } from "../../src/lib/runtime-config/runtime-config";
 
@@ -46,9 +46,6 @@ describe("neon auth magic link", () => {
   });
 
   it("treats an unset base URL as unconfigured", () => {
-    // An explicitly-empty value is rejected at load by the runtime-config
-    // schema (fail-closed, covered by the loader's tests); an ABSENT field is
-    // the documented "auth not configured" shape.
     vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
     expect(isNeonAuthConfigured()).toBe(false);
   });
@@ -60,16 +57,16 @@ describe("neon auth magic link", () => {
     expect(magicLink).toHaveBeenCalledWith(request);
   });
 
-  it("returns error when the client responds with an error envelope", async () => {
+  it("returns the SDK error.message from an error envelope", async () => {
     configure();
     magicLink.mockResolvedValue({ data: null, error: { message: "boom" } });
-    expect(await sendMagicLink(request)).toBe("error");
+    expect(await sendMagicLink(request)).toEqual({ error: "boom" });
   });
 
-  it("returns error when the client rejects", async () => {
+  it("returns the thrown error.message when the client rejects", async () => {
     configure();
     magicLink.mockRejectedValue(new Error("network"));
-    expect(await sendMagicLink(request)).toBe("error");
+    expect(await sendMagicLink(request)).toEqual({ error: "network" });
   });
 });
 
@@ -84,29 +81,14 @@ describe("fetchAuthToken", () => {
     expect(await fetchAuthToken()).toBe("jwt-xyz");
   });
 
-  it("uses jwtClient with cross-origin credentials and the Neon session verifier handshake", async () => {
+  it("builds the Neon Auth client with cross-origin credentials included", async () => {
     configure();
     token.mockResolvedValue({ data: { token: "jwt-xyz" }, error: null });
     await fetchAuthToken();
-    expect(jwtClient).toHaveBeenCalledTimes(1);
-    const config = createAuthClient.mock.calls[0]?.[0] as {
-      baseURL: string;
-      fetchOptions: { credentials: RequestCredentials };
-    };
-    expect(config.baseURL).toBe("https://auth.test/neondb/auth");
-    expect(config.fetchOptions.credentials).toBe("include");
-  });
-
-  it("forwards neon_auth_session_verifier from the callback URL onto the token request", async () => {
-    configure();
-    token.mockResolvedValue({ data: { token: "jwt-xyz" }, error: null });
-    window.history.replaceState({}, "", "/auth/callback?neon_auth_session_verifier=ml-abc");
-    await fetchAuthToken();
-    const options = createAuthClient.mock.calls[0]?.[0] as {
-      fetchOptions: { onRequest: (ctx: { url: string }) => { url: URL } | undefined };
-    };
-    const attached = options.fetchOptions.onRequest({ url: "https://auth.test/neondb/auth/token" });
-    expect(attached?.url.searchParams.get("neon_auth_session_verifier")).toBe("ml-abc");
+    expect(BetterAuthVanillaAdapter).toHaveBeenCalledWith({
+      fetchOptions: { credentials: "include" },
+    });
+    expect(createAuthClient.mock.calls[0]?.[0]).toBe("https://auth.test/neondb/auth");
   });
 
   it("returns undefined when jwtClient reports no session", async () => {
@@ -119,5 +101,19 @@ describe("fetchAuthToken", () => {
     configure();
     token.mockRejectedValue(new Error("network"));
     expect(await fetchAuthToken()).toBeUndefined();
+  });
+});
+
+describe("redeemAuthToken", () => {
+  it("keeps the SDK error.message from a failed /token envelope", async () => {
+    configure();
+    token.mockResolvedValue({ data: null, error: { message: "INVALID_TOKEN" } });
+    expect(await redeemAuthToken()).toEqual({ error: { message: "INVALID_TOKEN" } });
+  });
+
+  it("keeps the thrown error.message when /token rejects", async () => {
+    configure();
+    token.mockRejectedValue(new Error("network"));
+    expect(await redeemAuthToken()).toEqual({ error: { message: "network" } });
   });
 });

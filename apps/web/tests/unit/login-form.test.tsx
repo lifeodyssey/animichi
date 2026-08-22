@@ -46,10 +46,12 @@ describe("LoginForm submission", () => {
     );
   });
 
-  it("shows on-brand error copy when the request fails", async () => {
-    send.mockResolvedValue("error");
+  it("shows the SDK error.message when the request fails", async () => {
+    send.mockResolvedValue({ error: "Failed to send magic link" });
     submitWith("fan@example.com");
-    await waitFor(() => { expect(screen.getByRole("alert").textContent).toContain("もう一度"); });
+    await waitFor(() => {
+      expect(screen.getByRole("alert").textContent).toBe("Failed to send magic link");
+    });
   });
 
   it("shows a not-configured message when auth is unset", async () => {

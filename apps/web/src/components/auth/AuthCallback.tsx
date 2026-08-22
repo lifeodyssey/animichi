@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useDict } from "../../i18n/LocaleProvider";
 import type { Dict } from "../../i18n/dictionaries";
 import type { DeferredReplayOutcome } from "../../features/chat/save/complete-deferred-save";
-import { getAuthToken } from "../../lib/auth/auth-session";
+import { establishAuthSession } from "../../lib/auth/auth-session";
 import { useAuthCallback } from "./use-auth-callback";
 import type { AuthCallbackSession, AuthCallbackState } from "./use-auth-callback";
 
@@ -10,10 +10,10 @@ import type { SessionAdoptionOutcome } from "../../lib/auth/session-adoption";
 
 type MessageState = Extract<AuthCallbackState, "pending" | "error">;
 
-function CallbackMessage({ state }: Readonly<{ state: MessageState }>) {
+function CallbackMessage({ state, message }: Readonly<{ state: MessageState; message?: string }>) {
   const auth = useDict().auth;
   const role = state === "error" ? "alert" : "status";
-  const text = state === "error" ? auth.callback_error : auth.callback_pending;
+  const text = state === "error" ? (message ?? "") : auth.callback_pending;
   return <p className="auth-callback__message" role={role}>{text}</p>;
 }
 
@@ -86,14 +86,14 @@ function CallbackBody({ session }: Readonly<{ session: AuthCallbackSession }>) {
   if (session.state === "done") return null;
   if (session.state === "save-failed") return <SaveFailure auth={auth} session={session} />;
   if (session.state === "adoption-failed") return <AdoptionFailure auth={auth} session={session} />;
-  return <CallbackMessage state={session.state} />;
+  return <CallbackMessage state={session.state} message={session.errorMessage} />;
 }
 
 /** `/auth/callback` body: redeems the session, replays a deferred save, then
  * hands control back to the route — unless that replay failed AND no return
  * intent is waiting (see `hasReturnIntent`). */
 export function AuthCallback(
-  { onDone, hasReturnIntent = false, expectsAdoption = false, establish = getAuthToken, replay, adopt }: AuthCallbackProps,
+  { onDone, hasReturnIntent = false, expectsAdoption = false, establish = establishAuthSession, replay, adopt }: AuthCallbackProps,
 ) {
   const session = useAuthCallback(establish, replay, adopt, expectsAdoption);
   useDoneEffect(session.state, onDone, hasReturnIntent);

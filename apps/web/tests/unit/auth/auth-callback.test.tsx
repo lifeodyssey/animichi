@@ -47,12 +47,12 @@ describe("AuthCallback", () => {
     await waitFor(() => { expect(onDone).toHaveBeenCalledTimes(1); });
   });
 
-  it("shows an on-brand error and never calls onDone when sign-in failed", async () => {
+  it("shows the SDK error.message and never calls onDone when sign-in failed", async () => {
     setLanguages(["ja"]);
-    const establish = vi.fn().mockResolvedValue(undefined);
+    const establish = vi.fn().mockRejectedValue(new Error("INVALID_TOKEN"));
     const onDone = vi.fn();
     renderWithLocale(<AuthCallback establish={establish} onDone={onDone} />);
-    await waitFor(() => { expect(screen.getByRole("alert")).toBeTruthy(); });
+    await waitFor(() => { expect(screen.getByRole("alert").textContent).toBe("INVALID_TOKEN"); });
     expect(onDone).not.toHaveBeenCalled();
   });
 });
