@@ -3,15 +3,12 @@ import { jwtClient, magicLinkClient } from "better-auth/client/plugins";
 import { currentRuntimeConfig } from "../runtime-config/provider";
 
 /**
- * Neon Auth (Better Auth base) magic-link client.
+ * Neon Auth magic-link client, pointed at the per-branch `…/neondb/auth` URL.
  *
- * Uses the official Better Auth client SDK (`createAuthClient` + the
- * `magicLinkClient` plugin) pointed at the per-branch Neon Auth base URL
- * (`…/neondb/auth`, see `docs/ops/auth-migration-neon.md` §4). The base URL is
- * operator-supplied via the versioned runtime-config field `neonAuthBaseUrl`
- * (#1013 AC1); when absent the caller surfaces a "not configured" state
- * rather than a fabricated success. The client is built lazily at call time
- * so tests and SSR resolve the config freshly.
+ * Magic-link verify redirects to our callback with `neon_auth_session_verifier`
+ * (the session cookie stays on the Neon origin). `attachVerifier` forwards
+ * that query onto `/token` and `/get-session`. Base URL is `neonAuthBaseUrl`
+ * (#1013 AC1); absent means "not configured".
  */
 export type MagicLinkResult = "sent" | "not_configured" | "error";
 
@@ -19,6 +16,8 @@ export interface MagicLinkRequest {
   email: string;
   callbackURL: string;
 }
+
+const VERIFIER_PARAM = "neon_auth_session_verifier";
 
 function baseUrl(): string | undefined {
   // The runtime-config loader guarantees the field is undefined-or-valid-URL,
@@ -30,10 +29,31 @@ export function isNeonAuthConfigured(): boolean {
   return baseUrl() !== undefined;
 }
 
-function neonAuthClient(baseURL: string) {
+function verifierFromLocation(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  return new URLSearchParams(window.location.search).get(VERIFIER_PARAM) ?? undefined;
+}
+
+function attachVerifier<T extends { url: URL | string }>(ctx: T): T | undefined {
+  const verifier = verifierFromLocation();
+  if (!verifier) return undefined;
+  const url = typeof ctx.url === "string" ? new URL(ctx.url) : ctx.url;
+  url.searchParams.set(VERIFIER_PARAM, verifier);
+  return { ...ctx, url };
+}
+
+function dropVerifierFromLocation(): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has(VERIFIER_PARAM)) return;
+  url.searchParams.delete(VERIFIER_PARAM);
+  history.replaceState(history.state, "", url.href);
+}
+
+export function neonAuthClient(baseURL: string) {
   return createAuthClient({
     baseURL,
-    fetchOptions: { credentials: "include" },
+    fetchOptions: { credentials: "include", onRequest: attachVerifier, onSuccess: dropVerifierFromLocation },
     plugins: [magicLinkClient(), jwtClient()],
   });
 }
@@ -50,9 +70,8 @@ export async function sendMagicLink(request: MagicLinkRequest): Promise<MagicLin
 }
 
 /**
- * Exchanges the Better Auth session cookie (set by the magic-link callback
- * on the Neon Auth origin) for an EdDSA JWT via Better Auth's `jwtClient`.
- * The edge worker (`workers/edge/identity/auth.ts`) verifies this token against the same JWKS.
+ * Exchanges the Neon Auth session (cookie and/or `neon_auth_session_verifier`)
+ * for an EdDSA JWT. The edge worker verifies this token against the branch JWKS.
  */
 export async function fetchAuthToken(): Promise<string | undefined> {
   const base = baseUrl();

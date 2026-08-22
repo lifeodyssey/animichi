@@ -11,6 +11,10 @@ const getSessionMock = vi.fn();
 vi.mock("better-auth/client", () => ({
   createAuthClient: () => ({ getSession: getSessionMock }),
 }));
+vi.mock("better-auth/client/plugins", () => ({
+  jwtClient: () => ({}),
+  magicLinkClient: () => ({}),
+}));
 
 afterEach(() => {
   vi.unstubAllGlobals();
