@@ -21,8 +21,8 @@ describe("§4.1 card language", () => {
 
   it("enters with cardPop on the shared curve", () => {
     expect(ruleDeclaration(css, ".route-card", "animation"))
-      .toBe("route-card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both");
-    expect(css).toContain("transform: translateY(10px) scale(0.985)");
+      .toBe("card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both");
+    expect(css).not.toContain("@keyframes route-card-pop");
   });
 });
 

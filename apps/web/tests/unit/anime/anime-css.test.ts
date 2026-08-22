@@ -21,8 +21,8 @@ describe("§4.1 card language", () => {
 
   it("enters with cardPop on the shared curve", () => {
     expect(ruleDeclaration(css, ".anime-card", "animation"))
-      .toBe("anime-card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both");
-    expect(css).toContain("transform: translateY(10px) scale(0.985)");
+      .toBe("card-pop 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both");
+    expect(css).not.toContain("@keyframes anime-card-pop");
   });
 
   it("grounds the nested fact panel on the panel cream, not on the card's paper", () => {
