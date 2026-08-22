@@ -15,11 +15,20 @@ import { carriesPanelIntent, sanitizeReturnTarget } from "../../lib/auth/return-
  */
 interface CallbackSearch {
   readonly next?: string;
+  readonly neon_auth_session_verifier?: string;
+}
+
+function searchString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function parseCallbackSearch(input: Record<string, unknown>): CallbackSearch {
   const next = sanitizeReturnTarget(input.next);
-  return next === "/" ? {} : { next };
+  const verifier = searchString(input.neon_auth_session_verifier);
+  return {
+    ...(next === "/" ? {} : { next }),
+    ...(verifier === undefined ? {} : { neon_auth_session_verifier: verifier }),
+  };
 }
 
 export const Route = createFileRoute("/auth/callback")({

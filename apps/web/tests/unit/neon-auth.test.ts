@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { createAuthClient, jwtClient, magicLink, token } = vi.hoisted(() => ({
@@ -81,15 +84,29 @@ describe("fetchAuthToken", () => {
     expect(await fetchAuthToken()).toBe("jwt-xyz");
   });
 
-  it("uses jwtClient with cross-origin credentials included", async () => {
+  it("uses jwtClient with cross-origin credentials and the Neon session verifier handshake", async () => {
     configure();
     token.mockResolvedValue({ data: { token: "jwt-xyz" }, error: null });
     await fetchAuthToken();
     expect(jwtClient).toHaveBeenCalledTimes(1);
-    expect(createAuthClient).toHaveBeenCalledWith(expect.objectContaining({
-      baseURL: "https://auth.test/neondb/auth",
-      fetchOptions: { credentials: "include" },
-    }));
+    const config = createAuthClient.mock.calls[0]?.[0] as {
+      baseURL: string;
+      fetchOptions: { credentials: RequestCredentials };
+    };
+    expect(config.baseURL).toBe("https://auth.test/neondb/auth");
+    expect(config.fetchOptions.credentials).toBe("include");
+  });
+
+  it("forwards neon_auth_session_verifier from the callback URL onto the token request", async () => {
+    configure();
+    token.mockResolvedValue({ data: { token: "jwt-xyz" }, error: null });
+    window.history.replaceState({}, "", "/auth/callback?neon_auth_session_verifier=ml-abc");
+    await fetchAuthToken();
+    const options = createAuthClient.mock.calls[0]?.[0] as {
+      fetchOptions: { onRequest: (ctx: { url: string }) => { url: URL } | undefined };
+    };
+    const attached = options.fetchOptions.onRequest({ url: "https://auth.test/neondb/auth/token" });
+    expect(attached?.url.searchParams.get("neon_auth_session_verifier")).toBe("ml-abc");
   });
 
   it("returns undefined when jwtClient reports no session", async () => {

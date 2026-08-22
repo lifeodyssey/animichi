@@ -67,6 +67,26 @@ describe("/auth/callback route", () => {
 
 });
 
+describe("/auth/callback route — Neon session verifier", () => {
+  it("keeps the Neon session verifier on the callback URL so the client can redeem it", async () => {
+    const router = getRouter();
+    getAuthToken.mockImplementation(() => {
+      expect(router.state.location.search).toEqual(
+        expect.objectContaining({ neon_auth_session_verifier: "ml-abc" }),
+      );
+      return Promise.resolve("jwt-callback");
+    });
+    await router.navigate({
+      to: "/auth/callback",
+      search: { neon_auth_session_verifier: "ml-abc" },
+    });
+    render(<RouterProvider router={router} />);
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/");
+    });
+  });
+});
+
 describe("/auth/callback route — dual intent (#480 P1-2)", () => {
   /**
    * The #514 round-2 gap: `carriesPanelIntent` was pinned as a FUNCTION, but
