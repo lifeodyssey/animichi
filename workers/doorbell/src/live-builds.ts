@@ -1,4 +1,10 @@
-import type { BuildHandle, BuildsClient, BuildStatus, StartBuildInput } from "./builds";
+import {
+  BuildsApiError,
+  type BuildHandle,
+  type BuildsClient,
+  type BuildStatus,
+  type StartBuildInput,
+} from "./builds";
 import type { Env } from "./create-app";
 
 const BUILDS_API = "https://api.cloudflare.com/client/v4";
@@ -16,6 +22,14 @@ export function liveBuildsClient(env: Env): BuildsClient {
 }
 
 async function apiToken(env: Env): Promise<string> {
+  try {
+    return await readApiToken(env);
+  } catch {
+    throw new BuildsApiError("secret_read");
+  }
+}
+
+async function readApiToken(env: Env): Promise<string> {
   const token = env.BUILDS_API_TOKEN;
   if (token === undefined) return "";
   return typeof token === "string" ? token : await token.get();
@@ -27,6 +41,10 @@ function accountIdOf(env: Env): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isUnknownArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
 }
 
 function resultOf(envelope: unknown): Record<string, unknown> | null {
@@ -41,11 +59,17 @@ function stringField(record: Record<string, unknown>, keys: string[]): string | 
   return undefined;
 }
 
-function buildIdOf(envelope: unknown): string {
+function buildIdOf(envelope: unknown, status: number): string {
   const result = resultOf(envelope);
   const id = result === null ? undefined : stringField(result, ["id", "build_uuid"]);
-  if (id === undefined) throw new Error("builds api unavailable");
+  if (id === undefined) throw new BuildsApiError("bad_envelope", status);
   return id;
+}
+
+function errorCodeOf(envelope: unknown): number | undefined {
+  if (!isRecord(envelope) || !isUnknownArray(envelope.errors)) return undefined;
+  const first = envelope.errors[0];
+  return isRecord(first) && typeof first.code === "number" ? first.code : undefined;
 }
 
 function statusOf(envelope: unknown, buildId: string): BuildStatus {
@@ -68,21 +92,46 @@ async function postHeaders(env: Env): Promise<Record<string, string>> {
 }
 
 async function readEnvelope(response: Response): Promise<unknown> {
-  if (!response.ok) throw new Error("builds api unavailable");
-  return response.json();
+  if (response.ok) return responseJson(response);
+  const envelope = await optionalResponseJson(response);
+  throw new BuildsApiError("non_2xx", response.status, errorCodeOf(envelope));
+}
+
+async function responseJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    throw new BuildsApiError("bad_envelope", response.status);
+  }
+}
+
+async function optionalResponseJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return undefined;
+  }
+}
+
+async function buildsFetch(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch {
+    throw new BuildsApiError("fetch");
+  }
 }
 
 async function startBuild(env: Env, input: StartBuildInput): Promise<BuildHandle> {
-  const response = await fetch(buildsUrl(env, input.triggerId), {
+  const response = await buildsFetch(buildsUrl(env, input.triggerId), {
     method: "POST",
     headers: await postHeaders(env),
     body: JSON.stringify({ commit_hash: input.commit }),
   });
-  return { buildId: buildIdOf(await readEnvelope(response)) };
+  return { buildId: buildIdOf(await readEnvelope(response), response.status) };
 }
 
 async function fetchStatus(env: Env, buildId: string): Promise<BuildStatus> {
-  const response = await fetch(statusUrl(env, buildId), {
+  const response = await buildsFetch(statusUrl(env, buildId), {
     headers: { authorization: `Bearer ${await apiToken(env)}` },
   });
   return statusOf(await readEnvelope(response), buildId);

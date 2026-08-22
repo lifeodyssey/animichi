@@ -81,12 +81,23 @@ def assert_poll_refreshes_oidc
   abort "OIDC token helper tests failed" unless system("bash", ".github/scripts/request-github-oidc-token.test.sh")
 end
 
+def assert_builds_terminal_contract
+  src = File.read(REUSABLE_PATH)
+  abort "doorbell poll must read the Builds outcome" unless src.include?('outcome="$(jq -r')
+  abort "doorbell poll must branch on status and outcome" unless src.include?('case "$status:$outcome" in')
+  abort "doorbell poll must accept stopped/success" unless src.include?("stopped:success|success:*)")
+  failures = "stopped:fail|stopped:failure|stopped:skipped|stopped:cancelled|stopped:terminated|failed:*|failure:*|cancelled:*|error:*)"
+  abort "doorbell poll must reject documented and legacy failures" unless src.include?(failures)
+end
+
 def assert_builds_injects_runtime_config
   script = File.read("apps/web/scripts/builds-staging.sh")
   abort "staging web Builds command must inject runtime config" unless script.include?("inject-web-runtime-config")
   abort "staging web Builds command must set TARGET_ENVIRONMENT=staging" unless script.include?("TARGET_ENVIRONMENT=staging")
   jsonc = File.read("apps/web/wrangler.jsonc")
   abort "wrangler.jsonc must document the staging Builds command" unless jsonc.include?("builds-staging.sh")
+  deploy = "npx wrangler deploy --config wrangler.jsonc --env staging"
+  abort "wrangler.jsonc must document Nitro's staging deploy command" unless jsonc.include?(deploy)
 end
 
 def assert_web_doorbell(jobs, ci_src, label)
@@ -115,6 +126,7 @@ assert_web_doorbell(ci_jobs, ci_source, "ci")
 assert_preview_urls_off
 assert_doorbell_trusts_ring_workflow
 assert_poll_refreshes_oidc
+assert_builds_terminal_contract
 assert_builds_injects_runtime_config
 puts "CI contract: #1075 staging web rings doorbell (no CF token / wrangler / pulumi / esc)"
 
