@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import globalsCss from "../../src/styles/globals.css?raw";
-import { parseBlockTokens, parseTokens } from "./stylesheet-probe";
+import { atRuleBody, parseBlockTokens, parseTokens } from "./stylesheet-probe";
 
 const rootTokens = parseTokens(globalsCss);
 const themeTokens = parseBlockTokens(globalsCss, "@theme inline");
@@ -25,7 +25,6 @@ describe("Tailwind theme registration", () => {
   });
 
   it("layers the element defaults so page utilities can win over them", () => {
-    const base = /@layer base \{([\s\S]*?)\n\}/u.exec(globalsCss)?.[1] ?? "";
-    expect(base).toContain("a {");
+    expect(atRuleBody(globalsCss, "@layer base")).toContain("a {");
   });
 });

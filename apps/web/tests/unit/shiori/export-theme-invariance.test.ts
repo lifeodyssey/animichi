@@ -37,21 +37,29 @@ const card = new SkinContrast({
   sheet: INSIDE_THE_CARD,
 });
 
-const LAYOUTS = ["ticket", "album-grid", "single-panel", "poster-fallback"];
+/**
+ * Each layout with the ground its saved image is painted on and the rule its
+ * stop names take their ink from. Three share the card's own; the poster
+ * fallback brings its own export palette. Naming both per row is what lets
+ * every case assert one contract instead of branching on the layout.
+ */
+const LAYOUTS = [
+  { layout: "ticket", ground: ".shiori-card", ink: ".shiori-stop__name" },
+  { layout: "album-grid", ground: ".shiori-card", ink: ".shiori-stop__name" },
+  { layout: "single-panel", ground: ".shiori-card", ink: ".shiori-stop__name" },
+  {
+    layout: "poster-fallback",
+    ground: ".shiori-card--poster-fallback",
+    ink: ".shiori-poster-stop__name",
+  },
+] as const;
 
-/** The one ground each layout's saved image is painted on. */
-function layoutGround(layout: string): string {
-  return layout === "poster-fallback" ? ".shiori-card--poster-fallback" : ".shiori-card";
-}
-
-describe.each(LAYOUTS)("the %s artifact is the same file in either theme", (layout: string) => {
+describe.each(LAYOUTS)("the $layout artifact is the same file in either theme", ({ ground, ink }) => {
   it("lands on one ground, not a day one and a night one", () => {
-    const ground = layoutGround(layout);
     expect(card.paint(ground, "background", "night")).toBe(card.paint(ground, "background", "day"));
   });
 
   it("prints its stop names in one ink", () => {
-    const ink = layout === "poster-fallback" ? ".shiori-poster-stop__name" : ".shiori-stop__name";
     expect(card.paint(ink, "color", "night")).toBe(card.paint(ink, "color", "day"));
   });
 });

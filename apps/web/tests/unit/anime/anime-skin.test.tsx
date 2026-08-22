@@ -5,7 +5,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { AnimePage } from "../../../src/features/anime/AnimePage";
 import { AnimePendingState } from "../../../src/features/anime/AnimeRouteStates";
-import { emptyOverviewFixture, fullOverviewFixture } from "../../msw/anime-overview";
+import { emptyOverviewFixture, fullOverviewFixture, hidaFurukawaStation } from "../../msw/anime-overview";
 
 afterEach(cleanup);
 
@@ -75,9 +75,8 @@ describe("scene ranking", () => {
   });
 
   it("drops the gold tint past rank three", () => {
-    const scene = fullOverviewFixture.scenes[0];
-    if (scene === undefined) throw new Error("fixture must carry a scene");
-    const scenes = [1, 2, 3, 4].map((n) => ({ ...scene, id: `s${String(n)}`, shot_count: 9 - n }));
+    const scenes = [1, 2, 3, 4]
+      .map((n) => ({ ...hidaFurukawaStation, id: `s${String(n)}`, shot_count: 9 - n }));
     render(<AnimePage overview={{ ...fullOverviewFixture, scenes }} locale="ja" />);
     const ranks = [...document.querySelectorAll(".anime-scene__head .anime-pill")];
     expect(classesOf(ranks.at(-1))).toContain("anime-pill--plain");

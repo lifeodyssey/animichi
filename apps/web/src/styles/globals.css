@@ -78,7 +78,16 @@
   --color-gold-deep: #d9a412;
   --shadow-3d: #bdaea0;
   --shadow-press: 0 5px 0 0 var(--shadow-3d);
-  --app-font-display: "Noto Serif JP", "Noto Serif JP fallback", "Hiragino Mincho ProN", Georgia, serif;
+
+  /* Map furniture on the route sheet. Like the card plane's drop shadow these
+   * are a fixed deep brown rather than a theme token: a pin frame and the
+   * sheet's lift read as one depth cue across both palettes, and the map
+   * stage under them does not flip. Declared here so the route skin stops
+   * being the only place the literals live. */
+  --shadow-pin: 0 3px 0 rgb(122 95 61 / 32%);
+  --shadow-pin-ring: 0 0 0 3px rgb(240 180 41 / 45%);
+  --shadow-sheet: 0 -8px 28px rgb(122 95 61 / 20%);
+  --app-font-display: "Noto Serif JP", "Noto Serif JP fallback", "Hiragino Mincho ProN", "Georgia", serif;
   --app-font-body: "Nunito", "Nunito fallback", "Zen Maru Gothic", "Zen Maru Gothic fallback", "Noto Sans SC", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
   --app-font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
 }

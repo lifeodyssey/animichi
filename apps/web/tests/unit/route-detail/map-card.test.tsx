@@ -25,20 +25,47 @@ function mapRegion(): HTMLElement {
   return screen.getByRole("region", { name: "地図" });
 }
 
+/**
+ * The mode the map is IN, as the accessibility tree carries it. A `<section>`
+ * with a name is an implicit `region`, and `region` does not support
+ * `aria-expanded`; the toggle's `aria-pressed` is the supported expression of
+ * the same state, so it is the one this suite reads.
+ */
+function modePressed(label: string): string | null {
+  return screen.getByRole("button", { name: label }).getAttribute("aria-pressed");
+}
+
+/** The stage the stylesheet sizes by mode, if it is in the given mode. */
+function stageInMode(mode: string): Element | null {
+  return mapRegion().querySelector(`.route-map__stage[data-mode="${mode}"]`);
+}
+
 describe("MapCard generative component", () => {
   it("shows the gold route pill with N/total progress", () => {
     render(<MapCard payload={payload()} copy={copy} mode="idle" onToggle={vi.fn()} />);
     expect(screen.getByLabelText(copy.progressAria).textContent).toBe("1/5");
   });
 
-  it("reflects the expanded mode on the map region", () => {
+  it("reflects the expanded mode on the toggle and on the stage", () => {
     render(<MapCard payload={payload()} copy={copy} mode="expanded" onToggle={vi.fn()} />);
-    expect(mapRegion().getAttribute("aria-expanded")).toBe("true");
+    expect(modePressed(copy.mapCollapse)).toBe("true");
+    expect(stageInMode("expanded")).not.toBeNull();
   });
 
   it("stays collapsed in idle mode", () => {
     render(<MapCard payload={payload()} copy={copy} mode="idle" onToggle={vi.fn()} />);
-    expect(mapRegion().getAttribute("aria-expanded")).toBe("false");
+    expect(modePressed(copy.mapExpand)).toBe("false");
+    expect(stageInMode("idle")).not.toBeNull();
+  });
+
+  it("never puts aria-expanded on the region, which does not support it", () => {
+    render(<MapCard payload={payload()} copy={copy} mode="expanded" onToggle={vi.fn()} />);
+    expect(mapRegion().hasAttribute("aria-expanded")).toBe(false);
+  });
+
+  it("leaves the stage's height to the stylesheet rather than an inline style", () => {
+    render(<MapCard payload={payload()} copy={copy} mode="expanded" onToggle={vi.fn()} />);
+    expect(stageInMode("expanded")?.getAttribute("style")).toBeNull();
   });
 
   it("requests a toggle when the mode control is pressed", () => {
