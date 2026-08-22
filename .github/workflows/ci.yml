@@ -415,6 +415,7 @@ jobs:
       worker_secrets: |
         SUPABASE_DB_URL
         MIMO_API_KEY
+        ZEN_GO_API_KEY
         DEEPSEEK_API_KEY
         GOOGLE_MAPS_API_KEY
         LOGFIRE_TOKEN
@@ -428,6 +429,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
       MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+      ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
       DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
       LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}

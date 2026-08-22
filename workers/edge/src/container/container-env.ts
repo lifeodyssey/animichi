@@ -11,7 +11,7 @@
  */
 
 export const CONTAINER_ENV_KEYS = [
-  "DEEPSEEK_API_KEY", "MIMO_API_KEY", "SUPABASE_DB_URL", "CATALOG_API_URL",
+  "DEEPSEEK_API_KEY", "MIMO_API_KEY", "ZEN_GO_API_KEY", "SUPABASE_DB_URL", "CATALOG_API_URL",
   // Compatibility surface (#1000): SUPABASE_DB_URL remains a forwarded (and
   // CONTAINER_REQUIRED_KEYS-listed) container env key because production still
   // provisions the container DSN under that name until the #855 prod cutover

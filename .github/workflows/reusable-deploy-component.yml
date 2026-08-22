@@ -85,6 +85,8 @@ on:
         required: false
       MIMO_API_KEY:
         required: false
+      ZEN_GO_API_KEY:
+        required: false
       DEEPSEEK_API_KEY:
         required: false
       GOOGLE_MAPS_API_KEY:
@@ -829,6 +831,7 @@ jobs:
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
@@ -954,6 +957,7 @@ jobs:
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
@@ -974,6 +978,7 @@ jobs:
           AGENT_DATABASE_URL: ${{ secrets.AGENT_DATABASE_URL }}
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
