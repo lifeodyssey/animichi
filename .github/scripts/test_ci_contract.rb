@@ -51,7 +51,8 @@ pipelines = {
   "pipeline-contract.yml" => ["Contract / lint", "Contract / test", "Contract / build"],
   "pipeline-infra.yml" => ["Infra / lint", "Infra / test", "Infra / build"],
   "pipeline-db.yml" => ["DB / lint", "DB / build"],
-  "pipeline-migrator.yml" => ["Migrator / lint", "Migrator / test", "Migrator / build"]
+  "pipeline-migrator.yml" => ["Migrator / lint", "Migrator / test", "Migrator / build"],
+  "pipeline-doorbell.yml" => ["Doorbell / lint", "Doorbell / test", "Doorbell / build"]
 }
 
 # `on:` is a YAML 1.1 boolean, so old psych versions parse it as the key `true`
@@ -130,6 +131,10 @@ orphans = required - producers
 abort "ruleset-target.json required checks with no producing job: #{orphans.join(', ')}" unless orphans.empty?
 
 puts "Ruleset target: #{required.size} required checks all have a producing job (#{producers.size} producer contexts)"
+
+require_relative "test_ci_contract_infra_split"
+require_relative "test_ci_contract_doorbell_web"
+require_relative "test_ci_contract_doorbell_workers"
 
 # Issue #1008 (review gate, docs/ops/review-gate.md §7): the PR comment gate is
 # wired into the already-required `Quality / invariants` job. The workflow

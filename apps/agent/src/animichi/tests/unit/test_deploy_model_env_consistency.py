@@ -92,6 +92,16 @@ def test_container_required_keys_are_forwarded_and_deployed() -> None:
     assert required - _NON_SECRET_REQUIRED_KEYS <= provisioned
 
 
+def test_ci_staging_root_rings_doorbell_without_wrangler_secrets() -> None:
+    # #1076: staging root rings the Builds doorbell; secrets already live on
+    # the Worker. CI must not wrangler-secret-put on this path.
+    staging = _named_workflow_job(
+        _CI_WORKFLOW.read_text(encoding="utf-8"), "deploy-root-staging"
+    )
+    assert "reusable-ring-doorbell.yml" in staging
+    assert "worker_secrets:" not in staging
+
+
 def test_ci_root_deploys_match_manual_root_secrets() -> None:
     deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
     # The literal lists live in the deploy-root-prod JOB (a thin caller of
@@ -101,20 +111,10 @@ def test_ci_root_deploys_match_manual_root_secrets() -> None:
     root_job = _named_workflow_job(deploy, "deploy-root-prod")
     manual_secrets = _wrangler_secret_names(root_job)
     ci = _CI_WORKFLOW.read_text(encoding="utf-8")
-    staging = _named_workflow_job(ci, "deploy-root-staging")
     production = _named_workflow_job(ci, "deploy-root-prod")
     reusable = _REUSABLE_DEPLOY_WORKFLOW.read_text(encoding="utf-8")
 
-    # CORS_ALLOWED_ORIGIN is a deliberate staging exception (#527/#528): staging
-    # gets its value from wrangler.toml's [env.staging.vars] (a plain domain
-    # name, not a secret — see that block's comment), while production and the
-    # manual deploy.yml path still provision it as a real GitHub secret. This
-    # is why staging is no longer a strict match against manual_secrets.
-    STAGING_EXEMPT_SECRETS = {"CORS_ALLOWED_ORIGIN"}
-
-    assert _wrangler_secret_names(staging) == manual_secrets - STAGING_EXEMPT_SECRETS
     assert _wrangler_secret_names(production) == manual_secrets
-    assert manual_secrets - STAGING_EXEMPT_SECRETS <= _mapped_secret_names(staging)
     assert manual_secrets <= _mapped_secret_names(production)
     assert manual_secrets <= _mapped_secret_names(reusable)
 

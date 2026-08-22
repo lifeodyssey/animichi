@@ -150,10 +150,11 @@ jobs:
   # push main → staging: neon-secrets roles + Secrets Store DSNs must exist
   # BEFORE any Worker deploy consumes them (PR2's wrangler.toml bindings will
   # read the store; #926 CI wiring). Runs first in the staging chain:
-  # deploy-staging (catalog) waits on it, so users/maintenance/root cascade
-  # behind it. #1048 adds the production stack: deploy-neon-secrets-prod
-  # runs the same Pulumi project against Pulumi.prod.yaml (prod branch roles
-  # + DSN secrets, "_PROD"-suffixed store names) ahead of the prod Workers.
+  # deploy-infra-staging and deploy-staging (catalog) wait on it, so
+  # users/root cascade behind them. #1048 adds the production stack:
+  # deploy-neon-secrets-prod runs the same Pulumi project against
+  # Pulumi.prod.yaml (prod branch roles + DSN secrets, "_PROD"-suffixed
+  # store names) ahead of the prod Workers.
   deploy-neon-secrets-staging:
     name: Deploy neon-secrets staging
     needs: [security, ci-cross-stack-e2e]
@@ -269,6 +270,25 @@ jobs:
           echo "migrated to head $applied"
     concurrency: migrate-staging
 
+  # #1074: main-stack `pulumi up` is its own job. Always runs on the deploy
+  # lane (no path filter). Does not need migrate-staging (no cycle).
+  deploy-infra-staging:
+    name: Deploy infra staging
+    needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging]
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/reusable-deploy-infra.yml
+    with:
+      environment: staging
+      pulumi_stack: staging
+    secrets:
+      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+    concurrency: deploy-infra-staging
+
   # push main -> production: provision the prod-role Secrets Store DSNs BEFORE
   # the production Workers deploy (their wrangler.toml bindings read the store).
   # Gated on the SAFE-1 production-eligibility gate + the GitHub production
@@ -293,155 +313,119 @@ jobs:
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
     concurrency: deploy-neon-secrets-prod
 
+  # #1076: skip catalog/users/web/root doorbell rings when their tree is unchanged.
+  # Infra stays unfiltered. Push-to-main only (same as the deploy lane).
+  staging-worker-paths:
+    name: Staging worker path filters
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      catalog: ${{ steps.f.outputs.catalog }}
+      users: ${{ steps.f.outputs.users }}
+      root: ${{ steps.f.outputs.root }}
+      web: ${{ steps.f.outputs.web }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: f
+        with:
+          filters: |
+            catalog:
+              - 'workers/catalog/**'
+            users:
+              - 'workers/users/**'
+            root:
+              - 'workers/edge/**'
+              - 'apps/agent/**'
+            web:
+              - 'apps/web/**'
+
   # push main → staging
   deploy-staging:
     name: Deploy staging
-    needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging, migrate-staging]
+    needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging, migrate-staging, deploy-infra-staging, staging-worker-paths]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
     # gates and would silently skip every deploy — the bug that kept staging
     # undeployed for three runs. Gate failures still block: they surface as
-    # failure(), not skipped.
-    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/reusable-deploy-component.yml
+    # failure(), not skipped. Path output skips this ring when catalog is unchanged.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.staging-worker-paths.outputs.catalog == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-ring-doorbell.yml
     with:
       component: catalog
       environment: staging
-      pulumi_stack: staging
-      working_directory: workers/catalog
-      # #1052: staging applies schema via the migrator trigger (migrate-staging);
-      # the per-component migration apply is disabled (run_atlas: false) and no DSN is passed.
-      run_atlas: false
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     concurrency: deploy-staging
 
   deploy-web-staging:
     name: Deploy web staging
-    needs: [security, ci-cross-stack-e2e, migrate-staging]
+    needs: [security, ci-cross-stack-e2e, migrate-staging, deploy-infra-staging, staging-worker-paths]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
     # gates and would silently skip every deploy — the bug that kept staging
     # undeployed for three runs. Gate failures still block: they surface as
-    # failure(), not skipped.
-    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/reusable-deploy-component.yml
+    # failure(), not skipped. Path output skips this ring when web is unchanged.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.staging-worker-paths.outputs.web == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-ring-doorbell.yml
     with:
       component: web
       environment: staging
-      pulumi_stack: staging
-      working_directory: apps/web
-      build_filter: web
-      run_pulumi: false
-      # #1052: staging applies schema via the migrator trigger; no per-component migration apply.
-      run_atlas: false
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      # #826: the Smoke step sends this as `x-staging-key` past the staging
-      # WAF gate. Must be passed (the name must appear here) for the called
-      # workflow's job-level `environment: staging` to resolve its value.
-      STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
     concurrency: deploy-web-staging
 
   deploy-users-staging:
     name: Deploy users staging
-    needs: [deploy-staging, migrate-staging]
+    needs: [deploy-staging, migrate-staging, deploy-infra-staging, staging-worker-paths]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
     # gates and would silently skip every deploy — the bug that kept staging
     # undeployed for three runs. Gate failures still block: they surface as
-    # failure(), not skipped.
-    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/reusable-deploy-component.yml
+    # failure(), not skipped. Path output skips this ring when users is unchanged.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.staging-worker-paths.outputs.users == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-ring-doorbell.yml
     with:
       component: users
       environment: staging
-      pulumi_stack: staging
-      working_directory: workers/users
-      run_pulumi: false
-      # #1052: staging applies schema via the migrator trigger; the per-component
-      # migration apply is disabled (run_atlas: false) and no DSN is passed.
-      run_atlas: false
-      # NEON_AUTH_JWKS_URL is no longer a worker secret on any component
-      # (issue #1047): the users worker trusts only the edge-forwarded identity
-      # and the edge reads the JWKS from wrangler vars. CI no longer ferries it.
-      worker_secrets: ""
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     concurrency: deploy-users-staging
 
   deploy-root-staging:
     name: Deploy root staging
-    needs: [deploy-staging, deploy-users-staging, migrate-staging]
+    needs: [deploy-staging, deploy-users-staging, migrate-staging, deploy-infra-staging, staging-worker-paths]
     # `!failure() && !cancelled()` closes the implicit `success()` that GitHub
     # otherwise prepends: a *skipped* upstream (agent-eval-smoke skips on pushes
     # that do not touch agent_behavior paths) propagates through the always()
     # gates and would silently skip every deploy — the bug that kept staging
     # undeployed for three runs. Gate failures still block: they surface as
-    # failure(), not skipped.
-    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    uses: ./.github/workflows/reusable-deploy-component.yml
+    # failure(), not skipped. Path output skips this ring when root is unchanged.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.staging-worker-paths.outputs.root == 'true' }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/reusable-ring-doorbell.yml
     with:
       component: root
       environment: staging
-      pulumi_stack: staging
-      working_directory: "."
-      run_pulumi: false
-      # #1052: staging applies schema via the migrator trigger; no per-component migration apply.
-      run_atlas: false
-      # #527/#528 (P1-A): CORS_ALLOWED_ORIGIN is NOT listed here anymore, and
-      # this is NOT "staging doesn't need CORS restriction" — that framing
-      # was reasoned, not verified, and turned out wrong. It's provisioned
-      # instead as `[env.staging.vars].CORS_ALLOWED_ORIGIN` in the edge
-      # `workers/edge/wrangler.toml` (see the comment there for the full chain: no
-      # wildcard fallback exists, the container hardcodes
-      # `APP_ENV=production`, and an absent value reproducibly crashes the
-      # container on boot via `settings.py`'s CORS validator — verified
-      # locally, not assumed). A plain domain name belongs in `vars`, not a
-      # GH secret nobody would think to look for.
-      worker_secrets: |
-        SUPABASE_DB_URL
-        MIMO_API_KEY
-        DEEPSEEK_API_KEY
-        GOOGLE_MAPS_API_KEY
-        LOGFIRE_TOKEN
-      optional_worker_secrets: ""
-      post_deploy_secrets: |
-        TURNSTILE_SECRET
-        ANON_ID_SECRET
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
-      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-      LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-      TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
-      ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
-      # #826: the Smoke step sends this as `x-staging-key` past the staging
-      # WAF gate. Must be passed (the name must appear here) for the called
-      # workflow's job-level `environment: staging` to resolve its value.
-      STAGING_GATE_TOKEN: ${{ secrets.STAGING_GATE_TOKEN }}
     concurrency: deploy-root-staging
 
   post-staging:
     name: Post-deploy (staging)
     needs: [deploy-staging, deploy-web-staging, deploy-users-staging, deploy-root-staging]
+    # Path-filtered rings skip; this guard keeps smoke running on push to main.
+    if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     # #1085: the nested post-deploy-test job declares id-token: write (its
     # staging-gate OIDC exchange step, #1054); GitHub requires the caller to
     # grant it. Job-level replaces the top-level contents: read, so both are

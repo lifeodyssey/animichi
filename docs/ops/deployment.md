@@ -402,12 +402,15 @@ On a push to `main`, the current promotion chain is:
    component deploy below depends on `migrate-staging` in its `needs:` graph, so a failed
    trigger blocks all component deploys. The routine staging path carries NO `NEON_DATABASE_URL`.
 
-2. `deploy-staging` and `deploy-web-staging` wait only on the lanes that still live in `ci.yml`
-   (`security` and the self-gated cross-stack lane), then call
-   `reusable-deploy-component.yml` with `component: catalog` / `web`, `environment: staging`,
-   and `pulumi_stack: staging`. Accepted tradeoff: staging deploys no longer wait on any package
-   pipeline, because GitHub cannot express `needs:` across workflows — protection comes from the
-   required merge contexts in the ruleset instead, plus the future merge queue.
+2. `deploy-infra-staging` always runs on the deploy lane (no path filter) and applies the
+   main `infra/` stack (`reusable-deploy-infra.yml`). Staging catalog, users, web, and root
+   `needs` that job **and** `migrate-staging`. Catalog, users, web, and root ring the Builds
+   doorbell (`reusable-ring-doorbell.yml`); `staging-worker-paths` skips those rings when
+   their tree did not change.
+   `vars.DOORBELL_STAGING_URL` is public config. Accepted tradeoff: staging deploys
+   no longer wait on any package pipeline, because GitHub cannot express `needs:` across
+   workflows — protection comes from the required merge contexts in the ruleset instead, plus
+   the future merge queue.
 3. `deploy-neon-secrets-staging` runs **before** `deploy-staging` (catalog waits on it, so
    users/root cascade behind it): the Neon service roles and the Cloudflare Secrets
    Store DSN secrets (`infra/neon-secrets/`, ADR 0003 / #912) must exist before any Worker deploy
@@ -441,8 +444,9 @@ On a push to `main`, the current promotion chain is:
    **migrator trigger** (`migrate-staging` in ci.yml, step 0) BEFORE any component deploy, so a
    staging deployment never holds the database credential. **Production** callers keep
    `run_atlas` on and the pinned per-component Atlas apply (`NEON_DATABASE_URL` present) until
-   #1055 removes it. The component then runs `pulumi up` in `infra/`, deploys
-   `workers/${{ inputs.component }}` with Wrangler, and runs the component smoke step.
+   #1055 removes it. Staging catalog/users/web/root skip this reusable (#1076 doorbell;
+   #1074 infra job). Production catalog still runs `pulumi up` in this reusable
+   (SAFE-1 freeze). Production Worker publish still uses Wrangler.
 5. the web, users, and root staging deploys complete in the same promotion stage.
 6. `post-staging` runs the API post-deploy suite against staging, including the **migration
    ledger-head smoke** (#1052 AC5): it reads the migrator's read-only `/ledger-head` endpoint and
@@ -592,7 +596,8 @@ Steps:
 
 ### Pulumi rollback
 
-`reusable-deploy-component.yml`'s "Pulumi stack export (rollback backup)" step runs `pulumi stack export`
+Staging's `reusable-deploy-infra.yml` "Pulumi stack export (rollback backup)" step (and production
+catalog's matching step in `reusable-deploy-component.yml`) runs `pulumi stack export`
 immediately before every `pulumi up` **that actually runs**, then uploads the result to the **same
 R2 bucket the Pulumi state backend already lives in** (`aws s3 cp`, using the `R2_ACCESS_KEY_ID`/
 `R2_SECRET_ACCESS_KEY` credentials already present in that step) under a `rollback-backups/`
@@ -608,9 +613,9 @@ connection string, retained for however long the artifact lived. Writing to the 
 keeps the backup exactly as private as the Pulumi state it's a snapshot of — no new exposure surface,
 same trust boundary, same credentials this step already holds.
 
-`run_pulumi` defaults to `true`, but every caller except `component: catalog` explicitly sets
-`run_pulumi: false` (see `ci.yml`), so **this step currently only ever runs under the catalog deploy
-jobs** (`deploy-staging` / `deploy-prod`) — don't go looking for a backup from a root/web/users run.
+Staging catalog/users/web/root pass `run_pulumi: false`; the staging main-stack apply lives in
+`deploy-infra-staging`. Production catalog still runs Pulumi in `reusable-deploy-component.yml`
+(SAFE-1 freeze) — look there for the production backup.
 
 To roll back a bad Pulumi apply:
 
