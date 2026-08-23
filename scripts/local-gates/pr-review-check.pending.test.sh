@@ -78,7 +78,9 @@ run "missing evidence keeps collect-check successful" 0 "${MOCK_ENV[@]}" "$STEP"
 if grep -qx 'gate_state=pending' "$OUTPUT"; then
   printf 'PASS %-52s\n' "collect-check records pending for the final status"
 else
-  fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "collect-check records pending for the final status" "$(cat "$OUTPUT" 2>/dev/null || true)"
+  detail="missing output: $OUTPUT"
+  if [ -f "$OUTPUT" ]; then detail="$(cat "$OUTPUT")"; fi
+  fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "collect-check records pending for the final status" "$detail"
 fi
 run "a green pending job posts pending" 0 "${MOCK_ENV[@]}" "$STEP" final-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb success pending
 if tail -1 "$STATUS_LOG" | grep -q '^pending bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb$'; then
