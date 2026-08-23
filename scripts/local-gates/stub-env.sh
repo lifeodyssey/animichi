@@ -18,7 +18,7 @@ cleanup_gate_stubs() { rm -rf "$GATE_STUB_ROOT"; }
 trap cleanup_gate_stubs EXIT
 
 mkdir -p "$GATE_STUB_BIN"
-for tool in uv pnpm node atlas pulumi docker actionlint shellcheck; do
+for tool in uv pnpm node atlas pulumi docker actionlint shellcheck sleep; do
   ln -s "$(dirname "${BASH_SOURCE[0]}")/test-stub.sh" "$GATE_STUB_BIN/$tool"
 done
 export GATE_TEST_LOG

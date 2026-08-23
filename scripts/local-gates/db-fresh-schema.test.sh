@@ -96,11 +96,20 @@ test_image_missing_fails_with_build_command() {
   echo "ok: missing offline image fails with the exact build command"
 }
 
+test_tcp_readiness_fails_closed() {
+  local rc
+  rc="$(GATE_DOCKER_TCP_UNAVAILABLE=1 run_gate)" || true
+  [ "$rc" != "0" ] || { echo "FAIL: unavailable TCP readiness must fail closed" >&2; exit 1; }
+  assert_msg "did not become ready over TCP for postgres"
+  echo "ok: TCP readiness failure fails closed"
+}
+
 assert_fresh_chain() {
   assert_msg "fresh-schema apply: OK"
   assert_has "$GATE_STUB_ROOT/log" "docker run -d -e POSTGRES_PASSWORD=gate -e POSTGRES_DB=postgres"
-  assert_has "$GATE_STUB_ROOT/log" "pg_isready -U postgres -d postgres"
+  assert_has "$GATE_STUB_ROOT/log" "pg_isready -h 127.0.0.1 -p 5432 -U postgres -d postgres"
   assert_has "$GATE_STUB_ROOT/log" "psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c CREATE DATABASE gate TEMPLATE template1"
+  assert_has "$GATE_STUB_ROOT/log" "pg_isready -h 127.0.0.1 -p 5432 -U postgres -d gate"
 }
 
 assert_atlas_disposable_only() {
@@ -120,5 +129,6 @@ test_success_applies_only_to_pristine_template1_schema() {
 test_docker_not_installed_fails_closed
 test_daemon_down_fails_closed
 test_image_missing_fails_with_build_command
+test_tcp_readiness_fails_closed
 test_success_applies_only_to_pristine_template1_schema
 echo "db-fresh-schema.test.sh: all green"
