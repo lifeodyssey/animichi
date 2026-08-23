@@ -10,7 +10,7 @@ import { ToolStepBadge } from "./ToolStepBadge";
 
 type Part = UIMessage["parts"][number];
 type ToolPart = Extract<Part, { toolCallId: string }>;
-type PartProps = Readonly<{ part: Part; dict: ChatDict; superseded: boolean }>;
+type PartProps = Readonly<{ part: Part; dict: ChatDict; superseded: boolean; settled: boolean }>;
 
 function isToolPart(part: Part): part is ToolPart {
   return part.type.startsWith("tool-") || part.type === "dynamic-tool";
@@ -20,9 +20,9 @@ function nonToolParts(message: UIMessage): readonly Part[] {
   return message.parts.filter((part) => !isToolPart(part));
 }
 
-function MessagePart({ part, dict, superseded }: PartProps) {
+function MessagePart({ part, dict, superseded, settled }: PartProps) {
   if (part.type === "text") return <p className="chat-bubble">{part.text}</p>;
-  if (part.type === "data-response") return <DataPartCard data={part.data} dict={dict} superseded={superseded} />;
+  if (part.type === "data-response") return <DataPartCard data={part.data} dict={dict} superseded={superseded} pending={!settled} />;
   return null;
 }
 
@@ -89,13 +89,14 @@ type BodyProps = Readonly<{
   parts: readonly Part[];
   messageId: string;
   dict: ChatDict;
+  settled: boolean;
   supersededKeys: ReadonlySet<string>;
 }>;
 
-function MessageBody({ parts, messageId, dict, supersededKeys }: BodyProps) {
+function MessageBody({ parts, messageId, dict, settled, supersededKeys }: BodyProps) {
   return parts.map((part, index) => {
     const key = partKey(messageId, part, index);
-    return <MessagePart key={key} part={part} dict={dict} superseded={supersededKeys.has(key)} />;
+    return <MessagePart key={key} part={part} dict={dict} settled={settled} superseded={supersededKeys.has(key)} />;
   });
 }
 
@@ -111,7 +112,7 @@ function MessageItem({ message, dict, settled, elapsedLabel, supersededKeys }: I
   return (
     <li className={`chat-message chat-message--${message.role}`}>
       <MessageRail message={message} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />
-      <MessageBody parts={nonToolParts(message)} messageId={message.id} dict={dict} supersededKeys={supersededKeys} />
+      <MessageBody parts={nonToolParts(message)} messageId={message.id} dict={dict} settled={settled} supersededKeys={supersededKeys} />
     </li>
   );
 }

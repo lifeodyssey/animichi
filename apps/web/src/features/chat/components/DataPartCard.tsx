@@ -8,7 +8,7 @@ import { intentRegistry } from "../registry";
 import { EnvelopeFallback } from "./ErrorStates/EnvelopeFallback";
 import { ShortRouteNotice } from "./ErrorStates/ShortRouteNotice";
 
-type CardProps = Readonly<{ data: unknown; dict: ChatDict; superseded?: boolean }>;
+type CardProps = Readonly<{ data: unknown; dict: ChatDict; superseded?: boolean; pending?: boolean }>;
 type PartProps = Readonly<{ part: ChatDataPart; dict: ChatDict; superseded?: boolean }>;
 type IntentProps = PartProps & Readonly<{ appendix?: ReactNode }>;
 
@@ -72,10 +72,12 @@ function SettledCard({ part, dict, state, superseded }: SettledProps) {
  * classify then render. A skeleton covers intent-first frames — except failed
  * intents, whose fallback shows immediately (an error never wears a skeleton).
  */
-export function DataPartCard({ data, dict, superseded }: CardProps) {
+export function DataPartCard({ data, dict, superseded, pending = true }: CardProps) {
   const part = parseChatDataPart(data);
   if (!part) return <FallbackCard dict={dict} />;
   const state = classifyFailure({ kind: "envelope", part });
-  if (isIntentOnly(part) && state === undefined) return <SkeletonCard part={part} dict={dict} />;
+  if (isIntentOnly(part) && state === undefined) {
+    return pending ? <SkeletonCard part={part} dict={dict} /> : <FallbackCard dict={dict} />;
+  }
   return <SettledCard part={part} dict={dict} state={state} superseded={superseded} />;
 }
