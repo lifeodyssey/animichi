@@ -102,7 +102,7 @@ def assert_ruleset_migration_contract(ruleset_path: DEFAULT_RULESET, workflows_d
 
   # D. snapshot discipline with assert-workflow-invariants.rb REQUIRED_CONTEXTS.
   invariants = File.read(File.join(__dir__, "assert-workflow-invariants.rb"))
-  declared = invariants.scan(/^\s+"([^"]+\/ [^"]+)"\s*=>\s*"([^"]+)"/).map(&:first)
+  declared = invariants.scan(/^\s+"([^"]+)"\s*=>\s*"([^"]+)"/).map(&:first)
   drift = required.sort - declared.sort
   abort "ruleset migration: required checks missing from assert-workflow-invariants.rb REQUIRED_CONTEXTS (update it in the same change): #{drift.join(", ")}" unless drift.empty?
   extra = declared.sort - required.sort

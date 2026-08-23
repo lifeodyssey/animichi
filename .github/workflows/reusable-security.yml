@@ -7,6 +7,11 @@ name: _security
 
 on:
   workflow_call:
+    inputs:
+      expected_sha:
+        description: "The commit SHA the caller is aggregating"
+        required: true
+        type: string
     secrets:
       GITLEAKS_LICENSE:
         required: false
@@ -15,6 +20,42 @@ permissions:
   contents: read
 
 jobs:
+  # ── Code scanning ────────────────────────────────────────────
+
+  codeql:
+    timeout-minutes: 20
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          category: "/language:${{ matrix.language }}"
+
   # ── Secret scanning ──────────────────────────────────────────
 
   gitleaks:
@@ -247,7 +288,8 @@ jobs:
             .github/scripts/edge-showcase-mode.sh .github/scripts/mock-origin.sh \
             .github/scripts/resolve-worker-url.sh .github/scripts/resolve-worker-url.test.sh \
             .github/scripts/vite-env-preflight.sh .github/scripts/vite-env-preflight.test.sh \
-            .github/scripts/wrangler-secret-put.sh .github/scripts/wrangler-secret-put.test.sh
+            .github/scripts/wrangler-secret-put.sh .github/scripts/wrangler-secret-put.test.sh \
+            .github/scripts/security-aggregate.sh .github/scripts/security-aggregate.test.sh
         shell: bash
       # #522: this is the gate that decides whether a real 404 (app broken,
       # or the branded 404 page) fails a deploy immediately versus a
@@ -285,3 +327,48 @@ jobs:
       - name: wrangler-secret-put.sh behavioral tests
         run: bash .github/scripts/wrangler-secret-put.test.sh
         shell: bash
+
+      - name: security-aggregate.sh behavioral tests
+        run: bash .github/scripts/security-aggregate.test.sh
+        shell: bash
+
+  # This job is deliberately always evaluated. A skipped or cancelled child
+  # must make the reusable workflow fail, so the caller's Security aggregator
+  # cannot mistake incomplete evidence for a pass.
+  security-summary:
+    timeout-minutes: 5
+    name: security summary
+    needs:
+      - codeql
+      - gitleaks
+      - trufflehog
+      - osv-scanner
+      - dependabot-config
+      - config-read-sets
+      - zizmor
+      - semgrep
+      - sqlfluff
+      - post-deploy-assert-test
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Verify every scan and head
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          ACTUAL_SHA: ${{ github.sha }}
+          SECURITY_RESULT: success
+          REQUIRE_CHILD_RESULTS: "true"
+          SECURITY_RESULTS: |-
+            codeql=${{ needs.codeql.result }}
+            gitleaks=${{ needs.gitleaks.result }}
+            trufflehog=${{ needs.trufflehog.result }}
+            osv-scanner=${{ needs.osv-scanner.result }}
+            dependabot-config=${{ needs.dependabot-config.result }}
+            config-read-sets=${{ needs.config-read-sets.result }}
+            zizmor=${{ needs.zizmor.result }}
+            semgrep=${{ needs.semgrep.result }}
+            sqlfluff=${{ needs.sqlfluff.result }}
+            post-deploy-assert-test=${{ needs.post-deploy-assert-test.result }}
+        run: bash .github/scripts/security-aggregate.sh

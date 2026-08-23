@@ -42,15 +42,14 @@ jobs:
   # pipeline-*.yml files (CI-1 union method, S0-v2 B4); the changes aggregation
   # job and the gate layer were retired with them. This workflow keeps the
   # non-gating verify lanes (credentialed eval; the Neon lane retired with
-  # the test-infra retirement #1053), the security lane, and the deploy
+  # the test-infra retirement #1053), the Security scan + aggregation lane, and the deploy
   # promotion chain; the repo-hygiene checks moved into pipeline-quality.yml
   # (the unfiltered fixed point). Per-lane path gating on
   # PRs is now a step-level dorny filter inside each lane (the cross-workflow
   # tradeoff documented in docs/ops/deployment.md).
 
-  security:
-    name: Security
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+  security-scans:
+    name: Security scans
     uses: ./.github/workflows/reusable-security.yml
     # Caller ceiling for the reusable: its gitleaks job declares
     # `pull-requests: read` at job level, and a reusable job cannot request
@@ -59,8 +58,34 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      security-events: write
+      packages: read
+      actions: read
+    with:
+      expected_sha: ${{ github.sha }}
     secrets:
       GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # One required check for the current head. The reusable workflow retains
+  # every underlying scan as evidence and fails its own summary when any scan
+  # is skipped, cancelled, failed, or built from another SHA. Running this
+  # step after an unsuccessful call is intentional: incomplete evidence must
+  # report failure, never disappear as a skipped required check.
+  security:
+    name: Security
+    needs: [security-scans]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Verify the scan workflow result and current head
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          ACTUAL_SHA: ${{ github.sha }}
+          SECURITY_RESULT: ${{ needs.security-scans.result }}
+        run: bash .github/scripts/security-aggregate.sh
 
   # ── Agent eval: L0 smoke (SD-30 §① — report-only PR gate) ──
   # Path-filter scope = the SD-30 rule above (`agent_behavior`): prompt/model-config/
