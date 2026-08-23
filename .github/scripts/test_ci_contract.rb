@@ -132,6 +132,7 @@ abort "ruleset-target.json required checks with no producing job: #{orphans.join
 puts "Ruleset target: #{required.size} required checks all have a producing job (#{producers.size} producer contexts)"
 
 require_relative "test_ci_contract_infra_split"
+require_relative "test_ci_contract_pulumi_cloud"
 require_relative "test_ci_contract_doorbell_web"
 require_relative "test_ci_contract_doorbell_workers"
 

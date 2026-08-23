@@ -13,20 +13,14 @@ exemptions:
     reason: "cloud: CI-built worker artifact — Playwright browsers against the emitted Worker"
   - id: cmd:infra/neon-secrets::pnpm typecheck
     reason: "cloud: terraform-provider kislerdm/neon — neon-secrets tsc needs the generated gitignored Neon SDK"
-  - id: cmd:infra/neon-secrets::pulumi login
-    reason: "secrets: Pulumi backend credentials (R2 + passphrase) — neon-secrets stack"
   - id: cmd:infra/neon-secrets::pulumi preview
-    reason: "secrets: Pulumi R2 state backend — neon-secrets credentialed preview"
-  - id: cmd:infra/neon-secrets::pulumi stack
-    reason: "secrets: Pulumi stack export — neon-secrets deploy-path live state"
-  - id: cmd:infra/neon-secrets::pulumi up
-    reason: "deploy: staging/prod — neon-secrets mutating pulumi up"
+    reason: "OIDC: Pulumi Cloud — neon-secrets credentialed preview"
   - id: cmd:infra::pulumi login
-    reason: "secrets: Pulumi backend credentials (R2 + passphrase)"
+    reason: "secrets: production catalog still logs into the R2 DIY backend"
   - id: cmd:infra::pulumi preview
-    reason: "secrets: Pulumi R2 state backend — credentialed preview"
+    reason: "OIDC: Pulumi Cloud — credentialed preview"
   - id: cmd:infra::pulumi stack
-    reason: "secrets: Pulumi stack select/export — deploy-path live state"
+    reason: "secrets: production catalog still selects/exports R2 DIY state"
   - id: "cmd:python3 $CLI generate --component $TARGET_COMPONENT --source-sha $source_sha --artifact $artifact --sbom-format cyclonedx-1.5 --sbom-digest $digest --schema-provider atlas --schema-head 20260811000002 --schema-digest $digest --config-version 1 --config-commit $source_sha --dep catalog=$source_sha > $manifest"
     reason: "deploy: deploy-path artifact — promotion manifest generation"
   - id: cmd:sudo apt-get install -y postgresql-client
@@ -83,6 +77,8 @@ exemptions:
     reason: "cloud: live OSV vulnerability API — osv-scanner-action"
   - id: uses:pulumi/actions
     reason: "deploy: pulumi/actions — deploy-path apply"
+  - id: uses:pulumi/auth-actions
+    reason: "OIDC: pulumi/auth-actions — GitHub OIDC exchange for Pulumi Cloud"
   - id: uses:pypa/gh-action-pip-audit
     reason: "cloud: pypa/gh-action-pip-audit — GitHub Action queries the live PyPI/OSV advisory API"
   - id: uses:trufflesecurity/trufflehog

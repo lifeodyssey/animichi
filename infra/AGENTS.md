@@ -13,7 +13,8 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 ## Conventions
 
-- State backend is Cloudflare R2 through `PULUMI_BACKEND_URL` and R2 S3 credentials.
+- Staging state backend is Pulumi Cloud (GitHub OIDC via `pulumi/auth-actions`). Production
+  catalog still applies the main stack against the R2 DIY backend until that path is split.
 - `Pulumi.yaml` defines the project; `Pulumi.staging.yaml` and `Pulumi.prod.yaml` hold per-environment
   config. Secrets remain encrypted `secure:` values or CI/ESC inputs.
 - `index.ts` derives names from `pulumi.getStack()`; prod uses stable names, other stacks suffix
@@ -26,7 +27,7 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 - `src/neon-auth.ts` — pure Neon Auth derivation (JWKS URL ↔ issuer base URL, env-var names); pinned by `topology-neon-auth.test.ts`.
 - `Pulumi.yaml` — project metadata and base encrypted config.
 - `Pulumi.staging.yaml` · `Pulumi.prod.yaml` — live environment stacks.
-- `../.github/workflows/reusable-deploy-infra.yml` — main-stack Pulumi `up` (R2 backup then apply).
+- `../.github/workflows/reusable-deploy-infra.yml` — staging main-stack Pulumi `up` (Pulumi Cloud).
 - `../.github/workflows/reusable-deploy-component.yml` — Worker deploy sequence.
 - `../docs/ops/deployment.md` — environment and approval runbook.
 
@@ -46,18 +47,10 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 - `stagingGateEnabled` defaults false. Enabling it requires `stagingDomain` and the
   `stagingGateToken` secret.
 - No Hyperdrive: catalog reaches Neon over `@neondatabase/serverless` HTTP.
-- **`pulumi stack export` runs unmodified before every `pulumi up`** (rollback backup, #485;
-  `reusable-deploy-infra.yml`'s "Pulumi stack export" step), then is copied to the **R2 bucket the
-  Pulumi state backend already lives in** (`rollback-backups/` prefix) via `aws s3 cp` — deliberately
-  **not** a GitHub Actions artifact, because this repo is **public**: a public repo's workflow
-  artifacts are downloadable by any signed-in GitHub account, not just people with repo access. It is
-  **never** run with `--show-secrets` — encrypted `secure:` config must stay ciphertext in that
-  export. Any new sensitive value added to `index.ts`/the stack configs MUST go through
-  `config.requireSecret()` / `getSecret()` (see `pulumi-best-practices` skill §5), never a plain
-  `config.require()` or a literal — a value that isn't marked secret is exported in the clear into
-  that R2 object. The R2 bucket is only as private as the R2 credentials that already gate the
-  Pulumi state itself; keeping the backup there (not GitHub artifacts) is what keeps that true for
-  the backup too.
-- No lifecycle/expiry rule exists yet on the `rollback-backups/` R2 prefix — objects accumulate
-  indefinitely. Adding one is a Pulumi resource change (`index.ts`), not a CI change; tracked as
-  **#521**.
+- Staging infra no longer writes an R2 `pulumi stack export` backup (#1077); rollback is Pulumi
+  Cloud history. Production catalog still exports to R2 before `up` in
+  `reusable-deploy-component.yml`. New sensitive values still go through `config.requireSecret()` /
+  `getSecret()` (see `pulumi-best-practices` skill §5).
+- No lifecycle/expiry rule exists yet on the leftover `rollback-backups/` R2 prefix — objects
+  accumulate indefinitely. Adding one is a Pulumi resource change (`index.ts`), not a CI change;
+  tracked as **#521**.

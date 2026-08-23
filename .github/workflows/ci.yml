@@ -164,17 +164,16 @@ jobs:
     # undeployed for three runs. Gate failures still block: they surface as
     # failure(), not skipped.
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/reusable-deploy-neon-secrets.yml
     with:
       environment: staging
       pulumi_stack: staging
     secrets:
-      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
     concurrency: deploy-neon-secrets-staging
 
@@ -276,17 +275,16 @@ jobs:
     name: Deploy infra staging
     needs: [security, ci-cross-stack-e2e, deploy-neon-secrets-staging]
     if: ${{ !failure() && !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/reusable-deploy-infra.yml
     with:
       environment: staging
       pulumi_stack: staging
     secrets:
-      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     concurrency: deploy-infra-staging
 
   # push main -> production: provision the prod-role Secrets Store DSNs BEFORE
@@ -299,17 +297,16 @@ jobs:
     # The store deploy is itself a production mutation: it only runs on the
     # eligible push to main, never from a PR.
     if: ${{ needs.production-eligibility.outputs.eligible == 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/reusable-deploy-neon-secrets.yml
     with:
       environment: production
       pulumi_stack: prod
     secrets:
-      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
       CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
     concurrency: deploy-neon-secrets-prod
 

@@ -1,0 +1,64 @@
+# One-shot #1077: import R2 DIY stacks into Pulumi Cloud, then re-encrypt
+# under the service secrets provider. Does not `pulumi up`. Staging infra
+# and both neon-secrets stacks move; production main-stack stays on R2
+# until catalog's remaining `run_pulumi` path (#1074 left prod unsplit).
+#
+# Run from this branch before merging the deploy-job switch, or the first
+# Cloud `pulumi up` has no state and would try to recreate live resources.
+name: migrate-pulumi-to-cloud
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type migrate to import R2 stacks into Pulumi Cloud
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Import DIY stacks
+    if: ${{ inputs.confirm == 'migrate' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Pulumi CLI
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version-file: .pulumi.version
+      - name: Authenticate with Pulumi Cloud
+        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        with:
+          organization: lifeodyssey
+          requested-token-type: urn:pulumi:token-type:access_token:organization
+      - name: Migrate stacks
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          SOURCE_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+        run: |
+          if [ -z "$SOURCE_BACKEND_URL" ]; then
+            echo "::error::PULUMI_BACKEND_URL is required as the source backend"
+            exit 1
+          fi
+          bash .github/scripts/migrate-pulumi-stacks-to-cloud.sh "$SOURCE_BACKEND_URL"
+      - name: Upload rewritten stack config
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pulumi-cloud-stack-yaml
+          path: |
+            infra/Pulumi.staging.yaml
+            infra/neon-secrets/Pulumi.staging.yaml
+            infra/neon-secrets/Pulumi.prod.yaml

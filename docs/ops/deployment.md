@@ -419,20 +419,17 @@ On a push to `main`, the current promotion chain is:
    that command performs is reverted right after — a `file:` spec it appends to
    `pnpm.onlyBuiltDependencies` makes pnpm 10.33 reject the project, see the workflow header),
    a plain frozen `pnpm install` against `infra/neon-secrets/pnpm-lock.yaml` (the SDK's
-   postinstall compiles it; the committed `pnpm-workspace.yaml` allows that build), the #485
-   rollback backup to the same R2 `rollback-backups/` prefix, and `pulumi up` on stack
-   `staging`.
-   **State backend**: R2 (`PULUMI_BACKEND_URL`) + `PULUMI_CONFIG_PASSPHRASE` — the same
-   encrypted backend the `infra/` project uses. A file backend was used for the #926 validation
-   but can never serve CI, and the state holds Neon role passwords + DSNs, so it must stay
-   encrypted at rest. No `NEON_API_KEY` secret exists: the key lives in the committed
-   `Pulumi.staging.yaml` as a passphrase-encrypted `secure:` value, exactly like `infra/`'s
-   stack configs.
-   **First run**: the `staging` stack does not exist on R2 yet, so the job `pulumi stack init`s
-   it (passphrase secrets provider) and runs `.github/scripts/neon-secrets-adopt.sh`, which
-   imports the resources the #926 local file-backend run created (a fresh `up` would try to
-   re-create the roles and the Neon API rejects duplicate creates). Adoption is idempotent and
-   guarded on the stack state; after it, `pulumi up` is a no-change apply.
+   postinstall compiles it; the committed `pnpm-workspace.yaml` allows that build), then
+   `pulumi up` on stack `staging`.
+   **State backend**: Pulumi Cloud via GitHub OIDC (`pulumi/auth-actions`, org `lifeodyssey`).
+   Stack encryption is the Cloud service provider (#1077). The production catalog job still
+   applies the main infra stack against the leftover R2 DIY backend. `NEON_API_KEY` still
+   feeds first-run adoption imports and the staging GRANT; `pulumi up` decrypts
+   `Pulumi.staging.yaml` with Pulumi Cloud secrets.
+   **Missing Cloud stack**: the job fails closed rather than `stack init` an empty Cloud
+   stack on top of live Neon roles. Import first with `migrate-pulumi-to-cloud.yml`. Adoption
+   (`.github/scripts/neon-secrets-adopt.sh`) stays as a no-op once the Cloud stack owns the
+   roles.
    **Production**: deliberately absent from `deploy.yml` and the prod promotion — the stack is
    staging-only (single branch, no `Pulumi.prod.yaml`); the production stack is a #912
    follow-up.
@@ -597,11 +594,10 @@ Steps:
 
 ### Pulumi rollback
 
-`reusable-deploy-infra.yml`'s "Pulumi stack export (rollback backup)" step runs `pulumi stack export`
-immediately before every `pulumi up` **that actually runs**, then uploads the result to the **same
-R2 bucket the Pulumi state backend already lives in** (`aws s3 cp`, using the `R2_ACCESS_KEY_ID`/
-`R2_SECRET_ACCESS_KEY` credentials already present in that step) under a `rollback-backups/`
-prefix — object key `rollback-backups/pulumi-<stack>-<run-id>.json`.
+Staging infra (#1077) no longer writes an R2 export before `up`; rollback is Pulumi Cloud
+history. Production catalog still runs `pulumi stack export` in `reusable-deploy-component.yml`
+before `up` and uploads the snapshot to the leftover R2 DIY bucket under `rollback-backups/`
+(object key `rollback-backups/pulumi-<stack>-<run-id>.json`).
 
 **This is deliberately not a GitHub Actions artifact.** This repository is **public**, and a public
 repo's workflow artifacts are downloadable by any signed-in GitHub account, not just people with

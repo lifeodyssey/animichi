@@ -59,16 +59,6 @@ abort "infra reusable must apply work-dir infra" unless infra_src.include?("work
 abort "infra reusable must not apply neon-secrets" if infra_src.include?("infra/neon-secrets")
 abort "infra reusable must not invoke wrangler-action" if infra_src.include?("cloudflare/wrangler-action")
 abort "infra reusable must not invoke Atlas" if infra_src.include?("atlas migrate")
-%w[PULUMI_CONFIG_PASSPHRASE PULUMI_BACKEND_URL CLOUDFLARE_PULUMI_API_TOKEN
-   CLOUDFLARE_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY].each do |name|
-  abort "infra reusable must declare #{name}" unless infra_src.include?(name)
-end
-export_at = infra_src.index("name: Pulumi stack export")
-up_at = infra_src.index("name: Pulumi up")
-abort "infra reusable must export the stack before Pulumi up" if export_at.nil? || up_at.nil? || export_at > up_at
-cp_at = infra_src.index("aws s3 cp")
-abort "infra reusable must upload the rollback backup before Pulumi up" if cp_at.nil? || cp_at > up_at
-abort "empty PULUMI_BACKEND_URL must fail closed" unless infra_src.include?("refusing to run pulumi up without a rollback snapshot")
 up_env = infra_src.split("name: Pulumi up", 2)[1]
 abort "infra reusable must have a Pulumi up step" if up_env.nil?
 abort "Pulumi up must pass CLOUDFLARE_ACCOUNT_ID" unless up_env.include?("CLOUDFLARE_ACCOUNT_ID")

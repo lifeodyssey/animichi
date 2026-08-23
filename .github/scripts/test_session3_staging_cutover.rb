@@ -333,24 +333,22 @@ def reset_script_refusal_violations
   found
 end
 
-# ---- 5. Pulumi R2 backend credentials (issue #1056 AC1) -------------------
-# Every step that actually runs pulumi talks to the R2 (S3-compatible) state
-# backend. Working Pulumi lanes bind AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
-# / AWS_DEFAULT_REGION sourced from R2_* secrets; without them the AWS SDK
-# falls back to EC2 IMDS and the first pulumi command fails before any state
-# change. Discover pulumi-executing steps from parsed workflow behavior
-# (run text, or an invoked script that contains a pulumi command) rather
-# than pinning job names or line numbers.
-#
-# Credential *source* is the whole GitHub expression `${{ secrets.NAME }}`
-# (inner whitespace optional). A substring check would accept a different
-# secret whose name only *starts with* the required one, e.g.
-# `${{ secrets.R2_ACCESS_KEY_ID_BACKUP }}`.
-R2_BACKEND_KEYS = %w[
+# ---- 5. Pulumi Cloud OIDC (issue #1077) -----------------------------------
+# Cutover C/F apply the staging infra stack. After #1077 that stack lives in
+# Pulumi Cloud, so pulumi-executing jobs authenticate with pulumi/auth-actions
+# and must not carry the DIY R2/passphrase env. Discover pulumi-executing
+# steps from parsed workflow behavior (run text, or an invoked script that
+# contains a pulumi command) rather than pinning job names.
+DIY_BACKEND_ENV = %w[
+  PULUMI_BACKEND_URL
+  PULUMI_CONFIG_PASSPHRASE
+  R2_ACCESS_KEY_ID
+  R2_SECRET_ACCESS_KEY
   AWS_ACCESS_KEY_ID
   AWS_SECRET_ACCESS_KEY
-  AWS_DEFAULT_REGION
 ].freeze
+PULUMI_ORG = "lifeodyssey"
+AUTH_ACTION = "pulumi/auth-actions"
 
 def referenced_scripts(run)
   run.to_s.scan(%r{\.github/scripts/[\w.-]+\.sh}).map { |rel| File.join(ROOT, rel) }
@@ -377,31 +375,38 @@ def github_secret_expr?(value, secret_name)
   value.to_s.match?(/\A\$\{\{\s*secrets\.#{Regexp.escape(secret_name)}\s*\}\}\z/)
 end
 
-def r2_backend_source_violations(job_name, env)
+def job_grants_id_token?(job)
+  job.dig("permissions", "id-token").to_s == "write"
+end
+
+def job_has_pulumi_auth?(job)
+  job.fetch("steps", []).any? do |step|
+    next false unless step.is_a?(Hash)
+    next false unless step["uses"].to_s.include?(AUTH_ACTION)
+
+    step.dig("with", "organization").to_s == PULUMI_ORG
+  end
+end
+
+def pulumi_step_diy_violations(job_name, step)
+  env = step.fetch("env", {}) || {}
   found = []
-  found << "#{job_name}: AWS_ACCESS_KEY_ID must source from secrets.R2_ACCESS_KEY_ID" \
-    unless github_secret_expr?(env["AWS_ACCESS_KEY_ID"], "R2_ACCESS_KEY_ID")
-  found << "#{job_name}: AWS_SECRET_ACCESS_KEY must source from secrets.R2_SECRET_ACCESS_KEY" \
-    unless github_secret_expr?(env["AWS_SECRET_ACCESS_KEY"], "R2_SECRET_ACCESS_KEY")
-  found << "#{job_name}: AWS_DEFAULT_REGION must be auto" \
-    unless env["AWS_DEFAULT_REGION"].to_s == "auto"
+  DIY_BACKEND_ENV.each do |key|
+    found << "#{job_name}: pulumi-executing step must not set #{key}" if env.key?(key)
+  end
   found
 end
 
-def pulumi_step_r2_violations(job_name, step)
-  env = step.fetch("env", {}) || {}
-  missing = R2_BACKEND_KEYS.reject { |key| env.key?(key) }
-  return ["#{job_name}: pulumi-executing step must provide R2 backend credentials (missing: #{missing.join(', ')})"] unless missing.empty?
-
-  r2_backend_source_violations(job_name, env)
-end
-
-def pulumi_r2_backend_violations(wf)
+def pulumi_cloud_backend_violations(wf)
   found = []
   wf.fetch("jobs").each do |name, job|
     next unless job.is_a?(Hash)
+    next if pulumi_executing_steps(job).empty?
 
-    pulumi_executing_steps(job).each { |step| found.concat(pulumi_step_r2_violations(name, step)) }
+    found << "#{name}: pulumi-executing job must grant id-token: write" unless job_grants_id_token?(job)
+    found << "#{name}: pulumi-executing job must authenticate with #{AUTH_ACTION} org #{PULUMI_ORG}" \
+      unless job_has_pulumi_auth?(job)
+    pulumi_executing_steps(job).each { |step| found.concat(pulumi_step_diy_violations(name, step)) }
   end
   found
 end
@@ -485,14 +490,14 @@ def main
     found.concat(workflow_order_violations(wf))
     found.concat(manifest_guard_violations(wf))
     found.concat(two_key_reset_violations(wf))
-    found.concat(pulumi_r2_backend_violations(wf))
+    found.concat(pulumi_cloud_backend_violations(wf))
     found.concat(pulumi_cli_pin_violations(wf))
     found.concat(close_ingress_gate_token_violations(wf))
   end
   found.concat(reset_script_refusal_violations)
 
   if found.empty?
-    puts "OK: fresh-schema manifest, sole-repository adapters, two-key reset, R2 backend credentials, Pulumi CLI pin, close-ingress gate token, and cutover workflow order all hold"
+    puts "OK: fresh-schema manifest, sole-repository adapters, two-key reset, Pulumi Cloud OIDC, Pulumi CLI pin, close-ingress gate token, and cutover workflow order all hold"
   else
     puts found.sort
     abort "SESSION-3 staging cutover contract violated (#{found.length} issue(s))"
