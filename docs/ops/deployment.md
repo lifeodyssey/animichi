@@ -613,17 +613,21 @@ Catalog/users/web/root callers pass `run_pulumi: false` (`ci.yml` / `deploy.yml`
 apply lives in `deploy-infra-staging` / `deploy-infra-prod` — look there for the backup, not under
 a catalog/root/web/users run.
 
-To roll back a bad Pulumi apply:
+To roll back a bad **staging** infra apply (#1077): log into Pulumi Cloud, `pulumi stack select staging`
+in `infra/`, pick the previous update from Cloud history, and restore from that update (then
+`pulumi up` if live Cloudflare resources still need to match). Do not look for an R2
+`rollback-backups/` object on this path — staging jobs no longer write one.
 
-1. Fetch the object for **the same run that did the bad `pulumi up`** — the export step runs
-   immediately *before* `up` inside that one run, so the pre-apply snapshot has that run's own
-   `github.run_id` in its key, not the run before it. From `infra/`, with R2 credentials exported as
-   `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`:
+To roll back a bad **production catalog** Pulumi apply (still R2 until that job is split):
+
+1. Fetch the object for **the same run that did the bad `pulumi up`** from the leftover DIY
+   bucket. The export still runs immediately *before* `up` in `reusable-deploy-component.yml`.
+   From `infra/`, with R2 credentials exported as `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`:
    ```
    aws s3 cp --endpoint-url "https://<cloudflare-account-id>.r2.cloudflarestorage.com" \
      "s3://<pulumi-state-bucket>/rollback-backups/pulumi-<stack>-<run-id>.json" ./backup.json
    ```
-2. `pulumi stack select <staging|prod>` in `infra/`, then `pulumi stack import --file backup.json`
+2. `pulumi stack select prod` in `infra/`, then `pulumi stack import --file backup.json`
    to restore that state, followed by `pulumi up` to reconcile real infrastructure back to it.
 3. This is a state-only restore; it does not undo already-applied Cloudflare API side effects that
    Pulumi doesn't track (rare, but check R2/DNS manually if in doubt).

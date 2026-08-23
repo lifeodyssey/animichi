@@ -62,6 +62,10 @@ end
 
 assert_cloud_reusable(CLOUD_INFRA_REUSABLE, "infra reusable")
 assert_cloud_reusable(CLOUD_NEON_REUSABLE, "neon-secrets reusable")
+preview_src = File.read(".github/workflows/pipeline-infra.yml")
+abort "pipeline-infra must authenticate with #{AUTH_ACTION}" unless preview_src.include?(AUTH_ACTION)
+hits = diy_hits(preview_src)
+abort "pipeline-infra must not reference DIY backend secrets: #{hits.join(', ')}" unless hits.empty?
 
 infra_src = File.read(CLOUD_INFRA_REUSABLE)
 abort "infra reusable must apply work-dir infra" unless infra_src.include?("work-dir: infra")

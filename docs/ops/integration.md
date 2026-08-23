@@ -19,15 +19,15 @@
 S0-v2 Track B 按 GOAL「repo 级 CF token 删除」收口——执行 ticket 以目标分布为准,不得新增 repo 级。
 轮换后同步范围 = 两个 environment + operator-local `.env` + 跑 R2 派生对刷新(见下)。
 
-### Pulumi state 后端(自管 R2,非 Pulumi Cloud)
+### Pulumi state 后端
 
-- `PULUMI_BACKEND_URL`:`s3://` 形式带 query 的 R2 端点。**值不得带引号**(曾因带引号存 repo 级
-  导致 `unknown backend cloudUrl format`);pulumi/actions 的 automation-api 不认此 URL,
-  CI 一律 CLI 直登(`pulumi login "$PULUMI_BACKEND_URL"`,前置 install-only 步)。
-- `PULUMI_CONFIG_PASSPHRASE`:栈密文(`secure:`)的解密口令。公开仓库允许提交密文
-  (`infra/AGENTS.md` 约定;Pulumi.prod.yaml 先例),熵在 passphrase。
-- `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`:S3 兼容凭证,**派生自 Pulumi 钥**
-  (access key = token id,secret = sha256(token));Pulumi 钥轮换后必须重派生。
+- Staging infra / neon-secrets (#1077): Pulumi Cloud, GitHub OIDC (`pulumi/auth-actions`,
+  org `lifeodyssey`)。栈密文由 Cloud secrets provider 加密。CI 不再 `pulumi login` R2。
+- Production catalog 主栈仍走自管 R2,直到该 `run_pulumi` 路径被拆掉:
+  `PULUMI_BACKEND_URL`(`s3://` 带 query,**值不得带引号**)、`PULUMI_CONFIG_PASSPHRASE`、
+  `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`。pulumi/actions 的 automation-api 不认
+  该 R2 URL,这条路径仍 CLI 直登。
+- 一次性导入:`migrate-pulumi-to-cloud.yml` 用 R2 源 URL 跑 `pulumi stack migrate`。
 
 ### 应用与门禁密钥(用途索引)
 

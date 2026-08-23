@@ -214,6 +214,8 @@ jobs:
         run: bash .github/scripts/check-edge-ratelimit-namespace.test.sh
       - name: Verify CI contract
         run: ruby .github/scripts/test_ci_contract.rb
+      - name: Verify CI Pulumi Cloud OIDC contract
+        run: ruby .github/scripts/test_ci_contract_pulumi_cloud.rb
       - name: Verify CI doorbell workers contract
         run: ruby .github/scripts/test_ci_contract_doorbell_workers.rb
       # AC1 (#1053): the Neon test-infra retirement contract — no tested
