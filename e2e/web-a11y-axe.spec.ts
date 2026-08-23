@@ -51,8 +51,9 @@ async function navigateClient(page: Page, path: string, target: string): Promise
 
 describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
   test("doorway (`/`)", async ({ page }) => {
-    await openChat(page, "/");
-    await expect(page).toHaveURL(/\/chat(?:\?|$)/);
+    await page.goto("/");
+    await expect(page.locator(".app-splash")).toBeHidden();
+    await expect(page.locator(".doorway")).toBeVisible();
     await expectNoSeriousOrCritical(page, "doorway");
   });
 
