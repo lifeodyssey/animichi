@@ -130,6 +130,13 @@ void test("wrangler.toml EDGE_SHOWCASE_MODE is true in production and false in s
   assert.equal(valueInBlock("[vars]", "EDGE_SHOWCASE_MODE"), "false");
 });
 
+void test("staging falls back from zen/go to the direct MiMo endpoint", () => {
+  assert.equal(
+    valueInBlock("[env.staging.vars]", "FALLBACK_AGENT_MODEL"),
+    "openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
+  );
+});
+
 void test("escapeRegExp escapes a literal backslash, not just the bracket/dot metacharacters (CodeQL js/incomplete-sanitization)", () => {
   // A prior version only escaped `.`/`[`/`]` and never the backslash itself.
   // Concretely: the 4-character literal x\bx (x, backslash, b, x) — under the
