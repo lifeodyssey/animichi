@@ -30,6 +30,8 @@ logger = structlog.get_logger(__name__)
 
 ChatHandler = Callable[[OnStep], Awaitable[PublicAPIResponse]]
 _Queue = asyncio.Queue["str | None"]
+_PRODUCER_CANCEL_GRACE_SECONDS = 0.25
+_DETACHED_PRODUCERS: set[asyncio.Task[None]] = set()
 
 
 async def _put_all(queue: _Queue, frames: Sequence[str]) -> None:
@@ -77,13 +79,24 @@ async def _drain(queue: _Queue) -> AsyncIterator[str]:
         yield chunk
 
 
+def _consume_result(task: asyncio.Task[None]) -> None:
+    _DETACHED_PRODUCERS.discard(task)
+    with suppress(asyncio.CancelledError):
+        task.exception()
+
+
 async def _settle(task: asyncio.Task[None]) -> None:
     if task.done():
-        await task
+        _consume_result(task)
         return
     task.cancel()
-    with suppress(asyncio.CancelledError):
-        await task
+    done, _ = await asyncio.wait({task}, timeout=_PRODUCER_CANCEL_GRACE_SECONDS)
+    if task in done:
+        _consume_result(task)
+        return
+    _DETACHED_PRODUCERS.add(task)
+    task.add_done_callback(_consume_result)
+    logger.warning("chat_stream_cancel_timeout")
 
 
 async def stream_chat(handler: ChatHandler) -> AsyncIterator[str]:
