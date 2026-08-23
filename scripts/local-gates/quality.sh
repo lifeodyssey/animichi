@@ -24,6 +24,8 @@ for ruby_file in \
   "$GS/release-manifest-resolver.test.rb" \
   "$GS/test_ci_contract.rb" \
   "$GS/test_ci_contract_security.rb" \
+  "$GS/security-check-runs-canary.rb" \
+  "$GS/test_security_check_runs_canary.rb" \
   "$GS/test_ci_contract_security_mutation.rb" \
   "$GS/test_ci_routing_consistency.rb" \
   "$GS/test_ci_contract_ruleset_migration.rb" \
@@ -84,6 +86,7 @@ run ruby "$GS/test_ci_contract.rb"
 run ruby "$GS/test_ci_contract_doorbell_web.rb"
 run ruby "$GS/test_ci_contract_infra_split.rb"
 run ruby "$GS/test_ci_contract_doorbell_workers.rb"
+run ruby "$GS/test_security_check_runs_canary.rb"
 run ruby "$GS/test_ci_contract_security_mutation.rb"
 run bash "$GS/security-aggregate.test.sh"
 run env EXPECTED_SHA=0123456789abcdef0123456789abcdef01234567 ACTUAL_SHA=0123456789abcdef0123456789abcdef01234567 SECURITY_RESULT=success REQUIRE_CHILD_RESULTS=true SECURITY_RESULTS=$'gitleaks=success\ncodeql=success\nsemgrep=success' GITHUB_STEP_SUMMARY=/dev/null bash "$GS/security-aggregate.sh"

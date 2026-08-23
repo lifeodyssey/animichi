@@ -6,6 +6,7 @@
 
 require "json"
 require "yaml"
+require_relative "security-check-runs-canary"
 
 ROOT = File.expand_path("../..", __dir__)
 WORKFLOWS = File.join(ROOT, ".github", "workflows")
@@ -14,6 +15,7 @@ DEFAULT_REUSABLE = File.join(WORKFLOWS, "reusable-security.yml")
 DEFAULT_CODEQL = File.join(WORKFLOWS, "codeql.yml")
 DEFAULT_RULESET = File.join(ROOT, "docs", "iterations", "s0v2", "ruleset-target.json")
 DEFAULT_AGGREGATE = File.join(ROOT, ".github", "scripts", "security-aggregate.sh")
+DEFAULT_CHECK_RUNS_FIXTURE = File.join(ROOT, ".github", "scripts", "fixtures", "security-check-runs.json")
 SECURITY_LANES = %w[
   codeql gitleaks trufflehog osv-scanner dependabot-config config-read-sets
   zizmor semgrep sqlfluff post-deploy-assert-test
@@ -103,23 +105,14 @@ def assert_standalone_codeql(codeql)
   abort_unless(!events.key?("push"), "standalone CodeQL must not duplicate push Security")
 end
 
-def assert_api_context_canary(required)
-  # API-shaped payload for GET /commits/{sha}/check-runs: the reusable caller
-  # prefixes evidence children, while the top-level aggregator is required.
-  api_payload = { "check_runs" => [
-    { "name" => "Security" },
-    *SECURITY_LANES.map { |lane| { "name" => "Security scans / #{lane}" } }
-  ] }
-  observed = api_payload.fetch("check_runs").map { |run| run.fetch("name") }
-  required_observed = observed.select { |name| required.include?(name) }
-  abort_unless(required_observed == ["Security"], "API canary must observe exactly one required Security context (got #{required_observed.inspect})")
-end
-
 def assert_required_context_canary(ruleset)
   required = Array(JSON.parse(File.read(ruleset)).fetch("required_checks"))
-  security_contexts = required.select { |name| name == "Security" || name.start_with?("Security /") }
-  abort_unless(security_contexts == ["Security"], "ruleset target must require exactly one Security context (got #{security_contexts.inspect})")
-  assert_api_context_canary(required)
+  fixture = JSON.parse(File.read(DEFAULT_CHECK_RUNS_FIXTURE))
+  SecurityCheckRunsCanary.assert!(fixture, repo: "lifeodyssey/animichi",
+                                  expected_sha: fixture.fetch("head_sha"),
+                                  required_contexts: required)
+rescue SecurityCheckRunsCanary::Failure => error
+  abort "security contract: #{error.message}"
 end
 
 def assert_aggregate_script(path)

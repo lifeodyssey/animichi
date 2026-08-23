@@ -74,6 +74,27 @@ Source of truth for the schema: `.github/scripts/promotion_manifest.py`; behavio
 (AC2/AC3/AC4), `.github/scripts/test_promote_deployed.py` (AC4 read+gate), and
 `.github/scripts/test_promotion_ac5_contract.rb` (AC5), all run in `pipeline-quality.yml`. Rollback
 remains the SAFE-1/`wrangler rollback` path above.
+
+### Security check-runs canary
+
+The ordinary Security contract and mutation tests are hermetic: they load
+`.github/scripts/fixtures/security-check-runs.json` and never contact GitHub. The live check-runs
+canary is deliberately opt-in so a normal pull request cannot depend on another live PR or on
+network availability. Run it after a ruleset change, or when validating a candidate head:
+
+```bash
+GH_TOKEN=<read-only-token> ruby .github/scripts/security-check-runs-canary.rb \
+  lifeodyssey/animichi <pull-request-number-or-40-character-head-sha>
+```
+
+For a pull request number the canary resolves the current PR head through the GitHub API; for a
+full SHA it verifies that commit exists. It then reads the head's check-runs and active repository
+rulesets, failing closed unless the ruleset requires exactly one `Security` context, exactly one
+successful completed `Security` check-run exists for that head, and its check-run links lead to
+GitHub workflow/check evidence. Any old `Security / *` required context, duplicate `Security`
+result, stale head, pending/failing result, missing evidence link, API error, or missing `GH_TOKEN`
+is a canary failure. This command is not a workflow step; ordinary CI uses only the fixture path.
+
 ## Edge Topology
 
 ```text

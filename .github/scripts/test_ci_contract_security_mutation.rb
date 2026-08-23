@@ -83,6 +83,22 @@ def green_probe
   puts "PASS: pristine Security contract (restore/green)"
 end
 
+def canary_fixture
+  JSON.parse(File.read(DEFAULT_CHECK_RUNS_FIXTURE))
+end
+
+def canary_red_probe(label, expected_fragment)
+  payload = canary_fixture
+  yield payload
+  SecurityCheckRunsCanary.assert!(payload, repo: "lifeodyssey/animichi",
+                                  expected_sha: payload.fetch("head_sha"),
+                                  required_contexts: payload.fetch("required_contexts", ["Security"]))
+  abort "FAIL: #{label} passed unexpectedly"
+rescue SecurityCheckRunsCanary::Failure => error
+  abort "FAIL: #{label} expected #{expected_fragment.inspect}: #{error.message}" unless error.message.include?(expected_fragment)
+  puts "PASS: #{label} rejected (#{expected_fragment})"
+end
+
 SECURITY_LANES.each do |lane|
   red_probe("summary drops #{lane} dependency", "missing #{lane}") do |fixture|
     needs = fixture.fetch(:reusable).fetch("jobs").fetch("security-summary").fetch("needs")
@@ -126,6 +142,22 @@ end
 red_probe("summary checkout persists credentials", "security-summary checkout must disable persisted credentials") do |fixture|
   checkout = fixture.fetch(:reusable).fetch("jobs").fetch("security-summary").fetch("steps").first
   checkout.fetch("with")["persist-credentials"] = true
+end
+
+canary_red_probe("live canary sees duplicate old required context", "exactly one Security context") do |payload|
+  payload["required_contexts"] = ["Security", "Security / semgrep"]
+end
+
+canary_red_probe("live canary sees duplicate Security result", "exactly one Security check run") do |payload|
+  payload["check_runs"] << payload.fetch("check_runs").first
+end
+
+canary_red_probe("live canary sees a missing evidence link", "Security check details_url is missing") do |payload|
+  payload.fetch("check_runs").first.delete("details_url")
+end
+
+canary_red_probe("live canary sees a pending result", "not completed successfully") do |payload|
+  payload.fetch("check_runs").first["status"] = "in_progress"
 end
 
 green_probe
