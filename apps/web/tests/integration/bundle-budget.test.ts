@@ -1,11 +1,9 @@
-import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { bundleBudgets, budgetKeyFor, type BundleBudgetKey } from "../../bundle-budget.config";
 
-const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const assetsDir = fileURLToPath(new URL("../../.output/public/assets", import.meta.url));
 
 interface SizedChunk {
@@ -13,19 +11,7 @@ interface SizedChunk {
   bytes: number;
 }
 
-function buildWebApp(): void {
-  execFileSync("pnpm", ["run", "build"], {
-    // vitest sets NODE_ENV=test; the dev JSX transform (jsxDEV) would otherwise
-    // land in the SSR bundle and crash on workerd (see build-output.test.ts).
-    env: { ...process.env, NODE_ENV: "production" },
-    cwd: packageRoot,
-    stdio: "pipe",
-    timeout: 180_000,
-  });
-}
-
 function readBudgetedChunks(): SizedChunk[] {
-  if (!existsSync(assetsDir)) buildWebApp();
   return readdirSync(assetsDir)
     .filter((name) => name.endsWith(".js"))
     .map((name) => ({ basename: name, bytes: statSync(join(assetsDir, name)).size }))
