@@ -29,35 +29,35 @@ state_of() { # state_of <gate-output>
 }
 
 echo "=== direct gate state distinguishes waiting from violation ==="
-pending="$("$CHECK" check "$FIX/pr-clean" 2>/dev/null)" && pending_rc=0 || pending_rc=$?
+pending="$("$CHECK" check "$FIX/pr-clean")" && pending_rc=0 || pending_rc=$?
 if [ "$pending_rc" -eq 1 ] && [ "$(state_of "$pending")" = "pending" ]; then
   printf 'PASS %-52s\n' "missing review approval is pending"
 else
   fail=$((fail + 1)); printf 'FAIL %-52s rc=%s output=%s\n' "missing review approval is pending" "$pending_rc" "$pending"
 fi
 
-findings_pending="$("$CHECK" check "$FIX/pr-findings-unacked" 2>/dev/null)" && findings_rc=0 || findings_rc=$?
+findings_pending="$("$CHECK" check "$FIX/pr-findings-unacked")" && findings_rc=0 || findings_rc=$?
 if [ "$findings_rc" -eq 1 ] && [ "$(state_of "$findings_pending")" = "pending" ]; then
   printf 'PASS %-52s\n' "missing findings acknowledgement is pending"
 else
   fail=$((fail + 1)); printf 'FAIL %-52s rc=%s output=%s\n' "missing findings acknowledgement is pending" "$findings_rc" "$findings_pending"
 fi
 
-failure="$("$CHECK" check "$FIX/pr-threads-open" --verdict "$FIX/verdict-approve.json" --brief "$FIX/brief.md" --base "$BASE" 2>/dev/null)" && failure_rc=0 || failure_rc=$?
+failure="$("$CHECK" check "$FIX/pr-threads-open" --verdict "$FIX/verdict-approve.json" --brief "$FIX/brief.md" --base "$BASE")" && failure_rc=0 || failure_rc=$?
 if [ "$failure_rc" -eq 1 ] && [ "$(state_of "$failure")" = "failure" ]; then
   printf 'PASS %-52s\n' "unresolved reviewed thread is failure"
 else
   fail=$((fail + 1)); printf 'FAIL %-52s rc=%s output=%s\n' "unresolved reviewed thread is failure" "$failure_rc" "$failure"
 fi
 
-invalid="$("$CHECK" check "$FIX/pr-unauthorized-ack" --verdict "$FIX/verdict-approve.json" --brief "$FIX/brief.md" --base "$BASE" 2>/dev/null)" && invalid_rc=0 || invalid_rc=$?
+invalid="$("$CHECK" check "$FIX/pr-unauthorized-ack" --verdict "$FIX/verdict-approve.json" --brief "$FIX/brief.md" --base "$BASE")" && invalid_rc=0 || invalid_rc=$?
 if [ "$invalid_rc" -eq 1 ] && [ "$(state_of "$invalid")" = "failure" ]; then
   printf 'PASS %-52s\n' "invalid acknowledgement actor is failure"
 else
   fail=$((fail + 1)); printf 'FAIL %-52s rc=%s output=%s\n' "invalid acknowledgement actor is failure" "$invalid_rc" "$invalid"
 fi
 
-stale="$("$CHECK" check "$FIX/pr-marker-stale" 2>/dev/null)" && stale_rc=0 || stale_rc=$?
+stale="$("$CHECK" check "$FIX/pr-marker-stale")" && stale_rc=0 || stale_rc=$?
 if [ "$stale_rc" -eq 1 ] && [ "$(state_of "$stale")" = "failure" ]; then
   printf 'PASS %-52s\n' "stale approval is failure"
 else

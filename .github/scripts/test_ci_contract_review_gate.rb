@@ -9,6 +9,7 @@ require "json"
 require_relative "test_ci_contract_review_gate_steps"
 
 QUALITY_YML = ".github/workflows/pipeline-quality.yml"
+REVIEW_REFRESH_EVENTS = %w[pull_request_review pull_request_review_comment issue_comment].freeze
 
 # `on:` is a YAML 1.1 boolean; old psych parses it as the key `true`. Accept both.
 def triggers(workflow, file)
@@ -78,15 +79,24 @@ end
 
 def assert_review_refresh_scope(quality_yml)
   workflow_dir = ENV.fetch("REVIEW_GATE_WORKFLOWS_DIR", File.expand_path("../workflows", __dir__))
-  offenders = Dir[File.join(workflow_dir, "*.yml")].reject { |path| File.basename(path) == "pipeline-quality.yml" }.select { |path| review_events?(path) }
+  offenders = workflow_paths(workflow_dir).reject { |path| File.basename(path) == "pipeline-quality.yml" }.select { |path| review_events?(path) }
   abort "#{quality_yml} review/comment refresh events must stay in pipeline-quality.yml (found #{offenders.map { |path| File.basename(path) }.join(', ')})" unless offenders.empty?
+end
+
+def workflow_paths(workflow_dir)
+  ["*.yml", "*.yaml"].flat_map { |pattern| Dir[File.join(workflow_dir, pattern)] }
 end
 
 def review_events?(path)
   workflow = YAML.safe_load(File.read(path))
-  on_map = workflow["on"] || workflow[true]
-  return false unless on_map.is_a?(Hash)
-  %w[pull_request_review pull_request_review_comment issue_comment].any? { |event| on_map.key?(event) }
+  on_declaration = workflow["on"] || workflow[true]
+  events = case on_declaration
+           when Hash then on_declaration.keys
+           when Array then on_declaration
+           when String then [on_declaration]
+           else []
+           end
+  events.any? { |event| REVIEW_REFRESH_EVENTS.include?(event.to_s) }
 end
 
 def assert_event_triggers(quality, quality_yml)

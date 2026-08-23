@@ -16,14 +16,14 @@ import sys
 
 src, dst = sys.argv[1], sys.argv[2]
 source = open(src, encoding="utf-8").read()
-needle = '    if ack.status == "missing" or marker.status == "missing":'
+needle = '    return "pending" if ack.status == "missing" or marker.status == "missing" else "success"'
 assert needle in source, "pending-state branch not found"
 open(dst, "w", encoding="utf-8").write(
-    source.replace(needle, "    if False:  # mutated: waiting evidence is treated as success", 1)
+    source.replace(needle, '    return "success"  # mutated: waiting evidence is treated as success', 1)
 )
 PY
 
-red="$("$MUT"/scripts/local-gates/pr-review-check.sh check "$FIX/pr-clean" 2>/dev/null)" && red_rc=0 || red_rc=$?
+red="$("$MUT"/scripts/local-gates/pr-review-check.sh check "$FIX/pr-clean")" && red_rc=0 || red_rc=$?
 if [ "$red_rc" -eq 1 ] && printf '%s\n' "$red" | grep -q '"state": "success"'; then
   printf 'PASS %-52s\n' "red: dropping pending branch makes waiting evidence look green"
 else
@@ -31,7 +31,7 @@ else
   exit 1
 fi
 
-green="$($CHECK check "$FIX/pr-clean" 2>/dev/null)" && green_rc=0 || green_rc=$?
+green="$($CHECK check "$FIX/pr-clean")" && green_rc=0 || green_rc=$?
 if [ "$green_rc" -eq 1 ] && printf '%s\n' "$green" | grep -q '"state": "pending"'; then
   printf 'PASS %-52s\n' "restore+green: waiting evidence remains pending"
 else

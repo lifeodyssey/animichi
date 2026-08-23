@@ -195,7 +195,8 @@ the current head, #1019); malformed thread data — a non-boolean
 - `check <dir> [--verdict FILE] [--brief FILE] [--base SHA]` is pure: it reads
   active unresolved threads, managed findings, the current head SHA, and an
   authorized human acknowledgement, then emits one JSON verdict and exits `0`
-  approve, `1` reject, `2` unreadable (fail closed).
+  for success, `1` for a non-success gate (`pending` or `failure`), and `2` for
+  unreadable input (fail closed).
 - The JSON verdict carries `state=success|pending|failure`: a missing human
   approval marker or missing findings acknowledgement is `pending`, while an
   unresolved thread, stale/unauthorized/malformed evidence, rejected axis, or

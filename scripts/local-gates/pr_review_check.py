@@ -208,16 +208,12 @@ def _pr_approve(
 
 
 def _gate_state(
-    threads_unresolved: int,
-    ack: AckResult,
-    marker: MarkerResult,
-    local: LocalGate | None,
+    threads_unresolved: int, ack: AckResult,
+    marker: MarkerResult, local: LocalGate | None
 ) -> str:
     if threads_unresolved != 0 or _review_rejected(ack, marker, local):
         return "failure"
-    if ack.status == "missing" or marker.status == "missing":
-        return "pending"
-    return "success"
+    return "pending" if ack.status == "missing" or marker.status == "missing" else "success"
 
 
 def _review_rejected(

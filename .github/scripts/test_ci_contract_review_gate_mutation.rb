@@ -12,6 +12,7 @@
 #   RED  drop pull_request_review / issue_comment from cancel   -> contract aborts
 #   RED  drop pull_request_review_comment from cancel          -> contract aborts
 #   RED  prefer branch/ref over the PR number in concurrency   -> contract aborts
+#   RED  omit any review refresh event from the scope scan      -> contract aborts
 #   RED  drop `edited` from pull_request types                 -> contract aborts
 #   RED  rename the producer away from Review Gate             -> contract aborts
 #   RED  rename the legacy wrapper away from Quality / invariants -> contract aborts
@@ -131,24 +132,23 @@ def green_probe(label)
 end
 
 def scope_probe
+  scope_cases.each { |event, extension, declaration| scope_case(event, extension, declaration) }
+end
+
+def scope_cases
+  [["issue_comment", "yml", "issue_comment:\n    types: [created]"], ["pull_request_review", "yaml", "pull_request_review"], ["pull_request_review_comment", "yml", "[pull_request_review_comment]"]]
+end
+
+def scope_case(event, extension, declaration)
   Dir.mktmpdir("rg-scope-red") do |dir|
-    Dir[File.expand_path("../workflows/*.yml", __dir__)].each { |path| FileUtils.cp(path, dir) }
-    File.write(File.join(dir, "review-only-matrix.yml"), <<~YAML)
-      name: review-only-matrix
-      on:
-        issue_comment:
-          types: [created]
-      jobs:
-        noop:
-          runs-on: ubuntu-latest
-          steps: []
-    YAML
+    workflow_paths(File.expand_path("../workflows", __dir__)).each { |path| FileUtils.cp(path, dir) }
+    File.write(File.join(dir, "review-only-matrix.#{extension}"), "name: review-only-matrix\non:\n  #{declaration}\njobs:\n  noop:\n    runs-on: ubuntu-latest\n    steps: []\n")
     ENV["REVIEW_GATE_WORKFLOWS_DIR"] = dir
     rc, out = run_contract(REAL)
     ENV.delete("REVIEW_GATE_WORKFLOWS_DIR")
-    abort "FAIL: review-only matrix workflow must be rejected, got exit #{rc}:\n#{out}" if rc.zero?
-    abort "FAIL: review-only scope rejection was not explicit:\n#{out}" unless out.include?("review/comment refresh events")
-    puts "PASS: review-only matrix workflow rejected (refresh scope)"
+    abort "FAIL: #{event} scope must be rejected, got exit #{rc}:\n#{out}" if rc.zero?
+    abort "FAIL: #{event} scope rejection was not explicit:\n#{out}" unless out.include?("review/comment refresh events")
+    puts "PASS: #{event} scope rejected (#{extension})"
   end
 end
 
