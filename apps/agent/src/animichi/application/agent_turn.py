@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from uuid import uuid4
 
 import structlog
@@ -50,6 +51,19 @@ def _carry_output(exc: Exception, output: object | None) -> None:
 
 
 _CARRIED_ATTR = "_agent_turn_output"
+_DETACHED_TIMED_RESULTS: set[asyncio.Future[ExecutionResult]] = set()
+
+
+def _consume_timed_result(future: asyncio.Future[ExecutionResult]) -> None:
+    _DETACHED_TIMED_RESULTS.discard(future)
+    with suppress(asyncio.CancelledError):
+        future.exception()
+
+
+def _cancel_timed_result(future: asyncio.Future[ExecutionResult]) -> None:
+    _DETACHED_TIMED_RESULTS.add(future)
+    future.add_done_callback(_consume_timed_result)
+    future.cancel()
 
 
 class AgentTurn:
@@ -487,7 +501,16 @@ class AgentTurn:
         """Bounded execution: a turn past its deadline surfaces as a timeout."""
         if self._timeout is None:
             return await call
-        return await asyncio.wait_for(call, timeout=self._timeout)
+        future = asyncio.ensure_future(call)
+        try:
+            done, _ = await asyncio.wait({future}, timeout=self._timeout)
+        except asyncio.CancelledError:
+            _cancel_timed_result(future)
+            raise
+        if future in done:
+            return future.result()
+        _cancel_timed_result(future)
+        raise TimeoutError
 
     def _side(
         self,

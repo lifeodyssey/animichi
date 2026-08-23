@@ -30,6 +30,8 @@ logger = structlog.get_logger(__name__)
 
 ChatHandler = Callable[[OnStep], Awaitable[PublicAPIResponse]]
 _Queue = asyncio.Queue["str | None"]
+_PRODUCER_CANCEL_GRACE_SECONDS = 0.25
+_DETACHED_PRODUCERS: set[asyncio.Task[None]] = set()
 
 
 async def _put_all(queue: _Queue, frames: Sequence[str]) -> None:
@@ -77,13 +79,43 @@ async def _drain(queue: _Queue) -> AsyncIterator[str]:
         yield chunk
 
 
+def _consume_result(task: asyncio.Task[None]) -> None:
+    _DETACHED_PRODUCERS.discard(task)
+    with suppress(asyncio.CancelledError):
+        task.exception()
+
+
+def _track_result(task: asyncio.Task[None]) -> None:
+    _DETACHED_PRODUCERS.add(task)
+    task.add_done_callback(_consume_result)
+
+
+def _finish_or_track(task: asyncio.Task[None]) -> None:
+    if task.done():
+        _consume_result(task)
+        return
+    _track_result(task)
+
+
+async def _wait_for_result(task: asyncio.Task[None]) -> bool:
+    try:
+        done, _ = await asyncio.wait({task}, timeout=_PRODUCER_CANCEL_GRACE_SECONDS)
+    except asyncio.CancelledError:
+        _finish_or_track(task)
+        raise
+    return task in done
+
+
 async def _settle(task: asyncio.Task[None]) -> None:
     if task.done():
-        await task
+        _consume_result(task)
         return
     task.cancel()
-    with suppress(asyncio.CancelledError):
-        await task
+    if await _wait_for_result(task):
+        _consume_result(task)
+        return
+    _track_result(task)
+    logger.warning("chat_stream_cancel_timeout")
 
 
 async def stream_chat(handler: ChatHandler) -> AsyncIterator[str]:

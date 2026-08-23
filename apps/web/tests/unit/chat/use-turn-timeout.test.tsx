@@ -16,6 +16,10 @@ function renderTimeout(stop: () => void, status: ChatStatus = "submitted") {
 }
 
 describe("useTurnTimeout (D5 watchdog)", () => {
+  it("leaves enough time for the 100s server deadline to emit its typed timeout", () => {
+    expect(TURN_TIMEOUT_MS).toBe(110_000);
+  });
+
   it("stays quiet when the turn settles inside the budget", () => {
     const stop = vi.fn();
     const view = renderTimeout(stop);
@@ -26,7 +30,7 @@ describe("useTurnTimeout (D5 watchdog)", () => {
     expect(view.result.current.timedOut).toBe(false);
   });
 
-  it("stops the turn and raises the flag once the 60s budget elapses", () => {
+  it("stops the turn and raises the flag once the client budget elapses", () => {
     const stop = vi.fn();
     const view = renderTimeout(stop);
     act(() => { vi.advanceTimersByTime(TURN_TIMEOUT_MS); });

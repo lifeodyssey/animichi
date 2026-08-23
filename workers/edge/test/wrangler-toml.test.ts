@@ -22,6 +22,14 @@ import { URL, fileURLToPath } from "node:url";
 
 const WRANGLER_TOML_PATH = fileURLToPath(new URL("../wrangler.toml", import.meta.url));
 const wranglerToml = readFileSync(WRANGLER_TOML_PATH, "utf8");
+const observableWorkerConfigs = [
+  ["edge", "../wrangler.toml"],
+  ["catalog", "../../catalog/wrangler.toml"],
+  ["users", "../../users/wrangler.toml"],
+  ["jobs", "../../jobs/wrangler.toml"],
+  ["migrator", "../../migrator/wrangler.toml"],
+  ["doorbell", "../../doorbell/wrangler.toml"],
+] as const;
 
 // Full regex-metacharacter escape (CodeQL js/incomplete-sanitization: the
 // prior version only escaped `.`/`[`/`]` and, critically, never escaped a
@@ -37,13 +45,13 @@ function escapeRegExp(literal: string): string {
  * the file's own prose comments reference bracketed section names like
  * "([vars] below)" inline, which a plain .indexOf(header) would match first
  * and produce a bogus (wrong) block slice. */
-function blockForHeader(header: string): string {
+function blockForHeader(header: string, source: string = wranglerToml): string {
   const headerLineRegex = new RegExp(`^${escapeRegExp(header)}$`, "m");
-  const headerMatch = headerLineRegex.exec(wranglerToml);
+  const headerMatch = headerLineRegex.exec(source);
   assert.ok(headerMatch, `wrangler.toml must contain a "${header}" section header line`);
   const headerIndex = headerMatch.index;
-  const nextHeaderIndex = wranglerToml.indexOf("\n[", headerIndex + header.length);
-  return wranglerToml.slice(headerIndex, nextHeaderIndex === -1 ? undefined : nextHeaderIndex);
+  const nextHeaderIndex = source.indexOf("\n[", headerIndex + header.length);
+  return source.slice(headerIndex, nextHeaderIndex === -1 ? undefined : nextHeaderIndex);
 }
 
 function valueInBlock(header: string, key: string): string {
@@ -57,6 +65,51 @@ function valueInBlock(header: string, key: string): string {
 
 function appEnvInBlock(header: string): string {
   return valueInBlock(header, "APP_ENV");
+}
+
+function booleanInBlock(header: string, key: string, source: string): boolean {
+  const block = blockForHeader(header, source);
+  const match = new RegExp(`^${escapeRegExp(key)}\\s*=\\s*(true|false)`, "m").exec(block);
+  assert.ok(match, `"${header}" must set ${key}`);
+  return match[1] === "true";
+}
+
+function numberInBlock(header: string, key: string, source: string): number {
+  const block = blockForHeader(header, source);
+  const match = new RegExp(`^${escapeRegExp(key)}\\s*=\\s*(\\d+(?:\\.\\d+)?)`, "m").exec(block);
+  assert.ok(match, `"${header}" must set ${key}`);
+  return Number(match[1]);
+}
+
+function assertRootObservability(source: string): void {
+  assert.equal(booleanInBlock("[observability]", "enabled", source), true);
+  assert.equal(numberInBlock("[observability]", "head_sampling_rate", source), 1);
+}
+
+function assertLogObservability(source: string): void {
+  assert.equal(booleanInBlock("[observability.logs]", "enabled", source), true);
+  assert.equal(numberInBlock("[observability.logs]", "head_sampling_rate", source), 1);
+  assert.equal(booleanInBlock("[observability.logs]", "persist", source), true);
+  assert.equal(booleanInBlock("[observability.logs]", "invocation_logs", source), true);
+}
+
+function assertTraceObservability(source: string): void {
+  assert.equal(booleanInBlock("[observability.traces]", "enabled", source), true);
+  assert.equal(numberInBlock("[observability.traces]", "head_sampling_rate", source), 1);
+  assert.equal(booleanInBlock("[observability.traces]", "persist", source), true);
+}
+
+function assertObservability(source: string): void {
+  assertRootObservability(source);
+  assertLogObservability(source);
+  assertTraceObservability(source);
+}
+
+for (const [worker, relativePath] of observableWorkerConfigs) {
+  void test(`${worker} persists Cloudflare logs and traces`, () => {
+    const source = readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
+    assertObservability(source);
+  });
 }
 
 void test("wrangler.toml [vars] (default, wrangler dev) sets APP_ENV to development", () => {

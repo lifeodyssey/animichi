@@ -16,7 +16,22 @@ const envSchema = z.looseObject({
   vars: z.looseObject({ APP_ENV: z.string() }).optional(),
 });
 
-const configSchema = envSchema.extend({ env: z.record(z.string(), envSchema) });
+const observabilitySchema = z.object({
+  enabled: z.literal(true),
+  head_sampling_rate: z.literal(1),
+  logs: z.object({
+    enabled: z.literal(true),
+    head_sampling_rate: z.literal(1),
+    persist: z.literal(true),
+    invocation_logs: z.literal(true),
+  }),
+  traces: z.object({ enabled: z.literal(true), head_sampling_rate: z.literal(1), persist: z.literal(true) }),
+});
+
+const configSchema = envSchema.extend({
+  env: z.record(z.string(), envSchema),
+  observability: observabilitySchema,
+});
 
 function parseWranglerConfig(): z.infer<typeof configSchema> {
   const errors: ParseError[] = [];
@@ -28,6 +43,15 @@ function parseWranglerConfig(): z.infer<typeof configSchema> {
 const declaredEnvironments = ["staging", "production"];
 
 describe("wrangler.jsonc APP_ENV declarations (AC5)", () => {
+  it("persists Web Worker logs and traces", () => {
+    expect(parseWranglerConfig().observability).toEqual({
+      enabled: true,
+      head_sampling_rate: 1,
+      logs: { enabled: true, head_sampling_rate: 1, persist: true, invocation_logs: true },
+      traces: { enabled: true, head_sampling_rate: 1, persist: true },
+    });
+  });
+
   it("finds every environment the file actually declares", () => {
     // Guards the iterator below: a new env block added without updating this
     // list fails here instead of silently escaping the per-env assertion.

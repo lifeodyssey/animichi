@@ -59,6 +59,18 @@ bucket_name = "catalog-snapshots"
 
 [observability]
 enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
+persist = true
 
 # Per-environment schedules (issue #1016, spec §183): the upstream ingest
 # crons — SEED_CRON (0 4 * * *), DAILY_DISCOVER_CRON (0 6 * * *), TTL_REFRESH_CRON
