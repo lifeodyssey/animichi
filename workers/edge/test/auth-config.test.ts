@@ -6,13 +6,18 @@ import { URL, fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const WRANGLER = readFileSync(`${ROOT}workers/edge/wrangler.toml`, "utf8");
-const WEB_CONFIG = readFileSync(`${ROOT}apps/web/wrangler.jsonc`, "utf8");
 const TOP_LEVEL = WRANGLER.slice(0, WRANGLER.indexOf("\n[vars]\n"));
 const READ_CONFIG_SCRIPT = `
 process.env.WRANGLER_WRITE_LOGS = "false";
 const { unstable_readConfig } = await import("wrangler");
 const config = unstable_readConfig({ config: process.argv[1], env: process.argv[2] });
 process.stdout.write(String(config.name));
+`;
+const READ_RUNTIME_CONFIG_SCRIPT = `
+process.env.WRANGLER_WRITE_LOGS = "false";
+const { unstable_readConfig } = await import("wrangler");
+const config = unstable_readConfig({ config: process.argv[1], env: "staging" });
+process.stdout.write(String(config.vars?.RUNTIME_CONFIG ?? ""));
 `;
 
 function blockFor(header: string): string {
@@ -39,11 +44,11 @@ function parsedWorkerName(environment: string): string {
 }
 
 function stagingAuthBaseUrl(): string {
-  const marker = "neonAuthBaseUrl\\\":\\\"";
-  const start = WEB_CONFIG.indexOf(marker) + marker.length;
-  assert.notEqual(start, marker.length - 1, "web staging config must declare its Neon Auth SDK endpoint");
-  const end = WEB_CONFIG.indexOf("\\\"", start);
-  return WEB_CONFIG.slice(start, end);
+  const path = `${ROOT}apps/web/wrangler.jsonc`;
+  const raw = execFileSync(process.execPath, ["--input-type=module", "--eval", READ_RUNTIME_CONFIG_SCRIPT, path], { encoding: "utf8" });
+  const config = JSON.parse(raw) as { neonAuthBaseUrl?: unknown };
+  if (typeof config.neonAuthBaseUrl !== "string") assert.fail("web staging config must declare its Neon Auth SDK endpoint");
+  return config.neonAuthBaseUrl;
 }
 
 // AUTH-2 #950 hard cut: the JWKS URL is the edge's ONLY identity source;
