@@ -76,15 +76,15 @@ function useListFocus(open: boolean) {
   return ref;
 }
 
-type TriggerProps = Readonly<{ id: string; text: string; open: boolean; onToggle: () => void }>;
+type TriggerProps = Readonly<{ id: string; text: string; open: boolean; onToggle: () => void; onClose: () => void }>;
 
 function keepOpenListFocused(event: MouseEvent, open: boolean): void {
   if (open) event.preventDefault();
 }
 
-const SelectTrigger = forwardRef<HTMLButtonElement, TriggerProps>(function SelectTrigger({ id, text, open, onToggle }, ref) {
+const SelectTrigger = forwardRef<HTMLButtonElement, TriggerProps>(function SelectTrigger({ id, text, open, onToggle, onClose }, ref) {
   return (
-    <button ref={ref} type="button" className="ds-select__trigger" role="combobox" aria-labelledby={`${id}-label ${id}-value`} aria-expanded={open} aria-haspopup="listbox" aria-controls={`${id}-listbox`} onMouseDown={(event) => { keepOpenListFocused(event, open); }} onClick={onToggle}>
+    <button ref={ref} type="button" className="ds-select__trigger" role="combobox" aria-labelledby={`${id}-label ${id}-value`} aria-expanded={open} aria-haspopup="listbox" aria-controls={`${id}-listbox`} onMouseDown={(event) => { keepOpenListFocused(event, open); }} onClick={open ? onClose : onToggle}>
       <span id={`${id}-value`} className="ds-select__value">{text}</span><span className="ds-select__caret" aria-hidden="true">▾</span>
     </button>
   );
@@ -152,5 +152,5 @@ export function Select({ id, label, value, options, onChange }: SelectProps) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const dropdown = useDropdown(options, value, triggerRef);
   const onPick = makePicker(options, value, dropdown, onChange);
-  return <div className="ds-select"><span className="ds-select__label" id={`${id}-label`}>{label}</span><SelectTrigger ref={triggerRef} id={id} text={labelOfValue(options, value)} open={dropdown.open} onToggle={dropdown.toggle} /><SelectList id={id} options={options} value={value} dropdown={dropdown} onPick={onPick} /></div>;
+  return <div className="ds-select"><span className="ds-select__label" id={`${id}-label`}>{label}</span><SelectTrigger ref={triggerRef} id={id} text={labelOfValue(options, value)} open={dropdown.open} onToggle={dropdown.toggle} onClose={() => { dropdown.close(true); }} /><SelectList id={id} options={options} value={value} dropdown={dropdown} onPick={onPick} /></div>;
 }

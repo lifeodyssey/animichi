@@ -76,6 +76,7 @@ describe("DS Select — opening", () => {
     await user.click(trigger);
     await user.click(trigger);
     expect(screen.queryByRole("listbox")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
   });
 });
 
