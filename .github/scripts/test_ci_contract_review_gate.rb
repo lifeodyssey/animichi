@@ -65,8 +65,15 @@ end
 def assert_trigger_contract(quality, quality_yml)
   assert_event_triggers(quality, quality_yml)
   assert_thread_comment_triggers(quality, quality_yml)
+  assert_concurrency_group(quality, quality_yml)
   assert_concurrency_cancellation(quality, quality_yml)
   assert_review_refresh_scope(quality_yml)
+end
+
+def assert_concurrency_group(quality, quality_yml)
+  group = quality.fetch("concurrency").fetch("group")
+  expected = "${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.event.pull_request.number || github.event.issue.number || github.head_ref || github.ref }}"
+  abort "#{quality_yml} concurrency group must prefer the PR number before branch/ref fallback" unless group == expected
 end
 
 def assert_review_refresh_scope(quality_yml)

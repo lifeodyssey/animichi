@@ -31,9 +31,11 @@ permissions:
 # pull_request_review_comment, and issue_comment — cancels the in-progress run
 # so a newer review/thread/comment/finding can never wait behind an older run
 # that posts a stale success (issue #1008 finding 2). Queue (merge_group) and
-# main (push) runs never cancel: cancelling a queue run wedges the queue.
+# main (push) runs never cancel: cancelling a queue run wedges the queue. PR
+# number precedes branch/ref fallbacks so a branch-triggered run and a
+# review/comment refresh for the same PR share one cancellation group.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.event.issue.number || github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.event.pull_request.number || github.event.issue.number || github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_review' || github.event_name == 'pull_request_review_comment' || github.event_name == 'issue_comment' }}
 
 jobs:

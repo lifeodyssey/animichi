@@ -11,6 +11,7 @@
 #   RED  move the final status before the actionlint gate      -> contract aborts
 #   RED  drop pull_request_review / issue_comment from cancel   -> contract aborts
 #   RED  drop pull_request_review_comment from cancel          -> contract aborts
+#   RED  prefer branch/ref over the PR number in concurrency   -> contract aborts
 #   RED  drop `edited` from pull_request types                 -> contract aborts
 #   RED  rename the producer away from Review Gate             -> contract aborts
 #   RED  rename the legacy wrapper away from Quality / invariants -> contract aborts
@@ -99,10 +100,11 @@ def apply_job_name(wf, job_name, legacy_name, legacy_needs)
   wf
 end
 
-def mutated_workflow(reorder: nil, cancel_in_progress: nil, pr_types: nil, job_name: nil, legacy_name: nil, legacy_needs: nil)
+def mutated_workflow(reorder: nil, cancel_in_progress: nil, concurrency_group: nil, pr_types: nil, job_name: nil, legacy_name: nil, legacy_needs: nil)
   wf = YAML.safe_load(File.read(REAL))
   wf = apply_reorder(wf, reorder)
   wf = apply_cancel(wf, cancel_in_progress)
+  wf["concurrency"]["group"] = concurrency_group if concurrency_group
   wf = apply_pr_types(wf, pr_types)
   wf = apply_job_name(wf, job_name, legacy_name, legacy_needs)
   wf
@@ -172,6 +174,12 @@ red_probe(
   "cancel-in-progress dropped for pull_request_review_comment",
   "must cancel pull_request_review_comment runs",
   mutated_workflow(cancel_in_progress: "${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_review' || github.event_name == 'issue_comment' }}")
+)
+
+red_probe(
+  "concurrency group prefers branch/ref over PR identity",
+  "concurrency group must prefer the PR number before branch/ref fallback",
+  mutated_workflow(concurrency_group: "${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.event.issue.number || github.event.pull_request.number || github.ref }}")
 )
 
 red_probe(
