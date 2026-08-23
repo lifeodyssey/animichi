@@ -109,6 +109,7 @@ case "$tool:$*" in
     fi
     exit 1 ;;
   docker:info*) [ "${GATE_DOCKER_UNAVAILABLE:-}" = "1" ] && exit 1 ;;
+  docker:exec*pg_isready*) [ "${GATE_DOCKER_TCP_UNAVAILABLE:-}" = "1" ] && exit 1 ;;
   docker:run*) printf 'gate-cid\n' ;;
   docker:port*) printf '0.0.0.0:5433\n' ;;
   "docker:image inspect"*) [ "${GATE_DOCKER_IMAGE_MISSING:-}" = "1" ] && exit 1 ;;
