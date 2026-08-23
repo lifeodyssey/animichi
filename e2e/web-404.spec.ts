@@ -24,7 +24,7 @@ test("home route hydrates without uncaught errors", async ({ page }) => {
   await page.addInitScript(() => {
     window.addEventListener("load", () => { void fetch("/held-open"); });
   });
-  expect(await collectPageErrors(page, "/", ".chat-page")).toEqual([]);
+  expect(await collectPageErrors(page, "/", ".doorway")).toEqual([]);
 });
 
 test("undefined route renders a branded 404", async ({ page }) => {
