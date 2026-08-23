@@ -96,6 +96,7 @@ test("a seeded night theme survives a toggle to day and a reload", { tag: "@brow
   await toggle.click();
   await expectDay(toggle);
   await page.reload();
+  await solveTurnstileEntry(page);
   await expectDay(page.getByRole("switch"));
 });
 
