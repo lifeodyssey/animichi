@@ -1,0 +1,109 @@
+name: PR Verification
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  merge_group:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  route:
+    name: PR Verification / route
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      packages: ${{ steps.route.outputs.packages }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify PR Verification workflow contract
+        run: ruby .github/scripts/test_pr_verification_contract.rb
+      - name: Verify PR Verification mutation probes
+        run: ruby .github/scripts/test_pr_verification_contract_mutation.rb
+      - name: Verify PR Verification aggregation behavior
+        run: bash .github/scripts/test_pr_verification_aggregate.sh
+      - name: Verify affected-package routing
+        run: bash .github/scripts/test_pr_verification_route.sh
+      - name: Resolve affected packages
+        id: route
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = merge_group ]; then
+            packages="$(source scripts/local-gates/workspace-packages.sh; load_workspace_packages; printf '%s\n' "$WORKSPACE_NAMES" db docs | sort -u)"
+          else
+            packages="$(bash .github/scripts/pr-verification-route.sh "$BASE_SHA" "$HEAD_SHA")"
+          fi
+          [ -n "$packages" ] || { echo '::error::affected-package routing returned no gates'; exit 1; }
+          json="$(printf '%s\n' "$packages" | jq -Rsc 'split("\n") | map(select(length > 0))')"
+          echo "packages=$json" >> "$GITHUB_OUTPUT"
+          echo "Affected packages: $json" >> "$GITHUB_STEP_SUMMARY"
+
+  package-gate:
+    name: PR Verification / package (${{ matrix.package }})
+    needs: route
+    if: ${{ needs.route.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.route.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: ${{ contains(fromJSON('["agent", "db", "docs"]'), matrix.package) }}
+      - name: Install Python runtime for Python-backed gates
+        if: ${{ contains(fromJSON('["agent", "db", "docs"]'), matrix.package) }}
+        run: uv python install 3.11
+      - uses: ./.github/actions/install-atlas
+        if: ${{ matrix.package == 'db' }}
+      - name: Install Pulumi CLI for the infra gate
+        if: ${{ matrix.package == 'infra' }}
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version-file: .pulumi.version
+      - name: Run affected package gate
+        run: bash .github/scripts/pr-verification-gate.sh "${{ matrix.package }}"
+
+  aggregate:
+    name: PR Verification
+    needs: [route, package-gate]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify every selected gate on the current head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Pull-request check-runs are attached to the branch head; merge
+          # queue check-runs are attached to the temporary queue commit.
+          PR_VERIFICATION_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PR_VERIFICATION_PACKAGES: ${{ needs.route.outputs.packages }}
+          PR_VERIFICATION_ROUTE_RESULT: ${{ needs.route.result }}
+          PR_VERIFICATION_MATRIX_RESULT: ${{ needs.package-gate.result }}
+        run: bash .github/scripts/pr-verification-aggregate.sh
