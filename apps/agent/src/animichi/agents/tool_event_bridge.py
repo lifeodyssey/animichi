@@ -12,14 +12,17 @@ from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 from pydantic_ai import RunContext
 from pydantic_ai.messages import (
     AgentStreamEvent,
+    FinalResultEvent,
     FunctionToolCallEvent,
     FunctionToolResultEvent,
+    PartStartEvent,
     RetryPromptPart,
+    ToolCallPart,
     ToolReturnPart,
 )
 
 from animichi.agents.agent_result import StepData, StepProvenance, StepRecord
-from animichi.agents.runtime_deps import StepEvent, StepStatus
+from animichi.agents.runtime_deps import StepEvent, StepStatus, new_step_call_id
 from animichi.agents.web_trust import detect_prompt_injection, sanitize_untrusted
 
 if TYPE_CHECKING:
@@ -32,6 +35,11 @@ _MAX_ITEMS = 20
 _MAX_DEPTH = 3
 _FAILED_ERROR = "Tool execution failed"
 logger = structlog.get_logger(__name__)
+_DIRECT_OUTPUT_INTENTS = {
+    "clarify_response": "clarify",
+    "greeting_response": "greet_user",
+    "qa_response": "general_qa",
+}
 
 
 @dataclass(frozen=True)
@@ -88,10 +96,56 @@ async def tool_event_bridge(
 ) -> None:
     """Drain one graph node's official event stream into request-local state."""
     async for event in events:
-        if isinstance(event, FunctionToolCallEvent):
+        if isinstance(event, PartStartEvent):
+            await _handle_part_start(ctx.deps, event)
+        elif isinstance(event, FunctionToolCallEvent):
             await _handle_call(ctx.deps, event)
         elif isinstance(event, FunctionToolResultEvent):
             await _handle_result(ctx.deps, event)
+        elif isinstance(event, FinalResultEvent):
+            await _handle_final_result(ctx.deps, event)
+
+
+async def _handle_final_result(deps: RuntimeDeps, event: FinalResultEvent) -> None:
+    await _emit_output_progress(deps, event.tool_name, event.tool_call_id)
+
+
+async def _handle_part_start(deps: RuntimeDeps, event: PartStartEvent) -> None:
+    if not isinstance(event.part, ToolCallPart):
+        return
+    await _emit_output_progress(deps, event.part.tool_name, event.part.tool_call_id)
+
+
+async def _emit_output_progress(
+    deps: RuntimeDeps, output_name: str | None, call_id: str | None
+) -> None:
+    intent = _output_intent(deps, output_name)
+    if intent is None:
+        return
+    resolved_id = call_id or new_step_call_id("output")
+    if resolved_id in deps.output_progress_calls:
+        return
+    deps.output_progress_calls.add(resolved_id)
+    await _emit(deps, StepEvent(intent, resolved_id, "running", {}, kind="output"))
+
+
+def _output_intent(deps: RuntimeDeps, output_name: str | None) -> str | None:
+    if output_name == "search_response":
+        return _last_successful(deps, {"search_bangumi", "search_nearby"})
+    if output_name == "route_response":
+        return _last_successful(deps, {"plan_route", "plan_selected"})
+    return _DIRECT_OUTPUT_INTENTS.get(output_name or "")
+
+
+def _last_successful(deps: RuntimeDeps, names: set[str]) -> str | None:
+    return next(
+        (
+            step.tool
+            for step in reversed(deps.steps)
+            if step.is_success and step.tool in names
+        ),
+        None,
+    )
 
 
 def register_tool_provenance(
