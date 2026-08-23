@@ -22,10 +22,9 @@
 #               contexts must listen on `merge_group` — otherwise the merge
 #               queue waits forever on a check that never runs. The required
 #               context -> workflow map below is the pinned snapshot of the
-#               Security aggregator target (24 contexts; the live replacement
-#               is the #1180 one-shot PUT; docs/ops/deployment.md "Main
-#               promotion path" and docs/iterations/s0v2/ruleset-target.json);
-#               drift in either
+#               post-#1180 live ruleset (three PR-level aggregators; see
+#               docs/ops/deployment.md "Main promotion path" and
+#               docs/iterations/s0v2/ruleset-target.json); drift in either
 #               direction fails loudly: an owner workflow absent from the
 #               directory is reported too.
 #
@@ -50,40 +49,15 @@ require "yaml"
 require_relative "assert-workflow-invariants-expression"
 
 # Branch-protection required contexts -> workflow that produces each one.
-# Snapshot of the Security aggregator target (24 contexts: 23 package/quality
-# contexts plus Security; the live one-shot replacement is tracked by #1180).
-# Update this table whenever the ruleset changes, and add merge_group to any
-# newly-required workflow. The individual security scans are evidence under
-# ci.yml's `Security scans` job; the required `Security` context is produced by
-# the top-level fail-closed aggregator. `Infra / build` is deliberately NOT
-# required (deferred:
-# its Pulumi preview lane is red pending re-issued R2 keys — see
-# docs/iterations/s0v2/ruleset-target.json _deferred_required).
+# Snapshot of the post-#1180 live ruleset. Update this table whenever the
+# ruleset changes, and add merge_group to any newly-required workflow. The live
+# ruleset requires only these three fail-closed PR-level aggregators;
+# package/security child jobs remain visible evidence but are not independently
+# required.
 REQUIRED_CONTEXTS = {
-  "Web / lint" => "pipeline-web.yml",
-  "Web / test" => "pipeline-web.yml",
-  "Web / build" => "pipeline-web.yml",
-  "Agent / lint" => "pipeline-agent.yml",
-  "Agent / test" => "pipeline-agent.yml",
-  "Agent / build" => "pipeline-agent.yml",
-  "Catalog / lint" => "pipeline-catalog.yml",
-  "Catalog / test" => "pipeline-catalog.yml",
-  "Catalog / build" => "pipeline-catalog.yml",
-  "Users / lint" => "pipeline-users.yml",
-  "Users / test" => "pipeline-users.yml",
-  "Users / build" => "pipeline-users.yml",
-  "Edge / lint" => "pipeline-edge.yml",
-  "Edge / test" => "pipeline-edge.yml",
-  "Edge / build" => "pipeline-edge.yml",
-  "Contract / lint" => "pipeline-contract.yml",
-  "Contract / test" => "pipeline-contract.yml",
-  "Contract / build" => "pipeline-contract.yml",
-  "Infra / lint" => "pipeline-infra.yml",
-  "Infra / test" => "pipeline-infra.yml",
-  "DB / lint" => "pipeline-db.yml",
-  "DB / build" => "pipeline-db.yml",
-  "Quality / invariants" => "pipeline-quality.yml",
-  "Security" => "ci.yml"
+  "PR Verification" => "pr-verification.yml",
+  "Security" => "ci.yml",
+  "Review Gate" => "pipeline-quality.yml"
 }.freeze
 
 # Events that produce one run per pull-request update and therefore share the

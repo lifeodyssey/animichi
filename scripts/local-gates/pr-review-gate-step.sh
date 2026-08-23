@@ -17,9 +17,8 @@
 # Plain issue comments, push, and merge_group resolve to no PR and never post a
 # fake PR review result. Every boundary fails closed: an unresolvable head, an
 # advanced head, a failed collect/check, or an unpostable status exits non-zero
-# so the new `Review Gate` job fails and GitHub blocks the merge. The separate
-# `Quality / invariants` compatibility job mirrors this result until #1180's
-# guarded PUT removes the legacy required context.
+# so the required `Review Gate` job fails and GitHub blocks the merge. After
+# #1180 it is the sole required quality/review context.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

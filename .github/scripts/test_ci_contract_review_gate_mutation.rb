@@ -15,8 +15,7 @@
 #   RED  omit any review refresh event from the scope scan      -> contract aborts
 #   RED  drop `edited` from pull_request types                 -> contract aborts
 #   RED  rename the producer away from Review Gate             -> contract aborts
-#   RED  rename the legacy wrapper away from Quality / invariants -> contract aborts
-#   RED  drop the legacy wrapper dependency                      -> contract aborts
+#   RED  restore the retired Quality / invariants wrapper       -> contract aborts
 #   GREEN pristine pipeline-quality.yml                         -> contract passes
 
 require_relative "test_ci_contract_review_gate_mutation_helpers"
@@ -64,15 +63,9 @@ red_probe(
 )
 
 red_probe(
-  "legacy wrapper renamed to Review Gate",
-  "must emit Quality / invariants",
-  mutated_workflow(legacy_name: "Review Gate")
-)
-
-red_probe(
-  "legacy wrapper loses Review Gate dependency",
-  "must depend on invariants",
-  mutated_workflow(legacy_needs: [])
+  "retired legacy wrapper restored",
+  "must not emit legacy Quality / invariants",
+  mutated_workflow(restore_legacy: true)
 )
 
 scope_probe

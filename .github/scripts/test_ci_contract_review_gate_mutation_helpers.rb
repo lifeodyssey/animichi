@@ -75,21 +75,29 @@ def apply_pr_types(wf, pr_types)
   wf
 end
 
-def apply_job_name(wf, job_name, legacy_name, legacy_needs)
+def apply_job_name(wf, job_name)
   wf.fetch("jobs").fetch("invariants")["name"] = job_name if job_name
-  legacy = wf.fetch("jobs").fetch("legacy-quality")
-  legacy["name"] = legacy_name if legacy_name
-  legacy["needs"] = legacy_needs if legacy_needs
   wf
 end
 
-def mutated_workflow(reorder: nil, cancel_in_progress: nil, concurrency_group: nil, pr_types: nil, job_name: nil, legacy_name: nil, legacy_needs: nil)
+def restore_legacy_wrapper(wf)
+  wf.fetch("jobs")["legacy-quality"] = {
+    "name" => "Quality / invariants",
+    "needs" => "invariants",
+    "runs-on" => "ubuntu-latest",
+    "steps" => [{ "run" => "true" }]
+  }
+  wf
+end
+
+def mutated_workflow(reorder: nil, cancel_in_progress: nil, concurrency_group: nil, pr_types: nil, job_name: nil, restore_legacy: false)
   wf = YAML.safe_load(File.read(REAL))
   wf = apply_reorder(wf, reorder)
   wf = apply_cancel(wf, cancel_in_progress)
   wf["concurrency"]["group"] = concurrency_group if concurrency_group
   wf = apply_pr_types(wf, pr_types)
-  apply_job_name(wf, job_name, legacy_name, legacy_needs)
+  wf = apply_job_name(wf, job_name)
+  restore_legacy ? restore_legacy_wrapper(wf) : wf
 end
 
 def red_probe(label, expected_fragment, wf)

@@ -40,8 +40,7 @@ MODULE="$ROOT/scripts/local-gates/pr_review_check.py"
 BRIEF_RECORD="$ROOT/scripts/local-gates/brief_record.py"
 
 # The pipeline-quality job emits `Review Gate` as its check-run and this
-# head-bound status uses the same post-cutover context. The compatibility job
-# owns the legacy `Quality / invariants` check until the guarded PUT.
+# head-bound status uses the same sole post-cutover context.
 STATUS_CONTEXT='Review Gate'
 
 THREADS_QUERY='query($owner:String!,$name:String!,$pr:Int!,$endCursor:String){

@@ -310,17 +310,3 @@ jobs:
           GATE_STATE: ${{ steps.review-gate.outputs.gate_state }}
         run: scripts/local-gates/pr-review-gate-step.sh final-status "$REPO" "$HEAD_SHA" "$JOB_STATUS" "$GATE_STATE"
         shell: bash
-  legacy-quality:
-    name: Quality / invariants
-    needs: invariants
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    permissions:
-      contents: read
-    steps:
-      - name: Mirror Review Gate result for pre-cutover ruleset
-        env:
-          REVIEW_GATE_RESULT: ${{ needs.invariants.result }}
-        run: test "$REVIEW_GATE_RESULT" = success
-        shell: bash

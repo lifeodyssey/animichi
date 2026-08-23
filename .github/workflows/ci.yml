@@ -8,9 +8,9 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-  # The six stable lanes below are branch-protection required contexts; a
-  # merge queue waits on them, so they must also run on the queue's
-  # temporary merge commit or a queued PR pends forever (S0-v2 B7).
+  # `Security` is one of the three required PR-level aggregators. A merge
+  # queue waits on it, so this workflow must also run on the queue's temporary
+  # merge commit or a queued PR pends forever (S0-v2 B7).
   merge_group:
     branches: [main]
   workflow_dispatch:
@@ -49,10 +49,9 @@ jobs:
   # tradeoff documented in docs/ops/deployment.md).
 
   security-scans:
-    # Keep the pre-cutover check namespace until #1180 replaces the live
-    # ruleset. The reusable workflow remains the evidence fan-out; naming the
-    # caller Security preserves the existing Security / <lane> contexts while
-    # the top-level Security aggregate is introduced.
+    # The reusable workflow remains the evidence fan-out. Its child
+    # Security / <lane> contexts are visible diagnostics; only the top-level
+    # fail-closed Security aggregate is required after #1180.
     name: Security
     uses: ./.github/workflows/reusable-security.yml
     # Caller ceiling for the reusable: its gitleaks job declares

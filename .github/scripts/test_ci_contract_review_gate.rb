@@ -32,7 +32,7 @@ def assert_review_gate_contract(quality_yml)
   quality = YAML.safe_load(File.read(quality_yml))
   invariants = quality.fetch("jobs").fetch("invariants")
   assert_producer_name(invariants, quality_yml)
-  assert_legacy_wrapper(quality.fetch("jobs"), quality_yml)
+  assert_legacy_wrapper_absent(quality.fetch("jobs"), quality_yml)
   assert_job_permissions(invariants, quality_yml)
   assert_trigger_contract(quality, quality_yml)
   resolve, pending, gate, final = assert_head_status_steps(invariants, quality_yml)
@@ -47,13 +47,11 @@ def assert_producer_name(invariants, quality_yml)
   abort "#{quality_yml} invariants job must emit #{expected}, got #{actual.inspect}" unless actual == expected
 end
 
-def assert_legacy_wrapper(jobs, quality_yml)
-  wrapper = jobs.fetch("legacy-quality")
-  abort "#{quality_yml} legacy-quality job must emit Quality / invariants" unless wrapper.fetch("name") == "Quality / invariants"
-  abort "#{quality_yml} legacy-quality job must depend on invariants" unless Array(wrapper.fetch("needs")) == ["invariants"]
-  abort "#{quality_yml} legacy-quality job must run after cancellation/failure" unless wrapper.fetch("if").include?("always()")
-  step = wrapper.fetch("steps").fetch(0)
-  abort "#{quality_yml} legacy-quality wrapper must mirror needs.invariants.result" unless step.fetch("run").include?("REVIEW_GATE_RESULT") && step.fetch("env").fetch("REVIEW_GATE_RESULT").include?("needs.invariants.result")
+def assert_legacy_wrapper_absent(jobs, quality_yml)
+  restored = jobs.any? do |job_id, job|
+    job_id == "legacy-quality" || (job.is_a?(Hash) && job["name"] == "Quality / invariants")
+  end
+  abort "#{quality_yml} must not emit legacy Quality / invariants after #1180 cutover" if restored
 end
 
 def assert_job_permissions(invariants, quality_yml)
@@ -165,7 +163,7 @@ def last_actionlint_index(step_list)
 end
 
 def review_gate_summary(quality_yml)
-  puts "Review gate: #{quality_yml} `Review Gate` resolves the PR head once, posts pending before the quality steps, runs pr-review-check collect + check against the pinned head (merge-base base, no local verdict), posts final status with if: always(), and mirrors its result to the legacy `Quality / invariants` wrapper until cutover"
+  puts "Review gate: #{quality_yml} emits only `Review Gate`, resolves the PR head once, posts pending before the quality steps, runs pr-review-check collect + check against the pinned head (merge-base base, no local verdict), and posts final status with if: always()"
 end
 
 assert_review_gate_contract(ARGV[0] || QUALITY_YML) if $PROGRAM_NAME == __FILE__

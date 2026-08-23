@@ -136,9 +136,7 @@ require_relative "test_ci_contract_doorbell_web"
 require_relative "test_ci_contract_doorbell_workers"
 
 # Issue #1008 (review gate, docs/ops/review-gate.md §7): the PR comment gate is
-# wired into the `Review Gate` job. A lightweight `Quality / invariants` wrapper
-# mirrors that job while the current live ruleset still requires the old name.
-# The workflow
+# wired into the sole required `Review Gate` job after the #1180 cutover. The workflow
 # independently checks the current PR's active unresolved review threads,
 # top-level managed findings, snapshot-bound acknowledgement, and the
 # head/base/brief-bound human review-approval marker — check runs WITHOUT
