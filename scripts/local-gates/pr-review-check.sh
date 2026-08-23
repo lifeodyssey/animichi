@@ -18,11 +18,11 @@
 # #1008 finding 2). `check` is pure: it judges that snapshot (optionally with
 # the local head-bound review verdict artifact) and prints one JSON object,
 # exiting 0 on approve, 1 on reject, 2 on failure to even read the inputs
-# (fail-closed). `status` posts a commit status with the required
-# `Quality / invariants` context on the exact PR head SHA, binding
+# (fail-closed). `status` posts the `Review Gate` commit status on the exact PR
+# head SHA, binding
 # comment-triggered re-evaluations to the head the ruleset consumes (not the
 # default-branch SHA an issue_comment run is associated with). The CLI merge
-# hook consults the gate verdict; the required `Quality / invariants` workflow
+# hook consults the gate verdict; the required `Review Gate` workflow
 # context runs the same collect + check on the current PR and blocks UI /
 # auto-merge / API merges when its own check fails (docs/ops/review-gate.md §7).
 #
@@ -37,9 +37,10 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MODULE="$ROOT/scripts/local-gates/pr_review_check.py"
 BRIEF_RECORD="$ROOT/scripts/local-gates/brief_record.py"
 
-# The commit-status context must match the required ruleset context so the
-# head-bound status is exactly what branch protection consumes.
-STATUS_CONTEXT='Quality / invariants'
+# The pipeline-quality job emits `Review Gate` as its check-run and this
+# head-bound status uses the same post-cutover context. The compatibility job
+# owns the legacy `Quality / invariants` check until the guarded PUT.
+STATUS_CONTEXT='Review Gate'
 
 THREADS_QUERY='query($owner:String!,$name:String!,$pr:Int!,$endCursor:String){
   repository(owner:$owner,name:$name){

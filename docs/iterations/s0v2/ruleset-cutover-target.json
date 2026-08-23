@@ -1,0 +1,52 @@
+{
+  "schema_version": "ruleset-cutover/v1",
+  "_comment": "Post-cutover target for #1180. The live ruleset is not changed by this file; the operator command snapshots it, validates a candidate, and performs one guarded PUT.",
+  "ruleset_id": 19974534,
+  "repository": "lifeodyssey/animichi",
+  "required_checks": [
+    "PR Verification",
+    "Security",
+    "Review Gate"
+  ],
+  "producer_workflows": {
+    "PR Verification": ".github/workflows/pr-verification.yml",
+    "Security": ".github/workflows/ci.yml",
+    "Review Gate": ".github/workflows/pipeline-quality.yml"
+  },
+  "producer_jobs": {
+    "PR Verification": {
+      "workflow": ".github/workflows/pr-verification.yml",
+      "job_id": "aggregate",
+      "name": "PR Verification"
+    },
+    "Security": {
+      "workflow": ".github/workflows/ci.yml",
+      "job_id": "security",
+      "name": "Security"
+    },
+    "Review Gate": {
+      "workflow": ".github/workflows/pipeline-quality.yml",
+      "job_id": "invariants",
+      "name": "Review Gate"
+    }
+  },
+  "pre_cutover_compatibility": {
+    "legacy_required_context": "Quality / invariants",
+    "workflow": ".github/workflows/pipeline-quality.yml",
+    "job_id": "legacy-quality",
+    "needs": "invariants",
+    "remove_after": "#1180 live ruleset PUT"
+  },
+  "merge_group": {
+    "required": true,
+    "branches": ["main"],
+    "review_gate_dependency": "#1178 supplies the Review Gate current-head contract before the live PUT"
+  },
+  "actions_settings": "not_requested",
+  "live_cutover": {
+    "status": "pending",
+    "apply_mode": "one guarded PUT after #1176, #1177, and #1178",
+    "recovery_artifact": "ruleset-before.json",
+    "canary_artifact": "canary.json"
+  }
+}

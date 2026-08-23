@@ -12,6 +12,9 @@
 #   RED  drop pull_request_review / issue_comment from cancel   -> contract aborts
 #   RED  drop pull_request_review_comment from cancel          -> contract aborts
 #   RED  drop `edited` from pull_request types                 -> contract aborts
+#   RED  rename the producer away from Review Gate             -> contract aborts
+#   RED  rename the legacy wrapper away from Quality / invariants -> contract aborts
+#   RED  drop the legacy wrapper dependency                      -> contract aborts
 #   GREEN pristine pipeline-quality.yml                         -> contract passes
 
 require "stringio"
@@ -87,11 +90,20 @@ def apply_pr_types(wf, pr_types)
   wf
 end
 
-def mutated_workflow(reorder: nil, cancel_in_progress: nil, pr_types: nil)
+def apply_job_name(wf, job_name, legacy_name, legacy_needs)
+  wf.fetch("jobs").fetch("invariants")["name"] = job_name if job_name
+  legacy = wf.fetch("jobs").fetch("legacy-quality")
+  legacy["name"] = legacy_name if legacy_name
+  legacy["needs"] = legacy_needs if legacy_needs
+  wf
+end
+
+def mutated_workflow(reorder: nil, cancel_in_progress: nil, pr_types: nil, job_name: nil, legacy_name: nil, legacy_needs: nil)
   wf = YAML.safe_load(File.read(REAL))
   wf = apply_reorder(wf, reorder)
   wf = apply_cancel(wf, cancel_in_progress)
   wf = apply_pr_types(wf, pr_types)
+  wf = apply_job_name(wf, job_name, legacy_name, legacy_needs)
   wf
 end
 
@@ -143,6 +155,24 @@ red_probe(
   "pull_request edited type dropped",
   "pull_request must cover edited",
   mutated_workflow(pr_types: %w[opened synchronize reopened])
+)
+
+red_probe(
+  "Review Gate producer renamed to legacy name",
+  "must emit Review Gate",
+  mutated_workflow(job_name: "Quality / invariants")
+)
+
+red_probe(
+  "legacy wrapper renamed to Review Gate",
+  "must emit Quality / invariants",
+  mutated_workflow(legacy_name: "Review Gate")
+)
+
+red_probe(
+  "legacy wrapper loses Review Gate dependency",
+  "must depend on invariants",
+  mutated_workflow(legacy_needs: [])
 )
 
 green_probe("pristine pipeline-quality.yml")
