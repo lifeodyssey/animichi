@@ -52,6 +52,13 @@ def assert_job_contract(workflow)
   head_env = aggregate.fetch("steps").map { |step| step.dig("env", "PR_VERIFICATION_HEAD_SHA") }.compact.first
   abort "aggregator must bind PR checks to pull-request head" unless head_env.to_s.include?("github.event.pull_request.head.sha")
   abort "package gate must not suppress failures" if File.read(WORKFLOW).match?(/^\s*(continue-on-error|skip)\s*:/)
+  workflow_source = File.read(WORKFLOW)
+  image_build = "docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 ."
+  abort "agent/db gates must build the pinned offline Postgres image" unless workflow_source.include?(image_build)
+  abort "offline Postgres image build must be scoped to agent/db gates" unless workflow_source.include?("matrix.package == 'agent' || matrix.package == 'db'")
+  gate_source = File.read(GATE)
+  abort "e2e gate must run deterministic Web pipeline assertions" unless gate_source.include?("web-404.spec.ts web-maplibre-canary.spec.ts web-state-ownership.spec.ts")
+  abort "e2e gate must not be collection-only" if gate_source.include?("playwright test --list")
 end
 
 def assert_routing_contract
@@ -60,6 +67,8 @@ def assert_routing_contract
     abort "route must use #{name}" unless source.include?(name)
   end
   gate_source = File.read(GATE)
+  allowed = gate_source[/^ALLOWED="([^"]+)"/, 1].to_s.split("|")
+  abort "gate dispatcher allowed package set drift" unless EXPECTED_PACKAGES.all? { |package| allowed.include?(package) }
   pre_push = File.read(File.join(REPO_ROOT, "scripts", "local-gates", "pre-push.sh"))
   worker_gates = File.read(File.join(REPO_ROOT, "scripts", "local-gates", "pre-push-worker-gates.sh"))
   EXPECTED_PACKAGES.each do |package|

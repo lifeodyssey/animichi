@@ -80,8 +80,32 @@ jobs:
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
           pulumi-version-file: .pulumi.version
+      # The agent integration and DB fresh-schema gates both use the same
+      # pinned offline Postgres image as pipeline-agent. Each matrix member
+      # gets a fresh runner, so build it before either gate can inspect or use
+      # the local Docker image.
+      - name: Build hermetic Postgres+PostGIS+pgvector test image
+        if: ${{ matrix.package == 'agent' || matrix.package == 'db' }}
+        run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+      - name: Resolve Playwright version
+        if: ${{ matrix.package == 'e2e' }}
+        run: |
+          PLAYWRIGHT_VERSION="$(pnpm --dir e2e exec playwright --version)"
+          echo "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION#Version }" >> "$GITHUB_ENV"
+        shell: bash
+      - name: Restore Playwright browser cache
+        if: ${{ matrix.package == 'e2e' }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
+      - name: Install Playwright browser
+        if: ${{ matrix.package == 'e2e' }}
+        run: pnpm --dir e2e exec playwright install --with-deps chromium
       - name: Run affected package gate
-        run: bash .github/scripts/pr-verification-gate.sh "${{ matrix.package }}"
+        env:
+          PR_VERIFICATION_PACKAGE: ${{ matrix.package }}
+        run: bash .github/scripts/pr-verification-gate.sh "$PR_VERIFICATION_PACKAGE"
 
   aggregate:
     name: PR Verification
