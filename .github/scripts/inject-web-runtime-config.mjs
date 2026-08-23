@@ -48,6 +48,10 @@ const payload = {
 for (const key of ["neonAuthBaseUrl", "turnstileSiteKey", "cfBeaconToken"]) {
   if (payload[key] === undefined) delete payload[key];
 }
+if (payload.neonAuthBaseUrl === undefined) {
+  console.error("VITE_NEON_AUTH_BASE_URL is required; refusing to inject an empty RUNTIME_CONFIG");
+  process.exit(1);
+}
 
 const source = readFileSync(configPath, "utf8");
 const edits = modify(source, ["env", target, "vars", "RUNTIME_CONFIG"], JSON.stringify(payload), {});
