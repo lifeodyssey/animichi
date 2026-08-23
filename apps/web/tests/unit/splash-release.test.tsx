@@ -11,6 +11,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   SPLASH_RELEASE_ATTRIBUTE,
+  SPLASH_MOBILE_HANDOFF_ATTRIBUTE,
   SPLASH_SCRIPTING_ATTRIBUTE,
   SPLASH_SCRIPTING_MARK_SCRIPT,
   useSplashRelease,
@@ -23,7 +24,7 @@ const RELEASE_SOURCE = readFileSync(
   "utf8",
 );
 
-const HOLD_RULE = `[${SPLASH_SCRIPTING_ATTRIBUTE}] .app-splash[data-splash-hold="handoff"]`;
+const HOLD_RULE = `[${SPLASH_MOBILE_HANDOFF_ATTRIBUTE}] .app-splash[data-splash-hold="handoff"]`;
 const RELEASE_RULE = `[${SPLASH_RELEASE_ATTRIBUTE}] .app-splash[data-splash-hold="handoff"]`;
 
 function delayAfter(rule: string): number {
@@ -66,6 +67,7 @@ describe("splash hold cascade", () => {
   it("only holds when a pre-paint script proved scripting is available", () => {
     expect(GLOBALS_CSS).toContain(HOLD_RULE);
     expect(SPLASH_SCRIPTING_MARK_SCRIPT).toContain(SPLASH_SCRIPTING_ATTRIBUTE);
+    expect(SPLASH_SCRIPTING_MARK_SCRIPT).toContain(SPLASH_MOBILE_HANDOFF_ATTRIBUTE);
     expect(scriptBodies()).toContain(SPLASH_SCRIPTING_MARK_SCRIPT);
   });
 

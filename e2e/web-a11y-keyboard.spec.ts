@@ -13,12 +13,10 @@ test.use({
 });
 
 /**
- * Owner 2026-08-23: `/` is a doorway now — it replaces itself with `/chat` on
- * the first client effect, so a Tab pressed there is a Tab pressed against a
- * page that is about to be navigated away from. The skip link and the tab
- * order are root-document furniture, present on every route, so the surface
- * moved to `/chat`: the first route a keyboard user actually lands on, and one
- * that stays still. Transport is stubbed so the scan stays hermetic.
+ * The skip link and tab order are root-document furniture, present on every
+ * route. This suite uses `/chat` directly so it exercises the same stable
+ * critical surface at mobile and desktop widths. Transport is stubbed so the
+ * scan stays hermetic.
  */
 async function anonymousChat(page: Page): Promise<void> {
   await page.route("**/api/auth/get-session", (route) =>

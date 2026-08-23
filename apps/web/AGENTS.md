@@ -1,8 +1,8 @@
 # apps/web — AGENTS.md
 
-TanStack Start app replacing the retired Next.js frontend at cutover. `/` is a doorway (owner
-2026-08-23): it serves a minimal indexable summary for crawlers and hands every human visitor to
-`/chat` on the first client effect. Root guide: `../../AGENTS.md`.
+TanStack Start app replacing the retired Next.js frontend at cutover. `/` is a responsive doorway:
+it serves a minimal indexable summary, hands mobile visitors (`<=640px`) to `/chat` on the first
+client effect, and keeps desktop visitors on the clickable doorway. Root guide: `../../AGENTS.md`.
 
 ## Commands (from `apps/web/`)
 

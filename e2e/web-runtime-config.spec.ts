@@ -31,12 +31,10 @@ const PRODUCTION = {
 };
 
 /**
- * Owner 2026-08-23: `/` is a doorway — it replaces itself with `/chat` on the
- * first client effect, and chat's own polling means `networkidle` on that
- * navigation never settles. The seed is emitted by `__root.tsx`, so EVERY
- * route carries it; the browser-side assertions moved to `/privacy`, the one
- * static route that stays where it is put. The served-document check below
- * still fetches `/` itself, because that is the URL crawlers and deploys hit.
+ * Mobile `/` replaces itself with `/chat`, whose polling means `networkidle`
+ * never settles. The seed is emitted by `__root.tsx`, so every route carries
+ * it; browser-side assertions use viewport-independent `/privacy`. The served
+ * document check below still fetches `/`, the URL crawlers and deploys hit.
  */
 const SEEDED_PATH = "/privacy";
 

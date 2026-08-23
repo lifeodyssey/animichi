@@ -1,18 +1,16 @@
 import { useEffect } from "react";
+import { SPLASH_MOBILE_HANDOFF_ATTRIBUTE } from "./splash-release";
 
 /**
- * Owner 2026-08-23: `/` is a doorway for everyone, not just for narrow
- * viewports. There is no breakpoint left to read and no dwell timer: the
- * hand-off fires on the first client effect at every width, and the splash
- * stays up until chat itself paints and releases it (see `splash-release.ts`
- * and the `data-splash-release` rule in globals.css) — so the doorway
- * underneath `/` is never uncovered in between, no matter how long the chat
- * chunk and loader take to arrive.
+ * Mobile enters chat on the first client effect with no dwell timer. Desktop
+ * stays on the doorway until its CTA is activated. The splash stays up for the
+ * mobile hand-off until chat paints and releases it (see `splash-release.ts`).
  *
  * The doorway summary still renders server-side (features/seo/DoorwaySummary),
- * so crawlers and share previews keep getting a real page; only the human
- * visitor is carried through.
+ * so crawlers, share previews, and desktop visitors get a real page.
  */
 export function useChatHandoff(enter: () => void): void {
-  useEffect(() => { enter(); }, [enter]);
+  useEffect(() => {
+    if (document.documentElement.hasAttribute(SPLASH_MOBILE_HANDOFF_ATTRIBUTE)) enter();
+  }, [enter]);
 }
