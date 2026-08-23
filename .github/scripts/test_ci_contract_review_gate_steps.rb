@@ -72,8 +72,10 @@ end
 def assert_repo_contract_artifacts
   ruleset = YAML.safe_load(File.read("docs/iterations/s0v2/ruleset-target.json"))
   required = Array(ruleset.fetch("required_checks"))
-  abort "ruleset-target.json must require Quality / invariants (the status context)" unless required.include?("Quality / invariants")
   cutover = JSON.parse(File.read("docs/iterations/s0v2/ruleset-cutover-target.json"))
+  abort "ruleset-target.json must match the three post-cutover contexts" unless required == cutover.fetch("required_checks")
+  abort "ruleset-target.json must require Review Gate" unless required.include?("Review Gate")
+  abort "ruleset-target.json must retire Quality / invariants" if required.include?("Quality / invariants")
   producer = cutover.fetch("producer_jobs").fetch("Review Gate")
   abort "ruleset-cutover target must name Review Gate as the producer" unless producer.fetch("name") == "Review Gate"
   abort "ruleset-cutover target must point Review Gate at invariants" unless producer.fetch("job_id") == "invariants"

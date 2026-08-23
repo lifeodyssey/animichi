@@ -1,15 +1,12 @@
 {
-  "_comment": "S0-v2 B4 ruleset target — updated by #1177 for the Security aggregator. The live ruleset still reflects the pre-#1177 state until #1180 performs the one-shot PUT. The target required_checks list is the 24-context end state (23 package/quality contexts plus Security), and the guard test .github/scripts/test_ci_contract.rb asserts every target name has a producing job check-run.",
+  "_comment": "Current live required-check target after the verified #1180 one-shot cutover. The guard tests assert these exact three aggregators exist and run on merge_group.",
   "_retired_contexts": [
     "Backend CI",
     "Agent CI",
     "Infra & DB CI",
     "Cross-stack E2E",
     "Repository Quality",
-    "Codecov Patch"
-  ],
-  "_retired_contexts_status": "Historical record: these 6 contexts were deleted from the live ruleset in the 2026-08-06 PUT. main HEAD check-runs still show them because main still runs the pre-B4 ci.yml until this PR merges.",
-  "required_checks": [
+    "Codecov Patch",
     "Web / lint",
     "Web / test",
     "Web / build",
@@ -33,7 +30,21 @@
     "DB / lint",
     "DB / build",
     "Quality / invariants",
-    "Security"
+    "Security / gitleaks (secret scan)",
+    "Security / TruffleHog (verified secrets)",
+    "Security / osv-scanner (lockfile CVE)",
+    "Security / Dependabot pnpm coverage",
+    "Security / Config check read-set trigger coverage",
+    "Security / zizmor (GHA security)",
+    "Security / Semgrep (SAST)",
+    "Security / sqlfluff (SQL lint)",
+    "Security / post-deploy smoke scripts (shellcheck + behavior)"
+  ],
+  "_retired_contexts_status": "Historical recovery record. The original six contexts were retired in the 2026-08-06 PUT; the 32 per-lane/legacy contexts were retired by the verified #1180 one-shot cutover on 2026-08-23.",
+  "required_checks": [
+    "PR Verification",
+    "Security",
+    "Review Gate"
   ],
   "_deferred_required": [
     {
@@ -55,19 +66,18 @@
     }
   ],
   "_check_gates": {
-    "status": "pending one-shot cutover (#1180) — ci.yml now produces one fail-closed Security result on pull_request, merge_group, push, and workflow_dispatch; the old child contexts remain historical until the live ruleset PUT.",
+    "status": "applied and canary-verified (#1180): the live ruleset requires exactly PR Verification, Security, and Review Gate.",
     "security_contexts": [
       "Security"
     ]
   },
   "_notes": [
-    "RETENTION-1 (2026-08-10, #940): the three 'Maintenance / *' contexts were removed from required_checks (now 32) because pipeline-maintenance.yml was deleted with the retired jobs Worker. The live ruleset must drop them in the same change that removes the lane (guard: test_ci_contract.rb asserts every name here has a producing job check-run).",
-    "APPLIED STATE (verified via gh api repos/lifeodyssey/animichi/rulesets/19974534 on 2026-08-06 after the orchestrator's hard-switch PUT): enforcement=active, bypass_actors=[], conditions ~DEFAULT_BRANCH, required_status_checks = the pre-#1177 snapshot. The #1177 Security aggregator target is pending the #1180 one-shot PUT; the six historical retired contexts remain recorded above.",
+    "APPLIED STATE (verified 2026-08-23 via ruleset 19974534 and canary PR #1191): enforcement=active and required_status_checks are exactly PR Verification, Security, and Review Gate; recovery evidence is retained on issue #1180.",
     "HISTORICAL (pre-PUT, 2026-08-06): the live ruleset had exactly 9 contexts — the 6 retired lanes + Web / lint + Web / test + Web / build. The one-shot PUT deleted the 6 and added the 23 new stage/security contexts; Web / lint|test|build were already required by B1's union step and stayed. The #1177/#1180 change replaces the nine child security contexts with one top-level Security result; the live replacement is intentionally a separate one-shot operation.",
-    "Quality / invariants IS required since the PUT (it was NOT before — it is one of the 23 added).",
+    "Quality / invariants is retired after #1180; Review Gate is the sole required quality/review context.",
     "codecov/patch is NOT in the live ruleset (verified post-PUT): the 95% changed-line verdict is not enforced as a status gate. The repo-side patch-coverage policy check lives in pipeline-quality.yml ('Verify patch coverage policy'); it does not make codecov/patch a required check. Re-adding codecov/patch as a real required status is a tracked backlog item in docs/ops/deployment.md.",
     "Context names are GitHub check-run names, not job ids. The Security context is produced by the top-level ci.yml aggregator; its child scans remain visible under the non-required Security scans reusable workflow. The aggregator runs on pull_request, merge_group, push, and workflow_dispatch and fails closed when child evidence is incomplete.",
-    "MERGE-GATE TRAP — target covered: a required context that never produces on merge_group hangs the merge queue. The top-level Security aggregator is in ci.yml, which declares on.merge_group (branches: [main]); the live ruleset PUT in #1180 must add Security and remove the nine historical child names together. Every pipeline-*.yml lane declares merge_group on main by contract (test_ci_contract.rb enforces the shape).",
+    "MERGE-GATE TRAP — target covered: a required context that never produces on merge_group hangs the merge queue. The top-level Security aggregator is in ci.yml, which declares on.merge_group (branches: [main]); the verified #1180 PUT added Security and retired the nine historical child names atomically. Every required aggregator declares merge_group on main by contract (test_ci_contract.rb enforces the shape).",
     "Catalog startup smoke (bundled boot) is a backlog item, not required (see _deferred_required): the job exists in pipeline-catalog.yml and its check-run is produced unconditionally on PR/merge_group runs, so it can be added by a future PUT without queue risk."
   ]
 }

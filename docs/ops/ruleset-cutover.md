@@ -7,15 +7,11 @@ three PR-level aggregators:
 - `Security`
 - `Review Gate`
 
-This runbook is deliberately operator-gated. The repository contract tests are
-hermetic and do not change the live ruleset. The live operation is allowed only
-after #1176, #1177, and #1178 are merged and their current-head checks have
-been observed on `main`.
-
-Until the one-shot PUT, the live ruleset still requires `Quality / invariants`.
-`pipeline-quality.yml` therefore emits the target `Review Gate` job and a
-`legacy-quality` wrapper that mirrors its result; the wrapper is removed after
-the live ruleset requires the three target contexts.
+This operator-gated cutover was completed on 2026-08-23 after #1176, #1177,
+and #1178 merged. Recovery and canary evidence is retained on #1180. The
+repository contract tests remain hermetic and do not change the live ruleset.
+`pipeline-quality.yml` now emits only the required `Review Gate` context; the
+temporary `Quality / invariants` compatibility wrapper is retired.
 
 ## Dry-run and recovery snapshot
 
@@ -112,5 +108,5 @@ The accepted evidence shape is:
 ```
 
 The committed target is [ruleset-cutover-target.json](../iterations/s0v2/ruleset-cutover-target.json).
-It is a static target and does not claim that the live PUT or canary has run;
-those claims require the retained API and GitHub evidence described above.
+It records the applied state and links to the retained API and GitHub evidence
+on #1180.

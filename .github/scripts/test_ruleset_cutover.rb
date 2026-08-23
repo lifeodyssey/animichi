@@ -59,13 +59,9 @@ def assert_target_contract
     assert(producer.fetch("name") == context && job.fetch("name") == context,
            "#{context} target must match its producer job name")
   end
-  compatibility = target.fetch("pre_cutover_compatibility")
-  workflow = load_workflow(compatibility.fetch("workflow"))
-  wrapper = workflow.fetch("jobs").fetch(compatibility.fetch("job_id"))
-  assert(wrapper.fetch("name") == compatibility.fetch("legacy_required_context"),
-         "pre-cutover wrapper must emit the live legacy context")
-  assert(Array(wrapper.fetch("needs")) == [compatibility.fetch("needs")],
-         "pre-cutover wrapper must mirror the Review Gate job")
+  assert(!target.key?("pre_cutover_compatibility"), "post-cutover target must not retain a legacy wrapper")
+  assert(target.fetch("live_cutover").fetch("status") == "applied-and-canary-verified",
+         "target must record the verified live cutover state")
 end
 
 def load_workflow(path)

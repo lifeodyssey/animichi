@@ -79,7 +79,7 @@ red_probe("orphan required check added", "no producing job") do |ruleset, _wf|
 end
 
 red_probe("required check removed without retirement", "REQUIRED_CONTEXTS lists a non-required check") do |ruleset, _wf|
-  ruleset["required_checks"] = ruleset["required_checks"] - ["DB / build"]
+  ruleset["required_checks"] = ruleset["required_checks"] - ["Review Gate"]
 end
 
 red_probe("retired context restored as required (overlap)", "cannot be both required and retired") do |ruleset, _wf|
@@ -87,7 +87,7 @@ red_probe("retired context restored as required (overlap)", "cannot be both requ
 end
 
 red_probe("producer loses merge_group", "not produced on merge_group") do |_ruleset, workflows_dir|
-  pipeline = File.join(workflows_dir, "pipeline-db.yml")
+  pipeline = File.join(workflows_dir, "pipeline-quality.yml")
   text = File.read(pipeline).sub(/^  merge_group:\n    branches: \[main\]\n/m, "")
   File.write(pipeline, text)
 end

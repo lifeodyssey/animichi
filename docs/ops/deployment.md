@@ -396,14 +396,11 @@ On a push to `main`, the current promotion chain is:
    whole `*-gate` layer are retired; required checks land on real job names. The credentialed
    verify lanes (`Agent Eval (L0 smoke, ~80 cases)`, `Python integration (Neon)`, `Catalog spikes
    (Neon)`) remain in `ci.yml` and are never required; they self-gate with step-level dorny
-   filters. STATUS (pre-#1180 cutover): the active repository ruleset currently requires the
-   legacy 32 contexts — the 22 package stages (`Agent`/`Catalog`/`Users`/`Edge`/`Contract`
-   lint+test+build, `Infra` lint+test, `DB` lint+build), the three `Web / lint|test|build`
-   contexts, `Quality / invariants`, and the 9 `Security / *` contexts. Verify the live response
-   with `gh api repos/lifeodyssey/animichi/rulesets/19974534`; do not infer it from the historical
-   `docs/iterations/s0v2/ruleset-target.json`. Issue #1180 owns the one-shot replacement with
-   exactly `PR Verification`, `Security`, and `Review Gate`; its guarded dry-run, recovery
-   snapshot, and canary procedure are documented in [ruleset-cutover.md](ruleset-cutover.md).
+   filters. STATUS (post-#1180 cutover): the active repository ruleset requires exactly
+   `PR Verification`, `Security`, and `Review Gate`. Verify the live response with
+   `gh api repos/lifeodyssey/animichi/rulesets/19974534`; the guarded recovery snapshot and
+   failing/repaired canary evidence are documented in [ruleset-cutover.md](ruleset-cutover.md)
+   and retained on #1180.
    BACKLOG (not part of the B4 PUT): the 95% changed-line verdict. `codecov/patch` is not a
    required status today — neither in the live ruleset nor in the B4 target — and the retired
    `Codecov Patch` lane was only the upload/policy precondition, not the changed-line gate.
@@ -473,8 +470,7 @@ consumes it is the CI-run verification that a real staging deploy with a schema 
 green end-to-end: on the post-merge push to `main`, `ci.yml` deploys the migrator, the OIDC
 trigger applies the new chain head, every component deploy runs `run_atlas: false` against the
 new schema, and `post-staging` re-asserts the ledger head equals the target. The required
-`Review Gate` lane (with the legacy `Quality / invariants` wrapper kept during the #1180
-transition) and the `migration-boundary` contract guard run on the PR before the merge; the
+`Review Gate` lane and the `migration-boundary` contract guard run on the PR before the merge; the
 deploy + smoke run on the merge. A red staging deploy or smoke is CI visible and
 blocks promotion.
 7. `deploy-infra-prod` applies the main `infra/` stack (`pulumi_stack: prod`), then

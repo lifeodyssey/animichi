@@ -315,11 +315,8 @@ end
 
 # ── Red 4 (merge_group): required-context producer without merge_group ──────
 red_fixture(
-  "required context without merge_group",
-  [
-    "pipeline-edge.yml:top-level:missing merge_group trigger (required contexts: Edge / lint, Edge / test, Edge / build)",
-    "pipeline-edge.yml:top-level:missing merge_group trigger (pipeline fixed point)"
-  ]
+  "pipeline workflow without merge_group",
+  ["pipeline-edge.yml:top-level:missing merge_group trigger (pipeline fixed point)"]
 ) do |dir|
   File.write(File.join(dir, "pipeline-edge.yml"), <<~YAML)
     name: pipeline-edge
@@ -357,10 +354,10 @@ end
 # ── Red 4b (merge_group): ruleset map drift — context no longer produced ────
 red_fixture(
   "required context without producing job",
-  ["pipeline-agent.yml:top-level:required context not produced by any job (Agent / lint)"]
+  ["pr-verification.yml:top-level:required context not produced by any job (PR Verification)"]
 ) do |dir|
-  File.write(File.join(dir, "pipeline-agent.yml"), <<~YAML)
-    name: pipeline-agent
+  File.write(File.join(dir, "pr-verification.yml"), <<~YAML)
+    name: pr-verification
     on:
       pull_request:
       merge_group:
@@ -373,20 +370,8 @@ red_fixture(
       group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     jobs:
-      lint:
-        name: Agent / lints
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-      test:
-        name: Agent / test
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: echo ok
-      build:
-        name: Agent / build
+      verify:
+        name: PR Verifications
         runs-on: ubuntu-latest
         timeout-minutes: 5
         steps:

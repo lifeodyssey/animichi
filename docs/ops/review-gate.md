@@ -167,8 +167,8 @@ happened (finding 5):
 `scripts/local-gates/pr-review-check.sh` is the deterministic PR gate for the
 local review workflow. The CLI merge hook consults its verdict before merging;
 the post-#1180 `Review Gate` check runs the same collect + check and blocks UI /
-auto-merge / API merges when it fails (§7). Until the guarded cutover PUT,
-`legacy-quality` mirrors its result for the live `Quality / invariants` context.
+auto-merge / API merges when it fails (§7). The retired `Quality / invariants`
+compatibility context is no longer emitted.
 
 Only *active* unresolved threads count (`isOutdated=true` threads don't block
 the current head, #1019); malformed thread data — a non-boolean
@@ -231,8 +231,8 @@ Two separate enforcement boundaries:
   (`--verdict`), produced pre-PR, never committed before merge, consumed only by
   the CLI merge hook via `check --verdict`. No workflow, UI, auto-merge, or API
   path reads it.
-- **Required GitHub workflow context** (`Review Gate` after the #1180 cutover;
-  legacy wrapper during the transition) — runs collect + check on the current
+- **Required GitHub workflow context** (`Review Gate` after the #1180 cutover)
+  — runs collect + check on the current
   PR without `--verdict`; failure blocks merges. The sole GitHub-side surface.
 
 Concretely:
@@ -246,8 +246,7 @@ Concretely:
   gate the hook falls back to an inline two-path check so the global guard
   keeps protecting every repo.
 - **UI / auto-merge / API**: post-cutover rulesets require `Review Gate`
-  (`pipeline-quality.yml`); until the PUT, `legacy-quality` mirrors old
-  `Quality / invariants`. The Review Gate job resolves
+  (`pipeline-quality.yml`). The Review Gate job resolves
   the PR `head_sha` once at the start of the PR-only path and posts the pending
   status **before** the expensive quality steps, then runs `pr-review-check.sh
   collect` + `check` — **without** `--verdict` — against that pinned head with
