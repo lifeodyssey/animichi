@@ -19,11 +19,8 @@ DIY_NAMES = %w[
   R2_ACCESS_KEY_ID
   R2_SECRET_ACCESS_KEY
 ].freeze
-CLOUD_JOBS = %w[
-  deploy-infra-staging
-  deploy-neon-secrets-staging
-  deploy-neon-secrets-prod
-].freeze
+INFRA_USES = "./.github/workflows/reusable-deploy-infra.yml"
+NEON_USES = "./.github/workflows/reusable-deploy-neon-secrets.yml"
 
 def load_yaml(path)
   YAML.safe_load(File.read(path))
@@ -60,6 +57,12 @@ def assert_caller(jobs, label, job_id)
   abort "#{label}: #{job_id} must not pass DIY backend secrets: #{hits.join(', ')}" unless hits.empty?
 end
 
+def cloud_callers(jobs)
+  jobs.select do |_id, job|
+    job.is_a?(Hash) && [INFRA_USES, NEON_USES].include?(job["uses"].to_s)
+  end
+end
+
 assert_cloud_reusable(CLOUD_INFRA_REUSABLE, "infra reusable")
 assert_cloud_reusable(CLOUD_NEON_REUSABLE, "neon-secrets reusable")
 preview_src = File.read(".github/workflows/pipeline-infra.yml")
@@ -73,9 +76,9 @@ abort "infra reusable must pass CLOUDFLARE_ACCOUNT_ID" unless infra_src.include?
 abort "infra reusable must pass CLOUDFLARE_PULUMI_API_TOKEN" unless infra_src.include?("CLOUDFLARE_PULUMI_API_TOKEN")
 
 ci_jobs = load_yaml(CLOUD_CI_WORKFLOW).fetch("jobs")
-CLOUD_JOBS.each { |id| assert_caller(ci_jobs, "ci.yml", id) }
+cloud_callers(ci_jobs).each { |id, _job| assert_caller(ci_jobs, "ci.yml", id) }
 
 deploy_jobs = load_yaml(CLOUD_DEPLOY_WORKFLOW).fetch("jobs")
-assert_caller(deploy_jobs, "deploy.yml", "deploy-neon-secrets-prod")
+cloud_callers(deploy_jobs).each { |id, _job| assert_caller(deploy_jobs, "deploy.yml", id) }
 
 puts "CI contract: #1077 Pulumi Cloud OIDC (infra + neon-secrets; no DIY backend secrets)"

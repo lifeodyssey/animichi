@@ -217,9 +217,13 @@ jobs:
       - name: Pulumi preview (staging)
         if: ${{ steps.pulumi_gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || steps.f.outputs.infra == 'true') }}
         run: |
-          if ! pulumi stack select staging; then
-            echo "::warning::infra stack 'staging' is not on Pulumi Cloud yet (import via migrate-pulumi-to-cloud.yml). Skipping preview."
-            exit 0
+          if ! err="$(pulumi stack select staging 2>&1)"; then
+            if echo "$err" | grep -qiE 'no stack named|could not find stack|unknown stack'; then
+              echo "::warning::infra stack 'staging' is not on Pulumi Cloud yet (import via migrate-pulumi-to-cloud.yml). Skipping preview."
+              exit 0
+            fi
+            echo "$err"
+            exit 1
           fi
           pulumi preview --non-interactive --diff
         env:
@@ -242,9 +246,13 @@ jobs:
         if: ${{ steps.pulumi_gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || steps.f.outputs.infra == 'true') }}
         working-directory: infra/neon-secrets
         run: |
-          if ! pulumi stack select staging 2>/dev/null; then
-            echo "::warning::neon-secrets stack 'staging' is not on Pulumi Cloud yet. Skipping preview."
-            exit 0
+          if ! err="$(pulumi stack select staging 2>&1)"; then
+            if echo "$err" | grep -qiE 'no stack named|could not find stack|unknown stack'; then
+              echo "::warning::neon-secrets stack 'staging' is not on Pulumi Cloud yet. Skipping preview."
+              exit 0
+            fi
+            echo "$err"
+            exit 1
           fi
           pulumi preview --non-interactive --diff
         env:
@@ -258,9 +266,13 @@ jobs:
         if: ${{ steps.pulumi_gate.outputs.ready == 'true' && (github.event_name != 'pull_request' || steps.f.outputs.infra == 'true') }}
         working-directory: infra/neon-secrets
         run: |
-          if ! pulumi stack select prod 2>/dev/null; then
-            echo "::warning::neon-secrets stack 'prod' is not on Pulumi Cloud yet. Skipping preview."
-            exit 0
+          if ! err="$(pulumi stack select prod 2>&1)"; then
+            if echo "$err" | grep -qiE 'no stack named|could not find stack|unknown stack'; then
+              echo "::warning::neon-secrets stack 'prod' is not on Pulumi Cloud yet. Skipping preview."
+              exit 0
+            fi
+            echo "$err"
+            exit 1
           fi
           if ! pulumi config get animichi-neon-secrets:neonApiKey >/dev/null 2>&1; then
             echo "::warning::neon-secrets prod stack has no neonApiKey secret config yet; set it before the first prod deploy to preview the plan."
