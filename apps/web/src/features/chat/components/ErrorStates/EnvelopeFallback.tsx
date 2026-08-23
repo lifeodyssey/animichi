@@ -2,20 +2,16 @@ import { useChatActions } from "../../ChatActions";
 import type { ChatDict } from "../../i18n";
 import type { ChatErrorState } from "../../lib/error-classifier";
 import { FallbackRetryButton } from "./FallbackRetryButton";
+import { SuggestionChips } from "../SuggestionChips";
 
 type Props = Readonly<{ state: ChatErrorState; dict: ChatDict }>;
 type DictProps = Readonly<{ dict: ChatDict }>;
 
-const CHIP_TONES = ["explore", "walk", "primary"] as const;
-
-function SuggestionChips({ dict }: DictProps) {
+/** D1/D2 offer the same three suggestions the cold start does, so they share
+ * that one row instead of keeping a second copy of the tone assignment. */
+function FallbackSuggestions({ dict }: DictProps) {
   const { send } = useChatActions();
-  const chips = dict.chips.map((chip, index) => (
-    <button key={chip} type="button" className="chat-chip" data-tone={CHIP_TONES[index]} onClick={() => { send(chip); }}>
-      {chip}
-    </button>
-  ));
-  return <div className="chat-chips">{chips}</div>;
+  return <SuggestionChips dict={dict} onPick={send} />;
 }
 
 function RecognitionFallback({ dict }: DictProps) {
@@ -24,7 +20,7 @@ function RecognitionFallback({ dict }: DictProps) {
       <p className="chat-fallback__subtitle">{dict.errorStates.d1Subtitle}</p>
       <p className="chat-card__message">{dict.errorStates.d1Title}</p>
       <p className="chat-fallback__hint">{dict.errorStates.d1Hint}</p>
-      <SuggestionChips dict={dict} />
+      <FallbackSuggestions dict={dict} />
     </article>
   );
 }
@@ -34,7 +30,7 @@ function NoSpotsFallback({ dict }: DictProps) {
     <article className="chat-card chat-card--fallback-state" data-fallback="D2">
       <p className="chat-card__message">{dict.errorStates.d2Title}</p>
       <p className="chat-fallback__hint">{dict.errorStates.d2Hint}</p>
-      <SuggestionChips dict={dict} />
+      <FallbackSuggestions dict={dict} />
     </article>
   );
 }

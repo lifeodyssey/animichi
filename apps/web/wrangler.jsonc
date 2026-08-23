@@ -9,6 +9,21 @@
   // land in the inline `$tsr-stream-barrier` script where `__name` does not exist — the resulting
   // ReferenceError aborts hydration and blanks every route (issue #426).
   "keep_names": false,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true
+    }
+  },
   "assets": {
     "directory": ".output/public",
     "binding": "ASSETS"
@@ -35,9 +50,20 @@
       // would bypass the staging WAF gate (workers.dev is not on the zone).
       // `preview_urls` is off for the same reason: per-version preview URLs
       // bypass the WAF the same way.
+      // #1075 Workers Builds (staging): build command is `bash scripts/builds-staging.sh`
+      // (env-neutral vite build + inject-web-runtime-config). Deploy command is
+      // `npx wrangler deploy --config wrangler.jsonc --env staging`. The explicit
+      // config bypasses Nitro's redirected config, which cannot contain env blocks.
+      // GitHub does not run Wrangler for staging web.
       "workers_dev": false,
       "preview_urls": false,
-      "vars": { "APP_ENV": "staging" }
+      // Public staging RUNTIME_CONFIG is committed: Cloudflare Builds does not
+      // receive GitHub environment VITE_* vars, and an empty inject overwrote
+      // the Worker binding (login showed "Sign-in isn't configured").
+      "vars": {
+        "APP_ENV": "staging",
+        "RUNTIME_CONFIG": "{\"schemaVersion\":1,\"api\":{},\"neonAuthBaseUrl\":\"https://ep-broad-frost-aopp3uqq.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth\",\"turnstileSiteKey\":\"0x4AAAAAAD-SYZJEDljOH-SB\",\"showcaseMode\":\"false\",\"featureFlags\":{}}"
+      }
     },
     "production": {
       "name": "animichi-web",

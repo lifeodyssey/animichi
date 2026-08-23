@@ -151,10 +151,11 @@ default branch (one less default flip). Only do this if the owner prefers it.
 
 ## Phase 5 — Verify
 
-- [ ] **CI green on the new tip**: watch the `main` CI run to completion; all 32
-      `required_status_checks` contexts green (lint/test/build per package, Quality
-      invariants, Security suite — see `gh ruleset view 19974534`). CI keys on
-      contexts, not SHAs, so nothing needs reconfiguration.
+- [ ] **CI green on the new tip**: watch the `main` CI run to completion; the
+      required `PR Verification`, `Security`, and `Review Gate` aggregators are
+      green (see `docs/iterations/s0v2/ruleset-target.json` and
+      `gh ruleset view 19974534`). CI keys on contexts, not SHAs, so nothing
+      needs reconfiguration.
 - [ ] **Staging redeploy** via normal promotion (`ci.yml` staging on the new tip),
       then smoke: `/healthz` returns 200.
       > **Caveat**: `/healthz` `git_commit`/`git_branch` are **always `"unknown"`**

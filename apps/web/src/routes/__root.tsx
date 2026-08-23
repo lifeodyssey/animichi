@@ -11,6 +11,7 @@ import { NotFound } from "../components/NotFound";
 import { Splash } from "../components/Splash";
 import { THEME_BOOTSTRAP_SCRIPT } from "../components/theme-bootstrap";
 import { cfWebAnalyticsScripts } from "../features/seo/analytics";
+import { SPLASH_SCRIPTING_MARK_SCRIPT } from "../features/splash/splash-release";
 import { currentRuntimeConfig, RUNTIME_CONFIG_GLOBAL_KEY } from "../lib/runtime-config/provider";
 import { useFieldVitals } from "../features/telemetry/lib/use-field-vitals";
 import { SITE_ICON_LINKS, SITE_META } from "../features/seo/head";
@@ -18,11 +19,11 @@ import { SITE_DESCRIPTION, SITE_TITLE } from "../features/seo/site";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../i18n/locales";
 import globalsUrl from "../styles/globals.css?url";
 
-// Landing first-screen key-weight faces (C8): with font-display: swap, a
-// late webfont arrival reflows the page (CLS). Preloading the four faces
-// actually referenced on the mobile first screen — Zen Maru Gothic 700
+// First-screen key-weight faces (C8): with font-display: swap, a late webfont
+// arrival reflows the page (CLS). Preloading the four faces actually
+// referenced on the mobile first screen — Zen Maru Gothic 700
 // (wordmark/bubble/CTA), Noto Serif JP 700 (title), Zen Maru Gothic 500
-// (lead), Nunito 700 ("EN" chip) — pulls them into the font cache during
+// (lead), Nunito 700 (Latin UI) — pulls them into the font cache during
 // HTML parse, so first paint can use the webfont metrics directly. Bounded
 // at four: more preloads just crowd the bandwidth budget while the
 // metric-aligned fallbacks in fonts.css absorb any remaining swaps.
@@ -68,11 +69,13 @@ const ROOT_META = [
   ...SITE_META,
 ];
 
-/** Pre-hydration theme init + the versioned runtime config seed (so browser
- * and SSR agree); the beacon joins only in PRODUCTION with a token (#1013). */
+/** Pre-hydration theme init, the splash scripting mark (so the mobile index
+ * splash only holds when JS can actually arrive), and the versioned runtime
+ * config seed; the beacon joins only in PRODUCTION with a token (#1013). */
 function rootScripts(config: ReturnType<typeof currentRuntimeConfig>) {
   return [
     { children: THEME_BOOTSTRAP_SCRIPT },
+    { children: SPLASH_SCRIPTING_MARK_SCRIPT },
     ...cfWebAnalyticsScripts(config.cfBeaconToken, import.meta.env.PROD),
   ];
 }
@@ -160,7 +163,7 @@ function RootDocument({ children }: RootDocumentProps) {
   return (
     <html lang={lang}>
       <head><HeadContent /></head>
-      <body><Splash dwell={isIndexMatch(matches)} /><SkipLink lang={lang} /><RuntimeConfigSeed /><div id="main-content" tabIndex={-1}>{children}</div><Scripts /></body>
+      <body><Splash hold={isIndexMatch(matches)} /><SkipLink lang={lang} /><RuntimeConfigSeed /><div id="main-content" tabIndex={-1}>{children}</div><Scripts /></body>
     </html>
   );
 }

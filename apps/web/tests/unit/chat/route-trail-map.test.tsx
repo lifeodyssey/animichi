@@ -8,7 +8,7 @@ import type { AttachBasemap } from "../../../src/features/chat/components/Search
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { pointPlacements } from "../../../src/features/bubble-map/bubble-geometry";
 import type { LocatedSpot } from "../../../src/features/chat/lib/spot-clusters";
-import { ruleDeclaration } from "../stylesheet-probe";
+import { lastRuleDeclaration, ruleDeclaration } from "../stylesheet-probe";
 import chatCss from "../../../src/styles/chat.css?raw";
 
 afterEach(cleanup);
@@ -73,7 +73,7 @@ describe("AC2: map promotion after route generation", () => {
   it("shows the gold route pill in the frame corner, styled by gold tokens", () => {
     renderTrail();
     expect(screen.getByText(dict.route.routePill).className).toBe("chat-route-pill");
-    expect(ruleDeclaration(chatCss, ".chat-route-pill", "background")).toBe("var(--color-gold-soft)");
+    expect(lastRuleDeclaration(chatCss, ".chat-route-pill", "background")).toBe("var(--color-gold-soft)");
     expect(ruleDeclaration(chatCss, ".chat-route-map__line", "stroke")).toBe("var(--color-gold)");
   });
 });

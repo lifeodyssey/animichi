@@ -74,6 +74,27 @@ Source of truth for the schema: `.github/scripts/promotion_manifest.py`; behavio
 (AC2/AC3/AC4), `.github/scripts/test_promote_deployed.py` (AC4 read+gate), and
 `.github/scripts/test_promotion_ac5_contract.rb` (AC5), all run in `pipeline-quality.yml`. Rollback
 remains the SAFE-1/`wrangler rollback` path above.
+
+### Security check-runs canary
+
+The ordinary Security contract and mutation tests are hermetic: they load
+`.github/scripts/fixtures/security-check-runs.json` and never contact GitHub. The live check-runs
+canary is deliberately opt-in so a normal pull request cannot depend on another live PR or on
+network availability. Run it after a ruleset change, or when validating a candidate head:
+
+```bash
+GH_TOKEN=<read-only-token> ruby .github/scripts/security-check-runs-canary.rb \
+  lifeodyssey/animichi <pull-request-number-or-40-character-head-sha>
+```
+
+For a pull request number the canary resolves the current PR head through the GitHub API; for a
+full SHA it verifies that commit exists. It then reads the head's check-runs and active repository
+rulesets, failing closed unless the ruleset requires exactly one `Security` context, exactly one
+successful completed `Security` check-run exists for that head, and its check-run links lead to
+GitHub workflow/check evidence. Any old `Security / *` required context, duplicate `Security`
+result, stale head, pending/failing result, missing evidence link, API error, or missing `GH_TOKEN`
+is a canary failure. This command is not a workflow step; ordinary CI uses only the fixture path.
+
 ## Edge Topology
 
 ```text
@@ -375,20 +396,11 @@ On a push to `main`, the current promotion chain is:
    whole `*-gate` layer are retired; required checks land on real job names. The credentialed
    verify lanes (`Agent Eval (L0 smoke, ~80 cases)`, `Python integration (Neon)`, `Catalog spikes
    (Neon)`) remain in `ci.yml` and are never required; they self-gate with step-level dorny
-   filters. STATUS (as of 2026-08-06): the repository ruleset has been flipped — the
-   orchestrator executed the one-shot hard-switch PUT (9 → 35 required contexts; the 6 retired
-   gate contexts were deleted in the same PUT; `enforcement=active`, `bypass_actors=[]`;
-   verified via `gh api repos/lifeodyssey/animichi/rulesets/19974534`). The ruleset now requires
-   the 35 contexts declared in `docs/iterations/s0v2/ruleset-target.json` (a live-state
-   snapshot, not a target): the 23 new contexts (22 package stages — `Agent`/`Catalog`/`Users`/
-   `Maintenance`/`Edge`/`Contract` lint+test+build, `Infra` lint+test, `DB` lint+build — plus the
-   `Quality / invariants` meta lane (`pipeline-quality.yml` — the unfiltered fixed point that
-   also carries the repo-hygiene checks and the CI contract test)), the three
-   `Web / lint|test|build` contexts B1 already required, and the 9 `Security / *` contexts
-   (ci.yml declares a `merge_group` trigger, so queue runs produce them). `Infra / build` is
-   deferred out of the required set: the new `pipeline-infra.yml` lane was red at flip time (R2
-   state-backend 401, credentials since re-issued) and its preview steps are path-gated on PRs;
-   re-add it once the lane is consecutively green.
+   filters. STATUS (post-#1180 cutover): the active repository ruleset requires exactly
+   `PR Verification`, `Security`, and `Review Gate`. Verify the live response with
+   `gh api repos/lifeodyssey/animichi/rulesets/19974534`; the guarded recovery snapshot and
+   failing/repaired canary evidence are documented in [ruleset-cutover.md](ruleset-cutover.md)
+   and retained on #1180.
    BACKLOG (not part of the B4 PUT): the 95% changed-line verdict. `codecov/patch` is not a
    required status today — neither in the live ruleset nor in the B4 target — and the retired
    `Codecov Patch` lane was only the upload/policy precondition, not the changed-line gate.
@@ -403,9 +415,10 @@ On a push to `main`, the current promotion chain is:
    trigger blocks all component deploys. The routine staging path carries NO `NEON_DATABASE_URL`.
 
 2. `deploy-infra-staging` always runs on the deploy lane (no path filter) and applies the
-   main `infra/` stack (`reusable-deploy-infra.yml`). `deploy-staging` / `deploy-web-staging`
-   (and users/root) `needs` that job **and** `migrate-staging`, then call
-   `reusable-deploy-component.yml` with `run_pulumi: false`. Accepted tradeoff: staging deploys
+   main `infra/` stack (`reusable-deploy-infra.yml`). Staging catalog, users, web, and root
+   `needs` that job **and** `migrate-staging`, then ring the Builds doorbell
+   (`reusable-ring-doorbell.yml`). `staging-worker-paths` skips a ring when that tree did
+   not change. `vars.DOORBELL_STAGING_URL` is public config. Accepted tradeoff: staging deploys
    no longer wait on any package pipeline, because GitHub cannot express `needs:` across
    workflows — protection comes from the required merge contexts in the ruleset instead, plus
    the future merge queue.
@@ -442,10 +455,9 @@ On a push to `main`, the current promotion chain is:
    **migrator trigger** (`migrate-staging` in ci.yml, step 0) BEFORE any component deploy, so a
    staging deployment never holds the database credential. **Production** callers keep
    `run_atlas` on and the pinned per-component Atlas apply (`NEON_DATABASE_URL` present) until
-   #1055 removes it. The component deploys from `inputs.working_directory` with Wrangler
-   (catalog/users under `workers/`, web at `apps/web`, root at the repo with
-   `workers/edge/wrangler.toml`) and runs the component smoke step — it does not run
-   `pulumi up` (#1074).
+   #1055 removes it. Staging catalog/users/web/root skip this reusable (#1076 doorbell;
+   #1074 infra job). Production catalog still runs `pulumi up` in this reusable
+   (SAFE-1 freeze). Production Worker publish still uses Wrangler.
 5. the web, users, and root staging deploys complete in the same promotion stage.
 6. `post-staging` runs the API post-deploy suite against staging, including the **migration
    ledger-head smoke** (#1052 AC5): it reads the migrator's read-only `/ledger-head` endpoint and
@@ -458,8 +470,8 @@ consumes it is the CI-run verification that a real staging deploy with a schema 
 green end-to-end: on the post-merge push to `main`, `ci.yml` deploys the migrator, the OIDC
 trigger applies the new chain head, every component deploy runs `run_atlas: false` against the
 new schema, and `post-staging` re-asserts the ledger head equals the target. The required
-`Quality / invariants` lane and the `migration-boundary` contract guard run on the PR before the
-merge; the deploy + smoke run on the merge. A red staging deploy or smoke is CI visible and
+`Review Gate` lane and the `migration-boundary` contract guard run on the PR before the merge; the
+deploy + smoke run on the merge. A red staging deploy or smoke is CI visible and
 blocks promotion.
 7. `deploy-infra-prod` applies the main `infra/` stack (`pulumi_stack: prod`), then
    `deploy-prod` and the other production component jobs deploy catalog, web, users, and root

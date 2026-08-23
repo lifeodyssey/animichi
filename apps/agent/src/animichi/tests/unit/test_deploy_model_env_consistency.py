@@ -92,8 +92,8 @@ def test_container_required_keys_are_forwarded_and_deployed() -> None:
     assert required - _NON_SECRET_REQUIRED_KEYS <= provisioned
 
 
-# CORS is a wrangler var on staging (#527/#528). ZEN_GO is staging-only (#1160).
-_STAGING_EXEMPT_SECRETS = {"CORS_ALLOWED_ORIGIN"}
+# ZEN_GO is staging-only (#1160) and lives on the Worker; doorbell does not
+# wrangler-secret-put it. Production reusable still maps the name.
 _STAGING_ONLY_SECRETS = {"ZEN_GO_API_KEY"}
 
 
@@ -109,11 +109,12 @@ def _root_jobs() -> tuple[str, str, str, str]:
     )
 
 
-def test_ci_staging_root_secrets_include_zen_go() -> None:
-    manual_job, staging_job, _, _ = _root_jobs()
-    manual = _wrangler_secret_names(manual_job)
-    expected = (manual - _STAGING_EXEMPT_SECRETS) | _STAGING_ONLY_SECRETS
-    assert _wrangler_secret_names(staging_job) == expected
+def test_ci_staging_root_rings_doorbell_without_wrangler_secrets() -> None:
+    # #1076: staging root rings the Builds doorbell; secrets already live on
+    # the Worker. CI must not wrangler-secret-put on this path.
+    _, staging, _, _ = _root_jobs()
+    assert "reusable-ring-doorbell.yml" in staging
+    assert "worker_secrets:" not in staging
 
 
 def test_ci_production_root_secrets_match_manual() -> None:
@@ -124,9 +125,7 @@ def test_ci_production_root_secrets_match_manual() -> None:
 def test_ci_root_secret_maps_cover_provisioned_names() -> None:
     manual_job, staging_job, production_job, reusable = _root_jobs()
     manual = _wrangler_secret_names(manual_job)
-    staging_mapped = _mapped_secret_names(staging_job)
-    assert manual - _STAGING_EXEMPT_SECRETS <= staging_mapped
-    assert _STAGING_ONLY_SECRETS <= staging_mapped
+    assert _mapped_secret_names(staging_job) == set()
     assert manual <= _mapped_secret_names(production_job)
     assert manual | _STAGING_ONLY_SECRETS <= _mapped_secret_names(reusable)
 

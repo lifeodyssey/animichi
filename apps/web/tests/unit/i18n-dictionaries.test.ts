@@ -24,7 +24,7 @@ describe("dictionaries", () => {
   });
 
   it("dictFor resolves each locale", () => {
-    expect(dictFor("en").landing.cta).toBe("Start Exploring");
-    expect(dictFor("ja").landing.cta).not.toBe(dictFor("en").landing.cta);
+    expect(dictFor("en").doorway.cta).toBe("Start Exploring");
+    expect(dictFor("ja").doorway.cta).not.toBe(dictFor("en").doorway.cta);
   });
 });

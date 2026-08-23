@@ -23,9 +23,20 @@ for ruby_file in \
   "$GS/release-manifest-resolver.rb" \
   "$GS/release-manifest-resolver.test.rb" \
   "$GS/test_ci_contract.rb" \
+  "$GS/test_ci_contract_security.rb" \
+  "$GS/security-check-runs-canary.rb" \
+  "$GS/test_security_check_runs_canary.rb" \
+  "$GS/test_ci_contract_security_mutation.rb" \
+  "$GS/test_pr_verification_contract.rb" \
+  "$GS/test_pr_verification_contract_mutation.rb" \
   "$GS/test_ci_routing_consistency.rb" \
   "$GS/test_ci_contract_ruleset_migration.rb" \
   "$GS/test_ci_contract_ruleset_migration_mutation.rb" \
+  "$GS/ruleset_cutover.rb" \
+  "$GS/ruleset_cutover_cli.rb" \
+  "$GS/test_ruleset_cutover.rb" \
+  "$GS/test_ruleset_cutover_mutation.rb" \
+  "$GS/test_ruleset_cutover_integration.rb" \
   "$GS/test_ci_contract_review_gate.rb" \
   "$GS/test_ci_contract_review_gate_mutation.rb" \
   "$GS/test_safe1_production_contract.rb" \
@@ -41,7 +52,10 @@ for ruby_file in \
   "$GS/ci_prepush_parity_yaml.rb" \
   "$GS/ci_prepush_parity_extract.rb" \
   "$GS/test_ci_prepush_parity.rb" \
-  "$GS/test_ci_prepush_parity.test.rb"; do
+  "$GS/test_ci_prepush_parity.test.rb" \
+  "$GS/test_ci_contract_doorbell_web.rb" \
+  "$GS/test_ci_contract_infra_split.rb" \
+  "$GS/test_ci_contract_doorbell_workers.rb"; do
   run ruby -c "$ruby_file"
 done
 run ruby "$GS/assert-workflow-invariants.test.rb"
@@ -76,8 +90,25 @@ run bash "$GS/check-web-runtime-config-payloads.test.sh"
 run bash "$GS/check-web-runtime-config-payloads.sh"
 run bash "$GS/check-edge-ratelimit-namespace.test.sh"
 run ruby "$GS/test_ci_contract.rb"
+run ruby "$GS/test_ci_contract_doorbell_web.rb"
+run ruby "$GS/test_ci_contract_infra_split.rb"
+run ruby "$GS/test_ci_contract_doorbell_workers.rb"
+run ruby "$GS/test_security_check_runs_canary.rb"
+run ruby "$GS/test_ci_contract_security_mutation.rb"
+run bash "$GS/security-aggregate.test.sh"
+run env EXPECTED_SHA=0123456789abcdef0123456789abcdef01234567 ACTUAL_SHA=0123456789abcdef0123456789abcdef01234567 SECURITY_RESULT=success REQUIRE_CHILD_RESULTS=true SECURITY_RESULTS=$'gitleaks=success\ncodeql=success\nsemgrep=success' GITHUB_STEP_SUMMARY=/dev/null bash "$GS/security-aggregate.sh"
+run ruby "$GS/test_pr_verification_contract.rb"
+run ruby "$GS/test_pr_verification_contract_mutation.rb"
+run bash "$GS/test_pr_verification_aggregate.sh"
+run bash "$GS/test_pr_verification_route.sh"
+run bash "$GS/pr-verification-route.sh" "$(git rev-parse HEAD^)" "$(git rev-parse HEAD)"
+run bash -c 'if bash .github/scripts/pr-verification-aggregate.sh >/dev/null 2>&1; then exit 1; fi'
+run bash -c 'if bash .github/scripts/pr-verification-gate.sh invalid >/dev/null 2>&1; then exit 1; fi'
 run ruby "$GS/test_neon_test_infra_absence.rb"
 run ruby "$GS/test_ci_contract_ruleset_migration_mutation.rb"
+run ruby "$GS/test_ruleset_cutover.rb"
+run ruby "$GS/test_ruleset_cutover_mutation.rb"
+run ruby "$GS/test_ruleset_cutover_integration.rb"
 run ruby "$GS"/test_*cov_patch.rb
 run ruby "$GS/test_ci_routing_consistency.rb"
 run ruby "$GS/test_ci_prepush_parity.rb"
@@ -89,7 +120,8 @@ run bash "$GS/post-deploy-assert-probes.test.sh"
 run bash "$GS/resolve-worker-url.test.sh"
 run bash "$GS/vite-env-preflight.test.sh"
 run bash "$GS/wrangler-secret-put.test.sh"
-run shellcheck "$GS/post-deploy-assert.sh" "$GS/post-deploy-assert.test.sh" "$GS/post-deploy-assert-probes.test.sh" "$GS/edge-showcase-mode.sh" "$GS/mock-origin.sh" "$GS/resolve-worker-url.sh" "$GS/resolve-worker-url.test.sh" "$GS/vite-env-preflight.sh" "$GS/vite-env-preflight.test.sh" "$GS/wrangler-secret-put.sh" "$GS/wrangler-secret-put.test.sh"
+run shellcheck "$GS/post-deploy-assert.sh" "$GS/post-deploy-assert.test.sh" "$GS/post-deploy-assert-probes.test.sh" "$GS/edge-showcase-mode.sh" "$GS/mock-origin.sh" "$GS/resolve-worker-url.sh" "$GS/resolve-worker-url.test.sh" "$GS/vite-env-preflight.sh" "$GS/vite-env-preflight.test.sh" "$GS/wrangler-secret-put.sh" "$GS/wrangler-secret-put.test.sh" "$GS/security-aggregate.sh" "$GS/security-aggregate.test.sh"
+run bash -c 'cd .github/scripts && shellcheck -x pr-verification-aggregate.sh pr-verification-gate.sh pr-verification-route.sh test_pr_verification_aggregate.sh test_pr_verification_route.sh'
 run bash scripts/semgrep-raw-sql-test.sh
 run actionlint
 

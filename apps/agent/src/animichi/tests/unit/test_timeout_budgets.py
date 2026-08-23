@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
 import httpx
 import pytest
@@ -16,6 +18,11 @@ from animichi.clients.catalog_client import (
 )
 from animichi.clients.errors import TransientAPIError
 from animichi.config.settings import Settings
+
+_WEB_TIMEOUT_SOURCE = (
+    Path(__file__).parents[6] / "apps/web/src/features/chat/use-turn-timeout.ts"
+)
+_MIN_TYPED_TIMEOUT_DELIVERY_MARGIN_SECONDS = 10
 
 
 async def test_catalog_budget_nests_inside_tool_and_agent_timeouts(
@@ -54,6 +61,16 @@ def test_model_attempt_timeout_precedes_agent_deadline() -> None:
     preamble_margin = settings.agent_deadline * 0.05
     assert (
         2 * settings.model_attempt_timeout + preamble_margin < settings.agent_deadline
+    )
+
+
+def test_web_watchdog_follows_the_default_agent_deadline() -> None:
+    source = _WEB_TIMEOUT_SOURCE.read_text(encoding="utf-8")
+    match = re.search(r"TURN_TIMEOUT_MS\s*=\s*([\d_]+)", source)
+    assert match is not None
+    web_timeout_seconds = int(match.group(1).replace("_", "")) / 1000
+    assert web_timeout_seconds >= (
+        Settings().agent_deadline + _MIN_TYPED_TIMEOUT_DELIVERY_MARGIN_SECONDS
     )
 
 

@@ -1,12 +1,11 @@
 import { fetchAuthToken, redeemAuthToken } from "./neon-auth";
 
 /**
- * In-memory Neon Auth JWT cache.
+ * In-memory cache of the SDK session JWT (`set-auth-jwt` on `/get-session`).
  *
- * `fetchAuthToken` exchanges the session cookie for an EdDSA JWT; caching it
- * until shortly before its own `exp` avoids a network round trip to the Neon
- * Auth origin on every outgoing chat/history/users request. Module state only
- * (no storage) — a page reload re-derives it from the cookie.
+ * Caching until shortly before `exp` avoids a Neon Auth round trip on every
+ * chat/history/users request. Module state only (no storage) — a page reload
+ * re-derives it from the SDK session (cookie and/or verifier).
  */
 interface CachedToken {
   readonly token: string;
@@ -66,7 +65,7 @@ export async function getAuthToken(now: number = Date.now()): Promise<string | u
 }
 
 /**
- * Callback redeem: same cache as `getAuthToken`, but a failed SDK `/token`
+ * Callback redeem: same cache as `getAuthToken`, but a failed SDK getSession
  * throws `error.message` so the callback screen can render it verbatim.
  */
 export async function establishAuthSession(): Promise<string> {

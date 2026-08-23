@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { TurnstileGate } from "./TurnstileGate";
 import type { Locale } from "../../../i18n/locales";
 import { ByokSettings } from "./ByokSettings";
+import type { PanelPreferences } from "./ByokSettings";
 import { ColdStart } from "./ColdStart";
 import { DeparturePrompt } from "./DeparturePrompt";
 import { PhotoSearchUpload } from "./PhotoSearchUpload";
@@ -154,10 +155,18 @@ export function DockTray({ dict, baseUrl, photo, chat, recompute }: DockTrayProp
   );
 }
 
-/** The BYOK settings panel docks above the composer when toggled open (#284 T6). */
-export function ByokPanelGate({ dict, baseUrl, byok }: Readonly<{ dict: ChatDict; baseUrl: string; byok: ByokPanel }>) {
+type ByokPanelGateProps = Readonly<{
+  dict: ChatDict;
+  baseUrl: string;
+  byok: ByokPanel;
+  /** App-level preferences the panel hosts, composed by the UI layer. */
+  preferences?: PanelPreferences;
+}>;
+
+/** The ⚙ settings panel docks above the composer when toggled open (#284 T6). */
+export function ByokPanelGate({ dict, baseUrl, byok, preferences }: ByokPanelGateProps) {
   if (!byok.open) return null;
-  return <ByokSettings dict={dict} auth={byok.auth} baseUrl={baseUrl} />;
+  return <ByokSettings dict={dict} auth={byok.auth} baseUrl={baseUrl} preferences={preferences} />;
 }
 
 /** The dock's hint slot: silent until Turnstile decides a human check is due. */

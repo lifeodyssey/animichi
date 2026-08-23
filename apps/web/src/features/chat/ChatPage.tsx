@@ -6,6 +6,7 @@ import { useAuthStatus } from "../../lib/auth/session";
 import { ChatActionsProvider, sendWithOriginOf } from "./ChatActions";
 import type { ChatActions } from "./ChatActions";
 import { ByokPanelGate, ChallengeGate, ChatIntro, ChatNotices, ChatShell, DepartureGate, DockTray, ScrollAnchor, TurnStream } from "./components/ChatShell";
+import type { PanelPreferences } from "./components/ByokSettings";
 import { ChatInput } from "./components/ChatInput";
 import { ChatAppBar } from "./components/ChatAppBar";
 import { currentChatConfig } from "./config";
@@ -40,6 +41,8 @@ import { ChatReturnTargetProvider } from "./ChatReturnTarget";
 
 export interface ChatPageProps {
   readonly search: ChatSearch;
+  /** The ⚙ panel's app-preference section, composed by the route (UI layer). */
+  readonly preferences?: PanelPreferences;
 }
 
 /** Send, plus the D6-style retry: drop the failed turn's partial and resubmit. */
@@ -183,42 +186,42 @@ function chatDock(departure: DeparturePromptState, dict: ChatDict, baseUrl: stri
 }
 
 /** Plain page-level assembly: the BYOK panel, the input, the Turnstile hint. */
-function chatComposer(dict: ChatDict, baseUrl: string, byok: ByokPanel, challenge: TurnstileChallenge | undefined, quota: QuotaLock, onSend: (text: string) => void, gate: ComposerGate): ReactNode {
+function chatComposer(dict: ChatDict, baseUrl: string, byok: ByokPanel, challenge: TurnstileChallenge | undefined, quota: QuotaLock, onSend: (text: string) => void, gate: ComposerGate, preferences: PanelPreferences | undefined): ReactNode {
   return (
     <>
-      <ByokPanelGate dict={dict} baseUrl={baseUrl} byok={byok} />
+      <ByokPanelGate dict={dict} baseUrl={baseUrl} byok={byok} preferences={preferences} />
       <ChatInput dict={dict} disabled={gate.locked} busy={gate.busy} sendFailed={gate.failed} quotaLocked={quota.locked} onSend={onSend} settingsOpen={byok.open} onToggleSettings={byok.toggle} />
       <ChallengeGate dict={dict} challenge={challenge} />
     </>
   );
 }
 
-function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
+function ChatPageView({ search, page, preferences }: Readonly<{ search: ChatSearch; page: PageState; preferences: PanelPreferences | undefined }>) {
   const entry = entryStateOf(search, page.health);
   return <ChatShell
     appbar={<ChatAppBar dict={page.dict} status={page.auth} />}
     notices={<ChatNotices entry={entry} onRetry={page.health.retry} history={page.history} dict={page.dict} />}
     body={chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale, page.byok)}
     dock={chatDock(page.departure, page.dict, page.config.baseUrl, page.photo, page.chat, page.recompute)}
-    composer={chatComposer(page.dict, page.config.baseUrl, page.byok, page.challenge, page.quota, page.departure.onSend, composerGateOf(entry, page.chat, page.history, page.failure))}
+    composer={chatComposer(page.dict, page.config.baseUrl, page.byok, page.challenge, page.quota, page.departure.onSend, composerGateOf(entry, page.chat, page.history, page.failure), preferences)}
   />;
 }
 
 /** Publishes the live session id so every in-chat login wall can send the
  * visitor back to this conversation after signing in (#507 review P1-1). */
-function withReturnTarget(search: ChatSearch, page: PageState) {
+function withReturnTarget(props: ChatPageProps, page: PageState) {
   return (
     <ChatReturnTargetProvider sessionIdOf={page.chat.sessionIdOf}>
-      <ChatPageView search={search} page={page} />
+      <ChatPageView search={props.search} page={page} preferences={props.preferences} />
     </ChatReturnTargetProvider>
   );
 }
 
-export function ChatPage({ search }: ChatPageProps) {
-  const page = useChatPage(search);
+export function ChatPage(props: ChatPageProps) {
+  const page = useChatPage(props.search);
   return (
     <SpotSelectionProvider selection={page.selection}>
-      <ChatActionsProvider actions={page.actions}>{withReturnTarget(search, page)}</ChatActionsProvider>
+      <ChatActionsProvider actions={page.actions}>{withReturnTarget(props, page)}</ChatActionsProvider>
     </SpotSelectionProvider>
   );
 }

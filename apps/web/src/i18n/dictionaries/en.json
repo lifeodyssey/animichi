@@ -3,37 +3,18 @@
     "title": "Animichi",
     "description": "Find real-world anime locations and plan pilgrimage routes"
   },
-  "landing": {
-    "eyebrow": "FROM SCREEN TO STREET",
+  "doorway": {
     "hero": "Animichi",
-    "brand_pre": "Ani",
-    "brand_accent": "michi",
-    "headline_pre": "Plan the real route behind an ",
-    "headline_em": "anime scene",
     "lead": "Find the real-life locations of your favorite anime, compare scenes side by side, and get a walking route to experience them for yourself.",
-    "search_placeholder": "Enter anime, station, or city",
     "cta": "Start Exploring",
-    "examples": [
-      "Your Name",
-      "Euphonium",
-      "Weathering with You"
-    ],
-    "login": "Log in",
     "github": "GitHub",
-    "footer_nav": "Footer links",
-    "footer_name": "seichijunrei",
-    "comparison_anime": "Anime",
-    "comparison_anime_alt": "Anime frame of a railway crossing with cherry blossoms from 5 Centimeters Per Second.",
-    "comparison_real": "Real",
-    "comparison_real_alt": "Photo of the real railway crossing with cherry blossoms",
-    "comparison_aria": "Slider comparing the anime frame with the real location",
-    "theme_day": "Day",
-    "theme_night": "Night",
-    "fox_bubble": "This way!",
-    "mobile_lead": "From your favorite works to places you can walk. Follow maps and photos, never get lost.",
-    "mobile_bg_alt": "Hand-drawn illustration of a torii gate and shrine approach",
-    "fox_alt": "Fox guide welcoming you with a travel journal card",
-    "privacy": "Privacy policy"
+    "privacy": "Privacy policy",
+    "links": "Site links"
+  },
+  "settings": {
+    "title": "Settings",
+    "nightMode": "Night mode",
+    "language": "Language"
   },
   "home": {
     "search_placeholder": "Enter an anime, station, or city",
@@ -90,12 +71,5 @@
     "contact": "Privacy questions or deletion requests",
     "contact_link": "Open an issue on GitHub",
     "back_home": "Back to Animichi"
-  },
-  "coming_soon": {
-    "badge": "Coming soon",
-    "title": "Coming soon",
-    "body": "This feature is still under construction. It will open right up once it's ready — thanks for your patience.",
-    "action": "Got it",
-    "close": "Close"
   }
 }

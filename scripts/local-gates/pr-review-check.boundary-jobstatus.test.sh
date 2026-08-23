@@ -48,7 +48,7 @@ rm -f "$STATUS_LOG"
 for outcome in failure cancelled skipped; do
   run "final-status maps $outcome to failure" 0 \
     env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-    "$STEP" final-status lifeodyssey/animichi "$PIN" "$outcome"
+    "$STEP" final-status lifeodyssey/animichi "$PIN" "$outcome" failure
   last_is_failure "non-success whole-job outcome ($outcome) leaves the head red"
 done
 
@@ -60,7 +60,7 @@ run "gate evaluates green first (stale success posted)" 0 \
   "$CHECK" status lifeodyssey/animichi "$PIN" success
 run "a later step fails; the whole-job outcome re-posts failure" 0 \
   env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" final-status lifeodyssey/animichi "$PIN" failure
+  "$STEP" final-status lifeodyssey/animichi "$PIN" failure failure
 last_is_failure "the final failure overwrites the stale green (never merge-eligible)"
 
 echo

@@ -1,0 +1,78 @@
+/* Generation screen (canvas: しおり demo.html). The screen's own chrome —
+ * appbar, the 保存/コピー dock and its gold CTA, and the 対比図 picker — is not
+ * implemented yet, so this styles only what the component actually renders. */
+.shiori-generator {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  max-width: 26rem;
+  margin-inline: auto;
+  padding: 16px 16px 40px;
+  font-family: var(--app-font-body);
+}
+
+.shiori-generator__summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  width: 100%;
+  text-align: center;
+}
+
+.shiori-generator__mode {
+  margin: 0;
+  color: var(--color-fg);
+  font-family: var(--app-font-display);
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.shiori-generator__stats {
+  margin: 0;
+  color: var(--color-muted-fg);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* §4.3 pill, gold family: completion is the しおり's one gold signal (the seal
+ * on the card says the same thing), so it wears the soft gold tint here rather
+ * than a second solid-gold mark competing with the seal. */
+.shiori-generator__completion {
+  margin: 0;
+  border: 2px solid var(--color-gold);
+  border-radius: 50px;
+  padding: 3px 10px;
+  background: var(--color-gold-soft);
+  color: var(--color-gold-fg);
+  font-size: 11.5px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+/* Canvas .swrow: the opt-in is a panel row, not a bare checkbox line. The
+ * checkbox itself keeps a native control edge — --color-border is the 3:1
+ * control line and must not be softened (WCAG 1.4.11). */
+.shiori-generator__exif {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  border: 2px solid var(--color-border-soft);
+  border-radius: 14px;
+  padding: 11px 14px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.shiori-generator__exif input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+}

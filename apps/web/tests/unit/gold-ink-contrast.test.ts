@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import chatCss from "../../src/styles/chat.css?raw";
 import globalsCss from "../../src/styles/globals.css?raw";
+import routeCss from "../../src/styles/route-detail.css?raw";
+import shioriCss from "../../src/styles/shiori.css?raw";
 import {
   contrastRatio,
+  lastRuleDeclaration,
   normalizeHex,
   parseBlockTokens,
   parseTokens,
+  relativeLuminance,
   ruleDeclaration,
   tokenValue,
   type TokenMap,
@@ -34,6 +38,30 @@ describe("the solid gold ground carries its own theme-invariant ink", () => {
   });
 });
 
+/**
+ * `--gold-deep` on the design-sync canvas: the §4.2 ledge under the gold
+ * family, as `--shadow-3d` is the ledge under the cream one. `route-detail.css`
+ * and `shiori.css` each used to declare their own copy of this hex.
+ */
+describe("the gold family has one ledge colour, not one per feature", () => {
+  it("names the design-sync deep gold, a real step darker than the gold itself", () => {
+    expect(tokenValue(dayTokens, "--color-gold-deep")).toBe("#d9a412");
+    expect(relativeLuminance(tokenValue(dayTokens, "--color-gold-deep")))
+      .toBeLessThan(relativeLuminance(tokenValue(dayTokens, "--color-gold")));
+  });
+
+  it("stays theme-invariant, like the gold it sits under", () => {
+    expect(parseBlockTokens(globalsCss, '[data-theme="night"]')["--color-gold-deep"]).toBeUndefined();
+  });
+
+  it("is the only declaration of that step — no skin keeps a private copy", () => {
+    for (const sheet of [routeCss, shioriCss]) {
+      expect(sheet).not.toContain("#d9a412");
+      expect(sheet).toContain("var(--color-gold-deep)");
+    }
+  });
+});
+
 describe("the recompute action reads on solid gold in both themes", () => {
   it("paints gold ink on the solid gold ground", () => {
     expect(ruleDeclaration(chatCss, ".chat-selection-tray__action", "background"))
@@ -57,14 +85,14 @@ describe("the recompute action reads on solid gold in both themes", () => {
 
 describe("the tinted gold ground keeps its own foreground", () => {
   it("keeps the route pill on the soft pair", () => {
-    expect(ruleDeclaration(chatCss, ".chat-route-pill", "background")).toBe("var(--color-gold-soft)");
-    expect(ruleDeclaration(chatCss, ".chat-route-pill", "color")).toBe("var(--color-gold-fg)");
+    expect(lastRuleDeclaration(chatCss, ".chat-route-pill", "background")).toBe("var(--color-gold-soft)");
+    expect(lastRuleDeclaration(chatCss, ".chat-route-pill", "color")).toBe("var(--color-gold-fg)");
   });
 
   it("clears AA on the soft pair in both themes", () => {
     for (const tokens of [dayTokens, nightTokens]) {
-      const ink = paintAsHex(tokens, ruleDeclaration(chatCss, ".chat-route-pill", "color"));
-      const ground = paintAsHex(tokens, ruleDeclaration(chatCss, ".chat-route-pill", "background"));
+      const ink = paintAsHex(tokens, lastRuleDeclaration(chatCss, ".chat-route-pill", "color"));
+      const ground = paintAsHex(tokens, lastRuleDeclaration(chatCss, ".chat-route-pill", "background"));
       expect(contrastRatio(ink, ground)).toBeGreaterThanOrEqual(AA);
     }
   });

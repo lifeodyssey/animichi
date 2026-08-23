@@ -10,7 +10,7 @@ export function chatSearchTarget(query: string): ChatSearchTarget | null {
 }
 
 /** Path form of the A2 target, for carriers that take a URL string instead of a
- * router target — the landing return-target, which rides the magic link as
+ * router target — the login return-target, which rides the magic link as
  * `?next=` and is re-validated by `sanitizeReturnTarget` on the way back. */
 export function chatSearchPath(query: string): string | undefined {
   const target = chatSearchTarget(query);

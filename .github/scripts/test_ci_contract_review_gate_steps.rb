@@ -5,6 +5,9 @@
 # every review-gate test file stays under 200 lines; loaded via require_relative
 # by the single entry (test_ci_contract_review_gate.rb) CI already runs.
 
+require "json"
+require "yaml"
+
 # CI contract must keep GitHub template expressions in env, never inline in run
 # (repo rule: all expressions arrive via env: — zizmor template-injection gate).
 def env_mapped?(env, var, expression)
@@ -61,7 +64,39 @@ def assert_final_status_step(steps, quality_yml)
   final = final_steps.fetch(0)
   abort "#{quality_yml} final status must use if: always() semantics" unless final.fetch("if").include?("always()")
   final_run = final.fetch("run")
-  abort "#{quality_yml} final status run must pass $REPO / $HEAD_SHA / $JOB_STATUS from env" unless final_run.include?("$REPO") && final_run.include?("$HEAD_SHA") && final_run.include?("$JOB_STATUS")
-  assert_env_mapping(final, final_run, %w[$REPO $HEAD_SHA $JOB_STATUS], %w[github.event.repository.full_name review-gate-head.outputs.head_sha job.status], "#{quality_yml} final status")
+  abort "#{quality_yml} final status run must pass $REPO / $HEAD_SHA / $JOB_STATUS / $GATE_STATE from env" unless final_run.include?("$REPO") && final_run.include?("$HEAD_SHA") && final_run.include?("$JOB_STATUS") && final_run.include?("$GATE_STATE")
+  assert_env_mapping(final, final_run, %w[$REPO $HEAD_SHA $JOB_STATUS $GATE_STATE], %w[github.event.repository.full_name review-gate-head.outputs.head_sha job.status steps.review-gate.outputs.gate_state], "#{quality_yml} final status")
   final
+end
+
+def assert_repo_contract_artifacts
+  ruleset = YAML.safe_load(File.read("docs/iterations/s0v2/ruleset-target.json"))
+  required = Array(ruleset.fetch("required_checks"))
+  cutover = JSON.parse(File.read("docs/iterations/s0v2/ruleset-cutover-target.json"))
+  abort "ruleset-target.json must match the three post-cutover contexts" unless required == cutover.fetch("required_checks")
+  abort "ruleset-target.json must require Review Gate" unless required.include?("Review Gate")
+  abort "ruleset-target.json must retire Quality / invariants" if required.include?("Quality / invariants")
+  producer = cutover.fetch("producer_jobs").fetch("Review Gate")
+  abort "ruleset-cutover target must name Review Gate as the producer" unless producer.fetch("name") == "Review Gate"
+  abort "ruleset-cutover target must point Review Gate at invariants" unless producer.fetch("job_id") == "invariants"
+  assert_step_source_contract
+  assert_check_source_contract
+end
+
+def assert_step_source_contract
+  source = File.read("scripts/local-gates/pr-review-gate-step.sh")
+  abort "pr-review-gate-step.sh must resolve the exact PR head (headRefOid)" unless source.include?("--json headRefOid")
+  abort "pr-review-gate-step.sh must expose resolve-head / collect-check / final-status" unless source.include?("resolve-head") && source.include?("collect-check") && source.include?("final-status")
+  abort "pr-review-gate-step.sh must reject an advanced PR head (finding 2)" unless source.include?("PR head advanced since resolution")
+  abort "pr-review-gate-step.sh must never reference GITHUB_SHA" if source.include?("GITHUB_SHA")
+  abort "pr-review-gate-step.sh must skip events without a PR" unless source.include?("skipping review gate")
+end
+
+def assert_check_source_contract
+  gate_source = File.read("scripts/local-gates/pr-review-check.sh")
+  abort "pr-review-check.sh must post Review Gate on the resolved head" unless gate_source.include?("/statuses/$2") && gate_source.include?("STATUS_CONTEXT='Review Gate'")
+  abort "pr-review-check.sh collect must accept the pinned head and resolve the real merge-base" unless gate_source.include?("--pinned-head") && gate_source.include?("/compare/")
+  abort "pr-review-check.sh collect must read the PR body for the canonical brief-digest record" unless gate_source.include?("--json body") && gate_source.include?("brief_digest.json")
+  brief_source = File.read("scripts/local-gates/brief_record.py")
+  abort "brief_record.py must extract and fail closed on duplicate review-gate brief records" unless brief_source.include?("review-gate") && brief_source.include?("multiple review-gate brief records")
 end

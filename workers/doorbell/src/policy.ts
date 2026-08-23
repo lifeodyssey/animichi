@@ -19,6 +19,10 @@ export const TRUSTED_WORKFLOW = "lifeodyssey/animichi/.github/workflows/ci.yml@r
 /** The production deploy pipeline may present a token. */
 export const TRUSTED_DEPLOY_WORKFLOW = "lifeodyssey/animichi/.github/workflows/deploy.yml@refs/heads/main";
 
+/** The reusable ring-doorbell job (called from ci.yml) may present a token. */
+export const TRUSTED_RING_WORKFLOW =
+  "lifeodyssey/animichi/.github/workflows/reusable-ring-doorbell.yml@refs/heads/main";
+
 /** GitHub Actions OIDC JWKS (constructor-injected elsewhere; production source). */
 export const GITHUB_OIDC_JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks";
 
@@ -41,7 +45,7 @@ export const DOORBELL_OIDC_POLICY: GitHubOidcPolicy = {
     { ref: "refs/heads/main", environment: "production" },
   ],
   subAllow: [`repo:${REPOSITORY}:environment:production`],
-  trustedWorkflowRefs: [TRUSTED_WORKFLOW, TRUSTED_DEPLOY_WORKFLOW],
+  trustedWorkflowRefs: [TRUSTED_WORKFLOW, TRUSTED_DEPLOY_WORKFLOW, TRUSTED_RING_WORKFLOW],
 };
 
 export function isBannedComponent(name: string): boolean {

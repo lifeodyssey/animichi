@@ -100,7 +100,7 @@ run "collect-check passes for pull_request_review_comment" 0 "${GITHUB_ARGS[@]}"
   "$STEP" collect-check lifeodyssey/animichi "$PIN" pull_request_review_comment 710 "" ""
 run "final-status posts the inline-thread event outcome" 0 \
   env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" final-status lifeodyssey/animichi "$PIN" success
+  "$STEP" final-status lifeodyssey/animichi "$PIN" success success
 if grep -q "^success $PIN" "$STATUS_LOG"; then
   printf 'PASS %-44s\n' "inline-thread event runs the full head-bound status flow"
 else

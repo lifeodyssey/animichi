@@ -16,6 +16,9 @@ async function request(headers: Record<string, string> = {}, env = TEST_ENV): Pr
 describe("Users Worker internal-identity boundary (AUTH-2 #950)", () => {
   it("rejects a request with no X-User-Id header", () => expectUnauthorized({}));
   it("rejects an empty X-User-Id header", () => expectUnauthorized(identityHeaders(" ")));
+  it("rejects identity without X-User-Type", () => expectUnauthorized({ "X-User-Id": "user-a" }));
+  it("rejects anonymous identity", () => expectUnauthorized(identityHeaders("user-a", { "X-User-Type": "anonymous" })));
+  it("rejects an unknown identity type", () => expectUnauthorized(identityHeaders("user-a", { "X-User-Type": "service" })));
 
   it("rejects a raw bearer access attempt — users no longer verifies JWTs itself", async () => {
     const response = await request({

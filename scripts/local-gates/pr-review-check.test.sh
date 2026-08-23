@@ -18,6 +18,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MODULES=(
   "pr-review-check.core.test.sh"
+  "pr-review-check.pending.test.sh"
   "pr-review-check.boundary-collect.test.sh"
   "pr-review-check.boundary-shape.test.sh"
   "pr-review-check.boundary-status.test.sh"
@@ -25,6 +26,7 @@ MODULES=(
   "pr-review-check.boundary-routing.test.sh"
   "pr-review-check.mutation-boundary.test.sh"
   "pr-review-check.mutation-gate.test.sh"
+  "pr-review-check.mutation-state.test.sh"
   "pr-review-check.mutation-identity.test.sh"
   "pr-review-check.repair.test.sh"
 )

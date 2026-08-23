@@ -40,9 +40,9 @@
 #
 # Container runtime secrets (forwarded to Python backend). Live model
 # credential is ZEN_GO_API_KEY (MiMo via opencode.ai/zen/go, #1160). MIMO_API_KEY
-# stays forwarded for rollback to api.xiaomimimo.com. The DeepSeek and generic
-# OpenAI-compat fallbacks stay wired but DISABLED (settings.fallback_agent_model
-# is empty; re-enabling is a config flip, not a secret add):
+# stays forwarded for staging failover to api.xiaomimimo.com. Production keeps
+# the settings default (no fallback) while its chat surface is disabled; the
+# DeepSeek and generic OpenAI-compat fallbacks stay wired but disabled:
 #   SUPABASE_DB_URL            — postgres://... for asyncpg (legacy plane; still
 #                                the prod container DSN until the #855 cutover)
 #   AGENT_SVC_DATABASE_URL     — Neon agent_svc role DSN (staging, via the
@@ -50,7 +50,7 @@
 #                                container and preferred over SUPABASE_DB_URL by
 #                                apps/agent settings, #912 follow-up)
 #   ZEN_GO_API_KEY             — live primary model key (zen/go gateway)
-#   MIMO_API_KEY               — rollback key for api.xiaomimimo.com direct routing
+#   MIMO_API_KEY               — staging fallback key for direct MiMo routing
 #   DEEPSEEK_API_KEY           — wired-but-disabled fallback model key (DeepSeek)
 #   (photo-search recognition rides the same chat model credentials above —
 #   #656 retired the standalone Gemini vision provider in favor of the main
@@ -188,7 +188,7 @@ tag = "v2"
 new_sqlite_classes = ["EdgeGuard"]
 
 [observability]
-enabled = false
+enabled = true
 head_sampling_rate = 1
 
 [observability.logs]
@@ -315,6 +315,10 @@ routes = []
 # outright (see infra/index.ts "Why WAF and not Cloudflare Access").
 # `preview_urls` is pinned to `false` for the same reason — per-version preview
 # URLs are not a surface the gate (or anything else) is meant to expose.
+# #1076 Workers Builds (staging): deploy command is
+# `npx wrangler deploy -c workers/edge/wrangler.toml --env staging` via
+# `workers/edge/scripts/builds-staging.sh` (full wrangler deploy, not
+# versions-upload, so the agent container image updates).
 workers_dev = false
 preview_urls = false
 
@@ -328,6 +332,8 @@ bucket_name = "map-tiles-staging"
 # staging traces must tag "staging" in Logfire, not "production".
 APP_ENV = "staging"
 CATALOG_API_URL = "http://catalog.internal"
+# Keep the same model while bypassing zen/go when its transport fails.
+FALLBACK_AGENT_MODEL = "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
 # Showcase-mode gate (S0-v2 GOAL C / C9): staging stays fully functional
 # (showcase off). Strict boolean — only the literal "false" means that.
 EDGE_SHOWCASE_MODE = "false"
@@ -363,11 +369,10 @@ ANON_ACCESS_ENABLED = "true"
 # Auth) JWTs against this branch JWKS ONLY — the dual-issuer flag, the split
 # issuer var, and the Supabase verifier are deleted. issuer/audience are
 # derived from this URL (workers/edge/src/identity/auth.ts). The value is a
-# placeholder until the operator sets the real one (see infra/src/neon-auth.ts,
-# which declares the derivation + the neon-secrets secret). NOTE: this staging
-# placeholder URL is non-reachable — staging edge auth FAILS CLOSED (no verified
-# bearer) until the real branch JWKS URL is set here when the branch is provisioned.
-NEON_AUTH_JWKS_URL = "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
+# staging branch's public URL. It is derived from apps/web's staging Neon Auth
+# SDK endpoint and pinned by auth-config.test.ts so the browser and edge cannot
+# silently target different branches; infra/src/neon-auth.ts mirrors the same derivation.
+NEON_AUTH_JWKS_URL = "https://ep-broad-frost-aopp3uqq.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"

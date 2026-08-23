@@ -1,28 +1,16 @@
 import { useEffect, useState } from "react";
-import { neonAuthClient } from "./neon-auth";
-import { currentRuntimeConfig } from "../runtime-config/provider";
+import { getAuthToken } from "./auth-session";
 
 /** Root-route auth gate state; `pending` renders the anonymous Landing (S5.5). */
 export type AuthStatus = "pending" | "authenticated" | "anonymous";
 
-function authBaseUrl(): string | undefined {
-  return currentRuntimeConfig().neonAuthBaseUrl;
-}
-
 async function resolveAuthStatus(): Promise<AuthStatus> {
-  const base = authBaseUrl();
-  if (!base) return "anonymous";
-  try {
-    const { data } = await neonAuthClient(base).getSession();
-    return data ? "authenticated" : "anonymous";
-  } catch {
-    return "anonymous";
-  }
+  return (await getAuthToken()) ? "authenticated" : "anonymous";
 }
 
 /** In-flight only: several route cards mounting together must share one
- * `getSession` round trip, but nothing is cached past settlement, so a login
- * is never masked by a stale value. */
+ * JWT lookup, but nothing is cached past settlement, so a login is never
+ * masked by a stale value. The JWT itself is the same one API headers use. */
 let inFlight: Promise<AuthStatus> | undefined;
 
 /** Resolve the caller's auth status; unconfigured or failing auth is anonymous. */

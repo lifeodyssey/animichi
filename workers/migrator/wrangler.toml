@@ -73,6 +73,18 @@ new_sqlite_classes = ["MigratorApplyLock"]
 
 [observability]
 enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
+persist = true
 
 [env.staging]
 name = "migrator-staging"

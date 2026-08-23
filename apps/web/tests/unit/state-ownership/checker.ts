@@ -85,6 +85,7 @@ export const STORAGE_ADAPTERS: readonly string[] = [
   "features/chat/lib/draft-storage.ts",
   "features/chat/save/deferred-save.ts",
   "features/config/lib/theme-storage.ts",
+  "lib/i18n/locale-storage.ts",
   "components/theme-bootstrap.ts",
 ];
 

@@ -48,7 +48,7 @@ describe("A2 bubbles: the design spec's geometry and 3D depth", () => {
     const tokens = parseTokens(globalsCss);
     const soft = relativeLuminance(tokenValue(tokens, "--color-border-soft"));
     expect(soft).toBeGreaterThan(relativeLuminance(tokenValue(tokens, "--color-border")));
-    expect(ruleDeclaration(chatCss, ".chat-fallback__retry", "border")).toBe("1px solid var(--color-border)");
+    expect(ruleDeclaration(chatCss, ".chat-location__input", "border")).toBe("1px solid var(--color-border)");
   });
 });
 

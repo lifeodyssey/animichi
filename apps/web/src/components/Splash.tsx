@@ -47,11 +47,13 @@ function SplashFooter(): ReactElement {
 }
 
 /** Static, system-themed splash; dismissal is driven by CSS, never a JS timer.
- * `dwell` marks the mobile index route, where CSS holds the splash up until the
- * /chat hand-off so the landing underneath is never flashed (owner 2026-08-21). */
-export function Splash({ dwell = false }: { readonly dwell?: boolean }): ReactElement {
+ * `hold` marks the index route — the doorway that hands off to chat — where CSS
+ * keeps the splash up at every viewport until chat paints and releases it, so
+ * the doorway underneath is never flashed
+ * (owner 2026-08-23; see features/splash/splash-release.ts). */
+export function Splash({ hold = false }: { readonly hold?: boolean }): ReactElement {
   return (
-    <div className="app-splash" data-splash="static" data-splash-dwell={dwell ? "mobile" : undefined} aria-hidden="true">
+    <div className="app-splash" data-splash="static" data-splash-hold={hold ? "handoff" : undefined} aria-hidden="true">
       {SPLASH_FRAMES}
     </div>
   );

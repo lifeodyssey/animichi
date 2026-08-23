@@ -6,7 +6,7 @@
 #
 #   resolve-head  <event> <repo> <pr> <issue> <pull-url>  -> prints the PR head SHA
 #   collect-check <repo> <pinned> <event> <pr> <issue> <pull-url>
-#   final-status  <repo> <pinned> <outcome>
+#   final-status  <repo> <pinned> <outcome> <gate-state>
 #
 # `resolve-head` resolves the PR head once at the very start of the PR-only
 # path and prints the exact 40-hex SHA; the workflow posts the pending status
@@ -17,7 +17,8 @@
 # Plain issue comments, push, and merge_group resolve to no PR and never post a
 # fake PR review result. Every boundary fails closed: an unresolvable head, an
 # advanced head, a failed collect/check, or an unpostable status exits non-zero
-# so the required `Quality / invariants` job fails and GitHub blocks the merge.
+# so the required `Review Gate` job fails and GitHub blocks the merge. After
+# #1180 it is the sole required quality/review context.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -33,7 +34,9 @@ skip() { # skip <reason>
 pr_for_event() { # pr_for_event <event> <pr> <issue> <pull-url>
   case "$1" in
     pull_request | pull_request_review | pull_request_review_comment) printf '%s' "$2" ;;
-    issue_comment) [ -n "$4" ] && printf '%s' "$3" || skip "issue comment is not on a pull request" ;;
+    issue_comment)
+      if [ -n "$4" ]; then printf '%s' "$3"; else skip "issue comment is not on a pull request"; fi
+      ;;
     *) skip "no PR context ($1)" ;;
   esac
 }
@@ -76,11 +79,37 @@ gate_head() { # gate_head <pr> <repo> <pinned>
   [ "$live" = "$3" ] || block "PR head advanced since resolution (pinned $3, live $live); re-evaluate before merging"
 }
 
+set_gate_state() { # set_gate_state <state>
+  [ -n "${GITHUB_OUTPUT:-}" ] || return 0
+  printf 'gate_state=%s\n' "$1" >> "$GITHUB_OUTPUT"
+}
+
+gate_state() { # gate_state <check-output>
+  printf '%s\n' "$1" | python3 -c 'import json, sys; print(json.load(sys.stdin)["state"])'
+}
+
+check_state_result() { # check_state_result <state> <exit>
+  case "$1:$2" in
+    success:0 | pending:1) return 0 ;;
+    failure:1) return 1 ;;
+  esac
+  return 2
+}
+
+run_check() { # run_check <dir>
+  local output rc state
+  output="$("$GATE" check "$1" 2>&1)" && rc=0 || rc=$?
+  printf '%s\n' "$output"
+  state="$(gate_state "$output")" || { set_gate_state failure; return 2; }
+  set_gate_state "$state"
+  check_state_result "$state" "$rc"
+}
+
 run_collect() { # run_collect <pr> <repo> <pinned>
   GATE_COLLECT_DIR="$(mktemp -d)"
   trap 'rm -rf "$GATE_COLLECT_DIR"' EXIT
   "$GATE" collect "$GATE_COLLECT_DIR" --pr "$1" --repo "$2" --pinned-head "$3"
-  "$GATE" check "$GATE_COLLECT_DIR"
+  run_check "$GATE_COLLECT_DIR"
 }
 
 cmd_collect_check() { # cmd_collect_check <repo> <pinned> <event> <pr> <issue> <pull-url>
@@ -91,12 +120,16 @@ cmd_collect_check() { # cmd_collect_check <repo> <pinned> <event> <pr> <issue> <
   run_collect "$pr_number" "$1" "$2"
 }
 
-# Map the gate step's outcome to a head-bound status state: any non-success
-# (failure, cancelled, or skipped) posts failure so no stale green survives.
-cmd_final_status() { # cmd_final_status <repo> <pinned> <outcome>
-  [ "$#" -eq 3 ] || usage
+# Map the whole-job outcome and gate state to a head-bound status. A clean job
+# may still be waiting for human evidence; any job failure overrides pending.
+cmd_final_status() { # cmd_final_status <repo> <pinned> <outcome> <gate-state>
+  [ "$#" -eq 4 ] || usage
   local state="failure"
-  [ "$3" = "success" ] && state="success"
+  if [ "$3" = "success" ]; then
+    case "$4" in
+      success | pending) state="$4" ;;
+    esac
+  fi
   "$GATE" status "$1" "$2" "$state"
 }
 

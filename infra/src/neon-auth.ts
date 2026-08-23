@@ -3,10 +3,9 @@
 // The edge Worker (`workers/edge/src/identity/auth.ts`) verifies staging JWTs
 // against exactly one source of truth: the branch's JWKS URL. This module
 // declares where that URL comes from and the QA login the E2E suite and local
-// login script use, so the derivation lives in IaC rather than as a checked-in
-// literal with a hand-typed sibling (the split-var placeholder gap that
-// `docs/ops/auth-migration-neon.md` §8 documented is exactly the failure this
-// avoids).
+// login script use. The same derivation is pinned against the checked runtime
+// config, preventing the split-var placeholder gap documented in
+// `docs/ops/auth-migration-neon.md` §8.
 //
 // Pure functions only — no resources, no side effects — so the topology tests
 // can pin the derivation without a Pulumi runtime.
@@ -18,12 +17,10 @@ export function jwksUrlFromAuthBaseUrl(baseUrl: string): string {
   return `${baseUrl.replace(/[/]+$/, "")}${JWKS_SUFFIX}`;
 }
 
-/** Derive the issuer/audience (the auth base URL) from a JWKS URL — the mirror
+/** Derive the issuer/audience (the Neon Auth host origin) from a JWKS URL — the mirror
  * of the edge's own `issuerFromJwksUrl` in `workers/edge/src/identity/auth.ts`. */
 export function issuerFromJwksUrl(jwksUrl: string): string {
-  return jwksUrl.endsWith(JWKS_SUFFIX)
-    ? jwksUrl.slice(0, -JWKS_SUFFIX.length)
-    : jwksUrl;
+  return new URL(jwksUrl).origin;
 }
 
 /** Env var the edge reads its JWKS from (also the Secrets Store secret name). */

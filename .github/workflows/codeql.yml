@@ -12,15 +12,13 @@
 name: "CodeQL Advanced"
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   schedule:
     - cron: '37 18 * * 0'
+  workflow_dispatch:
 
-# PR runs cancel on a fresh push; main pushes and schedule runs queue instead
-# (S0-v2 B7 "concurrency" assertion — push runs must never be cancelled).
+# Pull-request and main-push analysis runs live in reusable-security.yml so the
+# required Security result owns their conclusion. This scheduled/manual copy
+# remains an independent periodic audit and never cancels a deploy.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

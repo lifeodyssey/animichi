@@ -7,8 +7,11 @@ release, and the unbounded (timeout=None) execution path.
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
+from animichi.application import agent_turn as agent_turn_module
 from animichi.application.agent_turn import AgentTurn
 from animichi.application.errors import ApplicationError
 from animichi.tests.unit.agent_turn_fakes import (
@@ -48,6 +51,26 @@ class _PersistFailingSession(FakeSession):
     async def persist(self, session_id: str, update):
         del session_id, update
         raise OSError("disk full")
+
+
+class _CancellationResistantExecution(FakeExecution):
+    def __init__(self) -> None:
+        super().__init__()
+        self.entered = asyncio.Event()
+        self.cancelled = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def execute(self, kind, *, context, history, model, on_step):
+        del kind, context, history, model, on_step
+        self.entered.set()
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            self.cancelled.set()
+            await self.release.wait()
+        return await super().execute(
+            None, context=None, history=(), model=None, on_step=None
+        )
 
 
 def _agent(
@@ -147,3 +170,46 @@ async def test_timeout_none_runs_execution_without_wait_for() -> None:
 
     assert result.outcome == "completed"
     assert result.output == "out"
+
+
+async def test_timeout_does_not_wait_for_cancellation_resistant_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def expire(tasks, *, timeout):
+        del timeout
+        await asyncio.sleep(0)
+        return set(), set(tasks)
+
+    monkeypatch.setattr(asyncio, "wait", expire)
+    harness = Harness(FakeTurnReservationStore())
+    execution = _CancellationResistantExecution()
+    harness.agent = _agent(harness, execution=execution)
+    try:
+        result = await harness.agent(_input(session_id="s-1"))
+        await asyncio.sleep(0)
+        assert result.error_code == "timeout"
+        assert execution.cancelled.is_set()
+        assert len(agent_turn_module._DETACHED_TIMED_RESULTS) == 1
+        assert harness.session.persists[0].response_status == "timeout"
+    finally:
+        execution.release.set()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+    assert agent_turn_module._DETACHED_TIMED_RESULTS == set()
+
+
+async def test_outer_cancellation_cancels_execution_without_waiting() -> None:
+    harness = Harness(FakeTurnReservationStore())
+    execution = _CancellationResistantExecution()
+    harness.agent = _agent(harness, execution=execution)
+    turn = asyncio.create_task(harness.agent(_input(session_id="s-1")))
+    try:
+        await execution.entered.wait()
+        turn.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await turn
+        await asyncio.sleep(0)
+        assert execution.cancelled.is_set()
+    finally:
+        execution.release.set()
+        await asyncio.sleep(0)
