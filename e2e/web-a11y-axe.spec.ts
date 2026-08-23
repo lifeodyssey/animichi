@@ -69,7 +69,9 @@ describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
    */
   test("settings panel", async ({ page }) => {
     await openChat(page, "/chat?settings=byok");
-    await expect(page.locator(".app-splash")).toBeHidden();
+    const splash = page.locator(".app-splash");
+    await expect(splash).toHaveCount(1);
+    await expect(splash).toBeHidden();
     await expect(page.locator("#byok-settings-panel")).toBeVisible();
     await page.getByRole("combobox").click();
     await expect(page.getByRole("listbox")).toBeVisible();

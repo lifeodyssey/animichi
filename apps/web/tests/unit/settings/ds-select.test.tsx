@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Select, type SelectOption } from "../../../src/components/ds/Select";
 
@@ -66,6 +67,14 @@ describe("DS Select — opening", () => {
     const { trigger } = makeMountedSelect();
     fireEvent.click(trigger);
     fireEvent.click(trigger);
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("closes from a real pointer click while the list owns focus", async () => {
+    const user = userEvent.setup();
+    const { trigger } = makeMountedSelect();
+    await user.click(trigger);
+    await user.click(trigger);
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 });

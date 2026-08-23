@@ -78,9 +78,13 @@ function useListFocus(open: boolean) {
 
 type TriggerProps = Readonly<{ id: string; text: string; open: boolean; onToggle: () => void }>;
 
+function keepOpenListFocused(event: MouseEvent, open: boolean): void {
+  if (open) event.preventDefault();
+}
+
 const SelectTrigger = forwardRef<HTMLButtonElement, TriggerProps>(function SelectTrigger({ id, text, open, onToggle }, ref) {
   return (
-    <button ref={ref} type="button" className="ds-select__trigger" role="combobox" aria-labelledby={`${id}-label ${id}-value`} aria-expanded={open} aria-haspopup="listbox" aria-controls={`${id}-listbox`} onClick={onToggle}>
+    <button ref={ref} type="button" className="ds-select__trigger" role="combobox" aria-labelledby={`${id}-label ${id}-value`} aria-expanded={open} aria-haspopup="listbox" aria-controls={`${id}-listbox`} onMouseDown={(event) => { keepOpenListFocused(event, open); }} onClick={onToggle}>
       <span id={`${id}-value`} className="ds-select__value">{text}</span><span className="ds-select__caret" aria-hidden="true">▾</span>
     </button>
   );

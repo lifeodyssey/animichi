@@ -1,7 +1,7 @@
 # SHA-256 inventory for the #1179 recovery evidence (base 73ed64178e98a37c7a0820d27fa5431f6c687322)
-71321549d2ebc55755cbd80c1d196015e5afc522ea640f335b9e53dfce4bb0c3  apps/web/src/components/ds/Select.tsx
-3e71da045de0e6b176237896eb71141292d83ae8f5dfe690878fb3f3a1aa3db1  apps/web/tests/unit/settings/ds-select.test.tsx
-421aeada24ce67723d14b109111ad3180d3b8db1a3d3e2c9aee2daca1b58dcc8  e2e/web-a11y-axe.spec.ts
+c933813f894769d86f3a84fa0ab2e93e4f6c93cb50512cce9846a9bd37729e08  apps/web/src/components/ds/Select.tsx
+5898172ee1d87502048c6f458c537f6c2bd11261f9b49ac2a965d96ce3f97616  apps/web/tests/unit/settings/ds-select.test.tsx
+727f07569c5361a398f2bc6b888d637bfa568ab013a1747188c6ccb1ab8f39c8  e2e/web-a11y-axe.spec.ts
 5120eccdfb4c106bc974e4b2cd534dc771d58cda91545111fd085c01cb92eae1  e2e/web-a11y-states.spec.ts
 dcf3c29595029be943a0025b749eef98a80c9435e45ebf1f5b02eff2bb720fb3  e2e/web-hero-query.spec.ts
 39abf5570ea2262694d1a1c15caf48beebc62ef4c1f75a694a5b32cf25bbe889  e2e/web-neon-login.spec.ts

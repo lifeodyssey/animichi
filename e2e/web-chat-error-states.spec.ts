@@ -28,13 +28,13 @@ const failedEnvelope = (code: string): EnvelopePatch => () => ({
 
 const zeroSpots: EnvelopePatch = (envelope) => ({
   ...envelope,
-  data: { route: { ordered_points: [], point_count: 0 } },
+  data: { itinerary: { ordered_points: [], point_count: 0 } },
 });
 
 const brokenScene: EnvelopePatch = (envelope) => ({
   ...envelope,
   data: {
-    route: {
+    itinerary: {
       ordered_points: [
         { id: "p1", name: "宇治橋", bangumi_id: "12345", episode: 8, latitude: 34.891, longitude: 135.807, screenshot_url: "/broken/scene.webp" },
       ],
@@ -42,6 +42,13 @@ const brokenScene: EnvelopePatch = (envelope) => ({
     },
   },
 });
+
+const recoveredMessages = [
+  { role: "user", content: "ユーフォ", created_at: "2026-08-01T00:00:00Z" },
+  { role: "assistant", content: "宇治の聖地を2件、徒歩ルートにまとめました。", created_at: "2026-08-01T00:00:01Z" },
+  { role: "user", content: "続きも教えて", created_at: "2026-08-01T00:00:02Z" },
+  { role: "assistant", content: "つづきはこの2か所だよ。", created_at: "2026-08-01T00:00:03Z" },
+];
 
 async function fulfillSse(route: Route, body: string): Promise<void> {
   await route.fulfill({ status: 200, headers: SSE_HEADERS, body });
@@ -112,12 +119,9 @@ test("D4 recovery re-reads the session's final state and preserves the conversat
   await page.route("**/v1/conversations/s-e2e/messages", (route) =>
     route.fulfill({
       json: {
-        messages: [
-          { role: "user", content: "ユーフォ" },
-          { role: "assistant", content: "宇治の聖地を2件、徒歩ルートにまとめました。" },
-          { role: "user", content: "続きも教えて" },
-          { role: "assistant", content: "つづきはこの2か所だよ。" },
-        ],
+        messages: recoveredMessages,
+        revision: 0,
+        next_offset: null,
       },
     }),
   );
