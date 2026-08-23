@@ -12,6 +12,15 @@ from animichi.interfaces.routes.chat_stream import stream_chat
 from animichi.interfaces.schemas import PublicAPIResponse
 
 
+async def test_finish_or_track_consumes_completed_producer() -> None:
+    task = asyncio.create_task(asyncio.sleep(0))
+    await task
+
+    chat_stream_module._finish_or_track(task)
+
+    assert task not in chat_stream_module._DETACHED_PRODUCERS
+
+
 async def test_disconnect_does_not_wait_for_cancellation_resistant_provider(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
