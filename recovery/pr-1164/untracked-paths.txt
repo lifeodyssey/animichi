@@ -1,0 +1,15 @@
+apps/web/src/components/ds/Select.tsx
+apps/web/src/components/ds/Switch.tsx
+apps/web/src/components/settings/AppPreferences.tsx
+apps/web/src/components/settings/LanguageSelect.tsx
+apps/web/src/components/settings/ThemeSwitch.tsx
+apps/web/src/features/config/use-theme.ts
+apps/web/src/features/seo/DoorwaySummary.tsx
+apps/web/src/lib/i18n/locale-storage.ts
+apps/web/tests/unit/lib/locale-storage.test.ts
+apps/web/tests/unit/settings/ds-controls-css.test.ts
+apps/web/tests/unit/settings/ds-select.test.tsx
+apps/web/tests/unit/settings/language-select.test.tsx
+apps/web/tests/unit/settings/settings-panel.test.tsx
+apps/web/tests/unit/theme-switch.test.tsx
+docs/iterations/chat-visual-restore/handoff-2026-08-23.md

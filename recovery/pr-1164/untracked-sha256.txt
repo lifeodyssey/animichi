@@ -1,0 +1,15 @@
+f5003908fe6967533ef5afe268ae213246eae993f0f2e3c6be64e4d6748faa72  recovery/pr-1164/untracked-snapshot/docs/iterations/chat-visual-restore/handoff-2026-08-23.md
+2fba9558379bfa368678e6459fa081bbd321ed6519ee909ba39ae0df6cf7cc3b  recovery/pr-1164/untracked-snapshot/apps/web/tests/unit/settings/settings-panel.test.tsx
+eb123f748b5ebc248552b8615635c343d5f509f415f1cf8eaca0ea13868dbb8a  recovery/pr-1164/untracked-snapshot/apps/web/tests/unit/settings/language-select.test.tsx
+b7ec17e8c9bf8f29fa6e4adb70232aa6cc378f951803b994ab6f3595dd0f7179  recovery/pr-1164/untracked-snapshot/apps/web/tests/unit/settings/ds-select.test.tsx
+016336450ce17ff1af2228462bdeb84f04fe08681bc48cfe44254713c35088d0  recovery/pr-1164/untracked-snapshot/apps/web/tests/unit/settings/ds-controls-css.test.ts
+5337fc40978e147b8a9baf059aff0b865e1ed51f078665a40b9af6774c9965a5  recovery/pr-1164/untracked-snapshot/apps/web/tests/unit/theme-switch.test.tsx
+f6045a439ccf6874fbfbd0246c07f553ecdad7cb5b37b3b4eefdba97ec204f34  recovery/pr-1164/untracked-snapshot/apps/web/tests/unit/lib/locale-storage.test.ts
+b11e89eb9dc3221c7370122c9b65f7dbfd8e6acf9b87fa07c44013505347a19d  recovery/pr-1164/untracked-snapshot/apps/web/src/features/config/use-theme.ts
+92bf202d4a588c82a8b3ca7de52ab57e53805017b9a8b3e6575720f1dde3bd4e  recovery/pr-1164/untracked-snapshot/apps/web/src/features/seo/DoorwaySummary.tsx
+b3844dd884317585aa79be9e659ffc7a38568c623c69e1a8f5b446f8362b7b0e  recovery/pr-1164/untracked-snapshot/apps/web/src/components/settings/AppPreferences.tsx
+e9569a0a57b0b1f7080fd85ba090bed4d64d7d3b240488dc0829cf3062ae2c76  recovery/pr-1164/untracked-snapshot/apps/web/src/components/settings/LanguageSelect.tsx
+afdbe3824555e4debf8451386741dfd9e828c8a3d0ac388592fcea9856234524  recovery/pr-1164/untracked-snapshot/apps/web/src/components/settings/ThemeSwitch.tsx
+a205581ca1c9349a58ee432f693ab51c3b22588997c1be12fcc14fa6be063830  recovery/pr-1164/untracked-snapshot/apps/web/src/components/ds/Switch.tsx
+889ee32907060b2a4c451243e59f21281a6027ffe71ea48fa306c13d11b89d51  recovery/pr-1164/untracked-snapshot/apps/web/src/components/ds/Select.tsx
+a3f3c22ce47b459b6506864a66a827e4a2f31976581e79e3e5ac57dc32f01c63  recovery/pr-1164/untracked-snapshot/apps/web/src/lib/i18n/locale-storage.ts
