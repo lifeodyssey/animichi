@@ -8,9 +8,9 @@ on:
   push:
     branches: [main, develop]
   pull_request:
-  # The six stable lanes below are branch-protection required contexts; a
-  # merge queue waits on them, so they must also run on the queue's
-  # temporary merge commit or a queued PR pends forever (S0-v2 B7).
+  # `Security` is one of the three required PR-level aggregators. A merge
+  # queue waits on it, so this workflow must also run on the queue's temporary
+  # merge commit or a queued PR pends forever (S0-v2 B7).
   merge_group:
     branches: [main]
   workflow_dispatch:
