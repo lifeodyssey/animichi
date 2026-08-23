@@ -81,18 +81,34 @@ function numberInBlock(header: string, key: string, source: string): number {
   return Number(match[1]);
 }
 
+function assertRootObservability(source: string): void {
+  assert.equal(booleanInBlock("[observability]", "enabled", source), true);
+  assert.equal(numberInBlock("[observability]", "head_sampling_rate", source), 1);
+}
+
+function assertLogObservability(source: string): void {
+  assert.equal(booleanInBlock("[observability.logs]", "enabled", source), true);
+  assert.equal(numberInBlock("[observability.logs]", "head_sampling_rate", source), 1);
+  assert.equal(booleanInBlock("[observability.logs]", "persist", source), true);
+  assert.equal(booleanInBlock("[observability.logs]", "invocation_logs", source), true);
+}
+
+function assertTraceObservability(source: string): void {
+  assert.equal(booleanInBlock("[observability.traces]", "enabled", source), true);
+  assert.equal(numberInBlock("[observability.traces]", "head_sampling_rate", source), 1);
+  assert.equal(booleanInBlock("[observability.traces]", "persist", source), true);
+}
+
+function assertObservability(source: string): void {
+  assertRootObservability(source);
+  assertLogObservability(source);
+  assertTraceObservability(source);
+}
+
 for (const [worker, relativePath] of observableWorkerConfigs) {
   void test(`${worker} persists Cloudflare logs and traces`, () => {
     const source = readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
-    assert.equal(booleanInBlock("[observability]", "enabled", source), true);
-    assert.equal(numberInBlock("[observability]", "head_sampling_rate", source), 1);
-    assert.equal(booleanInBlock("[observability.logs]", "enabled", source), true);
-    assert.equal(numberInBlock("[observability.logs]", "head_sampling_rate", source), 1);
-    assert.equal(booleanInBlock("[observability.logs]", "persist", source), true);
-    assert.equal(booleanInBlock("[observability.logs]", "invocation_logs", source), true);
-    assert.equal(booleanInBlock("[observability.traces]", "enabled", source), true);
-    assert.equal(numberInBlock("[observability.traces]", "head_sampling_rate", source), 1);
-    assert.equal(booleanInBlock("[observability.traces]", "persist", source), true);
+    assertObservability(source);
   });
 }
 

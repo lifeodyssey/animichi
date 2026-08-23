@@ -41,3 +41,36 @@ async def test_disconnect_does_not_wait_for_cancellation_resistant_provider(
         await asyncio.sleep(0)
         await asyncio.sleep(0)
     assert chat_stream_module._DETACHED_PRODUCERS == set()
+
+
+async def test_cancelled_cleanup_still_tracks_the_resistant_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "animichi.interfaces.routes.chat_stream._PRODUCER_CANCEL_GRACE_SECONDS", 30
+    )
+    release = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def resists_cancel(_on_step: OnStep) -> PublicAPIResponse:
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            cancelled.set()
+            await release.wait()
+        return PublicAPIResponse(success=True, status="ok", intent="greet_user")
+
+    frames = stream_chat(resists_cancel)
+    await anext(frames)
+    cleanup = asyncio.create_task(frames.aclose())
+    try:
+        await cancelled.wait()
+        cleanup.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await cleanup
+        assert len(chat_stream_module._DETACHED_PRODUCERS) == 1
+    finally:
+        release.set()
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+    assert chat_stream_module._DETACHED_PRODUCERS == set()
