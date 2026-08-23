@@ -38,6 +38,13 @@ describe("wrangler.jsonc APP_ENV declarations (AC5)", () => {
     expect(parseWranglerConfig().env[name]?.vars?.APP_ENV).toBe(name);
   });
 
+  it("staging RUNTIME_CONFIG carries neonAuthBaseUrl so Builds cannot ship the default", () => {
+    const raw = parseWranglerConfig().env.staging?.vars?.RUNTIME_CONFIG;
+    expect(typeof raw).toBe("string");
+    const payload = JSON.parse(String(raw)) as { neonAuthBaseUrl?: unknown };
+    expect(payload.neonAuthBaseUrl).toMatch(/^https:\/\/.+\.neon\.tech\//);
+  });
+
   // A `wrangler deploy` with no `--env` uses the top-level block. Its `name` is
   // the same Worker as one of the env blocks, so its APP_ENV must agree with
   // that block's — otherwise a bare deploy publishes to a real environment

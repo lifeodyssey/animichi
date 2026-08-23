@@ -4,4 +4,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 pnpm run build
-TARGET_ENVIRONMENT=staging node ../../.github/scripts/inject-web-runtime-config.mjs
+if [ -n "${VITE_NEON_AUTH_BASE_URL:-}" ]; then
+  TARGET_ENVIRONMENT=staging node ../../.github/scripts/inject-web-runtime-config.mjs
+else
+  echo "VITE_NEON_AUTH_BASE_URL unset; using wrangler.jsonc staging RUNTIME_CONFIG"
+fi
