@@ -80,7 +80,7 @@ run "issue_comment rejection collect-check exits non-zero" 1 \
   "$STEP" collect-check lifeodyssey/animichi "$PIN" issue_comment "" 710 "https://github.com/lifeodyssey/animichi/pull/710"
 run "final-status posts failure for the rejecting PR" 0 \
   env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" final-status lifeodyssey/animichi "$PIN" failure
+  "$STEP" final-status lifeodyssey/animichi "$PIN" failure failure
 if head -1 "$STATUS_LOG" | grep -q "^pending $PIN" && tail -1 "$STATUS_LOG" | grep -q "^failure $PIN"; then
   printf 'PASS %-44s\n' "failure is posted after the gate for a rejecting PR"
 else
@@ -97,7 +97,7 @@ run "collect-check on a passing re-evaluation" 0 "${GITHUB_ARGS[@]}" \
   "$STEP" collect-check lifeodyssey/animichi "$PIN" pull_request_review 710 "" ""
 run "final-status posts success for a success outcome" 0 \
   env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" final-status lifeodyssey/animichi "$PIN" success
+  "$STEP" final-status lifeodyssey/animichi "$PIN" success success
 if head -1 "$STATUS_LOG" | grep -q "^pending $PIN" && tail -1 "$STATUS_LOG" | grep -q "^success $PIN"; then
   printf 'PASS %-44s\n' "pending is first and success is posted on the same head"
 else
@@ -105,7 +105,7 @@ else
 fi
 run "final-status posts failure for a failed outcome" 0 \
   env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" final-status lifeodyssey/animichi "$PIN" failure
+  "$STEP" final-status lifeodyssey/animichi "$PIN" failure failure
 if tail -1 "$STATUS_LOG" | grep -q "^failure $PIN"; then
   printf 'PASS %-44s\n' "non-success gate outcomes post failure"
 else
@@ -122,7 +122,7 @@ run "collect-check + final-status use the pinned head" 0 "${GITHUB_ARGS[@]}" \
   "$STEP" collect-check lifeodyssey/animichi "$PIN" pull_request 710 "" ""
 run "final status posts on the pinned head" 0 \
   env GITHUB_SHA='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" final-status lifeodyssey/animichi "$PIN" success
+  "$STEP" final-status lifeodyssey/animichi "$PIN" success success
 if grep -q " $PIN" "$STATUS_LOG" && ! grep -q ' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' "$STATUS_LOG"; then
   printf 'PASS %-44s\n' "all status posts target the resolved PR head (not GITHUB_SHA)"
 else
@@ -144,7 +144,7 @@ run "collect-check fails closed when the live head advanced" 2 \
   PATH="$MOCK_BIN:$PATH" "$STEP" collect-check lifeodyssey/animichi "$PIN" pull_request 710 "" ""
 run "final status after an advanced head posts failure, never success" 0 \
   env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" final-status lifeodyssey/animichi "$PIN" failure
+  "$STEP" final-status lifeodyssey/animichi "$PIN" failure failure
 if grep -q "^failure $PIN" "$STATUS_LOG" && ! grep -q "^success $PIN" "$STATUS_LOG"; then
   printf 'PASS %-44s\n' "never posts success for the pinned head after an advance"
 else
@@ -160,7 +160,7 @@ echo "=== gate-step fails closed when the status API cannot be called ==="
 rm -f "$STATUS_LOG"
 run "final-status fails closed when the status API cannot be called" 2 \
   env MOCK_STATUS_FAIL=1 MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" final-status lifeodyssey/animichi "$PIN" success
+  "$STEP" final-status lifeodyssey/animichi "$PIN" success success
 
 echo
 echo "=== gate-step skips events without a PR (no fake review results) ==="

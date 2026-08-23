@@ -17,8 +17,10 @@
 # collection fails closed if the live PR head advanced past that pin (issue
 # #1008 finding 2). `check` is pure: it judges that snapshot (optionally with
 # the local head-bound review verdict artifact) and prints one JSON object,
-# exiting 0 on approve, 1 on reject, 2 on failure to even read the inputs
-# (fail-closed). `status` posts the `Review Gate` commit status on the exact PR
+# exiting 0 on approve, 1 on a non-success gate (the JSON carries
+# `state=success|pending|failure`), 2 on failure to even read the inputs
+# (fail-closed). The workflow wrapper keeps `pending` green until final status
+# publication. `status` posts the `Review Gate` commit status on the exact PR
 # head SHA, binding
 # comment-triggered re-evaluations to the head the ruleset consumes (not the
 # default-branch SHA an issue_comment run is associated with). The CLI merge

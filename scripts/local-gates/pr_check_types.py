@@ -52,6 +52,7 @@ class MarkerResult:
 @dataclass(frozen=True)
 class PrGate:
     approve: bool
+    state: str
     head_sha: str
     threads_unresolved: int
     findings: tuple[str, ...]
