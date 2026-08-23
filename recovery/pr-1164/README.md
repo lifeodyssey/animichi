@@ -36,7 +36,7 @@ branch without relying on a local terminal:
 | Web typecheck | `apps/web`: `pnpm run typecheck` — pass |
 | Web oxlint | `apps/web`: `pnpm run lint:oxlint` — pass |
 | Web unit | Node 24: `pnpm exec vitest run --config vitest.config.ts --coverage --maxWorkers=1` — 269 files / 2,302 tests passed; 98.68/95.83/98.77/99.63 coverage |
-| Web integration | Node 24: `pnpm exec vitest run --config vitest.integration.config.ts --maxWorkers=1` — 4 files / 21 tests passed |
+| Web integration | Node 24: `pnpm exec vitest run --config vitest.integration.config.ts --maxWorkers=1` — 5 files / 22 tests passed |
 | Browser axe + state | Chromium: `web-a11y-axe.spec.ts web-a11y-states.spec.ts` — 12 passed; zero serious/critical axe findings |
 | Chat query + auth | Chromium: `web-hero-query.spec.ts web-neon-login.spec.ts` — 3 passed, 1 credential-gated skip |
 | Select mutation | Changed Escape `dropdown.close(true)` to `dropdown.close()` — 1/19 Select tests red; restored — 19/19 green |
