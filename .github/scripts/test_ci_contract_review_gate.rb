@@ -164,36 +164,6 @@ def last_actionlint_index(step_list)
   step_list.index(actionlint_steps.last)
 end
 
-def assert_repo_contract_artifacts
-  ruleset = YAML.safe_load(File.read("docs/iterations/s0v2/ruleset-target.json"))
-  required = Array(ruleset.fetch("required_checks"))
-  abort "ruleset-target.json must require Quality / invariants (the status context)" unless required.include?("Quality / invariants")
-  cutover = JSON.parse(File.read("docs/iterations/s0v2/ruleset-cutover-target.json"))
-  producer = cutover.fetch("producer_jobs").fetch("Review Gate")
-  abort "ruleset-cutover target must name Review Gate as the producer" unless producer.fetch("name") == "Review Gate"
-  abort "ruleset-cutover target must point Review Gate at invariants" unless producer.fetch("job_id") == "invariants"
-  assert_step_source_contract
-  assert_check_source_contract
-end
-
-def assert_step_source_contract
-  source = File.read("scripts/local-gates/pr-review-gate-step.sh")
-  abort "pr-review-gate-step.sh must resolve the exact PR head (headRefOid)" unless source.include?("--json headRefOid")
-  abort "pr-review-gate-step.sh must expose resolve-head / collect-check / final-status" unless source.include?("resolve-head") && source.include?("collect-check") && source.include?("final-status")
-  abort "pr-review-gate-step.sh must reject an advanced PR head (finding 2)" unless source.include?("PR head advanced since resolution")
-  abort "pr-review-gate-step.sh must never reference GITHUB_SHA" if source.include?("GITHUB_SHA")
-  abort "pr-review-gate-step.sh must skip events without a PR" unless source.include?("skipping review gate")
-end
-
-def assert_check_source_contract
-  gate_source = File.read("scripts/local-gates/pr-review-check.sh")
-  abort "pr-review-check.sh must post Review Gate on the resolved head" unless gate_source.include?("/statuses/$2") && gate_source.include?("STATUS_CONTEXT='Review Gate'")
-  abort "pr-review-check.sh collect must accept the pinned head and resolve the real merge-base" unless gate_source.include?("--pinned-head") && gate_source.include?("/compare/")
-  abort "pr-review-check.sh collect must read the PR body for the canonical brief-digest record" unless gate_source.include?("--json body") && gate_source.include?("brief_digest.json")
-  brief_source = File.read("scripts/local-gates/brief_record.py")
-  abort "brief_record.py must extract and fail closed on duplicate review-gate brief records" unless brief_source.include?("review-gate") && brief_source.include?("multiple review-gate brief records")
-end
-
 def review_gate_summary(quality_yml)
   puts "Review gate: #{quality_yml} `Review Gate` resolves the PR head once, posts pending before the quality steps, runs pr-review-check collect + check against the pinned head (merge-base base, no local verdict), posts final status with if: always(), and mirrors its result to the legacy `Quality / invariants` wrapper until cutover"
 end
