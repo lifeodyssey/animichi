@@ -13,6 +13,12 @@ const { unstable_readConfig } = await import("wrangler");
 const config = unstable_readConfig({ config: process.argv[1], env: process.argv[2] });
 process.stdout.write(String(config.name));
 `;
+const READ_RUNTIME_CONFIG_SCRIPT = `
+process.env.WRANGLER_WRITE_LOGS = "false";
+const { unstable_readConfig } = await import("wrangler");
+const config = unstable_readConfig({ config: process.argv[1], env: "staging" });
+process.stdout.write(String(config.vars?.RUNTIME_CONFIG ?? ""));
+`;
 
 function blockFor(header: string): string {
   const start = WRANGLER.indexOf(`\n${header}\n`) + 1;
@@ -37,15 +43,22 @@ function parsedWorkerName(environment: string): string {
   );
 }
 
-const STAGING_NEON_JWKS =
-  "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json";
+function stagingAuthBaseUrl(): string {
+  const path = `${ROOT}apps/web/wrangler.jsonc`;
+  const raw = execFileSync(process.execPath, ["--input-type=module", "--eval", READ_RUNTIME_CONFIG_SCRIPT, path], { encoding: "utf8" });
+  const config = JSON.parse(raw) as { neonAuthBaseUrl?: unknown };
+  if (typeof config.neonAuthBaseUrl !== "string") assert.fail("web staging config must declare its Neon Auth SDK endpoint");
+  return config.neonAuthBaseUrl;
+}
 
 // AUTH-2 #950 hard cut: the JWKS URL is the edge's ONLY identity source;
 // the activation flag and issuer slot are deleted. Production must not carry
 // a JWKS until its branch is provisioned (empty fails closed).
 void test("staging pins the Neon Auth JWKS as the only identity source", () => {
   const staging = blockFor("[env.staging.vars]");
-  assert.equal(hasAssignment(staging, "NEON_AUTH_JWKS_URL", STAGING_NEON_JWKS), true, "staging must pin the JWKS endpoint");
+  const expected = `${stagingAuthBaseUrl()}/.well-known/jwks.json`;
+  assert.equal(hasAssignment(staging, "NEON_AUTH_JWKS_URL", expected), true, "edge JWKS must match the web SDK endpoint");
+  assert.equal(staging.includes("REDACTED"), false, "staging auth must not deploy a placeholder endpoint");
 });
 
 void test("production has no JWKS yet — unprovisioned fails closed", () => {

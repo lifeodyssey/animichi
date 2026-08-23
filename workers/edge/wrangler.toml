@@ -367,11 +367,10 @@ ANON_ACCESS_ENABLED = "true"
 # Auth) JWTs against this branch JWKS ONLY — the dual-issuer flag, the split
 # issuer var, and the Supabase verifier are deleted. issuer/audience are
 # derived from this URL (workers/edge/src/identity/auth.ts). The value is a
-# placeholder until the operator sets the real one (see infra/src/neon-auth.ts,
-# which declares the derivation + the neon-secrets secret). NOTE: this staging
-# placeholder URL is non-reachable — staging edge auth FAILS CLOSED (no verified
-# bearer) until the real branch JWKS URL is set here when the branch is provisioned.
-NEON_AUTH_JWKS_URL = "https://REDACTED-NEON-ENDPOINT.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
+# staging branch's public URL. It is derived from apps/web's staging Neon Auth
+# SDK endpoint and pinned by auth-config.test.ts so the browser and edge cannot
+# silently target different branches; infra/src/neon-auth.ts mirrors the same derivation.
+NEON_AUTH_JWKS_URL = "https://ep-broad-frost-aopp3uqq.neonauth.c-2.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"

@@ -1,7 +1,7 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { Hono, type Context, type MiddlewareHandler, type Next } from "hono";
 import { IDEMPOTENCY_KEY_HEADER, IDEMPOTENCY_KEY_MAX_LENGTH } from "@animichi/contract";
-import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER } from "@animichi/contract/internal-binding";
+import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER } from "@animichi/contract/internal-binding";
 import { makeDb as realMakeDb, type UsersDb } from "./db/client";
 import { USERS_ERRORS } from "./lib/errors";
 import { usersRouter, type UsersContext } from "./router";
@@ -86,6 +86,7 @@ async function requestService(
  */
 function edgeIdentity(c: Context<{ Bindings: Env }>): string | null {
   if (c.req.header(AUTHORIZATION_HEADER) != null) return null;
+  if (c.req.header(USER_TYPE_HEADER) !== "human") return null;
   const userId = c.req.header(USER_IDENTITY_HEADER);
   return typeof userId === "string" && userId.length > 0 ? userId : null;
 }

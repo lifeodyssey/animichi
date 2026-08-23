@@ -51,12 +51,15 @@ void test("client-forged X-User-Id is stripped on authed route (worker value win
   assert.equal(cap.req?.headers.get("X-User-Id"), "real");
 });
 
-void test("client-forged X-User-Id is stripped on PUBLIC route too", async () => {
+void test("public route strips caller identity and bearer before container forwarding", async () => {
   const app = createWorkerApp({ authenticate: () => Promise.resolve({ ok: false, reason: "absent" }) });
   const cap: { req?: Request } = {};
-  const res = await app.request("/v1/search/preview?q=test", { headers: { "X-User-Id": "forged" } }, envWithContainer(cap), stubCtx);
+  const headers = { Authorization: "Bearer private", "X-User-Id": "forged" };
+  const res = await app.request("/v1/search/preview?q=test", { headers }, envWithContainer(cap), stubCtx);
   assert.equal(await res.text(), "container");
-  assert.equal(cap.req?.headers.get("X-User-Id"), null);
+  assert.ok(cap.req);
+  assert.equal(cap.req.headers.get("X-User-Id"), null);
+  assert.equal(cap.req.headers.get("Authorization"), null);
 });
 
 void test("/v1/users with valid auth -> USERS gets X-User identity, no Authorization", async () => {
