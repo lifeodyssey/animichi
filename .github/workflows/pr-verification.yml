@@ -74,7 +74,9 @@ jobs:
         if: ${{ contains(fromJSON('["agent", "db", "docs"]'), matrix.package) }}
         run: uv python install 3.11
       - uses: ./.github/actions/install-atlas
-        if: ${{ matrix.package == 'db' }}
+        # Catalog's spike suite applies the Atlas migration chain to its
+        # hermetic Docker database, just like the DB gate.
+        if: ${{ matrix.package == 'db' || matrix.package == 'catalog' }}
       - name: Install Pulumi CLI for the infra gate
         if: ${{ matrix.package == 'infra' }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
@@ -85,7 +87,7 @@ jobs:
       # gets a fresh runner, so build it before either gate can inspect or use
       # the local Docker image.
       - name: Build hermetic Postgres+PostGIS+pgvector test image
-        if: ${{ matrix.package == 'agent' || matrix.package == 'db' }}
+        if: ${{ matrix.package == 'agent' || matrix.package == 'db' || matrix.package == 'catalog' }}
         run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
       - name: Resolve Playwright version
         if: ${{ matrix.package == 'e2e' }}

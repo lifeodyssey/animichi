@@ -34,7 +34,7 @@ def assert_event_contract(workflow)
   abort "PR Verification merge_group must target main" unless Array(merge_group.fetch("branches")) == ["main"]
 end
 
-def assert_job_contract(workflow)
+def assert_job_contract(workflow, workflow_path)
   jobs = workflow.fetch("jobs")
   route = jobs.fetch("route")
   package = jobs.fetch("package-gate")
@@ -51,11 +51,15 @@ def assert_job_contract(workflow)
   abort "aggregator must invoke exact-head checker" unless run.include?("pr-verification-aggregate.sh")
   head_env = aggregate.fetch("steps").map { |step| step.dig("env", "PR_VERIFICATION_HEAD_SHA") }.compact.first
   abort "aggregator must bind PR checks to pull-request head" unless head_env.to_s.include?("github.event.pull_request.head.sha")
-  abort "package gate must not suppress failures" if File.read(WORKFLOW).match?(/^\s*(continue-on-error|skip)\s*:/)
-  workflow_source = File.read(WORKFLOW)
+  workflow_source = File.read(workflow_path)
+  abort "package gate must not suppress failures" if workflow_source.match?(/^\s*(continue-on-error|skip)\s*:/)
   image_build = "docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 ."
-  abort "agent/db gates must build the pinned offline Postgres image" unless workflow_source.include?(image_build)
-  abort "offline Postgres image build must be scoped to agent/db gates" unless workflow_source.include?("matrix.package == 'agent' || matrix.package == 'db'")
+  steps = package.fetch("steps")
+  atlas_step = steps.find { |step| step["uses"] == "./.github/actions/install-atlas" }
+  image_step = steps.find { |step| step["name"] == "Build hermetic Postgres+PostGIS+pgvector test image" }
+  abort "catalog gate must install the pinned Atlas CLI" unless atlas_step && atlas_step["if"] == "${{ matrix.package == 'db' || matrix.package == 'catalog' }}"
+  abort "agent/db/catalog gates must build the pinned offline Postgres image" unless image_step && image_step["run"] == image_build
+  abort "offline Postgres image build must be scoped to agent/db/catalog gates" unless image_step["if"] == "${{ matrix.package == 'agent' || matrix.package == 'db' || matrix.package == 'catalog' }}"
   gate_source = File.read(GATE)
   abort "e2e gate must run deterministic Web pipeline assertions" unless gate_source.include?("web-404.spec.ts web-maplibre-canary.spec.ts web-state-ownership.spec.ts")
   abort "e2e gate must not be collection-only" if gate_source.include?("playwright test --list")
@@ -95,7 +99,7 @@ end
 def assert_pr_verification_contract(path = WORKFLOW)
   workflow = workflow_value(path)
   assert_event_contract(workflow)
-  assert_job_contract(workflow)
+  assert_job_contract(workflow, path)
   assert_routing_contract
   assert_workspace_package_set
   puts "PR Verification contract: one exact-head aggregator, affected workspace matrix, code-only triggers"

@@ -37,6 +37,8 @@ def assert_pr_verification_mutations
   run_mutation(source, "needs: [route, package-gate]", "needs: [route]", "aggregator no longer waits for package gates")
   run_mutation(source, "fromJSON(needs.route.outputs.packages)", "'[web]'", "matrix no longer follows affected route")
   run_mutation(source, "pull_request:\n    types:", "issue_comment:\n    types: [created]\n  pull_request:\n    types:", "comment events trigger code gates")
+  run_mutation(source, "matrix.package == 'agent' || matrix.package == 'db' || matrix.package == 'catalog'", "matrix.package == 'agent' || matrix.package == 'db'", "catalog gate no longer builds the hermetic Postgres image")
+  run_mutation(source, "matrix.package == 'db' || matrix.package == 'catalog'", "matrix.package == 'db'", "catalog gate no longer installs Atlas")
   route_source = File.read(ROUTE)
   run_dispatcher_mutation(route_source, "PR_VERIFICATION_ROUTE", "match_workspace_package", "workspace_match_removed", "routed package matcher removed")
   gate_source = File.read(GATE)
