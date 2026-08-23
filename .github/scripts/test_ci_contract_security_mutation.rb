@@ -144,6 +144,16 @@ red_probe("summary checkout persists credentials", "security-summary checkout mu
   checkout.fetch("with")["persist-credentials"] = true
 end
 
+red_probe("summary checkout selects the caller input", "security-summary checkout must pin the trusted workflow SHA") do |fixture|
+  checkout = fixture.fetch(:reusable).fetch("jobs").fetch("security-summary").fetch("steps").first
+  checkout.fetch("with")["ref"] = "${{ inputs.expected_sha }}"
+end
+
+red_probe("extra pre-aggregate checkout is not pinned", "security-summary checkout must be SHA-pinned") do |fixture|
+  steps = fixture.fetch(:reusable).fetch("jobs").fetch("security-summary").fetch("steps")
+  steps.unshift({ "uses" => "actions/checkout@v7" })
+end
+
 canary_red_probe("live canary sees duplicate old required context", "exactly one Security context") do |payload|
   payload["required_contexts"] = ["Security", "Security / semgrep"]
 end

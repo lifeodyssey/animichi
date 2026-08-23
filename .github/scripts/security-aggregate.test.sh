@@ -6,6 +6,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT="${SCRIPT_DIR}/security-aggregate.sh"
 SHA="0123456789abcdef0123456789abcdef01234567"
 RESULTS=$'gitleaks=success\ncodeql=success\nsemgrep=success'
+TEST_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/security-aggregate-test.XXXXXX")"
+
+cleanup() {
+  rm -f "${TEST_TMP_DIR}/summary" "${TEST_TMP_DIR}/output"
+  rmdir "${TEST_TMP_DIR}"
+}
+
+trap cleanup EXIT
 
 fail_test() {
   echo "FAIL: $1" >&2
@@ -14,14 +22,15 @@ fail_test() {
 
 run_case() {
   local label="$1" expected="$2" actual="$3" result="$4" children="$5" rc=0
-  local summary
-  summary="$(mktemp)"
+  local summary="${TEST_TMP_DIR}/summary" output="${TEST_TMP_DIR}/output"
+  : >"${summary}"
+  : >"${output}"
   EXPECTED_SHA="${expected}" ACTUAL_SHA="${actual}" SECURITY_RESULT="${result}" \
     REQUIRE_CHILD_RESULTS=true SECURITY_RESULTS="${children}" GITHUB_STEP_SUMMARY="${summary}" \
     GITHUB_SERVER_URL="https://github.com" GITHUB_REPOSITORY="lifeodyssey/animichi" GITHUB_RUN_ID="12345" \
-    bash "${SCRIPT}" >/tmp/security-aggregate.out 2>&1 || rc=$?
+    bash "${SCRIPT}" >"${output}" 2>&1 || rc=$?
   if [[ "${label}" == "green" ]]; then
-    [[ "${rc}" -eq 0 ]] || fail_test "green case failed: $(cat /tmp/security-aggregate.out)"
+    [[ "${rc}" -eq 0 ]] || fail_test "green case failed: $(cat "${output}")"
     grep -q "Head:.*${actual}" "${summary}" || fail_test "green case omitted head evidence"
     grep -q 'https://github.com/lifeodyssey/animichi/actions/runs/12345' "${summary}" || fail_test "green case omitted run-log link"
     grep -q "https://github.com/lifeodyssey/animichi/commit/${actual}/checks" "${summary}" || fail_test "green case omitted check-run link"
@@ -31,7 +40,6 @@ run_case() {
       grep -q 'gitleaks.*failure' "${summary}" || fail_test "failed child evidence was not retained"
     fi
   fi
-  rm -f "${summary}"
   echo "PASS: ${label} (exit ${rc})"
 }
 

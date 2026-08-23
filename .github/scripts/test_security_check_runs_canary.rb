@@ -28,22 +28,30 @@ class FakeApi
   end
 end
 
-def live_client(required_contexts)
+def live_client(required_contexts, check_pages: nil, ruleset_pages: nil)
   pr_path = "/repos/#{REPO}/pulls/1177"
   rulesets_path = "/repos/#{REPO}/rulesets?includes_parents=true&per_page=100"
   ruleset_path = "/repos/#{REPO}/rulesets/42"
   commit_path = "/repos/#{REPO}/commits/#{SHA}"
   checks_path = "/repos/#{REPO}/commits/#{SHA}/check-runs?per_page=100"
+  check_pages ||= [copy_fixture.fetch("check_runs")]
+  ruleset_pages ||= [[{ "id" => 42, "enforcement" => "active" }]]
   responses = {
     pr_path => { "head" => { "sha" => SHA } },
     commit_path => { "sha" => SHA },
-    rulesets_path => [{ "id" => 42, "enforcement" => "active" }],
+    rulesets_path => ruleset_pages.fetch(0),
     ruleset_path => { "rules" => [{
       "type" => "required_status_checks",
       "parameters" => { "required_status_checks" => required_contexts.map { |context| { "context" => context } } }
     }] },
-    checks_path => { "check_runs" => copy_fixture.fetch("check_runs") }
+    checks_path => { "check_runs" => check_pages.fetch(0) }
   }
+  check_pages.drop(1).each_with_index do |page, index|
+    responses["#{checks_path}&page=#{index + 2}"] = { "check_runs" => page }
+  end
+  ruleset_pages.drop(1).each_with_index do |page, index|
+    responses["#{rulesets_path}&page=#{index + 2}"] = page
+  end
   FakeApi.new(responses)
 end
 
@@ -103,6 +111,13 @@ red_case("non-actionable evidence is rejected", "actionable evidence link") do
                                   required_contexts: ["Security"])
 end
 
+red_case("empty evidence summary is rejected", "summary is empty") do
+  payload = copy_fixture
+  payload["check_runs"].first["output"]["summary"] = ""
+  SecurityCheckRunsCanary.assert!(payload, repo: REPO, expected_sha: SHA,
+                                  required_contexts: ["Security"])
+end
+
 green_case("live PR mode resolves the real head and ruleset") do
   checks_path = "/repos/#{REPO}/commits/#{SHA}/check-runs?per_page=100"
   client = live_client(["Security"])
@@ -116,6 +131,28 @@ green_case("live head mode verifies the supplied commit") do
   SecurityCheckRunsCanary.run_live!(REPO, SHA, client: client)
   expected = "/repos/#{REPO}/commits/#{SHA}"
   abort "FAIL: live head mode did not verify the commit" unless client.paths.include?(expected)
+end
+
+green_case("live mode follows later check-runs and ruleset pages") do
+  filler_runs = Array.new(100) { |index| { "name" => "Other #{index}", "head_sha" => SHA } }
+  filler_rulesets = Array.new(100) { |index| { "id" => index + 100, "enforcement" => "disabled" } }
+  client = live_client(["Security"], check_pages: [filler_runs, copy_fixture.fetch("check_runs")],
+                       ruleset_pages: [filler_rulesets, [{ "id" => 42, "enforcement" => "active" }]])
+  SecurityCheckRunsCanary.run_live!(REPO, SHA, client: client)
+  checks_page = "/repos/#{REPO}/commits/#{SHA}/check-runs?per_page=100&page=2"
+  rulesets_page = "/repos/#{REPO}/rulesets?includes_parents=true&per_page=100&page=2"
+  abort "FAIL: live mode did not query the second check-runs page" unless client.paths.include?(checks_page)
+  abort "FAIL: live mode did not query the second ruleset page" unless client.paths.include?(rulesets_page)
+end
+
+red_case("live mode rejects empty check-runs results", "exactly one Security check run") do
+  client = live_client(["Security"], check_pages: [[]])
+  SecurityCheckRunsCanary.run_live!(REPO, SHA, client: client)
+end
+
+red_case("live mode rejects empty ruleset results", "exactly one Security context") do
+  client = live_client(["Security"], ruleset_pages: [[]])
+  SecurityCheckRunsCanary.run_live!(REPO, SHA, client: client)
 end
 
 red_case("live ruleset rejects an old Security child", "exactly one Security context") do

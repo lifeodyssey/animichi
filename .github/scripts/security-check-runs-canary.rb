@@ -13,6 +13,8 @@ module SecurityCheckRunsCanary
   API_VERSION = "2022-11-28"
   SECURITY_CONTEXT = "Security"
   OLD_SECURITY_PREFIX = "Security /"
+  PAGE_SIZE = 100
+  MAX_PAGES = 100
   REPOSITORY_PATTERN = /\A[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\z/
   SHA_PATTERN = /\A[0-9a-f]{40}\z/
   ACTIONABLE_PATHS = %r{/(?:actions/runs|runs|checks)/}
@@ -65,7 +67,7 @@ module SecurityCheckRunsCanary
   def self.assert_actionable_links(run, repo)
     %w[details_url html_url].each { |key| assert_url(run[key], repo, key) }
     summary = run.dig("output", "summary").to_s
-    return if summary.empty?
+    fail!("Security check summary is empty") if summary.empty?
 
     links = summary.scan(%r{https://[^)\s>]+})
     fail!("Security check summary has no actionable evidence link") unless links.any? { |url| actionable_url?(url, repo) }
@@ -117,20 +119,40 @@ module SecurityCheckRunsCanary
   end
 
   def self.live_payload(api, repo, sha)
-    checks = api.get("/repos/#{repo}/commits/#{sha}/check-runs?per_page=100")
+    checks = paginated_collection(api, "/repos/#{repo}/commits/#{sha}/check-runs?per_page=#{PAGE_SIZE}",
+                                  label: "check-runs", key: "check_runs")
     contexts = required_contexts(api, repo)
-    { "check_runs" => checks.fetch("check_runs"), "required_contexts" => contexts }
-  rescue KeyError => error
-    fail!("check-runs response is missing #{error.key.inspect}")
+    { "check_runs" => checks, "required_contexts" => contexts }
   end
 
   def self.required_contexts(api, repo)
-    summaries = api.get("/repos/#{repo}/rulesets?includes_parents=true&per_page=100")
-    summaries = summaries.fetch("rulesets") if summaries.is_a?(Hash)
-    active = Array(summaries).select { |ruleset| ruleset["enforcement"] == "active" }
+    summaries = paginated_collection(api, "/repos/#{repo}/rulesets?includes_parents=true&per_page=#{PAGE_SIZE}",
+                                     label: "ruleset summaries", key: "rulesets")
+    active = summaries.select { |ruleset| ruleset["enforcement"] == "active" }
     active.flat_map { |ruleset| ruleset_contexts(api, repo, ruleset.fetch("id")) }
-  rescue KeyError => error
-    fail!("ruleset summary is missing #{error.key.inspect}")
+  end
+
+  def self.paginated_collection(api, path, label:, key: nil)
+    page = 1
+    values = []
+    loop do
+      payload = api.get(page == 1 ? path : "#{path}&page=#{page}")
+      page_values = extract_page_values(payload, label, key)
+      values.concat(page_values)
+      break if page_values.size < PAGE_SIZE
+
+      page += 1
+      fail!("#{label} pagination exceeded #{MAX_PAGES} pages") if page > MAX_PAGES
+    end
+    values
+  end
+
+  def self.extract_page_values(payload, label, key)
+    page_values = key && payload.is_a?(Hash) ? payload[key] : payload
+    fail!("#{label} response is missing #{key.inspect}") if key && payload.is_a?(Hash) && page_values.nil?
+    fail!("#{label} response is not an array") unless page_values.is_a?(Array)
+
+    page_values
   end
 
   def self.ruleset_contexts(api, repo, id)

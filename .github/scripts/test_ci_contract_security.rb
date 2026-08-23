@@ -38,14 +38,20 @@ def aggregate_step(steps)
 end
 
 def assert_pinned_checkout(steps, aggregate, label, ref)
-  checkout_index = steps.index { |step| step.is_a?(Hash) && step["uses"].to_s.start_with?("actions/checkout@") }
   aggregate_index = steps.index(aggregate)
-  abort_unless(checkout_index && checkout_index < aggregate_index, "#{label} must checkout before aggregation")
-  checkout = steps.fetch(checkout_index)
-  abort_unless(checkout.fetch("uses").match?(/actions\/checkout@[0-9a-f]{40}/), "#{label} checkout must be SHA-pinned")
-  options = checkout.fetch("with")
-  abort_unless(options.fetch("persist-credentials") == false, "#{label} checkout must disable persisted credentials")
-  abort_unless(options.fetch("ref") == ref, "#{label} checkout must pin the aggregated head")
+  checkout_indexes = steps.each_index.select do |index|
+    step = steps.fetch(index)
+    step.is_a?(Hash) && step["uses"].to_s.start_with?("actions/checkout@") && index < aggregate_index
+  end
+  abort_unless(!checkout_indexes.empty?, "#{label} must checkout before aggregation")
+  checkout_indexes.each do |checkout_index|
+    checkout = steps.fetch(checkout_index)
+    abort_unless(checkout.fetch("uses").match?(/actions\/checkout@[0-9a-f]{40}/), "#{label} checkout must be SHA-pinned")
+    options = checkout.fetch("with", {})
+    abort_unless(options.fetch("persist-credentials", nil) == false, "#{label} checkout must disable persisted credentials")
+    abort_unless(!options.key?("repository"), "#{label} checkout must use the current repository")
+    abort_unless(options.fetch("ref", nil) == ref, "#{label} checkout must pin the trusted workflow SHA")
+  end
 end
 
 def assert_top_level(ci)
@@ -80,7 +86,7 @@ def assert_reusable(reusable)
   steps = summary.fetch("steps")
   script = aggregate_step(steps)
   abort_unless(script, "security-summary must invoke security-aggregate.sh")
-  assert_pinned_checkout(steps, script, "security-summary", "${{ inputs.expected_sha }}")
+  assert_pinned_checkout(steps, script, "security-summary", "${{ github.sha }}")
   assert_summary_env(script.fetch("env"))
 end
 

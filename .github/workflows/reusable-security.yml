@@ -357,7 +357,13 @@ jobs:
       - name: Checkout the aggregated head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.expected_sha }}
+          # `expected_sha` is a caller-supplied assertion, not a checkout
+          # selector.  Keeping it out of `ref` prevents a reusable-workflow
+          # input from selecting attacker-controlled source.  The workflow
+          # context SHA is the immutable revision GitHub selected for this
+          # run; the aggregate script compares it with EXPECTED_SHA below
+          # and fails closed on any mismatch.
+          ref: ${{ github.sha }}
           persist-credentials: false
       - name: Verify every scan and head
         env:
