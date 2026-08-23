@@ -38,9 +38,9 @@
 #                               unset (fails closed) until its branch is
 #                               provisioned (see infra/src/neon-auth.ts).
 #
-# Container runtime secrets (forwarded to Python backend). Live model
-# credential is ZEN_GO_API_KEY (MiMo via opencode.ai/zen/go, #1160). MIMO_API_KEY
-# stays forwarded for staging failover to api.xiaomimimo.com. Production keeps
+# Container runtime secrets (forwarded to Python backend). Staging uses
+# MIMO_API_KEY directly and keeps ZEN_GO_API_KEY for provider failover.
+# Production keeps
 # the settings default (no fallback) while its chat surface is disabled; the
 # DeepSeek and generic OpenAI-compat fallbacks stay wired but disabled:
 #   SUPABASE_DB_URL            — postgres://... for asyncpg (legacy plane; still
@@ -332,8 +332,10 @@ bucket_name = "map-tiles-staging"
 # staging traces must tag "staging" in Logfire, not "production".
 APP_ENV = "staging"
 CATALOG_API_URL = "http://catalog.internal"
-# Keep the same model while bypassing zen/go when its transport fails.
-FALLBACK_AGENT_MODEL = "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
+# The Go transport can outlive the edge request without raising, so fallback
+# never gets a chance to run. Use the proven direct endpoint first in staging.
+DEFAULT_AGENT_MODEL = "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"
+FALLBACK_AGENT_MODEL = "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"
 # Showcase-mode gate (S0-v2 GOAL C / C9): staging stays fully functional
 # (showcase off). Strict boolean — only the literal "false" means that.
 EDGE_SHOWCASE_MODE = "false"
