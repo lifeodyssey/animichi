@@ -13,13 +13,13 @@ function Probe() {
   return (
     <div>
       <span data-testid="locale">{locale}</span>
-      <span data-testid="cta">{dict.landing.cta}</span>
+      <span data-testid="cta">{dict.doorway.cta}</span>
       <button type="button" onClick={() => { setLocale("en"); }}>go-en</button>
     </div>
   );
 }
 
-beforeEach(() => { setLanguages(["ja-JP"]); });
+beforeEach(() => { window.localStorage.clear(); setLanguages(["ja-JP"]); });
 afterEach(cleanup);
 
 describe("i18n context", () => {
@@ -34,6 +34,18 @@ describe("i18n context", () => {
     act(() => { screen.getByRole("button", { name: "go-en" }).click(); });
     expect(screen.getByTestId("cta").textContent).toBe("Start Exploring");
     expect(document.documentElement.lang).toBe("en");
+  });
+
+  it("adopts a stored choice over the browser languages, and keeps it on reload", () => {
+    window.localStorage.setItem("animichi-locale", "en");
+    render(<LocaleProvider><Probe /></LocaleProvider>);
+    expect(screen.getByTestId("locale").textContent).toBe("en");
+  });
+
+  it("records a manual switch so the next visit starts there", () => {
+    render(<LocaleProvider><Probe /></LocaleProvider>);
+    act(() => { screen.getByRole("button", { name: "go-en" }).click(); });
+    expect(window.localStorage.getItem("animichi-locale")).toBe("en");
   });
 
   it("throws when hooks are used outside a provider", () => {

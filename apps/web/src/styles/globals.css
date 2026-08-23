@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "./fonts.css";
-@import "./landing.css";
 @import "./shiori.css";
 @import "./shiori-photos.css";
 @import "./shiori-generator.css";
@@ -45,7 +44,7 @@
    * content rather than as an operable control (WCAG 1.4.11 keeps the loud
    * border for anything the user can actually operate). */
   --color-border-soft: #e8e2d6;
-  /* Modal mask scrim (login + coming-soon dialogs). */
+  /* Modal mask scrim (the login dialog). */
   --color-overlay: rgb(0 0 0 / 45%);
   --color-focus: #ffcc00;
   --color-success-fg: #6fba2c;
@@ -76,6 +75,29 @@
    * the cream family. `route-detail.css` and `shiori.css` each used to carry
    * their own copy of this same hex; this is the single declaration. */
   --color-gold-deep: #d9a412;
+  /* Animal Island Switch (docs/design/animal-island-ref/component-specs.md
+   * §Switch). Only the values the token layer had no equivalent for are new:
+   * the OFF track and its line (a deeper inactive cream than --color-muted, so
+   * the raised handle still reads), the ON ground, and the deep ledge under an
+   * ON handle. The ON BORDER is --color-success-fg, whose value already IS the
+   * design system's #6fba2c; the OFF ledge is --shadow-3d (#bdaea0), likewise
+   * an exact match; the focus ring is --color-focus (#ffcc00), likewise. */
+  --color-switch-off: #d4c9b4;
+  --color-switch-off-border: #c4b89e;
+  --color-switch-on: #86d67a;
+  --color-success-deep: #5a9e1e;
+  /* The knob is a physical part, not a surface: it stays the same near-white in
+   * both palettes, the way the teal and the solid gold do. */
+  --color-switch-handle: #f8f8f0;
+  --shadow-switch-off: inset 0 2px 4px rgb(114 93 66 / 15%);
+  --shadow-switch-on: inset 0 2px 4px rgb(90 158 30 / 20%);
+  /* Animal Island Select (component-specs.md §Select): the soft-yellow menu
+   * ground and the gold pill bar behind the option in force. Brand surfaces
+   * like the solid gold — theme-invariant, so --color-gold-ink (already the
+   * validated ink for a solid gold ground) rides them in both palettes. */
+  --color-menu: #ffeea0;
+  --color-menu-marker: rgb(255 204 0 / 30%);
+  --shadow-menu: 0 8px 20px rgb(107 92 67 / 24%);
   --shadow-3d: #bdaea0;
   --shadow-press: 0 5px 0 0 var(--shadow-3d);
 
@@ -146,6 +168,13 @@
   --color-gold-fg: var(--color-gold-fg);
   --color-gold-ink: var(--color-gold-ink);
   --color-gold-deep: var(--color-gold-deep);
+  --color-switch-off: var(--color-switch-off);
+  --color-switch-off-border: var(--color-switch-off-border);
+  --color-switch-on: var(--color-switch-on);
+  --color-switch-handle: var(--color-switch-handle);
+  --color-success-deep: var(--color-success-deep);
+  --color-menu: var(--color-menu);
+  --color-menu-marker: var(--color-menu-marker);
   --font-display: var(--app-font-display);
   --font-body: var(--app-font-body);
 }
@@ -158,7 +187,7 @@ body {
   margin: 0;
   min-width: 320px;
   /* Two overflowing top glows over the page floor, mirroring the design-sync
-   * chat/landing body. Same authoring shape as landing.css's radial stack. */
+   * chat body — the same authoring shape the retired landing used. */
   background:
     radial-gradient(60% 38% at 84% -6%, #e7f1fb 0%, rgb(231 241 251 / 0%) 60%),
     radial-gradient(50% 34% at 10% -2%, #fbe6ef 0%, rgb(251 230 239 / 0%) 58%),
@@ -293,11 +322,11 @@ button, input, select, textarea, [role="button"] {
  * `(max-width: 640px)` back when only narrow viewports handed off; now that
  * desktop hands off too, a breakpoint here would leave every width above it
  * uncovered for the whole navigation — the exact flash this mechanism exists to
- * prevent, and worse on desktop because the landing paints more of itself.
+ * prevent, and worse on desktop because the doorway paints more of itself.
  *
  * The hold itself is gated on `data-splash-scripting`, stamped before first
  * paint by an inline script. With scripting disabled the hold never applies at
- * all, so those visitors get the plain 320ms splash over the landing and never
+ * all, so those visitors get the plain 320ms splash over the doorway and never
  * wait on a hand-off that can no longer happen.
  *
  * The remaining 30s is therefore not a dwell and not the normal exit: it is the
@@ -306,7 +335,7 @@ button, input, select, textarea, [role="button"] {
  * production build (200kbps + 150ms RTT, CPU 1x/4x/8x) chat paints at
  * 15.7s/17.5s/17.6s, so anything near ten seconds loses the race against a
  * merely slow client and re-opens the flash. 30s clears the slowest of those by
- * ~1.7x and still bounds a broken client's wait, after which the landing
+ * ~1.7x and still bounds a broken client's wait, after which the doorway
  * underneath — plain SSR HTML, fully usable — renders normally.
  */
 [data-splash-scripting] .app-splash[data-splash-hold="handoff"] {
@@ -559,6 +588,13 @@ button, input, select, textarea, [role="button"] {
   --color-gold-fg: #f0d98a;
   /* Press shadow follows via var(--shadow-3d) in :root. */
   --shadow-3d: #120d07;
+  /* An OFF switch track is a surface, so it follows the palette; its line
+   * reuses the night soft-line value (3.03:1 on the night paper), which is the
+   * 1.4.11 floor for the boundary of an operable control. The ON ground, the
+   * knob and the yellow menu are brand parts and stay put. */
+  --color-switch-off: #4c4132;
+  --color-switch-off-border: #7d6d52;
+  --shadow-switch-off: inset 0 2px 4px rgb(0 0 0 / 35%);
 }
 
 [data-theme="night"] body {
@@ -577,8 +613,6 @@ button, input, select, textarea, [role="button"] {
 [data-theme="dark"] .app-splash__frame.day { display: none; }
 [data-theme="night"] .app-splash__frame.night,
 [data-theme="dark"] .app-splash__frame.night { display: flex; }
-
-/* Landing styles live in landing.css (imported above). */
 
 /* 動森-style pressable button + input primitives (semantic tokens only). */
 .ds-button {
@@ -631,6 +665,206 @@ button, input, select, textarea, [role="button"] {
 .ds-input:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 1px;
+}
+
+/* Animal Island Switch — 52x28 track, 21x21 handle, handle floated
+ * translateY(-2px) in BOTH positions (component-specs.md §Switch). The label
+ * is inside the control, so the whole row is the 44px touch target. */
+.ds-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--color-fg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ds-switch:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.ds-switch__label {
+  text-align: start;
+}
+
+.ds-switch__track {
+  position: relative;
+  flex: none;
+  margin-inline-start: auto;
+  width: 52px;
+  height: 28px;
+  border: 2.5px solid var(--color-switch-off-border);
+  border-radius: 50px;
+  background: var(--color-switch-off);
+  box-shadow: var(--shadow-switch-off);
+  transition: background-color 160ms ease-out, border-color 160ms ease-out, transform 160ms ease-out;
+}
+
+/* Emil Kowalski, settings-class controls: the press answers immediately and
+ * the state change is its own reward — a scale nudge, never a spring. */
+.ds-switch:active .ds-switch__track {
+  transform: scale(0.97);
+}
+
+.ds-switch__handle {
+  position: absolute;
+  inset-block-start: 1px;
+  inset-inline-start: 1px;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: var(--color-switch-handle);
+  box-shadow: 0 3px 0 0 var(--shadow-3d);
+  transform: translateY(-2px);
+  transition: transform 160ms ease-out, box-shadow 160ms ease-out;
+}
+
+.ds-switch[aria-checked="true"] .ds-switch__track {
+  border-color: var(--color-success-fg);
+  background: var(--color-switch-on);
+  box-shadow: var(--shadow-switch-on);
+}
+
+.ds-switch[aria-checked="true"] .ds-switch__handle {
+  box-shadow: 0 3px 0 0 var(--color-success-deep);
+  transform: translate(24px, -2px);
+}
+
+/* Animal Island Select — paper trigger, soft-yellow dropdown (§Select). */
+.ds-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  color: var(--color-fg);
+  font-weight: 600;
+}
+
+.ds-select__trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-inline-start: auto;
+  min-height: 44px;
+  padding: 8px 13px;
+  border: 2px solid var(--color-border-soft);
+  border-radius: 12px;
+  background: var(--color-paper);
+  color: var(--color-fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ds-select__trigger:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.ds-select__caret {
+  color: var(--color-muted-fg);
+}
+
+.ds-select__menu {
+  position: absolute;
+  inset-block-start: calc(100% + 6px);
+  inset-inline-end: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 12px 0;
+  min-width: 168px;
+  border-radius: 28px;
+  background: var(--color-menu);
+  box-shadow: var(--shadow-menu);
+  color: var(--color-gold-ink);
+  list-style: none;
+  animation: ds-select-in 0.2s ease;
+}
+
+.ds-select__menu:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.ds-select__option {
+  position: relative;
+  padding: 10px 30px 10px 14px;
+  cursor: pointer;
+}
+
+/* The DS pill bar: a 14px gold bar behind the option in force. */
+.ds-select__option[aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline: 8px;
+  height: 14px;
+  margin-block-start: -7px;
+  border-radius: 7px;
+  background: var(--color-menu-marker);
+}
+
+.ds-select__option[data-active="true"],
+.ds-select__option:hover {
+  font-weight: 700;
+}
+
+@keyframes ds-select-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* The ⚙ panel's app-preference group, above the API-key section. */
+.app-preferences {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-block-end: 8px;
+  padding-block-end: 12px;
+  border-block-end: 2px solid var(--color-border-soft);
+}
+
+/* `/` is a doorway (see features/seo/DoorwaySummary.tsx): the served body a
+ * crawler or a share-preview fetcher reads, under a splash no human outruns. */
+.doorway {
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 64px 24px;
+  text-align: center;
+}
+
+.doorway__title {
+  margin: 0;
+  font-family: var(--app-font-display);
+  font-size: clamp(1.75rem, 7vw, 2.5rem);
+}
+
+.doorway__lead {
+  margin: 0;
+  color: var(--color-muted-fg);
+  line-height: 1.8;
+}
+
+.doorway__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  justify-content: center;
+}
+
+.doorway__link {
+  color: var(--color-primary-strong);
+  text-decoration: underline;
 }
 
 .login-modal__mask {
@@ -781,77 +1015,6 @@ button, input, select, textarea, [role="button"] {
   text-align: center;
 }
 
-/* ComingSoonPopup — showcase-mode "under construction" dialog (tokens only:
-   cream card, teal accent, 3D press shadow, Zen Maru Gothic body stack). */
-.coming-soon__mask {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: var(--color-overlay);
-}
-
-.coming-soon {
-  position: relative;
-  width: 100%;
-  max-width: 420px;
-  padding: 32px 28px 28px;
-  border: 3px solid var(--color-border);
-  border-radius: 18px;
-  background: var(--color-card);
-  box-shadow: var(--shadow-press);
-  text-align: center;
-}
-
-.coming-soon:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 2px;
-}
-
-.coming-soon__badge {
-  display: inline-block;
-  margin-bottom: 12px;
-  padding: 4px 14px;
-  border-radius: 999px;
-  background: var(--color-primary);
-  color: var(--color-primary-ink);
-  font-size: 0.8rem;
-  font-weight: 800;
-}
-
-.coming-soon__title {
-  margin: 0 0 10px;
-  color: var(--color-fg);
-  font-family: var(--app-font-display);
-  font-size: 1.5rem;
-}
-
-.coming-soon__body {
-  margin: 0 0 22px;
-  color: var(--color-muted-fg);
-  line-height: 1.7;
-}
-
-.coming-soon__action {
-  min-width: 160px;
-}
-
-.coming-soon__close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--color-muted-fg);
-  font-size: 1.5rem;
-  cursor: pointer;
-}
-
 /* WCAG 2.2.2 Pause/Stop/Hide: prefers-reduced-motion users get a still page.
  * The static splash is already a discrete 1ms visibility flip (no motion), so
  * it is preserved; this guard documents the contract and neutralises any
@@ -862,6 +1025,15 @@ button, input, select, textarea, [role="button"] {
   }
   .app-splash {
     animation-duration: 1ms;
+  }
+  /* The two settings controls are the only deliberate motion outside the
+   * splash: the switch handle travels and the yellow menu fades in. */
+  .ds-switch__track,
+  .ds-switch__handle {
+    transition: none;
+  }
+  .ds-select__menu {
+    animation: none;
   }
 }
 

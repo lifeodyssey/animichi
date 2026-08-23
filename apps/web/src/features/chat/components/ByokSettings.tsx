@@ -1,4 +1,4 @@
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LoginModal } from "../../auth/ui/LoginModal";
 import type { AuthStatus } from "../../../lib/auth/session";
@@ -10,11 +10,24 @@ import type { ChatByokDict, ChatDict } from "../i18n";
 import { useByokSettings } from "../use-byok-settings";
 import type { ByokInlineError, ByokSettingsView } from "../use-byok-settings";
 
+/**
+ * The app-level preference controls the ⚙ panel hosts (language, day/night),
+ * composed at the UI layer and injected here as a node. Chat neither owns nor
+ * imports them — that would be a feature→UI back-edge — it only rents the
+ * panel the visitor already opens for settings. The label comes with them
+ * because the panel then names MORE than the API key section.
+ */
+export interface PanelPreferences {
+  readonly label: string;
+  readonly content: ReactNode;
+}
+
 type Props = Readonly<{
   dict: ChatDict;
   auth: AuthStatus;
   baseUrl: string;
   probe?: typeof runByokProbe;
+  preferences?: PanelPreferences;
 }>;
 
 const PROVIDERS: readonly ByokProvider[] = ["openai-compatible", "anthropic", "gemini"];
@@ -212,7 +225,7 @@ function AnonymousTeaser({ byok }: Readonly<{ byok: ChatByokDict }>) {
   );
 }
 
-function PanelBody({ dict, auth, baseUrl, probe }: Props) {
+function PanelBody({ dict, auth, baseUrl, probe }: Omit<Props, "preferences">) {
   if (auth === "pending") return null;
   if (auth === "anonymous") return <AnonymousTeaser byok={dict.byok} />;
   return <AuthenticatedPanel dict={dict} baseUrl={baseUrl} probe={probe} />;
@@ -236,12 +249,14 @@ function usePanelFocus() {
   return ref;
 }
 
-/** BYOK settings panel (issue #284 Task 6 UI + Task 8 touchpoint B). */
-export function ByokSettings(props: Props) {
+/** The ⚙ settings panel: app preferences first, then the BYOK section (issue
+ * #284 Task 6 UI + Task 8 touchpoint B). */
+export function ByokSettings({ preferences, ...panel }: Props) {
   return (
-    <section id="byok-settings-panel" className="chat-byok" aria-label={props.dict.byok.title} tabIndex={-1} ref={usePanelFocus()}>
-      <h3 className="chat-byok__title">{props.dict.byok.title}</h3>
-      <PanelBody {...props} />
+    <section id="byok-settings-panel" className="chat-byok" aria-label={preferences?.label ?? panel.dict.byok.title} tabIndex={-1} ref={usePanelFocus()}>
+      {preferences?.content}
+      <h3 className="chat-byok__title">{panel.dict.byok.title}</h3>
+      <PanelBody {...panel} />
     </section>
   );
 }

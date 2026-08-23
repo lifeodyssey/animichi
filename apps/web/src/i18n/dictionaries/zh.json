@@ -3,33 +3,18 @@
     "title": "Animichi 圣地巡礼",
     "description": "寻找动画圣地，规划巡礼路线"
   },
-  "landing": {
-    "eyebrow": "FROM SCREEN TO STREET",
+  "doorway": {
     "hero": "圣地巡礼",
-    "brand_pre": "圣地",
-    "brand_accent": "巡礼",
-    "headline_pre": "把动画里的那一幕,",
-    "headline_em": "变成今天能走的路线",
     "lead": "找到喜欢的动画在现实中的取景地,并排对比画面,生成一条可以亲自走一遍的巡礼路线。",
-    "search_placeholder": "输入作品名、车站或城市",
     "cta": "开始巡礼",
-    "examples": [
-      "你的名字",
-      "吹响吧!上低音号",
-      "天气之子"
-    ],
-    "login": "登录",
     "github": "GitHub",
-    "footer_nav": "页脚链接",
-    "footer_name": "seichijunrei",
-    "comparison_anime": "动画",
-    "comparison_anime_alt": "《秒速五厘米》樱花飞舞的铁路道口动画画面",
-    "comparison_real": "现实",
-    "comparison_real_alt": "樱花盛开的真实铁路道口照片",
-    "comparison_aria": "对比动画与实景的滑块",
-    "theme_day": "日间",
-    "theme_night": "夜间",
-    "privacy": "隐私协议"
+    "privacy": "隐私协议",
+    "links": "站内链接"
+  },
+  "settings": {
+    "title": "设置",
+    "nightMode": "夜间模式",
+    "language": "语言"
   },
   "home": {
     "search_placeholder": "输入作品名、车站或城市",
@@ -86,12 +71,5 @@
     "contact": "隐私问题或删除请求",
     "contact_link": "在 GitHub 提交 Issue",
     "back_home": "返回 Animichi"
-  },
-  "coming_soon": {
-    "badge": "准备中",
-    "title": "正在准备中",
-    "body": "这个功能正在准备中。准备好了就会马上开放，请再稍等一小会儿哦。",
-    "action": "知道了",
-    "close": "关闭"
   }
 }

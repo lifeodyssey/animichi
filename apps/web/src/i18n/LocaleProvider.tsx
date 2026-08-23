@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { type Dict, dictFor } from "./dictionaries";
+import { readStoredLocale, writeStoredLocale } from "../lib/i18n/locale-storage";
 import { DEFAULT_LOCALE, detectLocale, type Locale } from "./locales";
 
 interface I18nValue {
@@ -16,11 +17,27 @@ function useHtmlLang(locale: Locale): void {
   useEffect(() => { document.documentElement.lang = locale; }, [locale]);
 }
 
-export function LocaleProvider({ children }: { children: ReactNode }) {
+/** A stored choice is an explicit act and outranks the browser's guess; with
+ * nothing stored the visitor keeps following `navigator.languages`. */
+function adoptedLocale(): Locale {
+  return readStoredLocale() ?? detectLocale();
+}
+
+/** The language in force, plus the setter that also records the choice. */
+function useLocaleChoice(): Pick<I18nValue, "locale" | "setLocale"> {
   const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
-  useEffect(() => { setLocale(detectLocale()); }, []);
+  useEffect(() => { setLocale(adoptedLocale()); }, []);
+  const choose = useCallback((next: Locale) => {
+    writeStoredLocale(next);
+    setLocale(next);
+  }, []);
+  return { locale, setLocale: choose };
+}
+
+export function LocaleProvider({ children }: { children: ReactNode }) {
+  const { locale, setLocale } = useLocaleChoice();
   useHtmlLang(locale);
-  const value = useMemo<I18nValue>(() => ({ dict: dictFor(locale), locale, setLocale }), [locale]);
+  const value = useMemo<I18nValue>(() => ({ dict: dictFor(locale), locale, setLocale }), [locale, setLocale]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

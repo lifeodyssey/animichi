@@ -10,7 +10,7 @@ import { useEffect } from "react";
  * - `data-splash-scripting` is stamped by a pre-hydration inline script, so it
  *   is present before first paint whenever scripting is on. Only then does the
  *   splash hold at all: with JavaScript disabled the hold rule never matches
- *   and the plain 320ms dismissal reveals the landing underneath.
+ *   and the plain 320ms dismissal reveals the doorway underneath.
  * - `data-splash-release` is stamped by the destination route's first commit.
  *   It shortens the hold back to the plain delay, which has long since elapsed,
  *   so the splash clears on the very frame the destination paints.

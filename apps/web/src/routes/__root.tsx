@@ -19,11 +19,11 @@ import { SITE_DESCRIPTION, SITE_TITLE } from "../features/seo/site";
 import { DEFAULT_LOCALE, LOCALES, type Locale } from "../i18n/locales";
 import globalsUrl from "../styles/globals.css?url";
 
-// Landing first-screen key-weight faces (C8): with font-display: swap, a
-// late webfont arrival reflows the page (CLS). Preloading the four faces
-// actually referenced on the mobile first screen — Zen Maru Gothic 700
+// First-screen key-weight faces (C8): with font-display: swap, a late webfont
+// arrival reflows the page (CLS). Preloading the four faces actually
+// referenced on the mobile first screen — Zen Maru Gothic 700
 // (wordmark/bubble/CTA), Noto Serif JP 700 (title), Zen Maru Gothic 500
-// (lead), Nunito 700 ("EN" chip) — pulls them into the font cache during
+// (lead), Nunito 700 (Latin UI) — pulls them into the font cache during
 // HTML parse, so first paint can use the webfont metrics directly. Bounded
 // at four: more preloads just crowd the bandwidth budget while the
 // metric-aligned fallbacks in fonts.css absorb any remaining swaps.

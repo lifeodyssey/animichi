@@ -12,20 +12,36 @@ test.use({
   serviceWorkers: "block",
 });
 
-async function anonymousLanding(page: Page): Promise<void> {
+/**
+ * Owner 2026-08-23: `/` is a doorway now — it replaces itself with `/chat` on
+ * the first client effect, so a Tab pressed there is a Tab pressed against a
+ * page that is about to be navigated away from. The skip link and the tab
+ * order are root-document furniture, present on every route, so the surface
+ * moved to `/chat`: the first route a keyboard user actually lands on, and one
+ * that stays still. Transport is stubbed so the scan stays hermetic.
+ */
+async function anonymousChat(page: Page): Promise<void> {
   await page.route("**/api/auth/get-session", (route) =>
     route.fulfill({ status: 401, json: { error: "no session" } }),
   );
-  await page.goto("/");
-  // Wait for the splash to clear and the real landing content to mount, so a
-  // Tab/click immediately after never races the splash overlay or hydration.
-  await expect(page.locator("main")).toBeVisible();
+  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
+  await page.goto("/chat");
+  // Wait for the splash to clear and the real content to mount, so a Tab/click
+  // immediately after never races the splash overlay or hydration.
+  await expect(page.getByRole("textbox")).toBeVisible();
   await expect(page.locator(".app-splash")).toBeHidden();
+  // ChatInput intentionally autofocuses for the typing-first journey. Reset
+  // focus before simulating the browser's first Tab from document start.
+  await page.evaluate(() => {
+    document.body.tabIndex = -1;
+    document.body.focus();
+  });
 }
 
 describe("AC2 keyboard navigation", () => {
   test("skip-to-content link is first in tab order, visible on focus, and jumps to main", async ({ page }) => {
-    await anonymousLanding(page);
+    await anonymousChat(page);
     await page.keyboard.press("Tab");
     const skip = page.getByRole("link", { name: /スキップ|コンテンツへ|skip|content/i });
     await expect(skip).toBeFocused();
@@ -34,7 +50,7 @@ describe("AC2 keyboard navigation", () => {
   });
 
   test("tab order stays within interactive controls and exposes a visible focus indicator", async ({ page }) => {
-    await anonymousLanding(page);
+    await anonymousChat(page);
     const skip = page.getByRole("link", { name: /スキップ|コンテンツへ|skip|content/i });
     await skip.press("Enter");
     for (let i = 0; i < Math.min(8, 8); i++) {
@@ -44,10 +60,17 @@ describe("AC2 keyboard navigation", () => {
   });
 });
 
+/**
+ * The login modal lost its landing trigger with the landing itself. Its
+ * remaining signed-out entry point is the ⚙ settings panel's anonymous teaser
+ * (`/chat?settings=byok` → "ログインして設定する"), which is the same
+ * `features/auth/ui/LoginModal` component under test.
+ */
 describe("AC2 login modal focus management", () => {
   async function openLogin(page: Page): Promise<void> {
-    await anonymousLanding(page);
-    await page.getByRole("button", { name: /ログイン|login/i }).last().click();
+    await anonymousChat(page);
+    await page.goto("/chat?settings=byok");
+    await page.getByRole("button", { name: /ログインして設定|sign in to set up/i }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
   }
 
@@ -69,12 +92,9 @@ describe("AC2 login modal focus management", () => {
   });
 
   test("escape closes the modal and restores focus to the trigger", async ({ page }) => {
-    await page.route("**/api/auth/get-session", (route) =>
-      route.fulfill({ status: 401, json: { error: "no session" } }),
-    );
-    await page.goto("/");
-    await expect(page.locator("main")).toBeVisible();
-    const trigger = page.getByRole("button", { name: /ログイン|login/i }).last();
+    await anonymousChat(page);
+    await page.goto("/chat?settings=byok");
+    const trigger = page.getByRole("button", { name: /ログインして設定|sign in to set up/i });
     await trigger.click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.keyboard.press("Escape");

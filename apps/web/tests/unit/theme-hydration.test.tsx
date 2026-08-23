@@ -9,7 +9,7 @@
  */
 import { act, cleanup, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DayNightToggle } from "../../src/components/landing/DayNightToggle";
+import { ThemeSwitch } from "../../src/components/settings/ThemeSwitch";
 import { THEME_STORAGE_KEY } from "../../src/features/config/lib/theme-storage";
 import { renderWithLocale, setLanguages } from "./_i18n";
 
@@ -32,7 +32,7 @@ afterEach(() => {
   delete document.documentElement.dataset.theme;
 });
 
-/** The single circular switch; `aria-checked` is its night signal. */
+/** The panel switch; `aria-checked` is its night signal. */
 function themeSwitch(): HTMLElement {
   return screen.getByRole("switch");
 }
@@ -40,19 +40,17 @@ function themeSwitch(): HTMLElement {
 describe("useTheme hydration (issue #1009 P1 regression)", () => {
   it("adopts stored night on mount and settles on night", () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, "night");
-    renderWithLocale(<DayNightToggle />);
+    renderWithLocale(<ThemeSwitch />);
     expect(themeSwitch().getAttribute("aria-checked")).toBe("true");
-    expect(themeSwitch().getAttribute("aria-label")).toBe("夜");
     expect(document.documentElement.dataset.theme).toBe("night");
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("night");
   });
 
   it("applies a later toggle without rereading the stored preference", () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, "night");
-    renderWithLocale(<DayNightToggle />);
+    renderWithLocale(<ThemeSwitch />);
     act(() => { themeSwitch().click(); });
     expect(themeSwitch().getAttribute("aria-checked")).toBe("false");
-    expect(themeSwitch().getAttribute("aria-label")).toBe("昼");
     expect(document.documentElement.dataset.theme).toBe("day");
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe("day");
   });

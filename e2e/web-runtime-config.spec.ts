@@ -30,6 +30,16 @@ const PRODUCTION = {
   featureFlags: {},
 };
 
+/**
+ * Owner 2026-08-23: `/` is a doorway — it replaces itself with `/chat` on the
+ * first client effect, and chat's own polling means `networkidle` on that
+ * navigation never settles. The seed is emitted by `__root.tsx`, so EVERY
+ * route carries it; the browser-side assertions moved to `/privacy`, the one
+ * static route that stays where it is put. The served-document check below
+ * still fetches `/` itself, because that is the URL crawlers and deploys hit.
+ */
+const SEEDED_PATH = "/privacy";
+
 // The served seed statement: window["__ANIMICHI_RUNTIME_CONFIG__"] ??= <json>;
 // group 1 is the JSON object literal (balanced braces, no ';' inside).
 const SEED_RE = /window\["__ANIMICHI_RUNTIME_CONFIG__"\] \?\?= ([^;]*);/;
@@ -49,7 +59,7 @@ test("the served document carries the runtime-config seed", async ({ page }) => 
 // real served-DOM seed path per environment.
 async function serveWithSeed(page: Page, fixture: unknown): Promise<void> {
   const replacement = JSON.stringify(fixture);
-  await page.route("**/", async (route) => {
+  await page.route(`**${SEEDED_PATH}`, async (route) => {
     const response = await route.fetch();
     const body = await response.text();
     const seeded = body.replace(SEED_RE, SEED_ASSIGN + replacement + ";");
@@ -66,7 +76,7 @@ interface ServedResult {
 // window global, so a test can assert the seed is in the SERVED HTML with the
 // fixture values (not just in the runtime window).
 async function served(page: Page): Promise<ServedResult> {
-  const response = await page.goto("/");
+  const response = await page.goto(SEEDED_PATH);
   const servedHtml = (await response?.text()) ?? "";
   await page.waitForLoadState("networkidle");
   const config = await page.evaluate((key) => (window as Record<string, unknown>)[key], RUNTIME_CONFIG_GLOBAL_KEY);

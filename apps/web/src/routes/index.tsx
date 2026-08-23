@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppHome } from "../components/home/AppHome";
 import { makeSearchHandler } from "../components/home/search-target";
-import { LandingPage } from "../components/landing/LandingPage";
+import { DoorwaySummary } from "../features/seo/DoorwaySummary";
 import { homeHead } from "../features/seo/head";
 import { useChatHandoff } from "../features/splash/chat-handoff";
 import { LocaleProvider } from "../i18n/LocaleProvider";
@@ -27,10 +27,11 @@ function useChatEntry(): () => void {
 }
 
 /** Single root route, dual state: App Home for authenticated users (spec S5.5),
- * the S0.6 marketing Landing for everyone else (pending resolves to Landing). */
+ * the indexable doorway summary for everyone else — which is also what the SSR
+ * pass renders, because auth resolves as `pending` on the server. */
 export function HomeView() {
   useChatHandoff(useChatEntry());
-  return useAuthStatus() === "authenticated" ? <AuthedHome /> : <LandingPage />;
+  return useAuthStatus() === "authenticated" ? <AuthedHome /> : <DoorwaySummary />;
 }
 
 export function HomeRoute() {

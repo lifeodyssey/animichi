@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import chatCss from "../../../src/styles/chat.css?raw";
 import globalsCss from "../../../src/styles/globals.css?raw";
-import landingCss from "../../../src/styles/landing.css?raw";
 
 /**
  * WCAG 2.2.2 Pause/Stop/Hide + 2.3.3 Animation from Interactions: decorative
@@ -25,14 +24,16 @@ describe("reduced-motion: looping chat animations are paused", () => {
   });
 });
 
-describe("reduced-motion: globals and landing join the guard", () => {
+describe("reduced-motion: the settings controls join the guard", () => {
+  const moving = [".ds-switch__handle", ".ds-select__menu"] as const;
+
   it("globals.css contains the reduce media guard", () => {
     expect(globalsCss).toContain(MOTION_MEDIA);
   });
 
-  it("landing.css contains the reduce media guard neutralising transforms", () => {
-    expect(landingCss).toContain(MOTION_MEDIA);
-    const media = landingCss.slice(landingCss.indexOf(MOTION_MEDIA));
+  it.each(moving)("%s is neutralised by the reduce guard", (selector) => {
+    const media = globalsCss.slice(globalsCss.indexOf(MOTION_MEDIA));
+    expect(media.indexOf(selector)).toBeGreaterThanOrEqual(0);
     expect(media).toMatch(/transition\s*:\s*none|animation\s*:\s*none/);
   });
 });
