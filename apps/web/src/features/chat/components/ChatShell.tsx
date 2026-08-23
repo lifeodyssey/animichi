@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { TurnstileGate } from "./TurnstileGate";
 import type { Locale } from "../../../i18n/locales";
 import { ByokSettings } from "./ByokSettings";
 import type { PanelPreferences } from "./ByokSettings";
@@ -22,7 +21,6 @@ import type { ByokPanel } from "../use-byok-panel";
 import type { DeparturePromptState } from "../use-departure-prompt";
 import type { ConversationHistory } from "../use-conversation-history";
 import type { ChatSession } from "../use-chat-session";
-import type { TurnstileChallenge } from "../use-turnstile-challenge";
 import { businessEventCount, useTurnTiming } from "../use-turn-timing";
 
 /** The chat-page frame: ChatPage assembles the five regions it owns. */
@@ -167,10 +165,4 @@ type ByokPanelGateProps = Readonly<{
 export function ByokPanelGate({ dict, baseUrl, byok, preferences }: ByokPanelGateProps) {
   if (!byok.open) return null;
   return <ByokSettings dict={dict} auth={byok.auth} baseUrl={baseUrl} preferences={preferences} />;
-}
-
-/** The dock's hint slot: silent until Turnstile decides a human check is due. */
-export function ChallengeGate({ dict, challenge }: Readonly<{ dict: ChatDict; challenge: TurnstileChallenge | undefined }>) {
-  if (challenge === undefined) return null;
-  return <TurnstileGate dict={dict} {...challenge} />;
 }

@@ -3,6 +3,7 @@ import type { Page, Route } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
 import { SSE_HEADERS, chatStreamRecording, patchFinalFrame, patchSessionId } from "./fixtures/chat-stream";
 import type { EnvelopePatch } from "./fixtures/chat-stream";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Issue #272 (S1.6) browser ACs: each simulated D-state trigger renders its
@@ -57,9 +58,11 @@ async function fulfillSse(route: Route, body: string): Promise<void> {
 /** The healthz probe only fires from the hydrated client, so awaiting it
  * guarantees the composer's React handlers are attached before interacting. */
 async function openChat(page: Page): Promise<void> {
+  await stubTurnstileEntry(page);
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto("/chat");
+  await solveTurnstileEntry(page);
   await hydrated;
 }
 

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 const PROFILE = {
   downloadThroughput: 200_000,
@@ -77,17 +78,21 @@ test.describe("mobile index hand-off", () => {
    * the resulting URL, never elapsed time.
    */
   test("the splash covers / until chat replaces it", async ({ page }) => {
+    await stubTurnstileEntry(page);
     await page.goto("/", { waitUntil: "commit" });
     const splash = page.locator('[data-splash="static"]');
     await expect(splash).toBeVisible();
     await expect(splash).toHaveAttribute("data-splash-hold", "handoff");
     await page.waitForURL("**/chat");
+    await solveTurnstileEntry(page);
     await expect(page.locator("main.chat-page")).toBeVisible();
   });
 
   test("chat releases the splash once it has painted", async ({ page }) => {
+    await stubTurnstileEntry(page);
     await page.goto("/", { waitUntil: "commit" });
     await page.waitForURL("**/chat");
+    await solveTurnstileEntry(page);
     await expect(page.locator("main.chat-page")).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("data-splash-release", "");
     const splash = page.locator('[data-splash="static"]');
@@ -122,6 +127,7 @@ test.describe("desktop index entry", () => {
   test.use({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 1 });
 
   test("stays on / until the visitor activates the chat CTA", async ({ page }) => {
+    await stubTurnstileEntry(page);
     await page.goto("/", { waitUntil: "commit" });
     const splash = page.locator('[data-splash="static"]');
     await expect(splash).toHaveAttribute("data-splash-hold", "handoff");
@@ -132,6 +138,7 @@ test.describe("desktop index entry", () => {
     await expect(page).toHaveURL(/\/$/);
     await page.locator('.doorway__link[href="/chat"]').click();
     await page.waitForURL("**/chat");
+    await solveTurnstileEntry(page);
     await expect(page.locator("main.chat-page")).toBeVisible();
   });
 

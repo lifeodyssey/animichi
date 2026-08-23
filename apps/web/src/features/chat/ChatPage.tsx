@@ -5,7 +5,7 @@ import type { Locale } from "../../i18n/locales";
 import { useAuthStatus } from "../../lib/auth/session";
 import { ChatActionsProvider, sendWithOriginOf } from "./ChatActions";
 import type { ChatActions } from "./ChatActions";
-import { ByokPanelGate, ChallengeGate, ChatIntro, ChatNotices, ChatShell, DepartureGate, DockTray, ScrollAnchor, TurnStream } from "./components/ChatShell";
+import { ByokPanelGate, ChatIntro, ChatNotices, ChatShell, DepartureGate, DockTray, ScrollAnchor, TurnStream } from "./components/ChatShell";
 import type { PanelPreferences } from "./components/ByokSettings";
 import { ChatInput } from "./components/ChatInput";
 import { ChatAppBar } from "./components/ChatAppBar";
@@ -35,8 +35,6 @@ import type { ConversationHistory } from "./use-conversation-history";
 import { maskRecomputeFailure, useTurnFailure } from "./use-turn-failure";
 import type { TurnFailureGate } from "./use-turn-failure";
 import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
-import { useTurnstileChallenge, useTurnstileReady } from "./use-turnstile-challenge";
-import type { TurnstileChallenge } from "./use-turnstile-challenge";
 import { ChatReturnTargetProvider } from "./ChatReturnTarget";
 
 export interface ChatPageProps {
@@ -83,12 +81,10 @@ function entryStateOf(search: ChatSearch, health: BackendHealth): ChatEntryState
   });
 }
 
-function useAutoSendFromQuery(
-  search: ChatSearch, health: BackendHealth, send: (text: string) => void, ready: boolean,
-) {
+function useAutoSendFromQuery(search: ChatSearch, health: BackendHealth, send: (text: string) => void) {
   useAutoSend({
     query: search.q,
-    enabled: health.healthy && ready && !search.session,
+    enabled: health.healthy && !search.session,
     send,
     sessionId: search.session,
   });
@@ -128,23 +124,19 @@ function usePageSurfaces(chat: ChatSession, actions: ChatActions, gps: PhotoGps 
   return { dict, photo, departure, locale };
 }
 
-/** Turnstile challenge + auth-gated tray state (D12 lock, failures). */
 function useGuardedTray(chat: ChatSession, baseUrl: string, auth: ReturnType<typeof useAuthStatus>, sessionKey: string | undefined) {
-  const challenge = useTurnstileChallenge(chat);
-  const tray = useTrayState(chat, baseUrl, { challenged: challenge !== undefined, auth }, sessionKey);
-  return { challenge, tray };
+  return useTrayState(chat, baseUrl, { challenged: false, auth }, sessionKey);
 }
 
 function useChatPage(search: ChatSearch) {
   const { config, health, chat, history } = useChatState(search);
   const { actions: live, gps } = useOriginTracking(useTurnActions(chat));
   const auth = useAuthStatus();
-  // `?q=` must not fire before the widget has a token to send (#447 review).
-  const { challenge, tray } = useGuardedTray(chat, config.baseUrl, auth, search.session);
+  const tray = useGuardedTray(chat, config.baseUrl, auth, search.session);
   const actions = useLockedActions(live, tray.quota.locked);
   const surfaces = usePageSurfaces(chat, actions, gps);
-  useAutoSendFromQuery(search, health, actions.send, useTurnstileReady(challenge !== undefined));
-  return { config, health, chat, history, actions, auth, challenge, byok: useByokPanel(search, auth), ...surfaces, ...tray };
+  useAutoSendFromQuery(search, health, actions.send);
+  return { config, health, chat, history, actions, auth, byok: useByokPanel(search, auth), ...surfaces, ...tray };
 }
 
 type PageState = ReturnType<typeof useChatPage>;
@@ -186,12 +178,11 @@ function chatDock(departure: DeparturePromptState, dict: ChatDict, baseUrl: stri
 }
 
 /** Plain page-level assembly: the BYOK panel, the input, the Turnstile hint. */
-function chatComposer(dict: ChatDict, baseUrl: string, byok: ByokPanel, challenge: TurnstileChallenge | undefined, quota: QuotaLock, onSend: (text: string) => void, gate: ComposerGate, preferences: PanelPreferences | undefined): ReactNode {
+function chatComposer(dict: ChatDict, baseUrl: string, byok: ByokPanel, quota: QuotaLock, onSend: (text: string) => void, gate: ComposerGate, preferences: PanelPreferences | undefined): ReactNode {
   return (
     <>
       <ByokPanelGate dict={dict} baseUrl={baseUrl} byok={byok} preferences={preferences} />
       <ChatInput dict={dict} disabled={gate.locked} busy={gate.busy} sendFailed={gate.failed} quotaLocked={quota.locked} onSend={onSend} settingsOpen={byok.open} onToggleSettings={byok.toggle} />
-      <ChallengeGate dict={dict} challenge={challenge} />
     </>
   );
 }
@@ -203,7 +194,7 @@ function ChatPageView({ search, page, preferences }: Readonly<{ search: ChatSear
     notices={<ChatNotices entry={entry} onRetry={page.health.retry} history={page.history} dict={page.dict} />}
     body={chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale, page.byok)}
     dock={chatDock(page.departure, page.dict, page.config.baseUrl, page.photo, page.chat, page.recompute)}
-    composer={chatComposer(page.dict, page.config.baseUrl, page.byok, page.challenge, page.quota, page.departure.onSend, composerGateOf(entry, page.chat, page.history, page.failure), preferences)}
+    composer={chatComposer(page.dict, page.config.baseUrl, page.byok, page.quota, page.departure.onSend, composerGateOf(entry, page.chat, page.history, page.failure), preferences)}
   />;
 }
 

@@ -1287,12 +1287,30 @@
   cursor: pointer;
 }
 
-/* --- S1.9 Turnstile (issue #281), armed by #447 ---
-   Lives in the dock's hint slot beneath the composer, matching the design sync
-   (`Chat 初始状态.html`: .dock > .composer + .hint). `interaction-only` means
-   the widget contributes no box at all until Cloudflare actually asks for a
-   human check, so the composer keeps its rhythm; the margin below is applied
-   only once the widget has really rendered something. */
+/* --- S1.9 Turnstile entry gate --- */
+
+.turnstile-entry {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 1.5rem;
+  background: var(--color-bg);
+}
+
+.turnstile-entry__card {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  max-width: 32rem;
+  padding: 2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  background: var(--color-card);
+  text-align: center;
+}
 
 .turnstile-gate {
   display: flex;
@@ -1300,9 +1318,12 @@
   align-items: center;
   gap: 0.5rem;
   width: 100%;
-  max-width: 48rem;
+  max-width: 32rem;
   margin-inline: auto;
   padding-inline: 1rem;
+  padding-block: 2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
   background: var(--color-card);
 }
 

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppPreferences } from "../components/settings/AppPreferences";
 import { ChatPage } from "../features/chat/ChatPage";
+import { ChatEntryGate } from "../features/chat/ChatEntryGate";
 import { parseChatSearch } from "../features/chat/search";
 import type { ChatSearch } from "../features/chat/search";
 import { useSplashRelease } from "../features/splash/splash-release";
@@ -28,7 +29,7 @@ function ChatRoute() {
   const search = Route.useSearch();
   return (
     <LocaleProvider>
-      <ChatWithSettings search={search} />
+      <ChatEntryGate><ChatWithSettings search={search} /></ChatEntryGate>
     </LocaleProvider>
   );
 }

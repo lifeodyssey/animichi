@@ -24,17 +24,16 @@ export const TURNSTILE_EXPIRED_CALLBACK = "onAnimichiTurnstileExpired";
 /**
  * The least intrusive of Turnstile's three appearances.
  *
- * `always` parks a permanent challenge box under the composer; `execute` needs
+ * `always` keeps a permanent challenge box on the entry screen; `execute` needs
  * an explicit `turnstile.execute()` handshake before a token exists, which
  * would put a round trip in front of the very first message. `interaction-only`
  * solves silently and renders NOTHING unless Cloudflare actually decides a
- * human interaction is required — so the dock keeps the design's rhythm
- * (composer + one quiet hint line) on the overwhelming majority of turns, and
- * the challenge appears only in the rare case it is genuinely needed.
+ * human interaction is required. The full-viewport entry therefore stays
+ * visually quiet unless Cloudflare actually asks for human interaction.
  */
 export const TURNSTILE_APPEARANCE = "interaction-only";
 
-/** Fills the composer's width instead of a fixed 300px box when it does show. */
+/** Fills the entry card's width instead of a fixed 300px box when it shows. */
 export const TURNSTILE_SIZE = "flexible";
 
 /** A Turnstile site key is 24 characters; a secret is 35. */
@@ -134,8 +133,8 @@ function useTurnstileCallback(onToken: (token: string) => void): void {
   }, [onToken]);
 }
 
-function bindInvalidation(): () => void {
-  const invalidate = () => { clearTurnstileToken(); };
+function bindInvalidation(onInvalid: (() => void) | undefined): () => void {
+  const invalidate = () => { clearTurnstileToken(); onInvalid?.(); };
   window.onAnimichiTurnstileError = invalidate;
   window.onAnimichiTurnstileExpired = invalidate;
   return () => {
@@ -145,8 +144,8 @@ function bindInvalidation(): () => void {
 }
 
 /** Drop the held token whenever the widget says it is no longer good. */
-function useTurnstileInvalidation(): void {
-  useEffect(bindInvalidation, []);
+function useTurnstileInvalidation(onInvalid: (() => void) | undefined): void {
+  useEffect(() => bindInvalidation(onInvalid), [onInvalid]);
 }
 
 type RetryProps = Readonly<{ dict: ChatDict; onRetry: () => void }>;
@@ -168,6 +167,7 @@ type Props = Readonly<{
   failed?: boolean;
   onRetry?: () => void;
   onToken?: (token: string) => void;
+  onInvalid?: () => void;
 }>;
 
 /** The attributes api.js reads that never vary between renders. */
@@ -191,14 +191,16 @@ function TurnstileWidget({ siteKey }: Readonly<{ siteKey: string }>) {
  * (`workers/edge/turnstile.ts`) — this only collects the token and hands it to the
  * store the chat transport reads.
  */
-function useTurnstileWidget(onToken: ((token: string) => void) | undefined): void {
+function useTurnstileWidget(
+  onToken: ((token: string) => void) | undefined, onInvalid: (() => void) | undefined,
+): void {
   useTurnstileScript();
   useTurnstileCallback(onToken ?? rememberTurnstileToken);
-  useTurnstileInvalidation();
+  useTurnstileInvalidation(onInvalid);
 }
 
-export function TurnstileGate({ dict, siteKey, failed = false, onRetry, onToken }: Props) {
-  useTurnstileWidget(onToken);
+export function TurnstileGate({ dict, siteKey, failed = false, onRetry, onToken, onInvalid }: Props) {
+  useTurnstileWidget(onToken, onInvalid);
   return (
     <section className="turnstile-gate" aria-label={dict.turnstile.label}>
       <TurnstileWidget siteKey={siteKey} />

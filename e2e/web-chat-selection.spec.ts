@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
 import { SSE_HEADERS, chatStreamRecording, patchFinalFrame } from "./fixtures/chat-stream";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Issue #273 (S1.7) Task 1 browser ACs — the E2 selection tray and the
@@ -49,9 +50,11 @@ const recomputeBody = chatStreamRecording("search")
   .replaceAll('"intent":"plan_route"', '"intent":"plan_selected"');
 
 async function openChat(page: Page): Promise<void> {
+  await stubTurnstileEntry(page);
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto("/chat");
+  await solveTurnstileEntry(page);
   await hydrated;
 }
 

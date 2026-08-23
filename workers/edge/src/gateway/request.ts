@@ -3,12 +3,14 @@
 import type { Env, WorkerExecutionContext } from "../env.ts";
 import type { AuthResult } from "../identity/auth.ts";
 import { handleAnonymousV1 } from "../identity/anonymous-flow.ts";
+import { verifyAnonymousEntry } from "../identity/turnstile-entry.ts";
 import { handleSessionAdopt, SESSION_ADOPT_PATH } from "../identity/session-adopt.ts";
 import { handleImageProxy } from "../proxy/image-proxy.ts";
 import { handleTiles } from "../proxy/tiles.ts";
 import type { ShowcaseMode } from "../proxy/showcase.ts";
 import type { TurnstileGate } from "../protect/turnstile.ts";
 import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
+import { TURNSTILE_VERIFY_PATH } from "@animichi/contract/constants";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardUsers, forwardV1 } from "./forward.ts";
@@ -216,6 +218,7 @@ async function adoptResponse(
 async function agentV1Response(
   env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string, deps: GatewayDeps,
 ): Promise<Response> {
+  if (pathname === TURNSTILE_VERIFY_PATH) return turnstileVerifyResponse(env, request, ctx, deps);
   if (isPublicV1(pathname)) {
     // Cacheable public reads are the policy's native fail-open cell; guard
     // via the same `guardPolicy` seam using the request's public key.
@@ -231,6 +234,16 @@ async function agentV1Response(
     if (anonymous !== null) return anonymous;
   }
   return Response.json(UNAUTHORIZED_BODY, { status: 401 });
+}
+
+async function turnstileVerifyResponse(
+  env: Env, request: Request, ctx: WorkerExecutionContext, deps: GatewayDeps,
+): Promise<Response> {
+  if (request.method !== "POST") return Promise.resolve(methodNotAllowed());
+  const auth = await deps.authenticate(request, env, ctx);
+  if (auth.ok) return new Response(null, { status: 204 });
+  if (auth.reason === "invalid") return authenticationRejection(request, auth);
+  return verifyAnonymousEntry(env, request, deps.turnstileGate);
 }
 
 /** Backoff before the 2nd and 3rd attempts: 400ms then 800ms (issue #694). */

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 
 test.use({
@@ -22,13 +23,14 @@ const emptyAnimeOverview = {
 };
 
 async function openChat(page: Page): Promise<void> {
-  await blockTurnstile(page);
+  await stubTurnstileEntry(page);
   await page.route("**/api/auth/get-session", (route) =>
     route.fulfill({ status: 401, json: { error: "no session" } }),
   );
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const healthy = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto("/chat");
+  await solveTurnstileEntry(page);
   await healthy;
   await expect(page.getByRole("textbox")).toBeVisible();
 }
@@ -43,9 +45,6 @@ async function navigateClient(page: Page, path: string, target: string): Promise
   await expect(page.locator(target)).toBeVisible();
 }
 
-const blockTurnstile = (page: Page) =>
-  page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
-
 describe("AC4 loading/streaming state", () => {
   test("an in-flight turn is announced via a live region and stays keyboard-operable", async ({ page }) => {
     // Hold the stream open so the busy state persists while we assert: a
@@ -55,9 +54,6 @@ describe("AC4 loading/streaming state", () => {
       /* never respond: the turn stays in flight for the duration of the test */
     });
     await openChat(page);
-    // Arm a turnstile token so an anonymous turn can be dispatched.
-    await page.waitForFunction(() => typeof window.onAnimichiTurnstile === "function");
-    await page.evaluate(() => { window.onAnimichiTurnstile?.("e2e-token"); });
     const input = page.getByRole("textbox");
     await input.fill("宇治");
     await page.keyboard.press("Enter");
@@ -136,12 +132,11 @@ describe("AC4 error states", () => {
 });
 
 describe("AC4 Turnstile + Auth stay keyboard-reachable under reduced motion", () => {
-  test("the anonymous chat dock hosts the challenge widget without blocking keyboard", async ({ page }) => {
-    await openChat(page);
-    await expect(page.locator(".turnstile-gate .cf-turnstile")).toHaveAttribute("data-appearance", "interaction-only");
-    const input = page.getByRole("textbox");
-    await input.focus();
-    await expect(input).toBeFocused();
+  test("the anonymous entry exposes the challenge before chat", async ({ page }) => {
+    await stubTurnstileEntry(page);
+    await page.goto("/chat");
+    await expect(page.locator(".turnstile-entry .cf-turnstile")).toHaveAttribute("data-appearance", "interaction-only");
+    await expect(page.getByRole("textbox")).toHaveCount(0);
   });
 
   test("the auth flow is fully operable by keyboard (email -> submit)", async ({ page }) => {
