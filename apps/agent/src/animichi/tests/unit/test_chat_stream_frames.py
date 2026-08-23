@@ -43,6 +43,20 @@ def test_output_progress_emits_reconcilable_data_part() -> None:
     assert '"data":{"intent":"greet_user"}' in frames[0]
 
 
+def test_completed_output_progress_is_not_reemitted() -> None:
+    frames = ToolPartTranslator().translate(
+        StepEvent(
+            tool="greet_user",
+            call_id="output-call",
+            status="done",
+            data={},
+            kind="output",
+        )
+    )
+
+    assert frames == []
+
+
 def test_error_status_does_not_leave_active_call() -> None:
     translator = ToolPartTranslator()
     translator.translate(

@@ -6,7 +6,6 @@ from collections.abc import AsyncIterator
 from unittest.mock import MagicMock
 
 from pydantic_ai.messages import (
-    FinalResultEvent,
     FunctionToolCallEvent,
     FunctionToolResultEvent,
     RetryPromptPart,
@@ -61,17 +60,6 @@ async def test_catalog_events_preserve_raw_params_and_payload() -> None:
         _result("resolve_anime", "call-1", {"outcome": "resolved"}),
     )
     _assert_catalog_events(deps, events)
-
-
-async def test_final_output_start_emits_typed_progress_event() -> None:
-    events = await _handle(
-        _deps(),
-        FinalResultEvent(tool_name="greeting_response", tool_call_id="output-call"),
-    )
-
-    assert events == [
-        StepEvent("greet_user", "output-call", "running", {}, kind="output")
-    ]
 
 
 def _assert_catalog_events(deps: RuntimeDeps, events: list[StepEvent]) -> None:
