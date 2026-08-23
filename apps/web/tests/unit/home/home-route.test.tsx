@@ -26,10 +26,11 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("root route dual state", () => {
-  it("renders the marketing Landing for an anonymous visitor", () => {
+  it("renders the indexable doorway summary for an anonymous visitor", () => {
     mockStatus = "anonymous";
     renderHome(<HomeView />);
-    expect(screen.getByText("FROM SCREEN TO STREET")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "巡礼をはじめる" }).getAttribute("href")).toBe("/chat");
     expect(screen.queryByRole("searchbox")).toBeNull();
   });
 
@@ -44,6 +45,6 @@ describe("root route dual state", () => {
   it("wraps the view in the locale provider via HomeRoute", () => {
     mockStatus = "anonymous";
     renderHome(<HomeRoute />);
-    expect(screen.getByText("FROM SCREEN TO STREET")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "プライバシーポリシー" })).toBeTruthy();
   });
 });

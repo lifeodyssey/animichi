@@ -9,6 +9,7 @@ export interface RouteDetailCopy {
   readonly goldBar: string;
   readonly completedBadge: (done: number, total: number) => string;
   readonly mapPlaceholder: string;
+  readonly mapHint: string;
   readonly mapExpand: string;
   readonly mapCollapse: string;
   readonly progressAria: string;
@@ -29,6 +30,7 @@ const ja: RouteDetailCopy = {
   goldBar: "きょうは巡礼日!→歩くモードへ",
   completedBadge: (done, total) => `完走 ${String(done)}/${String(total)} ✓`,
   mapPlaceholder: "地図を準備しています",
+  mapHint: "図釘はぜんぶ本編の画面",
   mapExpand: "地図を広げる",
   mapCollapse: "地図をたたむ",
   progressAria: "巡礼の進捗",
@@ -49,6 +51,7 @@ const zh: RouteDetailCopy = {
   goldBar: "今天是巡礼日!→前往步行模式",
   completedBadge: (done, total) => `完走 ${String(done)}/${String(total)} ✓`,
   mapPlaceholder: "地图准备中",
+  mapHint: "每个图钉都是本篇的画面",
   mapExpand: "展开地图",
   mapCollapse: "收起地图",
   progressAria: "巡礼进度",
@@ -69,6 +72,7 @@ const en: RouteDetailCopy = {
   goldBar: "Today is a pilgrimage day! → to Walk Mode",
   completedBadge: (done, total) => `Complete ${String(done)}/${String(total)} ✓`,
   mapPlaceholder: "Preparing the map",
+  mapHint: "Every pin is a frame from the show",
   mapExpand: "Expand map",
   mapCollapse: "Collapse map",
   progressAria: "Pilgrimage progress",

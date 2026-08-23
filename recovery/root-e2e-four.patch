@@ -1,0 +1,250 @@
+diff --git a/e2e/web-a11y-axe.spec.ts b/e2e/web-a11y-axe.spec.ts
+index 63ede3a4b..75b21bce6 100644
+--- a/e2e/web-a11y-axe.spec.ts
++++ b/e2e/web-a11y-axe.spec.ts
+@@ -28,25 +28,47 @@ async function expectNoSeriousOrCritical(page: Page, label: string): Promise<voi
+ }
+ 
+ describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
+-  test("landing", async ({ page }) => {
++  test("doorway (`/`)", async ({ page }) => {
+     await page.route("**/api/auth/get-session", (route) =>
+       route.fulfill({ status: 401, json: { error: "no session" } }),
+     );
+     await page.goto("/");
+-    await expectNoSeriousOrCritical(page, "landing");
++    await expectNoSeriousOrCritical(page, "doorway");
+   });
+ 
++  /**
++   * Owner 2026-08-23: the landing (and its login button) is gone, so the
++   * signed-out login wall is reached through the ⚙ settings panel's anonymous
++   * teaser. Same `features/auth/ui/LoginModal` component, live entry point.
++   */
+   test("login modal", async ({ page }) => {
++    await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+     await page.route("**/api/auth/get-session", (route) =>
+       route.fulfill({ status: 401, json: { error: "no session" } }),
+     );
+-    await page.goto("/");
+-    await expect(page.locator("main")).toBeVisible();
+-    await page.getByRole("button", { name: /ログイン|Login/i }).last().click();
++    await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
++    await page.goto("/chat?settings=byok");
++    await page.getByRole("button", { name: /ログインして設定|sign in to set up/i }).click();
+     await expect(page.getByRole("dialog")).toBeVisible();
+     await expectNoSeriousOrCritical(page, "login modal");
+   });
+ 
++  /**
++   * The ⚙ settings panel itself: the new home of the day/night switch and the
++   * language dropdown, both custom ARIA widgets that axe must clear.
++   */
++  test("settings panel", async ({ page }) => {
++    await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
++    await page.route("**/api/auth/get-session", (route) =>
++      route.fulfill({ status: 401, json: { error: "no session" } }),
++    );
++    await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
++    await page.goto("/chat?settings=byok");
++    await page.getByRole("combobox").click();
++    await expect(page.getByRole("listbox")).toBeVisible();
++    await expectNoSeriousOrCritical(page, "settings panel");
++  });
++
+   test("chat", async ({ page }) => {
+     await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+     await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
+diff --git a/e2e/web-a11y-keyboard.spec.ts b/e2e/web-a11y-keyboard.spec.ts
+index c6ed8d308..07ff00522 100644
+--- a/e2e/web-a11y-keyboard.spec.ts
++++ b/e2e/web-a11y-keyboard.spec.ts
+@@ -12,20 +12,30 @@ test.use({
+   serviceWorkers: "block",
+ });
+ 
+-async function anonymousLanding(page: Page): Promise<void> {
++/**
++ * Owner 2026-08-23: `/` is a doorway now — it replaces itself with `/chat` on
++ * the first client effect, so a Tab pressed there is a Tab pressed against a
++ * page that is about to be navigated away from. The skip link and the tab
++ * order are root-document furniture, present on every route, so the surface
++ * moved to `/chat`: the first route a keyboard user actually lands on, and one
++ * that stays still. Transport is stubbed so the scan stays hermetic.
++ */
++async function anonymousChat(page: Page): Promise<void> {
+   await page.route("**/api/auth/get-session", (route) =>
+     route.fulfill({ status: 401, json: { error: "no session" } }),
+   );
+-  await page.goto("/");
+-  // Wait for the splash to clear and the real landing content to mount, so a
+-  // Tab/click immediately after never races the splash overlay or hydration.
+-  await expect(page.locator("main")).toBeVisible();
++  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
++  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
++  await page.goto("/chat");
++  // Wait for the splash to clear and the real content to mount, so a Tab/click
++  // immediately after never races the splash overlay or hydration.
++  await expect(page.getByRole("textbox")).toBeVisible();
+   await expect(page.locator(".app-splash")).toBeHidden();
+ }
+ 
+ describe("AC2 keyboard navigation", () => {
+   test("skip-to-content link is first in tab order, visible on focus, and jumps to main", async ({ page }) => {
+-    await anonymousLanding(page);
++    await anonymousChat(page);
+     await page.keyboard.press("Tab");
+     const skip = page.getByRole("link", { name: /スキップ|コンテンツへ|skip|content/i });
+     await expect(skip).toBeFocused();
+@@ -34,7 +44,7 @@ describe("AC2 keyboard navigation", () => {
+   });
+ 
+   test("tab order stays within interactive controls and exposes a visible focus indicator", async ({ page }) => {
+-    await anonymousLanding(page);
++    await anonymousChat(page);
+     const skip = page.getByRole("link", { name: /スキップ|コンテンツへ|skip|content/i });
+     await skip.press("Enter");
+     for (let i = 0; i < Math.min(8, 8); i++) {
+@@ -44,10 +54,17 @@ describe("AC2 keyboard navigation", () => {
+   });
+ });
+ 
++/**
++ * The login modal lost its landing trigger with the landing itself. Its
++ * remaining signed-out entry point is the ⚙ settings panel's anonymous teaser
++ * (`/chat?settings=byok` → "ログインして設定する"), which is the same
++ * `features/auth/ui/LoginModal` component under test.
++ */
+ describe("AC2 login modal focus management", () => {
+   async function openLogin(page: Page): Promise<void> {
+-    await anonymousLanding(page);
+-    await page.getByRole("button", { name: /ログイン|login/i }).last().click();
++    await anonymousChat(page);
++    await page.goto("/chat?settings=byok");
++    await page.getByRole("button", { name: /ログインして設定|sign in to set up/i }).click();
+     await expect(page.getByRole("dialog")).toBeVisible();
+   }
+ 
+@@ -69,12 +86,9 @@ describe("AC2 login modal focus management", () => {
+   });
+ 
+   test("escape closes the modal and restores focus to the trigger", async ({ page }) => {
+-    await page.route("**/api/auth/get-session", (route) =>
+-      route.fulfill({ status: 401, json: { error: "no session" } }),
+-    );
+-    await page.goto("/");
+-    await expect(page.locator("main")).toBeVisible();
+-    const trigger = page.getByRole("button", { name: /ログイン|login/i }).last();
++    await anonymousChat(page);
++    await page.goto("/chat?settings=byok");
++    const trigger = page.getByRole("button", { name: /ログインして設定|sign in to set up/i });
+     await trigger.click();
+     await expect(page.getByRole("dialog")).toBeVisible();
+     await page.keyboard.press("Escape");
+diff --git a/e2e/web-runtime-config.spec.ts b/e2e/web-runtime-config.spec.ts
+index 5824d6f41..65ec56a43 100644
+--- a/e2e/web-runtime-config.spec.ts
++++ b/e2e/web-runtime-config.spec.ts
+@@ -30,6 +30,16 @@ const PRODUCTION = {
+   featureFlags: {},
+ };
+ 
++/**
++ * Owner 2026-08-23: `/` is a doorway — it replaces itself with `/chat` on the
++ * first client effect, and chat's own polling means `networkidle` on that
++ * navigation never settles. The seed is emitted by `__root.tsx`, so EVERY
++ * route carries it; the browser-side assertions moved to `/privacy`, the one
++ * static route that stays where it is put. The served-document check below
++ * still fetches `/` itself, because that is the URL crawlers and deploys hit.
++ */
++const SEEDED_PATH = "/privacy";
++
+ // The served seed statement: window["__ANIMICHI_RUNTIME_CONFIG__"] ??= <json>;
+ // group 1 is the JSON object literal (balanced braces, no ';' inside).
+ const SEED_RE = /window\["__ANIMICHI_RUNTIME_CONFIG__"\] \?\?= ([^;]*);/;
+@@ -49,7 +59,7 @@ test("the served document carries the runtime-config seed", async ({ page }) =>
+ // real served-DOM seed path per environment.
+ async function serveWithSeed(page: Page, fixture: unknown): Promise<void> {
+   const replacement = JSON.stringify(fixture);
+-  await page.route("**/", async (route) => {
++  await page.route(`**${SEEDED_PATH}`, async (route) => {
+     const response = await route.fetch();
+     const body = await response.text();
+     const seeded = body.replace(SEED_RE, SEED_ASSIGN + replacement + ";");
+@@ -66,7 +76,7 @@ interface ServedResult {
+ // window global, so a test can assert the seed is in the SERVED HTML with the
+ // fixture values (not just in the runtime window).
+ async function served(page: Page): Promise<ServedResult> {
+-  const response = await page.goto("/");
++  const response = await page.goto(SEEDED_PATH);
+   const servedHtml = (await response?.text()) ?? "";
+   await page.waitForLoadState("networkidle");
+   const config = await page.evaluate((key) => (window as Record<string, unknown>)[key], RUNTIME_CONFIG_GLOBAL_KEY);
+diff --git a/e2e/web-state-ownership.spec.ts b/e2e/web-state-ownership.spec.ts
+index 9c7d3ed2f..f85855ffe 100644
+--- a/e2e/web-state-ownership.spec.ts
++++ b/e2e/web-state-ownership.spec.ts
+@@ -15,6 +15,14 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
+  */
+ const THEME_STORAGE_KEY = "animichi-theme";
+ 
++/**
++ * Owner 2026-08-23: the landing that used to carry the fixed day/night pill is
++ * deleted, and `/` is a doorway that navigates itself away. The switch now
++ * lives in the ⚙ settings panel, whose open state is URL-owned — so the panel's
++ * own deep link is also the switch's address.
++ */
++const THEME_SWITCH_URL = "/chat?settings=byok";
++
+ test.use({
+   baseURL: process.env.E2E_WEB_BASE_URL ?? "http://localhost:3000",
+   locale: "ja-JP",
+@@ -40,32 +48,40 @@ async function stubSignedOut(page: Page): Promise<void> {
+   );
+ }
+ 
+-/** The toggle in its night position: checked + 夜 accessible name. */
++/**
++ * The switch in its night position. The accessible NAME is deliberately the
++ * same in both positions — renaming a control when its value changes makes it
++ * a different control to a screen reader (WCAG 4.1.2) — so night/day is read
++ * off `aria-checked`, the switch role's own state, and the stable name is
++ * asserted alongside it.
++ */
+ async function expectNight(toggle: Locator): Promise<void> {
+   await expect(toggle).toHaveAttribute("aria-checked", "true");
+-  await expect(toggle).toHaveAccessibleName("夜");
++  await expect(toggle).toHaveAccessibleName("夜間モード");
+ }
+ 
+-/** The toggle in its day position: unchecked + 昼 accessible name. */
++/** The switch in its day position — the OFF default. */
+ async function expectDay(toggle: Locator): Promise<void> {
+   await expect(toggle).toHaveAttribute("aria-checked", "false");
+-  await expect(toggle).toHaveAccessibleName("昼");
++  await expect(toggle).toHaveAccessibleName("夜間モード");
+ }
+ 
+ /**
+  * AC3 — the stored theme is the single authority: after the seed the bootstrap
+  * script applies night on the reload, the toggle reports it checked, a click
+  * persists day, and a further reload honours that persisted day. The theme is
+- * asserted through the toggle's accessible state — `aria-checked` (the switch
+- * signal) and its locale-aware accessible name (夜/昼) — never through the
+- * `data-theme` implementation detail on `<html>`. The toggle's `aria-checked`
++ * asserted through the switch's accessible state — `aria-checked` — never
++ * through the `data-theme` implementation detail on `<html>`, and never
++ * through the name, which stays put on purpose. The switch's `aria-checked`
+  * flips to true only once React adopted the stored value, so awaiting it
+  * doubles as the hydration barrier (clicking a pre-hydration toggle would
+  * drop the handler).
+  */
+ async function seededNightPage(page: Page): Promise<Locator> {
+   await stubSignedOut(page);
+-  await page.goto("/");
++  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
++  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
++  await page.goto(THEME_SWITCH_URL);
+   await seedNight(page);
+   await page.reload();
+   return page.getByRole("switch");

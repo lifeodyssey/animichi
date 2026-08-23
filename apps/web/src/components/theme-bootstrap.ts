@@ -1,7 +1,7 @@
 /**
  * Pre-hydration theme init, shipped as an inline <head> script from the root
- * route so EVERY page (not just the landing tree) honors the stored day/night
- * preference — and the landing page stops flashing the day default.
+ * route so EVERY page honors the stored day/night preference before first
+ * paint, rather than flashing the day default and correcting on hydration.
  *
  * The script must be self-contained (it runs before any module loads), so its
  * `localStorage` reference lives inside the emitted string. That is the one

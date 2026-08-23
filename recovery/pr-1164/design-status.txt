@@ -1,0 +1,70 @@
+ M apps/web/AGENTS.md
+ M apps/web/public/images/landing/ATTRIBUTIONS.md
+ D apps/web/public/images/landing/compare/anime.jpg
+ D apps/web/public/images/landing/compare/real.jpg
+ D apps/web/public/images/landing/foliage-tr.svg
+ D apps/web/public/images/landing/fox/fox-lean.svg
+ D apps/web/src/components/Landing.tsx
+ M apps/web/src/components/Splash.tsx
+ M apps/web/src/components/home/search-target.ts
+ D apps/web/src/components/landing/ComingSoonPopup.stories.tsx
+ D apps/web/src/components/landing/ComingSoonPopup.tsx
+ D apps/web/src/components/landing/ComparisonSlider.stories.tsx
+ D apps/web/src/components/landing/ComparisonSlider.tsx
+ D apps/web/src/components/landing/DayNightToggle.stories.tsx
+ D apps/web/src/components/landing/DayNightToggle.tsx
+ D apps/web/src/components/landing/Hero.stories.tsx
+ D apps/web/src/components/landing/Hero.tsx
+ D apps/web/src/components/landing/HeroSceneCard.tsx
+ D apps/web/src/components/landing/HeroSearch.stories.tsx
+ D apps/web/src/components/landing/HeroSearch.tsx
+ D apps/web/src/components/landing/LandingDeco.tsx
+ D apps/web/src/components/landing/LandingPage.stories.tsx
+ D apps/web/src/components/landing/LandingPage.tsx
+ D apps/web/src/components/landing/SparkIcon.tsx
+ D apps/web/src/components/landing/ToriiMark.tsx
+ D apps/web/src/components/landing/use-theme.ts
+ M apps/web/src/components/theme-bootstrap.ts
+ M apps/web/src/features/chat/ChatPage.tsx
+ M apps/web/src/features/chat/ChatReturnTarget.tsx
+ M apps/web/src/features/chat/components/ByokSettings.tsx
+ M apps/web/src/features/chat/components/ChatShell.tsx
+ M apps/web/src/features/config/showcase.ts
+ M apps/web/src/features/splash/chat-handoff.ts
+ M apps/web/src/features/splash/splash-release.ts
+ M apps/web/src/i18n/LocaleProvider.tsx
+ M apps/web/src/i18n/dictionaries/en.json
+ M apps/web/src/i18n/dictionaries/ja.json
+ M apps/web/src/i18n/dictionaries/zh.json
+ M apps/web/src/lib/runtime-config/runtime-config.ts
+ M apps/web/src/routes/__root.tsx
+ M apps/web/src/routes/chat.tsx
+ M apps/web/src/routes/index.tsx
+ M apps/web/src/styles/globals.css
+ D apps/web/src/styles/landing.css
+ M apps/web/tests/unit/accessibility/reduced-motion.test.ts
+ M apps/web/tests/unit/accessibility/semantic-landmarks.test.tsx
+ D apps/web/tests/unit/coming-soon-popup.test.tsx
+ D apps/web/tests/unit/comparison-slider.test.tsx
+ D apps/web/tests/unit/day-night-toggle.test.tsx
+ D apps/web/tests/unit/hero-scene-card.test.tsx
+ D apps/web/tests/unit/hero-search.test.tsx
+ M apps/web/tests/unit/home/home-route.test.tsx
+ M apps/web/tests/unit/i18n-context.test.tsx
+ M apps/web/tests/unit/i18n-dictionaries.test.ts
+ D apps/web/tests/unit/landing-cta-contrast.test.ts
+ D apps/web/tests/unit/landing-deco.test.tsx
+ D apps/web/tests/unit/landing-page-showcase.test.tsx
+ D apps/web/tests/unit/landing-page.test.tsx
+ D apps/web/tests/unit/landing.test.tsx
+ M apps/web/tests/unit/state-ownership/checker.ts
+ M apps/web/tests/unit/theme-hydration.test.tsx
+?? apps/web/src/components/ds/
+?? apps/web/src/components/settings/
+?? apps/web/src/features/config/use-theme.ts
+?? apps/web/src/features/seo/DoorwaySummary.tsx
+?? apps/web/src/lib/i18n/
+?? apps/web/tests/unit/lib/locale-storage.test.ts
+?? apps/web/tests/unit/settings/
+?? apps/web/tests/unit/theme-switch.test.tsx
+?? docs/iterations/chat-visual-restore/handoff-2026-08-23.md

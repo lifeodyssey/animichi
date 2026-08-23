@@ -1,0 +1,297 @@
+/* Route detail (/routes/$routeId) skin — the design-sync canvas
+ * "路线详情 状态总览.html" × spec-route-detail §1–§5, expressed in the six
+ * shared visual languages (card / 3D press button / pill / selected / divider /
+ * motion) documented in docs/iterations/chat-visual-restore/task.md §4.
+ *
+ * Surface vocabulary. The canvas stacks three creams: page floor (--bg) <
+ * panel (--panel) < paper (--card). Post-#1158 those map straight onto the
+ * semantic layer: --color-bg < --color-card < --color-paper, each with its own
+ * night override, so cards float above the floor in both themes.
+ */
+.route-detail {
+  --route-mode-ms: 360ms;
+  --route-mode-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* The two heights the map stage animates between (spec §2). Named here
+   * beside the motion budget so the whole geometry of the mode toggle is
+   * legible in one block; the component only says WHICH mode it is in. */
+  --route-map-idle: 9rem;
+  --route-map-expanded: 18rem;
+
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: 48rem;
+  margin-inline: auto;
+  padding: 16px 16px 40px;
+}
+
+/* §4.3 pill: 50px radius, 900 weight, small nowrap label. */
+.route-pill {
+  border-radius: 50px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+/* §4.3's gold row is a TINT (canvas #fdf1cf on #a8801a), not solid gold: a pill
+ * only labels a fact, and a solid ground under a ledge reads as something you
+ * can press. Solid gold stays where the gold really is an object — the 現在 pin
+ * below, and the しおり seal. */
+.route-pill--gold {
+  background: var(--color-gold-soft);
+  color: var(--color-gold-fg);
+}
+
+/* Today's gold bar (spec §1): information, not the CTA — soft gold ground with
+ * the gold line around it, pressable because it links into Walk Mode.
+ *
+ * It is a §4.2 press member like `.route-press`, so the pill, the ledge, the
+ * hover lift and the pressed sink all come from `press-3d.css`. It restated
+ * the ledge and the sink here and got no hover at all, which is exactly the
+ * half-applied pattern that file exists to end. The one thing that stays its
+ * own is the ledge COLOUR: the gold family steps down onto `--color-gold-deep`
+ * rather than the cream `--shadow-3d`, and `--press-ledge` is where the shared
+ * rule reads it. */
+.route-goldbar {
+  --press-ledge: var(--color-gold-deep);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border: 2px solid var(--color-gold);
+  padding: 8px 16px;
+  background: var(--color-gold-soft);
+  color: var(--color-gold-fg);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+  text-decoration: none;
+}
+
+/* Hero (spec §1): title left, 完走 badge right — the badge only lights up in
+ * the completed state, so the row must not reserve space for it. */
+.route-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px;
+}
+
+.route-hero__title {
+  margin: 0;
+  color: var(--color-fg);
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.route-hero__badge {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* Map card (spec §5). The map is the card's face; the pill floats over it and
+ * the operable row sits under it as the card's foot (§4.5 block divider). */
+.route-map__stage {
+  position: relative;
+  min-height: var(--route-map-idle);
+  display: grid;
+  gap: 12px;
+  place-items: center;
+  padding: 16px;
+  background: var(--color-muted);
+  color: var(--color-fg);
+  font-size: 13px;
+  font-weight: 700;
+  transition: min-height var(--route-mode-ms) var(--route-mode-ease);
+}
+
+.route-map__stage[data-mode="expanded"] {
+  min-height: var(--route-map-expanded);
+}
+
+.route-map__pill {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+}
+
+.route-map__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 2px solid var(--color-border-soft);
+  padding: 9px 14px;
+  background: var(--color-card);
+}
+
+.route-map__hint {
+  color: var(--color-muted-fg);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* §4.2 3D press button, cream family (deep step = --shadow-3d). */
+.route-press {
+  border: 2px solid var(--color-border);
+  padding: 7px 14px;
+  background: var(--color-card);
+  color: var(--color-fg);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* Map pins (spec §5, 図釘即画面): a framed marker with a paper edge and a
+ * pointer tail, not a dot. The badge glyph rides inside the frame until frame
+ * thumbnails exist. */
+.route-pin-layer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.route-pin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border: 2.5px solid var(--color-paper);
+  border-radius: 13px;
+  box-shadow: var(--shadow-pin);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.route-pin::after {
+  content: "";
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  margin-left: -6px;
+  border: 6px solid transparent;
+  border-top-color: var(--color-paper);
+}
+
+.route-pin[data-state="visited"] {
+  background: var(--color-map-pin-teal);
+  color: var(--color-primary-ink);
+}
+
+.route-pin[data-state="current"] {
+  border-color: var(--color-gold);
+  background: var(--color-gold);
+  box-shadow: var(--shadow-pin-ring), var(--shadow-pin);
+  color: var(--color-gold-ink);
+}
+
+.route-pin[data-state="current"]::after {
+  border-top-color: var(--color-gold);
+}
+
+.route-pin[data-state="unvisited"] {
+  border-color: var(--color-border);
+  background: var(--color-paper);
+  color: var(--color-fg);
+}
+
+.route-pin[data-state="unvisited"]::after {
+  border-top-color: var(--color-border);
+}
+
+/* Timetable block (spec §4). Only the pending/empty slots exist so far; they
+ * inherit the card language and the block's own text rhythm. */
+.route-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
+}
+
+.route-panel__title {
+  margin: 0;
+  color: var(--color-fg);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.route-panel__body {
+  margin: 0;
+  color: var(--color-muted-fg);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+/* Map-expanded (spec §2): the timetable becomes a bottom sheet — 24px top
+ * corners, lifted shadow, and the grab handle the drag gesture will use. */
+.route-sheet[data-mode="expanded"] {
+  overflow-y: auto;
+  border-radius: 24px 24px 0 0;
+  background: var(--color-paper);
+  box-shadow: var(--shadow-sheet);
+}
+
+/* Inside the sheet the timetable is the sheet's own face, not a second card. */
+.route-sheet[data-mode="expanded"] > .route-card {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.route-sheet[data-mode="expanded"]::before {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 5px;
+  margin: 10px auto 0;
+  border-radius: 3px;
+  background: var(--color-border);
+}
+
+/* Skeleton slots: the card silhouette breathing, never a grey box. */
+.route-skeleton {
+  border: 2px solid var(--color-border-soft);
+  border-radius: 18px;
+  background: var(--color-paper);
+  animation: route-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.route-skeleton--bar {
+  height: 44px;
+  border-radius: 50px;
+  border-color: var(--color-gold);
+  background: var(--color-gold-soft);
+}
+
+.route-skeleton--map { height: 156px; }
+.route-skeleton--hero { height: 96px; }
+.route-skeleton--panel { height: 220px; }
+
+@keyframes route-skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-card,
+  .route-skeleton {
+    animation: none;
+  }
+
+  /* The gold bar's transition is declared in `press-3d.css`, and so is the
+   * reduce switch-off that stills it; only the map stage's own is left here. */
+  .route-map__stage {
+    transition: none;
+  }
+}

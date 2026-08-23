@@ -7,20 +7,24 @@ test.use({
 
 // Issue #426: a hydration ReferenceError wiped the SSR DOM on every route, so asserting markup on
 // the 404 page alone is not enough — collect uncaught browser errors and require none.
-async function collectPageErrors(page: Page, path: string): Promise<string[]> {
+async function collectPageErrors(page: Page, path: string, ready: string): Promise<string[]> {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(path);
-  await page.waitForLoadState("networkidle");
+  await expect(page.locator(ready)).toBeVisible();
   return errors;
 }
 
 test("undefined route hydrates without uncaught errors", async ({ page }) => {
-  expect(await collectPageErrors(page, "/this-route-does-not-exist")).toEqual([]);
+  expect(await collectPageErrors(page, "/this-route-does-not-exist", "#not-found-title")).toEqual([]);
 });
 
 test("home route hydrates without uncaught errors", async ({ page }) => {
-  expect(await collectPageErrors(page, "/")).toEqual([]);
+  await page.route("**/held-open", () => new Promise<void>((resolve) => page.once("close", resolve)));
+  await page.addInitScript(() => {
+    window.addEventListener("load", () => { void fetch("/held-open"); });
+  });
+  expect(await collectPageErrors(page, "/", ".chat-page")).toEqual([]);
 });
 
 test("undefined route renders a branded 404", async ({ page }) => {

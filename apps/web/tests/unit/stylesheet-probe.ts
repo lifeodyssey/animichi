@@ -30,8 +30,24 @@ export function parseTokens(css: string): TokenMap {
   return parseBlockTokens(css, ":root");
 }
 
+/* The lookbehind is what stops `border` from reading back `--color-border`'s
+ * value: a block that declares its own tokens alongside its properties (the
+ * しおり card's frozen export palette does) otherwise answers every property
+ * lookup whose name is the tail of a token name. */
 function declarationValue(body: string, property: string): string | null {
-  return new RegExp(`${property}\\s*:\\s*([^;]+)`, "u").exec(body)?.[1]?.trim() ?? null;
+  return new RegExp(String.raw`(?<![-\w])${property}\s*:\s*([^;]+)`, "u").exec(body)?.[1]?.trim() ?? null;
+}
+
+/**
+ * The body of an at-rule block — `@layer base`, `@keyframes card-pop`. Absence
+ * is a failure naming the block, not an empty string that silently passes
+ * every `toContain` a test then makes of it.
+ */
+export function atRuleBody(css: string, prelude: string): string {
+  const escaped = prelude.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+  const body = new RegExp(`${escaped}\\s*\\{([\\S\\s]*?)\\n\\}`, "u").exec(css)?.[1];
+  if (body === undefined) throw new Error(`Missing at-rule: ${prelude}`);
+  return body;
 }
 
 export function ruleDeclaration(css: string, selector: string, property: string): string | null {
@@ -52,6 +68,31 @@ export function lastRuleDeclaration(css: string, selector: string, property: str
   const body = rules.at(-1)?.[1];
   if (body === undefined) throw new Error(`Missing rule: ${selector}`);
   return declarationValue(body, property);
+}
+
+/** Every leaf rule in a stylesheet, as `[selector list, body]`, comments gone. */
+function leafRules(css: string): readonly (readonly [string, string])[] {
+  const bare = css.replaceAll(/\/\*[\S\s]*?\*\//gu, "");
+  return [...bare.matchAll(/([^{}]*)\{([^{}]*)\}/gu)]
+    .map((rule) => [rule[1] ?? "", rule[2] ?? ""] as const);
+}
+
+/**
+ * The declaration a selector gets from the last rule whose selector LIST names
+ * it. `ruleDeclaration` anchors on `selector {`, so it cannot see a shared
+ * plane like `card-plane.css`'s one rule for four card families; this can.
+ * Concatenate the shared sheet BEFORE the skin's own, so the skin's unlayered
+ * overrides stay the last word, exactly as the cascade has them. Rules that do
+ * not mention the property are passed over rather than counted as a null, the
+ * way a media-query override of one property leaves the others standing.
+ */
+export function sharedRuleDeclaration(css: string, selector: string, property: string): string | null {
+  const bodies = leafRules(css)
+    .filter(([list]) => list.split(",").some((one) => one.trim() === selector))
+    .map(([, body]) => body);
+  if (bodies.length === 0) throw new Error(`Missing rule: ${selector}`);
+  const declaring = [...bodies].reverse().find((body) => declarationValue(body, property) !== null);
+  return declaring === undefined ? null : declarationValue(declaring, property);
 }
 
 function requiredDeclaration(body: string, property: string): string {
@@ -168,4 +209,60 @@ export function gradientStop(from: string, to: string, position: number): string
 /** The token names a declaration spends, in the order it spends them. */
 export function referencedTokens(declaration: string): readonly string[] {
   return [...declaration.matchAll(/var\((--[\w-]+)\)/gu)].map((match) => match[1] ?? "");
+}
+
+/** Which of the two palettes globals.css ships a stylesheet is read under. */
+export type Theme = "day" | "night";
+
+/** WCAG 1.4.3 AA for body-size text. */
+export const AA_CONTRAST = 4.5;
+
+/** `color` / `background`, never `border-color` — the parser interpolates raw. */
+export const TEXT_COLOR = String.raw`(?<![-\w])color`;
+export const GROUND_COLOR = String.raw`(?<![-\w])background`;
+
+export type DeclarationReader = (css: string, selector: string, property: string) => string | null;
+
+export interface SkinContrastSpec {
+  /** The stylesheet whose rules are being read back. */
+  readonly sheet: string;
+  /** Every token in scope by day — globals `:root` plus any skin-local block. */
+  readonly day: TokenMap;
+  /** Only the tokens `[data-theme="night"]` overrides. */
+  readonly night: TokenMap;
+  /** Defaults to `ruleDeclaration`; pass `lastRuleDeclaration` where the cascade decides. */
+  readonly declarationOf?: DeclarationReader;
+}
+
+/** One skin's stylesheet, read the way the browser would compute its colours. */
+export class SkinContrast {
+  readonly #spec: SkinContrastSpec;
+  readonly #declarationOf: DeclarationReader;
+
+  constructor(spec: SkinContrastSpec) {
+    this.#spec = spec;
+    this.#declarationOf = spec.declarationOf ?? ruleDeclaration;
+  }
+
+  palette(theme: Theme): TokenMap {
+    return theme === "night" ? { ...this.#spec.day, ...this.#spec.night } : this.#spec.day;
+  }
+
+  /** Follow a declared value through its `var(--…)` chain down to a literal colour. */
+  resolve(value: string, theme: Theme): string {
+    const target = /var\((--[\w-]+)\)/u.exec(value)?.[1];
+    if (target === undefined) return value;
+    return this.resolve(tokenValue(this.palette(theme), target), theme);
+  }
+
+  /** The colour a rule really paints. */
+  paint(selector: string, property: string, theme: Theme): string {
+    const declared = this.#declarationOf(this.#spec.sheet, selector, property);
+    if (declared === null) throw new Error(`${selector} declares no ${property}`);
+    return this.resolve(declared, theme);
+  }
+
+  readability(selector: string, ground: string, theme: Theme): number {
+    return contrastRatio(this.paint(selector, TEXT_COLOR, theme), this.paint(ground, GROUND_COLOR, theme));
+  }
 }

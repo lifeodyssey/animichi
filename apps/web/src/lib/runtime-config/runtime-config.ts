@@ -38,7 +38,7 @@ const BeaconTokenSchema = z.string().nonempty();
  * still fail closed here rather than ship in the client bundle. */
 const TurnstileSiteKeySchema = z.string().regex(/^[A-Za-z0-9-]{24}$/);
 
-/** Exactly the strict camel-case boolean string the landing branch reads. */
+/** Exactly the strict camel-case boolean string the showcase branch reads. */
 const ShowcaseModeSchema = z.literal("false").or(z.literal("true"));
 
 const FeatureFlagsSchema = z.record(z.string(), z.boolean());

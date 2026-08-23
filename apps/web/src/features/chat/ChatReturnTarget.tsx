@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
  * entry in the app that reads an adopted session back — there is no session or
  * route list — and none of the three in-chat login walls carried a return
  * target. `sanitizeReturnTarget(undefined)` is `/`, so every one of them
- * adopted the work correctly and then dropped the visitor on the landing page
+ * adopted the work correctly and then dropped the visitor on the index route
  * with no way back to it.
  *
  * The live session id cannot come from the URL: `?session=` is an *entry*
@@ -42,7 +42,7 @@ export function ChatReturnTargetProvider({ sessionIdOf, children }: ProviderProp
 
 /**
  * The return target for a login wall rendered inside the chat. `undefined`
- * outside a chat (the landing-page modal), which keeps today's `/` behaviour.
+ * outside a chat (the settings-panel modal), which keeps today's `/` behaviour.
  */
 export function useChatReturnTarget(): string | undefined {
   return chatSessionTarget(useContext(ChatSessionIdContext)());

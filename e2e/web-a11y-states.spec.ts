@@ -21,10 +21,26 @@ const emptyAnimeOverview = {
   sample_itineraries: [],
 };
 
-async function anonymous(page: Page): Promise<void> {
+async function openChat(page: Page): Promise<void> {
+  await blockTurnstile(page);
   await page.route("**/api/auth/get-session", (route) =>
     route.fulfill({ status: 401, json: { error: "no session" } }),
   );
+  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
+  const healthy = page.waitForResponse((response) => response.url().includes("/healthz"));
+  await page.goto("/chat");
+  await healthy;
+  await expect(page.getByRole("textbox")).toBeVisible();
+}
+
+async function navigateClient(page: Page, path: string, target: string): Promise<void> {
+  const arrived = page.waitForURL((url) => url.pathname === path);
+  await page.evaluate((next) => {
+    const current = window.history.state ?? {};
+    window.history.pushState({ ...current, __TSR_index: Number(current.__TSR_index ?? 0) + 1 }, "", next);
+  }, path);
+  await arrived;
+  await expect(page.locator(target)).toBeVisible();
 }
 
 const blockTurnstile = (page: Page) =>
@@ -32,15 +48,13 @@ const blockTurnstile = (page: Page) =>
 
 describe("AC4 loading/streaming state", () => {
   test("an in-flight turn is announced via a live region and stays keyboard-operable", async ({ page }) => {
-    await blockTurnstile(page);
-    await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
     // Hold the stream open so the busy state persists while we assert: a
     // fulfilled recording settles in milliseconds and the turn is over before
     // the first expectation runs.
     await page.route("**/v1/chat", () => {
       /* never respond: the turn stays in flight for the duration of the test */
     });
-    await page.goto("/chat");
+    await openChat(page);
     // Arm a turnstile token so an anonymous turn can be dispatched.
     await page.waitForFunction(() => typeof window.onAnimichiTurnstile === "function");
     await page.evaluate(() => { window.onAnimichiTurnstile?.("e2e-token"); });
@@ -64,18 +78,17 @@ describe("AC4 loading/streaming state", () => {
 
 describe("AC4 empty states (no animation dependence)", () => {
   test("anime empty overview shows understandable prose", async ({ page }) => {
-    await anonymous(page);
     await page.route("**/catalog/public/anime-overview/*", (route) =>
       route.fulfill({ json: emptyAnimeOverview }),
     );
-    await page.goto("/anime/999");
+    await openChat(page);
+    await navigateClient(page, "/anime/999", ".anime-empty");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     const body = await page.locator("main").innerText();
     expect(body.trim().length).toBeGreaterThan(0);
   });
 
   test("route-detail empty route shows understandable prose", async ({ page }) => {
-    await anonymous(page);
     await page.route("**/v1/users/saved-routes", (route) =>
       route.fulfill({
         json: {
@@ -99,7 +112,8 @@ describe("AC4 empty states (no animation dependence)", () => {
           timed_itinerary: { stops: [], legs: [], total_minutes: 0, total_distance_m: 0 } },
       });
     });
-    await page.goto("/routes/22222222-2222-4222-8222-222222222222");
+    await openChat(page);
+    await navigateClient(page, "/routes/22222222-2222-4222-8222-222222222222", ".route-panel");
     const body = await page.locator("main").innerText();
     expect(body.trim().length).toBeGreaterThan(0);
   });
@@ -107,7 +121,6 @@ describe("AC4 empty states (no animation dependence)", () => {
 
 describe("AC4 error states", () => {
   test("anime outage error is announced and reachable by keyboard", async ({ page }) => {
-    await anonymous(page);
     await page.route("**/catalog/public/anime-overview/*", (route) =>
       route.fulfill({
         status: 500,
@@ -115,7 +128,8 @@ describe("AC4 error states", () => {
         body: JSON.stringify({ error: { code: "INTERNAL_SERVER_ERROR", message: "catalog unavailable" } }),
       }),
     );
-    await page.goto("/anime/999");
+    await openChat(page);
+    await navigateClient(page, "/anime/999", ".anime-error");
     await expect(page.getByRole("heading")).toBeVisible();
     await expect(page.getByRole("button").or(page.getByRole("link")).first()).toBeVisible();
   });
@@ -123,9 +137,7 @@ describe("AC4 error states", () => {
 
 describe("AC4 Turnstile + Auth stay keyboard-reachable under reduced motion", () => {
   test("the anonymous chat dock hosts the challenge widget without blocking keyboard", async ({ page }) => {
-    await blockTurnstile(page);
-    await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
-    await page.goto("/chat");
+    await openChat(page);
     await expect(page.locator(".turnstile-gate .cf-turnstile")).toHaveAttribute("data-appearance", "interaction-only");
     const input = page.getByRole("textbox");
     await input.focus();
@@ -133,19 +145,15 @@ describe("AC4 Turnstile + Auth stay keyboard-reachable under reduced motion", ()
   });
 
   test("the auth flow is fully operable by keyboard (email -> submit)", async ({ page }) => {
-    await page.route("**/api/auth/get-session", (route) =>
-      route.fulfill({ status: 401, json: { error: "no session" } }),
-    );
-    await page.goto("/");
-    await expect(page.locator("main")).toBeVisible();
+    await openChat(page);
     // Open the login modal, then drive the whole sign-in form by keyboard:
     // the email field gets initial focus, then Tab reaches the submit button.
-    const login = page.getByRole("button", { name: "ログイン" }).last();
+    const login = page.getByRole("button", { name: "ログイン" });
     await login.click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("textbox", { name: /メール|email/i })).toBeFocused();
     await page.keyboard.type("fan@example.com");
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: /送信|send|リンク/i })).toBeFocused();
+    await expect(page.getByRole("dialog").getByRole("button", { name: /送信|send|リンク/i })).toBeFocused();
   });
 });

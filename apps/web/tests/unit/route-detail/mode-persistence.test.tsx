@@ -31,17 +31,18 @@ function makeDetail(overrides: Partial<RouteDetail> = {}): RouteDetail {
   };
 }
 
-function mapRegion(): HTMLElement {
-  return screen.getByRole("region", { name: "地図" });
+/** The mode the map is in, read off the toggle's `aria-pressed` (see MapCard). */
+function mapExpanded(): string | null {
+  return screen.getByRole("button", { name: /地図を/u }).getAttribute("aria-pressed");
 }
 
 describe("MODE persistence across a check-in re-render (AC5)", () => {
   it("keeps the expanded mode after a check-in event updates the route", () => {
     const { rerender } = render(<RouteDetailView detail={makeDetail()} locale="ja" now={NOW} />);
     fireEvent.click(screen.getByRole("button", { name: "地図を広げる" }));
-    expect(mapRegion().getAttribute("aria-expanded")).toBe("true");
+    expect(mapExpanded()).toBe("true");
 
     rerender(<RouteDetailView detail={makeDetail({ checkins: ["a"] })} locale="ja" now={NOW} />);
-    expect(mapRegion().getAttribute("aria-expanded")).toBe("true");
+    expect(mapExpanded()).toBe("true");
   });
 });

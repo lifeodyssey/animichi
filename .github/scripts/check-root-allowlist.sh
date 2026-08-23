@@ -47,6 +47,7 @@ ALLOWED_ROOT_ENTRIES=(
   packages
   pnpm-lock.yaml
   pnpm-workspace.yaml
+  recovery
   scripts
   supabase
   workers

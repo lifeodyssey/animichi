@@ -1,3 +1,4 @@
+import "../../../styles/route-detail.css";
 import type { Locale } from "../../../i18n/locales";
 import { routeDetailCopyFor } from "../lib/copy";
 import type { RouteDetailCopy } from "../lib/copy";
@@ -45,17 +46,17 @@ function mapCardPayload(detail: RouteDetail, copy: RouteDetailCopy): MapCardPayl
 
 function EmptySpots({ copy }: { readonly copy: RouteDetailCopy }) {
   return (
-    <section aria-label="timetable" className="flex flex-col gap-1 rounded-2xl bg-[var(--color-card)] p-5">
-      <p className="m-0 font-bold text-[var(--color-fg)]">{copy.emptyTitle}</p>
-      <p className="m-0 text-[var(--color-muted-fg)]">{copy.emptyBody}</p>
+    <section aria-label="timetable" className="route-card route-panel">
+      <p className="route-panel__title">{copy.emptyTitle}</p>
+      <p className="route-panel__body">{copy.emptyBody}</p>
     </section>
   );
 }
 
 function TimetablePending({ copy }: { readonly copy: RouteDetailCopy }) {
   return (
-    <section aria-label="timetable" role="status" className="rounded-2xl bg-[var(--color-card)] p-5 text-[var(--color-muted-fg)]">
-      {copy.timetablePlaceholder}
+    <section aria-label="timetable" role="status" className="route-card route-panel">
+      <p className="route-panel__body">{copy.timetablePlaceholder}</p>
     </section>
   );
 }
@@ -68,9 +69,9 @@ interface TimetableSlotProps {
 
 function TimetableSlot({ detail, copy, mode }: TimetableSlotProps) {
   if (isRouteEmpty(detail)) return <EmptySpots copy={copy} />;
-  const sheet = mode === "expanded" ? { maxHeight: `${String(EXPANDED_SHEET_PX)}px`, overflowY: "auto" as const } : undefined;
+  const sheet = mode === "expanded" ? { maxHeight: `${String(EXPANDED_SHEET_PX)}px` } : undefined;
   return (
-    <div style={sheet} data-mode={mode}>
+    <div style={sheet} data-mode={mode} className="route-sheet">
       <TimetablePending copy={copy} />
     </div>
   );
@@ -89,7 +90,7 @@ function GoldBarSlot({ detail, state, copy }: RouteBodyProps) {
 
 function RouteDetailBody({ detail, state, copy }: RouteBodyProps) {
   const { mode, toggle } = useRouteMode(initialMode(state));
-  return (<main className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
+  return (<main className="route-detail">
     <GoldBarSlot detail={detail} state={state} copy={copy} />
     <Hero detail={detail} state={state} copy={copy} />
     <MapCard payload={mapCardPayload(detail, copy)} copy={copy} mode={mode} onToggle={toggle} />

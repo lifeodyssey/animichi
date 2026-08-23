@@ -8,6 +8,7 @@ import { setLanguages } from "../_i18n";
 import { server } from "../../msw/node";
 import { healthzDownHandler, healthzOkHandler } from "../../msw/chat-handlers";
 import { chatSearch, renderChatPage } from "./_chat-page";
+import { leadBubbleWith } from "./_lead-bubble";
 
 const ja = chatDictFor("ja");
 
@@ -15,15 +16,15 @@ describe("A1 cold start", () => {
   it("renders the fox greeting, 3 example chips and an auto-focused input", async () => {
     setLanguages(["ja"]);
     renderChatPage();
-    expect(await screen.findByText(ja.greeting)).toBeTruthy();
-    for (const chip of ja.chips) expect(screen.getByRole("button", { name: chip })).toBeTruthy();
+    expect(await screen.findByText(leadBubbleWith(ja.greeting))).toBeTruthy();
+    for (const chip of ja.chips) expect(screen.getByRole("button", { name: chip.text })).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByRole("textbox"));
   });
 
   it.each(["zh", "en"] as const)("greets in %s per locale", async (locale) => {
     setLanguages([locale]);
     renderChatPage();
-    expect(await screen.findByText(chatDictFor(locale).greeting)).toBeTruthy();
+    expect(await screen.findByText(leadBubbleWith(chatDictFor(locale).greeting))).toBeTruthy();
   });
 });
 
@@ -31,7 +32,7 @@ describe("A2b route reference degrade", () => {
   it("falls back to the A1 cold start when the referenced route is gone", async () => {
     setLanguages(["ja"]);
     renderChatPage(chatSearch({ route: "r-deleted" }));
-    expect(await screen.findByText(ja.greeting)).toBeTruthy();
+    expect(await screen.findByText(leadBubbleWith(ja.greeting))).toBeTruthy();
     expect(screen.queryByText(/引用中/)).toBeNull();
   });
 });

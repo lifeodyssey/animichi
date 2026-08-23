@@ -15,6 +15,14 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
  */
 const THEME_STORAGE_KEY = "animichi-theme";
 
+/**
+ * Owner 2026-08-23: the landing that used to carry the fixed day/night pill is
+ * deleted, and `/` is a doorway that navigates itself away. The switch now
+ * lives in the ⚙ settings panel, whose open state is URL-owned — so the panel's
+ * own deep link is also the switch's address.
+ */
+const THEME_SWITCH_URL = "/chat?settings=byok";
+
 test.use({
   baseURL: process.env.E2E_WEB_BASE_URL ?? "http://localhost:3000",
   locale: "ja-JP",
@@ -40,32 +48,40 @@ async function stubSignedOut(page: Page): Promise<void> {
   );
 }
 
-/** The toggle in its night position: checked + 夜 accessible name. */
+/**
+ * The switch in its night position. The accessible NAME is deliberately the
+ * same in both positions — renaming a control when its value changes makes it
+ * a different control to a screen reader (WCAG 4.1.2) — so night/day is read
+ * off `aria-checked`, the switch role's own state, and the stable name is
+ * asserted alongside it.
+ */
 async function expectNight(toggle: Locator): Promise<void> {
   await expect(toggle).toHaveAttribute("aria-checked", "true");
-  await expect(toggle).toHaveAccessibleName("夜");
+  await expect(toggle).toHaveAccessibleName("夜間モード");
 }
 
-/** The toggle in its day position: unchecked + 昼 accessible name. */
+/** The switch in its day position — the OFF default. */
 async function expectDay(toggle: Locator): Promise<void> {
   await expect(toggle).toHaveAttribute("aria-checked", "false");
-  await expect(toggle).toHaveAccessibleName("昼");
+  await expect(toggle).toHaveAccessibleName("夜間モード");
 }
 
 /**
  * AC3 — the stored theme is the single authority: after the seed the bootstrap
  * script applies night on the reload, the toggle reports it checked, a click
  * persists day, and a further reload honours that persisted day. The theme is
- * asserted through the toggle's accessible state — `aria-checked` (the switch
- * signal) and its locale-aware accessible name (夜/昼) — never through the
- * `data-theme` implementation detail on `<html>`. The toggle's `aria-checked`
+ * asserted through the switch's accessible state — `aria-checked` — never
+ * through the `data-theme` implementation detail on `<html>`, and never
+ * through the name, which stays put on purpose. The switch's `aria-checked`
  * flips to true only once React adopted the stored value, so awaiting it
  * doubles as the hydration barrier (clicking a pre-hydration toggle would
  * drop the handler).
  */
 async function seededNightPage(page: Page): Promise<Locator> {
   await stubSignedOut(page);
-  await page.goto("/");
+  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
+  await page.goto(THEME_SWITCH_URL);
   await seedNight(page);
   await page.reload();
   return page.getByRole("switch");

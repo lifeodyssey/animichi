@@ -1,0 +1,2 @@
+070f3548c (HEAD -> design/restore-round-2) feat(web): / is a doorway at every viewport, not just below 640px
+54dbd88a5 fix(web): release the splash when chat paints, not when a timer expires

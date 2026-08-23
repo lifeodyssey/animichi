@@ -1,0 +1,137 @@
+import type { Locale } from "../../i18n/locales";
+import { enAppBar, jaAppBar, zhAppBar } from "./appbar-i18n";
+import { enByok, jaByok, zhByok } from "./byok-i18n";
+import {
+  enClarify,
+  enDeparture,
+  enLocation,
+  enPhoto,
+  jaClarify,
+  jaDeparture,
+  jaLocation,
+  jaPhoto,
+  zhClarify,
+  zhDeparture,
+  zhLocation,
+  zhPhoto,
+} from "./clarify-i18n";
+import { enErrorStates, jaErrorStates, zhErrorStates } from "./error-states-i18n";
+import { enRoute, jaRoute, zhRoute } from "./route-i18n";
+import { enSearch, jaSearch, zhSearch } from "./search-i18n";
+import { enToolSteps, jaToolSteps, zhToolSteps } from "./tool-steps-i18n";
+import { enTurnstile, jaTurnstile, zhTurnstile } from "./turnstile-i18n";
+import type { ChatDict } from "./chat-dict";
+
+const ja: ChatDict = {
+  greeting: "ようこそ、アニミチへ。行きたいアニメの聖地を教えてね。作品名・駅名・シーンの写真、どれでも大丈夫だよ。",
+  greetingEmphasis: ["アニミチ", "作品名・駅名・シーンの写真"],
+  heroTitle: "どの聖地へ行きますか?",
+  chipsLabel: "こんな風に聞けます",
+  chips: [
+    { text: "響け!ユーフォニアムの聖地", kind: "example" },
+    { text: "君の名は。のルートを組んで", kind: "example" },
+    { text: "近くの聖地をさがして", kind: "nearbySearch" },
+  ],
+  inputPlaceholder: "作品名やエリアを話しかけてね…",
+  busyPlaceholder: "考え中…",
+  send: "送信",
+  errorBanner: "サーバーに接続できません",
+  retry: "再試行",
+  historyFootprint: "これまでのやり取り",
+  fallbackCard: "この内容はうまく表示できませんでした",
+  historyError: "過去の会話を読み込めませんでした",
+  preparing: "じゅんびちゅう…",
+  foxAlt: "アニミチ",
+  thinking: "考え中…",
+  waitingSubtitle: "いま さがしてるよ…",
+  footprintDetails: "詳細を見る",
+  previousVersion: "以前の版",
+  appbar: jaAppBar,
+  errorStates: jaErrorStates,
+  toolSteps: jaToolSteps,
+  search: jaSearch,
+  turnstile: jaTurnstile,
+  route: jaRoute,
+  clarify: jaClarify,
+  departure: jaDeparture,
+  location: jaLocation,
+  photo: jaPhoto,
+  byok: jaByok,
+};
+
+const zh: ChatDict = {
+  greeting: "欢迎来到 Animichi。告诉我你想去哪部作品的圣地吧。作品名、车站名、场景截图,哪一种都可以。",
+  greetingEmphasis: ["Animichi", "作品名、车站名、场景截图"],
+  heroTitle: "想去哪个圣地?",
+  chipsLabel: "可以这样问我",
+  chips: [
+    { text: "吹响吧!上低音号的圣地", kind: "example" },
+    { text: "帮我规划你的名字。的路线", kind: "example" },
+    { text: "找找附近的圣地", kind: "nearbySearch" },
+  ],
+  inputPlaceholder: "告诉我作品名或想去的地区…",
+  busyPlaceholder: "思考中…",
+  send: "发送",
+  errorBanner: "无法连接服务器",
+  retry: "重试",
+  historyFootprint: "之前的对话",
+  fallbackCard: "这段内容暂时无法显示",
+  historyError: "无法加载之前的对话",
+  preparing: "准备中…",
+  foxAlt: "Animichi",
+  thinking: "思考中…",
+  waitingSubtitle: "正在帮你找…",
+  footprintDetails: "查看详情",
+  previousVersion: "旧版本",
+  appbar: zhAppBar,
+  errorStates: zhErrorStates,
+  toolSteps: zhToolSteps,
+  search: zhSearch,
+  turnstile: zhTurnstile,
+  route: zhRoute,
+  clarify: zhClarify,
+  departure: zhDeparture,
+  location: zhLocation,
+  photo: zhPhoto,
+  byok: zhByok,
+};
+
+const en: ChatDict = {
+  greeting: "Welcome to Animichi. Tell me which anime's spots you'd like to walk. A title, a station, or a screenshot — any of them works.",
+  greetingEmphasis: ["Animichi", "A title, a station, or a screenshot"],
+  heroTitle: "Which spot shall we visit?",
+  chipsLabel: "Try asking like this",
+  chips: [
+    { text: "Hibike! Euphonium spots", kind: "example" },
+    { text: "Plan a Your Name. route", kind: "example" },
+    { text: "Find spots near me", kind: "nearbySearch" },
+  ],
+  inputPlaceholder: "Tell me a title or an area…",
+  busyPlaceholder: "Thinking…",
+  send: "Send",
+  errorBanner: "Can't reach the server",
+  retry: "Retry",
+  historyFootprint: "Earlier conversation",
+  fallbackCard: "This part could not be displayed",
+  historyError: "Couldn't load this conversation",
+  preparing: "Getting ready…",
+  foxAlt: "Animichi",
+  thinking: "Thinking…",
+  waitingSubtitle: "Looking that up…",
+  footprintDetails: "View details",
+  previousVersion: "Previous version",
+  appbar: enAppBar,
+  errorStates: enErrorStates,
+  toolSteps: enToolSteps,
+  search: enSearch,
+  turnstile: enTurnstile,
+  route: enRoute,
+  clarify: enClarify,
+  departure: enDeparture,
+  location: enLocation,
+  photo: enPhoto,
+  byok: enByok,
+};
+
+/** The three locales the chat page ships, keyed the way `Locale` names them. */
+export const CHAT_DICTIONARIES: Record<Locale, ChatDict> = { ja, zh, en };
