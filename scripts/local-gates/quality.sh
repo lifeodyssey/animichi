@@ -32,6 +32,11 @@ for ruby_file in \
   "$GS/test_ci_routing_consistency.rb" \
   "$GS/test_ci_contract_ruleset_migration.rb" \
   "$GS/test_ci_contract_ruleset_migration_mutation.rb" \
+  "$GS/ruleset_cutover.rb" \
+  "$GS/ruleset_cutover_cli.rb" \
+  "$GS/test_ruleset_cutover.rb" \
+  "$GS/test_ruleset_cutover_mutation.rb" \
+  "$GS/test_ruleset_cutover_integration.rb" \
   "$GS/test_ci_contract_review_gate.rb" \
   "$GS/test_ci_contract_review_gate_mutation.rb" \
   "$GS/test_safe1_production_contract.rb" \
@@ -101,6 +106,9 @@ run bash -c 'if bash .github/scripts/pr-verification-aggregate.sh >/dev/null 2>&
 run bash -c 'if bash .github/scripts/pr-verification-gate.sh invalid >/dev/null 2>&1; then exit 1; fi'
 run ruby "$GS/test_neon_test_infra_absence.rb"
 run ruby "$GS/test_ci_contract_ruleset_migration_mutation.rb"
+run ruby "$GS/test_ruleset_cutover.rb"
+run ruby "$GS/test_ruleset_cutover_mutation.rb"
+run ruby "$GS/test_ruleset_cutover_integration.rb"
 run ruby "$GS"/test_*cov_patch.rb
 run ruby "$GS/test_ci_routing_consistency.rb"
 run ruby "$GS/test_ci_prepush_parity.rb"

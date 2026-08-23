@@ -38,7 +38,7 @@ concurrency:
 
 jobs:
   invariants:
-    name: Quality / invariants
+    name: Review Gate
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -84,7 +84,7 @@ jobs:
         shell: bash
       - name: Ruby syntax check workflow meta scripts
         run: |
-            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_contract_security.rb .github/scripts/security-check-runs-canary.rb .github/scripts/test_security_check_runs_canary.rb .github/scripts/test_ci_contract_security_mutation.rb .github/scripts/test_ci_routing_consistency.rb .github/scripts/test_ci_contract_ruleset_migration.rb .github/scripts/test_ci_contract_ruleset_migration_mutation.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb .github/scripts/test_session3_staging_cutover.test.rb .github/scripts/test_neon_test_infra_absence.rb .github/scripts/test_promotion_ac5_contract.rb .github/scripts/test_promotion_ac5_mutation.rb .github/scripts/test_prod_dsn_store_contract.rb .github/scripts/test_migrator_trigger_contract.rb .github/scripts/ci_prepush_parity.rb .github/scripts/ci_prepush_parity_yaml.rb .github/scripts/ci_prepush_parity_extract.rb .github/scripts/test_ci_prepush_parity.rb .github/scripts/test_ci_prepush_parity.test.rb .github/scripts/test_ci_contract_doorbell_web.rb .github/scripts/test_ci_contract_infra_split.rb .github/scripts/test_ci_contract_doorbell_workers.rb; do
+            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_contract_security.rb .github/scripts/security-check-runs-canary.rb .github/scripts/test_security_check_runs_canary.rb .github/scripts/test_ci_contract_security_mutation.rb .github/scripts/test_ci_routing_consistency.rb .github/scripts/test_ci_contract_ruleset_migration.rb .github/scripts/test_ci_contract_ruleset_migration_mutation.rb .github/scripts/ruleset_cutover.rb .github/scripts/ruleset_cutover_cli.rb .github/scripts/test_ruleset_cutover.rb .github/scripts/test_ruleset_cutover_mutation.rb .github/scripts/test_ruleset_cutover_integration.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb .github/scripts/test_session3_staging_cutover.test.rb .github/scripts/test_neon_test_infra_absence.rb .github/scripts/test_promotion_ac5_contract.rb .github/scripts/test_promotion_ac5_mutation.rb .github/scripts/test_prod_dsn_store_contract.rb .github/scripts/test_migrator_trigger_contract.rb .github/scripts/ci_prepush_parity.rb .github/scripts/ci_prepush_parity_yaml.rb .github/scripts/ci_prepush_parity_extract.rb .github/scripts/test_ci_prepush_parity.rb .github/scripts/test_ci_prepush_parity.test.rb .github/scripts/test_ci_contract_doorbell_web.rb .github/scripts/test_ci_contract_infra_split.rb .github/scripts/test_ci_contract_doorbell_workers.rb; do
             ruby -c "${f}"
             done
         shell: bash
@@ -236,6 +236,14 @@ jobs:
       # snapshot passes (red/restore/green).
       - name: Verify ruleset migration contract
         run: ruby .github/scripts/test_ci_contract_ruleset_migration_mutation.rb
+      # #1180: the post-cutover target has exactly three required aggregators;
+      # all API behavior is hermetic here and the live PUT remains operator-gated.
+      - name: Verify ruleset cutover contract
+        run: ruby .github/scripts/test_ruleset_cutover.rb
+      - name: Verify ruleset cutover mutation probes
+        run: ruby .github/scripts/test_ruleset_cutover_mutation.rb
+      - name: Verify ruleset cutover API seam
+        run: ruby .github/scripts/test_ruleset_cutover_integration.rb
       - name: Verify patch coverage policy
         run: ruby .github/scripts/test_codecov_patch.rb
       # AC3 (#679): the changed-component router (pre-push) must fan out to the
@@ -298,4 +306,18 @@ jobs:
           HEAD_SHA: ${{ steps.review-gate-head.outputs.head_sha }}
           JOB_STATUS: ${{ job.status }}
         run: scripts/local-gates/pr-review-gate-step.sh final-status "$REPO" "$HEAD_SHA" "$JOB_STATUS"
+        shell: bash
+  legacy-quality:
+    name: Quality / invariants
+    needs: invariants
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - name: Mirror Review Gate result for pre-cutover ruleset
+        env:
+          REVIEW_GATE_RESULT: ${{ needs.invariants.result }}
+        run: test "$REVIEW_GATE_RESULT" = success
         shell: bash
