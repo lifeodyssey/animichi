@@ -31,6 +31,7 @@ function applyIdentity(headers: Headers, auth: { userId: string; userType: strin
 
 /** Client-supplied identity headers are anti-forgery: always stripped. */
 function stripUntrustedHeaders(headers: Headers): void {
+  headers.delete(AUTHORIZATION_HEADER);
   headers.delete(USER_IDENTITY_HEADER);
   headers.delete(USER_TYPE_HEADER);
   headers.delete("x-byok-endpoint");
@@ -38,10 +39,10 @@ function stripUntrustedHeaders(headers: Headers): void {
 }
 
 /** Forward a /v1 request to the container's default instance. Always strips
- * client-supplied X-User-*, X-Anon-Id (anti-forgery), and x-byok-endpoint
+ * Authorization, client-supplied X-User-*, X-Anon-Id (anti-forgery), and x-byok-endpoint
  * (documented as trusted by the container but client-settable — closed
- * until BYOK launches); on authed paths also strips Authorization and
- * injects the worker-verified identity. A trusted `X-Anon-Id` is set only
+ * until BYOK launches); on authed paths it injects the worker-verified identity.
+ * A trusted `X-Anon-Id` is set only
  * when the caller passes one explicitly (the session-adoption route,
  * SESSION-2 #960 / re-P2-1) — every other route forwards none. `x-session-id` is
  * intentionally forwarded: chat session continuity needs it, so the

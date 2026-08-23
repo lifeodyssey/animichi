@@ -33,12 +33,18 @@ test("jwksUrlFromAuthBaseUrl tolerates a trailing slash", () => {
   );
 });
 
-test("issuerFromJwksUrl round-trips a derived JWKS URL back to the base URL", () => {
-  assert.equal(issuerFromJwksUrl(jwksUrlFromAuthBaseUrl(BRANCH_BASE)), BRANCH_BASE);
+test("issuerFromJwksUrl returns the Neon Auth host origin", () => {
+  assert.equal(
+    issuerFromJwksUrl(jwksUrlFromAuthBaseUrl(BRANCH_BASE)),
+    "https://branch.neonauth.c-2.ap-southeast-1.aws.neon.tech",
+  );
 });
 
-test("issuerFromJwksUrl returns a non-JWKS input untouched", () => {
-  assert.equal(issuerFromJwksUrl(BRANCH_BASE), BRANCH_BASE);
+test("issuerFromJwksUrl ignores the input path", () => {
+  assert.equal(
+    issuerFromJwksUrl(BRANCH_BASE),
+    "https://branch.neonauth.c-2.ap-southeast-1.aws.neon.tech",
+  );
 });
 
 test("env var names match the edge worker binding and the QA login contract", () => {
@@ -52,7 +58,7 @@ test("issuer derivation matches the edge copy", () => {
   const fromInfra = issuerFromJwksUrl(url);
   // The edge's derivation is identical by contract (workers/edge/src/identity/auth.ts);
   // import it here would couple infra to the worker package, so assert the
-  // invariant structurally instead: strip the suffix, never mutate the rest.
-  assert.equal(fromInfra, "https://branch.neonauth.region.neon.tech/neondb/auth");
+  // invariant structurally instead: use only the JWT issuer's host origin.
+  assert.equal(fromInfra, "https://branch.neonauth.region.neon.tech");
   assert.equal(fromInfra.endsWith("/.well-known/jwks.json"), false);
 });

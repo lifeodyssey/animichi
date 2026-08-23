@@ -28,10 +28,11 @@ export {
 } from "./src/outputs.ts"
 
 // ── Neon Auth staging declarations (AUTH-2 #950) ─────────────────────────────
-// The staging edge verifies JWTs against the branch JWKS; the URL is derived
-// from the branch's Better Auth base URL rather than a checked-in literal, and
-// the QA login creds are declared for the E2E suite + local-login script (Path
-// A of docs/ops/auth-migration-neon.md §4). All config-gated: stacks without
+// The staging edge verifies JWTs against the branch JWKS. IaC derives that URL
+// from the branch's Better Auth base URL, while the runtime config test pins
+// the checked value to the Web SDK endpoint. QA login creds are declared for
+// the E2E suite + local-login script (Path A of docs/ops/auth-migration-neon.md
+// §4). All config-gated: stacks without
 // `neonAuthBaseUrl` / `qaNeonUser*` set are unchanged. The password is a
 // secret — it must reach `pulumi stack export` ciphertext, never plaintext.
 // `neonAuthJwksUrl` is also declared as a Cloudflare Secrets Store secret in
