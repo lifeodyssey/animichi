@@ -40,6 +40,7 @@ class VerdictPayload(TypedDict):
 
 class GatePayload(TypedDict):
     approve: bool
+    state: str
     head_sha: str
     threads: ThreadsPayload
     findings: FindingsPayload
@@ -55,6 +56,7 @@ def gate_to_json(gate: PrGate) -> str:
 def _gate_payload(gate: PrGate) -> GatePayload:
     return {
         "approve": gate.approve,
+        "state": gate.state,
         "head_sha": gate.head_sha,
         "threads": _threads_payload(gate),
         "findings": _findings_payload(gate),

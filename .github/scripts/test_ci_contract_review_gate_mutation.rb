@@ -19,6 +19,7 @@
 
 require "stringio"
 require "tmpdir"
+require "fileutils"
 require_relative "test_ci_contract_review_gate"
 
 REAL = File.expand_path("../workflows/pipeline-quality.yml", __dir__)
@@ -127,6 +128,28 @@ def green_probe(label)
   end
 end
 
+def scope_probe
+  Dir.mktmpdir("rg-scope-red") do |dir|
+    Dir[File.expand_path("../workflows/*.yml", __dir__)].each { |path| FileUtils.cp(path, dir) }
+    File.write(File.join(dir, "review-only-matrix.yml"), <<~YAML)
+      name: review-only-matrix
+      on:
+        issue_comment:
+          types: [created]
+      jobs:
+        noop:
+          runs-on: ubuntu-latest
+          steps: []
+    YAML
+    ENV["REVIEW_GATE_WORKFLOWS_DIR"] = dir
+    rc, out = run_contract(REAL)
+    ENV.delete("REVIEW_GATE_WORKFLOWS_DIR")
+    abort "FAIL: review-only matrix workflow must be rejected, got exit #{rc}:\n#{out}" if rc.zero?
+    abort "FAIL: review-only scope rejection was not explicit:\n#{out}" unless out.include?("review/comment refresh events")
+    puts "PASS: review-only matrix workflow rejected (refresh scope)"
+  end
+end
+
 red_probe(
   "pending moved after the quality checks",
   "pending status must precede every quality check step",
@@ -175,6 +198,7 @@ red_probe(
   mutated_workflow(legacy_needs: [])
 )
 
+scope_probe
 green_probe("pristine pipeline-quality.yml")
 
 puts "All test_ci_contract_review_gate mutation probes passed."

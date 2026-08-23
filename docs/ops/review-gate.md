@@ -196,6 +196,12 @@ the current head, #1019); malformed thread data — a non-boolean
   active unresolved threads, managed findings, the current head SHA, and an
   authorized human acknowledgement, then emits one JSON verdict and exits `0`
   approve, `1` reject, `2` unreadable (fail closed).
+- The JSON verdict carries `state=success|pending|failure`: a missing human
+  approval marker or missing findings acknowledgement is `pending`, while an
+  unresolved thread, stale/unauthorized/malformed evidence, rejected axis, or
+  binding mismatch is `failure`. The workflow step records this state and
+  keeps a pending check step green; the final head status is pending only when
+  the whole job succeeds, and any later job failure overrides it with failure.
 - **Findings snapshot**: `sha256(head_sha + sorted findings)`. Findings are
   bot-authored top-level comments; each token records the comment identity
   (`id`/`url`) and a body digest, so a later comment or an edited finding body

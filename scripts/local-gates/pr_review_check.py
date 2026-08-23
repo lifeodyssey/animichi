@@ -6,6 +6,11 @@ emits one typed gate verdict (AC4). A new commit or a later managed finding
 changes the snapshot, so an older acknowledgement is stale and the gate stays
 blocked (AC5).
 
+The verdict state distinguishes missing human evidence (``pending``) from a
+reviewed violation or invalid binding (``failure``); only a complete approval
+is ``success``. The workflow wrapper uses this state to keep waiting evidence
+out of the failed-code path while preserving fail-closed merge behavior.
+
 The findings extraction lives in ``pr_findings`` (identity-aware, bot-authored
 tokens) and the human review-approval marker / authorized-human rule live in
 ``pr_approval``; this module is the gate that composes them. When no local
@@ -146,6 +151,7 @@ def _assemble_gate(
 ) -> PrGate:
     return PrGate(
         approve=_pr_approve(threads_unresolved, ack, marker, local),
+        state=_gate_state(threads_unresolved, ack, marker, local),
         head_sha=head_sha,
         threads_unresolved=threads_unresolved,
         findings=findings,
@@ -199,6 +205,29 @@ def _pr_approve(
         and marker.status in ("local", "bound")
         and (local is None or local.state == "approve")
     )
+
+
+def _gate_state(
+    threads_unresolved: int,
+    ack: AckResult,
+    marker: MarkerResult,
+    local: LocalGate | None,
+) -> str:
+    if threads_unresolved != 0 or _review_rejected(ack, marker, local):
+        return "failure"
+    if ack.status == "missing" or marker.status == "missing":
+        return "pending"
+    return "success"
+
+
+def _review_rejected(
+    ack: AckResult, marker: MarkerResult, local: LocalGate | None
+) -> bool:
+    if ack.status not in ("clear", "bound", "missing"):
+        return True
+    if marker.status not in ("local", "bound", "missing"):
+        return True
+    return local is not None and local.state != "approve"
 
 
 def _load_json(path: str) -> object:

@@ -66,6 +66,20 @@ def assert_trigger_contract(quality, quality_yml)
   assert_event_triggers(quality, quality_yml)
   assert_thread_comment_triggers(quality, quality_yml)
   assert_concurrency_cancellation(quality, quality_yml)
+  assert_review_refresh_scope(quality_yml)
+end
+
+def assert_review_refresh_scope(quality_yml)
+  workflow_dir = ENV.fetch("REVIEW_GATE_WORKFLOWS_DIR", File.expand_path("../workflows", __dir__))
+  offenders = Dir[File.join(workflow_dir, "*.yml")].reject { |path| File.basename(path) == "pipeline-quality.yml" }.select { |path| review_events?(path) }
+  abort "#{quality_yml} review/comment refresh events must stay in pipeline-quality.yml (found #{offenders.map { |path| File.basename(path) }.join(', ')})" unless offenders.empty?
+end
+
+def review_events?(path)
+  workflow = YAML.safe_load(File.read(path))
+  on_map = workflow["on"] || workflow[true]
+  return false unless on_map.is_a?(Hash)
+  %w[pull_request_review pull_request_review_comment issue_comment].any? { |event| on_map.key?(event) }
 end
 
 def assert_event_triggers(quality, quality_yml)

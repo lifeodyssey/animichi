@@ -61,7 +61,7 @@ def assert_final_status_step(steps, quality_yml)
   final = final_steps.fetch(0)
   abort "#{quality_yml} final status must use if: always() semantics" unless final.fetch("if").include?("always()")
   final_run = final.fetch("run")
-  abort "#{quality_yml} final status run must pass $REPO / $HEAD_SHA / $JOB_STATUS from env" unless final_run.include?("$REPO") && final_run.include?("$HEAD_SHA") && final_run.include?("$JOB_STATUS")
-  assert_env_mapping(final, final_run, %w[$REPO $HEAD_SHA $JOB_STATUS], %w[github.event.repository.full_name review-gate-head.outputs.head_sha job.status], "#{quality_yml} final status")
+  abort "#{quality_yml} final status run must pass $REPO / $HEAD_SHA / $JOB_STATUS / $GATE_STATE from env" unless final_run.include?("$REPO") && final_run.include?("$HEAD_SHA") && final_run.include?("$JOB_STATUS") && final_run.include?("$GATE_STATE")
+  assert_env_mapping(final, final_run, %w[$REPO $HEAD_SHA $JOB_STATUS $GATE_STATE], %w[github.event.repository.full_name review-gate-head.outputs.head_sha job.status steps.review-gate.outputs.gate_state], "#{quality_yml} final status")
   final
 end

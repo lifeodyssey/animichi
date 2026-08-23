@@ -305,7 +305,8 @@ jobs:
           REPO: ${{ github.event.repository.full_name }}
           HEAD_SHA: ${{ steps.review-gate-head.outputs.head_sha }}
           JOB_STATUS: ${{ job.status }}
-        run: scripts/local-gates/pr-review-gate-step.sh final-status "$REPO" "$HEAD_SHA" "$JOB_STATUS"
+          GATE_STATE: ${{ steps.review-gate.outputs.gate_state }}
+        run: scripts/local-gates/pr-review-gate-step.sh final-status "$REPO" "$HEAD_SHA" "$JOB_STATUS" "$GATE_STATE"
         shell: bash
   legacy-quality:
     name: Quality / invariants
