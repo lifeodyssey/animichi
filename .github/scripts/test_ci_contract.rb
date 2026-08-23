@@ -99,7 +99,7 @@ abort "pipeline-web.yml must grant Codecov OIDC" unless web_ci.include?("id-toke
 abort "pipeline-web.yml must fail when Codecov upload fails" unless web_ci.include?("fail_ci_if_error: true")
 abort "pipeline-web.yml must use Codecov OIDC" unless web_ci.include?("use_oidc: true")
 
-# ruleset-target producers (S0-v2 B4 fix round 2): every name in
+# ruleset-target producers (S0-v2 B4 / #1177): every name in
 # docs/iterations/s0v2/ruleset-target.json required_checks must be produced by
 # some job's check-run, or the merge queue hangs forever on a context that
 # never appears (bypass_actors: [] means nobody can clear it either). Reusable
@@ -147,3 +147,5 @@ require_relative "test_ci_contract_doorbell_workers"
 # in test_ci_contract_review_gate_mutation.rb.
 require_relative "test_ci_contract_review_gate"
 require_relative "test_ci_contract_review_gate_mutation"
+require_relative "test_ci_contract_security"
+assert_security_contract

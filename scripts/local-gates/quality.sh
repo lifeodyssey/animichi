@@ -23,6 +23,10 @@ for ruby_file in \
   "$GS/release-manifest-resolver.rb" \
   "$GS/release-manifest-resolver.test.rb" \
   "$GS/test_ci_contract.rb" \
+  "$GS/test_ci_contract_security.rb" \
+  "$GS/security-check-runs-canary.rb" \
+  "$GS/test_security_check_runs_canary.rb" \
+  "$GS/test_ci_contract_security_mutation.rb" \
   "$GS/test_ci_routing_consistency.rb" \
   "$GS/test_ci_contract_ruleset_migration.rb" \
   "$GS/test_ci_contract_ruleset_migration_mutation.rb" \
@@ -82,6 +86,10 @@ run ruby "$GS/test_ci_contract.rb"
 run ruby "$GS/test_ci_contract_doorbell_web.rb"
 run ruby "$GS/test_ci_contract_infra_split.rb"
 run ruby "$GS/test_ci_contract_doorbell_workers.rb"
+run ruby "$GS/test_security_check_runs_canary.rb"
+run ruby "$GS/test_ci_contract_security_mutation.rb"
+run bash "$GS/security-aggregate.test.sh"
+run env EXPECTED_SHA=0123456789abcdef0123456789abcdef01234567 ACTUAL_SHA=0123456789abcdef0123456789abcdef01234567 SECURITY_RESULT=success REQUIRE_CHILD_RESULTS=true SECURITY_RESULTS=$'gitleaks=success\ncodeql=success\nsemgrep=success' GITHUB_STEP_SUMMARY=/dev/null bash "$GS/security-aggregate.sh"
 run ruby "$GS/test_neon_test_infra_absence.rb"
 run ruby "$GS/test_ci_contract_ruleset_migration_mutation.rb"
 run ruby "$GS"/test_*cov_patch.rb
@@ -95,7 +103,7 @@ run bash "$GS/post-deploy-assert-probes.test.sh"
 run bash "$GS/resolve-worker-url.test.sh"
 run bash "$GS/vite-env-preflight.test.sh"
 run bash "$GS/wrangler-secret-put.test.sh"
-run shellcheck "$GS/post-deploy-assert.sh" "$GS/post-deploy-assert.test.sh" "$GS/post-deploy-assert-probes.test.sh" "$GS/edge-showcase-mode.sh" "$GS/mock-origin.sh" "$GS/resolve-worker-url.sh" "$GS/resolve-worker-url.test.sh" "$GS/vite-env-preflight.sh" "$GS/vite-env-preflight.test.sh" "$GS/wrangler-secret-put.sh" "$GS/wrangler-secret-put.test.sh"
+run shellcheck "$GS/post-deploy-assert.sh" "$GS/post-deploy-assert.test.sh" "$GS/post-deploy-assert-probes.test.sh" "$GS/edge-showcase-mode.sh" "$GS/mock-origin.sh" "$GS/resolve-worker-url.sh" "$GS/resolve-worker-url.test.sh" "$GS/vite-env-preflight.sh" "$GS/vite-env-preflight.test.sh" "$GS/wrangler-secret-put.sh" "$GS/wrangler-secret-put.test.sh" "$GS/security-aggregate.sh" "$GS/security-aggregate.test.sh"
 run bash scripts/semgrep-raw-sql-test.sh
 run actionlint
 

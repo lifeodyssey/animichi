@@ -84,7 +84,7 @@ jobs:
         shell: bash
       - name: Ruby syntax check workflow meta scripts
         run: |
-            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_routing_consistency.rb .github/scripts/test_ci_contract_ruleset_migration.rb .github/scripts/test_ci_contract_ruleset_migration_mutation.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb .github/scripts/test_session3_staging_cutover.test.rb .github/scripts/test_neon_test_infra_absence.rb .github/scripts/test_promotion_ac5_contract.rb .github/scripts/test_promotion_ac5_mutation.rb .github/scripts/test_prod_dsn_store_contract.rb .github/scripts/test_migrator_trigger_contract.rb .github/scripts/ci_prepush_parity.rb .github/scripts/ci_prepush_parity_yaml.rb .github/scripts/ci_prepush_parity_extract.rb .github/scripts/test_ci_prepush_parity.rb .github/scripts/test_ci_prepush_parity.test.rb .github/scripts/test_ci_contract_doorbell_web.rb .github/scripts/test_ci_contract_infra_split.rb .github/scripts/test_ci_contract_doorbell_workers.rb; do
+            for f in .github/scripts/assert-workflow-invariants.rb .github/scripts/assert-workflow-invariants-expression.rb .github/scripts/assert-workflow-invariants.test.rb .github/scripts/release-manifest-resolver.rb .github/scripts/release-manifest-resolver.test.rb .github/scripts/test_ci_contract.rb .github/scripts/test_ci_contract_security.rb .github/scripts/security-check-runs-canary.rb .github/scripts/test_security_check_runs_canary.rb .github/scripts/test_ci_contract_security_mutation.rb .github/scripts/test_ci_routing_consistency.rb .github/scripts/test_ci_contract_ruleset_migration.rb .github/scripts/test_ci_contract_ruleset_migration_mutation.rb .github/scripts/test_ci_contract_review_gate.rb .github/scripts/test_ci_contract_review_gate_mutation.rb .github/scripts/test_safe1_production_contract.rb .github/scripts/test_retention1_absence.rb .github/scripts/test_session3_staging_cutover.rb .github/scripts/test_session3_staging_cutover.test.rb .github/scripts/test_neon_test_infra_absence.rb .github/scripts/test_promotion_ac5_contract.rb .github/scripts/test_promotion_ac5_mutation.rb .github/scripts/test_prod_dsn_store_contract.rb .github/scripts/test_migrator_trigger_contract.rb .github/scripts/ci_prepush_parity.rb .github/scripts/ci_prepush_parity_yaml.rb .github/scripts/ci_prepush_parity_extract.rb .github/scripts/test_ci_prepush_parity.rb .github/scripts/test_ci_prepush_parity.test.rb .github/scripts/test_ci_contract_doorbell_web.rb .github/scripts/test_ci_contract_infra_split.rb .github/scripts/test_ci_contract_doorbell_workers.rb; do
             ruby -c "${f}"
             done
         shell: bash
@@ -216,6 +216,13 @@ jobs:
         run: ruby .github/scripts/test_ci_contract.rb
       - name: Verify CI doorbell workers contract
         run: ruby .github/scripts/test_ci_contract_doorbell_workers.rb
+      # #1177: every Security child lane and failure-propagation edge must be
+      # rejected by the contract when mutated, then pass on the pristine tree.
+      - name: Verify Security check-runs canary fixture
+        run: ruby .github/scripts/test_security_check_runs_canary.rb
+        shell: bash
+      - name: Verify Security contract mutation probes
+        run: ruby .github/scripts/test_ci_contract_security_mutation.rb
       # AC1 (#1053): the Neon test-infra retirement contract — no tested
       # lane may reference the retired Neon control-plane key or select the
       # live-Neon pytest arm, and the test-base refresh workflow is gone.
