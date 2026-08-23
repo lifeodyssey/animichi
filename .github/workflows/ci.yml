@@ -49,7 +49,11 @@ jobs:
   # tradeoff documented in docs/ops/deployment.md).
 
   security-scans:
-    name: Security scans
+    # Keep the pre-cutover check namespace until #1180 replaces the live
+    # ruleset. The reusable workflow remains the evidence fan-out; naming the
+    # caller Security preserves the existing Security / <lane> contexts while
+    # the top-level Security aggregate is introduced.
+    name: Security
     uses: ./.github/workflows/reusable-security.yml
     # Caller ceiling for the reusable: its gitleaks job declares
     # `pull-requests: read` at job level, and a reusable job cannot request
