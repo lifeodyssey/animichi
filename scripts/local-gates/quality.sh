@@ -23,6 +23,8 @@ for ruby_file in \
   "$GS/release-manifest-resolver.rb" \
   "$GS/release-manifest-resolver.test.rb" \
   "$GS/test_ci_contract.rb" \
+  "$GS/test_ci_contract_security.rb" \
+  "$GS/test_ci_contract_security_mutation.rb" \
   "$GS/test_ci_routing_consistency.rb" \
   "$GS/test_ci_contract_ruleset_migration.rb" \
   "$GS/test_ci_contract_ruleset_migration_mutation.rb" \
@@ -82,6 +84,7 @@ run ruby "$GS/test_ci_contract.rb"
 run ruby "$GS/test_ci_contract_doorbell_web.rb"
 run ruby "$GS/test_ci_contract_infra_split.rb"
 run ruby "$GS/test_ci_contract_doorbell_workers.rb"
+run ruby "$GS/test_ci_contract_security_mutation.rb"
 run ruby "$GS/test_neon_test_infra_absence.rb"
 run ruby "$GS/test_ci_contract_ruleset_migration_mutation.rb"
 run ruby "$GS"/test_*cov_patch.rb

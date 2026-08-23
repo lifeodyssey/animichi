@@ -46,18 +46,35 @@ fi
 summary_file="${GITHUB_STEP_SUMMARY:-/dev/null}"
 summary_result="success"
 [[ -z "${failure_message}" ]] || summary_result="failure"
+server_url="${GITHUB_SERVER_URL:-https://github.com}"
+repository="${GITHUB_REPOSITORY:-}"
+run_id="${GITHUB_RUN_ID:-}"
+run_url=""
+checks_url=""
+if [[ "${repository}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && "${run_id}" =~ ^[0-9]+$ ]]; then
+  run_url="${server_url%/}/${repository}/actions/runs/${run_id}"
+fi
+if [[ "${repository}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && "${actual_sha}" =~ ^[0-9a-f]{40}$ ]]; then
+  checks_url="${server_url%/}/${repository}/commit/${actual_sha}/checks"
+fi
 {
   echo "## Security"
   echo "- Head: \`${actual_sha:-unavailable}\`"
   echo "- Result: \`${summary_result}\`"
+  [[ -z "${run_url}" ]] || echo "- Run logs: [workflow run](${run_url})"
+  [[ -z "${checks_url}" ]] || echo "- Child check runs: [commit checks](${checks_url})"
   if [[ "${require_children}" == "true" ]]; then
     echo "- Underlying checks:"
     if [[ -n "${SECURITY_RESULTS:-}" ]]; then
       while IFS='=' read -r child result; do
-        echo "  - \`${child:-unavailable}\`: \`${result:-unavailable}\`"
+        evidence=""
+        if [[ -n "${checks_url}" && -n "${run_url}" ]]; then
+          evidence=" — [check runs](${checks_url}) · [run logs](${run_url})"
+        fi
+        echo "  - \`${child:-unavailable}\`: \`${result:-unavailable}\`${evidence}"
       done <<< "${SECURITY_RESULTS}"
     else
-      echo "  - unavailable"
+      echo "  - unavailable — inspect [workflow run](${run_url:-unavailable})"
     fi
   fi
 } >> "${summary_file}"

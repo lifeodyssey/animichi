@@ -4,58 +4,145 @@
 # The individual scans remain visible evidence, but only the top-level
 # aggregator is intended to be required by the repository ruleset.
 
+require "json"
 require "yaml"
 
 ROOT = File.expand_path("../..", __dir__)
 WORKFLOWS = File.join(ROOT, ".github", "workflows")
+DEFAULT_CI = File.join(WORKFLOWS, "ci.yml")
+DEFAULT_REUSABLE = File.join(WORKFLOWS, "reusable-security.yml")
+DEFAULT_CODEQL = File.join(WORKFLOWS, "codeql.yml")
+DEFAULT_RULESET = File.join(ROOT, "docs", "iterations", "s0v2", "ruleset-target.json")
+DEFAULT_AGGREGATE = File.join(ROOT, ".github", "scripts", "security-aggregate.sh")
+SECURITY_LANES = %w[
+  codeql gitleaks trufflehog osv-scanner dependabot-config config-read-sets
+  zizmor semgrep sqlfluff post-deploy-assert-test
+].freeze
 
 def load_yaml(path)
   YAML.safe_load(File.read(path), aliases: true)
+end
+
+def workflow_events(workflow)
+  workflow["on"] || workflow[true] || {}
 end
 
 def abort_unless(condition, message)
   abort "security contract: #{message}" unless condition
 end
 
-ci = load_yaml(File.join(WORKFLOWS, "ci.yml"))
-jobs = ci.fetch("jobs")
-scan_job = jobs.fetch("security-scans")
-aggregate = jobs.fetch("security")
-
-abort_unless(scan_job["uses"] == "./.github/workflows/reusable-security.yml", "security-scans must call reusable-security.yml")
-abort_unless(!scan_job.key?("if"), "security-scans must run on every CI event that reaches ci.yml")
-abort_unless(scan_job.fetch("with").fetch("expected_sha") == "${{ github.sha }}", "security-scans must pin the reusable workflow to the current SHA")
-abort_unless(scan_job.fetch("permissions").fetch("security-events") == "write", "Security must grant CodeQL its upload permission at the caller ceiling")
-abort_unless(aggregate.fetch("name") == "Security", "the required check must be named Security")
-abort_unless(aggregate.fetch("needs") == ["security-scans"], "Security must depend on the complete scan workflow")
-abort_unless(aggregate.fetch("if").include?("always()"), "Security must run after failures and cancellations")
-abort_unless(!aggregate.key?("uses"), "Security must be a top-level aggregator job")
-abort_unless(!aggregate.to_s.include?("continue-on-error"), "Security must not suppress failures")
-
-reusable = load_yaml(File.join(WORKFLOWS, "reusable-security.yml"))
-security_jobs = reusable.fetch("jobs")
-expected = %w[
-  gitleaks trufflehog osv-scanner dependabot-config config-read-sets zizmor
-  semgrep sqlfluff post-deploy-assert-test codeql
-]
-expected.each do |job_id|
-  abort_unless(security_jobs.key?(job_id), "reusable Security workflow is missing #{job_id}")
+def aggregate_step(steps)
+  steps.find { |step| step.is_a?(Hash) && step.fetch("run", "").include?("security-aggregate.sh") }
 end
 
-summary = security_jobs.fetch("security-summary")
-abort_unless(summary.fetch("needs").sort == (expected.sort), "security-summary must wait for every scan")
-abort_unless(summary.fetch("if").include?("always()"), "security-summary must run after a scan failure")
-abort_unless(!security_jobs.values.any? { |job| job.is_a?(Hash) && job.key?("continue-on-error") }, "security jobs must not use continue-on-error")
-
-codeql = load_yaml(File.join(WORKFLOWS, "codeql.yml"))
-codeql_events = codeql.fetch("on") { codeql.fetch(true) }
-abort_unless(!codeql_events.key?("pull_request"), "standalone CodeQL must not duplicate PR Security")
-abort_unless(!codeql_events.key?("push"), "standalone CodeQL must not duplicate push Security")
-
-aggregate_script = File.read(File.join(ROOT, ".github", "scripts", "security-aggregate.sh"))
-%w[EXPECTED_SHA ACTUAL_SHA SECURITY_RESULT REQUIRE_CHILD_RESULTS].each do |variable|
-  abort_unless(aggregate_script.include?(variable), "aggregator must consume #{variable}")
+def assert_pinned_checkout(steps, aggregate, label, ref)
+  checkout_index = steps.index { |step| step.is_a?(Hash) && step["uses"].to_s.start_with?("actions/checkout@") }
+  aggregate_index = steps.index(aggregate)
+  abort_unless(checkout_index && checkout_index < aggregate_index, "#{label} must checkout before aggregation")
+  checkout = steps.fetch(checkout_index)
+  abort_unless(checkout.fetch("uses").match?(/actions\/checkout@[0-9a-f]{40}/), "#{label} checkout must be SHA-pinned")
+  options = checkout.fetch("with")
+  abort_unless(options.fetch("persist-credentials") == false, "#{label} checkout must disable persisted credentials")
+  abort_unless(options.fetch("ref") == ref, "#{label} checkout must pin the aggregated head")
 end
-abort_unless(aggregate_script.include?("GITHUB_STEP_SUMMARY"), "aggregator must retain child evidence in the run summary")
 
-puts "Security contract: one fail-closed Security result over #{expected.size} underlying checks"
+def assert_top_level(ci)
+  jobs = ci.fetch("jobs")
+  scan = jobs.fetch("security-scans")
+  aggregate = jobs.fetch("security")
+  abort_unless(scan["uses"] == "./.github/workflows/reusable-security.yml", "security-scans must call reusable-security.yml")
+  abort_unless(!scan.key?("if"), "security-scans must run on every CI event that reaches ci.yml")
+  abort_unless(scan.fetch("with").fetch("expected_sha") == "${{ github.sha }}", "security-scans must pin the reusable workflow to the current SHA")
+  abort_unless(scan.fetch("permissions").fetch("security-events") == "write", "Security must grant CodeQL its upload permission at the caller ceiling")
+  abort_unless(aggregate.fetch("name") == "Security", "the required check must be named Security")
+  abort_unless(aggregate.fetch("needs") == ["security-scans"], "Security must depend on the complete scan workflow")
+  abort_unless(aggregate.fetch("if").include?("always()"), "Security must run after scan failures and cancellations")
+  abort_unless(!aggregate.key?("uses"), "Security must be a top-level aggregator job")
+  abort_unless(!aggregate.to_s.include?("continue-on-error"), "Security must not suppress failures")
+  steps = aggregate.fetch("steps")
+  script = aggregate_step(steps)
+  abort_unless(script, "Security must invoke security-aggregate.sh")
+  assert_pinned_checkout(steps, script, "top-level Security", "${{ github.sha }}")
+  env = script.fetch("env")
+  abort_unless(env.fetch("SECURITY_RESULT") == "${{ needs.security-scans.result }}", "Security must propagate the reusable workflow result")
+end
+
+def assert_reusable(reusable)
+  jobs = reusable.fetch("jobs")
+  SECURITY_LANES.each { |lane| abort_unless(jobs.key?(lane), "reusable Security workflow is missing #{lane}") }
+  summary = jobs.fetch("security-summary")
+  missing = SECURITY_LANES - Array(summary.fetch("needs"))
+  abort_unless(missing.empty?, "security-summary must wait for every required scan (missing #{missing.join(", ")})")
+  abort_unless(summary.fetch("if").include?("always()"), "security-summary must run after a scan failure")
+  abort_unless(!jobs.values.any? { |job| job.is_a?(Hash) && job.key?("continue-on-error") }, "security jobs must not use continue-on-error")
+  steps = summary.fetch("steps")
+  script = aggregate_step(steps)
+  abort_unless(script, "security-summary must invoke security-aggregate.sh")
+  assert_pinned_checkout(steps, script, "security-summary", "${{ inputs.expected_sha }}")
+  assert_summary_env(script.fetch("env"))
+end
+
+def assert_summary_env(env)
+  expected = {
+    "EXPECTED_SHA" => "${{ inputs.expected_sha }}",
+    "ACTUAL_SHA" => "${{ github.sha }}",
+    "SECURITY_RESULT" => "success",
+    "REQUIRE_CHILD_RESULTS" => "true"
+  }
+  expected.each { |key, value| abort_unless(env.fetch(key) == value, "security-summary must set #{key}=#{value}") }
+  results = env.fetch("SECURITY_RESULTS")
+  SECURITY_LANES.each do |lane|
+    expression = "#{lane}=${{ needs.#{lane}.result }}"
+    abort_unless(results.include?(expression), "security-summary must report #{lane} result")
+  end
+end
+
+def assert_standalone_codeql(codeql)
+  events = workflow_events(codeql)
+  abort_unless(!events.key?("pull_request"), "standalone CodeQL must not duplicate PR Security")
+  abort_unless(!events.key?("push"), "standalone CodeQL must not duplicate push Security")
+end
+
+def assert_api_context_canary(required)
+  # API-shaped payload for GET /commits/{sha}/check-runs: the reusable caller
+  # prefixes evidence children, while the top-level aggregator is required.
+  api_payload = { "check_runs" => [
+    { "name" => "Security" },
+    *SECURITY_LANES.map { |lane| { "name" => "Security scans / #{lane}" } }
+  ] }
+  observed = api_payload.fetch("check_runs").map { |run| run.fetch("name") }
+  required_observed = observed.select { |name| required.include?(name) }
+  abort_unless(required_observed == ["Security"], "API canary must observe exactly one required Security context (got #{required_observed.inspect})")
+end
+
+def assert_required_context_canary(ruleset)
+  required = Array(JSON.parse(File.read(ruleset)).fetch("required_checks"))
+  security_contexts = required.select { |name| name == "Security" || name.start_with?("Security /") }
+  abort_unless(security_contexts == ["Security"], "ruleset target must require exactly one Security context (got #{security_contexts.inspect})")
+  assert_api_context_canary(required)
+end
+
+def assert_aggregate_script(path)
+  source = File.read(path)
+  %w[EXPECTED_SHA ACTUAL_SHA SECURITY_RESULT REQUIRE_CHILD_RESULTS].each do |variable|
+    abort_unless(source.include?(variable), "aggregator must consume #{variable}")
+  end
+  %w[GITHUB_STEP_SUMMARY GITHUB_SERVER_URL GITHUB_REPOSITORY GITHUB_RUN_ID].each do |variable|
+    abort_unless(source.include?(variable), "aggregator must publish #{variable} evidence")
+  end
+  abort_unless(source.include?("actions/runs"), "aggregator must link workflow logs")
+  abort_unless(source.include?("/checks"), "aggregator must link child check runs")
+end
+
+def assert_security_contract(ci_path: DEFAULT_CI, reusable_path: DEFAULT_REUSABLE,
+                             codeql_path: DEFAULT_CODEQL, ruleset_path: DEFAULT_RULESET,
+                             aggregate_path: DEFAULT_AGGREGATE)
+  assert_top_level(load_yaml(ci_path))
+  assert_reusable(load_yaml(reusable_path))
+  assert_standalone_codeql(load_yaml(codeql_path))
+  assert_required_context_canary(ruleset_path)
+  assert_aggregate_script(aggregate_path)
+  puts "Security contract: one fail-closed Security result over #{SECURITY_LANES.size} underlying checks"
+end
+
+assert_security_contract if $PROGRAM_NAME == __FILE__

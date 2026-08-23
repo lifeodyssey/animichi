@@ -147,3 +147,5 @@ require_relative "test_ci_contract_doorbell_workers"
 # in test_ci_contract_review_gate_mutation.rb.
 require_relative "test_ci_contract_review_gate"
 require_relative "test_ci_contract_review_gate_mutation"
+require_relative "test_ci_contract_security"
+assert_security_contract
