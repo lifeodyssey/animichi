@@ -9,6 +9,9 @@ interface Tracker {
   baselineEvents: number;
 }
 
+type TimingMessage = UIMessage<unknown, { response: unknown }>;
+type TimingPart = TimingMessage["parts"][number];
+
 function onSubmitted(ref: Tracker, eventCount: number): void {
   ref.startedAt = Date.now();
   ref.firstToken = false;
@@ -49,13 +52,18 @@ function applyTiming(
 }
 
 /** Count visible assistant parts; protocol-only SSE frames never enter this set. */
-export function businessEventCount(messages: readonly UIMessage[]): number {
+export function businessEventCount(messages: readonly TimingMessage[]): number {
   return messages.reduce((count, message) => count + visiblePartCount(message), 0);
 }
 
-function visiblePartCount(message: UIMessage): number {
+function visiblePartCount(message: TimingMessage): number {
   if (message.role !== "assistant") return 0;
-  return message.parts.filter((part) => part.type === "text" || part.type.startsWith("data-")).length;
+  return message.parts.filter(isVisiblePart).length;
+}
+
+function isVisiblePart(part: TimingPart): boolean {
+  if (part.type === "text") return part.text.trim() !== "";
+  return part.type === "data-response";
 }
 
 /** Times first visible business output plus total turn duration. */

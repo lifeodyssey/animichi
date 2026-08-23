@@ -4,7 +4,7 @@
 import type { ChatStatus } from "ai";
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useTurnTiming } from "../../../src/features/chat/use-turn-timing";
+import { businessEventCount, useTurnTiming } from "../../../src/features/chat/use-turn-timing";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -59,5 +59,27 @@ describe("useTurnTiming", () => {
     const { result } = renderTiming(report);
     expect(report).not.toHaveBeenCalled();
     expect(result.current).toBeUndefined();
+  });
+});
+
+describe("businessEventCount", () => {
+  it("ignores empty assistant text", () => {
+    const count = businessEventCount([
+      { id: "assistant", role: "assistant", parts: [{ type: "text", text: "  " }] },
+    ]);
+
+    expect(count).toBe(0);
+  });
+
+  it("counts rendered response data", () => {
+    const count = businessEventCount([
+      {
+        id: "assistant",
+        role: "assistant",
+        parts: [{ type: "data-response", id: "response", data: { intent: "general_qa" } }],
+      },
+    ]);
+
+    expect(count).toBe(1);
   });
 });

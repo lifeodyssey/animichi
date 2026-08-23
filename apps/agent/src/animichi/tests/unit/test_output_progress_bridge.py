@@ -102,3 +102,14 @@ async def test_output_without_provider_call_id_gets_stable_local_id() -> None:
     )
 
     assert events[0].call_id.startswith("output-")
+
+
+async def test_output_is_safe_without_progress_subscriber() -> None:
+    deps = _deps()
+
+    await tool_event_bridge(
+        MagicMock(deps=deps),
+        _stream(FinalResultEvent(tool_name="qa_response", tool_call_id="output")),
+    )
+
+    assert deps.output_progress_calls == {"output"}
