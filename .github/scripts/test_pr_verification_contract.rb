@@ -58,49 +58,44 @@ def assert_job_contract(workflow, workflow_path)
   package = jobs.fetch("affected")
   quality = jobs.fetch("static-quality")
   cheap_security = jobs.fetch("security-diff")
-  security_scans = jobs.fetch("security-scans")
+  security_tools = jobs.fetch("security-tools")
   security = jobs.fetch("security")
   agent_eval = jobs.fetch("agent-eval")
   aggregate = jobs.fetch("aggregate")
-  required_security = jobs.fetch("required-security")
-  required_verification = jobs.fetch("required-pr-verification")
   names = jobs.values.map { |job| job["name"] if job.is_a?(Hash) }.compact
-  abort "workflow must expose exactly one CI / verify job" unless names.count("CI / verify") == 1
-  abort "single CI must bridge the live Security context" unless names.count("Security") == 1
-  abort "single CI must bridge the live PR Verification context" unless names.count("PR Verification") == 1
-  abort "Security bridge must propagate the aggregate" unless required_security.fetch("needs") == "security"
-  abort "PR Verification bridge must propagate the aggregate" unless required_verification.fetch("needs") == "aggregate"
-  [required_security, required_verification].each do |job|
-    abort "required-context bridge must run after failure" unless job.fetch("if").include?("always()")
-    run = job.fetch("steps").map { |step| step["run"] }.compact.join("\n")
-    abort "required-context bridge must fail closed" unless run.include?('test "$UPSTREAM_RESULT" = success')
-  end
+  abort "single CI must emit Security directly" unless names.count("Security") == 1 && security.fetch("if").include?("always()")
+  abort "single CI must emit PR Verification directly" unless names.count("PR Verification") == 1 && aggregate.fetch("if").include?("always()")
+  abort "legacy required-context forwarding jobs must be absent" if jobs.key?("required-security") || jobs.key?("required-pr-verification")
   abort "route job must publish components" unless route.fetch("outputs").fetch("components").include?("steps.route.outputs.components")
   abort "route job must publish whether product components changed" unless route.fetch("outputs").fetch("has_components").include?("steps.route.outputs.has_components")
   abort "route job must publish global lanes" unless route.fetch("outputs").fetch("lanes").include?("steps.route.outputs.lanes")
+  abort "route job must publish selected security tools" unless route.fetch("outputs").fetch("security_tools").include?("steps.route.outputs.security_tools")
   matrix = package.fetch("strategy").fetch("matrix").fetch("component")
   abort "affected gate must use the routed matrix" unless matrix.include?("fromJSON(needs.route.outputs.components)")
   abort "affected gate must skip an empty product matrix" unless package.fetch("if").include?("needs.route.outputs.has_components == 'true'")
-  abort "static quality must be same-run reusable" unless quality.fetch("uses") == "./.github/workflows/reusable-static-quality.yml"
+  abort "static quality must use the local repository action" unless quality.fetch("steps").any? { |step| step["uses"] == "./.github/actions/static-quality" }
   cross_stack = jobs.fetch("cross-stack")
-  abort "cross-stack must be same-run reusable" unless cross_stack.fetch("uses") == "./.github/workflows/reusable-cross-stack-e2e.yml"
+  abort "cross-stack must use the local repository action" unless cross_stack.fetch("steps").any? { |step| step["uses"] == "./.github/actions/cross-stack-e2e" }
   abort "diff secret scan must run independently on every event" if cheap_security.key?("needs")
-  abort "expensive security must use the affected lane" unless security_scans.fetch("if").include?("'security'")
-  abort "security scans must be same-run reusable" unless security_scans.fetch("uses") == "./.github/workflows/reusable-security.yml"
-  abort "security aggregate must wait for affected scans" unless Array(security.fetch("needs")) == %w[route security-scans]
+  abort "changed-secret lane must retain both scanners" unless cheap_security.fetch("steps").any? { |step| step["uses"] == "./.github/actions/secret-scan" } && cheap_security.fetch("steps").any? { |step| step["uses"] == "./.github/actions/security-tool" && step.dig("with", "tool") == "trufflehog" }
+  abort "security matrix must use the affected tool plan" unless security_tools.dig("strategy", "matrix", "tool").include?("needs.route.outputs.security_tools")
+  abort "security tools must use the local repository action" unless security_tools.fetch("steps").any? { |step| step["uses"] == "./.github/actions/security-tool" }
+  abort "security aggregate must wait for routing, secrets, and tools" unless Array(security.fetch("needs")) == %w[route security-diff security-tools]
   abort "agent eval must use the behavior lane" unless agent_eval.fetch("if").include?("'agent-eval'")
-  abort "agent eval must be a same-run reusable" unless agent_eval.fetch("uses") == "./.github/workflows/reusable-agent-eval.yml"
-  abort "agent eval must forward only its existing provider key" unless agent_eval.fetch("secrets").keys == ["ZEN_GO_API_KEY"]
+  eval_step = agent_eval.fetch("steps").find { |step| step["uses"] == "./.github/actions/agent-eval" }
+  abort "agent eval must use the local action" unless eval_step
+  abort "agent eval must forward only its existing provider key" unless eval_step.fetch("env").keys == ["ZEN_GO_API_KEY"]
   coverage = %w[agent web catalog users].map { |component| jobs.fetch("coverage-#{component}") }
   coverage.each do |job|
     abort "coverage uploader must be OIDC-scoped" unless job.fetch("permissions").fetch("id-token") == "write"
-    abort "coverage uploader must use the same-run reusable" unless job.fetch("uses") == "./.github/workflows/reusable-coverage.yml"
+    abort "coverage uploader must use the local action" unless job.fetch("steps").any? { |step| step["uses"] == "./.github/actions/coverage" }
   end
-  coverage_source = File.read(File.join(REPO_ROOT, ".github/workflows/reusable-coverage.yml"))
+  coverage_source = File.read(File.join(REPO_ROOT, ".github/actions/coverage/action.yml"))
   abort "coverage uploads must fail closed with OIDC" unless coverage_source.scan("fail_ci_if_error: true").size == 3 && coverage_source.scan("use_oidc: true").size == 3
   needs = Array(aggregate.fetch("needs"))
-  required_needs = %w[affected agent-eval coverage-agent coverage-catalog coverage-users coverage-web cross-stack route security security-diff static-quality]
+  required_needs = %w[affected coverage-agent coverage-catalog coverage-users coverage-web cross-stack route security static-quality]
   abort "aggregator must wait for every internal CI lane" unless (needs & required_needs).sort == required_needs.sort
+  abort "report-only agent eval must not delay the required aggregate" if needs.include?("agent-eval")
   abort "aggregator must run after failed/cancelled matrix jobs" unless aggregate.fetch("if").include?("always()")
   run = aggregate.fetch("steps").map { |step| step["run"] }.compact.join("\n")
   abort "aggregator must invoke exact-head checker" unless run.include?("pr-verification-aggregate.sh")

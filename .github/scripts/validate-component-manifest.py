@@ -130,9 +130,6 @@ def validate_global_lanes(root: Path, document: dict[str, object], names: set[st
     if len(lane_names) != len(set(lane_names)):
         fail("global lane names must be unique")
     for lane in lanes:
-        workflow = lane.get("workflow")
-        if workflow and not (root / workflow).is_file():
-            fail(f"global lane {lane['name']} workflow is missing")
         for pattern in lane.get("paths", []):
             validate_selector(root, pattern)
         unknown = set(lane.get("components", [])) - names

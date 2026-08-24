@@ -2,23 +2,119 @@
   "schema_version": 1,
   "unknown_changes": "all",
   "repository_paths": [
-    ".github/**"
+    ".github/**",
+    ".semgrep/**",
+    ".semgrepignore",
+    "scripts/**",
+    "AGENTS.md",
+    "CONTEXT-MAP.md",
+    "Makefile"
   ],
   "global_lanes": [
     {
       "name": "static-quality",
-      "workflow": ".github/workflows/reusable-static-quality.yml",
-      "always": true
+      "paths": [
+        ".github/**",
+        "scripts/local-gates/**",
+        "AGENTS.md",
+        "CONTEXT-MAP.md",
+        "Makefile"
+      ]
     },
     {
-      "name": "security",
-      "workflow": ".github/workflows/reusable-security.yml",
-      "components": ["agent", "catalog", "contract", "db", "edge", "infra", "migrator", "users", "web"],
-      "paths": [".github/**"]
+      "name": "security-codeql-actions",
+      "paths": [".github/workflows/**", ".github/actions/**"]
+    },
+    {
+      "name": "security-codeql-javascript",
+      "components": ["catalog", "contract", "e2e", "edge", "infra", "migrator", "users", "web"],
+      "paths": [".github/scripts/**"]
+    },
+    {
+      "name": "security-codeql-python",
+      "components": ["agent"],
+      "paths": [".github/scripts/**", "scripts/**"]
+    },
+    {
+      "name": "security-semgrep",
+      "components": ["agent", "catalog", "contract", "e2e", "edge", "infra", "migrator", "users", "web"],
+      "paths": [".semgrep/**", ".semgrepignore", "scripts/semgrep-raw-sql-test.sh"]
+    },
+    {
+      "name": "security-osv",
+      "paths": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "apps/agent/package.json",
+        "apps/agent/pyproject.toml",
+        "apps/agent/uv.lock",
+        "apps/web/package.json",
+        "e2e/package.json",
+        "infra/package.json",
+        "infra/database-access/package.json",
+        "infra/database-access/pnpm-lock.yaml",
+        "packages/contract/package.json",
+        "workers/catalog/package.json",
+        "workers/edge/package.json",
+        "workers/migrator/package.json",
+        "workers/users/package.json"
+      ]
+    },
+    {
+      "name": "security-dependabot-config",
+      "paths": [".github/dependabot.yml"]
+    },
+    {
+      "name": "security-config-read-sets",
+      "paths": [
+        ".github/ci/components.json",
+        ".github/scripts/test_config_read_sets.py",
+        "apps/agent/src/animichi/tests/unit/test_documentation_guardrails.py",
+        "apps/agent/src/animichi/tests/unit/test_secrets_docs_consistency.py",
+        "apps/web/tests/unit/chat/turnstile-constants-guard.test.ts",
+        "workers/users/test/eddsa-shared-primitive.worker.test.ts"
+      ]
+    },
+    {
+      "name": "security-release-config",
+      "paths": [
+        ".github/scripts/release-web-runtime-config.mjs",
+        ".github/scripts/release-web-runtime-config.test.mjs",
+        ".github/scripts/release-web-runtime-config.mutation.test.mjs",
+        ".github/scripts/test_secret_provisioning_contract.rb",
+        ".github/scripts/test_secret_provisioning_mutation.rb",
+        ".github/workflows/cd.yml",
+        ".github/actions/build-release-unit/**",
+        ".github/actions/promote-release-phase/**",
+        "apps/web/src/lib/runtime-config/**",
+        "workers/edge/src/container/**"
+      ]
+    },
+    {
+      "name": "security-sqlfluff",
+      "components": ["db"]
+    },
+    {
+      "name": "security-runtime-promotion",
+      "paths": [
+        ".github/workflows/cd.yml",
+        ".github/workflows/rollback.yml",
+        ".github/actions/build-release-unit/**",
+        ".github/actions/promote-release-phase/**",
+        ".github/scripts/promote-release-unit.sh",
+        ".github/scripts/sync-edge-runtime-secrets.sh",
+        ".github/scripts/test_cd_worker_promotion_contract.rb",
+        ".github/scripts/test_edge_runtime_secrets.py",
+        ".github/scripts/test_production_safety_contract.rb",
+        ".github/scripts/test_promote_release_unit.sh"
+      ]
+    },
+    {
+      "name": "security-zizmor",
+      "paths": [".github/workflows/**", ".github/actions/**"]
     },
     {
       "name": "agent-eval",
-      "workflow": null,
       "paths": [
         "apps/agent/src/animichi/agents/**",
         "apps/agent/src/animichi/config/model_aliases.py",
@@ -28,30 +124,13 @@
     },
     {
       "name": "cross-stack",
-      "workflow": ".github/workflows/reusable-cross-stack-e2e.yml",
-      "components": ["agent", "catalog", "contract", "db", "edge", "users", "web"]
+      "components": ["web"]
     }
   ],
   "components": [
     {
       "name": "agent",
-      "paths": [
-        "apps/agent/**",
-        "apps/web/vitest.config.ts",
-        "docs/ARCHITECTURE.md",
-        "docs/ops/deployment.md",
-        "docs/ops/secrets.md",
-        "docs/testing-strategy.md",
-        "workers/edge/src/container/container-env.ts"
-      ],
-      "test_triggers": [
-        "apps/web/vitest.config.ts",
-        "docs/ARCHITECTURE.md",
-        "docs/ops/deployment.md",
-        "docs/ops/secrets.md",
-        "docs/testing-strategy.md",
-        "workers/edge/src/container/container-env.ts"
-      ],
+      "paths": ["apps/agent/**"],
       "depends_on": ["contract", "db"],
       "ci_lanes": ["lint", "unit", "integration", "build"],
       "deploy_unit": "agent"
@@ -79,7 +158,17 @@
     },
     {
       "name": "docs",
-      "paths": ["docs/**"],
+      "paths": [
+        "docs/**",
+        "apps/agent/pyproject.toml",
+        "apps/web/vitest.config.ts",
+        "workers/edge/src/container/container-env.ts"
+      ],
+      "test_triggers": [
+        "apps/agent/pyproject.toml",
+        "apps/web/vitest.config.ts",
+        "workers/edge/src/container/container-env.ts"
+      ],
       "depends_on": [],
       "ci_lanes": ["consistency"],
       "deploy_unit": null

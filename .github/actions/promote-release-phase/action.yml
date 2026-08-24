@@ -1,0 +1,41 @@
+name: Promote release phase
+description: Promote one ordered staging phase from sealed main-SHA artifacts.
+inputs:
+  phase:
+    description: foundation, migration, services, edge, or web.
+    required: true
+  units:
+    description: JSON release-unit list for the phase.
+    required: true
+  source_sha:
+    description: Exact main SHA carried by every artifact.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Download the main-SHA artifacts
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        pattern: release-${{ inputs.source_sha }}-*
+        path: ${{ runner.temp }}/release-cohort
+    - uses: ./.github/actions/setup
+    - uses: ./.github/actions/install-atlas
+      if: ${{ inputs.phase == 'migration' }}
+    - name: Install Pulumi CLI
+      if: ${{ inputs.phase == 'foundation' }}
+      uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+      with:
+        pulumi-version-file: .pulumi.version
+    - name: Promote selected staging phase
+      env:
+        RELEASE_PHASE: ${{ inputs.phase }}
+        RELEASE_UNITS: ${{ inputs.units }}
+        SOURCE_SHA: ${{ inputs.source_sha }}
+      run: |
+        set -euo pipefail
+        case "$RELEASE_PHASE" in foundation|migration|services|edge|web) ;; *) exit 2 ;; esac
+        jq -r '.[]' <<< "$RELEASE_UNITS" | while IFS= read -r unit; do
+          bash .github/scripts/promote-release-unit.sh "$unit" staging "$SOURCE_SHA" \
+            "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-$unit"
+        done
+      shell: bash
