@@ -13,7 +13,8 @@
     {
       "name": "security",
       "workflow": ".github/workflows/reusable-security.yml",
-      "components": ["agent", "catalog", "contract", "db", "edge", "infra", "migrator", "users", "web"]
+      "components": ["agent", "catalog", "contract", "db", "edge", "infra", "migrator", "users", "web"],
+      "paths": [".github/**"]
     },
     {
       "name": "agent-eval",

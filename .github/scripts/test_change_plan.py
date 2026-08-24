@@ -83,7 +83,7 @@ def assert_repository_change_has_no_product_component() -> None:
         deploy = plan(root, initial, head, "main", "deploy")
         assert ci["fallback_all"] is False
         assert ci["components"] == []
-        assert ci["lanes"] == ["static-quality"]
+        assert ci["lanes"] == ["security", "static-quality"]
         assert deploy["components"] == []
 
 
