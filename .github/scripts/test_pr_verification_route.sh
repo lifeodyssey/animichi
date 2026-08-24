@@ -5,10 +5,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROUTE="$SCRIPT_DIR/pr-verification-route.sh"
 WORKSPACE_LIB="$SCRIPT_DIR/../../scripts/local-gates/workspace-packages.sh"
+MANIFEST="$SCRIPT_DIR/../ci/components.json"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/pr-verification-route.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
-workspace_dirs=(agent web catalog users edge migrator doorbell contract e2e infra)
+workspace_dirs=(agent web catalog users edge migrator contract e2e infra)
 
 package_path() {
   case "$1" in
@@ -24,7 +25,7 @@ make_fixture() {
   mkdir -p "$root/scripts/local-gates"
   cp "$WORKSPACE_LIB" "$root/scripts/local-gates/workspace-packages.sh"
   printf '%s\n' 'packages:' '  - "workers/*"' '  - "apps/*"' '  - "packages/*"' '  - "e2e"' '  - "infra"' > "$root/pnpm-workspace.yaml"
-  for dir in agent web catalog users edge migrator doorbell contract; do
+  for dir in agent web catalog users edge migrator contract; do
     package_dir="$(package_path "$dir")"
     mkdir -p "$root/$package_dir"
   done
@@ -51,23 +52,27 @@ route_case() {
   git -C "$root" commit -qm change
   base="$(git -C "$root" rev-parse HEAD^)"
   head="$(git -C "$root" rev-parse HEAD)"
-  output="$(PR_VERIFICATION_ROOT="$root" PR_VERIFICATION_WORKSPACE_LIB="$root/scripts/local-gates/workspace-packages.sh" bash "$ROUTE" "$base" "$head")"
+  output="$(PR_VERIFICATION_ROOT="$root" PR_VERIFICATION_MANIFEST="$MANIFEST" bash "$ROUTE" "$base" "$head")"
   [ "$output" = "$expected" ] || { echo "FAIL $label: expected [$expected], got [$output]" >&2; exit 1; }
 }
 
-route_case agent apps/agent/change.ts $'agent\ncontract'
-route_case web apps/web/change.ts $'contract\nweb'
-route_case catalog workers/catalog/change.ts $'catalog\ncontract'
-route_case users workers/users/change.ts $'contract\nusers'
-route_case edge workers/edge/change.ts $'contract\nedge'
-route_case migrator workers/migrator/change.ts $'contract\nmigrator'
-route_case doorbell workers/doorbell/change.ts $'contract\ndoorbell'
-route_case contract packages/contract/change.ts contract
+route_case agent apps/agent/change.ts agent
+route_case web apps/web/change.ts $'e2e\nweb'
+route_case catalog workers/catalog/change.ts catalog
+route_case users workers/users/change.ts users
+route_case edge workers/edge/change.ts edge
+route_case migrator workers/migrator/change.ts migrator
+route_case contract packages/contract/change.ts $'agent\ncatalog\ncontract\ne2e\nedge\nmigrator\nusers\nweb'
 route_case e2e e2e/change.ts e2e
 route_case infra infra/change.ts infra
 route_case docs docs/change.md docs
-route_case migrations migrations/change.sql db
-ALL_EXPECTED=$'agent\ncatalog\ncontract\ndb\ndocs\ndoorbell\ne2e\nedge\ninfra\nmigrator\nusers\nweb'
+route_case secrets-read docs/ops/secrets.md $'agent\ndocs'
+route_case vitest-read apps/web/vitest.config.ts $'agent\ne2e\nweb'
+route_case container-env-read workers/edge/src/container/container-env.ts $'agent\nedge'
+route_case auth-read workers/edge/src/identity/auth.ts $'edge\nusers'
+route_case turnstile-read workers/edge/src/protect/turnstile.ts $'e2e\nedge\nweb'
+route_case migrations migrations/change.sql $'agent\ncatalog\ndb\nedge\nmigrator\nusers'
+ALL_EXPECTED=$'agent\ncatalog\ncontract\ndb\ndocs\ne2e\nedge\ninfra\nmigrator\nusers\nweb'
 route_case workflow .github/workflows/change.yml "$ALL_EXPECTED"
 route_case unknown README.md "$ALL_EXPECTED"
 

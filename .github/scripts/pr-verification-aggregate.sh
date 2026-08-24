@@ -7,18 +7,58 @@ HEAD_SHA="${PR_VERIFICATION_HEAD_SHA:-${GITHUB_SHA:-}}"
 EXPECTED_PACKAGES="${PR_VERIFICATION_PACKAGES:-}"
 ROUTE_RESULT="${PR_VERIFICATION_ROUTE_RESULT:-}"
 MATRIX_RESULT="${PR_VERIFICATION_MATRIX_RESULT:-}"
-CHECK_PREFIX="PR Verification / package"
+QUALITY_RESULT="${PR_VERIFICATION_QUALITY_RESULT:-}"
+LANES="${PR_VERIFICATION_LANES:-[]}"
+CROSS_STACK_RESULT="${PR_VERIFICATION_CROSS_STACK_RESULT:-}"
+SECRET_DIFF_RESULT="${PR_VERIFICATION_SECRET_DIFF_RESULT:-}"
+SECURITY_RESULT="${PR_VERIFICATION_SECURITY_RESULT:-}"
+COVERAGE_AGENT_RESULT="${PR_VERIFICATION_COVERAGE_AGENT_RESULT:-}"
+COVERAGE_WEB_RESULT="${PR_VERIFICATION_COVERAGE_WEB_RESULT:-}"
+COVERAGE_CATALOG_RESULT="${PR_VERIFICATION_COVERAGE_CATALOG_RESULT:-}"
+COVERAGE_USERS_RESULT="${PR_VERIFICATION_COVERAGE_USERS_RESULT:-}"
+CHECK_PREFIX="CI / affected"
 
 fail() {
   printf '::error title=PR Verification::%s\n' "$1" >&2
   exit 1
 }
 
+lane_selected() {
+  printf '%s' "$LANES" | jq -e --arg lane "$1" 'index($lane) != null' >/dev/null
+}
+
+require_lane() {
+  local lane="$1" result="$2"
+  if lane_selected "$lane"; then
+    [ "$result" = success ] || fail "$lane did not complete successfully (result=$result)"
+  elif [ "$result" != skipped ]; then
+    fail "$lane ran outside the selected change plan (result=$result)"
+  fi
+}
+
 [[ "$REPOSITORY" =~ ^[^/]+/[^/]+$ ]] || fail "missing or invalid repository"
 [[ "$HEAD_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || fail "missing or invalid current-head SHA"
 [ "$ROUTE_RESULT" = success ] || fail "affected-package routing did not complete successfully (result=$ROUTE_RESULT)"
+require_lane static-quality "$QUALITY_RESULT"
+require_lane cross-stack "$CROSS_STACK_RESULT"
+[ "$SECRET_DIFF_RESULT" = success ] || fail "changed-commit secret scan failed (result=$SECRET_DIFF_RESULT)"
+[ "$SECURITY_RESULT" = success ] || fail "affected security aggregation failed (result=$SECURITY_RESULT)"
 
 printf '%s' "$EXPECTED_PACKAGES" | jq -e 'type == "array" and length > 0 and all(.[]; type == "string" and length > 0)' >/dev/null || fail "affected-package matrix is empty or malformed"
+
+require_component_job() {
+  local component="$1" result="$2"
+  if printf '%s' "$EXPECTED_PACKAGES" | jq -e --arg component "$component" 'index($component) != null' >/dev/null; then
+    [ "$result" = success ] || fail "$component coverage upload failed (result=$result)"
+  elif [ "$result" != skipped ]; then
+    fail "$component coverage ran outside the affected plan (result=$result)"
+  fi
+}
+
+require_component_job agent "$COVERAGE_AGENT_RESULT"
+require_component_job web "$COVERAGE_WEB_RESULT"
+require_component_job catalog "$COVERAGE_CATALOG_RESULT"
+require_component_job users "$COVERAGE_USERS_RESULT"
 
 CHECK_RUNS="$(gh api "repos/$REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100")" || fail "GitHub check-run query failed"
 printf '%s' "$CHECK_RUNS" | jq -e 'type == "object" and (.check_runs | type == "array")' >/dev/null || fail "GitHub returned malformed check-run data"

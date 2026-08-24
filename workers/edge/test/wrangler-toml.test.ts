@@ -14,9 +14,8 @@ import { URL, fileURLToPath } from "node:url";
 // 2. S0-v2 GOAL C / C9 nail test: the showcase gate's deployed VALUES are
 //    pinned per environment. production MUST be "true" (the landing-only
 //    contract), staging and the root/dev [vars] MUST be "false" (full
-//    functionality). The deployment chain (reusable-post-deploy-test.yml)
-//    parses this same file, so a drift here also changes what the post-deploy
-//    smoke asserts.
+//    functionality). Release promotion consumes this same file, so a drift
+//    here also changes deployed behavior.
 //
 // test-type: unit (all cases parse a checked-in file; no network, no clock).
 
@@ -28,7 +27,6 @@ const observableWorkerConfigs = [
   ["users", "../../users/wrangler.toml"],
   ["jobs", "../../jobs/wrangler.toml"],
   ["migrator", "../../migrator/wrangler.toml"],
-  ["doorbell", "../../doorbell/wrangler.toml"],
 ] as const;
 
 // Full regex-metacharacter escape (CodeQL js/incomplete-sanitization: the

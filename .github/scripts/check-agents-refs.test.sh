@@ -161,6 +161,19 @@ test_gitignored_candidate_skipped() {
   echo "PASS: gitignored candidate is skipped under both resolution bases"
 }
 
+test_deleted_context_doc_skipped() {
+  local repo out=/tmp/agents-ref-deleted.out rc
+  repo="$(mktemp -d)"
+  mkdir -p "${repo}/retired"
+  printf 'AGENTS.md\n`missing/path.md`\n' > "${repo}/retired/AGENTS.md"
+  commit_fixture "${repo}"
+  rm "${repo}/retired/AGENTS.md"
+  rc="$(run_check "${repo}" "${out}")"; rm -rf "${repo}"
+  [ "${rc}" -eq 0 ] || fail_test "deleted context docs must be ignored, got exit ${rc}: $(cat "${out}")"
+  grep -q "0 files, 0 references" "${out}" || fail_test "deleted context doc must not be counted: $(cat "${out}")"
+  echo "PASS: deleted tracked context doc is ignored"
+}
+
 test_root_relative_existing_passes
 test_missing_reference_fails
 test_ignored_candidates_skipped
@@ -170,6 +183,7 @@ test_absolute_url_path_skipped
 test_bare_filename_skipped
 test_extensionless_nondirectory_skipped
 test_gitignored_candidate_skipped
+test_deleted_context_doc_skipped
 test_parent_escape_not_resolved
 
 echo "All check-agents-refs.sh behavioral tests passed."

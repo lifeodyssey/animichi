@@ -1,0 +1,37 @@
+name: _agent-eval
+
+on:
+  workflow_call:
+    secrets:
+      ZEN_GO_API_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  trajectory:
+    name: L0 smoke (~80 trajectories)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/agent
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+      - run: uv python install 3.11
+      - run: uv sync --frozen --all-extras
+      - name: Run L0 smoke trajectory eval
+        run: uv run --frozen pytest src/animichi/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
+        env:
+          EVAL_MODEL: openai:mimo-v2.5@https://opencode.ai/zen/go/v1
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
+          EVAL_SMOKE: "1"
+          EVAL_MAX_CASES: "80"
+          AGENT_SVC_DATABASE_URL: postgresql://test:test@localhost:5432/test

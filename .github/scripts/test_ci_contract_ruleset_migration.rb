@@ -11,8 +11,8 @@
 #      `required_checks` — a context cannot be both live and retired, and a
 #      removal must be recorded (never a silent drop).
 #   B. every required check has a producing job (no orphan required context).
-#   C. every required check's producing workflow declares merge_group on main,
-#      so queue runs stay green (the old -> new transition never strands a check).
+#   C. every required check has a queue-safe producer: direct `merge_group` for
+#      CI checks, or the trusted completed-CI workflow_run bridge for Review Gate.
 #   D. snapshot discipline: assert-workflow-invariants.rb REQUIRED_CONTEXTS table
 #      equals ruleset-target.json required_checks — a new required name MUST be
 #      mirrored in that table (and its workflow merge_group trigger) before old
@@ -32,7 +32,7 @@ DEFAULT_WORKFLOWS = File.join(REPO_ROOT, ".github", "workflows")
 def producer_contexts(workflows_dir, wf)
   return [] unless wf.is_a?(Hash) && wf["jobs"].is_a?(Hash)
 
-  wf["jobs"].flat_map do |job_id, job|
+  contexts = wf["jobs"].flat_map do |job_id, job|
     next [] unless job.is_a?(Hash)
 
     display = job["name"] || job_id
@@ -51,6 +51,9 @@ def producer_contexts(workflows_dir, wf)
       "#{display} / #{callee_job["name"] || callee_id}"
     end.compact
   end.flatten
+  source = wf.to_s
+  contexts << "Review Gate" if source.include?("post_with_retry pending") && source.include?("finish-status")
+  contexts
 end
 
 # Also returns the set of workflow FILES that produce each context (for the
@@ -83,6 +86,21 @@ def declares_merge_group_main?(path)
   mg.is_a?(Hash) && Array(mg["branches"]).include?("main")
 end
 
+def trusted_review_bridge?(path)
+  text = File.read(path).sub(/^on:(?=[ \t#]|$)/, '"on":')
+  wf = YAML.safe_load(text, aliases: true)
+  on_map = wf.is_a?(Hash) ? (wf["on"] || wf[true]) : nil
+  return false unless on_map.is_a?(Hash)
+  bridge = on_map["workflow_run"]
+  event = bridge.is_a?(Hash) && bridge["workflows"] == ["CI"] && bridge["types"] == ["completed"]
+  event && text.include?("collect-target") && text.include?("workflow_run.event")
+end
+
+def queue_safe?(context, path)
+  return trusted_review_bridge?(path) if context == "Review Gate"
+  declares_merge_group_main?(path)
+end
+
 def assert_ruleset_migration_contract(ruleset_path: DEFAULT_RULESET, workflows_dir: DEFAULT_WORKFLOWS)
   ruleset = JSON.parse(File.read(ruleset_path))
   required = Array(ruleset.fetch("required_checks"))
@@ -96,9 +114,9 @@ def assert_ruleset_migration_contract(ruleset_path: DEFAULT_RULESET, workflows_d
   missing = required - map.keys
   abort "ruleset migration: required check with no producing job (ADD before REMOVE): #{missing.join(", ")}" unless missing.empty?
 
-  # B + C. every producer workflow must fire on merge_group so the queue stays green.
-  not_on_queue = required.reject { |ctx| (map[ctx] || []).any? { |p| declares_merge_group_main?(p) } }
-  abort "ruleset migration: required check not produced on merge_group (queue would hang): #{not_on_queue.join(", ")}" unless not_on_queue.empty?
+  # B + C. every context has an explicitly queue-safe producer.
+  not_on_queue = required.reject { |ctx| (map[ctx] || []).any? { |path| queue_safe?(ctx, path) } }
+  abort "ruleset migration: required check not produced safely for merge queue: #{not_on_queue.join(", ")}" unless not_on_queue.empty?
 
   # D. snapshot discipline with assert-workflow-invariants.rb REQUIRED_CONTEXTS.
   invariants = File.read(File.join(__dir__, "assert-workflow-invariants.rb"))
@@ -108,7 +126,7 @@ def assert_ruleset_migration_contract(ruleset_path: DEFAULT_RULESET, workflows_d
   extra = declared.sort - required.sort
   abort "ruleset migration: assert-workflow-invariants.rb REQUIRED_CONTEXTS lists a non-required check (retire it or delete old name first): #{extra.join(", ")}" unless extra.empty?
 
-  puts "Ruleset migration: #{required.size} required checks, #{retired.size} retired, disjoint; all covered on merge_group; invariant table in sync"
+  puts "Ruleset migration: #{required.size} required checks, #{retired.size} retired, disjoint; all queue-safe; invariant table in sync"
 end
 
 if $PROGRAM_NAME == __FILE__

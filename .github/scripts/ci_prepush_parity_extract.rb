@@ -173,7 +173,7 @@ end
 def plumbing_cmd?(cmd)
   cmd.match?(PLUMBING) ||
     cmd.match?(/\Apulumi (?:package add|config)\b/) ||
-    cmd.match?(/\Agit (?:checkout --detach|checkout --|add|show|rev-parse|merge-base)(?:\s|\z)/) ||
+    cmd.match?(/\Agit (?:checkout --detach|checkout --|restore|add|show|rev-parse|merge-base)(?:\s|\z)/) ||
     cmd.include?("GITHUB_OUTPUT") ||
     cmd.include?("GITHUB_ENV") ||
     cmd.match?(%r{\Adocker build -f apps/agent/docker/})

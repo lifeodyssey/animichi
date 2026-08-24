@@ -133,6 +133,6 @@ understandable and keyboard-operable with `prefers-reduced-motion: reduce`.
 ## Relationship to CI
 
 The automated axe + keyboard + state + unit gates are wired as a **required**
-check in the web pipeline (AC6, `pipeline-web.yml`). The manual rows above are
+check in the affected web CI lane (AC6). The manual rows above are
 the human counterpart; a PR touching a critical journey should re-record the
 affected rows before merge.

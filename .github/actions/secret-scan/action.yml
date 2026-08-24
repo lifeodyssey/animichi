@@ -1,0 +1,30 @@
+name: Secret scan
+description: Scan the exact PR or merge-queue Git range without API-derived commit lists
+inputs:
+  event-name:
+    description: GitHub event name
+    required: true
+  base-sha:
+    description: Pull-request or merge-group base SHA
+    required: true
+  head-sha:
+    description: Pull-request source or merge-group head SHA
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Resolve complete Git history range
+      id: range
+      shell: bash
+      env:
+        EVENT_NAME: ${{ inputs.event-name }}
+        BASE_SHA: ${{ inputs.base-sha }}
+        HEAD_SHA: ${{ inputs.head-sha }}
+      run: |
+        range="$(bash "$GITHUB_ACTION_PATH/../../scripts/resolve-secret-scan-range.sh" \
+          "$EVENT_NAME" "$BASE_SHA" "$HEAD_SHA")"
+        echo "range=$range" >> "$GITHUB_OUTPUT"
+    - name: Scan resolved commits
+      uses: docker://ghcr.io/gitleaks/gitleaks:v8.24.3@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055
+      with:
+        args: git --redact --verbose --log-opts=${{ steps.range.outputs.range }} .

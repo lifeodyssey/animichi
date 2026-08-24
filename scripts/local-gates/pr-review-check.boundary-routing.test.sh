@@ -48,13 +48,13 @@ echo
 echo "=== finding 1: resolve-head fails closed on empty / malformed heads ==="
 run "resolve-head prints the exact 40-hex head" 0 \
   env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" resolve-head pull_request lifeodyssey/animichi 710 "" ""
+  "$STEP" resolve-head pull_request_target lifeodyssey/animichi 710 "" ""
 run "resolve-head blocks a successful-empty gh output" 2 \
   env MOCK_HEAD_EMPTY=1 MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" resolve-head pull_request lifeodyssey/animichi 710 "" ""
+  "$STEP" resolve-head pull_request_target lifeodyssey/animichi 710 "" ""
 run "resolve-head blocks a malformed gh output" 2 \
   env MOCK_HEAD_MALFORMED=1 MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" resolve-head pull_request lifeodyssey/animichi 710 "" ""
+  "$STEP" resolve-head pull_request_target lifeodyssey/animichi 710 "" ""
 
 echo
 echo "--- source mutation probe: head validation is load-bearing (red -> restore -> green) ---"
@@ -78,17 +78,17 @@ open(path, "w", encoding="utf-8").write(source.replace(needle, '  true || block 
 PY
 run "red: mutated resolve-head accepts the empty head" 0 \
   env MOCK_HEAD_EMPTY=1 MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$MUT_STEP" resolve-head pull_request lifeodyssey/animichi 710 "" ""
+  "$MUT_STEP" resolve-head pull_request_target lifeodyssey/animichi 710 "" ""
 run "red: mutated resolve-head accepts the malformed head" 0 \
   env MOCK_HEAD_MALFORMED=1 MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$MUT_STEP" resolve-head pull_request lifeodyssey/animichi 710 "" ""
+  "$MUT_STEP" resolve-head pull_request_target lifeodyssey/animichi 710 "" ""
 run "restore: pristine sources restored" 0 reset_mut
 run "green: pristine resolve-head still blocks the empty head" 2 \
   env MOCK_HEAD_EMPTY=1 MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" resolve-head pull_request lifeodyssey/animichi 710 "" ""
+  "$STEP" resolve-head pull_request_target lifeodyssey/animichi 710 "" ""
 run "green: pristine resolve-head still blocks the malformed head" 2 \
   env MOCK_HEAD_MALFORMED=1 MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" resolve-head pull_request lifeodyssey/animichi 710 "" ""
+  "$STEP" resolve-head pull_request_target lifeodyssey/animichi 710 "" ""
 
 echo
 echo "=== finding 2: pull_request_review_comment routes as a PR-bearing event ==="
@@ -98,9 +98,12 @@ PIN="$(env MOCK_STATUS_LOG="$STATUS_LOG" MOCK_THREADS_FILE="$FIX/threads-empty.j
 expect_head "resolve-head resolves the inline-thread event PR" "$PIN" "$HEAD"
 run "collect-check passes for pull_request_review_comment" 0 "${GITHUB_ARGS[@]}" \
   "$STEP" collect-check lifeodyssey/animichi "$PIN" pull_request_review_comment 710 "" ""
-run "final-status posts the inline-thread event outcome" 0 \
+run "inline-thread generation claims pending" 0 \
   env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" final-status lifeodyssey/animichi "$PIN" success success
+  "$STEP" claim-status lifeodyssey/animichi "$PIN" 90 1
+run "finish-status posts the inline-thread event outcome" 0 \
+  env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
+  "$STEP" finish-status lifeodyssey/animichi "$PIN" 90 1 success success
 if grep -q "^success $PIN" "$STATUS_LOG"; then
   printf 'PASS %-44s\n' "inline-thread event runs the full head-bound status flow"
 else
@@ -115,9 +118,9 @@ import sys
 
 path = sys.argv[1]
 source = open(path, encoding="utf-8").read()
-needle = "pull_request | pull_request_review | pull_request_review_comment)"
+needle = "pull_request_target | pull_request_review | pull_request_review_comment)"
 assert needle in source, "pull_request_review_comment routing not found"
-open(path, "w", encoding="utf-8").write(source.replace(needle, "pull_request | pull_request_review)", 1))
+open(path, "w", encoding="utf-8").write(source.replace(needle, "pull_request_target | pull_request_review)", 1))
 PY
 red_out="$(env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
   "$MUT_STEP" resolve-head pull_request_review_comment lifeodyssey/animichi 710 "" "")" && red_rc=0 || red_rc=$?

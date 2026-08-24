@@ -17,7 +17,6 @@ import {
   jwksUrlFromAuthBaseUrl,
 } from "./src/neon-auth.ts"
 
-export { catalogDatabaseUrl } from "./src/config.ts"
 export { validateLegacyRedirectZones } from "./src/web-routes.ts"
 export { validateIpEntry, buildIpClause } from "./src/staging.ts"
 export {

@@ -2,7 +2,7 @@
 # frozen_string_literal: true
 
 # S0-v2 B7 (GOAL B.21): four blocking workflow meta-assertions over
-# .github/workflows/*.yml. Owned by the Quality lane (pipeline-quality.yml,
+# .github/workflows/*.yml. Owned by the Quality lane (reusable-static-quality.yml,
 # the fixed point that runs this script against itself).
 #
 #   timeout     every job that declares `runs-on:` must declare
@@ -18,18 +18,19 @@
 #               that trigger on push must NOT cancel unconditionally (that
 #               kills a deploy mid-flight). The two classes are judged
 #               independently.
-#   merge_group workflows whose jobs produce branch-protection required
-#               contexts must listen on `merge_group` — otherwise the merge
-#               queue waits forever on a check that never runs. The required
+#   merge queue required-context producers must either listen on `merge_group`
+#               or, for the classic Review Gate only, use a trusted completed-
+#               CI `workflow_run` bridge that evaluates constituent PR evidence.
+#               Otherwise the merge queue waits forever or accepts fake green.
 #               context -> workflow map below is the pinned snapshot of the
-#               post-#1180 live ruleset (three PR-level aggregators; see
-#               docs/ops/deployment.md "Main promotion path" and
+#               post-cutover live ruleset (two PR-level aggregators; see
+#               docs/ops/review-gate.md and
 #               docs/iterations/s0v2/ruleset-target.json); drift in either
 #               direction fails loudly: an owner workflow absent from the
 #               directory is reported too.
 #
 # Every check is blocking: any violation line prints to stdout and the exit
-# code is 1. No `continue-on-error` anywhere in the wiring (pipeline-quality
+# code is 1. No `continue-on-error` anywhere in the wiring (static-quality
 # runs this step without one).
 #
 # Usage: ruby assert-workflow-invariants.rb [WORKFLOWS_DIR]
@@ -43,21 +44,20 @@
 # with key `true` and the trigger map would silently vanish. The re-quote
 # below covers all three forms; `triggers` additionally falls back to the
 # boolean key so an unreached shorthand can never be misread as "no triggers".
-# YAML validity itself is owned by the actionlint step in pipeline-quality.yml.
+# YAML validity itself is owned by the actionlint step in reusable-static-quality.yml.
 
 require "yaml"
 require_relative "assert-workflow-invariants-expression"
 
 # Branch-protection required contexts -> workflow that produces each one.
 # Snapshot of the post-#1180 live ruleset. Update this table whenever the
-# ruleset changes, and add merge_group to any newly-required workflow. The live
-# ruleset requires only these three fail-closed PR-level aggregators;
+# ruleset changes, and add a queue-safe producer for any new context. The
+# guarded target has one code-CI check-run and one classic review status;
 # package/security child jobs remain visible evidence but are not independently
 # required.
 REQUIRED_CONTEXTS = {
-  "PR Verification" => "pr-verification.yml",
-  "Security" => "ci.yml",
-  "Review Gate" => "pipeline-quality.yml"
+  "CI / verify" => "pr-verification.yml",
+  "Review Gate" => "review-gate.yml"
 }.freeze
 
 # Events that produce one run per pull-request update and therefore share the
@@ -187,7 +187,7 @@ end
 def producer_names(dir, wf)
   return [] unless wf.is_a?(Hash) && wf["jobs"].is_a?(Hash)
 
-  wf["jobs"].flat_map do |job_id, job|
+  names = wf["jobs"].flat_map do |job_id, job|
     next [] unless job.is_a?(Hash)
 
     display = job["name"] || job_id
@@ -206,6 +206,26 @@ def producer_names(dir, wf)
       "#{display} / #{callee_job['name'] || callee_id}"
     end.compact
   end
+  source = wf.to_s
+  names << "Review Gate" if source.include?("post_with_retry pending") && source.include?("finish-status")
+  names
+end
+
+def direct_queue_producer?(on_map)
+  merge_group = on_map["merge_group"]
+  merge_group.is_a?(Hash) && Array(merge_group["branches"]).include?("main")
+end
+
+def trusted_review_bridge?(on_map, wf)
+  bridge = on_map["workflow_run"]
+  valid_event = bridge.is_a?(Hash) && bridge["workflows"] == ["CI"] && bridge["types"] == ["completed"]
+  source = wf.to_s
+  valid_event && source.include?("collect-target") && source.include?("workflow_run.event")
+end
+
+def queue_producer?(context, on_map, wf)
+  return trusted_review_bridge?(on_map, wf) if context == "Review Gate"
+  direct_queue_producer?(on_map)
 end
 
 def merge_group_violations(dir, file, wf)
@@ -214,10 +234,11 @@ def merge_group_violations(dir, file, wf)
 
   violations = []
   contexts = REQUIRED_CONTEXTS.select { |_ctx, owner| owner == file }.keys
-  unless contexts.empty? || on_map.key?("merge_group")
-    violations << "#{file}:top-level:missing merge_group trigger (required contexts: #{contexts.join(', ')})"
+  missing = contexts.reject { |context| queue_producer?(context, on_map, wf) }
+  unless missing.empty?
+    violations << "#{file}:top-level:missing queue-safe producer (required contexts: #{missing.join(', ')})"
   end
-  if file.start_with?("pipeline-") && !on_map.key?("merge_group")
+  if file.start_with?("pipeline-") && !on_map.key?("workflow_call") && !on_map.key?("merge_group")
     violations << "#{file}:top-level:missing merge_group trigger (pipeline fixed point)"
   end
   if contexts.any?

@@ -7,10 +7,9 @@
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-WORKFLOWS=(
+SOURCES=(
   ".github/workflows/reusable-cross-stack-e2e.yml"
-  ".github/workflows/pipeline-web.yml"
-  ".github/workflows/reusable-deploy-component.yml"
+  ".github/scripts/pr-verification-gate.sh"
 )
 
 extract_payload() {
@@ -34,7 +33,7 @@ sys.exit(0 if ok else 1)
 
 main() {
   local file payload failures=0
-  for file in "${WORKFLOWS[@]}"; do
+  for file in "${SOURCES[@]}"; do
     [ -f "${REPO_ROOT}/${file}" ] || { echo "missing workflow: ${file}"; failures=$((failures + 1)); continue; }
     while IFS= read -r payload; do
       [ -n "${payload}" ] || continue

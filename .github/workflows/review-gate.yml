@@ -1,0 +1,113 @@
+name: Review decision refresh
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, edited, reopened, ready_for_review, converted_to_draft]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  pull_request_review_comment:
+    types: [created, edited, deleted]
+  issue_comment:
+    types: [created, edited, deleted]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: review-refresh-${{ github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.head_sha || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    name: Refresh trusted head-bound decision
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Bootstrap fail-closed pending status
+        id: bootstrap
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.workflow_run.head_sha }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_PULL_URL: ${{ github.event.issue.pull_request.url }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          REPO: ${{ github.event.repository.full_name }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          valid_sha() { printf '%s' "$1" | grep -qE '^[0-9a-f]{40}$'; }
+          status_url="https://github.com/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT"
+          post_with_retry() {
+            local state="$1"
+            for _ in 1 2 3; do
+              gh api "repos/$REPO/statuses/$head_sha" -f state="$state" -f context='Review Gate' \
+                -f target_url="$status_url" -f description="trusted review generation $RUN_ID/$RUN_ATTEMPT" --jq .state >/dev/null && return 0
+            done
+            return 1
+          }
+          if [ "$EVENT_NAME" = workflow_run ]; then
+            [ "$RUN_EVENT" = merge_group ] || { echo 'has_target=false' >> "$GITHUB_OUTPUT"; exit 0; }
+            target_kind='queue'; head_sha="$EVENT_HEAD_SHA"; pr_number=''
+          elif [ "$EVENT_NAME" = issue_comment ]; then
+            [ -n "$ISSUE_PULL_URL" ] || { echo 'has_target=false' >> "$GITHUB_OUTPUT"; exit 0; }
+            target_kind='pr'; pr_number="$ISSUE_NUMBER"
+            head_sha=''
+            for _ in 1 2 3; do head_sha="$(gh api "$ISSUE_PULL_URL" --jq .head.sha)" && break; done
+          else
+            target_kind='pr'; head_sha="$EVENT_HEAD_SHA"; pr_number="$EVENT_PR_NUMBER"
+          fi
+          valid_sha "$head_sha" && { [ "$target_kind" = queue ] || printf '%s' "$pr_number" | grep -qE '^[0-9]+$'; } || exit 2
+          printf 'has_target=true\ntarget_kind=%s\nhead_sha=%s\npr_number=%s\n' "$target_kind" "$head_sha" "$pr_number" >> "$GITHUB_OUTPUT"
+          post_with_retry pending || { post_with_retry failure || true; exit 2; }
+      - name: Resolve immutable trusted source
+        id: trusted
+        if: ${{ steps.bootstrap.outputs.has_target == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.event.repository.full_name }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          sha="$(gh api "repos/$REPO/commits/$DEFAULT_BRANCH" --jq .sha)"
+          printf '%s' "$sha" | grep -qE '^[0-9a-f]{40}$'
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ steps.bootstrap.outputs.has_target == 'true' }}
+        with:
+          ref: ${{ steps.trusted.outputs.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Evaluate head-bound review evidence
+        if: ${{ steps.bootstrap.outputs.has_target == 'true' }}
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.event.repository.full_name }}
+          HEAD_SHA: ${{ steps.bootstrap.outputs.head_sha }}
+          TARGET_KIND: ${{ steps.bootstrap.outputs.target_kind }}
+          PR_NUMBER: ${{ steps.bootstrap.outputs.pr_number }}
+          CI_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: scripts/local-gates/pr-review-gate-step.sh collect-target "$TARGET_KIND" "$REPO" "$HEAD_SHA" "$PR_NUMBER" "$CI_RUN_ID"
+      - name: Publish only if this run still owns the status
+        if: ${{ always() && steps.bootstrap.outputs.has_target == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.event.repository.full_name }}
+          HEAD_SHA: ${{ steps.bootstrap.outputs.head_sha }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          JOB_STATUS: ${{ job.status }}
+          GATE_STATE: ${{ steps.gate.outputs.gate_state }}
+        run: scripts/local-gates/pr-review-gate-step.sh finish-status "$REPO" "$HEAD_SHA" "$RUN_ID" "$RUN_ATTEMPT" "$JOB_STATUS" "$GATE_STATE"

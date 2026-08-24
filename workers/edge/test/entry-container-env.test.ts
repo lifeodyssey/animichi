@@ -76,33 +76,15 @@ void test("ZEN_GO_API_KEY is optional on the Worker: absent stays omitted, never
   assert.equal("ZEN_GO_API_KEY" in buildContainerEnvVars(requiredEnv()), false);
 });
 
-function jobSegment(source: string, id: string): string {
-  const lines = source.split(/\r?\n/);
-  const start = lines.findIndex((line) => line === `  ${id}:`);
-  assert.notEqual(start, -1, `missing job ${id}`);
-  const rest = lines.slice(start + 1);
-  const end = rest.findIndex((line) => /^ {2}[a-zA-Z]/.test(line));
-  return lines.slice(start, end === -1 ? undefined : start + 1 + end).join("\n");
-}
-
-void test("staging root deploy rings doorbell and does not upload worker secrets (#1076)", () => {
-  const ci = readFileSync(new URL("../../../.github/workflows/ci.yml", import.meta.url).pathname, "utf8");
-  const staging = jobSegment(ci, "deploy-root-staging");
-  assert.match(staging, /reusable-ring-doorbell\.yml/);
-  assert.doesNotMatch(staging, /worker_secrets:/);
-  assert.doesNotMatch(staging, /ZEN_GO_API_KEY/);
-});
-
-void test("production root worker_secrets does not list ZEN_GO_API_KEY (#1160)", () => {
-  const ci = readFileSync(new URL("../../../.github/workflows/ci.yml", import.meta.url).pathname, "utf8");
-  assert.equal(jobSegment(ci, "deploy-root-prod").includes("ZEN_GO_API_KEY"), false);
-});
-
-void test("reusable deploy maps ZEN_GO_API_KEY into the three secret env blocks (#1160)", () => {
-  const reusable = readFileSync(
-    new URL("../../../.github/workflows/reusable-deploy-component.yml", import.meta.url).pathname,
+void test("artifact promotion never ferries model keys through GitHub", () => {
+  const cd = readFileSync(new URL("../../../.github/workflows/cd.yml", import.meta.url).pathname, "utf8");
+  const promotion = readFileSync(
+    new URL("../../../.github/scripts/promote-release-unit.sh", import.meta.url).pathname,
     "utf8",
   );
-  const mapped = reusable.match(/ZEN_GO_API_KEY: \$\{\{ secrets\.ZEN_GO_API_KEY \}\}/g) ?? [];
-  assert.equal(mapped.length, 3);
+  for (const key of ["ZEN_GO_API_KEY", "MIMO_API_KEY", "DEEPSEEK_API_KEY"]) {
+    assert.doesNotMatch(cd, new RegExp(key));
+    assert.doesNotMatch(promotion, new RegExp(key));
+  }
+  assert.doesNotMatch(promotion, /secret put|worker_secrets/);
 });

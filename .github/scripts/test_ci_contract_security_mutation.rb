@@ -92,7 +92,7 @@ def canary_red_probe(label, expected_fragment)
   yield payload
   SecurityCheckRunsCanary.assert!(payload, repo: "lifeodyssey/animichi",
                                   expected_sha: payload.fetch("head_sha"),
-                                  required_contexts: payload.fetch("required_contexts", ["Security"]))
+                                  required_contexts: payload.fetch("required_contexts", ["CI / verify", "Review Gate"]))
   abort "FAIL: #{label} passed unexpectedly"
 rescue SecurityCheckRunsCanary::Failure => error
   abort "FAIL: #{label} expected #{expected_fragment.inspect}: #{error.message}" unless error.message.include?(expected_fragment)
@@ -126,12 +126,12 @@ red_probe("child failures stop being required", "REQUIRE_CHILD_RESULTS=true") do
   env["REQUIRE_CHILD_RESULTS"] = "false"
 end
 
-red_probe("required Security context is duplicated by a child", "exactly one Security context") do |fixture|
+red_probe("required contexts gain an old Security child", "exactly CI / verify and Review Gate") do |fixture|
   fixture.fetch(:ruleset).fetch("required_checks") << "Security / Semgrep (SAST)"
 end
 
-red_probe("required Security context is removed", "exactly one Security context") do |fixture|
-  fixture.fetch(:ruleset).fetch("required_checks").delete("Security")
+red_probe("required CI context is removed", "exactly CI / verify and Review Gate") do |fixture|
+  fixture.fetch(:ruleset).fetch("required_checks").delete("CI / verify")
 end
 
 red_probe("top-level aggregate skips checkout", "top-level Security must checkout") do |fixture|
@@ -154,15 +154,15 @@ red_probe("extra pre-aggregate checkout is not pinned", "security-summary checko
   steps.unshift({ "uses" => "actions/checkout@v7" })
 end
 
-canary_red_probe("live canary sees duplicate old required context", "exactly one Security context") do |payload|
-  payload["required_contexts"] = ["Security", "Security / semgrep"]
+canary_red_probe("live canary sees duplicate old required context", "exactly CI / verify and Review Gate") do |payload|
+  payload["required_contexts"] = ["CI / verify", "Review Gate", "Security / semgrep"]
 end
 
-canary_red_probe("live canary sees duplicate Security result", "exactly one Security check run") do |payload|
+canary_red_probe("live canary sees duplicate CI result", "exactly one CI / verify check run") do |payload|
   payload["check_runs"] << payload.fetch("check_runs").first
 end
 
-canary_red_probe("live canary sees a missing evidence link", "Security check details_url is missing") do |payload|
+canary_red_probe("live canary sees a missing evidence link", "CI / verify details_url is missing") do |payload|
   payload.fetch("check_runs").first.delete("details_url")
 end
 

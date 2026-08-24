@@ -21,7 +21,7 @@
 #           for any non-pnpm package that still needs a gate). Path buckets
 #           (db, ci, scripts, docs) stay explicit. contract is unioned in
 #           whenever one of its consumers (agent, web, catalog, users, edge,
-#           migrator, doorbell) changed — contract is the cross-service source of truth.
+#           migrator) changed — contract is the cross-service source of truth.
 #
 # Usage: changed="$(scripts/local-gates/changed-packages.sh --staged)"
 #
@@ -103,7 +103,7 @@ if [ -n "$input" ]; then
 fi
 
 # contract is the cross-service source of truth: any consumer change implies it.
-if printf '%s\n' "$packages" | grep -qE '^(agent|web|catalog|users|edge|migrator|doorbell)$'; then
+if printf '%s\n' "$packages" | grep -qE '^(agent|web|catalog|users|edge|migrator)$'; then
   packages="$(printf '%s\ncontract\n' "$packages")"
 fi
 

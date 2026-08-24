@@ -16,7 +16,7 @@ from a deploy without the GitHub `production` environment approval.
   canonical (`src/features/seo/head.ts`), IndexNow key file
   (`public/ab12ab12ab12ab12ab12ab12ab12ab12.txt`,
   `src/features/seo/indexnow.ts`). The static-files unit suite pins them.
-- Core Web Vitals lane in CI: `Web / lighthouse` (`pipeline-web.yml`) — CLS
+- Core Web Vitals assertions in the single CI workflow's affected web lane — CLS
   blocking at 0.10, LCP warn at 2500ms. Thresholds live in
   `apps/web/web-cwv.config.ts`; `e2e/web-cwv.spec.ts` measures them with
   Playwright's PerformanceObserver API over 3 runs and asserts the median.
@@ -114,7 +114,7 @@ and answers 403 without the `x-staging-key` header.
 
 ### 2. Core Web Vitals (Playwright)
 
-The `Web / lighthouse` lane (`pipeline-web.yml`) is already part of CI
+The affected web lane is already part of CI
 per-package gates; no extra step. It reuses the build artifact, serves it with
 `wrangler dev`, and runs `e2e/web-cwv.spec.ts` — Playwright reads CLS and LCP
 in the page via the PerformanceObserver API over 3 navigations and asserts the

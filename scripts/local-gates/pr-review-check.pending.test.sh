@@ -82,14 +82,16 @@ else
   if [ -f "$OUTPUT" ]; then detail="$(cat "$OUTPUT")"; fi
   fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "collect-check records pending for the final status" "$detail"
 fi
-run "a green pending job posts pending" 0 "${MOCK_ENV[@]}" "$STEP" final-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb success pending
-if tail -1 "$STATUS_LOG" | grep -q '^pending bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb$'; then
+run "pending generation is claimed" 0 "${MOCK_ENV[@]}" "$STEP" claim-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 50 1
+run "a green pending job posts pending" 0 "${MOCK_ENV[@]}" "$STEP" finish-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 50 1 success pending
+if tail -1 "$STATUS_LOG" | grep -q '^pending bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb '; then
   printf 'PASS %-52s\n' "pending evidence is not reported as failure"
 else
   fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "pending evidence is not reported as failure" "$(cat "$STATUS_LOG")"
 fi
-run "a later job failure overrides pending" 0 "${MOCK_ENV[@]}" "$STEP" final-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb failure pending
-if tail -1 "$STATUS_LOG" | grep -q '^failure bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb$'; then
+run "new failure generation is claimed" 0 "${MOCK_ENV[@]}" "$STEP" claim-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 51 1
+run "a later job failure overrides pending" 0 "${MOCK_ENV[@]}" "$STEP" finish-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 51 1 failure pending
+if tail -1 "$STATUS_LOG" | grep -q '^failure bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb '; then
   printf 'PASS %-52s\n' "quality failure overrides pending"
 else
   fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "quality failure overrides pending" "$(cat "$STATUS_LOG")"

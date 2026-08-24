@@ -10,7 +10,6 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-CHECK="$ROOT/scripts/local-gates/pr-review-check.sh"
 STEP="$ROOT/scripts/local-gates/pr-review-gate-step.sh"
 FIX="$ROOT/scripts/local-gates/fixtures"
 PIN='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -46,21 +45,30 @@ last_is_failure() { # last_is_failure <label>
 echo "=== finding 1: whole-job outcomes map to the head status ==="
 rm -f "$STATUS_LOG"
 for outcome in failure cancelled skipped; do
-  run "final-status maps $outcome to failure" 0 \
+  run "claim status for $outcome outcome" 0 \
     env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-    "$STEP" final-status lifeodyssey/animichi "$PIN" "$outcome" failure
+    "$STEP" claim-status lifeodyssey/animichi "$PIN" 80 1
+  run "finish-status maps $outcome to failure" 0 \
+    env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
+    "$STEP" finish-status lifeodyssey/animichi "$PIN" 80 1 "$outcome" failure
   last_is_failure "non-success whole-job outcome ($outcome) leaves the head red"
 done
 
 echo
 echo "=== finding 1: a later failure overwrites a stale green ==="
 rm -f "$STATUS_LOG"
+run "gate generation claims pending first" 0 \
+  env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
+  "$STEP" claim-status lifeodyssey/animichi "$PIN" 81 1
 run "gate evaluates green first (stale success posted)" 0 \
   env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$CHECK" status lifeodyssey/animichi "$PIN" success
+  "$STEP" finish-status lifeodyssey/animichi "$PIN" 81 1 success success
+run "later run claims the status generation" 0 \
+  env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
+  "$STEP" claim-status lifeodyssey/animichi "$PIN" 82 1
 run "a later step fails; the whole-job outcome re-posts failure" 0 \
   env MOCK_STATUS_LOG="$STATUS_LOG" PATH="$MOCK_BIN:$PATH" \
-  "$STEP" final-status lifeodyssey/animichi "$PIN" failure failure
+  "$STEP" finish-status lifeodyssey/animichi "$PIN" 82 1 failure failure
 last_is_failure "the final failure overwrites the stale green (never merge-eligible)"
 
 echo

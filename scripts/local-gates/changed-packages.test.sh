@@ -180,7 +180,6 @@ test_no_merge_base_fails_closed
 
 source "$SCRIPT_DIR/changed-packages-workspace-tests.sh"
 test_migrator_change_routes_to_migrator
-test_doorbell_change_routes_to_doorbell
 test_workspace_packages_have_gate_sets
 test_missing_gate_set_fails_closed_on_copy
 test_router_has_no_handwritten_workspace_cases

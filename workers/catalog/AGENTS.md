@@ -68,7 +68,7 @@ Root guide: `../../AGENTS.md`.
   `globalSetup` (`test/spike-db-global.ts`) boots a **Docker Postgres+PostGIS** container, applies
   the committed `migrations/neon` Atlas chain to a clean database, and any setup failure throws —
   there is no silent-skip path and **zero Neon environment variables**. It runs on every
-  `pnpm test:spike`, including the push-to-main CI arm in `pipeline-catalog.yml`'s
+  `pnpm test:spike`, including the affected catalog lane in `pr-verification.yml`'s
   `Catalog / spike (Docker Postgres)` job (which builds the `animichi-test-postgres` image first).
   Config-as-data guards that must always run therefore belong in the worker pool, reading their file
   via Vite's `?raw` suffix (inlined at transform time, so the sandboxed filesystem never comes

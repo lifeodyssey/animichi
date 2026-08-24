@@ -34,7 +34,7 @@ preview_urls = false
 #   # → prints: ✅ Created ... id: <hyperdrive-id>
 #
 # Uncomment after `id` is known. While commented out, prod falls back to the
-# DATABASE_URL secret (set via `wrangler secret put DATABASE_URL`).
+# DATABASE_URL Secrets Store binding.
 # [[hyperdrive]]
 # binding = "HYPERDRIVE"
 # id = "<hyperdrive-id>"
@@ -95,8 +95,8 @@ ENVIRONMENT = "development"
 # environment-specific). Instead create catalog/.dev.vars (git-ignored) with:
 #   DATABASE_URL=<standing-dev-branch-cloud-dsn>
 # See .dev.vars.example for the create-once and connection-string recipe.
-# wrangler dev loads .dev.vars automatically. For a deployed environment set:
-#   wrangler secret put DATABASE_URL
+# Wrangler dev loads .dev.vars automatically; deployed environments bind the
+# DSN provisioned by the infra/neon-secrets stack.
 
 [env.staging]
 name = "catalog-staging"

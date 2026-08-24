@@ -1,46 +1,72 @@
 {
-  "schema_version": "ruleset-cutover/v1",
-  "_comment": "Applied post-cutover target for #1180. Live evidence is retained on issue #1180; this file remains the machine-checked repository contract.",
-  "ruleset_id": 19974534,
+  "schema_version": "ruleset-cutover/v3",
   "repository": "lifeodyssey/animichi",
-  "required_checks": [
-    "PR Verification",
-    "Security",
-    "Review Gate"
-  ],
-  "producer_workflows": {
-    "PR Verification": ".github/workflows/pr-verification.yml",
-    "Security": ".github/workflows/ci.yml",
-    "Review Gate": ".github/workflows/pipeline-quality.yml"
-  },
+  "ruleset_id": 19974534,
+  "required_checks": ["CI / verify", "Review Gate"],
   "producer_jobs": {
-    "PR Verification": {
+    "CI / verify": {
       "workflow": ".github/workflows/pr-verification.yml",
       "job_id": "aggregate",
-      "name": "PR Verification"
-    },
-    "Security": {
-      "workflow": ".github/workflows/ci.yml",
-      "job_id": "security",
-      "name": "Security"
+      "name": "CI / verify",
+      "type": "check_run",
+      "identity_fields": ["id", "path", "event", "head_sha", "head_branch"],
+      "events_by_head": {
+        "pull_request": "pull_request",
+        "merge_group": "merge_group"
+      }
     },
     "Review Gate": {
-      "workflow": ".github/workflows/pipeline-quality.yml",
-      "job_id": "invariants",
-      "name": "Review Gate"
+      "workflow": ".github/workflows/review-gate.yml",
+      "job_id": "refresh",
+      "name": "Refresh trusted head-bound decision",
+      "type": "commit_status",
+      "context": "Review Gate",
+      "integration_id": 15368,
+      "identity_fields": ["id", "path", "event", "head_sha", "head_branch"],
+      "trusted_branch": "repository.default_branch",
+      "pull_request_events": [
+        "pull_request_target",
+        "pull_request_review",
+        "pull_request_review_comment",
+        "issue_comment",
+        "workflow_run"
+      ],
+      "merge_group_event": "workflow_run"
     }
   },
-  "merge_group": {
-    "required": true,
-    "branches": ["main"],
-    "review_gate_dependency": "#1178 supplies the Review Gate current-head contract"
+  "canary_contract": {
+    "schema_version": "ruleset-canary/v3",
+    "capture_source": "github_api",
+    "content_addressed": true,
+    "maximum_age_seconds": 86400,
+    "required_heads": ["pull_request", "merge_group"],
+    "status_binding": "both exact contexts must be success on their recorded head SHA",
+    "producer_binding": "check/status URLs resolve to successful Actions runs with the declared run id, path, event, branch, and head",
+    "apply_time_revalidation": {
+      "required": true,
+      "before": "ruleset_put",
+      "comparison": "exact_except_observed_at",
+      "refreshes": [
+        "pull_request.current_head",
+        "merge_group.ci_run_and_head",
+        "CI / verify.check_run",
+        "Review Gate.classic_status",
+        "producer_workflow_runs"
+      ]
+    }
   },
-  "actions_settings": "not_requested",
+  "atomic_put": {
+    "replace_required_status_checks": true,
+    "review_gate_integration_id": 15368,
+    "required_review_thread_resolution": true,
+    "remove_rule_types": ["code_quality", "code_coverage"],
+    "preserve_all_other_rules": true,
+    "actions_settings": "not_requested"
+  },
   "live_cutover": {
-    "status": "applied-and-canary-verified",
-    "apply_mode": "one guarded PUT completed after #1176, #1177, and #1178",
+    "status": "pending-content-addressed-canary-and-atomic-put",
     "recovery_artifact": "ruleset-before.json",
-    "canary_artifact": "canary.json",
-    "evidence": "https://github.com/lifeodyssey/animichi/issues/1180#issuecomment-5386666912"
+    "canary_artifact": "ruleset-canary.json",
+    "result_artifact": "ruleset-after.json"
   }
 }

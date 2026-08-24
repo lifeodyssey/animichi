@@ -23,16 +23,16 @@ export ACTIONS_ID_TOKEN_REQUEST_TOKEN="req-token"
 export ACTIONS_ID_TOKEN_REQUEST_URL="https://example.test/oidc?foo=1"
 
 out="$TMP/token"
-bash "$SCRIPT" "animichi:github-actions:doorbell" "$out"
+bash "$SCRIPT" "animichi:github-actions:migrator" "$out"
 [ "$(cat "$out")" = "fresh-token" ] || fail "minted token file"
-grep -q "audience=animichi:github-actions:doorbell" "$CURL_LOG" || fail "audience query"
+grep -q "audience=animichi:github-actions:migrator" "$CURL_LOG" || fail "audience query"
 grep -q "bearer req-token" "$CURL_LOG" || fail "bearer header"
 
 cat > "$TMP/bin/curl" <<'EOF'
 #!/usr/bin/env bash
 echo '{"value":"refreshed-token"}'
 EOF
-bash "$SCRIPT" "animichi:github-actions:doorbell" "$out"
+bash "$SCRIPT" "animichi:github-actions:migrator" "$out"
 [ "$(cat "$out")" = "refreshed-token" ] || fail "refresh must overwrite the token file"
 
 unset ACTIONS_ID_TOKEN_REQUEST_TOKEN

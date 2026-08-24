@@ -6,10 +6,7 @@ import { URL, fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const WORKFLOW = readFileSync(`${ROOT}.github/workflows/dependabot-agent.yml`, "utf8");
 const PACKAGE_JSON = readFileSync(`${ROOT}package.json`, "utf8");
-const DEPLOY_WORKFLOWS = ["reusable-deploy-component.yml"].map((name) =>
-  readFileSync(`${ROOT}.github/workflows/${name}`, "utf8"),
-);
-const DEPLOY_CALLER = readFileSync(`${ROOT}.github/workflows/deploy.yml`, "utf8");
+const PROMOTION = readFileSync(`${ROOT}.github/scripts/promote-release-unit.sh`, "utf8");
 interface PackageManifest {
   devDependencies?: Record<string, string>;
 }
@@ -25,23 +22,6 @@ function stepNamed(name: string): string {
   assert.notEqual(start, -1, `missing workflow step ${name}`);
   const next = WORKFLOW.indexOf("\n      - ", start + 1);
   return WORKFLOW.slice(start, next === -1 ? undefined : next);
-}
-
-function wranglerActionSteps(workflow: string): string[] {
-  return workflow
-    .split(/\n(?= {6}- )/)
-    .filter((step) => /^\s+uses: cloudflare\/wrangler-action@/m.test(step));
-}
-
-function assertUsesLockedWrangler(workflow: string): void {
-  const steps = wranglerActionSteps(workflow);
-  assert.notEqual(steps.length, 0);
-  assert.doesNotMatch(workflow, /wranglerVersion:/);
-  assert.doesNotMatch(workflow, /\bnpx\b[^\n]*\bwrangler(?:@|\b)/);
-  for (const step of steps) {
-    assert.equal(step.match(/^\s+packageManager:/gm)?.length, 1);
-    assert.match(step, /^\s+packageManager:\s+pnpm\s*$/m);
-  }
 }
 
 void test("Dependabot gate checks repository structure without assuming uv is preinstalled", () => {
@@ -61,10 +41,10 @@ void test("Dependabot uses the shared Node verification command", () => {
   assert.equal(WORKFLOW.match(/pnpm run verify:dependabot/g)?.length, 1);
 });
 
-void test("deploy workflows use the locked workspace Wrangler", () => {
-  // #486 thin caller: deploy.yml only invokes the reusable pipeline, which owns the wrangler-action steps.
-  assert.match(DEPLOY_CALLER, /uses: \.\/\.github\/workflows\/reusable-deploy-component\.yml/);
-  DEPLOY_WORKFLOWS.forEach(assertUsesLockedWrangler);
+void test("artifact promotion uses the locked workspace Wrangler", () => {
+  assert.match(PROMOTION, /pnpm --dir "\$GITHUB_WORKSPACE" exec wrangler/);
+  assert.doesNotMatch(PROMOTION, /\bnpx\b[^\n]*\bwrangler(?:@|\b)/);
+  assert.doesNotMatch(PROMOTION, /wrangler@latest|wranglerVersion:/);
 });
 
 void test("deploy packages declare Wrangler", () => {

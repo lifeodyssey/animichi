@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deterministic Quality gate (#1003, AC5): every check and self-test from
-# .github/workflows/pipeline-quality.yml, in CI's order, fail-fast. CI calls
+# .github/workflows/reusable-static-quality.yml, in CI's order, fail-fast. CI calls
 # the very same scripts — nothing here is a weaker duplicate. The only
 # locally-pinned tool is actionlint (CI pins v1.7.7); the binary is a
 # prerequisite, never downloaded during a push. #1114 also mirrors the
@@ -13,15 +13,13 @@ run() {
   "$@"
 }
 
-# CI (pipeline-quality.yml) runs `ruby -c` once per file; a single invocation
+# CI (reusable-static-quality.yml) runs `ruby -c` once per file; a single invocation
 # with several paths would only ever syntax-check the first one, silently
 # skipping every later file — loop one path per `ruby -c`, fail-fast.
 for ruby_file in \
   "$GS/assert-workflow-invariants.rb" \
   "$GS/assert-workflow-invariants-expression.rb" \
   "$GS/assert-workflow-invariants.test.rb" \
-  "$GS/release-manifest-resolver.rb" \
-  "$GS/release-manifest-resolver.test.rb" \
   "$GS/test_ci_contract.rb" \
   "$GS/test_ci_contract_security.rb" \
   "$GS/security-check-runs-canary.rb" \
@@ -29,6 +27,8 @@ for ruby_file in \
   "$GS/test_ci_contract_security_mutation.rb" \
   "$GS/test_pr_verification_contract.rb" \
   "$GS/test_pr_verification_contract_mutation.rb" \
+  "$GS/test_secret_scan_contract.rb" \
+  "$GS/test_secret_scan_contract_mutation.rb" \
   "$GS/test_ci_routing_consistency.rb" \
   "$GS/test_ci_contract_ruleset_migration.rb" \
   "$GS/test_ci_contract_ruleset_migration_mutation.rb" \
@@ -39,38 +39,49 @@ for ruby_file in \
   "$GS/test_ruleset_cutover_integration.rb" \
   "$GS/test_ci_contract_review_gate.rb" \
   "$GS/test_ci_contract_review_gate_mutation.rb" \
-  "$GS/test_safe1_production_contract.rb" \
-  "$GS/test_retention1_absence.rb" \
-  "$GS/test_session3_staging_cutover.rb" \
-  "$GS/test_session3_staging_cutover.test.rb" \
+  "$GS/test_production_safety_contract.rb" \
+  "$GS/test_rollback_edge_pair_mutation.rb" \
+  "$GS/test_retired_retention_absence.rb" \
   "$GS/test_neon_test_infra_absence.rb" \
   "$GS/test_promotion_ac5_contract.rb" \
   "$GS/test_promotion_ac5_mutation.rb" \
-  "$GS/test_prod_dsn_store_contract.rb" \
-  "$GS/test_migrator_trigger_contract.rb" \
+  "$GS/test_database_credential_boundary.rb" \
+  "$GS/test_migration_promotion_contract.rb" \
+  "$GS/test_cd_workflow_contract.rb" \
   "$GS/ci_prepush_parity.rb" \
   "$GS/ci_prepush_parity_yaml.rb" \
   "$GS/ci_prepush_parity_extract.rb" \
   "$GS/test_ci_prepush_parity.rb" \
   "$GS/test_ci_prepush_parity.test.rb" \
-  "$GS/test_ci_contract_doorbell_web.rb" \
-  "$GS/test_ci_contract_infra_split.rb" \
-  "$GS/test_ci_contract_doorbell_workers.rb"; do
+  "$GS/test_cd_worker_promotion_contract.rb" \
+  "$GS/test_cd_infrastructure_safety_contract.rb" \
+  "$GS/test_cd_affected_routing_contract.rb" \
+  "$GS/actionlint-queue-contract.rb" \
+  "$GS/test_actionlint_queue_contract.rb" \
+  "$GS/test_secret_provisioning_contract.rb" \
+  "$GS/test_secret_provisioning_mutation.rb"; do
   run ruby -c "$ruby_file"
 done
 run ruby "$GS/assert-workflow-invariants.test.rb"
 run ruby "$GS/assert-workflow-invariants.rb"
-run ruby "$GS/test_safe1_production_contract.rb"
-run ruby "$GS/test_retention1_absence.rb"
-run ruby "$GS/test_session3_staging_cutover.rb"
-run ruby "$GS/test_session3_staging_cutover.test.rb"
-run ruby "$GS/test_prod_dsn_store_contract.rb"
-run ruby "$GS/test_migrator_trigger_contract.rb"
-run ruby "$GS/release-manifest-resolver.test.rb"
-run bash "$GS/release-eligibility.test.sh"
-run python3 "$GS/test_promotion_manifest.py"
-run bash scripts/local-gates/promotion-manifest-e2e.test.sh
-run python3 "$GS/test_promote_deployed.py"
+run python3 "$GS/test_component_manifest.py"
+run python3 "$GS/test_change_plan.py"
+run python3 "$GS/test_cd_cohort_plan.py"
+run bash "$GS/test_resolve_cd_base.sh"
+run python3 "$GS/test_verify_release_artifact.py"
+run bash "$GS/test_promote_release_unit.sh"
+run python3 "$GS/test_edge_runtime_secrets.py"
+run node "$GS/release-web-runtime-config.test.mjs"
+run node "$GS/release-web-runtime-config.mutation.test.mjs"
+run ruby "$GS/test_secret_provisioning_contract.rb"
+run ruby "$GS/test_secret_provisioning_mutation.rb"
+run ruby "$GS/test_cd_workflow_contract.rb"
+run ruby "$GS/test_production_safety_contract.rb"
+run python3 "$GS/test_validate_rollback_release.py"
+run ruby "$GS/test_rollback_edge_pair_mutation.rb"
+run ruby "$GS/test_retired_retention_absence.rb"
+run ruby "$GS/test_database_credential_boundary.rb"
+run ruby "$GS/test_migration_promotion_contract.rb"
 run ruby "$GS/test_promotion_ac5_contract.rb"
 run ruby "$GS/test_promotion_ac5_mutation.rb"
 run bash "$GS/check-agents-refs.test.sh"
@@ -90,15 +101,18 @@ run bash "$GS/check-web-runtime-config-payloads.test.sh"
 run bash "$GS/check-web-runtime-config-payloads.sh"
 run bash "$GS/check-edge-ratelimit-namespace.test.sh"
 run ruby "$GS/test_ci_contract.rb"
-run ruby "$GS/test_ci_contract_doorbell_web.rb"
-run ruby "$GS/test_ci_contract_infra_split.rb"
-run ruby "$GS/test_ci_contract_doorbell_workers.rb"
+run ruby "$GS/test_cd_worker_promotion_contract.rb"
+run ruby "$GS/test_cd_infrastructure_safety_contract.rb"
+run ruby "$GS/test_cd_affected_routing_contract.rb"
 run ruby "$GS/test_security_check_runs_canary.rb"
 run ruby "$GS/test_ci_contract_security_mutation.rb"
 run bash "$GS/security-aggregate.test.sh"
 run env EXPECTED_SHA=0123456789abcdef0123456789abcdef01234567 ACTUAL_SHA=0123456789abcdef0123456789abcdef01234567 SECURITY_RESULT=success REQUIRE_CHILD_RESULTS=true SECURITY_RESULTS=$'gitleaks=success\ncodeql=success\nsemgrep=success' GITHUB_STEP_SUMMARY=/dev/null bash "$GS/security-aggregate.sh"
 run ruby "$GS/test_pr_verification_contract.rb"
 run ruby "$GS/test_pr_verification_contract_mutation.rb"
+run ruby "$GS/test_secret_scan_contract.rb"
+run ruby "$GS/test_secret_scan_contract_mutation.rb"
+run bash "$GS/resolve-secret-scan-range.test.sh"
 run bash "$GS/test_pr_verification_aggregate.sh"
 run bash "$GS/test_pr_verification_route.sh"
 run bash "$GS/pr-verification-route.sh" "$(git rev-parse HEAD^)" "$(git rev-parse HEAD)"
@@ -115,14 +129,12 @@ run ruby "$GS/test_ci_prepush_parity.rb"
 run ruby "$GS/test_ci_prepush_parity.test.rb"
 run python3 "$GS/test_dependabot_config.py"
 run uv run --script --locked --no-build "$GS/test_config_read_sets.py"
-run bash "$GS/post-deploy-assert.test.sh"
-run bash "$GS/post-deploy-assert-probes.test.sh"
-run bash "$GS/resolve-worker-url.test.sh"
-run bash "$GS/vite-env-preflight.test.sh"
-run bash "$GS/wrangler-secret-put.test.sh"
-run shellcheck "$GS/post-deploy-assert.sh" "$GS/post-deploy-assert.test.sh" "$GS/post-deploy-assert-probes.test.sh" "$GS/edge-showcase-mode.sh" "$GS/mock-origin.sh" "$GS/resolve-worker-url.sh" "$GS/resolve-worker-url.test.sh" "$GS/vite-env-preflight.sh" "$GS/vite-env-preflight.test.sh" "$GS/wrangler-secret-put.sh" "$GS/wrangler-secret-put.test.sh" "$GS/security-aggregate.sh" "$GS/security-aggregate.test.sh"
-run bash -c 'cd .github/scripts && shellcheck -x pr-verification-aggregate.sh pr-verification-gate.sh pr-verification-route.sh test_pr_verification_aggregate.sh test_pr_verification_route.sh'
+run shellcheck "$GS/security-aggregate.sh" "$GS/security-aggregate.test.sh"
+run shellcheck "$GS/sync-edge-runtime-secrets.sh" "$GS/promote-release-unit.sh"
+run bash -c 'cd .github/scripts && shellcheck -x pr-verification-aggregate.sh pr-verification-gate.sh pr-verification-route.sh resolve-secret-scan-range.sh resolve-secret-scan-range.test.sh test_pr_verification_aggregate.sh test_pr_verification_route.sh'
 run bash scripts/semgrep-raw-sql-test.sh
-run actionlint
+run bash "$GS/test_run_actionlint.sh"
+run ruby "$GS/test_actionlint_queue_contract.rb"
+run bash "$GS/run-actionlint.sh"
 
 printf 'quality: all checks passed\n'

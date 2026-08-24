@@ -6,7 +6,7 @@
 #
 #   RED  add an orphan required check (no producing job)      -> ADD-before-REMOVE
 #   RED  remove a required check WITHOUT recording retirement -> silent drop
-#   RED  a required check producer loses merge_group           -> queue hang
+#   RED  Review Gate loses its trusted workflow_run bridge      -> queue hang
 #   GREEN pristine snapshot                                    -> contract passes
 #
 require "json"
@@ -83,13 +83,13 @@ red_probe("required check removed without retirement", "REQUIRED_CONTEXTS lists 
 end
 
 red_probe("retired context restored as required (overlap)", "cannot be both required and retired") do |ruleset, _wf|
-  ruleset["required_checks"] = ruleset["required_checks"] + ["Backend CI"]
+  ruleset["required_checks"] = ruleset["required_checks"] + [ruleset.fetch("_retired_contexts").fetch(0)]
 end
 
-red_probe("producer loses merge_group", "not produced on merge_group") do |_ruleset, workflows_dir|
-  pipeline = File.join(workflows_dir, "pipeline-quality.yml")
-  text = File.read(pipeline).sub(/^  merge_group:\n    branches: \[main\]\n/m, "")
-  File.write(pipeline, text)
+red_probe("Review Gate loses trusted bridge", "not produced safely for merge queue") do |_ruleset, workflows_dir|
+  review = File.join(workflows_dir, "review-gate.yml")
+  text = File.read(review).sub(/^  workflow_run:\n    workflows: \[CI\]\n    types: \[completed\]\n/m, "")
+  File.write(review, text)
 end
 
 green_probe("pristine ruleset + workflows")

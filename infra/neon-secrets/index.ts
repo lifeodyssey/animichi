@@ -71,9 +71,8 @@ const neonProvider = new neon.Provider("neon", {
   apiKey: config.requireSecret("neonApiKey"),
 });
 
-// Role -> secret mapping (#832): the secrets carry the same names the deploy
-// chain passes to `wrangler secret put` today, so the wrangler binding only
-// needs to swap the source of the value (plus the _PROD suffix for prod).
+// Role -> secret mapping (#832): these names are bound directly from the
+// Cloudflare Secrets Store (plus the _PROD suffix for prod).
 //
 // agent_svc DSN (#912 follow-up): the agent is a CONTAINER, not a Worker, so
 // it has no Secrets Store binding of its own — the edge Worker binds

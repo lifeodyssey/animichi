@@ -22,9 +22,9 @@ echo "PASS: committed payloads validate"
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
 mkdir -p "${TMP}/.github/workflows"
+mkdir -p "${TMP}/.github/scripts"
 cp "${REPO_ROOT}/.github/workflows/reusable-cross-stack-e2e.yml" "${TMP}/.github/workflows/"
-cp "${REPO_ROOT}/.github/workflows/pipeline-web.yml" "${TMP}/.github/workflows/"
-cp "${REPO_ROOT}/.github/workflows/reusable-deploy-component.yml" "${TMP}/.github/workflows/"
+cp "${REPO_ROOT}/.github/scripts/pr-verification-gate.sh" "${TMP}/.github/scripts/"
 # Inject the exact P0 mutation: drop the comma before "featureFlags".
 TARGET_FILE="${TMP}/.github/workflows/reusable-cross-stack-e2e.yml"
 python3 -c "import pathlib; p=pathlib.Path('${TARGET_FILE}'); s=p.read_text(); s=s.replace('\"false\",\"featureFlags\"','\"false\"\"featureFlags\"',1); p.write_text(s)"

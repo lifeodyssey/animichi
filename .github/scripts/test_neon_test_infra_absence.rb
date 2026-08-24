@@ -11,7 +11,7 @@
 #
 # Scope of this cardinal: the Neon *test-infra* retirement. NEON_API_KEY remains
 # (legitimately) present in the Neon role/DSN *provisioning* workflows —
-# reusable-deploy-neon-secrets.yml and its ci.yml/deploy.yml callers feed the
+# reusable-promote-release-phase.yml and its cd.yml caller feed the
 # key only to the first-run Pulumi adoption imports that create the runtime
 # service roles (ADR 0003, #926). That provisioning is core deploy
 # infrastructure tracked under the migration-executor wave, NOT test-infra, so
@@ -31,12 +31,11 @@ WORKFLOWS = File.join(ROOT, ".github/workflows")
 # Role-provisioning workflows that legitimately consume NEON_API_KEY for the
 # Neon service-role + Secrets Store DSN provisioning (ADR 0003, #926/#1001,
 # #1048). These are deploy infrastructure, not test-infra; the key feeds only
-# the first-run Pulumi adoption imports. See reusable-deploy-neon-secrets.yml.
+# the first-run Pulumi adoption imports. See reusable-promote-release-phase.yml.
 ROLE_PROVISIONING_ALLOWLIST = Set.new(
   [
-    "reusable-deploy-neon-secrets.yml",
-    "deploy.yml",
-    "ci.yml",
+    "cd.yml",
+    "reusable-promote-release-phase.yml",
   ],
 ).freeze
 

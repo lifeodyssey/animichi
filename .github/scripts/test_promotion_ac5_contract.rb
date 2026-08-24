@@ -1,64 +1,57 @@
 # frozen_string_literal: true
 
-# #1013 AC5 contract: production workflow contains no build command for a
-# promoted component, and tag creation cannot trigger deployment.
-#
-#   1. Tag-trigger ban: neither deploy.yml nor ci.yml (the only production
-#      entry points) may declare a tags: trigger, and the reusable deploy
-#      workflow must not either.
-#   2. No build command for a promoted component: when a promoted artifact
-#      digest is supplied, reusable-deploy-component.yml runs NO build command -
-#      the build and build-once manifest steps are gated off and a consume step
-#      takes their place.
-#
-# Exposes assert_ac5_contract(workflows_dir) so the mutation wrapper
-# (test_promotion_ac5_mutation.rb) can run red/green probes against throwaway
-# copies. Runs against the real workflows dir when invoked directly.
-#
-# Run: ruby .github/scripts/test_promotion_ac5_contract.rb
+# #1013 AC5: tags cannot deploy and production consumes the exact artifacts
+# already promoted to staging. The production path must never rebuild.
 
 require "yaml"
 
 WORKFLOWS = File.expand_path("../workflows", __dir__)
 
-# `on:` is a YAML 1.1 boolean; accept both spellings (test_ci_contract.rb stance).
-def load_workflow(dir, file)
-  path = File.join(dir, file)
-  text = File.read(path).sub(/^on:(?=[ \t#]|$)/, "\"on\":")
+def workflow(dir, file)
+  text = File.read(File.join(dir, file)).sub(/^on:(?=[ \t#]|$)/, '"on":')
   YAML.safe_load(text, aliases: true)
 end
 
-def triggers(wf)
-  wf["on"] || wf[true]
+def workflow_triggers(value)
+  value["on"] || value[true] || {}
+end
+
+def production_source(cd)
+  cd.fetch("jobs").fetch("promote-production").fetch("steps")
+    .map { |step| step["run"] }.compact.join("\n")
+end
+
+def assert_no_tag_trigger(dir, file)
+  on = workflow_triggers(workflow(dir, file))
+  push = on["push"]
+  abort "#{file} must not have a push trigger on tags" if push.is_a?(Hash) && push.key?("tags")
+  abort "#{file} must not have a tags trigger" if on.key?("tags")
+end
+
+def assert_no_production_build(cd)
+  source = production_source(cd)
+  forbidden = [/\b(?:docker|pnpm|npm)\s+build\b/, /wrangler\s+deploy.*--dry-run/]
+  abort "production promotion must not run a build command" if forbidden.any? { |pattern| source.match?(pattern) }
+  abort "production must consume the common immutable adapter" unless source.include?("promote-release-unit.sh")
+end
+
+def assert_immutable_consumption(dir, cd)
+  source = File.read(File.join(dir, "cd.yml"))
+  adapter = File.read(File.expand_path("promote-release-unit.sh", __dir__))
+  abort "production must download main-SHA release artifacts" unless source.include?("release-${{ github.sha }}-*")
+  abort "promotion must verify the artifact before extraction" unless adapter.index("verify-release-artifact.py") < adapter.index("tar -xzf")
+  abort "staging and production must use the same adapter" unless File.read(File.join(dir, "reusable-promote-release-phase.yml")).include?("promote-release-unit.sh")
+  assert_no_production_build(cd)
 end
 
 def assert_ac5_contract(workflows_dir)
-  # ---- 1. Tag creation cannot trigger deployment ----
-  %w[ci.yml deploy.yml].each do |file|
-    wf = load_workflow(workflows_dir, file)
-    on = triggers(wf)
-    abort "#{file} must declare on:" unless on.is_a?(Hash)
-    push = on["push"]
-    pushtags = push.is_a?(Hash) && push.key?("tags")
-    abort "#{file} must not have a push trigger on tags" if pushtags
-    abort "#{file} must not have a tags trigger" if on.key?("tags")
+  %w[cd.yml reusable-build-release-unit.yml reusable-promote-release-phase.yml].each do |file|
+    assert_no_tag_trigger(workflows_dir, file)
   end
-  reusable = load_workflow(workflows_dir, "reusable-deploy-component.yml")
-  reusable_on = triggers(reusable)
-  abort "reusable-deploy-component.yml must not have a tags trigger" if reusable_on.is_a?(Hash) && reusable_on.key?("tags")
-  puts "AC5: deployment cannot be triggered by tag creation (workflow push/tags ban)"
-
-  # ---- 2. No build command for a promoted component ----
-  deploy_component = File.read(File.join(workflows_dir, "reusable-deploy-component.yml"))
-  abort "must have a Consume approved promotion artifact step (no-build consume)" unless deploy_component.include?("Consume approved promotion artifact")
-  abort "consume step must fail closed when no artifact can be loaded" unless deploy_component.include?("Refusing to deploy a promoted component with no artifact")
-
-  build_steps = deploy_component.scan(/name: Build component|name: Build-once promotion manifest/).size
-  gated = deploy_component.scan(/promotion_artifact_digest == ''/).size
-  abort "expected every build step gated by promotion_artifact_digest == '', found #{gated} gate(s)" if gated < build_steps
-
-  puts "AC5: promoted components deploy by consuming the approved artifact; no build command runs in the promoted path"
+  cd = workflow(workflows_dir, "cd.yml")
+  abort "CD must deploy only from main pushes" unless workflow_triggers(cd).dig("push", "branches") == ["main"]
+  assert_immutable_consumption(workflows_dir, cd)
+  puts "AC5: main-only CD promotes verified main-SHA artifacts; production runs no build command"
 end
 
-# Run against the real workflows dir when invoked directly.
 assert_ac5_contract(WORKFLOWS) if $PROGRAM_NAME == __FILE__

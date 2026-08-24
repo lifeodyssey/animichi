@@ -21,7 +21,7 @@ head_sampling_rate = 1
 persist = true
 
 # Keep vars to ENVIRONMENT only. Tests assert unconfigured auth/database 503s;
-# local dev uses .dev.vars and production uses `wrangler secret put`.
+# local dev uses .dev.vars and deployed environments use Secrets Store bindings.
 [vars]
 ENVIRONMENT = "development"
 

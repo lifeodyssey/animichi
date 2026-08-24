@@ -64,7 +64,7 @@ echo
 echo "=== managed comment-finding formats match the parsers (no codecov) ==="
 # Invariant 5 lists exactly the top-level formats the local parser and the
 # merge hook inspect — qodo Bugs / Rule violations and SonarCloud Quality Gate.
-# Codecov patch coverage is a CI-lane check (pipeline-quality.yml), not a
+# Codecov patch coverage is a CI-lane check (reusable-static-quality.yml), not a
 # comment finding; a future claim that the parser reads codecov fails here.
 expect_true "invariant 5 lists exactly the parsed qodo / SonarCloud formats" \
   grep -qF "(qodo Bugs / Rule violations, SonarCloud Quality Gate)" "$ROOT/$CANON"
@@ -73,7 +73,7 @@ expect_absent "codecov is not inside the managed-findings parenthetical" \
 expect_true "codecov is explicitly not a comment finding" \
   grep -qF "not a comment finding" "$ROOT/$CANON"
 expect_true "codecov patch policy is routed to the CI Quality lane" \
-  grep -qF "pipeline-quality.yml" "$ROOT/$CANON"
+  grep -qF "reusable-static-quality.yml" "$ROOT/$CANON"
 
 echo
 echo "=== workflow-order truth (finding 4): review binds a candidate commit, PR opens after approval ==="
@@ -91,13 +91,19 @@ expect_absent "review no longer claims to happen before any commit" \
   grep -qF "This happens before any commit/push" "$ROOT/$CANON"
 
 echo
-echo "=== head-bound status is whole-job and cancels PR-bearing events (findings 1-2) ==="
+echo "=== trusted producer, generation guard, and queue evidence ==="
 expect_true "final status derives from the whole-job outcome" \
   grep -qF "whole-job outcome" "$ROOT/$CANON"
 expect_true "the final status is the last step" \
-  grep -qF "posted as the **last step**" "$ROOT/$CANON"
-expect_true "concurrency cancels PR-bearing events" \
-  grep -qF "in-progress run for every PR-bearing event" "$ROOT/$CANON"
+  grep -qF "as the last step" "$ROOT/$CANON"
+expect_true "status writer executes only immutable default-branch code" \
+  grep -qF "default-branch code checked out at an immutable SHA" "$ROOT/$CANON"
+expect_true "older final runs cannot overwrite a newer pending generation" \
+  grep -qF "ownership guard prevents an older final step" "$ROOT/$CANON"
+expect_true "merge queue is bridged by trusted workflow_run" \
+  grep -qF 'default-branch `workflow_run` bridge' "$ROOT/$CANON"
+expect_true "merge queue requires every associated PR evidence set" \
+  grep -qF "every associated PR head" "$ROOT/$CANON"
 
 echo
 if [ "$fail" -eq 0 ]; then

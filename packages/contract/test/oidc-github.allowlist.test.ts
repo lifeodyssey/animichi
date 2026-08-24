@@ -65,6 +65,18 @@ describe("enforceGitHubOidcAllowlist (MED-2 per-environment anchoring)", () => {
     expect(result).toEqual({ ok: false, reason: expect.any(String) });
   });
 
+  it("rejects the retired CI deploy caller", () => {
+    const retired = "lifeodyssey/animichi/.github/workflows/ci.yml@refs/heads/main";
+    const result = enforceGitHubOidcAllowlist(claims({ workflow_ref: retired }), stagingPolicy());
+    expect(result).toEqual({ ok: false, reason: expect.any(String) });
+  });
+
+  it("rejects a trusted workflow file from a non-main ref", () => {
+    const feature = "lifeodyssey/animichi/.github/workflows/cd.yml@refs/heads/feature";
+    const result = enforceGitHubOidcAllowlist(claims({ workflow_ref: feature }), stagingPolicy());
+    expect(result).toEqual({ ok: false, reason: expect.any(String) });
+  });
+
   it("production accepts the env sub anchor exactly (MED-2)", () => {
     const result = enforceGitHubOidcAllowlist(claims({ sub: `repo:${REPOSITORY}:environment:production` }), productionPolicy());
     expect(result).toEqual({ ok: true });

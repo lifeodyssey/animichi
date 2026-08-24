@@ -79,7 +79,7 @@ and error responses. Breaking changes exit 1, additive changes exit 0, and a
 future major path (`/v2/…`) is rejected unless its superseded `/v1` operation
 carries `deprecated: true` + `x-sunset`.
 
-`pipeline-contract.yml` (the `Contract / build` stage) runs the gate for every
+The affected contract lane in `pr-verification.yml` runs the gate for every
 published document (`openapi.json`, `users-openapi.json`, `agent-openapi.json`):
 
 - **Baseline** = the same document at the merge-base with the PR's base branch

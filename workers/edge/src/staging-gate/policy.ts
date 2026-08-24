@@ -30,8 +30,10 @@ export const STAGING_GATE_OIDC_AUDIENCE = "animichi:github-actions:staging-gate"
  * channel: the repository's CI deploy pipeline at refs/heads/main (same
  * trusted workflow ref the migrator uses).
  */
-export const STAGING_GATE_TRUSTED_WORKFLOW =
-  "lifeodyssey/animichi/.github/workflows/ci.yml@refs/heads/main";
+export const STAGING_GATE_TRUSTED_WORKFLOWS = [
+  "lifeodyssey/animichi/.github/workflows/cd.yml@refs/heads/main",
+  "lifeodyssey/animichi/.github/workflows/reusable-promote-release-phase.yml@refs/heads/main",
+] as const;
 
 /** GitHub Actions OIDC JWKS (constructor-injected elsewhere; production source). */
 export const GITHUB_OIDC_JWKS_URL =
@@ -44,5 +46,5 @@ export const STAGING_GATE_OIDC_POLICY: GitHubOidcPolicy = {
   repository: "lifeodyssey/animichi",
   refAllow: [{ ref: "refs/heads/main", environment: "staging" }],
   subAllow: [],
-  trustedWorkflowRefs: [STAGING_GATE_TRUSTED_WORKFLOW],
+  trustedWorkflowRefs: [...STAGING_GATE_TRUSTED_WORKFLOWS],
 };
