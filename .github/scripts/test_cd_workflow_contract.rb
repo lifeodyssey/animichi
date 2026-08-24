@@ -48,6 +48,15 @@ order.each_cons(2) do |before, after|
   abort "#{after} must follow #{before}" unless needs.include?(before)
 end
 
+staging_calls = jobs.values.select do |job|
+  job["uses"] == "./.github/workflows/reusable-promote-release-phase.yml"
+end
+abort "CD must keep all five ordered staging calls" unless staging_calls.length == 5
+staging_calls.each do |job|
+  permissions = job.fetch("permissions", {})
+  abort "staging caller must authorize reusable OIDC" unless permissions["id-token"] == "write"
+end
+
 production = jobs.fetch("promote-production")
 abort "production must have the only approval" unless production.fetch("environment") == "production"
 abort "production must be a single sequential job" if production.key?("strategy") || production.key?("uses")
