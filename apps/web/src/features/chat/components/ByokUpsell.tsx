@@ -1,3 +1,4 @@
+import { Button } from "animal-island-ui-tailwind/button";
 import { LoginModal } from "../../auth/ui/LoginModal";
 import { BYOK_SETUP_TARGET, useLoginDisclosure } from "../byok-journey";
 import type { ChatDict } from "../i18n";
@@ -10,7 +11,7 @@ type Props = Readonly<{ dict: ChatDict }>;
  * the user's own provider account), that the key stays in the browser and is
  * never stored on the server, and that an account is required — its primary
  * action opens the magic-link login whose mailed link deep-links back to the
- * open settings panel.
+ * dedicated API-key section.
  */
 type ByokCopy = ChatDict["byok"];
 
@@ -28,7 +29,7 @@ function UpsellLogin({ byok }: Readonly<{ byok: ByokCopy }>) {
   const login = useLoginDisclosure();
   return (
     <>
-      <button type="button" className="chat-byok__signin" onClick={login.show}>{byok.signInToSetUp}</button>
+      <Button type="default" className="chat-byok-upsell__signin" onClick={login.show}>{byok.signInToSetUp}</Button>
       <LoginModal open={login.open} onClose={login.hide} returnTarget={BYOK_SETUP_TARGET} />
     </>
   );

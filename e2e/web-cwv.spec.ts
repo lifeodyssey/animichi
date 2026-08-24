@@ -160,13 +160,11 @@ test(`a representative mobile interaction drives INP at or below ${webCwvConfig.
     await page.goto(route, { waitUntil: "load" });
     await solveTurnstileEntry(page);
     await page.waitForFunction(() => (window.__cwv?.lcp ?? 0) > 0);
-    // Representative interaction on /chat: the app-bar settings toggle opens
-    // the BYOK panel — a React state update plus a panel mount, a real
-    // main-thread task that Event Timing records as an interaction. It is the
-    // one app-bar control that stays enabled with no session and no backend
-    // (the field and send button are withheld until a turn is allowed), so
-    // Playwright auto-waits for actionability instead of racing hydration.
-    await page.locator(".chat-appbar__settings").click();
+    // Representative interaction on /chat: login opens its existing dialog,
+    // a React state update plus a mounted focus trap that stays on the measured
+    // document. Settings is now ordinary navigation, whose document load would
+    // correctly reset this page-scoped Event Timing observer.
+    await page.locator(".chat-appbar__login").click();
     await page.waitForFunction(() => (window.__cwv?.inp ?? 0) > 0);
     inpRuns.push(await page.evaluate(() => window.__cwv?.inp ?? 0));
   }

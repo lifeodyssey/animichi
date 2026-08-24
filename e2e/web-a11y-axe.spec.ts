@@ -20,10 +20,11 @@ test.use({
   serviceWorkers: "block",
 });
 
-async function expectNoSeriousOrCritical(page: Page, label: string): Promise<void> {
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-    .analyze();
+async function expectNoSeriousOrCritical(page: Page, label: string, scope?: string): Promise<void> {
+  const builder = new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]);
+  if (scope !== undefined) builder.include(scope);
+  const results = await builder.analyze();
   const blocking = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(blocking, `${label}: axe serious/critical violations`).toEqual([]);
 }
@@ -96,22 +97,23 @@ describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
     await expectNoSeriousOrCritical(page, "login modal");
   });
 
-  /**
-   * The ⚙ settings panel itself: the new home of the day/night switch and the
-   * language dropdown, both custom ARIA widgets that axe must clear.
-   */
-  test("settings panel", async ({ page }) => {
-    await openChat(page, "/chat?settings=byok");
+  /** The dedicated settings page and its shared Radix-backed controls. */
+  test("settings page", async ({ page }) => {
+    await page.route("**/api/auth/get-session", (route) =>
+      route.fulfill({ status: 401, json: { error: "no session" } }),
+    );
+    await page.goto("/settings#api-key");
     const splash = page.locator(".app-splash");
     await expect(splash).toHaveCount(1);
     await expect(splash).toBeHidden();
-    await expect(page.locator("#byok-settings-panel")).toBeVisible();
+    await expect(page.locator("#api-key")).toBeVisible();
+    await expectNoSeriousOrCritical(page, "settings page");
     await page.getByRole("combobox").click();
     await expect(page.getByRole("listbox")).toBeVisible();
-    await page.locator("#settings-language-listbox").evaluate(async (menu) => {
+    await page.locator(".animal-select-content").evaluate(async (menu) => {
       await Promise.all(menu.getAnimations().map((animation) => animation.finished));
     });
-    await expectNoSeriousOrCritical(page, "settings panel");
+    await expectNoSeriousOrCritical(page, "settings language menu", ".animal-select-content");
   });
 
   test("chat", async ({ page }) => {

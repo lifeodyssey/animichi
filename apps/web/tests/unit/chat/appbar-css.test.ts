@@ -12,9 +12,9 @@ import {
 const day = parseTokens(globalsCss);
 const night = parseBlockTokens(globalsCss, '[data-theme="night"]');
 
-const CONTROLS = ".chat-appbar__new,\n.chat-appbar__login";
-const CONTROLS_PRESS = ".chat-appbar__new:active,\n.chat-appbar__login:active";
-const CONTROLS_FOCUS = ".chat-appbar__new:focus-visible,\n.chat-appbar__login:focus-visible";
+const CONTROLS = ".chat-appbar__new,\n.chat-appbar__login,\n.chat-appbar__settings";
+const CONTROLS_PRESS = ".chat-appbar__new:active,\n.chat-appbar__login:active,\n.chat-appbar__settings:active";
+const CONTROLS_FOCUS = ".chat-appbar__new:focus-visible,\n.chat-appbar__login:focus-visible,\n.chat-appbar__settings:focus-visible";
 
 describe("appbar chrome: the chat's top rule", () => {
   it("takes the design's paper ground and a 2px bottom rule", () => {
@@ -49,7 +49,7 @@ describe("appbar tagline: AA by day, the bright teal by night", () => {
 });
 
 describe("appbar controls: 44px targets with a 3D press and a visible ring", () => {
-  it("keeps both controls on the AAA target with the press shadow", () => {
+  it("keeps every control on the AAA target with the press shadow", () => {
     expect(ruleDeclaration(chatCss, CONTROLS, "min-height")).toBe("44px");
     expect(ruleDeclaration(chatCss, CONTROLS, "min-width")).toBe("44px");
     expect(ruleDeclaration(chatCss, CONTROLS, "box-shadow")).toBe("0 3px 0 var(--shadow-3d)");

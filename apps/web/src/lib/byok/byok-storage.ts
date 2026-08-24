@@ -41,7 +41,7 @@ export type ByokSaveResult = { readonly ok: true } | { readonly ok: false; reado
 const CONFIG_KEY = "animichi.byok.config";
 const VISION_KEY = "animichi.byok.vision";
 
-/** Named default models (OQ-1): pre-filled by the settings panel and
+/** Named default models (OQ-1): pre-filled by the settings page and
  * user-overridable. Only the openai-compatible family has no sane default,
  * since it has no fixed catalog of model names. */
 export const BYOK_DEFAULT_MODEL: Readonly<Record<"anthropic" | "gemini", string>> = {
@@ -153,7 +153,7 @@ function modelInvalid(config: ByokConfig): boolean {
  * internationalized domain (e.g. `https://例え.jp/v1`) fails this check —
  * deliberately: rather than punycode-encode it here (a second, untested
  * encoding step this module would then own), reject non-ASCII outright and
- * let the settings panel prompt for an A-label/ASCII host, matching what
+ * let the settings page prompt for an A-label/ASCII host, matching what
  * the egress guard (Task 1) already expects on the wire. */
 function baseUrlInvalid(config: ByokConfig): boolean {
   if (config.provider !== "openai-compatible") return false;
@@ -161,7 +161,7 @@ function baseUrlInvalid(config: ByokConfig): boolean {
   return baseUrl.trim() !== "" && !HEADER_SAFE.test(baseUrl);
 }
 
-/** Pure validation the settings panel can call before (and instead of)
+/** Pure validation the settings page can call before (and instead of)
  * attempting a save, to render its inline message synchronously. */
 export function validateByokConfig(config: ByokConfig): ByokSaveResult {
   if (keyMissing(config)) return { ok: false, error: "key_required" };

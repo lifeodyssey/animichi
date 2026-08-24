@@ -66,8 +66,8 @@ client effect, and keeps desktop visitors on the clickable doorway. Root guide: 
 
 - `src/routes/__root.tsx` — document shell, metadata, error/not-found wiring.
 - `src/routes/index.tsx` → `src/features/seo/DoorwaySummary.tsx` — the served `/` body.
-- `src/components/settings/` + `src/components/ds/` — the settings drawer's app preferences (day/night
-  `Switch`, language `Select`), composed at the UI layer and injected into the chat panel.
+- `src/routes/settings.tsx` + `src/components/settings/` — the dedicated settings page. It composes
+  app preferences and BYOK with `animal-island-ui-tailwind` controls; chat only links to the route.
 - `src/components/NotFound.tsx` — branded 404.
 - `src/router.tsx` — TanStack router factory.
 - `vite.config.ts` — TanStack Start/Nitro/React build composition.

@@ -25,7 +25,7 @@ describe("reduced-motion: looping chat animations are paused", () => {
 });
 
 describe("reduced-motion: the settings controls join the guard", () => {
-  const moving = [".ds-switch__handle", ".ds-select__menu"] as const;
+  const moving = [".animal-switch-thumb", ".animal-select-content"] as const;
 
   it("globals.css contains the reduce media guard", () => {
     expect(globalsCss).toContain(MOTION_MEDIA);

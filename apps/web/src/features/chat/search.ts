@@ -1,10 +1,8 @@
-/** `/chat` entry search params: `?q=` (A2), `?session=` (A3), `?route=` (A2b),
- * `?settings=byok` (#284 T8 deep-link: open the BYOK panel on arrival). */
+/** `/chat` entry search params: `?q=` (A2), `?session=` (A3), `?route=` (A2b). */
 export interface ChatSearch {
   readonly q?: string;
   readonly session?: string;
   readonly route?: string;
-  readonly settings?: "byok";
 }
 
 function stringParam(value: unknown): string | undefined {
@@ -16,6 +14,5 @@ export function parseChatSearch(input: Record<string, unknown>): ChatSearch {
     q: stringParam(input.q),
     session: stringParam(input.session),
     route: stringParam(input.route),
-    settings: input.settings === "byok" ? "byok" : undefined,
   };
 }

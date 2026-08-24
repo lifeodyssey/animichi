@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import byokSettingsSource from "../../../src/features/chat/components/ByokSettings.tsx?raw";
-import chatSettingsDrawerSource from "../../../src/features/chat/components/ChatSettingsDrawer.tsx?raw";
+import settingsPageSource from "../../../src/components/settings/SettingsPage.tsx?raw";
 import byokUpsellSource from "../../../src/features/chat/components/ByokUpsell.tsx?raw";
 import budgetExhaustedSource from "../../../src/features/chat/components/ErrorStates/BudgetExhausted.tsx?raw";
 import limitBannerSource from "../../../src/features/chat/components/ErrorStates/LimitBanner.tsx?raw";
 import turnFailureSource from "../../../src/features/chat/components/ErrorStates/TurnFailure.tsx?raw";
 import chatCss from "../../../src/styles/chat.css?raw";
+import settingsCss from "../../../src/styles/settings.css?raw";
 
 /**
  * T6-AC9 / T8-AC9 (issue #284): design-token enforcement as a SOURCE grep
@@ -14,7 +15,7 @@ import chatCss from "../../../src/styles/chat.css?raw";
  */
 const SOURCES: readonly (readonly [string, string])[] = [
   ["ByokSettings.tsx", byokSettingsSource],
-  ["ChatSettingsDrawer.tsx", chatSettingsDrawerSource],
+  ["SettingsPage.tsx", settingsPageSource],
   ["ByokUpsell.tsx", byokUpsellSource],
   ["BudgetExhausted.tsx", budgetExhaustedSource],
   ["LimitBanner.tsx", limitBannerSource],
@@ -24,9 +25,10 @@ const SOURCES: readonly (readonly [string, string])[] = [
 /** Hardcoded Tailwind palette classes the spec names, plus the palette shape. */
 const TAILWIND_PALETTE = /\b(?:bg|text|border)-(?:white|black|gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(?:-\d{2,3})?\b/;
 
-/** Every rule this PR added: the panel/journey family and its app-bar host. */
+/** Every settings/BYOK rule across the dedicated page and chat journey. */
 function byokCssRules(): readonly string[] {
-  const rules = [...chatCss.matchAll(/(?:\.chat-byok|\.chat-appbar__settings|\.chat-settings-drawer)[^{]*\{([^}]*)\}/g)];
+  const css = `${chatCss}\n${settingsCss}`;
+  const rules = [...css.matchAll(/(?:\.chat-byok|\.chat-appbar__settings|\.settings-)[^{]*\{([^}]*)\}/g)];
   return rules.map((match) => match[1] ?? "");
 }
 

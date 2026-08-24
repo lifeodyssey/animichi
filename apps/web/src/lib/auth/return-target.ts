@@ -11,6 +11,7 @@
  * is `//evil.test` in disguise), no raw whitespace or control characters.
  * Everything else falls back to `/`, never to an error.
  */
+import { BYOK_SETUP_TARGET } from "../byok/byok-target";
 
 const FALLBACK = "/";
 
@@ -41,9 +42,8 @@ export function sanitizeReturnTarget(next: unknown): string {
 }
 
 /**
- * Does this return target open a *panel* on arrival, as opposed to merely
- * restoring a location? Today only the BYOK deep-link (`/chat?settings=byok`)
- * does.
+ * Does this return target resume the BYOK setup journey, as opposed to merely
+ * restoring a location? The dedicated settings section is the one such path.
  *
  * The distinction exists because of #480 P1-2: a failed create-on-login replay
  * must not strand a visitor who was mid-way through BYOK setup, so that case
@@ -52,12 +52,9 @@ export function sanitizeReturnTarget(next: unknown): string {
  * intent" from `next !== "/"` would have applied that rule to the save journey
  * too — silently retiring the retry/skip surface built for exactly it, in a
  * way no test would have caught because the tests pass the flag directly. So
- * the rule is narrowed to what #480 actually needed: a panel to get back to.
+ * the rule is narrowed to what #480 actually needed: setup to get back to.
  * A plain session return keeps the retry surface.
  */
-export function carriesPanelIntent(next: unknown): boolean {
-  const target = sanitizeReturnTarget(next);
-  const separator = target.indexOf("?");
-  if (separator < 0) return false;
-  return new URLSearchParams(target.slice(separator + 1)).has("settings");
+export function carriesSetupIntent(next: unknown): boolean {
+  return sanitizeReturnTarget(next) === BYOK_SETUP_TARGET;
 }

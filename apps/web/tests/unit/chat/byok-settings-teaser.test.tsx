@@ -46,7 +46,7 @@ describe("ByokSettings — anonymous teaser (T8-AC3, touchpoint B)", () => {
     fireEvent.change(screen.getByLabelText("メールアドレス"), { target: { value: "fan@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "ログインリンクを送信" }));
     expect(send).toHaveBeenCalledWith(expect.objectContaining({
-      callbackURL: "http://localhost:3000/auth/callback?next=%2Fchat%3Fsettings%3Dbyok",
+      callbackURL: "http://localhost:3000/auth/callback?next=%2Fsettings%23api-key",
     }));
   });
 });
@@ -78,8 +78,9 @@ describe("ByokSettings — lapsed session still holding a credential (P1-1)", ()
 });
 
 describe("ByokSettings — pending auth", () => {
-  it("renders neither the form nor the teaser while auth is still resolving", () => {
+  it("announces resolution without rendering the form or teaser", () => {
     renderWithLocale(<ByokSettings dict={dict} auth="pending" baseUrl="http://agent.test" />);
+    expect(screen.getByRole("status").textContent).toBe(dict.byok.authPending);
     expect(screen.queryByText(dict.byok.anonymousTeaser)).toBeNull();
     expect(screen.queryByLabelText(dict.byok.apiKeyLabel)).toBeNull();
   });
