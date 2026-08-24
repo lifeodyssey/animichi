@@ -5,8 +5,7 @@ require "yaml"
 ROOT = File.expand_path("../..", __dir__)
 ACTION = ENV.fetch("SECRET_SCAN_ACTION", File.join(ROOT, ".github/actions/secret-scan/action.yml"))
 CI = ENV.fetch("SECRET_SCAN_CI", File.join(ROOT, ".github/workflows/pr-verification.yml"))
-SECURITY = ENV.fetch("SECRET_SCAN_SECURITY", File.join(ROOT, ".github/workflows/reusable-security.yml"))
-CROSS_STACK = ENV.fetch("SECRET_SCAN_CROSS_STACK", File.join(ROOT, ".github/workflows/reusable-cross-stack-e2e.yml"))
+CROSS_STACK_ACTION = ENV.fetch("SECRET_SCAN_CROSS_STACK_ACTION", File.join(ROOT, ".github/actions/cross-stack-e2e/action.yml"))
 IMAGE = "docker://ghcr.io/gitleaks/gitleaks:v8.24.3@sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab07055"
 EXPR = "$" + "{{"
 
@@ -53,11 +52,13 @@ end
 
 def assert_workflows
   ci = load_yaml(CI)
-  reusable = load_yaml(SECURITY)
   assert_scan_job(ci.fetch("jobs").fetch("security-diff"), "always-on secret diff")
-  assert_scan_job(reusable.fetch("jobs").fetch("gitleaks"), "affected security scan")
-  sources = [File.read(CI), File.read(SECURITY)].join
-  reject(sources.match?(/gitleaks-action|GITLEAKS_LICENSE/), "legacy action/license wiring must be deleted")
+  secret_steps = ci.fetch("jobs").fetch("security-diff").fetch("steps")
+  trufflehog = secret_steps.any? do |step|
+    step["uses"] == "./.github/actions/security-tool" && step.dig("with", "tool") == "trufflehog"
+  end
+  reject(!trufflehog, "always-on secret diff must retain TruffleHog")
+  reject(File.read(CI).match?(/gitleaks-action|GITLEAKS_LICENSE/), "legacy action/license wiring must be deleted")
   condition = ci.fetch("jobs").fetch("agent-eval").fetch("if")
   route_step = ci.fetch("jobs").fetch("route").fetch("steps").find { |step| step["id"] == "route" }
   route_guard = route_step.fetch("env").fetch("EVAL_ALLOWED")
@@ -68,12 +69,11 @@ def assert_workflows
 end
 
 def assert_cross_stack
-  workflow = load_yaml(CROSS_STACK)
-  job = workflow.fetch("jobs").fetch("cross-stack-e2e")
+  action = load_yaml(CROSS_STACK_ACTION)
   caller = load_yaml(CI).fetch("jobs").fetch("cross-stack")
-  source = File.read(CROSS_STACK)
+  source = File.read(CROSS_STACK_ACTION)
+  reject(action.dig("runs", "using") != "composite", "cross-stack implementation must be a local composite action")
   reject(source.match?(%r{dorny/paths-filter|steps\.f\.outputs|\bdb/\*\*}), "affected routing must stay in the single CI planner")
-  reject(job.fetch("permissions", {}).key?("pull-requests"), "cross-stack no longer needs PR-list permission")
   reject(caller.fetch("permissions", {}) != { "contents" => "read" }, "cross-stack caller must not grant unused permissions")
 end
 

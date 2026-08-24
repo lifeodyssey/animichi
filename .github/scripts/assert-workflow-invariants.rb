@@ -2,8 +2,8 @@
 # frozen_string_literal: true
 
 # S0-v2 B7 (GOAL B.21): four blocking workflow meta-assertions over
-# .github/workflows/*.yml. Owned by the Quality lane (reusable-static-quality.yml,
-# the fixed point that runs this script against itself).
+# .github/workflows/*.yml. Owned by CI's static-quality action, the fixed point
+# that runs this script against itself.
 #
 #   timeout     every job that declares `runs-on:` must declare
 #               `timeout-minutes:` (a missing timeout lets a hung job burn a
@@ -44,7 +44,7 @@
 # with key `true` and the trigger map would silently vanish. The re-quote
 # below covers all three forms; `triggers` additionally falls back to the
 # boolean key so an unreached shorthand can never be misread as "no triggers".
-# YAML validity itself is owned by the actionlint step in reusable-static-quality.yml.
+# YAML validity itself is owned by the actionlint step in the static-quality action.
 
 require "yaml"
 require_relative "assert-workflow-invariants-expression"
@@ -56,7 +56,8 @@ require_relative "assert-workflow-invariants-expression"
 # package/security child jobs remain visible evidence but are not independently
 # required.
 REQUIRED_CONTEXTS = {
-  "CI / verify" => "pr-verification.yml",
+  "PR Verification" => "pr-verification.yml",
+  "Security" => "pr-verification.yml",
   "Review Gate" => "review-gate.yml"
 }.freeze
 

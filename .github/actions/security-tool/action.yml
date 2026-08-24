@@ -7,14 +7,18 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Reject unknown security tool
+      if: ${{ !contains(fromJSON('["codeql-actions", "codeql-javascript", "codeql-python", "trufflehog", "osv", "dependabot-config", "config-read-sets", "release-config", "zizmor", "semgrep", "sqlfluff", "runtime-promotion"]'), inputs.tool) }}
+      run: exit 2
+      shell: bash
     - name: Initialize selected CodeQL language
-      if: ${{ startsWith(inputs.tool, 'codeql-') }}
+      if: ${{ contains(fromJSON('["codeql-actions", "codeql-javascript", "codeql-python"]'), inputs.tool) }}
       uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
       with:
         languages: ${{ inputs.tool == 'codeql-actions' && 'actions' || inputs.tool == 'codeql-python' && 'python' || 'javascript-typescript' }}
         build-mode: none
     - name: Analyze selected CodeQL language
-      if: ${{ startsWith(inputs.tool, 'codeql-') }}
+      if: ${{ contains(fromJSON('["codeql-actions", "codeql-javascript", "codeql-python"]'), inputs.tool) }}
       uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
       with:
         category: ${{ format('/language:{0}', inputs.tool == 'codeql-actions' && 'actions' || inputs.tool == 'codeql-python' && 'python' || 'javascript-typescript') }}
@@ -93,8 +97,4 @@ runs:
         ruby .github/scripts/test_cd_worker_promotion_contract.rb
         ruby .github/scripts/test_production_safety_contract.rb
         bash .github/scripts/security-aggregate.test.sh
-      shell: bash
-    - name: Reject unknown security tool
-      if: ${{ !contains(fromJSON('["codeql-actions", "codeql-javascript", "codeql-python", "trufflehog", "osv", "dependabot-config", "config-read-sets", "release-config", "zizmor", "semgrep", "sqlfluff", "runtime-promotion"]'), inputs.tool) }}
-      run: exit 2
       shell: bash

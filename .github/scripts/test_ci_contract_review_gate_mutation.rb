@@ -4,6 +4,10 @@ require_relative "test_ci_contract_review_gate_mutation_helpers"
 
 red_probe("candidate pull_request trigger", "candidate events", mutate { |wf| wf.fetch("on")["pull_request"] = {} })
 
+red_probe("workflow display name drift", "workflow display name must be Review Gate", mutate do |wf|
+  wf["name"] = "Review decision refresh"
+end)
+
 red_probe("candidate checkout", "immutable trusted-source SHA", mutate do |wf|
   step = wf.fetch("jobs").fetch("refresh").fetch("steps").find { |item| item.key?("uses") }
   step.fetch("with")["ref"] = "${{ github.event.pull_request.head.sha }}"
@@ -53,6 +57,8 @@ end)
 queue_source = File.read(GATE_STEP)
 queue_source_red_probe("workflow-run repository identity removed", queue_source.sub(".repository.full_name", ".repository.owner.login"))
 queue_source_red_probe("direct workflow-run PR association removed", queue_source.sub("/pull_requests?per_page=100", "/commits/$2/pulls?per_page=100"))
+queue_source_red_probe("PR Verification run binding removed", queue_source.sub('validate_ci_check "$1" "$2" "$3" "PR Verification"', 'validate_ci_check "$1" "$2" "$3" "CI / verify"'))
+queue_source_red_probe("Security run binding removed", queue_source.sub('validate_ci_check "$1" "$2" "$3" "Security"', 'validate_ci_check "$1" "$2" "$3" "CI / security"'))
 queue_source_red_probe("associated PR uniqueness removed", queue_source.sub("n not in seen", "True"))
 queue_source_red_probe("main-target constraint removed", queue_source.sub('base.get("ref")=="main"', "isinstance(base,dict)"))
 queue_source_red_probe("commit ancestry restored as membership evidence", "#{queue_source}\n# /compare/ is forbidden\n")

@@ -8,7 +8,7 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[6]
 _CI = (_ROOT / ".github/workflows/pr-verification.yml").read_text()
-_EVAL = (_ROOT / ".github/workflows/reusable-agent-eval.yml").read_text()
+_EVAL = (_ROOT / ".github/actions/agent-eval/action.yml").read_text()
 _NIGHTLY = (_ROOT / ".github/workflows/agent-eval-nightly.yml").read_text()
 
 
@@ -38,7 +38,8 @@ def test_single_ci_runs_the_authorized_l0_trajectory_gate() -> None:
     assert "github.actor != 'dependabot[bot]'" in job
     assert "github.event.pull_request.user.login != 'dependabot[bot]'" in job
     assert "ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}" in job
-    assert "uses: ./.github/workflows/reusable-agent-eval.yml" in job
+    assert "uses: ./.github/actions/agent-eval" in job
+    assert "tier: l0" in job
     assert "test_agent_eval.py::test_agent_trajectory" in _EVAL
     assert "openai:mimo-v2.5@https://opencode.ai/zen/go/v1" in _EVAL
     assert 'EVAL_SMOKE: "1"' in _EVAL
@@ -48,8 +49,8 @@ def test_single_ci_runs_the_authorized_l0_trajectory_gate() -> None:
 
 def test_single_ci_keeps_eval_report_only() -> None:
     verify = _job(_CI, "aggregate")
-    assert "agent-eval" in verify
-    assert "AGENT_EVAL_RESULT: ${{ needs.agent-eval.result }}" in verify
+    assert "agent-eval" not in verify
+    assert "AGENT_EVAL_RESULT" not in verify
     aggregate = (_ROOT / ".github/scripts/pr-verification-aggregate.sh").read_text()
     assert 'require_lane agent-eval "$AGENT_EVAL_RESULT"' not in aggregate
 
@@ -68,5 +69,7 @@ def test_nightly_remains_uncapped_and_outside_pull_requests() -> None:
     assert re.search(r"(?m)^\s*workflow_dispatch:\s*$", _NIGHTLY)
     assert "pull_request:" not in _NIGHTLY
     assert "EVAL_MAX_CASES" not in _NIGHTLY
-    assert "test_agent_eval.py::test_agent_trajectory" in _NIGHTLY
-    assert "test_translation.py" in _NIGHTLY
+    assert "uses: ./.github/actions/agent-eval" in _NIGHTLY
+    assert "tier: l1" in _NIGHTLY
+    assert "test_agent_eval.py::test_agent_trajectory" in _EVAL
+    assert "test_translation.py" in _EVAL

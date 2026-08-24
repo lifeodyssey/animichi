@@ -102,7 +102,10 @@ end
 # ── Red 4b (merge_group): ruleset map drift — context no longer produced ────
 red_fixture(
   "required context without producing job",
-  ["pr-verification.yml:top-level:required context not produced by any job (CI / verify)"]
+  [
+    "pr-verification.yml:top-level:required context not produced by any job (PR Verification)",
+    "pr-verification.yml:top-level:required context not produced by any job (Security)"
+  ]
 ) do |dir|
   File.write(File.join(dir, "pr-verification.yml"), <<~YAML)
     name: pr-verification

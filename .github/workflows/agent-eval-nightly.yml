@@ -21,40 +21,17 @@ concurrency:
   group: agent-eval-nightly
   cancel-in-progress: false
 
-env:
-  PYTHON_VERSION: "3.11"
-  NODE_VERSION: "24"
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   agent-eval-full:
     timeout-minutes: 45
     name: Agent Eval (L1 full, uncapped)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/agent
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/agent-eval
+        env:
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
         with:
-          python: "true"
-
-      - run: uv python install ${{ env.PYTHON_VERSION }}
-
-      # --no-build rejected: this project's own editable package has no wheel
-      # (see the affected agent lane in pr-verification.yml).
-      - run: uv sync --frozen --all-extras
-
-      - name: Run L1 full trajectory eval (uncapped — owns the statistical baseline)
-        run: uv run --frozen pytest src/animichi/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
-        env:
-          EVAL_MODEL: openai:mimo-v2.5@https://opencode.ai/zen/go/v1
-          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
-
-      - name: Run translation eval
-        run: uv run --frozen pytest src/animichi/tests/eval/test_translation.py -v -m integration --no-cov -x
-        env:
-          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
+          tier: l1

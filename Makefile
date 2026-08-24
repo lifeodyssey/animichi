@@ -93,7 +93,7 @@ test-docs:
 lint:
 	cd apps/agent && uv run ruff check src/animichi/ scripts/
 	cd apps/agent && uv run ruff format --check src/animichi/ scripts/
-	# vulture runs in CI (reusable-python-ci.yml); without it here a dead-code finding
+	# vulture runs in the affected agent CI gate; without it here a dead-code finding
 	# reaches CI as a bare "exit code 3" after `make check` was green locally.
 	cd apps/agent && uv run vulture src/animichi/ vulture_whitelist.py
 

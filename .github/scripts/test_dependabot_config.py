@@ -5,14 +5,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parents[2]
 CONFIG = REPO_ROOT / ".github/dependabot.yml"
-WORKFLOW = REPO_ROOT / ".github/workflows/dependabot-agent.yml"
-GATE_STEP_ORDER = (
-    "- uses: pnpm/action-setup@",
-    "- uses: actions/setup-node@",
-    "- run: pnpm install --frozen-lockfile --ignore-scripts",
-    "- name: Backend quality + tests",
-    "- name: Web + worker quality",
-)
 SETUP_UV_RE = re.compile(r"^\s*(?:-\s+)?uses:\s*astral-sh/setup-uv@")
 SETUP_UV_PIN_RE = re.compile(
     r"^\s*(?:-\s+)?uses:\s*astral-sh/setup-uv@([0-9a-f]{40})\s+#\s+(v\d+\.\d+\.\d+)\s*$"
@@ -60,11 +52,6 @@ def tracked_pnpm_lockfiles() -> list[str]:
 def pnpm_lockfile_domains() -> list[str]:
     parents = (Path(name).parent.as_posix() for name in tracked_pnpm_lockfiles())
     return sorted("/" if parent == "." else f"/{parent}" for parent in parents)
-
-
-def gate_step_positions() -> list[int]:
-    workflow = WORKFLOW.read_text(encoding="utf-8")
-    return [workflow.index(marker) for marker in GATE_STEP_ORDER]
 
 
 def tracked_yaml_paths() -> list[Path]:
@@ -157,11 +144,7 @@ class DependabotConfigTest(unittest.TestCase):
         )
 
 
-class DependabotWorkflowTest(unittest.TestCase):
-    def test_node_dependencies_precede_cross_language_backend_tests(self) -> None:
-        positions = gate_step_positions()
-        self.assertEqual(positions, sorted(positions))
-
+class SetupUvConfigTest(unittest.TestCase):
     def test_every_current_setup_uv_call_explicitly_prunes_cache(self) -> None:
         self.assertEqual(setup_uv_config_failures(), [])
 

@@ -21,7 +21,7 @@ exemptions:
     reason: "deploy: immutable affected production Worker bundle — CD-only packaging"
   - id: cmd:web::pnpm build
     reason: "deploy: sealed web .output artifact — CD-only release build"
-  - id: cmd:uv tool run semgrep@$SEMGREP_VERSION --config p/python --config p/typescript --config p/javascript --config .semgrep --error .
+  - id: cmd:uv tool run semgrep@1.172.0 --config p/python --config p/typescript --config p/javascript --config .semgrep --error .
     reason: "cloud: Semgrep registry (p/python, p/typescript, p/javascript)"
   - id: cmd:uvx zizmor@$ZIZMOR_VERSION --cache-dir ~/.cache/zizmor .
     reason: "secrets: GH_TOKEN — zizmor impostor-commit GitHub API audit"
@@ -41,5 +41,7 @@ exemptions:
     reason: "cloud: GitHub-hosted CodeQL runners — init"
   - id: uses:google/osv-scanner-action/osv-scanner-action
     reason: "cloud: live OSV vulnerability API — osv-scanner-action"
+  - id: uses:docker://ghcr.io/gitleaks/gitleaks:v8.24.3
+    reason: "cloud: pinned Gitleaks container — GitHub-hosted runner"
   - id: uses:trufflesecurity/trufflehog
     reason: "cloud: TruffleHog verified-secret detectors — live APIs"

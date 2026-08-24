@@ -231,8 +231,9 @@ with it. The root Worker (`workers/edge/src/app.ts`) is now an API gateway only:
 | `tests/eval/datasets/injection_g1_v1.json` | Indirect-injection defense cases |
 | `tests/eval/direct_gates.py` | Deterministic thrash gates (req/tool/repeat/p95) |
 
-CI tiering (SD-30): `EVAL_SMOKE=1` capped run is an enforced L0 lane in `.github/workflows/ci.yml`; the uncapped L1
-suite owns the baseline and runs nightly via `.github/workflows/agent-eval-nightly.yml`. Model, cost, and the run
+CI tiering (SD-30): `EVAL_SMOKE=1` capped run is an affected L0 lane in `.github/workflows/pr-verification.yml`; the
+uncapped L1 suite owns the baseline and runs nightly via `.github/workflows/agent-eval-nightly.yml`. Both call the
+local `.github/actions/agent-eval` implementation. Model, cost, and the run
 recipe live in `apps/agent/AGENTS.md`; strategy in `docs/testing-strategy.md`.
 
 ## Design Rules

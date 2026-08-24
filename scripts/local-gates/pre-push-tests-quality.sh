@@ -2,7 +2,7 @@
 # Quality-lane regression tests for scripts/local-gates/quality.sh — sourced
 # by pre-push.test.sh (the single entry point); not standalone.
 #
-# Covers the ruby -c syntax lane: CI (reusable-static-quality.yml) runs `ruby -c`
+# Covers the ruby -c syntax lane: CI's local static-quality action runs `ruby -c`
 # once per Ruby script, and the gate mirrors that — a single `ruby -c a b c`
 # would only ever check the first path and silently skip every later file.
 # The regression drives the REAL quality.sh from a deterministic temp tree

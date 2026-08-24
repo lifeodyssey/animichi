@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Deterministic Quality gate (#1003, AC5): every check and self-test from
-# .github/workflows/reusable-static-quality.yml, in CI's order, fail-fast. CI calls
+# the static-quality action used by pr-verification.yml, in CI's order, fail-fast. CI calls
 # the very same scripts — nothing here is a weaker duplicate. The only
 # locally-pinned tool is actionlint (CI pins v1.7.7); the binary is a
 # prerequisite, never downloaded during a push. #1114 also mirrors the
@@ -13,7 +13,7 @@ run() {
   "$@"
 }
 
-# CI (reusable-static-quality.yml) runs `ruby -c` once per file; a single invocation
+# CI's static-quality action runs `ruby -c` once per file; a single invocation
 # with several paths would only ever syntax-check the first one, silently
 # skipping every later file — loop one path per `ruby -c`, fail-fast.
 for ruby_file in \
@@ -32,11 +32,6 @@ for ruby_file in \
   "$GS/test_ci_routing_consistency.rb" \
   "$GS/test_ci_contract_ruleset_migration.rb" \
   "$GS/test_ci_contract_ruleset_migration_mutation.rb" \
-  "$GS/ruleset_cutover.rb" \
-  "$GS/ruleset_cutover_cli.rb" \
-  "$GS/test_ruleset_cutover.rb" \
-  "$GS/test_ruleset_cutover_mutation.rb" \
-  "$GS/test_ruleset_cutover_integration.rb" \
   "$GS/test_ci_contract_review_gate.rb" \
   "$GS/test_ci_contract_review_gate_mutation.rb" \
   "$GS/test_production_safety_contract.rb" \
@@ -64,6 +59,7 @@ for ruby_file in \
 done
 run ruby "$GS/assert-workflow-invariants.test.rb"
 run ruby "$GS/assert-workflow-invariants.rb"
+run python3 "$GS/test_workflow_inventory.py"
 run python3 "$GS/test_component_manifest.py"
 run python3 "$GS/test_change_plan.py"
 run python3 "$GS/test_cd_cohort_plan.py"
@@ -107,7 +103,7 @@ run ruby "$GS/test_cd_affected_routing_contract.rb"
 run ruby "$GS/test_security_check_runs_canary.rb"
 run ruby "$GS/test_ci_contract_security_mutation.rb"
 run bash "$GS/security-aggregate.test.sh"
-run env EXPECTED_SHA=0123456789abcdef0123456789abcdef01234567 ACTUAL_SHA=0123456789abcdef0123456789abcdef01234567 SECURITY_RESULT=success REQUIRE_CHILD_RESULTS=true SECURITY_RESULTS=$'gitleaks=success\ncodeql=success\nsemgrep=success' GITHUB_STEP_SUMMARY=/dev/null bash "$GS/security-aggregate.sh"
+run env EXPECTED_SHA=0123456789abcdef0123456789abcdef01234567 ACTUAL_SHA=0123456789abcdef0123456789abcdef01234567 ROUTE_RESULT=success SECRET_SCANS_RESULT=success SECURITY_TOOLS='[]' SECURITY_MATRIX_RESULT=skipped GITHUB_STEP_SUMMARY=/dev/null bash "$GS/security-aggregate.sh"
 run ruby "$GS/test_pr_verification_contract.rb"
 run ruby "$GS/test_pr_verification_contract_mutation.rb"
 run ruby "$GS/test_secret_scan_contract.rb"
@@ -120,9 +116,6 @@ run bash -c 'if bash .github/scripts/pr-verification-aggregate.sh >/dev/null 2>&
 run bash -c 'if bash .github/scripts/pr-verification-gate.sh invalid >/dev/null 2>&1; then exit 1; fi'
 run ruby "$GS/test_neon_test_infra_absence.rb"
 run ruby "$GS/test_ci_contract_ruleset_migration_mutation.rb"
-run ruby "$GS/test_ruleset_cutover.rb"
-run ruby "$GS/test_ruleset_cutover_mutation.rb"
-run ruby "$GS/test_ruleset_cutover_integration.rb"
 run ruby "$GS"/test_*cov_patch.rb
 run ruby "$GS/test_ci_routing_consistency.rb"
 run ruby "$GS/test_ci_prepush_parity.rb"

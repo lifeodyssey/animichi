@@ -28,8 +28,8 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 - `Pulumi.yaml` — project metadata and base encrypted config.
 - `Pulumi.staging.yaml` · `Pulumi.prod.yaml` — live environment stacks.
 - `../.github/workflows/cd.yml` — main-only affected release cohort and production approval.
-- `../.github/workflows/reusable-build-release-unit.yml` — immutable release payload builder.
-- `../.github/workflows/reusable-promote-release-phase.yml` — ordered staging phase promotion.
+- `../.github/actions/build-release-unit/action.yml` — immutable release payload builder.
+- `../.github/actions/promote-release-phase/action.yml` — ordered staging phase promotion.
 - `../docs/ops/deployment.md` — environment and approval runbook.
 
 ## Pitfalls

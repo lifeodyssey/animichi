@@ -22,18 +22,20 @@ def assert(condition, message)
 end
 
 cd = load_yaml(ENV.fetch("SECRET_CONTRACT_CD", ".github/workflows/cd.yml"))
-phase = load_yaml(ENV.fetch("SECRET_CONTRACT_PHASE", ".github/workflows/reusable-promote-release-phase.yml"))
+phase = load_yaml(ENV.fetch("SECRET_CONTRACT_PHASE", ".github/actions/promote-release-phase/action.yml"))
 adapter = File.read(ENV.fetch("SECRET_CONTRACT_ADAPTER", ".github/scripts/promote-release-unit.sh"))
 sync = File.read(ENV.fetch("SECRET_CONTRACT_SYNC", ".github/scripts/sync-edge-runtime-secrets.sh"))
 renderer = File.read(ENV.fetch("SECRET_CONTRACT_RENDERER", ".github/scripts/edge-runtime-secrets.py"))
 
-stage = cd.dig("jobs", "stage-edge", "secrets").keys
-assert(stage.sort == (CONTROL + RUNTIME).sort, "stage edge must receive only control and runtime secrets")
+edge_action = cd.dig("jobs", "stage-edge", "steps").find { |step| step["uses"] == "./.github/actions/promote-release-phase" }
+stage = edge_action.fetch("with").keys - %w[phase units source_sha]
+expected_inputs = (CONTROL + RUNTIME).map(&:downcase)
+assert(stage.sort == expected_inputs.sort, "stage edge must receive only control and runtime secrets")
 production = cd.dig("jobs", "promote-production", "steps").find { |step| step["name"] == "Promote production edge payload" }
 prod_names = production.fetch("env").keys - ["SOURCE_SHA"]
 assert(prod_names.sort == (CONTROL + RUNTIME).sort, "production edge must receive the same exact secret set")
 
-phase_step = phase.dig("jobs", "promote", "steps").find { |step| step["name"] == "Promote edge payloads" }
+phase_step = phase.dig("runs", "steps").find { |step| step["name"] == "Promote edge payloads" }
 phase_names = phase_step.fetch("env").keys - %w[RELEASE_UNITS SOURCE_SHA]
 assert(phase_names.sort == (CONTROL + RUNTIME).sort, "staging edge step must receive the exact secret set")
 

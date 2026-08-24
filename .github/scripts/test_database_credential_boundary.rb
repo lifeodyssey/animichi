@@ -4,7 +4,7 @@
 catalog = File.read("workers/catalog/wrangler.toml")
 users = File.read("workers/users/wrangler.toml")
 cd = File.read(".github/workflows/cd.yml")
-staging = File.read(".github/workflows/reusable-promote-release-phase.yml")
+staging = File.read(".github/actions/promote-release-phase/action.yml")
 adapter = File.read(".github/scripts/promote-release-unit.sh")
 
 bindings = {

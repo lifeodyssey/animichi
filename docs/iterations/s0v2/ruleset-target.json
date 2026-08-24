@@ -1,11 +1,11 @@
 {
-  "schema_version": "ruleset-target/v3",
-  "_comment": "Exact post-cutover branch ruleset target; live mutation remains separately operator-gated.",
-  "required_checks": ["CI / verify", "Review Gate"],
+  "schema_version": "ruleset-target/v4",
+  "_comment": "Desired protected-main target for the direct single-CI required contexts.",
+  "required_checks": ["PR Verification", "Security", "Review Gate"],
   "_required_status_sources": {"Review Gate": {"integration_id": 15368, "name": "GitHub Actions"}},
   "_required_review_thread_resolution": true,
-  "_retired_contexts": ["PR Verification", "Security", "Quality / invariants"],
+  "_retired_contexts": ["CI / verify", "Quality / invariants"],
   "_removed_native_rule_types": ["code_quality", "code_coverage"],
   "_preservation": "Keep every other effective protection rule, enforcement mode, bypass actor, and branch condition unchanged.",
-  "_canary": "A fresh content-addressed ruleset-canary/v3 artifact must prove both contexts and the Review Gate source on PR and merge_group heads before the single PUT."
+  "_canary": "The live canary must prove both direct CI checks on the exact head and the exact three-context ruleset."
 }

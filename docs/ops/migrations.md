@@ -103,7 +103,7 @@ approved, it would follow its own owner/runbook and must not add or alter Neon d
   `supabase db push` or a Drizzle migration command.
 - `.github/workflows/cd.yml` computes the cumulative affected cohort for each main SHA, builds
   the database payload once, and promotes it through
-  `reusable-promote-release-phase.yml` before services, edge, and web. There is no manual or
+  `.github/actions/promote-release-phase/action.yml` before services, edge, and web. There is no manual or
   tag-triggered alternate deploy path.
 - **Expand/contract is a rule (US25/#1052)**: every schema change must be **compatible with the
   currently deployed consumers one version back**. Schema and component deploys are never
@@ -140,5 +140,5 @@ the raw DSN and tokens out of logs and PRs.
 - [`docs/ops/neon-backup-rpo.md`](./neon-backup-rpo.md) — RPO/RTO, PITR, failed-migrate + bad-migration recovery
 - [`.github/workflows/pr-verification.yml`](../../.github/workflows/pr-verification.yml) — affected PR/static gates
 - [`.github/workflows/cd.yml`](../../.github/workflows/cd.yml) — main-only affected release orchestration
-- [`.github/workflows/reusable-promote-release-phase.yml`](../../.github/workflows/reusable-promote-release-phase.yml) — ordered staging phase adapter
+- [`.github/actions/promote-release-phase/action.yml`](../../.github/actions/promote-release-phase/action.yml) — ordered staging phase adapter
 - [`workers/edge/test/migration-boundary.test.ts`](../../workers/edge/test/migration-boundary.test.ts) — static boundary guard

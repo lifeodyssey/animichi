@@ -4,7 +4,7 @@
 
 **AI 驱动的动漫圣地搜索与路线规划**
 
-[![CI](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/animichi/actions/workflows/ci.yml?query=branch%3Amain)
+[![CI](https://github.com/lifeodyssey/animichi/actions/workflows/pr-verification.yml/badge.svg?branch=main)](https://github.com/lifeodyssey/animichi/actions/workflows/pr-verification.yml?query=branch%3Amain)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776ab.svg)](https://www.python.org)
 [![TanStack Start](https://img.shields.io/badge/TanStack_Start-SSR-FF4154.svg)](https://tanstack.com/start)
 [![Cloudflare Workers](https://img.shields.io/badge/deploy-Cloudflare_Workers-f38020.svg?logo=cloudflare)](https://developers.cloudflare.com/workers/)

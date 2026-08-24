@@ -24,7 +24,6 @@ function claims(overrides: Partial<GitHubOidcClaims> = {}): GitHubOidcClaims {
     repository: REPOSITORY,
     environment: "staging",
     workflow_ref: STAGING_GATE_TRUSTED_WORKFLOWS[0],
-    job_workflow_ref: STAGING_GATE_TRUSTED_WORKFLOWS[1],
     ...overrides,
   };
 }

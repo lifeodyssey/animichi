@@ -12,8 +12,8 @@ end
 
 ci = workflow(".github/workflows/pr-verification.yml")
 cd = workflow(".github/workflows/cd.yml")
-build_source = File.read(".github/workflows/reusable-build-release-unit.yml")
-promote_source = File.read(".github/workflows/reusable-promote-release-phase.yml")
+build_source = File.read(".github/actions/build-release-unit/action.yml")
+promote_source = File.read(".github/actions/promote-release-phase/action.yml")
 adapter_source = File.read(".github/scripts/promote-release-unit.sh")
 
 abort "PR CI must not trigger on push" if triggers(ci).key?("push")
@@ -27,6 +27,7 @@ abort "CD must observe main pushes" unless on.dig("push", "branches") == ["main"
 abort "CD must have no non-main manual entry" unless on.keys == ["push"]
 expected_lock = { "group" => "affected-cd-main", "cancel-in-progress" => false }
 abort "CD must use only GitHub-native deployment concurrency" unless cd.fetch("concurrency") == expected_lock
+abort "CD actions must run on Node 24" unless cd.dig("env", "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24") == true
 jobs = cd.fetch("jobs")
 route = jobs.fetch("route")
 route_source = route.fetch("steps").map { |step| step["run"] }.compact.join("\n")
@@ -41,6 +42,7 @@ abort "CD route must consume canonical manifest" unless route_source.include?(".
 build = jobs.fetch("build-release-artifacts")
 abort "release builds must be affected-matrix only" unless build.dig("strategy", "matrix", "unit").to_s.include?("needs.route.outputs.deploy_units")
 abort "release builds must not be feature-gated" if build.fetch("if").match?(/vars\.|enable/i)
+abort "release builds must run directly in CD" unless build.fetch("steps").any? { |step| step["uses"] == "./.github/actions/build-release-unit" }
 
 order = %w[stage-foundation stage-migration stage-services stage-edge stage-web post-staging promote-production]
 order.each_cons(2) do |before, after|
@@ -48,13 +50,39 @@ order.each_cons(2) do |before, after|
   abort "#{after} must follow #{before}" unless needs.include?(before)
 end
 
-staging_calls = jobs.values.select do |job|
-  job["uses"] == "./.github/workflows/reusable-promote-release-phase.yml"
+staging_names = %w[stage-foundation stage-migration stage-services stage-edge stage-web]
+staging_names.each do |name|
+  job = jobs.fetch(name)
+  abort "#{name} must run directly in CD" if job.key?("uses")
+  abort "#{name} must use staging protection" unless job["environment"] == "staging"
+  action = job.fetch("steps").find { |step| step["uses"] == "./.github/actions/promote-release-phase" }
+  abort "#{name} must use the local promotion action" unless action
 end
-abort "CD must keep all five ordered staging calls" unless staging_calls.length == 5
-staging_calls.each do |job|
-  permissions = job.fetch("permissions", {})
-  abort "staging caller must authorize reusable OIDC" unless permissions["id-token"] == "write"
+stage_inputs = {
+  "stage-foundation" => %w[
+    cloudflare_pulumi_api_token cloudflare_account_id pulumi_config_passphrase
+    pulumi_backend_url r2_access_key_id r2_secret_access_key neon_api_key
+  ],
+  "stage-migration" => %w[cloudflare_api_token cloudflare_account_id migrator_url],
+  "stage-services" => %w[cloudflare_api_token cloudflare_account_id],
+  "stage-edge" => %w[
+    cloudflare_api_token cloudflare_account_id deepseek_api_key mimo_api_key zen_go_api_key
+    supabase_db_url google_maps_api_key logfire_token turnstile_secret anon_id_secret
+  ],
+  "stage-web" => %w[
+    cloudflare_api_token cloudflare_account_id vite_site_origin vite_catalog_url vite_users_url
+    vite_agent_url vite_neon_auth_base_url vite_turnstile_site_key vite_cf_beacon_token vite_showcase_mode
+  ]
+}.freeze
+stage_inputs.each do |name, expected|
+  action = jobs.fetch(name).fetch("steps").find { |step| step["uses"] == "./.github/actions/promote-release-phase" }
+  actual = action.fetch("with").keys - %w[phase units source_sha]
+  abort "#{name} must receive only its phase inputs" unless actual.sort == expected.sort
+end
+migration_permissions = jobs.fetch("stage-migration").fetch("permissions", {})
+abort "only migration may mint the staging OIDC token" unless migration_permissions["id-token"] == "write"
+(staging_names - ["stage-migration"]).each do |name|
+  abort "#{name} must not mint OIDC" if jobs.fetch(name).fetch("permissions", {}).key?("id-token")
 end
 
 production = jobs.fetch("promote-production")
@@ -84,9 +112,10 @@ abort "production must reuse main-SHA artifacts" unless source.include?("release
 abort "production must use the common no-rebuild adapter" unless production.fetch("steps").any? { |step| step["run"].to_s.include?("promote-release-unit.sh") }
 abort "production must not rebuild" if production.fetch("steps").any? { |step| step.fetch("name", "").match?(/build/i) }
 abort "staging phases must be single jobs, not parallel matrices" if promote_source.include?("matrix:")
-abort "staging must use its environment-scoped targets" unless promote_source.match?(/^\s+environment:\s+staging\s*$/)
+abort "staging must use its environment-scoped targets" unless staging_names.all? { |name| jobs.fetch(name)["environment"] == "staging" }
 abort "staging and production must share the same adapter" unless promote_source.include?("promote-release-unit.sh")
 abort "phase adapter must preserve unit order" unless promote_source.include?("jq -r '.[]'")
+abort "phase adapter must reject unknown or empty phases" unless promote_source.include?("foundation|migration|services|edge|web") && promote_source.include?("length > 0")
 abort "agent and migrator must be sealed as OCI archives" unless build_source.scan(/docker save/).length == 2
 abort "workers must be prebuilt with Wrangler dry-runs" unless build_source.include?("wrangler deploy") && build_source.include?("--dry-run")
 abort "web release must seal .output" unless build_source.include?("apps/web/.output") && build_source.include?("wrangler.jsonc")
@@ -107,5 +136,7 @@ abort "infra must snapshot rollback state before Pulumi" unless adapter_source.i
 abort "infra must upload its rollback state before Pulumi" unless adapter_source.index("aws s3 cp") < adapter_source.index("pulumi up")
 abort "infra must fail closed without a rollback snapshot" unless adapter_source.include?("empty Pulumi rollback snapshot")
 abort "parked smoke must not return" if cd_source.match?(/post-deploy-test|smoke/i) || promote_source.match?(/post-deploy-test|smoke/i)
+abort "reusable build workflow must be deleted" if File.exist?(".github/workflows/reusable-build-release-unit.yml")
+abort "reusable promotion workflow must be deleted" if File.exist?(".github/workflows/reusable-promote-release-phase.yml")
 
 puts "CD contract: affected main cohort, one immutable build, ordered staging, one approval, exact production promotion"

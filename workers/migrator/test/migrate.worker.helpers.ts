@@ -9,7 +9,6 @@ import type { ContainerOutcome } from "../src/migration";
 import {
   MIGRATOR_OIDC_AUDIENCE,
   TRUSTED_CD_WORKFLOW,
-  TRUSTED_PROMOTION_WORKFLOW,
 } from "../src/policy";
 
 // #1051 — shared HTTP-seam fixtures for the migrator worker tests: faked
@@ -27,7 +26,7 @@ export const policy: GitHubOidcPolicy = {
   repository: "lifeodyssey/animichi",
   refAllow: [{ ref: "refs/heads/main", environment: "staging" }],
   subAllow: [],
-  trustedWorkflowRefs: [TRUSTED_CD_WORKFLOW, TRUSTED_PROMOTION_WORKFLOW],
+  trustedWorkflowRefs: [TRUSTED_CD_WORKFLOW],
 };
 
 export function testEnv(): MigratorEnv {
@@ -46,7 +45,6 @@ export async function issuedToken(overrides: Record<string, unknown> = {}): Prom
     ref: "refs/heads/main",
     environment: "staging",
     workflow_ref: TRUSTED_CD_WORKFLOW,
-    job_workflow_ref: TRUSTED_PROMOTION_WORKFLOW,
     sub: "repo:lifeodyssey/animichi:environment:staging",
     ...overrides,
   })

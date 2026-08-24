@@ -35,14 +35,16 @@ void test("main CD orders migration between foundation and services", () => {
   const cd = read(".github/workflows/cd.yml");
   assert.match(cd, /stage-migration:[\s\S]*needs: \[route, stage-foundation\]/);
   assert.match(cd, /stage-services:[\s\S]*needs: \[route, stage-migration\]/);
-  assert.match(cd, /uses: \.\/\.github\/workflows\/reusable-promote-release-phase\.yml/);
+  assert.match(cd, /uses: \.\/\.github\/actions\/promote-release-phase/);
 });
 
 void test("staging migration uses OIDC while production applies the sealed Atlas chain", () => {
-  const reusable = read(".github/workflows/reusable-promote-release-phase.yml");
+  const cd = read(".github/workflows/cd.yml");
+  const action = read(".github/actions/promote-release-phase/action.yml");
   const promotion = read(".github/scripts/promote-release-unit.sh");
-  assert.match(reusable, /id-token: write/);
-  assert.match(reusable, /MIGRATOR_URL: \$\{\{ vars\.MIGRATOR_STAGING_URL \}\}/);
+  assert.match(cd, /stage-migration:[\s\S]*id-token: write/);
+  assert.match(cd, /migrator_url: \$\{\{ vars\.MIGRATOR_STAGING_URL \}\}/);
+  assert.match(action, /MIGRATOR_URL: \$\{\{ inputs\.migrator_url \}\}/);
   assert.match(promotion, /audience=animichi:github-actions:migrator/);
   assert.match(promotion, /atlas migrate validate --dir "file:\/\/\$PAYLOAD_DIR\/migrations"/);
   assert.match(promotion, /atlas migrate apply[\s\S]*--revisions-schema public/);

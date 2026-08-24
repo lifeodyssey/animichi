@@ -66,11 +66,13 @@ jobs:
             lanes="$(jq -c 'map(select(. != "agent-eval"))' <<< "$lanes")"
           fi
           security_tools="$(jq -c '[.[] | select(startswith("security-")) | sub("^security-"; "")] | unique' <<< "$lanes")"
-          echo "components=$components" >> "$GITHUB_OUTPUT"
-          echo "has_components=$(jq -r 'length > 0' <<< "$components")" >> "$GITHUB_OUTPUT"
-          echo "lanes=$lanes" >> "$GITHUB_OUTPUT"
-          echo "security_tools=$security_tools" >> "$GITHUB_OUTPUT"
-          echo "has_security_tools=$(jq -r 'length > 0' <<< "$security_tools")" >> "$GITHUB_OUTPUT"
+          {
+            echo "components=$components"
+            echo "has_components=$(jq -r 'length > 0' <<< "$components")"
+            echo "lanes=$lanes"
+            echo "security_tools=$security_tools"
+            echo "has_security_tools=$(jq -r 'length > 0' <<< "$security_tools")"
+          } >> "$GITHUB_OUTPUT"
           echo "Affected components: $components" >> "$GITHUB_STEP_SUMMARY"
           echo "Selected checks: $lanes" >> "$GITHUB_STEP_SUMMARY"
   security-diff:
@@ -369,9 +371,3 @@ jobs:
           PR_VERIFICATION_LANES: ${{ needs.route.outputs.lanes }}
           PR_VERIFICATION_CROSS_STACK_RESULT: ${{ needs.cross-stack.result }}
         run: bash .github/scripts/pr-verification-aggregate.sh
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    runs-on: ubuntu-latest
-    timeout-minutes: 10

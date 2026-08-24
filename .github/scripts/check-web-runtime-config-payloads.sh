@@ -8,7 +8,7 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 SOURCES=(
-  ".github/workflows/reusable-cross-stack-e2e.yml"
+  ".github/actions/cross-stack-e2e/action.yml"
   ".github/scripts/pr-verification-gate.sh"
 )
 
@@ -32,11 +32,13 @@ sys.exit(0 if ok else 1)
 }
 
 main() {
-  local file payload failures=0
+  local file payload found failures=0
   for file in "${SOURCES[@]}"; do
-    [ -f "${REPO_ROOT}/${file}" ] || { echo "missing workflow: ${file}"; failures=$((failures + 1)); continue; }
+    [ -f "${REPO_ROOT}/${file}" ] || { echo "missing runtime-config source: ${file}"; failures=$((failures + 1)); continue; }
+    found=0
     while IFS= read -r payload; do
       [ -n "${payload}" ] || continue
+      found=1
       if ! printf '%s' "${payload}" | is_valid; then
         echo "RUNTIME_CONFIG payload is not valid JSON in ${file}"
         failures=$((failures + 1))
@@ -47,9 +49,13 @@ main() {
         failures=$((failures + 1))
       fi
     done < <(extract_payload "${REPO_ROOT}/${file}")
+    if [ "${found}" -eq 0 ]; then
+      echo "no RUNTIME_CONFIG payload found in ${file}"
+      failures=$((failures + 1))
+    fi
   done
   if [ "${failures}" -ne 0 ]; then
-    echo "found ${failures} invalid RUNTIME_CONFIG payload(s); fix the workflow YAML"
+    echo "found ${failures} invalid RUNTIME_CONFIG payload(s); fix the CI source"
     exit 1
   fi
   echo "all RUNTIME_CONFIG payloads are valid versioned JSON"

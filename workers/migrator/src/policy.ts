@@ -21,12 +21,10 @@ import { GITHUB_OIDC_ISSUER, type GitHubOidcPolicy } from "@animichi/contract/oi
 export const MIGRATOR_OIDC_AUDIENCE = "animichi:github-actions:migrator";
 
 /**
- * The main-only CD caller and its reusable promotion job may present a token.
+ * Only the main-only CD workflow may present a token.
  */
 export const TRUSTED_CD_WORKFLOW =
   "lifeodyssey/animichi/.github/workflows/cd.yml@refs/heads/main";
-export const TRUSTED_PROMOTION_WORKFLOW =
-  "lifeodyssey/animichi/.github/workflows/reusable-promote-release-phase.yml@refs/heads/main";
 
 /** GitHub Actions OIDC JWKS (constructor-injected elsewhere; production source). */
 export const GITHUB_OIDC_JWKS_URL = "https://token.actions.githubusercontent.com/.well-known/jwks";
@@ -38,5 +36,5 @@ export const STAGING_OIDC_POLICY: GitHubOidcPolicy = {
   repository: "lifeodyssey/animichi",
   refAllow: [{ ref: "refs/heads/main", environment: "staging" }],
   subAllow: [],
-  trustedWorkflowRefs: [TRUSTED_CD_WORKFLOW, TRUSTED_PROMOTION_WORKFLOW],
+  trustedWorkflowRefs: [TRUSTED_CD_WORKFLOW],
 };

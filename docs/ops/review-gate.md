@@ -80,8 +80,8 @@ copy this checklist. Tooling is `scripts/local-gates/` (§8).
     — and the approval marker/verdict bind to that merge-base. An unresolvable
     compare is a hard block.
 Codecov patch coverage is **not a comment finding**: the single CI workflow's
-static-quality lane (implemented by the workflow-call-only `reusable-static-quality.yml`) enforces the
-patch-coverage policy and `CI / verify` aggregates it,
+static-quality lane (implemented by `.github/actions/static-quality`) enforces the patch-coverage
+policy and `PR Verification` aggregates it,
 and the comment parser / merge hook never inspect Codecov output.
 
 ## 2. Review method
@@ -284,7 +284,8 @@ Concretely:
 - **merge-group boundary**: the candidate `merge_group` workflow never receives
   `statuses: write`. Completion of the single `CI` workflow wakes the trusted
   default-branch `workflow_run` bridge. It reloads that run by id, validates its
-  repository/event/head/workflow/conclusion plus the exact `CI / verify` check,
+  repository/event/head/workflow/conclusion plus the exact `PR Verification`
+  and `Security` checks from that same run,
   then loads the run's direct PR associations. The associations must be non-empty,
   uniquely numbered, well-formed, and target `main`; pinned collect/check runs for
   every associated PR head at its exact recorded SHA. Missing or malformed evidence, stale PR data,

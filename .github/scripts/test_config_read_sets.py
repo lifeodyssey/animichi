@@ -18,12 +18,12 @@ from typing import cast
 import yaml
 
 REPO_ROOT = Path(__file__).parents[2]
-CHECK_PATHS = (
-    "apps/agent/src/animichi/tests/unit/test_documentation_guardrails.py",
-    "apps/agent/src/animichi/tests/unit/test_secrets_docs_consistency.py",
-    "workers/users/test/eddsa-shared-primitive.worker.test.ts",
-    "apps/web/tests/unit/chat/turnstile-constants-guard.test.ts",
-)
+CHECK_COMPONENTS = {
+    "apps/agent/src/animichi/tests/unit/test_documentation_guardrails.py": "docs",
+    "apps/agent/src/animichi/tests/unit/test_secrets_docs_consistency.py": "docs",
+    "workers/users/test/eddsa-shared-primitive.worker.test.ts": "users",
+    "apps/web/tests/unit/chat/turnstile-constants-guard.test.ts": "web",
+}
 TS_READS = re.compile(
     r"export\s+const\s+READS\s*=\s*(\[[^]]*])\s+as\s+const\s*;", re.DOTALL
 )
@@ -91,20 +91,14 @@ def typescript_reads(path: Path, source: str) -> tuple[str, ...]:
     return literal_reads(eval_literal(matches[0], source), source)
 
 
-def component_for(path: Path) -> str:
-    if len(path.parts) > 2 and path.parts[0] in {"apps", "workers"}:
-        return path.parts[1]
-    raise MetaCheckError(f"{path}: cannot infer a component CI lane")
-
-
-def config_check(relative: str) -> ConfigCheck:
+def config_check(relative: str, component: str) -> ConfigCheck:
     path = Path(relative)
     extractor = python_reads if path.suffix == ".py" else typescript_reads
-    return ConfigCheck(path, component_for(path), extractor(REPO_ROOT / path, relative))
+    return ConfigCheck(path, component, extractor(REPO_ROOT / path, relative))
 
 
 def discover_checks() -> tuple[ConfigCheck, ...]:
-    return tuple(config_check(path) for path in CHECK_PATHS)
+    return tuple(config_check(path, component) for path, component in CHECK_COMPONENTS.items())
 
 
 def manifest() -> tuple[dict[str, object], ...]:

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-time adoption of the live resources the #926 local file-backend run
-# created, into the CD R2 state backend (reusable-promote-release-phase.yml).
+# created, into the CD R2 state backend (`cd.yml` foundation promotion).
 #
 # Why this exists: the #926 validation ran `pulumi up` against a LOCAL
 # `file://` backend (/Users/lumimamini/work/neon-secrets-state, its historical

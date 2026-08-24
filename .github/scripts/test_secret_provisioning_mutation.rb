@@ -6,7 +6,7 @@ require "tempfile"
 CONTRACT = ".github/scripts/test_secret_provisioning_contract.rb"
 SOURCES = {
   "SECRET_CONTRACT_CD" => ".github/workflows/cd.yml",
-  "SECRET_CONTRACT_PHASE" => ".github/workflows/reusable-promote-release-phase.yml",
+  "SECRET_CONTRACT_PHASE" => ".github/actions/promote-release-phase/action.yml",
   "SECRET_CONTRACT_ADAPTER" => ".github/scripts/promote-release-unit.sh",
   "SECRET_CONTRACT_SYNC" => ".github/scripts/sync-edge-runtime-secrets.sh",
   "SECRET_CONTRACT_RENDERER" => ".github/scripts/edge-runtime-secrets.py"
@@ -23,7 +23,7 @@ def reject_mutation(label, key, before, after)
   puts "PASS: #{label} rejected"
 end
 
-reject_mutation("stage secret omitted", "SECRET_CONTRACT_CD", "      ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}\n", "")
+reject_mutation("stage secret omitted", "SECRET_CONTRACT_CD", "          zen_go_api_key: ${{ secrets.ZEN_GO_API_KEY }}\n", "")
 reject_mutation("bulk regresses to put", "SECRET_CONTRACT_SYNC", "wrangler secret bulk", "wrangler secret put")
 reject_mutation("preflight follows deploy", "SECRET_CONTRACT_ADAPTER",
                 "  preflight_edge_runtime_secrets\n  run_worker_deploy \"$entry\"",

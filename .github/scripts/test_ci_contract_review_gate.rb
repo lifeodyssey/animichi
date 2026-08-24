@@ -6,7 +6,7 @@ require_relative "test_ci_contract_review_gate_steps"
 
 ROOT = File.expand_path("../..", __dir__)
 REVIEW_YML = File.join(ROOT, ".github/workflows/review-gate.yml")
-QUALITY_YML = File.join(ROOT, ".github/workflows/reusable-static-quality.yml")
+QUALITY_ACTION = File.join(ROOT, ".github/actions/static-quality/action.yml")
 GATE_STEP = File.join(ROOT, "scripts/local-gates/pr-review-gate-step.sh")
 
 def triggers(workflow, file)
@@ -29,8 +29,8 @@ def assert_concurrency(review, path)
 end
 
 def assert_static_quality_split(path)
-  quality = workflow(path)
-  abort "static quality must be workflow_call-only" unless triggers(quality, path).keys == ["workflow_call"]
+  quality = YAML.safe_load(File.read(path), aliases: true)
+  abort "static quality must be a local composite action" unless quality.fetch("runs").fetch("using") == "composite"
   source = File.read(path)
   abort "static quality must not publish review statuses" if source.include?("statuses: write") || source.include?("claim-status")
 end
@@ -45,7 +45,9 @@ end
 def assert_live_queue_association(path = GATE_STEP)
   source = File.read(path)
   required = ["actions/runs/$run_id\" --jq", "/pull_requests?per_page=100", ".repository.full_name,.event,.head_sha,.path,.conclusion",
-              ".github/workflows/pr-verification.yml", "n not in seen", 'base.get("ref")=="main"']
+              ".github/workflows/pr-verification.yml", 'validate_ci_check "$1" "$2" "$3" "PR Verification"',
+              'validate_ci_check "$1" "$2" "$3" "Security"',
+              "n not in seen", 'base.get("ref")=="main"']
   missing = required.reject { |token| source.include?(token) }
   abort "#{path} must validate live workflow-run metadata and direct PR associations: #{missing.join(', ')}" unless missing.empty?
   abort "#{path} must not infer merge-queue membership from commit ancestry" if source.include?("/compare/")
@@ -53,20 +55,16 @@ end
 
 def assert_artifacts
   target = JSON.parse(File.read(File.join(ROOT, "docs/iterations/s0v2/ruleset-target.json")))
-  cutover = JSON.parse(File.read(File.join(ROOT, "docs/iterations/s0v2/ruleset-cutover-target.json")))
-  expected = ["CI / verify", "Review Gate"]
-  abort "ruleset contexts drifted" unless target.fetch("required_checks") == expected && cutover.fetch("required_checks") == expected
+  expected = ["PR Verification", "Security", "Review Gate"]
+  abort "ruleset contexts drifted" unless target.fetch("required_checks") == expected
   source = target.dig("_required_status_sources", "Review Gate", "integration_id")
   abort "Review Gate ruleset source is not GitHub Actions" unless source == 15_368
   abort "native review-thread resolution is not required" unless target.fetch("_required_review_thread_resolution") == true
-  producer = cutover.fetch("producer_jobs").fetch("Review Gate")
-  valid = producer.fetch("workflow") == ".github/workflows/review-gate.yml"
-  valid &&= producer.fetch("job_id") == "refresh" && producer.fetch("type") == "commit_status"
-  abort "ruleset producer must be the trusted refresh job" unless valid
 end
 
 def assert_split_review_gate(path = REVIEW_YML)
   review = workflow(path)
+  abort "#{path} workflow display name must be Review Gate" unless review.fetch("name") == "Review Gate"
   assert_trusted_events(review, path)
   assert_concurrency(review, path)
   refresh = review.fetch("jobs").fetch("refresh")
@@ -80,7 +78,7 @@ def assert_split_review_gate(path = REVIEW_YML)
   assert_refresh_steps(refresh, path)
   assert_live_queue_association
   assert_single_status_producer(path)
-  assert_static_quality_split(QUALITY_YML)
+  assert_static_quality_split(QUALITY_ACTION)
   assert_artifacts
   puts "Review gate: trusted default-branch producer; PR pending claim + guarded final; workflow_run validates merge-queue evidence"
 end

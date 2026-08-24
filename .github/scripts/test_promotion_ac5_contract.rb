@@ -38,16 +38,17 @@ end
 def assert_immutable_consumption(dir, cd)
   source = File.read(File.join(dir, "cd.yml"))
   adapter = File.read(File.expand_path("promote-release-unit.sh", __dir__))
+  promotion = File.read(File.expand_path("../actions/promote-release-phase/action.yml", __dir__))
   abort "production must download main-SHA release artifacts" unless source.include?("release-${{ github.sha }}-*")
   abort "promotion must verify the artifact before extraction" unless adapter.index("verify-release-artifact.py") < adapter.index("tar -xzf")
-  abort "staging and production must use the same adapter" unless File.read(File.join(dir, "reusable-promote-release-phase.yml")).include?("promote-release-unit.sh")
+  abort "staging and production must use the same adapter" unless promotion.include?("promote-release-unit.sh")
   assert_no_production_build(cd)
 end
 
 def assert_ac5_contract(workflows_dir)
-  %w[cd.yml reusable-build-release-unit.yml reusable-promote-release-phase.yml].each do |file|
-    assert_no_tag_trigger(workflows_dir, file)
-  end
+  assert_no_tag_trigger(workflows_dir, "cd.yml")
+  abort "reusable build workflow must be deleted" if File.exist?(File.join(workflows_dir, "reusable-build-release-unit.yml"))
+  abort "reusable promotion workflow must be deleted" if File.exist?(File.join(workflows_dir, "reusable-promote-release-phase.yml"))
   cd = workflow(workflows_dir, "cd.yml")
   abort "CD must deploy only from main pushes" unless workflow_triggers(cd).dig("push", "branches") == ["main"]
   assert_immutable_consumption(workflows_dir, cd)

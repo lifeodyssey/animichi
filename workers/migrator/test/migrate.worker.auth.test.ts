@@ -4,7 +4,6 @@ import { GITHUB_OIDC_ISSUER, createGitHubOidcVerifier } from "@animichi/contract
 import {
   MIGRATOR_OIDC_AUDIENCE,
   TRUSTED_CD_WORKFLOW,
-  TRUSTED_PROMOTION_WORKFLOW,
 } from "../src/policy";
 import {
   FIXED_NOW,
@@ -70,7 +69,6 @@ describe("POST /migrate — invalid identities", () => {
       ref: "refs/heads/main",
       environment: "staging",
       workflow_ref: TRUSTED_CD_WORKFLOW,
-      job_workflow_ref: TRUSTED_PROMOTION_WORKFLOW,
     })
       .setProtectedHeader({ alg: "RS256", kid: "other", typ: "JWT" })
       .setIssuer(GITHUB_OIDC_ISSUER)
@@ -90,7 +88,6 @@ describe("POST /migrate — invalid identities", () => {
       ref: "refs/heads/main",
       environment: "staging",
       workflow_ref: TRUSTED_CD_WORKFLOW,
-      job_workflow_ref: TRUSTED_PROMOTION_WORKFLOW,
     })
       .setProtectedHeader({ alg: "RS256", kid: "expired", typ: "JWT" })
       .setIssuer(GITHUB_OIDC_ISSUER)

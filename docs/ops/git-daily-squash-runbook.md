@@ -156,13 +156,15 @@ default branch (one less default flip). Only do this if the owner prefers it.
       green (see `docs/iterations/s0v2/ruleset-target.json` and
       `gh ruleset view 19974534`). CI keys on contexts, not SHAs, so nothing
       needs reconfiguration.
-- [ ] **Staging redeploy** via normal promotion (`ci.yml` staging on the new tip),
-      then smoke: `/healthz` returns 200.
+- [ ] **Staging redeploy** via the `CD` run triggered by the rewritten `main` tip.
+      With no trusted successful ancestor, the durable base resolver falls back to
+      the new root and the affected planner selects the full release cohort. Verify
+      that route summary, then manually smoke staging: `/healthz` returns 200.
       > **Caveat**: `/healthz` `git_commit`/`git_branch` are **always `"unknown"`**
       > in every deployed environment (#494 — Dockerfile never `COPY`s `.git`, so
       > `git rev-parse` fails). Do **not** use healthz to confirm the SHA. Confirm
-      > the deployed SHA from the workflow itself: `pipeline-web.yml` gates
-      > `META_COMMIT_SHA == GITHUB_SHA` at deploy, and
+      > the deployed SHA from the `CD` run and its sealed artifact manifests; the
+      > web promotion gate verifies `META_COMMIT_SHA == GITHUB_SHA`, and
       > `npx wrangler@4.112.0 versions list --env staging` shows the new version.
 - [ ] `main-legacy` exists and points at `$OLD_MAIN`
 - [ ] `git diff origin/main main-legacy` empty (trees identical by construction)

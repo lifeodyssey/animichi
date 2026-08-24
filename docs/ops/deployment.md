@@ -14,8 +14,9 @@ There are exactly two automatic delivery entry points:
 - `.github/workflows/cd.yml` (`CD`) deploys only a push to `main`.
 
 There is no tag-triggered or manually dispatched deployment path. The protected branch requires
-exactly `CI / verify` and `Review Gate`: the first aggregates every selected CI job in the single
-CI run; the second enforces the head-bound review contract in [`review-gate.md`](./review-gate.md).
+exactly `PR Verification`, `Security`, and `Review Gate`. The first aggregates every selected CI
+gate, `Security` directly aggregates changed-secret scans and affected security tools, and the last
+enforces the head-bound review contract in [`review-gate.md`](./review-gate.md).
 
 ### Affected-only PR CI
 
@@ -25,13 +26,14 @@ then expands direct changes through reverse dependencies. A contract change ther
 all consumers, a web change includes browser E2E, and a migration includes its schema consumers.
 An unknown or unowned path fails closed to the full component set; merge-queue evaluation is also
 fail-closed. Static quality, security, cross-stack, and agent-eval lanes run inside the same `CI`
-workflow when selected, and `CI / verify` fails unless every required selected job succeeds.
+workflow when selected. `PR Verification` and the direct `Security` context fail unless every
+required selected job succeeds.
 
 ### Build once, promote the same artifact
 
 On a `main` push, `CD` evaluates the exact `before..sha` range with the same component graph and
 deduplicates the reverse closure into deploy units. Every affected unit is built once by
-`reusable-build-release-unit.yml`. Its release payload includes the source SHA, a closed manifest,
+the local `build-release-unit` action. Its release payload includes the source SHA, a closed manifest,
 and a SHA-256 digest. Promotion verifies the payload and digest; staging and production consume
 the same immutable bytes and never rebuild them.
 

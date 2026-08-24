@@ -43,8 +43,8 @@ does the same job for `ARCHITECTURE.md` against `workers/edge/src/identity/auth.
 
 ## Same-name override rule
 
-`reusable-promote-release-phase.yml` runs staging promotion under `environment: staging`, and
-`cd.yml` runs the one production promotion under `environment: production`.
+`cd.yml` runs each ordered staging job under `environment: staging`, and runs the one production
+promotion under `environment: production`.
 GitHub resolves an environment secret over a same-named repository secret for any job that
 declares that environment — **so when a name exists at both scopes, only the environment-level
 value is ever live for a staging/production deploy; rotating the repository-level one there
@@ -53,18 +53,16 @@ does nothing.** The table below marks scope explicitly per name instead of assum
 There is no PR-preview, manual, or tag-triggered deploy workflow in the current tree. Consequently,
 the repository-level copies of `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
 `NEON_DATABASE_URL`, `PULUMI_BACKEND_URL`, `PULUMI_CONFIG_PASSPHRASE`, `R2_ACCESS_KEY_ID`,
-`R2_SECRET_ACCESS_KEY`, and `LOGFIRE_TOKEN` are passed by caller expressions but are overridden
-by the matching staging/production environment value inside the called job. The current caller
-maps still pass the repository-level names explicitly, but that does not make those values the
-deploy inputs; they are not a separate deploy path. Removing a caller mapping is a separate
-workflow change that must be tested against the environment override behavior.
+`R2_SECRET_ACCESS_KEY`, and `LOGFIRE_TOKEN` are referenced inside environment-scoped jobs, so the
+matching staging/production environment value wins. The repository copy is not a separate deploy
+path.
 
 ## Three consumption chains
 
 A secret reaching a shared environment takes one of three shapes:
 
-1. **Edge-to-container core chain** — `.github/workflows/cd.yml` and the staging reusable
-   workflow forward exactly these six names into edge promotion:
+1. **Edge-to-container core chain** — `.github/workflows/cd.yml` passes exactly these six names
+   through the local staging action into edge promotion:
    `DEEPSEEK_API_KEY`, `MIMO_API_KEY`, `ZEN_GO_API_KEY`, `SUPABASE_DB_URL`,
    `GOOGLE_MAPS_API_KEY`, and `LOGFIRE_TOKEN`.
    `.github/scripts/edge-runtime-secrets.py` derives the allowlist from the sealed target
@@ -93,10 +91,10 @@ so it no longer has a Live row here — see its "Referenced by nothing" row belo
 
 | Secret | Scope | What it is | Value lives in / read by | Rotation |
 |---|---|---|---|---|
-| `CLOUDFLARE_API_TOKEN` | repo + `staging` + `production` (environment value wins for current deploys) | Deploys Workers; needs `Workers Scripts:Edit` | `reusable-promote-release-phase.yml` and `cd.yml` production promotion | Rotating the environment-level value breaks that environment's promotion. Create the replacement first, update the intended scope, then revoke the old one |
-| `CLOUDFLARE_PULUMI_API_TOKEN` | `staging` + `production` environments | Pulumi 专用最小权限 token(R2:Edit + Zone DNS/Routes/Rulesets:Edit,zone 限 animichi.com;不含 Workers Scripts/Containers)— #674 最小权限分离 | `reusable-promote-release-phase.yml` staging foundation 与 `cd.yml` production foundation 的 state snapshot + `pulumi up` | 与 wrangler token 分离即为轮换/爆炸半径隔离;轮换在 CF dashboard 原地 Edit 权限或 Roll 后更新两环境 secret |
-| `CLOUDFLARE_ACCOUNT_ID` | repo + `staging` + `production` (same override rule as above) | Account identifier (not a credential, stored as a secret for convenience) | All current deploy and post-deploy workflows | Rotating an environment value breaks that environment's URL resolution/deploy; the repo-level copy is only a caller mapping today |
-| `ZEN_GO_API_KEY` | repo (no env override) | **Production LLM gateway.** MiMo `mimo-v2.5` is routed through the zen/go gateway (`https://opencode.ai/zen/go/v1`) | Exact edge core payload → Worker binding → agent container; also the affected `CI / agent eval` lane and `agent-eval-nightly.yml` | Missing or blank blocks edge staging, production, and rollback at preflight. Eval lanes 401/403 the provider and the user sees the agent's generic failure response, never the raw provider error (SD-19) |
+| `CLOUDFLARE_API_TOKEN` | repo + `staging` + `production` (environment value wins for current deploys) | Deploys Workers; needs `Workers Scripts:Edit` | `cd.yml` staging and production promotion | Rotating the environment-level value breaks that environment's promotion. Create the replacement first, update the intended scope, then revoke the old one |
+| `CLOUDFLARE_PULUMI_API_TOKEN` | `staging` + `production` environments | Pulumi 专用最小权限 token(R2:Edit + Zone DNS/Routes/Rulesets:Edit,zone 限 animichi.com;不含 Workers Scripts/Containers)— #674 最小权限分离 | `cd.yml` staging/production foundation state snapshot + `pulumi up` | 与 wrangler token 分离即为轮换/爆炸半径隔离;轮换在 CF dashboard 原地 Edit 权限或 Roll 后更新两环境 secret |
+| `CLOUDFLARE_ACCOUNT_ID` | repo + `staging` + `production` (same override rule as above) | Account identifier (not a credential, stored as a secret for convenience) | All current deploy and rollback workflows | Rotating an environment value breaks that environment's URL resolution/deploy; the repo-level copy is shadowed in environment-scoped CD jobs |
+| `ZEN_GO_API_KEY` | repo (no env override) | **Production LLM gateway.** MiMo `mimo-v2.5` is routed through the zen/go gateway (`https://opencode.ai/zen/go/v1`) | Exact edge core payload → Worker binding → agent container; also the affected `CI / agent eval` lane and `agent-eval-nightly.yml`, both through `.github/actions/agent-eval` | Missing or blank blocks edge staging, production, and rollback at preflight. Eval lanes 401/403 the provider and the user sees the agent's generic failure response, never the raw provider error (SD-19) |
 | `MIMO_API_KEY` | repo (no env override) | Retired direct-gateway credential retained as an explicit rollback-capable runtime binding | Exact edge core payload → Worker binding → agent container | It is required even while zen/go is the default; missing or blank blocks edge staging, production, and rollback at preflight |
 | `DEEPSEEK_API_KEY` | repo (no env override) | Fallback model — **wired but disabled** (no balance) | Exact edge core payload → Worker binding → agent container | It remains an exact required binding; missing or blank blocks edge staging, production, and rollback at preflight |
 | `SUPABASE_DB_URL` | repo (no env override) | Transitional production container DSN name pending the #855 agent-service cutover | Exact edge core payload → Worker binding → agent container; staging prefers its `AGENT_SVC_DATABASE_URL` Secrets Store binding | Missing or blank blocks edge staging, production, and rollback at preflight; remove it from the core allowlist only as part of the #855 cutover |
@@ -105,7 +103,7 @@ so it no longer has a Live row here — see its "Referenced by nothing" row belo
 | `ANON_ID_SECRET` | repo (no env override) | HMAC key for signed anonymous visitor identities | Staging-only anonymous payload → edge `workers/edge/src/identity/auth.ts`; excluded from production and rollback because anonymous access is off | Missing or blank blocks staging edge promotion. Rotation invalidates existing anonymous identities and can orphan unmigrated anonymous session ownership |
 | `NEON_DATABASE_URL` | repo (**unreachable** — see "Same-name override rule"; no non-environment-scoped caller exists today) + `staging` + `production` | Catalog data plane | Production `db` promotion's Atlas migration; catalog/users runtime DSNs come from Cloudflare Secrets Store bindings | Wrong value → Atlas migrate fails closed; rotate one environment at a time |
 | `NEON_API_KEY` | repo (no env override) | Neon data-plane control-plane key for provisioning (#926, ADR 0003); no longer a test-infra credential since #1053 | Staging and production release promotion through `cd.yml` | Removing it blocks the affected infrastructure/migration promotion units |
-| `PULUMI_BACKEND_URL` · `PULUMI_CONFIG_PASSPHRASE` | repo (**unreachable** — no non-environment-scoped caller) + `staging` + `production` | Pulumi state on R2 and its encryption passphrase | Foundation promotion in `reusable-promote-release-phase.yml` / `cd.yml` | **Losing the passphrase makes existing state undecryptable.** Back it up outside this repo. This is the loudest possible failure: `pulumi up` refuses to proceed |
+| `PULUMI_BACKEND_URL` · `PULUMI_CONFIG_PASSPHRASE` | repo (**unreachable** — no non-environment-scoped caller) + `staging` + `production` | Pulumi state on R2 and its encryption passphrase | Foundation promotion in `cd.yml` | **Losing the passphrase makes existing state undecryptable.** Back it up outside this repo. This is the loudest possible failure: `pulumi up` refuses to proceed |
 | `R2_ACCESS_KEY_ID` · `R2_SECRET_ACCESS_KEY` | repo (**unreachable** — no non-environment-scoped caller) + `staging` + `production` | R2 credentials for the Pulumi state bucket | Foundation promotion state snapshots and R2 backend access | Wrong value → Pulumi's R2-backed state backend fails to authenticate, loud failure on the next `pulumi` invocation |
 | `LOGFIRE_TOKEN` | repo (**unreachable** — no non-environment-scoped caller) + `staging` + `production`, each a **different** Logfire project (`animichi-staging` / `animichi-prod`) as of 2026-07-29, replacing one shared `LOGFIRE_TOKEN_PROD`/`LOGFIRE_TOKEN_STAGING` pair that lived less than eight hours (wiring was #498) | Write token for the environment's Logfire project | Exact edge core payload → Worker binding → agent container | Missing or blank blocks edge staging, production, and rollback at preflight. A wrong-but-present value only stops traces for that environment |
 
