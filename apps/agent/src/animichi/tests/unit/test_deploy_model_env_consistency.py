@@ -7,8 +7,8 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[6]
 _ENV = _ROOT / "workers/edge/src/container/container-env.ts"
+_BUILD = _ROOT / ".github/workflows/reusable-build-release-unit.yml"
 _PROMOTE = _ROOT / ".github/scripts/promote-release-unit.sh"
-_CD = _ROOT / ".github/workflows/cd.yml"
 _DOCKERFILE = _ROOT / "apps/agent/Dockerfile"
 
 
@@ -39,11 +39,11 @@ def test_promotion_reuses_worker_artifacts_without_mutating_runtime_secrets() ->
     assert "worker_secrets" not in promotion
 
 
-def test_cd_does_not_expose_agent_model_keys() -> None:
-    cd = _CD.read_text()
-    assert "ZEN_GO_API_KEY" not in cd
-    assert "MIMO_API_KEY" not in cd
-    assert "DEEPSEEK_API_KEY" not in cd
+def test_sealed_release_artifacts_do_not_contain_agent_model_keys() -> None:
+    for source in (_BUILD.read_text(), _PROMOTE.read_text()):
+        assert "ZEN_GO_API_KEY" not in source
+        assert "MIMO_API_KEY" not in source
+        assert "DEEPSEEK_API_KEY" not in source
 
 
 def test_dockerfile_does_not_hardcode_a_privileged_app_env() -> None:

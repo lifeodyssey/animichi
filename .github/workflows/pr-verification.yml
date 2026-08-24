@@ -298,3 +298,27 @@ jobs:
           PR_VERIFICATION_LANES: ${{ needs.route.outputs.lanes }}
           PR_VERIFICATION_CROSS_STACK_RESULT: ${{ needs.cross-stack.result }}
         run: bash .github/scripts/pr-verification-aggregate.sh
+
+  required-security:
+    name: Security
+    needs: security
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Propagate the single-CI security verdict
+        env:
+          UPSTREAM_RESULT: ${{ needs.security.result }}
+        run: test "$UPSTREAM_RESULT" = success
+
+  required-pr-verification:
+    name: PR Verification
+    needs: aggregate
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Propagate the single-CI verification verdict
+        env:
+          UPSTREAM_RESULT: ${{ needs.aggregate.result }}
+        run: test "$UPSTREAM_RESULT" = success

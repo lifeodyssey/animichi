@@ -76,14 +76,21 @@ void test("ZEN_GO_API_KEY is optional on the Worker: absent stays omitted, never
   assert.equal("ZEN_GO_API_KEY" in buildContainerEnvVars(requiredEnv()), false);
 });
 
-void test("artifact promotion never ferries model keys through GitHub", () => {
-  const cd = readFileSync(new URL("../../../.github/workflows/cd.yml", import.meta.url).pathname, "utf8");
+void test("sealed release artifacts never contain model keys", () => {
+  const build = readFileSync(
+    new URL(
+      "../../../.github/workflows/reusable-build-release-unit.yml",
+      import.meta.url,
+    ).pathname,
+    "utf8",
+  );
   const promotion = readFileSync(
-    new URL("../../../.github/scripts/promote-release-unit.sh", import.meta.url).pathname,
+    new URL("../../../.github/scripts/promote-release-unit.sh", import.meta.url)
+      .pathname,
     "utf8",
   );
   for (const key of ["ZEN_GO_API_KEY", "MIMO_API_KEY", "DEEPSEEK_API_KEY"]) {
-    assert.doesNotMatch(cd, new RegExp(key));
+    assert.doesNotMatch(build, new RegExp(key));
     assert.doesNotMatch(promotion, new RegExp(key));
   }
   assert.doesNotMatch(promotion, /secret put|worker_secrets/);

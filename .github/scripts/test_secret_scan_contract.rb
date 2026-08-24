@@ -46,6 +46,8 @@ def assert_action
   args = scanner.dig("with", "args").to_s
   reject(!args.include?("git") || !args.include?("--log-opts=#{EXPR} steps.range.outputs.range }}"), "scanner must use the resolved git range")
   reject(args.match?(/--first-parent|--no-merges/), "scanner must retain merged side-branch history")
+  safe_directory = {"GIT_CONFIG_COUNT" => "1", "GIT_CONFIG_KEY_0" => "safe.directory", "GIT_CONFIG_VALUE_0" => "/github/workspace"}
+  reject(scanner.fetch("env") != safe_directory, "container must trust only the mounted workspace")
   reject(File.read(ACTION).match?(/GITLEAKS_LICENSE|GITHUB_TOKEN|gitleaks-action/), "shared action must be tokenless and license-free")
 end
 

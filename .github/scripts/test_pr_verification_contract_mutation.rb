@@ -36,6 +36,7 @@ def assert_pr_verification_mutations
   source = File.read(WORKFLOW)
   full_needs = "needs: [route, static-quality, security-diff, security, agent-eval, affected, coverage-agent, coverage-web, coverage-catalog, coverage-users, cross-stack]"
   run_mutation(source, full_needs, "needs: [route]", "aggregator no longer waits for all CI lanes")
+  run_mutation(source, "    needs: aggregate\n", "    needs: route\n", "required PR context no longer follows the aggregate")
   run_mutation(source, "fromJSON(needs.route.outputs.components)", "'[web]'", "matrix no longer follows affected route")
   run_mutation(source, '--range "$range"', '--range "$range" --purpose deploy', "PR/queue route drops test triggers")
   run_mutation(source, "pull_request:\n    types:", "issue_comment:\n    types: [created]\n  pull_request:\n    types:", "comment events trigger code gates")

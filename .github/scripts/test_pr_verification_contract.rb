@@ -53,8 +53,19 @@ def assert_job_contract(workflow, workflow_path)
   security = jobs.fetch("security")
   agent_eval = jobs.fetch("agent-eval")
   aggregate = jobs.fetch("aggregate")
+  required_security = jobs.fetch("required-security")
+  required_verification = jobs.fetch("required-pr-verification")
   names = jobs.values.map { |job| job["name"] if job.is_a?(Hash) }.compact
   abort "workflow must expose exactly one CI / verify job" unless names.count("CI / verify") == 1
+  abort "single CI must bridge the live Security context" unless names.count("Security") == 1
+  abort "single CI must bridge the live PR Verification context" unless names.count("PR Verification") == 1
+  abort "Security bridge must propagate the aggregate" unless required_security.fetch("needs") == "security"
+  abort "PR Verification bridge must propagate the aggregate" unless required_verification.fetch("needs") == "aggregate"
+  [required_security, required_verification].each do |job|
+    abort "required-context bridge must run after failure" unless job.fetch("if").include?("always()")
+    run = job.fetch("steps").map { |step| step["run"] }.compact.join("\n")
+    abort "required-context bridge must fail closed" unless run.include?('test "$UPSTREAM_RESULT" = success')
+  end
   abort "route job must publish components" unless route.fetch("outputs").fetch("components").include?("steps.route.outputs.components")
   abort "route job must publish global lanes" unless route.fetch("outputs").fetch("lanes").include?("steps.route.outputs.lanes")
   matrix = package.fetch("strategy").fetch("matrix").fetch("component")

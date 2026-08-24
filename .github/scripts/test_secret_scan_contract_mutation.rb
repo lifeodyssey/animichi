@@ -25,6 +25,7 @@ digest = "sha256:e1b35e12a8c6fa8901f060459cfb6b2fc4c484d3afbe3b029733a3bbfab0705
 mutation(action, digest, "sha256:" + ("0" * 64), "SECRET_SCAN_ACTION", "image digest drift")
 range = "--log-opts=" + "$" + "{{ steps.range.outputs.range }}"
 mutation(action, range, "--log-opts=HEAD^..HEAD", "SECRET_SCAN_ACTION", "resolved range bypass")
+mutation(action, "/github/workspace", "*", "SECRET_SCAN_ACTION", "workspace trust widened")
 author = "github.event.pull_request.user.login != 'dependabot[bot]'"
 mutation(ci, author, "github.repository_owner != 'dependabot[bot]'", "SECRET_SCAN_CI", "Dependabot author guard removed")
 mutation(ci, "./.github/actions/secret-scan", "gitleaks/gitleaks-action@deadbeef", "SECRET_SCAN_CI", "legacy scan action restored")
