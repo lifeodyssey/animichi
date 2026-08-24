@@ -22,6 +22,7 @@
   --animal-bg-color-disabled: var(--color-muted);
   --animal-shadow-press: var(--shadow-press);
   --animal-shadow-input: 0 3px 0 0 var(--shadow-3d);
+
   min-height: 100dvh;
   padding: 32px clamp(20px, 5vw, 64px) 64px;
   background: var(--color-bg);

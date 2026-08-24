@@ -106,9 +106,12 @@ describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
     const splash = page.locator(".app-splash");
     await expect(splash).toHaveCount(1);
     await expect(splash).toBeHidden();
-    await expect(page.locator("#api-key")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "設定" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "APIキー" })).toBeVisible();
+    const language = page.getByRole("combobox", { name: "言語" });
+    await expect(language).toBeVisible();
     await expectNoSeriousOrCritical(page, "settings page");
-    await page.getByRole("combobox").click();
+    await language.click();
     await expect(page.getByRole("listbox")).toBeVisible();
     await page.locator(".animal-select-content").evaluate(async (menu) => {
       await Promise.all(menu.getAnimations().map((animation) => animation.finished));
