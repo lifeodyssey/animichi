@@ -1,9 +1,9 @@
-# animichi-neon-secrets production stack (#1048 - production runtime DSNs).
+# Database-access production stack (#1048 - production runtime DSNs).
 #
 # Replicates the staging Secrets Store DSN pattern (#912) for PRODUCTION:
 # catalog_svc / users_svc / agent_svc role DSNs for the production Neon branch
 # are composed and published to the shared Cloudflare Secrets Store under
-# distinct secret names (see infra/neon-secrets/index.ts - the prod stack
+# distinct secret names (see infra/database-access/index.ts - the prod stack
 # appends a "_PROD" suffix so it never collides with the staging-role DSNs the
 # same store already holds).
 #
@@ -14,6 +14,8 @@
 #
 # First-deploy provisioning (owner-gated, executed by the operator/orchestrator
 # through the CI production environment approval):
+# The animichi-neon-secrets namespace below is the stable Pulumi state/config
+# identity; the code and delivery component are named database-access.
 #   pulumi config set --stack prod --secret animichi-neon-secrets:neonApiKey "<neon api key>"
 # The neonApiKey secret is deliberately NOT committed here - it is set as a
 # passphrase-encrypted secure value before the first prod apply (mirrors how

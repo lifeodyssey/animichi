@@ -7,7 +7,7 @@ import { URL, fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (path: string): string => readFileSync(`${ROOT}${path}`, "utf8");
 const grantSql = (): string =>
-  read("infra/neon-secrets/grant-migrator-ddl.sql").replaceAll(/^--.*$/gm, "");
+  read("infra/database-access/grant-migrator-ddl.sql").replaceAll(/^--.*$/gm, "");
 
 void test("staging GRANT gives migrator CREATE on public", () => {
   const sql = grantSql();
@@ -50,7 +50,7 @@ void test("GRANT SQL moves only neondb_owner's own relations, and only to migrat
 });
 
 void test("staging owner GRANT is applied as neondb_owner", () => {
-  const sh = read("infra/neon-secrets/grant-migrator-ddl.sh");
+  const sh = read("infra/database-access/grant-migrator-ddl.sh");
   assert.match(sh, /Pulumi\.staging\.yaml/);
   assert.match(sh, /--role-name neondb_owner/);
   assert.match(sh, /ON_ERROR_STOP=1/);
@@ -63,7 +63,7 @@ void test("sealed infra promotion grants migrator DDL only on staging", () => {
   const promotion = read(".github/scripts/promote-release-unit.sh");
   assert.match(promotion, /grant_staging_migrator_ddl\(\)/);
   assert.match(promotion, /\[ "\$TARGET_ENVIRONMENT" = staging \] \|\| return 0/);
-  assert.match(promotion, /\$PAYLOAD_DIR\/infra\/neon-secrets\/grant-migrator-ddl\.sh/);
+  assert.match(promotion, /\$PAYLOAD_DIR\/infra\/database-access\/grant-migrator-ddl\.sh/);
   assert.match(promotion, /apply_pulumi_project[\s\S]*grant_staging_migrator_ddl[\s\S]*apply_pulumi_project/);
 });
 

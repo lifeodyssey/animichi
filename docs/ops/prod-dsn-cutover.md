@@ -53,13 +53,13 @@ Staging landed this wire (#912 follow-up). Two consequences for prod:
   rename plan (`SUPABASE_DB_URL → AGENT_DATABASE_URL`) is therefore amended to
   `SUPABASE_DB_URL → AGENT_SVC_DATABASE_URL`.
 
-## neon-secrets prod stack (Pulumi)
+## Database-access prod stack (Pulumi)
 
-`infra/neon-secrets/` currently runs only the `staging` stack (`Pulumi.staging.yaml`). The
+`infra/database-access/` currently runs only the `staging` stack (`Pulumi.staging.yaml`). The
 prod stack is deliberately **not** created in the staging PR (#912 follow-up) — owner
 approval + secrets are HITL. Steps:
 
-1. **`infra/neon-secrets/Pulumi.production.yaml`** — mirror `Pulumi.staging.yaml`:
+1. **`infra/database-access/Pulumi.production.yaml`** — mirror `Pulumi.staging.yaml`:
    - `neonProjectId`: the **same** Neon project (roles are **project-scoped**, not
      branch-scoped — do not re-create roles; `pulumi up` on a second stack against the same
      project would try to create them again and Neon rejects duplicate role creates).
@@ -67,7 +67,7 @@ approval + secrets are HITL. Steps:
    - `cloudflareAccountId` / `secretsStoreId` / `neonApiKey`: see the store question below.
    - `pulumi stack init production` (passphrase provider, same R2 backend)
      followed by the **adopt** step: import the four `neon.Role`s by ID so Pulumi owns the
-     passwords without recreating them (`neon-secrets-adopt.sh` pattern; the provider key is
+     passwords without recreating them (`database-access-adopt.sh` pattern; the provider key is
      fed at import time — import does not execute the stack program).
 2. **Store strategy (HITL, decided before `pulumi up`)** — the account's plan refused a
    second Secrets Store (`maximum_stores_exceeded`, code 1003), which is why staging
@@ -83,7 +83,7 @@ approval + secrets are HITL. Steps:
      staging. Either way, the prod store secrets are written **once** by Pulumi; verify
      with the deploy report hash row.
 3. **Apply**: the affected `infra` payload in `cd.yml` runs the production
-   `infra/neon-secrets` Pulumi stack after the single `production` approval. The phase restores
+   `infra/database-access` Pulumi stack after the single `production` approval. The phase restores
    the sealed main-SHA payload, snapshots state, then runs `pulumi up`; roles are reused and
    DSNs are composed against the **main-branch endpoint**.
 4. **Wire prod consumers** (deploy workflow changes, separate PR): add

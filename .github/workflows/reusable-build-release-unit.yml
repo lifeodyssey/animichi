@@ -30,7 +30,7 @@ jobs:
           pulumi-version-file: .pulumi.version
       - name: Generate and build the pinned Neon provider SDK once
         if: ${{ inputs.unit == 'infra' }}
-        working-directory: infra/neon-secrets
+        working-directory: infra/database-access
         run: |
           set -euo pipefail
           pulumi package add terraform-provider kislerdm/neon
@@ -104,8 +104,8 @@ jobs:
               ;;
             infra)
               git archive "$SOURCE_SHA" infra | tar -x -C "$out"
-              mkdir -p "$out/infra/neon-secrets/sdks"
-              cp -R infra/neon-secrets/sdks/neon "$out/infra/neon-secrets/sdks/neon"
+              mkdir -p "$out/infra/database-access/sdks"
+              cp -R infra/database-access/sdks/neon "$out/infra/database-access/sdks/neon"
               cp package.json pnpm-lock.yaml pnpm-workspace.yaml .pulumi.version "$out/"
               printf '%s\n' 'rollback-before-pulumi-up' > "$out/rollback-contract"
               ;;

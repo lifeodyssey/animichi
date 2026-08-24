@@ -23,7 +23,7 @@ updates:
   - package-ecosystem: "npm"
     directories:
       - "/"
-      - "/infra/neon-secrets"
+      - "/infra/database-access"
     schedule:
       interval: "weekly"
       day: "monday"

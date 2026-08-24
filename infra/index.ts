@@ -35,7 +35,7 @@ export {
 // `neonAuthBaseUrl` / `qaNeonUser*` set are unchanged. The password is a
 // secret — it must reach `pulumi stack export` ciphertext, never plaintext.
 // `neonAuthJwksUrl` is also declared as a Cloudflare Secrets Store secret in
-// infra/neon-secrets (the store owner) so the deploy chain can source the edge
+// infra/database-access (the store owner) so the deploy chain can source the edge
 // binding from state.
 const neonAuthBaseUrl = config.get("neonAuthBaseUrl");
 export const neonAuthJwksUrl =

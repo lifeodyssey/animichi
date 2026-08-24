@@ -3,7 +3,7 @@
 # Command/script fingerprints from a workflow `run:` block or a gate script
 # line. Identity is the invoked script path or a normalized check command —
 # not a job name and not a YAML line number (#1114). Working-directory is
-# part of the identity (`infra/neon-secrets` ≠ `infra`). `ruby -c` is
+# part of the identity (`infra/database-access` ≠ `infra`). `ruby -c` is
 # syntax-check-only (`syntax:`), not execution (`script:`).
 
 SCRIPT_INVOKE = %r{

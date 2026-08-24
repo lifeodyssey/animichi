@@ -7,10 +7,10 @@
 require_relative "ci_prepush_parity_test_support"
 
 def test_workdir_fingerprint
-  nested = fingerprints_from_run("pnpm run typecheck", "infra/neon-secrets")
+  nested = fingerprints_from_run("pnpm run typecheck", "infra/database-access")
   parent = fingerprints_from_run("pnpm run typecheck", "infra")
   abort "FAIL: nested workdir must differ: #{nested} vs #{parent}" if nested == parent
-  abort "FAIL: got #{nested}" unless nested.include?("cmd:infra/neon-secrets::pnpm typecheck")
+  abort "FAIL: got #{nested}" unless nested.include?("cmd:infra/database-access::pnpm typecheck")
   puts "PASS: working-directory is part of the fingerprint"
 end
 
@@ -30,7 +30,7 @@ def test_typos_checkpoint
 end
 
 def test_git_restore_is_build_plumbing
-  fps = fingerprints_from_run("git restore package.json", "infra/neon-secrets")
+  fps = fingerprints_from_run("git restore package.json", "infra/database-access")
   abort "FAIL: hermetic build cleanup must not become a parity checkpoint: #{fps}" unless fps.empty?
   puts "PASS: git restore is hermetic build plumbing"
 end

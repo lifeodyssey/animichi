@@ -3,14 +3,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-YAML="$ROOT/infra/neon-secrets/Pulumi.staging.yaml"
-SQL="$ROOT/infra/neon-secrets/grant-migrator-ddl.sql"
+YAML="$ROOT/infra/database-access/Pulumi.staging.yaml"
+SQL="$ROOT/infra/database-access/grant-migrator-ddl.sql"
 
 require_key() {
   [[ -n "${NEON_API_KEY:-}" ]] || { echo "NEON_API_KEY is required" >&2; exit 1; }
 }
 
 yaml_value() {
+  # Keep the persisted Pulumi project namespace until a dedicated stack-state
+  # migration renames both staging and prod.
   sed -n "s/^  animichi-neon-secrets:${1}: //p" "$YAML"
 }
 

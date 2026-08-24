@@ -23,7 +23,7 @@ function escapeRegExp(literal: string): string {
   return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// The migrator DSN secret name as declared in the neon-secrets IaC and the
+// The migrator DSN secret name as declared in the database-access IaC and the
 // token the runtime surfaces must never reference. Centralized so both sides
 // of the contract stay in lockstep.
 const MIGRATOR_SECRET = "MIGRATOR_DATABASE_URL";
@@ -53,13 +53,13 @@ void test("no deploy workflow ferries the migrator DSN as a worker secret", () =
   }
 });
 
-void test("the neon-secrets IaC DOES provision the migrator role + MIGRATOR_DATABASE_URL store secret", () => {
+void test("database-access IaC DOES provision the migrator role + MIGRATOR_DATABASE_URL store secret", () => {
   // The isolation assertions above are only meaningful while the migrator is
   // actually provisioned through the same IaC path as the runtime roles —
   // otherwise deleting the role would silently "pass" the negative checks.
-  const neonSecrets = read("infra/neon-secrets/index.ts");
-  assert.match(neonSecrets, /name: "migrator"/, "neon-secrets index.ts must declare the migrator role");
-  assert.match(neonSecrets, migratorSecretRegex, "neon-secrets index.ts must declare the MIGRATOR_DATABASE_URL store secret");
+  const databaseAccess = read("infra/database-access/index.ts");
+  assert.match(databaseAccess, /name: "migrator"/, "database-access index.ts must declare the migrator role");
+  assert.match(databaseAccess, migratorSecretRegex, "database-access index.ts must declare the MIGRATOR_DATABASE_URL store secret");
 });
 
 void test("migrator wrangler.toml has no Builds token binding", () => {

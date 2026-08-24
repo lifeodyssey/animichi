@@ -92,8 +92,8 @@ void test("the migrator role is not a runtime-serving role in the chain", () => 
   assert.doesNotMatch(grantsSql, /TO migrator\b/i, "grants migration must not grant runtime privileges to a migrator role");
 });
 
-void test("the neon-secrets IaC provisions the migrator LOGIN role + DSN secret", () => {
-  const infra = readFileSync(ROOT + "infra/neon-secrets/index.ts", "utf8");
+void test("database-access IaC provisions the migrator LOGIN role + DSN secret", () => {
+  const infra = readFileSync(ROOT + "infra/database-access/index.ts", "utf8");
   assert.match(infra, /name: "migrator"/);
   assert.match(infra, /secretName: "MIGRATOR_DATABASE_URL"/);
 });

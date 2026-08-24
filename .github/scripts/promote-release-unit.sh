@@ -167,8 +167,8 @@ setup_infra() {
   export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
   export AWS_DEFAULT_REGION=auto
   pnpm install --dir "$PAYLOAD_DIR" --frozen-lockfile --ignore-scripts
-  pnpm install --dir "$PAYLOAD_DIR/infra/neon-secrets" --frozen-lockfile --ignore-scripts
-  [ -f "$PAYLOAD_DIR/infra/neon-secrets/sdks/neon/bin/index.js" ] || \
+  pnpm install --dir "$PAYLOAD_DIR/infra/database-access" --frozen-lockfile --ignore-scripts
+  [ -f "$PAYLOAD_DIR/infra/database-access/sdks/neon/bin/index.js" ] || \
     fail "sealed Neon provider SDK is missing its built entrypoint"
 }
 
@@ -180,14 +180,14 @@ apply_pulumi_project() {
 
 grant_staging_migrator_ddl() {
   [ "$TARGET_ENVIRONMENT" = staging ] || return 0
-  bash "$PAYLOAD_DIR/infra/neon-secrets/grant-migrator-ddl.sh"
+  bash "$PAYLOAD_DIR/infra/database-access/grant-migrator-ddl.sh"
 }
 
 deploy_infra() {
   local stack=staging
   [ "$TARGET_ENVIRONMENT" = production ] && stack=prod
   setup_infra
-  apply_pulumi_project "$PAYLOAD_DIR/infra/neon-secrets" "$stack" neon-secrets
+  apply_pulumi_project "$PAYLOAD_DIR/infra/database-access" "$stack" database-access
   grant_staging_migrator_ddl
   apply_pulumi_project "$PAYLOAD_DIR/infra" "$stack" main
 }

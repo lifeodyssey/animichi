@@ -3,7 +3,9 @@ import * as cloudflare from "@pulumi/cloudflare";
 import * as neon from "@pulumi/neon";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// animichi-neon-secrets — ADR 0003 / #912 PR1.
+// Database access provisioning — ADR 0003 / #912 PR1.
+// Pulumi.yaml retains the original project name as a persisted state identity;
+// changing it requires an explicit cross-project stack migration.
 //
 // Manages, for one Neon branch (the branch is stack config: staging =
 // Pulumi.staging.yaml, production = Pulumi.prod.yaml):

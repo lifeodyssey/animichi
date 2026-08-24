@@ -1,7 +1,7 @@
 # Secrets architecture: Cloudflare Secrets Store as runtime truth, Neon-hosted role passwords, Pulumi-managed roles
 
 > **Status**: accepted — records the target architecture. Implemented as of **P4 (#912 PR1/PR2,
-> 2026-08-09)** for **staging**: `infra/neon-secrets` manages Neon role passwords + Secrets
+> 2026-08-09)** for **staging**: `infra/database-access` manages Neon role passwords + Secrets
 > Store DSNs; catalog/users/jobs staging Workers consume them via `wrangler.toml` Secrets Store
 > bindings; `wrangler secret bulk` steps and GitHub `*_DATABASE_URL` secrets are removed from the
 > staging chain; `scripts/staging-roles-login.sh` is deleted. Production still delivers

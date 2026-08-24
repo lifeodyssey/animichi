@@ -404,7 +404,7 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 
 # #912 follow-up: the agent container's Neon role DSN comes from the
 # Cloudflare Secrets Store (secret AGENT_SVC_DATABASE_URL, provisioned by the
-# infra/neon-secrets Pulumi stack) instead of `wrangler secret put` in CI.
+# infra/database-access Pulumi stack) instead of `wrangler secret put` in CI.
 # env.AGENT_SVC_DATABASE_URL is a SecretsStoreSecret. RuntimeContainer unwraps
 # `.get()` via resolveContainerEnvVars before start (#1157). Not in
 # CONTAINER_REQUIRED_KEYS — production has no binding yet (#855 cutover).

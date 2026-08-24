@@ -28,6 +28,15 @@ def assert_ci_route_purpose(route)
   abort "PR/queue route must retain CI-only test triggers" if source.include?("--purpose deploy")
 end
 
+def assert_web_browser_gate(source)
+  required = ['RUNTIME_CONFIG=', "printf 'RUNTIME_CONFIG=%s\\n'", 'kill "$WRANGLER_PID"', 'rm -f "$DEV_VARS"', 'web-cwv.spec.ts']
+  missing = required.reject { |value| source.include?(value) }
+  abort "e2e gate lost main's runtime-config/CWV cleanup: #{missing.join(', ')}" unless missing.empty?
+  config_write = source.index("printf 'RUNTIME_CONFIG=%s\\n'")
+  server_start = source.index("pnpm --filter web exec wrangler dev")
+  abort "e2e runtime config must be written before Wrangler starts" unless config_write && server_start && config_write < server_start
+end
+
 def assert_event_contract(workflow)
   events = trigger_map(workflow)
   required = %w[opened synchronize reopened ready_for_review converted_to_draft]
@@ -117,6 +126,7 @@ def assert_job_contract(workflow, workflow_path)
   missing_specs = web_specs.reject { |spec| gate_source.include?(spec) }
   abort "e2e gate is missing Web assertions: #{missing_specs.join(', ')}" unless missing_specs.empty?
   abort "e2e gate must not be collection-only" if gate_source.include?("playwright test --list")
+  assert_web_browser_gate(gate_source)
 end
 
 def assert_routing_contract

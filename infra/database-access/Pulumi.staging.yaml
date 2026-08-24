@@ -1,3 +1,5 @@
+# The animichi-neon-secrets namespace is the stable Pulumi state/config
+# identity; the code and delivery component are named database-access.
 encryptionsalt: v1:qKu76+b3BOU=:v1:TSBQpZbjg8xTwbSX:tl1ZNJUtRiaWH2Vwpv5ZK/+oD6NoTw==
 config:
   animichi-neon-secrets:neonProjectId: billowing-fire-22850320

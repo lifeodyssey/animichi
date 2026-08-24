@@ -3,7 +3,8 @@
 # created, into the CD R2 state backend (reusable-promote-release-phase.yml).
 #
 # Why this exists: the #926 validation ran `pulumi up` against a LOCAL
-# `file://` backend (/Users/lumimamini/work/neon-secrets-state). The Neon
+# `file://` backend (/Users/lumimamini/work/neon-secrets-state, its historical
+# on-disk name). The Neon
 # roles and the three Secrets Store secrets it created are live in staging
 # today, but the R2 state backend CI uses has never seen them. A plain first
 # `pulumi up` on the R2 backend would try to CREATE them again — the Neon API
@@ -46,6 +47,9 @@
 #     hardcoded).
 
 set -euo pipefail
+
+# animichi-neon-secrets below is the existing Pulumi project/state identity,
+# not the component name. Changing it requires an explicit stack migration.
 
 stack="${PULUMI_STACK:-$(pulumi stack --show-name 2>/dev/null || echo staging)}"
 export PULUMI_STACK="$stack"
@@ -104,7 +108,7 @@ for r in resources:
 # If the stack already owns any neon role, adoption is complete — every
 # resource here was created by the same #926 run and imports atomically.
 if state_names | grep -qx 'catalog_svc'; then
-  echo "neon-secrets: stack already owns its neon roles — adoption complete, nothing to do."
+  echo "database-access: stack already owns its Neon roles — adoption complete, nothing to do."
   exit 0
 fi
 
@@ -113,7 +117,7 @@ if [ -z "${NEON_API_KEY:-}" ]; then
   exit 1
 fi
 
-import_file="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/neon-secrets-import.json"
+import_file="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/database-access-import.json"
 
 # Emit an import file for one resource. The neon provider's name/version/
 # parameterization come from the generated SDK's package.json (same source
@@ -181,17 +185,17 @@ for entry in "${RESOURCES[@]}"; do
   id="${id//<accountId>/$account_id}"
   id="${id//<storeId>/$store_id}"
   if state_names | grep -qx "$name"; then
-    echo "neon-secrets: $name already in state — skipping import."
+    echo "database-access: $name already in state — skipping import."
     continue
   fi
-  echo "neon-secrets: importing $name ($type, id=$id)"
+  echo "database-access: importing $name ($type, id=$id)"
   emit_import_file "$type" "$name" "$id"
   pulumi import --file "$import_file" --yes
   imported=$((imported + 1))
 done
 
 if [ "$imported" -eq 0 ]; then
-  echo "neon-secrets: no imports needed."
+  echo "database-access: no imports needed."
 else
-  echo "neon-secrets: imported $imported resource(s); the following 'pulumi up' will be a no-change apply."
+  echo "database-access: imported $imported resource(s); the following 'pulumi up' will be a no-change apply."
 fi
