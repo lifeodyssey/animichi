@@ -20,7 +20,7 @@ from sqlalchemy.sql.dml import ReturningInsert, Update
 from sqlalchemy.sql.selectable import Select
 
 from animichi.domain.repo_types import FeedbackBadRow, RequestLogUnscoredRow
-from animichi.infrastructure.persistence.database import AsyncSessionFactory
+from animichi.infrastructure.persistence.database import AsyncSessionFactory, read_only
 from animichi.infrastructure.persistence.models import feedback_table, request_log_table
 
 
@@ -217,7 +217,7 @@ async def _fetch_bad_feedback(
     sessionmaker: AsyncSessionFactory, limit: int
 ) -> list[FeedbackBadRow]:
     "Operator read: most recent bad feedback, newest first."
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         rows = await session.execute(_bad_feedback_select(limit))
     return [cast(FeedbackBadRow, dict(row._mapping)) for row in rows.all()]
 
@@ -226,7 +226,7 @@ async def _fetch_unscored(
     sessionmaker: AsyncSessionFactory, limit: int
 ) -> list[RequestLogUnscoredRow]:
     "Operator read: successful turns awaiting a plan-quality score."
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         rows = await session.execute(_unscored_select(limit))
     return [cast(RequestLogUnscoredRow, dict(row._mapping)) for row in rows.all()]
 

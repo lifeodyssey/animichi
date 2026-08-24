@@ -66,9 +66,12 @@ class TestConversationPersistence:
             },
         )
 
-        with patch(
-            "animichi.interfaces.persistence.asyncio.create_task"
-        ) as create_task:
+        # Patch the scheduling seam itself, not `asyncio.create_task`: the
+        # module path in the patch target is cosmetic because every module
+        # shares one `asyncio` object, so patching it there intercepts every
+        # background task in the process — including unrelated ones like the
+        # turn-lease reconciliation — and fails this test for the wrong reason.
+        with patch("animichi.interfaces.persistence._spawn_background") as create_task:
             api = RuntimeAPI(
                 mock_db, session_store=store, model_http_client=MagicMock()
             )

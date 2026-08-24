@@ -9,7 +9,7 @@ delegate to the module-level statement+flow helpers in ``_session_state``
 from __future__ import annotations
 
 from animichi.domain.repo_types import SessionListRow, SessionMetadata, SessionStateData
-from animichi.infrastructure.persistence.database import AsyncSessionFactory
+from animichi.infrastructure.persistence.database import AsyncSessionFactory, read_only
 from animichi.infrastructure.persistence.repositories._session_messages import (
     _session_owned,
 )
@@ -43,14 +43,14 @@ async def _create_session(
 async def _load_session(
     sessionmaker: AsyncSessionFactory, session_id: str
 ) -> SessionRecord | None:
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         return await _load(session, session_id)
 
 
 async def _get_session_state(
     sessionmaker: AsyncSessionFactory, session_id: str
 ) -> SessionStateData | None:
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         return await _get_state(session, session_id)
 
 
@@ -85,7 +85,7 @@ async def _upsert_session(
 async def _list_sessions(
     sessionmaker: AsyncSessionFactory, user_id: str, limit: int
 ) -> list[SessionListRow]:
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         return await _list(session, user_id, limit)
 
 

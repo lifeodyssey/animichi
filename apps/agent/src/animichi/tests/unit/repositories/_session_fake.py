@@ -91,6 +91,7 @@ class RecordingSession:
 
     def __init__(self) -> None:
         self.executed: list[ClauseElement] = []
+        self.execution_options: list[dict[str, str]] = []
         self._results: list[_ScalarResult] = []
 
     def result_for(
@@ -100,6 +101,15 @@ class RecordingSession:
 
     def begin(self) -> _RecordingTransaction:
         return _RecordingTransaction()
+
+    async def connection(
+        self, *, execution_options: dict[str, str]
+    ) -> RecordingSession:
+        """Mirror ``AsyncSession.connection``, which ``read_only`` calls to put
+        a read on AUTOCOMMIT. Recorded so tests can assert the isolation level
+        a read actually asked for."""
+        self.execution_options.append(execution_options)
+        return self
 
     async def execute(self, statement: ClauseElement) -> _ScalarResult:
         self.executed.append(statement)
