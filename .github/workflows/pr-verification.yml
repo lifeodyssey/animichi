@@ -20,6 +20,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       components: ${{ steps.route.outputs.components }}
+      has_components: ${{ steps.route.outputs.has_components }}
       lanes: ${{ steps.route.outputs.lanes }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,9 +61,9 @@ jobs:
           if [ "$EVAL_ALLOWED" != true ]; then
             lanes="$(grep -v '^agent-eval$' <<< "$lanes" || true)"
           fi
-          [ -n "$components" ] || { echo '::error::affected routing returned no gates'; exit 1; }
           json="$(printf '%s\n' "$components" | jq -Rsc 'split("\n") | map(select(length > 0))')"
           echo "components=$json" >> "$GITHUB_OUTPUT"
+          echo "has_components=$(jq -r 'length > 0' <<< "$json")" >> "$GITHUB_OUTPUT"
           lane_json="$(printf '%s\n' "$lanes" | jq -Rsc 'split("\n") | map(select(length > 0))')"
           echo "lanes=$lane_json" >> "$GITHUB_OUTPUT"
           echo "Affected components: $json" >> "$GITHUB_STEP_SUMMARY"
@@ -143,7 +144,7 @@ jobs:
   affected:
     name: CI / affected (${{ matrix.component }})
     needs: route
-    if: ${{ needs.route.result == 'success' }}
+    if: ${{ needs.route.result == 'success' && needs.route.outputs.has_components == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:

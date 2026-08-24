@@ -75,6 +75,18 @@ def assert_main_and_fallback() -> None:
         assert len(result["lanes"]) == 3
 
 
+def assert_repository_change_has_no_product_component() -> None:
+    temporary, root, initial = fixture()
+    with temporary:
+        head = commit_file(root, ".github/workflows/change.yml", "workflow")
+        ci = plan(root, initial, head)
+        deploy = plan(root, initial, head, "main", "deploy")
+        assert ci["fallback_all"] is False
+        assert ci["components"] == []
+        assert ci["lanes"] == ["security", "static-quality"]
+        assert deploy["components"] == []
+
+
 def assert_eval_is_path_scoped() -> None:
     temporary, root, initial = fixture()
     with temporary:
@@ -129,6 +141,7 @@ def main() -> None:
     assert_reverse_closure()
     assert_pr_uses_merge_base()
     assert_main_and_fallback()
+    assert_repository_change_has_no_product_component()
     assert_eval_is_path_scoped()
     assert_security_follows_affected_closure()
     assert_test_triggers_are_ci_only()

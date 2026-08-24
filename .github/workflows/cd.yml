@@ -10,7 +10,6 @@ permissions:
 concurrency:
   group: affected-cd-main
   cancel-in-progress: false
-  queue: max
 
 jobs:
   route:

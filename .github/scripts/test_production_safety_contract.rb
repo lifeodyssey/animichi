@@ -21,12 +21,6 @@ def triggers(value)
   value.fetch("on", value.fetch(true, {}))
 end
 
-def enqueue_pending(queue_mode, pending, incoming)
-  return pending + [incoming] if queue_mode == "max"
-
-  [incoming]
-end
-
 def assert_edge_pair(source)
   abort "edge rollback must download the paired agent artifact" unless source.include?('name: release-${{ inputs.source_sha }}-agent')
   steps = workflow_source(source).dig("jobs", "rollback", "steps")
@@ -64,12 +58,11 @@ cd_source = File.read(cd_path)
 rollback_source = File.read(rollback_path)
 deployment_lock = {
   "group" => "affected-cd-main",
-  "cancel-in-progress" => false,
-  "queue" => "max"
+  "cancel-in-progress" => false
 }
 
 abort "production CD must be main-push-only" unless triggers(cd) == { "push" => { "branches" => ["main"] } }
-abort "CD must retain every pending deployment mutation" unless cd.fetch("concurrency") == deployment_lock
+abort "CD must use the shared native deployment lock" unless cd.fetch("concurrency") == deployment_lock
 abort "production must be protected by exactly one approval job" unless cd_source.scan(/^\s+environment:\s+production\s*$/).length == 1
 abort "production must promote the exact main-SHA artifact cohort" unless cd_source.include?("release-${{ github.sha }}-*")
 abort "production must use the same no-rebuild adapter as staging" unless cd_source.include?("promote-release-unit.sh")
@@ -81,10 +74,7 @@ identity_inputs = %w[component release_run_id source_sha artifact_sha256]
 abort "rollback must require an explicit sealed release identity" unless inputs.keys == identity_inputs
 components = inputs.dig("component", "options")
 abort "rollback surface must contain only deployable Workers" unless components == %w[edge web catalog users]
-abort "rollback must share the queue-retaining CD lock" unless rollback.fetch("concurrency") == deployment_lock
-pending = enqueue_pending(deployment_lock.fetch("queue"), ["rollback"], "later-main-push")
-abort "a later main push must not replace a pending rollback" unless pending == ["rollback", "later-main-push"]
-abort "queue behavior probe must detect the old single-pending mode" unless enqueue_pending("single", ["rollback"], "later-main-push") == ["later-main-push"]
+abort "rollback must share the native CD lock" unless rollback.fetch("concurrency") == deployment_lock
 job = rollback.fetch("jobs").fetch("rollback")
 abort "rollback must require production approval" unless job.fetch("environment") == "production"
 abort "rollback must read only release artifacts" unless job.dig("permissions", "actions") == "read"

@@ -45,12 +45,23 @@ def routed_paths(component: dict[str, object], purpose: str) -> list[str]:
     return [path for path in paths if path not in test_triggers]
 
 
-def direct_components(components: list[dict[str, object]], paths: list[str], purpose: str) -> tuple[set[str], bool]:
+def owners_for_path(components: list[dict[str, object]], path: str, purpose: str) -> set[str]:
+    return {
+        str(item["name"])
+        for item in components
+        if any(owns(pattern, path) for pattern in routed_paths(item, purpose))
+    }
+
+
+def direct_components(
+    components: list[dict[str, object]], repository_paths: list[str], paths: list[str], purpose: str
+) -> tuple[set[str], bool]:
     selected: set[str] = set()
     fallback = not paths
     for path in paths:
-        owners = [str(item["name"]) for item in components if any(owns(pattern, path) for pattern in routed_paths(item, purpose))]
-        if not owners:
+        owners = owners_for_path(components, path, purpose)
+        repository_owned = any(owns(pattern, path) for pattern in repository_paths)
+        if not owners and not repository_owned:
             fallback = True
         selected.update(owners)
     return selected, fallback
@@ -86,10 +97,11 @@ def build_plan(root: Path, manifest: Path, base: str, head: str, mode: str, purp
     require_commit(root, head)
     document = json.loads(manifest.read_text())
     components = document["components"]
+    repository_paths = document["repository_paths"]
     effective_base = diff_base(root, base, head, mode)
     paths = changed_paths(root, effective_base, head)
-    source_direct, fallback = direct_components(components, paths, "deploy")
-    direct = direct_components(components, paths, purpose)[0]
+    source_direct, fallback = direct_components(components, repository_paths, paths, "deploy")
+    direct = direct_components(components, repository_paths, paths, purpose)[0]
     selected = {str(item["name"]) for item in components} if fallback else reverse_closure(components, direct.copy())
     source_selected = selected if fallback else reverse_closure(components, source_direct.copy())
     lanes = selected_lanes(document["global_lanes"], paths, source_selected, fallback)

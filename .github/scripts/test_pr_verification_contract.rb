@@ -76,9 +76,11 @@ def assert_job_contract(workflow, workflow_path)
     abort "required-context bridge must fail closed" unless run.include?('test "$UPSTREAM_RESULT" = success')
   end
   abort "route job must publish components" unless route.fetch("outputs").fetch("components").include?("steps.route.outputs.components")
+  abort "route job must publish whether product components changed" unless route.fetch("outputs").fetch("has_components").include?("steps.route.outputs.has_components")
   abort "route job must publish global lanes" unless route.fetch("outputs").fetch("lanes").include?("steps.route.outputs.lanes")
   matrix = package.fetch("strategy").fetch("matrix").fetch("component")
   abort "affected gate must use the routed matrix" unless matrix.include?("fromJSON(needs.route.outputs.components)")
+  abort "affected gate must skip an empty product matrix" unless package.fetch("if").include?("needs.route.outputs.has_components == 'true'")
   abort "static quality must be same-run reusable" unless quality.fetch("uses") == "./.github/workflows/reusable-static-quality.yml"
   cross_stack = jobs.fetch("cross-stack")
   abort "cross-stack must be same-run reusable" unless cross_stack.fetch("uses") == "./.github/workflows/reusable-cross-stack-e2e.yml"

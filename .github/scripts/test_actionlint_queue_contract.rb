@@ -22,8 +22,8 @@ def mutate(path, key, value)
   File.write(path, YAML.dump(data))
 end
 
-reject_mutation("queue drift") { |paths| mutate(paths.first, "queue", "latest") }
+reject_mutation("unsupported queue key") { |paths| mutate(paths.first, "queue", "max") }
 reject_mutation("cancellation enabled") { |paths| mutate(paths.last, "cancel-in-progress", true) }
 reject_mutation("group split") { |paths| mutate(paths.last, "group", "rollback-only") }
 validate_actionlint_queue!
-puts "PASS: pristine actionlint queue contract"
+puts "PASS: pristine native concurrency contract"

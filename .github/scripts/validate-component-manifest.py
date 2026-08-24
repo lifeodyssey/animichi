@@ -40,6 +40,11 @@ def validate_shape(document: object) -> list[dict[str, object]]:
         fail("manifest schema_version must be 1")
     if document.get("unknown_changes") != "all":
         fail("unknown changes must fail closed to all components")
+    repository_paths = document.get("repository_paths")
+    if not isinstance(repository_paths, list) or not repository_paths:
+        fail("manifest needs repository-owned paths")
+    if not all(isinstance(path, str) for path in repository_paths):
+        fail("repository-owned paths must be strings")
     lanes = document.get("global_lanes")
     if not isinstance(lanes, list) or not lanes:
         fail("manifest needs at least one global lane")
@@ -135,6 +140,11 @@ def validate_global_lanes(root: Path, document: dict[str, object], names: set[st
             fail(f"global lane {lane['name']} references unknown components")
 
 
+def validate_repository_paths(root: Path, document: dict[str, object]) -> None:
+    for pattern in document["repository_paths"]:
+        validate_selector(root, pattern)
+
+
 def visit(name: str, graph: dict[str, list[str]], visiting: set[str], visited: set[str]) -> None:
     if name in visiting:
         fail(f"component dependency cycle includes {name}")
@@ -176,6 +186,7 @@ def main() -> int:
         components = validate_shape(document)
         names = component_names(components)
         validate_paths(args.root, components)
+        validate_repository_paths(args.root, document)
         validate_dependencies(components, names)
         validate_global_lanes(args.root, document, names)
         validate_dag(components)

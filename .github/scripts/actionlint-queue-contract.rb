@@ -2,7 +2,7 @@
 
 require "yaml"
 
-EXPECTED = { "group" => "affected-cd-main", "cancel-in-progress" => false, "queue" => "max" }.freeze
+EXPECTED = { "group" => "affected-cd-main", "cancel-in-progress" => false }.freeze
 DEFAULTS = [".github/workflows/cd.yml", ".github/workflows/rollback.yml"].freeze
 
 def validate_actionlint_queue!(paths = DEFAULTS)
@@ -13,5 +13,5 @@ end
 
 if $PROGRAM_NAME == __FILE__
   validate_actionlint_queue!
-  puts "actionlint compatibility contract: queue=max, shared group, cancellation disabled"
+  puts "actionlint concurrency contract: native keys only, shared group, cancellation disabled"
 end
