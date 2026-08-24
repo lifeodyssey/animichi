@@ -12,13 +12,15 @@ const NOW = Date.UTC(2026, 6, 28, 12, 0, 0);
 const SOLVED = "solved-token";
 const solvedHeaders = { [TURNSTILE_HEADER]: SOLVED, "CF-Connecting-IP": "203.0.113.7" };
 
+function containerFetch(captured: { requests: Request[] }, request: Request): Promise<Response> {
+  captured.requests.push(request);
+  return Promise.resolve(new Response("container"));
+}
+
 function containerStub(captured: { requests: Request[] }) {
   return {
     idFromName: () => "id",
-    get: () => ({ fetch: (request: Request) => {
-      captured.requests.push(request);
-      return Promise.resolve(new Response("container"));
-    } }),
+    get: () => ({ fetch: (request: Request) => containerFetch(captured, request) }),
   };
 }
 

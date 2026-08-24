@@ -14,36 +14,63 @@ function settingsToggle(): HTMLElement {
   return screen.getByRole("button", { name: ja.byok.settingsToggle });
 }
 
+function renderSettingsToggle(): HTMLElement {
+  setLanguages(["ja"]);
+  renderChatPage();
+  return settingsToggle();
+}
+
+function expectHeaderSemantics(toggle: HTMLElement): void {
+  expect(toggle.closest("header")).not.toBeNull();
+  expect(toggle.closest("form")).toBeNull();
+  expect(toggle.getAttribute("type")).toBe("button");
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(document.querySelector("[data-animal-drawer-portal]")).toBeNull();
+}
+
+async function expectHeaderOrder(toggle: HTMLElement): Promise<void> {
+  const login = await screen.findByRole("button", { name: ja.appbar.login });
+  const position = toggle.compareDocumentPosition(login);
+  expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
+  expect(screen.queryByRole("heading", { name: ja.byok.title })).toBeNull();
+}
+
+function prepareSettingsLifecycle() {
+  setLanguages(["ja"]);
+  const user = userEvent.setup();
+  const router = renderChatPage();
+  return { user, router, toggle: settingsToggle() };
+}
+
+async function expectSettingsOpen(
+  user: ReturnType<typeof userEvent.setup>, toggle: HTMLElement, router: ReturnType<typeof renderChatPage>,
+): Promise<void> {
+  await user.click(toggle);
+  expect(await screen.findByRole("dialog")).toBeTruthy();
+  expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  expect(urlSettings(router)).toBe("byok");
+}
+
+async function expectSettingsClosed(
+  user: ReturnType<typeof userEvent.setup>, toggle: HTMLElement, router: ReturnType<typeof renderChatPage>,
+): Promise<void> {
+  await user.keyboard("{Escape}");
+  await waitFor(() => { expect(screen.queryByRole("dialog")).toBeNull(); });
+  expect(urlSettings(router)).toBeUndefined();
+  expect(document.activeElement).toBe(toggle);
+}
+
 describe("BYOK settings entry point (T6, chat app bar)", () => {
   it("renders the settings trigger in the header, never in the composer form", async () => {
-    setLanguages(["ja"]);
-    renderChatPage();
-    const toggle = settingsToggle();
-    expect(toggle.closest("header")).not.toBeNull();
-    expect(toggle.closest("form")).toBeNull();
-    expect(toggle.getAttribute("type")).toBe("button");
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-    expect(document.querySelector("[data-animal-drawer-portal]")).toBeNull();
-    const login = await screen.findByRole("button", { name: ja.appbar.login });
-    expect(toggle.compareDocumentPosition(login) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
-    expect(screen.queryByRole("heading", { name: ja.byok.title })).toBeNull();
+    const toggle = renderSettingsToggle();
+    expectHeaderSemantics(toggle);
+    await expectHeaderOrder(toggle);
   });
 
   it("opens from the header, then Escape clears the URL and restores trigger focus", async () => {
-    setLanguages(["ja"]);
-    const user = userEvent.setup();
-    const router = renderChatPage();
-    const toggle = settingsToggle();
-    await user.click(toggle);
-    expect(await screen.findByRole("dialog")).toBeTruthy();
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(urlSettings(router)).toBe("byok");
-    await user.keyboard("{Escape}");
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog")).toBeNull();
-    });
-    expect(urlSettings(router)).toBeUndefined();
-    expect(document.activeElement).toBe(toggle);
+    const { user, router, toggle } = prepareSettingsLifecycle();
+    await expectSettingsOpen(user, toggle, router);
+    await expectSettingsClosed(user, toggle, router);
   });
 
   it("shows the anonymous teaser inside the panel for a signed-out visitor", async () => {

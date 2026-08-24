@@ -219,21 +219,32 @@ async function agentV1Response(
   env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string, deps: GatewayDeps,
 ): Promise<Response> {
   if (pathname === TURNSTILE_VERIFY_PATH) return turnstileVerifyResponse(env, request, ctx, deps);
-  if (isPublicV1(pathname)) {
-    // Cacheable public reads are the policy's native fail-open cell; guard
-    // via the same `guardPolicy` seam using the request's public key.
-    const guarded = await guardPolicy(env, classifyRatePolicy(request.method, pathname), publicReadKey(request), authRateLimitConfigFrom(env));
-    if (guarded !== null) return guarded;
-    return forwardV1(env, request);
-  }
+  if (isPublicV1(pathname)) return publicAgentV1Response(env, request, pathname);
+  return privateAgentV1Response(env, request, ctx, pathname, deps);
+}
+
+async function publicAgentV1Response(env: Env, request: Request, pathname: string): Promise<Response> {
+  const policy = classifyRatePolicy(request.method, pathname);
+  const guarded = await guardPolicy(env, policy, publicReadKey(request), authRateLimitConfigFrom(env));
+  return guarded ?? forwardV1(env, request);
+}
+
+async function privateAgentV1Response(
+  env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string, deps: GatewayDeps,
+): Promise<Response> {
   const auth = await deps.authenticate(request, env, ctx);
   if (auth.ok) return authenticatedForward(env, request, auth, pathname);
   if (auth.reason === "invalid") return unauthorized(pathname);
-  if (isAnonymousV1(pathname)) {
-    const anonymous = await handleAnonymousV1(env, request, Date.now(), deps.turnstileGate);
-    if (anonymous !== null) return anonymous;
-  }
+  const anonymous = await anonymousAgentResponse(env, request, pathname, deps);
+  if (anonymous !== null) return anonymous;
   return Response.json(UNAUTHORIZED_BODY, { status: 401 });
+}
+
+async function anonymousAgentResponse(
+  env: Env, request: Request, pathname: string, deps: GatewayDeps,
+): Promise<Response | null> {
+  if (!isAnonymousV1(pathname)) return null;
+  return handleAnonymousV1(env, request, Date.now(), deps.turnstileGate);
 }
 
 async function turnstileVerifyResponse(
