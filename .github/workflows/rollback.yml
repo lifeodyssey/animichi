@@ -31,7 +31,6 @@ permissions:
 concurrency:
   group: affected-cd-main
   cancel-in-progress: false
-  queue: max
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

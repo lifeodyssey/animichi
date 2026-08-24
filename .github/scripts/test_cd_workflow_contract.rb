@@ -25,7 +25,8 @@ abort "CD must not route through the retired doorbell" if File.read(".github/wor
 on = triggers(cd)
 abort "CD must observe main pushes" unless on.dig("push", "branches") == ["main"]
 abort "CD must have no non-main manual entry" unless on.keys == ["push"]
-abort "CD must retain all queued deployment mutations" unless cd.dig("concurrency", "queue") == "max"
+expected_lock = { "group" => "affected-cd-main", "cancel-in-progress" => false }
+abort "CD must use only GitHub-native deployment concurrency" unless cd.fetch("concurrency") == expected_lock
 jobs = cd.fetch("jobs")
 route = jobs.fetch("route")
 route_source = route.fetch("steps").map { |step| step["run"] }.compact.join("\n")

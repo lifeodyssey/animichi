@@ -384,11 +384,11 @@ revert/fix on `main`, let `CD` build a new sealed cohort, and use the normal pro
 After any successful rollback, verify the affected routes manually and revert the bad change on
 `main` so the next affected release restores trunk state.
 
-`CD` and `Rollback` share the `affected-cd-main` concurrency group with `queue: max`. Every pending
-rollback and main-push deployment stays queued instead of a newer run replacing the older pending
-run. The queue is serialized, not preemptive: if a CD run is already executing or waiting at the
-production approval, reject or cancel that active run during an incident so the queued rollback can
-start; do not approve a competing production promotion.
+`CD` and `Rollback` share the `affected-cd-main` concurrency group with cancellation disabled. GitHub
+keeps the active run intact and retains at most one pending run; a newer pending run supersedes the
+older pending run. Do not stack a rollback behind additional main pushes. During an incident, first
+reject or cancel any run waiting at production approval and clear an unrelated pending deployment,
+then dispatch the rollback; do not approve a competing production promotion.
 
 Worker rollback changes the running Worker version but does not undo Durable Object migrations,
 reverse a database migration, or restore Pulumi state. Edge recovery does republish the verified
