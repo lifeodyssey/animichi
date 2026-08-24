@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "animal-island-ui-tailwind/style/core";
 @import "./fonts.css";
 @import "./shiori.css";
 @import "./shiori-photos.css";
@@ -310,24 +311,23 @@ button, input, select, textarea, [role="button"] {
 }
 
 /*
- * Owner 2026-08-23: the index route is a doorway at EVERY viewport — it hands
- * off to /chat on its first client effect. The splash must not lift on a clock:
- * it lifts on the EVENT of chat having painted. Chat's first commit stamps
+ * On mobile the index route hands off to /chat on its first client effect. The
+ * splash must not lift on a clock: it lifts on the EVENT of chat having painted.
+ * Chat's first commit stamps
  * `data-splash-release` on the document (features/splash/splash-release.ts),
  * which drops the hold back to the plain delay. More than 320ms of the
  * animation clock has always elapsed by then, so the step-end keyframe applies
  * on the very frame chat paints — however slow the network or the CPU.
  *
- * Deliberately NOT inside a media query. These rules used to be scoped to
- * `(max-width: 640px)` back when only narrow viewports handed off; now that
- * desktop hands off too, a breakpoint here would leave every width above it
- * uncovered for the whole navigation — the exact flash this mechanism exists to
- * prevent, and worse on desktop because the doorway paints more of itself.
+ * A pre-paint script locks the initial <=640px classification into
+ * `data-splash-mobile-handoff`. CSS and navigation read that same immutable
+ * mark, so resizing cannot restart a dismissed desktop splash or expose the
+ * doorway during an in-flight mobile hand-off.
  *
- * The hold itself is gated on `data-splash-scripting`, stamped before first
- * paint by an inline script. With scripting disabled the hold never applies at
- * all, so those visitors get the plain 320ms splash over the doorway and never
- * wait on a hand-off that can no longer happen.
+ * The hold itself is gated on `data-splash-mobile-handoff`, stamped before
+ * first paint only when scripting is available. With scripting disabled the
+ * hold never applies, so those visitors get the plain 320ms splash over the
+ * doorway and never wait on a hand-off that can no longer happen.
  *
  * The remaining 30s is therefore not a dwell and not the normal exit: it is the
  * bail-out for the one case neither mark covers — scripting enabled but
@@ -338,7 +338,7 @@ button, input, select, textarea, [role="button"] {
  * ~1.7x and still bounds a broken client's wait, after which the doorway
  * underneath — plain SSR HTML, fully usable — renders normally.
  */
-[data-splash-scripting] .app-splash[data-splash-hold="handoff"] {
+[data-splash-mobile-handoff] .app-splash[data-splash-hold="handoff"] {
   animation-delay: 30000ms;
 }
 
@@ -821,7 +821,7 @@ button, input, select, textarea, [role="button"] {
   to { opacity: 1; }
 }
 
-/* The ⚙ panel's app-preference group, above the API-key section. */
+/* The settings drawer's app-preference group, above the API-key section. */
 .app-preferences {
   display: flex;
   flex-direction: column;

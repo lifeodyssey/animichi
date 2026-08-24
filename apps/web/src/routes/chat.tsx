@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppPreferences } from "../components/settings/AppPreferences";
 import { ChatPage } from "../features/chat/ChatPage";
+import { ChatEntryGate } from "../features/chat/ChatEntryGate";
 import { parseChatSearch } from "../features/chat/search";
 import type { ChatSearch } from "../features/chat/search";
 import { useSplashRelease } from "../features/splash/splash-release";
@@ -11,7 +12,7 @@ export const Route = createFileRoute("/chat")({
   component: ChatRoute,
 });
 
-/** The ⚙ panel's app-preference section is composed HERE, at the UI layer, and
+/** The settings drawer's app-preference section is composed HERE, at the UI layer, and
  * handed to the chat feature as a node — chat rents the panel, it does not own
  * language or day/night (see `AppPreferences`). */
 function ChatWithSettings({ search }: Readonly<{ search: ChatSearch }>) {
@@ -28,7 +29,7 @@ function ChatRoute() {
   const search = Route.useSearch();
   return (
     <LocaleProvider>
-      <ChatWithSettings search={search} />
+      <ChatEntryGate><ChatWithSettings search={search} /></ChatEntryGate>
     </LocaleProvider>
   );
 }

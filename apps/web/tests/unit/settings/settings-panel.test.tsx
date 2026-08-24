@@ -1,11 +1,11 @@
 /**
  * @vitest-environment jsdom
  *
- * The ⚙ panel is the one place the app-level preferences live (owner
+ * The settings drawer is the one place the app-level preferences live (owner
  * 2026-08-23). What must hold: the panel hosts them ABOVE the API-key section,
  * the panel's accessible name grows to cover both, and — the reason the panel
- * was chosen over the app bar — the chat feature never imports the preference
- * UI, so they arrive as an injected node.
+ * keeps the app bar feature-independent — chat never imports the preference UI,
+ * so the route injects those controls as a node.
  */
 import { cleanup, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
@@ -37,10 +37,10 @@ function renderPanel() {
   );
 }
 
-describe("the ⚙ panel hosts the app preferences", () => {
-  it("keeps the deep-link id and takes focus, as before", () => {
+describe("the settings drawer hosts the app preferences", () => {
+  it("keeps the deep-link id for the drawer trigger", () => {
     renderPanel();
-    expect(document.activeElement?.id).toBe("byok-settings-panel");
+    expect(screen.getByRole("region").id).toBe("byok-settings-panel");
   });
 
   it("names itself for everything it now holds, not for the API key alone", () => {

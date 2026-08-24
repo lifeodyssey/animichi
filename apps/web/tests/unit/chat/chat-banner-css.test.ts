@@ -29,15 +29,17 @@ describe("D12 quota banner: an invitation, not a failure", () => {
   });
 });
 
-describe("S1.9 Turnstile dock slot (issue #447)", () => {
-  it("paints the gate with the dock's own surface token, never a raw color", () => {
+describe("S1.9 Turnstile full-viewport entry", () => {
+  it("covers the viewport with semantic surfaces", () => {
+    expect(ruleDeclaration(chatCss, ".turnstile-entry", "position")).toBe("fixed");
+    expect(ruleDeclaration(chatCss, ".turnstile-entry", "inset")).toBe("0");
+    expect(ruleDeclaration(chatCss, ".turnstile-entry", "min-height")).toBe("100dvh");
     expect(ruleDeclaration(chatCss, ".turnstile-gate", "background")).toBe("var(--color-card)");
-    expect(ruleDeclaration(chatCss, ".turnstile-gate", "max-width")).toBe("48rem");
   });
 
-  it("costs no vertical rhythm until the widget actually renders something", () => {
-    expect(ruleDeclaration(chatCss, ".turnstile-gate", "padding-block")).toBeNull();
-    expect(ruleDeclaration(chatCss, ".turnstile-gate .cf-turnstile:not(:empty)", "margin-block")).toBe("0.75rem");
+  it("centres the bounded challenge card above app content", () => {
+    expect(ruleDeclaration(chatCss, ".turnstile-entry", "z-index")).toBe("100");
+    expect(ruleDeclaration(chatCss, ".turnstile-gate", "max-width")).toBe("32rem");
   });
 
   it("styles the retry with the shared 3D press affordance and semantic tokens", () => {

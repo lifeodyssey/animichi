@@ -10,6 +10,7 @@ import {
 import { cleanup, render } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { ChatPage } from "../../../src/features/chat/ChatPage";
+import { ChatEntryGate } from "../../../src/features/chat/ChatEntryGate";
 import { parseChatSearch } from "../../../src/features/chat/search";
 import type { ChatSearch } from "../../../src/features/chat/search";
 import { LocaleProvider } from "../../../src/i18n/LocaleProvider";
@@ -40,6 +41,11 @@ function ChatHarness() {
   return <ChatPage search={search} />;
 }
 
+function EntryHarness() {
+  const search = parseChatSearch(useRouterState({ select: (state) => state.location.search }));
+  return <ChatEntryGate><ChatPage search={search} /></ChatEntryGate>;
+}
+
 export function chatSearch(overrides: Partial<ChatSearch> = {}): ChatSearch {
   return { ...EMPTY_SEARCH, ...overrides };
 }
@@ -58,6 +64,23 @@ export function renderChatPage(search: ChatSearch = EMPTY_SEARCH, healthy = true
         <LocaleProvider>
           <ChatHarness />
         </LocaleProvider>
+      </QueryClientProvider>
+    </RouterContextProvider>,
+  );
+  return router;
+}
+
+export function renderChatEntry(search: ChatSearch = EMPTY_SEARCH, healthy = true) {
+  if (healthy) server.use(healthzOkHandler);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const router = createRouter({
+    routeTree: testTree,
+    history: createMemoryHistory({ initialEntries: [searchHref(search)] }),
+  });
+  render(
+    <RouterContextProvider router={router}>
+      <QueryClientProvider client={queryClient}>
+        <LocaleProvider><EntryHarness /></LocaleProvider>
       </QueryClientProvider>
     </RouterContextProvider>,
   );

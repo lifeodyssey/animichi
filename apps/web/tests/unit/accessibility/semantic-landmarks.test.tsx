@@ -19,9 +19,8 @@ function renderDoorway() {
 
 /**
  * WCAG 1.3.1 Info & Relationships: landmark roles let assistive tech offer
- * page navigation. `/` is a doorway now (owner 2026-08-23) — a minimal served
- * body for crawlers and share previews — so the landmark bar it must clear is
- * the minimal one: a main region and a named navigation region.
+ * page navigation. `/` is a desktop entry surface plus the served body for
+ * crawlers and share previews, so it needs a main region and named navigation.
  */
 describe("semantic landmarks: the `/` doorway", () => {
   it("exposes a main landmark", () => {

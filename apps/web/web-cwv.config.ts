@@ -20,10 +20,9 @@ export const webCwvConfig = {
   startServerCommand: "pnpm --filter web exec wrangler dev --port 8799",
   /** Explicit route inventory under measurement — a fixed list (AC1), so the
    * profile can never silently shift which pages carry the release gate.
-   * `/chat` and not `/`: owner 2026-08-23 made the index `replace` into `/chat`
-   * on its first client effect at EVERY viewport, under a splash held until chat
-   * paints, so `/` is a doorway nobody stands in — measuring it would gate the
-   * release on a page no visitor ever settles on. `/chat` is where they land. */
+   * `/chat` and not `/`: this is a mobile cold-start profile, and mobile replaces
+   * the index with `/chat` on its first client effect under a splash held until
+   * chat paints. Desktop stays on the clickable doorway, outside this profile. */
   routes: ["/chat"] as const,
   /** Controlled cold-start mobile profile (AC1). CDP-applied CPU/network
    * throttle + cache policy below; the Playwright `test.use` options set the

@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Issue #1009 AC3 + AC5 (parent spec #1004) browser evidence: the two durable
@@ -79,11 +80,13 @@ async function expectDay(toggle: Locator): Promise<void> {
  */
 async function seededNightPage(page: Page): Promise<Locator> {
   await stubSignedOut(page);
-  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await stubTurnstileEntry(page);
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   await page.goto(THEME_SWITCH_URL);
+  await solveTurnstileEntry(page);
   await seedNight(page);
   await page.reload();
+  await solveTurnstileEntry(page);
   return page.getByRole("switch");
 }
 
@@ -93,6 +96,7 @@ test("a seeded night theme survives a toggle to day and a reload", { tag: "@brow
   await toggle.click();
   await expectDay(toggle);
   await page.reload();
+  await solveTurnstileEntry(page);
   await expectDay(page.getByRole("switch"));
 });
 
@@ -106,17 +110,19 @@ test("a seeded night theme survives a toggle to day and a reload", { tag: "@brow
  * post-hydration state.
  */
 async function openByokDeepLink(page: Page): Promise<void> {
-  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await stubTurnstileEntry(page);
   await stubSignedOut(page);
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto("/chat?settings=byok");
+  await solveTurnstileEntry(page);
   await hydrated;
 }
 
 async function reloadWaitingForHydration(page: Page): Promise<void> {
   const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.reload();
+  await solveTurnstileEntry(page);
   await hydrated;
 }
 

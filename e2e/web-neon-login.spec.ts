@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Live Neon Auth login round-trip (AUTH-2 #950). The retired landing is not a
@@ -21,13 +22,14 @@ test.use({
 });
 
 async function openAnonymousChat(page: Page): Promise<void> {
-  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await stubTurnstileEntry(page);
   await page.route("**/api/auth/get-session", (route) =>
     route.fulfill({ status: 401, json: { error: "no session" } }),
   );
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const healthy = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto("/chat");
+  await solveTurnstileEntry(page);
   await healthy;
   await expect(page.getByRole("textbox")).toBeVisible();
 }

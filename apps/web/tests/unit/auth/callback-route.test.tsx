@@ -9,13 +9,11 @@ import { setLanguages } from "../_i18n";
 import { dictFor } from "../../../src/i18n/dictionaries";
 
 /**
- * Owner 2026-08-23: `/` is a doorway at every viewport — it `replace`s into
- * `/chat` on its first client effect. A callback that returns "home" therefore
- * SETTLES on `/chat`; `/` is where it lands, not where it stops. The T14
- * open-redirect guard stays sharp all the same: the honoured deep link arrives
- * with its search intact, while a rejected vector arrives with none.
+ * The desktop test viewport remains on `/`; only mobile hands off to chat.
+ * The T14 open-redirect guard stays sharp: an honoured deep link arrives with
+ * its search intact, while a rejected vector falls back to home with none.
  */
-const SETTLED_HOME = "/chat";
+const SETTLED_HOME = "/";
 
 const { establishAuthSession } = vi.hoisted(() => ({ establishAuthSession: vi.fn() }));
 vi.mock("../../../src/lib/auth/auth-session", () => ({

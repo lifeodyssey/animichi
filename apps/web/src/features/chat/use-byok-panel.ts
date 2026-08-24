@@ -3,7 +3,7 @@ import type { AuthStatus } from "../../lib/auth/session";
 import type { ChatSearch } from "./search";
 
 /**
- * Open/closed state for the BYOK settings panel in the chat composer
+ * Open/closed state for the BYOK settings drawer launched from the app bar
  * (issue #284 Task 6 entry point). `?settings=byok` opens it on arrival —
  * that is the deep-link the whole Task 8 journey returns through, so a magic
  * link opened in a fresh tab still lands on the open panel.
@@ -16,6 +16,7 @@ import type { ChatSearch } from "./search";
 export interface ByokPanel {
   readonly open: boolean;
   readonly toggle: () => void;
+  readonly hide: () => void;
   /** Open without toggling — D14's "open key settings" action (#480 P2-1). */
   readonly show: () => void;
   readonly auth: AuthStatus;
@@ -37,5 +38,6 @@ export function useByokPanel(search: ChatSearch, auth: AuthStatus): ByokPanel {
   const open = search.settings === "byok";
   const toggle = (): void => { void writeByokSettings(router, search, open ? undefined : "byok"); };
   const show = (): void => { void writeByokSettings(router, search, "byok"); };
-  return { open, toggle, show, auth };
+  const hide = (): void => { void writeByokSettings(router, search, undefined); };
+  return { open, toggle, hide, show, auth };
 }

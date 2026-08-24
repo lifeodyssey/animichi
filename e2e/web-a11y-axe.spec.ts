@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { describe, expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Issue #1015 AC1: WCAG 2.2 AA on the five critical journeys. We inject
@@ -28,15 +29,25 @@ async function expectNoSeriousOrCritical(page: Page, label: string): Promise<voi
 }
 
 async function openChat(page: Page, path = "/chat"): Promise<void> {
-  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await stubTurnstileEntry(page);
   await page.route("**/api/auth/get-session", (route) =>
     route.fulfill({ status: 401, json: { error: "no session" } }),
   );
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const healthy = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto(path);
+  await solveTurnstileEntry(page);
   await healthy;
   await expect(page.getByRole("textbox")).toBeVisible();
+}
+
+async function openTurnstileGate(page: Page): Promise<void> {
+  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await page.route("**/api/auth/get-session", (route) =>
+    route.fulfill({ status: 401, json: { error: "no session" } }),
+  );
+  await page.goto("/chat");
+  await expect(page.locator(".turnstile-entry[data-active='true']")).toBeVisible();
 }
 
 async function navigateClient(page: Page, path: string, target: string): Promise<void> {
@@ -50,16 +61,38 @@ async function navigateClient(page: Page, path: string, target: string): Promise
 }
 
 describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
+  test("Turnstile challenge gate", async ({ page }) => {
+    await openTurnstileGate(page);
+    await expectNoSeriousOrCritical(page, "Turnstile challenge gate");
+  });
+
+  test("Turnstile verifying gate", async ({ page }) => {
+    await page.route("**/v1/turnstile/verify", () => new Promise(() => undefined));
+    await openTurnstileGate(page);
+    await solveTurnstileEntry(page);
+    await expect(page.locator(".turnstile-entry")).toHaveAttribute("aria-busy", "true");
+    await expectNoSeriousOrCritical(page, "Turnstile verifying gate");
+  });
+
+  test("Turnstile failure gate", async ({ page }) => {
+    await page.route("**/v1/turnstile/verify", (route) => route.fulfill({ status: 403 }));
+    await openTurnstileGate(page);
+    await solveTurnstileEntry(page);
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expectNoSeriousOrCritical(page, "Turnstile failure gate");
+  });
+
   test("doorway (`/`)", async ({ page }) => {
-    await openChat(page, "/");
-    await expect(page).toHaveURL(/\/chat(?:\?|$)/);
+    await page.goto("/");
+    await expect(page.locator(".app-splash")).toBeHidden();
+    await expect(page.locator(".doorway")).toBeVisible();
     await expectNoSeriousOrCritical(page, "doorway");
   });
 
   test("login modal", async ({ page }) => {
-    await openChat(page, "/chat?settings=byok");
-    await page.getByRole("button", { name: /ログインして設定|sign in to set up/i }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await openChat(page);
+    await page.getByRole("button", { name: /^(ログイン|sign in)$/i }).click();
+    await expect(page.getByRole("dialog", { name: /ログイン|sign in/i })).toBeVisible();
     await expectNoSeriousOrCritical(page, "login modal");
   });
 

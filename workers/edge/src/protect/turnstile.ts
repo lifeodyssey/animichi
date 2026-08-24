@@ -56,19 +56,9 @@ const BAD_RESPONSE: TurnstileResult = { ok: false, errorCodes: ["bad-siteverify-
  * front of every anonymous turn, so it must never hang one. */
 const SITEVERIFY_TIMEOUT_MS = 5_000;
 
-/**
- * The deliberate FAIL-OPEN verdict (issue #447 review, P1-3).
- *
- * When siteverify itself is unreachable — network error, timeout, a 502 whose
- * body is HTML — the choice is between walling out every anonymous visitor for
- * the duration of someone else's outage and letting turns through unverified.
- * This follows the precedent already set by the edge rate limiter (#438/#451):
- * infrastructure failure must not take chat down, and the daily-budget breaker
- * still caps what an unverified wave can cost. It is loud (`console.error` on
- * every occurrence) and it is deliberately NOT cached in the pass window, so
- * verification resumes the moment siteverify does.
- */
-const SITEVERIFY_UNAVAILABLE: TurnstileResult = { ok: true, errorCodes: ["siteverify-unavailable"] };
+/** Verification outages fail closed: an unverified browser never enters chat.
+ * The verdict is not cached, so the same gate can be retried immediately. */
+const SITEVERIFY_UNAVAILABLE: TurnstileResult = { ok: false, errorCodes: ["siteverify-unavailable"] };
 
 /** Structured, credential-free record of a verification outage. */
 function logSiteverifyUnavailable(reason: string): void {
@@ -108,7 +98,7 @@ async function siteverifyResult(
 /**
  * The canonical siteverify call. Pure apart from the injected `fetchImpl`.
  * Everything that can throw — the fetch itself, the timeout, a body that is not
- * JSON — resolves to the fail-open verdict rather than escaping as a bare 500.
+ * JSON — resolves to a retryable fail-closed verdict instead of a bare 500.
  */
 export async function verifySiteverify(
   token: string, clientIp: string, secret: string, fetchImpl: typeof fetch,
@@ -165,7 +155,7 @@ function prune(state: GateState): void {
   }
 }
 
-/** Only a real siteverify pass earns a window slot — never the fail-open one. */
+/** Only a real siteverify pass earns a window slot. */
 function isVerifiedPass(result: TurnstileResult): boolean {
   return result.ok && result.errorCodes.length === 0;
 }

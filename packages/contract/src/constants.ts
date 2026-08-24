@@ -4,6 +4,9 @@ export const MAX_CANDIDATES = 6;
 /** Header carrying a browser-solved Turnstile token to the edge gate. */
 export const TURNSTILE_HEADER = "cf-turnstile-response";
 
+/** Edge endpoint that verifies the browser challenge before chat mounts. */
+export const TURNSTILE_VERIFY_PATH = "/v1/turnstile/verify";
+
 /** How long the edge reuses a successful Turnstile verification. */
 export const TURNSTILE_WINDOW_MS = 5 * 60_000;
 

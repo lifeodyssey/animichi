@@ -2,7 +2,7 @@ import { LanguageSelect } from "./LanguageSelect";
 import { ThemeSwitch } from "./ThemeSwitch";
 
 /**
- * The app-level preferences the ⚙ panel hosts: day/night and language.
+ * The app-level preferences the settings drawer hosts: day/night and language.
  *
  * Owner 2026-08-23 — why the PANEL and not the app bar, so nobody "optimises"
  * them back up there: by Emil Kowalski's frequency test these are set-once,

@@ -1,5 +1,5 @@
 import type { ChangeEvent, ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { LoginModal } from "../../auth/ui/LoginModal";
 import type { AuthStatus } from "../../../lib/auth/session";
 import { clearByokConfig, getByokConfig } from "../../../lib/byok/byok-storage";
@@ -11,7 +11,7 @@ import { useByokSettings } from "../use-byok-settings";
 import type { ByokInlineError, ByokSettingsView } from "../use-byok-settings";
 
 /**
- * The app-level preference controls the ⚙ panel hosts (language, day/night),
+ * The app-level preference controls the settings drawer hosts (language, day/night),
  * composed at the UI layer and injected here as a node. Chat neither owns nor
  * imports them — that would be a feature→UI back-edge — it only rents the
  * panel the visitor already opens for settings. The label comes with them
@@ -241,19 +241,11 @@ function AuthenticatedPanel({ dict, baseUrl, probe = runByokProbe }: Omit<Props,
   );
 }
 
-/** Move focus into the panel when it opens — the toggle and the deep-link
- * return both land the reader at the top of what just appeared (#480 P3). */
-function usePanelFocus() {
-  const ref = useRef<HTMLElement | null>(null);
-  useEffect(() => { ref.current?.focus(); }, []);
-  return ref;
-}
-
-/** The ⚙ settings panel: app preferences first, then the BYOK section (issue
+/** The settings drawer body: app preferences first, then the BYOK section (issue
  * #284 Task 6 UI + Task 8 touchpoint B). */
 export function ByokSettings({ preferences, ...panel }: Props) {
   return (
-    <section id="byok-settings-panel" className="chat-byok" aria-label={preferences?.label ?? panel.dict.byok.title} tabIndex={-1} ref={usePanelFocus()}>
+    <section id="byok-settings-panel" className="chat-byok" aria-label={preferences?.label ?? panel.dict.byok.title}>
       {preferences?.content}
       <h3 className="chat-byok__title">{panel.dict.byok.title}</h3>
       <PanelBody {...panel} />

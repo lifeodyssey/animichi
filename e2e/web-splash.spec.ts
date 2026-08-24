@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 const PROFILE = {
   downloadThroughput: 200_000,
@@ -7,9 +8,8 @@ const PROFILE = {
 };
 
 /**
- * The index no longer clears the splash on its own: owner 2026-08-23 made `/`
- * `replace` into `/chat` on its first client effect at EVERY viewport, with CSS
- * holding the splash up until that navigation lands. The cold-start budget
+ * On mobile `/` replaces itself with `/chat` on its first client effect, with
+ * CSS holding the splash up until that navigation lands. The cold-start budget
  * contract ("the splash never delays first paint") is measured on `/privacy`
  * instead — a non-index route, so it keeps the plain 320ms get-in-get-out splash
  * at the same mobile viewport, under the same throttled cold start. The hand-off
@@ -68,27 +68,31 @@ test.describe("dark system mode", () => {
   });
 });
 
-test.describe("index hand-off", () => {
+test.describe("mobile index hand-off", () => {
   /**
-   * Owner 2026-08-23: the index is a doorway, not a destination, at every
-   * viewport. There is no dwell — the hand-off fires as soon as the client takes
+   * The mobile index is a doorway, not a destination. There is no dwell — the
+   * hand-off fires as soon as the client takes
    * over, and `data-splash-hold="handoff"` holds the CSS dismissal off until
    * chat's own first commit stamps `data-splash-release`, so the landing
    * underneath is never uncovered in between. Asserted through those marks and
    * the resulting URL, never elapsed time.
    */
   test("the splash covers / until chat replaces it", async ({ page }) => {
+    await stubTurnstileEntry(page);
     await page.goto("/", { waitUntil: "commit" });
     const splash = page.locator('[data-splash="static"]');
     await expect(splash).toBeVisible();
     await expect(splash).toHaveAttribute("data-splash-hold", "handoff");
     await page.waitForURL("**/chat");
+    await solveTurnstileEntry(page);
     await expect(page.locator("main.chat-page")).toBeVisible();
   });
 
   test("chat releases the splash once it has painted", async ({ page }) => {
+    await stubTurnstileEntry(page);
     await page.goto("/", { waitUntil: "commit" });
     await page.waitForURL("**/chat");
+    await solveTurnstileEntry(page);
     await expect(page.locator("main.chat-page")).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("data-splash-release", "");
     const splash = page.locator('[data-splash="static"]');
@@ -106,39 +110,41 @@ test.describe("index hand-off", () => {
   });
 });
 
-async function mediaScopedHoldRules(page: Page): Promise<readonly string[]> {
+async function shippedHoldRules(page: Page): Promise<readonly string[]> {
   return page.evaluate(() =>
     [...document.styleSheets]
       .flatMap((sheet) => [...sheet.cssRules])
-      .filter((rule): rule is CSSMediaRule => rule instanceof CSSMediaRule)
-      .flatMap((media) => [...media.cssRules].map((rule) => rule.cssText))
-      .filter((text) => text.includes('data-splash-hold="handoff"')),
+      .map((rule) => rule.cssText)
+      .filter((text) => text.includes("data-splash-mobile-handoff") && text.includes('data-splash-hold="handoff"')),
   );
 }
 
 /**
- * Owner 2026-08-23 removed the breakpoint: desktop is a doorway too. The risk
- * this covers is specific to desktop — the hold used to live inside a 640px
- * media query, so a desktop hand-off would have run with nothing covering it and
- * flashed the landing, which paints more of itself here than on mobile.
+ * Desktop is a destination until the visitor activates the CTA. Its splash
+ * uses the plain dismissal; only mobile receives the extended hand-off hold.
  */
-test.describe("desktop index hand-off", () => {
+test.describe("desktop index entry", () => {
   test.use({ viewport: { width: 1600, height: 1000 }, deviceScaleFactor: 1 });
 
-  test("holds the splash over / and hands off to chat", async ({ page }) => {
+  test("stays on / until the visitor activates the chat CTA", async ({ page }) => {
+    await stubTurnstileEntry(page);
     await page.goto("/", { waitUntil: "commit" });
     const splash = page.locator('[data-splash="static"]');
-    await expect(splash).toBeVisible();
     await expect(splash).toHaveAttribute("data-splash-hold", "handoff");
-    await page.waitForURL("**/chat");
-    await expect(page.locator("main.chat-page")).toBeVisible();
     await expect(splash).toBeHidden();
+    await expect(page).toHaveURL(/\/$/);
+    await page.setViewportSize({ width: 600, height: 1000 });
+    await expect(splash).toBeHidden();
+    await expect(page).toHaveURL(/\/$/);
+    await page.locator('.doorway__link[href="/chat"]').click();
+    await page.waitForURL("**/chat");
+    await solveTurnstileEntry(page);
+    await expect(page.locator("main.chat-page")).toBeVisible();
   });
 
-  /** Asserted on the SHIPPED stylesheet, not the source: a build step that
-   * re-wrapped the hold in a breakpoint would still pass the unit guard. */
-  test("ships the hold with no media query around it", async ({ page }) => {
+  /** Asserted on the shipped stylesheet, not only the source contract. */
+  test("ships the hand-off hold behind the immutable mobile mark", async ({ page }) => {
     await page.goto("/chat", { waitUntil: "load" });
-    await expect.poll(() => mediaScopedHoldRules(page)).toEqual([]);
+    await expect.poll(async () => (await shippedHoldRules(page)).length).toBe(1);
   });
 });
