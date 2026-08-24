@@ -48,3 +48,43 @@ BEGIN
     WHERE version IN ('20260811000000', '20260811000001', '20260814191301');
   END IF;
 END $$;
+-- Hand neondb_owner's pre-cutover leftovers to migrator (#1050 follow-up).
+--
+-- The 20260809 batch was baselined here (applied=0/total=0), so 26 of the 34
+-- public tables kept the shape AND the owner they had before migrator existed.
+-- PostgreSQL 18 sql-grant: "The right to drop an object, or to alter its
+-- definition in any way, is not treated as a grantable privilege; it is
+-- inherent in the owner, and cannot be granted or revoked." So no GRANT can
+-- let migrator run DDL on them — every migration touching one dies with
+-- "must be owner of table X", and a red migrate skips every downstream deploy.
+--
+-- Ownership, not role membership: `GRANT neondb_owner TO migrator` would hand
+-- over everything that role has, on every object, forever. Owning these named
+-- relations is the narrower of the two mechanisms PostgreSQL offers.
+--
+-- DML isolation is untouched: agent_svc/catalog_svc/users_svc/readonly reach
+-- these tables through explicit grants, which an owner change preserves.
+-- Sequences move too, or migrator cannot ALTER the identity columns they back.
+-- Scoped to relations neondb_owner actually owns, so cloud_admin's PostGIS
+-- objects (spatial_ref_sys and its views) are never touched, and re-running
+-- this is a no-op once the loop finds nothing.
+DO $$
+DECLARE
+  leftover record;
+BEGIN
+  FOR leftover IN
+    SELECT c.relkind, c.relname
+    FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+    JOIN pg_catalog.pg_roles r ON r.oid = c.relowner
+    WHERE n.nspname = 'public'
+      AND c.relkind IN ('r', 'S')
+      AND r.rolname = 'neondb_owner'
+  LOOP
+    IF leftover.relkind = 'r' THEN
+      EXECUTE format('ALTER TABLE public.%I OWNER TO migrator', leftover.relname);
+    ELSE
+      EXECUTE format('ALTER SEQUENCE public.%I OWNER TO migrator', leftover.relname);
+    END IF;
+  END LOOP;
+END $$;

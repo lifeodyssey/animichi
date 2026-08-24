@@ -27,8 +27,22 @@ void test("staging GRANT gives migrator CREATE on public", () => {
   assert.doesNotMatch(sql, /ALL TABLES/);
   assert.doesNotMatch(sql, /GRANT migrator TO/);
   assert.doesNotMatch(sql, /GRANT neondb_owner TO/);
-  assert.doesNotMatch(sql, /OWNER TO/);
   assert.doesNotMatch(sql, /Pulumi\.prod|production/i);
+});
+
+// Ownership replaced a blanket `OWNER TO` ban here. DDL is not a grantable
+// privilege in PostgreSQL, so migrator can only ALTER what it owns; the ban
+// made the 26 baselined tables permanently unmigratable. What still must hold
+// is that the transfer is narrow: only relations neondb_owner actually owns,
+// only to migrator, and never by handing over the role itself.
+void test("GRANT SQL moves only neondb_owner's own relations, and only to migrator", () => {
+  const sql = grantSql();
+  assert.match(sql, /ALTER TABLE public\.%I OWNER TO migrator/);
+  assert.match(sql, /ALTER SEQUENCE public\.%I OWNER TO migrator/);
+  assert.match(sql, /c\.relkind IN \('r', 'S'\)/);
+  assert.match(sql, /r\.rolname = 'neondb_owner'/);
+  assert.doesNotMatch(sql, /OWNER TO (?!migrator)/);
+  assert.doesNotMatch(sql, /OWNER TO CURRENT_USER|OWNER TO SESSION_USER/i);
 });
 
 void test("staging owner GRANT is applied as neondb_owner", () => {
