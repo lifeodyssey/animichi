@@ -48,6 +48,12 @@ def copy_workflows(src, dst)
   Dir.glob(File.join(src, "*.{yml,yaml}")).each { |path| FileUtils.cp(path, dst) }
 end
 
+def copy_actions(root, destination)
+  source = File.join(root, ".github", "actions")
+  FileUtils.mkdir_p(destination)
+  FileUtils.cp_r(File.join(source, "."), destination)
+end
+
 def assert_red(label, paths, fragment)
   text, rc = run_parity(paths)
   abort "FAIL: #{label} must be rejected, got exit #{rc}:\n#{text}" if rc.zero?
@@ -70,8 +76,10 @@ def planted_workflows(dir, extra)
   wf_dir = File.join(dir, ".github", "workflows")
   FileUtils.mkdir_p(File.dirname(wf_dir))
   copy_workflows(real_paths.workflows, wf_dir)
-  path = File.join(wf_dir, "reusable-static-quality.yml")
-  anchor = "      - name: Ruby syntax check workflow meta scripts\n"
+  actions_dir = File.join(dir, ".github", "actions")
+  copy_actions(real_paths.root, actions_dir)
+  path = File.join(actions_dir, "static-quality", "action.yml")
+  anchor = "    - name: Run canonical static quality gate\n"
   source = File.read(path)
   abort "FAIL: static-quality insertion anchor missing" unless source.include?(anchor)
   File.write(path, source.sub(anchor, "#{extra}#{anchor}"))
@@ -79,10 +87,12 @@ def planted_workflows(dir, extra)
 end
 
 def extra_ci_steps
-  "      - name: Brand-new locally-runnable check\n" \
-    "        run: ruby .github/scripts/brand-new-local-check.rb\n" \
-    "      - name: Generic typos check\n" \
-    "        run: typos\n"
+  "    - name: Brand-new locally-runnable check\n" \
+    "      run: ruby .github/scripts/brand-new-local-check.rb\n" \
+    "      shell: bash\n" \
+    "    - name: Generic typos check\n" \
+    "      run: typos\n" \
+    "      shell: bash\n"
 end
 
 def stripped_quality

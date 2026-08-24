@@ -96,12 +96,33 @@ end
 
 def step_checkpoints(step, wd, root)
   step_wd = step["working-directory"] || wd
-  return fingerprints_from_run(step["run"], step_wd) if step["run"]
+  return run_step_checkpoints(step["run"], step_wd, root) if step["run"]
   return [] unless step["uses"]
   return [] if skip_uses_action?(step["uses"])
   return [] if local_reusable?(step["uses"])
 
   uses_checkpoints(step, step_wd, root)
+end
+
+def run_step_checkpoints(run, wd, root)
+  found = fingerprints_from_run(run, wd)
+  found + local_script_checkpoints(found, root)
+end
+
+def local_script_checkpoints(found, root)
+  found.grep(/\Ascript:/).flat_map do |fingerprint|
+    relative = fingerprint.delete_prefix("script:")
+    next [] unless relative.start_with?("scripts/local-gates/") && relative.end_with?(".sh")
+
+    local_gate_checkpoints(File.join(root, relative))
+  end
+end
+
+def local_gate_checkpoints(path)
+  return [] unless File.file?(path)
+
+  text = expand_gate_vars(File.read(path))
+  run_line_fps(text) + syntax_script_fps(text) + glob_cov_patch(text, path)
 end
 
 def uses_checkpoints(step, step_wd, root)
@@ -118,7 +139,14 @@ def composite_command_fps(name, inputs, step_wd, root)
   path = File.join(root, name, "action.yml")
   return [] unless File.exist?(path)
 
-  command_input_fps(inputs, inputs["working-directory"] || step_wd)
+  working_directory = inputs["working-directory"] || step_wd
+  action = load_yaml_file(path)
+  steps = action.is_a?(Hash) ? action.dig("runs", "steps") : nil
+  found = command_input_fps(inputs, working_directory)
+  Array(steps).each do |step|
+    found.concat(step_checkpoints(step, working_directory, root)) if step.is_a?(Hash)
+  end
+  found
 end
 
 def command_input_fps(inputs, wd)
@@ -179,7 +207,7 @@ def gate_checkpoints(pre_push_path)
   extra = File.join(File.dirname(pre_push_path), "pre-push-worker-gates.sh")
   text += File.read(extra) if File.exist?(extra)
   found = []
-  text.scan(/^gate_(\w+)\(\) \{([\s\S]*?)^\}/) do |_pkg, body|
+  text.scan(/^(?:gate_\w+|run_pre_push)\(\) \{([\s\S]*?)^\}/) do |(body)|
     found.concat(gate_body_fps(body))
   end
   found

@@ -10,7 +10,6 @@ MATRIX_RESULT="${PR_VERIFICATION_MATRIX_RESULT:-}"
 QUALITY_RESULT="${PR_VERIFICATION_QUALITY_RESULT:-}"
 LANES="${PR_VERIFICATION_LANES:-[]}"
 CROSS_STACK_RESULT="${PR_VERIFICATION_CROSS_STACK_RESULT:-}"
-SECRET_DIFF_RESULT="${PR_VERIFICATION_SECRET_DIFF_RESULT:-}"
 SECURITY_RESULT="${PR_VERIFICATION_SECURITY_RESULT:-}"
 COVERAGE_AGENT_RESULT="${PR_VERIFICATION_COVERAGE_AGENT_RESULT:-}"
 COVERAGE_WEB_RESULT="${PR_VERIFICATION_COVERAGE_WEB_RESULT:-}"
@@ -41,7 +40,6 @@ require_lane() {
 [ "$ROUTE_RESULT" = success ] || fail "affected-package routing did not complete successfully (result=$ROUTE_RESULT)"
 require_lane static-quality "$QUALITY_RESULT"
 require_lane cross-stack "$CROSS_STACK_RESULT"
-[ "$SECRET_DIFF_RESULT" = success ] || fail "changed-commit secret scan failed (result=$SECRET_DIFF_RESULT)"
 [ "$SECURITY_RESULT" = success ] || fail "affected security aggregation failed (result=$SECURITY_RESULT)"
 
 printf '%s' "$EXPECTED_PACKAGES" | jq -e 'type == "array" and all(.[]; type == "string" and length > 0)' >/dev/null || fail "affected-package matrix is malformed"
@@ -89,10 +87,10 @@ while IFS= read -r package; do
   status="$(printf '%s' "$match" | jq -r '.status')"
   conclusion="$(printf '%s' "$match" | jq -r '.conclusion // empty')"
   details="$(printf '%s' "$match" | jq -r '.details_url // .html_url // "unavailable"')"
-  [ "$status" = completed ] && [ "$conclusion" = success ] || {
+  if [ "$status" != completed ] || [ "$conclusion" != success ]; then
     printf '::error title=PR Verification / %s::package gate is %s/%s; details: %s\n' "$package" "$status" "$conclusion" "$details" >&2
     failed=1
-  }
+  fi
 done <<< "$packages"
 
 [ "$MATRIX_RESULT" = success ] || {

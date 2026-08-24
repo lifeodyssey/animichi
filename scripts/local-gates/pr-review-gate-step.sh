@@ -186,12 +186,17 @@ validate_workflow_run() { # validate_workflow_run <repo> <sha> <run-id>
   [ "$actual" = "$expected" ] || block "CI run $3 is not the successful same-repository merge-group CI for $2"
 }
 
+validate_ci_check() { # validate_ci_check <repo> <sha> <run-id> <name>
+  local matches url="https://github.com/$1/actions/runs/$3/"
+  matches="$(gh api "repos/$1/commits/$2/check-runs?per_page=100" \
+    --jq ".check_runs | map(select(.name == \"$4\" and .head_sha == \"$2\" and .conclusion == \"success\" and (.details_url | startswith(\"$url\")))) | length")"
+  [ "$matches" = 1 ] && return 0
+  block "$4 is not bound to successful queue run $3 on $2"
+}
+
 validate_ci_run() { # validate_ci_run <repo> <sha> <run-id>
-  local check expected
-  check="$(gh api "repos/$1/commits/$2/check-runs?per_page=100" --jq '.check_runs | map(select(.name == "CI / verify"))[0] | [.head_sha,.conclusion,.details_url] | @tsv')"
-  expected="$2"$'\t'"success"$'\t'"https://github.com/$1/actions/runs/$3/"
-  case "$check" in "$expected"*) return 0 ;; esac
-  block "CI / verify is not bound to successful queue run $3 on $2"
+  validate_ci_check "$1" "$2" "$3" "PR Verification"
+  validate_ci_check "$1" "$2" "$3" "Security"
 }
 
 queue_pr_rows() { # queue_pr_rows <repo> <run-id>

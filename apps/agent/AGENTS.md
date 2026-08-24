@@ -155,9 +155,9 @@ Direct thrash gates (req≤12 / tool≤10 / repeat=0 / p95≤8 — `src/animichi
 
 **CI tiering (SD-30, #228/#227).** `EVAL_SMOKE=1` makes the capped job enforce its own
 zero-error/direct-thrash assertions, without reading or writing the baseline. The single PR CI
-runs it through `reusable-agent-eval.yml` with `EVAL_MAX_CASES=80` when the affected plan selects
+runs it through `.github/actions/agent-eval` with `EVAL_MAX_CASES=80` when the affected plan selects
 agent behavior. The job is visible but report-only for the merge verdict, so provider transport
-does not make `CI / verify` nondeterministic. The uncapped L1 suite — owning the statistical baseline
+does not make `PR Verification` nondeterministic. The uncapped L1 suite — owning the statistical baseline
 via `finish_cli_report`/`gate.py` — runs nightly + on `workflow_dispatch` only, in the standalone
 `agent-eval-nightly.yml` (never on PRs, so its cron cadence doesn't ride along with the PR/push
 affected-component matrix in `pr-verification.yml`).

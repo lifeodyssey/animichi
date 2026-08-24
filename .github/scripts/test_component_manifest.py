@@ -32,13 +32,19 @@ def mutated(change: Callable[[dict[str, object]], None]) -> subprocess.Completed
 
 
 def add_test_trigger(document: dict[str, object], trigger: str) -> None:
-    component = document["components"][0]
+    component = next(item for item in document["components"] if item["name"] == "docs")
     component["paths"].append(trigger)
     component["test_triggers"].append(trigger)
 
 
+def docs_component(document: dict[str, object]) -> dict[str, object]:
+    return next(item for item in document["components"] if item["name"] == "docs")
+
+
 def main() -> None:
     assert validate(MANIFEST).returncode == 0
+    schema = mutated(lambda doc: doc.update(schema_version=1))
+    assert schema.returncode == 1 and "schema_version must be 2" in schema.stderr
     repository_paths = mutated(lambda doc: doc.pop("repository_paths"))
     assert repository_paths.returncode == 1 and "repository-owned paths" in repository_paths.stderr
     overlap = mutated(lambda doc: doc["components"][1]["paths"].append("apps/agent/**"))
@@ -47,14 +53,18 @@ def main() -> None:
     assert unknown.returncode == 1 and "unknown dependency" in unknown.stderr
     cycle = mutated(lambda doc: doc["components"][2]["depends_on"].append("agent"))
     assert cycle.returncode == 1 and "cycle" in cycle.stderr
-    trigger = mutated(lambda doc: doc["components"][0]["test_triggers"].append("docs/**"))
+    trigger = mutated(lambda doc: docs_component(doc)["test_triggers"].append("docs/**"))
     assert trigger.returncode == 1 and "test trigger" in trigger.stderr
     broad = mutated(lambda doc: add_test_trigger(doc, "docs/**"))
     assert broad.returncode == 1 and "exact tracked file" in broad.stderr
     orphan = mutated(lambda doc: add_test_trigger(doc, "README.md"))
     assert orphan.returncode == 1 and "not owned by another component" in orphan.stderr
-    unmarked = mutated(lambda doc: doc["components"][0].pop("test_triggers"))
+    unmarked = mutated(lambda doc: docs_component(doc).pop("test_triggers"))
     assert unmarked.returncode == 1 and "declared as a test trigger" in unmarked.stderr
+    missing_excludes = mutated(lambda doc: doc["components"][0].pop("deploy_excludes"))
+    assert missing_excludes.returncode == 1 and "invalid deploy excludes" in missing_excludes.stderr
+    escaped_exclude = mutated(lambda doc: doc["components"][0]["deploy_excludes"].append("README.md"))
+    assert escaped_exclude.returncode == 1 and "deploy exclude escapes" in escaped_exclude.stderr
     missing = mutated(lambda doc: doc["components"].pop(8))
     assert missing.returncode == 1 and "unknown components" in missing.stderr
     print("component manifest: workspace coverage, ownership, references, and DAG validated")

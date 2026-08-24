@@ -64,7 +64,7 @@ echo
 echo "=== managed comment-finding formats match the parsers (no codecov) ==="
 # Invariant 5 lists exactly the top-level formats the local parser and the
 # merge hook inspect — qodo Bugs / Rule violations and SonarCloud Quality Gate.
-# Codecov patch coverage is a CI-lane check (reusable-static-quality.yml), not a
+# Codecov patch coverage is a CI-lane check (.github/actions/static-quality), not a
 # comment finding; a future claim that the parser reads codecov fails here.
 expect_true "invariant 5 lists exactly the parsed qodo / SonarCloud formats" \
   grep -qF "(qodo Bugs / Rule violations, SonarCloud Quality Gate)" "$ROOT/$CANON"
@@ -73,7 +73,7 @@ expect_absent "codecov is not inside the managed-findings parenthetical" \
 expect_true "codecov is explicitly not a comment finding" \
   grep -qF "not a comment finding" "$ROOT/$CANON"
 expect_true "codecov patch policy is routed to the CI Quality lane" \
-  grep -qF "reusable-static-quality.yml" "$ROOT/$CANON"
+  grep -qF ".github/actions/static-quality" "$ROOT/$CANON"
 
 echo
 echo "=== workflow-order truth (finding 4): review binds a candidate commit, PR opens after approval ==="

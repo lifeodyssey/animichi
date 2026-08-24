@@ -66,14 +66,15 @@ route_case contract packages/contract/change.ts $'agent\ncatalog\ncontract\ne2e\
 route_case e2e e2e/change.ts e2e
 route_case infra infra/change.ts infra
 route_case docs docs/change.md docs
-route_case secrets-read docs/ops/secrets.md $'agent\ndocs'
-route_case vitest-read apps/web/vitest.config.ts $'agent\ne2e\nweb'
-route_case container-env-read workers/edge/src/container/container-env.ts $'agent\nedge'
+route_case secrets-read docs/ops/secrets.md docs
+route_case vitest-read apps/web/vitest.config.ts $'docs\ne2e\nweb'
+route_case container-env-read workers/edge/src/container/container-env.ts $'docs\nedge'
 route_case auth-read workers/edge/src/identity/auth.ts $'edge\nusers'
 route_case turnstile-read workers/edge/src/protect/turnstile.ts $'e2e\nedge\nweb'
 route_case migrations migrations/change.sql $'agent\ncatalog\ndb\nedge\nmigrator\nusers'
 ALL_EXPECTED=$'agent\ncatalog\ncontract\ndb\ndocs\ne2e\nedge\ninfra\nmigrator\nusers\nweb'
 route_case workflow .github/workflows/change.yml ""
-route_case unknown README.md "$ALL_EXPECTED"
+route_case readme README.md ""
+route_case unknown unknown-root.txt "$ALL_EXPECTED"
 
 echo "PR Verification routing tests: every workspace package and path bucket route deterministically"

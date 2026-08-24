@@ -604,16 +604,18 @@ not define a second coverage policy.
 
 `.github/workflows/pr-verification.yml` is the single pull-request and merge-queue workflow.
 `.github/ci/components.json` maps changed paths to component gates and expands them through reverse
-dependencies; unknown paths fail closed to the full set. `CI / verify` blocks merge unless every
-selected deterministic/static/security/browser lane succeeds.
+dependencies; unknown paths fail closed to the full set. `PR Verification` blocks merge unless every
+selected deterministic, static, and browser lane succeeds; the direct `Security` context separately
+fail-closes the always-on changed-secret scans and every selected security tool.
 
 Prompt, model-config, guardrail, and eval-source changes also select `CI / agent eval (L0 smoke)`.
 That job preserves the existing provider-backed contract: at most 80 trajectories, MiMo through
 `https://opencode.ai/zen/go/v1`, and the existing repository `ZEN_GO_API_KEY`. It runs only on
 same-repository pull requests, never on Dependabot or forks, and receives no broader token
-permissions or data. The result remains visible and report-only: `CI / verify` waits for the job to
-finish but does not turn provider availability into a merge blocker. The uncapped L1 trajectory
-suite stays in `agent-eval-nightly.yml`; merge-queue evaluation never receives the provider secret.
+permissions or data. The result remains visible and report-only: it runs independently from
+`PR Verification`, so provider availability cannot become a merge blocker. The uncapped L1 trajectory
+suite stays in `agent-eval-nightly.yml` and uses the same local `.github/actions/agent-eval`
+implementation; merge-queue evaluation never receives the provider secret.
 
 Deployment is not a CI job. A successful merge creates a `main` push; only then does
 `.github/workflows/cd.yml` build and promote the affected release cohort.

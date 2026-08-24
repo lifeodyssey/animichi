@@ -9,6 +9,8 @@ permissions:
   contents: read
 env:
   PYTHON_VERSION: "3.11"
+  NODE_VERSION: "24"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
@@ -22,6 +24,8 @@ jobs:
       components: ${{ steps.route.outputs.components }}
       has_components: ${{ steps.route.outputs.has_components }}
       lanes: ${{ steps.route.outputs.lanes }}
+      security_tools: ${{ steps.route.outputs.security_tools }}
+      has_security_tools: ${{ steps.route.outputs.has_security_tools }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,20 +60,23 @@ jobs:
           range="pr"
           if [ "$EVENT_NAME" = merge_group ]; then range="main"; fi
           plan="$(python3 .github/scripts/change-plan.py --base "$BASE_SHA" --head "$HEAD_SHA" --range "$range")"
-          components="$(jq -r '.components[]' <<< "$plan")"
-          lanes="$(jq -r '.lanes[]' <<< "$plan")"
+          components="$(jq -c '.components' <<< "$plan")"
+          lanes="$(jq -c '.lanes' <<< "$plan")"
           if [ "$EVAL_ALLOWED" != true ]; then
-            lanes="$(grep -v '^agent-eval$' <<< "$lanes" || true)"
+            lanes="$(jq -c 'map(select(. != "agent-eval"))' <<< "$lanes")"
           fi
-          json="$(printf '%s\n' "$components" | jq -Rsc 'split("\n") | map(select(length > 0))')"
-          echo "components=$json" >> "$GITHUB_OUTPUT"
-          echo "has_components=$(jq -r 'length > 0' <<< "$json")" >> "$GITHUB_OUTPUT"
-          lane_json="$(printf '%s\n' "$lanes" | jq -Rsc 'split("\n") | map(select(length > 0))')"
-          echo "lanes=$lane_json" >> "$GITHUB_OUTPUT"
-          echo "Affected components: $json" >> "$GITHUB_STEP_SUMMARY"
-          echo "Selected global lanes: $lane_json" >> "$GITHUB_STEP_SUMMARY"
+          security_tools="$(jq -c '[.[] | select(startswith("security-")) | sub("^security-"; "")] | unique' <<< "$lanes")"
+          {
+            echo "components=$components"
+            echo "has_components=$(jq -r 'length > 0' <<< "$components")"
+            echo "lanes=$lanes"
+            echo "security_tools=$security_tools"
+            echo "has_security_tools=$(jq -r 'length > 0' <<< "$security_tools")"
+          } >> "$GITHUB_OUTPUT"
+          echo "Affected components: $components" >> "$GITHUB_STEP_SUMMARY"
+          echo "Selected checks: $lanes" >> "$GITHUB_STEP_SUMMARY"
   security-diff:
-    name: CI / secret diff
+    name: CI / changed secrets
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -79,40 +86,72 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Scan changed commits for secrets
+      - name: Scan changed commits with Gitleaks
         uses: ./.github/actions/secret-scan
         with:
           event-name: ${{ github.event_name }}
           base-sha: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           head-sha: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Scan verified secrets with TruffleHog
+        uses: ./.github/actions/security-tool
+        with:
+          tool: trufflehog
   static-quality:
-    name: CI / static quality
+    name: CI / repository contracts
     needs: route
     if: ${{ needs.route.result == 'success' && contains(fromJSON(needs.route.outputs.lanes), 'static-quality') }}
-    uses: ./.github/workflows/reusable-static-quality.yml
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/static-quality
   cross-stack:
     name: CI / cross stack
     needs: route
     if: ${{ needs.route.result == 'success' && contains(fromJSON(needs.route.outputs.lanes), 'cross-stack') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable-cross-stack-e2e.yml
-  security-scans:
-    name: CI / security scans
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/cross-stack-e2e
+  security-tools:
+    name: CI / security (${{ matrix.tool }})
     needs: route
-    if: ${{ needs.route.result == 'success' && contains(fromJSON(needs.route.outputs.lanes), 'security') }}
+    if: ${{ needs.route.result == 'success' && needs.route.outputs.has_security_tools == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     permissions:
       contents: read
       pull-requests: read
       security-events: write
       packages: read
       actions: read
-    uses: ./.github/workflows/reusable-security.yml
-    with:
-      expected_sha: ${{ github.sha }}
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: ${{ fromJSON(needs.route.outputs.security_tools) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/security-tool
+        with:
+          tool: ${{ matrix.tool }}
+
   security:
-    name: CI / security
-    needs: [route, security-scans]
+    name: Security
+    needs: [route, security-diff, security-tools]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -123,23 +162,34 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Aggregate selected security scans
+      - name: Aggregate selected security checks
         env:
           EXPECTED_SHA: ${{ github.sha }}
           ACTUAL_SHA: ${{ github.sha }}
-          LANES: ${{ needs.route.outputs.lanes }}
-          SECURITY_RESULT: ${{ needs.security-scans.result }}
+          ROUTE_RESULT: ${{ needs.route.result }}
+          SECRET_SCANS_RESULT: ${{ needs.security-diff.result }}
+          SECURITY_TOOLS: ${{ needs.route.outputs.security_tools }}
+          SECURITY_MATRIX_RESULT: ${{ needs.security-tools.result }}
         run: bash .github/scripts/security-aggregate.sh
 
   agent-eval:
-    name: CI / agent eval (L0 smoke)
+    name: CI / agent eval (L0, report only)
     needs: route
     if: ${{ needs.route.result == 'success' && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON(needs.route.outputs.lanes), 'agent-eval') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: read
-    uses: ./.github/workflows/reusable-agent-eval.yml
-    secrets:
-      ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/agent-eval
+        env:
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
+        with:
+          tier: l0
 
   affected:
     name: CI / affected (${{ matrix.component }})
@@ -174,18 +224,12 @@ jobs:
       - name: Build hermetic Postgres+PostGIS+pgvector test image
         if: ${{ matrix.component == 'agent' || matrix.component == 'db' || matrix.component == 'catalog' }}
         run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
-      - name: Resolve Playwright version
-        if: ${{ matrix.component == 'e2e' }}
-        run: |
-          PLAYWRIGHT_VERSION="$(pnpm --dir e2e exec playwright --version)"
-          echo "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION#Version }" >> "$GITHUB_ENV"
-        shell: bash
       - name: Restore Playwright browser cache
         if: ${{ matrix.component == 'e2e' }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-chromium
       - name: Install Playwright browser
         if: ${{ matrix.component == 'e2e' }}
         run: pnpm --dir e2e exec playwright install --with-deps chromium
@@ -231,45 +275,69 @@ jobs:
     name: CI / coverage (agent)
     needs: [route, affected]
     if: ${{ needs.affected.result == 'success' && contains(fromJSON(needs.route.outputs.components), 'agent') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/reusable-coverage.yml
-    with: {component: agent, download_path: apps/agent, files: "", flags: ""}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/coverage
+        with: {component: agent, download_path: apps/agent, files: "", flags: ""}
 
   coverage-web:
     name: CI / coverage (web)
     needs: [route, affected]
     if: ${{ needs.affected.result == 'success' && contains(fromJSON(needs.route.outputs.components), 'web') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/reusable-coverage.yml
-    with: {component: web, download_path: apps/web/coverage, files: apps/web/coverage/lcov.info, flags: web}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/coverage
+        with: {component: web, download_path: apps/web/coverage, files: apps/web/coverage/lcov.info, flags: web}
 
   coverage-catalog:
     name: CI / coverage (catalog)
     needs: [route, affected]
     if: ${{ needs.affected.result == 'success' && contains(fromJSON(needs.route.outputs.components), 'catalog') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/reusable-coverage.yml
-    with: {component: catalog, download_path: workers/catalog/coverage, files: workers/catalog/coverage/lcov.info, flags: catalog}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/coverage
+        with: {component: catalog, download_path: workers/catalog/coverage, files: workers/catalog/coverage/lcov.info, flags: catalog}
 
   coverage-users:
     name: CI / coverage (users)
     needs: [route, affected]
     if: ${{ needs.affected.result == 'success' && contains(fromJSON(needs.route.outputs.components), 'users') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/reusable-coverage.yml
-    with: {component: users, download_path: workers/users/coverage, files: workers/users/coverage/lcov.info, flags: users}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/coverage
+        with: {component: users, download_path: workers/users/coverage, files: workers/users/coverage/lcov.info, flags: users}
 
   aggregate:
-    name: CI / verify
-    needs: [route, static-quality, security-diff, security, agent-eval, affected, coverage-agent, coverage-web, coverage-catalog, coverage-users, cross-stack]
+    name: PR Verification
+    needs: [route, static-quality, security, affected, coverage-agent, coverage-web, coverage-catalog, coverage-users, cross-stack]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -289,9 +357,7 @@ jobs:
           PR_VERIFICATION_ROUTE_RESULT: ${{ needs.route.result }}
           PR_VERIFICATION_MATRIX_RESULT: ${{ needs.affected.result }}
           PR_VERIFICATION_QUALITY_RESULT: ${{ needs.static-quality.result }}
-          PR_VERIFICATION_SECRET_DIFF_RESULT: ${{ needs.security-diff.result }}
           PR_VERIFICATION_SECURITY_RESULT: ${{ needs.security.result }}
-          PR_VERIFICATION_AGENT_EVAL_RESULT: ${{ needs.agent-eval.result }}
           PR_VERIFICATION_COVERAGE_AGENT_RESULT: ${{ needs.coverage-agent.result }}
           PR_VERIFICATION_COVERAGE_WEB_RESULT: ${{ needs.coverage-web.result }}
           PR_VERIFICATION_COVERAGE_CATALOG_RESULT: ${{ needs.coverage-catalog.result }}
@@ -299,27 +365,3 @@ jobs:
           PR_VERIFICATION_LANES: ${{ needs.route.outputs.lanes }}
           PR_VERIFICATION_CROSS_STACK_RESULT: ${{ needs.cross-stack.result }}
         run: bash .github/scripts/pr-verification-aggregate.sh
-
-  required-security:
-    name: Security
-    needs: security
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Propagate the single-CI security verdict
-        env:
-          UPSTREAM_RESULT: ${{ needs.security.result }}
-        run: test "$UPSTREAM_RESULT" = success
-
-  required-pr-verification:
-    name: PR Verification
-    needs: aggregate
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Propagate the single-CI verification verdict
-        env:
-          UPSTREAM_RESULT: ${{ needs.aggregate.result }}
-        run: test "$UPSTREAM_RESULT" = success

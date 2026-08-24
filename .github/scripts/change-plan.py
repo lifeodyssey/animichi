@@ -37,20 +37,27 @@ def owns(pattern: str, path: str) -> bool:
     return path == root or path.startswith(f"{root}/")
 
 
-def routed_paths(component: dict[str, object], purpose: str) -> list[str]:
-    paths = list(component["paths"])
+def component_owns(component: dict[str, object], path: str, purpose: str) -> bool:
+    if not any(owns(pattern, path) for pattern in component["paths"]):
+        return False
     if purpose == "ci":
-        return paths
-    test_triggers = set(component.get("test_triggers", []))
-    return [path for path in paths if path not in test_triggers]
+        return True
+    excluded = list(component["deploy_excludes"])
+    if purpose == "deploy":
+        excluded += list(component.get("test_triggers", []))
+    return not any(owns(pattern, path) for pattern in excluded)
 
 
 def owners_for_path(components: list[dict[str, object]], path: str, purpose: str) -> set[str]:
     return {
         str(item["name"])
         for item in components
-        if any(owns(pattern, path) for pattern in routed_paths(item, purpose))
+        if component_owns(item, path, purpose)
     }
+
+
+def known_component_path(components: list[dict[str, object]], path: str) -> bool:
+    return any(component_owns(item, path, "ci") for item in components)
 
 
 def direct_components(
@@ -61,7 +68,7 @@ def direct_components(
     for path in paths:
         owners = owners_for_path(components, path, purpose)
         repository_owned = any(owns(pattern, path) for pattern in repository_paths)
-        if not owners and not repository_owned:
+        if not owners and not repository_owned and not known_component_path(components, path):
             fallback = True
         selected.update(owners)
     return selected, fallback
@@ -100,9 +107,15 @@ def build_plan(root: Path, manifest: Path, base: str, head: str, mode: str, purp
     repository_paths = document["repository_paths"]
     effective_base = diff_base(root, base, head, mode)
     paths = changed_paths(root, effective_base, head)
-    source_direct, fallback = direct_components(components, repository_paths, paths, "deploy")
+    deploy_direct, fallback = direct_components(components, repository_paths, paths, "deploy")
+    source_direct = direct_components(components, repository_paths, paths, "propagation")[0]
     direct = direct_components(components, repository_paths, paths, purpose)[0]
-    selected = {str(item["name"]) for item in components} if fallback else reverse_closure(components, direct.copy())
+    closure_seed = deploy_direct if purpose == "deploy" else source_direct
+    selected = (
+        {str(item["name"]) for item in components}
+        if fallback
+        else direct | reverse_closure(components, closure_seed.copy())
+    )
     source_selected = selected if fallback else reverse_closure(components, source_direct.copy())
     lanes = selected_lanes(document["global_lanes"], paths, source_selected, fallback)
     return {"range_mode": mode, "purpose": purpose, "base": base, "diff_base": effective_base, "head": head,

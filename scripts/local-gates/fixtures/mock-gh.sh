@@ -92,7 +92,17 @@ status_list_payload() { # status_list_payload; echo latest Review Gate ownership
 }
 
 check_runs_payload() { # check_runs_payload; echo queue CI evidence
-  printf '{"check_runs":[{"name":"CI / verify","head_sha":"%s","conclusion":"%s","details_url":"https://github.com/lifeodyssey/animichi/actions/runs/%s/job/1"}]}\n' "${MOCK_QUEUE_SHA:-cccccccccccccccccccccccccccccccccccccccc}" "${MOCK_CI_CONCLUSION:-success}" "${MOCK_CI_RUN_ID:-99}"
+  local name first=1 conclusion
+  printf '{"check_runs":['
+  for name in 'PR Verification' Security; do
+    [ "$name" = "${MOCK_MISSING_CHECK:-}" ] && continue
+    [ "$first" = 1 ] || printf ','
+    first=0; conclusion=success
+    [ "$name" = "${MOCK_FAILED_CHECK:-}" ] && conclusion=failure
+    printf '{"name":"%s","head_sha":"%s","conclusion":"%s","details_url":"https://github.com/lifeodyssey/animichi/actions/runs/%s/job/1"}' \
+      "$name" "${MOCK_QUEUE_SHA:-cccccccccccccccccccccccccccccccccccccccc}" "$conclusion" "${MOCK_CI_RUN_ID:-99}"
+  done
+  printf ']}\n'
 }
 
 commit_pulls_payload() { # commit_pulls_payload; echo associated queue PRs

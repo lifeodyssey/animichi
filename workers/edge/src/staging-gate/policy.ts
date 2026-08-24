@@ -32,7 +32,6 @@ export const STAGING_GATE_OIDC_AUDIENCE = "animichi:github-actions:staging-gate"
  */
 export const STAGING_GATE_TRUSTED_WORKFLOWS = [
   "lifeodyssey/animichi/.github/workflows/cd.yml@refs/heads/main",
-  "lifeodyssey/animichi/.github/workflows/reusable-promote-release-phase.yml@refs/heads/main",
 ] as const;
 
 /** GitHub Actions OIDC JWKS (constructor-injected elsewhere; production source). */

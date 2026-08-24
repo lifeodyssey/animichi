@@ -11,6 +11,6 @@ abort "infra promotion must use the sealed Neon SDK" unless adapter.include?("se
 
 cd = File.read(".github/workflows/cd.yml")
 abort "foundation must precede migration" unless cd.index("stage-foundation:") < cd.index("stage-migration:")
-abort "foundation must use staging protection" unless File.read(".github/workflows/reusable-promote-release-phase.yml").include?("environment: staging")
+abort "foundation must use staging protection" unless cd.match?(/stage-foundation:.*?^\s+environment:\s+staging\s*$/m)
 
 puts "Infrastructure safety contract: sealed provider and uploaded pre-apply rollback state"

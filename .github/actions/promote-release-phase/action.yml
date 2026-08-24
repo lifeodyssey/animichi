@@ -1,0 +1,202 @@
+name: Promote release phase
+description: Promote one ordered staging phase from sealed main-SHA artifacts.
+inputs:
+  phase:
+    description: foundation, migration, services, edge, or web.
+    required: true
+  units:
+    description: JSON release-unit list for the phase.
+    required: true
+  source_sha:
+    description: Exact main SHA carried by every artifact.
+    required: true
+  cloudflare_api_token:
+    description: Worker deployment token, supplied only to phases that deploy Workers.
+    required: false
+  cloudflare_pulumi_api_token:
+    description: Pulumi-scoped Cloudflare token, supplied only to foundation.
+    required: false
+  cloudflare_account_id:
+    description: Cloudflare account selected by the staging environment.
+    required: false
+  pulumi_config_passphrase:
+    description: Pulumi config passphrase, supplied only to foundation.
+    required: false
+  pulumi_backend_url:
+    description: Pulumi state backend, supplied only to foundation.
+    required: false
+  r2_access_key_id:
+    description: R2 state access key, supplied only to foundation.
+    required: false
+  r2_secret_access_key:
+    description: R2 state secret, supplied only to foundation.
+    required: false
+  neon_api_key:
+    description: Neon provisioning key, supplied only to foundation.
+    required: false
+  migrator_url:
+    description: Environment-scoped staging migrator endpoint.
+    required: false
+  deepseek_api_key:
+    description: Edge runtime secret.
+    required: false
+  mimo_api_key:
+    description: Edge runtime secret.
+    required: false
+  zen_go_api_key:
+    description: Edge runtime secret.
+    required: false
+  supabase_db_url:
+    description: Edge runtime secret.
+    required: false
+  google_maps_api_key:
+    description: Edge runtime secret.
+    required: false
+  logfire_token:
+    description: Edge runtime secret.
+    required: false
+  turnstile_secret:
+    description: Edge runtime secret.
+    required: false
+  anon_id_secret:
+    description: Edge runtime secret.
+    required: false
+  vite_site_origin:
+    description: Web runtime setting selected by the staging environment.
+    required: false
+  vite_catalog_url:
+    description: Web runtime setting selected by the staging environment.
+    required: false
+  vite_users_url:
+    description: Web runtime setting selected by the staging environment.
+    required: false
+  vite_agent_url:
+    description: Web runtime setting selected by the staging environment.
+    required: false
+  vite_neon_auth_base_url:
+    description: Web runtime setting selected by the staging environment.
+    required: false
+  vite_turnstile_site_key:
+    description: Web runtime setting selected by the staging environment.
+    required: false
+  vite_cf_beacon_token:
+    description: Web runtime setting selected by the staging environment.
+    required: false
+  vite_showcase_mode:
+    description: Web runtime setting selected by the staging environment.
+    required: false
+runs:
+  using: composite
+  steps:
+    - name: Validate the selected staging phase
+      env:
+        RELEASE_PHASE: ${{ inputs.phase }}
+        RELEASE_UNITS: ${{ inputs.units }}
+      run: |
+        set -euo pipefail
+        case "$RELEASE_PHASE" in foundation|migration|services|edge|web) ;; *) exit 2 ;; esac
+        jq -e 'type == "array" and length > 0 and all(.[]; type == "string")' <<< "$RELEASE_UNITS" >/dev/null
+      shell: bash
+    - name: Download the main-SHA artifacts
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      with:
+        pattern: release-${{ inputs.source_sha }}-*
+        path: ${{ runner.temp }}/release-cohort
+    - uses: ./.github/actions/setup
+    - name: Install Pulumi CLI
+      if: ${{ inputs.phase == 'foundation' }}
+      uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+      with:
+        pulumi-version-file: .pulumi.version
+    - name: Promote foundation payloads
+      if: ${{ inputs.phase == 'foundation' }}
+      env:
+        RELEASE_UNITS: ${{ inputs.units }}
+        SOURCE_SHA: ${{ inputs.source_sha }}
+        CLOUDFLARE_PULUMI_API_TOKEN: ${{ inputs.cloudflare_pulumi_api_token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
+        PULUMI_CONFIG_PASSPHRASE: ${{ inputs.pulumi_config_passphrase }}
+        PULUMI_BACKEND_URL: ${{ inputs.pulumi_backend_url }}
+        R2_ACCESS_KEY_ID: ${{ inputs.r2_access_key_id }}
+        R2_SECRET_ACCESS_KEY: ${{ inputs.r2_secret_access_key }}
+        NEON_API_KEY: ${{ inputs.neon_api_key }}
+      run: |
+        set -euo pipefail
+        jq -r '.[]' <<< "$RELEASE_UNITS" | while IFS= read -r unit; do
+          bash .github/scripts/promote-release-unit.sh "$unit" staging "$SOURCE_SHA" \
+            "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-$unit"
+        done
+      shell: bash
+    - name: Promote migration payloads
+      if: ${{ inputs.phase == 'migration' }}
+      env:
+        RELEASE_UNITS: ${{ inputs.units }}
+        SOURCE_SHA: ${{ inputs.source_sha }}
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
+        MIGRATOR_URL: ${{ inputs.migrator_url }}
+      run: |
+        set -euo pipefail
+        jq -r '.[]' <<< "$RELEASE_UNITS" | while IFS= read -r unit; do
+          bash .github/scripts/promote-release-unit.sh "$unit" staging "$SOURCE_SHA" \
+            "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-$unit"
+        done
+      shell: bash
+    - name: Promote service payloads
+      if: ${{ inputs.phase == 'services' }}
+      env:
+        RELEASE_UNITS: ${{ inputs.units }}
+        SOURCE_SHA: ${{ inputs.source_sha }}
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
+      run: |
+        set -euo pipefail
+        jq -r '.[]' <<< "$RELEASE_UNITS" | while IFS= read -r unit; do
+          bash .github/scripts/promote-release-unit.sh "$unit" staging "$SOURCE_SHA" \
+            "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-$unit"
+        done
+      shell: bash
+    - name: Promote edge payloads
+      if: ${{ inputs.phase == 'edge' }}
+      env:
+        RELEASE_UNITS: ${{ inputs.units }}
+        SOURCE_SHA: ${{ inputs.source_sha }}
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
+        DEEPSEEK_API_KEY: ${{ inputs.deepseek_api_key }}
+        MIMO_API_KEY: ${{ inputs.mimo_api_key }}
+        ZEN_GO_API_KEY: ${{ inputs.zen_go_api_key }}
+        SUPABASE_DB_URL: ${{ inputs.supabase_db_url }}
+        GOOGLE_MAPS_API_KEY: ${{ inputs.google_maps_api_key }}
+        LOGFIRE_TOKEN: ${{ inputs.logfire_token }}
+        TURNSTILE_SECRET: ${{ inputs.turnstile_secret }}
+        ANON_ID_SECRET: ${{ inputs.anon_id_secret }}
+      run: |
+        set -euo pipefail
+        jq -r '.[]' <<< "$RELEASE_UNITS" | while IFS= read -r unit; do
+          bash .github/scripts/promote-release-unit.sh "$unit" staging "$SOURCE_SHA" \
+            "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-$unit"
+        done
+      shell: bash
+    - name: Promote web payloads
+      if: ${{ inputs.phase == 'web' }}
+      env:
+        RELEASE_UNITS: ${{ inputs.units }}
+        SOURCE_SHA: ${{ inputs.source_sha }}
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare_api_token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
+        VITE_SITE_ORIGIN: ${{ inputs.vite_site_origin }}
+        VITE_CATALOG_URL: ${{ inputs.vite_catalog_url }}
+        VITE_USERS_URL: ${{ inputs.vite_users_url }}
+        VITE_AGENT_URL: ${{ inputs.vite_agent_url }}
+        VITE_NEON_AUTH_BASE_URL: ${{ inputs.vite_neon_auth_base_url }}
+        VITE_TURNSTILE_SITE_KEY: ${{ inputs.vite_turnstile_site_key }}
+        VITE_CF_BEACON_TOKEN: ${{ inputs.vite_cf_beacon_token }}
+        VITE_SHOWCASE_MODE: ${{ inputs.vite_showcase_mode }}
+      run: |
+        set -euo pipefail
+        jq -r '.[]' <<< "$RELEASE_UNITS" | while IFS= read -r unit; do
+          bash .github/scripts/promote-release-unit.sh "$unit" staging "$SOURCE_SHA" \
+            "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-$unit"
+        done
+      shell: bash

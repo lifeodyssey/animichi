@@ -53,7 +53,12 @@ def assert_reverse_closure() -> None:
         expected = {"agent", "catalog", "contract", "e2e", "edge", "migrator", "users", "web"}
         assert set(result["components"]) == expected
         assert result["direct_components"] == ["contract"]
-        assert set(result["lanes"]) == {"cross-stack", "security", "static-quality"}
+        assert set(result["lanes"]) == {
+            "cross-stack",
+            "security-codeql-javascript",
+            "security-codeql-python",
+            "security-semgrep",
+        }
 
 
 def assert_pr_uses_merge_base() -> None:
@@ -68,11 +73,52 @@ def assert_pr_uses_merge_base() -> None:
 def assert_main_and_fallback() -> None:
     temporary, root, initial = fixture()
     with temporary:
-        head = commit_file(root, "README.md", "unknown")
+        head = commit_file(root, "unknown-root.txt", "unknown")
         result = plan(root, initial, head, "main")
         assert result["fallback_all"] is True
         assert len(result["components"]) == 11
-        assert len(result["lanes"]) == 3
+        assert set(result["lanes"]) == {
+            "cross-stack",
+            "security-codeql-javascript",
+            "security-codeql-python",
+            "security-semgrep",
+            "security-sqlfluff",
+        }
+
+
+def assert_root_readmes_are_repository_quality_inputs() -> None:
+    temporary, root, initial = fixture()
+    with temporary:
+        head = commit_file(root, "README.md", "known documentation")
+        ci = plan(root, initial, head)
+        deploy = plan(root, initial, head, "main", "deploy")
+        assert ci["fallback_all"] is False
+        assert ci["components"] == []
+        assert ci["lanes"] == ["static-quality"]
+        assert deploy["components"] == []
+
+
+def assert_non_runtime_component_files_are_ci_only() -> None:
+    temporary, root, initial = fixture()
+    with temporary:
+        tests = commit_file(root, "packages/contract/test/new.test.ts", "test")
+        docs = commit_file(root, "migrations/AGENTS.md", "guidance")
+        ci = plan(root, initial, docs)
+        deploy = plan(root, initial, docs, "main", "deploy")
+        assert set(ci["direct_components"]) == {"contract", "db"}
+        assert set(ci["components"]) == {"contract", "db"}
+        assert plan(root, initial, tests, "main", "deploy")["components"] == []
+        assert deploy["fallback_all"] is False
+        assert deploy["components"] == []
+
+
+def assert_runtime_source_still_selects_deploy_unit() -> None:
+    temporary, root, initial = fixture()
+    with temporary:
+        head = commit_file(root, "workers/edge/src/policy.ts", "runtime")
+        deploy = plan(root, initial, head, "main", "deploy")
+        assert deploy["direct_components"] == ["edge"]
+        assert deploy["components"] == ["edge"]
 
 
 def assert_repository_change_has_no_product_component() -> None:
@@ -83,7 +129,7 @@ def assert_repository_change_has_no_product_component() -> None:
         deploy = plan(root, initial, head, "main", "deploy")
         assert ci["fallback_all"] is False
         assert ci["components"] == []
-        assert ci["lanes"] == ["security", "static-quality"]
+        assert ci["lanes"] == ["security-codeql-actions", "security-zizmor", "static-quality"]
         assert deploy["components"] == []
 
 
@@ -95,13 +141,17 @@ def assert_eval_is_path_scoped() -> None:
         assert "agent-eval" in result["lanes"]
 
 
-def assert_security_follows_affected_closure() -> None:
+def assert_security_tools_follow_affected_change() -> None:
     temporary, root, initial = fixture()
     with temporary:
         docs_head = commit_file(root, Path("docs", "note.md").as_posix(), "docs")
-        assert "security" not in plan(root, initial, docs_head)["lanes"]
+        assert not any(lane.startswith("security-") for lane in plan(root, initial, docs_head)["lanes"])
         web_head = commit_file(root, "apps/web/change.ts", "web")
-        assert "security" in plan(root, docs_head, web_head)["lanes"]
+        assert set(plan(root, docs_head, web_head)["lanes"]) == {
+            "cross-stack",
+            "security-codeql-javascript",
+            "security-semgrep",
+        }
 
 
 def assert_test_triggers_are_ci_only() -> None:
@@ -111,11 +161,11 @@ def assert_test_triggers_are_ci_only() -> None:
         pr = plan(root, initial, head)
         queue = plan(root, initial, head, "main")
         deploy = plan(root, initial, head, "main", "deploy")
-        assert pr["direct_components"] == ["agent", "docs"]
+        assert pr["direct_components"] == ["docs"]
         assert pr["source_components"] == ["docs"]
-        assert pr["test_trigger_components"] == ["agent"]
-        assert pr["lanes"] == ["static-quality"]
-        assert queue["direct_components"] == ["agent", "docs"]
+        assert pr["test_trigger_components"] == []
+        assert pr["lanes"] == []
+        assert queue["direct_components"] == ["docs"]
         assert deploy["direct_components"] == ["docs"]
 
 
@@ -141,13 +191,16 @@ def main() -> None:
     assert_reverse_closure()
     assert_pr_uses_merge_base()
     assert_main_and_fallback()
+    assert_root_readmes_are_repository_quality_inputs()
+    assert_non_runtime_component_files_are_ci_only()
+    assert_runtime_source_still_selects_deploy_unit()
     assert_repository_change_has_no_product_component()
     assert_eval_is_path_scoped()
-    assert_security_follows_affected_closure()
+    assert_security_tools_follow_affected_change()
     assert_test_triggers_are_ci_only()
     assert_cross_component_test_trigger()
     assert_regular_docs_stay_docs_only()
-    print("change plan: PR merge-base, main range, reverse closure, and fallback validated")
+    print("change plan: affected CI, runtime-only CD, reverse closure, and fallback validated")
 
 
 if __name__ == "__main__":

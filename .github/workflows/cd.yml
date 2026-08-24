@@ -11,6 +11,9 @@ concurrency:
   group: affected-cd-main
   cancel-in-progress: false
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   route:
     name: Resolve affected release cohort
@@ -54,107 +57,156 @@ jobs:
     name: Build release artifact (${{ matrix.unit }})
     needs: route
     if: ${{ needs.route.outputs.has_deployments == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         unit: ${{ fromJSON(needs.route.outputs.deploy_units) }}
-    uses: ./.github/workflows/reusable-build-release-unit.yml
-    with:
-      unit: ${{ matrix.unit }}
-      source_sha: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/build-release-unit
+        with:
+          unit: ${{ matrix.unit }}
+          source_sha: ${{ github.sha }}
 
   stage-foundation:
     needs: [route, build-release-artifacts]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.foundation != '[]' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
     permissions:
       contents: read
       actions: read
-      id-token: write
-    uses: ./.github/workflows/reusable-promote-release-phase.yml
-    with:
-      phase: foundation
-      units: ${{ needs.route.outputs.foundation }}
-      source_sha: ${{ github.sha }}
-    secrets:
-      CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-      PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/promote-release-phase
+        with:
+          phase: foundation
+          units: ${{ needs.route.outputs.foundation }}
+          source_sha: ${{ github.sha }}
+          cloudflare_pulumi_api_token: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+          cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          pulumi_config_passphrase: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          pulumi_backend_url: ${{ secrets.PULUMI_BACKEND_URL }}
+          r2_access_key_id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2_secret_access_key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          neon_api_key: ${{ secrets.NEON_API_KEY }}
 
   stage-migration:
     needs: [route, stage-foundation]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.migration != '[]' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
     permissions:
       contents: read
       actions: read
       id-token: write
-    uses: ./.github/workflows/reusable-promote-release-phase.yml
-    with:
-      phase: migration
-      units: ${{ needs.route.outputs.migration }}
-      source_sha: ${{ github.sha }}
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/promote-release-phase
+        with:
+          phase: migration
+          units: ${{ needs.route.outputs.migration }}
+          source_sha: ${{ github.sha }}
+          cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          migrator_url: ${{ vars.MIGRATOR_STAGING_URL }}
 
   stage-services:
     needs: [route, stage-migration]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.services != '[]' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
     permissions:
       contents: read
       actions: read
-      id-token: write
-    uses: ./.github/workflows/reusable-promote-release-phase.yml
-    with:
-      phase: services
-      units: ${{ needs.route.outputs.services }}
-      source_sha: ${{ github.sha }}
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/promote-release-phase
+        with:
+          phase: services
+          units: ${{ needs.route.outputs.services }}
+          source_sha: ${{ github.sha }}
+          cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   stage-edge:
     needs: [route, stage-services]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.edge != '[]' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
     permissions:
       contents: read
       actions: read
-      id-token: write
-    uses: ./.github/workflows/reusable-promote-release-phase.yml
-    with:
-      phase: edge
-      units: ${{ needs.route.outputs.edge }}
-      source_sha: ${{ github.sha }}
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-      MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
-      ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
-      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-      LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
-      TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
-      ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/promote-release-phase
+        with:
+          phase: edge
+          units: ${{ needs.route.outputs.edge }}
+          source_sha: ${{ github.sha }}
+          cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          deepseek_api_key: ${{ secrets.DEEPSEEK_API_KEY }}
+          mimo_api_key: ${{ secrets.MIMO_API_KEY }}
+          zen_go_api_key: ${{ secrets.ZEN_GO_API_KEY }}
+          supabase_db_url: ${{ secrets.SUPABASE_DB_URL }}
+          google_maps_api_key: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          logfire_token: ${{ secrets.LOGFIRE_TOKEN }}
+          turnstile_secret: ${{ secrets.TURNSTILE_SECRET }}
+          anon_id_secret: ${{ secrets.ANON_ID_SECRET }}
 
   stage-web:
     needs: [route, stage-edge]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.web != '[]' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
     permissions:
       contents: read
       actions: read
-      id-token: write
-    uses: ./.github/workflows/reusable-promote-release-phase.yml
-    with:
-      phase: web
-      units: ${{ needs.route.outputs.web }}
-      source_sha: ${{ github.sha }}
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/promote-release-phase
+        with:
+          phase: web
+          units: ${{ needs.route.outputs.web }}
+          source_sha: ${{ github.sha }}
+          cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          vite_site_origin: ${{ vars.VITE_SITE_ORIGIN }}
+          vite_catalog_url: ${{ vars.VITE_CATALOG_URL }}
+          vite_users_url: ${{ vars.VITE_USERS_URL }}
+          vite_agent_url: ${{ vars.VITE_AGENT_URL }}
+          vite_neon_auth_base_url: ${{ vars.VITE_NEON_AUTH_BASE_URL }}
+          vite_turnstile_site_key: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          vite_cf_beacon_token: ${{ vars.VITE_CF_BEACON_TOKEN }}
+          vite_showcase_mode: ${{ vars.VITE_SHOWCASE_MODE }}
 
   post-staging:
     name: Verify staging cohort identity
@@ -191,7 +243,9 @@ jobs:
           path: ${{ runner.temp }}/release-cohort
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/install-atlas
+        if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'db') }}
       - name: Install Pulumi CLI
+        if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'infra') }}
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
           pulumi-version-file: .pulumi.version

@@ -79,7 +79,7 @@ void test("ZEN_GO_API_KEY is optional on the Worker: absent stays omitted, never
 void test("sealed release artifacts never contain model keys", () => {
   const build = readFileSync(
     new URL(
-      "../../../.github/workflows/reusable-build-release-unit.yml",
+      "../../../.github/actions/build-release-unit/action.yml",
       import.meta.url,
     ).pathname,
     "utf8",

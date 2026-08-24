@@ -77,7 +77,7 @@ def placeholder_reason_copy
 end
 
 def dir_scoped_copy
-  extra = "      - name: Dir-scoped check\n        working-directory: infra/uncovered\n        run: pnpm run lint\n"
+  extra = "    - name: Dir-scoped check\n      working-directory: infra/uncovered\n      run: pnpm run lint\n      shell: bash\n"
   with_paths("parity-dir") do |dir, paths|
     paths.workflows = planted_workflows(dir, extra)
     paths.root = dir

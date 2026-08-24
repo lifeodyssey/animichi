@@ -7,7 +7,7 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[6]
 _ENV = _ROOT / "workers/edge/src/container/container-env.ts"
-_BUILD = _ROOT / ".github/workflows/reusable-build-release-unit.yml"
+_BUILD = _ROOT / ".github/actions/build-release-unit/action.yml"
 _PROMOTE = _ROOT / ".github/scripts/promote-release-unit.sh"
 _DOCKERFILE = _ROOT / "apps/agent/Dockerfile"
 
