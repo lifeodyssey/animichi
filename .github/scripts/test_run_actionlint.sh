@@ -12,7 +12,7 @@ exit "${FAKE_STATUS:-0}"
 SH
 chmod +x "$FAKE"
 
-line_for() { rg -n '^  queue: max$' "$1" | cut -d: -f1; }
+line_for() { grep -nE '^  queue: max$' "$1" | cut -d: -f1; }
 message='unexpected key "queue" for "concurrency" section. expected one of "cancel-in-progress", "group"'
 allowed=".github/workflows/cd.yml|$(line_for .github/workflows/cd.yml)|3|$message|syntax-check
 .github/workflows/rollback.yml|$(line_for .github/workflows/rollback.yml)|3|$message|syntax-check
