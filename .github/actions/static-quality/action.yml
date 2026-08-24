@@ -6,6 +6,9 @@ runs:
     - uses: ./.github/actions/setup
       with:
         python: "true"
+    - name: Install pinned Semgrep
+      run: uv tool install --no-build "semgrep==1.172.0"
+      shell: bash
     - name: Install pinned actionlint
       run: |
         set -euo pipefail
