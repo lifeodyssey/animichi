@@ -68,6 +68,19 @@ END $$;
 -- Scoped to relations neondb_owner actually owns, so cloud_admin's PostGIS
 -- objects (spatial_ref_sys and its views) are never touched, and re-running
 -- this is a no-op once the loop finds nothing.
+--
+-- The transfer needs one more thing than ownership of the source: per the same
+-- reference, "to give ownership of an existing object to another role, you must
+-- have the ability to SET ROLE to that role". neondb_owner and migrator are
+-- siblings under neon_superuser, members of neither, so the ALTER fails with
+-- "must be able to SET ROLE migrator" without this membership.
+--
+-- Direction matters, and it is the opposite of the one worth fearing. This
+-- grants MIGRATOR to NEONDB_OWNER: the already-more-privileged admin role
+-- temporarily gains the narrower one, which is not an escalation. The dangerous
+-- direction, `GRANT neondb_owner TO migrator`, stays banned by the tests. The
+-- membership is revoked below, so it exists only for this script's run.
+GRANT migrator TO neondb_owner;
 DO $$
 DECLARE
   leftover record;
@@ -88,3 +101,6 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+-- Put the role topology back: the membership above was scaffolding for the
+-- transfer, not a standing privilege.
+REVOKE migrator FROM neondb_owner;

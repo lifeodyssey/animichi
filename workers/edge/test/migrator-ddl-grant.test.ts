@@ -25,9 +25,24 @@ void test("staging GRANT gives migrator CREATE on public", () => {
   assert.match(sql, /GRANT USAGE,\s*CREATE ON SCHEMA public TO migrator;/);
   assert.match(sql, /GRANT REFERENCES ON TABLE public.sessions TO migrator;/);
   assert.doesNotMatch(sql, /ALL TABLES/);
-  assert.doesNotMatch(sql, /GRANT migrator TO/);
   assert.doesNotMatch(sql, /GRANT neondb_owner TO/);
   assert.doesNotMatch(sql, /Pulumi\.prod|production/i);
+});
+
+// The blanket `GRANT migrator TO` ban banned both directions at once. Only one
+// is an escalation: handing neondb_owner (already the admin) the narrower role
+// is what PostgreSQL requires before it will let it transfer ownership, and it
+// must not outlive the script. `GRANT neondb_owner TO migrator` — the direction
+// that would widen migrator — stays banned in the case above.
+void test("GRANT SQL takes the migrator role only for neondb_owner, and gives it back", () => {
+  const sql = grantSql();
+  assert.match(sql, /^GRANT migrator TO neondb_owner;$/m);
+  assert.match(sql, /^REVOKE migrator FROM neondb_owner;$/m);
+  assert.doesNotMatch(sql, /GRANT migrator TO (?!neondb_owner;)/);
+  assert.ok(
+    sql.indexOf("GRANT migrator TO neondb_owner;") < sql.indexOf("REVOKE migrator FROM neondb_owner;"),
+    "the membership must be granted before it is revoked",
+  );
 });
 
 // Ownership replaced a blanket `OWNER TO` ban here. DDL is not a grantable
