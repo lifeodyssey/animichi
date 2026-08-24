@@ -27,7 +27,9 @@ all consumers, a web change includes browser E2E, and a migration includes its s
 An unknown or unowned path fails closed to the full component set; merge-queue evaluation is also
 fail-closed. Static quality, security, cross-stack, and agent-eval lanes run inside the same `CI`
 workflow when selected. `PR Verification` and the direct `Security` context fail unless every
-required selected job succeeds.
+required selected job succeeds. Each component also declares `deploy_excludes`: tests, package
+guidance, and component-local reference docs still select CI but cannot trigger a runtime promotion.
+Root READMEs are repository-owned static-quality inputs rather than unknown product changes.
 
 ### Build once, promote the same artifact
 

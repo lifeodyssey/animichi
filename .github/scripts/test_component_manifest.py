@@ -43,6 +43,8 @@ def docs_component(document: dict[str, object]) -> dict[str, object]:
 
 def main() -> None:
     assert validate(MANIFEST).returncode == 0
+    schema = mutated(lambda doc: doc.update(schema_version=1))
+    assert schema.returncode == 1 and "schema_version must be 2" in schema.stderr
     repository_paths = mutated(lambda doc: doc.pop("repository_paths"))
     assert repository_paths.returncode == 1 and "repository-owned paths" in repository_paths.stderr
     overlap = mutated(lambda doc: doc["components"][1]["paths"].append("apps/agent/**"))
@@ -59,6 +61,10 @@ def main() -> None:
     assert orphan.returncode == 1 and "not owned by another component" in orphan.stderr
     unmarked = mutated(lambda doc: docs_component(doc).pop("test_triggers"))
     assert unmarked.returncode == 1 and "declared as a test trigger" in unmarked.stderr
+    missing_excludes = mutated(lambda doc: doc["components"][0].pop("deploy_excludes"))
+    assert missing_excludes.returncode == 1 and "invalid deploy excludes" in missing_excludes.stderr
+    escaped_exclude = mutated(lambda doc: doc["components"][0]["deploy_excludes"].append("README.md"))
+    assert escaped_exclude.returncode == 1 and "deploy exclude escapes" in escaped_exclude.stderr
     missing = mutated(lambda doc: doc["components"].pop(8))
     assert missing.returncode == 1 and "unknown components" in missing.stderr
     print("component manifest: workspace coverage, ownership, references, and DAG validated")

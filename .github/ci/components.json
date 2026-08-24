@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "unknown_changes": "all",
   "repository_paths": [
     ".github/**",
@@ -8,7 +8,10 @@
     "scripts/**",
     "AGENTS.md",
     "CONTEXT-MAP.md",
-    "Makefile"
+    "Makefile",
+    "README.md",
+    "README.ja.md",
+    "README.zh.md"
   ],
   "global_lanes": [
     {
@@ -18,7 +21,10 @@
         "scripts/local-gates/**",
         "AGENTS.md",
         "CONTEXT-MAP.md",
-        "Makefile"
+        "Makefile",
+        "README.md",
+        "README.ja.md",
+        "README.zh.md"
       ]
     },
     {
@@ -131,6 +137,11 @@
     {
       "name": "agent",
       "paths": ["apps/agent/**"],
+      "deploy_excludes": [
+        "apps/agent/AGENTS.md",
+        "apps/agent/src/animichi/tests/**",
+        "apps/agent/tests/**"
+      ],
       "depends_on": ["contract", "db"],
       "ci_lanes": ["lint", "unit", "integration", "build"],
       "deploy_unit": "agent"
@@ -138,6 +149,7 @@
     {
       "name": "catalog",
       "paths": ["workers/catalog/**"],
+      "deploy_excludes": ["workers/catalog/AGENTS.md", "workers/catalog/test/**"],
       "depends_on": ["contract", "db"],
       "ci_lanes": ["lint", "unit", "spike", "smoke", "build"],
       "deploy_unit": "catalog"
@@ -145,6 +157,11 @@
     {
       "name": "contract",
       "paths": ["packages/contract/**"],
+      "deploy_excludes": [
+        "packages/contract/AGENTS.md",
+        "packages/contract/README.md",
+        "packages/contract/test/**"
+      ],
       "depends_on": [],
       "ci_lanes": ["typecheck", "unit", "drift"],
       "deploy_unit": null
@@ -152,6 +169,7 @@
     {
       "name": "db",
       "paths": ["migrations/**"],
+      "deploy_excludes": ["migrations/AGENTS.md"],
       "depends_on": [],
       "ci_lanes": ["validate", "boundary", "fresh-schema"],
       "deploy_unit": "db"
@@ -164,6 +182,7 @@
         "apps/web/vitest.config.ts",
         "workers/edge/src/container/container-env.ts"
       ],
+      "deploy_excludes": [],
       "test_triggers": [
         "apps/agent/pyproject.toml",
         "apps/web/vitest.config.ts",
@@ -176,6 +195,7 @@
     {
       "name": "e2e",
       "paths": ["e2e/**"],
+      "deploy_excludes": ["e2e/**"],
       "depends_on": ["web"],
       "ci_lanes": ["browser"],
       "deploy_unit": null
@@ -183,6 +203,15 @@
     {
       "name": "edge",
       "paths": ["workers/edge/**"],
+      "deploy_excludes": [
+        "workers/edge/AGENTS.md",
+        "workers/edge/test/**",
+        "workers/edge/src/container/README.md",
+        "workers/edge/src/gateway/README.md",
+        "workers/edge/src/identity/README.md",
+        "workers/edge/src/protect/README.md",
+        "workers/edge/src/proxy/README.md"
+      ],
       "depends_on": ["contract", "db"],
       "ci_lanes": ["lint", "unit", "boundary", "build"],
       "deploy_unit": "edge"
@@ -190,6 +219,7 @@
     {
       "name": "infra",
       "paths": ["infra/**"],
+      "deploy_excludes": ["infra/AGENTS.md", "infra/src/README.md", "infra/testing/**"],
       "depends_on": [],
       "ci_lanes": ["typecheck", "unit", "program-load"],
       "deploy_unit": "infra"
@@ -197,6 +227,7 @@
     {
       "name": "migrator",
       "paths": ["workers/migrator/**"],
+      "deploy_excludes": ["workers/migrator/AGENTS.md", "workers/migrator/test/**"],
       "depends_on": ["contract", "db"],
       "ci_lanes": ["lint", "unit", "build"],
       "deploy_unit": "migrator"
@@ -204,6 +235,7 @@
     {
       "name": "users",
       "paths": ["workers/users/**", "workers/edge/src/identity/auth.ts"],
+      "deploy_excludes": ["workers/users/AGENTS.md", "workers/users/test/**"],
       "test_triggers": ["workers/edge/src/identity/auth.ts"],
       "depends_on": ["contract", "db"],
       "ci_lanes": ["lint", "unit", "build"],
@@ -212,6 +244,7 @@
     {
       "name": "web",
       "paths": ["apps/web/**", "workers/edge/src/protect/turnstile.ts"],
+      "deploy_excludes": ["apps/web/AGENTS.md", "apps/web/tests/**"],
       "test_triggers": ["workers/edge/src/protect/turnstile.ts"],
       "depends_on": ["contract"],
       "ci_lanes": ["typecheck", "lint", "unit", "integration"],

@@ -73,7 +73,7 @@ def assert_pr_uses_merge_base() -> None:
 def assert_main_and_fallback() -> None:
     temporary, root, initial = fixture()
     with temporary:
-        head = commit_file(root, "README.md", "unknown")
+        head = commit_file(root, "unknown-root.txt", "unknown")
         result = plan(root, initial, head, "main")
         assert result["fallback_all"] is True
         assert len(result["components"]) == 11
@@ -84,6 +84,40 @@ def assert_main_and_fallback() -> None:
             "security-semgrep",
             "security-sqlfluff",
         }
+
+
+def assert_root_readmes_are_repository_quality_inputs() -> None:
+    temporary, root, initial = fixture()
+    with temporary:
+        head = commit_file(root, "README.md", "known documentation")
+        ci = plan(root, initial, head)
+        deploy = plan(root, initial, head, "main", "deploy")
+        assert ci["fallback_all"] is False
+        assert ci["components"] == []
+        assert ci["lanes"] == ["static-quality"]
+        assert deploy["components"] == []
+
+
+def assert_non_runtime_component_files_are_ci_only() -> None:
+    temporary, root, initial = fixture()
+    with temporary:
+        tests = commit_file(root, "packages/contract/test/new.test.ts", "test")
+        docs = commit_file(root, "migrations/AGENTS.md", "guidance")
+        ci = plan(root, initial, docs)
+        deploy = plan(root, initial, docs, "main", "deploy")
+        assert set(ci["direct_components"]) == {"contract", "db"}
+        assert plan(root, initial, tests, "main", "deploy")["components"] == []
+        assert deploy["fallback_all"] is False
+        assert deploy["components"] == []
+
+
+def assert_runtime_source_still_selects_deploy_unit() -> None:
+    temporary, root, initial = fixture()
+    with temporary:
+        head = commit_file(root, "workers/edge/src/policy.ts", "runtime")
+        deploy = plan(root, initial, head, "main", "deploy")
+        assert deploy["direct_components"] == ["edge"]
+        assert deploy["components"] == ["edge"]
 
 
 def assert_repository_change_has_no_product_component() -> None:
@@ -156,13 +190,16 @@ def main() -> None:
     assert_reverse_closure()
     assert_pr_uses_merge_base()
     assert_main_and_fallback()
+    assert_root_readmes_are_repository_quality_inputs()
+    assert_non_runtime_component_files_are_ci_only()
+    assert_runtime_source_still_selects_deploy_unit()
     assert_repository_change_has_no_product_component()
     assert_eval_is_path_scoped()
     assert_security_tools_follow_affected_change()
     assert_test_triggers_are_ci_only()
     assert_cross_component_test_trigger()
     assert_regular_docs_stay_docs_only()
-    print("change plan: PR merge-base, main range, reverse closure, and fallback validated")
+    print("change plan: affected CI, runtime-only CD, reverse closure, and fallback validated")
 
 
 if __name__ == "__main__":

@@ -36,8 +36,8 @@ def validate_selector(root: Path, pattern: str) -> None:
 
 
 def validate_shape(document: object) -> list[dict[str, object]]:
-    if not isinstance(document, dict) or document.get("schema_version") != 1:
-        fail("manifest schema_version must be 1")
+    if not isinstance(document, dict) or document.get("schema_version") != 2:
+        fail("manifest schema_version must be 2")
     if document.get("unknown_changes") != "all":
         fail("unknown changes must fail closed to all components")
     repository_paths = document.get("repository_paths")
@@ -70,12 +70,15 @@ def component_names(components: list[dict[str, object]]) -> set[str]:
 def validate_metadata(component: dict[str, object]) -> None:
     paths = component.get("paths")
     test_triggers = component.get("test_triggers", [])
+    deploy_excludes = component.get("deploy_excludes")
     lanes = component.get("ci_lanes")
     unit = component.get("deploy_unit")
     if not isinstance(paths, list) or not paths or not all(isinstance(path, str) for path in paths):
         fail(f"component {component['name']} has no paths")
     if not isinstance(test_triggers, list) or not all(isinstance(path, str) for path in test_triggers):
         fail(f"component {component['name']} has invalid test triggers")
+    if not isinstance(deploy_excludes, list) or not all(isinstance(path, str) for path in deploy_excludes):
+        fail(f"component {component['name']} has invalid deploy excludes")
     if not set(test_triggers).issubset(paths):
         fail(f"component {component['name']} test trigger is missing from paths")
     unmarked = [path for path in paths if not path.endswith("/**") and path not in test_triggers]
@@ -94,18 +97,32 @@ def validate_trigger_owners(triggers: list[tuple[str, str]], owners: list[tuple[
             fail(f"component {component} test trigger is not owned by another component")
 
 
+def selector_root(pattern: str) -> str:
+    return pattern.removesuffix("/**").rstrip("/")
+
+
+def validate_deploy_excludes(root: Path, component: dict[str, object], owner_patterns: set[str]) -> None:
+    for exclusion in component["deploy_excludes"]:
+        validate_selector(root, exclusion)
+        excluded_root = selector_root(exclusion)
+        if not any(excluded_root == selector_root(owner) or excluded_root.startswith(f"{selector_root(owner)}/") for owner in owner_patterns):
+            fail(f"component {component['name']} deploy exclude escapes its owned paths")
+
+
 def validate_paths(root: Path, components: list[dict[str, object]]) -> None:
     owners: list[tuple[str, str]] = []
     triggers: list[tuple[str, str]] = []
     for component in components:
         validate_metadata(component)
         test_triggers = set(component.get("test_triggers", []))
+        owner_patterns = set(component["paths"]) - test_triggers
+        validate_deploy_excludes(root, component, owner_patterns)
         for trigger in test_triggers:
             if trigger.endswith("/**"):
                 fail(f"component {component['name']} test trigger must be an exact tracked file")
             validate_selector(root, trigger)
             triggers.append((trigger, str(component["name"])))
-        for pattern in set(component["paths"]) - test_triggers:
+        for pattern in owner_patterns:
             component_root = path_root(pattern)
             for other_root, owner in owners:
                 if component_root == other_root or component_root.startswith(f"{other_root}/") or other_root.startswith(f"{component_root}/"):
