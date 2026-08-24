@@ -1,6 +1,6 @@
 name: Review decision refresh
 
-on:
+on: # zizmor: ignore[dangerous-triggers] -- trusted default-branch status writer; candidate code is data only
   pull_request_target:
     types: [opened, synchronize, edited, reopened, ready_for_review, converted_to_draft]
   pull_request_review:
