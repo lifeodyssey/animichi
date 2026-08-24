@@ -100,9 +100,8 @@ describe("malformed data-part frames", () => {
     await waitFor(() => {
       expect(screen.queryByRole("alert")).toBeTruthy();
     });
-    const card = document.querySelector('[data-intent="plan_route"]');
-    expect(card?.classList.contains("chat-card--skeleton")).toBe(true);
-    expect(document.querySelector(".chat-card--fallback")).toBeNull();
+    expect(document.querySelector('[data-intent="plan_route"]')).toBeNull();
+    expect(document.querySelector(".chat-card--fallback")).toBeTruthy();
   });
 });
 

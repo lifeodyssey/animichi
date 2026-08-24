@@ -58,6 +58,11 @@ async def _plain_handler(_on_step: OnStep) -> PublicAPIResponse:
     return _response()
 
 
+async def _progressive_handler(on_step: OnStep) -> PublicAPIResponse:
+    await on_step(StepEvent("greet_user", "output-call", "running", {}, kind="output"))
+    return _response()
+
+
 def _tool_handler(response: PublicAPIResponse) -> ChatHandler:
     async def handler(on_step: OnStep) -> PublicAPIResponse:
         await on_step(
@@ -119,6 +124,16 @@ async def test_intent_arrives_before_full_data_part() -> None:
 async def test_progressive_data_parts_share_one_id() -> None:
     parts = _of_type(_parse(await _collect(_plain_handler)), "data-response")
     assert [part["id"] for part in parts] == [RESPONSE_DATA_ID, RESPONSE_DATA_ID]
+
+
+async def test_model_output_start_streams_intent_before_terminal_frames() -> None:
+    parts = _of_type(_parse(await _collect(_progressive_handler)), "data-response")
+
+    assert [part["id"] for part in parts] == [RESPONSE_DATA_ID] * 3
+    assert [part["data"] for part in parts[:2]] == [
+        {"intent": "greet_user"},
+        {"intent": "greet_user"},
+    ]
 
 
 async def test_tool_steps_become_tool_parts_with_stable_call_id() -> None:

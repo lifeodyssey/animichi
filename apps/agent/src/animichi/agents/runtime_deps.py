@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from animichi.agents.tool_event_bridge import ToolLifecycleRegistry
 
 StepStatus = Literal["running", "done", "error"]
+StepKind = Literal["tool", "output"]
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ class StepEvent:
     data: StepData
     thought: str = ""
     observation: str = ""
+    kind: StepKind = "tool"
 
 
 OnStep = Callable[[StepEvent], Awaitable[None]]
@@ -103,4 +105,5 @@ class RuntimeDeps:
     # this turn (deterministic guard behind the advisory convergence rules).
     disambiguation_pending: bool = False
     tool_lifecycle: ToolLifecycleRegistry = field(default_factory=_new_tool_lifecycle)
+    output_progress_calls: set[str] = field(default_factory=set)
     steps: list[StepRecord] = field(default_factory=list)

@@ -33,7 +33,7 @@ def _test_settings() -> Settings:
     )
 
 
-def _deepseek_extra_body() -> object:
+def _thinking_disabled_extra_body() -> object:
     return {"thinking": {"type": "disabled"}}
 
 
@@ -107,22 +107,23 @@ class TestResolveModel:
             model = parse_model_spec("deepseek:deepseek-v4-flash")
         assert isinstance(model, OpenAIChatModel)
         assert model.settings is not None
-        assert model.settings.get("extra_body") == _deepseek_extra_body()
+        assert model.settings.get("extra_body") == _thinking_disabled_extra_body()
 
     def test_deepseek_openai_compat_disables_thinking(self) -> None:
         with patch("animichi.config.get_settings", return_value=_test_settings()):
             model = parse_model_spec("openai:deepseek-v4-pro@https://api.deepseek.com")
         assert isinstance(model, OpenAIChatModel)
         assert model.settings is not None
-        assert model.settings.get("extra_body") == _deepseek_extra_body()
+        assert model.settings.get("extra_body") == _thinking_disabled_extra_body()
 
-    def test_mimo_openai_compat_keeps_settings_empty(self) -> None:
+    def test_mimo_openai_compat_disables_thinking(self) -> None:
         with patch("animichi.config.get_settings", return_value=_test_settings()):
             model = parse_model_spec(
                 "openai:mimo-v2.5-pro@https://api.xiaomimimo.com/v1"
             )
         assert isinstance(model, OpenAIChatModel)
-        assert model.settings is None or "extra_body" not in model.settings
+        assert model.settings is not None
+        assert model.settings.get("extra_body") == _thinking_disabled_extra_body()
 
     def test_unprofiled_openai_compat_keeps_settings_empty(self) -> None:
         with patch("animichi.config.get_settings", return_value=_test_settings()):

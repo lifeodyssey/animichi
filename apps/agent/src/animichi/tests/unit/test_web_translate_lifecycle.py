@@ -78,9 +78,14 @@ def _assert_steps(result: AgentResult) -> None:
 
 
 def _assert_events(events: list[StepEvent]) -> None:
-    assert [(event.call_id, event.status) for event in events] == [
+    tool_events = [event for event in events if event.kind == "tool"]
+    assert [(event.call_id, event.status) for event in tool_events] == [
         ("web-id", "running"),
         ("web-id", "done"),
         ("title-id", "running"),
         ("title-id", "done"),
+    ]
+    output_events = [event for event in events if event.kind == "output"]
+    assert [(event.tool, event.status) for event in output_events] == [
+        ("general_qa", "running")
     ]

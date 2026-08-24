@@ -77,7 +77,7 @@ def test_model_aliases_are_the_exact_server_owned_set(
     assert aliases["mimo"].fixed_base_url == mock_settings.openai_compat_base_url
     assert aliases["mimo"].credential_ref.name == "MIMO_API_KEY"
     assert aliases["deepseek"].disable_thinking is True
-    assert aliases["mimo"].disable_thinking is False
+    assert aliases["mimo"].disable_thinking is True
 
 
 def test_model_alias_registry_is_built_once() -> None:

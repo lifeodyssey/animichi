@@ -23,7 +23,7 @@ import type { DeparturePromptState } from "../use-departure-prompt";
 import type { ConversationHistory } from "../use-conversation-history";
 import type { ChatSession } from "../use-chat-session";
 import type { TurnstileChallenge } from "../use-turnstile-challenge";
-import { useTurnTiming } from "../use-turn-timing";
+import { businessEventCount, useTurnTiming } from "../use-turn-timing";
 
 /** The chat-page frame: ChatPage assembles the five regions it owns. */
 export type ChatShellProps = Readonly<{
@@ -92,7 +92,7 @@ type TurnStreamProps = Readonly<{
 
 /** Owns the live-turn region: messages, the failure strip, the waiting ritual. */
 export function TurnStream({ chat, dict, failure, locale, byok }: TurnStreamProps) {
-  const settledDurationMs = useTurnTiming(chat.status);
+  const settledDurationMs = useTurnTiming(chat.status, businessEventCount(chat.messages));
   return (
     <>
       <MessageList messages={chat.messages} dict={dict} status={chat.status} settledDurationMs={settledDurationMs} />

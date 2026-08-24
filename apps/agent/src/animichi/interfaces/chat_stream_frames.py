@@ -261,11 +261,18 @@ class ToolPartTranslator:
         self._active: set[str] = set()
 
     def translate(self, step: StepEvent) -> list[str]:
+        if step.kind == "output":
+            return self._output_progress(step)
         if step.status == "running":
             return self._begin(step)
         if step.status == "done":
             return self._finish(step)
         return self._error(step.call_id)
+
+    def _output_progress(self, step: StepEvent) -> list[str]:
+        if step.status != "running":
+            return []
+        return [encode_data_chunk({"intent": step.tool})]
 
     def _begin(self, step: StepEvent) -> list[str]:
         self._active.add(step.call_id)

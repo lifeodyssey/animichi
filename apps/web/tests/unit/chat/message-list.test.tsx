@@ -20,6 +20,11 @@ function toolMessage(): UIMessage {
   return { id: "a2", role: "assistant", parts: [tool] as unknown as UIMessage["parts"] };
 }
 
+function outputProgressMessage(): UIMessage {
+  const progress = { type: "data-response", id: "response", data: { intent: "general_qa" } };
+  return { id: "a4", role: "assistant", parts: [progress] as unknown as UIMessage["parts"] };
+}
+
 describe("MessageList pure-text turn (Empty: B2a→B4, no pipeline)", () => {
   it("renders a text-only assistant turn without any pipeline or footprint", () => {
     render(<MessageList messages={[textMessage()]} dict={ja} status="ready" />);
@@ -63,5 +68,13 @@ describe("MessageList pipeline collapse", () => {
     expect(document.querySelector(".chat-settled")).toBeNull();
     const badge = screen.getByText(ja.toolSteps.labels.resolve_anime);
     expect(badge.getAttribute("data-tool")).toBe("resolve_anime");
+  });
+});
+
+describe("MessageList output progress lifecycle", () => {
+  it("removes the busy skeleton when a turn settles without a final envelope", () => {
+    render(<MessageList messages={[outputProgressMessage()]} dict={ja} status="error" />);
+    expect(document.querySelector('[aria-busy="true"]')).toBeNull();
+    expect(screen.getByText(ja.fallbackCard)).toBeTruthy();
   });
 });
