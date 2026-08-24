@@ -37,7 +37,6 @@ import m33 from "../../../migrations/neon/20260811000002_table_messages.sql";
 import m34 from "../../../migrations/neon/20260811000003_table_saved_route_idempotency.sql";
 import m35 from "../../../migrations/neon/20260812000000_catalog_daily_run.sql";
 import m36 from "../../../migrations/neon/20260814191301_turn_idempotency_outbox.sql";
-import m37 from "../../../migrations/neon/20260824150000_sessions_baseline_drift_repair.sql";
 
 const files: Record<string, string> = {
   "20260809000000_extensions.sql": m00,
@@ -77,7 +76,6 @@ const files: Record<string, string> = {
   "20260811000003_table_saved_route_idempotency.sql": m34,
   "20260812000000_catalog_daily_run.sql": m35,
   "20260814191301_turn_idempotency_outbox.sql": m36,
-  "20260824150000_sessions_baseline_drift_repair.sql": m37,
 };
 
 /** Compile-time Text modules of `migrations/neon` + `atlas.sum`. */
