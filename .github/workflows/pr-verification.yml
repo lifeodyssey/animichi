@@ -224,18 +224,12 @@ jobs:
       - name: Build hermetic Postgres+PostGIS+pgvector test image
         if: ${{ matrix.component == 'agent' || matrix.component == 'db' || matrix.component == 'catalog' }}
         run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
-      - name: Resolve Playwright version
-        if: ${{ matrix.component == 'e2e' }}
-        run: |
-          PLAYWRIGHT_VERSION="$(pnpm --dir e2e exec playwright --version)"
-          echo "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION#Version }" >> "$GITHUB_ENV"
-        shell: bash
       - name: Restore Playwright browser cache
         if: ${{ matrix.component == 'e2e' }}
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-chromium
       - name: Install Playwright browser
         if: ${{ matrix.component == 'e2e' }}
         run: pnpm --dir e2e exec playwright install --with-deps chromium

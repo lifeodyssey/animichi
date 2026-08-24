@@ -11,16 +11,11 @@ runs:
         VITE_NEON_AUTH_BASE_URL: "http://127.0.0.1:9"
       run: pnpm --filter web test:integration
       shell: bash
-    - name: Resolve Playwright version
-      run: |
-        PLAYWRIGHT_VERSION="$(pnpm --dir e2e exec playwright --version)"
-        echo "PLAYWRIGHT_VERSION=${PLAYWRIGHT_VERSION#Version }" >> "$GITHUB_ENV"
-      shell: bash
     - name: Restore Playwright browser cache
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/ms-playwright
-        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ env.PLAYWRIGHT_VERSION }}-chromium
+        key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-chromium
     - name: Install Playwright browser
       run: |
         test -x node_modules/.bin/playwright
