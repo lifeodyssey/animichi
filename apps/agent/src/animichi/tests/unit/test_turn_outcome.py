@@ -26,7 +26,7 @@ from animichi.tests.unit.turn_outcome_fakes import (
 )
 
 
-async def test_admit_sweeps_before_reserving_next_admission() -> None:
+async def test_admit_reserves_without_waiting_for_the_sweep() -> None:
     store = FakeTurnReservationStore()
     recorder = RecordingStore(store)
     clock = Clock()
@@ -36,7 +36,21 @@ async def test_admit_sweeps_before_reserving_next_admission() -> None:
         now=clock,
     )
     await outcome.admit(_request(session_id="s-1", turn_key="turn-1"))
-    assert recorder.order == ["sweep", "reserve"]
+    assert recorder.order == ["reserve"]
+
+
+async def test_admit_still_reconciles_stale_leases_in_the_background() -> None:
+    store = FakeTurnReservationStore()
+    recorder = RecordingStore(store)
+    clock = Clock()
+    outcome = TurnOutcome(
+        store=recorder,
+        admission=_admission(recorder, now=clock),
+        now=clock,
+    )
+    await outcome.admit(_request(session_id="s-1", turn_key="turn-1"))
+    await outcome.drain_reconciliation()
+    assert "sweep" in recorder.order
 
 
 async def test_cancel_before_dispatch_releases_and_allows_retry() -> None:

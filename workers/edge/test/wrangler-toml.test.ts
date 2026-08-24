@@ -130,10 +130,14 @@ void test("wrangler.toml EDGE_SHOWCASE_MODE is true in production and false in s
   assert.equal(valueInBlock("[vars]", "EDGE_SHOWCASE_MODE"), "false");
 });
 
-void test("staging falls back from zen/go to the direct MiMo endpoint", () => {
+void test("staging uses direct MiMo first and keeps zen/go as fallback", () => {
+  assert.equal(
+    valueInBlock("[env.staging.vars]", "DEFAULT_AGENT_MODEL"),
+    "openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
+  );
   assert.equal(
     valueInBlock("[env.staging.vars]", "FALLBACK_AGENT_MODEL"),
-    "openai:mimo-v2.5@https://api.xiaomimimo.com/v1",
+    "openai:mimo-v2.5@https://opencode.ai/zen/go/v1",
   );
 });
 
@@ -160,4 +164,15 @@ void test("wrangler.toml's three APP_ENV values are pairwise distinct, not all d
     appEnvInBlock("[env.staging.vars]"),
   ]);
   assert.equal(values.size, 3, "development/production/staging must each be distinct");
+});
+
+// Unconstrained placement is sticky (Containers FAQ: later requests route to
+// the instance's initial location), and it put the container an ocean from
+// Neon's aws-ap-southeast-1 data plane — 208ms per SQL round trip. Every
+// environment must pin the region, or a redeploy silently reintroduces it.
+void test("every container block pins placement to the Neon data-plane region", () => {
+  for (const header of ["[[containers]]", "[[env.staging.containers]]", "[[env.production.containers]]"]) {
+    const block = blockForHeader(header);
+    assert.match(block, /^constraints = \{ regions = \["APAC"\] \}$/m, `${header} must pin placement to APAC`);
+  }
 });

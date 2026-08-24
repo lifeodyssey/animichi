@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import type { UIMessage } from "ai";
+import type { ChatStatus, UIMessage } from "ai";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
@@ -20,10 +20,10 @@ function assistantMessage(id: string, data: unknown): UIMessage {
   return { id, role: "assistant", parts: [part] as unknown as UIMessage["parts"] };
 }
 
-function renderList(messages: readonly UIMessage[]) {
+function renderList(messages: readonly UIMessage[], status: ChatStatus = "ready") {
   return render(
     <ChatActionsProvider actions={{ send: vi.fn(), regenerate: vi.fn() }}>
-      <MessageList messages={messages} dict={ja} status="ready" />
+      <MessageList messages={messages} dict={ja} status={status} />
     </ChatActionsProvider>,
   );
 }
@@ -71,10 +71,13 @@ describe("E1 scoping: only newer versions of the same document supersede", () =>
   });
 
   it("keeps the old card current while the regenerated route is still a skeleton", () => {
-    renderList([
-      assistantMessage("a1", routePartRaw(ujiPoints().slice())),
-      assistantMessage("a2", { intent: "plan_route" }),
-    ]);
+    renderList(
+      [
+        assistantMessage("a1", routePartRaw(ujiPoints().slice())),
+        assistantMessage("a2", { intent: "plan_route" }),
+      ],
+      "streaming",
+    );
     expect(routeCards()[0]?.className).toBe("chat-card");
     expect(screen.getByRole("status").getAttribute("data-intent")).toBe("plan_route");
   });

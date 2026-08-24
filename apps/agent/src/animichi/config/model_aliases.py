@@ -97,8 +97,9 @@ def credential_value(credential_ref: CredentialRef) -> str | None:
 
 
 def _disable_thinking(model_name: str) -> bool:
-    """Return the server-owned behavior profile for a concrete model."""
-    return "deepseek" in model_name.lower()
+    """Disable hidden reasoning for latency-sensitive tool-calling models."""
+    normalized = model_name.lower()
+    return "deepseek" in normalized or "mimo" in normalized
 
 
 def _openai_base_url(raw: str) -> tuple[str, str]:
@@ -169,7 +170,6 @@ def _mimo_alias() -> ModelAlias:
         ProviderKind.OPENAI,
         settings.openai_compat_base_url,
         CredentialRef.MIMO_API_KEY,
-        # Verify MiMo accepts thinking-disable before enabling it for the prod primary.
         _disable_thinking(name),
     )
 

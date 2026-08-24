@@ -19,6 +19,7 @@ from pydantic_ai.messages import (
 )
 
 from animichi.agents.agent_result import StepData, StepProvenance, StepRecord
+from animichi.agents.output_progress_bridge import handle_output_event
 from animichi.agents.runtime_deps import StepEvent, StepStatus
 from animichi.agents.web_trust import detect_prompt_injection, sanitize_untrusted
 
@@ -88,6 +89,8 @@ async def tool_event_bridge(
 ) -> None:
     """Drain one graph node's official event stream into request-local state."""
     async for event in events:
+        if await handle_output_event(ctx.deps, event):
+            continue
         if isinstance(event, FunctionToolCallEvent):
             await _handle_call(ctx.deps, event)
         elif isinstance(event, FunctionToolResultEvent):

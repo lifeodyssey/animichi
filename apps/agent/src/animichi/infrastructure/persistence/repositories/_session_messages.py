@@ -15,7 +15,7 @@ from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.selectable import Select
 
 from animichi.domain.repo_types import ResponseData
-from animichi.infrastructure.persistence.database import AsyncSessionFactory
+from animichi.infrastructure.persistence.database import AsyncSessionFactory, read_only
 from animichi.infrastructure.persistence.models import (
     message_table,
     reservation_table,
@@ -101,7 +101,7 @@ async def _session_owned(
     user_id: str,
 ) -> bool:
     "True when the session exists and belongs to ``user_id``."
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         result = await session.execute(
             select(session_table.c.id).where(
                 session_table.c.id == session_id,
@@ -135,7 +135,7 @@ async def _history_page(
     "The owned transcript window with its revision, or ``None`` when unowned."
     if not await _session_owned(sessionmaker, session_id, user_id):
         return None
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         messages = await _message_rows(session, session_id, limit, offset)
         revision = await _revision_of(session, session_id)
     return _compose_history(user_id, messages, revision)
@@ -201,11 +201,11 @@ class _SessionMessagesMixin:
         limit: int = 100,
         offset: int = 0,
     ) -> list[MessageRow]:
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             return await _message_rows(session, session_id, limit, offset)
 
     async def current_revision(self, session_id: str) -> int:
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             result = await session.execute(_revision_select(session_id))
             return int(result.scalar_one())
 

@@ -1,16 +1,23 @@
 """TurnOutcome (TURN-3 #951) — owns the turn lifecycle and its sweep.
 
-The caller immediately uses this use case: ``admit`` sweeps stale leases
-(pre-admission reconciliation) before delegating to :class:`TurnAdmission`,
+The caller immediately uses this use case: ``admit`` delegates to
+:class:`TurnAdmission` and reconciles stale leases alongside it,
 ``dispatch`` marks the dispatch-certainty point, ``settle`` lands a turn in a
 terminal state exactly once (the CAS guard — only the lease holder wins, so
 usage/quota/audit side effects run once), and ``release`` drops a
 never-dispatched reservation. The sweep is bounded and demand-driven only
-(startup + before admission); there is no scheduler, queue, or Workflow.
+(startup + on admission); there is no scheduler, queue, or Workflow.
+
+The reconciliation runs *off* the admitting request's critical path. It is
+garbage collection, not a gate: reservations are keyed by ``turn_key`` and
+every send mints a fresh one, so a stale lease left by a crashed turn never
+blocks a new message. Awaiting it inside ``admit`` only added a full database
+round trip — one this request has no reason to wait for — to every turn.
 """
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 
@@ -59,18 +66,36 @@ class TurnOutcome:
         self._lease_seconds = lease_seconds
         self._sweep_batch = sweep_batch
         self._sweep_owner = sweep_owner
+        self._reconciling: asyncio.Task[SweepReport] | None = None
 
     async def admit(self, request: AdmissionRequest) -> AdmissionVerdict:
-        """Sweep stale leases, then admit (pre-admission reconciliation)."""
+        """Admit the turn, reconciling stale leases off its critical path."""
         if self._admission is None:
             raise RuntimeError("TurnOutcome.admit requires an admission use case")
-        try:
-            await self.sweep()
-        except Exception:
-            # Same posture as the startup sweep: a failed reconciliation must
-            # not reject the turn — the stale rows stay for the next pass.
-            logger.warning("pre_admission_sweep_failed", exc_info=True)
+        self.begin_reconciliation()
         return await self._admission(request)
+
+    def begin_reconciliation(self) -> None:
+        """Start one background sweep; at most one is ever in flight."""
+        if self._reconciling is not None and not self._reconciling.done():
+            return
+        self._reconciling = asyncio.create_task(self._reconcile())
+
+    async def drain_reconciliation(self) -> None:
+        """Await the in-flight sweep (shutdown, and deterministic tests)."""
+        task = self._reconciling
+        if task is not None:
+            await asyncio.gather(task, return_exceptions=True)
+
+    async def _reconcile(self) -> SweepReport:
+        """Reclaim stale leases; a failure must never reject a turn."""
+        try:
+            return await self.sweep()
+        except Exception:
+            # Same posture as the startup sweep: the stale rows stay for the
+            # next pass rather than turning garbage collection into an outage.
+            logger.warning("background_sweep_failed", exc_info=True)
+            return SweepReport()
 
     async def sweep(self) -> SweepReport:
         """Reclaim expired leases in one bounded batch."""

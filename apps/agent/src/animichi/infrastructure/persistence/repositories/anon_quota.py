@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.dml import ReturningInsert
 from sqlalchemy.sql.selectable import Select
 
-from animichi.infrastructure.persistence.database import AsyncSessionFactory
+from animichi.infrastructure.persistence.database import AsyncSessionFactory, read_only
 from animichi.infrastructure.persistence.models import anon_quota_table
 
 
@@ -65,7 +65,7 @@ class SQLModelAnonQuotaRepository:
 
     async def count_for(self, *, usage_date: date, anon_id: str) -> int:
         """The admission-gate read; never mutates."""
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             raw = (
                 await session.execute(_count_select(usage_date, anon_id))
             ).scalar_one_or_none()

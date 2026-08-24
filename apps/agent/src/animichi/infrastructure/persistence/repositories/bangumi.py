@@ -24,7 +24,7 @@ from animichi.domain.repo_types import (
     BangumiRow,
     BangumiTitleRow,
 )
-from animichi.infrastructure.persistence.database import AsyncSessionFactory
+from animichi.infrastructure.persistence.database import AsyncSessionFactory, read_only
 from animichi.infrastructure.persistence.expressions import (
     Geography,
     escaped_ilike_pattern,
@@ -189,7 +189,7 @@ class _BangumiReadMixin:
 
     async def get_bangumi(self, bangumi_id: str) -> BangumiRow | None:
         """One work row by id, or ``None``."""
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             result = await session.execute(
                 select(bangumi_table).where(bangumi_table.c.id == bangumi_id)
             )
@@ -203,13 +203,13 @@ class _BangumiReadMixin:
         """The subset of ids that exist (FK-backed route associations)."""
         if not bangumi_ids:
             return []
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             result = await session.execute(_existing_ids_select(bangumi_ids))
             return [str(value) for value in result.scalars()]
 
     async def list_bangumi(self, *, limit: int = 50) -> list[BangumiRow]:
         """Top-rated works, highest rating first."""
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             rows = await session.execute(_rating_select(limit))
             return [cast(BangumiRow, dict(row._mapping)) for row in rows.all()]
 
@@ -224,20 +224,20 @@ class _BangumiSearchMixin:
     ) -> list[BangumiAreaRow]:
         """Works with points within ``radius_m`` of (lat, lng), with counts."""
         search_point = sa_cast(st_makepoint(lng, lat), Geography())
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             rows = await session.execute(_area_select(search_point, radius_m))
         return [cast(BangumiAreaRow, dict(row._mapping)) for row in rows.all()]
 
     async def find_bangumi_by_title(self, title: str) -> str | None:
         """First id whose title (ja or cn) contains ``title``."""
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             result = await session.execute(_single_title_select(title))
             raw = result.scalar_one_or_none()
         return str(raw) if raw is not None else None
 
     async def find_all_by_title(self, title: str) -> list[BangumiTitleRow]:
         """Matching works with normalized cover/city/count fields, ranked."""
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             rows = await session.execute(_title_rows_select(title))
         return [cast(BangumiTitleRow, dict(row._mapping)) for row in rows.all()]
 
@@ -247,7 +247,7 @@ class _BangumiSearchMixin:
         """One best match per requested title, in request order."""
         if not titles:
             return []
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             rows = await session.execute(_candidate_select(titles))
         return [cast(BangumiCandidateRow, dict(row._mapping)) for row in rows.all()]
 

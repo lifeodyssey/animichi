@@ -26,7 +26,7 @@ from pydantic_ai_harness.memory._store import (
     validate_store_prefix,
 )
 
-from animichi.infrastructure.persistence.database import AsyncSessionFactory
+from animichi.infrastructure.persistence.database import AsyncSessionFactory, read_only
 from animichi.infrastructure.persistence.repositories._memory_receipts import (
     _operation_row,
 )
@@ -50,7 +50,7 @@ async def _read_memory(
     validate_store_path(path)
     if max_chars <= 0:
         raise ValueError("max_chars must be positive")
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         return await _read_row(session, path, max_chars)
 
 
@@ -58,7 +58,7 @@ async def _operation_mutation(
     sessionmaker: AsyncSessionFactory, operation: MemoryOperation
 ) -> MemoryMutation | None:
     "The committed mutation of a prior operation, or ``None``."
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         receipt = await _operation_row(session, operation)
     if receipt is None or not receipt.completed:
         return None
@@ -100,7 +100,7 @@ async def _list_memory_paths(
     validate_store_prefix(prefix)
     if limit <= 0:
         raise ValueError("limit must be positive")
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         return await _list_paths(session, prefix, limit)
 
 
@@ -116,7 +116,7 @@ async def _search_memory(
     validate_store_prefix(prefix)
     if _search_empty(query, limit, max_files, max_chars, max_file_chars):
         return MemorySearchResult(matches=[], scanned=0, truncated=False)
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         rows = await _search_rows(session, prefix, max_files, max_file_chars)
     return _search_result(
         rows, query, limit, max_files, max_chars, prefix, max_file_chars

@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.dml import Insert
 from sqlalchemy.sql.selectable import Select
 
-from animichi.infrastructure.persistence.database import AsyncSessionFactory
+from animichi.infrastructure.persistence.database import AsyncSessionFactory, read_only
 from animichi.infrastructure.persistence.models import daily_usage_table
 
 
@@ -100,7 +100,7 @@ async def _accumulate_many(
 async def _total_cost(
     sessionmaker: AsyncSessionFactory, usage_date: date, scope: str
 ) -> float:
-    async with sessionmaker() as session:
+    async with read_only(sessionmaker) as session:
         raw = (
             await session.execute(_usage_select(usage_date, scope))
         ).scalar_one_or_none()

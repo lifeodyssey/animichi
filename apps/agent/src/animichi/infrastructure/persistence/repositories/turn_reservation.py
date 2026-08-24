@@ -30,7 +30,7 @@ from animichi.application.turn_outcome_port import (
     SweepReport,
     TurnRef,
 )
-from animichi.infrastructure.persistence.database import AsyncSessionFactory
+from animichi.infrastructure.persistence.database import AsyncSessionFactory, read_only
 from animichi.infrastructure.persistence.repositories._turn_admission import (
     _admit,
     _current_revision,
@@ -89,7 +89,7 @@ class SQLModelTurnReservationStore:
 
     async def current_revision(self, session_id: str | None) -> int:
         """Return the session current revision (max ever reserved); ``None``s read as 0."""
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             return await _current_revision(session, session_id)
 
     async def release(self, ref: TurnRef, *, owner: str) -> bool:

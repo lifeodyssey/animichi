@@ -15,7 +15,7 @@ from sqlalchemy import cast as sa_cast
 from sqlalchemy.sql.selectable import Select
 
 from animichi.domain.repo_types import NearbyPointRow, PointRow
-from animichi.infrastructure.persistence.database import AsyncSessionFactory
+from animichi.infrastructure.persistence.database import AsyncSessionFactory, read_only
 from animichi.infrastructure.persistence.expressions import (
     Geography,
     latitude_with_fallback,
@@ -139,7 +139,7 @@ class SQLModelPointsRepository:
         bangumi_id: str,
     ) -> list[PointRow]:
         """Every spot of one work, in the canonical episode/time order."""
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             rows = await session.execute(_by_bangumi_select(bangumi_id))
         return [cast(PointRow, dict(row._mapping)) for row in rows.all()]
 
@@ -150,7 +150,7 @@ class SQLModelPointsRepository:
         """The requested spots in request order."""
         if not point_ids:
             return []
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             rows = await session.execute(_by_ids_select(point_ids))
         return [cast(PointRow, dict(row._mapping)) for row in rows.all()]
 
@@ -163,7 +163,7 @@ class SQLModelPointsRepository:
         limit: int = 50,
     ) -> list[NearbyPointRow]:
         """Nearby spots with alias, coordinate fallback, distance, titles."""
-        async with self._sessionmaker() as session:
+        async with read_only(self._sessionmaker) as session:
             rows = await session.execute(
                 _nearby_select(lon, lat, radius_m, limit),
             )

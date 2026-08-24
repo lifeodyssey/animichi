@@ -118,7 +118,7 @@ async def test_identical_primary_and_fallback_build_one_model() -> None:
         await client.aclose()
 
 
-async def test_only_deepseek_sends_thinking_disabled_profile() -> None:
+async def test_reasoning_models_send_thinking_disabled_profile() -> None:
     client = httpx.AsyncClient()
     with patch("animichi.config.get_settings", return_value=_model_settings()):
         deepseek = resolve_model_alias("deepseek", http_client=client)
@@ -127,7 +127,7 @@ async def test_only_deepseek_sends_thinking_disabled_profile() -> None:
         assert isinstance(deepseek, OpenAIChatModel)
         assert isinstance(mimo, OpenAIChatModel)
         assert deepseek.settings == {"extra_body": {"thinking": {"type": "disabled"}}}
-        assert mimo.settings is None
+        assert mimo.settings == {"extra_body": {"thinking": {"type": "disabled"}}}
         assert deepseek.client.max_retries == 0
         assert mimo.client.max_retries == 0
     finally:
