@@ -59,7 +59,7 @@ def assert_reverse_closure() -> None:
 def assert_pr_uses_merge_base() -> None:
     temporary, root, initial = fixture()
     with temporary:
-        base = commit_file(root, "docs/base.md", "base-only")
+        base = commit_file(root, Path("docs", "base.md").as_posix(), "base-only")
         git(root, "checkout", "-q", "-b", "feature", initial)
         head = commit_file(root, "apps/web/change.ts", "feature")
         assert plan(root, base, head)["direct_components"] == ["web"]
@@ -86,7 +86,7 @@ def assert_eval_is_path_scoped() -> None:
 def assert_security_follows_affected_closure() -> None:
     temporary, root, initial = fixture()
     with temporary:
-        docs_head = commit_file(root, "docs/note.md", "docs")
+        docs_head = commit_file(root, Path("docs", "note.md").as_posix(), "docs")
         assert "security" not in plan(root, initial, docs_head)["lanes"]
         web_head = commit_file(root, "apps/web/change.ts", "web")
         assert "security" in plan(root, docs_head, web_head)["lanes"]
@@ -119,7 +119,7 @@ def assert_cross_component_test_trigger() -> None:
 def assert_regular_docs_stay_docs_only() -> None:
     temporary, root, initial = fixture()
     with temporary:
-        head = commit_file(root, "docs/notes/example.md", "ordinary docs")
+        head = commit_file(root, Path("docs", "notes", "example.md").as_posix(), "ordinary docs")
         result = plan(root, initial, head)
         assert result["direct_components"] == ["docs"]
         assert result["components"] == ["docs"]
