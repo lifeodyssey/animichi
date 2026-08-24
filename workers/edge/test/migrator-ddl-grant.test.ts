@@ -87,7 +87,7 @@ void test("Atlas 20260811000002 creates idx_messages_session_created on messages
 
 void test("atlas.sum SHA-256 matches the SAFE-1 production pin", () => {
   const buf = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
-  assert.equal(createHash("sha256").update(buf).digest("hex"), "408d6b353b073dee99da33dc93cdb518354cd41f47ea87e24ef2301feeaef484");
+  assert.equal(createHash("sha256").update(buf).digest("hex"), "04a468633a1df3a4af234d76d8b18652142245bc132dae73ea1017b861703751");
 });
 
 void test("GRANT SQL drops turn_reservations only when owned by neondb_owner", () => {
