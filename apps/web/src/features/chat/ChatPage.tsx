@@ -38,6 +38,7 @@ import { maskRecomputeFailure, useTurnFailure } from "./use-turn-failure";
 import type { TurnFailureGate } from "./use-turn-failure";
 import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
 import { ChatReturnTargetProvider } from "./ChatReturnTarget";
+import { useAgentWarmup } from "../../lib/agent-warmup";
 
 export interface ChatPageProps {
   readonly search: ChatSearch;
@@ -215,6 +216,7 @@ function withReturnTarget(props: ChatPageProps, page: PageState) {
 }
 
 export function ChatPage(props: ChatPageProps) {
+  useAgentWarmup();
   const page = useChatPage(props.search);
   return (
     <SpotSelectionProvider selection={page.selection}>
