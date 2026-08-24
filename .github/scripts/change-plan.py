@@ -42,7 +42,9 @@ def component_owns(component: dict[str, object], path: str, purpose: str) -> boo
         return False
     if purpose == "ci":
         return True
-    excluded = list(component.get("test_triggers", [])) + list(component["deploy_excludes"])
+    excluded = list(component["deploy_excludes"])
+    if purpose == "deploy":
+        excluded += list(component.get("test_triggers", []))
     return not any(owns(pattern, path) for pattern in excluded)
 
 
@@ -105,12 +107,14 @@ def build_plan(root: Path, manifest: Path, base: str, head: str, mode: str, purp
     repository_paths = document["repository_paths"]
     effective_base = diff_base(root, base, head, mode)
     paths = changed_paths(root, effective_base, head)
-    source_direct, fallback = direct_components(components, repository_paths, paths, "deploy")
+    deploy_direct, fallback = direct_components(components, repository_paths, paths, "deploy")
+    source_direct = direct_components(components, repository_paths, paths, "propagation")[0]
     direct = direct_components(components, repository_paths, paths, purpose)[0]
+    closure_seed = deploy_direct if purpose == "deploy" else source_direct
     selected = (
         {str(item["name"]) for item in components}
         if fallback
-        else direct | reverse_closure(components, source_direct.copy())
+        else direct | reverse_closure(components, closure_seed.copy())
     )
     source_selected = selected if fallback else reverse_closure(components, source_direct.copy())
     lanes = selected_lanes(document["global_lanes"], paths, source_selected, fallback)
