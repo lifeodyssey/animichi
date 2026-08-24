@@ -37,20 +37,22 @@ chmod +x "$MOCK_BIN/gh"
 
 run_case() {
   local name="$1" expected="$2" matrix_result="$3" quality_result="${4:-success}"
-  local cross_result="${5:-success}" eval_result="${6:-skipped}" rc=0 output
+  local cross_result="${5:-success}" eval_result="${6:-skipped}" packages="${7:-[\"agent\",\"web\"]}"
+  local lanes="${8:-[\"cross-stack\",\"static-quality\"]}" coverage_agent="${9:-success}"
+  local coverage_web="${10:-success}" rc=0 output
   output="$(PATH="$MOCK_BIN:$PATH" MOCK_CASE="$name" GITHUB_REPOSITORY=lifeodyssey/animichi \
     PR_VERIFICATION_HEAD_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
-    PR_VERIFICATION_PACKAGES='["agent","web"]' \
+    PR_VERIFICATION_PACKAGES="$packages" \
     PR_VERIFICATION_ROUTE_RESULT=success PR_VERIFICATION_MATRIX_RESULT="$matrix_result" \
     PR_VERIFICATION_QUALITY_RESULT="$quality_result" \
     PR_VERIFICATION_SECRET_DIFF_RESULT=success \
     PR_VERIFICATION_SECURITY_RESULT=success \
     PR_VERIFICATION_AGENT_EVAL_RESULT="$eval_result" \
-    PR_VERIFICATION_COVERAGE_AGENT_RESULT=success \
-    PR_VERIFICATION_COVERAGE_WEB_RESULT=success \
+    PR_VERIFICATION_COVERAGE_AGENT_RESULT="$coverage_agent" \
+    PR_VERIFICATION_COVERAGE_WEB_RESULT="$coverage_web" \
     PR_VERIFICATION_COVERAGE_CATALOG_RESULT=skipped \
     PR_VERIFICATION_COVERAGE_USERS_RESULT=skipped \
-    PR_VERIFICATION_LANES='["cross-stack","static-quality"]' \
+    PR_VERIFICATION_LANES="$lanes" \
     PR_VERIFICATION_CROSS_STACK_RESULT="$cross_result" \
     bash "$AGGREGATE" 2>&1)" || rc=$?
   [ "$rc" -eq "$expected" ] || { echo "FAIL $name: expected $expected, got $rc: $output" >&2; exit 1; }
@@ -67,4 +69,6 @@ run_case malformed 1 success
 run_case success 1 cancelled
 run_case success 1 success failure
 run_case success 1 success success failure
+run_case success 0 skipped success skipped skipped '[]' '["static-quality"]' skipped skipped
+run_case success 1 success success skipped skipped '[]' '["static-quality"]' skipped skipped
 echo "PR Verification aggregate tests: required lanes fail closed and agent eval remains report-only"

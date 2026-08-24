@@ -1,6 +1,9 @@
 {
   "schema_version": 1,
   "unknown_changes": "all",
+  "repository_paths": [
+    ".github/**"
+  ],
   "global_lanes": [
     {
       "name": "static-quality",

@@ -39,6 +39,8 @@ def add_test_trigger(document: dict[str, object], trigger: str) -> None:
 
 def main() -> None:
     assert validate(MANIFEST).returncode == 0
+    repository_paths = mutated(lambda doc: doc.pop("repository_paths"))
+    assert repository_paths.returncode == 1 and "repository-owned paths" in repository_paths.stderr
     overlap = mutated(lambda doc: doc["components"][1]["paths"].append("apps/agent/**"))
     assert overlap.returncode == 1 and "overlap" in overlap.stderr
     unknown = mutated(lambda doc: doc["components"][0]["depends_on"].append("missing"))

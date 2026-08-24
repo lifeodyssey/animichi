@@ -73,7 +73,7 @@ route_case auth-read workers/edge/src/identity/auth.ts $'edge\nusers'
 route_case turnstile-read workers/edge/src/protect/turnstile.ts $'e2e\nedge\nweb'
 route_case migrations migrations/change.sql $'agent\ncatalog\ndb\nedge\nmigrator\nusers'
 ALL_EXPECTED=$'agent\ncatalog\ncontract\ndb\ndocs\ne2e\nedge\ninfra\nmigrator\nusers\nweb'
-route_case workflow .github/workflows/change.yml "$ALL_EXPECTED"
+route_case workflow .github/workflows/change.yml ""
 route_case unknown README.md "$ALL_EXPECTED"
 
 echo "PR Verification routing tests: every workspace package and path bucket route deterministically"

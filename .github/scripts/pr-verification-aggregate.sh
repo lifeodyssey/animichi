@@ -44,7 +44,8 @@ require_lane cross-stack "$CROSS_STACK_RESULT"
 [ "$SECRET_DIFF_RESULT" = success ] || fail "changed-commit secret scan failed (result=$SECRET_DIFF_RESULT)"
 [ "$SECURITY_RESULT" = success ] || fail "affected security aggregation failed (result=$SECURITY_RESULT)"
 
-printf '%s' "$EXPECTED_PACKAGES" | jq -e 'type == "array" and length > 0 and all(.[]; type == "string" and length > 0)' >/dev/null || fail "affected-package matrix is empty or malformed"
+printf '%s' "$EXPECTED_PACKAGES" | jq -e 'type == "array" and all(.[]; type == "string" and length > 0)' >/dev/null || fail "affected-package matrix is malformed"
+package_count="$(printf '%s' "$EXPECTED_PACKAGES" | jq 'length')"
 
 require_component_job() {
   local component="$1" result="$2"
@@ -59,6 +60,12 @@ require_component_job agent "$COVERAGE_AGENT_RESULT"
 require_component_job web "$COVERAGE_WEB_RESULT"
 require_component_job catalog "$COVERAGE_CATALOG_RESULT"
 require_component_job users "$COVERAGE_USERS_RESULT"
+
+if [ "$package_count" -eq 0 ]; then
+  [ "$MATRIX_RESULT" = skipped ] || fail "empty affected plan unexpectedly ran a package matrix (result=$MATRIX_RESULT)"
+  printf 'PR Verification: repository gates passed for %s; no product package changed.\n' "$HEAD_SHA"
+  exit 0
+fi
 
 CHECK_RUNS="$(gh api "repos/$REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100")" || fail "GitHub check-run query failed"
 printf '%s' "$CHECK_RUNS" | jq -e 'type == "object" and (.check_runs | type == "array")' >/dev/null || fail "GitHub returned malformed check-run data"
