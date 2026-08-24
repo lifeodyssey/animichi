@@ -166,6 +166,8 @@ max_instances = 3
 # lite (0.0625 vCPU / 256 MiB) is below this service's import peak (~273 MiB,
 # cold-start audit 2026-08-07) — OOM risk during boot. basic: 1/4 vCPU / 1 GiB.
 instance_type = "basic"
+# See the staging block below for why placement is pinned to the Neon region.
+constraints = { regions = ["APAC"] }
 
 [[durable_objects.bindings]]
 name = "CONTAINER"
@@ -272,6 +274,8 @@ max_instances = 3
 # lite (0.0625 vCPU / 256 MiB) is below this service's import peak (~273 MiB,
 # cold-start audit 2026-08-07) — OOM risk during boot. basic: 1/4 vCPU / 1 GiB.
 instance_type = "basic"
+# Same Neon project/region as staging — see the staging block for the measurement.
+constraints = { regions = ["APAC"] }
 
 [[env.production.durable_objects.bindings]]
 name = "CONTAINER"
@@ -438,6 +442,13 @@ max_instances = 3
 # lite (0.0625 vCPU / 256 MiB) is below this service's import peak (~273 MiB,
 # cold-start audit 2026-08-07) — OOM risk during boot. basic: 1/4 vCPU / 1 GiB.
 instance_type = "basic"
+# Co-locate with the Neon data plane (aws-ap-southeast-1). Unconstrained
+# placement put the container an ocean away: measured 208ms per statement
+# (BEGIN/COMMIT n=75, range 205-214ms — a fixed RTT, not query work), and one
+# chat turn spends 8+ round trips on transaction control alone. Placement is
+# sticky once an instance is running (Containers FAQ), so this must be pinned
+# rather than left to first-request routing.
+constraints = { regions = ["APAC"] }
 
 [[env.staging.durable_objects.bindings]]
 name = "CONTAINER"
