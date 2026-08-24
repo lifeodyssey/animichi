@@ -154,7 +154,7 @@ function TurnstileRetry({ dict, onRetry }: RetryProps) {
   return (
     <div className="turnstile-gate__error" role="alert">
       <span>{dict.turnstile.failed}</span>
-      <button type="button" className="turnstile-gate__retry" onClick={onRetry}>
+      <button type="button" className="turnstile-gate__retry" autoFocus onClick={onRetry}>
         {dict.turnstile.retry}
       </button>
     </div>

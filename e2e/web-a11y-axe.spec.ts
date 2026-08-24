@@ -90,9 +90,9 @@ describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
   });
 
   test("login modal", async ({ page }) => {
-    await openChat(page, "/chat?settings=byok");
-    await page.getByRole("button", { name: /ログインして設定|sign in to set up/i }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await openChat(page);
+    await page.getByRole("button", { name: /^(ログイン|sign in)$/i }).click();
+    await expect(page.getByRole("dialog", { name: /ログイン|sign in/i })).toBeVisible();
     await expectNoSeriousOrCritical(page, "login modal");
   });
 

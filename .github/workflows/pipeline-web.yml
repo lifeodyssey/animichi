@@ -273,11 +273,14 @@ jobs:
           # showcase.ts fails closed at module init — CI serves are never showcase.
           VITE_SHOWCASE_MODE: "false"
         run: |
+          DEV_VARS="apps/web/.dev.vars"
+          RUNTIME_CONFIG='{"schemaVersion":1,"api":{"agentUrl":"http://127.0.0.1:9001","siteOrigin":"http://localhost:8799"},"neonAuthBaseUrl":"http://127.0.0.1:9","turnstileSiteKey":"1x00000000000000000000AA","showcaseMode":"false","featureFlags":{}}'
+          printf 'RUNTIME_CONFIG=%s\n' "$RUNTIME_CONFIG" > "$DEV_VARS"
           pnpm --filter web exec wrangler dev --port 8799 &
           WRANGLER_PID=$!
+          trap 'kill "$WRANGLER_PID" 2>/dev/null || true; rm -f "$DEV_VARS"' EXIT
           for _ in $(seq 1 60); do curl -sf -o /dev/null http://localhost:8799/ && break; sleep 1; done
           E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test web-cwv.spec.ts
-          kill "$WRANGLER_PID"
       - name: Upload CWV report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

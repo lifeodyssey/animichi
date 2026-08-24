@@ -71,9 +71,7 @@ describe("Turnstile entry keyboard recovery", () => {
     await page.goto("/chat");
     await solveTurnstileEntry(page, "rejected-token");
     const retry = page.getByRole("button", { name: "もう一度ためす" });
-    await page.evaluate(() => { document.body.tabIndex = -1; document.body.focus(); });
-    await page.keyboard.press("Tab");
-    await page.keyboard.press("Tab");
+    await expect(retry).toBeVisible();
     await expect(retry).toBeFocused();
     await page.keyboard.press("Enter");
     await solveTurnstileEntry(page, "fresh-token");
@@ -82,18 +80,14 @@ describe("Turnstile entry keyboard recovery", () => {
 });
 
 /**
- * The login modal lost its landing trigger with the landing itself. Its
- * remaining signed-out entry point is the ⚙ settings panel's anonymous teaser
- * (`/chat?settings=byok` → "ログインして設定する"), which is the same
- * `features/auth/ui/LoginModal` component under test.
+ * The app-bar login entry exercises LoginModal without stacking it over the
+ * independent settings Drawer.
  */
 describe("AC2 login modal focus management", () => {
   async function openLogin(page: Page): Promise<void> {
     await anonymousChat(page);
-    await page.goto("/chat?settings=byok");
-    await solveTurnstileEntry(page);
-    await page.getByRole("button", { name: /ログインして設定|sign in to set up/i }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("button", { name: /^(ログイン|sign in)$/i }).click();
+    await expect(page.getByRole("dialog", { name: /ログイン|sign in/i })).toBeVisible();
   }
 
   test("opening the modal moves focus inside and onto the email field", async ({ page }) => {
@@ -107,7 +101,7 @@ describe("AC2 login modal focus management", () => {
       await page.keyboard.press("Tab");
       const inside = await page.evaluate(() => {
         const active = document.activeElement;
-        return !!document.querySelector('[role="dialog"]')?.contains(active);
+        return !!document.querySelector(".login-modal")?.contains(active);
       });
       expect(inside).toBe(true);
     }
@@ -115,13 +109,12 @@ describe("AC2 login modal focus management", () => {
 
   test("escape closes the modal and restores focus to the trigger", async ({ page }) => {
     await anonymousChat(page);
-    await page.goto("/chat?settings=byok");
-    await solveTurnstileEntry(page);
-    const trigger = page.getByRole("button", { name: /ログインして設定|sign in to set up/i });
+    const trigger = page.getByRole("button", { name: /^(ログイン|sign in)$/i });
     await trigger.click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    const login = page.getByRole("dialog", { name: /ログイン|sign in/i });
+    await expect(login).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(login).toHaveCount(0);
     await expect(trigger).toBeFocused();
   });
 });
