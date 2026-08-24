@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { LoginModal } from "../../auth/ui/LoginModal";
 import { useChatReturnTarget } from "../ChatReturnTarget";
 import type { AuthStatus } from "../../../lib/auth/session";
@@ -87,11 +88,14 @@ function ChatBrand({ dict }: Readonly<{ dict: ChatDict }>) {
  * banner that comes and goes never shifts the brand, and it stays outside the
  * banner's `role="alert"` so page-state announcements are not read as chrome.
  */
-export function ChatAppBar({ dict, status }: Readonly<{ dict: ChatDict; status: AuthStatus }>) {
+type Props = Readonly<{ dict: ChatDict; status: AuthStatus; settings?: ReactNode }>;
+
+export function ChatAppBar({ dict, status, settings }: Props) {
   return (
     <header className="chat-appbar">
       <ChatBrand dict={dict} />
       <NewConversationLink dict={dict} />
+      {settings}
       <ChatIdentitySlot dict={dict} status={status} />
     </header>
   );

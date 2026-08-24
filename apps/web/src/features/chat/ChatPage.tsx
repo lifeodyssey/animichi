@@ -5,10 +5,12 @@ import type { Locale } from "../../i18n/locales";
 import { useAuthStatus } from "../../lib/auth/session";
 import { ChatActionsProvider, sendWithOriginOf } from "./ChatActions";
 import type { ChatActions } from "./ChatActions";
-import { ByokPanelGate, ChatIntro, ChatNotices, ChatShell, DepartureGate, DockTray, ScrollAnchor, TurnStream } from "./components/ChatShell";
+import { ChatIntro, ChatNotices, ChatShell, DepartureGate, DockTray, ScrollAnchor, TurnStream } from "./components/ChatShell";
+import { ByokSettings } from "./components/ByokSettings";
 import type { PanelPreferences } from "./components/ByokSettings";
 import { ChatInput } from "./components/ChatInput";
 import { ChatAppBar } from "./components/ChatAppBar";
+import { ChatSettingsDrawer } from "./components/ChatSettingsDrawer";
 import { currentChatConfig } from "./config";
 import { deriveEntryState, resolveRouteReference } from "./entry-state";
 import type { ChatEntryState } from "./entry-state";
@@ -39,7 +41,7 @@ import { ChatReturnTargetProvider } from "./ChatReturnTarget";
 
 export interface ChatPageProps {
   readonly search: ChatSearch;
-  /** The ⚙ panel's app-preference section, composed by the route (UI layer). */
+  /** The settings drawer's app-preference section, composed by the route. */
   readonly preferences?: PanelPreferences;
 }
 
@@ -177,24 +179,28 @@ function chatDock(departure: DeparturePromptState, dict: ChatDict, baseUrl: stri
   );
 }
 
-/** Plain page-level assembly: the BYOK panel, the input, the Turnstile hint. */
-function chatComposer(dict: ChatDict, baseUrl: string, byok: ByokPanel, quota: QuotaLock, onSend: (text: string) => void, gate: ComposerGate, preferences: PanelPreferences | undefined): ReactNode {
+/** Plain page-level assembly: the input and its current send gate. */
+function chatComposer(dict: ChatDict, quota: QuotaLock, onSend: (text: string) => void, gate: ComposerGate): ReactNode {
+  return <ChatInput dict={dict} disabled={gate.locked} busy={gate.busy} sendFailed={gate.failed} quotaLocked={quota.locked} onSend={onSend} />;
+}
+
+function settingsOf(page: PageState, preferences: PanelPreferences | undefined): ReactNode {
+  const label = preferences?.label ?? page.dict.byok.settingsToggle;
   return (
-    <>
-      <ByokPanelGate dict={dict} baseUrl={baseUrl} byok={byok} preferences={preferences} />
-      <ChatInput dict={dict} disabled={gate.locked} busy={gate.busy} sendFailed={gate.failed} quotaLocked={quota.locked} onSend={onSend} settingsOpen={byok.open} onToggleSettings={byok.toggle} />
-    </>
+    <ChatSettingsDrawer open={page.byok.open} label={label} onToggle={page.byok.toggle} onClose={page.byok.hide}>
+      <ByokSettings dict={page.dict} auth={page.byok.auth} baseUrl={page.config.baseUrl} preferences={preferences} />
+    </ChatSettingsDrawer>
   );
 }
 
 function ChatPageView({ search, page, preferences }: Readonly<{ search: ChatSearch; page: PageState; preferences: PanelPreferences | undefined }>) {
   const entry = entryStateOf(search, page.health);
   return <ChatShell
-    appbar={<ChatAppBar dict={page.dict} status={page.auth} />}
+    appbar={<ChatAppBar dict={page.dict} status={page.auth} settings={settingsOf(page, preferences)} />}
     notices={<ChatNotices entry={entry} onRetry={page.health.retry} history={page.history} dict={page.dict} />}
     body={chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale, page.byok)}
     dock={chatDock(page.departure, page.dict, page.config.baseUrl, page.photo, page.chat, page.recompute)}
-    composer={chatComposer(page.dict, page.config.baseUrl, page.byok, page.quota, page.departure.onSend, composerGateOf(entry, page.chat, page.history, page.failure), preferences)}
+    composer={chatComposer(page.dict, page.quota, page.departure.onSend, composerGateOf(entry, page.chat, page.history, page.failure))}
   />;
 }
 

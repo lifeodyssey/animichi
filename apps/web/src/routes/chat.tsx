@@ -12,7 +12,7 @@ export const Route = createFileRoute("/chat")({
   component: ChatRoute,
 });
 
-/** The ⚙ panel's app-preference section is composed HERE, at the UI layer, and
+/** The settings drawer's app-preference section is composed HERE, at the UI layer, and
  * handed to the chat feature as a node — chat rents the panel, it does not own
  * language or day/night (see `AppPreferences`). */
 function ChatWithSettings({ search }: Readonly<{ search: ChatSearch }>) {

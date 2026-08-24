@@ -116,6 +116,36 @@
   flex: none;
 }
 
+/* Settings is a first-class app-bar action. The Animal Island Button owns the
+   control geometry and press states; only its compact placement is local. */
+.animal-btn.chat-appbar__settings {
+  flex: none;
+  min-width: 44px;
+  color: var(--color-fg);
+}
+
+.animal-drawer-panel.chat-settings-drawer {
+  background: var(--color-card);
+  color: var(--color-fg);
+}
+
+.chat-settings-drawer .animal-drawer-title {
+  color: var(--color-fg);
+  font-size: 1.5rem;
+}
+
+.chat-settings-drawer .animal-drawer-body {
+  color: var(--color-fg);
+  font-size: 1rem;
+}
+
+.chat-settings-drawer .chat-byok {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 /* Signed-in disc (design sync `.ava`): reports identity, opens nothing. */
 .chat-appbar__avatar {
   flex: none;
@@ -129,6 +159,10 @@
 
 /* Design sync's own narrow rule: the plus keeps its 44px target, the word goes. */
 @media (max-width: 520px) {
+  .chat-appbar__wordmark {
+    display: none;
+  }
+
   .chat-appbar__new-label {
     display: none;
   }
@@ -1516,32 +1550,6 @@
   border-left: 4px solid var(--color-warning-fg);
   background: var(--color-muted);
   color: var(--color-fg);
-}
-
-/* The quiet key of the pill (design sync `.composer .att`): a circle sunk into
-   the page floor, no press shadow — the send key owns the composer's emphasis. */
-.chat-input__settings {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--color-bg);
-  color: var(--color-muted-fg);
-  cursor: pointer;
-}
-
-.chat-input__settings:hover {
-  color: var(--color-primary-strong);
-}
-
-.chat-input__settings[aria-expanded="true"] {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-strong);
 }
 
 /* Press states for the BYOK cream CTAs (DS 補全 .btn.cream.hv/.ac). */

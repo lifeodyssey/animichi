@@ -15,9 +15,6 @@ type Props = Readonly<{
   /** G5: the turn that just left failed, so its text belongs back in the field. */
   sendFailed?: boolean;
   onSend: (text: string) => void;
-  /** BYOK settings entry point (#284 T6): present when the page hosts the panel. */
-  settingsOpen?: boolean;
-  onToggleSettings?: () => void;
 }>;
 
 type Submittable = Readonly<{ preventDefault: () => void }>;
@@ -82,17 +79,6 @@ function sendWithheld(text: string, disabled: boolean, busy: boolean, quotaLocke
   return disabled || busy || quotaLocked || text.trim() === "";
 }
 
-type ToggleProps = Readonly<{ dict: ChatDict; open: boolean; onToggle?: () => void }>;
-
-/** The BYOK panel toggle (#284 T6): the composer is where a power user goes
- * looking for settings, so the entry point lives here (spec group G). */
-function SettingsToggle({ dict, open, onToggle }: ToggleProps) {
-  if (onToggle === undefined) return null;
-  return (
-    <button type="button" className="chat-input__settings" aria-label={dict.byok.settingsToggle} aria-expanded={open} aria-controls="byok-settings-panel" onClick={onToggle}>⚙</button>
-  );
-}
-
 /** The paper plane of the design's `.composer .snd`. */
 function SendGlyph() {
   return (
@@ -131,11 +117,10 @@ function ComposerField({ dict, disabled, busy, quotaLocked, text, onChange }: Fi
  * both keep the composer editable and keep whatever is already typed — only the
  * send path is withheld, and the placeholder says why.
  */
-export function ChatInput({ dict, disabled, busy = false, quotaLocked = false, sendFailed = false, onSend, settingsOpen = false, onToggleSettings }: Props) {
+export function ChatInput({ dict, disabled, busy = false, quotaLocked = false, sendFailed = false, onSend }: Props) {
   const composer = useComposer(onSend, sendFailed);
   const withheld = sendWithheld(composer.text, disabled, busy, quotaLocked);
   return <form className={busy ? "chat-input chat-input--busy" : "chat-input"} onSubmit={withheld ? blockSubmit : composer.submit}>
-    <SettingsToggle dict={dict} open={settingsOpen} onToggle={onToggleSettings} />
     <ComposerField dict={dict} disabled={disabled} busy={busy} quotaLocked={quotaLocked} text={composer.text} onChange={composer.change} />
     <SendKey dict={dict} withheld={withheld} />
   </form>;

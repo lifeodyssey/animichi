@@ -66,7 +66,7 @@ client effect, and keeps desktop visitors on the clickable doorway. Root guide: 
 
 - `src/routes/__root.tsx` — document shell, metadata, error/not-found wiring.
 - `src/routes/index.tsx` → `src/features/seo/DoorwaySummary.tsx` — the served `/` body.
-- `src/components/settings/` + `src/components/ds/` — the ⚙ panel's app preferences (day/night
+- `src/components/settings/` + `src/components/ds/` — the settings drawer's app preferences (day/night
   `Switch`, language `Select`), composed at the UI layer and injected into the chat panel.
 - `src/components/NotFound.tsx` — branded 404.
 - `src/router.tsx` — TanStack router factory.

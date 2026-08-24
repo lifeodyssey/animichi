@@ -3,7 +3,7 @@ import { useDict, useLocale, useSetLocale } from "../../i18n/LocaleProvider";
 import { isLocale, LOCALES, LOCALE_LABELS } from "../../i18n/locales";
 
 /**
- * UI language, as the DS's yellow `Select` inside the ⚙ settings panel.
+ * UI language, as the DS's yellow `Select` inside the settings drawer.
  *
  * It replaces the retired three-button segmented switcher: three always-visible
  * options cost a whole row, and that row is what pushed the brand off the

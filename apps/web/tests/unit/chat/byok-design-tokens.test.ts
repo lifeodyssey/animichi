@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import byokSettingsSource from "../../../src/features/chat/components/ByokSettings.tsx?raw";
+import chatSettingsDrawerSource from "../../../src/features/chat/components/ChatSettingsDrawer.tsx?raw";
 import byokUpsellSource from "../../../src/features/chat/components/ByokUpsell.tsx?raw";
-import chatInputSource from "../../../src/features/chat/components/ChatInput.tsx?raw";
 import budgetExhaustedSource from "../../../src/features/chat/components/ErrorStates/BudgetExhausted.tsx?raw";
 import limitBannerSource from "../../../src/features/chat/components/ErrorStates/LimitBanner.tsx?raw";
 import turnFailureSource from "../../../src/features/chat/components/ErrorStates/TurnFailure.tsx?raw";
@@ -14,8 +14,8 @@ import chatCss from "../../../src/styles/chat.css?raw";
  */
 const SOURCES: readonly (readonly [string, string])[] = [
   ["ByokSettings.tsx", byokSettingsSource],
+  ["ChatSettingsDrawer.tsx", chatSettingsDrawerSource],
   ["ByokUpsell.tsx", byokUpsellSource],
-  ["ChatInput.tsx", chatInputSource],
   ["BudgetExhausted.tsx", budgetExhaustedSource],
   ["LimitBanner.tsx", limitBannerSource],
   ["TurnFailure.tsx", turnFailureSource],
@@ -24,9 +24,9 @@ const SOURCES: readonly (readonly [string, string])[] = [
 /** Hardcoded Tailwind palette classes the spec names, plus the palette shape. */
 const TAILWIND_PALETTE = /\b(?:bg|text|border)-(?:white|black|gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(?:-\d{2,3})?\b/;
 
-/** Every rule this PR added: the panel/journey family AND the composer toggle. */
+/** Every rule this PR added: the panel/journey family and its app-bar host. */
 function byokCssRules(): readonly string[] {
-  const rules = [...chatCss.matchAll(/(?:\.chat-byok|\.chat-input__settings)[^{]*\{([^}]*)\}/g)];
+  const rules = [...chatCss.matchAll(/(?:\.chat-byok|\.chat-appbar__settings|\.chat-settings-drawer)[^{]*\{([^}]*)\}/g)];
   return rules.map((match) => match[1] ?? "");
 }
 

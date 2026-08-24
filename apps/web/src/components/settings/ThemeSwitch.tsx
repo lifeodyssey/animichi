@@ -3,7 +3,7 @@ import { useTheme } from "../../features/config/use-theme";
 import { useDict } from "../../i18n/LocaleProvider";
 
 /**
- * Day/night, as a DS `Switch` inside the ⚙ settings panel.
+ * Day/night, as a DS `Switch` inside the settings drawer.
  *
  * ON = night, not day. Two reasons, in this order: the app's default — the SSR
  * render, the stored-nothing case and the bootstrap script's fallback — is day,

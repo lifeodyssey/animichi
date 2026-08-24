@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "animal-island-ui-tailwind/style/core";
 @import "./fonts.css";
 @import "./shiori.css";
 @import "./shiori-photos.css";
@@ -820,7 +821,7 @@ button, input, select, textarea, [role="button"] {
   to { opacity: 1; }
 }
 
-/* The ⚙ panel's app-preference group, above the API-key section. */
+/* The settings drawer's app-preference group, above the API-key section. */
 .app-preferences {
   display: flex;
   flex-direction: column;
