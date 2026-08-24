@@ -87,10 +87,10 @@ while IFS= read -r package; do
   status="$(printf '%s' "$match" | jq -r '.status')"
   conclusion="$(printf '%s' "$match" | jq -r '.conclusion // empty')"
   details="$(printf '%s' "$match" | jq -r '.details_url // .html_url // "unavailable"')"
-  [ "$status" = completed ] && [ "$conclusion" = success ] || {
+  if [ "$status" != completed ] || [ "$conclusion" != success ]; then
     printf '::error title=PR Verification / %s::package gate is %s/%s; details: %s\n' "$package" "$status" "$conclusion" "$details" >&2
     failed=1
-  }
+  fi
 done <<< "$packages"
 
 [ "$MATRIX_RESULT" = success ] || {
