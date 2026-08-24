@@ -6,94 +6,43 @@ The old root `DEPLOYMENT.md` compatibility pointer was removed in iter6 A6 (#640
 This file covers non-secret runtime config. For what each GitHub secret is, who consumes it,
 and rotation impact, see [`secrets.md`](./secrets.md).
 
-## SAFE-1: production freeze (2026-08-10)
+## Delivery architecture
 
-Every production entry point (`ci.yml` promotion, manual `deploy.yml`, and `rollback.yml`) routes
-through the SAFE-1 eligibility workflow. It resolves the immutable pre-campaign release manifest
-(`.github/release-manifests/production-pre-campaign.json`, content-addressed by pinned Git blob id
-and SHA-256) from the GitHub API — never from the working tree — and judges the candidate SHA.
+There are exactly two automatic delivery entry points:
 
-- **Eligible** when the candidate `github.sha` equals the pinned pre-campaign source revision
-  `b94c30ab6a519f1cce9eb0a3f7885953f8ff54cf` (Atlas target `20260809000031`). Production jobs then
-  check out that pinned revision, verify `HEAD` and `atlas.sum`, and apply Atlas with the pinned
-  target.
-- **Ineligible** otherwise: every production job is skipped (CI records the reason in the
-  `production-eligibility` job's log as a notice: "candidate <sha> is not the pinned pre-campaign
-  source <sha> — campaign revisions cannot mutate production"). The reusable deploy additionally
-  fails closed before Atlas/Pulumi/Wrangler if an ineligible caller somehow reaches it.
-- **Rollback** has no caller-supplied `version_id` anymore: eligibility resolves from the manifest,
-  and every component is rollback-ineligible until an owner-approved manifest revision marks a
-  component/version pair eligible.
+- `.github/workflows/pr-verification.yml` (`CI`) validates pull requests and merge-queue heads.
+- `.github/workflows/cd.yml` (`CD`) deploys only a push to `main`.
 
-Operator notes: the freeze is a self-referential GitHub Actions guard — it makes ordinary campaign
-revisions technically unable to mutate production, and it cannot stop someone who deliberately
-edits the freeze's own workflows or resolver pins. Staging behavior and DAG are unchanged.
+There is no tag-triggered or manually dispatched deployment path. The protected branch requires
+exactly `CI / verify` and `Review Gate`: the first aggregates every selected CI job in the single
+CI run; the second enforces the head-bound review contract in [`review-gate.md`](./review-gate.md).
 
+### Affected-only PR CI
 
+`.github/ci/components.json` is the source of truth for component paths, dependencies, CI lanes,
+and deploy units. `.github/scripts/change-plan.py` compares a pull request with its merge base,
+then expands direct changes through reverse dependencies. A contract change therefore verifies
+all consumers, a web change includes browser E2E, and a migration includes its schema consumers.
+An unknown or unowned path fails closed to the full component set; merge-queue evaluation is also
+fail-closed. Static quality, security, cross-stack, and agent-eval lanes run inside the same `CI`
+workflow when selected, and `CI / verify` fails unless every required selected job succeeds.
 
-## Build-once component promotion
+### Build once, promote the same artifact
 
-Issue #1007 wires the build-once promotion primitive beside the existing deploy path; the old
-per-environment rebuild path stays available during expand/migrate and is deleted by the final
-promotion ticket (#1013, AC6) only after every component migrates. Issue #1013 slice 2 (AC3/AC4/AC5)
-generalizes the primitive to every deployable component and hardens the production path; the
-AC6 cutover (deleting the legacy `Deploy Worker` rebuild path) is NOT yet done and requires
-staging/prod evidence + owner approval.
+On a `main` push, `CD` evaluates the exact `before..sha` range with the same component graph and
+deduplicates the reverse closure into deploy units. Every affected unit is built once by
+`reusable-build-release-unit.yml`. Its release payload includes the source SHA, a closed manifest,
+and a SHA-256 digest. Promotion verifies the payload and digest; staging and production consume
+the same immutable bytes and never rebuild them.
 
-A component built by `reusable-deploy-component.yml` emits:
+The ordered promotion phases are foundation, migration, services, edge, and web. Empty phases are
+skipped without weakening the order. After the full affected cohort reaches staging, one
+`production` environment approval releases that same cohort to production in manifest order.
 
-- a **promotion manifest** (`.github/scripts/promotion-manifest-cli.py generate`) pinning component,
-  source SHA, artifact digest (SHA-256), SBOM/attestation, schema compatibility, configuration
-  schema, and dependency revisions — schema closed, unknown fields rejected;
-- **one immutable CI artifact** (the built output tarball) keyed by its digest, so a rebuild
-  that changes a byte is detectable;
-- staging **consumes and reports** the manifest digest after deploy;
-- production eligibility (`reusable-production-eligibility.yml`) runs a deterministic AC4
-  self-check that rejects a rebuild, a mismatched digest, stale staging evidence, an
-  incompatible schema, or a changed dependency manifest;
-- **#1013 AC4**: a deployed-version-metadata read (`.github/scripts/promote_deployed.py`) fails
-  when the deployed digest/config schema differs from the approved manifest. For components with
-  no platform metadata yet it fails closed with a documented mechanism (see `promote_deployed.py`
-  `PLATFORM_READ_MECHANISM`); the live read is wired per component once a platform adapter exists.
-
-**AC3 (component generalization):** `promotion_manifest.py` maps every deployable component to its
-artifact dir (`component_artifact_dir()`/`COMPONENT_ARTIFACT_DIRS`) — web → `apps/web/.output`, the
-Cloudflare Workers (catalog/users/edge/root) → their wrangler dry-run bundle dir, infra → Pulumi
-state digest. The deploy workflow resolves `PROMO_ARTIFACT_DIR` from this table (never invented
-inline), so an unmapped component fails closed. The six AC3 manifests (Agent/Edge/Catalog/Users/Web/Infra)
-are covered by `test_promotion_manifest.py` and the `promotion-manifest-e2e.test.sh` AC3 section.
-
-**AC5 (no prod build, no tag deploy):** when a promoted artifact digest is supplied, the deploy
-consumes that artifact (no `pnpm … build` runs for a promoted component); the build and build-once
-manifest steps are gated off by `promotion_artifact_digest == ""`, and the consume step fails closed
-until the immutable digest-keyed store (AC6/#1013 follow-up) lands. Neither `ci.yml` nor `deploy.yml`
-is tag-triggered (asserted by `test_promotion_ac5_contract.rb`).
-
-Source of truth for the schema: `.github/scripts/promotion_manifest.py`; behavioral coverage:
-`.github/scripts/test_promotion_manifest.py` (unit), `scripts/local-gates/promotion-manifest-e2e.test.sh`
-(AC2/AC3/AC4), `.github/scripts/test_promote_deployed.py` (AC4 read+gate), and
-`.github/scripts/test_promotion_ac5_contract.rb` (AC5), all run in `pipeline-quality.yml`. Rollback
-remains the SAFE-1/`wrangler rollback` path above.
-
-### Security check-runs canary
-
-The ordinary Security contract and mutation tests are hermetic: they load
-`.github/scripts/fixtures/security-check-runs.json` and never contact GitHub. The live check-runs
-canary is deliberately opt-in so a normal pull request cannot depend on another live PR or on
-network availability. Run it after a ruleset change, or when validating a candidate head:
-
-```bash
-GH_TOKEN=<read-only-token> ruby .github/scripts/security-check-runs-canary.rb \
-  lifeodyssey/animichi <pull-request-number-or-40-character-head-sha>
-```
-
-For a pull request number the canary resolves the current PR head through the GitHub API; for a
-full SHA it verifies that commit exists. It then reads the head's check-runs and active repository
-rulesets, failing closed unless the ruleset requires exactly one `Security` context, exactly one
-successful completed `Security` check-run exists for that head, and its check-run links lead to
-GitHub workflow/check evidence. Any old `Security / *` required context, duplicate `Security`
-result, stale head, pending/failing result, missing evidence link, API error, or missing `GH_TOKEN`
-is a canary failure. This command is not a workflow step; ordinary CI uses only the fixture path.
+Automated post-deploy smoke is intentionally deferred technical debt because GitHub-hosted runner
+traffic is blocked at the Cloudflare boundary. The owner manually smokes staging before approving
+production and manually smokes production after promotion. A manual smoke result is operational
+evidence, not a synthetic GitHub required check.
 
 ## Edge Topology
 
@@ -218,8 +167,8 @@ Required:
   `showcase_denied` before any binding is touched, while `/healthz`, `/img/*`, `/tiles/*` stay
   reachable. Strict boolean like `VITE_SHOWCASE_MODE`: only the literal `"false"` opens the
   backend — unset/empty/malformed values fail closed (deny) with a one-per-isolate warning. Pinned
-  by `workers/edge/test/container-env.test.ts`; the post-deploy smoke gate parses it from `wrangler.toml`
-  and asserts the denial as a permanent CI check.
+  by `workers/edge/test/container-env.test.ts`. Until automatic smoke debt is repaid, the owner
+  verifies the same denial during the manual staging/production smoke.
 
 Production is temporarily MiMo-only while the DeepSeek account has insufficient balance. After
 recharging DeepSeek, set `FALLBACK_AGENT_MODEL=deepseek:deepseek-v4-flash` to re-enable the already
@@ -239,10 +188,8 @@ Common runtime config:
   production and staging each write to their own Logfire project (`animichi-prod` /
   `animichi-staging`) via **GitHub Environment-scoped secrets of the same name**
   (`LOGFIRE_TOKEN` defined directly on the `production` and `staging` GitHub Environments), not
-  via workflow-level branching. No workflow YAML changes were needed for this: both
-  `reusable-deploy-component.yml`'s `deploy` job (`environment: ${{ inputs.environment }}`) and
-  `deploy.yml`'s `deploy` job (`environment: production`) already ran under a job-level
-  `environment:`, and GitHub environment secrets take precedence over a same-named secret the
+  via workflow-level branching. Staging promotion and the single production promotion both run
+  under their job-level `environment:`, and GitHub environment secrets take precedence over a same-named secret the
   caller workflow explicitly passes through `secrets:` for a job that references that environment
   — see [Reuse workflows](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
   ("If you include environment in the reusable workflow at the job level, the environment secret
@@ -339,7 +286,8 @@ proxy only (`/v1/*`, `/healthz`, `/img/*`, `/tiles/*`, one public catalog read).
 
 ## Deploy Sequence
 
-There are two workflow-backed deploy paths. Neither path is tag-triggered.
+There is one workflow-backed deploy path: the main-only `CD` workflow. It is not tag-triggered or
+manually dispatched.
 
 ### Schema change policy
 
@@ -352,154 +300,33 @@ and writers, then remove the old column in a later release. Today’s infrequent
 cadence keeps this window low-risk, but it does not make destructive same-release changes safe by
 construction. The full authoring/apply boundary is [`migrations.md`](./migrations.md).
 
-### ⚠️ The first successful staging/production Atlas run is a provisioning event, not a routine migration
+### Migration promotion
 
-Confirmed via Neon (project `billowing-fire-22850320`, read-only queries, #516 investigation): as of
-2026-07-29, staging (`br-gentle-king-aowjem8v`) and production (`br-cold-term-aor1v6gl`) both have
-**zero** business tables in `public` — only `neon_auth` (Neon Auth's own 9 tables, unrelated to
-`migrations/neon`) and, on staging, an empty orphaned `atlas_schema_revisions` schema left over from
-an earlier manual attempt that ran without `--revisions-schema public`. The full, real data plane
-(23 tables) exists only on the `test-base` branch. **Every prior "successful deploy" to staging or
-production shipped Worker code against an empty database** — the app-level effect of that had not
-previously surfaced because nothing had exercised the affected paths hard enough to notice.
+The migration release unit contains the committed `migrations/neon/` chain and `atlas.sum`.
+Promotion verifies the sealed digest before applying it in the migration phase. Expand/contract
+compatibility remains mandatory because schema promotion precedes consumers and Worker rollback
+does not reverse an applied migration. For provisioning or recovery checks, follow
+[`migrations.md`](./migrations.md) and [`neon-backup-rpo.md`](./neon-backup-rpo.md); do not infer
+database state from a green artifact build.
 
-Once the Atlas scoping fix above lands, the first `Atlas migrate` run against staging (and,
-separately and later, production) will apply **all 11** `migrations/neon/*.sql` files from scratch in
-one shot — this is a one-time provisioning event for that branch, not the incremental single-file
-apply every subsequent deploy will actually be. Reviewed all 11 files for anything that assumes a
-manual step outside the migration directory (backfills, hand-run grants, seed data) — found none;
-every `ALTER`/`DROP` is `IF EXISTS`/`IF NOT EXISTS`-guarded and every `DO $$` block is self-contained
-and idempotent, so applying them in order from empty should be safe. That review is static, not a
-substitute for watching the real run.
+### Main-only affected promotion (`.github/workflows/cd.yml`)
 
-**Before letting production follow staging through this**:
-1. After staging's first post-fix deploy, manually confirm all 23 expected tables exist in
-   `public` on the staging branch (e.g. `SELECT count(*) FROM information_schema.tables WHERE
-   table_schema = 'public'` via Neon, or `\dt` over a direct connection) — don't infer success from
-   the CI job going green alone.
-2. Only then let `deploy-prod` proceed; production is currently even more empty than staging was
-   (it doesn't even have the stray `atlas_schema_revisions` table staging had), so it faces the
-   identical one-shot 11-migration apply, not a smaller catch-up.
+A push to `main` is the only deployment trigger. `change-plan.py` evaluates `before..sha` against
+`.github/ci/components.json`, expands reverse dependencies, and `cd-cohort-plan.py` converts the
+result to a deduplicated deploy cohort. Unknown paths select the full cohort.
 
-### Main promotion path (`.github/workflows/ci.yml`)
+The workflow builds every affected deploy unit once, seals its payload with the source SHA and
+SHA-256 digest, and uploads it as `release-<sha>-<unit>`. Staging downloads and verifies those
+artifacts, promoting them in this order: foundation, migration, services, edge, web. A failed or
+cancelled phase blocks all later phases.
 
-`ci.yml` runs on pushes to `main` and `develop`, plus pull requests. Deploy jobs are narrower: they
-only start when `github.event_name == 'push'` and `github.ref == 'refs/heads/main'`.
+After the complete cohort reaches staging, `promote-production` requests the single GitHub
+`production` environment approval. Production downloads the same artifacts and promotes them in
+manifest order; it does not check out another revision or rebuild a unit. Empty cohorts end without
+a deployment, and there is no manual or tag-triggered alternative.
 
-On a push to `main`, the current promotion chain is:
-
-1. The per-package suites run in their own `pipeline-*.yml` workflows (S0-v2 B4, CI-1 union
-   method): `pipeline-web/agent/catalog/users/edge/contract/infra/db.yml`, each with
-   the three-stage naming `lint` / `test` / `build` (db has `lint` + `build`), a pathless
-   `pull_request` trigger (merge_group compatibility), a `merge_group` trigger on `main`, and
-   push paths on `main`. The `changes` aggregation job, dorny/paths-filter middle layer, and the
-   whole `*-gate` layer are retired; required checks land on real job names. The credentialed
-   verify lanes (`Agent Eval (L0 smoke, ~80 cases)`, `Python integration (Neon)`, `Catalog spikes
-   (Neon)`) remain in `ci.yml` and are never required; they self-gate with step-level dorny
-   filters. STATUS (post-#1180 cutover): the active repository ruleset requires exactly
-   `PR Verification`, `Security`, and `Review Gate`. Verify the live response with
-   `gh api repos/lifeodyssey/animichi/rulesets/19974534`; the guarded recovery snapshot and
-   failing/repaired canary evidence are documented in [ruleset-cutover.md](ruleset-cutover.md)
-   and retained on #1180.
-   BACKLOG (not part of the B4 PUT): the 95% changed-line verdict. `codecov/patch` is not a
-   required status today — neither in the live ruleset nor in the B4 target — and the retired
-   `Codecov Patch` lane was only the upload/policy precondition, not the changed-line gate.
-   Re-requiring the external `codecov/patch` status (95% patch coverage) is a tracked backlog
-   item for the orchestrator; until then the repo-side policy check
-   (`pipeline-quality.yml` "Verify patch coverage policy") is the only 95% enforcement.
-0. **Schema before app (migrator, #1051/#1052)**: `deploy-migrator-staging` deploys the migrator
-   worker (its DSN arrives from the Cloudflare Secrets Store binding, never from CI), then
-   `migrate-staging` triggers it via GitHub OIDC (no stored secret), applies the committed chain
-   to head, and fails the run unless the applied head equals the expected target. Every staging
-   component deploy below depends on `migrate-staging` in its `needs:` graph, so a failed
-   trigger blocks all component deploys. The routine staging path carries NO `NEON_DATABASE_URL`.
-
-2. `deploy-infra-staging` always runs on the deploy lane (no path filter) and applies the
-   main `infra/` stack (`reusable-deploy-infra.yml`). Staging catalog, users, web, and root
-   `needs` that job **and** `migrate-staging`, then ring the Builds doorbell
-   (`reusable-ring-doorbell.yml`). `staging-worker-paths` skips a ring when that tree did
-   not change. `vars.DOORBELL_STAGING_URL` is public config. Accepted tradeoff: staging deploys
-   no longer wait on any package pipeline, because GitHub cannot express `needs:` across
-   workflows — protection comes from the required merge contexts in the ruleset instead, plus
-   the future merge queue.
-3. `deploy-neon-secrets-staging` runs **before** `deploy-staging` (catalog waits on it, so
-   users/root cascade behind it): the Neon service roles and the Cloudflare Secrets
-   Store DSN secrets (`infra/neon-secrets/`, ADR 0003 / #912) must exist before any Worker deploy
-   consumes them (PR2's `wrangler.toml` store bindings). It calls the slim
-   `reusable-deploy-neon-secrets.yml` (Pulumi-only — no Worker machinery):
-   `pulumi package add` to generate the gitignored Neon provider SDK (the package.json rewrite
-   that command performs is reverted right after — a `file:` spec it appends to
-   `pnpm.onlyBuiltDependencies` makes pnpm 10.33 reject the project, see the workflow header),
-   a plain frozen `pnpm install` against `infra/neon-secrets/pnpm-lock.yaml` (the SDK's
-   postinstall compiles it; the committed `pnpm-workspace.yaml` allows that build), the #485
-   rollback backup to the same R2 `rollback-backups/` prefix, and `pulumi up` on stack
-   `staging`.
-   **State backend**: R2 (`PULUMI_BACKEND_URL`) + `PULUMI_CONFIG_PASSPHRASE` — the same
-   encrypted backend the `infra/` project uses. A file backend was used for the #926 validation
-   but can never serve CI, and the state holds Neon role passwords + DSNs, so it must stay
-   encrypted at rest. No `NEON_API_KEY` secret exists: the key lives in the committed
-   `Pulumi.staging.yaml` as a passphrase-encrypted `secure:` value, exactly like `infra/`'s
-   stack configs.
-   **First run**: the `staging` stack does not exist on R2 yet, so the job `pulumi stack init`s
-   it (passphrase secrets provider) and runs `.github/scripts/neon-secrets-adopt.sh`, which
-   imports the resources the #926 local file-backend run created (a fresh `up` would try to
-   re-create the roles and the Neon API rejects duplicate creates). Adoption is idempotent and
-   guarded on the stack state; after it, `pulumi up` is a no-change apply.
-   **Production**: deliberately absent from `deploy.yml` and the prod promotion — the stack is
-   staging-only (single branch, no `Pulumi.prod.yaml`); the production stack is a #912
-   follow-up.
-4. `reusable-deploy-component.yml` runs with `environment: ${{ inputs.environment }}`. It checks out the
-   repo, runs the shared setup action, and runs the `run_atlas` migration step ONLY when the
-   caller leaves it on. **#1052 schema-before-app**: every **staging** caller passes
-   `run_atlas: false` and carries no `NEON_DATABASE_URL` - the schema is applied by the
-   **migrator trigger** (`migrate-staging` in ci.yml, step 0) BEFORE any component deploy, so a
-   staging deployment never holds the database credential. **Production** callers keep
-   `run_atlas` on and the pinned per-component Atlas apply (`NEON_DATABASE_URL` present) until
-   #1055 removes it. Staging catalog/users/web/root skip this reusable (#1076 doorbell;
-   #1074 infra job). Production catalog still runs `pulumi up` in this reusable
-   (SAFE-1 freeze). Production Worker publish still uses Wrangler.
-5. the web, users, and root staging deploys complete in the same promotion stage.
-6. `post-staging` runs the API post-deploy suite against staging, including the **migration
-   ledger-head smoke** (#1052 AC5): it reads the migrator's read-only `/ledger-head` endpoint and
-   fails unless the applied head equals the expected committed head (schema-before-app proven
-   post-deploy).
-
-**#1052 AC7 - real staging deploy with a schema change lands green, CI-run post-merge**: merging a
-PR that contains (a) a new `migrations/neon/*.sql` + rehashed `atlas.sum` and (b) the code that
-consumes it is the CI-run verification that a real staging deploy with a schema change lands
-green end-to-end: on the post-merge push to `main`, `ci.yml` deploys the migrator, the OIDC
-trigger applies the new chain head, every component deploy runs `run_atlas: false` against the
-new schema, and `post-staging` re-asserts the ledger head equals the target. The required
-`Review Gate` lane and the `migration-boundary` contract guard run on the PR before the merge; the
-deploy + smoke run on the merge. A red staging deploy or smoke is CI visible and
-blocks promotion.
-7. `deploy-infra-prod` applies the main `infra/` stack (`pulumi_stack: prod`), then
-   `deploy-prod` and the other production component jobs deploy catalog, web, users, and root
-   with `environment: production` and `run_pulumi: false`. The GitHub `production`
-   environment is the human approval gate.
-8. `post-prod` runs the production smoke post-deploy suite.
-
-### Manual production path (`.github/workflows/deploy.yml`)
-
-`deploy.yml` is `workflow_dispatch` only. Its `Deploy to Production` job also uses
-`environment: production`, so it requires the same GitHub environment approval before the job runs.
-Its current order is:
-
-1. install workspace dependencies (`pnpm install --frozen-lockfile`); there is no app build
-   step — the root Worker ships as TypeScript source
-2. `deploy-infra-prod` applies the main `infra/` stack
-3. deploy the catalog Worker first, because the root Worker service binding depends on it
-4. deploy the users Worker before the root Worker, because the root `USERS` binding depends on it
-5. verify `Dockerfile` exists
-6. deploy the root Worker/container with Wrangler
-
-The manual path runs the same `reusable-deploy-component.yml` as the CI promotion, so it applies
-`migrations/neon/` (when `NEON_DATABASE_URL` is set) exactly like the CI path — it is not a
-migration-free path. The Supabase compatibility directory (`supabase/`) is **archived/historical
-(issue #1000)** and never applied by either path; an explicitly approved auth migration would follow
-the separate Supabase owner/runbook and must not be used to change Neon catalog or user tables.
-
-Do not use version tags as a deploy trigger for the current pipeline.
+Automated post-deploy smoke is deferred technical debt. The owner manually validates staging before
+approval and production after promotion; do not represent that manual evidence as a CI check.
 
 **CF Worker routing** (`workers/edge/src/app.ts`):
 - `/v1/*` and `/healthz` → `CONTAINER` (Durable Object → FastAPI service on port 8080)
@@ -535,196 +362,52 @@ Important: this is a documentation target only right now. Before enabling it, th
 
 ## Rollback
 
-Every `reusable-deploy-component.yml` deploy step is a plain `wrangler deploy` (not `wrangler versions
-upload`), but Cloudflare still records each one as a numbered **version** under the hood, so
-`wrangler rollback` and `wrangler versions list` work against it without any change to the deploy
-step itself. This is the instant-rollback side of the same versions primitive used by deployment.
+Rollback is incident recovery, not a second deployment path. `.github/workflows/rollback.yml` is
+manually dispatched, requires the `production` environment approval, serializes with production
+promotion, and re-promotes one caller-selected sealed artifact from a successful main `CD` run.
+Only `edge`, `web`, `catalog`, and `users` are eligible; schema and infrastructure are not. Supply
+the prior run's numeric `release_run_id`, exact `source_sha`, and the selected unit manifest's
+`artifact_sha256`. The workflow accepts only a successful `push` run of `.github/workflows/cd.yml`
+for this repository and `main`, then independently verifies the downloaded manifest and tarball
+digest before any production credential reaches the promotion adapter. It never asks Cloudflare to
+guess the "previous" version and never rebuilds during recovery.
 
-### CI one-command path (rollback.yml)
+For `edge`, the immutable release unit is the same-run `agent` + `edge` pair. Rollback downloads and
+verifies both artifacts, republishes the exact agent image tar under its deterministic production
+tag, and only then promotes the sealed edge bundle that references it. For `web`, `catalog`, and
+`users`, only the selected artifact is promoted. The run summary records run ID, source SHA, unit,
+and digest without logging payload values.
 
-SAFE-1 removed the caller-supplied `version_id` input: rollback eligibility now resolves from the
-pinned release manifest, and every component is rollback-ineligible until an owner-approved manifest
-revision marks a component/version pair eligible. Running the workflow today fails closed before any
-Wrangler command:
+Release artifacts are retained for 14 days. A missing, duplicate, empty, or expired artifact fails
+closed before promotion. Do not reconstruct or rebuild it in the rollback job: land a reviewed
+revert/fix on `main`, let `CD` build a new sealed cohort, and use the normal production approval.
+After any successful rollback, verify the affected routes manually and revert the bad change on
+`main` so the next affected release restores trunk state.
 
-`gh workflow run rollback.yml -f component=<name>`
+`CD` and `Rollback` share the `affected-cd-main` concurrency group with `queue: max`. Every pending
+rollback and main-push deployment stays queued instead of a newer run replacing the older pending
+run. The queue is serialized, not preemptive: if a CD run is already executing or waiting at the
+production approval, reject or cancel that active run during an incident so the queued rollback can
+start; do not approve a competing production promotion.
 
-The workflow waits on the `production` environment approval and shares the prod deploy concurrency
-groups, so it cannot race a deploy. The per-component table below remains the reference for what
-each rollback does and its caveats.
+Worker rollback changes the running Worker version but does not undo Durable Object migrations,
+reverse a database migration, or restore Pulumi state. Edge recovery does republish the verified
+paired agent image bytes; it does not rebuild them. Use expand/contract migrations so one-version
+code rollback remains schema-compatible. For Pulumi, restore the pre-apply export kept beside the
+encrypted R2 state and run a reviewed reconciliation. Never place a state export in a public
+GitHub artifact.
 
-### One-command rollback per component
-
-Find the last known-good **version id** first (not a "deployment id" — `wrangler rollback` takes a
-version id from `wrangler versions list`), then roll back non-interactively. Run from the repo
-root; `pnpm --filter <pkg> exec` resolves each sub-worker's own `wrangler.toml`/`wrangler.jsonc`.
-`wrangler rollback` prompts interactively for confirmation and a reason message by default — in a
-non-TTY shell that hangs rather than failing, so always pass `-y` (auto-confirm) and `-m` (reason)
-explicitly.
-
-| Component | Working dir | List versions | Roll back |
-|---|---|---|---|
-| root (edge Worker + container) | `.` | `npx wrangler@4.112.0 versions list --env <staging\|production>` | `npx wrangler@4.112.0 rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
-| catalog | `workers/catalog` | `pnpm --filter catalog exec wrangler versions list --env <staging\|production>` | `pnpm --filter catalog exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
-| users | `workers/users` | `pnpm --filter users exec wrangler versions list --env <staging\|production>` | `pnpm --filter users exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
-| web | `apps/web` | `pnpm --filter web exec wrangler versions list --env <staging\|production>` | `pnpm --filter web exec wrangler rollback <version-id> --env <staging\|production> -y -m "<reason>"` |
-
-`wrangler rollback` with no version id rolls back to the version immediately before the current
-one; pass an explicit id from the `versions list` output to jump further back. This only swaps the
-running Worker code version — it does not touch bindings/secrets changed since that version, and it
-does not re-run Pulumi.
-
-**⚠️ root is the least certain of the four to roll back cleanly.** Unlike catalog/users/web, root
-carries two Durable Object bindings (`CONTAINER`, `EDGE_GUARD`) behind `[[migrations]]` (`v1`
-`new_sqlite_classes: RuntimeContainer`, `v2` `new_sqlite_classes: EdgeGuard`) plus a `[[containers]]`
-image. `wrangler rollback` swaps the Worker script version; it does **not** un-apply a Durable
-Object class migration or restore a deleted container image:
-- if the bad release added a DO migration, rolling back the *script* does not roll back the DO
-  storage/class binding underneath it — a version straddling that migration boundary may not start
-  cleanly, or may start against storage shaped for the newer class;
-- if `wrangler containers delete` (or an image prune) already removed the container image the old
-  version referenced, rolling back the script alone will not resurrect it — the old version will
-  fail to boot its container until the image is rebuilt and pushed back.
-
-Treat a root rollback across a DO-migration or container-image boundary as a case that needs manual
-verification (does the old version actually start? check `wrangler tail`), not a routine one-liner.
-
-Steps:
-
-1. Identify the bad component(s) from the incident (which `deploy-*` job ran, or which route is
-   failing).
-2. `wrangler versions list --env <environment>` for that component; pick the version id from before
-   the bad release (or omit it to go back exactly one step).
-3. `wrangler rollback <version-id> --env <environment> -y -m "<reason>"` for that component.
-4. If the rolled-back component is `root`, verify it actually started (`wrangler tail --env
-   <environment>`, `/healthz`) — see the DO-migration/container warning above. There is currently no
-   automated post-rollback check to lean on instead: `reusable-post-deploy-test.yml`'s `api`/`e2e`/`smoke`
-   suites are still TODO no-ops (tracked separately; PR #493 is turning them into real assertions).
-   It does have a `workflow_dispatch` trigger now so it *can* be re-run manually from the Actions UI
-   during an incident, but until those suites land, re-running it confirms nothing beyond "the job
-   didn't crash" — don't treat a green re-run as verification yet.
-5. Still revert the offending commit on `main` afterward — the rollback above is a stopgap for the
-   live Worker, not a fix for the tree; the next `main` push will otherwise redeploy the bad code on
-   top of your rollback.
-
-### Pulumi rollback
-
-`reusable-deploy-infra.yml`'s "Pulumi stack export (rollback backup)" step runs `pulumi stack export`
-immediately before every `pulumi up` **that actually runs**, then uploads the result to the **same
-R2 bucket the Pulumi state backend already lives in** (`aws s3 cp`, using the `R2_ACCESS_KEY_ID`/
-`R2_SECRET_ACCESS_KEY` credentials already present in that step) under a `rollback-backups/`
-prefix — object key `rollback-backups/pulumi-<stack>-<run-id>.json`.
-
-**This is deliberately not a GitHub Actions artifact.** This repository is **public**, and a public
-repo's workflow artifacts are downloadable by any signed-in GitHub account, not just people with
-repo access. `infra/index.ts` exports `cloudflareAccountId`/`cloudflareZoneId`/`webDomain` in
-plaintext and `catalogDatabaseUrl` as `secure:` ciphertext — publishing that as a run artifact on
-every catalog deploy would mean handing out plaintext account/zone identifiers (a targeted-abuse and
-social-engineering surface, even though not credentials themselves) and an offline-crackable Neon
-connection string, retained for however long the artifact lived. Writing to the R2 bucket instead
-keeps the backup exactly as private as the Pulumi state it's a snapshot of — no new exposure surface,
-same trust boundary, same credentials this step already holds.
-
-Catalog/users/web/root callers pass `run_pulumi: false` (`ci.yml` / `deploy.yml`). The main-stack
-apply lives in `deploy-infra-staging` / `deploy-infra-prod` — look there for the backup, not under
-a catalog/root/web/users run.
-
-To roll back a bad Pulumi apply:
-
-1. Fetch the object for **the same run that did the bad `pulumi up`** — the export step runs
-   immediately *before* `up` inside that one run, so the pre-apply snapshot has that run's own
-   `github.run_id` in its key, not the run before it. From `infra/`, with R2 credentials exported as
-   `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`:
-   ```
-   aws s3 cp --endpoint-url "https://<cloudflare-account-id>.r2.cloudflarestorage.com" \
-     "s3://<pulumi-state-bucket>/rollback-backups/pulumi-<stack>-<run-id>.json" ./backup.json
-   ```
-2. `pulumi stack select <staging|prod>` in `infra/`, then `pulumi stack import --file backup.json`
-   to restore that state, followed by `pulumi up` to reconcile real infrastructure back to it.
-3. This is a state-only restore; it does not undo already-applied Cloudflare API side effects that
-   Pulumi doesn't track (rare, but check R2/DNS manually if in doubt).
-
-**Known gap**: no lifecycle/expiry rule is configured on the `rollback-backups/` prefix yet, so
-objects accumulate indefinitely instead of expiring after a few days the way the old GitHub-artifact
-retention window did. Adding an R2 bucket lifecycle rule is an `infra/index.ts` change (a new Pulumi
-resource, applied through the same approval-gated path as everything else here) and is out of scope
-for this change; tracked as **#521**, not silently assumed to already exist.
-
-### ⚠️ Database migrations do NOT roll back this way
-
-Nothing above undoes an Atlas migration (`migrations/neon`) or a Supabase migration. `wrangler
-rollback` only swaps Worker code; it cannot un-apply a schema change the new code already wrote
-data under. Roll a schema change back only by writing and applying a new forward migration that
-reverses it (expand/contract, per the schema change policy above) — never by trying to "undo" the
-old migration file. Treat any release that combined a schema change with app code as a case where
-Worker rollback alone is insufficient; check `migrations/neon` for what shipped in that release before
-declaring the rollback complete.
-
-**Neon data-plane recovery (PITR, RPO/RTO, failed-migrate checklist, bad-migration stub):** see
-[`neon-backup-rpo.md`](./neon-backup-rpo.md). Worker/Pulumi steps on this page do not replace Neon
-history-window restore or the owner HITL monitor checklist.
-
-### Prerequisite: a local Cloudflare API token, provisioned BEFORE an incident
-
-Every command in the table above needs a Cloudflare API token in the operator's own environment —
-this is not optional infrastructure to stand up mid-incident, it must already exist and already be
-tested.
-
-1. Create one at <https://dash.cloudflare.com/profile/api-tokens> → "Create Token" → custom token
-   with, at minimum, **`Workers Scripts:Edit`** for the account (this is what `wrangler
-   rollback`/`versions list`/`secret put` all authenticate against — the same permission
-   `CLOUDFLARE_API_TOKEN` already carries in CI). Scope it to the account, not a single zone; root's
-   rollback also needs `Workers Scripts:Edit` on the account the `catalog`/`users` Workers live in if
-   you need to roll those back too, since they're separate Workers under the same account.
-2. Store it in a password manager or the OS keychain, not a plaintext file in the repo or home
-   directory — export it into the shell only for the duration of the rollback (`export
-   CLOUDFLARE_API_TOKEN=...`; `wrangler` reads it from that env var, no config file needed).
-3. **Verify it works now, not during the incident**: `wrangler whoami` should print the token's
-   scope; `wrangler versions list --env staging` (read-only) against a real component confirms both
-   the token and this doc's commands actually work end to end.
-4. Anyone expected to run this table during an incident needs their own token satisfying the above
-   *before* they're on call for it — this whole rollback path assumes that precondition and does not
-   re-derive credentials for you.
-
-### Automating the rollback trigger
-
-No dedicated `workflow_dispatch` rollback workflow (component + version-id inputs) is added here
-beyond the manual commands above. `wrangler rollback`/`versions list` already are the one-command
-primitive the issue asked for; wrapping them in a bespoke, never-exercised dispatch workflow would
-add untested complexity — invalid version ids, wrong environment, partial multi-component rollback
-ordering, the DO-migration/container caveat above — to an incident-response tool that most needs to
-be simple and trustworthy under pressure. The manual table above can be run by anyone with the
-Cloudflare API token described just above, from their own machine; automating it is tracked
-separately as **#496** (rollback automation), including the case this section's own tradeoff doesn't
-cover — an incident where the only device on hand is a phone, where a local `wrangler` invocation
-isn't reachable at all and a `workflow_dispatch` may be the only usable primitive — and the
-precondition that the manual path above has actually been exercised at least once before automating
-it. (`reusable-post-deploy-test.yml` did gain a `workflow_dispatch` trigger in this same change — tracked
-separately as #493 for turning its suites from TODO no-ops into real assertions — since the trigger
-itself was a pure UI-affordance gap rather than new untested rollback logic; see step 4 above.)
-
-### WAF rollback
-
-1. disable the custom prompt-injection rule first
-2. keep the `/v1/*` rate limit in place unless it is the source of the incident
-3. inspect Worker logs before re-enabling stricter filters
+Automated rollback smoke is part of the same deferred smoke debt as forward promotion. The owner
+must manually check health and the affected user journey after recovery.
 
 ## Known Limitations
 
 - default session storage is in-memory unless a distributed backend is introduced later
 - OpenTelemetry exporters are opt-in and disabled by default
 - AI Gateway is documented but not yet wired in backend provider configuration
-- `/healthz`'s `git_branch`/`git_commit` are real in deployed containers via the CI bake chain:
-  `reusable-deploy-component.yml`'s "Bake git build info" step writes
-  `apps/agent/src/animichi/build_info.py` (gitignored, regenerated per deploy) from
-  `GITHUB_SHA`/`GITHUB_REF_NAME`; the image's `COPY apps/agent/src/animichi` ships it and
-  `apps/agent/src/animichi/interfaces/routes/health.py` imports it at startup (fallback: env vars →
-  git shell-out → `"unknown"`). The container never carries `.git`, so `"unknown"` in a deployed
-  environment means the bake chain broke — and since #494's gate fix,
-  `.github/scripts/post-deploy-assert.sh healthz` **hard-fails the deploy** on `"unknown"` and, when
-  `EXPECTED_GIT_COMMIT` is passed (both CI smoke sites), asserts `git_commit` equals the deploy run's
-  own SHA. Live-verified 2026-08-05 (staging returned the deployed SHA; production's last deploy
-  predates the bake fix, so prod still reports `"unknown"` until its next deploy).
+- Release identity is the sealed artifact manifest's `source_sha` plus `artifact_sha256`; staging
+  and production promotion reject a payload whose identity or digest does not match the main-SHA
+  cohort. Runtime health metadata is useful diagnosis but is not the artifact authority.
 
 ## HISTORICAL (pre-2026-07): feat/ssr-cloudflare Post-deploy Notes
 

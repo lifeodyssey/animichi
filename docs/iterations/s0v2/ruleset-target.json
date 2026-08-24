@@ -1,83 +1,11 @@
 {
-  "_comment": "Current live required-check target after the verified #1180 one-shot cutover. The guard tests assert these exact three aggregators exist and run on merge_group.",
-  "_retired_contexts": [
-    "Backend CI",
-    "Agent CI",
-    "Infra & DB CI",
-    "Cross-stack E2E",
-    "Repository Quality",
-    "Codecov Patch",
-    "Web / lint",
-    "Web / test",
-    "Web / build",
-    "Agent / lint",
-    "Agent / test",
-    "Agent / build",
-    "Catalog / lint",
-    "Catalog / test",
-    "Catalog / build",
-    "Users / lint",
-    "Users / test",
-    "Users / build",
-    "Edge / lint",
-    "Edge / test",
-    "Edge / build",
-    "Contract / lint",
-    "Contract / test",
-    "Contract / build",
-    "Infra / lint",
-    "Infra / test",
-    "DB / lint",
-    "DB / build",
-    "Quality / invariants",
-    "Security / gitleaks (secret scan)",
-    "Security / TruffleHog (verified secrets)",
-    "Security / osv-scanner (lockfile CVE)",
-    "Security / Dependabot pnpm coverage",
-    "Security / Config check read-set trigger coverage",
-    "Security / zizmor (GHA security)",
-    "Security / Semgrep (SAST)",
-    "Security / sqlfluff (SQL lint)",
-    "Security / post-deploy smoke scripts (shellcheck + behavior)"
-  ],
-  "_retired_contexts_status": "Historical recovery record. The original six contexts were retired in the 2026-08-06 PUT; the 32 per-lane/legacy contexts were retired by the verified #1180 one-shot cutover on 2026-08-23.",
-  "required_checks": [
-    "PR Verification",
-    "Security",
-    "Review Gate"
-  ],
-  "_deferred_required": [
-    {
-      "context": "Infra / build",
-      "reason": "Still NOT required after the 2026-08-06 PUT. At flip time the lane was red on main HEAD: the retired Infra component CI's Pulumi preview (staging) failed with an R2 state backend 401 Unauthorized (credentials issue, orchestrator-owned). The R2 keys were subsequently re-issued and the old lane is green on main HEAD (verified 2026-08-06), but the new pipeline-infra.yml lane has not yet run on main, and the step-level dorny preview gate means a path-skipped run produces no preview at all. Re-add only when the new lane is consecutively green.",
-      "re_add_conditions": [
-        "pipeline-infra.yml 'Infra / build' green on consecutive main/PR runs",
-        "the step-level dorny preview gate (BLOCK-2b) is confirmed — a path-skipped job produces no check-run, which is the second reason it must not be required until the gate and the lane are both stable",
-        "B7's REQUIRED_CONTEXTS table is updated in the same batch as the ruleset PUT"
-      ]
-    },
-    {
-      "context": "Catalog startup smoke (bundled boot)",
-      "reason": "Backlog item, not in the live ruleset. This is the only gate that boots the real esbuild bundle in workerd and catches bundle-only startup failures (the StringChunk TDZ that blocked staging deploys, 2026-08-05); vitest evaluates unbundled modules and cannot see them. The job runs unconditionally on pull_request and merge_group in pipeline-catalog.yml (its workflow declares merge_group), so making it required cannot strand the merge queue — the check-run always appears. Add in a future PUT once this PR's pipeline-catalog.yml has gone green on main.",
-      "re_add_conditions": [
-        "pipeline-catalog.yml 'Catalog startup smoke (bundled boot)' green on main after this PR merges",
-        "B7's REQUIRED_CONTEXTS table is updated in the same batch as the ruleset PUT"
-      ]
-    }
-  ],
-  "_check_gates": {
-    "status": "applied and canary-verified (#1180): the live ruleset requires exactly PR Verification, Security, and Review Gate.",
-    "security_contexts": [
-      "Security"
-    ]
-  },
-  "_notes": [
-    "APPLIED STATE (verified 2026-08-23 via ruleset 19974534 and canary PR #1191): enforcement=active and required_status_checks are exactly PR Verification, Security, and Review Gate; recovery evidence is retained on issue #1180.",
-    "HISTORICAL (pre-PUT, 2026-08-06): the live ruleset had exactly 9 contexts — the 6 retired lanes + Web / lint + Web / test + Web / build. The one-shot PUT deleted the 6 and added the 23 new stage/security contexts; Web / lint|test|build were already required by B1's union step and stayed. The #1177/#1180 change replaces the nine child security contexts with one top-level Security result; the live replacement is intentionally a separate one-shot operation.",
-    "Quality / invariants is retired after #1180; Review Gate is the sole required quality/review context.",
-    "codecov/patch is NOT in the live ruleset (verified post-PUT): the 95% changed-line verdict is not enforced as a status gate. The repo-side patch-coverage policy check lives in pipeline-quality.yml ('Verify patch coverage policy'); it does not make codecov/patch a required check. Re-adding codecov/patch as a real required status is a tracked backlog item in docs/ops/deployment.md.",
-    "Context names are GitHub check-run names, not job ids. The Security context is produced by the top-level ci.yml aggregator; its child scans remain visible under the non-required Security scans reusable workflow. The aggregator runs on pull_request, merge_group, push, and workflow_dispatch and fails closed when child evidence is incomplete.",
-    "MERGE-GATE TRAP — target covered: a required context that never produces on merge_group hangs the merge queue. The top-level Security aggregator is in ci.yml, which declares on.merge_group (branches: [main]); the verified #1180 PUT added Security and retired the nine historical child names atomically. Every required aggregator declares merge_group on main by contract (test_ci_contract.rb enforces the shape).",
-    "Catalog startup smoke (bundled boot) is a backlog item, not required (see _deferred_required): the job exists in pipeline-catalog.yml and its check-run is produced unconditionally on PR/merge_group runs, so it can be added by a future PUT without queue risk."
-  ]
+  "schema_version": "ruleset-target/v3",
+  "_comment": "Exact post-cutover branch ruleset target; live mutation remains separately operator-gated.",
+  "required_checks": ["CI / verify", "Review Gate"],
+  "_required_status_sources": {"Review Gate": {"integration_id": 15368, "name": "GitHub Actions"}},
+  "_required_review_thread_resolution": true,
+  "_retired_contexts": ["PR Verification", "Security", "Quality / invariants"],
+  "_removed_native_rule_types": ["code_quality", "code_coverage"],
+  "_preservation": "Keep every other effective protection rule, enforcement mode, bypass actor, and branch condition unchanged.",
+  "_canary": "A fresh content-addressed ruleset-canary/v3 artifact must prove both contexts and the Review Gate source on PR and merge_group heads before the single PUT."
 }

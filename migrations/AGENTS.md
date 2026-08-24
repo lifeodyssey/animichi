@@ -6,12 +6,10 @@ Authentication-only legacy migrations remain under `supabase/migrations/`. Root 
 ## Commands (from repo root)
 
 - After **any** migration edit: `atlas migrate hash --dir file://migrations/neon`.
-- **#1052 schema-before-app**: STAGING applies the chain via the migration executor (migrator
-  worker + one-shot Atlas batch container, triggered by `migrate-staging` in ci.yml) as the
-  first post-build stage, BEFORE any component deploy; staging component deploys carry no
-  per-component Atlas step and no database credential. PRODUCTION keeps the pinned per-component
-  `atlas migrate apply --dir "file://migrations/neon" --url "$NEON_DATABASE_URL" --revisions-schema public`
-  until #1055 removes it. The chain is **schema-only**; reference/seed data no longer rides
+- **Schema before app**: a migration change enters the affected cohort through the component
+  manifest's reverse dependency closure. CD builds the migration payload once and promotes the
+  migration phase before services, edge, and web; production consumes the same verified payload
+  after the cohort's single approval. The chain is **schema-only**; reference/seed data no longer rides
   migrations — the gazetteer seed lives outside the chain
   (`workers/catalog/data/gazetteer_seed.sql`, see `../docs/data-sources.md` and `make seed-gazetteer`).
 
@@ -34,7 +32,8 @@ Authentication-only legacy migrations remain under `supabase/migrations/`. Root 
 
 - `neon/*.sql` — ordered **schema** migrations (append-only).
 - `neon/atlas.sum` — Atlas integrity manifest.
-- `../.github/workflows/reusable-deploy-component.yml` — deploy-time apply gate.
+- `../.github/workflows/cd.yml` — main-only affected cohort and migration-before-consumer order.
+- `../.github/workflows/reusable-promote-release-phase.yml` — verified phase promotion.
 - `../docs/data-sources.md` — gazetteer provenance and regeneration inputs.
 - `../docs/ops/migrations.md` — authoring/apply boundary and expand/contract.
 - `../docs/ops/neon-backup-rpo.md` — Neon PITR / RPO·RTO / failed-migrate + bad-migration recovery (N5).

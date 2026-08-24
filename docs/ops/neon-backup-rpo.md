@@ -65,7 +65,7 @@ multi-region active-active, or zero-touch restore from CI.
 | Signal | Desired alert | Status |
 |---|---|---|
 | Neon compute/storage/history quota or project-level outage | Neon Console / email notification | **HITL** — no repo-owned pager wiring; owner enables Neon notifications in Console |
-| Atlas `migrate apply` failure in deploy | GitHub Actions job red on `reusable-deploy-component` / promotion | **CI-visible**; not a phone page. Owner watches the deploy run |
+| Atlas `migrate apply` failure in deploy | GitHub Actions `CD` database phase red | **CD-visible**; not a phone page. Owner watches the main-SHA promotion run |
 | Logfire DB error rate / latency SLO | Logfire alert on staging/prod projects | **HITL** — Logfire tokens exist per environment; **no** Neon-specific alert rules checked into this repo yet (D12 gap) |
 | Staging/prod table count or Atlas revision drift after deploy | Automated post-deploy probe | **HITL** — still manual (see failed-migrate checklist); post-deploy suites partially TODO |
 

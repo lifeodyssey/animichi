@@ -1,10 +1,5 @@
 name: _security
-
-# Reusable cross-language security workflow.
-# Called by ci.yml orchestrator; always runs (no affected gate).
-# Strict quality stack per cicd-strict-refactor plan (§安全).
-# Official GitHub Actions are SHA-pinned; CLI-only tools run via ./.github/actions/setup.
-
+# Reusable cross-language security lane selected by pr-verification.yml.
 on:
   workflow_call:
     inputs:
@@ -12,16 +7,10 @@ on:
         description: "The commit SHA the caller is aggregating"
         required: true
         type: string
-    secrets:
-      GITLEAKS_LICENSE:
-        required: false
 
 permissions:
   contents: read
-
 jobs:
-  # ── Code scanning ────────────────────────────────────────────
-
   codeql:
     timeout-minutes: 20
     name: CodeQL (${{ matrix.language }})
@@ -56,30 +45,22 @@ jobs:
         with:
           category: "/language:${{ matrix.language }}"
 
-  # ── Secret scanning ──────────────────────────────────────────
-
   gitleaks:
     timeout-minutes: 15
     name: gitleaks (secret scan)
     runs-on: ubuntu-latest
-    # gitleaks-action lists PR commits via the API on pull_request events; a
-    # bare contents-read block zeroes that scope and it dies with
-    # "Resource not accessible by integration" (2026-07-28). Read-only, and
-    # job-scoped so the workflow default stays contents: read (S0-v2 B7).
     permissions:
       contents: read
-      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # gitleaks-action v3 is free for personal/public repos (this repo is
-          # lifeodyssey personal). GITLEAKS_LICENSE only needed for orgs.
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+      - uses: ./.github/actions/secret-scan
+        with:
+          event-name: ${{ github.event_name }}
+          base-sha: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          head-sha: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
 
   trufflehog:
     timeout-minutes: 15
@@ -92,14 +73,8 @@ jobs:
           persist-credentials: false
       - uses: trufflesecurity/trufflehog@6f3c981e7b77f235fd2702dd74af25fc4b72bf11 # v3.96.0
         with:
-          # --exclude-detectors=Lob: this repo uses no Lob (mail) service; the
-          # Lob detector treats test_ + exactly-35-char snake_case test names
-          # (e.g. test_admission_precedes_the_runtime_turn) as a verified test
-          # API key (TURN-2 #949 CI). 35+-char test names are our house style.
+          # Lob misclassifies the repo's 35+-character test names as API keys.
           extra_args: --results=verified --only-verified --exclude-detectors=Lob
-
-  # ── Dependency / lockfile CVE scanning ───────────────────────
-
   osv-scanner:
     timeout-minutes: 15
     name: osv-scanner (lockfile CVE)
@@ -133,52 +108,42 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Pin the uv binary itself — the flags this file relies on are version-sensitive.
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           version: "0.11.14"
           enable-cache: false
           prune-cache: true
-      # --locked pins to the committed script lockfile; --no-build refuses to
-      # build a source distribution, which would execute its setup script.
       - name: Verify config checks run for every file they read
         run: uv run --script --locked --no-build .github/scripts/test_config_read_sets.py
 
-  # ── GitHub Actions security ──────────────────────────────────
+  release-config-security:
+    timeout-minutes: 10
+    name: Release config rejects secret-shaped public values
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Verify release config behavior and mutations
+        run: |
+          node .github/scripts/release-web-runtime-config.test.mjs
+          node .github/scripts/release-web-runtime-config.mutation.test.mjs
+          ruby .github/scripts/test_secret_provisioning_contract.rb
 
   zizmor:
     timeout-minutes: 15
     name: zizmor (GHA security)
     runs-on: ubuntu-latest
     env:
-      # One pin, three uses: cache key, restore-keys prefix, and the CLI call.
-      # Keeping the version inside the key namespace means a zizmor upgrade
-      # starts from a cold cache instead of restoring another version's
-      # response format through the broad restore-keys prefix.
       ZIZMOR_VERSION: 1.5.2
-    # advanced-security: false (below) → no SARIF upload → security-events not
-    # needed. Requesting it caused startup_failure: a reusable job cannot request
-    # more than the caller (ci.yml) grants (contents: read → security-events: none).
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # zizmor's online audits (impostor-commit) resolve every third-party action
-      # ref against the GitHub API, which makes our CI availability a function of
-      # theirs — four red runs on 2026-08-03 were all upstream 502s, none of them
-      # our code. zizmor >=0.10 caches those lookups persistently, but the
-      # official zizmor-action runs zizmor inside a Docker container whose HOME
-      # is unrelated to the runner's, so a host-side actions/cache mount is
-      # invisible to it — and it exposes no --cache-dir passthrough. Calling the
-      # version-pinned CLI directly is the only way to get a warm cache.
-      # Cache key is content-based:
-      # any workflow edit re-audits, an unchanged tree reuses yesterday's answers.
-      # restore-only (never save): zizmor's own cache-poisoning audit flags a
-      # read-write actions/cache in any workflow whose artifacts can reach a
-      # release path. Restore-only keeps the speed-up while leaving the cache
-      # writable solely by the trusted main-branch run below.
+      # PRs only restore this cache; trusted main pushes are its sole writers.
       - name: Restore zizmor audit cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -189,19 +154,12 @@ jobs:
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           version: "0.11.14"
-          # setup-uv's own cache defaults to auto-on and is read-write, which
-          # zizmor's cache-poisoning audit rejects in this workflow. zizmor is a
-          # single small download; the uv cache buys nothing here.
           enable-cache: false
-          # Required by .github/scripts/test_dependabot_config.py for every
-          # setup-uv call site (kept consistent even with the cache disabled).
           prune-cache: true
       - name: Audit workflows
         env:
           GH_TOKEN: ${{ github.token }}
         run: uvx --no-build zizmor@"$ZIZMOR_VERSION" --cache-dir ~/.cache/zizmor .
-      # Only main-branch runs may write the shared cache — a PR (including a
-      # fork PR) can read it but never poison it.
       - name: Save zizmor audit cache
         if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -209,15 +167,11 @@ jobs:
           path: ~/.cache/zizmor
           key: zizmor-${{ runner.os }}-${{ env.ZIZMOR_VERSION }}-${{ hashFiles('.github/workflows/*.yml', '.github/actions/**') }}
 
-  # ── Static analysis (SAST) ───────────────────────────────────
-
   semgrep:
     timeout-minutes: 15
     name: Semgrep (SAST)
     runs-on: ubuntu-latest
     env:
-      # Semgrep ships wheels, so --no-build is safe here (unlike apps/agent's
-      # own editable package — see the uv sync comments elsewhere in this file).
       SEMGREP_VERSION: "1.172.0"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -230,22 +184,11 @@ jobs:
         run: uv tool install --no-build "semgrep==$SEMGREP_VERSION"
         shell: bash
       - name: Run Semgrep
-        # Sonar S8544: run line must carry the version too (uv tool run is an
-        # on-demand install when absent); follows the zizmor@"$VERSION" pattern.
-        # --config .semgrep adds the repository-owned raw-SQL / ORM-boundary
-        # ruleset (#999, six rules) alongside the generic p/python / p/typescript / p/javascript
-        # configs; --error is unchanged (the repo ruleset is fail-closed).
         run: uv tool run --no-build semgrep@"$SEMGREP_VERSION" --config p/python --config p/typescript --config p/javascript --config .semgrep --error . # v1.172.0
         shell: bash
-      # Fail-closed proof that the ORM-only ruleset actually gates: the
-      # self-test flags every forbidden raw-SQL example (non-zero) and accepts
-      # the sanctioned typed-expression seams (zero) plus a clean live baseline.
       - name: Verify raw-SQL ruleset self-test
         run: scripts/semgrep-raw-sql-test.sh
         shell: bash
-
-  # ── SQL migration lint ───────────────────────────────────────
-
   sqlfluff:
     timeout-minutes: 15
     name: sqlfluff (SQL lint)
@@ -260,81 +203,29 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           python: "true"
-      # Sonar S8541: --no-build blocks third-party sdist builds (setup-script
-      # execution); --no-binary-package animichi exempts the project's own
-      # wheel-less editable install, which blanket --no-build rejects (uv #17416).
       - run: uv sync --frozen --all-extras --no-build --no-binary-package animichi
-      # #911: .sqlfluff config lives at db/ (not an ancestor of
-      # migrations/neon, so explicit --config is required — sqlfluff only
-      # discovers config by walking up from the lint target); lint the schema
-      # dirs we own.
       - name: Lint migrations (postgres dialect)
         run: uv run --frozen --no-build --no-binary-package animichi sqlfluff lint ../../migrations/neon --dialect postgres --config ../../db/.sqlfluff
-
-  # ── Deploy-gate script tests ─────────────────────────────────
-
-  post-deploy-assert-test:
-    timeout-minutes: 30
-    name: post-deploy smoke scripts (shellcheck + behavior)
+  runtime-promotion-security:
+    timeout-minutes: 15
+    name: immutable promotion and runtime secrets
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: shellcheck
+      - name: Verify runtime secret and immutable promotion behavior
         run: |
-          shellcheck .github/scripts/post-deploy-assert.sh .github/scripts/post-deploy-assert.test.sh \
-            .github/scripts/post-deploy-assert-probes.test.sh \
-            .github/scripts/edge-showcase-mode.sh .github/scripts/mock-origin.sh \
-            .github/scripts/resolve-worker-url.sh .github/scripts/resolve-worker-url.test.sh \
-            .github/scripts/vite-env-preflight.sh .github/scripts/vite-env-preflight.test.sh \
-            .github/scripts/wrangler-secret-put.sh .github/scripts/wrangler-secret-put.test.sh \
-            .github/scripts/security-aggregate.sh .github/scripts/security-aggregate.test.sh
-        shell: bash
-      # #522: this is the gate that decides whether a real 404 (app broken,
-      # or the branded 404 page) fails a deploy immediately versus a
-      # Cloudflare edge 404 (propagation window) gets retried — behavior, not
-      # syntax, is the risk here. Drives the real script against a throwaway
-      # local mock server; no bats/JS test runner in this repo to hook into.
-      # mock-origin.sh is the shared mock-server harness; two test files by
-      # concern: transport (retry/CF-edge) + probe contracts (showcase denial
-      # vs classic, EDGE_SHOWCASE_MODE parse lock).
-      - name: post-deploy-assert.sh behavioral tests
-        run: |
-          bash .github/scripts/post-deploy-assert.test.sh
-          bash .github/scripts/post-deploy-assert-probes.test.sh
-        shell: bash
-      # #695: resolve-worker-url.sh is the thing that decides WHAT the smoke
-      # gate above even probes. Same throwaway-mock-server approach, this
-      # time mocking the Cloudflare API instead of the deployed app —
-      # including a direct comparison against a frozen snapshot of the
-      # pre-#695 hardcoded behavior (see the test file header).
-      - name: resolve-worker-url.sh behavioral tests
-        run: bash .github/scripts/resolve-worker-url.test.sh
-        shell: bash
-      # B5: vite-env-preflight.sh is the gate that refuses to BUILD when a
-      # VITE_* variable holds a secret-shaped value (the 2026-08-05 Turnstile
-      # SECRET-in-a-site-key-slot incident shipped exactly this way). Shape
-      # rules are fail-closed by design — a broken length comparison must be
-      # caught here, by mutation, before it silently disarms the gate in
-      # reusable-deploy-component.yml.
-      - name: vite-env-preflight.sh behavioral tests
-        run: bash .github/scripts/vite-env-preflight.test.sh
-        shell: bash
-      # #1150: wrangler-secret-put.sh is the post-deploy path that must pass
-      # `-c workers/edge/wrangler.toml` for root (wrangler-action uploadSecrets
-      # does not inherit `-c` from `command`). Values stay on stdin, never argv.
-      - name: wrangler-secret-put.sh behavioral tests
-        run: bash .github/scripts/wrangler-secret-put.test.sh
+          shellcheck .github/scripts/sync-edge-runtime-secrets.sh .github/scripts/promote-release-unit.sh
+          python3 .github/scripts/test_edge_runtime_secrets.py
+          ruby .github/scripts/test_secret_provisioning_contract.rb
+          ruby .github/scripts/test_secret_provisioning_mutation.rb
+          bash .github/scripts/test_promote_release_unit.sh
+          ruby .github/scripts/test_cd_worker_promotion_contract.rb
+          ruby .github/scripts/test_production_safety_contract.rb
+          bash .github/scripts/security-aggregate.test.sh
         shell: bash
 
-      - name: security-aggregate.sh behavioral tests
-        run: bash .github/scripts/security-aggregate.test.sh
-        shell: bash
-
-  # This job is deliberately always evaluated. A skipped or cancelled child
-  # must make the reusable workflow fail, so the caller's Security aggregator
-  # cannot mistake incomplete evidence for a pass.
   security-summary:
     timeout-minutes: 5
     name: security summary
@@ -345,10 +236,11 @@ jobs:
       - osv-scanner
       - dependabot-config
       - config-read-sets
+      - release-config-security
       - zizmor
       - semgrep
       - sqlfluff
-      - post-deploy-assert-test
+      - runtime-promotion-security
     if: ${{ always() }}
     runs-on: ubuntu-latest
     permissions:
@@ -357,14 +249,13 @@ jobs:
       - name: Checkout the aggregated head
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # `expected_sha` is a caller-supplied assertion, not a checkout
-          # selector.  Keeping it out of `ref` prevents a reusable-workflow
-          # input from selecting attacker-controlled source.  The workflow
-          # context SHA is the immutable revision GitHub selected for this
-          # run; the aggregate script compares it with EXPECTED_SHA below
-          # and fails closed on any mismatch.
           ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Verify the fail-closed aggregate
+        run: |
+          shellcheck .github/scripts/security-aggregate.sh .github/scripts/security-aggregate.test.sh
+          bash .github/scripts/security-aggregate.test.sh
+        shell: bash
       - name: Verify every scan and head
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha }}
@@ -378,8 +269,9 @@ jobs:
             osv-scanner=${{ needs.osv-scanner.result }}
             dependabot-config=${{ needs.dependabot-config.result }}
             config-read-sets=${{ needs.config-read-sets.result }}
+            release-config-security=${{ needs.release-config-security.result }}
             zizmor=${{ needs.zizmor.result }}
             semgrep=${{ needs.semgrep.result }}
             sqlfluff=${{ needs.sqlfluff.result }}
-            post-deploy-assert-test=${{ needs.post-deploy-assert-test.result }}
+            runtime-promotion-security=${{ needs.runtime-promotion-security.result }}
         run: bash .github/scripts/security-aggregate.sh

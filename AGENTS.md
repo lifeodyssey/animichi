@@ -51,10 +51,10 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - **Coverage floors ratchet UP only** — `apps/agent` ≥87 (`pyproject.toml` `--cov-fail-under`); `apps/web` floors live in `apps/web/vitest.config.ts` (mirrored in `apps/web/AGENTS.md`).
 - **Test quality**: mock the clock (no timing-dependent asserts); no conditional logic in tests
   (split them); ≤200 lines per test file; ≤5 mocks per test.
-- **No local deploy** (hook `block-local-deploy`) — CI/CD only: staging = merge to `main`; prod =
-  `.github/workflows/ci.yml` production approval after staging, or manual `workflow_dispatch` in
-  `.github/workflows/deploy.yml`. Both use the GitHub `production` environment; neither is
-  tag-triggered. Details → `docs/ops/deployment.md`.
+- **No local deploy** (hook `block-local-deploy`) — CD only: a push to `main` builds the affected
+  release cohort once, deploys those immutable artifacts to staging, then promotes the same
+  digests after one GitHub `production` environment approval. There is no manual or tag-triggered
+  deploy path. Details → `docs/ops/deployment.md`.
 
 ## Authoritative docs (read the matching one when doing that work)
 

@@ -1,74 +1,62 @@
 # frozen_string_literal: true
 
-# Red / restore / green mutation probes for the review-gate workflow contract
-# (issue #1008 findings 1-3). Each probe takes the REAL pipeline-quality.yml,
-# applies exactly one invariant-breaking reorder / concurrency / trigger change
-# to a throwaway copy, and proves the contract rejects it (red); the pristine
-# workflow then proves the contract accepts it (green). Mutation is the only
-# valid green-light proof (docs/ops/review-gate.md §1.7).
-#
-#   RED  move the pending status after the quality checks      -> contract aborts
-#   RED  move the final status before the actionlint gate      -> contract aborts
-#   RED  drop pull_request_review / issue_comment from cancel   -> contract aborts
-#   RED  drop pull_request_review_comment from cancel          -> contract aborts
-#   RED  prefer branch/ref over the PR number in concurrency   -> contract aborts
-#   RED  omit any review refresh event from the scope scan      -> contract aborts
-#   RED  drop `edited` from pull_request types                 -> contract aborts
-#   RED  rename the producer away from Review Gate             -> contract aborts
-#   RED  restore the retired Quality / invariants wrapper       -> contract aborts
-#   GREEN pristine pipeline-quality.yml                         -> contract passes
-
 require_relative "test_ci_contract_review_gate_mutation_helpers"
 
-red_probe(
-  "pending moved after the quality checks",
-  "pending status must precede every quality check step",
-  mutated_workflow(reorder: { name: "Post pending review-gate status on the PR head", after: "Run actionlint" })
-)
+red_probe("candidate pull_request trigger", "candidate events", mutate { |wf| wf.fetch("on")["pull_request"] = {} })
 
-red_probe(
-  "final status moved before the actionlint gate",
-  "final status must be posted after the actionlint gate",
-  mutated_workflow(reorder: { name: "Post final review-gate status on the PR head", after: "Ruby syntax check workflow meta scripts" })
-)
+red_probe("candidate checkout", "immutable trusted-source SHA", mutate do |wf|
+  step = wf.fetch("jobs").fetch("refresh").fetch("steps").find { |item| item.key?("uses") }
+  step.fetch("with")["ref"] = "${{ github.event.pull_request.head.sha }}"
+end)
 
-red_probe(
-  "cancel-in-progress dropped for pull_request_review and issue_comment",
-  "must cancel pull_request_review, pull_request_review_comment, issue_comment runs",
-  mutated_workflow(cancel_in_progress: "${{ github.event_name == 'pull_request' }}")
-)
+red_probe("checkout before pending bootstrap", "claim pending before", mutate do |wf|
+  steps = wf.fetch("jobs").fetch("refresh").fetch("steps")
+  checkout = steps.delete_at(steps.index { |item| item.key?("uses") })
+  steps.unshift(checkout)
+end)
 
-red_probe(
-  "cancel-in-progress dropped for pull_request_review_comment",
-  "must cancel pull_request_review_comment runs",
-  mutated_workflow(cancel_in_progress: "${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_review' || github.event_name == 'issue_comment' }}")
-)
+red_probe("claim failure leaves stale green", "attempt a red status", mutate do |wf|
+  step = wf.fetch("jobs").fetch("refresh").fetch("steps").first
+  step["run"] = step.fetch("run").sub("post_with_retry pending || { post_with_retry failure || true; exit 2; }",
+                                         "post_with_retry pending")
+end)
 
-red_probe(
-  "concurrency group prefers branch/ref over PR identity",
-  "concurrency group must prefer the PR number before branch/ref fallback",
-  mutated_workflow(concurrency_group: "${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.event.issue.number || github.event.pull_request.number || github.ref }}")
-)
+red_probe("superseded runs serialize", "cancel superseded", mutate do |wf|
+  wf.fetch("concurrency")["cancel-in-progress"] = false
+end)
 
-red_probe(
-  "pull_request edited type dropped",
-  "pull_request must cover edited",
-  mutated_workflow(pr_types: %w[opened synchronize reopened])
-)
+red_probe("workflow_run bridge removed", "missing trusted events", mutate do |wf|
+  wf.fetch("on").delete("workflow_run")
+end)
 
-red_probe(
-  "Review Gate producer renamed to legacy name",
-  "must emit Review Gate",
-  mutated_workflow(job_name: "Quality / invariants")
-)
+red_probe("event pull-request JSON trusted", "must not trust workflow_run event evidence", mutate do |wf|
+  step = wf.fetch("jobs").fetch("refresh").fetch("steps").find { |item| item["name"] == "Evaluate head-bound review evidence" }
+  step.fetch("env")["QUEUE_PULL_REQUESTS"] = "${{ toJson(github.event.workflow_run.pull_requests) }}"
+end)
 
-red_probe(
-  "retired legacy wrapper restored",
-  "must not emit legacy Quality / invariants",
-  mutated_workflow(restore_legacy: true)
-)
+red_probe("unguarded final", "newest-run ownership guard", mutate do |wf|
+  step = wf.fetch("jobs").fetch("refresh").fetch("steps").last
+  step["run"] = step.fetch("run").sub("finish-status", "final-status")
+end)
 
-scope_probe
-green_probe("pristine pipeline-quality.yml")
+red_probe("Actions job named required context", "must not be named Review Gate", mutate do |wf|
+  wf.fetch("jobs").fetch("refresh")["name"] = "Review Gate"
+end)
 
-puts "All test_ci_contract_review_gate mutation probes passed."
+red_probe("second status writer added", "only refresh may hold statuses", mutate do |wf|
+  wf.fetch("jobs")["rogue"] = {
+    "runs-on" => "ubuntu-latest", "timeout-minutes" => 1,
+    "permissions" => { "statuses" => "write" }, "steps" => [{ "run" => "true" }]
+  }
+end)
+
+queue_source = File.read(GATE_STEP)
+queue_source_red_probe("workflow-run repository identity removed", queue_source.sub(".repository.full_name", ".repository.owner.login"))
+queue_source_red_probe("direct workflow-run PR association removed", queue_source.sub("/pull_requests?per_page=100", "/commits/$2/pulls?per_page=100"))
+queue_source_red_probe("associated PR uniqueness removed", queue_source.sub("n not in seen", "True"))
+queue_source_red_probe("main-target constraint removed", queue_source.sub('base.get("ref")=="main"', "isinstance(base,dict)"))
+queue_source_red_probe("commit ancestry restored as membership evidence", "#{queue_source}\n# /compare/ is forbidden\n")
+
+green_probe
+queue_source_green_probe
+puts "All review-gate mutation probes passed."

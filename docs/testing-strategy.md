@@ -171,7 +171,7 @@ The priority is therefore `TEST_DATABASE_URL` > explicit `TEST_DB=docker|neon` >
 All container arms apply `migrations/neon/` with the pinned Atlas CLI, reapply the idempotent seed,
 and run the same pgvector/HNSW contract. Since the test-infra retirement (#1053), `TEST_DB=neon`
 is a **local-only** path (personal key): CI's DB-backed integration lane runs the offline Docker arm
-in `pipeline-agent.yml` and references neither the live Neon arm nor a Neon credential. A BYO
+in the single CI workflow's affected-agent lane and references neither the live Neon arm nor a Neon credential. A BYO
 database is not writable until `TEST_DB_ALLOW_MUTATION=1`; Neon BYO additionally passes the
 protected-lineage check.
 
@@ -600,55 +600,42 @@ Backend exclusions and reporting rules remain in `apps/agent/pyproject.toml`. Fr
 exclusion, reporter, and ratchet details remain in `apps/web/vitest.config.ts`; this document does
 not define a second coverage policy.
 
-### CI Pipeline (target state)
+### Affected PR CI
 
-```yaml
-jobs:
-  gate-fast:              # Must pass for merge
-    - make test            # unit
-    - make lint
-    - make typecheck
-    - make test-frontend   # vitest
+`.github/workflows/pr-verification.yml` is the single pull-request and merge-queue workflow.
+`.github/ci/components.json` maps changed paths to component gates and expands them through reverse
+dependencies; unknown paths fail closed to the full set. `CI / verify` blocks merge unless every
+selected deterministic/static/security/browser lane succeeds.
 
-  gate-integration:        # Must pass for merge
-    - make test-integration  # remove continue-on-error
-    - make test-api
+Prompt, model-config, guardrail, and eval-source changes also select `CI / agent eval (L0 smoke)`.
+That job preserves the existing provider-backed contract: at most 80 trajectories, MiMo through
+`https://opencode.ai/zen/go/v1`, and the existing repository `ZEN_GO_API_KEY`. It runs only on
+same-repository pull requests, never on Dependabot or forks, and receives no broader token
+permissions or data. The result remains visible and report-only: `CI / verify` waits for the job to
+finish but does not turn provider availability into a merge blocker. The uncapped L1 trajectory
+suite stays in `agent-eval-nightly.yml`; merge-queue evaluation never receives the provider secret.
 
-  gate-eval:               # Must pass for merge
-    - make test-eval-component    # Layer 1, seconds
-    - make test-eval              # trajectory eval, minutes
-
-  monitor-only:            # Does not block
-    - make test-eval-fullstack    # thin fullstack eval, opt-in
-
-  deploy:
-    needs: [gate-fast, gate-integration, gate-eval]
-```
+Deployment is not a CI job. A successful merge creates a `main` push; only then does
+`.github/workflows/cd.yml` build and promote the affected release cohort.
 
 ---
 
 ## Eval Resilience & Deploy Impact
 
-### LLM Provider Fallback
+### Provider-backed trajectory lane
 
-Eval runner uses the same multi-provider fallback as production:
-
-```
-Attempt order:
-1. Gemini 3.1 Pro (EVAL_MODEL default)
-2. GPT 5.4 via Univibe (EVAL_FALLBACK_MODEL)
-3. Local LM Studio qwen3.5-9b (EVAL_LOCAL_MODEL, marked degraded)
-```
-
-All providers unavailable → `pytest.skip("No LLM provider")` → CI shows ⚠️ not ❌. Deploy continues with annotation.
+The affected PR L0 lane and nightly L1 lane use the explicitly configured OpenCode zen/go model;
+they do not widen production fallback or secret handling. Provider or transport failures remain
+report evidence instead of a merge verdict. Deterministic trajectory assertions and component
+tests still fail their own blocking lanes normally.
 
 ### Per-Layer Deploy Impact
 
 | Eval Layer | On Failure | Reason |
 |------------|-----------|--------|
 | Layer 1 (deterministic) | **Block deploy** | Deterministic failure = actually broken |
-| Layer 2 (agent tool) | **Block PR merge** | Agent tool selection / output quality regressed |
-| Layer 3 (full agent) | **Warning only** | Too slow, non-deterministic, report only |
+| Layer 2 (provider-backed L0 trajectory) | **Warning only** | Provider transport/availability must not make merge nondeterministic; the ~80-case report remains visible |
+| Layer 3 (nightly full trajectory) | **Warning only** | Statistical baseline and full-provider evidence live outside per-PR blocking CI |
 | E2E (browser) | **Block PR merge** | User-visible issues must be fixed |
 
 ---

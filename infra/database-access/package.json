@@ -1,0 +1,22 @@
+{
+  "name": "database-access",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pulumi/cloudflare": "^6.19.0",
+    "@pulumi/neon": "file:sdks/neon",
+    "@pulumi/pulumi": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^5.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion": ">=5.0.9"
+    }
+  }
+}

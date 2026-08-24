@@ -22,6 +22,17 @@ PRUNE_CACHE_RE = re.compile(
 )
 SETUP_UV_SHA = "c771a70e6277c0a99b617c7a806ffedaca235ff9"
 SETUP_UV_VERSION = "v9.0.0"
+TRACKED_YAML_COMMAND = (
+    "git",
+    "ls-files",
+    "-z",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+    "--",
+    "*.yml",
+    "*.yaml",
+)
 
 
 def ecosystem_blocks(name: str) -> list[str]:
@@ -57,11 +68,10 @@ def gate_step_positions() -> list[int]:
 
 
 def tracked_yaml_paths() -> list[Path]:
-    output = subprocess.check_output(
-        ["git", "ls-files", "-z", "--", "*.yml", "*.yaml"], cwd=REPO_ROOT
-    )
+    output = subprocess.check_output(TRACKED_YAML_COMMAND, cwd=REPO_ROOT)
     names = (name for name in output.decode("utf-8").split("\0") if name)
-    return [REPO_ROOT / name for name in names]
+    paths = (REPO_ROOT / name for name in names)
+    return [path for path in paths if path.is_file()]
 
 
 def indent_of(line: str) -> int:
@@ -117,14 +127,25 @@ def setup_uv_call_failures(path: Path, lines: list[str], index: int) -> list[str
     return failures
 
 
-def setup_uv_config_failures() -> list[str]:
-    failures: list[str] = []
+def setup_uv_calls() -> list[tuple[Path, list[str], int]]:
+    calls: list[tuple[Path, list[str], int]] = []
     for path in tracked_yaml_paths():
         lines = path.read_text(encoding="utf-8").splitlines()
         for index, line in enumerate(lines):
             if SETUP_UV_RE.match(line):
-                failures.extend(setup_uv_call_failures(path, lines, index))
-    return failures
+                calls.append((path, lines, index))
+    return calls
+
+
+def setup_uv_config_failures() -> list[str]:
+    calls = setup_uv_calls()
+    if not calls:
+        return ["no setup-uv calls found"]
+    return [
+        failure
+        for path, lines, index in calls
+        for failure in setup_uv_call_failures(path, lines, index)
+    ]
 
 
 class DependabotConfigTest(unittest.TestCase):
@@ -141,7 +162,7 @@ class DependabotWorkflowTest(unittest.TestCase):
         positions = gate_step_positions()
         self.assertEqual(positions, sorted(positions))
 
-    def test_every_setup_uv_call_explicitly_prunes_cache(self) -> None:
+    def test_every_current_setup_uv_call_explicitly_prunes_cache(self) -> None:
         self.assertEqual(setup_uv_config_failures(), [])
 
 

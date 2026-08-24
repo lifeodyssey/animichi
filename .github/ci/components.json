@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "unknown_changes": "all",
+  "global_lanes": [
+    {
+      "name": "static-quality",
+      "workflow": ".github/workflows/reusable-static-quality.yml",
+      "always": true
+    },
+    {
+      "name": "security",
+      "workflow": ".github/workflows/reusable-security.yml",
+      "components": ["agent", "catalog", "contract", "db", "edge", "infra", "migrator", "users", "web"]
+    },
+    {
+      "name": "agent-eval",
+      "workflow": null,
+      "paths": [
+        "apps/agent/src/animichi/agents/**",
+        "apps/agent/src/animichi/config/model_aliases.py",
+        "apps/agent/src/animichi/config/settings.py",
+        "apps/agent/src/animichi/tests/eval/**"
+      ]
+    },
+    {
+      "name": "cross-stack",
+      "workflow": ".github/workflows/reusable-cross-stack-e2e.yml",
+      "components": ["agent", "catalog", "contract", "db", "edge", "users", "web"]
+    }
+  ],
+  "components": [
+    {
+      "name": "agent",
+      "paths": [
+        "apps/agent/**",
+        "apps/web/vitest.config.ts",
+        "docs/ARCHITECTURE.md",
+        "docs/ops/deployment.md",
+        "docs/ops/secrets.md",
+        "docs/testing-strategy.md",
+        "workers/edge/src/container/container-env.ts"
+      ],
+      "test_triggers": [
+        "apps/web/vitest.config.ts",
+        "docs/ARCHITECTURE.md",
+        "docs/ops/deployment.md",
+        "docs/ops/secrets.md",
+        "docs/testing-strategy.md",
+        "workers/edge/src/container/container-env.ts"
+      ],
+      "depends_on": ["contract", "db"],
+      "ci_lanes": ["lint", "unit", "integration", "build"],
+      "deploy_unit": "agent"
+    },
+    {
+      "name": "catalog",
+      "paths": ["workers/catalog/**"],
+      "depends_on": ["contract", "db"],
+      "ci_lanes": ["lint", "unit", "spike", "smoke", "build"],
+      "deploy_unit": "catalog"
+    },
+    {
+      "name": "contract",
+      "paths": ["packages/contract/**"],
+      "depends_on": [],
+      "ci_lanes": ["typecheck", "unit", "drift"],
+      "deploy_unit": null
+    },
+    {
+      "name": "db",
+      "paths": ["migrations/**"],
+      "depends_on": [],
+      "ci_lanes": ["validate", "boundary", "fresh-schema"],
+      "deploy_unit": "db"
+    },
+    {
+      "name": "docs",
+      "paths": ["docs/**"],
+      "depends_on": [],
+      "ci_lanes": ["consistency"],
+      "deploy_unit": null
+    },
+    {
+      "name": "e2e",
+      "paths": ["e2e/**"],
+      "depends_on": ["web"],
+      "ci_lanes": ["browser"],
+      "deploy_unit": null
+    },
+    {
+      "name": "edge",
+      "paths": ["workers/edge/**"],
+      "depends_on": ["contract", "db"],
+      "ci_lanes": ["lint", "unit", "boundary", "build"],
+      "deploy_unit": "edge"
+    },
+    {
+      "name": "infra",
+      "paths": ["infra/**"],
+      "depends_on": [],
+      "ci_lanes": ["typecheck", "unit", "program-load"],
+      "deploy_unit": "infra"
+    },
+    {
+      "name": "migrator",
+      "paths": ["workers/migrator/**"],
+      "depends_on": ["contract", "db"],
+      "ci_lanes": ["lint", "unit", "build"],
+      "deploy_unit": "migrator"
+    },
+    {
+      "name": "users",
+      "paths": ["workers/users/**", "workers/edge/src/identity/auth.ts"],
+      "test_triggers": ["workers/edge/src/identity/auth.ts"],
+      "depends_on": ["contract", "db"],
+      "ci_lanes": ["lint", "unit", "build"],
+      "deploy_unit": "users"
+    },
+    {
+      "name": "web",
+      "paths": ["apps/web/**", "workers/edge/src/protect/turnstile.ts"],
+      "test_triggers": ["workers/edge/src/protect/turnstile.ts"],
+      "depends_on": ["contract"],
+      "ci_lanes": ["typecheck", "lint", "unit", "integration"],
+      "deploy_unit": "web"
+    }
+  ]
+}

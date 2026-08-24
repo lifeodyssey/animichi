@@ -39,7 +39,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MODULE="$ROOT/scripts/local-gates/pr_review_check.py"
 BRIEF_RECORD="$ROOT/scripts/local-gates/brief_record.py"
 
-# The pipeline-quality job emits `Review Gate` as its check-run and this
+# The trusted review workflow emits `Review Gate` as a classic status and this
 # head-bound status uses the same sole post-cutover context.
 STATUS_CONTEXT='Review Gate'
 

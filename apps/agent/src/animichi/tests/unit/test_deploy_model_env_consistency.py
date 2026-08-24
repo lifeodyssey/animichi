@@ -1,140 +1,50 @@
-"""Cross-language deployment invariants for container-required settings."""
+"""Cross-language deployment invariants for the agent container."""
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[6]
-# CONTAINER_ENV_KEYS/CONTAINER_REQUIRED_KEYS moved out of entry.ts into their
-# own module (issue #282 review) so they're importable under plain
-# `node --test` without pulling in entry.ts's @cloudflare/containers import
-# chain — see workers/edge/src/container/container-env.ts's module docstring.
-_ENTRYPOINT = _REPO_ROOT / "workers" / "edge" / "src" / "container" / "container-env.ts"
-_CI_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
-_DEPLOY_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "deploy.yml"
-_REUSABLE_DEPLOY_WORKFLOW = (
-    _REPO_ROOT / ".github" / "workflows" / "reusable-deploy-component.yml"
-)
-_DOCKERFILE = _REPO_ROOT / "apps" / "agent" / "Dockerfile"
-_NON_SECRET_REQUIRED_KEYS = {"APP_ENV"}
+_ROOT = Path(__file__).resolve().parents[6]
+_ENV = _ROOT / "workers/edge/src/container/container-env.ts"
+_BUILD = _ROOT / ".github/workflows/reusable-build-release-unit.yml"
+_PROMOTE = _ROOT / ".github/scripts/promote-release-unit.sh"
+_DOCKERFILE = _ROOT / "apps/agent/Dockerfile"
 
 
-def _typescript_string_list(source: str, const_name: str) -> set[str]:
-    assignment = re.search(
-        rf"const\s+{re.escape(const_name)}\s*=\s*\[(?P<body>.*?)\]\s*;",
+def _typescript_string_list(source: str, name: str) -> set[str]:
+    match = re.search(
+        rf"const\s+{re.escape(name)}\s*=\s*\[(?P<body>.*?)\]\s*;",
         source,
         re.DOTALL,
     )
-    assert assignment is not None, f"missing TypeScript constant: {const_name}"
-    return set(re.findall(r'["\']([A-Z][A-Z0-9_]*)["\']', assignment["body"]))
+    assert match is not None, f"missing TypeScript constant: {name}"
+    return set(re.findall(r'["\']([A-Z][A-Z0-9_]*)["\']', match["body"]))
 
 
-def _named_workflow_job(source: str, job_id: str) -> str:
-    job = re.search(
-        rf"(?ms)^  {re.escape(job_id)}:\s*$\n(?P<body>.*?)(?=^  [a-zA-Z0-9_-]+:\s*$|\Z)",
-        source,
-    )
-    assert job is not None, f"missing workflow job: {job_id}"
-    return job["body"]
-
-
-def _wrangler_secret_names(step: str) -> set[str]:
-    # Since the optional-secret change, a deploy's names live in up to two
-    # blocks (`worker_secrets` + `optional_worker_secrets`) on both the CI
-    # callers and the manual deploy.yml caller. The old deploy.yml inline
-    # `REQUIRED_LIST`/`OPTIONAL_LIST` step was superseded by the reusable
-    # workflow's own optional handling (issue #486), so this helper only ever
-    # sees caller-job bodies now. Optional names are still provisioned secrets
-    # and belong in the same consistency accounting, so the union across every
-    # found block is what a deploy provisions.
-    blocks = re.findall(
-        r"(?m)^[ \t]+(?:worker_secrets|optional_worker_secrets|secrets|REQUIRED_LIST|OPTIONAL_LIST):\s*\|\s*$\n"
-        r"(?P<body>(?:^[ \t]+[A-Z][A-Z0-9_]*[ \t]*$\n?)+)",
-        step,
-    )
-    assert blocks, "missing Wrangler secrets block"
-    return {
-        name
-        for body in blocks
-        for name in re.findall(r"(?m)^[ \t]+([A-Z][A-Z0-9_]*)[ \t]*$", body)
-    }
-
-
-def _mapped_secret_names(source: str) -> set[str]:
-    mappings = re.findall(
-        r"(?m)^\s+([A-Z][A-Z0-9_]*):\s+\$\{\{\s*secrets\.([A-Z][A-Z0-9_]*)\s*}}\s*$",
-        source,
-    )
-    return {name for name, secret in mappings if name == secret}
-
-
-def _required_deploy_keys() -> tuple[set[str], set[str], set[str]]:
-    entrypoint = _ENTRYPOINT.read_text(encoding="utf-8")
-    required = _typescript_string_list(entrypoint, "CONTAINER_REQUIRED_KEYS")
-    forwarded = _typescript_string_list(entrypoint, "CONTAINER_ENV_KEYS")
-    deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
-    # The manual path is now a thin caller of reusable-deploy-component.yml (issue
-    # #486): the literal secret-name lists live in the deploy-root-prod JOB's
-    # `worker_secrets`/`optional_worker_secrets` inputs. The old inline
-    # "Resolve effective worker secrets" step is gone — the reusable workflow
-    # owns optional-secret resolution now.
-    provisioned = _wrangler_secret_names(
-        _named_workflow_job(deploy, "deploy-root-prod")
-    )
-    return required, forwarded, provisioned
-
-
-def test_container_required_keys_are_forwarded_and_deployed() -> None:
-    required, forwarded, provisioned = _required_deploy_keys()
+def test_container_required_keys_are_forwarded() -> None:
+    source = _ENV.read_text()
+    required = _typescript_string_list(source, "CONTAINER_REQUIRED_KEYS")
+    forwarded = _typescript_string_list(source, "CONTAINER_ENV_KEYS")
     assert required
     assert required <= forwarded
-    assert required - _NON_SECRET_REQUIRED_KEYS <= provisioned
 
 
-# ZEN_GO is staging-only (#1160) and lives on the Worker; doorbell does not
-# wrangler-secret-put it. Production reusable still maps the name.
-_STAGING_ONLY_SECRETS = {"ZEN_GO_API_KEY"}
+def test_promotion_reuses_worker_artifacts_without_mutating_runtime_secrets() -> None:
+    promotion = _PROMOTE.read_text()
+    assert "verify-release-artifact.py" in promotion
+    assert "wrangler deploy" in promotion
+    assert "--no-bundle" in promotion
+    assert "secret put" not in promotion
+    assert "worker_secrets" not in promotion
 
 
-def _root_jobs() -> tuple[str, str, str, str]:
-    deploy = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
-    ci = _CI_WORKFLOW.read_text(encoding="utf-8")
-    reusable = _REUSABLE_DEPLOY_WORKFLOW.read_text(encoding="utf-8")
-    return (
-        _named_workflow_job(deploy, "deploy-root-prod"),
-        _named_workflow_job(ci, "deploy-root-staging"),
-        _named_workflow_job(ci, "deploy-root-prod"),
-        reusable,
-    )
-
-
-def test_ci_staging_root_rings_doorbell_without_wrangler_secrets() -> None:
-    # #1076: staging root rings the Builds doorbell; secrets already live on
-    # the Worker. CI must not wrangler-secret-put on this path.
-    _, staging, _, _ = _root_jobs()
-    assert "reusable-ring-doorbell.yml" in staging
-    assert "worker_secrets:" not in staging
-
-
-def test_ci_production_root_secrets_match_manual() -> None:
-    manual_job, _, production_job, _ = _root_jobs()
-    assert _wrangler_secret_names(production_job) == _wrangler_secret_names(manual_job)
-
-
-def test_ci_root_secret_maps_cover_provisioned_names() -> None:
-    manual_job, staging_job, production_job, reusable = _root_jobs()
-    manual = _wrangler_secret_names(manual_job)
-    assert _mapped_secret_names(staging_job) == set()
-    assert manual <= _mapped_secret_names(production_job)
-    assert manual | _STAGING_ONLY_SECRETS <= _mapped_secret_names(reusable)
+def test_sealed_release_artifacts_do_not_contain_agent_model_keys() -> None:
+    for source in (_BUILD.read_text(), _PROMOTE.read_text()):
+        assert "ZEN_GO_API_KEY" not in source
+        assert "MIMO_API_KEY" not in source
+        assert "DEEPSEEK_API_KEY" not in source
 
 
 def test_dockerfile_does_not_hardcode_a_privileged_app_env() -> None:
-    """Issue #498's 4th touchpoint: a direct `docker run` (bypassing the
-    Worker's CONTAINER_REQUIRED_KEYS fail-closed check entirely) must not
-    silently default to a privileged environment. Settings.app_env's own
-    Field default ("development") is what applies when APP_ENV is unset.
-    """
-    dockerfile = _DOCKERFILE.read_text(encoding="utf-8")
-    assert "APP_ENV=" not in dockerfile
+    assert "APP_ENV=" not in _DOCKERFILE.read_text()

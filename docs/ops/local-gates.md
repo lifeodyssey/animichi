@@ -16,23 +16,22 @@ Workspace members are **derived** from `pnpm-workspace.yaml` (directories matchi
 
 | Path prefix | Package | pre-commit lint | pre-push orchestrator gate set |
 |---|---|---|---|
-| `apps/agent/` | agent | ruff + ruff-format (py) | `ruff check` + `ruff format --check src/animichi/` + mypy + `vulture src/animichi/ vulture_whitelist.py` + unit `pytest --cov` (canonical 87 floor, below) + offline Docker-arm integration `pytest .../integration --no-cov` + `docker build -f apps/agent/Dockerfile -t animichi-agent:ci .` (CI `pipeline-agent.yml` job order) |
+| `apps/agent/` | agent | ruff + ruff-format (py) | `ruff check` + `ruff format --check src/animichi/` + mypy + `vulture src/animichi/ vulture_whitelist.py` + unit `pytest --cov` (canonical 87 floor, below) + offline Docker-arm integration `pytest .../integration --no-cov` + `docker build -f apps/agent/Dockerfile -t animichi-agent:ci .` (single CI affected-agent order) |
 | `apps/web/` | web | oxlint (type-aware) | `typecheck` + `lint:oxlint` + coverage-enabled `test` + `VITE_SHOWCASE_MODE=false test:integration` |
 | `workers/catalog/` | catalog | oxlint | `tsc --noEmit` + `lint:oxlint` + `test:worker` + `test:spike` + `test:smoke` + `wrangler deploy --dry-run` |
 | `workers/users/` | users | oxlint | `tsc --noEmit` + `lint:oxlint` + `test:worker` + `wrangler deploy --dry-run` |
 | `workers/edge/` | edge | oxlint | `lint:oxlint` + `test:worker` + ratelimit-namespace check + production-config `wrangler deploy --dry-run` |
-| `workers/migrator/` | migrator | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (`pipeline-migrator.yml`; scripts from `workers/migrator/package.json`) |
-| `workers/doorbell/` | doorbell | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (`pipeline-doorbell.yml`; scripts from `workers/doorbell/package.json`) |
+| `workers/migrator/` | migrator | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (single CI affected-migrator lane) |
 | `packages/contract/` | contract | oxlint | `tsc --noEmit` + `test` + staged-snapshot OpenAPI drift (`contract-drift.sh`, mirrors CI) + agent-model regeneration drift |
 | `infra/` | infra | — | `typecheck` + `test` + credential-free Pulumi program-load (`infra-check.sh`) |
 | `e2e/` | e2e | — | registered no-op (Playwright stays in CI; an e2e-only change is not `all`) |
 | `migrations/` | db | — | `atlas migrate validate` + migration-boundary guard + sqlfluff + disposable fresh-schema apply (`db-fresh-schema.sh`) |
-| `.github/` | ci | actionlint (workflows) | Quality lane (pinned actions + workflow invariants + SAFE-1/RETENTION-1/SESSION-3 + docs/root-allowlist/e2e-promotion guards + coverage-patch policy + actionlint) |
+| `.github/` | ci | actionlint (workflows) | Static-quality lane (pinned actions + workflow/component-manifest invariants + docs/root-allowlist/e2e-promotion guards + coverage-patch policy + actionlint) |
 | `scripts/`, `.github/scripts/` | scripts | shellcheck (shell) + ruff (py) | the gates' own behavioral tests (self-testing orchestration surface) |
 | `docs/` | docs | — | doc-consistency subset (`test_secrets_docs_consistency.py` + `test_documentation_guardrails.py`) |
 | anything else / unknown | — | — | `all`: every package's full gate set (conservative fallback) |
 
-`packages/contract` is treated as changed whenever any of its consumers changed (contract is the cross-service source of truth) — the router unions: changed packages ∪ {contract if any agent/web/catalog/users/edge/migrator/doorbell changed}.
+`packages/contract` is treated as changed whenever any of its consumers changed (contract is the cross-service source of truth) — the router unions: changed packages ∪ {contract if any agent/web/catalog/users/edge/migrator changed}.
 
 ## Changed-package detection
 
@@ -64,7 +63,7 @@ Changed packages (routed via `changed-packages.sh --staged`):
 
 `.pre-commit-config.yaml` wires a single pre-push hook that runs the orchestrator. It re-reads the router in merge-base-to-head mode, fails fast on the first failing gate (`set -euo pipefail`), and runs, in order:
 
-1. **Deterministic Quality lane (always)** — `scripts/local-gates/quality.sh`: every check and self-test from `pipeline-quality.yml` in CI's order (workflow invariants, SAFE-1, RETENTION-1, SESSION-3, release manifest, docs/root-allowlist/e2e-promotion guards, pinned actions, coverage-patch policy, CI↔pre-push parity, actionlint) plus hermetic security-lane script tests. CI calls the very same scripts.
+1. **Deterministic static-quality lane (always)** — `scripts/local-gates/quality.sh`: the same checks used by the single CI workflow (workflow and component-manifest invariants, release artifact contract, docs/root-allowlist/e2e-promotion guards, pinned actions, coverage-patch policy, CI↔pre-push parity, actionlint) plus hermetic security-lane script tests.
 2. **Per affected package** (see the table): agent runs ruff lint/format check, mypy, vulture, the coverage-enabled unit suite, the offline Docker-arm integration suite, and the container build (`docker build -f apps/agent/Dockerfile -t animichi-agent:ci .`); web runs its coverage test plus the showcase-mode-guarded integration test; workers run `tsc`/oxlint/test plus a `wrangler deploy --dry-run` production bundle; contract runs tests plus the staged-snapshot OpenAPI drift check (`contract-drift.sh` mirrors CI's `git diff --cached` against a throwaway index, so user-staged work is preserved) and the agent-model regeneration check; infra runs the credential-free Pulumi program-load check; db runs atlas validate plus a fresh-schema apply on a disposable container.
 3. **scripts changed** → the gates' own behavioral tests (self-testing orchestration surface): an explicit `scripts` change runs the full suite (`pre-push.test.sh`, `changed-packages.test.sh`, `db-fresh-schema.test.sh`, `infra-check.test.sh`, `infra-check-unauthorized.test.sh`, `contract-drift.test.sh`, `pre-commit-config.test.sh`). The `all` fallback (root config, unknown paths) still runs the config contract self-test (`pre-commit-config.test.sh`), so a root-only `.pre-commit-config.yaml` change cannot skip it; the recursive `pre-push.test.sh` stays scoped to an explicit `scripts` change.
 

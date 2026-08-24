@@ -34,15 +34,24 @@ end
 
 def assert_pr_verification_mutations
   source = File.read(WORKFLOW)
-  run_mutation(source, "needs: [route, package-gate]", "needs: [route]", "aggregator no longer waits for package gates")
-  run_mutation(source, "fromJSON(needs.route.outputs.packages)", "'[web]'", "matrix no longer follows affected route")
+  full_needs = "needs: [route, static-quality, security-diff, security, agent-eval, affected, coverage-agent, coverage-web, coverage-catalog, coverage-users, cross-stack]"
+  run_mutation(source, full_needs, "needs: [route]", "aggregator no longer waits for all CI lanes")
+  run_mutation(source, "    needs: aggregate\n", "    needs: route\n", "required PR context no longer follows the aggregate")
+  run_mutation(source, "fromJSON(needs.route.outputs.components)", "'[web]'", "matrix no longer follows affected route")
+  run_mutation(source, '--range "$range"', '--range "$range" --purpose deploy', "PR/queue route drops test triggers")
   run_mutation(source, "pull_request:\n    types:", "issue_comment:\n    types: [created]\n  pull_request:\n    types:", "comment events trigger code gates")
-  run_mutation(source, "matrix.package == 'agent' || matrix.package == 'db' || matrix.package == 'catalog'", "matrix.package == 'agent' || matrix.package == 'db'", "catalog gate no longer builds the hermetic Postgres image")
-  run_mutation(source, "matrix.package == 'db' || matrix.package == 'catalog'", "matrix.package == 'db'", "catalog gate no longer installs Atlas")
+  run_mutation(source, "matrix.component == 'agent' || matrix.component == 'db' || matrix.component == 'catalog'", "matrix.component == 'agent' || matrix.component == 'db'", "catalog gate no longer builds the hermetic Postgres image")
+  run_mutation(source, "matrix.component == 'db' || matrix.component == 'catalog'", "matrix.component == 'db'", "catalog gate no longer installs Atlas")
+  run_mutation(source, "          PR_VERIFICATION_CHECKOUT_SHA: ${{ github.sha }}\n", "", "synthetic checkout identity removed")
+  source_head = "          PR_VERIFICATION_SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}\n"
+  run_mutation(source, source_head, "", "PR/queue source-head identity removed")
   route_source = File.read(ROUTE)
-  run_dispatcher_mutation(route_source, "PR_VERIFICATION_ROUTE", "match_workspace_package", "workspace_match_removed", "routed package matcher removed")
+  run_dispatcher_mutation(route_source, "PR_VERIFICATION_ROUTE", "change-plan.py", "change-plan-removed.py", "manifest planner removed")
   gate_source = File.read(GATE)
   run_dispatcher_mutation(gate_source, "PR_VERIFICATION_GATE", "|web", "", "web package gate removed")
+  run_dispatcher_mutation(gate_source, "PR_VERIFICATION_GATE", 'cd "$ROOT"', "cd /", "dispatcher no longer anchors gates to its repository")
+  run_dispatcher_mutation(gate_source, "PR_VERIFICATION_GATE", 'merge-base --is-ancestor "$source_head" "$checkout"', 'merge-base --is-ancestor "$checkout" "$checkout"', "source head ancestry validation removed")
+  run_dispatcher_mutation(gate_source, "PR_VERIFICATION_GATE", 'git merge-base "$source_head" "$base"', 'git merge-base "$checkout" "$base"', "baseline switched to synthetic checkout")
   puts "PR Verification mutation probes: aggregator edges, routed matrix/package gates, and event boundary are rejected"
 end
 

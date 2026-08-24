@@ -47,16 +47,16 @@ run_full_set() {
 
 ALL_COMMANDS=(
   # agent: ruff lint/format + mypy + vulture + canonical unit pytest + offline
-  # docker-arm integration + container build (pipeline-agent.yml in CI order)
+  # docker-arm integration + container build (pr-verification agent-lane order)
   "uv run ruff check"
   "uv run ruff format --check src/animichi/"
   "uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/"
   "uv run vulture src/animichi/ vulture_whitelist.py"
-  "uv run pytest src/animichi/tests/unit/ -v --cov --cov-report=xml"
+  "uv run pytest src/animichi/tests/unit/ -v --cov --cov-report=xml:coverage-unit.xml"
   # agent integration: the stub `uv` logs argv as received from the real `env`
   # binary, so the log shows the post-env invocation; the `env -u` selector
   # stripping is asserted separately (test_agent_integration_strips_live_arm_selectors).
-  "uv run pytest src/animichi/tests/integration/ -v --no-cov"
+  "uv run pytest src/animichi/tests/integration/ -v --cov --cov-report=xml:coverage-integration.xml --cov-fail-under=0"
   "docker build -f apps/agent/Dockerfile -t animichi-agent:ci ."
   # web: CI lint/test/build
   "pnpm --filter web typecheck"

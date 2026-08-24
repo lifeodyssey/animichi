@@ -113,7 +113,7 @@ sign-up POST for the password user against that branch's own base URL (`neonctl 
 - [ ] Branded email decision: `email-provider update --type standard` with own SMTP **or** webhook `send.magic_link` → own sender function (successor of `send-auth-email`, #312 step 3).
 - [x] CI: `QA_NEON_USER_EMAIL` var + `QA_NEON_USER_PASSWORD` secret; E2E login on Path A/B; `scripts/qa_auth.py` + `scripts/qa_login.sh` + Mailpit auth-hook infra retired with the Supabase login path.
 - [x] Local login on Neon: `make local-login` → `scripts/local-login.sh` (magic link, token read from the branch DB — Path C).
-- [x] Staging issuer/JWKS + QA login declared in IaC (`infra/src/neon-auth.ts`, `infra/neon-secrets`) — applied on the next `pulumi up` with the config keys set.
+- [x] Staging issuer/JWKS + QA login declared in IaC (`infra/src/neon-auth.ts`, `infra/database-access`) — applied on the next `pulumi up` with the config keys set.
 - [ ] Operational tables (#312 step 2): migrate `sessions`/`messages`/`user_memory` **with user-id remap** (mapping file, §3).
 - [ ] RLS on Neon per Neon Auth docs before exposing user-scoped data.
 - [ ] Supabase retirement (#312 step 4): the `supabase/` dir is now **archived (historical, issue #1000)** — only the non-code decommission remains: dump `auth.users` as backup, then decommission the project and teardown the legacy **auth-plane** env vars (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`; #312 step 4). **Explicitly retain** `SUPABASE_DB_URL` — the transitional container-DSN name (a Neon DSN, not a live Supabase plane) must stay until the #855 production DSN cutover.
@@ -177,7 +177,7 @@ origin via Path A and self-skips without `QA_NEON_USER_*`.
 **IaC declarations (no pulumi run yet):** the staging issuer/JWKS derivation and QA login creds are
 declared in `infra/src/neon-auth.ts` (pure derivation, pinned by `topology-neon-auth.test.ts`),
 exported from `infra/index.ts` (`neonAuthJwksUrl`, `neonAuthIssuer`, `qaNeonUser*`), and provisioned
-as Cloudflare Secrets Store secrets in `infra/neon-secrets` — all config-gated, so stacks apply
+as Cloudflare Secrets Store secrets in `infra/database-access` — all config-gated, so stacks apply
 unchanged until an operator sets `neonAuthBaseUrl` / `qaNeonUser*`.
 
 **Production:** `NEON_AUTH_JWKS_URL` is **not set for the edge Worker** (wrangler vars leave it
@@ -190,5 +190,5 @@ can be dropped from `worker_secrets` at the next deploy-touch.
 
 **Rollback to dual-issuer is not available** — the flag, the Supabase verifier, and the users
 JWKS/bearer verifier are deleted. Correcting a staging issuer now means fixing the derived JWKS URL
-(`wrangler.toml` `[env.staging.vars]` or the neon-secrets secret) and re-deploying, not flipping a
+(`wrangler.toml` `[env.staging.vars]` or the database-access-managed secret) and re-deploying, not flipping a
 switch.

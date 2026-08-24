@@ -2,7 +2,7 @@
   "head_sha": "0123456789abcdef0123456789abcdef01234567",
   "check_runs": [
     {
-      "name": "Security",
+      "name": "CI / verify",
       "head_sha": "0123456789abcdef0123456789abcdef01234567",
       "status": "completed",
       "conclusion": "success",
@@ -55,6 +55,12 @@
       "conclusion": "success"
     },
     {
+      "name": "Security scans / release-config-security",
+      "head_sha": "0123456789abcdef0123456789abcdef01234567",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
       "name": "Security scans / zizmor",
       "head_sha": "0123456789abcdef0123456789abcdef01234567",
       "status": "completed",
@@ -62,12 +68,6 @@
     },
     {
       "name": "Security scans / sqlfluff",
-      "head_sha": "0123456789abcdef0123456789abcdef01234567",
-      "status": "completed",
-      "conclusion": "success"
-    },
-    {
-      "name": "Security scans / post-deploy-assert-test",
       "head_sha": "0123456789abcdef0123456789abcdef01234567",
       "status": "completed",
       "conclusion": "success"

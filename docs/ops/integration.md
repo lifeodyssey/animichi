@@ -31,7 +31,7 @@ S0-v2 Track B 按 GOAL「repo 级 CF token 删除」收口——执行 ticket �
 
 ### 应用与门禁密钥(用途索引)
 
-- `STAGING_GATE_TOKEN`(staging env):CI 过 staging WAF 闸的凭证;闸设计见 #769。
+- staging WAF 仍要求 owner 持有的 break-glass token；自动 smoke 已延期，当前 CI 不读取 `STAGING_GATE_TOKEN`。
 - `stagingAllowedIps` / `stagingGateToken`(Pulumi staging 栈密文):WAF IP 白名单与闸 token。
 - `VITE_*` 六键(部署侧构建注入,per-env;preflight 非空校验):web 构建期配置。
   S0-v2 增 `VITE_SHOWCASE_MODE`(严格布尔契约,见 launch spec)。
@@ -68,11 +68,15 @@ users Worker = 用户数据(Hono/oRPC);maintenance Worker = 定时清理(cron �
 ## 4. 部署链
 
 ```
-merge → main push → ci.yml:staging 四组件(catalog+Pulumi / web / users / root 容器)
-      → post-deploy smoke(打 staging 域名;冷启动预算 ~220s)
-      → production approval(GitHub production environment,人工批)
-      → prod 部署 → prod smoke
-兜底:deploy.yml workflow_dispatch(同 approval);rollback.yml(按组件回滚)
+merge → main push → cd.yml 计算累计 affected cohort，并为该 main SHA 构建一次密封产物
+      → staging 按 foundation → DB → services → edge → web 顺序提升 affected 单元
+      → owner 手工 smoke（自动 smoke 暂记技术债）
+      → production approval(GitHub production environment,一次人工批)
+      → production 按同序提升同一批密封产物（不重建）
+兜底：`rollback.yml` 需 production approval，并按 successful main CD 的 run ID、source SHA、unit、
+artifact digest 恢复显式选定的 sealed artifact；edge 同时恢复同一 run 的 agent image pair，绝不让
+Cloudflare 动态猜“上一版本”，artifact 过期则 fail closed 并走 reviewed main recovery；
+数据库和基础设施按 deployment runbook 的 forward-fix / state restore 处理。
 规则:无本地部署(hook 强制);tag 不触发任何部署
 ```
 

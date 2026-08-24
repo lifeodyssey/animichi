@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 import { GITHUB_OIDC_ISSUER, createGitHubOidcVerifier } from "@animichi/contract/oidc-github";
-import { MIGRATOR_OIDC_AUDIENCE, TRUSTED_WORKFLOW } from "../src/policy";
+import {
+  MIGRATOR_OIDC_AUDIENCE,
+  TRUSTED_CD_WORKFLOW,
+  TRUSTED_PROMOTION_WORKFLOW,
+} from "../src/policy";
 import {
   FIXED_NOW,
   issuedToken,
@@ -65,8 +69,8 @@ describe("POST /migrate — invalid identities", () => {
       repository: "lifeodyssey/animichi",
       ref: "refs/heads/main",
       environment: "staging",
-      workflow_ref: TRUSTED_WORKFLOW,
-      job_workflow_ref: TRUSTED_WORKFLOW,
+      workflow_ref: TRUSTED_CD_WORKFLOW,
+      job_workflow_ref: TRUSTED_PROMOTION_WORKFLOW,
     })
       .setProtectedHeader({ alg: "RS256", kid: "other", typ: "JWT" })
       .setIssuer(GITHUB_OIDC_ISSUER)
@@ -85,8 +89,8 @@ describe("POST /migrate — invalid identities", () => {
       repository: "lifeodyssey/animichi",
       ref: "refs/heads/main",
       environment: "staging",
-      workflow_ref: TRUSTED_WORKFLOW,
-      job_workflow_ref: TRUSTED_WORKFLOW,
+      workflow_ref: TRUSTED_CD_WORKFLOW,
+      job_workflow_ref: TRUSTED_PROMOTION_WORKFLOW,
     })
       .setProtectedHeader({ alg: "RS256", kid: "expired", typ: "JWT" })
       .setIssuer(GITHUB_OIDC_ISSUER)

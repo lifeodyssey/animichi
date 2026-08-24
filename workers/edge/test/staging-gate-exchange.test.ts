@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type JWK } from "jose";
 import { GITHUB_OIDC_ISSUER, createGitHubOidcVerifier, type GitHubOidcClaims } from "@animichi/contract/oidc-github";
 import { exchangeForGateSession, exchangeStatus, STAGING_GATE_EXCHANGE_PATH } from "../src/staging-gate/exchange.ts";
-import { STAGING_GATE_OIDC_AUDIENCE, STAGING_GATE_OIDC_POLICY, STAGING_GATE_TRUSTED_WORKFLOW } from "../src/staging-gate/policy.ts";
+import { STAGING_GATE_OIDC_AUDIENCE, STAGING_GATE_OIDC_POLICY, STAGING_GATE_TRUSTED_WORKFLOWS } from "../src/staging-gate/policy.ts";
 import { createGateSession, isValidGateSession, memoryGateSessionStore, newSessionId, STAGING_GATE_SESSION_HEADER, type GateSessionStore } from "../src/staging-gate/session.ts";
 
 // #1054 — staging-gate OIDC exchange (CI channel). Reuses the SAME shared
@@ -23,8 +23,8 @@ function claims(overrides: Partial<GitHubOidcClaims> = {}): GitHubOidcClaims {
     ref: "refs/heads/main",
     repository: REPOSITORY,
     environment: "staging",
-    workflow_ref: STAGING_GATE_TRUSTED_WORKFLOW,
-    job_workflow_ref: STAGING_GATE_TRUSTED_WORKFLOW,
+    workflow_ref: STAGING_GATE_TRUSTED_WORKFLOWS[0],
+    job_workflow_ref: STAGING_GATE_TRUSTED_WORKFLOWS[1],
     ...overrides,
   };
 }

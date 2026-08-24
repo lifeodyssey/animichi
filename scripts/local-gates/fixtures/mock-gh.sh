@@ -4,7 +4,8 @@
 # arrays from MOCK_GRAPHQL_COMMENTS_FILE), `gh pr view --json
 # headRefOid,baseRefOid` / `--json body` / `--json comments` (the legacy shape
 # served from MOCK_COMMENTS_FILE for the inline fallback path), the GitHub
-# compare/merge-base API (`/compare/<base>...<head>` from MOCK_COMPARE_FILE,
+# workflow-run metadata + directly-associated PR APIs, the compare/merge-base
+# API (`/compare/<base>...<head>` from MOCK_COMPARE_FILE,
 # defaulting to a merge-base distinct from the base tip so tests can prove the
 # recorded base is the merge-base, not the branch tip), and the commit status
 # API (a `gh api .../statuses/<sha>` POST, logged to MOCK_STATUS_LOG as
@@ -25,8 +26,15 @@ is_threads_query=0
 is_comments_query=0
 query_has_typename=0
 is_status_api=0
+is_status_list_api=0
 is_compare_api=0
+is_check_runs_api=0
+is_commit_pulls_api=0
+is_workflow_run_api=0
+is_workflow_run_pulls_api=0
 status_state=""
+status_target_url=""
+compare_path=""
 
 read_query_flags() { # read_query_flags <query=...>; mark threads/comments + typename
   case "$1" in
@@ -52,9 +60,18 @@ classify() { # classify <prev> <token>
     "--json:"*) json_field="$2" ;;
     "--jq:"*) jq_expr="$2" ;;
     "api:"*/statuses/*) is_status_api=1 ;;
-    "api:"*/compare/*) is_compare_api=1 ;;
+    "api:"*/commits/*/statuses\?*) is_status_list_api=1 ;;
+    "api:"*/commits/*/check-runs\?*) is_check_runs_api=1 ;;
+    "api:"*/commits/*/pulls\?*) is_commit_pulls_api=1 ;;
+    "api:"*/actions/runs/*/pull_requests\?*) is_workflow_run_pulls_api=1 ;;
+    "api:"*/actions/runs/*) is_workflow_run_api=1 ;;
+    "api:"*/compare/*) is_compare_api=1; compare_path="$2" ;;
     "-f:"query=*) read_query_flags "$2" ;;
     "-f:"state=*) status_state="${2#state=}" ;;
+    "-f:"target_url=*) status_target_url="${2#target_url=}" ;;
+  esac
+  case "$2" in
+    repos/*/commits/*/pulls\?*) is_commit_pulls_api=1 ;;
   esac
 }
 
@@ -64,8 +81,36 @@ status_payload() { # status_payload <argv...>; log the status + echo its payload
   for token in "$@"; do case "$token" in
     */statuses/*) head_sha="${token##*/statuses/}" ;;
   esac; done
-  printf '%s %s\n' "${status_state:-unknown}" "$head_sha" >> "${MOCK_STATUS_LOG:-/dev/null}"
+  printf '%s %s %s\n' "${status_state:-unknown}" "$head_sha" "${status_target_url:-none}" >> "${MOCK_STATUS_LOG:-/dev/null}"
   printf '{"state":"%s"}\n' "${status_state:-unknown}"
+}
+
+status_list_payload() { # status_list_payload; echo latest Review Gate ownership
+  local owner="${MOCK_CURRENT_STATUS_URL:-}"
+  if [ -z "$owner" ] && [ -s "${MOCK_STATUS_LOG:-/dev/null}" ]; then owner="$(tail -n 1 "$MOCK_STATUS_LOG" | awk '{print $3}')"; fi
+  printf '[{"context":"Review Gate","target_url":"%s"}]\n' "$owner"
+}
+
+check_runs_payload() { # check_runs_payload; echo queue CI evidence
+  printf '{"check_runs":[{"name":"CI / verify","head_sha":"%s","conclusion":"%s","details_url":"https://github.com/lifeodyssey/animichi/actions/runs/%s/job/1"}]}\n' "${MOCK_QUEUE_SHA:-cccccccccccccccccccccccccccccccccccccccc}" "${MOCK_CI_CONCLUSION:-success}" "${MOCK_CI_RUN_ID:-99}"
+}
+
+commit_pulls_payload() { # commit_pulls_payload; echo associated queue PRs
+  if [ -n "${MOCK_QUEUE_PRS_FILE:-}" ]; then cat "$MOCK_QUEUE_PRS_FILE"; return; fi
+  printf '%s\n' '[{"number":710,"head":{"sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"base":{"ref":"main"},"state":"open"}]'
+}
+
+workflow_run_payload() { # workflow_run_payload; echo trusted run metadata
+  printf '{"id":%s,"repository":{"full_name":"%s"},"event":"%s","head_sha":"%s","path":"%s","conclusion":"%s"}\n' \
+    "${MOCK_RUN_ID:-99}" "${MOCK_RUN_REPO:-lifeodyssey/animichi}" "${MOCK_RUN_EVENT:-merge_group}" \
+    "${MOCK_RUN_HEAD:-${MOCK_QUEUE_SHA:-cccccccccccccccccccccccccccccccccccccccc}}" \
+    "${MOCK_RUN_PATH:-.github/workflows/pr-verification.yml}" "${MOCK_RUN_CONCLUSION:-success}"
+}
+
+workflow_run_pulls_payload() { # workflow_run_pulls_payload; echo direct associations
+  if [ -n "${MOCK_QUEUE_PRS_FILE:-}" ]; then cat "$MOCK_QUEUE_PRS_FILE"; return; fi
+  if [ -n "${MOCK_QUEUE_PRS_JSON:-}" ]; then printf '%s\n' "$MOCK_QUEUE_PRS_JSON"; return; fi
+  printf '%s\n' '[{"number":710,"head":{"sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"base":{"ref":"main"}}]'
 }
 
 fail_if_status_unavailable() {
@@ -78,6 +123,8 @@ fail_if_status_unavailable() {
 compare_payload() { # compare_payload; echo the merge-base payload
   if [ -n "${MOCK_COMPARE_FILE:-}" ]; then
     cat "$MOCK_COMPARE_FILE"
+  elif [ -n "${MOCK_QUEUE_MEMBER_HEAD:-}" ] && [ "$compare_path" = "repos/lifeodyssey/animichi/compare/${MOCK_QUEUE_MEMBER_HEAD}...${MOCK_QUEUE_SHA}" ]; then
+    printf '{"status":"ahead","merge_base_commit":{"sha":"%s"}}\n' "$MOCK_QUEUE_MEMBER_HEAD"
   else
     printf '%s\n' '{"merge_base_commit":{"sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}'
   fi
@@ -151,6 +198,11 @@ unsupported() { # unsupported <argv...>; fail on an unhandled request
 
 route_payload() { # route_payload <argv...>; echo the payload for the classified request
   if [ "$is_status_api" = "1" ]; then status_payload "$@"
+  elif [ "$is_status_list_api" = "1" ]; then status_list_payload
+  elif [ "$is_check_runs_api" = "1" ]; then check_runs_payload
+  elif [ "$is_workflow_run_pulls_api" = "1" ]; then workflow_run_pulls_payload
+  elif [ "$is_workflow_run_api" = "1" ]; then workflow_run_payload
+  elif [ "$is_commit_pulls_api" = "1" ]; then commit_pulls_payload
   elif [ "$is_compare_api" = "1" ]; then compare_payload
   elif [ "$is_threads_query" = "1" ]; then threads_payload
   elif [ "$is_comments_query" = "1" ]; then comments_payload

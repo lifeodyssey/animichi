@@ -18,6 +18,7 @@ record_failure() {
 expected_sha="${EXPECTED_SHA:-}"
 actual_sha="${ACTUAL_SHA:-}"
 security_result="${SECURITY_RESULT:-}"
+lanes="${LANES:-}"
 require_children="${REQUIRE_CHILD_RESULTS:-false}"
 failure_message=""
 
@@ -26,7 +27,15 @@ failure_message=""
 if [[ -z "${failure_message}" && "${expected_sha}" != "${actual_sha}" ]]; then
   record_failure "scan head ${actual_sha} differs from expected ${expected_sha}"
 fi
-[[ "${security_result}" == "success" ]] || record_failure "underlying workflow result is ${security_result:-unavailable}"
+security_selected=true
+if [[ -n "${lanes}" ]]; then
+  security_selected="$(jq -r 'index("security") != null' <<< "${lanes}")"
+fi
+if [[ "${security_selected}" == "true" ]]; then
+  [[ "${security_result}" == "success" ]] || record_failure "underlying workflow result is ${security_result:-unavailable}"
+else
+  [[ "${security_result}" == "skipped" ]] || record_failure "unselected security workflow result is ${security_result:-unavailable}"
+fi
 
 if [[ "${require_children}" == "true" ]]; then
   child_results="${SECURITY_RESULTS:-}"

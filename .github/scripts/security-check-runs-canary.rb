@@ -11,8 +11,8 @@ require "uri"
 
 module SecurityCheckRunsCanary
   API_VERSION = "2022-11-28"
-  SECURITY_CONTEXT = "Security"
-  OLD_SECURITY_PREFIX = "Security /"
+  CI_CONTEXT = "CI / verify"
+  REVIEW_CONTEXT = "Review Gate"
   PAGE_SIZE = 100
   MAX_PAGES = 100
   REPOSITORY_PATTERN = /\A[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\z/
@@ -38,25 +38,21 @@ module SecurityCheckRunsCanary
   end
 
   def self.assert_required_contexts(contexts)
-    security = Array(contexts).select { |name| security_context?(name) }
-    return if security == [SECURITY_CONTEXT]
+    actual = Array(contexts)
+    return if actual == [CI_CONTEXT, REVIEW_CONTEXT]
 
-    fail!("required contexts must contain exactly one Security context, got #{security.inspect}")
-  end
-
-  def self.security_context?(name)
-    name == SECURITY_CONTEXT || name.to_s.start_with?(OLD_SECURITY_PREFIX)
+    fail!("required contexts must be exactly CI / verify and Review Gate, got #{actual.inspect}")
   end
 
   def self.assert_check_runs(check_runs, repo, expected_sha)
-    runs = Array(check_runs).select { |run| run["name"] == SECURITY_CONTEXT }
-    fail!("expected exactly one Security check run, got #{runs.size}") unless runs.size == 1
+    runs = Array(check_runs).select { |run| run["name"] == CI_CONTEXT }
+    fail!("expected exactly one CI / verify check run, got #{runs.size}") unless runs.size == 1
     assert_security_run(runs.first, repo, expected_sha)
   end
 
   def self.assert_security_run(run, repo, expected_sha)
-    fail!("Security check run head does not match #{expected_sha}") unless run["head_sha"] == expected_sha
-    fail!("Security check run is not completed successfully") unless successful?(run)
+    fail!("CI / verify head does not match #{expected_sha}") unless run["head_sha"] == expected_sha
+    fail!("CI / verify is not completed successfully") unless successful?(run)
     assert_actionable_links(run, repo)
   end
 
@@ -67,14 +63,14 @@ module SecurityCheckRunsCanary
   def self.assert_actionable_links(run, repo)
     %w[details_url html_url].each { |key| assert_url(run[key], repo, key) }
     summary = run.dig("output", "summary").to_s
-    fail!("Security check summary is empty") if summary.empty?
+    fail!("CI / verify summary is empty") if summary.empty?
 
     links = summary.scan(%r{https://[^)\s>]+})
-    fail!("Security check summary has no actionable evidence link") unless links.any? { |url| actionable_url?(url, repo) }
+    fail!("CI / verify summary has no actionable evidence link") unless links.any? { |url| actionable_url?(url, repo) }
   end
 
   def self.assert_url(url, repo, label)
-    fail!("Security check #{label} is missing") unless actionable_url?(url, repo)
+    fail!("CI / verify #{label} is missing") unless actionable_url?(url, repo)
   end
 
   def self.actionable_url?(url, repo)
@@ -90,7 +86,7 @@ module SecurityCheckRunsCanary
     head_sha = resolve_head(api, repo, target)
     payload = live_payload(api, repo, head_sha)
     assert!(payload, repo: repo, expected_sha: head_sha)
-    puts "Security canary: #{repo} #{head_sha} has one successful required Security check"
+    puts "CI canary: #{repo} #{head_sha} has the successful required CI / verify check"
     head_sha
   end
 

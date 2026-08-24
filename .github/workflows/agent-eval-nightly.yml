@@ -1,12 +1,9 @@
-# Standalone top-level workflow (see .claude/rules/ci.md: codeql.yml / dependabot-agent.yml
-# precedent) — kept separate from ci.yml so the nightly cron cadence never rides along with
-# every push/PR trigger in the main CI matrix (ci.yml's own jobs largely key off
-# `github.event_name != 'pull_request'`, which a shared `schedule:` trigger would also flip
-# true for, running the entire component-CI fan-out nightly for no reason).
+# Standalone top-level workflow: the statistical nightly cadence is intentionally
+# separate from the affected PR CI and main-only CD workflows.
 name: Agent Eval (L1 nightly)
 
 # SD-30 §① trigger axis: the uncapped L1 full suite runs nightly + on manual dispatch —
-# never on PRs (see ci.yml's agent-eval-smoke for the PR-gated, capped L0 tier). This job
+# never on PRs (see pr-verification.yml for the affected, capped L0 tier). This job
 # owns the statistical baseline (src/animichi/tests/eval/baselines/agent_l4_trajectory_<model>.json)
 # via the existing finish_cli_report bootstrap/paired-comparison gate (src/animichi/tests/eval/gate.py).
 on:
@@ -48,7 +45,7 @@ jobs:
       - run: uv python install ${{ env.PYTHON_VERSION }}
 
       # --no-build rejected: this project's own editable package has no wheel
-      # (see pipeline-agent.yml).
+      # (see the affected agent lane in pr-verification.yml).
       - run: uv sync --frozen --all-extras
 
       - name: Run L1 full trajectory eval (uncapped — owns the statistical baseline)

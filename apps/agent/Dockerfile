@@ -19,7 +19,7 @@ COPY apps/agent/pyproject.toml apps/agent/uv.lock /app/
 # --no-build is safe only here: --no-install-project skips the local editable
 # package (the one thing in this project with no wheel), so it doesn't hit
 # the failure documented on the second `uv sync` below and in
-# pipeline-agent.yml's NOTE.
+# the affected agent CI lane's NOTE.
 RUN uv sync --no-dev --no-install-project --frozen --no-build
 
 COPY apps/agent/src/animichi /app/src/animichi

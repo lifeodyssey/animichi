@@ -74,60 +74,60 @@ end
 
 green_case("fixture validates") do
   SecurityCheckRunsCanary.assert!(copy_fixture, repo: REPO, expected_sha: SHA,
-                                  required_contexts: ["Web / test", "Security"])
+                                  required_contexts: ["CI / verify", "Review Gate"])
 end
 
-red_case("old required Security child is rejected", "exactly one Security context") do
-  contexts = ["Security", "Security / semgrep"]
+red_case("old required Security child is rejected", "exactly CI / verify and Review Gate") do
+  contexts = ["CI / verify", "Review Gate", "Security / semgrep"]
   SecurityCheckRunsCanary.assert!(copy_fixture, repo: REPO, expected_sha: SHA,
                                   required_contexts: contexts)
 end
 
-red_case("duplicate Security check runs are rejected", "exactly one Security check run") do
+red_case("duplicate CI check runs are rejected", "exactly one CI / verify check run") do
   payload = copy_fixture
   payload["check_runs"] << payload["check_runs"].first
   SecurityCheckRunsCanary.assert!(payload, repo: REPO, expected_sha: SHA,
-                                  required_contexts: ["Security"])
+                                  required_contexts: ["CI / verify", "Review Gate"])
 end
 
 red_case("failed Security result is rejected", "not completed successfully") do
   payload = copy_fixture
   payload["check_runs"].first["conclusion"] = "failure"
   SecurityCheckRunsCanary.assert!(payload, repo: REPO, expected_sha: SHA,
-                                  required_contexts: ["Security"])
+                                  required_contexts: ["CI / verify", "Review Gate"])
 end
 
 red_case("stale Security head is rejected", "head does not match") do
   payload = copy_fixture
   payload["check_runs"].first["head_sha"] = "f" * 40
   SecurityCheckRunsCanary.assert!(payload, repo: REPO, expected_sha: SHA,
-                                  required_contexts: ["Security"])
+                                  required_contexts: ["CI / verify", "Review Gate"])
 end
 
 red_case("non-actionable evidence is rejected", "actionable evidence link") do
   payload = copy_fixture
   payload["check_runs"].first["output"]["summary"] = "https://example.com/report"
   SecurityCheckRunsCanary.assert!(payload, repo: REPO, expected_sha: SHA,
-                                  required_contexts: ["Security"])
+                                  required_contexts: ["CI / verify", "Review Gate"])
 end
 
 red_case("empty evidence summary is rejected", "summary is empty") do
   payload = copy_fixture
   payload["check_runs"].first["output"]["summary"] = ""
   SecurityCheckRunsCanary.assert!(payload, repo: REPO, expected_sha: SHA,
-                                  required_contexts: ["Security"])
+                                  required_contexts: ["CI / verify", "Review Gate"])
 end
 
 green_case("live PR mode resolves the real head and ruleset") do
   checks_path = "/repos/#{REPO}/commits/#{SHA}/check-runs?per_page=100"
-  client = live_client(["Security"])
+  client = live_client(["CI / verify", "Review Gate"])
   result = SecurityCheckRunsCanary.run_live!(REPO, "1177", client: client)
   abort "FAIL: live PR mode resolved the wrong SHA" unless result == SHA
   abort "FAIL: live PR mode did not query check-runs" unless client.paths.include?(checks_path)
 end
 
 green_case("live head mode verifies the supplied commit") do
-  client = live_client(["Security"])
+  client = live_client(["CI / verify", "Review Gate"])
   SecurityCheckRunsCanary.run_live!(REPO, SHA, client: client)
   expected = "/repos/#{REPO}/commits/#{SHA}"
   abort "FAIL: live head mode did not verify the commit" unless client.paths.include?(expected)
@@ -136,7 +136,7 @@ end
 green_case("live mode follows later check-runs and ruleset pages") do
   filler_runs = Array.new(100) { |index| { "name" => "Other #{index}", "head_sha" => SHA } }
   filler_rulesets = Array.new(100) { |index| { "id" => index + 100, "enforcement" => "disabled" } }
-  client = live_client(["Security"], check_pages: [filler_runs, copy_fixture.fetch("check_runs")],
+  client = live_client(["CI / verify", "Review Gate"], check_pages: [filler_runs, copy_fixture.fetch("check_runs")],
                        ruleset_pages: [filler_rulesets, [{ "id" => 42, "enforcement" => "active" }]])
   SecurityCheckRunsCanary.run_live!(REPO, SHA, client: client)
   checks_page = "/repos/#{REPO}/commits/#{SHA}/check-runs?per_page=100&page=2"
@@ -145,18 +145,19 @@ green_case("live mode follows later check-runs and ruleset pages") do
   abort "FAIL: live mode did not query the second ruleset page" unless client.paths.include?(rulesets_page)
 end
 
-red_case("live mode rejects empty check-runs results", "exactly one Security check run") do
-  client = live_client(["Security"], check_pages: [[]])
+red_case("live mode rejects empty check-runs results", "exactly one CI / verify check run") do
+  client = live_client(["CI / verify", "Review Gate"], check_pages: [[]])
   SecurityCheckRunsCanary.run_live!(REPO, SHA, client: client)
 end
 
-red_case("live mode rejects empty ruleset results", "exactly one Security context") do
-  client = live_client(["Security"], ruleset_pages: [[]])
+red_case("live mode rejects empty ruleset results", "exactly CI / verify and Review Gate") do
+  client = live_client(["CI / verify", "Review Gate"], ruleset_pages: [[]])
   SecurityCheckRunsCanary.run_live!(REPO, SHA, client: client)
 end
 
-red_case("live ruleset rejects an old Security child", "exactly one Security context") do
-  SecurityCheckRunsCanary.run_live!(REPO, "1177", client: live_client(["Security", "Security / semgrep"]))
+red_case("live ruleset rejects an old Security child", "exactly CI / verify and Review Gate") do
+  contexts = ["CI / verify", "Review Gate", "Security / semgrep"]
+  SecurityCheckRunsCanary.run_live!(REPO, "1177", client: live_client(contexts))
 end
 
 red_case("live mode requires GH_TOKEN", "GH_TOKEN is required") do

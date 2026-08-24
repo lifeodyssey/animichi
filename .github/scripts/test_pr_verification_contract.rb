@@ -3,6 +3,8 @@
 # Contract checks for issue #1176. The workflow has one required aggregator;
 # package jobs are implementation details selected by the affected route.
 require "open3"
+require "fileutils"
+require "tmpdir"
 require "yaml"
 
 REPO_ROOT = File.expand_path("../..", __dir__)
@@ -10,7 +12,7 @@ WORKFLOW = ENV.fetch("PR_VERIFICATION_WORKFLOW", File.join(REPO_ROOT, ".github",
 ROUTE = ENV.fetch("PR_VERIFICATION_ROUTE", File.join(REPO_ROOT, ".github", "scripts", "pr-verification-route.sh"))
 GATE = ENV.fetch("PR_VERIFICATION_GATE", File.join(REPO_ROOT, ".github", "scripts", "pr-verification-gate.sh"))
 WORKSPACE_LIB = File.join(REPO_ROOT, "scripts", "local-gates", "workspace-packages.sh")
-EXPECTED_PACKAGES = %w[agent catalog contract doorbell e2e edge infra migrator users web]
+EXPECTED_PACKAGES = %w[agent catalog contract e2e edge infra migrator users web]
 
 def workflow_value(path)
   YAML.safe_load(File.read(path).sub(/^on:(?=[ \t#]|$)/, '"on":'), aliases: true)
@@ -18,6 +20,21 @@ end
 
 def trigger_map(workflow)
   workflow.fetch("on")
+end
+
+def assert_ci_route_purpose(route)
+  source = route.fetch("steps").map { |step| step["run"] }.compact.join("\n")
+  abort "PR/queue route must use the canonical planner" unless source.include?("change-plan.py")
+  abort "PR/queue route must retain CI-only test triggers" if source.include?("--purpose deploy")
+end
+
+def assert_web_browser_gate(source)
+  required = ['RUNTIME_CONFIG=', "printf 'RUNTIME_CONFIG=%s\\n'", 'kill "$WRANGLER_PID"', 'rm -f "$DEV_VARS"', 'web-cwv.spec.ts']
+  missing = required.reject { |value| source.include?(value) }
+  abort "e2e gate lost main's runtime-config/CWV cleanup: #{missing.join(', ')}" unless missing.empty?
+  config_write = source.index("printf 'RUNTIME_CONFIG=%s\\n'")
+  server_start = source.index("pnpm --filter web exec wrangler dev")
+  abort "e2e runtime config must be written before Wrangler starts" unless config_write && server_start && config_write < server_start
 end
 
 def assert_event_contract(workflow)
@@ -37,15 +54,51 @@ end
 def assert_job_contract(workflow, workflow_path)
   jobs = workflow.fetch("jobs")
   route = jobs.fetch("route")
-  package = jobs.fetch("package-gate")
+  assert_ci_route_purpose(route)
+  package = jobs.fetch("affected")
+  quality = jobs.fetch("static-quality")
+  cheap_security = jobs.fetch("security-diff")
+  security_scans = jobs.fetch("security-scans")
+  security = jobs.fetch("security")
+  agent_eval = jobs.fetch("agent-eval")
   aggregate = jobs.fetch("aggregate")
+  required_security = jobs.fetch("required-security")
+  required_verification = jobs.fetch("required-pr-verification")
   names = jobs.values.map { |job| job["name"] if job.is_a?(Hash) }.compact
-  abort "workflow must expose exactly one PR Verification job" unless names.count("PR Verification") == 1
-  abort "route job must publish packages" unless route.fetch("outputs").fetch("packages").include?("steps.route.outputs.packages")
-  matrix = package.fetch("strategy").fetch("matrix").fetch("package")
-  abort "package gate must use the routed matrix" unless matrix.include?("fromJSON(needs.route.outputs.packages)")
+  abort "workflow must expose exactly one CI / verify job" unless names.count("CI / verify") == 1
+  abort "single CI must bridge the live Security context" unless names.count("Security") == 1
+  abort "single CI must bridge the live PR Verification context" unless names.count("PR Verification") == 1
+  abort "Security bridge must propagate the aggregate" unless required_security.fetch("needs") == "security"
+  abort "PR Verification bridge must propagate the aggregate" unless required_verification.fetch("needs") == "aggregate"
+  [required_security, required_verification].each do |job|
+    abort "required-context bridge must run after failure" unless job.fetch("if").include?("always()")
+    run = job.fetch("steps").map { |step| step["run"] }.compact.join("\n")
+    abort "required-context bridge must fail closed" unless run.include?('test "$UPSTREAM_RESULT" = success')
+  end
+  abort "route job must publish components" unless route.fetch("outputs").fetch("components").include?("steps.route.outputs.components")
+  abort "route job must publish global lanes" unless route.fetch("outputs").fetch("lanes").include?("steps.route.outputs.lanes")
+  matrix = package.fetch("strategy").fetch("matrix").fetch("component")
+  abort "affected gate must use the routed matrix" unless matrix.include?("fromJSON(needs.route.outputs.components)")
+  abort "static quality must be same-run reusable" unless quality.fetch("uses") == "./.github/workflows/reusable-static-quality.yml"
+  cross_stack = jobs.fetch("cross-stack")
+  abort "cross-stack must be same-run reusable" unless cross_stack.fetch("uses") == "./.github/workflows/reusable-cross-stack-e2e.yml"
+  abort "diff secret scan must run independently on every event" if cheap_security.key?("needs")
+  abort "expensive security must use the affected lane" unless security_scans.fetch("if").include?("'security'")
+  abort "security scans must be same-run reusable" unless security_scans.fetch("uses") == "./.github/workflows/reusable-security.yml"
+  abort "security aggregate must wait for affected scans" unless Array(security.fetch("needs")) == %w[route security-scans]
+  abort "agent eval must use the behavior lane" unless agent_eval.fetch("if").include?("'agent-eval'")
+  abort "agent eval must be a same-run reusable" unless agent_eval.fetch("uses") == "./.github/workflows/reusable-agent-eval.yml"
+  abort "agent eval must forward only its existing provider key" unless agent_eval.fetch("secrets").keys == ["ZEN_GO_API_KEY"]
+  coverage = %w[agent web catalog users].map { |component| jobs.fetch("coverage-#{component}") }
+  coverage.each do |job|
+    abort "coverage uploader must be OIDC-scoped" unless job.fetch("permissions").fetch("id-token") == "write"
+    abort "coverage uploader must use the same-run reusable" unless job.fetch("uses") == "./.github/workflows/reusable-coverage.yml"
+  end
+  coverage_source = File.read(File.join(REPO_ROOT, ".github/workflows/reusable-coverage.yml"))
+  abort "coverage uploads must fail closed with OIDC" unless coverage_source.scan("fail_ci_if_error: true").size == 3 && coverage_source.scan("use_oidc: true").size == 3
   needs = Array(aggregate.fetch("needs"))
-  abort "aggregator must wait for route and package gates" unless (needs & %w[route package-gate]).sort == %w[package-gate route]
+  required_needs = %w[affected agent-eval coverage-agent coverage-catalog coverage-users coverage-web cross-stack route security security-diff static-quality]
+  abort "aggregator must wait for every internal CI lane" unless (needs & required_needs).sort == required_needs.sort
   abort "aggregator must run after failed/cancelled matrix jobs" unless aggregate.fetch("if").include?("always()")
   run = aggregate.fetch("steps").map { |step| step["run"] }.compact.join("\n")
   abort "aggregator must invoke exact-head checker" unless run.include?("pr-verification-aggregate.sh")
@@ -57,17 +110,28 @@ def assert_job_contract(workflow, workflow_path)
   steps = package.fetch("steps")
   atlas_step = steps.find { |step| step["uses"] == "./.github/actions/install-atlas" }
   image_step = steps.find { |step| step["name"] == "Build hermetic Postgres+PostGIS+pgvector test image" }
-  abort "catalog gate must install the pinned Atlas CLI" unless atlas_step && atlas_step["if"] == "${{ matrix.package == 'db' || matrix.package == 'catalog' }}"
+  gate_step = steps.find { |step| step["name"] == "Run affected package gate" }
+  checkout = steps.find { |step| step["uses"].to_s.start_with?("actions/checkout@") }
+  abort "catalog gate must install the pinned Atlas CLI" unless atlas_step && atlas_step["if"] == "${{ matrix.component == 'db' || matrix.component == 'catalog' }}"
   abort "agent/db/catalog gates must build the pinned offline Postgres image" unless image_step && image_step["run"] == image_build
-  abort "offline Postgres image build must be scoped to agent/db/catalog gates" unless image_step["if"] == "${{ matrix.package == 'agent' || matrix.package == 'db' || matrix.package == 'catalog' }}"
+  abort "offline Postgres image build must be scoped to agent/db/catalog gates" unless image_step["if"] == "${{ matrix.component == 'agent' || matrix.component == 'db' || matrix.component == 'catalog' }}"
+  abort "affected gate must bind the synthetic checkout SHA" unless gate_step.dig("env", "PR_VERIFICATION_CHECKOUT_SHA") == "${{ github.sha }}"
+  abort "affected gate must preserve GitHub's synthetic merge checkout" if checkout.fetch("with", {}).key?("ref")
+  source_head = gate_step.dig("env", "PR_VERIFICATION_SOURCE_HEAD_SHA").to_s
+  abort "affected gate must bind the PR/queue source head separately" unless source_head.include?("github.event.pull_request.head.sha") && source_head.include?("github.event.merge_group.head_sha")
   gate_source = File.read(GATE)
-  abort "e2e gate must run deterministic Web pipeline assertions" unless gate_source.include?("web-404.spec.ts web-maplibre-canary.spec.ts web-state-ownership.spec.ts")
+  identity_contract = ['git rev-parse HEAD', 'merge-base --is-ancestor "$source_head" "$checkout"', 'git merge-base "$source_head" "$base"']
+  abort "contract gate lost checkout/source/base identity validation" unless identity_contract.all? { |value| gate_source.include?(value) }
+  web_specs = %w[web-404.spec.ts web-maplibre-canary.spec.ts web-state-ownership.spec.ts web-a11y-axe.spec.ts web-a11y-keyboard.spec.ts web-a11y-states.spec.ts web-cwv.spec.ts]
+  missing_specs = web_specs.reject { |spec| gate_source.include?(spec) }
+  abort "e2e gate is missing Web assertions: #{missing_specs.join(', ')}" unless missing_specs.empty?
   abort "e2e gate must not be collection-only" if gate_source.include?("playwright test --list")
+  assert_web_browser_gate(gate_source)
 end
 
 def assert_routing_contract
   source = File.read(ROUTE)
-  %w[load_workspace_packages match_workspace_package all_packages].each do |name|
+  %w[change-plan.py --range --format].each do |name|
     abort "route must use #{name}" unless source.include?(name)
   end
   gate_source = File.read(GATE)
@@ -92,6 +156,19 @@ def assert_workspace_package_set
   abort "workspace package set drift: expected #{EXPECTED_PACKAGES}, got #{actual}" unless actual == EXPECTED_PACKAGES.sort
 end
 
+def assert_dispatcher_runs_from_arbitrary_cwd
+  Dir.mktmpdir("pr-verification-cwd-") do |repo|
+    gate = File.join(repo, ".github/scripts/pr-verification-gate.sh")
+    pre_push = File.join(repo, "scripts/local-gates/pre-push.sh")
+    FileUtils.mkdir_p([File.dirname(gate), File.dirname(pre_push)])
+    FileUtils.cp(GATE, gate)
+    File.write(pre_push, "gate_docs() { [ \"$PWD\" = \"$EXPECTED_GATE_ROOT\" ] && printf 'dispatcher-source-ok\\n'; }\n")
+    env = { "RUNNER_TEMP" => repo, "EXPECTED_GATE_ROOT" => repo }
+    stdout, stderr, status = Open3.capture3(env, "bash", gate, "docs", chdir: "/")
+    abort "gate dispatcher is cwd-dependent: #{stderr}" unless status.success? && stdout.include?("dispatcher-source-ok")
+  end
+end
+
 def run_contract(path)
   Open3.capture3(RbConfig.ruby, __FILE__, path)
 end
@@ -102,6 +179,7 @@ def assert_pr_verification_contract(path = WORKFLOW)
   assert_job_contract(workflow, path)
   assert_routing_contract
   assert_workspace_package_set
+  assert_dispatcher_runs_from_arbitrary_cwd
   puts "PR Verification contract: one exact-head aggregator, affected workspace matrix, code-only triggers"
 end
 

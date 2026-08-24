@@ -12,12 +12,20 @@ require "json"
 require "open3"
 require "time"
 module RulesetCutover
-  APPROVED_CONTEXTS = ["PR Verification", "Security", "Review Gate"].freeze
+  APPROVED_CONTEXTS = ["CI / verify", "Review Gate"].freeze
+  GITHUB_ACTIONS_INTEGRATION_ID = 15_368
+  REQUIRED_CHECKS = [
+    { "context" => "CI / verify" },
+    { "context" => "Review Gate", "integration_id" => GITHUB_ACTIONS_INTEGRATION_ID }
+  ].freeze
   RULE_TYPE = "required_status_checks"
+  PULL_REQUEST_RULE_TYPE = "pull_request"
+  RETIRED_RULE_TYPES = %w[code_quality code_coverage].freeze
   PRESERVED_KEYS = %w[id name target source_type enforcement bypass_actors conditions].freeze
   WRITE_KEYS = %w[name target enforcement bypass_actors conditions rules].freeze
 
   class Error < StandardError; end
+  require_relative "ruleset_cutover_canary"
   module_function
 
   def parse(path)
@@ -77,8 +85,31 @@ module RulesetCutover
     raise Error, "ruleset must be an object" unless ruleset.is_a?(Hash)
 
     required = contexts(ruleset)
-    validate_contexts!(required) if approved
+    if approved
+      validate_contexts!(required)
+      validate_required_checks!(required_rule(ruleset).last)
+      validate_review_threads!(ruleset)
+      residue = retired_rules(ruleset).map { |rule| rule["type"] }.uniq
+      raise Error, "retired native rules remain: #{residue.join(", ")}" unless residue.empty?
+    end
     required
+  end
+  def validate_required_checks!(checks)
+    raise Error, "required checks must source-bind Review Gate to the GitHub Actions integration" unless checks == REQUIRED_CHECKS
+  end
+  def pull_request_rule(ruleset)
+    matches = Array(ruleset.fetch("rules")).select { |rule| rule.is_a?(Hash) && rule["type"] == PULL_REQUEST_RULE_TYPE }
+    raise Error, "ruleset must contain exactly one pull_request rule" unless matches.one?
+    matches.first
+  end
+  def validate_review_threads!(ruleset)
+    enabled = pull_request_rule(ruleset).dig("parameters", "required_review_thread_resolution")
+    raise Error, "native review-thread resolution must be required" unless enabled == true
+  end
+  def enable_review_threads!(ruleset)
+    parameters = pull_request_rule(ruleset).fetch("parameters")
+    raise Error, "pull_request parameters must be an object" unless parameters.is_a?(Hash)
+    parameters["required_review_thread_resolution"] = true
   end
   def deep_copy(value)
     JSON.parse(JSON.generate(value))
@@ -86,8 +117,10 @@ module RulesetCutover
   def candidate(ruleset)
     validate_ruleset!(ruleset)
     result = deep_copy(ruleset)
+    result["rules"] = result.fetch("rules").reject { |rule| retired_rule?(rule) }
     rule, = required_rule(result)
-    rule.fetch("parameters")["required_status_checks"] = APPROVED_CONTEXTS.map { |context| { "context" => context } }
+    rule.fetch("parameters")["required_status_checks"] = deep_copy(REQUIRED_CHECKS)
+    enable_review_threads!(result)
     validate_ruleset!(result, approved: true)
     result
   end
@@ -106,8 +139,19 @@ module RulesetCutover
   def non_required_rules(ruleset)
     Array(ruleset.fetch("rules")).reject { |rule| rule.is_a?(Hash) && rule["type"] == RULE_TYPE }
   end
+  def retired_rule?(rule)
+    rule.is_a?(Hash) && RETIRED_RULE_TYPES.include?(rule["type"])
+  end
+  def retired_rules(ruleset)
+    Array(ruleset.fetch("rules")).select { |rule| retired_rule?(rule) }
+  end
+  def preserved_rules(ruleset)
+    non_required_rules(ruleset).reject do |rule|
+      retired_rule?(rule) || (rule.is_a?(Hash) && rule["type"] == PULL_REQUEST_RULE_TYPE)
+    end
+  end
   def canonical_rules(ruleset)
-    non_required_rules(ruleset).sort_by { |rule| JSON.generate(rule) }
+    preserved_rules(ruleset).sort_by { |rule| JSON.generate(rule) }
   end
   def assert_preserved_fields!(before, after)
     PRESERVED_KEYS.each do |key|
@@ -117,9 +161,13 @@ module RulesetCutover
   end
   def assert_preserved!(before, after)
     assert_preserved_fields!(before, after)
+    validate_ruleset!(after, approved: true)
     unless canonical_rules(before) == canonical_rules(after)
       raise Error, "cutover changed a non-required-status rule"
     end
+    expected_pull = deep_copy(pull_request_rule(before))
+    expected_pull.fetch("parameters")["required_review_thread_resolution"] = true
+    raise Error, "cutover changed pull_request policy beyond review-thread resolution" unless pull_request_rule(after) == expected_pull
     true
   end
 
@@ -132,7 +180,7 @@ module RulesetCutover
   end
   def snapshot_metadata(captured_at, endpoint)
     {
-      "schema_version" => "ruleset-cutover/v1",
+      "schema_version" => "ruleset-cutover/v2",
       "captured_at" => captured_at,
       "endpoint" => endpoint,
       "actions_settings" => "not_requested",
@@ -158,45 +206,6 @@ module RulesetCutover
     Digest::SHA256.hexdigest(JSON.generate(stable))
   end
 
-  def validate_canary_shape!(evidence)
-    required = %w[pr_number head_sha failing_context blocked merged repaired_head_sha repaired_statuses repaired_eligible]
-    missing = required.reject { |key| evidence.is_a?(Hash) && evidence.key?(key) }
-    raise Error, "canary evidence is missing: #{missing.join(", ")}" unless missing.empty?
-  end
-
-  def validate_canary_shas!(evidence)
-    raise Error, "canary PR number must be positive" unless evidence.fetch("pr_number").is_a?(Integer) && evidence.fetch("pr_number").positive?
-    %w[head_sha repaired_head_sha].each do |key|
-      sha = evidence.fetch(key)
-      raise Error, "canary #{key} must be a 40-hex SHA" unless sha.is_a?(String) && sha.match?(/\A[0-9a-f]{40}\z/)
-    end
-  end
-
-  def validate_canary_statuses!(evidence)
-    statuses = evidence.fetch("repaired_statuses")
-    expected = APPROVED_CONTEXTS.sort
-    valid = statuses.is_a?(Hash) && statuses.keys.all? { |key| key.is_a?(String) } && statuses.keys.sort == expected && statuses.values.all? { |state| state == "success" }
-    unless valid
-      raise Error, "repaired canary must have successful current-head statuses for all three aggregators"
-    end
-  end
-  def validate_canary_flags!(evidence)
-    raise Error, "canary failing_context must be an approved aggregator" unless APPROVED_CONTEXTS.include?(evidence.fetch("failing_context"))
-    raise Error, "canary must be blocked" unless evidence.fetch("blocked") == true
-    raise Error, "canary must be closed without merging" unless evidence.fetch("merged") == false
-    raise Error, "repaired canary must be eligible" unless evidence.fetch("repaired_eligible") == true
-  end
-
-  def validate_canary!(evidence)
-    validate_canary_shape!(evidence)
-    validate_canary_shas!(evidence)
-    validate_canary_statuses!(evidence)
-    validate_canary_flags!(evidence)
-    true
-  rescue KeyError, TypeError => error
-    raise Error, "malformed canary evidence: #{error.message}"
-  end
-
   def gh_json(path, *arguments)
     output, error, status = Open3.capture3("gh", "api", path, *arguments)
     raise Error, "gh api #{path} failed: #{error.strip}" unless status.success?
@@ -206,24 +215,25 @@ module RulesetCutover
     raise Error, "gh api #{path} returned invalid JSON: #{error.message}"
   end
 
-  def after_evidence_metadata(before, endpoint)
+  def after_evidence_metadata(before, endpoint, canary_digest)
     {
-      "schema_version" => "ruleset-cutover/v1",
+      "schema_version" => "ruleset-cutover/v2",
       "endpoint" => endpoint,
       "before_snapshot_sha256" => snapshot_digest(snapshot(before, endpoint: endpoint)),
+      "canary_sha256" => canary_digest,
       "actions_settings" => "not_requested",
       "status" => "verified-after-put"
     }
   end
-  def after_evidence(before, after, endpoint)
-    result = after_evidence_metadata(before, endpoint)
+  def after_evidence(before, after, endpoint, canary_digest)
+    result = after_evidence_metadata(before, endpoint, canary_digest)
     result["required_contexts"] = contexts(after)
     result["payload_sha256"] = Digest::SHA256.hexdigest(JSON.generate(payload(after)))
     result
   end
-  def write_after_evidence(directory, before, after, endpoint)
+  def write_after_evidence(directory, before, after, endpoint, canary_digest)
     FileUtils.mkdir_p(directory)
-    dump(after_evidence(before, after, endpoint), File.join(directory, "ruleset-after.json"))
+    dump(after_evidence(before, after, endpoint, canary_digest), File.join(directory, "ruleset-after.json"))
   end
 
   def assert_apply_authorized!(digest)
@@ -250,25 +260,36 @@ module RulesetCutover
     dump(payload(candidate_ruleset), payload_path)
     payload_path
   end
+  def retain_canary(directory, canary)
+    FileUtils.mkdir_p(directory)
+    FileUtils.rm_f(File.join(directory, "ruleset-after.json"))
+    dump(canary, File.join(directory, "ruleset-canary.json"))
+  end
 
   def put_candidate(endpoint, payload_path)
     _output, error, status = Open3.capture3("gh", "api", "-X", "PUT", endpoint, "--input", payload_path)
     raise Error, "ruleset PUT failed: #{error.strip}" unless status.success?
   end
 
-  def apply(repo:, ruleset_id:, evidence_dir:, expected_snapshot_digest: nil)
+  def apply(repo:, ruleset_id:, evidence_dir:, expected_snapshot_digest: nil, canary_path: nil,
+            expected_canary_digest: nil, now: Time.now.utc)
     assert_apply_authorized!(expected_snapshot_digest)
+    raise Error, "live apply requires a canary artifact path" unless canary_path.is_a?(String)
+    canary = parse(canary_path)
+    load_canary!(canary, expected_canary_digest, repo: repo, ruleset_id: ruleset_id, now: now)
     endpoint = "repos/#{repo}/rulesets/#{ruleset_id}"
     before, before_snapshot = fetch_before(endpoint, expected_snapshot_digest)
     payload_path = write_apply_plan(evidence_dir, before_snapshot, candidate(before))
+    revalidate_canary!(canary, repo: repo, ruleset_id: ruleset_id, now: now)
+    retain_canary(evidence_dir, canary)
     put_candidate(endpoint, payload_path)
-    verify_after(endpoint, before, evidence_dir)
+    verify_after(endpoint, before, evidence_dir, expected_canary_digest)
   end
-  def verify_after(endpoint, before, evidence_dir)
+  def verify_after(endpoint, before, evidence_dir, canary_digest)
     after = gh_json(endpoint)
     validate_ruleset!(after, approved: true)
     assert_preserved!(before, after)
-    write_after_evidence(evidence_dir, before, after, endpoint)
+    write_after_evidence(evidence_dir, before, after, endpoint, canary_digest)
     after
   end
 end

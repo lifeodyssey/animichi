@@ -1,0 +1,53 @@
+name: _coverage
+
+on:
+  workflow_call:
+    inputs:
+      component: {required: true, type: string}
+      download_path: {required: true, type: string}
+      files: {required: true, type: string}
+      flags: {required: true, type: string}
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    name: Upload ${{ inputs.component }} coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ci-coverage-${{ inputs.component }}-${{ github.sha }}
+          path: ${{ inputs.download_path }}
+      - name: Upload unit coverage
+        if: ${{ inputs.component == 'agent' }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: apps/agent/coverage-unit.xml
+          flags: unit
+          fail_ci_if_error: true
+          use_oidc: true
+      - name: Upload integration coverage
+        if: ${{ inputs.component == 'agent' }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: apps/agent/coverage-integration.xml
+          flags: integration
+          fail_ci_if_error: true
+          use_oidc: true
+      - name: Upload component coverage
+        if: ${{ inputs.component != 'agent' }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: ${{ inputs.files }}
+          flags: ${{ inputs.flags }}
+          fail_ci_if_error: true
+          use_oidc: true

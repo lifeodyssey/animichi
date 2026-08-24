@@ -1,6 +1,6 @@
 /**
  * Core Web Vitals thresholds + controlled harness profile (S0-v2 C5), shared
- * by the "Web / lighthouse" job in pipeline-web.yml and the Playwright spec
+ * by the affected web CI lane and the Playwright spec
  * e2e/web-cwv.spec.ts, which serves the built app with `wrangler dev` and reads
  * CLS/LCP/INP via the PerformanceObserver API.
  *

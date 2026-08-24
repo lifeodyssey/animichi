@@ -5,7 +5,6 @@ import {
   AUDIENCE,
   FIXED_NOW,
   REPOSITORY,
-  TRUSTED_WORKFLOW,
   claims,
   productionPolicy,
   stagingPolicy,

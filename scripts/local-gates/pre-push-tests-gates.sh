@@ -8,7 +8,7 @@
 # route the local gate to Neon — the Docker arm is deterministic), and the
 # PG18 offline image identity consistency across the Dockerfile, conftest,
 # and the fresh-schema gate (AC3). The agent command contract mirrors
-# pipeline-agent.yml's deterministic surface, so removing any one of those
+# pr-verification.yml's agent lane surface, so removing any one of those
 # commands fails the all-route test (which lives in the routing module).
 test_fail_fast_propagation() {
   local rc
@@ -74,7 +74,7 @@ test_agent_integration_strips_live_arm_selectors() {
   local rc
   rc="$(GATE_CHANGED_PACKAGES=agent run_gate "$GATE_STUB_ROOT/run-agent-env.log")" || true
   [ "$rc" = "0" ] || { echo "FAIL: agent-only run exited $rc" >&2; exit 1; }
-  assert_has "$GATE_STUB_ROOT/run-agent-env.log" "uv run pytest src/animichi/tests/integration/ -v --no-cov"
+  assert_has "$GATE_STUB_ROOT/run-agent-env.log" "uv run pytest src/animichi/tests/integration/ -v --cov --cov-report=xml:coverage-integration.xml --cov-fail-under=0"
   echo "ok: agent integration gate strips live/BYO selector env vars (Docker arm only)"
 }
 

@@ -23,7 +23,7 @@ The pytest fixture selects exactly one arm per session:
 **personal** `NEON_API_KEY` + `NEON_PROJECT_ID`; credentials alone do not opt into live testing.
 Since #1053 `TEST_DB=neon` is a **local-only** dev path — CI no longer references it. CI's
 DB-backed Python integration lane runs the offline Docker arm (`TEST_DB=docker`) hermetically
-in `pipeline-agent.yml`.
+in the single CI workflow's affected agent lane.
 
 ```bash
 # One-time image build; this step needs network.
