@@ -107,7 +107,11 @@ def build_plan(root: Path, manifest: Path, base: str, head: str, mode: str, purp
     paths = changed_paths(root, effective_base, head)
     source_direct, fallback = direct_components(components, repository_paths, paths, "deploy")
     direct = direct_components(components, repository_paths, paths, purpose)[0]
-    selected = {str(item["name"]) for item in components} if fallback else reverse_closure(components, direct.copy())
+    selected = (
+        {str(item["name"]) for item in components}
+        if fallback
+        else direct | reverse_closure(components, source_direct.copy())
+    )
     source_selected = selected if fallback else reverse_closure(components, source_direct.copy())
     lanes = selected_lanes(document["global_lanes"], paths, source_selected, fallback)
     return {"range_mode": mode, "purpose": purpose, "base": base, "diff_base": effective_base, "head": head,

@@ -24,6 +24,8 @@ enforces the head-bound review contract in [`review-gate.md`](./review-gate.md).
 and deploy units. `.github/scripts/change-plan.py` compares a pull request with its merge base,
 then expands direct changes through reverse dependencies. A contract change therefore verifies
 all consumers, a web change includes browser E2E, and a migration includes its schema consumers.
+Only runtime-bearing paths propagate to reverse dependents; a component's tests select that
+component's CI lane without fanning out to its consumers.
 An unknown or unowned path fails closed to the full component set; merge-queue evaluation is also
 fail-closed. Static quality, security, cross-stack, and agent-eval lanes run inside the same `CI`
 workflow when selected. `PR Verification` and the direct `Security` context fail unless every

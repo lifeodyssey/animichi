@@ -106,6 +106,7 @@ def assert_non_runtime_component_files_are_ci_only() -> None:
         ci = plan(root, initial, docs)
         deploy = plan(root, initial, docs, "main", "deploy")
         assert set(ci["direct_components"]) == {"contract", "db"}
+        assert set(ci["components"]) == {"contract", "db"}
         assert plan(root, initial, tests, "main", "deploy")["components"] == []
         assert deploy["fallback_all"] is False
         assert deploy["components"] == []
