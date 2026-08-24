@@ -1,8 +1,13 @@
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import type { ReactNode, RefObject } from "react";
 import { Button } from "animal-island-ui-tailwind/button";
-import { Drawer } from "animal-island-ui-tailwind/drawer";
-import { Tooltip } from "animal-island-ui-tailwind/tooltip";
+
+const loadDrawer = () => import("animal-island-ui-tailwind/drawer");
+const Drawer = lazy(async () => ({ default: (await loadDrawer()).Drawer }));
+
+function preloadDrawer(): void {
+  void loadDrawer();
+}
 
 type Props = Readonly<{
   readonly open: boolean;
@@ -16,18 +21,18 @@ type TriggerProps = Pick<Props, "label" | "open" | "onToggle"> & Readonly<{ trig
 
 function SettingsTrigger({ label, open, onToggle, triggerRef }: TriggerProps) {
   return (
-    <Tooltip title={label} placement="bottom" trigger="focus" variant="island">
-      <Button ref={triggerRef} className="chat-appbar__settings" htmlType="button" aria-label={label} aria-expanded={open} aria-controls="byok-settings-panel" onClick={onToggle}>{label}</Button>
-    </Tooltip>
+    <Button ref={triggerRef} className="chat-appbar__settings" htmlType="button" aria-label={label} aria-expanded={open} aria-controls="byok-settings-panel" onPointerEnter={preloadDrawer} onFocus={preloadDrawer} onClick={onToggle}>{label}</Button>
   );
 }
 
 function SettingsPanel({ open, label, onClose, children }: Omit<Props, "onToggle">) {
   if (!open) return null;
   return (
-    <Drawer open={open} title={label} placement="right" width="min(92vw, 28rem)" footer={null} pushBackground={false} className="chat-settings-drawer" onClose={onClose}>
-      {children}
-    </Drawer>
+    <Suspense fallback={null}>
+      <Drawer open={open} title={label} placement="right" width="min(92vw, 28rem)" footer={null} pushBackground={false} className="chat-settings-drawer" onClose={onClose}>
+        {children}
+      </Drawer>
+    </Suspense>
   );
 }
 

@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import type { Alias } from "vite";
 
-function component(name: "Button" | "Drawer" | "Tooltip"): string {
+function component(name: "Button" | "Drawer"): string {
   return fileURLToPath(new URL(`../../node_modules/animal-island-ui-tailwind/dist/es/components/${name}/${name}.js`, import.meta.url));
 }
 
@@ -9,5 +9,4 @@ function component(name: "Button" | "Drawer" | "Tooltip"): string {
 export const animalIslandAliases: readonly Alias[] = [
   { find: "animal-island-ui-tailwind/button", replacement: component("Button") },
   { find: "animal-island-ui-tailwind/drawer", replacement: component("Drawer") },
-  { find: "animal-island-ui-tailwind/tooltip", replacement: component("Tooltip") },
 ];
