@@ -84,6 +84,7 @@ jobs:
           printf '%s' "$sha" | grep -qE '^[0-9a-f]{40}$'
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        id: checkout
         if: ${{ steps.bootstrap.outputs.has_target == 'true' }}
         with:
           ref: ${{ steps.trusted.outputs.sha }}
@@ -100,8 +101,14 @@ jobs:
           PR_NUMBER: ${{ steps.bootstrap.outputs.pr_number }}
           CI_RUN_ID: ${{ github.event.workflow_run.id }}
         run: scripts/local-gates/pr-review-gate-step.sh collect-target "$TARGET_KIND" "$REPO" "$HEAD_SHA" "$PR_NUMBER" "$CI_RUN_ID"
+      # `always()` stays: a failed evaluation must still publish its red status.
+      # But it also fires after a cancellation, where the checkout never finished
+      # and the script below does not exist on disk — so every run that a newer
+      # comment superseded ended red for want of a file, saying nothing about the
+      # review. Requiring the checkout to have completed keeps the fail-closed
+      # publication and drops only the runs that never had anything to publish.
       - name: Publish only if this run still owns the status
-        if: ${{ always() && steps.bootstrap.outputs.has_target == 'true' }}
+        if: ${{ always() && steps.bootstrap.outputs.has_target == 'true' && steps.checkout.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.event.repository.full_name }}

@@ -32,6 +32,7 @@ is_check_runs_api=0
 is_commit_pulls_api=0
 is_workflow_run_api=0
 is_workflow_run_pulls_api=0
+is_pull_api=0
 status_state=""
 status_target_url=""
 compare_path=""
@@ -64,6 +65,7 @@ classify() { # classify <prev> <token>
     "api:"*/commits/*/check-runs\?*) is_check_runs_api=1 ;;
     "api:"*/commits/*/pulls\?*) is_commit_pulls_api=1 ;;
     "api:"*/actions/runs/*/pull_requests\?*) is_workflow_run_pulls_api=1 ;;
+    "api:"*/pulls/[0-9]*) is_pull_api=1 ;;
     "api:"*/actions/runs/*) is_workflow_run_api=1 ;;
     "api:"*/compare/*) is_compare_api=1; compare_path="$2" ;;
     "-f:"query=*) read_query_flags "$2" ;;
@@ -108,6 +110,12 @@ check_runs_payload() { # check_runs_payload; echo queue CI evidence
 commit_pulls_payload() { # commit_pulls_payload; echo associated queue PRs
   if [ -n "${MOCK_QUEUE_PRS_FILE:-}" ]; then cat "$MOCK_QUEUE_PRS_FILE"; return; fi
   printf '%s\n' '[{"number":710,"head":{"sha":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"base":{"ref":"main"},"state":"open"}]'
+}
+
+# The PR-title gate reads this; a mock that cannot answer it would make every
+# `collect-target` case pass or fail for the wrong reason.
+pull_payload() { # pull_payload; echo the PR fields the title gate reads
+  printf '{"title":"%s"}\n' "${MOCK_PR_TITLE:-fix(repo): keep the review gate legible}"
 }
 
 workflow_run_payload() { # workflow_run_payload; echo trusted run metadata
@@ -212,6 +220,7 @@ route_payload() { # route_payload <argv...>; echo the payload for the classified
   elif [ "$is_check_runs_api" = "1" ]; then check_runs_payload
   elif [ "$is_workflow_run_pulls_api" = "1" ]; then workflow_run_pulls_payload
   elif [ "$is_workflow_run_api" = "1" ]; then workflow_run_payload
+  elif [ "$is_pull_api" = "1" ]; then pull_payload
   elif [ "$is_commit_pulls_api" = "1" ]; then commit_pulls_payload
   elif [ "$is_compare_api" = "1" ]; then compare_payload
   elif [ "$is_threads_query" = "1" ]; then threads_payload
