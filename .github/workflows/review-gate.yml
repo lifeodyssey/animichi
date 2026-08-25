@@ -89,16 +89,6 @@ jobs:
           ref: ${{ steps.trusted.outputs.sha }}
           fetch-depth: 1
           persist-credentials: false
-      - name: Validate squash title
-        if: ${{ steps.bootstrap.outputs.has_target == 'true' && steps.bootstrap.outputs.target_kind == 'pr' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.event.repository.full_name }}
-          PR_NUMBER: ${{ steps.bootstrap.outputs.pr_number }}
-        run: |
-          set -euo pipefail
-          title="$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .title)"
-          python3 scripts/local-gates/commit-message.py --subject "$title"
       - name: Evaluate head-bound review evidence
         if: ${{ steps.bootstrap.outputs.has_target == 'true' }}
         id: gate

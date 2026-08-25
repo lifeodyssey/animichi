@@ -47,6 +47,9 @@ def assert_live_queue_association(path = GATE_STEP)
   required = ["actions/runs/$run_id\" --jq", "/pull_requests?per_page=100", ".repository.full_name,.event,.head_sha,.path,.conclusion",
               ".github/workflows/pr-verification.yml", 'validate_ci_check "$1" "$2" "$3" "PR Verification"',
               'validate_ci_check "$1" "$2" "$3" "Security"',
+              'TITLE_GATE="$ROOT/scripts/local-gates/commit-message.py"',
+              'python3 "$TITLE_GATE" --subject "$title"',
+              'validate_squash_title "$1" "$pr"', 'validate_squash_title "$1" "$3"',
               "n not in seen", 'base.get("ref")=="main"']
   missing = required.reject { |token| source.include?(token) }
   abort "#{path} must validate live workflow-run metadata and direct PR associations: #{missing.join(', ')}" unless missing.empty?
