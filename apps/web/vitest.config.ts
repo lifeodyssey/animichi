@@ -1,7 +1,10 @@
 import { defineConfig } from "vitest/config";
+import { animalIslandAliases } from "./animal-island-vite";
 
 export default defineConfig({
+  resolve: { alias: animalIslandAliases, dedupe: ["react", "react-dom"] },
   test: {
+    server: { deps: { inline: [/animal-island-ui-tailwind/u] } },
     css: true,
     include: ["tests/unit/**/*.test.ts", "tests/unit/**/*.test.tsx"],
     globalSetup: ["tests/setup/generate-route-tree.ts"],

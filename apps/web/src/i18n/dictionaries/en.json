@@ -13,8 +13,17 @@
   },
   "settings": {
     "title": "Settings",
+    "description": "Manage display, language, and your API key in one place.",
+    "backToChat": "Back to chat",
+    "sectionsLabel": "Settings sections",
+    "preferencesTitle": "Display and language",
+    "preferencesDescription": "Choose how Animichi looks and reads in this browser.",
+    "apiKeyTitle": "API key",
+    "apiKeyDescription": "Connect your own provider. Your key stays in this browser.",
     "nightMode": "Night mode",
-    "language": "Language"
+    "nightModeDescription": "Use a palette designed for low-light viewing.",
+    "language": "Language",
+    "languageDescription": "Choose the language used across the interface."
   },
   "home": {
     "search_placeholder": "Enter an anime, station, or city",

@@ -3,7 +3,7 @@ import { useCallback } from "react";
 import { AuthCallback } from "../../components/auth/AuthCallback";
 import { returnTargetNamesSession } from "../../features/chat/ChatReturnTarget";
 import { LocaleProvider } from "../../i18n/LocaleProvider";
-import { carriesPanelIntent, sanitizeReturnTarget } from "../../lib/auth/return-target";
+import { carriesSetupIntent, sanitizeReturnTarget } from "../../lib/auth/return-target";
 
 /**
  * `next` rides the magic-link callback URL because the link may open in a
@@ -46,7 +46,7 @@ function useGoToTarget(next: string | undefined): () => void {
 
 function AuthCallbackRoute() {
   const { next } = Route.useSearch();
-  const props = { hasReturnIntent: carriesPanelIntent(next), expectsAdoption: returnTargetNamesSession(next) };
+  const props = { hasReturnIntent: carriesSetupIntent(next), expectsAdoption: returnTargetNamesSession(next) };
   return (
     <LocaleProvider>
       <AuthCallback onDone={useGoToTarget(next)} {...props} />

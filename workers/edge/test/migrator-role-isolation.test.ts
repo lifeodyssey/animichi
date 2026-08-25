@@ -23,7 +23,7 @@ function escapeRegExp(literal: string): string {
   return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// The migrator DSN secret name as declared in the neon-secrets IaC and the
+// The migrator DSN secret name as declared in the database-access IaC and the
 // token the runtime surfaces must never reference. Centralized so both sides
 // of the contract stay in lockstep.
 const MIGRATOR_SECRET = "MIGRATOR_DATABASE_URL";
@@ -38,7 +38,7 @@ void test("MIGRATOR_DATABASE_URL is NOT in the container required-keys list", ()
 });
 
 void test("no runtime worker wrangler.toml binds the migrator DSN", () => {
-  const workers = ["catalog", "users", "edge", "jobs", "doorbell"];
+  const workers = ["catalog", "users", "edge", "jobs"];
   for (const worker of workers) {
     const toml = read(`workers/${worker}/wrangler.toml`);
     assert.doesNotMatch(toml, migratorSecretRegex, `${worker} wrangler.toml must not reference MIGRATOR_DATABASE_URL`);
@@ -48,26 +48,18 @@ void test("no runtime worker wrangler.toml binds the migrator DSN", () => {
 });
 
 void test("no deploy workflow ferries the migrator DSN as a worker secret", () => {
-  for (const workflow of [".github/workflows/ci.yml", ".github/workflows/deploy.yml", ".github/workflows/reusable-deploy-component.yml"]) {
+  for (const workflow of [".github/workflows/cd.yml", ".github/actions/promote-release-phase/action.yml"]) {
     assert.doesNotMatch(read(workflow), migratorSecretRegex, `${workflow} must not upload MIGRATOR_DATABASE_URL as a worker secret`);
   }
 });
 
-void test("the neon-secrets IaC DOES provision the migrator role + MIGRATOR_DATABASE_URL store secret", () => {
+void test("database-access IaC DOES provision the migrator role + MIGRATOR_DATABASE_URL store secret", () => {
   // The isolation assertions above are only meaningful while the migrator is
   // actually provisioned through the same IaC path as the runtime roles —
   // otherwise deleting the role would silently "pass" the negative checks.
-  const neonSecrets = read("infra/neon-secrets/index.ts");
-  assert.match(neonSecrets, /name: "migrator"/, "neon-secrets index.ts must declare the migrator role");
-  assert.match(neonSecrets, migratorSecretRegex, "neon-secrets index.ts must declare the MIGRATOR_DATABASE_URL store secret");
-});
-
-void test("doorbell wrangler.toml bindings are Builds-token-shaped only", () => {
-  const toml = read("workers/doorbell/wrangler.toml");
-  assert.doesNotMatch(toml, migratorSecretRegex);
-  assert.doesNotMatch(toml, /DATABASE_URL/);
-  assert.doesNotMatch(toml, /CLOUDFLARE_API_TOKEN/);
-  assert.match(toml, /BUILDS_API_TOKEN/);
+  const databaseAccess = read("infra/database-access/index.ts");
+  assert.match(databaseAccess, /name: "migrator"/, "database-access index.ts must declare the migrator role");
+  assert.match(databaseAccess, migratorSecretRegex, "database-access index.ts must declare the MIGRATOR_DATABASE_URL store secret");
 });
 
 void test("migrator wrangler.toml has no Builds token binding", () => {

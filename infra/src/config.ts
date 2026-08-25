@@ -49,16 +49,3 @@ export const webRoutesEnabled = config.getBoolean("webRoutesEnabled") ?? false;
 //   pulumi config set webDomain <domain>
 //   pulumi config set stagingDomain staging.animichi.com
 //   pulumi config set wwwDomain www.animichi.com
-
-// TODO(refactor-skeleton): ESC secrets wiring — see #674
-
-// ── Catalog: Neon DATABASE_URL (managed secret — stored in Pulumi config) ────
-// Optional and operator-set per stack via:
-//   neonctl connection-string main --project-id $NEON_PROJECT_ID
-//   pulumi config set --secret catalogDatabaseUrl <connstr> --stack prod
-// No Hyperdrive needed: catalog uses @neondatabase/serverless (neon-http,
-// HTTP transport, no raw socket). The CI deploy-catalog job passes this value
-// to `wrangler secret put DATABASE_URL` (see .github/workflows/ci.yml).
-// @pulumi/cloudflare v6 does not expose a WorkersSecret resource; the secret
-// is passed through CI environment using the Pulumi output below.
-export const catalogDatabaseUrl = config.getSecret("catalogDatabaseUrl");

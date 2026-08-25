@@ -42,6 +42,14 @@ function bundleWorkerToTempDir(target: string): string {
   return outdir;
 }
 
+function promotePrebuiltWorkerToTempDir(): string {
+  const outdir = mkdtempSync(join(tmpdir(), "animichi-web-promote-"));
+  const entry = fileURLToPath(serverEntry);
+  const args = ["exec", "wrangler", "deploy", entry, "--no-bundle", "--dry-run", "--outdir", outdir, "--env", "staging"];
+  execFileSync("pnpm", args, { cwd: packageRoot, stdio: "pipe", timeout: 120_000 });
+  return outdir;
+}
+
 function readBundledWorker(outdir: string): string {
   const entry = join(outdir, "index.js");
   if (!existsSync(entry)) throw new Error(`no bundled worker emitted in ${outdir}`);
@@ -64,6 +72,12 @@ describe("build output", () => {
 
   it("covers every wrangler env that ships", () => {
     expect(buildTargets()).toEqual([DEFAULT_TARGET, "staging", "production"]);
+  });
+
+  it("promotes every Nitro module from the prebuilt Worker", () => {
+    const outdir = promotePrebuiltWorkerToTempDir();
+
+    expect(existsSync(join(outdir, "chunks/nitro/nitro.mjs"))).toBe(true);
   });
 
   // Regression: esbuild `keepNames` wraps functions in `__name(...)`, and seroval serialises its

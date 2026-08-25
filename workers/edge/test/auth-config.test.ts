@@ -83,8 +83,8 @@ void test("named Wrangler environments pass the real config parser", () => {
   }
 });
 
-function workflowFile(name: string): string {
-  return readFileSync(`${ROOT}.github/workflows/${name}`, "utf8");
+function deploymentFile(path: string): string {
+  return readFileSync(`${ROOT}${path}`, "utf8");
 }
 
 void test("CORS_ALLOWED_ORIGIN is a wrangler var for staging and production (issue #1047)", () => {
@@ -95,17 +95,27 @@ void test("CORS_ALLOWED_ORIGIN is a wrangler var for staging and production (iss
 });
 
 void test("deploy workflows carry neither value as a GitHub secret (issue #1047)", () => {
-  for (const name of ["ci.yml", "deploy.yml", "reusable-deploy-component.yml", "staging-cutover.yml"]) {
-    const text = workflowFile(name);
-    assert.equal(text.includes("secrets.NEON_AUTH_JWKS_URL"), false, `${name} must not reference secrets.NEON_AUTH_JWKS_URL`);
-    assert.equal(text.includes("secrets.CORS_ALLOWED_ORIGIN"), false, `${name} must not reference secrets.CORS_ALLOWED_ORIGIN`);
+  const paths = [
+    ".github/workflows/cd.yml",
+    ".github/actions/build-release-unit/action.yml",
+    ".github/actions/promote-release-phase/action.yml",
+  ];
+  for (const path of paths) {
+    const text = deploymentFile(path);
+    assert.equal(text.includes("secrets.NEON_AUTH_JWKS_URL"), false, `${path} must not reference secrets.NEON_AUTH_JWKS_URL`);
+    assert.equal(text.includes("secrets.CORS_ALLOWED_ORIGIN"), false, `${path} must not reference secrets.CORS_ALLOWED_ORIGIN`);
   }
 });
 
 void test("NEON_AUTH_ENABLED and NEON_AUTH_ISSUER remain absent from deploy workflows", () => {
-  for (const name of ["ci.yml", "deploy.yml", "reusable-deploy-component.yml"]) {
-    const text = workflowFile(name);
-    assert.equal(text.includes("NEON_AUTH_ENABLED"), false, `${name} must not turn the disabled public var into a secret`);
-    assert.equal(text.includes("NEON_AUTH_ISSUER"), false, `${name} must not turn the public issuer into a secret`);
+  const paths = [
+    ".github/workflows/cd.yml",
+    ".github/actions/build-release-unit/action.yml",
+    ".github/actions/promote-release-phase/action.yml",
+  ];
+  for (const path of paths) {
+    const text = deploymentFile(path);
+    assert.equal(text.includes("NEON_AUTH_ENABLED"), false, `${path} must not turn the disabled public var into a secret`);
+    assert.equal(text.includes("NEON_AUTH_ISSUER"), false, `${path} must not turn the public issuer into a secret`);
   }
 });

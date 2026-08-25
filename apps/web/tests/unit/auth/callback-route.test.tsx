@@ -9,13 +9,11 @@ import { setLanguages } from "../_i18n";
 import { dictFor } from "../../../src/i18n/dictionaries";
 
 /**
- * Owner 2026-08-23: `/` is a doorway at every viewport — it `replace`s into
- * `/chat` on its first client effect. A callback that returns "home" therefore
- * SETTLES on `/chat`; `/` is where it lands, not where it stops. The T14
- * open-redirect guard stays sharp all the same: the honoured deep link arrives
- * with its search intact, while a rejected vector arrives with none.
+ * The desktop test viewport remains on `/`; only mobile hands off to chat.
+ * The T14 open-redirect guard stays sharp: an honoured deep link arrives with
+ * its search intact, while a rejected vector falls back to home with none.
  */
-const SETTLED_HOME = "/chat";
+const SETTLED_HOME = "/";
 
 const { establishAuthSession } = vi.hoisted(() => ({ establishAuthSession: vi.fn() }));
 vi.mock("../../../src/lib/auth/auth-session", () => ({
@@ -46,12 +44,12 @@ describe("/auth/callback route", () => {
   it("returns to a validated relative next target once the session is established (#284 T8)", async () => {
     establishAuthSession.mockResolvedValue("jwt-callback");
     const router = getRouter();
-    await router.navigate({ to: "/auth/callback", search: { next: "/chat?settings=byok" } });
+    await router.navigate({ to: "/auth/callback", search: { next: "/settings#api-key" } });
     render(<RouterProvider router={router} />);
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/chat");
+      expect(router.state.location.pathname).toBe("/settings");
     });
-    expect(router.state.location.search).toEqual(expect.objectContaining({ settings: "byok" }));
+    expect(router.state.location.hash).toBe("api-key");
   });
 
   it.each(["https://evil.test/", "//evil.test", "/\\evil.test"])(
@@ -102,12 +100,12 @@ describe("/auth/callback route — Neon session verifier", () => {
 
 describe("/auth/callback route — dual intent (#480 P1-2)", () => {
   /**
-   * The #514 round-2 gap: `carriesPanelIntent` was pinned as a FUNCTION, but
+   * The #514 round-2 gap: the setup-intent predicate was pinned as a FUNCTION, but
    * nothing drove it through the route. Widening `callback.tsx` back to the
    * inline `sanitizeReturnTarget(next) !== "/"` left all 1508 unit tests green
    * — the save wall's own return target would have silently retired the retry
    * surface at the wiring layer, which is the exact shape of #507 itself. This
-   * pair closes it: a session return HOLDS, a panel return NAVIGATES.
+   * pair closes it: a session return HOLDS, a setup return NAVIGATES.
    */
   it("holds the save-retry surface for a plain session return (#507 review P1-1)", async () => {
     setLanguages(["ja"]);
@@ -125,11 +123,12 @@ describe("/auth/callback route — dual intent (#480 P1-2)", () => {
     establishAuthSession.mockResolvedValue("jwt-callback");
     replayDeferredSave.mockResolvedValue("failed");
     const router = getRouter();
-    await router.navigate({ to: "/auth/callback", search: { next: "/chat?settings=byok" } });
+    await router.navigate({ to: "/auth/callback", search: { next: "/settings#api-key" } });
     render(<RouterProvider router={router} />);
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe("/chat");
+      expect(router.state.location.pathname).toBe("/settings");
     });
+    expect(router.state.location.hash).toBe("api-key");
   });
 });
 

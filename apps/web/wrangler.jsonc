@@ -2,6 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "animichi-web",
   "main": ".output/server/index.mjs",
+  // Main CD promotes Nitro's prebuilt output with `--no-bundle`; Wrangler only
+  // uploads JavaScript chunks that match an explicit module rule in that mode.
+  "rules": [{ "type": "ESModule", "globs": ["**/*.js", "**/*.mjs"] }],
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
   // Wrangler's esbuild pass defaults to keepNames, which rewrites functions as `__name(fn, "…")`.
@@ -37,7 +40,7 @@
   // `animichi-web`, which is the SAME Worker as `env.production.name`. A `wrangler
   // deploy` with no `--env` therefore publishes to production — and with no top-level
   // APP_ENV the plugin's fail-safe would fire and silently serve `noindex` on the live
-  // site. CI always passes `--env` (ci.yml) and the block-local-deploy hook stops manual
+  // site. CD always passes `--env` and the block-local-deploy hook stops manual
   // deploys, so this is fenced rather than reachable; but the fence is the only thing
   // standing between a redundant deploy and a deindexed production site, so the config
   // states the truth instead of leaning on it.
@@ -50,11 +53,8 @@
       // would bypass the staging WAF gate (workers.dev is not on the zone).
       // `preview_urls` is off for the same reason: per-version preview URLs
       // bypass the WAF the same way.
-      // #1075 Workers Builds (staging): build command is `bash scripts/builds-staging.sh`
-      // (env-neutral vite build + inject-web-runtime-config). Deploy command is
-      // `npx wrangler deploy --config wrangler.jsonc --env staging`. The explicit
-      // config bypasses Nitro's redirected config, which cannot contain env blocks.
-      // GitHub does not run Wrangler for staging web.
+      // Main-only CD injects environment runtime config into the sealed web
+      // artifact and promotes it with this explicit environment block.
       "workers_dev": false,
       "preview_urls": false,
       // Public staging RUNTIME_CONFIG is committed: Cloudflare Builds does not

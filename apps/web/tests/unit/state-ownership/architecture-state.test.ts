@@ -33,7 +33,7 @@ function fixtureSource(name: string): string {
 }
 
 describe("AC3: URL-owned chat state has no second durable authority", () => {
-  it("the chat search facts (?q=, ?session=, ?settings=byok, ?route=) exist only in the URL parser", () => {
+  it("the chat search facts (?q=, ?session=, ?route=) exist only in the URL parser", () => {
     const storageUsers = walkSourceFiles(SRC).filter((file) => {
       const source = withoutComments(readFileSync(`${SRC}/${file}`, "utf8"));
       return source.includes("sessionStorage") || source.includes("localStorage");
@@ -57,11 +57,12 @@ describe("AC4: query results are never copied into local state", () => {
     expect(source).not.toMatch(/useState/);
   });
 
-  it("the BYOK panel derives open from the URL and writes it back (use-byok-panel)", () => {
-    const source = readFileSync(`${SRC}/features/chat/use-byok-panel.ts`, "utf8");
-    expect(source).toMatch(/open\s*=\s*search\.settings\s*===\s*"byok"/);
-    expect(source).toMatch(/router\.navigate/);
-    expect(source).not.toMatch(/useState|useReducer/);
+  it("the dedicated settings route needs no open/closed ownership channel", () => {
+    const search = readFileSync(`${SRC}/features/chat/search.ts`, "utf8");
+    const route = readFileSync(`${SRC}/routes/settings.tsx`, "utf8");
+    expect(search).not.toContain("settings?");
+    expect(route).toContain('createFileRoute("/settings")');
+    expect(route).not.toMatch(/useState|useReducer/);
   });
 });
 

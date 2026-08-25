@@ -2,23 +2,15 @@ import { LanguageSelect } from "./LanguageSelect";
 import { ThemeSwitch } from "./ThemeSwitch";
 
 /**
- * The app-level preferences the ⚙ panel hosts: day/night and language.
+ * App-level preferences on the dedicated settings page: day/night and language.
  *
- * Owner 2026-08-23 — why the PANEL and not the app bar, so nobody "optimises"
- * them back up there: by Emil Kowalski's frequency test these are set-once,
- * touch-never controls, while the bar is permanent every-screen real estate
- * whose three slots (torii wordmark · ⊕ new conversation · avatar) are all
- * per-session actions. The retired three-button language switcher is the
- * proof — at 375px it squeezed the brand name off the bar entirely.
- *
- * Composed at the UI layer and handed to chat as a node, so the chat feature
- * never imports app-level preference UI and the dependency direction
- * `routes → components → features` stays one-way. The surrounding panel
- * already carries the region's accessible name, so this is a plain group.
+ * These are set-once controls, so the chat bar links to them instead of
+ * carrying them on every screen. The page owns the copy and layout while the
+ * controls keep their existing storage adapters as the single state owners.
  */
 export function AppPreferences() {
   return (
-    <div className="app-preferences">
+    <div className="app-preferences" role="group">
       <ThemeSwitch />
       <LanguageSelect />
     </div>

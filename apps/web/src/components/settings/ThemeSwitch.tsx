@@ -1,9 +1,10 @@
-import { Switch } from "../ds/Switch";
+import { Switch } from "animal-island-ui-tailwind/switch";
 import { useTheme } from "../../features/config/use-theme";
 import { useDict } from "../../i18n/LocaleProvider";
+import { SettingsControlCopy } from "./SettingsControlCopy";
 
 /**
- * Day/night, as a DS `Switch` inside the ⚙ settings panel.
+ * Day/night, using the shared Animal Island `Switch` on the settings page.
  *
  * ON = night, not day. Two reasons, in this order: the app's default — the SSR
  * render, the stored-nothing case and the bootstrap script's fallback — is day,
@@ -18,11 +19,10 @@ import { useDict } from "../../i18n/LocaleProvider";
  */
 export function ThemeSwitch() {
   const { theme, set } = useTheme();
-  return (
-    <Switch
-      label={useDict().settings.nightMode}
-      checked={theme === "night"}
-      onChange={(night) => { set(night ? "night" : "day"); }}
-    />
-  );
+  const settings = useDict().settings;
+  const change = (night: boolean) => { set(night ? "night" : "day"); };
+  return <div className="settings-control-row">
+    <SettingsControlCopy id="settings-theme" label={settings.nightMode} description={settings.nightModeDescription} />
+    <Switch checked={theme === "night"} aria-labelledby="settings-theme-label" aria-describedby="settings-theme-description" onChange={change} />
+  </div>;
 }
