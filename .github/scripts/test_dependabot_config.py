@@ -143,6 +143,16 @@ class DependabotConfigTest(unittest.TestCase):
             sorted(configured_directories(npm_blocks[0])), pnpm_lockfile_domains()
         )
 
+    def test_every_ecosystem_uses_the_canonical_dependency_prefix(self) -> None:
+        blocks = [
+            block
+            for ecosystem in ("uv", "npm", "github-actions")
+            for block in ecosystem_blocks(ecosystem)
+        ]
+        self.assertEqual(len(blocks), 3)
+        for block in blocks:
+            self.assertIn('prefix: "build(deps)"', block)
+
 
 class SetupUvConfigTest(unittest.TestCase):
     def test_every_current_setup_uv_call_explicitly_prunes_cache(self) -> None:

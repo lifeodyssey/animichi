@@ -262,6 +262,7 @@ SCRIPT_SUITE=(
   db-fresh-schema.test.sh
   infra-check.test.sh
   infra-check-unauthorized.test.sh
+  commit-message.test.sh
   pre-commit-config.test.sh
   contract-drift.test.sh
 )

@@ -18,7 +18,7 @@ updates:
       - "dependencies"
       - "python"
     commit-message:
-      prefix: "deps(py)"
+      prefix: "build(deps)"
 
   - package-ecosystem: "npm"
     directories:
@@ -39,7 +39,7 @@ updates:
       - "dependencies"
       - "javascript"
     commit-message:
-      prefix: "deps(js)"
+      prefix: "build(deps)"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -57,4 +57,4 @@ updates:
       - "dependencies"
       - "ci"
     commit-message:
-      prefix: "deps(ci)"
+      prefix: "build(deps)"

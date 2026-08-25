@@ -6,6 +6,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 GATE="$ROOT/scripts/local-gates/pr-review-check.sh"
+TITLE_GATE="$ROOT/scripts/local-gates/commit-message.py"
 
 # Resolve the PR number for the event; returns 1 when there is no PR to gate
 # (plain issue comments, push, merge_group) so the caller skips cleanly.
@@ -225,6 +226,12 @@ combine_state() { # combine_state <aggregate> <next>
   printf success
 }
 
+validate_squash_title() { # validate_squash_title <repo> <pr>
+  local title
+  title="$(gh api "repos/$1/pulls/$2" --jq .title)" || block "cannot read the squash title for PR #$2"
+  python3 "$TITLE_GATE" --subject "$title" || block "invalid squash title for PR #$2"
+}
+
 collect_queue() { # collect_queue <repo> <run-id>
   local rows
   rows="$(queue_pr_rows "$1" "$2")" || block "cannot resolve merge-group PRs"
@@ -236,6 +243,7 @@ collect_queue_rows() { # collect_queue_rows <repo> <rows>
   local aggregate=success pr head base next
   while IFS=$'\t' read -r pr head base; do
     validate_queue_row "$pr" "$head" "$base"
+    validate_squash_title "$1" "$pr"
     next="$(run_collect_state "$pr" "$1" "$head")" || next=failure
     aggregate="$(combine_state "$aggregate" "$next")"
   done <<< "$2"
@@ -243,6 +251,7 @@ collect_queue_rows() { # collect_queue_rows <repo> <rows>
 }
 
 collect_pr() { # collect_pr <repo> <head> <pr>
+  validate_squash_title "$1" "$3"
   gate_head "$3" "$1" "$2"
   run_collect_state "$3" "$1" "$2"
 }
