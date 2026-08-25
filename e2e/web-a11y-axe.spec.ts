@@ -21,6 +21,12 @@ test.use({
 });
 
 async function expectNoSeriousOrCritical(page: Page, label: string, scope?: string): Promise<void> {
+  // Conformance is a property of the settled page. While the splash is dismissing it
+  // composites over everything beneath it, and axe reads the blend: `.route-map__stage`
+  // measured 4.37:1 in CI against the 4.645:1 its tokens actually specify. Individual
+  // cases already waited for this; doing it here means none can forget. `toBeHidden`
+  // also passes when the splash never mounted, so gate-only scans are unaffected.
+  await expect(page.locator(".app-splash")).toBeHidden();
   const builder = new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]);
   if (scope !== undefined) builder.include(scope);
