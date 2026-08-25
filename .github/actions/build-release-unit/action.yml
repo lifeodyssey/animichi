@@ -87,8 +87,12 @@ runs:
             ;;
           infra)
             git archive "$SOURCE_SHA" infra | tar -x -C "$out"
+            built_sdk="infra/database-access/node_modules/@pulumi/neon"
+            sealed_sdk="$out/infra/database-access/sdks/neon"
+            [ -f "$built_sdk/bin/index.js" ] || { echo "::error::built Neon provider SDK entrypoint is missing"; exit 1; }
             mkdir -p "$out/infra/database-access/sdks"
-            cp -R infra/database-access/sdks/neon "$out/infra/database-access/sdks/neon"
+            cp -RL "$built_sdk" "$sealed_sdk"
+            [ -f "$sealed_sdk/bin/index.js" ] || { echo "::error::sealed Neon provider SDK entrypoint is missing"; exit 1; }
             cp package.json pnpm-lock.yaml pnpm-workspace.yaml .pulumi.version "$out/"
             printf '%s\n' 'rollback-before-pulumi-up' > "$out/rollback-contract"
             ;;
