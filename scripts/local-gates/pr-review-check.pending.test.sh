@@ -64,6 +64,23 @@ else
   fail=$((fail + 1)); printf 'FAIL %-52s rc=%s output=%s\n' "stale approval is failure" "$stale_rc" "$stale"
 fi
 
+# A PR that never went through the review handoff carries no `review-gate brief:`
+# record. Absent evidence is judged like any other absent evidence — the gate
+# waits — while a marker that cannot bind to it stays a refusal.
+absent="$("$CHECK" check "$FIX/pr-brief-absent")" && absent_rc=0 || absent_rc=$?
+if [ "$absent_rc" -eq 1 ] && [ "$(state_of "$absent")" = "pending" ]; then
+  printf 'PASS %-52s\n' "no brief record without a marker is pending"
+else
+  fail=$((fail + 1)); printf 'FAIL %-52s rc=%s output=%s\n' "no brief record without a marker is pending" "$absent_rc" "$absent"
+fi
+
+unbound="$("$CHECK" check "$FIX/pr-marker-unbound")" && unbound_rc=0 || unbound_rc=$?
+if [ "$unbound_rc" -eq 1 ] && [ "$(state_of "$unbound")" = "failure" ]; then
+  printf 'PASS %-52s\n' "marker with no brief record to bind is failure"
+else
+  fail=$((fail + 1)); printf 'FAIL %-52s rc=%s output=%s\n' "marker with no brief record to bind is failure" "$unbound_rc" "$unbound"
+fi
+
 echo
 echo "=== workflow status preserves pending and redresses later failures ==="
 MOCK_BIN="$TMP/bin"
@@ -81,6 +98,19 @@ else
   detail="missing output: $OUTPUT"
   if [ -f "$OUTPUT" ]; then detail="$(cat "$OUTPUT")"; fi
   fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "collect-check records pending for the final status" "$detail"
+fi
+# The workflow's own entry point, not just `collect-check`. It has to leave a
+# state behind on every path: when evaluation aborted without one, the workflow's
+# `final_state` fell back to failure with no reason attached and published a bare
+# red that said nothing about why.
+TARGET_OUTPUT="$TMP/github-output-target"
+run "collect-target completes on a PR awaiting review" 0 "${MOCK_ENV[@]}" GITHUB_OUTPUT="$TARGET_OUTPUT" "$STEP" collect-target pr lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 710 ""
+if grep -qx 'gate_state=pending' "$TARGET_OUTPUT"; then
+  printf 'PASS %-52s\n' "collect-target records pending, never nothing"
+else
+  detail="missing output: $TARGET_OUTPUT"
+  if [ -f "$TARGET_OUTPUT" ]; then detail="$(cat "$TARGET_OUTPUT")"; fi
+  fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "collect-target records pending, never nothing" "$detail"
 fi
 run "pending generation is claimed" 0 "${MOCK_ENV[@]}" "$STEP" claim-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 50 1
 run "a green pending job posts pending" 0 "${MOCK_ENV[@]}" "$STEP" finish-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 50 1 success pending

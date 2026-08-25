@@ -93,7 +93,11 @@ pr_no_verdict "malformed marker blocks" 1 pr-marker-malformed
 echo
 echo "=== AC7: the marker's brief must match the canonical brief-digest record ==="
 pr_no_verdict "wrong-but-well-formed marker brief blocks" 1 pr-marker-brief-mismatch
-pr_no_verdict "missing canonical brief record fails closed" 2 pr-marker-unbound
+# An absent record is absent evidence, judged like any other; only a record that
+# exists and is unreadable is an input the gate cannot trust at all.
+pr_no_verdict "marker with no brief record to bind to blocks" 1 pr-marker-unbound
+pr_no_verdict "no brief record and no marker blocks" 1 pr-brief-absent
+pr_no_verdict "malformed brief record fails closed" 2 pr-brief-malformed
 
 echo
 echo "=== head SHA must be pinned and well-formed (fail closed) ==="
