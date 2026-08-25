@@ -23,7 +23,7 @@ echo "=== 1/3 Installing E2E dependencies ==="
 pnpm install --ignore-scripts --filter animichi-e2e 2>/dev/null || pnpm install --ignore-scripts
 # --ignore-scripts skips ALL lifecycle scripts, including the one that would
 # otherwise fetch Playwright's browser binaries — download it explicitly
-# instead (same command pipeline-web.yml uses in CI) so we still never run an
+# instead (the same explicit install used by the affected web CI lane) so we never run an
 # arbitrary postinstall script. --no-install forces npx to use the
 # lockfile-pinned node_modules/.bin/playwright rather than fetching and
 # running a package on demand.

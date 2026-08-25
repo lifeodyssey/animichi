@@ -8,8 +8,8 @@
  *     future-major deprecation/sunset rule is enforced even for additive /
  *     approved runs.
  *
- *  2. `pipeline-contract.yml` actually invokes that CLI in the `Contract /
- *     build` stage against a merge-base baseline, and the normal gate never
+ *  2. The affected contract gate invokes that CLI against an explicit
+ *     merge-base baseline, and the normal gate never
  *     passes `--allow-breaking` (approved breaking changes are explicit).
  */
 
@@ -25,7 +25,7 @@ import usersOpenApi from "../users-openapi.json";
 const PACKAGE_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const VET_SCRIPT = join(PACKAGE_ROOT, "scripts", "vet-openapi.ts");
-const WORKFLOW_PATH = join(REPO_ROOT, ".github", "workflows", "pipeline-contract.yml");
+const WORKFLOW_PATH = join(REPO_ROOT, ".github", "scripts", "pr-verification-gate.sh");
 const N_MINUS_ONE_FIXTURE = join(PACKAGE_ROOT, "test", "fixtures", "users-contract-n-1.json");
 const CURRENT_USERS_DOC = join(PACKAGE_ROOT, "users-openapi.json");
 
@@ -150,18 +150,19 @@ describe("phantom hard-cut classification (baseline bootstrap, #1005 AC3)", () =
   });
 });
 
-describe("pipeline-contract.yml compat gate wiring", () => {
+describe("single CI contract compat gate wiring", () => {
   const workflow: string = readFileSync(WORKFLOW_PATH, "utf8") as string;
   const vetInvocationLines = workflow.split("\n").filter((line) => line.includes("vet-openapi.ts"));
 
-  it("invokes the vet CLI in the Contract build stage", () => {
+  it("invokes the vet CLI in the affected contract gate", () => {
     expect(vetInvocationLines.length).toBeGreaterThan(0);
   });
 
   it("resolves a deterministic merge-base baseline against the PR's base branch", () => {
-    expect(workflow).toContain("git merge-base HEAD");
-    expect(workflow).toContain("github.event.pull_request.base.sha");
-    expect(workflow).toContain("github.event.merge_group.base_sha");
+    expect(workflow).toContain('git merge-base "$source_head" "$base"');
+    expect(workflow).toContain("PR_VERIFICATION_BASE_SHA");
+    expect(workflow).toContain("PR_VERIFICATION_SOURCE_HEAD_SHA");
+    expect(workflow).toContain("PR_VERIFICATION_CHECKOUT_SHA");
   });
 
   it("gates every published OpenAPI document", () => {
@@ -169,7 +170,7 @@ describe("pipeline-contract.yml compat gate wiring", () => {
     for (const doc of ["openapi.json", "users-openapi.json", "agent-openapi.json"]) {
       expect(workflow).toContain(doc);
     }
-    expect(invocation).toContain('"$doc"');
+    expect(invocation).toContain('"packages/contract/$doc"');
   });
 
   it("never passes the approval flag in the normal gate", () => {
@@ -180,20 +181,15 @@ describe("pipeline-contract.yml compat gate wiring", () => {
 
   it("bootstrap lands against the committed post-cut baseline, not the phantom-laden merge-base", () => {
     expect(workflow).toContain('"/v1/users/(checkins|shares)');
-    expect(workflow).toContain('git show "HEAD:packages/contract/$doc" > "$RUNNER_TEMP/baseline-$doc"');
+    expect(workflow).toContain('git show "$source_head:packages/contract/$doc" > "$baseline"');
   });
 
   it("swaps the baseline only when the candidate is already post-cut (never self-compares)", () => {
-    expect(workflow).toContain('! grep -Eq \'"/v1/users/(checkins|shares)\' "$doc"');
+    expect(workflow).toContain('! grep -Eq \'"/v1/users/(checkins|shares)\' "packages/contract/$doc"');
   });
 
   it("fails closed when neither base SHA context is present (no HEAD fallback)", () => {
     expect(workflow).not.toContain("'HEAD'");
-    expect(workflow).toContain("no baseline SHA");
-  });
-
-  it("maps the push-event before-SHA as the last baseline fallback", () => {
-    expect(workflow).toContain("PUSH_BEFORE_SHA: ${{ github.event.before }}");
-    expect(workflow).toContain('"$PUSH_BEFORE_SHA"');
+    expect(workflow).toContain('require_commit_sha base "$base"');
   });
 });

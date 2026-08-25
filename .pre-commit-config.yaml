@@ -1,4 +1,4 @@
-# Local gates — two stages, routed by changed package (contract:
+# Local gates — three stages, routed by changed package where applicable (contract:
 # docs/ops/local-gates.md):
 #
 #   pre-commit (fast, <10s): universal checks (format, yaml/toml syntax,
@@ -7,6 +7,9 @@
 #     scripts/local-gates/changed-packages.sh --staged, which maps the staged
 #     tracked diff (add/modify/rename/delete) plus intentional untracked
 #     inputs onto the package set.
+#
+#   commit-msg: validate the concise typed subject and reject AI attribution
+#     trailers locally. The same validator accepts --subject for PR titles.
 #
 #   pre-push (medium): ONE orchestrator, scripts/local-gates/pre-push.sh,
 #     invoked as a single hook. It re-reads the router in merge-base-to-head
@@ -17,9 +20,11 @@
 #     weaker is duplicated here). Checks needing browser e2e / live Neon /
 #     cloud deploys stay in CI.
 #
-# Install: pre-commit install && pre-commit install --hook-type pre-push
+# Install: pre-commit install && pre-commit install --hook-type commit-msg &&
+#   pre-commit install --hook-type pre-push
 # Policy: fix a failing gate or document an environmental exemption — no
 # silent --no-verify (CI still enforces).
+default_stages: [pre-commit]
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -107,6 +112,13 @@ repos:
         language: system
         files: \.(py|ts)$
         pass_filenames: false
+
+      - id: commit-message
+        name: commit message hygiene
+        entry: python3 scripts/local-gates/commit-message.py
+        language: system
+        stages: [commit-msg]
+        always_run: true
 
       # --- pre-push stage: the single orchestration surface (#1003). ---
       # scripts/local-gates/pre-push.sh is the sole pre-push entrypoint. It

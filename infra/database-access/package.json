@@ -1,5 +1,5 @@
 {
-  "name": "neon-secrets",
+  "name": "database-access",
   "private": true,
   "main": "index.ts",
   "scripts": {

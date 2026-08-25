@@ -92,7 +92,7 @@ workers_dev = true
 preview_urls = false
 
 # #1050: the staging migrator DSN comes from the Cloudflare Secrets Store
-# (secret MIGRATOR_DATABASE_URL, provisioned by infra/neon-secrets). env.
+# (secret MIGRATOR_DATABASE_URL, provisioned by infra/database-access). env.
 # MIGRATOR_DATABASE_URL is a SecretsStoreSecret; src/index.ts awaits .get().
 [[env.staging.secrets_store_secrets]]
 binding = "MIGRATOR_DATABASE_URL"

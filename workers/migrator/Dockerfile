@@ -25,8 +25,8 @@ ADD --checksum=sha256:dbaaf350634304d4bf92753559261a67afb399fe4ff0ea6ae5bb5d1ce6
 RUN chmod +x /usr/local/bin/atlas \
     && atlas version
 
-# Wrapper: append search_path=public to the DSN (the reusable-deploy
-# component's comment documents why — stray schemas like neon_auth / an
+# Wrapper: append search_path=public to the DSN (the release promotion
+# adapter documents why — stray schemas like neon_auth / an
 # orphaned atlas_schema_revisions schema must not trip Atlas's
 # "database is not clean" check) and run the pinned apply to head.
 # Build context is the monorepo root (image_build_context = "../../"), so the

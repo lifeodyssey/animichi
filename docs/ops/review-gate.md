@@ -54,25 +54,34 @@ copy this checklist. Tooling is `scripts/local-gates/` (§8).
     <64hex>`) and `check` requires the marker's `brief=` to equal it. Exactly
     **one** canonical record is allowed; a missing/malformed/duplicated record
     fails closed — the marker never binds to an unknown or ambiguous brief.
-13. **Head-bound GitHub gate.** `issue_comment` runs start on the default branch,
-    so the job's check run is associated with the wrong SHA. The workflow
-    resolves the PR `head_sha` **once** at the start of the PR-only path and
-    pins it: **pending before the expensive quality steps** (a comment/review
-    change can never leave a previous success merge-eligible), collect/check
-    rejects when the live head advances past the pin, and the final
-    success/failure is posted as the **last step** with `if: always()` derived
-    from the whole-job outcome (`job.status`) — any earlier failure posts
-    failure (finding 1). Concurrency cancels the in-progress run for every PR-bearing event —
-    `pull_request` (incl. `edited`), `pull_request_review`,
-    `pull_request_review_comment`, `issue_comment` (finding 2); merge_group and
-    push never cancel. Plain issue comments, push, and merge_group have no PR
-    and never fake a result.
+13. **Trusted head-bound GitHub gate.** Any job with `statuses: write` runs only
+    from the default-branch workflow and checks out an immutable default-branch
+    SHA. Candidate PR and merge-group code is API data and is never executed.
+    PR events use `pull_request_target` plus default-branch review/comment
+    events; an inline default-branch bootstrap resolves the event target and
+    claims it with a pending classic `Review Gate` status before default-branch
+    resolution, checkout, or collection, then publishes only while its run/attempt still
+    owns that status generation. Newer runs cancel older runs and claim pending;
+    the ownership guard prevents an older final step from overwriting the newer
+    pending result. Its Actions job has a different name, preventing a same-name
+    check-run producer. Merge-group candidates never write the status directly:
+    a default-branch `workflow_run` bridge runs after `CI`, reloads the triggering
+    run by id, and validates its repository, `merge_group` event, synthetic head,
+    workflow path, and successful conclusion. It then reads that run's live
+    `actions/runs/{id}/pull_requests` associations, requires a non-empty unique
+    set targeting `main`, and checks each directly associated exact head's review
+    evidence before publishing. Event payload PR JSON and commit ancestry are not
+    accepted as queue-membership evidence.
+    Because Actions has no review-thread resolution trigger, the same atomic
+    ruleset requires native review-thread resolution. The `Review Gate` required
+    status is source-bound to GitHub Actions integration 15368.
 14. **The recorded base is the real merge-base.** `collect` queries the GitHub
     compare API and records `merge_base_commit.sha` — never the base branch tip
     — and the approval marker/verdict bind to that merge-base. An unresolvable
     compare is a hard block.
-Codecov patch coverage is **not a comment finding**: the independent required
-CI Quality lane (`pipeline-quality.yml`) enforces the patch-coverage policy,
+Codecov patch coverage is **not a comment finding**: the single CI workflow's
+static-quality lane (implemented by `.github/actions/static-quality`) enforces the patch-coverage
+policy and `PR Verification` aggregates it,
 and the comment parser / merge hook never inspect Codecov output.
 
 ## 2. Review method
@@ -231,8 +240,7 @@ Two separate enforcement boundaries:
   (`--verdict`), produced pre-PR, never committed before merge, consumed only by
   the CLI merge hook via `check --verdict`. No workflow, UI, auto-merge, or API
   path reads it.
-- **Required GitHub workflow context** (`Review Gate` after the #1180 cutover)
-  — runs collect + check on the current
+- **Required GitHub commit-status context** (`Review Gate`) — runs collect + check on the current
   PR without `--verdict`; failure blocks merges. The sole GitHub-side surface.
 
 Concretely:
@@ -245,24 +253,26 @@ Concretely:
   together; an artifact without its brief is a block. Without the canonical
   gate the hook falls back to an inline two-path check so the global guard
   keeps protecting every repo.
-- **UI / auto-merge / API**: post-cutover rulesets require `Review Gate`
-  (`pipeline-quality.yml`). The Review Gate job resolves
-  the PR `head_sha` once at the start of the PR-only path and posts the pending
-  status **before** the expensive quality steps, then runs `pr-review-check.sh
-  collect` + `check` — **without** `--verdict` — against that pinned head with
-  `pull-requests: read` + `statuses: write`, judging the current PR's active
+- **UI / auto-merge / API**: the guarded two-context target requires the
+  classic `Review Gate` status emitted only by `review-gate.yml`. The status
+  writer executes only default-branch code checked out at an immutable SHA; it
+  treats every candidate SHA and PR payload as untrusted API data. It resolves
+  the PR `head_sha` once, claims pending, then runs `pr-review-check.sh collect`
+  + `check` — **without** `--verdict` — against that pinned head, judging active
   unresolved review threads, top-level managed findings, acknowledgement, and
   the canonical-brief-bound review-approval marker. The job re-runs on every PR
-  synchronization (`pull_request`), PR body/brief edit (`pull_request`
-  `edited`), review submission/edit/dismissal (`pull_request_review`), inline
-  review-thread create/edit/delete (`pull_request_review_comment`), and PR
+  synchronization (`pull_request_target`), PR body/brief edit
+  (`pull_request_target` `edited`), review submission/edit/dismissal
+  (`pull_request_review`), inline
+  review-comment create/edit/delete (`pull_request_review_comment`), and PR
   issue-comment create/edit/delete (`issue_comment`), so a new review or comment
-  can never leave a previously green required context stale. Because
-  `issue_comment` runs start on the default branch, the job posts a commit
-  status on the exact PR `head_sha` — pending before the quality steps, then
-  success/failure as the LAST step, derived from the whole-job outcome
-  (`job.status`) with `if: always()` semantics (§1.13). A failure in ANY earlier
-  step — a quality check, collect/check, or the actionlint gate — posts failure
+  can never leave a previously green required context stale. The job posts a
+  commit status on the exact PR `head_sha` — pending before any trusted-source
+  API lookup, checkout, or collect/check, then
+  guarded success/pending/failure as the last step. It derives the final state
+  from the whole-job outcome (`job.status`) with `if: always()` semantics
+  (§1.13). A failure earlier
+  step — resolution, collect/check, or status publication — posts failure
   on the pinned head (finding 1); a failed status post fails the required job,
   and GitHub blocks UI, auto-merge, and API merges. The context blocks merges
   when its own check fails; it does **not** read the local head-bound verdict
@@ -271,8 +281,16 @@ Concretely:
   the step resolves the PR number only when the comment is on a PR
   (`issue.pull_request.url` non-empty); non-PR comments skip without posting any
   status, and the step binds the pending/final status to the exact PR `head_sha`.
-- **merge_group boundary**: a merge-group event has no PR number, so the gate
-  step skips; the context stays green on merge_group.
+- **merge-group boundary**: the candidate `merge_group` workflow never receives
+  `statuses: write`. Completion of the single `CI` workflow wakes the trusted
+  default-branch `workflow_run` bridge. It reloads that run by id, validates its
+  repository/event/head/workflow/conclusion plus the exact `PR Verification`
+  and `Security` checks from that same run,
+  then loads the run's direct PR associations. The associations must be non-empty,
+  uniquely numbered, well-formed, and target `main`; pinned collect/check runs for
+  every associated PR head at its exact recorded SHA. Missing or malformed evidence, stale PR data,
+  or any non-success review decision blocks the queue; event PR JSON and ancestry
+  inference are not accepted, and there is no unconditional success path.
 - **Fail-closed rule**: if the check cannot read its inputs it exits 2 and
   blocks. No path is exempt.
 
@@ -297,7 +315,8 @@ Concretely:
 | `scripts/local-gates/review-schema.json` | Declarative verdict schema (AC1): `ac_total`, `repair_evidence` (ac_id uniqueness enforced by the executable validator) |
 | `scripts/local-gates/review-verdict.sh` | `digest` / `validate` / `gate` shell wrapper (real merge-base of origin/main vs HEAD) |
 | `scripts/local-gates/pr-review-check.sh` | `collect` / `check` / `status` required-PR-gate shell wrapper (pinned head + real merge-base; head-bound status) |
-| `scripts/local-gates/pr-review-gate-step.sh` | One-shot workflow step: `resolve-head` (pin the PR head once), `collect-check` (reject an advanced live head, then collect + check), `final-status` (map outcome to success/failure); skips non-PR events |
+| `scripts/local-gates/pr-review-gate-step.sh` | Trusted status helper: resolves PR/queue targets, validates live workflow-run and direct PR-association evidence, collects pinned review decisions, and publishes generation-owned statuses |
+| `.github/workflows/review-gate.yml` | Sole trusted classic-status producer; PR generation refresh plus evidence-validating `workflow_run` queue bridge |
 | `.claude/hooks/check-pr-comments.sh` | Global PreToolUse merge hook; delegates to the canonical gate when present, inline two-path fallback otherwise (fallback requires a real GitHub `User` author for ACKs) |
 | `scripts/local-gates/fixtures/` | Verdict + PR fixtures used by the tests and the AC6 flow |
 | `scripts/local-gates/repair_evidence_record.py` | Orchestrator-facing AC6 recorder: emits `repair_evidence` for the local harness or a real OpenCode session (digests the actual session log; never invents a run) |

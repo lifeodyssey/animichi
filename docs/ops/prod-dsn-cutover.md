@@ -8,12 +8,11 @@
 
 - **Production is an empty data plane**: the production Neon branch (`main` compute) has
   **no tables in `public`** (confirmed during the #846 spike — `public` is empty; the only
-  object is an orphaned `atlas_schema_revisions` schema on some envs, see
-  `reusable-deploy-component.yml` "Atlas schema drift" note). Nothing reads or writes prod
+  object is an orphaned `atlas_schema_revisions` schema on some envs. Nothing reads or writes prod
   today, so the cutover has **zero traffic risk** — the first Atlas apply *creates* the schema.
 - Prod runtime DSNs today come from **GitHub environment secrets** (`NEON_DATABASE_URL` owner
   DSN + `CATALOG_DATABASE_URL` / `USERS_DATABASE_URL` / `AGENT_DATABASE_URL`), injected by
-  `reusable-deploy-component.yml` (`wrangler secret put`). This is exactly the P4 target state
+  the production phase in `cd.yml`. This is exactly the P4 target state
   that staging is being migrated away from (ADR 0003; P4 = #912).
 - **Roles are Neon-project-scoped, not branch-scoped**; GRANTs are branch/schema-scoped and
   shipped as Atlas migrations. The role matrix lives in
@@ -54,13 +53,13 @@ Staging landed this wire (#912 follow-up). Two consequences for prod:
   rename plan (`SUPABASE_DB_URL → AGENT_DATABASE_URL`) is therefore amended to
   `SUPABASE_DB_URL → AGENT_SVC_DATABASE_URL`.
 
-## neon-secrets prod stack (Pulumi)
+## Database-access prod stack (Pulumi)
 
-`infra/neon-secrets/` currently runs only the `staging` stack (`Pulumi.staging.yaml`). The
+`infra/database-access/` currently runs only the `staging` stack (`Pulumi.staging.yaml`). The
 prod stack is deliberately **not** created in the staging PR (#912 follow-up) — owner
 approval + secrets are HITL. Steps:
 
-1. **`infra/neon-secrets/Pulumi.production.yaml`** — mirror `Pulumi.staging.yaml`:
+1. **`infra/database-access/Pulumi.production.yaml`** — mirror `Pulumi.staging.yaml`:
    - `neonProjectId`: the **same** Neon project (roles are **project-scoped**, not
      branch-scoped — do not re-create roles; `pulumi up` on a second stack against the same
      project would try to create them again and Neon rejects duplicate role creates).
@@ -68,7 +67,7 @@ approval + secrets are HITL. Steps:
    - `cloudflareAccountId` / `secretsStoreId` / `neonApiKey`: see the store question below.
    - `pulumi stack init production` (passphrase provider, same R2 backend)
      followed by the **adopt** step: import the four `neon.Role`s by ID so Pulumi owns the
-     passwords without recreating them (`neon-secrets-adopt.sh` pattern; the provider key is
+     passwords without recreating them (`database-access-adopt.sh` pattern; the provider key is
      fed at import time — import does not execute the stack program).
 2. **Store strategy (HITL, decided before `pulumi up`)** — the account's plan refused a
    second Secrets Store (`maximum_stores_exceeded`, code 1003), which is why staging
@@ -83,10 +82,10 @@ approval + secrets are HITL. Steps:
      the binding `secret_name` in `[env.production]` wrangler blocks then differs from
      staging. Either way, the prod store secrets are written **once** by Pulumi; verify
      with the deploy report hash row.
-3. **Apply**: the prod lane of `reusable-deploy-neon-secrets.yml` (needs a `production`
-   environment + owner-approved `pulumi up`, the same shape as
-   `reusable-deploy-component.yml`'s prod lane) — or a manual owner `pulumi up` in the
-   window. Roles reused, DSNs composed against the **main-branch endpoint**.
+3. **Apply**: the affected `infra` payload in `cd.yml` runs the production
+   `infra/database-access` Pulumi stack after the single `production` approval. The phase restores
+   the sealed main-SHA payload, snapshots state, then runs `pulumi up`; roles are reused and
+   DSNs are composed against the **main-branch endpoint**.
 4. **Wire prod consumers** (deploy workflow changes, separate PR): add
    `AGENT_SVC_DATABASE_URL` to the edge Worker's `[env.production.secrets_store_secrets]`
    and/or CI `worker_secrets`. The jobs Worker is out of this cutover's scope: it stays on
@@ -101,7 +100,7 @@ approval + secrets are HITL. Steps:
    role names — import, do not recreate, if the stack otherwise diverges). Also verify the
    **staging agent container** is on `AGENT_SVC_DATABASE_URL` (the #912 follow-up wire) and
    the old `SUPABASE_DB_URL` staging container value is rotated out of the edge Worker.
-2. **Pulumi prod stack up** (`reusable-deploy-neon-secrets` prod lane / owner-approved
+2. **Pulumi prod stack up** (`cd.yml` production foundation phase / owner-approved
    apply): confirms prod roles (import, project-scoped), composes prod DSNs (main-branch
    endpoint), writes them to the **Secrets Store** for the prod environment (store strategy
    above). Verify with the deploy report hash row.

@@ -6,7 +6,10 @@ import {
 } from "@animichi/contract/oidc-github";
 import { createMigratorApp, type Env as MigratorEnv, type MigratorDeps } from "../src/create-app";
 import type { ContainerOutcome } from "../src/migration";
-import { TRUSTED_WORKFLOW, MIGRATOR_OIDC_AUDIENCE } from "../src/policy";
+import {
+  MIGRATOR_OIDC_AUDIENCE,
+  TRUSTED_CD_WORKFLOW,
+} from "../src/policy";
 
 // #1051 — shared HTTP-seam fixtures for the migrator worker tests: faked
 // container binding + injected JWKS (spec §Testing Decisions 1). jose resolves
@@ -23,7 +26,7 @@ export const policy: GitHubOidcPolicy = {
   repository: "lifeodyssey/animichi",
   refAllow: [{ ref: "refs/heads/main", environment: "staging" }],
   subAllow: [],
-  trustedWorkflowRefs: [TRUSTED_WORKFLOW],
+  trustedWorkflowRefs: [TRUSTED_CD_WORKFLOW],
 };
 
 export function testEnv(): MigratorEnv {
@@ -41,8 +44,7 @@ export async function issuedToken(overrides: Record<string, unknown> = {}): Prom
     repository: "lifeodyssey/animichi",
     ref: "refs/heads/main",
     environment: "staging",
-    workflow_ref: TRUSTED_WORKFLOW,
-    job_workflow_ref: TRUSTED_WORKFLOW,
+    workflow_ref: TRUSTED_CD_WORKFLOW,
     sub: "repo:lifeodyssey/animichi:environment:staging",
     ...overrides,
   })

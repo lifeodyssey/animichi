@@ -51,10 +51,31 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - **Coverage floors ratchet UP only** — `apps/agent` ≥87 (`pyproject.toml` `--cov-fail-under`); `apps/web` floors live in `apps/web/vitest.config.ts` (mirrored in `apps/web/AGENTS.md`).
 - **Test quality**: mock the clock (no timing-dependent asserts); no conditional logic in tests
   (split them); ≤200 lines per test file; ≤5 mocks per test.
-- **No local deploy** (hook `block-local-deploy`) — CI/CD only: staging = merge to `main`; prod =
-  `.github/workflows/ci.yml` production approval after staging, or manual `workflow_dispatch` in
-  `.github/workflows/deploy.yml`. Both use the GitHub `production` environment; neither is
-  tag-triggered. Details → `docs/ops/deployment.md`.
+- **No local deploy** (hook `block-local-deploy`) — CD only: a push to `main` builds the affected
+  release cohort once, deploys those immutable artifacts to staging, then promotes the same
+  digests after one GitHub `production` environment approval. There is no manual or tag-triggered
+  deploy path. Details → `docs/ops/deployment.md`.
+
+## Commit and PR hygiene
+
+- Historical bloat came from merge-carried branch WIP, PR-per-repair loops, commit-on-agent-stop
+  behavior, and no message/title gate. Fix that workflow; a prettier vague subject is not enough.
+- A commit is an independently reviewable, reversible outcome — never an agent checkpoint, handoff,
+  review reply, formatter pass, or CI retry. Do not commit merely because a sub-agent stopped.
+- Keep one issue/card outcome in one PR. Fold related fixes into that PR; do not open another PR for
+  its review comments or gate repairs. Before the first push, amend an unpushed commit instead of
+  stacking repair commits; after a push, add fixes to the same PR and let GitHub squash-merge it.
+- Commit subjects and PR titles use `<type>(<scope>): <short outcome>` (scope optional), imperative
+  lowercase after the colon, preferably ≤50 characters and always ≤72. Put `Refs: #…` in the body,
+  never PR numbers in the subject. Generic `wip`, `checkpoint`, `fix`, `update`, `changes`, `review`,
+  and `polish` subjects are invalid.
+- Types: `feat|fix|refactor|perf|test|docs|ci|build|ops|chore|revert`. Scopes:
+  `agent|web|chat|catalog|users|auth|edge|contract|db|infra|delivery|eval|e2e|repo|deps`.
+- Never add Claude/Anthropic/Codex/OpenAI `Co-Authored-By` trailers or a `Generated with Claude Code`
+  footer. Human and Dependabot attribution remains valid.
+- `scripts/local-gates/commit-message.py` is the machine source of truth for local commit messages
+  and squash-merge PR titles. Install all hooks with `pre-commit install --hook-type pre-commit
+  --hook-type commit-msg --hook-type pre-push`; never bypass them with `--no-verify`.
 
 ## Authoritative docs (read the matching one when doing that work)
 
@@ -79,12 +100,12 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
   concurrently or in a loop** (403/429 is connection contention, not a rate limit — retrying burns
   quota; hook `guard-codex.sh` enforces it, and `block-codex-exec-codewrite` blocks raw code edits);
   **Codex cannot commit** — its sandbox refuses every write under `.git`, worktree or clone alike, so
-  ask for changes left in the working tree and commit them yourself the moment the job stops;
+  ask for changes left in the working tree and integrate them into the current semantic outcome;
   **its sandbox has no network**, so build the environment and verify the gates yourself first;
   and **the forwarder returns before Codex finishes**, so arm a `Monitor` keyed on the job log going
   quiet and read the report from `~/.claude/plugins/data/codex-openai-codex/state/*/jobs/*.log`
-  rather than the return value. Expect sound judgement and a broken process — commit its output,
-  then re-run every gate yourself.
+  rather than the return value. Expect sound judgement and a broken process — inspect and integrate
+  its output, then re-run every gate yourself.
 - **Web browsing** → `/browse` (gstack). Never `mcp__claude-in-chrome__*`.
 - **CodeGraph** — `.codegraph/` is initialized; follow the **global** CodeGraph rules in `~/.claude/CLAUDE.md`
   (spawn an Explore agent for exploration; only lightweight `codegraph_*` lookups in the main session).

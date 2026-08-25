@@ -68,12 +68,12 @@ After this cutover, the normal append-only policy resumes for every shared envir
 
 ## Applying a Neon migration
 
-The apply mechanism changed in #1052: **staging is now schema-before-app**, executed by the
-migration executor (migrator worker + one-shot Atlas batch container) as the first post-build
-stage, so staging component deploys carry no per-component Atlas step and no database
-credential. **Production keeps the pinned per-component apply** until #1055 removes it. The
-apply targets the same checked-in directory before the catalog/users Worker rollout. The
-connection URL is environment-scoped and must never be committed or printed:
+The apply mechanism is schema-before-app in both environments. The affected main-SHA cohort
+contains one sealed `db` payload. Staging asks the migration executor (migrator Worker + one-shot
+Atlas batch container) to apply that payload through GitHub OIDC, so no application deployment
+receives a database credential. After the single production approval, production applies the
+same sealed directory once with its environment-scoped migrator DSN. Both database phases finish
+before catalog/users promotion. The connection URL must never be committed or printed:
 
 ```bash
 atlas migrate apply \
@@ -96,18 +96,15 @@ approved, it would follow its own owner/runbook and must not add or alter Neon d
 
 ## CI and deployment order
 
-- Pull requests and migration-path changes run the static Atlas checksum/SQL validation. The
-  worker migration-boundary test also checks the split apply posture: **staging** deploy
-  workflows contain no Atlas invocation and no `NEON_DATABASE_URL`/`NEON_API_KEY` reference
-  (the migrator trigger runs schema first), the migrator trigger precedes every component
-  deploy in the needs-graph (a failed trigger blocks all deploys), and the production path
-  keeps the Atlas command. It never reintroduces `supabase db push` or a Drizzle migration
-  command.
-- The main promotion workflow applies Atlas to the target Neon branch before the catalog/users
-  Worker rollout. The manual production path (`deploy.yml`) runs the same
-  `reusable-deploy-component.yml` as the promotion, so it applies `migrations/neon/`
-  (`atlas migrate apply`) when `NEON_DATABASE_URL` is set — it is **not** a migration-free
-  path (see `docs/ops/deployment.md`). Use the approval-gated promotion for schema changes.
+- Pull requests that affect the database dependency closure run the static Atlas checksum/SQL
+  validation in the single `CI` workflow. The migration-boundary tests assert that staging uses
+  the OIDC-authenticated migrator and never receives `NEON_DATABASE_URL`, while the production
+  database step receives only its environment-scoped DSN. Neither path may reintroduce
+  `supabase db push` or a Drizzle migration command.
+- `.github/workflows/cd.yml` computes the cumulative affected cohort for each main SHA, builds
+  the database payload once, and promotes it through
+  `.github/actions/promote-release-phase/action.yml` before services, edge, and web. There is no manual or
+  tag-triggered alternate deploy path.
 - **Expand/contract is a rule (US25/#1052)**: every schema change must be **compatible with the
   currently deployed consumers one version back**. Schema and component deploys are never
   atomic, so both deploy-order windows must stay safe by rule, not by luck:
@@ -141,6 +138,7 @@ the raw DSN and tokens out of logs and PRs.
 - [`migrations/AGENTS.md`](../../migrations/AGENTS.md) — migration conventions and pinned commands
 - [`docs/ops/deployment.md`](./deployment.md) — deployment sequence and rollback limits
 - [`docs/ops/neon-backup-rpo.md`](./neon-backup-rpo.md) — RPO/RTO, PITR, failed-migrate + bad-migration recovery
-- [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — PR/static and promotion gates
-- [`.github/workflows/deploy.yml`](../../.github/workflows/deploy.yml) — manual production path
+- [`.github/workflows/pr-verification.yml`](../../.github/workflows/pr-verification.yml) — affected PR/static gates
+- [`.github/workflows/cd.yml`](../../.github/workflows/cd.yml) — main-only affected release orchestration
+- [`.github/actions/promote-release-phase/action.yml`](../../.github/actions/promote-release-phase/action.yml) — ordered staging phase adapter
 - [`workers/edge/test/migration-boundary.test.ts`](../../workers/edge/test/migration-boundary.test.ts) — static boundary guard

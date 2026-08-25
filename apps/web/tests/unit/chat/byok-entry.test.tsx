@@ -1,61 +1,44 @@
 /**
  * @vitest-environment jsdom
  */
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
+import { parseChatSearch } from "../../../src/features/chat/search";
 import { setLanguages } from "../_i18n";
-import { chatSearch, renderChatPage, urlSettings } from "./_chat-page";
+import { renderChatPage } from "./_chat-page";
 
 const ja = chatDictFor("ja");
 
-function settingsToggle(): HTMLElement {
-  return screen.getByRole("button", { name: ja.byok.settingsToggle });
+function renderSettingsLink(): HTMLAnchorElement {
+  setLanguages(["ja"]);
+  renderChatPage();
+  return screen.getByRole<HTMLAnchorElement>("link", { name: ja.appbar.settings });
 }
 
-describe("BYOK settings entry point (T6, chat input area)", () => {
-  it("renders a settings toggle in the composer, panel closed by default", () => {
-    setLanguages(["ja"]);
-    renderChatPage();
-    expect(settingsToggle().getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByRole("heading", { name: ja.byok.title })).toBeNull();
+describe("settings entry point", () => {
+  it("is ordinary navigation to the dedicated page", () => {
+    const link = renderSettingsLink();
+    expect(link.getAttribute("href")).toBe("/settings");
+    expect(link.getAttribute("aria-expanded")).toBeNull();
+    expect(link.closest("form")).toBeNull();
   });
 
-  it("opens and closes the panel from the toggle, writing the URL (URL-owned, #1009 AC4)", async () => {
-    setLanguages(["ja"]);
-    const router = renderChatPage();
-    fireEvent.click(settingsToggle());
-    expect(await screen.findByRole("heading", { name: ja.byok.title })).toBeTruthy();
-    expect(settingsToggle().getAttribute("aria-expanded")).toBe("true");
-    expect(urlSettings(router)).toBe("byok");
-    fireEvent.click(settingsToggle());
-    await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: ja.byok.title })).toBeNull();
-    });
-    expect(urlSettings(router)).toBeUndefined();
+  it("occupies the true rightmost app-bar slot", async () => {
+    const link = renderSettingsLink();
+    await waitFor(() => { expect(screen.getByRole("button", { name: ja.appbar.login })).toBeTruthy(); });
+    expect(link.parentElement?.lastElementChild).toBe(link);
   });
 
-  it("shows the anonymous teaser inside the panel for a signed-out visitor", async () => {
-    setLanguages(["ja"]);
-    renderChatPage(chatSearch({ settings: "byok" }));
-    expect(await screen.findByText(ja.byok.anonymousTeaser)).toBeTruthy();
+  it("does not mount legacy drawer or BYOK content inside chat", () => {
+    renderSettingsLink();
+    expect(document.querySelector("[data-animal-drawer-portal]")).toBeNull();
+    expect(screen.queryByText(ja.byok.anonymousTeaser)).toBeNull();
   });
 });
 
-describe("BYOK deep-link return (T8-AC4: /chat?settings=byok)", () => {
-  it("arrives with the panel already open — the intent survived the URL", async () => {
-    setLanguages(["ja"]);
-    renderChatPage(chatSearch({ settings: "byok" }));
-    expect(await screen.findByRole("heading", { name: ja.byok.title })).toBeTruthy();
-    expect(settingsToggle().getAttribute("aria-expanded")).toBe("true");
-    expect(settingsToggle().getAttribute("aria-controls")).toBe("byok-settings-panel");
-    expect(document.activeElement?.id).toBe("byok-settings-panel");
-  });
-
-  it("keeps the panel closed for a plain /chat arrival", async () => {
-    setLanguages(["ja"]);
-    renderChatPage();
-    await waitFor(() => { expect(settingsToggle()).toBeTruthy(); });
-    expect(screen.queryByRole("heading", { name: ja.byok.title })).toBeNull();
+describe("legacy chat settings search is gone", () => {
+  it("drops the old settings parameter instead of keeping compatibility state", () => {
+    expect(parseChatSearch({ settings: "byok", session: "s1" })).toEqual({ q: undefined, route: undefined, session: "s1" });
   });
 });

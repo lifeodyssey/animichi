@@ -80,16 +80,9 @@ describe("G3 send key: the press shadow is the affordance", () => {
     expect(ruleDeclaration(chatCss, ".chat-input__send:disabled", "color")).toBe("var(--color-muted-fg)");
   });
 
-  it("keeps both round keys on the 44px AAA target, above the design's 42/36", () => {
+  it("keeps the send key on the 44px AAA target, above the design's 42/36", () => {
     expect(ruleDeclaration(chatCss, ".chat-input__send", "width")).toBe("44px");
     expect(ruleDeclaration(chatCss, ".chat-input__send", "height")).toBe("44px");
-    expect(ruleDeclaration(chatCss, ".chat-input__settings", "width")).toBe("44px");
-    expect(ruleDeclaration(chatCss, ".chat-input__settings", "height")).toBe("44px");
-  });
-
-  it("leaves the quiet key without a press shadow so the send key owns the emphasis", () => {
-    expect(ruleDeclaration(chatCss, ".chat-input__settings", "box-shadow")).toBeNull();
-    expect(ruleDeclaration(chatCss, ".chat-input__settings", "border-radius")).toBe("50%");
   });
 });
 

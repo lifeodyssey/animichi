@@ -5,7 +5,7 @@ Campaign lesson: code repeatedly reached CI that local gates should have caught 
 ## Principles
 
 1. **Changed-package routing** — pre-commit reads the **staged** diff; pre-push reads **merge-base-to-head**. Only the affected packages' gates run. Full-repo runs are reserved for the few sub-second checks.
-2. **Two stages**: pre-commit (seconds — formatting/lint/syntax/secrets) and pre-push (minutes — deterministic Quality lane + each affected package's CI-equivalent gates). One orchestration surface: `scripts/local-gates/pre-push.sh`.
+2. **Three hook stages**: pre-commit (seconds — formatting/lint/syntax/secrets), commit-msg (sub-second history policy), and pre-push (minutes — deterministic Quality lane + each affected package's CI-equivalent gates). One pre-push orchestration surface: `scripts/local-gates/pre-push.sh`.
 3. **No suppressions**: a failing gate must be fixed or explicitly triaged; `--no-verify` is documented as a policy violation (CI still enforces).
 4. **Sourcery is not a local hook**: PR review via the GitHub App (installed).
 5. **No cloud mutation, no local deploy**: no hook runs a mutating `pulumi up/destroy`, `wrangler deploy` (only `--dry-run`), or `atlas migrate apply` outside a disposable local container (`db-fresh-schema.sh` targets `127.0.0.1` only).
@@ -16,23 +16,28 @@ Workspace members are **derived** from `pnpm-workspace.yaml` (directories matchi
 
 | Path prefix | Package | pre-commit lint | pre-push orchestrator gate set |
 |---|---|---|---|
-| `apps/agent/` | agent | ruff + ruff-format (py) | `ruff check` + `ruff format --check src/animichi/` + mypy + `vulture src/animichi/ vulture_whitelist.py` + unit `pytest --cov` (canonical 87 floor, below) + offline Docker-arm integration `pytest .../integration --no-cov` + `docker build -f apps/agent/Dockerfile -t animichi-agent:ci .` (CI `pipeline-agent.yml` job order) |
+| `apps/agent/` | agent | ruff + ruff-format (py) | `ruff check` + `ruff format --check src/animichi/` + mypy + `vulture src/animichi/ vulture_whitelist.py` + unit `pytest --cov` (canonical 87 floor, below) + offline Docker-arm integration `pytest .../integration --no-cov` + `docker build -f apps/agent/Dockerfile -t animichi-agent:ci .` (single CI affected-agent order) |
 | `apps/web/` | web | oxlint (type-aware) | `typecheck` + `lint:oxlint` + coverage-enabled `test` + `VITE_SHOWCASE_MODE=false test:integration` |
 | `workers/catalog/` | catalog | oxlint | `tsc --noEmit` + `lint:oxlint` + `test:worker` + `test:spike` + `test:smoke` + `wrangler deploy --dry-run` |
 | `workers/users/` | users | oxlint | `tsc --noEmit` + `lint:oxlint` + `test:worker` + `wrangler deploy --dry-run` |
 | `workers/edge/` | edge | oxlint | `lint:oxlint` + `test:worker` + ratelimit-namespace check + production-config `wrangler deploy --dry-run` |
-| `workers/migrator/` | migrator | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (`pipeline-migrator.yml`; scripts from `workers/migrator/package.json`) |
-| `workers/doorbell/` | doorbell | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (`pipeline-doorbell.yml`; scripts from `workers/doorbell/package.json`) |
+| `workers/migrator/` | migrator | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (single CI affected-migrator lane) |
 | `packages/contract/` | contract | oxlint | `tsc --noEmit` + `test` + staged-snapshot OpenAPI drift (`contract-drift.sh`, mirrors CI) + agent-model regeneration drift |
 | `infra/` | infra | — | `typecheck` + `test` + credential-free Pulumi program-load (`infra-check.sh`) |
 | `e2e/` | e2e | — | registered no-op (Playwright stays in CI; an e2e-only change is not `all`) |
 | `migrations/` | db | — | `atlas migrate validate` + migration-boundary guard + sqlfluff + disposable fresh-schema apply (`db-fresh-schema.sh`) |
-| `.github/` | ci | actionlint (workflows) | Quality lane (pinned actions + workflow invariants + SAFE-1/RETENTION-1/SESSION-3 + docs/root-allowlist/e2e-promotion guards + coverage-patch policy + actionlint) |
+| `.github/` | ci | actionlint (workflows) | Static-quality lane (pinned actions + workflow/component-manifest invariants + docs/root-allowlist/e2e-promotion guards + coverage-patch policy + actionlint) |
 | `scripts/`, `.github/scripts/` | scripts | shellcheck (shell) + ruff (py) | the gates' own behavioral tests (self-testing orchestration surface) |
 | `docs/` | docs | — | doc-consistency subset (`test_secrets_docs_consistency.py` + `test_documentation_guardrails.py`) |
 | anything else / unknown | — | — | `all`: every package's full gate set (conservative fallback) |
 
-`packages/contract` is treated as changed whenever any of its consumers changed (contract is the cross-service source of truth) — the router unions: changed packages ∪ {contract if any agent/web/catalog/users/edge/migrator/doorbell changed}.
+`packages/contract` is treated as changed whenever any of its consumers changed (contract is the cross-service source of truth) — the router unions: changed packages ∪ {contract if any agent/web/catalog/users/edge/migrator changed}.
+
+Install all three tracked stages from the repository root:
+
+```bash
+pre-commit install --hook-type pre-commit --hook-type commit-msg --hook-type pre-push
+```
 
 ## Changed-package detection
 
@@ -60,13 +65,22 @@ Universal (always, sub-second):
 Changed packages (routed via `changed-packages.sh --staged`):
 - web/catalog/users/edge/migrator/contract → `oxlint --type-aware --deny-warnings` scoped to the package
 
+## commit-msg (history hygiene, sub-second)
+
+`scripts/local-gates/commit-message.py` rejects malformed or generic subjects, subjects over 72
+characters, and Claude/Anthropic/Codex/OpenAI attribution trailers or Claude Code generated footers.
+It preserves legitimate human and Dependabot co-authors and ordinary prose that merely names a tool.
+The trusted Review Gate calls the same validator for pull-request titles because GitHub uses that
+title as the final main subject when the PR is squash-merged. Review Gate already observes PR edits,
+so title changes do not retrigger product CI or add a separate workflow or required check.
+
 ## pre-push (one orchestrator, `scripts/local-gates/pre-push.sh`)
 
 `.pre-commit-config.yaml` wires a single pre-push hook that runs the orchestrator. It re-reads the router in merge-base-to-head mode, fails fast on the first failing gate (`set -euo pipefail`), and runs, in order:
 
-1. **Deterministic Quality lane (always)** — `scripts/local-gates/quality.sh`: every check and self-test from `pipeline-quality.yml` in CI's order (workflow invariants, SAFE-1, RETENTION-1, SESSION-3, release manifest, docs/root-allowlist/e2e-promotion guards, pinned actions, coverage-patch policy, CI↔pre-push parity, actionlint) plus hermetic security-lane script tests. CI calls the very same scripts.
+1. **Deterministic static-quality lane (always)** — `scripts/local-gates/quality.sh`: the same checks used by the single CI workflow (workflow and component-manifest invariants, release artifact contract, docs/root-allowlist/e2e-promotion guards, pinned actions, coverage-patch policy, CI↔pre-push parity, actionlint) plus hermetic security-lane script tests.
 2. **Per affected package** (see the table): agent runs ruff lint/format check, mypy, vulture, the coverage-enabled unit suite, the offline Docker-arm integration suite, and the container build (`docker build -f apps/agent/Dockerfile -t animichi-agent:ci .`); web runs its coverage test plus the showcase-mode-guarded integration test; workers run `tsc`/oxlint/test plus a `wrangler deploy --dry-run` production bundle; contract runs tests plus the staged-snapshot OpenAPI drift check (`contract-drift.sh` mirrors CI's `git diff --cached` against a throwaway index, so user-staged work is preserved) and the agent-model regeneration check; infra runs the credential-free Pulumi program-load check; db runs atlas validate plus a fresh-schema apply on a disposable container.
-3. **scripts changed** → the gates' own behavioral tests (self-testing orchestration surface): an explicit `scripts` change runs the full suite (`pre-push.test.sh`, `changed-packages.test.sh`, `db-fresh-schema.test.sh`, `infra-check.test.sh`, `infra-check-unauthorized.test.sh`, `contract-drift.test.sh`, `pre-commit-config.test.sh`). The `all` fallback (root config, unknown paths) still runs the config contract self-test (`pre-commit-config.test.sh`), so a root-only `.pre-commit-config.yaml` change cannot skip it; the recursive `pre-push.test.sh` stays scoped to an explicit `scripts` change.
+3. **scripts changed** → the gates' own behavioral tests (self-testing orchestration surface): an explicit `scripts` change runs the full suite (`pre-push.test.sh`, `changed-packages.test.sh`, `db-fresh-schema.test.sh`, `infra-check.test.sh`, `infra-check-unauthorized.test.sh`, `commit-message.test.sh`, `contract-drift.test.sh`, `pre-commit-config.test.sh`). The `all` fallback (root config, unknown paths) still runs the config contract self-test (`pre-commit-config.test.sh`), so a root-only `.pre-commit-config.yaml` change cannot skip it; the recursive `pre-push.test.sh` stays scoped to an explicit `scripts` change.
 
 ### Canonical coverage floor (agent 87)
 
@@ -120,6 +134,7 @@ Environmental note: the full Quality lane SIGBUSes on the stock macOS `/bin/bash
 - `scripts/local-gates/db-fresh-schema.sh` — disposable fresh-schema apply (fail-closed Docker; template1 pristine target)
 - `scripts/local-gates/infra-check.sh` — credential-free Pulumi program-load
 - `scripts/local-gates/contract-drift.sh` — staged-snapshot OpenAPI drift check (mirrors CI's `git diff --cached`)
-- `.pre-commit-config.yaml` — hook wiring (pre-commit + one pre-push orchestrator hook)
+- `scripts/local-gates/commit-message.py` — shared commit-message and PR-title validator
+- `.pre-commit-config.yaml` — hook wiring (pre-commit + commit-msg + one pre-push orchestrator hook)
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — behavioral tests
 - This document — the contract
