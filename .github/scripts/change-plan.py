@@ -6,10 +6,36 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import TypedDict
+
+from component_manifest_schema import Component, DeployTrigger, GlobalLane, Manifest, load_manifest
+
+
+class ComponentSelection(TypedDict):
+    direct: set[str]
+    source_direct: set[str]
+    selected: set[str]
+    source_selected: set[str]
+    fallback: bool
+
+
+class ChangePlan(TypedDict):
+    range_mode: str
+    purpose: str
+    base: str
+    diff_base: str
+    head: str
+    changed_paths: list[str]
+    direct_components: list[str]
+    source_components: list[str]
+    test_trigger_components: list[str]
+    components: list[str]
+    lanes: list[str]
+    fallback_all: bool
 
 
 def git(root: Path, *args: str) -> str:
-    result = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
+    result = subprocess.run(["git", *args], cwd=root, check=False, capture_output=True, text=True)
     if result.returncode != 0:
         raise ValueError(result.stderr.strip() or "git command failed")
     return result.stdout.strip()
@@ -37,7 +63,7 @@ def owns(pattern: str, path: str) -> bool:
     return path == root or path.startswith(f"{root}/")
 
 
-def component_owns(component: dict[str, object], path: str, purpose: str) -> bool:
+def component_owns(component: Component, path: str, purpose: str) -> bool:
     if not any(owns(pattern, path) for pattern in component["paths"]):
         return False
     if purpose == "ci":
@@ -48,7 +74,7 @@ def component_owns(component: dict[str, object], path: str, purpose: str) -> boo
     return not any(owns(pattern, path) for pattern in excluded)
 
 
-def owners_for_path(components: list[dict[str, object]], path: str, purpose: str) -> set[str]:
+def owners_for_path(components: list[Component], path: str, purpose: str) -> set[str]:
     return {
         str(item["name"])
         for item in components
@@ -56,13 +82,11 @@ def owners_for_path(components: list[dict[str, object]], path: str, purpose: str
     }
 
 
-def known_component_path(components: list[dict[str, object]], path: str) -> bool:
+def known_component_path(components: list[Component], path: str) -> bool:
     return any(component_owns(item, path, "ci") for item in components)
 
 
-def direct_components(
-    components: list[dict[str, object]], repository_paths: list[str], paths: list[str], purpose: str
-) -> tuple[set[str], bool]:
+def direct_components(components: list[Component], repository_paths: list[str], paths: list[str], purpose: str) -> tuple[set[str], bool]:
     selected: set[str] = set()
     fallback = not paths
     for path in paths:
@@ -74,11 +98,31 @@ def direct_components(
     return selected, fallback
 
 
-def reverse_closure(components: list[dict[str, object]], selected: set[str]) -> set[str]:
+def triggered_deployments(triggers: list[DeployTrigger], paths: list[str]) -> set[str]:
+    selected: set[str] = set()
+    for trigger in triggers:
+        if any(owns(pattern, path) for pattern in trigger["paths"] for path in paths):
+            selected.update(trigger["components"])
+    return selected
+
+
+def deployment_inputs(components: list[Component], repository_paths: list[str], triggers: list[DeployTrigger], paths: list[str]) -> tuple[set[str], set[str], bool]:
+    direct, fallback = direct_components(components, repository_paths, paths, "deploy")
+    triggered = triggered_deployments(triggers, paths)
+    names = {item["name"] for item in components}
+    return direct, triggered & names, fallback or bool(triggered - names)
+
+
+def reverse_consumers(components: list[Component]) -> dict[str, set[str]]:
     consumers: dict[str, set[str]] = {str(item["name"]): set() for item in components}
     for component in components:
         for dependency in component["depends_on"]:
             consumers[str(dependency)].add(str(component["name"]))
+    return consumers
+
+
+def reverse_closure(components: list[Component], selected: set[str]) -> set[str]:
+    consumers = reverse_consumers(components)
     pending = list(selected)
     while pending:
         for consumer in consumers[pending.pop()]:
@@ -88,7 +132,7 @@ def reverse_closure(components: list[dict[str, object]], selected: set[str]) -> 
     return selected
 
 
-def selected_lanes(lanes: list[dict[str, object]], paths: list[str], selected: set[str], fallback: bool) -> list[str]:
+def selected_lanes(lanes: list[GlobalLane], paths: list[str], selected: set[str], fallback: bool) -> list[str]:
     result = []
     for lane in lanes:
         path_match = any(owns(pattern, path) for pattern in lane.get("paths", []) for path in paths)
@@ -99,30 +143,49 @@ def selected_lanes(lanes: list[dict[str, object]], paths: list[str], selected: s
     return sorted(result)
 
 
-def build_plan(root: Path, manifest: Path, base: str, head: str, mode: str, purpose: str) -> dict[str, object]:
+def purpose_direct(components: list[Component], repository_paths: list[str], paths: list[str], purpose: str, triggered: set[str]) -> tuple[set[str], set[str]]:
+    source = direct_components(components, repository_paths, paths, "propagation")[0]
+    direct = direct_components(components, repository_paths, paths, purpose)[0]
+    if purpose == "deploy":
+        direct.update(triggered)
+    return direct, source
+
+
+def resolved_components(components: list[Component], direct: set[str], seed: set[str], triggered: set[str], fallback: bool) -> set[str]:
+    if fallback:
+        return {item["name"] for item in components}
+    return direct | reverse_closure(components, seed.copy()) | triggered
+
+
+def select_components(document: Manifest, paths: list[str], purpose: str) -> ComponentSelection:
+    components = document["components"]
+    deploy_direct, triggered, fallback = deployment_inputs(components, document["repository_paths"], document["deploy_triggers"], paths)
+    direct, source_direct = purpose_direct(components, document["repository_paths"], paths, purpose, triggered)
+    active_triggers = triggered if purpose == "deploy" else set()
+    closure_seed = deploy_direct if purpose == "deploy" else source_direct
+    selected = resolved_components(components, direct, closure_seed, active_triggers, fallback)
+    source_selected = selected if fallback else reverse_closure(components, source_direct.copy())
+    return {"direct": direct, "source_direct": source_direct, "selected": selected,
+            "source_selected": source_selected, "fallback": fallback}
+
+
+def plan_output(mode: str, purpose: str, base: str, effective_base: str, head: str, paths: list[str], selection: ComponentSelection, lanes: list[str]) -> ChangePlan:
+    return {"range_mode": mode, "purpose": purpose, "base": base, "diff_base": effective_base,
+            "head": head, "changed_paths": paths, "direct_components": sorted(selection["direct"]),
+            "source_components": sorted(selection["source_direct"]),
+            "test_trigger_components": sorted(selection["direct"] - selection["source_direct"]),
+            "components": sorted(selection["selected"]), "lanes": lanes, "fallback_all": selection["fallback"]}
+
+
+def build_plan(root: Path, manifest: Path, base: str, head: str, mode: str, purpose: str) -> ChangePlan:
     require_commit(root, base)
     require_commit(root, head)
-    document = json.loads(manifest.read_text())
-    components = document["components"]
-    repository_paths = document["repository_paths"]
+    document = load_manifest(manifest)
     effective_base = diff_base(root, base, head, mode)
     paths = changed_paths(root, effective_base, head)
-    deploy_direct, fallback = direct_components(components, repository_paths, paths, "deploy")
-    source_direct = direct_components(components, repository_paths, paths, "propagation")[0]
-    direct = direct_components(components, repository_paths, paths, purpose)[0]
-    closure_seed = deploy_direct if purpose == "deploy" else source_direct
-    selected = (
-        {str(item["name"]) for item in components}
-        if fallback
-        else direct | reverse_closure(components, closure_seed.copy())
-    )
-    source_selected = selected if fallback else reverse_closure(components, source_direct.copy())
-    lanes = selected_lanes(document["global_lanes"], paths, source_selected, fallback)
-    return {"range_mode": mode, "purpose": purpose, "base": base, "diff_base": effective_base, "head": head,
-            "changed_paths": paths, "direct_components": sorted(direct),
-            "source_components": sorted(source_direct),
-            "test_trigger_components": sorted(direct - source_direct),
-            "components": sorted(selected), "lanes": lanes, "fallback_all": fallback}
+    selection = select_components(document, paths, purpose)
+    lanes = selected_lanes(document["global_lanes"], paths, selection["source_selected"], selection["fallback"])
+    return plan_output(mode, purpose, base, effective_base, head, paths, selection, lanes)
 
 
 def parse_args() -> argparse.Namespace:
@@ -145,8 +208,7 @@ def main() -> int:
     except (OSError, KeyError, json.JSONDecodeError, ValueError) as error:
         print(f"change-plan: {error}", file=sys.stderr)
         return 1
-    output = json.dumps(plan, separators=(",", ":")) if args.format == "json" else "\n".join(plan["components"])
-    print(output)
+    print(json.dumps(plan, separators=(",", ":")) if args.format == "json" else "\n".join(plan["components"]))
     return 0
 
 

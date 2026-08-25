@@ -13,6 +13,38 @@
     "README.ja.md",
     "README.zh.md"
   ],
+  "deploy_triggers": [
+    {
+      "components": ["agent", "catalog", "db", "edge", "infra", "migrator", "users", "web"],
+      "paths": [
+        ".github/ci/components.json",
+        ".github/workflows/cd.yml",
+        ".github/actions/setup/**",
+        ".github/actions/build-release-unit/**",
+        ".github/actions/promote-release-phase/**",
+        ".github/scripts/change-plan.py",
+        ".github/scripts/cd-cohort-plan.py",
+        ".github/scripts/resolve-cd-base.sh",
+        ".github/scripts/promote-release-unit.sh",
+        ".github/scripts/verify-release-artifact.py"
+      ]
+    },
+    {
+      "components": ["web"],
+      "paths": [
+        ".github/scripts/inject-release-web-runtime-config.mjs",
+        ".github/scripts/release-web-runtime-config.mjs"
+      ]
+    },
+    {
+      "components": ["edge"],
+      "paths": [".github/scripts/sync-edge-runtime-secrets.sh"]
+    },
+    {
+      "components": ["db"],
+      "paths": [".github/actions/install-atlas/**"]
+    }
+  ],
   "global_lanes": [
     {
       "name": "static-quality",

@@ -1,48 +1,14 @@
 #!/usr/bin/env python3
 """Behavioral tests for affected-component change planning."""
 
-import json
-import subprocess
-import sys
-import tempfile
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
-PLANNER = ROOT / ".github/scripts/change-plan.py"
-MANIFEST = ROOT / ".github/ci/components.json"
+from change_plan_test_support import commit_file, fixture, git, plan
+from test_change_plan_delivery import assert_delivery_routing
 
-
-def git(root: Path, *args: str) -> str:
-    result = subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True)
-    return result.stdout.strip()
-
-
-def commit_file(root: Path, path: str, content: str) -> str:
-    target = root / path
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content)
-    git(root, "add", ".")
-    git(root, "commit", "-qm", path)
-    return git(root, "rev-parse", "HEAD")
-
-
-def plan(root: Path, base: str, head: str, mode: str = "pr", purpose: str = "ci") -> dict[str, object]:
-    result = subprocess.run(
-        [sys.executable, str(PLANNER), "--root", str(root), "--manifest", str(MANIFEST),
-         "--base", base, "--head", head, "--range", mode, "--purpose", purpose, "--format", "json"],
-        check=True, capture_output=True, text=True,
-    )
-    return json.loads(result.stdout)
-
-
-def fixture() -> tuple[tempfile.TemporaryDirectory[str], Path, str]:
-    temporary = tempfile.TemporaryDirectory()
-    root = Path(temporary.name)
-    git(root, "init", "-q")
-    git(root, "config", "user.name", "test")
-    git(root, "config", "user.email", "test@example.com")
-    initial = commit_file(root, "seed.txt", "seed")
-    return temporary, root, initial
+CONTRACT_LANES = frozenset({"cross-stack", "security-codeql-javascript", "security-codeql-python", "security-semgrep"})
+FALLBACK_LANES = CONTRACT_LANES | {"security-sqlfluff"}
+WEB_SECURITY_LANES = frozenset({"cross-stack", "security-codeql-javascript", "security-semgrep"})
 
 
 def assert_reverse_closure() -> None:
@@ -53,12 +19,7 @@ def assert_reverse_closure() -> None:
         expected = {"agent", "catalog", "contract", "e2e", "edge", "migrator", "users", "web"}
         assert set(result["components"]) == expected
         assert result["direct_components"] == ["contract"]
-        assert set(result["lanes"]) == {
-            "cross-stack",
-            "security-codeql-javascript",
-            "security-codeql-python",
-            "security-semgrep",
-        }
+        assert set(result["lanes"]) == CONTRACT_LANES
 
 
 def assert_pr_uses_merge_base() -> None:
@@ -77,13 +38,7 @@ def assert_main_and_fallback() -> None:
         result = plan(root, initial, head, "main")
         assert result["fallback_all"] is True
         assert len(result["components"]) == 11
-        assert set(result["lanes"]) == {
-            "cross-stack",
-            "security-codeql-javascript",
-            "security-codeql-python",
-            "security-semgrep",
-            "security-sqlfluff",
-        }
+        assert set(result["lanes"]) == FALLBACK_LANES
 
 
 def assert_root_readmes_are_repository_quality_inputs() -> None:
@@ -98,16 +53,21 @@ def assert_root_readmes_are_repository_quality_inputs() -> None:
         assert deploy["components"] == []
 
 
-def assert_non_runtime_component_files_are_ci_only() -> None:
+def assert_non_runtime_component_tests_are_ci_only() -> None:
     temporary, root, initial = fixture()
     with temporary:
         tests = commit_file(root, "packages/contract/test/new.test.ts", "test")
+        assert plan(root, initial, tests, "main", "deploy")["components"] == []
+
+
+def assert_non_runtime_component_docs_are_ci_only() -> None:
+    temporary, root, initial = fixture()
+    with temporary:
         docs = commit_file(root, "migrations/AGENTS.md", "guidance")
         ci = plan(root, initial, docs)
         deploy = plan(root, initial, docs, "main", "deploy")
-        assert set(ci["direct_components"]) == {"contract", "db"}
-        assert set(ci["components"]) == {"contract", "db"}
-        assert plan(root, initial, tests, "main", "deploy")["components"] == []
+        assert ci["direct_components"] == ["db"]
+        assert ci["components"] == ["db"]
         assert deploy["fallback_all"] is False
         assert deploy["components"] == []
 
@@ -147,24 +107,26 @@ def assert_security_tools_follow_affected_change() -> None:
         docs_head = commit_file(root, Path("docs", "note.md").as_posix(), "docs")
         assert not any(lane.startswith("security-") for lane in plan(root, initial, docs_head)["lanes"])
         web_head = commit_file(root, "apps/web/change.ts", "web")
-        assert set(plan(root, docs_head, web_head)["lanes"]) == {
-            "cross-stack",
-            "security-codeql-javascript",
-            "security-semgrep",
-        }
+        assert set(plan(root, docs_head, web_head)["lanes"]) == WEB_SECURITY_LANES
 
 
-def assert_test_triggers_are_ci_only() -> None:
+def assert_test_trigger_pr_routing() -> None:
     temporary, root, initial = fixture()
     with temporary:
         head = commit_file(root, "docs/ops/secrets.md", "secrets")
         pr = plan(root, initial, head)
-        queue = plan(root, initial, head, "main")
-        deploy = plan(root, initial, head, "main", "deploy")
         assert pr["direct_components"] == ["docs"]
         assert pr["source_components"] == ["docs"]
         assert pr["test_trigger_components"] == []
         assert pr["lanes"] == []
+
+
+def assert_test_trigger_main_routing() -> None:
+    temporary, root, initial = fixture()
+    with temporary:
+        head = commit_file(root, "docs/ops/secrets.md", "secrets")
+        queue = plan(root, initial, head, "main")
+        deploy = plan(root, initial, head, "main", "deploy")
         assert queue["direct_components"] == ["docs"]
         assert deploy["direct_components"] == ["docs"]
 
@@ -187,19 +149,30 @@ def assert_regular_docs_stay_docs_only() -> None:
         assert result["components"] == ["docs"]
 
 
-def main() -> None:
+def assert_component_selection() -> None:
     assert_reverse_closure()
     assert_pr_uses_merge_base()
     assert_main_and_fallback()
     assert_root_readmes_are_repository_quality_inputs()
-    assert_non_runtime_component_files_are_ci_only()
+    assert_non_runtime_component_tests_are_ci_only()
+    assert_non_runtime_component_docs_are_ci_only()
     assert_runtime_source_still_selects_deploy_unit()
     assert_repository_change_has_no_product_component()
+
+
+def assert_lane_selection() -> None:
     assert_eval_is_path_scoped()
     assert_security_tools_follow_affected_change()
-    assert_test_triggers_are_ci_only()
+    assert_test_trigger_pr_routing()
+    assert_test_trigger_main_routing()
     assert_cross_component_test_trigger()
     assert_regular_docs_stay_docs_only()
+
+
+def main() -> None:
+    assert_component_selection()
+    assert_delivery_routing()
+    assert_lane_selection()
     print("change plan: affected CI, runtime-only CD, reverse closure, and fallback validated")
 
 

@@ -5,8 +5,11 @@ import json
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
+from typing import cast
+
+from component_manifest_schema import Component, Manifest
 
 ROOT = Path(__file__).resolve().parents[2]
 VALIDATOR = ROOT / ".github/scripts/validate-component-manifest.py"
@@ -22,8 +25,8 @@ def validate(path: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def mutated(change: Callable[[dict[str, object]], None]) -> subprocess.CompletedProcess[str]:
-    document = json.loads(MANIFEST.read_text())
+def mutated(change: Callable[[Manifest], None]) -> subprocess.CompletedProcess[str]:
+    document = cast(Manifest, json.loads(MANIFEST.read_text()))
     change(document)
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "components.json"
@@ -31,42 +34,59 @@ def mutated(change: Callable[[dict[str, object]], None]) -> subprocess.Completed
         return validate(path)
 
 
-def add_test_trigger(document: dict[str, object], trigger: str) -> None:
+def add_test_trigger(document: Manifest, trigger: str) -> None:
     component = next(item for item in document["components"] if item["name"] == "docs")
     component["paths"].append(trigger)
     component["test_triggers"].append(trigger)
 
 
-def docs_component(document: dict[str, object]) -> dict[str, object]:
+def docs_component(document: Manifest) -> Component:
     return next(item for item in document["components"] if item["name"] == "docs")
 
 
-def main() -> None:
+def assert_rejected(result: subprocess.CompletedProcess[str], message: str) -> None:
+    assert result.returncode == 1
+    assert message in result.stderr
+
+
+def assert_manifest_shape() -> None:
     assert validate(MANIFEST).returncode == 0
-    schema = mutated(lambda doc: doc.update(schema_version=1))
-    assert schema.returncode == 1 and "schema_version must be 2" in schema.stderr
-    repository_paths = mutated(lambda doc: doc.pop("repository_paths"))
-    assert repository_paths.returncode == 1 and "repository-owned paths" in repository_paths.stderr
-    overlap = mutated(lambda doc: doc["components"][1]["paths"].append("apps/agent/**"))
-    assert overlap.returncode == 1 and "overlap" in overlap.stderr
-    unknown = mutated(lambda doc: doc["components"][0]["depends_on"].append("missing"))
-    assert unknown.returncode == 1 and "unknown dependency" in unknown.stderr
-    cycle = mutated(lambda doc: doc["components"][2]["depends_on"].append("agent"))
-    assert cycle.returncode == 1 and "cycle" in cycle.stderr
-    trigger = mutated(lambda doc: docs_component(doc)["test_triggers"].append("docs/**"))
-    assert trigger.returncode == 1 and "test trigger" in trigger.stderr
-    broad = mutated(lambda doc: add_test_trigger(doc, "docs/**"))
-    assert broad.returncode == 1 and "exact tracked file" in broad.stderr
-    orphan = mutated(lambda doc: add_test_trigger(doc, "README.md"))
-    assert orphan.returncode == 1 and "not owned by another component" in orphan.stderr
-    unmarked = mutated(lambda doc: docs_component(doc).pop("test_triggers"))
-    assert unmarked.returncode == 1 and "declared as a test trigger" in unmarked.stderr
-    missing_excludes = mutated(lambda doc: doc["components"][0].pop("deploy_excludes"))
-    assert missing_excludes.returncode == 1 and "invalid deploy excludes" in missing_excludes.stderr
-    escaped_exclude = mutated(lambda doc: doc["components"][0]["deploy_excludes"].append("README.md"))
-    assert escaped_exclude.returncode == 1 and "deploy exclude escapes" in escaped_exclude.stderr
-    missing = mutated(lambda doc: doc["components"].pop(8))
-    assert missing.returncode == 1 and "unknown components" in missing.stderr
+    assert_rejected(mutated(lambda doc: doc.update(schema_version=1)), "schema_version must be 2")
+    assert_rejected(mutated(lambda doc: doc.pop("repository_paths")), "repository-owned paths")
+    assert_rejected(mutated(lambda doc: doc.pop("deploy_triggers")), "deploy triggers")
+
+
+def assert_deploy_trigger_shape() -> None:
+    assert_rejected(mutated(lambda doc: doc["deploy_triggers"].__setitem__(0, "invalid")), "must be an object")
+    assert_rejected(mutated(lambda doc: doc["deploy_triggers"][0].__setitem__("paths", "invalid")), "paths must be")
+    assert_rejected(mutated(lambda doc: doc["deploy_triggers"][0].__setitem__("paths", [])), "paths must be")
+    assert_rejected(mutated(lambda doc: doc["deploy_triggers"][0].__setitem__("paths", ["missing.yml"])), "lane path")
+    assert_rejected(mutated(lambda doc: doc["deploy_triggers"][0].__setitem__("components", [])), "components must be")
+    assert_rejected(mutated(lambda doc: doc["deploy_triggers"][0]["components"].append("missing")), "unknown or non-deployable")
+    assert_rejected(mutated(lambda doc: doc["deploy_triggers"][0]["components"].append("docs")), "unknown or non-deployable")
+
+
+def assert_path_ownership() -> None:
+    assert_rejected(mutated(lambda doc: doc["components"][1]["paths"].append("apps/agent/**")), "overlap")
+    assert_rejected(mutated(lambda doc: docs_component(doc)["test_triggers"].append("docs/**")), "test trigger")
+    assert_rejected(mutated(lambda doc: add_test_trigger(doc, "docs/**")), "exact tracked file")
+    assert_rejected(mutated(lambda doc: add_test_trigger(doc, "README.md")), "not owned by another component")
+    assert_rejected(mutated(lambda doc: docs_component(doc).pop("test_triggers")), "declared as a test trigger")
+    assert_rejected(mutated(lambda doc: doc["components"][0].pop("deploy_excludes")), "invalid deploy excludes")
+    assert_rejected(mutated(lambda doc: doc["components"][0]["deploy_excludes"].append("README.md")), "deploy exclude escapes")
+
+
+def assert_component_graph() -> None:
+    assert_rejected(mutated(lambda doc: doc["components"][0]["depends_on"].append("missing")), "unknown dependency")
+    assert_rejected(mutated(lambda doc: doc["components"][2]["depends_on"].append("agent")), "cycle")
+    assert_rejected(mutated(lambda doc: doc["components"].pop(8)), "unknown or non-deployable")
+
+
+def main() -> None:
+    assert_manifest_shape()
+    assert_deploy_trigger_shape()
+    assert_path_ownership()
+    assert_component_graph()
     print("component manifest: workspace coverage, ownership, references, and DAG validated")
 
 

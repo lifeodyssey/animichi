@@ -35,11 +35,11 @@ Root READMEs are repository-owned static-quality inputs rather than unknown prod
 
 ### Build once, promote the same artifact
 
-On a `main` push, `CD` evaluates the exact `before..sha` range with the same component graph and
-deduplicates the reverse closure into deploy units. Every affected unit is built once by
-the local `build-release-unit` action. Its release payload includes the source SHA, a closed manifest,
-and a SHA-256 digest. Promotion verifies the payload and digest; staging and production consume
-the same immutable bytes and never rebuild them.
+On a `main` push, `CD` evaluates the exact `before..sha` range with the same component graph. Its
+`deploy_triggers` selects every release unit for shared delivery controls, only the declared owner
+for unit-specific adapters, and no product unit for other repository-only workflow changes. Every
+affected unit is built once by `build-release-unit`; its sealed payload includes the source SHA,
+manifest, and digest. Staging and production promote those same immutable bytes without rebuilding.
 
 The ordered promotion phases are foundation, migration, services, edge, and web. Empty phases are
 skipped without weakening the order. After the full affected cohort reaches staging, one
