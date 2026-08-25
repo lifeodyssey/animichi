@@ -4,7 +4,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { clearAuthToken } from "../../../src/lib/auth/auth-session";
-import { resetNeonAuthClient } from "../../../src/lib/auth/neon-auth";
+import { resetNeonAuthClient } from "../../../src/lib/auth/neon-auth-client";
 import { fetchAuthStatus, useAuthStatus } from "../../../src/lib/auth/session";
 import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../../src/lib/runtime-config/provider";
 import { DEFAULT_RUNTIME_CONFIG } from "../../../src/lib/runtime-config/runtime-config";

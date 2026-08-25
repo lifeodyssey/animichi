@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 
 const packageRoot = fileURLToPath(new URL("../../", import.meta.url));
 const serverEntry = new URL("../../.output/server/index.mjs", import.meta.url);
+const serverDir = new URL("../../.output/server/", import.meta.url);
 const publicDir = new URL("../../.output/public", import.meta.url);
 const wranglerConfigPath = new URL("../../wrangler.jsonc", import.meta.url);
 
@@ -50,6 +51,17 @@ function promotePrebuiltWorkerToTempDir(): string {
   return outdir;
 }
 
+function sourcesOf(mapPath: string): string[] {
+  return (JSON.parse(readFileSync(mapPath, "utf8")) as { sources?: string[] }).sources ?? [];
+}
+
+/** Every module Rollup actually placed in a server chunk, named by its sourcemap. */
+function serverGraphModules(): string[] {
+  const root = fileURLToPath(serverDir);
+  const maps = readdirSync(root, { recursive: true, encoding: "utf8" });
+  return maps.filter((file) => file.endsWith(".map")).flatMap((file) => sourcesOf(join(root, file)));
+}
+
 function readBundledWorker(outdir: string): string {
   const entry = join(outdir, "index.js");
   if (!existsSync(entry)) throw new Error(`no bundled worker emitted in ${outdir}`);
@@ -89,5 +101,21 @@ describe("build output", () => {
     const bundle = readBundledWorker(bundleWorkerToTempDir(target));
 
     expect(bundle).not.toContain("__name(");
+  });
+
+  // Regression: `@neondatabase/auth` runs browser-only side effects at module scope —
+  // a BroadcastChannel tab id via `crypto.randomUUID()`. workerd evaluates every module
+  // top level outside an I/O context, even when the module is dynamically imported from
+  // inside a request handler, so that call throws and Nitro answers 500 to every request
+  // including static assets. Wrangler's esbuild pass used to hide it by inlining the
+  // dynamic import into a lazy initialiser; main CD promotes Nitro's prebuilt chunks with
+  // `--no-bundle`, which does not. Auth is a browser concern in this app (every consumer
+  // is a hook or an event handler, and the server has no cookie jar to read a session
+  // from), so the SDK must never reach the server graph.
+  it("keeps the browser-only Neon Auth SDK out of the server graph", () => {
+    const graph = serverGraphModules();
+
+    expect(graph.length).toBeGreaterThan(0);
+    expect(graph.filter((module) => module.includes("@neondatabase/auth/dist/"))).toEqual([]);
   });
 });

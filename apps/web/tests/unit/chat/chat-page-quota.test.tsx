@@ -42,7 +42,10 @@ async function exhaustQuota(resetsAt?: string) {
   server.use(chatQuotaExhaustedHandler(resetsAt));
   renderChatPage();
   sendText("ユーフォ");
-  await screen.findByRole("status");
+  // The live region mounts empty and is filled once the rejection lands, so
+  // waiting on `role="status"` alone returns before the notice has any copy.
+  // The login CTA only exists inside the rendered quota banner.
+  await screen.findByRole("button", { name: states.d12Login });
 }
 
 describe("D12 anonymous daily message quota", () => {

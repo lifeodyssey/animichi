@@ -74,6 +74,22 @@ client effect, and keeps desktop visitors on the clickable doorway. Root guide: 
 - `wrangler.jsonc` — `.output/server/index.mjs` Worker entry + static asset binding.
 - `tests/unit/` · `tests/integration/build-output.test.ts` — unit and emitted-bundle contracts.
 
+## Auth is browser-only (`src/lib/auth/`)
+
+- `neon-auth.ts` is the port. The browser binds it to `neon-auth-client.ts` (the official
+  `@neondatabase/auth` SDK) through a dynamic import; SSR binds it to `signed-out-session.ts`.
+- **Never import `@neondatabase/auth` from anything the server graph can reach.** The SDK mints a
+  BroadcastChannel tab id with `crypto.randomUUID()` at module scope, and workerd evaluates every
+  module top level outside an I/O context — even for a dynamic import from inside a handler — so
+  the SDK reaching the server graph makes the Worker answer 500 to *every* request, static assets
+  included. Wrangler's esbuild pass used to mask this by inlining dynamic imports into lazy
+  initialisers; main CD promotes Nitro's prebuilt chunks with `--no-bundle`, which does not.
+- Three things hold that line: the `client-only` marker in `neon-auth-client.ts`,
+  `importProtection` in `vite.config.ts` (build fails, naming the import chain), and the sourcemap
+  assertion in `tests/integration/build-output.test.ts` (the artifact itself is checked).
+- A Worker has no cookie jar, so SSR never had a session to read anyway. `AuthStatus` models
+  `"pending"` as a first-class state and `/` renders the anonymous doorway until the client answers.
+
 ## Pitfalls
 
 - `src/routeTree.gen.ts` is generated. Do not hand-edit it; oxlint and coverage ignore it. The unit
