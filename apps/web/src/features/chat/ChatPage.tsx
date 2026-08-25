@@ -6,11 +6,8 @@ import { useAuthStatus } from "../../lib/auth/session";
 import { ChatActionsProvider, sendWithOriginOf } from "./ChatActions";
 import type { ChatActions } from "./ChatActions";
 import { ChatIntro, ChatNotices, ChatShell, DepartureGate, DockTray, ScrollAnchor, TurnStream } from "./components/ChatShell";
-import { ByokSettings } from "./components/ByokSettings";
-import type { PanelPreferences } from "./components/ByokSettings";
 import { ChatInput } from "./components/ChatInput";
 import { ChatAppBar } from "./components/ChatAppBar";
-import { ChatSettingsDrawer } from "./components/ChatSettingsDrawer";
 import { currentChatConfig } from "./config";
 import { deriveEntryState, resolveRouteReference } from "./entry-state";
 import type { ChatEntryState } from "./entry-state";
@@ -24,8 +21,6 @@ import type { RecomputeTurn } from "./selection/use-recompute-turn";
 import { lockedRecompute, useLockedActions } from "./quota-lock";
 import type { QuotaLock } from "./quota-lock";
 import { useAutoSend } from "./use-auto-send";
-import { useByokPanel } from "./use-byok-panel";
-import type { ByokPanel } from "./use-byok-panel";
 import { useDeparturePrompt } from "./use-departure-prompt";
 import type { DeparturePromptState } from "./use-departure-prompt";
 import { useBackendHealth } from "./use-backend-health";
@@ -42,8 +37,6 @@ import { useAgentWarmup } from "../../lib/agent-warmup";
 
 export interface ChatPageProps {
   readonly search: ChatSearch;
-  /** The settings drawer's app-preference section, composed by the route. */
-  readonly preferences?: PanelPreferences;
 }
 
 /** Send, plus the D6-style retry: drop the failed turn's partial and resubmit. */
@@ -139,7 +132,7 @@ function useChatPage(search: ChatSearch) {
   const actions = useLockedActions(live, tray.quota.locked);
   const surfaces = usePageSurfaces(chat, actions, gps);
   useAutoSendFromQuery(search, health, actions.send);
-  return { config, health, chat, history, actions, auth, byok: useByokPanel(search, auth), ...surfaces, ...tray };
+  return { config, health, chat, history, actions, auth, ...surfaces, ...tray };
 }
 
 type PageState = ReturnType<typeof useChatPage>;
@@ -160,11 +153,11 @@ function composerGateOf(entry: ChatEntryState, chat: ChatSession, history: Conve
 
 /** Plain page-level assembly (not a component): the `.chat-body` order spans
  * three regions whose state union exceeds the component prop ceiling. */
-function chatBody(entry: ChatEntryState, chat: ChatSession, history: ConversationHistory, dict: ChatDict, onSend: (text: string) => void, failure: TurnFailureView | undefined, locale: Locale, byok: ByokPanel): ReactNode {
+function chatBody(entry: ChatEntryState, chat: ChatSession, history: ConversationHistory, dict: ChatDict, onSend: (text: string) => void, failure: TurnFailureView | undefined, locale: Locale): ReactNode {
   return (
     <>
       <ChatIntro entry={entry} chat={chat} history={history} dict={dict} onSend={onSend} />
-      <TurnStream chat={chat} dict={dict} failure={failure} locale={locale} byok={byok} />
+      <TurnStream chat={chat} dict={dict} failure={failure} locale={locale} />
       <ScrollAnchor count={history.entries.length + chat.messages.length} />
     </>
   );
@@ -185,21 +178,12 @@ function chatComposer(dict: ChatDict, quota: QuotaLock, onSend: (text: string) =
   return <ChatInput dict={dict} disabled={gate.locked} busy={gate.busy} sendFailed={gate.failed} quotaLocked={quota.locked} onSend={onSend} />;
 }
 
-function settingsOf(page: PageState, preferences: PanelPreferences | undefined): ReactNode {
-  const label = preferences?.label ?? page.dict.byok.settingsToggle;
-  return (
-    <ChatSettingsDrawer open={page.byok.open} label={label} onToggle={page.byok.toggle} onClose={page.byok.hide}>
-      <ByokSettings dict={page.dict} auth={page.byok.auth} baseUrl={page.config.baseUrl} preferences={preferences} />
-    </ChatSettingsDrawer>
-  );
-}
-
-function ChatPageView({ search, page, preferences }: Readonly<{ search: ChatSearch; page: PageState; preferences: PanelPreferences | undefined }>) {
+function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: PageState }>) {
   const entry = entryStateOf(search, page.health);
   return <ChatShell
-    appbar={<ChatAppBar dict={page.dict} status={page.auth} settings={settingsOf(page, preferences)} />}
+    appbar={<ChatAppBar dict={page.dict} status={page.auth} />}
     notices={<ChatNotices entry={entry} onRetry={page.health.retry} history={page.history} dict={page.dict} />}
-    body={chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale, page.byok)}
+    body={chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale)}
     dock={chatDock(page.departure, page.dict, page.config.baseUrl, page.photo, page.chat, page.recompute)}
     composer={chatComposer(page.dict, page.quota, page.departure.onSend, composerGateOf(entry, page.chat, page.history, page.failure))}
   />;
@@ -210,7 +194,7 @@ function ChatPageView({ search, page, preferences }: Readonly<{ search: ChatSear
 function withReturnTarget(props: ChatPageProps, page: PageState) {
   return (
     <ChatReturnTargetProvider sessionIdOf={page.chat.sessionIdOf}>
-      <ChatPageView search={props.search} page={page} preferences={props.preferences} />
+      <ChatPageView search={props.search} page={page} />
     </ChatReturnTargetProvider>
   );
 }

@@ -1,0 +1,301 @@
+.settings-page {
+  --animal-primary-color: var(--color-primary-strong);
+  --animal-primary-color-hover: var(--color-primary-hover);
+  --animal-primary-color-active: var(--color-primary-active);
+  --animal-primary-color-bg: var(--color-primary-soft);
+  --animal-success-color: var(--color-success-fg);
+  --animal-success-color-active: var(--color-success-deep);
+  --animal-error-color: var(--color-error-strong);
+  --animal-error-color-active: var(--color-error-strong);
+  --animal-focus-yellow: var(--color-focus);
+  --animal-text-color: var(--color-fg);
+  --animal-text-color-body: var(--color-fg);
+  --animal-text-color-secondary: var(--color-muted-fg);
+  --animal-text-color-muted: var(--color-muted-fg);
+  --animal-text-color-disabled: var(--color-muted-fg);
+  --animal-border-color: var(--color-border);
+  --animal-border-color-hover: var(--color-primary-strong);
+  --animal-border-color-light: var(--color-border-soft);
+  --animal-bg-color: var(--color-paper);
+  --animal-bg-color-content: var(--color-card);
+  --animal-bg-color-secondary: var(--color-muted);
+  --animal-bg-color-disabled: var(--color-muted);
+  --animal-shadow-press: var(--shadow-press);
+  --animal-shadow-input: 0 3px 0 0 var(--shadow-3d);
+
+  min-height: 100dvh;
+  padding: 32px clamp(20px, 5vw, 64px) 64px;
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.settings-page__header,
+.settings-page__layout {
+  width: min(100%, 72rem);
+  margin-inline: auto;
+}
+
+.settings-page__header {
+  padding-block-end: 28px;
+  border-block-end: 1px solid var(--color-border-soft);
+}
+
+.settings-page__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--color-fg);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.settings-page__back:focus-visible,
+.settings-page__nav a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.settings-page__header h1 {
+  margin: 20px 0 8px;
+  font-family: var(--app-font-body);
+  font-size: 2.25rem;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.settings-page__header p,
+.settings-section__intro p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--color-muted-fg);
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
+.settings-page__layout {
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr);
+  gap: clamp(32px, 6vw, 72px);
+  padding-block-start: 32px;
+}
+
+.settings-page__nav {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-page__nav a {
+  min-height: 44px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  color: var(--color-muted-fg);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.settings-page__nav a:hover {
+  background: var(--color-muted);
+  color: var(--color-fg);
+}
+
+.settings-page__content {
+  width: min(100%, 48rem);
+}
+
+.settings-section {
+  scroll-margin-top: 24px;
+  padding: 0 0 44px;
+}
+
+.settings-section + .settings-section {
+  padding-block-start: 40px;
+  border-block-start: 1px solid var(--color-border-soft);
+}
+
+.settings-section__intro {
+  margin-block-end: 24px;
+}
+
+.settings-section__intro h2 {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.app-preferences,
+.settings-byok__form,
+.settings-byok__teaser,
+.settings-byok__field {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-preferences {
+  gap: 0;
+}
+
+.settings-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 72px;
+  padding-block: 14px;
+  border-block-end: 1px solid var(--color-border-soft);
+}
+
+.settings-control-row:first-child {
+  border-block-start: 1px solid var(--color-border-soft);
+}
+
+.settings-control-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  line-height: 1.45;
+}
+
+.settings-control-copy strong {
+  font-size: 0.95rem;
+}
+
+.settings-control-copy span,
+.settings-byok__help,
+.settings-byok__status {
+  color: var(--color-muted-fg);
+  font-size: 0.825rem;
+}
+
+.settings-control-row .animal-switch {
+  align-self: flex-start;
+  flex: none;
+}
+.settings-control-row .animal-select-wrapper {
+  flex: none;
+}
+
+.settings-control-row .animal-select-trigger {
+  min-width: 9rem;
+}
+
+.settings-byok__form,
+.settings-byok__teaser {
+  gap: 20px;
+  max-width: 38rem;
+}
+
+.settings-byok__field {
+  gap: 8px;
+}
+
+.settings-byok__field .animal-input-wrapper {
+  width: 100%;
+}
+
+.settings-byok__label {
+  color: var(--color-fg);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.settings-byok__help,
+.settings-byok__status {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.settings-byok__error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-error-bg);
+  color: var(--color-error-strong);
+  font-weight: 650;
+}
+
+.settings-byok__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-block-end: 20px;
+}
+
+.settings-byok__badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--color-walk-bg);
+  color: var(--color-walk-fg);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.animal-btn.settings-byok__save,
+.animal-btn.settings-byok__signin {
+  align-self: flex-start;
+  background: var(--color-primary);
+  border-color: var(--color-primary-active);
+  color: var(--color-primary-ink);
+}
+
+.animal-btn.settings-byok__clear {
+  color: var(--color-error-strong);
+}
+@media (max-width: 720px) {
+  .settings-page {
+    padding: 20px 18px 44px;
+  }
+
+  .settings-page__layout {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding-block-start: 20px;
+  }
+  .settings-page__nav {
+    position: static;
+    flex-direction: row;
+    gap: 8px;
+    overflow-x: auto;
+    border-block-end: 1px solid var(--color-border-soft);
+  }
+
+  .settings-page__nav a {
+    flex: none;
+  }
+}
+@media (max-width: 480px) {
+  .settings-page__header h1 {
+    font-size: 1.85rem;
+  }
+
+  .settings-control-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settings-control-row .animal-select-trigger {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-page .animal-btn,
+  .settings-page .animal-input-wrapper,
+  .settings-page .animal-radio-item,
+  .settings-page .animal-radio-circle,
+  .settings-page .animal-select-content,
+  .settings-page .animal-switch,
+  .settings-page .animal-switch-thumb {
+    animation: none;
+    transition: none;
+  }
+}

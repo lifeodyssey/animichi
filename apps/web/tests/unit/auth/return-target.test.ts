@@ -11,15 +11,14 @@ describe("sanitizeReturnTarget — honoured targets", () => {
   it.each([
     "/",
     "/chat",
-    "/chat?settings=byok",
-    "/chat?settings=byok&session=abc",
+    "/settings#api-key",
     "/routes/123#map",
   ])("keeps the same-origin relative path %s", (path) => {
     expect(sanitizeReturnTarget(path)).toBe(path);
   });
 
   it("trims surrounding whitespace before honouring a valid path", () => {
-    expect(sanitizeReturnTarget("  /chat?settings=byok ")).toBe("/chat?settings=byok");
+    expect(sanitizeReturnTarget("  /settings#api-key ")).toBe("/settings#api-key");
   });
 });
 
@@ -48,7 +47,7 @@ describe("sanitizeReturnTarget — T14 attack vectors (T8-AC6)", () => {
     "/chat\\..\\evil",
     "javascript:alert(1)",
     "data:text/html,x",
-    "chat?settings=byok",
+    "settings#api-key",
     "/../evil",
     "/chat/../../etc",
   ])("rejects %j in favour of /", (vector) => {
@@ -56,7 +55,7 @@ describe("sanitizeReturnTarget — T14 attack vectors (T8-AC6)", () => {
   });
 
   it("rejects a path smuggling a raw control character", () => {
-    expect(sanitizeReturnTarget("/chat\u0000?settings=byok")).toBe("/");
+    expect(sanitizeReturnTarget("/settings\u0000#api-key")).toBe("/");
   });
 
   it("rejects a path with embedded raw whitespace", () => {

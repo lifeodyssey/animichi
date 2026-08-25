@@ -1,5 +1,5 @@
 /**
- * BYOK settings panel copy (issue #284 Task 6).
+ * BYOK settings-page copy (issue #284 Task 6).
  *
  * Covers the three-family selector, the model field (required for
  * openai-compatible, pre-filled elsewhere), the base_url helper, the vision
@@ -32,6 +32,7 @@ export interface ChatByokDict {
   readonly anonymousTeaser: string;
   readonly signInToSetUp: string;
   readonly checking: string;
+  readonly authPending: string;
   readonly errorUnreachable: string;
   readonly settingsToggle: string;
   readonly d11UseOwnKey: string;
@@ -67,6 +68,7 @@ export const jaByok: ChatByokDict = {
   anonymousTeaser: "自分のAPIキーを使うと、待たずにたくさん話せるよ",
   signInToSetUp: "ログインして設定する",
   checking: "キーをかくにん中…",
+  authPending: "ログイン状態をかくにん中…",
   errorUnreachable: "接続先につながらなかったよ。URLとネットワークを確かめてね",
   settingsToggle: "APIキー設定",
   d11UseOwnKey: "自分のキーを使う",
@@ -102,6 +104,7 @@ export const zhByok: ChatByokDict = {
   anonymousTeaser: "用你自己的密钥,就不用受限额限制啦",
   signInToSetUp: "登录后设置",
   checking: "正在检查密钥…",
+  authPending: "正在检查登录状态…",
   errorUnreachable: "连不上这个接口地址,请检查 URL 和网络",
   settingsToggle: "API 密钥设置",
   d11UseOwnKey: "使用自己的密钥",
@@ -137,6 +140,7 @@ export const enByok: ChatByokDict = {
   anonymousTeaser: "Bring your own key to chat without the daily limit",
   signInToSetUp: "Sign in to set up",
   checking: "Checking your key…",
+  authPending: "Checking your sign-in status…",
   errorUnreachable: "Couldn't reach that endpoint — check the URL and your network",
   settingsToggle: "API key settings",
   d11UseOwnKey: "Use your own key",

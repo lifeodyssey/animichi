@@ -12,7 +12,7 @@ import { runByokProbe } from "./byok-probe";
 import type { ByokProbeOutcome } from "./byok-probe";
 
 /**
- * State for the BYOK settings panel (issue #284 Task 6). Saving is
+ * State for BYOK on the dedicated settings page (issue #284 Task 6). Saving is
  * deliberately fused with probing (OQ-2): one `/v1/byok/probe` request
  * validates the credential AND detects vision support, so configuring a key
  * costs the user exactly one probe. The raw key lives in the form state only

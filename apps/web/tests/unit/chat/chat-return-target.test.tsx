@@ -15,7 +15,7 @@ import { itineraryView } from "../../../src/features/chat/lib/itinerary";
 import { ujiItinerary } from "./_route-fixtures";
 import { SessionExpired } from "../../../src/features/chat/components/ErrorStates/SessionExpired";
 import { ChatReturnTargetProvider, chatSessionTarget, returnTargetNamesSession } from "../../../src/features/chat/ChatReturnTarget";
-import { carriesPanelIntent } from "../../../src/lib/auth/return-target";
+import { carriesSetupIntent } from "../../../src/lib/auth/return-target";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { sendMagicLink } from "../../../src/lib/auth/neon-auth";
 import { setLanguages } from "../_i18n";
@@ -64,23 +64,23 @@ describe("returnTargetNamesSession", () => {
   });
 
   it("does not fire for the BYOK deep-link or a bare path", () => {
-    expect(returnTargetNamesSession("/chat?settings=byok")).toBe(false);
+    expect(returnTargetNamesSession("/settings#api-key")).toBe(false);
     expect(returnTargetNamesSession("/chat")).toBe(false);
     expect(returnTargetNamesSession(undefined)).toBe(false);
   });
 });
 
-describe("carriesPanelIntent (#480 reconciliation)", () => {
+describe("carriesSetupIntent (#480 reconciliation)", () => {
   it("stays true for the BYOK target, preserving #480's navigate-on-save-failure", () => {
-    expect(carriesPanelIntent("/chat?settings=byok")).toBe(true);
+    expect(carriesSetupIntent("/settings#api-key")).toBe(true);
   });
 
   it("is false for a plain session return, so the save retry surface survives", () => {
-    expect(carriesPanelIntent(`/chat?session=${SESSION}`)).toBe(false);
+    expect(carriesSetupIntent(`/chat?session=${SESSION}`)).toBe(false);
   });
 
   it("is false for anything the open-redirect guard rejects", () => {
-    expect(carriesPanelIntent("https://evil.test?settings=byok")).toBe(false);
+    expect(carriesSetupIntent("https://evil.test/settings#api-key")).toBe(false);
   });
 });
 

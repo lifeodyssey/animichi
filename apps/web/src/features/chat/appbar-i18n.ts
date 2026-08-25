@@ -10,6 +10,7 @@ export interface ChatAppBarDict {
   readonly newConversation: string;
   readonly signedIn: string;
   readonly login: string;
+  readonly settings: string;
 }
 
 export const jaAppBar: ChatAppBarDict = {
@@ -18,6 +19,7 @@ export const jaAppBar: ChatAppBarDict = {
   newConversation: "新しい会話",
   signedIn: "ログイン中",
   login: "ログイン",
+  settings: "設定",
 };
 
 export const zhAppBar: ChatAppBarDict = {
@@ -26,6 +28,7 @@ export const zhAppBar: ChatAppBarDict = {
   newConversation: "新对话",
   signedIn: "已登录",
   login: "登录",
+  settings: "设置",
 };
 
 export const enAppBar: ChatAppBarDict = {
@@ -34,4 +37,5 @@ export const enAppBar: ChatAppBarDict = {
   newConversation: "New chat",
   signedIn: "Signed in",
   login: "Log in",
+  settings: "Settings",
 };

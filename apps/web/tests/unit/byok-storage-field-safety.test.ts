@@ -69,7 +69,7 @@ describe("model character safety — every family (probes 1-2)", () => {
 describe("base_url character safety — openai-compatible only (probes 3-4)", () => {
   it("probe 3: rejects an internationalized-domain base_url as base_url_invalid", () => {
     // Deliberately not punycode-decoded here — see the module doc comment.
-    // The settings panel is expected to prompt for an ASCII/A-label host.
+    // The settings page is expected to prompt for an ASCII/A-label host.
     expect(validateByokConfig({ ...OPENAI_CONFIG, baseUrl: "https://例え.jp/v1" })).toEqual({
       ok: false,
       error: "base_url_invalid",

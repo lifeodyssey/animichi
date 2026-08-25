@@ -13,8 +13,17 @@
   },
   "settings": {
     "title": "設定",
+    "description": "表示と言語、APIキーをここでまとめて管理できます。",
+    "backToChat": "チャットに戻る",
+    "sectionsLabel": "設定項目",
+    "preferencesTitle": "表示と言語",
+    "preferencesDescription": "このブラウザで使う見た目と言語を選びます。",
+    "apiKeyTitle": "APIキー",
+    "apiKeyDescription": "自分のプロバイダを使う設定です。キーはこのブラウザだけに保存されます。",
     "nightMode": "夜間モード",
-    "language": "言語"
+    "nightModeDescription": "暗い場所で見やすい配色にします。",
+    "language": "言語",
+    "languageDescription": "画面に表示する言語を選びます。"
   },
   "home": {
     "search_placeholder": "アニメ・駅・都市を入力",

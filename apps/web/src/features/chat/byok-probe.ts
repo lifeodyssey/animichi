@@ -3,7 +3,7 @@ import { sessionHeaders } from "./session-headers";
 
 /**
  * Client for `POST /v1/byok/probe` (issue #284 Task 5/D5, consumed by the
- * Task 6 settings panel). One request does double duty (OQ-2): it validates
+ * Task 6 settings page). One request does double duty (OQ-2): it validates
  * the saved credential AND detects vision capability. The wire contract is
  * the generated boundary from `@animichi/contract` — `ByokProbeResponse`
  * (the probe verdict) and `ByokProbeErrorBody` (the shared agent error

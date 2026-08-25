@@ -15,7 +15,6 @@ import type { ChatEntryState } from "../entry-state";
 import type { ChatDict } from "../i18n";
 import type { PhotoSearchContext } from "../photo-search";
 import type { RecomputeTurn } from "../selection/use-recompute-turn";
-import type { ByokPanel } from "../use-byok-panel";
 import type { DeparturePromptState } from "../use-departure-prompt";
 import type { ConversationHistory } from "../use-conversation-history";
 import type { ChatSession } from "../use-chat-session";
@@ -83,16 +82,15 @@ type TurnStreamProps = Readonly<{
   dict: ChatDict;
   failure: TurnFailureView | undefined;
   locale: Locale;
-  byok: ByokPanel;
 }>;
 
 /** Owns the live-turn region: messages, the failure strip, the waiting ritual. */
-export function TurnStream({ chat, dict, failure, locale, byok }: TurnStreamProps) {
+export function TurnStream({ chat, dict, failure, locale }: TurnStreamProps) {
   const settledDurationMs = useTurnTiming(chat.status, businessEventCount(chat.messages));
   return (
     <>
       <MessageList messages={chat.messages} dict={dict} status={chat.status} settledDurationMs={settledDurationMs} />
-      <TurnFailure view={failure} dict={dict} locale={locale} onOpenSettings={byok.show} />
+      <TurnFailure view={failure} dict={dict} locale={locale} />
       <WaitingRitual status={chat.status} dict={dict} messages={chat.messages} />
     </>
   );

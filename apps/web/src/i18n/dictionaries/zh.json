@@ -13,8 +13,17 @@
   },
   "settings": {
     "title": "设置",
+    "description": "在这里统一管理显示、语言和 API 密钥。",
+    "backToChat": "返回聊天",
+    "sectionsLabel": "设置项目",
+    "preferencesTitle": "显示与语言",
+    "preferencesDescription": "选择这个浏览器使用的外观和界面语言。",
+    "apiKeyTitle": "API 密钥",
+    "apiKeyDescription": "连接你自己的服务商。密钥只保存在这个浏览器中。",
     "nightMode": "夜间模式",
-    "language": "语言"
+    "nightModeDescription": "切换为适合暗光环境的配色。",
+    "language": "语言",
+    "languageDescription": "选择界面显示语言。"
   },
   "home": {
     "search_placeholder": "输入作品名、车站或城市",

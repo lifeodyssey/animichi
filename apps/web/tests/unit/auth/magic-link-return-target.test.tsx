@@ -37,8 +37,8 @@ function expectSentCallbackUrl(callbackURL: string): void {
  */
 describe("magic-link callback URL return target", () => {
   it("appends a validated relative next to the fixed callback path", () => {
-    submitLogin("/chat?settings=byok");
-    expectSentCallbackUrl("http://localhost:3000/auth/callback?next=%2Fchat%3Fsettings%3Dbyok");
+    submitLogin("/settings#api-key");
+    expectSentCallbackUrl("http://localhost:3000/auth/callback?next=%2Fsettings%23api-key");
   });
 
   it("sends the bare callback URL when no return target was given", () => {
