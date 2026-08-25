@@ -97,11 +97,19 @@ runs:
         case "$RELEASE_PHASE" in foundation|migration|services|edge|web) ;; *) exit 2 ;; esac
         jq -e 'type == "array" and length > 0 and all(.[]; type == "string")' <<< "$RELEASE_UNITS" >/dev/null
       shell: bash
+    # By name, not by pattern: `actions/download-artifact` only creates a directory
+    # per artifact when more than one matches, so a single-unit cohort landed flat
+    # and the adapter's per-unit path never existed.
     - name: Download the main-SHA artifacts
-      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-      with:
-        pattern: release-${{ inputs.source_sha }}-*
-        path: ${{ runner.temp }}/release-cohort
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RUN_ID: ${{ github.run_id }}
+        SOURCE_SHA: ${{ inputs.source_sha }}
+        RELEASE_UNITS: ${{ inputs.units }}
+      run: |
+        bash .github/scripts/download-release-cohort.sh \
+          "$RUN_ID" "$SOURCE_SHA" "$RELEASE_UNITS" "$RUNNER_TEMP/release-cohort"
+      shell: bash
     - uses: ./.github/actions/setup
     - name: Install Pulumi CLI
       if: ${{ inputs.phase == 'foundation' }}

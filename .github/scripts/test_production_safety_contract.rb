@@ -128,7 +128,9 @@ deployment_lock = {
 abort "production CD must be main-push-only" unless triggers(cd) == { "push" => { "branches" => ["main"] } }
 abort "CD must use the shared native deployment lock" unless cd.fetch("concurrency") == deployment_lock
 abort "production must be protected by exactly one approval job" unless cd_source.scan(/^\s+environment:\s+production\s*$/).length == 1
-abort "production must promote the exact main-SHA artifact cohort" unless cd_source.include?("release-${{ github.sha }}-*")
+# Was a glob over the cohort; that glob is what made a one-unit cohort undeployable.
+# The exact-cohort guarantee now rests on the source SHA plus the by-name download.
+abort "production must promote the exact main-SHA artifact cohort" unless cd_source.include?("SOURCE_SHA: ${{ github.sha }}") && cd_source.include?("download-release-cohort.sh")
 abort "production must use the same no-rebuild adapter as staging" unless cd_source.include?("promote-release-unit.sh")
 abort "production promotion must remain fail-closed" unless cd_source.include?("set -euo pipefail")
 

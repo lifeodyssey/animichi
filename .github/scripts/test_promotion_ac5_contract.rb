@@ -39,7 +39,14 @@ def assert_immutable_consumption(dir, cd)
   source = File.read(File.join(dir, "cd.yml"))
   adapter = File.read(File.expand_path("promote-release-unit.sh", __dir__))
   promotion = File.read(File.expand_path("../actions/promote-release-phase/action.yml", __dir__))
-  abort "production must download main-SHA release artifacts" unless source.include?("release-${{ github.sha }}-*")
+  # Was `release-${{ github.sha }}-*`. The glob is what broke a single-unit cohort:
+  # `actions/download-artifact` only makes a directory per artifact when more than
+  # one matches, so the adapter's per-unit path did not exist and delivery failed for
+  # every push touching one unit. Both sites now fetch by name through one script, so
+  # the assertion pins the main-SHA source and the size-independent layout instead.
+  abort "production must download main-SHA release artifacts" unless source.include?("SOURCE_SHA: ${{ github.sha }}")
+  abort "production must materialise the cohort by unit, not by glob" unless source.include?("download-release-cohort.sh")
+  abort "staging must materialise the cohort by unit, not by glob" unless promotion.include?("download-release-cohort.sh")
   abort "promotion must verify the artifact before extraction" unless adapter.index("verify-release-artifact.py") < adapter.index("tar -xzf")
   abort "staging and production must use the same adapter" unless promotion.include?("promote-release-unit.sh")
   assert_no_production_build(cd)
