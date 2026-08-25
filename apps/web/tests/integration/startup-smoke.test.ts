@@ -35,6 +35,9 @@ function bootPromotedWorker(): ChildProcess {
   const collect = (chunk: Buffer): void => { log += String(chunk); };
   child.stdout.on("data", collect);
   child.stderr.on("data", collect);
+  // A spawn that never starts emits `error` and no output at all, which would
+  // otherwise read as "still booting" for the whole timeout.
+  child.on("error", (error: Error) => { log += `spawn failed: ${error.message}\n`; });
   return child;
 }
 
@@ -42,8 +45,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** A signal kill leaves `exitCode` null, so reading it alone waits out the timeout. */
 function bootFailure(child: ChildProcess): string | undefined {
-  return child.exitCode === null ? undefined : `wrangler dev exited (${String(child.exitCode)})`;
+  if (child.signalCode !== null) return `wrangler dev was killed by ${child.signalCode}`;
+  if (child.exitCode !== null) return `wrangler dev exited (${String(child.exitCode)})`;
+  return undefined;
 }
 
 /** Wrangler announces its port once workerd holds the Worker; poll the log, not the socket. */
