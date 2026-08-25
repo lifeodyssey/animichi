@@ -37,6 +37,13 @@
   --color-bg: #f0e8d8;
   --color-paper: #f8f8f0;
   --color-fg: #725d42;
+  /* The strongest warm-brown text tone, for copy that sits on `--color-muted`.
+   * `--color-fg` is Animal Island's `text-color-body` and clears AA there by
+   * 4.645:1 — three percent of headroom, which any entrance-animation alpha
+   * spends: CI measured 4.43:1 on `.route-map__stage` and failed the axe gate.
+   * This is the ramp's `text-color` (#794f27, their header tone), 5.272:1 on
+   * muted, so the margin survives a frame mid-transition. */
+  --color-fg-ink: #794f27;
   --color-card: #f7f3df;
   --color-muted: #e8ddc8;
   /* Accessible secondary text; clears WCAG AA on cream (#6f6353 on card #f7f3df = 5.25:1). */
@@ -145,6 +152,7 @@
   --color-bg: var(--color-bg);
   --color-paper: var(--color-paper);
   --color-fg: var(--color-fg);
+  --color-fg-ink: var(--color-fg-ink);
   --color-card: var(--color-card);
   --color-muted: var(--color-muted);
   --color-muted-fg: var(--color-muted-fg);
@@ -561,6 +569,10 @@ button, input, select, textarea, [role="button"] {
   color-scheme: dark;
   --color-bg: #201a12;
   --color-fg: #f3ece0;
+  /* Night reads light-on-dark, so the strongest tone is the body tone: it already
+   * carries 11.645:1 on night's `--color-muted` (#362c1e) and needs no lift. The
+   * token still has to exist here, or `var(--color-fg-ink)` resolves to nothing. */
+  --color-fg-ink: #f3ece0;
   --color-card: #2b2318;
   --color-muted: #362c1e;
   --color-muted-fg: #cbbfa8;

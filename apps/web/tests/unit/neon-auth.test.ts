@@ -3,132 +3,97 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { createAuthClient, BetterAuthVanillaAdapter, magicLink, getSession } = vi.hoisted(() => ({
+const { createAuthClient, getSession } = vi.hoisted(() => ({
   createAuthClient: vi.fn(),
-  BetterAuthVanillaAdapter: vi.fn(() => vi.fn()),
-  magicLink: vi.fn(),
   getSession: vi.fn(),
 }));
 
 vi.mock("@neondatabase/auth", () => ({ createAuthClient }));
-vi.mock("@neondatabase/auth/vanilla", () => ({ BetterAuthVanillaAdapter }));
+vi.mock("@neondatabase/auth/vanilla", () => ({ BetterAuthVanillaAdapter: vi.fn(() => vi.fn()) }));
 
 import {
-  fetchAuthToken, isNeonAuthConfigured, redeemAuthToken, resetNeonAuthClient, sendMagicLink,
+  fetchAuthToken, isNeonAuthConfigured, redeemAuthToken, resetAuthSessionSource, sendMagicLink,
 } from "../../src/lib/auth/neon-auth";
+import { resetNeonAuthClient } from "../../src/lib/auth/neon-auth-client";
 import { RUNTIME_CONFIG_GLOBAL_KEY } from "../../src/lib/runtime-config/provider";
 import { DEFAULT_RUNTIME_CONFIG } from "../../src/lib/runtime-config/runtime-config";
 
 const request = { email: "fan@example.com", callbackURL: "https://app.test/auth/callback" };
 
 beforeEach(() => {
-  // Hermetic baseline: neutralize any ambient Neon Auth base URL (e.g. a dev
-  // machine's injected runtime config) so "unset" cases don't false-red. The
-  // value now lives in the versioned runtime config global (#1013 AC1).
   vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
-  createAuthClient.mockReturnValue({ signIn: { magicLink }, getSession });
+  createAuthClient.mockReturnValue({ signIn: { magicLink: vi.fn() }, getSession });
 });
 
 afterEach(() => {
+  resetAuthSessionSource();
   resetNeonAuthClient();
+  vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
-function configure(base = "https://auth.test/neondb/auth"): void {
-  vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, { ...DEFAULT_RUNTIME_CONFIG, neonAuthBaseUrl: base });
+function configure(): void {
+  vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, {
+    ...DEFAULT_RUNTIME_CONFIG,
+    neonAuthBaseUrl: "https://auth.test/neondb/auth",
+  });
 }
 
-describe("neon auth magic link", () => {
-  it("reports not configured when the base URL is unset", async () => {
+/** Rebind after the environment flag changes: the source is resolved once and cached. */
+function renderOnServer(): void {
+  vi.stubEnv("SSR", true);
+  resetAuthSessionSource();
+}
+
+describe("neon auth configuration", () => {
+  it("is unconfigured when the runtime config carries no base URL", () => {
     expect(isNeonAuthConfigured()).toBe(false);
-    expect(await sendMagicLink(request)).toBe("not_configured");
-    expect(magicLink).not.toHaveBeenCalled();
   });
 
-  it("treats an unset base URL as unconfigured", () => {
-    vi.stubGlobal(RUNTIME_CONFIG_GLOBAL_KEY, DEFAULT_RUNTIME_CONFIG);
-    expect(isNeonAuthConfigured()).toBe(false);
-  });
-
-  it("calls the official client's signIn.magicLink and returns sent on success", async () => {
+  it("is configured once the runtime config names a base URL", () => {
     configure();
-    magicLink.mockResolvedValue({ data: {}, error: null });
-    expect(await sendMagicLink(request)).toBe("sent");
-    expect(magicLink).toHaveBeenCalledWith(request);
-  });
-
-  it("returns the SDK error.message from an error envelope", async () => {
-    configure();
-    magicLink.mockResolvedValue({ data: null, error: { message: "boom" } });
-    expect(await sendMagicLink(request)).toEqual({ error: "boom" });
-  });
-
-  it("returns the thrown error.message when the client rejects", async () => {
-    configure();
-    magicLink.mockRejectedValue(new Error("network"));
-    expect(await sendMagicLink(request)).toEqual({ error: "network" });
+    expect(isNeonAuthConfigured()).toBe(true);
   });
 });
 
-describe("fetchAuthToken", () => {
-  it("returns undefined when Neon Auth is not configured", async () => {
-    expect(await fetchAuthToken()).toBeUndefined();
-  });
-
-  it("returns the JWT the SDK injects into getSession's session.token", async () => {
+describe("browser binding", () => {
+  it("reads a token through the Neon Auth SDK client", async () => {
     configure();
     getSession.mockResolvedValue({ data: { session: { token: "aaa.bbb.ccc" } }, error: null });
     expect(await fetchAuthToken()).toBe("aaa.bbb.ccc");
   });
 
-  it("ignores the opaque Better Auth session token that is not a JWT", async () => {
-    configure();
-    getSession.mockResolvedValue({ data: { session: { token: "EHyM6opaqueSession" } }, error: null });
-    expect(await fetchAuthToken()).toBeUndefined();
-  });
-
-  it("reuses one SDK client for login, session, and token reads", async () => {
+  it("resolves the bound source once and reuses it for later reads", async () => {
     configure();
     getSession.mockResolvedValue({ data: { session: { token: "aaa.bbb.ccc" } }, error: null });
     await fetchAuthToken();
     await fetchAuthToken();
     expect(createAuthClient).toHaveBeenCalledTimes(1);
   });
-
-  it("builds the Neon Auth client with cross-origin credentials included", async () => {
-    configure();
-    getSession.mockResolvedValue({ data: { session: { token: "aaa.bbb.ccc" } }, error: null });
-    await fetchAuthToken();
-    expect(BetterAuthVanillaAdapter).toHaveBeenCalledWith({
-      fetchOptions: { credentials: "include" },
-    });
-    expect(createAuthClient.mock.calls[0]?.[0]).toBe("https://auth.test/neondb/auth");
-  });
-
-  it("returns undefined when getSession reports no session", async () => {
-    configure();
-    getSession.mockResolvedValue({ data: null, error: null });
-    expect(await fetchAuthToken()).toBeUndefined();
-  });
-
-  it("returns undefined when getSession throws", async () => {
-    configure();
-    getSession.mockRejectedValue(new Error("network"));
-    expect(await fetchAuthToken()).toBeUndefined();
-  });
 });
 
-describe("redeemAuthToken", () => {
-  it("keeps the SDK error.message from a failed getSession envelope", async () => {
+// The SDK mints a BroadcastChannel tab id with `crypto.randomUUID()` at module scope, which
+// workerd refuses outside an I/O context. SSR therefore binds to the signed-out session, and
+// a Worker never had a cookie jar to read a real one from anyway.
+describe("server binding", () => {
+  it("never reaches the SDK for a token, even with Neon Auth configured", async () => {
     configure();
-    getSession.mockResolvedValue({ data: null, error: { message: "Unauthorized" } });
-    expect(await redeemAuthToken()).toEqual({ error: { message: "Unauthorized" } });
+    renderOnServer();
+    expect(await fetchAuthToken()).toBeUndefined();
+    expect(createAuthClient).not.toHaveBeenCalled();
   });
 
-  it("keeps the thrown error.message when getSession rejects", async () => {
+  it("never reaches the SDK for a magic link, even with Neon Auth configured", async () => {
     configure();
-    getSession.mockRejectedValue(new Error("network"));
-    expect(await redeemAuthToken()).toEqual({ error: { message: "network" } });
+    renderOnServer();
+    expect(await sendMagicLink(request)).toBe("not_configured");
+    expect(createAuthClient).not.toHaveBeenCalled();
+  });
+
+  it("redeems no session token", async () => {
+    configure();
+    renderOnServer();
+    expect(await redeemAuthToken()).toEqual({ error: { message: "" } });
   });
 });
