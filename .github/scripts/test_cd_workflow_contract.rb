@@ -120,7 +120,30 @@ abort "agent and migrator must be sealed as OCI archives" unless build_source.sc
 abort "workers must be prebuilt with Wrangler dry-runs" unless build_source.include?("wrangler deploy") && build_source.include?("--dry-run")
 abort "web release must seal .output" unless build_source.include?("apps/web/.output") && build_source.include?("wrangler.jsonc")
 abort "infra release must seal both Pulumi programs" unless build_source.include?('git archive "$SOURCE_SHA" infra') && build_source.include?("rollback")
-abort "infra release must generate and seal the Neon SDK once" unless build_source.include?("pulumi package add terraform-provider kislerdm/neon") && build_source.include?("sdks/neon")
+generate_at = build_source.index("pulumi package add terraform-provider kislerdm/neon")
+install_at = build_source.index("pnpm install --frozen-lockfile")
+built_path_at = build_source.index('built_sdk="infra/database-access/node_modules/@pulumi/neon"')
+sealed_path_at = build_source.index('sealed_sdk="$out/infra/database-access/sdks/neon"')
+source_check_at = build_source.index('[ -f "$built_sdk/bin/index.js" ] || { echo "::error::built Neon provider SDK entrypoint is missing"; exit 1; }')
+copy_at = build_source.index('cp -RL "$built_sdk" "$sealed_sdk"')
+sealed_check_at = build_source.index('[ -f "$sealed_sdk/bin/index.js" ] || { echo "::error::sealed Neon provider SDK entrypoint is missing"; exit 1; }')
+publish_at = build_source.index("actions/upload-artifact@")
+
+abort "infra release must generate the Neon SDK once" unless generate_at
+abort "infra release must run the generated SDK lifecycle" unless install_at
+abort "infra release must not disable SDK lifecycle scripts" if build_source.match?(/pnpm install[^\n]*--ignore-scripts/)
+abort "infra release must read the built Neon SDK" unless built_path_at
+abort "infra release must define the sealed Neon SDK destination" unless sealed_path_at
+abort "infra release must fail closed when the built SDK entrypoint is missing" unless source_check_at
+abort "infra release must dereference and seal the built Neon SDK" unless copy_at
+abort "infra release must fail closed when the sealed SDK entrypoint is missing" unless sealed_check_at
+abort "infra release must publish an immutable artifact" unless publish_at
+abort "infra release must install the generated SDK" unless generate_at < install_at
+abort "infra release must publish only after the SDK lifecycle runs" unless install_at < source_check_at
+abort "infra release must check the built SDK before copying it" unless source_check_at < copy_at
+abort "infra release must check the sealed SDK after copying it" unless copy_at < sealed_check_at
+abort "infra release must verify the sealed SDK before publication" unless sealed_check_at < publish_at
+abort "infra release must not seal the unbuilt Neon SDK source" if build_source.include?('cp -R infra/database-access/sdks/neon')
 abort "production/staging Worker deploys must be no-bundle" unless adapter_source.include?("--no-bundle")
 abort "promotion must use the pinned workspace Wrangler" unless adapter_source.scan(/pnpm --dir "\$GITHUB_WORKSPACE" exec wrangler/).length == 4
 abort "promotion must reject a cross-account image reference" unless adapter_source.include?("sealed image-ref") && adapter_source.include?("registry.cloudflare.com/%s/%s:sha-%s")
