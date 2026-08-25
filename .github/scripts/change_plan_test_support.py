@@ -35,14 +35,19 @@ def commit_file(root: Path, path: str, content: str) -> str:
     return git(root, "rev-parse", "HEAD")
 
 
-def planner_command(root: Path, base: str, head: str, mode: str, purpose: str) -> list[str]:
-    return [sys.executable, str(PLANNER), "--root", str(root), "--manifest", str(MANIFEST),
+def planner_command(root: Path, base: str, head: str, mode: str, purpose: str, manifest: Path) -> list[str]:
+    return [sys.executable, str(PLANNER), "--root", str(root), "--manifest", str(manifest),
             "--base", base, "--head", head, "--range", mode, "--purpose", purpose, "--format", "json"]
 
 
+def run_plan(root: Path, base: str, head: str, mode: str = "pr", purpose: str = "ci", manifest: Path = MANIFEST) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(planner_command(root, base, head, mode, purpose, manifest), check=False,
+                          capture_output=True, text=True)
+
+
 def plan(root: Path, base: str, head: str, mode: str = "pr", purpose: str = "ci") -> ChangePlan:
-    result = subprocess.run(planner_command(root, base, head, mode, purpose), check=True,
-                            capture_output=True, text=True)
+    result = run_plan(root, base, head, mode, purpose)
+    result.check_returncode()
     return cast(ChangePlan, json.loads(result.stdout))
 
 

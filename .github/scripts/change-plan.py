@@ -6,36 +6,9 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import NotRequired, TypedDict, cast
+from typing import TypedDict
 
-
-class Component(TypedDict):
-    name: str
-    paths: list[str]
-    deploy_excludes: list[str]
-    test_triggers: NotRequired[list[str]]
-    depends_on: list[str]
-    ci_lanes: list[str]
-    deploy_unit: str | None
-
-
-class GlobalLane(TypedDict):
-    name: str
-    paths: NotRequired[list[str]]
-    components: NotRequired[list[str]]
-    always: NotRequired[bool]
-
-
-class DeployTrigger(TypedDict):
-    components: list[str]
-    paths: list[str]
-
-
-class Manifest(TypedDict):
-    repository_paths: list[str]
-    deploy_triggers: list[DeployTrigger]
-    global_lanes: list[GlobalLane]
-    components: list[Component]
+from component_manifest_schema import Component, DeployTrigger, GlobalLane, Manifest, load_manifest
 
 
 class ComponentSelection(TypedDict):
@@ -207,7 +180,7 @@ def plan_output(mode: str, purpose: str, base: str, effective_base: str, head: s
 def build_plan(root: Path, manifest: Path, base: str, head: str, mode: str, purpose: str) -> ChangePlan:
     require_commit(root, base)
     require_commit(root, head)
-    document = cast(Manifest, json.loads(manifest.read_text()))
+    document = load_manifest(manifest)
     effective_base = diff_base(root, base, head, mode)
     paths = changed_paths(root, effective_base, head)
     selection = select_components(document, paths, purpose)

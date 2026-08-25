@@ -1,6 +1,9 @@
 """Behavioral tests for delivery-control change planning."""
 
-from change_plan_test_support import commit_file, fixture, plan
+import json
+from pathlib import Path
+
+from change_plan_test_support import MANIFEST, commit_file, fixture, plan, run_plan
 
 
 def assert_shared_delivery_change_triggers_every_release_unit() -> None:
@@ -35,10 +38,28 @@ def assert_database_delivery_adapter_targets_database() -> None:
         assert deploy["components"] == ["db"]
 
 
+def malformed_manifest(root: Path) -> Path:
+    document = json.loads(MANIFEST.read_text())
+    document["deploy_triggers"][0]["paths"] = ".github/**"
+    path = root / "components.json"
+    path.write_text(json.dumps(document))
+    return path
+
+
+def assert_malformed_delivery_trigger_fails_closed() -> None:
+    temporary, root, initial = fixture()
+    with temporary:
+        head = commit_file(root, ".github/workflows/cd.yml", "delivery")
+        result = run_plan(root, initial, head, "main", "deploy", malformed_manifest(root))
+        assert result.returncode == 1
+        assert "deploy trigger paths" in result.stderr
+
+
 def assert_delivery_routing() -> None:
     assert_shared_delivery_change_triggers_every_release_unit()
     assert_web_delivery_adapter_targets_web()
     assert_database_delivery_adapter_targets_database()
+    assert_malformed_delivery_trigger_fails_closed()
 
 
 if __name__ == "__main__":

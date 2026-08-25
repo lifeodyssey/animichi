@@ -79,7 +79,7 @@ def assert_path_ownership() -> None:
 def assert_component_graph() -> None:
     assert_rejected(mutated(lambda doc: doc["components"][0]["depends_on"].append("missing")), "unknown dependency")
     assert_rejected(mutated(lambda doc: doc["components"][2]["depends_on"].append("agent")), "cycle")
-    assert_rejected(mutated(lambda doc: doc["components"].pop(8)), "unknown components")
+    assert_rejected(mutated(lambda doc: doc["components"].pop(8)), "unknown or non-deployable")
 
 
 def main() -> None:

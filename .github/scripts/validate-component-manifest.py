@@ -5,11 +5,9 @@ import argparse
 import json
 import subprocess
 import sys
-from collections.abc import Mapping
 from pathlib import Path
-from typing import cast
 
-from component_manifest_schema import Component, GlobalLane, Manifest, validate_shape
+from component_manifest_schema import Component, GlobalLane, Manifest, load_manifest
 
 
 def fail(message: str) -> None:
@@ -168,30 +166,10 @@ def validate_repository_paths(root: Path, document: Manifest) -> None:
         validate_selector(root, pattern)
 
 
-def nonempty_strings(value: object, label: str) -> list[str]:
-    if not isinstance(value, list) or not value or not all(isinstance(item, str) for item in value):
-        fail(f"{label} must be a non-empty string array")
-    return list(value)
-
-
-def validate_deploy_trigger(root: Path, trigger: object, deployable: set[str]) -> None:
-    if not isinstance(trigger, dict):
-        fail("deploy trigger must be an object")
-    mapped = cast(Mapping[str, object], trigger)
-    paths = nonempty_strings(mapped.get("paths"), "deploy trigger paths")
-    components = nonempty_strings(mapped.get("components"), "deploy trigger components")
-    for pattern in paths:
-        validate_selector(root, pattern)
-    if unknown := set(components) - deployable:
-        fail(f"deploy trigger references unknown or non-deployable components: {', '.join(sorted(unknown))}")
-
-
-def validate_deploy_triggers(root: Path, document: Manifest, deployable: set[str]) -> None:
-    triggers = document.get("deploy_triggers")
-    if not isinstance(triggers, list) or not triggers:
-        fail("manifest needs deploy triggers")
-    for trigger in triggers:
-        validate_deploy_trigger(root, trigger, deployable)
+def validate_deploy_triggers(root: Path, document: Manifest) -> None:
+    for trigger in document["deploy_triggers"]:
+        for pattern in trigger["paths"]:
+            validate_selector(root, pattern)
 
 
 def visit(name: str, graph: dict[str, list[str]], visiting: set[str], visited: set[str]) -> None:
@@ -239,12 +217,11 @@ def validate_manifest_relations(root: Path, document: Manifest) -> None:
 
 
 def validate_manifest(root: Path, manifest: Path) -> int:
-    document = validate_shape(json.loads(manifest.read_text()))
+    document = load_manifest(manifest)
     components = document["components"]
     validate_paths(root, components)
     validate_manifest_relations(root, document)
-    deployable = {str(item["name"]) for item in components if item["deploy_unit"] is not None}
-    validate_deploy_triggers(root, document, deployable)
+    validate_deploy_triggers(root, document)
     return len(components)
 
 
