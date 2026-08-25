@@ -33,6 +33,11 @@ red_probe("workflow_run bridge removed", "missing trusted events", mutate do |wf
   wf.fetch("on").delete("workflow_run")
 end)
 
+red_probe("squash title validation removed", "missing step Validate squash title", mutate do |wf|
+  steps = wf.fetch("jobs").fetch("refresh").fetch("steps")
+  steps.reject! { |step| step["name"] == "Validate squash title" }
+end)
+
 red_probe("event pull-request JSON trusted", "must not trust workflow_run event evidence", mutate do |wf|
   step = wf.fetch("jobs").fetch("refresh").fetch("steps").find { |item| item["name"] == "Evaluate head-bound review evidence" }
   step.fetch("env")["QUEUE_PULL_REQUESTS"] = "${{ toJson(github.event.workflow_run.pull_requests) }}"

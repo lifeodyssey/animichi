@@ -39,7 +39,7 @@ end
 
 def assert_event_contract(workflow)
   events = trigger_map(workflow)
-  required = %w[opened synchronize reopened ready_for_review converted_to_draft edited]
+  required = %w[opened synchronize reopened ready_for_review converted_to_draft]
   pull_request = events.fetch("pull_request")
   actual = Array(pull_request.fetch("types"))
   missing = required - actual
@@ -55,11 +55,6 @@ def assert_job_contract(workflow, workflow_path)
   jobs = workflow.fetch("jobs")
   route = jobs.fetch("route")
   assert_ci_route_purpose(route)
-  title_step = route.fetch("steps").find { |step| step["name"] == "Validate squash title" }
-  abort "route must validate the squash title" unless title_step
-  abort "title validation must run only for pull requests" unless title_step.fetch("if") == "${{ github.event_name == 'pull_request' }}"
-  abort "title validation must pass untrusted text through env" unless title_step.dig("env", "PR_TITLE") == "${{ github.event.pull_request.title }}"
-  abort "route must use the canonical commit-message validator" unless title_step.fetch("run") == 'python3 scripts/local-gates/commit-message.py --subject "$PR_TITLE"'
   package = jobs.fetch("affected")
   quality = jobs.fetch("static-quality")
   cheap_security = jobs.fetch("security-diff")
@@ -182,7 +177,7 @@ def assert_pr_verification_contract(path = WORKFLOW)
   assert_routing_contract
   assert_workspace_package_set
   assert_dispatcher_runs_from_arbitrary_cwd
-  puts "PR Verification contract: one exact-head aggregator, affected workspace matrix, title-aware triggers"
+  puts "PR Verification contract: one exact-head aggregator, affected workspace matrix, code-only triggers"
 end
 
 assert_pr_verification_contract(ARGV.fetch(0, WORKFLOW)) if $PROGRAM_NAME == __FILE__
