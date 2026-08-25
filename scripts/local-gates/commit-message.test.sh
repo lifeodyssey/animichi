@@ -75,8 +75,11 @@ test_subject_contract() {
   assert_fail "missing structured subject" "expected <type>" "update chat"
   assert_fail "empty outcome" "expected <type>" "fix: "
   assert_fail "uppercase outcome" "lowercase verb" "fix(web): Preserve settings layout"
-  assert_fail "PR suffix" "PR number suffix" "fix(web): preserve settings layout (#123)"
-  assert_subject_fail "PR title suffix" "PR number suffix" "fix(web): preserve settings layout (#123)"
+  assert_fail "PR suffix" "references belong" "fix(web): preserve settings layout (#123)"
+  assert_fail "embedded issue reference" "references belong" "fix(web): preserve #123 settings layout"
+  assert_subject_fail "PR title suffix" "references belong" "fix(web): preserve settings layout (#123)"
+  assert_subject_fail "embedded PR title reference" "references belong" "fix(web): preserve #123 settings layout"
+  assert_pass "body issue reference" $'fix(web): preserve settings layout\n\nRefs: #123'
 }
 
 test_generic_subjects() {

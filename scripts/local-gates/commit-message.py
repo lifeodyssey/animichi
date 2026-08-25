@@ -75,7 +75,7 @@ COAUTHOR_PATTERN = re.compile(r"co-authored-by\s*:\s*(?P<identity>.+)", re.IGNOR
 AI_IDENTITY_PATTERN = re.compile(
     r"\b(?:claude|anthropic|codex|openai)\b", re.IGNORECASE
 )
-PR_SUFFIX_PATTERN = re.compile(r"\s*\(#\d+\)$")
+ISSUE_REFERENCE_PATTERN = re.compile(r"#\d+")
 LOWERCASE_VERB_PATTERN = re.compile(r"^[a-z]")
 GIT_MAINTENANCE_PATTERN = re.compile(r'^(?:Merge .+|Revert ".+")$')
 CLAUDE_CODE_FOOTER = "🤖 Generated with [Claude Code](https://claude.com/claude-code)"
@@ -117,8 +117,8 @@ def validate_outcome(outcome: str) -> None:
 
 
 def validate_structured_subject(subject: str) -> None:
-    if PR_SUFFIX_PATTERN.search(subject):
-        reject("PR number suffix belongs in the message body, not the subject")
+    if ISSUE_REFERENCE_PATTERN.search(subject):
+        reject("issue or PR references belong in the message body, not the subject")
     match = parse_subject(subject)
     validate_taxonomy(match)
     validate_outcome(match.group("outcome"))
