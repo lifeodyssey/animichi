@@ -5,14 +5,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parents[2]
 CONFIG = REPO_ROOT / ".github/dependabot.yml"
-WORKFLOW = REPO_ROOT / ".github/workflows/dependabot-agent.yml"
-GATE_STEP_ORDER = (
-    "- uses: pnpm/action-setup@",
-    "- uses: actions/setup-node@",
-    "- run: pnpm install --frozen-lockfile --ignore-scripts",
-    "- name: Backend quality + tests",
-    "- name: Web + worker quality",
-)
 SETUP_UV_RE = re.compile(r"^\s*(?:-\s+)?uses:\s*astral-sh/setup-uv@")
 SETUP_UV_PIN_RE = re.compile(
     r"^\s*(?:-\s+)?uses:\s*astral-sh/setup-uv@([0-9a-f]{40})\s+#\s+(v\d+\.\d+\.\d+)\s*$"
@@ -22,6 +14,17 @@ PRUNE_CACHE_RE = re.compile(
 )
 SETUP_UV_SHA = "c771a70e6277c0a99b617c7a806ffedaca235ff9"
 SETUP_UV_VERSION = "v9.0.0"
+TRACKED_YAML_COMMAND = (
+    "git",
+    "ls-files",
+    "-z",
+    "--cached",
+    "--others",
+    "--exclude-standard",
+    "--",
+    "*.yml",
+    "*.yaml",
+)
 
 
 def ecosystem_blocks(name: str) -> list[str]:
@@ -51,17 +54,11 @@ def pnpm_lockfile_domains() -> list[str]:
     return sorted("/" if parent == "." else f"/{parent}" for parent in parents)
 
 
-def gate_step_positions() -> list[int]:
-    workflow = WORKFLOW.read_text(encoding="utf-8")
-    return [workflow.index(marker) for marker in GATE_STEP_ORDER]
-
-
 def tracked_yaml_paths() -> list[Path]:
-    output = subprocess.check_output(
-        ["git", "ls-files", "-z", "--", "*.yml", "*.yaml"], cwd=REPO_ROOT
-    )
+    output = subprocess.check_output(TRACKED_YAML_COMMAND, cwd=REPO_ROOT)
     names = (name for name in output.decode("utf-8").split("\0") if name)
-    return [REPO_ROOT / name for name in names]
+    paths = (REPO_ROOT / name for name in names)
+    return [path for path in paths if path.is_file()]
 
 
 def indent_of(line: str) -> int:
@@ -117,14 +114,25 @@ def setup_uv_call_failures(path: Path, lines: list[str], index: int) -> list[str
     return failures
 
 
-def setup_uv_config_failures() -> list[str]:
-    failures: list[str] = []
+def setup_uv_calls() -> list[tuple[Path, list[str], int]]:
+    calls: list[tuple[Path, list[str], int]] = []
     for path in tracked_yaml_paths():
         lines = path.read_text(encoding="utf-8").splitlines()
         for index, line in enumerate(lines):
             if SETUP_UV_RE.match(line):
-                failures.extend(setup_uv_call_failures(path, lines, index))
-    return failures
+                calls.append((path, lines, index))
+    return calls
+
+
+def setup_uv_config_failures() -> list[str]:
+    calls = setup_uv_calls()
+    if not calls:
+        return ["no setup-uv calls found"]
+    return [
+        failure
+        for path, lines, index in calls
+        for failure in setup_uv_call_failures(path, lines, index)
+    ]
 
 
 class DependabotConfigTest(unittest.TestCase):
@@ -135,13 +143,19 @@ class DependabotConfigTest(unittest.TestCase):
             sorted(configured_directories(npm_blocks[0])), pnpm_lockfile_domains()
         )
 
+    def test_every_ecosystem_uses_the_canonical_dependency_prefix(self) -> None:
+        blocks = [
+            block
+            for ecosystem in ("uv", "npm", "github-actions")
+            for block in ecosystem_blocks(ecosystem)
+        ]
+        self.assertEqual(len(blocks), 3)
+        for block in blocks:
+            self.assertIn('prefix: "build(deps)"', block)
 
-class DependabotWorkflowTest(unittest.TestCase):
-    def test_node_dependencies_precede_cross_language_backend_tests(self) -> None:
-        positions = gate_step_positions()
-        self.assertEqual(positions, sorted(positions))
 
-    def test_every_setup_uv_call_explicitly_prunes_cache(self) -> None:
+class SetupUvConfigTest(unittest.TestCase):
+    def test_every_current_setup_uv_call_explicitly_prunes_cache(self) -> None:
         self.assertEqual(setup_uv_config_failures(), [])
 
 

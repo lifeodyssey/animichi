@@ -1,0 +1,312 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: affected-cd-main
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  route:
+    name: Resolve affected release cohort
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      has_deployments: ${{ steps.cohort.outputs.has_deployments }}
+      deploy_units: ${{ steps.cohort.outputs.deploy_units }}
+      production_units: ${{ steps.cohort.outputs.production_units }}
+      foundation: ${{ steps.cohort.outputs.foundation }}
+      migration: ${{ steps.cohort.outputs.migration }}
+      services: ${{ steps.cohort.outputs.services }}
+      edge: ${{ steps.cohort.outputs.edge }}
+      web: ${{ steps.cohort.outputs.web }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Resolve before..sha through the canonical component graph
+        id: cohort
+        env:
+          EVENT_BEFORE: ${{ github.event.before }}
+          SOURCE_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          base="$(bash .github/scripts/resolve-cd-base.sh "$EVENT_BEFORE" "$SOURCE_SHA")"
+          python3 .github/scripts/change-plan.py --base "$base" --head "$SOURCE_SHA" --range main --purpose deploy --format json \
+            | python3 .github/scripts/cd-cohort-plan.py --manifest .github/ci/components.json \
+            > "$RUNNER_TEMP/cohort.json"
+          for key in has_deployments deploy_units production_units foundation migration services edge web; do
+            echo "$key=$(jq -c ".$key" "$RUNNER_TEMP/cohort.json")" >> "$GITHUB_OUTPUT"
+          done
+          jq . "$RUNNER_TEMP/cohort.json"
+
+  build-release-artifacts:
+    name: Build release artifact (${{ matrix.unit }})
+    needs: route
+    if: ${{ needs.route.outputs.has_deployments == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        unit: ${{ fromJSON(needs.route.outputs.deploy_units) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/build-release-unit
+        with:
+          unit: ${{ matrix.unit }}
+          source_sha: ${{ github.sha }}
+
+  stage-foundation:
+    needs: [route, build-release-artifacts]
+    if: ${{ !failure() && !cancelled() && needs.route.outputs.foundation != '[]' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/promote-release-phase
+        with:
+          phase: foundation
+          units: ${{ needs.route.outputs.foundation }}
+          source_sha: ${{ github.sha }}
+          cloudflare_pulumi_api_token: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+          cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          pulumi_config_passphrase: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          pulumi_backend_url: ${{ secrets.PULUMI_BACKEND_URL }}
+          r2_access_key_id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2_secret_access_key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          neon_api_key: ${{ secrets.NEON_API_KEY }}
+
+  stage-migration:
+    needs: [route, stage-foundation]
+    if: ${{ !failure() && !cancelled() && needs.route.outputs.migration != '[]' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/promote-release-phase
+        with:
+          phase: migration
+          units: ${{ needs.route.outputs.migration }}
+          source_sha: ${{ github.sha }}
+          cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          migrator_url: ${{ vars.MIGRATOR_STAGING_URL }}
+
+  stage-services:
+    needs: [route, stage-migration]
+    if: ${{ !failure() && !cancelled() && needs.route.outputs.services != '[]' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/promote-release-phase
+        with:
+          phase: services
+          units: ${{ needs.route.outputs.services }}
+          source_sha: ${{ github.sha }}
+          cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  stage-edge:
+    needs: [route, stage-services]
+    if: ${{ !failure() && !cancelled() && needs.route.outputs.edge != '[]' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/promote-release-phase
+        with:
+          phase: edge
+          units: ${{ needs.route.outputs.edge }}
+          source_sha: ${{ github.sha }}
+          cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          deepseek_api_key: ${{ secrets.DEEPSEEK_API_KEY }}
+          mimo_api_key: ${{ secrets.MIMO_API_KEY }}
+          zen_go_api_key: ${{ secrets.ZEN_GO_API_KEY }}
+          supabase_db_url: ${{ secrets.SUPABASE_DB_URL }}
+          google_maps_api_key: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          logfire_token: ${{ secrets.LOGFIRE_TOKEN }}
+          turnstile_secret: ${{ secrets.TURNSTILE_SECRET }}
+          anon_id_secret: ${{ secrets.ANON_ID_SECRET }}
+
+  stage-web:
+    needs: [route, stage-edge]
+    if: ${{ !failure() && !cancelled() && needs.route.outputs.web != '[]' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/promote-release-phase
+        with:
+          phase: web
+          units: ${{ needs.route.outputs.web }}
+          source_sha: ${{ github.sha }}
+          cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          vite_site_origin: ${{ vars.VITE_SITE_ORIGIN }}
+          vite_catalog_url: ${{ vars.VITE_CATALOG_URL }}
+          vite_users_url: ${{ vars.VITE_USERS_URL }}
+          vite_agent_url: ${{ vars.VITE_AGENT_URL }}
+          vite_neon_auth_base_url: ${{ vars.VITE_NEON_AUTH_BASE_URL }}
+          vite_turnstile_site_key: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          vite_cf_beacon_token: ${{ vars.VITE_CF_BEACON_TOKEN }}
+          vite_showcase_mode: ${{ vars.VITE_SHOWCASE_MODE }}
+
+  post-staging:
+    name: Verify staging cohort identity
+    needs: [route, stage-web]
+    if: ${{ !failure() && !cancelled() && needs.route.outputs.has_deployments == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record the single main-SHA cohort
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          DEPLOY_UNITS: ${{ needs.route.outputs.deploy_units }}
+        run: echo "staging cohort source=$SOURCE_SHA units=$DEPLOY_UNITS"
+
+  promote-production:
+    name: Promote the staging cohort
+    needs: [route, post-staging]
+    if: ${{ !failure() && !cancelled() && needs.route.outputs.has_deployments == 'true' }}
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Download the staging cohort payloads
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: release-${{ github.sha }}-*
+          path: ${{ runner.temp }}/release-cohort
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/install-atlas
+        if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'db') }}
+      - name: Install Pulumi CLI
+        if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'infra') }}
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version-file: .pulumi.version
+      - name: Promote production foundation payloads
+        if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'infra') }}
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: bash .github/scripts/promote-release-unit.sh infra production "$SOURCE_SHA" "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-infra"
+      - name: Promote production database payload
+        if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'db') }}
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          NEON_DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: bash .github/scripts/promote-release-unit.sh db production "$SOURCE_SHA" "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-db"
+      - name: Promote production service payloads
+        if: ${{ needs.route.outputs.services != '[]' }}
+        env:
+          RELEASE_UNITS: ${{ needs.route.outputs.services }}
+          SOURCE_SHA: ${{ github.sha }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          jq -r '.[]' <<< "$RELEASE_UNITS" | while IFS= read -r unit; do
+            bash .github/scripts/promote-release-unit.sh "$unit" production "$SOURCE_SHA" \
+              "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-$unit"
+          done
+      - name: Promote production edge payload
+        if: ${{ needs.route.outputs.edge != '[]' }}
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+        run: bash .github/scripts/promote-release-unit.sh edge production "$SOURCE_SHA" "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-edge"
+      - name: Promote production web payload
+        if: ${{ needs.route.outputs.web != '[]' }}
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VITE_SITE_ORIGIN: ${{ vars.VITE_SITE_ORIGIN }}
+          VITE_CATALOG_URL: ${{ vars.VITE_CATALOG_URL }}
+          VITE_USERS_URL: ${{ vars.VITE_USERS_URL }}
+          VITE_AGENT_URL: ${{ vars.VITE_AGENT_URL }}
+          VITE_NEON_AUTH_BASE_URL: ${{ vars.VITE_NEON_AUTH_BASE_URL }}
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          VITE_CF_BEACON_TOKEN: ${{ vars.VITE_CF_BEACON_TOKEN }}
+          VITE_SHOWCASE_MODE: ${{ vars.VITE_SHOWCASE_MODE }}
+        run: bash .github/scripts/promote-release-unit.sh web production "$SOURCE_SHA" "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-web"

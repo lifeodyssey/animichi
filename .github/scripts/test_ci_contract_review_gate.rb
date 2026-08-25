@@ -1,169 +1,89 @@
 # frozen_string_literal: true
 
-# Issue #1008 review-gate CI contract (docs/ops/review-gate.md §7): the
-# head-bound status contract for pipeline-quality.yml `Review Gate`.
-# Usage: ruby test_ci_contract_review_gate.rb [WORKFLOW_PATH]
-
-require "yaml"
 require "json"
+require "yaml"
 require_relative "test_ci_contract_review_gate_steps"
 
-QUALITY_YML = ".github/workflows/pipeline-quality.yml"
-REVIEW_REFRESH_EVENTS = %w[pull_request_review pull_request_review_comment issue_comment].freeze
+ROOT = File.expand_path("../..", __dir__)
+REVIEW_YML = File.join(ROOT, ".github/workflows/review-gate.yml")
+QUALITY_ACTION = File.join(ROOT, ".github/actions/static-quality/action.yml")
+GATE_STEP = File.join(ROOT, "scripts/local-gates/pr-review-gate-step.sh")
 
-# `on:` is a YAML 1.1 boolean; old psych parses it as the key `true`. Accept both.
 def triggers(workflow, file)
   value = workflow["on"] || workflow[true]
   abort "#{file} must declare triggers under on:" unless value.is_a?(Hash)
   value
 end
 
-# Quality steps between the pending status and the collect+check gate.
-def quality_check_steps(steps)
-  gate_names = [
-    "Resolve PR review-gate head",
-    "Post pending review-gate status on the PR head",
-    "Post final review-gate status on the PR head",
-  ]
-  steps.reject { |step| !step.is_a?(Hash) || step["name"].to_s.empty? || gate_names.include?(step["name"]) }
+def workflow(path)
+  YAML.safe_load(File.read(path).sub(/^on:(?=[ \t#]|$)/, '"on":'), aliases: true)
 end
 
-def assert_review_gate_contract(quality_yml)
-  quality = YAML.safe_load(File.read(quality_yml))
-  invariants = quality.fetch("jobs").fetch("invariants")
-  assert_producer_name(invariants, quality_yml)
-  assert_legacy_wrapper_absent(quality.fetch("jobs"), quality_yml)
-  assert_job_permissions(invariants, quality_yml)
-  assert_trigger_contract(quality, quality_yml)
-  resolve, pending, gate, final = assert_head_status_steps(invariants, quality_yml)
-  assert_step_order(invariants.fetch("steps"), resolve, pending, gate, final, quality_yml)
-  assert_repo_contract_artifacts
-  review_gate_summary(quality_yml)
-end
-
-def assert_producer_name(invariants, quality_yml)
-  expected = "Review Gate"
-  actual = invariants.fetch("name")
-  abort "#{quality_yml} invariants job must emit #{expected}, got #{actual.inspect}" unless actual == expected
-end
-
-def assert_legacy_wrapper_absent(jobs, quality_yml)
-  restored = jobs.any? do |job_id, job|
-    job_id == "legacy-quality" || (job.is_a?(Hash) && job["name"] == "Quality / invariants")
+def assert_concurrency(review, path)
+  concurrency = review.fetch("concurrency")
+  abort "#{path} must cancel superseded generations" unless concurrency.fetch("cancel-in-progress") == true
+  group = concurrency.fetch("group")
+  %w[pull_request.number issue.number workflow_run.head_sha].each do |identity|
+    abort "#{path} concurrency must bind #{identity}" unless group.include?(identity)
   end
-  abort "#{quality_yml} must not emit legacy Quality / invariants after #1180 cutover" if restored
 end
 
-def assert_job_permissions(invariants, quality_yml)
-  perms = invariants.fetch("permissions")
-  abort "#{quality_yml} invariants job must keep contents: read" unless perms.fetch("contents") == "read"
-  abort "#{quality_yml} invariants job must grant pull-requests: read" unless perms.fetch("pull-requests") == "read"
-  abort "#{quality_yml} invariants job must grant statuses: write (head-bound status)" unless perms.fetch("statuses") == "write"
+def assert_static_quality_split(path)
+  quality = YAML.safe_load(File.read(path), aliases: true)
+  abort "static quality must be a local composite action" unless quality.fetch("runs").fetch("using") == "composite"
+  source = File.read(path)
+  abort "static quality must not publish review statuses" if source.include?("statuses: write") || source.include?("claim-status")
 end
 
-def assert_trigger_contract(quality, quality_yml)
-  assert_event_triggers(quality, quality_yml)
-  assert_thread_comment_triggers(quality, quality_yml)
-  assert_concurrency_group(quality, quality_yml)
-  assert_concurrency_cancellation(quality, quality_yml)
-  assert_review_refresh_scope(quality_yml)
-end
-
-def assert_concurrency_group(quality, quality_yml)
-  group = quality.fetch("concurrency").fetch("group")
-  expected = "${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.event.pull_request.number || github.event.issue.number || github.head_ref || github.ref }}"
-  abort "#{quality_yml} concurrency group must prefer the PR number before branch/ref fallback" unless group == expected
-end
-
-def assert_review_refresh_scope(quality_yml)
-  workflow_dir = ENV.fetch("REVIEW_GATE_WORKFLOWS_DIR", File.expand_path("../workflows", __dir__))
-  offenders = workflow_paths(workflow_dir).reject { |path| File.basename(path) == "pipeline-quality.yml" }.select { |path| review_events?(path) }
-  abort "#{quality_yml} review/comment refresh events must stay in pipeline-quality.yml (found #{offenders.map { |path| File.basename(path) }.join(', ')})" unless offenders.empty?
-end
-
-def workflow_paths(workflow_dir)
-  ["*.yml", "*.yaml"].flat_map { |pattern| Dir[File.join(workflow_dir, pattern)] }
-end
-
-def review_events?(path)
-  workflow = YAML.safe_load(File.read(path))
-  on_declaration = workflow["on"] || workflow[true]
-  events = case on_declaration
-           when Hash then on_declaration.keys
-           when Array then on_declaration
-           when String then [on_declaration]
-           else []
-           end
-  events.any? { |event| REVIEW_REFRESH_EVENTS.include?(event.to_s) }
-end
-
-def assert_event_triggers(quality, quality_yml)
-  on_map = triggers(quality, quality_yml)
-  review = on_map["pull_request_review"]
-  abort "#{quality_yml} must trigger on pull_request_review covering submitted/edited/dismissed" unless review.is_a?(Hash) && review.fetch("types").sort == %w[dismissed edited submitted].sort
-  pr = on_map["pull_request"]
-  pr_types = pr.is_a?(Hash) ? Array(pr.fetch("types", [])) : []
-  abort "#{quality_yml} pull_request must cover edited and the default activity types" unless pr.is_a?(Hash) && pr_types.include?("edited") && (pr_types & %w[opened synchronize reopened]).sort == %w[opened reopened synchronize].sort
-end
-
-def assert_thread_comment_triggers(quality, quality_yml)
-  on_map = triggers(quality, quality_yml)
-  thread = on_map["pull_request_review_comment"]
-  abort "#{quality_yml} must trigger on pull_request_review_comment" unless thread.is_a?(Hash)
-  abort "#{quality_yml} pull_request_review_comment must cover created/edited/deleted" unless thread.fetch("types").sort == %w[created deleted edited].sort
-  comment = on_map["issue_comment"]
-  abort "#{quality_yml} must trigger on issue_comment" unless comment.is_a?(Hash)
-  abort "#{quality_yml} issue_comment must cover created/edited/deleted" unless comment.fetch("types").sort == %w[created deleted edited].sort
-end
-
-def assert_concurrency_cancellation(quality, quality_yml)
-  cancel = quality.fetch("concurrency").fetch("cancel-in-progress")
-  missing = %w[pull_request pull_request_review pull_request_review_comment issue_comment].reject { |event| cancel.include?("'#{event}'") }
-  abort "#{quality_yml} concurrency must cancel #{missing.join(', ')} runs (finding 2)" unless missing.empty?
-  abort "#{quality_yml} concurrency must not cancel merge_group runs" if cancel.include?("'merge_group'")
-  abort "#{quality_yml} concurrency must not cancel push runs" if cancel.include?("'push'")
-end
-
-def assert_head_status_steps(invariants, quality_yml)
-  steps = invariants.fetch("steps").select { |step| step.is_a?(Hash) }
-  resolve = assert_resolve_head_step(steps, quality_yml)
-  pending = assert_pending_status_step(steps, quality_yml)
-  gate = assert_gate_step(steps, quality_yml)
-  final = assert_final_status_step(steps, quality_yml)
-  [resolve, pending, gate, final]
-end
-
-def assert_step_order(step_list, resolve, pending, gate, final, quality_yml)
-  assert_pending_before_gate(step_list, resolve, pending, gate, quality_yml)
-  assert_final_is_last(step_list, final, quality_yml)
-end
-
-def assert_pending_before_gate(step_list, resolve, pending, gate, quality_yml)
-  abort "#{quality_yml} pending status must be posted after head resolution" unless step_list.index(resolve) < step_list.index(pending)
-  steps = step_list.select { |step| step.is_a?(Hash) }
-  first_quality = quality_check_steps(steps).first
-  first_index = first_quality.nil? ? step_list.index(gate) : step_list.index(first_quality)
-  abort "#{quality_yml} pending status must precede every quality check step (finding 3)" unless step_list.index(pending) < first_index
-  abort "#{quality_yml} pending status must precede the gate collect+check step" unless step_list.index(pending) < step_list.index(gate)
-end
-
-def assert_final_is_last(step_list, final, quality_yml)
-  actionlint_index = last_actionlint_index(step_list)
-  if actionlint_index
-    abort "#{quality_yml} final status must be posted after the actionlint gate (finding 1)" unless actionlint_index < step_list.index(final)
+def assert_single_status_producer(path)
+  producers = Dir[File.join(ROOT, ".github/workflows/*.{yml,yaml}")].select do |candidate|
+    File.read(candidate).match?(/claim-status|finish-status/)
   end
-  abort "#{quality_yml} final status must be the last step of the job (finding 1)" unless step_list.index(final) == step_list.length - 1
+  abort "Review Gate must have exactly one trusted workflow producer" unless producers == [path]
 end
 
-def last_actionlint_index(step_list)
-  steps = step_list.select { |step| step.is_a?(Hash) }
-  actionlint_steps = steps.select { |step| step.fetch("run", "").include?("actionlint") }
-  return nil if actionlint_steps.empty?
-  step_list.index(actionlint_steps.last)
+def assert_live_queue_association(path = GATE_STEP)
+  source = File.read(path)
+  required = ["actions/runs/$run_id\" --jq", "/pull_requests?per_page=100", ".repository.full_name,.event,.head_sha,.path,.conclusion",
+              ".github/workflows/pr-verification.yml", 'validate_ci_check "$1" "$2" "$3" "PR Verification"',
+              'validate_ci_check "$1" "$2" "$3" "Security"',
+              'TITLE_GATE="$ROOT/scripts/local-gates/commit-message.py"',
+              'python3 "$TITLE_GATE" --subject "$title"',
+              'validate_squash_title "$1" "$pr"', 'validate_squash_title "$1" "$3"',
+              "n not in seen", 'base.get("ref")=="main"']
+  missing = required.reject { |token| source.include?(token) }
+  abort "#{path} must validate live workflow-run metadata and direct PR associations: #{missing.join(', ')}" unless missing.empty?
+  abort "#{path} must not infer merge-queue membership from commit ancestry" if source.include?("/compare/")
 end
 
-def review_gate_summary(quality_yml)
-  puts "Review gate: #{quality_yml} emits only `Review Gate`, resolves the PR head once, posts pending before the quality steps, runs pr-review-check collect + check against the pinned head (merge-base base, no local verdict), and posts final status with if: always()"
+def assert_artifacts
+  target = JSON.parse(File.read(File.join(ROOT, "docs/iterations/s0v2/ruleset-target.json")))
+  expected = ["PR Verification", "Security", "Review Gate"]
+  abort "ruleset contexts drifted" unless target.fetch("required_checks") == expected
+  source = target.dig("_required_status_sources", "Review Gate", "integration_id")
+  abort "Review Gate ruleset source is not GitHub Actions" unless source == 15_368
+  abort "native review-thread resolution is not required" unless target.fetch("_required_review_thread_resolution") == true
 end
 
-assert_review_gate_contract(ARGV[0] || QUALITY_YML) if $PROGRAM_NAME == __FILE__
+def assert_split_review_gate(path = REVIEW_YML)
+  review = workflow(path)
+  abort "#{path} workflow display name must be Review Gate" unless review.fetch("name") == "Review Gate"
+  assert_trusted_events(review, path)
+  assert_concurrency(review, path)
+  refresh = review.fetch("jobs").fetch("refresh")
+  writers = review.fetch("jobs").select do |_name, job|
+    review.fetch("permissions", {}).merge(job.fetch("permissions", {}))["statuses"] == "write"
+  end
+  abort "only refresh may hold statuses: write" unless writers.keys == ["refresh"]
+  abort "Actions job/check must not be named Review Gate" if refresh.fetch("name", "") == "Review Gate"
+  assert_status_writer_permissions(review, refresh, path)
+  writers.each_value { |job| assert_no_candidate_execution(job, path) }
+  assert_refresh_steps(refresh, path)
+  assert_live_queue_association
+  assert_single_status_producer(path)
+  assert_static_quality_split(QUALITY_ACTION)
+  assert_artifacts
+  puts "Review gate: trusted default-branch producer; PR pending claim + guarded final; workflow_run validates merge-queue evidence"
+end
+
+assert_split_review_gate(ARGV[0] || REVIEW_YML) if $PROGRAM_NAME == __FILE__

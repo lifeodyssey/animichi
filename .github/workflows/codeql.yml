@@ -16,8 +16,8 @@ on:
     - cron: '37 18 * * 0'
   workflow_dispatch:
 
-# Pull-request and main-push analysis runs live in reusable-security.yml so the
-# required Security result owns their conclusion. This scheduled/manual copy
+# Pull-request analysis runs in the affected Security matrix inside CI, so the
+# required Security result owns its conclusion. This scheduled/manual copy
 # remains an independent periodic audit and never cancels a deploy.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}

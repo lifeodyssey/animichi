@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Staged-snapshot OpenAPI drift check (#1003, AC2): byte-identical mirror of
-# pipeline-contract.yml's build stage.
+# pr-verification.yml's contract lane.
 #
 # CI emits the OpenAPI documents, `git add`s them, and fails when
 # `git diff --cached` is non-empty (regeneration must be a clean tree). A local

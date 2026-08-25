@@ -1,11 +1,8 @@
 # frozen_string_literal: true
 
-# Red / restore / green probes for the #1177 Security contract. Every child
-# lane is mutated independently so a missing dependency or result cannot be
-# hidden by the aggregate. The failure-propagation and required-context probes
-# cover the two ways a required check can become falsely green or duplicated.
+# Red/restore/green probes for the direct single-CI Security contract.
 
-require "json"
+require "fileutils"
 require "stringio"
 require "tmpdir"
 require "yaml"
@@ -29,30 +26,35 @@ ensure
 end
 
 def fixture_paths(dir)
+  workflow_dir = File.join(dir, "workflows")
   {
-    ci_path: File.join(dir, "ci.yml"),
-    reusable_path: File.join(dir, "reusable-security.yml"),
-    codeql_path: File.join(dir, "codeql.yml"),
-    ruleset_path: File.join(dir, "ruleset-target.json"),
-    aggregate_path: DEFAULT_AGGREGATE
+    ci_path: File.join(workflow_dir, "ci.yml"),
+    action_path: File.join(dir, "security-action.yml"),
+    codeql_path: File.join(workflow_dir, "codeql.yml"),
+    aggregate_path: File.join(dir, "security-aggregate.sh"),
+    manifest_path: DEFAULT_MANIFEST,
+    workflow_dir: workflow_dir
   }
 end
 
 def write_fixture(dir, fixture)
   paths = fixture_paths(dir)
-  File.write(paths[:ci_path], YAML.dump(fixture.fetch(:ci)))
-  File.write(paths[:reusable_path], YAML.dump(fixture.fetch(:reusable)))
-  File.write(paths[:codeql_path], YAML.dump(fixture.fetch(:codeql)))
-  File.write(paths[:ruleset_path], JSON.pretty_generate(fixture.fetch(:ruleset)))
+  FileUtils.mkdir_p(paths.fetch(:workflow_dir))
+  File.write(paths.fetch(:ci_path), YAML.dump(fixture.fetch(:ci)))
+  File.write(paths.fetch(:action_path), YAML.dump(fixture.fetch(:action)))
+  File.write(paths.fetch(:codeql_path), YAML.dump(fixture.fetch(:codeql)))
+  File.write(paths.fetch(:aggregate_path), fixture.fetch(:aggregate))
+  fixture.fetch(:retired).each { |name| File.write(File.join(paths.fetch(:workflow_dir), name), "name: retired\n") }
   paths
 end
 
 def fresh_fixture
   {
     ci: load_yaml(DEFAULT_CI),
-    reusable: load_yaml(DEFAULT_REUSABLE),
+    action: load_yaml(DEFAULT_ACTION),
     codeql: load_yaml(DEFAULT_CODEQL),
-    ruleset: JSON.parse(File.read(DEFAULT_RULESET))
+    aggregate: File.read(DEFAULT_AGGREGATE),
+    retired: []
   }
 end
 
@@ -60,116 +62,121 @@ def red_probe(label, expected_fragment)
   Dir.mktmpdir("security-mutation-red") do |dir|
     fixture = fresh_fixture
     yield fixture
-    paths = write_fixture(dir, fixture)
-    rc, output = capture_contract(paths)
+    rc, output = capture_contract(write_fixture(dir, fixture))
     abort "FAIL: #{label} passed unexpectedly:\n#{output}" if rc.zero?
-    unless output.include?(expected_fragment)
-      abort "FAIL: #{label} expected #{expected_fragment.inspect}:\n#{output}"
-    end
+    abort "FAIL: #{label} expected #{expected_fragment.inspect}:\n#{output}" unless output.include?(expected_fragment)
     puts "PASS: #{label} rejected (#{expected_fragment})"
   end
 end
 
 def green_probe
   rc, output = capture_contract(
-    ci_path: DEFAULT_CI,
-    reusable_path: DEFAULT_REUSABLE,
-    codeql_path: DEFAULT_CODEQL,
-    ruleset_path: DEFAULT_RULESET,
-    aggregate_path: DEFAULT_AGGREGATE
+    ci_path: DEFAULT_CI, action_path: DEFAULT_ACTION, codeql_path: DEFAULT_CODEQL,
+    aggregate_path: DEFAULT_AGGREGATE, manifest_path: DEFAULT_MANIFEST,
+    workflow_dir: SECURITY_WORKFLOWS
   )
   abort "FAIL: pristine Security contract failed:\n#{output}" unless rc.zero?
   abort "FAIL: pristine Security contract omitted its summary" unless output.include?("Security contract:")
   puts "PASS: pristine Security contract (restore/green)"
 end
 
-def canary_fixture
-  JSON.parse(File.read(DEFAULT_CHECK_RUNS_FIXTURE))
-end
-
-def canary_red_probe(label, expected_fragment)
-  payload = canary_fixture
-  yield payload
-  SecurityCheckRunsCanary.assert!(payload, repo: "lifeodyssey/animichi",
-                                  expected_sha: payload.fetch("head_sha"),
-                                  required_contexts: payload.fetch("required_contexts", ["Security"]))
-  abort "FAIL: #{label} passed unexpectedly"
-rescue SecurityCheckRunsCanary::Failure => error
-  abort "FAIL: #{label} expected #{expected_fragment.inspect}: #{error.message}" unless error.message.include?(expected_fragment)
-  puts "PASS: #{label} rejected (#{expected_fragment})"
-end
-
-SECURITY_LANES.each do |lane|
-  red_probe("summary drops #{lane} dependency", "missing #{lane}") do |fixture|
-    needs = fixture.fetch(:reusable).fetch("jobs").fetch("security-summary").fetch("needs")
-    needs.delete(lane)
+%w[route security-diff security-tools].each do |dependency|
+  red_probe("Security drops #{dependency}", "depend on routing, changed-secret scans, and selected tools") do |fixture|
+    fixture.dig(:ci, "jobs", "security", "needs").delete(dependency)
   end
 end
 
-SECURITY_LANES.each do |lane|
-  red_probe("summary drops #{lane} result", "must report #{lane} result") do |fixture|
-    env = fixture.fetch(:reusable).fetch("jobs").fetch("security-summary").fetch("steps").last.fetch("env")
-    env["SECURITY_RESULTS"] = env.fetch("SECURITY_RESULTS").lines.reject { |line| line.start_with?("#{lane}=") }.join
-  end
+red_probe("Security loses always", "run after failures and cancellations") do |fixture|
+  fixture.dig(:ci, "jobs", "security")["if"] = "${{ success() }}"
 end
 
-red_probe("top-level aggregator loses always", "run after scan failures") do |fixture|
-  fixture.fetch(:ci).fetch("jobs").fetch("security")["if"] = "${{ success() }}"
+red_probe("security matrix ignores the route", "consume the affected tool plan") do |fixture|
+  fixture.dig(:ci, "jobs", "security-tools", "strategy", "matrix")["tool"] = ["semgrep"]
 end
 
-red_probe("reusable summary loses always", "run after a scan failure") do |fixture|
-  fixture.fetch(:reusable).fetch("jobs").fetch("security-summary")["if"] = "${{ success() }}"
+red_probe("security matrix can stop early", "finish every selected tool") do |fixture|
+  fixture.dig(:ci, "jobs", "security-tools", "strategy")["fail-fast"] = true
 end
 
-red_probe("child failures stop being required", "REQUIRE_CHILD_RESULTS=true") do |fixture|
-  env = fixture.fetch(:reusable).fetch("jobs").fetch("security-summary").fetch("steps").last.fetch("env")
-  env["REQUIRE_CHILD_RESULTS"] = "false"
+red_probe("CodeQL upload permission is removed", "permit CodeQL uploads") do |fixture|
+  fixture.dig(:ci, "jobs", "security-tools", "permissions")["security-events"] = "read"
 end
 
-red_probe("required Security context is duplicated by a child", "exactly one Security context") do |fixture|
-  fixture.fetch(:ruleset).fetch("required_checks") << "Security / Semgrep (SAST)"
+red_probe("security matrix drops the local action", "use the local security action") do |fixture|
+  steps = fixture.dig(:ci, "jobs", "security-tools", "steps")
+  steps.reject! { |step| step["uses"] == "./.github/actions/security-tool" }
 end
 
-red_probe("required Security context is removed", "exactly one Security context") do |fixture|
-  fixture.fetch(:ruleset).fetch("required_checks").delete("Security")
+red_probe("changed-secret lane drops Gitleaks", "retain Gitleaks") do |fixture|
+  steps = fixture.dig(:ci, "jobs", "security-diff", "steps")
+  steps.reject! { |step| step["uses"] == "./.github/actions/secret-scan" }
 end
 
-red_probe("top-level aggregate skips checkout", "top-level Security must checkout") do |fixture|
-  steps = fixture.fetch(:ci).fetch("jobs").fetch("security").fetch("steps")
-  steps.shift
+red_probe("changed-secret lane drops TruffleHog", "retain TruffleHog") do |fixture|
+  steps = fixture.dig(:ci, "jobs", "security-diff", "steps")
+  steps.reject! { |step| step.dig("with", "tool") == "trufflehog" }
 end
 
-red_probe("summary checkout persists credentials", "security-summary checkout must disable persisted credentials") do |fixture|
-  checkout = fixture.fetch(:reusable).fetch("jobs").fetch("security-summary").fetch("steps").first
+red_probe("Security checkout persists credentials", "disable persisted credentials") do |fixture|
+  checkout = fixture.dig(:ci, "jobs", "security", "steps").first
   checkout.fetch("with")["persist-credentials"] = true
 end
 
-red_probe("summary checkout selects the caller input", "security-summary checkout must pin the trusted workflow SHA") do |fixture|
-  checkout = fixture.fetch(:reusable).fetch("jobs").fetch("security-summary").fetch("steps").first
+red_probe("Security checkout follows an input ref", "pin the current workflow SHA") do |fixture|
+  checkout = fixture.dig(:ci, "jobs", "security", "steps").first
   checkout.fetch("with")["ref"] = "${{ inputs.expected_sha }}"
 end
 
-red_probe("extra pre-aggregate checkout is not pinned", "security-summary checkout must be SHA-pinned") do |fixture|
-  steps = fixture.fetch(:reusable).fetch("jobs").fetch("security-summary").fetch("steps")
-  steps.unshift({ "uses" => "actions/checkout@v7" })
+red_probe("Security checkout is not pinned", "checkout must be SHA-pinned") do |fixture|
+  checkout = fixture.dig(:ci, "jobs", "security", "steps").first
+  checkout["uses"] = "actions/checkout@v7"
 end
 
-canary_red_probe("live canary sees duplicate old required context", "exactly one Security context") do |payload|
-  payload["required_contexts"] = ["Security", "Security / semgrep"]
+%w[EXPECTED_SHA ACTUAL_SHA ROUTE_RESULT SECRET_SCANS_RESULT SECURITY_TOOLS SECURITY_MATRIX_RESULT].each do |variable|
+  red_probe("Security drops #{variable}", "Security must set #{variable}=") do |fixture|
+    step = fixture.dig(:ci, "jobs", "security", "steps").last
+    step.fetch("env")[variable] = "removed"
+  end
 end
 
-canary_red_probe("live canary sees duplicate Security result", "exactly one Security check run") do |payload|
-  payload["check_runs"] << payload.fetch("check_runs").first
+red_probe("required Security context is renamed", "must be named Security") do |fixture|
+  fixture.dig(:ci, "jobs", "security")["name"] = "Legacy Security"
 end
 
-canary_red_probe("live canary sees a missing evidence link", "Security check details_url is missing") do |payload|
-  payload.fetch("check_runs").first.delete("details_url")
+red_probe("required PR context is renamed", "must be named PR Verification") do |fixture|
+  fixture.dig(:ci, "jobs", "aggregate")["name"] = "Legacy Verification"
 end
 
-canary_red_probe("live canary sees a pending result", "not completed successfully") do |payload|
-  payload.fetch("check_runs").first["status"] = "in_progress"
+red_probe("legacy forwarding bridge returns", "forwarding jobs must be absent") do |fixture|
+  fixture.fetch(:ci).fetch("jobs")["required-security"] = { "name" => "Security", "uses" => "./old.yml" }
+end
+
+red_probe("retired reusable workflow returns", "retired reusable workflows remain") do |fixture|
+  fixture.fetch(:retired) << "reusable-security.yml"
+end
+
+SUPPORTED_SECURITY_TOOLS.each_with_index do |tool, index|
+  red_probe("local action drops #{tool}", "local security action is missing #{tool}") do |fixture|
+    yaml = YAML.dump(fixture.fetch(:action)).gsub(tool, "removedtool#{index}")
+    fixture[:action] = YAML.safe_load(yaml, aliases: true)
+  end
+end
+
+red_probe("local action accepts unknown tools", "must reject unknown tools") do |fixture|
+  rejection = fixture.dig(:action, "runs", "steps").find { |step| step["name"] == "Reject unknown security tool" }
+  rejection["run"] = "true"
+end
+
+red_probe("standalone CodeQL duplicates PR scanning", "must not duplicate PR Security") do |fixture|
+  events = fixture.fetch(:codeql)["on"] || fixture.fetch(:codeql)[true]
+  events["pull_request"] = {}
+end
+
+%w[EXPECTED_SHA ACTUAL_SHA ROUTE_RESULT SECRET_SCANS_RESULT SECURITY_TOOLS SECURITY_MATRIX_RESULT].each_with_index do |variable, index|
+  red_probe("aggregate script drops #{variable}", "aggregator must consume #{variable}") do |fixture|
+    fixture[:aggregate] = fixture.fetch(:aggregate).gsub(variable, "REMOVEDVARIABLE#{index}")
+  end
 end
 
 green_probe
-
 puts "All test_ci_contract_security mutation probes passed."

@@ -1,24 +1,35 @@
-name: Rollback (Manual)
+name: Rollback
 
 on:
   workflow_dispatch:
     inputs:
       component:
-        description: Worker component to roll back
+        description: Production Worker unit from the selected successful CD run
         required: true
         type: choice
         options:
-          - root
+          - edge
           - web
           - catalog
           - users
-          - maintenance
+      release_run_id:
+        description: Successful main CD run containing the prior sealed artifact
+        required: true
+        type: string
+      source_sha:
+        description: Exact 40-character main SHA recorded by that CD run
+        required: true
+        type: string
+      artifact_sha256:
+        description: Exact SHA-256 from the selected unit's artifact manifest
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ inputs.component == 'catalog' && 'deploy-prod' || format('deploy-{0}-prod', inputs.component) }}
+  group: affected-cd-main
   cancel-in-progress: false
 
 env:
@@ -26,80 +37,41 @@ env:
 
 jobs:
   rollback:
+    name: Roll back ${{ inputs.component }}
     environment: production
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
     steps:
-      # SAFE-1 (#937): the caller-supplied `version_id` input is removed. The
-      # component/config mapping and rollback eligibility resolve from the
-      # pinned production manifest — read content-addressed from the GitHub
-      # API here, WITHOUT checking out any source, so rollback-ineligible
-      # components stop before checkout, dependency install, or Wrangler. The
-      # manifest represents rollback as ineligible today, so every rollback
-      # stops at this first step; only a future owner-approved manifest
-      # revision can mark a component rollback-eligible with an exact version
-      # pair.
-      - name: Resolve manifest rollback eligibility
-        id: resolve
-        shell: bash
-        env:
-          COMPONENT: ${{ inputs.component }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PINNED_MANIFEST_BLOB_ID: 2aef389878e321ddc3d4d86922fde30ad2ab6491
-          PINNED_MANIFEST_SHA256: 1ffcfe1bf4815e0e0e890193cbfdeb28d9748f94bb98db88106000af708f536c
-        run: |
-          set -euo pipefail
-          tmp="$(mktemp -d)"
-          trap 'rm -rf "$tmp"' EXIT
-          gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${PINNED_MANIFEST_BLOB_ID}" \
-            --jq .content | base64 -d > "$tmp/manifest.json"
-          # Inline pinned-identity check (mirrors release-manifest-resolver.rb;
-          # the contract test asserts these pins stay in sync). Never trust a
-          # checkout copy of the manifest here.
-          actual_sha="$(shasum -a 256 "$tmp/manifest.json" | awk '{print $1}')"
-          if [ "$actual_sha" != "$PINNED_MANIFEST_SHA256" ]; then
-            echo "::error::pinned manifest SHA-256 mismatch ($actual_sha) — refusing any rollback"
-            exit 1
-          fi
-          verdict="$(COMPONENT="$COMPONENT" python3 - "$tmp/manifest.json" <<'PY'
-          import json, os, sys
-          manifest = json.load(open(sys.argv[1]))
-          comp = manifest["components"][os.environ["COMPONENT"]]
-          print(f"{comp['rollback_eligible']} {comp['working_directory']}")
-          PY
-          )"
-          eligible="${verdict%% *}"
-          directory="${verdict#* }"
-          if [ "$eligible" != "True" ] && [ "$eligible" != "true" ]; then
-            echo "::error::rollback-ineligible: the pinned SAFE-1 manifest marks component '$COMPONENT' rollback-ineligible (no approved component/version pair exists). No checkout or Wrangler rollback was attempted."
-            exit 1
-          fi
-          echo "working_directory=$directory" >> "$GITHUB_OUTPUT"
-          echo "config_flag=$([ "$COMPONENT" = "root" ] && echo '-c workers/edge/wrangler.toml' || echo '')" >> "$GITHUB_OUTPUT"
-      # Reachable only after a future owner-approved manifest marks a
-      # component rollback-eligible with an exact version pair; the current
-      # manifest cannot reach these steps.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/heads/main
           persist-credentials: false
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - name: Validate and promote the selected immutable release
+        uses: ./.github/actions/rollback-release
         with:
-          version: 10.33.2
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "24"
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
-      - name: List versions
-        working-directory: ${{ steps.resolve.outputs.working_directory }}
+          component: ${{ inputs.component }}
+          release_run_id: ${{ inputs.release_run_id }}
+          source_sha: ${{ inputs.source_sha }}
+          artifact_sha256: ${{ inputs.artifact_sha256 }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          WRANGLER_CONFIG_FLAG: ${{ steps.resolve.outputs.config_flag }}
-        run: |
-          read -r -a config_args <<< "$WRANGLER_CONFIG_FLAG"
-          pnpm exec wrangler versions list "${config_args[@]}" --env production
-      - name: Verification reminder
-        run: echo "Rollback resolved from the pinned manifest. Verify via the URLs in docs/ops/deployment.md"
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MIMO_API_KEY: ${{ secrets.MIMO_API_KEY }}
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          ANON_ID_SECRET: ${{ secrets.ANON_ID_SECRET }}
+          VITE_SITE_ORIGIN: ${{ vars.VITE_SITE_ORIGIN }}
+          VITE_CATALOG_URL: ${{ vars.VITE_CATALOG_URL }}
+          VITE_USERS_URL: ${{ vars.VITE_USERS_URL }}
+          VITE_AGENT_URL: ${{ vars.VITE_AGENT_URL }}
+          VITE_NEON_AUTH_BASE_URL: ${{ vars.VITE_NEON_AUTH_BASE_URL }}
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          VITE_CF_BEACON_TOKEN: ${{ vars.VITE_CF_BEACON_TOKEN }}
+          VITE_SHOWCASE_MODE: ${{ vars.VITE_SHOWCASE_MODE }}

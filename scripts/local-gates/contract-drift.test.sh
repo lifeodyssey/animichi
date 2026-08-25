@@ -2,7 +2,7 @@
 # Behavioral tests for the staged-snapshot OpenAPI drift check
 # (scripts/local-gates/contract-drift.sh), AC2.
 #
-# The check mirrors pipeline-contract.yml's build stage: emit → stage into a
+# The check mirrors pr-verification.yml's contract lane: emit → stage into a
 # throwaway index → fail on `git diff --cached`. These tests prove a generated
 # change that is ONLY visible in the staged snapshot is caught (an unstaged
 # `git diff` after emission misses it), that the real index is never modified

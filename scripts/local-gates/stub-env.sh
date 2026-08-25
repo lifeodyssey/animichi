@@ -6,7 +6,7 @@
 # $GATE_TEST_LOG as "PWD :: argv" (real git, bash, ruby, and the Quality
 # bash checks are intentionally NOT stubbed — they are hermetic and must run
 # against the real repo tree; the Quality ruby self-tests are hermetic too,
-# and the release-eligibility bash test needs the real resolver output). The
+# and the quality gate needs deterministic local tool output). The
 # log is cleaned up on exit.
 set -euo pipefail
 

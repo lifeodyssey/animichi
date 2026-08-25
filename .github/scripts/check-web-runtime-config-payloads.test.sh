@@ -21,12 +21,12 @@ echo "PASS: committed payloads validate"
 # ── Case 2: a missing-comma payload must fail the gate ──────────────────────
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
-mkdir -p "${TMP}/.github/workflows"
-cp "${REPO_ROOT}/.github/workflows/reusable-cross-stack-e2e.yml" "${TMP}/.github/workflows/"
-cp "${REPO_ROOT}/.github/workflows/pipeline-web.yml" "${TMP}/.github/workflows/"
-cp "${REPO_ROOT}/.github/workflows/reusable-deploy-component.yml" "${TMP}/.github/workflows/"
+mkdir -p "${TMP}/.github/actions/cross-stack-e2e"
+mkdir -p "${TMP}/.github/scripts"
+cp "${REPO_ROOT}/.github/actions/cross-stack-e2e/action.yml" "${TMP}/.github/actions/cross-stack-e2e/"
+cp "${REPO_ROOT}/.github/scripts/pr-verification-gate.sh" "${TMP}/.github/scripts/"
 # Inject the exact P0 mutation: drop the comma before "featureFlags".
-TARGET_FILE="${TMP}/.github/workflows/reusable-cross-stack-e2e.yml"
+TARGET_FILE="${TMP}/.github/actions/cross-stack-e2e/action.yml"
 python3 -c "import pathlib; p=pathlib.Path('${TARGET_FILE}'); s=p.read_text(); s=s.replace('\"false\",\"featureFlags\"','\"false\"\"featureFlags\"',1); p.write_text(s)"
 git -C "${TMP}" init -q
 git -C "${TMP}" add .
@@ -37,6 +37,16 @@ out="$(cd "${TMP}" && bash "${CHECK_SH}" 2>&1)" || rc=$?
 printf '%s' "${out}" | grep -qE 'not valid JSON|invalid RUNTIME_CONFIG' \
   || fail_test "expected the gate to name the broken payload: ${out}"
 echo "PASS: missing-comma payload fails the gate"
+
+# ── Case 3: deleting a required payload must fail closed ────────────────
+cp "${REPO_ROOT}/.github/actions/cross-stack-e2e/action.yml" "${TARGET_FILE}"
+python3 -c "import pathlib,re; p=pathlib.Path('${TARGET_FILE}'); s=p.read_text(); p.write_text(re.sub(r\"^\\s*RUNTIME_CONFIG='[^']*'\\n\", '', s, count=1, flags=re.M))"
+rc=0
+out="$(cd "${TMP}" && bash "${CHECK_SH}" 2>&1)" || rc=$?
+[ "${rc}" -ne 0 ] || fail_test "missing payload must fail the gate, got exit 0: ${out}"
+printf '%s' "${out}" | grep -q 'no RUNTIME_CONFIG payload found' \
+  || fail_test "expected the gate to name the missing payload: ${out}"
+echo "PASS: missing payload fails the gate"
 
 rm -rf "${TMP}"
 

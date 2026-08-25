@@ -41,7 +41,7 @@ PREREQ_TOOLS=(
   "pnpm: corepack enable, or npm install -g pnpm@10.33.2"
   "node: Node >= 24 required (nvm or Homebrew)"
   "ruby: system Ruby is sufficient"
-  "atlas: must print a version (CI pins v0.30.0) — brew install ariga/tap/atlas, or download the darwin/linux binary for your arch from https://release.ariga.io/atlas/ (checksum in .github/workflows/pipeline-db.yml)"
+  "atlas: must print a version (CI pins v0.30.0) — brew install ariga/tap/atlas, or use .github/actions/install-atlas"
   "pulumi: brew install pulumi/tap/pulumi"
   "docker: Docker Desktop/colima with the daemon running (fresh-schema + agent integration; the gate fails closed when it is unavailable)"
   "actionlint: brew install actionlint (CI pins v1.7.7)"
@@ -157,15 +157,15 @@ finish_gate() {
   printf '\npre-push gate: deterministic set for [%s] passed.\n' "${1//$'\n'/,}"
 }
 
-# ── agent: pipeline-agent.yml order. env -u strips live/BYO selectors so an
+# ── agent: pr-verification affected-lane order. env -u strips live/BYO selectors so an
 # exported TEST_DB can never route this gate to Neon (Docker arm only).
 gate_agent() {
   gate apps/agent uv run ruff check
   gate apps/agent uv run ruff format --check src/animichi/
   gate apps/agent uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/
   gate apps/agent uv run vulture src/animichi/ vulture_whitelist.py
-  gate apps/agent uv run pytest src/animichi/tests/unit/ -v --cov --cov-report=xml
-  gate apps/agent env -u TEST_DB -u TEST_DATABASE_URL -u TEST_DB_ALLOW_MUTATION -u NEON_API_KEY -u NEON_PROJECT_ID -u NEON_ENDPOINT_SUFFIX uv run pytest src/animichi/tests/integration/ -v --no-cov
+  gate apps/agent uv run pytest src/animichi/tests/unit/ -v --cov --cov-report=xml:coverage-unit.xml
+  gate apps/agent env -u TEST_DB -u TEST_DATABASE_URL -u TEST_DB_ALLOW_MUTATION -u NEON_API_KEY -u NEON_PROJECT_ID -u NEON_ENDPOINT_SUFFIX uv run pytest src/animichi/tests/integration/ -v --cov --cov-report=xml:coverage-integration.xml --cov-fail-under=0
   run docker build -f apps/agent/Dockerfile -t animichi-agent:ci .
 }
 
@@ -206,7 +206,7 @@ gate_edge() {
   run pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir "$GATE_OUTDIR/edge-bundle"
 }
 
-# ── migrator + doorbell: pipeline-*.yml lint/test/build (contract consumers).
+# ── migrator: pr-verification affected lane (contract consumer).
 source "$ROOT/scripts/local-gates/pre-push-worker-gates.sh"
 
 # ── e2e: workspace member; Playwright is not a local-gate surface.
@@ -262,6 +262,7 @@ SCRIPT_SUITE=(
   db-fresh-schema.test.sh
   infra-check.test.sh
   infra-check-unauthorized.test.sh
+  commit-message.test.sh
   pre-commit-config.test.sh
   contract-drift.test.sh
 )

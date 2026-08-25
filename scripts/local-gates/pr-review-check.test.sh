@@ -4,7 +4,7 @@
 #   - pr-review-check.core.test.sh        (AC4/AC5/AC7 core gate + brief binding)
 #   - pr-review-check.boundary-collect.test.sh (collect boundary: GraphQL, threads, brief)
 #   - pr-review-check.boundary-shape.test.sh   (merge-base, duplicate brief, malformed types)
-#   - pr-review-check.boundary-status.test.sh  (head-bound status + pinned-head gate flow)
+#   - pr-review-check.secure-status.test.sh (trusted status producer + queue bridge)
 #   - pr-review-check.boundary-jobstatus.test.sh (whole-job outcome -> final status, finding 1)
 #   - pr-review-check.boundary-routing.test.sh (resolve-head fail-closed validation + inline-thread event routing, findings 1-2)
 #   - pr-review-check.mutation-boundary.test.sh (collect-boundary mutation probes)
@@ -21,7 +21,7 @@ MODULES=(
   "pr-review-check.pending.test.sh"
   "pr-review-check.boundary-collect.test.sh"
   "pr-review-check.boundary-shape.test.sh"
-  "pr-review-check.boundary-status.test.sh"
+  "pr-review-check.secure-status.test.sh"
   "pr-review-check.boundary-jobstatus.test.sh"
   "pr-review-check.boundary-routing.test.sh"
   "pr-review-check.mutation-boundary.test.sh"

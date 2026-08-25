@@ -173,6 +173,7 @@ check_file() {
 main() {
   local file
   while read -r file; do
+    [ -f "${file}" ] || continue
     TOTAL_FILES=$((TOTAL_FILES + 1))
     check_file "${file}"
   done < <(list_workflow_files)

@@ -1,12 +1,9 @@
-# Standalone top-level workflow (see .claude/rules/ci.md: codeql.yml / dependabot-agent.yml
-# precedent) — kept separate from ci.yml so the nightly cron cadence never rides along with
-# every push/PR trigger in the main CI matrix (ci.yml's own jobs largely key off
-# `github.event_name != 'pull_request'`, which a shared `schedule:` trigger would also flip
-# true for, running the entire component-CI fan-out nightly for no reason).
+# Standalone top-level workflow: the statistical nightly cadence is intentionally
+# separate from the affected PR CI and main-only CD workflows.
 name: Agent Eval (L1 nightly)
 
 # SD-30 §① trigger axis: the uncapped L1 full suite runs nightly + on manual dispatch —
-# never on PRs (see ci.yml's agent-eval-smoke for the PR-gated, capped L0 tier). This job
+# never on PRs (see pr-verification.yml for the affected, capped L0 tier). This job
 # owns the statistical baseline (src/animichi/tests/eval/baselines/agent_l4_trajectory_<model>.json)
 # via the existing finish_cli_report bootstrap/paired-comparison gate (src/animichi/tests/eval/gate.py).
 on:
@@ -24,40 +21,17 @@ concurrency:
   group: agent-eval-nightly
   cancel-in-progress: false
 
-env:
-  PYTHON_VERSION: "3.11"
-  NODE_VERSION: "24"
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   agent-eval-full:
     timeout-minutes: 45
     name: Agent Eval (L1 full, uncapped)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/agent
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/agent-eval
+        env:
+          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
         with:
-          python: "true"
-
-      - run: uv python install ${{ env.PYTHON_VERSION }}
-
-      # --no-build rejected: this project's own editable package has no wheel
-      # (see pipeline-agent.yml).
-      - run: uv sync --frozen --all-extras
-
-      - name: Run L1 full trajectory eval (uncapped — owns the statistical baseline)
-        run: uv run --frozen pytest src/animichi/tests/eval/test_agent_eval.py::test_agent_trajectory -v -m integration --no-cov -x
-        env:
-          EVAL_MODEL: openai:mimo-v2.5@https://opencode.ai/zen/go/v1
-          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
-
-      - name: Run translation eval
-        run: uv run --frozen pytest src/animichi/tests/eval/test_translation.py -v -m integration --no-cov -x
-        env:
-          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
+          tier: l1
