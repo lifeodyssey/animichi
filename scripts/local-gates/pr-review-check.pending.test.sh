@@ -112,6 +112,20 @@ else
   if [ -f "$TARGET_OUTPUT" ]; then detail="$(cat "$TARGET_OUTPUT")"; fi
   fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "collect-target records pending, never nothing" "$detail"
 fi
+# The verdict is not the job's conclusion. A blocked PR has to leave a recorded
+# state behind a green step, or the workflow reads as broken on every PR that is
+# merely still waiting — which is most of a PR's life, and trains the reader to
+# ignore red. Only an inability to evaluate belongs in the job's own result.
+BLOCKED_OUTPUT="$TMP/github-output-blocked"
+BLOCKED_ENV=(env GH_TOKEN=test GITHUB_OUTPUT="$BLOCKED_OUTPUT" MOCK_STATUS_LOG="$STATUS_LOG" MOCK_THREADS_FILE="$FIX/threads-active.json" MOCK_GRAPHQL_COMMENTS_FILE="$FIX/github-graphql-no-comments.json" PATH="$MOCK_BIN:$PATH")
+run "collect-target completes on a blocked PR" 0 "${BLOCKED_ENV[@]}" "$STEP" collect-target pr lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 710 ""
+if grep -qx 'gate_state=failure' "$BLOCKED_OUTPUT"; then
+  printf 'PASS %-52s\n' "a blocked verdict is recorded, not thrown"
+else
+  detail="missing output: $BLOCKED_OUTPUT"
+  if [ -f "$BLOCKED_OUTPUT" ]; then detail="$(cat "$BLOCKED_OUTPUT")"; fi
+  fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "a blocked verdict is recorded, not thrown" "$detail"
+fi
 run "pending generation is claimed" 0 "${MOCK_ENV[@]}" "$STEP" claim-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 50 1
 run "a green pending job posts pending" 0 "${MOCK_ENV[@]}" "$STEP" finish-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 50 1 success pending
 if tail -1 "$STATUS_LOG" | grep -q '^pending bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb '; then

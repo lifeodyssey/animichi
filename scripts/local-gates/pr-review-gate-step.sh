@@ -263,7 +263,16 @@ collect_queue_rows() { # collect_queue_rows <repo> <rows>
 collect_pr() { # collect_pr <repo> <head> <pr>
   validate_squash_title "$1" "$3"
   gate_head "$3" "$1" "$2"
-  run_collect_state "$3" "$1" "$2"
+  # A blocking verdict is an answer, not a failure to answer. The queue path has
+  # always read it that way (`|| next=failure` in collect_queue_rows) and either
+  # way the verdict reaches the reviewer as the `Review Gate` status; only the
+  # single-PR path turned it into a non-zero exit, which is why the workflow ran
+  # red on every PR that was merely still waiting. Inability to evaluate (2)
+  # still propagates, so the job stays red when the gate breaks.
+  local state rc
+  state="$(run_collect_state "$3" "$1" "$2")" && rc=0 || rc=$?
+  [ "$rc" -ne 2 ] || return 2
+  printf '%s\n' "${state:-failure}"
 }
 
 collect_target_state() { # kind repo sha pr ci-run-id
@@ -286,11 +295,11 @@ cmd_collect_target() { # kind repo sha pr ci-run-id
   # reached the reviewer as a bare red check.
   local state rc
   state="$(collect_target_state "$@")" && rc=0 || rc=$?
-  # Keep the caller's distinction between "the gate says no" (1) and "the gate
-  # could not evaluate" (2); only the recorded state is new.
+  # Only an inability to evaluate reaches the job's own conclusion. The verdict
+  # itself — including `failure` — is published as the required status, so the
+  # workflow is green whenever it managed to decide something.
   [ "$rc" -eq 0 ] || { set_gate_state failure; return "$rc"; }
   set_gate_state "$state"
-  [ "$state" != failure ] || return 1
 }
 
 usage() {
