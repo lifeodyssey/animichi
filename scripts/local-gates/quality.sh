@@ -106,6 +106,7 @@ run bash "$GS/security-aggregate.test.sh"
 run env EXPECTED_SHA=0123456789abcdef0123456789abcdef01234567 ACTUAL_SHA=0123456789abcdef0123456789abcdef01234567 ROUTE_RESULT=success SECRET_SCANS_RESULT=success SECURITY_TOOLS='[]' SECURITY_MATRIX_RESULT=skipped GITHUB_STEP_SUMMARY=/dev/null bash "$GS/security-aggregate.sh"
 run ruby "$GS/test_pr_verification_contract.rb"
 run ruby "$GS/test_pr_verification_contract_mutation.rb"
+run bash scripts/local-gates/commit-message.test.sh
 run ruby "$GS/test_secret_scan_contract.rb"
 run ruby "$GS/test_secret_scan_contract_mutation.rb"
 run bash "$GS/resolve-secret-scan-range.test.sh"

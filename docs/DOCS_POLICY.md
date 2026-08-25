@@ -89,7 +89,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Testing strategy | `docs/testing-strategy.md` | |
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
 | Secrets architecture / worker secrets | `docs/adr/0003-secrets-architecture.md` | CF Secrets Store + Neon-hosted role passwords + Pulumi `neon.Role`; supersedes the ESC-first plan of #674 |
-| Local development gates | `docs/ops/local-gates.md` + `.pre-commit-config.yaml` | changed-package routing (`--staged` pre-commit / merge-base pre-push); single pre-push orchestrator `scripts/local-gates/pre-push.sh`; affected CI is routed from `.github/ci/components.json`; canonical 87 agent floor; offline Docker/web integration locally; browser e2e/live-Neon/evals/deploys stay in CI |
+| Local development gates | `docs/ops/local-gates.md` + `.pre-commit-config.yaml` | changed-package routing (`--staged` pre-commit / merge-base pre-push); shared commit-msg/PR-title hygiene validator; single pre-push orchestrator `scripts/local-gates/pre-push.sh`; affected CI is routed from `.github/ci/components.json`; canonical 87 agent floor; offline Docker/web integration locally; browser e2e/live-Neon/evals/deploys stay in CI |
 | Local review gate (Standards∥Spec verdicts) | `docs/ops/review-gate.md` + `scripts/local-gates/` | issue #1008; one source for invariants, review method, reviewer permissions/output, workflow order, ticket-specific scope |
 | Close-out campaign (2026-08) | `docs/specs/2026-08-08-repo-closeout-spec.md` | ADRs 0004/0005; merges restructure-spec × GOAL; waves P0–P8 |
 | Neon backup / RPO / bad-migration recovery | `docs/ops/neon-backup-rpo.md` | N5 (#860); PITR + HITL checklist; pairs with `migrations.md` |
