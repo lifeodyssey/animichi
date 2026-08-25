@@ -1,5 +1,8 @@
-import type { ChangeEvent, ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
+import { useCallback, useState } from "react";
+import { Button } from "animal-island-ui-tailwind/button";
+import { Input } from "animal-island-ui-tailwind/input";
+import { Radio } from "animal-island-ui-tailwind/radio";
 import { LoginModal } from "../../auth/ui/LoginModal";
 import type { AuthStatus } from "../../../lib/auth/session";
 import { clearByokConfig, getByokConfig } from "../../../lib/byok/byok-storage";
@@ -10,24 +13,11 @@ import type { ChatByokDict, ChatDict } from "../i18n";
 import { useByokSettings } from "../use-byok-settings";
 import type { ByokInlineError, ByokSettingsView } from "../use-byok-settings";
 
-/**
- * The app-level preference controls the ⚙ panel hosts (language, day/night),
- * composed at the UI layer and injected here as a node. Chat neither owns nor
- * imports them — that would be a feature→UI back-edge — it only rents the
- * panel the visitor already opens for settings. The label comes with them
- * because the panel then names MORE than the API key section.
- */
-export interface PanelPreferences {
-  readonly label: string;
-  readonly content: ReactNode;
-}
-
 type Props = Readonly<{
   dict: ChatDict;
   auth: AuthStatus;
   baseUrl: string;
   probe?: typeof runByokProbe;
-  preferences?: PanelPreferences;
 }>;
 
 const PROVIDERS: readonly ByokProvider[] = ["openai-compatible", "anthropic", "gemini"];
@@ -52,24 +42,18 @@ const ERROR_COPY: Readonly<Record<ByokInlineError, keyof ChatByokDict>> = {
 
 type PanelProps = Readonly<{ byok: ChatByokDict; view: ByokSettingsView }>;
 
-function ProviderChoice({ byok, view, provider }: PanelProps & Readonly<{ provider: ByokProvider }>) {
-  const onChange = () => { view.setProvider(provider); };
-  return (
-    <label className="chat-byok__family">
-      <input type="radio" name="byok-provider" value={provider} checked={view.form.provider === provider} onChange={onChange} />
-      <span>{familyLabel(byok, provider)}</span>
-    </label>
-  );
+function isProvider(value: string | number): value is ByokProvider {
+  return typeof value === "string" && PROVIDERS.includes(value as ByokProvider);
 }
 
 function ProviderGroup({ byok, view }: PanelProps) {
+  const options = PROVIDERS.map((provider) => ({ value: provider, label: familyLabel(byok, provider) }));
+  const choose = (value: string | number) => { if (isProvider(value)) view.setProvider(value); };
   return (
-    <fieldset className="chat-byok__families">
-      <legend className="chat-byok__label">{byok.familyLabel}</legend>
-      {PROVIDERS.map((provider) => (
-        <ProviderChoice key={provider} byok={byok} view={view} provider={provider} />
-      ))}
-    </fieldset>
+    <div className="settings-byok__field">
+      <span id="byok-provider-label" className="settings-byok__label">{byok.familyLabel}</span>
+      <Radio value={view.form.provider} options={options} direction="vertical" aria-labelledby="byok-provider-label" onChange={choose} />
+    </div>
   );
 }
 
@@ -82,15 +66,19 @@ type FieldProps = Readonly<{
   onValue: (value: string) => void;
 }>;
 
+function FieldHelp({ id, help }: Readonly<{ id: string; help?: string }>) {
+  if (help === undefined) return null;
+  return <p id={`${id}-help`} className="settings-byok__help">{help}</p>;
+}
+
 function Field({ id, label, value, type = "text", help, onValue }: FieldProps) {
   const onChange = (event: ChangeEvent<HTMLInputElement>) => { onValue(event.target.value); };
-  return (
-    <div className="chat-byok__field">
-      <label className="chat-byok__label" htmlFor={id}>{label}</label>
-      <input id={id} className="chat-byok__input" type={type} value={value} autoComplete="off" onChange={onChange} />
-      {help === undefined ? null : <p className="chat-byok__help">{help}</p>}
-    </div>
-  );
+  const helpId = help === undefined ? undefined : `${id}-help`;
+  return <div className="settings-byok__field">
+    <label className="settings-byok__label" htmlFor={id}>{label}</label>
+    <Input id={id} type={type} value={value} autoComplete="off" aria-describedby={helpId} shadow onChange={onChange} />
+    <FieldHelp id={id} help={help} />
+  </div>;
 }
 
 /** base_url belongs to the openai-compatible family only (wire contract). */
@@ -105,29 +93,29 @@ function BaseUrlField({ byok, view }: PanelProps) {
  * never as a generic chat failure banner. */
 function InlineError({ byok, view }: PanelProps) {
   if (view.error === null) return null;
-  return <p className="chat-byok__error" role="alert">{byok[ERROR_COPY[view.error]]}</p>;
+  return <p className="settings-byok__error" role="alert">{byok[ERROR_COPY[view.error]]}</p>;
 }
 
 function VisionBadge({ byok, view }: PanelProps) {
   if (view.vision !== true) return null;
-  return <span className="chat-byok__badge">{byok.visionBadge}</span>;
+  return <span className="settings-byok__badge">{byok.visionBadge}</span>;
 }
 
 /** Masked summary only — the raw key is never rendered back into the DOM. */
 function SavedSummary({ byok, view }: PanelProps) {
   if (!view.saved) return null;
   return (
-    <p className="chat-byok__summary">
+    <div className="settings-byok__summary">
       <span>{byok.maskedSummary}</span>
       <VisionBadge byok={byok} view={view} />
-      <button type="button" className="chat-byok__clear" onClick={view.clear}>{byok.clear}</button>
-    </p>
+      <Button type="text" className="settings-byok__clear" onClick={view.clear}>{byok.clear}</Button>
+    </div>
   );
 }
 
 function StatusLine({ byok, view }: PanelProps) {
   if (view.phase !== "checking") return null;
-  return <p className="chat-byok__status" role="status">{byok.checking}</p>;
+  return <p className="settings-byok__status" role="status">{byok.checking}</p>;
 }
 
 function CredentialFields({ byok, view }: PanelProps) {
@@ -155,7 +143,7 @@ function FormBody({ byok, view }: PanelProps) {
       <ProviderGroup byok={byok} view={view} />
       <CredentialFields byok={byok} view={view} />
       <FormFeedback byok={byok} view={view} />
-      <button type="submit" className="chat-byok__save" disabled={view.phase === "checking"}>{byok.save}</button>
+      <Button htmlType="submit" type="primary" className="settings-byok__save" disabled={view.phase === "checking"}>{byok.save}</Button>
     </>
   );
 }
@@ -169,7 +157,7 @@ function makeSaveSubmit(view: ByokSettingsView) {
 
 function SettingsForm({ byok, view }: PanelProps) {
   return (
-    <form className="chat-byok__form" onSubmit={makeSaveSubmit(view)} noValidate>
+    <form className="settings-byok__form" onSubmit={makeSaveSubmit(view)} noValidate>
       <FormBody byok={byok} view={view} />
     </form>
   );
@@ -194,10 +182,10 @@ function StoredKeyNotice({ byok }: Readonly<{ byok: ChatByokDict }>) {
   const key = useStoredKey();
   if (!key.stored) return null;
   return (
-    <p className="chat-byok__summary">
+    <div className="settings-byok__summary">
       <span>{byok.maskedSummary}</span>
-      <button type="button" className="chat-byok__clear" onClick={key.clear}>{byok.clear}</button>
-    </p>
+      <Button type="text" className="settings-byok__clear" onClick={key.clear}>{byok.clear}</Button>
+    </div>
   );
 }
 
@@ -209,7 +197,7 @@ function TeaserLogin({ byok }: Readonly<{ byok: ChatByokDict }>) {
   const login = useLoginDisclosure();
   return (
     <>
-      <button type="button" className="chat-byok__signin" onClick={login.show}>{byok.signInToSetUp}</button>
+      <Button type="primary" className="settings-byok__signin" onClick={login.show}>{byok.signInToSetUp}</Button>
       <LoginModal open={login.open} onClose={login.hide} returnTarget={BYOK_SETUP_TARGET} />
     </>
   );
@@ -217,7 +205,7 @@ function TeaserLogin({ byok }: Readonly<{ byok: ChatByokDict }>) {
 
 function AnonymousTeaser({ byok }: Readonly<{ byok: ChatByokDict }>) {
   return (
-    <div className="chat-byok__teaser">
+    <div className="settings-byok__teaser">
       <StoredKeyNotice byok={byok} />
       <p>{byok.anonymousTeaser}</p>
       <TeaserLogin byok={byok} />
@@ -225,8 +213,8 @@ function AnonymousTeaser({ byok }: Readonly<{ byok: ChatByokDict }>) {
   );
 }
 
-function PanelBody({ dict, auth, baseUrl, probe }: Omit<Props, "preferences">) {
-  if (auth === "pending") return null;
+function PanelBody({ dict, auth, baseUrl, probe }: Props) {
+  if (auth === "pending") return <p className="settings-byok__status" role="status">{dict.byok.authPending}</p>;
   if (auth === "anonymous") return <AnonymousTeaser byok={dict.byok} />;
   return <AuthenticatedPanel dict={dict} baseUrl={baseUrl} probe={probe} />;
 }
@@ -241,22 +229,11 @@ function AuthenticatedPanel({ dict, baseUrl, probe = runByokProbe }: Omit<Props,
   );
 }
 
-/** Move focus into the panel when it opens — the toggle and the deep-link
- * return both land the reader at the top of what just appeared (#480 P3). */
-function usePanelFocus() {
-  const ref = useRef<HTMLElement | null>(null);
-  useEffect(() => { ref.current?.focus(); }, []);
-  return ref;
-}
-
-/** The ⚙ settings panel: app preferences first, then the BYOK section (issue
- * #284 Task 6 UI + Task 8 touchpoint B). */
-export function ByokSettings({ preferences, ...panel }: Props) {
+/** BYOK controls for the dedicated settings page (issue #284 Task 6 + Task 8). */
+export function ByokSettings(panel: Props) {
   return (
-    <section id="byok-settings-panel" className="chat-byok" aria-label={preferences?.label ?? panel.dict.byok.title} tabIndex={-1} ref={usePanelFocus()}>
-      {preferences?.content}
-      <h3 className="chat-byok__title">{panel.dict.byok.title}</h3>
+    <div className="settings-byok">
       <PanelBody {...panel} />
-    </section>
+    </div>
   );
 }

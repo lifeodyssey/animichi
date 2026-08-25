@@ -7,7 +7,7 @@ import {
 
 export const AUDIENCE = "animichi:github-actions:migrator";
 export const REPOSITORY = "lifeodyssey/animichi";
-export const TRUSTED_WORKFLOW = "lifeodyssey/animichi/.github/workflows/ci.yml@refs/heads/main";
+export const TRUSTED_CD_WORKFLOW = "lifeodyssey/animichi/.github/workflows/cd.yml@refs/heads/main";
 
 // #1051 — reusable GitHub OIDC verifier (Migration Executor, spec
 // §"Trigger authentication"). jose resolves expiry against the wall clock, so
@@ -22,7 +22,7 @@ export function stagingPolicy(): GitHubOidcPolicy {
     repository: REPOSITORY,
     refAllow: [{ ref: "refs/heads/main", environment: "staging" }],
     subAllow: [],
-    trustedWorkflowRefs: [TRUSTED_WORKFLOW],
+    trustedWorkflowRefs: [TRUSTED_CD_WORKFLOW],
   };
 }
 
@@ -34,7 +34,7 @@ export function productionPolicy(): GitHubOidcPolicy {
     repository: REPOSITORY,
     refAllow: [{ ref: "refs/heads/main", environment: "production" }],
     subAllow: [`repo:${REPOSITORY}:environment:production`],
-    trustedWorkflowRefs: [TRUSTED_WORKFLOW],
+    trustedWorkflowRefs: [TRUSTED_CD_WORKFLOW],
   };
 }
 
@@ -55,8 +55,7 @@ export function claims(overrides: Shoulders = {}): GitHubOidcClaims {
     ref: "refs/heads/main",
     repository: REPOSITORY,
     environment: "staging",
-    workflow_ref: TRUSTED_WORKFLOW,
-    job_workflow_ref: TRUSTED_WORKFLOW,
+    workflow_ref: TRUSTED_CD_WORKFLOW,
     ...overrides,
   };
 }

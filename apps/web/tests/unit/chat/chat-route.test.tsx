@@ -3,13 +3,15 @@
  */
 import { RouterProvider } from "@tanstack/react-router";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { getRouter } from "../../../src/router";
 import { leadBubbleWith } from "./_lead-bubble";
 import { setLanguages } from "../_i18n";
 import { server } from "../../msw/node";
 import { healthzOkHandler } from "../../msw/chat-handlers";
+
+vi.mock("../../../src/lib/auth/session", () => ({ useAuthStatus: () => "authenticated" }));
 
 afterEach(cleanup);
 

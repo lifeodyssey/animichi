@@ -147,20 +147,20 @@ Run it freely at milestones; don't hoard it.
 **Run recipe.**
 ```bash
 cd apps/agent && uv run python -m animichi.tests.eval.run_agent_eval \
-  --eval-model "openai:mimo-v2.5@https://api.xiaomimimo.com/v1"   # full 655
+  --eval-model "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"   # full suite
 EVAL_MAX_CASES=50 uv run python -m animichi.tests.eval.run_agent_eval ...  # capped = report-only, no baseline/gate
 ```
 Direct thrash gates (req≤12 / tool≤10 / repeat=0 / p95≤8 — `src/animichi/tests/eval/direct_gates.py`) are
 **report-only** until `DIRECT_GATE_ENFORCE=1` (owner calibrates first). Capped runs never read/write baselines.
 
-**CI tiering (SD-30, #228/#227).** `EVAL_SMOKE=1` turns a capped run from report-only into an
-enforced L0 gate: zero-errored cases + the deterministic direct thrash gates (unconditionally,
-independent of `DIRECT_GATE_ENFORCE`) — it still never reads or writes the baseline. CI wires this
-as `agent-eval-smoke` in `ci.yml` (`EVAL_SMOKE=1 EVAL_MAX_CASES=80`, required on PRs that touch
-`agents/**` or `src/animichi/config/model_aliases.py`). The uncapped L1 suite — owning the statistical baseline
+**CI tiering (SD-30, #228/#227).** `EVAL_SMOKE=1` makes the capped job enforce its own
+zero-error/direct-thrash assertions, without reading or writing the baseline. The single PR CI
+runs it through `.github/actions/agent-eval` with `EVAL_MAX_CASES=80` when the affected plan selects
+agent behavior. The job is visible but report-only for the merge verdict, so provider transport
+does not make `PR Verification` nondeterministic. The uncapped L1 suite — owning the statistical baseline
 via `finish_cli_report`/`gate.py` — runs nightly + on `workflow_dispatch` only, in the standalone
 `agent-eval-nightly.yml` (never on PRs, so its cron cadence doesn't ride along with the PR/push
-matrix in `ci.yml`).
+affected-component matrix in `pr-verification.yml`).
 
 **Post-redesign full-655 numbers (2026-07-17, the re-baseline candidate — NOT yet the committed baseline;
 the owner signs off per the redesign spec §7):**

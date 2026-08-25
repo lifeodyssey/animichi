@@ -28,14 +28,14 @@ describe("ByokUpsell — value explainer (T8-AC2)", () => {
     expect(screen.getByText(dict.byok.upsellAccount)).toBeTruthy();
   });
 
-  it("opens the login modal as its primary action, deep-linking back to the panel", () => {
+  it("opens the login modal as its primary action, deep-linking to settings", () => {
     send.mockResolvedValue("sent");
     renderWithLocale(<ByokUpsell dict={dict} />);
     fireEvent.click(screen.getByRole("button", { name: dict.byok.signInToSetUp }));
     fireEvent.change(screen.getByLabelText("メールアドレス"), { target: { value: "fan@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "ログインリンクを送信" }));
     expect(send).toHaveBeenCalledWith(expect.objectContaining({
-      callbackURL: "http://localhost:3000/auth/callback?next=%2Fchat%3Fsettings%3Dbyok",
+      callbackURL: "http://localhost:3000/auth/callback?next=%2Fsettings%23api-key",
     }));
   });
 });

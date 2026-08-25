@@ -1,14 +1,13 @@
 import { useCallback, useState } from "react";
+export { BYOK_SETUP_TARGET } from "../../lib/byok/byok-target";
 
 /**
  * Shared plumbing for the BYOK discovery journey (issue #284 Task 8): every
  * touchpoint (D11 secondary affordance, settings teaser, `byok_requires_login`
  * rejection) funnels login through the same validated deep-link target, so the
- * magic link lands the user back on the chat route with the panel open — in
+ * magic link lands the user on the settings page's API-key section — in
  * whatever tab the link opens in.
  */
-export const BYOK_SETUP_TARGET = "/chat?settings=byok";
-
 export interface LoginDisclosure {
   readonly open: boolean;
   readonly show: () => void;

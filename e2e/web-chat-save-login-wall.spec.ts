@@ -4,6 +4,7 @@ import { chatDictFor } from "../apps/web/src/features/chat/i18n";
 import { dictFor } from "../apps/web/src/i18n/dictionaries";
 import { DEFERRED_SAVE_KEY, DEFERRED_SAVE_TTL_MS } from "../apps/web/src/features/chat/save/deferred-save";
 import { SSE_HEADERS, chatStreamRecording, patchFinalFrame } from "./fixtures/chat-stream";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Issue #273 (S1.7) Task 2 browser ACs: the 「保存する」 CTA is the only proactive
@@ -49,9 +50,11 @@ function routeStream(): string {
 }
 
 async function openChat(page: Page): Promise<void> {
+  await stubTurnstileEntry(page);
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto("/chat");
+  await solveTurnstileEntry(page);
   await hydrated;
 }
 

@@ -1,0 +1,14 @@
+# Stable Pulumi state identity. Renaming it requires an explicit cross-project
+# stack migration for staging and prod; the code/package name is database-access.
+name: animichi-neon-secrets
+runtime:
+  name: nodejs
+  options:
+    typescript: false
+description: Database roles and runtime access material managed through Neon and Cloudflare
+packages:
+  neon:
+    source: terraform-provider
+    version: 1.3.0
+    parameters:
+      - kislerdm/neon

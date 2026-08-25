@@ -34,7 +34,7 @@ preview_urls = false
 #   # → prints: ✅ Created ... id: <hyperdrive-id>
 #
 # Uncomment after `id` is known. While commented out, prod falls back to the
-# DATABASE_URL secret (set via `wrangler secret put DATABASE_URL`).
+# DATABASE_URL Secrets Store binding.
 # [[hyperdrive]]
 # binding = "HYPERDRIVE"
 # id = "<hyperdrive-id>"
@@ -95,8 +95,8 @@ ENVIRONMENT = "development"
 # environment-specific). Instead create catalog/.dev.vars (git-ignored) with:
 #   DATABASE_URL=<standing-dev-branch-cloud-dsn>
 # See .dev.vars.example for the create-once and connection-string recipe.
-# wrangler dev loads .dev.vars automatically. For a deployed environment set:
-#   wrangler secret put DATABASE_URL
+# Wrangler dev loads .dev.vars automatically; deployed environments bind the
+# DSN provisioned by the infra/database-access stack.
 
 [env.staging]
 name = "catalog-staging"
@@ -104,7 +104,7 @@ workers_dev = false
 preview_urls = false
 
 # #912 PR2: the staging DSN comes from the Cloudflare Secrets Store (secret
-# CATALOG_DATABASE_URL, provisioned by the infra/neon-secrets Pulumi stack)
+# CATALOG_DATABASE_URL, provisioned by the infra/database-access Pulumi stack)
 # instead of `wrangler secret put` in CI. env.DATABASE_URL is then a
 # SecretsStoreSecret — src/index.ts awaits `.get()` (string fallback kept for
 # tests/local dev). Wrangler validates the binding's store_id/secret_name at
@@ -145,7 +145,7 @@ preview_urls = false
 
 # #1048 production runtime DSN cutover: production reads its DSN from the
 # Cloudflare Secrets Store like staging already does. The store secrets are
-# provisioned by the infra/neon-secrets Pulumi stack with the prod stack's
+# provisioned by the infra/database-access Pulumi stack with the prod stack's
 # "_PROD" suffix (CATALOG_DATABASE_URL_PROD) because staging and production
 # share the account's single default Secrets Store. env.DATABASE_URL is then
 # a SecretsStoreSecret - src/index.ts awaits `.get()` (string fallback kept

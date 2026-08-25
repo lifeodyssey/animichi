@@ -50,9 +50,6 @@ config:
   # what following the previous version of these instructions would have done.
 
   seichijunrei-infra:stagingGateEnabled: "true"
-  # ── Data plane ──────────────────────────────────────────────────────────────
-  # catalogDatabaseUrl is a secret — set it per stack, never commit the raw value:
-  #   pulumi config set --secret catalogDatabaseUrl "<neon staging branch connstr>" --stack staging
   seichijunrei-infra:stagingAllowedIps:
     secure: v1:wd0EzikU1HrW3QUL:BCa/ZLwc+JO7yClbzJwWTIB4+TvMM7DQifddPd+j0qlXareE7Ixo9GEcXoyGAPK8LSzYJVI=
   seichijunrei-infra:stagingGateToken:

@@ -1,181 +1,75 @@
-"""Structural checks on the CI eval-gate wiring (cards #228, #227).
-
-Deterministic and offline: parses .github/workflows/ci.yml and
-agent-eval-nightly.yml as plain text — no live GitHub Actions run, no live
-model (see docstrings on individual tests for the AC each one covers). The
-workflow files ARE the spec for trigger/gate wiring; these tests pin that
-contract so a future edit can't silently regress it.
-"""
+"""Offline contracts for affected CI and nightly agent evaluation."""
 
 from __future__ import annotations
 
-import ast
+import json
 import re
-from fnmatch import fnmatch
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[6]
-_CI_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
-_NIGHTLY_WORKFLOW = _REPO_ROOT / ".github" / "workflows" / "agent-eval-nightly.yml"
+_ROOT = Path(__file__).resolve().parents[6]
+_CI = (_ROOT / ".github/workflows/pr-verification.yml").read_text()
+_EVAL = (_ROOT / ".github/actions/agent-eval/action.yml").read_text()
+_NIGHTLY = (_ROOT / ".github/workflows/agent-eval-nightly.yml").read_text()
 
 
-def _filter_patterns(source: str, filter_name: str) -> list[str]:
+def _job(source: str, job_id: str) -> str:
     match = re.search(
-        rf"(?m)^\s+{re.escape(filter_name)}:\s*(?P<value>\[.*\])\s*$", source
-    )
-    assert match is not None, f"missing paths-filter entry: {filter_name}"
-    return ast.literal_eval(match["value"])
-
-
-def _named_workflow_job(source: str, job_id: str) -> str:
-    job = re.search(
-        rf"(?ms)^  {re.escape(job_id)}:\s*$\n(?P<body>.*?)(?=^  [a-zA-Z0-9_-]+:\s*$|\Z)",
+        rf"(?ms)^  {re.escape(job_id)}:\s*$\n(?P<body>.*?)(?=^  [\w-]+:\s*$|\Z)",
         source,
     )
-    assert job is not None, f"missing workflow job: {job_id}"
-    return job["body"]
+    assert match is not None, f"missing workflow job: {job_id}"
+    return match["body"]
 
 
-def _agent_pipeline_job(job_id: str) -> str:
-    path = _REPO_ROOT / ".github" / "workflows" / "pipeline-agent.yml"
-    return _named_workflow_job(path.read_text(encoding="utf-8"), job_id)
-
-
-def _agent_conftest(rel: str) -> str:
-    return (_REPO_ROOT / "apps/agent/src/animichi/tests" / rel).read_text(
-        encoding="utf-8"
+def test_manifest_routes_only_agent_behavior_inputs_to_eval() -> None:
+    manifest = json.loads((_ROOT / ".github/ci/components.json").read_text())
+    lane = next(
+        item for item in manifest["global_lanes"] if item["name"] == "agent-eval"
     )
+    assert "apps/agent/src/animichi/agents/**" in lane["paths"]
+    assert "apps/agent/src/animichi/config/model_aliases.py" in lane["paths"]
+    assert "apps/web/**" not in lane["paths"]
 
 
-def _matches_any(path: str, patterns: list[str]) -> bool:
-    return any(fnmatch(path, pattern) for pattern in patterns)
+def test_single_ci_runs_the_authorized_l0_trajectory_gate() -> None:
+    job = _job(_CI, "agent-eval")
+    assert "contains(fromJSON(needs.route.outputs.lanes), 'agent-eval')" in job
+    assert "github.event.pull_request.head.repo.full_name == github.repository" in job
+    assert "github.actor != 'dependabot[bot]'" in job
+    assert "github.event.pull_request.user.login != 'dependabot[bot]'" in job
+    assert "ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}" in job
+    assert "uses: ./.github/actions/agent-eval" in job
+    assert "tier: l0" in job
+    assert "test_agent_eval.py::test_agent_trajectory" in _EVAL
+    assert "openai:mimo-v2.5@https://opencode.ai/zen/go/v1" in _EVAL
+    assert 'EVAL_SMOKE: "1"' in _EVAL
+    assert 'EVAL_MAX_CASES: "80"' in _EVAL
+    assert re.search(r"AGENT_SVC_DATABASE_URL:\s*\S+", _EVAL)
 
 
-def _top_level_block(source: str, key: str) -> str:
-    block = re.search(
-        rf"(?ms)^{re.escape(key)}:\s*$\n(?P<body>.*?)(?=^[a-zA-Z0-9_-]+:\s*$|\Z)",
-        source,
-    )
-    assert block is not None, f"missing top-level key: {key}"
-    return block["body"]
-
-
-def test_agent_behavior_filter_scopes_to_prompt_model_guardrail_files() -> None:
-    """Card #228 AC2 (integration): only prompt/model-config/guardrail files
-    trigger L0 smoke — not every apps/agent/** change, and not apps/web/**."""
-    patterns = _filter_patterns(
-        _CI_WORKFLOW.read_text(encoding="utf-8"), "agent_behavior"
-    )
-
-    included = [
-        "apps/agent/src/animichi/agents/animichi_agent.py",  # prompt + ModelRetry/output_validator
-        "apps/agent/src/animichi/agents/base.py",  # model-resolution glue
-        "apps/agent/src/animichi/agents/web_trust.py",  # injection-defense guardrail
-        "apps/agent/src/animichi/config/model_aliases.py",  # model-config registry
-        "apps/agent/src/animichi/config/settings.py",  # default_agent_model, model_attempt_timeout
-    ]
-    excluded = [
-        "apps/web/src/routes/index.tsx",
-        "apps/agent/src/animichi/infrastructure/observability/runtime.py",  # telemetry helper
-        "apps/agent/src/animichi/interfaces/fastapi_service.py",
-    ]
-
-    assert all(_matches_any(path, patterns) for path in included)
-    assert not any(_matches_any(path, patterns) for path in excluded)
-
-
-def _push_paths(source: str) -> list[str]:
-    on = _top_level_block(source, "on")
-    push = re.search(
-        r"(?ms)^  push:\s*$\n(?P<body>.*?)(?=^[a-zA-Z0-9_-]+:\s*$|\Z)",
-        on,
-    )
-    assert push is not None, "missing on.push block"
-    paths = re.search(r"(?ms)^    paths:\s*$\n(?P<body>.*)$", push["body"])
-    assert paths is not None, "missing push paths block"
-    entries = re.findall(r"(?m)^      - (.+)$", paths["body"])
-    assert entries, "missing push paths entries"
-    return [entry.strip('"') for entry in entries]
-
-
-def test_agent_behavior_filter_is_narrower_than_the_full_agent_filter() -> None:
-    """The broad `agent` scope (drives lint/type/test; now the
-    pipeline-agent.yml push paths) still covers every `agent_behavior` file;
-    `agent_behavior` itself must be the smaller set."""
-    agent_patterns = _push_paths(
-        (_REPO_ROOT / ".github" / "workflows" / "pipeline-agent.yml").read_text(
-            encoding="utf-8"
-        )
-    )
-    behavior_patterns = _filter_patterns(
-        _CI_WORKFLOW.read_text(encoding="utf-8"), "agent_behavior"
-    )
-
-    assert _matches_any(
-        "apps/agent/src/animichi/agents/animichi_agent.py", agent_patterns
-    )
-    assert behavior_patterns != agent_patterns
-
-
-def test_smoke_job_has_no_kill_switch_and_wires_the_zero_error_direct_gate() -> None:
-    """Card #228 AC1 + AC3 (integration): the `&& false` kill-switch is gone and
-    the job runs the capped trajectory case in smoke-enforce mode."""
-    job = _named_workflow_job(
-        _CI_WORKFLOW.read_text(encoding="utf-8"), "agent-eval-smoke"
-    )
-
-    assert "&& false" not in job
-    # S0-v2 B4: with the changes aggregation job retired, the gate is a
-    # step-level dorny filter inside the job itself.
-    assert "steps.f.outputs.agent_behavior" in job
-    assert 'EVAL_SMOKE: "1"' in job
-    assert 'EVAL_MAX_CASES: "80"' in job
-    assert "test_agent_eval.py::test_agent_trajectory" in job
-    assert "test_translation.py" not in job  # translation stays L1-only (nightly)
-
-
-def test_smoke_job_sets_agent_svc_database_url_so_settings_import_succeeds() -> None:
-    """Regression: settings require AGENT_SVC_DATABASE_URL at import time
-    (NullDatabase never opens it). The Neon integration lane that used this
-    dummy value retired with #1053; agent-eval-smoke still sets it."""
-    job = _named_workflow_job(
-        _CI_WORKFLOW.read_text(encoding="utf-8"), "agent-eval-smoke"
-    )
-
-    assert re.search(r"(?m)^\s*AGENT_SVC_DATABASE_URL:\s*\S+", job)
-
-
-def test_integration_job_stubs_zen_go_key_so_settings_import_succeeds() -> None:
-    """#1112: Docker-Postgres stubs ZEN_GO_API_KEY; never the live secret."""
-    job = _agent_pipeline_job("integration")
-    assert re.search(r"(?m)^\s*ZEN_GO_API_KEY:\s*test-key\s*$", job)
-    assert "${{ secrets.ZEN_GO_API_KEY }}" not in job
+def test_single_ci_keeps_eval_report_only() -> None:
+    verify = _job(_CI, "aggregate")
+    assert "agent-eval" not in verify
+    assert "AGENT_EVAL_RESULT" not in verify
+    aggregate = (_ROOT / ".github/scripts/pr-verification-aggregate.sh").read_text()
+    assert 'require_lane agent-eval "$AGENT_EVAL_RESULT"' not in aggregate
 
 
 def test_integration_conftest_zen_go_stub_is_overrideable() -> None:
-    """#1112: setdefault so eval .env is not clobbered; not in the shared parent."""
-    integration = _agent_conftest("integration/conftest.py")
-    parent = _agent_conftest("conftest.py")
+    tests = _ROOT / "apps/agent/src/animichi/tests"
+    integration = (tests / "integration/conftest.py").read_text()
+    parent = (tests / "conftest.py").read_text()
     assert 'os.environ.setdefault("ZEN_GO_API_KEY", "test-key")' in integration
     assert re.search(r"os\.environ\[.ZEN_GO_API_KEY.\]\s*=", integration) is None
     assert 'setdefault("ZEN_GO_API_KEY"' not in parent
 
 
-def test_no_disabled_eval_gate_remains_in_ci() -> None:
-    """Regression tripwire: the always-off `&& false` gate must never return."""
-    assert "&& false" not in _CI_WORKFLOW.read_text(encoding="utf-8")
-
-
-def test_nightly_runs_uncapped_gate_on_schedule_and_dispatch_only() -> None:
-    """Card #228 AC4 (unit) + #227 AC2 (eval): L1 owns the statistical baseline,
-    triggers on a cron schedule + manual dispatch, and never on a PR."""
-    nightly = _NIGHTLY_WORKFLOW.read_text(encoding="utf-8")
-    triggers = _top_level_block(nightly, "on")
-
-    assert re.search(r'(?m)^\s*-\s*cron:\s*"[^"]+"', triggers)
-    assert re.search(r"(?m)^\s*workflow_dispatch:\s*$", triggers)
-    assert "pull_request:" not in triggers
-    assert "push:" not in triggers
-    assert "EVAL_MAX_CASES" not in nightly  # uncapped: owns baseline + statistical gate
-    assert "test_agent_eval.py::test_agent_trajectory" in nightly
-    assert "test_translation.py" in nightly
+def test_nightly_remains_uncapped_and_outside_pull_requests() -> None:
+    assert re.search(r'(?m)^\s*-\s*cron:\s*"[^"]+"', _NIGHTLY)
+    assert re.search(r"(?m)^\s*workflow_dispatch:\s*$", _NIGHTLY)
+    assert "pull_request:" not in _NIGHTLY
+    assert "EVAL_MAX_CASES" not in _NIGHTLY
+    assert "uses: ./.github/actions/agent-eval" in _NIGHTLY
+    assert "tier: l1" in _NIGHTLY
+    assert "test_agent_eval.py::test_agent_trajectory" in _EVAL
+    assert "test_translation.py" in _EVAL

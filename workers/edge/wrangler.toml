@@ -66,7 +66,7 @@
 # Anonymous access (issue #274 / S1.8) — anonymous chat is OPT-IN and stays off
 # until BOTH of these are present:
 #   ANON_ACCESS_ENABLED        — "true" to open /v1/chat to anonymous callers ([vars] below)
-#   ANON_ID_SECRET             — HMAC key for the signed anonymous-id cookie (wrangler secret put)
+#   ANON_ID_SECRET             — HMAC key for the signed anonymous-id cookie (CD bulk sync)
 #   TURNSTILE_SECRET           — REQUIRED once ANON_ACCESS_ENABLED="true" (issue #447): every
 #                                anonymous /v1/chat turn is verified at siteverify before it can
 #                                reach the limiter or the container, so an environment with
@@ -319,10 +319,8 @@ routes = []
 # outright (see infra/index.ts "Why WAF and not Cloudflare Access").
 # `preview_urls` is pinned to `false` for the same reason — per-version preview
 # URLs are not a surface the gate (or anything else) is meant to expose.
-# #1076 Workers Builds (staging): deploy command is
-# `npx wrangler deploy -c workers/edge/wrangler.toml --env staging` via
-# `workers/edge/scripts/builds-staging.sh` (full wrangler deploy, not
-# versions-upload, so the agent container image updates).
+# Main-only CD promotes the sealed edge bundle after its paired agent image;
+# local and Cloudflare Workers Builds deployment entrypoints are retired.
 workers_dev = false
 preview_urls = false
 
@@ -345,7 +343,7 @@ FALLBACK_AGENT_MODEL = "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"
 EDGE_SHOWCASE_MODE = "false"
 # #527/#528 (P1-A): CORS_ALLOWED_ORIGIN was never provisioned for staging as
 # either a repo-level or a staging-environment GH secret. Simply removing it
-# from ci.yml's worker_secrets (an earlier revision of this PR did that) would
+# from the deployment secret set (an earlier revision did that) would
 # NOT preserve staging's current behavior — there is no wildcard fallback.
 # `workers/edge/src/container/container-env.ts` hardcodes `APP_ENV: "production"` for every
 # environment (confirmed: no APP_ENV var/secret exists anywhere — root,
@@ -406,7 +404,7 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 
 # #912 follow-up: the agent container's Neon role DSN comes from the
 # Cloudflare Secrets Store (secret AGENT_SVC_DATABASE_URL, provisioned by the
-# infra/neon-secrets Pulumi stack) instead of `wrangler secret put` in CI.
+# infra/database-access Pulumi stack) instead of `wrangler secret put` in CI.
 # env.AGENT_SVC_DATABASE_URL is a SecretsStoreSecret. RuntimeContainer unwraps
 # `.get()` via resolveContainerEnvVars before start (#1157). Not in
 # CONTAINER_REQUIRED_KEYS — production has no binding yet (#855 cutover).

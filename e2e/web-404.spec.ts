@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 // E2E_WEB_BASE_URL targets the apps/web app (dev :3000 / CI wrangler :8799).
 test.use({
@@ -20,11 +21,15 @@ test("undefined route hydrates without uncaught errors", async ({ page }) => {
 });
 
 test("home route hydrates without uncaught errors", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await stubTurnstileEntry(page);
   await page.route("**/held-open", () => new Promise<void>((resolve) => page.once("close", resolve)));
   await page.addInitScript(() => {
     window.addEventListener("load", () => { void fetch("/held-open"); });
   });
-  expect(await collectPageErrors(page, "/", ".chat-page")).toEqual([]);
+  const errors = collectPageErrors(page, "/", ".chat-page");
+  await solveTurnstileEntry(page);
+  expect(await errors).toEqual([]);
 });
 
 test("undefined route renders a branded 404", async ({ page }) => {

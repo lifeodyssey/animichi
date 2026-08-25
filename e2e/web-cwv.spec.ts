@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { webCwvConfig } from "../apps/web/web-cwv.config";
 import { median } from "../apps/web/src/features/telemetry/lib/vitals-stats";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 type CwvMetrics = { cls: number; lcp: number; inp: number };
 
@@ -126,6 +127,13 @@ const assertWithin = (metric: number, limit: number, name: string): void => {
   expect(metric, name).toBeLessThanOrEqual(limit);
 };
 
+async function prepareInteraction(page: Page): Promise<void> {
+  await stubTurnstileEntry(page);
+  await page.route("**/api/auth/get-session", (route) =>
+    route.fulfill({ status: 401, json: { error: "no session" } }),
+  );
+}
+
 // AC1 + AC2 — every controlled cold-start run over the fixed route inventory
 // must land LCP and CLS within their BLOCKING thresholds (median of 3 runs).
 test(`median LCP and CLS over ${webCwvConfig.numberOfRuns} cold-start runs stay at or below good boundaries`, async ({ page }) => {
@@ -144,19 +152,19 @@ test(`median LCP and CLS over ${webCwvConfig.numberOfRuns} cold-start runs stay 
 // Same cold-start profile and median aggregation.
 test(`a representative mobile interaction drives INP at or below ${webCwvConfig.thresholds.inp.error}ms`, async ({ page }) => {
   await installObservers(page);
+  await prepareInteraction(page);
   const route = webCwvConfig.routes[0];
   const inpRuns: number[] = [];
   for (let run = 1; run <= webCwvConfig.numberOfRuns; run++) {
     await applyProfile(page);
     await page.goto(route, { waitUntil: "load" });
+    await solveTurnstileEntry(page);
     await page.waitForFunction(() => (window.__cwv?.lcp ?? 0) > 0);
-    // Representative interaction on /chat: the composer's settings toggle opens
-    // the BYOK panel — a React state update plus a panel mount, a real
-    // main-thread task that Event Timing records as an interaction. It is the
-    // one composer control that stays enabled with no session and no backend
-    // (the field and send button are withheld until a turn is allowed), so
-    // Playwright auto-waits for actionability instead of racing hydration.
-    await page.locator(".chat-input__settings").click();
+    // Representative interaction on /chat: login opens its existing dialog,
+    // a React state update plus a mounted focus trap that stays on the measured
+    // document. Settings is now ordinary navigation, whose document load would
+    // correctly reset this page-scoped Event Timing observer.
+    await page.locator(".chat-appbar__login").click();
     await page.waitForFunction(() => (window.__cwv?.inp ?? 0) > 0);
     inpRuns.push(await page.evaluate(() => window.__cwv?.inp ?? 0));
   }

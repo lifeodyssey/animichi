@@ -1,9 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { TurnstileGate } from "./TurnstileGate";
 import type { Locale } from "../../../i18n/locales";
-import { ByokSettings } from "./ByokSettings";
-import type { PanelPreferences } from "./ByokSettings";
 import { ColdStart } from "./ColdStart";
 import { DeparturePrompt } from "./DeparturePrompt";
 import { PhotoSearchUpload } from "./PhotoSearchUpload";
@@ -18,11 +15,9 @@ import type { ChatEntryState } from "../entry-state";
 import type { ChatDict } from "../i18n";
 import type { PhotoSearchContext } from "../photo-search";
 import type { RecomputeTurn } from "../selection/use-recompute-turn";
-import type { ByokPanel } from "../use-byok-panel";
 import type { DeparturePromptState } from "../use-departure-prompt";
 import type { ConversationHistory } from "../use-conversation-history";
 import type { ChatSession } from "../use-chat-session";
-import type { TurnstileChallenge } from "../use-turnstile-challenge";
 import { businessEventCount, useTurnTiming } from "../use-turn-timing";
 
 /** The chat-page frame: ChatPage assembles the five regions it owns. */
@@ -87,16 +82,15 @@ type TurnStreamProps = Readonly<{
   dict: ChatDict;
   failure: TurnFailureView | undefined;
   locale: Locale;
-  byok: ByokPanel;
 }>;
 
 /** Owns the live-turn region: messages, the failure strip, the waiting ritual. */
-export function TurnStream({ chat, dict, failure, locale, byok }: TurnStreamProps) {
+export function TurnStream({ chat, dict, failure, locale }: TurnStreamProps) {
   const settledDurationMs = useTurnTiming(chat.status, businessEventCount(chat.messages));
   return (
     <>
       <MessageList messages={chat.messages} dict={dict} status={chat.status} settledDurationMs={settledDurationMs} />
-      <TurnFailure view={failure} dict={dict} locale={locale} onOpenSettings={byok.show} />
+      <TurnFailure view={failure} dict={dict} locale={locale} />
       <WaitingRitual status={chat.status} dict={dict} messages={chat.messages} />
     </>
   );
@@ -153,24 +147,4 @@ export function DockTray({ dict, baseUrl, photo, chat, recompute }: DockTrayProp
       <SelectionTray dict={dict} status={status} lastSentIds={recompute.lastSentIds} onRecompute={recompute.fire} />
     </>
   );
-}
-
-type ByokPanelGateProps = Readonly<{
-  dict: ChatDict;
-  baseUrl: string;
-  byok: ByokPanel;
-  /** App-level preferences the panel hosts, composed by the UI layer. */
-  preferences?: PanelPreferences;
-}>;
-
-/** The ⚙ settings panel docks above the composer when toggled open (#284 T6). */
-export function ByokPanelGate({ dict, baseUrl, byok, preferences }: ByokPanelGateProps) {
-  if (!byok.open) return null;
-  return <ByokSettings dict={dict} auth={byok.auth} baseUrl={baseUrl} preferences={preferences} />;
-}
-
-/** The dock's hint slot: silent until Turnstile decides a human check is due. */
-export function ChallengeGate({ dict, challenge }: Readonly<{ dict: ChatDict; challenge: TurnstileChallenge | undefined }>) {
-  if (challenge === undefined) return null;
-  return <TurnstileGate dict={dict} {...challenge} />;
 }

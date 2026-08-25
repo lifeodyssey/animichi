@@ -6,6 +6,7 @@ import { rateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { classifyRatePolicy } from "../gateway/rate-policy.ts";
 import { type TurnstileGate, guardTurnstile } from "../protect/turnstile.ts";
+import { verifyTurnstilePass } from "./turnstile-pass.ts";
 
 function withAnonymousCookie(response: Response, setCookie: string | null): Response {
   if (setCookie === null) return response;
@@ -59,7 +60,8 @@ async function anonymousForward(
 export async function handleAnonymousV1(env: Env, request: Request, nowMs: number, gate: TurnstileGate): Promise<Response | null> {
   const identity = await resolveAnonymous(request, env);
   if (identity === null) return null;
-  const challenged = await guardTurnstile(request, env, gate, identity.userId);
+  const durablePass = await verifyTurnstilePass(request, identity.userId, env.ANON_ID_SECRET ?? "", nowMs);
+  const challenged = durablePass ? null : await guardTurnstile(request, env, gate, identity.userId);
   if (challenged !== null) return challenged;
   const limited = await limitedOrNull(env, request, identity.userId);
   if (limited !== null) return limited;

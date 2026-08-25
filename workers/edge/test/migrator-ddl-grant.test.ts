@@ -7,32 +7,50 @@ import { URL, fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (path: string): string => readFileSync(`${ROOT}${path}`, "utf8");
 const grantSql = (): string =>
-  read("infra/neon-secrets/grant-migrator-ddl.sql").replaceAll(/^--.*$/gm, "");
-
-const GRANT_STEP = "- name: Grant migrator DDL on staging public";
-const PROD_JOB = "deploy-neon-secrets-prod:";
-
-function namedBlock(source: string, marker: string, width: number): string {
-  const start = source.indexOf(marker);
-  assert.notEqual(start, -1, marker);
-  const block = source.slice(start, start + width);
-  assert.ok(block.length > 0, marker);
-  return block;
-}
+  read("infra/database-access/grant-migrator-ddl.sql").replaceAll(/^--.*$/gm, "");
 
 void test("staging GRANT gives migrator CREATE on public", () => {
   const sql = grantSql();
   assert.match(sql, /GRANT USAGE,\s*CREATE ON SCHEMA public TO migrator;/);
   assert.match(sql, /GRANT REFERENCES ON TABLE public.sessions TO migrator;/);
   assert.doesNotMatch(sql, /ALL TABLES/);
-  assert.doesNotMatch(sql, /GRANT migrator TO/);
   assert.doesNotMatch(sql, /GRANT neondb_owner TO/);
-  assert.doesNotMatch(sql, /OWNER TO/);
   assert.doesNotMatch(sql, /Pulumi\.prod|production/i);
 });
 
+// The blanket `GRANT migrator TO` ban banned both directions at once. Only one
+// is an escalation: handing neondb_owner (already the admin) the narrower role
+// is what PostgreSQL requires before it will let it transfer ownership, and it
+// must not outlive the script. `GRANT neondb_owner TO migrator` — the direction
+// that would widen migrator — stays banned in the case above.
+void test("GRANT SQL takes the migrator role only for neondb_owner, and gives it back", () => {
+  const sql = grantSql();
+  assert.match(sql, /^GRANT migrator TO neondb_owner;$/m);
+  assert.match(sql, /^REVOKE migrator FROM neondb_owner;$/m);
+  assert.doesNotMatch(sql, /GRANT migrator TO (?!neondb_owner;)/);
+  assert.ok(
+    sql.indexOf("GRANT migrator TO neondb_owner;") < sql.indexOf("REVOKE migrator FROM neondb_owner;"),
+    "the membership must be granted before it is revoked",
+  );
+});
+
+// Ownership replaced a blanket `OWNER TO` ban here. DDL is not a grantable
+// privilege in PostgreSQL, so migrator can only ALTER what it owns; the ban
+// made the 26 baselined tables permanently unmigratable. What still must hold
+// is that the transfer is narrow: only relations neondb_owner actually owns,
+// only to migrator, and never by handing over the role itself.
+void test("GRANT SQL moves only neondb_owner's own relations, and only to migrator", () => {
+  const sql = grantSql();
+  assert.match(sql, /ALTER TABLE public\.%I OWNER TO migrator/);
+  assert.match(sql, /ALTER SEQUENCE public\.%I OWNER TO migrator/);
+  assert.match(sql, /c\.relkind IN \('r', 'S'\)/);
+  assert.match(sql, /r\.rolname = 'neondb_owner'/);
+  assert.doesNotMatch(sql, /OWNER TO (?!migrator)/);
+  assert.doesNotMatch(sql, /OWNER TO CURRENT_USER|OWNER TO SESSION_USER/i);
+});
+
 void test("staging owner GRANT is applied as neondb_owner", () => {
-  const sh = read("infra/neon-secrets/grant-migrator-ddl.sh");
+  const sh = read("infra/database-access/grant-migrator-ddl.sh");
   assert.match(sh, /Pulumi\.staging\.yaml/);
   assert.match(sh, /--role-name neondb_owner/);
   assert.match(sh, /ON_ERROR_STOP=1/);
@@ -41,23 +59,12 @@ void test("staging owner GRANT is applied as neondb_owner", () => {
   assert.match(sh, /Failed to read neonProjectId\/neonBranchId/);
 });
 
-void test("neon-secrets staging apply runs the GRANT as one named step", () => {
-  const workflow = read(".github/workflows/reusable-deploy-neon-secrets.yml");
-  const step = namedBlock(workflow, GRANT_STEP, 600);
-  assert.match(step, /if: \$\{\{ inputs\.environment == 'staging' \}\}/);
-  assert.match(step, /grant-migrator-ddl\.sh/);
-});
-
-void test("ci.yml production neon-secrets job does not run the GRANT", () => {
-  const ciProd = namedBlock(read(".github/workflows/ci.yml"), PROD_JOB, 1500);
-  assert.match(ciProd, /environment: production/);
-  assert.doesNotMatch(ciProd, /grant-migrator-ddl/);
-});
-
-void test("deploy.yml production neon-secrets job does not run the GRANT", () => {
-  const deployProd = namedBlock(read(".github/workflows/deploy.yml"), PROD_JOB, 1500);
-  assert.match(deployProd, /environment: production/);
-  assert.doesNotMatch(deployProd, /grant-migrator-ddl/);
+void test("sealed infra promotion grants migrator DDL only on staging", () => {
+  const promotion = read(".github/scripts/promote-release-unit.sh");
+  assert.match(promotion, /grant_staging_migrator_ddl\(\)/);
+  assert.match(promotion, /\[ "\$TARGET_ENVIRONMENT" = staging \] \|\| return 0/);
+  assert.match(promotion, /\$PAYLOAD_DIR\/infra\/database-access\/grant-migrator-ddl\.sh/);
+  assert.match(promotion, /apply_pulumi_project[\s\S]*grant_staging_migrator_ddl[\s\S]*apply_pulumi_project/);
 });
 
 void test("GRANT SQL still grants REFERENCES on sessions", () => {

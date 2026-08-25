@@ -2,12 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
 import { SSE_HEADERS, chatStreamRecording } from "./fixtures/chat-stream";
-
-declare global {
-  interface Window {
-    onAnimichiTurnstile?: (token: string) => void;
-  }
-}
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Issue #274 (S1.8) browser ACs: the whole chat round-trip is reachable without
@@ -24,28 +19,18 @@ const ja = chatDictFor("ja");
 const states = ja.errorStates;
 
 /**
- * Issue #447: the edge Turnstile gate is armed on the anonymous branch, so
- * every anonymous turn the transport sends waits on `awaitTurnstileToken()`
- * (`session-headers.ts`) before it goes out. `challenges.cloudflare.com` is
- * ALWAYS blocked here — never left to the real network — so no test in this
- * file depends on Cloudflare's widget actually being reachable from wherever
- * it runs. Left unblocked, an unreachable loader would not just slow a run:
- * every test that sends a message would burn `TURNSTILE_WAIT_MS` (15s)
- * waiting for a token that never arrives, and then still fail its own
- * (5s-default) UI assertion — a real observed failure mode, not a
- * hypothetical one (confirmed by blocking the loader and timing the run
- * before this fix landed).
+ * The real loader is always blocked in this hermetic suite. A shared helper
+ * drives the widget callback and stubs only the server verification endpoint;
+ * chat still cannot mount until that endpoint answers 2xx.
  */
-async function blockTurnstileLoader(page: Page): Promise<void> {
-  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
-}
-
 async function openChat(page: Page): Promise<void> {
-  await blockTurnstileLoader(page);
+  await stubTurnstileEntry(page);
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const hydrated = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto("/chat");
+  await solveTurnstileEntry(page);
   await hydrated;
+  await expect(page.getByRole("textbox")).toBeVisible();
 }
 
 /**
@@ -55,20 +40,7 @@ async function openChat(page: Page): Promise<void> {
  * edge then rejects is exactly a spent or expired one.
  */
 async function solveChallenge(page: Page, token: string): Promise<void> {
-  await page.waitForFunction(() => typeof window.onAnimichiTurnstile === "function");
-  await page.evaluate((value) => { window.onAnimichiTurnstile?.(value); }, token);
-}
-
-/**
- * Arm a pre-solved token before a test's first `send()`, so the transport's
- * `awaitTurnstileToken()` wait resolves from `currentTurnstileToken()`
- * synchronously instead of parking on a callback that (loader blocked) would
- * never fire. Every test in this file that expects a message to actually
- * reach the mocked `/v1/chat` route needs this — the two Turnstile-specific
- * tests below arm their own token deliberately instead, to exercise that path.
- */
-async function armTurnstileToken(page: Page): Promise<void> {
-  await solveChallenge(page, "e2e-fixture-token");
+  await solveTurnstileEntry(page, token);
 }
 
 async function send(page: Page, text: string): Promise<void> {
@@ -83,7 +55,6 @@ test("an anonymous visitor completes a full chat round-trip with no login prompt
     return route.fulfill({ status: 200, headers: SSE_HEADERS, body: chatStreamRecording("search") });
   });
   await openChat(page);
-  await armTurnstileToken(page);
   await send(page, "ユーフォ");
   await expect(page.getByText("宇治の聖地を2件、徒歩ルートにまとめました。")).toBeVisible();
   await expect(page.getByText("宇治橋")).toBeVisible();
@@ -101,7 +72,6 @@ test("a rate-limited anonymous turn shows the wait copy, not a bare 429", async 
     }),
   );
   await openChat(page);
-  await armTurnstileToken(page);
   await send(page, "ユーフォ");
   await expect(page.getByText(states.d10Message)).toBeVisible();
   await expect(page.getByRole("button", { name: states.d10Retry })).toBeVisible();
@@ -124,7 +94,6 @@ test("the anonymous budget breaker guides the visitor to login instead of failin
     }),
   );
   await openChat(page);
-  await armTurnstileToken(page);
   await send(page, "ユーフォ");
   // A visitor who never had a session must not be told their session expired.
   await expect(page.getByText(states.d11Message)).toBeVisible();
@@ -132,31 +101,23 @@ test("the anonymous budget breaker guides the visitor to login instead of failin
   await expect(page.getByText(states.d8Message)).toHaveCount(0);
 });
 
-test("the anonymous entry carries the challenge widget in the dock, not in the thread", async ({ page }) => {
-  await openChat(page);
-  const widget = page.locator(".turnstile-gate .cf-turnstile");
+test("the anonymous challenge owns the full viewport before chat mounts", async ({ page }) => {
+  await stubTurnstileEntry(page);
+  await page.goto("/chat");
+  const widget = page.locator(".turnstile-entry[data-active='true'] .cf-turnstile");
   await expect(widget).toHaveAttribute("data-sitekey", /^.{24}$/);
   await expect(widget).toHaveAttribute("data-appearance", "interaction-only");
-  await expect(page.locator(".chat-input + .turnstile-gate")).toHaveCount(1);
+  await expect(page.getByRole("textbox")).toHaveCount(0);
 });
 
-test("a challenged anonymous turn offers the check retry, never a login prompt", async ({ page }) => {
-  await page.route("**/v1/chat", (route) =>
-    route.fulfill({
-      status: 403,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        error: { code: "turnstile_required", message: "Turnstile verification required.", retryable: true },
-      }),
-    }),
-  );
-  await openChat(page);
+test("a rejected entry offers the check retry and never mounts chat", async ({ page }) => {
+  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await page.route("**/v1/turnstile/verify", (route) => route.fulfill({ status: 403 }));
+  await page.goto("/chat");
   await solveChallenge(page, "spent-token");
-  await send(page, "ユーフォ");
   await expect(page.getByText(ja.turnstile.failed)).toBeVisible();
   await expect(page.getByRole("button", { name: ja.turnstile.retry })).toBeVisible();
-  await expect(page.getByText(states.d8Message)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: states.d8Login })).toHaveCount(0);
+  await expect(page.getByRole("textbox")).toHaveCount(0);
 });
 
 /**
@@ -182,7 +143,6 @@ test("an exhausted daily quota locks sending but keeps the visitor's typed text"
     }),
   );
   await openChat(page);
-  await armTurnstileToken(page);
   await send(page, "ユーフォ");
 
   const notice = page.getByRole("status").filter({ hasText: "メッセージはここまで" });

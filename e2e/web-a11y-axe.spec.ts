@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { describe, expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
  * Issue #1015 AC1: WCAG 2.2 AA on the five critical journeys. We inject
@@ -19,24 +20,35 @@ test.use({
   serviceWorkers: "block",
 });
 
-async function expectNoSeriousOrCritical(page: Page, label: string): Promise<void> {
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-    .analyze();
+async function expectNoSeriousOrCritical(page: Page, label: string, scope?: string): Promise<void> {
+  const builder = new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]);
+  if (scope !== undefined) builder.include(scope);
+  const results = await builder.analyze();
   const blocking = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(blocking, `${label}: axe serious/critical violations`).toEqual([]);
 }
 
 async function openChat(page: Page, path = "/chat"): Promise<void> {
-  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await stubTurnstileEntry(page);
   await page.route("**/api/auth/get-session", (route) =>
     route.fulfill({ status: 401, json: { error: "no session" } }),
   );
   await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
   const healthy = page.waitForResponse((response) => response.url().includes("/healthz"));
   await page.goto(path);
+  await solveTurnstileEntry(page);
   await healthy;
   await expect(page.getByRole("textbox")).toBeVisible();
+}
+
+async function openTurnstileGate(page: Page): Promise<void> {
+  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await page.route("**/api/auth/get-session", (route) =>
+    route.fulfill({ status: 401, json: { error: "no session" } }),
+  );
+  await page.goto("/chat");
+  await expect(page.locator(".turnstile-entry[data-active='true']")).toBeVisible();
 }
 
 async function navigateClient(page: Page, path: string, target: string): Promise<void> {
@@ -50,35 +62,61 @@ async function navigateClient(page: Page, path: string, target: string): Promise
 }
 
 describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
+  test("Turnstile challenge gate", async ({ page }) => {
+    await openTurnstileGate(page);
+    await expectNoSeriousOrCritical(page, "Turnstile challenge gate");
+  });
+
+  test("Turnstile verifying gate", async ({ page }) => {
+    await page.route("**/v1/turnstile/verify", () => new Promise(() => undefined));
+    await openTurnstileGate(page);
+    await solveTurnstileEntry(page);
+    await expect(page.locator(".turnstile-entry")).toHaveAttribute("aria-busy", "true");
+    await expectNoSeriousOrCritical(page, "Turnstile verifying gate");
+  });
+
+  test("Turnstile failure gate", async ({ page }) => {
+    await page.route("**/v1/turnstile/verify", (route) => route.fulfill({ status: 403 }));
+    await openTurnstileGate(page);
+    await solveTurnstileEntry(page);
+    await expect(page.getByRole("alert")).toBeVisible();
+    await expectNoSeriousOrCritical(page, "Turnstile failure gate");
+  });
+
   test("doorway (`/`)", async ({ page }) => {
-    await openChat(page, "/");
-    await expect(page).toHaveURL(/\/chat(?:\?|$)/);
+    await page.goto("/");
+    await expect(page.locator(".app-splash")).toBeHidden();
+    await expect(page.locator(".doorway")).toBeVisible();
     await expectNoSeriousOrCritical(page, "doorway");
   });
 
   test("login modal", async ({ page }) => {
-    await openChat(page, "/chat?settings=byok");
-    await page.getByRole("button", { name: /ログインして設定|sign in to set up/i }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await openChat(page);
+    await page.getByRole("button", { name: /^(ログイン|sign in)$/i }).click();
+    await expect(page.getByRole("dialog", { name: /ログイン|sign in/i })).toBeVisible();
     await expectNoSeriousOrCritical(page, "login modal");
   });
 
-  /**
-   * The ⚙ settings panel itself: the new home of the day/night switch and the
-   * language dropdown, both custom ARIA widgets that axe must clear.
-   */
-  test("settings panel", async ({ page }) => {
-    await openChat(page, "/chat?settings=byok");
+  /** The dedicated settings page and its shared Radix-backed controls. */
+  test("settings page", async ({ page }) => {
+    await page.route("**/api/auth/get-session", (route) =>
+      route.fulfill({ status: 401, json: { error: "no session" } }),
+    );
+    await page.goto("/settings#api-key");
     const splash = page.locator(".app-splash");
     await expect(splash).toHaveCount(1);
     await expect(splash).toBeHidden();
-    await expect(page.locator("#byok-settings-panel")).toBeVisible();
-    await page.getByRole("combobox").click();
+    await expect(page.getByRole("heading", { level: 1, name: "設定" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "APIキー" })).toBeVisible();
+    const language = page.getByRole("combobox", { name: "言語" });
+    await expect(language).toBeVisible();
+    await expectNoSeriousOrCritical(page, "settings page");
+    await language.click();
     await expect(page.getByRole("listbox")).toBeVisible();
-    await page.locator("#settings-language-listbox").evaluate(async (menu) => {
+    await page.locator(".animal-select-content").evaluate(async (menu) => {
       await Promise.all(menu.getAnimations().map((animation) => animation.finished));
     });
-    await expectNoSeriousOrCritical(page, "settings panel");
+    await expectNoSeriousOrCritical(page, "settings language menu", ".animal-select-content");
   });
 
   test("chat", async ({ page }) => {
