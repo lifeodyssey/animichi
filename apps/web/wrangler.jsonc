@@ -2,6 +2,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "animichi-web",
   "main": ".output/server/index.mjs",
+  // Main CD promotes Nitro's prebuilt output with `--no-bundle`; Wrangler only
+  // uploads JavaScript chunks that match an explicit module rule in that mode.
+  "rules": [{ "type": "ESModule", "globs": ["**/*.js", "**/*.mjs"] }],
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
   // Wrangler's esbuild pass defaults to keepNames, which rewrites functions as `__name(fn, "…")`.
