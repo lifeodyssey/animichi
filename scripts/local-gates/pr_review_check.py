@@ -311,9 +311,18 @@ def _expected_brief(dir_path: str) -> str:
     if not isinstance(raw, dict):
         raise TypeError("brief_digest.json must be a JSON object")
     digest = raw.get("brief_digest")
+    # No record at all is absent evidence, not a broken gate. `brief_record.py`
+    # writes an empty digest when the PR body carries no `review-gate brief:`
+    # line, and the empty string already has a meaning downstream: a marker
+    # cannot bind to it, so `marker_verdict` answers `missing` when no marker
+    # exists (the gate waits — pending) and `unbound` when one does (the gate
+    # refuses — failure, via `_review_rejected`). Raising here instead made an
+    # unbriefed PR exit 2 with a plain-text reason the wrapper could not read.
+    if digest == "":
+        return ""
     if not isinstance(digest, str) or len(digest) != 64 or not HEX_RE.match(digest):
         raise ValueError(
-            "no canonical brief-digest record; the marker cannot bind to an unknown brief"
+            "malformed brief-digest record; the marker cannot bind to an unknown brief"
         )
     return digest
 

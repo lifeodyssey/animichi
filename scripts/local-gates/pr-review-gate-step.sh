@@ -99,8 +99,18 @@ set_gate_state() { # set_gate_state <state>
   printf 'gate_state=%s\n' "$1" >> "$GITHUB_OUTPUT"
 }
 
+# `check` prints one JSON object, but its fail-closed path prints a plain-text
+# reason instead, and the caller merges stderr into the same capture. Reading
+# that as JSON raised a traceback, so the step died before recording any state
+# and the run published an unexplained red. Fail quietly here; the caller is
+# what surfaces the reason.
 gate_state() { # gate_state <check-output>
-  printf '%s\n' "$1" | python3 -c 'import json, sys; print(json.load(sys.stdin)["state"])'
+  printf '%s\n' "$1" | python3 -c 'import json, sys
+try:
+    print(json.loads(sys.stdin.read())["state"])
+except (ValueError, KeyError, TypeError):
+    raise SystemExit(1)
+'
 }
 
 check_state_result() { # check_state_result <state> <exit>
@@ -126,7 +136,7 @@ run_collect_state() { # run_collect_state <pr> <repo> <pinned>
   "$GATE" collect "$dir" --pr "$1" --repo "$2" --pinned-head "$3" || { rm -rf "$dir"; return 2; }
   output="$("$GATE" check "$dir" 2>&1)" && rc=0 || rc=$?
   rm -rf "$dir"
-  state="$(gate_state "$output")" || return 2
+  state="$(gate_state "$output")" || { printf '%s\n' "$output" >&2; return 2; }
   check_state_result "$state" "$rc" || return $?
   printf '%s\n' "$state"
 }
@@ -270,8 +280,15 @@ collect_target_state() { # kind repo sha pr ci-run-id
 
 cmd_collect_target() { # kind repo sha pr ci-run-id
   [ "$#" -eq 5 ] || usage
-  local state
-  state="$(collect_target_state "$@")"
+  # Record a state even when evaluation itself fails closed. Leaving the output
+  # unset let the workflow's `final_state` fall back to failure with nothing to
+  # show for it, which is how a readable "no canonical brief-digest record"
+  # reached the reviewer as a bare red check.
+  local state rc
+  state="$(collect_target_state "$@")" && rc=0 || rc=$?
+  # Keep the caller's distinction between "the gate says no" (1) and "the gate
+  # could not evaluate" (2); only the recorded state is new.
+  [ "$rc" -eq 0 ] || { set_gate_state failure; return "$rc"; }
   set_gate_state "$state"
   [ "$state" != failure ] || return 1
 }
