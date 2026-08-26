@@ -11,6 +11,7 @@ outside the repository raw-SQL policy, #999).
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import asyncpg
 import pytest
@@ -24,11 +25,7 @@ from animichi.infrastructure.persistence.repositories.memory import (
 )
 from animichi.tests.conftest_db import DatabaseTarget
 
-_MIGRATION_VERSIONS = {
-    "20260809000004",
-    "20260809000005",
-    "20260809000006",
-}
+_MIGRATIONS = Path(__file__).resolve().parents[6] / "migrations" / "neon"
 _TABLES = {
     "agent_memory",
     "agent_memory_operations",
@@ -67,12 +64,21 @@ async def store(
         await lifecycle.close()
 
 
+def _chain_versions() -> set[str]:
+    """Atlas keys one ledger revision per migration file, by its version prefix."""
+    versions = {path.name.split("_", 1)[0] for path in _MIGRATIONS.glob("*.sql")}
+    if not versions:
+        raise AssertionError(f"no migrations found in {_MIGRATIONS}")
+    return versions
+
+
 async def test_memory_schema_lands_through_atlas_migration(
     db_pool: asyncpg.Pool,
 ) -> None:
+    expected_versions = _chain_versions()
     revisions = await db_pool.fetch(
         "SELECT version FROM public.atlas_schema_revisions WHERE version = ANY($1::text[])",
-        sorted(_MIGRATION_VERSIONS),
+        sorted(expected_versions),
     )
     rows = await db_pool.fetch(
         "SELECT tablename FROM pg_tables "
@@ -83,7 +89,7 @@ async def test_memory_schema_lands_through_atlas_migration(
         "SELECT to_regclass('public.agent_memory_versions')::text"
     )
 
-    assert {row["version"] for row in revisions} == _MIGRATION_VERSIONS
+    assert {row["version"] for row in revisions} == expected_versions
     assert {row["tablename"] for row in rows} == _TABLES
     assert sequence == "agent_memory_versions"
 

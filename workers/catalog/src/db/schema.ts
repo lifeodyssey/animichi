@@ -52,7 +52,7 @@ const vectorDim = (dimensions: number) =>
     },
   });
 
-// 20260809000010_table_bangumi.sql — anime metadata.
+// 20260826000003_catalog.sql — anime metadata.
 export const bangumi = pgTable("bangumi", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
@@ -70,7 +70,7 @@ export const bangumi = pgTable("bangumi", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-// 20260809000022_table_points.sql — pilgrimage points with geo coordinates.
+// 20260826000003_catalog.sql — pilgrimage points with geo coordinates.
 export const points = pgTable("points", {
   id: text("id").primaryKey(),
   bangumiId: text("bangumi_id").references(() => bangumi.id),
@@ -91,7 +91,7 @@ export const points = pgTable("points", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-// 20260809000011_table_cluster_version.sql — atomic blue/green version pointer.
+// 20260826000003_catalog.sql — atomic blue/green version pointer.
 export const clusterVersion = pgTable("cluster_version", {
   id: uuid("id").default(sql`uuidv7()`).primaryKey(),
   bangumiId: text("bangumi_id").notNull(),
@@ -100,7 +100,7 @@ export const clusterVersion = pgTable("cluster_version", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-// 20260809000007_table_aliases.sql — alias pipeline (NFKC-folded exact match).
+// 20260826000003_catalog.sql — alias pipeline (NFKC-folded exact match).
 export const aliases = pgTable("aliases", {
   id: uuid("id").default(sql`uuidv7()`).primaryKey(),
   bangumiId: text("bangumi_id").notNull(),
@@ -110,14 +110,14 @@ export const aliases = pgTable("aliases", {
   priority: integer("priority").notNull().default(0),
 });
 
-// 20260809000028_table_series_edges.sql — series relation graph.
+// 20260826000003_catalog.sql — series relation graph.
 export const seriesEdges = pgTable("series_edges", {
   fromBangumiId: text("from_bangumi_id").notNull(),
   toBangumiId: text("to_bangumi_id").notNull(),
   relation: text("relation").notNull(),
 });
 
-// 20260809000017_table_itinerary_snapshots.sql — immutable version-bound snapshots.
+// 20260826000003_catalog.sql — immutable version-bound snapshots.
 export const itinerarySnapshots = pgTable("itinerary_snapshots", {
   id: uuid("id").default(sql`uuidv7()`).primaryKey(),
   bangumiId: text("bangumi_id").notNull(),
@@ -126,7 +126,7 @@ export const itinerarySnapshots = pgTable("itinerary_snapshots", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// 20260809000016_table_ingest_jobs.sql — singleflight work tracking.
+// 20260826000003_catalog.sql — singleflight work tracking.
 export const ingestJobs = pgTable("ingest_jobs", {
   workId: text("work_id").primaryKey(),
   status: text("status").notNull().default("pending"),
@@ -139,7 +139,7 @@ export const ingestJobs = pgTable("ingest_jobs", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// 20260809000018_table_leg_cache.sql — transit leg cache.
+// 20260826000003_catalog.sql — transit leg cache.
 export const legCache = pgTable("leg_cache", {
   fromCluster: text("from_cluster").notNull(),
   toCluster: text("to_cluster").notNull(),
@@ -149,7 +149,7 @@ export const legCache = pgTable("leg_cache", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// 20260809000021_table_media_assets.sql — media asset registry.
+// 20260826000003_catalog.sql — media asset registry.
 export const mediaAssets = pgTable("media_assets", {
   pointId: text("point_id").primaryKey(),
   r2Key: text("r2_key"),
@@ -158,21 +158,21 @@ export const mediaAssets = pgTable("media_assets", {
   tombstoned: boolean("tombstoned").notNull().default(false),
 });
 
-// 20260809000023_table_raw_anitabi.sql — raw Anitabi payloads.
+// 20260826000003_catalog.sql — raw Anitabi payloads.
 export const rawAnitabi = pgTable("raw_anitabi", {
   workId: text("work_id").primaryKey(),
   payload: jsonb("payload").notNull(),
   fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// 20260809000024_table_raw_bangumi.sql — raw Bangumi payloads.
+// 20260826000003_catalog.sql — raw Bangumi payloads.
 export const rawBangumi = pgTable("raw_bangumi", {
   workId: text("work_id").primaryKey(),
   payload: jsonb("payload").notNull(),
   fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// 20260809000019_table_locations.sql — gazetteer locations with geo.
+// 20260826000003_catalog.sql — gazetteer locations with geo.
 export const locations = pgTable("locations", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -186,7 +186,7 @@ export const locations = pgTable("locations", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
 
-// 20260809000020_table_location_aliases.sql — gazetteer alias index.
+// 20260826000003_catalog.sql — gazetteer alias index.
 export const locationAliases = pgTable("location_aliases", {
   alias: text("alias").notNull(),
   aliasNormalized: text("alias_normalized").notNull(),
@@ -195,7 +195,7 @@ export const locationAliases = pgTable("location_aliases", {
   priority: integer("priority").notNull().default(0),
 });
 
-// 20260809000027_table_saved_route_anime.sql — route → work membership.
+// 20260826000005_users.sql — route → work membership.
 export const savedRouteAnime = pgTable("saved_route_anime", {
   savedRouteId: uuid("saved_route_id").notNull(),
   bangumiId: text("bangumi_id").notNull().references(() => bangumi.id),

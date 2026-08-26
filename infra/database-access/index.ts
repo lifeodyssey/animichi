@@ -10,7 +10,7 @@ import * as neon from "@pulumi/neon";
 // Manages, for one Neon branch (the branch is stack config: staging =
 // Pulumi.staging.yaml, production = Pulumi.prod.yaml):
 //   - Neon service roles. The pre-existing roles were created by the SQL
-//     migrations (migrations/neon/20260809000001_roles.sql) as
+//     migrations (migrations/neon/20260826000001_roles.sql) as
 //     NOLOGIN roles WITHOUT a control-plane-stored password:
 //       * reveal_password returns an empty password for them (200, len 0),
 //       * reset_password refuses them (422 ROLE_PASSWORD_NOT_AVAILABLE), and
@@ -23,10 +23,10 @@ import * as neon from "@pulumi/neon";
 //          falls back to the owner DSN until the Secrets Store binding lands).
 //       2. `pulumi up` — the role is created here with a Neon-generated
 //          password that the provider can always read back (reveal_password).
-//       3. Re-run the idempotent grant migration against the branch
-//          (migrations/neon/20260809000001_roles.sql is a no-op once the role
-//          exists; 20260809000030_grants.sql restores the role's GRANTs,
-//          which die with the role).
+//       3. Re-run the idempotent migration chain against the branch
+//          (migrations/neon/20260826000001_roles.sql is a no-op once the role
+//          exists; the per-context migrations restore the role's GRANTs, which
+//          die with the role and now sit beside the tables they apply to).
 //     Rollback: re-run the migrations to recreate the NOLOGIN roles and point
 //     the deploy chain back at the owner DSN; the store/secrets are additive.
 //   - A Cloudflare Secrets Store holding one secret per component DSN,
