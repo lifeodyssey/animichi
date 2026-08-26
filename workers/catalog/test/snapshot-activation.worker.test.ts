@@ -8,9 +8,10 @@
  * deletes the live snapshot's objects (issue #1012 live-snapshot-deletion). The
  * authoritative integration proofs run in the spike suite.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { publishSnapshot, type PublishInput, type ValidatePort } from "../src/publish/snapshot";
 import { readPointer } from "../src/publish/pointer";
+import type { ObjectStore } from "../src/publish/object-store";
 import { fakeCatalogDb } from "./fakes/fake-catalog-db";
 import { inMemoryObjectStore } from "./fakes/in-memory-object-store";
 
@@ -54,6 +55,28 @@ describe("publishSnapshot atomic activation (AC3 support)", () => {
     expect(after).toEqual({ current: "snap-daily-2", previous: "snap-daily-1" });
     expect(keys()).toContain("snapshots/snap-daily-1/data/works.json");
     expect(keys()).toContain("snapshots/snap-daily-2/manifest.json");
+  });
+});
+
+describe("publishSnapshot staging failure signal (failure-signal audit C7/A5)", () => {
+  it("logs the real exception when staging (store.put) throws, and still returns invalid", async () => {
+    const { store: base } = inMemoryObjectStore();
+    const throwingStore: ObjectStore = {
+      ...base,
+      put: () => Promise.reject(new Error("R2 quota exceeded")),
+    };
+    const db = fakeCatalogDb({ bangumi: [{ id: "w1" }] });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    errorSpy.mockClear();
+
+    const result = await publishSnapshot({ db, store: throwingStore }, INPUT);
+
+    expect(result).toEqual({ status: "invalid", reason: "candidate validation failed" });
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const [message] = errorSpy.mock.calls[0] as [string];
+    expect(message).toContain("R2 quota exceeded");
+    expect(message.toLowerCase()).toContain("stag");
+    errorSpy.mockRestore();
   });
 });
 

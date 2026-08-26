@@ -133,26 +133,53 @@ void test("a still-open container stream is passed through without draining (dis
   release?.();
 });
 
-void test("the seam records class, status and duration, never identity material", async () => {
-  const warnings: string[] = [];
+async function withWarnSpy(run: () => Promise<Response> | Response): Promise<{ response: Response; warnings: Record<string, unknown>[] }> {
+  const raw: string[] = [];
   const original = console.warn;
-  console.warn = (line: unknown) => { warnings.push(String(line)); };
+  console.warn = (line: unknown) => { raw.push(String(line)); };
   try {
-    const env = {
-      EDGE_GUARD: fakeGuard(NOW).namespace,
-      EDGE_SHOWCASE_MODE: "false",
-      CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
-    } as never;
-    await authedApp().request("/v1/chat", POST, env, stubCtx);
+    const response = await run();
+    return { response, warnings: raw.map((line) => JSON.parse(line) as Record<string, unknown>) };
   } finally {
     console.warn = original;
   }
-  const record = JSON.parse(warnings[0] ?? "") as Record<string, unknown>;
-  assert.equal(record.event, "edge_gateway_request");
+}
+
+void test("the seam records class, status and duration, never identity material", async () => {
+  const env = {
+    EDGE_GUARD: fakeGuard(NOW).namespace,
+    EDGE_SHOWCASE_MODE: "false",
+    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
+  } as never;
+  const { warnings } = await withWarnSpy(() => authedApp().request("/v1/chat", POST, env, stubCtx));
+  const record = warnings.find((entry) => entry.event === "edge_gateway_request");
+  assert.ok(record, "the completion record must be logged");
   assert.equal(record.class, "v1");
   assert.equal(record.status, 200);
   assert.equal(typeof record.duration_ms, "number");
   assert.equal("userId" in record, false);
   assert.equal("Authorization" in record, false);
   assert.equal("path" in record, false);
+});
+
+void test("an entry log precedes dispatch and carries no path or identity material", async () => {
+  const env = {
+    EDGE_GUARD: fakeGuard(NOW).namespace,
+    EDGE_SHOWCASE_MODE: "false",
+    CONTAINER: { idFromName: () => "id", get: () => ({ fetch: () => Promise.resolve(new Response("ok")) }) },
+  } as never;
+  const { warnings } = await withWarnSpy(() => authedApp().request("/v1/chat", POST, env, stubCtx));
+
+  assert.equal(warnings.length, 2, "one entry record plus the existing completion record");
+  const entry = warnings[0];
+  const completion = warnings[1];
+  assert.ok(entry, "the entry record must be logged");
+  assert.ok(completion, "the completion record must be logged");
+  assert.equal(entry.event, "edge_gateway_request_start");
+  assert.equal(entry.class, "v1");
+  assert.equal(entry.method, "POST");
+  assert.equal("pathname" in entry, false, "pathnames carry ids like /v1/conversations/{session_id}");
+  assert.equal("userId" in entry, false);
+  assert.equal("Authorization" in entry, false);
+  assert.equal(completion.event, "edge_gateway_request");
 });

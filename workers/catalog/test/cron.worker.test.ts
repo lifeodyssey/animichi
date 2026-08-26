@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { DAILY_DISCOVER_CRON, SEED_CRON, TTL_BATCH_CAP, TTL_REFRESH_CRON } from "../src/cron-config";
 import {
   bangumiSeasonResolver,
@@ -40,8 +40,14 @@ function dependencies(overrides: Partial<CronDependencies> = {}): CronDependenci
   };
 }
 
+let errorSpy: MockInstance<(...args: unknown[]) => void>;
+let logSpy: MockInstance<(...args: unknown[]) => void>;
+
 beforeEach(() => {
-  vi.spyOn(console, "error").mockImplementation(() => undefined);
+  errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  errorSpy.mockClear();
+  logSpy.mockClear();
 });
 
 describe("scheduled handler", () => {
