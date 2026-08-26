@@ -132,7 +132,11 @@ async function runDailyImport(
   dependencies: CronDependencies,
   importSource: SnapshotSource | null,
 ): Promise<void> {
-  const result = await dependencies.runImport(db, importSource);
+  logImportOutcome(await dependencies.runImport(db, importSource));
+}
+
+/** The import's own failure reason is the signal; success logs the snapshot id. */
+function logImportOutcome(result: ImportResult): void {
   if (result.status === "invalid") {
     console.error("[dailyImport] " + result.reason);
     return;

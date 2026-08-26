@@ -63,6 +63,14 @@ function invalid(): PublishResult {
   return { status: "invalid", reason: "candidate validation failed" };
 }
 
+/** Publish the manifest and atomically advance the current-snapshot pointer. */
+async function flipPointer(deps: SnapshotDeps, manifest: SnapshotManifest, snapshotId: string): Promise<PublishResult> {
+  await deps.store.put(manifestKey(snapshotId), { body: textToArrayBuffer(manifestJson(manifest)), contentType: "application/json" });
+  const pointer = await readPointer(deps.store);
+  await writePointer(deps.store, { current: snapshotId, previous: pointer.current });
+  return { status: "published", snapshot: manifest };
+}
+
 /** Validation passed: stage objects + manifest, then flip the atomic pointer. */
 async function activate(
   deps: SnapshotDeps, candidate: CandidateExport, snapshotId: string, input: PublishInput,
@@ -71,10 +79,7 @@ async function activate(
   let staged: readonly string[] = [];
   try {
     staged = await stageObjects(deps.store, candidate);
-    await deps.store.put(manifestKey(snapshotId), { body: textToArrayBuffer(manifestJson(manifest)), contentType: "application/json" });
-    const pointer = await readPointer(deps.store);
-    await writePointer(deps.store, { current: snapshotId, previous: pointer.current });
-    return { status: "published", snapshot: manifest };
+    return await flipPointer(deps, manifest, snapshotId);
   } catch (error) {
     console.error(`[snapshot] staging failed for ${snapshotId}: ${String(error).slice(0, 200)}`);
     await deleteKeys(deps.store, staged);

@@ -107,14 +107,13 @@ function observe(route: RequestClass, response: Response, startedMs: number): vo
 
 /** Entry-side counterpart to `observe`, logged BEFORE dispatch: without it a
  * request whose response never lands (mid-flight cancel, a hung container)
- * leaves no trace at all. Route class + method + pathname only — no
- * identity, header, or query-string material. */
+ * leaves no trace at all. Route class + method only — pathnames carry
+ * identifiers (`/v1/conversations/{session_id}`), so they stay out of logs. */
 function observeEntry(route: RequestClass, request: Request): void {
   console.warn(JSON.stringify({
     event: "edge_gateway_request_start",
     class: route.kind,
     method: request.method,
-    pathname: new URL(request.url).pathname,
   }));
 }
 

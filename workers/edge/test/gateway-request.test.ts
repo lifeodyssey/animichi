@@ -162,7 +162,7 @@ void test("the seam records class, status and duration, never identity material"
   assert.equal("path" in record, false);
 });
 
-void test("an entry log fires before the completion record, so a mid-flight cancel still leaves a trace", async () => {
+void test("an entry log precedes dispatch and carries no path or identity material", async () => {
   const env = {
     EDGE_GUARD: fakeGuard(NOW).namespace,
     EDGE_SHOWCASE_MODE: "false",
@@ -178,7 +178,7 @@ void test("an entry log fires before the completion record, so a mid-flight canc
   assert.equal(entry.event, "edge_gateway_request_start");
   assert.equal(entry.class, "v1");
   assert.equal(entry.method, "POST");
-  assert.equal(entry.pathname, "/v1/chat");
+  assert.equal("pathname" in entry, false, "pathnames carry ids like /v1/conversations/{session_id}");
   assert.equal("userId" in entry, false);
   assert.equal("Authorization" in entry, false);
   assert.equal(completion.event, "edge_gateway_request");
