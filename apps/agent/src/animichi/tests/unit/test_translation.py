@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart
 from pydantic_ai.models import Model
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
 
 from animichi.agents.translation import (
+    TranslationKind,
     TranslationResult,
     translate_text,
     translate_title,
+    translation_agent,
 )
 from animichi.clients.catalog_client import (
     AnimeCandidate,
@@ -45,8 +49,57 @@ def _not_found() -> ResolveNotFound:
     return ResolveNotFound(outcome="not_found", reason="anime_not_found")
 
 
-def _agent_output(output: str) -> MagicMock:
-    return MagicMock(output=output)
+def _text_model(output: str) -> TestModel:
+    """A real Agent[None, str] run driven by a fixed text output — no tools."""
+    return TestModel(call_tools=[], custom_output_text=output)
+
+
+def _counting_model(output: str) -> tuple[FunctionModel, list[int]]:
+    """A FunctionModel that records every invocation, so a test can assert
+    the LLM was (or was NOT) actually called — the behavior the old
+    `agent.run.assert_awaited_once()` / `assert_not_awaited()` checked."""
+    calls: list[int] = []
+
+    def _respond(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        calls.append(1)
+        return ModelResponse(parts=[TextPart(output)])
+
+    return FunctionModel(_respond), calls
+
+
+def _raising_model(message: str) -> FunctionModel:
+    """A FunctionModel whose request raises — the transport/model failure
+    `_run_translation` catches and treats as an untranslated fallback."""
+
+    def _fail(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        raise RuntimeError(message)
+
+    return FunctionModel(_fail)
+
+
+async def _translate_title(
+    title: str,
+    *,
+    target_locale: str,
+    kind: TranslationKind,
+    catalog: MagicMock,
+    ctx: _TranslationContext,
+) -> TranslationResult:
+    # conftest's autouse fixture already holds translation_agent.override(...)
+    # open for the whole test; nest this test's own model on top of it so
+    # ctx.model (the real per-call seam translate_title/_run_translation use)
+    # actually drives the run instead of being shadowed by the outer override.
+    with translation_agent.override(model=ctx.model):
+        return await translate_title(
+            title, target_locale=target_locale, kind=kind, catalog=catalog, ctx=ctx
+        )
+
+
+async def _translate_text(
+    text: str, *, target_locale: str, ctx: _TranslationContext
+) -> str:
+    with translation_agent.override(model=ctx.model):
+        return await translate_text(text, target_locale=target_locale, ctx=ctx)
 
 
 def test_eval_cases_preserve_translation_kind() -> None:
@@ -57,21 +110,19 @@ def test_eval_cases_preserve_translation_kind() -> None:
 
 async def test_chinese_title_resolves_only_through_catalog() -> None:
     catalog = _catalog(_resolved())
-    ctx = _TranslationContext(TestModel(), RunUsage())
-    agent = MagicMock()
-    agent.run = AsyncMock()
+    model, calls = _counting_model("unused")
+    ctx = _TranslationContext(model, RunUsage())
 
-    with patch("animichi.agents.translation.translation_agent", agent):
-        result = await translate_title(
-            "君の名は。",
-            target_locale="zh",
-            kind="anime_title",
-            catalog=catalog,
-            ctx=ctx,
-        )
+    result = await _translate_title(
+        "君の名は。",
+        target_locale="zh",
+        kind="anime_title",
+        catalog=catalog,
+        ctx=ctx,
+    )
 
     catalog.resolve.assert_awaited_once_with("君の名は。")
-    agent.run.assert_not_awaited()
+    assert calls == []
     assert result == TranslationResult("君の名は。", "你的名字。", "catalog", 1.0)
 
 
@@ -83,34 +134,27 @@ async def test_english_title_and_place_use_toolless_llm(
     title: str, translated: str
 ) -> None:
     catalog = _catalog(_not_found())
-    ctx = _TranslationContext(TestModel(), RunUsage())
-    agent = MagicMock()
-    agent.run = AsyncMock(return_value=_agent_output(translated))
+    ctx = _TranslationContext(_text_model(translated), RunUsage())
 
-    with patch("animichi.agents.translation.translation_agent", agent):
-        result = await translate_title(
-            title,
-            target_locale="en",
-            kind="anime_title" if title == "君の名は。" else "place_name",
-            catalog=catalog,
-            ctx=ctx,
-        )
+    result = await _translate_title(
+        title,
+        target_locale="en",
+        kind="anime_title" if title == "君の名は。" else "place_name",
+        catalog=catalog,
+        ctx=ctx,
+    )
 
     catalog.resolve.assert_not_awaited()
-    assert "deps" not in agent.run.await_args.kwargs
     assert result == TranslationResult(title, translated, "llm", 0.6)
 
 
 async def test_model_cannot_claim_web_search_provenance() -> None:
     catalog = _catalog(_not_found())
-    ctx = _TranslationContext(TestModel(), RunUsage())
-    agent = MagicMock()
-    agent.run = AsyncMock(return_value=_agent_output("web_search"))
+    ctx = _TranslationContext(_text_model("web_search"), RunUsage())
 
-    with patch("animichi.agents.translation.translation_agent", agent):
-        result = await translate_title(
-            "unknown", target_locale="zh", kind="anime_title", catalog=catalog, ctx=ctx
-        )
+    result = await _translate_title(
+        "unknown", target_locale="zh", kind="anime_title", catalog=catalog, ctx=ctx
+    )
 
     assert result.translated == "web_search"
     assert result.source == "llm"
@@ -119,14 +163,11 @@ async def test_model_cannot_claim_web_search_provenance() -> None:
 
 async def test_untranslated_fallback_reports_zero_confidence() -> None:
     catalog = _catalog(_not_found())
-    ctx = _TranslationContext(TestModel(), RunUsage())
-    agent = MagicMock()
-    agent.run = AsyncMock(side_effect=RuntimeError("model unavailable"))
+    ctx = _TranslationContext(_raising_model("model unavailable"), RunUsage())
 
-    with patch("animichi.agents.translation.translation_agent", agent):
-        result = await translate_title(
-            "unknown", target_locale="zh", kind="anime_title", catalog=catalog, ctx=ctx
-        )
+    result = await _translate_title(
+        "unknown", target_locale="zh", kind="anime_title", catalog=catalog, ctx=ctx
+    )
 
     assert result == TranslationResult("unknown", "unknown", "untranslated", 0.0)
 
@@ -136,66 +177,51 @@ async def test_chinese_place_name_bypasses_anime_catalog_collision() -> None:
         bangumi_id="3151", title="秋葉原電脳組", title_cn="秋叶原电脑组"
     )
     catalog = _catalog(ResolveResolved(outcome="resolved", match=collision))
-    ctx = _TranslationContext(TestModel(), RunUsage())
-    agent = MagicMock()
-    agent.run = AsyncMock(return_value=_agent_output("秋叶原"))
+    model, calls = _counting_model("秋叶原")
+    ctx = _TranslationContext(model, RunUsage())
 
-    with patch("animichi.agents.translation.translation_agent", agent):
-        result = await translate_title(
-            "秋葉原", target_locale="zh", kind="place_name", catalog=catalog, ctx=ctx
-        )
+    result = await _translate_title(
+        "秋葉原", target_locale="zh", kind="place_name", catalog=catalog, ctx=ctx
+    )
 
     catalog.resolve.assert_not_awaited()
-    agent.run.assert_awaited_once()
+    assert calls == [1]
     assert result == TranslationResult("秋葉原", "秋叶原", "llm", 0.6)
 
 
 async def test_successful_equal_model_output_keeps_llm_provenance() -> None:
     catalog = _catalog(_not_found())
-    ctx = _TranslationContext(TestModel(), RunUsage())
-    agent = MagicMock()
-    agent.run = AsyncMock(return_value=_agent_output("CLANNAD"))
+    ctx = _TranslationContext(_text_model("CLANNAD"), RunUsage())
 
-    with patch("animichi.agents.translation.translation_agent", agent):
-        result = await translate_title(
-            "CLANNAD", target_locale="zh", kind="anime_title", catalog=catalog, ctx=ctx
-        )
+    result = await _translate_title(
+        "CLANNAD", target_locale="zh", kind="anime_title", catalog=catalog, ctx=ctx
+    )
 
     assert result == TranslationResult("CLANNAD", "CLANNAD", "llm", 0.6)
 
 
 async def test_blank_model_output_is_untranslated() -> None:
     catalog = _catalog(_not_found())
-    ctx = _TranslationContext(TestModel(), RunUsage())
-    agent = MagicMock()
-    agent.run = AsyncMock(return_value=_agent_output("   "))
+    ctx = _TranslationContext(_text_model("   "), RunUsage())
 
-    with patch("animichi.agents.translation.translation_agent", agent):
-        result = await translate_title(
-            "CLANNAD", target_locale="zh", kind="anime_title", catalog=catalog, ctx=ctx
-        )
+    result = await _translate_title(
+        "CLANNAD", target_locale="zh", kind="anime_title", catalog=catalog, ctx=ctx
+    )
 
     assert result == TranslationResult("CLANNAD", "CLANNAD", "untranslated", 0.0)
 
 
 async def test_general_text_uses_toolless_llm() -> None:
-    agent = MagicMock()
-    ctx = _TranslationContext(TestModel(), RunUsage())
-    agent.run = AsyncMock(return_value=_agent_output("你好"))
+    ctx = _TranslationContext(_text_model("你好"), RunUsage())
 
-    with patch("animichi.agents.translation.translation_agent", agent):
-        result = await translate_text("hello", target_locale="zh", ctx=ctx)
+    result = await _translate_text("hello", target_locale="zh", ctx=ctx)
 
     assert result == "你好"
-    assert "deps" not in agent.run.await_args.kwargs
 
 
 async def test_translate_text_returns_original_on_error() -> None:
-    agent = MagicMock()
-    ctx = _TranslationContext(TestModel(), RunUsage())
-    agent.run = AsyncMock(side_effect=RuntimeError("model unavailable"))
+    ctx = _TranslationContext(_raising_model("model unavailable"), RunUsage())
 
-    with patch("animichi.agents.translation.translation_agent", agent):
-        result = await translate_text("hello world", target_locale="zh", ctx=ctx)
+    result = await _translate_text("hello world", target_locale="zh", ctx=ctx)
 
     assert result == "hello world"

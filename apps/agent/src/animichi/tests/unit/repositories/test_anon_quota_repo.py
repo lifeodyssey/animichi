@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
 from sqlalchemy.dialects.postgresql.dml import Insert
 
 from animichi.infrastructure.persistence.models import anon_quota_table
@@ -74,3 +75,12 @@ async def test_count_for_reads_the_stored_count() -> None:
     repo = SQLModelAnonQuotaRepository(factory)
 
     assert await repo.count_for(usage_date=TODAY, anon_id=ANON_ID) == 3
+
+
+async def test_count_for_propagates_a_database_error() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for(error=RuntimeError)
+    repo = SQLModelAnonQuotaRepository(factory)
+
+    with pytest.raises(RuntimeError):
+        await repo.count_for(usage_date=TODAY, anon_id=ANON_ID)

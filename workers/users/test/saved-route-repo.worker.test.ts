@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { NeonSavedRouteRepo, NeonSavedRouteStore } from "../src/adapters/neon-saved-route-repo";
 import { saveSavedRoute } from "../src/application/save-saved-route";
 import type { SavedRouteStore } from "../src/application/save-saved-route";
+import { savedRoutes } from "../src/db/schema";
 import { fakeDb, fakeDbFrom, type FakeSavedRouteRow } from "./in-memory-routes-db";
 import type { UsersDb } from "../src/db/client";
 
@@ -58,6 +59,27 @@ describe("NeonSavedRouteRepo defensive normalization", () => {
     await expect(repo.listOwned("user-a")).rejects.toThrow("invalid timestamp row");
   });
 
+});
+
+describe("A4: saved_routes.id PRIMARY KEY (routes_pkey) fidelity", () => {
+  it("rejects a duplicate id insert the way Postgres would (SQLSTATE 23505)", async () => {
+    const { db } = fakeDb();
+    await db.insert(savedRoutes).values({
+      id: ID, userId: "user-a", title: "Tokyo", pointIds: ["p1"], status: "saved",
+      savedAt: null, updatedAt: new Date(NOW),
+    });
+    // drizzle-orm/neon-http wraps the driver's rejection in a DrizzleQueryError
+    // whose `.cause` is the original NeonDbError — this is exactly how the
+    // real neon-http driver surfaces a unique_violation too.
+    await expect(
+      db.insert(savedRoutes).values({
+        id: ID, userId: "user-b", title: "Osaka", pointIds: ["p2"], status: "saved",
+        savedAt: null, updatedAt: new Date(NOW),
+      }),
+    ).rejects.toMatchObject({
+      cause: { name: "NeonDbError", code: "23505", constraint: "routes_pkey", table: "saved_routes" },
+    });
+  });
 });
 
 describe("findOwner defensive cases (USERS-1 coverage)", () => {

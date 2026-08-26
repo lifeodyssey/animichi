@@ -6,6 +6,7 @@ SQL strings are compared and nothing is executed (raw-SQL policy, #999).
 
 from __future__ import annotations
 
+import pytest
 from sqlalchemy.sql.selectable import Select
 
 from animichi.infrastructure.persistence.models import points_table
@@ -42,6 +43,15 @@ async def test_get_points_by_bangumi_returns_empty_list() -> None:
     repo = SQLModelPointsRepository(factory)
 
     assert await repo.get_points_by_bangumi("nonexistent") == []
+
+
+async def test_get_points_by_bangumi_propagates_a_database_error() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for(error=RuntimeError)
+    repo = SQLModelPointsRepository(factory)
+
+    with pytest.raises(RuntimeError):
+        await repo.get_points_by_bangumi("115908")
 
 
 async def test_get_points_by_ids_returns_ordered_dicts() -> None:

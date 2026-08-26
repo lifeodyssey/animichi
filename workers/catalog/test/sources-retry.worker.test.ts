@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fetchAnitabiPoints, UpstreamFetchError, UpstreamNotFoundError, type FetchLike } from "../src/ingest/sources";
-import { fakeSleep, mockFetchSequence } from "./mock-fetch-sequence";
+import { fakeSleep, mockFetchReject, mockFetchSequence } from "./mock-fetch-sequence";
 
 describe("retry wiring — transient retries", () => {
   it("honors Retry-After on a 429, then succeeds on the retry", async () => {
@@ -55,6 +55,25 @@ describe("retry wiring — transport errors", () => {
     expect(points).toHaveLength(1);
     expect(calls).toBe(2);
     expect(waits).toEqual([400]);
+  });
+
+  it("raises UpstreamFetchError once a transport error exhausts every retry", async () => {
+    // Every attempt rejects at the transport layer (no HTTP response at
+    // all) — the untested twin of the "5xx exhausts retries" case below;
+    // fetchWithRetry must treat a rejected fetch() the same as a transient
+    // status and give up with the same typed failure.
+    const { sleep, waits } = fakeSleep();
+    const { fetch, callCount } = mockFetchReject(new Error("network down"));
+    await expect(
+      fetchAnitabiPoints("3302", {
+        fetchImpl: fetch,
+        retry: { sleep, jitterMs: (ms) => ms, baseDelayMs: 400 },
+      }),
+    ).rejects.toEqual(
+      expect.objectContaining({ name: UpstreamFetchError.name, upstream: "anitabi" }),
+    );
+    expect(callCount()).toBe(3);
+    expect(waits).toEqual([400, 800]);
   });
 });
 

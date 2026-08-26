@@ -59,6 +59,22 @@ function sequenceResponse(response: SequenceResponse) {
   };
 }
 
+/**
+ * Build a mock FetchLike that REJECTS every call — a transport-layer failure
+ * (DNS/connection-refused/timeout), distinct from `mockFetchSequence`'s
+ * resolved-but-bad-status responses. `fetchWithRetry` (src/ingest/sources.ts)
+ * treats a rejected fetch() the same as a transient status: retried, then
+ * (once the retry budget is exhausted) rethrown as UpstreamFetchError.
+ */
+export function mockFetchReject(error: Error): { fetch: FetchLike; callCount: () => number } {
+  let calls = 0;
+  const fetch: FetchLike = () => {
+    calls += 1;
+    return Promise.reject(error);
+  };
+  return { fetch, callCount: () => calls };
+}
+
 /** A fake clock: records requested waits and resolves instantly — no real timers. */
 export function fakeSleep(): { sleep: (ms: number) => Promise<void>; waits: number[] } {
   const waits: number[] = [];

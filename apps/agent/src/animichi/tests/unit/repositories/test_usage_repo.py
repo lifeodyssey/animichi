@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
+import pytest
 from sqlalchemy.dialects.postgresql.dml import Insert
 
 from animichi.infrastructure.persistence.models import daily_usage_table
@@ -92,3 +93,12 @@ async def test_total_cost_usd_is_zero_when_the_column_is_null() -> None:
     repo = SQLModelUsageRepository(factory)
 
     assert await repo.total_cost_usd(usage_date=TODAY, scope="anon") == 0.0
+
+
+async def test_total_cost_usd_propagates_a_database_error() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for(error=RuntimeError)
+    repo = SQLModelUsageRepository(factory)
+
+    with pytest.raises(RuntimeError):
+        await repo.total_cost_usd(usage_date=TODAY, scope="anon")
