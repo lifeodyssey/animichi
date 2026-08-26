@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import structlog
 from pydantic_ai import RunContext
 
 from animichi.agents.agent_result import ProducedSearch, RejectedSearch
@@ -48,6 +49,13 @@ from animichi.clients.catalog_client import (
     ResolveResolved as CatalogResolveResolved,
 )
 
+logger = structlog.get_logger(__name__)
+
+
+def _log_upstream_down(tool: ToolName, exc: BaseException) -> None:
+    """SD-19: the upstream failure text stays server-side only."""
+    logger.warning("catalog_tool_upstream_down", tool=tool.value, error=str(exc)[:200])
+
 
 def _candidate(candidate: AnimeCandidate) -> OrderedCandidate:
     return OrderedCandidate(
@@ -95,7 +103,8 @@ async def run_resolve(
     result: ResolveResolved | ResolveAmbiguous | ResolveNotFound | ResolveUpstreamDown
     try:
         resolved = await catalog.resolve(title)
-    except CATALOG_FAILURES:
+    except CATALOG_FAILURES as exc:
+        _log_upstream_down(ToolName.RESOLVE_ANIME, exc)
         result = ResolveUpstreamDown()
     else:
         result = _adapt_resolve(ctx.deps, resolved, title)
@@ -148,7 +157,8 @@ async def run_work_search(
     """Fetch an already-resolved work without repeating free-text resolution."""
     try:
         result = await catalog.points_by_bangumi_id(bangumi_id)
-    except CATALOG_FAILURES:
+    except CATALOG_FAILURES as exc:
+        _log_upstream_down(ToolName.SEARCH_BANGUMI, exc)
         return SearchUpstreamDown()
     payload = build_search_state(
         result.rows,
@@ -242,7 +252,8 @@ async def run_nearby_search(
     """Resolve a place into a typed outcome and a registry-backed geo result."""
     try:
         resolved = await _coordinates(ctx.deps, catalog, location)
-    except CATALOG_FAILURES:
+    except CATALOG_FAILURES as exc:
+        _log_upstream_down(ToolName.GEOCODE, exc)
         _clear_pending(ctx.deps)
         return _nearby_upstream_down(ctx)
     if not isinstance(resolved, tuple):
@@ -254,7 +265,8 @@ async def run_nearby_search(
         points = await catalog.nearby(
             coords[0], coords[1], radius_m=radius_m or default_radius
         )
-    except CATALOG_FAILURES:
+    except CATALOG_FAILURES as exc:
+        _log_upstream_down(ToolName.SEARCH_NEARBY, exc)
         _clear_pending(ctx.deps)
         return _nearby_upstream_down(ctx)
     payload = build_search_state(points, kind="nearby", locale=ctx.deps.locale)

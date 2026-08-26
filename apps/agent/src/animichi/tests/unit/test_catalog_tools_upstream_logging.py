@@ -12,8 +12,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from structlog import testing
+import pytest
 
+import animichi.agents.catalog_tools as catalog_tools
 from animichi.agents.catalog_tools import (
     run_nearby_search,
     run_resolve,
@@ -77,63 +78,79 @@ def _deps(catalog: MockCatalogClient) -> RuntimeDeps:
     return RuntimeDeps(MagicMock(), "en", "test", catalog)
 
 
-async def test_resolve_upstream_failure_logs_tool_and_error() -> None:
+async def test_resolve_upstream_failure_logs_tool_and_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     catalog = _ResolveDownCatalog()
     deps = _deps(catalog)
 
-    with testing.capture_logs() as captured:
-        outcome = await run_resolve(tool_context(deps), catalog, "Uji")
+    fake_logger = MagicMock()
+    monkeypatch.setattr(catalog_tools, "logger", fake_logger)
+    outcome = await run_resolve(tool_context(deps), catalog, "Uji")
 
     assert isinstance(outcome, ResolveUpstreamDown)
-    entry = captured[0]
-    assert entry["event"] == "catalog_tool_upstream_down"
-    assert entry["tool"] == "resolve_anime"
-    assert entry["error"] == "bangumi resolve exploded"
+    fake_logger.warning.assert_called_once_with(
+        "catalog_tool_upstream_down",
+        tool="resolve_anime",
+        error="bangumi resolve exploded",
+    )
 
 
-async def test_work_search_upstream_failure_logs_tool_and_error() -> None:
+async def test_work_search_upstream_failure_logs_tool_and_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     catalog = _PointsDownCatalog()
     deps = _deps(catalog)
 
-    with testing.capture_logs() as captured:
-        outcome = await run_work_search(tool_context(deps), catalog, "115908")
+    fake_logger = MagicMock()
+    monkeypatch.setattr(catalog_tools, "logger", fake_logger)
+    outcome = await run_work_search(tool_context(deps), catalog, "115908")
 
     assert isinstance(outcome, SearchUpstreamDown)
-    entry = captured[0]
-    assert entry["event"] == "catalog_tool_upstream_down"
-    assert entry["tool"] == "search_bangumi"
-    assert entry["error"] == "catalog points fetch exploded"
+    fake_logger.warning.assert_called_once_with(
+        "catalog_tool_upstream_down",
+        tool="search_bangumi",
+        error="catalog points fetch exploded",
+    )
 
 
-async def test_nearby_geocode_upstream_failure_logs_geocode_tool() -> None:
+async def test_nearby_geocode_upstream_failure_logs_geocode_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     catalog = _GeocodeDownCatalog()
     deps = _deps(catalog)
 
-    with testing.capture_logs() as captured:
-        outcome = await run_nearby_search(tool_context(deps), catalog, "Uji", None)
+    fake_logger = MagicMock()
+    monkeypatch.setattr(catalog_tools, "logger", fake_logger)
+    outcome = await run_nearby_search(tool_context(deps), catalog, "Uji", None)
 
     assert isinstance(outcome, NearbyUpstreamDown)
-    entry = captured[0]
-    assert entry["event"] == "catalog_tool_upstream_down"
-    assert entry["tool"] == "geocode"
-    assert entry["error"] == "gazetteer geocode exploded"
+    fake_logger.warning.assert_called_once_with(
+        "catalog_tool_upstream_down", tool="geocode", error="gazetteer geocode exploded"
+    )
 
 
-async def test_nearby_points_upstream_failure_logs_nearby_tool() -> None:
+async def test_nearby_points_upstream_failure_logs_nearby_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     catalog = _NearbyPointsDownCatalog()
     deps = _deps(catalog)
 
-    with testing.capture_logs() as captured:
-        outcome = await run_nearby_search(tool_context(deps), catalog, "Uji", None)
+    fake_logger = MagicMock()
+    monkeypatch.setattr(catalog_tools, "logger", fake_logger)
+    outcome = await run_nearby_search(tool_context(deps), catalog, "Uji", None)
 
     assert isinstance(outcome, NearbyUpstreamDown)
-    entry = captured[0]
-    assert entry["event"] == "catalog_tool_upstream_down"
-    assert entry["tool"] == "search_nearby"
-    assert entry["error"] == "nearby points exploded"
+    fake_logger.warning.assert_called_once_with(
+        "catalog_tool_upstream_down",
+        tool="search_nearby",
+        error="nearby points exploded",
+    )
 
 
-async def test_truncates_long_upstream_error_text() -> None:
+async def test_truncates_long_upstream_error_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class _LongErrorCatalog(MockCatalogClient):
         async def resolve(self, query: str) -> ResolveResolved | ResolveNotFound:
             raise APIError("x" * 500)
@@ -141,7 +158,8 @@ async def test_truncates_long_upstream_error_text() -> None:
     catalog = _LongErrorCatalog()
     deps = _deps(catalog)
 
-    with testing.capture_logs() as captured:
-        await run_resolve(tool_context(deps), catalog, "Uji")
+    fake_logger = MagicMock()
+    monkeypatch.setattr(catalog_tools, "logger", fake_logger)
+    await run_resolve(tool_context(deps), catalog, "Uji")
 
-    assert len(captured[0]["error"]) == 200
+    assert len(fake_logger.warning.call_args.kwargs["error"]) == 200
