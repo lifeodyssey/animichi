@@ -13,8 +13,7 @@ import { URL, fileURLToPath } from "node:url";
 // chain declares it. We prove that statically:
 //   - the chain NEVER mutates a runtime role (no DROP ROLE / REASSIGN OWNED /
 //     ALTER ROLE / DROP OWNED on those names) — so re-applying is a no-op on roles;
-//   - every runtime role is BOTH created (roles migration) AND granted (grants
-//     migration) BY THE CHAIN, in one append-only timestamped history.
+//   - every runtime role is both created and granted by the canonical baseline.
 //
 // test-type: unit (reads checked-in migrations; no network, no clock, no mocks).
 
@@ -44,12 +43,9 @@ function readMigrations(): { name: string; body: string }[] {
 
 const chain = readMigrations();
 
-void test("the chain is an append-only, timestamped history that Atlas owns", () => {
+void test("Atlas owns one timestamped canonical baseline", () => {
   const names = chain.map((m) => m.name);
-  assert.ok(names.length > 0, "migrations/neon must contain SQL migrations");
-  for (const name of names) {
-    assert.match(name, /^\d{14}/, name + " must have a timestamped prefix");
-  }
+  assert.deepEqual(names, ["20260826000000_baseline.sql"]);
   const sum = readFileSync(MIGRATIONS + "atlas.sum", "utf8");
   assert.ok(sum.length > 0, "atlas.sum must exist");
   for (const name of names) {
@@ -72,24 +68,22 @@ void test("no migration mutates a runtime role (DROP ROLE / REASSIGN / ALTER ROL
 });
 
 void test("every runtime role is created and granted BY the chain", () => {
-  const rolesSql = chain.find((m) => m.name.includes("_roles.sql"))?.body ?? "";
-  const grantsSql = chain.find((m) => m.name.includes("_grants.sql"))?.body ?? "";
-  assert.match(rolesSql, /CREATE ROLE/i, "roles migration must declare service roles");
+  const baseline = chain.map((m) => m.body).join("\n");
+  assert.match(baseline, /CREATE ROLE/i, "baseline must declare service roles");
   for (const role of RUNTIME_ROLES) {
-    assert.match(rolesSql, new RegExp("CREATE ROLE " + role + "\\b", "i"), "roles migration must create " + role);
-    assert.match(grantsSql, new RegExp("TO " + role + "\\b", "i"), "grants migration must grant to " + role);
+    assert.match(baseline, new RegExp("CREATE ROLE " + role + "\\b", "i"), "baseline must create " + role);
+    assert.match(baseline, new RegExp("TO " + role + "\\b", "i"), "baseline must grant to " + role);
   }
   for (const role of RUNTIME_ROLES) {
-    const count = (grantsSql.match(new RegExp("TO " + role + "\\b", "gi")) ?? []).length;
-    assert.ok(count > 0, "grants migration must grant " + role + " at least one privilege");
+    const count = (baseline.match(new RegExp("TO " + role + "\\b", "gi")) ?? []).length;
+    assert.ok(count > 0, "baseline must grant " + role + " at least one privilege");
   }
 });
 
 void test("the migrator role is not a runtime-serving role in the chain", () => {
-  const rolesSql = chain.find((m) => m.name.includes("_roles.sql"))?.body ?? "";
-  const grantsSql = chain.find((m) => m.name.includes("_grants.sql"))?.body ?? "";
-  assert.doesNotMatch(rolesSql, /CREATE ROLE migrator\b/i, "runtime roles migration must not create a migrator LOGIN (scoped IaC, #1050)");
-  assert.doesNotMatch(grantsSql, /TO migrator\b/i, "grants migration must not grant runtime privileges to a migrator role");
+  const baseline = chain.map((m) => m.body).join("\n");
+  assert.doesNotMatch(baseline, /CREATE ROLE migrator\b/i, "IaC owns the migrator LOGIN");
+  assert.doesNotMatch(baseline, /TO migrator\b/i, "baseline must not grant runtime privileges to migrator");
 });
 
 void test("database-access IaC provisions the migrator LOGIN role + DSN secret", () => {
