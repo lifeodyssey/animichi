@@ -1,0 +1,2 @@
+20260826000000_baseline is a destructive staging hard cut.
+Production promotion must fail before SQL until a separately approved production cutover removes this marker.
