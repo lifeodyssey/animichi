@@ -75,7 +75,8 @@ async function activate(
     const pointer = await readPointer(deps.store);
     await writePointer(deps.store, { current: snapshotId, previous: pointer.current });
     return { status: "published", snapshot: manifest };
-  } catch {
+  } catch (error) {
+    console.error(`[snapshot] staging failed for ${snapshotId}: ${String(error).slice(0, 200)}`);
     await deleteKeys(deps.store, staged);
     return invalid();
   }

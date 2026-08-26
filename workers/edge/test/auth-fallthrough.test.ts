@@ -157,7 +157,8 @@ void test("an invalid credential is recorded so a 401 storm is visible", async (
   } finally {
     console.warn = original;
   }
-  const record = JSON.parse(String(warnings[0])) as { event: string; path: string };
+  const records = warnings.map((line) => JSON.parse(line) as { event: string; path?: string });
+  const record = records.find((entry) => entry.event === "edge_auth_invalid_credential");
   assert.deepEqual(record, { event: "edge_auth_invalid_credential", path: "/v1/chat" });
 });
 

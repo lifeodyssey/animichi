@@ -65,8 +65,13 @@ async function claimedResult(
 ): Promise<PointsByBangumiResult> {
   const ingest = db.ingest.runClaimed(preview.bangumiId, { fetchImpl: options.fetchImpl });
   if (!options.waitUntil) return syncResult(db, preview, ingest);
-  options.waitUntil(ingest.catch(() => undefined));
+  options.waitUntil(ingest.catch((error: unknown) => { logBackgroundIngestFailure(preview.bangumiId, error); }));
   return previewResult(preview);
+}
+
+/** SD-19: the upstream error text stays server-side only. */
+function logBackgroundIngestFailure(bangumiId: string, error: unknown): void {
+  console.error(`[work-points] background ingest failed for bangumi_id=${bangumiId}: ${String(error).slice(0, 200)}`);
 }
 
 async function syncResult(

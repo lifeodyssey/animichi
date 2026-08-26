@@ -105,6 +105,19 @@ function observe(route: RequestClass, response: Response, startedMs: number): vo
   }));
 }
 
+/** Entry-side counterpart to `observe`, logged BEFORE dispatch: without it a
+ * request whose response never lands (mid-flight cancel, a hung container)
+ * leaves no trace at all. Route class + method + pathname only — no
+ * identity, header, or query-string material. */
+function observeEntry(route: RequestClass, request: Request): void {
+  console.warn(JSON.stringify({
+    event: "edge_gateway_request_start",
+    class: route.kind,
+    method: request.method,
+    pathname: new URL(request.url).pathname,
+  }));
+}
+
 type AuthFailure = Extract<AuthResult, { ok: false }>;
 
 /** The shared credential-rejection branch: invalid logs the 401 storm
@@ -131,6 +144,7 @@ export async function HandleGatewayRequest(
 ): Promise<Response> {
   const route = classify(request);
   const startedMs = Date.now();
+  observeEntry(route, request);
   const response = isFunctionalRoute(route) && deps.showcaseMode.isEnabled(env.EDGE_SHOWCASE_MODE)
     ? showcaseDenied()
     : await dispatch(route, env, request, ctx, deps);

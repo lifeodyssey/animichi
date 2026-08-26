@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   pointsByBangumiId,
   type WorkPointsPort,
@@ -186,14 +186,23 @@ describe("pointsByBangumiId completion semantics", () => {
     await expect(pointsByBangumiId(db, "115908")).resolves.toMatchObject({ rows: [] });
   });
 
-  it("swallows background ingest rejection inside the waitUntil promise", async () => {
+  it("swallows background ingest rejection inside the waitUntil promise and logs it", async () => {
     const ingest = Promise.reject(new Error("background failure"));
     void ingest.catch(() => undefined);
     const { db } = fakeDb({ ingest });
     const { waitUntil, scheduled } = waitUntilSpy();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    errorSpy.mockClear();
+
     await expect(pointsByBangumiId(db, "115908", { waitUntil })).resolves.toMatchObject({
       rows: [PREVIEW], partial: true,
     });
     await expect(Promise.all(scheduled)).resolves.toEqual([undefined]);
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const [message] = errorSpy.mock.calls[0] as [string];
+    expect(message).toContain("115908");
+    expect(message).toContain("background failure");
+    errorSpy.mockRestore();
   });
 });

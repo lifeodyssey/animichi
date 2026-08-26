@@ -101,7 +101,10 @@ async function missResult(
 
 /** Return the L1 preview now; full ingest keeps running after the response. */
 function backgroundIngest(db: SearchDb, preview: MissPreview, opts: SearchOptions): SearchResult {
-  opts.waitUntil?.(db.runFullIngest(preview.bangumiId, opts.fetchImpl));
+  const ingest = db.runFullIngest(preview.bangumiId, opts.fetchImpl).catch((error: unknown) => {
+    console.error(`[search] background ingest failed for bangumi_id=${preview.bangumiId}: ${String(error).slice(0, 200)}`);
+  });
+  opts.waitUntil?.(ingest);
   return { rows: preview.points, synced_at: new Date().toISOString(), partial: true };
 }
 

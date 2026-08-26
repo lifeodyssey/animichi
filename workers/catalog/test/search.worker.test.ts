@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { search } from "../src/api/search";
 import { fakeDb, ROW, waitUntilSpy } from "./in-memory-search-db";
 import { PREVIEW_POINT } from "./fixtures/l1-preview-point";
@@ -89,5 +89,30 @@ describe("search (alias miss — L1 preview + background ingest)", () => {
     expect(scheduled).toEqual([]);
     expect(ingested).toEqual([]);
     expect(typeof result.synced_at).toBe("string");
+  });
+});
+
+describe("search (alias miss — background ingest failure signal, C7/A1)", () => {
+  it("logs (but never rejects the caller on) a background-ingest failure", async () => {
+    const { db } = fakeDb(
+      {},
+      {
+        resolvePreview: () => Promise.resolve({ bangumiId: "10380", points: [PREVIEW_POINT] }),
+        runFullIngest: () => Promise.reject(new Error("anitabi fetch exploded")),
+      },
+    );
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    errorSpy.mockClear();
+    const { waitUntil, scheduled } = waitUntilSpy();
+
+    const result = await search(db, { query: "けいおん！" }, { waitUntil });
+    await Promise.all(scheduled); // the backgrounded ingest rejects — must not throw here
+
+    expect(result.rows).toEqual([PREVIEW_POINT]); // the caller's response is unaffected
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const [message] = errorSpy.mock.calls[0] as [string];
+    expect(message).toContain("10380");
+    expect(message).toContain("anitabi fetch exploded");
+    errorSpy.mockRestore();
   });
 });

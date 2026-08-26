@@ -23,7 +23,7 @@ import { publishSnapshot, type PublishResult } from "../publish/snapshot";
 import { gcSnapshots, type GcResult } from "../publish/snapshot-gc";
 import { publishAfterRun, type DailyRunOutcome } from "../publish/daily-snapshot";
 import { snapshotSourceFor, type SnapshotSource } from "../import/snapshot-source";
-import { cronKind, guardCron, runImportJob } from "../import/schedule";
+import { cronKind, guardCron, runImportJob, type CronKind } from "../import/schedule";
 import type { ImportResult } from "../import/import-snapshot";
 import { dailyPolicy, runtimeEnvironment, type RuntimeEnvironment } from "../operational-config";
 import type { Env } from "../index";
@@ -87,8 +87,16 @@ export function createScheduledHandler(
     const store = dependencies.snapshotStore(env.SNAPSHOT_BUCKET);
     const environment = runtimeEnvironment(env.ENVIRONMENT);
     const source = dependencies.importSource(env);
-    await runCron(controller.cron, db, dependencies, store, environment, source);
+    const result = await runCron(controller.cron, db, dependencies, store, environment, source);
+    logCronCompletion(cronKind(controller.cron), result);
   };
+}
+
+/** Every cron run leaves an "it finished, here's what it did" signal. */
+function logCronCompletion(kind: CronKind, result: CronJobResult): void {
+  console.log(
+    `${kind} cron: attempted=${String(result.attempted)} ingested=${String(result.ingested)} skipped=${String(result.skipped)}`,
+  );
 }
 
 async function runCron(
@@ -111,9 +119,25 @@ async function runCron(
       await publishAfterRun(db, store, dependencies);
       return { attempted: 0, ingested: 0, skipped: 0 };
     case "dailyImport":
-      await dependencies.runImport(db, importSource);
+      await runDailyImport(db, dependencies, importSource);
       return { attempted: 0, ingested: 0, skipped: 0 };
   }
+}
+
+/** The daily staging import's own result never carried a batch count
+ * (`CronJobResult` above stays zeroed for it); log its outcome directly so a
+ * validation/activation failure is not a silent no-op. */
+async function runDailyImport(
+  db: CatalogDb,
+  dependencies: CronDependencies,
+  importSource: SnapshotSource | null,
+): Promise<void> {
+  const result = await dependencies.runImport(db, importSource);
+  if (result.status === "invalid") {
+    console.error("[dailyImport] " + result.reason);
+    return;
+  }
+  console.log("[dailyImport] imported snapshot " + result.snapshotId);
 }
 
 /** Seed pass: ingest the checked-in titles that have no `done` ingest_jobs row. */
