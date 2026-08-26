@@ -32,8 +32,13 @@ export interface Env {
    * daily import would throw at runtime.
    */
   PROD_SNAPSHOT?: SnapshotReadService;
-  /** Operational secret guarding POST /catalog/admin/* commands (AC5, 401 when wrong). */
-  CATALOG_ADMIN_TOKEN?: string;
+  /**
+   * Operational secret guarding POST /catalog/admin/* commands (AC5, 401 when
+   * wrong). Provisioned by the infra/database-access Pulumi stack as a
+   * Secrets Store binding (system-health-audit 2026-08-26 §2.4, #1217); the
+   * plain-string form remains for tests/local dev, same as DATABASE_URL above.
+   */
+  CATALOG_ADMIN_TOKEN?: string | SecretsStoreSecret;
 }
 
 const app = new Hono<{ Bindings: Env }>();

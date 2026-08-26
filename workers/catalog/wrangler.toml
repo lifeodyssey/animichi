@@ -114,6 +114,15 @@ binding = "DATABASE_URL"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
 secret_name = "CATALOG_DATABASE_URL"
 
+# system-health-audit 2026-08-26 §2.4/§3, #1217: CATALOG_ADMIN_TOKEN had never
+# been provisioned in any environment, leaving POST /catalog/admin/* (AC5)
+# functionally dead-locked. The value is generated and written to this same
+# Secrets Store by the infra/database-access Pulumi stack.
+[[env.staging.secrets_store_secrets]]
+binding = "CATALOG_ADMIN_TOKEN"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "CATALOG_ADMIN_TOKEN"
+
 [env.staging.vars]
 ENVIRONMENT = "staging"
 
@@ -155,6 +164,14 @@ preview_urls = false
 binding = "DATABASE_URL"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
 secret_name = "CATALOG_DATABASE_URL_PROD"
+
+# system-health-audit 2026-08-26 §2.4/§3, #1217: same admin-token provisioning
+# as staging above, "_PROD"-suffixed per the shared-store naming split
+# (infra/database-access/index.ts secretNameSuffix).
+[[env.production.secrets_store_secrets]]
+binding = "CATALOG_ADMIN_TOKEN"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "CATALOG_ADMIN_TOKEN_PROD"
 
 [env.production.vars]
 ENVIRONMENT = "production"

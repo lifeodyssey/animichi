@@ -46,9 +46,17 @@ void test("baseline contains only the final schema", () => {
 
 void test("baseline closes the catalog runtime grant gap", () => {
   const sql = read("migrations/neon/20260826000003_catalog.sql");
-  assert.match(sql, /GRANT ALL ON TABLE public\.catalog_runs TO catalog_svc/);
-  assert.match(sql, /GRANT ALL ON TABLE public\.raw_payload_history TO catalog_svc/);
+  assert.match(sql, /GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public\.catalog_runs TO catalog_svc/);
+  assert.match(sql, /GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public\.raw_payload_history TO catalog_svc/);
   assert.match(sql, /GRANT SELECT, USAGE ON SEQUENCE public\.raw_payload_history_seq_seq TO catalog_svc/);
+});
+
+// system-health-audit 2026-08-26 §3: catalog_svc's write grants were `GRANT ALL`
+// (TRUNCATE/REFERENCES/TRIGGER included) on 14/16 catalog tables; locations and
+// location_aliases already used the narrower form. All 16 are now consistent.
+void test("catalog_svc write grants are narrowed to CRUD, never GRANT ALL", () => {
+  const sql = read("migrations/neon/20260826000003_catalog.sql");
+  assert.doesNotMatch(sql, /GRANT ALL ON TABLE/);
 });
 
 void test("staging reset is branch-backed and production-safe", () => {
@@ -134,7 +142,7 @@ void test("the shipped guard lets a payload without the marker through", () => {
 
 void test("atlas.sum SHA-256 pins the hard-cut payload", () => {
   const sum = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
-  assert.equal(createHash("sha256").update(sum).digest("hex"), "0145e2c1489db593740d9234c62f4f964cb3141949de262e082e7527d9a71960");
+  assert.equal(createHash("sha256").update(sum).digest("hex"), "7dd5869959a9f48600fa833f23363ac0893486ddaf18a5495dec761ef35206c0");
 });
 
 // #1216 — the migrator's own error lived only in the discarded response body, so

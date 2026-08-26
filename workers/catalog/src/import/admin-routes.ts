@@ -58,7 +58,8 @@ function adminHandler(
   resolveStore: ResolveStore | null,
 ): (c: Context<{ Bindings: Env }>) => Promise<Response> {
   return async (c) => {
-    if (!authorizedAdmin(c.req.header("authorization"), c.env.CATALOG_ADMIN_TOKEN)) {
+    const token = await adminToken(c.env);
+    if (!authorizedAdmin(c.req.header("authorization"), token)) {
       return c.json({ error: "unauthorized" }, 401);
     }
     const db = resolveDb === null ? null : await resolveDb(c.env);
@@ -67,6 +68,14 @@ function adminHandler(
     const outcome = await runner(db, nowClock(), store);
     return c.json(outcome);
   };
+}
+
+/** Resolve the admin token from the env, whether a plain string (tests/local
+ *  dev) or a Secrets Store binding (system-health-audit 2026-08-26 §2.4). */
+async function adminToken(env: Env): Promise<string | undefined> {
+  const token = env.CATALOG_ADMIN_TOKEN;
+  if (token === undefined) return undefined;
+  return typeof token === "string" ? token : await token.get();
 }
 
 /** Constant-time bearer guard: absent/wrong admin token is unauthorized. */

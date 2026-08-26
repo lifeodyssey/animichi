@@ -1,6 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as cloudflare from "@pulumi/cloudflare";
 import * as neon from "@pulumi/neon";
+import * as random from "@pulumi/random";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Database access provisioning — ADR 0003 / #912 PR1.
@@ -180,6 +181,26 @@ dsnSecrets.forEach(({ def, name, dsn }) => {
   });
 });
 
+// ── Catalog admin token (system-health-audit 2026-08-26 §2.4/§3, #1217) ────
+// CATALOG_ADMIN_TOKEN guards POST /catalog/admin/* (full-ingest, canary) but
+// had never been provisioned in any environment, so the admin surface was a
+// functional dead end. Generated here — never hand-typed, logged, or
+// committed — and stored in the same shared Secrets Store as the DSN secrets
+// above, under the same staging/prod "_PROD" naming split (secretNameSuffix).
+const catalogAdminToken = new random.RandomPassword("catalog-admin-token", {
+  length: 48,
+  special: false,
+});
+
+new cloudflare.SecretsStoreSecret(`catalog-admin-token${secretNameSuffix}`, {
+  accountId,
+  storeId: secretsStoreId,
+  name: `CATALOG_ADMIN_TOKEN${secretNameSuffix}`,
+  value: catalogAdminToken.result,
+  scopes: ["workers"],
+  comment: "catalog admin command bearer token (system-health-audit 2026-08-26 §2.4, #1217)",
+});
+
 // ── Neon Auth declarations (AUTH-2 #950) ────────────────────────────────────
 // The edge verifies JWTs against the branch's JWKS URL (its ONLY identity
 // source since the hard cut). Declaring it here lets the deploy chain source
@@ -244,3 +265,4 @@ export const authSecretNames = [
   "QA_NEON_USER_EMAIL",
   "QA_NEON_USER_PASSWORD",
 ] as const;
+export const catalogAdminTokenSecretName = `CATALOG_ADMIN_TOKEN${secretNameSuffix}`;
