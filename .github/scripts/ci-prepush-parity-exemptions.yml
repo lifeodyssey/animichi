@@ -33,6 +33,8 @@ exemptions:
     reason: "deploy: main before..SHA range — CD-only release routing"
   - id: script:.github/scripts/promote-release-unit.sh
     reason: "deploy: staging/production credentials — immutable promotion adapter"
+  - id: script:.github/scripts/staging-smoke-check.sh
+    reason: "cloud: live staging.animichi.com — post-deploy verification against the deployed environment; behavior is covered locally by staging-smoke-check.test.sh"
   - id: script:.github/scripts/resolve-cd-base.sh
     reason: "cloud: GitHub Actions run history and current main ref — durable CD range base"
   - id: uses:codecov/codecov-action

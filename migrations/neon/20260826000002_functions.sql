@@ -13,8 +13,8 @@ BEGIN
       4326
     )::geography;
   ELSIF NEW.location IS NOT NULL THEN
-    NEW.latitude := COALESCE(NEW.latitude, ST_Y(NEW.location::geometry));
-    NEW.longitude := COALESCE(NEW.longitude, ST_X(NEW.location::geometry));
+    NEW.latitude := ST_Y(NEW.location::geometry);
+    NEW.longitude := ST_X(NEW.location::geometry);
   END IF;
   RETURN NEW;
 END;

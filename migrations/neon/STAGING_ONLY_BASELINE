@@ -1,2 +1,3 @@
-20260826000000_baseline is a destructive staging hard cut.
+The six 20260826NNNNNN_*.sql files in this directory (extensions, roles, functions,
+catalog, agent, users) together form a destructive staging hard cut.
 Production promotion must fail before SQL until a separately approved production cutover removes this marker.

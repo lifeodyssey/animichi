@@ -1,13 +1,20 @@
 -- Neon data-plane baseline: catalog bounded context (16 tables).
--- catalog_svc holds the write grants (ALL, or SELECT/INSERT/UPDATE/DELETE) on every
--- table below; agent_svc and readonly hold read-only SELECT grants where noted per
--- table. locations must precede location_aliases (FK) and bangumi must precede points
--- (FK); both orderings are preserved below.
+-- catalog_svc holds the write grants (SELECT/INSERT/UPDATE/DELETE) on every table
+-- below; agent_svc and readonly hold read-only SELECT grants where noted per table.
+-- locations must precede location_aliases (FK) and bangumi must precede points (FK);
+-- both orderings are preserved below.
+--
+-- Concept-level FKs intentionally not declared (system-health-audit 2026-08-26 §3):
+-- aliases.bangumi_id, catalog_provenance.work_id, cluster_version.bangumi_id, and
+-- itinerary_snapshots.bangumi_id all reference bangumi/points conceptually, but the
+-- ingest pipeline writes these rows out of order and must tolerate transient orphans;
+-- the publish layer, not a DB constraint, is responsible for eventual consistency.
+-- Revisit if a real analytics/join need for enforced integrity appears.
 
 -- Create "aliases" table
 CREATE TABLE public.aliases (
   id uuid NOT NULL DEFAULT uuidv7(),
-  bangumi_id text NOT NULL,
+  bangumi_id text NOT NULL, -- concept-level FK to bangumi.id, not enforced; see file header
   alias text NOT NULL,
   alias_normalized text NOT NULL,
   source text NOT NULL,
@@ -17,7 +24,7 @@ CREATE TABLE public.aliases (
 );
 -- Create index "idx_aliases_normalized" to table: "aliases"
 CREATE INDEX idx_aliases_normalized ON public.aliases (alias_normalized);
-GRANT ALL ON TABLE public.aliases TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.aliases TO catalog_svc;
 GRANT SELECT ON TABLE public.aliases TO readonly;
 
 -- Create "catalog_provenance" table
@@ -25,7 +32,7 @@ CREATE TABLE public.catalog_provenance (
   id uuid NOT NULL DEFAULT uuidv7(),
   scope text NOT NULL,
   entity_id text NOT NULL,
-  work_id text NULL,
+  work_id text NULL, -- concept-level FK to bangumi.id, not enforced; see file header
   source text NOT NULL,
   upstream_id text NULL,
   attribution text NULL,
@@ -38,7 +45,7 @@ CREATE TABLE public.catalog_provenance (
 CREATE INDEX idx_catalog_provenance_work ON public.catalog_provenance (work_id);
 -- Create index "uq_catalog_provenance_scope_entity" to table: "catalog_provenance"
 CREATE UNIQUE INDEX uq_catalog_provenance_scope_entity ON public.catalog_provenance (scope, entity_id);
-GRANT ALL ON TABLE public.catalog_provenance TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.catalog_provenance TO catalog_svc;
 GRANT SELECT ON TABLE public.catalog_provenance TO readonly;
 
 -- Create "catalog_runs" table
@@ -57,13 +64,13 @@ CREATE TABLE public.catalog_runs (
 );
 -- Create index "idx_catalog_runs_status" to table: "catalog_runs"
 CREATE INDEX idx_catalog_runs_status ON public.catalog_runs (status);
-GRANT ALL ON TABLE public.catalog_runs TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.catalog_runs TO catalog_svc;
 GRANT SELECT ON TABLE public.catalog_runs TO readonly;
 
 -- Create "cluster_version" table
 CREATE TABLE public.cluster_version (
   id uuid NOT NULL DEFAULT uuidv7(),
-  bangumi_id text NOT NULL,
+  bangumi_id text NOT NULL, -- concept-level FK to bangumi.id, not enforced; see file header
   version integer NOT NULL,
   is_current boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -74,7 +81,7 @@ CREATE TABLE public.cluster_version (
 CREATE INDEX idx_cluster_version_current ON public.cluster_version (bangumi_id, is_current);
 -- Create index "uq_cluster_version_one_current" to table: "cluster_version"
 CREATE UNIQUE INDEX uq_cluster_version_one_current ON public.cluster_version (bangumi_id) WHERE is_current;
-GRANT ALL ON TABLE public.cluster_version TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.cluster_version TO catalog_svc;
 GRANT SELECT ON TABLE public.cluster_version TO readonly;
 
 -- Create "ingest_jobs" table
@@ -90,12 +97,12 @@ CREATE TABLE public.ingest_jobs (
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (work_id)
 );
-GRANT ALL ON TABLE public.ingest_jobs TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.ingest_jobs TO catalog_svc;
 
 -- Create "itinerary_snapshots" table
 CREATE TABLE public.itinerary_snapshots (
   id uuid NOT NULL DEFAULT uuidv7(),
-  bangumi_id text NOT NULL,
+  bangumi_id text NOT NULL, -- concept-level FK to bangumi.id, not enforced; see file header
   cluster_version integer NOT NULL,
   payload jsonb NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -103,7 +110,7 @@ CREATE TABLE public.itinerary_snapshots (
 );
 -- Create index "idx_itinerary_snapshots_bangumi_version" to table: "itinerary_snapshots"
 CREATE INDEX idx_itinerary_snapshots_bangumi_version ON public.itinerary_snapshots (bangumi_id, cluster_version);
-GRANT ALL ON TABLE public.itinerary_snapshots TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.itinerary_snapshots TO catalog_svc;
 GRANT SELECT ON TABLE public.itinerary_snapshots TO readonly;
 
 -- Create "leg_cache" table
@@ -116,7 +123,7 @@ CREATE TABLE public.leg_cache (
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (from_cluster, to_cluster, mode)
 );
-GRANT ALL ON TABLE public.leg_cache TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.leg_cache TO catalog_svc;
 GRANT SELECT ON TABLE public.leg_cache TO readonly;
 
 -- Create "locations" table
@@ -150,7 +157,7 @@ CREATE TABLE public.media_assets (
   tombstoned boolean NOT NULL DEFAULT false,
   PRIMARY KEY (point_id)
 );
-GRANT ALL ON TABLE public.media_assets TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.media_assets TO catalog_svc;
 GRANT SELECT ON TABLE public.media_assets TO readonly;
 
 -- Create "raw_anitabi" table
@@ -160,7 +167,7 @@ CREATE TABLE public.raw_anitabi (
   fetched_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (work_id)
 );
-GRANT ALL ON TABLE public.raw_anitabi TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.raw_anitabi TO catalog_svc;
 GRANT SELECT ON TABLE public.raw_anitabi TO readonly;
 
 -- Create "raw_bangumi" table
@@ -170,7 +177,7 @@ CREATE TABLE public.raw_bangumi (
   fetched_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (work_id)
 );
-GRANT ALL ON TABLE public.raw_bangumi TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.raw_bangumi TO catalog_svc;
 GRANT SELECT ON TABLE public.raw_bangumi TO readonly;
 
 -- Create "raw_payload_history" table
@@ -185,7 +192,7 @@ CREATE TABLE public.raw_payload_history (
 );
 -- Create index "idx_raw_payload_history_work_source" to table: "raw_payload_history"
 CREATE INDEX idx_raw_payload_history_work_source ON public.raw_payload_history (work_id, source, seq DESC);
-GRANT ALL ON TABLE public.raw_payload_history TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.raw_payload_history TO catalog_svc;
 GRANT SELECT ON TABLE public.raw_payload_history TO readonly;
 GRANT SELECT, USAGE ON SEQUENCE public.raw_payload_history_seq_seq TO catalog_svc;
 
@@ -198,7 +205,7 @@ CREATE TABLE public.series_edges (
 );
 -- Create index "idx_series_edges_to_bangumi" to table: "series_edges"
 CREATE INDEX idx_series_edges_to_bangumi ON public.series_edges (to_bangumi_id);
-GRANT ALL ON TABLE public.series_edges TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.series_edges TO catalog_svc;
 GRANT SELECT ON TABLE public.series_edges TO readonly;
 
 -- Create "location_aliases" table
@@ -240,7 +247,7 @@ CREATE TABLE public.bangumi (
 CREATE TRIGGER trg_bangumi_updated_at
   BEFORE UPDATE ON public.bangumi
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
-GRANT ALL ON TABLE public.bangumi TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.bangumi TO catalog_svc;
 GRANT SELECT ON TABLE public.bangumi TO agent_svc, readonly;
 
 -- Create "points" table
@@ -277,5 +284,5 @@ CREATE TRIGGER trg_points_sync_coordinates
 CREATE TRIGGER trg_points_updated_at
   BEFORE UPDATE ON public.points
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
-GRANT ALL ON TABLE public.points TO catalog_svc;
+GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public.points TO catalog_svc;
 GRANT SELECT ON TABLE public.points TO agent_svc, readonly;

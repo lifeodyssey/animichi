@@ -180,6 +180,10 @@ apply_pulumi_project() {
 
 reset_staging_baseline() {
   [ "$TARGET_ENVIRONMENT" = staging ] || return 0
+  # audit §2.6: this used to fire on every staging foundation promotion regardless of
+  # whether the push touched the schema. Only run it when the route's migration cohort
+  # actually includes `db` — cd.yml sets RESET_STAGING_DB from that output.
+  [ "${RESET_STAGING_DB:-}" = "true" ] || return 0
   bash "$PAYLOAD_DIR/infra/database-access/reset-staging-baseline.sh"
 }
 

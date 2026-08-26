@@ -2,6 +2,12 @@
 -- agent_svc holds the write grants (SELECT/INSERT/UPDATE/DELETE, or SELECT/USAGE on the
 -- sequence) on every object below; jobs_svc and readonly hold read-only grants where
 -- noted per table. sessions must precede messages (FK); the ordering is preserved below.
+--
+-- readonly is intentionally granted on only turn_outbox_events and turn_reservations,
+-- not the other 9 tables (system-health-audit 2026-08-26 §3): sessions, messages,
+-- feedback, request_log, and the agent_memory* tables all carry user-generated content
+-- or PII, and widening SELECT access to them needs a deliberate per-table review, not
+-- a blanket grant. Revisit table-by-table if a real analytics/human-SELECT need shows up.
 
 CREATE SEQUENCE public.agent_memory_versions
     START WITH 0

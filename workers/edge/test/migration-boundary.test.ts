@@ -33,8 +33,14 @@ void test("PR CI validates migrations without applying a live database", () => {
 
 void test("main CD orders migration between foundation and services", () => {
   const cd = read(".github/workflows/cd.yml");
-  assert.match(cd, /stage-migration:[\s\S]*needs: \[route, stage-foundation\]/);
-  assert.match(cd, /stage-services:[\s\S]*needs: \[route, stage-migration\]/);
+  // #1218/audit §2.2: every stage's `needs` lists every earlier stage directly (not just
+  // its immediate predecessor) so a failure two or more stages back can't evaporate into
+  // a `skipped` result on the way to a later stage — see
+  // .github/scripts/test_cd_skip_propagation_contract.rb. The ordering assertion here
+  // checks that stage-foundation still precedes stage-migration, and stage-migration still
+  // precedes stage-services, within each stage's (now longer) needs list.
+  assert.match(cd, /stage-migration:[\s\S]*needs: \[route, build-release-artifacts, stage-foundation\]/);
+  assert.match(cd, /stage-services:[\s\S]*needs: \[route, build-release-artifacts, stage-foundation, stage-migration\]/);
   assert.match(cd, /uses: \.\/\.github\/actions\/promote-release-phase/);
 });
 

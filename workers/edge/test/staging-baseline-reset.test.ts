@@ -46,9 +46,17 @@ void test("baseline contains only the final schema", () => {
 
 void test("baseline closes the catalog runtime grant gap", () => {
   const sql = read("migrations/neon/20260826000003_catalog.sql");
-  assert.match(sql, /GRANT ALL ON TABLE public\.catalog_runs TO catalog_svc/);
-  assert.match(sql, /GRANT ALL ON TABLE public\.raw_payload_history TO catalog_svc/);
+  assert.match(sql, /GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public\.catalog_runs TO catalog_svc/);
+  assert.match(sql, /GRANT SELECT, INSERT, DELETE, UPDATE ON TABLE public\.raw_payload_history TO catalog_svc/);
   assert.match(sql, /GRANT SELECT, USAGE ON SEQUENCE public\.raw_payload_history_seq_seq TO catalog_svc/);
+});
+
+// system-health-audit 2026-08-26 §3: catalog_svc's write grants were `GRANT ALL`
+// (TRUNCATE/REFERENCES/TRIGGER included) on 14/16 catalog tables; locations and
+// location_aliases already used the narrower form. All 16 are now consistent.
+void test("catalog_svc write grants are narrowed to CRUD, never GRANT ALL", () => {
+  const sql = read("migrations/neon/20260826000003_catalog.sql");
+  assert.doesNotMatch(sql, /GRANT ALL ON TABLE/);
 });
 
 void test("staging reset is branch-backed and production-safe", () => {
@@ -61,6 +69,26 @@ void test("staging reset is branch-backed and production-safe", () => {
   assert.match(sh, /staging_psql neondb_owner/);
   assert.match(sh, /neonctl@3\.6\.0/);
   assert.doesNotMatch(sh, /neonctl@latest/);
+});
+
+// audit §2.6: the reset SQL's three statements ran without a transaction wrapper — a
+// mid-script failure could leave the schema dropped but not yet recreated/granted.
+void test("the reset SQL runs as a single transaction", () => {
+  const sh = read("infra/database-access/reset-staging-baseline.sh");
+  assert.match(sh, /staging_psql neondb_owner -1 -v ON_ERROR_STOP=1 -f "\$RESET_SQL"/);
+});
+
+// audit §2.6: the shared reset script fired on every foundation promotion regardless of
+// whether the push touched the schema. It must now be conditioned on the cd.yml-supplied
+// RESET_STAGING_DB flag, itself derived from whether `db` is in the route's migration cohort.
+void test("the reset trigger is narrowed to pushes whose cohort includes db", () => {
+  const promotion = read(".github/scripts/promote-release-unit.sh");
+  assert.match(promotion, /\[ "\$\{RESET_STAGING_DB:-\}" = "true" \] \|\| return 0/);
+  const action = read(".github/actions/promote-release-phase/action.yml");
+  assert.match(action, /reset_staging_db:/);
+  assert.match(action, /RESET_STAGING_DB: \$\{\{ inputs\.reset_staging_db \}\}/);
+  const cd = read(".github/workflows/cd.yml");
+  assert.match(cd, /reset_staging_db: \$\{\{ contains\(fromJSON\(needs\.route\.outputs\.migration\), 'db'\) \}\}/);
 });
 
 void test("reset SQL has one exact destructive target", () => {
@@ -114,7 +142,7 @@ void test("the shipped guard lets a payload without the marker through", () => {
 
 void test("atlas.sum SHA-256 pins the hard-cut payload", () => {
   const sum = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
-  assert.equal(createHash("sha256").update(sum).digest("hex"), "0145e2c1489db593740d9234c62f4f964cb3141949de262e082e7527d9a71960");
+  assert.equal(createHash("sha256").update(sum).digest("hex"), "7dd5869959a9f48600fa833f23363ac0893486ddaf18a5495dec761ef35206c0");
 });
 
 // #1216 — the migrator's own error lived only in the discarded response body, so
@@ -169,4 +197,75 @@ void test("the failure message survives a body larger than the pipe buffer", () 
   assert.equal(reported.status, 1, "a large body must not turn the failure into SIGPIPE");
   assert.match(reported.stdout, /FAILED:migrator returned HTTP 500/);
   assert.ok(reported.stdout.length < 8_000, "the logged body must still be truncated");
+});
+
+// audit §2.6: a failed `staging_psql` call (connection/permission failure) produced the
+// same empty stdout as a successful query answering "false" — both fell through
+// `grep -qx t` to "not applied" and triggered `DROP SCHEMA CASCADE`. These run the shipped
+// `query_bool`/`ledger_exists`/`baseline_applied` functions with a stub `staging_psql`
+// standing in for the real connection, so "cannot confirm" and "confirmed unapplied" are
+// proven to take different paths rather than just asserting the source text says so.
+const resetShellFunction = (name: string): string => {
+  const lines = read("infra/database-access/reset-staging-baseline.sh").split("\n");
+  const at = lines.findIndex((line) => line.startsWith(`${name}() {`));
+  assert.notEqual(at, -1, `${name} must exist in the reset script`);
+  const end = lines.findIndex((line, index) => index > at && line === "}");
+  return lines.slice(at, end + 1).join("\n");
+};
+
+const shippedBaselineCheck = [
+  resetShellFunction("query_bool"),
+  resetShellFunction("ledger_exists"),
+  resetShellFunction("baseline_applied"),
+].join("\n");
+
+const runBaselineApplied = (stagingPsqlBody: string): { status: number | null; stdout: string } => {
+  const source = `set -euo pipefail
+BASELINE_VERSION="20260826000005"
+fail() { echo "FAILED:$*"; exit 1; }
+staging_psql() {
+${stagingPsqlBody}
+}
+${shippedBaselineCheck}
+if baseline_applied; then echo "ALREADY_APPLIED"; else echo "NOT_APPLIED"; fi`;
+  const result = spawnSync("bash", ["-c", source], { encoding: "utf8" });
+  return { status: result.status, stdout: result.stdout };
+};
+
+void test("a psql connection failure refuses the reset instead of treating it as unapplied", () => {
+  const result = runBaselineApplied('echo "connection to server failed" >&2\n  return 2');
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /FAILED:cannot confirm staging state/);
+  assert.doesNotMatch(result.stdout, /NOT_APPLIED|ALREADY_APPLIED/);
+});
+
+// `baseline_applied` calls `staging_psql` twice — once through `ledger_exists` (does the
+// ledger table exist), once for the version check (has this baseline been applied). A
+// call-counter file lets the stub answer each call differently.
+const runBaselineAppliedTwoCalls = (
+  firstAnswer: string,
+  secondAnswer: string,
+): { status: number | null; stdout: string } => {
+  const dir = mkdtempSync(join(tmpdir(), "baseline-check-"));
+  const counter = join(dir, "calls");
+  const stub = `count=0
+[ -f "${counter}" ] && count="$(cat "${counter}")"
+count=$((count + 1))
+echo "$count" > "${counter}"
+if [ "$count" = 1 ]; then echo "${firstAnswer}"; else echo "${secondAnswer}"; fi`;
+  const result = runBaselineApplied(stub);
+  rmSync(dir, { force: true, recursive: true });
+  return result;
+};
+
+void test("a confirmed-unapplied baseline (ledger exists, version query answers f) allows the reset to proceed", () => {
+  const result = runBaselineAppliedTwoCalls("t", "f");
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /NOT_APPLIED/);
+});
+
+void test("a confirmed-applied baseline (ledger exists, version query answers t) skips the reset", () => {
+  const result = runBaselineAppliedTwoCalls("t", "t");
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /ALREADY_APPLIED/);
 });
