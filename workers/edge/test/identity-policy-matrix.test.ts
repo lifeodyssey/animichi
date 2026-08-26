@@ -75,22 +75,18 @@ void test("the identity matrix is closed: an agent class is rejected by the sche
   assert.equal(identityPolicySchema.safeParse(withAgent).success, false, "an accepted agent class would resurrect the deleted identity path");
 });
 
-void test("api_keys exists only as append-only history and is dropped by the newest migration", () => {
+void test("api_keys is absent from the hard-cut baseline", () => {
   const files = readdirSync(MIGRATIONS_DIR).filter((name) => name.endsWith(".sql")).sort();
   const sql = (name: string): string => readFileSync(`${MIGRATIONS_DIR}${name}`, "utf8");
-  const creates = files.filter((name) =>
-    /create\s+table\s+(?:if\s+not\s+exists\s+)?public\.api_keys/i.test(sql(name)));
-  const drops = files.filter((name) =>
-    /drop\s+table(?:\s+if\s+exists)?\s+public\.api_keys/i.test(sql(name)));
-  assert.deepEqual(creates, ["20260809000009_table_api_keys.sql"], "the historical create stays for append-only history");
-  assert.equal(drops.length, 1, "exactly one migration must drop api_keys");
-  const dropName = drops[0] ?? "";
-  assert.ok(files.indexOf(dropName) > files.indexOf("20260809000009_table_api_keys.sql"), "the drop must follow the create");
-  const afterDrop = files.slice(files.indexOf(dropName) + 1);
-  assert.ok(
-    afterDrop.every((name) => !/create\s+table(?:\s+if\s+not\s+exists\s+)?public\.api_keys/i.test(sql(name))),
-    "api_keys must never be restored after its drop — later migrations may follow the drop, but none may recreate the table",
-  );
+  assert.deepEqual(files, [
+    "20260826000000_extensions.sql",
+    "20260826000001_roles.sql",
+    "20260826000002_functions.sql",
+    "20260826000003_catalog.sql",
+    "20260826000004_agent.sql",
+    "20260826000005_users.sql",
+  ]);
+  assert.ok(files.every((name) => !/public\.api_keys/i.test(sql(name))));
 });
 
 void test("anonymous BYOK is never promoted to authenticated (X-User-Type stays anonymous)", async () => {

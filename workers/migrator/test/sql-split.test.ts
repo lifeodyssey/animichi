@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import catalogDaily from "../../../migrations/neon/20260812000000_catalog_daily_run.sql";
-import functionsSql from "../../../migrations/neon/20260809000002_functions.sql";
-import messagesSql from "../../../migrations/neon/20260811000002_table_messages.sql";
-import outboxSql from "../../../migrations/neon/20260814191301_turn_idempotency_outbox.sql";
-import rolesSql from "../../../migrations/neon/20260809000001_roles.sql";
+import rolesSql from "../../../migrations/neon/20260826000001_roles.sql";
+import functionsSql from "../../../migrations/neon/20260826000002_functions.sql";
+import catalogSql from "../../../migrations/neon/20260826000003_catalog.sql";
+import agentSql from "../../../migrations/neon/20260826000004_agent.sql";
 import { mixedTxMode, needsTxNone, splitSql } from "../src/sql-split";
+
+const baselineSql = [rolesSql, functionsSql, catalogSql, agentSql].join("\n");
 
 const FN = "CREATE FUNCTION f() RETURNS void LANGUAGE plpgsql AS $$\nBEGIN\n  PERFORM 1;\nEND;\n$$;";
 const TAGGED = "DO $body$\nBEGIN\n  PERFORM 1;\nEND;\n$body$;";
@@ -63,22 +64,13 @@ describe("splitSql", () => {
 });
 
 describe("splitSql on committed Atlas files", () => {
-  it("keeps functions.sql as two CREATE FUNCTION units", () => {
-    const stmts = splitSql(functionsSql);
-    expect(stmts).toHaveLength(2);
-    expect(stmts[0]).toContain("sync_points_coordinates");
-    expect(stmts[0]).toContain("ST_MakePoint");
-    expect(stmts[1]).toContain("update_updated_at");
-  });
-
-  it("keeps roles.sql DO $$ block as one statement", () => {
-    expect(splitSql(rolesSql)).toHaveLength(1);
-  });
-
-  it("splits pending multi-statement files into one query per command", () => {
-    expect(splitSql(messagesSql)).toHaveLength(5);
-    expect(splitSql(catalogDaily)).toHaveLength(10);
-    expect(splitSql(outboxSql)).toHaveLength(8);
+  it("splits the canonical baseline into executable units", () => {
+    const stmts = splitSql(baselineSql);
+    expect(stmts.filter((stmt) => stmt.includes("CREATE FUNCTION public."))).toHaveLength(2);
+    expect(stmts.some((stmt) => stmt.includes("CREATE ROLE %I NOLOGIN"))).toBe(true);
+    expect(stmts.some((stmt) => stmt.includes("CREATE TABLE public.messages"))).toBe(true);
+    expect(stmts.some((stmt) => stmt.includes("CREATE TABLE public.turn_reservations"))).toBe(true);
+    expect(mixedTxMode(stmts)).toBe(false);
   });
 });
 

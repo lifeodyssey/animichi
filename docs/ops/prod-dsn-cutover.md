@@ -16,7 +16,8 @@
   that staging is being migrated away from (ADR 0003; P4 = #912).
 - **Roles are Neon-project-scoped, not branch-scoped**; GRANTs are branch/schema-scoped and
   shipped as Atlas migrations. The role matrix lives in
-  `migrations/neon/20260809000001_roles.sql` + `20260809000030_grants.sql`:
+  `migrations/neon/20260826000001_roles.sql`, with each role's GRANTs beside the tables they
+  apply to (`20260826000003_catalog.sql` · `…04_agent.sql` · `…05_users.sql`):
   `catalog_svc` · `agent_svc` · `users_svc` · `jobs_svc` · `readonly` (all `NOLOGIN` in Atlas;
   LOGIN state comes from Pulumi `neon.Role`, which also owns the password).
 

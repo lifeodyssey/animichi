@@ -5,6 +5,7 @@ separate so this file stays under the repo's 200-line test-file ceiling.
 """
 
 import hashlib
+import re
 from pathlib import Path
 
 import pytest
@@ -72,19 +73,26 @@ def test_atlas_binary_without_recorded_digest_fails_closed(
 
 
 def _saved_route_anime_sql() -> str:
+    """The migration creating saved_route_anime, located by table not filename.
+
+    Quotes and whitespace are normalised so the assertions below pin the
+    constraints themselves rather than one SQL rendering of them.
+    """
     root = Path(__file__).resolve().parents[6]
-    migration = (
-        root / "migrations" / "neon" / "20260809000027_table_saved_route_anime.sql"
-    )
-    return migration.read_text(encoding="utf-8")
+    for migration in sorted((root / "migrations" / "neon").glob("*.sql")):
+        sql = migration.read_text(encoding="utf-8")
+        if "CREATE TABLE public.saved_route_anime" in sql:
+            return re.sub(r"\s+", " ", sql.replace('"', ""))
+    raise AssertionError("no migration creates public.saved_route_anime")
 
 
 @pytest.mark.parametrize(
     "required",
     [
         "CREATE TABLE public.saved_route_anime",
-        "REFERENCES public.saved_routes(id) ON DELETE CASCADE",
-        "REFERENCES public.bangumi(id)",
+        "FOREIGN KEY (saved_route_id) REFERENCES public.saved_routes (id)"
+        " ON UPDATE NO ACTION ON DELETE CASCADE",
+        "FOREIGN KEY (bangumi_id) REFERENCES public.bangumi (id)",
         "UNIQUE (saved_route_id, position)",
         "idx_saved_route_anime_bangumi",
     ],

@@ -178,9 +178,9 @@ apply_pulumi_project() {
   pulumi_up "$project" "$stack"
 }
 
-grant_staging_migrator_ddl() {
+reset_staging_baseline() {
   [ "$TARGET_ENVIRONMENT" = staging ] || return 0
-  bash "$PAYLOAD_DIR/infra/database-access/grant-migrator-ddl.sh"
+  bash "$PAYLOAD_DIR/infra/database-access/reset-staging-baseline.sh"
 }
 
 deploy_infra() {
@@ -188,7 +188,7 @@ deploy_infra() {
   [ "$TARGET_ENVIRONMENT" = production ] && stack=prod
   setup_infra
   apply_pulumi_project "$PAYLOAD_DIR/infra/database-access" "$stack" database-access
-  grant_staging_migrator_ddl
+  reset_staging_baseline
   apply_pulumi_project "$PAYLOAD_DIR/infra" "$stack" main
 }
 
@@ -230,6 +230,8 @@ migrate_staging() {
 
 migrate_production() {
   required NEON_DATABASE_URL
+  [ ! -f "$PAYLOAD_DIR/migrations/STAGING_ONLY_BASELINE" ] ||
+    fail "staging-only baseline requires a separately approved production cutover"
   local scoped_url="$NEON_DATABASE_URL"
   case "$scoped_url" in *\?*) scoped_url="${scoped_url}&search_path=public" ;; *) scoped_url="${scoped_url}?search_path=public" ;; esac
   atlas migrate validate --dir "file://$PAYLOAD_DIR/migrations"
