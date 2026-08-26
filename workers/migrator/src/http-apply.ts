@@ -15,6 +15,30 @@ import { mixedTxMode, needsTxNone, splitSql } from "./sql-split";
 export const OPERATOR_VERSION = "animichi-http-apply/0.30.0";
 const MIXED_TX = "migration mixes transactional statements with CREATE INDEX CONCURRENTLY";
 
+/**
+ * Atlas creates the ledger on its own first apply; this path reads it before
+ * writing, so a schema with no ledger yet made the first SELECT throw
+ * `relation "public.atlas_schema_revisions" does not exist` and the whole apply
+ * returned HTTP 500 with nothing applied. That was unreachable while staging was
+ * only ever migrated incrementally, and became the normal first state once the
+ * staging baseline reset started dropping and recreating `public` (#1216).
+ * Columns are Atlas v0.30's own, dumped from a database it migrated.
+ */
+const LEDGER_SQL = `CREATE TABLE IF NOT EXISTS public.atlas_schema_revisions (
+  version varchar NOT NULL,
+  description varchar NOT NULL,
+  type bigint NOT NULL DEFAULT 2,
+  applied bigint NOT NULL DEFAULT 0,
+  total bigint NOT NULL DEFAULT 0,
+  executed_at timestamptz NOT NULL,
+  execution_time bigint NOT NULL,
+  error text,
+  error_stmt text,
+  hash varchar NOT NULL,
+  partial_hashes jsonb,
+  operator_version varchar NOT NULL,
+  PRIMARY KEY (version)
+)`;
 const APPLIED_SQL = "SELECT version FROM public.atlas_schema_revisions WHERE applied >= total";
 const UPSERT_SQL = `INSERT INTO public.atlas_schema_revisions (version, description, type, applied, total, executed_at, execution_time, error, error_stmt, hash, operator_version) VALUES ($1, $2, 2, $3, 1, $4, $5, $6, $7, $8, $9) ON CONFLICT (version) DO UPDATE SET applied = EXCLUDED.applied, total = EXCLUDED.total, execution_time = EXCLUDED.execution_time, error = EXCLUDED.error, error_stmt = EXCLUDED.error_stmt, hash = EXCLUDED.hash, operator_version = EXCLUDED.operator_version`;
 
@@ -52,6 +76,7 @@ export async function applyChain(input: ApplyInput): Promise<ContainerOutcome> {
 
 async function applyFiles(input: ApplyInput): Promise<ContainerOutcome> {
   const sql = input.connect(input.dsn);
+  await sql.query(LEDGER_SQL);
   const applied = await loadApplied(sql);
   return applyPending(sql, filesFrom(input.source), applied, input.now);
 }

@@ -153,3 +153,30 @@ describe("bundled chain vs atlas.sum", () => {
     }
   });
 });
+
+// #1216 — a reset `public` schema carries no ledger. This path reads the ledger
+// before it writes one, so the reset turned the first read into
+// `relation "public.atlas_schema_revisions" does not exist` and staging applied
+// nothing behind an HTTP 500 that named no cause.
+describe("ledger bootstrap on a reset schema", () => {
+  it("applies the whole chain when no ledger exists yet", async () => {
+    const db = new FakeSql();
+    expect(db.ledgerExists).toBe(false);
+
+    const outcome = await applyFixture(db);
+
+    expect(outcome).toEqual({ kind: "success", exitCode: 0 });
+    expect(db.units).toEqual([BODY_A, BODY_B]);
+  });
+
+  it("creates the ledger before reading it", async () => {
+    const db = new FakeSql();
+    await applyFixture(db);
+
+    const created = db.statements.findIndex((s) => s.includes("CREATE TABLE IF NOT EXISTS public.atlas_schema_revisions"));
+    const read = db.statements.findIndex((s) => s.includes("SELECT version FROM public.atlas_schema_revisions"));
+
+    expect(created).toBeGreaterThanOrEqual(0);
+    expect(created).toBeLessThan(read);
+  });
+});

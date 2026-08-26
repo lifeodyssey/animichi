@@ -210,13 +210,24 @@ trigger_migrator() {
   code="$(curl -sS -o "$RUNNER_TEMP/migrate.json" -w '%{http_code}' -X POST \
     "$MIGRATOR_URL/migrate" -H "Authorization: Bearer $token" \
     -H 'content-type: application/json' --max-time 900 -d "$body")"
-  [ "$code" = 200 ] || fail "migrator returned HTTP $code"
+  [ "$code" = 200 ] || report_migrator_failure "migrator returned HTTP $code"
 }
 
 verify_migrator_result() {
   local expected="$1"
   jq -e --arg head "$expected" '.success == true and .appliedHead == $head' \
-    "$RUNNER_TEMP/migrate.json" >/dev/null || fail "migrator did not apply sealed head $expected"
+    "$RUNNER_TEMP/migrate.json" >/dev/null \
+    || report_migrator_failure "migrator did not apply sealed head $expected"
+}
+
+# The response body carries the migrator's own error. Discarding it left the
+# staging reset failure reading only "migrator returned HTTP 500" (#1216). This
+# repository is public, so any DSN in that body is redacted before it is logged.
+report_migrator_failure() {
+  echo "migrator response body (credentials redacted):"
+  sed -E 's#://([^:/@[:space:]]+):[^@[:space:]]+@#://\1:***@#g' "$RUNNER_TEMP/migrate.json" | head -c 4000
+  echo
+  fail "$1"
 }
 
 migrate_staging() {
