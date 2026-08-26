@@ -84,14 +84,15 @@ export class FakeSql implements SqlClient {
 
 async function fakeQuery(db: FakeSql, sql: string, params?: SqlParams): Promise<unknown> {
   db.statements.push(sql);
-  if (sql.includes("CREATE TABLE IF NOT EXISTS public.atlas_schema_revisions")) {
-    db.ledgerExists = true;
-    return [];
-  }
+  if (sql.includes("CREATE TABLE IF NOT EXISTS public.atlas_schema_revisions")) return createLedger(db);
   if (!sql.includes("atlas_schema_revisions")) return execUnit(db, sql);
   requireLedger(db);
-  if (sql.includes("SELECT")) return selectApplied(db);
-  return insertRevision(db, params);
+  return sql.includes("SELECT") ? selectApplied(db) : insertRevision(db, params);
+}
+
+function createLedger(db: FakeSql): unknown[] {
+  db.ledgerExists = true;
+  return [];
 }
 
 /** Postgres rejects a read or write of a table that has not been created yet. */

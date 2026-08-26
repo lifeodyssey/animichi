@@ -128,30 +128,45 @@ const shellFunction = (name: string): string => {
   return lines.slice(at, end + 1).join("\n");
 };
 
-const FAILURE_BODY = JSON.stringify({
-  success: false,
-  error: "connect failed for postgresql://migrator:not-a-real-password@ep-x.neon.tech/neondb",
-  detail: 'relation "public.atlas_schema_revisions" does not exist',
-});
+const SECRET = "not-a-real-password";
+const DSN_FORMS: readonly (readonly [string, string])[] = [
+  ["URI user-info", `postgresql://migrator:${SECRET}@ep-x.neon.tech/neondb`],
+  ["a URI parameter", `postgresql://ep-x.neon.tech/neondb?sslmode=require&password=${SECRET}`],
+  ["a keyword/value DSN", `host=ep-x.neon.tech user=migrator password=${SECRET} dbname=neondb`],
+];
 
-const reportFailure = (): { status: number | null; stdout: string } => {
+const reportFailure = (body: string): { status: number | null; stdout: string } => {
   const dir = mkdtempSync(join(tmpdir(), "migrate-body-"));
-  writeFileSync(join(dir, "migrate.json"), FAILURE_BODY);
-  const source = `set -euo pipefail\nfail() { echo "FAILED:$*"; exit 1; }\n${shellFunction("report_migrator_failure")}\nreport_migrator_failure "migrator returned HTTP 500"`;
+  writeFileSync(join(dir, "migrate.json"), body);
+  const shipped = [shellFunction("report_migrator_failure"), shellFunction("redact_dsn_passwords")].join("\n");
+  const source = `set -euo pipefail\nfail() { echo "FAILED:$*"; exit 1; }\n${shipped}\nreport_migrator_failure "migrator returned HTTP 500"`;
   const result = spawnSync("bash", ["-c", source], { encoding: "utf8", env: { ...process.env, RUNNER_TEMP: dir } });
   rmSync(dir, { force: true, recursive: true });
   return { status: result.status, stdout: result.stdout };
 };
 
 void test("a migrator failure logs its response body instead of only the status", () => {
-  const reported = reportFailure();
+  const reported = reportFailure(JSON.stringify({ detail: 'relation "public.atlas_schema_revisions" does not exist' }));
   assert.equal(reported.status, 1);
   assert.match(reported.stdout, /atlas_schema_revisions/);
   assert.match(reported.stdout, /FAILED:migrator returned HTTP 500/);
 });
 
-void test("the logged response body keeps the host but never the password", () => {
-  const reported = reportFailure();
-  assert.doesNotMatch(reported.stdout, /not-a-real-password/);
-  assert.match(reported.stdout, /migrator:\*\*\*@ep-x\.neon\.tech/);
+// PostgreSQL accepts the password three ways and the first version of this
+// redaction covered only the first, so each form is asserted separately.
+for (const [form, dsn] of DSN_FORMS) {
+  void test(`the logged body keeps the host but drops a password given as ${form}`, () => {
+    const reported = reportFailure(JSON.stringify({ error: `connect failed for ${dsn}` }));
+    assert.doesNotMatch(reported.stdout, new RegExp(SECRET));
+    assert.match(reported.stdout, /ep-x\.neon\.tech/);
+  });
+}
+
+// Past the 64 KiB pipe buffer `| head -c` exits first, the redactor dies on
+// SIGPIPE, and `set -e` takes the function down before `fail` reports anything.
+void test("the failure message survives a body larger than the pipe buffer", () => {
+  const reported = reportFailure(JSON.stringify({ error: `boom ${"x".repeat(200_000)}` }));
+  assert.equal(reported.status, 1, "a large body must not turn the failure into SIGPIPE");
+  assert.match(reported.stdout, /FAILED:migrator returned HTTP 500/);
+  assert.ok(reported.stdout.length < 8_000, "the logged body must still be truncated");
 });
