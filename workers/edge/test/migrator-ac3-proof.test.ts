@@ -43,9 +43,16 @@ function readMigrations(): { name: string; body: string }[] {
 
 const chain = readMigrations();
 
-void test("Atlas owns one timestamped canonical baseline", () => {
+void test("Atlas owns the timestamped canonical baseline chain", () => {
   const names = chain.map((m) => m.name);
-  assert.deepEqual(names, ["20260826000000_baseline.sql"]);
+  assert.deepEqual(names, [
+    "20260826000000_extensions.sql",
+    "20260826000001_roles.sql",
+    "20260826000002_functions.sql",
+    "20260826000003_catalog.sql",
+    "20260826000004_agent.sql",
+    "20260826000005_users.sql",
+  ]);
   const sum = readFileSync(MIGRATIONS + "atlas.sum", "utf8");
   assert.ok(sum.length > 0, "atlas.sum must exist");
   for (const name of names) {
@@ -69,9 +76,13 @@ void test("no migration mutates a runtime role (DROP ROLE / REASSIGN / ALTER ROL
 
 void test("every runtime role is created and granted BY the chain", () => {
   const baseline = chain.map((m) => m.body).join("\n");
-  assert.match(baseline, /CREATE ROLE/i, "baseline must declare service roles");
+  assert.match(
+    baseline,
+    /EXECUTE format\('CREATE ROLE %I NOLOGIN', role_name\)/i,
+    "baseline must declare service roles via the role-creation loop",
+  );
   for (const role of RUNTIME_ROLES) {
-    assert.match(baseline, new RegExp("CREATE ROLE " + role + "\\b", "i"), "baseline must create " + role);
+    assert.match(baseline, new RegExp("'" + role + "'"), "baseline must list " + role + " in the role-creation loop");
     assert.match(baseline, new RegExp("TO " + role + "\\b", "i"), "baseline must grant to " + role);
   }
   for (const role of RUNTIME_ROLES) {

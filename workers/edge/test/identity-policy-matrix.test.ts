@@ -78,7 +78,14 @@ void test("the identity matrix is closed: an agent class is rejected by the sche
 void test("api_keys is absent from the hard-cut baseline", () => {
   const files = readdirSync(MIGRATIONS_DIR).filter((name) => name.endsWith(".sql")).sort();
   const sql = (name: string): string => readFileSync(`${MIGRATIONS_DIR}${name}`, "utf8");
-  assert.deepEqual(files, ["20260826000000_baseline.sql"]);
+  assert.deepEqual(files, [
+    "20260826000000_extensions.sql",
+    "20260826000001_roles.sql",
+    "20260826000002_functions.sql",
+    "20260826000003_catalog.sql",
+    "20260826000004_agent.sql",
+    "20260826000005_users.sql",
+  ]);
   assert.ok(files.every((name) => !/public\.api_keys/i.test(sql(name))));
 });
 

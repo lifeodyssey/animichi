@@ -6,25 +6,36 @@ import { URL, fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (path: string): string => readFileSync(`${ROOT}${path}`, "utf8");
-const BASELINE = "20260826000000_baseline.sql";
+const BASELINE_FILES = [
+  "20260826000000_extensions.sql",
+  "20260826000001_roles.sql",
+  "20260826000002_functions.sql",
+  "20260826000003_catalog.sql",
+  "20260826000004_agent.sql",
+  "20260826000005_users.sql",
+];
+const baselineSql = (): string => BASELINE_FILES.map((name) => read(`migrations/neon/${name}`)).join("\n");
 
-void test("Neon history is one canonical baseline", () => {
+void test("Neon history is the six canonical baseline files, applied in dependency order", () => {
   const files = readdirSync(`${ROOT}migrations/neon`).filter((name) => name.endsWith(".sql"));
-  assert.deepEqual(files, [BASELINE]);
-  assert.match(read("migrations/neon/atlas.sum"), new RegExp(`^${BASELINE} h1:`, "m"));
+  assert.deepEqual(files.sort(), [...BASELINE_FILES].sort());
+  const sum = read("migrations/neon/atlas.sum");
+  for (const name of BASELINE_FILES) {
+    assert.match(sum, new RegExp(`^${name} h1:`, "m"));
+  }
 });
 
 void test("baseline contains only the final schema", () => {
-  const sql = read(`migrations/neon/${BASELINE}`);
+  const sql = baselineSql();
   assert.doesNotMatch(sql, /public\.api_keys/i);
-  assert.match(sql, /CREATE TABLE "public"\."turn_reservations"/);
-  assert.match(sql, /"request_digest" text NULL/);
-  assert.match(sql, /"outcome_payload" jsonb NULL/);
+  assert.match(sql, /CREATE TABLE public\.turn_reservations/);
+  assert.match(sql, /request_digest text NULL/);
+  assert.match(sql, /outcome_payload jsonb NULL/);
   assert.doesNotMatch(sql, /ALTER TABLE public\.turn_reservations/i);
 });
 
 void test("baseline closes the catalog runtime grant gap", () => {
-  const sql = read(`migrations/neon/${BASELINE}`);
+  const sql = read("migrations/neon/20260826000003_catalog.sql");
   assert.match(sql, /GRANT ALL ON TABLE public\.catalog_runs TO catalog_svc/);
   assert.match(sql, /GRANT ALL ON TABLE public\.raw_payload_history TO catalog_svc/);
   assert.match(sql, /GRANT SELECT, USAGE ON SEQUENCE public\.raw_payload_history_seq_seq TO catalog_svc/);
@@ -61,5 +72,5 @@ void test("CD resets only staging and blocks production baseline SQL", () => {
 
 void test("atlas.sum SHA-256 pins the hard-cut payload", () => {
   const sum = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
-  assert.equal(createHash("sha256").update(sum).digest("hex"), "08a65b2155484cc56ff905b8116eb758ecc333e73a3ab35313948ac14a977fe4");
+  assert.equal(createHash("sha256").update(sum).digest("hex"), "0145e2c1489db593740d9234c62f4f964cb3141949de262e082e7527d9a71960");
 });

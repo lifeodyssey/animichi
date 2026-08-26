@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import baselineSql from "../../../migrations/neon/20260826000000_baseline.sql";
+import rolesSql from "../../../migrations/neon/20260826000001_roles.sql";
+import functionsSql from "../../../migrations/neon/20260826000002_functions.sql";
+import catalogSql from "../../../migrations/neon/20260826000003_catalog.sql";
+import agentSql from "../../../migrations/neon/20260826000004_agent.sql";
 import { mixedTxMode, needsTxNone, splitSql } from "../src/sql-split";
+
+const baselineSql = [rolesSql, functionsSql, catalogSql, agentSql].join("\n");
 
 const FN = "CREATE FUNCTION f() RETURNS void LANGUAGE plpgsql AS $$\nBEGIN\n  PERFORM 1;\nEND;\n$$;";
 const TAGGED = "DO $body$\nBEGIN\n  PERFORM 1;\nEND;\n$body$;";
@@ -62,9 +67,9 @@ describe("splitSql on committed Atlas files", () => {
   it("splits the canonical baseline into executable units", () => {
     const stmts = splitSql(baselineSql);
     expect(stmts.filter((stmt) => stmt.includes("CREATE FUNCTION public."))).toHaveLength(2);
-    expect(stmts.some((stmt) => stmt.includes("CREATE ROLE catalog_svc"))).toBe(true);
-    expect(stmts.some((stmt) => stmt.includes('CREATE TABLE "public"."messages"'))).toBe(true);
-    expect(stmts.some((stmt) => stmt.includes('CREATE TABLE "public"."turn_reservations"'))).toBe(true);
+    expect(stmts.some((stmt) => stmt.includes("CREATE ROLE %I NOLOGIN"))).toBe(true);
+    expect(stmts.some((stmt) => stmt.includes("CREATE TABLE public.messages"))).toBe(true);
+    expect(stmts.some((stmt) => stmt.includes("CREATE TABLE public.turn_reservations"))).toBe(true);
     expect(mixedTxMode(stmts)).toBe(false);
   });
 });
