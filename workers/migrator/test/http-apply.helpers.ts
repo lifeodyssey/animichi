@@ -51,6 +51,13 @@ export class FakeSql implements SqlClient {
   readonly statements: string[] = [];
   readonly transactions: string[][] = [];
   readonly revisions: RevisionInsert[] = [];
+  /**
+   * Starts absent, exactly as a freshly reset `public` schema does. This double
+   * used to answer the ledger SELECT with `[]` whether or not the table existed,
+   * which is why every test stayed green through the HTTP 500 that a reset
+   * staging database actually produced (#1216).
+   */
+  ledgerExists = false;
   failBody: string | undefined;
   gate: Promise<void> | undefined;
   gateBody: string | undefined;
@@ -77,9 +84,21 @@ export class FakeSql implements SqlClient {
 
 async function fakeQuery(db: FakeSql, sql: string, params?: SqlParams): Promise<unknown> {
   db.statements.push(sql);
-  if (sql.includes("SELECT") && sql.includes("atlas_schema_revisions")) return selectApplied(db);
-  if (sql.includes("INSERT") && sql.includes("atlas_schema_revisions")) return insertRevision(db, params);
-  return execUnit(db, sql);
+  if (sql.includes("CREATE TABLE IF NOT EXISTS public.atlas_schema_revisions")) return createLedger(db);
+  if (!sql.includes("atlas_schema_revisions")) return execUnit(db, sql);
+  requireLedger(db);
+  return sql.includes("SELECT") ? selectApplied(db) : insertRevision(db, params);
+}
+
+function createLedger(db: FakeSql): unknown[] {
+  db.ledgerExists = true;
+  return [];
+}
+
+/** Postgres rejects a read or write of a table that has not been created yet. */
+function requireLedger(db: FakeSql): void {
+  if (db.ledgerExists) return;
+  throw new Error('relation "public.atlas_schema_revisions" does not exist');
 }
 
 async function fakeTx(db: FakeSql, statements: readonly string[]): Promise<unknown> {

@@ -116,3 +116,57 @@ void test("atlas.sum SHA-256 pins the hard-cut payload", () => {
   const sum = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
   assert.equal(createHash("sha256").update(sum).digest("hex"), "0145e2c1489db593740d9234c62f4f964cb3141949de262e082e7527d9a71960");
 });
+
+// #1216 — the migrator's own error lived only in the discarded response body, so
+// a reset staging database failed as a bare "HTTP 500". This repository is
+// public: the body is logged, and any DSN in it must lose its password first.
+const shellFunction = (name: string): string => {
+  const lines = read(".github/scripts/promote-release-unit.sh").split("\n");
+  const at = lines.findIndex((line) => line.startsWith(`${name}() {`));
+  assert.notEqual(at, -1, `${name} must exist in the promotion script`);
+  const end = lines.findIndex((line, index) => index > at && line === "}");
+  return lines.slice(at, end + 1).join("\n");
+};
+
+const SECRET = "not-a-real-password";
+const DSN_FORMS: readonly (readonly [string, string])[] = [
+  ["URI user-info", `postgresql://migrator:${SECRET}@ep-x.neon.tech/neondb`],
+  ["a URI parameter", `postgresql://ep-x.neon.tech/neondb?sslmode=require&password=${SECRET}`],
+  ["a keyword/value DSN", `host=ep-x.neon.tech user=migrator password=${SECRET} dbname=neondb`],
+];
+
+const reportFailure = (body: string): { status: number | null; stdout: string } => {
+  const dir = mkdtempSync(join(tmpdir(), "migrate-body-"));
+  writeFileSync(join(dir, "migrate.json"), body);
+  const shipped = [shellFunction("report_migrator_failure"), shellFunction("redact_dsn_passwords")].join("\n");
+  const source = `set -euo pipefail\nfail() { echo "FAILED:$*"; exit 1; }\n${shipped}\nreport_migrator_failure "migrator returned HTTP 500"`;
+  const result = spawnSync("bash", ["-c", source], { encoding: "utf8", env: { ...process.env, RUNNER_TEMP: dir } });
+  rmSync(dir, { force: true, recursive: true });
+  return { status: result.status, stdout: result.stdout };
+};
+
+void test("a migrator failure logs its response body instead of only the status", () => {
+  const reported = reportFailure(JSON.stringify({ detail: 'relation "public.atlas_schema_revisions" does not exist' }));
+  assert.equal(reported.status, 1);
+  assert.match(reported.stdout, /atlas_schema_revisions/);
+  assert.match(reported.stdout, /FAILED:migrator returned HTTP 500/);
+});
+
+// PostgreSQL accepts the password three ways and the first version of this
+// redaction covered only the first, so each form is asserted separately.
+for (const [form, dsn] of DSN_FORMS) {
+  void test(`the logged body keeps the host but drops a password given as ${form}`, () => {
+    const reported = reportFailure(JSON.stringify({ error: `connect failed for ${dsn}` }));
+    assert.doesNotMatch(reported.stdout, new RegExp(SECRET));
+    assert.match(reported.stdout, /ep-x\.neon\.tech/);
+  });
+}
+
+// Past the 64 KiB pipe buffer `| head -c` exits first, the redactor dies on
+// SIGPIPE, and `set -e` takes the function down before `fail` reports anything.
+void test("the failure message survives a body larger than the pipe buffer", () => {
+  const reported = reportFailure(JSON.stringify({ error: `boom ${"x".repeat(200_000)}` }));
+  assert.equal(reported.status, 1, "a large body must not turn the failure into SIGPIPE");
+  assert.match(reported.stdout, /FAILED:migrator returned HTTP 500/);
+  assert.ok(reported.stdout.length < 8_000, "the logged body must still be truncated");
+});

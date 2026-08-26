@@ -210,13 +210,39 @@ trigger_migrator() {
   code="$(curl -sS -o "$RUNNER_TEMP/migrate.json" -w '%{http_code}' -X POST \
     "$MIGRATOR_URL/migrate" -H "Authorization: Bearer $token" \
     -H 'content-type: application/json' --max-time 900 -d "$body")"
-  [ "$code" = 200 ] || fail "migrator returned HTTP $code"
+  [ "$code" = 200 ] || report_migrator_failure "migrator returned HTTP $code"
 }
 
 verify_migrator_result() {
   local expected="$1"
   jq -e --arg head "$expected" '.success == true and .appliedHead == $head' \
-    "$RUNNER_TEMP/migrate.json" >/dev/null || fail "migrator did not apply sealed head $expected"
+    "$RUNNER_TEMP/migrate.json" >/dev/null \
+    || report_migrator_failure "migrator did not apply sealed head $expected"
+}
+
+# The response body carries the migrator's own error. Discarding it left the
+# staging reset failure reading only "migrator returned HTTP 500" (#1216). This
+# repository is public, so any DSN in that body is redacted before it is logged.
+# Truncation is a substring, not `| head -c`: past the 64 KiB pipe buffer head
+# exits first, sed dies on SIGPIPE, and `set -e` takes the function down before
+# `fail` reports anything — losing the message on exactly the large bodies that
+# most needed it.
+report_migrator_failure() {
+  local body
+  body="$(redact_dsn_passwords "$RUNNER_TEMP/migrate.json")"
+  echo "migrator response body (credentials redacted):"
+  echo "${body:0:4000}"
+  fail "$1"
+}
+
+# PostgreSQL carries the password in URI user-info (`//user:pw@host`), in a URI
+# parameter (`?password=pw`), and in keyword/value DSNs (`password=pw`). The last
+# two share one rule. Written for BSD and GNU sed alike: no `\b`, no `I` flag.
+redact_dsn_passwords() {
+  sed -E \
+    -e 's#://([^:/@[:space:]]+):[^@[:space:]]+@#://\1:***@#g' \
+    -e 's#([Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][[:space:]]*=[[:space:]]*)[^[:space:]&"]+#\1***#g' \
+    "$1"
 }
 
 migrate_staging() {
