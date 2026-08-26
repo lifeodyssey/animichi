@@ -230,7 +230,8 @@ migrate_staging() {
 
 migrate_production() {
   required NEON_DATABASE_URL
-  [ ! -f "$PAYLOAD_DIR/migrations/STAGING_ONLY_BASELINE" ] || +    fail "staging-only baseline requires a separately approved production cutover"
+  [ ! -f "$PAYLOAD_DIR/migrations/STAGING_ONLY_BASELINE" ] ||
+    fail "staging-only baseline requires a separately approved production cutover"
   local scoped_url="$NEON_DATABASE_URL"
   case "$scoped_url" in *\?*) scoped_url="${scoped_url}&search_path=public" ;; *) scoped_url="${scoped_url}?search_path=public" ;; esac
   atlas migrate validate --dir "file://$PAYLOAD_DIR/migrations"

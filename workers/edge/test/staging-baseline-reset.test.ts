@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import { URL, fileURLToPath } from "node:url";
 
@@ -68,6 +78,38 @@ void test("CD resets only staging and blocks production baseline SQL", () => {
   assert.match(promotion, /reset-staging-baseline\.sh/);
   assert.match(promotion, /STAGING_ONLY_BASELINE/);
   assert.match(promotion, /staging-only baseline requires a separately approved production cutover/);
+});
+
+// The assertions above only prove the message is present in the file. A stray
+// `+` shipped on this branch left them all green while turning the guard into
+// `+: command not found`, so these run the shipped lines against a real payload.
+const productionGuard = (): string => {
+  const lines = read(".github/scripts/promote-release-unit.sh").split("\n");
+  const at = lines.findIndex((line) => line.includes('migrations/STAGING_ONLY_BASELINE"'));
+  assert.notEqual(at, -1, "promotion script must guard on the staging-only marker");
+  return lines.slice(at, at + 2).join("\n");
+};
+
+const runProductionGuard = (marked: boolean): { status: number | null; stdout: string } => {
+  const payload = mkdtempSync(join(tmpdir(), "promote-guard-"));
+  mkdirSync(join(payload, "migrations"), { recursive: true });
+  if (marked) writeFileSync(join(payload, "migrations", "STAGING_ONLY_BASELINE"), "");
+  const source = `set -euo pipefail\nfail() { echo "BLOCKED:$*"; exit 1; }\n${productionGuard()}\necho PROCEEDED`;
+  const result = spawnSync("bash", ["-c", source], { encoding: "utf8", env: { ...process.env, PAYLOAD_DIR: payload } });
+  rmSync(payload, { force: true, recursive: true });
+  return { status: result.status, stdout: result.stdout };
+};
+
+void test("the shipped guard blocks production when the staging-only marker is present", () => {
+  const blocked = runProductionGuard(true);
+  assert.equal(blocked.status, 1, "guard must exit 1 through fail, not a shell error");
+  assert.match(blocked.stdout, /BLOCKED:staging-only baseline requires a separately approved production cutover/);
+});
+
+void test("the shipped guard lets a payload without the marker through", () => {
+  const allowed = runProductionGuard(false);
+  assert.equal(allowed.status, 0);
+  assert.match(allowed.stdout, /PROCEEDED/);
 });
 
 void test("atlas.sum SHA-256 pins the hard-cut payload", () => {

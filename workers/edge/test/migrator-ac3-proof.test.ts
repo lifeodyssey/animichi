@@ -24,7 +24,7 @@ const MIGRATIONS = ROOT + "migrations/neon/";
 // surface, so the data-plane runtime roles asserted here are the four that
 // own the catalog/users/agent plane; the jobs maintenance role stays confined
 // to its SAFE-1-pinned production declarations.
-const RUNTIME_ROLES = ["catalog_svc", "users_svc", "agent_svc", "readonly"];
+const RUNTIME_ROLES = ["catalog_svc", "users_svc", "agent_svc", "jobs_svc", "readonly"];
 
 // Extracted so the mutation scan below stays within the 1-10-50 depth budget.
 function mutatedRuntimeRole(windowText: string): string | null {
