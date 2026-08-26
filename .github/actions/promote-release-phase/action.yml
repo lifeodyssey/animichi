@@ -34,6 +34,13 @@ inputs:
   neon_api_key:
     description: Neon provisioning key, supplied only to foundation.
     required: false
+  reset_staging_db:
+    description: >-
+      Reset the staging DB baseline this run, supplied only to foundation. Narrows the
+      shared reset script (docs/specs/2026-08-26-system-health-audit.md §2.6) to pushes
+      whose cohort actually includes the db unit — only stage-foundation ever sets this.
+    required: false
+    default: "false"
   migrator_url:
     description: Environment-scoped staging migrator endpoint.
     required: false
@@ -128,6 +135,7 @@ runs:
         R2_ACCESS_KEY_ID: ${{ inputs.r2_access_key_id }}
         R2_SECRET_ACCESS_KEY: ${{ inputs.r2_secret_access_key }}
         NEON_API_KEY: ${{ inputs.neon_api_key }}
+        RESET_STAGING_DB: ${{ inputs.reset_staging_db }}
       run: |
         set -euo pipefail
         jq -r '.[]' <<< "$RELEASE_UNITS" | while IFS= read -r unit; do

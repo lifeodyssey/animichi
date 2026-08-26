@@ -75,6 +75,17 @@ jobs:
           unit: ${{ matrix.unit }}
           source_sha: ${{ github.sha }}
 
+  # Skip-propagation invariant (docs/specs/2026-08-26-system-health-audit.md §2.2,
+  # `cd.yml:79-107,226-227` at audit time): `!failure()`/`!cancelled()` only inspect the
+  # jobs literally present in `needs`. When a stage's own `if` evaluates false — because
+  # its direct predecessor genuinely failed — that stage's own result is `skipped`, not
+  # `failure`, so a naive "needs just the previous stage" chain loses the failure at the
+  # very next hop and the stage after that runs clean. Every stage below therefore lists
+  # every earlier stage directly in `needs`, so a real failure anywhere in the chain is
+  # visible to `failure()` at every later stage, not only the one right after it. A stage
+  # skipped because its own cohort was empty (`route.outputs.<domain> == '[]'`) still has
+  # result `skipped` and does not trip `failure()` — that is the legitimate, non-blocking
+  # skip this chain must keep allowing. Contract: .github/scripts/test_cd_skip_propagation_contract.rb.
   stage-foundation:
     needs: [route, build-release-artifacts]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.foundation != '[]' }}
@@ -101,9 +112,13 @@ jobs:
           r2_access_key_id: ${{ secrets.R2_ACCESS_KEY_ID }}
           r2_secret_access_key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           neon_api_key: ${{ secrets.NEON_API_KEY }}
+          # #1216/audit §2.6: the shared reset script fired on every foundation promotion
+          # regardless of whether this push touched the schema at all. Narrow the trigger
+          # to pushes whose cohort actually includes the `db` unit.
+          reset_staging_db: ${{ contains(fromJSON(needs.route.outputs.migration), 'db') }}
 
   stage-migration:
-    needs: [route, stage-foundation]
+    needs: [route, build-release-artifacts, stage-foundation]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.migration != '[]' }}
     runs-on: ubuntu-latest
     environment: staging
@@ -127,7 +142,7 @@ jobs:
           migrator_url: ${{ vars.MIGRATOR_STAGING_URL }}
 
   stage-services:
-    needs: [route, stage-migration]
+    needs: [route, build-release-artifacts, stage-foundation, stage-migration]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.services != '[]' }}
     runs-on: ubuntu-latest
     environment: staging
@@ -149,7 +164,7 @@ jobs:
           cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   stage-edge:
-    needs: [route, stage-services]
+    needs: [route, build-release-artifacts, stage-foundation, stage-migration, stage-services]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.edge != '[]' }}
     runs-on: ubuntu-latest
     environment: staging
@@ -179,7 +194,7 @@ jobs:
           anon_id_secret: ${{ secrets.ANON_ID_SECRET }}
 
   stage-web:
-    needs: [route, stage-edge]
+    needs: [route, build-release-artifacts, stage-foundation, stage-migration, stage-services, stage-edge]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.web != '[]' }}
     runs-on: ubuntu-latest
     environment: staging
@@ -210,7 +225,7 @@ jobs:
 
   post-staging:
     name: Verify staging cohort identity
-    needs: [route, stage-web]
+    needs: [route, build-release-artifacts, stage-foundation, stage-migration, stage-services, stage-edge, stage-web]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.has_deployments == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -220,10 +235,19 @@ jobs:
           SOURCE_SHA: ${{ github.sha }}
           DEPLOY_UNITS: ${{ needs.route.outputs.deploy_units }}
         run: echo "staging cohort source=$SOURCE_SHA units=$DEPLOY_UNITS"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # #1198 park lifted by owner decision (docs/specs/2026-08-26-system-health-audit.md
+      # §6.3/§7 W4): byte-level verification of the release payload was strict while
+      # whether staging could actually serve a request was never checked at all. This is
+      # the gate that stands between a broken staging deploy and promote-production.
+      - name: Smoke-check the staging cohort
+        run: bash .github/scripts/staging-smoke-check.sh https://staging.animichi.com
 
   promote-production:
     name: Promote the staging cohort
-    needs: [route, post-staging]
+    needs: [route, build-release-artifacts, stage-foundation, stage-migration, stage-services, stage-edge, stage-web, post-staging]
     if: ${{ !failure() && !cancelled() && needs.route.outputs.has_deployments == 'true' }}
     runs-on: ubuntu-latest
     environment: production

@@ -61,7 +61,7 @@ end
 stage_inputs = {
   "stage-foundation" => %w[
     cloudflare_pulumi_api_token cloudflare_account_id pulumi_config_passphrase
-    pulumi_backend_url r2_access_key_id r2_secret_access_key neon_api_key
+    pulumi_backend_url r2_access_key_id r2_secret_access_key neon_api_key reset_staging_db
   ],
   "stage-migration" => %w[cloudflare_api_token cloudflare_account_id migrator_url],
   "stage-services" => %w[cloudflare_api_token cloudflare_account_id],
@@ -161,7 +161,14 @@ abort "production schema must use sealed Atlas migrations" unless adapter_source
 abort "infra must snapshot rollback state before Pulumi" unless adapter_source.index("pulumi stack export") < adapter_source.index("pulumi up")
 abort "infra must upload its rollback state before Pulumi" unless adapter_source.index("aws s3 cp") < adapter_source.index("pulumi up")
 abort "infra must fail closed without a rollback snapshot" unless adapter_source.include?("empty Pulumi rollback snapshot")
-abort "parked smoke must not return" if cd_source.match?(/post-deploy-test|smoke/i) || promote_source.match?(/post-deploy-test|smoke/i)
+# #1198's park guard used to abort if "smoke" ever reappeared in cd.yml. Owner decision
+# 2026-08-26 (docs/specs/2026-08-26-system-health-audit.md §6.3/§7 W4) lifted that park:
+# staging deploys were verified only by exit code, never by an actual request, and that gap
+# is exactly what let a broken staging deploy reach promote-production undetected. The
+# guard now asserts the opposite — post-staging must actually run the smoke check, not
+# merely echo a cohort id.
+abort "post-staging must run the staging smoke check (park #1198 lifted 2026-08-26)" \
+  unless jobs.fetch("post-staging").fetch("steps").any? { |step| step["run"].to_s.include?("staging-smoke-check.sh") }
 abort "reusable build workflow must be deleted" if File.exist?(".github/workflows/reusable-build-release-unit.yml")
 abort "reusable promotion workflow must be deleted" if File.exist?(".github/workflows/reusable-promote-release-phase.yml")
 

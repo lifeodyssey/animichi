@@ -10,8 +10,10 @@ BACKUP_NAME="staging-before-${BASELINE_VERSION}-baseline"
 PROJECT_ID=""
 BRANCH_ID=""
 
+fail() { echo "$*" >&2; exit 1; }
+
 required() {
-  [[ -n "${!1:-}" ]] || { echo "$1 is required" >&2; exit 1; }
+  [[ -n "${!1:-}" ]] || fail "$1 is required"
 }
 
 yaml_value() {
@@ -35,15 +37,26 @@ staging_psql() {
     --role-name "$role" --database-name neondb -- "$@"
 }
 
+# audit §2.6: a failed psql connection or a permission error previously produced the same
+# empty stdout as a successful query answering "false" — both fell through `grep -qx t` to
+# "not applied" and triggered `DROP SCHEMA CASCADE`. Capture staging_psql's own exit status
+# so "cannot confirm" (fail closed, refuse the reset) is distinguishable from "confirmed
+# unapplied" (the query itself ran and returned f).
+query_bool() {
+  local output
+  output="$(staging_psql migrator -tAc "$1" 2>&1)" || fail "cannot confirm staging state: $output"
+  # Success-path match stays line-based (`grep -qx`): stderr is folded into $output for
+  # the failure message above, so an incidental psql NOTICE must not defeat a real `t`.
+  grep -qx t <<<"$output"
+}
+
 ledger_exists() {
-  staging_psql migrator -tAc \
-    "SELECT to_regclass('public.atlas_schema_revisions') IS NOT NULL" | grep -qx t
+  query_bool "SELECT to_regclass('public.atlas_schema_revisions') IS NOT NULL"
 }
 
 baseline_applied() {
   ledger_exists || return 1
-  staging_psql migrator -tAc \
-    "SELECT EXISTS (SELECT 1 FROM public.atlas_schema_revisions WHERE version = '$BASELINE_VERSION' AND applied >= total)" | grep -qx t
+  query_bool "SELECT EXISTS (SELECT 1 FROM public.atlas_schema_revisions WHERE version = '$BASELINE_VERSION' AND applied >= total)"
 }
 
 backup_exists() {
@@ -58,7 +71,9 @@ ensure_backup() {
 }
 
 reset_schema() {
-  staging_psql neondb_owner -v ON_ERROR_STOP=1 -f "$RESET_SQL"
+  # -1: run the reset SQL's three statements as a single transaction (audit §2.6) — a
+  # mid-script failure must not leave the schema dropped but not yet recreated/granted.
+  staging_psql neondb_owner -1 -v ON_ERROR_STOP=1 -f "$RESET_SQL"
 }
 
 main() {
