@@ -108,7 +108,10 @@ web_env = production_steps.fetch("Promote production web payload").fetch("env")
 forbidden_web = web_env.keys.grep(/NEON_DATABASE_URL|PULUMI|R2_|NEON_API_KEY/)
 abort "web promotion must not inherit control-plane or database secrets" unless forbidden_web.empty?
 source = cd_source
-abort "production must reuse main-SHA artifacts" unless source.include?("release-${{ github.sha }}-")
+# The cohort is now fetched by unit name through one shared script rather than by
+# glob: `actions/download-artifact` only creates per-artifact directories when more
+# than one matches, so a single-unit cohort landed at a path the adapter never read.
+abort "production must reuse main-SHA artifacts" unless source.include?("SOURCE_SHA: ${{ github.sha }}")
 abort "production must use the common no-rebuild adapter" unless production.fetch("steps").any? { |step| step["run"].to_s.include?("promote-release-unit.sh") }
 abort "production must not rebuild" if production.fetch("steps").any? { |step| step.fetch("name", "").match?(/build/i) }
 abort "staging phases must be single jobs, not parallel matrices" if promote_source.include?("matrix:")

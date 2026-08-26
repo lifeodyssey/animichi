@@ -25,6 +25,8 @@ exemptions:
     reason: "cloud: Semgrep registry (p/python, p/typescript, p/javascript)"
   - id: cmd:uvx zizmor@$ZIZMOR_VERSION --cache-dir ~/.cache/zizmor .
     reason: "secrets: GH_TOKEN — zizmor impostor-commit GitHub API audit"
+  - id: script:.github/scripts/download-release-cohort.sh
+    reason: "deploy: main-SHA release artifacts — CD-only cohort materialisation via the artifact API"
   - id: script:.github/scripts/cd-cohort-plan.py
     reason: "deploy: main-push release routing — CD-only affected cohort"
   - id: script:.github/scripts/change-plan.py

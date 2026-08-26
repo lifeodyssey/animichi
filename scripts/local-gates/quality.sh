@@ -96,6 +96,9 @@ run bash "$GS/check-actions-pinned.sh"
 run bash "$GS/check-web-runtime-config-payloads.test.sh"
 run bash "$GS/check-web-runtime-config-payloads.sh"
 run bash "$GS/check-edge-ratelimit-namespace.test.sh"
+# The script itself needs the artifact API and is exempted from parity; its
+# layout contract is pure and runs here with a `gh` stub.
+run bash "$GS/download-release-cohort.test.sh"
 run ruby "$GS/test_ci_contract.rb"
 run ruby "$GS/test_cd_worker_promotion_contract.rb"
 run ruby "$GS/test_cd_infrastructure_safety_contract.rb"
@@ -125,6 +128,7 @@ run python3 "$GS/test_dependabot_config.py"
 run uv run --script --locked --no-build "$GS/test_config_read_sets.py"
 run shellcheck "$GS/security-aggregate.sh" "$GS/security-aggregate.test.sh"
 run shellcheck "$GS/sync-edge-runtime-secrets.sh" "$GS/promote-release-unit.sh"
+run shellcheck "$GS/download-release-cohort.sh" "$GS/download-release-cohort.test.sh"
 run bash -c 'cd .github/scripts && shellcheck -x pr-verification-aggregate.sh pr-verification-gate.sh pr-verification-route.sh resolve-secret-scan-range.sh resolve-secret-scan-range.test.sh test_pr_verification_aggregate.sh test_pr_verification_route.sh'
 run bash scripts/semgrep-raw-sql-test.sh
 run bash "$GS/test_run_actionlint.sh"
