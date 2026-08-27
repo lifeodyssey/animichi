@@ -1,6 +1,10 @@
 import test, { mock } from "node:test";
 import assert from "node:assert/strict";
-import { CONTAINER_FETCH_HEAD_TIMEOUT_MS, fetchContainerResilient } from "../src/gateway/container-fetch.ts";
+import {
+  CONTAINER_FETCH_HEAD_TIMEOUT_MS,
+  fetchContainerResilient,
+  fetchContainerWithHeadTimeout,
+} from "../src/gateway/container-fetch.ts";
 
 const noopSleep = (): Promise<void> => Promise.resolve();
 
@@ -46,6 +50,38 @@ void test("the head timeout does not fire one tick before its deadline", async (
     assert.equal(captured.request?.signal.aborted, false);
     mock.timers.tick(1);
     assert.equal((await resultPromise).status, 504);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+/** A container fetch whose implementation reacts to `AbortSignal` the way a
+ * real `fetch` does: the abort listener rejects the pending promise
+ * synchronously, from inside the same call stack as `controller.abort()`. */
+function fetchRejectingOnAbort(request: Request): Promise<Response> {
+  return new Promise<Response>((_resolve, reject) => {
+    request.signal.addEventListener("abort", () => { reject(new Error("The operation was aborted.")); });
+  });
+}
+
+// Mutation guard: swapping `armHeadTimeout`'s `resolve(...)` / `controller.abort()`
+// order back to abort-then-resolve makes `controller.abort()`'s synchronous abort
+// event reject `fetchPromise` before `timedOut` resolves, so `Promise.race` rejects
+// instead of returning 504 — this test goes red on that reorder. Exercised against
+// `fetchContainerWithHeadTimeout` directly, not `fetchContainerResilient`: the
+// latter wraps `fetchFn` through `fetchContainerWithStartupRetry`'s own async
+// layers, whose extra microtask ticks on the rejection path make the reorder
+// unobservable there (confirmed by hand: the same mutation left that path green).
+
+void test("a fetch whose abort listener rejects synchronously still resolves 504, not reject", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const resultPromise = fetchContainerWithHeadTimeout(
+      fetchRejectingOnAbort, new Request("https://edge.test/v1/chat"), CONTAINER_FETCH_HEAD_TIMEOUT_MS,
+    );
+    mock.timers.tick(CONTAINER_FETCH_HEAD_TIMEOUT_MS);
+    const res = await resultPromise;
+    assert.equal(res.status, 504);
   } finally {
     mock.timers.reset();
   }

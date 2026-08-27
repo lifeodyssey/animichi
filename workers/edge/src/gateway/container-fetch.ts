@@ -112,8 +112,15 @@ function armHeadTimeout(
   let timer: ReturnType<typeof setTimeout>;
   const timedOut = new Promise<Response>((resolve) => {
     timer = setTimeout(() => {
-      controller.abort();
+      // Resolve before aborting: `controller.abort()` dispatches its event
+      // synchronously, and a real `fetch` rejects its promise from that same
+      // synchronous abort-listener call — so aborting first would schedule
+      // that rejection microtask ahead of this resolution, making
+      // `Promise.race` in `fetchContainerWithHeadTimeout` reject instead of
+      // returning the 504 (see the "abort handler rejects synchronously"
+      // regression test in `container-fetch-timeout.test.ts`).
       resolve(headTimeoutResponse());
+      controller.abort();
     }, timeoutMs);
   });
   return { timedOut, cancel: () => { clearTimeout(timer); } };
@@ -131,8 +138,15 @@ function armHeadTimeout(
  * 504 is returned; once the fetch settles, the timer is cleared and the
  * response — headers and body — is returned with no further deadline; SSE
  * keeps itself alive with the agent's own pings.
+ *
+ * Exported (not just used via `fetchContainerResilient`) so the race itself
+ * is directly testable: `fetchContainerResilient` wraps `fetchFn` through
+ * `fetchContainerWithStartupRetry`'s own async layers, whose extra microtask
+ * ticks on the rejection path make `armHeadTimeout`'s resolve/abort order
+ * unobservable there — only a fetch raced against the timeout with no such
+ * wrapping (as here) is fast enough on rejection for the order to matter.
  */
-function fetchContainerWithHeadTimeout(
+export function fetchContainerWithHeadTimeout(
   fetchFn: (request: Request) => Promise<Response>, request: Request, timeoutMs: number,
 ): Promise<Response> {
   const controller = new AbortController();
