@@ -3,6 +3,7 @@
  */
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import type { ChatTurnRequest } from "@animichi/contract";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import {
   chatConflictHandler,
@@ -31,10 +32,9 @@ function clarifyCandidatesPatch(envelope: Record<string, unknown>): Record<strin
   };
 }
 
-interface PickBody {
-  readonly selected_candidate_ids?: readonly string[];
-  readonly clarification_id?: number | null;
-}
+/** The pick's wire shape, taken directly from the contract's `ChatTurnRequest`
+ * so this test cannot drift from what `/v1/chat` actually accepts. */
+type PickBody = Pick<ChatTurnRequest, "selected_candidate_ids" | "clarification_id">;
 
 interface SentTurn {
   readonly turnId: string | null;

@@ -1,3 +1,5 @@
+import type { ChatTurnRequest } from "@animichi/contract";
+
 /**
  * A structured clarify-candidate pick (W1 #1220): the selection travels as
  * the candidate's identifier plus the pending clarification's revision, so
@@ -13,11 +15,12 @@ export interface CandidatePick {
   readonly clarificationId: number | undefined;
 }
 
-/** The `/v1/chat` body delta of a pick (contract `ChatTurnRequest`). */
-export interface CandidatePickBody {
-  readonly selected_candidate_ids: readonly string[];
-  readonly clarification_id: number | null;
-}
+/**
+ * The `/v1/chat` body delta of a pick: the two selection fields of the
+ * contract's `ChatTurnRequest`, picked directly from its wire type (not
+ * hand-mirrored) so this shape cannot silently drift from `/v1/chat`.
+ */
+export type CandidatePickBody = Required<Pick<ChatTurnRequest, "selected_candidate_ids" | "clarification_id">>;
 
 export function candidatePickBody(pick: CandidatePick): CandidatePickBody {
   return {

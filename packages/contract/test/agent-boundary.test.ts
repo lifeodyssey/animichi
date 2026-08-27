@@ -183,15 +183,12 @@ describe("agent boundary emitter", () => {
   });
 
   it("a structured candidate pick parses without free text (W1 #1220)", () => {
-    const pick = ChatTurnRequest.safeParse({
+    const pick = ChatTurnRequest.parse({
       text: "",
       selected_candidate_ids: ["115908", "117696"],
       clarification_id: 4,
     });
-    expect(pick.success).toBe(true);
-    if (pick.success) {
-      expect(pick.data.selected_point_ids).toBeUndefined();
-    }
+    expect(pick.selected_point_ids).toBeUndefined();
   });
 
   it("the path inventory covers every retained Agent path (exact set)", () => {

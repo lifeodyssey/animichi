@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import type { ChatTurnRequest } from "../packages/contract/src/agent-contract";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
 import { SSE_HEADERS, chatStreamRecording, patchFinalFrame } from "./fixtures/chat-stream";
 import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
@@ -55,10 +56,10 @@ async function openChat(page: Page): Promise<void> {
   await hydrated;
 }
 
-interface SentTurn {
+/** The recorded turn: the pick's wire fields straight off the contract's
+ * `ChatTurnRequest`, plus `turnId` as this test's own capture metadata. */
+interface SentTurn extends Pick<ChatTurnRequest, "selected_candidate_ids" | "clarification_id"> {
   readonly turnId: string | undefined;
-  readonly selected_candidate_ids?: readonly string[];
-  readonly clarification_id?: number | null;
 }
 
 async function askUntilClarify(page: Page, sent: SentTurn[], conflictOnPick = false): Promise<void> {
