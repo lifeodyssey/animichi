@@ -251,7 +251,10 @@ jobs:
         env:
           SMOKE_ATTEMPTS: "8"
           SMOKE_RETRY_DELAY: "15"
-        run: bash .github/scripts/staging-smoke-check.sh https://animichi-staging.zhenjiazhou0127.workers.dev
+        run: >-
+          bash .github/scripts/staging-smoke-check.sh
+          https://animichi-staging.zhenjiazhou0127.workers.dev
+          https://animichi-web-staging.zhenjiazhou0127.workers.dev
 
   promote-production:
     name: Promote the staging cohort
