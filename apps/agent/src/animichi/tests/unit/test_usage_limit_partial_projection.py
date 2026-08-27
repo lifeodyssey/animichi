@@ -8,11 +8,8 @@ payloads are validated through typed envelopes, not cast dicts.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
 
-import animichi.agents.animichi_runner as runner
 from animichi.agents.runtime_models import PartialResponseModel
 from animichi.agents.session_state import (
     ItineraryPayloadState,
@@ -22,8 +19,6 @@ from animichi.agents.session_state import (
     SearchPayloadState,
     SessionState,
 )
-from animichi.interfaces.response_builder import agent_result_to_response
-from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 from animichi.tests.unit.usage_limit_doubles import (
     ResultsEnvelope as _ResultsEnvelope,
 )
@@ -40,22 +35,16 @@ from animichi.tests.unit.usage_limit_doubles import (
     search_payload as _search_payload,
 )
 from animichi.tests.unit.usage_limit_doubles import (
-    with_request_limit as _with_request_limit,
+    usage_limited_turn as _usage_limited_turn,
 )
 
 
 async def test_usage_limit_returns_partial_with_current_turn_provenance(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _with_request_limit(monkeypatch, 1)
-    result = await runner.run_animichi_agent(
-        text="find it",
-        db=MagicMock(),
-        locale="zh",
-        catalog=MockCatalogClient(),
-        model=_search_bangumi_model("160209"),
+    result, response = await _usage_limited_turn(
+        monkeypatch, text="find it", locale="zh", model=_search_bangumi_model("160209")
     )
-    response = agent_result_to_response(result, include_debug=False)
     assert isinstance(result.output, PartialResponseModel)
     assert (result.intent, result.success, result.status) == (
         "partial",
@@ -79,16 +68,13 @@ async def test_usage_limit_never_projects_stale_registry_ref(
 ) -> None:
     state = SessionState()
     state.store_search_result(ResultRef("search:old"), _search_payload("old"))
-    _with_request_limit(monkeypatch, 1)
-    result = await runner.run_animichi_agent(
+    result, response = await _usage_limited_turn(
+        monkeypatch,
         text="new turn",
-        db=MagicMock(),
         locale="en",
-        context={"session_state_v2": state.model_dump(mode="json")},
-        catalog=MockCatalogClient(),
         model=_search_bangumi_model("160209"),
+        context={"session_state_v2": state.model_dump(mode="json")},
     )
-    response = agent_result_to_response(result, include_debug=False)
     assert result.provenance.search is not None
     # The fresh, real, current-turn ref (not the pre-seeded stale literal)
     # is what session_state now points at.
@@ -121,16 +107,13 @@ async def test_usage_limit_projects_current_route_over_stale_route(
         ItineraryRef("route:old"),
         ItineraryPayloadState(ordered_points=[PointState(id="old", bangumi_id="1")]),
     )
-    _with_request_limit(monkeypatch, 1)
-    result = await runner.run_animichi_agent(
+    _, response = await _usage_limited_turn(
+        monkeypatch,
         text="new turn",
-        db=MagicMock(),
         locale="en",
-        context={"session_state_v2": state.model_dump(mode="json")},
-        catalog=MockCatalogClient(),
         model=_plan_route_model("search:seed"),
+        context={"session_state_v2": state.model_dump(mode="json")},
     )
-    response = agent_result_to_response(result, include_debug=False)
     envelope = _RouteEnvelope.model_validate(response.data)
     assert [point.id for point in envelope.route.ordered_points] == ["p001", "p002"]
     assert envelope.route.status == "ok"

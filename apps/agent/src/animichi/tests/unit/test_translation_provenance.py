@@ -9,9 +9,11 @@ from pydantic_ai.usage import RunUsage
 from animichi.agents.translation import (
     TranslationResult,
 )
-from animichi.clients.catalog_client import AnimeCandidate, ResolveResolved
 from animichi.tests.unit.translation_doubles import (
     TranslationContext as _TranslationContext,
+)
+from animichi.tests.unit.translation_doubles import (
+    akihabara_collision_catalog as _akihabara_collision_catalog,
 )
 from animichi.tests.unit.translation_doubles import (
     catalog_stub as _catalog,
@@ -61,10 +63,7 @@ async def test_untranslated_fallback_reports_zero_confidence() -> None:
 
 
 async def test_chinese_place_name_bypasses_anime_catalog_collision() -> None:
-    collision = AnimeCandidate(
-        bangumi_id="3151", title="秋葉原電脳組", title_cn="秋叶原电脑组"
-    )
-    catalog = _catalog(ResolveResolved(outcome="resolved", match=collision))
+    catalog = _akihabara_collision_catalog()
     model, calls = _counting_model("秋叶原")
     ctx = _TranslationContext(model, RunUsage())
 

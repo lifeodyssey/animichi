@@ -7,6 +7,8 @@ that validate the partial response's wire payload without dict casts.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 from pydantic import BaseModel, ConfigDict
 from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
@@ -14,7 +16,11 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.usage import UsageLimits
 
 import animichi.agents.animichi_runner as runner
+from animichi.agents.agent_result import AgentResult
 from animichi.agents.session_state import PointState, SearchPayloadState
+from animichi.interfaces.response_builder import agent_result_to_response
+from animichi.interfaces.schemas import PublicAPIResponse
+from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 from animichi.tests.streaming_function_model import streaming_function_model
 
 _LAX = ConfigDict(extra="allow")
@@ -104,3 +110,24 @@ def with_request_limit(monkeypatch: pytest.MonkeyPatch, limit: int) -> None:
     the real UsageLimitExceeded pydantic_ai raises before the next request,
     not a synthetic one raised by a replaced Agent.run."""
     monkeypatch.setattr(runner, "RUN_USAGE_LIMITS", UsageLimits(request_limit=limit))
+
+
+async def usage_limited_turn(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    text: str,
+    locale: str,
+    model: FunctionModel,
+    context: dict[str, object] | None = None,
+) -> tuple[AgentResult, PublicAPIResponse]:
+    """One real turn under a request_limit=1 cap, plus its wire response."""
+    with_request_limit(monkeypatch, 1)
+    result = await runner.run_animichi_agent(
+        text=text,
+        db=MagicMock(),
+        locale=locale,
+        context=context,
+        catalog=MockCatalogClient(),
+        model=model,
+    )
+    return result, agent_result_to_response(result, include_debug=False)

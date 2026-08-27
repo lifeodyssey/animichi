@@ -42,6 +42,15 @@ def catalog_stub(outcome: ResolveResolved | ResolveNotFound) -> MagicMock:
     return catalog
 
 
+def akihabara_collision_catalog() -> MagicMock:
+    """A catalog whose resolve would collide 秋葉原 with an anime title —
+    the trap a place_name translation must never fall into."""
+    collision = AnimeCandidate(
+        bangumi_id="3151", title="秋葉原電脳組", title_cn="秋叶原电脑组"
+    )
+    return catalog_stub(ResolveResolved(outcome="resolved", match=collision))
+
+
 def resolved_outcome(title_cn: str = "你的名字。") -> ResolveResolved:
     match = AnimeCandidate(bangumi_id="160209", title="君の名は。", title_cn=title_cn)
     return ResolveResolved(outcome="resolved", match=match)
