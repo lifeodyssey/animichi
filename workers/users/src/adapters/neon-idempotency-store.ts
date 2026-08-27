@@ -93,6 +93,12 @@ export class NeonIdempotencyStore implements IdempotencyStore {
    * (IDEMPOTENCY_EXECUTION_TIMEOUT_MS) has lapsed. A committed row inside its
    * retention window matches neither branch and is never touched.
    *
+   * The predicate rides `setWhere` (DO UPDATE ... WHERE), NOT `targetWhere`:
+   * drizzle renders targetWhere into the conflict target's index-predicate
+   * slot, which a non-partial primary key silently absorbs — proven against
+   * real PostgreSQL, where that shape overwrote a committed row inside its
+   * retention window while this shape refused it (#1222 review).
+   *
    * Comparing the row's own columns to `now` (rather than to the new
    * expiresAt the caller is about to write) is what makes this predicate
    * non-tautological: `row.expires_at <= row.expires_at + 24h` is always
@@ -117,7 +123,7 @@ export class NeonIdempotencyStore implements IdempotencyStore {
           fingerprint: params.fingerprint, result: null, resultId: null,
           createdAt: now, expiresAt: new Date(params.expiresAt), state: "in_progress",
         },
-        targetWhere: or(
+        setWhere: or(
           lte(savedRouteIdempotency.expiresAt, now),
           and(
             ne(savedRouteIdempotency.state, "committed"),

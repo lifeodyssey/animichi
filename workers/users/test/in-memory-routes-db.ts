@@ -97,11 +97,16 @@ function idemUpdate(rows: Map<string, FakeIdempotencyRow>, values: unknown[]): u
 }
 
 /**
- * INSERT ... ON CONFLICT (owner,op,key) DO UPDATE, params rendered as:
+ * INSERT ... ON CONFLICT (owner,op,key) DO UPDATE SET ... WHERE, params
+ * rendered as (setWhere layout, verified via PgDialect().sqlToQuery):
  * $1 owner, $2 op, $3 key, $4 fingerprint, $5 result(null), $6 resultId(null),
- * $7 createdAt (insert), $8 expiresAt (insert), $9 now (targetWhere expires_at
- * <= now), $10 "committed" (targetWhere state <>), $11 staleBefore
- * (targetWhere created_at <=). Mirrors the real Postgres semantics: the
+ * $7 createdAt (insert), $8 expiresAt (insert), $9 fingerprint (set),
+ * $10 state (set), $11 result (set), $12 resultId (set), $13 createdAt (set),
+ * $14 expiresAt (set), $15 now (setWhere expires_at <= now), $16 "committed"
+ * (setWhere state <>), $17 staleBefore (setWhere created_at <=). setWhere, not
+ * targetWhere: the latter renders into the conflict target's index-predicate
+ * slot, which a non-partial primary key silently absorbs — proven on real
+ * PostgreSQL (#1222 review). Mirrors the real Postgres semantics: the
  * predicate is evaluated against the row AS IT STANDS (already-updated by a
  * winning concurrent writer), so exactly one of two racing reclaims can win.
  */
@@ -111,8 +116,8 @@ function idemUpsert(rows: Map<string, FakeIdempotencyRow>, values: unknown[]): u
   const existing = rows.get(slot);
   const createdAt = String(values[6]);
   const expiresAt = String(values[7]);
-  const now = String(values[8]);
-  const staleBefore = String(values[10]);
+  const now = String(values[14]);
+  const staleBefore = String(values[16]);
   const reclaimable = existing !== undefined
     && (existing.expires_at <= now || (existing.state !== "committed" && existing.created_at <= staleBefore));
   if (existing === undefined || reclaimable) {
