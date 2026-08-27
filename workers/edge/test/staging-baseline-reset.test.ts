@@ -140,6 +140,19 @@ void test("the shipped guard lets a payload without the marker through", () => {
   assert.match(allowed.stdout, /PROCEEDED/);
 });
 
+// Owner decision 2026-08-27 (reverses #539 for STAGING ONLY): the CD smoke
+// probes workers.dev because the zone front door bot-challenges GitHub-runner
+// IPs. Production must never re-open it.
+void test("workers_dev is open for staging only, never production", () => {
+  const toml = read("workers/edge/wrangler.toml");
+  const staging = toml.slice(toml.indexOf("[env.staging]"));
+  assert.match(staging, /^workers_dev = true$/m);
+  // Production carries no explicit workers_dev: wrangler defaults it to false,
+  // and the guard is that nobody ever writes `true` there.
+  const production = toml.slice(toml.indexOf("[env.production]"), toml.indexOf("[env.staging]"));
+  assert.doesNotMatch(production, /^workers_dev = true$/m);
+});
+
 void test("atlas.sum SHA-256 pins the hard-cut payload", () => {
   const sum = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
   assert.equal(createHash("sha256").update(sum).digest("hex"), "7dd5869959a9f48600fa833f23363ac0893486ddaf18a5495dec761ef35206c0");

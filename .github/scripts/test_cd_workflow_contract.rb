@@ -169,6 +169,12 @@ abort "infra must fail closed without a rollback snapshot" unless adapter_source
 # merely echo a cohort id.
 abort "post-staging must run the staging smoke check (park #1198 lifted 2026-08-26)" \
   unless jobs.fetch("post-staging").fetch("steps").any? { |step| step["run"].to_s.include?("staging-smoke-check.sh") }
+
+# The smoke must probe workers.dev, not the zone hostname: the zone front door
+# answers GitHub-runner IPs with a Bot Fight Mode managed challenge that the
+# Free plan cannot exempt per hostname or rule (owner decision 2026-08-27).
+abort "the staging smoke check must probe workers.dev, not the zone front door" \
+  unless jobs.fetch("post-staging").fetch("steps").any? { |step| step["run"].to_s.include?("staging-smoke-check.sh https://animichi-staging.") && step["run"].to_s.include?("workers.dev") }
 abort "reusable build workflow must be deleted" if File.exist?(".github/workflows/reusable-build-release-unit.yml")
 abort "reusable promotion workflow must be deleted" if File.exist?(".github/workflows/reusable-promote-release-phase.yml")
 
