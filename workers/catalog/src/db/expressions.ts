@@ -106,10 +106,22 @@ export function weakestRawFreshness(aFetch: RawFetchAlias, bFetch: RawFetchAlias
 
 /**
  * A row is stale when its heartbeat (the first non-null of `primary` /
- * `fallback`) is older than `seconds`. Used by the singleflight gate.
+ * `fallback`) has not beaten for at least `seconds`. The singleflight
+ * acquire uses this to steal an abandoned running row.
  */
-export function staleWithinSeconds(primary: PgColumn, fallback: PgColumn, seconds: number): SQL {
+export function staleForSeconds(primary: PgColumn, fallback: PgColumn, seconds: number): SQL {
   return sql`COALESCE(${primary}, ${fallback}) <= NOW() - make_interval(secs => ${seconds})`;
+}
+
+/**
+ * A row is live when its heartbeat is newer than `seconds` — the exact
+ * negation of {@link staleForSeconds}. The guard's `running_live` projection
+ * uses this: the old, ambiguously named single expression was pasted into
+ * both sites with opposite questions, reporting a dead running row as
+ * in_progress forever (issue #1227).
+ */
+export function heartbeatWithinSeconds(primary: PgColumn, fallback: PgColumn, seconds: number): SQL {
+  return sql`COALESCE(${primary}, ${fallback}) > NOW() - make_interval(secs => ${seconds})`;
 }
 function assertNonNegative(seconds: number): void {
   if (!Number.isInteger(seconds) || seconds < 0) {
