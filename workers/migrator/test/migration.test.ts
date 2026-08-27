@@ -138,6 +138,43 @@ describe("runMigration pre-run missing ledger", () => {
   });
 });
 
+describe("runMigration post-run missing ledger", () => {
+  // judgeUnknownExit's post-run read (migration.ts:83) has no isUndefinedTable
+  // classification, unlike the pre-run snapshot (migration.ts:71-74): an
+  // undefined-table error here is NOT treated as an empty ledger — it
+  // propagates uncaught, the same as any other post-run read failure. This
+  // pins that asymmetry explicitly rather than leaving it implicit.
+  it("propagates a post-run undefined-table message instead of treating it as an empty ledger", async () => {
+    const missing = new Error('relation "public.atlas_schema_revisions" does not exist');
+    await expect(
+      runMigration(
+        DSN,
+        headsAroundContainer(
+          { kind: "unknown_exit" },
+          () => Promise.resolve(HEAD),
+          () => Promise.reject(missing),
+        ),
+        HEAD,
+      ),
+    ).rejects.toBe(missing);
+  });
+
+  it("propagates a post-run 42P01 undefined_table SQLSTATE the same way", async () => {
+    const missing = Object.assign(new Error("undefined_table"), { code: "42P01" });
+    await expect(
+      runMigration(
+        DSN,
+        headsAroundContainer(
+          { kind: "unknown_exit" },
+          () => Promise.resolve(HEAD),
+          () => Promise.reject(missing),
+        ),
+        HEAD,
+      ),
+    ).rejects.toBe(missing);
+  });
+});
+
 describe("runMigration ledger read failures", () => {
   it("reports unverified when a pre-run ledger read fails and unknown_exit lands at expectedHead", async () => {
     const result = await runMigration(

@@ -1,4 +1,5 @@
 import type { SavedRouteStatus } from "@animichi/contract";
+import { NeonDbError } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import type { UsersDb } from "../src/db/client";
 import * as schema from "../src/db/schema";
@@ -95,19 +96,35 @@ function idemUpdate(rows: Map<string, FakeIdempotencyRow>, values: unknown[]): u
   return [];
 }
 
-/** INSERT ... ON CONFLICT (owner,op,key) targetWhere expires_at <= $8 DO UPDATE. */
+/**
+ * INSERT ... ON CONFLICT (owner,op,key) DO UPDATE SET ... WHERE, params
+ * rendered as (setWhere layout, verified via PgDialect().sqlToQuery):
+ * $1 owner, $2 op, $3 key, $4 fingerprint, $5 result(null), $6 resultId(null),
+ * $7 createdAt (insert), $8 expiresAt (insert), $9 fingerprint (set),
+ * $10 state (set), $11 result (set), $12 resultId (set), $13 createdAt (set),
+ * $14 expiresAt (set), $15 now (setWhere expires_at <= now), $16 "committed"
+ * (setWhere state <>), $17 staleBefore (setWhere created_at <=). setWhere, not
+ * targetWhere: the latter renders into the conflict target's index-predicate
+ * slot, which a non-partial primary key silently absorbs — proven on real
+ * PostgreSQL (#1222 review). Mirrors the real Postgres semantics: the
+ * predicate is evaluated against the row AS IT STANDS (already-updated by a
+ * winning concurrent writer), so exactly one of two racing reclaims can win.
+ */
 function idemUpsert(rows: Map<string, FakeIdempotencyRow>, values: unknown[]): unknown[] {
   const owner = String(values[0]); const op = String(values[1]); const key = String(values[2]);
   const slot = idemKey(owner, op, key);
   const existing = rows.get(slot);
-  const expiresAt = String(values[6]);
-  const overwrite = existing !== undefined && existing.expires_at <= String(values[7]);
-  if (existing === undefined || overwrite) {
+  const createdAt = String(values[6]);
+  const expiresAt = String(values[7]);
+  const now = String(values[14]);
+  const staleBefore = String(values[16]);
+  const reclaimable = existing !== undefined
+    && (existing.expires_at <= now || (existing.state !== "committed" && existing.created_at <= staleBefore));
+  if (existing === undefined || reclaimable) {
     const row: FakeIdempotencyRow = {
       owner_user_id: owner, op, key, fingerprint: String(values[3]),
       state: "in_progress", result: null, result_id: null,
-      created_at: existing === undefined ? idemCreatedAt(expiresAt) : existing.created_at,
-      expires_at: expiresAt,
+      created_at: createdAt, expires_at: expiresAt,
     };
     rows.set(slot, row);
     return [idemReturnRow(row)];
@@ -190,8 +207,22 @@ function selectUserId(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {
   return row ? [{ user_id: row.user_id, saved_at: row.saved_at }] : [];
 }
 
+/** Real Postgres/neon-http shape for a `routes_pkey` unique_violation (SQLSTATE
+ * 23505), so a duplicate `saved_routes.id` insert (migrations/neon: `CONSTRAINT
+ * routes_pkey PRIMARY KEY (id)`) rejects the same way the fake insert would
+ * against the live DB, instead of silently overwriting/duplicating a row. */
+function routesPkeyViolation(id: string): NeonDbError {
+  const error = new NeonDbError(`duplicate key value violates unique constraint "routes_pkey"`);
+  error.code = "23505";
+  error.table = "saved_routes";
+  error.constraint = "routes_pkey";
+  error.detail = `Key (id)=(${id}) already exists.`;
+  return error;
+}
+
 function insertRoute(rows: FakeSavedRouteRow[], values: unknown[]): unknown[] {
   const row = insertRow(values);
+  if (rows.some((existing) => existing.id === row.id)) throw routesPkeyViolation(row.id);
   rows.push(row);
   return [rawReturningRow(row)];
 }

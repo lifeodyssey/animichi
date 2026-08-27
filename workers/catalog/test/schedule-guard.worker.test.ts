@@ -110,7 +110,12 @@ describe("scheduled handler per-environment dispatch (AC1)", () => {
   it("runs an ingest cron in production", async () => {
     const handle = deps();
     await createScheduledHandler(handle)({ cron: SEED_CRON }, PROD);
-    expect(handle.ingestBangumi).toHaveBeenCalled();
+    // The seed pass ingests every checked-in title (SEED_BANGUMI, 10 works)
+    // that listDoneBangumiIds (mocked empty) doesn't already report done —
+    // one call per bangumi id, over the connected db.
+    expect(handle.ingestBangumi).toHaveBeenCalledTimes(10);
+    expect(handle.ingestBangumi).toHaveBeenNthCalledWith(1, db, "160209");
+    expect(handle.ingestBangumi).toHaveBeenNthCalledWith(10, db, "328609");
   });
 
   it("runs the import cron in staging through the injected import runner", async () => {

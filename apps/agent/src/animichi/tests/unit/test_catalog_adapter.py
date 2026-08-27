@@ -10,10 +10,7 @@ from animichi.agents.catalog_adapter import (
     build_search_payload,
     build_search_state,
 )
-from animichi.agents.handlers._helpers import (
-    _build_nearby_groups,
-    rewrite_image_urls,
-)
+from animichi.agents.handlers.image_url_rewrite import rewrite_image_urls
 from animichi.clients.catalog_client import Itinerary, Point
 from animichi.tests.eval.mock_catalog_client import MockCatalogClient
 
@@ -107,7 +104,8 @@ def test_build_itinerary_payload_empty_itinerary_has_zero_points() -> None:
 
 
 # ---------------------------------------------------------------------------
-# shared shaping helpers (_helpers) — live, consumed by the adapter
+# shared shaping helper (image_url_rewrite) — live, consumed by the adapter;
+# nearby_groups merge semantics live in test_nearby_groups.py
 # ---------------------------------------------------------------------------
 
 
@@ -124,6 +122,14 @@ def test_rewrite_image_urls_proxies_anitabi_cdn_in_production(
 ) -> None:
     monkeypatch.setenv("APP_ENV", "production")
     rows = [{"screenshot_url": "https://image.anitabi.cn/s/x.jpg"}]
+    assert rewrite_image_urls(rows)[0]["screenshot_url"] == "/img/s/x.jpg"
+
+
+def test_http_anitabi_urls_are_rewritten_not_left_as_mixed_content(monkeypatch):
+    """An http:// origin used to pass the substring test yet dodge the
+    https-only replace, shipping a mixed-content URL (#1222 review)."""
+    monkeypatch.setenv("APP_ENV", "production")
+    rows = [{"screenshot_url": "http://image.anitabi.cn/s/x.jpg"}]
     assert rewrite_image_urls(rows)[0]["screenshot_url"] == "/img/s/x.jpg"
 
 
@@ -145,23 +151,11 @@ def test_rewrite_image_urls_skips_rows_without_url(
     assert "screenshot_url" not in out[1]
 
 
-def test_build_nearby_groups_aggregates_same_bangumi_id() -> None:
-    rows = [
-        {"bangumi_id": "1", "title": "A", "cover_url": "c.jpg", "distance_m": 300},
-        {"bangumi_id": "1", "title_cn": "甲", "distance_m": 100},
-    ]
-    groups = _build_nearby_groups(rows)
-    assert len(groups) == 1
-    assert groups[0]["points_count"] == 2
-    assert groups[0]["closest_distance_m"] == pytest.approx(100.0)
-    assert groups[0]["cover_url"] == "c.jpg"
-
-
-def test_build_nearby_groups_uses_title_cn_fallback() -> None:
-    rows = [{"bangumi_id": "1", "title_cn": "甲"}]
-    assert _build_nearby_groups(rows)[0]["title"] == "甲"
-
-
-def test_build_nearby_groups_skips_rows_without_bangumi_id() -> None:
-    rows = [{"title": "no id"}, {"bangumi_id": ""}]
-    assert _build_nearby_groups(rows) == []
+def test_rewrite_image_urls_passes_through_foreign_hosts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    rows = [{"screenshot_url": "https://cdn.example.com/s/x.jpg"}]
+    assert rewrite_image_urls(rows)[0]["screenshot_url"] == (
+        "https://cdn.example.com/s/x.jpg"
+    )

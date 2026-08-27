@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from pydantic_ai.messages import ModelMessage, ModelResponse
+from pydantic_ai.models.function import AgentInfo, FunctionModel
+
 from animichi.agents.route_area_splitter import (
     AreaGroup,
     AreaSplitResult,
@@ -72,13 +75,22 @@ class TestSplitIntoAreasLargeSets:
         assert all_indices == set(range(15))
 
 
+def _raising_model(message: str) -> FunctionModel:
+    """A FunctionModel whose request raises — split_into_areas's `except
+    Exception` boundary must fall back to None for any real model/transport
+    failure, not just one a mocked Agent.run happens to be told to raise."""
+
+    def _fail(_messages: list[ModelMessage], _info: AgentInfo) -> ModelResponse:
+        raise RuntimeError(message)
+
+    return FunctionModel(_fail)
+
+
 class TestSplitIntoAreasHandlesFailure:
     async def test_returns_none_on_agent_exception(self) -> None:
-        with patch(
-            "animichi.agents.route_area_splitter.itinerary_planner_agent"
-        ) as mock_agent:
-            mock_agent.run = AsyncMock(side_effect=RuntimeError("LLM timeout"))
-            result = await split_into_areas(_make_points(15))
+        result = await split_into_areas(
+            _make_points(15), model=_raising_model("LLM timeout")
+        )
 
         assert result is None
 

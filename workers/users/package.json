@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Animichi Users service — user-domain routes over Neon (Hono + oRPC + jose)",
+  "description": "Animichi Users service — user-domain routes over Neon (Hono + oRPC)",
   "scripts": {
     "dev": "wrangler dev",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
@@ -18,7 +18,6 @@
     "@animichi/contract": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.32",
-    "jose": "^6.2.4",
     "zod": "4.4.3"
   },
   "devDependencies": {

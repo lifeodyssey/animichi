@@ -50,9 +50,8 @@ export interface IdempotencyStore {
   claim(params: {
     ownerUserId: string; op: string; key: string; fingerprint: string; expiresAt: string;
   }): Promise<{ kind: "claimed" } | { kind: "exists"; row: IdempotencyRow }>;
-  commit(params: { ownerUserId: string; op: string; key: string; result: SavedRoute; }): Promise<void>;
   reclaim(params: {
-    ownerUserId: string; op: string; key: string; fingerprint: string; expiresAt: string;
+    ownerUserId: string; op: string; key: string; fingerprint: string; expiresAt: string; now: number;
   }): Promise<{ kind: "claimed" } | { kind: "exists"; row: IdempotencyRow }>;
   read(params: { ownerUserId: string; op: string; key: string }): Promise<IdempotencyRow | undefined>;
 }
@@ -150,7 +149,7 @@ async function reclaimOrExecute(
   input: SaveSavedRouteInput,
   now: number,
 ): Promise<SavedRoute> {
-  const outcome = await idempotencyStore.reclaim(claim);
+  const outcome = await idempotencyStore.reclaim({ ...claim, now });
   if (outcome.kind === "claimed") return executeAndCommit(atomicStore, claim, userId, input, now);
   throw savedRouteIdempotencyInFlight();
 }

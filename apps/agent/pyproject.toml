@@ -30,7 +30,6 @@ dependencies = [
     "mcp>=1.28.1,<2",
     # Observability
     "structlog>=25.0.0",
-    "rich>=14.0.0",
     # Google Generative AI (model-agnostic, used by pydantic-ai)
     "google-genai>=2.14.0",
     # v2: Agent Framework

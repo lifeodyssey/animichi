@@ -98,6 +98,15 @@ async def test_fetch_bad_feedback_returns_the_typed_read_rows() -> None:
     assert result[0]["query_text"] == "bad result"
 
 
+async def test_fetch_bad_feedback_propagates_a_database_error() -> None:
+    factory = RecordingSessionFactory()
+    factory.session.result_for(error=RuntimeError)
+    repo = SQLModelFeedbackRepository(factory)
+
+    with pytest.raises(RuntimeError):
+        await repo.fetch_bad_feedback(limit=10)
+
+
 async def test_update_request_log_score_builds_a_scoped_update() -> None:
     from sqlalchemy.sql.dml import Update
 

@@ -166,6 +166,62 @@ describe("AC4: deterministic retry semantics", () => {
   });
 });
 
+describe("A1: adapter reclaim() targetWhere must not be a tautology", () => {
+  it("never reclaims a committed row that is still within its retention window", async () => {
+    // A committed row 20s old (past the 10s in-flight window, but nowhere
+    // near its 24h retention expiry) must be untouchable by reclaim(). The
+    // OLD targetWhere (row.expires_at <= the caller's freshly computed new
+    // expiresAt) is a tautology: a committed row's own expiry is always
+    // <= any later caller's now+24h, so it would be silently overwritten.
+    const db = idemFakeDb();
+    const idemStore = new NeonIdempotencyStore(db.db);
+    const staleCreatedAt = NOW - 20_000;
+    const committedResult = {
+      id: "r1", title: "Tokyo", point_ids: ["p1"], status: "saved" as const,
+      saved_at: null, updated_at: new Date(staleCreatedAt).toISOString(),
+    };
+    db.idemRows.set("user-a:saveSavedRoute:" + KEY, {
+      owner_user_id: "user-a", op: "saveSavedRoute", key: KEY,
+      fingerprint: canonicalFingerprint(INPUT), state: "committed",
+      result: committedResult, result_id: "r1",
+      created_at: new Date(staleCreatedAt).toISOString(),
+      expires_at: new Date(staleCreatedAt + 86_400_000).toISOString(),
+    });
+    const outcome = await idemStore.reclaim({
+      ownerUserId: "user-a", op: "saveSavedRoute", key: KEY,
+      fingerprint: canonicalFingerprint(INPUT),
+      expiresAt: new Date(NOW + 86_400_000).toISOString(), now: NOW,
+    });
+    expect(outcome).toMatchObject({ kind: "exists", row: { state: "committed" } });
+    expect(singleLedger(db).state).toBe("committed");
+    expect(singleLedger(db).result).toEqual(committedResult);
+  });
+
+  it("concurrent reclaims of the same stale in-progress row: exactly one wins", async () => {
+    const db = idemFakeDb();
+    const staleCreatedAt = NOW - 20_000; // past the 10s in-flight window
+    db.idemRows.set("user-a:saveSavedRoute:" + KEY, {
+      owner_user_id: "user-a", op: "saveSavedRoute", key: KEY,
+      fingerprint: canonicalFingerprint(INPUT), state: "in_progress",
+      result: null, result_id: null,
+      created_at: new Date(staleCreatedAt).toISOString(),
+      expires_at: new Date(staleCreatedAt + 86_400_000).toISOString(), // not yet expired
+    });
+    const outcomes = await Promise.allSettled([
+      save(db, "user-a", INPUT, KEY),
+      save(db, "user-a", INPUT, KEY),
+    ]);
+    const fulfilled = outcomes.filter((o): o is PromiseFulfilledResult<SavedRoute> => o.status === "fulfilled");
+    const rejected = outcomes.filter((o): o is PromiseRejectedResult => o.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]?.reason).toMatchObject({ code: "IDEMPOTENCY_IN_FLIGHT", status: 409, defined: true });
+    expect(rowCount(db)).toBe(1);
+    expect(singleLedger(db).state).toBe("committed");
+    await flushMicrotasks();
+  });
+});
+
 describe("AC2 atomicity: insert and ledger commit are indivisible (integration)", () => {
   it("inserts the route row exactly once for a fresh key and never on a replay", async () => {
     const rec = recordingDb();

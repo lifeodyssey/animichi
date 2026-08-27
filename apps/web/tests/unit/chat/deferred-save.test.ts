@@ -64,7 +64,10 @@ describe("AC4: the deferred intent lives in namespaced localStorage", () => {
 describe("AC5: an intent older than the TTL is ignored and cleared", () => {
   it("replays an intent that is still inside the TTL window", () => {
     writeDeferredSave(INTENT, 1_000);
-    expect(readDeferredSave(1_000 + DEFERRED_SAVE_TTL_MS - 1)).toBeDefined();
+    expect(readDeferredSave(1_000 + DEFERRED_SAVE_TTL_MS - 1)).toEqual({
+      ...INTENT,
+      createdAt: 1_000,
+    });
   });
 
   it("ignores and erases an abandoned intent past the TTL", () => {

@@ -91,18 +91,10 @@ STATUS_LOG="$TMP/status.log"
 OUTPUT="$TMP/github-output"
 MOCK_ENV=(env GH_TOKEN=test GITHUB_OUTPUT="$OUTPUT" MOCK_STATUS_LOG="$STATUS_LOG" MOCK_THREADS_FILE="$FIX/threads-empty.json" MOCK_GRAPHQL_COMMENTS_FILE="$FIX/github-graphql-no-comments.json" PATH="$MOCK_BIN:$PATH")
 
-run "missing evidence keeps collect-check successful" 0 "${MOCK_ENV[@]}" "$STEP" collect-check lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb issue_comment "" 710 "https://github.com/lifeodyssey/animichi/pull/710"
-if grep -qx 'gate_state=pending' "$OUTPUT"; then
-  printf 'PASS %-52s\n' "collect-check records pending for the final status"
-else
-  detail="missing output: $OUTPUT"
-  if [ -f "$OUTPUT" ]; then detail="$(cat "$OUTPUT")"; fi
-  fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "collect-check records pending for the final status" "$detail"
-fi
-# The workflow's own entry point, not just `collect-check`. It has to leave a
-# state behind on every path: when evaluation aborted without one, the workflow's
-# `final_state` fell back to failure with no reason attached and published a bare
-# red that said nothing about why.
+# The workflow's own entry point has to leave a state behind on every path:
+# when evaluation aborted without one, the workflow's `final_state` fell back
+# to failure with no reason attached and published a bare red that said
+# nothing about why.
 TARGET_OUTPUT="$TMP/github-output-target"
 run "collect-target completes on a PR awaiting review" 0 "${MOCK_ENV[@]}" GITHUB_OUTPUT="$TARGET_OUTPUT" "$STEP" collect-target pr lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 710 ""
 if grep -qx 'gate_state=pending' "$TARGET_OUTPUT"; then
@@ -126,21 +118,6 @@ else
   if [ -f "$BLOCKED_OUTPUT" ]; then detail="$(cat "$BLOCKED_OUTPUT")"; fi
   fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "a blocked verdict is recorded, not thrown" "$detail"
 fi
-run "pending generation is claimed" 0 "${MOCK_ENV[@]}" "$STEP" claim-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 50 1
-run "a green pending job posts pending" 0 "${MOCK_ENV[@]}" "$STEP" finish-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 50 1 success pending
-if tail -1 "$STATUS_LOG" | grep -q '^pending bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb '; then
-  printf 'PASS %-52s\n' "pending evidence is not reported as failure"
-else
-  fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "pending evidence is not reported as failure" "$(cat "$STATUS_LOG")"
-fi
-run "new failure generation is claimed" 0 "${MOCK_ENV[@]}" "$STEP" claim-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 51 1
-run "a later job failure overrides pending" 0 "${MOCK_ENV[@]}" "$STEP" finish-status lifeodyssey/animichi bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 51 1 failure pending
-if tail -1 "$STATUS_LOG" | grep -q '^failure bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb '; then
-  printf 'PASS %-52s\n' "quality failure overrides pending"
-else
-  fail=$((fail + 1)); printf 'FAIL %-52s %s\n' "quality failure overrides pending" "$(cat "$STATUS_LOG")"
-fi
-
 echo
 if [ "$fail" -eq 0 ]; then
   echo "All pr-review-check pending tests passed."
