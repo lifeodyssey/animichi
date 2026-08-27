@@ -45,6 +45,15 @@ void test("entry.ts re-exports ContainerProxy from @cloudflare/containers", () =
   assert.match(entrySource, /export\s*\{\s*ContainerProxy\s*\}\s*from\s*["']@cloudflare\/containers["']/);
 });
 
+// Issue #1220: sleepAfter was previously unset, relying on
+// @cloudflare/containers' own default. This pins it explicitly so an
+// upstream default change can't silently retune the container's idle-sleep
+// window — see entry.ts's RuntimeContainer for the library-default citation.
+void test("RuntimeContainer pins an explicit sleepAfter (#1220)", () => {
+  const entrySource = readFileSync(new URL("../src/entry.ts", import.meta.url).pathname, "utf8");
+  assert.match(entrySource, /sleepAfter\s*=\s*["']10m["']/);
+});
+
 void test("entry.ts hydrates Secrets Store env before container start (#1157)", () => {
   const entrySource = readFileSync(new URL("../src/entry.ts", import.meta.url).pathname, "utf8");
   assert.match(entrySource, /resolveContainerEnvVars/);

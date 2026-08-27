@@ -35,10 +35,11 @@ describe("Turnstile suppression (#447 P1-3)", () => {
     expect(turnFailureState(settledTurn(TURNSTILE_REQUIRED_CODE), false, true)).toBeUndefined();
   });
 
-  it("still renders the generic retry when no widget can be rendered", () => {
+  it("still renders the honest-generic retry when no widget can be rendered", () => {
     // A misconfigured build rejects every turn with nothing to click; silence
     // there would look like the chat dying rather than a recoverable failure.
-    expect(turnFailureState(settledTurn(TURNSTILE_REQUIRED_CODE), false, false)).toBe("D4");
+    // D18 (not D4): the connection worked, so the disconnect copy would lie.
+    expect(turnFailureState(settledTurn(TURNSTILE_REQUIRED_CODE), false, false)).toBe("D18");
   });
 
   it("suppresses only the challenge code, never an unrelated rejection", () => {

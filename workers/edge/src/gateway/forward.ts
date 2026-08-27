@@ -3,6 +3,7 @@ import type { Env } from "../env.ts";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
+import { fetchContainerResilient } from "./container-fetch.ts";
 import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER } from "@animichi/contract/internal-binding";
 
 const PUBLIC_CATALOG_HEADERS = ["Accept"] as const;
@@ -46,16 +47,26 @@ function stripUntrustedHeaders(headers: Headers): void {
  * when the caller passes one explicitly (the session-adoption route,
  * SESSION-2 #960 / re-P2-1) — every other route forwards none. `x-session-id` is
  * intentionally forwarded: chat session continuity needs it, so the
- * container must never treat it as a trust signal. */
+ * container must never treat it as a trust signal.
+ *
+ * The fetch itself rides `fetchContainerResilient` (issue #1220): the same
+ * cold-start startup retry `/healthz` already had, plus a 60s head-of-response
+ * timeout — see `gateway/container-fetch.ts`. `sleep` is threaded down from
+ * `GatewayDeps` so tests can drive the retry's backoff without real waits. */
 export function forwardV1(
-  env: Env, request: Request, auth?: { userId: string; userType: string }, trustedAnonId?: string | null,
+  env: Env,
+  request: Request,
+  auth: { userId: string; userType: string } | undefined,
+  trustedAnonId: string | null | undefined,
+  sleep: (ms: number) => Promise<void>,
 ): Promise<Response> {
   const headers = new Headers(request.headers);
   stripUntrustedHeaders(headers);
   if (auth) applyIdentity(headers, auth);
   if (trustedAnonId) headers.set("X-Anon-Id", trustedAnonId);
   const forwarded = new Request(request, { headers });
-  return env.CONTAINER.get(env.CONTAINER.idFromName("default")).fetch(forwarded);
+  const container = env.CONTAINER.get(env.CONTAINER.idFromName("default"));
+  return fetchContainerResilient((inner) => container.fetch(inner), forwarded, sleep);
 }
 
 /**
@@ -70,12 +81,13 @@ export function forwardV1(
  */
 export async function authenticatedForward(
   env: Env, request: Request, auth: { userId: string; userType: string }, pathname: string,
+  sleep: (ms: number) => Promise<void>,
 ): Promise<Response> {
   const guarded = await guardPolicy(
     env, classifyRatePolicy(request.method, pathname), authenticatedRateLimitKey(auth.userId), authRateLimitConfigFrom(env),
   );
   if (guarded !== null) return guarded;
-  return forwardV1(env, request, auth);
+  return forwardV1(env, request, auth, undefined, sleep);
 }
 
 /**

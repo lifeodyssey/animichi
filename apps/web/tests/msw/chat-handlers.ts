@@ -61,7 +61,7 @@ export function chatStreamRetryHandler(): HttpHandler {
   return http.post(CHAT_URL, () => sseResponse(recorded));
 }
 
-/** Bare HTTP failure on the chat endpoint (401 expiry → D8, 5xx → D4). */
+/** Bare HTTP failure on the chat endpoint (401 expiry → D8, 5xx → D18). */
 export function chatHttpErrorHandler(status: number): HttpHandler {
   return http.post(CHAT_URL, () => new HttpResponse(null, { status }));
 }
@@ -101,6 +101,23 @@ export function armedChatHandler(
     if (!usable) return HttpResponse.json(TURNSTILE_REJECTION, { status: 403 });
     return sseResponse(streamText(name, options));
   });
+}
+
+/** The turn-admission 409 family (W1 #1220, `interfaces/routes/admission.py`):
+ * `turn_in_flight` / `stale_revision` / `session_digest_mismatch` /
+ * `turn_failed`, all carried in the shared `{error: {code}}` envelope. */
+export function chatConflictHandler(
+  code: string,
+  options: Readonly<{ spy?: (request: Request) => void; once?: boolean }> = {},
+): HttpHandler {
+  return http.post(
+    CHAT_URL,
+    ({ request }) => {
+      options.spy?.(request);
+      return HttpResponse.json({ error: { code, message: "conflict" } }, { status: 409 });
+    },
+    { once: options.once === true },
+  );
 }
 
 /** The anonymous daily-budget breaker's rejection (issue #274 S1.8 X4 → D11). */

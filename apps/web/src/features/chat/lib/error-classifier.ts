@@ -9,7 +9,7 @@ import type { ChatDataPart } from "@animichi/contract";
  */
 export type ChatErrorState =
   | "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "D7" | "D8" | "D9" | "D10" | "D11" | "D12"
-  | "D13" | "D14";
+  | "D13" | "D14" | "D15" | "D16" | "D17" | "D18";
 
 export type ImageSurface = "map" | "scene";
 
@@ -57,13 +57,13 @@ export const BYOK_CREDENTIAL_REJECTED_CODE = "byok_credential_rejected";
  * D11 the whole anonymous surface spent its dollar ceiling, D12 this visitor
  * spent their own message allowance, and the Turnstile gate a challenge whose
  * recovery is the widget — when one is on the page ChatPage suppresses the
- * strip entirely, and when it is not, D4's generic retry is the honest
- * fallback, never the login banner.
+ * strip entirely, and when it is not, D18's honest-generic retry is the
+ * fallback, never the login banner and never the disconnect copy.
  */
 const FORBIDDEN_STATES: Readonly<Record<string, ChatErrorState>> = {
   [ANON_QUOTA_EXHAUSTED_CODE]: "D12",
   [ANON_BUDGET_EXHAUSTED_CODE]: "D11",
-  [TURNSTILE_REQUIRED_CODE]: "D4",
+  [TURNSTILE_REQUIRED_CODE]: "D18",
   [BYOK_REQUIRES_LOGIN_CODE]: "D13",
   [BYOK_CREDENTIAL_REJECTED_CODE]: "D14",
 };
@@ -72,12 +72,40 @@ function classifyForbidden(code: string | undefined): ChatErrorState {
   return (code === undefined ? undefined : FORBIDDEN_STATES[code]) ?? "D8";
 }
 
+/** The turn-admission conflict wire codes (`interfaces/routes/admission.py`). */
+export const TURN_IN_FLIGHT_CODE = "turn_in_flight";
+export const TURN_FAILED_CODE = "turn_failed";
+export const STALE_REVISION_CODE = "stale_revision";
+export const SESSION_DIGEST_MISMATCH_CODE = "session_digest_mismatch";
+
+/**
+ * The admission 409 family (W1 #1220), each with its honest story: D15 the
+ * previous turn is still being processed (waiting and retrying is correct),
+ * D16 the client's view of the session went stale (recover the latest state),
+ * D17 that turn key already failed server-side (recover, then act anew). An
+ * unrecognized 409 falls to the honest-generic D18 — never to the disconnect
+ * copy, because the connection worked fine.
+ */
+const CONFLICT_STATES: Readonly<Record<string, ChatErrorState>> = {
+  [TURN_IN_FLIGHT_CODE]: "D15",
+  [STALE_REVISION_CODE]: "D16",
+  [SESSION_DIGEST_MISMATCH_CODE]: "D16",
+  [TURN_FAILED_CODE]: "D17",
+};
+
+function classifyConflict(code: string | undefined): ChatErrorState {
+  return (code === undefined ? undefined : CONFLICT_STATES[code]) ?? "D18";
+}
+
+/** Any other failing status is the honest-generic D18 (carrying its code) —
+ * D4's disconnect copy is reserved for genuine stream aborts. */
 function classifyHttpStatus(status: number, code: string | undefined): ChatErrorState {
   if (status === 403) return classifyForbidden(code);
   if (status === 401) return "D8";
+  if (status === 409) return classifyConflict(code);
   if (status === 429) return "D10";
   if (status === 408 || status === 504) return "D5";
-  return "D4";
+  return "D18";
 }
 
 function firstErrorCode(part: ChatDataPart): string {

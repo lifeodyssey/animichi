@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import type { ChatActions } from "./ChatActions";
+import type { ClarifyPickTurn } from "./selection/use-clarify-pick";
 import type { RecomputeTurn } from "./selection/use-recompute-turn";
 
 /** The D12 composer lock (#282 S1.10) and the instant it lifts by itself. */
@@ -78,4 +79,10 @@ export function useLockedActions(actions: ChatActions, locked: boolean): ChatAct
 /** The E2 tray's own send is a turn too, so the quota lock withholds it as well. */
 export function lockedRecompute(recompute: RecomputeTurn, locked: boolean): RecomputeTurn {
   return locked ? { ...recompute, fire: () => undefined } : recompute;
+}
+
+/** The structured clarify pick (W1 #1220) is a turn too: while the quota
+ * lock holds, the card must neither pick nor fall back to a free-text send. */
+export function lockedClarifyPick(turn: ClarifyPickTurn, locked: boolean): ClarifyPickTurn {
+  return locked ? { ...turn, sendable: false, pick: noop, resend: noop } : turn;
 }

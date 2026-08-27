@@ -51,6 +51,7 @@ dependencies = [
     "pydantic-ai-harness[codemode]>=0.10.0",
     # Harness 0.10 CodeMode imports MontyRepl; Monty 0.0.19 removed it.
     "pydantic-monty>=0.0.16,<0.0.19",
+    "sse-starlette>=3.4.5",
 ]
 
 [project.scripts]

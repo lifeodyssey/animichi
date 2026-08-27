@@ -34,7 +34,8 @@ export async function handleSessionAdopt(
   env: Env,
   request: Request,
   auth: { userId: string; userType: string },
+  sleep: (ms: number) => Promise<void>,
 ): Promise<Response> {
   const identity = await resolveAnonymousReadOnly(request, env);
-  return forwardV1(env, request, auth, identity?.userId ?? null);
+  return forwardV1(env, request, auth, identity?.userId ?? null, sleep);
 }

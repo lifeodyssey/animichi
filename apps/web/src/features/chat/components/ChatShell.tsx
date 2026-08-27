@@ -13,6 +13,7 @@ import { MessageList } from "./MessageList";
 import { WaitingRitual } from "./WaitingRitual";
 import type { ChatEntryState } from "../entry-state";
 import type { ChatDict } from "../i18n";
+import { isTurnActive } from "../lib/turn-gate";
 import type { PhotoSearchContext } from "../photo-search";
 import type { RecomputeTurn } from "../selection/use-recompute-turn";
 import type { DeparturePromptState } from "../use-departure-prompt";
@@ -133,8 +134,7 @@ type DockTrayProps = Readonly<{
  * `makeRequest` has no concurrency guard, so a mid-stream tap would clobber
  * the active response. Chat busy always reads as `busy` here. */
 function trayStatus(chat: ChatSession, recompute: RecomputeTurn): RecomputeTurn["status"] {
-  const active = chat.status === "submitted" || chat.status === "streaming";
-  return active ? "busy" : recompute.status;
+  return isTurnActive(chat.status) ? "busy" : recompute.status;
 }
 
 /** Owns the dock surfaces: photo upload and the E2 recompute tray. */

@@ -16,6 +16,7 @@ import {
   AGENT_PATHS,
   ByokProbeErrorBody,
   ByokProbeResponse,
+  ChatTurnRequest,
   GetSessionHistoryResponse,
   GpsPoint,
   PhotoConfirmRequest,
@@ -172,6 +173,22 @@ describe("agent boundary emitter", () => {
       next_offset: null,
     });
     expect(page.success).toBe(true);
+  });
+
+  it("renders the clarify-candidate selection fields on ChatTurnRequest (W1 #1220)", () => {
+    const rendered = renderModel("ChatTurnRequest", ChatTurnRequest).join("\n");
+    expect(rendered).toContain("    selected_point_ids: list[str] | None = None");
+    expect(rendered).toContain("    selected_candidate_ids: list[str] | None = None");
+    expect(rendered).toContain("    clarification_id: int | None = None");
+  });
+
+  it("a structured candidate pick parses without free text (W1 #1220)", () => {
+    const pick = ChatTurnRequest.parse({
+      text: "",
+      selected_candidate_ids: ["115908", "117696"],
+      clarification_id: 4,
+    });
+    expect(pick.selected_point_ids).toBeUndefined();
   });
 
   it("the path inventory covers every retained Agent path (exact set)", () => {

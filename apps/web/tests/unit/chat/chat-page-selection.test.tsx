@@ -144,6 +144,8 @@ describe("AC error path: a failed recompute stays on the tray", () => {
     const retry = await screen.findByRole("button", { name: ja.search.trayRetry });
     expect(retry).toBeTruthy();
     expect(screen.queryByText(ja.errorStates.d4Message)).toBeNull();
+    // A masked 500 renders neither the old D4 copy nor the honest-generic D18.
+    expect(document.querySelector(".chat-interruption")).toBeNull();
     expect(screen.getByText("宇治橋")).toBeTruthy();
     const checked = screen.getAllByRole<HTMLInputElement>("checkbox").filter((box) => box.checked);
     expect(checked).toHaveLength(2);
