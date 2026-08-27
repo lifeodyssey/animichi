@@ -7,8 +7,9 @@ from typing import Annotated, Never
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
+from sse_starlette import EventSourceResponse
 from starlette.background import BackgroundTask
-from starlette.responses import Response, StreamingResponse
+from starlette.responses import Response
 
 from animichi.agents.byok_models import (
     ByokError,
@@ -47,6 +48,10 @@ from animichi.interfaces.routes.chat_stream import stream_chat
 from animichi.interfaces.schemas import PublicAPIRequest, PublicAPIResponse
 
 _PREFLIGHT_STATE = "chat_body_preflight_complete"
+#: sse-starlette's own default (P0 §2.1): a comment ping every 15s keeps
+#: idle-long tool calls from reading as a dead connection to a proxy.
+#: Overridable in tests only, via monkeypatching this module attribute.
+_SSE_PING_SECONDS = 15
 
 
 def _chat_auth_from_request(request: Request) -> TrustedAuthContext:
@@ -237,10 +242,15 @@ async def handle_chat(
         turn_key=admission_req.turn_key,
     )
 
-    response = StreamingResponse(
-        stream_chat(handler),
-        media_type="text/event-stream",
+    frames = stream_chat(handler, turn_key=admission_req.turn_key)
+    response = EventSourceResponse(
+        # Frames are already complete `"data: {...}\n\n"` SSE text (the AI SDK
+        # data stream protocol, unchanged by this transport swap); encoding to
+        # bytes makes EventSourceResponse pass them through verbatim instead
+        # of re-wrapping them as a `data:` field (P0 §2.1 wire-compat).
+        (frame.encode("utf-8") async for frame in frames),
         headers={"x-vercel-ai-ui-message-stream": "v1"},
+        ping=_SSE_PING_SECONDS,
     )
     if byok_model is not None:
         # T3-AC8 (P2): cleanup via `BackgroundTask` rather than a

@@ -213,3 +213,27 @@ async def test_outer_cancellation_cancels_execution_without_waiting() -> None:
     finally:
         execution.release.set()
         await asyncio.sleep(0)
+
+
+async def test_outer_cancellation_settles_the_reservation_before_reraising() -> None:
+    """P0 SSE §2.1: a client disconnect cancels the streaming producer task,
+    which cancels this turn. Without the `CancelledError` handler in
+    `AgentTurn.__call__`, `except Exception` never sees it (it is a
+    `BaseException`) and the reservation is left dispatched-but-never-settled
+    for the 300s admission window, rejecting the same session's next turn as
+    still in flight."""
+    harness = Harness(FakeTurnReservationStore())
+    execution = _CancellationResistantExecution()
+    harness.agent = _agent(harness, execution=execution)
+    turn = asyncio.create_task(harness.agent(_input(session_id="s-1")))
+    try:
+        await execution.entered.wait()
+        turn.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await turn
+        assert harness.store.settle_calls[0][:2] == ("s-1", "turn-1")
+        assert harness.store.settle_calls[0][3] == "failed"
+        assert len(harness.settlement.calls) == 1
+    finally:
+        execution.release.set()
+        await asyncio.sleep(0)

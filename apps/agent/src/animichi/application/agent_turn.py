@@ -150,6 +150,17 @@ class AgentTurn:
                 on_step,
                 started_at,
             )
+        except asyncio.CancelledError as exc:
+            # A client disconnect cancels the streaming producer task (P0
+            # §2.1): `except Exception` does not catch this (CancelledError
+            # is a BaseException since Python 3.8), so without this branch
+            # the reservation was left dispatched-but-never-settled — a
+            # 300s-wide window where the same session's next turn is
+            # rejected as still in flight.
+            await self._settle_failed(
+                outcome, ref, owner, reserved, _carried_output(exc), turn, started_at
+            )
+            raise
         except Exception as exc:
             await self._settle_failed(
                 outcome, ref, owner, reserved, _carried_output(exc), turn, started_at

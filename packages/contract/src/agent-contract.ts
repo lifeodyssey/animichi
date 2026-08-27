@@ -82,6 +82,22 @@ export const ChatTurnRequest = z.object({
   origin: z.string().nullable().optional(),
   origin_lat: z.number().optional(),
   origin_lng: z.number().optional(),
+  /**
+   * Structured clarify-candidate pick (W1 #1220): sent in place of new free
+   * text when the user selects a clarify-card option, so the turn resolves
+   * through the deterministic selection channel
+   * (`animichi.agents.selection.execute_multi_selection` /
+   * `execute_place_selection`, reached via `PublicAPIRequest`'s
+   * `CandidateSelectionTurn`/`PointSelectionTurn` dispatch in
+   * `application/agent_turn.py`) instead of a model round-trip.
+   * `selected_point_ids` selects already-fetched points directly;
+   * `selected_candidate_ids` + `clarification_id` select anime/place
+   * candidates from the pending clarification and are rejected (409) if
+   * `clarification_id` no longer matches the session's current revision.
+   */
+  selected_point_ids: z.array(z.string()).nullable().optional(),
+  selected_candidate_ids: z.array(z.string()).nullable().optional(),
+  clarification_id: z.number().int().nullable().optional(),
 });
 export type ChatTurnRequest = z.infer<typeof ChatTurnRequest>;
 

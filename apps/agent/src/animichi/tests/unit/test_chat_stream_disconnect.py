@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -83,3 +84,32 @@ async def test_cancelled_cleanup_still_tracks_the_resistant_provider(
         await asyncio.sleep(0)
         await asyncio.sleep(0)
     assert chat_stream_module._DETACHED_PRODUCERS == set()
+
+
+async def test_disconnect_logs_the_turn_key_unconditionally(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P0 SSE §2.1: a client disconnect must leave an observable log line —
+    the prior behaviour absorbed the cancellation via ``_consume_result``
+    without recording anything, so a user report of a dropped connection had
+    no server-side evidence to match against. The log must fire even when
+    the producer cancels promptly (not only on the ``chat_stream_cancel_timeout``
+    slow path), so this test never touches the grace-period constant."""
+    mock_logger = MagicMock()
+    monkeypatch.setattr(chat_stream_module, "logger", mock_logger)
+    release = asyncio.Event()
+
+    async def never_finishes(_on_step: OnStep) -> PublicAPIResponse:
+        await release.wait()
+        return PublicAPIResponse(success=True, status="ok", intent="greet_user")
+
+    frames = stream_chat(never_finishes, turn_key="turn-disconnect-1")
+    await anext(frames)
+    try:
+        await frames.aclose()
+    finally:
+        release.set()
+        await asyncio.sleep(0)
+    mock_logger.warning.assert_any_call(
+        "chat_stream_client_disconnected", turn_key="turn-disconnect-1"
+    )

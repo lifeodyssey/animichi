@@ -106,19 +106,27 @@ async def _wait_for_result(task: asyncio.Task[None]) -> bool:
     return task in done
 
 
-async def _settle(task: asyncio.Task[None]) -> None:
+async def _settle(task: asyncio.Task[None], turn_key: str | None) -> None:
     if task.done():
         _consume_result(task)
         return
+    # The producer is still running while the consumer stopped pulling
+    # frames early — the only way that happens is the client disconnecting
+    # mid-stream (P0 §2.1). Log unconditionally, before the cancellation
+    # grace wait, so the line lands whether or not the producer cancels
+    # promptly.
     task.cancel()
+    logger.warning("chat_stream_client_disconnected", turn_key=turn_key)
     if await _wait_for_result(task):
         _consume_result(task)
         return
     _track_result(task)
-    logger.warning("chat_stream_cancel_timeout")
+    logger.warning("chat_stream_cancel_timeout", turn_key=turn_key)
 
 
-async def stream_chat(handler: ChatHandler) -> AsyncIterator[str]:
+async def stream_chat(
+    handler: ChatHandler, turn_key: str | None = None
+) -> AsyncIterator[str]:
     """Yield SSE frames for one chat turn: start -> tools -> data -> finish."""
     queue: _Queue = asyncio.Queue()
     task = asyncio.create_task(_produce(handler, queue))
@@ -126,4 +134,4 @@ async def stream_chat(handler: ChatHandler) -> AsyncIterator[str]:
         async for frame in _drain(queue):
             yield frame
     finally:
-        await _settle(task)
+        await _settle(task, turn_key)
