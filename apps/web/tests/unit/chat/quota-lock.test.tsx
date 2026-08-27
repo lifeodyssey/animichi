@@ -7,12 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   UNLOCKED,
   lockHolds,
+  lockedClarifyPick,
   lockedRecompute,
   releaseDelay,
   resetInstant,
   useLockedActions,
   useQuotaRelease,
 } from "../../../src/features/chat/quota-lock";
+import type { ClarifyPickTurn } from "../../../src/features/chat/selection/use-clarify-pick";
 import type { RecomputeTurn } from "../../../src/features/chat/selection/use-recompute-turn";
 
 const NOW = Date.parse("2026-07-28T12:00:00Z");
@@ -89,6 +91,31 @@ describe("lockedRecompute", () => {
     const locked = lockedRecompute({ status: "busy", lastSentIds: ["p-1"], fire: vi.fn() }, true);
     expect(locked.status).toBe("busy");
     expect(locked.lastSentIds).toEqual(["p-1"]);
+  });
+});
+
+describe("lockedClarifyPick", () => {
+  function pickTurn(pick: () => void, resend: () => void): ClarifyPickTurn {
+    return { enabled: true, sendable: true, status: "idle", lastPick: undefined, pick, resend };
+  }
+
+  it("swallows the structured pick and its resend while the quota lock holds", () => {
+    const pick = vi.fn();
+    const resend = vi.fn();
+    const locked = lockedClarifyPick(pickTurn(pick, resend), true);
+    locked.pick({ candidateId: "115908", label: "ハルヒ", clarificationId: 4 });
+    locked.resend();
+    expect(pick).not.toHaveBeenCalled();
+    expect(resend).not.toHaveBeenCalled();
+    expect(locked.sendable).toBe(false);
+  });
+
+  it("hands the live pick turn straight back when unlocked", () => {
+    const pick = vi.fn();
+    const live = lockedClarifyPick(pickTurn(pick, vi.fn()), false);
+    live.pick({ candidateId: "115908", label: "ハルヒ", clarificationId: 4 });
+    expect(pick).toHaveBeenCalledTimes(1);
+    expect(live.sendable).toBe(true);
   });
 });
 

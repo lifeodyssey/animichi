@@ -53,6 +53,9 @@ class ChatTurnRequest(BaseModel):
     origin: str | None = None
     origin_lat: float | None = None
     origin_lng: float | None = None
+    selected_point_ids: list[str] | None = None
+    selected_candidate_ids: list[str] | None = None
+    clarification_id: int | None = None
 
 
 class GpsPoint(BaseModel):

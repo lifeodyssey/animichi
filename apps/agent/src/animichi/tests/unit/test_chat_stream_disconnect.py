@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -83,3 +84,63 @@ async def test_cancelled_cleanup_still_tracks_the_resistant_provider(
         await asyncio.sleep(0)
         await asyncio.sleep(0)
     assert chat_stream_module._DETACHED_PRODUCERS == set()
+
+
+class _BlockedHandler:
+    """A ``ChatHandler`` that blocks until released — stands in for a
+    provider that never gets the chance to finish before the client goes
+    away, without resisting cancellation like `resists_cancel` does."""
+
+    def __init__(self) -> None:
+        self.release = asyncio.Event()
+
+    async def __call__(self, _on_step: OnStep) -> PublicAPIResponse:
+        await self.release.wait()
+        return PublicAPIResponse(success=True, status="ok", intent="greet_user")
+
+
+async def test_disconnect_logs_the_turn_key_unconditionally(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P0 SSE §2.1: a client disconnect must leave an observable log line —
+    the prior behaviour absorbed the cancellation via ``_consume_result``
+    without recording anything, so a user report of a dropped connection had
+    no server-side evidence to match against. The log must fire even when
+    the producer cancels promptly (not only on the ``chat_stream_cancel_timeout``
+    slow path), so this test never touches the grace-period constant."""
+    mock_logger = MagicMock()
+    monkeypatch.setattr(chat_stream_module, "logger", mock_logger)
+    handler = _BlockedHandler()
+
+    frames = stream_chat(handler, turn_key="turn-disconnect-1")
+    await anext(frames)
+    try:
+        await frames.aclose()
+    finally:
+        handler.release.set()
+        await asyncio.sleep(0)
+    mock_logger.warning.assert_any_call(
+        "chat_stream_client_disconnected", turn_key="turn-disconnect-1"
+    )
+
+
+async def test_disconnect_after_producer_finishes_still_logs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A `task.done()` producer is not proof the client saw every frame: an
+    early `aclose()` can land after the producer already queued its last
+    frame but before `_drain` pulled it. The old `if task.done(): return`
+    short-circuit skipped the disconnect log for exactly this case."""
+    mock_logger = MagicMock()
+    monkeypatch.setattr(chat_stream_module, "logger", mock_logger)
+
+    async def instant(_on_step: OnStep) -> PublicAPIResponse:
+        return PublicAPIResponse(success=True, status="ok", intent="greet_user")
+
+    frames = stream_chat(instant, turn_key="turn-disconnect-2")
+    await anext(frames)  # only the first frame; the producer already ran to completion
+    await frames.aclose()
+
+    mock_logger.warning.assert_any_call(
+        "chat_stream_client_disconnected", turn_key="turn-disconnect-2"
+    )

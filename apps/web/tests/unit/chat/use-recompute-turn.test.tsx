@@ -35,6 +35,20 @@ describe("use-recompute-turn", () => {
     expect(result.current.lastSentIds).toBeUndefined();
   });
 
+  it("refuses to fire while another turn is in flight (shared status gate, W1 #1220)", () => {
+    const chat = chatStub("streaming");
+    const { result } = renderTurn(chat);
+    act(() => {
+      result.current.fire(["a", "b"]);
+    });
+    expect(chat.sendSelectedPoints).not.toHaveBeenCalled();
+    expect(result.current.status).toBe("idle");
+    expect(result.current.lastSentIds).toBeUndefined();
+  });
+
+});
+
+describe("use-recompute-turn settlement", () => {
   it("sends the body, tracks the sent ids, and settles back to idle on success", () => {
     const chat = chatStub("ready");
     const { result, rerender } = renderTurn(chat);

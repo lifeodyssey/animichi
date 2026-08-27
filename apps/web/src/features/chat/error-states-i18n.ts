@@ -1,5 +1,6 @@
-/** In-character copy for the D1-D12 fallback states (issue #272 S1.6),
- * split from i18n.ts to keep the chat dictionary hub under the file cap. */
+/** In-character copy for the D1-D18 fallback states (issue #272 S1.6;
+ * D15-D18 honest-error states from W1 #1220), split from i18n.ts to keep
+ * the chat dictionary hub under the file cap. */
 
 export interface ChatErrorStatesDict {
   readonly d1Title: string;
@@ -30,6 +31,16 @@ export interface ChatErrorStatesDict {
   readonly d12MessageAt: string;
   readonly d12Login: string;
   readonly d12InputHint: string;
+  /** D15-D17: the admission 409 family, honest per code (W1 #1220). */
+  readonly d15Message: string;
+  readonly d15Retry: string;
+  readonly d16Message: string;
+  readonly d16Retry: string;
+  readonly d17Message: string;
+  readonly d17Retry: string;
+  /** D18: honest-generic unknown failure, naming its code (`{code}`). */
+  readonly d18Message: string;
+  readonly d18Retry: string;
 }
 
 export const jaErrorStates: ChatErrorStatesDict = {
@@ -60,6 +71,14 @@ export const jaErrorStates: ChatErrorStatesDict = {
   d12MessageAt: "今日ぶんのメッセージはここまで。{time}にまた送れるようになるよ。ログインすれば、いま書いた文をすぐ送れる",
   d12Login: "ログインして続ける",
   d12InputHint: "ログインすると、この文が送れるよ",
+  d15Message: "さっきのメッセージをまだ考え中みたい。少しだけ待ってね",
+  d15Retry: "もう一度おねがいする",
+  d16Message: "会話がすこし先に進んでいたみたい。最新の状態にそろえてつづけよう",
+  d16Retry: "最新の状態を読み込む",
+  d17Message: "さっきのひとことは途中で止まっちゃった。最新の状態から選び直してね",
+  d17Retry: "最新の状態にもどす",
+  d18Message: "うまくいかなかったみたい(コード {code})。もう一度ためしてね",
+  d18Retry: "もう一度ためしてみる",
 };
 
 export const zhErrorStates: ChatErrorStatesDict = {
@@ -90,6 +109,14 @@ export const zhErrorStates: ChatErrorStatesDict = {
   d12MessageAt: "今天的免费消息到这儿啦。{time}就能再发。登录的话,你刚写的这句现在就能发出去",
   d12Login: "登录后继续",
   d12InputHint: "登录之后就能把这句发出去",
+  d15Message: "上一条消息还在处理中,稍等一下再发哦",
+  d15Retry: "再发一次",
+  d16Message: "对话好像已经往前走了一点,同步到最新状态再继续吧",
+  d16Retry: "同步最新状态",
+  d17Message: "刚才那一步中途断掉了,回到最新状态再选一次吧",
+  d17Retry: "回到最新状态",
+  d18Message: "出了点问题(代码 {code})。再试一次吧",
+  d18Retry: "再试试看",
 };
 
 export const enErrorStates: ChatErrorStatesDict = {
@@ -120,4 +147,12 @@ export const enErrorStates: ChatErrorStatesDict = {
   d12MessageAt: "That's today's free messages. You can send again at {time}. Sign in and the line you just wrote goes out now",
   d12Login: "Sign in to continue",
   d12InputHint: "Sign in and this one goes through",
+  d15Message: "I'm still working on your last message — give it a moment",
+  d15Retry: "Send it again",
+  d16Message: "The conversation moved ahead a little — sync up and continue",
+  d16Retry: "Load the latest state",
+  d17Message: "That step broke off midway. Pick up from the latest state",
+  d17Retry: "Back to the latest state",
+  d18Message: "Something went wrong (code {code}). Give it another try",
+  d18Retry: "Try once more",
 };

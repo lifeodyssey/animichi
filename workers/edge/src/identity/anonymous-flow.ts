@@ -31,11 +31,11 @@ async function limitedOrNull(env: Env, request: Request, identity: string): Prom
 }
 
 async function anonymousForward(
-  env: Env, request: Request, identity: AnonymousIdentity, nowMs: number,
+  env: Env, request: Request, identity: AnonymousIdentity, nowMs: number, sleep: (ms: number) => Promise<void>,
 ): Promise<Response> {
   const dayKey = utcDayKey(nowMs);
   if (await budgetLatched(env.EDGE_GUARD, dayKey)) return budgetGuidanceResponse();
-  const forwarded = await forwardV1(env, request, { userId: identity.userId, userType: "anonymous" });
+  const forwarded = await forwardV1(env, request, { userId: identity.userId, userType: "anonymous" }, undefined, sleep);
   return guardBudget(env, forwarded, dayKey);
 }
 
@@ -57,7 +57,9 @@ async function anonymousForward(
  *    bucket with it; an unsolved turn must therefore cost neither a bucket slot
  *    (legitimate visitors would pay for their own challenges) nor an LLM call.
  */
-export async function handleAnonymousV1(env: Env, request: Request, nowMs: number, gate: TurnstileGate): Promise<Response | null> {
+export async function handleAnonymousV1(
+  env: Env, request: Request, nowMs: number, gate: TurnstileGate, sleep: (ms: number) => Promise<void>,
+): Promise<Response | null> {
   const identity = await resolveAnonymous(request, env);
   if (identity === null) return null;
   const durablePass = await verifyTurnstilePass(request, identity.userId, env.ANON_ID_SECRET ?? "", nowMs);
@@ -65,5 +67,5 @@ export async function handleAnonymousV1(env: Env, request: Request, nowMs: numbe
   if (challenged !== null) return challenged;
   const limited = await limitedOrNull(env, request, identity.userId);
   if (limited !== null) return limited;
-  return withAnonymousCookie(await anonymousForward(env, request, identity, nowMs), identity.setCookie);
+  return withAnonymousCookie(await anonymousForward(env, request, identity, nowMs, sleep), identity.setCookie);
 }

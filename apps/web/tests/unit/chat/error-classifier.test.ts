@@ -32,8 +32,11 @@ describe("classifyFailure: transport signals", () => {
     [403, "D8"],
     [408, "D5"],
     [504, "D5"],
-    [500, "D4"],
-    [502, "D4"],
+    // Unknown 4xx/5xx are the honest-generic D18 — the connection worked,
+    // so the D4 disconnect copy would be a lie (W1 #1220).
+    [500, "D18"],
+    [502, "D18"],
+    [400, "D18"],
   ] as const)("maps HTTP %d onto %s", (status, expected) => {
     expect(classifyFailure({ kind: "http", status })).toBe(expected);
   });
@@ -73,6 +76,25 @@ describe("classifyFailure: transport signals", () => {
 
   it("maps the 60s turn watchdog onto the D5 timeout state", () => {
     expect(classifyFailure({ kind: "timeout" })).toBe("D5");
+  });
+});
+
+describe("classifyFailure: the admission 409 family (W1 #1220)", () => {
+  it.each([
+    ["turn_in_flight", "D15"],
+    ["stale_revision", "D16"],
+    ["session_digest_mismatch", "D16"],
+    ["turn_failed", "D17"],
+  ] as const)("maps a 409 carrying %s onto %s", (code, expected) => {
+    expect(classifyFailure({ kind: "http", status: 409, code })).toBe(expected);
+  });
+
+  it("maps a 409 with an unrecognized code onto the honest-generic D18", () => {
+    expect(classifyFailure({ kind: "http", status: 409, code: "mystery" })).toBe("D18");
+  });
+
+  it("maps a codeless 409 onto the honest-generic D18, never the disconnect copy", () => {
+    expect(classifyFailure({ kind: "http", status: 409 })).toBe("D18");
   });
 });
 
