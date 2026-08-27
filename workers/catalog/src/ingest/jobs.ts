@@ -81,7 +81,7 @@ function acquireStatement(bangumiId: string): SQL {
           sql`${ingestJobs.status} <> 'running'`,
           or(sql`${ingestJobs.negativeCachedUntil} IS NULL`, sql`${ingestJobs.negativeCachedUntil} <= NOW()`),
         ),
-        and(eq(ingestJobs.status, "running"), x.staleWithinSeconds(ingestJobs.startedAt, ingestJobs.createdAt, RUNNING_TTL_SECONDS)),
+        and(eq(ingestJobs.status, "running"), x.staleForSeconds(ingestJobs.startedAt, ingestJobs.createdAt, RUNNING_TTL_SECONDS)),
       ),
     })
     .returning({ workId: ingestJobs.workId })
@@ -106,7 +106,7 @@ function guardStatement(bangumiId: string): SQL {
     .select({
       errorCode: ingestJobs.errorCode,
       runningLive: sqlFlag(
-        and(eq(ingestJobs.status, "running"), x.staleWithinSeconds(ingestJobs.startedAt, ingestJobs.createdAt, RUNNING_TTL_SECONDS)),
+        and(eq(ingestJobs.status, "running"), x.heartbeatWithinSeconds(ingestJobs.startedAt, ingestJobs.createdAt, RUNNING_TTL_SECONDS)),
       ).as("running_live"),
       cacheLive: sqlFlag(sql`${ingestJobs.negativeCachedUntil} > NOW()`).as("cache_live"),
     })
