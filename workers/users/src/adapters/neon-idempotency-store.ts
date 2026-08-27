@@ -84,17 +84,6 @@ export class NeonIdempotencyStore implements IdempotencyStore {
     return (await this.existing(params.ownerUserId, params.op, params.key)) ?? { kind: "claimed" };
   }
 
-  async commit(params: { ownerUserId: string; op: string; key: string; result: SavedRoute; }): Promise<void> {
-    const statement = this.db.update(savedRouteIdempotency)
-      .set({ state: "committed", result: params.result, resultId: params.result.id })
-      .where(and(
-        eq(savedRouteIdempotency.ownerUserId, params.ownerUserId),
-        eq(savedRouteIdempotency.op, params.op),
-        eq(savedRouteIdempotency.key, params.key),
-      ));
-    await this.db.execute(statement);
-  }
-
   /**
    * Reclaim a row abandoned by a prior claimant. The row is only reclaimable
    * when the EXISTING row itself — not the caller's freshly computed new

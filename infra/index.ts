@@ -20,7 +20,6 @@ import {
 export { validateLegacyRedirectZones } from "./src/web-routes.ts"
 export { validateIpEntry, buildIpClause } from "./src/staging.ts"
 export {
-  wave0,
   catalogBucketName,
   tilesBucketName,
   snapshotBucketName,

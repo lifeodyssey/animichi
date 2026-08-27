@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Trusted-producer boundary tests: PR/queue target resolution, status-generation
-# ownership, pinned evidence, and fail-closed merge-queue bridging.
+# Trusted-producer boundary tests: pinned PR evidence and fail-closed
+# merge-queue bridging.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -24,41 +24,6 @@ run() { # run <label> <exit> <command...>
   "$@" >/dev/null 2>&1 && rc=0 || rc=$?
   if [ "$rc" -eq "$want" ]; then printf 'PASS %s\n' "$label"; else fail=$((fail + 1)); printf 'FAIL %s want=%s got=%s\n' "$label" "$want" "$rc"; fi
 }
-
-mock() { # mock <command...>
-  env PATH="$TMP/bin:$PATH" MOCK_STATUS_LOG="$LOG" MOCK_THREADS_FILE="$FIX/threads-empty.json" MOCK_GRAPHQL_COMMENTS_FILE="$FIX/github-graphql-comments.json" "$@"
-}
-
-resolve_pr() {
-  : > "$OUT"
-  GITHUB_OUTPUT="$OUT" mock "$STEP" resolve-target pull_request_target lifeodyssey/animichi 710 '' '' '' '' '' ''
-}
-
-resolve_queue() {
-  : > "$OUT"
-  GITHUB_OUTPUT="$OUT" mock "$STEP" resolve-target workflow_run lifeodyssey/animichi '' '' '' merge_group success "$QUEUE" 99
-}
-
-echo '=== trusted target resolution ==='
-run 'pull_request_target resolves the pinned PR head' 0 resolve_pr
-grep -q "head_sha=$HEAD" "$OUT" || fail=$((fail + 1))
-run 'workflow_run resolves the synthetic merge-group SHA' 0 resolve_queue
-grep -q "target_kind=queue" "$OUT" || fail=$((fail + 1))
-run 'direct merge_group candidate event is ignored' 0 env GITHUB_OUTPUT="$OUT" PATH="$TMP/bin:$PATH" "$STEP" resolve-target merge_group lifeodyssey/animichi '' '' '' '' '' '' ''
-run 'malformed workflow_run SHA fails closed' 2 env GITHUB_OUTPUT="$OUT" PATH="$TMP/bin:$PATH" "$STEP" resolve-target workflow_run lifeodyssey/animichi '' '' '' merge_group success nope 99
-
-echo '=== newest generation owns final publication ==='
-: > "$LOG"
-run 'new generation claims pending' 0 mock "$STEP" claim-status lifeodyssey/animichi "$HEAD" 42 2
-run 'owner can publish success' 0 mock "$STEP" finish-status lifeodyssey/animichi "$HEAD" 42 2 success success
-grep -q "^success $HEAD .*runs/42/attempts/2" "$LOG" || fail=$((fail + 1))
-before="$(wc -l < "$LOG")"
-run 'superseded generation cannot overwrite' 0 env MOCK_CURRENT_STATUS_URL='https://github.com/lifeodyssey/animichi/actions/runs/43/attempts/1' PATH="$TMP/bin:$PATH" MOCK_STATUS_LOG="$LOG" "$STEP" finish-status lifeodyssey/animichi "$HEAD" 42 2 success success
-after="$(wc -l < "$LOG")"
-[ "$before" = "$after" ] || fail=$((fail + 1))
-run 'failed job publishes failure' 0 mock "$STEP" claim-status lifeodyssey/animichi "$HEAD" 44 1
-run 'failure overrides a claimed success state' 0 mock "$STEP" finish-status lifeodyssey/animichi "$HEAD" 44 1 failure success
-grep -q "^failure $HEAD .*runs/44/attempts/1" "$LOG" || fail=$((fail + 1))
 
 echo '=== pinned PR and merge-queue evidence ==='
 run 'PR evidence passes against the pinned head' 0 env GITHUB_OUTPUT="$OUT" PATH="$TMP/bin:$PATH" MOCK_STATUS_LOG="$LOG" MOCK_THREADS_FILE="$FIX/threads-empty.json" MOCK_GRAPHQL_COMMENTS_FILE="$FIX/github-graphql-comments.json" "$STEP" collect-target pr lifeodyssey/animichi "$HEAD" 710 ''

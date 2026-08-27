@@ -6,10 +6,12 @@ the typed registry remains the sole response carrier.
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Literal
 
 from animichi.agents.geo_names import localized_city_name
-from animichi.agents.handlers._helpers import _build_nearby_groups, rewrite_image_urls
+from animichi.agents.handlers.image_url_rewrite import rewrite_image_urls
+from animichi.agents.handlers.nearby_groups import build_nearby_groups
 from animichi.agents.session_state import (
     ItineraryPayloadState,
     ItinerarySummaryState,
@@ -59,7 +61,7 @@ def build_search_payload(points: list[Point], *, tool: SearchTool) -> dict[str, 
         "row_count": len(rows),
         "strategy": "geo" if tool == "search_nearby" else "bangumi",
         "metadata": _search_metadata(points),
-        "nearby_groups": _build_nearby_groups(rows),
+        "nearby_groups": [asdict(group) for group in build_nearby_groups(rows)],
         "status": "empty" if empty else "ok",
         "empty": empty,
         "summary": {"count": len(rows), "source": "catalog", "cache": "miss"},

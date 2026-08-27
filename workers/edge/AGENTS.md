@@ -45,6 +45,6 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 ## Tests
 
 node:test (no vitest, no workers pool). The suite doubles as **workflow-content guard**:
-`auth-config.test.ts`, `migration-boundary.test.ts`, `release-toolchain.test.ts`,
-`test-inventory.test.ts` read workflow/docs files verbatim — any change under `.github/workflows/`
+`auth-config.test.ts`, `migration-boundary.test.ts`, `release-toolchain.test.ts`
+read workflow/docs files verbatim — any change under `.github/workflows/`
 or to the test-runner wiring must keep `pnpm run test:worker` green (`.claude/rules/ci.md`).

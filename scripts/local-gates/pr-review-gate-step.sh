@@ -8,23 +8,6 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 GATE="$ROOT/scripts/local-gates/pr-review-check.sh"
 TITLE_GATE="$ROOT/scripts/local-gates/commit-message.py"
 
-# Resolve the PR number for the event; returns 1 when there is no PR to gate
-# (plain issue comments, push, merge_group) so the caller skips cleanly.
-skip() { # skip <reason>
-  printf '%s\n' "$1; skipping review gate" >&2
-  return 1
-}
-
-pr_for_event() { # pr_for_event <event> <pr> <issue> <pull-url>
-  case "$1" in
-    pull_request_target | pull_request_review | pull_request_review_comment) printf '%s' "$2" ;;
-    issue_comment)
-      if [ -n "$4" ]; then printf '%s' "$3"; else skip "issue comment is not on a pull request"; fi
-      ;;
-    *) skip "no PR context ($1)" ;;
-  esac
-}
-
 head_of() { # head_of <pr> <repo>
   gh pr view "$1" -R "$2" --json headRefOid --jq .headRefOid
 }
@@ -36,52 +19,6 @@ block() { # block <message>
 
 valid_sha() { # valid_sha <sha>
   printf '%s' "$1" | grep -qE '^[0-9a-f]{40}$'
-}
-
-# Print the exact PR head for the event, or nothing (exit 0) when the event has
-# no PR to gate. The workflow uses this to pin the head before any quality step.
-# A successful-but-empty or malformed `gh pr view` output is a hard block, never
-# a skipped gate: the workflow decides `has_pr` from this single non-empty
-# 40-hex output, so an unvalidated value would fail open (finding 1).
-cmd_resolve_head() { # cmd_resolve_head <event> <repo> <pr> <issue> <pull-url>
-  [ "$#" -eq 5 ] || usage
-  local pr_number head_sha
-  pr_number="$(pr_for_event "$1" "$3" "$4" "$5" || true)"
-  [ -n "$pr_number" ] || return 0
-  head_sha="$(head_of "$pr_number" "$2")" || block "cannot resolve the PR head for PR #$pr_number"
-  valid_sha "$head_sha" || block "resolved an invalid PR head for PR #$pr_number: $head_sha"
-  printf '%s\n' "$head_sha"
-}
-
-write_target() { # write_target <kind> <sha> <pr>
-  [ -n "${GITHUB_OUTPUT:-}" ] || block "GITHUB_OUTPUT is required"
-  printf 'has_target=true\ntarget_kind=%s\nhead_sha=%s\npr_number=%s\n' "$1" "$2" "$3" >> "$GITHUB_OUTPUT"
-}
-
-resolve_pr_target() { # resolve_pr_target <event> <repo> <pr> <issue> <url>
-  local pr_number head_sha
-  pr_number="$(pr_for_event "$1" "$3" "$4" "$5" || true)"
-  [ -n "$pr_number" ] || return 0
-  printf '%s' "$pr_number" | grep -qE '^[0-9]+$' || block "invalid PR number"
-  head_sha="$(head_of "$pr_number" "$2")" || block "cannot resolve PR #$pr_number"
-  valid_sha "$head_sha" || block "invalid PR head for #$pr_number"
-  write_target pr "$head_sha" "$pr_number"
-}
-
-resolve_queue_target() { # resolve_queue_target <run-event> <sha> <run-id>
-  [ "$1" = "merge_group" ] || return 0
-  valid_sha "$2" || block "invalid merge-group SHA: $2"
-  printf '%s' "$3" | grep -qE '^[0-9]+$' || block "invalid CI run id: $3"
-  write_target queue "$2" ""
-}
-
-cmd_resolve_target() { # event repo pr issue url run-event conclusion run-sha run-id
-  [ "$#" -eq 9 ] || usage
-  if [ "$1" = "workflow_run" ]; then
-    resolve_queue_target "$6" "$8" "$9"
-    return 0
-  fi
-  resolve_pr_target "$1" "$2" "$3" "$4" "$5"
 }
 
 # The live PR head must still equal the pinned head resolved at the start;
@@ -121,15 +58,6 @@ check_state_result() { # check_state_result <state> <exit>
   return 2
 }
 
-run_check() { # run_check <dir>
-  local output rc state
-  output="$("$GATE" check "$1" 2>&1)" && rc=0 || rc=$?
-  printf '%s\n' "$output"
-  state="$(gate_state "$output")" || { set_gate_state failure; return 2; }
-  set_gate_state "$state"
-  check_state_result "$state" "$rc"
-}
-
 run_collect_state() { # run_collect_state <pr> <repo> <pinned>
   local dir output rc state
   dir="$(mktemp -d)"
@@ -139,16 +67,6 @@ run_collect_state() { # run_collect_state <pr> <repo> <pinned>
   state="$(gate_state "$output")" || { printf '%s\n' "$output" >&2; return 2; }
   check_state_result "$state" "$rc" || return $?
   printf '%s\n' "$state"
-}
-
-cmd_collect_check() { # cmd_collect_check <repo> <pinned> <event> <pr> <issue> <pull-url>
-  [ "$#" -eq 6 ] || usage
-  local pr_number
-  pr_number="$(pr_for_event "$3" "$4" "$5" "$6")" || return 0
-  gate_head "$pr_number" "$1" "$2"
-  local state
-  state="$(run_collect_state "$pr_number" "$1" "$2")" || return $?
-  set_gate_state "$state"
 }
 
 status_url() { # status_url <repo> <run-id> <attempt>
@@ -165,11 +83,6 @@ post_owned_status() { # repo sha state run-id attempt
 
 latest_owner() { # latest_owner <repo> <sha>
   gh api "repos/${1%%/*}/${1##*/}/commits/$2/statuses?per_page=100" --jq 'map(select(.context == "Review Gate"))[0].target_url // ""'
-}
-
-cmd_claim_status() { # cmd_claim_status <repo> <sha> <run-id> <attempt>
-  [ "$#" -eq 4 ] || usage
-  post_owned_status "$1" "$2" pending "$3" "$4"
 }
 
 final_state() { # final_state <job-status> <gate-state>
@@ -303,7 +216,7 @@ cmd_collect_target() { # kind repo sha pr ci-run-id
 }
 
 usage() {
-  printf '%s\n' "usage: pr-review-gate-step.sh <resolve-head|resolve-target|collect-check|collect-target|claim-status|finish-status> ..." >&2
+  printf '%s\n' "usage: pr-review-gate-step.sh <collect-target|finish-status> ..." >&2
   exit 2
 }
 
@@ -312,11 +225,7 @@ sub="$1"
 shift || true
 
 case "$sub" in
-  resolve-head) cmd_resolve_head "$@" ;;
-  resolve-target) cmd_resolve_target "$@" ;;
-  collect-check) cmd_collect_check "$@" ;;
   collect-target) cmd_collect_target "$@" ;;
-  claim-status) cmd_claim_status "$@" ;;
   finish-status) cmd_finish_status "$@" ;;
   *) usage ;;
 esac

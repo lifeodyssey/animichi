@@ -50,7 +50,6 @@ export interface IdempotencyStore {
   claim(params: {
     ownerUserId: string; op: string; key: string; fingerprint: string; expiresAt: string;
   }): Promise<{ kind: "claimed" } | { kind: "exists"; row: IdempotencyRow }>;
-  commit(params: { ownerUserId: string; op: string; key: string; result: SavedRoute; }): Promise<void>;
   reclaim(params: {
     ownerUserId: string; op: string; key: string; fingerprint: string; expiresAt: string; now: number;
   }): Promise<{ kind: "claimed" } | { kind: "exists"; row: IdempotencyRow }>;
