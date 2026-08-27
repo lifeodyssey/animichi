@@ -5,9 +5,13 @@ import { stubCtx } from "../src/container/entry-env.ts";
 
 const NOT_RUNNING_BODY = "The container is not running, consider calling start()";
 
-/** A CONTAINER binding stub whose fetch serves the given attempts in order. */
+/** A CONTAINER binding stub whose fetch serves the given attempts in order.
+ * EDGE_SHOWCASE_MODE is "false" for the /v1 tests below (functional routes,
+ * unlike /healthz, are denied in showcase mode) — an inert field for the
+ * /healthz cases, which bypass the showcase gate entirely. */
 function notRunningEnv(attempts: (() => Promise<Response>)[]) {
   return {
+    EDGE_SHOWCASE_MODE: "false",
     CONTAINER: {
       idFromName: () => "id",
       get: () => ({ fetch: () => containerFetch(attempts) }),
@@ -102,5 +106,40 @@ void test("a non-not-running fetch error passes through without retry", async ()
 
   assert.equal(res.status, 500);
   assert.equal(await res.text(), "Internal Server Error");
+  assert.deepEqual(sleeps, []);
+});
+
+// Issue #1220: the /healthz-only startup retry above left every /v1 forward
+// (search, chat, guide — anything routed through gateway/forward.ts's
+// forwardV1) to fail bare on a cold-start "not running" 500. These tests
+// pin the same fetchContainerWithStartupRetry now wired into forwardV1
+// (via fetchContainerResilient, gateway/container-fetch.ts) for the public
+// /v1 surface — mutation guard: reverting forwardV1 to call
+// `container.fetch` directly turns the first test red.
+
+void test("/v1 retries a not-running 500 with 400/800ms backoff, then forwards the eventual success", async () => {
+  const sleeps: number[] = [];
+  const app = createWorkerApp({ sleep: instantSleep(sleeps) });
+  const env = notRunningEnv([
+    () => Promise.resolve(new Response(NOT_RUNNING_BODY, { status: 500 })),
+    () => Promise.resolve(new Response("preview results")),
+  ]);
+
+  const res = await app.request("/v1/search/preview?q=test", {}, env, stubCtx);
+
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), "preview results");
+  assert.deepEqual(sleeps, [400]);
+});
+
+void test("/v1 does not retry a genuine (non-not-running) container error", async () => {
+  const sleeps: number[] = [];
+  const app = createWorkerApp({ sleep: instantSleep(sleeps) });
+  const env = notRunningEnv([() => Promise.resolve(new Response("boom", { status: 500 }))]);
+
+  const res = await app.request("/v1/search/preview?q=test", {}, env, stubCtx);
+
+  assert.equal(res.status, 500);
+  assert.equal(await res.text(), "boom");
   assert.deepEqual(sleeps, []);
 });

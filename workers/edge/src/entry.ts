@@ -43,6 +43,12 @@ export class RuntimeContainer extends Container {
   requiredPorts = [8080];
   enableInternet = true;
   deniedHosts = DENIED_EGRESS_HOSTS;
+  // Pinned, not changed: @cloudflare/containers@0.3.7's own default
+  // (DEFAULT_SLEEP_AFTER in dist/lib/container.js) is also "10m" — an
+  // unset `sleepAfter` was already this value. Issue #1220 makes it an
+  // explicit, test-pinned contract instead of a library default this class
+  // could silently drift away from on an upgrade.
+  sleepAfter = "10m";
   readonly #workerEnv: Record<string, unknown>;
   #envResolved = false;
   constructor(ctx: DurableObjectState<object>, env: Record<string, unknown>) {

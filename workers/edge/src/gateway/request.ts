@@ -14,6 +14,7 @@ import { TURNSTILE_VERIFY_PATH } from "@animichi/contract/constants";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardUsers, forwardV1 } from "./forward.ts";
+import { fetchContainerWithStartupRetry } from "./container-fetch.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
 import { UNAUTHORIZED_BODY, methodNotAllowed, notFoundResponse, showcaseDenied, unauthorized } from "./responses.ts";
 import { publicReadKey } from "./read-key.ts";
@@ -39,13 +40,6 @@ const SESSION_MIGRATE_PATH = "/v1/session/migrate";
 const PUBLIC_CATALOG_PATTERN = /^\/catalog\/public\/anime-overview\/\d+$/;
 
 const USERS_PREFIX = USERS_BINDING_PREFIX;
-
-/** Container cold-start hardening (issue #694): while a container is still
- * starting, its fetch answers a 500 whose body carries this marker (or throws
- * an error that does). /healthz retries briefly instead of failing the
- * readiness probe, then passes the final failure through unchanged. */
-const NOT_RUNNING_MARKER = "The container is not running";
-const NOT_RUNNING_RETRIES = 3;
 
 type RequestClass =
   | { kind: "landing"; asset: "healthz" | "banner" | "tiles" | "img" }
@@ -225,28 +219,30 @@ async function adoptResponse(
     authRateLimitConfigFrom(env),
   );
   if (guarded !== null) return guarded;
-  return handleSessionAdopt(env, request, auth);
+  return handleSessionAdopt(env, request, auth, deps.sleep);
 }
 
 async function agentV1Response(
   env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string, deps: GatewayDeps,
 ): Promise<Response> {
   if (pathname === TURNSTILE_VERIFY_PATH) return turnstileVerifyResponse(env, request, ctx, deps);
-  if (isPublicV1(pathname)) return publicAgentV1Response(env, request, pathname);
+  if (isPublicV1(pathname)) return publicAgentV1Response(env, request, pathname, deps.sleep);
   return privateAgentV1Response(env, request, ctx, pathname, deps);
 }
 
-async function publicAgentV1Response(env: Env, request: Request, pathname: string): Promise<Response> {
+async function publicAgentV1Response(
+  env: Env, request: Request, pathname: string, sleep: (ms: number) => Promise<void>,
+): Promise<Response> {
   const policy = classifyRatePolicy(request.method, pathname);
   const guarded = await guardPolicy(env, policy, publicReadKey(request), authRateLimitConfigFrom(env));
-  return guarded ?? forwardV1(env, request);
+  return guarded ?? forwardV1(env, request, undefined, undefined, sleep);
 }
 
 async function privateAgentV1Response(
   env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string, deps: GatewayDeps,
 ): Promise<Response> {
   const auth = await deps.authenticate(request, env, ctx);
-  if (auth.ok) return authenticatedForward(env, request, auth, pathname);
+  if (auth.ok) return authenticatedForward(env, request, auth, pathname, deps.sleep);
   if (auth.reason === "invalid") return unauthorized(pathname);
   const anonymous = await anonymousAgentResponse(env, request, pathname, deps);
   if (anonymous !== null) return anonymous;
@@ -257,7 +253,7 @@ async function anonymousAgentResponse(
   env: Env, request: Request, pathname: string, deps: GatewayDeps,
 ): Promise<Response | null> {
   if (!isAnonymousV1(pathname)) return null;
-  return handleAnonymousV1(env, request, Date.now(), deps.turnstileGate);
+  return handleAnonymousV1(env, request, Date.now(), deps.turnstileGate, deps.sleep);
 }
 
 async function turnstileVerifyResponse(
@@ -270,62 +266,3 @@ async function turnstileVerifyResponse(
   return verifyAnonymousEntry(env, request, deps.turnstileGate);
 }
 
-/** Backoff before the 2nd and 3rd attempts: 400ms then 800ms (issue #694). */
-function startupBackoffMs(attempt: number): number {
-  return attempt === 1 ? 400 : 800;
-}
-
-function isNotRunningError(error: unknown): error is Error {
-  return error instanceof Error && error.message.includes(NOT_RUNNING_MARKER);
-}
-
-async function isNotRunningResponse(response: Response): Promise<boolean> {
-  if (response.status !== 500) return false;
-  return (await response.clone().text()).includes(NOT_RUNNING_MARKER);
-}
-
-function coldStartFailure(error: unknown): { ok: false; failure: Error } {
-  if (isNotRunningError(error)) return { ok: false, failure: error };
-  throw error;
-}
-
-/** One container fetch attempt: the response to return, or the failure to
- * retry (re-thrown immediately when it is not a cold-start failure). */
-type FetchAttempt = { ok: true; response: Response } | { ok: false; failure: Response | Error };
-
-async function containerFetchAttempt(
-  fetchFn: (request: Request) => Promise<Response>, request: Request,
-): Promise<FetchAttempt> {
-  try {
-    const response = await fetchFn(request);
-    return (await isNotRunningResponse(response)) ? { ok: false, failure: response } : { ok: true, response };
-  } catch (error) {
-    return coldStartFailure(error);
-  }
-}
-
-function finalFailureResponse(failure: Response | Error): Response {
-  if (failure instanceof Error) throw failure;
-  return failure;
-}
-
-async function fetchAttempt(
-  fetchFn: (request: Request) => Promise<Response>,
-  request: Request,
-  attempt: number,
-  sleep: (ms: number) => Promise<void>,
-): Promise<FetchAttempt> {
-  if (attempt > 0) await sleep(startupBackoffMs(attempt));
-  return containerFetchAttempt(fetchFn, request);
-}
-
-async function fetchContainerWithStartupRetry(
-  fetchFn: (request: Request) => Promise<Response>, request: Request, sleep: (ms: number) => Promise<void>,
-): Promise<Response> {
-  for (let attempt = 0; ; attempt++) {
-    const outcome = await fetchAttempt(fetchFn, request.clone(), attempt, sleep);
-    if (outcome.ok || attempt === NOT_RUNNING_RETRIES - 1) {
-      return outcome.ok ? outcome.response : finalFailureResponse(outcome.failure);
-    }
-  }
-}
