@@ -243,7 +243,9 @@ jobs:
       # whether staging could actually serve a request was never checked at all. This is
       # the gate that stands between a broken staging deploy and promote-production.
       - name: Smoke-check the staging cohort
-        run: bash .github/scripts/staging-smoke-check.sh https://staging.animichi.com
+        # workers.dev, not the zone hostname: GitHub-runner IPs get a managed
+        # challenge at the zone front door (audit follow-up; owner-predicted).
+        run: bash .github/scripts/staging-smoke-check.sh https://animichi-staging.zhenjiazhou0127.workers.dev
 
   promote-production:
     name: Promote the staging cohort
