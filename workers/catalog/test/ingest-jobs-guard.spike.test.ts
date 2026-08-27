@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import { sql } from "drizzle-orm";
 import type { CatalogDb } from "../src/db/client";
+import { statementBuilder } from "../src/db/client";
+import { ingestJobs } from "../src/db/schema";
 import { JobStore } from "../src/ingest/jobs";
 import { databaseDescribe, openServerlessDb, restoreNeonConfig, truncateCatalog } from "./spike-db";
 
@@ -19,21 +21,27 @@ let jobs: JobStore;
 const STALE_AGE = 45 * 60; // 45 min — three RUNNING_TTLs past dead
 const FRESH_AGE = 60; // 1 min — well inside the TTL
 
+function secondsAgo(seconds: number) {
+  return sql`NOW() - make_interval(secs => ${seconds})`;
+}
+
 async function insertRunningJob(workId: string, ageSeconds: number): Promise<void> {
-  await db.execute(sql`
-    INSERT INTO ingest_jobs (work_id, status, created_at, started_at)
-    VALUES (${workId}, 'running',
-      NOW() - make_interval(secs => ${ageSeconds}),
-      NOW() - make_interval(secs => ${ageSeconds}))
-  `);
+  const statement = statementBuilder()
+    .insert(ingestJobs)
+    .values({ workId, status: "running", createdAt: secondsAgo(ageSeconds), startedAt: secondsAgo(ageSeconds) })
+    .getSQL();
+  await db.execute(statement);
 }
 
 async function insertFailedJob(workId: string, cachedForSeconds: number): Promise<void> {
-  await db.execute(sql`
-    INSERT INTO ingest_jobs (work_id, status, error_code, negative_cached_until)
-    VALUES (${workId}, 'failed', 'upstream_error',
-      NOW() + make_interval(secs => ${cachedForSeconds}))
-  `);
+  const statement = statementBuilder()
+    .insert(ingestJobs)
+    .values({
+      workId, status: "failed", errorCode: "upstream_error",
+      negativeCachedUntil: secondsAgo(-cachedForSeconds),
+    })
+    .getSQL();
+  await db.execute(statement);
 }
 
 beforeAll(async () => {
