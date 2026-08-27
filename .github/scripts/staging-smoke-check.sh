@@ -6,7 +6,11 @@
 # a broken staging blocks promote-production instead of silently passing it on.
 set -euo pipefail
 
-BASE_URL="${1:?staging base URL required}"
+BASE_URL="${1:?staging edge base URL required}"
+# The web app lives on its own worker: the zone hostname routes `/` to it,
+# but on workers.dev each worker only answers for itself — so the SSR-shell
+# probe needs the web worker's own origin, not the edge's.
+WEB_URL="${2:-$BASE_URL}"
 ATTEMPTS="${SMOKE_ATTEMPTS:-3}"
 RETRY_DELAY="${SMOKE_RETRY_DELAY:-10}"
 
@@ -27,7 +31,7 @@ healthz_ok() {
 
 shell_ok() {
   local response code body
-  response="$(http_body_and_code "$BASE_URL/")" || return 1
+  response="$(http_body_and_code "$WEB_URL/")" || return 1
   code="${response##*$'\n'}"
   body="${response%$'\n'*}"
   [ "$code" = "200" ] || { echo "/ returned HTTP $code" >&2; return 1; }

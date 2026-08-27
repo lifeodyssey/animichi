@@ -55,7 +55,10 @@
       // bypass the WAF the same way.
       // Main-only CD injects environment runtime config into the sealed web
       // artifact and promotes it with this explicit environment block.
-      "workers_dev": false,
+      // workers_dev on for STAGING ONLY (owner 2026-08-27, mirrors the edge worker):
+      // the CD smoke probes the SSR shell here because the zone front door
+      // bot-challenges GitHub-runner IPs. Production stays closed.
+      "workers_dev": true,
       "preview_urls": false,
       // Public staging RUNTIME_CONFIG is committed: Cloudflare Builds does not
       // receive GitHub environment VITE_* vars, and an empty inject overwrote
