@@ -45,6 +45,12 @@ class _Catalog(MockCatalogClient):
         self.calls.append(("points_by_bangumi_id", (bangumi_id,)))
         return self.results.get(bangumi_id, SearchResult())
 
+    def _ordered_points(self, point_ids: list[str]) -> list[Point]:
+        points = {
+            point.id: point for result in self.results.values() for point in result.rows
+        }
+        return [points[pid] for pid in point_ids if pid in points]
+
     async def plan_itinerary(
         self,
         point_ids: list[str],
@@ -54,10 +60,7 @@ class _Catalog(MockCatalogClient):
     ) -> Itinerary:
         del origin, pacing
         self.calls.append(("plan_itinerary", (tuple(point_ids),)))
-        points = {
-            point.id: point for result in self.results.values() for point in result.rows
-        }
-        ordered = [points[pid] for pid in point_ids if pid in points]
+        ordered = self._ordered_points(point_ids)
         return Itinerary(
             ordered_points=ordered,
             point_count=len(ordered),

@@ -106,9 +106,26 @@ async def _wait_for_result(task: asyncio.Task[None]) -> bool:
     return task in done
 
 
-async def _settle(task: asyncio.Task[None], turn_key: str | None) -> None:
+def _settle_finished_producer(
+    task: asyncio.Task[None], turn_key: str | None, *, drained: bool
+) -> None:
+    """The producer already finished — log only if frames were left unread.
+
+    A `task.done()` producer with `drained=False` means the consumer stopped
+    pulling before `_drain` reached the sentinel (the client disconnected
+    mid-stream, P0 §2.1) even though there was nothing left to cancel: the
+    frames it never saw were already sitting in the queue.
+    """
+    _consume_result(task)
+    if not drained:
+        logger.warning("chat_stream_client_disconnected", turn_key=turn_key)
+
+
+async def _settle(
+    task: asyncio.Task[None], turn_key: str | None, *, drained: bool
+) -> None:
     if task.done():
-        _consume_result(task)
+        _settle_finished_producer(task, turn_key, drained=drained)
         return
     # The producer is still running while the consumer stopped pulling
     # frames early — the only way that happens is the client disconnecting
@@ -130,8 +147,10 @@ async def stream_chat(
     """Yield SSE frames for one chat turn: start -> tools -> data -> finish."""
     queue: _Queue = asyncio.Queue()
     task = asyncio.create_task(_produce(handler, queue))
+    drained = False
     try:
         async for frame in _drain(queue):
             yield frame
+        drained = True
     finally:
-        await _settle(task, turn_key)
+        await _settle(task, turn_key, drained=drained)

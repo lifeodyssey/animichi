@@ -4,16 +4,23 @@ The swap from a hand-rolled ``StreamingResponse`` to sse-starlette's
 ``EventSourceResponse`` is proven wire-compatible by the *unmodified*
 ``test_chat_stream*.py`` / ``test_sse_contract.py`` suites (they still pass
 byte-for-byte with the new transport). This file covers what only the new
-transport adds: a keepalive ping during long tool calls, and the no-cache /
-no-buffering / keep-alive proxy headers.
+transport adds: wiring the keepalive-ping interval into ``EventSourceResponse``,
+and the no-cache / no-buffering / keep-alive proxy headers.
+
+The actual ping cadence and ``: ping`` wire framing are sse-starlette's own
+tested behavior — not re-verified here with a live wall-clock wait. What this
+route owns is threading ``_SSE_PING_SECONDS`` into the ``ping=`` kwarg, which
+a constructor spy proves without ever needing a real ping to fire.
 """
 
 from __future__ import annotations
 
-import asyncio
+from collections.abc import AsyncIterable, Mapping
+from typing import Literal, NamedTuple, TypedDict
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from sse_starlette import EventSourceResponse
 
 from animichi.interfaces.public_api import RuntimeAPI
 from animichi.interfaces.routes import chat as chat_module
@@ -21,7 +28,22 @@ from animichi.interfaces.schemas import PublicAPIResponse
 from animichi.tests.unit.conftest_fastapi import async_client, build_app, build_stub_db
 
 
-def _body(text: str = "京吹") -> dict[str, object]:
+class _WireTextPart(TypedDict):
+    type: Literal["text"]
+    text: str
+
+
+class _WireUserMessage(TypedDict):
+    id: str
+    role: Literal["user"]
+    parts: list[_WireTextPart]
+
+
+class _ChatRequestBody(TypedDict):
+    messages: list[_WireUserMessage]
+
+
+def _body(text: str = "京吹") -> _ChatRequestBody:
     return {
         "messages": [
             {"id": "u1", "role": "user", "parts": [{"type": "text", "text": text}]}
@@ -29,42 +51,54 @@ def _body(text: str = "京吹") -> dict[str, object]:
     }
 
 
-def _slow_runtime(delay: float) -> MagicMock:
-    """A RuntimeAPI whose ``handle()`` outlasts the ping interval — stands in
-    for a slow catalog tool call (the audit's catalog budget is 80-85s)."""
+def _ok_runtime() -> MagicMock:
+    """A RuntimeAPI whose ``handle()`` succeeds immediately."""
     runtime = MagicMock(spec=RuntimeAPI)
-
-    async def _handle(*_args: object, **_kwargs: object) -> PublicAPIResponse:
-        await asyncio.sleep(delay)
-        return PublicAPIResponse(
+    runtime.handle = AsyncMock(
+        return_value=PublicAPIResponse(
             success=True, status="ok", intent="search_bangumi", message="done"
         )
-
-    runtime.handle = AsyncMock(side_effect=_handle)
+    )
     runtime._db = build_stub_db()
     return runtime
 
 
-async def test_ping_frame_appears_during_a_slow_tool_call(
+class _CapturedSseCall(NamedTuple):
+    """One ``EventSourceResponse(...)`` construction the route made."""
+
+    headers: Mapping[str, str] | None
+    ping: int | None
+
+
+async def test_ping_interval_is_wired_into_the_sse_transport(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(chat_module, "_SSE_PING_SECONDS", 0.05)
-    runtime = _slow_runtime(delay=0.3)
-    app, _ = build_app(runtime_api=runtime)
+    monkeypatch.setattr(chat_module, "_SSE_PING_SECONDS", 21)
+    captured: list[_CapturedSseCall] = []
+
+    def _recording_event_source_response(
+        content: AsyncIterable[bytes],
+        *,
+        headers: Mapping[str, str] | None = None,
+        ping: int | None = None,
+    ) -> EventSourceResponse:
+        captured.append(_CapturedSseCall(headers=headers, ping=ping))
+        return EventSourceResponse(content, headers=headers, ping=ping)
+
+    monkeypatch.setattr(
+        chat_module, "EventSourceResponse", _recording_event_source_response
+    )
+    app, _ = build_app(runtime_api=_ok_runtime())
     async with async_client(app) as client:
-        async with client.stream(
-            "POST", "/v1/chat", json=_body(), headers={"X-User-Id": "user-1"}
-        ) as response:
-            raw = b""
-            async for chunk in response.aiter_bytes():
-                raw += chunk
-    lines = raw.split(b"\n")
-    assert any(line.startswith(b": ping") for line in lines)
+        await client.post("/v1/chat", json=_body(), headers={"X-User-Id": "user-1"})
+
+    assert captured == [
+        _CapturedSseCall(headers={"x-vercel-ai-ui-message-stream": "v1"}, ping=21)
+    ]
 
 
 async def test_sse_response_carries_the_no_buffering_proxy_headers() -> None:
-    runtime = _slow_runtime(delay=0.0)
-    app, _ = build_app(runtime_api=runtime)
+    app, _ = build_app(runtime_api=_ok_runtime())
     async with async_client(app) as client:
         response = await client.post(
             "/v1/chat", json=_body(), headers={"X-User-Id": "user-1"}

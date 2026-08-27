@@ -101,16 +101,35 @@ class AgentTurn:
     ) -> TurnResult:
         """Handle one turn; the terminal paths settle exactly once."""
         started_at = time.perf_counter()
-        verdict = turn.verdict
-        if verdict is None:
-            verdict = await self._admit(turn)
+        verdict = turn.verdict or await self._admit(turn)
         if verdict.rejection is not None:
-            return TurnResult(
-                outcome="rejected",
-                rejection=verdict.rejection,
-                session_id=verdict.session_id,
-            )
+            return self._rejected(verdict)
         reserved = not verdict.replayed
+        outcome, ref, owner = self._reservation_context(turn, verdict, binding)
+        prepared = await self._prepare_snapshot(
+            turn, verdict, outcome, ref, owner, reserved
+        )
+        if isinstance(prepared, TurnResult):
+            return prepared
+        return await self._run_and_settle(
+            turn, verdict, outcome, ref, owner, reserved, prepared, on_step, started_at
+        )
+
+    def _rejected(self, verdict: AdmissionVerdict) -> TurnResult:
+        """The admission-time rejection outcome (no reservation was taken)."""
+        return TurnResult(
+            outcome="rejected",
+            rejection=verdict.rejection,
+            session_id=verdict.session_id,
+        )
+
+    def _reservation_context(
+        self,
+        turn: TurnInput,
+        verdict: AdmissionVerdict,
+        binding: ReservationBinding | None,
+    ) -> tuple[TurnOutcome, TurnRef, str]:
+        """Resolve the (outcome, ref, owner) triple guarding this turn."""
         outcome = binding.outcome if binding is not None else self._outcome
         ref = (
             binding.ref
@@ -118,26 +137,94 @@ class AgentTurn:
             else TurnRef(session_id=verdict.session_id, turn_key=turn.turn_key)
         )
         owner = binding.owner if binding is not None else verdict.owner or ""
+        return outcome, ref, owner
+
+    async def _prepare_snapshot(
+        self,
+        turn: TurnInput,
+        verdict: AdmissionVerdict,
+        outcome: TurnOutcome,
+        ref: TurnRef,
+        owner: str,
+        reserved: bool,
+    ) -> SessionSnapshot | TurnResult:
+        """Load the session and dispatch the reservation, or a lost lease."""
+        snapshot, dispatched = await self._load_and_dispatch(
+            turn, verdict, outcome, ref, owner, reserved
+        )
+        if reserved and not dispatched:
+            await outcome.release(ref, owner=owner)
+            return TurnResult(
+                outcome="lease_lost",
+                session_id=turn.session_id,
+                revision=verdict.revision,
+            )
+        return snapshot
+
+    async def _load_and_dispatch(
+        self,
+        turn: TurnInput,
+        verdict: AdmissionVerdict,
+        outcome: TurnOutcome,
+        ref: TurnRef,
+        owner: str,
+        reserved: bool,
+    ) -> tuple[SessionSnapshot, bool]:
+        """Load the session and flip reserved->running; clean up on escape.
+
+        Both awaits below can be where a client disconnect cancels this turn
+        (P0 SSE §2.1). `CancelledError` is a `BaseException`, not an
+        `Exception`, since Python 3.8 — it must be named explicitly or the
+        reservation is left stuck (`load`: still `reserved`; `dispatch`: its
+        own commit outcome is unknown at the cancellation point) until its
+        lease expires.
+        """
         try:
             snapshot = await self._session.load(
                 None if verdict.replayed else turn.session_id,
                 user_id=turn.identity.user_id,
             )
+            dispatched = await outcome.dispatch(ref, owner=owner) if reserved else True
+        except asyncio.CancelledError:
+            if reserved:
+                await self._relinquish_reservation(outcome, ref, owner)
+            raise
         except Exception:
-            # The turn died before dispatch: the reservation is released,
-            # never settled (TURN-3 #951 phase-aware release).
+            # The turn died before dispatch committed: the reservation is
+            # released, never settled (TURN-3 #951 phase-aware release).
             if reserved:
                 await outcome.release(ref, owner=owner)
             raise
-        if reserved:
-            dispatched = await outcome.dispatch(ref, owner=owner)
-            if not dispatched:
-                await outcome.release(ref, owner=owner)
-                return TurnResult(
-                    outcome="lease_lost",
-                    session_id=turn.session_id,
-                    revision=verdict.revision,
-                )
+        return snapshot, dispatched
+
+    async def _relinquish_reservation(
+        self, outcome: TurnOutcome, ref: TurnRef, owner: str
+    ) -> None:
+        """Give up a reservation whose state is ambiguous after a cancel.
+
+        A cancel mid-`dispatch` may land before or after the store's
+        reserved->running commit lands, so try the pre-commit release first
+        (a no-op once the flip already happened) and fall back to a failed
+        settle for the post-commit case — either way the reservation never
+        sits stuck for its full lease.
+        """
+        released = await outcome.release(ref, owner=owner)
+        if not released:
+            await outcome.settle(ref, owner=owner, outcome="failed")
+
+    async def _run_and_settle(
+        self,
+        turn: TurnInput,
+        verdict: AdmissionVerdict,
+        outcome: TurnOutcome,
+        ref: TurnRef,
+        owner: str,
+        reserved: bool,
+        snapshot: SessionSnapshot,
+        on_step: TurnStageSink | None,
+        started_at: float,
+    ) -> TurnResult:
+        """Run the turn; a cancel (P0 SSE §2.1) or any crash still settles."""
         try:
             return await self._run(
                 turn,
@@ -150,18 +237,9 @@ class AgentTurn:
                 on_step,
                 started_at,
             )
-        except asyncio.CancelledError as exc:
-            # A client disconnect cancels the streaming producer task (P0
-            # §2.1): `except Exception` does not catch this (CancelledError
-            # is a BaseException since Python 3.8), so without this branch
-            # the reservation was left dispatched-but-never-settled — a
-            # 300s-wide window where the same session's next turn is
-            # rejected as still in flight.
-            await self._settle_failed(
-                outcome, ref, owner, reserved, _carried_output(exc), turn, started_at
-            )
-            raise
-        except Exception as exc:
+        except (asyncio.CancelledError, Exception) as exc:
+            # `CancelledError` is a `BaseException`, not an `Exception`, since
+            # Python 3.8 — it must be named explicitly here too.
             await self._settle_failed(
                 outcome, ref, owner, reserved, _carried_output(exc), turn, started_at
             )
