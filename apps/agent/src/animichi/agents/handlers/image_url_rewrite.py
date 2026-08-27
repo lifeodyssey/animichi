@@ -4,14 +4,26 @@ from __future__ import annotations
 
 import os
 
+#: Origins whose screenshots must route through /img/. Matched by prefix, both
+#: schemes: an http:// URL used to pass the old substring test yet dodge the
+#: https-only replace, shipping a mixed-content URL to production.
+_ANITABI_ORIGINS = ("https://image.anitabi.cn/", "http://image.anitabi.cn/")
+
 
 def _rewrite_url(url: str) -> str:
     """Rewrite a single Anitabi image URL to go through our CF proxy."""
-    if "image.anitabi.cn/" in url:
-        return url.replace("https://image.anitabi.cn/", "/img/")
+    for origin in _ANITABI_ORIGINS:
+        if url.startswith(origin):
+            return f"/img/{url.removeprefix(origin)}"
     if url.startswith("screenshot/"):
         return f"/img/{url}"
     return url
+
+
+def _rewrite_row(row: dict[str, object]) -> None:
+    url = row.get("screenshot_url")
+    if isinstance(url, str) and url:
+        row["screenshot_url"] = _rewrite_url(url)
 
 
 def rewrite_image_urls(rows: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -22,10 +34,7 @@ def rewrite_image_urls(rows: list[dict[str, object]]) -> list[dict[str, object]]
     """
     if os.environ.get("APP_ENV", "development") == "development":
         return rows
-
     out = list(rows)
     for row in out:
-        url = row.get("screenshot_url")
-        if isinstance(url, str) and url:
-            row["screenshot_url"] = _rewrite_url(url)
+        _rewrite_row(row)
     return out

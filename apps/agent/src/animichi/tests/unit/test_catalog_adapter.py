@@ -126,6 +126,14 @@ def test_rewrite_image_urls_proxies_anitabi_cdn_in_production(
     assert rewrite_image_urls(rows)[0]["screenshot_url"] == "/img/s/x.jpg"
 
 
+def test_http_anitabi_urls_are_rewritten_not_left_as_mixed_content(monkeypatch):
+    """An http:// origin used to pass the substring test yet dodge the
+    https-only replace, shipping a mixed-content URL (#1222 review)."""
+    monkeypatch.setenv("APP_ENV", "production")
+    rows = [{"screenshot_url": "http://image.anitabi.cn/s/x.jpg"}]
+    assert rewrite_image_urls(rows)[0]["screenshot_url"] == "/img/s/x.jpg"
+
+
 def test_rewrite_image_urls_proxies_relative_screenshot_in_production(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
