@@ -245,6 +245,12 @@ jobs:
       - name: Smoke-check the staging cohort
         # workers.dev, not the zone hostname: GitHub-runner IPs get a managed
         # challenge at the zone front door (audit follow-up; owner-predicted).
+        # The container cold-starts on ~every deploy (audited at 24.5s), so the
+        # first probes hit "error connecting to the port" by design — the retry
+        # window must outlast cold start plus agent boot, not just propagation.
+        env:
+          SMOKE_ATTEMPTS: "8"
+          SMOKE_RETRY_DELAY: "15"
         run: bash .github/scripts/staging-smoke-check.sh https://animichi-staging.zhenjiazhou0127.workers.dev
 
   promote-production:
