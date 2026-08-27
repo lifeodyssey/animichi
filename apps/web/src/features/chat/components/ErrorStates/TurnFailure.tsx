@@ -12,6 +12,8 @@ export interface TurnFailureView {
   readonly state: ChatErrorState;
   /** D12 only: `quota_resets_at` as epoch ms, when the payload carried one. */
   readonly quotaResetsAtMs?: number;
+  /** D18 only: the failing code (error code, or the bare HTTP status). */
+  readonly errorCode?: string;
   readonly onRetry: () => void;
   readonly onExpiredResume: () => void;
   readonly recovering: boolean;
@@ -23,10 +25,12 @@ type Props = Readonly<{
   locale: Locale;
 }>;
 
+const INTERRUPTION_SHAPES: Partial<Record<ChatErrorState, InterruptionShape>> = {
+  D5: "D5", D10: "D10", D15: "D15", D16: "D16", D17: "D17", D18: "D18",
+};
+
 function interruptionShape(state: ChatErrorState): InterruptionShape {
-  if (state === "D5") return "D5";
-  if (state === "D10") return "D10";
-  return "D4";
+  return INTERRUPTION_SHAPES[state] ?? "D4";
 }
 
 /** Inline turn-failure surface: the D8/D11/D12 login banners or the D4/D5/D10 retry strip. */
@@ -75,5 +79,5 @@ export function TurnFailure({ view, dict, locale }: Props) {
   if (view.state === "D14") return <ByokRejected dict={dict} />;
   if (LIMIT_STATES.has(view.state)) return <LimitState view={view} dict={dict} locale={locale} />;
   const shape = interruptionShape(view.state);
-  return <StreamInterruption state={shape} dict={dict} onRetry={view.onRetry} recovering={view.recovering} />;
+  return <StreamInterruption state={shape} dict={dict} onRetry={view.onRetry} recovering={view.recovering} errorCode={view.errorCode} />;
 }

@@ -3,10 +3,12 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import { AnonLimitErrorEnvelope, ChatResponseDataPart, readQuotaResetsAt } from "@animichi/contract";
 import type { ChatDataPart } from "@animichi/contract";
 import { DefaultChatTransport, generateId } from "ai";
-import type { UIMessage } from "ai";
+import type { PrepareSendMessagesRequest, UIMessage } from "ai";
 import { useCallback, useRef } from "react";
 import type { RefObject } from "react";
 import { z } from "zod";
+import { candidatePickBody } from "./selection/candidate-pick";
+import type { CandidatePick } from "./selection/candidate-pick";
 import type { SelectedPointsBody } from "./selection/use-recompute-turn";
 import { sessionHeaders } from "./session-headers";
 import type { SessionOffer } from "./session-headers";
@@ -34,10 +36,6 @@ interface SessionTracker {
    * `x-session-revision` / `x-session-digest` on the next turn. */
   revision: number | undefined;
   digest: string | undefined;
-  /** Issue #1014 AC6: the idempotency key minted once per logical turn and
-   * reused across a retried send, so a stream-interrupted retry carries the
-   * SAME x-turn-id and the server dedups it instead of charging a rerun. */
-  pendingTurnId: string | undefined;
   lastHttpStatus: number | undefined;
   lastErrorCode: string | undefined;
   /** D12's `quota_resets_at`: when this identity's allowance returns. */
@@ -46,7 +44,7 @@ interface SessionTracker {
 type SessionRef = RefObject<SessionTracker>;
 
 function emptyTracker(scope: string, sessionId: string | undefined): SessionTracker {
-  return { scope, id: sessionId, pendingTurnId: undefined, ...blankOffer(), ...blankRejection() };
+  return { scope, id: sessionId, ...blankOffer(), ...blankRejection() };
 }
 
 function blankOffer(): { revision: undefined; digest: undefined } {
@@ -83,33 +81,18 @@ function offerOf(ref: SessionRef): SessionOffer {
 }
 
 /**
- * Mint (or reuse) the idempotency key for the current logical turn (AC6).
- * The first header call of a send pins `pendingTurnId`; a retry of the same
- * send (e.g. after a mid-stream disconnect) returns the SAME id so the server
- * dedups it. A genuinely new send gets a fresh id once the previous turn ends.
+ * The turn idempotency key, derived from the outgoing message itself
+ * (W1 #1220, replacing the connection-lifecycle `pendingTurnId`): the same
+ * message resent — a regenerate after a drop — carries the SAME `x-turn-id`
+ * so the server dedups it, while any NEW message (a clarify pick fired while
+ * the previous stream never finished included) gets its own fresh key.
  */
-function nextTurnId(ref: SessionRef): string {
-  ref.current.pendingTurnId ??= generateId();
-  return ref.current.pendingTurnId;
-}
-
-/** Clear the per-turn idempotency key once a turn genuinely completes. */
-function endTurn(ref: SessionRef): void {
-  ref.current.pendingTurnId = undefined;
-}
-
-/** The AI SDK finish signal; a turn completes only absent all of these. */
-interface FinishInfo {
-  isAbort: boolean;
-  isDisconnect: boolean;
-  isError: boolean;
-}
-
-/** AC6: free the per-turn idempotency key only on genuine completion so a
- * disconnected/aborted/errored turn's retry keeps the SAME x-turn-id. */
-function handleFinish(ref: SessionRef, finish: FinishInfo): void {
-  if (finish.isAbort || finish.isDisconnect || finish.isError) return;
-  endTurn(ref);
+export function turnKeyOf(messages: readonly ChatUIMessage[]): string {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === "user") return `turn-${message.id}`;
+  }
+  return `turn-${generateId()}`;
 }
 
 /** Handlers pinned to their scope epoch so a late frame from a previous
@@ -118,9 +101,6 @@ function chatHandlers(scope: string, ref: SessionRef) {
   return {
     onData: (part: { data: ChatDataPart }) => {
       if (ref.current.scope === scope) captureSessionOffer(ref, part);
-    },
-    onFinish: (finish: FinishInfo) => {
-      handleFinish(ref, finish);
     },
   };
 }
@@ -181,11 +161,28 @@ function createTrackingFetch(ref: SessionRef): typeof globalThis.fetch {
   };
 }
 
+type OutgoingTurn = Parameters<PrepareSendMessagesRequest<ChatUIMessage>>[0];
+
+function headerEntries(headers: HeadersInit | undefined): Record<string, string> {
+  return Object.fromEntries(new Headers(headers).entries());
+}
+
+/** Rebuild the default request wire shape, adding the message-derived key. */
+async function prepareTurnRequest(ref: SessionRef, turn: OutgoingTurn) {
+  return {
+    body: { ...turn.body, id: turn.id, messages: turn.messages, trigger: turn.trigger, messageId: turn.messageId },
+    headers: {
+      ...headerEntries(turn.headers),
+      ...await sessionHeaders({ ...offerOf(ref), turnId: turnKeyOf(turn.messages) }),
+    },
+  };
+}
+
 function createSessionTransport(chatUrl: string, ref: SessionRef): DefaultChatTransport<ChatUIMessage> {
   return new DefaultChatTransport({
     api: chatUrl,
-    headers: () => sessionHeaders({ ...offerOf(ref), turnId: nextTurnId(ref) }),
     fetch: createTrackingFetch(ref),
+    prepareSendMessagesRequest: (turn) => prepareTurnRequest(ref, turn),
   });
 }
 
@@ -221,7 +218,8 @@ function useScopedChat(chatUrl: string, scope: string, ref: SessionRef): Chat<Ch
  * epoch guard drops any frame that still arrives late — an in-flight stream
  * from the previous session can never mix into the next one. The
  * backend-assigned `session_id` from `data-response` frames is fed back into
- * follow-up requests through the transport's dynamic `headers` function.
+ * follow-up requests through the transport's `prepareSendMessagesRequest`,
+ * which also derives the per-message `x-turn-id` (W1 #1220).
  */
 function useTrackerReaders(ref: SessionRef) {
   const sessionIdOf = useCallback(() => ref.current.id, [ref]);
@@ -260,6 +258,34 @@ function useSendSelectedPoints({ sendMessage, setMessages }: SendHelpers) {
   );
 }
 
+type PickHelpers = Pick<UseChatHelpers<ChatUIMessage>, "sendMessage" | "regenerate" | "clearError">;
+
+/**
+ * Structured clarify pick (W1 #1220): the user bubble renders the display
+ * title while the request rides `selected_candidate_ids` +
+ * `clarification_id` into the deterministic selection channel.
+ */
+function useSendCandidatePick({ sendMessage }: PickHelpers) {
+  return useCallback(
+    (pick: CandidatePick) => {
+      void sendMessage({ text: pick.label }, { body: { ...candidatePickBody(pick) } });
+    },
+    [sendMessage],
+  );
+}
+
+/** Retry of a failed pick: re-submit the SAME pick bubble (same message,
+ * hence the same derived `x-turn-id`) with the same selection body. */
+function useResendCandidatePick({ regenerate, clearError }: PickHelpers) {
+  return useCallback(
+    (pick: CandidatePick) => {
+      clearError();
+      void regenerate({ body: { ...candidatePickBody(pick) } });
+    },
+    [regenerate, clearError],
+  );
+}
+
 export function useChatSession(chatUrl: string, sessionId?: string) {
   const scope = scopeOf(sessionId);
   const ref = useSessionTracker(sessionId, scope);
@@ -272,6 +298,8 @@ function useChatSessionHelpers(chat: Chat<ChatUIMessage>, ref: SessionRef) {
   return {
     ...helpers,
     sendSelectedPoints: useSendSelectedPoints(helpers),
+    sendCandidatePick: useSendCandidatePick(helpers),
+    resendCandidatePick: useResendCandidatePick(helpers),
     ...useTrackerReaders(ref),
   };
 }

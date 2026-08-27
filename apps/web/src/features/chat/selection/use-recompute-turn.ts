@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { RefObject } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { RecomputeStatus } from "../components/SelectionTray";
+import { isTurnActive } from "../lib/turn-gate";
 import type { ChatSession } from "../use-chat-session";
+import { useSelectionSettle } from "./use-selection-settle";
+import type { SetSelectionStatus } from "./use-selection-settle";
 
 /**
  * A selected-points selection turn (TURN-4 #955): the checkbox reselection
@@ -38,66 +40,27 @@ export interface RecomputeTurn {
   readonly fire: (ids: readonly string[]) => void;
 }
 
-function isActive(status: ChatSession["status"]): boolean {
-  return status === "submitted" || status === "streaming";
-}
-
-type SetStatus = (status: RecomputeStatus) => void;
 type SetIds = (ids: readonly string[]) => void;
 type SendBypass = (body: SelectedPointsBody) => void;
 
-/** The guard: an empty selection produces no body, so the turn never fires empty. */
-function fireRecompute(ids: readonly string[], send: SendBypass, setStatus: SetStatus, setIds: SetIds): void {
+/** The guards: an empty selection produces no body, and the shared status
+ * gate (W1 #1220) refuses to fire while another turn is in flight. */
+function fireRecompute(ids: readonly string[], active: boolean, send: SendBypass, setStatus: SetSelectionStatus, setIds: SetIds): void {
   const body = selectedPointsBody(ids);
-  if (body === undefined) return;
+  if (body === undefined || active) return;
   setIds(body.selected_point_ids);
   setStatus("busy");
   send(body);
 }
 
-function useFire(chat: ChatSession, setStatus: SetStatus, setIds: SetIds) {
-  const { sendSelectedPoints } = chat;
+function useFire(chat: ChatSession, setStatus: SetSelectionStatus, setIds: SetIds) {
+  const { sendSelectedPoints, status } = chat;
   return useCallback(
     (ids: readonly string[]) => {
-      fireRecompute(ids, sendSelectedPoints, setStatus, setIds);
+      fireRecompute(ids, isTurnActive(status), sendSelectedPoints, setStatus, setIds);
     },
-    [sendSelectedPoints, setStatus, setIds],
+    [sendSelectedPoints, status, setStatus, setIds],
   );
-}
-
-type WatcherStep = Readonly<{
-  status: RecomputeStatus;
-  chatStatus: ChatSession["status"];
-  error: Error | undefined;
-  started: RefObject<boolean>;
-  setStatus: SetStatus;
-}>;
-
-/** A busy selection settles once its turn went active and came back. */
-function settleBusy({ chatStatus, error, started, setStatus }: WatcherStep): void {
-  if (isActive(chatStatus)) {
-    started.current = true;
-    return;
-  }
-  if (started.current) setStatus(error === undefined ? "idle" : "failed");
-}
-
-/** One watcher step; a later non-selection turn going active clears a stale verdict. */
-function stepWatcher(step: WatcherStep): void {
-  if (step.status === "busy") {
-    settleBusy(step);
-    return;
-  }
-  step.started.current = false;
-  if (step.status === "failed" && isActive(step.chatStatus)) step.setStatus("idle");
-}
-
-function useSettleWatcher(status: RecomputeStatus, chat: ChatSession, setStatus: SetStatus): void {
-  const started = useRef(false);
-  const { status: chatStatus, error } = chat;
-  useEffect(() => {
-    stepWatcher({ status, chatStatus, error, started, setStatus });
-  }, [status, chatStatus, error, setStatus]);
 }
 
 export function useRecomputeTurn(chat: ChatSession, sessionKey?: string): RecomputeTurn {
@@ -105,6 +68,6 @@ export function useRecomputeTurn(chat: ChatSession, sessionKey?: string): Recomp
   const [lastSentIds, setLastSentIds] = useState<readonly string[]>();
   useEffect(() => { setStatus("idle"); setLastSentIds(undefined); }, [sessionKey]);
   const fire = useFire(chat, setStatus, setLastSentIds);
-  useSettleWatcher(status, chat, setStatus);
+  useSelectionSettle(status, chat, setStatus);
   return { status, lastSentIds, fire };
 }

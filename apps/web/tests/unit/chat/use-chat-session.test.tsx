@@ -83,21 +83,22 @@ describe("session id round-trip", () => {
   });
 });
 
-describe("stable turn idempotency key (AC6 #1014)", () => {
-  function dropperSeen(seen: (string | null)[]) {
-    return http.post(CHAT_URL, ({ request }) => {
-      seen.push(request.headers.get("x-turn-id"));
-      const body = new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(new TextEncoder().encode(recordingHead("search")));
-          controller.error(new Error("connection lost"));
-        },
-      });
-      return new HttpResponse(body, { headers: SSE_HEADERS });
+function dropperSeen(seen: (string | null)[]) {
+  return http.post(CHAT_URL, ({ request }) => {
+    seen.push(request.headers.get("x-turn-id"));
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(recordingHead("search")));
+        controller.error(new Error("connection lost"));
+      },
     });
-  }
+    return new HttpResponse(body, { headers: SSE_HEADERS });
+  });
+}
 
-  it("reuses the pinned x-turn-id when a stream-interrupted send is retried", async () => {
+describe("message-derived turn idempotency key (AC6 #1014, rederived per W1 #1220)", () => {
+
+  it("keeps the same x-turn-id when the interrupted message itself is resent", async () => {
     const seen: (string | null)[] = [];
     server.use(dropperSeen(seen));
     const view = renderSession();
@@ -110,19 +111,41 @@ describe("stable turn idempotency key (AC6 #1014)", () => {
     expect(seen).toHaveLength(1);
 
     server.use(chatStreamHandler("search", { spy: (request) => seen.push(request.headers.get("x-turn-id")) }));
-    await sendAndSettle(view, "続きも教えて");
-    expect(seen).toHaveLength(2);
+    await act(async () => {
+      view.result.current.clearError();
+      await view.result.current.regenerate();
+    });
+    await waitFor(() => {
+      expect(view.result.current.status).toBe("ready");
+    });
+    // Same message object resent — the server dedups it under the SAME key.
     expect(seen[1]).toBeTruthy();
-    // The retried turn must reuse the interrupted turn id, not mint a new one.
     expect(seen[1]).toBe(seen[0]);
   });
 
-  it("mints a fresh x-turn-id only after the previous turn completed", async () => {
+});
+
+describe("fresh keys for new messages (W1 #1220)", () => {
+  it("mints a fresh x-turn-id for a NEW message even after an interrupted turn", async () => {
     const seen: (string | null)[] = [];
-    function completingSpy(request: Request) {
-      seen.push(request.headers.get("x-turn-id"));
-    }
-    server.use(chatStreamHandler("search", { spy: completingSpy }));
+    server.use(dropperSeen(seen));
+    const view = renderSession();
+    act(() => {
+      void view.result.current.sendMessage({ text: "ユーフォ" }).catch(() => undefined);
+    });
+    await waitFor(() => {
+      expect(view.result.current.error).toBeTruthy();
+    });
+    server.use(chatStreamHandler("search", { spy: (request) => seen.push(request.headers.get("x-turn-id")) }));
+    await sendAndSettle(view, "続きも教えて");
+    // A new message is a new logical turn: never the interrupted turn's key.
+    expect(seen[1]).toBeTruthy();
+    expect(seen[1]).not.toBe(seen[0]);
+  });
+
+  it("mints one fresh x-turn-id per new message across completed turns", async () => {
+    const seen: (string | null)[] = [];
+    server.use(chatStreamHandler("search", { spy: (request) => seen.push(request.headers.get("x-turn-id")) }));
     const view = renderSession();
     await sendAndSettle(view, "ユーフォ");
     await sendAndSettle(view, "続きも教えて");

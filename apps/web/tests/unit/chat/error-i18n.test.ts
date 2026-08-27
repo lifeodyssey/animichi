@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { LOCALES } from "../../../src/i18n/locales";
 
-const STATES = ["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11", "d12"] as const;
+const STATES = ["d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10", "d11", "d12", "d15", "d16", "d17", "d18"] as const;
 
 /** Wire/internal vocabulary that must never surface in user-facing fallback copy. */
 const TECHNICAL_MARKERS = [

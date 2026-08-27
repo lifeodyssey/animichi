@@ -83,3 +83,37 @@ describe("useStreamRecovery with a persisted session", () => {
     await waitFor(() => { expect(chat.setMessages).toHaveBeenCalled(); });
   });
 });
+
+describe("useStreamRecovery with a failed structured pick (W1 #1220)", () => {
+  function renderWithPick(chat: ReturnType<typeof fakeChat>, failed: boolean, sessionId?: string) {
+    const resend = vi.fn();
+    const view = renderHook(() => useStreamRecovery(TEST_ORIGIN, chat, () => sessionId, { failed, resend }));
+    return { view, resend };
+  }
+
+  it("hands retry back to the pick's own resend instead of replaying history", () => {
+    const chat = fakeChat();
+    const { view, resend } = renderWithPick(chat, true, "s-9");
+    act(() => { view.result.current.recover(); });
+    expect(resend).toHaveBeenCalledTimes(1);
+    expect(chat.regenerate).not.toHaveBeenCalled();
+    expect(chat.setMessages).not.toHaveBeenCalled();
+  });
+
+  it("ignores the pick channel when the failure was not a pick", () => {
+    const chat = fakeChat();
+    const { view, resend } = renderWithPick(chat, false);
+    act(() => { view.result.current.recover(); });
+    expect(resend).not.toHaveBeenCalled();
+    expect(chat.regenerate).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps recoverLatest on the history path even while a pick is failed", async () => {
+    server.use(conversationMessagesHandler("s-9", [{ role: "user", content: "ハルヒ" }]));
+    const chat = fakeChat();
+    const { view, resend } = renderWithPick(chat, true, "s-9");
+    act(() => { view.result.current.recoverLatest(); });
+    await waitFor(() => { expect(chat.setMessages).toHaveBeenCalledTimes(1); });
+    expect(resend).not.toHaveBeenCalled();
+  });
+});

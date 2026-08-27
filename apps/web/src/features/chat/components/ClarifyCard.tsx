@@ -1,14 +1,18 @@
 import type { ChatDataPart } from "@animichi/contract";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { sendWithOriginOf, useChatActions } from "../ChatActions";
 import type { ChatDict } from "../i18n";
+import { useClarifyPick } from "../selection/use-clarify-pick";
+import type { ClarifyPickTurn } from "../selection/use-clarify-pick";
 import type { IntentCardProps } from "./Cards";
 import { candidatesOf } from "./Cards";
 import { LocationPrompt } from "./LocationPrompt";
 
 /** C2 clarification card (issue #260 AC1/AC5): 2-4 candidate buttons plus an
- * escape hatch; selecting one sends it (becoming a user bubble) and fades the
- * rest. Photo-search misses reuse this same branch with a manual-entry chip. */
+ * escape hatch; selecting one sends the candidate's id through the structured
+ * selection channel (W1 #1220) while the user bubble shows the display title,
+ * and fades the rest. A failed pick re-arms the card. Photo-search misses
+ * reuse this same branch with a manual-entry chip. */
 
 const MAX_CANDIDATE_BUTTONS = 4;
 
@@ -24,8 +28,27 @@ function reasonOf(part: ChatDataPart): string | undefined {
   return data && "reason" in data ? data.reason : undefined;
 }
 
+/** The pending clarification's revision, echoed back with a pick. */
+function clarificationIdOf(part: ChatDataPart): number | undefined {
+  const data = part.data;
+  return data && "clarification_id" in data ? data.clarification_id : undefined;
+}
+
 function candidateKey(candidate: Candidate): string {
   return candidate.id ?? candidate.title ?? "";
+}
+
+/**
+ * Bilingual display title (W1 #1220): `中文(原文)` when a Chinese title
+ * exists, the original alone otherwise. Display-layer composition only —
+ * what a pick SENDS is the candidate id, decoupled from any language.
+ */
+export function candidateDisplayTitle(candidate: Candidate): string {
+  const original = candidate.title ?? candidate.id ?? "";
+  const chinese = candidate.title_cn;
+  if (chinese === undefined || chinese === "" || chinese === original) return original;
+  if (original === "") return chinese;
+  return `${chinese}(${original})`;
 }
 
 function optionState(phase: Phase, key: string): OptionState {
@@ -50,7 +73,7 @@ function CandidateOption({ candidate, phase, onChoose }: OptionProps) {
   return (
     <li>
       <button type="button" className={optionClass(phase, key)} data-state={optionState(phase, key)} disabled={phase.kind !== "open"} onClick={() => { onChoose(candidate); }}>
-        {candidate.title}
+        {candidateDisplayTitle(candidate)}
       </button>
     </li>
   );
@@ -83,13 +106,39 @@ function LocationSection({ reason, dict }: LocationSectionProps) {
   return <LocationPrompt dict={dict} onLocated={onLocated} onManual={actions.send} />;
 }
 
-function useClarifyPhase(send: (text: string) => void) {
-  const [phase, setPhase] = useState<Phase>({ kind: "open" });
-  const choose = useCallback((candidate: Candidate) => {
+/** Route an id-carrying candidate through the structured channel; report
+ * whether it was taken so the caller can fall back to free text. */
+function structuredPick(pickTurn: ClarifyPickTurn, candidate: Candidate, clarificationId: number | undefined): boolean {
+  if (!pickTurn.enabled || candidate.id === undefined) return false;
+  pickTurn.pick({ candidateId: candidate.id, label: candidateDisplayTitle(candidate), clarificationId });
+  return true;
+}
+
+type SetPhase = (phase: Phase) => void;
+
+function useChoose(part: ChatDataPart, pickTurn: ClarifyPickTurn, send: (text: string) => void, setPhase: SetPhase) {
+  return useCallback((candidate: Candidate) => {
+    if (!pickTurn.sendable) return;
     setPhase({ kind: "chosen", id: candidateKey(candidate) });
-    send(candidate.title ?? candidateKey(candidate));
-  }, [send]);
+    if (!structuredPick(pickTurn, candidate, clarificationIdOf(part))) send(candidateDisplayTitle(candidate));
+  }, [part, pickTurn, send, setPhase]);
+}
+
+/** A failed pick re-arms this card so the visitor can pick again (W1 #1220). */
+function useRearmOnPickFailure(phase: Phase, pickTurn: ClarifyPickTurn, setPhase: SetPhase): void {
+  const failedPickId = pickTurn.status === "failed" ? pickTurn.lastPick?.candidateId : undefined;
+  useEffect(() => {
+    if (phase.kind === "chosen" && failedPickId === phase.id) setPhase({ kind: "open" });
+  }, [phase, failedPickId, setPhase]);
+}
+
+function useClarifyPhase(part: ChatDataPart) {
+  const { send } = useChatActions();
+  const pickTurn = useClarifyPick();
+  const [phase, setPhase] = useState<Phase>({ kind: "open" });
+  const choose = useChoose(part, pickTurn, send, setPhase);
   const escape = useCallback(() => { setPhase({ kind: "rephrase" }); }, []);
+  useRearmOnPickFailure(phase, pickTurn, setPhase);
   return { phase, choose, escape };
 }
 
@@ -129,7 +178,7 @@ function ClarifyFooter({ reason, dict, phase, onEscape }: FooterProps) {
 }
 
 export function ClarifyCard({ part, dict }: IntentCardProps) {
-  const { phase, choose, escape } = useClarifyPhase(useChatActions().send);
+  const { phase, choose, escape } = useClarifyPhase(part);
   return (
     <div className="chat-clarify">
       <PhotoQuestion reason={reasonOf(part)} dict={dict} />

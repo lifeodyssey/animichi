@@ -16,9 +16,12 @@ import type { ChatDict } from "./i18n";
 import type { PhotoGps, PhotoSearchContext } from "./photo-search";
 import type { ChatSearch } from "./search";
 import { SpotSelectionProvider, useSpotSelectionState } from "./selection/use-spot-selection";
+import { ClarifyPickProvider, useClarifyPickState } from "./selection/use-clarify-pick";
+import type { ClarifyPickTurn } from "./selection/use-clarify-pick";
 import { useRecomputeTurn } from "./selection/use-recompute-turn";
 import type { RecomputeTurn } from "./selection/use-recompute-turn";
-import { lockedRecompute, useLockedActions } from "./quota-lock";
+import { gatedTurnEntry } from "./lib/turn-gate";
+import { lockedClarifyPick, lockedRecompute, useLockedActions } from "./quota-lock";
 import type { QuotaLock } from "./quota-lock";
 import { useAutoSend } from "./use-auto-send";
 import { useDeparturePrompt } from "./use-departure-prompt";
@@ -39,13 +42,23 @@ export interface ChatPageProps {
   readonly search: ChatSearch;
 }
 
+/** The shared status gate (W1 #1220) applied to the text entry points: a
+ * send fired while a turn is in flight is dropped, never raced. */
+function useGatedSends(chat: ChatSession) {
+  const { sendMessage, status } = chat;
+  const send = useMemo(() => gatedTurnEntry(status, (text: string) => {
+    void sendMessage({ text });
+  }), [sendMessage, status]);
+  const sendWithOrigin = useMemo(() => gatedTurnEntry(status, (text: string, lat: number, lng: number) => {
+    void sendMessage({ text }, { body: { origin_lat: lat, origin_lng: lng } });
+  }), [sendMessage, status]);
+  return { send, sendWithOrigin };
+}
+
 /** Send, plus the D6-style retry: drop the failed turn's partial and resubmit. */
 function useTurnActions(chat: ChatSession): ChatActions {
-  const { sendMessage, clearError, regenerate } = chat;
-  const send = useCallback((text: string) => void sendMessage({ text }), [sendMessage]);
-  const sendWithOrigin = useCallback((text: string, lat: number, lng: number) => {
-    void sendMessage({ text }, { body: { origin_lat: lat, origin_lng: lng } });
-  }, [sendMessage]);
+  const { clearError, regenerate } = chat;
+  const { send, sendWithOrigin } = useGatedSends(chat);
   const regen = useCallback(() => { clearError(); void regenerate(); }, [clearError, regenerate]);
   return useMemo(() => ({ send, regenerate: regen, sendWithOrigin }), [send, regen, sendWithOrigin]);
 }
@@ -102,13 +115,21 @@ function usePhotoContext(locale: ReturnType<typeof useLocale>, chat: ChatSession
   );
 }
 
-/** Tray state: the recompute turn, its masked failure, and the spot store. */
+/** A failed pick's resend, in the shape the recovery flow consumes. */
+function useFailedPick(clarifyPick: ClarifyPickTurn) {
+  const { status, resend } = clarifyPick;
+  return useMemo(() => ({ failed: status === "failed", resend }), [status, resend]);
+}
+
+/** Tray state: the recompute + clarify-pick turns, their masked failure, and the spot store. */
 function useTrayState(chat: ChatSession, baseUrl: string, gate: TurnFailureGate, sessionKey: string | undefined) {
-  const turn = useTurnFailure(chat, baseUrl, gate);
+  const clarifyPick = useClarifyPickState(chat, sessionKey);
+  const turn = useTurnFailure(chat, baseUrl, gate, useFailedPick(clarifyPick));
   const recompute = useRecomputeTurn(chat, sessionKey);
   const failure = maskRecomputeFailure(recompute, turn.view);
   const selection = useSpotSelectionState(sessionKey);
-  return { recompute: lockedRecompute(recompute, turn.quota.locked), failure, selection, quota: turn.quota };
+  const locked = turn.quota.locked;
+  return { recompute: lockedRecompute(recompute, locked), clarifyPick: lockedClarifyPick(clarifyPick, locked), failure, selection, quota: turn.quota };
 }
 
 /** Locale-bound page copy plus the photo/departure surfaces that share it. */
@@ -199,12 +220,18 @@ function withReturnTarget(props: ChatPageProps, page: PageState) {
   );
 }
 
-export function ChatPage(props: ChatPageProps) {
-  useAgentWarmup();
-  const page = useChatPage(props.search);
+/** The provider stack around the page view: spot selection, clarify pick, actions. */
+function withProviders(props: ChatPageProps, page: PageState) {
   return (
     <SpotSelectionProvider selection={page.selection}>
-      <ChatActionsProvider actions={page.actions}>{withReturnTarget(props, page)}</ChatActionsProvider>
+      <ClarifyPickProvider turn={page.clarifyPick}>
+        <ChatActionsProvider actions={page.actions}>{withReturnTarget(props, page)}</ChatActionsProvider>
+      </ClarifyPickProvider>
     </SpotSelectionProvider>
   );
+}
+
+export function ChatPage(props: ChatPageProps) {
+  useAgentWarmup();
+  return withProviders(props, useChatPage(props.search));
 }

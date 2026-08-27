@@ -37,8 +37,8 @@ describe("classifying the edge rate limit", () => {
     expect(classifyFailure({ kind: "http", status: 403 })).toBe("D8");
   });
 
-  it("leaves other 4xx statuses on the generic interruption", () => {
-    expect(classifyFailure({ kind: "http", status: 400 })).toBe("D4");
+  it("leaves other 4xx statuses on the honest-generic interruption (W1 #1220)", () => {
+    expect(classifyFailure({ kind: "http", status: 400 })).toBe("D18");
   });
 });
 
