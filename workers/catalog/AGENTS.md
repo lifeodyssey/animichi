@@ -70,6 +70,12 @@ Root guide: `../../AGENTS.md`.
   there is no silent-skip path and **zero Neon environment variables**. It runs on every
   `pnpm test:spike`, including the affected catalog lane in `pr-verification.yml`'s
   `Catalog / spike (Docker Postgres)` job (which builds the `animichi-test-postgres` image first).
+  **colima (macOS) local runs**: testcontainers' ryuk reaper bind-mounts the daemon socket, and
+  the macOS-side colima socket mounts as a dead file — ryuk panics and the suite dies with
+  `Log stream ended and message "/.*Started.*/" was not received`. Export
+  `DOCKER_HOST=unix://$HOME/.colima/default/docker.sock` **and**
+  `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` (the VM-internal path) before
+  `pnpm test:spike`. CI's linux runners need neither.
   Config-as-data guards that must always run therefore belong in the worker pool, reading their file
   via Vite's `?raw` suffix (inlined at transform time, so the sandboxed filesystem never comes
   into it).

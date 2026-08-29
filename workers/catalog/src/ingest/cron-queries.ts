@@ -14,10 +14,11 @@
  * the single CatalogDb seam; the crawl-stale query composes a FULL OUTER JOIN
  * source and a NOT EXISTS subfilter as builder subqueries.
  */
-import { and, eq, inArray, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { statementBuilder } from "../db/client";
 import { ingestJobs, rawAnitabi, rawBangumi } from "../db/schema";
+import { expiredNegativeCache, staleRunningJob } from "./jobs";
 
 /** TTL freshness floor: works whose weakest fetch is younger than this are not stale. */
 export const STALE_AFTER_SECONDS = 24 * 60 * 60;
@@ -50,6 +51,32 @@ export async function listStaleBangumiIds(
   assertPositiveCap(cap);
   const rows = (await db.execute(staleWorksStatement(cap, maxAgeSeconds))).rows;
   return bangumiIdsOf(rows);
+}
+
+/** Oldest request-parked work, bounded for one scheduled drain. */
+export async function listDrainableBangumiIds(db: CatalogDb, cap: number): Promise<readonly string[]> {
+  assertPositiveCap(cap);
+  const rows = (await db.execute(drainableStatement(cap))).rows;
+  return bangumiIdsOf(rows);
+}
+
+function drainableStatement(cap: number): SQL {
+  return statementBuilder()
+    .select({ workId: ingestJobs.workId })
+    .from(ingestJobs)
+    .where(drainableJob())
+    .orderBy(asc(ingestJobs.createdAt))
+    .limit(cap)
+    .getSQL();
+}
+
+function drainableJob(): SQL | undefined {
+  const pending = eq(ingestJobs.status, "pending");
+  return or(pending, staleRunningJob(), retryableFailure());
+}
+
+function retryableFailure(): SQL | undefined {
+  return and(eq(ingestJobs.status, "failed"), expiredNegativeCache());
 }
 
 /**

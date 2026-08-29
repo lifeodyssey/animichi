@@ -11,11 +11,8 @@
  * an empty upstream parks for a week (`emptySeconds`), any other failure for an
  * hour (`failureSeconds`), and the claim re-acquires once the TTL elapses.
  *
- * Callers (search, points-by-bangumi-id, the scheduled crons, the internal
- * entrypoint) all funnel through {@link ingest}: it acquires the claim and
+ * Pipeline callers funnel through {@link ingest}: it acquires the claim and
  * runs the pipeline, or reports the persisted guard without touching upstream.
- * Read paths use {@link readClaim} for the guard/claim decision, so the
- * singleflight state machine lives here once, not in each handler.
  *
  * The pipeline phases live as module-level functions over a bundled
  * {@link IngestRuntime}; the class keeps only the public lifecycle surface.
@@ -69,12 +66,6 @@ export type IngestResult =
   | { status: "empty"; reason: string }
   | { status: "failed"; reason: string };
 
-/** What a read path should do for an already-resolved id, per the guard. */
-export type IngestReadOutcome =
-  | { kind: "acquired" }
-  | { kind: "empty" }
-  | { kind: "syncing" };
-
 /** Upstream source port: fetch the Bangumi subject + Anitabi points. */
 export interface IngestSource {
   fetchBangumi(bangumiId: string, fetchImpl?: FetchLike): Promise<BangumiSubject>;
@@ -84,9 +75,8 @@ export interface IngestSource {
 /** The narrow ingest-lifecycle surface read paths call (no pipeline internals). */
 export interface IngestLifecycle {
   guard(bangumiId: string): Promise<IngestGuard>;
+  ensurePending(bangumiId: string): Promise<void>;
   claim(bangumiId: string): Promise<IngestClaim>;
-  /** The guard -> claim decision for a read: acquired / empty / syncing. */
-  readClaim(bangumiId: string): Promise<IngestReadOutcome>;
   markDone(bangumiId: string): Promise<void>;
   runClaimed(bangumiId: string, opts?: IngestBangumiOptions): Promise<IngestResult>;
 }
@@ -95,6 +85,7 @@ export interface IngestLifecycle {
 export interface IngestStore {
   acquire(bangumiId: string): Promise<boolean>;
   guard(bangumiId: string): Promise<IngestGuard>;
+  ensurePending(bangumiId: string): Promise<void>;
   markDone(bangumiId: string): Promise<void>;
   markFailed(bangumiId: string, opts: FailureOptions): Promise<void>;
   saveRawBangumi(bangumiId: string, payload: RawPayload): Promise<void>;
@@ -137,6 +128,10 @@ export class IngestBangumi {
     return this.runtime.store.guard(bangumiId);
   }
 
+  ensurePending(bangumiId: string): Promise<void> {
+    return this.runtime.store.ensurePending(bangumiId);
+  }
+
   markDone(bangumiId: string): Promise<void> {
     return this.runtime.store.markDone(bangumiId);
   }
@@ -161,15 +156,6 @@ export class IngestBangumi {
     return runSafely(this.runtime, bangumiId, opts.fetchImpl);
   }
 
-  /** The guard -> claim decision for a read: serve empty / report syncing / acquire. */
-  async readClaim(bangumiId: string): Promise<IngestReadOutcome> {
-    const guard = await this.guard(bangumiId);
-    if (guard === "empty") return { kind: "empty" };
-    if (guard !== "ready") return { kind: "syncing" };
-    const claim = await this.claim(bangumiId);
-    if (claim === "empty") return { kind: "empty" };
-    return claim === "acquired" ? { kind: "acquired" } : { kind: "syncing" };
-  }
 }
 
 /** Negative-cache every failure, then preserve typed upstream transport errors. */
@@ -241,6 +227,7 @@ export function catalogIngestBangumi(db: CatalogDb): IngestBangumi {
     {
       acquire: (bangumiId) => jobs.acquire(bangumiId),
       guard: (bangumiId) => jobs.guard(bangumiId),
+      ensurePending: (bangumiId) => jobs.ensurePending(bangumiId),
       markDone: (bangumiId) => jobs.markDone(bangumiId),
       markFailed: (bangumiId, opts) => jobs.markFailed(bangumiId, opts),
       saveRawBangumi: (bangumiId, payload) => writeRawBangumi(db, bangumiId, payload),

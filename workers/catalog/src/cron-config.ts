@@ -7,10 +7,9 @@
  * imported here and re-exported from nowhere. Keep the strings in sync with
  * the `[triggers]` cron lists in wrangler.toml.
  *
- * Per issue #1016 / spec §183 the ingest schedules belong to PRODUCTION alone
- * and the daily import schedule belongs to STAGING; wrangler.toml assigns each
- * cron to the environment that may run it, and the scheduled handler guards on
- * the runtime ENVIRONMENT var so a wrongly-routed event fails closed.
+ * Production owns upstream ingest and staging owns snapshot import. Issue
+ * #1229 adds a separate durable-intent drain allowed in both deployed
+ * environments; ENVIRONMENT guards still fail closed on wrong routing.
  */
 
 /** Daily seed pass — pre-populate the catalog from the checked-in work list. */
@@ -20,8 +19,12 @@ export const TTL_REFRESH_CRON = "17 * * * *";
 /** TTL refresh batch cap — one run never ingests more works than this. */
 export const TTL_BATCH_CAP = 5;
 
+/** Hourly staging drain — execute request-parked ingest outside request scope. */
+export const PENDING_DRAIN_CRON = "37 * * * *";
+export const PENDING_DRAIN_BATCH_CAP = 5;
+
 /** Daily discovery + ingest — one durable production run per UTC day. */
 export const DAILY_DISCOVER_CRON = "0 6 * * *";
 
-/** Daily staging snapshot import — the only automatic staging schedule (#1016). */
+/** Daily staging snapshot import (#1016). */
 export const DAILY_IMPORT_CRON = "0 3 * * *";

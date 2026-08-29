@@ -80,17 +80,15 @@ describe("catalog has no public host", () => {
     expect(toml).not.toMatch(/^\s*routes\s*=/m);
   });
 
-  // Per-environment schedules (issue #1016, spec §183): production alone
-  // declares the three ingest crons; staging declares ONLY the daily import
-  // cron; development (top-level) declares none. Keep in sync with the
-  // SEED_CRON / DAILY_DISCOVER_CRON / TTL_REFRESH_CRON / DAILY_IMPORT_CRON
-  // strings in src/cron-config.ts.
+  // Per-environment schedules (issues #1016/#1229): production keeps its
+  // three ingest crons; staging declares import plus pending drain;
+  // development (top-level) declares none. Keep in sync with cron-config.ts.
   it("declares the three ingest schedules for production only", () => {
     expect(toml.split('crons = ["0 4 * * *", "0 6 * * *", "17 * * * *"]')).toHaveLength(2);
   });
 
-  it("declares only the daily import cron for staging", () => {
-    const staging = toml.split('crons = ["0 3 * * *"]');
+  it("declares import and pending drain crons for staging", () => {
+    const staging = toml.split('crons = ["0 3 * * *", "37 * * * *"]');
     expect(staging).toHaveLength(2);
     expect(toml.split('["0 4 * * *", "0 6 * * *", "17 * * * *"]')).toHaveLength(2);
   });
