@@ -47,6 +47,8 @@ vet_contract_compatibility() {
 }
 
 if [ "$PACKAGE" = e2e ]; then
+  pnpm --dir e2e typecheck
+  pnpm --dir e2e run lint:oxlint
   # Build the emitted Worker once for the browser lane, serve it through
   # Wrangler, and run real assertions instead of collection only.
   DEV_VARS="$ROOT/apps/web/.dev.vars"

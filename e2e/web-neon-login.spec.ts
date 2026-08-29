@@ -17,6 +17,19 @@ const qaPassword = process.env.QA_NEON_USER_PASSWORD;
 const appBaseUrl = process.env.E2E_WEB_BASE_URL ?? "http://localhost:3000";
 const liveAuthReady = () => authBaseUrl !== undefined && qaEmail !== undefined && qaPassword !== undefined;
 
+interface LiveAuthCredentials {
+  baseUrl: string;
+  email: string;
+  password: string;
+}
+
+function requireLiveAuth(): LiveAuthCredentials {
+  if (authBaseUrl === undefined || qaEmail === undefined || qaPassword === undefined) {
+    throw new Error("live Neon Auth credentials are unavailable");
+  }
+  return { baseUrl: authBaseUrl, email: qaEmail, password: qaPassword };
+}
+
 test.use({
   baseURL: appBaseUrl,
 });
@@ -37,9 +50,10 @@ async function openAnonymousChat(page: Page): Promise<void> {
 test.describe("Neon Auth login", () => {
   test("password sign-in returns to Chat and survives a reload", async ({ page, context }) => {
     test.skip(!liveAuthReady(), "set NEON_AUTH_BASE_URL + QA_NEON_USER_EMAIL + QA_NEON_USER_PASSWORD");
-    const response = await context.request.post(`${authBaseUrl}/sign-in/email`, {
+    const credentials = requireLiveAuth();
+    const response = await context.request.post(`${credentials.baseUrl}/sign-in/email`, {
       headers: { Origin: new URL(appBaseUrl).origin },
-      data: { email: qaEmail, password: qaPassword },
+      data: { email: credentials.email, password: credentials.password },
     });
     expect(response.ok()).toBeTruthy();
 

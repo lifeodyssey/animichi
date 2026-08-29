@@ -33,7 +33,7 @@ export default defineConfig({
     // Issue #537 retired the legacy Next.js frontend, so `apps/web` is the only
     // browser surface left. Specs still set their own `E2E_WEB_BASE_URL` base
     // (see web-404.spec.ts); this is the shared default they agree with.
-    baseURL: process.env.E2E_WEB_BASE_URL || "http://localhost:3000",
+    baseURL: process.env.E2E_WEB_BASE_URL ?? "http://localhost:3000",
     headless: true,
     screenshot: "only-on-failure",
     trace: "on-first-retry",
@@ -56,7 +56,7 @@ export default defineConfig({
           {
             name: "seed",
             testMatch: "seed.spec.ts",
-            use: { browserName: "chromium" },
+            use: { browserName: "chromium" as const },
           },
         ]
       : []),
@@ -80,7 +80,7 @@ export default defineConfig({
         browserName: "chromium",
         // Determinism: kill CSS animations, no service workers, light scheme
         // unless a frame asks for night (see visual/mockup.spec.ts).
-        reducedMotion: "reduce",
+        contextOptions: { reducedMotion: "reduce" },
         serviceWorkers: "block",
         colorScheme: "light",
       },

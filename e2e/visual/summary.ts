@@ -133,10 +133,19 @@ function passVerdict(run: FrameRun, report: FrameReport, threshold: number): Fra
   return { frame: run.frame, status: "pass", playwrightExit: 0, ratio: report.ratio, threshold, report: `report/${run.frame}.json`, reason: "" };
 }
 
+function failedRun(run: FrameRun, report: FrameReport | null, threshold: number): FrameVerdict {
+  return failVerdict(run, report, threshold, `playwright exited ${String(run.exitCode)}`);
+}
+
+function failedConvergence(run: FrameRun, report: FrameReport, threshold: number): FrameVerdict {
+  const reason = `convergence ratio ${report.ratio.toFixed(4)} > threshold ${String(threshold)}`;
+  return failVerdict(run, report, threshold, reason);
+}
+
 export function assessFrame(run: FrameRun, report: FrameReport | null, context: AssessmentContext): FrameVerdict {
   const threshold = report?.threshold ?? context.fallbackRatio;
-  if (run.exitCode !== 0) return failVerdict(run, report, threshold, `playwright exited ${run.exitCode}`);
-  if (report && !report.pass) return failVerdict(run, report, threshold, `convergence ratio ${report.ratio.toFixed(4)} > threshold ${threshold}`);
+  if (run.exitCode !== 0) return failedRun(run, report, threshold);
+  if (report && !report.pass) return failedConvergence(run, report, threshold);
   if (report) return passVerdict(run, report, threshold);
   return { frame: run.frame, status: "skipped", playwrightExit: 0, ratio: null, threshold, report: null, reason: skipReason(context.reach, context.appUrl) };
 }

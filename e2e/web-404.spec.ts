@@ -23,7 +23,7 @@ test("undefined route hydrates without uncaught errors", async ({ page }) => {
 test("home route hydrates without uncaught errors", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubTurnstileEntry(page);
-  await page.route("**/held-open", () => new Promise<void>((resolve) => page.once("close", resolve)));
+  await page.route("**/held-open", () => new Promise<void>(() => undefined));
   await page.addInitScript(() => {
     window.addEventListener("load", () => { void fetch("/held-open"); });
   });

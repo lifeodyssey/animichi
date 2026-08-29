@@ -82,7 +82,7 @@ function verdictLine(summary: Summary): string {
 }
 
 function printVerdict(summary: Summary): void {
-  console.log(`visual-check: ${summary.passed}/${summary.total} passed — ${verdictLine(summary)} (run ${summary.runId}; e2e/visual/report/summary.json)`);
+  console.log(`visual-check: ${String(summary.passed)}/${String(summary.total)} passed — ${verdictLine(summary)} (run ${summary.runId}; e2e/visual/report/summary.json)`);
 }
 
 function main(): void {

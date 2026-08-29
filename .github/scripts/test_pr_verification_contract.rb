@@ -37,6 +37,14 @@ def assert_web_browser_gate(source)
   abort "e2e runtime config must be written before Wrangler starts" unless config_write && server_start && config_write < server_start
 end
 
+def assert_e2e_static_gates(source)
+  typecheck = source.index("pnpm --dir e2e typecheck")
+  lint = source.index("pnpm --dir e2e run lint:oxlint")
+  browser = source.index("pnpm --dir e2e exec playwright test")
+  abort "e2e gate must run typecheck before Playwright" unless typecheck && browser && typecheck < browser
+  abort "e2e gate must run oxlint before Playwright" unless lint && browser && lint < browser
+end
+
 def assert_event_contract(workflow)
   events = trigger_map(workflow)
   required = %w[opened synchronize reopened ready_for_review converted_to_draft]
@@ -123,6 +131,7 @@ def assert_job_contract(workflow, workflow_path)
   missing_specs = web_specs.reject { |spec| gate_source.include?(spec) }
   abort "e2e gate is missing Web assertions: #{missing_specs.join(', ')}" unless missing_specs.empty?
   abort "e2e gate must not be collection-only" if gate_source.include?("playwright test --list")
+  assert_e2e_static_gates(gate_source)
   assert_web_browser_gate(gate_source)
 end
 

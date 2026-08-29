@@ -1,4 +1,4 @@
-import { describe, expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
@@ -39,7 +39,7 @@ async function anonymousChat(page: Page): Promise<void> {
   });
 }
 
-describe("AC2 keyboard navigation", () => {
+test.describe("AC2 keyboard navigation", () => {
   test("skip-to-content link is first in tab order, visible on focus, and jumps to main", async ({ page }) => {
     await anonymousChat(page);
     await page.keyboard.press("Tab");
@@ -60,7 +60,7 @@ describe("AC2 keyboard navigation", () => {
   });
 });
 
-describe("Turnstile entry keyboard recovery", () => {
+test.describe("Turnstile entry keyboard recovery", () => {
   test("a failed verification is focusable and retries from the keyboard", async ({ page }) => {
     await page.route("**/v1/turnstile/verify", (route) => route.fulfill({ status: 204 }));
     await page.route("**/v1/turnstile/verify", (route) => route.fulfill({ status: 403 }), { times: 1 });
@@ -83,7 +83,7 @@ describe("Turnstile entry keyboard recovery", () => {
  * The app-bar login entry exercises LoginModal without stacking it over the
  * independent settings Drawer.
  */
-describe("AC2 login modal focus management", () => {
+test.describe("AC2 login modal focus management", () => {
   async function openLogin(page: Page): Promise<void> {
     await anonymousChat(page);
     await page.getByRole("button", { name: /^(ログイン|sign in)$/i }).click();
@@ -119,7 +119,7 @@ describe("AC2 login modal focus management", () => {
   });
 });
 
-describe("AC2/AC4 error recovery by keyboard", () => {
+test.describe("AC2/AC4 error recovery by keyboard", () => {
   test("a backend-down retry banner is reachable and dismissible by Tab+Enter", async ({ page }) => {
     await stubTurnstileEntry(page);
     // Health check fails (503) -> A5 soft-lock plus the retry banner.
@@ -136,9 +136,10 @@ describe("AC2/AC4 error recovery by keyboard", () => {
   });
 });
 
-describe("AC4 no-pointer / reduced-motion states", () => {
-  const healthy = (page: Page) =>
-    page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
+test.describe("AC4 no-pointer / reduced-motion states", () => {
+  const healthy = async (page: Page): Promise<void> => {
+    await page.route("**/healthz", (route) => route.fulfill({ json: { status: "ok" } }));
+  };
 
   test("the chat page exposes a polite live region for async updates", async ({ page }) => {
     await stubTurnstileEntry(page);

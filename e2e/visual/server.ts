@@ -40,30 +40,52 @@ function serveFile(res: http.ServerResponse, filePath: string): void {
   createReadStream(filePath).pipe(res);
 }
 
+function notFound(res: http.ServerResponse): void {
+  res.writeHead(404, { "content-type": "text/plain" });
+  res.end("not found");
+}
+
 function matchesMount(pathname: string, mount: Mount): boolean {
   if (mount.prefix === "/") return true;
   return pathname === mount.prefix || pathname.startsWith(`${mount.prefix}/`);
+}
+
+function requestFile(rawUrl: string | undefined, mounts: Mount[]): string {
+  const pathname = new URL(rawUrl ?? "/", "http://127.0.0.1").pathname;
+  const mount = mounts.find((candidate) => matchesMount(pathname, candidate));
+  const offset = mount?.prefix.length ?? 0;
+  const relative = mount?.prefix === "/" ? pathname : pathname.slice(offset);
+  return resolveWithin(mount?.root ?? ".", relative === "" ? "/" : relative);
+}
+
+function serveRequest(mounts: Mount[], req: http.IncomingMessage, res: http.ServerResponse): void {
+  const filePath = requestFile(req.url, mounts);
+  if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
+    notFound(res);
+    return;
+  }
+  serveFile(res, filePath);
+}
+
+function closeServer(server: http.Server): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
 }
 
 export async function startVisualServer(mounts: Mount[]): Promise<VisualServer> {
   // Most-specific prefix first, so "/" never shadows "/fonts".
   const sortedMounts = [...mounts].sort((a, b) => b.prefix.length - a.prefix.length);
   const server = http.createServer((req, res) => {
-    const pathname = new URL(req.url ?? "/", "http://127.0.0.1").pathname;
-    const mount = sortedMounts.find((m) => matchesMount(pathname, m));
-    const rel = mount?.prefix === "/" ? pathname : pathname.slice(mount?.prefix.length ?? 0);
-    const filePath = resolveWithin(mount?.root ?? ".", rel || "/");
-    if (!existsSync(filePath) || statSync(filePath).isDirectory()) {
-      res.writeHead(404, { "content-type": "text/plain" });
-      res.end("not found");
-      return;
-    }
-    serveFile(res, filePath);
+    serveRequest(sortedMounts, req, res);
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as { port: number }).port;
   return {
-    url: (pathname: string) => `http://127.0.0.1:${port}${pathname}`,
-    close: () => new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve()))),
+    url: (pathname: string) => `http://127.0.0.1:${String(port)}${pathname}`,
+    close: () => closeServer(server),
   };
 }

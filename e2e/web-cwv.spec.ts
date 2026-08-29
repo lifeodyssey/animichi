@@ -5,7 +5,11 @@ import { webCwvConfig } from "../apps/web/web-cwv.config";
 import { median } from "../apps/web/src/features/telemetry/lib/vitals-stats";
 import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
-type CwvMetrics = { cls: number; lcp: number; inp: number };
+interface CwvMetrics {
+  cls: number;
+  lcp: number;
+  inp: number;
+}
 
 declare global {
   interface Window {
@@ -81,9 +85,7 @@ const applyProfile = async (page: Page): Promise<void> => {
     downloadThroughput: webCwvConfig.profile.network.downloadThroughput,
     uploadThroughput: webCwvConfig.profile.network.uploadThroughput,
   });
-  if (webCwvConfig.profile.cache === "none") {
-    await session.send("Network.clearBrowserCache");
-  }
+  await session.send("Network.clearBrowserCache");
   await session.detach();
 };
 
@@ -108,7 +110,7 @@ const measureRun = async (page: Page, route: string): Promise<CwvMetrics> => {
 const writeRunReport = async (run: number, route: string, metrics: CwvMetrics): Promise<void> => {
   await mkdir(reportDir, { recursive: true });
   await writeFile(
-    join(reportDir, `web-cwv-run-${run}.json`),
+    join(reportDir, `web-cwv-run-${String(run)}.json`),
     JSON.stringify({ run, url: new URL(route, webCwvConfig.url).toString(), ...metrics }, null, 2),
   );
 };
@@ -136,13 +138,13 @@ async function prepareInteraction(page: Page): Promise<void> {
 
 // AC1 + AC2 — every controlled cold-start run over the fixed route inventory
 // must land LCP and CLS within their BLOCKING thresholds (median of 3 runs).
-test(`median LCP and CLS over ${webCwvConfig.numberOfRuns} cold-start runs stay at or below good boundaries`, async ({ page }) => {
+test(`median LCP and CLS over ${String(webCwvConfig.numberOfRuns)} cold-start runs stay at or below good boundaries`, async ({ page }) => {
   await installObservers(page);
   const route = webCwvConfig.routes[0];
   const runs = await collectRuns(page, route);
   const lcp = median(runs.map((run) => run.lcp)) ?? 0;
   const cls = median(runs.map((run) => run.cls)) ?? 0;
-  test.info().annotations.push({ type: "lcp", description: `median LCP ${lcp}ms` });
+  test.info().annotations.push({ type: "lcp", description: `median LCP ${String(lcp)}ms` });
   assertWithin(lcp, webCwvConfig.thresholds.lcp.error, "median LCP");
   assertWithin(cls, webCwvConfig.thresholds.cls.error, "median CLS");
 });
@@ -150,7 +152,7 @@ test(`median LCP and CLS over ${webCwvConfig.numberOfRuns} cold-start runs stay 
 // AC3 — one representative interaction flow on the measured route must produce
 // an Interaction-to-Next-Paint proxy well inside the 200ms "good" boundary.
 // Same cold-start profile and median aggregation.
-test(`a representative mobile interaction drives INP at or below ${webCwvConfig.thresholds.inp.error}ms`, async ({ page }) => {
+test(`a representative mobile interaction drives INP at or below ${String(webCwvConfig.thresholds.inp.error)}ms`, async ({ page }) => {
   await installObservers(page);
   await prepareInteraction(page);
   const route = webCwvConfig.routes[0];
@@ -169,6 +171,6 @@ test(`a representative mobile interaction drives INP at or below ${webCwvConfig.
     inpRuns.push(await page.evaluate(() => window.__cwv?.inp ?? 0));
   }
   const inp = median(inpRuns) ?? 0;
-  test.info().annotations.push({ type: "inp", description: `median INP ${inp}ms` });
+  test.info().annotations.push({ type: "inp", description: `median INP ${String(inp)}ms` });
   assertWithin(inp, webCwvConfig.thresholds.inp.error, "median INP");
 });

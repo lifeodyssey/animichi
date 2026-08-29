@@ -77,7 +77,10 @@ async function served(page: Page): Promise<ServedResult> {
   const response = await page.goto(SEEDED_PATH);
   const servedHtml = (await response?.text()) ?? "";
   await page.waitForLoadState("networkidle");
-  const config = await page.evaluate((key) => (window as Record<string, unknown>)[key], RUNTIME_CONFIG_GLOBAL_KEY);
+  const config = await page.evaluate(
+    (key) => (window as unknown as Record<string, unknown>)[key],
+    RUNTIME_CONFIG_GLOBAL_KEY,
+  );
   return { servedHtml, config };
 }
 
