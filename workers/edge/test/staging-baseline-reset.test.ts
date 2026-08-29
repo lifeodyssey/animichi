@@ -23,10 +23,11 @@ const BASELINE_FILES = [
   "20260826000003_catalog.sql",
   "20260826000004_agent.sql",
   "20260826000005_users.sql",
+  "20260829000000_fix_coordinate_sync_precedence.sql",
 ];
 const baselineSql = (): string => BASELINE_FILES.map((name) => read(`migrations/neon/${name}`)).join("\n");
 
-void test("Neon history is the six canonical baseline files, applied in dependency order", () => {
+void test("Neon history is the baseline chain plus append-only amendments, applied in dependency order", () => {
   const files = readdirSync(`${ROOT}migrations/neon`).filter((name) => name.endsWith(".sql"));
   assert.deepEqual(files.sort(), [...BASELINE_FILES].sort());
   const sum = read("migrations/neon/atlas.sum");
@@ -155,7 +156,7 @@ void test("workers_dev is open for staging only, never production", () => {
 
 void test("atlas.sum SHA-256 pins the hard-cut payload", () => {
   const sum = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
-  assert.equal(createHash("sha256").update(sum).digest("hex"), "7dd5869959a9f48600fa833f23363ac0893486ddaf18a5495dec761ef35206c0");
+  assert.equal(createHash("sha256").update(sum).digest("hex"), "8ebf3c66219116f955437f03850cb8b262fe96449b8e15481f52adbd30bd9b79");
 });
 
 // #1216 — the migrator's own error lived only in the discarded response body, so

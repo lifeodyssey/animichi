@@ -6,6 +6,7 @@ import m02 from "../../../migrations/neon/20260826000002_functions.sql";
 import m03 from "../../../migrations/neon/20260826000003_catalog.sql";
 import m04 from "../../../migrations/neon/20260826000004_agent.sql";
 import m05 from "../../../migrations/neon/20260826000005_users.sql";
+import m06 from "../../../migrations/neon/20260829000000_fix_coordinate_sync_precedence.sql";
 
 const files: Record<string, string> = {
   "20260826000000_extensions.sql": m00,
@@ -14,6 +15,7 @@ const files: Record<string, string> = {
   "20260826000003_catalog.sql": m03,
   "20260826000004_agent.sql": m04,
   "20260826000005_users.sql": m05,
+  "20260829000000_fix_coordinate_sync_precedence.sql": m06,
 };
 
 /** Compile-time Text modules of `migrations/neon` + `atlas.sum`. */

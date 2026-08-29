@@ -85,6 +85,7 @@ void test("api_keys is absent from the hard-cut baseline", () => {
     "20260826000003_catalog.sql",
     "20260826000004_agent.sql",
     "20260826000005_users.sql",
+    "20260829000000_fix_coordinate_sync_precedence.sql",
   ]);
   assert.ok(files.every((name) => !/public\.api_keys/i.test(sql(name))));
 });
