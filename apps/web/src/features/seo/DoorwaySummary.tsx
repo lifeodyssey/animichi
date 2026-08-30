@@ -105,9 +105,9 @@ function ComparePane({ src, alt, label, clipped }: Readonly<{ src: string; alt: 
 
 function SeamArrows() {
   return (
-    <svg viewBox="0 0 16 10" aria-hidden="true" className="size-4">
-      <path d="M5 1 1 5l4 4z" fill="#0e7d72" />
-      <path d="M11 1l4 4-4 4z" fill="#0e7d72" />
+    <svg viewBox="0 0 16 10" aria-hidden="true" className="size-4 fill-primary-strong">
+      <path d="M5 1 1 5l4 4z" />
+      <path d="M11 1l4 4-4 4z" />
     </svg>
   );
 }

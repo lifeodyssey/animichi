@@ -127,7 +127,9 @@
   --leaf-tile-image: url("/images/leaf-tile-day.png");
   /* Ink for text ON the green ground: #3d2b1c on #6eb68e = 5.8:1 (AA). Cream on
    * the same green reaches only 2.4:1 (the upstream demo's white fails this), so
-   * nothing on the ground is ever set in cream. */
+   * nothing on the ground is ever set in cream — the one exception is display
+   * lettering with a full ink outline (the splash wordmark), where the outline
+   * ring, not the fill, carries the contrast. */
   --color-ground-ink: #3d2b1c;
 
   /* Map furniture on the route sheet. Like the card plane's drop shadow these
