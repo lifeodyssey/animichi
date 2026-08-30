@@ -28,9 +28,23 @@ test.use({
  * tokens actually specify. Individual cases already waited for this; owning it here
  * means none can forget. `toBeHidden` also passes when the splash never mounted, so
  * gate-only scans are unaffected.
+ *
+ * Entrance fades are the same hazard one layer later: a subtree mid-fade
+ * composites toward the page behind it and axe reads the blend — the route
+ * card measured its pill at 4.37:1 and the stage copy at 3.69:1 in CI while
+ * the tokens specify far higher pairs (both at exactly ~83% alpha, one shared
+ * fading ancestor). Finite animations are therefore awaited here too;
+ * infinite loops (the skeleton pulse) never settle and are excluded rather
+ * than blocking the scan forever.
  */
 async function expectPageSettled(page: Page): Promise<void> {
   await expect(page.locator(".app-splash")).toBeHidden();
+  await page.evaluate(() => {
+    const finite = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getTiming().iterations !== Infinity);
+    return Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+  });
 }
 
 async function expectNoSeriousOrCritical(page: Page, label: string, scope?: string): Promise<void> {
@@ -100,7 +114,9 @@ describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
   test("doorway (`/`)", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator(".app-splash")).toBeHidden();
-    await expect(page.locator(".doorway")).toBeVisible();
+    // The postcard landing (2026-08-30) dropped the `.doorway` wrapper; the
+    // search pill is its one action, so the boxed input is the ready signal.
+    await expect(page.locator('form[action="/chat"] input[name="q"]')).toBeVisible();
     await expectNoSeriousOrCritical(page, "doorway");
   });
 
