@@ -14,13 +14,13 @@
  * Statements are built with the Drizzle query builder + the typed expression
  * helpers and run through the single `CatalogDb` seam.
  */
-import { and, eq, or, sql, type SQL } from "drizzle-orm";
+import { and, eq, ne, or, sql, type SQL } from "drizzle-orm";
 import type { CatalogDb } from "../db/client";
 import { statementBuilder } from "../db/client";
 import { ingestJobs } from "../db/schema";
 import * as x from "../db/expressions";
 
-const RUNNING_TTL_SECONDS = 15 * 60;
+export const RUNNING_TTL_SECONDS = 15 * 60;
 
 export type IngestGuard = "ready" | "in_progress" | "recently_attempted" | "empty";
 
@@ -51,6 +51,11 @@ export class JobStore {
     return readGuard(this.db, bangumiId);
   }
 
+  /** Durably park request-triggered work for the scheduled drain. */
+  async ensurePending(bangumiId: string): Promise<void> {
+    await this.db.execute(ensurePendingStatement(bangumiId));
+  }
+
   /** Mark the job done; clears any negative cache. */
   markDone(bangumiId: string): Promise<void> {
     return markJobDone(this.db, bangumiId);
@@ -76,16 +81,42 @@ function acquireStatement(bangumiId: string): SQL {
     .onConflictDoUpdate({
       target: ingestJobs.workId,
       set: { status: "running", startedAt: x.now() },
-      setWhere: or(
-        and(
-          sql`${ingestJobs.status} <> 'running'`,
-          or(sql`${ingestJobs.negativeCachedUntil} IS NULL`, sql`${ingestJobs.negativeCachedUntil} <= NOW()`),
-        ),
-        and(eq(ingestJobs.status, "running"), x.staleForSeconds(ingestJobs.startedAt, ingestJobs.createdAt, RUNNING_TTL_SECONDS)),
-      ),
+      setWhere: claimableJob(),
     })
     .returning({ workId: ingestJobs.workId })
     .getSQL();
+}
+
+/** Insert pending intent, but never displace a live run or negative cache. */
+function ensurePendingStatement(bangumiId: string): SQL {
+  return statementBuilder()
+    .insert(ingestJobs)
+    .values({ workId: bangumiId, status: "pending" })
+    .onConflictDoUpdate({ target: ingestJobs.workId, set: pendingReset(), setWhere: claimableJob() })
+    .getSQL();
+}
+
+function pendingReset() {
+  return { status: "pending", startedAt: null, finishedAt: null, error: null, errorCode: null, negativeCachedUntil: null } as const;
+}
+
+/** Shared eligibility for request parking and cron acquisition. */
+function claimableJob(): SQL | undefined {
+  const notRunning = and(ne(ingestJobs.status, "running"), expiredNegativeCache());
+  return or(notRunning, staleRunningJob());
+}
+
+/** Shared expired-cache predicate for claim and scheduled retry. */
+export function expiredNegativeCache(): SQL {
+  return x.expiredOrMissing(ingestJobs.negativeCachedUntil);
+}
+
+/** Shared abandoned-flight predicate for claim and scheduled recovery. */
+export function staleRunningJob(): SQL | undefined {
+  return and(
+    eq(ingestJobs.status, "running"),
+    x.staleForSeconds(ingestJobs.startedAt, ingestJobs.createdAt, RUNNING_TTL_SECONDS),
+  );
 }
 
 async function readGuard(db: CatalogDb, bangumiId: string): Promise<IngestGuard> {

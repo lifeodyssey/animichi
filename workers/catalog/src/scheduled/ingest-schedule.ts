@@ -2,16 +2,17 @@
  * Scheduled-ingestion runtime (S0-v2 D4 + #1016 per-env schedules).
  *
  * Owns the cron dispatcher and the seed / TTL / daily-inventory job runners,
- * plus the per-environment AC1 guard (ingest crons run only in production; the
- * staging import cron runs only in staging). Kept out of the Worker entry so
+ * plus the per-environment AC1 guard (production owns upstream ingest, staging
+ * owns import, and both deployed environments drain pending work). Kept out of the Worker entry so
  * the composition root stays a slim list of mounts and entrypoint exports.
  */
 import type { CatalogDb } from "../db/client";
 import { connectionString, dbFor } from "../db/connections";
 import { catalogIngestBangumi } from "../ingest/ingest-bangumi";
 import type { IngestResult } from "../ingest/ingest-bangumi";
-import { TTL_BATCH_CAP } from "../cron-config";
-import { listDoneBangumiIds, listStaleBangumiIds } from "../ingest/cron-queries";
+import { PENDING_DRAIN_BATCH_CAP, TTL_BATCH_CAP } from "../cron-config";
+import { Budget, canSpendWork, spendWork } from "../ingest/budgets";
+import { listDoneBangumiIds, listDrainableBangumiIds, listStaleBangumiIds } from "../ingest/cron-queries";
 import { catalogDailyRun } from "../ingest/catalog-daily-run";
 import { buildDailyInventory, type SeasonalResolver } from "../ingest/daily-discovery";
 import { fetchCurrentSeason } from "../ingest/season";
@@ -25,7 +26,12 @@ import { publishAfterRun, type DailyRunOutcome } from "../publish/daily-snapshot
 import { snapshotSourceFor, type SnapshotSource } from "../import/snapshot-source";
 import { cronKind, guardCron, runImportJob, type CronKind } from "../import/schedule";
 import type { ImportResult } from "../import/import-snapshot";
-import { dailyPolicy, runtimeEnvironment, type RuntimeEnvironment } from "../operational-config";
+import {
+  dailyPolicy,
+  hourlyIngestBudget,
+  runtimeEnvironment,
+  type RuntimeEnvironment,
+} from "../operational-config";
 import type { Env } from "../index";
 
 /** The injected snapshot pool keeps N (active) and N-1 (predecessor). */
@@ -53,6 +59,7 @@ export interface CronDependencies {
   connect: (connectionString: string) => Promise<CatalogDb>;
   ingestBangumi: (db: CatalogDb, bangumiId: string) => Promise<IngestResult>;
   listDoneBangumiIds: (db: CatalogDb, bangumiIds: readonly string[]) => Promise<ReadonlySet<string>>;
+  listDrainableBangumiIds: (db: CatalogDb, cap: number) => Promise<readonly string[]>;
   listStaleBangumiIds: (db: CatalogDb, cap: number) => Promise<readonly string[]>;
   runDailyIngest: (db: CatalogDb, store: ObjectStore | null) => Promise<DailyRunOutcome>;
   snapshotStore: (bucket: R2Bucket | undefined) => ObjectStore | null;
@@ -64,10 +71,18 @@ export interface CronDependencies {
   runImport: (db: CatalogDb, source: SnapshotSource | null) => Promise<ImportResult>;
 }
 
+interface IngestBatchPlan {
+  db: CatalogDb;
+  dependencies: CronDependencies;
+  bangumiIds: readonly string[];
+  budget?: Budget;
+}
+
 const DEFAULT_DEPENDENCIES: CronDependencies = {
   connect: async (connStr) => (await dbFor(connStr)).db,
   ingestBangumi: (db, bangumiId) => catalogIngestBangumi(db).ingest(bangumiId),
   listDoneBangumiIds,
+  listDrainableBangumiIds,
   listStaleBangumiIds,
   runDailyIngest: (db) => runDailyJob(db),
   snapshotStore: (bucket) => (bucket ? r2ObjectStore(bucket) : null),
@@ -114,7 +129,9 @@ async function runCron(
     case "seed":
       return runSeedJob(db, dependencies);
     case "ttl":
-      return runTtlJob(db, dependencies);
+      return runProductionHourlyJob(db, dependencies);
+    case "pendingDrain":
+      return runPendingDrainJob(db, dependencies);
     case "dailyDiscover":
       await publishAfterRun(db, store, dependencies);
       return { attempted: 0, ingested: 0, skipped: 0 };
@@ -122,6 +139,25 @@ async function runCron(
       await runDailyImport(db, dependencies, importSource);
       return { attempted: 0, ingested: 0, skipped: 0 };
   }
+}
+
+/** Production reuses the existing hourly event: durable intent first, TTL second. */
+async function runProductionHourlyJob(
+  db: CatalogDb,
+  dependencies: CronDependencies,
+): Promise<CronJobResult> {
+  const budget = new Budget(hourlyIngestBudget());
+  const pending = await runPendingDrainJob(db, dependencies, budget);
+  const stale = await runTtlJob(db, dependencies, budget);
+  return combineResults(pending, stale);
+}
+
+function combineResults(left: CronJobResult, right: CronJobResult): CronJobResult {
+  return {
+    attempted: left.attempted + right.attempted,
+    ingested: left.ingested + right.ingested,
+    skipped: left.skipped + right.skipped,
+  };
 }
 
 /** The daily staging import's own result never carried a batch count
@@ -153,16 +189,27 @@ export async function runSeedJob(
   const pending = SEED_BANGUMI.filter((title) => !done.has(title.bangumiId)).map(
     (title) => title.bangumiId,
   );
-  return ingestBatch(db, dependencies, pending);
+  return ingestBatch({ db, dependencies, bangumiIds: pending });
 }
 
 /** TTL pass: re-ingest the stalest raw works, one at a time, capped per run. */
 export async function runTtlJob(
   db: CatalogDb,
   dependencies: CronDependencies,
+  budget = new Budget(hourlyIngestBudget()),
 ): Promise<CronJobResult> {
   const stale = await dependencies.listStaleBangumiIds(db, TTL_BATCH_CAP);
-  return ingestBatch(db, dependencies, stale.slice(0, TTL_BATCH_CAP));
+  return ingestBatch({ db, dependencies, bangumiIds: stale.slice(0, TTL_BATCH_CAP), budget });
+}
+
+/** Drain request-parked work in creation order, bounded per invocation. */
+export async function runPendingDrainJob(
+  db: CatalogDb,
+  dependencies: CronDependencies,
+  budget = new Budget(hourlyIngestBudget()),
+): Promise<CronJobResult> {
+  const pending = await dependencies.listDrainableBangumiIds(db, PENDING_DRAIN_BATCH_CAP);
+  return ingestBatch({ db, dependencies, bangumiIds: pending, budget });
 }
 
 /** The production daily discovery + ingest run (#1006). Returns the run status. */
@@ -190,17 +237,23 @@ function seasonFallback(error: unknown): readonly string[] {
   return [];
 }
 
-/** Sequential per-work ingest; one failure never aborts the rest of the batch. */
-async function ingestBatch(
-  db: CatalogDb,
-  dependencies: CronDependencies,
-  bangumiIds: readonly string[],
-): Promise<CronJobResult> {
+/** Sequential batch bounded by the shared work/request/runtime ledger. */
+async function ingestBatch(plan: IngestBatchPlan): Promise<CronJobResult> {
   let ingested = 0;
-  for (const bangumiId of bangumiIds) {
-    if (await ingestOne(db, dependencies, bangumiId)) ingested++;
+  let attempted = 0;
+  for (const bangumiId of plan.bangumiIds) {
+    if (!reserveWork(plan.budget)) break;
+    attempted++;
+    if (await ingestOne(plan.db, plan.dependencies, bangumiId)) ingested++;
   }
-  return { attempted: bangumiIds.length, ingested, skipped: bangumiIds.length - ingested };
+  return { attempted, ingested, skipped: attempted - ingested };
+}
+
+function reserveWork(budget: Budget | undefined): boolean {
+  if (!budget) return true;
+  if (!canSpendWork(budget)) return false;
+  spendWork(budget, 2, 0);
+  return true;
 }
 
 /** One work's ingest, throwing-free — a failure counts as skipped. */

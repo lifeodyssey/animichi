@@ -35,6 +35,7 @@ function makeStore(rec: Recorder): IngestStore {
       return Promise.resolve(true);
     },
     guard: () => Promise.resolve(held ? "in_progress" : "ready"),
+    ensurePending: () => Promise.resolve(),
     markDone: (id) => {
       rec.calls.push(`done:${id}`);
       rec.done++;

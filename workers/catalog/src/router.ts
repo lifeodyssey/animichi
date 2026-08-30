@@ -46,7 +46,6 @@ const resolve = os.resolve.handler(async ({ input, context }) =>
 const pointsById = os.pointsByBangumiId.handler(async ({ input, context }) =>
   pointsByBangumiId(workPointsDb(context.db), input.bangumi_id, {
     fetchImpl: context.fetchImpl,
-    waitUntil: context.waitUntil,
   }),
 );
 

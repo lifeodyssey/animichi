@@ -123,6 +123,12 @@ export function staleForSeconds(primary: PgColumn, fallback: PgColumn, seconds: 
 export function heartbeatWithinSeconds(primary: PgColumn, fallback: PgColumn, seconds: number): SQL {
   return sql`COALESCE(${primary}, ${fallback}) > NOW() - make_interval(secs => ${seconds})`;
 }
+
+/** A nullable deadline is absent or no longer in the future. */
+export function expiredOrMissing(column: PgColumn): SQL {
+  return sql`${column} IS NULL OR ${column} <= NOW()`;
+}
+
 function assertNonNegative(seconds: number): void {
   if (!Number.isInteger(seconds) || seconds < 0) {
     throw new Error("interval seconds must be a non-negative integer");

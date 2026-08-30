@@ -31,6 +31,7 @@ function gateDeps(overrides: Partial<CronDependencies> = {}): CronDependencies {
     connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(db),
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", version: 1, pointCount: 4 }),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set()),
+    listDrainableBangumiIds: vi.fn<CronDependencies["listDrainableBangumiIds"]>().mockResolvedValue([]),
     listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([]),
     runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue(COMPLETE),
     snapshotStore: vi.fn<CronDependencies["snapshotStore"]>().mockReturnValue(store),

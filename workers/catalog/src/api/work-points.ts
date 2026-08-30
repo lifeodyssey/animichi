@@ -8,28 +8,31 @@ import {
   type PublishedPointRow,
 } from "../application/list-points-for-bangumi";
 import type { CatalogDb } from "../db/client";
-import { catalogIngestBangumi, type IngestLifecycle, type IngestResult } from "../ingest/ingest-bangumi";
+import { catalogIngestBangumi, type IngestGuard } from "../ingest/ingest-bangumi";
 import type { FetchLike } from "../ingest/sources";
 import { previewForWork, type MissPreview } from "./preview";
-import type { SearchOptions } from "./search";
 
-/**
- * The read path's port over points + the ingest lifecycle. `ingest` owns the
- * whole guard/claim decision ({@link IngestLifecycle.readClaim}) and the
- * acquire -> completion state machine; this adapter only maps the outcome to
- * preview/empty/syncing HTTP responses (no claim logic of its own).
- */
+interface PendingIngest {
+  guard(bangumiId: string): Promise<IngestGuard>;
+  ensurePending(bangumiId: string): Promise<void>;
+}
+
+export interface WorkPointsOptions {
+  fetchImpl?: FetchLike;
+}
+
+/** The read path's port over published points and durable pending intent. */
 export interface WorkPointsPort {
   pointsForBangumi(bangumiId: string): Promise<PublishedPointRow[]>;
   previewForWork(bangumiId: string, fetchImpl?: FetchLike): Promise<MissPreview>;
-  ingest: IngestLifecycle;
+  ingest: PendingIngest;
 }
 
-/** Return published rows, or a guarded L1 preview while full ingest runs. */
+/** Return published rows, or park an uncovered work and serve its L1 preview. */
 export async function pointsByBangumiId(
   db: WorkPointsPort,
   bangumiId: string,
-  options: SearchOptions = {},
+  options: WorkPointsOptions = {},
 ): Promise<PointsByBangumiResult> {
   const published = await pointsByBangumi(db, bangumiId);
   if (published.rows.length > 0) return published;
@@ -37,65 +40,14 @@ export async function pointsByBangumiId(
 }
 
 async function uncoveredWork(
-  db: WorkPointsPort, bangumiId: string, options: SearchOptions,
+  db: WorkPointsPort, bangumiId: string, options: WorkPointsOptions,
 ): Promise<PointsByBangumiResult> {
-  const outcome = await db.ingest.readClaim(bangumiId);
-  if (outcome.kind === "empty") return emptyResult();
-  if (outcome.kind === "syncing") return syncingResult();
-  return onAcquired(db, bangumiId, options);
-}
-
-/** The claim is held by this call: publish if ready, else preview while ingesting. */
-async function onAcquired(
-  db: WorkPointsPort, bangumiId: string, options: SearchOptions,
-): Promise<PointsByBangumiResult> {
-  const published = await pointsByBangumi(db, bangumiId);
-  if (published.rows.length > 0) {
-    await db.ingest.markDone(bangumiId);
-    return published;
-  }
+  const guard = await db.ingest.guard(bangumiId);
+  if (guard === "empty") return emptyResult();
+  if (guard !== "ready") return syncingResult();
+  await db.ingest.ensurePending(bangumiId);
   const preview = await db.previewForWork(bangumiId, options.fetchImpl);
-  return claimedResult(db, preview, options);
-}
-
-async function claimedResult(
-  db: WorkPointsPort,
-  preview: MissPreview,
-  options: SearchOptions,
-): Promise<PointsByBangumiResult> {
-  const ingest = db.ingest.runClaimed(preview.bangumiId, { fetchImpl: options.fetchImpl });
-  if (!options.waitUntil) return syncResult(db, preview, ingest);
-  options.waitUntil(ingest.catch((error: unknown) => { logBackgroundIngestFailure(preview.bangumiId, error); }));
   return previewResult(preview);
-}
-
-/** SD-19: the upstream error text stays server-side only. */
-function logBackgroundIngestFailure(bangumiId: string, error: unknown): void {
-  console.error(`[work-points] background ingest failed for bangumi_id=${bangumiId}: ${String(error).slice(0, 200)}`);
-}
-
-async function syncResult(
-  db: WorkPointsPort,
-  preview: MissPreview,
-  ingest: Promise<IngestResult>,
-): Promise<PointsByBangumiResult> {
-  const result = await settledIngest(ingest);
-  if (result === "failed") return previewResult(preview);
-  if (result.status === "empty") return emptyResult();
-  return republishedOrPreview(db, preview);
-}
-
-async function settledIngest(ingest: Promise<IngestResult>): Promise<IngestResult | "failed"> {
-  try {
-    return await ingest;
-  } catch {
-    return "failed";
-  }
-}
-
-async function republishedOrPreview(db: WorkPointsPort, preview: MissPreview): Promise<PointsByBangumiResult> {
-  const published = await pointsByBangumi(db, preview.bangumiId);
-  return published.rows.length > 0 ? published : previewResult(preview);
 }
 
 function previewResult(preview: MissPreview): PointsByBangumiResult {

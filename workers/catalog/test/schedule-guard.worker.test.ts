@@ -1,14 +1,20 @@
 /**
  * Per-environment schedule guard (issue #1016, AC1) — unit test.
  *
- * Proves production alone runs the upstream-ingest crons, staging runs only
- * the daily import cron, and the runtime handler fails closed on a wrong-
+ * Proves production alone runs upstream ingest, staging owns daily import,
+ * both deployed environments may drain pending work, and handlers fail closed on a wrong-
  * routed cron (a staging env receiving an ingest event no-ops; any env
  * receiving the import cron without an import source no-ops). Also pins the
  * operational defaults from the spec (§314) in the operational-config module.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SEED_CRON, DAILY_DISCOVER_CRON, TTL_REFRESH_CRON, DAILY_IMPORT_CRON } from "../src/cron-config";
+import {
+  DAILY_DISCOVER_CRON,
+  DAILY_IMPORT_CRON,
+  PENDING_DRAIN_CRON,
+  SEED_CRON,
+  TTL_REFRESH_CRON,
+} from "../src/cron-config";
 import { cronKind, guardCron } from "../src/import/schedule";
 import { createScheduledHandler, type CronDependencies } from "../src/scheduled/ingest-schedule";
 import {
@@ -16,6 +22,7 @@ import {
   STAGING_STALE_SECONDS,
   allowsImportCron,
   allowsIngestCron,
+  allowsPendingDrainCron,
   runtimeEnvironment,
 } from "../src/operational-config";
 import type { CatalogDb } from "../src/db/client";
@@ -30,6 +37,7 @@ function deps(overrides: Partial<CronDependencies> = {}): CronDependencies {
     connect: vi.fn<CronDependencies["connect"]>().mockResolvedValue(db),
     ingestBangumi: vi.fn<CronDependencies["ingestBangumi"]>().mockResolvedValue({ status: "ingested", version: 1, pointCount: 4 }),
     listDoneBangumiIds: vi.fn<CronDependencies["listDoneBangumiIds"]>().mockResolvedValue(new Set()),
+    listDrainableBangumiIds: vi.fn<CronDependencies["listDrainableBangumiIds"]>().mockResolvedValue([]),
     listStaleBangumiIds: vi.fn<CronDependencies["listStaleBangumiIds"]>().mockResolvedValue([]),
     runDailyIngest: vi.fn<CronDependencies["runDailyIngest"]>().mockResolvedValue({ status: "complete", runId: "daily-2026-08-14", createdAt: "t" }),
     snapshotStore: vi.fn<CronDependencies["snapshotStore"]>().mockReturnValue(null),
@@ -49,6 +57,7 @@ describe("cron classification (AC1)", () => {
   it("classifies the cron strings", () => {
     expect(cronKind(SEED_CRON)).toBe("seed");
     expect(cronKind(TTL_REFRESH_CRON)).toBe("ttl");
+    expect(cronKind(PENDING_DRAIN_CRON)).toBe("pendingDrain");
     expect(cronKind(DAILY_DISCOVER_CRON)).toBe("dailyDiscover");
     expect(cronKind(DAILY_IMPORT_CRON)).toBe("dailyImport");
   });
@@ -79,6 +88,13 @@ describe("environment guard (AC1)", () => {
     expect(guardCron(cronKind(DAILY_IMPORT_CRON), "production").denied).toBe(true);
     expect(guardCron(cronKind(DAILY_IMPORT_CRON), "development").denied).toBe(true);
     expect(guardCron(cronKind(DAILY_IMPORT_CRON), "staging").denied).toBe(false);
+  });
+
+  it("allows the pending drain only in deployed environments", () => {
+    expect(allowsPendingDrainCron("staging")).toBe(true);
+    expect(allowsPendingDrainCron("production")).toBe(true);
+    expect(allowsPendingDrainCron("development")).toBe(false);
+    expect(guardCron(cronKind(PENDING_DRAIN_CRON), "development").denied).toBe(true);
   });
 });
 
@@ -129,6 +145,12 @@ describe("scheduled handler per-environment dispatch (AC1)", () => {
     const handle = deps();
     await createScheduledHandler(handle)({ cron: DAILY_IMPORT_CRON }, PROD);
     expect(handle.runImport).not.toHaveBeenCalled();
+  });
+
+  it("no-ops the pending drain in development", async () => {
+    const handle = deps();
+    await createScheduledHandler(handle)({ cron: PENDING_DRAIN_CRON }, { DATABASE_URL: PROD.DATABASE_URL });
+    expect(handle.listDrainableBangumiIds).not.toHaveBeenCalled();
   });
 
   it("no-ops the import cron when no import source is configured", async () => {

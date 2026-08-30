@@ -2,14 +2,22 @@
  * Catalog operational configuration (production-readiness spec §§183/314).
  *
  * These are OPERATIONAL DEFAULTS, not magic numbers: the schedule division
- * (production ingest vs staging import), the schedule frequency, and the
+ * (production ingest, staging import, deployed pending drain), the frequency, and the
  * staleness thresholds live here so a change is a documented operations edit
  * rather than a bare literal scattered through source. Per spec §314 the
  * initial values are: daily production ingest, daily staging import,
  * production stale after 36 hours, staging stale after 48 hours. Changing
  * them requires measured evidence + an operations-document update.
  */
-import { DAILY_DISCOVER_CRON, SEED_CRON, TTL_REFRESH_CRON, DAILY_IMPORT_CRON } from "./cron-config";
+import {
+  DAILY_DISCOVER_CRON,
+  DAILY_IMPORT_CRON,
+  PENDING_DRAIN_BATCH_CAP,
+  SEED_CRON,
+  TTL_BATCH_CAP,
+  TTL_REFRESH_CRON,
+} from "./cron-config";
+import type { BudgetLimits } from "./ingest/budgets";
 import type { RunPolicy } from "./ingest/daily-run";
 
 /** The runtime environments the catalog Worker can run in. */
@@ -33,7 +41,7 @@ export const PRODUCTION_INGEST_CRONS: readonly string[] = [
   TTL_REFRESH_CRON,
 ];
 
-/** Staging's only automatic schedule is the daily snapshot import (§183). */
+/** Staging's daily snapshot import schedule (§183). */
 export const STAGING_IMPORT_CRON = DAILY_IMPORT_CRON;
 
 /** The daily production ingest schedule (§314) — the discovery cron string. */
@@ -53,6 +61,17 @@ export function allowsIngestCron(environment: RuntimeEnvironment): boolean {
 /** Whether the daily import cron may run in the given environment. */
 export function allowsImportCron(environment: RuntimeEnvironment): boolean {
   return environment === "staging";
+}
+
+/** Both deployed environments may drain durable request intent. */
+export function allowsPendingDrainCron(environment: RuntimeEnvironment): boolean {
+  return environment === "staging" || environment === "production";
+}
+
+/** One hourly event shares a bounded allowance across pending and TTL work. */
+export function hourlyIngestBudget(): BudgetLimits {
+  const workLimit = PENDING_DRAIN_BATCH_CAP + TTL_BATCH_CAP;
+  return { workLimit, requestLimit: workLimit * 2, runtimeLimitMs: 14 * 60 * 1000 };
 }
 
 /** Production budget/tier policy for the daily run (operational config, not magic). */
