@@ -9,7 +9,13 @@
     "cta": "巡礼をはじめる",
     "github": "GitHub",
     "privacy": "プライバシーポリシー",
-    "links": "サイト内リンク"
+    "links": "サイト内リンク",
+    "examples": [
+      "ユーフォニアム",
+      "君の名は。",
+      "ぼっち・ざ・ろっく!"
+    ],
+    "sample_caption": "たとえば、こんなルートが作れるよ"
   },
   "settings": {
     "title": "設定",
@@ -80,5 +86,48 @@
     "contact": "プライバシーに関する質問・削除依頼",
     "contact_link": "GitHubでIssueを開く",
     "back_home": "Animichiに戻る"
+  },
+  "landing": {
+    "eyebrow": "FROM SCREEN TO STREET",
+    "brand_pre": "聖地",
+    "brand_accent": "巡礼",
+    "headline_pre": "アニメのあのシーンを、",
+    "headline_em": "今日歩けるルートに変える",
+    "login": "ログイン",
+    "footer_nav": "フッターリンク",
+    "comparison_anime": "アニメ",
+    "comparison_real": "実写",
+    "comparison_anime_alt": "『秒速5センチメートル』桜舞う踏切のアニメカット",
+    "comparison_real_alt": "桜咲く実在の踏切の写真",
+    "comparison_aria": "アニメと実写を比較するスライダー",
+    "privacy": "プライバシーポリシー",
+    "github": "GitHub",
+    "lead": "好きなアニメの舞台となった実在の場所を見つけて、シーンを並べて比較し、自分の足で巡るルートを手に入れよう。",
+    "examples": [
+      "君の名は。",
+      "響け！ユーフォニアム",
+      "天気の子"
+    ],
+    "samples_heading": "出力例:作品名から、歩けるルートへ。",
+    "samples": [
+      {
+        "work": "響け！ユーフォニアム",
+        "title": "宇治・半日きらめきルート",
+        "meta": "6スポット・徒歩60分",
+        "alt": "宇治川にかかる宇治橋の写真"
+      },
+      {
+        "work": "君の名は。",
+        "title": "四谷・あの階段ルート",
+        "meta": "5スポット・徒歩45分",
+        "alt": "須賀神社の階段から見る街並み"
+      },
+      {
+        "work": "秒速5センチメートル",
+        "title": "参宮橋・桜の踏切ルート",
+        "meta": "4スポット・徒歩40分",
+        "alt": "参宮橋1号踏切の写真"
+      }
+    ]
   }
 }

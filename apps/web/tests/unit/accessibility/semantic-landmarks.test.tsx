@@ -36,6 +36,7 @@ describe("semantic landmarks: the `/` doorway", () => {
 
   it("leads with a level-one heading crawlers can read", () => {
     renderDoorway();
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(dictFor("en").doorway.hero);
+    const landing = dictFor("en").landing;
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(landing.headline_pre + landing.headline_em);
   });
 });

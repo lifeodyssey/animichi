@@ -110,6 +110,26 @@
   --shadow-3d: #bdaea0;
   --shadow-press: 0 5px 0 0 var(--shadow-3d);
 
+  /* Nook pastel chips (from the animal-island palette): brand surfaces, theme-
+   * invariant, each paired with the fixed warm-brown ink below. */
+  --color-nook-yellow: #f7cd67;
+  --color-nook-teal: #82d5bb;
+  --color-nook-pink: #f8a6b2;
+  --color-nook-ink: #725d42;
+
+  /* Direction E (user-approved 2026-08-29, faithful to upstream
+   * animal-island-ui): the leaf-green ground is the brand field, not an accent
+   * (sampled from the upstream demo). Leaf tiles were rebuilt from the package's
+   * icon-leaf into public/images/leaf-tile-*.png; page-scoped use only. */
+  --color-ground: #6eb68e;
+  /* Leaf tile rides a variable so the splash, the landing, and the first-visit
+   * OS-dark fallback below all swap it from one place. */
+  --leaf-tile-image: url("/images/leaf-tile-day.png");
+  /* Ink for text ON the green ground: #3d2b1c on #6eb68e = 5.8:1 (AA). Cream on
+   * the same green reaches only 2.4:1 (the upstream demo's white fails this), so
+   * nothing on the ground is ever set in cream. */
+  --color-ground-ink: #3d2b1c;
+
   /* Map furniture on the route sheet. Like the card plane's drop shadow these
    * are a fixed deep brown rather than a theme token: a pin frame and the
    * sheet's lift read as one depth cue across both palettes, and the map
@@ -139,6 +159,12 @@
  * `--shadow-*` utility namespace). */
 @theme inline {
   --color-primary: var(--color-primary);
+  --color-ground: var(--color-ground);
+  --color-ground-ink: var(--color-ground-ink);
+  --color-nook-yellow: var(--color-nook-yellow);
+  --color-nook-teal: var(--color-nook-teal);
+  --color-nook-pink: var(--color-nook-pink);
+  --color-nook-ink: var(--color-nook-ink);
   --color-primary-hover: var(--color-primary-hover);
   --color-primary-active: var(--color-primary-active);
   --color-primary-soft: var(--color-primary-soft);
@@ -356,142 +382,79 @@ button, input, select, textarea, [role="button"] {
   animation-delay: 320ms;
 }
 
-.app-splash__frame.phone {
+/* Direction-E splash interior (2026-08-30): green ground + wordmark lockup.
+ * One frame serves both themes: colors ride the ground tokens, which flip when
+ * `data-theme="night"` is set. */
+.app-splash {
+  background-color: var(--color-ground);
+  background-image: var(--leaf-tile-image);
+  background-size: clamp(90px, 18vw, 260px);
+}
+
+.app-splash__center {
   position: absolute;
   inset: 0;
-  display: flex;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  overflow: hidden;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding-bottom: 64px;
 }
 
-.app-splash__frame.day {
-  background: linear-gradient(180deg, #f4f0e2 0%, #f0e8d8 55%, #e9dfc8 100%);
-  color: #794f27;
-}
-
-.app-splash__frame.night {
-  display: none;
-  background: linear-gradient(180deg, #20180e 0%, #241b0f 55%, #1c150c 100%);
-  color: #f2e6cf;
-}
-
-@media (prefers-color-scheme: dark) {
-  .app-splash__frame.day { display: none; }
-  .app-splash__frame.night { display: flex; }
-  .app-splash { background: #20180e; }
-}
-
-.app-splash__status {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 42px;
-  padding: 0 22px;
-  font-size: 0.875rem;
-  font-weight: 800;
-}
-
-.app-splash__dots {
-  font-size: 0.48rem;
-  letter-spacing: 0.2rem;
-  opacity: 0.7;
-}
-
-.app-splash__middle {
-  display: flex;
-  flex: 1;
-  width: 100%;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: 56px;
-}
-
-.app-splash__middle img {
-  display: block;
-  width: 92px;
-  height: 92px;
-}
-
+/* Cream lockup with a fixed ink outline ring — the ACNH sign style; the dark
+ * outline reads as lift on the day ground and stays invisible at night. */
 .app-splash__wordmark {
-  margin-top: 18px;
-  color: #c44a2e;
-  font-size: 0.75rem;
+  color: #f8f8f0;
+  font-family: var(--app-font-body);
+  font-size: clamp(3.25rem, 15vw, 4.5rem);
   font-weight: 900;
-  letter-spacing: 0.34em;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-shadow: 0 2px 0 #3d2b1c, 2px 0 0 #3d2b1c, -2px 0 0 #3d2b1c, 0 -2px 0 #3d2b1c, 0 5px 0 rgb(61 43 28 / 35%);
 }
 
-.app-splash__middle strong {
-  margin-top: 6px;
-  font-family: "Zen Maru Gothic", "Zen Maru Gothic fallback", "Noto Sans SC", sans-serif;
-  font-size: 2.25rem;
+.app-splash__title {
+  color: var(--color-ground-ink);
+  font-family: var(--app-font-body);
+  font-size: clamp(1.75rem, 7vw, 2.25rem);
   font-weight: 900;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
 }
 
 .app-splash__tagline {
-  margin-top: 10px;
-  color: #9f927d;
-  font-size: 0.875rem;
+  color: color-mix(in srgb, var(--color-ground-ink) 78%, transparent);
+  font-size: clamp(0.9rem, 3.6vw, 1rem);
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 
-.app-splash__frame.night .app-splash__tagline { color: #a2916f; }
-
 .app-splash__footer {
   position: absolute;
   right: 0;
-  bottom: 26px;
+  bottom: 30px;
   left: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
 }
-
-.app-splash__footer img {
-  display: block;
-  width: 72px;
-  height: 72px;
-  object-fit: contain;
-}
-
-.app-splash__ground {
-  width: 120px;
-  height: 6px;
-  border-radius: 3px;
-  background: repeating-linear-gradient(90deg, rgb(122 95 61 / 30%) 0 8px, transparent 8px 18px);
-}
-
-.app-splash__frame.night .app-splash__ground { background: repeating-linear-gradient(90deg, rgb(242 230 207 / 28%) 0 8px, transparent 8px 18px); }
-
-.app-splash__footer small {
-  color: #9f927d;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-}
-
-.app-splash__frame.night .app-splash__footer small { color: #8a7a5c; }
 
 .app-splash__bar {
-  width: 132px;
+  width: 120px;
   height: 5px;
-  margin-top: 2px;
   border-radius: 3px;
-  background: rgb(122 95 61 / 35%);
+  background: color-mix(in srgb, var(--color-ground-ink) 32%, transparent);
 }
 
-.app-splash__frame.night .app-splash__bar { background: rgb(242 230 207 / 30%); }
+.app-splash__footer small {
+  color: color-mix(in srgb, var(--color-ground-ink) 60%, transparent);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* First visit defaults to day on both surfaces; the user judged the deep pine
+ * "not as nice as the light base". Users who want dark can pick it in settings,
+ * and `data-theme="night"` still flips every token below. */
 
 
 .map-spike {
@@ -601,6 +564,11 @@ button, input, select, textarea, [role="button"] {
   --color-gold-fg: #f0d98a;
   /* Press shadow follows via var(--shadow-3d) in :root. */
   --shadow-3d: #120d07;
+  /* At night the green ground darkens to deep pine; the on-ground ink flips to
+   * cream (#f2e6cf on #1f3d2b ≈ 10.9:1). */
+  --color-ground: #1f3d2b;
+  --color-ground-ink: #f2e6cf;
+  --leaf-tile-image: url("/images/leaf-tile-night.png");
   /* An OFF switch track is a surface, so it follows the palette; its line
    * reuses the night soft-line value (3.03:1 on the night paper), which is the
    * 1.4.11 floor for the boundary of an operable control. The ON ground, the
@@ -616,17 +584,6 @@ button, input, select, textarea, [role="button"] {
     radial-gradient(50% 34% at 10% -2%, #3c2536 0%, rgb(60 37 54 / 0%) 58%),
     var(--color-bg);
 }
-
-/* A stored app choice wins over the OS hint after the bootstrap script runs. */
-[data-theme="day"] .app-splash__frame.day,
-[data-theme="light"] .app-splash__frame.day { display: flex; }
-[data-theme="day"] .app-splash__frame.night,
-[data-theme="light"] .app-splash__frame.night { display: none; }
-[data-theme="night"] .app-splash__frame.day,
-[data-theme="dark"] .app-splash__frame.day { display: none; }
-[data-theme="night"] .app-splash__frame.night,
-[data-theme="dark"] .app-splash__frame.night { display: flex; }
-
 /* 動森-style pressable button + input primitives (semantic tokens only). */
 .ds-button {
   border: 2px solid var(--color-border);
@@ -680,41 +637,9 @@ button, input, select, textarea, [role="button"] {
   outline-offset: 1px;
 }
 
-/* `/` is a doorway (see features/seo/DoorwaySummary.tsx): the served body a
- * crawler or a share-preview fetcher reads, under a splash no human outruns. */
-.doorway {
-  display: grid;
-  gap: 16px;
-  justify-items: center;
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 64px 24px;
-  text-align: center;
-}
-
-.doorway__title {
-  margin: 0;
-  font-family: var(--app-font-display);
-  font-size: clamp(1.75rem, 7vw, 2.5rem);
-}
-
-.doorway__lead {
-  margin: 0;
-  color: var(--color-muted-fg);
-  line-height: 1.8;
-}
-
-.doorway__links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 20px;
-  justify-content: center;
-}
-
-.doorway__link {
-  color: var(--color-primary-strong);
-  text-decoration: underline;
-}
+/* Tailwind v4 custom variant for the night theme (`<html data-theme="night">`),
+ * so page code writes `night:bg-…` utilities instead of hand-rolled selectors. */
+@custom-variant night ([data-theme="night"] &);
 
 .login-modal__mask {
   position: fixed;
@@ -919,4 +844,17 @@ button, input, select, textarea, [role="button"] {
 @keyframes card-pop {
   from { opacity: 0; transform: translateY(10px) scale(0.985); }
   to { opacity: 1; transform: none; }
+}
+
+/* Home hero fox: one authored spring entrance, then still (emil: rare,
+ * first-time animations may delight; never loop). */
+.home-fox {
+  animation: fox-pop 520ms cubic-bezier(0.34, 1.56,  0.64, 1) both;
+}
+@keyframes fox-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-fox { animation: none; }
 }

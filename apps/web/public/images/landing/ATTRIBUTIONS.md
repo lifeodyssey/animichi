@@ -33,15 +33,37 @@ Source of the SVG and fox artwork: the design-sync canvas
 > Removed 2026-08-23 with the landing page itself (`/` became a doorway to `/chat`,
 > so `LandingPage` and every component under it was deleted):
 >
-> - `compare/anime.jpg` and `compare/real.jpg` — the `ComparisonSlider` was their only
->   consumer. Both carried **unconfirmed licensing** (the anime frame even carried a
->   visible "All rights reserved CoMix Wave Films ©" watermark and was flagged
->   "resolve before any public launch"), so their removal also retires that risk.
 > - `foliage-tr.svg` — `LandingDeco` was its only consumer.
 > - `fox/fox-lean.svg` — `HeroSceneCard` was its only consumer.
 >
 > Verified by grep before deletion; the surviving files below each still have a live
 > consumer, or were already unreferenced before this change and are left untouched.
+
+## Assets restored by the 2026-08-30 direction-E fusion
+
+- `compare/anime.jpg` and `compare/real.jpg` — restored from git history
+  (`b68aca51c^`) for the rebuilt comparison slider on `/`. **The unconfirmed
+  licensing note from the 2026-08-23 removal still stands**: the anime frame
+  carries a visible "All rights reserved CoMix Wave Films ©" watermark and must
+  be replaced or licensed before any public launch.
+  - `anime.jpg`: 『秒速5センチメートル』(CoMix Wave Films) — unconfirmed.
+  - `real.jpg`: real photo of the same cherry-blossom railway crossing —
+    provenance carried over from the original landing; confirm on the same pass.
+    Re-graded 2026-08-30 (2% right/bottom crop, brightness/contrast/saturation
+    lift) so the frame holds up next to the vivid anime cut.
+
+## Route-sample row (2026-08-30, `RouteSamples` on `/`)
+
+- `route-uji.webp` — 宇治橋 (Uji Bridge, Kyoto). Derived from
+  https://commons.wikimedia.org/wiki/File:Uji-Bridge.jpg — author 京都東,
+  CC BY-SA 4.0. Edits: 16:10 crop, 880px webp re-encode.
+- `route-suga.webp` — 須賀神社階段 (Suga Shrine stairs). Derived from the
+  already-attributed `suga-shrine-reality-perspective-v2.webp` above
+  (Hisagi, CC BY-SA 4.0). Edits: 880px webp re-encode.
+- `route-sangubashi.webp` — 小田急線参宮橋1号踏切 (the 秒速5センチメートル
+  crossing). Derived from
+  https://commons.wikimedia.org/wiki/File:Sangubashi_kohonegawa.jpg —
+  author 鋸香具師, CC0 1.0. Edits: 16:10 crop, 880px webp re-encode.
 
 ### torii.svg
 

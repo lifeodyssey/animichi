@@ -4,12 +4,18 @@
     "description": "Find real-world anime locations and plan pilgrimage routes"
   },
   "doorway": {
-    "hero": "Animichi",
+    "hero": "聖地巡礼",
     "lead": "Find the real-life locations of your favorite anime, compare scenes side by side, and get a walking route to experience them for yourself.",
     "cta": "Start Exploring",
     "github": "GitHub",
     "privacy": "Privacy policy",
-    "links": "Site links"
+    "links": "Site links",
+    "examples": [
+      "Sound! Euphonium",
+      "Your Name.",
+      "Bocchi the Rock!"
+    ],
+    "sample_caption": "Here's what a route looks like"
   },
   "settings": {
     "title": "Settings",
@@ -80,5 +86,48 @@
     "contact": "Privacy questions or deletion requests",
     "contact_link": "Open an issue on GitHub",
     "back_home": "Back to Animichi"
+  },
+  "landing": {
+    "eyebrow": "FROM SCREEN TO STREET",
+    "brand_pre": "Ani",
+    "brand_accent": "michi",
+    "headline_pre": "Plan the real route behind an ",
+    "headline_em": "anime scene",
+    "login": "Log in",
+    "footer_nav": "Footer links",
+    "comparison_anime": "Anime",
+    "comparison_real": "Real",
+    "comparison_anime_alt": "Anime frame of a railway crossing with cherry blossoms from 5 Centimeters Per Second.",
+    "comparison_real_alt": "Photo of the real railway crossing with cherry blossoms",
+    "comparison_aria": "Slider comparing the anime frame with the real location",
+    "privacy": "Privacy policy",
+    "github": "GitHub",
+    "lead": "Find the real-life locations of your favorite anime, compare scenes side by side, and get a walking route to experience them for yourself.",
+    "examples": [
+      "Your Name",
+      "Euphonium",
+      "Weathering with You"
+    ],
+    "samples_heading": "Sample output: from an anime title to a route you can walk.",
+    "samples": [
+      {
+        "work": "Euphonium",
+        "title": "Uji half-day highlights",
+        "meta": "6 spots · 60 min walk",
+        "alt": "Photo of Uji Bridge over the Uji River"
+      },
+      {
+        "work": "Your Name",
+        "title": "Yotsuya: the stairs route",
+        "meta": "5 spots · 45 min walk",
+        "alt": "City view from the Suga Shrine stairs"
+      },
+      {
+        "work": "5 Centimeters Per Second",
+        "title": "Sangubashi: the sakura crossing",
+        "meta": "4 spots · 40 min walk",
+        "alt": "Photo of the Sangubashi No.1 railway crossing"
+      }
+    ]
   }
 }

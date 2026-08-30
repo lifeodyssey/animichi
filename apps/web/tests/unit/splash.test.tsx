@@ -17,22 +17,19 @@ const styleSource = readFileSync(
 );
 
 describe("static splash", () => {
-  it("renders both system-selectable frames and the optimized fox asset", () => {
+  it("renders the brand lockup, title, and tagline on the static splash", () => {
     const { container } = render(<Splash />);
     expect(container.querySelector('[data-splash="static"]')).toBeTruthy();
-    expect(container.querySelector(".phone.day")).toBeTruthy();
-    expect(container.querySelector(".phone.night")).toBeTruthy();
-    expect(container.querySelector('img[src="/splash-day.svg"]')).toBeTruthy();
-    expect(container.querySelector('img[src="/splash-night.svg"]')).toBeTruthy();
-    expect(container.querySelector('img[src="/images/splash/fox-stand.webp"]')).toBeTruthy();
+    expect(container.textContent).toContain("Animichi");
+    expect(container.textContent).toContain("聖地巡礼");
+    expect(container.textContent).toContain("あの画面に、行こう。");
   });
 
-  it("uses the day fallback, follows system mode, and honors stored theme", () => {
-    expect(styleSource).toMatch(/\.app-splash__frame\.night\s*\{\s*display: none/);
-    expect(styleSource).toMatch(/@media \(prefers-color-scheme: dark\)/);
-    expect(styleSource).toMatch(/\.app-splash__frame\.day\s*\{\s*display: none/);
-    expect(styleSource).toContain('[data-theme="dark"] .app-splash__frame.day');
-    expect(styleSource).toContain('[data-theme="light"] .app-splash__frame.day');
+  it("follows the stored theme and stays day by default on a first visit", () => {
+    // First visit no longer follows OS dark; the user prefers the light base.
+    expect(styleSource).not.toMatch(/@media \(prefers-color-scheme: dark\)/);
+    expect(styleSource).toContain("--leaf-tile-image");
+    expect(styleSource).toMatch(/\.app-splash \{[^}]*background-image: var\(--leaf-tile-image\)/);
   });
 
   it("dismisses within the 800ms budget without a JavaScript timer", () => {

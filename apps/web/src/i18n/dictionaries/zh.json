@@ -9,7 +9,13 @@
     "cta": "开始巡礼",
     "github": "GitHub",
     "privacy": "隐私协议",
-    "links": "站内链接"
+    "links": "站内链接",
+    "examples": [
+      "吹响吧！上低音号",
+      "你的名字。",
+      "孤独摇滚！"
+    ],
+    "sample_caption": "比如，能生成这样的路线"
   },
   "settings": {
     "title": "设置",
@@ -80,5 +86,48 @@
     "contact": "隐私问题或删除请求",
     "contact_link": "在 GitHub 提交 Issue",
     "back_home": "返回 Animichi"
+  },
+  "landing": {
+    "eyebrow": "FROM SCREEN TO STREET",
+    "brand_pre": "圣地",
+    "brand_accent": "巡礼",
+    "headline_pre": "把动画里的那一幕,",
+    "headline_em": "变成今天能走的路线",
+    "login": "登录",
+    "footer_nav": "页脚链接",
+    "comparison_anime": "动画",
+    "comparison_real": "实拍",
+    "comparison_anime_alt": "《秒速五厘米》樱花飞舞的铁路道口动画画面",
+    "comparison_real_alt": "樱花盛开的真实铁路道口照片",
+    "comparison_aria": "对比动画与实拍的滑块",
+    "privacy": "隐私协议",
+    "github": "GitHub",
+    "lead": "找到喜欢的动画在现实中的取景地,并排对比画面,生成一条可以亲自走一遍的巡礼路线。",
+    "examples": [
+      "你的名字",
+      "吹响吧!上低音号",
+      "天气之子"
+    ],
+    "samples_heading": "输出示例:从作品名到一条能走的路线。",
+    "samples": [
+      {
+        "work": "吹响吧!上低音号",
+        "title": "宇治·半日精华路线",
+        "meta": "6 个点位 · 步行约 60 分钟",
+        "alt": "宇治川上的宇治桥照片"
+      },
+      {
+        "work": "你的名字",
+        "title": "四谷·那条台阶路线",
+        "meta": "5 个点位 · 步行约 45 分钟",
+        "alt": "从须贺神社台阶俯瞰的街景"
+      },
+      {
+        "work": "秒速五厘米",
+        "title": "参宫桥·樱花道口路线",
+        "meta": "4 个点位 · 步行约 40 分钟",
+        "alt": "参宫桥1号道口的照片"
+      }
+    ]
   }
 }

@@ -30,8 +30,9 @@ describe("root route dual state", () => {
     mockStatus = "anonymous";
     renderHome(<HomeView />);
     expect(screen.getByRole("heading", { level: 1 })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "巡礼をはじめる" }).getAttribute("href")).toBe("/chat");
-    expect(screen.queryByRole("searchbox")).toBeNull();
+    // The doorway's primary action IS the search form into /chat (direction-E fusion).
+    expect(screen.getByRole("textbox").closest("form")?.getAttribute("action")).toBe("/chat");
+    expect(screen.getByRole("button", { name: "ルートを作る" })).toBeTruthy();
   });
 
   it("renders the App Home for an authenticated user and navigates on search", async () => {

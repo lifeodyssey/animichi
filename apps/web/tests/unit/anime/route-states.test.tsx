@@ -30,8 +30,9 @@ describe("/anime/$bangumiId error state", () => {
   it("renders the branded error screen when the catalog is unreachable", async () => {
     server.use(animeOverviewOutageHandler);
     await openAnime("123");
-    expect(await screen.findByText("Animichi")).toBeTruthy();
-    expect(screen.getByText("エラーが発生しました")).toBeTruthy();
+    // The brand appears on both the root splash and the error screen's eyebrow.
+    await screen.findByText("エラーが発生しました");
+    expect(screen.getAllByText("Animichi").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: "ホームに戻る" }).getAttribute("href")).toBe("/");
   });
 

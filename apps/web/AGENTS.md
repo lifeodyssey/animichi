@@ -19,6 +19,30 @@ client effect, and keeps desktop visitors on the clickable doorway. Root guide: 
 - TanStack file routes live in `src/routes/`; create the router in `src/router.tsx`.
 - Keep production functions at ≤10 lines and tests at ≤50. `apps/web/.oxlintrc.json` owns both
   limits and extends the root strict, type-aware config.
+- **CSS is Tailwind v4 utilities first** — no new hand-written page CSS files; use the
+  `tailwind-design-system` skill (user scope) for Tailwind work. Semantic tokens live
+  once in `src/styles/globals.css` `:root` and are exposed to utilities via `@theme inline`
+  (`bg-ground`, `text-ground-ink`, …); night variants use the `@custom-variant night` selector
+  declared in `globals.css`. The legacy per-page stylesheets (`chat.css`, `shiori.css`, …)
+  shrink as pages are rebuilt in the 2026-08-29 direction-E redesign.
+- **UI styling comes from `animal-island-ui-tailwind`'s CSS class layer**
+  (`animal-btn`, `animal-input-wrapper`, `animal-card`, …; already global via the
+  `style/core` import in `globals.css`). Do NOT import its React components: the
+  package's JS entry vendors `react-dom@19. 2.6` under `dist/es/node_modules`,
+  which crashes against our React 19.2.8 ("Incompatible React versions"). Mirror
+  the class structure its components render; retheme via `--animal-*` custom
+  properties on a wrapper. `node_modules/animal-island-ui-tailwind/AI_USAGE.md`
+  documents the design grammar (its HARD RULES are binding: never override the
+  3D press shadow, etc.).
+  - Pitfall: the package ships its own compiled Tailwind, so its plain utilities
+    (`.hidden`, `.flex`, `.grid`, …) land in our shared `@layer utilities` AFTER our
+    variant rules and beat them. Never pair a plain utility the package also
+    defines with a responsive/state variant (`hidden md:block` breaks); use
+    arbitrary properties instead (`[display:none] md:[display:block]`).
+- Visual direction is **E · 绿底动森** (2026-08-29, user-approved comp): leaf-green ground
+  `#6eb68e` + leaf tile, cream cards, teal `#19c8b9` interaction, gold `#f5c31c` CTA, brown
+  `#827157` text. Mascot = flat fox set in `public/images/mascot/` (fox-peek/fox-cheer/fox-lying).
+  Product truth for design work lives in `apps/web/PRODUCT.md` (impeccable).
 - Use semantic tokens from `src/styles/globals.css`; alignment tests pin the Animal Island token
   layer.
 - Keep legacy and rebuild E2E origins separate until cutover: `E2E_WEB_BASE_URL` targets this app.

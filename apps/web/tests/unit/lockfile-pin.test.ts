@@ -43,9 +43,9 @@ describe("animal-island-ui-tailwind lockfile pin", () => {
     const packageSpecifier = webPackage.dependencies?.[dependencyName];
     const lockDependency = webImporter?.dependencies?.[dependencyName];
 
-    expect(packageSpecifier).toBe("^1.4.1");
+    expect(packageSpecifier).toBe("^1.7.0");
     expect(lockDependency?.specifier).toBe(packageSpecifier);
-    expect(lockDependency?.version).toMatch(/^1\.4\.\d+\b/u);
+    expect(lockDependency?.version).toMatch(/^1\.7\.\d+\b/u);
   });
 
   it("keeps CI install drift visible through frozen lockfile installs", () => {
