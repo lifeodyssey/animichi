@@ -52,19 +52,38 @@ async function expectSplashWithinBudget(page: Page): Promise<void> {
   await expect(page.locator("main").first()).toBeVisible();
 }
 
+/** The postcard-era splash (2026-08-30) is one frame for both themes — the
+ * day/night split lives in `--color-ground` under `[data-theme="night"]`, not
+ * in `.app-splash__frame.day/.night` markup. The theme itself comes only from
+ * the stored preference (theme-bootstrap.ts); a system colour preference is
+ * deliberately NOT consulted — "first visit defaults to day on both surfaces"
+ * is the owner's design decision, so both system modes below must render the
+ * day ground, and only a stored night choice renders the night ground. */
+const DAY_SPLASH_GROUND = "rgb(110, 182, 142)";
+const NIGHT_SPLASH_GROUND = "rgb(31, 61, 43)";
+
 test("light system mode renders the day splash and clears it within 800ms", { tag: "@perf-mobile-cold" }, async ({ page }) => {
   await applyPerfMobileCold(page);
   await expectSplashWithinBudget(page);
-  await expect(page.locator(".app-splash__frame.day")).toHaveCSS("display", "flex");
+  await expect(page.locator(".app-splash")).toHaveCSS("background-color", DAY_SPLASH_GROUND);
 });
 
 test.describe("dark system mode", () => {
   test.use({ colorScheme: "dark" });
 
-  test("renders the night splash and clears it within 800ms", { tag: "@perf-mobile-cold" }, async ({ page }) => {
+  test("still renders the day splash — a system preference never flips the first visit", { tag: "@perf-mobile-cold" }, async ({ page }) => {
     await applyPerfMobileCold(page);
     await expectSplashWithinBudget(page);
-    await expect(page.locator(".app-splash__frame.night")).toHaveCSS("display", "flex");
+    await expect(page.locator(".app-splash")).toHaveCSS("background-color", DAY_SPLASH_GROUND);
+  });
+});
+
+test.describe("stored night preference", () => {
+  test("renders the night splash and clears it within 800ms", { tag: "@perf-mobile-cold" }, async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("animichi-theme", "night"));
+    await applyPerfMobileCold(page);
+    await expectSplashWithinBudget(page);
+    await expect(page.locator(".app-splash")).toHaveCSS("background-color", NIGHT_SPLASH_GROUND);
   });
 });
 
@@ -136,7 +155,9 @@ test.describe("desktop index entry", () => {
     await page.setViewportSize({ width: 600, height: 1000 });
     await expect(splash).toBeHidden();
     await expect(page).toHaveURL(/\/$/);
-    await page.locator('.doorway__link[href="/chat"]').click();
+    // The postcard landing's only plain /chat anchor is the login CTA in the
+    // top bar (the search form submits, the chips carry ?q=) — 2026-08-30.
+    await page.locator('a[href="/chat"]').click();
     await page.waitForURL("**/chat");
     await solveTurnstileEntry(page);
     await expect(page.locator("main.chat-page")).toBeVisible();

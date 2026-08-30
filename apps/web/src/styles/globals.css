@@ -111,11 +111,14 @@
   --shadow-press: 0 5px 0 0 var(--shadow-3d);
 
   /* Nook pastel chips (from the animal-island palette): brand surfaces, theme-
-   * invariant, each paired with the fixed warm-brown ink below. */
+   * invariant, each paired with the fixed warm-brown ink below. The ink is the
+   * AA pair for all three pastels (#5c4813 on yellow 5.8:1, teal 5.1:1, pink
+   * 4.6:1) — the body ink #725d42 the chips shipped with read 3.3–4.1:1 and
+   * failed the axe gate (2026-08-30). */
   --color-nook-yellow: #f7cd67;
   --color-nook-teal: #82d5bb;
   --color-nook-pink: #f8a6b2;
-  --color-nook-ink: #725d42;
+  --color-nook-ink: #5c4813;
 
   /* Direction E (user-approved 2026-08-29, faithful to upstream
    * animal-island-ui): the leaf-green ground is the brand field, not an accent
@@ -810,6 +813,19 @@ button, input, select, textarea, [role="button"] {
   .animal-select-content {
     animation: none;
   }
+}
+
+/* Doorway search box: the package input's inks miss AA on its own cream field
+ * (#fffbe7) — the hardcoded base #8a7b66 reads 3.95:1 and the placeholder var
+ * (--animal-text-color-disabled, #c4b89e) 1.9:1. The var remap follows the
+ * settings.css pattern; the base color is not var-driven in the package, so it
+ * is restated here. The doorway is the input's only consumer (2026-08-30):
+ * typed text --color-fg 6.0:1, placeholder --color-muted-fg 5.6:1. */
+.animal-input-wrapper {
+  --animal-text-color-disabled: var(--color-muted-fg);
+}
+.animal-input-control {
+  color: var(--color-fg);
 }
 
 /* WCAG 2.4.1 Bypass Blocks: skip link is visually hidden until keyboard focus
