@@ -42,6 +42,11 @@ export function diffPixels(a: Uint8Array, b: Uint8Array, threshold = DEFAULT_THR
   if (a.length !== b.length) {
     throw new Error(`visual diff: length mismatch ${String(a.length)} vs ${String(b.length)}`);
   }
+  if (a.length % 4 !== 0) {
+    // colorDelta reads four bytes per pixel; a truncated buffer would index
+    // out of bounds instead of failing (issue #1236 review).
+    throw new Error(`visual diff: truncated RGBA buffer length ${String(a.length)}`);
+  }
   const diff = new Uint8Array(a.length);
   let count = 0;
   for (let i = 0; i < a.length; i += 4) {

@@ -106,7 +106,7 @@ def _extend_required(required: list[RequiredCheck], rule: Mapping[str, object]) 
     if rule.get("type") != "code_scanning":
         return
     names = _rule_names(rule, "code_scanning_tools", "tool")
-    required.extend(RequiredCheck(name, None) for name in names)
+    required.extend(RequiredCheck(name, None, "code_scanning") for name in names)
 
 
 def _required_checks(path: Path) -> tuple[RequiredCheck, ...]:
@@ -205,14 +205,26 @@ def _threads(path: Path) -> int:
     return int(text)
 
 
+def _is_blocking(item: Observation, check: RequiredCheck) -> bool:
+    if check.kind == "code_scanning":
+        # GitHub's code-scanning protection gates on the tool's analysis state
+        # (alert thresholds), not on the run conclusion: neutral and skipped
+        # runs permit the merge. Missing evidence fails closed — a required
+        # signal must never be silently satisfied (#1214).
+        if item.status == "missing":
+            return True
+        return item.conclusion not in ("success", "neutral", "skipping")
+    return item.status != "completed" or item.conclusion != "success"
+
+
 def _blocking_observations(
     required: tuple[RequiredCheck, ...], observations: tuple[Observation, ...]
 ) -> tuple[Observation, ...]:
     latest = tuple(_latest(check, observations) for check in required)
     return tuple(
         item
-        for item in latest
-        if item.status != "completed" or item.conclusion != "success"
+        for item, check in zip(latest, required)
+        if _is_blocking(item, check)
     )
 
 

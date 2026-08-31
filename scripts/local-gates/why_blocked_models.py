@@ -14,14 +14,27 @@ class PullRequest:
     merge_state: str
 
 
+ACTIONS_INTEGRATION_ID = 15368
+
+
 @dataclass(frozen=True)
 class RequiredCheck:
     name: str
     integration_id: int | None
+    # "check" matches classic statuses (required-by-PR) and same-integration
+    # check runs; "code_scanning" matches ONLY the tool's check run from the
+    # GitHub Actions integration (issue #1214: a same-named classic status
+    # must never satisfy a code-scanning requirement).
+    kind: str = "check"
 
     def matches(self, observed: Observation) -> bool:
         if self.name != observed.name:
             return False
+        if self.kind == "code_scanning":
+            return (
+                observed.source == "check-run"
+                and observed.integration_id == ACTIONS_INTEGRATION_ID
+            )
         if self.integration_id is None:
             return True
         if observed.source == "status":

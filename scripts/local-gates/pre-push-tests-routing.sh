@@ -90,7 +90,7 @@ test_e2e_static_gates() {
   [ "$rc" = "0" ] || { echo "FAIL: e2e-only run exited $rc" >&2; exit 1; }
   assert_has "$log" "$REPO_ROOT/e2e :: pnpm typecheck"
   assert_has "$log" "$REPO_ROOT/e2e :: pnpm run lint:oxlint"
-  assert_lacks "$log" "pnpm exec playwright test"
+  assert_lacks "$log" "playwright test"
   echo "ok: e2e runs deterministic typecheck + lint locally"
 }
 

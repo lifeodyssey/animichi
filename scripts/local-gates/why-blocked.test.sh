@@ -21,8 +21,9 @@ run_case() {
 
 run_case blocked "$TMP/blocked"
 [ "$RC" = 1 ] || { printf 'FAIL: blocked PR exited %s\n' "$RC" >&2; exit 1; }
-grep -qF 'required checks without success (2):' "$TMP/blocked"
-grep -qF -- '- CodeQL: raw_conclusion=neutral status=completed source=check-run app_id=15368 required_by_pr=unknown' "$TMP/blocked"
+# A neutral Actions CodeQL run is NOT a blocker (code-scanning protection
+# gates on the analysis state); only the pending Review Gate status blocks.
+grep -qF 'required checks without success (1):' "$TMP/blocked"
 grep -qF -- '- Review Gate: raw_conclusion=pending status=completed source=status app_id=none required_by_pr=true' "$TMP/blocked"
 grep -qF 'branch staleness: behind (behind_by=3)' "$TMP/blocked"
 grep -qF 'unresolved threads: 2' "$TMP/blocked"
@@ -57,5 +58,21 @@ grep -qF 'PR #42: merge_state=BLOCKED' "$TMP/merge-blocked"
 run_case unreadable "$TMP/unreadable"
 [ "$RC" = 2 ] || { printf 'FAIL: unreadable snapshot exited %s\n' "$RC" >&2; exit 1; }
 grep -qF 'BLOCKED: unreadable why-blocked input:' "$TMP/unreadable"
+
+# A passing same-named CLASSIC status can never satisfy a code-scanning
+# requirement: the failing Actions check run stays the latest observation.
+run_case code-scanning-status-masquerade "$TMP/cs-masq"
+[ "$RC" = 1 ] || { printf 'FAIL: status masquerade PR exited %s\n' "$RC" >&2; exit 1; }
+grep -qF -- '- CodeQL: raw_conclusion=failure status=completed source=check-run app_id=15368 required_by_pr=unknown' "$TMP/cs-masq"
+
+# Neutral and skipped code-scanning runs permit the merge.
+run_case code-scanning-neutral "$TMP/cs-neutral"
+[ "$RC" = 0 ] || { printf 'FAIL: code-scanning neutral PR exited %s\n' "$RC" >&2; exit 1; }
+grep -qF 'required checks without success (0):' "$TMP/cs-neutral"
+
+# Missing code-scanning evidence fails closed instead of reading as clear.
+run_case code-scanning-missing "$TMP/cs-missing"
+[ "$RC" = 1 ] || { printf 'FAIL: code-scanning missing PR exited %s\n' "$RC" >&2; exit 1; }
+grep -qF -- '- CodeQL: raw_conclusion=missing status=missing source=none app_id=none required_by_pr=unknown' "$TMP/cs-missing"
 
 printf '%s\n' 'why-blocked.test.sh: blocker, both source kinds, status, merge, and unreadable cases are green'

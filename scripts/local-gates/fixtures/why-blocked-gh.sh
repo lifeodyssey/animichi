@@ -5,6 +5,8 @@ BASE_SHA="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 HEAD_SHA="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 SCENARIO="${WHY_BLOCKED_SCENARIO:-blocked}"
 CODEQL="neutral"
+CODEQL_MISSING=false
+CODEQL_STATUS=""
 REVIEW="PENDING"
 REVIEW_REQUIRED=true
 BEHIND=3
@@ -34,6 +36,13 @@ case "$SCENARIO" in
   queued-success) clean_state; PR_STATUS="queued" ;;
   merge-blocked) clean_state; MERGE_STATE="BLOCKED" ;;
   unreadable) RULES='{}' ;;
+  code-scanning-status-masquerade)
+    clean_state
+    CODEQL="failure"
+    CODEQL_STATUS='{"id":"status-7","context":"CodeQL","state":"success","updatedAt":"2026-08-25T01:06:00Z","isRequired":false}'
+    ;;
+  code-scanning-neutral) clean_state; CODEQL="neutral" ;;
+  code-scanning-missing) clean_state; CODEQL_MISSING=true ;;
   *) printf 'unknown fixture scenario: %s\n' "$SCENARIO" >&2; exit 64 ;;
 esac
 
@@ -48,10 +57,16 @@ case "$*" in
     printf '%s\n' "$RULES"
     ;;
   "api repos/lifeodyssey/animichi/commits/$HEAD_SHA/check-runs --paginate --jq .check_runs")
-    printf '[{"id":3,"name":"CodeQL","status":"completed","conclusion":"%s","started_at":"2026-08-25T01:03:00Z","app":{"id":15368}},%s,{"id":1,"name":"PR Verification","status":"%s","conclusion":"%s","started_at":"2026-08-25T01:01:00Z","app":{"id":15368}}]\n' "$CODEQL" "$SECURITY_CHECKS" "$PR_STATUS" "$PR_CONCLUSION"
+    CODEQL_ENTRY='{"id":3,"name":"CodeQL","status":"completed","conclusion":"'"$CODEQL"'","started_at":"2026-08-25T01:03:00Z","app":{"id":15368}}'
+    [ "$CODEQL_MISSING" = true ] || printf '[%s,%s,{"id":1,"name":"PR Verification","status":"%s","conclusion":"%s","started_at":"2026-08-25T01:01:00Z","app":{"id":15368}}]\n' "$CODEQL_ENTRY" "$SECURITY_CHECKS" "$PR_STATUS" "$PR_CONCLUSION"
+    [ "$CODEQL_MISSING" != true ] || printf '[%s,{"id":1,"name":"PR Verification","status":"%s","conclusion":"%s","started_at":"2026-08-25T01:01:00Z","app":{"id":15368}}]\n' "$SECURITY_CHECKS" "$PR_STATUS" "$PR_CONCLUSION"
     ;;
   api\ graphql*-F\ sha=$HEAD_SHA*)
-    printf '[{"id":"status-4","context":"Review Gate","state":"%s","updatedAt":"2026-08-25T01:04:00Z","isRequired":%s}]\n' "$REVIEW" "$REVIEW_REQUIRED"
+    if [ -n "$CODEQL_STATUS" ]; then
+      printf '[{"id":"status-4","context":"Review Gate","state":"%s","updatedAt":"2026-08-25T01:04:00Z","isRequired":%s},%s]\n' "$REVIEW" "$REVIEW_REQUIRED" "$CODEQL_STATUS"
+    else
+      printf '[{"id":"status-4","context":"Review Gate","state":"%s","updatedAt":"2026-08-25T01:04:00Z","isRequired":%s}]\n' "$REVIEW" "$REVIEW_REQUIRED"
+    fi
     ;;
   "api repos/lifeodyssey/animichi/compare/$BASE_SHA...$HEAD_SHA")
     printf '{"ahead_by":2,"behind_by":%s,"status":"diverged"}\n' "$BEHIND"

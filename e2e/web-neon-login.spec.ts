@@ -15,7 +15,10 @@ const authBaseUrl = process.env.NEON_AUTH_BASE_URL ?? process.env.VITE_NEON_AUTH
 const qaEmail = process.env.QA_NEON_USER_EMAIL;
 const qaPassword = process.env.QA_NEON_USER_PASSWORD;
 const appBaseUrl = process.env.E2E_WEB_BASE_URL ?? "http://localhost:3000";
-const liveAuthReady = () => authBaseUrl !== undefined && qaEmail !== undefined && qaPassword !== undefined;
+// `process.env` can hold "", so a defined-but-empty value is unavailable too.
+const isPresent = (value: string | undefined): value is string =>
+  value !== undefined && value.trim() !== "";
+const liveAuthReady = () => isPresent(authBaseUrl) && isPresent(qaEmail) && isPresent(qaPassword);
 
 interface LiveAuthCredentials {
   baseUrl: string;
@@ -24,7 +27,8 @@ interface LiveAuthCredentials {
 }
 
 function requireLiveAuth(): LiveAuthCredentials {
-  if (authBaseUrl === undefined || qaEmail === undefined || qaPassword === undefined) {
+  // Inline (not via liveAuthReady) so the type predicates narrow the consts.
+  if (!isPresent(authBaseUrl) || !isPresent(qaEmail) || !isPresent(qaPassword)) {
     throw new Error("live Neon Auth credentials are unavailable");
   }
   return { baseUrl: authBaseUrl, email: qaEmail, password: qaPassword };
