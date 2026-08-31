@@ -152,7 +152,7 @@ default branch (one less default flip). Only do this if the owner prefers it.
 ## Phase 5 — Verify
 
 - [ ] **CI green on the new tip**: watch the `main` CI run to completion; the
-      required `PR Verification`, `Security`, and `Review Gate` aggregators are
+      required `PR Verification` and `Security` aggregators are
       green (see `docs/iterations/s0v2/ruleset-target.json` and
       `gh ruleset view 19974534`). CI keys on contexts, not SHAs, so nothing
       needs reconfiguration.

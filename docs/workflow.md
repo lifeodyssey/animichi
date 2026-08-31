@@ -14,8 +14,8 @@
 | 2. 成 spec | `/to-spec` | 模板七段;Implementation Decisions 不写实现文件路径;**接缝向 owner 确认**;发 tracker issue + `ready-for-agent`;**spec 双席评审 = Fable + Codex GPT Sol(xhigh,`adversarial-review` 命令)→ 回修 → 复核 → owner 签核** |
 | 3. 拆卡 | `/to-tickets` | 每卡:AC 带 test-type + **blocking edges 写进卡目录 `needs` 文件**;卡=一个 worktree 一个小 PR |
 | 4. 实施 | `/implement`(内驱 `/tdd`) | **执行者=opencode**(serve 通道,ds-max→luna-max;见 use-opencode skill);状态机 `card.sh` 推进:QUEUED→EXECUTING→GATES→REVIEW→PR_OPEN→WAIT_GREEN→TRIAGE→MERGE→CLEANUP→DONE |
-| 5. 评审 | `/code-review` 语义由状态机承载 | **卡级终审 = 一个 Opus 5 席**(读 `origin/main...HEAD` 候选提交 vs 任务书,判定落 head-bound verdict artifact);**候选提交协议**:gates 后先打本地候选 commit(不 push),评审绑定该 commit,REJECT → 修复 + 新候选提交 → 完整重审,双轴批准后才 push/open PR;变异检验是绿灯唯一效力证明;评审方法/权限/产出/顺序/票级范围 → `docs/ops/review-gate.md`(issue #1008) |
-| 6. 合并 | 状态机 TRIAGE→MERGE | 两路评论闸(线程+顶层)+ 头提交新鲜闸(hook 强制);有 findings 落 HUMAN 态归人;闸的单一来源 = `docs/ops/review-gate.md` |
+| 5. 评审 | `/code-review` | **卡级终审**:读 `origin/main...HEAD` 候选提交 vs 任务书;**候选提交协议**:gates 后先打本地候选 commit(不 push),评审绑定该 commit,REJECT → 修复 + 新候选提交 → 完整重审,批准后才 push/open PR;变异检验是绿灯唯一效力证明;合并闸的单一来源 → `docs/ops/review-gate.md` |
+| 6. 合并 | 状态机 TRIAGE→MERGE | 行级线程必须 resolve(native ruleset)+ 顶层 bot 发现逐条 ack(全局 hook 强制);有 findings 落 HUMAN 态归人 |
 | 日常保养 | `/improve-codebase-architecture` | 隔几天跑,产出想法回到阶段 1 |
 
 ## 匝道(遇到就显式进)

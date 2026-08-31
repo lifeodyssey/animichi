@@ -70,9 +70,9 @@ Changed packages (routed via `changed-packages.sh --staged`):
 `scripts/local-gates/commit-message.py` rejects malformed or generic subjects, subjects over 72
 characters, and Claude/Anthropic/Codex/OpenAI attribution trailers or Claude Code generated footers.
 It preserves legitimate human and Dependabot co-authors and ordinary prose that merely names a tool.
-The trusted Review Gate calls the same validator for pull-request titles because GitHub uses that
-title as the final main subject when the PR is squash-merged. Review Gate already observes PR edits,
-so title changes do not retrigger product CI or add a separate workflow or required check.
+The validator's rules double as the PR squash-title rules, because GitHub uses that title as the
+final main subject when the PR is squash-merged. GitHub already observes PR edits, so title changes
+do not retrigger product CI or add a separate workflow or required check.
 
 ## pre-push (one orchestrator, `scripts/local-gates/pre-push.sh`)
 

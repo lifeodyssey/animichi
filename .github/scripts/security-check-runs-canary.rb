@@ -12,7 +12,6 @@ require "uri"
 module SecurityCheckRunsCanary
   API_VERSION = "2022-11-28"
   CI_CONTEXTS = ["PR Verification", "Security"].freeze
-  REVIEW_CONTEXT = "Review Gate"
   PAGE_SIZE = 100
   MAX_PAGES = 100
   REPOSITORY_PATTERN = /\A[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\z/
@@ -39,7 +38,7 @@ module SecurityCheckRunsCanary
 
   def self.assert_required_contexts(contexts)
     actual = Array(contexts)
-    expected = [*CI_CONTEXTS, REVIEW_CONTEXT]
+    expected = CI_CONTEXTS
     return if actual == expected
 
     fail!("required contexts must be exactly #{expected.join(', ')}, got #{actual.inspect}")

@@ -9,7 +9,6 @@ EXPECTED = {
     "cd.yml",
     "codeql.yml",
     "pr-verification.yml",
-    "review-gate.yml",
     "rollback.yml",
 }
 
@@ -22,7 +21,7 @@ def main() -> None:
         raise AssertionError(
             f"workflow inventory drift: missing={missing}, unexpected={unexpected}"
         )
-    print("Workflow inventory: six independent trigger domains")
+    print("Workflow inventory: five independent trigger domains")
 
 
 if __name__ == "__main__":

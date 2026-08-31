@@ -130,14 +130,4 @@ red_fixture(
   YAML
 end
 
-# Review Gate is queue-safe only through the trusted completed-CI bridge; a
-# candidate-side merge_group trigger is not an acceptable substitute.
-red_fixture(
-  "review status producer without trusted workflow_run bridge",
-  ["review-gate.yml:top-level:missing queue-safe producer (required contexts: Review Gate)"]
-) do |dir|
-  path = File.join(dir, "review-gate.yml")
-  source = File.read(path).sub(/  workflow_run:\n    workflows: \[CI\]\n    types: \[completed\]\n/, "  merge_group:\n    branches: [main]\n")
-  File.write(path, source)
-end
 # frozen_string_literal: true

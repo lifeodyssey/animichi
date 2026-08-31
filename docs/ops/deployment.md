@@ -14,9 +14,9 @@ There are exactly two automatic delivery entry points:
 - `.github/workflows/cd.yml` (`CD`) deploys only a push to `main`.
 
 There is no tag-triggered or manually dispatched deployment path. The protected branch requires
-exactly `PR Verification`, `Security`, and `Review Gate`. The first aggregates every selected CI
+exactly `PR Verification` and `Security`. The first aggregates every selected CI
 gate, `Security` directly aggregates changed-secret scans and affected security tools, and the last
-enforces the head-bound review contract in [`review-gate.md`](./review-gate.md).
+plus native review-thread resolution; the merge gate is documented in [`review-gate.md`](./review-gate.md).
 
 ### Affected-only PR CI
 

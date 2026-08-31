@@ -11,7 +11,7 @@ ROOT = File.expand_path("../..", __dir__)
 FIXTURE_PATH = File.join(ROOT, ".github", "scripts", "fixtures", "security-check-runs.json")
 REPO = "lifeodyssey/animichi"
 SHA = "0123456789abcdef0123456789abcdef01234567"
-REQUIRED_CONTEXTS = ["PR Verification", "Security", "Review Gate"].freeze
+REQUIRED_CONTEXTS = ["PR Verification", "Security"].freeze
 
 FIXTURE = JSON.parse(File.read(FIXTURE_PATH))
 
@@ -78,7 +78,7 @@ green_case("fixture validates") do
                                   required_contexts: REQUIRED_CONTEXTS)
 end
 
-red_case("retired aggregate context is rejected", "exactly PR Verification, Security, Review Gate") do
+red_case("retired aggregate context is rejected", "exactly PR Verification, Security") do
   contexts = [*REQUIRED_CONTEXTS, "CI / verify"]
   SecurityCheckRunsCanary.assert!(copy_fixture, repo: REPO, expected_sha: SHA,
                                   required_contexts: contexts)
@@ -151,12 +151,12 @@ red_case("live mode rejects empty check-runs results", "exactly one PR Verificat
   SecurityCheckRunsCanary.run_live!(REPO, SHA, client: client)
 end
 
-red_case("live mode rejects empty ruleset results", "exactly PR Verification, Security, Review Gate") do
+red_case("live mode rejects empty ruleset results", "exactly PR Verification, Security") do
   client = live_client(REQUIRED_CONTEXTS, ruleset_pages: [[]])
   SecurityCheckRunsCanary.run_live!(REPO, SHA, client: client)
 end
 
-red_case("live ruleset rejects a retired aggregate", "exactly PR Verification, Security, Review Gate") do
+red_case("live ruleset rejects a retired aggregate", "exactly PR Verification, Security") do
   contexts = [*REQUIRED_CONTEXTS, "CI / verify"]
   SecurityCheckRunsCanary.run_live!(REPO, "1177", client: live_client(contexts))
 end

@@ -32,8 +32,6 @@ for ruby_file in \
   "$GS/test_ci_routing_consistency.rb" \
   "$GS/test_ci_contract_ruleset_migration.rb" \
   "$GS/test_ci_contract_ruleset_migration_mutation.rb" \
-  "$GS/test_ci_contract_review_gate.rb" \
-  "$GS/test_ci_contract_review_gate_mutation.rb" \
   "$GS/test_production_safety_contract.rb" \
   "$GS/test_rollback_edge_pair_mutation.rb" \
   "$GS/test_retired_retention_absence.rb" \
