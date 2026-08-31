@@ -80,7 +80,9 @@ test.describe("dark system mode", () => {
 
 test.describe("stored night preference", () => {
   test("renders the night splash and clears it within 800ms", { tag: "@perf-mobile-cold" }, async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem("animichi-theme", "night"));
+    await page.addInitScript(() => {
+      localStorage.setItem("animichi-theme", "night");
+    });
     await applyPerfMobileCold(page);
     await expectSplashWithinBudget(page);
     await expect(page.locator(".app-splash")).toHaveCSS("background-color", NIGHT_SPLASH_GROUND);

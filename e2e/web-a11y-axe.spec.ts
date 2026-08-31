@@ -40,11 +40,13 @@ test.use({
  */
 async function expectPageSettled(page: Page): Promise<void> {
   await expect(page.locator(".app-splash")).toBeHidden();
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     const finite = document
       .getAnimations()
       .filter((animation) => animation.effect?.getTiming().iterations !== Infinity);
-    return Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+    // allSettled: an animation cancelled mid-flight rejects `finished`, and a
+    // cancelled entrance must not fail the scan — it just never settles.
+    await Promise.allSettled(finite.map((animation) => animation.finished));
   });
 }
 
