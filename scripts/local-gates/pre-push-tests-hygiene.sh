@@ -75,7 +75,7 @@ assert_no_cloud_only_commands() {
 }
 
 assert_atlas_apply_local_only() {
-  if executable_lines "$1" | grep -E "atlas[[:space:]]+migrate[[:space:]]+apply" | grep -qv -- "--url postgresql://postgres:gate@127.0.0.1"; then
+  if executable_lines "$1" | grep -E "atlas[[:space:]]+migrate[[:space:]]+apply" | grep -qEv -- '--url "?postgresql://postgres:gate@127.0.0.1'; then
     echo "FAIL: $1 runs atlas apply outside the disposable local schema" >&2
     exit 1
   fi

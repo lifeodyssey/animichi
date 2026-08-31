@@ -18,12 +18,10 @@
 #               that trigger on push must NOT cancel unconditionally (that
 #               kills a deploy mid-flight). The two classes are judged
 #               independently.
-#   merge queue required-context producers must either listen on `merge_group`
-#               or, for the classic Review Gate only, use a trusted completed-
-#               CI `workflow_run` bridge that evaluates constituent PR evidence.
+#   merge queue required-context producers must listen on `merge_group`.
 #               Otherwise the merge queue waits forever or accepts fake green.
 #               context -> workflow map below is the pinned snapshot of the
-#               post-cutover live ruleset (two PR-level aggregators; see
+#               live ruleset (two PR-level aggregators; see
 #               docs/ops/review-gate.md and
 #               docs/iterations/s0v2/ruleset-target.json); drift in either
 #               direction fails loudly: an owner workflow absent from the
@@ -57,8 +55,7 @@ require_relative "assert-workflow-invariants-expression"
 # required.
 REQUIRED_CONTEXTS = {
   "PR Verification" => "pr-verification.yml",
-  "Security" => "pr-verification.yml",
-  "Review Gate" => "review-gate.yml"
+  "Security" => "pr-verification.yml"
 }.freeze
 
 # Events that produce one run per pull-request update and therefore share the
@@ -207,8 +204,6 @@ def producer_names(dir, wf)
       "#{display} / #{callee_job['name'] || callee_id}"
     end.compact
   end
-  source = wf.to_s
-  names << "Review Gate" if source.include?("post_with_retry pending") && source.include?("finish-status")
   names
 end
 
@@ -217,15 +212,7 @@ def direct_queue_producer?(on_map)
   merge_group.is_a?(Hash) && Array(merge_group["branches"]).include?("main")
 end
 
-def trusted_review_bridge?(on_map, wf)
-  bridge = on_map["workflow_run"]
-  valid_event = bridge.is_a?(Hash) && bridge["workflows"] == ["CI"] && bridge["types"] == ["completed"]
-  source = wf.to_s
-  valid_event && source.include?("collect-target") && source.include?("workflow_run.event")
-end
-
-def queue_producer?(context, on_map, wf)
-  return trusted_review_bridge?(on_map, wf) if context == "Review Gate"
+def queue_producer?(_context, on_map, _wf)
   direct_queue_producer?(on_map)
 end
 

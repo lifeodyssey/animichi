@@ -11,8 +11,8 @@
 #      `required_checks` — a context cannot be both live and retired, and a
 #      removal must be recorded (never a silent drop).
 #   B. every required check has a producing job (no orphan required context).
-#   C. every required check has a queue-safe producer: direct `merge_group` for
-#      CI checks, or the trusted completed-CI workflow_run bridge for Review Gate.
+#   C. every required check has a queue-safe producer: a direct `merge_group`
+#      trigger targeting main.
 #   D. snapshot discipline: assert-workflow-invariants.rb REQUIRED_CONTEXTS table
 #      equals ruleset-target.json required_checks — a new required name MUST be
 #      mirrored in that table (and its workflow merge_group trigger) before old
@@ -51,8 +51,6 @@ def producer_contexts(workflows_dir, wf)
       "#{display} / #{callee_job["name"] || callee_id}"
     end.compact
   end.flatten
-  source = wf.to_s
-  contexts << "Review Gate" if source.include?("post_with_retry pending") && source.include?("finish-status")
   contexts
 end
 
@@ -86,18 +84,7 @@ def declares_merge_group_main?(path)
   mg.is_a?(Hash) && Array(mg["branches"]).include?("main")
 end
 
-def trusted_review_bridge?(path)
-  text = File.read(path).sub(/^on:(?=[ \t#]|$)/, '"on":')
-  wf = YAML.safe_load(text, aliases: true)
-  on_map = wf.is_a?(Hash) ? (wf["on"] || wf[true]) : nil
-  return false unless on_map.is_a?(Hash)
-  bridge = on_map["workflow_run"]
-  event = bridge.is_a?(Hash) && bridge["workflows"] == ["CI"] && bridge["types"] == ["completed"]
-  event && text.include?("collect-target") && text.include?("workflow_run.event")
-end
-
-def queue_safe?(context, path)
-  return trusted_review_bridge?(path) if context == "Review Gate"
+def queue_safe?(_context, path)
   declares_merge_group_main?(path)
 end
 

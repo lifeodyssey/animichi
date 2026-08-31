@@ -6,7 +6,6 @@
 #
 #   RED  add an orphan required check (no producing job)      -> ADD-before-REMOVE
 #   RED  remove a required check WITHOUT recording retirement -> silent drop
-#   RED  Review Gate loses its trusted workflow_run bridge      -> queue hang
 #   GREEN pristine snapshot                                    -> contract passes
 #
 require "json"
@@ -79,17 +78,11 @@ red_probe("orphan required check added", "no producing job") do |ruleset, _wf|
 end
 
 red_probe("required check removed without retirement", "REQUIRED_CONTEXTS lists a non-required check") do |ruleset, _wf|
-  ruleset["required_checks"] = ruleset["required_checks"] - ["Review Gate"]
+  ruleset["required_checks"] = ruleset["required_checks"] - ["Security"]
 end
 
 red_probe("retired context restored as required (overlap)", "cannot be both required and retired") do |ruleset, _wf|
   ruleset["required_checks"] = ruleset["required_checks"] + [ruleset.fetch("_retired_contexts").fetch(0)]
-end
-
-red_probe("Review Gate loses trusted bridge", "not produced safely for merge queue") do |_ruleset, workflows_dir|
-  review = File.join(workflows_dir, "review-gate.yml")
-  text = File.read(review).sub(/^  workflow_run:\n    workflows: \[CI\]\n    types: \[completed\]\n/m, "")
-  File.write(review, text)
 end
 
 green_probe("pristine ruleset + workflows")

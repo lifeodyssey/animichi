@@ -18,10 +18,6 @@ end
 # limited to the violation it is testing.
 def seed_owners(dir)
   REQUIRED_CONTEXTS.group_by { |_ctx, owner| owner }.each do |owner, pairs|
-    if owner == "review-gate.yml"
-      seed_review_owner(dir)
-      next
-    end
     # Explicit indentation (no heredoc): a squiggly heredoc dedents by its
     # least-indented line and would land the job keys at column 0, making
     # `jobs:` parse empty and every seeded owner "produce nothing".
@@ -51,29 +47,6 @@ def seed_owners(dir)
       #{jobs}
     YAML
   end
-end
-
-def seed_review_owner(dir)
-  File.write(File.join(dir, "review-gate.yml"), <<~YAML)
-    name: review-gate
-    on:
-      pull_request_target:
-      workflow_run:
-        workflows: [CI]
-        types: [completed]
-    permissions:
-      contents: read
-    concurrency:
-      group: review-${{ github.event.pull_request.number || github.event.workflow_run.head_sha }}
-      cancel-in-progress: true
-    jobs:
-      refresh:
-        name: Trusted review refresh
-        runs-on: ubuntu-latest
-        timeout-minutes: 5
-        steps:
-          - run: collect-target && post_with_retry pending && finish-status workflow_run.event
-  YAML
 end
 
 def green_fixture(name)

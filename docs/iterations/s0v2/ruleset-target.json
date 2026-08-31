@@ -1,11 +1,10 @@
 {
-  "schema_version": "ruleset-target/v4",
-  "_comment": "Desired protected-main target for the direct single-CI required contexts.",
-  "required_checks": ["PR Verification", "Security", "Review Gate"],
-  "_required_status_sources": {"Review Gate": {"integration_id": 15368, "name": "GitHub Actions"}},
+  "schema_version": "ruleset-target/v5",
+  "_comment": "Desired protected-main target: direct CI required contexts plus NATIVE review-thread resolution. The Review Gate aggregate status and its trusted workflow_run bridge retired 2026-08-31 (#1008 superseded) — the two-way comment discipline (resolved threads + acknowledged bot findings) is enforced natively by required_review_thread_resolution and by the local pre-merge hook, not by a required LLM-generated status.",
+  "required_checks": ["PR Verification", "Security"],
   "_required_review_thread_resolution": true,
-  "_retired_contexts": ["CI / verify", "Quality / invariants"],
+  "_retired_contexts": ["CI / verify", "Quality / invariants", "Review Gate"],
   "_removed_native_rule_types": ["code_quality", "code_coverage"],
   "_preservation": "Keep every other effective protection rule, enforcement mode, bypass actor, and branch condition unchanged.",
-  "_canary": "The live canary must prove both direct CI checks on the exact head and the exact three-context ruleset."
+  "_canary": "The live canary must prove both direct CI checks on the exact head and the exact two-context ruleset."
 }

@@ -148,22 +148,19 @@ Canonical workflow: `docs/workflow.md` (Matt flow × Policy C, per-stage machine
 Role definitions live in `.claude/agents/`:
 - planner — grilling → to-spec → to-tickets (blocking edges); spec dual-review (Fable + Codex GPT Sol xhigh) before owner sign-off.
 - executor — **opencode CLI** via one `opencode serve` instance (model `ds-flash-max` → `luna-max`), brief-driven, never commits.
-- reviewer — card-level final review: one Opus 5 seat reading diff vs brief, verdict to the head-bound
-  artifact (contract: `docs/ops/review-gate.md`); spec-level: dual seats. **Mutation testing is the only valid green-light proof.**
+- reviewer — card-level final review: read the candidate diff vs brief before merge; **Mutation testing is the only valid green-light proof.**
 - tester — Playwright Test Agents pipeline (planner/generator/healer, promotion gates) + staging validation with evidence.
-**Quality Ratchet**: every AC carries a test-type (`unit`|`integration`|`eval`|`browser`|`api`) and a test in the PR diff (`ac_total == ac_with_test`); Reviewer wants Codecov patch ≥95%. Merge requires the two-way comment gate + fresh-head gate. Hooks: `block-secrets-in-pr`, `block-local-deploy`, `block-codex-exec-codewrite`.
+**Quality Ratchet**: every AC carries a test-type (`unit`|`integration`|`eval`|`browser`|`api`) and a test in the PR diff (`ac_total == ac_with_test`); Codecov patch ≥95%. Merge requires resolved review threads + acknowledged bot findings. Hooks: `block-secrets-in-pr`, `block-local-deploy`, `block-codex-exec-codewrite`.
 
-## PR 合并前的两路检查(单一来源)
+## PR 合并前的检查(单一来源)
 
-两路评论闸(行级线程 + 顶层 managed findings)与本地 Standards∥Spec review gate 的**单一来源**是
-`docs/ops/review-gate.md`(issue #1008)——不变量、评审方法、reviewer 权限/产出、流程顺序、票级范围
-都只在那里,本文件不复制清单以免两份漂移。2026-08-03 的教训:只查 `reviewThreads` 会漏掉 qodo/Sonar
-的顶层汇总,连合 24 个 PR —— 因此 `~/.claude/hooks/check-pr-comments.sh`(全局 hook,对所有仓库生效)
-在 `gh pr merge` 前强制走**唯一**闸逻辑:本仓库委托给 `scripts/local-gates/pr-review-check.sh`
-(collect + check,含身份感知的 findings-snapshot、bot 拒绝、review-approval marker、fail-closed);
-判定必须由 OWNER/MEMBER/COLLABORATOR 的**人类**评论记录下来(判定词与 findings-snapshot 绑定、
-review-approval marker 与 head/base/brief 绑定,见 `docs/ops/review-gate.md` §6)。非本仓库时 hook
-回退内联两路检查,全局仍受保护。hook 只坚持判断被记录,判断本身仍归人。
+合并质量的**单一来源**是 `docs/ops/review-gate.md`:native `required_review_thread_resolution`(行级
+线程必须 resolve 才能合成)+ `PR Verification`/`Security` 两条 required checks + 全局 hook
+`~/.claude/hooks/check-pr-comments.sh`(在 `gh pr merge` 前强制两路评论纪律:线程清零 + qodo/Sonar
+顶层发现逐条由人类 ack;还拒绝 bots 尚未发声的抢跑合并)。2026-08-31 起退役:Review Gate 聚合状态、
+LLM trusted review 席位、verdict/marker 工件——它们把每次合并耦合到共享模型配额上,配额一空所有 PR
+同时红灯且无本地出路。评审纪律(Standards∥Spec、变异红绿证明、fresh-head)保留为 `docs/workflow.md`
+stage 5 的流程要求,不再是合并阻塞状态。
 
 ## File placement
 

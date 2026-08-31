@@ -23,9 +23,16 @@ test_fail_fast_propagation() {
 
 assert_canonical_coverage() {
   # Canonical agent floor comes from apps/agent/pyproject.toml addopts
-  # (--cov-fail-under=87): the gate must not override it with a CLI value.
-  assert_has "$GATE_STUB_ROOT/run1.log" "--cov"
-  assert_lacks "$GATE_STUB_ROOT/run1.log" "--cov-fail-under"
+  # (--cov-fail-under=87): the UNIT gate must not override it with a CLI
+  # value. Scoped to the unit invocation line — the full log also carries the
+  # INTEGRATION gate, whose --cov-fail-under=0 is deliberate (no floor on
+  # integration coverage).
+  UNIT_LINE='uv run pytest src/animichi/tests/unit/ -v --cov --cov-report=xml:coverage-unit.xml'
+  assert_has "$GATE_STUB_ROOT/run1.log" "$UNIT_LINE"
+  if grep -F -- "$UNIT_LINE" "$GATE_STUB_ROOT/run1.log" | grep -q -- "--cov-fail-under"; then
+    echo "FAIL: agent unit gate must not carry a CLI --cov-fail-under" >&2
+    exit 1
+  fi
   # TS packages use the coverage-enabled scripts CI enforces (web/users/
   # catalog "test"/"test:worker" carry --coverage in package.json).
   assert_has "$GATE_STUB_ROOT/run1.log" "pnpm --filter web test"
