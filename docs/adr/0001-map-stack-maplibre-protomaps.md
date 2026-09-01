@@ -52,13 +52,13 @@
   `maplibre-gl` 经动态 `import()` 独立分包(build 实测 `maplibre-gl.mjs` 与 route chunk 分离)。
 - **仍待接线**:生产 `[[r2_buckets]]` 绑定 + edge `/tiles/*` 端点(backend enabler,归 root `wrangler.toml`/edge worker,由并行基建/ops 卡负责)与
   `perf-mobile-cold` 正式测量(S0.4 browser AC,Tester 后验:首 tile ≤3s、越界空 tile、R2 故障降级插画层)。
-  **也仍待交付**:`scripts/build-pmtiles.sh`(D2 点名的月度数据更新脚本,§6 成本账的
-  维护责任)。已删除的 spike 里有它的雏形 `scripts/fetch-tiles.sh`;核心步骤搬运至此,
-  免得连同目录一起丢失——正式脚本应在此基础上加 rclone 上传 R2 与 cron:
-  1. 依赖 `pmtiles` CLI(`brew install pmtiles`,或 go-pmtiles release)。
-  2. 探测最近可用的 Protomaps 日构建:从今天 UTC 日期起倒推最多 7 天,逐个探测
-     `https://build.protomaps.com/<YYYYMMDD>.pmtiles` 是否存在(`curl -fsI`),取第一个命中的。
-  3. 按 bbox 远程提取区域包(无需下载整个 planet 文件):
-     `pmtiles extract https://build.protomaps.com/<date>.pmtiles <输出路径> --bbox=<west,south,east,north>`。
+  **`scripts/build-pmtiles.sh` 已交付**(D2 点名的月度数据更新脚本,§6 成本账的维护责任):依赖
+  `pmtiles` CLI(`brew install pmtiles`)。子命令 `probe`(倒推最多 7 天探测最近可用的 Protomaps
+  日构建)→`extract`(按 bbox 远程提取区域包,默认日本全域)→`fonts`(用 `font-maker` 把 Noto Sans
+  与 Noto Sans CJK JP 合并成三档 CJK 可用字形 PBF——Protomaps 官方字形不含 CJK)→`sprites`(拉取
+  Protomaps 官方 sprite 表)→`upload`(wrangler 拒绝 >300MiB 文件而档案 ~3.35GiB,改走 R2 的
+  S3 兼容 API `aws s3 cp`/`sync` 走 multipart,凭 `R2_TILES_ACCESS_KEY_ID`/`R2_TILES_SECRET_ACCESS_KEY`
+  专用密钥对——Pulumi state 那对 R2 key 无权限写 map-tiles bucket),`all` 串起后四步;
+  `--env staging|prod` 选 bucket。
 - **coverage 例外账(计划 §0.6)**:`src/features/map-spike/mapController.ts` 因需真实 WebGL 上下文 + 动态 import,jsdom 下不可运行,
   按文件从 unit coverage 排除;其纯输入(style/layers/pins/geometry)+ `MapSpike` 展示层已 100% 单测,live 挂载归 browser AC。

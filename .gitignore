@@ -155,6 +155,7 @@ backend/tests/eval/results/agent_openai-mimo-*
 test-results/
 .context/
 .grok/
+.local/
 
 # CI-generated build metadata (#494) — written into the checkout just before
 # `wrangler deploy` builds the root container; never committed (a committed
