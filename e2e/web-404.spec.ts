@@ -29,14 +29,15 @@ test("home route hydrates without uncaught errors", async ({ page }) => {
   // heldOpenStarted closes the race where releaseHeldOpen() would run before
   // the handler was ever invoked (and captured the route resolve).
   let releaseHeldOpen!: () => void;
+  let releaseHeldRoute!: () => void;
   const heldOpenStarted = new Promise<void>((resolve) => {
     releaseHeldOpen = (): void => {
       resolve();
-      releaseHeldRoute();
     };
   });
-  let releaseHeldRoute!: () => void;
   await page.route("**/held-open", () => {
+    // The route promise stays PENDING for the journey — the test asserts the
+    // page hydrates cleanly WHILE a request is held open.
     return new Promise<void>((resolve) => {
       releaseHeldRoute = resolve;
       releaseHeldOpen();
@@ -51,7 +52,7 @@ test("home route hydrates without uncaught errors", async ({ page }) => {
   await heldOpenStarted;
   await solveTurnstileEntry(page);
   expect(await errors).toEqual([]);
-  releaseHeldOpen();
+  releaseHeldRoute();
   await page.close();
 });
 
