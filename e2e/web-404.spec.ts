@@ -42,11 +42,13 @@ test("home route hydrates without uncaught errors", async ({ page }) => {
       releaseHeldOpen();
     });
   });
-  await heldOpenStarted;
   await page.addInitScript(() => {
     window.addEventListener("load", () => { void fetch("/held-open"); });
   });
   const errors = collectPageErrors(page, "/", ".chat-page");
+  // The load listener's fetch fired by now; the handler has captured the
+  // release (heldOpenStarted settled), so releasing it is safe.
+  await heldOpenStarted;
   await solveTurnstileEntry(page);
   expect(await errors).toEqual([]);
   releaseHeldOpen();
