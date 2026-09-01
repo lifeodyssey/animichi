@@ -26,14 +26,23 @@ test("home route hydrates without uncaught errors", async ({ page }) => {
   // Keep the request pending for the journey, but let the handler SETTLE
   // before fixture teardown: Playwright 1.62 waits for active route handlers
   // when the fixture closes, so a never-resolving handler hangs the close.
+  // heldOpenStarted closes the race where releaseHeldOpen() would run before
+  // the handler was ever invoked (and captured the route resolve).
   let releaseHeldOpen!: () => void;
-  await page.route(
-    "**/held-open",
-    () =>
-      new Promise<void>((resolve) => {
-        releaseHeldOpen = resolve;
-      }),
-  );
+  const heldOpenStarted = new Promise<void>((resolve) => {
+    releaseHeldOpen = (): void => {
+      resolve();
+      releaseHeldRoute();
+    };
+  });
+  let releaseHeldRoute!: () => void;
+  await page.route("**/held-open", () => {
+    return new Promise<void>((resolve) => {
+      releaseHeldRoute = resolve;
+      releaseHeldOpen();
+    });
+  });
+  await heldOpenStarted;
   await page.addInitScript(() => {
     window.addEventListener("load", () => { void fetch("/held-open"); });
   });

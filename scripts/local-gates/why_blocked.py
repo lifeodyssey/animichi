@@ -213,7 +213,7 @@ def _is_blocking(item: Observation, check: RequiredCheck) -> bool:
         # signal must never be silently satisfied (#1214).
         if item.status == "missing":
             return True
-        return item.conclusion not in ("success", "neutral", "skipping")
+        return item.conclusion not in ("success", "neutral", "skipped")
     return item.status != "completed" or item.conclusion != "success"
 
 

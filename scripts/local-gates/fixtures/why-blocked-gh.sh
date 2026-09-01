@@ -42,6 +42,7 @@ case "$SCENARIO" in
     CODEQL_STATUS='{"id":"status-7","context":"CodeQL","state":"success","updatedAt":"2026-08-25T01:06:00Z","isRequired":false}'
     ;;
   code-scanning-neutral) clean_state; CODEQL="neutral" ;;
+  code-scanning-skipped) clean_state; CODEQL="skipped" ;;
   code-scanning-missing) clean_state; CODEQL_MISSING=true ;;
   *) printf 'unknown fixture scenario: %s\n' "$SCENARIO" >&2; exit 64 ;;
 esac

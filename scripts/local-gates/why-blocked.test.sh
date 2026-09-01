@@ -70,6 +70,13 @@ run_case code-scanning-neutral "$TMP/cs-neutral"
 [ "$RC" = 0 ] || { printf 'FAIL: code-scanning neutral PR exited %s\n' "$RC" >&2; exit 1; }
 grep -qF 'required checks without success (0):' "$TMP/cs-neutral"
 
+# A completed SKIPPED code-scanning run is non-blocking too — GitHub's
+# conclusion vocabulary is "skipped", never "skipping" (regression: the first
+# cut spelled it "skipping" and a skipped run read as a blocker).
+run_case code-scanning-skipped "$TMP/cs-skipped"
+[ "$RC" = 0 ] || { printf 'FAIL: code-scanning skipped PR exited %s\n' "$RC" >&2; exit 1; }
+grep -qF 'required checks without success (0):' "$TMP/cs-skipped"
+
 # Missing code-scanning evidence fails closed instead of reading as clear.
 run_case code-scanning-missing "$TMP/cs-missing"
 [ "$RC" = 1 ] || { printf 'FAIL: code-scanning missing PR exited %s\n' "$RC" >&2; exit 1; }
