@@ -20,7 +20,7 @@
  *     --out e2e/visual/canonical --fonts apps/web/src/styles/fonts.css
  */
 
-import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { type VisualMode } from "./frames.ts";
 
@@ -80,8 +80,7 @@ function removeModeToggle(html: string): string {
 }
 
 export function linkHref(linkTag: string): string {
-  const match = linkTag.match(HREF_ATTR_RE);
-  return match ? match[1] : "";
+  return HREF_ATTR_RE.exec(linkTag)?.[1] ?? "";
 }
 
 /** All stylesheet <link> tags, in document order. */
@@ -155,7 +154,8 @@ function applyBodyMode(html: string, mode: VisualMode): string {
 }
 
 export function collectAssetRefs(html: string): string[] {
-  return [...new Set(Array.from(html.matchAll(ASSET_ATTR_RE), (m) => m[1]))].sort((a, b) => a.localeCompare(b));
+  const refs = Array.from(html.matchAll(ASSET_ATTR_RE), (match) => match[1] ?? "");
+  return [...new Set(refs)].sort((a, b) => a.localeCompare(b));
 }
 
 export function canonicalize(input: CanonicalizeInput): CanonicalizeResult {

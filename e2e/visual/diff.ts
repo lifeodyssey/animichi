@@ -23,17 +23,30 @@ export interface DiffCluster {
 
 const DEFAULT_THRESHOLD = 0.1;
 
+function byteAt(bytes: Uint8Array, index: number): number {
+  const value = bytes[index];
+  if (value === undefined) throw new Error("visual diff: truncated RGBA buffer");
+  return value;
+}
+
 /** pixelmatch's weighted color delta; > threshold counts as a diff. */
 function colorDelta(a: Uint8Array, b: Uint8Array, i: number): number {
-  const rmean = (a[i] + b[i]) / 2;
-  const dr = a[i] - b[i];
-  const dg = a[i + 1] - b[i + 1];
-  const db = a[i + 2] - b[i + 2];
+  const rmean = (byteAt(a, i) + byteAt(b, i)) / 2;
+  const dr = byteAt(a, i) - byteAt(b, i);
+  const dg = byteAt(a, i + 1) - byteAt(b, i + 1);
+  const db = byteAt(a, i + 2) - byteAt(b, i + 2);
   return Math.sqrt(((512 + rmean) * dr * dr) / 256 + 4 * dg * dg + ((767 - rmean) * db * db) / 256);
 }
 
 export function diffPixels(a: Uint8Array, b: Uint8Array, threshold = DEFAULT_THRESHOLD): DiffResult {
-  if (a.length !== b.length) throw new Error(`visual diff: length mismatch ${a.length} vs ${b.length}`);
+  if (a.length !== b.length) {
+    throw new Error(`visual diff: length mismatch ${String(a.length)} vs ${String(b.length)}`);
+  }
+  if (a.length % 4 !== 0) {
+    // colorDelta reads four bytes per pixel; a truncated buffer would index
+    // out of bounds instead of failing (issue #1236 review).
+    throw new Error(`visual diff: truncated RGBA buffer length ${String(a.length)}`);
+  }
   const diff = new Uint8Array(a.length);
   let count = 0;
   for (let i = 0; i < a.length; i += 4) {
@@ -60,6 +73,18 @@ function neighbors(width: number, height: number, pos: number): number[] {
   return out;
 }
 
+function popRequired(stack: number[]): number {
+  const value = stack.pop();
+  if (value === undefined) throw new Error("visual diff: empty flood-fill stack");
+  return value;
+}
+
+function enqueueDiff(diff: Uint8Array, visited: Uint8Array, stack: number[], pos: number): void {
+  if (visited[pos] || !isDiffPixel(diff, pos)) return;
+  visited[pos] = 1;
+  stack.push(pos);
+}
+
 function floodFill(diff: Uint8Array, width: number, height: number, visited: Uint8Array, start: number): DiffCluster {
   let minX = start % width;
   let maxX = minX;
@@ -69,7 +94,7 @@ function floodFill(diff: Uint8Array, width: number, height: number, visited: Uin
   const stack = [start];
   visited[start] = 1;
   while (stack.length > 0) {
-    const pos = stack.pop() as number;
+    const pos = popRequired(stack);
     const x = pos % width;
     const y = (pos / width) | 0;
     area += 1;
@@ -78,9 +103,7 @@ function floodFill(diff: Uint8Array, width: number, height: number, visited: Uin
     if (y < minY) minY = y;
     if (y > maxY) maxY = y;
     for (const next of neighbors(width, height, pos)) {
-      if (visited[next] || !isDiffPixel(diff, next)) continue;
-      visited[next] = 1;
-      stack.push(next);
+      enqueueDiff(diff, visited, stack, next);
     }
   }
   return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1, area };

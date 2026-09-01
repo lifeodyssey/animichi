@@ -1,6 +1,7 @@
-import { describe, expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
+import { navigateClient } from "./helpers/client-navigation";
 import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 
@@ -8,7 +9,7 @@ test.use({
   baseURL: process.env.E2E_WEB_BASE_URL ?? "http://localhost:3000",
   locale: "ja-JP",
   colorScheme: "light",
-  reducedMotion: "reduce",
+  contextOptions: { reducedMotion: "reduce" },
   serviceWorkers: "block",
 });
 
@@ -35,17 +36,7 @@ async function openChat(page: Page): Promise<void> {
   await expect(page.getByRole("textbox")).toBeVisible();
 }
 
-async function navigateClient(page: Page, path: string, target: string): Promise<void> {
-  const arrived = page.waitForURL((url) => url.pathname === path);
-  await page.evaluate((next) => {
-    const current = window.history.state ?? {};
-    window.history.pushState({ ...current, __TSR_index: Number(current.__TSR_index ?? 0) + 1 }, "", next);
-  }, path);
-  await arrived;
-  await expect(page.locator(target)).toBeVisible();
-}
-
-describe("AC4 loading/streaming state", () => {
+test.describe("AC4 loading/streaming state", () => {
   test("an in-flight turn is announced via a live region and stays keyboard-operable", async ({ page }) => {
     // Hold the stream open so the busy state persists while we assert: a
     // fulfilled recording settles in milliseconds and the turn is over before
@@ -72,7 +63,7 @@ describe("AC4 loading/streaming state", () => {
   });
 });
 
-describe("AC4 empty states (no animation dependence)", () => {
+test.describe("AC4 empty states (no animation dependence)", () => {
   test("anime empty overview shows understandable prose", async ({ page }) => {
     await page.route("**/catalog/public/anime-overview/*", (route) =>
       route.fulfill({ json: emptyAnimeOverview }),
@@ -115,7 +106,7 @@ describe("AC4 empty states (no animation dependence)", () => {
   });
 });
 
-describe("AC4 error states", () => {
+test.describe("AC4 error states", () => {
   test("anime outage error is announced and reachable by keyboard", async ({ page }) => {
     await page.route("**/catalog/public/anime-overview/*", (route) =>
       route.fulfill({
@@ -131,7 +122,7 @@ describe("AC4 error states", () => {
   });
 });
 
-describe("AC4 Turnstile + Auth stay keyboard-reachable under reduced motion", () => {
+test.describe("AC4 Turnstile + Auth stay keyboard-reachable under reduced motion", () => {
   test("the anonymous entry exposes the challenge before chat", async ({ page }) => {
     await stubTurnstileEntry(page);
     await page.goto("/chat");

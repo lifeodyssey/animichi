@@ -43,7 +43,7 @@ function main(): void {
     writeFileSync(path.join(outDir, frame.canonicalName), result.html);
     copyAssets(mockupDir, outDir, result.assetRefs);
   }
-  console.log(`canonicalized ${Object.keys(VISUAL_FRAMES).length} frame(s) into ${outDir}`);
+  console.log(`canonicalized ${String(Object.keys(VISUAL_FRAMES).length)} frame(s) into ${outDir}`);
 }
 
 main();

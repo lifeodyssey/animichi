@@ -84,6 +84,16 @@ test_migrator_package_gates() {
   echo "ok: migrator runs typecheck + lint + its own tests"
 }
 
+test_e2e_static_gates() {
+  local rc log="$GATE_STUB_ROOT/run-e2e.log"
+  rc="$(GATE_CHANGED_PACKAGES=e2e run_gate "$log")" || true
+  [ "$rc" = "0" ] || { echo "FAIL: e2e-only run exited $rc" >&2; exit 1; }
+  assert_has "$log" "$REPO_ROOT/e2e :: pnpm typecheck"
+  assert_has "$log" "$REPO_ROOT/e2e :: pnpm run lint:oxlint"
+  assert_lacks "$log" "playwright test"
+  echo "ok: e2e runs deterministic typecheck + lint locally"
+}
+
 test_all_route_runs_config_contract_self_test() {
   # Clear shared stdout so the assertion only sees this run's output.
   : >"$GATE_STUB_ROOT/stdout"

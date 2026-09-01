@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { describe, expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { navigateClient } from "./helpers/client-navigation";
 import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
@@ -16,7 +17,7 @@ test.use({
   baseURL: process.env.E2E_WEB_BASE_URL ?? "http://localhost:3000",
   locale: "ja-JP",
   colorScheme: "light",
-  reducedMotion: "no-preference",
+  contextOptions: { reducedMotion: "no-preference" },
   serviceWorkers: "block",
 });
 
@@ -39,11 +40,13 @@ test.use({
  */
 async function expectPageSettled(page: Page): Promise<void> {
   await expect(page.locator(".app-splash")).toBeHidden();
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     const finite = document
       .getAnimations()
       .filter((animation) => animation.effect?.getTiming().iterations !== Infinity);
-    return Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+    // allSettled: an animation cancelled mid-flight rejects `finished`, and a
+    // cancelled entrance must not fail the scan — it just never settles.
+    await Promise.allSettled(finite.map((animation) => animation.finished));
   });
 }
 
@@ -79,17 +82,7 @@ async function openTurnstileGate(page: Page): Promise<void> {
   await expect(page.locator(".turnstile-entry[data-active='true']")).toBeVisible();
 }
 
-async function navigateClient(page: Page, path: string, target: string): Promise<void> {
-  const arrived = page.waitForURL((url) => url.pathname === path);
-  await page.evaluate((next) => {
-    const current = window.history.state ?? {};
-    window.history.pushState({ ...current, __TSR_index: Number(current.__TSR_index ?? 0) + 1 }, "", next);
-  }, path);
-  await arrived;
-  await expect(page.locator(target)).toBeVisible();
-}
-
-describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
+test.describe("WCAG 2.2 AA axe scan of Turnstile", () => {
   test("Turnstile challenge gate", async ({ page }) => {
     await openTurnstileGate(page);
     await expectNoSeriousOrCritical(page, "Turnstile challenge gate");
@@ -110,7 +103,9 @@ describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
     await expect(page.getByRole("alert")).toBeVisible();
     await expectNoSeriousOrCritical(page, "Turnstile failure gate");
   });
+});
 
+test.describe("WCAG 2.2 AA axe scan of browser journeys", () => {
   test("doorway (`/`)", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator(".app-splash")).toBeHidden();
@@ -153,7 +148,9 @@ describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
     await openChat(page);
     await expectNoSeriousOrCritical(page, "chat");
   });
+});
 
+test.describe("WCAG 2.2 AA axe scan of catalog journeys", () => {
   test("anime (empty overview)", async ({ page }) => {
     await page.route("**/catalog/public/anime-overview/*", (route) =>
       route.fulfill({
@@ -171,9 +168,10 @@ describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expectNoSeriousOrCritical(page, "anime empty");
   });
+});
 
+test.describe("WCAG 2.2 AA axe scan of route journeys", () => {
   test("route-detail (empty route)", async ({ page }) => {
-    // The caller's saved routes include one empty draft route.
     await page.route("**/v1/users/saved-routes", (route) =>
       route.fulfill({
         json: {
@@ -190,7 +188,6 @@ describe("WCAG 2.2 AA axe scan of the critical journeys", () => {
         },
       }),
     );
-    // planItinerary over zero points resolves to an empty itinerary.
     await page.route("**/catalog/itinerary", (route) => {
       if (route.request().method() !== "POST") return route.fallback();
       return route.fulfill({

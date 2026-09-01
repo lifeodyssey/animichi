@@ -15,7 +15,24 @@ const authBaseUrl = process.env.NEON_AUTH_BASE_URL ?? process.env.VITE_NEON_AUTH
 const qaEmail = process.env.QA_NEON_USER_EMAIL;
 const qaPassword = process.env.QA_NEON_USER_PASSWORD;
 const appBaseUrl = process.env.E2E_WEB_BASE_URL ?? "http://localhost:3000";
-const liveAuthReady = () => authBaseUrl !== undefined && qaEmail !== undefined && qaPassword !== undefined;
+// `process.env` can hold "", so a defined-but-empty value is unavailable too.
+const isPresent = (value: string | undefined): value is string =>
+  value !== undefined && value.trim() !== "";
+const liveAuthReady = () => isPresent(authBaseUrl) && isPresent(qaEmail) && isPresent(qaPassword);
+
+interface LiveAuthCredentials {
+  baseUrl: string;
+  email: string;
+  password: string;
+}
+
+function requireLiveAuth(): LiveAuthCredentials {
+  // Inline (not via liveAuthReady) so the type predicates narrow the consts.
+  if (!isPresent(authBaseUrl) || !isPresent(qaEmail) || !isPresent(qaPassword)) {
+    throw new Error("live Neon Auth credentials are unavailable");
+  }
+  return { baseUrl: authBaseUrl, email: qaEmail, password: qaPassword };
+}
 
 test.use({
   baseURL: appBaseUrl,
@@ -37,9 +54,10 @@ async function openAnonymousChat(page: Page): Promise<void> {
 test.describe("Neon Auth login", () => {
   test("password sign-in returns to Chat and survives a reload", async ({ page, context }) => {
     test.skip(!liveAuthReady(), "set NEON_AUTH_BASE_URL + QA_NEON_USER_EMAIL + QA_NEON_USER_PASSWORD");
-    const response = await context.request.post(`${authBaseUrl}/sign-in/email`, {
+    const credentials = requireLiveAuth();
+    const response = await context.request.post(`${credentials.baseUrl}/sign-in/email`, {
       headers: { Origin: new URL(appBaseUrl).origin },
-      data: { email: qaEmail, password: qaPassword },
+      data: { email: credentials.email, password: credentials.password },
     });
     expect(response.ok()).toBeTruthy();
 

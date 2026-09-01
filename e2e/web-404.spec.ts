@@ -23,13 +23,37 @@ test("undefined route hydrates without uncaught errors", async ({ page }) => {
 test("home route hydrates without uncaught errors", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await stubTurnstileEntry(page);
-  await page.route("**/held-open", () => new Promise<void>((resolve) => page.once("close", resolve)));
+  // Keep the request pending for the journey, but let the handler SETTLE
+  // before fixture teardown: Playwright 1.62 waits for active route handlers
+  // when the fixture closes, so a never-resolving handler hangs the close.
+  // heldOpenStarted closes the race where releaseHeldOpen() would run before
+  // the handler was ever invoked (and captured the route resolve).
+  let releaseHeldOpen!: () => void;
+  let releaseHeldRoute!: () => void;
+  const heldOpenStarted = new Promise<void>((resolve) => {
+    releaseHeldOpen = (): void => {
+      resolve();
+    };
+  });
+  await page.route("**/held-open", () => {
+    // The route promise stays PENDING for the journey — the test asserts the
+    // page hydrates cleanly WHILE a request is held open.
+    return new Promise<void>((resolve) => {
+      releaseHeldRoute = resolve;
+      releaseHeldOpen();
+    });
+  });
   await page.addInitScript(() => {
     window.addEventListener("load", () => { void fetch("/held-open"); });
   });
   const errors = collectPageErrors(page, "/", ".chat-page");
+  // The load listener's fetch fired by now; the handler has captured the
+  // release (heldOpenStarted settled), so releasing it is safe.
+  await heldOpenStarted;
   await solveTurnstileEntry(page);
   expect(await errors).toEqual([]);
+  releaseHeldRoute();
+  await page.close();
 });
 
 test("undefined route renders a branded 404", async ({ page }) => {

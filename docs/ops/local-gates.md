@@ -24,7 +24,7 @@ Workspace members are **derived** from `pnpm-workspace.yaml` (directories matchi
 | `workers/migrator/` | migrator | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (single CI affected-migrator lane) |
 | `packages/contract/` | contract | oxlint | `tsc --noEmit` + `test` + staged-snapshot OpenAPI drift (`contract-drift.sh`, mirrors CI) + agent-model regeneration drift |
 | `infra/` | infra | — | `typecheck` + `test` + credential-free Pulumi program-load (`infra-check.sh`) |
-| `e2e/` | e2e | — | registered no-op (Playwright stays in CI; an e2e-only change is not `all`) |
+| `e2e/` | e2e | — | strict TypeScript typecheck + type-aware oxlint (Playwright stays in CI; an e2e-only change is not `all`) |
 | `migrations/` | db | — | `atlas migrate validate` + migration-boundary guard + sqlfluff + disposable fresh-schema apply (`db-fresh-schema.sh`) |
 | `.github/` | ci | actionlint (workflows) | Static-quality lane (pinned actions + workflow/component-manifest invariants + docs/root-allowlist/e2e-promotion guards + coverage-patch policy + actionlint) |
 | `scripts/`, `.github/scripts/` | scripts | shellcheck (shell) + ruff (py) | the gates' own behavioral tests (self-testing orchestration surface) |

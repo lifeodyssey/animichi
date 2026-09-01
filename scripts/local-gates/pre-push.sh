@@ -209,9 +209,10 @@ gate_edge() {
 # ── migrator: pr-verification affected lane (contract consumer).
 source "$ROOT/scripts/local-gates/pre-push-worker-gates.sh"
 
-# ── e2e: workspace member; Playwright is not a local-gate surface.
+# ── e2e: deterministic static gates only; Playwright stays in CI.
 gate_e2e() {
-  printf '\n==> [e2e] Playwright is not a local-gate surface\n'
+  gate e2e pnpm typecheck
+  gate e2e pnpm run lint:oxlint
 }
 
 # ── contract: lint + tests + OpenAPI drift (throwaway index) + agent-model
@@ -265,6 +266,7 @@ SCRIPT_SUITE=(
   commit-message.test.sh
   pre-commit-config.test.sh
   contract-drift.test.sh
+  why-blocked.test.sh
 )
 
 run_full_scripts_suite() {

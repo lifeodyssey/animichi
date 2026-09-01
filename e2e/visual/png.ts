@@ -43,6 +43,34 @@ function paeth(a: number, b: number, c: number): number {
   return c;
 }
 
+function valueAt(values: ArrayLike<number>, index: number): number {
+  const value = values[index];
+  if (value === undefined) throw new Error("png: truncated data");
+  return value;
+}
+
+function filteredValue(filter: number, value: number, left: number, up: number, upLeft: number): number {
+  if (filter === 0) return value;
+  if (filter === 1) return value + left;
+  if (filter === 2) return value + up;
+  if (filter === 3) return value + ((left + up) >> 1);
+  if (filter === 4) return value + paeth(left, up, upLeft);
+  throw new Error(`png: unknown scanline filter ${String(filter)}`);
+}
+
+function previous(values: Uint8Array, index: number): number {
+  return index < 0 ? 0 : valueAt(values, index);
+}
+
+function writeRgbaRow(rgba: Uint8Array, row: Uint8Array, width: number, channels: number, base: number): void {
+  for (let x = 0; x < width; x++) {
+    const source = x * channels;
+    const target = base + x * 4;
+    rgba.set(row.subarray(source, source + channels), target);
+    if (channels === 3) rgba[target + 3] = 255;
+  }
+}
+
 function unfilter(width: number, height: number, channels: number, raw: Buffer): PngImage {
   const stride = width * channels;
   const rgba = new Uint8Array(width * height * 4);
@@ -50,26 +78,15 @@ function unfilter(width: number, height: number, channels: number, raw: Buffer):
   const rowOut = new Uint8Array(stride);
   let offset = 0;
   for (let y = 0; y < height; y++) {
-    const filter = raw[offset++];
-    if (filter > 4) throw new Error(`png: unknown scanline filter ${filter}`);
+    const filter = valueAt(raw, offset++);
     const row = raw.subarray(offset, offset + stride);
     for (let x = 0; x < stride; x++) {
-      const left = x >= channels ? rowOut[x - channels] : 0;
-      const up = y > 0 ? prevRow[x] : 0;
-      const upLeft = y > 0 && x >= channels ? prevRow[x - channels] : 0;
-      let value = row[x];
-      if (filter === 1) value += left;
-      else if (filter === 2) value += up;
-      else if (filter === 3) value += (left + up) >> 1;
-      else if (filter === 4) value += paeth(left, up, upLeft);
-      rowOut[x] = value & 0xff;
+      const left = previous(rowOut, x - channels);
+      const up = valueAt(prevRow, x);
+      const upLeft = previous(prevRow, x - channels);
+      rowOut[x] = filteredValue(filter, valueAt(row, x), left, up, upLeft) & 0xff;
     }
-    const rowBase = y * width * 4;
-    for (let x = 0; x < width; x++) {
-      const base = rowBase + x * 4;
-      for (let c = 0; c < channels; c++) rgba[base + c] = rowOut[x * channels + c];
-      if (channels === 3) rgba[base + 3] = 255;
-    }
+    writeRgbaRow(rgba, rowOut, width, channels, y * width * 4);
     prevRow.set(rowOut);
     offset += stride;
   }
@@ -83,12 +100,15 @@ export function decodePng(bytes: Uint8Array): PngImage {
   const ihdr = chunks.find((chunk) => chunk.type === "IHDR");
   const idat = chunks.filter((chunk) => chunk.type === "IDAT").map((chunk) => chunk.data);
   if (!ihdr || idat.length === 0) throw new Error("png: missing IHDR or IDAT");
-  const bitDepth = ihdr.data[8];
-  const colorType = ihdr.data[9];
-  if (bitDepth !== 8 || ihdr.data[12] !== 0) {
-    throw new Error(`png: unsupported bitDepth ${bitDepth} interlace ${ihdr.data[12]}`);
+  const bitDepth = valueAt(ihdr.data, 8);
+  const colorType = valueAt(ihdr.data, 9);
+  const interlace = valueAt(ihdr.data, 12);
+  if (bitDepth !== 8 || interlace !== 0) {
+    throw new Error(`png: unsupported bitDepth ${String(bitDepth)} interlace ${String(interlace)}`);
   }
-  if (colorType !== 2 && colorType !== 6) throw new Error(`png: unsupported colorType ${colorType}`);
+  if (colorType !== 2 && colorType !== 6) {
+    throw new Error(`png: unsupported colorType ${String(colorType)}`);
+  }
   const width = ihdr.data.readUInt32BE(0);
   const height = ihdr.data.readUInt32BE(4);
   const raw = inflateSync(Buffer.concat(idat));
@@ -118,7 +138,7 @@ const CRC_TABLE = buildCrcTable();
 
 function crc32(bytes: Buffer): number {
   let crc = 0xffffffff;
-  for (const byte of bytes) crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+  for (const byte of bytes) crc = valueAt(CRC_TABLE, (crc ^ byte) & 0xff) ^ (crc >>> 8);
   return (crc ^ 0xffffffff) >>> 0;
 }
 

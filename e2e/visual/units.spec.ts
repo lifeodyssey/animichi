@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { deflateSync } from "node:zlib";
 import { expect, test } from "@playwright/test";
-import { canonicalize, collectStylesheetLinks, type CanonicalizeInput } from "./canonicalize";
+import { canonicalize, collectStylesheetLinks, linkHref, type CanonicalizeInput } from "./canonicalize";
 import { clusterBoxes, diffPixels } from "./diff";
 import { decodePng, encodePng } from "./png";
 
@@ -19,7 +19,7 @@ function mockupInput(mode: "day" | "night" = "day"): CanonicalizeInput {
   const html = readFileSync(MOCKUP_PATH, "utf8");
   const mockupDir = path.dirname(MOCKUP_PATH);
   const stylesheets = collectStylesheetLinks(html)
-    .map((link) => link.match(/href="([^"]+)"/)?.[1] ?? "")
+    .map((link) => linkHref(link))
     .filter((href) => !href.startsWith("http"))
     .map((href) => ({ href, css: readFileSync(path.join(mockupDir, href), "utf8") }));
   return { html, appFontsCss: readFileSync(FONTS_CSS_PATH, "utf8"), stylesheets, mode };
@@ -116,7 +116,7 @@ test.describe("png codec", () => {
     const raw = Buffer.concat([
       Buffer.from([0, 10, 20, 30, 40, 50, 60]),
       Buffer.from([2, 60, 60, 60, 60, 60, 60]),
-      Buffer.from([3, 95, 65, 65, 65, 65, 65]),
+      Buffer.from([3, 95, 100, 105, 45, 45, 45]),
     ]);
     const decoded = decodePng(buildPng(2, 2, 3, raw));
     const expected = Buffer.from([
@@ -154,7 +154,7 @@ test.describe("diff", () => {
   test("adjacent diffs merge into one cluster; distant ones stay separate", () => {
     const a = new Uint8Array(10 * 10 * 4).fill(100);
     const b = new Uint8Array(a);
-    for (const [x, y] of [[2, 2], [3, 2], [2, 3], [7, 7]]) {
+    for (const [x, y] of [[2, 2], [3, 2], [2, 3], [7, 7]] as const) {
       const i = (y * 10 + x) * 4;
       b[i] = 0;
     }
@@ -168,7 +168,7 @@ test.describe("diff", () => {
   test("minArea filters noise clusters", () => {
     const a = new Uint8Array(10 * 10 * 4).fill(100);
     const b = new Uint8Array(a);
-    for (const [x, y] of [[2, 2], [3, 2], [2, 3], [7, 7]]) {
+    for (const [x, y] of [[2, 2], [3, 2], [2, 3], [7, 7]] as const) {
       const i = (y * 10 + x) * 4;
       b[i] = 0;
     }

@@ -35,7 +35,7 @@ const REPORT_DIR = path.join(VISUAL_DIR, "report");
 
 const VISUAL_CHECK = process.env.VISUAL_CHECK === "1";
 const VISUAL_RATIO = Number.parseFloat(process.env.VISUAL_RATIO ?? "0.01");
-const APP_BASE_URL = process.env.E2E_WEB_BASE_URL || "http://localhost:3000";
+const APP_BASE_URL = process.env.E2E_WEB_BASE_URL ?? "http://localhost:3000";
 const PAGE = process.env.VISUAL_PAGE ?? "landing";
 const MODE = process.env.VISUAL_MODE ?? "day";
 const frame = resolveFrame(PAGE, MODE);
@@ -70,10 +70,15 @@ async function captureCanonical(page: Page, server: VisualServer, canonicalName:
   await page.screenshot({ path: outPath, animations: "disabled", caret: "hide" });
 }
 
+async function setNightTheme(page: Page, night: boolean): Promise<void> {
+  if (!night) return;
+  await page.addInitScript(() => {
+    localStorage.setItem("animichi-theme", "night");
+  });
+}
+
 async function gotoApp(page: Page, night: boolean, route: string): Promise<void> {
-  if (night) {
-    await page.addInitScript(() => localStorage.setItem("animichi-theme", "night"));
-  }
+  await setNightTheme(page, night);
   await page.goto(`${APP_BASE_URL}${route}`, { waitUntil: "load" });
   await page.evaluate(() => document.fonts.ready);
   await expect(page.locator('[data-splash="static"]')).toBeHidden({ timeout: 10_000 });
@@ -82,7 +87,9 @@ async function gotoApp(page: Page, night: boolean, route: string): Promise<void>
 
 async function writeReport(frameKey: string, canonical: PngImage, app: PngImage, threshold: number): Promise<CompareReport> {
   if (canonical.width !== app.width || canonical.height !== app.height) {
-    throw new Error(`visual: size mismatch canonical ${canonical.width}x${canonical.height} vs app ${app.width}x${app.height}`);
+    throw new Error(
+      `visual: size mismatch canonical ${String(canonical.width)}x${String(canonical.height)} vs app ${String(app.width)}x${String(app.height)}`,
+    );
   }
   const result = diffPixels(canonical.rgba, app.rgba);
   const clusters = clusterBoxes(result.diff, app.width, app.height);
@@ -104,6 +111,35 @@ async function writeReport(frameKey: string, canonical: PngImage, app: PngImage,
   return report;
 }
 
+async function ensureCanonicalShot(page: Page, server: VisualServer, shotPath: string): Promise<void> {
+  if (existsSync(shotPath)) return;
+  await captureCanonical(page, server, frame.canonicalName, shotPath);
+}
+
+async function captureAppShot(page: Page): Promise<Buffer> {
+  const shot = await page.screenshot({ animations: "disabled", caret: "hide" });
+  await mkdir(APP_SHOTS_DIR, { recursive: true });
+  await writeFile(path.join(APP_SHOTS_DIR, `${frame.key}.png`), shot);
+  return shot;
+}
+
+function clusterSummary(report: CompareReport): string {
+  return report.clusters
+    .slice(0, 5)
+    .map((cluster) => `${String(cluster.width)}x${String(cluster.height)}@(${String(cluster.x)},${String(cluster.y)})`)
+    .join(" ");
+}
+
+async function expectAppConvergence(page: Page, server: VisualServer): Promise<void> {
+  const canonicalPath = path.join(SHOTS_DIR, `${frame.key}.png`);
+  await ensureCanonicalShot(page, server, canonicalPath);
+  await gotoApp(page, frame.mode === "night", frame.route);
+  const appShot = await captureAppShot(page);
+  const report = await writeReport(frame.key, decodePng(await readFile(canonicalPath)), decodePng(appShot), VISUAL_RATIO);
+  const message = `ratio ${report.ratio.toFixed(4)} > ${String(VISUAL_RATIO)}; top clusters: ${clusterSummary(report)}`;
+  expect(report.pass, message).toBe(true);
+}
+
 test.describe("visual mockup pipeline", () => {
   test.skip(!VISUAL_CHECK, "visual suite is opt-in — run `make visual-check`");
 
@@ -113,7 +149,7 @@ test.describe("visual mockup pipeline", () => {
     appReachable = await probeApp(APP_BASE_URL);
   });
 
-  test.describe(`frame ${frame.key} (${frame.viewport.width}x${frame.viewport.height}, ${frame.mode})`, () => {
+  test.describe(`frame ${frame.key} (${String(frame.viewport.width)}x${String(frame.viewport.height)}, ${frame.mode})`, () => {
     let server: VisualServer;
 
     test.beforeAll(async () => {
@@ -140,20 +176,7 @@ test.describe("visual mockup pipeline", () => {
 
     test("app route converges on the canonical shot", { tag: "@visual" }, async ({ page }) => {
       test.skip(!appReachable, `app not reachable at ${APP_BASE_URL} — start \`make dev-local\``);
-      const canonicalPath = path.join(SHOTS_DIR, `${frame.key}.png`);
-      if (!existsSync(canonicalPath)) {
-        await captureCanonical(page, server, frame.canonicalName, canonicalPath);
-      }
-      await gotoApp(page, frame.mode === "night", frame.route);
-      const appShot = await page.screenshot({ animations: "disabled", caret: "hide" });
-      await mkdir(APP_SHOTS_DIR, { recursive: true });
-      await writeFile(path.join(APP_SHOTS_DIR, `${frame.key}.png`), appShot);
-      const report = await writeReport(frame.key, decodePng(await readFile(canonicalPath)), decodePng(appShot), VISUAL_RATIO);
-      const summary = report.clusters
-        .slice(0, 5)
-        .map((c) => `${c.width}x${c.height}@(${c.x},${c.y})`)
-        .join(" ");
-      expect(report.pass, `ratio ${report.ratio.toFixed(4)} > ${VISUAL_RATIO}; top clusters: ${summary}`).toBe(true);
+      await expectAppConvergence(page, server);
     });
 
     test("app matches its accepted regression baseline", { tag: "@visual" }, async ({ page }) => {

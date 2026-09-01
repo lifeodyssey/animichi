@@ -54,7 +54,9 @@ test.describe("summary contract (F2 task atom)", () => {
     expect(parseFrameReport({ ratio: "nope", threshold: 1, pass: true })).toBeNull();
     expect(parseFrameReport(42)).toBeNull();
   });
+});
 
+test.describe("frame assessment", () => {
   test("assessFrame passes a frame under threshold", () => {
     const verdict = assess("landing-day", PASS_REPORT, "compared");
     expect(verdict.status).toBe("pass");
@@ -78,7 +80,9 @@ test.describe("summary contract (F2 task atom)", () => {
     expect(verdict.status).toBe("skipped");
     expect(verdict.reason).toContain("app not reachable");
   });
+});
 
+test.describe("summary exit contract", () => {
   test("buildSummary: every frame compared and passed → exitCode 0", () => {
     const summary = buildSummary(INVOCATION, { runId: "run-1", verdicts: [assess("landing-day", PASS_REPORT, "compared")], error: null });
     expect(summary.exitCode).toBe(0);
