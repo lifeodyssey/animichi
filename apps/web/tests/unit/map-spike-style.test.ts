@@ -17,7 +17,7 @@ describe("createMapStyle", () => {
 
   it("references the pmtiles archive via the pmtiles:// protocol by default", () => {
     const built = source(createMapStyle("pmtiles"));
-    expect(built).toMatchObject({ type: "vector", url: "pmtiles:///tiles/uji-kyoto.pmtiles" });
+    expect(built).toMatchObject({ type: "vector", url: "pmtiles:///tiles/japan.pmtiles" });
   });
 
   it("points the worker mode at the ZXY endpoint instead", () => {
