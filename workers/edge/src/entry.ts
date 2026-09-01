@@ -12,6 +12,7 @@ import {
   DENIED_EGRESS_HOSTS,
   resolveContainerEnvVars,
 } from "./container/container-env.ts";
+import { withPortReadyBudget } from "./container/port-ready-budget.ts";
 
 export { EdgeGuard } from "./protect/edge-guard.ts";
 // Required for `deniedHosts`/outbound interception to actually run (#284 Task 7,
@@ -71,7 +72,7 @@ export class RuntimeContainer extends Container {
     ...args: Parameters<Container["startAndWaitForPorts"]>
   ): Promise<void> {
     await this.#hydrateStoreSecrets();
-    return super.startAndWaitForPorts(...args);
+    return super.startAndWaitForPorts(...withPortReadyBudget(args));
   }
 }
 
