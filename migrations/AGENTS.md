@@ -65,6 +65,8 @@ Owner service = BC that may **write** the table under greenfield. Reads may be b
 | `saved_routes` | **users** | Renamed from `routes` (#852 P1); user document |
 | `saved_route_anime` | **users** (FK to saved_routes) | Renamed from `route_anime` (#852 P1); SavedRoute–Bangumi link |
 | `sessions`, `conversations`, `conversation_messages` | **agent** | Dialogue; Users may list SessionSummary only |
+| `runs` | **agent** | One row per agent turn (#1250); written by the edge's intake + AgentSession DO from W1 on. `readonly` may SELECT — no user content |
+| `run_steps` | **agent** | One row per tool step of a run (#1250); the alarm-retry replay log. NOT granted to `readonly` — tool input/result carry visitor text |
 | `agent_memory`, `agent_memory_operations`, `agent_memory_metadata` | **agent** | In-agent memory |
 | `daily_usage`, `anon_daily_message_count` | **agent** (write) | Quota / metering |
 | `request_log`, `feedback`, `api_keys` | **agent** / platform | Operational |

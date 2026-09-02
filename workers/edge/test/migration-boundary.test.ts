@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { URL, fileURLToPath } from "node:url";
 
@@ -15,7 +15,13 @@ void test("Atlas files are the only Neon migration authority", () => {
 });
 
 void test("Drizzle schemas cannot become migration runners", () => {
-  for (const path of ["workers/catalog/src/db/schema.ts", "workers/users/src/db/schema.ts"]) {
+  // Every worker that maps the data plane, discovered rather than listed: a new
+  // service's schema must not slip past this boundary by not being enumerated.
+  const workers = readdirSync(`${ROOT}workers`);
+  const schemas = workers.map((worker) => `workers/${worker}/src/db/schema.ts`);
+  const present = schemas.filter((path) => existsSync(`${ROOT}${path}`));
+  assert.ok(present.length >= 3, `expected every worker Drizzle schema, saw ${present.join(", ")}`);
+  for (const path of present) {
     const source = read(path);
     assert.doesNotMatch(source, /drizzle-kit|drizzle\s+(?:migrate|generate|push|pull)/i);
     assert.match(source, /typing only|query-only/i);

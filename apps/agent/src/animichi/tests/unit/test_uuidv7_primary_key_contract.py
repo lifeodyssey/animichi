@@ -25,6 +25,7 @@ ANIMICHI_OWNED_IDS: tuple[str, ...] = (
     "saved_routes",
     "turn_reservations",
     "messages",
+    "runs",
 )
 
 #: Table → the semantic/provider-owned key that stays text.

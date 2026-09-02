@@ -9,7 +9,7 @@ separates the Neon data plane from the historical Supabase compatibility archive
 | Surface | Source of truth | Apply mechanism | Boundary |
 |---|---|---|---|
 | Neon catalog and user data | `migrations/neon/*.sql` plus the generated `migrations/neon/atlas.sum` | Pinned Atlas CLI (`0.30.0`) | The only versioned schema and data migration history for Neon. The chain is schema-only; reference/seed data (e.g. the gazetteer at `workers/catalog/data/gazetteer_seed.sql`) is loaded separately and idempotently (`make seed-gazetteer`) |
-| Catalog/users runtime access | `workers/catalog/src/db/schema.ts` and `workers/users/src/db/schema.ts` | Drizzle `neon-http` client with raw `sql` queries | Runtime column/type metadata and query typing only; never a migration source |
+| Catalog/users/edge runtime access | `workers/catalog/src/db/schema.ts`, `workers/users/src/db/schema.ts` and `workers/edge/src/db/schema.ts` | Drizzle `neon-http` client with raw `sql` queries | Runtime column/type metadata and query typing only; never a migration source |
 | Supabase auth/legacy compatibility (**HISTORICAL**) | `supabase/migrations/` | **Not applied** — archived/historical only (issue #1000); never a live apply or source surface | `migrations/neon/*.sql` is the single authority; never a source for new Neon catalog or user tables |
 
 `migrations/neon/` is append-only once a migration has reached a shared environment. Do not

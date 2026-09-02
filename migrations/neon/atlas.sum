@@ -1,4 +1,4 @@
-h1:6bQJUdkkIQP5GEkbDDQSPkSVwejMRRP044hg0H08HEs=
+h1:HJvCLrNNtFBJHOYwyfSra0t1agoB/1+RdoBvmMPVvig=
 20260826000000_extensions.sql h1:kx8KScDWMQnxflQ2YYGrqNH76bb8vi98vPTGEZmGCKo=
 20260826000001_roles.sql h1:ozRUNLYW763JVzESYuQxCBxXUP/kHwLWFx4c7m+e7kY=
 20260826000002_functions.sql h1:XdkJTvqrzkefWomIwfrT9VfwKzhTMLOgb5cKzMjoKPU=
@@ -6,3 +6,4 @@ h1:6bQJUdkkIQP5GEkbDDQSPkSVwejMRRP044hg0H08HEs=
 20260826000004_agent.sql h1:uQSv02MaKWEvImoem/pSemGN64c9/ULUPUq5t2vb6JE=
 20260826000005_users.sql h1:oQQMBudcnUIFPkhWg0yW3iPFnmwc63TT8gEj1vOjLuA=
 20260829000000_fix_coordinate_sync_precedence.sql h1:cdmRqhqzpucHJqPAGRQjbXusyn6pVr0sI+hn9jK1Ffg=
+20260902000000_agent_runs.sql h1:HgAIx3DScDvlId89bL+15lIYYFuDmnbHeQiX1EVXeTc=
