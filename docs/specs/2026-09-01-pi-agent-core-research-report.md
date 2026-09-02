@@ -186,7 +186,7 @@
 
 **npm**:npmjs.com/package/@earendil-works/{pi-agent-core,pi-ai,pi-telemetry,pi-session-backend-sqlite-node}(version/deps/engines 实测)· @mariozechner/pi-agent-core(deprecated 实测)
 
-**源码(本地 clone,v0.84.4)**:packages/agent/{README.md,docs/harness.md,src/{agent.ts,agent-loop.ts,types.ts}} · packages/agent/src/harness/{session/{types.ts,session.ts},compaction/compaction.ts,agent-harness.ts,env/nodejs.ts} · packages/ai/{README.md,src/{models.ts,utils/{event-stream.ts,provider-retry.ts,uuid.ts,pi-user-agent.ts},api/openai-completions.ts,providers/{opencode.ts,opencode-go.ts}}} · scripts/check-browser-smoke.mjs · CHANGELOG.md(breaking 段实测)
+**源码(本地 clone,v0.84.4)**:packages/agent/（README、harness 文档、src/{agent.ts,agent-loop.ts,types.ts}） · packages/agent/src/harness/{session/{types.ts,session.ts},compaction/compaction.ts,agent-harness.ts,env/nodejs.ts} · packages/ai/{README.md,src/{models.ts,utils/{event-stream.ts,provider-retry.ts,uuid.ts,pi-user-agent.ts},api/openai-completions.ts,providers/{opencode.ts,opencode-go.ts}}} · scripts/check-browser-smoke.mjs · CHANGELOG.md(breaking 段实测)
 
 **Workers 实测**:wrangler 4.127.1(`deploy --dry-run` + `dev`,/tmp/pi-worker-test,含与不含 nodejs_compat 两轮)· esbuild 0.28.2(chunk-init bug 复现与 workaround)
 
