@@ -96,6 +96,29 @@
 - W1/W2 无自动 eval（owner 接受）→ 这段时间的回归只能靠 staging 手动发现；W3 双跑是 Python 退役的硬前置，不可再往后挪。
 - eval 只对真实环境测 → 依赖 staging 可用且 CD 队列畅通；#1204 的 prod 审批门阻塞问题在 W3 前必须修，否则每次合并都要手动拒一次才能跑 eval。
 
+## 附录 A · W0-S1 实测（2026-09-02，#1244 / PR #1260）
+
+真部署 Worker `animichi-spike-pi`（`workers.dev`，无正式路由；测完即删）。脚本 `scripts/spike/pi-s1-measure.sh all`，
+13:29–13:31Z：
+
+| case | label | ms | status | detail |
+| --- | --- | --- | --- | --- |
+| cold | cold wake-up (GET /healthz) | 477 | 200 | 部署后首个请求，无前置流量 |
+| warm | warm wake-up (GET /healthz) | 803 | 200 | idle=0 |
+| turn-mimo | round trip via mimo（直连 `MIMO_API_KEY`） | 51957 | 200 | clean=yes |
+| turn-anthropic | round trip via anthropic | 477 | 503 | 未提供 `ANTHROPIC_API_KEY`，**未测**（非 workerd 故障） |
+| turn-gemini | round trip via gemini | 3484 | 200 | clean=yes |
+| abort-provider_stream | abort at provider_stream | 9621 | 200 | aborted=yes clean=yes |
+| abort-tool_call | abort at tool_call | 26141 | 200 | aborted=yes clean=yes |
+| abort-final_frame | abort at final_frame | 34992 | 200 | aborted=yes clean=yes |
+
+结论：
+- **唤醒延迟 <1s**（477/803ms），对比 Python 容器睡醒 28–32s、部署后 74s——重写的核心收益成立。
+- mimo-v2.5 直连一次回合 **52s**，是模型侧响应时长而非平台开销（同一 Worker 上 Gemini 3.5s）；S2（#1245）定方言时必须把这个数字当基线，若 zen 网关路由显著更快应改路由。
+- 三处 abort 均无残留状态，S1 的 abort 验收通过。
+- Anthropic 在 workerd 上的往返**仍未证实**（本地无 key）；拿到 key 后跑 `scripts/spike/pi-s1-measure.sh turn --provider anthropic` 补一行即可，不阻塞 S2/S4/S5。
+- 已知未覆盖：`enable_request_signal` 开/关对照（8/29 报告 S1 清单项）被 Q1"回合独立于连接"的决定取代，未做。
+
 ## 八、留给后续复杂 spec 的 open items
 
 DO 计费实数与并发模型（S4 出数）；typebox↔zod 桥的落点代码；`runs`/Drizzle schema 细节与 migration；`GET …/messages` 的 run 状态字段形状（web 端只多读一个字段）；launch 链（#1181/#1183/#1184）接线顺序；CI lane（coverage floors 迁移、nightly eval 工作流改造为对 staging 的 HTTP 跑）；edge 侧 D5 挂死的定位路径（Workers Logs 权限）。
