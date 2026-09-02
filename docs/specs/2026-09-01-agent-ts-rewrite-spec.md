@@ -119,6 +119,29 @@
 - Anthropic 在 workerd 上的往返**仍未证实**（本地无 key）；拿到 key 后跑 `scripts/spike/pi-s1-measure.sh turn --provider anthropic` 补一行即可，不阻塞 S2/S4/S5。
 - 已知未覆盖：`enable_request_signal` 开/关对照（8/29 报告 S1 清单项）被 Q1"回合独立于连接"的决定取代，未做。
 
+## 附录 B · W0-S2 实测（2026-09-02，#1245 / PR #1266）
+
+同一 spike Worker，`scripts/spike/pi-s2-compat.sh --route direct`，17:14–17:17Z，19 轮（默认 + 9 个开关各两值），每轮一次
+`lookup_spot` 工具往返。zen 路由无 `ZEN_GO_API_KEY`，记为 skipped。
+
+| route | switch | value | tool round trip | streaming usage | wall ms | first token ms |
+| --- | --- | --- | --- | --- | --- | --- |
+| direct | (defaults) | auto | yes | yes | 6320 | 2288 |
+| direct | supportsStore | true / false | yes / yes | yes / yes | 5671 / 7185 | 1586 / 2981 |
+| direct | supportsDeveloperRole | true / false | yes / yes | yes / yes | 6908 / 7595 | 1085 / 1901 |
+| direct | supportsReasoningEffort | true / false | yes / yes | yes / yes | 11179 / 5611 | 3325 / 1873 |
+| direct | supportsUsageInStreaming | true / false | yes / yes | yes / yes | 5777 / 5444 | 711 / 1100 |
+| direct | supportsFinishReason | true / false | yes / yes | yes / yes | 8875 / 6702 | 1912 / 1129 |
+| direct | supportsStrictMode | true / false | yes / yes | yes / yes | 10795 / 6534 | 1308 / 1281 |
+| direct | requiresToolResultName | true / false | yes / yes | yes / yes | 5952 / 11817 | 1358 / 3436 |
+| direct | requiresAssistantAfterToolResult | true / false | yes / yes | yes / yes | 4015 / 7534 | 774 / 1788 |
+| direct | maxTokensField | max_tokens / max_completion_tokens | yes / yes | yes / yes | 5232 / 28667 | 966 / 2298 |
+
+结论（S2 定版）：
+- **mimo 直连不需要任何 compat 覆盖**：pi-ai 的 `detectCompat()` 不认识 `api.xiaomimimo.com`，按 `api.openai.com` 的默认集处理，19 个取值全部完成工具往返且带流式 usage。W1 的 mimo Model 保持"无 `compat`"即可；`maxTokensField` 两种字段名都被接受，沿用默认 `max_completion_tokens`。
+- 单轮 wall **4–12s，中位数约 6.5s**，唯一离群值 28.7s（`max_completion_tokens` 那轮）。附录 A 记录的 52s 未复现，按偶发慢响应处理，不作基线。
+- zen 路由（`opencode.ai/zen/go`）落在 pi 的 `isNonStandard` 默认集，与直连不同；拿到 `ZEN_GO_API_KEY` 后跑 `--route zen` 补齐即可，不阻塞 W1（W1 用直连）。
+
 ## 八、留给后续复杂 spec 的 open items
 
 DO 计费实数与并发模型（S4 出数）；typebox↔zod 桥的落点代码；`runs`/Drizzle schema 细节与 migration；`GET …/messages` 的 run 状态字段形状（web 端只多读一个字段）；launch 链（#1181/#1183/#1184）接线顺序；CI lane（coverage floors 迁移、nightly eval 工作流改造为对 staging 的 HTTP 跑）；edge 侧 D5 挂死的定位路径（Workers Logs 权限）。
