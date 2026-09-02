@@ -15,6 +15,9 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `bundle-smoke/pi-kernel.worker.ts` with wrangler's own esbuild settings and **executes** the
   artifact in workerd. Separate from `pnpm test` on purpose — it is the only gate that can see
   bundle-only runtime failures, and it is slower than the node:test suite.
+- `pnpm run test:spike-db` — opt-in lane (`db-test/*.test.ts`) that runs the W0-S4 spike's run
+  store against a **real** PostgreSQL named by `SPIKE_TEST_DATABASE_URL`. Never in CI and never
+  against staging; it fails closed without a disposable database. Recipe: `spike/pi/README.md`.
 - `pnpm run typecheck` — `tsc --noEmit` (TypeScript 7.0.2 via workspace hoist).
 - `pnpm run lint:oxlint` — type-aware oxlint, warnings denied.
 - Deploy is CI-only: `wrangler deploy -c workers/edge/wrangler.toml` from the repo root
@@ -32,6 +35,8 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   egress denylist data.
 - `test/*.test.ts` flat; test doubles live in `test/doubles/` and are imported by tests only —
   production code never imports from `test/`.
+- `db-test/` — the opt-in real-PostgreSQL lane (W0-S4, #1247). Test-only, outside `pnpm test`,
+  and deleted with the spike when W0 closes.
 - `bundle-smoke/` — the pi-kernel bundler smoke gate (#1246). Test-only: excluded from the edge
   deploy unit in `.github/ci/components.json`, and `@earendil-works/pi-ai` is a devDependency.
   Its entrypoint carries the esbuild `.lazy` chunk-init workaround reported in

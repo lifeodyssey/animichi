@@ -15,6 +15,13 @@
 #   ZEN_GO_API_KEY    — zen/go gateway (mimo fallback route)
 #   ANTHROPIC_API_KEY — Anthropic Messages API
 #   GEMINI_API_KEY    — Google Generative AI API
+#
+# W0-S4 adds one more secret, and it is the only one that is not a provider key:
+#   SPIKE_DATABASE_URL — Neon connection string for the branch the S4 turn writes
+#     its `runs` / `run_steps` / `messages` rows to. Nothing here is branch-
+#     specific: any branch carrying the `migrations/neon` chain through
+#     20260902000000_agent_runs.sql works. The spike writes real rows, so point it
+#     wherever those rows are acceptable, and never at production.
 # See README.md for the exact provisioning and deploy commands.
 
 name = "animichi-spike-pi"
@@ -35,9 +42,20 @@ preview_urls = false
 name = "PI_TURN"
 class_name = "PiTurnSession"
 
+# W0-S4 (#1247): a second class rather than a second Worker. S1's probe answers
+# for the measurements already filed in the spec appendix; S4's long turn gets
+# its own storage so the two spikes cannot disturb each other.
+[[durable_objects.bindings]]
+name = "PI_DURABLE"
+class_name = "DurableTurnSession"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["PiTurnSession"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["DurableTurnSession"]
 
 [observability]
 enabled = true

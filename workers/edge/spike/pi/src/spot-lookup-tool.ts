@@ -20,7 +20,7 @@ const spotLookupParameters = Type.Object({
 
 type SpotLookupParams = Static<typeof spotLookupParameters>;
 
-function spotFor(title: string): string {
+export function spotFor(title: string): string {
   return SPOTS[title.trim().toLowerCase()] ?? `No pilgrimage spot on file for ${title}.`;
 }
 
