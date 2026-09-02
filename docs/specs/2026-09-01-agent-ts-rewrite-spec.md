@@ -142,6 +142,27 @@
 - 单轮 wall **4–12s，中位数约 6.5s**，唯一离群值 28.7s（`max_completion_tokens` 那轮）。附录 A 记录的 52s 未复现，按偶发慢响应处理，不作基线。
 - zen 路由（`opencode.ai/zen/go`）落在 pi 的 `isNonStandard` 默认集，与直连不同；拿到 `ZEN_GO_API_KEY` 后跑 `--route zen` 补齐即可，不阻塞 W1（W1 用直连）。
 
+## 附录 C · W0-S4 实测（2026-09-02，#1247 / PR #1268）
+
+真部署 spike Worker 的第二个 DO class（`DurableTurnSession`，alarm 内跑回合，`RunStore` 直写 staging Neon 的
+`runs` / `run_steps` / `messages`；staging 迁移由 CD 33639988005 落地）。`scripts/spike/pi-s4-durable.sh all`，
+17:31–18:03Z，测完即删 Worker。
+
+| case | label | status | detail |
+| --- | --- | --- | --- |
+| concurrent-turn | 同 session 第二个回合 | 409 | `runs_one_running_per_session` 直接拒绝，无读-改-写竞态 |
+| crash-replay | 工具返回后、步骤行写入前崩溃 | succeeded | steps=3，工具真实执行 **4** 次（= 3 + 崩溃那步重跑 1 次），重放不重复执行已落库步骤 |
+| long-turn | 5 分钟、3 次工具调用，客户端 5 秒后挂断 | succeeded | steps=3 tools=3，转录完整；DO 计费 wall-clock **100.9s**（脚本侧 1010s 含轮询等待） |
+
+结论：
+- **§四 S4 硬条件通过**：回合在 alarm 内独立于客户端连接跑完并落库；admission 由数据库唯一索引承担；
+  `(run_id, step_index)` 先落库再继续的幂等契约在真环境成立（崩溃分支精确一次）。
+- **§七 计费实数**：一次 3 工具的长回合 DO 活跃 wall-clock ≈ 101s（工具 hold 之和）；按 Paid 计划 400,000 GB-s/月免费额度与
+  basic 实例，日常回合（附录 B 中位数 6.5s）远在免费额内，账单风险登记可降级为"W1 上线后按实际用量复核"。
+- **给 W1-3（#1252）的硬要求**：spike 的长回合是脚本驱动的；真模型下要让重放落在同一 `step_index`，assistant 的
+  tool-call 消息必须与 `run_steps` 一起持久化并从转录重放——这是 W1-3 的实现条件，不是优化项。
+- 未覆盖：DO 驱逐后由**新实例**接手的路径只在单元层（fresh host over same storage）证明，真部署未刻意触发驱逐。
+
 ## 八、留给后续复杂 spec 的 open items
 
 DO 计费实数与并发模型（S4 出数）；typebox↔zod 桥的落点代码；`runs`/Drizzle schema 细节与 migration；`GET …/messages` 的 run 状态字段形状（web 端只多读一个字段）；launch 链（#1181/#1183/#1184）接线顺序；CI lane（coverage floors 迁移、nightly eval 工作流改造为对 staging 的 HTTP 跑）；edge 侧 D5 挂死的定位路径（Workers Logs 权限）。
