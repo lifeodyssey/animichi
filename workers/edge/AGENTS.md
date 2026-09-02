@@ -11,6 +11,10 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 - pnpm. `pnpm test` — the node:test suite under `test/*.test.ts` (doubles in `test/doubles/`).
   From the repo root the same suite is `pnpm run test:worker` (forwards to
   `pnpm --filter edge-worker test`; `make test-worker` likewise) — command surface unchanged.
+- `pnpm run test:bundle-smoke` — the W0-S3 bundler smoke gate (#1246): bundles
+  `bundle-smoke/pi-kernel.worker.ts` with wrangler's own esbuild settings and **executes** the
+  artifact in workerd. Separate from `pnpm test` on purpose — it is the only gate that can see
+  bundle-only runtime failures, and it is slower than the node:test suite.
 - `pnpm run typecheck` — `tsc --noEmit` (TypeScript 7.0.2 via workspace hoist).
 - `pnpm run lint:oxlint` — type-aware oxlint, warnings denied.
 - Deploy is CI-only: `wrangler deploy -c workers/edge/wrangler.toml` from the repo root
@@ -25,6 +29,11 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   egress denylist data.
 - `test/*.test.ts` flat; test doubles live in `test/doubles/` and are imported by tests only —
   production code never imports from `test/`.
+- `bundle-smoke/` — the pi-kernel bundler smoke gate (#1246). Test-only: excluded from the edge
+  deploy unit in `.github/ci/components.json`, and `@earendil-works/pi-ai` is a devDependency.
+  Its entrypoint carries the esbuild `.lazy` chunk-init workaround reported in
+  `docs/specs/2026-09-01-pi-ai-esbuild-lazy-chunk-report.md`; leave the eager
+  `api/openai-completions` import alone.
 
 ## Runtime rules
 
