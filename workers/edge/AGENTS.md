@@ -23,6 +23,9 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 ## Layout (2026-08-06-edge-gateway-structure-design.md)
 
 - `src/entry.ts` — Worker default export + `RuntimeContainer`; `src/app.ts` — Hono assembly only.
+- `src/db/` — Drizzle mapping of the agent turn tables the edge owns from W1 (`messages`,
+  `runs`, `run_steps`); query-only metadata, never a DDL authority (`migrations/neon` owns
+  the schema).
 - `src/identity/` — auth (JWT/anonymous) + turnstile gate; `src/gateway/` — forward +
   routing/catalog policy (pure functions) + responses; `src/protect/` — rate limit / cost breaker /
   DO guard; `src/proxy/` — image/tile/showcase proxies; `src/container/` — container env +

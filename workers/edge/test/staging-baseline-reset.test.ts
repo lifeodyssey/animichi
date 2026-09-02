@@ -24,6 +24,7 @@ const BASELINE_FILES = [
   "20260826000004_agent.sql",
   "20260826000005_users.sql",
   "20260829000000_fix_coordinate_sync_precedence.sql",
+  "20260902000000_agent_runs.sql",
 ];
 const baselineSql = (): string => BASELINE_FILES.map((name) => read(`migrations/neon/${name}`)).join("\n");
 
@@ -156,7 +157,7 @@ void test("workers_dev is open for staging only, never production", () => {
 
 void test("atlas.sum SHA-256 pins the hard-cut payload", () => {
   const sum = readFileSync(`${ROOT}migrations/neon/atlas.sum`);
-  assert.equal(createHash("sha256").update(sum).digest("hex"), "8ebf3c66219116f955437f03850cb8b262fe96449b8e15481f52adbd30bd9b79");
+  assert.equal(createHash("sha256").update(sum).digest("hex"), "1147898466f8b26d50b8dceb477072f558be4039f2ca0e3d2492aff33ca64785");
 });
 
 // #1216 — the migrator's own error lived only in the discarded response body, so
