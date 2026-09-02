@@ -198,10 +198,14 @@ gate_users() {
 }
 
 # ── edge (AC4): CI lint + node:test suite (doubles as the workflow-content
-# guard tests) + production-config dry-run from the repo root.
+# guard tests) + the bundler smoke gate (W0-S3 #1246: builds the pi kernel
+# entrypoint and EXECUTES the artifact in workerd, which is the only way to see
+# the esbuild `.lazy` chunk-init bug) + production-config dry-run from the repo
+# root.
 gate_edge() {
   gate workers/edge pnpm run lint:oxlint
   run pnpm run test:worker
+  gate workers/edge pnpm run test:bundle-smoke
   run bash .github/scripts/check-edge-ratelimit-namespace.sh
   run pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir "$GATE_OUTDIR/edge-bundle"
 }

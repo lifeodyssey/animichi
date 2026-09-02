@@ -89,6 +89,7 @@ PACKAGE_DIR_COMMANDS=(
   "$REPO_ROOT/workers/catalog :: pnpm exec tsc --noEmit"
   "$REPO_ROOT/workers/users :: pnpm exec tsc --noEmit"
   "$REPO_ROOT/workers/edge :: pnpm run lint:oxlint"
+  "$REPO_ROOT/workers/edge :: pnpm run test:bundle-smoke"
   "$REPO_ROOT/workers/migrator :: pnpm exec tsc --noEmit"
   "$REPO_ROOT/workers/migrator :: pnpm run lint:oxlint"
   "$REPO_ROOT/workers/migrator :: pnpm run test"

@@ -238,6 +238,7 @@
       "deploy_excludes": [
         "workers/edge/AGENTS.md",
         "workers/edge/test/**",
+        "workers/edge/bundle-smoke/**",
         "workers/edge/src/container/README.md",
         "workers/edge/src/gateway/README.md",
         "workers/edge/src/identity/README.md",
@@ -245,7 +246,7 @@
         "workers/edge/src/proxy/README.md"
       ],
       "depends_on": ["contract", "db"],
-      "ci_lanes": ["lint", "unit", "boundary", "build"],
+      "ci_lanes": ["lint", "unit", "bundle-smoke", "boundary", "build"],
       "deploy_unit": "edge"
     },
     {

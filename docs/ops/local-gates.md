@@ -20,7 +20,7 @@ Workspace members are **derived** from `pnpm-workspace.yaml` (directories matchi
 | `apps/web/` | web | oxlint (type-aware) | `typecheck` + `lint:oxlint` + coverage-enabled `test` + `VITE_SHOWCASE_MODE=false test:integration` |
 | `workers/catalog/` | catalog | oxlint | `tsc --noEmit` + `lint:oxlint` + `test:worker` + `test:spike` + `test:smoke` + `wrangler deploy --dry-run` |
 | `workers/users/` | users | oxlint | `tsc --noEmit` + `lint:oxlint` + `test:worker` + `wrangler deploy --dry-run` |
-| `workers/edge/` | edge | oxlint | `lint:oxlint` + `test:worker` + ratelimit-namespace check + production-config `wrangler deploy --dry-run` |
+| `workers/edge/` | edge | oxlint | `lint:oxlint` + `test:worker` + `test:bundle-smoke` (bundles the pi kernel entrypoint and executes the artifact in workerd, #1246) + ratelimit-namespace check + production-config `wrangler deploy --dry-run` |
 | `workers/migrator/` | migrator | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (single CI affected-migrator lane) |
 | `packages/contract/` | contract | oxlint | `tsc --noEmit` + `test` + staged-snapshot OpenAPI drift (`contract-drift.sh`, mirrors CI) + agent-model regeneration drift |
 | `infra/` | infra | — | `typecheck` + `test` + credential-free Pulumi program-load (`infra-check.sh`) |
