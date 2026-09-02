@@ -34,7 +34,7 @@
 
 ## 三、目标架构
 
-```
+```text
 浏览器 ──SSE（连接在时）──> workers/edge
    │ POST /v1/chat        ├─ 身份/Turnstile（不动）
    │ GET /v1/conversations/:id/messages（回来时拉最终结果）
@@ -47,8 +47,10 @@
 
 组件职责（全部在 `workers/edge` 内，不新建 Worker）：
 - **身份层**：不变。验 Neon Auth JWT / 匿名 Turnstile，受信身份进入 intake。
-- **intake**：按 (session, client_message_id) dedupe；单事务写 messages + runs(running) + 配额预留；事务提交后 `setAlarm(now)` 叫醒该 session 的 DO（快路径），alarm 扫描为兜底（at-least-once）。
+- **intake**：按 (session, client_message_id) dedupe；单事务写 messages + runs(running) + 配额预留；事务提交后 `setAlarm(now)` 叫醒该 session 的 DO（快路径）。**兜底必须独立于 session DO**（提交与 `setAlarm` 之间崩溃时该 DO 未被武装，它自己的 alarm 永远不会响）：一个单例 `RunSweeper` DO 以周期 alarm 扫 `runs` 表中 `running` 且租约过期/从未取得租约的行，对其 session DO 重新 `setAlarm(now)`；扫描幂等（重复叫醒无副作用，由 DO 侧租约保证）。这就是 at-least-once 的来源。
 - **AgentSession DO**：alarm handler 内载入转录 → pi Agent（mimo-v2.5 经 `createProvider` custom Model）→ 工具执行 → 若有连接在则按 SD-9 帧推 SSE；结束 = assistant message + usage 结算 + run=succeeded 同一 TX。落库粒度按工具步骤 + 文本段聚合（不需要可寻址 delta）。单写者语义 = turn 租约；admission 沿用现有 `turn_admission` 语义移植（忙时并发回合拒绝/排队）。
+  - **alarm → SSE 交接契约**：`alarm` 与 `fetch` 是同一 DO 实例上的两次调用，共享内存。`fetch(POST /v1/chat)` 在实例内存里登记一个订阅者（`WritableStream` writer），返回 SSE 响应；alarm 内的 loop 每产出一帧就对当前订阅者集合 `write`（await，天然背压）；写失败或客户端断开 → 移除订阅者，loop 不受影响。订阅者**不持久化**：DO 被驱逐、或 alarm 在没有订阅者时跑完，客户端拿不到直播，按 §二"断线语义"回落 `GET …/messages` 取最终结果。这是 best-effort 直播，不是投递保证；W1-5 的 browser AC 覆盖"连接在时看到帧、切走回来 GET 拿到完整结果"两条路径。
+  - **工具步骤幂等（alarm 重试安全）**：每个工具步骤的结果以 `(run_id, step_index)` 为键**先落库再继续**；alarm 因驱逐/重启重跑同一 run 时，从已落库的步骤回放，不再执行已有结果的步骤。有副作用的工具（当前只有 route 工具的落库、未来的 BYOK 出站）必须接受该幂等键；只读工具（catalog、web search）天然幂等。S4 的"驱逐/重启恢复"用例必须包含"工具成功但结果未落库前崩溃"这一分支，验证只执行一次。
 - **取回面**：现有 `GET /v1/conversations/{id}/messages` 加 run 状态（running / succeeded / failed+reason）；web 今天断线本来就是整体重拉这个接口（`use-stream-recovery.ts:62-66`），改动 = 多读一个状态字段。
 
 ## 四、Phase 0 spike 门（= 8/29 note 五痛点表 + GO 硬条件的工程化）
@@ -58,7 +60,7 @@
 - **S1**：三 provider matrix + deployed Worker + abort 三处断点 + cold/warm 唤醒毫秒数实测（写回本 spec 附录）。
 - **S2**：mimo-v2.5 网关方言定版（compat 开关阵逐项实测：tool calling 往返 / strict / maxTokensField / streaming usage）。
 - **S3**：esbuild `.lazy` chunk bug——file upstream issue；我方 CI 加"bundler 产物 smoke 执行"门；先用已验证 workaround。
-- **S4**：DO 状态机：并发同 session、eviction/restart、provider/tool 中途故障 → 进行中 turn 必须能恢复到"收尾一致"（不依赖上游 harness）。**硬条件（Q1 定）**：在真部署 DO 的 alarm handler 内跑一个刻意 5 分钟、含 3 次工具调用的回合，期间客户端断开，最终 Neon 里 run=succeeded 且转录完整；同时实测 alarm 内一次回合的 DO 计费 wall-clock。
+- **S4**：DO 状态机：并发同 session、eviction/restart、provider/tool 中途故障 → 进行中 turn 必须能恢复到"收尾一致"（不依赖上游 harness）。**硬条件（Q1 定）**：在真部署 DO 的 alarm handler 内跑一个刻意 5 分钟、含 3 次工具调用的回合，期间客户端断开，最终 Neon 里 run=succeeded 且转录完整；同时实测 alarm 内一次回合的 DO 计费 wall-clock。**该 spike 使用独立的 spike-only 回合 deadline（≥ 6 分钟，spike 配置项，不进生产默认值）**——生产的整回合 deadline 仍是 100s（§二），5 分钟只是为了逼近 alarm 的 15 分钟上限做压力验证；恢复用例必须含"工具成功但结果未落库前崩溃"分支（§三 幂等契约）。
 - **S5**：BYOK/egress 红线（8/29 note 条件 6 全表：allowlist、非空 key、无 server-key fallback、SSRF 边界、redirect、日志脱敏）。
 
 **Kill-switch**：S1–S5 任一硬失败 → 内核层回退 Vercel AI SDK ToolLoopAgent（#1106 的 39/60 基线，输出回喂自建 ~50–100 行）；**架构壳（DO/Neon/intake/GET）不变**，只换 loop 层。spike 结论与复测数据必须回填本 spec 后才进 W1。
@@ -70,7 +72,7 @@
 | W0 | spike S1–S5 + kill-switch 裁决 | 结论回填 §四 |
 | W1 | 核心环路（全部在 `workers/edge` 内）：intake + AgentSession DO（alarm 内跑回合）+ pi + mimo + 4 个 catalog 工具 + 连接在时的 SSE + `GET …/messages` 加 run 状态 + 配额结算 | staging 匿名可完整对话；切走再回来拉到完整结果（手动验证，无自动 eval） |
 | W2 | parity：web 工具×2、route 工具、BYOK、compaction/memory（fact_ledger 适配） | 功能对等清单逐项勾（手动验证） |
-| W3 | eval 搬到 TS：框架用 `logfire/evals`（与 pydantic-evals 同数据模型与文件格式，`run_agent_eval.py:133` 的 `Dataset.to_file` 导出 → TS `Dataset.fromFile` 直接读，662 case 零迁移）；task = 对 staging 的 HTTP 调用；自写 8 个评估器（4 个官方 agentic：ToolCorrectness / TrajectoryMatch / ArgumentCorrectness / MaxToolCalls，TS 版无内置，轨迹从转录取；4 个自定义照抄 `evaluators.py:162-215`）+ 移植 `gate.py` 的分层配对 bootstrap 统计门 + ANY-of-N + 662 case 双跑 | 双跑无回归（8/29 note 硬条件 3） |
+| W3 | eval 搬到 TS：框架用 `logfire/evals`（与 pydantic-evals 同数据模型与文件格式，`run_agent_eval.py:133` 的 `Dataset.to_file` 导出 → TS `Dataset.fromFile` 读取；"零迁移"的前提：导出文件里序列化的 8 个评估器名必须以 TS 实现通过 `customEvaluators` 注册、runner 在 Node/Bun/Deno 跑（Workers 内无文件 helper）、两侧包版本钉死；W3 第一张卡 = Python 导出 → TS 导入的 round-trip fixture，跑通前不得声称零迁移）；task = 对 staging 的 HTTP 调用；自写 8 个评估器（4 个官方 agentic：ToolCorrectness / TrajectoryMatch / ArgumentCorrectness / MaxToolCalls，TS 版无内置，轨迹从转录取；4 个自定义照抄 `evaluators.py:162-215`）+ 移植 `gate.py` 的分层配对 bootstrap 统计门 + ANY-of-N + 662 case 双跑 | 双跑无回归（8/29 note 硬条件 3） |
 | W4 | 删除 `apps/agent` + uv CI 臂 + 容器构建 + `[[containers]]`/`RuntimeContainer`/#1239 等待逻辑；CD/文档里的 `root` 旧名统一为 edge；空壳 `workers/jobs` 处置；docs/AGENTS.md/coverage floors 更新；launch 链（#1181/#1183/#1184）接上新架构 | repo 无 Python agent 残留 |
 
 ## 六、验收标准
@@ -79,7 +81,7 @@
 - [ ] **(integration)** staging 全链：POST → DO → Neon → GET 取回，run 状态机 running/succeeded/failed 各可达。
 - [ ] **(browser)** staging 实测断线续跑：回合中切走 → 回来 GET 拿到完整结果（owner 的核心场景）。
 - [ ] **(security)** BYOK/egress 红线全绿（S5 清单逐项）+ 无 Supabase-auth/下游自验证引入。
-- [ ] **(eval)** 662 case 五 evaluator + 统计门按现行阈值无回归；model-backed，非 faux provider。
+- [ ] **(eval)** 662 case × 8 evaluator（4 官方 agentic + 4 自定义，与 §五 W3 同一清单）+ 统计门按现行阈值无回归；model-backed，非 faux provider。
 - [ ] **(unit)** bundler 产物 smoke 执行门在 CI 常驻。
 - [ ] **(api)** 生产行为契约：edge 转发的受信身份 = 唯一身份来源；契约包 zod surface 未破坏。
 - [ ] W4 后：`make check` 无 uv 臂；CD 无 agent 容器构建；全仓 `pnpm` 单流水线。
