@@ -201,7 +201,12 @@ gate_users() {
 # guard tests) + the bundler smoke gate (W0-S3 #1246: builds the pi kernel
 # entrypoint and EXECUTES the artifact in workerd, which is the only way to see
 # the esbuild `.lazy` chunk-init bug) + production-config dry-run from the repo
-# root.
+# root. The agent-tier database arm (`pnpm run test:agent-db`, W1-2 #1251) is NOT here
+# yet: this gate is also CI's edge leg, and that leg has no offline Postgres
+# image — adding it means changing two pinned CI contracts (the image step's
+# `if:` in test_pr_verification_contract.rb and the edge `ci_lanes` list in
+# components.json). Run it before pushing edge agent-tier changes; see
+# workers/edge/agent-db-test/README.md.
 gate_edge() {
   gate workers/edge pnpm run lint:oxlint
   run pnpm run test:worker

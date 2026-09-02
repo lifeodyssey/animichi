@@ -18,6 +18,13 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 - `pnpm run test:spike-db` — opt-in lane (`db-test/*.test.ts`) that runs the W0-S4 spike's run
   store against a **real** PostgreSQL named by `SPIKE_TEST_DATABASE_URL`. Never in CI and never
   against staging; it fails closed without a disposable database. Recipe: `spike/pi/README.md`.
+- `pnpm run test:agent-db` — the W1-2 agent-tier database arm (#1251): boots a disposable
+  PostgreSQL container itself, applies the committed `migrations/neon` chain, and runs the
+  intake's own statements against it. Its own directory and lane, not the spike's: this one
+  brings its own database (Docker + the offline `animichi-test-postgres` image,
+  `agent-db-test/README.md`) and outlives W0. It is the only lane that can answer for a partial
+  unique index or a transaction rollback. Not yet in `gate_edge` — run it by hand before pushing
+  agent-tier changes; see that README for what wiring it into CI would cost.
 - `pnpm run typecheck` — `tsc --noEmit` (TypeScript 7.0.2 via workspace hoist).
 - `pnpm run lint:oxlint` — type-aware oxlint, warnings denied.
 - Deploy is CI-only: `wrangler deploy -c workers/edge/wrangler.toml` from the repo root
@@ -29,6 +36,13 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 - `src/db/` — Drizzle mapping of the agent turn tables the edge owns from W1 (`messages`,
   `runs`, `run_steps`); query-only metadata, never a DDL authority (`migrations/neon` owns
   the schema).
+- `src/agent/` — the agent turn tier (W1, spec `docs/specs/2026-09-01-agent-ts-rewrite-spec.md`):
+  `intake/` (one `POST /v1/chat` becomes one transaction: message + `running` run + quota
+  reservation, then `setAlarm(now)` on the session), `session/` (the wake-up port and the
+  request `AgentSession` answers — the class itself is #1252), `sweeper/` (the singleton
+  `RunSweeper` DO, the at-least-once backstop). Ports live with the use case, Neon adapters
+  beside them, and no module here imports `cloudflare:workers` so the node:test suite can load
+  every one of them. Nothing routes to it yet — #1256 flips `/v1/chat`.
 - `src/identity/` — auth (JWT/anonymous) + turnstile gate; `src/gateway/` — forward +
   routing/catalog policy (pure functions) + responses; `src/protect/` — rate limit / cost breaker /
   DO guard; `src/proxy/` — image/tile/showcase proxies; `src/container/` — container env +
@@ -37,6 +51,9 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   production code never imports from `test/`.
 - `db-test/` — the opt-in real-PostgreSQL lane (W0-S4, #1247). Test-only, outside `pnpm test`,
   and deleted with the spike when W0 closes.
+- `agent-db-test/` — the agent-tier database arm (#1251), kept apart from `db-test/` precisely
+  because that one leaves with the spike. Test-only: both directories are excluded from the edge
+  deploy unit in `.github/ci/components.json`, and `pg`/`testcontainers` are devDependencies.
 - `bundle-smoke/` — the pi-kernel bundler smoke gate (#1246). Test-only: excluded from the edge
   deploy unit in `.github/ci/components.json`, and `@earendil-works/pi-ai` is a devDependency.
   Its entrypoint carries the esbuild `.lazy` chunk-init workaround reported in
@@ -59,6 +76,18 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 - `src/container/container-env.ts` owns the container env allowlist/required keys and the
   `DENIED_EGRESS_HOSTS` glob list — it is read verbatim by docs/security guards (see
   `docs/ops/secrets.md`, `docs/ops/cloudflare-hardening.md`); keep paths and key names in lockstep.
+- The agent tier reads Neon directly through the `AGENT_SVC_DATABASE_URL` Secrets Store
+  binding — the same binding the container already unwraps (`src/container/container-env.ts`,
+  `docs/ops/secrets.md`), now with the Worker itself as a second consumer. Staging binds it;
+  production does NOT until #855 provisions the store secret there, and binding a store secret
+  that does not exist fails the deploy. It is the WebSocket driver
+  (`drizzle-orm/neon-serverless`), not neon-http: the intake is an interactive multi-statement
+  transaction and neon-http has no transactions.
+- Durable Object classes stay plain classes with `fetch`/`alarm` (`EdgeGuard`, `RunSweeper`) —
+  no `cloudflare:workers` RPC base class, so every source stays importable under node:test.
+  A binding's `class_name` is resolved against `src/entry.ts`'s exports at deploy time;
+  `test/agent-durable-objects.test.ts` reads the two files against each other so that failure
+  cannot wait for a deploy.
 - `wrangler.toml` is the single config surface (`main = "src/entry.ts"`, resolved config-relative);
   routes are declared in Pulumi, never here (#541).
 

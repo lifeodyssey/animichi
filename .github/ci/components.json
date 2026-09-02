@@ -238,6 +238,8 @@
       "deploy_excludes": [
         "workers/edge/AGENTS.md",
         "workers/edge/test/**",
+        "workers/edge/agent-db-test/**",
+        "workers/edge/db-test/**",
         "workers/edge/bundle-smoke/**",
         "workers/edge/src/container/README.md",
         "workers/edge/src/gateway/README.md",

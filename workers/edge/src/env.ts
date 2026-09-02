@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 // TODO(#841 path-delta): shared Env/context types — stays at the worker root
 // (imported by every concern folder) until the #853 package-ization.
+import type { NamedStubs } from "./agent/durable-namespace.ts";
 import type { GuardNamespace } from "./protect/guard-store.ts";
 import type { TileBucket } from "./proxy/tiles.ts";
 
@@ -21,6 +22,14 @@ export interface Env {
    * sibling of the web app's VITE_SHOWCASE_MODE. Only the literal "false"
    * opens functional routes; unset/empty/malformed values fail closed (deny). */
   EDGE_SHOWCASE_MODE?: string;
+  /** Singleton `RunSweeper` DO — the at-least-once backstop for agent turns
+   * (#1251). Optional: it is bound in every deployed environment, but the
+   * gateway tests construct envs without it. */
+  RUN_SWEEPER?: NamedStubs;
+  /** The `agent_svc` Neon DSN. A Cloudflare Secrets Store binding where one is
+   * declared (staging, `docs/ops/secrets.md`), a plain string in local dev, and
+   * absent in production until the #855 cutover provisions it. */
+  AGENT_SVC_DATABASE_URL?: { get: () => Promise<string> } | string;
   /** Cloudflare-native `ratelimit` binding (issue #680): the COARSE
    * best-effort burst damper. Absent (unit tests, a config without the
    * binding) is treated as an outage — coarseBurstAllow fails open + alerts. */

@@ -3,7 +3,9 @@
  * (spec `docs/specs/2026-09-01-agent-ts-rewrite-spec.md` §二/§三, issue #1250):
  * `messages` (the transcript plus the intake dedupe key), `runs` (one row per
  * agent turn — status, lease, quota reservation, usage settlement) and
- * `run_steps` (one row per tool step, the alarm-retry replay log).
+ * `run_steps` (one row per tool step, the alarm-retry replay log), plus
+ * `anon_daily_message_count`, the counter the intake reserves in that same
+ * transaction (#1251).
  *
  * Runtime-only: this file never generates or applies migrations. It is
  * query-only runtime metadata for the Drizzle query builder; the Atlas SQL under
@@ -44,6 +46,9 @@ export const RUN_STATUSES = ["running", "succeeded", "failed"] as const;
 
 /** Who pays for a turn (`runs_payer_check`); mirrors `daily_usage.scope`. */
 export const RUN_PAYERS = ["anon", "user", "byok"] as const;
+
+/** One value of that domain — the type an intake carries before it is a row. */
+export type RunPayer = (typeof RUN_PAYERS)[number];
 
 /**
  * Why a turn ended `failed` (`runs_failure_reason_check`). `lease_expired` and
@@ -170,4 +175,24 @@ export const runSteps = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true }),
   },
   (table) => [primaryKey({ columns: [table.runId, table.stepIndex] })],
+);
+
+/**
+ * The per-identity anonymous daily message counter (issue #282 / S1.10). Older
+ * than the turn tables and keyed by a natural composite `(usage_date, anon_id)`
+ * with no surrogate id, exactly as `20260826000004_agent.sql` declares it. The
+ * intake reserves one message here inside the turn transaction and records the
+ * row's coordinates on the run, so the refund can find it after UTC midnight.
+ */
+export const anonDailyMessageCount = pgTable(
+  "anon_daily_message_count",
+  {
+    usageDate: date("usage_date").notNull(),
+    anonId: text("anon_id").notNull(),
+    // The column is `bigint`; a day's message count for one visitor is orders
+    // of magnitude below 2^53, so it stays a JS number like the run counters.
+    messageCount: bigint("message_count", { mode: "number" }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.usageDate, table.anonId] })],
 );
