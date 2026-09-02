@@ -1,10 +1,20 @@
 // A stand-in for a real pi provider stream, used by the W0-S1 abort tests
-// (#1244). It is a double, not a fake-that-always-succeeds: it drives the real
-// `Agent` loop, it really emits a tool call and waits for the tool result
-// before answering, and it really terminates with an `aborted` error frame the
-// moment its signal is aborted — which is what every shipped pi adapter does.
-// A double that ignored the signal would make the abort tests pass for the
-// wrong reason.
+// (#1244) and the W0-S2 compat measurements (#1245). It is a double, not a
+// fake-that-always-succeeds: it drives the real `Agent` loop, it really emits a
+// tool call and waits for the tool result before answering, and it really
+// terminates with an `aborted` error frame the moment its signal is aborted —
+// which is what every shipped pi adapter does. A double that ignored the signal
+// would make the abort tests pass for the wrong reason.
+//
+// W0-S2 (#1245) added three truthful behaviours, all mirroring a real
+// OpenAI-compatible gateway: usage arrives only when the model's compat leaves
+// `supportsUsageInStreaming` alone, because pi sends
+// `stream_options: { include_usage: true }` exactly then (pi-ai
+// `dist/api/openai-completions.js:594`) and an unasked gateway sends none; and a
+// gateway that rejects the request shape throws out of the adapter rather than
+// streaming an error frame (`client.chat.completions.create` throws on a 4xx),
+// either on the first request or on the second one that replays the tool
+// result.
 
 import { createAssistantMessageEventStream } from "@earendil-works/pi-ai";
 import type {
@@ -24,14 +34,30 @@ type Script = (push: Push, gap: Gap) => Promise<void>;
 export const DOUBLE_ANSWER = "Hyouka fans go to Takayama.";
 export const DOUBLE_TOOL_CALL_ID = "call-1";
 
-const USAGE = {
+const NO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
+
+const REPORTED_USAGE = {
   input: 1,
   output: 1,
   cacheRead: 0,
   cacheWrite: 0,
   totalTokens: 2,
-  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+  cost: NO_COST,
 };
+
+const SILENT_USAGE = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  totalTokens: 0,
+  cost: NO_COST,
+};
+
+function asksForUsage(compat: unknown): boolean {
+  if (typeof compat !== "object" || compat === null) return true;
+  return (compat as { supportsUsageInStreaming?: unknown }).supportsUsageInStreaming !== false;
+}
 
 function baseMessage(model: Model<Api>): AssistantMessage {
   return {
@@ -40,7 +66,7 @@ function baseMessage(model: Model<Api>): AssistantMessage {
     api: model.api,
     provider: model.provider,
     model: model.id,
-    usage: USAGE,
+    usage: asksForUsage(model.compat) ? REPORTED_USAGE : SILENT_USAGE,
     stopReason: "stop",
     timestamp: 0,
   };
@@ -143,5 +169,32 @@ export function makeToolCallingStreamFn() {
     calls += 1;
     const script = calls === 1 ? toolCallScript(base) : answerScript(base);
     return new ScriptedProviderStream(base, options?.signal).run(script);
+  };
+}
+
+/**
+ * A gateway that rejects the request shape: the OpenAI client throws on a 4xx
+ * before any stream exists, which pi turns into `state.errorMessage`.
+ */
+export function makeRejectedRequestStreamFn(message: string) {
+  return (): never => {
+    throw new Error(message);
+  };
+}
+
+/**
+ * A gateway that accepts the tool call but rejects the follow-up request
+ * carrying the tool result. That second request is where
+ * `requiresToolResultName` and `requiresAssistantAfterToolResult` change the
+ * wire shape, so it is the failure mode the S2 matrix is looking for: a tool
+ * call that succeeded and an answer that never came.
+ */
+export function makeToolResultRejectingStreamFn(message: string) {
+  let calls = 0;
+  return (model: Model<Api>, _context: Context, options?: SimpleStreamOptions) => {
+    calls += 1;
+    if (calls > 1) throw new Error(message);
+    const base = baseMessage(model);
+    return new ScriptedProviderStream(base, options?.signal).run(toolCallScript(base));
   };
 }

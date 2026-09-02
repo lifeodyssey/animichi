@@ -4,10 +4,15 @@ import { SseTurnChannel } from "../spike/pi/src/sse-turn-channel.ts";
 import {
   MIMO_DIRECT_BASE_URL,
   MIMO_ZEN_BASE_URL,
+  configuredMimoRoutes,
   configuredProviders,
+  createMimoCompatModels,
+  createSpikeModels,
+  mimoRouteNamed,
   mimoRouteOf,
+  modelFor,
 } from "../spike/pi/src/spike-models.ts";
-import { abortRequiredFor, routeOf } from "../spike/pi/src/spike-routes.ts";
+import { abortRequiredFor, isSessionRoute, routeOf } from "../spike/pi/src/spike-routes.ts";
 import { DEFAULT_TURN_PROMPT, parseTurnCommand } from "../spike/pi/src/turn-command.ts";
 
 // W0-S1 (#1244): the probe Worker's request surface — routing, command
@@ -20,15 +25,36 @@ import { DEFAULT_TURN_PROMPT, parseTurnCommand } from "../spike/pi/src/turn-comm
 const FAKE_DIRECT_KEY = "aaaa-direct";
 const FAKE_ZEN_KEY = "bbbb-zen";
 
-void test("the probe Worker exposes exactly three routes", () => {
+void test("the S1 and S2 routes each resolve to their own name", () => {
   assert.equal(routeOf("GET", "/healthz"), "healthz");
   assert.equal(routeOf("POST", "/turn"), "turn");
   assert.equal(routeOf("POST", "/turn/abort"), "turn_abort");
+  assert.equal(routeOf("POST", "/compat"), "compat");
 });
 
-void test("anything outside the three routes is a 404", () => {
+// Three tiers share the Worker: `PiTurnSession` (S1's two turn routes),
+// `DurableTurnSession` (S4's `turn_long` / `run_status`), and the Worker's own
+// fetch (healthz, S2's `/compat`, S5's three egress routes). `/compat` must
+// stay in the last one — a Durable Object would put S2's measurement behind an
+// alarm and stop it being the round trip the caller waited on. Everything the
+// entry dispatcher does not hand to a namespace falls through to a 404, so a
+// route wrongly claimed here would be served by the wrong tier.
+void test("only S1's two turn routes belong to PiTurnSession", () => {
+  assert.equal(isSessionRoute("turn"), true);
+  assert.equal(isSessionRoute("turn_abort"), true);
+  assert.equal(isSessionRoute("compat"), false);
+  assert.equal(isSessionRoute("healthz"), false);
+  assert.equal(isSessionRoute("turn_long"), false);
+  assert.equal(isSessionRoute("run_status"), false);
+  assert.equal(isSessionRoute("egress"), false);
+  assert.equal(isSessionRoute("egress_platform"), false);
+  assert.equal(isSessionRoute("egress_redirect"), false);
+});
+
+void test("anything outside the probe's routes is a 404", () => {
   assert.equal(routeOf("POST", "/healthz"), "not_found");
   assert.equal(routeOf("GET", "/turn"), "not_found");
+  assert.equal(routeOf("GET", "/compat"), "not_found");
   assert.equal(routeOf("POST", "/v1/chat"), "not_found");
 });
 
@@ -75,6 +101,13 @@ void test("mimo prefers the direct endpoint and falls back to the zen gateway", 
   assert.equal(mimoRouteOf({}), null);
 });
 
+void test("healthz reports each mimo route separately for the S2 matrix", () => {
+  assert.deepEqual(configuredMimoRoutes({ ZEN_GO_API_KEY: FAKE_ZEN_KEY }), {
+    direct: false,
+    zen: true,
+  });
+});
+
 void test("healthz reports provider readiness without disclosing a key", () => {
   const keys = { ZEN_GO_API_KEY: FAKE_ZEN_KEY, GEMINI_API_KEY: "cccc-gemini" };
   const reported = configuredProviders(keys);
@@ -103,4 +136,20 @@ void test("a turn keeps running after its reader disconnects", async () => {
   await channel.body.cancel();
   await channel.send("turn_start", {});
   assert.equal(channel.clientGone, true);
+});
+
+// The S1 round trip was measured against a model with no `compat` key at all
+// (spec appendix A, 52 s). S2 must not change that shape behind its back: an
+// empty override set stays off the model, a real one goes on.
+void test("the S1 turn model still carries no compat overrides", () => {
+  const models = createSpikeModels({ MIMO_API_KEY: FAKE_DIRECT_KEY });
+  assert.equal("compat" in (modelFor(models, "mimo") ?? {}), false);
+});
+
+void test("an S2 model carries exactly the overrides it was measured under", () => {
+  const route = mimoRouteNamed({ MIMO_API_KEY: FAKE_DIRECT_KEY }, "direct");
+  assert.ok(route);
+  const models = createMimoCompatModels(route, { supportsStrictMode: false });
+  const model = modelFor(models, "mimo");
+  assert.deepEqual(model?.compat, { supportsStrictMode: false });
 });

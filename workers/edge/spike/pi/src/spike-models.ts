@@ -8,9 +8,11 @@
 //     factory does) trips an esbuild chunk-init bug — `ModelsImpl is not a
 //     constructor` at runtime — under both standalone esbuild and wrangler
 //     (report §4.3). That is why the providers are hand-rolled here.
-//   - no `compat` overrides on the mimo model: S2 (#1245) owns the gateway
-//     dialect switches, and the report's working default is pi's own
-//     auto-detection from the baseUrl.
+//   - no `compat` overrides on the mimo model by default: the working default
+//     is pi's own auto-detection from the baseUrl. W0-S2 (#1245) measures the
+//     dialect switches by passing an explicit override set per request, which
+//     is what `mimoRouteNamed` + the `compat` argument below exist for; the S1
+//     turn routes still go through the no-override path.
 //
 // Keys arrive as Worker secrets and are read here only to hand to pi. They are
 // never logged, never echoed in a response, and `configuredProviders` reports
@@ -33,6 +35,7 @@ import {
   stream as googleStream,
   streamSimple as googleStreamSimple,
 } from "@earendil-works/pi-ai/api/google-generative-ai";
+import type { MimoCompat, MimoRouteName } from "./compat-switch.ts";
 import type { SpikeProvider } from "./turn-command.ts";
 
 export interface ProviderKeys {
@@ -58,14 +61,30 @@ export const MIMO_ZEN_BASE_URL = "https://opencode.ai/zen/go/v1";
  * wins when both are present, matching DEFAULT_AGENT_MODEL.
  */
 export function mimoRouteOf(keys: ProviderKeys): MimoRoute | null {
-  const { MIMO_API_KEY, ZEN_GO_API_KEY } = keys;
-  if (MIMO_API_KEY) {
-    return { baseUrl: MIMO_DIRECT_BASE_URL, apiKey: MIMO_API_KEY, secretName: "MIMO_API_KEY" };
+  return mimoRouteNamed(keys, "direct") ?? mimoRouteNamed(keys, "zen");
+}
+
+/**
+ * The route the S2 matrix asked for by name, rather than by preference order:
+ * a measured row must say which gateway produced it, so falling back would
+ * mislabel the row.
+ */
+export function mimoRouteNamed(keys: ProviderKeys, name: MimoRouteName): MimoRoute | null {
+  if (name === "direct" && keys.MIMO_API_KEY) {
+    return { baseUrl: MIMO_DIRECT_BASE_URL, apiKey: keys.MIMO_API_KEY, secretName: "MIMO_API_KEY" };
   }
-  if (ZEN_GO_API_KEY) {
-    return { baseUrl: MIMO_ZEN_BASE_URL, apiKey: ZEN_GO_API_KEY, secretName: "ZEN_GO_API_KEY" };
+  if (name === "zen" && keys.ZEN_GO_API_KEY) {
+    return { baseUrl: MIMO_ZEN_BASE_URL, apiKey: keys.ZEN_GO_API_KEY, secretName: "ZEN_GO_API_KEY" };
   }
   return null;
+}
+
+/** Presence of each route's key as a boolean — never the key itself. */
+export function configuredMimoRoutes(keys: ProviderKeys): Record<MimoRouteName, boolean> {
+  return {
+    direct: mimoRouteNamed(keys, "direct") !== null,
+    zen: mimoRouteNamed(keys, "zen") !== null,
+  };
 }
 
 export function configuredProviders(keys: ProviderKeys): Record<SpikeProvider, boolean> {
@@ -81,19 +100,24 @@ export function fixedKeyAuth(name: string, apiKey: string) {
   return { apiKey: { name, resolve: () => Promise.resolve({ auth: { apiKey }, source: name }) } };
 }
 
-function mimoModel(baseUrl: string): Model<"openai-completions"> {
-  return {
-    id: "mimo-v2.5",
-    name: "MiMo v2.5",
-    api: "openai-completions",
-    provider: "mimo",
-    baseUrl,
-    reasoning: false,
-    input: ["text"],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-    contextWindow: 128000,
-    maxTokens: 32000,
-  };
+// Everything about the mimo model except which gateway it is pointed at.
+const MIMO_MODEL: Omit<Model<"openai-completions">, "baseUrl"> = {
+  id: "mimo-v2.5",
+  name: "MiMo v2.5",
+  api: "openai-completions",
+  provider: "mimo",
+  reasoning: false,
+  input: ["text"],
+  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+  contextWindow: 128000,
+  maxTokens: 32000,
+};
+
+// An empty override set is left off the model entirely rather than passed as
+// `{}`, so the S1 turn route keeps the exact shape it was measured with.
+function mimoModel(baseUrl: string, compat: MimoCompat): Model<"openai-completions"> {
+  const model = { ...MIMO_MODEL, baseUrl };
+  return Object.keys(compat).length === 0 ? model : { ...model, compat };
 }
 
 const anthropicModel: Model<"anthropic-messages"> = {
@@ -143,9 +167,9 @@ function register(models: MutableModels, spec: SpikeProviderSpec): void {
   );
 }
 
-function mimoSpec(route: MimoRoute): SpikeProviderSpec {
+function mimoSpec(route: MimoRoute, compat: MimoCompat): SpikeProviderSpec {
   return {
-    model: mimoModel(route.baseUrl),
+    model: mimoModel(route.baseUrl, compat),
     secretName: route.secretName,
     apiKey: route.apiKey,
     api: { stream, streamSimple },
@@ -173,7 +197,7 @@ function geminiSpec(apiKey: string): SpikeProviderSpec {
 function specsFor(keys: ProviderKeys): SpikeProviderSpec[] {
   const specs: SpikeProviderSpec[] = [];
   const mimo = mimoRouteOf(keys);
-  if (mimo) specs.push(mimoSpec(mimo));
+  if (mimo) specs.push(mimoSpec(mimo, {}));
   if (keys.ANTHROPIC_API_KEY) specs.push(anthropicSpec(keys.ANTHROPIC_API_KEY));
   if (keys.GEMINI_API_KEY) specs.push(geminiSpec(keys.GEMINI_API_KEY));
   return specs;
@@ -182,6 +206,17 @@ function specsFor(keys: ProviderKeys): SpikeProviderSpec[] {
 export function createSpikeModels(keys: ProviderKeys): MutableModels {
   const models = createModels();
   for (const spec of specsFor(keys)) register(models, spec);
+  return models;
+}
+
+/**
+ * W0-S2 (#1245): one mimo provider on the named route, carrying the compat
+ * overrides under measurement. Only mimo is registered — the other two
+ * providers have nothing to say about the mimo gateway dialect.
+ */
+export function createMimoCompatModels(route: MimoRoute, compat: MimoCompat): MutableModels {
+  const models = createModels();
+  register(models, mimoSpec(route, compat));
   return models;
 }
 
