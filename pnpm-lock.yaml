@@ -321,6 +321,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^5.20260727.1
         version: 5.20260727.1
+      '@earendil-works/pi-agent-core':
+        specifier: 0.84.4
+        version: 0.84.4(ws@8.21.1)(zod@4.4.3)
       '@earendil-works/pi-ai':
         specifier: 0.84.4
         version: 0.84.4(ws@8.21.1)(zod@4.4.3)
@@ -330,6 +333,9 @@ importers:
       miniflare:
         specifier: 4.20260722.0
         version: 4.20260722.0(@types/node@26.1.1)
+      typebox:
+        specifier: 1.3.7
+        version: 1.3.7
 
   workers/migrator:
     dependencies:
@@ -938,6 +944,10 @@ packages:
       tailwind-merge: '>=2.6.0'
       tailwindcss: '>=3.0.0'
       zod: '>=3.0.0'
+
+  '@earendil-works/pi-agent-core@0.84.4':
+    resolution: {integrity: sha512-HyUnjaOXj6oN/6SNcr8A1J/ElRQA50FtIE0XUTSKAQVqmdlb9qdojOyUQwF/jULE5+yOEtGuVgi/N1RnBiNG+g==}
+    engines: {node: '>=22.19.0'}
 
   '@earendil-works/pi-ai@0.84.4':
     resolution: {integrity: sha512-AClAZxf5+c4RRu44NJPS6wyQy+Nmq+Mzyyrdvm4ZVMNuixelO02RZX4G4Aq1F145Yzp43wnM5S+hLlSI7ypfVw==}
@@ -5714,6 +5724,10 @@ packages:
     resolution: {integrity: sha512-FCeMZT4NiRQGh+YkeKMtWrOmBgWjHjMJ26WQWrRQyoyzqevdaGSakUaJW5xQYmjLlUVk2qUnCjYVBax9EKKg8A==}
     engines: {node: ^20.17.0 || >=22.9.0}
 
+  ignore@7.0.5:
+    resolution: {integrity: sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==}
+    engines: {node: '>= 4'}
+
   ignore@7.0.6:
     resolution: {integrity: sha512-BAg6QkE8W+TuQLrrw0Ugr7HegXduRuuj8/ti2kSOc+jz1dmx8/WNcjr6XGnq5YpDWxFwwaavqD0+jIUOKelTsw==}
     engines: {node: '>= 4'}
@@ -8592,6 +8606,22 @@ snapshots:
       - '@better-auth/utils'
       - '@types/react'
       - '@types/react-dom'
+
+  '@earendil-works/pi-agent-core@0.84.4(ws@8.21.1)(zod@4.4.3)':
+    dependencies:
+      '@earendil-works/pi-ai': 0.84.4(ws@8.21.1)(zod@4.4.3)
+      '@earendil-works/pi-telemetry': 0.84.4
+      diff: 8.0.4
+      ignore: 7.0.5
+      typebox: 1.3.7
+      yaml: 2.9.0
+    transitivePeerDependencies:
+      - '@modelcontextprotocol/sdk'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+      - ws
+      - zod
 
   '@earendil-works/pi-ai@0.84.4(ws@8.21.1)(zod@4.4.3)':
     dependencies:
@@ -13116,6 +13146,8 @@ snapshots:
   ignore-walk@8.0.0:
     dependencies:
       minimatch: 10.2.6
+
+  ignore@7.0.5: {}
 
   ignore@7.0.6: {}
 
