@@ -26,14 +26,22 @@ set -euo pipefail
 #
 # Records accumulate in "$OUT/results.txt" as
 # `route|switch|value|tool|usage|wall_ms|first_token_ms|note` lines; `format`
-# turns them into the markdown table for the spec. Response bodies land next to
-# it as evidence.
+# turns them into the markdown table for the spec. Each row's note ends with
+# `evidence=<run>/<nnn>-<case>.json`, the response body that row was read from,
+# relative to "$OUT". Every invocation writes into its own `run-<stamp>-<pid>/`
+# directory, so re-measuring a case adds evidence rather than overwriting the
+# evidence behind the row already in results.txt.
 
 URL=""
 OUT="${PWD}/.local/spike/pi-s2"
 ROUTE=""
 SWITCH=""
 VALUE=""
+# One directory per invocation of this script; `$$` disambiguates two runs
+# started inside the same second.
+RUN_ID="run-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+EVIDENCE_REL=""
+CASE_INDEX=0
 # A round trip is ~52 s at the S1 baseline; Workers themselves impose no
 # wall-clock limit on an HTTP request
 # (developers.cloudflare.com/workers/platform/limits/ — "Duration: HTTP
@@ -148,25 +156,48 @@ post_compat() {
     -H 'content-type: application/json' -d "${body}" "${URL}/compat"
 }
 
+# Where a row's own response body lives, relative to "$OUT" (which is also
+# where results.txt lives, so the two always agree). Re-measuring a case must
+# never overwrite the evidence behind a row already recorded: RUN_ID separates
+# invocations, the counter separates cases inside one invocation. The counter
+# is set here rather than returned, because a command substitution would
+# increment it in a subshell and lose it.
+next_evidence_rel() {
+  CASE_INDEX=$((CASE_INDEX + 1))
+  EVIDENCE_REL="$(printf '%s/%03d-%s-%s-%s.json' "${RUN_ID}" "${CASE_INDEX}" "$1" "$2" "$3")"
+}
+
+evidence_note() {
+  local evidence="$1"
+  echo "evidence=${evidence#"${OUT}/"}"
+}
+
 record_failed_case() {
   local route="$1" name="$2" value="$3" code="$4" evidence="$5"
   record "${route}" "${name}" "${value}" "no" "no" "-" "-" \
-    "http ${code}: $(head -c 120 "${evidence}")"
+    "http ${code}: $(head -c 100 "${evidence}") $(evidence_note "${evidence}")"
+}
+
+record_measured_case() {
+  local route="$1" name="$2" value="$3" evidence="$4"
+  record "${route}" "${name}" "${value}" \
+    "$(flag_of "${evidence}" toolRoundTrip)" "$(flag_of "${evidence}" streamingUsage)" \
+    "$(jq -r '.wallMs' "${evidence}")" "$(jq -r '.firstTokenMs // "none"' "${evidence}")" \
+    "$(note_of "${evidence}") $(evidence_note "${evidence}")"
 }
 
 run_case() {
   local route="$1" name="${2:-}" value="${3:-}" evidence code
-  evidence="${OUT}/${route}-${name:-defaults}-${value:-auto}.json"
+  next_evidence_rel "${route}" "${name:-defaults}" "${value:-auto}"
+  evidence="${OUT}/${EVIDENCE_REL}"
+  mkdir -p "$(dirname "${evidence}")"
   code="$(post_compat "${evidence}" \
     "$(printf '{"route":"%s","compat":%s}' "${route}" "$(compat_json "${name}" "${value}")")")"
-  if [ "${code}" != "200" ]; then
+  if [ "${code}" = "200" ]; then
+    record_measured_case "${route}" "${name:-(defaults)}" "${value:-auto}" "${evidence}"
+  else
     record_failed_case "${route}" "${name:-(defaults)}" "${value:-auto}" "${code}" "${evidence}"
-    return
   fi
-  record "${route}" "${name:-(defaults)}" "${value:-auto}" \
-    "$(flag_of "${evidence}" toolRoundTrip)" "$(flag_of "${evidence}" streamingUsage)" \
-    "$(jq -r '.wallMs' "${evidence}")" "$(jq -r '.firstTokenMs // "none"' "${evidence}")" \
-    "$(note_of "${evidence}")"
 }
 
 single_case() {

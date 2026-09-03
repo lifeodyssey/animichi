@@ -84,3 +84,20 @@ void test("a command without a prompt falls back to the tool-calling prompt", ()
   assert.equal(commandOf({ route: "direct" }).prompt, DEFAULT_COMPAT_PROMPT);
   assert.match(DEFAULT_COMPAT_PROMPT, /lookup_spot|tool/i);
 });
+
+void test("a supplied prompt is used verbatim", () => {
+  assert.equal(commandOf({ route: "direct", prompt: "where is K-On" }).prompt, "where is K-On");
+});
+
+// Defaulting these would file a row under a prompt the request never asked
+// for, which is the same lie as dropping a compat override.
+void test("a prompt that is present but not a string is rejected", () => {
+  const parsed = parseCompatCommand({ route: "direct", prompt: 0 });
+  assert.ok(!parsed.ok);
+  assert.match(parsed.error, /prompt/);
+});
+
+void test("a prompt that is present but empty is rejected", () => {
+  assert.equal(parseCompatCommand({ route: "direct", prompt: "" }).ok, false);
+  assert.equal(parseCompatCommand({ route: "direct", prompt: null }).ok, false);
+});

@@ -73,9 +73,18 @@ function compatOf(value: unknown): CompatField {
   return { ok: true, compat };
 }
 
-function promptOf(record: Record<string, unknown>): string {
+type ParsedPrompt = { ok: true; prompt: string } | { ok: false; error: string };
+
+// Absent means "use the tool-calling prompt". Present-but-unusable is an
+// operator mistake, and defaulting it would produce a measured row taken under
+// a prompt the request never asked for.
+function promptOf(record: Record<string, unknown>): ParsedPrompt {
+  if (!("prompt" in record)) return { ok: true, prompt: DEFAULT_COMPAT_PROMPT };
   const value = record.prompt;
-  return typeof value === "string" && value.length > 0 ? value : DEFAULT_COMPAT_PROMPT;
+  if (typeof value !== "string" || value.length === 0) {
+    return { ok: false, error: "prompt must be a non-empty string when present" };
+  }
+  return { ok: true, prompt: value };
 }
 
 export function parseCompatCommand(body: unknown): ParsedCompatCommand {
@@ -87,5 +96,7 @@ export function parseCompatCommand(body: unknown): ParsedCompatCommand {
   }
   const compat = compatOf(record.compat);
   if (!compat.ok) return compat;
-  return { ok: true, command: { route, compat: compat.compat, prompt: promptOf(record) } };
+  const prompt = promptOf(record);
+  if (!prompt.ok) return prompt;
+  return { ok: true, command: { route, compat: compat.compat, prompt: prompt.prompt } };
 }

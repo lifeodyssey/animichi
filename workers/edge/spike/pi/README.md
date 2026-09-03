@@ -240,7 +240,7 @@ idleness the script cannot prove.
 
 Individual S1 cases, if you want to spread them out:
 
-```
+```sh
 scripts/spike/pi-s1-measure.sh cold  --url <url>
 scripts/spike/pi-s1-measure.sh warm  --url <url>
 scripts/spike/pi-s1-measure.sh turn  --url <url> --provider anthropic
@@ -249,19 +249,24 @@ scripts/spike/pi-s1-measure.sh abort --url <url> --point tool_call
 
 ## Measure — S2 compat switch matrix (#1245)
 
-```
+```sh
 scripts/spike/pi-s2-compat.sh --url https://animichi-spike-pi.<subdomain>.workers.dev
 ```
 
 That runs both routes and prints the markdown table for spec §四:
 `| route | switch | value | tool round trip | streaming usage | wall ms | first token ms | note |`.
-Needs `jq` and `curl`; results and per-case response bodies accumulate under `.local/spike/pi-s2/`.
+Needs `jq` and `curl`.
+
+Rows accumulate in `.local/spike/pi-s2/results.txt`, and every row's note ends with
+`evidence=run-<stamp>-<pid>/<nnn>-<case>.json` — the response body that row was read from, relative
+to that same directory. Each invocation writes into its own `run-…/` directory, so re-measuring a
+case adds evidence beside the earlier row instead of overwriting what the earlier row points at.
 
 Per route it runs the all-defaults case (pi's own auto-detection from the baseUrl) and then each of
 the nine switches at **both** of its values, one switch at a time — 19 turns. At the S1 mimo
 baseline of ~52 s a round trip that is roughly 17 minutes per route, so run it detached:
 
-```
+```sh
 nohup scripts/spike/pi-s2-compat.sh --url <url> --route direct > .local/spike/pi-s2-direct.log 2>&1 &
 disown
 ```
@@ -273,7 +278,7 @@ An unreachable Worker, by contrast, aborts the run — a skip must never stand i
 
 Individual cases, to spread the wall time out or to re-measure one row:
 
-```
+```sh
 scripts/spike/pi-s2-compat.sh case --url <url> --route direct
 scripts/spike/pi-s2-compat.sh case --url <url> --route direct --switch supportsStrictMode --value false
 scripts/spike/pi-s2-compat.sh case --url <url> --route zen --switch maxTokensField --value max_tokens

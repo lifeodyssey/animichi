@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFile, execFileSync } from "node:child_process";
 import { createServer, type IncomingMessage, type Server } from "node:http";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, URL } from "node:url";
@@ -31,6 +31,7 @@ interface StubRun {
   compatBodies: string[];
   healthzCount: number;
   output: string;
+  out: string;
 }
 
 function readBody(request: IncomingMessage): Promise<string> {
@@ -80,14 +81,20 @@ function runScript(args: string[]): Promise<string> {
   });
 }
 
-async function runMatrix(mimoRoutes: Record<string, boolean>): Promise<StubRun> {
-  const seen: StubRun = { compatBodies: [], healthzCount: 0, output: "" };
+async function runMatrix(
+  mimoRoutes: Record<string, boolean>,
+  out = mkdtempSync(join(tmpdir(), "pi-s2-")),
+): Promise<StubRun> {
+  const seen: StubRun = { compatBodies: [], healthzCount: 0, output: "", out };
   const server = makeSpikeStub(mimoRoutes, seen);
   const port = await listenOn(server);
-  const out = mkdtempSync(join(tmpdir(), "pi-s2-"));
   seen.output = await runScript(["--url", `http://127.0.0.1:${String(port)}`, "--out", out]);
   server.close();
   return seen;
+}
+
+function evidencePathsIn(results: string): string[] {
+  return [...results.matchAll(/evidence=(\S+)/g)].flatMap((match) => match[1] ?? []);
 }
 
 function compatOf(body: string): unknown {
@@ -138,7 +145,28 @@ void test("the printed table carries the header the spec table needs", async () 
 
 void test("a measured row carries the numbers the response reported", async () => {
   const run = await runMatrix({ direct: true, zen: false });
-  assert.match(run.output, /\| direct \| \(defaults\) \| auto \| yes \| yes \| 51902 \| 1204 \| events=2 \|/);
+  assert.match(run.output, /\| direct \| \(defaults\) \| auto \| yes \| yes \| 51902 \| 1204 \| events=2 /);
+});
+
+void test("every row names the response body it was read from", async () => {
+  const run = await runMatrix({ direct: true, zen: false });
+  const paths = evidencePathsIn(readFileSync(join(run.out, "results.txt"), "utf8"));
+  assert.equal(paths.length, expectedCompats().length);
+  assert.equal(new Set(paths).size, paths.length, "two rows must not share one file");
+  for (const path of paths) assert.ok(existsSync(join(run.out, path)), `${path} is missing`);
+});
+
+// The bug this guards: a re-measured case used to overwrite the evidence
+// behind the row already in results.txt, leaving two rows pointing at one file
+// that only described the later run.
+void test("re-measuring keeps the earlier run's evidence intact", async () => {
+  const first = await runMatrix({ direct: true, zen: false });
+  const second = await runMatrix({ direct: true, zen: false }, first.out);
+  const results = readFileSync(join(first.out, "results.txt"), "utf8");
+  const paths = evidencePathsIn(results);
+  assert.equal(paths.length, expectedCompats().length * 2, "both runs are recorded");
+  assert.equal(new Set(paths).size, paths.length, "no row's evidence was overwritten");
+  for (const path of paths) assert.ok(existsSync(join(second.out, path)), `${path} is missing`);
 });
 
 function formatRows(records: string): string {
