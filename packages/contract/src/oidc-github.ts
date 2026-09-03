@@ -87,6 +87,29 @@ function subAnchored(claims: GitHubOidcClaims, policy: GitHubOidcPolicy): boolea
 }
 
 /**
+ * MED-2: the token must match one fully-anchored shape for this environment —
+ * the ref+environment pair, or the environment-scoped sub. The disjunction is
+ * between two independently complete anchors, never between two halves of one.
+ */
+function environmentAnchored(claims: GitHubOidcClaims, policy: GitHubOidcPolicy): boolean {
+  return refAnchored(claims, policy) || subAnchored(claims, policy);
+}
+
+/**
+ * Every workflow ref the token carries must be a trusted deploy workflow, and
+ * at least one must be present — a token naming no workflow at all is rejected
+ * fail-closed. A ref that is present but not a string counts as carried and
+ * untrusted: `claims` comes from an unverified payload, so a non-string here is
+ * a forged shape, not an absent claim.
+ */
+function workflowRefsTrusted(claims: GitHubOidcClaims, policy: GitHubOidcPolicy): boolean {
+  const carried = [claims.workflow_ref, claims.job_workflow_ref].filter(
+    (ref) => ref !== undefined,
+  );
+  return carried.length > 0 && carried.every((ref) => trustedWorkflow(ref, policy));
+}
+
+/**
  * The pure claims allowlist (testable without jose). Enforces audience,
  * issuer, repository, the workflow_ref/job_workflow_ref deploy-workflow
  * constraint, and the per-environment ref/sub anchor exactly per MED-2.
@@ -106,16 +129,10 @@ export function enforceGitHubOidcAllowlist(
   if (claims.repository !== policy.repository) {
     return { ok: false, reason: `untrusted repository ${claims.repository ?? "(missing)"}` };
   }
-  // Every workflow ref the token carries must be a trusted deploy workflow,
-  // and at least one must be present (fail closed on a naked token).
-  const hasRef = claims.workflow_ref !== undefined || claims.job_workflow_ref !== undefined;
-  const allTrusted =
-    (claims.workflow_ref === undefined || trustedWorkflow(claims.workflow_ref, policy)) &&
-    (claims.job_workflow_ref === undefined || trustedWorkflow(claims.job_workflow_ref, policy));
-  if (!hasRef || !allTrusted) {
+  if (!workflowRefsTrusted(claims, policy)) {
     return { ok: false, reason: `workflow_ref/job_workflow_ref not a trusted deploy workflow` };
   }
-  if (!refAnchored(claims, policy) && !subAnchored(claims, policy)) {
+  if (!environmentAnchored(claims, policy)) {
     return { ok: false, reason: `claims not anchored to the target environment (MED-2)` };
   }
   return { ok: true };
@@ -145,8 +162,8 @@ export function createGitHubOidcVerifier(
       } catch {
         return { ok: false, reason: "OIDC token failed signature or exp/iss/aud validation" };
       }
-      const allowed = enforceGitHubOidcAllowlist(payload as GitHubOidcClaims, policy);
-      return allowed.ok ? { ok: true, claims: payload as GitHubOidcClaims } : allowed;
+      const allowed = enforceGitHubOidcAllowlist(payload, policy);
+      return allowed.ok ? { ok: true, claims: payload } : allowed;
     },
   };
 }
