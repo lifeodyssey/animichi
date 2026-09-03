@@ -35,6 +35,10 @@ class MapStorage {
     return Promise.resolve();
   }
 
+  get(key: string): Promise<unknown> {
+    return Promise.resolve(this.values.get(key));
+  }
+
   delete(key: string): Promise<boolean> {
     return Promise.resolve(this.values.delete(key));
   }
@@ -75,7 +79,9 @@ void test("an arm request naming no run is refused rather than queued", async ()
 });
 
 void test("a stream request answers an SSE body for that run", async () => {
-  const response = await makeSession(new MapStorage()).fetch(streamRequest(`?runId=${RUN_ID}`));
+  const session = makeSession(new MapStorage());
+  await session.fetch(armRequest(RUN_ID));
+  const response = await session.fetch(streamRequest(`?runId=${RUN_ID}`));
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("content-type"), "text/event-stream; charset=utf-8");
   assert.equal(response.headers.get("cache-control"), "no-store");
@@ -84,6 +90,15 @@ void test("a stream request answers an SSE body for that run", async () => {
 
 void test("a stream request naming no run is a 404, not an empty stream", async () => {
   assert.equal((await makeSession(new MapStorage()).fetch(streamRequest(""))).status, 404);
+});
+
+/** The other half of that refusal, and the reason it is not cosmetic: this
+ * session owes no work for the run, so nothing would ever write a frame or a
+ * terminator to the subscriber. A 404 sends the client to the retrieval
+ * surface (#1254); a stream would leave it waiting for a turn that is over. */
+void test("a stream request for a run this session does not owe work for is a 404", async () => {
+  const response = await makeSession(new MapStorage()).fetch(streamRequest(`?runId=${RUN_ID}`));
+  assert.equal(response.status, 404);
 });
 
 void test("any other path on the session is a 404", async () => {

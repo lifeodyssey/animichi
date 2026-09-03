@@ -8,7 +8,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { isJsonRecord } from "../src/agent/json-record.ts";
 import type { QuotaReservation } from "../src/agent/intake/quota-reservation.ts";
 import type { TurnSubmission } from "../src/agent/intake/turn-intake.ts";
-import type { RunPayer } from "../src/db/schema.ts";
+import type { RunFailureReason, RunPayer } from "../src/db/schema.ts";
 
 export type AgentDatabase = NodePgDatabase;
 
@@ -35,16 +35,51 @@ export function makeSubmission(overrides: Partial<TurnSubmission> = {}): TurnSub
   };
 }
 
-/** The session row every message and run hangs off (FK, ON DELETE CASCADE). */
-export async function seedSession(database: AgentDatabase, sessionId: string): Promise<void> {
+/** The session row every message and run hangs off (FK, ON DELETE CASCADE).
+ * `ownerId` is the identity `ConversationRetrieval` checks a reader against;
+ * a session left unowned is the anonymous transcript the retrieval refuses. */
+export async function seedSession(
+  database: AgentDatabase,
+  sessionId: string,
+  ownerId: string | null = null,
+): Promise<void> {
   await database.execute(
-    sql`insert into sessions (id) values (${sessionId}) on conflict (id) do nothing`,
+    sql`insert into sessions (id, user_id) values (${sessionId}, ${ownerId})
+        on conflict (id) do nothing`,
+  );
+}
+
+/** One transcript row, stamped at the instant the case is about. */
+export interface SeededMessage {
+  readonly sessionId: string;
+  readonly role: "user" | "assistant";
+  readonly content: string;
+  /** ISO instant; the retrieval orders on it. */
+  readonly createdAt: string;
+  /** The `response_data` envelope, or none. */
+  readonly responseData?: Record<string, unknown> | null;
+}
+
+/** The envelope column as the row carries it: SQL NULL when there is none,
+ * which is what the intake writes for a user message. */
+function envelopeOf(message: SeededMessage): string | null {
+  const envelope = message.responseData ?? null;
+  return envelope === null ? null : JSON.stringify(envelope);
+}
+
+export async function seedMessage(database: AgentDatabase, message: SeededMessage): Promise<void> {
+  await database.execute(
+    sql`insert into messages (session_id, role, content, response_data, created_at)
+        values (${message.sessionId}, ${message.role}, ${message.content},
+                ${envelopeOf(message)}::jsonb, ${message.createdAt})`,
   );
 }
 
 export interface SeededRun {
   readonly sessionId: string;
-  readonly status: "running" | "succeeded";
+  readonly status: "running" | "succeeded" | "failed";
+  /** Why the turn failed — required exactly when it did (`runs_failed_has_reason_check`). */
+  readonly failureReason?: RunFailureReason | null;
   /** ISO instant, or null for a run that never took a lease. */
   readonly leaseExpiresAt: string | null;
   /** Who pays for the turn; the anonymous visitor unless a case says otherwise. */
@@ -70,11 +105,11 @@ export async function seedRun(database: AgentDatabase, run: SeededRun): Promise<
 
 function insertSeededRun(run: SeededRun, messageId: string) {
   return sql`insert into runs
-      (session_id, message_id, status, lease_owner, lease_expires_at, deadline_at, finished_at,
-       payer, quota_identity_id, quota_usage_date, quota_refunded_at, usage_settled_at)
-    values (${run.sessionId}, ${messageId}, ${run.status}, ${leaseOwnerOf(run)},
-            ${run.leaseExpiresAt}, ${FAR_DEADLINE}, ${finishedAtOf(run)}, ${run.payer ?? "anon"},
-            ${seededQuota(run)})
+      (session_id, message_id, status, failure_reason, lease_owner, lease_expires_at, deadline_at,
+       finished_at, payer, quota_identity_id, quota_usage_date, quota_refunded_at, usage_settled_at)
+    values (${run.sessionId}, ${messageId}, ${run.status}, ${run.failureReason ?? null},
+            ${leaseOwnerOf(run)}, ${run.leaseExpiresAt}, ${FAR_DEADLINE}, ${finishedAtOf(run)},
+            ${run.payer ?? "anon"}, ${seededQuota(run)})
     returning id`;
 }
 

@@ -17,9 +17,11 @@
  *   `RunSweeper` calls it again for anything stranded; both are idempotent
  *   because the lease decides, not the wake-up (§三).
  * - `GET /stream?runId=` registers an in-memory subscriber and hands back an
- *   SSE body. `fetch` and `alarm()` run on the same incarnation and share its
- *   heap, which is the entire handoff mechanism; subscribers are not persisted,
- *   so an eviction costs the live view and nothing else.
+ *   SSE body, for a run this session still owes work for; anything else is a
+ *   404 the caller reads back instead. `fetch` and `alarm()` run on the same
+ *   incarnation and share its heap, which is the entire handoff mechanism;
+ *   subscribers are not persisted, so an eviction costs the live view and
+ *   nothing else.
  *
  * A plain Durable Object class, like `EdgeGuard` and `RunSweeper`: no
  * `cloudflare:workers` import, so every module it reaches stays importable
@@ -53,7 +55,7 @@ export class AgentSession {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === SESSION_ARM_PATH) return await this.#arm(request);
-    if (url.pathname === SESSION_STREAM_PATH) return this.#stream(url);
+    if (url.pathname === SESSION_STREAM_PATH) return await this.#stream(url);
     return notFound();
   }
 
@@ -74,10 +76,20 @@ export class AgentSession {
     return new Response(null, { status: 204 });
   }
 
-  #stream(url: URL): Response {
+  /**
+   * A live view exists only for a run this session still owes work for. The
+   * alarm and this fetch are two calls on one incarnation, so the alarm can
+   * already have driven the run to its ending — a subscriber registered after
+   * that would hold a channel nothing will ever write a frame or a terminator
+   * to. The queue read is handed over IN FLIGHT so the subscriber set settles
+   * it and registers in one uninterrupted step; a refused view is a 404 the
+   * caller degrades to the retrieval surface (§二).
+   */
+  async #stream(url: URL): Promise<Response> {
     const runId = url.searchParams.get("runId");
     if (runId === null || runId === "") return notFound();
-    return sseResponse(this.#subscribers.register(runId).body);
+    const view = await this.#subscribers.openLiveView(runId, this.#queue.holds(runId));
+    return view === null ? notFound() : sseResponse(view.body);
   }
 
   /** One run, then close whoever was watching it. */

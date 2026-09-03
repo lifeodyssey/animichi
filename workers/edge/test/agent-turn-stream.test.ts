@@ -15,6 +15,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DurableTurn } from "../src/agent/session/durable-turn.ts";
 import { closingFrames, framesFor, openingFrames } from "../src/agent/session/turn-frames.ts";
+import type { SseTurnChannel } from "../src/agent/session/sse-turn-channel.ts";
 import { TurnSubscribers } from "../src/agent/session/turn-subscribers.ts";
 import { InMemoryTurnStore } from "./doubles/in-memory-turn-store.ts";
 import { CountingSpotLookup, makeScriptedModels, makeUserTranscript } from "./doubles/make-turn-parts.ts";
@@ -24,6 +25,14 @@ const NOW = 1_000;
 
 async function readAll(body: ReadableStream<Uint8Array>): Promise<string> {
   return await new Response(body).text();
+}
+
+/** The live view of a run the session still owes work for — the only door
+ * onto a channel, and the case every frame test below is about. */
+async function liveView(subscribers: TurnSubscribers): Promise<SseTurnChannel> {
+  const view = await subscribers.openLiveView(RUN_ID, Promise.resolve(true));
+  assert.ok(view);
+  return view;
 }
 
 function makeStore(): InMemoryTurnStore {
@@ -101,7 +110,7 @@ void test("a failed turn closes on error, not on stop", () => {
  * buffer a test drained afterwards. */
 void test("a registered subscriber reads the turn's frames and its terminator", async () => {
   const subscribers = new TurnSubscribers();
-  const reading = readAll(subscribers.register(RUN_ID).body);
+  const reading = readAll((await liveView(subscribers)).body);
   await makeTurn(subscribers).run(RUN_ID);
   await subscribers.finish(RUN_ID);
   const streamed = await reading;
@@ -113,7 +122,7 @@ void test("a registered subscriber reads the turn's frames and its terminator", 
 
 void test("a subscriber that hung up is dropped and the turn still succeeds", async () => {
   const subscribers = new TurnSubscribers();
-  const channel = subscribers.register(RUN_ID);
+  const channel = await liveView(subscribers);
   await channel.body.cancel();
   assert.deepEqual(await makeTurn(subscribers).run(RUN_ID), { phase: "succeeded" });
   assert.equal(channel.clientGone, true);
@@ -129,10 +138,48 @@ void test("a turn nobody is watching still runs to its ending", async () => {
  * `finish` frames for one it does not own would contradict the owner's. */
 void test("a declined turn writes no frames to a subscriber watching it", async () => {
   const subscribers = new TurnSubscribers();
-  const reading = readAll(subscribers.register(RUN_ID).body);
+  const reading = readAll((await liveView(subscribers)).body);
   const store = makeStore();
   await store.settleFailed(RUN_ID, "cancelled", new Date(NOW));
   assert.deepEqual(await makeTurnOn(store, subscribers).run(RUN_ID), { phase: "declined" });
   await subscribers.finish(RUN_ID);
   assert.equal(await reading, "data: [DONE]\n\n");
+});
+
+/** The registration race (#1254). A `GET /stream` reads the session's storage
+ * queue, and the alarm can drive the run to its ending while that read is in
+ * flight — the read then answers "still queued" about a turn that is already
+ * over. The check therefore has to settle inside the subscriber set, next to
+ * the registration: settled anywhere earlier, this hands the client a channel
+ * nothing will ever write a frame or a terminator to. */
+void test("a turn that ends while the queue check is in flight opens no live view", async () => {
+  const subscribers = new TurnSubscribers();
+  let sayQueued: (owed: boolean) => void = () => undefined;
+  const queueRead = new Promise<boolean>((resolve) => {
+    sayQueued = resolve;
+  });
+  const opening = subscribers.openLiveView(RUN_ID, queueRead);
+  await subscribers.finish(RUN_ID);
+  sayQueued(true);
+  assert.equal(await opening, null);
+});
+
+/** The plain refusal: this session owes no work for the run at all. */
+void test("a run this session does not owe work for opens no live view", async () => {
+  const subscribers = new TurnSubscribers();
+  assert.equal(await subscribers.openLiveView(RUN_ID, Promise.resolve(false)), null);
+});
+
+/** The same race one step earlier: writing a terminator awaits a reader, so a
+ * turn can be ENDING for as long as a subscriber takes to read. A view opened
+ * in that window is refused too — the ending has already walked past the list
+ * it would have joined. */
+void test("a view opened while the turn's terminators are still going out is refused", async () => {
+  const subscribers = new TurnSubscribers();
+  const channel = await liveView(subscribers);
+  const finishing = subscribers.finish(RUN_ID);
+  assert.equal(await subscribers.openLiveView(RUN_ID, Promise.resolve(true)), null);
+  const drained = readAll(channel.body);
+  await finishing;
+  assert.equal(await drained, "data: [DONE]\n\n");
 });

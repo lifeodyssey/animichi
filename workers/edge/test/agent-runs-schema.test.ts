@@ -6,11 +6,13 @@ import {
   messages,
   runSteps,
   runs,
+  sessions,
   MESSAGE_ROLES,
   RUN_FAILURE_REASONS,
   RUN_PAYERS,
   RUN_STATUSES,
 } from "../src/db/schema.ts";
+import { RunFailureReason, SessionRunStatus } from "@animichi/contract/agent-contract";
 import { readMigrationSchema, type ColumnSchema } from "./migration-schema.ts";
 import { readMappedTable } from "./mapped-table.ts";
 
@@ -34,6 +36,11 @@ const mapped = new Map([
   // `daily_usage.scope` verbatim, so the two CHECK vocabularies have to keep
   // agreeing without anyone re-typing either of them.
   ["daily_usage", readMappedTable(dailyUsage)],
+  // The conversation a transcript hangs off (#1254). Mapped for its ownership
+  // column alone, and held to the chain here for the same reason as the rest:
+  // `ConversationRetrieval` refuses a session it cannot prove the caller owns,
+  // so `sessions.user_id` moving underneath that check has to fail somewhere.
+  ["sessions", readMappedTable(sessions)],
 ]);
 
 /** Run columns that carry no value until a lease is taken or the turn settles. */
@@ -78,6 +85,15 @@ void test("runs pins the vocabularies the client and the reclaim scan read", () 
   assert.deepEqual(runColumns.get("payer")?.values, [...RUN_PAYERS]);
   assert.deepEqual(runColumns.get("failure_reason")?.values, [...RUN_FAILURE_REASONS]);
   assert.equal(runColumns.get("status")?.hasDefault, true);
+});
+
+/** The third mirror of the same vocabularies: the wire. `runs.status` and
+ * `runs.failure_reason` reach the browser through the run field on
+ * `GET /v1/conversations/:id/messages` (#1254), so a value the database may
+ * hold and the contract may not is a payload the client refuses to parse. */
+void test("the published run status speaks the database's own vocabularies", () => {
+  assert.deepEqual(SessionRunStatus.shape.status.options, [...RUN_STATUSES]);
+  assert.deepEqual(RunFailureReason.options, [...RUN_FAILURE_REASONS]);
 });
 
 void test("one run per message, one running run per session, one message per id", () => {

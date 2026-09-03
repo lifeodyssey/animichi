@@ -181,10 +181,27 @@ class GetSessionHistoryResponseMessages(BaseModel):
     created_at: str
 
 
+class GetSessionHistoryResponseRun(BaseModel):
+    run_id: str
+    status: Literal["running", "succeeded", "failed"]
+    reason: (
+        Literal[
+            "lease_expired",
+            "deadline_exceeded",
+            "provider_failed",
+            "tool_failed",
+            "cancelled",
+            "internal_error",
+        ]
+        | None
+    ) = None
+
+
 class GetSessionHistoryResponse(BaseModel):
     messages: list[GetSessionHistoryResponseMessages]
     revision: int
     next_offset: int | None
+    run: GetSessionHistoryResponseRun | None = None
 
 
 class SubmitFeedbackRequest(BaseModel):

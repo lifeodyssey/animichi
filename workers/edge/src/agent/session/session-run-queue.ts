@@ -23,6 +23,7 @@
  */
 export interface QueueStorage {
   put(key: string, value: unknown): Promise<void>;
+  get(key: string): Promise<unknown>;
   delete(key: string): Promise<boolean>;
   list(options: { prefix: string }): Promise<Map<string, unknown>>;
 }
@@ -45,6 +46,14 @@ export class SessionRunQueue {
   async pending(): Promise<string[]> {
     const held = await this.#storage.list({ prefix: PENDING });
     return [...held.values()].filter((value) => typeof value === "string");
+  }
+
+  /** Whether this session still owes work for one run. The stream hand-off
+   * reads it before registering a subscriber: a run this session is not going
+   * to drive has nobody left to write that subscriber a frame or a terminator
+   * (#1254). Keyed rather than listed — one run, one read. */
+  async holds(runId: string): Promise<boolean> {
+    return (await this.#storage.get(PENDING + runId)) !== undefined;
   }
 
   async dequeue(runId: string): Promise<void> {
