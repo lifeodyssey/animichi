@@ -14,6 +14,7 @@ import { serviceBindingCatalog, type CatalogBinding } from "../tools/service-bin
 import { DurableTurn } from "./durable-turn.ts";
 import { EnvelopeStagingStore } from "./envelope-staging-store.ts";
 import { NeonTurnStore } from "./neon-turn-store.ts";
+import { TurnAnswering } from "./turn-answer.ts";
 import type { SessionEnvelopeStore } from "./session-envelope.ts";
 import { TurnEnvelope } from "./turn-envelope.ts";
 import type { TurnCatalogSession } from "./turn-catalog-session.ts";
@@ -85,6 +86,7 @@ function configuredTurn(
     store: new EnvelopeStagingStore(store, envelope),
     models: createTurnModels(apiKey),
     toolbox: turnToolbox(parts.env, envelope.session),
+    answering: new TurnAnswering(envelope.session),
     systemPrompt: envelope.systemPrompt,
     prices: usagePricesIn(parts.env),
     emit: parts.emit,

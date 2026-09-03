@@ -10,6 +10,8 @@ import { createModels, createProvider, type MutableModels } from "@earendil-work
 import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Type, type Static } from "typebox";
 import { mimoModel } from "../../src/agent/session/turn-model.ts";
+import { TurnAnswering } from "../../src/agent/session/turn-answer.ts";
+import { TurnCatalogSession } from "../../src/agent/session/turn-catalog-session.ts";
 import type { Toolbox, TurnTool } from "../../src/agent/session/turn-toolbox.ts";
 import type { TranscriptRow } from "../../src/agent/session/turn-store.ts";
 import { makeToolCallingStreamFn } from "./pi-provider-double.ts";
@@ -63,6 +65,14 @@ export function makeScriptedModels(streamFn = makeToolCallingStreamFn()): Mutabl
     }),
   );
   return models;
+}
+
+/** How a turn under test answers (#1283): the `respond` tool over a session
+ * whose stored results are whatever the case put in it. */
+export function makeTurnAnswering(
+  session: TurnCatalogSession = new TurnCatalogSession({ locale: "ja" }),
+): TurnAnswering {
+  return new TurnAnswering(session);
 }
 
 /** The one user message every case starts from. */

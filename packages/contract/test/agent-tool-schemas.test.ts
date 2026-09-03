@@ -1,7 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { CATALOG_TOOL_PARAMETERS } from "../src/agent-tool-parameters.js";
-import { CATALOG_TOOL_SCHEMAS } from "../src/agent-tool-schemas.js";
+import { ANSWER_KINDS, CATALOG_TOOL_PARAMETERS } from "../src/agent-tool-parameters.js";
+import {
+  ANSWER_TOOL_NAME,
+  ANSWER_TOOL_SCHEMA,
+  CATALOG_TOOL_SCHEMAS,
+  CHAT_RESPONSE_INTENTS,
+} from "../src/agent-tool-schemas.js";
+import { ChatResponseDataPart } from "../src/chat-data-parts.js";
 import { TOOL_SCHEMA_MODULE_PATH, toolSchemaModule } from "../scripts/emit-tool-schemas.js";
 
 describe("the catalog tool schema seam", () => {
@@ -47,5 +53,26 @@ describe("the catalog tool schema seam", () => {
       ["search_nearby", []],
       ["plan_route", ["search_result_ref"]],
     ]);
+  });
+});
+
+describe("the answer tool seam (#1283)", () => {
+  it("names the tool once, where the Worker can read it without zod", () => {
+    expect(ANSWER_TOOL_NAME).toBe("respond");
+  });
+
+  it("offers the model Python's own output vocabulary and nothing wider", () => {
+    expect(ANSWER_TOOL_SCHEMA.properties.kind?.enum).toStrictEqual([...ANSWER_KINDS]);
+  });
+
+  it("requires a kind and a non-blank message, and refuses invented parameters", () => {
+    expect(ANSWER_TOOL_SCHEMA.required).toStrictEqual(["kind", "message"]);
+    expect(ANSWER_TOOL_SCHEMA.properties.message?.pattern).toBe("\\S");
+    expect(ANSWER_TOOL_SCHEMA.additionalProperties).toBe(false);
+  });
+
+  it("emits the intent vocabulary the response union itself declares", () => {
+    const declared = ChatResponseDataPart.options.map((option) => option.shape.intent.value);
+    expect([...CHAT_RESPONSE_INTENTS]).toStrictEqual(declared);
   });
 });

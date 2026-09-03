@@ -19,7 +19,7 @@ import { TurnCatalogSession } from "../src/agent/session/turn-catalog-session.ts
 import { turnToolbox } from "../src/agent/session/session-turn.ts";
 import { LUCKY_STAR_ROUTE, SATTE, WASHINOMIYA } from "./doubles/catalog-payloads.ts";
 import { InMemoryTurnStore } from "./doubles/in-memory-turn-store.ts";
-import { makeScriptedModels, makeUserTranscript } from "./doubles/make-turn-parts.ts";
+import { makeScriptedModels, makeTurnAnswering, makeUserTranscript } from "./doubles/make-turn-parts.ts";
 import { makeSequencedToolCallsStreamFn } from "./doubles/pi-provider-double.ts";
 
 const NOW = 1_000;
@@ -58,7 +58,7 @@ async function runSearchThenRoute() {
     ]),
   );
   const turn = new DurableTurn({
-    store, models, toolbox, systemPrompt: "test", prices: PRICES,
+    store, models, toolbox, answering: makeTurnAnswering(session), systemPrompt: "test", prices: PRICES,
     emit: () => Promise.resolve(), owner: "do-1", now: () => NOW,
   });
   await turn.run("run-1");

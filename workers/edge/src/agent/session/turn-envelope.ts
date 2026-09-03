@@ -18,17 +18,25 @@
  * (`TurnSteps`), so it applies nothing, and the value written back is the whole
  * envelope rather than a delta, so writing it twice cannot count twice.
  *
- * ONE PYTHON RULE IS NOT PORTED, and it is not an oversight. `animichi_runner`
- * cleared `pending_clarification` at the end of a successful run UNLESS the
- * model's final answer was itself a `ClarifyResponseModel` — a repair for a tool
- * that asked a question the model then never put to the user. It is not
- * expressible here yet: the TS tier has no typed output vocabulary (see
- * `turn-instructions.ts`), so `TurnState` carries nothing about WHAT the model
- * answered, only whether the run ended. Until the structured-output card lands,
- * the tools are the only witness — every one of them clears the clarification on
- * the paths that answer (`resolve_anime` resolved, both searches, `plan_route`)
- * and sets it on the paths that ask — and a clarification a tool set but the
- * model failed to voice will persist one turn too long.
+ * PYTHON'S END-OF-RUN REPAIR IS PORTED, and it is NOT here (#1283 closed
+ * #1280's deferral). `animichi_runner` cleared `pending_clarification` at the
+ * end of a successful run unless the model's final answer was itself a
+ * `ClarifyResponseModel` — a repair for a tool that asked a question the model
+ * then never put to the user. Now that a turn HAS a typed output, the witness
+ * exists; it lives in `TurnAnswering.close()` rather than in `close()` below
+ * because of the order this module is built around. `stage()` runs INSIDE the
+ * settlement transaction (`EnvelopeStagingStore`), so a repair applied after it
+ * would be written to a value nobody re-reads, and the alarm's retry would
+ * promote the unrepaired staging. The repair therefore belongs before the
+ * staging, with the answer that justifies it; `close()` still only promotes.
+ *
+ * The port is narrower than Python's wording in one place, deliberately: only a
+ * SUBMITTED answer repairs anything. Python could say "unless the output was a
+ * clarification" because its `output_type` union made a typed output the only
+ * way a run terminated; pi's loop ends cleanly on a turn that called no tool at
+ * all, and reading that silence as "answered something else" would let a model
+ * asking its question in prose wipe the clarification the tool just set. The
+ * tools remain the only witness on that path, exactly as before #1283.
  */
 import type { SessionEnvelopeStore } from "./session-envelope.ts";
 

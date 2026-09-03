@@ -92,12 +92,14 @@ export const UI_MESSAGE_STREAM_HEADER = "x-vercel-ai-ui-message-stream";
 /** The session a turn was committed on, named on the response.
  *
  * NEW on this tier, and it has to be: the web learns its session id from the
- * `data-response` part today, and `session/turn-frames.ts` does not emit one
- * yet (its header says why — the projection has no TypeScript counterpart).
- * Until it does, this header is the only way a first turn can tell the client
- * which conversation to come back to, which is exactly what §二's disconnect
- * semantics require of it. The 202 body carries the same id for the same
- * reason. */
+ * `data-response` part on the Python tier, and this tier's part does not carry
+ * one. `session/turn-answer-part.ts` projects the answer from what the TURN
+ * produced (#1283) — the session id is the intake's, not the answer's, and
+ * threading it into a payload the model's own answer fills would put request
+ * routing inside the response vocabulary. This header is therefore how a first
+ * turn tells the client which conversation to come back to, which is exactly
+ * what §二's disconnect semantics require of it. The 202 body carries the same
+ * id for the same reason. */
 export const SESSION_ID_HEADER = "x-session-id";
 
 /**

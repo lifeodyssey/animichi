@@ -1,5 +1,6 @@
 /**
- * Parameter schemas for the four catalog tools the agent exposes to the model.
+ * Parameter schemas for the tools the agent exposes to the model: the four
+ * catalog tools, and the `respond` tool one turn ends on (#1283).
  *
  * They live HERE, in zod, because three of the four carry constraints the
  * catalog already declares for its own request bodies (`ResolveInput.query`,
@@ -86,3 +87,56 @@ export const CATALOG_TOOL_PARAMETERS = {
 
 /** The name of one catalog tool. */
 export type CatalogToolName = keyof typeof CATALOG_TOOL_PARAMETERS;
+
+/** The tool a turn ends on: the model submits its answer by calling it (#1283). */
+export const ANSWER_TOOL_NAME = "respond";
+
+/**
+ * What the model says its answer IS — Python's output vocabulary
+ * (`runtime_models.RuntimeStageOutput`), one member per response model the
+ * agent could return: `SearchResponseModel`, `ItineraryResponseModel`,
+ * `ClarifyResponseModel`, `GreetingResponseModel`, `QAResponseModel`.
+ *
+ * It is deliberately COARSER than `ChatResponseDataPart`'s `intent`. Python
+ * derived `search_bangumi` vs `search_nearby` and `plan_route` vs
+ * `plan_selected` from its own recorded steps rather than from the model
+ * (`animichi_runner.runtime_stage`), so the model never gets to name a search it
+ * did not run; `workers/edge` keeps that split, resolving a kind against the
+ * turn's own stored results.
+ */
+export const ANSWER_KINDS = ["search", "route", "clarify", "greeting", "qa"] as const;
+
+/** One member of the model's answer vocabulary. */
+export type AnswerKind = (typeof ANSWER_KINDS)[number];
+
+/**
+ * `respond(kind, message, reason?)` — the final answer, as a tool call.
+ *
+ * The model authors PROSE and a kind, never the envelope: `data`, `status`,
+ * `ui` and the candidate list are projected from server state, exactly as
+ * `_CompactOutput` ("Forbid the retired model-authored intent, data, and UI
+ * envelopes") kept them out of Python's output models.
+ */
+export const AnswerParameters = z
+  .object({
+    kind: z
+      .enum(ANSWER_KINDS)
+      .describe(
+        "What this answer is: search (results were found), route (an itinerary was planned), clarify (the user must choose), greeting, or qa",
+      ),
+    message: z
+      .string()
+      .regex(NON_BLANK)
+      .describe(
+        "The reply shown to the user. Brief for search, route and clarify because the app renders the rich UI; a full answer for qa",
+      ),
+    reason: z
+      .string()
+      .regex(NON_BLANK)
+      .optional()
+      .describe(
+        "For kind=clarify only: the pending tool outcome's own reason, copied exactly",
+      ),
+  })
+  .strict();
+export type AnswerParameters = z.infer<typeof AnswerParameters>;

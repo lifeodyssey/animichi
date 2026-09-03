@@ -10,10 +10,14 @@ them. Root guide: `../../AGENTS.md`; detailed mirror checklist: `README.md`.
 - `pnpm run emit:openapi` — regenerate `openapi.json`, `users-openapi.json`, and `agent-openapi.json`.
 - `pnpm run emit:tool-schemas` — regenerate `src/agent-tool-schemas.ts` from
   `src/agent-tool-parameters.ts`. This is the repo's **single** zod↔JSON-Schema conversion
-  (agent TS rewrite spec §二, "schema 边界"): the agent's four catalog tool parameter schemas are
-  declared here in zod, composed from the catalog's own request constraints, and `workers/edge`
-  consumes the generated module without loading zod. `test/agent-tool-schemas.test.ts` fails on
-  committed drift, the way the OpenAPI documents do. Never hand-edit the generated file.
+  (agent TS rewrite spec §二, "schema 边界"): the agent's four catalog tool parameter schemas and
+  the `respond` answer tool's are declared here in zod, composed from the catalog's own request
+  constraints, and `workers/edge` consumes the generated module without loading zod. The module
+  also carries `ANSWER_TOOL_NAME` and `CHAT_RESPONSE_INTENTS` (read off `ChatResponseDataPart`'s
+  own union, #1283) for the same reason — the Worker names the tool and builds the part but cannot
+  load zod to learn either vocabulary. `test/agent-tool-schemas.test.ts` fails on committed drift,
+  the way the OpenAPI documents do; `test/chat-answer-part.test.ts` parses what the edge's
+  projection actually emits. Never hand-edit the generated file.
 - `pnpm run vet:openapi <baseline.json> <candidate.json>` — OpenAPI compat gate
   (issue #1005 AC4/AC5): fails on unapproved breaking changes, approves additive
   ones, and rejects a future major path unless its superseded operation carries
@@ -41,9 +45,11 @@ on this landing, because after it lands merge-base IS the post-cut contract.
 ## Key files + entrypoints
 
 - `src/models.ts` — shared Zod data models.
-- `src/agent-tool-parameters.ts` — the agent's catalog tool parameters in zod (not a wire type: no
-  oRPC procedure and no OpenAPI document references them) · `src/agent-tool-schemas.ts` — their
-  generated JSON Schema · `scripts/emit-tool-schemas.ts` — the conversion · `test/agent-tool-schemas.test.ts` — its drift gate.
+- `src/agent-tool-parameters.ts` — the agent's catalog tool parameters and the `respond` answer
+  tool's, in zod (not a wire type: no oRPC procedure and no OpenAPI document references them) ·
+  `src/agent-tool-schemas.ts` — their generated JSON Schema · `scripts/emit-tool-schemas.ts` — the
+  conversion · `test/agent-tool-schemas.test.ts` — its drift gate ·
+  `test/chat-answer-part.test.ts` — the conformance gate on the edge's `data-response` projection.
 - `src/contract.ts` — catalog procedures and error attachments.
 - `src/users-contract.ts` — users-service procedures and errors.
 - `src/errors.ts` — canonical catalog error registry.

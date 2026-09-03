@@ -16,6 +16,7 @@ import { TurnEnvelope } from "../../src/agent/session/turn-envelope.ts";
 import { turnToolbox } from "../../src/agent/session/session-turn.ts";
 import { InMemoryTurnStore } from "./in-memory-turn-store.ts";
 import { makeScriptedModels, makeUserTranscript } from "./make-turn-parts.ts";
+import { TurnAnswering } from "../../src/agent/session/turn-answer.ts";
 import { KUKI_STATION, SATTE, WASHINOMIYA } from "./catalog-payloads.ts";
 import { RecordingEnvelopeStorage } from "./recording-envelope-storage.ts";
 
@@ -115,6 +116,7 @@ function scriptedTurn(parts: EnvelopeTurnParts, store: InMemoryTurnStore, envelo
     store: new EnvelopeStagingStore(store, envelope),
     models: makeScriptedModels(promptRecording(parts.streamFn, prompts)),
     toolbox: turnToolbox(binding, envelope.session),
+    answering: new TurnAnswering(envelope.session),
     systemPrompt: envelope.systemPrompt,
     prices: PRICES, emit: () => Promise.resolve(), owner: "do-1", now: () => NOW,
   });
