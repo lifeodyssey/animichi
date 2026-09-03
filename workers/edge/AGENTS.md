@@ -15,6 +15,11 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `bundle-smoke/pi-kernel.worker.ts` with wrangler's own esbuild settings and **executes** the
   artifact in workerd. Separate from `pnpm test` on purpose — it is the only gate that can see
   bundle-only runtime failures, and it is slower than the node:test suite.
+- `pnpm run test:catalog-api` — opt-in staging lane (`api-test/*.test.ts`, W1-4 #1253) for the
+  catalog tools. It asserts what CAN be seen from outside a deployed Worker: the origin is alive
+  and none of the five catalog procedures the tools call has a public door (spec Appendix D).
+  Fails closed without `CATALOG_API_ORIGIN`; never in CI. Why it cannot call the procedures
+  themselves, and what a real end-to-end check needs, is in `api-test/README.md`.
 - `pnpm run test:spike-db` — opt-in lane (`db-test/*.test.ts`) that runs the W0-S4 spike's run
   store against a **real** PostgreSQL named by `SPIKE_TEST_DATABASE_URL`. Never in CI and never
   against staging; it fails closed without a disposable database. Recipe: `spike/pi/README.md`.
@@ -47,12 +52,28 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   alongside the assistant message), `retrieval/` (how a turn is READ BACK:
   `ConversationRetrieval`, the owned and ordered transcript page plus the latest run's status
   behind `GET /v1/conversations/:id/messages` — spec §二's disconnect semantics, and the only
-  agent-tier read that never runs inside the Durable Object).
+  agent-tier read that never runs inside the Durable Object), `tools/` (the four catalog tools
+  the model calls, #1253).
   Ports live with the use case, Neon adapters beside them, and
   no module here imports `cloudflare:workers` so the node:test suite can load every one of them.
   The `Toolbox` port in `src/agent/session/turn-toolbox.ts` is the whole contract with #1253's
-  `src/agent/tools/`; until that lands the session runs with no tools. Nothing routes to it yet —
-  #1256 flips `/v1/chat`.
+  `src/agent/tools/`; the session does not build its toolbox from it yet. Nothing routes to it
+  yet — #1256 flips `/v1/chat`.
+- `src/agent/tools/` — `catalogToolbox(catalog, session)` returns the four `AgentTool`s the
+  session registers on the pi agent (`resolve_anime`, `search_bangumi`, `search_nearby`,
+  `plan_route`). Two ports carry everything turn-shaped: `CatalogClient` (production adapter
+  `serviceBindingCatalog`, over the private `CATALOG` binding — never a URL, spec Appendix D) and
+  `CatalogToolSession`, which the session's turn state implements. **The schema seam** (spec §二)
+  lives at `tool-schema-bridge.ts`: contract zod is the source,
+  `packages/contract/scripts/emit-tool-schemas.ts`
+  is the repo's ONE zod→JSON-Schema conversion, and nothing here re-declares a constraint or loads
+  zod. Adding a tool parameter means editing `packages/contract/src/agent-tool-parameters.ts` and
+  re-running `pnpm --filter @animichi/contract run emit:tool-schemas`.
+  Two things pi does NOT do for us and this folder therefore does: the per-tool 85s deadline
+  (Python got it from pydantic-ai's `Tool(timeout=…)`; `AgentTool` has no such field, so
+  `catalogToolBudget` holds it, injectable so tests need no real clock), and validating a catalog
+  response (the contract's zod cannot load here, so the adapter guards the one field each tool
+  branches on and degrades anything else to `upstream_unavailable`).
 - `src/agent/egress/` — the BYOK egress guard (W0-S5, #1248): `EgressPolicy` +
   `ProviderAllowlist` (exact provider hosts, HTTPS/443, own-infra and address-range refusals),
   `GuardedFetch` (`redirect: "manual"` and re-validation of every redirect target) and
@@ -66,6 +87,8 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   production code never imports from `test/`.
 - `db-test/` — the opt-in real-PostgreSQL lane (W0-S4, #1247). Test-only, outside `pnpm test`,
   and deleted with the spike when W0 closes.
+- `api-test/` — the W1-4 staging lane (#1253). Test-only and excluded from the edge deploy unit in
+  `.github/ci/components.json`, like every other lane directory here.
 - `agent-db-test/` — the agent-tier database arm (#1251), kept apart from `db-test/` precisely
   because that one leaves with the spike. Test-only: both directories are excluded from the edge
   deploy unit in `.github/ci/components.json`, and `pg`/`testcontainers` are devDependencies.
