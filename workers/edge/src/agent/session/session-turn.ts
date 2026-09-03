@@ -9,8 +9,11 @@
  */
 import { withAgentDatabase } from "../../db/agent-database.ts";
 import { usagePricesIn } from "../settlement/turn-settlement.ts";
+import { catalogToolbox } from "../tools/catalog-toolbox.ts";
+import { serviceBindingCatalog, type CatalogBinding } from "../tools/service-binding-catalog.ts";
 import { DurableTurn } from "./durable-turn.ts";
 import { NeonTurnStore } from "./neon-turn-store.ts";
+import { TurnCatalogSession } from "./turn-catalog-session.ts";
 import { TURN_SYSTEM_PROMPT } from "./turn-instructions.ts";
 import { createTurnModels, mimoKeyIn } from "./turn-model.ts";
 import type { TurnFrameSink } from "./turn-subscribers.ts";
@@ -18,12 +21,44 @@ import { EMPTY_TOOLBOX, type Toolbox } from "./turn-toolbox.ts";
 import type { TurnStore } from "./turn-store.ts";
 
 /**
- * The tools a turn may call. `EMPTY_TOOLBOX` until card #1253 lands
- * `src/agent/tools/` and its registry — the loop is complete without them (a
- * turn with no tools is one model call and an answer), and wiring a guessed
- * registry now would be a second definition of #1253's contract.
+ * The language a turn's rows are rendered in.
+ *
+ * A placeholder, and marked as one: Python took the locale from the request
+ * (`RuntimeDeps.locale`), and nothing in the agent tier carries it yet — no
+ * column on `runs` or `messages` holds it, so there is nothing to read. Until
+ * a card plumbs it through the intake, every turn localizes city names the way
+ * the product's primary audience reads them.
  */
-const TOOLBOX: Toolbox = EMPTY_TOOLBOX;
+const TURN_LOCALE = "ja";
+
+/** A real wait, injected into the catalog client so its retry backoff is real. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** The private `CATALOG` service binding, when the environment carries one. */
+function catalogBindingIn(env: Record<string, unknown>): CatalogBinding | undefined {
+  const binding = env.CATALOG;
+  if (binding !== null && typeof binding === "object" && "fetch" in binding) {
+    return binding as CatalogBinding;
+  }
+  return undefined;
+}
+
+/**
+ * The tools a turn may call: the four catalog tools over the private binding,
+ * bound to this turn's own session state (#1253).
+ *
+ * A missing binding yields `EMPTY_TOOLBOX` rather than a throw. The gateway
+ * tests build envs without one, and a turn that can still answer from the model
+ * is a better failure than an alarm that dies before it takes its lease.
+ */
+export function turnToolbox(env: Record<string, unknown>, session: TurnCatalogSession): Toolbox {
+  const binding = catalogBindingIn(env);
+  if (binding === undefined) return EMPTY_TOOLBOX;
+  const tools = catalogToolbox(serviceBindingCatalog(binding, sleep), session);
+  return { tools: () => tools };
+}
 
 export interface SessionTurnParts {
   readonly env: Record<string, unknown>;
@@ -45,7 +80,7 @@ async function driveOn(parts: SessionTurnParts, store: TurnStore, runId: string)
   await new DurableTurn({
     store,
     models: createTurnModels(apiKey),
-    toolbox: TOOLBOX,
+    toolbox: turnToolbox(parts.env, new TurnCatalogSession({ locale: TURN_LOCALE })),
     systemPrompt: TURN_SYSTEM_PROMPT,
     prices: usagePricesIn(parts.env),
     emit: parts.emit,

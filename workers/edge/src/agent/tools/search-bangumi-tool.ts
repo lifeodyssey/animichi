@@ -11,7 +11,7 @@ import type { CatalogClient } from "./catalog-client.ts";
 import { degradingCatalogFailure } from "./catalog-failure-degradation.ts";
 import type { ToolBudget } from "./catalog-timeouts.ts";
 import type { CatalogToolSession } from "./catalog-tool-session.ts";
-import type { SearchOutcome } from "./catalog-tool-outcomes.ts";
+import type { SearchOutcome, ToolDetails } from "./catalog-tool-outcomes.ts";
 import { UPSTREAM_DOWN } from "./catalog-tool-outcomes.ts";
 import { buildSearchResultPayload } from "./search-result-payload.ts";
 import { searchBangumiParameters } from "./tool-schema-bridge.ts";
@@ -41,7 +41,7 @@ export function searchBangumiTool(
   catalog: CatalogClient,
   session: CatalogToolSession,
   budget: ToolBudget,
-): AgentTool<typeof searchBangumiParameters, SearchOutcome> {
+): AgentTool<typeof searchBangumiParameters, ToolDetails<SearchOutcome>> {
   return {
     name: "search_bangumi",
     label: "Fetch pilgrimage points for a work",

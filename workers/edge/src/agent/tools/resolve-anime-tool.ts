@@ -12,7 +12,7 @@ import type { CatalogClient } from "./catalog-client.ts";
 import { degradingCatalogFailure } from "./catalog-failure-degradation.ts";
 import type { ToolBudget } from "./catalog-timeouts.ts";
 import type { CatalogToolSession, OrderedCandidate } from "./catalog-tool-session.ts";
-import type { ResolveOutcome as ToolOutcome } from "./catalog-tool-outcomes.ts";
+import type { ResolveOutcome as ToolOutcome, ToolDetails } from "./catalog-tool-outcomes.ts";
 import { UPSTREAM_DOWN } from "./catalog-tool-outcomes.ts";
 import { looksLikeWrongVariant } from "./title-variant-conflict.ts";
 import { resolveAnimeParameters } from "./tool-schema-bridge.ts";
@@ -85,7 +85,7 @@ export function resolveAnimeTool(
   catalog: CatalogClient,
   session: CatalogToolSession,
   budget: ToolBudget,
-): AgentTool<typeof resolveAnimeParameters, ToolOutcome> {
+): AgentTool<typeof resolveAnimeParameters, ToolDetails<ToolOutcome>> {
   return {
     name: "resolve_anime",
     label: "Resolve an anime title",

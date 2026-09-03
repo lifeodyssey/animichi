@@ -12,7 +12,7 @@ import type { CatalogClient } from "./catalog-client.ts";
 import { degradingCatalogFailure } from "./catalog-failure-degradation.ts";
 import type { ToolBudget } from "./catalog-timeouts.ts";
 import type { CatalogToolSession, OrderedCandidate } from "./catalog-tool-session.ts";
-import type { NearbyOutcome } from "./catalog-tool-outcomes.ts";
+import type { NearbyOutcome, ToolDetails } from "./catalog-tool-outcomes.ts";
 import { UPSTREAM_DOWN } from "./catalog-tool-outcomes.ts";
 import { buildSearchResultPayload } from "./search-result-payload.ts";
 import { searchNearbyParameters } from "./tool-schema-bridge.ts";
@@ -139,7 +139,7 @@ export function searchNearbyTool(
   catalog: CatalogClient,
   session: CatalogToolSession,
   budget: ToolBudget,
-): AgentTool<typeof searchNearbyParameters, NearbyOutcome> {
+): AgentTool<typeof searchNearbyParameters, ToolDetails<NearbyOutcome>> {
   return {
     name: "search_nearby",
     label: "Search pilgrimage points near a place",

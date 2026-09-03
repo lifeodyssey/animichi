@@ -2,7 +2,7 @@
  * The four catalog tools one session hands to pi.
  *
  * This is the registration surface `AgentSession` (#1252) calls: give it a
- * catalog client and the session state, get back the `AgentTool[]` that go on
+ * catalog client and the session state, get back the `TurnTool[]` that go on
  * the agent's `tools` (spec §五, W1 "4 个 catalog 工具"). Nothing here reaches
  * for a binding or a clock itself — both arrive through `catalogToolbox`, so
  * every tool stays testable without Cloudflare. `budget` defaults to the ported
@@ -10,7 +10,7 @@
  * that has already elapsed.
  */
 
-import type { AgentTool } from "@earendil-works/pi-agent-core";
+import type { TurnTool } from "../session/turn-toolbox.ts";
 import type { CatalogClient } from "./catalog-client.ts";
 import { catalogToolBudget } from "./catalog-timeouts.ts";
 import type { ToolBudget } from "./catalog-timeouts.ts";
@@ -31,7 +31,7 @@ export function catalogToolbox(
   catalog: CatalogClient,
   session: CatalogToolSession,
   budget: ToolBudget = catalogToolBudget,
-): AgentTool[] {
+): readonly TurnTool[] {
   return [
     resolveAnimeTool(catalog, session, budget),
     searchBangumiTool(catalog, session, budget),

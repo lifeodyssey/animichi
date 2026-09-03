@@ -57,8 +57,16 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   Ports live with the use case, Neon adapters beside them, and
   no module here imports `cloudflare:workers` so the node:test suite can load every one of them.
   The `Toolbox` port in `src/agent/session/turn-toolbox.ts` is the whole contract with #1253's
-  `src/agent/tools/`; the session does not build its toolbox from it yet. Nothing routes to it
-  yet — #1256 flips `/v1/chat`.
+  `src/agent/tools/`, and `session-turn.ts::turnToolbox` is what fulfils it: the four catalog
+  tools over the private `CATALOG` binding, bound to one `TurnCatalogSession`. An environment
+  without that binding still runs — the turn just has no tools. Nothing routes to it yet —
+  #1256 flips `/v1/chat`.
+- `src/agent/session/turn-catalog-session.ts` — the `CatalogToolSession` one turn hands the tools:
+  the opaque refs they mint and the rows behind them. In-memory and turn-scoped ON PURPOSE, with
+  two gaps written on it that need plumbing nobody has built yet: it is not rebuilt on a REPLAY
+  (a replayed step is answered from `run_steps.result` without calling `execute`, so a ref minted
+  before a crash reads back as `stale_ref`), and the pending clarification does not outlive the
+  turn (Python kept it in the session envelope; no column carries it).
 - `src/agent/tools/` — `catalogToolbox(catalog, session)` returns the four `AgentTool`s the
   session registers on the pi agent (`resolve_anime`, `search_bangumi`, `search_nearby`,
   `plan_route`). Two ports carry everything turn-shaped: `CatalogClient` (production adapter

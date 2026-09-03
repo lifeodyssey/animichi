@@ -118,12 +118,20 @@ class ScriptedProviderStream {
   }
 }
 
-function toolCallScript(base: AssistantMessage): Script {
+/** One tool call a scripted turn issues. */
+export interface ScriptedToolCall {
+  readonly name: string;
+  readonly arguments: Record<string, unknown>;
+}
+
+const DOUBLE_SPOT_CALL: ScriptedToolCall = { name: "lookup_spot", arguments: { title: "Hyouka" } };
+
+function toolCallScript(base: AssistantMessage, call: ScriptedToolCall = DOUBLE_SPOT_CALL, id = DOUBLE_TOOL_CALL_ID): Script {
   const toolCall = {
     type: "toolCall" as const,
-    id: DOUBLE_TOOL_CALL_ID,
-    name: "lookup_spot",
-    arguments: { title: "Hyouka" },
+    id,
+    name: call.name,
+    arguments: call.arguments,
   };
   const partial: AssistantMessage = { ...base, content: [toolCall] };
   return async (push, gap) => {
@@ -131,7 +139,7 @@ function toolCallScript(base: AssistantMessage): Script {
     await gap();
     push({ type: "toolcall_start", contentIndex: 0, partial });
     await gap();
-    push({ type: "toolcall_delta", contentIndex: 0, delta: '{"title":"Hyouka"}', partial });
+    push({ type: "toolcall_delta", contentIndex: 0, delta: JSON.stringify(call.arguments), partial });
     await gap();
     push({ type: "toolcall_end", contentIndex: 0, toolCall, partial });
     await gap();
@@ -168,6 +176,24 @@ export function makeToolCallingStreamFn() {
     const base = baseMessage(model);
     calls += 1;
     const script = calls === 1 ? toolCallScript(base) : answerScript(base);
+    return new ScriptedProviderStream(base, options?.signal).run(script);
+  };
+}
+
+/**
+ * A `streamFn` that issues `calls` one per model turn, in order, then answers.
+ *
+ * The single-call `makeToolCallingStreamFn` above is the abort suite's script;
+ * this one exists because a turn that hands a REF from one tool to the next
+ * needs two calls in one run to be a real sequence rather than two test cases.
+ */
+export function makeSequencedToolCallsStreamFn(calls: readonly ScriptedToolCall[]) {
+  let turn = 0;
+  return (model: Model<Api>, _context: Context, options?: SimpleStreamOptions) => {
+    const base = baseMessage(model);
+    const call = calls[turn];
+    turn += 1;
+    const script = call ? toolCallScript(base, call, `${DOUBLE_TOOL_CALL_ID}-${String(turn)}`) : answerScript(base);
     return new ScriptedProviderStream(base, options?.signal).run(script);
   };
 }

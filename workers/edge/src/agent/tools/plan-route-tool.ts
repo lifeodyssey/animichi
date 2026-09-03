@@ -12,7 +12,7 @@ import type { CatalogClient } from "./catalog-client.ts";
 import { degradingCatalogFailure } from "./catalog-failure-degradation.ts";
 import type { ToolBudget } from "./catalog-timeouts.ts";
 import type { CatalogToolSession, SearchResultPayload } from "./catalog-tool-session.ts";
-import type { ItineraryOutcome } from "./catalog-tool-outcomes.ts";
+import type { ItineraryOutcome, ToolDetails } from "./catalog-tool-outcomes.ts";
 import { outcomeToolResult } from "./outcome-tool-result.ts";
 import { buildItineraryPayload } from "./search-result-payload.ts";
 import { planRouteParameters } from "./tool-schema-bridge.ts";
@@ -82,7 +82,7 @@ export function planRouteTool(
   catalog: CatalogClient,
   session: CatalogToolSession,
   budget: ToolBudget,
-): AgentTool<typeof planRouteParameters, ItineraryOutcome> {
+): AgentTool<typeof planRouteParameters, ToolDetails<ItineraryOutcome>> {
   return {
     name: "plan_route",
     label: "Plan a walking route",

@@ -7,6 +7,18 @@
  * the eval trajectories and the web's `intent` frames survive the rewrite.
  */
 
+/**
+ * One outcome as a tool's `details`.
+ *
+ * `TurnTool` pins details to `JsonValue` because a step's result goes into the
+ * `run_steps.result` jsonb column and comes back out on the replay
+ * (`session/turn-toolbox.ts`). An interface carries no implicit index signature
+ * and so does not satisfy that pin; this homomorphic mapped type is the same
+ * shape with one, which is what lets the outcomes below stay interfaces and
+ * still be checked against the constraint rather than cast past it.
+ */
+export type ToolDetails<Outcome> = { [Key in keyof Outcome]: Outcome[Key] };
+
 /** Why the turn cannot proceed without asking the user something. */
 export type ClarificationReason =
   | "anime_ambiguity"
