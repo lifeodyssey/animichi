@@ -15,9 +15,9 @@
  *   `messages_session_client_message_id`;
  * - admission is the unique-key loss on `runs_one_running_per_session`.
  */
-import { sql, type Name, type SQL } from "drizzle-orm";
-import type { AnyPgColumn } from "drizzle-orm/pg-core";
+import { sql, type SQL } from "drizzle-orm";
 import type { AgentTransactions, AgentStatements } from "../../db/agent-database.ts";
+import { bareName } from "../../db/column-name.ts";
 import { isJsonRecord } from "../json-record.ts";
 import { anonDailyMessageCount, messages, runs } from "../../db/schema.ts";
 import type { QuotaReservation } from "./quota-reservation.ts";
@@ -31,15 +31,6 @@ import {
 
 const UNIQUE_VIOLATION = "23505";
 const RUNNING_PER_SESSION = "runs_one_running_per_session";
-
-/**
- * A column as a bare name. An INSERT column list and an ON CONFLICT target
- * take unqualified names, where drizzle's own interpolation would render the
- * table-qualified reference a SELECT wants.
- */
-function bareName(column: AnyPgColumn): Name {
-  return sql.identifier(column.name);
-}
 
 /** The user message, unless this (session, client_message_id) already has one. */
 function insertMessage(turn: OpenedTurn): SQL {

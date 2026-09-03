@@ -6,7 +6,7 @@
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
     "test": "node --test \"test/*.test.ts\"",
     "test:bundle-smoke": "node --test \"bundle-smoke/*.test.ts\"",
-    "test:agent-db": "node --test \"agent-db-test/*.test.ts\"",
+    "test:agent-db": "node --test --test-concurrency=1 \"agent-db-test/*.test.ts\"",
     "test:spike-db": "node --test \"db-test/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
