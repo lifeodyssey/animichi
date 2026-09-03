@@ -27,58 +27,52 @@ const POINT: Point = {
 
 const TIMED: TimedItinerary = { stops: [], legs: [], total_minutes: 120, total_distance_m: 4200 };
 
-const PROSE: TurnAnswer = {
-  intent: "general_qa",
-  message: "聖地巡礼の答え",
-  payload: { of: "prose" },
-};
+const MESSAGE = "聖地巡礼の答え";
+const PROSE: TurnAnswer = { of: "prose", intent: "general_qa", message: MESSAGE };
 
-const searchAnswer = (intent: TurnAnswer["intent"], kind: "bangumi" | "nearby"): TurnAnswer => ({
-  ...PROSE,
+const searchAnswer = (
+  intent: "search_bangumi" | "search_nearby",
+  kind: "bangumi" | "nearby",
+): TurnAnswer => ({
+  of: "search",
   intent,
-  payload: {
-    of: "search",
-    search: {
-      kind,
-      rows: [POINT],
-      row_count: 1,
-      metadata: { anime_title: "らき☆すた", data_origin: "catalog", source: "catalog" },
-      anime_id: "1",
-      partial: false,
-    },
+  message: MESSAGE,
+  search: {
+    kind,
+    rows: [POINT],
+    row_count: 1,
+    metadata: { anime_title: "らき☆すた", data_origin: "catalog", source: "catalog" },
+    anime_id: "1",
+    partial: false,
   },
 });
 
 const ROUTE: TurnAnswer = {
-  ...PROSE,
+  of: "route",
   intent: "plan_route",
-  payload: {
-    of: "route",
-    itinerary: {
-      ordered_points: [POINT],
-      timed_itinerary: TIMED,
-      summary: {
-        point_count: 1,
-        total_minutes: 120,
-        total_distance_m: 4200,
-        clusters: 1,
-        with_coordinates: 1,
-        without_coordinates: 0,
-      },
-      source_ref: "search:1:1",
+  message: MESSAGE,
+  itinerary: {
+    ordered_points: [POINT],
+    timed_itinerary: TIMED,
+    summary: {
+      point_count: 1,
+      total_minutes: 120,
+      total_distance_m: 4200,
+      clusters: 1,
+      with_coordinates: 1,
+      without_coordinates: 0,
     },
+    source_ref: "search:1:1",
   },
 };
 
 const CLARIFY: TurnAnswer = {
-  ...PROSE,
+  of: "clarification",
   intent: "clarify",
-  payload: {
-    of: "clarification",
-    clarification: {
-      reason: "anime_ambiguity",
-      candidates: [{ id: "1", title: "らき☆すた", effective_radius_m: 5_000 }],
-    },
+  message: MESSAGE,
+  clarification: {
+    reason: "anime_ambiguity",
+    candidates: [{ id: "1", title: "らき☆すた", effective_radius_m: 5_000 }],
   },
 };
 
@@ -88,7 +82,7 @@ const ANSWERS: TurnAnswer[] = [
   ROUTE,
   CLARIFY,
   PROSE,
-  { ...PROSE, intent: "greet_user" },
+  { of: "prose", intent: "greet_user", message: MESSAGE },
 ];
 
 describe("the edge's data-response part", () => {

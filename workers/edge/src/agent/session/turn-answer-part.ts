@@ -7,8 +7,18 @@
  * or a field of a payload a catalog tool stored. Nothing is re-typed by the
  * model, which is what `_CompactOutput` protected on the Python side.
  *
- * THE SHAPE IS NOT A DECISION OF THIS CARD. `packages/contract`'s
- * `ChatResponseDataPart` is a STRICT zod union — an unknown member fails the
+ * THE RETURN TYPE IS THE CONTRACT'S OWN UNION, not a local restatement of it.
+ * A local `{intent: ChatResponseIntent; data: …}` pair would type-check every
+ * wrong pairing there is — `plan_route` carrying clarification data, `clarify`
+ * carrying search rows — because nothing would tie the two members together.
+ * Returning `ChatResponseDataPart` makes each branch below prove its own
+ * pairing at compile time; `turn-answer-part.type-test.ts` pins that a wrong
+ * one does not compile, and `packages/contract/test/chat-answer-part.test.ts`
+ * still parses what is actually emitted, because a type cannot check the
+ * VALUES (`status`, the wire-key filters) the way the zod does.
+ *
+ * THE SHAPE IS NOT A DECISION OF THIS CARD. `ChatResponseDataPart` is a STRICT
+ * zod union — an unknown member fails the
  * whole part in the browser (`apps/web/src/features/chat/data-parts.ts`) — and
  * the recorded captures `apps/agent/tests/fixtures/chat_stream/*.sse` are what
  * the web suite replays. So the wire keys here are Python's `_SEARCH_WIRE_KEYS`
@@ -24,15 +34,14 @@
  * selection path for the counter to guard) and `debug` (opt-in step dumps, and
  * the TS tier has no debug flag). Both are optional in the contract.
  */
-import type { Point, TimedItinerary } from "@animichi/contract";
-import type { ChatResponseIntent } from "@animichi/contract/agent-tool-schemas";
+import type { ChatResponseDataPart, Point, TimedItinerary } from "@animichi/contract";
 import type {
   ItineraryPayload,
   OrderedCandidate,
   SearchResultPayload,
 } from "../tools/catalog-tool-session.ts";
 import type { PendingClarification } from "./session-envelope.ts";
-import type { AnswerPayload, TurnAnswer } from "./turn-answer.ts";
+import type { AnsweredIntent, TurnAnswer } from "./turn-answer.ts";
 
 /** A stored search result, filtered to the members the part publishes. */
 interface SearchResultsWire {
@@ -64,28 +73,14 @@ interface CandidateWire {
   lng?: number;
 }
 
-/** The `data` member, whose shape the intent decides. */
-type AnswerData =
-  | { results: SearchResultsWire }
-  | { itinerary: ItineraryWire }
-  | { reason: string; candidates: CandidateWire[] }
-  | Record<string, never>;
-
-/** The part itself, as `ChatResponseDataPart` accepts it. */
-export interface ChatResponsePart {
-  intent: ChatResponseIntent;
-  success: boolean;
-  status: string;
-  message: string;
-  data: AnswerData;
-  session: Record<string, never>;
-  route_history: never[];
-  errors: never[];
-  ui?: { component: string };
-}
-
-/** Python's `_UI_MAP`, for the intents this tier can produce. */
-const UI_COMPONENTS: Partial<Record<ChatResponseIntent, string>> = {
+/**
+ * Python's `_UI_MAP`, TOTAL over the intents this tier can derive.
+ *
+ * Total rather than partial on purpose: `AnsweredIntent` is `TurnAnswer`'s own
+ * discriminant union, so adding a member the map has no card for is a compile
+ * error rather than a part that silently ships without a renderer.
+ */
+const UI_COMPONENTS: Record<AnsweredIntent, string> = {
   search_bangumi: "PilgrimageGrid",
   search_nearby: "NearbyMap",
   plan_route: "RoutePlannerWizard",
@@ -126,32 +121,18 @@ function candidateWire(candidate: OrderedCandidate): CandidateWire {
   return { id, title, cover_url, points_count, lat, lng };
 }
 
-function clarificationWire(pending: PendingClarification): AnswerData {
+function clarificationWire(pending: PendingClarification) {
   return { reason: pending.reason, candidates: pending.candidates.map(candidateWire) };
 }
 
-/**
- * The `data` member and the status it implies, from ONE walk of the payload.
- *
- * Python computed them apart (`_wire_data`, then `_response_status` reading
- * back out of the dict it had just built), and that is the same cascade twice
- * over the same value. Here the tag is walked once: the status of a search or a
- * route IS the status the wire object already carries, and a clarification's is
- * the constant Python's own branch returned.
- */
-function published(payload: AnswerPayload): { data: AnswerData; status: string } {
-  if (payload.of === "clarification") {
-    return { data: clarificationWire(payload.clarification), status: "needs_clarification" };
-  }
-  if (payload.of === "route") {
-    const itinerary = itineraryWire(payload.itinerary);
-    return { data: { itinerary }, status: itinerary.status };
-  }
-  if (payload.of === "search") {
-    const results = searchResultsWire(payload.search);
-    return { data: { results }, status: results.status };
-  }
-  return { data: {}, status: "info" };
+/** The members the captures carry between `intent` and `data`. */
+function outcome(answer: TurnAnswer, status: string) {
+  return { success: true, status, message: answer.message };
+}
+
+/** The members every capture carries after `data`, constant on every part. */
+function capturedMembers(intent: AnsweredIntent) {
+  return { session: {}, route_history: [], errors: [], ui: { component: UI_COMPONENTS[intent] } };
 }
 
 /**
@@ -161,18 +142,19 @@ function published(payload: AnswerPayload): { data: AnswerData; status: string }
  * reached on a turn that SUCCEEDED — a failed turn emits the captures' `error`
  * frame instead and never a part at all (`turn-frames.ts`).
  */
-export function chatResponsePart(answer: TurnAnswer): ChatResponsePart {
-  const component = UI_COMPONENTS[answer.intent];
-  const { data, status } = published(answer.payload);
-  return {
-    intent: answer.intent,
-    success: true,
-    status,
-    message: answer.message,
-    data,
-    session: {},
-    route_history: [],
-    errors: [],
-    ...(component === undefined ? {} : { ui: { component } }),
-  };
+export function chatResponsePart(answer: TurnAnswer): ChatResponseDataPart {
+  const tail = capturedMembers(answer.intent);
+  if (answer.of === "clarification") {
+    const data = clarificationWire(answer.clarification);
+    return { intent: answer.intent, ...outcome(answer, "needs_clarification"), data, ...tail };
+  }
+  if (answer.of === "route") {
+    const itinerary = itineraryWire(answer.itinerary);
+    return { intent: answer.intent, ...outcome(answer, itinerary.status), data: { itinerary }, ...tail };
+  }
+  if (answer.of === "search") {
+    const results = searchResultsWire(answer.search);
+    return { intent: answer.intent, ...outcome(answer, results.status), data: { results }, ...tail };
+  }
+  return { intent: answer.intent, ...outcome(answer, "info"), data: {}, ...tail };
 }

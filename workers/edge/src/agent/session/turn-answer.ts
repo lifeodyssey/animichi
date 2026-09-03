@@ -42,11 +42,7 @@
 import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { AnswerKind, AnswerParameters } from "@animichi/contract/agent-tool-parameters";
-import {
-  ANSWER_TOOL_NAME,
-  ANSWER_TOOL_SCHEMA,
-  type ChatResponseIntent,
-} from "@animichi/contract/agent-tool-schemas";
+import { ANSWER_TOOL_NAME, ANSWER_TOOL_SCHEMA } from "@animichi/contract/agent-tool-schemas";
 import type { ItineraryPayload, SearchResultPayload } from "../tools/catalog-tool-session.ts";
 import type { PendingClarification } from "./session-envelope.ts";
 import type { TurnCatalogSession } from "./turn-catalog-session.ts";
@@ -55,28 +51,38 @@ import { toolParameters } from "../tools/tool-schema-bridge.ts";
 /** The `respond` tool's parameters, carrying the type the contract inferred. */
 const answerParameters = toolParameters<AnswerParameters>(ANSWER_TOOL_SCHEMA);
 
-/**
- * The server state one answer publishes, as ONE tagged value rather than three
- * nullable fields. The tag is what keeps the `data` member and the status that
- * member implies derivable in a single walk (`turn-answer-part.ts`), and it
- * makes "a route answer carrying a search too" unrepresentable instead of
- * merely unintended.
- */
-export type AnswerPayload =
-  | { readonly of: "search"; readonly search: SearchResultPayload }
-  | { readonly of: "route"; readonly itinerary: ItineraryPayload }
-  | { readonly of: "clarification"; readonly clarification: PendingClarification }
-  | { readonly of: "prose" };
+/** The prose every answer carries, whatever the answer is about. */
+interface AnswerProse {
+  readonly message: string;
+}
 
 /**
- * One turn's answer: exactly one `ChatResponseDataPart`, held as the intent the
- * server derived, the prose the model wrote, and the payload that fills `data`.
+ * One turn's answer: exactly one `ChatResponseDataPart`, as a DISCRIMINATED
+ * union of the four things an answer can be about.
+ *
+ * The tag pairs the intent with the server state that fills that intent's
+ * `data`, and both halves of the pairing are load-bearing. Downwards, it makes
+ * "a route answer carrying a search too" unrepresentable rather than merely
+ * unintended. Upwards, it is what lets `turn-answer-part.ts` return the
+ * contract's own `ChatResponseDataPart` union: the compiler can only check that
+ * `plan_route` travels with itinerary data if the two arrive together, and a
+ * loose `{intent, data}` pair would type-check every wrong pairing there is.
+ *
+ * The intents are narrowed per member for the same reason — they are the ones
+ * THIS tier can derive. `partial`, `blocked`, `error` and `unknown` are the
+ * contract's, produced elsewhere or not yet at all, and a member that could
+ * claim them would be a member the projection cannot honour.
  */
-export interface TurnAnswer {
-  readonly intent: ChatResponseIntent;
-  readonly message: string;
-  readonly payload: AnswerPayload;
-}
+export type TurnAnswer = AnswerProse &
+  (
+    | { readonly of: "search"; readonly intent: "search_bangumi" | "search_nearby"; readonly search: SearchResultPayload }
+    | { readonly of: "route"; readonly intent: "plan_route"; readonly itinerary: ItineraryPayload }
+    | { readonly of: "clarification"; readonly intent: "clarify"; readonly clarification: PendingClarification }
+    | { readonly of: "prose"; readonly intent: "general_qa" | "greet_user" }
+  );
+
+/** Every intent this tier can actually derive — the union's own discriminants. */
+export type AnsweredIntent = TurnAnswer["intent"];
 
 /**
  * A turn that has not answered yet. It is never published — `TurnAttempt`
@@ -84,11 +90,7 @@ export interface TurnAnswer {
  * failure path, whose frames carry no answer at all — but it keeps `answer` a
  * value rather than a null every reader has to re-check.
  */
-export const UNANSWERED_TURN: TurnAnswer = {
-  intent: "general_qa",
-  message: "",
-  payload: { of: "prose" },
-};
+export const UNANSWERED_TURN: TurnAnswer = { of: "prose", intent: "general_qa", message: "" };
 
 /** A kind the turn's own state does not support: fed back for another try. */
 export class AnswerRejected extends Error {}
@@ -100,7 +102,7 @@ function latest<T>(stored: ReadonlyMap<string, T>): T | null {
 
 /** Which search a `search` answer means — the model never names it (Python's
  * `runtime_stage` read it off the run's own steps for the same reason). */
-function searchIntent(payload: SearchResultPayload): ChatResponseIntent {
+function searchIntent(payload: SearchResultPayload): "search_bangumi" | "search_nearby" {
   return payload.kind === "nearby" ? "search_nearby" : "search_bangumi";
 }
 
@@ -109,46 +111,41 @@ function reject(kind: AnswerKind, missing: string): never {
 }
 
 /** The route this turn planned, or a rejection to feed back. */
-function routeAnswered(session: TurnCatalogSession): Omit<TurnAnswer, "message"> {
+function routeAnswered(session: TurnCatalogSession, message: string): TurnAnswer {
   const itinerary = latest(session.itineraries) ?? reject("route", "a planned route");
-  return { intent: "plan_route", payload: { of: "route", itinerary } };
+  return { of: "route", intent: "plan_route", message, itinerary };
 }
 
 /** The search this turn ran, or a rejection to feed back. */
-function searchAnswered(session: TurnCatalogSession): Omit<TurnAnswer, "message"> {
+function searchAnswered(session: TurnCatalogSession, message: string): TurnAnswer {
   const search = latest(session.searchResults) ?? reject("search", "a stored search result");
-  return { intent: searchIntent(search), payload: { of: "search", search } };
+  return { of: "search", intent: searchIntent(search), message, search };
 }
 
 /** The clarification the session has open, with the model's reason checked
  * against it — a reason the pending outcome does not carry is a reason the
  * model invented. */
-function clarifyAnswered(session: TurnCatalogSession, reason: string | undefined): Omit<TurnAnswer, "message"> {
+function clarifyAnswered(session: TurnCatalogSession, reason: string | undefined, message: string): TurnAnswer {
   const clarification = session.envelope.pendingClarification;
   if (clarification === null) reject("clarify", "an open clarification");
   if (reason !== clarification.reason) {
     throw new AnswerRejected(`reason must be "${clarification.reason}", the pending outcome's own`);
   }
-  return { intent: "clarify", payload: { of: "clarification", clarification } };
+  return { of: "clarification", intent: "clarify", message, clarification };
 }
 
-const PROSE_INTENTS: Record<"greeting" | "qa", ChatResponseIntent> = {
+const PROSE_INTENTS: Record<"greeting" | "qa", "greet_user" | "general_qa"> = {
   greeting: "greet_user",
   qa: "general_qa",
 };
 
-/** What this turn produced, for the kind the model claims it produced. */
-function answeredFor(params: AnswerParameters, session: TurnCatalogSession): Omit<TurnAnswer, "message"> {
-  const { kind } = params;
-  if (kind === "route") return routeAnswered(session);
-  if (kind === "search") return searchAnswered(session);
-  if (kind === "clarify") return clarifyAnswered(session, params.reason);
-  return { intent: PROSE_INTENTS[kind], payload: { of: "prose" } };
-}
-
 /** One submission resolved against what this turn actually produced. */
 function answerFor(params: AnswerParameters, session: TurnCatalogSession): TurnAnswer {
-  return { ...answeredFor(params, session), message: params.message };
+  const { kind, message } = params;
+  if (kind === "route") return routeAnswered(session, message);
+  if (kind === "search") return searchAnswered(session, message);
+  if (kind === "clarify") return clarifyAnswered(session, params.reason, message);
+  return { of: "prose", intent: PROSE_INTENTS[kind], message };
 }
 
 /**
