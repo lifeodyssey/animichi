@@ -15,6 +15,9 @@
  *                quota reservation refunded exactly once by that same SQL.
  *   declined   — the opening compare-and-set lost to a live owner. Settles
  *                nothing: a re-armed run someone else holds is a no-op (§三).
+ *   already_settled — the run is not `running`, so there is no turn to drive.
+ *                Settles nothing either, but for the opposite reason: nobody
+ *                holds it, and this alarm is the retry of the one that ended it.
  *   abandoned  — the lease was lost mid-turn. Settles nothing either; whoever
  *                took it over owns the ending, and writing one here would race
  *                theirs.
@@ -34,8 +37,16 @@ import { TurnEnding } from "./turn-ending.ts";
 import { closingFrames, openingFrames } from "./turn-frames.ts";
 import type { LoadedTurn } from "./turn-store.ts";
 
-/** A turn that never reached a lease: the run is not `running` any more. */
-const NOT_RUNNING: TurnState = { phase: "declined" };
+/**
+ * A turn that never reached a lease because the run is not `running` any more.
+ *
+ * Its own phase, not `declined`: an alarm that finds the run already terminal is
+ * the RETRY of the alarm that settled it, and may still owe that run the last
+ * step of its ending (`TurnEnvelope` promotes what the lost attempt staged,
+ * #1280). A contender that merely lost the lease owes the run nothing, because
+ * a live owner is mid-turn on it — so the two must not answer the same thing.
+ */
+const NOT_RUNNING: TurnState = { phase: "already_settled" };
 
 export interface DurableTurnParts extends TurnAttemptParts {
   readonly prices: UsagePrices;

@@ -102,7 +102,9 @@ export class AgentSession {
   async #drive(runId: string): Promise<void> {
     const emit = this.#subscribers.sinkFor(runId);
     const owner = this.#ctx.id.toString();
-    await driveQueuedRun({ env: this.#env, emit, owner, envelopes: this.#envelopes }, runId);
+    const queued = await this.#queue.pending();
+    const parts = { env: this.#env, emit, owner, envelopes: this.#envelopes, queued };
+    await driveQueuedRun(parts, runId);
     await this.#subscribers.finish(runId);
   }
 }

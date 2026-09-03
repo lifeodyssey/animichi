@@ -69,6 +69,9 @@ export interface SessionTurnParts {
   readonly owner: string;
   /** Where this session's envelope lives between its turns (#1280). */
   readonly envelopes: SessionEnvelopeStore;
+  /** Every run this session's alarm still owes work for, in its drain order —
+   * what a turn recovers stale stagings from before it reads the envelope. */
+  readonly queued: readonly string[];
 }
 
 /** The turn one alarm drives, with the deployment's configuration in it. */
@@ -102,7 +105,9 @@ async function driveOn(parts: SessionTurnParts, store: TurnStore, runId: string)
     await store.settleFailed(runId, "provider_failed", new Date());
     return;
   }
-  const envelope = await TurnEnvelope.open(parts.envelopes, runId, TURN_LOCALE);
+  const envelope = await TurnEnvelope.open({
+    envelopes: parts.envelopes, runId, queued: parts.queued, locale: TURN_LOCALE,
+  });
   await envelope.close(await configuredTurn(parts, store, apiKey, envelope).run(runId));
 }
 

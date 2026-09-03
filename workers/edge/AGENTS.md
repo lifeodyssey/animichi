@@ -78,10 +78,15 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   ported half of Python's `trusted_session_context`); `stage()` writes the whole envelope under the
   run's own key BEFORE the terminal row lands, driven by the `EnvelopeStagingStore` decorator around
   the `TurnStore`; and `close(state)` promotes that staging to the session's envelope once the run
-  is over. The order is the recovery: the terminal row is in Neon and the envelope is in DO storage,
-  so no transaction spans them — staging first means a failed settlement replays the whole turn,
-  and a failed promotion is finished by the alarm's retry, which finds the run terminal and the
-  answer waiting. Only `abandoned` promotes nothing: the owner that took the run over settles it.
+  reaches its OWN terminal path. The order is the recovery: the terminal row is in Neon and the
+  envelope is in DO storage, so no transaction spans them — staging first means a failed settlement
+  replays the whole turn, and a failed promotion is finished by the alarm's retry. Two rules keep a
+  stale staging from outliving a newer answer: `open()` first drains every OTHER queued run's
+  staging (a run whose promotion failed stays queued while its row is terminal, so a second run can
+  be admitted and must start from the recovered state), and only `succeeded`, `failed` and
+  `already_settled` promote. `already_settled` is its own `TurnPhase` precisely so it is not
+  confused with `declined`: the first is a retry of an ending this alarm owes, the second is a live
+  owner mid-turn whose staging must not be published for it.
 - `src/agent/tools/` — `catalogToolbox(catalog, session)` returns the four `AgentTool`s the
   session registers on the pi agent (`resolve_anime`, `search_bangumi`, `search_nearby`,
   `plan_route`). Two ports carry everything turn-shaped: `CatalogClient` (production adapter

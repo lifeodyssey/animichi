@@ -8,12 +8,18 @@
  * (`DurableTurn`) answers the questions — did the lease compare-and-set land,
  * did the renewal hold — and this decides what the turn becomes.
  *
- * The six phases are not interchangeable, and the two that are not endings are
+ * The phases are not interchangeable, and the three that are not endings are
  * the interesting ones:
  * - `declined` — the compare-and-set lost to a live foreign owner. That owner
  *   is running this turn, so THIS incarnation settles nothing at all: a sweep
  *   that re-armed a run someone else already holds must be a no-op (§三
  *   "扫描幂等（重复叫醒无副作用，由 DO 侧租约保证）").
+ * - `already_settled` — the run is not `running` any more, so there is no turn
+ *   left to drive. It is NOT the same as `declined` even though both do no
+ *   work: nobody is running this run, and the alarm that reaches this phase is
+ *   the retry of one whose own ending it may still have to finish publishing
+ *   (`TurnEnvelope`, #1280). Collapsing the two would let a contender act on a
+ *   live owner's half-written state.
  * - `abandoned` — the lease was lost MID-turn: it expired and another
  *   incarnation took it over. Settling `lease_expired` here would race the new
  *   owner's own settlement, so this one stops and writes nothing; whoever holds
@@ -36,6 +42,7 @@ export type TurnPhase =
   | "unclaimed"
   | "running"
   | "declined"
+  | "already_settled"
   | "abandoned"
   | "succeeded"
   | "failed";

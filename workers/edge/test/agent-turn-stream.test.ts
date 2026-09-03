@@ -133,15 +133,15 @@ void test("a turn nobody is watching still runs to its ending", async () => {
   assert.deepEqual(await makeTurn(subscribers).run(RUN_ID), { phase: "succeeded" });
 });
 
-/** A declined turn opened no stream, so a subscriber on it sees only the
- * terminator: this incarnation never hosted the turn, and inventing `start` /
- * `finish` frames for one it does not own would contradict the owner's. */
-void test("a declined turn writes no frames to a subscriber watching it", async () => {
+/** A turn that never opened writes no stream, so a subscriber on it sees only
+ * the terminator: this incarnation never hosted the turn, and inventing `start`
+ * / `finish` frames for one it does not own would contradict the owner's. */
+void test("a turn whose run already settled writes no frames to a subscriber", async () => {
   const subscribers = new TurnSubscribers();
   const reading = readAll((await liveView(subscribers)).body);
   const store = makeStore();
   await store.settleFailed(RUN_ID, "cancelled", new Date(NOW));
-  assert.deepEqual(await makeTurnOn(store, subscribers).run(RUN_ID), { phase: "declined" });
+  assert.deepEqual(await makeTurnOn(store, subscribers).run(RUN_ID), { phase: "already_settled" });
   await subscribers.finish(RUN_ID);
   assert.equal(await reading, "data: [DONE]\n\n");
 });

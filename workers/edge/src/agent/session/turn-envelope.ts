@@ -31,26 +31,66 @@
  * model failed to voice will persist one turn too long.
  */
 import type { SessionEnvelopeStore } from "./session-envelope.ts";
+
+/** What one turn needs to find, and later publish, its session's envelope. */
+export interface TurnEnvelopeParts {
+  readonly envelopes: SessionEnvelopeStore;
+  /** The run this turn is driving. */
+  readonly runId: string;
+  /** Every run this session still owes work for, in the order its alarm drains
+   * them — the order stale stagings are recovered in. */
+  readonly queued: readonly string[];
+  /** The language this turn's rows are rendered in. */
+  readonly locale: string;
+}
 import type { TurnState } from "./run-machine.ts";
 import { TurnCatalogSession, type TurnCatalogSessionParts } from "./turn-catalog-session.ts";
 import { turnSystemPrompt } from "./turn-instructions.ts";
 
 /**
- * Whether the run this turn was driving is over as far as this alarm can tell.
+ * Whether this alarm may publish what the run staged.
  *
- * Every phase but one qualifies, and the exclusion is the point. `abandoned`
- * means the lease was lost MID-turn: another incarnation took the run over and
- * will stage and promote its own answer, so promoting here would publish a
- * half-finished turn over theirs. `declined` DOES qualify, because it covers the
- * retry this whole mechanism exists for — an alarm that comes back to find the
- * run already terminal (`loadRunningTurn` answered null) and a staged envelope
- * waiting. It also covers losing the opening compare-and-set to a live owner,
- * where promoting is harmless: that owner stages only immediately before its own
- * settlement, so either there is nothing staged and this is a no-op, or the
- * value staged is the very one they are about to promote themselves.
+ * Only the run's OWN terminal path qualifies. `succeeded` and `failed` are this
+ * incarnation's own ending; `already_settled` is the retry of that ending, which
+ * is the case the staging exists for — an alarm that came back to find the run
+ * terminal and the answer still waiting under its key.
+ *
+ * `declined` does NOT qualify, and that is the correction #1282 asked for: it
+ * means a LIVE owner holds the lease and is mid-turn. Promoting there would
+ * publish a staging that owner wrote moments before its own Neon commit — and
+ * if that commit then failed, this incarnation would have published an answer
+ * for a run that never ended. `abandoned` does not qualify either: the owner
+ * that took the run over settles it and promotes its own.
  */
-function runIsOver(state: TurnState): boolean {
-  return state.phase !== "abandoned";
+function mayPromote(state: TurnState): boolean {
+  if (state.phase === "already_settled") return true;
+  return state.phase === "succeeded" || state.phase === "failed";
+}
+
+/**
+ * Publish anything an earlier alarm settled but could not promote, BEFORE this
+ * turn reads the session's envelope.
+ *
+ * Without this a stale staging outlives a newer answer (#1282): run-1 settles,
+ * its promotion fails, so it stays queued while its `runs` row is terminal —
+ * which lets admission open run-2. run-2 would read the OLD envelope, finish,
+ * and promote its own; then run-1's retry would promote its stale staging over
+ * the top. Draining first means run-2 starts from the recovered state and run-1's
+ * retry finds nothing left to promote.
+ *
+ * The run this turn is about to drive is excluded on purpose. Its staging, if
+ * any, belongs to whoever is settling it — possibly a live owner this
+ * incarnation is about to lose the lease to — and `close()` publishes it on that
+ * run's own terminal path. Every OTHER queued run that has a staging has already
+ * reached its settlement, since nothing but a settlement stages, and admission
+ * refuses a second running run per session; so none of them can still be in
+ * flight. Queue order is the order the alarm drains runs in, so the newest
+ * settlement is promoted last.
+ */
+async function recoverStagings(parts: TurnEnvelopeParts): Promise<void> {
+  for (const staged of parts.queued) {
+    if (staged !== parts.runId) await parts.envelopes.promote(staged);
+  }
 }
 
 export class TurnEnvelope {
@@ -68,13 +108,13 @@ export class TurnEnvelope {
     this.systemPrompt = turnSystemPrompt(this.session.envelope);
   }
 
-  /** Load the session's envelope and seed one turn's tools and model from it. */
-  static async open(
-    envelopes: SessionEnvelopeStore,
-    runId: string,
-    locale: string,
-  ): Promise<TurnEnvelope> {
-    return new TurnEnvelope(envelopes, runId, { locale, envelope: await envelopes.load() });
+  /** Recover what earlier alarms left staged, then seed this turn from the
+   * session's envelope — in that order, so the turn opens from the newest
+   * state anyone actually settled. */
+  static async open(parts: TurnEnvelopeParts): Promise<TurnEnvelope> {
+    await recoverStagings(parts);
+    const envelope = await parts.envelopes.load();
+    return new TurnEnvelope(parts.envelopes, parts.runId, { locale: parts.locale, envelope });
   }
 
   /** Put what the tools left on disk, under this run's key, before the run's
@@ -83,9 +123,9 @@ export class TurnEnvelope {
     await this.#envelopes.stage(this.#runId, this.session.envelope);
   }
 
-  /** Make the staged answer the session's, once the run is over. */
+  /** Make the staged answer the session's, on the run's own terminal path. */
   async close(state: TurnState): Promise<void> {
-    if (!runIsOver(state)) return;
+    if (!mayPromote(state)) return;
     await this.#envelopes.promote(this.#runId);
   }
 }

@@ -123,7 +123,7 @@ void test("an envelope write that failed after settlement is completed by the re
   assert.deepEqual((await storedEnvelope(storage)).currentAnime, null);
 
   const retry = await runEnvelopeTurn({ storage, store, streamFn: makeSequencedToolCallsStreamFn([]) });
-  assert.equal(retry.state.phase, "declined");
+  assert.equal(retry.state.phase, "already_settled");
   assert.deepEqual((await storedEnvelope(storage)).currentAnime, LUCKY_STAR);
 });
 
@@ -136,7 +136,7 @@ void test("a retry of a terminal run with nothing staged writes nothing", async 
   const banked = storage.envelopeWrites.length;
 
   const retry = await runEnvelopeTurn({ storage, store, streamFn: makeSequencedToolCallsStreamFn([]) });
-  assert.equal(retry.state.phase, "declined");
+  assert.equal(retry.state.phase, "already_settled");
   assert.equal(storage.envelopeWrites.length, banked);
   assert.deepEqual(storage.keys, [SESSION_ENVELOPE_KEY]);
 });

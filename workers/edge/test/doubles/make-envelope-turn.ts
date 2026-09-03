@@ -21,7 +21,7 @@ import { RecordingEnvelopeStorage } from "./recording-envelope-storage.ts";
 
 const NOW = 1_000;
 const PRICES = { inputUsdPerMtok: 1, outputUsdPerMtok: 2 };
-const RUN_ID = "run-1";
+export const RUN_ID = "run-1";
 
 /** The catalog answer `resolve_anime` gets when one work matches the query. */
 export const RESOLVED_LUCKY_STAR = {
@@ -79,6 +79,10 @@ export interface EnvelopeTurnParts {
   /** The run this turn is a SECOND attempt at — the same `runs` row the first
    * attempt already settled, so the retry sees it terminal. */
   readonly store?: InMemoryTurnStore;
+  /** The run this turn drives; defaults to the session's only run. */
+  readonly runId?: string;
+  /** Every run the session still owes work for; defaults to just this one. */
+  readonly queued?: readonly string[];
 }
 
 export interface EnvelopeTurnRun {
@@ -94,7 +98,7 @@ export function makeEnvelopeTurnStore(parts: Partial<EnvelopeTurnParts> = {}): I
   const held = parts.leaseOwner;
   const store = new InMemoryTurnStore(
     {
-      runId: RUN_ID, sessionId: "session-1", deadlineAt: NOW + 100_000,
+      runId: parts.runId ?? RUN_ID, sessionId: "session-1", deadlineAt: NOW + 100_000,
       transcript: makeUserTranscript(), steps: parts.steps ?? [],
       leaseOwner: held, leaseExpiresAt: held === undefined ? undefined : NOW + 100_000,
     },
@@ -120,8 +124,14 @@ function scriptedTurn(parts: EnvelopeTurnParts, store: InMemoryTurnStore, envelo
 export async function runEnvelopeTurn(parts: EnvelopeTurnParts): Promise<EnvelopeTurnRun> {
   const store = parts.store ?? makeEnvelopeTurnStore(parts);
   const prompts: string[] = [];
-  const envelope = await TurnEnvelope.open(new DurableEnvelopeStore(parts.storage), RUN_ID, "ja");
-  const state = await scriptedTurn(parts, store, envelope, prompts).run(RUN_ID);
+  const runId = parts.runId ?? RUN_ID;
+  const envelope = await TurnEnvelope.open({
+    envelopes: new DurableEnvelopeStore(parts.storage),
+    runId,
+    queued: parts.queued ?? [runId],
+    locale: "ja",
+  });
+  const state = await scriptedTurn(parts, store, envelope, prompts).run(runId);
   await envelope.close(state);
   return { store, state, prompts };
 }
