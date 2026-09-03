@@ -9,6 +9,7 @@ import { HandleGatewayRequest, type GatewayDeps } from "./gateway/request.ts";
 import { defaultStagingGateExchange } from "./staging-gate/exchange.ts";
 import { createTurnstileGate, type TurnstileGate } from "./protect/turnstile.ts";
 import { createShowcaseMode, type ShowcaseMode } from "./proxy/showcase.ts";
+import { neonAgentTurnTier, type AgentTurnTier } from "./gateway/agent-turn.ts";
 
 /** The main Worker app: a pure API and asset gateway. Every request —
  * `/healthz`, the image and private R2 tile proxies, the one allowlisted
@@ -33,6 +34,9 @@ export interface WorkerDeps {
   /** Injectable staging-gate OIDC exchange (CI channel, #1054); tests substitute
    * it to avoid hitting GitHub's remote JWKS. */
   stagingGateExchange?: (request: Request, env: Env) => Promise<Response>;
+  /** Injectable agent tier (W1-7 #1256): the production one opens a Neon pool
+   * and two Durable Object stubs, so tests substitute it to stay hermetic. */
+  agentTurns?: AgentTurnTier;
 }
 
 function realSleep(ms: number): Promise<void> {
@@ -49,6 +53,7 @@ function resolveGates(deps: WorkerDeps): GatewayDeps {
     showcaseMode: deps.showcaseMode ?? createShowcaseMode(),
     sleep: deps.sleep ?? realSleep,
     stagingGateExchange: deps.stagingGateExchange ?? defaultStagingGateExchange,
+    agentTurns: deps.agentTurns ?? neonAgentTurnTier(),
   };
 }
 

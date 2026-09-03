@@ -108,6 +108,16 @@ ANON_ACCESS_ENABLED = "true"
 # landing's own surface (/healthz, /img/*, /tiles/*). Consumed by the edge
 # worker itself, so it is deliberately NOT in CONTAINER_ENV_KEYS.
 EDGE_SHOWCASE_MODE = "false"
+# W1-7 (#1256): which tier serves POST /v1/chat and
+# GET /v1/conversations/{id}/messages — "container" (the Python container that
+# has always served them) or "edge" (this Worker's own AgentSession DO + Neon,
+# spec docs/specs/2026-09-01-agent-ts-rewrite-spec.md §三). This is the FALLBACK
+# switch for the agent rewrite: only the literal "edge" moves the two routes,
+# and every other value — including a typo — keeps the container, because the
+# safe side of this flag is the surface that has been serving all along. Read by
+# the edge worker itself, so deliberately NOT in CONTAINER_ENV_KEYS. Local dev
+# has no Neon agent_svc DSN bound, so it stays on the container.
+AGENT_TURN_ROUTE = "container"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -254,6 +264,11 @@ ANON_ACCESS_ENABLED = "false"
 # boolean: anything other than the literal "false" denies, so a missing var
 # can never silently re-open the backend.
 EDGE_SHOWCASE_MODE = "true"
+# W1-7 (#1256) agent-tier switch — see the [vars] block above for the contract.
+# Production stays on the container: it has no AGENT_SVC_DATABASE_URL binding at
+# all until #855 provisions the store secret there, so the edge tier could not
+# open its own data plane even if this said "edge".
+AGENT_TURN_ROUTE = "container"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
@@ -411,6 +426,13 @@ FALLBACK_AGENT_MODEL = "openai:mimo-v2.5@https://opencode.ai/zen/go/v1"
 # Showcase-mode gate (S0-v2 GOAL C / C9): staging stays fully functional
 # (showcase off). Strict boolean — only the literal "false" means that.
 EDGE_SHOWCASE_MODE = "false"
+# W1-7 (#1256) agent-tier switch — see the [vars] block for the contract.
+# Staging is where the rewrite runs: POST /v1/chat and the transcript GET are
+# served by this Worker's AgentSession DO over the staging Neon branch (the
+# AGENT_SVC_DATABASE_URL secrets-store binding below). Setting this back to
+# "container" is the rollback, and it needs no code change or redeploy of
+# anything but this file.
+AGENT_TURN_ROUTE = "edge"
 # #527/#528 (P1-A): CORS_ALLOWED_ORIGIN was never provisioned for staging as
 # either a repo-level or a staging-environment GH secret. Simply removing it
 # from the deployment secret set (an earlier revision did that) would

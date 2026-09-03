@@ -8,7 +8,6 @@ import { handleSessionAdopt, SESSION_ADOPT_PATH } from "../identity/session-adop
 import { handleImageProxy } from "../proxy/image-proxy.ts";
 import { handleTiles } from "../proxy/tiles.ts";
 import type { ShowcaseMode } from "../proxy/showcase.ts";
-import type { TurnstileGate } from "../protect/turnstile.ts";
 import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 import { TURNSTILE_VERIFY_PATH } from "@animichi/contract/constants";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
@@ -18,7 +17,8 @@ import { fetchContainerWithStartupRetry } from "./container-fetch.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
 import { UNAUTHORIZED_BODY, methodNotAllowed, notFoundResponse, showcaseDenied, unauthorized } from "./responses.ts";
 import { publicReadKey } from "./read-key.ts";
-import { isAnonymousV1, isPublicV1 } from "./routing-policy.ts";
+import { isAnonymousV1, isPublicV1, turnRoutePolicy } from "./routing-policy.ts";
+import { agentTierResponse, type AgentTierGates } from "./agent-tier-route.ts";
 import { STAGING_GATE_EXCHANGE_PATH } from "../staging-gate/session.ts";
 import { stagingGateExchangeResponse } from "../staging-gate/exchange.ts";
 
@@ -120,11 +120,8 @@ function authenticationRejection(request: Request, auth: AuthFailure): Response 
   return auth.reason === "invalid" ? unauthorized(pathname) : Response.json(UNAUTHORIZED_BODY, { status: 401 });
 }
 
-export interface GatewayDeps {
-  authenticate: (request: Request, env: Env, ctx: WorkerExecutionContext) => Promise<AuthResult>;
-  turnstileGate: TurnstileGate;
+export interface GatewayDeps extends AgentTierGates {
   showcaseMode: ShowcaseMode;
-  sleep: (ms: number) => Promise<void>;
   /** The staging-gate OIDC exchange (CI channel, #1054). Reuses the shared
    * @animichi/contract/oidc-github verifier; valid CI identity authorizes the
    * private smoke path, invalid is rejected. Injectable so tests drive it
@@ -226,6 +223,11 @@ async function agentV1Response(
   env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string, deps: GatewayDeps,
 ): Promise<Response> {
   if (pathname === TURNSTILE_VERIFY_PATH) return turnstileVerifyResponse(env, request, ctx, deps);
+  // W1-7 #1256: the fallback flag is read here and nowhere else. It selects at
+  // most the two agent-turn routes; everything else under /v1 — and every route
+  // at all while the flag says `container` — takes the branches below unchanged.
+  const edgeTier = turnRoutePolicy(env.AGENT_TURN_ROUTE).select(request.method, pathname);
+  if (edgeTier !== null) return agentTierResponse(env, request, ctx, pathname, edgeTier, deps);
   if (isPublicV1(pathname)) return publicAgentV1Response(env, request, pathname, deps.sleep);
   return privateAgentV1Response(env, request, ctx, pathname, deps);
 }
@@ -265,4 +267,3 @@ async function turnstileVerifyResponse(
   if (auth.reason === "invalid") return authenticationRejection(request, auth);
   return verifyAnonymousEntry(env, request, deps.turnstileGate);
 }
-

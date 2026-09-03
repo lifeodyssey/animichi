@@ -51,3 +51,62 @@ export function isPublicV1(pathname: string): boolean {
 export function isAnonymousV1(pathname: string): boolean {
   return ANON_V1.some((pattern) => pattern.test(pathname));
 }
+
+// ── W1-7 #1256: where a turn is served from ────────────────────────────────
+//
+// The agent tier moved into this Worker (spec §三), and the switch that puts
+// traffic on it is a per-environment flag rather than a deploy: `container`
+// keeps the Python container serving `/v1/chat`, `edge` serves it from the
+// `AgentSession` Durable Object and reads the transcript straight out of Neon.
+// Named for what it SELECTS, not for what it disables.
+//
+// Unlike `EDGE_SHOWCASE_MODE`, a malformed value here does not fail closed
+// with a denial: the safe side of this flag is the surface that has been
+// serving production all along, so anything but the literal "edge" is the
+// container. There is nothing to warn about — an unset flag is the intended
+// state of two of the three environments.
+
+/** Which tier serves the two agent-turn routes. */
+export type AgentTurnRoute = "container" | "edge";
+
+/** The literal that moves a turn onto this Worker's own agent tier. */
+export const EDGE_TURN_ROUTE: AgentTurnRoute = "edge";
+
+/** The route the edge tier serves a request as, once the flag selected it. */
+export type EdgeTierRoute =
+  | { readonly kind: "turn" }
+  | { readonly kind: "transcript"; readonly sessionId: string };
+
+/** Which `/v1` request the edge tier answers itself; `null` = the container. */
+export interface TurnRoutePolicy {
+  select(method: string, pathname: string): EdgeTierRoute | null;
+}
+
+const TURN_PATH = inventoryPath("/v1/chat");
+const TRANSCRIPT_PATH = inventoryPath("/v1/conversations/{session_id}/messages");
+const TRANSCRIPT = pathPattern(TRANSCRIPT_PATH);
+const TRANSCRIPT_SESSION = /^\/v1\/conversations\/([^/]+)\/messages$/;
+
+/** The session id the transcript path names, decoded, or none. */
+function transcriptSessionId(pathname: string): string | null {
+  const matched = TRANSCRIPT_SESSION.exec(pathname);
+  if (matched?.[1] === undefined) return null;
+  try {
+    return decodeURIComponent(matched[1]);
+  } catch {
+    return null;
+  }
+}
+
+function edgeTierRoute(method: string, pathname: string): EdgeTierRoute | null {
+  if (method === "POST" && pathname === TURN_PATH) return { kind: "turn" };
+  if (method !== "GET" || !TRANSCRIPT.test(pathname)) return null;
+  const sessionId = transcriptSessionId(pathname);
+  return sessionId === null ? null : { kind: "transcript", sessionId };
+}
+
+/** Read the `AGENT_TURN_ROUTE` variable into the policy it selects. */
+export function turnRoutePolicy(raw: string | undefined): TurnRoutePolicy {
+  if (raw !== EDGE_TURN_ROUTE) return { select: () => null };
+  return { select: edgeTierRoute };
+}

@@ -22,6 +22,19 @@ export interface Env {
    * sibling of the web app's VITE_SHOWCASE_MODE. Only the literal "false"
    * opens functional routes; unset/empty/malformed values fail closed (deny). */
   EDGE_SHOWCASE_MODE?: string;
+  /** Per-session `AgentSession` DO — the instance one turn runs inside (#1252).
+   * Optional for the same reason as `RUN_SWEEPER` below: every deployed
+   * environment binds it, and the gateway tests construct envs without it. */
+  AGENT_SESSION?: NamedStubs;
+  /** Which tier serves `POST /v1/chat` and the transcript GET (W1-7 #1256):
+   * only the literal "edge" moves them onto this Worker's own agent tier;
+   * unset/anything else keeps forwarding to the Python container. */
+  AGENT_TURN_ROUTE?: string;
+  /** Per-identity anonymous daily message allowance (#282). Read by BOTH the
+   * container (through `CONTAINER_ENV_KEYS`) and, since #1256, by the edge's
+   * own intake — whichever tier the flag above selected is the one enforcing
+   * it. `0`/unset disables the ceiling. */
+  ANON_DAILY_MESSAGE_QUOTA?: string;
   /** Singleton `RunSweeper` DO — the at-least-once backstop for agent turns
    * (#1251). Optional: it is bound in every deployed environment, but the
    * gateway tests construct envs without it. */
