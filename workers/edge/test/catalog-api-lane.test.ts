@@ -17,9 +17,22 @@ import { URL, fileURLToPath } from "node:url";
 
 const LANE = readFileSync(fileURLToPath(new URL("../api-test/catalog-api.test.ts", import.meta.url)), "utf8");
 
-/** How many times the lane's source matches `pattern`. */
-function occurrences(pattern: RegExp): number {
-  return [...LANE.matchAll(pattern)].length;
+/** The source of the call whose opening parenthesis sits at `open`. */
+function callFrom(open: number): string {
+  let depth = 0;
+  for (let index = open; index < LANE.length; index += 1) {
+    depth += Number(LANE[index] === "(") - Number(LANE[index] === ")");
+    if (depth === 0) return LANE.slice(open, index + 1);
+  }
+  throw new Error("the staging lane has an unbalanced fetch call");
+}
+
+/** Every `fetch(...)` call in the lane, one call's own source each. Counting
+ * occurrences of the two patterns separately would not prove what this file
+ * claims: one request could carry another signal while an unrelated object
+ * supplied the missing mention. Each call is therefore read on its own. */
+function fetchCalls(): string[] {
+  return [...LANE.matchAll(/\bfetch\(/g)].map((match) => callFrom(match.index + match[0].length - 1));
 }
 
 void test("the staging lane's deadline is an abort deadline, not a comment", () => {
@@ -27,6 +40,7 @@ void test("the staging lane's deadline is an abort deadline, not a comment", () 
 });
 
 void test("every request the staging lane makes carries that one deadline", () => {
-  assert.equal(occurrences(/\bfetch\(/g), 2);
-  assert.equal(occurrences(/signal: laneDeadline/g), 2);
+  const calls = fetchCalls();
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls.filter((call) => call.includes("signal: laneDeadline")), calls);
 });
