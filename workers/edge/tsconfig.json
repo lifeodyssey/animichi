@@ -23,6 +23,7 @@
     "src/**/*.ts",
     "test/**/*.ts",
     "bundle-smoke/**/*.ts",
+    "agent-db-test/**/*.ts",
     "db-test/**/*.ts",
     "spike/**/*.ts"
   ]

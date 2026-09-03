@@ -154,7 +154,7 @@ secrets, so store secrets are listed here for the reader, not enforced by
 | `CATALOG_DATABASE_URL_PROD` | `DATABASE_URL` | `workers/catalog/wrangler.toml` `[[env.production.secrets_store_secrets]]` → `workers/catalog/src/index.ts` |
 | `USERS_DATABASE_URL` | `DATABASE_URL` | `workers/users/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → `workers/users/src/index.ts` |
 | `USERS_DATABASE_URL_PROD` | `DATABASE_URL` | `workers/users/wrangler.toml` `[[env.production.secrets_store_secrets]]` → `workers/users/src/index.ts` |
-| `AGENT_SVC_DATABASE_URL` | `AGENT_SVC_DATABASE_URL` | `workers/edge/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → `workers/edge/src/container/container-env.ts` (forwarded into the agent container) |
+| `AGENT_SVC_DATABASE_URL` | `AGENT_SVC_DATABASE_URL` | `workers/edge/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → two consumers of the one binding: `workers/edge/src/container/container-env.ts` (forwarded into the agent container) and, from W1 (#1251), the edge Worker itself in `workers/edge/src/db/agent-database.ts` (the agent turn tier reads Neon directly) |
 
 Bindings are declared per environment in `wrangler.toml` (`secrets_store_secrets` is
 non-inheritable) and are applied automatically by `wrangler deploy` — no CI secret upload step
@@ -162,6 +162,11 @@ exists for them. The fail-closed guard is the binding itself: a missing store id
 the deploy API call, and `env.<binding>.get()` throws at runtime if the secret is ever deleted.
 Note that `secrets.required` must NOT list a name that is also a Secrets Store binding —
 wrangler rejects a name assigned to both binding types.
+
+The agent-service binding is bound only in `[env.staging]`, and the W1 agent tier inherits that
+asymmetry: production edge has no `AGENT_SVC_DATABASE_URL` at all, so binding one there would fail
+the production deploy on a store secret that does not exist. That is a #855 prerequisite, not an
+oversight — production's chat surface is closed (`EDGE_SHOWCASE_MODE = "true"`) until it lands.
 
 Catalog and users have distinct staging and `_PROD` store secrets because both environments share
 one Cloudflare store. Their runtime DSNs are bindings in both environments; CI does not upload

@@ -6,6 +6,7 @@
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
     "test": "node --test \"test/*.test.ts\"",
     "test:bundle-smoke": "node --test \"bundle-smoke/*.test.ts\"",
+    "test:agent-db": "node --test \"agent-db-test/*.test.ts\"",
     "test:spike-db": "node --test \"db-test/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
@@ -25,6 +26,7 @@
     "esbuild": "0.28.1",
     "miniflare": "4.20260722.0",
     "pg": "^8.22.0",
+    "testcontainers": "^12.0.4",
     "typebox": "1.3.7"
   }
 }

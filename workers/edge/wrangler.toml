@@ -112,6 +112,11 @@ EDGE_SHOWCASE_MODE = "false"
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
 ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
+# How often the singleton RunSweeper's alarm scans `runs` for turns nobody is
+# running (#1251). Seconds; 0/unset/malformed falls back to the 60s default in
+# src/agent/sweeper/run-sweep.ts, because an alarm scheduled zero milliseconds
+# out is not a faster sweep, it is no sweep at all.
+RUN_SWEEP_INTERVAL_SECONDS = "60"
 # Global anonymous daily spend ceiling (X4). Enforced by the container ingress
 # against the daily_usage table; 0 disables the breaker.
 ANON_DAILY_COST_BUDGET_USD = "5.0"
@@ -181,6 +186,22 @@ class_name = "RuntimeContainer"
 name = "EDGE_GUARD"
 class_name = "EdgeGuard"
 
+# W1-2 (#1251): the singleton RunSweeper Durable Object — the at-least-once
+# backstop for agent turns. The intake commits its transaction and then arms the
+# session's own DO; a crash in between leaves a committed `running` run whose
+# session instance was never armed, so only an instance OUTSIDE that session can
+# notice. One instance for the whole Worker, on a periodic alarm, scans `runs`
+# for running rows with an expired or never-taken lease and re-arms each one's
+# session (spec docs/specs/2026-09-01-agent-ts-rewrite-spec.md §三).
+#
+# The AgentSession class this wakes is card #1252 and is deliberately NOT bound
+# here yet: wrangler rejects a durable_objects binding whose class the Worker
+# does not export, so the binding `AGENT_SESSION` (class_name = "AgentSession")
+# lands with the class itself.
+[[durable_objects.bindings]]
+name = "RUN_SWEEPER"
+class_name = "RunSweeper"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RuntimeContainer"]
@@ -188,6 +209,10 @@ new_sqlite_classes = ["RuntimeContainer"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["EdgeGuard"]
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["RunSweeper"]
 
 [observability]
 enabled = true
@@ -225,6 +250,11 @@ EDGE_SHOWCASE_MODE = "true"
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
 ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
+# How often the singleton RunSweeper's alarm scans `runs` for turns nobody is
+# running (#1251). Seconds; 0/unset/malformed falls back to the 60s default in
+# src/agent/sweeper/run-sweep.ts, because an alarm scheduled zero milliseconds
+# out is not a faster sweep, it is no sweep at all.
+RUN_SWEEP_INTERVAL_SECONDS = "60"
 # Global anonymous daily spend ceiling (X4). Enforced by the container ingress
 # against the daily_usage table; 0 disables the breaker.
 ANON_DAILY_COST_BUDGET_USD = "5.0"
@@ -289,6 +319,22 @@ class_name = "RuntimeContainer"
 name = "EDGE_GUARD"
 class_name = "EdgeGuard"
 
+# W1-2 (#1251): the singleton RunSweeper Durable Object — the at-least-once
+# backstop for agent turns. The intake commits its transaction and then arms the
+# session's own DO; a crash in between leaves a committed `running` run whose
+# session instance was never armed, so only an instance OUTSIDE that session can
+# notice. One instance for the whole Worker, on a periodic alarm, scans `runs`
+# for running rows with an expired or never-taken lease and re-arms each one's
+# session (spec docs/specs/2026-09-01-agent-ts-rewrite-spec.md §三).
+#
+# The AgentSession class this wakes is card #1252 and is deliberately NOT bound
+# here yet: wrangler rejects a durable_objects binding whose class the Worker
+# does not export, so the binding `AGENT_SESSION` (class_name = "AgentSession")
+# lands with the class itself.
+[[env.production.durable_objects.bindings]]
+name = "RUN_SWEEPER"
+class_name = "RunSweeper"
+
 
 [[env.production.ratelimits]]
 name = "RATE_LIMITER"
@@ -304,6 +350,10 @@ new_sqlite_classes = ["RuntimeContainer"]
 [[env.production.migrations]]
 tag = "v2"
 new_sqlite_classes = ["EdgeGuard"]
+
+[[env.production.migrations]]
+tag = "v3"
+new_sqlite_classes = ["RunSweeper"]
 
 [env.staging]
 name = "animichi-staging"
@@ -385,6 +435,11 @@ NEON_AUTH_JWKS_URL = "https://ep-broad-frost-aopp3uqq.neonauth.c-2.ap-southeast-
 # quota is issue #282 and is configured separately.
 ANON_RATE_LIMIT = "20"
 ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
+# How often the singleton RunSweeper's alarm scans `runs` for turns nobody is
+# running (#1251). Seconds; 0/unset/malformed falls back to the 60s default in
+# src/agent/sweeper/run-sweep.ts, because an alarm scheduled zero milliseconds
+# out is not a faster sweep, it is no sweep at all.
+RUN_SWEEP_INTERVAL_SECONDS = "60"
 # Global anonymous daily spend ceiling (X4). Enforced by the container ingress
 # against the daily_usage table; 0 disables the breaker.
 ANON_DAILY_COST_BUDGET_USD = "5.0"
@@ -464,6 +519,22 @@ class_name = "RuntimeContainer"
 name = "EDGE_GUARD"
 class_name = "EdgeGuard"
 
+# W1-2 (#1251): the singleton RunSweeper Durable Object — the at-least-once
+# backstop for agent turns. The intake commits its transaction and then arms the
+# session's own DO; a crash in between leaves a committed `running` run whose
+# session instance was never armed, so only an instance OUTSIDE that session can
+# notice. One instance for the whole Worker, on a periodic alarm, scans `runs`
+# for running rows with an expired or never-taken lease and re-arms each one's
+# session (spec docs/specs/2026-09-01-agent-ts-rewrite-spec.md §三).
+#
+# The AgentSession class this wakes is card #1252 and is deliberately NOT bound
+# here yet: wrangler rejects a durable_objects binding whose class the Worker
+# does not export, so the binding `AGENT_SESSION` (class_name = "AgentSession")
+# lands with the class itself.
+[[env.staging.durable_objects.bindings]]
+name = "RUN_SWEEPER"
+class_name = "RunSweeper"
+
 
 [[env.staging.ratelimits]]
 name = "RATE_LIMITER"
@@ -479,6 +550,10 @@ new_sqlite_classes = ["RuntimeContainer"]
 [[env.staging.migrations]]
 tag = "v2"
 new_sqlite_classes = ["EdgeGuard"]
+
+[[env.staging.migrations]]
+tag = "v3"
+new_sqlite_classes = ["RunSweeper"]
 # Cloudflare-native rate-limit binding (issue #680) — the COARSE best-effort
 # burst damper. Worker-side sibling of the zone-level WAF damper in
 # infra/src/hardening.ts; it drives the edge's "native" tier (cacheable public
