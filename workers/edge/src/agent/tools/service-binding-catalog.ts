@@ -123,9 +123,27 @@ async function spendAttempts(
     signal?.throwIfAborted();
     outcome = await attemptOutcome(binding, procedure, body, total);
     if (outcome.parsed !== undefined || !outcome.transient || !mayRetry(number, total)) break;
-    await sleep(retryDelayMs(number));
+    await backoff(sleep, retryDelayMs(number), signal);
   }
   return outcome;
+}
+
+/** Resolves the moment `signal` aborts, and is dropped once `spent` says the
+ * backoff finished first — nothing should outlive the wait it belongs to. */
+function abortWaiter(signal: AbortSignal, spent: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    signal.addEventListener("abort", () => { resolve(); }, { once: true, signal: spent });
+  });
+}
+
+/** Wait out one backoff, but never past the caller's abort: an aborted turn
+ * must leave here at once, with the abort, not one delay from now. */
+async function backoff(sleep: (ms: number) => Promise<void>, ms: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) return sleep(ms);
+  signal.throwIfAborted();
+  const spent = new AbortController();
+  await Promise.race([sleep(ms).then(() => { spent.abort(); }), abortWaiter(signal, spent.signal)]);
+  signal.throwIfAborted();
 }
 
 /** One attempt's result: a parsed body, or why it did not produce one. */

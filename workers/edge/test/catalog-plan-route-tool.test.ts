@@ -100,6 +100,15 @@ void test("a route the catalog returns with no points is empty, not ok", async (
   assert.deepEqual(outcome, { status: "empty" });
 });
 
+void test("a route with no points still drops the choice that was pending", async () => {
+  const session = makeCatalogToolSession();
+  const ref = await storedSearch(session, false);
+  session.setPendingClarification("anime_ambiguity", []);
+  const emptied = { ...LUCKY_STAR_ROUTE, ordered_points: [], point_count: 0 };
+  await planRoute({ itinerary: emptied }, ref, session);
+  assert.equal(session.clarifications.at(-1), "cleared");
+});
+
 void test("an unreachable catalog degrades the route request", async () => {
   const session = makeCatalogToolSession();
   const ref = await storedSearch(session, false);

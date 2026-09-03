@@ -17,6 +17,10 @@ describe("the catalog tool schema seam", () => {
     expect(CATALOG_TOOL_SCHEMAS.search_bangumi.properties.bangumi_id?.pattern).toBe("^\\d+$");
   });
 
+  it("forbids a whitespace-only title, as the catalog's own `.trim().min(1)` does", () => {
+    expect(CATALOG_TOOL_SCHEMAS.resolve_anime.properties.title?.pattern).toBe("\\S");
+  });
+
   it("carries the catalog's own pacing vocabulary", () => {
     expect(CATALOG_TOOL_SCHEMAS.plan_route.properties.pacing?.enum).toStrictEqual([
       "chill",

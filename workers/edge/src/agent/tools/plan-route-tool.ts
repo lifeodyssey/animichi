@@ -41,8 +41,10 @@ async function planStored(
 ): Promise<ItineraryOutcome> {
   const pointIds = payload.rows.map((row) => row.id).filter(Boolean);
   const itinerary = await catalog.planItinerary(pointIds, pacing, signal);
-  if (itinerary.point_count < 1) return { status: "empty" };
+  // Cleared before the empty branch returns: the catalog answered, so whatever
+  // choice was pending is no longer the question, however few points came back.
   session.clearPendingClarification();
+  if (itinerary.point_count < 1) return { status: "empty" };
   return routed(session.storeItinerary(buildItineraryPayload(itinerary, ref, session.locale)), itinerary);
 }
 

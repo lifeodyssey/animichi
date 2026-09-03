@@ -51,6 +51,11 @@ void test("resolve_anime takes a title and refuses an empty one", () => {
   rejects("resolve_anime", {}, /title: must have required properties title/);
 });
 
+void test("resolve_anime refuses a title that is only whitespace", () => {
+  rejects("resolve_anime", { title: "   " }, /title: must match pattern/);
+  assert.deepEqual(accepted("resolve_anime", { title: " K-On! " }), { title: " K-On! " });
+});
+
 void test("search_bangumi takes a numeric work id and refuses a title", () => {
   assert.deepEqual(accepted("search_bangumi", { bangumi_id: "115908" }), { bangumi_id: "115908" });
   rejects("search_bangumi", { bangumi_id: "hyouka" }, /bangumi_id: must match pattern/);

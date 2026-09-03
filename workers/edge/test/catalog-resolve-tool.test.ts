@@ -102,3 +102,11 @@ void test("an unreachable catalog degrades without leaking the upstream text (SD
   assert.deepEqual(result.details, { outcome: "upstream_unavailable" });
   assert.deepEqual(result.content, [{ type: "text", text: '{"outcome":"upstream_unavailable"}' }]);
 });
+
+void test("a padded title reaches the catalog trimmed, as ResolveInput demands", async () => {
+  const { catalog, calls } = scriptedCatalog({ resolve: { outcome: "resolved", match: LUCKY_STAR } });
+  await resolveAnimeTool(catalog, makeCatalogToolSession(), unspentBudget).execute("call-1", {
+    title: "  らき☆すた\n",
+  });
+  assert.deepEqual(calls.resolved, ["らき☆すた"]);
+});

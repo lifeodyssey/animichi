@@ -11,6 +11,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { localizedCityName } from "../src/agent/tools/localized-city-name.ts";
 import { searchBangumiTool } from "../src/agent/tools/search-bangumi-tool.ts";
 import { searchNearbyTool } from "../src/agent/tools/search-nearby-tool.ts";
 import { KUKI_STATION, SAITAMA, SATTE, UJI_BRIDGE, WASHINOMIYA } from "./doubles/catalog-payloads.ts";
@@ -81,6 +82,11 @@ void test("an English reader keeps the reverse geocoder's own city name", async 
 void test("a city the GeoNames table never carried is left as it came", async () => {
   const { session } = await searchWork({ points: { rows: [WASHINOMIYA], synced_at: SYNCED } }, "1");
   assert.deepEqual(session.searches.get("search:1:1")?.rows.map((row) => row.city), ["Kuki"]);
+});
+
+void test("a prototype key is neither a city nor a locale", () => {
+  assert.equal(localizedCityName("Uji", "toString"), "Uji");
+  assert.equal(localizedCityName("toString", "ja"), "toString");
 });
 
 void test("an L1 preview is reported as partial so nothing routes a fragment", async () => {

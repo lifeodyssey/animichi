@@ -17,10 +17,23 @@ import { z } from "zod";
 import { NearbyInput, PointsByBangumiIdInput, ResolveInput } from "./contract.js";
 import { Pacing } from "./models.js";
 
+/**
+ * At least one character that is not whitespace.
+ *
+ * `ResolveInput.query` is `.trim().min(1)`, and trimming is a transform JSON
+ * Schema has no way to carry: emitted alone it becomes `minLength: 1`, which a
+ * model satisfies with a run of spaces the catalog would then reject. The
+ * model-facing schema therefore states the same intent as a pattern, and
+ * `workers/edge`'s `resolve_anime` trims before it calls the catalog.
+ */
+const NON_BLANK = /\S/;
+
 /** `resolve_anime(title)` — free text in, a deterministic anime identity out. */
 export const ResolveAnimeParameters = z
   .object({
-    title: ResolveInput.shape.query.describe("The anime title to resolve, as the user wrote it"),
+    title: ResolveInput.shape.query
+      .regex(NON_BLANK)
+      .describe("The anime title to resolve, as the user wrote it"),
   })
   .strict();
 export type ResolveAnimeParameters = z.infer<typeof ResolveAnimeParameters>;

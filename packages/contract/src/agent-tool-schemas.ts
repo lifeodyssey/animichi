@@ -39,6 +39,7 @@ export const CATALOG_TOOL_SCHEMAS: Record<CatalogToolName, ToolParameterSchema> 
       "title": {
         "type": "string",
         "minLength": 1,
+        "pattern": "\\S",
         "description": "The anime title to resolve, as the user wrote it"
       }
     },

@@ -12,6 +12,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { setImmediate as afterEveryPendingJob } from "node:timers/promises";
 import { CatalogUnavailableError } from "../src/agent/tools/catalog-client.ts";
 import {
   CATALOG_REQUEST_TIMEOUT_MS,
@@ -120,6 +121,34 @@ void test("a geocode answer without candidates fails rather than reporting no pl
   const scripted = recordingBinding([json({})]);
   const catalog = serviceBindingCatalog(scripted.binding, scripted.sleep);
   await assert.rejects(() => catalog.geocode("久喜", 5), CatalogUnavailableError);
+});
+
+/** A backoff that never ends on its own, and announces when it has begun. */
+function stuckBackoff() {
+  const entered: number[] = [];
+  const announcement: { begun?: () => void } = {};
+  const begun = new Promise<void>((resolve) => {
+    announcement.begun = resolve;
+  });
+  const sleep = (ms: number): Promise<void> => {
+    entered.push(ms);
+    announcement.begun?.();
+    return new Promise<void>(() => undefined);
+  };
+  return { entered, begun, sleep };
+}
+
+void test("an abort mid-backoff settles the call at once, not one delay later", async () => {
+  const backoff = stuckBackoff();
+  const binding = { fetch: () => Promise.resolve(json({}, 503)) };
+  const controller = new AbortController();
+  const settling = serviceBindingCatalog(binding, backoff.sleep)
+    .resolve("らき☆すた", controller.signal)
+    .then(() => "answered", () => "aborted");
+  await backoff.begun;
+  assert.deepEqual(backoff.entered, [1_000]);
+  controller.abort();
+  assert.equal(await Promise.race([settling, afterEveryPendingJob("still in the backoff")]), "aborted");
 });
 
 void test("an aborted turn stops the adapter instead of spending its retries", async () => {

@@ -17,9 +17,25 @@ import cityNames from "./city-names.json" with { type: "json" };
 
 const LOCALIZED: Record<string, Record<string, string> | undefined> = cityNames;
 
+// Both lookups go through `Object.hasOwn` because a JSON table is a plain
+// object with `Object.prototype` behind it: `toString` is neither a city nor a
+// locale, and an unguarded index would hand the reader a function where the
+// type promises a string. Python's `dict.get` had no such back door.
+
+/** The names this city carries of its own, or nothing. */
+function localeTable(englishName: string): Record<string, string> | undefined {
+  return Object.hasOwn(LOCALIZED, englishName) ? LOCALIZED[englishName] : undefined;
+}
+
+/** The name that table carries of its own for `locale`, or nothing. */
+function nameIn(names: Record<string, string> | undefined, locale: string): string | undefined {
+  if (!names) return undefined;
+  return Object.hasOwn(names, locale) ? names[locale] : undefined;
+}
+
 /** The city's name in `locale`, or the English name when there is none. */
 export function localizedCityName(englishName: string, locale: string): string {
-  const localized = LOCALIZED[englishName]?.[locale];
+  const localized = nameIn(localeTable(englishName), locale);
   // Python wrote `names.get(locale) or english_name`: a blank entry is no name
   // at all, so `??` would hand the reader an empty heading.
   return localized === undefined || localized === "" ? englishName : localized;

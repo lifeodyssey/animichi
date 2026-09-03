@@ -91,8 +91,12 @@ export function resolveAnimeTool(
     label: "Resolve an anime title",
     description: DESCRIPTION,
     parameters: resolveAnimeParameters,
+    // The title is trimmed here because the catalog's own `ResolveInput.query`
+    // is `.trim().min(1)` and the trim half of that cannot ride in a JSON
+    // Schema (`packages/contract/src/agent-tool-parameters.ts`): the schema
+    // refuses a blank title, and this refuses to send the catalog a padded one.
     execute: (_toolCallId, params, signal) =>
       degradingCatalogFailure("resolve_anime", () => UPSTREAM_DOWN, (deadline) =>
-        resolveTitle(catalog, session, params.title, deadline), budget, signal),
+        resolveTitle(catalog, session, params.title.trim(), deadline), budget, signal),
   };
 }

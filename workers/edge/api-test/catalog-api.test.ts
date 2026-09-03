@@ -14,6 +14,14 @@ import assert from "node:assert/strict";
 
 const ORIGIN = process.env.CATALOG_API_ORIGIN;
 
+/** How long this whole lane may spend waiting on staging. One deadline, shared
+ * by every request it makes: a staging origin that accepts a connection and
+ * then says nothing would otherwise hang the lane forever — node:test imposes
+ * no timeout of its own, and an operator running this by hand deserves a
+ * failure rather than a prompt that never returns. */
+const LANE_DEADLINE_MS = 15_000;
+const laneDeadline = AbortSignal.timeout(LANE_DEADLINE_MS);
+
 /** The origin under test, or a loud refusal. */
 function origin(): string {
   assert.ok(ORIGIN, "set CATALOG_API_ORIGIN (see api-test/README.md); this lane never guesses");
@@ -29,12 +37,13 @@ async function publicAttempt(procedure: string): Promise<number> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: "{}",
+    signal: laneDeadline,
   });
   return response.status;
 }
 
 void test("the deployed origin is alive", async () => {
-  const response = await fetch(`${origin()}/healthz`);
+  const response = await fetch(`${origin()}/healthz`, { signal: laneDeadline });
   assert.equal(response.status, 200);
 });
 
