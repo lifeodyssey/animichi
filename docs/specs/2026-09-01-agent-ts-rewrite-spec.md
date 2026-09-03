@@ -1,6 +1,6 @@
 # Spec — agent TS 重写（pi agent core × DO × Neon 单一真相源）
 
-- Status: OPEN — owner 已定方向（2026-09-01 grilling），本文件为简化版权威决策记录；复杂化 spec 由后续更强的模型在此基础上扩展。
+- Status: W0 closed 2026-09-03（S1–S5 全通过硬条件，kill-switch 未触发，#1249）；W1 in progress — owner 已定方向（2026-09-01 grilling），本文件为简化版权威决策记录；复杂化 spec 由后续更强的模型在此基础上扩展。
 - 决策输入：`docs/specs/2026-09-01-pi-agent-core-research-report.md`（workerd 实测通过）× `docs/iterations/production-readiness-2026-08/PI-AGENT-CORE-RESEARCH.md`（8/29 NO-GO 全量迁移 / GO 限 spike 门——本 spec 保留其门）× `docs/specs/2026-08-17-agent-ts-research-report.md`（#1106）。
 - 战略动机：消灭 Python 容器冷启动（2026-09-01 实测：睡醒唤醒 28–32s、部署后 74s；PR #1239 只是把库的 20s 等待预算放宽到 55s，没有缩短冷启动本身）；异步病根（#729 / #1235 request-parked ingest / turn 生命周期补丁群）根治为"回合活在请求之外、Neon 唯一真相源"；仓库收敛为纯 TS 单流水线。
 - 2026-09-01 二轮 grilling（Q1–Q5，owner 定案）：回合宿主 = DO alarm；断线 = 不续流、回来按会话 ID 拉最终结果；W1/W2 不设自动 eval；eval 只对真实环境测；agent 住进 `workers/edge` 不新建 Worker。已并入 §二–§八。
@@ -58,18 +58,28 @@
 按新报告 §七 S1–S7 执行，全部**真部署 Worker + 真实网关**，wrangler dev 不算数：
 
 - **S1**：三 provider matrix + deployed Worker + abort 三处断点 + cold/warm 唤醒毫秒数实测（写回本 spec 附录）。
+  - 结论：**通过**。cold / warm 唤醒 477 / 803 ms，唤醒 <1s 的收益成立；mimo 与 Gemini 往返均 200 且 clean；三处 abort（provider_stream / tool_call / final_frame）全部 aborted=yes clean=yes。Anthropic 因本地无 key 未测（非 workerd 故障），作为 [U] 带入 W1，不构成硬失败。（附录 A）
 - **S2**：mimo-v2.5 网关方言定版（compat 开关阵逐项实测：tool calling 往返 / strict / maxTokensField / streaming usage）。
+  - 结论：**通过**。19 个直连用例（默认 + 9 个开关各两值）全部完成工具往返且带流式 usage，mimo 直连不需要任何 compat 覆盖；单轮 wall 4–12 s、中位数约 6.5 s。zen 路由无 `ZEN_GO_API_KEY` 未测，W1 用直连，故不阻塞。（附录 B）
 - **S3**：esbuild `.lazy` chunk bug——file upstream issue；我方 CI 加"bundler 产物 smoke 执行"门；先用已验证 workaround。
+  - 结论：**通过**。常驻门 `pnpm --filter edge-worker run test:bundle-smoke` 打包 `workers/edge/bundle-smoke/pi-kernel.worker.ts` 并在 workerd 内**执行**产物；把入口换回 `api/openai-completions.lazy` 即转红，workaround 因此被机器盯住。（CI 门 #1263 已合并；upstream 报告 `docs/specs/2026-09-01-pi-ai-esbuild-lazy-chunk-report.md`）
 - **S4**：DO 状态机：并发同 session、eviction/restart、provider/tool 中途故障 → 进行中 turn 必须能恢复到"收尾一致"（不依赖上游 harness）。**硬条件（Q1 定）**：在真部署 DO 的 alarm handler 内跑一个刻意 5 分钟、含 3 次工具调用的回合，期间客户端断开，最终 Neon 里 run=succeeded 且转录完整；同时实测 alarm 内一次回合的 DO 计费 wall-clock。**该 spike 使用独立的 spike-only 回合 deadline（≥ 6 分钟，spike 配置项，不进生产默认值）**——生产的整回合 deadline 仍是 100s（§二），5 分钟只是为了逼近 alarm 的 15 分钟上限做压力验证；恢复用例必须含"工具成功但结果未落库前崩溃"分支（§三 幂等契约）。
+  - 结论：**通过**。同 session 的第二个回合被唯一索引 `runs_one_running_per_session` 以 409 直接拒绝；"工具成功、步骤行未落库"崩溃分支重放精确一次（3 个步骤共 4 次工具执行）；刻意 5 分钟、3 次工具调用的回合在客户端断开后仍在 alarm 内跑完，staging Neon 里 run=succeeded 且转录完整，DO 计费 wall-clock 100.9 s。（附录 C）
 - **S5**：BYOK/egress 红线（8/29 note 条件 6 全表：allowlist、非空 key、无 server-key fallback、SSRF 边界、redirect、日志脱敏）。
+  - 结论：**通过**。应用层每条红线都 deny 且带出拒绝原因（`host_not_allowlisted` / `unknown_provider` / `scheme_not_https` / `port_not_443` / `metadata_address` / `own_infrastructure` / `empty_key`）；allowlist 内的三个供应商 host 真实到达对端，假 key 得 401/400 且错误文本不含 key；恶意 302 在第 1 跳即 deny；平台出站代理对私网/元数据目标另有一层拒绝（9 个目标，403；`metadata.google.internal` 为 530）。DNS 混合 A 记录与"验证→连接"之间的重绑定仍 [U]（需自控 nameserver），作为 [U] 带入，不构成硬失败。（附录 D）
 
 **Kill-switch**：S1–S5 任一硬失败 → 内核层回退 Vercel AI SDK ToolLoopAgent（#1106 的 39/60 基线，输出回喂自建 ~50–100 行）；**架构壳（DO/Neon/intake/GET）不变**，只换 loop 层。spike 结论与复测数据必须回填本 spec 后才进 W1。
+
+**裁决（2026-09-03，W0-KS #1249）**：S1–S5 全部通过硬条件，kill-switch 不触发；内核层保持 pi-agent-core + pi-ai，W1 按 §五 开工。
+
+- 带入的 [U]（都不是硬条件的一部分，拿到条件后各补一行即可）：Anthropic 在 workerd 上的往返未证实（本地无 key，附录 A）；DNS 混合 A 记录与"验证→连接"之间的重绑定未测（需自控 nameserver，附录 D）。
+- spike 产出的两条实现硬要求：assistant 的 tool-call 消息必须与 `run_steps` 一起持久化并从转录重放，重放才能落在同一 `step_index`（附录 C，W1-3 #1252）；Google BYOK 走 pi-ai 的 OpenAI 兼容面，因为其 `google-generative-ai` 拒绝注入 fetch（附录 D，W2）。
 
 ## 五、波次（顺序，非减法）
 
 | Wave | 内容 | 出口判据 |
 |---|---|---|
-| W0 | spike S1–S5 + kill-switch 裁决 | 结论回填 §四 |
+| W0 | spike S1–S5 + kill-switch 裁决 | 已回填（#1249） |
 | W1 | 核心环路（全部在 `workers/edge` 内）：intake + AgentSession DO（alarm 内跑回合）+ pi + mimo + 4 个 catalog 工具 + 连接在时的 SSE + `GET …/messages` 加 run 状态 + 配额结算 | staging 匿名可完整对话；切走再回来拉到完整结果（手动验证，无自动 eval） |
 | W2 | parity：web 工具×2、route 工具、BYOK、compaction/memory（fact_ledger 适配） | 功能对等清单逐项勾（手动验证） |
 | W3 | eval 搬到 TS：框架用 `logfire/evals`（与 pydantic-evals 同数据模型与文件格式，`run_agent_eval.py:133` 的 `Dataset.to_file` 导出 → TS `Dataset.fromFile` 读取；"零迁移"的前提：导出文件里序列化的 8 个评估器名必须以 TS 实现通过 `customEvaluators` 注册、runner 在 Node/Bun/Deno 跑（Workers 内无文件 helper）、两侧包版本钉死；W3 第一张卡 = Python 导出 → TS 导入的 round-trip fixture，跑通前不得声称零迁移）；task = 对 staging 的 HTTP 调用；自写 8 个评估器（4 个官方 agentic：ToolCorrectness / TrajectoryMatch / ArgumentCorrectness / MaxToolCalls，TS 版无内置，轨迹从转录取；4 个自定义照抄 `evaluators.py:162-215`）+ 移植 `gate.py` 的分层配对 bootstrap 统计门 + ANY-of-N + 662 case 双跑 | 双跑无回归（8/29 note 硬条件 3） |
