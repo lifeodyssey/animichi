@@ -44,6 +44,21 @@ function makeRecordingWakeup(): SessionWakeup & { armed: string[][] } {
   };
 }
 
+/** A wake-up whose FIRST arm rejects and whose later ones are recorded. */
+function makeWakeupFailingOnce(): SessionWakeup & { armed: string[][] } {
+  const recording = makeRecordingWakeup();
+  let attempts = 0;
+  return {
+    armed: recording.armed,
+    arm(sessionId, runId) {
+      attempts += 1;
+      return attempts === 1
+        ? Promise.reject(new Error("session unreachable"))
+        : recording.arm(sessionId, runId);
+    },
+  };
+}
+
 void test("every stranded run is armed once, on its own session", async () => {
   const wakeup = makeRecordingWakeup();
   const stranded = [
@@ -53,6 +68,17 @@ void test("every stranded run is armed once, on its own session", async () => {
   const swept = await sweepRuns(makeLeases(stranded), wakeup, NOW);
   assert.equal(swept, 2);
   assert.deepEqual(wakeup.armed, [["session-a", "run-1"], ["session-b", "run-2"]]);
+});
+
+void test("one unreachable session does not cancel the rest of the batch", async () => {
+  const wakeup = makeWakeupFailingOnce();
+  const stranded = [
+    { runId: "run-1", sessionId: "session-a" },
+    { runId: "run-2", sessionId: "session-b" },
+    { runId: "run-3", sessionId: "session-c" },
+  ];
+  await assert.rejects(sweepRuns(makeLeases(stranded), wakeup, NOW), /session unreachable/);
+  assert.deepEqual(wakeup.armed, [["session-b", "run-2"], ["session-c", "run-3"]]);
 });
 
 void test("a sweep that finds nothing arms nothing", async () => {

@@ -14,8 +14,10 @@ import type { NamedStubs } from "../src/agent/durable-namespace.ts";
 import {
   armedRunId,
   durableSessionWakeup,
+  SessionArmError,
   SESSION_ARM_PATH,
 } from "../src/agent/session/session-wakeup.ts";
+import { acceptTurn, type TurnIntake } from "../src/agent/intake/turn-intake.ts";
 import {
   durableRunBackstop,
   RUN_SWEEPER_SINGLETON,
@@ -27,16 +29,26 @@ interface Delivery {
   readonly request: Request;
 }
 
-/** A namespace that appends every (instance name, request) pair to `log`. */
-function makeStubs(log: Delivery[]): NamedStubs {
+/** A namespace that appends every (instance name, request) pair to `log` and
+ * answers with `status` — 204 is what an armed AgentSession answers. */
+function makeStubs(log: Delivery[], status = 204): NamedStubs {
   return {
     idFromName: (name) => name as unknown as DurableObjectId,
     get: (id) => ({
       fetch: (request) => {
         log.push({ name: id as unknown as string, request });
-        return Promise.resolve(new Response(null, { status: 204 }));
+        return Promise.resolve(new Response(null, { status }));
       },
     }),
+  };
+}
+
+/** An intake that commits a fresh turn and wakes it through `wakeup`. */
+function makeIntakeThrough(wakeup: TurnIntake["wakeup"]): TurnIntake {
+  return {
+    backstop: { ensureScheduled: () => Promise.resolve() },
+    records: { openTurn: () => Promise.resolve({ messageId: "m-1", runId: "r-1", replayed: false }) },
+    wakeup,
   };
 }
 
@@ -77,6 +89,23 @@ void test("a session that cannot be armed still leaves the backstop ticking", as
   });
   await assert.rejects(wakeup.arm("session-7", "run-3"), /session unreachable/);
   assert.equal(scheduled, 1);
+});
+
+void test("a session that answers 500 fails the arm rather than reporting success", async () => {
+  const wakeup = durableSessionWakeup(makeStubs([], 500), { ensureScheduled: () => Promise.resolve() });
+  await assert.rejects(
+    wakeup.arm("session-7", "run-3"),
+    (error: unknown) => error instanceof SessionArmError && error.status === 500,
+  );
+});
+
+void test("a refused arm makes the whole intake reject — fetch fulfils on 5xx", async () => {
+  const submission = {
+    sessionId: "session-7", identityId: "anon_0123456789abcdef0123456789abcdef",
+    payer: "anon" as const, clientMessageId: "cmid-1", text: "hi",
+  };
+  const wakeup = durableSessionWakeup(makeStubs([], 503), { ensureScheduled: () => Promise.resolve() });
+  await assert.rejects(acceptTurn(makeIntakeThrough(wakeup), submission), SessionArmError);
 });
 
 void test("a body that names no run arms nothing", async () => {

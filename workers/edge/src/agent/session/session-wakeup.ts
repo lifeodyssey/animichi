@@ -22,6 +22,22 @@ export interface SessionWakeup {
   arm(sessionId: string, runId: string): Promise<void>;
 }
 
+/**
+ * The session's Durable Object answered an arm request with a failure. `fetch`
+ * FULFILS on 4xx/5xx — only a transport error rejects — so without reading the
+ * status back the intake would report success for a turn nobody is running.
+ * The session id is deliberately not in the message: it is an identity.
+ */
+export class SessionArmError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`the session refused the arm request (status ${String(status)})`);
+    this.name = "SessionArmError";
+    this.status = status;
+  }
+}
+
 /** The path an arm request carries. */
 export const SESSION_ARM_PATH = "/arm";
 
@@ -47,7 +63,8 @@ export async function armedRunId(request: Request): Promise<string | undefined> 
  * together rather than sequenced: arming the session is the fast path, and
  * keeping the singleton sweeper's alarm alive is the backstop that covers the
  * fast path failing. Neither is a precondition of the other, so a rejection in
- * one must not cancel the other — and both surface to the caller.
+ * one must not cancel the other — and both surface to the caller, including the
+ * arm's own HTTP status.
  *
  * Bootstrapping the backstop from here is a deliberate addition to spec §三,
  * which names the sweeper's periodic alarm but not who first arms it: a
@@ -59,7 +76,8 @@ export function durableSessionWakeup(sessions: NamedStubs, backstop: RunBackstop
   return {
     async arm(sessionId, runId) {
       const armed = sessions.get(sessions.idFromName(sessionId)).fetch(armRequest(runId));
-      await Promise.all([armed, backstop.ensureScheduled()]);
+      const [response] = await Promise.all([armed, backstop.ensureScheduled()]);
+      if (!response.ok) throw new SessionArmError(response.status);
     },
   };
 }

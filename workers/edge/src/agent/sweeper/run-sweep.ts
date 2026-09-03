@@ -25,15 +25,39 @@ export interface RunLeases {
   withoutLiveLease(nowMs: number): Promise<SweepableRun[]>;
 }
 
-/** Re-arm every run nobody holds a live lease on; answers how many it armed. */
+/**
+ * Re-arm every run nobody holds a live lease on; answers how many it swept.
+ *
+ * Every candidate is attempted even when an earlier one fails — one
+ * unreachable session must not cancel the rest of the batch, which is the
+ * whole point of a backstop. The first failure is kept and rethrown after the
+ * loop, so the alarm still ends in failure and the platform retries it.
+ */
 export async function sweepRuns(
   leases: RunLeases,
   wakeup: SessionWakeup,
   nowMs: number,
 ): Promise<number> {
   const stranded = await leases.withoutLiveLease(nowMs);
-  for (const run of stranded) await wakeup.arm(run.sessionId, run.runId);
+  const failure = await armEach(stranded, wakeup);
+  if (failure !== undefined) throw failure.error;
   return stranded.length;
+}
+
+/** Arm each run, remembering the first failure rather than stopping at it. */
+async function armEach(
+  stranded: SweepableRun[],
+  wakeup: SessionWakeup,
+): Promise<{ error: unknown } | undefined> {
+  let failure: { error: unknown } | undefined;
+  for (const run of stranded) {
+    try {
+      await wakeup.arm(run.sessionId, run.runId);
+    } catch (error) {
+      failure ??= { error };
+    }
+  }
+  return failure;
 }
 
 /** The sweep cadence when a deployment configures none (spec §三: periodic). */

@@ -12,6 +12,7 @@
  */
 import type { RunPayer } from "../../db/schema.ts";
 import type { SessionWakeup } from "../session/session-wakeup.ts";
+import type { RunBackstop } from "../sweeper/run-backstop.ts";
 import { quotaReservationFor, type QuotaReservation } from "./quota-reservation.ts";
 
 /**
@@ -55,6 +56,15 @@ export interface TurnRecords {
   openTurn(turn: OpenedTurn): Promise<IntakeReceipt>;
 }
 
+/** The three durable collaborators one intake drives, in the order it drives
+ * them: the backstop that must already be ticking, the transaction, and the
+ * session woken after it commits. */
+export interface TurnIntake {
+  readonly backstop: RunBackstop;
+  readonly records: TurnRecords;
+  readonly wakeup: SessionWakeup;
+}
+
 /** Why the intake could not open a turn on a session that is already live. */
 export type SessionBusyReason = "running_turn" | "orphaned_replay";
 
@@ -91,15 +101,25 @@ function turnFor(submission: TurnSubmission, at: number): OpenedTurn {
   };
 }
 
-/** Commit one turn, then wake its session. A replay wakes nothing: it opened
- * no run, and the run it resolved to is already running or already settled. */
+/**
+ * Commit one turn, then wake its session. A replay wakes nothing: it opened no
+ * run, and the run it resolved to is already running or already settled.
+ *
+ * The backstop is scheduled BEFORE the transaction opens, not only after it
+ * commits. The window this closes is the one the sweeper exists for: a crash
+ * between COMMIT and the wake-up strands a `running` run, and only a sweeper
+ * that was ALREADY ticking when the row landed can find it — scheduling it
+ * afterwards is scheduling it in the branch that did not run.
+ * `ensureScheduled` is idempotent, so the wake-up's own call stays a
+ * safeguard rather than a second cost.
+ */
 export async function acceptTurn(
-  records: TurnRecords,
-  wakeup: SessionWakeup,
+  intake: TurnIntake,
   submission: TurnSubmission,
   now: () => number = Date.now,
 ): Promise<IntakeReceipt> {
-  const receipt = await records.openTurn(turnFor(submission, now()));
-  if (!receipt.replayed) await wakeup.arm(submission.sessionId, receipt.runId);
+  await intake.backstop.ensureScheduled();
+  const receipt = await intake.records.openTurn(turnFor(submission, now()));
+  if (!receipt.replayed) await intake.wakeup.arm(submission.sessionId, receipt.runId);
   return receipt;
 }
