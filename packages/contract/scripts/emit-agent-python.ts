@@ -187,21 +187,64 @@ function renderNestedChildren(name: string, properties: Record<string, JsonSchem
   }
 }
 
+/** ruff-format's line budget (`apps/agent/pyproject.toml` `line-length`). The
+ * emitted file is checked by `ruff format --check` in `make check` and
+ * pre-push, so a field this emitter renders on one over-long line would be
+ * rewritten by the formatter — and a formatter rewrite of a generated file is
+ * exactly the drift `agent-boundary.test.ts` fails on. */
+const PY_LINE_LIMIT = 88;
+
+/** The `Literal` members one field admits, already Python-quoted. */
+function literalValues(prop: JsonSchema, at: string): string[] {
+  const { inner } = unwrapNullable(prop, at);
+  if (inner.const !== undefined) return [pyLiteral(inner.const)];
+  return (inner.enum ?? []).map((value) => pyLiteral(value));
+}
+
+/**
+ * One over-long field, split the way ruff-format splits it: a bare `Literal`
+ * breaks over its members, and a union with `None` is parenthesised first.
+ * Only a `Literal` is wrapped — it is the one construct here that grows with a
+ * CHECK vocabulary — and any other over-long field fails loudly rather than
+ * being emitted in a shape the formatter would rewrite.
+ */
+function wrappedField(name: string, values: string[], none: string | null): string[] {
+  if (none === null) {
+    return [`    ${name}: Literal[`, ...values.map((value) => `        ${value},`), "    ]"];
+  }
+  return [
+    `    ${name}: (`,
+    "        Literal[",
+    ...values.map((value) => `            ${value},`),
+    "        ]",
+    "        | None",
+    `    )${none}`,
+  ];
+}
+
+/** The suffix a field carries: absent members default, nullable ones union. */
+function noneSuffix(optional: boolean, nullable: boolean): string | null {
+  if (optional) return " = None";
+  return nullable ? "" : null;
+}
+
+function fieldLines(name: string, prop: JsonSchema, at: string, optional: boolean): string[] {
+  const { nullable } = unwrapNullable(prop, at);
+  const none = noneSuffix(optional, nullable);
+  const declared = `    ${name}: ${fieldType(prop, at)}${none === null ? "" : ` | None${none}`}`;
+  if (declared.length <= PY_LINE_LIMIT) return [declared];
+  const values = literalValues(prop, at);
+  if (values.length === 0) {
+    throw new Error(`unsupported long field at ${at}: only a Literal can be wrapped`);
+  }
+  return wrappedField(name, values, none);
+}
+
 function renderNestedClass(name: string, prop: JsonSchema, fieldPath: string, out: string[]): void {
   const required = new Set(prop.required ?? []);
   out.push(`class ${name}(BaseModel):`);
   for (const [child, childProp] of Object.entries(prop.properties ?? {})) {
-    const at = `${fieldPath}.${child}`;
-    const { nullable } = unwrapNullable(childProp, at);
-    const base = fieldType(childProp, at);
-    const optional = !required.has(child);
-    if (optional) {
-      out.push(`    ${child}: ${base} | None = None`);
-    } else if (nullable) {
-      out.push(`    ${child}: ${base} | None`);
-    } else {
-      out.push(`    ${child}: ${base}`);
-    }
+    out.push(...fieldLines(child, childProp, `${fieldPath}.${child}`, !required.has(child)));
   }
   out.push("", "");
 }

@@ -69,6 +69,32 @@ export const RUN_FAILURE_REASONS = [
 export type RunFailureReason = (typeof RUN_FAILURE_REASONS)[number];
 
 /**
+ * One conversation. Mapped from W1-5 (#1254) for exactly one column:
+ * `userId` is the ownership fact `ConversationRetrieval` checks before it
+ * reads a transcript back, and the retrieval must read it through the same
+ * mapping every other agent-tier statement uses. The rest of the table is
+ * mapped because a partial mapping is a mapping that cannot be held to the
+ * Atlas chain (`test/agent-runs-schema.test.ts` compares whole column sets).
+ *
+ * `id` is text, not UUID: it carries the anonymous `anon_*` identity or the
+ * Neon Auth subject. `userId` is nullable — a session nobody has claimed
+ * belongs to nobody, which is why the retrieval refuses it rather than
+ * treating it as public.
+ */
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id"),
+  title: text("title"),
+  firstQuery: text("first_query"),
+  state: jsonb("state").notNull().default({}),
+  metadata: jsonb("metadata").default({}),
+  lifecycle: text("lifecycle").default("active"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+});
+
+/**
  * The dialogue transcript. `clientMessageId` is the intake dedupe key: a
  * replayed `POST /v1/chat` must resolve to the message already stored rather
  * than append a second one. It is nullable because every row written before

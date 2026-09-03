@@ -34,8 +34,8 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 
 - `src/entry.ts` — Worker default export + `RuntimeContainer`; `src/app.ts` — Hono assembly only.
 - `src/db/` — Drizzle mapping of the agent turn tables the edge owns from W1 (`messages`,
-  `runs`, `run_steps`); query-only metadata, never a DDL authority (`migrations/neon` owns
-  the schema).
+  `runs`, `run_steps`, plus `sessions` for the retrieval's ownership check); query-only
+  metadata, never a DDL authority (`migrations/neon` owns the schema).
 - `src/agent/` — the agent turn tier (W1, spec `docs/specs/2026-09-01-agent-ts-rewrite-spec.md`):
   `intake/` (one `POST /v1/chat` becomes one transaction: message + `running` run + quota
   reservation, then `setAlarm(now)` on the session), `session/` (the `AgentSession` DO and the
@@ -44,7 +44,11 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   frames and the in-memory subscriber set), `sweeper/` (the singleton `RunSweeper` DO, the
   at-least-once backstop), `settlement/` (how a turn ENDS: the run's terminal row, its
   `daily_usage` rollup and its quota refund, called by the session on its own transaction
-  alongside the assistant message). Ports live with the use case, Neon adapters beside them, and
+  alongside the assistant message), `retrieval/` (how a turn is READ BACK:
+  `ConversationRetrieval`, the owned and ordered transcript page plus the latest run's status
+  behind `GET /v1/conversations/:id/messages` — spec §二's disconnect semantics, and the only
+  agent-tier read that never runs inside the Durable Object).
+  Ports live with the use case, Neon adapters beside them, and
   no module here imports `cloudflare:workers` so the node:test suite can load every one of them.
   The `Toolbox` port in `src/agent/session/turn-toolbox.ts` is the whole contract with #1253's
   `src/agent/tools/`; until that lands the session runs with no tools. Nothing routes to it yet —

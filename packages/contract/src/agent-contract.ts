@@ -214,11 +214,55 @@ export const SessionHistoryMessage = z.object({
 });
 export type SessionHistoryMessage = z.infer<typeof SessionHistoryMessage>;
 
-/** The `GET /v1/conversations/{id}/messages` payload (SESSION-1 #959). */
+/**
+ * Why a turn ended `failed` — the `runs_failure_reason_check` vocabulary
+ * verbatim (`migrations/neon/20260902000000_agent_runs.sql`). Bounded on
+ * purpose: the reason reaches the browser, so it may name a lifecycle outcome
+ * and never an internal detail. `workers/edge/test/agent-runs-schema.test.ts`
+ * holds this list and the database's CHECK to each other.
+ */
+export const RunFailureReason = z.enum([
+  "lease_expired",
+  "deadline_exceeded",
+  "provider_failed",
+  "tool_failed",
+  "cancelled",
+  "internal_error",
+]);
+export type RunFailureReason = z.infer<typeof RunFailureReason>;
+
+/**
+ * The state of the session's latest run (W1-5 #1254, spec §二 "断线语义").
+ *
+ * A client that leaves mid-turn never resumes the stream; it comes back and
+ * pulls the final result once by session id. This is the one field that tells
+ * it whether the turn it left is still running, and why it failed when it did.
+ * `reason` is set exactly when `status` is `failed` — `runs_failed_has_reason_check`
+ * makes that a database invariant, not a convention.
+ */
+export const SessionRunStatus = z.object({
+  run_id: z.string(),
+  status: z.enum(["running", "succeeded", "failed"]),
+  reason: RunFailureReason.nullable().optional(),
+});
+export type SessionRunStatus = z.infer<typeof SessionRunStatus>;
+
+/**
+ * The `GET /v1/conversations/{id}/messages` payload (SESSION-1 #959).
+ *
+ * `run` is additive (W1-5 #1254): `null` when the session has never opened a
+ * turn. It is nullable AND optional because both shapes are real. Null is what
+ * either server sends for a session with no run — the Python route that serves
+ * this path until #1256 flips the fallback flag emits the key too, since its
+ * generated model defaults the field to `None` and the route sets no
+ * `response_model_exclude_none`. Absent is every payload captured before this
+ * field existed, which today's client still has to keep parsing.
+ */
 export const GetSessionHistoryResponse = z.object({
   messages: z.array(SessionHistoryMessage),
   revision: z.number().int().nonnegative(),
   next_offset: z.number().int().nonnegative().nullable(),
+  run: SessionRunStatus.nullable().optional(),
 });
 export type GetSessionHistoryResponse = z.infer<typeof GetSessionHistoryResponse>;
 
