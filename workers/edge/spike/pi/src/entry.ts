@@ -8,6 +8,10 @@
 // status route.
 
 import { DurableTurnSession } from "./durable-turn-session.ts";
+import { EgressProbe } from "./egress-probe.ts";
+import { parseEgressProbeCommand } from "./egress-probe-command.ts";
+import { probePlatformEgress } from "./platform-egress-probe.ts";
+import { probeRedirectFixture } from "./redirect-fixture-probe.ts";
 import { configuredProviders, type ProviderKeys } from "./spike-models.ts";
 import { databaseConfigured, type SpikeDatabaseKeys } from "./spike-database.ts";
 import { routeOf, type SpikeRoute } from "./spike-routes.ts";
@@ -32,6 +36,29 @@ function healthResponse(env: SpikeEnv): Response {
   });
 }
 
+async function jsonBodyOf(request: Request): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    return null;
+  }
+}
+
+/** W0-S5 (#1248): one red-line row, decided and — when allowed — actually run. */
+async function egressResponse(request: Request): Promise<Response> {
+  const parsed = parseEgressProbeCommand(await jsonBodyOf(request));
+  if (!parsed.ok) return Response.json({ error: parsed.error }, { status: 400 });
+  return Response.json(await new EgressProbe().run(parsed.command));
+}
+
+async function platformEgressResponse(): Promise<Response> {
+  return Response.json({ probes: await probePlatformEgress() });
+}
+
+async function redirectEgressResponse(): Promise<Response> {
+  return Response.json({ probes: await probeRedirectFixture() });
+}
+
 function sessionNameOf(url: URL, fallback: string): string {
   return url.searchParams.get("session") ?? fallback;
 }
@@ -46,6 +73,9 @@ export default {
     const route = routeOf(request.method, url.pathname);
     if (route === "healthz") return healthResponse(env);
     if (route === "not_found") return Response.json({ error: "not found" }, { status: 404 });
+    if (route === "egress") return egressResponse(request);
+    if (route === "egress_platform") return platformEgressResponse();
+    if (route === "egress_redirect") return redirectEgressResponse();
     if (DURABLE_ROUTES.includes(route)) {
       return sessionFor(env.PI_DURABLE, sessionNameOf(url, "s4")).fetch(request);
     }
