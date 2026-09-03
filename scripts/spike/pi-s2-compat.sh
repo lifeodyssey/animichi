@@ -97,8 +97,12 @@ require_url() {
 
 # `printf` rather than a here-string: a here-string appends a newline, which
 # `tr` would turn into a trailing space inside every recorded field.
+# `record` cuts every field to this; the note builder below budgets against it
+# so the `evidence=` suffix is never what gets cut.
+FIELD_LIMIT=160
+
 sanitize() {
-  printf '%s' "$1" | tr '|\n' '/ ' | cut -c1-160
+  printf '%s' "$1" | tr '|\n' '/ ' | cut -c1-"${FIELD_LIMIT}"
 }
 
 record() {
@@ -172,10 +176,30 @@ evidence_note() {
   echo "evidence=${evidence#"${OUT}/"}"
 }
 
+# A note is "<what the gateway said> evidence=<path>". The provider message is
+# whatever the gateway felt like sending and can be arbitrarily long, so it is
+# cut to what the suffix leaves rather than the two being cut together: a row
+# that cannot name its own response body is worse than a truncated error, since
+# the full text is in that body. `record`'s own cut then finds the note already
+# inside FIELD_LIMIT and changes nothing.
+note_with_evidence() {
+  local message="$1" evidence="$2" suffix room trimmed=""
+  suffix="$(evidence_note "${evidence}")"
+  room=$(( FIELD_LIMIT - ${#suffix} - 1 ))
+  if [ "${room}" -gt 0 ]; then
+    trimmed="$(printf '%s' "${message}" | tr '|\n' '/ ' | cut -c1-"${room}")"
+  fi
+  if [ -n "${trimmed}" ]; then
+    printf '%s %s' "${trimmed}" "${suffix}"
+  else
+    printf '%s' "${suffix}"
+  fi
+}
+
 record_failed_case() {
   local route="$1" name="$2" value="$3" code="$4" evidence="$5"
   record "${route}" "${name}" "${value}" "no" "no" "-" "-" \
-    "http ${code}: $(head -c 100 "${evidence}") $(evidence_note "${evidence}")"
+    "$(note_with_evidence "http ${code}: $(cat "${evidence}")" "${evidence}")"
 }
 
 record_measured_case() {
@@ -183,7 +207,7 @@ record_measured_case() {
   record "${route}" "${name}" "${value}" \
     "$(flag_of "${evidence}" toolRoundTrip)" "$(flag_of "${evidence}" streamingUsage)" \
     "$(jq -r '.wallMs' "${evidence}")" "$(jq -r '.firstTokenMs // "none"' "${evidence}")" \
-    "$(note_of "${evidence}") $(evidence_note "${evidence}")"
+    "$(note_with_evidence "$(note_of "${evidence}")" "${evidence}")"
 }
 
 run_case() {
