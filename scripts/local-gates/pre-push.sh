@@ -30,6 +30,16 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
+
+# git hands a hook GIT_DIR (and its siblings) when it runs it from a linked
+# worktree. Every gate below is meant to act on the checkout at ROOT, which it
+# finds from this directory, and several behavioural tests build throwaway
+# fixture repos under mktemp. An inherited GIT_DIR overrides both — it beats
+# `git -C <fixture>` and a `cwd=<fixture>` subprocess alike — so a fixture's
+# `git add .` stages the real index and its `git commit` runs the real hooks
+# and fails. Drop them and let every git command resolve from where it runs.
+unset "${!GIT_@}"
+
 source "$ROOT/scripts/local-gates/workspace-packages.sh"
 load_workspace_packages
 
