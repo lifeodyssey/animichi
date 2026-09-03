@@ -19,6 +19,10 @@ export { EdgeGuard } from "./protect/edge-guard.ts";
 // here because `durable_objects.bindings` resolves class names against the
 // Worker's own exports; nothing routes to it yet (#1256 flips /v1/chat).
 export { RunSweeper } from "./agent/sweeper/run-sweeper.ts";
+// W1-3 (#1252): the per-session Durable Object that runs a turn inside its own
+// `alarm()` handler. Same reason for the export: `class_name = "AgentSession"`
+// is resolved against this file at deploy time.
+export { AgentSession } from "./agent/session/agent-session.ts";
 // Required for `deniedHosts`/outbound interception to actually run (#284 Task 7,
 // PR #478 review): `applyOutboundInterception` hard-throws when
 // `ctx.exports.ContainerProxy` is undefined — see

@@ -18,7 +18,7 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 - `pnpm run test:spike-db` — opt-in lane (`db-test/*.test.ts`) that runs the W0-S4 spike's run
   store against a **real** PostgreSQL named by `SPIKE_TEST_DATABASE_URL`. Never in CI and never
   against staging; it fails closed without a disposable database. Recipe: `spike/pi/README.md`.
-- `pnpm run test:agent-db` — the W1-2 agent-tier database arm (#1251): boots a disposable
+- `pnpm run test:agent-db` — the agent-tier database arm (#1251, #1252): boots a disposable
   PostgreSQL container itself, applies the committed `migrations/neon` chain, and runs the
   intake's own statements against it. Its own directory and lane, not the spike's: this one
   brings its own database (Docker + the offline `animichi-test-postgres` image,
@@ -38,13 +38,17 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   the schema).
 - `src/agent/` — the agent turn tier (W1, spec `docs/specs/2026-09-01-agent-ts-rewrite-spec.md`):
   `intake/` (one `POST /v1/chat` becomes one transaction: message + `running` run + quota
-  reservation, then `setAlarm(now)` on the session), `session/` (the wake-up port and the
-  request `AgentSession` answers — the class itself is #1252), `sweeper/` (the singleton
-  `RunSweeper` DO, the at-least-once backstop), `settlement/` (how a turn ENDS: the run's
-  terminal row, its `daily_usage` rollup and its quota refund, as two functions #1252 calls
-  on its own transaction alongside the assistant message). Ports live with the use case, Neon adapters
-  beside them, and no module here imports `cloudflare:workers` so the node:test suite can load
-  every one of them. Nothing routes to it yet — #1256 flips `/v1/chat`.
+  reservation, then `setAlarm(now)` on the session), `session/` (the `AgentSession` DO and the
+  turn it runs inside its own `alarm()` handler, #1252: the run state machine, the
+  `(run_id, step_index)` step replay, the transcript rebuild, the pi/mimo assembly, the SD-9
+  frames and the in-memory subscriber set), `sweeper/` (the singleton `RunSweeper` DO, the
+  at-least-once backstop), `settlement/` (how a turn ENDS: the run's terminal row, its
+  `daily_usage` rollup and its quota refund, called by the session on its own transaction
+  alongside the assistant message). Ports live with the use case, Neon adapters beside them, and
+  no module here imports `cloudflare:workers` so the node:test suite can load every one of them.
+  The `Toolbox` port in `src/agent/session/turn-toolbox.ts` is the whole contract with #1253's
+  `src/agent/tools/`; until that lands the session runs with no tools. Nothing routes to it yet —
+  #1256 flips `/v1/chat`.
 - `src/agent/egress/` — the BYOK egress guard (W0-S5, #1248): `EgressPolicy` +
   `ProviderAllowlist` (exact provider hosts, HTTPS/443, own-infra and address-range refusals),
   `GuardedFetch` (`redirect: "manual"` and re-validation of every redirect target) and
@@ -61,8 +65,10 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 - `agent-db-test/` — the agent-tier database arm (#1251), kept apart from `db-test/` precisely
   because that one leaves with the spike. Test-only: both directories are excluded from the edge
   deploy unit in `.github/ci/components.json`, and `pg`/`testcontainers` are devDependencies.
-- `bundle-smoke/` — the pi-kernel bundler smoke gate (#1246). Test-only: excluded from the edge
-  deploy unit in `.github/ci/components.json`, and `@earendil-works/pi-ai` is a devDependency.
+- `bundle-smoke/` — the pi-kernel bundler smoke gate (#1246). Test-only: its entrypoint is
+  excluded from the edge deploy unit in `.github/ci/components.json`. `@earendil-works/pi-ai` and
+  `pi-agent-core` are runtime `dependencies` as of #1252 — `src/agent/session/` runs the kernel,
+  so a devDependency there would be a Worker that cannot bundle its own agent loop.
   Its entrypoint carries the esbuild `.lazy` chunk-init workaround reported in
   `docs/specs/2026-09-01-pi-ai-esbuild-lazy-chunk-report.md`; leave the eager
   `api/openai-completions` import alone.
