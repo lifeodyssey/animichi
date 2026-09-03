@@ -11,6 +11,7 @@ import type { PersistedStep } from "../../src/agent/session/turn-store.ts";
 import type { TurnState } from "../../src/agent/session/run-machine.ts";
 import { DurableTurn } from "../../src/agent/session/durable-turn.ts";
 import { DurableEnvelopeStore } from "../../src/agent/session/durable-envelope-store.ts";
+import { EnvelopeStagingStore } from "../../src/agent/session/envelope-staging-store.ts";
 import { TurnEnvelope } from "../../src/agent/session/turn-envelope.ts";
 import { turnToolbox } from "../../src/agent/session/session-turn.ts";
 import { InMemoryTurnStore } from "./in-memory-turn-store.ts";
@@ -75,6 +76,9 @@ export interface EnvelopeTurnParts {
   readonly leaseOwner?: string;
   /** A store that refuses to write the step down. */
   readonly stepWritesFail?: boolean;
+  /** The run this turn is a SECOND attempt at — the same `runs` row the first
+   * attempt already settled, so the retry sees it terminal. */
+  readonly store?: InMemoryTurnStore;
 }
 
 export interface EnvelopeTurnRun {
@@ -86,7 +90,7 @@ export interface EnvelopeTurnRun {
 
 /** The run one turn is driven against, with the lease and the settled steps an
  * earlier attempt could have left on it. */
-function seededStore(parts: EnvelopeTurnParts): InMemoryTurnStore {
+export function makeEnvelopeTurnStore(parts: Partial<EnvelopeTurnParts> = {}): InMemoryTurnStore {
   const held = parts.leaseOwner;
   const store = new InMemoryTurnStore(
     {
@@ -104,7 +108,7 @@ function seededStore(parts: EnvelopeTurnParts): InMemoryTurnStore {
 function scriptedTurn(parts: EnvelopeTurnParts, store: InMemoryTurnStore, envelope: TurnEnvelope, prompts: string[]): DurableTurn {
   const binding = { CATALOG: catalogBinding(parts.resolveOutcome ?? RESOLVED_LUCKY_STAR) };
   return new DurableTurn({
-    store,
+    store: new EnvelopeStagingStore(store, envelope),
     models: makeScriptedModels(promptRecording(parts.streamFn, prompts)),
     toolbox: turnToolbox(binding, envelope.session),
     systemPrompt: envelope.systemPrompt,
@@ -114,9 +118,9 @@ function scriptedTurn(parts: EnvelopeTurnParts, store: InMemoryTurnStore, envelo
 
 /** Run one turn over the stored envelope, and hand back what it left behind. */
 export async function runEnvelopeTurn(parts: EnvelopeTurnParts): Promise<EnvelopeTurnRun> {
-  const store = seededStore(parts);
+  const store = parts.store ?? makeEnvelopeTurnStore(parts);
   const prompts: string[] = [];
-  const envelope = await TurnEnvelope.open(new DurableEnvelopeStore(parts.storage), "ja");
+  const envelope = await TurnEnvelope.open(new DurableEnvelopeStore(parts.storage), RUN_ID, "ja");
   const state = await scriptedTurn(parts, store, envelope, prompts).run(RUN_ID);
   await envelope.close(state);
   return { store, state, prompts };

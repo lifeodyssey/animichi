@@ -12,9 +12,12 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DurableEnvelopeStore } from "../src/agent/session/durable-envelope-store.ts";
+import {
+  DurableEnvelopeStore,
+  SESSION_ENVELOPE_KEY,
+} from "../src/agent/session/durable-envelope-store.ts";
 import { RecordingEnvelopeStorage } from "./doubles/recording-envelope-storage.ts";
-import { runEnvelopeTurn } from "./doubles/make-envelope-turn.ts";
+import { makeEnvelopeTurnStore, runEnvelopeTurn } from "./doubles/make-envelope-turn.ts";
 import {
   makeSequencedToolCallsStreamFn,
   makeToolResultRejectingStreamFn,
@@ -44,7 +47,7 @@ void test("a turn that succeeded banks what its tools recorded, in one write", a
     streamFn: makeSequencedToolCallsStreamFn([RESOLVE_CALL, SEARCH_CALL]),
   });
   assert.equal(run.state.phase, "succeeded");
-  assert.equal(storage.writes.length, 1);
+  assert.equal(storage.envelopeWrites.length, 1);
   assert.deepEqual((await storedEnvelope(storage)).currentAnime, LUCKY_STAR);
 });
 
@@ -57,7 +60,7 @@ void test("a turn that failed still banks what its tools recorded", async () => 
     streamFn: makeToolResultRejectingStreamFn("400 bad request"),
   });
   assert.deepEqual(run.state, { phase: "failed", reason: "provider_failed" });
-  assert.equal(storage.writes.length, 1);
+  assert.equal(storage.envelopeWrites.length, 1);
 });
 
 void test("a turn whose step could not be written leaves the previous envelope alone", async () => {
@@ -68,7 +71,7 @@ void test("a turn whose step could not be written leaves the previous envelope a
     stepWritesFail: true,
     streamFn: makeSequencedToolCallsStreamFn([SEARCH_CALL]),
   }));
-  assert.equal(storage.writes.length, 1);
+  assert.equal(storage.envelopeWrites.length, 1);
   assert.deepEqual((await storedEnvelope(storage)).currentAnime, LUCKY_STAR);
 });
 
@@ -83,7 +86,7 @@ void test("a turn declined to its live owner writes no envelope", async () => {
     streamFn: makeSequencedToolCallsStreamFn([RESOLVE_CALL]),
   });
   assert.equal(run.state.phase, "declined");
-  assert.equal(storage.writes.length, 0);
+  assert.deepEqual(storage.writes, []);
 });
 
 /** The replay branch: step 0 is answered from `run_steps` without calling
@@ -99,5 +102,41 @@ void test("a retry that replays a settled step writes the envelope once more, no
   });
   assert.equal(run.state.phase, "succeeded");
   assert.deepEqual(run.store.written.map((step) => step.toolName), ["search_bangumi"]);
-  assert.equal(storage.writes.length, 1);
+  assert.equal(storage.envelopeWrites.length, 1);
+});
+
+/**
+ * The crash this whole staging/promotion split exists for (PR #1282): the run's
+ * terminal row is committed in Neon and the envelope write then refuses. The
+ * alarm throws before it dequeues, so the platform retries — and the retry finds
+ * the run already terminal, which used to mean the turn's envelope was simply
+ * lost. It is now waiting under the run's own key.
+ */
+void test("an envelope write that failed after settlement is completed by the retry", async () => {
+  const storage = new RecordingEnvelopeStorage();
+  const store = makeEnvelopeTurnStore();
+  storage.failNextWriteTo = SESSION_ENVELOPE_KEY;
+  await assert.rejects(() => runEnvelopeTurn({
+    storage, store, streamFn: makeSequencedToolCallsStreamFn([RESOLVE_CALL]),
+  }));
+  assert.equal(store.succeeded.length, 1);
+  assert.deepEqual((await storedEnvelope(storage)).currentAnime, null);
+
+  const retry = await runEnvelopeTurn({ storage, store, streamFn: makeSequencedToolCallsStreamFn([]) });
+  assert.equal(retry.state.phase, "declined");
+  assert.deepEqual((await storedEnvelope(storage)).currentAnime, LUCKY_STAR);
+});
+
+/** The other half of that rule: an alarm that comes back to a run whose envelope
+ * already landed has nothing to promote, and must not write over the session. */
+void test("a retry of a terminal run with nothing staged writes nothing", async () => {
+  const storage = new RecordingEnvelopeStorage();
+  const store = makeEnvelopeTurnStore();
+  await runEnvelopeTurn({ storage, store, streamFn: makeSequencedToolCallsStreamFn([RESOLVE_CALL]) });
+  const banked = storage.envelopeWrites.length;
+
+  const retry = await runEnvelopeTurn({ storage, store, streamFn: makeSequencedToolCallsStreamFn([]) });
+  assert.equal(retry.state.phase, "declined");
+  assert.equal(storage.envelopeWrites.length, banked);
+  assert.deepEqual(storage.keys, [SESSION_ENVELOPE_KEY]);
 });

@@ -14,11 +14,13 @@ import { SessionEnvelope } from "../src/agent/session/session-envelope.ts";
 import {
   DurableEnvelopeStore,
   SESSION_ENVELOPE_KEY,
+  stagedEnvelopeKey,
 } from "../src/agent/session/durable-envelope-store.ts";
 import { TURN_SYSTEM_PROMPT, turnSystemPrompt } from "../src/agent/session/turn-instructions.ts";
 import { RecordingEnvelopeStorage } from "./doubles/recording-envelope-storage.ts";
 import type { OrderedCandidate } from "../src/agent/tools/catalog-tool-session.ts";
 
+const RUN_ID = "run-1";
 const HARUHI = { bangumiId: "485", title: "涼宮ハルヒの憂鬱" };
 const CANDIDATES: OrderedCandidate[] = [
   { id: "485", title: "涼宮ハルヒの憂鬱", points_count: 12 },
@@ -57,7 +59,8 @@ void test("a transition answers a new envelope and leaves the old one untouched"
 void test("a saved envelope loads back with both facts", async () => {
   const storage = new RecordingEnvelopeStorage();
   const store = new DurableEnvelopeStore(storage);
-  await store.save(bothFacts());
+  await store.stage(RUN_ID, bothFacts());
+  await store.promote(RUN_ID);
   const loaded = await store.load();
   assert.deepEqual(loaded.currentAnime, HARUHI);
   assert.deepEqual(loaded.pendingClarification, { reason: "anime_ambiguity", candidates: CANDIDATES });
@@ -101,7 +104,8 @@ void test("a stored candidate whose optional field has the wrong type is not rea
 void test("a stored candidate carrying no optional fields at all is read back whole", async () => {
   const storage = new RecordingEnvelopeStorage();
   const store = new DurableEnvelopeStore(storage);
-  await store.save(SessionEnvelope.empty.withClarification("place_ambiguity", [{ id: "kuki", title: "久喜駅" }]));
+  await store.stage(RUN_ID, SessionEnvelope.empty.withClarification("place_ambiguity", [{ id: "kuki", title: "久喜駅" }]));
+  await store.promote(RUN_ID);
   const read = (await store.load()).pendingClarification;
   assert.deepEqual(read?.candidates, [{ id: "kuki", title: "久喜駅" }]);
 });
@@ -121,4 +125,35 @@ void test("the trusted runtime context names the open question and its candidate
   const prompt = turnSystemPrompt(bothFacts());
   assert.match(prompt, /anime_ambiguity/u);
   assert.match(prompt, /485, 2907/u);
+});
+
+/** Promotion is the half that runs on a retry, so running it twice has to be
+ * indistinguishable from running it once — no second envelope write, and no
+ * staging left behind to be promoted a third time. */
+void test("promoting the same run twice writes one envelope and leaves no staging", async () => {
+  const storage = new RecordingEnvelopeStorage();
+  const store = new DurableEnvelopeStore(storage);
+  await store.stage(RUN_ID, SessionEnvelope.empty.withAnime(HARUHI));
+  await store.promote(RUN_ID);
+  await store.promote(RUN_ID);
+  assert.equal(storage.envelopeWrites.length, 1);
+  assert.deepEqual(storage.keys, [SESSION_ENVELOPE_KEY]);
+  assert.deepEqual((await store.load()).currentAnime, HARUHI);
+});
+
+void test("a run with nothing staged promotes nothing at all", async () => {
+  const storage = new RecordingEnvelopeStorage();
+  await new DurableEnvelopeStore(storage).promote(RUN_ID);
+  assert.deepEqual(storage.writes, []);
+});
+
+/** Two runs of one session stage under their own keys, so neither can promote
+ * the other's answer. */
+void test("one run's staging is not visible to another run's promotion", async () => {
+  const storage = new RecordingEnvelopeStorage();
+  const store = new DurableEnvelopeStore(storage);
+  await store.stage(RUN_ID, SessionEnvelope.empty.withAnime(HARUHI));
+  await store.promote("run-2");
+  assert.deepEqual(storage.envelopeWrites, []);
+  assert.deepEqual(storage.keys, [stagedEnvelopeKey(RUN_ID)]);
 });

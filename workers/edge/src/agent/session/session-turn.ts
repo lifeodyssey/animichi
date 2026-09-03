@@ -12,6 +12,7 @@ import { usagePricesIn } from "../settlement/turn-settlement.ts";
 import { catalogToolbox } from "../tools/catalog-toolbox.ts";
 import { serviceBindingCatalog, type CatalogBinding } from "../tools/service-binding-catalog.ts";
 import { DurableTurn } from "./durable-turn.ts";
+import { EnvelopeStagingStore } from "./envelope-staging-store.ts";
 import { NeonTurnStore } from "./neon-turn-store.ts";
 import type { SessionEnvelopeStore } from "./session-envelope.ts";
 import { TurnEnvelope } from "./turn-envelope.ts";
@@ -78,7 +79,7 @@ function configuredTurn(
   envelope: TurnEnvelope,
 ): DurableTurn {
   return new DurableTurn({
-    store,
+    store: new EnvelopeStagingStore(store, envelope),
     models: createTurnModels(apiKey),
     toolbox: turnToolbox(parts.env, envelope.session),
     systemPrompt: envelope.systemPrompt,
@@ -101,7 +102,7 @@ async function driveOn(parts: SessionTurnParts, store: TurnStore, runId: string)
     await store.settleFailed(runId, "provider_failed", new Date());
     return;
   }
-  const envelope = await TurnEnvelope.open(parts.envelopes, TURN_LOCALE);
+  const envelope = await TurnEnvelope.open(parts.envelopes, runId, TURN_LOCALE);
   await envelope.close(await configuredTurn(parts, store, apiKey, envelope).run(runId));
 }
 

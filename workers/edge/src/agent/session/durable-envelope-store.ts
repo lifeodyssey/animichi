@@ -35,6 +35,12 @@ import {
 /** The one key a session's envelope is written under. */
 export const SESSION_ENVELOPE_KEY = "envelope";
 
+/** Where one run's envelope waits between its staging and its promotion. Keyed
+ * by run so two runs of one session can never promote each other's answer. */
+export function stagedEnvelopeKey(runId: string): string {
+  return `envelope:pending:${runId}`;
+}
+
 /**
  * The slice of `DurableObjectStorage` this store uses. Narrow on purpose, the
  * way `SessionRunQueue`'s is: `DurableObjectState.storage` satisfies it
@@ -44,6 +50,7 @@ export const SESSION_ENVELOPE_KEY = "envelope";
 export interface EnvelopeStorage {
   put(key: string, value: unknown): Promise<void>;
   get(key: string): Promise<unknown>;
+  delete(key: string): Promise<boolean>;
 }
 
 /** The resolved work, whose two fields are both required and both read. */
@@ -103,15 +110,30 @@ export class DurableEnvelopeStore implements SessionEnvelopeStore {
   }
 
   /**
-   * One awaited `put` of the WHOLE envelope. Cloudflare only coalesces writes
-   * with no `await` between them ("Rules of Durable Objects", Write coalescing),
-   * so this one commits on its own; and because the value is whole rather than a
-   * delta, a write that happens twice cannot apply anything twice.
+   * One awaited `put` of the WHOLE envelope, under the run's own key.
+   * Cloudflare only coalesces writes with no `await` between them ("Rules of
+   * Durable Objects", Write coalescing), so this one commits on its own — which
+   * is the entire point: it has to be on disk before the terminal row is.
    */
-  async save(envelope: SessionEnvelope): Promise<void> {
-    await this.#storage.put(SESSION_ENVELOPE_KEY, {
+  async stage(runId: string, envelope: SessionEnvelope): Promise<void> {
+    await this.#storage.put(stagedEnvelopeKey(runId), {
       pendingClarification: envelope.pendingClarification,
       currentAnime: envelope.currentAnime,
     });
+  }
+
+  /**
+   * Copy the staged value over, then drop the staging — in that order, so a
+   * failure between them leaves the staging for the next promotion to redo.
+   * Both halves are idempotent: the value is whole rather than a delta, and a
+   * run whose staging is already gone promotes nothing at all, which is what
+   * makes a retry of an already-promoted run a no-op.
+   */
+  async promote(runId: string): Promise<void> {
+    const key = stagedEnvelopeKey(runId);
+    const staged = await this.#storage.get(key);
+    if (staged === undefined) return;
+    await this.#storage.put(SESSION_ENVELOPE_KEY, staged);
+    await this.#storage.delete(key);
   }
 }

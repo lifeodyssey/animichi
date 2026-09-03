@@ -73,11 +73,15 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `envelope` key rather than in a Neon column — the DO is the single writer (spec §三) and
   `idFromName(sessionId)` makes that storage session-scoped, `retrieval/` never reads it, and a
   column would buy a migration for a fact only the alarm touches; the full trade-off and its price
-  are argued in the adapter's header. `TurnEnvelope` owns both moments: `open()` seeds the turn's
+  are argued in the adapter's header. `TurnEnvelope` owns the moments: `open()` seeds the turn's
   tools and puts the stored facts into the system prompt's "Trusted runtime context" block (the
-  ported half of Python's `trusted_session_context`), and `close(state)` writes the whole envelope
-  back exactly once — only when THIS incarnation settled the run, so a declined or abandoned turn
-  writes nothing and a crash before settlement leaves the previous envelope for the retry.
+  ported half of Python's `trusted_session_context`); `stage()` writes the whole envelope under the
+  run's own key BEFORE the terminal row lands, driven by the `EnvelopeStagingStore` decorator around
+  the `TurnStore`; and `close(state)` promotes that staging to the session's envelope once the run
+  is over. The order is the recovery: the terminal row is in Neon and the envelope is in DO storage,
+  so no transaction spans them — staging first means a failed settlement replays the whole turn,
+  and a failed promotion is finished by the alarm's retry, which finds the run terminal and the
+  answer waiting. Only `abandoned` promotes nothing: the owner that took the run over settles it.
 - `src/agent/tools/` — `catalogToolbox(catalog, session)` returns the four `AgentTool`s the
   session registers on the pi agent (`resolve_anime`, `search_bangumi`, `search_nearby`,
   `plan_route`). Two ports carry everything turn-shaped: `CatalogClient` (production adapter

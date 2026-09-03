@@ -35,9 +35,22 @@ import type { TurnState } from "./run-machine.ts";
 import { TurnCatalogSession, type TurnCatalogSessionParts } from "./turn-catalog-session.ts";
 import { turnSystemPrompt } from "./turn-instructions.ts";
 
-/** The phases in which THIS incarnation wrote the run's terminal row. */
-function settledHere(state: TurnState): boolean {
-  return state.phase === "succeeded" || state.phase === "failed";
+/**
+ * Whether the run this turn was driving is over as far as this alarm can tell.
+ *
+ * Every phase but one qualifies, and the exclusion is the point. `abandoned`
+ * means the lease was lost MID-turn: another incarnation took the run over and
+ * will stage and promote its own answer, so promoting here would publish a
+ * half-finished turn over theirs. `declined` DOES qualify, because it covers the
+ * retry this whole mechanism exists for — an alarm that comes back to find the
+ * run already terminal (`loadRunningTurn` answered null) and a staged envelope
+ * waiting. It also covers losing the opening compare-and-set to a live owner,
+ * where promoting is harmless: that owner stages only immediately before its own
+ * settlement, so either there is nothing staged and this is a no-op, or the
+ * value staged is the very one they are about to promote themselves.
+ */
+function runIsOver(state: TurnState): boolean {
+  return state.phase !== "abandoned";
 }
 
 export class TurnEnvelope {
@@ -46,21 +59,33 @@ export class TurnEnvelope {
   /** The system prompt this turn opens with, carrying what the session knows. */
   readonly systemPrompt: string;
   readonly #envelopes: SessionEnvelopeStore;
+  readonly #runId: string;
 
-  constructor(envelopes: SessionEnvelopeStore, parts: TurnCatalogSessionParts) {
+  constructor(envelopes: SessionEnvelopeStore, runId: string, parts: TurnCatalogSessionParts) {
     this.#envelopes = envelopes;
+    this.#runId = runId;
     this.session = new TurnCatalogSession(parts);
     this.systemPrompt = turnSystemPrompt(this.session.envelope);
   }
 
   /** Load the session's envelope and seed one turn's tools and model from it. */
-  static async open(envelopes: SessionEnvelopeStore, locale: string): Promise<TurnEnvelope> {
-    return new TurnEnvelope(envelopes, { locale, envelope: await envelopes.load() });
+  static async open(
+    envelopes: SessionEnvelopeStore,
+    runId: string,
+    locale: string,
+  ): Promise<TurnEnvelope> {
+    return new TurnEnvelope(envelopes, runId, { locale, envelope: await envelopes.load() });
   }
 
-  /** Bank what the tools left — with the run, and only if this turn settled it. */
+  /** Put what the tools left on disk, under this run's key, before the run's
+   * terminal row lands. `EnvelopeStagingStore` is what calls it. */
+  async stage(): Promise<void> {
+    await this.#envelopes.stage(this.#runId, this.session.envelope);
+  }
+
+  /** Make the staged answer the session's, once the run is over. */
   async close(state: TurnState): Promise<void> {
-    if (!settledHere(state)) return;
-    await this.#envelopes.save(this.session.envelope);
+    if (!runIsOver(state)) return;
+    await this.#envelopes.promote(this.#runId);
   }
 }

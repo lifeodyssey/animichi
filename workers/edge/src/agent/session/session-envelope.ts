@@ -58,10 +58,25 @@ export class SessionEnvelope {
 /**
  * Where one session's envelope lives between its turns.
  *
- * A port: the turn machinery only ever loads one and saves one, so a card that
- * moves the storage (see the adapter's decision note) changes one class.
+ * Saving is TWO steps, not one, and the split is the only defence a pair of
+ * writes in two different stores can have. The run's terminal row lands in Neon
+ * and the envelope lands in Durable Object storage, so they cannot share a
+ * transaction; what they can share is an order. `stage` writes the envelope
+ * under the run's own key BEFORE the terminal row, and `promote` makes it the
+ * session's afterwards — so a crash between the two leaves the answer on disk
+ * for the retry rather than losing it (PR #1282).
+ *
+ * A port: a card that moves the storage (see the adapter's decision note)
+ * changes one class.
  */
 export interface SessionEnvelopeStore {
   load(): Promise<SessionEnvelope>;
-  save(envelope: SessionEnvelope): Promise<void>;
+  /** Bank one run's envelope before that run's terminal row is written. */
+  stage(runId: string, envelope: SessionEnvelope): Promise<void>;
+  /**
+   * Make one run's staged envelope the session's, and drop the staging.
+   * Idempotent in both directions: a run with nothing staged promotes nothing,
+   * and a promotion that runs twice writes the same whole value once.
+   */
+  promote(runId: string): Promise<void>;
 }
