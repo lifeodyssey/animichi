@@ -96,7 +96,7 @@ void test("the settlement leaves the lease released", async () => {
 void test("a turn whose run is no longer running settles nothing", async () => {
   const { store, toolbox, turn } = makeHarness();
   await store.settleFailed(RUN_ID, "cancelled", new Date(NOW));
-  assert.deepEqual(await turn.run(RUN_ID), { phase: "declined" });
+  assert.deepEqual(await turn.run(RUN_ID), { phase: "already_settled" });
   assert.equal(toolbox.calls, 0);
   assert.equal(store.succeeded.length, 0);
 });

@@ -62,11 +62,31 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   without that binding still runs — the turn just has no tools. Nothing routes to it yet —
   #1256 flips `/v1/chat`.
 - `src/agent/session/turn-catalog-session.ts` — the `CatalogToolSession` one turn hands the tools:
-  the opaque refs they mint and the rows behind them. In-memory and turn-scoped ON PURPOSE, with
-  two gaps written on it that need plumbing nobody has built yet: it is not rebuilt on a REPLAY
-  (a replayed step is answered from `run_steps.result` without calling `execute`, so a ref minted
-  before a crash reads back as `stale_ref`), and the pending clarification does not outlive the
-  turn (Python kept it in the session envelope; no column carries it).
+  the opaque refs they mint and the rows behind them. Turn-scoped ON PURPOSE, with one gap written
+  on it that needs plumbing nobody has built yet: it is not rebuilt on a REPLAY (a replayed step is
+  answered from `run_steps.result` without calling `execute`, so a ref minted before a crash reads
+  back as `stale_ref` — #1279 owns that rehydration).
+- `src/agent/session/session-envelope.ts`, `turn-envelope.ts`, `durable-envelope-store.ts` — the
+  session state that DOES outlive one turn (#1280): the pending clarification and the current
+  anime, as one immutable `SessionEnvelope` (per SESSION; refs stay per RUN, which is what kept
+  Python's `tool_state` a bag). It is stored in the Durable Object's own `ctx.storage` under the
+  `envelope` key rather than in a Neon column — the DO is the single writer (spec §三) and
+  `idFromName(sessionId)` makes that storage session-scoped, `retrieval/` never reads it, and a
+  column would buy a migration for a fact only the alarm touches; the full trade-off and its price
+  are argued in the adapter's header. `TurnEnvelope` owns the moments: `open()` seeds the turn's
+  tools and puts the stored facts into the system prompt's "Trusted runtime context" block (the
+  ported half of Python's `trusted_session_context`); `stage()` writes the whole envelope under the
+  run's own key BEFORE the terminal row lands, driven by the `EnvelopeStagingStore` decorator around
+  the `TurnStore`; and `close(state)` promotes that staging to the session's envelope once the run
+  reaches its OWN terminal path. The order is the recovery: the terminal row is in Neon and the
+  envelope is in DO storage, so no transaction spans them — staging first means a failed settlement
+  replays the whole turn, and a failed promotion is finished by the alarm's retry. Two rules keep a
+  stale staging from outliving a newer answer: `open()` first drains every OTHER queued run's
+  staging (a run whose promotion failed stays queued while its row is terminal, so a second run can
+  be admitted and must start from the recovered state), and only `succeeded`, `failed` and
+  `already_settled` promote. `already_settled` is its own `TurnPhase` precisely so it is not
+  confused with `declined`: the first is a retry of an ending this alarm owes, the second is a live
+  owner mid-turn whose staging must not be published for it.
 - `src/agent/tools/` — `catalogToolbox(catalog, session)` returns the four `AgentTool`s the
   session registers on the pi agent (`resolve_anime`, `search_bangumi`, `search_nearby`,
   `plan_route`). Two ports carry everything turn-shaped: `CatalogClient` (production adapter
