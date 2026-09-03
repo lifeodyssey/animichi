@@ -28,6 +28,8 @@
  * under `node:test`.
  */
 import { driveQueuedRun } from "./session-turn.ts";
+import { DurableEnvelopeStore } from "./durable-envelope-store.ts";
+import type { SessionEnvelopeStore } from "./session-envelope.ts";
 import { SessionRunQueue } from "./session-run-queue.ts";
 import { armedRunId, SESSION_ARM_PATH } from "./session-wakeup.ts";
 import { sseResponse } from "./sse-turn-channel.ts";
@@ -44,12 +46,16 @@ export class AgentSession {
   readonly #ctx: DurableObjectState;
   readonly #env: Record<string, unknown>;
   readonly #queue: SessionRunQueue;
+  /** The session state that outlives one alarm, in this instance's own storage
+   * — the same single-writer argument the queue above is kept there for. */
+  readonly #envelopes: SessionEnvelopeStore;
   readonly #subscribers = new TurnSubscribers();
 
   constructor(ctx: DurableObjectState, env: Record<string, unknown>) {
     this.#ctx = ctx;
     this.#env = env;
     this.#queue = new SessionRunQueue(ctx.storage);
+    this.#envelopes = new DurableEnvelopeStore(ctx.storage);
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -95,7 +101,8 @@ export class AgentSession {
   /** One run, then close whoever was watching it. */
   async #drive(runId: string): Promise<void> {
     const emit = this.#subscribers.sinkFor(runId);
-    await driveQueuedRun({ env: this.#env, emit, owner: this.#ctx.id.toString() }, runId);
+    const owner = this.#ctx.id.toString();
+    await driveQueuedRun({ env: this.#env, emit, owner, envelopes: this.#envelopes }, runId);
     await this.#subscribers.finish(runId);
   }
 }

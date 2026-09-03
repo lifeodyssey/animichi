@@ -62,11 +62,22 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   without that binding still runs — the turn just has no tools. Nothing routes to it yet —
   #1256 flips `/v1/chat`.
 - `src/agent/session/turn-catalog-session.ts` — the `CatalogToolSession` one turn hands the tools:
-  the opaque refs they mint and the rows behind them. In-memory and turn-scoped ON PURPOSE, with
-  two gaps written on it that need plumbing nobody has built yet: it is not rebuilt on a REPLAY
-  (a replayed step is answered from `run_steps.result` without calling `execute`, so a ref minted
-  before a crash reads back as `stale_ref`), and the pending clarification does not outlive the
-  turn (Python kept it in the session envelope; no column carries it).
+  the opaque refs they mint and the rows behind them. Turn-scoped ON PURPOSE, with one gap written
+  on it that needs plumbing nobody has built yet: it is not rebuilt on a REPLAY (a replayed step is
+  answered from `run_steps.result` without calling `execute`, so a ref minted before a crash reads
+  back as `stale_ref` — #1279 owns that rehydration).
+- `src/agent/session/session-envelope.ts`, `turn-envelope.ts`, `durable-envelope-store.ts` — the
+  session state that DOES outlive one turn (#1280): the pending clarification and the current
+  anime, as one immutable `SessionEnvelope` (per SESSION; refs stay per RUN, which is what kept
+  Python's `tool_state` a bag). It is stored in the Durable Object's own `ctx.storage` under the
+  `envelope` key rather than in a Neon column — the DO is the single writer (spec §三) and
+  `idFromName(sessionId)` makes that storage session-scoped, `retrieval/` never reads it, and a
+  column would buy a migration for a fact only the alarm touches; the full trade-off and its price
+  are argued in the adapter's header. `TurnEnvelope` owns both moments: `open()` seeds the turn's
+  tools and puts the stored facts into the system prompt's "Trusted runtime context" block (the
+  ported half of Python's `trusted_session_context`), and `close(state)` writes the whole envelope
+  back exactly once — only when THIS incarnation settled the run, so a declined or abandoned turn
+  writes nothing and a crash before settlement leaves the previous envelope for the retry.
 - `src/agent/tools/` — `catalogToolbox(catalog, session)` returns the four `AgentTool`s the
   session registers on the pi agent (`resolve_anime`, `search_bangumi`, `search_nearby`,
   `plan_route`). Two ports carry everything turn-shaped: `CatalogClient` (production adapter

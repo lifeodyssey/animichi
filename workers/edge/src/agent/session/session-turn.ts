@@ -13,8 +13,9 @@ import { catalogToolbox } from "../tools/catalog-toolbox.ts";
 import { serviceBindingCatalog, type CatalogBinding } from "../tools/service-binding-catalog.ts";
 import { DurableTurn } from "./durable-turn.ts";
 import { NeonTurnStore } from "./neon-turn-store.ts";
-import { TurnCatalogSession } from "./turn-catalog-session.ts";
-import { TURN_SYSTEM_PROMPT } from "./turn-instructions.ts";
+import type { SessionEnvelopeStore } from "./session-envelope.ts";
+import { TurnEnvelope } from "./turn-envelope.ts";
+import type { TurnCatalogSession } from "./turn-catalog-session.ts";
 import { createTurnModels, mimoKeyIn } from "./turn-model.ts";
 import type { TurnFrameSink } from "./turn-subscribers.ts";
 import { EMPTY_TOOLBOX, type Toolbox } from "./turn-toolbox.ts";
@@ -65,11 +66,34 @@ export interface SessionTurnParts {
   readonly emit: TurnFrameSink;
   /** The Durable Object incarnation taking the run's single-writer lease. */
   readonly owner: string;
+  /** Where this session's envelope lives between its turns (#1280). */
+  readonly envelopes: SessionEnvelopeStore;
+}
+
+/** The turn one alarm drives, with the deployment's configuration in it. */
+function configuredTurn(
+  parts: SessionTurnParts,
+  store: TurnStore,
+  apiKey: string,
+  envelope: TurnEnvelope,
+): DurableTurn {
+  return new DurableTurn({
+    store,
+    models: createTurnModels(apiKey),
+    toolbox: turnToolbox(parts.env, envelope.session),
+    systemPrompt: envelope.systemPrompt,
+    prices: usagePricesIn(parts.env),
+    emit: parts.emit,
+    owner: parts.owner,
+    now: Date.now,
+  });
 }
 
 /**
  * A missing provider key ends the run rather than looping: the sweeper would
- * otherwise re-arm a turn that can never reach a model, forever.
+ * otherwise re-arm a turn that can never reach a model, forever. It settles
+ * without touching the envelope, which is right: no tool ran, so the session
+ * knows exactly what it knew before.
  */
 async function driveOn(parts: SessionTurnParts, store: TurnStore, runId: string): Promise<void> {
   const apiKey = mimoKeyIn(parts.env);
@@ -77,16 +101,8 @@ async function driveOn(parts: SessionTurnParts, store: TurnStore, runId: string)
     await store.settleFailed(runId, "provider_failed", new Date());
     return;
   }
-  await new DurableTurn({
-    store,
-    models: createTurnModels(apiKey),
-    toolbox: turnToolbox(parts.env, new TurnCatalogSession({ locale: TURN_LOCALE })),
-    systemPrompt: TURN_SYSTEM_PROMPT,
-    prices: usagePricesIn(parts.env),
-    emit: parts.emit,
-    owner: parts.owner,
-    now: Date.now,
-  }).run(runId);
+  const envelope = await TurnEnvelope.open(parts.envelopes, TURN_LOCALE);
+  await envelope.close(await configuredTurn(parts, store, apiKey, envelope).run(runId));
 }
 
 /** Run one queued turn on its own database connection, and close it after. */

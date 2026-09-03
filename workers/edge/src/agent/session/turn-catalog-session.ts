@@ -1,22 +1,20 @@
 /**
  * The session state the catalog tools read and write, for the length of one
- * turn (cards #1252 × #1253).
+ * turn (cards #1252 × #1253, seeded across turns by #1280).
  *
  * It implements `CatalogToolSession` — the port `src/agent/tools/` declares —
- * and it is deliberately in-memory. What the tools put here is the heavy half
- * of a result: the rows the web renders, keyed by the opaque ref the model is
- * given instead. That ref only has to survive from the step that minted it to a
- * later step of the same run, which is exactly the lifetime of this object.
+ * and it holds two things with two different lifetimes. The heavy half of a
+ * result (the rows the web renders, keyed by the opaque ref the model is given
+ * instead) is per RUN and stays in memory: that ref only has to survive from the
+ * step that minted it to a later step of the same run. The `SessionEnvelope` is
+ * per SESSION, arrives from storage and goes back to it, which is why it is a
+ * value here rather than two fields.
  *
- * Two things it does NOT yet do, both waiting on plumbing that does not exist:
- *   - It is not rebuilt on a REPLAY. `TurnSteps` answers a replayed step from
- *     `run_steps.result` without calling `execute`, so a ref minted before a
- *     crash is not in this map afterwards and `plan_route` would report
- *     `stale_ref`. Closing that means rehydrating from the settled steps, which
- *     is `TurnSteps`' side of the seam, not this one's.
- *   - The pending clarification and the current anime do not outlive the turn.
- *     Python kept both in the session envelope so the NEXT turn could resolve
- *     the question it asked; no column carries them yet.
+ * One thing it does NOT yet do: it is not rebuilt on a REPLAY. `TurnSteps`
+ * answers a replayed step from `run_steps.result` without calling `execute`, so
+ * a ref minted before a crash is not in this map afterwards and `plan_route`
+ * would report `stale_ref`. Closing that means rehydrating from the settled
+ * steps, which is `TurnSteps`' side of the seam (#1279), not this one's.
  */
 import type {
   CatalogToolSession,
@@ -25,13 +23,8 @@ import type {
   OrderedCandidate,
   SearchResultPayload,
 } from "../tools/catalog-tool-session.ts";
+import { SessionEnvelope } from "./session-envelope.ts";
 import type { LatLng } from "@animichi/contract";
-
-/** A clarification the turn is waiting on, as the tools recorded it. */
-export interface PendingClarification {
-  readonly reason: string;
-  readonly candidates: readonly OrderedCandidate[];
-}
 
 /** What one turn knows about itself before any tool has run. */
 export interface TurnCatalogSessionParts {
@@ -39,6 +32,8 @@ export interface TurnCatalogSessionParts {
   readonly locale: string;
   /** The user's own coordinates, when the client shared them. */
   readonly origin?: LatLng;
+  /** What earlier turns of this session left behind (#1280). */
+  readonly envelope?: SessionEnvelope;
 }
 
 export class TurnCatalogSession implements CatalogToolSession {
@@ -47,22 +42,17 @@ export class TurnCatalogSession implements CatalogToolSession {
   readonly #searches = new Map<string, SearchResultPayload>();
   readonly #itineraries = new Map<string, ItineraryPayload>();
   #sequence = 0;
-  #pending: PendingClarification | null = null;
-  #anime: CurrentAnime | null = null;
+  #envelope: SessionEnvelope;
 
   constructor(parts: TurnCatalogSessionParts) {
     this.locale = parts.locale;
     this.origin = parts.origin;
+    this.#envelope = parts.envelope ?? SessionEnvelope.empty;
   }
 
-  /** The clarification the turn is waiting on, or none. */
-  get pendingClarification(): PendingClarification | null {
-    return this.#pending;
-  }
-
-  /** The work this turn resolved, or none. */
-  get currentAnime(): CurrentAnime | null {
-    return this.#anime;
+  /** What this session carries between turns, as it stands right now. */
+  get envelope(): SessionEnvelope {
+    return this.#envelope;
   }
 
   /** The route payloads this turn planned, keyed by their own refs. */
@@ -87,15 +77,15 @@ export class TurnCatalogSession implements CatalogToolSession {
   }
 
   setPendingClarification(reason: string, candidates: OrderedCandidate[]): void {
-    this.#pending = { reason, candidates };
+    this.#envelope = this.#envelope.withClarification(reason, candidates);
   }
 
   clearPendingClarification(): void {
-    this.#pending = null;
+    this.#envelope = this.#envelope.cleared();
   }
 
   setCurrentAnime(anime: CurrentAnime): void {
-    this.#anime = anime;
+    this.#envelope = this.#envelope.withAnime(anime);
   }
 
   /** Python's `RefFactory`: `"{kind}:{row_count}:{sequence}"`, minted once. */
