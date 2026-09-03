@@ -30,13 +30,28 @@ async function limitedOrNull(env: Env, request: Request, identity: string): Prom
   return guardPolicy(env, classifyRatePolicy(request.method, new URL(request.url).pathname), identity, rateLimitConfigFrom(env));
 }
 
-async function anonymousForward(
-  env: Env, request: Request, identity: AnonymousIdentity, nowMs: number, sleep: (ms: number) => Promise<void>,
+/**
+ * What an admitted anonymous caller is finally served (W1-7 #1256). The walls
+ * above it — Turnstile, the per-identity limiter, the daily budget latch — are
+ * the same whichever tier answers, so the tier is the only thing that varies:
+ * the container forward is the default, and the route switch substitutes this
+ * Worker's own agent tier for the two routes the flag moved.
+ */
+export type AnonymousV1Service = (identity: AnonymousIdentity) => Promise<Response>;
+
+function containerForward(
+  env: Env, request: Request, sleep: (ms: number) => Promise<void>,
+): AnonymousV1Service {
+  return (identity) =>
+    forwardV1(env, request, { userId: identity.userId, userType: "anonymous" }, undefined, sleep);
+}
+
+async function servedAnonymously(
+  env: Env, identity: AnonymousIdentity, nowMs: number, serve: AnonymousV1Service,
 ): Promise<Response> {
   const dayKey = utcDayKey(nowMs);
   if (await budgetLatched(env.EDGE_GUARD, dayKey)) return budgetGuidanceResponse();
-  const forwarded = await forwardV1(env, request, { userId: identity.userId, userType: "anonymous" }, undefined, sleep);
-  return guardBudget(env, forwarded, dayKey);
+  return guardBudget(env, await serve(identity), dayKey);
 }
 
 /**
@@ -59,6 +74,7 @@ async function anonymousForward(
  */
 export async function handleAnonymousV1(
   env: Env, request: Request, nowMs: number, gate: TurnstileGate, sleep: (ms: number) => Promise<void>,
+  serve: AnonymousV1Service = containerForward(env, request, sleep),
 ): Promise<Response | null> {
   const identity = await resolveAnonymous(request, env);
   if (identity === null) return null;
@@ -67,5 +83,6 @@ export async function handleAnonymousV1(
   if (challenged !== null) return challenged;
   const limited = await limitedOrNull(env, request, identity.userId);
   if (limited !== null) return limited;
-  return withAnonymousCookie(await anonymousForward(env, request, identity, nowMs, sleep), identity.setCookie);
+  const served = await servedAnonymously(env, identity, nowMs, serve);
+  return withAnonymousCookie(served, identity.setCookie);
 }

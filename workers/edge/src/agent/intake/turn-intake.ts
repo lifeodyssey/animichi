@@ -92,6 +92,20 @@ export class SessionBusyError extends Error {
   }
 }
 
+/**
+ * The submission named a conversation that is not this identity's — or one
+ * nobody owns, which is the same refusal (#1256). Ported from Python's
+ * `validate_session_owner`, including its answer: the caller is told the
+ * conversation does not exist, so ownership stays unobservable, exactly as
+ * `ConversationRetrieval` already collapses missing and forbidden.
+ */
+export class SessionOwnershipError extends Error {
+  constructor() {
+    super("the conversation belongs to another identity");
+    this.name = "SessionOwnershipError";
+  }
+}
+
 /** The turn one submission opens: its budget and what it reserves. */
 function turnFor(submission: TurnSubmission, at: number): OpenedTurn {
   return {

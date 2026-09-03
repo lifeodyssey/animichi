@@ -16,10 +16,12 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   artifact in workerd. Separate from `pnpm test` on purpose — it is the only gate that can see
   bundle-only runtime failures, and it is slower than the node:test suite.
 - `pnpm run test:catalog-api` — opt-in staging lane (`api-test/*.test.ts`, W1-4 #1253) for the
-  catalog tools. It asserts what CAN be seen from outside a deployed Worker: the origin is alive
-  and none of the five catalog procedures the tools call has a public door (spec Appendix D).
-  Fails closed without `CATALOG_API_ORIGIN`; never in CI. Why it cannot call the procedures
-  themselves, and what a real end-to-end check needs, is in `api-test/README.md`.
+  catalog tools, against a deploy carrying `AGENT_TURN_ROUTE = "edge"`. Two halves: the five
+  catalog procedures still have no public door (spec Appendix D), and one real `POST /v1/chat`
+  through the deployed edge calls `resolve_anime` and is readable back by conversation id — the
+  (api) evidence #1253 had to defer until the route switch. Fails closed without
+  `CATALOG_API_ORIGIN` + `AGENT_TURN_BEARER`; never in CI. Why the turn is signed in and the
+  anonymous journey is manual: `api-test/README.md` and `docs/ops/w1-staging-journey.md`.
 - `pnpm run test:spike-db` — opt-in lane (`db-test/*.test.ts`) that runs the W0-S4 spike's run
   store against a **real** PostgreSQL named by `SPIKE_TEST_DATABASE_URL`. Never in CI and never
   against staging; it fails closed without a disposable database. Recipe: `spike/pi/README.md`.
@@ -59,8 +61,18 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   The `Toolbox` port in `src/agent/session/turn-toolbox.ts` is the whole contract with #1253's
   `src/agent/tools/`, and `session-turn.ts::turnToolbox` is what fulfils it: the four catalog
   tools over the private `CATALOG` binding, bound to one `TurnCatalogSession`. An environment
-  without that binding still runs — the turn just has no tools. Nothing routes to it yet —
-  #1256 flips `/v1/chat`.
+  without that binding still runs — the turn just has no tools. What routes traffic here is the
+  `AGENT_TURN_ROUTE` flag (#1256): `"edge"` serves `POST /v1/chat` and
+  `GET /v1/conversations/{id}/messages` from this tier, anything else (including unset) forwards
+  both to the Python container as before. staging = `edge`, production and `wrangler dev` =
+  `container`; the rollback is that one word in `wrangler.toml`. The flag is read in exactly one
+  place — `src/gateway/routing-policy.ts`'s `turnRoutePolicy`, consulted by `src/gateway/request.ts`;
+  the identity ladder in front of it is `src/gateway/agent-tier-route.ts` and the tier behind it is
+  `src/gateway/agent-turn.ts`. One deliberate difference between the two positions, argued in that
+  ladder's header: under `edge` an ANONYMOUS visitor may read their own transcript back
+  (`ANON_V1_PATHS` still does not list that route, so the container position is unchanged) — W1's
+  exit criterion is an anonymous conversation a visitor comes back to, and the retrieval's ownership
+  check is what makes it safe.
 - `src/agent/session/turn-catalog-session.ts` — the `CatalogToolSession` one turn hands the tools:
   the opaque refs they mint and the rows behind them. Turn-scoped ON PURPOSE, with one gap written
   on it that needs plumbing nobody has built yet: it is not rebuilt on a REPLAY (a replayed step is
@@ -111,6 +123,18 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   routing/catalog policy (pure functions) + responses; `src/protect/` — rate limit / cost breaker /
   DO guard; `src/proxy/` — image/tile/showcase proxies; `src/container/` — container env +
   egress denylist data.
+- `src/gateway/agent-turn.ts` — the two routes the `AGENT_TURN_ROUTE` flag can move onto this
+  Worker's own agent tier (#1256), and the ONLY place that composes `intake/` + `session/` +
+  `retrieval/` for a live request. Injected into the gateway seam as `GatewayDeps.agentTurns`
+  so `node:test` drives the routing contract with no Neon pool and no Durable Object.
+  `chat-envelope.ts` reads the AI SDK body (a port of Python's `chat_body.py`);
+  `agent-turn-responses.ts` holds every non-turn answer, each labelled with the Python route it
+  mirrors — the flag is a FALLBACK flag, so no shape on that wire may be new.
+  Two things the switch owns beyond routing: the intake's transaction now OPENS the `sessions`
+  row (Python's session store left with `apps/agent`) and refuses a conversation another identity
+  owns, and it enforces `ANON_DAILY_MESSAGE_QUOTA` — the ceiling #1251 deliberately left unowned —
+  by comparing the count its own reservation upsert returns, so the refusal rolls back the whole
+  turn (`src/agent/intake/anonymous-message-allowance.ts`, `agent-db-test/turn-quota-ceiling.db.test.ts`).
 - `test/*.test.ts` flat; test doubles live in `test/doubles/` and are imported by tests only —
   production code never imports from `test/`.
 - `db-test/` — the opt-in real-PostgreSQL lane (W0-S4, #1247). Test-only, outside `pnpm test`,

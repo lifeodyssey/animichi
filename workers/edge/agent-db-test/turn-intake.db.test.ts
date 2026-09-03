@@ -2,18 +2,26 @@
  * W1-2 (#1251) against real PostgreSQL: the intake's transaction, proven on
  * the committed `migrations/neon` chain rather than on a double.
  *
- * Two properties can only be told the truth by a database. Dedupe is a partial
+ * Three properties can only be told the truth by a database. Dedupe is a partial
  * unique index (`messages_session_client_message_id`), so a replay must leave
  * the row COUNTS unchanged, not merely return the same ids. Atomicity is the
  * transaction itself, so a failure injected between the message insert and the
- * run insert must leave neither — and no quota reservation either.
+ * run insert must leave neither — and no quota reservation either. And the
+ * conversation the message hangs off is a foreign key: the intake opens that row
+ * itself (#1256), so no case here seeds one.
  *
  * test-type: integration (disposable Docker PostgreSQL, committed Atlas chain).
  */
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { sql } from "drizzle-orm";
-import { acceptTurn, SessionBusyError, type TurnIntake, type TurnRecords } from "../src/agent/intake/turn-intake.ts";
+import {
+  acceptTurn,
+  SessionBusyError,
+  SessionOwnershipError,
+  type TurnIntake,
+  type TurnRecords,
+} from "../src/agent/intake/turn-intake.ts";
 import { NeonTurnRecords } from "../src/agent/intake/neon-turn-records.ts";
 import type { AgentStatements, AgentTransactions } from "../src/db/agent-database.ts";
 import type { SessionWakeup } from "../src/agent/session/session-wakeup.ts";
@@ -56,7 +64,6 @@ function failingAfterOneStatement(statements: AgentStatements): AgentStatements 
 
 void test("a replayed client_message_id resolves to the same turn and writes nothing new", async () => {
   const submission = makeSubmission({ sessionId: "replay-session" });
-  await seedSession(plane.database, submission.sessionId);
   const records = new NeonTurnRecords(plane.transactions);
   const first = await acceptTurn(makeIntake(records), submission, () => NOW);
   const messagesBefore = await countRows(plane.database, "messages");
@@ -68,7 +75,6 @@ void test("a replayed client_message_id resolves to the same turn and writes not
 void test("a replay reserves no second message on the daily quota counter", async () => {
   const identityId = "anon_00000000000000000000000000000002";
   const submission = makeSubmission({ sessionId: "replay-quota-session", identityId, clientMessageId: "cmid-quota" });
-  await seedSession(plane.database, submission.sessionId);
   const records = new NeonTurnRecords(plane.transactions);
   await acceptTurn(makeIntake(records), submission, () => NOW);
   const reservedOnce = await reservedCount(plane.database, identityId);
@@ -79,7 +85,6 @@ void test("a replay reserves no second message on the daily quota counter", asyn
 
 void test("a failure between the message insert and the run insert leaves no partial rows", async () => {
   const submission = makeSubmission({ sessionId: "atomic-session", clientMessageId: "cmid-atomic" });
-  await seedSession(plane.database, submission.sessionId);
   const records = new NeonTurnRecords(makeTransactionsFailingAfterTheMessage(plane.transactions));
   const messagesBefore = await countRows(plane.database, "messages");
   const runsBefore = await countRows(plane.database, "runs");
@@ -91,7 +96,6 @@ void test("a failure between the message insert and the run insert leaves no par
 void test("the rolled-back turn also left no quota reservation behind", async () => {
   const identityId = "anon_00000000000000000000000000000001";
   const submission = makeSubmission({ sessionId: "atomic-quota-session", identityId, clientMessageId: "cmid-aq" });
-  await seedSession(plane.database, submission.sessionId);
   const records = new NeonTurnRecords(makeTransactionsFailingAfterTheMessage(plane.transactions));
   await assert.rejects(acceptTurn(makeIntake(records), submission, () => NOW), /injected mid-transaction/);
   assert.equal(await reservedCount(plane.database, identityId), 0);
@@ -99,7 +103,6 @@ void test("the rolled-back turn also left no quota reservation behind", async ()
 
 void test("a second turn on a session that is already running loses on admission", async () => {
   const submission = makeSubmission({ sessionId: "busy-session", clientMessageId: "cmid-busy-1" });
-  await seedSession(plane.database, submission.sessionId);
   const records = new NeonTurnRecords(plane.transactions);
   await acceptTurn(makeIntake(records), submission, () => NOW);
   const second = acceptTurn(makeIntake(records), { ...submission, clientMessageId: "cmid-busy-2" }, () => NOW);
@@ -121,7 +124,6 @@ async function committedRun(runId: string): Promise<Record<string, unknown>> {
 
 void test("a dedupe key whose message has no run is refused, not turned into a second run", async () => {
   const submission = makeSubmission({ sessionId: "orphan-session", clientMessageId: "cmid-orphan" });
-  await seedSession(plane.database, submission.sessionId);
   const records = new NeonTurnRecords(plane.transactions);
   const first = await acceptTurn(makeIntake(records), submission, () => NOW);
   await plane.database.execute(sql`delete from runs where id = ${first.runId}`);
@@ -131,7 +133,6 @@ void test("a dedupe key whose message has no run is refused, not turned into a s
 
 void test("the committed run carries the turn deadline and the reservation coordinates", async () => {
   const submission = makeSubmission({ sessionId: "coordinates-session", clientMessageId: "cmid-coords" });
-  await seedSession(plane.database, submission.sessionId);
   const receipt = await acceptTurn(makeIntake(new NeonTurnRecords(plane.transactions)), submission, () => NOW);
   assert.deepEqual(await committedRun(receipt.runId), {
     status: "running",
@@ -140,4 +141,25 @@ void test("the committed run carries the turn deadline and the reservation coord
     quota_identity_id: ANON_ID,
     quota_usage_date: "2026-09-02",
   });
+});
+
+void test("the first turn of a conversation opens it and claims it for the submitter", async () => {
+  const submission = makeSubmission({ sessionId: "opened-session", clientMessageId: "cmid-open" });
+  await acceptTurn(makeIntake(new NeonTurnRecords(plane.transactions)), submission, () => NOW);
+  const owner = await plane.database.execute(
+    sql`select user_id from sessions where id = ${submission.sessionId}`,
+  );
+  assert.equal(onlyRow(owner).user_id, ANON_ID);
+});
+
+void test("a conversation another identity owns is refused before any row is written", async () => {
+  const submission = makeSubmission({ sessionId: "someone-elses-session", clientMessageId: "cmid-theirs" });
+  await seedSession(plane.database, submission.sessionId, "anon_ffffffffffffffffffffffffffffffff");
+  const records = new NeonTurnRecords(plane.transactions);
+  const messagesBefore = await countRows(plane.database, "messages");
+  await assert.rejects(
+    acceptTurn(makeIntake(records), submission, () => NOW),
+    (error: unknown) => error instanceof SessionOwnershipError,
+  );
+  assert.equal(await countRows(plane.database, "messages"), messagesBefore);
 });
