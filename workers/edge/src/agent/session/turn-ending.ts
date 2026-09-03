@@ -10,8 +10,10 @@
  */
 import type { RunFailureReason } from "../../db/schema.ts";
 import type { UsagePrices } from "../settlement/turn-settlement.ts";
+import type { TurnAnswer } from "./turn-answer.ts";
+import { chatResponsePart } from "./turn-answer-part.ts";
 import type { TurnOutput } from "./turn-output.ts";
-import type { LoadedTurn, TurnStore } from "./turn-store.ts";
+import { asJsonValue, type LoadedTurn, type TurnStore } from "./turn-store.ts";
 
 export interface TurnEndingParts {
   readonly store: TurnStore;
@@ -26,13 +28,20 @@ export class TurnEnding {
     this.#parts = parts;
   }
 
-  /** The answer, its tokens and the terminal row, on one transaction. */
-  async succeeded(turn: LoadedTurn, output: TurnOutput): Promise<void> {
+  /**
+   * The answer, its tokens and the terminal row, on one transaction.
+   *
+   * The row carries the same `ChatResponseDataPart` the stream just pushed
+   * (#1283): `messages.response_data` is what `retrieval/` publishes the intent
+   * from, so a client that never saw the frames reads the identical answer back
+   * — which is §二's disconnect semantics rather than a convenience.
+   */
+  async succeeded(turn: LoadedTurn, output: TurnOutput, answer: TurnAnswer): Promise<void> {
     const record = {
       runId: turn.runId,
       sessionId: turn.sessionId,
-      answer: output.answer,
-      responseData: null,
+      answer: answer.message,
+      responseData: asJsonValue(chatResponsePart(answer)),
       usage: output.usage,
       prices: this.#parts.prices,
     };

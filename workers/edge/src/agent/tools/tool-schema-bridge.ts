@@ -35,7 +35,7 @@ export interface ToolParameters<Params> extends TSchema {
 }
 
 /** Brand one generated schema with the parameter type the contract inferred. */
-function toolParameters<Params>(schema: object): ToolParameters<Params> {
+export function toolParameters<Params>(schema: object): ToolParameters<Params> {
   return schema as ToolParameters<Params>;
 }
 

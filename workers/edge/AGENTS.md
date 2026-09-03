@@ -58,6 +58,12 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   the model calls, #1253).
   Ports live with the use case, Neon adapters beside them, and
   no module here imports `cloudflare:workers` so the node:test suite can load every one of them.
+  How a turn ANSWERS is `src/agent/session/turn-answer.ts` (#1283): the model ends its turn by calling one
+  `respond` tool — the pi-native mechanism, argued and measured in that file's header — and the
+  server derives the intent from its own stored results, projecting the `data-response` part in
+  `src/agent/session/turn-answer-part.ts`. That part is both the SD-9 frame the stream pushes and the
+  `messages.response_data` the settlement commits, so `retrieval/` publishes the same intent a
+  connected client already saw.
   The `Toolbox` port in `src/agent/session/turn-toolbox.ts` is the whole contract with #1253's
   `src/agent/tools/`, and `session-turn.ts::turnToolbox` is what fulfils it: the four catalog
   tools over the private `CATALOG` binding, bound to one `TurnCatalogSession`. An environment
@@ -108,7 +114,9 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `packages/contract/scripts/emit-tool-schemas.ts`
   is the repo's ONE zod→JSON-Schema conversion, and nothing here re-declares a constraint or loads
   zod. Adding a tool parameter means editing `packages/contract/src/agent-tool-parameters.ts` and
-  re-running `pnpm --filter @animichi/contract run emit:tool-schemas`.
+  re-running `pnpm --filter @animichi/contract run emit:tool-schemas`. The `respond` tool
+  (`src/agent/session/turn-answer.ts`) rides the same seam, and takes `ANSWER_TOOL_NAME` +
+  `CHAT_RESPONSE_INTENTS` from the generated module rather than spelling either out here.
   Two things pi does NOT do for us and this folder therefore does: the per-tool 85s deadline
   (Python got it from pydantic-ai's `Tool(timeout=…)`; `AgentTool` has no such field, so
   `catalogToolBudget` holds it, injectable so tests need no real clock), and validating a catalog

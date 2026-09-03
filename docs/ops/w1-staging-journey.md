@@ -43,17 +43,24 @@ Check, on that row:
   the live view could not be opened; the run is still committed and the rest of
   the journey still works — note it and continue.)
 - In the streamed frames: `tool-input-start` with `"toolName":"resolve_anime"`,
-  then a `tool-output-available` carrying the same `toolCallId`, then `finish`.
+  then a `tool-output-available` carrying the same `toolCallId`, then TWO
+  `data-response` parts under the same `"id":"response"` — the first carrying
+  only `{"intent":…}`, the second the whole answer — then `finish`.
+- On the page itself: the answer RENDERS. The card the second part draws is
+  chosen by its `intent` (`apps/web/src/features/chat/registry.ts`), so a
+  `resolve_anime` → `search_bangumi` turn shows a results card and a greeting
+  shows prose.
 
 Screenshot **S1**: the Network row's response headers (`x-session-id` visible).
-Screenshot **S2**: the frame list showing the `resolve_anime` input/output pair
-and the closing `finish`.
+Screenshot **S2**: the frame list showing the `resolve_anime` input/output pair,
+both `data-response` parts and the closing `finish`.
+Screenshot **S2b**: the rendered answer card in the page.
 
-> **Expected, not a bug:** the live stream carries tool frames and the finish
-> marker, but no assistant TEXT. `workers/edge/src/agent/session/turn-frames.ts`
-> says why — the `data-response` part has no TypeScript projection yet, so the
-> answer reaches the client from the transcript (step 3), which is exactly the
-> path §二's disconnect semantics make the guaranteed one.
+> **What to check, not just that text appeared:** the `respond` tool the model
+> ends its turn with is deliberately NOT shown as a tool part (#1283,
+> `workers/edge/src/agent/session/turn-frames.ts`) — an answer is an answer, not
+> a tool call the user watches. A `tool-input-start` with
+> `"toolName":"respond"` in the frame list is a regression, not progress.
 
 5. Send a **second** message in the same window ("秩父にも行きたい") and confirm the
    `POST /v1/chat` carries the same `x-session-id` back. One conversation, two

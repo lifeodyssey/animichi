@@ -2,14 +2,19 @@
  * The system prompt one turn runs under (card #1252).
  *
  * SCOPE, deliberately: only the parts of the Python agent's instructions that
- * do not name a tool. `apps/agent`'s `animichi_agent._INSTRUCTIONS` is mostly an
- * outcome-routing table — "resolve_anime resolved: call search_bangumi with its
- * bangumi_id", one line per typed tool outcome — plus an output vocabulary
- * (`search_response`, `clarify_response`, …) that has no TypeScript counterpart
- * yet. Both belong with the things they describe: the catalog tools are card
- * #1253 and the typed outputs are the structured-output work. Restating them
+ * do not name a CATALOG tool. `apps/agent`'s `animichi_agent._INSTRUCTIONS` is
+ * mostly an outcome-routing table — "resolve_anime resolved: call
+ * search_bangumi with its bangumi_id", one line per typed tool outcome — and
+ * that belongs with the thing it describes, card #1253's tools; restating it
  * here would make this module a second, drifting copy of a contract it does not
  * own.
+ *
+ * The OUTPUT vocabulary is the exception, because it has no other home. Python
+ * spelled it as five response models the agent picked between; the TS tier
+ * spells it as one `respond` tool with a `kind` (#1283, `turn-answer.ts`), and
+ * a model that is never told to call it never ends a turn with an answer. The
+ * paragraph below is therefore the port of those models' own field
+ * descriptions, not new prompt tuning.
  *
  * What IS here is what holds for any tool set, and the last paragraph is the
  * one that must never be dropped: the untrusted-tool-output invariant is SD-19,
@@ -17,6 +22,7 @@
  * verbatim in meaning from the Python.
  */
 
+import { ANSWER_TOOL_NAME } from "@animichi/contract/agent-tool-schemas";
 import type { PendingClarification, SessionEnvelope } from "./session-envelope.ts";
 import type { CurrentAnime } from "../tools/catalog-tool-session.ts";
 
@@ -28,6 +34,14 @@ Never fabricate locations, coordinates, routes, candidate identity, or catalog d
 ## Language
 - Reply in the user's language; use the trusted runtime locale only as a fallback.
 - Resolve anaphora from conversation history and the trusted runtime context.
+
+## Answering
+End every turn by calling \`${ANSWER_TOOL_NAME}\` exactly once, after the tools you needed.
+Its \`kind\` says what the answer IS: \`search\` once a search stored results,
+\`route\` once a route was planned, \`clarify\` when a tool asked the user to
+choose (copy that outcome's own reason into \`reason\`), \`greeting\` for a
+greeting or a capability question, \`qa\` for everything else. A kind this turn
+has no result for is rejected and handed back to you.
 
 ## Compact output
 Write a natural message sized to the response. For a search, a route or a

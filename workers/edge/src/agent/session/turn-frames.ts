@@ -12,28 +12,41 @@
  * framing (the protocol carries its discriminator INSIDE the JSON, so an SSE
  * `event:` line would be a second, contradictory one).
  *
- * WHAT IS NOT HERE: the `data-response` part carrying the answer payload. Its
- * schema is `packages/contract`'s `ChatResponseDataPart`, projected in Python by
- * `chat_stream_frames.chat_response_wire` from a `PublicAPIResponse` that has no
- * TypeScript counterpart yet — that projection arrives with the structured
- * output work, and inventing a shape for it here would fork the contract. Until
- * then the answer reaches the client the way §二's disconnect semantics say it
- * always can: from `GET /v1/conversations/:id/messages`, which reads the
- * assistant message this turn commits.
+ * THE ANSWER RIDES THE SAME FRAMES (#1283). A succeeded turn closes on TWO
+ * `data-response` parts under one shared id — the intent alone, then the whole
+ * part — which is `chat_stream_frames.data_frames` and is exactly what the
+ * captures record. The id is what makes the pair legal rather than a
+ * contradiction: SD-9 data parts are OVERWRITTEN in place by id, so the first is
+ * the skeleton the web renders while the second is still being built
+ * (`apps/web`'s `isIntentOnly`).
+ *
+ * THE `respond` TOOL IS INVISIBLE HERE, and that is the captures' shape too:
+ * Python's final-result tool never became a tool part either — pydantic-ai's
+ * `FinalResultEvent` was projected onto the intent-only data part instead
+ * (`output_progress_bridge`). A turn's answer is an answer, not a tool call the
+ * user watches.
  *
  * Frames are never persisted (§三: "订阅者**不持久化**"). They are a live view
  * of a turn whose truth is in Neon.
  */
 import type { AgentEvent } from "@earendil-works/pi-agent-core";
 import type { JsonValue } from "@earendil-works/pi-ai";
+import { ANSWER_TOOL_NAME } from "@animichi/contract/agent-tool-schemas";
 import { isJsonRecord } from "../json-record.ts";
 import type { TurnState } from "./run-machine.ts";
+import type { TurnAnswer } from "./turn-answer.ts";
+import { chatResponsePart } from "./turn-answer-part.ts";
+import { asJsonValue } from "./turn-store.ts";
 
 /** One decoded frame; the channel encodes it as `data: <json>`. */
 export type TurnFrame = Record<string, JsonValue>;
 
 /** The stream terminator, which is a bare token rather than JSON. */
 export const DONE_FRAME = "[DONE]";
+
+/** The id both answer parts share, so the second overwrites the first —
+ * verbatim from Python's `RESPONSE_DATA_ID`. */
+export const RESPONSE_DATA_ID = "response";
 
 /** The client-facing failure text, verbatim from the Python `_ERROR_TEXT`. */
 export const ERROR_TEXT = "Something went wrong. Please try again.";
@@ -73,15 +86,29 @@ function toolOutputFrames(event: Extract<AgentEvent, { type: "tool_execution_end
 
 /** The frames one pi agent event becomes; most events become none. */
 export function framesFor(event: AgentEvent): TurnFrame[] {
-  if (event.type === "tool_execution_start") return toolInputFrames(event);
-  if (event.type === "tool_execution_end") return toolOutputFrames(event);
+  if (event.type === "tool_execution_start") {
+    return event.toolName === ANSWER_TOOL_NAME ? [] : toolInputFrames(event);
+  }
+  if (event.type === "tool_execution_end") {
+    return event.toolName === ANSWER_TOOL_NAME ? [] : toolOutputFrames(event);
+  }
   return [];
 }
 
+/** One overwritable data part under the shared response id. */
+function dataResponse(data: JsonValue): TurnFrame {
+  return { type: "data-response", id: RESPONSE_DATA_ID, data };
+}
+
+/** The intent first, then the whole part — Python's `data_frames`. */
+export function answerFrames(answer: TurnAnswer): TurnFrame[] {
+  return [dataResponse({ intent: answer.intent }), dataResponse(asJsonValue(chatResponsePart(answer)))];
+}
+
 /** The frames that close a stream, told apart by how the turn ended. */
-export function closingFrames(state: TurnState): TurnFrame[] {
+export function closingFrames(state: TurnState, answer: TurnAnswer): TurnFrame[] {
   if (state.phase === "succeeded") {
-    return [{ type: "finish-step" }, { type: "finish", finishReason: "stop" }];
+    return [...answerFrames(answer), { type: "finish-step" }, { type: "finish", finishReason: "stop" }];
   }
   return [
     { type: "error", errorText: ERROR_TEXT },

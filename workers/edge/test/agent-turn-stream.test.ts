@@ -15,10 +15,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DurableTurn } from "../src/agent/session/durable-turn.ts";
 import { closingFrames, framesFor, openingFrames } from "../src/agent/session/turn-frames.ts";
+import { UNANSWERED_TURN } from "../src/agent/session/turn-answer.ts";
 import type { SseTurnChannel } from "../src/agent/session/sse-turn-channel.ts";
 import { TurnSubscribers } from "../src/agent/session/turn-subscribers.ts";
 import { InMemoryTurnStore } from "./doubles/in-memory-turn-store.ts";
-import { CountingSpotLookup, makeScriptedModels, makeUserTranscript } from "./doubles/make-turn-parts.ts";
+import { CountingSpotLookup, makeScriptedModels, makeTurnAnswering, makeUserTranscript } from "./doubles/make-turn-parts.ts";
 
 const RUN_ID = "run-1";
 const NOW = 1_000;
@@ -57,6 +58,7 @@ function makeTurnOn(store: InMemoryTurnStore, emit: TurnSubscribers): DurableTur
   return new DurableTurn({
     store,
     models: makeScriptedModels(),
+    answering: makeTurnAnswering(),
     toolbox: new CountingSpotLookup(),
     systemPrompt: "test",
     prices: { inputUsdPerMtok: 0, outputUsdPerMtok: 0 },
@@ -97,9 +99,9 @@ void test("a tool result becomes tool-output-available carrying its details", ()
 });
 
 void test("a failed turn closes on error, not on stop", () => {
-  const closed = closingFrames({ phase: "failed", reason: "provider_failed" });
+  const closed = closingFrames({ phase: "failed", reason: "provider_failed" }, UNANSWERED_TURN);
   assert.deepEqual(closed.map((frame) => frame.type), ["error", "finish-step", "finish"]);
-  assert.deepEqual(closingFrames({ phase: "succeeded" }).at(-1), {
+  assert.deepEqual(closingFrames({ phase: "succeeded" }, UNANSWERED_TURN).at(-1), {
     type: "finish",
     finishReason: "stop",
   });

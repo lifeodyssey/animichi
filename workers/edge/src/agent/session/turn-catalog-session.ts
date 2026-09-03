@@ -60,6 +60,12 @@ export class TurnCatalogSession implements CatalogToolSession {
     return this.#itineraries;
   }
 
+  /** The search payloads this turn found, in the order the tools stored them —
+   * which is what tells an answer WHICH search it is about (#1283). */
+  get searchResults(): ReadonlyMap<string, SearchResultPayload> {
+    return this.#searches;
+  }
+
   storeSearchResult(payload: SearchResultPayload): string {
     const ref = this.#mint("search", payload.row_count);
     this.#searches.set(ref, payload);

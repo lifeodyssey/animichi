@@ -74,9 +74,10 @@ export class DurableTurn {
   /** Everything between winning the lease and the frames that close the stream. */
   async #hosted(turn: LoadedTurn, machine: RunMachine): Promise<TurnState> {
     await this.#parts.emit(openingFrames());
-    const state = await this.#settled(turn, machine);
+    const attempt = new TurnAttempt(turn, machine, this.#parts);
+    const state = await this.#settled(turn, machine, attempt);
     if (state.phase === "abandoned") return state;
-    await this.#parts.emit(closingFrames(state));
+    await this.#parts.emit(closingFrames(state, attempt.answer));
     return state;
   }
 
@@ -86,10 +87,9 @@ export class DurableTurn {
    * `runs_lease_within_deadline_check` clamps its lease to the deadline, so
    * without this it would present as a lost lease rather than the expiry it is.
    */
-  async #settled(turn: LoadedTurn, machine: RunMachine): Promise<TurnState> {
+  async #settled(turn: LoadedTurn, machine: RunMachine, attempt: TurnAttempt): Promise<TurnState> {
     const opened = machine.beginStep();
     if (opened.phase !== "running") return await this.#failed(turn, opened);
-    const attempt = new TurnAttempt(turn, machine, this.#parts);
     try {
       await attempt.drive();
     } catch (error) {
@@ -103,7 +103,7 @@ export class DurableTurn {
   async #ended(turn: LoadedTurn, machine: RunMachine, attempt: TurnAttempt): Promise<TurnState> {
     if (machine.state.phase === "failed") return await this.#failed(turn, machine.state);
     if (attempt.steps.abandoned) return machine.renewed(false);
-    await this.#ending.succeeded(turn, attempt.output);
+    await this.#ending.succeeded(turn, attempt.output, attempt.answer);
     return machine.succeed();
   }
 
