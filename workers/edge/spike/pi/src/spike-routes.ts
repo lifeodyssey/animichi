@@ -5,7 +5,10 @@
 // S1 owns `/turn` and `/turn/abort` (one pi turn, and the three abort break
 // points). S4 adds `/turn/long` (the deliberately-long alarm-hosted turn) and
 // `GET /runs/:id` (what the client reads after it disconnected — the spike's
-// stand-in for `GET /v1/conversations/:id/messages`, spec §三).
+// stand-in for `GET /v1/conversations/:id/messages`, spec §三). S5 adds
+// `POST /egress` (one row of the BYOK red-line matrix) and
+// `GET /egress/platform` (what the platform's own outbound proxy refuses) and
+// `GET /egress/redirect` (the redirect re-validation, against a fixed fixture).
 
 export type SpikeRoute =
   | "healthz"
@@ -13,6 +16,9 @@ export type SpikeRoute =
   | "turn_abort"
   | "turn_long"
   | "run_status"
+  | "egress"
+  | "egress_platform"
+  | "egress_redirect"
   | "not_found";
 
 /** `GET /runs/<uuid>`; the id shape is pinned so no other GET path can match. */
@@ -22,14 +28,29 @@ export function runIdOf(pathname: string): string | null {
   return RUN_STATUS_PATH.exec(pathname)?.[1] ?? null;
 }
 
+const GET_ROUTES: Readonly<Record<string, SpikeRoute>> = {
+  "/healthz": "healthz",
+  "/egress/platform": "egress_platform",
+  "/egress/redirect": "egress_redirect",
+};
+
+const POST_ROUTES: Readonly<Record<string, SpikeRoute>> = {
+  "/egress": "egress",
+  "/turn": "turn",
+  "/turn/abort": "turn_abort",
+  "/turn/long": "turn_long",
+};
+
+function getRouteOf(pathname: string): SpikeRoute {
+  const fixed = GET_ROUTES[pathname];
+  if (fixed !== undefined) return fixed;
+  return runIdOf(pathname) === null ? "not_found" : "run_status";
+}
+
 export function routeOf(method: string, pathname: string): SpikeRoute {
-  if (method === "GET" && pathname === "/healthz") return "healthz";
-  if (method === "GET") return runIdOf(pathname) === null ? "not_found" : "run_status";
+  if (method === "GET") return getRouteOf(pathname);
   if (method !== "POST") return "not_found";
-  if (pathname === "/turn") return "turn";
-  if (pathname === "/turn/abort") return "turn_abort";
-  if (pathname === "/turn/long") return "turn_long";
-  return "not_found";
+  return POST_ROUTES[pathname] ?? "not_found";
 }
 
 export function abortRequiredFor(route: SpikeRoute): boolean {

@@ -76,7 +76,8 @@ export function configuredProviders(keys: ProviderKeys): Record<SpikeProvider, b
   };
 }
 
-function fixedKeyAuth(name: string, apiKey: string) {
+/** Resolves to exactly the key it was handed — never to an ambient credential. */
+export function fixedKeyAuth(name: string, apiKey: string) {
   return { apiKey: { name, resolve: () => Promise.resolve({ auth: { apiKey }, source: name }) } };
 }
 

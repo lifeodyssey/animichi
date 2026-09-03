@@ -1,4 +1,4 @@
-# `animichi-spike-pi` — W0 probe Worker (#1244 S1, #1247 S4)
+# `animichi-spike-pi` — W0 probe Worker (#1244 S1, #1247 S4, #1248 S5)
 
 A throwaway Worker that runs one `@earendil-works/pi-agent-core` turn on **deployed** workerd, so
 the three S1 acceptance criteria can be measured for real. `wrangler dev` does not count
@@ -16,6 +16,9 @@ identity layer and no CD cohort — the owner deploys it by hand and deletes it 
 | `POST /turn/abort` | The same turn, aborted at `abortPoint` = `provider_stream` \| `tool_call` \| `final_frame`, reporting what the abort left behind |
 | `POST /turn/long` | **S4.** A deliberately long alarm-hosted turn of N tool steps, each holding `holdMs`, writing `runs` / `run_steps` / `messages` to Neon. Answers SSE and an `x-spike-run-id` header |
 | `GET /runs/:id` | **S4.** The run as Neon holds it — status, steps, transcript — plus this Durable Object's tool-call counter and billed wall-clock |
+| `POST /egress` | **S5.** One row of the BYOK red-line matrix: decides `{provider, baseUrl, key}` through `EgressPolicy` and, when allowed, runs a real pi round trip through the guarded fetch |
+| `GET /egress/platform` | **S5.** The same address families with no policy in the way — what Cloudflare's own outbound proxy refuses |
+| `GET /egress/redirect` | **S5.** The 302 re-validation, against fixed fixtures |
 
 Both turn routes answer `text/event-stream`: one frame per pi agent event, then a final
 `event: outcome` frame carrying the run id, the event sequence, the assistant text, the duration,
@@ -84,6 +87,73 @@ Fault injection, both request fields:
   exception, the alarm would crash again on every retry and the run would stay `running` — which
   is what the `crash` case in the measurement script would show.
 - `failAtStep: N` — the tool itself fails. The run must end `failed` / `tool_failed`, not crash.
+
+## W0-S5 (#1248) — the BYOK / egress red lines
+
+S5 is the only spike whose product is **production code**: `workers/edge/src/agent/egress/` is a
+reusable module (`EgressPolicy`, `ProviderAllowlist`, `GuardedFetch`, `SecretScrub`) that becomes
+W2's BYOK core. Nothing under `workers/edge/src/` imports it yet; the spike is its first caller and
+the deployed run is how each red line stops being an assertion about our own code and becomes a
+measurement.
+
+What the module decides, and why in this order: an empty key is refused **first**, before any
+provider client exists, because several provider SDKs silently fall back to an ambient credential
+when handed a falsy key (the `GoogleProvider` trap `apps/agent/.../byok_models.py` guards). Then
+scheme, userinfo and port; then the host, which must clear **two independent conditions** — it is
+one of the provider family's enumerated hosts (exact, never a suffix) *and* it is a name rather
+than an address in a loopback / private / link-local / CGNAT / metadata / otherwise-unroutable
+range, IPv4 and IPv6 including the IPv4-mapped and NAT64 spellings.
+
+Three limits worth stating plainly:
+
+- **No DNS resolution happens.** workerd exposes no resolver, so unlike
+  `apps/agent/.../egress_guard.py` this module cannot classify what a hostname *resolves to*, and
+  cannot pin a socket to a validated address. What replaces it is the exact-host allowlist: a
+  caller cannot steer egress at an address of their choosing, so a mixed DNS answer or a rebinding
+  flip has nothing to steer. That argument is measured rather than asserted from two directions:
+  the `dns-resolves-loopback` matrix rows send real public names whose A record is `127.0.0.1`
+  (`localtest.me`, `127.0.0.1.nip.io`) and watch the policy refuse them, and the matching
+  `platform:` rows send the same names with no policy in the way and record what Cloudflare's own
+  resolver-side proxy does with them. What stays **[U]** is narrower than the red line's wording:
+  a *mixed* answer (one A record public, one private) and a rebind *between* validation and
+  connect both need a nameserver we control, which no test here has. Neither is reachable through
+  the allowlist, but neither is measured — report them as unverified, not green.
+- **The `google-generative-ai` adapter refuses an injected fetch** — it throws "Custom fetch is not
+  supported by the Google Generative AI adapter"
+  (`node_modules/@earendil-works/pi-ai/dist/api/google-generative-ai.js:33`). The guard cannot hang
+  on that adapter, so the google family is driven through Google's OpenAI-compatible surface on the
+  same host (`/v1beta/openai`). That is a W2 requirement, not an incidental choice.
+- **httpbingo.org cannot emit a hostile redirect.** Its `/redirect-to` only redirects within its own
+  domain; `https://169.254.169.254/`, `//169.254.169.254/`, `//evil.test/` and `http://10.0.0.1/`
+  all answer 403 (checked 2026-09-03). The hostile hops therefore come from a 302 source inside the
+  isolate, addressed at a `.invalid` host that can never resolve, while httpbingo supplies the one
+  row that must be a real network redirect: the control that proves the guard does follow a
+  re-validated 302.
+
+```
+scripts/spike/pi-s5-egress.sh all --url https://animichi-spike-pi.<subdomain>.workers.dev
+```
+
+`all` runs the decision matrix, the redirect fixtures and the platform probe, then prints the
+markdown table for the spec §四 appendix. Individual cases are `matrix`, `redirect`, `platform`;
+`format` reprints from `.local/spike/pi-s5/results.txt`.
+
+The BYOK key the allowed rows send is `--key`, and it is **meant to be invalid** — the measurement
+is that the provider's 401 comes back scrubbed (`key leaked` must read `false` on every row). Never
+pass a live key: nothing here needs one and it would land in your shell history.
+
+Reading the table for the platform-versus-application question the acceptance criterion asks:
+
+- a **deny** row is the application policy. Nothing was sent, so the platform had no opinion to give.
+- an **allow** row whose reason cell reads `allowlisted/failed` with a runtime error rather than a
+  provider status is the **platform** refusing after the policy allowed — the only shape in which a
+  platform block is directly observable through `POST /egress`.
+- the `platform:` rows answer the other half directly, with no policy in the way. `blocked` means
+  Cloudflare already refuses that address family; `reachable` means the application policy is the
+  only thing standing between a BYOK caller and it.
+
+This route needs no secret. It carries no provider key of its own — the credential is the caller's,
+which is the whole point of BYOK.
 
 ## Deploy (owner, by hand)
 
@@ -190,6 +260,13 @@ points driven through the real pi agent loop over a provider double that honours
 five-minute turn included, because the tool's hold is an injected `sleep` that only moves the test
 clock.
 
+S5's red lines are `workers/edge/test/byok-egress-policy.test.ts` (allowlist, key, scheme, port,
+userinfo, own infrastructure), `byok-egress-addresses.test.ts` (the IPv4 + IPv6 range matrix, one
+test per range with the reason it must carry), `byok-egress-redirect.test.ts` (re-validation over a
+fetch double that returns real 302 responses) and `byok-secret-scrub.test.ts`. The spike's own
+surface is `pi-spike-egress-surface.test.ts`, which drives a real pi round trip through the guard
+over a scripted 401.
+
 `pnpm run test:spike-db` is an opt-in lane that runs `PostgresRunStore` against a **real**
 PostgreSQL, so the invariants the unit tests lean on are the database's and not the double's
 opinion of them. It fails closed without a database. Spin a disposable one the way the repo's
@@ -212,7 +289,9 @@ docker rm -f "$cid"
 
 ## Teardown
 
-When W0 closes, delete this directory and `workers/edge/db-test/`, drop the three
+When W0 closes, delete this directory and `workers/edge/db-test/` — but **not**
+`workers/edge/src/agent/egress/`, which is production code S5 built for W2 and which the tests named
+above cover independently of the spike. Also drop the three
 `@earendil-works/*` / `typebox` devDependencies from `workers/edge/package.json` if W1 has not
 adopted them yet (plus `pg` / `@types/pg`, which only the `db-test` lane uses), and delete the
 Worker in Cloudflare. `@neondatabase/serverless` stays — W1's intake needs it.

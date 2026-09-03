@@ -43,6 +43,11 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `RunSweeper` DO, the at-least-once backstop). Ports live with the use case, Neon adapters
   beside them, and no module here imports `cloudflare:workers` so the node:test suite can load
   every one of them. Nothing routes to it yet — #1256 flips `/v1/chat`.
+- `src/agent/egress/` — the BYOK egress guard (W0-S5, #1248): `EgressPolicy` +
+  `ProviderAllowlist` (exact provider hosts, HTTPS/443, own-infra and address-range refusals),
+  `GuardedFetch` (`redirect: "manual"` and re-validation of every redirect target) and
+  `SecretScrub`. Pure and binding-free, so node:test loads it directly. Nothing under `src/`
+  imports it yet — `spike/pi/` is its first caller and W2's BYOK card is its home.
 - `src/identity/` — auth (JWT/anonymous) + turnstile gate; `src/gateway/` — forward +
   routing/catalog policy (pure functions) + responses; `src/protect/` — rate limit / cost breaker /
   DO guard; `src/proxy/` — image/tile/showcase proxies; `src/container/` — container env +
