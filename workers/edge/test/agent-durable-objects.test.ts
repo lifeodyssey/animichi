@@ -5,9 +5,9 @@
  * fails there, long after the change that caused it. These read the two files
  * against each other instead.
  *
- * It is also what keeps card #1252's seam honest: `AgentSession` must stay
- * UNBOUND until the class it names exists, so the reservation lives in a
- * comment here rather than in a binding that would break the deploy.
+ * It is also what keeps the two agent-tier classes honest: `RunSweeper` (#1251)
+ * wakes `AgentSession` (#1252) by binding name, so a binding either side is
+ * missing is a sweep that silently reaches nothing.
  *
  * test-type: unit (reads checked-in files; no network, no clock).
  */
@@ -21,6 +21,7 @@ const read = (relative: string): string =>
 
 const WRANGLER = read("../wrangler.toml");
 const ENTRY = read("../src/entry.ts");
+const SWEEPER = read("../src/agent/sweeper/run-sweeper.ts");
 const ENVIRONMENTS = ["", "env.production.", "env.staging."] as const;
 
 /** Every class name any environment binds a Durable Object to. */
@@ -56,7 +57,15 @@ void test("the sweep cadence is configured in every environment", () => {
   }
 });
 
-void test("AgentSession stays unbound until card #1252 exports the class", () => {
-  assert.doesNotMatch(WRANGLER, /^class_name = "AgentSession"$/m);
-  assert.match(WRANGLER, /binding `AGENT_SESSION` \(class_name = "AgentSession"\)/);
+void test("AgentSession is bound in every environment, once each", () => {
+  const bindings = [...WRANGLER.matchAll(/name = "AGENT_SESSION"\nclass_name = "AgentSession"/g)];
+  assert.equal(bindings.length, ENVIRONMENTS.length);
+});
+
+void test("AgentSession is declared new in every environment's migration chain", () => {
+  assert.deepEqual(migrationTagsFor("AgentSession"), ["v4", "v4", "v4"]);
+});
+
+void test("the sweeper wakes the binding name the config actually declares", () => {
+  assert.match(SWEEPER, /AGENT_SESSION_BINDING = "AGENT_SESSION"/);
 });

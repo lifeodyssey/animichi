@@ -43,6 +43,7 @@ const LAZY_SUBPATH = /["']@earendil-works\/pi-ai\/[^"']*\.lazy["']/;
 
 interface EdgePackageManifest {
   scripts: Record<string, string>;
+  dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
 }
 const EDGE_PACKAGE = JSON.parse(read("workers/edge/package.json")) as EdgePackageManifest;
@@ -74,7 +75,14 @@ void test("the affected (edge) CI leg dispatches to that same gate", () => {
 
 void test("the smoke entrypoint is test-only, not a deployed edge source", () => {
   assert.ok(EDGE_COMPONENT?.deploy_excludes.includes("workers/edge/bundle-smoke/**"));
-  assert.equal(typeof EDGE_PACKAGE.devDependencies["@earendil-works/pi-ai"], "string");
+});
+
+/** W1-3 (#1252) put the pi kernel in `src/`, so it ships: a devDependency here
+ * would be a Worker that fails to bundle its own agent loop. */
+void test("the pi kernel is a runtime dependency of the deployed Worker", () => {
+  assert.equal(typeof EDGE_PACKAGE.dependencies["@earendil-works/pi-ai"], "string");
+  assert.equal(typeof EDGE_PACKAGE.dependencies["@earendil-works/pi-agent-core"], "string");
+  assert.equal(EDGE_PACKAGE.devDependencies["@earendil-works/pi-ai"], undefined);
 });
 
 void test("the smoke entrypoint keeps the eager pi-ai import workaround", () => {

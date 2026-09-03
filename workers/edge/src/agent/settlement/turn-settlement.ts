@@ -38,6 +38,28 @@ export interface UsagePrices {
   readonly outputUsdPerMtok: number;
 }
 
+/** The wrangler vars carrying those prices — the names the Python settings
+ * already used, so one deployment configures one meter. */
+export const PRICE_VARS = {
+  input: "MODEL_INPUT_COST_PER_MTOK_USD",
+  output: "MODEL_OUTPUT_COST_PER_MTOK_USD",
+} as const;
+
+/** A configured price, or zero. An unpriced model still meters its tokens —
+ * the Python `usage_cost_usd` charged zero rather than refusing to record. */
+function priceIn(env: Record<string, unknown>, name: string): number {
+  const configured = Number(typeof env[name] === "string" ? env[name] : Number.NaN);
+  return Number.isFinite(configured) && configured >= 0 ? configured : 0;
+}
+
+/** The prices one deployment charges its turns at. */
+export function usagePricesIn(env: Record<string, unknown>): UsagePrices {
+  return {
+    inputUsdPerMtok: priceIn(env, PRICE_VARS.input),
+    outputUsdPerMtok: priceIn(env, PRICE_VARS.output),
+  };
+}
+
 /** The turn a success settlement closes: what it spent, and at what prices. */
 export interface SucceededTurn {
   readonly runId: string;

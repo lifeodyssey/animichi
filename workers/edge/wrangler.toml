@@ -194,13 +194,17 @@ class_name = "EdgeGuard"
 # for running rows with an expired or never-taken lease and re-arms each one's
 # session (spec docs/specs/2026-09-01-agent-ts-rewrite-spec.md §三).
 #
-# The AgentSession class this wakes is card #1252 and is deliberately NOT bound
-# here yet: wrangler rejects a durable_objects binding whose class the Worker
-# does not export, so the binding `AGENT_SESSION` (class_name = "AgentSession")
-# lands with the class itself.
+# AGENT_SESSION is the per-session Durable Object the sweeper wakes and the
+# intake arms (#1252): one instance per session, running its turn inside its own
+# `alarm()` handler. The binding is safe to declare now because `src/entry.ts`
+# exports the class wrangler resolves `class_name` against.
 [[durable_objects.bindings]]
 name = "RUN_SWEEPER"
 class_name = "RunSweeper"
+
+[[durable_objects.bindings]]
+name = "AGENT_SESSION"
+class_name = "AgentSession"
 
 [[migrations]]
 tag = "v1"
@@ -213,6 +217,10 @@ new_sqlite_classes = ["EdgeGuard"]
 [[migrations]]
 tag = "v3"
 new_sqlite_classes = ["RunSweeper"]
+
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["AgentSession"]
 
 [observability]
 enabled = true
@@ -327,13 +335,17 @@ class_name = "EdgeGuard"
 # for running rows with an expired or never-taken lease and re-arms each one's
 # session (spec docs/specs/2026-09-01-agent-ts-rewrite-spec.md §三).
 #
-# The AgentSession class this wakes is card #1252 and is deliberately NOT bound
-# here yet: wrangler rejects a durable_objects binding whose class the Worker
-# does not export, so the binding `AGENT_SESSION` (class_name = "AgentSession")
-# lands with the class itself.
+# AGENT_SESSION is the per-session Durable Object the sweeper wakes and the
+# intake arms (#1252): one instance per session, running its turn inside its own
+# `alarm()` handler. The binding is safe to declare now because `src/entry.ts`
+# exports the class wrangler resolves `class_name` against.
 [[env.production.durable_objects.bindings]]
 name = "RUN_SWEEPER"
 class_name = "RunSweeper"
+
+[[env.production.durable_objects.bindings]]
+name = "AGENT_SESSION"
+class_name = "AgentSession"
 
 
 [[env.production.ratelimits]]
@@ -354,6 +366,10 @@ new_sqlite_classes = ["EdgeGuard"]
 [[env.production.migrations]]
 tag = "v3"
 new_sqlite_classes = ["RunSweeper"]
+
+[[env.production.migrations]]
+tag = "v4"
+new_sqlite_classes = ["AgentSession"]
 
 [env.staging]
 name = "animichi-staging"
@@ -527,13 +543,17 @@ class_name = "EdgeGuard"
 # for running rows with an expired or never-taken lease and re-arms each one's
 # session (spec docs/specs/2026-09-01-agent-ts-rewrite-spec.md §三).
 #
-# The AgentSession class this wakes is card #1252 and is deliberately NOT bound
-# here yet: wrangler rejects a durable_objects binding whose class the Worker
-# does not export, so the binding `AGENT_SESSION` (class_name = "AgentSession")
-# lands with the class itself.
+# AGENT_SESSION is the per-session Durable Object the sweeper wakes and the
+# intake arms (#1252): one instance per session, running its turn inside its own
+# `alarm()` handler. The binding is safe to declare now because `src/entry.ts`
+# exports the class wrangler resolves `class_name` against.
 [[env.staging.durable_objects.bindings]]
 name = "RUN_SWEEPER"
 class_name = "RunSweeper"
+
+[[env.staging.durable_objects.bindings]]
+name = "AGENT_SESSION"
+class_name = "AgentSession"
 
 
 [[env.staging.ratelimits]]
@@ -554,6 +574,10 @@ new_sqlite_classes = ["EdgeGuard"]
 [[env.staging.migrations]]
 tag = "v3"
 new_sqlite_classes = ["RunSweeper"]
+
+[[env.staging.migrations]]
+tag = "v4"
+new_sqlite_classes = ["AgentSession"]
 # Cloudflare-native rate-limit binding (issue #680) — the COARSE best-effort
 # burst damper. Worker-side sibling of the zone-level WAF damper in
 # infra/src/hardening.ts; it drives the edge's "native" tier (cacheable public
