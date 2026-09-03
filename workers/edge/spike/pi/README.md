@@ -1,7 +1,7 @@
-# `animichi-spike-pi` — W0 probe Worker (#1244 S1, #1247 S4, #1248 S5)
+# `animichi-spike-pi` — W0 probe Worker (#1244 S1, #1245 S2, #1247 S4, #1248 S5)
 
-A throwaway Worker that runs one `@earendil-works/pi-agent-core` turn on **deployed** workerd, so
-the three S1 acceptance criteria can be measured for real. `wrangler dev` does not count
+A throwaway Worker that runs `@earendil-works/pi-agent-core` turns on **deployed** workerd, so the
+S1, S2, S4 and S5 acceptance criteria can be measured for real. `wrangler dev` does not count
 (the agent TS rewrite spec for #1243, §四).
 
 Nothing under `workers/edge/src/` imports anything from this directory. The probe has no route, no
@@ -11,9 +11,10 @@ identity layer and no CD cohort — the owner deploys it by hand and deletes it 
 
 | Route | Behaviour |
 | --- | --- |
-| `GET /healthz` | `{ ok, worker, providers }` — provider readiness as booleans, never key values |
+| `GET /healthz` | `{ ok, worker, providers, mimoRoutes }` — readiness as booleans, never key values |
 | `POST /turn` | Runs one pi turn for `provider` = `mimo` \| `anthropic` \| `gemini`, streaming SSE |
 | `POST /turn/abort` | The same turn, aborted at `abortPoint` = `provider_stream` \| `tool_call` \| `final_frame`, reporting what the abort left behind |
+| `POST /compat` | **S2.** One measured mimo turn under one compat switch set — JSON in, JSON measurement out |
 | `POST /turn/long` | **S4.** A deliberately long alarm-hosted turn of N tool steps, each holding `holdMs`, writing `runs` / `run_steps` / `messages` to Neon. Answers SSE and an `x-spike-run-id` header |
 | `GET /runs/:id` | **S4.** The run as Neon holds it — status, steps, transcript — plus this Durable Object's tool-call counter and billed wall-clock |
 | `POST /egress` | **S5.** One row of the BYOK red-line matrix: decides `{provider, baseUrl, key}` through `EgressPolicy` and, when allowed, runs a real pi round trip through the guarded fetch |
@@ -25,7 +26,17 @@ Both turn routes answer `text/event-stream`: one frame per pi agent event, then 
 `abortFired`, `clientGone`, `alarmScheduled`, and the `dangling` / `clean` verdict that the
 integration acceptance criterion asks for.
 
-The turn runs **inside the Durable Object's `alarm()` handler**, not inside the caller's fetch — the
+`POST /compat` is the exception to the paragraph below: it is served straight from the Worker's
+fetch, because S2 measures the round trip the caller is waiting on rather than a turn's independence
+from the connection. Its body is
+`{ "route": "direct" | "zen", "compat": { …switches… }, "prompt"?: "…" }` and its response is one
+measurement: `toolCallSucceeded`, `answered`, `toolRoundTrip`, `streamingUsage`, `usageTokens`,
+`wallMs`, `firstTokenMs` (null when no content delta arrived), `events`, `error`. An unknown or
+mistyped switch is a 400; a route whose key is absent is a 503 carrying `mimoRoutes`. A gateway that
+rejects the dialect still answers **200** with the provider's error text in `error` — that rejection
+is the measurement.
+
+The two turn routes run **inside the Durable Object's `alarm()` handler**, not inside the caller's fetch — the
 binding decision in spec §二. The fetch writes the run down, arms `setAlarm(now)` and returns the
 SSE body; disconnecting the client sets `clientGone` and does not stop the turn.
 
@@ -206,7 +217,7 @@ deliberately outside CD. Run these yourself from the repo root:
    first `[[migrations]]` tag creates the `PiTurnSession` Durable Object class on this first
    publish; later publishes reuse it.
 
-## Measure
+## Measure — S1 (#1244)
 
 ```
 scripts/spike/pi-s1-measure.sh all --url https://animichi-spike-pi.<subdomain>.workers.dev
@@ -227,7 +238,57 @@ cannot warm the Worker itself. Immediately after the deploy the Worker is cold a
 yet, so the first `all` produces `idle=unverified` — that row is a real cold read, just one whose
 idleness the script cannot prove.
 
-### S4 — the Durable Object state machine
+Individual S1 cases, if you want to spread them out:
+
+```sh
+scripts/spike/pi-s1-measure.sh cold  --url <url>
+scripts/spike/pi-s1-measure.sh warm  --url <url>
+scripts/spike/pi-s1-measure.sh turn  --url <url> --provider anthropic
+scripts/spike/pi-s1-measure.sh abort --url <url> --point tool_call
+```
+
+## Measure — S2 compat switch matrix (#1245)
+
+```sh
+scripts/spike/pi-s2-compat.sh --url https://animichi-spike-pi.<subdomain>.workers.dev
+```
+
+That runs both routes and prints the markdown table for spec §四:
+`| route | switch | value | tool round trip | streaming usage | wall ms | first token ms | note |`.
+Needs `jq` and `curl`.
+
+Rows accumulate in `.local/spike/pi-s2/results.txt`, and every row's note ends with
+`evidence=run-<stamp>-<pid>/<nnn>-<case>.json` — the response body that row was read from, relative
+to that same directory. Each invocation writes into its own `run-…/` directory, so re-measuring a
+case adds evidence beside the earlier row instead of overwriting what the earlier row points at.
+
+Per route it runs the all-defaults case (pi's own auto-detection from the baseUrl) and then each of
+the nine switches at **both** of its values, one switch at a time — 19 turns. At the S1 mimo
+baseline of ~52 s a round trip that is roughly 17 minutes per route, so run it detached:
+
+```sh
+nohup scripts/spike/pi-s2-compat.sh --url <url> --route direct > .local/spike/pi-s2-direct.log 2>&1 &
+disown
+```
+
+The zen route needs `ZEN_GO_API_KEY` on the deployed Worker. Without it the script does **not**
+fail: `GET /healthz` is read once up front and the route is recorded as
+`| zen | - | - | skipped | skipped | - | - | no key for this route on the deployed Worker |`.
+An unreachable Worker, by contrast, aborts the run — a skip must never stand in for a broken URL.
+
+Individual cases, to spread the wall time out or to re-measure one row:
+
+```sh
+scripts/spike/pi-s2-compat.sh case --url <url> --route direct
+scripts/spike/pi-s2-compat.sh case --url <url> --route direct --switch supportsStrictMode --value false
+scripts/spike/pi-s2-compat.sh case --url <url> --route zen --switch maxTokensField --value max_tokens
+scripts/spike/pi-s2-compat.sh format < .local/spike/pi-s2/results.txt
+```
+
+Which switches, and why those: `spike/pi/src/compat-switch.ts` names the nine and records, with
+reasons, every field of `OpenAICompletionsCompat` it deliberately leaves out.
+
+## Measure — S4 (#1247)
 
 ```
 scripts/spike/pi-s4-durable.sh all --url https://animichi-spike-pi.<subdomain>.workers.dev
@@ -242,20 +303,13 @@ The `long` case is the S4 hard condition end to end: it opens the turn, hangs up
 table: `status` must be `succeeded`, `steps=3`, `tools=3`, and `billedMs` is the number spec §七
 wants for the Durable Object billing estimate. For `crash-replay`, `tools` must equal `expected`.
 
-Individual S1 cases, if you want to spread them out:
-
-```
-scripts/spike/pi-s1-measure.sh cold  --url <url>
-scripts/spike/pi-s1-measure.sh warm  --url <url>
-scripts/spike/pi-s1-measure.sh turn  --url <url> --provider anthropic
-scripts/spike/pi-s1-measure.sh abort --url <url> --point tool_call
-```
-
 ## Tests
 
 `pnpm run test:worker` covers the parts that do not need a deployment: routing and command
-validation, provider-key selection, SSE framing, the markdown table, and the three abort break
-points driven through the real pi agent loop over a provider double that honours its abort signal
+validation, provider-key selection, SSE framing, the markdown tables, the three abort break
+points driven through the real pi agent loop over a provider double that honours its abort signal,
+the `/compat` request surface and its measurement over the same double, and the S2 script driven
+against a loopback stub so the matrix it sends is pinned before it costs 17 minutes of real turns
 (`workers/edge/test/pi-spike-*.test.ts`). S4's whole recovery matrix runs there too — the
 five-minute turn included, because the tool's hold is an injected `sleep` that only moves the test
 clock.

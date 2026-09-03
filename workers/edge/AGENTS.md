@@ -67,8 +67,9 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `docs/specs/2026-09-01-pi-ai-esbuild-lazy-chunk-report.md`; leave the eager
   `api/openai-completions` import alone.
 - `spike/<name>/` — throwaway probe Workers with their own `wrangler.toml`, deployed by hand and
-  deleted when their spike closes (`spike/pi/` = W0-S1, #1244). `src/` never imports from `spike/`,
-  and no spike is in a CD cohort; each carries its own README with the deploy and measurement steps.
+  deleted when their spike closes (`spike/pi/` = W0-S1 #1244 + W0-S2 #1245 + W0-S4 #1247 +
+  W0-S5 #1248). `src/` never imports from `spike/`, and no spike is in a CD cohort; each carries
+  its own README with the deploy and measurement steps.
 
 ## Runtime rules
 

@@ -1,20 +1,27 @@
-// W0-S1 spike (#1244) + W0-S4 spike (#1247): entry point of the throwaway probe
-// Worker `animichi-spike-pi`. It is NOT the production edge — nothing under
-// `workers/edge/src/` imports anything from this directory, and this Worker
-// carries no identity, rate-limit or routing surface.
+// W0-S1 (#1244) + W0-S2 (#1245) + W0-S4 (#1247) + W0-S5 (#1248): entry point of
+// the throwaway probe Worker `animichi-spike-pi`. It is NOT the production edge —
+// nothing under `workers/edge/src/` imports anything from this directory, and this
+// Worker carries no identity, rate-limit or routing surface.
 //
-// Two Durable Object classes, one per spike: `PiTurnSession` hosts S1's single pi
-// turn, `DurableTurnSession` hosts S4's deliberately-long alarm turn and its run
-// status route.
+// Three tiers, in this order: routes this Worker answers itself
+// (`localResponse` — healthz, S2's `/compat`, S5's three egress probes), then
+// S4's `DurableTurnSession`, then S1's `PiTurnSession`, then a 404. S2 and S5
+// need no Durable Object: both measure the round trip the caller is waiting on,
+// so their answers belong to the same request.
 
 import { DurableTurnSession } from "./durable-turn-session.ts";
 import { EgressProbe } from "./egress-probe.ts";
 import { parseEgressProbeCommand } from "./egress-probe-command.ts";
+import { MimoDialectProbe } from "./mimo-dialect-probe.ts";
 import { probePlatformEgress } from "./platform-egress-probe.ts";
 import { probeRedirectFixture } from "./redirect-fixture-probe.ts";
-import { configuredProviders, type ProviderKeys } from "./spike-models.ts";
+import {
+  configuredMimoRoutes,
+  configuredProviders,
+  type ProviderKeys,
+} from "./spike-models.ts";
 import { databaseConfigured, type SpikeDatabaseKeys } from "./spike-database.ts";
-import { routeOf, type SpikeRoute } from "./spike-routes.ts";
+import { isSessionRoute, routeOf, type SpikeRoute } from "./spike-routes.ts";
 import { PiTurnSession } from "./turn-session.ts";
 
 export { DurableTurnSession, PiTurnSession };
@@ -24,7 +31,7 @@ export interface SpikeEnv extends ProviderKeys, SpikeDatabaseKeys {
   PI_DURABLE: DurableObjectNamespace;
 }
 
-/** The S4 routes; everything else stays on S1's session. */
+/** The routes `DurableTurnSession` serves; S1's session takes `isSessionRoute`. */
 const DURABLE_ROUTES: readonly SpikeRoute[] = ["turn_long", "run_status"];
 
 function healthResponse(env: SpikeEnv): Response {
@@ -33,6 +40,7 @@ function healthResponse(env: SpikeEnv): Response {
     worker: "animichi-spike-pi",
     providers: configuredProviders(env),
     database: databaseConfigured(env),
+    mimoRoutes: configuredMimoRoutes(env),
   });
 }
 
@@ -67,18 +75,32 @@ function sessionFor(namespace: DurableObjectNamespace, name: string) {
   return namespace.get(namespace.idFromName(name));
 }
 
+/** The routes this Worker answers itself; `null` means a Durable Object owns it. */
+function localResponse(
+  route: SpikeRoute,
+  request: Request,
+  env: SpikeEnv,
+): Promise<Response> | Response | null {
+  if (route === "healthz") return healthResponse(env);
+  if (route === "compat") return new MimoDialectProbe(env, Date.now).respond(request);
+  if (route === "egress") return egressResponse(request);
+  if (route === "egress_platform") return platformEgressResponse();
+  if (route === "egress_redirect") return redirectEgressResponse();
+  return null;
+}
+
 export default {
   fetch(request: Request, env: SpikeEnv): Promise<Response> | Response {
     const url = new URL(request.url);
     const route = routeOf(request.method, url.pathname);
-    if (route === "healthz") return healthResponse(env);
-    if (route === "not_found") return Response.json({ error: "not found" }, { status: 404 });
-    if (route === "egress") return egressResponse(request);
-    if (route === "egress_platform") return platformEgressResponse();
-    if (route === "egress_redirect") return redirectEgressResponse();
+    const local = localResponse(route, request, env);
+    if (local !== null) return local;
     if (DURABLE_ROUTES.includes(route)) {
       return sessionFor(env.PI_DURABLE, sessionNameOf(url, "s4")).fetch(request);
     }
-    return sessionFor(env.PI_TURN, sessionNameOf(url, "s1")).fetch(request);
+    if (isSessionRoute(route)) {
+      return sessionFor(env.PI_TURN, sessionNameOf(url, "s1")).fetch(request);
+    }
+    return Response.json({ error: "not found" }, { status: 404 });
   },
 };
