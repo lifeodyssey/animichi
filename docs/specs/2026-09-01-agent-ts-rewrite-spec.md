@@ -163,6 +163,30 @@
   tool-call 消息必须与 `run_steps` 一起持久化并从转录重放——这是 W1-3 的实现条件，不是优化项。
 - 未覆盖：DO 驱逐后由**新实例**接手的路径只在单元层（fresh host over same storage）证明，真部署未刻意触发驱逐。
 
+## 附录 D · W0-S5 实测（2026-09-03，#1248 / PR #1271）
+
+真部署 spike Worker，`scripts/spike/pi-s5-egress.sh`，02:57–02:58Z，无任何 secret（key 为故意的假值）。策略模块是
+生产代码 `workers/edge/src/agent/egress/`（W2 BYOK 卡直接复用）。
+
+| 红线 | 用例 | 结果 |
+| --- | --- | --- |
+| provider allowlist | openai / anthropic / google 三个精确 host | allow → 真实到达供应商，假 key 得 401/400，**错误文本不含 key** |
+| 非 allowlist / 未知 provider / 错误家族 | 3 条 | deny（`host_not_allowlisted` / `unknown_provider`） |
+| HTTPS + 443 | `http://`、`:8080` | deny（`scheme_not_https` / `port_not_443`） |
+| metadata | `169.254.169.254`、`metadata.google.internal`、IPv4-mapped IPv6 | deny（`metadata_address`） |
+| private / loopback / link-local / CGNAT | v4 + v6（含 ULA、`[::1]`、`100.64.0.1`） | deny，各自原因 |
+| own infra | `*.workers.dev`、`catalog.internal` | deny（`own_infrastructure`） |
+| userinfo 伪装、DNS 指向 loopback 的公共域名 | `localtest.me`、`*.nip.io` | deny |
+| 空 key、无 server-key 回退 | — | deny（`empty_key`），从未发出请求 |
+| 302 重验 | 指向 metadata / 非 allowlist / 明文 | 第 1 跳即 deny；控制组（合法 302）被跟随 |
+| 平台层（无策略直连） | 9 个私网/元数据目标 | Hosted Workers 出站代理自身返回 403（`metadata.google.internal` 530） |
+
+结论：
+- **条件 6 的应用层红线全绿**，且平台层对私网/元数据目标有独立的 403——两层防御都实证。
+- 仍 **[U]**：DNS 混合 A 记录、验证→连接之间的重绑定，需要自控的 nameserver 才能测；不阻塞 W1（BYOK 在 W2）。
+- pi-ai 的 `google-generative-ai` 拒绝注入 fetch（`dist/api/google-generative-ai.js:33`）：W2 的 Google BYOK 走其 OpenAI 兼容面。
+- httpbingo 不能发跨域 302，恶意跳转用隔离内 302 源模拟；真实网络只验证了"合法 302 被跟随"这一条。
+
 ## 八、留给后续复杂 spec 的 open items
 
 DO 计费实数与并发模型（S4 出数）；typebox↔zod 桥的落点代码；`runs`/Drizzle schema 细节与 migration；`GET …/messages` 的 run 状态字段形状（web 端只多读一个字段）；launch 链（#1181/#1183/#1184）接线顺序；CI lane（coverage floors 迁移、nightly eval 工作流改造为对 staging 的 HTTP 跑）；edge 侧 D5 挂死的定位路径（Workers Logs 权限）。
