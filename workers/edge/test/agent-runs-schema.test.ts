@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { URL, fileURLToPath } from "node:url";
 import {
+  dailyUsage,
   messages,
   runSteps,
   runs,
@@ -28,6 +29,11 @@ const mapped = new Map([
   ["runs", readMappedTable(runs)],
   ["messages", readMappedTable(messages)],
   ["run_steps", readMappedTable(runSteps)],
+  // The day aggregate a settled turn is banked into (#1255). Mapped here for
+  // the same reason the turn tables are: `runs.payer` is written into
+  // `daily_usage.scope` verbatim, so the two CHECK vocabularies have to keep
+  // agreeing without anyone re-typing either of them.
+  ["daily_usage", readMappedTable(dailyUsage)],
 ]);
 
 /** Run columns that carry no value until a lease is taken or the turn settles. */
@@ -114,7 +120,7 @@ void test("every mapped value domain matches its CHECK constraint", () => {
   const checked = [...mapped].flatMap(([name, table]) =>
     [...table.columns].filter(([, facts]) => facts.values.length > 0).map(([column, facts]) => ({ name, column, facts })),
   );
-  assert.equal(checked.length, 4, "status, payer, failure_reason, role");
+  assert.equal(checked.length, 5, "run status, payer, failure_reason, message role, usage scope");
   for (const { name, column, facts } of checked) {
     const declared = migrated.get(name)?.checkVocabularies.get(`${name}_${column}_check`);
     assert.deepEqual(facts.values, declared, `${name}.${column}`);

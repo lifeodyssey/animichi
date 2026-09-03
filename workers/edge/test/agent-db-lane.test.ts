@@ -36,8 +36,16 @@ interface ComponentManifest {
 }
 const MANIFEST = JSON.parse(read(".github/ci/components.json")) as ComponentManifest;
 
+// Serial on purpose: every file in this lane boots a PostgreSQL container of
+// its own, and node:test would otherwise run them in parallel — four daemons
+// starting at once, none of which binds its port inside the wait strategy's own
+// timeout, so the whole lane fails for a reason that has nothing to do with the
+// statements under test (#1255).
 void test("the database arm runs under one exact command, apart from the spike lane", () => {
-  assert.equal(EDGE_PACKAGE.scripts["test:agent-db"], 'node --test "agent-db-test/*.test.ts"');
+  assert.equal(
+    EDGE_PACKAGE.scripts["test:agent-db"],
+    'node --test --test-concurrency=1 "agent-db-test/*.test.ts"',
+  );
   assert.equal(EDGE_PACKAGE.scripts["test:spike-db"], 'node --test "db-test/*.test.ts"');
 });
 

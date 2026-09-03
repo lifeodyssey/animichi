@@ -65,6 +65,9 @@ export const RUN_FAILURE_REASONS = [
   "internal_error",
 ] as const;
 
+/** One value of that domain — the reason a settlement carries before it is a row. */
+export type RunFailureReason = (typeof RUN_FAILURE_REASONS)[number];
+
 /**
  * The dialogue transcript. `clientMessageId` is the intake dedupe key: a
  * replayed `POST /v1/chat` must resolve to the message already stored rather
@@ -175,6 +178,34 @@ export const runSteps = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true }),
   },
   (table) => [primaryKey({ columns: [table.runId, table.stepIndex] })],
+);
+
+/**
+ * The scope-partitioned daily model-usage meter (issue #274 / S1.8), which the
+ * AgentSession settles one succeeded turn into (#1255). A day aggregate keyed by
+ * `(usage_date, scope)` with no surrogate id, exactly as
+ * `20260826000004_agent.sql` declares it.
+ *
+ * `scope` is mapped on `RUN_PAYERS` rather than on a domain of its own because
+ * it IS that domain: `daily_usage_scope_check` and `runs_payer_check` admit the
+ * same three values, so a settled run's payer is a usage scope by construction
+ * and nothing has to translate between them
+ * (`test/agent-runs-schema.test.ts` holds the two CHECKs to it).
+ */
+export const dailyUsage = pgTable(
+  "daily_usage",
+  {
+    usageDate: date("usage_date").notNull(),
+    scope: text("scope", { enum: RUN_PAYERS }).notNull(),
+    // Counts of a whole day for one scope: still orders of magnitude below
+    // 2^53, so they stay JS numbers like the per-run counters.
+    requests: bigint("requests", { mode: "number" }).notNull().default(0),
+    inputTokens: bigint("input_tokens", { mode: "number" }).notNull().default(0),
+    outputTokens: bigint("output_tokens", { mode: "number" }).notNull().default(0),
+    costUsd: numeric("cost_usd", { precision: 14, scale: 6 }).notNull().default("0"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.usageDate, table.scope] })],
 );
 
 /**

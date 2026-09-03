@@ -9,7 +9,10 @@ lie about either.
 - `pnpm run test:agent-db` — boots a disposable PostgreSQL container, creates a clean
   database from `template1`, applies the committed `migrations/neon` Atlas
   chain, and runs the statements the production adapters run. No Neon
-  credentials, no network.
+  credentials, no network. It runs the files **serially**
+  (`--test-concurrency=1`): each one brings its own container, and starting
+  them all at once leaves every container waiting past the port wait strategy's
+  timeout. Budget roughly half a minute per file for the boot and the chain.
 - Prerequisite (one-time, needs network):
   `docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .`
 - Not in `gate_edge` yet, so **run it by hand before pushing agent-tier changes**.

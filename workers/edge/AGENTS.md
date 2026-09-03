@@ -40,7 +40,9 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `intake/` (one `POST /v1/chat` becomes one transaction: message + `running` run + quota
   reservation, then `setAlarm(now)` on the session), `session/` (the wake-up port and the
   request `AgentSession` answers — the class itself is #1252), `sweeper/` (the singleton
-  `RunSweeper` DO, the at-least-once backstop). Ports live with the use case, Neon adapters
+  `RunSweeper` DO, the at-least-once backstop), `settlement/` (how a turn ENDS: the run's
+  terminal row, its `daily_usage` rollup and its quota refund, as two functions #1252 calls
+  on its own transaction alongside the assistant message). Ports live with the use case, Neon adapters
   beside them, and no module here imports `cloudflare:workers` so the node:test suite can load
   every one of them. Nothing routes to it yet — #1256 flips `/v1/chat`.
 - `src/agent/egress/` — the BYOK egress guard (W0-S5, #1248): `EgressPolicy` +

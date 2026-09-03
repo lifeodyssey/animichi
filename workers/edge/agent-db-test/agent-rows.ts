@@ -3,10 +3,12 @@
  * they build, and every one of them writes through the same committed schema
  * the production statements do.
  */
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { isJsonRecord } from "../src/agent/json-record.ts";
+import type { QuotaReservation } from "../src/agent/intake/quota-reservation.ts";
 import type { TurnSubmission } from "../src/agent/intake/turn-intake.ts";
+import type { RunPayer } from "../src/db/schema.ts";
 
 export type AgentDatabase = NodePgDatabase;
 
@@ -45,6 +47,14 @@ export interface SeededRun {
   readonly status: "running" | "succeeded";
   /** ISO instant, or null for a run that never took a lease. */
   readonly leaseExpiresAt: string | null;
+  /** Who pays for the turn; the anonymous visitor unless a case says otherwise. */
+  readonly payer?: RunPayer;
+  /** The counter row this run reserved a message in, or none for an unmetered turn. */
+  readonly reservation?: QuotaReservation | null;
+  /** A refund this run already took — the marker a second refund must lose to. */
+  readonly quotaRefundedAt?: string | null;
+  /** A rollup this run already had — the marker a second settlement must lose to. */
+  readonly usageSettledAt?: string | null;
 }
 
 /** A session, its user message and one run in the state the case needs. */
@@ -59,13 +69,30 @@ export async function seedRun(database: AgentDatabase, run: SeededRun): Promise<
 }
 
 function insertSeededRun(run: SeededRun, messageId: string) {
-  const owner = run.leaseExpiresAt === null ? null : "do-incarnation-1";
-  const finishedAt = run.status === "running" ? null : FAR_DEADLINE;
   return sql`insert into runs
-      (session_id, message_id, status, lease_owner, lease_expires_at, deadline_at, finished_at, payer)
-    values (${run.sessionId}, ${messageId}, ${run.status}, ${owner}, ${run.leaseExpiresAt},
-            ${FAR_DEADLINE}, ${finishedAt}, 'anon')
+      (session_id, message_id, status, lease_owner, lease_expires_at, deadline_at, finished_at,
+       payer, quota_identity_id, quota_usage_date, quota_refunded_at, usage_settled_at)
+    values (${run.sessionId}, ${messageId}, ${run.status}, ${leaseOwnerOf(run)},
+            ${run.leaseExpiresAt}, ${FAR_DEADLINE}, ${finishedAtOf(run)}, ${run.payer ?? "anon"},
+            ${seededQuota(run)})
     returning id`;
+}
+
+/** A lease is an (owner, expiry) pair or neither — `runs_lease_held_check`. */
+function leaseOwnerOf(run: SeededRun): string | null {
+  return run.leaseExpiresAt === null ? null : "do-incarnation-1";
+}
+
+/** A terminal run has a finish; a running one has none — `runs_terminal_is_finished_check`. */
+function finishedAtOf(run: SeededRun): string | null {
+  return run.status === "running" ? null : FAR_DEADLINE;
+}
+
+/** The quota and settlement markers a case seeds, as one values fragment. */
+function seededQuota(run: SeededRun): SQL {
+  const reserved = run.reservation ?? null;
+  return sql`${reserved?.identityId ?? null}, ${reserved?.usageDate ?? null},
+    ${run.quotaRefundedAt ?? null}, ${run.usageSettledAt ?? null}`;
 }
 
 /** How many rows one table holds right now. */
@@ -81,4 +108,70 @@ export async function reservedCount(database: AgentDatabase, anonId: string): Pr
         from anon_daily_message_count where anon_id = ${anonId}`,
   );
   return Number(onlyRow(counted).total);
+}
+
+/** The messages one identity has already reserved on one day. */
+export async function seedReservedMessages(
+  database: AgentDatabase,
+  reservation: QuotaReservation,
+  messageCount: number,
+): Promise<void> {
+  await database.execute(
+    sql`insert into anon_daily_message_count (usage_date, anon_id, message_count)
+        values (${reservation.usageDate}, ${reservation.identityId}, ${messageCount})`,
+  );
+}
+
+/** The messages still charged to the exact counter row a run reserved in. */
+export async function reservedOn(
+  database: AgentDatabase,
+  reservation: QuotaReservation,
+): Promise<number> {
+  const counted = await database.execute(
+    sql`select coalesce(sum(message_count), 0)::int as total from anon_daily_message_count
+        where usage_date = ${reservation.usageDate} and anon_id = ${reservation.identityId}`,
+  );
+  return Number(onlyRow(counted).total);
+}
+
+/**
+ * What one day-scope row of the usage meter holds. Aggregated rather than
+ * selected so a day nothing has been banked into reads as zeros instead of
+ * throwing — "this settlement added nothing" is an assertion, not an absence.
+ */
+export async function bankedUsage(
+  database: AgentDatabase,
+  scope: RunPayer,
+  day: string,
+): Promise<Record<string, unknown>> {
+  const banked = await database.execute(
+    sql`select coalesce(sum(requests), 0)::int as requests,
+               coalesce(sum(input_tokens), 0)::int as input_tokens,
+               coalesce(sum(output_tokens), 0)::int as output_tokens,
+               coalesce(sum(cost_usd), 0)::numeric(14,6)::text as cost_usd
+        from daily_usage where usage_date = ${day} and scope = ${scope}`,
+  );
+  return onlyRow(banked);
+}
+
+/**
+ * Everything a settlement writes on one run. The instants come back as epoch
+ * milliseconds in text: drizzle hands a timestamptz to its caller as the
+ * driver's own format (`workers/users/AGENTS.md`), and text keeps a column that
+ * was never written comparable as `null`.
+ */
+export async function runSettlement(
+  database: AgentDatabase,
+  runId: string,
+): Promise<Record<string, unknown>> {
+  return onlyRow(await database.execute(selectSettlement(runId)));
+}
+
+function selectSettlement(runId: string) {
+  return sql`select status, failure_reason, input_tokens::int as input_tokens,
+      output_tokens::int as output_tokens, cost_usd::text as cost_usd,
+      (extract(epoch from finished_at) * 1000)::bigint::text as finished_ms,
+      (extract(epoch from usage_settled_at) * 1000)::bigint::text as settled_ms,
+      (extract(epoch from quota_refunded_at) * 1000)::bigint::text as refunded_ms
+    from runs where id = ${runId}`;
 }
