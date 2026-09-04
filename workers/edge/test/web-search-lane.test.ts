@@ -27,7 +27,12 @@ function laneFile(name: string): string {
 }
 
 /** Every lane `pnpm run test:catalog-api` actually executes. */
-const LANE_SUITES = ["catalog-api.test.ts", "agent-turn.test.ts", "web-search-turn.test.ts"];
+const LANE_SUITES = [
+  "catalog-api.test.ts",
+  "agent-turn.test.ts",
+  "web-search-turn.test.ts",
+  "byok-probe.test.ts",
+];
 
 const DOOR = laneFile("lane-origin.ts");
 const LANE = laneFile("web-search-turn.test.ts");

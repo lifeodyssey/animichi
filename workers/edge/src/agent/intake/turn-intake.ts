@@ -11,6 +11,7 @@
  * for.
  */
 import type { RunPayer } from "../../db/schema.ts";
+import type { ByokCredential } from "../byok/byok-credential.ts";
 import type { SessionWakeup } from "../session/session-wakeup.ts";
 import type { RunBackstop } from "../sweeper/run-backstop.ts";
 import { quotaReservationFor, type QuotaReservation } from "./quota-reservation.ts";
@@ -32,6 +33,15 @@ export interface TurnSubmission {
   readonly payer: RunPayer;
   readonly clientMessageId: string;
   readonly text: string;
+  /**
+   * The caller's own provider credential for THIS turn (W2-3 #1289) — in
+   * memory only. `TurnRecords` reads named fields off a submission and never
+   * serialises one whole, so this field reaches no column: the turn's durable
+   * trace is the message, the run and its steps, and none of them knows whose
+   * key paid for it. It travels on to the session's Durable Object heap
+   * (`session-wakeup.ts`) and dies with the turn.
+   */
+  readonly byok?: ByokCredential;
 }
 
 /** What the intake resolved a submission to. `replayed` marks the dedupe hit:
@@ -134,6 +144,6 @@ export async function acceptTurn(
 ): Promise<IntakeReceipt> {
   await intake.backstop.ensureScheduled();
   const receipt = await intake.records.openTurn(turnFor(submission, now()));
-  if (!receipt.replayed) await intake.wakeup.arm(submission.sessionId, receipt.runId);
+  if (!receipt.replayed) await intake.wakeup.arm(submission.sessionId, receipt.runId, submission.byok);
   return receipt;
 }

@@ -72,9 +72,15 @@ export type AgentTurnRoute = "container" | "edge";
 /** The literal that moves a turn onto this Worker's own agent tier. */
 export const EDGE_TURN_ROUTE: AgentTurnRoute = "edge";
 
-/** The route the edge tier serves a request as, once the flag selected it. */
+/** The route the edge tier serves a request as, once the flag selected it.
+ *
+ * `probe` joined the two W1 routes in W2-3 (#1289): BYOK is served by whichever
+ * tier serves the turn, because a credential the edge validated for `/v1/chat`
+ * and a credential the container validated for `/v1/byok/probe` would be two
+ * verdicts on one key. */
 export type EdgeTierRoute =
   | { readonly kind: "turn" }
+  | { readonly kind: "probe" }
   | { readonly kind: "transcript"; readonly sessionId: string };
 
 /** Which `/v1` request the edge tier answers itself; `null` = the container. */
@@ -83,6 +89,7 @@ export interface TurnRoutePolicy {
 }
 
 const TURN_PATH = inventoryPath("/v1/chat");
+const PROBE_PATH = inventoryPath("/v1/byok/probe");
 const TRANSCRIPT_PATH = inventoryPath("/v1/conversations/{session_id}/messages");
 const TRANSCRIPT = pathPattern(TRANSCRIPT_PATH);
 const TRANSCRIPT_SESSION = /^\/v1\/conversations\/([^/]+)\/messages$/;
@@ -100,6 +107,7 @@ function transcriptSessionId(pathname: string): string | null {
 
 function edgeTierRoute(method: string, pathname: string): EdgeTierRoute | null {
   if (method === "POST" && pathname === TURN_PATH) return { kind: "turn" };
+  if (method === "POST" && pathname === PROBE_PATH) return { kind: "probe" };
   if (method !== "GET" || !TRANSCRIPT.test(pathname)) return null;
   const sessionId = transcriptSessionId(pathname);
   return sessionId === null ? null : { kind: "transcript", sessionId };

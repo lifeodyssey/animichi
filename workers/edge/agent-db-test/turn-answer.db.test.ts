@@ -20,7 +20,7 @@ import { readConversationOn } from "../src/agent/retrieval/neon-conversation-rec
 import { turnToolbox } from "../src/agent/session/session-turn.ts";
 import { TurnAnswering } from "../src/agent/session/turn-answer.ts";
 import { TurnCatalogSession } from "../src/agent/session/turn-catalog-session.ts";
-import { makeScriptedModels } from "../test/doubles/make-turn-parts.ts";
+import { makeScriptedTurnModel } from "../test/doubles/make-turn-parts.ts";
 import { makeSequencedToolCallsStreamFn } from "../test/doubles/pi-provider-double.ts";
 import { onlyRow, seedRun, seedSession, type AgentDatabase } from "./agent-rows.ts";
 import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
@@ -48,13 +48,13 @@ async function answeredSession(sessionId: string): Promise<void> {
 /** One turn whose model answers with `respond` and calls nothing else. */
 function greetingTurn(): DurableTurn {
   const session = new TurnCatalogSession({ locale: "ja" });
-  const models = makeScriptedModels(makeSequencedToolCallsStreamFn([
+  const model = makeScriptedTurnModel(makeSequencedToolCallsStreamFn([
     { name: ANSWER_TOOL_NAME, arguments: { kind: "greeting", message: MESSAGE } },
   ]));
   return new DurableTurn({
     store: new NeonTurnStore(plane.transactions),
-    models,
-    toolbox: turnToolbox({}, session, models),
+    model,
+    toolbox: turnToolbox({}, session, model),
     answering: new TurnAnswering(session),
     systemPrompt: "test",
     prices: { inputUsdPerMtok: 0, outputUsdPerMtok: 0 },

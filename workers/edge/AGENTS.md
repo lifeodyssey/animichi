@@ -16,7 +16,9 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   artifact in workerd. Separate from `pnpm test` on purpose — it is the only gate that can see
   bundle-only runtime failures, and it is slower than the node:test suite.
 - `pnpm run test:catalog-api` — opt-in staging lane (`api-test/*.test.ts`, W1-4 #1253) for the
-  catalog tools, against a deploy carrying `AGENT_TURN_ROUTE = "edge"`. Two halves: the five
+  catalog tools, against a deploy carrying `AGENT_TURN_ROUTE = "edge"`, plus the BYOK probe's
+  invalid-key evidence (W2-3 #1289; the valid-key case is the owner's manual step, because it
+  needs a key that must not be written down). Two halves: the five
   catalog procedures still have no public door (spec Appendix D), and one real `POST /v1/chat`
   through the deployed edge calls `resolve_anime` and is readable back by conversation id — the
   (api) evidence #1253 had to defer until the route switch. Fails closed without
@@ -66,12 +68,21 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   connected client already saw.
   The `Toolbox` port in `src/agent/session/turn-toolbox.ts` is the whole contract with
   `src/agent/tools/`, and `session-turn.ts::turnToolbox` is what fulfils it: `agentToolbox` over
-  the private `CATALOG` binding, one `TurnCatalogSession`, and the turn's own model registry. An
+  the private `CATALOG` binding, one `TurnCatalogSession`, and the turn's own `TurnModel`. An
   environment without that binding still runs — the turn just has no tools, web ones included,
-  because `translate_anime_title` needs the same catalog. What routes traffic here is the
-  `AGENT_TURN_ROUTE` flag (#1256): `"edge"` serves `POST /v1/chat` and
-  `GET /v1/conversations/{id}/messages` from this tier, anything else (including unset) forwards
-  both to the Python container as before. staging = `edge`, production and `wrangler dev` =
+  because `translate_anime_title` needs the same catalog. It is handed the whole `TurnModel` and
+  not a bare registry because `translationModel` reads `callerKeyed` off it: Python's D18
+  (`public_api.py`'s `_server_title_translator`) forces `translate_anime_title` onto the SERVER
+  key during a BYOK turn — the caller pays for the turn they asked for, the platform for a
+  translation they did not — and #1289 wires it. That hop is guarded too, against its own
+  one-host allowlist (`SERVER_MODEL_EGRESS_POLICY`), so a caller-keyed turn has no unguarded way
+  out at all; a caller-keyed turn with no server key answers `untranslated` rather than reaching
+  for the caller's credential. What routes traffic here is the
+  `AGENT_TURN_ROUTE` flag (#1256, extended by #1289): `"edge"` serves `POST /v1/chat`,
+  `GET /v1/conversations/{id}/messages` and `POST /v1/byok/probe` from this tier, anything else
+  (including unset) forwards all three to the Python container as before. The probe moves with the
+  turn on purpose — a credential the edge validated for a turn and the same credential validated
+  by the container for a probe would be two verdicts on one key. staging = `edge`, production and `wrangler dev` =
   `container`; the rollback is that one word in `wrangler.toml`. The flag is read in exactly one
   place — `src/gateway/routing-policy.ts`'s `turnRoutePolicy`, consulted by `src/gateway/request.ts`;
   the identity ladder in front of it is `src/gateway/agent-tier-route.ts` and the tier behind it is
@@ -142,17 +153,46 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `ProviderAllowlist` (exact provider hosts, HTTPS/443, own-infra and address-range refusals),
   `GuardedFetch` (`redirect: "manual"` and re-validation of every redirect target) and
   `SecretScrub`. Pure and binding-free, so node:test loads it directly. `web-search-egress.ts`
-  (#1287) is its first caller inside `src/`: a SECOND `ProviderAllowlist` instance holding one
+  (#1287) is one caller inside `src/`: a SECOND `ProviderAllowlist` instance holding one
   host, so the search backend is unreachable from the BYOK policy and the model providers are
   unreachable from this one. Its header argues the two inputs that do not fit a keyless, non-BYOK
   destination (the family token and the key sentinel) and why neither can widen anything.
+  `src/agent/byok/` (W2-3 #1289) is the other, and the one spec Appendix D names: the shipped
+  BYOK path reuses the module the spike measured rather than a second copy of those red lines.
+- `src/agent/byok/` — one caller's OWN provider key, for one turn (W2-3 #1289, spec §四 S5).
+  `byok-headers.ts` reads the four `X-BYOK-*` headers into a `ByokCredential` (a port of
+  `apps/agent`'s `parse_byok_credential`) and hands the base URL straight to `EgressPolicy`;
+  `byok-family.ts` translates the caller's vocabulary (`openai-compatible|anthropic|gemini`) into
+  the allowlist's (`openai|anthropic|google`) and picks the pi adapter — **gemini rides Google's
+  OpenAI-compatible surface** because pi-ai's `google-generative-ai` adapter refuses an injected
+  fetch (Appendix D), while `anthropic-messages` accepts one and keeps its native dialect
+  (`test/byok-turn-model.test.ts` measures both with a real round trip against a scripted socket).
+  `byok-turn-model.ts` is the per-turn sibling of `src/agent/session/turn-model.ts`: a throwaway registry
+  carrying only that credential, a `GuardedFetch` on every provider request, and a `SecretScrub`
+  seeded with the key. `byok-probe.ts` is the one bounded probe behind `POST /v1/byok/probe`.
+  **The credential is in memory only** — it rides `TurnSubmission` to the intake, the arm request
+  to `AgentSession`, and that incarnation's heap to the alarm; no column, no `ctx.storage`, no
+  cache. A run whose incarnation was evicted between the arm and the alarm therefore reaches the
+  alarm without it — and is REFUSED rather than driven on the server key: `runs.payer = 'byok'` is
+  the durable trace, `LoadedTurn.callerKeyed` reads it, and `DurableTurn` settles such a run
+  `provider_failed` (refund by `settleFailedTurn`'s own SQL, error closing frames so a connected
+  client can resend). The same refusal covers a `RunSweeper` re-arm, which carries no credential at
+  all. The request-path half of the red line — an unusable credential is a 400, never a server-key
+  turn — is enforced at the gateway. One
+  deliberate difference from the Python tier, argued in `byok-headers.ts`: the
+  `openai-compatible` family reaches `api.openai.com` and nothing else, because S5's first red
+  line is an exact-host allowlist.
 - `src/identity/` — auth (JWT/anonymous) + turnstile gate; `src/gateway/` — forward +
   routing/catalog policy (pure functions) + responses; `src/protect/` — rate limit / cost breaker /
   DO guard; `src/proxy/` — image/tile/showcase proxies; `src/container/` — container env +
   egress denylist data.
-- `src/gateway/agent-turn.ts` — the two routes the `AGENT_TURN_ROUTE` flag can move onto this
-  Worker's own agent tier (#1256), and the ONLY place that composes `intake/` + `session/` +
-  `retrieval/` for a live request. Injected into the gateway seam as `GatewayDeps.agentTurns`
+- `src/gateway/agent-turn.ts` — the three routes the `AGENT_TURN_ROUTE` flag can move onto this
+  Worker's own agent tier (#1256, #1289), and the ONLY place that composes `intake/` + `session/` +
+  `retrieval/` + `byok/` for a live request. BYOK is login-gated on both routes that accept it,
+  and the gate runs BEFORE the headers are parsed, exactly as `turn_admission.py` and
+  the Python probe route order it. A BYOK turn is also committed on the `byok` PAYER rather than
+  the member's — the third value of `RUN_PAYERS`, which nothing set before #1289 even though the
+  settlement has always priced it at zero and banked it in its own `daily_usage` scope. Injected into the gateway seam as `GatewayDeps.agentTurns`
   so `node:test` drives the routing contract with no Neon pool and no Durable Object.
   `chat-envelope.ts` reads the AI SDK body (a port of Python's `chat_body.py`);
   `agent-turn-responses.ts` holds every non-turn answer, each labelled with the Python route it

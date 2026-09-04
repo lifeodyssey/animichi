@@ -15,7 +15,7 @@ import { EnvelopeStagingStore } from "../../src/agent/session/envelope-staging-s
 import { TurnEnvelope } from "../../src/agent/session/turn-envelope.ts";
 import { turnToolbox } from "../../src/agent/session/session-turn.ts";
 import { InMemoryTurnStore } from "./in-memory-turn-store.ts";
-import { makeScriptedModels, makeUserTranscript } from "./make-turn-parts.ts";
+import { makeScriptedTurnModel, makeUserTranscript } from "./make-turn-parts.ts";
 import { TurnAnswering } from "../../src/agent/session/turn-answer.ts";
 import { KUKI_STATION, SATTE, WASHINOMIYA } from "./catalog-payloads.ts";
 import { RecordingEnvelopeStorage } from "./recording-envelope-storage.ts";
@@ -39,7 +39,7 @@ export const AMBIGUOUS_LUCKY_STAR = {
   ],
 };
 
-type StreamFn = NonNullable<Parameters<typeof makeScriptedModels>[0]>;
+type StreamFn = NonNullable<Parameters<typeof makeScriptedTurnModel>[0]>;
 
 /** A `CATALOG` binding answering the five procedures these turns can reach. */
 function catalogBinding(resolveOutcome: object) {
@@ -112,11 +112,11 @@ export function makeEnvelopeTurnStore(parts: Partial<EnvelopeTurnParts> = {}): I
 /** The turn itself, assembled the way `session-turn.ts` assembles the real one. */
 function scriptedTurn(parts: EnvelopeTurnParts, store: InMemoryTurnStore, envelope: TurnEnvelope, prompts: string[]): DurableTurn {
   const binding = { CATALOG: catalogBinding(parts.resolveOutcome ?? RESOLVED_LUCKY_STAR) };
-  const models = makeScriptedModels(promptRecording(parts.streamFn, prompts));
+  const model = makeScriptedTurnModel(promptRecording(parts.streamFn, prompts));
   return new DurableTurn({
     store: new EnvelopeStagingStore(store, envelope),
-    models,
-    toolbox: turnToolbox(binding, envelope.session, models),
+    model,
+    toolbox: turnToolbox(binding, envelope.session, model),
     answering: new TurnAnswering(envelope.session),
     systemPrompt: envelope.systemPrompt,
     prices: PRICES, emit: () => Promise.resolve(), owner: "do-1", now: () => NOW,

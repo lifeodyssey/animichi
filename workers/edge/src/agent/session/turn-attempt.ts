@@ -15,16 +15,19 @@ import type { LoadedTurn } from "./turn-store.ts";
 import { createTurnAgent } from "./turn-agent.ts";
 import { UNANSWERED_TURN, type TurnAnswer, type TurnAnswering } from "./turn-answer.ts";
 import { ProviderFailure, type RunMachine } from "./run-machine.ts";
+import type { SecretScrub } from "../egress/secret-scrub.ts";
 import { TurnOutput } from "./turn-output.ts";
 import { TurnSteps } from "./turn-step.ts";
 import type { TurnFrameSink } from "./turn-subscribers.ts";
 import type { Toolbox } from "./turn-toolbox.ts";
-import type { MutableModels } from "@earendil-works/pi-ai";
+import type { TurnModel } from "./turn-model.ts";
 import type { TurnStore } from "./turn-store.ts";
 
 export interface TurnAttemptParts {
   readonly store: TurnStore;
-  readonly models: MutableModels;
+  /** What this turn runs on: the registry, the model, and — for a BYOK turn
+   * (#1289) — the guarded fetch and the scrub seeded with the caller's key. */
+  readonly model: TurnModel;
   readonly toolbox: Toolbox;
   readonly systemPrompt: string;
   /** How this turn answers: the `respond` tool, and the typed output its call
@@ -35,9 +38,19 @@ export interface TurnAttemptParts {
   readonly now: () => number;
 }
 
-/** A pi run that ended carrying an error is a provider failure, not an answer. */
-function providerFailureIn(errorMessage: string | undefined): ProviderFailure | null {
-  return errorMessage === undefined ? null : new ProviderFailure(errorMessage);
+/**
+ * A pi run that ended carrying an error is a provider failure, not an answer.
+ *
+ * The message is SCRUBBED on the way in, not wherever it is next read: a BYOK
+ * provider that echoes the caller's key back in its 401 body puts that key in
+ * `state.errorMessage`, and this is the one place that string becomes a value
+ * of ours. Scrubbing here means no later reader — a log line, an exception's
+ * `cause`, a future span attribute — can carry the key without a second
+ * decision being taken about it (#1289, spec §四 S5's "日志脱敏").
+ */
+function providerFailureIn(errorMessage: string | undefined, scrub: SecretScrub | undefined): ProviderFailure | null {
+  if (errorMessage === undefined) return null;
+  return new ProviderFailure(scrub === undefined ? errorMessage : scrub.text(errorMessage));
 }
 
 export class TurnAttempt {
@@ -66,7 +79,7 @@ export class TurnAttempt {
     const agent = createTurnAgent(this.#agentParts());
     await agent.continue();
     if (this.steps.broken !== null) throw this.steps.broken;
-    const failure = providerFailureIn(agent.state.errorMessage);
+    const failure = providerFailureIn(agent.state.errorMessage, this.#parts.model.scrub);
     if (failure !== null) throw failure;
     this.#answer = this.#parts.answering.close(this.output.answer);
   }
@@ -79,10 +92,10 @@ export class TurnAttempt {
    * result the world is waiting on.
    */
   #agentParts() {
-    const { models, systemPrompt, toolbox, emit, answering } = this.#parts;
+    const { model, systemPrompt, toolbox, emit, answering } = this.#parts;
     const tools = [...this.steps.wrap(toolbox.tools()), answering.tool()];
     const shouldStop = () => this.#stops();
-    return { models, systemPrompt, turn: this.#turn, tools, output: this.output, emit, shouldStop };
+    return { model, systemPrompt, turn: this.#turn, tools, output: this.output, emit, shouldStop };
   }
 
   /** Between turns: the answer, the budget, the lease and the store all get a

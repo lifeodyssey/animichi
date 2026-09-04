@@ -16,10 +16,12 @@
 import { isJsonRecord } from "../json-record.ts";
 import type { NamedStubs } from "../durable-namespace.ts";
 import type { RunBackstop } from "../sweeper/run-backstop.ts";
+import type { ByokCredential } from "../byok/byok-credential.ts";
+import { byokCredentialIn, byokHeadersOf } from "../byok/byok-headers.ts";
 
 /** The one thing anything does to a session: arm it to run a committed turn. */
 export interface SessionWakeup {
-  arm(sessionId: string, runId: string): Promise<void>;
+  arm(sessionId: string, runId: string, credential?: ByokCredential): Promise<void>;
 }
 
 /**
@@ -41,13 +43,34 @@ export class SessionArmError extends Error {
 /** The path an arm request carries. */
 export const SESSION_ARM_PATH = "/arm";
 
-/** The arm request #1252's `AgentSession.fetch` must answer. */
-export function armRequest(runId: string): Request {
+/**
+ * The arm request #1252's `AgentSession.fetch` must answer.
+ *
+ * A BYOK turn's credential rides it as the same four `X-BYOK-*` headers the
+ * caller sent (#1289). This hop is a Durable Object STUB fetch — it never
+ * leaves the account and never reaches a router, a log or a disk — and it is
+ * the only way the credential can reach the alarm that will spend it, because
+ * the alarm runs on the incarnation's heap and the run row it reads carries no
+ * credential by design. Nothing here is persisted: `AgentSession` holds what
+ * it parses in memory for exactly the run it drives.
+ */
+export function armRequest(runId: string, credential?: ByokCredential): Request {
+  const byok = credential === undefined ? {} : byokHeadersOf(credential);
   return new Request(`https://agent-session${SESSION_ARM_PATH}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...byok },
     body: JSON.stringify({ runId }),
   });
+}
+
+/**
+ * The credential an arm request carries, re-parsed and re-validated rather
+ * than trusted: the same `EgressPolicy` decision the gateway already made runs
+ * again here, so a run can only ever be armed with a destination that passes
+ * the red lines on THIS side of the hop too.
+ */
+export function armedCredential(request: Request): ByokCredential | null {
+  return byokCredentialIn(request.headers);
 }
 
 /** The run id an arm request names, or `undefined` when it names none. */
@@ -74,8 +97,8 @@ export async function armedRunId(request: Request): Promise<string | undefined> 
  */
 export function durableSessionWakeup(sessions: NamedStubs, backstop: RunBackstop): SessionWakeup {
   return {
-    async arm(sessionId, runId) {
-      const armed = sessions.get(sessions.idFromName(sessionId)).fetch(armRequest(runId));
+    async arm(sessionId, runId, credential) {
+      const armed = sessions.get(sessions.idFromName(sessionId)).fetch(armRequest(runId, credential));
       const [response] = await Promise.all([armed, backstop.ensureScheduled()]);
       if (!response.ok) throw new SessionArmError(response.status);
     },

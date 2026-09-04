@@ -28,10 +28,24 @@
  *                the retry execute that step exactly once more.
  *   (no run)   — `loadRunningTurn` found nothing `running`. The turn is already
  *                terminal, so an at-least-once alarm has nothing left to do.
+ *
+ * ONE REFUSAL THAT IS NOT A PROVIDER FAILURE BUT SETTLES AS ONE (#1289): a run
+ * committed against the CALLER's own key, reached by an incarnation that does
+ * not have it. The credential lives in one Durable Object incarnation's heap
+ * and dies with it, while the run row survives — so an eviction between the
+ * arm and the alarm, or a `RunSweeper` re-arm of a stranded run, arrives here
+ * with `turn.callerKeyed` true and a server-key model in hand. Driving it
+ * would be exactly the server-key fallback spec §四 S5 forbids, so the turn
+ * ends `provider_failed` instead: the reservation is given back by
+ * `settleFailedTurn`'s own SQL, the stream closes on the error frames a
+ * connected client already knows how to read, and the caller resends. The run
+ * row is the ONLY durable trace that a turn was caller-keyed — the key itself
+ * is never written anywhere — which is why the check is on the payer and not
+ * on anything richer.
  */
 import type { RunFailureReason } from "../../db/schema.ts";
 import type { UsagePrices } from "../settlement/turn-settlement.ts";
-import { RunMachine, TurnStoreUnavailable, type TurnState } from "./run-machine.ts";
+import { ProviderFailure, RunMachine, TurnStoreUnavailable, type TurnState } from "./run-machine.ts";
 import { TurnAttempt, type TurnAttemptParts } from "./turn-attempt.ts";
 import { TurnEnding } from "./turn-ending.ts";
 import { closingFrames, openingFrames } from "./turn-frames.ts";
@@ -90,6 +104,8 @@ export class DurableTurn {
   async #settled(turn: LoadedTurn, machine: RunMachine, attempt: TurnAttempt): Promise<TurnState> {
     const opened = machine.beginStep();
     if (opened.phase !== "running") return await this.#failed(turn, opened);
+    const lost = this.#lostCredential(turn);
+    if (lost !== null) return await this.#failed(turn, machine.fail(lost));
     try {
       await attempt.drive();
     } catch (error) {
@@ -105,6 +121,17 @@ export class DurableTurn {
     if (attempt.steps.abandoned) return machine.renewed(false);
     await this.#ending.succeeded(turn, attempt.output, attempt.answer);
     return machine.succeed();
+  }
+
+  /**
+   * A caller-keyed run this incarnation cannot honour, or `null`. Checked
+   * BEFORE the first model call, so no provider is ever contacted with a key
+   * that is not the one the turn was committed for. The message names no
+   * credential and so is safe on any path a scrub also covers.
+   */
+  #lostCredential(turn: LoadedTurn): ProviderFailure | null {
+    if (!turn.callerKeyed || this.#parts.model.callerKeyed) return null;
+    return new ProviderFailure("caller-keyed run lost its credential; resend the turn");
   }
 
   /** The failure settlement — and the refund's exactly-once contract with it. */

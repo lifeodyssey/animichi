@@ -15,7 +15,7 @@ import type { PersistedStep, TranscriptRow } from "../src/agent/session/turn-sto
 import { InMemoryTurnStore } from "./doubles/in-memory-turn-store.ts";
 import {
   CountingSpotLookup,
-  makeScriptedModels,
+  makeScriptedTurnModel,
   makeTurnAnswering,
   makeUserTranscript,
 } from "./doubles/make-turn-parts.ts";
@@ -48,7 +48,7 @@ function makeHarness(seed: Partial<{ transcript: TranscriptRow[]; steps: Persist
   const toolbox = new CountingSpotLookup();
   const parts = {
     store,
-    models: makeScriptedModels(),
+    model: makeScriptedTurnModel(),
     toolbox,
     answering: makeTurnAnswering(),
     systemPrompt: "test",
@@ -107,7 +107,7 @@ void test("a provider that fails settles the turn failed exactly once", async ()
   const { store, turn } = makeHarness();
   const failing = new DurableTurn({
     store,
-    models: makeScriptedModels(() => {
+    model: makeScriptedTurnModel(() => {
       throw new Error("gateway said no");
     }),
     toolbox: new CountingSpotLookup(),
@@ -132,7 +132,7 @@ void test("a turn past its deadline settles deadline_exceeded, not an answer", a
   );
   const expired = new DurableTurn({
     store,
-    models: makeScriptedModels(makeToolCallingStreamFn()),
+    model: makeScriptedTurnModel(makeToolCallingStreamFn()),
     toolbox: new CountingSpotLookup(),
     answering: makeTurnAnswering(),
     systemPrompt: "test",

@@ -62,6 +62,7 @@ function servedByTier(
   env: Env, request: Request, identity: TurnIdentity, route: EdgeTierRoute, gates: AgentTierGates,
 ): Promise<Response> {
   if (route.kind === "turn") return gates.agentTurns.chat(env, request, identity);
+  if (route.kind === "probe") return gates.agentTurns.probe(request, identity);
   return gates.agentTurns.transcript(env, request, identity, route.sessionId);
 }
 
@@ -79,7 +80,16 @@ async function authenticatedTierResponse(
   return guarded ?? servedByTier(env, request, identity, route, gates);
 }
 
-/** Serve one agent-tier route to whichever identity the ladder resolves. */
+/**
+ * Serve one agent-tier route to whichever identity the ladder resolves.
+ *
+ * `/v1/byok/probe` never reaches the anonymous pipeline (#1289). It is absent
+ * from `ANON_V1_PATHS`, so the CONTAINER position answers an unauthenticated
+ * probe with a flat 401 (`test/byok-probe-auth.test.ts`), and the flag's
+ * contract is that moving a route onto this tier does not move it out from
+ * behind a wall. The deliberate widening above is the transcript READ and only
+ * that; spending a caller's key is the opposite of a cost-free read.
+ */
 export async function agentTierResponse(
   env: Env, request: Request, ctx: WorkerExecutionContext, pathname: string,
   route: EdgeTierRoute, gates: AgentTierGates,
@@ -87,6 +97,7 @@ export async function agentTierResponse(
   const auth = await gates.authenticate(request, env, ctx);
   if (auth.ok) return authenticatedTierResponse(env, request, auth, pathname, route, gates);
   if (auth.reason === "invalid") return unauthorized(pathname);
+  if (route.kind === "probe") return Response.json(UNAUTHORIZED_BODY, { status: 401 });
   const anonymous = await handleAnonymousV1(
     env, request, Date.now(), gates.turnstileGate, gates.sleep,
     (identity) => servedByTier(env, request, { userId: identity.userId, userType: "anonymous" }, route, gates),

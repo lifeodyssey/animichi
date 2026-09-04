@@ -23,17 +23,17 @@
  *   issued executes, because `TurnSteps` persists the two together.
  */
 import { Agent, type AgentOptions } from "@earendil-works/pi-agent-core";
-import type { Api, Model, MutableModels } from "@earendil-works/pi-ai";
 import { seededMessages } from "./turn-transcript.ts";
 import { framesFor } from "./turn-frames.ts";
 import type { TurnFrameSink } from "./turn-subscribers.ts";
 import type { TurnOutput } from "./turn-output.ts";
 import type { TurnTool } from "./turn-toolbox.ts";
 import type { LoadedTurn } from "./turn-store.ts";
-import { turnModel } from "./turn-model.ts";
+import { streamOptionsFor, type TurnModel } from "./turn-model.ts";
 
 export interface TurnAgentParts {
-  readonly models: MutableModels;
+  /** The registry, the model and the fetch its requests go out through. */
+  readonly model: TurnModel;
   readonly systemPrompt: string;
   readonly turn: LoadedTurn;
   readonly tools: readonly TurnTool[];
@@ -55,8 +55,8 @@ function recordAndStream(agent: Agent, output: TurnOutput, emit: TurnFrameSink):
   });
 }
 
-function agentOptions(parts: TurnAgentParts, model: Model<Api>): AgentOptions {
-  const { models } = parts;
+function agentOptions(parts: TurnAgentParts): AgentOptions {
+  const { registry, model } = parts.model;
   return {
     initialState: {
       systemPrompt: parts.systemPrompt,
@@ -64,14 +64,15 @@ function agentOptions(parts: TurnAgentParts, model: Model<Api>): AgentOptions {
       tools: [...parts.tools],
       messages: seededMessages(parts.turn, model),
     },
-    streamFn: (target, context, options) => models.streamSimple(target, context, options),
+    streamFn: (target, context, options) =>
+      registry.streamSimple(target, context, streamOptionsFor(parts.model, options)),
     shouldStopAfterTurn: () => parts.shouldStop(),
     toolExecution: "sequential",
   };
 }
 
 export function createTurnAgent(parts: TurnAgentParts): Agent {
-  const agent = new Agent(agentOptions(parts, turnModel(parts.models)));
+  const agent = new Agent(agentOptions(parts));
   recordAndStream(agent, parts.output, parts.emit);
   return agent;
 }

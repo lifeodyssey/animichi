@@ -19,7 +19,7 @@ import { TurnCatalogSession } from "../src/agent/session/turn-catalog-session.ts
 import { turnToolbox } from "../src/agent/session/session-turn.ts";
 import { LUCKY_STAR_ROUTE, SATTE, WASHINOMIYA } from "./doubles/catalog-payloads.ts";
 import { InMemoryTurnStore } from "./doubles/in-memory-turn-store.ts";
-import { makeScriptedModels, makeTurnAnswering, makeUserTranscript } from "./doubles/make-turn-parts.ts";
+import { makeScriptedTurnModel, makeTurnAnswering, makeUserTranscript } from "./doubles/make-turn-parts.ts";
 import { makeSequencedToolCallsStreamFn } from "./doubles/pi-provider-double.ts";
 
 const NOW = 1_000;
@@ -50,15 +50,15 @@ async function runSearchThenRoute() {
     () => NOW,
   );
   const session = new TurnCatalogSession({ locale: "ja" });
-  const models = makeScriptedModels(
+  const model = makeScriptedTurnModel(
     makeSequencedToolCallsStreamFn([
       { name: "search_bangumi", arguments: { bangumi_id: "115908" } },
       { name: "plan_route", arguments: { search_result_ref: FIRST_SEARCH_REF } },
     ]),
   );
-  const toolbox = turnToolbox({ CATALOG: catalogBinding() }, session, models);
+  const toolbox = turnToolbox({ CATALOG: catalogBinding() }, session, model);
   const turn = new DurableTurn({
-    store, models, toolbox, answering: makeTurnAnswering(session), systemPrompt: "test", prices: PRICES,
+    store, model, toolbox, answering: makeTurnAnswering(session), systemPrompt: "test", prices: PRICES,
     emit: () => Promise.resolve(), owner: "do-1", now: () => NOW,
   });
   await turn.run("run-1");
@@ -74,7 +74,7 @@ function stepDetails(store: InMemoryTurnStore, stepIndex: number): unknown {
 
 void test("the session's toolbox lists all six tools in Python's order", () => {
   const session = new TurnCatalogSession({ locale: "ja" });
-  const toolbox = turnToolbox({ CATALOG: catalogBinding() }, session, makeScriptedModels());
+  const toolbox = turnToolbox({ CATALOG: catalogBinding() }, session, makeScriptedTurnModel());
   assert.deepEqual(toolbox.tools().map((tool) => tool.name), [
     "resolve_anime",
     "search_bangumi",
@@ -87,7 +87,7 @@ void test("the session's toolbox lists all six tools in Python's order", () => {
 
 void test("an environment with no CATALOG binding leaves the turn without tools", () => {
   const session = new TurnCatalogSession({ locale: "ja" });
-  assert.deepEqual(turnToolbox({}, session, makeScriptedModels()).tools(), []);
+  assert.deepEqual(turnToolbox({}, session, makeScriptedTurnModel()).tools(), []);
 });
 
 void test("a ref minted in one step is readable by the next step of the same run", async () => {

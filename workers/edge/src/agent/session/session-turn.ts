@@ -7,8 +7,9 @@
  * configuration enters (the provider key, the prices, the tools), and none of
  * that has anything to do with routing a request or keeping a queue.
  */
-import type { MutableModels } from "@earendil-works/pi-ai";
 import { withAgentDatabase } from "../../db/agent-database.ts";
+import type { ByokCredential } from "../byok/byok-credential.ts";
+import { byokTurnModel } from "../byok/byok-turn-model.ts";
 import { usagePricesIn } from "../settlement/turn-settlement.ts";
 import { webSearchFetch } from "../egress/web-search-egress.ts";
 import { agentToolbox } from "../tools/agent-toolbox.ts";
@@ -24,8 +25,14 @@ import { TurnAnswering } from "./turn-answer.ts";
 import type { SessionEnvelopeStore } from "./session-envelope.ts";
 import { TurnEnvelope } from "./turn-envelope.ts";
 import type { TurnCatalogSession } from "./turn-catalog-session.ts";
-import { createTurnModels, mimoKeyIn, turnModel } from "./turn-model.ts";
-import type { TurnFrameSink } from "./turn-subscribers.ts";
+import {
+  guardedMimoTurnModel,
+  mimoKeyIn,
+  mimoTurnModel,
+  streamOptionsFor,
+  type TurnModel,
+} from "./turn-model.ts";
+import { scrubbedFrames, type TurnFrameSink } from "./turn-subscribers.ts";
 import { EMPTY_TOOLBOX, type Toolbox } from "./turn-toolbox.ts";
 import type { TurnStore } from "./turn-store.ts";
 
@@ -54,11 +61,41 @@ function catalogBindingIn(env: Record<string, unknown>): CatalogBinding | undefi
   return undefined;
 }
 
-/** The turn's own model, streamed tool-less, behind the translation's port. */
-function turnTranslator(catalog: CatalogClient, models: MutableModels): TitleTranslator {
+/**
+ * WHICH MODEL TRANSLATES — Python's D18, wired (#1289).
+ *
+ * A plain turn translates on its own model, which is the server's: one
+ * registry, one connection, exactly as `RunContext.model` was inherited. A
+ * CALLER-KEYED turn does not. `public_api.py:922`'s `_server_title_translator`
+ * exists to force this tool onto the server key on a BYOK turn — "without this
+ * override the tool inherits the active run's own model … which on a BYOK turn
+ * *is* the caller's credential" — and it books what it spends as `platform`.
+ * `title-translation.ts`'s own header states the same rule. So the caller's key
+ * pays for the turn they asked for, and the platform pays for a translation
+ * they did not.
+ *
+ * `null` when a caller-keyed turn has no server key to fall back to: the chain
+ * then answers `untranslated`, which is the honest degradation. Reaching for
+ * the caller's key there would be the exact fallback this function exists to
+ * prevent.
+ */
+export function translationModel(env: Record<string, unknown>, turn: TurnModel): TurnModel | null {
+  if (!turn.callerKeyed) return turn;
+  const serverKey = mimoKeyIn(env);
+  return serverKey === undefined ? null : guardedMimoTurnModel(serverKey);
+}
+
+/** The translation's tool-less completion, on whichever model D18 allows it.
+ * `streamOptionsFor` is the one place a guarded fetch is attached, shared with
+ * `turn-agent.ts`, so this hop cannot quietly become the unguarded one. */
+function turnTranslator(
+  catalog: CatalogClient, env: Record<string, unknown>, turn: TurnModel,
+): TitleTranslator {
+  const chosen = translationModel(env, turn);
+  if (chosen === null) return titleTranslator(catalog, () => Promise.resolve(null));
   const stream: ModelStream = (model, context, options) =>
-    models.streamSimple(model, context, options);
-  return titleTranslator(catalog, toollessCompletion(turnModel(models), stream));
+    chosen.registry.streamSimple(model, context, streamOptionsFor(chosen, options));
+  return titleTranslator(catalog, toollessCompletion(chosen.model, stream));
 }
 
 /**
@@ -72,20 +109,23 @@ function turnTranslator(catalog: CatalogClient, models: MutableModels): TitleTra
  * needs the same catalog, and a turn holding half a toolbox is a shape nothing
  * in the prompt describes.
  *
- * `models` is here for one reason — `translate_anime_title`'s fallback path is
- * a tool-less call on the TURN's own model, exactly as Python's translation
- * sub-agent inherited `ctx.model`.
+ * `model` is here for one reason — `translate_anime_title`'s fallback path is
+ * a tool-less call on a model, and WHICH model depends on whether this turn is
+ * caller-keyed (`translationModel`, D18). It is the whole `TurnModel` rather
+ * than a bare registry because that decision reads `callerKeyed`, which lives
+ * on the same value.
  */
 export function turnToolbox(
   env: Record<string, unknown>,
   session: TurnCatalogSession,
-  models: MutableModels,
+  model: TurnModel,
 ): Toolbox {
   const binding = catalogBindingIn(env);
   if (binding === undefined) return EMPTY_TOOLBOX;
   const catalog = serviceBindingCatalog(binding, sleep);
   const search = duckduckgoWebSearcher(webSearchFetch());
-  const tools = agentToolbox({ catalog, session, search, translate: turnTranslator(catalog, models) });
+  const translate = turnTranslator(catalog, env, model);
+  const tools = agentToolbox({ catalog, session, search, translate });
   return { tools: () => tools };
 }
 
@@ -99,45 +139,69 @@ export interface SessionTurnParts {
   /** Every run this session's alarm still owes work for, in its drain order —
    * what a turn recovers stale stagings from before it reads the envelope. */
   readonly queued: readonly string[];
+  /** The caller's own key for THIS run, straight out of the incarnation's heap
+   * (#1289). Absent = the deployment's own model. */
+  readonly byok?: ByokCredential;
+}
+
+/**
+ * WHICH MODEL THIS TURN RUNS ON, and the one branch spec §四 S5 forbids: a
+ * turn that arrived with a caller's credential runs on it or not at all. There
+ * is no `??` here on purpose — `byokTurnModel` never consults the environment,
+ * so the server key is not merely unpreferred for a BYOK turn, it is out of
+ * scope. `null` means no model at all, which the caller settles as a failure.
+ */
+export function turnModelFor(
+  env: Record<string, unknown>, byok: ByokCredential | undefined,
+): TurnModel | null {
+  if (byok !== undefined) return byokTurnModel(byok);
+  const apiKey = mimoKeyIn(env);
+  return apiKey === undefined ? null : mimoTurnModel(apiKey);
+}
+
+/** A BYOK turn's frames go out through its own secret's scrub; a plain turn's
+ * go out exactly as W1 measured them. */
+export function turnFrameSink(emit: TurnFrameSink, model: TurnModel): TurnFrameSink {
+  const { scrub } = model;
+  return scrub === undefined ? emit : scrubbedFrames(emit, scrub);
 }
 
 /** The turn one alarm drives, with the deployment's configuration in it. */
 function configuredTurn(
   parts: SessionTurnParts,
   store: TurnStore,
-  apiKey: string,
+  model: TurnModel,
   envelope: TurnEnvelope,
 ): DurableTurn {
-  const models = createTurnModels(apiKey);
   return new DurableTurn({
     store: new EnvelopeStagingStore(store, envelope),
-    models,
-    toolbox: turnToolbox(parts.env, envelope.session, models),
+    model,
+    toolbox: turnToolbox(parts.env, envelope.session, model),
     answering: new TurnAnswering(envelope.session),
     systemPrompt: envelope.systemPrompt,
     prices: usagePricesIn(parts.env),
-    emit: parts.emit,
+    emit: turnFrameSink(parts.emit, model),
     owner: parts.owner,
     now: Date.now,
   });
 }
 
 /**
- * A missing provider key ends the run rather than looping: the sweeper would
- * otherwise re-arm a turn that can never reach a model, forever. It settles
- * without touching the envelope, which is right: no tool ran, so the session
- * knows exactly what it knew before.
+ * A turn with no model at all ends the run rather than looping: the sweeper
+ * would otherwise re-arm a turn that can never reach a provider, forever. It
+ * settles without touching the envelope, which is right: no tool ran, so the
+ * session knows exactly what it knew before.
  */
 async function driveOn(parts: SessionTurnParts, store: TurnStore, runId: string): Promise<void> {
-  const apiKey = mimoKeyIn(parts.env);
-  if (apiKey === undefined) {
+  const model = turnModelFor(parts.env, parts.byok);
+  if (model === null) {
     await store.settleFailed(runId, "provider_failed", new Date());
     return;
   }
   const envelope = await TurnEnvelope.open({
     envelopes: parts.envelopes, runId, queued: parts.queued, locale: TURN_LOCALE,
   });
-  await envelope.close(await configuredTurn(parts, store, apiKey, envelope).run(runId));
+  await envelope.close(await configuredTurn(parts, store, model, envelope).run(runId));
 }
 
 /** Run one queued turn on its own database connection, and close it after. */

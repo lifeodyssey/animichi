@@ -15,14 +15,14 @@ import type { TurnFrame } from "../../src/agent/session/turn-frames.ts";
 import { turnToolbox } from "../../src/agent/session/session-turn.ts";
 import { InMemoryTurnStore } from "./in-memory-turn-store.ts";
 import { LUCKY_STAR_ROUTE, SATTE, WASHINOMIYA } from "./catalog-payloads.ts";
-import { makeScriptedModels, makeUserTranscript } from "./make-turn-parts.ts";
+import { makeScriptedTurnModel, makeUserTranscript } from "./make-turn-parts.ts";
 import { makeSequencedToolCallsStreamFn, type ScriptedToolCall } from "./pi-provider-double.ts";
 
 const NOW = 1_000;
 const RUN_ID = "run-1";
 const PRICES = { inputUsdPerMtok: 1, outputUsdPerMtok: 2 };
 
-type StreamFn = NonNullable<Parameters<typeof makeScriptedModels>[0]>;
+type StreamFn = NonNullable<Parameters<typeof makeScriptedTurnModel>[0]>;
 
 /** The catalog answer `resolve_anime` gets when one work matches. */
 export const RESOLVED_LUCKY_STAR = {
@@ -78,11 +78,11 @@ export async function makeAnsweredTurn(parts: AnsweredTurnParts): Promise<Answer
     () => NOW,
   );
   const session = new TurnCatalogSession({ locale: "ja" });
-  const models = makeScriptedModels(parts.streamFn ?? makeSequencedToolCallsStreamFn(parts.calls ?? []));
+  const model = makeScriptedTurnModel(parts.streamFn ?? makeSequencedToolCallsStreamFn(parts.calls ?? []));
   const state = await new DurableTurn({
     store,
-    models,
-    toolbox: turnToolbox({ CATALOG: catalogBinding(parts.resolveOutcome ?? RESOLVED_LUCKY_STAR) }, session, models),
+    model,
+    toolbox: turnToolbox({ CATALOG: catalogBinding(parts.resolveOutcome ?? RESOLVED_LUCKY_STAR) }, session, model),
     answering: new TurnAnswering(session),
     systemPrompt: "test",
     prices: PRICES,

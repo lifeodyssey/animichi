@@ -69,6 +69,19 @@ export interface LoadedTurn {
   readonly deadlineAt: number;
   readonly transcript: readonly TranscriptRow[];
   readonly steps: readonly PersistedStep[];
+  /**
+   * Whether the run was committed against the CALLER's own provider key —
+   * `runs.payer = 'byok'` (#1289).
+   *
+   * It is here rather than as the raw payer because this is the only question
+   * the loop asks of it, and it is a SAFETY question: the credential itself
+   * lives in one Durable Object incarnation's heap and does not survive an
+   * eviction, while this row does. Without it a caller-keyed run that came
+   * back on a fresh incarnation would be indistinguishable from a plain one
+   * and would be driven on the server's key — the fallback spec §四 S5
+   * forbids.
+   */
+  readonly callerKeyed: boolean;
 }
 
 /**
