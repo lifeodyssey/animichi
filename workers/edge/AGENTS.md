@@ -71,9 +71,13 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   the private `CATALOG` binding, one `TurnCatalogSession`, and the turn's own `TurnModel`. An
   environment without that binding still runs — the turn just has no tools, web ones included,
   because `translate_anime_title` needs the same catalog. It is handed the whole `TurnModel` and
-  not a bare registry because its tool-less fallback completion must carry the same egress guard
-  and the same key as the rest of the turn — on a BYOK turn, the CALLER's (#1289). What routes
-  traffic here is the
+  not a bare registry because `translationModel` reads `callerKeyed` off it: Python's D18
+  (`public_api.py`'s `_server_title_translator`) forces `translate_anime_title` onto the SERVER
+  key during a BYOK turn — the caller pays for the turn they asked for, the platform for a
+  translation they did not — and #1289 wires it. That hop is guarded too, against its own
+  one-host allowlist (`SERVER_MODEL_EGRESS_POLICY`), so a caller-keyed turn has no unguarded way
+  out at all; a caller-keyed turn with no server key answers `untranslated` rather than reaching
+  for the caller's credential. What routes traffic here is the
   `AGENT_TURN_ROUTE` flag (#1256, extended by #1289): `"edge"` serves `POST /v1/chat`,
   `GET /v1/conversations/{id}/messages` and `POST /v1/byok/probe` from this tier, anything else
   (including unset) forwards all three to the Python container as before. The probe moves with the

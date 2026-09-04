@@ -25,7 +25,13 @@ import { TurnAnswering } from "./turn-answer.ts";
 import type { SessionEnvelopeStore } from "./session-envelope.ts";
 import { TurnEnvelope } from "./turn-envelope.ts";
 import type { TurnCatalogSession } from "./turn-catalog-session.ts";
-import { mimoKeyIn, mimoTurnModel, streamOptionsFor, type TurnModel } from "./turn-model.ts";
+import {
+  guardedMimoTurnModel,
+  mimoKeyIn,
+  mimoTurnModel,
+  streamOptionsFor,
+  type TurnModel,
+} from "./turn-model.ts";
 import { scrubbedFrames, type TurnFrameSink } from "./turn-subscribers.ts";
 import { EMPTY_TOOLBOX, type Toolbox } from "./turn-toolbox.ts";
 import type { TurnStore } from "./turn-store.ts";
@@ -56,20 +62,40 @@ function catalogBindingIn(env: Record<string, unknown>): CatalogBinding | undefi
 }
 
 /**
- * The turn's own model, streamed tool-less, behind the translation's port.
+ * WHICH MODEL TRANSLATES — Python's D18, wired (#1289).
  *
- * "The turn's own" is load-bearing since #1289: on a BYOK turn this is the
- * CALLER-KEYED registry, so `translate_anime_title`'s fallback completion
- * spends the caller's key and leaves through `GuardedFetch` — same as every
- * other call of that turn. Looking mimo up by name here instead would both
- * throw (a BYOK registry has no mimo provider) and, if it did not, bill the
- * platform for a turn the caller paid for. `streamOptionsFor` is the one place
- * the guarded fetch is attached, shared with `turn-agent.ts`.
+ * A plain turn translates on its own model, which is the server's: one
+ * registry, one connection, exactly as `RunContext.model` was inherited. A
+ * CALLER-KEYED turn does not. `public_api.py:922`'s `_server_title_translator`
+ * exists to force this tool onto the server key on a BYOK turn — "without this
+ * override the tool inherits the active run's own model … which on a BYOK turn
+ * *is* the caller's credential" — and it books what it spends as `platform`.
+ * `title-translation.ts`'s own header states the same rule. So the caller's key
+ * pays for the turn they asked for, and the platform pays for a translation
+ * they did not.
+ *
+ * `null` when a caller-keyed turn has no server key to fall back to: the chain
+ * then answers `untranslated`, which is the honest degradation. Reaching for
+ * the caller's key there would be the exact fallback this function exists to
+ * prevent.
  */
-function turnTranslator(catalog: CatalogClient, turn: TurnModel): TitleTranslator {
+export function translationModel(env: Record<string, unknown>, turn: TurnModel): TurnModel | null {
+  if (!turn.callerKeyed) return turn;
+  const serverKey = mimoKeyIn(env);
+  return serverKey === undefined ? null : guardedMimoTurnModel(serverKey);
+}
+
+/** The translation's tool-less completion, on whichever model D18 allows it.
+ * `streamOptionsFor` is the one place a guarded fetch is attached, shared with
+ * `turn-agent.ts`, so this hop cannot quietly become the unguarded one. */
+function turnTranslator(
+  catalog: CatalogClient, env: Record<string, unknown>, turn: TurnModel,
+): TitleTranslator {
+  const chosen = translationModel(env, turn);
+  if (chosen === null) return titleTranslator(catalog, () => Promise.resolve(null));
   const stream: ModelStream = (model, context, options) =>
-    turn.registry.streamSimple(model, context, streamOptionsFor(turn, options));
-  return titleTranslator(catalog, toollessCompletion(turn.model, stream));
+    chosen.registry.streamSimple(model, context, streamOptionsFor(chosen, options));
+  return titleTranslator(catalog, toollessCompletion(chosen.model, stream));
 }
 
 /**
@@ -84,10 +110,10 @@ function turnTranslator(catalog: CatalogClient, turn: TurnModel): TitleTranslato
  * in the prompt describes.
  *
  * `model` is here for one reason — `translate_anime_title`'s fallback path is
- * a tool-less call on the TURN's own model, exactly as Python's translation
- * sub-agent inherited `ctx.model`. It is the whole `TurnModel` rather than a
- * bare registry because that fallback must also carry the turn's egress guard
- * (#1289), which lives on the same value.
+ * a tool-less call on a model, and WHICH model depends on whether this turn is
+ * caller-keyed (`translationModel`, D18). It is the whole `TurnModel` rather
+ * than a bare registry because that decision reads `callerKeyed`, which lives
+ * on the same value.
  */
 export function turnToolbox(
   env: Record<string, unknown>,
@@ -98,7 +124,8 @@ export function turnToolbox(
   if (binding === undefined) return EMPTY_TOOLBOX;
   const catalog = serviceBindingCatalog(binding, sleep);
   const search = duckduckgoWebSearcher(webSearchFetch());
-  const tools = agentToolbox({ catalog, session, search, translate: turnTranslator(catalog, model) });
+  const translate = turnTranslator(catalog, env, model);
+  const tools = agentToolbox({ catalog, session, search, translate });
   return { tools: () => tools };
 }
 

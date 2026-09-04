@@ -32,7 +32,9 @@ import {
   type MutableModels,
 } from "@earendil-works/pi-ai";
 import { stream, streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
-import type { EgressFetch } from "../egress/guarded-fetch.ts";
+import { GuardedFetch, type EgressFetch } from "../egress/guarded-fetch.ts";
+import { EgressPolicy } from "../egress/egress-policy.ts";
+import { ProviderAllowlist, type ByokProvider } from "../egress/provider-allowlist.ts";
 import type { SecretScrub } from "../egress/secret-scrub.ts";
 
 /**
@@ -148,6 +150,49 @@ export function streamOptionsFor(
 export function mimoTurnModel(apiKey: string): TurnModel {
   const registry = createTurnModels(apiKey);
   return { registry, model: registeredMimo(registry), callerKeyed: false };
+}
+
+/** The one host the direct MiMo endpoint answers on. Adding a second is a review. */
+export const MIMO_HOST = "api.xiaomimimo.com";
+
+/** Every family token collapsed onto that single host, so whichever one the hop
+ * declares, `api.xiaomimimo.com` is the only destination that passes — the same
+ * device `web-search-egress.ts` uses and for the same reason. */
+const MIMO_HOSTS: Readonly<Record<ByokProvider, readonly string[]>> = {
+  openai: [MIMO_HOST],
+  anthropic: [MIMO_HOST],
+  google: [MIMO_HOST],
+};
+
+/** The family token this hop declares; it cannot widen the destination. */
+const MIMO_FAMILY: ByokProvider = "openai";
+
+/** The server model's own allowlist — one host, and no caller-chosen provider. */
+export const SERVER_MODEL_EGRESS_POLICY = new EgressPolicy(new ProviderAllowlist(MIMO_HOSTS));
+
+/**
+ * The server model as a CALLER-KEYED turn reaches it (D18, #1289).
+ *
+ * A plain turn's mimo call keeps the exact unguarded shape W0-S1 measured —
+ * our own configured endpoint has nothing for a guard to decide. This one is
+ * different for a reason that is about the TURN, not the destination: a
+ * caller-keyed turn is already spending a caller's key at a caller-named host,
+ * and the platform's own credential is being spent inside it. Pinning that hop
+ * to one host and refusing every redirect off it costs one allowlist instance
+ * and means a caller-keyed turn has no unguarded way out at all.
+ *
+ * `inner` exists so a test can answer without reaching MiMo; production passes
+ * nothing and gets `globalThis.fetch` under the guard.
+ */
+export function guardedMimoTurnModel(apiKey: string, inner?: EgressFetch): TurnModel {
+  const registry = createTurnModels(apiKey);
+  const guard = new GuardedFetch({
+    provider: MIMO_FAMILY,
+    key: apiKey,
+    policy: SERVER_MODEL_EGRESS_POLICY,
+    inner,
+  });
+  return { registry, model: registeredMimo(registry), callerKeyed: false, fetch: guard.fetch };
 }
 
 /** The direct MiMo key from the Worker environment, or undefined when unbound. */

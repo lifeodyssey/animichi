@@ -13,9 +13,15 @@
  * hands this object straight back as its `details`.
  *
  * `TitleTranslator` is a port for the same reason Python's
- * `RuntimeDeps.title_translator` was one: a BYOK turn must be able to translate
- * on a SERVER-locked model rather than on the caller's key, and that swap is a
+ * `RuntimeDeps.title_translator` was one: a BYOK turn must translate on a
+ * SERVER-locked model rather than on the caller's key, and that swap is a
  * different implementation of this one function type, not a flag inside it.
+ *
+ * That swap is WIRED as of #1289 — `session-turn.ts::translationModel` is the
+ * TS `_server_title_translator` (`public_api.py:922`, D18): a caller-keyed turn
+ * gets the server-key model, a plain turn gets its own, and a caller-keyed turn
+ * with no server key to fall back on answers `untranslated` rather than
+ * reaching for the caller's credential.
  */
 
 import type { TranslationLocale } from "@animichi/contract/agent-tool-parameters";
