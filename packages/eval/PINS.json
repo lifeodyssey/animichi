@@ -1,0 +1,5 @@
+{
+  "comment": "The two eval frameworks are pinned as a pair: pydantic-evals writes the dataset file and logfire/evals reads it. Moving either version without re-running scripts/export-eval-fixtures.sh and re-proving the round trip is a contract change, so it has to be declared here.",
+  "logfire": "0.22.5",
+  "pydantic-evals": "2.21.0"
+}

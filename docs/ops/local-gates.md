@@ -23,6 +23,7 @@ Workspace members are **derived** from `pnpm-workspace.yaml` (directories matchi
 | `workers/edge/` | edge | oxlint | `lint:oxlint` + `test:worker` + `test:bundle-smoke` (bundles the pi kernel entrypoint and executes the artifact in workerd, #1246) + ratelimit-namespace check + production-config `wrangler deploy --dry-run` |
 | `workers/migrator/` | migrator | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (single CI affected-migrator lane) |
 | `packages/contract/` | contract | oxlint | `tsc --noEmit` + `test` + staged-snapshot OpenAPI drift (`contract-drift.sh`, mirrors CI) + agent-model regeneration drift |
+| `packages/eval/` | eval | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` (the Python→TS dataset round trip) + eval-fixture drift (`eval-fixture-drift.sh`, re-runs the Python exporter) |
 | `infra/` | infra | — | `typecheck` + `test` + credential-free Pulumi program-load (`infra-check.sh`) |
 | `e2e/` | e2e | — | strict TypeScript typecheck + type-aware oxlint (Playwright stays in CI; an e2e-only change is not `all`) |
 | `migrations/` | db | — | `atlas migrate validate` + migration-boundary guard + sqlfluff + disposable fresh-schema apply (`db-fresh-schema.sh`) |
@@ -63,7 +64,7 @@ Universal (always, sub-second):
 - ruff `--fix` + `ruff format` (all repo Python — ruff is fast enough to run repo-wide)
 
 Changed packages (routed via `changed-packages.sh --staged`):
-- web/catalog/users/edge/migrator/contract → `oxlint --type-aware --deny-warnings` scoped to the package
+- web/catalog/users/edge/migrator/contract/eval → `oxlint --type-aware --deny-warnings` scoped to the package
 
 ## commit-msg (history hygiene, sub-second)
 
@@ -134,6 +135,7 @@ Environmental note: the full Quality lane SIGBUSes on the stock macOS `/bin/bash
 - `scripts/local-gates/db-fresh-schema.sh` — disposable fresh-schema apply (fail-closed Docker; template1 pristine target)
 - `scripts/local-gates/infra-check.sh` — credential-free Pulumi program-load
 - `scripts/local-gates/contract-drift.sh` — staged-snapshot OpenAPI drift check (mirrors CI's `git diff --cached`)
+- `scripts/local-gates/eval-fixture-drift.sh` — staged-snapshot eval-fixture drift check (re-runs `packages/eval/scripts/export-fixtures.sh`)
 - `scripts/local-gates/commit-message.py` — shared commit-message and PR-title validator
 - `.pre-commit-config.yaml` — hook wiring (pre-commit + commit-msg + one pre-push orchestrator hook)
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — behavioral tests

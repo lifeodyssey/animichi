@@ -9,12 +9,12 @@ MANIFEST="$SCRIPT_DIR/../ci/components.json"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/pr-verification-route.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
-workspace_dirs=(agent web catalog users edge migrator contract e2e infra)
+workspace_dirs=(agent web catalog users edge migrator contract eval e2e infra)
 
 package_path() {
   case "$1" in
     agent|web) printf 'apps/%s\n' "$1" ;;
-    contract) printf 'packages/contract\n' ;;
+    contract|eval) printf 'packages/%s\n' "$1" ;;
     e2e|infra) printf '%s\n' "$1" ;;
     *) printf 'workers/%s\n' "$1" ;;
   esac
@@ -25,7 +25,7 @@ make_fixture() {
   mkdir -p "$root/scripts/local-gates"
   cp "$WORKSPACE_LIB" "$root/scripts/local-gates/workspace-packages.sh"
   printf '%s\n' 'packages:' '  - "workers/*"' '  - "apps/*"' '  - "packages/*"' '  - "e2e"' '  - "infra"' > "$root/pnpm-workspace.yaml"
-  for dir in agent web catalog users edge migrator contract; do
+  for dir in agent web catalog users edge migrator contract eval; do
     package_dir="$(package_path "$dir")"
     mkdir -p "$root/$package_dir"
   done
@@ -63,6 +63,9 @@ route_case users workers/users/change.ts users
 route_case edge workers/edge/change.ts edge
 route_case migrator workers/migrator/change.ts migrator
 route_case contract packages/contract/change.ts $'agent\ncatalog\ncontract\ne2e\nedge\nmigrator\nusers\nweb'
+route_case eval packages/eval/change.ts eval
+route_case eval-dataset-read apps/agent/src/animichi/tests/eval/datasets/agent_eval_v3.json $'agent\neval'
+route_case uv-lock-read apps/agent/uv.lock $'agent\neval'
 route_case e2e e2e/change.ts e2e
 route_case infra infra/change.ts infra
 route_case docs docs/change.md docs
@@ -72,7 +75,7 @@ route_case container-env-read workers/edge/src/container/container-env.ts $'docs
 route_case auth-read workers/edge/src/identity/auth.ts $'edge\nusers'
 route_case turnstile-read workers/edge/src/protect/turnstile.ts $'e2e\nedge\nweb'
 route_case migrations migrations/change.sql $'agent\ncatalog\ndb\nedge\nmigrator\nusers'
-ALL_EXPECTED=$'agent\ncatalog\ncontract\ndb\ndocs\ne2e\nedge\ninfra\nmigrator\nusers\nweb'
+ALL_EXPECTED=$'agent\ncatalog\ncontract\ndb\ndocs\ne2e\nedge\neval\ninfra\nmigrator\nusers\nweb'
 route_case workflow .github/workflows/change.yml ""
 route_case readme README.md ""
 route_case unknown unknown-root.txt "$ALL_EXPECTED"

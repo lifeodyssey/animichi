@@ -210,9 +210,9 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
         with:
-          python: ${{ contains(fromJSON('["agent", "db", "docs"]'), matrix.component) }}
+          python: ${{ contains(fromJSON('["agent", "db", "docs", "eval"]'), matrix.component) }}
       - name: Install Python runtime for Python-backed gates
-        if: ${{ contains(fromJSON('["agent", "db", "docs"]'), matrix.component) }}
+        if: ${{ contains(fromJSON('["agent", "db", "docs", "eval"]'), matrix.component) }}
         run: uv python install 3.11
       - uses: ./.github/actions/install-atlas
         if: ${{ matrix.component == 'db' || matrix.component == 'catalog' }}
