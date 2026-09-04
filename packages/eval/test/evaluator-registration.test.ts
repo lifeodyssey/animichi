@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import {
-  UNIMPLEMENTED_EVALUATORS,
-  loadExportedDataset,
-} from '../src/dataset-roundtrip.ts';
+import { loadExportedDataset } from '../src/dataset-roundtrip.ts';
 import { EVALUATOR_NAMES } from '../src/evaluator-names.ts';
+import { AGENT_EVALUATORS } from '../src/evaluators/index.ts';
+import type { TranscriptResult } from '../src/evaluators/index.ts';
+import { contextFor, oracleCase } from './evaluator-oracle.ts';
 
 const SMALLEST_SET = 'phase1c_selection_v1';
 const DROPPED = EVALUATOR_NAMES[0];
 
 void test('an unregistered evaluator name fails loudly and names it', async () => {
-  const registered = UNIMPLEMENTED_EVALUATORS.filter(
+  const registered = AGENT_EVALUATORS.filter(
     (evaluator) => evaluator.evaluatorName !== DROPPED,
   );
 
@@ -22,7 +22,7 @@ void test('an unregistered evaluator name fails loudly and names it', async () =
   );
 });
 
-void test('every serialized name resolves to its own registered stub', async () => {
+void test('every serialized name resolves to its own registered evaluator', async () => {
   const dataset = await loadExportedDataset(SMALLEST_SET);
 
   assert.deepEqual(
@@ -31,17 +31,12 @@ void test('every serialized name resolves to its own registered stub', async () 
   );
 });
 
-void test('a registered stub is really invoked and refuses to score', async () => {
-  const dataset = await loadExportedDataset(SMALLEST_SET);
-  const first = dataset.evaluators[0];
+void test('a registered evaluator is really invoked and scores', async () => {
+  const dataset = await loadExportedDataset<TranscriptResult>(SMALLEST_SET);
+  const [first] = dataset.evaluators;
   assert.ok(first);
 
-  await assert.rejects(
-    async () => first.evaluate(unusedContext()),
-    { message: `not implemented: ${DROPPED}` },
-  );
+  assert.deepEqual(first.evaluate(contextFor(oracleCase('search_bangumi_exact_chain'))), {
+    argument_correctness: 1,
+  });
 });
-
-function unusedContext(): never {
-  return undefined as never;
-}

@@ -43,3 +43,13 @@ for set_name in "${SETS[@]}"; do
       --export-dataset "$OUT_DIR/$set_name.json" \
       --export-cases "$OUT_DIR/$set_name.cases.json")
 done
+
+# The evaluator oracle (#1301): Python's own scores for a set of synthetic
+# transcripts, which `packages/eval/test/evaluator-parity.test.ts` compares the
+# TypeScript port against. Regenerated here so the drift gate also fails when
+# the Python evaluators change without the TS numbers being re-proved.
+(cd "$ROOT/apps/agent" && env \
+  AGENT_SVC_DATABASE_URL="postgresql://test:test@localhost:5432/test" \
+  ZEN_GO_API_KEY="test-key" \
+  MIMO_API_KEY="test-key" \
+  uv run python -m animichi.tests.eval.evaluator_oracle)

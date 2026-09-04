@@ -1,9 +1,9 @@
 import { fileURLToPath } from 'node:url';
 
-import { Dataset, Evaluator } from 'logfire/evals';
-import type { EvaluatorClass, EvaluatorContext } from 'logfire/evals';
+import { Dataset } from 'logfire/evals';
+import type { EvaluatorClass } from 'logfire/evals';
 
-import { EVALUATOR_NAMES, type EvaluatorName } from './evaluator-names.ts';
+import { AGENT_EVALUATORS } from './evaluators/index.ts';
 
 /**
  * The case shape pydantic-evals writes for this dataset family. `inputs` and
@@ -31,38 +31,16 @@ export interface ExportedAgentExpected {
 /** Every case in the exported sets carries `expected_output: null`. */
 export type ExportedAgentOutput = null;
 
-export type ExportedDatasetHandle = Dataset<
+/**
+ * A loaded set. `Output` is the *task* output type, not the serialized
+ * `expected_output` (which is always `null`): the read path leaves it at
+ * `null`, while a run parametrizes it with the shaped turn the task returns.
+ */
+export type ExportedDatasetHandle<Output = ExportedAgentOutput> = Dataset<
   ExportedAgentInput,
-  ExportedAgentOutput,
+  Output,
   ExportedAgentExpected
 >;
-
-/**
- * A registered evaluator that refuses to score. It exists so the round trip
- * can prove the *wiring* — name resolution and instantiation — without
- * pretending W3-3's scoring is done.
- */
-abstract class UnimplementedEvaluator extends Evaluator<
-  ExportedAgentInput,
-  ExportedAgentOutput,
-  ExportedAgentExpected
-> {
-  evaluate(_ctx: EvaluatorContext<ExportedAgentInput, ExportedAgentOutput, ExportedAgentExpected>): never {
-    throw new Error(`not implemented: ${this.getResultName()}`);
-  }
-}
-
-function unimplementedEvaluatorClass(name: EvaluatorName): EvaluatorClass {
-  const declared = class extends UnimplementedEvaluator {
-    static override readonly evaluatorName = name;
-  };
-  Object.defineProperty(declared, 'name', { value: name });
-  return declared;
-}
-
-/** The eight stubs, in the order the Python exporter serializes them. */
-export const UNIMPLEMENTED_EVALUATORS: readonly EvaluatorClass[] =
-  EVALUATOR_NAMES.map(unimplementedEvaluatorClass);
 
 export const FIXTURES_DIR = fileURLToPath(new URL('../fixtures/', import.meta.url));
 
@@ -86,11 +64,11 @@ export function caseViewPath(setName: string): string {
  * evaluators as bare strings, and `Dataset.fromFile` throws
  * `Unknown evaluator name: "<name>"` for any the caller did not register.
  */
-export async function loadExportedDataset(
+export async function loadExportedDataset<Output = ExportedAgentOutput>(
   setName: string,
-  evaluators: readonly EvaluatorClass[] = UNIMPLEMENTED_EVALUATORS,
-): Promise<ExportedDatasetHandle> {
-  return Dataset.fromFile<ExportedAgentInput, ExportedAgentOutput, ExportedAgentExpected>(
+  evaluators: readonly EvaluatorClass[] = AGENT_EVALUATORS,
+): Promise<ExportedDatasetHandle<Output>> {
+  return Dataset.fromFile<ExportedAgentInput, Output, ExportedAgentExpected>(
     fixturePath(setName),
     { customEvaluators: evaluators },
   );

@@ -4,9 +4,9 @@ The TS side of the eval move (W3 of `docs/specs/2026-09-01-agent-ts-rewrite-spec
 #1258). Plain **Node** package — it reads files and will later drive HTTP calls at staging, so it
 must never enter a Workers bundle and never imports `workers/*`. Root guide: `../../AGENTS.md`.
 
-Today it owns exactly one proven thing: the **file contract** between the Python exporter and
-`logfire/evals`. W3-2..W3-5 (evaluators, the `gate.py` statistics port, the staging task, the
-double run) build on it.
+It owns two proven things: the **file contract** between the Python exporter and `logfire/evals`,
+and the **eight evaluators** (`src/evaluators/`) scoring identically to their Python originals.
+W3-2, W3-4 and W3-5 (the staging task, the `gate.py` statistics port, the double run) build on both.
 
 ## Commands (from `packages/eval/`)
 
@@ -29,6 +29,10 @@ Per set, `fixtures/` carries two files:
 | `<set>.json` | `Dataset.to_file(path, schema_path=None)` | the round-trip subject — what `Dataset.fromFile` reads |
 | `<set>.cases.json` | `--export-cases` → `dataset_case_view.py` | the independent expectation, built from the Python dataclasses rather than pydantic-evals' serializer |
 
+`fixtures/evaluator-oracle.json` is written by the same script, from
+`apps/agent/src/animichi/tests/eval/evaluator_oracle.py`, and is the drift-guarded oracle for the
+evaluators (below) rather than for the round trip.
+
 Two files because one is not enough: comparing the loaded dataset against the file it was loaded
 from compares that file with itself, and a mutated fixture would move both sides together.
 
@@ -50,6 +54,56 @@ from compares that file with itself, and a mutated fixture would move both sides
 - Registry key: a class's `static evaluatorName` **or** its runtime `name`. `evaluationName` is a
   per-instance result-name override, not the registry key.
 
+## The eight evaluators (`src/evaluators/`)
+
+One module per evaluator, named for its class; `src/evaluators/index.ts` is the registry list
+`Dataset.fromFile` resolves the exported names against. Four are ports of pydantic-evals' official
+agentic evaluators — which read an OTel span tree the TS side does not have — and four are the
+project's own, ported from `evaluators.py`.
+
+- **`transcript-view.ts` is the seam, and it is W3-2's type.** The evaluators read `TranscriptResult`
+  from W3-2's `turn-transcript` module (#1300) and nothing else. Until that branch lands, the file carries a
+  field-for-field copy with the one-edit replacement written at the top.
+- **There is no span tree, and no need for one.** Every call the SD-9 stream publishes is a
+  model-initiated tool call, so `trajectory` *is* the span tree and `stepCount` is
+  `len(AgentResult.steps)` for every turn the wire can describe. `status` has three states:
+  `"unsettled"` (made, never settled) is excluded wherever `include_failed=False` applies and counted
+  by `MaxToolCalls`, which counts every attempt.
+- **ANY-of-N lives in `accepted-chains.ts`.** A case names acceptable *stages*, each contributing
+  chains; the tool and trajectory evaluators score once per chain and keep the best, and both
+  selection turns accept only the empty chain. `bestOverChains` returns 1.0 for a case with no
+  accepted chain — `_best(..., empty=1.0)`.
+- **`{}` is not `0`.** `NonemptyResults` on an untagged case and `ArgumentCorrectness` on a turn with
+  no successful call emit *no metric*. `test/evaluator-parity.test.ts` compares the whole score
+  record, so a surplus zero fails there.
+- **`_available_data_keys` is ported once, in W3-2.** `DataKeysPresent` reads `dataKeys`; it does not
+  re-derive the rule. The oracle publishes Python's own `_available_data_keys` under that name, so it
+  is the tripwire for `dataKeysOf` too.
+- **The oracle, not a re-derivation.** `fixtures/evaluator-oracle.json` is what the *Python*
+  evaluators score for 20 synthetic transcripts — every `_acceptable_min_steps` branch, the ANY-of-N
+  ties, both empty-chain selections, the three call outcomes, and the `resolve_reply_language`
+  decision points — paired with the wire transcript the TS side reads for the same turn. Changing an
+  evaluator on either side means re-running `export-fixtures.sh` and re-proving the numbers in the
+  same change; the drift gate is what forces it.
+- `EVALUATOR_VERSION = 'official-v1'` mirrors `evaluators.py` and rides on every instance as
+  `evaluatorVersion`. Bump both sides together or the two runners' baselines stop being comparable.
+
+### Two places the wire cannot reach Python, and what they cost
+
+- **`argument_correctness` is degenerate — do not read it as a passing score.** Python compares the
+  span's raw arguments against `StepRecord.params`, the *separately* recorded normalized arguments
+  for the same call. The stream publishes one `input` record per call and no second witness, so every
+  settled call matches itself: the metric can only return `1.0` or `{}`. It stays wired, at the right
+  name, so restoring it is one additive member on `TranscriptStep` (#1300's call). Until then it is
+  unmeasured, not passing.
+- **`nonempty_results` substitutes the published `results` for the itinerary's `source_ref` hop.** The
+  stream carries row counts and points, never a ref to follow, so a routed turn is judged by the
+  search it published. Python's two failure branches (no `source_ref`; a `source_ref` that misses the
+  registry) both land on the same observable: no `results` in `data`.
+
+`src/metric-names.ts` ports `eval_harness.metric_names` — same names, same order, checked against the
+oracle's committed dump. Order is load-bearing: baselines and report tables are keyed positionally.
+
 ## Version pin
 
 `PINS.json` declares pydantic-evals and logfire compatible **as a pair** — one writes the file the
@@ -63,4 +117,7 @@ re-proving the round trip in the same change.
 - No `any`; `inputs.context` / `inputs.seeded_pending` stay open maps because the Python source
   declares them as `Mapping[str, object] | None` — mirroring it is the point.
 - Fixtures are generated. Never hand-edit one; change the canonical dataset in
-  `apps/agent/src/animichi/tests/eval/datasets/` and re-export.
+  `apps/agent/src/animichi/tests/eval/datasets/` (or, for the oracle, its scenarios in
+  `apps/agent/src/animichi/tests/eval/evaluator_oracle_scenarios.py`) and re-export.
+- Nothing under `src/evaluators/` may derive an expected score. Python decides the numbers; the
+  tests only compare.
