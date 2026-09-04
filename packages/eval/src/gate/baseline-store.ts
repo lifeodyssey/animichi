@@ -1,0 +1,129 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+
+import {
+  baselineRecordText,
+  caseMetrics,
+  parseBaselineRecord,
+  type BaselineRecord,
+} from './baseline-record.ts';
+
+/**
+ * Where a baseline record lives and when it stops counting.
+ *
+ * `gate.py` reads a baseline through one funnel — locate, load, judge fresh —
+ * and answers "no usable baseline" three different ways: the file is missing,
+ * it does not parse, or it describes a run this one cannot be compared with.
+ * All three are a `null` record plus the warning Python logs, because a first
+ * run legitimately has no baseline and must not be a crash.
+ *
+ * Only one warning ever comes back: `_is_stale` short-circuits, and so does this.
+ */
+
+/** The three fields that always travel together to find a baseline on disk. */
+export interface BaselineLocation {
+  readonly layer: string;
+  readonly modelId: string;
+  readonly baselinesDir: string;
+}
+
+/** What the current run expects of a baseline before it will compare with it. */
+export interface BaselineExpectations {
+  readonly caseCount?: number;
+  readonly metrics?: readonly string[];
+}
+
+export interface BaselineReadResult {
+  readonly record: BaselineRecord | null;
+  readonly warnings: readonly string[];
+}
+
+/** The minimum share of the expected cases a usable baseline must have scored. */
+const EVALUATED_FLOOR = 0.8;
+
+/** `baseline_path` — the model id becomes a filename by flattening its punctuation. */
+export function baselinePath(location: BaselineLocation): string {
+  const safeModel = location.modelId
+    .replaceAll(':', '-')
+    .replaceAll('@', '-')
+    .replaceAll('/', '-');
+  return `${location.baselinesDir.replace(/\/$/, '')}/${location.layer}_${safeModel}.json`;
+}
+
+export function readBaselineRecord(
+  location: BaselineLocation,
+  expectations: BaselineExpectations = {},
+): BaselineReadResult {
+  const path = baselinePath(location);
+  if (!existsSync(path)) {
+    return { record: null, warnings: [`Missing baseline for ${named(location)} at ${path}`] };
+  }
+  const record = parseBaselineRecord(readFileSync(path, 'utf8'));
+  if (record === null) {
+    return { record: null, warnings: [invalidWarning(location, path)] };
+  }
+  return freshRecord(record, location, expectations);
+}
+
+export function writeBaselineRecord(record: BaselineRecord, location: BaselineLocation): string {
+  mkdirSync(location.baselinesDir, { recursive: true });
+  const path = baselinePath(location);
+  writeFileSync(path, `${baselineRecordText(record)}\n`, 'utf8');
+  return path;
+}
+
+/** `%s/%s` — how `gate.py` names a baseline in every one of its warnings. */
+function named(location: BaselineLocation): string {
+  return `${location.layer}/${location.modelId}`;
+}
+
+/**
+ * Python interpolates the pydantic `ValidationError` here. There is no such
+ * object on this side, so the message names the schema it failed instead — the
+ * one warning of the five that is not text-identical across the two runners.
+ */
+function invalidWarning(location: BaselineLocation, path: string): string {
+  return `Invalid baseline for ${named(location)} at ${path}: not a schema-v2 baseline record`;
+}
+
+function freshRecord(
+  record: BaselineRecord,
+  location: BaselineLocation,
+  expectations: BaselineExpectations,
+): BaselineReadResult {
+  const warning = stalenessWarning(record, location, expectations);
+  return warning === null ? { record, warnings: [] } : { record: null, warnings: [warning] };
+}
+
+function stalenessWarning(
+  record: BaselineRecord,
+  location: BaselineLocation,
+  expectations: BaselineExpectations,
+): string | null {
+  const expected = expectations.caseCount;
+  if (expected !== undefined && record.case_count !== expected) {
+    return `Stale baseline for ${named(location)}: expected ${String(expected)} cases, found ${String(record.case_count)}`;
+  }
+  if (expected !== undefined && record.evaluated_count < expected * EVALUATED_FLOOR) {
+    return `Baseline for ${named(location)} has too few evaluated cases: ${String(record.evaluated_count)} < 80% of ${String(expected)}`;
+  }
+  return vocabularyWarning(record, location, expectations.metrics);
+}
+
+function vocabularyWarning(
+  record: BaselineRecord,
+  location: BaselineLocation,
+  expected: readonly string[] | undefined,
+): string | null {
+  if (expected === undefined) {
+    return null;
+  }
+  const current =
+    sameNames(Object.keys(record.scores), expected) && sameNames(caseMetrics(record), expected);
+  return current ? null : `Stale baseline for ${named(location)}: metric vocabulary changed`;
+}
+
+function sameNames(names: readonly string[], expected: readonly string[]): boolean {
+  const left = new Set(names);
+  const right = new Set(expected);
+  return left.size === right.size && [...left].every((name) => right.has(name));
+}
