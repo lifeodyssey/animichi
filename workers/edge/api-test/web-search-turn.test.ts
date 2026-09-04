@@ -22,7 +22,7 @@
 import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { UNTRUSTED_PREAMBLE } from "../src/agent/tools/web-result-trust.ts";
-import { laneBearer as bearer, laneOrigin as origin } from "./lane-origin.ts";
+import { laneBearer as bearer, laneFetch } from "./lane-origin.ts";
 
 /** A web search adds a real internet round trip to the turn's own model time. */
 const TURN_DEADLINE_MS = 120_000;
@@ -35,7 +35,7 @@ const SEARCH_TOOL = "web_search";
 
 /** One turn, submitted the way `apps/web` submits one. */
 function postTurn(turnId: string): Promise<Response> {
-  return fetch(`${origin()}/v1/chat`, {
+  return laneFetch("/v1/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

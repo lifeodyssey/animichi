@@ -11,7 +11,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { laneOrigin as origin } from "./lane-origin.ts";
+import { laneFetch } from "./lane-origin.ts";
 
 /** How long this whole lane may spend waiting on staging. One deadline, shared
  * by every request it makes: a staging origin that accepts a connection and
@@ -26,7 +26,7 @@ const TOOL_PROCEDURES = ["resolve", "points-by-bangumi-id", "nearby", "geocode",
 
 /** POST one procedure at the public origin, as an attacker would. */
 async function publicAttempt(procedure: string): Promise<number> {
-  const response = await fetch(`${origin()}/catalog/${procedure}`, {
+  const response = await laneFetch(`/catalog/${procedure}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: "{}",
@@ -36,7 +36,7 @@ async function publicAttempt(procedure: string): Promise<number> {
 }
 
 void test("the deployed origin is alive", async () => {
-  const response = await fetch(`${origin()}/healthz`, { signal: laneDeadline });
+  const response = await laneFetch("/healthz", { signal: laneDeadline });
   assert.equal(response.status, 200);
 });
 

@@ -27,12 +27,13 @@ function callFrom(open: number): string {
   throw new Error("the staging lane has an unbalanced fetch call");
 }
 
-/** Every `fetch(...)` call in the lane, one call's own source each. Counting
+/** Every `laneFetch(...)` call in the lane, one call's own source each — the
+ * lane reaches staging only through that door as of #1294. Counting
  * occurrences of the two patterns separately would not prove what this file
  * claims: one request could carry another signal while an unrelated object
  * supplied the missing mention. Each call is therefore read on its own. */
 function fetchCalls(): string[] {
-  return [...LANE.matchAll(/\bfetch\(/g)].map((match) => callFrom(match.index + match[0].length - 1));
+  return [...LANE.matchAll(/\blaneFetch\(/g)].map((match) => callFrom(match.index + match[0].length - 1));
 }
 
 void test("the staging lane's deadline is an abort deadline, not a comment", () => {

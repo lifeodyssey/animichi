@@ -35,26 +35,31 @@ const LANE_SUITES = [
 ];
 
 const DOOR = laneFile("lane-origin.ts");
-const LANE = laneFile("web-search-turn.test.ts");
 const RUNBOOK = readFileSync(fileURLToPath(new URL("../api-test/README.md", import.meta.url)), "utf8");
 const TOOL = readFileSync(fileURLToPath(new URL("../src/agent/tools/web-search-tool.ts", import.meta.url)), "utf8");
 const SEARCHER = readFileSync(fileURLToPath(new URL("../src/agent/tools/duckduckgo-web-searcher.ts", import.meta.url)), "utf8");
 const EGRESS = readFileSync(fileURLToPath(new URL("../src/agent/egress/egress-decision.ts", import.meta.url)), "utf8");
 
-/** The body of the shared `laneOrigin()`, the one door every request uses. */
-function originFunction(): string {
-  const start = DOOR.indexOf("export function laneOrigin(): string {");
-  assert.notEqual(start, -1, "the lanes must resolve their origin in one named place");
+/** The body of the door's own origin check, where every refusal is decided. */
+function originCheck(): string {
+  const start = DOOR.indexOf("function checkedOrigin(): string {");
+  assert.notEqual(start, -1, "the lanes must check their origin in one named place");
   return DOOR.slice(start, DOOR.indexOf("\n}", start));
 }
 
 void test("the shared door refuses a non-HTTPS origin, where the origin is read", () => {
-  assert.match(originFunction(), /"https:"/);
-  assert.match(originFunction(), /new URL\(ORIGIN\)\.protocol/);
+  assert.match(originCheck(), /"https:"/);
+  assert.match(originCheck(), /url\.protocol === "https:" \|\| isLoopback\(url\)/);
 });
 
-void test("no lane opens a second door onto the origin or the credential", () => {
-  const own = LANE_SUITES.filter((name) => /process\.env\.(CATALOG_API_ORIGIN|AGENT_TURN_BEARER)/.test(laneFile(name)));
+void test("the door refuses to run against staging with no gate credential", () => {
+  assert.match(originCheck(), /isLoopback\(url\) \|\| GATE_TOKEN/);
+  assert.match(originCheck(), /STAGING_GATE_TOKEN/, "the refusal has to name the variable");
+});
+
+void test("no lane opens a second door onto the origin or either credential", () => {
+  const environment = /process\.env\.(CATALOG_API_ORIGIN|AGENT_TURN_BEARER|STAGING_GATE_TOKEN)/;
+  const own = LANE_SUITES.filter((name) => environment.test(laneFile(name)));
   assert.deepEqual(own, [], "these lanes read the environment instead of lane-origin.ts");
 });
 
@@ -63,11 +68,27 @@ void test("every lane that makes a request resolves it through that door", () =>
   assert.deepEqual(importing, LANE_SUITES);
 });
 
-void test("every request the web-search lane makes goes through the door", () => {
-  const requests = [...LANE.matchAll(/`\$\{origin\(\)\}/g)];
-  const urls = [...LANE.matchAll(/fetch\(\s*`/g)];
-  assert.equal(requests.length, urls.length);
-  assert.ok(urls.length > 0, "the lane makes no requests at all");
+/**
+ * `laneFetch` is the only request in this directory, and these two cases are
+ * what make that structural rather than a convention. A lane calling `fetch`
+ * for itself reaches staging with no gate header and comes back a 403 block
+ * page — the exact failure #1294 exists to stop, wearing the costume of a
+ * broken app.
+ */
+void test("no lane calls fetch for itself", () => {
+  const direct = LANE_SUITES.filter((name) => /\bfetch\(/.test(laneFile(name)));
+  assert.deepEqual(direct, [], "these lanes make a request without the gate header");
+});
+
+void test("every lane makes at least one request, and all of them through the door", () => {
+  const requesting = LANE_SUITES.filter((name) => laneFile(name).includes("laneFetch("));
+  assert.deepEqual(requesting, LANE_SUITES);
+});
+
+void test("the door presents the gate credential on every request it makes", () => {
+  assert.match(DOOR, /const GATE_HEADER = "x-staging-key";/);
+  assert.match(DOOR, /headers: laneHeaders\(init\.headers\)/);
+  assert.match(DOOR, /headers\.set\(GATE_HEADER, GATE_TOKEN\)/);
 });
 
 void test("the door still refuses to guess an origin or a credential", () => {
