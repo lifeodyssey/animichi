@@ -50,13 +50,13 @@ async function runSearchThenRoute() {
     () => NOW,
   );
   const session = new TurnCatalogSession({ locale: "ja" });
-  const toolbox = turnToolbox({ CATALOG: catalogBinding() }, session);
   const models = makeScriptedModels(
     makeSequencedToolCallsStreamFn([
       { name: "search_bangumi", arguments: { bangumi_id: "115908" } },
       { name: "plan_route", arguments: { search_result_ref: FIRST_SEARCH_REF } },
     ]),
   );
+  const toolbox = turnToolbox({ CATALOG: catalogBinding() }, session, models);
   const turn = new DurableTurn({
     store, models, toolbox, answering: makeTurnAnswering(session), systemPrompt: "test", prices: PRICES,
     emit: () => Promise.resolve(), owner: "do-1", now: () => NOW,
@@ -72,18 +72,22 @@ function stepDetails(store: InMemoryTurnStore, stepIndex: number): unknown {
   return step.result.details;
 }
 
-void test("the session's toolbox lists the four catalog tools in Python's order", () => {
-  const toolbox = turnToolbox({ CATALOG: catalogBinding() }, new TurnCatalogSession({ locale: "ja" }));
+void test("the session's toolbox lists all six tools in Python's order", () => {
+  const session = new TurnCatalogSession({ locale: "ja" });
+  const toolbox = turnToolbox({ CATALOG: catalogBinding() }, session, makeScriptedModels());
   assert.deepEqual(toolbox.tools().map((tool) => tool.name), [
     "resolve_anime",
     "search_bangumi",
     "search_nearby",
     "plan_route",
+    "web_search",
+    "translate_anime_title",
   ]);
 });
 
 void test("an environment with no CATALOG binding leaves the turn without tools", () => {
-  assert.deepEqual(turnToolbox({}, new TurnCatalogSession({ locale: "ja" })).tools(), []);
+  const session = new TurnCatalogSession({ locale: "ja" });
+  assert.deepEqual(turnToolbox({}, session, makeScriptedModels()).tools(), []);
 });
 
 void test("a ref minted in one step is readable by the next step of the same run", async () => {

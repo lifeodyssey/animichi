@@ -18,9 +18,7 @@
  */
 import test, { before } from "node:test";
 import assert from "node:assert/strict";
-
-const ORIGIN = process.env.CATALOG_API_ORIGIN;
-const BEARER = process.env.AGENT_TURN_BEARER;
+import { laneBearer as bearer, laneOrigin as origin } from "./lane-origin.ts";
 
 /** One turn is 4–12s of model time (spec appendix B) plus a cold DO; a turn
  * that has not produced its first tool frame in 90s is a failure, not a wait. */
@@ -30,16 +28,6 @@ const READ_DEADLINE_MS = 20_000;
 /** A prompt that has one obvious next move: resolve the work by title. */
 const RESOLVE_PROMPT = "らき☆すたの聖地巡礼をしたい";
 const RESOLVE_TOOL = "resolve_anime";
-
-function origin(): string {
-  assert.ok(ORIGIN, "set CATALOG_API_ORIGIN (see api-test/README.md); this lane never guesses");
-  return ORIGIN.replace(/\/$/, "");
-}
-
-function bearer(): string {
-  assert.ok(BEARER, "set AGENT_TURN_BEARER to a Neon Auth access token (see api-test/README.md)");
-  return BEARER;
-}
 
 function chatBody(text: string): string {
   return JSON.stringify({ messages: [{ role: "user", parts: [{ type: "text", text }] }] });

@@ -1,11 +1,17 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { ANSWER_KINDS, CATALOG_TOOL_PARAMETERS } from "../src/agent-tool-parameters.js";
+import {
+  ANSWER_KINDS,
+  CATALOG_TOOL_PARAMETERS,
+  TRANSLATION_LOCALES,
+  WEB_TOOL_PARAMETERS,
+} from "../src/agent-tool-parameters.js";
 import {
   ANSWER_TOOL_NAME,
   ANSWER_TOOL_SCHEMA,
   CATALOG_TOOL_SCHEMAS,
   CHAT_RESPONSE_INTENTS,
+  WEB_TOOL_SCHEMAS,
 } from "../src/agent-tool-schemas.js";
 import { ChatResponseDataPart } from "../src/chat-data-parts.js";
 import { TOOL_SCHEMA_MODULE_PATH, toolSchemaModule } from "../scripts/emit-tool-schemas.js";
@@ -74,5 +80,29 @@ describe("the answer tool seam (#1283)", () => {
   it("emits the intent vocabulary the response union itself declares", () => {
     const declared = ChatResponseDataPart.options.map((option) => option.shape.intent.value);
     expect([...CHAT_RESPONSE_INTENTS]).toStrictEqual(declared);
+  });
+});
+
+describe("the web tool schema seam (#1287)", () => {
+  it("emits one schema per declared web tool", () => {
+    expect(Object.keys(WEB_TOOL_SCHEMAS)).toStrictEqual(Object.keys(WEB_TOOL_PARAMETERS));
+  });
+
+  it("forbids a whitespace-only search query, the way Python's tools rejected one", () => {
+    expect(WEB_TOOL_SCHEMAS.web_search.properties.query?.pattern).toBe("\\S");
+    expect(WEB_TOOL_SCHEMAS.web_search.required).toStrictEqual(["query"]);
+  });
+
+  it("offers the model the three locales Python translated between, and no fourth", () => {
+    expect(WEB_TOOL_SCHEMAS.translate_anime_title.properties.target_language?.enum).toStrictEqual([
+      ...TRANSLATION_LOCALES,
+    ]);
+  });
+
+  it("requires both of translate_anime_title's arguments and refuses invented ones", () => {
+    const schema = WEB_TOOL_SCHEMAS.translate_anime_title;
+    expect(schema.required).toStrictEqual(["title", "target_language"]);
+    expect(schema.additionalProperties).toBe(false);
+    expect(WEB_TOOL_SCHEMAS.web_search.additionalProperties).toBe(false);
   });
 });

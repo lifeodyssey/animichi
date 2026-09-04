@@ -29,6 +29,7 @@ import {
   ANSWER_TOOL_NAME,
   AnswerParameters,
   CATALOG_TOOL_PARAMETERS,
+  WEB_TOOL_PARAMETERS,
 } from "../src/agent-tool-parameters.js";
 import { ChatResponseDataPart } from "../src/chat-data-parts.js";
 
@@ -45,7 +46,7 @@ const BANNER = `/**
  * This module imports no value, so \`workers/edge\` can load it under node:test.
  */
 
-import type { CatalogToolName } from "./agent-tool-parameters.js";
+import type { CatalogToolName, WebToolName } from "./agent-tool-parameters.js";
 
 /** One parameter's constraints, as the model's provider receives them. */
 export interface ToolParameterProperty {
@@ -78,12 +79,34 @@ function rendered(parameters: z.ZodType): string {
   return JSON.stringify(jsonSchemaFor(parameters), null, 2).replaceAll("\n", "\n  ");
 }
 
-/** The generated module's body: one entry per tool, keyed by tool name. */
-function schemaTable(): string {
-  const entries = Object.entries(CATALOG_TOOL_PARAMETERS).map(
-    ([name, parameters]) => `  ${name}: ${rendered(parameters)},`,
+/** One table of schemas, keyed by the tool name the model calls. */
+function schemaTable(
+  parameters: Readonly<Record<string, z.ZodType>>,
+  declaration: string,
+  comment: string,
+): string {
+  const entries = Object.entries(parameters).map(
+    ([name, schema]) => `  ${name}: ${rendered(schema)},`,
   );
-  return `\n/** Every catalog tool's parameter schema, keyed by the name the model calls. */\nexport const CATALOG_TOOL_SCHEMAS: Record<CatalogToolName, ToolParameterSchema> = {\n${entries.join("\n")}\n};\n`;
+  return `\n/** ${comment} */\nexport const ${declaration} = {\n${entries.join("\n")}\n};\n`;
+}
+
+/** The four catalog tools' schemas. */
+function catalogSchemaTable(): string {
+  return schemaTable(
+    CATALOG_TOOL_PARAMETERS,
+    "CATALOG_TOOL_SCHEMAS: Record<CatalogToolName, ToolParameterSchema>",
+    "Every catalog tool's parameter schema, keyed by the name the model calls.",
+  );
+}
+
+/** The two web tools' schemas — the same seam, a table of their own (#1287). */
+function webSchemaTable(): string {
+  return schemaTable(
+    WEB_TOOL_PARAMETERS,
+    "WEB_TOOL_SCHEMAS: Record<WebToolName, ToolParameterSchema>",
+    "Every web tool's parameter schema, keyed by the name the model calls.",
+  );
 }
 
 /**
@@ -110,7 +133,7 @@ function chatResponseIntents(): string {
 
 /** The full text of `src/agent-tool-schemas.ts`. */
 export function toolSchemaModule(): string {
-  return `${BANNER}${schemaTable()}${answerSchema()}${chatResponseIntents()}`;
+  return `${BANNER}${catalogSchemaTable()}${webSchemaTable()}${answerSchema()}${chatResponseIntents()}`;
 }
 
 /** The path the emitted module is committed at. */

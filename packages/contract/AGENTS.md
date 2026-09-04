@@ -10,9 +10,11 @@ them. Root guide: `../../AGENTS.md`; detailed mirror checklist: `README.md`.
 - `pnpm run emit:openapi` — regenerate `openapi.json`, `users-openapi.json`, and `agent-openapi.json`.
 - `pnpm run emit:tool-schemas` — regenerate `src/agent-tool-schemas.ts` from
   `src/agent-tool-parameters.ts`. This is the repo's **single** zod↔JSON-Schema conversion
-  (agent TS rewrite spec §二, "schema 边界"): the agent's four catalog tool parameter schemas and
-  the `respond` answer tool's are declared here in zod, composed from the catalog's own request
-  constraints, and `workers/edge` consumes the generated module without loading zod. The module
+  (agent TS rewrite spec §二, "schema 边界"): the agent's four catalog tool parameter schemas, the
+  two web tools' (`web_search`, `translate_anime_title`, #1287) and the `respond` answer tool's are
+  declared here in zod — the catalog ones composed from the catalog's own request constraints, the
+  web ones composing nothing because there is no second declaration for them to agree with — and
+  `workers/edge` consumes the generated module without loading zod. The module
   also carries `ANSWER_TOOL_NAME` and `CHAT_RESPONSE_INTENTS` (read off `ChatResponseDataPart`'s
   own union, #1283) for the same reason — the Worker names the tool and builds the part but cannot
   load zod to learn either vocabulary. `test/agent-tool-schemas.test.ts` fails on committed drift,
@@ -45,8 +47,8 @@ on this landing, because after it lands merge-base IS the post-cut contract.
 ## Key files + entrypoints
 
 - `src/models.ts` — shared Zod data models.
-- `src/agent-tool-parameters.ts` — the agent's catalog tool parameters and the `respond` answer
-  tool's, in zod (not a wire type: no oRPC procedure and no OpenAPI document references them) ·
+- `src/agent-tool-parameters.ts` — the agent's catalog tool parameters, the two web tools' and the
+  `respond` answer tool's, in zod (not a wire type: no oRPC procedure and no OpenAPI document references them) ·
   `src/agent-tool-schemas.ts` — their generated JSON Schema · `scripts/emit-tool-schemas.ts` — the
   conversion · `test/agent-tool-schemas.test.ts` — its drift gate ·
   `test/chat-answer-part.test.ts` — the conformance gate on the edge's `data-response` projection.

@@ -78,10 +78,11 @@ export async function makeAnsweredTurn(parts: AnsweredTurnParts): Promise<Answer
     () => NOW,
   );
   const session = new TurnCatalogSession({ locale: "ja" });
+  const models = makeScriptedModels(parts.streamFn ?? makeSequencedToolCallsStreamFn(parts.calls ?? []));
   const state = await new DurableTurn({
     store,
-    models: makeScriptedModels(parts.streamFn ?? makeSequencedToolCallsStreamFn(parts.calls ?? [])),
-    toolbox: turnToolbox({ CATALOG: catalogBinding(parts.resolveOutcome ?? RESOLVED_LUCKY_STAR) }, session),
+    models,
+    toolbox: turnToolbox({ CATALOG: catalogBinding(parts.resolveOutcome ?? RESOLVED_LUCKY_STAR) }, session, models),
     answering: new TurnAnswering(session),
     systemPrompt: "test",
     prices: PRICES,

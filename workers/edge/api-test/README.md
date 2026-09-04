@@ -1,11 +1,38 @@
 # `api-test/` — the agent tier's staging lane (W1-4 #1253, unblocked by W1-7 #1256)
 
-Opt-in, never in CI, never in a deploy unit. Two files, one per question:
+Opt-in, never in CI, never in a deploy unit. Three suites, one per question, over one
+shared door — `lane-origin.ts`, which resolves `CATALOG_API_ORIGIN` and
+`AGENT_TURN_BEARER` for all of them and refuses a non-HTTPS origin before any token
+is sent. No lane reads those variables for itself; `test/web-search-lane.test.ts`
+fails if one starts to.
 
 - `catalog-api.test.ts` — the catalog has no public door (spec Appendix D).
 - `agent-turn.test.ts` — one real turn through the deployed edge actually calls a
   catalog tool, and the turn is readable back by conversation id. This is the
   **(api)** evidence #1253 had to defer.
+- `web-search-turn.test.ts` — one real turn calls `web_search`, and what came
+  back is wrapped in the untrusted preamble (W2-1 #1287). This is the only
+  question the unit suite cannot answer: whether Cloudflare's egress reaches
+  `html.duckduckgo.com`, and whether that endpoint answers a Worker the way it
+  answered the laptop the adapter was measured on. A `tool-output-available`
+  whose text starts with the preamble means the hop worked.
+
+  A `Search failed for '<query>': <detail>` sentence means the search did not
+  complete, and that is ALL it means on its own — the tool degrades every one of
+  its failures into that one sentence rather than throwing. The `<detail>` is
+  what tells them apart, and each spelling has a different fix:
+
+  | `<detail>` | what happened | what to do |
+  |---|---|---|
+  | `egress denied: host_not_allowlisted` (or another `EgressDenyReason`) | our own guard refused the destination — typically a redirect off `html.duckduckgo.com` | read `web-search-egress.ts`; a legitimate new host is a reviewed allowlist edit, never a widened rule |
+  | `search backend answered 202` | the anti-bot answer: DuckDuckGo served the Worker a challenge instead of results | the backend refused THIS caller; a keyed API behind the same `WebSearcher` port is the fix |
+  | `search backend answered 429` / `5xx` | rate limited or upstream trouble, not a refusal of Workers as such | re-run the lane before concluding anything |
+  | `the search timed out` | the 10s budget elapsed | check whether the hop is slow or hung; re-run before concluding |
+
+  Anything else in `<detail>` came from the runtime (a DNS or TLS failure, say),
+  which means the request never reached the backend at all. Every one of these
+  is also on the server side as a `web_search_failed` entry in Workers Logs,
+  with the same text — so a turn nobody was watching can still be diagnosed.
 
 ```sh
 CATALOG_API_ORIGIN=https://staging.animichi.com \

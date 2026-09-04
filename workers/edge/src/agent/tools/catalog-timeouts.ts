@@ -31,8 +31,15 @@ export const CATALOG_MAX_ATTEMPTS = 3;
  */
 export type ToolBudget = (signal?: AbortSignal) => AbortSignal;
 
-/** The production budget: the turn's own deadline, and this tool's 85 seconds. */
-export const catalogToolBudget: ToolBudget = (signal) => {
+/**
+ * The production budget: the turn's own deadline, and this tool's 85 seconds.
+ *
+ * Named for the execution rather than for the catalog because it is not the
+ * catalog's: `translate_anime_title` runs under the same ceiling (#1287), and
+ * `web_search` under its own tighter one. This is simply the deadline pi does
+ * not enforce.
+ */
+export const toolExecutionBudget: ToolBudget = (signal) => {
   const own = AbortSignal.timeout(CATALOG_TOOL_TIMEOUT_MS);
   return signal ? AbortSignal.any([signal, own]) : own;
 };

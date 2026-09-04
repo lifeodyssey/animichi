@@ -17,8 +17,10 @@ import type {
   ResolveAnimeParameters,
   SearchBangumiParameters,
   SearchNearbyParameters,
+  TranslateAnimeTitleParameters,
+  WebSearchParameters,
 } from "@animichi/contract/agent-tool-parameters";
-import { CATALOG_TOOL_SCHEMAS } from "@animichi/contract/agent-tool-schemas";
+import { CATALOG_TOOL_SCHEMAS, WEB_TOOL_SCHEMAS } from "@animichi/contract/agent-tool-schemas";
 
 /**
  * A generated JSON Schema carrying the static type of the arguments it accepts.
@@ -57,4 +59,14 @@ export const searchNearbyParameters = toolParameters<SearchNearbyParameters>(
 /** `plan_route`'s parameters. */
 export const planRouteParameters = toolParameters<PlanRouteParameters>(
   CATALOG_TOOL_SCHEMAS.plan_route,
+);
+
+/** `web_search`'s parameters. */
+export const webSearchParameters = toolParameters<WebSearchParameters>(
+  WEB_TOOL_SCHEMAS.web_search,
+);
+
+/** `translate_anime_title`'s parameters. */
+export const translateAnimeTitleParameters = toolParameters<TranslateAnimeTitleParameters>(
+  WEB_TOOL_SCHEMAS.translate_anime_title,
 );

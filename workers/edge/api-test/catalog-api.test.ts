@@ -11,8 +11,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-
-const ORIGIN = process.env.CATALOG_API_ORIGIN;
+import { laneOrigin as origin } from "./lane-origin.ts";
 
 /** How long this whole lane may spend waiting on staging. One deadline, shared
  * by every request it makes: a staging origin that accepts a connection and
@@ -21,12 +20,6 @@ const ORIGIN = process.env.CATALOG_API_ORIGIN;
  * failure rather than a prompt that never returns. */
 const LANE_DEADLINE_MS = 15_000;
 const laneDeadline = AbortSignal.timeout(LANE_DEADLINE_MS);
-
-/** The origin under test, or a loud refusal. */
-function origin(): string {
-  assert.ok(ORIGIN, "set CATALOG_API_ORIGIN (see api-test/README.md); this lane never guesses");
-  return ORIGIN.replace(/\/$/, "");
-}
 
 /** The catalog procedures the four tools call. */
 const TOOL_PROCEDURES = ["resolve", "points-by-bangumi-id", "nearby", "geocode", "itinerary"];

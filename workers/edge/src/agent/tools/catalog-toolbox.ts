@@ -12,7 +12,7 @@
 
 import type { TurnTool } from "../session/turn-toolbox.ts";
 import type { CatalogClient } from "./catalog-client.ts";
-import { catalogToolBudget } from "./catalog-timeouts.ts";
+import { toolExecutionBudget } from "./catalog-timeouts.ts";
 import type { ToolBudget } from "./catalog-timeouts.ts";
 import type { CatalogToolSession } from "./catalog-tool-session.ts";
 import { planRouteTool } from "./plan-route-tool.ts";
@@ -30,7 +30,7 @@ import { searchNearbyTool } from "./search-nearby-tool.ts";
 export function catalogToolbox(
   catalog: CatalogClient,
   session: CatalogToolSession,
-  budget: ToolBudget = catalogToolBudget,
+  budget: ToolBudget = toolExecutionBudget,
 ): readonly TurnTool[] {
   return [
     resolveAnimeTool(catalog, session, budget),

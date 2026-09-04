@@ -7,10 +7,16 @@
  * configuration enters (the provider key, the prices, the tools), and none of
  * that has anything to do with routing a request or keeping a queue.
  */
+import type { MutableModels } from "@earendil-works/pi-ai";
 import { withAgentDatabase } from "../../db/agent-database.ts";
 import { usagePricesIn } from "../settlement/turn-settlement.ts";
-import { catalogToolbox } from "../tools/catalog-toolbox.ts";
+import { webSearchFetch } from "../egress/web-search-egress.ts";
+import { agentToolbox } from "../tools/agent-toolbox.ts";
+import type { CatalogClient } from "../tools/catalog-client.ts";
+import { duckduckgoWebSearcher } from "../tools/duckduckgo-web-searcher.ts";
+import { toollessCompletion, type ModelStream } from "../tools/model-title-translation.ts";
 import { serviceBindingCatalog, type CatalogBinding } from "../tools/service-binding-catalog.ts";
+import { titleTranslator, type TitleTranslator } from "../tools/title-translation.ts";
 import { DurableTurn } from "./durable-turn.ts";
 import { EnvelopeStagingStore } from "./envelope-staging-store.ts";
 import { NeonTurnStore } from "./neon-turn-store.ts";
@@ -18,7 +24,7 @@ import { TurnAnswering } from "./turn-answer.ts";
 import type { SessionEnvelopeStore } from "./session-envelope.ts";
 import { TurnEnvelope } from "./turn-envelope.ts";
 import type { TurnCatalogSession } from "./turn-catalog-session.ts";
-import { createTurnModels, mimoKeyIn } from "./turn-model.ts";
+import { createTurnModels, mimoKeyIn, turnModel } from "./turn-model.ts";
 import type { TurnFrameSink } from "./turn-subscribers.ts";
 import { EMPTY_TOOLBOX, type Toolbox } from "./turn-toolbox.ts";
 import type { TurnStore } from "./turn-store.ts";
@@ -48,18 +54,38 @@ function catalogBindingIn(env: Record<string, unknown>): CatalogBinding | undefi
   return undefined;
 }
 
+/** The turn's own model, streamed tool-less, behind the translation's port. */
+function turnTranslator(catalog: CatalogClient, models: MutableModels): TitleTranslator {
+  const stream: ModelStream = (model, context, options) =>
+    models.streamSimple(model, context, options);
+  return titleTranslator(catalog, toollessCompletion(turnModel(models), stream));
+}
+
 /**
  * The tools a turn may call: the four catalog tools over the private binding,
- * bound to this turn's own session state (#1253).
+ * plus the two web tools (#1287), bound to this turn's own session state.
  *
  * A missing binding yields `EMPTY_TOOLBOX` rather than a throw. The gateway
  * tests build envs without one, and a turn that can still answer from the model
- * is a better failure than an alarm that dies before it takes its lease.
+ * is a better failure than an alarm that dies before it takes its lease. The
+ * web tools go with them rather than being offered alone: `translate_anime_title`
+ * needs the same catalog, and a turn holding half a toolbox is a shape nothing
+ * in the prompt describes.
+ *
+ * `models` is here for one reason — `translate_anime_title`'s fallback path is
+ * a tool-less call on the TURN's own model, exactly as Python's translation
+ * sub-agent inherited `ctx.model`.
  */
-export function turnToolbox(env: Record<string, unknown>, session: TurnCatalogSession): Toolbox {
+export function turnToolbox(
+  env: Record<string, unknown>,
+  session: TurnCatalogSession,
+  models: MutableModels,
+): Toolbox {
   const binding = catalogBindingIn(env);
   if (binding === undefined) return EMPTY_TOOLBOX;
-  const tools = catalogToolbox(serviceBindingCatalog(binding, sleep), session);
+  const catalog = serviceBindingCatalog(binding, sleep);
+  const search = duckduckgoWebSearcher(webSearchFetch());
+  const tools = agentToolbox({ catalog, session, search, translate: turnTranslator(catalog, models) });
   return { tools: () => tools };
 }
 
@@ -82,10 +108,11 @@ function configuredTurn(
   apiKey: string,
   envelope: TurnEnvelope,
 ): DurableTurn {
+  const models = createTurnModels(apiKey);
   return new DurableTurn({
     store: new EnvelopeStagingStore(store, envelope),
-    models: createTurnModels(apiKey),
-    toolbox: turnToolbox(parts.env, envelope.session),
+    models,
+    toolbox: turnToolbox(parts.env, envelope.session, models),
     answering: new TurnAnswering(envelope.session),
     systemPrompt: envelope.systemPrompt,
     prices: usagePricesIn(parts.env),
