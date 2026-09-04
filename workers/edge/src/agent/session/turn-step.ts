@@ -19,7 +19,7 @@
  * `run_steps` 一起持久化并从转录重放"). Writing them together is what makes the
  * crash branch safe in both directions — a persisted step always has the message
  * that explains it, and a persisted message always has at least its first
- * answer, so `seededMessages` never rebuilds a transcript that ends on an
+ * answer, so `resumedTranscript` never rebuilds a transcript that ends on an
  * unanswered call.
  *
  * IT ALSO KEEPS THE RUN'S STEP LIST, for the fact recorder (#1290). Python
@@ -40,6 +40,7 @@
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { RecordedStep } from "../memory/turn-fact-recorder.ts";
+import type { MintedRefs, StepMint } from "./minted-refs.ts";
 import { TurnStoreUnavailable, type RunMachine } from "./run-machine.ts";
 import type { TurnOutput } from "./turn-output.ts";
 import type { TurnTool } from "./turn-toolbox.ts";
@@ -58,6 +59,11 @@ export interface TurnStepParts {
   readonly turn: LoadedTurn;
   readonly output: TurnOutput;
   readonly machine: RunMachine;
+  /** The run's ref registry, which every settled step reports back to (#1279). */
+  readonly refs: MintedRefs;
+  /** How many of this run's settled steps the resumed transcript already
+   * answers — where this attempt's numbering starts (#1279). */
+  readonly resumedSteps: number;
   /** The Durable Object incarnation holding this run's single-writer lease. */
   readonly owner: string;
   readonly now: () => number;
@@ -67,14 +73,17 @@ function toolResultOf(result: StepResult): AgentToolResult<JsonValue> {
   return { content: result.content, details: result.details };
 }
 
-/** One executed tool call: what it was asked, and what it answered. */
+/** One executed tool call: what it was asked, what it answered, and the refs
+ * it minted while answering. */
 interface ToolCall {
   readonly input: JsonValue;
   readonly result: AgentToolResult<JsonValue>;
+  readonly minted: readonly StepMint[];
 }
 
 /** One executed call as `run_steps` stores it, with the assistant message it
- * opens when it is the first step of that assistant turn. */
+ * opens when it is the first step of that assistant turn, and the refs it
+ * minted (#1279). */
 function settledStep(
   stepIndex: number,
   toolName: string,
@@ -82,7 +91,8 @@ function settledStep(
   opening: ToolCallEnvelope | null,
 ): SettledStep {
   const { content, details } = call.result;
-  return { stepIndex, toolName, input: call.input, result: { content, details }, toolCallMessage: opening };
+  const result = { content, details, minted: call.minted };
+  return { stepIndex, toolName, input: call.input, result, toolCallMessage: opening };
 }
 
 export class TurnSteps {
@@ -95,7 +105,7 @@ export class TurnSteps {
 
   constructor(parts: TurnStepParts) {
     this.#parts = parts;
-    this.#sequence = new StepSequence(parts.turn);
+    this.#sequence = new StepSequence(parts.turn, parts.resumedSteps);
   }
 
   /** True once a persistence transaction found the lease in another owner's hands. */
@@ -168,9 +178,12 @@ export class TurnSteps {
     const stepIndex = this.#sequence.take();
     const settled = this.#sequence.settled(stepIndex);
     if (settled !== null) return this.#recorded(toolName, input, toolResultOf(settled));
+    const { refs, output } = this.#parts;
+    const mark = refs.mintCount;
     const result = await execute();
-    const opening = this.#sequence.opening(stepIndex, this.#parts.output.assistantMessage);
-    await this.#settle(settledStep(stepIndex, toolName, { input, result }, opening));
+    const opening = this.#sequence.opening(stepIndex, output.assistantMessage);
+    const minted = refs.mintedSince(mark);
+    await this.#settle(settledStep(stepIndex, toolName, { input, result, minted }, opening));
     return this.#recorded(toolName, input, result);
   }
 

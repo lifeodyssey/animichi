@@ -6,21 +6,28 @@
  * separate from what a step does with them: which index comes next, what is
  * already settled under an index, and which assistant message opened one.
  *
- * The counter runs from zero on every attempt, deliberately. A retry replays
- * the settled steps in place rather than skipping past them, so the k-th tool
- * call of the run is step k on the first attempt and on every later one —
- * which is what makes the key an idempotency key rather than a log line.
+ * The counter starts where the REBUILT TRANSCRIPT stopped (#1279). The k-th
+ * tool call of the run is step k on the first attempt and on every later one —
+ * which is what makes the key an idempotency key rather than a log line — and
+ * a retry reaches that in one of two ways. A settled step whose call the
+ * transcript already answers is never asked for again, so the counter must
+ * start past it; a settled step under a dropped assistant message is asked for
+ * again and replayed in place. `resumedTranscript` is what tells the two apart,
+ * because it is the walk that decides which rows survive.
  */
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { LoadedTurn, StepResult, ToolCallEnvelope } from "./turn-store.ts";
 
 export class StepSequence {
   readonly #turn: LoadedTurn;
-  #next = 0;
+  #next: number;
   #openedBy: AssistantMessage | null = null;
 
-  constructor(turn: LoadedTurn) {
+  /** `resumedSteps` is how many of this run's settled steps the transcript the
+   * loop resumes from already answers. */
+  constructor(turn: LoadedTurn, resumedSteps: number) {
     this.#turn = turn;
+    this.#next = resumedSteps;
   }
 
   /** The index of the step about to be resolved. */

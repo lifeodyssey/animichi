@@ -16,6 +16,7 @@
  * needs no second implementation to be true on the retry.
  */
 import { isJsonRecord } from "../json-record.ts";
+import { storedItinerary, storedSearchResult } from "../tools/stored-payload.ts";
 import type { ItineraryPayload, SearchResultPayload } from "../tools/catalog-tool-session.ts";
 
 /** The status every selection path reports on a catalog that would not answer.
@@ -44,18 +45,6 @@ export function selectionRecord(record: Partial<SelectionRecord> & { status: str
   return { search: null, itinerary: null, omitted: [], ...record };
 }
 
-/** A stored search payload, checked on the one field every reader branches on. */
-function storedSearch(value: unknown): SearchResultPayload | null {
-  if (!isJsonRecord(value) || !Array.isArray(value.rows)) return null;
-  return typeof value.row_count === "number" ? (value as unknown as SearchResultPayload) : null;
-}
-
-/** A stored route, checked the way `expectItinerary` checks a catalog body. */
-function storedItinerary(value: unknown): ItineraryPayload | null {
-  if (!isJsonRecord(value) || !Array.isArray(value.ordered_points)) return null;
-  return isJsonRecord(value.timed_itinerary) ? (value as unknown as ItineraryPayload) : null;
-}
-
 function storedTitles(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
@@ -74,7 +63,7 @@ export function recordIn(details: unknown): SelectionRecord {
   if (!isJsonRecord(details) || typeof details.status !== "string") return refusedRecord();
   return {
     status: details.status,
-    search: storedSearch(details.search),
+    search: storedSearchResult(details.search),
     itinerary: storedItinerary(details.itinerary),
     omitted: storedTitles(details.omitted),
   };

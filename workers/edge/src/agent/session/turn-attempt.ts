@@ -16,6 +16,8 @@ import type { LoadedTurn } from "./turn-store.ts";
 import type { TurnMemory } from "../memory/session-memory.ts";
 import { recordTurnFacts } from "../memory/turn-fact-recorder.ts";
 import { createTurnAgent } from "./turn-agent.ts";
+import { rehydrateRefs, type MintedRefs } from "./minted-refs.ts";
+import { resumedTranscript, type ResumedTranscript } from "./turn-transcript.ts";
 import { UNANSWERED_TURN, type TurnAnswer, type TurnAnswering } from "./turn-answer.ts";
 import { ProviderFailure, type RunMachine } from "./run-machine.ts";
 import type { SecretScrub } from "../egress/secret-scrub.ts";
@@ -47,6 +49,9 @@ export interface TurnAttemptParts {
   /** What this session remembers (#1290): the fact ledger compaction rescues
    * entities into, and the recorder appends this turn's facts to. */
   readonly memory: TurnMemory;
+  /** The refs this RUN minted (#1279): where a settled step reports the ones
+   * it added, and where a retry puts the earlier attempts' back. */
+  readonly refs: MintedRefs;
   /** How a DETERMINISTIC selection turn is answered (#1288), or null when this
    * deployment cannot answer one — the catalog binding it needs is the same
    * one `turnToolbox` needs, and an environment without it has no tools either. */
@@ -63,6 +68,15 @@ export interface TurnAttemptParts {
 function modelFor(model: TurnModel | null): TurnModel {
   if (model === null) throw new ProviderFailure("this deployment resolved no model for this turn");
   return model;
+}
+
+/** A turn driven without a model resumes nothing: only a DETERMINISTIC
+ * selection is (#1288), it has no history to re-clothe, and its one step is
+ * numbered from zero. */
+const UNRESUMED: ResumedTranscript = { messages: [], settledSteps: 0 };
+
+function resumedFor(turn: LoadedTurn, model: TurnModel | null): ResumedTranscript {
+  return model === null ? UNRESUMED : resumedTranscript(turn, model.model);
 }
 
 /**
@@ -97,13 +111,16 @@ export class TurnAttempt {
   readonly #parts: TurnAttemptParts;
   readonly #turn: LoadedTurn;
   readonly #machine: RunMachine;
+  readonly #resumed: ResumedTranscript;
 
   constructor(turn: LoadedTurn, machine: RunMachine, parts: TurnAttemptParts) {
     this.#turn = turn;
     this.#machine = machine;
     this.#parts = parts;
-    const { store, owner, now } = parts;
-    this.steps = new TurnSteps({ store, turn, output: this.output, machine, owner, now });
+    this.#resumed = resumedFor(turn, parts.model);
+    const { store, owner, now, refs } = parts;
+    const resumedSteps = this.#resumed.settledSteps;
+    this.steps = new TurnSteps({ store, turn, output: this.output, machine, refs, resumedSteps, owner, now });
   }
 
   /** What this attempt answered, once its pi run has ended. */
@@ -123,6 +140,14 @@ export class TurnAttempt {
    * references came from in the first place (#1288 × #1290) — a turn that
    * throws records nothing either way, since the throw leaves before this line.
    *
+   * THE REFS COME BACK FIRST (#1279). A settled step is replayed from
+   * `run_steps.result` without calling `execute`, so the registry the tools
+   * mint through is empty on a retry unless it is rebuilt — and a `plan_route`
+   * naming a ref an earlier attempt minted would answer `stale_ref` instead of
+   * planning. It is one line here rather than inside `TurnSteps` because it is
+   * about the whole run rather than about one step, and it has to be done
+   * before the FIRST step of either path.
+   *
    * A submission that carried a selection never reaches a model — Python routed
    * one straight to its handler and so does this (`_kind_from_request`) — so
    * the branch is here rather than inside the loop: a selection has no
@@ -130,6 +155,7 @@ export class TurnAttempt {
    * one of those would have to be defended against inside the pi path.
    */
   async drive(): Promise<void> {
+    rehydrateRefs(this.#parts.refs, this.#turn.steps);
     const request = this.#turn.selection;
     if (request === null) await this.#modelled(modelFor(this.#parts.model));
     else await this.#select(request);
@@ -165,7 +191,8 @@ export class TurnAttempt {
     const { systemPrompt, toolbox, emit, answering, memory } = this.#parts;
     const tools = [...this.steps.wrap(toolbox.tools()), answering.tool()];
     const shouldStop = () => this.#stops();
-    return { model, systemPrompt, turn: this.#turn, tools, memory, output: this.output, emit, shouldStop };
+    const messages = this.#resumed.messages;
+    return { model, systemPrompt, messages, tools, memory, output: this.output, emit, shouldStop };
   }
 
   /** Between turns: the answer, the budget, the lease and the store all get a
