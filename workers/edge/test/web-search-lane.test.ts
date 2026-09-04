@@ -1,50 +1,73 @@
 /**
- * W2-1 (#1287) lane contract: the web-search staging lane cannot leak its
- * bearer token onto a plaintext wire.
+ * W2-1 (#1287) lane contract: no staging lane can leak its bearer token onto a
+ * plaintext wire.
  *
  * `api-test/` talks to a real deployed origin, so this suite cannot execute it
- * — what it CAN do is read the lane verbatim, exactly as
- * `catalog-api-lane.test.ts` reads its own. The invariant here is the one an
+ * — what it CAN do is read the lanes verbatim, exactly as
+ * `catalog-api-lane.test.ts` reads its own. The invariant is the one an
  * operator trips by exporting `CATALOG_API_ORIGIN=http://localhost:8787` for a
- * local experiment: every request in that file carries a real Neon Auth access
- * token, so the origin has to be refused before the token is sent, not after.
+ * local experiment: those requests carry a real Neon Auth access token, so the
+ * origin has to be refused before the token is sent, not after.
  *
- * test-type: unit (reads a checked-in file; no network, no clock).
+ * The check that matters most is the LAST one. A guard on one lane is a guard
+ * one new lane forgets, so `lane-origin.ts` is the single door and this asserts
+ * that it stays single: any lane resolving `process.env.CATALOG_API_ORIGIN` for
+ * itself is a second door, and a second door is one nobody guarded.
+ *
+ * test-type: unit (reads checked-in files; no network, no clock).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { URL, fileURLToPath } from "node:url";
 
-const LANE = readFileSync(fileURLToPath(new URL("../api-test/web-search-turn.test.ts", import.meta.url)), "utf8");
+/** One file of the staging lane directory, read verbatim. */
+function laneFile(name: string): string {
+  return readFileSync(fileURLToPath(new URL(`../api-test/${name}`, import.meta.url)), "utf8");
+}
+
+/** Every lane `pnpm run test:catalog-api` actually executes. */
+const LANE_SUITES = ["catalog-api.test.ts", "agent-turn.test.ts", "web-search-turn.test.ts"];
+
+const DOOR = laneFile("lane-origin.ts");
+const LANE = laneFile("web-search-turn.test.ts");
 const RUNBOOK = readFileSync(fileURLToPath(new URL("../api-test/README.md", import.meta.url)), "utf8");
 const TOOL = readFileSync(fileURLToPath(new URL("../src/agent/tools/web-search-tool.ts", import.meta.url)), "utf8");
 const SEARCHER = readFileSync(fileURLToPath(new URL("../src/agent/tools/duckduckgo-web-searcher.ts", import.meta.url)), "utf8");
 const EGRESS = readFileSync(fileURLToPath(new URL("../src/agent/egress/egress-decision.ts", import.meta.url)), "utf8");
 
-/** The body of the lane's own `origin()`, the single door every request uses. */
+/** The body of the shared `laneOrigin()`, the one door every request uses. */
 function originFunction(): string {
-  const start = LANE.indexOf("function origin(): string {");
-  assert.notEqual(start, -1, "the lane must resolve its origin in one named place");
-  const end = LANE.indexOf("\n}", start);
-  return LANE.slice(start, end);
+  const start = DOOR.indexOf("export function laneOrigin(): string {");
+  assert.notEqual(start, -1, "the lanes must resolve their origin in one named place");
+  return DOOR.slice(start, DOOR.indexOf("\n}", start));
 }
 
-void test("the lane refuses a non-HTTPS origin, and does it where the origin is read", () => {
+void test("the shared door refuses a non-HTTPS origin, where the origin is read", () => {
   assert.match(originFunction(), /"https:"/);
   assert.match(originFunction(), /new URL\(ORIGIN\)\.protocol/);
 });
 
-void test("every request the lane makes resolves its origin through that one door", () => {
+void test("no lane opens a second door onto the origin or the credential", () => {
+  const own = LANE_SUITES.filter((name) => /process\.env\.(CATALOG_API_ORIGIN|AGENT_TURN_BEARER)/.test(laneFile(name)));
+  assert.deepEqual(own, [], "these lanes read the environment instead of lane-origin.ts");
+});
+
+void test("every lane that makes a request resolves it through that door", () => {
+  const importing = LANE_SUITES.filter((name) => laneFile(name).includes('from "./lane-origin.ts"'));
+  assert.deepEqual(importing, LANE_SUITES);
+});
+
+void test("every request the web-search lane makes goes through the door", () => {
   const requests = [...LANE.matchAll(/`\$\{origin\(\)\}/g)];
   const urls = [...LANE.matchAll(/fetch\(\s*`/g)];
   assert.equal(requests.length, urls.length);
   assert.ok(urls.length > 0, "the lane makes no requests at all");
 });
 
-void test("the lane still refuses to guess an origin or a credential", () => {
-  assert.match(LANE, /assert\.ok\(ORIGIN,/);
-  assert.match(LANE, /assert\.ok\(BEARER,/);
+void test("the door still refuses to guess an origin or a credential", () => {
+  assert.match(DOOR, /assert\.ok\(ORIGIN,/);
+  assert.match(DOOR, /assert\.ok\(BEARER,/);
 });
 
 /**

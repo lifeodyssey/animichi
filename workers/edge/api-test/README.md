@@ -1,6 +1,10 @@
 # `api-test/` — the agent tier's staging lane (W1-4 #1253, unblocked by W1-7 #1256)
 
-Opt-in, never in CI, never in a deploy unit. Three files, one per question:
+Opt-in, never in CI, never in a deploy unit. Three suites, one per question, over one
+shared door — `lane-origin.ts`, which resolves `CATALOG_API_ORIGIN` and
+`AGENT_TURN_BEARER` for all of them and refuses a non-HTTPS origin before any token
+is sent. No lane reads those variables for itself; `test/web-search-lane.test.ts`
+fails if one starts to.
 
 - `catalog-api.test.ts` — the catalog has no public door (spec Appendix D).
 - `agent-turn.test.ts` — one real turn through the deployed edge actually calls a
