@@ -56,6 +56,11 @@ import type { SecretScrub } from "../egress/secret-scrub.ts";
 export interface TurnModel {
   readonly registry: MutableModels;
   readonly model: Model<Api>;
+  /** Whether this model spends the CALLER's own credential. The loop refuses
+   * to drive a run committed as `payer = 'byok'` on a model for which this is
+   * false — spec §四 S5's "无 server-key fallback", held on the DO side rather
+   * than only at the request that opened the turn (#1289). */
+  readonly callerKeyed: boolean;
   readonly fetch?: EgressFetch;
   /** Runs over this turn's frames and provider error text before either can
    * reach a log or the wire. */
@@ -142,7 +147,7 @@ export function streamOptionsFor(
 /** The server-key turn: mimo-v2.5, direct, on the runtime's own fetch. */
 export function mimoTurnModel(apiKey: string): TurnModel {
   const registry = createTurnModels(apiKey);
-  return { registry, model: registeredMimo(registry) };
+  return { registry, model: registeredMimo(registry), callerKeyed: false };
 }
 
 /** The direct MiMo key from the Worker environment, or undefined when unbound. */

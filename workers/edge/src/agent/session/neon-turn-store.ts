@@ -24,7 +24,14 @@
 import { sql, type SQL } from "drizzle-orm";
 import type { AgentStatements, AgentTransactions } from "../../db/agent-database.ts";
 import { bareName } from "../../db/column-name.ts";
-import { MESSAGE_ROLES, messages, runSteps, runs, type RunFailureReason } from "../../db/schema.ts";
+import {
+  BYOK_PAYER,
+  MESSAGE_ROLES,
+  messages,
+  runSteps,
+  runs,
+  type RunFailureReason,
+} from "../../db/schema.ts";
 import { isJsonRecord } from "../json-record.ts";
 import { settleFailedTurn, settleSucceededTurn } from "../settlement/neon-turn-settlement.ts";
 import type { SettlementResult } from "../settlement/turn-settlement.ts";
@@ -69,7 +76,7 @@ function renewLeaseStatement(runId: string, owner: string, until: Date): SQL {
 }
 
 function selectRun(runId: string): SQL {
-  return sql`select ${runs.sessionId} as session_id,
+  return sql`select ${runs.sessionId} as session_id, ${runs.payer} as payer,
       (extract(epoch from ${runs.deadlineAt}) * 1000)::bigint::text as deadline_ms
     from ${runs} where ${runs.id} = ${runId} and ${runs.status} = 'running'`;
 }
@@ -155,6 +162,7 @@ async function loadTurnOn(statements: AgentStatements, runId: string): Promise<L
     deadlineAt: Number(textIn(run, "deadline_ms")),
     transcript: transcript.rows.map(toTranscriptRow).filter(present),
     steps: steps.rows.map(toPersistedStep).filter(present),
+    callerKeyed: textIn(run, "payer") === BYOK_PAYER,
   };
 }
 

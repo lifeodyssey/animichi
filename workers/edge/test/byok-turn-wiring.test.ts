@@ -47,7 +47,8 @@ function credential(): ByokCredential {
 /** A BYOK turn's model with its socket scripted: the credential decides the
  * scrub, the double decides what the model says. */
 function makeScriptedByokModel(streamFn: Parameters<typeof makeScriptedTurnModel>[0]): TurnModel {
-  return { ...makeScriptedTurnModel(streamFn), scrub: byokTurnModel(credential()).scrub };
+  const scrub = byokTurnModel(credential()).scrub;
+  return { ...makeScriptedTurnModel(streamFn), callerKeyed: true, scrub };
 }
 
 function makeStore(steps: ConstructorParameters<typeof InMemoryTurnStore>[0]["steps"] = []) {

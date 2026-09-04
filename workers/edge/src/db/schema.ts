@@ -50,6 +50,11 @@ export const RUN_PAYERS = ["anon", "user", "byok"] as const;
 /** One value of that domain — the type an intake carries before it is a row. */
 export type RunPayer = (typeof RUN_PAYERS)[number];
 
+/** The payer of a turn the CALLER paid for with their own provider key
+ * (#1289). Named so the loop can ask the question without spelling a literal
+ * that also has to match `runs_payer_check` and `daily_usage_scope_check`. */
+export const BYOK_PAYER: RunPayer = "byok";
+
 /**
  * Why a turn ended `failed` (`runs_failure_reason_check`). `lease_expired` and
  * `deadline_exceeded` are the reclaim scan's two verdicts; the rest are the

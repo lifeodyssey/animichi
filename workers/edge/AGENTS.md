@@ -168,9 +168,13 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   seeded with the key. `byok-probe.ts` is the one bounded probe behind `POST /v1/byok/probe`.
   **The credential is in memory only** — it rides `TurnSubmission` to the intake, the arm request
   to `AgentSession`, and that incarnation's heap to the alarm; no column, no `ctx.storage`, no
-  cache. It follows that a run whose incarnation was evicted between the arm and the alarm has
-  lost it, and nothing durable records that the run was BYOK; the request-path red line (an
-  unusable credential is a 400, never a server-key turn) is enforced at the gateway. One
+  cache. A run whose incarnation was evicted between the arm and the alarm therefore reaches the
+  alarm without it — and is REFUSED rather than driven on the server key: `runs.payer = 'byok'` is
+  the durable trace, `LoadedTurn.callerKeyed` reads it, and `DurableTurn` settles such a run
+  `provider_failed` (refund by `settleFailedTurn`'s own SQL, error closing frames so a connected
+  client can resend). The same refusal covers a `RunSweeper` re-arm, which carries no credential at
+  all. The request-path half of the red line — an unusable credential is a 400, never a server-key
+  turn — is enforced at the gateway. One
   deliberate difference from the Python tier, argued in `byok-headers.ts`: the
   `openai-compatible` family reaches `api.openai.com` and nothing else, because S5's first red
   line is an exact-host allowlist.

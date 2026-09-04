@@ -27,6 +27,9 @@ export interface SeededRun {
   readonly leaseExpiresAt?: number;
   readonly transcript: TranscriptRow[];
   readonly steps: PersistedStep[];
+  /** `runs.payer = 'byok'` — a run the caller paid for with their own key
+   * (#1289). Defaults to false, the payer every existing case seeds. */
+  readonly callerKeyed?: boolean;
 }
 
 export class InMemoryTurnStore implements TurnStore {
@@ -69,7 +72,9 @@ export class InMemoryTurnStore implements TurnStore {
     if (this.#status !== "running") return Promise.resolve(null);
     const { sessionId, deadlineAt } = this.#run;
     const transcript = [...this.transcript];
-    return Promise.resolve({ runId, sessionId, deadlineAt, transcript, steps: [...this.steps] });
+    const callerKeyed = this.#run.callerKeyed ?? false;
+    const steps = [...this.steps];
+    return Promise.resolve({ runId, sessionId, deadlineAt, transcript, steps, callerKeyed });
   }
 
   persistStep(

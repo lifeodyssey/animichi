@@ -48,7 +48,7 @@ function makeStep(stepIndex: number, result: StepResult | null): PersistedStep {
 }
 
 function makeTurn(transcript: TranscriptRow[], steps: PersistedStep[] = []): LoadedTurn {
-  return { runId: RUN_ID, sessionId: "session-1", deadlineAt: 0, transcript, steps };
+  return { runId: RUN_ID, sessionId: "session-1", deadlineAt: 0, transcript, steps, callerKeyed: false };
 }
 
 const USER: TranscriptRow = { role: "user", content: "Hyouka の聖地は？", responseData: null };

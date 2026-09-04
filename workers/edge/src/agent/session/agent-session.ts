@@ -58,14 +58,12 @@ export class AgentSession {
    * must not outlive it. `#arm` and `alarm()` are two calls on one incarnation,
    * which is the whole mechanism.
    *
-   * RESIDUAL, NAMED RATHER THAN HIDDEN: an eviction between the two, or a
-   * `RunSweeper` re-arm of a stranded run, reaches `#drive` with the entry
-   * gone, and this class cannot tell that run apart from a plain one — nothing
-   * durable records that it was BYOK. Such a run would be driven on the server
-   * key. Closing it needs a non-secret "this run is caller-keyed" marker
-   * somewhere durable, which is a decision about what the run row may say and
-   * is deliberately NOT taken here; the request-path red line (an invalid
-   * credential never becomes a server-key turn) is enforced at the gateway.
+   * AN EVICTION BETWEEN THE TWO — or a `RunSweeper` re-arm of a stranded run —
+   * reaches `#drive` with the entry gone, and this class cannot tell that run
+   * apart from a plain one. It does not have to: the RUN ROW can, because a
+   * caller-keyed turn is committed as `payer = 'byok'`, and `DurableTurn`
+   * refuses to drive such a run on the server key (see its header). The key
+   * itself is still written nowhere — only the fact that there was one.
    */
   readonly #credentials = new Map<string, ByokCredential>();
 

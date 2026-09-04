@@ -64,7 +64,7 @@ export function makeScriptedTurnModel(streamFn = makeToolCallingStreamFn()): Tur
       api: { stream: streamFn, streamSimple: streamFn },
     }),
   );
-  return { registry, model };
+  return { registry, model, callerKeyed: false };
 }
 
 /** How a turn under test answers (#1283): the `respond` tool over a session

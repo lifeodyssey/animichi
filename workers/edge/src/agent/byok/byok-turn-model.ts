@@ -104,7 +104,8 @@ export function byokTurnModel(credential: ByokCredential, egress: ByokEgress = {
   const registry = createModels();
   registry.setProvider(byokProvider(credential, model));
   const scrub = new SecretScrub([credential.secret]);
-  return { registry, model, fetch: guardedFetchFor(credential, egress), scrub };
+  const fetch = guardedFetchFor(credential, egress);
+  return { registry, model, callerKeyed: true, fetch, scrub };
 }
 
 function guardedFetchFor(credential: ByokCredential, egress: ByokEgress): EgressFetch {
