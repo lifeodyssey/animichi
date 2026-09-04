@@ -10,6 +10,10 @@
  * is on the rollup marker rather than on the status column, which is why one
  * case here settles a run that still says `running`.
  *
+ * The platform scope (#1292) is proven here for the same reason: WHICH day row
+ * a turn's off-run translation lands on is a fact about `daily_usage_scope_check`
+ * and the settling UPDATE's own RETURNING, and only a database holds both.
+ *
  * Each case settles on its own UTC day, because `daily_usage` is a shared day
  * aggregate: a case that had to subtract the cases before it would pass while
  * banking the wrong number.
@@ -19,6 +23,7 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { settleSucceededTurn } from "../src/agent/settlement/neon-turn-settlement.ts";
+import { NO_SUPPLEMENTAL_USAGE } from "../src/agent/settlement/supplemental-usage.ts";
 import type { SettlementResult, SucceededTurn } from "../src/agent/settlement/turn-settlement.ts";
 import type { AgentStatements, AgentTransactions } from "../src/db/agent-database.ts";
 import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
@@ -32,6 +37,9 @@ const USAGE = { requests: 2, inputTokens: 12_000, outputTokens: 3_000 };
 const TURN_COST = "0.007200";
 const ONE_TURN = { requests: 2, input_tokens: 12_000, output_tokens: 3_000, cost_usd: TURN_COST };
 const NO_TURN = { requests: 0, input_tokens: 0, output_tokens: 0, cost_usd: "0.000000" };
+/** One tool-less translation call: 400 × 0.3 + 100 × 1.2 = 240 micro-USD. */
+const TRANSLATION = { requests: 1, inputTokens: 400, outputTokens: 100 };
+const ONE_TRANSLATION = { requests: 1, input_tokens: 400, output_tokens: 100, cost_usd: "0.000240" };
 
 /** The settling instant of one case, late enough in its day to catch a slip. */
 function settlingAt(day: string): Date {
@@ -44,7 +52,17 @@ before(async () => { plane = await startAgentDataPlane(); }, { timeout: 300_000 
 after(() => plane.stop(), { timeout: 60_000 });
 
 function makeSucceededTurn(runId: string): SucceededTurn {
-  return { runId, usage: USAGE, prices: PRICES };
+  return { runId, usage: USAGE, supplemental: NO_SUPPLEMENTAL_USAGE, prices: PRICES };
+}
+
+/** The same turn, having also translated a title on a tool-less call (#1292). */
+function makeTranslatingTurn(runId: string): SucceededTurn {
+  return { ...makeSucceededTurn(runId), supplemental: TRANSLATION };
+}
+
+/** Settle a turn that translated, on the plane's own transactions. */
+function settleTranslating(runId: string, at: Date): Promise<SettlementResult> {
+  return plane.transactions.run((one) => settleSucceededTurn(one, makeTranslatingTurn(runId), at));
 }
 
 /**
@@ -140,4 +158,31 @@ void test("a BYOK turn is metered in its own scope, at no cost to the platform",
   assert.equal((await runSettlement(plane.database, runId)).cost_usd, "0.000000");
   assert.deepEqual(await bankedUsage(plane.database, "byok", day), { ...ONE_TURN, cost_usd: "0.000000" });
   assert.deepEqual(await bankedUsage(plane.database, "anon", day), NO_TURN);
+});
+
+void test("a caller-keyed turn's translation is banked on the platform, never on the caller", async () => {
+  const day = "2026-09-08";
+  const runId = await seedRun(plane.database, makeRunningRun("byok-translating-session", { payer: "byok" }));
+  assert.equal(await settleTranslating(runId, settlingAt(day)), "settled");
+  assert.deepEqual(await bankedUsage(plane.database, "byok", day), { ...ONE_TURN, cost_usd: "0.000000" });
+  assert.deepEqual(await bankedUsage(plane.database, "platform", day), ONE_TRANSLATION);
+});
+
+void test("a plain turn's translation lands on the turn's own scope", async () => {
+  const day = "2026-09-09";
+  const runId = await seedRun(plane.database, makeRunningRun("plain-translating-session"));
+  assert.equal(await settleTranslating(runId, settlingAt(day)), "settled");
+  assert.deepEqual(await bankedUsage(plane.database, "anon", day), {
+    requests: 3, input_tokens: 12_400, output_tokens: 3_100, cost_usd: "0.007440",
+  });
+  assert.deepEqual(await bankedUsage(plane.database, "platform", day), NO_TURN);
+});
+
+void test("a replayed settlement banks the translation once", async () => {
+  const day = "2026-09-10";
+  const seeded = makeRunningRun("replayed-translating-session", { payer: "byok" });
+  const runId = await seedRun(plane.database, seeded);
+  await settleTranslating(runId, settlingAt(day));
+  assert.equal(await settleTranslating(runId, settlingAt(day)), "already_settled");
+  assert.deepEqual(await bankedUsage(plane.database, "platform", day), ONE_TRANSLATION);
 });

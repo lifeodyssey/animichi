@@ -137,6 +137,9 @@ export interface SucceededTurnRecord {
   readonly answer: string;
   readonly responseData: JsonValue | null;
   readonly usage: TurnUsage;
+  /** What the turn's TOOLS spent on model calls the pi run never made (#1292)
+   * — the tool-less translation. Banked on its own scope by the settlement. */
+  readonly supplemental: TurnUsage;
   readonly prices: UsagePrices;
 }
 

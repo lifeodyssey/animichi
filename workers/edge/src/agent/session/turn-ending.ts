@@ -9,7 +9,7 @@
  * one is written. Keeping them apart is what lets the loop read as the loop.
  */
 import type { RunFailureReason } from "../../db/schema.ts";
-import type { UsagePrices } from "../settlement/turn-settlement.ts";
+import type { TurnUsage, UsagePrices } from "../settlement/turn-settlement.ts";
 import type { TurnAnswer } from "./turn-answer.ts";
 import { chatResponsePart } from "./turn-answer-part.ts";
 import type { TurnOutput } from "./turn-output.ts";
@@ -35,14 +35,24 @@ export class TurnEnding {
    * (#1283): `messages.response_data` is what `retrieval/` publishes the intent
    * from, so a client that never saw the frames reads the identical answer back
    * — which is §二's disconnect semantics rather than a convenience.
+   *
+   * `supplemental` is what the turn's tools spent off-run (#1292); it travels
+   * beside `output.usage` rather than inside it because the two may be charged
+   * to different scopes and are priced by different rules.
    */
-  async succeeded(turn: LoadedTurn, output: TurnOutput, answer: TurnAnswer): Promise<void> {
+  async succeeded(
+    turn: LoadedTurn,
+    output: TurnOutput,
+    answer: TurnAnswer,
+    supplemental: TurnUsage,
+  ): Promise<void> {
     const record = {
       runId: turn.runId,
       sessionId: turn.sessionId,
       answer: answer.message,
       responseData: asJsonValue(chatResponsePart(answer)),
       usage: output.usage,
+      supplemental,
       prices: this.#parts.prices,
     };
     await this.#parts.store.settleSucceeded(record, this.#at());

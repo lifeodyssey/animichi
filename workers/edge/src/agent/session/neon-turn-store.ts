@@ -199,7 +199,8 @@ async function settleSucceededOn(
   record: SucceededTurnRecord,
   at: Date,
 ): Promise<SettlementResult> {
-  const turn = { runId: record.runId, usage: record.usage, prices: record.prices };
+  const { runId, usage, supplemental, prices } = record;
+  const turn = { runId, usage, supplemental, prices };
   const settled = await settleSucceededTurn(statements, turn, at);
   if (settled === "already_settled") return settled;
   const { sessionId, answer, responseData } = record;

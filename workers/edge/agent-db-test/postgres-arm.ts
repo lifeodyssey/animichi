@@ -36,6 +36,17 @@ const MIGRATIONS_DIR = new URL("../../../migrations/neon/", import.meta.url);
  */
 const STARTUP_TIMEOUT_MS = 240_000;
 
+/**
+ * How long the image is given to bind its port.
+ *
+ * Testcontainers defaults to 60s, and this image needs more than that whenever
+ * it runs emulated (the published tag is linux/amd64, so an arm64 developer
+ * machine runs the whole PostGIS init under qemu). The `before` hook that calls
+ * this already allows 300s, so the 60s default was the shorter of two budgets
+ * for the same wait — and it failed the lane rather than the assertion.
+ */
+const STARTUP_TIMEOUT_MS = 240_000;
+
 export interface AgentDataPlane {
   readonly transactions: AgentTransactions;
   readonly database: NodePgDatabase;
