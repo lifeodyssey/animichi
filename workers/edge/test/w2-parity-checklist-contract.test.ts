@@ -10,10 +10,16 @@ import { URL, fileURLToPath } from "node:url";
  * row starts pointing at a test that no longer exists, at an issue nobody
  * opened, or at no proof at all. This file is that notice.
  *
- * Four properties, no more: the proofs are real files, the issues are the ones
- * this campaign actually opened, every area table carries the seven columns the
- * card specified, and a row without automated proof says why in the divergence
- * column instead of leaving the gap silent.
+ * The properties: every path a row cites resolves — the Python column down to
+ * the line number, the TS column and the proof column down to the file — the
+ * issues are the ones this campaign actually opened, the tables keep their
+ * shape and their row counts, and a row without automated proof says why in the
+ * divergence column instead of leaving the gap silent.
+ *
+ * A cell with no path has to say so in words: `unsourced …` when no Python line
+ * states the behaviour, `not …` when the tier has no counterpart at all. That
+ * literal marker is the exemption, so a row cannot go quiet by deleting a
+ * reference.
  *
  * test-type: unit (reads checked-in files; no network, no clock).
  */
@@ -34,9 +40,21 @@ const COLUMNS: readonly string[] = [
 ];
 
 const AREA_COUNT = 6;
+/** Signed off at these counts; a deleted or invented row moves one of them. */
+const AREA_ROWS: readonly number[] = [14, 15, 8, 16, 15, 14];
+const TOTAL_ROWS = 82;
+const PYTHON_COLUMN = 1;
+const TS_COLUMN = 2;
 const PROOF_COLUMN = 3;
 const DIVERGENCE_COLUMN = 5;
 const NO_PROOF = "—";
+
+/** The Python tier this rewrite is measured against; paths are relative to it. */
+const PY_ROOT = "apps/agent/src/animichi/";
+/** TS cells are relative to the edge source, except the few that name a package. */
+const TS_ROOTS: readonly string[] = ["", "workers/edge/src/"];
+/** A cell with no path must open with one of these words to be exempt. */
+const EXEMPT = /^(?:unsourced|not )/;
 
 // Every issue the checklist may cite: the epic, the umbrella, this card, the
 // W1/W2 cards whose PRs the rows are sourced from, and the open decision and
@@ -127,6 +145,77 @@ function proofViolations(): readonly string[] {
   return [...new Set([...perRow, ...docWide])].sort();
 }
 
+interface PyRef {
+  readonly file: string;
+  readonly lines: readonly number[];
+}
+
+const PY_TOKEN = /^([A-Za-z0-9_./-]*\.py)?(?::(\d+)(?:-(\d+))?)?$/;
+
+function exempted(cell: string): boolean {
+  return EXEMPT.test(cell);
+}
+
+/** `:89` continues the file named earlier in the same cell, as the rows read. */
+function pyToken(token: string, carried: string): PyRef | null {
+  const match = PY_TOKEN.exec(token);
+  const file = match?.[1] ?? carried;
+  const lines = [match?.[2], match?.[3]].filter((line) => line !== undefined).map(Number);
+  const named = match !== null && (match[1] !== undefined || lines.length > 0);
+  return named && file !== "" ? { file, lines } : null;
+}
+
+function pyRefs(cell: string): readonly PyRef[] {
+  const found: PyRef[] = [];
+  let carried = "";
+  for (const token of backticked(cell)) {
+    const parsed = pyToken(token, carried);
+    if (parsed === null) continue;
+    carried = parsed.file;
+    found.push(parsed);
+  }
+  return found;
+}
+
+function lineCount(path: string): number {
+  return readFileSync(ROOT + path, "utf8").split("\n").length;
+}
+
+function pyRefViolations(row: Row, ref: PyRef): readonly string[] {
+  const path = PY_ROOT + ref.file;
+  if (!existsSync(ROOT + path)) return [`${at(row)} → missing ${path}`];
+  const total = lineCount(path);
+  return ref.lines
+    .filter((line) => line < 1 || line > total)
+    .map((line) => `${at(row)} → ${path}:${String(line)} is past line ${String(total)}`);
+}
+
+function pyViolations(row: Row): readonly string[] {
+  const cell = row.cells[PYTHON_COLUMN] ?? "";
+  const refs = pyRefs(cell);
+  const unmarked = exempted(cell) ? [] : [`${at(row)} Python column cites nothing`];
+  if (refs.length === 0) return unmarked;
+  return refs.flatMap((ref) => pyRefViolations(row, ref));
+}
+
+function tsResolves(token: string): boolean {
+  return TS_ROOTS.some((root) => existsSync(ROOT + root + token));
+}
+
+function tsViolations(row: Row): readonly string[] {
+  const cell = row.cells[TS_COLUMN] ?? "";
+  const refs = backticked(cell).filter((token) => token.endsWith(".ts"));
+  const unmarked = exempted(cell) ? [] : [`${at(row)} TS column cites nothing`];
+  if (refs.length === 0) return unmarked;
+  return refs.filter((token) => !tsResolves(token)).map((token) => `${at(row)} → missing ${token}`);
+}
+
+function shortRows(): readonly string[] {
+  return ROWS.filter((row) => row.cells.length !== COLUMNS.length).map(
+    (row) => `${at(row)} has ${String(row.cells.length)} cells`,
+  );
+}
+
 function unknownIssues(): readonly number[] {
   const cited = [...DOC.matchAll(/#(\d+)/g)].map((match) => Number(match[1]));
   return [...new Set(cited)].filter((issue) => !KNOWN_ISSUES.has(issue)).sort();
@@ -152,6 +241,14 @@ void test("every automated-proof cell names a test file that exists", () => {
   assert.deepEqual(proofViolations(), []);
 });
 
+void test("every Python reference resolves to a file and a line that exists", () => {
+  assert.deepEqual(ROWS.flatMap(pyViolations), []);
+});
+
+void test("every TS reference resolves to a file that exists", () => {
+  assert.deepEqual(ROWS.flatMap(tsViolations), []);
+});
+
 void test("every issue the checklist cites belongs to this campaign", () => {
   assert.deepEqual(unknownIssues(), []);
 });
@@ -159,6 +256,18 @@ void test("every issue the checklist cites belongs to this campaign", () => {
 void test("every area table carries the seven columns the card specified", () => {
   assert.equal(TABLES.length, AREA_COUNT);
   assert.deepEqual(headerViolations(), []);
+});
+
+void test("each area keeps the row count the checklist was signed off at", () => {
+  assert.deepEqual(
+    TABLES.map((table) => table.rows.length),
+    AREA_ROWS,
+  );
+  assert.equal(ROWS.length, TOTAL_ROWS);
+});
+
+void test("every row fills all seven columns", () => {
+  assert.deepEqual(shortRows(), []);
 });
 
 void test("a row with no automated proof explains itself with an issue", () => {

@@ -10,10 +10,10 @@ Placement: `docs/ops/`, per `docs/DOCS_POLICY.md` rule 6 (operational docs live
 under `docs/ops/`) — the same shelf as `docs/ops/w1-staging-journey.md`, which
 this checklist ticks itself against. Nothing here changes behaviour.
 
-The rows come from the merged W1/W2 PRs (#1277 #1278 #1281 #1282 #1284 #1286
-#1291 #1293 #1295 #1296 #1298), the code they landed, and the decision issues
-they opened. A cell that cannot be sourced from one of those says so rather than
-guessing.
+The rows come from the merged W1/W2 PRs — #1277 #1278 #1281 #1282 #1284 #1286
+and #1291 #1293 #1295 #1296 #1298 — plus the code they landed and the decision
+issues they opened. A cell that cannot be sourced from one of those says so,
+rather than guessing.
 
 ## How to read a row
 
@@ -71,7 +71,7 @@ guessing.
 | clarification consumed exactly once; a late pick is refused | `agents/selection.py:306`, revision at `agents/session_state.py:177` | `agent/session/session-envelope.ts` (`clarificationRevision`), `agent/selection/turn-selection.ts` | `workers/edge/test/selection-replay.test.ts`, `workers/edge/agent-db-test/turn-selection.db.test.ts` | journey §3b step 5 | — | ☐ |
 | `clarification_id` published on the clarify part | `interfaces/routes/chat_body.py:161` | `agent/session/turn-answer-part.ts` | `workers/edge/test/agent-turn-answer.test.ts`, `workers/edge/test/selection-request.test.ts` | journey §3b step 2 | restored in #1288 after #1280 had left it out; `apps/web`'s clarify card already echoes it | ☐ |
 | a selection turn skips the model loop | `agents/selection.py:96` (no agent run on this path) | `agent/selection/turn-selection.ts` | `workers/edge/test/selection-turn.test.ts`, `workers/edge/test/selection-eligibility.test.ts` | journey §3b step 4 | a selection turn is exempt from the model and caller-keyed eligibility checks, so a catalog-only deploy still answers a pick (PR #1296) | ☐ |
-| a pick is one `(run_id, step_index)` step, replayed not re-executed | spec §三 (idempotency is a TS-tier contract) | `agent/session/turn-step.ts`, `agent/selection/turn-selection.ts` | `workers/edge/test/selection-replay.test.ts`, `workers/edge/agent-db-test/turn-selection.db.test.ts` | — | — | ☐ |
+| a pick is one `(run_id, step_index)` step, replayed not re-executed | not applicable — step idempotency is a TS-tier contract (spec §三) | `agent/session/turn-step.ts`, `agent/selection/turn-selection.ts` | `workers/edge/test/selection-replay.test.ts`, `workers/edge/agent-db-test/turn-selection.db.test.ts` | — | — | ☐ |
 | a pick leaves scene references in the fact ledger | `domain/fact_ledger.py:261` | `agent/memory/turn-fact-recorder.ts` | `workers/edge/test/selection-facts.test.ts` | journey §3e step 4 | — | ☐ |
 
 ## 3 · Typed answers
@@ -84,7 +84,7 @@ guessing.
 | the same intent is published by the messages GET | `interfaces/routes/conversations.py:121` | `agent/retrieval/transcript-message.ts` | `workers/edge/test/conversation-retrieval.test.ts`, `workers/edge/agent-db-test/turn-answer.db.test.ts` | journey §3 | — | ☐ |
 | the `respond` tool's own events stay off the stream | not applicable — Python's final result was never a visible tool part | `agent/session/turn-frames.ts` | `workers/edge/test/agent-turn-answer.test.ts` | journey §1 (the S2 callout) | — | ☐ |
 | a submitted answer repairs the pending clarification; a turn that submits nothing leaves it | `agents/animichi_runner.py:360` (end-of-run repair keyed on `ClarifyResponseModel`) | `agent/session/turn-envelope.ts`, `agent/session/turn-answer.ts` | `workers/edge/test/agent-session-envelope-turns.test.ts`, `workers/edge/test/agent-turn-answer.test.ts` | journey §3b step 5 | deferred by #1280 and closed in #1283 — treating "no answer" as "not clarify" would let a prose question wipe the clarification | ☐ |
-| the intent the model picks matches what its tools returned | `agents/runtime_models.py:21` | model's own call | — | journey §1 (S2b, the rendered card) | observed on staging: a turn whose `search_bangumi` returned rows answered `general_qa` and rendered as prose. Model quality, not pipeline — belongs to the W3 eval set (#1283 comment) | ☐ |
+| the intent the model picks matches what its tools returned | `agents/runtime_models.py:21` | not code — the model's own choice of intent | — | journey §1 (S2b, the rendered card) | observed on staging: a turn whose `search_bangumi` returned rows answered `general_qa` and rendered as prose. Model quality, not pipeline — belongs to the W3 eval set (#1283 comment) | ☐ |
 | the answer path loads no zod — the schema module it reads is generated and import-free | not applicable — Python has no bundle | generated `packages/contract/src/agent-tool-schemas.ts` read by `agent/session/turn-answer.ts` | `packages/contract/test/agent-tool-schemas.test.ts` | — | no lane asserts a zod-free `entry` bundle yet, and zod still reaches it through `AGENT_PATHS` in two gateway files — #1285 | ☐ |
 
 ## 4 · BYOK
@@ -139,7 +139,7 @@ guessing.
 | a conversation you do not own is a 404, same as one that does not exist | `interfaces/routes/conversations.py:130`, `:149` | `agent/retrieval/conversation-retrieval.ts`, `gateway/agent-tier-route.ts` | `workers/edge/test/conversation-retrieval.test.ts` | journey §4 | under `edge` an anonymous visitor may read their OWN transcript back; the container position is unchanged (PR #1284) | ☐ |
 | anonymous daily message ceiling refuses with `quota_resets_at` | `application/admission_limits.py:99`, `interfaces/anon_quota.py:23`, `:28` | `agent/intake/anonymous-message-allowance.ts` | `workers/edge/test/anonymous-message-allowance.test.ts`, `workers/edge/agent-db-test/turn-quota-ceiling.db.test.ts` | journey §4 | the ceiling #1251 left unowned; the refusal rolls back message, run and reservation together (PR #1284) | ☐ |
 | one running run per session; a second is refused | `application/turn_admission.py:123` | `agent/intake/turn-intake.ts` over `runs_one_running_per_session` | `workers/edge/test/turn-intake.test.ts`, `workers/edge/agent-db-test/turn-intake.db.test.ts` | — | — | ☐ |
-| a tool step is persisted before the loop continues, and replayed not re-executed | spec §三 and Appendix C (a TS-tier contract) | `agent/session/turn-step.ts`, `agent/session/turn-step-sequence.ts` | `workers/edge/test/agent-turn-loop.test.ts`, `workers/edge/agent-db-test/turn-loop.db.test.ts` | — | — | ☐ |
+| a tool step is persisted before the loop continues, and replayed not re-executed | not applicable — a TS-tier contract (spec §三, Appendix C) | `agent/session/turn-step.ts`, `agent/session/turn-step-sequence.ts` | `workers/edge/test/agent-turn-loop.test.ts`, `workers/edge/agent-db-test/turn-loop.db.test.ts` | — | — | ☐ |
 | the tool session is rebuilt on replay | not applicable — Python had no cross-incarnation replay | `agent/session/turn-catalog-session.ts` (gap documented in file) | — | — | a ref minted before a crash reads back as `stale_ref` after the retry; the rehydration is #1279 | ☐ |
 | a stuck run is picked up by a backstop independent of the session DO | not applicable — no equivalent in the request-scoped tier | `agent/sweeper/run-sweeper.ts`, `agent/sweeper/run-sweep.ts` | `workers/edge/test/run-sweeper.test.ts`, `workers/edge/test/run-sweep.test.ts`, `workers/edge/agent-db-test/run-sweep.db.test.ts` | — | — | ☐ |
 | quota refunded exactly once on a failed turn | `interfaces/usage_metering.py` (no single line — the refund is spread across the metering service) | `agent/settlement/turn-settlement.ts` | `workers/edge/test/turn-settlement.test.ts`, `workers/edge/agent-db-test/turn-refund.db.test.ts` | — | — | ☐ |

@@ -180,9 +180,10 @@ The same question is automated against the deploy:
 1. Ask for a Chinese title, e.g. `『ぼっち・ざ・ろっく！』の中国語タイトルは？`.
 2. Expect `tool-input-start` with `"toolName":"translate_anime_title"` and a
    `tool-output-available` carrying `original`, `translated`, `source` and
-   `confidence`. `source` is `catalog` when the catalog knew the title, `model`
+   `confidence`. `source` is `catalog` when the catalog knew the title, `llm`
    when the tool-less call answered, `untranslated` when both declined — the
-   value is assigned by us, never claimed by the model.
+   three members of `TranslationSource`, assigned by us and never claimed by
+   the model.
 3. Check the turn never feeds the translation back into `resolve_anime`. The
    prompt line "a translation is display prose, never a resolve input" is ported
    in `workers/edge/src/agent/session/turn-instructions.ts`; a `resolve_anime`
