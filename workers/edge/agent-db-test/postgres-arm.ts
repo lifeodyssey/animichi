@@ -26,6 +26,15 @@ const POSTGRES_USER = "postgres";
 const POSTGRES_PASSWORD = "postgres";
 const CLEAN_DATABASE = "edge_agent";
 const MIGRATIONS_DIR = new URL("../../../migrations/neon/", import.meta.url);
+/**
+ * How long the image may take before it listens on TCP at all.
+ *
+ * Its entrypoint runs the postgis init scripts against a Unix socket first (see
+ * `waitForConnections`), and the published image is `linux/amd64`: on an
+ * arm64 host that init is emulated and crosses testcontainers' own 60s default,
+ * which then fails the port wait on a container that was going to be fine.
+ */
+const STARTUP_TIMEOUT_MS = 240_000;
 
 export interface AgentDataPlane {
   readonly transactions: AgentTransactions;
@@ -92,6 +101,7 @@ export async function startAgentDataPlane(): Promise<AgentDataPlane> {
   const container: StartedTestContainer = await new GenericContainer(OFFLINE_IMAGE)
     .withEnvironment({ POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB: POSTGRES_USER })
     .withExposedPorts(5432)
+    .withStartupTimeout(STARTUP_TIMEOUT_MS)
     .start();
   const base = `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${container.getHost()}:${String(container.getMappedPort(5432))}/postgres`;
   await waitForConnections(base);

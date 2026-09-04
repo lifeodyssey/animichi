@@ -47,6 +47,9 @@ export class InMemoryTurnStore implements TurnStore {
   readonly written: SettledStep[] = [];
   /** A database that refuses writes — the "crash before the step row" branch. */
   stepWritesFail = false;
+  /** The first step index this store refuses: the "crash AFTER an earlier step
+   * landed" branch, which is the one a replay has anything to rebuild from. */
+  refuseStepsFrom = Number.POSITIVE_INFINITY;
   readonly succeeded: SucceededTurnRecord[] = [];
   readonly failed: RunFailureReason[] = [];
 
@@ -87,7 +90,8 @@ export class InMemoryTurnStore implements TurnStore {
     step: SettledStep,
     leaseUntil: Date,
   ): Promise<boolean> {
-    if (this.stepWritesFail) return Promise.reject(new Error("connection reset"));
+    const refused = this.stepWritesFail || step.stepIndex >= this.refuseStepsFrom;
+    if (refused) return Promise.reject(new Error("connection reset"));
     const held = this.#owner === owner && (this.#expiresAt ?? 0) > this.#now();
     if (this.#status !== "running" || !held) return Promise.resolve(false);
     this.#hold(owner, leaseUntil);

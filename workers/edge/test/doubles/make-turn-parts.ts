@@ -69,8 +69,9 @@ export function makeScriptedTurnModel(streamFn = makeToolCallingStreamFn()): Tur
 
 /**
  * The turn parts one `TurnCatalogSession` fulfils: how the turn ANSWERS
- * (#1283, the `respond` tool over the session's stored results) and what it
- * REMEMBERS (#1290, the fact ledger and the retained entities) — plus the
+ * (#1283, the `respond` tool over the session's stored results), what it
+ * REMEMBERS (#1290, the fact ledger and the retained entities) and the refs it
+ * MINTED (#1279, put back from the settled steps on a retry) — plus the
  * DETERMINISTIC selection seam (#1288), which every case here leaves null
  * because these are model turns; the selection cases build their own turn
  * (`make-selection-turn.ts`).
@@ -81,8 +82,8 @@ export function makeScriptedTurnModel(streamFn = makeToolCallingStreamFn()): Tur
  */
 export function makeSessionTurnParts(
   session: TurnCatalogSession = new TurnCatalogSession({ locale: "ja" }),
-): { answering: TurnAnswering; memory: TurnCatalogSession; selection: null } {
-  return { answering: new TurnAnswering(session), memory: session, selection: null };
+): { answering: TurnAnswering; memory: TurnCatalogSession; refs: TurnCatalogSession; selection: null } {
+  return { answering: new TurnAnswering(session), memory: session, refs: session, selection: null };
 }
 
 /** The one user message every case starts from. */

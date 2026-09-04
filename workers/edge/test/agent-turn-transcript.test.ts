@@ -10,8 +10,9 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
-import { seededMessages } from "../src/agent/session/turn-transcript.ts";
+import { resumedTranscript } from "../src/agent/session/turn-transcript.ts";
 import { asJsonValue } from "../src/agent/session/turn-store.ts";
 import { mimoModel } from "../src/agent/session/turn-model.ts";
 import type {
@@ -55,6 +56,11 @@ function makeTurn(transcript: TranscriptRow[], steps: PersistedStep[] = []): Loa
 }
 
 const USER: TranscriptRow = { role: "user", content: "Hyouka の聖地は？", responseData: null };
+
+/** The messages half of the rebuild, which is what most of these are about. */
+function seededMessages(turn: LoadedTurn, model: typeof MODEL): AgentMessage[] {
+  return resumedTranscript(turn, model).messages;
+}
 
 void test("a fresh turn seeds exactly the user message", () => {
   assert.deepEqual(seededMessages(makeTurn([USER]), MODEL), [
@@ -111,4 +117,16 @@ void test("an earlier turn's tool-call row is read as its plain text, not answer
 void test("an earlier turn's empty tool-call row contributes nothing at all", () => {
   const row = makeToolCallRow("run-0", 0, makeToolCallMessage("old-call"));
   assert.equal(seededMessages(makeTurn([row, USER]), MODEL).length, 1);
+});
+
+void test("the rebuild reports how many of this run's steps it already answers", () => {
+  const message = makeToolCallMessage("call-1");
+  const turn = makeTurn([USER, makeToolCallRow(RUN_ID, 0, message)], [makeStep(0, RESULT)]);
+  assert.equal(resumedTranscript(turn, MODEL).settledSteps, 1);
+});
+
+void test("a truncated batch resumes no steps, so they are replayed in place", () => {
+  const message = makeToolCallMessage("call-1", "call-2");
+  const turn = makeTurn([USER, makeToolCallRow(RUN_ID, 0, message)], [makeStep(0, RESULT)]);
+  assert.equal(resumedTranscript(turn, MODEL).settledSteps, 0);
 });

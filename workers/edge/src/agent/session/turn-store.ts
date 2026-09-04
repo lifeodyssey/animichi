@@ -20,6 +20,7 @@
  */
 import type { AssistantMessage, ImageContent, JsonValue, TextContent } from "@earendil-works/pi-ai";
 import type { SelectionRequest } from "../selection/selection-request.ts";
+import type { StepMint } from "./minted-refs.ts";
 import type { MESSAGE_ROLES, RunFailureReason } from "../../db/schema.ts";
 import type { SettlementResult, TurnUsage, UsagePrices } from "../settlement/turn-settlement.ts";
 
@@ -40,10 +41,18 @@ export function asJsonValue(value: unknown): JsonValue {
 /** What a tool hands back to the model, as `run_steps.result` stores it. */
 export type StepContent = TextContent | ImageContent;
 
-/** A tool result, reduced to the two fields a replay has to reproduce. */
+/** A tool result, reduced to the fields a replay has to reproduce. */
 export interface StepResult {
   readonly content: StepContent[];
   readonly details: JsonValue;
+  /**
+   * The refs this step minted, with the payloads behind them (#1279).
+   *
+   * Absent on a row written before they rode along, which is why it is
+   * optional rather than an empty array everyone has to remember to write: a
+   * deploy lands between a settled step and the alarm that replays it.
+   */
+  readonly minted?: readonly StepMint[];
 }
 
 /** One `run_steps` row as the replay reads it: `result` present = already done. */

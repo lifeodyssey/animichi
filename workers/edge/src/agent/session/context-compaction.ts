@@ -22,7 +22,7 @@
  *     prepareCompaction -> {messagesToSummarize:8, turnPrefixMessages:3, retainedTail:1, isSplitTurn:true}
  *     compact() round 1 -> summary "\n\n---\n\n**Turn Context (split turn):**\n\nHyouka fans go to Takayama."
  *     compact() round 2 -> summary "Hyouka fans go to Takayama.\n\n---\n\n**Turn Context (split turn):**\n\nHyouka fans go to Takayama."
- *   and on the transcript THIS tier builds (`seededMessages` re-clothes history
+ *   and on the transcript THIS tier builds (`resumedTranscript` re-clothes history
  *   with zero usage): estimateContextTokens = {tokens:870, usageTokens:0} -> shouldCompact = false.
  *
  * Four things that output says, each of which rules the native path out here:

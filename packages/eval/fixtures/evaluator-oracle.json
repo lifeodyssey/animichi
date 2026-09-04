@@ -1,0 +1,1237 @@
+{
+  "generatedBy": "apps/agent/src/animichi/tests/eval/evaluator_oracle.py",
+  "evaluatorVersion": "official-v1",
+  "metricNames": {
+    "withNonemptyCases": [
+      "argument_correctness",
+      "tool_correctness",
+      "trajectory_match",
+      "max_tool_calls",
+      "data_keys_present",
+      "locale_match",
+      "nonempty_results",
+      "step_efficiency"
+    ],
+    "withoutNonemptyCases": [
+      "argument_correctness",
+      "tool_correctness",
+      "trajectory_match",
+      "max_tool_calls",
+      "data_keys_present",
+      "locale_match",
+      "step_efficiency"
+    ]
+  },
+  "cases": [
+    {
+      "caseId": "search_bangumi_exact_chain",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": true
+      },
+      "transcript": {
+        "intent": "search_bangumi",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [
+          "results"
+        ],
+        "stepCount": 2,
+        "trajectory": [
+          {
+            "toolName": "resolve_anime",
+            "args": {
+              "title": "涼宮ハルヒ"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "search_bangumi",
+            "args": {
+              "bangumi_id": "b1"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "search_bangumi",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {
+            "results": {
+              "row_count": 5
+            }
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "nonempty_results": 1.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "general_qa_any_of_n_web_search",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Where is the pilgrimage spot?",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "general_qa"
+        ],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "general_qa",
+        "success": true,
+        "message": "The spots are in Nishinomiya.",
+        "locale": "en",
+        "dataKeys": [],
+        "stepCount": 1,
+        "trajectory": [
+          {
+            "toolName": "web_search",
+            "args": {
+              "query": "nishinomiya"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "general_qa",
+          "success": true,
+          "message": "The spots are in Nishinomiya.",
+          "data": {}
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.0
+      }
+    },
+    {
+      "caseId": "clarify_any_of_n_tie_partial",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "clarify",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [
+          "candidates",
+          "reason"
+        ],
+        "stepCount": 2,
+        "trajectory": [
+          {
+            "toolName": "resolve_anime",
+            "args": {
+              "title": "ハルヒ"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "search_bangumi",
+            "args": {
+              "bangumi_id": "b1"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "clarify",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {
+            "reason": "anime_ambiguity",
+            "candidates": [
+              {
+                "id": "c1"
+              }
+            ]
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.5
+      }
+    },
+    {
+      "caseId": "point_selection_empty_chain",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": [
+          "p1",
+          "p2"
+        ]
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "plan_selected"
+        ],
+        "data_keys": [
+          "route"
+        ],
+        "expect_nonempty": true
+      },
+      "transcript": {
+        "intent": "plan_selected",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [
+          "route"
+        ],
+        "stepCount": 0,
+        "trajectory": [],
+        "response": {
+          "intent": "plan_selected",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {
+            "itinerary": {
+              "ordered_points": [
+                "p0",
+                "p1",
+                "p2"
+              ]
+            },
+            "results": {
+              "row_count": 4
+            }
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "nonempty_results": 1.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "candidate_selection_min_steps",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": [
+          "c1",
+          "c2",
+          "c2"
+        ],
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "plan_multi"
+        ],
+        "data_keys": [
+          "results",
+          "route"
+        ],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "plan_multi",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [
+          "results",
+          "route"
+        ],
+        "stepCount": 4,
+        "trajectory": [
+          {
+            "toolName": "search_bangumi",
+            "args": {
+              "bangumi_id": "b1"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "search_bangumi",
+            "args": {
+              "bangumi_id": "b2"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "plan_route",
+            "args": {
+              "result_ref": "r1"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "plan_route",
+            "args": {
+              "result_ref": "r2"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "plan_multi",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {
+            "results": {
+              "row_count": 6
+            },
+            "itinerary": {
+              "ordered_points": [
+                "p0",
+                "p1"
+              ]
+            }
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.0,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.75
+      }
+    },
+    {
+      "caseId": "place_ambiguity_min_steps",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": {
+          "reason": "place_ambiguity"
+        },
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify_after_nearby"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "clarify",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [
+          "candidates",
+          "reason"
+        ],
+        "stepCount": 2,
+        "trajectory": [
+          {
+            "toolName": "search_nearby",
+            "args": {
+              "place": "西宮"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "geocode",
+            "args": {
+              "place": "西宮"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "clarify",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {
+            "reason": "anime_ambiguity",
+            "candidates": [
+              {
+                "id": "c1"
+              }
+            ]
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.5
+      }
+    },
+    {
+      "caseId": "clarify_after_nearby_geocode_min_steps",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify_after_nearby"
+        ],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "clarify",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [
+          "candidates",
+          "reason"
+        ],
+        "stepCount": 3,
+        "trajectory": [
+          {
+            "toolName": "search_nearby",
+            "args": {
+              "place": "西宮"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "geocode",
+            "args": {
+              "place": "西宮"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "search_nearby",
+            "args": {
+              "place": "西宮市"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "clarify",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {
+            "reason": "anime_ambiguity",
+            "candidates": [
+              {
+                "id": "c1"
+              }
+            ]
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.5,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "greet_user_no_steps",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Where is the pilgrimage spot?",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "greet_user"
+        ],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "greet_user",
+        "success": true,
+        "message": "The spots are in Nishinomiya.",
+        "locale": "en",
+        "dataKeys": [],
+        "stepCount": 0,
+        "trajectory": [],
+        "response": {
+          "intent": "greet_user",
+          "success": true,
+          "message": "The spots are in Nishinomiya.",
+          "data": {}
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "empty_message_locale_zero",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Where is the pilgrimage spot?",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "general_qa"
+        ],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "general_qa",
+        "success": true,
+        "message": "",
+        "locale": "en",
+        "dataKeys": [],
+        "stepCount": 0,
+        "trajectory": [],
+        "response": {
+          "intent": "general_qa",
+          "success": true,
+          "message": "",
+          "data": {}
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 0.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "reply_language_mismatch",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Where is the pilgrimage spot?",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "general_qa"
+        ],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "general_qa",
+        "success": true,
+        "message": "こちらです。",
+        "locale": "en",
+        "dataKeys": [],
+        "stepCount": 0,
+        "trajectory": [],
+        "response": {
+          "intent": "general_qa",
+          "success": true,
+          "message": "こちらです。",
+          "data": {}
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 0.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "simplified_hint_locale",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "凉宫春日的圣地在哪里",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "search_bangumi",
+        "success": true,
+        "message": "圣地在西宫市。",
+        "locale": "ja",
+        "dataKeys": [
+          "results"
+        ],
+        "stepCount": 2,
+        "trajectory": [
+          {
+            "toolName": "resolve_anime",
+            "args": {
+              "title": "凉宫"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "search_bangumi",
+            "args": {
+              "bangumi_id": "b1"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "search_bangumi",
+          "success": true,
+          "message": "圣地在西宫市。",
+          "data": {
+            "results": {
+              "row_count": 3
+            }
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "han_only_query_falls_back",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "聖地案内",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "general_qa"
+        ],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "general_qa",
+        "success": true,
+        "message": "こちらです。",
+        "locale": "en",
+        "dataKeys": [],
+        "stepCount": 0,
+        "trajectory": [],
+        "response": {
+          "intent": "general_qa",
+          "success": true,
+          "message": "こちらです。",
+          "data": {}
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 0.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "unknown_stage_defaults",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Where is the pilgrimage spot?",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "mystery_stage"
+        ],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "general_qa",
+        "success": true,
+        "message": "The spots are in Nishinomiya.",
+        "locale": "en",
+        "dataKeys": [],
+        "stepCount": 1,
+        "trajectory": [
+          {
+            "toolName": "web_search",
+            "args": {
+              "query": "spot"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "general_qa",
+          "success": true,
+          "message": "The spots are in Nishinomiya.",
+          "data": {}
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.0,
+        "max_tool_calls": 0.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "failed_step_excluded_from_chain",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": true
+      },
+      "transcript": {
+        "intent": "search_bangumi",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [],
+        "stepCount": 2,
+        "trajectory": [
+          {
+            "toolName": "resolve_anime",
+            "args": {
+              "title": "ハルヒ"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "search_bangumi",
+            "args": {
+              "bangumi_id": "b1"
+            },
+            "status": "error"
+          }
+        ],
+        "response": {
+          "intent": "search_bangumi",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {}
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "nonempty_results": 0.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "unsettled_call_excluded_from_chain",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_nearby"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "search_nearby",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [
+          "results"
+        ],
+        "stepCount": 1,
+        "trajectory": [
+          {
+            "toolName": "search_nearby",
+            "args": {
+              "place": "西宮"
+            },
+            "status": "unsettled"
+          }
+        ],
+        "response": {
+          "intent": "search_nearby",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {
+            "results": {
+              "row_count": 2
+            }
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "repeated_tool_call",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Where is the pilgrimage spot?",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "general_qa"
+        ],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "general_qa",
+        "success": true,
+        "message": "The spots are in Nishinomiya.",
+        "locale": "en",
+        "dataKeys": [],
+        "stepCount": 2,
+        "trajectory": [
+          {
+            "toolName": "web_search",
+            "args": {
+              "query": "a"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "web_search",
+            "args": {
+              "query": "b"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "general_qa",
+          "success": true,
+          "message": "The spots are in Nishinomiya.",
+          "data": {}
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.0
+      }
+    },
+    {
+      "caseId": "empty_arguments_still_score",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Where is the pilgrimage spot?",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "general_qa"
+        ],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "general_qa",
+        "success": true,
+        "message": "The spots are in Nishinomiya.",
+        "locale": "en",
+        "dataKeys": [],
+        "stepCount": 1,
+        "trajectory": [
+          {
+            "toolName": "web_search",
+            "args": {},
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "general_qa",
+          "success": true,
+          "message": "The spots are in Nishinomiya.",
+          "data": {}
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 0.0
+      }
+    },
+    {
+      "caseId": "itinerary_without_source",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "plan_route"
+        ],
+        "data_keys": [
+          "route"
+        ],
+        "expect_nonempty": true
+      },
+      "transcript": {
+        "intent": "plan_route",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [
+          "route"
+        ],
+        "stepCount": 3,
+        "trajectory": [
+          {
+            "toolName": "resolve_anime",
+            "args": {
+              "title": "ハルヒ"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "search_bangumi",
+            "args": {
+              "bangumi_id": "b1"
+            },
+            "status": "ok"
+          },
+          {
+            "toolName": "plan_route",
+            "args": {
+              "result_ref": "r1"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "plan_route",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {
+            "itinerary": {
+              "ordered_points": [
+                "p0",
+                "p1"
+              ]
+            }
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "nonempty_results": 0.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "search_present_but_zero_rows",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_nearby"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": true
+      },
+      "transcript": {
+        "intent": "search_nearby",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [
+          "results"
+        ],
+        "stepCount": 1,
+        "trajectory": [
+          {
+            "toolName": "search_nearby",
+            "args": {
+              "place": "西宮"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "search_nearby",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {
+            "results": {
+              "row_count": 0
+            }
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "nonempty_results": 0.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "clarify_without_pending",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "clarify",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [],
+        "stepCount": 1,
+        "trajectory": [
+          {
+            "toolName": "resolve_anime",
+            "args": {
+              "title": "ハルヒ"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "clarify",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {}
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 1.0,
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 0.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      }
+    }
+  ]
+}
