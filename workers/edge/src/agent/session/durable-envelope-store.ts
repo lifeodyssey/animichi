@@ -16,6 +16,13 @@
  *    needs that (a session-state read outside the DO) moves it to a column and
  *    pays the migration then; `SessionEnvelopeStore` is where it swaps.
  *
+ * The two ledgers (#1290) are written through `encodedMemory` rather than
+ * straight from the envelope on purpose: `put` structured-clones its value and
+ * a clone restores no class prototype, so a `FactLedger` written as itself
+ * would come back a plain object that cannot answer any of its own questions.
+ * `storedMemory` is the guarded read that turns it back into the ledgers, with
+ * both caps re-applied.
+ *
  * Reading is guarded because `get` answers `unknown` and an older deployment
  * could have written a shape this one no longer reads. Every field of a stored
  * candidate is checked — required ones for presence, optional ones for type
@@ -25,6 +32,7 @@
  * worse than no question at all.
  */
 import { isJsonRecord } from "../json-record.ts";
+import { encodedMemory, storedMemory } from "../memory/stored-memory.ts";
 import type { CurrentAnime, OrderedCandidate } from "../tools/catalog-tool-session.ts";
 import {
   SessionEnvelope,
@@ -106,7 +114,11 @@ export class DurableEnvelopeStore implements SessionEnvelopeStore {
   async load(): Promise<SessionEnvelope> {
     const held = await this.#storage.get(SESSION_ENVELOPE_KEY);
     if (!isJsonRecord(held)) return SessionEnvelope.empty;
-    return new SessionEnvelope(storedClarification(held.pendingClarification), storedAnime(held.currentAnime));
+    return new SessionEnvelope(
+      storedClarification(held.pendingClarification),
+      storedAnime(held.currentAnime),
+      storedMemory(held.memory),
+    );
   }
 
   /**
@@ -119,6 +131,7 @@ export class DurableEnvelopeStore implements SessionEnvelopeStore {
     await this.#storage.put(stagedEnvelopeKey(runId), {
       pendingClarification: envelope.pendingClarification,
       currentAnime: envelope.currentAnime,
+      memory: encodedMemory(envelope.memory),
     });
   }
 

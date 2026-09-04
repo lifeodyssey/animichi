@@ -12,6 +12,8 @@
  * a clump through every method of the loop.
  */
 import type { LoadedTurn } from "./turn-store.ts";
+import type { TurnMemory } from "../memory/session-memory.ts";
+import { recordTurnFacts } from "../memory/turn-fact-recorder.ts";
 import { createTurnAgent } from "./turn-agent.ts";
 import { UNANSWERED_TURN, type TurnAnswer, type TurnAnswering } from "./turn-answer.ts";
 import { ProviderFailure, type RunMachine } from "./run-machine.ts";
@@ -33,6 +35,9 @@ export interface TurnAttemptParts {
   /** How this turn answers: the `respond` tool, and the typed output its call
    * becomes (#1283). */
   readonly answering: TurnAnswering;
+  /** What this session remembers (#1290): the fact ledger compaction rescues
+   * entities into, and the recorder appends this turn's facts to. */
+  readonly memory: TurnMemory;
   readonly emit: TurnFrameSink;
   readonly owner: string;
   readonly now: () => number;
@@ -74,13 +79,22 @@ export class TurnAttempt {
     return this.#answer;
   }
 
-  /** One pi run. A run that ends carrying an error message never answered. */
+  /**
+   * One pi run. A run that ends carrying an error message never answered.
+   *
+   * The facts are recorded from the run's own steps AFTER the loop and BEFORE
+   * the ending, which is where Python recorded them (`_execution_result`,
+   * command-then-query) and the only place they can go: the settlement stages
+   * the envelope, so a fact written after it would be staged by nobody and the
+   * retry would promote a ledger missing it.
+   */
   async drive(): Promise<void> {
     const agent = createTurnAgent(this.#agentParts());
     await agent.continue();
     if (this.steps.broken !== null) throw this.steps.broken;
     const failure = providerFailureIn(agent.state.errorMessage, this.#parts.model.scrub);
     if (failure !== null) throw failure;
+    recordTurnFacts(this.#parts.memory, this.steps.recorded, new Date(this.#parts.now()));
     this.#answer = this.#parts.answering.close(this.output.answer);
   }
 
@@ -92,10 +106,10 @@ export class TurnAttempt {
    * result the world is waiting on.
    */
   #agentParts() {
-    const { model, systemPrompt, toolbox, emit, answering } = this.#parts;
+    const { model, systemPrompt, toolbox, emit, answering, memory } = this.#parts;
     const tools = [...this.steps.wrap(toolbox.tools()), answering.tool()];
     const shouldStop = () => this.#stops();
-    return { model, systemPrompt, turn: this.#turn, tools, output: this.output, emit, shouldStop };
+    return { model, systemPrompt, turn: this.#turn, tools, memory, output: this.output, emit, shouldStop };
   }
 
   /** Between turns: the answer, the budget, the lease and the store all get a

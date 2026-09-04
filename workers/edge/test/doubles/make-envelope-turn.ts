@@ -15,9 +15,10 @@ import { EnvelopeStagingStore } from "../../src/agent/session/envelope-staging-s
 import { TurnEnvelope } from "../../src/agent/session/turn-envelope.ts";
 import { turnToolbox } from "../../src/agent/session/session-turn.ts";
 import { InMemoryTurnStore } from "./in-memory-turn-store.ts";
-import { makeScriptedTurnModel, makeUserTranscript } from "./make-turn-parts.ts";
-import { TurnAnswering } from "../../src/agent/session/turn-answer.ts";
-import { KUKI_STATION, SATTE, WASHINOMIYA } from "./catalog-payloads.ts";
+import { makeScriptedTurnModel, makeSessionTurnParts, makeUserTranscript } from "./make-turn-parts.ts";
+import { KUKI_STATION, LUCKY_STAR_ROUTE, SATTE, WASHINOMIYA } from "./catalog-payloads.ts";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type { TranscriptRow } from "../../src/agent/session/turn-store.ts";
 import { RecordingEnvelopeStorage } from "./recording-envelope-storage.ts";
 
 const NOW = 1_000;
@@ -48,6 +49,7 @@ function catalogBinding(resolveOutcome: object) {
     "/catalog/points-by-bangumi-id": { rows: [WASHINOMIYA, SATTE], synced_at: "2026-06-20T00:00:00.000Z" },
     "/catalog/geocode": { candidates: [KUKI_STATION] },
     "/catalog/nearby": { rows: [WASHINOMIYA] },
+    "/catalog/itinerary": LUCKY_STAR_ROUTE,
   };
   return {
     fetch: (request: Request) => {
@@ -57,11 +59,19 @@ function catalogBinding(resolveOutcome: object) {
   };
 }
 
-/** Remember the system prompt pi actually sent, which is where the stored facts
- * have to arrive for the next turn's model to act on them. */
-function promptRecording(streamFn: StreamFn, seen: string[]): StreamFn {
+/** One model request as it left the loop: the system prompt carrying the
+ * session's stored facts, and the context after `transformContext` shaped it. */
+export interface ModelRequest {
+  readonly prompt: string;
+  readonly messages: readonly AgentMessage[];
+}
+
+/** Remember what pi actually sent. The system prompt is where the stored facts
+ * have to arrive for the next turn's model to act on them, and the messages are
+ * what compaction shaped on the way past (#1290). */
+function requestRecording(streamFn: StreamFn, seen: ModelRequest[]): StreamFn {
   return (model, context, options) => {
-    seen.push(context.systemPrompt ?? "");
+    seen.push({ prompt: context.systemPrompt ?? "", messages: [...context.messages] as AgentMessage[] });
     return streamFn(model, context, options);
   };
 }
@@ -84,11 +94,15 @@ export interface EnvelopeTurnParts {
   readonly runId?: string;
   /** Every run the session still owes work for; defaults to just this one. */
   readonly queued?: readonly string[];
+  /** The session transcript this run resumes from; defaults to one user row. */
+  readonly transcript?: TranscriptRow[];
 }
 
 export interface EnvelopeTurnRun {
   readonly store: InMemoryTurnStore;
   readonly state: TurnState;
+  /** Every model request this turn made, in order. */
+  readonly requests: ModelRequest[];
   /** The system prompt each of this turn's model calls carried. */
   readonly prompts: string[];
 }
@@ -100,7 +114,7 @@ export function makeEnvelopeTurnStore(parts: Partial<EnvelopeTurnParts> = {}): I
   const store = new InMemoryTurnStore(
     {
       runId: parts.runId ?? RUN_ID, sessionId: "session-1", deadlineAt: NOW + 100_000,
-      transcript: makeUserTranscript(), steps: parts.steps ?? [],
+      transcript: parts.transcript ?? makeUserTranscript(), steps: parts.steps ?? [],
       leaseOwner: held, leaseExpiresAt: held === undefined ? undefined : NOW + 100_000,
     },
     () => NOW,
@@ -110,14 +124,14 @@ export function makeEnvelopeTurnStore(parts: Partial<EnvelopeTurnParts> = {}): I
 }
 
 /** The turn itself, assembled the way `session-turn.ts` assembles the real one. */
-function scriptedTurn(parts: EnvelopeTurnParts, store: InMemoryTurnStore, envelope: TurnEnvelope, prompts: string[]): DurableTurn {
+function scriptedTurn(parts: EnvelopeTurnParts, store: InMemoryTurnStore, envelope: TurnEnvelope, requests: ModelRequest[]): DurableTurn {
   const binding = { CATALOG: catalogBinding(parts.resolveOutcome ?? RESOLVED_LUCKY_STAR) };
-  const model = makeScriptedTurnModel(promptRecording(parts.streamFn, prompts));
+  const model = makeScriptedTurnModel(requestRecording(parts.streamFn, requests));
   return new DurableTurn({
     store: new EnvelopeStagingStore(store, envelope),
     model,
     toolbox: turnToolbox(binding, envelope.session, model),
-    answering: new TurnAnswering(envelope.session),
+    ...makeSessionTurnParts(envelope.session),
     systemPrompt: envelope.systemPrompt,
     prices: PRICES, emit: () => Promise.resolve(), owner: "do-1", now: () => NOW,
   });
@@ -126,7 +140,7 @@ function scriptedTurn(parts: EnvelopeTurnParts, store: InMemoryTurnStore, envelo
 /** Run one turn over the stored envelope, and hand back what it left behind. */
 export async function runEnvelopeTurn(parts: EnvelopeTurnParts): Promise<EnvelopeTurnRun> {
   const store = parts.store ?? makeEnvelopeTurnStore(parts);
-  const prompts: string[] = [];
+  const requests: ModelRequest[] = [];
   const runId = parts.runId ?? RUN_ID;
   const envelope = await TurnEnvelope.open({
     envelopes: new DurableEnvelopeStore(parts.storage),
@@ -134,7 +148,7 @@ export async function runEnvelopeTurn(parts: EnvelopeTurnParts): Promise<Envelop
     queued: parts.queued ?? [runId],
     locale: "ja",
   });
-  const state = await scriptedTurn(parts, store, envelope, prompts).run(runId);
+  const state = await scriptedTurn(parts, store, envelope, requests).run(runId);
   await envelope.close(state);
-  return { store, state, prompts };
+  return { store, state, requests, prompts: requests.map((request) => request.prompt) };
 }

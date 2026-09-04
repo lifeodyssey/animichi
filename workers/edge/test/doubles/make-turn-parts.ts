@@ -67,12 +67,19 @@ export function makeScriptedTurnModel(streamFn = makeToolCallingStreamFn()): Tur
   return { registry, model, callerKeyed: false };
 }
 
-/** How a turn under test answers (#1283): the `respond` tool over a session
- * whose stored results are whatever the case put in it. */
-export function makeTurnAnswering(
+/**
+ * The two turn parts one `TurnCatalogSession` fulfils: how the turn ANSWERS
+ * (#1283, the `respond` tool over the session's stored results) and what it
+ * REMEMBERS (#1290, the fact ledger and the retained entities).
+ *
+ * They are built together because production builds them together —
+ * `session-turn.ts` hands the same session to both — and a double that gave a
+ * turn two different sessions would be a shape the deployed turn never has.
+ */
+export function makeSessionTurnParts(
   session: TurnCatalogSession = new TurnCatalogSession({ locale: "ja" }),
-): TurnAnswering {
-  return new TurnAnswering(session);
+): { answering: TurnAnswering; memory: TurnCatalogSession } {
+  return { answering: new TurnAnswering(session), memory: session };
 }
 
 /** The one user message every case starts from. */

@@ -17,12 +17,19 @@
  *   is pi's own seam for ending a loop between turns, so a turn that runs out of
  *   budget stops cleanly and settles `deadline_exceeded` instead of unwinding
  *   through a throw the model would never see.
+ * - **`transformContext` is where compaction hangs.** pi calls it on the way
+ *   into every model request with the whole `AgentMessage[]`, which is exactly
+ *   the seam Python's history-compaction tier occupied — and the seam AFTER
+ *   `seededMessages` rebuilt the transcript from Neon, so what it shapes is the
+ *   context and never the stored history (#1290, `context-compaction.ts`).
  * - **one subscription feeds both the ledger and the wire.** The same listener
  *   records what the turn produced (`TurnOutput`) and pushes SD-9 frames, in
  *   that order: the assistant message must be recorded before the tool call it
  *   issued executes, because `TurnSteps` persists the two together.
  */
 import { Agent, type AgentOptions } from "@earendil-works/pi-agent-core";
+import { contextCompaction } from "./context-compaction.ts";
+import type { TurnMemory } from "../memory/session-memory.ts";
 import { seededMessages } from "./turn-transcript.ts";
 import { framesFor } from "./turn-frames.ts";
 import type { TurnFrameSink } from "./turn-subscribers.ts";
@@ -37,6 +44,8 @@ export interface TurnAgentParts {
   readonly systemPrompt: string;
   readonly turn: LoadedTurn;
   readonly tools: readonly TurnTool[];
+  /** The session's two ledgers, which compaction rescues entities into. */
+  readonly memory: TurnMemory;
   readonly output: TurnOutput;
   readonly emit: TurnFrameSink;
   /** Asked between turns: true ends the loop (deadline, or a lost lease). */
@@ -64,6 +73,7 @@ function agentOptions(parts: TurnAgentParts): AgentOptions {
       tools: [...parts.tools],
       messages: seededMessages(parts.turn, model),
     },
+    transformContext: contextCompaction(parts.memory),
     streamFn: (target, context, options) =>
       registry.streamSimple(target, context, streamOptionsFor(parts.model, options)),
     shouldStopAfterTurn: () => parts.shouldStop(),

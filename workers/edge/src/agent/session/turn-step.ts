@@ -22,6 +22,14 @@
  * answer, so `seededMessages` never rebuilds a transcript that ends on an
  * unanswered call.
  *
+ * IT ALSO KEEPS THE RUN'S STEP LIST, for the fact recorder (#1290). Python
+ * derived its ledger facts from `AgentResult.steps`, and the equivalent list
+ * here has to include the REPLAYED steps as well as the newly executed ones —
+ * a retry that re-derived facts from only what it executed itself would forget
+ * the pacing an earlier attempt was asked for. Every step passes through
+ * `#resolve` on every attempt, replayed or not, so this is the one place that
+ * sees the whole run.
+ *
  * A lost lease is NOT a tool failure. pi turns a tool's throw into an error
  * result the model reacts to, so throwing here would let a turn this
  * incarnation no longer owns carry on talking. The persistence transaction
@@ -31,6 +39,7 @@
  */
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { JsonValue } from "@earendil-works/pi-ai";
+import type { RecordedStep } from "../memory/turn-fact-recorder.ts";
 import { TurnStoreUnavailable, type RunMachine } from "./run-machine.ts";
 import type { TurnOutput } from "./turn-output.ts";
 import type { TurnTool } from "./turn-toolbox.ts";
@@ -77,6 +86,8 @@ function settledStep(
 }
 
 export class TurnSteps {
+  /** Every step of this RUN, replayed ones included, in settlement order. */
+  readonly recorded: RecordedStep[] = [];
   readonly #parts: TurnStepParts;
   readonly #sequence: StepSequence;
   #abandoned = false;
@@ -115,11 +126,20 @@ export class TurnSteps {
     ...call: Parameters<TurnTool["execute"]>
   ): Promise<AgentToolResult<JsonValue>> {
     const stepIndex = this.#sequence.take();
+    const input = asJsonValue(call[1]);
     const settled = this.#sequence.settled(stepIndex);
-    if (settled !== null) return toolResultOf(settled);
+    if (settled !== null) return this.#recorded(tool.name, input, toolResultOf(settled));
     const result = await tool.execute(...call);
     const opening = this.#sequence.opening(stepIndex, this.#parts.output.assistantMessage);
-    await this.#settle(settledStep(stepIndex, tool.name, { input: asJsonValue(call[1]), result }, opening));
+    await this.#settle(settledStep(stepIndex, tool.name, { input, result }, opening));
+    return this.#recorded(tool.name, input, result);
+  }
+
+  /** Remember what the run asked and what it got, for the fact recorder. */
+  #recorded(
+    toolName: string, input: JsonValue, result: AgentToolResult<JsonValue>,
+  ): AgentToolResult<JsonValue> {
+    this.recorded.push({ toolName, input, details: result.details });
     return result;
   }
 
