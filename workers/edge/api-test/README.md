@@ -1,6 +1,6 @@
 # `api-test/` — the agent tier's staging lane (W1-4 #1253, unblocked by W1-7 #1256)
 
-Opt-in, never in CI, never in a deploy unit. Three suites, one per question, over one
+Opt-in, never in CI, never in a deploy unit. Four suites, one per question, over one
 shared door — `lane-origin.ts`, which resolves `CATALOG_API_ORIGIN` and
 `AGENT_TURN_BEARER` for all of them and refuses a non-HTTPS origin before any token
 is sent. No lane reads those variables for itself; `test/web-search-lane.test.ts`
@@ -33,6 +33,12 @@ fails if one starts to.
   which means the request never reached the backend at all. Every one of these
   is also on the server side as a `web_search_failed` entry in Workers Logs,
   with the same text — so a turn nobody was watching can still be diagnosed.
+
+- `byok-probe.test.ts` — `POST /v1/byok/probe` answers the documented rejection
+  for a deliberately invalid key, refuses a metadata-address base URL, and stays
+  behind the login wall (W2-3 #1289). Every credential it sends is a zero-entropy
+  fixture; the valid-key case — the one that answers `vision: true` — is the
+  owner's manual step, because it needs a key that must not be written down.
 
 ```sh
 CATALOG_API_ORIGIN=https://staging.animichi.com \

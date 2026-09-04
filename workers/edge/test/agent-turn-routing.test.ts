@@ -27,7 +27,7 @@ const stubCtx = {
 } as unknown as ExecutionContext;
 
 interface TierCall {
-  readonly route: "chat" | "transcript";
+  readonly route: "chat" | "probe" | "transcript";
   readonly identity: TurnIdentity;
   readonly sessionId: string | null;
 }
@@ -38,6 +38,10 @@ function makeRecordingTier(calls: TierCall[]): AgentTurnTier {
     chat: (_env, _request, identity) => {
       calls.push({ route: "chat", identity, sessionId: null });
       return Promise.resolve(new Response("tier-chat", { status: 200 }));
+    },
+    probe: (_request, identity) => {
+      calls.push({ route: "probe", identity, sessionId: null });
+      return Promise.resolve(new Response("tier-probe", { status: 200 }));
     },
     transcript: (_env, _request, identity, sessionId) => {
       calls.push({ route: "transcript", identity, sessionId });

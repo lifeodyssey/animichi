@@ -17,6 +17,8 @@
  *    routing change.
  */
 import type { GetSessionHistoryResponse } from "@animichi/contract/agent-contract";
+import type { ByokRejection } from "../agent/byok/byok-credential.ts";
+import type { ByokProbeVerdict } from "../agent/byok/byok-probe.ts";
 import type { ChatEnvelopeError } from "./chat-envelope.ts";
 
 /**
@@ -33,6 +35,13 @@ const ANON_QUOTA_EXHAUSTED_CODE = "anon_quota_exhausted";
 const QUOTA_EXHAUSTED_MESSAGE = "今日はここまで・ログインすると続けられるよ。";
 const TURN_IN_FLIGHT_MESSAGE = "リクエストを処理中です。しばらくしてからお試しください。";
 const CONVERSATION_NOT_FOUND_MESSAGE = "Conversation not found.";
+
+/** Verbatim from `routes/admission.py`'s `BYOK_REQUIRES_LOGIN_MESSAGE`, which
+ * `routes/byok.py` repeats word for word. */
+const BYOK_REQUIRES_LOGIN_MESSAGE = "BYOKを使うにはログインが必要です。";
+
+/** Verbatim from `routes/byok.py`'s missing-header rejection. */
+const BYOK_HEADERS_REQUIRED_MESSAGE = "X-BYOK-* headers are required.";
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -114,4 +123,38 @@ export function turnResponse(handed: Response, sessionId: string): Response {
     headers.set(UI_MESSAGE_STREAM_HEADER, "v1");
   }
   return new Response(handed.body, { status: handed.status, headers });
+}
+
+/**
+ * A BYOK credential this tier will not use — `byok_models.py`'s `ByokError`
+ * and the probe's `ProbeRejection`, which Python answers with the same 400
+ * error envelope. The rejection's egress `reason` is deliberately NOT on this
+ * wire: which red line a URL tripped is an oracle refinement, and Python
+ * collapses every egress refusal to one sentence for the same reason.
+ */
+export function byokRefused(rejection: ByokRejection): Response {
+  return jsonResponse({ error: { code: rejection.code, message: rejection.message } }, 400);
+}
+
+/** The probe with no headers at all — `routes/byok.py`'s own 400. */
+export function byokHeadersRequired(): Response {
+  return jsonResponse(
+    { error: { code: "invalid_request", message: BYOK_HEADERS_REQUIRED_MESSAGE } },
+    400,
+  );
+}
+
+/** BYOK is login-gated on both routes that accept it (`turn_admission.py`
+ * for the turn, `routes/byok.py` for the probe): 403, never a 401, because
+ * the caller HAS an identity — it is just not one that may spend a key. */
+export function byokRequiresLogin(): Response {
+  return jsonResponse(
+    { error: { code: "byok_requires_login", message: BYOK_REQUIRES_LOGIN_MESSAGE } },
+    403,
+  );
+}
+
+/** One probe's verdict, in the contract's `ByokProbeResponse` shape. */
+export function byokProbed(verdict: ByokProbeVerdict): Response {
+  return jsonResponse(verdict, 200);
 }

@@ -6,10 +6,10 @@
  * result before answering, so a turn assembled here exercises the same code
  * path the deployed one does — only the socket is scripted.
  */
-import { createModels, createProvider, type MutableModels } from "@earendil-works/pi-ai";
+import { createModels, createProvider } from "@earendil-works/pi-ai";
 import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 import { Type, type Static } from "typebox";
-import { mimoModel } from "../../src/agent/session/turn-model.ts";
+import { mimoModel, type TurnModel } from "../../src/agent/session/turn-model.ts";
 import { TurnAnswering } from "../../src/agent/session/turn-answer.ts";
 import { TurnCatalogSession } from "../../src/agent/session/turn-catalog-session.ts";
 import type { Toolbox, TurnTool } from "../../src/agent/session/turn-toolbox.ts";
@@ -50,11 +50,11 @@ export class CountingSpotLookup implements Toolbox {
   }
 }
 
-/** A models registry that streams from a script instead of a socket. */
-export function makeScriptedModels(streamFn = makeToolCallingStreamFn()): MutableModels {
+/** A turn model that streams from a script instead of a socket. */
+export function makeScriptedTurnModel(streamFn = makeToolCallingStreamFn()): TurnModel {
   const model = mimoModel();
-  const models = createModels();
-  models.setProvider(
+  const registry = createModels();
+  registry.setProvider(
     createProvider({
       id: model.provider,
       name: model.name,
@@ -64,7 +64,7 @@ export function makeScriptedModels(streamFn = makeToolCallingStreamFn()): Mutabl
       api: { stream: streamFn, streamSimple: streamFn },
     }),
   );
-  return models;
+  return { registry, model };
 }
 
 /** How a turn under test answers (#1283): the `respond` tool over a session

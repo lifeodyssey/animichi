@@ -11,6 +11,7 @@ import assert from "node:assert/strict";
 import { turnRoutePolicy } from "../src/gateway/routing-policy.ts";
 
 const CHAT = "/v1/chat";
+const PROBE = "/v1/byok/probe";
 const TRANSCRIPT = "/v1/conversations/s-42/messages";
 
 void test("an unset flag selects nothing — every /v1 request keeps forwarding", () => {
@@ -43,14 +44,27 @@ void test("a percent-encoded session id reaches retrieval decoded", () => {
   });
 });
 
-void test("the two routes are matched on method as well as path", () => {
+// W2-3 (#1289): the BYOK probe joined the flag's set. It has to move with the
+// turn — a credential the edge validated for `/v1/chat` and the same credential
+// validated by the container for the probe would be two verdicts on one key.
+void test('"edge" routes POST /v1/byok/probe to the tier as well', () => {
+  assert.deepEqual(turnRoutePolicy("edge").select("POST", PROBE), { kind: "probe" });
+});
+
+void test("the probe keeps forwarding to the container while the flag says so", () => {
+  assert.equal(turnRoutePolicy("container").select("POST", PROBE), null);
+  assert.equal(turnRoutePolicy(undefined).select("POST", PROBE), null);
+});
+
+void test("the three routes are matched on method as well as path", () => {
   const policy = turnRoutePolicy("edge");
   assert.equal(policy.select("GET", CHAT), null);
+  assert.equal(policy.select("GET", PROBE), null);
   assert.equal(policy.select("DELETE", TRANSCRIPT), null);
 });
 
 void test("every other /v1 path is left to the container under both flag values", () => {
-  const others = ["/v1/photo-search", "/v1/conversations", "/v1/byok/probe", "/v1/search/preview"];
+  const others = ["/v1/photo-search", "/v1/conversations", "/v1/search/preview"];
   const container = others.map((path) => turnRoutePolicy("container").select("POST", path));
   const edge = others.map((path) => turnRoutePolicy("edge").select("POST", path));
   assert.deepEqual(container, others.map(() => null));

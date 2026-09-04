@@ -27,11 +27,12 @@
  * `cloudflare:workers` import, so every module it reaches stays importable
  * under `node:test`.
  */
+import type { ByokCredential } from "../byok/byok-credential.ts";
 import { driveQueuedRun } from "./session-turn.ts";
 import { DurableEnvelopeStore } from "./durable-envelope-store.ts";
 import type { SessionEnvelopeStore } from "./session-envelope.ts";
 import { SessionRunQueue } from "./session-run-queue.ts";
-import { armedRunId, SESSION_ARM_PATH } from "./session-wakeup.ts";
+import { armedCredential, armedRunId, SESSION_ARM_PATH } from "./session-wakeup.ts";
 import { sseResponse } from "./sse-turn-channel.ts";
 import { TurnSubscribers } from "./turn-subscribers.ts";
 
@@ -50,6 +51,23 @@ export class AgentSession {
    * — the same single-writer argument the queue above is kept there for. */
   readonly #envelopes: SessionEnvelopeStore;
   readonly #subscribers = new TurnSubscribers();
+  /**
+   * The caller-supplied credentials this incarnation was armed with, by run
+   * (W2-3 #1289). HEAP ONLY, like `#subscribers` and for the same reason `ctx.
+   * storage` is wrong for it: a BYOK key is the one thing about a turn that
+   * must not outlive it. `#arm` and `alarm()` are two calls on one incarnation,
+   * which is the whole mechanism.
+   *
+   * RESIDUAL, NAMED RATHER THAN HIDDEN: an eviction between the two, or a
+   * `RunSweeper` re-arm of a stranded run, reaches `#drive` with the entry
+   * gone, and this class cannot tell that run apart from a plain one — nothing
+   * durable records that it was BYOK. Such a run would be driven on the server
+   * key. Closing it needs a non-secret "this run is caller-keyed" marker
+   * somewhere durable, which is a decision about what the run row may say and
+   * is deliberately NOT taken here; the request-path red line (an invalid
+   * credential never becomes a server-key turn) is enforced at the gateway.
+   */
+  readonly #credentials = new Map<string, ByokCredential>();
 
   constructor(ctx: DurableObjectState, env: Record<string, unknown>) {
     this.#ctx = ctx;
@@ -75,8 +93,10 @@ export class AgentSession {
   }
 
   async #arm(request: Request): Promise<Response> {
+    const credential = armedCredential(request);
     const runId = await armedRunId(request);
     if (runId === undefined) return new Response("Bad request", { status: 400 });
+    if (credential !== null) this.#credentials.set(runId, credential);
     await this.#queue.queue(runId);
     await this.#ctx.storage.setAlarm(Date.now());
     return new Response(null, { status: 204 });
@@ -98,13 +118,16 @@ export class AgentSession {
     return view === null ? notFound() : sseResponse(view.body);
   }
 
-  /** One run, then close whoever was watching it. */
+  /** One run, then close whoever was watching it. The credential is dropped
+   * on the way out whatever the turn did — a spent key is not kept warm for a
+   * retry that would have to be re-armed with it anyway. */
   async #drive(runId: string): Promise<void> {
     const emit = this.#subscribers.sinkFor(runId);
     const owner = this.#ctx.id.toString();
     const queued = await this.#queue.pending();
-    const parts = { env: this.#env, emit, owner, envelopes: this.#envelopes, queued };
-    await driveQueuedRun(parts, runId);
+    const byok = this.#credentials.get(runId);
+    const parts = { env: this.#env, emit, owner, envelopes: this.#envelopes, queued, byok };
+    await driveQueuedRun(parts, runId).finally(() => this.#credentials.delete(runId));
     await this.#subscribers.finish(runId);
   }
 }

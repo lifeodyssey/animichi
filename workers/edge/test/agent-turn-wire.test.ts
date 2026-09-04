@@ -45,6 +45,9 @@ void test("the submission carries the named conversation, the dedupe key and the
     payer: "anon",
     clientMessageId: "t-9",
     text: "秩父へ",
+    // A request with no `X-BYOK-*` headers carries no credential (#1289) — the
+    // turn runs on the deployment's own model, exactly as it did before.
+    byok: undefined,
   });
 });
 

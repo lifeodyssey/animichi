@@ -28,9 +28,39 @@ import {
   createProvider,
   type Api,
   type Model,
+  type ModelsSimpleStreamOptions,
   type MutableModels,
 } from "@earendil-works/pi-ai";
 import { stream, streamSimple } from "@earendil-works/pi-ai/api/openai-completions";
+import type { EgressFetch } from "../egress/guarded-fetch.ts";
+import type { SecretScrub } from "../egress/secret-scrub.ts";
+
+/**
+ * WHAT ONE TURN RUNS ON — the registry, the model inside it, and the fetch its
+ * provider requests go out through, as one value.
+ *
+ * The three travel together because a turn cannot use one without the others:
+ * pi resolves a model against the registry that published it, and a fetch
+ * injected for a DIFFERENT provider's credential would be a guard pointed at
+ * the wrong allowlist. Since W2-3 (#1289) there are two producers — the server
+ * key's `mimoTurnModel` here, and `byok/byok-turn-model.ts`'s per-turn one —
+ * and this shape is the whole contract between them and `turn-agent.ts`.
+ *
+ * `fetch` and `scrub` are absent for the server-key model on purpose: mimo is
+ * our own configured endpoint, not a caller-chosen one, so there is nothing
+ * for the BYOK egress guard to decide about it, and no caller secret for a
+ * scrub to redact. They live HERE rather than beside them because whoever
+ * knows the credential is the only thing that can produce either: the guard is
+ * pointed at that credential's allowlist and the scrub is seeded with its key.
+ */
+export interface TurnModel {
+  readonly registry: MutableModels;
+  readonly model: Model<Api>;
+  readonly fetch?: EgressFetch;
+  /** Runs over this turn's frames and provider error text before either can
+   * reach a log or the wire. */
+  readonly scrub?: SecretScrub;
+}
 
 /** The direct MiMo endpoint, the one W0-S2 measured (Appendix B). */
 export const MIMO_DIRECT_BASE_URL = "https://api.xiaomimimo.com/v1";
@@ -85,10 +115,34 @@ export function createTurnModels(apiKey: string): MutableModels {
 }
 
 /** The turn's model, or a loud failure — never a silently model-less agent. */
-export function turnModel(models: MutableModels): Model<Api> {
+function registeredMimo(models: MutableModels): Model<Api> {
   const model = models.getModel("mimo", MIMO_MODEL_ID);
   if (model === undefined) throw new Error(`${MIMO_MODEL_ID} is not registered`);
   return model;
+}
+
+/**
+ * The per-request options every stream of this turn goes out with.
+ *
+ * pi accepts an injected fetch ONLY per request (`CreateProviderOptions` has no
+ * `fetch` field), so a BYOK turn's egress guard has to be attached at each
+ * call site. There are two of them — the agent loop (`turn-agent.ts`) and
+ * `translate_anime_title`'s tool-less completion (`session-turn.ts`) — and a
+ * second copy of this line is exactly how one of them would quietly stop being
+ * guarded. A turn with no injected fetch passes its options through untouched,
+ * so the mimo path keeps the call shape W0-S1 measured.
+ */
+export function streamOptionsFor(
+  turn: TurnModel, options: ModelsSimpleStreamOptions | undefined,
+): ModelsSimpleStreamOptions | undefined {
+  const { fetch } = turn;
+  return fetch === undefined ? options : { ...options, fetch };
+}
+
+/** The server-key turn: mimo-v2.5, direct, on the runtime's own fetch. */
+export function mimoTurnModel(apiKey: string): TurnModel {
+  const registry = createTurnModels(apiKey);
+  return { registry, model: registeredMimo(registry) };
 }
 
 /** The direct MiMo key from the Worker environment, or undefined when unbound. */

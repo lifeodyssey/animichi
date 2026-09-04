@@ -18,6 +18,7 @@
  * production implementation, wired in `app.ts` beside the other gates.
  */
 import type { Env } from "../env.ts";
+import type { RunPayer } from "../db/schema.ts";
 import type { NamedStubs } from "../agent/durable-namespace.ts";
 import { withAgentDatabase } from "../db/agent-database.ts";
 import { anonymousMessageAllowance, QuotaExhaustedError } from "../agent/intake/anonymous-message-allowance.ts";
@@ -28,8 +29,15 @@ import { durableSessionWakeup } from "../agent/session/session-wakeup.ts";
 import { durableSessionStreams, handOffTurn } from "../agent/session/turn-stream-handoff.ts";
 import { readConversationOn } from "../agent/retrieval/neon-conversation-records.ts";
 import { TRANSCRIPT_OFFSET_BOUND, TRANSCRIPT_PAGE_LIMIT } from "../agent/retrieval/conversation-retrieval.ts";
+import { ByokRejection, type ByokCredential } from "../agent/byok/byok-credential.ts";
+import { byokCredentialIn, byokSignalIn } from "../agent/byok/byok-headers.ts";
+import { ByokProbe } from "../agent/byok/byok-probe.ts";
 import { ChatEnvelopeError, chatTurnText, requestLocale, type Locale } from "./chat-envelope.ts";
 import {
+  byokHeadersRequired,
+  byokProbed,
+  byokRefused,
+  byokRequiresLogin,
   conversationNotFound,
   envelopeRefused,
   invalidPage,
@@ -63,7 +71,47 @@ export interface TurnIdentity {
 /** What the gateway asks the agent tier to answer. */
 export interface AgentTurnTier {
   chat(env: Env, request: Request, identity: TurnIdentity): Promise<Response>;
+  /** No `env`: a probe reads no binding — it spends the caller's own key
+   * against the caller's own endpoint and touches neither Neon nor a DO. */
+  probe(request: Request, identity: TurnIdentity): Promise<Response>;
   transcript(env: Env, request: Request, identity: TurnIdentity, sessionId: string): Promise<Response>;
+}
+
+/**
+ * BYOK is login-gated on both routes that accept it (`turn_admission.py`,
+ * `routes/byok.py`). The check routes through the ID convention as well as the
+ * typed marker, exactly as `application/identity.py::is_anonymous_identity`
+ * does and for the same reason (#741): an `anon_`-prefixed id with a missing
+ * or mistyped user type is anonymous too, and a literal type check would let
+ * that caller reach a real credential-spending model call.
+ */
+function isAnonymousIdentity(identity: TurnIdentity): boolean {
+  return identity.userType === "anonymous" || identity.userId.startsWith("anon_");
+}
+
+/**
+ * Who pays for the turn — the `runs.payer` vocabulary, which is also
+ * `daily_usage.scope` (`db/schema.ts`).
+ *
+ * A BYOK turn is its OWN payer, not the member who submitted it: the caller
+ * spent their own key, so the settlement prices it at zero
+ * (`settlement/neon-turn-settlement.ts::platformCost`) and banks it in the
+ * `byok` scope. That is Python's `scope_for_identity(..., is_byok=True)`, which
+ * checks BYOK first "even when it also happens to carry an anonymous-shaped
+ * identity", and it is what the third value of `RUN_PAYERS` has been waiting
+ * for — nothing set it before this card.
+ */
+function payerFor(identity: TurnIdentity, byok: ByokCredential | undefined): RunPayer {
+  if (byok !== undefined) return "byok";
+  return identity.userType === "anonymous" ? "anon" : "user";
+}
+
+/** Answered BEFORE the headers are parsed (Python's P3 ordering): a malformed
+ * BYOK header from an anonymous caller must surface as the login refusal, not
+ * as `invalid_request`. */
+function byokLoginRefusal(request: Request, identity: TurnIdentity): Response | null {
+  const gated = isAnonymousIdentity(identity) && byokSignalIn(request.headers);
+  return gated ? byokRequiresLogin() : null;
 }
 
 /** A `limit`/`offset` outside the window the retrieval surface accepts. */
@@ -108,12 +156,14 @@ export async function submissionOf(
   request: Request, identity: TurnIdentity, locale: Locale, maxChars: number = MESSAGE_MAX_CHARS,
 ): Promise<TurnSubmission> {
   const payload = await submittedPayload(request, locale);
+  const byok = byokCredentialIn(request.headers) ?? undefined;
   return {
     sessionId: submittedSessionId(request.headers.get("x-session-id"), locale),
     identityId: identity.userId,
-    payer: identity.userType === "anonymous" ? "anon" : "user",
+    payer: payerFor(identity, byok),
     clientMessageId: request.headers.get("x-turn-id")?.trim() ?? crypto.randomUUID(),
     text: chatTurnText(payload, locale, maxChars),
+    byok,
   };
 }
 
@@ -133,9 +183,26 @@ function handOff(env: Env, submission: TurnSubmission): Promise<Response> {
 }
 
 async function chatResponse(env: Env, request: Request, identity: TurnIdentity): Promise<Response> {
+  const refusal = byokLoginRefusal(request, identity);
+  if (refusal !== null) return refusal;
   const locale = requestLocale(request.headers.get("x-locale"));
   const submission = await submissionOf(request, identity, locale, MESSAGE_MAX_CHARS);
   return turnResponse(await handOff(env, submission), submission.sessionId);
+}
+
+/**
+ * One credential, validated and spent once (`routes/byok.py`). The login gate
+ * runs first, then the headers must be there at all, and only then does the
+ * probe make its single upstream request through the egress guard.
+ */
+async function probeResponse(
+  probe: ByokProbe, request: Request, identity: TurnIdentity,
+): Promise<Response> {
+  const refusal = byokLoginRefusal(request, identity);
+  if (refusal !== null) return refusal;
+  const credential = byokCredentialIn(request.headers);
+  if (credential === null) return byokHeadersRequired();
+  return byokProbed(await probe.run(credential));
 }
 
 /** One query parameter as the Python route's `Query(ge=…, le=…)` accepted it. */
@@ -172,6 +239,7 @@ async function transcriptResponse(
  * and it is where each shape is held against the Python route it replaces.
  */
 export function refusalFor(error: unknown): Response | null {
+  if (error instanceof ByokRejection) return byokRefused(error);
   if (error instanceof ChatEnvelopeError) return envelopeRefused(error);
   if (error instanceof QuotaExhaustedError) return quotaExhausted(error.resetsAt);
   if (error instanceof SessionOwnershipError) return conversationNotFound();
@@ -190,10 +258,13 @@ async function refusable(work: () => Promise<Response>): Promise<Response> {
   }
 }
 
-/** The production tier: Neon for the turn tables, the DOs for the run itself. */
-export function neonAgentTurnTier(): AgentTurnTier {
+/** The production tier: Neon for the turn tables, the DOs for the run itself.
+ * The probe is injectable so the seam runs under `node:test` against a
+ * scripted socket instead of a caller's real provider. */
+export function neonAgentTurnTier(probe: ByokProbe = new ByokProbe()): AgentTurnTier {
   return {
     chat: (env, request, identity) => refusable(() => chatResponse(env, request, identity)),
+    probe: (request, identity) => refusable(() => probeResponse(probe, request, identity)),
     transcript: (env, request, identity, sessionId) =>
       refusable(() => transcriptResponse(env, request, identity, sessionId)),
   };

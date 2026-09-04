@@ -15,11 +15,39 @@
  * per-subscriber and best-effort, and a dead one is dropped on the write that
  * discovered it rather than on a heartbeat nobody would read.
  */
+import type { SecretScrub } from "../egress/secret-scrub.ts";
 import { SseTurnChannel } from "./sse-turn-channel.ts";
 import type { TurnFrame } from "./turn-frames.ts";
+import { asJsonValue } from "./turn-store.ts";
 
 /** Where a running turn writes its frames. Best-effort by contract. */
 export type TurnFrameSink = (frames: readonly TurnFrame[]) => Promise<void>;
+
+/**
+ * The same sink with one turn's own secret redacted out of every frame it
+ * carries (#1289, spec §四 S5's "日志脱敏").
+ *
+ * A DECORATOR, and deliberately at the sink rather than at each frame's
+ * construction: `turn-frames.ts` already answers a failure with a fixed
+ * sentence, but a tool argument the model composed, an answer it wrote, or a
+ * frame some later card adds are all strings this turn produced while holding
+ * a caller's key. Wrapping the one place every frame passes through means the
+ * guarantee does not have to be re-made by whoever adds the next frame type.
+ *
+ * A turn with no caller secret is not wrapped at all (`session-turn.ts`), so
+ * the server-key path keeps the exact sink W1 measured.
+ */
+export function scrubbedFrames(emit: TurnFrameSink, scrub: SecretScrub): TurnFrameSink {
+  return (frames) => emit(frames.map((frame) => scrubbedFrame(frame, scrub)));
+}
+
+/** The scrub answers the JSON type; a frame is a JSON OBJECT, and the scrub
+ * only ever rewrites strings in place, so the shape it returns is the shape it
+ * was given — the one fact the narrowing asserts. */
+function scrubbedFrame(frame: TurnFrame, scrub: SecretScrub): TurnFrame {
+  const scrubbed = scrub.payload(asJsonValue(frame));
+  return asJsonValue(scrubbed) as TurnFrame;
+}
 
 export class TurnSubscribers {
   readonly #channels = new Map<string, SseTurnChannel[]>();

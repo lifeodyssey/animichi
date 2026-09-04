@@ -19,7 +19,7 @@ import { UNANSWERED_TURN } from "../src/agent/session/turn-answer.ts";
 import type { SseTurnChannel } from "../src/agent/session/sse-turn-channel.ts";
 import { TurnSubscribers } from "../src/agent/session/turn-subscribers.ts";
 import { InMemoryTurnStore } from "./doubles/in-memory-turn-store.ts";
-import { CountingSpotLookup, makeScriptedModels, makeTurnAnswering, makeUserTranscript } from "./doubles/make-turn-parts.ts";
+import { CountingSpotLookup, makeScriptedTurnModel, makeTurnAnswering, makeUserTranscript } from "./doubles/make-turn-parts.ts";
 
 const RUN_ID = "run-1";
 const NOW = 1_000;
@@ -57,7 +57,7 @@ function makeTurnOn(store: InMemoryTurnStore, emit: TurnSubscribers): DurableTur
   const now = () => NOW;
   return new DurableTurn({
     store,
-    models: makeScriptedModels(),
+    model: makeScriptedTurnModel(),
     answering: makeTurnAnswering(),
     toolbox: new CountingSpotLookup(),
     systemPrompt: "test",
