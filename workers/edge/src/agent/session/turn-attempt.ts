@@ -28,9 +28,17 @@ import type { TurnStore } from "./turn-store.ts";
 
 export interface TurnAttemptParts {
   readonly store: TurnStore;
-  /** What this turn runs on: the registry, the model, and — for a BYOK turn
-   * (#1289) — the guarded fetch and the scrub seeded with the caller's key. */
-  readonly model: TurnModel;
+  /**
+   * What this turn runs on: the registry, the model, and — for a BYOK turn
+   * (#1289) — the guarded fetch and the scrub seeded with the caller's key.
+   *
+   * `null` when this deployment could resolve none. Only a DETERMINISTIC
+   * selection can still be driven then (#1288): it answers from the catalog
+   * and never reaches a provider. `DurableTurn` fails every OTHER modelless
+   * run before the attempt is driven, which is why the narrowing below is an
+   * invariant stated rather than a branch anyone takes.
+   */
+  readonly model: TurnModel | null;
   readonly toolbox: Toolbox;
   readonly systemPrompt: string;
   /** How this turn answers: the `respond` tool, and the typed output its call
@@ -49,6 +57,14 @@ export interface TurnAttemptParts {
 }
 
 /**
+/** The model a MODEL turn runs on. `DurableTurn` refuses a modelless run that
+ * is not a selection before this point, so the throw states that invariant
+ * rather than guarding a path a caller can reach. */
+function modelFor(model: TurnModel | null): TurnModel {
+  if (model === null) throw new ProviderFailure("this deployment resolved no model for this turn");
+  return model;
+}
+
 /**
  * A selection turn, as the attempt reaches it (#1288).
  *
@@ -106,7 +122,7 @@ export class TurnAttempt {
    */
   async drive(): Promise<void> {
     const request = this.#turn.selection;
-    if (request === null) await this.#modelled();
+    if (request === null) await this.#modelled(modelFor(this.#parts.model));
     else await this.#select(request);
   }
 
@@ -118,12 +134,20 @@ export class TurnAttempt {
     if (this.steps.broken !== null) throw this.steps.broken;
   }
 
-  /** One pi run. A run that ends carrying an error message never answered. */
-  async #modelled(): Promise<void> {
-    const agent = createTurnAgent(this.#agentParts());
+  /**
+   * One pi run. A run that ends carrying an error message never answered.
+   *
+   * The facts are recorded from the run's own steps AFTER the loop and BEFORE
+   * the ending, which is where Python recorded them (`_execution_result`,
+   * command-then-query) and the only place they can go: the settlement stages
+   * the envelope, so a fact written after it would be staged by nobody and the
+   * retry would promote a ledger missing it.
+   */
+  async #modelled(model: TurnModel): Promise<void> {
+    const agent = createTurnAgent(this.#agentParts(model));
     await agent.continue();
     if (this.steps.broken !== null) throw this.steps.broken;
-    const failure = providerFailureIn(agent.state.errorMessage, this.#parts.model.scrub);
+    const failure = providerFailureIn(agent.state.errorMessage, model.scrub);
     if (failure !== null) throw failure;
     recordTurnFacts(this.#parts.memory, this.steps.recorded, new Date(this.#parts.now()));
     this.#answer = this.#parts.answering.close(this.output.answer);
@@ -136,8 +160,8 @@ export class TurnAttempt {
    * answer it never saw — and the answer is state of this attempt, not a tool
    * result the world is waiting on.
    */
-  #agentParts() {
-    const { model, systemPrompt, toolbox, emit, answering, memory } = this.#parts;
+  #agentParts(model: TurnModel) {
+    const { systemPrompt, toolbox, emit, answering, memory } = this.#parts;
     const tools = [...this.steps.wrap(toolbox.tools()), answering.tool()];
     const shouldStop = () => this.#stops();
     return { model, systemPrompt, turn: this.#turn, tools, memory, output: this.output, emit, shouldStop };

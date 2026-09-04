@@ -44,12 +44,25 @@ export const SELECTED_ROUTE_STEP = "plan_selected";
 const ROUTE_UNAVAILABLE = "unavailable";
 const ROUTE_EMPTY = "no_route";
 
+/**
+ * One component of a `"lat,lng"` pair, or `NaN` when there is none.
+ *
+ * The blank check is the whole function. Python reached this through
+ * `float(part)`, which RAISES on `""` and on `" "`; `Number("")` is `0`, a
+ * perfectly valid coordinate — so without it an origin of `","` becomes the
+ * point 0°N 0°E in the Gulf of Guinea and the route is planned from there.
+ */
+function coordinate(raw: string | undefined): number {
+  const trimmed = raw?.trim() ?? "";
+  return trimmed === "" ? Number.NaN : Number(trimmed);
+}
+
 /** Python's `_parse_coordinate_origin`: a `"lat,lng"` pair in range, or none. */
 export function coordinateOrigin(origin: string | null): LatLng | undefined {
   const parts = (origin ?? "").split(",");
   if (parts.length !== 2) return undefined;
-  const lat = Number(parts[0]?.trim());
-  const lng = Number(parts[1]?.trim());
+  const lat = coordinate(parts[0]);
+  const lng = coordinate(parts[1]);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return undefined;
   return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : undefined;
 }

@@ -21,6 +21,7 @@ import type { SelectionRequest } from "../../src/agent/selection/selection-reque
 import { CatalogUnavailableError, type CatalogClient } from "../../src/agent/tools/catalog-client.ts";
 import type { OrderedCandidate } from "../../src/agent/tools/catalog-tool-session.ts";
 import { InMemoryTurnStore } from "./in-memory-turn-store.ts";
+import type { TurnModel } from "../../src/agent/session/turn-model.ts";
 import { makeScriptedTurnModel, makeUserTranscript } from "./make-turn-parts.ts";
 
 export const SELECTION_RUN_ID = "run-1";
@@ -77,7 +78,15 @@ export class CountingSelectionCatalog implements CatalogClient {
 
 /** What one case sets up before the alarm runs. */
 export interface SelectionTurnSeed {
-  readonly selection: SelectionRequest;
+  /** The selection this run IS, or `null` for an ordinary model turn — which
+   * only the eligibility cases need, as the control they are judged against. */
+  readonly selection: SelectionRequest | null;
+  /** What this deployment resolved as its model. `null` is the deployment with
+   * a `CATALOG` binding and no provider key (#1296 review). */
+  readonly model?: TurnModel | null;
+  /** `runs.payer = 'byok'` — a run whose credential died with the incarnation
+   * that held it. */
+  readonly callerKeyed?: boolean;
   readonly script: SelectionCatalogScript;
   /** The question the session already asked, if it asked one. */
   readonly pending?: { reason: string; candidates: OrderedCandidate[] };
@@ -111,6 +120,7 @@ export function makeSelectionTurn(seed: SelectionTurnSeed): SelectionTurnHarness
       transcript: makeUserTranscript("らき☆すた"),
       steps: seed.steps ?? [],
       selection: seed.selection,
+      callerKeyed: seed.callerKeyed ?? false,
     },
     now,
   );
@@ -123,11 +133,13 @@ export function makeSelectionTurn(seed: SelectionTurnSeed): SelectionTurnHarness
   };
   const turn = new DurableTurn({
     store,
-    model: makeScriptedTurnModel(),
+    model: seed.model === undefined ? makeScriptedTurnModel() : seed.model,
     toolbox: EMPTY_TOOLBOX,
     answering: new TurnAnswering(session),
     memory: session,
     selection: (request, steps) => answerSelection({ catalog, session, steps, emit }, request),
+    // A modelless deployment offers no tools either, which is what
+    // `configuredTurn` does with the same `null` (`session-turn.ts`).
     systemPrompt: "test",
     prices: { inputUsdPerMtok: 1, outputUsdPerMtok: 2 },
     emit,

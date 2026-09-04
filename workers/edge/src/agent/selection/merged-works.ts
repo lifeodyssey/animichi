@@ -22,25 +22,38 @@ export interface FetchedWork {
 /** The merge of several works, with the works it left out. */
 export interface MergedWorks {
   readonly payload: SearchResultPayload;
-  /** The ids that contributed no row, in pick order. */
+  /** The ids that added no distinct row, in pick order. */
   readonly omittedIds: readonly string[];
 }
 
-/** Whether this work put at least one row into the merge. */
-function contributed(bangumiId: string, fetched: readonly FetchedWork[]): boolean {
-  return fetched.some((work) => work.bangumiId === bangumiId && work.result.rows.length > 0);
+/** What a merge accumulates as it walks the picked works in fetch order. */
+interface MergeTally {
+  readonly seen: Set<string>;
+  /** The works that put at least one row the merge did not already have. */
+  readonly contributors: Set<string>;
 }
 
-/** Every row once, in fetch order — Python's `seen` set over `result.rows`. */
-function distinctRows(fetched: readonly FetchedWork[]): Point[] {
-  const seen = new Set<string>();
-  const rows: Point[] = [];
-  for (const row of fetched.flatMap((work) => work.result.rows)) {
-    if (seen.has(row.id)) continue;
-    seen.add(row.id);
-    rows.push(row);
+/**
+ * The rows this work adds that no earlier work already added, and the record
+ * that it added any at all.
+ *
+ * Contribution is decided HERE, while the distinct rows are inserted, rather
+ * than from the work's own row count. Python's `_contributed` asked only
+ * `result.rows` — whether the work answered with anything — which counts a work
+ * whose every spot an earlier pick already contributed. That work adds nothing
+ * to the merge, and `omittedIds` is what the reply discloses and what makes the
+ * payload `partial`; a disclosure that a work was included when the merge is
+ * byte-identical without it tells the user the opposite of what happened.
+ */
+function contributionOf(work: FetchedWork, tally: MergeTally): Point[] {
+  const added: Point[] = [];
+  for (const row of work.result.rows) {
+    if (tally.seen.has(row.id)) continue;
+    tally.seen.add(row.id);
+    added.push(row);
   }
-  return rows;
+  if (added.length > 0) tally.contributors.add(work.bangumiId);
+  return added;
 }
 
 /**
@@ -66,10 +79,11 @@ export function mergedWorks(
   fetched: readonly FetchedWork[],
   locale: string,
 ): MergedWorks {
-  const omittedIds = picked.filter((bangumiId) => !contributed(bangumiId, fetched));
+  const tally: MergeTally = { seen: new Set(), contributors: new Set() };
+  const rows = fetched.flatMap((work) => contributionOf(work, tally));
+  const omittedIds = picked.filter((bangumiId) => !tally.contributors.has(bangumiId));
   const partial = fetched.some((work) => work.result.partial === true) || omittedIds.length > 0;
-  const payload = buildSearchResultPayload(distinctRows(fetched), "multi", null, partial, locale);
-  return { payload, omittedIds };
+  return { payload: buildSearchResultPayload(rows, "multi", null, partial, locale), omittedIds };
 }
 
 /** The omitted works as the reply names them: their offered titles, or the

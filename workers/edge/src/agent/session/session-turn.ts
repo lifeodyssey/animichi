@@ -189,21 +189,30 @@ export function turnFrameSink(emit: TurnFrameSink, model: TurnModel): TurnFrameS
   return scrub === undefined ? emit : scrubbedFrames(emit, scrub);
 }
 
-/** The turn one alarm drives, with the deployment's configuration in it. */
+/**
+ * The turn one alarm drives, with the deployment's configuration in it.
+ *
+ * `model` is null when this deployment could resolve none, and the turn is
+ * still built (#1288): a DETERMINISTIC selection answers from the catalog and
+ * reaches no provider, so only the loaded run can say whether the missing model
+ * matters — which is `DurableTurn.#unrunnable`'s job, not this function's.
+ * Without a model there is no toolbox to offer and no secret to scrub, so both
+ * degrade to the modelless forms rather than being faked.
+ */
 function configuredTurn(
   parts: SessionTurnParts,
   store: TurnStore,
-  model: TurnModel,
+  model: TurnModel | null,
   envelope: TurnEnvelope,
 ): DurableTurn {
   // One sink for both paths: a selection streams no provider text, but the
   // scrub is a property of the TURN's credential rather than of who emitted a
   // frame, and two sinks would be two places to remember that.
-  const emit = turnFrameSink(parts.emit, model);
+  const emit = model === null ? parts.emit : turnFrameSink(parts.emit, model);
   return new DurableTurn({
     store: new EnvelopeStagingStore(store, envelope),
     model,
-    toolbox: turnToolbox(parts.env, envelope.session, model),
+    toolbox: model === null ? EMPTY_TOOLBOX : turnToolbox(parts.env, envelope.session, model),
     answering: new TurnAnswering(envelope.session),
     memory: envelope.session,
     selection: turnSelection(parts.env, envelope.session, emit),
@@ -216,17 +225,20 @@ function configuredTurn(
 }
 
 /**
- * A turn with no model at all ends the run rather than looping: the sweeper
- * would otherwise re-arm a turn that can never reach a provider, forever. It
- * settles without touching the envelope, which is right: no tool ran, so the
- * session knows exactly what it knew before.
+ * A turn with no model at all still ends the run rather than looping — the
+ * sweeper would otherwise re-arm a turn that can never reach a provider,
+ * forever — but WHERE that ending is decided moved with #1288.
+ *
+ * It used to be here, before the run was loaded, and that was wrong for one
+ * kind of turn: a deterministic selection needs the catalog and no model, so a
+ * deployment holding `CATALOG` without a model key failed every pick
+ * `provider_failed`. Only the loaded run knows which kind of turn it is, so
+ * the refusal now lives in `DurableTurn.#unrunnable`, where the run is in hand
+ * — and it settles through the same failure path as any other, taking the
+ * lease first, which is what makes it visible to a client watching the stream.
  */
 async function driveOn(parts: SessionTurnParts, store: TurnStore, runId: string): Promise<void> {
   const model = turnModelFor(parts.env, parts.byok);
-  if (model === null) {
-    await store.settleFailed(runId, "provider_failed", new Date());
-    return;
-  }
   const envelope = await TurnEnvelope.open({
     envelopes: parts.envelopes, runId, queued: parts.queued, locale: TURN_LOCALE,
   });
