@@ -10,8 +10,10 @@ GATE_REPO_ROOT="${GATE_REPO_ROOT:-$(cd "$GATE_LIB_DIR/../.." && pwd)}"
 WORKSPACE_YAML="${GATE_WORKSPACE_YAML:-$GATE_REPO_ROOT/pnpm-workspace.yaml}"
 EXTRA_GATE_DIRS=""
 WORKSPACE_DIRS=""
-WORKSPACE_NAMES=""
-matched_pkg=""
+# Consumed by callers that source this file (pre-push.sh, changed-packages.sh);
+# export documents that cross-file contract for shellcheck (SC2034).
+export WORKSPACE_NAMES=""
+export matched_pkg=""
 
 require_workspace_yaml() {
   [ -f "$WORKSPACE_YAML" ] && return 0

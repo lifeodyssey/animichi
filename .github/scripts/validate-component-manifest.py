@@ -17,7 +17,9 @@ def fail(message: str) -> None:
 def workspace_names(root: Path) -> set[str]:
     library = root / "scripts/local-gates/workspace-packages.sh"
     command = f'source "{library}"; load_workspace_packages; printf \'%s\\n\' "$WORKSPACE_NAMES"'
-    result = subprocess.run(["bash", "-c", command], cwd=root, check=False, capture_output=True, text=True)
+    result = subprocess.run(
+        ["bash", "-c", command], cwd=root, check=False, capture_output=True, text=True
+    )
     if result.returncode != 0:
         fail("workspace discovery failed")
     return set(result.stdout.split())
@@ -54,10 +56,14 @@ def string_list(value: object, message: str, nonempty: bool = False) -> list[str
     return list(value)
 
 
-def validate_trigger_membership(name: str, paths: list[str], test_triggers: list[str]) -> None:
+def validate_trigger_membership(
+    name: str, paths: list[str], test_triggers: list[str]
+) -> None:
     if not set(test_triggers).issubset(paths):
         fail(f"component {name} test trigger is missing from paths")
-    unmarked = [path for path in paths if not path.endswith("/**") and path not in test_triggers]
+    unmarked = [
+        path for path in paths if not path.endswith("/**") and path not in test_triggers
+    ]
     if unmarked:
         fail(f"component {name} exact path must be declared as a test trigger")
 
@@ -65,45 +71,74 @@ def validate_trigger_membership(name: str, paths: list[str], test_triggers: list
 def validate_metadata(component: Component) -> None:
     name = component["name"]
     paths = string_list(component.get("paths"), f"component {name} has no paths", True)
-    triggers = string_list(component.get("test_triggers", []), f"component {name} has invalid test triggers")
-    string_list(component.get("deploy_excludes"), f"component {name} has invalid deploy excludes")
-    string_list(component.get("ci_lanes"), f"component {name} has invalid ci_lanes", True)
+    triggers = string_list(
+        component.get("test_triggers", []),
+        f"component {name} has invalid test triggers",
+    )
+    string_list(
+        component.get("deploy_excludes"),
+        f"component {name} has invalid deploy excludes",
+    )
+    string_list(
+        component.get("ci_lanes"), f"component {name} has invalid ci_lanes", True
+    )
     validate_trigger_membership(name, paths, triggers)
     unit = component.get("deploy_unit")
     if unit is not None and not isinstance(unit, str):
         fail(f"component {name} has invalid deploy_unit")
 
 
-def validate_trigger_owners(triggers: list[tuple[str, str]], owners: list[tuple[str, str]]) -> None:
+def validate_trigger_owners(
+    triggers: list[tuple[str, str]], owners: list[tuple[str, str]]
+) -> None:
     for trigger, component in triggers:
-        owned = any(owner != component and (trigger == root or trigger.startswith(f"{root}/")) for root, owner in owners)
+        owned = any(
+            owner != component and (trigger == root or trigger.startswith(f"{root}/"))
+            for root, owner in owners
+        )
         if not owned:
-            fail(f"component {component} test trigger is not owned by another component")
+            fail(
+                f"component {component} test trigger is not owned by another component"
+            )
 
 
 def selector_root(pattern: str) -> str:
     return pattern.removesuffix("/**").rstrip("/")
 
 
-def validate_deploy_excludes(root: Path, component: Component, owner_patterns: set[str]) -> None:
+def validate_deploy_excludes(
+    root: Path, component: Component, owner_patterns: set[str]
+) -> None:
     for exclusion in component["deploy_excludes"]:
         validate_selector(root, exclusion)
         excluded_root = selector_root(exclusion)
-        if not any(excluded_root == selector_root(owner) or excluded_root.startswith(f"{selector_root(owner)}/") for owner in owner_patterns):
-            fail(f"component {component['name']} deploy exclude escapes its owned paths")
+        if not any(
+            excluded_root == selector_root(owner)
+            or excluded_root.startswith(f"{selector_root(owner)}/")
+            for owner in owner_patterns
+        ):
+            fail(
+                f"component {component['name']} deploy exclude escapes its owned paths"
+            )
 
 
-def validate_test_triggers(root: Path, component: Component, triggers: set[str]) -> list[tuple[str, str]]:
+def validate_test_triggers(
+    root: Path, component: Component, triggers: set[str]
+) -> list[tuple[str, str]]:
     records: list[tuple[str, str]] = []
     for trigger in triggers:
         if trigger.endswith("/**"):
-            fail(f"component {component['name']} test trigger must be an exact tracked file")
+            fail(
+                f"component {component['name']} test trigger must be an exact tracked file"
+            )
         validate_selector(root, trigger)
         records.append((trigger, component["name"]))
     return records
 
 
-def component_paths(root: Path, component: Component) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+def component_paths(
+    root: Path, component: Component
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     validate_metadata(component)
     triggers = set(component.get("test_triggers", []))
     owner_patterns = set(component["paths"]) - triggers
@@ -172,7 +207,9 @@ def validate_deploy_triggers(root: Path, document: Manifest) -> None:
             validate_selector(root, pattern)
 
 
-def visit(name: str, graph: dict[str, list[str]], visiting: set[str], visited: set[str]) -> None:
+def visit(
+    name: str, graph: dict[str, list[str]], visiting: set[str], visited: set[str]
+) -> None:
     if name in visiting:
         fail(f"component dependency cycle includes {name}")
     if name in visited:

@@ -10,8 +10,12 @@ ROOT = Path(__file__).resolve().parents[2]
 RENDER = ROOT / ".github/scripts/edge-runtime-secrets.py"
 SYNC = ROOT / ".github/scripts/sync-edge-runtime-secrets.sh"
 CORE = (
-    "DEEPSEEK_API_KEY", "MIMO_API_KEY", "ZEN_GO_API_KEY",
-    "SUPABASE_DB_URL", "GOOGLE_MAPS_API_KEY", "LOGFIRE_TOKEN",
+    "DEEPSEEK_API_KEY",
+    "MIMO_API_KEY",
+    "ZEN_GO_API_KEY",
+    "SUPABASE_DB_URL",
+    "GOOGLE_MAPS_API_KEY",
+    "LOGFIRE_TOKEN",
 )
 ANON = ("TURNSTILE_SECRET", "ANON_ID_SECRET")
 
@@ -42,7 +46,10 @@ class EdgeRuntimeRenderTest(RuntimeSecretFixture):
     def run_render(self, command: str, environment: str, env: dict[str, str]):
         return subprocess.run(
             ["python3", str(RENDER), command, environment, str(self.config())],
-            text=True, capture_output=True, env=env, check=False,
+            text=True,
+            capture_output=True,
+            env=env,
+            check=False,
         )
 
     def test_staging_render_contains_exact_anon_allowlist(self) -> None:
@@ -71,23 +78,34 @@ class EdgeRuntimeTransportTest(RuntimeSecretFixture):
         bindir = self.root / "bin"
         bindir.mkdir()
         fake = bindir / "pnpm"
-        fake.write_text('#!/bin/sh\nprintf "%s\\n" "$*" > "$ARGS_LOG"\ncat > "$STDIN_LOG"\n')
+        fake.write_text(
+            '#!/bin/sh\nprintf "%s\\n" "$*" > "$ARGS_LOG"\ncat > "$STDIN_LOG"\n'
+        )
         fake.chmod(0o755)
         env = secret_env() | {
-            "PATH": f"{bindir}:{os.environ['PATH']}", "GITHUB_WORKSPACE": str(ROOT),
-            "ARGS_LOG": str(self.root / "args"), "STDIN_LOG": str(self.root / "stdin"),
+            "PATH": f"{bindir}:{os.environ['PATH']}",
+            "GITHUB_WORKSPACE": str(ROOT),
+            "ARGS_LOG": str(self.root / "args"),
+            "STDIN_LOG": str(self.root / "stdin"),
         }
         result = subprocess.run(
             ["bash", str(SYNC), "apply", "staging", str(self.config())],
-            text=True, capture_output=True, env=env, check=False,
+            text=True,
+            capture_output=True,
+            env=env,
+            check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         args = (self.root / "args").read_text()
         self.assertIn("wrangler secret bulk", args)
         output = args + result.stdout + result.stderr
-        secret_values = [value for value in secret_env().values() if value.startswith("secret-")]
+        secret_values = [
+            value for value in secret_env().values() if value.startswith("secret-")
+        ]
         self.assertFalse(any(value in output for value in secret_values))
-        self.assertEqual(set(json.loads((self.root / "stdin").read_text())), set(CORE + ANON))
+        self.assertEqual(
+            set(json.loads((self.root / "stdin").read_text())), set(CORE + ANON)
+        )
 
 
 if __name__ == "__main__":

@@ -6,10 +6,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from pathlib import Path
 from collections.abc import Mapping
+from pathlib import Path
 from typing import TypedDict
-
 
 PHASES = {
     "foundation": ("infra",),
@@ -94,7 +93,13 @@ def read_component(raw: object) -> Component:
 
 
 def validate_units(components: list[Component]) -> None:
-    unknown = sorted({item["deploy_unit"] for item in components if item["deploy_unit"] not in KNOWN_UNITS | {None}})
+    unknown = sorted(
+        {
+            item["deploy_unit"]
+            for item in components
+            if item["deploy_unit"] not in KNOWN_UNITS | {None}
+        }
+    )
     if unknown:
         fail(f"unknown deploy_unit(s): {', '.join(str(item) for item in unknown)}")
 
@@ -106,11 +111,17 @@ def component_map(components: list[Component]) -> dict[str, str | None]:
     return {item["name"]: item["deploy_unit"] for item in components}
 
 
-def selected_units(plan: Mapping[object, object], mapping: dict[str, str | None]) -> tuple[set[str], list[str]]:
+def selected_units(
+    plan: Mapping[object, object], mapping: dict[str, str | None]
+) -> tuple[set[str], list[str]]:
     names = expect_names(plan.get("components"), "change plan components")
     unknown = sorted(set(names) - set(mapping))
     fallback = plan.get("fallback_all") is True or bool(unknown)
-    units = {unit for unit in mapping.values() if unit is not None} if fallback else {mapping[name] for name in names if mapping[name] is not None}
+    units = (
+        {unit for unit in mapping.values() if unit is not None}
+        if fallback
+        else {mapping[name] for name in names if mapping[name] is not None}
+    )
     for pair in IMMUTABLE_PAIRS:
         if units.intersection(pair):
             units.update(pair)
@@ -130,7 +141,18 @@ def build_plan(change_raw: object, manifest_raw: object) -> CohortPlan:
     phases = {phase: ordered(units, phase) for phase in PHASES}
     deploy_units = [unit for phase in PHASES for unit in phases[phase]]
     production_units = [unit for unit in deploy_units if unit not in STAGING_ONLY]
-    return {"fallback_all": fallback, "fallback_reasons": unknown, "has_deployments": bool(units), "deploy_units": deploy_units, "production_units": production_units, "foundation": phases["foundation"], "migration": phases["migration"], "services": phases["services"], "edge": phases["edge"], "web": phases["web"]}
+    return {
+        "fallback_all": fallback,
+        "fallback_reasons": unknown,
+        "has_deployments": bool(units),
+        "deploy_units": deploy_units,
+        "production_units": production_units,
+        "foundation": phases["foundation"],
+        "migration": phases["migration"],
+        "services": phases["services"],
+        "edge": phases["edge"],
+        "web": phases["web"],
+    }
 
 
 def parse_args() -> argparse.Namespace:
