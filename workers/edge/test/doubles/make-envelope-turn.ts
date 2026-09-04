@@ -112,10 +112,11 @@ export function makeEnvelopeTurnStore(parts: Partial<EnvelopeTurnParts> = {}): I
 /** The turn itself, assembled the way `session-turn.ts` assembles the real one. */
 function scriptedTurn(parts: EnvelopeTurnParts, store: InMemoryTurnStore, envelope: TurnEnvelope, prompts: string[]): DurableTurn {
   const binding = { CATALOG: catalogBinding(parts.resolveOutcome ?? RESOLVED_LUCKY_STAR) };
+  const models = makeScriptedModels(promptRecording(parts.streamFn, prompts));
   return new DurableTurn({
     store: new EnvelopeStagingStore(store, envelope),
-    models: makeScriptedModels(promptRecording(parts.streamFn, prompts)),
-    toolbox: turnToolbox(binding, envelope.session),
+    models,
+    toolbox: turnToolbox(binding, envelope.session, models),
     answering: new TurnAnswering(envelope.session),
     systemPrompt: envelope.systemPrompt,
     prices: PRICES, emit: () => Promise.resolve(), owner: "do-1", now: () => NOW,

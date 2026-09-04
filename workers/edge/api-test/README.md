@@ -1,11 +1,19 @@
 # `api-test/` — the agent tier's staging lane (W1-4 #1253, unblocked by W1-7 #1256)
 
-Opt-in, never in CI, never in a deploy unit. Two files, one per question:
+Opt-in, never in CI, never in a deploy unit. Three files, one per question:
 
 - `catalog-api.test.ts` — the catalog has no public door (spec Appendix D).
 - `agent-turn.test.ts` — one real turn through the deployed edge actually calls a
   catalog tool, and the turn is readable back by conversation id. This is the
   **(api)** evidence #1253 had to defer.
+- `web-search-turn.test.ts` — one real turn calls `web_search`, and what came
+  back is wrapped in the untrusted preamble (W2-1 #1287). This is the only
+  question the unit suite cannot answer: whether Cloudflare's egress reaches
+  `html.duckduckgo.com`, and whether that endpoint answers a Worker the way it
+  answered the laptop the adapter was measured on. A `tool-output-available`
+  whose text starts with the preamble means the hop worked; a `Search failed
+  for …` sentence in it means the backend refused the Worker specifically, and
+  the adapter needs a keyed API behind the same `WebSearcher` port.
 
 ```sh
 CATALOG_API_ORIGIN=https://staging.animichi.com \

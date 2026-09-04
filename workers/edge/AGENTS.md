@@ -64,10 +64,11 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `src/agent/session/turn-answer-part.ts`. That part is both the SD-9 frame the stream pushes and the
   `messages.response_data` the settlement commits, so `retrieval/` publishes the same intent a
   connected client already saw.
-  The `Toolbox` port in `src/agent/session/turn-toolbox.ts` is the whole contract with #1253's
-  `src/agent/tools/`, and `session-turn.ts::turnToolbox` is what fulfils it: the four catalog
-  tools over the private `CATALOG` binding, bound to one `TurnCatalogSession`. An environment
-  without that binding still runs — the turn just has no tools. What routes traffic here is the
+  The `Toolbox` port in `src/agent/session/turn-toolbox.ts` is the whole contract with
+  `src/agent/tools/`, and `session-turn.ts::turnToolbox` is what fulfils it: `agentToolbox` over
+  the private `CATALOG` binding, one `TurnCatalogSession`, and the turn's own model registry. An
+  environment without that binding still runs — the turn just has no tools, web ones included,
+  because `translate_anime_title` needs the same catalog. What routes traffic here is the
   `AGENT_TURN_ROUTE` flag (#1256): `"edge"` serves `POST /v1/chat` and
   `GET /v1/conversations/{id}/messages` from this tier, anything else (including unset) forwards
   both to the Python container as before. staging = `edge`, production and `wrangler dev` =
@@ -105,9 +106,10 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `already_settled` promote. `already_settled` is its own `TurnPhase` precisely so it is not
   confused with `declined`: the first is a retry of an ending this alarm owes, the second is a live
   owner mid-turn whose staging must not be published for it.
-- `src/agent/tools/` — `catalogToolbox(catalog, session)` returns the four `AgentTool`s the
-  session registers on the pi agent (`resolve_anime`, `search_bangumi`, `search_nearby`,
-  `plan_route`). Two ports carry everything turn-shaped: `CatalogClient` (production adapter
+- `src/agent/tools/` — `agentToolbox(parts)` returns the six `AgentTool`s the session registers
+  on the pi agent, in Python's own registration order: `resolve_anime`, `search_bangumi`,
+  `search_nearby`, `plan_route` (`catalogToolbox`, #1253), then `web_search` and
+  `translate_anime_title` (#1287). Two ports carry everything turn-shaped: `CatalogClient` (production adapter
   `serviceBindingCatalog`, over the private `CATALOG` binding — never a URL, spec Appendix D) and
   `CatalogToolSession`, which the session's turn state implements. **The schema seam** (spec §二)
   lives at `tool-schema-bridge.ts`: contract zod is the source,
@@ -117,16 +119,33 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   re-running `pnpm --filter @animichi/contract run emit:tool-schemas`. The `respond` tool
   (`src/agent/session/turn-answer.ts`) rides the same seam, and takes `ANSWER_TOOL_NAME` +
   `CHAT_RESPONSE_INTENTS` from the generated module rather than spelling either out here.
+  **The web tools (#1287).** `web_search` is the agent's only untrusted INBOUND channel, so its
+  whole design is the boundary: results leave `web-result-trust.ts` sanitised (control characters
+  and any literal `untrusted_web_result` tag stripped, fields truncated) inside delimited blocks
+  under a preamble that names them as data — byte-identical to Python's `web_trust.py`, because
+  the system prompt's untrusted-output paragraph and the eval trajectories both refer to it. The
+  tool never throws for its own failure: a refused egress, a rate limit and the 10s deadline all
+  become Python's `Search failed for '…': …` sentence, since a throw is an error the model reacts
+  to rather than a fact it reads. The backend is DuckDuckGo's HTML endpoint behind the
+  `WebSearcher` port (`duckduckgo-web-searcher.ts`, parse in `duckduckgo-result-page.ts` against a
+  committed real capture) — chosen over a keyed API because it is the index Python searched and it
+  needs no secret, so the tool works on the existing deploy; swapping in a keyed adapter is one new
+  file behind that port. `translate_anime_title` is the catalog's `title_cn` first (Chinese titles
+  only), then a tool-less call on the TURN's own model, then the original text, with `source` and
+  `confidence` assigned by us rather than claimed by the model.
   Two things pi does NOT do for us and this folder therefore does: the per-tool 85s deadline
   (Python got it from pydantic-ai's `Tool(timeout=…)`; `AgentTool` has no such field, so
-  `catalogToolBudget` holds it, injectable so tests need no real clock), and validating a catalog
+  `toolExecutionBudget` holds it, injectable so tests need no real clock), and validating a catalog
   response (the contract's zod cannot load here, so the adapter guards the one field each tool
   branches on and degrades anything else to `upstream_unavailable`).
-- `src/agent/egress/` — the BYOK egress guard (W0-S5, #1248): `EgressPolicy` +
+- `src/agent/egress/` — the egress guard (W0-S5, #1248): `EgressPolicy` +
   `ProviderAllowlist` (exact provider hosts, HTTPS/443, own-infra and address-range refusals),
   `GuardedFetch` (`redirect: "manual"` and re-validation of every redirect target) and
-  `SecretScrub`. Pure and binding-free, so node:test loads it directly. Nothing under `src/`
-  imports it yet — `spike/pi/` is its first caller and W2's BYOK card is its home.
+  `SecretScrub`. Pure and binding-free, so node:test loads it directly. `web-search-egress.ts`
+  (#1287) is its first caller inside `src/`: a SECOND `ProviderAllowlist` instance holding one
+  host, so the search backend is unreachable from the BYOK policy and the model providers are
+  unreachable from this one. Its header argues the two inputs that do not fit a keyless, non-BYOK
+  destination (the family token and the key sentinel) and why neither can widen anything.
 - `src/identity/` — auth (JWT/anonymous) + turnstile gate; `src/gateway/` — forward +
   routing/catalog policy (pure functions) + responses; `src/protect/` — rate limit / cost breaker /
   DO guard; `src/proxy/` — image/tile/showcase proxies; `src/container/` — container env +

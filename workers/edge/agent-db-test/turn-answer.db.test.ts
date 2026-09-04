@@ -48,12 +48,13 @@ async function answeredSession(sessionId: string): Promise<void> {
 /** One turn whose model answers with `respond` and calls nothing else. */
 function greetingTurn(): DurableTurn {
   const session = new TurnCatalogSession({ locale: "ja" });
+  const models = makeScriptedModels(makeSequencedToolCallsStreamFn([
+    { name: ANSWER_TOOL_NAME, arguments: { kind: "greeting", message: MESSAGE } },
+  ]));
   return new DurableTurn({
     store: new NeonTurnStore(plane.transactions),
-    models: makeScriptedModels(makeSequencedToolCallsStreamFn([
-      { name: ANSWER_TOOL_NAME, arguments: { kind: "greeting", message: MESSAGE } },
-    ])),
-    toolbox: turnToolbox({}, session),
+    models,
+    toolbox: turnToolbox({}, session, models),
     answering: new TurnAnswering(session),
     systemPrompt: "test",
     prices: { inputUsdPerMtok: 0, outputUsdPerMtok: 0 },

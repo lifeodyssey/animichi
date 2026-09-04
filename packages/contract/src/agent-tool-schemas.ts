@@ -9,7 +9,7 @@
  * This module imports no value, so `workers/edge` can load it under node:test.
  */
 
-import type { CatalogToolName } from "./agent-tool-parameters.js";
+import type { CatalogToolName, WebToolName } from "./agent-tool-parameters.js";
 
 /** One parameter's constraints, as the model's provider receives them. */
 export interface ToolParameterProperty {
@@ -103,6 +103,50 @@ export const CATALOG_TOOL_SCHEMAS: Record<CatalogToolName, ToolParameterSchema> 
     },
     "required": [
       "search_result_ref"
+    ],
+    "additionalProperties": false
+  },
+};
+
+/** Every web tool's parameter schema, keyed by the name the model calls. */
+export const WEB_TOOL_SCHEMAS: Record<WebToolName, ToolParameterSchema> = {
+  web_search: {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "pattern": "\\S",
+        "description": "The search query. Be specific, and include the language you want results in — for example \"響け！ユーフォニアム Chinese name 中文名\" or \"葬送のフリーレン English title Wikipedia\""
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "additionalProperties": false
+  },
+  translate_anime_title: {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "pattern": "\\S",
+        "description": "The anime title to translate; it may be in any language, for example \"君の名は。\", \"Your Name\" or \"你的名字\""
+      },
+      "target_language": {
+        "type": "string",
+        "enum": [
+          "ja",
+          "zh",
+          "en"
+        ],
+        "description": "The language code to translate the title into"
+      }
+    },
+    "required": [
+      "title",
+      "target_language"
     ],
     "additionalProperties": false
   },
