@@ -19,10 +19,14 @@
  *     work nobody localized.
  *
  * A catalog outage is not an error here: the model path is a complete answer,
- * so EVERY failure degrades to `null` and the tool never sees it. That includes
- * an elapsed deadline — the tool itself is what refuses to call an ended turn
- * "untranslated" (`translate-title-tool.ts`), so this half does not need to
- * tell one failure from another.
+ * so a catalog failure degrades to `null` and the tool never sees it.
+ *
+ * An ABORT is the exception and propagates immediately. The distinction is not
+ * pedantry: degrading it would turn a request that failed BECAUSE the deadline
+ * passed into a plain miss, and the chain would then open a model call that
+ * starts life already over budget. The tool's own `throwIfAborted` catches a
+ * turn that ended without anything throwing (`translate-title-tool.ts`); this
+ * catches the far commoner case where the ending is what threw.
  */
 
 import type { CatalogClient } from "./catalog-client.ts";
@@ -58,6 +62,7 @@ export async function catalogChineseTitle(
   try {
     return await resolvedTitleCn(catalog, title, signal);
   } catch (error) {
+    if (signal?.aborted === true) throw error;
     console.warn({ event: "translation_catalog_failed", error: String(error) });
     return null;
   }

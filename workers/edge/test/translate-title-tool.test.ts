@@ -15,6 +15,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { ResolveOutcome } from "@animichi/contract";
+import type { CatalogClient } from "../src/agent/tools/catalog-client.ts";
 import { titleTranslator } from "../src/agent/tools/title-translation.ts";
 import { translateTitleTool } from "../src/agent/tools/translate-title-tool.ts";
 import type { ToollessCompletion } from "../src/agent/tools/model-title-translation.ts";
@@ -141,6 +142,30 @@ void test("a catalog outage is the model's cue, not the tool's failure", async (
   const tool = translateTitleTool(titleTranslator(catalog, completionSaying("你的名字。")), unspentBudget);
   const result = await tool.execute("call-1", { title: "君の名は。", target_language: "zh" }, undefined);
   assert.equal(result.details.source, "llm");
+});
+
+/** A catalog that fails the way a real one does when its request is aborted. */
+function catalogAbortingOn(signal: AbortSignal): CatalogClient {
+  const aborted = (): Promise<never> => Promise.reject(signal.reason as Error);
+  return {
+    resolve: aborted,
+    pointsByBangumiId: aborted,
+    nearby: aborted,
+    geocode: aborted,
+    planItinerary: aborted,
+  };
+}
+
+void test("an aborted catalog request ends the turn instead of starting a model call", async () => {
+  const turn = AbortSignal.abort();
+  let asked = false;
+  const complete = () => {
+    asked = true;
+    return Promise.resolve("Your Name");
+  };
+  const tool = translateTitleTool(titleTranslator(catalogAbortingOn(turn), complete), unspentBudget);
+  await assert.rejects(tool.execute("call-1", { title: "君の名は。", target_language: "zh" }, turn));
+  assert.equal(asked, false, "the model must not be called after the deadline has passed");
 });
 
 void test("a spent budget ends the turn rather than claiming the title is untranslatable", async () => {

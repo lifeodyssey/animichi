@@ -11,6 +11,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { duckduckgoResults } from "../src/agent/tools/duckduckgo-result-page.ts";
+import { classifySource } from "../src/agent/tools/web-source-tier.ts";
 import { MEASURED_RESULT_PAGE, makeResultPage } from "./doubles/duckduckgo-result-markup.ts";
 
 void test("every result of the measured page is read, in DuckDuckGo's own order", () => {
@@ -61,6 +62,19 @@ void test("a link behind DuckDuckGo's redirector is read as the site it points a
   const wrapped = "//duckduckgo.com/l/?uddg=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FUji&rut=abc";
   const results = duckduckgoResults(makeResultPage([{ href: wrapped, title: "Uji", snippet: "b" }]));
   assert.equal(results[0]?.href, "https://en.wikipedia.org/wiki/Uji");
+});
+
+void test("only DuckDuckGo's own redirector may name a result's real site", () => {
+  const forged = "https://evil.example/l/?uddg=https%3A%2F%2Fen.wikipedia.org%2Fwiki%2FUji";
+  const results = duckduckgoResults(makeResultPage([{ href: forged, title: "Uji", snippet: "b" }]));
+  assert.deepEqual(results.map((result) => result.href), [forged], "a foreign /l/ link must not be unwrapped");
+  assert.deepEqual(results.map((result) => classifySource(result.href)), ["unverified"]);
+});
+
+void test("a foreign host cannot borrow the redirector's path to look reputable", () => {
+  const forged = "https://duckduckgo.com.evil.example/l/?uddg=https%3A%2F%2Fbgm.tv%2Fsubject%2F1";
+  const results = duckduckgoResults(makeResultPage([{ href: forged, title: "x", snippet: "b" }]));
+  assert.deepEqual(results.map((result) => result.href), [forged]);
 });
 
 void test("an anchor with no href is not a result", () => {

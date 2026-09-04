@@ -93,17 +93,29 @@ function textOf(markup: string): string {
  * DuckDuckGo's redirector unwrapped to the destination it names.
  *
  * `//duckduckgo.com/l/?uddg=<encoded>` is how the HTML endpoint spells some of
- * its links; the base is only there so a protocol-relative href can be parsed
- * at all, and it is never fetched.
+ * its links; the base is only there so a protocol-relative or root-relative
+ * href can be parsed at all, and it is never fetched.
+ *
+ * The HOST is checked, not just the path, and that check is load-bearing
+ * (CWE-345). `uddg` is a query parameter, so anyone whose link reaches this
+ * page controls it: a `https://evil.example/l/?uddg=https://en.wikipedia.org/x`
+ * link would otherwise be reported with Wikipedia's href, and
+ * `classifySource` would label the attacker's own result `source_tier:
+ * verified`. Unwrapping is therefore a claim only DuckDuckGo's own redirector
+ * is allowed to make. Exact host, no suffix match and no subdomains — the
+ * measured page (`test/doubles/duckduckgo-result-markup.ts`) shows no other
+ * spelling, so a wider rule would be widening on speculation.
  */
+const REDIRECTOR_HOST = "duckduckgo.com";
+
 function directHref(href: string): string {
   let url: URL;
   try {
-    url = new URL(href, "https://duckduckgo.com");
+    url = new URL(href, `https://${REDIRECTOR_HOST}`);
   } catch {
     return href;
   }
-  if (!url.pathname.startsWith("/l/")) return href;
+  if (url.hostname !== REDIRECTOR_HOST || !url.pathname.startsWith("/l/")) return href;
   return url.searchParams.get("uddg") ?? href;
 }
 

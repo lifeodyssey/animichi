@@ -35,8 +35,22 @@ const SEARCH_PROMPT =
   "Search the web for the Chinese title of 響け！ユーフォニアム and tell me what you found.";
 const SEARCH_TOOL = "web_search";
 
+/**
+ * The origin this lane talks to, refused unless it is HTTPS.
+ *
+ * The very next thing that happens is a real bearer token being sent to it
+ * (CWE-319), and an operator who exports `CATALOG_API_ORIGIN=http://…` for a
+ * local experiment would otherwise put a staging credential on the wire in
+ * plaintext. The check is here rather than at the call site because there is
+ * exactly one door: every request in this file goes through this function.
+ */
 function origin(): string {
   assert.ok(ORIGIN, "set CATALOG_API_ORIGIN (see api-test/README.md); this lane never guesses");
+  assert.equal(
+    new URL(ORIGIN).protocol,
+    "https:",
+    "CATALOG_API_ORIGIN must be https — this lane sends a real bearer token",
+  );
   return ORIGIN.replace(/\/$/, "");
 }
 
