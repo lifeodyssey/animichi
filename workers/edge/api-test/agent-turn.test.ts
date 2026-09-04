@@ -18,7 +18,7 @@
  */
 import test, { before } from "node:test";
 import assert from "node:assert/strict";
-import { laneBearer as bearer, laneOrigin as origin } from "./lane-origin.ts";
+import { laneBearer as bearer, laneFetch } from "./lane-origin.ts";
 
 /** One turn is 4–12s of model time (spec appendix B) plus a cold DO; a turn
  * that has not produced its first tool frame in 90s is a failure, not a wait. */
@@ -35,7 +35,7 @@ function chatBody(text: string): string {
 
 /** One turn, submitted the way `apps/web` submits one. */
 function postTurn(turnId: string): Promise<Response> {
-  return fetch(`${origin()}/v1/chat`, {
+  return laneFetch("/v1/chat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -109,7 +109,7 @@ void test("the tool answered through the private CATALOG binding, not with an er
 void test("the turn is readable back by conversation id, with its run's terminal status", async () => {
   const sessionId = turn.sessionId;
   assert.ok(sessionId);
-  const response = await fetch(`${origin()}/v1/conversations/${encodeURIComponent(sessionId)}/messages`, {
+  const response = await laneFetch(`/v1/conversations/${encodeURIComponent(sessionId)}/messages`, {
     headers: { Authorization: `Bearer ${bearer()}` },
     signal: AbortSignal.timeout(READ_DEADLINE_MS),
   });

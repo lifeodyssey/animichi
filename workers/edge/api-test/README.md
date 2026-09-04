@@ -1,9 +1,14 @@
 # `api-test/` — the agent tier's staging lane (W1-4 #1253, unblocked by W1-7 #1256)
 
 Opt-in, never in CI, never in a deploy unit. Four suites, one per question, over one
-shared door — `lane-origin.ts`, which resolves `CATALOG_API_ORIGIN` and
-`AGENT_TURN_BEARER` for all of them and refuses a non-HTTPS origin before any token
-is sent. No lane reads those variables for itself; `test/web-search-lane.test.ts`
+shared door — `lane-origin.ts`, which resolves `CATALOG_API_ORIGIN`,
+`AGENT_TURN_BEARER` and `STAGING_GATE_TOKEN` for all of them, requires HTTPS of every
+non-loopback origin before a credential is sent, and makes every request itself
+(`laneFetch`) so neither the gate header nor the no-redirect rule can be forgotten by
+one call site. `http://localhost` and `http://127.0.0.1` are the one exception —
+plaintext is fine on the loopback, there is no wire to intercept, and a local
+`wrangler dev` is sent NO gate credential because it is behind no gate. No
+lane reads those variables or calls `fetch` for itself; `test/web-search-lane.test.ts`
 fails if one starts to.
 
 - `catalog-api.test.ts` — the catalog has no public door (spec Appendix D).
@@ -43,14 +48,42 @@ fails if one starts to.
 ```sh
 CATALOG_API_ORIGIN=https://staging.animichi.com \
 AGENT_TURN_BEARER="$(cat ~/.animichi/staging-access-token)" \
+STAGING_GATE_TOKEN="$(cat ~/.animichi/staging-gate-token)" \
 pnpm --filter edge-worker run test:catalog-api
 ```
 
-Both variables fail closed: without `CATALOG_API_ORIGIN` the lane refuses to
-guess an origin, and without `AGENT_TURN_BEARER` the turn cases refuse to run.
-Run it only after a deploy that carries `AGENT_TURN_ROUTE = "edge"` — against
+All three variables fail closed: without `CATALOG_API_ORIGIN` the lane refuses to
+guess an origin, without `AGENT_TURN_BEARER` the turn cases refuse to run, and
+without `STAGING_GATE_TOKEN` the lane refuses to talk to a non-loopback origin at
+all. Run it only after a deploy that carries `AGENT_TURN_ROUTE = "edge"` — against
 the container the turn is answered by `apps/agent`, which emits no
 `x-session-id` header and the first assertion fails.
+
+## The staging gate (#1294)
+
+Staging sits behind a Cloudflare WAF custom rule that blocks every request without
+an allowlisted source IP, the `animichi_staging` cookie, or the `x-staging-key`
+header. The lanes present the header form — `lane-origin.ts` attaches it to every
+request — because a header needs no cookie jar. `STAGING_GATE_TOKEN` is the SAME
+variable and the same value the Playwright suite uses (`e2e/global-setup.ts`, which
+turns it into the cookie instead); get it from wherever you get that one, and never
+paste it into a file in this repo, a test, a PR or a log line.
+
+Two rules follow from that, and both live in `lane-origin.ts` rather than in any
+lane: a non-loopback origin must be HTTPS (the gate token and the Neon Auth bearer
+both ride these requests, and neither belongs on a plaintext wire), and no request
+may follow a redirect — `fetch` replays headers on a 30x, so a redirect would hand
+both credentials to whatever origin the `Location` named. There is no legitimate
+redirect on any of these routes, so `laneFetch` sets `redirect: "error"` and a 30x
+fails the lane loudly.
+
+**A Cloudflare 403 block page is the gate, not the app.** If `/healthz` answers 403
+with Cloudflare's own HTML, the request did not reach our Worker: the token is
+missing, stale, or not the one this environment expects. It is not a broken deploy,
+and every assertion downstream of it fails for that same unrelated reason — which is
+exactly why the lane now refuses to start rather than let you read a 403 as a bug.
+The lane passing from an allowlisted office IP without the token proves nothing
+about anyone else's machine.
 
 ## Why the turn is signed in, and the anonymous path is not here
 
