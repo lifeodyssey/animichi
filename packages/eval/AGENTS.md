@@ -121,3 +121,46 @@ re-proving the round trip in the same change.
   `apps/agent/src/animichi/tests/eval/evaluator_oracle_scenarios.py`) and re-export.
 - Nothing under `src/evaluators/` may derive an expected score. Python decides the numbers; the
   tests only compare.
+
+## The statistical gate (`src/gate/`, W3-4)
+
+`gate.py` + `stats.py` ported for Node. The port is **numerically identical**, not
+merely equivalent: `packages/eval/fixtures/stats-oracle.json` is written by
+`apps/agent/src/animichi/tests/eval/stats_oracle.py` running the Python
+originals, and every module here is asserted against it. Regenerate it with the
+rest of the fixtures — `bash packages/eval/scripts/export-fixtures.sh` writes it
+last, so
+`scripts/local-gates/eval-fixture-drift.sh` fails when `stats.py` or `gate.py`
+moved and this file did not.
+
+Three CPython behaviours had to come along for the numbers to agree, each one
+found by a red test rather than by reading:
+
+| Module | Reproduces | Why a JS built-in is not enough |
+|---|---|---|
+| `python-random.ts` | `random.Random` (MT19937, `getrandbits`, `choice`) | any other generator gives a different, equally "correct" interval |
+| `python-sum.ts` | `math.fsum` **and** `sum()` | since 3.12 `sum()` carries Neumaier's correction — `+=` drifts into the 4th decimal of a printed failure |
+| `python-number-text.ts` | `.4f`, `.0%`, `repr` | Python rounds a decimal tie to even and writes `1.0`; `toFixed`/`String` do neither |
+
+Notes for the rest of W3:
+
+- **Warnings are returned, not logged.** Python's non-blocking half (INDETERMINATE,
+  skipped metrics, stale baselines) goes to `logging`; here every gate returns
+  `{ failures, warnings }` with the same strings. One of the five is not
+  text-identical and cannot be: Python interpolates the pydantic `ValidationError`
+  into `Invalid baseline for …`, and there is no such object on this side, so the
+  message names the schema instead. The other four are pinned verbatim.
+- **`baselines/` holds Python-written records.** `baselineRecordText` reproduces
+  `model_dump_json(indent=2)` byte for byte, so a record written by either side is
+  a no-op diff for the other; the committed
+  `agent_l4_trajectory_openai-mimo-v2.5-…json` (662 cases) is the record W3-5
+  compares against.
+- **Strata come from the canonical dataset, not the exported fixture** (a W3-1
+  finding, measured on `fixtures/agent_eval_v3.json`): `Dataset.to_file` keeps only
+  `AgentExpected`, so a row's `path` does not survive the export. `case-strata.ts`
+  reads `apps/agent/…/datasets/<set>.json`, exactly as `load_case_strata` does. A
+  gate driven off the exported fixture alone would silently degrade to
+  `unstratified`.
+- **Assertions are folded into the case scores as 1/0.** Python's evaluators all
+  return floats; a TS evaluator that returns a boolean lands in
+  `report.assertions`, and dropping it would remove a metric the baseline expects.

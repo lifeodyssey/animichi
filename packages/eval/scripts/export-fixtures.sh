@@ -53,3 +53,10 @@ done
   ZEN_GO_API_KEY="test-key" \
   MIMO_API_KEY="test-key" \
   uv run python -m animichi.tests.eval.evaluator_oracle)
+
+# The gate port's oracle (#1302): the Python statistics' own answers, which
+# `packages/eval/test/gate-*.test.ts` assert against. Same drift rule as the
+# datasets above — change `stats.py` or `gate.py` and this file must move with
+# it, which is what makes the TS port's divergence visible instead of silent.
+(cd "$ROOT/apps/agent" && uv run python -m animichi.tests.eval.stats_oracle \
+  "$OUT_DIR/stats-oracle.json")
