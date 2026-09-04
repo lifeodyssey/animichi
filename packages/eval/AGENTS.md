@@ -139,11 +139,19 @@ found by a red test rather than by reading:
 | Module | Reproduces | Why a JS built-in is not enough |
 |---|---|---|
 | `python-random.ts` | `random.Random` (MT19937, `getrandbits`, `choice`) | any other generator gives a different, equally "correct" interval |
-| `python-sum.ts` | `math.fsum` **and** `sum()` | since 3.12 `sum()` carries Neumaier's correction — `+=` drifts into the 4th decimal of a printed failure |
+| `python-sum.ts` | `math.fsum` **and** `sum()` | `sum()` is **interpreter-sensitive**: 3.12 gave it Neumaier's correction, so the port matches the 3.11 the agent ships on (see below) |
 | `python-number-text.ts` | `.4f`, `.0%`, `repr` | Python rounds a decimal tie to even and writes `1.0`; `toFixed`/`String` do neither |
 
 Notes for the rest of W3:
 
+- **The oracle is pinned to Python 3.11**, the interpreter `apps/agent` ships on
+  (`python:3.11.13-slim`) and CI installs (`uv python install 3.11`). `sum()`
+  gained Neumaier compensation in CPython 3.12, and `stats.py` means every
+  bootstrap sample with it, so a 3.12+ run writes different numbers: measured,
+  `graded` moves from `0.4749999999999999` to `0.475`. `stats_oracle.py` refuses
+  to write on any other version and `export-fixtures.sh` pins the interpreter.
+  Moving the agent off 3.11 turns this gate red on purpose — `pythonSum` is what
+  has to change with it.
 - **Warnings are returned, not logged.** Python's non-blocking half (INDETERMINATE,
   skipped metrics, stale baselines) goes to `logging`; here every gate returns
   `{ failures, warnings }` with the same strings. One of the five is not

@@ -912,10 +912,10 @@
       "min_effect": 0.01,
       "comparison": {
         "verdict": "fail",
-        "estimate": 0.475,
+        "estimate": 0.4749999999999999,
         "interval": {
           "lower": 0.355,
-          "upper": 0.595
+          "upper": 0.5950000000000001
         },
         "sample_size": 20,
         "method": "stratified-paired-bootstrap"

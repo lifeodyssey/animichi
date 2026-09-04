@@ -1,5 +1,5 @@
 import { PythonRandom } from './python-random.ts';
-import { compensatedSum } from './python-sum.ts';
+import { pythonSum } from './python-sum.ts';
 
 /**
  * `stats.py`'s stratified paired bootstrap.
@@ -9,8 +9,8 @@ import { compensatedSum } from './python-sum.ts';
  * small stratum that carries a regression wash out.
  *
  * Everything here is a literal port: the stratum order (`sorted`), the
- * compensated summation CPython's `sum()` has used since 3.12, the percentile
- * index (`int(q * (n - 1))`, truncating) and
+ * summation CPython's `sum()` performs on the pinned 3.11 interpreter, the
+ * percentile index (`int(q * (n - 1))`, truncating) and
  * the generator. The interval is bit-identical to Python's for the same seed.
  */
 
@@ -110,7 +110,7 @@ function bootstrapSamples(strata: number[][], iterations: number, seed: number):
 function stratifiedMean(strata: number[][], random: PythonRandom): number {
   const resampled = strata.map((group) => resample(group, random));
   const size = resampled.reduce((total, group) => total + group.length, 0);
-  return compensatedSum(resampled.map(compensatedSum)) / size;
+  return pythonSum(resampled.map(pythonSum)) / size;
 }
 
 function resample(values: number[], random: PythonRandom): number[] {
@@ -122,5 +122,5 @@ function percentile(values: readonly number[], quantile: number): number {
 }
 
 function mean(values: readonly number[]): number {
-  return compensatedSum(values) / values.length;
+  return pythonSum(values) / values.length;
 }

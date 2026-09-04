@@ -9,6 +9,11 @@ gate logs — into a JSON fixture the TS tests assert against.
 This module owns the ``stats.py`` half and the file itself; ``gate_oracle.py``
 owns the baseline, gate and staleness half.
 
+The numbers depend on the interpreter: CPython 3.12 gave the builtin ``sum()``
+Neumaier's correction (gh-100425), and ``stats.py`` means every bootstrap sample
+with it. ``apps/agent`` ships on ``python:3.11.13-slim`` and CI pins 3.11, so the
+oracle is defined against 3.11 and refuses to be written by anything else.
+
 Usage: ``uv run python -m animichi.tests.eval.stats_oracle <output.json>``
 Consumer: ``packages/eval/fixtures/stats-oracle.json``.
 """
@@ -31,6 +36,8 @@ from animichi.tests.eval.stats import (
     stratified_paired_comparison,
 )
 
+#: The interpreter the oracle is defined against — the one apps/agent ships on.
+ORACLE_PYTHON = (3, 11)
 ITERATIONS = ORACLE_ITERATIONS
 SEED = 309
 FIXED_VALUES = [
@@ -212,7 +219,26 @@ def build_oracle() -> dict[str, object]:
     }
 
 
+def _require_pinned_interpreter() -> None:
+    """Refuse to write numbers a different CPython would not reproduce."""
+    running = sys.version_info[:2]
+    if running == ORACLE_PYTHON:
+        return
+    raise RuntimeError(_wrong_interpreter(running))
+
+
+def _wrong_interpreter(running: tuple[int, int]) -> str:
+    pinned = f"{ORACLE_PYTHON[0]}.{ORACLE_PYTHON[1]}"
+    return (
+        f"stats-oracle.json is defined against Python {pinned}, the interpreter "
+        f"apps/agent ships on; this is {running[0]}.{running[1]}, whose builtin "
+        "sum() rounds differently (Neumaier since 3.12). Re-run with: "
+        f"uv run --python {pinned} python -m animichi.tests.eval.stats_oracle <path>"
+    )
+
+
 def write_stats_oracle(path: Path) -> Path:
+    _require_pinned_interpreter()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(build_oracle(), indent=2, ensure_ascii=False) + "\n")
     return path

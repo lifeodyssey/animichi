@@ -58,5 +58,8 @@ done
 # `packages/eval/test/gate-*.test.ts` assert against. Same drift rule as the
 # datasets above — change `stats.py` or `gate.py` and this file must move with
 # it, which is what makes the TS port's divergence visible instead of silent.
-(cd "$ROOT/apps/agent" && uv run python -m animichi.tests.eval.stats_oracle \
-  "$OUT_DIR/stats-oracle.json")
+# Pinned to the interpreter apps/agent ships on: `sum()` gained Neumaier
+# compensation in CPython 3.12, so a 3.12+ run writes different bootstrap means
+# and the drift gate goes red. stats_oracle.py refuses to run unpinned.
+(cd "$ROOT/apps/agent" && uv run --python 3.11 python \
+  -m animichi.tests.eval.stats_oracle "$OUT_DIR/stats-oracle.json")

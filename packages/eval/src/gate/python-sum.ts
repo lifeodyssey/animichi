@@ -74,22 +74,25 @@ function sameSign(low: number, next: number): boolean {
 }
 
 /**
- * The builtin `sum()` over floats.
+ * The builtin `sum()` over floats, as the interpreter this project ships on
+ * computes it: plain left-to-right accumulation from `0.0`.
  *
- * Since 3.12 it is not a naive loop: it carries Neumaier's correction term, so
- * `sum(i / 20 for i in range(20))` is exactly `9.5` where `+=` gives
- * `9.499999999999998`. The bootstrap means every interval is built from go
- * through it, and the difference reaches the fourth decimal of a printed
- * failure message.
+ * This one is **version-sensitive**, which is the whole reason it is written
+ * out rather than inlined as `+=` somewhere. CPython 3.12 (gh-100425) gave
+ * `sum()` Neumaier's correction term, so `sum(i / 20 for i in range(20))` is
+ * `9.499999999999998` on 3.11 and `9.5` on 3.12+ — a difference that reaches
+ * the fourth decimal of a printed failure message and thus the gate's output.
+ *
+ * `apps/agent` ships on `python:3.11.13-slim` and CI pins `uv python install
+ * 3.11`, so 3.11 is the behaviour the port owes parity to. The oracle is
+ * generated under that same pin (`stats_oracle.py` refuses to run otherwise),
+ * so moving the agent to 3.12+ turns the fixture drift gate red here and this
+ * function is what has to change with it.
  */
-export function compensatedSum(values: Iterable<number>): number {
+export function pythonSum(values: Iterable<number>): number {
   let total = 0;
-  let correction = 0;
   for (const value of values) {
-    const raised = total + value;
-    const large = Math.abs(total) >= Math.abs(value);
-    correction += large ? total - raised + value : value - raised + total;
-    total = raised;
+    total += value;
   }
-  return total + correction;
+  return total;
 }
