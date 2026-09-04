@@ -18,8 +18,16 @@
  * Refs are deliberately NOT here. A minted ref belongs to the RUN that minted it
  * and is rehydrated from `run_steps` (#1279); this is per SESSION. Keeping the
  * two lifetimes apart is the difference between an envelope and the bag.
+ *
+ * SINCE #1290 IT CARRIES THE SESSION'S MEMORY TOO — the fact ledger and the
+ * compaction-retained entities, as one `SessionMemory` value. They belong here
+ * for the same reason the two facts above do: the NEXT turn is what needs them,
+ * they are written on the alarm that settles a run, and this envelope is
+ * already what that alarm stages and promotes in one write. Adding them as one
+ * field rather than two keeps every transition below a single carry-forward.
  */
 import type { CurrentAnime, OrderedCandidate } from "../tools/catalog-tool-session.ts";
+import { EMPTY_SESSION_MEMORY, type SessionMemory } from "../memory/session-memory.ts";
 
 /** A question a turn asked and no tool could answer. */
 export interface PendingClarification {
@@ -33,25 +41,37 @@ export class SessionEnvelope {
 
   readonly pendingClarification: PendingClarification | null;
   readonly currentAnime: CurrentAnime | null;
+  /** What the session remembers: its fact ledger and its retained entities. */
+  readonly memory: SessionMemory;
 
-  constructor(pending: PendingClarification | null, anime: CurrentAnime | null) {
+  constructor(
+    pending: PendingClarification | null,
+    anime: CurrentAnime | null,
+    memory: SessionMemory = EMPTY_SESSION_MEMORY,
+  ) {
     this.pendingClarification = pending;
     this.currentAnime = anime;
+    this.memory = memory;
   }
 
   /** The turn asked something only the user can settle. */
   withClarification(reason: string, candidates: readonly OrderedCandidate[]): SessionEnvelope {
-    return new SessionEnvelope({ reason, candidates }, this.currentAnime);
+    return new SessionEnvelope({ reason, candidates }, this.currentAnime, this.memory);
   }
 
   /** A tool answered instead, so nothing is open any more. */
   cleared(): SessionEnvelope {
-    return new SessionEnvelope(null, this.currentAnime);
+    return new SessionEnvelope(null, this.currentAnime, this.memory);
   }
 
   /** The session resolved the work it is about. */
   withAnime(anime: CurrentAnime): SessionEnvelope {
-    return new SessionEnvelope(this.pendingClarification, anime);
+    return new SessionEnvelope(this.pendingClarification, anime, this.memory);
+  }
+
+  /** The turn recorded a fact, or compaction rescued an entity (#1290). */
+  remembering(memory: SessionMemory): SessionEnvelope {
+    return new SessionEnvelope(this.pendingClarification, this.currentAnime, memory);
   }
 }
 

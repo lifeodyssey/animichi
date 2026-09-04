@@ -178,6 +178,7 @@ function configuredTurn(
     model,
     toolbox: turnToolbox(parts.env, envelope.session, model),
     answering: new TurnAnswering(envelope.session),
+    memory: envelope.session,
     systemPrompt: envelope.systemPrompt,
     prices: usagePricesIn(parts.env),
     emit: turnFrameSink(parts.emit, model),

@@ -18,9 +18,8 @@ import { DurableTurn } from "../src/agent/session/durable-turn.ts";
 import { NeonTurnStore } from "../src/agent/session/neon-turn-store.ts";
 import { readConversationOn } from "../src/agent/retrieval/neon-conversation-records.ts";
 import { turnToolbox } from "../src/agent/session/session-turn.ts";
-import { TurnAnswering } from "../src/agent/session/turn-answer.ts";
 import { TurnCatalogSession } from "../src/agent/session/turn-catalog-session.ts";
-import { makeScriptedTurnModel } from "../test/doubles/make-turn-parts.ts";
+import { makeScriptedTurnModel, makeSessionTurnParts } from "../test/doubles/make-turn-parts.ts";
 import { makeSequencedToolCallsStreamFn } from "../test/doubles/pi-provider-double.ts";
 import { onlyRow, seedRun, seedSession, type AgentDatabase } from "./agent-rows.ts";
 import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
@@ -55,7 +54,7 @@ function greetingTurn(): DurableTurn {
     store: new NeonTurnStore(plane.transactions),
     model,
     toolbox: turnToolbox({}, session, model),
-    answering: new TurnAnswering(session),
+    ...makeSessionTurnParts(session),
     systemPrompt: "test",
     prices: { inputUsdPerMtok: 0, outputUsdPerMtok: 0 },
     emit: () => Promise.resolve(),

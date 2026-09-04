@@ -15,7 +15,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DurableTurn } from "../src/agent/session/durable-turn.ts";
 import { InMemoryTurnStore, type SeededRun } from "./doubles/in-memory-turn-store.ts";
-import { CountingSpotLookup, makeScriptedTurnModel, makeTurnAnswering, makeUserTranscript } from "./doubles/make-turn-parts.ts";
+import { CountingSpotLookup, makeScriptedTurnModel, makeSessionTurnParts, makeUserTranscript } from "./doubles/make-turn-parts.ts";
 
 const RUN_ID = "run-1";
 const OWNER = "do-incarnation-2";
@@ -46,7 +46,7 @@ function makeTurn(store: InMemoryTurnStore, clock: Clock, toolbox: CountingSpotL
   return new DurableTurn({
     store,
     model: makeScriptedTurnModel(),
-    answering: makeTurnAnswering(),
+    ...makeSessionTurnParts(),
     toolbox,
     systemPrompt: "test",
     prices: { inputUsdPerMtok: 0, outputUsdPerMtok: 0 },

@@ -117,6 +117,35 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `already_settled` promote. `already_settled` is its own `TurnPhase` precisely so it is not
   confused with `declined`: the first is a retry of an ending this alarm owes, the second is a live
   owner mid-turn whose staging must not be published for it.
+- `src/agent/memory/` — what a session REMEMBERS, as two bounded value objects
+  inside `SessionEnvelope` (W2-4 #1290, spec §一). `FactLedger` carries the facts a
+  turn's own settled steps witnessed — an append/supersede chain for the user's hard
+  constraint (route pacing) and a turn-scoped replace-set of episode/scene references —
+  and `RetainedEntityLedger` carries the literal strings compaction rescued before it
+  shrank the tool return that held them. Both are ports of `apps/agent`'s
+  fact and compaction-retention domain modules, bounds included: 8
+  records per field, an 8 KiB encoded budget, 96 bytes per value, superseded records
+  evicted first — and **oldest-wins** in the retained ledger, because the entities worth
+  rescuing are the deepest ones. `turn-fact-recorder.ts` is the only writer of facts
+  (`TurnAttempt.drive` calls it after the loop and before the ending, where Python's
+  `_execution_result` did), `TurnCatalogSession` fulfils the `TurnMemory` port both
+  writers hold, and `turn-instructions.ts` is the consumer — a ledger field with no
+  prompt line is dead scaffolding. `stored-memory.ts` is the codec the Durable Object
+  writes through, because a structured clone restores no class prototype; it re-applies
+  both caps on the way in, which is Python's `enforce_bounds`-on-restore.
+- The compaction hook is `src/agent/session/context-compaction.ts`, wired as pi's
+  `transformContext` in `turn-agent.ts` — the seam AFTER `turn-transcript.ts` rebuilt the
+  transcript, so it shapes the CONTEXT and never what is in Neon (spec §三). It ports
+  Python's `CompactToolReturns` deterministically: the newest 8 messages untouched, older
+  tool returns over 200 characters replaced by `tool-return-summary.ts`'s line, and the
+  call's literal entity retained first. pi's OWN compaction was measured against the
+  provider double before this was written and rejected for four reasons recorded in that
+  file's header (it never fires at our token scale, its summary is model-written, it is
+  not a fixpoint under the per-alarm replay, and it wants a provider call plus a pi
+  session log this tier does not keep). One consequence worth knowing: an EARLIER run's
+  tool returns are not replayed at all — `seededMessages` degrades another run's
+  tool-call row to its text — so the retention window is in practice per-run, and
+  compaction bites on a long agentic turn rather than across turns as it did in Python.
 - `src/agent/tools/` — `agentToolbox(parts)` returns the six `AgentTool`s the session registers
   on the pi agent, in Python's own registration order: `resolve_anime`, `search_bangumi`,
   `search_nearby`, `plan_route` (`catalogToolbox`, #1253), then `web_search` and

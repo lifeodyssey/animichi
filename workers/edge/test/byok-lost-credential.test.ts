@@ -7,7 +7,7 @@ import { InMemoryTurnStore } from "./doubles/in-memory-turn-store.ts";
 import {
   CountingSpotLookup,
   makeScriptedTurnModel,
-  makeTurnAnswering,
+  makeSessionTurnParts,
   makeUserTranscript,
 } from "./doubles/make-turn-parts.ts";
 import { makeToolCallingStreamFn } from "./doubles/pi-provider-double.ts";
@@ -58,7 +58,7 @@ function makeTurn(store: InMemoryTurnStore, model: TurnModel, pushed: TurnFrame[
     store,
     model,
     toolbox,
-    answering: makeTurnAnswering(),
+    ...makeSessionTurnParts(),
     systemPrompt: "test",
     prices: PRICES,
     emit: (frames) => {

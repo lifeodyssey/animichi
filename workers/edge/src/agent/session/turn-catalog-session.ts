@@ -10,12 +10,18 @@
  * per SESSION, arrives from storage and goes back to it, which is why it is a
  * value here rather than two fields.
  *
+ * It is also the turn's `TurnMemory` (#1290): the fact ledger and the retained
+ * entities live in that same envelope, so the compaction hook and the fact
+ * recorder write through the object that already owns it rather than through a
+ * second holder that would have to be merged back.
+ *
  * One thing it does NOT yet do: it is not rebuilt on a REPLAY. `TurnSteps`
  * answers a replayed step from `run_steps.result` without calling `execute`, so
  * a ref minted before a crash is not in this map afterwards and `plan_route`
  * would report `stale_ref`. Closing that means rehydrating from the settled
  * steps, which is `TurnSteps`' side of the seam (#1279), not this one's.
  */
+import type { SessionMemory, TurnMemory } from "../memory/session-memory.ts";
 import type {
   CatalogToolSession,
   CurrentAnime,
@@ -36,7 +42,7 @@ export interface TurnCatalogSessionParts {
   readonly envelope?: SessionEnvelope;
 }
 
-export class TurnCatalogSession implements CatalogToolSession {
+export class TurnCatalogSession implements CatalogToolSession, TurnMemory {
   readonly locale: string;
   readonly origin?: LatLng;
   readonly #searches = new Map<string, SearchResultPayload>();
@@ -53,6 +59,21 @@ export class TurnCatalogSession implements CatalogToolSession {
   /** What this session carries between turns, as it stands right now. */
   get envelope(): SessionEnvelope {
     return this.#envelope;
+  }
+
+  /** `TurnMemory`: the two ledgers this turn reads and replaces (#1290). */
+  get memory(): SessionMemory {
+    return this.#envelope.memory;
+  }
+
+  /** `TurnMemory`: the title `currentAnime` already carries in full. */
+  get resolvedTitle(): string | null {
+    return this.#envelope.currentAnime?.title ?? null;
+  }
+
+  /** `TurnMemory`: publish what compaction rescued and the recorder recorded. */
+  remember(memory: SessionMemory): void {
+    this.#envelope = this.#envelope.remembering(memory);
   }
 
   /** The route payloads this turn planned, keyed by their own refs. */

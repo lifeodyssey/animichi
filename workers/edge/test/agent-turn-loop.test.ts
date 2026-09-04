@@ -16,7 +16,7 @@ import { InMemoryTurnStore } from "./doubles/in-memory-turn-store.ts";
 import {
   CountingSpotLookup,
   makeScriptedTurnModel,
-  makeTurnAnswering,
+  makeSessionTurnParts,
   makeUserTranscript,
 } from "./doubles/make-turn-parts.ts";
 import { makeToolCallingStreamFn } from "./doubles/pi-provider-double.ts";
@@ -50,7 +50,7 @@ function makeHarness(seed: Partial<{ transcript: TranscriptRow[]; steps: Persist
     store,
     model: makeScriptedTurnModel(),
     toolbox,
-    answering: makeTurnAnswering(),
+    ...makeSessionTurnParts(),
     systemPrompt: "test",
     prices: PRICES,
     emit: () => Promise.resolve(),
@@ -111,7 +111,7 @@ void test("a provider that fails settles the turn failed exactly once", async ()
       throw new Error("gateway said no");
     }),
     toolbox: new CountingSpotLookup(),
-    answering: makeTurnAnswering(),
+    ...makeSessionTurnParts(),
     systemPrompt: "test",
     prices: PRICES,
     emit: () => Promise.resolve(),
@@ -134,7 +134,7 @@ void test("a turn past its deadline settles deadline_exceeded, not an answer", a
     store,
     model: makeScriptedTurnModel(makeToolCallingStreamFn()),
     toolbox: new CountingSpotLookup(),
-    answering: makeTurnAnswering(),
+    ...makeSessionTurnParts(),
     systemPrompt: "test",
     prices: PRICES,
     emit: () => Promise.resolve(),

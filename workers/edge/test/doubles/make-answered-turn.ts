@@ -9,13 +9,12 @@
 import assert from "node:assert/strict";
 import { DurableTurn } from "../../src/agent/session/durable-turn.ts";
 import type { TurnState } from "../../src/agent/session/run-machine.ts";
-import { TurnAnswering } from "../../src/agent/session/turn-answer.ts";
 import { TurnCatalogSession } from "../../src/agent/session/turn-catalog-session.ts";
 import type { TurnFrame } from "../../src/agent/session/turn-frames.ts";
 import { turnToolbox } from "../../src/agent/session/session-turn.ts";
 import { InMemoryTurnStore } from "./in-memory-turn-store.ts";
 import { LUCKY_STAR_ROUTE, SATTE, WASHINOMIYA } from "./catalog-payloads.ts";
-import { makeScriptedTurnModel, makeUserTranscript } from "./make-turn-parts.ts";
+import { makeScriptedTurnModel, makeSessionTurnParts, makeUserTranscript } from "./make-turn-parts.ts";
 import { makeSequencedToolCallsStreamFn, type ScriptedToolCall } from "./pi-provider-double.ts";
 
 const NOW = 1_000;
@@ -83,7 +82,7 @@ export async function makeAnsweredTurn(parts: AnsweredTurnParts): Promise<Answer
     store,
     model,
     toolbox: turnToolbox({ CATALOG: catalogBinding(parts.resolveOutcome ?? RESOLVED_LUCKY_STAR) }, session, model),
-    answering: new TurnAnswering(session),
+    ...makeSessionTurnParts(session),
     systemPrompt: "test",
     prices: PRICES,
     emit: (pushed) => {

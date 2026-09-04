@@ -28,6 +28,8 @@
  */
 
 import { ANSWER_TOOL_NAME } from "@animichi/contract/agent-tool-schemas";
+import type { FactLedger, SceneReferenceRecord } from "../memory/fact-ledger.ts";
+import type { RetainedEntityLedger } from "../memory/retained-entity-ledger.ts";
 import type { PendingClarification, SessionEnvelope } from "./session-envelope.ts";
 import type { CurrentAnime } from "../tools/catalog-tool-session.ts";
 
@@ -107,13 +109,45 @@ function openQuestionLine(pending: PendingClarification): string {
   return `Open question: ${pending.reason}; candidate_ids=[${ids}]. The user's message may be answering it.`;
 }
 
+/**
+ * The fact ledger's own consumption point (#1290) — the port of Python's
+ * `_fact_ledger_context`, word for word, because a ledger field with no
+ * consumer is dead scaffolding and this is the consumer.
+ */
+function factLines(ledger: FactLedger): string[] {
+  const constraint = ledger.activeHardConstraint();
+  const pacing = constraint === null ? [] : [
+    `User hard constraint: ${constraint.value} pacing. Apply this pacing to every subsequent plan_route call unless the user explicitly changes it.`,
+  ];
+  return [...pacing, ...ledger.activeSceneReferences().map(sceneLine)];
+}
+
+function sceneLine(reference: SceneReferenceRecord): string {
+  return `Referenced scene: ${reference.value}. The user explicitly selected this; treat it as a durable point of interest for follow-up questions this session.`;
+}
+
+/**
+ * What compaction rescued before it shrank the return that carried it (#1290),
+ * Python's `_compaction_retention_context`.
+ *
+ * The value is wrapped in `「」` rather than concatenated bare onto the sentence,
+ * so a value engineered to read as trailing instruction text cannot blend into
+ * the directive that follows it.
+ */
+function retentionLines(ledger: RetainedEntityLedger): string[] {
+  return ledger.entities.map(
+    (entity) =>
+      `Verbatim entity retained from an earlier ${entity.toolName} call: 「${entity.value}」. This was compacted out of the raw conversation; still treat it as valid context for anaphora and follow-up.`,
+  );
+}
+
 /** Everything the session knows, one line each, in Python's order. */
 function trustedLines(envelope: SessionEnvelope): string[] {
   const lines: string[] = [];
-  const { currentAnime, pendingClarification } = envelope;
+  const { currentAnime, pendingClarification, memory } = envelope;
   if (currentAnime !== null) lines.push(resolvedAnimeLine(currentAnime));
   if (pendingClarification !== null) lines.push(openQuestionLine(pendingClarification));
-  return lines;
+  return [...lines, ...factLines(memory.facts), ...retentionLines(memory.retainedEntities)];
 }
 
 /** The instructions plus what this session already knows, or just the

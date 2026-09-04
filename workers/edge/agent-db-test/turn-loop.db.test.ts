@@ -19,7 +19,7 @@ import assert from "node:assert/strict";
 import { sql } from "drizzle-orm";
 import { DurableTurn } from "../src/agent/session/durable-turn.ts";
 import { NeonTurnStore } from "../src/agent/session/neon-turn-store.ts";
-import { CountingSpotLookup, makeScriptedTurnModel, makeTurnAnswering } from "../test/doubles/make-turn-parts.ts";
+import { CountingSpotLookup, makeScriptedTurnModel, makeSessionTurnParts } from "../test/doubles/make-turn-parts.ts";
 import { onlyRow, seedSession, type AgentDatabase } from "./agent-rows.ts";
 import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
 
@@ -58,7 +58,7 @@ function makeTurn(toolbox: CountingSpotLookup): DurableTurn {
   return new DurableTurn({
     store: new NeonTurnStore(plane.transactions),
     model: makeScriptedTurnModel(),
-    answering: makeTurnAnswering(),
+    ...makeSessionTurnParts(),
     toolbox,
     systemPrompt: "test",
     prices: PRICES,

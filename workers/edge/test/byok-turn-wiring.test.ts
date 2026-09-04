@@ -15,7 +15,7 @@ import { InMemoryTurnStore } from "./doubles/in-memory-turn-store.ts";
 import {
   CountingSpotLookup,
   makeScriptedTurnModel,
-  makeTurnAnswering,
+  makeSessionTurnParts,
   makeUserTranscript,
 } from "./doubles/make-turn-parts.ts";
 import {
@@ -67,7 +67,7 @@ function makeParts(store: InMemoryTurnStore, model: TurnModel, emit: (frames: re
     store,
     model,
     toolbox: new CountingSpotLookup(),
-    answering: makeTurnAnswering(),
+    ...makeSessionTurnParts(),
     systemPrompt: "test",
     prices: PRICES,
     emit,
