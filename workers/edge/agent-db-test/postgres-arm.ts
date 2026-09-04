@@ -37,15 +37,52 @@ const MIGRATIONS_DIR = new URL("../../../migrations/neon/", import.meta.url);
 const STARTUP_TIMEOUT_MS = 240_000;
 
 /**
- * How long the image is given to bind its port.
+ * The one wall-clock budget the whole setup draws from.
  *
- * Testcontainers defaults to 60s, and this image needs more than that whenever
- * it runs emulated (the published tag is linux/amd64, so an arm64 developer
- * machine runs the whole PostGIS init under qemu). The `before` hook that calls
- * this already allows 300s, so the 60s default was the shorter of two budgets
- * for the same wait — and it failed the lane rather than the assertion.
+ * The image needs more than testcontainers' 60s default whenever it runs
+ * emulated (the published tag is linux/amd64, so an arm64 developer machine
+ * runs the whole PostGIS init under qemu). Giving the port bind its own 240s
+ * and each connection wait its own 60s meant three independent timeouts for one
+ * `before` hook to hold: 240 + 60 + 60 already outlives a 300s hook, so a slow
+ * boot killed the lane instead of failing the phase that overran. Here the
+ * phases share this deadline — the port bind is capped by all of it, and each
+ * wait by whatever the bind left behind.
  */
-const STARTUP_TIMEOUT_MS = 240_000;
+export const SETUP_DEADLINE_MS = 240_000;
+
+/**
+ * The clean database and the Atlas chain run after the deadline's phases, over
+ * a local socket with no network — seconds in practice. This is their room, and
+ * the room for an exhausted budget to throw and be read as an error.
+ */
+const CHAIN_MARGIN_MS = 60_000;
+
+/** What a `before` hook awaiting `startAgentDataPlane()` must allow. */
+export const SETUP_HOOK_TIMEOUT_MS = SETUP_DEADLINE_MS + CHAIN_MARGIN_MS;
+
+const CONNECTION_ATTEMPT_INTERVAL_MS = 1_000;
+const MAX_CONNECTION_ATTEMPTS = 60;
+
+/** How much of `SETUP_DEADLINE_MS` is left, and what a phase may spend of it. */
+export class SetupBudget {
+  readonly #now: () => number;
+  readonly #startedAt: number;
+
+  constructor(now: () => number = Date.now) {
+    this.#now = now;
+    this.#startedAt = now();
+  }
+
+  remainingMs(): number {
+    return Math.max(0, SETUP_DEADLINE_MS - (this.#now() - this.#startedAt));
+  }
+
+  /** One second buys one attempt, and the wait keeps its own ceiling. */
+  connectionAttempts(): number {
+    const affordable = Math.floor(this.remainingMs() / CONNECTION_ATTEMPT_INTERVAL_MS);
+    return Math.min(MAX_CONNECTION_ATTEMPTS, affordable);
+  }
+}
 
 export interface AgentDataPlane {
   readonly transactions: AgentTransactions;
@@ -69,13 +106,14 @@ async function applyAtlasChain(dsn: string): Promise<void> {
  * ("the database system is starting up", SQLSTATE 57P03). `db-fresh-schema.sh`
  * probes TCP for the same reason; this is that probe.
  */
-async function waitForConnections(dsn: string): Promise<void> {
-  for (let attempt = 0; attempt < 60; attempt++) {
+async function waitForConnections(dsn: string, budget: SetupBudget): Promise<void> {
+  const attempts = budget.connectionAttempts();
+  for (let attempt = 0; attempt < attempts; attempt++) {
     const settled = await connects(dsn);
     if (settled) return;
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    await new Promise((resolve) => setTimeout(resolve, CONNECTION_ATTEMPT_INTERVAL_MS));
   }
-  throw new Error(`PostgreSQL never accepted connections on ${dsn}`);
+  throw new Error(`PostgreSQL never accepted connections on ${dsn} within the setup budget`);
 }
 
 async function connects(dsn: string): Promise<boolean> {
@@ -107,17 +145,23 @@ function transactionsOn(database: NodePgDatabase): AgentTransactions {
   return { run: (work) => database.transaction((tx: AgentStatements) => work(tx)) };
 }
 
-/** Boot the container, migrate a clean database, and hand back its transactions. */
-export async function startAgentDataPlane(): Promise<AgentDataPlane> {
-  const container: StartedTestContainer = await new GenericContainer(OFFLINE_IMAGE)
+/** Boot the offline image, capped by what the setup budget still allows. */
+function bootOfflinePostgres(budget: SetupBudget): Promise<StartedTestContainer> {
+  return new GenericContainer(OFFLINE_IMAGE)
     .withEnvironment({ POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB: POSTGRES_USER })
     .withExposedPorts(5432)
-    .withStartupTimeout(STARTUP_TIMEOUT_MS)
+    .withStartupTimeout(budget.remainingMs())
     .start();
+}
+
+/** Boot the container, migrate a clean database, and hand back its transactions. */
+export async function startAgentDataPlane(): Promise<AgentDataPlane> {
+  const budget = new SetupBudget();
+  const container = await bootOfflinePostgres(budget);
   const base = `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${container.getHost()}:${String(container.getMappedPort(5432))}/postgres`;
-  await waitForConnections(base);
+  await waitForConnections(base, budget);
   const dsn = await createCleanDatabase(base);
-  await waitForConnections(dsn);
+  await waitForConnections(dsn, budget);
   await applyAtlasChain(dsn);
   const pool = new pg.Pool({ connectionString: dsn });
   const database = drizzle(pool);

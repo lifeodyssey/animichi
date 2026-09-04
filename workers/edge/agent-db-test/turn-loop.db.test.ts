@@ -21,7 +21,7 @@ import { DurableTurn } from "../src/agent/session/durable-turn.ts";
 import { NeonTurnStore } from "../src/agent/session/neon-turn-store.ts";
 import { CountingSpotLookup, makeScriptedTurnModel, makeSessionTurnParts } from "../test/doubles/make-turn-parts.ts";
 import { onlyRow, seedSession, type AgentDatabase } from "./agent-rows.ts";
-import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
+import { SETUP_HOOK_TIMEOUT_MS, startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
 
 const SESSION = "session-w13";
 const OWNER = "do-incarnation-2";
@@ -32,7 +32,7 @@ let plane: AgentDataPlane;
 
 before(async () => {
   plane = await startAgentDataPlane();
-}, { timeout: 300_000 });
+}, { timeout: SETUP_HOOK_TIMEOUT_MS });
 
 after(async () => {
   await plane.stop();

@@ -15,7 +15,7 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { readConversationOn } from "../src/agent/retrieval/neon-conversation-records.ts";
-import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
+import { SETUP_HOOK_TIMEOUT_MS, startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
 import { seedMessage, seedRun, seedSession } from "./agent-rows.ts";
 
 const OWNER = "neon-subject-1";
@@ -23,7 +23,7 @@ const STRANGER = "neon-subject-2";
 
 let plane: AgentDataPlane;
 
-before(async () => { plane = await startAgentDataPlane(); }, { timeout: 300_000 });
+before(async () => { plane = await startAgentDataPlane(); }, { timeout: SETUP_HOOK_TIMEOUT_MS });
 after(() => plane.stop(), { timeout: 60_000 });
 
 function read(sessionId: string, identityId: string = OWNER) {

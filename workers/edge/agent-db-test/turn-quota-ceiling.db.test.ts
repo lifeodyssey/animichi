@@ -15,7 +15,7 @@ import assert from "node:assert/strict";
 import { acceptTurn, type TurnIntake, type TurnRecords } from "../src/agent/intake/turn-intake.ts";
 import { QuotaExhaustedError } from "../src/agent/intake/anonymous-message-allowance.ts";
 import { NeonTurnRecords } from "../src/agent/intake/neon-turn-records.ts";
-import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
+import { SETUP_HOOK_TIMEOUT_MS, startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
 import { countRows, makeSubmission, reservedCount } from "./agent-rows.ts";
 
 const NOW = Date.parse("2026-09-02T23:30:00.000Z");
@@ -31,7 +31,7 @@ function makeIntake(records: TurnRecords): TurnIntake {
 
 let plane: AgentDataPlane;
 
-before(async () => { plane = await startAgentDataPlane(); }, { timeout: 300_000 });
+before(async () => { plane = await startAgentDataPlane(); }, { timeout: SETUP_HOOK_TIMEOUT_MS });
 after(() => plane.stop(), { timeout: 60_000 });
 
 /** One turn per call, each on its own conversation so the session's single

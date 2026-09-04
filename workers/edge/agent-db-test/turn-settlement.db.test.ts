@@ -26,7 +26,7 @@ import { settleSucceededTurn } from "../src/agent/settlement/neon-turn-settlemen
 import { NO_SUPPLEMENTAL_USAGE } from "../src/agent/settlement/supplemental-usage.ts";
 import type { SettlementResult, SucceededTurn } from "../src/agent/settlement/turn-settlement.ts";
 import type { AgentStatements, AgentTransactions } from "../src/db/agent-database.ts";
-import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
+import { SETUP_HOOK_TIMEOUT_MS, startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
 import { bankedUsage, runSettlement, seedRun, type SeededRun } from "./agent-rows.ts";
 
 const LEASED = "2026-09-02T23:31:00.000Z";
@@ -48,7 +48,7 @@ function settlingAt(day: string): Date {
 
 let plane: AgentDataPlane;
 
-before(async () => { plane = await startAgentDataPlane(); }, { timeout: 300_000 });
+before(async () => { plane = await startAgentDataPlane(); }, { timeout: SETUP_HOOK_TIMEOUT_MS });
 after(() => plane.stop(), { timeout: 60_000 });
 
 function makeSucceededTurn(runId: string): SucceededTurn {
