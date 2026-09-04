@@ -81,3 +81,27 @@ void test("an entity the endpoint never emits is left exactly as it was written"
     [["&notanentity;", "&#x110000;"]],
   );
 });
+
+/** The one result of a page built from one title and one snippet. */
+function onlyResult(title: string, snippet: string) {
+  const results = duckduckgoResults(makeResultPage([{ href: "https://a.example/", title, snippet }]));
+  const [only] = results;
+  assert.ok(only, "the page has exactly one result");
+  return only;
+}
+
+void test("a tag the page never closed cannot leak out as text", () => {
+  const only = onlyResult("<scr<script>ipt>alert(1)</script", "<<b>b>bold <b");
+  assert.equal(only.title.includes("<script"), false, only.title);
+  assert.equal(only.body.includes("<b"), false, only.body);
+});
+
+void test("no `<` of any shape survives being read as text", () => {
+  const only = onlyResult("<scr<script>ipt>x <img src=y", "a <i>b</i> <<div>>c <span");
+  assert.equal(`${only.title}${only.body}`.includes("<"), false, `${only.title}|${only.body}`);
+});
+
+void test("an entity-encoded tag is data, and survives as the characters it spells", () => {
+  const only = onlyResult("&lt;script&gt;", "&lt;script&gt;alert(1)&lt;/script&gt;");
+  assert.deepEqual([only.title, only.body], ["<script>", "<script>alert(1)</script>"]);
+});

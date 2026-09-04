@@ -13,6 +13,10 @@
  * They are paired by POSITION — the snippet belongs to the nearest title anchor
  * above it — because a result without a snippet must not steal the next one's.
  *
+ * Reading the text of a fragment is a SELECTION of the spans between tags, not
+ * a deletion of the tags (`visibleText`); the difference is a real one and it
+ * is argued where it is implemented.
+ *
  * Two things this deliberately does NOT do:
  *   - it does not sanitise. Decoding entities here and sanitising in
  *     `web-result-trust.ts` is the right order: `&lt;/untrusted_web_result&gt;`
@@ -30,7 +34,6 @@ import type { WebResult } from "./web-searcher.ts";
 const TITLE_ANCHOR = /<a\b([^>]*\bclass="result__a"[^>]*)>([\s\S]*?)<\/a>/g;
 const SNIPPET_ANCHOR = /<a\b[^>]*\bclass="result__snippet"[^>]*>([\s\S]*?)<\/a>/;
 const HREF_ATTRIBUTE = /\bhref="([^"]*)"/;
-const MARKUP_TAG = /<[^>]*>/g;
 
 /** The named entities DuckDuckGo's own escaping actually emits. */
 const NAMED_ENTITIES: Readonly<Record<string, string>> = {
@@ -58,9 +61,32 @@ function decodedEntity(whole: string, body: string): string {
   return NAMED_ENTITIES[body.toLowerCase()] ?? whole;
 }
 
+/** What follows one `<`: the tag itself is not text, whatever is past its `>`
+ * is. An unclosed tag ends the fragment, exactly as a parser would treat it. */
+function textAfterTag(fragment: string): string {
+  const close = fragment.indexOf(">");
+  return close === -1 ? "" : fragment.slice(close + 1);
+}
+
+/**
+ * The visible text of a fragment: the spans BETWEEN tags, selected.
+ *
+ * Deliberately a selection, never a deletion. `replace(/<[^>]*>/g, "")` is one
+ * pass over the input, so it re-forms markup out of its own leftovers —
+ * `<scr<script>ipt>` loses the inner tag and leaves `<script>` behind
+ * (CodeQL `js/incomplete-multi-character-sanitization`). Splitting on `<` and
+ * keeping only what follows each tag's `>` cannot do that: every `<` in the
+ * input opens a discarded span, so no `<` survives into the output at all and
+ * there is no fixpoint left to iterate towards.
+ */
+function visibleText(markup: string): string {
+  const [beforeFirstTag = "", ...fragments] = markup.split("<");
+  return beforeFirstTag + fragments.map(textAfterTag).join("");
+}
+
 /** Inner markup dropped, entities decoded, surrounding whitespace trimmed. */
 function textOf(markup: string): string {
-  return markup.replace(MARKUP_TAG, "").replace(ENTITY, decodedEntity).trim();
+  return visibleText(markup).replace(ENTITY, decodedEntity).trim();
 }
 
 /**
