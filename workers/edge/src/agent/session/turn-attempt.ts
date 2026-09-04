@@ -114,6 +114,15 @@ export class TurnAttempt {
   /**
    * One attempt at answering the turn.
    *
+   * The facts are recorded from the attempt's own steps AFTER whichever path
+   * ran and BEFORE the ending, which is where Python recorded them
+   * (`_execution_result`, command-then-query) and the only place they can go:
+   * the settlement stages the envelope, so a fact written after it would be
+   * staged by nobody and the retry would promote a ledger missing it. It sits
+   * on BOTH paths because a `plan_selected` pick is where Python's scene
+   * references came from in the first place (#1288 × #1290) — a turn that
+   * throws records nothing either way, since the throw leaves before this line.
+   *
    * A submission that carried a selection never reaches a model — Python routed
    * one straight to its handler and so does this (`_kind_from_request`) — so
    * the branch is here rather than inside the loop: a selection has no
@@ -124,6 +133,7 @@ export class TurnAttempt {
     const request = this.#turn.selection;
     if (request === null) await this.#modelled(modelFor(this.#parts.model));
     else await this.#select(request);
+    recordTurnFacts(this.#parts.memory, this.steps.recorded, new Date(this.#parts.now()));
   }
 
   /** The deterministic path: one step, one answer, no provider call. */
@@ -134,22 +144,13 @@ export class TurnAttempt {
     if (this.steps.broken !== null) throw this.steps.broken;
   }
 
-  /**
-   * One pi run. A run that ends carrying an error message never answered.
-   *
-   * The facts are recorded from the run's own steps AFTER the loop and BEFORE
-   * the ending, which is where Python recorded them (`_execution_result`,
-   * command-then-query) and the only place they can go: the settlement stages
-   * the envelope, so a fact written after it would be staged by nobody and the
-   * retry would promote a ledger missing it.
-   */
+  /** One pi run. A run that ends carrying an error message never answered. */
   async #modelled(model: TurnModel): Promise<void> {
     const agent = createTurnAgent(this.#agentParts(model));
     await agent.continue();
     if (this.steps.broken !== null) throw this.steps.broken;
     const failure = providerFailureIn(agent.state.errorMessage, model.scrub);
     if (failure !== null) throw failure;
-    recordTurnFacts(this.#parts.memory, this.steps.recorded, new Date(this.#parts.now()));
     this.#answer = this.#parts.answering.close(this.output.answer);
   }
 

@@ -25,9 +25,17 @@ function makeRouteStep(pacing: string, status = "ok"): RecordedStep {
   };
 }
 
-/** A `plan_selected` step over the points a user ticked (#1288's step). */
+/**
+ * A `plan_selected` step over the points a user ticked, in the shape #1288's
+ * selection actually settles: a `SelectionRecord`, whose job is to carry enough
+ * for a REPLAY to rebuild the answer, so the route sits under `itinerary`
+ * rather than at the top of `details` the way Python's step payload did.
+ * `test/selection-facts.test.ts` drives the real producer against the real
+ * recorder, so this double cannot drift from it unnoticed.
+ */
 function makeSelectionStep(points: readonly unknown[]): RecordedStep {
-  return { toolName: "plan_selected", input: { point_ids: [] }, details: { ordered_points: points } };
+  const itinerary = { ordered_points: points, source_ref: null };
+  return { toolName: "plan_selected", input: { point_ids: [] }, details: { status: "ok", itinerary } };
 }
 
 function makeSession(): TurnCatalogSession {

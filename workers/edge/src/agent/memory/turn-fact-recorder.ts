@@ -17,12 +17,19 @@
  * live pacing returns the same ledger, and an unchanged selection returns the
  * same set.
  *
- * `plan_selected` HAS NO PRODUCER IN THIS TREE YET. Python's scene references
- * come from the selection step, which card #1288 is landing as
- * `selection/selected-itinerary.ts`'s `SELECTED_ROUTE_STEP`; it settles under
- * that same tool name through the same `TurnSteps`, so the branch below reads
- * it without importing it. Until that card lands, the branch records nothing
- * because no step is named it.
+ * `plan_selected` IS PRODUCED BY `selection/` (#1288), which settles under that
+ * tool name through the same `TurnSteps` — server-initiated rather than model-
+ * issued, which is exactly why the recorder never had to learn about it.
+ *
+ * It does have to know the SHAPE, and the shape is not Python's. Python put
+ * `build_itinerary_payload(itinerary)` on the step directly, so
+ * `ordered_points` sat at the top of `details`; a selection step here settles a
+ * `SelectionRecord` — whose whole job is to carry enough for the REPLAY to
+ * rebuild the answer without re-calling the catalog — so the route it planned
+ * is one level down, under `itinerary`. The tool name stays a literal rather
+ * than an import: `memory/` is below `selection/` and must not depend upwards,
+ * and the agreement is pinned end-to-end by
+ * `test/selection-facts.test.ts` instead, which fails if either side renames.
  */
 import { isJsonRecord } from "../json-record.ts";
 import { PACINGS, type Pacing, type SceneEntry } from "./fact-ledger.ts";
@@ -74,7 +81,7 @@ function sceneValue(point: unknown, episode: number): string {
 
 function selectedScenes(step: RecordedStep): SceneEntry[] | null {
   if (step.toolName !== SELECTED_ROUTE_STEP) return null;
-  const points = fieldOf(step.details, "ordered_points");
+  const points = fieldOf(fieldOf(step.details, "itinerary"), "ordered_points");
   if (!Array.isArray(points)) return null;
   return points.flatMap((point) => sceneEntry(point) ?? []);
 }
