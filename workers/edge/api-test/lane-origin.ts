@@ -33,9 +33,17 @@
  */
 import assert from "node:assert/strict";
 
-const ORIGIN = process.env.CATALOG_API_ORIGIN;
-const BEARER = process.env.AGENT_TURN_BEARER;
-const GATE_TOKEN = process.env.STAGING_GATE_TOKEN;
+/** Read at CALL time, not at import time: a lane that resolved its
+ * environment once at module load could not be driven through both its
+ * loopback and its staging branch by a test, and a rule nobody can exercise is
+ * a rule nobody can trust. */
+function environment(): { origin?: string; bearer?: string; gate?: string } {
+  return {
+    origin: process.env.CATALOG_API_ORIGIN,
+    bearer: process.env.AGENT_TURN_BEARER,
+    gate: process.env.STAGING_GATE_TOKEN,
+  };
+}
 
 /** The header form of the staging gate. The WAF accepts it or the cookie; a
  * header needs no cookie jar, which is the whole reason these lanes use it. */
@@ -46,44 +54,64 @@ function isLoopback(url: URL): boolean {
   return url.hostname === "localhost" || url.hostname === "127.0.0.1";
 }
 
-/** The origin, refused unless it is one these lanes may safely talk to. */
-function checkedOrigin(): string {
-  assert.ok(ORIGIN, "set CATALOG_API_ORIGIN (see api-test/README.md); this lane never guesses");
-  const url = new URL(ORIGIN);
-  assert.ok(
-    url.protocol === "https:" || isLoopback(url),
-    "CATALOG_API_ORIGIN must be https off the loopback — these lanes send a real bearer token",
+/** Where a lane may talk to, and what it must present to get in. */
+interface LaneDestination {
+  origin: string;
+  /** The staging gate credential, or `null` for the loopback, which has no gate. */
+  gate: string | null;
+}
+
+/**
+ * The destination, refused unless it is one these lanes may safely talk to.
+ *
+ * The loopback returns before the gate is even read, which is the point: a
+ * local `wrangler dev` is not behind the WAF, so sending it the staging
+ * credential would be handing a production-adjacent secret to whatever is
+ * listening on a port. Every other origin must present one, and is refused
+ * here rather than allowed to come back as a Cloudflare 403 nobody can read.
+ */
+function checkedDestination(): LaneDestination {
+  const { origin, gate } = environment();
+  assert.ok(origin, "set CATALOG_API_ORIGIN (see api-test/README.md); this lane never guesses");
+  const url = new URL(origin);
+  if (isLoopback(url)) return { origin, gate: null };
+  assert.equal(
+    url.protocol,
+    "https:",
+    "CATALOG_API_ORIGIN must be https for any non-loopback origin — these lanes send real credentials",
   );
   assert.ok(
-    isLoopback(url) || GATE_TOKEN,
+    gate,
     "set STAGING_GATE_TOKEN (the variable the e2e suite already uses; see api-test/README.md) — staging's WAF answers 403 to a request without it, and that 403 reads as a broken app",
   );
-  return ORIGIN;
+  return { origin, gate };
 }
 
 /** The staging origin, without its trailing slash, or a failed assertion. */
 export function laneOrigin(): string {
-  return checkedOrigin().replace(/\/$/, "");
+  return checkedDestination().origin.replace(/\/$/, "");
 }
 
 /** The Neon Auth access token a signed-in lane presents, or a failed assertion. */
 export function laneBearer(): string {
-  assert.ok(BEARER, "set AGENT_TURN_BEARER to a Neon Auth access token (see api-test/README.md)");
-  return BEARER;
+  const { bearer } = environment();
+  assert.ok(bearer, "set AGENT_TURN_BEARER to a Neon Auth access token (see api-test/README.md)");
+  return bearer;
 }
 
 /**
  * One request's headers: whatever the call itself needs, plus the gate.
  *
- * The gate header is added last and cannot be overridden by a caller, because
- * a lane has no reason to send a different one and every reason to send this
- * one. It is omitted only against the loopback, which is not gated — and
- * `checkedOrigin` has already refused any other origin without a token, so
- * there is no path on which this silently sends nothing to staging.
+ * The gate header is added last and cannot be overridden by a caller: a lane
+ * has no reason to send a different one and every reason to send this one.
+ * `checkedDestination` decides whether there IS one — `null` for the loopback,
+ * which is not gated and must not be handed the staging credential — so this
+ * function has no policy of its own to get wrong.
  */
 export function laneHeaders(extra?: HeadersInit): Headers {
   const headers = new Headers(extra);
-  if (GATE_TOKEN !== undefined && GATE_TOKEN !== "") headers.set(GATE_HEADER, GATE_TOKEN);
+  const { gate } = checkedDestination();
+  if (gate !== null) headers.set(GATE_HEADER, gate);
   return headers;
 }
 
@@ -95,7 +123,19 @@ export function laneHeaders(extra?: HeadersInit): Headers {
  * is a check the next caller forgets, and the request that forgot is the one
  * that comes back 403. Taking the PATH rather than a URL is what makes that
  * structural — a lane cannot reach staging without coming through here.
+ *
+ * `redirect: "error"` is set AFTER the spread, so no caller can opt out of it,
+ * and it is not politeness: `fetch` replays request headers on a followed
+ * redirect, so a 30x from staging — a WAF rule, a stray trailing slash, a
+ * hostile response on a compromised hop — would carry `x-staging-key` AND the
+ * Neon Auth bearer to whatever origin and scheme the `Location` named. There is
+ * no legitimate redirect on any of these routes, so a redirect is a finding,
+ * and a rejected promise says so where a followed one would say nothing.
  */
 export function laneFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(`${laneOrigin()}${path}`, { ...init, headers: laneHeaders(init.headers) });
+  return fetch(`${laneOrigin()}${path}`, {
+    ...init,
+    headers: laneHeaders(init.headers),
+    redirect: "error",
+  });
 }

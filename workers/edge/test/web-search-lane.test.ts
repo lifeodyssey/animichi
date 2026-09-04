@@ -40,21 +40,30 @@ const TOOL = readFileSync(fileURLToPath(new URL("../src/agent/tools/web-search-t
 const SEARCHER = readFileSync(fileURLToPath(new URL("../src/agent/tools/duckduckgo-web-searcher.ts", import.meta.url)), "utf8");
 const EGRESS = readFileSync(fileURLToPath(new URL("../src/agent/egress/egress-decision.ts", import.meta.url)), "utf8");
 
-/** The body of the door's own origin check, where every refusal is decided. */
-function originCheck(): string {
-  const start = DOOR.indexOf("function checkedOrigin(): string {");
-  assert.notEqual(start, -1, "the lanes must check their origin in one named place");
+/** The body of the door's own destination check, where every refusal is decided. */
+function destinationCheck(): string {
+  const start = DOOR.indexOf("function checkedDestination(): LaneDestination {");
+  assert.notEqual(start, -1, "the lanes must check their destination in one named place");
   return DOOR.slice(start, DOOR.indexOf("\n}", start));
 }
 
-void test("the shared door refuses a non-HTTPS origin, where the origin is read", () => {
-  assert.match(originCheck(), /"https:"/);
-  assert.match(originCheck(), /url\.protocol === "https:" \|\| isLoopback\(url\)/);
+void test("the shared door requires HTTPS of every origin that is not the loopback", () => {
+  assert.match(destinationCheck(), /"https:"/);
+  assert.match(destinationCheck(), /url\.protocol,/);
 });
 
 void test("the door refuses to run against staging with no gate credential", () => {
-  assert.match(originCheck(), /isLoopback\(url\) \|\| GATE_TOKEN/);
-  assert.match(originCheck(), /STAGING_GATE_TOKEN/, "the refusal has to name the variable");
+  assert.match(destinationCheck(), /assert\.ok\(\s*gate,/);
+  assert.match(destinationCheck(), /STAGING_GATE_TOKEN/, "the refusal has to name the variable");
+});
+
+void test("the loopback is answered before the gate credential is even read", () => {
+  const check = destinationCheck();
+  assert.match(check, /if \(isLoopback\(url\)\) return \{ origin, gate: null \};/);
+  assert.ok(
+    check.indexOf("isLoopback(url)") < check.indexOf("assert.ok(\n    gate,"),
+    "a local dev origin must never be handed the staging credential",
+  );
 });
 
 void test("no lane opens a second door onto the origin or either credential", () => {
@@ -88,12 +97,21 @@ void test("every lane makes at least one request, and all of them through the do
 void test("the door presents the gate credential on every request it makes", () => {
   assert.match(DOOR, /const GATE_HEADER = "x-staging-key";/);
   assert.match(DOOR, /headers: laneHeaders\(init\.headers\)/);
-  assert.match(DOOR, /headers\.set\(GATE_HEADER, GATE_TOKEN\)/);
+  assert.match(DOOR, /headers\.set\(GATE_HEADER, gate\)/);
+});
+
+void test("no request the door makes may follow a redirect off the origin", () => {
+  const call = DOOR.slice(DOOR.indexOf("export function laneFetch("));
+  assert.match(call, /redirect: "error",/);
+  assert.ok(
+    call.indexOf("...init") < call.indexOf('redirect: "error"'),
+    "the redirect rule must be set after the spread, where no caller can undo it",
+  );
 });
 
 void test("the door still refuses to guess an origin or a credential", () => {
-  assert.match(DOOR, /assert\.ok\(ORIGIN,/);
-  assert.match(DOOR, /assert\.ok\(BEARER,/);
+  assert.match(DOOR, /assert\.ok\(origin,/);
+  assert.match(DOOR, /assert\.ok\(bearer,/);
 });
 
 /**
@@ -113,4 +131,10 @@ void test("every failure detail the runbook explains is one the code can produce
   const documented = ["egress denied: ", "search backend answered ", "the search timed out"];
   const produced = documented.filter((detail) => RUNBOOK.includes(detail) && source.includes(detail));
   assert.deepEqual(produced, documented);
+});
+
+void test("the runbook states both rules an operator can otherwise trip", () => {
+  assert.match(RUNBOOK, /requires HTTPS of every\n?non-loopback origin/);
+  assert.match(RUNBOOK, /NO gate credential because it is behind no gate/);
+  assert.match(RUNBOOK, /`redirect: "error"`/);
 });

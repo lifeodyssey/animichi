@@ -27,7 +27,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { laneBearer, laneOrigin } from "./lane-origin.ts";
+import { laneBearer, laneFetch } from "./lane-origin.ts";
 
 /** One probe is bounded at 5s server-side; a client that waited three times
  * that is looking at a hang, not at latency. */
@@ -45,7 +45,7 @@ const OPENAI_HEADERS: Record<string, string> = {
 
 function probe(headers: Record<string, string>, authorized = true): Promise<Response> {
   const auth: Record<string, string> = authorized ? { Authorization: `Bearer ${laneBearer()}` } : {};
-  return fetch(`${laneOrigin()}/v1/byok/probe`, {
+  return laneFetch("/v1/byok/probe", {
     method: "POST",
     headers: { ...auth, ...headers },
     signal: AbortSignal.timeout(PROBE_DEADLINE_MS),

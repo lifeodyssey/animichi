@@ -2,9 +2,12 @@
 
 Opt-in, never in CI, never in a deploy unit. Four suites, one per question, over one
 shared door — `lane-origin.ts`, which resolves `CATALOG_API_ORIGIN`,
-`AGENT_TURN_BEARER` and `STAGING_GATE_TOKEN` for all of them, requires HTTPS for any
-non-loopback origin before a token is sent, and makes every request itself
-(`laneFetch`) so the staging gate header cannot be forgotten by one call site. No
+`AGENT_TURN_BEARER` and `STAGING_GATE_TOKEN` for all of them, requires HTTPS of every
+non-loopback origin before a credential is sent, and makes every request itself
+(`laneFetch`) so neither the gate header nor the no-redirect rule can be forgotten by
+one call site. `http://localhost` and `http://127.0.0.1` are the one exception —
+plaintext is fine on the loopback, there is no wire to intercept, and a local
+`wrangler dev` is sent NO gate credential because it is behind no gate. No
 lane reads those variables or calls `fetch` for itself; `test/web-search-lane.test.ts`
 fails if one starts to.
 
@@ -65,6 +68,14 @@ request — because a header needs no cookie jar. `STAGING_GATE_TOKEN` is the SA
 variable and the same value the Playwright suite uses (`e2e/global-setup.ts`, which
 turns it into the cookie instead); get it from wherever you get that one, and never
 paste it into a file in this repo, a test, a PR or a log line.
+
+Two rules follow from that, and both live in `lane-origin.ts` rather than in any
+lane: a non-loopback origin must be HTTPS (the gate token and the Neon Auth bearer
+both ride these requests, and neither belongs on a plaintext wire), and no request
+may follow a redirect — `fetch` replays headers on a 30x, so a redirect would hand
+both credentials to whatever origin the `Location` named. There is no legitimate
+redirect on any of these routes, so `laneFetch` sets `redirect: "error"` and a 30x
+fails the lane loudly.
 
 **A Cloudflare 403 block page is the gate, not the app.** If `/healthz` answers 403
 with Cloudflare's own HTML, the request did not reach our Worker: the token is
