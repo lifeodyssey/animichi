@@ -27,7 +27,7 @@
 | **关注点混杂** | 包 CI、跨栈 e2e、安全、eval、Neon 集成、**整段 staging→prod 晋升** 挤在叙事不清的文件里 |
 | **PR 行为与「按包」打架** | 多条 lane **PR pathless 全跑**（merge_group 一致），包级隔离的收益被吃掉 |
 | **命名** | `pipeline-*` = 包 CI，又和 **数据 ingest pipeline**、部署 pipeline 口语撞车 |
-| **遗留双轨** | 旧 GHA purge yml 与 `workers/jobs` 并存风险；`ci.yml` 仍 500+ 行上帝工作流 |
+| **遗留双轨** | 旧 GHA purge yml 与 jobs Worker 空壳并存风险（jobs 已 RETIRED，#1316）；`ci.yml` 仍 500+ 行上帝工作流 |
 
 **结论：**
 **「每包一条部署线」保留。**

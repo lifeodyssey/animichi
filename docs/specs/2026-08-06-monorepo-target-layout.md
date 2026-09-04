@@ -83,15 +83,16 @@
 | apps + workers | 保持双顶栏 |
 | packages | 保留 `packages/contract`，不改顶层名为 contract |
 | migrations | `neon/` + `supabase/` 并列 |
-| **jobs**（原 maintenance） | 定时 retention Worker；包名 **`workers/jobs`**，不用 scheduler |
+| **jobs**（原 maintenance） | **RETIRED (#1316)**：空壳从未落地，处置见下 |
 | infra | 顶层保留 |
 | 系统测 | `tests/e2e/` |
 | CI | 仅 `.github/` |
 
-### 1.4 jobs（原 maintenance）
+### 1.4 jobs（原 maintenance，RETIRED #1316）
 
-Cron 清理 agent 域匿名 Session / 配额行。包名 **`workers/jobs`**（比 maintenance 好懂；不用 scheduler 以免和编排混淆）。
-非 catalog/users 职责；非 lib（需可部署 cron 单元）。结构：[jobs-worker-structure-design](./2026-08-06-jobs-worker-structure-design.md)。
+Cron 清理 agent 域匿名 Session / 配额行的定时 Worker 曾定名为 jobs（不用 scheduler 以免和编排混淆）。
+包目录从未超出一份空 `wrangler.toml`，随 #1316 一并删除；结构设计稿同批归档删除。retention 需求若重启，
+并入 catalog 数据平台评估，不再单独立包。
 
 ### 1.5 Supabase
 
@@ -183,7 +184,7 @@ Domain / Application / Adapters / Infrastructure；依赖 adapters → applicati
 | users | **ACCEPTED (core BC)** — [CA](./2026-08-06-users-clean-architecture-design.md)（§0.3 大量 OPEN 产品面）· [总表](./2026-08-06-greenfield-language-and-data-plane.md) |
 | edge | **ACCEPTED** — [Gateway 结构](./2026-08-06-edge-gateway-structure-design.md) |
 | web | **ACCEPTED** — [UI 结构](./2026-08-06-web-ui-structure-design.md)（routes≈pages + features） |
-| jobs（原 maintenance） | **ACCEPTED 命名+结构** — [jobs-worker-structure](./2026-08-06-jobs-worker-structure-design.md)；代码仍在 `workers/maintenance` 直至 J1 |
+| jobs（原 maintenance） | **RETIRED (#1316)** — 空壳从未落地；结构设计稿已随包删除 |
 
 ### 4.5 Catalog 摘要
 
@@ -220,13 +221,14 @@ Domain / Application / Adapters / Infrastructure；依赖 adapters → applicati
 | 2026-08-06 | 三包 structure-refactor 设计 **ACCEPTED**（best practice）；edge/web 未设计 |
 | 2026-08-06 | Edge Gateway + Web UI 结构设计稿（无 domain model；一次到位） |
 | 2026-08-06 | Edge/Web 结构 **ACCEPTED**；Maintenance Thin 设计稿 |
-| 2026-08-06 | **maintenance → workers/jobs**（包名+jobs/ 目录）；scheduler 不作包名 |
+| 2026-08-06 | **maintenance → jobs**（包名+内部 jobs/ 目录）；scheduler 不作包名 |
 | 2026-08-06 | Neon DBA 能力图（缺口 D0–D21；#685 对齐） |
 | 2026-08-06 | Neon DBA 图 **ACCEPTED**；CI pipeline 布局明确另议 |
 | 2026-08-06 | CI/部署架构方向文：每包线对、实现乱、目标形状（DIRECTION ACCEPTED） |
 | 2026-08-06 | CI/CD 重构计划 ACCEPTED design only（C1–C6；Sonar 澄清） |
 | 2026-08-06 | Pulumi/infra 设计 **ACCEPTED design only**（边界对；结构/ESC 后置） |
 | 2026-08-06 | 骨架重构 GOAL：`docs/iterations/refactor-skeleton-2026-08/GOAL.md` |
+| 2026-09-05 | jobs 包 **RETIRED**（#1316）：空壳从未落地，随空壳一并删除结构设计稿 |
 
 ---
 

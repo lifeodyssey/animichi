@@ -12,7 +12,7 @@
 | `workers/edge/wrangler.toml` | 根 `wrangler.toml` | DONE | Edge E1, #853 |
 | `workers/edge/package.json` runtime deps | 根 `package.json` | DONE | Edge E1, #853 |
 | `apps/agent/Dockerfile` | 根 `Dockerfile` | DONE | 容器 pin, #853 |
-| `workers/jobs/` | `workers/jobs/` | DONE | J1, #836 |
+| jobs Worker（原 maintenance） | 空壳（仅 `wrangler.toml`，无 src） | WONT | 从未落地，处置见 #1316；retention 需求并入 catalog 数据平台 |
 | `migrations/neon/` | `db/migrations/` | TODO | DBA D19 |
 | `migrations/supabase/` | 根 `supabase/` | TODO | 过渡 |
 | `tests/e2e/` | 根 `e2e/` | TODO | monorepo 树 |

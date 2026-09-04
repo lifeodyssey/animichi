@@ -72,7 +72,7 @@
 
     # 删除/归档
     # pipeline-*.yml              → 被 ci-*.yml 取代
-    # purge-anonymous-*.yml       → 权威在 workers/jobs
+    # purge-anonymous-*.yml       → jobs Worker 已 RETIRED（#1316，空壳从未落地）
     # ci.yml 上帝文件             → 拆空或只剩 redirect 注释期
 ```
 
