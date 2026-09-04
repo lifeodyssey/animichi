@@ -11,10 +11,14 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 - pnpm. `pnpm test` — the node:test suite under `test/*.test.ts` (doubles in `test/doubles/`).
   From the repo root the same suite is `pnpm run test:worker` (forwards to
   `pnpm --filter edge-worker test`; `make test-worker` likewise) — command surface unchanged.
-- `pnpm run test:bundle-smoke` — the W0-S3 bundler smoke gate (#1246): bundles
+- `pnpm run test:bundle-smoke` — the bundler gates (`bundle-smoke/`), the only ones that read the
+  ARTIFACT rather than the source: `pi-kernel.test.ts` (W0-S3 #1246) bundles
   `bundle-smoke/pi-kernel.worker.ts` with wrangler's own esbuild settings and **executes** the
-  artifact in workerd. Separate from `pnpm test` on purpose — it is the only gate that can see
-  bundle-only runtime failures, and it is slower than the node:test suite.
+  artifact in workerd, and `entry-bundle.test.ts` (#1285) builds `src/entry.ts` the same way and
+  fails if zod reached it — the property `src/` keeps by construction and no source-level gate can
+  see. Both bundle through `bundle-smoke/wrangler-bundle.ts`, the one copy of those settings.
+  Separate from `pnpm test` on purpose — bundle-only runtime failures are invisible to the
+  node:test suite, and these are slower.
 - `pnpm run test:catalog-api` — opt-in staging lane (`api-test/*.test.ts`, W1-4 #1253) for the
   catalog tools, against a deploy carrying `AGENT_TURN_ROUTE = "edge"`, plus the BYOK probe's
   invalid-key evidence (W2-3 #1289; the valid-key case is the owner's manual step, because it
@@ -163,7 +167,11 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   lives at `tool-schema-bridge.ts`: contract zod is the source,
   `packages/contract/scripts/emit-tool-schemas.ts`
   is the repo's ONE zod→JSON-Schema conversion, and nothing here re-declares a constraint or loads
-  zod. Adding a tool parameter means editing `packages/contract/src/agent-tool-parameters.ts` and
+  zod. The same red line covers the whole Worker as of #1285: every contract module `src/` takes a
+  VALUE from is import-free (`AGENT_PATHS` from `@animichi/contract/agent-paths`,
+  `DEFAULT_IDENTITY_POLICY` from `@animichi/contract/identity-policy` — never `agent-contract` or
+  `identity`, the zod modules that declare their schemas), and `bundle-smoke/entry-bundle.test.ts`
+  measures it. Adding a tool parameter means editing `packages/contract/src/agent-tool-parameters.ts` and
   re-running `pnpm --filter @animichi/contract run emit:tool-schemas`. The `respond` tool
   (`src/agent/session/turn-answer.ts`) rides the same seam, and takes `ANSWER_TOOL_NAME` +
   `CHAT_RESPONSE_INTENTS` from the generated module rather than spelling either out here.
@@ -248,7 +256,7 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 - `agent-db-test/` — the agent-tier database arm (#1251), kept apart from `db-test/` precisely
   because that one leaves with the spike. Test-only: both directories are excluded from the edge
   deploy unit in `.github/ci/components.json`, and `pg`/`testcontainers` are devDependencies.
-- `bundle-smoke/` — the pi-kernel bundler smoke gate (#1246). Test-only: its entrypoint is
+- `bundle-smoke/` — the bundler gates (#1246, #1285). Test-only: its entrypoint is
   excluded from the edge deploy unit in `.github/ci/components.json`. `@earendil-works/pi-ai` and
   `pi-agent-core` are runtime `dependencies` as of #1252 — `src/agent/session/` runs the kernel,
   so a devDependency there would be a Worker that cannot bundle its own agent loop.

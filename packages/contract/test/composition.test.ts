@@ -14,7 +14,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { AGENT_PATHS } from "../src/agent-contract.js";
+import { AGENT_PATHS } from "../src/agent-paths.js";
 import { catalogContract } from "../src/contract.js";
 import {
   operationKey,
