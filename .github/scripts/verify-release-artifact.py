@@ -29,13 +29,16 @@ def read_manifest(path: Path) -> ArtifactManifest:
     with path.open(encoding="utf-8") as handle:
         raw = json.load(handle)
     if not isinstance(raw, dict):
-        raise ValueError("manifest must be an object")
+        raise TypeError("manifest must be an object")
     return cast(ArtifactManifest, raw)
 
 
 def verify(root: Path, unit: str, source_sha: str) -> None:
     manifest = read_manifest(root / "artifact-manifest.json")
-    if set(manifest) != {"schema_version", "unit", "source_sha", "artifact_sha256"} or manifest.get("schema_version") != 1:
+    if (
+        set(manifest) != {"schema_version", "unit", "source_sha", "artifact_sha256"}
+        or manifest.get("schema_version") != 1
+    ):
         raise ValueError("manifest schema mismatch")
     if manifest.get("unit") != unit:
         raise ValueError(f"unit mismatch: {manifest.get('unit')!r} != {unit!r}")

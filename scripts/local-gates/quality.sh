@@ -111,6 +111,8 @@ run env EXPECTED_SHA=0123456789abcdef0123456789abcdef01234567 ACTUAL_SHA=0123456
 run ruby "$GS/test_pr_verification_contract.rb"
 run ruby "$GS/test_pr_verification_contract_mutation.rb"
 run bash scripts/local-gates/commit-message.test.sh
+run bash scripts/local-gates/shebang-exec-bit.test.sh
+run bash scripts/local-gates/shebang-exec-bit.sh
 run ruby "$GS/test_secret_scan_contract.rb"
 run ruby "$GS/test_secret_scan_contract_mutation.rb"
 run bash "$GS/resolve-secret-scan-range.test.sh"

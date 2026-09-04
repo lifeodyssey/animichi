@@ -8,7 +8,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 SCRIPT = Path(__file__).with_name("verify-release-artifact.py")
 SHA = "a" * 40
 
@@ -21,13 +20,28 @@ class VerifyReleaseArtifactTest(unittest.TestCase):
         self.payload.write_bytes(b"sealed payload")
         digest = hashlib.sha256(self.payload.read_bytes()).hexdigest()
         self.manifest = self.root / "artifact-manifest.json"
-        self.manifest.write_text(json.dumps({"schema_version": 1, "unit": "web", "source_sha": SHA, "artifact_sha256": digest}), encoding="utf-8")
+        self.manifest.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "unit": "web",
+                    "source_sha": SHA,
+                    "artifact_sha256": digest,
+                }
+            ),
+            encoding="utf-8",
+        )
 
     def tearDown(self) -> None:
         self.temp.cleanup()
 
     def verify(self, unit: str = "web") -> subprocess.CompletedProcess[str]:
-        return subprocess.run([sys.executable, str(SCRIPT), str(self.root), unit, SHA], text=True, capture_output=True, check=False)
+        return subprocess.run(
+            [sys.executable, str(SCRIPT), str(self.root), unit, SHA],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
 
     def test_accepts_the_exact_unit_source_and_payload_digest(self) -> None:
         self.assertEqual(self.verify().returncode, 0)

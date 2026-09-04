@@ -27,6 +27,8 @@ CHECK_COMPONENTS = {
 TS_READS = re.compile(
     r"export\s+const\s+READS\s*=\s*(\[[^]]*])\s+as\s+const\s*;", re.DOTALL
 )
+
+
 class MetaCheckError(ValueError):
     """Raised when static CI metadata cannot be interpreted safely."""
 
@@ -98,7 +100,9 @@ def config_check(relative: str, component: str) -> ConfigCheck:
 
 
 def discover_checks() -> tuple[ConfigCheck, ...]:
-    return tuple(config_check(path, component) for path, component in CHECK_COMPONENTS.items())
+    return tuple(
+        config_check(path, component) for path, component in CHECK_COMPONENTS.items()
+    )
 
 
 def manifest() -> tuple[dict[str, object], ...]:
@@ -114,13 +118,21 @@ def owns(pattern: str, path: str) -> bool:
 
 
 def selected_for_read(components: tuple[dict[str, object], ...], read: str) -> set[str]:
-    selected = {str(item["name"]) for item in components if any(owns(pattern, read) for pattern in cast(list[str], item["paths"]))}
+    selected = {
+        str(item["name"])
+        for item in components
+        if any(owns(pattern, read) for pattern in cast(list[str], item["paths"]))
+    }
     if not selected:
         return {str(item["name"]) for item in components}
     changed = True
     while changed:
         before = len(selected)
-        selected.update(str(item["name"]) for item in components if selected.intersection(cast(list[str], item["depends_on"])))
+        selected.update(
+            str(item["name"])
+            for item in components
+            if selected.intersection(cast(list[str], item["depends_on"]))
+        )
         changed = len(selected) != before
     return selected
 

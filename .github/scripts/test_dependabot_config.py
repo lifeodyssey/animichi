@@ -9,9 +9,7 @@ SETUP_UV_RE = re.compile(r"^\s*(?:-\s+)?uses:\s*astral-sh/setup-uv@")
 SETUP_UV_PIN_RE = re.compile(
     r"^\s*(?:-\s+)?uses:\s*astral-sh/setup-uv@([0-9a-f]{40})\s+#\s+(v\d+\.\d+\.\d+)\s*$"
 )
-PRUNE_CACHE_RE = re.compile(
-    r'^\s*prune-cache:\s*["\']?(true|false)["\']?\s*(?:#.*)?$'
-)
+PRUNE_CACHE_RE = re.compile(r'^\s*prune-cache:\s*["\']?(true|false)["\']?\s*(?:#.*)?$')
 SETUP_UV_SHA = "c771a70e6277c0a99b617c7a806ffedaca235ff9"
 SETUP_UV_VERSION = "v9.0.0"
 TRACKED_YAML_COMMAND = (

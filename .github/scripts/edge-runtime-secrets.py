@@ -4,8 +4,9 @@
 import json
 import os
 import sys
-import tomllib
 from pathlib import Path
+
+import tomllib
 
 CORE_NAMES = (
     "DEEPSEEK_API_KEY",
