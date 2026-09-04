@@ -47,33 +47,70 @@ const searchAnswer = (
   },
 });
 
-const ROUTE: TurnAnswer = {
-  of: "route",
-  intent: "plan_route",
-  message: MESSAGE,
-  itinerary: {
-    ordered_points: [POINT],
-    timed_itinerary: TIMED,
-    summary: {
-      point_count: 1,
-      total_minutes: 120,
-      total_distance_m: 4200,
-      clusters: 1,
-      with_coordinates: 1,
-      without_coordinates: 0,
-    },
-    source_ref: "search:1:1",
+const ITINERARY = {
+  ordered_points: [POINT],
+  timed_itinerary: TIMED,
+  summary: {
+    point_count: 1,
+    total_minutes: 120,
+    total_distance_m: 4200,
+    clusters: 1,
+    with_coordinates: 1,
+    without_coordinates: 0,
   },
+  source_ref: "search:1:1",
 };
+
+const ROUTE: TurnAnswer = { of: "route", intent: "plan_route", message: MESSAGE, itinerary: ITINERARY };
 
 const CLARIFY: TurnAnswer = {
   of: "clarification",
   intent: "clarify",
   message: MESSAGE,
   clarification: {
+    id: 3,
     reason: "anime_ambiguity",
     candidates: [{ id: "1", title: "らき☆すた", effective_radius_m: 5_000 }],
   },
+};
+
+/** The four deterministic-selection answers (#1288). Each carries its own
+ * `status`/`success` rather than deriving them, so the envelope the contract
+ * sees on this path is built here and nowhere else. */
+const SELECTED: TurnAnswer = {
+  of: "selected",
+  intent: "plan_selected",
+  message: MESSAGE,
+  itinerary: ITINERARY,
+  status: "ok",
+  success: true,
+};
+
+const MULTI: TurnAnswer = {
+  of: "multi",
+  intent: "plan_multi",
+  message: MESSAGE,
+  search: { kind: "multi", rows: [POINT], row_count: 1, metadata: null, anime_id: null, partial: false },
+  itinerary: ITINERARY,
+  status: "ok",
+  success: true,
+};
+
+const PLACE: TurnAnswer = {
+  of: "place",
+  intent: "search_nearby",
+  message: MESSAGE,
+  search: { kind: "nearby", rows: [], row_count: 0, metadata: null, anime_id: null, partial: false },
+  status: "empty",
+  success: true,
+};
+
+const REFUSED: TurnAnswer = {
+  of: "refused",
+  intent: "clarify",
+  message: "This choice expired; please try again.",
+  status: "invalid_request",
+  success: false,
 };
 
 const ANSWERS: TurnAnswer[] = [
@@ -83,6 +120,10 @@ const ANSWERS: TurnAnswer[] = [
   CLARIFY,
   PROSE,
   { of: "prose", intent: "greet_user", message: MESSAGE },
+  SELECTED,
+  MULTI,
+  PLACE,
+  REFUSED,
 ];
 
 describe("the edge's data-response part", () => {
@@ -95,9 +136,22 @@ describe("the edge's data-response part", () => {
     expect(CHAT_RESPONSE_INTENTS).toEqual(expect.arrayContaining(intents));
   });
 
-  it("strips the candidate fields only the tools use, as Python's filter did", () => {
+  it("strips the candidate fields only the tools use, and publishes the question's own id", () => {
     const parsed = ChatResponseDataPart.parse(chatResponsePart(CLARIFY));
-    expect(parsed.data).toEqual({ reason: "anime_ambiguity", candidates: [{ id: "1", title: "らき☆すた" }] });
+    expect(parsed.data).toEqual({
+      reason: "anime_ambiguity",
+      clarification_id: 3,
+      candidates: [{ id: "1", title: "らき☆すた" }],
+    });
+  });
+
+  it("publishes both halves of a merged pick, and neither for a refused one", () => {
+    const merged = ChatResponseDataPart.parse(chatResponsePart(MULTI));
+    expect(Object.keys(merged.data ?? {})).toEqual(["results", "itinerary"]);
+    const refused = ChatResponseDataPart.parse(chatResponsePart(REFUSED));
+    expect(refused.errors).toEqual([
+      { code: "invalid_selection", message: "This choice expired; please try again.", details: {} },
+    ]);
   });
 
   it("keeps the itinerary's own members and drops the ref only the model used", () => {

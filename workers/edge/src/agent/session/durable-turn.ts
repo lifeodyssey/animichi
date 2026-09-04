@@ -29,7 +29,8 @@
  *   (no run)   — `loadRunningTurn` found nothing `running`. The turn is already
  *                terminal, so an at-least-once alarm has nothing left to do.
  *
- * ONE REFUSAL THAT IS NOT A PROVIDER FAILURE BUT SETTLES AS ONE (#1289): a run
+ * TWO REFUSALS THAT ARE NOT PROVIDER FAILURES BUT SETTLE AS ONE. The first is
+ * a deployment that resolved no model at all; the second (#1289) is a run
  * committed against the CALLER's own key, reached by an incarnation that does
  * not have it. The credential lives in one Durable Object incarnation's heap
  * and dies with it, while the run row survives — so an eviction between the
@@ -42,6 +43,10 @@
  * row is the ONLY durable trace that a turn was caller-keyed — the key itself
  * is never written anywhere — which is why the check is on the payer and not
  * on anything richer.
+ *
+ * NEITHER APPLIES TO A DETERMINISTIC SELECTION (#1288) — see `#unrunnable`.
+ * Both are decided here rather than by the caller because only this class has
+ * the loaded run, and only the loaded run says which kind of turn it is.
  */
 import type { RunFailureReason } from "../../db/schema.ts";
 import type { UsagePrices } from "../settlement/turn-settlement.ts";
@@ -104,8 +109,8 @@ export class DurableTurn {
   async #settled(turn: LoadedTurn, machine: RunMachine, attempt: TurnAttempt): Promise<TurnState> {
     const opened = machine.beginStep();
     if (opened.phase !== "running") return await this.#failed(turn, opened);
-    const lost = this.#lostCredential(turn);
-    if (lost !== null) return await this.#failed(turn, machine.fail(lost));
+    const refused = this.#unrunnable(turn);
+    if (refused !== null) return await this.#failed(turn, machine.fail(refused));
     try {
       await attempt.drive();
     } catch (error) {
@@ -124,13 +129,22 @@ export class DurableTurn {
   }
 
   /**
-   * A caller-keyed run this incarnation cannot honour, or `null`. Checked
-   * BEFORE the first model call, so no provider is ever contacted with a key
-   * that is not the one the turn was committed for. The message names no
-   * credential and so is safe on any path a scrub also covers.
+   * Why this incarnation cannot drive this run, or `null`. Both checks are
+   * about reaching a PROVIDER, and both happen before the first model call.
+   *
+   * A DETERMINISTIC selection is exempt from both, and the exemption is the
+   * whole reason this is one method (#1288). Such a turn answers from the
+   * catalog and never contacts a provider, so a deployment holding `CATALOG`
+   * but no model key can still answer a pick; and a caller-keyed selection
+   * revived on a fresh incarnation is not a turn that could fall back to the
+   * server's key, because there is no key in its path to fall back to.
+   * Refusing either would fail a turn for a resource it does not use.
    */
-  #lostCredential(turn: LoadedTurn): ProviderFailure | null {
-    if (!turn.callerKeyed || this.#parts.model.callerKeyed) return null;
+  #unrunnable(turn: LoadedTurn): ProviderFailure | null {
+    if (turn.selection !== null) return null;
+    const { model } = this.#parts;
+    if (model === null) return new ProviderFailure("this deployment resolved no model for this turn");
+    if (!turn.callerKeyed || model.callerKeyed) return null;
     return new ProviderFailure("caller-keyed run lost its credential; resend the turn");
   }
 

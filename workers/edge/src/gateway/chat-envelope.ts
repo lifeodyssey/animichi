@@ -105,12 +105,27 @@ function messageText(message: Record<string, unknown>, locale: Locale): string {
 /**
  * The text of the turn this envelope submits, refused when it is empty or
  * longer than `maxChars` (the `MESSAGE_MAX_CHARS` ceiling, S1.12).
+ *
+ * `utterable` is what a SELECTION turn changes (#1288). `apps/web` submits a
+ * point recompute as a PART-LESS user message on purpose — "no new user
+ * utterance", `use-chat-session.ts`'s `recomputeMarker` — and Python let it
+ * through as `text: ""` and then declined to persist a user row for it
+ * (`persistence.py`, #273 T1). This tier commits the user row before anything
+ * runs, so the row exists either way; what it must not do is refuse the
+ * submission. An empty text stays refused for an ORDINARY turn, where it is
+ * still a transcript row with nothing in it.
  */
-export function chatTurnText(payload: unknown, locale: Locale, maxChars: number): string {
+export function chatTurnText(payload: unknown, locale: Locale, maxChars: number, utterable = true): string {
   const message = newestUserMessage(payload);
-  if (message === undefined) throw new ChatEnvelopeError("empty_message", locale);
+  if (message === undefined) return refusedWhenUtterable("", locale, utterable);
   const text = messageText(message, locale);
   if (text.length > maxChars) throw new ChatEnvelopeError("message_too_long", locale);
-  if (text === "") throw new ChatEnvelopeError("empty_message", locale);
+  if (text === "") return refusedWhenUtterable("", locale, utterable);
+  return text;
+}
+
+/** An empty turn: refused when the submission had nothing else to say. */
+function refusedWhenUtterable(text: string, locale: Locale, utterable: boolean): string {
+  if (utterable) throw new ChatEnvelopeError("empty_message", locale);
   return text;
 }

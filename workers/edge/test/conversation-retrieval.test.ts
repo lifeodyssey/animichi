@@ -95,10 +95,17 @@ void test("an envelope that is not an object at all reads as no envelope", async
 });
 
 void test("an envelope carrying wrong-typed members reads them as absent, not as themselves", async () => {
-  const responseData = { intent: 7, success: "yes" };
+  const responseData = { intent: 7, success: true };
   const row: TranscriptRow = { ...makeRow("2026-08-01T10:00:00Z", "x"), responseData };
   const page = await readOwned(makeFacts(), [row]);
-  assert.deepEqual(page?.messages[0]?.response_data, { intent: null, success: null });
+  assert.deepEqual(page?.messages[0]?.response_data, { intent: null, success: true });
+});
+
+void test("an envelope carrying neither member publishes none at all", async () => {
+  const responseData = { selection: { of: "points", pointIds: ["p1"], origin: null, locale: "ja" } };
+  const row: TranscriptRow = { ...makeRow("2026-08-01T10:00:00Z", "x"), responseData };
+  const page = await readOwned(makeFacts(), [row]);
+  assert.equal(page?.messages[0]?.response_data, null);
 });
 
 void test("a session that does not exist is absent", async () => {

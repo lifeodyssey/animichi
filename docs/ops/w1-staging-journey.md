@@ -109,6 +109,48 @@ Check:
 Screenshot **S5**: the console output, with `run.status` and the third
 assistant message both visible.
 
+## 3b · Clarify → pick → route (W2-2, #1288)
+
+The steps above never leave the model loop. This one leaves it deliberately: a
+candidate pick is a DETERMINISTIC turn that skips the model entirely
+(`workers/edge/src/agent/selection/`), so it is the one journey step where a
+provider outage would not show up as a failure.
+
+1. In the same window, ask something the catalog cannot resolve to one work,
+   e.g. `らき☆すた` (the OVA and the series are two entries). The turn should
+   answer with `"intent":"clarify"` and a card offering the candidates.
+2. In that `data-response` part, read `data.clarification_id` — a small integer.
+   It is the session's own counter and it is what makes a pick that arrives late
+   refusable; the container publishes the same member.
+3. **Click a candidate on the card.** In Network, open the new `POST /v1/chat`
+   and check its request body: it carries `selected_candidate_ids` and
+   `clarification_id`, and its message list ends with the pick's label bubble.
+4. In the streamed frames, check that the turn:
+   - opens a tool part named `plan_multi` (or `search_nearby` for a place
+     clarification) — this is a SERVER-initiated step, so its
+     `tool-input-available` carries `"input":{}`;
+   - closes with `"intent":"plan_multi"` and a `data` carrying BOTH `results`
+     and `itinerary`;
+   - shows **no** provider latency — the answer arrives in roughly one catalog
+     round trip, because no model was called.
+5. **Click the pick again** (or re-send the same body from the console). The
+   question has been consumed, so the second pick answers
+   `"intent":"clarify"`, `"success":false`, `"status":"invalid_request"` and
+   `errors[0].code === "invalid_selection"`. That refusal IS the stale guard;
+   a second route is the failure.
+6. On a route card, tick a subset of the spots and use the page's own
+   "recompute" affordance. Its `POST /v1/chat` carries `selected_point_ids` and
+   a part-less user message, and the answer is `"intent":"plan_selected"`.
+
+Screenshot **S5b**: the clarify part with `clarification_id` visible.
+Screenshot **S5c**: the pick's request body next to the `plan_multi` answer.
+Screenshot **S5d**: the second pick's `invalid_selection` refusal.
+
+> **What to check, not just that a route appeared:** step 5 is the whole point.
+> A pick that routes twice means the clarification is not being consumed, and
+> the session would then accept a card the user is looking at long after it
+> stopped being the question.
+
 ## 4 · The refusals are real too (optional but cheap)
 
 - **Cross-visitor read**: repeat step 3's fetch in a *different* private window.

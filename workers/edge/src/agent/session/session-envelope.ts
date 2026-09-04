@@ -29,11 +29,47 @@
 import type { CurrentAnime, OrderedCandidate } from "../tools/catalog-tool-session.ts";
 import { EMPTY_SESSION_MEMORY, type SessionMemory } from "../memory/session-memory.ts";
 
-/** A question a turn asked and no tool could answer. */
+/**
+ * A question a turn asked and no tool could answer.
+ *
+ * `id` is the STALE GUARD, and #1288 is the card that earned it back. #1280
+ * dropped Python's `PendingClarification.revision` because nothing on this tier
+ * could yet answer a clarification, so a counter guarding a selection guarded
+ * nothing. Now a selection turn exists (`src/agent/selection/`), and a pick
+ * arrives from a card the browser may still be showing after the session has
+ * moved on — so the pick has to name WHICH question it answers, exactly as
+ * Python's `validate_candidate_selection` compared `clarification_id` against
+ * `pending.revision`.
+ *
+ * It is minted from `SessionEnvelope.clarificationRevision`, which only ever
+ * increases, so an id is never reused inside a session and a pick for an
+ * evicted question can never validate against the one that replaced it. The
+ * projection publishes it as the contract's `clarification_id`
+ * (`turn-answer-part.ts`), which is how the browser gets one to send back.
+ */
 export interface PendingClarification {
+  readonly id: number;
   readonly reason: string;
   readonly candidates: readonly OrderedCandidate[];
 }
+
+/**
+ * Everything an envelope carries BEYOND the two facts a turn names directly:
+ * the counter that keeps clarification ids unique for the life of a session
+ * (#1288) and what the session remembers (#1290).
+ *
+ * One value rather than two more positional parameters. Every transition below
+ * passes both through untouched and changes at most one of them, so a
+ * four-argument constructor would be four chances to swap two of the same type
+ * — and this way a card that carries a THIRD fact adds a member here instead of
+ * re-ordering every call site.
+ */
+export interface CarriedFacts {
+  readonly clarificationRevision: number;
+  readonly memory: SessionMemory;
+}
+
+const NOTHING_CARRIED: CarriedFacts = { clarificationRevision: 0, memory: EMPTY_SESSION_MEMORY };
 
 export class SessionEnvelope {
   /** A session no turn has left anything on yet. */
@@ -41,37 +77,52 @@ export class SessionEnvelope {
 
   readonly pendingClarification: PendingClarification | null;
   readonly currentAnime: CurrentAnime | null;
+  /** The highest clarification id this session has ever minted. Kept after the
+   * question is answered, because it is what makes the NEXT one strictly
+   * greater — Python held the same counter as `clarification_revision`. */
+  readonly clarificationRevision: number;
   /** What the session remembers: its fact ledger and its retained entities. */
   readonly memory: SessionMemory;
 
   constructor(
     pending: PendingClarification | null,
     anime: CurrentAnime | null,
-    memory: SessionMemory = EMPTY_SESSION_MEMORY,
+    carried: CarriedFacts = NOTHING_CARRIED,
   ) {
     this.pendingClarification = pending;
     this.currentAnime = anime;
-    this.memory = memory;
+    this.clarificationRevision = Math.max(carried.clarificationRevision, pending?.id ?? 0);
+    this.memory = carried.memory;
   }
 
-  /** The turn asked something only the user can settle. */
+  /** What this envelope hands to its own next form, unchanged. */
+  get #carried(): CarriedFacts {
+    return { clarificationRevision: this.clarificationRevision, memory: this.memory };
+  }
+
+  /** The turn asked something only the user can settle, under a fresh id. */
   withClarification(reason: string, candidates: readonly OrderedCandidate[]): SessionEnvelope {
-    return new SessionEnvelope({ reason, candidates }, this.currentAnime, this.memory);
+    const clarificationRevision = this.clarificationRevision + 1;
+    const asked = { id: clarificationRevision, reason, candidates };
+    return new SessionEnvelope(asked, this.currentAnime, { ...this.#carried, clarificationRevision });
   }
 
-  /** A tool answered instead, so nothing is open any more. */
+  /** A tool answered instead, so nothing is open any more. The revision stays:
+   * dropping it would let the next question reuse an id a stale pick names. */
   cleared(): SessionEnvelope {
-    return new SessionEnvelope(null, this.currentAnime, this.memory);
+    return new SessionEnvelope(null, this.currentAnime, this.#carried);
   }
 
-  /** The session resolved the work it is about. */
-  withAnime(anime: CurrentAnime): SessionEnvelope {
-    return new SessionEnvelope(this.pendingClarification, anime, this.memory);
+  /** The session resolved the work it is about — or, with `null`, learned that
+   * it is about several works at once and therefore about no single one
+   * (Python's `_set_current_anime` on a multi-work pick). */
+  withAnime(anime: CurrentAnime | null): SessionEnvelope {
+    return new SessionEnvelope(this.pendingClarification, anime, this.#carried);
   }
 
   /** The turn recorded a fact, or compaction rescued an entity (#1290). */
   remembering(memory: SessionMemory): SessionEnvelope {
-    return new SessionEnvelope(this.pendingClarification, this.currentAnime, memory);
+    return new SessionEnvelope(this.pendingClarification, this.currentAnime, { ...this.#carried, memory });
   }
 }
 

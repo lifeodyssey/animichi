@@ -35,7 +35,7 @@ function holdingCatalog(): CatalogClient {
     pointsByBangumiId: (_id, signal) => hold(signal),
     nearby: (_around, _radiusM, signal) => hold(signal),
     geocode: (_query, _limit, signal) => hold(signal),
-    planItinerary: (_ids, _pacing, signal) => hold(signal),
+    planItinerary: (_ids, _route, signal) => hold(signal),
   };
 }
 

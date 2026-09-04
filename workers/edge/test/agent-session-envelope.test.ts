@@ -40,7 +40,7 @@ void test("an empty envelope carries neither fact", () => {
 void test("recording a clarification leaves the resolved anime alone", () => {
   const envelope = bothFacts();
   assert.deepEqual(envelope.currentAnime, HARUHI);
-  assert.deepEqual(envelope.pendingClarification, { reason: "anime_ambiguity", candidates: CANDIDATES });
+  assert.deepEqual(envelope.pendingClarification, { id: 1, reason: "anime_ambiguity", candidates: CANDIDATES });
 });
 
 void test("clearing the clarification keeps the anime the session is about", () => {
@@ -63,7 +63,7 @@ void test("a saved envelope loads back with both facts", async () => {
   await store.promote(RUN_ID);
   const loaded = await store.load();
   assert.deepEqual(loaded.currentAnime, HARUHI);
-  assert.deepEqual(loaded.pendingClarification, { reason: "anime_ambiguity", candidates: CANDIDATES });
+  assert.deepEqual(loaded.pendingClarification, { id: 1, reason: "anime_ambiguity", candidates: CANDIDATES });
 });
 
 void test("a session nothing has been written for loads the empty envelope", async () => {

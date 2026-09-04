@@ -48,6 +48,7 @@ void test("the submission carries the named conversation, the dedupe key and the
     // A request with no `X-BYOK-*` headers carries no credential (#1289) — the
     // turn runs on the deployment's own model, exactly as it did before.
     byok: undefined,
+    selection: null,
   });
 });
 
@@ -153,6 +154,7 @@ void test("a refused turn arms no session and opens no live view — nothing to 
     payer: "anon",
     clientMessageId: "t-9",
     text: "秩父へ",
+    selection: null,
   }, () => Date.parse("2026-09-02T23:30:00.000Z"));
   await assert.rejects(refused, (error: unknown) => error instanceof QuotaExhaustedError);
   assert.deepEqual([armed, opened], [[], []]);

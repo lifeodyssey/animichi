@@ -35,6 +35,7 @@ import {
 import { isJsonRecord } from "../json-record.ts";
 import { settleFailedTurn, settleSucceededTurn } from "../settlement/neon-turn-settlement.ts";
 import type { SettlementResult } from "../settlement/turn-settlement.ts";
+import { storedSelection } from "../selection/selection-request.ts";
 import { assistantTextOf } from "./turn-output.ts";
 import {
   asJsonValue,
@@ -75,10 +76,16 @@ function renewLeaseStatement(runId: string, owner: string, until: Date): SQL {
     returning ${bareName(runs.id)} as run_id`;
 }
 
+/** The run, joined to the user message it answers — the selection this turn is
+ * (#1288) lives in that row's `response_data`, put there by the intake's own
+ * transaction. The join is on `runs.message_id`, so it names this run's own
+ * message rather than whichever user row happens to be last. */
 function selectRun(runId: string): SQL {
   return sql`select ${runs.sessionId} as session_id, ${runs.payer} as payer,
-      (extract(epoch from ${runs.deadlineAt}) * 1000)::bigint::text as deadline_ms
-    from ${runs} where ${runs.id} = ${runId} and ${runs.status} = 'running'`;
+      (extract(epoch from ${runs.deadlineAt}) * 1000)::bigint::text as deadline_ms,
+      ${messages.responseData} as submitted
+    from ${runs} join ${messages} on ${messages.id} = ${runs.messageId}
+    where ${runs.id} = ${runId} and ${runs.status} = 'running'`;
 }
 
 function selectTranscript(sessionId: string): SQL {
@@ -163,6 +170,7 @@ async function loadTurnOn(statements: AgentStatements, runId: string): Promise<L
     transcript: transcript.rows.map(toTranscriptRow).filter(present),
     steps: steps.rows.map(toPersistedStep).filter(present),
     callerKeyed: textIn(run, "payer") === BYOK_PAYER,
+    selection: storedSelection(run.submitted),
   };
 }
 

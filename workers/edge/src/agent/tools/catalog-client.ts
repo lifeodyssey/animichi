@@ -12,11 +12,28 @@ import type {
   GeocodeCandidate,
   Itinerary,
   LatLng,
+  Origin,
   Pacing,
   Point,
   ResolveOutcome,
   SearchResult,
 } from "@animichi/contract";
+
+/**
+ * What the caller brings to a route beyond the points themselves — the two
+ * optional members of the contract's `ItineraryInput`.
+ *
+ * A value rather than two positional parameters because the two have different
+ * authors: `pacing` is the MODEL's, named in `plan_route`'s parameters, and
+ * `origin` is the USER's, carried on the chat body of a `selected_point_ids`
+ * turn (#1288, Python's `execute_selected_itinerary(origin=…)`). Neither path
+ * supplies the other's, and a positional `undefined` at each call site would
+ * say nothing about which.
+ */
+export interface RoutePreferences {
+  readonly pacing?: Pacing;
+  readonly origin?: Origin;
+}
 
 /**
  * The catalog could not answer. Python degraded `(APIError, OSError,
@@ -48,5 +65,5 @@ export interface CatalogClient {
   /** Place name to gazetteer candidates. */
   geocode(query: string, limit: number, signal?: AbortSignal): Promise<GeocodeCandidate[]>;
   /** An ordered, timed route over the given points. */
-  planItinerary(pointIds: string[], pacing: Pacing | undefined, signal?: AbortSignal): Promise<Itinerary>;
+  planItinerary(pointIds: string[], route: RoutePreferences, signal?: AbortSignal): Promise<Itinerary>;
 }

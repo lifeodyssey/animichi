@@ -31,6 +31,7 @@ export function makeSubmission(overrides: Partial<TurnSubmission> = {}): TurnSub
     payer: "anon",
     clientMessageId: "cmid-1",
     text: "秩父の聖地を回りたい",
+    selection: null,
     ...overrides,
   };
 }

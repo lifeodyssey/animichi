@@ -30,9 +30,16 @@ export interface SearchMetadata {
   source: "catalog";
 }
 
-/** One stored search result: the rows the web renders, keyed by an opaque ref. */
+/**
+ * One stored search result: the rows the web renders, keyed by an opaque ref.
+ *
+ * `multi` is the third kind Python's `SearchPayloadState` carried and the one no
+ * model tool can produce: it is the deterministic merge of several works a user
+ * picked at once (`src/agent/selection/`, #1288). The contract's
+ * `SearchResults.kind` has always admitted it.
+ */
 export interface SearchResultPayload {
-  kind: "bangumi" | "nearby";
+  kind: "bangumi" | "nearby" | "multi";
   rows: Point[];
   row_count: number;
   metadata: SearchMetadata | null;
@@ -50,12 +57,14 @@ export interface ItinerarySummary {
   without_coordinates: number;
 }
 
-/** One stored route, and the search result it was planned over. */
+/** One stored route, and the search result it was planned over — `null` when
+ * the points came from the user's own pick rather than from a stored search
+ * (Python passed `source_ref=None` on that path). */
 export interface ItineraryPayload {
   ordered_points: Point[];
   timed_itinerary: TimedItinerary;
   summary: ItinerarySummary;
-  source_ref: string;
+  source_ref: string | null;
 }
 
 /** The anime a resolved turn is about. */
@@ -84,8 +93,10 @@ export interface CatalogToolSession {
   setPendingClarification(reason: string, candidates: OrderedCandidate[]): void;
   /** Drop any pending clarification: this tool answered instead. */
   clearPendingClarification(): void;
-  /** Remember the resolved work, so a later turn need not resolve again. */
-  setCurrentAnime(anime: CurrentAnime): void;
+  /** Remember the resolved work, so a later turn need not resolve again —
+   * or forget it with `null`, which is what a pick of SEVERAL works means: the
+   * session is no longer about one (Python's `_set_current_anime`, #1288). */
+  setCurrentAnime(anime: CurrentAnime | null): void;
   /** The user's own coordinates, when the client shared them. */
   readonly origin?: LatLng;
   /** The language the rows are rendered in — city names are localized to it. */

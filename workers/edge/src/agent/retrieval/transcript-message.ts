@@ -10,6 +10,13 @@
  * says it has. Everything else reads as absent rather than as itself, because
  * this surface is parsed by the browser (`GetSessionHistoryResponse`) and a
  * stray member would fail the parse for the whole page.
+ *
+ * An envelope with NEITHER member publishes nothing at all, which the same rule
+ * carried to its end: a row whose column says nothing this surface understands
+ * is a row with no envelope, not a row with two nulls. It became observable
+ * with #1288 — a selection turn's USER row carries its selection in that column
+ * — and the container writes no user envelope, so answering `null` is what
+ * keeps the two tiers' history identical.
  */
 import type { SessionHistoryMessage } from "@animichi/contract/agent-contract";
 import { isJsonRecord } from "../json-record.ts";
@@ -46,7 +53,8 @@ function decoded(value: string): unknown {
 function envelopeOf(value: unknown): ResponseEnvelope | null {
   const decodedValue = typeof value === "string" ? decoded(value) : value;
   if (!isJsonRecord(decodedValue)) return null;
-  return { intent: stringOrNull(decodedValue.intent), success: booleanOrNull(decodedValue.success) };
+  const envelope = { intent: stringOrNull(decodedValue.intent), success: booleanOrNull(decodedValue.success) };
+  return envelope.intent === null && envelope.success === null ? null : envelope;
 }
 
 /** The published message one stored row is. */

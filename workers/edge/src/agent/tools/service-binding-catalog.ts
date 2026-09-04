@@ -22,7 +22,7 @@
  */
 
 import { CatalogUnavailableError } from "./catalog-client.ts";
-import type { CatalogClient } from "./catalog-client.ts";
+import type { CatalogClient, RoutePreferences } from "./catalog-client.ts";
 import {
   CATALOG_MAX_ATTEMPTS,
   CATALOG_REQUEST_TIMEOUT_MS,
@@ -32,7 +32,6 @@ import type {
   GeocodeCandidate,
   Itinerary,
   LatLng,
-  Pacing,
   Point,
   ResolveOutcome,
   SearchResult,
@@ -212,9 +211,14 @@ function nearbyBody(around: LatLng, radiusM: number): object {
   return { lat: around.lat, lng: around.lng, radius_m: radiusM };
 }
 
-/** The route request body, which carries pacing only when the model named one. */
-function itineraryBody(pointIds: string[], pacing: Pacing | undefined): object {
-  return pacing ? { point_ids: pointIds, pacing } : { point_ids: pointIds };
+/** The route request body. `pacing` and `origin` are omitted rather than sent
+ * as null, because `ItineraryInput` declares each `.optional()`. */
+function itineraryBody(pointIds: string[], route: RoutePreferences): object {
+  return {
+    point_ids: pointIds,
+    ...(route.pacing ? { pacing: route.pacing } : {}),
+    ...(route.origin ? { origin: route.origin } : {}),
+  };
 }
 
 /** Check that a route answer carries the counts and timings the tools read. */
@@ -244,6 +248,6 @@ export function serviceBindingCatalog(
     pointsByBangumiId: async (bangumiId, signal) => expectSearchResult(await call("points-by-bangumi-id", { bangumi_id: bangumiId }, signal)),
     nearby: async (around, radiusM, signal) => expectNearbyRows(await call("nearby", nearbyBody(around, radiusM), signal)),
     geocode: async (query, limit, signal) => expectGeocodeCandidates(await call("geocode", { query, limit }, signal)),
-    planItinerary: async (pointIds, pacing, signal) => expectItinerary(await call("itinerary", itineraryBody(pointIds, pacing), signal)),
+    planItinerary: async (pointIds, route, signal) => expectItinerary(await call("itinerary", itineraryBody(pointIds, route), signal)),
   };
 }

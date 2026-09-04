@@ -32,6 +32,7 @@ import { TRANSCRIPT_OFFSET_BOUND, TRANSCRIPT_PAGE_LIMIT } from "../agent/retriev
 import { ByokRejection, type ByokCredential } from "../agent/byok/byok-credential.ts";
 import { byokCredentialIn, byokSignalIn } from "../agent/byok/byok-headers.ts";
 import { ByokProbe } from "../agent/byok/byok-probe.ts";
+import { selectionIn } from "../agent/selection/selection-request.ts";
 import { ChatEnvelopeError, chatTurnText, requestLocale, type Locale } from "./chat-envelope.ts";
 import {
   byokHeadersRequired,
@@ -151,19 +152,26 @@ async function submittedPayload(request: Request, locale: Locale): Promise<unkno
  * identifier (`apps/web/src/features/chat/session-headers.ts`) and therefore
  * the intake's dedupe key: a regenerate after a drop carries the same one, so
  * it resolves to the turn already committed instead of opening a second.
+ *
+ * A body carrying `selected_point_ids` or `selected_candidate_ids` is a
+ * DETERMINISTIC selection (#1288) and may therefore have no utterance at all —
+ * `apps/web` sends a part-less marker for a point recompute. The two facts are
+ * read in that order for exactly that reason.
  */
 export async function submissionOf(
   request: Request, identity: TurnIdentity, locale: Locale, maxChars: number = MESSAGE_MAX_CHARS,
 ): Promise<TurnSubmission> {
   const payload = await submittedPayload(request, locale);
   const byok = byokCredentialIn(request.headers) ?? undefined;
+  const selection = selectionIn(payload, locale);
   return {
     sessionId: submittedSessionId(request.headers.get("x-session-id"), locale),
     identityId: identity.userId,
     payer: payerFor(identity, byok),
     clientMessageId: request.headers.get("x-turn-id")?.trim() ?? crypto.randomUUID(),
-    text: chatTurnText(payload, locale, maxChars),
+    text: chatTurnText(payload, locale, maxChars, selection === null),
     byok,
+    selection,
   };
 }
 

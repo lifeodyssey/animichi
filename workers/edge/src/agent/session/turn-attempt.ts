@@ -11,6 +11,7 @@
  * hands one of these the middle. Without the split those four values travel as
  * a clump through every method of the loop.
  */
+import type { SelectionRequest } from "../selection/selection-request.ts";
 import type { LoadedTurn } from "./turn-store.ts";
 import type { TurnMemory } from "../memory/session-memory.ts";
 import { recordTurnFacts } from "../memory/turn-fact-recorder.ts";
@@ -27,9 +28,17 @@ import type { TurnStore } from "./turn-store.ts";
 
 export interface TurnAttemptParts {
   readonly store: TurnStore;
-  /** What this turn runs on: the registry, the model, and — for a BYOK turn
-   * (#1289) — the guarded fetch and the scrub seeded with the caller's key. */
-  readonly model: TurnModel;
+  /**
+   * What this turn runs on: the registry, the model, and — for a BYOK turn
+   * (#1289) — the guarded fetch and the scrub seeded with the caller's key.
+   *
+   * `null` when this deployment could resolve none. Only a DETERMINISTIC
+   * selection can still be driven then (#1288): it answers from the catalog
+   * and never reaches a provider. `DurableTurn` fails every OTHER modelless
+   * run before the attempt is driven, which is why the narrowing below is an
+   * invariant stated rather than a branch anyone takes.
+   */
+  readonly model: TurnModel | null;
   readonly toolbox: Toolbox;
   readonly systemPrompt: string;
   /** How this turn answers: the `respond` tool, and the typed output its call
@@ -38,10 +47,33 @@ export interface TurnAttemptParts {
   /** What this session remembers (#1290): the fact ledger compaction rescues
    * entities into, and the recorder appends this turn's facts to. */
   readonly memory: TurnMemory;
+  /** How a DETERMINISTIC selection turn is answered (#1288), or null when this
+   * deployment cannot answer one — the catalog binding it needs is the same
+   * one `turnToolbox` needs, and an environment without it has no tools either. */
+  readonly selection: SelectionTurn | null;
   readonly emit: TurnFrameSink;
   readonly owner: string;
   readonly now: () => number;
 }
+
+/**
+/** The model a MODEL turn runs on. `DurableTurn` refuses a modelless run that
+ * is not a selection before this point, so the throw states that invariant
+ * rather than guarding a path a caller can reach. */
+function modelFor(model: TurnModel | null): TurnModel {
+  if (model === null) throw new ProviderFailure("this deployment resolved no model for this turn");
+  return model;
+}
+
+/**
+ * A selection turn, as the attempt reaches it (#1288).
+ *
+ * A function rather than the whole of `src/agent/selection/`: everything that
+ * path needs beyond the run's own steps — the catalog, the session's registry,
+ * the frame sink — is deployment configuration `session-turn.ts` already owns,
+ * and the loop has no business assembling it a second time.
+ */
+export type SelectionTurn = (request: SelectionRequest, steps: TurnSteps) => Promise<TurnAnswer>;
 
 /**
  * A pi run that ended carrying an error is a provider failure, not an answer.
@@ -80,21 +112,45 @@ export class TurnAttempt {
   }
 
   /**
-   * One pi run. A run that ends carrying an error message never answered.
+   * One attempt at answering the turn.
    *
-   * The facts are recorded from the run's own steps AFTER the loop and BEFORE
-   * the ending, which is where Python recorded them (`_execution_result`,
-   * command-then-query) and the only place they can go: the settlement stages
-   * the envelope, so a fact written after it would be staged by nobody and the
-   * retry would promote a ledger missing it.
+   * The facts are recorded from the attempt's own steps AFTER whichever path
+   * ran and BEFORE the ending, which is where Python recorded them
+   * (`_execution_result`, command-then-query) and the only place they can go:
+   * the settlement stages the envelope, so a fact written after it would be
+   * staged by nobody and the retry would promote a ledger missing it. It sits
+   * on BOTH paths because a `plan_selected` pick is where Python's scene
+   * references came from in the first place (#1288 × #1290) — a turn that
+   * throws records nothing either way, since the throw leaves before this line.
+   *
+   * A submission that carried a selection never reaches a model — Python routed
+   * one straight to its handler and so does this (`_kind_from_request`) — so
+   * the branch is here rather than inside the loop: a selection has no
+   * transcript to continue, no tools to offer and no usage to meter, and every
+   * one of those would have to be defended against inside the pi path.
    */
   async drive(): Promise<void> {
-    const agent = createTurnAgent(this.#agentParts());
+    const request = this.#turn.selection;
+    if (request === null) await this.#modelled(modelFor(this.#parts.model));
+    else await this.#select(request);
+    recordTurnFacts(this.#parts.memory, this.steps.recorded, new Date(this.#parts.now()));
+  }
+
+  /** The deterministic path: one step, one answer, no provider call. */
+  async #select(request: SelectionRequest): Promise<void> {
+    const { selection } = this.#parts;
+    if (selection === null) throw new Error("a selection turn needs the CATALOG binding");
+    this.#answer = await selection(request, this.steps);
+    if (this.steps.broken !== null) throw this.steps.broken;
+  }
+
+  /** One pi run. A run that ends carrying an error message never answered. */
+  async #modelled(model: TurnModel): Promise<void> {
+    const agent = createTurnAgent(this.#agentParts(model));
     await agent.continue();
     if (this.steps.broken !== null) throw this.steps.broken;
-    const failure = providerFailureIn(agent.state.errorMessage, this.#parts.model.scrub);
+    const failure = providerFailureIn(agent.state.errorMessage, model.scrub);
     if (failure !== null) throw failure;
-    recordTurnFacts(this.#parts.memory, this.steps.recorded, new Date(this.#parts.now()));
     this.#answer = this.#parts.answering.close(this.output.answer);
   }
 
@@ -105,8 +161,8 @@ export class TurnAttempt {
    * answer it never saw — and the answer is state of this attempt, not a tool
    * result the world is waiting on.
    */
-  #agentParts() {
-    const { model, systemPrompt, toolbox, emit, answering, memory } = this.#parts;
+  #agentParts(model: TurnModel) {
+    const { systemPrompt, toolbox, emit, answering, memory } = this.#parts;
     const tools = [...this.steps.wrap(toolbox.tools()), answering.tool()];
     const shouldStop = () => this.#stops();
     return { model, systemPrompt, turn: this.#turn, tools, memory, output: this.output, emit, shouldStop };

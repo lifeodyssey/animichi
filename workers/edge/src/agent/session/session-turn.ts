@@ -12,6 +12,7 @@ import type { ByokCredential } from "../byok/byok-credential.ts";
 import { byokTurnModel } from "../byok/byok-turn-model.ts";
 import { usagePricesIn } from "../settlement/turn-settlement.ts";
 import { webSearchFetch } from "../egress/web-search-egress.ts";
+import { answerSelection } from "../selection/turn-selection.ts";
 import { agentToolbox } from "../tools/agent-toolbox.ts";
 import type { CatalogClient } from "../tools/catalog-client.ts";
 import { duckduckgoWebSearcher } from "../tools/duckduckgo-web-searcher.ts";
@@ -19,6 +20,7 @@ import { toollessCompletion, type ModelStream } from "../tools/model-title-trans
 import { serviceBindingCatalog, type CatalogBinding } from "../tools/service-binding-catalog.ts";
 import { titleTranslator, type TitleTranslator } from "../tools/title-translation.ts";
 import { DurableTurn } from "./durable-turn.ts";
+import type { SelectionTurn } from "./turn-attempt.ts";
 import { EnvelopeStagingStore } from "./envelope-staging-store.ts";
 import { NeonTurnStore } from "./neon-turn-store.ts";
 import { TurnAnswering } from "./turn-answer.ts";
@@ -50,6 +52,28 @@ const TURN_LOCALE = "ja";
 /** A real wait, injected into the catalog client so its retry backoff is real. */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** The catalog every turn of this deployment calls, when the binding is there. */
+function turnCatalog(env: Record<string, unknown>): CatalogClient | undefined {
+  const binding = catalogBindingIn(env);
+  return binding === undefined ? undefined : serviceBindingCatalog(binding, sleep);
+}
+
+/**
+ * How a DETERMINISTIC selection turn answers itself (#1288), or null when this
+ * deployment has no catalog to ask. Assembled here for the reason everything
+ * else in this file is: the binding is deployment configuration, and neither
+ * the loop nor `src/agent/selection/` should have to know how to find one.
+ */
+export function turnSelection(
+  env: Record<string, unknown>,
+  session: TurnCatalogSession,
+  emit: TurnFrameSink,
+): SelectionTurn | null {
+  const catalog = turnCatalog(env);
+  if (catalog === undefined) return null;
+  return (request, steps) => answerSelection({ catalog, session, steps, emit }, request);
 }
 
 /** The private `CATALOG` service binding, when the environment carries one. */
@@ -120,9 +144,8 @@ export function turnToolbox(
   session: TurnCatalogSession,
   model: TurnModel,
 ): Toolbox {
-  const binding = catalogBindingIn(env);
-  if (binding === undefined) return EMPTY_TOOLBOX;
-  const catalog = serviceBindingCatalog(binding, sleep);
+  const catalog = turnCatalog(env);
+  if (catalog === undefined) return EMPTY_TOOLBOX;
   const search = duckduckgoWebSearcher(webSearchFetch());
   const translate = turnTranslator(catalog, env, model);
   const tools = agentToolbox({ catalog, session, search, translate });
@@ -166,39 +189,56 @@ export function turnFrameSink(emit: TurnFrameSink, model: TurnModel): TurnFrameS
   return scrub === undefined ? emit : scrubbedFrames(emit, scrub);
 }
 
-/** The turn one alarm drives, with the deployment's configuration in it. */
+/**
+ * The turn one alarm drives, with the deployment's configuration in it.
+ *
+ * `model` is null when this deployment could resolve none, and the turn is
+ * still built (#1288): a DETERMINISTIC selection answers from the catalog and
+ * reaches no provider, so only the loaded run can say whether the missing model
+ * matters — which is `DurableTurn.#unrunnable`'s job, not this function's.
+ * Without a model there is no toolbox to offer and no secret to scrub, so both
+ * degrade to the modelless forms rather than being faked.
+ */
 function configuredTurn(
   parts: SessionTurnParts,
   store: TurnStore,
-  model: TurnModel,
+  model: TurnModel | null,
   envelope: TurnEnvelope,
 ): DurableTurn {
+  // One sink for both paths: a selection streams no provider text, but the
+  // scrub is a property of the TURN's credential rather than of who emitted a
+  // frame, and two sinks would be two places to remember that.
+  const emit = model === null ? parts.emit : turnFrameSink(parts.emit, model);
   return new DurableTurn({
     store: new EnvelopeStagingStore(store, envelope),
     model,
-    toolbox: turnToolbox(parts.env, envelope.session, model),
+    toolbox: model === null ? EMPTY_TOOLBOX : turnToolbox(parts.env, envelope.session, model),
     answering: new TurnAnswering(envelope.session),
     memory: envelope.session,
+    selection: turnSelection(parts.env, envelope.session, emit),
     systemPrompt: envelope.systemPrompt,
     prices: usagePricesIn(parts.env),
-    emit: turnFrameSink(parts.emit, model),
+    emit,
     owner: parts.owner,
     now: Date.now,
   });
 }
 
 /**
- * A turn with no model at all ends the run rather than looping: the sweeper
- * would otherwise re-arm a turn that can never reach a provider, forever. It
- * settles without touching the envelope, which is right: no tool ran, so the
- * session knows exactly what it knew before.
+ * A turn with no model at all still ends the run rather than looping — the
+ * sweeper would otherwise re-arm a turn that can never reach a provider,
+ * forever — but WHERE that ending is decided moved with #1288.
+ *
+ * It used to be here, before the run was loaded, and that was wrong for one
+ * kind of turn: a deterministic selection needs the catalog and no model, so a
+ * deployment holding `CATALOG` without a model key failed every pick
+ * `provider_failed`. Only the loaded run knows which kind of turn it is, so
+ * the refusal now lives in `DurableTurn.#unrunnable`, where the run is in hand
+ * — and it settles through the same failure path as any other, taking the
+ * lease first, which is what makes it visible to a client watching the stream.
  */
 async function driveOn(parts: SessionTurnParts, store: TurnStore, runId: string): Promise<void> {
   const model = turnModelFor(parts.env, parts.byok);
-  if (model === null) {
-    await store.settleFailed(runId, "provider_failed", new Date());
-    return;
-  }
   const envelope = await TurnEnvelope.open({
     envelopes: parts.envelopes, runId, queued: parts.queued, locale: TURN_LOCALE,
   });

@@ -17,8 +17,9 @@ import type {
   SearchResultPayload,
 } from "./catalog-tool-session.ts";
 
-/** How a search result was found: by work, or by place. */
-export type SearchKind = "bangumi" | "nearby";
+/** How a search result was found: by work, by place, or by merging the works a
+ * user picked at once (#1288). */
+export type SearchKind = SearchResultPayload["kind"];
 
 /** Every row's city in the reader's language, and its screenshot proxied. */
 function readableRows(points: Point[], locale: string): Point[] {
@@ -72,7 +73,7 @@ function itinerarySummary(itinerary: Itinerary, orderedCount: number): Itinerary
 }
 
 /** Shape a planned route into the payload its own ref names. */
-export function buildItineraryPayload(itinerary: Itinerary, sourceRef: string, locale: string): ItineraryPayload {
+export function buildItineraryPayload(itinerary: Itinerary, sourceRef: string | null, locale: string): ItineraryPayload {
   const ordered = readableRows(itinerary.ordered_points, locale);
   return {
     ordered_points: ordered,

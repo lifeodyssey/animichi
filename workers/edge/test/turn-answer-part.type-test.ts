@@ -36,3 +36,22 @@ export const CLARIFY_WITH_RESULTS: ChatResponseDataPart = { intent: "clarify", .
 
 // @ts-expect-error -- `greet_user` carries EmptyData, never an itinerary; removing this directive must fail tsc.
 export const GREETING_WITH_ITINERARY: ChatResponseDataPart = { intent: "greet_user", ...ENVELOPE, data: { itinerary: { point_count: 2 } } };
+
+/** The two selection pairings #1288 added, in the shapes the projection emits. */
+export const SELECTED_PART: ChatResponseDataPart = {
+  intent: "plan_selected",
+  ...ENVELOPE,
+  data: { itinerary: { point_count: 2 } },
+};
+
+export const MULTI_PART: ChatResponseDataPart = {
+  intent: "plan_multi",
+  ...ENVELOPE,
+  data: { results: { row_count: 3, kind: "multi" }, itinerary: { point_count: 3 } },
+};
+
+// @ts-expect-error -- `plan_multi` carries RouteData, never a clarification; removing this directive must fail tsc.
+export const MULTI_WITH_CLARIFICATION: ChatResponseDataPart = { intent: "plan_multi", ...ENVELOPE, data: CLARIFICATION };
+
+// @ts-expect-error -- `search_nearby` carries SearchData, never an itinerary; removing this directive must fail tsc.
+export const PLACE_WITH_ITINERARY: ChatResponseDataPart = { intent: "search_nearby", ...ENVELOPE, data: { itinerary: {} } };

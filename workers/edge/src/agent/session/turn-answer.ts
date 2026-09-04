@@ -79,6 +79,58 @@ export type TurnAnswer = AnswerProse &
     | { readonly of: "route"; readonly intent: "plan_route"; readonly itinerary: ItineraryPayload }
     | { readonly of: "clarification"; readonly intent: "clarify"; readonly clarification: PendingClarification }
     | { readonly of: "prose"; readonly intent: "general_qa" | "greet_user" }
+    | SelectionEnding
+  );
+
+/** Every answer `src/agent/selection/` produces, as one type. */
+export type SelectionAnswer = Extract<TurnAnswer, { of: "selected" | "multi" | "place" | "refused" }>;
+
+/**
+ * How a DETERMINISTIC selection ended (card #1288).
+ *
+ * `status` and `success` are members here rather than derived in the
+ * projection, and that is the difference between the two kinds of turn. A model
+ * turn's envelope is read off the payload it produced (`"ok"` when rows came
+ * back, `"empty"` when none did) because a succeeded model turn is by
+ * definition a success. A selection turn OWNS its verdict: Python set
+ * `status="too_large"` with `success_override=False` on a pick whose works had
+ * too many spots, and no payload in the answer can say that — the payload is
+ * exactly what the run failed to produce.
+ */
+interface SelectionOutcome {
+  readonly status: string;
+  readonly success: boolean;
+}
+
+/**
+ * The four ways a selection turn can end.
+ *
+ * They are three members rather than one because the contract pairs each intent
+ * with its own data shape — `plan_selected` and `plan_multi` take `RouteData`,
+ * `search_nearby` takes `SearchData` — and the projection returns the
+ * contract's union, so a member that could carry an itinerary under
+ * `search_nearby` would be a member `turn-answer-part.ts` could not honour.
+ * Each payload is nullable because every one of these paths has a terminal
+ * branch that produced none: a catalog that would not answer, works with no
+ * spots, a route too large to plan.
+ *
+ * `refused` is the fourth: a pick that named a question the session no longer
+ * has open, or picked in a mode that question does not take. It answers
+ * `clarify` with no data, which is Python's `_invalid_selection_response` —
+ * `intent="clarify"`, `ui={"component": "Clarification"}` — so the browser
+ * re-renders the card rather than showing a dead end.
+ */
+export type SelectionEnding = SelectionOutcome &
+  (
+    | { readonly of: "selected"; readonly intent: "plan_selected"; readonly itinerary: ItineraryPayload | null }
+    | {
+        readonly of: "multi";
+        readonly intent: "plan_multi";
+        readonly search: SearchResultPayload | null;
+        readonly itinerary: ItineraryPayload | null;
+      }
+    | { readonly of: "place"; readonly intent: "search_nearby"; readonly search: SearchResultPayload | null }
+    | { readonly of: "refused"; readonly intent: "clarify" }
   );
 
 /** Every intent this tier can actually derive — the union's own discriminants. */

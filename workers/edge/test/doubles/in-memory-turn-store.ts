@@ -18,6 +18,7 @@ import {
   type TurnStore,
 } from "../../src/agent/session/turn-store.ts";
 import type { SettlementResult } from "../../src/agent/settlement/turn-settlement.ts";
+import type { SelectionRequest } from "../../src/agent/selection/selection-request.ts";
 
 export interface SeededRun {
   readonly runId: string;
@@ -30,6 +31,8 @@ export interface SeededRun {
   /** `runs.payer = 'byok'` — a run the caller paid for with their own key
    * (#1289). Defaults to false, the payer every existing case seeds. */
   readonly callerKeyed?: boolean;
+  /** The deterministic selection this run IS, when it is one (#1288). */
+  readonly selection?: SelectionRequest | null;
 }
 
 export class InMemoryTurnStore implements TurnStore {
@@ -74,7 +77,8 @@ export class InMemoryTurnStore implements TurnStore {
     const transcript = [...this.transcript];
     const callerKeyed = this.#run.callerKeyed ?? false;
     const steps = [...this.steps];
-    return Promise.resolve({ runId, sessionId, deadlineAt, transcript, steps, callerKeyed });
+    const selection = this.#run.selection ?? null;
+    return Promise.resolve({ runId, sessionId, deadlineAt, transcript, steps, callerKeyed, selection });
   }
 
   persistStep(

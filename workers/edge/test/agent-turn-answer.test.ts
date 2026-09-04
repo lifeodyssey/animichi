@@ -86,6 +86,7 @@ void test("a clarify turn pushes the clarify capture's sequence and the pending 
   assert.equal(whole.status, "needs_clarification");
   assert.deepEqual(whole.data, {
     reason: "anime_ambiguity",
+    clarification_id: 1,
     candidates: [
       { id: "1", title: "らき☆すた", cover_url: undefined, points_count: undefined, lat: undefined, lng: undefined },
       { id: "2", title: "らき☆すた OVA", cover_url: undefined, points_count: undefined, lat: undefined, lng: undefined },
