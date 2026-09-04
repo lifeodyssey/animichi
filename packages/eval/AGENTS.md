@@ -221,3 +221,60 @@ changes, and the shaper needing an edit afterwards is itself the finding.
 `HeadersInit`; `@types/node` publishes `fetch`/`Response`/`Headers` globally but not that name.
 The package is still Node-only — nothing here may touch a browser global, and the tests would
 say so immediately if it did.
+
+## Gating a run (`src/gate-run/`, `scripts/eval-gate.ts`, #1327)
+
+`pnpm run eval:gate -- --dataset <set> --limit <n> --concurrency <n>` is
+`eval:staging` with a verdict: the same `StagingTurnTask` run, then W3-4's two
+gates on the paired scores, a result file, and `run_agent_eval.py`'s exit code.
+Two entries rather than one flagged entry, because "look at a run" and "block on
+a run" want different defaults and different blast radii — `eval:gate` defaults
+to `agent_eval_v3`, which is 662 real staging turns on the QA identity.
+
+- **Results land in `results/<date>-<dataset>.json`, committed.** #1303's
+  acceptance criterion is a report *committed* under results, so nothing here is
+  gitignored: a verdict that only ever existed on the runner's laptop cannot be
+  the evidence for a wave exit. Same date, same set, same filename — a re-run
+  overwrites rather than accumulating near-identical files.
+- **The baseline is pinned in `python-baseline.ts`, and never written.** Layer
+  `agent_l4_trajectory` and model `openai:mimo-v2.5@https://opencode.ai/zen/go/v1`
+  are constants, not flags: a gate whose baseline can be pointed elsewhere on the
+  command line can always be made to pass by pointing it somewhere easier.
+  Python's uncapped run *creates* a record when it finds none
+  (`_run_uncapped_gate`); this runner never does, because the run being judged
+  must not be able to write what judges it.
+- **A limited run cannot be gated, and says so.** `readBaselineRecord` is given
+  the run's own case count, so `--limit 3` makes the 662-case record stale, the
+  gate compares nothing, and the warning explains — the same place Python's
+  capped runs land (`CAPPED` skips the baseline entirely).
+- **`metricGateResults` is why the file can name a verdict.** `bootstrapGate`
+  returns only strings; the result file needs the interval and the verdict per
+  metric. Rather than a second comparison off the same pairs — a second seed, a
+  second interval, eventually a second answer — `bootstrap-gate.ts` exposes the
+  per-metric rows and `bootstrapGate` became the fold of them. `skipped` is the
+  fourth answer a metric can get: fewer than ten paired cases, no comparison.
+- **Only a `fail` exits 1.** `gate_exit_code` exactly: `indeterminate` and
+  `skipped` are warnings and exit 0, because a gate that blocked on "not enough
+  evidence" would block on noise. A run where every case errored throws
+  `All cases errored` out of `aggregateScores` and writes no file — Python's
+  `NoEvaluatedCases`, which also persists nothing.
+- **The breakdown groups by answered intent and requested locale.** There is no
+  `metadata.intent` to read and no per-intent summary in `eval_harness.py`;
+  what Python has is `exec_tiers.CaseRow`, which writes `intent` off the
+  `AgentResult` and `locale` off the inputs onto every row. `score-breakdown.ts`
+  groups by exactly those two, and each group's numbers come from
+  `logfire/evals`' own `computeAverages` — so a metric only some cases carry
+  (`nonempty_results`) averages over the cases that have it, with the `count`
+  beside the mean. Errored cases are not in it: no output, no intent, no scores;
+  they are the error-rate gate's business.
+- **There are no token or dollar counters, and that is a measurement.** Python
+  reads usage off `AgentResult.usage`; the SD-9 stream publishes no usage part
+  and the history read carries a run status and nothing about cost. `spend`
+  therefore records what the wire can witness: `turns_planned`, the
+  `POST /v1/chat` submissions the cases call for (`caseSubmissionsOf` is pure,
+  so history replays are counted exactly), and `task_seconds`. A double run's
+  dollar figure comes from the provider dashboard.
+- **Not ported: the direct thrash gate.** `direct_gates.py` counts requests and
+  repeats per case out of `AgentResult`; neither number crosses the wire. It is
+  report-only in Python too (`DIRECT_GATE_ENFORCE`), so nothing that blocked
+  there stopped blocking here.

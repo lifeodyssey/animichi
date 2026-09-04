@@ -31,8 +31,8 @@ const DOOR_ENVIRONMENT = /process\.env\.(CATALOG_API_ORIGIN|AGENT_TURN_BEARER|ST
 /** The one import that reaches staging. */
 const DOOR_IMPORT = 'from "edge-worker/api-test/lane-origin.ts"';
 
-/** Every request this package makes lives in one of these two. */
-const STAGING_SCRIPTS = ["eval-staging.ts", "record-captures.ts"];
+/** Every request this package makes lives in one of these three. */
+const STAGING_SCRIPTS = ["eval-gate.ts", "eval-staging.ts", "record-captures.ts"];
 
 function sources(directory: string): readonly string[] {
   return readdirSync(fileURLToPath(new URL(directory, PACKAGE_DIR)))
@@ -53,16 +53,16 @@ void test("nothing under src/ resolves the origin or either credential itself", 
   assert.deepEqual(ownDoors("src/"), [], "these files read the door's environment instead of going through it");
 });
 
-void test("neither staging script resolves the origin or either credential itself", () => {
+void test("no staging script resolves the origin or either credential itself", () => {
   assert.deepEqual(ownDoors("scripts/"), [], "these files read the door's environment instead of going through it");
 });
 
-void test("both staging scripts reach the origin through that one door", () => {
+void test("every staging script reaches the origin through that one door", () => {
   const importing = STAGING_SCRIPTS.filter((name) => read("scripts/", name).includes(DOOR_IMPORT));
   assert.deepEqual(importing, STAGING_SCRIPTS);
 });
 
-void test("neither staging script calls fetch on the staging origin for itself", () => {
+void test("no staging script calls fetch on the staging origin for itself", () => {
   const direct = STAGING_SCRIPTS.filter((name) => /\bfetch\(/.test(read("scripts/", name)));
   assert.deepEqual(direct, [], "a request outside laneFetch carries no gate header");
 });
@@ -78,8 +78,12 @@ void test("nothing under src/ makes a request; the door and the sender are both 
   assert.deepEqual(requesting, []);
 });
 
-void test("the runner never imports the door's bearer, because it mints its own", () => {
-  const runner = read("scripts/", "eval-staging.ts");
-  assert.ok(!runner.includes("laneBearer"), "AGENT_TURN_BEARER is a 15-minute token read once; see StagingBearer");
-  assert.match(runner, /new StagingBearer\(/);
+void test("no runner imports the door's bearer, because each mints its own", () => {
+  const borrowing = STAGING_SCRIPTS.filter((name) => read("scripts/", name).includes("laneBearer"));
+  assert.deepEqual(borrowing, [], "AGENT_TURN_BEARER is a 15-minute token read once; see StagingBearer");
+});
+
+void test("every runner mints that bearer the one way", () => {
+  const minting = STAGING_SCRIPTS.filter((name) => read("scripts/", name).includes("new StagingBearer("));
+  assert.deepEqual(minting, STAGING_SCRIPTS);
 });
