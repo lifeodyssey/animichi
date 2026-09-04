@@ -6,9 +6,18 @@ from pathlib import Path
 from change_plan_test_support import commit_file, fixture, git, plan
 from test_change_plan_delivery import assert_delivery_routing
 
-CONTRACT_LANES = frozenset({"cross-stack", "security-codeql-javascript", "security-codeql-python", "security-semgrep"})
+CONTRACT_LANES = frozenset(
+    {
+        "cross-stack",
+        "security-codeql-javascript",
+        "security-codeql-python",
+        "security-semgrep",
+    }
+)
 FALLBACK_LANES = CONTRACT_LANES | {"security-sqlfluff"}
-WEB_SECURITY_LANES = frozenset({"cross-stack", "security-codeql-javascript", "security-semgrep"})
+WEB_SECURITY_LANES = frozenset(
+    {"cross-stack", "security-codeql-javascript", "security-semgrep"}
+)
 
 
 def assert_reverse_closure() -> None:
@@ -16,7 +25,16 @@ def assert_reverse_closure() -> None:
     with temporary:
         head = commit_file(root, "packages/contract/change.ts", "change")
         result = plan(root, initial, head)
-        expected = {"agent", "catalog", "contract", "e2e", "edge", "migrator", "users", "web"}
+        expected = {
+            "agent",
+            "catalog",
+            "contract",
+            "e2e",
+            "edge",
+            "migrator",
+            "users",
+            "web",
+        }
         assert set(result["components"]) == expected
         assert result["direct_components"] == ["contract"]
         assert set(result["lanes"]) == CONTRACT_LANES
@@ -37,7 +55,7 @@ def assert_main_and_fallback() -> None:
         head = commit_file(root, "unknown-root.txt", "unknown")
         result = plan(root, initial, head, "main")
         assert result["fallback_all"] is True
-        assert len(result["components"]) == 11
+        assert len(result["components"]) == 12
         assert set(result["lanes"]) == FALLBACK_LANES
 
 
@@ -89,7 +107,11 @@ def assert_repository_change_has_no_product_component() -> None:
         deploy = plan(root, initial, head, "main", "deploy")
         assert ci["fallback_all"] is False
         assert ci["components"] == []
-        assert ci["lanes"] == ["security-codeql-actions", "security-zizmor", "static-quality"]
+        assert ci["lanes"] == [
+            "security-codeql-actions",
+            "security-zizmor",
+            "static-quality",
+        ]
         assert deploy["components"] == []
 
 
@@ -105,7 +127,10 @@ def assert_security_tools_follow_affected_change() -> None:
     temporary, root, initial = fixture()
     with temporary:
         docs_head = commit_file(root, Path("docs", "note.md").as_posix(), "docs")
-        assert not any(lane.startswith("security-") for lane in plan(root, initial, docs_head)["lanes"])
+        assert not any(
+            lane.startswith("security-")
+            for lane in plan(root, initial, docs_head)["lanes"]
+        )
         web_head = commit_file(root, "apps/web/change.ts", "web")
         assert set(plan(root, docs_head, web_head)["lanes"]) == WEB_SECURITY_LANES
 
@@ -137,13 +162,17 @@ def assert_cross_component_test_trigger() -> None:
         head = commit_file(root, "workers/edge/src/protect/turnstile.ts", "turnstile")
         assert plan(root, initial, head)["direct_components"] == ["edge", "web"]
         assert plan(root, initial, head, "main")["direct_components"] == ["edge", "web"]
-        assert plan(root, initial, head, "main", "deploy")["direct_components"] == ["edge"]
+        assert plan(root, initial, head, "main", "deploy")["direct_components"] == [
+            "edge"
+        ]
 
 
 def assert_regular_docs_stay_docs_only() -> None:
     temporary, root, initial = fixture()
     with temporary:
-        head = commit_file(root, Path("docs", "notes", "example.md").as_posix(), "ordinary docs")
+        head = commit_file(
+            root, Path("docs", "notes", "example.md").as_posix(), "ordinary docs"
+        )
         result = plan(root, initial, head)
         assert result["direct_components"] == ["docs"]
         assert result["components"] == ["docs"]
@@ -173,7 +202,9 @@ def main() -> None:
     assert_component_selection()
     assert_delivery_routing()
     assert_lane_selection()
-    print("change plan: affected CI, runtime-only CD, reverse closure, and fallback validated")
+    print(
+        "change plan: affected CI, runtime-only CD, reverse closure, and fallback validated"
+    )
 
 
 if __name__ == "__main__":

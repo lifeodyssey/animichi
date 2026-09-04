@@ -1,0 +1,476 @@
+{
+  "cases": [
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_002"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_003"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_006"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_007"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_008"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_009"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_010"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_011"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_012"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_013"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_014"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_015"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_016"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_017"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_004"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_005"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_018"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_019"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_020"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_021"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_022"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [],
+        "data_keys": [],
+        "expect_nonempty": false
+      },
+      "name": "G1_023"
+    }
+  ],
+  "evaluators": [
+    {
+      "arguments": null,
+      "name": "OfficialArgumentCorrectness"
+    },
+    {
+      "arguments": null,
+      "name": "OfficialToolCorrectness"
+    },
+    {
+      "arguments": null,
+      "name": "OfficialTrajectoryMatch"
+    },
+    {
+      "arguments": null,
+      "name": "OfficialMaxToolCalls"
+    },
+    {
+      "arguments": null,
+      "name": "DataKeysPresent"
+    },
+    {
+      "arguments": null,
+      "name": "LocaleMatch"
+    },
+    {
+      "arguments": null,
+      "name": "NonemptyResults"
+    },
+    {
+      "arguments": null,
+      "name": "StepEfficiency"
+    }
+  ],
+  "name": "injection_g1_v1"
+}

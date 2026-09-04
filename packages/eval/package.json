@@ -1,0 +1,15 @@
+{
+  "name": "@animichi/eval",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Node-side eval package: reads the Python-exported pydantic-evals datasets with logfire/evals.",
+  "scripts": {
+    "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "logfire": "0.22.5"
+  }
+}

@@ -28,6 +28,7 @@ from animichi.tests.db_config import (
     dsn_host,
     select_database_arm,
 )
+from animichi.tests.eval.dataset_case_view import write_case_view
 from animichi.tests.eval.eval_gate_flow import (
     NoEvaluatedCases,
     finish_cli_report,
@@ -58,6 +59,7 @@ AgentCase = Case[AgentInput, AgentResult, AgentExpected]
 class CliArgs:
     eval_model: str | None
     export_dataset: Path | None
+    export_cases: Path | None = None
 
 
 @dataclass
@@ -119,18 +121,32 @@ def _parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--eval-model")
     mode.add_argument("--export-dataset", type=_export_path)
+    parser.add_argument("--export-cases", type=_export_path)
     return parser
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> CliArgs:
-    parsed = _parser().parse_args(argv)
-    return CliArgs(parsed.eval_model, parsed.export_dataset)
+    parser = _parser()
+    parsed = parser.parse_args(argv)
+    if parsed.export_cases is not None and parsed.export_dataset is None:
+        parser.error("--export-cases only applies to an --export-dataset run")
+    return CliArgs(parsed.eval_model, parsed.export_dataset, parsed.export_cases)
 
 
 def _export_dataset(
     dataset: Dataset[AgentInput, AgentResult, AgentExpected], path: Path
 ) -> None:
     dataset.to_file(path, schema_path=None)
+
+
+def _write_exports(dataset_path: Path, cases_path: Path | None) -> None:
+    """The TS fixture pair: the serialized dataset, and optionally its case view."""
+    _export_dataset(agent_dataset, dataset_path)
+    print(f"Exported official dataset: {dataset_path}")
+    if cases_path is None:
+        return
+    write_case_view(agent_dataset, cases_path)
+    print(f"Exported case view: {cases_path}")
 
 
 def _db_config() -> DatabaseConfig:
@@ -224,8 +240,7 @@ async def _main(args: CliArgs | None = None) -> int:
     parsed = args or _parse_args()
     export_path = parsed.export_dataset
     if export_path is not None:
-        _export_dataset(agent_dataset, export_path)
-        print(f"Exported official dataset: {export_path}")
+        _write_exports(export_path, parsed.export_cases)
         return 0
     model_arg = parsed.eval_model
     model_id = model_arg or EVAL_MODEL_ID

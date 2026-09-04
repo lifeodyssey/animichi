@@ -1,0 +1,1069 @@
+{
+  "name": "long_context_v1",
+  "cases": [
+    {
+      "name": "LC_zh_001",
+      "inputs": {
+        "query": "第一个的圣地在哪里？",
+        "locale": "zh",
+        "context": {
+          "message_history": [
+            {
+              "user": "凉宫有哪些作品？",
+              "assistant": "候选顺序：1. 涼宮ハルヒの憂鬱 (bangumi_id=11291)；2. 涼宮ハルヒの消失 (bangumi_id=3375)。",
+              "padding_chars": 1200
+            },
+            {
+              "user": "接下来只记录交通偏好。",
+              "assistant": "接下来只记录交通偏好。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "继续讨论预算，不更改作品选择。",
+              "assistant": "继续讨论预算，不更改作品选择。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录住宿条件。",
+              "assistant": "记录住宿条件。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论出发时间。",
+              "assistant": "讨论出发时间。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录步行距离偏好。",
+              "assistant": "记录步行距离偏好。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论餐饮安排。",
+              "assistant": "讨论餐饮安排。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录同行人数。",
+              "assistant": "记录同行人数。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论雨天备选。",
+              "assistant": "讨论雨天备选。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录拍照时间。",
+              "assistant": "记录拍照时间。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "确认行李安排。",
+              "assistant": "确认行李安排。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_zh_002",
+      "inputs": {
+        "query": "第二个作品的圣地在哪里？",
+        "locale": "zh",
+        "context": {
+          "message_history": [
+            {
+              "user": "Love Live 有哪些作品？",
+              "assistant": "候选顺序：1. ラブライブ! (bangumi_id=49294)；2. ラブライブ! サンシャイン!! (bangumi_id=165553)。",
+              "padding_chars": 1200
+            },
+            {
+              "user": "接下来只记录交通偏好。",
+              "assistant": "接下来只记录交通偏好。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "继续讨论预算，不更改作品选择。",
+              "assistant": "继续讨论预算，不更改作品选择。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录住宿条件。",
+              "assistant": "记录住宿条件。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论出发时间。",
+              "assistant": "讨论出发时间。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录步行距离偏好。",
+              "assistant": "记录步行距离偏好。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论餐饮安排。",
+              "assistant": "讨论餐饮安排。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录同行人数。",
+              "assistant": "记录同行人数。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论雨天备选。",
+              "assistant": "讨论雨天备选。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录拍照时间。",
+              "assistant": "记录拍照时间。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "确认行李安排。",
+              "assistant": "确认行李安排。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_zh_003",
+      "inputs": {
+        "query": "给刚才那个作品规划一条巡礼路线。",
+        "locale": "zh",
+        "context": {
+          "message_history": [
+            {
+              "user": "我们最后决定巡礼哪一部？",
+              "assistant": "已决定作品：響け！ユーフォニアム (bangumi_id=115908)。后续代词“那个作品”都指它。",
+              "padding_chars": 1200
+            },
+            {
+              "user": "接下来只记录交通偏好。",
+              "assistant": "接下来只记录交通偏好。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "继续讨论预算，不更改作品选择。",
+              "assistant": "继续讨论预算，不更改作品选择。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录住宿条件。",
+              "assistant": "记录住宿条件。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论出发时间。",
+              "assistant": "讨论出发时间。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录步行距离偏好。",
+              "assistant": "记录步行距离偏好。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论餐饮安排。",
+              "assistant": "讨论餐饮安排。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录同行人数。",
+              "assistant": "记录同行人数。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论雨天备选。",
+              "assistant": "讨论雨天备选。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录拍照时间。",
+              "assistant": "记录拍照时间。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "确认行李安排。",
+              "assistant": "确认行李安排。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "plan_route"
+        ],
+        "data_keys": [
+          "route"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_ja_001",
+      "inputs": {
+        "query": "1番目のやつの聖地を見せて。",
+        "locale": "ja",
+        "context": {
+          "message_history": [
+            {
+              "user": "ハルヒ作品の候補を順番に確認したい。",
+              "assistant": "候補順：1. 涼宮ハルヒの憂鬱 (bangumi_id=11291)、2. 涼宮ハルヒの消失 (bangumi_id=3375)。",
+              "padding_chars": 1200
+            },
+            {
+              "user": "次は交通の希望だけを記録する。",
+              "assistant": "次は交通の希望だけを記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "予算を相談し、作品の選択は変えない。",
+              "assistant": "予算を相談し、作品の選択は変えない。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "宿泊条件を記録する。",
+              "assistant": "宿泊条件を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "出発時間を相談する。",
+              "assistant": "出発時間を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "徒歩距離の希望を記録する。",
+              "assistant": "徒歩距離の希望を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "食事の予定を相談する。",
+              "assistant": "食事の予定を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "同行人数を記録する。",
+              "assistant": "同行人数を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "雨天の代案を相談する。",
+              "assistant": "雨天の代案を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "撮影時間を記録する。",
+              "assistant": "撮影時間を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "荷物の予定を確認する。",
+              "assistant": "荷物の予定を確認する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_ja_002",
+      "inputs": {
+        "query": "最初の作品の聖地を教えて。",
+        "locale": "ja",
+        "context": {
+          "message_history": [
+            {
+              "user": "ラブライブの候補はどれ？",
+              "assistant": "候補順：1. ラブライブ! (bangumi_id=49294)、2. ラブライブ! サンシャイン!! (bangumi_id=165553)。",
+              "padding_chars": 1200
+            },
+            {
+              "user": "次は交通の希望だけを記録する。",
+              "assistant": "次は交通の希望だけを記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "予算を相談し、作品の選択は変えない。",
+              "assistant": "予算を相談し、作品の選択は変えない。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "宿泊条件を記録する。",
+              "assistant": "宿泊条件を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "出発時間を相談する。",
+              "assistant": "出発時間を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "徒歩距離の希望を記録する。",
+              "assistant": "徒歩距離の希望を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "食事の予定を相談する。",
+              "assistant": "食事の予定を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "同行人数を記録する。",
+              "assistant": "同行人数を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "雨天の代案を相談する。",
+              "assistant": "雨天の代案を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "撮影時間を記録する。",
+              "assistant": "撮影時間を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "荷物の予定を確認する。",
+              "assistant": "荷物の予定を確認する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_ja_003",
+      "inputs": {
+        "query": "2つ目の聖地を探して。",
+        "locale": "ja",
+        "context": {
+          "message_history": [
+            {
+              "user": "スラムダンクの候補を並べて。",
+              "assistant": "候補順：1. THE FIRST SLAM DUNK (bangumi_id=324720)、2. スラムダンク (bangumi_id=1608)。",
+              "padding_chars": 1200
+            },
+            {
+              "user": "次は交通の希望だけを記録する。",
+              "assistant": "次は交通の希望だけを記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "予算を相談し、作品の選択は変えない。",
+              "assistant": "予算を相談し、作品の選択は変えない。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "宿泊条件を記録する。",
+              "assistant": "宿泊条件を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "出発時間を相談する。",
+              "assistant": "出発時間を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "徒歩距離の希望を記録する。",
+              "assistant": "徒歩距離の希望を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "食事の予定を相談する。",
+              "assistant": "食事の予定を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "同行人数を記録する。",
+              "assistant": "同行人数を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "雨天の代案を相談する。",
+              "assistant": "雨天の代案を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "撮影時間を記録する。",
+              "assistant": "撮影時間を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "荷物の予定を確認する。",
+              "assistant": "荷物の予定を確認する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_en_001",
+      "inputs": {
+        "query": "Show me pilgrimage spots for the first one.",
+        "locale": "en",
+        "context": {
+          "message_history": [
+            {
+              "user": "List the Haruhi choices in a stable order.",
+              "assistant": "Ordered candidates: 1. Haruhi Suzumiya (bangumi_id=11291); 2. The Disappearance of Haruhi Suzumiya (bangumi_id=3375).",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record transportation preferences only.",
+              "assistant": "Record transportation preferences only. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss budget without changing the selected work.",
+              "assistant": "Discuss budget without changing the selected work. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record lodging constraints.",
+              "assistant": "Record lodging constraints. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss departure time.",
+              "assistant": "Discuss departure time. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record walking-distance preferences.",
+              "assistant": "Record walking-distance preferences. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss meal planning.",
+              "assistant": "Discuss meal planning. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record the group size.",
+              "assistant": "Record the group size. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss the rain backup plan.",
+              "assistant": "Discuss the rain backup plan. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record photography timing.",
+              "assistant": "Record photography timing. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Confirm luggage arrangements.",
+              "assistant": "Confirm luggage arrangements. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_en_002",
+      "inputs": {
+        "query": "Find the pilgrimage spots for the second option.",
+        "locale": "en",
+        "context": {
+          "message_history": [
+            {
+              "user": "Which Love Live titles are the two options?",
+              "assistant": "Ordered candidates: 1. Love Live! (bangumi_id=49294); 2. Love Live! Sunshine!! (bangumi_id=165553).",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record transportation preferences only.",
+              "assistant": "Record transportation preferences only. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss budget without changing the selected work.",
+              "assistant": "Discuss budget without changing the selected work. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record lodging constraints.",
+              "assistant": "Record lodging constraints. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss departure time.",
+              "assistant": "Discuss departure time. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record walking-distance preferences.",
+              "assistant": "Record walking-distance preferences. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss meal planning.",
+              "assistant": "Discuss meal planning. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record the group size.",
+              "assistant": "Record the group size. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss the rain backup plan.",
+              "assistant": "Discuss the rain backup plan. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record photography timing.",
+              "assistant": "Record photography timing. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Confirm luggage arrangements.",
+              "assistant": "Confirm luggage arrangements. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_en_003",
+      "inputs": {
+        "query": "Plan a pilgrimage route for that anime.",
+        "locale": "en",
+        "context": {
+          "message_history": [
+            {
+              "user": "Which anime did we settle on for the trip?",
+              "assistant": "Selected anime: Your Name (bangumi_id=160209). Later references to “that anime” mean this work.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record transportation preferences only.",
+              "assistant": "Record transportation preferences only. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss budget without changing the selected work.",
+              "assistant": "Discuss budget without changing the selected work. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record lodging constraints.",
+              "assistant": "Record lodging constraints. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss departure time.",
+              "assistant": "Discuss departure time. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record walking-distance preferences.",
+              "assistant": "Record walking-distance preferences. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss meal planning.",
+              "assistant": "Discuss meal planning. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record the group size.",
+              "assistant": "Record the group size. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss the rain backup plan.",
+              "assistant": "Discuss the rain backup plan. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record photography timing.",
+              "assistant": "Record photography timing. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Confirm luggage arrangements.",
+              "assistant": "Confirm luggage arrangements. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "plan_route"
+        ],
+        "data_keys": [
+          "route"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_zh_004",
+      "inputs": {
+        "query": "找一下那个作品在东京附近的圣地。",
+        "locale": "zh",
+        "context": {
+          "message_history": [
+            {
+              "user": "这次东京行讨论的是哪部作品？",
+              "assistant": "较早确定的作品：天气之子 (bangumi_id=269235)。后续“那个作品”指天气之子。",
+              "padding_chars": 1200
+            },
+            {
+              "user": "接下来只记录交通偏好。",
+              "assistant": "接下来只记录交通偏好。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "继续讨论预算，不更改作品选择。",
+              "assistant": "继续讨论预算，不更改作品选择。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录住宿条件。",
+              "assistant": "记录住宿条件。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论出发时间。",
+              "assistant": "讨论出发时间。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录步行距离偏好。",
+              "assistant": "记录步行距离偏好。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论餐饮安排。",
+              "assistant": "讨论餐饮安排。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录同行人数。",
+              "assistant": "记录同行人数。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "讨论雨天备选。",
+              "assistant": "讨论雨天备选。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "记录拍照时间。",
+              "assistant": "记录拍照时间。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "确认行李安排。",
+              "assistant": "确认行李安排。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_ja_004",
+      "inputs": {
+        "query": "その作品の宇治近辺の聖地を探して。",
+        "locale": "ja",
+        "context": {
+          "message_history": [
+            {
+              "user": "宇治旅行で話していた作品は？",
+              "assistant": "以前に決めた作品：響け！ユーフォニアム (bangumi_id=115908)。「その作品」はこれを指す。",
+              "padding_chars": 1200
+            },
+            {
+              "user": "次は交通の希望だけを記録する。",
+              "assistant": "次は交通の希望だけを記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "予算を相談し、作品の選択は変えない。",
+              "assistant": "予算を相談し、作品の選択は変えない。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "宿泊条件を記録する。",
+              "assistant": "宿泊条件を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "出発時間を相談する。",
+              "assistant": "出発時間を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "徒歩距離の希望を記録する。",
+              "assistant": "徒歩距離の希望を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "食事の予定を相談する。",
+              "assistant": "食事の予定を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "同行人数を記録する。",
+              "assistant": "同行人数を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "雨天の代案を相談する。",
+              "assistant": "雨天の代案を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "撮影時間を記録する。",
+              "assistant": "撮影時間を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "荷物の予定を確認する。",
+              "assistant": "荷物の予定を確認する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_en_004",
+      "inputs": {
+        "query": "Show me spots near Tokyo for that older work.",
+        "locale": "en",
+        "context": {
+          "message_history": [
+            {
+              "user": "Which older work did we choose for Tokyo?",
+              "assistant": "The older selected work is Your Name (bangumi_id=160209). “That older work” refers to it.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record transportation preferences only.",
+              "assistant": "Record transportation preferences only. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss budget without changing the selected work.",
+              "assistant": "Discuss budget without changing the selected work. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record lodging constraints.",
+              "assistant": "Record lodging constraints. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss departure time.",
+              "assistant": "Discuss departure time. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record walking-distance preferences.",
+              "assistant": "Record walking-distance preferences. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss meal planning.",
+              "assistant": "Discuss meal planning. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record the group size.",
+              "assistant": "Record the group size. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Discuss the rain backup plan.",
+              "assistant": "Discuss the rain backup plan. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Record photography timing.",
+              "assistant": "Record photography timing. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "Confirm luggage arrangements.",
+              "assistant": "Confirm luggage arrangements. The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    },
+    {
+      "name": "LC_ja_005",
+      "inputs": {
+        "query": "その2番目の作品で巡礼ルートを作って。",
+        "locale": "ja",
+        "context": {
+          "message_history": [
+            {
+              "user": "候補作品を順番どおりに残して。",
+              "assistant": "候補順：1. 君の名は。 (bangumi_id=160209)、2. 天気の子 (bangumi_id=269235)。",
+              "padding_chars": 1200
+            },
+            {
+              "user": "次は交通の希望だけを記録する。",
+              "assistant": "次は交通の希望だけを記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "予算を相談し、作品の選択は変えない。",
+              "assistant": "予算を相談し、作品の選択は変えない。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "宿泊条件を記録する。",
+              "assistant": "宿泊条件を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "出発時間を相談する。",
+              "assistant": "出発時間を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "徒歩距離の希望を記録する。",
+              "assistant": "徒歩距離の希望を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "食事の予定を相談する。",
+              "assistant": "食事の予定を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "同行人数を記録する。",
+              "assistant": "同行人数を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "雨天の代案を相談する。",
+              "assistant": "雨天の代案を相談する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "撮影時間を記録する。",
+              "assistant": "撮影時間を記録する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            },
+            {
+              "user": "荷物の予定を確認する。",
+              "assistant": "荷物の予定を確認する。 The earlier anime identity and candidate order remain unchanged.",
+              "padding_chars": 1200
+            }
+          ]
+        },
+        "selected_point_ids": null,
+        "selected_candidate_ids": null,
+        "clarification_id": null,
+        "seeded_pending": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "plan_route"
+        ],
+        "data_keys": [
+          "route"
+        ],
+        "expect_nonempty": false
+      },
+      "expected_output": null,
+      "evaluators": []
+    }
+  ],
+  "evaluators": [
+    "OfficialArgumentCorrectness",
+    "OfficialToolCorrectness",
+    "OfficialTrajectoryMatch",
+    "OfficialMaxToolCalls",
+    "DataKeysPresent",
+    "LocaleMatch",
+    "NonemptyResults",
+    "StepEfficiency"
+  ],
+  "report_evaluators": []
+}

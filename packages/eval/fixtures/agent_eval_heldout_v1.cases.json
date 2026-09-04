@@ -1,0 +1,833 @@
+{
+  "cases": [
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "冰菓的圣地在哪里",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_loc_ja_zhq_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "Hyouka anime pilgrimage spots",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_loc_ja_enq_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "氷菓の聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_loc_zh_jaq_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "Lucky Star pilgrimage locations",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_loc_zh_enq_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "幸运星的取景地在哪里",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_loc_en_zhq_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "らき☆すたの聖地を教えて",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_loc_en_jaq_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "我推的孩子的圣地在哪儿",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_loc_ja_zhq_002"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "推しの子の聖地はどこ",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_loc_en_jaq_002"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "胆大党的圣地在哪里",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_loc_ja_zhq_2026"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "Medalist anime pilgrimage locations",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_loc_zh_enq_2026"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "冰菓的巡礼地点",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_tr_zh_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Lucky Star pilgrimage guide",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_tr_en_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "hyouka no seichi junrei",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_tr_romaji_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "oshi no ko pilgrimage spots",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_tr_romaji_002"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "推子の聖地巡礼",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_tr_abbrev_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "幸运星的圣地巡礼地点",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_tr_cn_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "胆大党的巡礼地点",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_tr_zh_2026"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Medalist pilgrimage guide",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_tr_en_2026"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "名探偵コナンの聖地巡礼",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_conv_ja_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "宝可梦的圣地在哪里",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_conv_zh_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Macross pilgrimage locations",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_conv_en_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "テニスの王子様の聖地はどこ",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_conv_ja_002"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "女神异闻录的取景地",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_conv_zh_002"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Gintama real life pilgrimage",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_conv_en_002"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "夏目友人帳の聖地を教えて",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_conv_ja_003"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "One Piece pilgrimage spots",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_conv_en_003"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "SAKAMOTO DAYSの聖地巡礼",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_conv_ja_2026"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "zh",
+        "query": "全修的圣地在哪里",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_conv_zh_2026"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "en",
+        "query": "Sakamoto Days real life places",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "clarify"
+        ],
+        "data_keys": [
+          "reason",
+          "candidates"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_conv_en_2026"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": {
+          "last_search_data": {
+            "search_bangumi": {
+              "bangumi_id": "115908"
+            }
+          }
+        },
+        "locale": "ja",
+        "query": "氷菓の方の聖地はどう",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_sw_ja_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": {
+          "last_search_data": {
+            "search_bangumi": {
+              "bangumi_id": "160209"
+            }
+          }
+        },
+        "locale": "en",
+        "query": "what about Lucky Star instead",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_sw_en_001"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": {
+          "last_search_data": {
+            "search_bangumi": {
+              "bangumi_id": "115908"
+            }
+          }
+        },
+        "locale": "ja",
+        "query": "ダンダダンの方はどう",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_sw_ja_2026"
+    },
+    {
+      "evaluators": [],
+      "expected_output": null,
+      "inputs": {
+        "clarification_id": null,
+        "context": {
+          "last_search_data": {
+            "search_bangumi": {
+              "bangumi_id": "160209"
+            }
+          }
+        },
+        "locale": "zh",
+        "query": "换成金牌得主看看吧",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "name": "HO_sw_zh_2026"
+    }
+  ],
+  "evaluators": [
+    {
+      "arguments": null,
+      "name": "OfficialArgumentCorrectness"
+    },
+    {
+      "arguments": null,
+      "name": "OfficialToolCorrectness"
+    },
+    {
+      "arguments": null,
+      "name": "OfficialTrajectoryMatch"
+    },
+    {
+      "arguments": null,
+      "name": "OfficialMaxToolCalls"
+    },
+    {
+      "arguments": null,
+      "name": "DataKeysPresent"
+    },
+    {
+      "arguments": null,
+      "name": "LocaleMatch"
+    },
+    {
+      "arguments": null,
+      "name": "NonemptyResults"
+    },
+    {
+      "arguments": null,
+      "name": "StepEfficiency"
+    }
+  ],
+  "name": "agent_eval_heldout_v1"
+}

@@ -65,7 +65,7 @@
     },
     {
       "name": "security-codeql-javascript",
-      "components": ["catalog", "contract", "e2e", "edge", "infra", "migrator", "users", "web"],
+      "components": ["catalog", "contract", "e2e", "edge", "eval", "infra", "migrator", "users", "web"],
       "paths": [".github/scripts/**"]
     },
     {
@@ -75,7 +75,7 @@
     },
     {
       "name": "security-semgrep",
-      "components": ["agent", "catalog", "contract", "e2e", "edge", "infra", "migrator", "users", "web"],
+      "components": ["agent", "catalog", "contract", "e2e", "edge", "eval", "infra", "migrator", "users", "web"],
       "paths": [".semgrep/**", ".semgrepignore", "scripts/semgrep-raw-sql-test.sh"]
     },
     {
@@ -92,6 +92,7 @@
         "infra/database-access/package.json",
         "infra/database-access/pnpm-lock.yaml",
         "packages/contract/package.json",
+        "packages/eval/package.json",
         "workers/catalog/package.json",
         "workers/edge/package.json",
         "workers/migrator/package.json",
@@ -251,6 +252,42 @@
       "depends_on": ["contract", "db"],
       "ci_lanes": ["lint", "unit", "bundle-smoke", "boundary", "build"],
       "deploy_unit": "edge"
+    },
+    {
+      "name": "eval",
+      "paths": [
+        "packages/eval/**",
+        "apps/agent/src/animichi/tests/eval/datasets/agent_eval_v3.json",
+        "apps/agent/src/animichi/tests/eval/datasets/agent_eval_heldout_v1.json",
+        "apps/agent/src/animichi/tests/eval/datasets/injection_g1_v1.json",
+        "apps/agent/src/animichi/tests/eval/datasets/input_guard_v1.json",
+        "apps/agent/src/animichi/tests/eval/datasets/long_context_v1.json",
+        "apps/agent/src/animichi/tests/eval/datasets/phase1c_selection_v1.json",
+        "apps/agent/src/animichi/tests/eval/dataset_case_view.py",
+        "apps/agent/src/animichi/tests/eval/eval_harness.py",
+        "apps/agent/src/animichi/tests/eval/evaluators.py",
+        "apps/agent/src/animichi/tests/eval/official_evaluators.py",
+        "apps/agent/src/animichi/tests/eval/run_agent_eval.py",
+        "apps/agent/uv.lock"
+      ],
+      "test_triggers": [
+        "apps/agent/src/animichi/tests/eval/datasets/agent_eval_v3.json",
+        "apps/agent/src/animichi/tests/eval/datasets/agent_eval_heldout_v1.json",
+        "apps/agent/src/animichi/tests/eval/datasets/injection_g1_v1.json",
+        "apps/agent/src/animichi/tests/eval/datasets/input_guard_v1.json",
+        "apps/agent/src/animichi/tests/eval/datasets/long_context_v1.json",
+        "apps/agent/src/animichi/tests/eval/datasets/phase1c_selection_v1.json",
+        "apps/agent/src/animichi/tests/eval/dataset_case_view.py",
+        "apps/agent/src/animichi/tests/eval/eval_harness.py",
+        "apps/agent/src/animichi/tests/eval/evaluators.py",
+        "apps/agent/src/animichi/tests/eval/official_evaluators.py",
+        "apps/agent/src/animichi/tests/eval/run_agent_eval.py",
+        "apps/agent/uv.lock"
+      ],
+      "deploy_excludes": ["packages/eval/AGENTS.md", "packages/eval/test/**"],
+      "depends_on": [],
+      "ci_lanes": ["typecheck", "unit", "drift"],
+      "deploy_unit": null
     },
     {
       "name": "infra",

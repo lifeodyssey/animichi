@@ -245,6 +245,17 @@ gate_contract() {
   run git diff --exit-code HEAD -- apps/agent/src/animichi/interfaces/boundary/agent_models.py
 }
 
+# ── eval (#1299): typecheck + the Python→TS dataset round trip + the fixture
+# drift check. The drift arm re-runs the Python exporter, so this gate needs uv
+# (a declared pre-push prerequisite) as well as the TS toolchain.
+gate_eval() {
+  gate packages/eval pnpm exec tsc --noEmit
+  gate packages/eval pnpm run lint:oxlint
+  run pnpm run test:eval
+  run bash packages/eval/scripts/export-fixtures.sh
+  run bash scripts/local-gates/eval-fixture-drift.sh
+}
+
 # ── infra: typecheck + topology tests + credential-free Pulumi program-load.
 gate_infra() {
   gate infra pnpm run typecheck
@@ -285,6 +296,7 @@ SCRIPT_SUITE=(
   commit-message.test.sh
   pre-commit-config.test.sh
   contract-drift.test.sh
+  eval-fixture-drift.test.sh
   why-blocked.test.sh
 )
 
