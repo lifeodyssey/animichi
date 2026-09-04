@@ -33,6 +33,7 @@ import {
   type RunFailureReason,
 } from "../../db/schema.ts";
 import { isJsonRecord } from "../json-record.ts";
+import { mintsIn } from "./minted-refs.ts";
 import { settleFailedTurn, settleSucceededTurn } from "../settlement/neon-turn-settlement.ts";
 import type { SettlementResult } from "../settlement/turn-settlement.ts";
 import { storedSelection } from "../selection/selection-request.ts";
@@ -140,7 +141,8 @@ function toTranscriptRow(row: unknown): TranscriptRow | undefined {
 
 function toStepResult(value: unknown): StepResult | null {
   if (!isJsonRecord(value) || !Array.isArray(value.content)) return null;
-  return { content: value.content as StepResult["content"], details: asJsonValue(value.details) };
+  const content = value.content as StepResult["content"];
+  return { content, details: asJsonValue(value.details), minted: mintsIn(value.minted) };
 }
 
 function toPersistedStep(row: unknown): PersistedStep | undefined {

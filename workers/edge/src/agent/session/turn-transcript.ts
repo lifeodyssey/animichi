@@ -118,10 +118,34 @@ function messagesForRow(
 }
 
 /**
+ * The transcript this run resumes from, and how far into its own steps it
+ * already reaches.
+ *
+ * The count is what the step counter starts at (`turn-step-sequence.ts`,
+ * #1279): a seeded tool result is a step the model will NOT ask for again, so
+ * the next call it makes is the (n+1)-th of the run rather than the first. It
+ * is counted off the messages instead of off `turn.steps` because the two
+ * differ exactly where it matters — a trailing assistant message whose calls
+ * are not all answered is dropped, and the steps under it are then replayed in
+ * place by the calls the model re-derives.
+ */
+export interface ResumedTranscript {
+  readonly messages: AgentMessage[];
+  /** How many of THIS run's settled steps the messages already answer. */
+  readonly settledSteps: number;
+}
+
+/** Every seeded tool result is one settled step of this run, and nothing else
+ * in the rebuild produces one. */
+function answeredSteps(messages: readonly AgentMessage[]): number {
+  return messages.filter((message) => message.role === "toolResult").length;
+}
+
+/**
  * The pi transcript this run resumes from: the session's stored messages, with
  * every persisted tool call of THIS run answered by its `run_steps` result.
  */
-export function seededMessages(turn: LoadedTurn, model: Model<Api>): AgentMessage[] {
+function seededMessages(turn: LoadedTurn, model: Model<Api>): AgentMessage[] {
   const settled = settledResults(turn.steps);
   const seeded: AgentMessage[] = [];
   for (const row of turn.transcript) {
@@ -130,4 +154,10 @@ export function seededMessages(turn: LoadedTurn, model: Model<Api>): AgentMessag
     seeded.push(...contributed);
   }
   return seeded;
+}
+
+/** The rebuild, with the step count the loop resumes at. */
+export function resumedTranscript(turn: LoadedTurn, model: Model<Api>): ResumedTranscript {
+  const messages = seededMessages(turn, model);
+  return { messages, settledSteps: answeredSteps(messages) };
 }

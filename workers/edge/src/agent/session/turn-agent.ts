@@ -4,8 +4,8 @@
  * Assembly only — every decision it encodes is argued somewhere else — but four
  * of them have to be made together, so they are made here:
  *
- * - **`continue()`, not `prompt()`.** The transcript is seeded from Neon by
- *   `seededMessages`, and it always ends on a user message or a tool result,
+ * - **`continue()`, not `prompt()`.** The transcript is rebuilt from Neon by
+ *   `resumedTranscript`, and it always ends on a user message or a tool result,
  *   which is exactly pi's precondition for continuing. One code path therefore
  *   serves both a fresh turn and a resumed one, and a resumed turn never asks
  *   the model to re-derive tool calls it already made (spec Appendix C).
@@ -20,29 +20,29 @@
  * - **`transformContext` is where compaction hangs.** pi calls it on the way
  *   into every model request with the whole `AgentMessage[]`, which is exactly
  *   the seam Python's history-compaction tier occupied — and the seam AFTER
- *   `seededMessages` rebuilt the transcript from Neon, so what it shapes is the
+ *   `resumedTranscript` rebuilt the transcript from Neon, so what it shapes is the
  *   context and never the stored history (#1290, `context-compaction.ts`).
  * - **one subscription feeds both the ledger and the wire.** The same listener
  *   records what the turn produced (`TurnOutput`) and pushes SD-9 frames, in
  *   that order: the assistant message must be recorded before the tool call it
  *   issued executes, because `TurnSteps` persists the two together.
  */
-import { Agent, type AgentOptions } from "@earendil-works/pi-agent-core";
+import { Agent, type AgentMessage, type AgentOptions } from "@earendil-works/pi-agent-core";
 import { contextCompaction } from "./context-compaction.ts";
 import type { TurnMemory } from "../memory/session-memory.ts";
-import { seededMessages } from "./turn-transcript.ts";
+
 import { framesFor } from "./turn-frames.ts";
 import type { TurnFrameSink } from "./turn-subscribers.ts";
 import type { TurnOutput } from "./turn-output.ts";
 import type { TurnTool } from "./turn-toolbox.ts";
-import type { LoadedTurn } from "./turn-store.ts";
 import { streamOptionsFor, type TurnModel } from "./turn-model.ts";
 
 export interface TurnAgentParts {
   /** The registry, the model and the fetch its requests go out through. */
   readonly model: TurnModel;
   readonly systemPrompt: string;
-  readonly turn: LoadedTurn;
+  /** The transcript this run resumes from, rebuilt by `turn-transcript.ts`. */
+  readonly messages: readonly AgentMessage[];
   readonly tools: readonly TurnTool[];
   /** The session's two ledgers, which compaction rescues entities into. */
   readonly memory: TurnMemory;
@@ -71,7 +71,7 @@ function agentOptions(parts: TurnAgentParts): AgentOptions {
       systemPrompt: parts.systemPrompt,
       model,
       tools: [...parts.tools],
-      messages: seededMessages(parts.turn, model),
+      messages: [...parts.messages],
     },
     transformContext: contextCompaction(parts.memory),
     streamFn: (target, context, options) =>

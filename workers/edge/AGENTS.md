@@ -92,10 +92,18 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   exit criterion is an anonymous conversation a visitor comes back to, and the retrieval's ownership
   check is what makes it safe.
 - `src/agent/session/turn-catalog-session.ts` — the `CatalogToolSession` one turn hands the tools:
-  the opaque refs they mint and the rows behind them. Turn-scoped ON PURPOSE, with one gap written
-  on it that needs plumbing nobody has built yet: it is not rebuilt on a REPLAY (a replayed step is
-  answered from `run_steps.result` without calling `execute`, so a ref minted before a crash reads
-  back as `stale_ref` — #1279 owns that rehydration).
+  the opaque refs they mint and the rows behind them. Turn-scoped ON PURPOSE, and REBUILT ON A
+  REPLAY since #1279: a settled step is answered from `run_steps.result` without calling `execute`,
+  so every ref rides the step that minted it (`minted-refs.ts` — `StepResult.minted` carries the
+  ref AND the payload, beside `details` rather than inside it, because `details` is what the model
+  reads back and what the SD-9 `tool-output-available` frame publishes) and `TurnAttempt.drive`
+  puts them all back, in `step_index` order, before the loop resumes. Two sequences continue with
+  them: the mint sequence (so a new ref cannot collide with a replayed one) and `step_index`
+  itself, which `resumedTranscript` reports and `StepSequence` starts at — a settled step whose
+  call the rebuilt transcript already answers is never asked for again, so a retry's FIRST new
+  call is the (n+1)-th of the run rather than a second claim on step 0. `SelectionRecord`
+  (`src/agent/selection/`) is the same move made first for the one step no model asks for; both
+  read their payloads back through `src/agent/tools/stored-payload.ts`.
 - `src/agent/session/session-envelope.ts`, `turn-envelope.ts`, `durable-envelope-store.ts` — the
   session state that DOES outlive one turn (#1280): the pending clarification and the current
   anime, as one immutable `SessionEnvelope` (per SESSION; refs stay per RUN, which is what kept
@@ -143,7 +151,7 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   file's header (it never fires at our token scale, its summary is model-written, it is
   not a fixpoint under the per-alarm replay, and it wants a provider call plus a pi
   session log this tier does not keep). One consequence worth knowing: an EARLIER run's
-  tool returns are not replayed at all — `seededMessages` degrades another run's
+  tool returns are not replayed at all — `resumedTranscript` degrades another run's
   tool-call row to its text — so the retention window is in practice per-run, and
   compaction bites on a long agentic turn rather than across turns as it did in Python.
 - `src/agent/tools/` — `agentToolbox(parts)` returns the six `AgentTool`s the session registers

@@ -15,13 +15,14 @@
  * recorder write through the object that already owns it rather than through a
  * second holder that would have to be merged back.
  *
- * One thing it does NOT yet do: it is not rebuilt on a REPLAY. `TurnSteps`
- * answers a replayed step from `run_steps.result` without calling `execute`, so
- * a ref minted before a crash is not in this map afterwards and `plan_route`
- * would report `stale_ref`. Closing that means rehydrating from the settled
- * steps, which is `TurnSteps`' side of the seam (#1279), not this one's.
+ * IT IS REBUILT ON A REPLAY (#1279). A settled step is answered from
+ * `run_steps.result` without calling `execute`, so every ref this mints is
+ * recorded on the step that minted it (`minted-refs.ts`) and put back through
+ * `remint` before a retried alarm resumes the loop — same ref, same rows, and
+ * the sequence carried on from there.
  */
 import type { SessionMemory, TurnMemory } from "../memory/session-memory.ts";
+import type { MintedRefs, StepMint } from "./minted-refs.ts";
 import type {
   CatalogToolSession,
   CurrentAnime,
@@ -42,11 +43,12 @@ export interface TurnCatalogSessionParts {
   readonly envelope?: SessionEnvelope;
 }
 
-export class TurnCatalogSession implements CatalogToolSession, TurnMemory {
+export class TurnCatalogSession implements CatalogToolSession, MintedRefs, TurnMemory {
   readonly locale: string;
   readonly origin?: LatLng;
   readonly #searches = new Map<string, SearchResultPayload>();
   readonly #itineraries = new Map<string, ItineraryPayload>();
+  readonly #minted: StepMint[] = [];
   #sequence = 0;
   #envelope: SessionEnvelope;
 
@@ -87,10 +89,18 @@ export class TurnCatalogSession implements CatalogToolSession, TurnMemory {
     return this.#searches;
   }
 
+  /** `MintedRefs`: how many refs this run has minted so far (#1279). */
+  get mintCount(): number {
+    return this.#minted.length;
+  }
+
+  /** `MintedRefs`: the refs minted after a mark — what one step added. */
+  mintedSince(mark: number): readonly StepMint[] {
+    return this.#minted.slice(mark);
+  }
+
   storeSearchResult(payload: SearchResultPayload): string {
-    const ref = this.#mint("search", payload.row_count);
-    this.#searches.set(ref, payload);
-    return ref;
+    return this.#filed({ kind: "search", ref: this.#mint("search", payload.row_count), payload });
   }
 
   searchResult(ref: string): SearchResultPayload | undefined {
@@ -99,8 +109,22 @@ export class TurnCatalogSession implements CatalogToolSession, TurnMemory {
 
   storeItinerary(payload: ItineraryPayload): string {
     const ref = this.#mint("route", payload.summary.point_count);
-    this.#itineraries.set(ref, payload);
-    return ref;
+    return this.#filed({ kind: "route", ref, payload });
+  }
+
+  /**
+   * `MintedRefs`: put back what one settled step minted (#1279).
+   *
+   * The sequence advances per mint rather than being read off the ref, so the
+   * next NEW ref of this run continues where the crashed attempt stopped; the
+   * ref itself is the STORED one, because that is the handle the model was
+   * given and the one a later step will name.
+   */
+  remint(mints: readonly StepMint[]): void {
+    for (const mint of mints) {
+      this.#sequence += 1;
+      this.#filed(mint);
+    }
   }
 
   setPendingClarification(reason: string, candidates: OrderedCandidate[]): void {
@@ -113,6 +137,14 @@ export class TurnCatalogSession implements CatalogToolSession, TurnMemory {
 
   setCurrentAnime(anime: CurrentAnime | null): void {
     this.#envelope = this.#envelope.withAnime(anime);
+  }
+
+  /** File one mint under its ref, whether it was just minted or put back. */
+  #filed(mint: StepMint): string {
+    if (mint.kind === "search") this.#searches.set(mint.ref, mint.payload);
+    else this.#itineraries.set(mint.ref, mint.payload);
+    this.#minted.push(mint);
+    return mint.ref;
   }
 
   /** Python's `RefFactory`: `"{kind}:{row_count}:{sequence}"`, minted once. */

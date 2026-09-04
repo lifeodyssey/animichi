@@ -140,7 +140,7 @@ rather than guessing.
 | anonymous daily message ceiling refuses with `quota_resets_at` | `application/admission_limits.py:99`, `interfaces/anon_quota.py:23`, `:28` | `agent/intake/anonymous-message-allowance.ts` | `workers/edge/test/anonymous-message-allowance.test.ts`, `workers/edge/agent-db-test/turn-quota-ceiling.db.test.ts` | journey §4 | the ceiling #1251 left unowned; the refusal rolls back message, run and reservation together (PR #1284) | ☐ |
 | one running run per session; a second is refused | `application/turn_admission.py:123` | `agent/intake/turn-intake.ts` over `runs_one_running_per_session` | `workers/edge/test/turn-intake.test.ts`, `workers/edge/agent-db-test/turn-intake.db.test.ts` | — | — | ☐ |
 | a tool step is persisted before the loop continues, and replayed not re-executed | not applicable — a TS-tier contract (spec §三, Appendix C) | `agent/session/turn-step.ts`, `agent/session/turn-step-sequence.ts` | `workers/edge/test/agent-turn-loop.test.ts`, `workers/edge/agent-db-test/turn-loop.db.test.ts` | — | — | ☐ |
-| the tool session is rebuilt on replay | not applicable — Python had no cross-incarnation replay | `agent/session/turn-catalog-session.ts` (gap documented in file) | — | — | a ref minted before a crash reads back as `stale_ref` after the retry; the rehydration is #1279 | ☐ |
+| the tool session is rebuilt on replay | not applicable — Python had no cross-incarnation replay | `agent/session/turn-catalog-session.ts`, `agent/session/minted-refs.ts` | `workers/edge/test/agent-turn-ref-replay.test.ts`, `workers/edge/agent-db-test/turn-ref-replay.db.test.ts` | — | every ref rides the step that minted it and is put back before the retry resumes, so a named ref plans instead of reading `stale_ref` (#1279) | ☐ |
 | a stuck run is picked up by a backstop independent of the session DO | not applicable — no equivalent in the request-scoped tier | `agent/sweeper/run-sweeper.ts`, `agent/sweeper/run-sweep.ts` | `workers/edge/test/run-sweeper.test.ts`, `workers/edge/test/run-sweep.test.ts`, `workers/edge/agent-db-test/run-sweep.db.test.ts` | — | — | ☐ |
 | quota refunded exactly once on a failed turn | `interfaces/usage_metering.py` (no single line — the refund is spread across the metering service) | `agent/settlement/turn-settlement.ts` | `workers/edge/test/turn-settlement.test.ts`, `workers/edge/agent-db-test/turn-refund.db.test.ts` | — | — | ☐ |
 | the flag can send every route back to the container in one word | not applicable | `gateway/routing-policy.ts` | `workers/edge/test/agent-turn-routing.test.ts`, `workers/edge/test/agent-turn-route-policy.test.ts`, `workers/edge/test/agent-turn-route-config.test.ts` | journey §5 | anything but the literal `edge` is `container`; staging is `edge`, production and `wrangler dev` are `container` (PR #1284) | ☐ |
@@ -215,7 +215,6 @@ Divergences accepted as-is (issue → verdict):
   #1289 openai-compatible narrowed to api.openai.com →
   #1287 detect_prompt_injection not ported →
   #1292 platform usage scope →
-  #1279 tool session not rehydrated on replay →
   #1285 zod in the entry bundle →
   points-win over Python's exclusive-ids refusal →
 Verdict (W2 exit):
