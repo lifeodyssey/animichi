@@ -1,0 +1,36 @@
+{
+  "data_keys": [
+    "route"
+  ],
+  "intent": "plan_route",
+  "locale": "ja",
+  "message": "宇治の聖地を2件、徒歩ルートにまとめました。",
+  "step_count": 3,
+  "success": true,
+  "tools": [
+    "resolve_anime",
+    "search_bangumi",
+    "plan_route"
+  ],
+  "trajectory": [
+    {
+      "args": {
+        "title": "ユーフォ"
+      },
+      "status": "ok",
+      "tool_name": "resolve_anime"
+    },
+    {
+      "args": {
+        "bangumi_id": 12345
+      },
+      "status": "ok",
+      "tool_name": "search_bangumi"
+    },
+    {
+      "args": {},
+      "status": "ok",
+      "tool_name": "plan_route"
+    }
+  ]
+}
