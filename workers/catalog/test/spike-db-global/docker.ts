@@ -9,13 +9,23 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import pg from "pg";
-import { GenericContainer, type StartedTestContainer } from "testcontainers";
+import { GenericContainer, Wait, type StartedTestContainer, type WaitStrategy } from "testcontainers";
+import { PostgresStartupWait, SPIKE_STARTUP_WAIT, type Pause } from "./postgres-startup-wait";
 
 export const OFFLINE_IMAGE = "animichi-test-postgres:18-3.6-pgvector-0.8.5";
 export const POSTGRES_USER = "postgres";
 export const POSTGRES_PASSWORD = "postgres";
 const CLEAN_DATABASE = "catalog_spike";
 const MIGRATIONS_DIR = new URL("../../../../migrations/neon/", import.meta.url);
+/** The image's entrypoint logs this once for the initdb server it shuts down
+ * again, and once for the server that finally binds TCP — so the second
+ * occurrence is the one that means "connect now". */
+const READY_LOG = /database system is ready to accept connections/;
+const READY_LOG_OCCURRENCES = 2;
+/** The published image is linux/amd64: on an arm64 host initdb runs emulated
+ * and can cross testcontainers' 60s default on a container that is fine
+ * (workers/edge/agent-db-test/postgres-arm.ts allows the same budget). */
+const STARTUP_TIMEOUT_MS = 240_000;
 
 export interface DockerDataPlane {
   dsn: string;
@@ -53,15 +63,51 @@ export async function createCleanDatabase(baseDsn: string, name: string): Promis
   return `${before}/${name}?sslmode=disable`;
 }
 
-/** Boot the offline container, prepare the clean DB + Atlas chain, then stop. */
-export async function startDataPlane(): Promise<DockerDataPlane> {
-  const container: StartedTestContainer = await new GenericContainer(OFFLINE_IMAGE)
+/** Both the published port and the second readiness log line, not just the port. */
+function acceptsSessionsWait(): WaitStrategy {
+  return Wait.forAll([
+    Wait.forListeningPorts(),
+    Wait.forLogMessage(READY_LOG, READY_LOG_OCCURRENCES),
+  ]);
+}
+
+const sleep: Pause = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+/** One session against the server: the probe the startup wait repeats. */
+async function openSession(dsn: string): Promise<void> {
+  const client = new pg.Client(dsn);
+  try {
+    await client.connect();
+    await client.query("select 1");
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
+function bootContainer(): Promise<StartedTestContainer> {
+  return new GenericContainer(OFFLINE_IMAGE)
     .withEnvironment({ POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB: POSTGRES_USER })
     .withExposedPorts(5432)
+    .withWaitStrategy(acceptsSessionsWait())
+    .withStartupTimeout(STARTUP_TIMEOUT_MS)
     .start();
-  const host = container.getHost();
-  const port = container.getMappedPort(5432);
-  const clean = await createCleanDatabase(`postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${host}:${String(port)}/postgres`, CLEAN_DATABASE);
+}
+
+async function migrateCleanDatabase(container: StartedTestContainer): Promise<DockerDataPlane> {
+  const base = `postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${container.getHost()}:${String(container.getMappedPort(5432))}/postgres`;
+  await new PostgresStartupWait(SPIKE_STARTUP_WAIT, sleep).until(() => openSession(base));
+  const clean = await createCleanDatabase(base, CLEAN_DATABASE);
   await applyAtlasChain(clean);
   return { dsn: clean, stop: () => container.stop().then(() => undefined) };
+}
+
+/** Boot the offline container, prepare the clean DB + Atlas chain, then stop. */
+export async function startDataPlane(): Promise<DockerDataPlane> {
+  const container = await bootContainer();
+  try {
+    return await migrateCleanDatabase(container);
+  } catch (failure) {
+    await container.stop();
+    throw failure;
+  }
 }
