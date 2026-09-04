@@ -80,10 +80,11 @@ function buildGateExpression(
 ): pulumi.Output<string> {
   // `pulumi.interpolate` already propagates secretness from `gateToken`, so the
   // explicit `pulumi.secret` is belt-and-braces — kept because the cost of
-  // being wrong here is high and asymmetric. Per `AGENTS.md`, every `pulumi up`
-  // is preceded by a `pulumi stack export` copied into R2; a value that is not
-  // marked secret lands in that object in the clear. This repository is public,
-  // so the token must never be reconstructible from anything we publish.
+  // being wrong here is high and asymmetric. Per `AGENTS.md`, a value that is
+  // not marked secret is stored in Pulumi Cloud state in the clear, and comes
+  // back out in the clear in any `pulumi stack export` an operator takes. This
+  // repository is public, so the token must never be reconstructible from
+  // anything we publish.
   // Parenthesised deliberately. Cloudflare's own examples omit them and rely on
   // `not` binding tighter than `and`, which is correct — but the two failure
   // modes of getting this wrong are "block every request to staging" and "block

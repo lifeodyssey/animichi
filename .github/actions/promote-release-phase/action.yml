@@ -19,17 +19,11 @@ inputs:
   cloudflare_account_id:
     description: Cloudflare account selected by the staging environment.
     required: false
-  pulumi_config_passphrase:
-    description: Pulumi config passphrase, supplied only to foundation.
-    required: false
-  pulumi_backend_url:
-    description: Pulumi state backend, supplied only to foundation.
-    required: false
-  r2_access_key_id:
-    description: R2 state access key, supplied only to foundation.
-    required: false
-  r2_secret_access_key:
-    description: R2 state secret, supplied only to foundation.
+  pulumi_organization:
+    description: >-
+      Pulumi Cloud organization this phase exchanges its GitHub OIDC token for
+      (#1077). State and stack encryption live in Pulumi Cloud, so foundation
+      needs no backend URL, R2 state keys, or config passphrase.
     required: false
   neon_api_key:
     description: Neon provisioning key, supplied only to foundation.
@@ -123,6 +117,15 @@ runs:
       uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
       with:
         pulumi-version-file: .pulumi.version
+    # OIDC, not a stored PULUMI_ACCESS_TOKEN: the action exchanges this job's
+    # GitHub id-token for a short-lived Pulumi Cloud organization token and
+    # exports it as PULUMI_ACCESS_TOKEN for the steps below (#1077).
+    - name: Log into Pulumi Cloud with GitHub OIDC
+      if: ${{ inputs.phase == 'foundation' }}
+      uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+      with:
+        organization: ${{ inputs.pulumi_organization }}
+        requested-token-type: urn:pulumi:token-type:access_token:organization
     - name: Promote foundation payloads
       if: ${{ inputs.phase == 'foundation' }}
       env:
@@ -130,10 +133,7 @@ runs:
         SOURCE_SHA: ${{ inputs.source_sha }}
         CLOUDFLARE_PULUMI_API_TOKEN: ${{ inputs.cloudflare_pulumi_api_token }}
         CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
-        PULUMI_CONFIG_PASSPHRASE: ${{ inputs.pulumi_config_passphrase }}
-        PULUMI_BACKEND_URL: ${{ inputs.pulumi_backend_url }}
-        R2_ACCESS_KEY_ID: ${{ inputs.r2_access_key_id }}
-        R2_SECRET_ACCESS_KEY: ${{ inputs.r2_secret_access_key }}
+        PULUMI_ORG: ${{ inputs.pulumi_organization }}
         NEON_API_KEY: ${{ inputs.neon_api_key }}
         RESET_STAGING_DB: ${{ inputs.reset_staging_db }}
       run: |

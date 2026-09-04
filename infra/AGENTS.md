@@ -5,15 +5,21 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 ## Commands (from `infra/`)
 
-- `pulumi preview --stack staging` — preview against `Pulumi.staging.yaml`.
-- `pulumi preview --stack prod` — preview against `Pulumi.prod.yaml`.
-- `pulumi up --stack staging` — apply the staging stack; normal delivery runs this through CI.
+- `pulumi preview --stack lifeodyssey/staging` — preview against `Pulumi.staging.yaml`.
+- `pulumi preview --stack lifeodyssey/prod` — preview against `Pulumi.prod.yaml`.
+- `pulumi up --stack lifeodyssey/staging` — apply the staging stack; normal delivery runs this through CI.
 - Production apply is CI-only: the deploy workflow runs Pulumi `up` with stack `prod` after the
   GitHub `production` environment approval.
 
 ## Conventions
 
-- State backend is Cloudflare R2 through `PULUMI_BACKEND_URL` and R2 S3 credentials.
+- State and `secure:` encryption live in **Pulumi Cloud**, org `lifeodyssey`, declared by `backend.url`
+  in each `Pulumi.yaml` (#1077). CI logs in with `pulumi/auth-actions` (GitHub OIDC → short-lived
+  organization token); there is no Pulumi access token, backend URL, R2 state key pair, or config
+  passphrase on the delivery lane. Applies are org-qualified: `pulumi up --stack lifeodyssey/<stack>`.
+  The one exception is `scripts/local-gates/infra-check.sh`, whose credential-free program-load
+  preflight sets `PULUMI_BACKEND_URL` to a throwaway `file://` backend and never reads real state —
+  that env var takes precedence over `backend.url` (measured on the pinned Pulumi 3.255.0).
 - `Pulumi.yaml` defines the project; `Pulumi.staging.yaml` and `Pulumi.prod.yaml` hold per-environment
   config. Secrets remain encrypted `secure:` values or CI/ESC inputs.
 - `index.ts` derives names from `pulumi.getStack()`; prod uses stable names, other stacks suffix
@@ -48,18 +54,14 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 - `stagingGateEnabled` defaults false. Enabling it requires `stagingDomain` and the
   `stagingGateToken` secret.
 - No Hyperdrive: catalog reaches Neon over `@neondatabase/serverless` HTTP.
-- **`pulumi stack export` runs unmodified before every `pulumi up`** (rollback backup, #485, in
-  the CD promotion path), then is copied to the **R2 bucket the
-  Pulumi state backend already lives in** (`rollback-backups/` prefix) via `aws s3 cp` — deliberately
-  **not** a GitHub Actions artifact, because this repo is **public**: a public repo's workflow
-  artifacts are downloadable by any signed-in GitHub account, not just people with repo access. It is
-  **never** run with `--show-secrets` — encrypted `secure:` config must stay ciphertext in that
-  export. Any new sensitive value added to `index.ts`/the stack configs MUST go through
-  `config.requireSecret()` / `getSecret()` (see `pulumi-best-practices` skill §5), never a plain
-  `config.require()` or a literal — a value that isn't marked secret is exported in the clear into
-  that R2 object. The R2 bucket is only as private as the R2 credentials that already gate the
-  Pulumi state itself; keeping the backup there (not GitHub artifacts) is what keeps that true for
-  the backup too.
-- No lifecycle/expiry rule exists yet on the `rollback-backups/` R2 prefix — objects accumulate
-  indefinitely. Adding one is a Pulumi resource change (`index.ts`), not a CI change; tracked as
-  **#521**.
+- **The pre-apply `pulumi stack export` rollback backup is retired** (#485 → #1077). Pulumi Cloud's
+  own update history is the rollback record, so CD no longer copies a state snapshot into the R2
+  bucket before every `pulumi up`. Nothing writes to that `rollback-backups/` prefix any more, so
+  #521 (no lifecycle rule on it) stops growing; the already-accumulated objects are the owner's to
+  delete when the R2 state bucket itself is retired. **Marking secrets still matters**: any sensitive
+  value in `index.ts` or the stack configs MUST go through `config.requireSecret()` / `getSecret()`
+  (see the `pulumi-best-practices` skill §5), never a plain `config.require()` or a literal. An
+  unmarked value is stored in the clear in Pulumi Cloud state and comes out in the clear in any
+  `pulumi stack export` an operator takes. Never run an export with `--show-secrets`, and never put
+  a state export in a GitHub Actions artifact — this repo is public, and a public repo's artifacts
+  are downloadable by any signed-in GitHub account.

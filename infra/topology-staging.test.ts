@@ -89,10 +89,11 @@ test("staging builds exactly one http_config_settings ruleset with bic=false", (
 });
 
 test("the gate rule is sealed as a SECRET before it reaches state", () => {
-  // The load-bearing one for a public repo. `pulumi stack export` runs before
-  // every `pulumi up` and lands in R2; anything not marked secret is written
-  // there in the clear. Note the seal propagated to the WHOLE rules array, not
-  // just the expression string, so the token cannot leak via a sibling field.
+  // The load-bearing one for a public repo. Anything not marked secret is
+  // written into Pulumi Cloud state in the clear, and comes back out in the
+  // clear in any operator `pulumi stack export`. Note the seal propagated to
+  // the WHOLE rules array, not just the expression string, so the token cannot
+  // leak via a sibling field.
   //
   // Mutation-tested, and the result is worth recording because it is not the
   // obvious one: dropping `pulumi.secret(...)` alone does NOT fail this, and

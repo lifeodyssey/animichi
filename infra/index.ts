@@ -32,7 +32,7 @@ export {
 // the E2E suite + local-login script (Path A of docs/ops/auth-migration-neon.md
 // §4). All config-gated: stacks without
 // `neonAuthBaseUrl` / `qaNeonUser*` set are unchanged. The password is a
-// secret — it must reach `pulumi stack export` ciphertext, never plaintext.
+// secret — it must reach state as ciphertext, never plaintext.
 // `neonAuthJwksUrl` is also declared as a Cloudflare Secrets Store secret in
 // infra/database-access (the store owner) so the deploy chain can source the edge
 // binding from state.
