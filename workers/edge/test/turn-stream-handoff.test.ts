@@ -36,6 +36,7 @@ function makeSubmission(): TurnSubmission {
     payer: "anon",
     clientMessageId: "cmid-1",
     text: "秩父の聖地を回りたい",
+    selection: null,
   };
 }
 

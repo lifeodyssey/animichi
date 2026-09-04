@@ -20,6 +20,7 @@ import type { AgentTransactions, AgentStatements } from "../../db/agent-database
 import { bareName } from "../../db/column-name.ts";
 import { isJsonRecord } from "../json-record.ts";
 import { anonDailyMessageCount, messages, runs, sessions } from "../../db/schema.ts";
+import { selectionEnvelope } from "../selection/selection-request.ts";
 import type { QuotaReservation } from "./quota-reservation.ts";
 import { allowanceExceeded, QuotaExhaustedError } from "./anonymous-message-allowance.ts";
 import {
@@ -54,12 +55,25 @@ function openSession(submission: TurnSubmission): SQL {
     returning ${bareName(sessions.userId)} as owner_id`;
 }
 
-/** The user message, unless this (session, client_message_id) already has one. */
+/**
+ * The user message, unless this (session, client_message_id) already has one.
+ *
+ * `response_data` on a USER row carries the turn's selection and nothing else
+ * (#1288). The column is the only durable carrier the run's own transaction can
+ * reach without DDL, and it is the right one on the merits: a selection turn is
+ * defined by its selection, so the two must commit together or neither does.
+ * `retrieval/` publishes `intent`/`success` off this column and finds neither
+ * here, which is why `transcriptMessage` answers `null` for such a row — the
+ * container never wrote a user envelope either.
+ */
 function insertMessage(turn: OpenedTurn): SQL {
   const { submission } = turn;
+  const submitted = submission.selection === null ? null : JSON.stringify(selectionEnvelope(submission.selection));
   return sql`insert into ${messages}
-      (${bareName(messages.sessionId)}, ${bareName(messages.role)}, ${bareName(messages.content)}, ${bareName(messages.clientMessageId)})
-    values (${submission.sessionId}, 'user', ${submission.text}, ${submission.clientMessageId})
+      (${bareName(messages.sessionId)}, ${bareName(messages.role)}, ${bareName(messages.content)},
+       ${bareName(messages.clientMessageId)}, ${bareName(messages.responseData)})
+    values (${submission.sessionId}, 'user', ${submission.text}, ${submission.clientMessageId},
+            ${submitted}::jsonb)
     on conflict (${bareName(messages.sessionId)}, ${bareName(messages.clientMessageId)})
       where ${bareName(messages.clientMessageId)} is not null
     do nothing

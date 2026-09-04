@@ -95,13 +95,20 @@ function storedCandidate(value: unknown): OrderedCandidate | null {
   return optionalFieldsHold(value) ? (value as unknown as OrderedCandidate) : null;
 }
 
-/** The open question, or nothing — a partly readable one is not a question. */
+/** The open question, or nothing — a partly readable one is not a question.
+ * A stored question with no readable `id` is not readable either: without it a
+ * pick could not be told from a stale one, which is the guard's whole job. */
 function storedClarification(value: unknown): PendingClarification | null {
   if (!isJsonRecord(value)) return null;
-  const { reason, candidates } = value;
-  if (typeof reason !== "string" || !Array.isArray(candidates)) return null;
+  const { id, reason, candidates } = value;
+  if (typeof id !== "number" || typeof reason !== "string" || !Array.isArray(candidates)) return null;
   const read = candidates.flatMap((one) => storedCandidate(one) ?? []);
-  return read.length === candidates.length ? { reason, candidates: read } : null;
+  return read.length === candidates.length ? { id, reason, candidates: read } : null;
+}
+
+/** The counter, defaulted to zero for an envelope written before #1288. */
+function storedRevision(value: unknown): number {
+  return typeof value === "number" ? value : 0;
 }
 
 export class DurableEnvelopeStore implements SessionEnvelopeStore {
@@ -117,7 +124,10 @@ export class DurableEnvelopeStore implements SessionEnvelopeStore {
     return new SessionEnvelope(
       storedClarification(held.pendingClarification),
       storedAnime(held.currentAnime),
-      storedMemory(held.memory),
+      {
+        clarificationRevision: storedRevision(held.clarificationRevision),
+        memory: storedMemory(held.memory),
+      },
     );
   }
 
@@ -131,6 +141,7 @@ export class DurableEnvelopeStore implements SessionEnvelopeStore {
     await this.#storage.put(stagedEnvelopeKey(runId), {
       pendingClarification: envelope.pendingClarification,
       currentAnime: envelope.currentAnime,
+      clarificationRevision: envelope.clarificationRevision,
       memory: encodedMemory(envelope.memory),
     });
   }

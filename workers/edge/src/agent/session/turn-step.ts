@@ -121,18 +121,57 @@ export class TurnSteps {
     }));
   }
 
+  /**
+   * One SERVER-initiated step: the same `(run_id, step_index)` contract, for
+   * work no model asked for (card #1288's selections).
+   *
+   * The seam exists because the idempotency key is the TURN's, not the model
+   * loop's — spec §三 names route persistence, a side effect the model never
+   * requests, as the example the key is for. A deterministic selection is
+   * exactly that turn: it calls the catalog, stores an itinerary and answers,
+   * with no provider call anywhere in it, and it must survive an eviction on
+   * the same terms as a tool call does.
+   *
+   * `execute` must ANSWER its own failures rather than throw them, the way the
+   * catalog tools do: a settled step is what a retry replays, so a failure that
+   * escaped would be retried against a catalog that already answered.
+   */
+  take(
+    toolName: string,
+    input: JsonValue,
+    execute: () => Promise<AgentToolResult<JsonValue>>,
+  ): Promise<AgentToolResult<JsonValue>> {
+    return this.#numbered(toolName, asJsonValue(input), execute);
+  }
+
   async #resolve(
     tool: TurnTool,
     ...call: Parameters<TurnTool["execute"]>
   ): Promise<AgentToolResult<JsonValue>> {
+    return this.#numbered(tool.name, asJsonValue(call[1]), () => tool.execute(...call));
+  }
+
+  /**
+   * Replay the settled result under the next index, or execute and settle it —
+   * and remember either one for the fact recorder (#1290).
+   *
+   * The recording sits here, below the two entry points, so a SERVER-initiated
+   * step is a fact-bearing step on the same terms as a model's tool call: a
+   * `plan_selected` pick leaves a scene reference in the ledger exactly as a
+   * model-issued `plan_route` does, and neither caller has to remember to say so.
+   */
+  async #numbered(
+    toolName: string,
+    input: JsonValue,
+    execute: () => Promise<AgentToolResult<JsonValue>>,
+  ): Promise<AgentToolResult<JsonValue>> {
     const stepIndex = this.#sequence.take();
-    const input = asJsonValue(call[1]);
     const settled = this.#sequence.settled(stepIndex);
-    if (settled !== null) return this.#recorded(tool.name, input, toolResultOf(settled));
-    const result = await tool.execute(...call);
+    if (settled !== null) return this.#recorded(toolName, input, toolResultOf(settled));
+    const result = await execute();
     const opening = this.#sequence.opening(stepIndex, this.#parts.output.assistantMessage);
-    await this.#settle(settledStep(stepIndex, tool.name, { input, result }, opening));
-    return this.#recorded(tool.name, input, result);
+    await this.#settle(settledStep(stepIndex, toolName, { input, result }, opening));
+    return this.#recorded(toolName, input, result);
   }
 
   /** Remember what the run asked and what it got, for the fact recorder. */

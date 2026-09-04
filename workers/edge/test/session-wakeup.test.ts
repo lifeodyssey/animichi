@@ -102,7 +102,7 @@ void test("a session that answers 500 fails the arm rather than reporting succes
 void test("a refused arm makes the whole intake reject — fetch fulfils on 5xx", async () => {
   const submission = {
     sessionId: "session-7", identityId: "anon_0123456789abcdef0123456789abcdef",
-    payer: "anon" as const, clientMessageId: "cmid-1", text: "hi",
+    payer: "anon" as const, clientMessageId: "cmid-1", text: "hi", selection: null,
   };
   const wakeup = durableSessionWakeup(makeStubs([], 503), { ensureScheduled: () => Promise.resolve() });
   await assert.rejects(acceptTurn(makeIntakeThrough(wakeup), submission), SessionArmError);

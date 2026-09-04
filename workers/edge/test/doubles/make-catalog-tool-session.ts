@@ -22,7 +22,7 @@ export interface RecordingToolSession extends CatalogToolSession {
   readonly searches: Map<string, SearchResultPayload>;
   readonly itineraries: ItineraryPayload[];
   readonly clarifications: (RecordedClarification | "cleared")[];
-  readonly animes: CurrentAnime[];
+  readonly animes: (CurrentAnime | null)[];
 }
 
 /** Build a recording session, optionally with the user's own coordinates. */
@@ -30,7 +30,7 @@ export function makeCatalogToolSession(origin?: LatLng, locale = "ja"): Recordin
   const searches = new Map<string, SearchResultPayload>();
   const itineraries: ItineraryPayload[] = [];
   const clarifications: (RecordedClarification | "cleared")[] = [];
-  const animes: CurrentAnime[] = [];
+  const animes: (CurrentAnime | null)[] = [];
   let sequence = 0;
   const mint = (kind: string, revision: number): string => {
     sequence += 1;

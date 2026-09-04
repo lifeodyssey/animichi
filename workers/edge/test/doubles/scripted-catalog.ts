@@ -2,8 +2,8 @@
  * Truthful by construction: every payload a test hands it is a real catalog
  * response shape, copied from `workers/catalog`'s own tests. Named for what it
  * builds, per .claude/rules/naming-ownership.md. */
-import type { GeocodeCandidate, Itinerary, LatLng, Pacing, Point, ResolveOutcome, SearchResult } from "@animichi/contract";
-import type { CatalogClient } from "../../src/agent/tools/catalog-client.ts";
+import type { GeocodeCandidate, Itinerary, LatLng, Point, ResolveOutcome, SearchResult } from "@animichi/contract";
+import type { CatalogClient, RoutePreferences } from "../../src/agent/tools/catalog-client.ts";
 import { CatalogUnavailableError } from "../../src/agent/tools/catalog-client.ts";
 
 /** The answers one scripted catalog gives, each optional. */
@@ -21,7 +21,7 @@ export interface CatalogCalls {
   fetched: string[];
   searched: { around: LatLng; radiusM: number }[];
   geocoded: string[];
-  planned: { pointIds: string[]; pacing: Pacing | undefined }[];
+  planned: { pointIds: string[]; route: RoutePreferences }[];
 }
 
 /** A scripted catalog plus the call log the test reads back. */
@@ -56,8 +56,8 @@ export function scriptedCatalog(script: CatalogScript): ScriptedCatalog {
       calls.geocoded.push(query);
       return answer(script.geocode, "geocode");
     },
-    planItinerary: (pointIds, pacing) => {
-      calls.planned.push({ pointIds, pacing });
+    planItinerary: (pointIds, route) => {
+      calls.planned.push({ pointIds, route });
       return answer(script.itinerary, "itinerary");
     },
   };

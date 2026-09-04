@@ -93,9 +93,11 @@ conflict, prefer verified sources over unverified ones.`;
  * It names no tool, for the same reason the prompt above names none: the tools
  * are #1253's and their routing table is theirs to write.
  *
- * NOT ported: Python's `revision` counter on the clarification line. It exists
- * there to stale-guard a candidate SELECTION handler, and the TS tier has no
- * selection path yet — the counter would be a number nothing compares.
+ * The clarification's own id is deliberately NOT on that line. #1288 gave the
+ * envelope one (`PendingClarification.id`) because a selection path now exists
+ * to stale-guard, but it is a fact for the CLIENT and the server's validator,
+ * not for the model: the model neither mints it nor may quote it back, and a
+ * number in the prompt is a number a model can invent.
  */
 
 /** The work the session is about, so the next turn does not resolve it again. */

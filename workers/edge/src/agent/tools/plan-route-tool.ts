@@ -40,7 +40,7 @@ async function planStored(
   signal?: AbortSignal,
 ): Promise<ItineraryOutcome> {
   const pointIds = payload.rows.map((row) => row.id).filter(Boolean);
-  const itinerary = await catalog.planItinerary(pointIds, pacing, signal);
+  const itinerary = await catalog.planItinerary(pointIds, { pacing }, signal);
   // Cleared before the empty branch returns: the catalog answered, so whatever
   // choice was pending is no longer the question, however few points came back.
   session.clearPendingClarification();

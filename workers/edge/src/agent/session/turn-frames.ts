@@ -95,6 +95,44 @@ export function framesFor(event: AgentEvent): TurnFrame[] {
   return [];
 }
 
+/**
+ * The frames a SERVER-initiated step pushes (card #1288).
+ *
+ * A deterministic selection has no pi events to translate, so the two shapes
+ * `framesFor` derives from `tool_execution_start` / `_end` are built directly
+ * — which is what Python's `ToolPartTranslator` did with its own `StepEvent`s,
+ * under a call id it minted itself (`new_step_call_id`). The opening `input` is
+ * `{}` because a selection's arguments came from the request rather than from a
+ * model, exactly as Python emitted `_emit(on_step, call_id, tool, "running",
+ * {})`.
+ */
+export function serverStepOpened(callId: string, toolName: string): TurnFrame[] {
+  return [
+    { type: "tool-input-start", toolCallId: callId, toolName },
+    { type: "tool-input-available", toolCallId: callId, toolName, input: {} },
+  ];
+}
+
+/**
+ * The step's own outcome word, as its output part.
+ *
+ * Python published `{"route_ref": …}` / `{"result_ref": …}` on the successful
+ * branches and `{"status": …}` on the rest. The refs are dropped here: a ref is
+ * a SERVER-side handle into the turn's registry, no client reads one (the web
+ * renders the `data-response` part, and these frames drive the tool theater),
+ * and minting one into a frame before the answer has stored its payload would
+ * publish a handle that does not resolve. The status is the fact the theater
+ * actually shows.
+ */
+export function serverStepSettled(callId: string, status: string): TurnFrame[] {
+  return [{ type: "tool-output-available", toolCallId: callId, output: { status } }];
+}
+
+/** A step that could not do its work — Python's `_error` translation. */
+export function serverStepFailed(callId: string): TurnFrame[] {
+  return [{ type: "tool-output-error", toolCallId: callId, errorText: ERROR_TEXT }];
+}
+
 /** One overwritable data part under the shared response id. */
 function dataResponse(data: JsonValue): TurnFrame {
   return { type: "data-response", id: RESPONSE_DATA_ID, data };

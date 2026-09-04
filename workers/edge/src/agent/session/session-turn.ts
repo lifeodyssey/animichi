@@ -12,6 +12,7 @@ import type { ByokCredential } from "../byok/byok-credential.ts";
 import { byokTurnModel } from "../byok/byok-turn-model.ts";
 import { usagePricesIn } from "../settlement/turn-settlement.ts";
 import { webSearchFetch } from "../egress/web-search-egress.ts";
+import { answerSelection } from "../selection/turn-selection.ts";
 import { agentToolbox } from "../tools/agent-toolbox.ts";
 import type { CatalogClient } from "../tools/catalog-client.ts";
 import { duckduckgoWebSearcher } from "../tools/duckduckgo-web-searcher.ts";
@@ -19,6 +20,7 @@ import { toollessCompletion, type ModelStream } from "../tools/model-title-trans
 import { serviceBindingCatalog, type CatalogBinding } from "../tools/service-binding-catalog.ts";
 import { titleTranslator, type TitleTranslator } from "../tools/title-translation.ts";
 import { DurableTurn } from "./durable-turn.ts";
+import type { SelectionTurn } from "./turn-attempt.ts";
 import { EnvelopeStagingStore } from "./envelope-staging-store.ts";
 import { NeonTurnStore } from "./neon-turn-store.ts";
 import { TurnAnswering } from "./turn-answer.ts";
@@ -50,6 +52,28 @@ const TURN_LOCALE = "ja";
 /** A real wait, injected into the catalog client so its retry backoff is real. */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** The catalog every turn of this deployment calls, when the binding is there. */
+function turnCatalog(env: Record<string, unknown>): CatalogClient | undefined {
+  const binding = catalogBindingIn(env);
+  return binding === undefined ? undefined : serviceBindingCatalog(binding, sleep);
+}
+
+/**
+ * How a DETERMINISTIC selection turn answers itself (#1288), or null when this
+ * deployment has no catalog to ask. Assembled here for the reason everything
+ * else in this file is: the binding is deployment configuration, and neither
+ * the loop nor `src/agent/selection/` should have to know how to find one.
+ */
+export function turnSelection(
+  env: Record<string, unknown>,
+  session: TurnCatalogSession,
+  emit: TurnFrameSink,
+): SelectionTurn | null {
+  const catalog = turnCatalog(env);
+  if (catalog === undefined) return null;
+  return (request, steps) => answerSelection({ catalog, session, steps, emit }, request);
 }
 
 /** The private `CATALOG` service binding, when the environment carries one. */
@@ -120,9 +144,8 @@ export function turnToolbox(
   session: TurnCatalogSession,
   model: TurnModel,
 ): Toolbox {
-  const binding = catalogBindingIn(env);
-  if (binding === undefined) return EMPTY_TOOLBOX;
-  const catalog = serviceBindingCatalog(binding, sleep);
+  const catalog = turnCatalog(env);
+  if (catalog === undefined) return EMPTY_TOOLBOX;
   const search = duckduckgoWebSearcher(webSearchFetch());
   const translate = turnTranslator(catalog, env, model);
   const tools = agentToolbox({ catalog, session, search, translate });
@@ -173,15 +196,20 @@ function configuredTurn(
   model: TurnModel,
   envelope: TurnEnvelope,
 ): DurableTurn {
+  // One sink for both paths: a selection streams no provider text, but the
+  // scrub is a property of the TURN's credential rather than of who emitted a
+  // frame, and two sinks would be two places to remember that.
+  const emit = turnFrameSink(parts.emit, model);
   return new DurableTurn({
     store: new EnvelopeStagingStore(store, envelope),
     model,
     toolbox: turnToolbox(parts.env, envelope.session, model),
     answering: new TurnAnswering(envelope.session),
     memory: envelope.session,
+    selection: turnSelection(parts.env, envelope.session, emit),
     systemPrompt: envelope.systemPrompt,
     prices: usagePricesIn(parts.env),
-    emit: turnFrameSink(parts.emit, model),
+    emit,
     owner: parts.owner,
     now: Date.now,
   });

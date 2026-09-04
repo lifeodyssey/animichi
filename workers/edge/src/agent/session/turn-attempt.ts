@@ -11,6 +11,7 @@
  * hands one of these the middle. Without the split those four values travel as
  * a clump through every method of the loop.
  */
+import type { SelectionRequest } from "../selection/selection-request.ts";
 import type { LoadedTurn } from "./turn-store.ts";
 import type { TurnMemory } from "../memory/session-memory.ts";
 import { recordTurnFacts } from "../memory/turn-fact-recorder.ts";
@@ -38,10 +39,25 @@ export interface TurnAttemptParts {
   /** What this session remembers (#1290): the fact ledger compaction rescues
    * entities into, and the recorder appends this turn's facts to. */
   readonly memory: TurnMemory;
+  /** How a DETERMINISTIC selection turn is answered (#1288), or null when this
+   * deployment cannot answer one — the catalog binding it needs is the same
+   * one `turnToolbox` needs, and an environment without it has no tools either. */
+  readonly selection: SelectionTurn | null;
   readonly emit: TurnFrameSink;
   readonly owner: string;
   readonly now: () => number;
 }
+
+/**
+/**
+ * A selection turn, as the attempt reaches it (#1288).
+ *
+ * A function rather than the whole of `src/agent/selection/`: everything that
+ * path needs beyond the run's own steps — the catalog, the session's registry,
+ * the frame sink — is deployment configuration `session-turn.ts` already owns,
+ * and the loop has no business assembling it a second time.
+ */
+export type SelectionTurn = (request: SelectionRequest, steps: TurnSteps) => Promise<TurnAnswer>;
 
 /**
  * A pi run that ended carrying an error is a provider failure, not an answer.
@@ -80,15 +96,30 @@ export class TurnAttempt {
   }
 
   /**
-   * One pi run. A run that ends carrying an error message never answered.
+   * One attempt at answering the turn.
    *
-   * The facts are recorded from the run's own steps AFTER the loop and BEFORE
-   * the ending, which is where Python recorded them (`_execution_result`,
-   * command-then-query) and the only place they can go: the settlement stages
-   * the envelope, so a fact written after it would be staged by nobody and the
-   * retry would promote a ledger missing it.
+   * A submission that carried a selection never reaches a model — Python routed
+   * one straight to its handler and so does this (`_kind_from_request`) — so
+   * the branch is here rather than inside the loop: a selection has no
+   * transcript to continue, no tools to offer and no usage to meter, and every
+   * one of those would have to be defended against inside the pi path.
    */
   async drive(): Promise<void> {
+    const request = this.#turn.selection;
+    if (request === null) await this.#modelled();
+    else await this.#select(request);
+  }
+
+  /** The deterministic path: one step, one answer, no provider call. */
+  async #select(request: SelectionRequest): Promise<void> {
+    const { selection } = this.#parts;
+    if (selection === null) throw new Error("a selection turn needs the CATALOG binding");
+    this.#answer = await selection(request, this.steps);
+    if (this.steps.broken !== null) throw this.steps.broken;
+  }
+
+  /** One pi run. A run that ends carrying an error message never answered. */
+  async #modelled(): Promise<void> {
     const agent = createTurnAgent(this.#agentParts());
     await agent.continue();
     if (this.steps.broken !== null) throw this.steps.broken;

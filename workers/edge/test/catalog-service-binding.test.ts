@@ -84,7 +84,7 @@ void test("nearby unwraps the rows the catalog wraps them in", async () => {
 
 void test("an itinerary without pacing sends no pacing field at all", async () => {
   const scripted = recordingBinding([json({ ordered_points: [], point_count: 1, timed_itinerary: {} })]);
-  await serviceBindingCatalog(scripted.binding, scripted.sleep).planItinerary(["spot-1"], undefined);
+  await serviceBindingCatalog(scripted.binding, scripted.sleep).planItinerary(["spot-1"], {});
   assert.equal(scripted.seen[0]?.body, '{"point_ids":["spot-1"]}');
 });
 

@@ -12,6 +12,7 @@
  */
 import type { RunPayer } from "../../db/schema.ts";
 import type { ByokCredential } from "../byok/byok-credential.ts";
+import type { SelectionRequest } from "../selection/selection-request.ts";
 import type { SessionWakeup } from "../session/session-wakeup.ts";
 import type { RunBackstop } from "../sweeper/run-backstop.ts";
 import { quotaReservationFor, type QuotaReservation } from "./quota-reservation.ts";
@@ -42,6 +43,16 @@ export interface TurnSubmission {
    * (`session-wakeup.ts`) and dies with the turn.
    */
   readonly byok?: ByokCredential;
+  /**
+   * The deterministic selection this turn is, when it is one (#1288).
+   *
+   * It rides the intake because it must land in the SAME transaction as the
+   * run: the alarm that drives the turn is woken after that commit and may not
+   * be the one the wake-up armed — the sweeper revives a stranded run from the
+   * `runs` row alone — so a selection stored anywhere else could be missing
+   * exactly when it is needed.
+   */
+  readonly selection: SelectionRequest | null;
 }
 
 /** What the intake resolved a submission to. `replayed` marks the dedupe hit:

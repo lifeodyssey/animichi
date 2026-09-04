@@ -19,6 +19,7 @@
  *   run=succeeded 同一 TX").
  */
 import type { AssistantMessage, ImageContent, JsonValue, TextContent } from "@earendil-works/pi-ai";
+import type { SelectionRequest } from "../selection/selection-request.ts";
 import type { MESSAGE_ROLES, RunFailureReason } from "../../db/schema.ts";
 import type { SettlementResult, TurnUsage, UsagePrices } from "../settlement/turn-settlement.ts";
 
@@ -82,6 +83,16 @@ export interface LoadedTurn {
    * forbids.
    */
   readonly callerKeyed: boolean;
+  /**
+   * The deterministic selection this turn IS, or null for an ordinary text
+   * turn (#1288).
+   *
+   * It is read off the run's OWN user message (`runs.message_id`), where the
+   * intake committed it in the same transaction as the run — so a turn cannot
+   * exist without knowing which kind of turn it is, not even the one the
+   * sweeper revives after a crash between COMMIT and the wake-up.
+   */
+  readonly selection: SelectionRequest | null;
 }
 
 /**

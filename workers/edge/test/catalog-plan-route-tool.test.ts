@@ -49,7 +49,7 @@ void test("a stored result is routed and its route stored under its own ref", as
     point_count: 2,
     total_minutes: 120,
   });
-  assert.deepEqual(calls.planned, [{ pointIds: ["spot-1", "spot-2"], pacing: "chill" }]);
+  assert.deepEqual(calls.planned, [{ pointIds: ["spot-1", "spot-2"], route: { pacing: "chill" } }]);
 });
 
 void test("the stored route carries the summary the web renders above it", async () => {

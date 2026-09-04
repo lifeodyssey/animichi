@@ -111,7 +111,7 @@ export class TurnCatalogSession implements CatalogToolSession, TurnMemory {
     this.#envelope = this.#envelope.cleared();
   }
 
-  setCurrentAnime(anime: CurrentAnime): void {
+  setCurrentAnime(anime: CurrentAnime | null): void {
     this.#envelope = this.#envelope.withAnime(anime);
   }
 
