@@ -14,8 +14,9 @@ paths:
   `wrangler deploy` must not clobber Pulumi-managed routes.
 - **State backend = Pulumi Cloud**, org `lifeodyssey`, declared by `backend.url` in each
   `Pulumi.yaml`; stack encryption is Pulumi Cloud's managed provider (#1077). CI logs in with
-  `pulumi/auth-actions` (GitHub OIDC), which mints a short-lived org token per run — no long-lived
-  Pulumi access token, backend URL, R2 state keys, or passphrase are stored in GitHub secrets.
+  `pulumi/auth-actions` (GitHub OIDC), which mints a short-lived personal Pulumi access token
+  scoped to `user:lifeodyssey` per run — no long-lived Pulumi access token, backend URL, R2 state
+  keys, or passphrase are stored in GitHub secrets.
 - Stacks: `Pulumi.yaml` + `Pulumi.staging.yaml` + `Pulumi.prod.yaml`.
 - **Secrets** live in Pulumi encrypted config (`secure:` in the stack file) / ESC — never plaintext.
   CF Worker secrets are pushed via CI (`wrangler secret put`) from Pulumi outputs
