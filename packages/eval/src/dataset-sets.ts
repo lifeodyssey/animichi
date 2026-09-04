@@ -20,3 +20,15 @@ export const EXPORTED_DATASETS: readonly ExportedDataset[] = [
   { caseCount: 13, name: 'long_context_v1' },
   { caseCount: 5, name: 'phase1c_selection_v1' },
 ];
+
+/**
+ * The set name a runner was asked for, refused with the list rather than
+ * guessed at. A typo that fell through to `Dataset.fromFile` would surface as
+ * ENOENT on a path nobody typed; naming the six is what makes the refusal
+ * actionable — and it lives here because this is where the six are declared.
+ */
+export function checkedDatasetName(name: string): string {
+  const known = EXPORTED_DATASETS.map((set) => set.name);
+  if (known.includes(name)) return name;
+  throw new RangeError(`unknown dataset "${name}" — one of: ${known.join(", ")}`);
+}

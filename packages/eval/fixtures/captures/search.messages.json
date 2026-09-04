@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "宇治の聖地を回るルートを組んで",
+      "response_data": null,
+      "created_at": "2026-09-04T09:00:00.000Z"
+    },
+    {
+      "role": "assistant",
+      "content": "宇治の聖地を2件、徒歩ルートにまとめました。",
+      "response_data": { "intent": "plan_route", "success": true },
+      "created_at": "2026-09-04T09:00:12.000Z"
+    }
+  ],
+  "revision": 1,
+  "next_offset": null,
+  "run": { "run_id": "run-search-fixture", "status": "succeeded" }
+}

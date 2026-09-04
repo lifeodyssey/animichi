@@ -2,7 +2,8 @@
 
 The TS side of the eval move (W3 of `docs/specs/2026-09-01-agent-ts-rewrite-spec.md`, umbrella
 #1258). Plain **Node** package — it reads files and will later drive HTTP calls at staging, so it
-must never enter a Workers bundle and never imports `workers/*`. Root guide: `../../AGENTS.md`.
+must never enter a Workers bundle, and imports nothing from `workers/*` except the one
+staging door named under “Talking to staging” below. Root guide: `../../AGENTS.md`.
 
 It owns two proven things: the **file contract** between the Python exporter and `logfire/evals`,
 and the **eight evaluators** (`src/evaluators/`) scoring identically to their Python originals.
@@ -172,3 +173,51 @@ Notes for the rest of W3:
 - **Assertions are folded into the case scores as 1/0.** Python's evaluators all
   return floats; a TS evaluator that returns a boolean lands in
   `report.assertions`, and dropping it would remove a metric the baseline expects.
+
+## Talking to staging (W3-2 #1300)
+
+`src/` shapes and decides; `scripts/` is the only place a credential is read or a request is
+made. That split is why the task can be tested with a fake fetch at all.
+
+| Piece | Owns |
+|---|---|
+| `src/turn-transcript.ts` | (SSE frames, transcript read) → `TranscriptResult`, the members Python's evaluators read off an `AgentResult` |
+| `src/case-submissions.ts` | the `POST /v1/chat` bodies one case sends, history first |
+| `src/staging-turn-task.ts` | the `Dataset.evaluate` task: submit, retry policy, concurrency bound, read back |
+| `src/staging-bearer.ts` · `src/neon-auth-bearer.ts` | the 15-minute Neon Auth JWT, minted and re-minted on age |
+| `scripts/eval-staging.ts` | `pnpm run eval:staging -- --dataset <set> --limit <n>`; prints `renderReport` |
+| `scripts/record-captures.sh` | re-record `fixtures/captures/` from live turns, once a gate token exists |
+
+**One door.** Every staging request goes through `workers/edge/api-test/lane-origin.ts`
+(`laneFetch`), which is why `edge-worker` is a devDependency here. It is the single module
+that resolves `CATALOG_API_ORIGIN`, refuses a non-loopback origin that is not HTTPS, attaches
+`x-staging-key`, and forbids following a redirect (#1291, #1294). Reimplementing those four
+rules would be three places for one of them to be forgotten, and the request that forgot is the
+one that carries a bearer to wherever a `Location` header pointed. Neon Auth is a **different**
+origin behind no WAF rule, so `neon-auth-bearer.ts` takes an injected sender and never reads the
+door's environment. `test/staging-door.test.ts` holds all of that.
+
+**`locale` is the requested locale, not a derived one.** The answer envelope publishes none to
+derive from — `session` is `{}` and `ui` is a component name, both constant by contract
+(`turn-answer-part.ts::capturedMembers`). Python did not derive one either: `LocaleMatch` reads
+`ctx.inputs.locale` together with the answer's prose. So the result carries the locale that was
+asked for and the message that came back, and W3-3 scores the pair.
+
+**Fixtures.** The shaper is measured against the Python-recorded SD-9 captures in
+`apps/agent/tests/fixtures/chat_stream/`, read in place rather than copied, each with the
+`<name>.agent-result.json` its recorder writes from the same turn using the evaluators' own
+accessors. Their **frame grammar** is the deployed edge's — #1283 built `turn-frames.ts` off
+these files and matched them frame for frame — but their answer **envelope** predates a change
+in `agent_result_to_response`, which now projects the payload from the session registry (see
+`record_fixtures.py`'s own note). So `dataKeysOf` is pinned against both shapes: the recorded
+one, and today's `{results, itinerary}` pairing. `fixtures/captures/*.messages.json` is the one hand-written fixture here — Python
+never served `GET /v1/conversations/{id}/messages` for those turns — and it is parsed through
+the contract's `GetSessionHistoryResponse` so it cannot drift into a shape the edge would never
+send. **Unverified:** no capture has been taken from a live staging turn yet; there was no
+`STAGING_GATE_TOKEN` in reach when this landed. `scripts/record-captures.sh` is how that
+changes, and the shaper needing an edit afterwards is itself the finding.
+
+**Why `lib` includes `DOM`.** `tsconfig.json` compiles the shared door, which is written against
+`HeadersInit`; `@types/node` publishes `fetch`/`Response`/`Headers` globally but not that name.
+The package is still Node-only — nothing here may touch a browser global, and the tests would
+say so immediately if it did.
