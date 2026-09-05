@@ -40,8 +40,10 @@ import { storedSelection } from "../selection/selection-request.ts";
 import { assistantTextOf } from "./turn-output.ts";
 import {
   asJsonValue,
+  toolCallEnvelopeOf,
   type LoadedTurn,
   type PersistedStep,
+  type RunSteps,
   type SettledStep,
   type StepResult,
   type SucceededTurnRecord,
@@ -96,10 +98,22 @@ function selectTranscript(sessionId: string): SQL {
     order by ${messages.createdAt}, ${messages.id}`;
 }
 
-function selectSteps(runId: string): SQL {
-  return sql`select ${runSteps.stepIndex} as step_index, ${runSteps.toolName} as tool_name,
-      ${runSteps.input} as input, ${runSteps.result} as result
-    from ${runSteps} where ${runSteps.runId} = ${runId} order by ${runSteps.stepIndex}`;
+/**
+ * The settled steps of EVERY run the session's transcript replays (#1377), in
+ * one statement.
+ *
+ * Keyed on `run_steps`' own primary key rather than joined to `runs` on
+ * `session_id`: the tool-call rows already carry the `run_id` that issued them,
+ * `(run_id, step_index)` is the index this reads straight down, and `runs` has
+ * no `session_id` index a join could use — only the partial unique one over the
+ * single RUNNING row. One round trip either way, and this one touches no second
+ * table.
+ */
+function selectSteps(runIds: readonly string[]): SQL {
+  return sql`select ${runSteps.runId} as run_id, ${runSteps.stepIndex} as step_index,
+      ${runSteps.toolName} as tool_name, ${runSteps.input} as input, ${runSteps.result} as result
+    from ${runSteps} where ${runSteps.runId} in (${sql.join(runIds.map((id) => sql`${id}`), sql`, `)})
+    order by ${runSteps.runId}, ${runSteps.stepIndex}`;
 }
 
 function insertMessage(sessionId: string, role: string, content: string, data: unknown): SQL {
@@ -145,32 +159,68 @@ function toStepResult(value: unknown): StepResult | null {
   return { content, details: asJsonValue(value.details), minted: mintsIn(value.minted) };
 }
 
-function toPersistedStep(row: unknown): PersistedStep | undefined {
+/** One `run_steps` row, under the run that numbered it. */
+interface OwnedStep {
+  readonly runId: string;
+  readonly step: PersistedStep;
+}
+
+function toOwnedStep(row: unknown): OwnedStep | undefined {
   if (!isJsonRecord(row) || typeof row.step_index !== "number") return undefined;
-  return {
+  const step = {
     stepIndex: row.step_index,
     toolName: textIn(row, "tool_name"),
     input: asJsonValue(row.input),
     result: toStepResult(row.result),
   };
+  return { runId: textIn(row, "run_id"), step };
 }
 
 function present<T>(value: T | undefined): value is T {
   return value !== undefined;
 }
 
+function stepsByRun(owned: readonly OwnedStep[]): Map<string, PersistedStep[]> {
+  const byRun = new Map<string, PersistedStep[]>();
+  for (const { runId, step } of owned) {
+    const held = byRun.get(runId) ?? [];
+    held.push(step);
+    byRun.set(runId, held);
+  }
+  return byRun;
+}
+
+/** The runs a rebuild has to answer: this one, and every earlier run whose
+ * tool-call rows are still in the session's transcript (#1377). */
+function issuingRunIds(transcript: readonly TranscriptRow[], runId: string): string[] {
+  const issuing = new Set([runId]);
+  for (const row of transcript) {
+    const envelope = toolCallEnvelopeOf(row);
+    if (envelope !== null) issuing.add(envelope.run_id);
+  }
+  return [...issuing];
+}
+
+function earlierStepsIn(byRun: Map<string, PersistedStep[]>, runId: string): RunSteps[] {
+  const earlier = [...byRun].filter(([issued]) => issued !== runId);
+  return earlier.map(([issued, steps]) => ({ runId: issued, steps }));
+}
+
 async function loadTurnOn(statements: AgentStatements, runId: string): Promise<LoadedTurn | null> {
   const [run] = (await statements.execute(selectRun(runId))).rows.filter(isJsonRecord);
   if (run === undefined) return null;
   const sessionId = textIn(run, "session_id");
-  const transcript = await statements.execute(selectTranscript(sessionId));
-  const steps = await statements.execute(selectSteps(runId));
+  const loaded = await statements.execute(selectTranscript(sessionId));
+  const transcript = loaded.rows.map(toTranscriptRow).filter(present);
+  const owned = await statements.execute(selectSteps(issuingRunIds(transcript, runId)));
+  const byRun = stepsByRun(owned.rows.map(toOwnedStep).filter(present));
   return {
     runId,
     sessionId,
     deadlineAt: Number(textIn(run, "deadline_ms")),
-    transcript: transcript.rows.map(toTranscriptRow).filter(present),
-    steps: steps.rows.map(toPersistedStep).filter(present),
+    transcript,
+    steps: byRun.get(runId) ?? [],
+    earlierSteps: earlierStepsIn(byRun, runId),
     callerKeyed: textIn(run, "payer") === BYOK_PAYER,
     selection: storedSelection(run.submitted),
   };

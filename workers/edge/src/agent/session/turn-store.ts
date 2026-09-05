@@ -19,6 +19,7 @@
  *   run=succeeded 同一 TX").
  */
 import type { AssistantMessage, ImageContent, JsonValue, TextContent } from "@earendil-works/pi-ai";
+import { isJsonRecord } from "../json-record.ts";
 import type { SelectionRequest } from "../selection/selection-request.ts";
 import type { StepMint } from "./minted-refs.ts";
 import type { MESSAGE_ROLES, RunFailureReason } from "../../db/schema.ts";
@@ -71,6 +72,12 @@ export interface TranscriptRow {
   readonly responseData: JsonValue | null;
 }
 
+/** The steps one run of the session settled, under that run's own numbering. */
+export interface RunSteps {
+  readonly runId: string;
+  readonly steps: readonly PersistedStep[];
+}
+
 /** Everything one alarm needs to resume one run. */
 export interface LoadedTurn {
   readonly runId: string;
@@ -78,7 +85,20 @@ export interface LoadedTurn {
   /** The non-renewable whole-turn budget, in epoch milliseconds. */
   readonly deadlineAt: number;
   readonly transcript: readonly TranscriptRow[];
+  /** THIS run's `run_steps`: what the step replay and the ref rehydration read. */
   readonly steps: readonly PersistedStep[];
+  /**
+   * The EARLIER runs of the same session, each with its own steps (#1377).
+   *
+   * The transcript replays every turn's tool calls as structured messages, and
+   * a call is answered by the run that issued it — so an earlier turn's rows
+   * need that run's `run_steps`, not this one's. They are kept apart from
+   * `steps` rather than merged into it because everything else about a step is
+   * per-RUN: `StepSequence` replays only this run's results and only this run's
+   * refs are rehydrated, and a merged list would make both of those a filter
+   * someone has to remember to write.
+   */
+  readonly earlierSteps: readonly RunSteps[];
   /**
    * Whether the run was committed against the CALLER's own provider key —
    * `runs.payer = 'byok'` (#1289).
@@ -106,15 +126,25 @@ export interface LoadedTurn {
 
 /**
  * What an assistant tool-call row stores in `messages.response_data`: which run
- * issued the calls, and the `step_index` its FIRST call was settled under. The
- * marker is what lets a later turn of the same session read an earlier turn's
- * row as plain text instead of trying to answer its calls from a step list that
- * belongs to a different run.
+ * issued the calls, and the `step_index` its FIRST call was settled under.
+ *
+ * The marker is what makes the pairing explicit rather than positional: every
+ * turn's calls are replayed as structured messages (#1377), and each row is
+ * answered from the steps of the run NAMED IN IT — so two runs that both
+ * numbered a call `step_index: 0` cannot answer each other's.
  */
 export interface ToolCallEnvelope {
   readonly run_id: string;
   readonly step_index: number;
   readonly message: AssistantMessage;
+}
+
+/** The envelope a row carries, or null when it is not a tool-call row. */
+export function toolCallEnvelopeOf(row: TranscriptRow): ToolCallEnvelope | null {
+  const held = row.responseData;
+  if (!isJsonRecord(held) || typeof held.run_id !== "string") return null;
+  const ok = typeof held.step_index === "number" && isJsonRecord(held.message);
+  return ok ? (held as unknown as ToolCallEnvelope) : null;
 }
 
 /**

@@ -1,5 +1,7 @@
 /**
- * W1-3 (#1252): the transcript a retried alarm resumes from (spec Appendix C).
+ * W1-3 (#1252): the crash branch of the transcript a retried alarm resumes
+ * from (spec Appendix C). What the SESSION's earlier turns contribute is
+ * `agent-turn-transcript-replay.test.ts` (#1377).
  *
  * The property under test is the one the spike made a hard requirement: an
  * assistant tool-call message persisted with its `run_steps` row comes back as
@@ -11,67 +13,35 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { AssistantMessage } from "@earendil-works/pi-ai";
 import { resumedTranscript } from "../src/agent/session/turn-transcript.ts";
-import { asJsonValue } from "../src/agent/session/turn-store.ts";
-import { mimoModel } from "../src/agent/session/turn-model.ts";
-import type {
-  LoadedTurn,
-  PersistedStep,
-  StepResult,
-  TranscriptRow,
-} from "../src/agent/session/turn-store.ts";
+import type { LoadedTurn } from "../src/agent/session/turn-store.ts";
+import {
+  makeLoadedTurn,
+  makeStep,
+  makeStepResult,
+  makeToolCallMessage,
+  makeToolCallRow,
+  MODEL,
+  RUN_ID,
+  USER_MESSAGE,
+  USER_ROW,
+} from "./doubles/make-loaded-turn.ts";
 
-const RUN_ID = "run-1";
-const MODEL = mimoModel();
-const RESULT: StepResult = { content: [{ type: "text", text: "Takayama" }], details: null };
-
-function makeToolCallMessage(...ids: string[]): AssistantMessage {
-  return {
-    role: "assistant",
-    content: ids.map((id) => ({ type: "toolCall", id, name: "lookup_spot", arguments: {} })),
-    api: "openai-completions",
-    provider: "mimo",
-    model: MODEL.id,
-    usage: { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
-    stopReason: "toolUse",
-    timestamp: 0,
-  };
-}
-
-function makeToolCallRow(runId: string, stepIndex: number, message: AssistantMessage): TranscriptRow {
-  const envelope = { run_id: runId, step_index: stepIndex, message };
-  return { role: "assistant", content: "", responseData: asJsonValue(envelope) };
-}
-
-function makeStep(stepIndex: number, result: StepResult | null): PersistedStep {
-  return { stepIndex, toolName: "lookup_spot", input: {}, result };
-}
-
-function makeTurn(transcript: TranscriptRow[], steps: PersistedStep[] = []): LoadedTurn {
-  return {
-    runId: RUN_ID, sessionId: "session-1", deadlineAt: 0, transcript, steps,
-    callerKeyed: false, selection: null,
-  };
-}
-
-const USER: TranscriptRow = { role: "user", content: "Hyouka の聖地は？", responseData: null };
+const RESULT = makeStepResult("Takayama");
 
 /** The messages half of the rebuild, which is what most of these are about. */
-function seededMessages(turn: LoadedTurn, model: typeof MODEL): AgentMessage[] {
-  return resumedTranscript(turn, model).messages;
+function seededMessages(turn: LoadedTurn): AgentMessage[] {
+  return resumedTranscript(turn, MODEL).messages;
 }
 
 void test("a fresh turn seeds exactly the user message", () => {
-  assert.deepEqual(seededMessages(makeTurn([USER]), MODEL), [
-    { role: "user", content: "Hyouka の聖地は？", timestamp: 0 },
-  ]);
+  assert.deepEqual(seededMessages(makeLoadedTurn({ transcript: [USER_ROW] })), [USER_MESSAGE]);
 });
 
 void test("a persisted tool call comes back answered by its persisted step", () => {
   const message = makeToolCallMessage("call-1");
-  const turn = makeTurn([USER, makeToolCallRow(RUN_ID, 0, message)], [makeStep(0, RESULT)]);
-  const seeded = seededMessages(turn, MODEL);
+  const transcript = [USER_ROW, makeToolCallRow(RUN_ID, 0, message)];
+  const seeded = seededMessages(makeLoadedTurn({ transcript, steps: [makeStep(0, RESULT)] }));
   assert.equal(seeded.length, 3);
   assert.deepEqual(seeded[1], message);
   assert.deepEqual(seeded[2], {
@@ -86,21 +56,19 @@ void test("a persisted tool call comes back answered by its persisted step", () 
 });
 
 void test("a tool call whose step never landed truncates the transcript", () => {
-  const turn = makeTurn([USER, makeToolCallRow(RUN_ID, 0, makeToolCallMessage("call-1"))], []);
-  assert.deepEqual(seededMessages(turn, MODEL), [
-    { role: "user", content: "Hyouka の聖地は？", timestamp: 0 },
-  ]);
+  const transcript = [USER_ROW, makeToolCallRow(RUN_ID, 0, makeToolCallMessage("call-1"))];
+  assert.deepEqual(seededMessages(makeLoadedTurn({ transcript })), [USER_MESSAGE]);
 });
 
 void test("a batch answered only in part truncates rather than half-answering", () => {
-  const message = makeToolCallMessage("call-1", "call-2");
-  const turn = makeTurn([USER, makeToolCallRow(RUN_ID, 0, message)], [makeStep(0, RESULT)]);
-  assert.equal(seededMessages(turn, MODEL).length, 1);
+  const transcript = [USER_ROW, makeToolCallRow(RUN_ID, 0, makeToolCallMessage("call-1", "call-2"))];
+  const turn = makeLoadedTurn({ transcript, steps: [makeStep(0, RESULT)] });
+  assert.equal(seededMessages(turn).length, 1);
 });
 
-void test("an earlier turn's tool-call row is read as its plain text, not answered", () => {
-  const row = makeToolCallRow("run-0", 0, makeToolCallMessage("old-call"));
-  const seeded = seededMessages(makeTurn([{ ...row, content: "前の答え" }, USER]), MODEL);
+void test("an assistant row that issued no calls comes back as its plain text", () => {
+  const answer = { role: "assistant" as const, content: "前の答え", responseData: null };
+  const seeded = seededMessages(makeLoadedTurn({ transcript: [answer, USER_ROW] }));
   assert.equal(seeded.length, 2);
   assert.deepEqual(seeded[0], {
     role: "assistant",
@@ -114,19 +82,19 @@ void test("an earlier turn's tool-call row is read as its plain text, not answer
   });
 });
 
-void test("an earlier turn's empty tool-call row contributes nothing at all", () => {
-  const row = makeToolCallRow("run-0", 0, makeToolCallMessage("old-call"));
-  assert.equal(seededMessages(makeTurn([row, USER]), MODEL).length, 1);
+void test("an empty assistant row contributes nothing at all", () => {
+  const empty = { role: "assistant" as const, content: "", responseData: null };
+  assert.equal(seededMessages(makeLoadedTurn({ transcript: [empty, USER_ROW] })).length, 1);
 });
 
 void test("the rebuild reports how many of this run's steps it already answers", () => {
-  const message = makeToolCallMessage("call-1");
-  const turn = makeTurn([USER, makeToolCallRow(RUN_ID, 0, message)], [makeStep(0, RESULT)]);
+  const transcript = [USER_ROW, makeToolCallRow(RUN_ID, 0, makeToolCallMessage("call-1"))];
+  const turn = makeLoadedTurn({ transcript, steps: [makeStep(0, RESULT)] });
   assert.equal(resumedTranscript(turn, MODEL).settledSteps, 1);
 });
 
 void test("a truncated batch resumes no steps, so they are replayed in place", () => {
-  const message = makeToolCallMessage("call-1", "call-2");
-  const turn = makeTurn([USER, makeToolCallRow(RUN_ID, 0, message)], [makeStep(0, RESULT)]);
+  const transcript = [USER_ROW, makeToolCallRow(RUN_ID, 0, makeToolCallMessage("call-1", "call-2"))];
+  const turn = makeLoadedTurn({ transcript, steps: [makeStep(0, RESULT)] });
   assert.equal(resumedTranscript(turn, MODEL).settledSteps, 0);
 });

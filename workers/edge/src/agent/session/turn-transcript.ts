@@ -1,8 +1,9 @@
 /**
- * The transcript a retried alarm resumes from (card #1252; spec
- * `docs/specs/2026-09-01-agent-ts-rewrite-spec.md` Appendix C's implementation
- * requirement: "assistant 的 tool-call 消息必须与 `run_steps` 一起持久化并从转录
- * 重放——这是 W1-3 的实现条件，不是优化项").
+ * The transcript a turn resumes from (card #1252, widened to the whole session
+ * by #1377; spec `docs/specs/2026-09-01-agent-ts-rewrite-spec.md` Appendix C's
+ * implementation requirement: "assistant 的 tool-call 消息必须与 `run_steps`
+ * 一起持久化并从转录重放——这是 W1-3 的实现条件，不是优化项", and §九 9.1's
+ * decision that EVERY turn's calls come back structured).
  *
  * WHY IT IS A REBUILD AND NOT A REPLAY OF EVENTS: a retried alarm must not ask
  * the model to re-derive the tool calls it already made, because a second
@@ -11,21 +12,37 @@
  * messages and their persisted results makes the loop CONTINUE instead, so the
  * next new call is the (n+1)-th by construction.
  *
- * A tool-call row carries its own `run_id` and `step_index` in
- * `messages.response_data`, so the pairing is explicit rather than positional:
- * only THIS run's rows are paired against the `run_steps` rows this alarm
- * loaded, and an EARLIER turn's tool-call row degrades to its plain text (its
- * steps live under another run id and were never loaded). Without that marker a
- * session's second turn would try to answer the first turn's calls from an
- * empty step list and truncate the whole history.
+ * WHY EVERY TURN AND NOT JUST THIS ONE (spec §九 9.1, 李博杰《深入理解 AI
+ * Agent》ch.2 实验 2-3): degrading an earlier turn's tool-call row to its plain
+ * text stacked two of that experiment's named anti-patterns. Sliding-window
+ * history — the results of turn 1 were gone by turn 3, so the model re-called
+ * the tool it had already been answered. Text formatting — structured
+ * role-content messages collapsed into prose, which the model has to spend
+ * attention re-parsing into calls and answers. Both turns of the session now
+ * arrive as `assistant` + `toolResult` messages, the shape the model was
+ * trained on.
  *
- * The trailing truncation is the crash branch. One assistant message may carry
- * several tool calls, and a crash between two of them leaves the message with an
- * unanswered call; pi's `continue()` requires the transcript to end on a user or
- * tool-result message, and a model asked to answer an unanswered call would
- * invent one. Dropping that message returns the loop to the last complete
- * result — `TurnStep` still replays the steps that did land, so nothing runs
- * twice.
+ * A tool-call row carries its own `run_id` and `step_index` in
+ * `messages.response_data`, so the pairing stays explicit rather than
+ * positional: each row is answered from the steps of the run NAMED IN IT —
+ * this run's rows from the `run_steps` this alarm loaded, an earlier run's rows
+ * from that run's own steps (`LoadedTurn.earlierSteps`). Two runs that both
+ * numbered a call `step_index: 0` therefore cannot answer each other's.
+ *
+ * The unanswered call is the crash branch, and it reads differently by run. One
+ * assistant message may carry several tool calls, and a crash between two of
+ * them leaves the message with an unanswered call; a model asked to answer one
+ * would invent a result, so the message is never seeded half-answered. For THIS
+ * run the whole rebuild stops there — pi's `continue()` requires the transcript
+ * to end on a user or tool-result message, and `TurnStep` replays the steps
+ * under the dropped message in place, so nothing runs twice. For an EARLIER run
+ * — a turn that crashed and was retried or abandoned — the unanswered message
+ * is left out and the walk carries on, because the turns AFTER it are history
+ * the model still needs and dropping them would be the sliding window again.
+ *
+ * `settledSteps` counts only THIS run's seeded answers: it is where
+ * `StepSequence` starts numbering, so an earlier run's results counted into it
+ * would make this run's first new call claim an index another step already holds.
  */
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type {
@@ -35,25 +52,18 @@ import type {
   ToolCall,
   ToolResultMessage,
 } from "@earendil-works/pi-ai";
-import { isJsonRecord } from "../json-record.ts";
-import type {
-  LoadedTurn,
-  PersistedStep,
-  StepResult,
-  ToolCallEnvelope,
-  TranscriptRow,
+import {
+  toolCallEnvelopeOf,
+  type LoadedTurn,
+  type PersistedStep,
+  type StepResult,
+  type ToolCallEnvelope,
+  type TranscriptRow,
 } from "./turn-store.ts";
 
 const ZERO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
 const ZERO_USAGE = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: ZERO_COST };
-
-/** The envelope a row carries for THIS run, or null for anything else. */
-export function toolCallEnvelopeOf(row: TranscriptRow, runId: string): ToolCallEnvelope | null {
-  const held = row.responseData;
-  if (!isJsonRecord(held) || held.run_id !== runId) return null;
-  const ok = typeof held.step_index === "number" && isJsonRecord(held.message);
-  return ok ? (held as unknown as ToolCallEnvelope) : null;
-}
+const NO_RESULTS: ReadonlyMap<number, StepResult> = new Map();
 
 function toolCallsOf(message: AssistantMessage): ToolCall[] {
   return message.content.filter((part): part is ToolCall => part.type === "toolCall");
@@ -73,6 +83,11 @@ function plainAssistant(text: string, model: Model<Api>): AssistantMessage {
   };
 }
 
+/** An assistant row that issued no calls: its text, or nothing when it is empty. */
+function textOnly(text: string, model: Model<Api>): AgentMessage[] {
+  return text === "" ? [] : [plainAssistant(text, model)];
+}
+
 function toolResultFor(call: ToolCall, result: StepResult): ToolResultMessage {
   return {
     role: "toolResult",
@@ -88,7 +103,7 @@ function toolResultFor(call: ToolCall, result: StepResult): ToolResultMessage {
 /** Every call of one assistant turn answered, or null when one has no result. */
 function answersFor(
   envelope: ToolCallEnvelope,
-  settled: Map<number, StepResult>,
+  settled: ReadonlyMap<number, StepResult>,
 ): ToolResultMessage[] | null {
   const answers = toolCallsOf(envelope.message).map((call, offset) => {
     const result = settled.get(envelope.step_index + offset);
@@ -103,18 +118,22 @@ function settledResults(steps: readonly PersistedStep[]): Map<number, StepResult
   return settled;
 }
 
-/** The messages one row contributes, or null when the transcript ends here. */
-function messagesForRow(
-  row: TranscriptRow,
-  turn: LoadedTurn,
-  settled: Map<number, StepResult>,
-  model: Model<Api>,
-): AgentMessage[] | null {
-  if (row.role === "user") return [{ role: "user", content: row.content, timestamp: 0 }];
-  const envelope = toolCallEnvelopeOf(row, turn.runId);
-  if (envelope === null) return row.content === "" ? [] : [plainAssistant(row.content, model)];
-  const answers = answersFor(envelope, settled);
-  return answers === null ? null : [envelope.message, ...answers];
+/**
+ * Every settled step of the session, addressed the way a stored tool-call row
+ * addresses one: by the run that issued the call, then by `step_index`.
+ */
+class SessionResults {
+  readonly #byRun = new Map<string, Map<number, StepResult>>();
+
+  constructor(turn: LoadedTurn) {
+    this.#byRun.set(turn.runId, settledResults(turn.steps));
+    for (const run of turn.earlierSteps) this.#byRun.set(run.runId, settledResults(run.steps));
+  }
+
+  /** What that run settled — empty for a run whose steps were never written. */
+  of(runId: string): ReadonlyMap<number, StepResult> {
+    return this.#byRun.get(runId) ?? NO_RESULTS;
+  }
 }
 
 /**
@@ -124,10 +143,10 @@ function messagesForRow(
  * The count is what the step counter starts at (`turn-step-sequence.ts`,
  * #1279): a seeded tool result is a step the model will NOT ask for again, so
  * the next call it makes is the (n+1)-th of the run rather than the first. It
- * is counted off the messages instead of off `turn.steps` because the two
- * differ exactly where it matters — a trailing assistant message whose calls
- * are not all answered is dropped, and the steps under it are then replayed in
- * place by the calls the model re-derives.
+ * is counted off the seeded answers of THIS run instead of off `turn.steps`
+ * because the two differ exactly where it matters — a trailing assistant
+ * message whose calls are not all answered is dropped, and the steps under it
+ * are then replayed in place by the calls the model re-derives.
  */
 export interface ResumedTranscript {
   readonly messages: AgentMessage[];
@@ -135,29 +154,53 @@ export interface ResumedTranscript {
   readonly settledSteps: number;
 }
 
-/** Every seeded tool result is one settled step of this run, and nothing else
- * in the rebuild produces one. */
-function answeredSteps(messages: readonly AgentMessage[]): number {
-  return messages.filter((message) => message.role === "toolResult").length;
-}
-
 /**
- * The pi transcript this run resumes from: the session's stored messages, with
- * every persisted tool call of THIS run answered by its `run_steps` result.
+ * The walk that rebuilds one run's transcript out of the session's rows, and
+ * what it counted on the way: only this run's answers move the step counter.
  */
-function seededMessages(turn: LoadedTurn, model: Model<Api>): AgentMessage[] {
-  const settled = settledResults(turn.steps);
-  const seeded: AgentMessage[] = [];
-  for (const row of turn.transcript) {
-    const contributed = messagesForRow(row, turn, settled, model);
-    if (contributed === null) return seeded;
-    seeded.push(...contributed);
+class TranscriptRebuild {
+  readonly #turn: LoadedTurn;
+  readonly #model: Model<Api>;
+  readonly #results: SessionResults;
+  readonly #messages: AgentMessage[] = [];
+  #settledSteps = 0;
+
+  constructor(turn: LoadedTurn, model: Model<Api>) {
+    this.#turn = turn;
+    this.#model = model;
+    this.#results = new SessionResults(turn);
   }
-  return seeded;
+
+  /** The rebuild, walked until one of THIS run's calls has no answer. */
+  resumed(): ResumedTranscript {
+    for (const row of this.#turn.transcript) if (!this.#take(row)) break;
+    return { messages: this.#messages, settledSteps: this.#settledSteps };
+  }
+
+  /** Take one row in; false ends the walk. */
+  #take(row: TranscriptRow): boolean {
+    if (row.role === "user") return this.#push([{ role: "user", content: row.content, timestamp: 0 }]);
+    const envelope = toolCallEnvelopeOf(row);
+    if (envelope === null) return this.#push(textOnly(row.content, this.#model));
+    return this.#takeCalls(envelope);
+  }
+
+  /** A tool-call turn, answered by the run that issued it — or dropped: this
+   * run's unanswered call ends the walk, an earlier run's is skipped. */
+  #takeCalls(envelope: ToolCallEnvelope): boolean {
+    const answers = answersFor(envelope, this.#results.of(envelope.run_id));
+    if (answers === null) return envelope.run_id !== this.#turn.runId;
+    if (envelope.run_id === this.#turn.runId) this.#settledSteps += answers.length;
+    return this.#push([envelope.message, ...answers]);
+  }
+
+  #push(messages: readonly AgentMessage[]): true {
+    this.#messages.push(...messages);
+    return true;
+  }
 }
 
 /** The rebuild, with the step count the loop resumes at. */
 export function resumedTranscript(turn: LoadedTurn, model: Model<Api>): ResumedTranscript {
-  const messages = seededMessages(turn, model);
-  return { messages, settledSteps: answeredSteps(messages) };
+  return new TranscriptRebuild(turn, model).resumed();
 }
