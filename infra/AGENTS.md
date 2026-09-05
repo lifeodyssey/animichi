@@ -15,8 +15,9 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 - State and `secure:` encryption live in **Pulumi Cloud**, org `lifeodyssey`, declared by `backend.url`
   in each `Pulumi.yaml` (#1077). CI logs in with `pulumi/auth-actions` (GitHub OIDC → short-lived
-  organization token); there is no Pulumi access token, backend URL, R2 state key pair, or config
-  passphrase on the delivery lane. Applies are org-qualified: `pulumi up --stack lifeodyssey/<stack>`.
+  organization token, exported as `PULUMI_ACCESS_TOKEN` for that job only); no long-lived Pulumi
+  access token, backend URL, R2 state key pair, or config passphrase is stored in GitHub secrets.
+  Applies are org-qualified: `pulumi up --stack lifeodyssey/<stack>`.
   The one exception is `scripts/local-gates/infra-check.sh`, whose credential-free program-load
   preflight sets `PULUMI_BACKEND_URL` to a throwaway `file://` backend and never reads real state —
   that env var takes precedence over `backend.url` (measured on the pinned Pulumi 3.255.0).
