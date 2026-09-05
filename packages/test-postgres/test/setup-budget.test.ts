@@ -8,6 +8,11 @@
  * half is that the edge arm derives its two exported deadlines from the budget
  * instead of re-writing the literals #1318 gave them.
  *
+ * The suite set is enumerated from the directory, never pinned to a count: a
+ * number here is a tripwire that fires in this package whenever another package
+ * adds a lane (#1386, #1387), and it proves nothing the per-file assertions
+ * below do not already prove.
+ *
  * test-type: unit (reads checked-in files; no network, no clock).
  */
 import assert from "node:assert/strict";
@@ -58,7 +63,7 @@ void test("the agent-db arm derives both deadlines rather than writing them", ()
 
 void test("every agent-db suite takes its setup deadline from the arm", () => {
   const suites = agentDbSuites();
-  assert.equal(suites.length, 10);
+  assert.ok(suites.length > 0, `no *.db.test.ts found under ${AGENT_DB_DIR}`);
   for (const suite of suites) {
     assert.match(read(suite), /timeout: SETUP_HOOK_TIMEOUT_MS/, suite);
   }
