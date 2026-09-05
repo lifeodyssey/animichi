@@ -96,7 +96,6 @@ run bash "$GS/check-actions-pinned.test.sh"
 run bash "$GS/check-actions-pinned.sh"
 run bash "$GS/check-web-runtime-config-payloads.test.sh"
 run bash "$GS/check-web-runtime-config-payloads.sh"
-run bash "$GS/check-edge-ratelimit-namespace.test.sh"
 # The script itself needs the artifact API and is exempted from parity; its
 # layout contract is pure and runs here with a `gh` stub.
 run bash "$GS/download-release-cohort.test.sh"

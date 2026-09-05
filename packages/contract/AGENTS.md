@@ -6,7 +6,13 @@ them. Root guide: `../../AGENTS.md`; detailed mirror checklist: `README.md`.
 
 ## Commands (from `packages/contract/`)
 
+- `pnpm run lint` / `pnpm run lint:oxlint` — type-aware oxlint over `src/` and `scripts/`, warnings
+  denied. That is the package's TypeScript program: `tsconfig.json` does not include `test/`, so a
+  type-aware pass there would report on `any` (bringing the tests into the program is a separate
+  outcome — `tsc` has ~60 findings under them today).
 - `pnpm run typecheck` — TypeScript 7.0.2 `tsc --noEmit`.
+- `pnpm test` — vitest, then the compat gate (`vet:baseline`) and the OpenAPI drift check
+  (`test:openapi-drift`). One command, the same one CI runs (#1358).
 - `pnpm run emit:openapi` — regenerate `openapi.json`, `users-openapi.json`, and `agent-openapi.json`.
 - `pnpm run emit:tool-schemas` — regenerate `src/agent-tool-schemas.ts` from
   `src/agent-tool-parameters.ts`. This is the repo's **single** zod↔JSON-Schema conversion
@@ -27,15 +33,17 @@ them. Root guide: `../../AGENTS.md`; detailed mirror checklist: `README.md`.
   flag — never pass it in the normal CI gate.
 
 OpenAPI emission is byte-stable: JSON is pretty-printed with one trailing newline. Regenerate on
-every contract change and commit all three outputs. CI reruns emission and fails on committed drift,
-then runs `vet:openapi` for each document against the merge-base baseline (the published contract)
-in the `Contract / build` stage — unapproved breaking `/v1` changes fail closed there. The baseline
-is always the merge base's own copy of the document, never the source head's: a document the merge
-base does not carry is brand-new, so it gets an empty `{"paths": {}}` baseline that approves every
-operation in it as additive, while a merge base the repository cannot read at all — missing tree or
-blob, shallow clone, corrupt object — exits 1 rather than approving an unreviewed deletion. The
-retired check-in/share bootstrap fallback (#1005 AC3) was deleted in #1347 once every branch was
-post-cut.
+every contract change and commit all three outputs. `pnpm test` reruns emission and fails on
+committed drift (`scripts/local-gates/contract-drift.sh`), then runs `vet:openapi` for each document
+against the merge-base baseline (the published contract) through `scripts/vet-openapi-baseline.ts` —
+unapproved breaking `/v1` changes fail closed there, locally and in CI alike. The baseline is always
+the merge base's own copy of the document, never the source head's: a document the merge base does
+not carry is brand-new, so it gets an empty `{"paths": {}}` baseline that approves every operation in
+it as additive, while a merge base the repository cannot read at all — missing tree or blob, shallow
+clone, corrupt object — exits 1 rather than approving an unreviewed deletion. The merge base is
+`HEAD` against `CONTRACT_BASE_REF` (default `origin/main`), so a checkout without that ref fails
+closed too; fetch the base branch before running the gate. The retired check-in/share bootstrap
+fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
 
 ## Conventions
 
@@ -67,13 +75,14 @@ post-cut.
 - `src/users-contract.ts` — users-service procedures and errors.
 - `src/errors.ts` — canonical catalog error registry.
 - `scripts/emit-openapi.ts` — deterministic OpenAPI emitter.
-- `scripts/vet-openapi.ts` — OpenAPI compat gate CLI (merge-base baseline vs candidate).
+- `scripts/vet-openapi.ts` — OpenAPI compat gate CLI (baseline vs candidate) ·
+  `scripts/vet-openapi-baseline.ts` — the merge-base baseline the package's `test` vets against.
 - `openapi.json` · `users-openapi.json` · `agent-openapi.json` — committed generated wire artifacts.
 - `src/openapi-changes.ts` · `src/openapi-schema-diff.ts` · `src/openapi-diff.ts` ·
   `src/openapi-vet.ts` · `test/openapi-diff-endpoints.test.ts` ·
   `test/openapi-diff-schemas.test.ts` · `test/openapi-diff-errors.test.ts` ·
   `test/openapi-gate.test.ts` · `test/vet-gate.test.ts` — change vocabulary, classifier,
-  gate decisions, and the workflow-wiring invariant.
+  gate decisions, and the package-script wiring of the compat gate.
 
 ## Pitfalls
 

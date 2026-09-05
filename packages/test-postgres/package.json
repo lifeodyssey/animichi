@@ -14,9 +14,10 @@
     "./setup-deadline": "./src/setup-deadline.ts"
   },
   "scripts": {
+    "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
-    "test": "node --test \"test/*.test.ts\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.ts\""
   },
   "dependencies": {
     "pg": "^8.22.0",

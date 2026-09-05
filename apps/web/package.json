@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "pnpm run lint:oxlint",
+    "lint:oxlint": "pnpm run routes:generate && oxlint --type-aware --deny-warnings .",
+    "typecheck": "pnpm run routes:generate && tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "dev": "vite dev",
     "build": "vite build",
     "routes:generate": "node tests/setup/generate-route-tree.ts",
-    "lint:oxlint": "pnpm run routes:generate && oxlint --type-aware --deny-warnings .",
-    "test": "vitest run --config vitest.config.ts --coverage",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
-    "typecheck": "pnpm run routes:generate && tsc --noEmit",
     "preview": "wrangler dev",
     "storybook": "storybook dev --port 6006",
     "build-storybook": "storybook build"

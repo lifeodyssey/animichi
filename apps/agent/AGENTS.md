@@ -10,6 +10,11 @@ catalog** — it never calls external anime APIs in the request path and never w
   `make lint` (ruff). Pre-commit runs ruff + mypy on every commit.
 - `make test-eval` — official model-backed runner plus translation eval. The pytest eval entry is a
   transition alias sharing the same report/gate path, not the primary interface.
+- `package.json` carries the lane scripts every workspace package now exposes (#1358):
+  `pnpm --filter @animichi/agent lint` / `typecheck` shell straight to the root `make lint` /
+  `make typecheck`, so those targets stay the one definition of the Python gate set, and `test` /
+  `test:integration` stay the `uv run pytest` entries. The pnpm lanes never add a second
+  definition — change the Makefile, not the manifest.
 - Directly: `cd apps/agent && uv run pytest src/animichi/tests/unit/`. Seed data: `src/animichi/tests/fixtures/seed.sql`.
 - The zod wire-contract tests (`src/animichi/tests/unit/test_chat_wire_contract.py`, 12 parametrized cases) spawn
   `node --import tsx chat-wire-parser.ts`; they need the workspace TS toolchain, so run `pnpm install`

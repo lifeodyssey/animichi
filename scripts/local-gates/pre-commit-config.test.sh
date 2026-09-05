@@ -119,7 +119,6 @@ independent_oxlint_dirs() {
   local dir
   while IFS= read -r dir; do
     [ -n "$dir" ] || continue
-    [ "$dir" = packages/contract ] && { printf '%s\n' "$dir"; continue; }
     grep -q '"lint:oxlint"' "$REPO_ROOT/$dir/package.json" || continue
     printf '%s\n' "$dir"
   done <<< "$(independent_ws_dirs | sort -u)" | sort
@@ -129,12 +128,12 @@ test_oxlint_list_matches_independent_sot() {
   assert_eq \
     "$(independent_oxlint_dirs)" \
     "$(bash "$OXLINT" --list | sort)" \
-    "oxlint --list matches independent lint:oxlint + contract"
-  echo "ok: oxlint --list covers every derived lint:oxlint package + contract"
+    "oxlint --list matches the independent lint:oxlint set"
+  echo "ok: oxlint --list covers every derived lint:oxlint package"
 }
 
 mutate_oxlint_skip_migrator() {
-  sed 's/|| dir_has_oxlint_script "\$dir"/|| { [ "$dir" != workers\/migrator ] \&\& dir_has_oxlint_script "$dir"; }/' \
+  sed 's/dir_has_oxlint_script "\$dir" || continue/[ "$dir" != workers\/migrator ] \&\& dir_has_oxlint_script "$dir" || continue/' \
     "$OXLINT"
 }
 

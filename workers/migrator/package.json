@@ -5,11 +5,12 @@
   "type": "module",
   "description": "Animichi migrator — GitHub-OIDC-gated one-shot Atlas apply on Cloudflare Containers",
   "scripts": {
-    "dev": "wrangler dev",
+    "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:worker": "vitest run --coverage",
-    "typecheck": "tsc --noEmit"
+    "dev": "wrangler dev",
+    "test:worker": "vitest run --coverage"
   },
   "dependencies": {
     "@animichi/contract": "workspace:*",
