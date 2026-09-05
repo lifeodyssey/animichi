@@ -66,15 +66,12 @@ ALL_COMMANDS=(
   # catalog: CI lint/test/smoke/build
   "pnpm run test:smoke"
   "pnpm run test:spike"
-  # edge: CI build (production-config dry-run from repo root)
-  "check-edge-ratelimit-namespace.sh"
+  # edge: CI build (production-config dry-run from repo root). The bundler
+  # smoke and rate-limit checks moved inside the package's own `test` script
+  # (#1358); `.github/scripts/test_package_test_segments.rb` pins them there.
   "pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir"
-  # contract: CI build drift checks
-  "pnpm emit:openapi"
+  # contract: the agent-model drift check, which no package script covers
   "pnpm emit:agent-python"
-  # infra: credential-free Pulumi program-load check
-  "pulumi stack init"
-  "pulumi preview"
   # db: checksum validate + migration boundary guard + fresh-schema apply
   "atlas migrate validate --dir file://migrations/neon"
   "node --test workers/edge/test/migration-boundary.test.ts"
@@ -89,12 +86,12 @@ PACKAGE_DIR_COMMANDS=(
   "$REPO_ROOT/workers/catalog :: pnpm exec tsc --noEmit"
   "$REPO_ROOT/workers/users :: pnpm exec tsc --noEmit"
   "$REPO_ROOT/workers/edge :: pnpm run lint:oxlint"
-  "$REPO_ROOT/workers/edge :: pnpm run test:bundle-smoke"
   "$REPO_ROOT/workers/migrator :: pnpm exec tsc --noEmit"
   "$REPO_ROOT/workers/migrator :: pnpm run lint:oxlint"
   "$REPO_ROOT/workers/migrator :: pnpm run test"
   "$REPO_ROOT/workers/migrator :: pnpm exec wrangler deploy --dry-run"
   "$REPO_ROOT/packages/contract :: pnpm exec tsc --noEmit"
+  "$REPO_ROOT/packages/contract :: pnpm run test"
   "$REPO_ROOT/infra :: pnpm run typecheck"
   "$REPO_ROOT/infra :: pnpm test"
   "$REPO_ROOT/apps/agent :: uv run ruff check"
