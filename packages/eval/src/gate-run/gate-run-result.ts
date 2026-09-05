@@ -74,9 +74,12 @@ export interface GateRunSettings {
   readonly caseCount: number;
   /** `metric_names()` for this dataset — the metrics `scores` must carry. */
   readonly metricNames: readonly string[];
-  /** `null` when no usable baseline was found; `baselineWarnings` says why. */
+  /** `null` when no usable baseline was found; the two lists below say why. */
   readonly baseline: BaselineRecord | null;
   readonly baselineModel: string;
+  /** The blocking half of the read: a committed record that no longer parses.
+   * An ungated run is a warning; a damaged baseline is a red result. */
+  readonly baselineFailures: readonly string[];
   readonly baselineWarnings: readonly string[];
   /** Case id → behaviour path, from the canonical dataset (`case-strata.ts`). */
   readonly strata: Readonly<Record<string, string>>;
@@ -173,8 +176,9 @@ function comparedMetrics(
 /**
  * `_gate_failures`' order, minus the direct thrash gate: Python's per-case
  * request counts come from `AgentResult.usage`, which the wire does not carry
- * (see `run-spend.ts`). Warnings lead with the baseline read, which is where
- * Python logs its own.
+ * (see `run-spend.ts`). Both lists lead with the baseline read, which is where
+ * Python logs its own — and, for the one baseline problem this side blocks on,
+ * where the red comes from (`baseline-store.ts`).
  */
 function gateOutcome(
   metrics: readonly MetricGateResult[],
@@ -182,7 +186,11 @@ function gateOutcome(
   settings: GateRunSettings,
 ): Pick<GateRunResult, 'failures' | 'warnings'> {
   return {
-    failures: [...metrics.flatMap((row) => row.outcome.failures), ...errors.failures],
+    failures: [
+      ...settings.baselineFailures,
+      ...metrics.flatMap((row) => row.outcome.failures),
+      ...errors.failures,
+    ],
     warnings: [
       ...settings.baselineWarnings,
       ...metrics.flatMap((row) => row.outcome.warnings),
