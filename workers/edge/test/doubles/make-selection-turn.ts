@@ -124,7 +124,7 @@ export function makeSelectionTurn(seed: SelectionTurnSeed): SelectionTurnHarness
     },
     now,
   );
-  const session = new TurnCatalogSession({ locale: "ja", envelope: seededEnvelope(seed) });
+  const session = new TurnCatalogSession({ runId: SELECTION_RUN_ID, locale: "ja", envelope: seededEnvelope(seed) });
   const catalog = new CountingSelectionCatalog(seed.script);
   const frames: TurnFrame[] = [];
   const emit = (pushed: readonly TurnFrame[]): Promise<void> => {

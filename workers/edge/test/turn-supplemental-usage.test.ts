@@ -81,7 +81,7 @@ function makeTranslatingStreamFn(spend: TurnUsage) {
 /** The turn's own toolbox, over a catalog that knows nothing and a socket that
  * always translates. */
 function makeTranslatingToolbox(spend: TurnUsage) {
-  const session = new TurnCatalogSession({ locale: "ja" });
+  const session = new TurnCatalogSession({ runId: "run-1", locale: "ja" });
   const model = makeScriptedTurnModel(makeTranslatingStreamFn(spend));
   return turnToolbox({ CATALOG: catalogWithoutTheTitle() }, session, model);
 }

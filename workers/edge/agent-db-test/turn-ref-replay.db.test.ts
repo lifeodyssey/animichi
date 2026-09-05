@@ -33,7 +33,8 @@ import { SETUP_HOOK_TIMEOUT_MS, startAgentDataPlane, type AgentDataPlane } from 
 
 const OWNER = "do-incarnation-2";
 const PRICES = { inputUsdPerMtok: 0, outputUsdPerMtok: 0 };
-const SEARCH_REF = "search:2:1";
+const RUN_ID = "run-ref-replay";
+const SEARCH_REF = `search:2:1@${RUN_ID}`;
 const SEARCH_CALL: ScriptedToolCall = { name: "search_bangumi", arguments: { bangumi_id: "1" } };
 const PLAN_CALL: ScriptedToolCall = {
   name: "plan_route",
@@ -83,7 +84,7 @@ async function seedStrandedRun(database: AgentDatabase, sessionId: string): Prom
 
 /** One alarm's turn, on its own session object — a fresh incarnation's heap. */
 function makeTurn(catalog: CountingCatalogBinding, calls: ScriptedToolCall[]): DurableTurn {
-  const session = new TurnCatalogSession({ locale: "ja" });
+  const session = new TurnCatalogSession({ runId: RUN_ID, locale: "ja" });
   const model = makeScriptedTurnModel(makeSequencedToolCallsStreamFn(calls));
   return new DurableTurn({
     store: new NeonTurnStore(plane.transactions),
@@ -169,5 +170,5 @@ void test("the retry plans the route over the ref the crashed attempt minted", a
 void test("the route the retry planned is minted under a ref of its own", async () => {
   const runId = await crashedAfterSearch("session-1279-mint");
   await makeTurn(new CountingCatalogBinding(), [PLAN_CALL]).run(runId);
-  assert.deepEqual(await mintedRefs(runId, 1), ["route:2:2"]);
+  assert.deepEqual(await mintedRefs(runId, 1), [`route:2:2@${RUN_ID}`]);
 });

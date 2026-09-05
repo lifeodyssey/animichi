@@ -12,6 +12,7 @@ import {
   asJsonValue,
   type LoadedTurn,
   type PersistedStep,
+  type RunSteps,
   type SettledStep,
   type SucceededTurnRecord,
   type TranscriptRow,
@@ -28,6 +29,9 @@ export interface SeededRun {
   readonly leaseExpiresAt?: number;
   readonly transcript: TranscriptRow[];
   readonly steps: PersistedStep[];
+  /** What the session's EARLIER runs settled (#1377) — what the rebuild answers
+   * their tool-call rows from. Defaults to none, which is a first turn. */
+  readonly earlierSteps?: RunSteps[];
   /** `runs.payer = 'byok'` — a run the caller paid for with their own key
    * (#1289). Defaults to false, the payer every existing case seeds. */
   readonly callerKeyed?: boolean;
@@ -83,8 +87,11 @@ export class InMemoryTurnStore implements TurnStore {
     const transcript = [...this.transcript];
     const callerKeyed = this.#run.callerKeyed ?? false;
     const steps = [...this.steps];
+    const earlierSteps = this.#run.earlierSteps ?? [];
     const selection = this.#run.selection ?? null;
-    return Promise.resolve({ runId, sessionId, deadlineAt, transcript, steps, callerKeyed, selection });
+    return Promise.resolve({
+      runId, sessionId, deadlineAt, transcript, steps, earlierSteps, callerKeyed, selection,
+    });
   }
 
   persistStep(

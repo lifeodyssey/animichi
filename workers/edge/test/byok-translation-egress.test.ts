@@ -57,7 +57,7 @@ function credential(): ByokCredential {
 
 /** Run `translate_anime_title` on a toolbox built from one turn's model. */
 async function translateOn(env: Record<string, unknown>, model: TurnModel) {
-  const session = new TurnCatalogSession({ locale: "ja" });
+  const session = new TurnCatalogSession({ runId: "run-1", locale: "ja" });
   const toolbox = turnToolbox({ ...env, CATALOG: unknowingCatalog() }, session, model);
   const tool = toolbox.tools().find((registered) => registered.name === TRANSLATE_TOOL);
   assert.ok(tool !== undefined, "the turn must register the translation tool");

@@ -61,7 +61,7 @@ async function admitSelectionTurn(sessionId: string): Promise<string> {
 /** The turn one alarm drives, over a session that already asked the question. */
 function makeTurn(catalog: CountingSelectionCatalog): DurableTurn {
   const envelope = SessionEnvelope.empty.withClarification("anime_ambiguity", WORKS);
-  const session = new TurnCatalogSession({ locale: "ja", envelope });
+  const session = new TurnCatalogSession({ runId: "run-selection", locale: "ja", envelope });
   const emit = (): Promise<void> => Promise.resolve();
   return new DurableTurn({
     store: new NeonTurnStore(plane.transactions),

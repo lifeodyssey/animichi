@@ -33,13 +33,22 @@ const TITLE = "らき☆すた";
  * that is genuinely long, and it is also the one whose ordered candidate ids an
  * ordinal follow-up depends on, so it is the case worth measuring.
  */
-const BUSY_TURN: ScriptedToolCall[] = [
-  { name: "resolve_anime", arguments: { title: TITLE } },
-  { name: "search_nearby", arguments: { location: PLACE, radius_m: 3000 } },
-  { name: "search_bangumi", arguments: { bangumi_id: "1" } },
-  { name: "search_nearby", arguments: { location: "幸手権現堂", radius_m: 3000 } },
-  { name: "plan_route", arguments: { search_result_ref: "search:1:1", pacing: "chill" } },
-];
+function busyTurn(runId: string): ScriptedToolCall[] {
+  return [
+    { name: "resolve_anime", arguments: { title: TITLE } },
+    { name: "search_nearby", arguments: { location: PLACE, radius_m: 3000 } },
+    { name: "search_bangumi", arguments: { bangumi_id: "1" } },
+    { name: "search_nearby", arguments: { location: "幸手権現堂", radius_m: 3000 } },
+    // The ref names THIS run: a mint carries its issuing run since #1377, so a
+    // model naming another turn's handle would be answered `stale_ref`.
+    { name: "plan_route", arguments: { search_result_ref: `search:1:1@${runId}`, pacing: "chill" } },
+  ];
+}
+
+/** The turn in the middle, which calls nothing at all. */
+function quietTurn(): ScriptedToolCall[] {
+  return [];
+}
 
 /** A disambiguation wide enough that its own JSON is over the 200-char cap. */
 const WIDE_AMBIGUITY = {
@@ -65,12 +74,12 @@ async function runThreeTurns(): Promise<EnvelopeTurnRun[]> {
   const storage = new RecordingEnvelopeStorage();
   const runs: EnvelopeTurnRun[] = [];
   let transcript: TranscriptRow[] = [userRow(`${PLACE}のあたりで${TITLE}の聖地は？`)];
-  for (const [index, calls] of [BUSY_TURN, [], BUSY_TURN].entries()) {
+  for (const [index, scripted] of [busyTurn, quietTurn, busyTurn].entries()) {
     const runId = `run-${String(index + 1)}`;
     const run = await runEnvelopeTurn({
       storage, runId, queued: [runId], transcript,
       resolveOutcome: WIDE_AMBIGUITY,
-      streamFn: makeSequencedToolCallsStreamFn(calls),
+      streamFn: makeSequencedToolCallsStreamFn(scripted(runId)),
     });
     runs.push(run);
     transcript = [...run.store.transcript, answerRow(run), userRow(`つづき ${String(index)}`)];

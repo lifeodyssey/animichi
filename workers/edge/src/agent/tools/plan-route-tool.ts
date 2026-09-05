@@ -17,7 +17,7 @@ import { outcomeToolResult } from "./outcome-tool-result.ts";
 import { buildItineraryPayload } from "./search-result-payload.ts";
 import { planRouteParameters } from "./tool-schema-bridge.ts";
 
-const DESCRIPTION = `Plan a walking route over the exact registry result named by search_result_ref. The ref is required and has no session default. Optional pacing is chill, normal, or packed. Do not call this for a request that only asks for a search, not a route, and never invent a search_result_ref — it must come from a prior search_bangumi or search_nearby outcome.`;
+const DESCRIPTION = `Plan a walking route over the exact registry result named by search_result_ref. The ref is required and has no session default. Optional pacing is chill, normal, or packed. Do not call this for a request that only asks for a search, not a route, and never invent a search_result_ref — it must come from a search_bangumi or search_nearby outcome of THIS turn. A ref an earlier turn returned is dead: search again to get a live one.`;
 
 /** A stored result worth routing, or the status that says why it is not. */
 type Routable = { routable: SearchResultPayload } | { refused: ItineraryOutcome };

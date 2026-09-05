@@ -17,6 +17,7 @@ import { URL, fileURLToPath } from "node:url";
 import { ANSWER_TOOL_NAME } from "@animichi/contract/agent-tool-schemas";
 import {
   AMBIGUOUS_LUCKY_STAR,
+  ANSWERED_RUN_ID,
   makeAnsweredTurn,
   type AnsweredTurn,
 } from "./doubles/make-answered-turn.ts";
@@ -25,7 +26,7 @@ import { makeRejectedRequestStreamFn } from "./doubles/pi-provider-double.ts";
 
 const RESOLVE = { name: "resolve_anime", arguments: { title: "らき☆すた" } };
 const SEARCH = { name: "search_bangumi", arguments: { bangumi_id: "1" } };
-const ROUTE = { name: "plan_route", arguments: { search_result_ref: "search:2:1" } };
+const ROUTE = { name: "plan_route", arguments: { search_result_ref: `search:2:1@${ANSWERED_RUN_ID}` } };
 
 const answer = (args: Record<string, unknown>) => ({ name: ANSWER_TOOL_NAME, arguments: args });
 const ROUTE_ANSWER = answer({ kind: "route", message: "2件を徒歩ルートにまとめました。" });

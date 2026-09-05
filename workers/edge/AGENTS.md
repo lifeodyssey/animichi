@@ -110,7 +110,11 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   them: the mint sequence (so a new ref cannot collide with a replayed one) and `step_index`
   itself, which `resumedTranscript` reports and `StepSequence` starts at — a settled step whose
   call the rebuilt transcript already answers is never asked for again, so a retry's FIRST new
-  call is the (n+1)-th of the run rather than a second claim on step 0. `SelectionRecord`
+  call is the (n+1)-th of the run rather than a second claim on step 0. Since #1377 the ref
+  itself NAMES its run (`{kind}:{row_count}:{sequence}@{run_id}`): the transcript replays every
+  earlier turn's tool results, so their handles are in the model's context, and only this run's
+  mints are put back — a foreign handle must land on `stale_ref` rather than collide with a live
+  one. `SelectionRecord`
   (`src/agent/selection/`) is the same move made first for the one step no model asks for; both
   read their payloads back through `src/agent/tools/stored-payload.ts`.
 - `src/agent/session/session-envelope.ts`, `turn-envelope.ts`, `durable-envelope-store.ts` — the
@@ -159,10 +163,11 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   provider double before this was written and rejected for four reasons recorded in that
   file's header (it never fires at our token scale, its summary is model-written, it is
   not a fixpoint under the per-alarm replay, and it wants a provider call plus a pi
-  session log this tier does not keep). One consequence worth knowing: an EARLIER run's
-  tool returns are not replayed at all — `resumedTranscript` degrades another run's
-  tool-call row to its text — so the retention window is in practice per-run, and
-  compaction bites on a long agentic turn rather than across turns as it did in Python.
+  session log this tier does not keep). Since #1377 `resumedTranscript` replays EVERY
+  turn's tool calls and returns as structured messages (spec §九 9.1), so the newest-8
+  window is a SESSION-wide window and compaction now bites across turns as it did in
+  Python — the "newest 8" cutoff itself is what #1378 retires, in favour of a summary
+  frozen when the step is written.
 - `src/agent/tools/` — `agentToolbox(parts)` returns the six `AgentTool`s the session registers
   on the pi agent, in Python's own registration order: `resolve_anime`, `search_bangumi`,
   `search_nearby`, `plan_route` (`catalogToolbox`, #1253), then `web_search` and

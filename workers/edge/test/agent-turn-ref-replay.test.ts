@@ -27,13 +27,17 @@ import {
   buildItineraryPayload,
   buildSearchResultPayload,
 } from "../src/agent/tools/search-result-payload.ts";
+import { planRouteTool } from "../src/agent/tools/plan-route-tool.ts";
 import { LUCKY_STAR_ROUTE, SATTE, WASHINOMIYA } from "./doubles/catalog-payloads.ts";
+import { unspentBudget } from "./doubles/make-tool-budget.ts";
+import { scriptedCatalog } from "./doubles/scripted-catalog.ts";
 import { makeEnvelopeTurnStore, runEnvelopeTurn } from "./doubles/make-envelope-turn.ts";
 import type { InMemoryTurnStore } from "./doubles/in-memory-turn-store.ts";
 import { makeSequencedToolCallsStreamFn } from "./doubles/pi-provider-double.ts";
 import { RecordingEnvelopeStorage } from "./doubles/recording-envelope-storage.ts";
 
-const SEARCH_REF = "search:2:1";
+const RUN_ID = "run-1";
+const SEARCH_REF = `search:2:1@${RUN_ID}`;
 const SEARCH_CALL = { name: "search_bangumi", arguments: { bangumi_id: "1" } };
 const PLAN_CALL = { name: "plan_route", arguments: { search_result_ref: SEARCH_REF } };
 
@@ -42,7 +46,7 @@ const NEARBY_ROWS = buildSearchResultPayload([WASHINOMIYA], "nearby", null, fals
 const ROUTE = buildItineraryPayload(LUCKY_STAR_ROUTE, SEARCH_REF, "ja");
 
 const WORK_MINT: StepMint = { kind: "search", ref: SEARCH_REF, payload: WORK_ROWS };
-const NEARBY_MINT: StepMint = { kind: "search", ref: "search:1:2", payload: NEARBY_ROWS };
+const NEARBY_MINT: StepMint = { kind: "search", ref: `search:1:2@${RUN_ID}`, payload: NEARBY_ROWS };
 
 /** One settled step, as `run_steps` holds it once the mints ride along. */
 function settledStep(stepIndex: number, minted: StepMint[]): PersistedStep {
@@ -55,7 +59,7 @@ function settledStep(stepIndex: number, minted: StepMint[]): PersistedStep {
 }
 
 function turnSession(): TurnCatalogSession {
-  return new TurnCatalogSession({ locale: "ja" });
+  return new TurnCatalogSession({ runId: RUN_ID, locale: "ja" });
 }
 
 void test("a settled step's ref comes back with the rows behind it", () => {
@@ -67,19 +71,19 @@ void test("a settled step's ref comes back with the rows behind it", () => {
 void test("the mint sequence continues past the settled steps, so nothing collides", () => {
   const session = turnSession();
   rehydrateRefs(session, [settledStep(0, [WORK_MINT])]);
-  assert.equal(session.storeItinerary(ROUTE), "route:2:2");
+  assert.equal(session.storeItinerary(ROUTE), `route:2:2@${RUN_ID}`);
 });
 
 void test("the refs come back in step_index order, whatever order the rows arrive in", () => {
   const session = turnSession();
   rehydrateRefs(session, [settledStep(1, [NEARBY_MINT]), settledStep(0, [WORK_MINT])]);
-  assert.deepEqual([...session.searchResults.keys()], [SEARCH_REF, "search:1:2"]);
+  assert.deepEqual([...session.searchResults.keys()], [SEARCH_REF, `search:1:2@${RUN_ID}`]);
 });
 
 void test("the sequence continues past every settled step, not just the first", () => {
   const session = turnSession();
   rehydrateRefs(session, [settledStep(1, [NEARBY_MINT]), settledStep(0, [WORK_MINT])]);
-  assert.equal(session.storeItinerary(ROUTE), "route:2:3");
+  assert.equal(session.storeItinerary(ROUTE), `route:2:3@${RUN_ID}`);
 });
 
 void test("a step settled before the mints were recorded puts nothing back", () => {
@@ -88,6 +92,18 @@ void test("a step settled before the mints were recorded puts nothing back", () 
   rehydrateRefs(session, [{ stepIndex: 0, toolName: "search_bangumi", input: {}, result: bare }]);
   assert.deepEqual([...session.searchResults.keys()], []);
   assert.equal(session.storeSearchResult(WORK_ROWS), SEARCH_REF);
+});
+
+void test("another run's ref is stale here, even at the very same ordinal", async () => {
+  const earlier = new TurnCatalogSession({ runId: "run-0", locale: "ja" });
+  const session = turnSession();
+  const foreign = earlier.storeSearchResult(WORK_ROWS);
+  assert.equal(session.storeSearchResult(WORK_ROWS), SEARCH_REF, "both runs mint the same ordinal");
+  const { catalog, calls } = scriptedCatalog({ itinerary: LUCKY_STAR_ROUTE });
+  const routed = await planRouteTool(catalog, session, unspentBudget)
+    .execute("call-1", { search_result_ref: foreign });
+  assert.deepEqual(routed.details, { status: "stale_ref" });
+  assert.deepEqual(calls.planned, []);
 });
 
 void test("a step that never settled puts nothing back", () => {
@@ -145,5 +161,5 @@ void test("the route the retry planned is minted under a ref of its own", async 
   const storage = new RecordingEnvelopeStorage();
   const store = await crashedAfterSearch(storage);
   await runEnvelopeTurn({ storage, store, streamFn: makeSequencedToolCallsStreamFn([PLAN_CALL]) });
-  assert.equal(settledRouteRef(store.written[1]), "route:2:2");
+  assert.equal(settledRouteRef(store.written[1]), `route:2:2@${RUN_ID}`);
 });
