@@ -20,7 +20,10 @@ import { renderChatPage } from "./_chat-page";
  * its pick belongs to the offer (`/v1/photo-search/confirm`, AC11), never to
  * the session's pending clarification, which for a photo turn does not exist —
  * that pick would reach `/v1/chat` as `selected_candidate_ids` with a null
- * `clarification_id` and come back `invalid_selection`, the offer unconfirmed.
+ * `clarification_id`, which the agent refuses at the schema boundary
+ * (`chat.py:103-105` drops the null, `schemas.py:88-96` rejects the
+ * selection) as HTTP 422 `invalid_request` — the generic D18 strip
+ * (`error-classifier.ts:105-112`), with the offer never confirmed.
  */
 
 // jsdom reports en-US, so page copy renders from the en dict.

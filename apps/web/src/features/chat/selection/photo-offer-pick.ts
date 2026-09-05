@@ -31,11 +31,13 @@ function confirmThenAsk(offer: PhotoOffer, send: ChatActions["send"]) {
  * clarification, and that card routes every id-carrying candidate through
  * whichever pick channel is in scope (W1 #1220). Inside a photo offer the
  * session channel is the wrong one: the offer is sessionless, so its pick
- * would leave as `selected_candidate_ids` with a null `clarification_id`
- * against a session that never asked, which the agent refuses as
- * `invalid_selection` (400, `error_registry.py`) and returns as a fresh
- * "that choice expired" clarify card — with the offer still unconfirmed.
- * This channel takes the pick instead.
+ * would leave as `selected_candidate_ids` with a null `clarification_id` —
+ * which never reaches the session at all. `chat.py:103-105` drops the null
+ * under `exclude_none`, so `PublicAPIRequest.validate_request`
+ * (`schemas.py:88-96`) refuses the selection and `_middleware.py:59-71`
+ * answers HTTP 422 `invalid_request`. The visitor gets the honest-generic
+ * D18 strip (`error-classifier.ts:105-112`) — no card to re-pick from — and
+ * the offer is never confirmed. This channel takes the pick instead.
  *
  * It holds no failure state of its own: the continuation is an ordinary turn
  * whose failures the D-strips already own, and the confirmation is the

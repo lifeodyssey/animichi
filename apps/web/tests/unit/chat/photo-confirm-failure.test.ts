@@ -30,12 +30,14 @@ function record(offerId: string, reason: string): string {
 }
 
 describe("photo offer confirmation failures are recorded, not swallowed (web-M9)", () => {
-  it("records a confirmation the server refused", async () => {
+  // Both halves of `!response.ok` are pinned: a refused offer id loses the
+  // signal exactly as a crashed backend does, so neither may narrow away.
+  it.each([400, 500])("records a confirmation the server refused with %i", async (status) => {
     const warn = watchOperatorConsole();
-    server.use(http.post(CONFIRM_URL, () => new HttpResponse(null, { status: 500 })));
+    server.use(http.post(CONFIRM_URL, () => new HttpResponse(null, { status })));
     confirmPhotoSearch(TEST_ORIGIN, "offer-7", "9912", CTX);
     await expect.poll(() => warn.mock.calls.length).toBe(1);
-    expect(warn.mock.calls[0]?.[0]).toBe(record("offer-7", "500"));
+    expect(warn.mock.calls[0]?.[0]).toBe(record("offer-7", String(status)));
   });
 
   it("records a confirmation that never reached the server", async () => {
