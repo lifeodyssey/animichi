@@ -40,8 +40,7 @@
 ├── workers/
 │   ├── edge/                  # 网关 + auth + container 编排
 │   ├── catalog/               # Bangumi / Point / Itinerary 数据与规划
-│   ├── users/                 # SavedRoute 等用户文档
-│   └── jobs/                  # 定时 retention jobs（原 maintenance；无 HTTP）
+│   └── users/                 # SavedRoute 等用户文档
 ├── packages/
 │   └── contract/              # 发布语言（oRPC/zod 等）
 ├── migrations/
@@ -83,15 +82,16 @@
 | apps + workers | 保持双顶栏 |
 | packages | 保留 `packages/contract`，不改顶层名为 contract |
 | migrations | `neon/` + `supabase/` 并列 |
-| **jobs**（原 maintenance） | 定时 retention Worker；包名 **`workers/jobs`**，不用 scheduler |
+| **jobs**（原 maintenance） | **RETIRED (#1316)**：空壳从未落地，处置见下 |
 | infra | 顶层保留 |
 | 系统测 | `tests/e2e/` |
 | CI | 仅 `.github/` |
 
-### 1.4 jobs（原 maintenance）
+### 1.4 jobs（原 maintenance，RETIRED #1316）
 
-Cron 清理 agent 域匿名 Session / 配额行。包名 **`workers/jobs`**（比 maintenance 好懂；不用 scheduler 以免和编排混淆）。
-非 catalog/users 职责；非 lib（需可部署 cron 单元）。结构：[jobs-worker-structure-design](./2026-08-06-jobs-worker-structure-design.md)。
+Cron 清理 agent 域匿名 Session / 配额行的定时 Worker 曾定名为 jobs（不用 scheduler 以免和编排混淆）。
+包目录从未超出一份空 `wrangler.toml`，随 #1316 一并删除；结构设计稿同批归档删除。retention 需求若重启，
+并入 catalog 数据平台评估，不再单独立包。
 
 ### 1.5 Supabase
 
@@ -160,7 +160,7 @@ Domain / Application / Adapters / Infrastructure；依赖 adapters → applicati
 6. 与 contract 的映射
 7. 测试 seam
 
-**推荐顺序：** catalog → agent → users → edge → web → jobs
+**推荐顺序：** catalog → agent → users → edge → web（jobs 包 **RETIRED**，#1316，不再排入顺序）
 （contract 不单独「实现 DDD」，只随前几包收紧发布语言。）
 
 **明确不做：** 无场景地给每个包 mkdir 空 domain。
@@ -169,7 +169,7 @@ Domain / Application / Adapters / Infrastructure；依赖 adapters → applicati
 
 - **Full**：catalog、agent
 - **Gateway**：edge
-- **Thin**：users、**jobs**
+- **Thin**：users
 - **UI**：web features
 
 全局 D1/D3 不再空转：以 **catalog 第一包** 实装选择为准再回写。
@@ -183,7 +183,7 @@ Domain / Application / Adapters / Infrastructure；依赖 adapters → applicati
 | users | **ACCEPTED (core BC)** — [CA](./2026-08-06-users-clean-architecture-design.md)（§0.3 大量 OPEN 产品面）· [总表](./2026-08-06-greenfield-language-and-data-plane.md) |
 | edge | **ACCEPTED** — [Gateway 结构](./2026-08-06-edge-gateway-structure-design.md) |
 | web | **ACCEPTED** — [UI 结构](./2026-08-06-web-ui-structure-design.md)（routes≈pages + features） |
-| jobs（原 maintenance） | **ACCEPTED 命名+结构** — [jobs-worker-structure](./2026-08-06-jobs-worker-structure-design.md)；代码仍在 `workers/maintenance` 直至 J1 |
+| jobs（原 maintenance） | **RETIRED (#1316)** — 空壳从未落地；结构设计稿已随包删除 |
 
 ### 4.5 Catalog 摘要
 
@@ -220,13 +220,14 @@ Domain / Application / Adapters / Infrastructure；依赖 adapters → applicati
 | 2026-08-06 | 三包 structure-refactor 设计 **ACCEPTED**（best practice）；edge/web 未设计 |
 | 2026-08-06 | Edge Gateway + Web UI 结构设计稿（无 domain model；一次到位） |
 | 2026-08-06 | Edge/Web 结构 **ACCEPTED**；Maintenance Thin 设计稿 |
-| 2026-08-06 | **maintenance → workers/jobs**（包名+jobs/ 目录）；scheduler 不作包名 |
+| 2026-08-06 | **maintenance → jobs**（包名+内部 jobs/ 目录）；scheduler 不作包名 |
 | 2026-08-06 | Neon DBA 能力图（缺口 D0–D21；#685 对齐） |
 | 2026-08-06 | Neon DBA 图 **ACCEPTED**；CI pipeline 布局明确另议 |
 | 2026-08-06 | CI/部署架构方向文：每包线对、实现乱、目标形状（DIRECTION ACCEPTED） |
 | 2026-08-06 | CI/CD 重构计划 ACCEPTED design only（C1–C6；Sonar 澄清） |
 | 2026-08-06 | Pulumi/infra 设计 **ACCEPTED design only**（边界对；结构/ESC 后置） |
 | 2026-08-06 | 骨架重构 GOAL：`docs/iterations/refactor-skeleton-2026-08/GOAL.md` |
+| 2026-09-05 | jobs 包 **RETIRED**（#1316）：空壳从未落地，随空壳一并删除结构设计稿 |
 
 ---
 
@@ -237,4 +238,4 @@ Domain / Application / Adapters / Infrastructure；依赖 adapters → applicati
 3. **CI/部署**：**方向 + 重构计划均 design ACCEPTED** — [architecture](./2026-08-06-ci-deploy-architecture.md) · [refactor plan C1–C6](./2026-08-06-ci-cd-refactor-plan.md)；**YAML 未改**。
 4. **Pulumi/infra**：[pulumi-infra-review](./2026-08-06-pulumi-infra-review.md) **ACCEPTED design only**（P1 拆 index 等后置）。
 5. **重构 GOAL（只骨架）：** [docs/iterations/refactor-skeleton-2026-08/GOAL.md](../iterations/refactor-skeleton-2026-08/GOAL.md) — 无新功能；未做 `TODO(refactor-skeleton)`；Matt `/to-issues`→`/implement`（+/tdd）→`/code-review`。
-6. **实现列车**（按 GOAL 出票）：包结构 · jobs rename · DBA 文档骨架 · CI 设计已定实现后置 · 产品 ticket 另线。
+6. **实现列车**（按 GOAL 出票）：包结构 · DBA 文档骨架 · CI 设计已定实现后置 · 产品 ticket 另线。
