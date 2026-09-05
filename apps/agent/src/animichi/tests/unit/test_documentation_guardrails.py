@@ -11,7 +11,7 @@ from animichi.tests.unit.documentation_guardrails import (
     assert_retired_technologies_are_historical,
     check_retired_technology_docs,
     documented_coverage_thresholds,
-    extract_d7_section,
+    extract_agent_runtime_section,
     live_coverage_thresholds,
 )
 
@@ -63,15 +63,16 @@ def test_documented_coverage_thresholds_match_live_configs() -> None:
 @pytest.mark.parametrize(
     "fact",
     (
-        "D7 — both REJECTED",
-        "Pyodide path: REJECTED",
-        "TS rewrite path: REJECTED",
-        "Python FastAPI container",
-        "warm-keeping strategy",
+        "Agent runtime today — two tiers, one flag",
+        "Container tier (the default)",
+        "Edge tier (staging today)",
+        "AGENT_TURN_ROUTE",
         "first-token SLO",
+        "Pyodide: still rejected",
+        "docs/specs/2026-09-01-agent-ts-rewrite-spec.md",
     ),
 )
-def test_architecture_records_d7_decision(fact: str) -> None:
+def test_architecture_records_the_live_agent_runtime(fact: str) -> None:
     architecture = (REPO_ROOT / "docs/ARCHITECTURE.md").read_text(encoding="utf-8")
 
-    assert fact in extract_d7_section(architecture)
+    assert fact in extract_agent_runtime_section(architecture)

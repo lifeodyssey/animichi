@@ -16,12 +16,12 @@ stable boundaries, current entry points, and active plans only.
 | `CLAUDE.md` | Claude Code pointer (`@AGENTS.md`) — same content as `AGENTS.md` |
 | `apps/agent/AGENTS.md` | Python agent (PydanticAI / FastAPI) conventions |
 | `workers/catalog/AGENTS.md` | Catalog Worker (Hono / oRPC / Drizzle) + data-platform conventions |
-| `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / jose) conventions |
+| `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / Drizzle) conventions |
 | `packages/contract/AGENTS.md` | Cross-service oRPC/Zod contract conventions |
 | `apps/web/AGENTS.md` | TanStack Start rebuild conventions |
 | `migrations/AGENTS.md` · `e2e/AGENTS.md` · `infra/AGENTS.md` | Atlas migrations, browser tests, and IaC conventions |
 | `.claude/rules/*.md` | Path-scoped rules loaded only for matching files |
-| `docs/ARCHITECTURE.md` | Live runtime reference (refresh pending — see Source-of-Truth notes below) |
+| `docs/ARCHITECTURE.md` | Live runtime reference — both agent tiers and the flag between them |
 | `docs/ops/deployment.md` | Deployment runbook |
 | `docs/ops/secrets.md` | What each repository secret is for, who consumes it, and rotation impact |
 | `docs/iterations/README.md` | Main task tracker / session log / findings — pointer into the live iteration (no hardcoded `iterN`) |
@@ -49,7 +49,7 @@ Sole navigation for `docs/` — no docs-level README. Paths on the post-reorg la
 5. Planning docs may contain process detail; README and architecture docs should not.
 6. Put operational docs under `docs/ops/` and iteration artifacts under `docs/iterations/`.
 7. Docs images >1MB: never commit. Upload to the private R2 bucket and link through the edge
-   `/img` proxy (`workers/edge/proxy/image-proxy.ts` — upstreams `image.anitabi.cn` today; R2-backed
+   `/img` proxy (`workers/edge/src/proxy/image-proxy.ts` — upstreams `image.anitabi.cn` today; R2-backed
    serving is a listed edge extension). Legacy >1MB assets under `docs/archive/` are W6 strip candidates.
 
 ## Agent-docs Network
@@ -71,14 +71,14 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Topic | Current source of truth | Notes / was |
 |---|---|---|
 | **Why** the architecture is shaped this way | `docs/specs/2026-06-13-architecture-adr.md` | Foundational ADR; its "全 TS on Workers" decision was later refined by the rebuild spec below |
-| **Current target** architecture (hybrid, latest) | `docs/specs/2026-07-06-frontend-rebuild-spec.md` | Latest; supersedes the ADR on agent language; rebuild in progress |
-| Live agent runtime reference | `docs/ARCHITECTURE.md` + `apps/agent/src/animichi/agents/animichi_runner.py` | Runtime is still Python & live |
+| **Current target** architecture (agent runtime, latest) | `docs/specs/2026-09-01-agent-ts-rewrite-spec.md` | Agent rewritten in TS inside `workers/edge`, Neon as the single source of truth; W0 closed 2026-09-03. **Supersedes SD-4 of `docs/specs/2026-07-06-frontend-rebuild-spec.md`** ("Agent runtime: Python FastAPI container, finalized") — that spec stays canonical for the web rebuild only |
+| Live runtime reference (both agent tiers) | `docs/ARCHITECTURE.md` | Container tier by default (`apps/agent/…/animichi_runner.py`), edge tier behind `AGENT_TURN_ROUTE = "edge"` (`workers/edge/src/agent/`, staging today) |
 | Agent entry | `apps/agent/src/animichi/interfaces/fastapi_service.py` → `public_api.py` → `agents/animichi_runner.py` | was `backend/interfaces/…` |
 | Agent shared types | `apps/agent/src/animichi/agents/models.py`, `…/agent_result.py` | was `backend/agents/…` |
 | Agent tools | `apps/agent/src/animichi/agents/animichi_tools.py` + `web_tools.py` | Typed `TOOLS` lists injected by `build_animichi_agent()` |
 | Catalog service (TS) + data platform | `workers/catalog/src/` — `ingest/` · `enrich/` · `publish/` · `api/` · `router.ts` | realizes the ADR's ingest→enrich→publish |
 | Cross-service contract (zod = SoT) | `packages/contract/src/` (`models.ts`, `contract.ts`, `errors.ts`) + `packages/contract/README.md` | error registry + parity guard live here |
-| User-domain service | `workers/users/` + `workers/users/AGENTS.md` | Live Hono/oRPC/jose service over Neon, `/v1/users/*` |
+| User-domain service | `workers/users/` + `workers/users/AGENTS.md` | Live Hono/oRPC service over Neon, `/v1/users/*`; no token verification of its own — it trusts the edge-forwarded identity (AUTH-2 #950) |
 | Edge worker / auth / routing | `workers/edge/src/entry.ts` (+ `src/app.ts`, `src/identity/auth.ts`) | was `worker/worker.js`, then `worker/` (iter6 C2) |
 | Deploy wiring | `workers/edge/wrangler.toml` + `workers/edge/src/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
 | DB — catalog/user data (data plane) | **Neon Postgres** (Drizzle raw-SQL query-only over neon-http); Atlas migrations in `migrations/neon/` | data plane; no Hyperdrive; the legacy `supabase/migrations/` tree is archived/historical (issue #1000) |
@@ -92,6 +92,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Local development gates | `docs/ops/local-gates.md` + `.pre-commit-config.yaml` | changed-package routing (`--staged` pre-commit / merge-base pre-push); shared commit-msg/PR-title hygiene validator; single pre-push orchestrator `scripts/local-gates/pre-push.sh`; affected CI is routed from `.github/ci/components.json`; canonical 87 agent floor; offline Docker/web integration locally; browser e2e/live-Neon/evals/deploys stay in CI |
 | Review gate (merge quality enforcement) | `docs/ops/review-gate.md` | native thread resolution + required checks + the two-way comment hook; the LLM status machinery retired 2026-08-31 |
 | Close-out campaign (2026-08) | `docs/specs/2026-08-08-repo-closeout-spec.md` | ADRs 0004/0005; merges restructure-spec × GOAL; waves P0–P8 |
+| Repo-wide audit findings (latest) | `docs/specs/2026-09-05-repo-smell-audit.md` | Seven-report smell audit; §4 is the still-open ledger of its predecessor `docs/specs/2026-08-26-system-health-audit.md`, §7 the campaign split |
 | Neon backup / RPO / bad-migration recovery | `docs/ops/neon-backup-rpo.md` | N5 (#860); PITR + HITL checklist; pairs with `migrations.md` |
 | Iteration specs (live) | `docs/specs/` — 平层只放非 superseded spec(不维护名单;以 superseded 标注与 archive 位为准) | superseded spec 一律入 `docs/archive/specs/`(只进不出,iter6 A6/#640) |
 | Iteration plans | 当前 iteration 的计划在 `docs/iterations/<iterN>/`;历史执行 plan 全部在 `docs/archive/plans/` | 平层不再新增 plan(iter6 A6/#640) |
