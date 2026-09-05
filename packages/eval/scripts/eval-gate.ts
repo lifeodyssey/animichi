@@ -40,10 +40,10 @@ import { laneFetch } from "edge-worker/api-test/lane-origin.ts";
 import { checkedDatasetName } from "../src/dataset-sets.ts";
 import { loadExportedDataset, type ExportedDatasetHandle } from "../src/dataset-roundtrip.ts";
 import { canonicalDatasetPath, loadCaseStrata } from "../src/gate/case-strata.ts";
-import { readBaselineRecord } from "../src/gate/baseline-store.ts";
+import { gateRunSettingsFromBaseline } from "../src/gate-run/baseline-gated-settings.ts";
 import { gateExitCode } from "../src/gate-run/gate-exit-code.ts";
 import { gateRunResultOf, type AgentEvalReport, type GateRunResult } from "../src/gate-run/gate-run-result.ts";
-import { PYTHON_BASELINE_MODEL, pythonBaselineLocation } from "../src/gate-run/python-baseline.ts";
+import { pythonBaselineLocation } from "../src/gate-run/python-baseline.ts";
 import { writeGateRunResult } from "../src/gate-run/result-file.ts";
 import { metricNames } from "../src/metric-names.ts";
 import { neonAuthBearer, qaSignInFrom } from "../src/neon-auth-bearer.ts";
@@ -109,18 +109,16 @@ function runMetricNames(dataset: ExportedDatasetHandle<TranscriptResult>): strin
 }
 
 function gatedResult(report: AgentEvalReport, args: GateRunArgs, caseCount: number, metrics: string[]): GateRunResult {
-  const baseline = readBaselineRecord(pythonBaselineLocation(), { caseCount, metrics });
-  return gateRunResultOf(report, {
-    dataset: args.dataset,
-    caseCount,
-    metricNames: metrics,
-    baseline: baseline.record,
-    baselineModel: PYTHON_BASELINE_MODEL,
-    baselineFailures: baseline.failures,
-    baselineWarnings: baseline.warnings,
-    strata: loadCaseStrata(canonicalDatasetPath(args.dataset)),
-    now: () => new Date(),
-  });
+  return gateRunResultOf(
+    report,
+    gateRunSettingsFromBaseline(pythonBaselineLocation(), {
+      dataset: args.dataset,
+      caseCount,
+      metricNames: metrics,
+      strata: loadCaseStrata(canonicalDatasetPath(args.dataset)),
+      now: () => new Date(),
+    }),
+  );
 }
 
 /** `run_agent_eval._finish`, verbatim strings included. */
