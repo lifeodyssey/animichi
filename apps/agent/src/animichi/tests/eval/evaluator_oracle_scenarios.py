@@ -9,9 +9,11 @@ the wire shape `packages/eval/src/turn-transcript.ts` publishes is
 
 The vocabulary is deliberately no richer than the wire. W3-2 (#1300) reads the
 trajectory out of the SD-9 stream frames, which publish one `args` record per
-call and nothing else about it — no normalized `params`, no `model_initiated`
-flag. A scenario that could express more than that would let this oracle prove
-a parity the TypeScript side has no way to reach.
+call; E-2 (#1381) added the second record `argument_correctness` needs — the
+params the tool ran with, published on the retrieval surface. Anything the wire
+still cannot answer for (`model_initiated`) stays out, because a scenario that
+could express more than the wire would let this oracle prove a parity the
+TypeScript side has no way to reach.
 """
 
 from __future__ import annotations
@@ -31,6 +33,15 @@ class OracleStep:
     tool: str
     args: dict[str, object] = field(default_factory=dict)
     status: StepStatus = "ok"
+    params: dict[str, object] | None = None
+    """What the tool RAN with, when the runtime settled it into something other
+    than what the model asked with (#1381). `None` = the call ran with its own
+    arguments, which is every scenario written before the second witness."""
+
+    @property
+    def settled_params(self) -> dict[str, object]:
+        """The params half of the pair: the settled ones, else the raw ones."""
+        return dict(self.args if self.params is None else self.params)
 
 
 @dataclass(frozen=True)

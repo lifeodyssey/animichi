@@ -15,5 +15,8 @@
   ],
   "revision": 1,
   "next_offset": null,
-  "run": { "run_id": "run-clarify-fixture", "status": "succeeded" }
+  "run": { "run_id": "run-clarify-fixture", "status": "succeeded" },
+  "steps": [
+    { "run_id": "run-clarify-fixture", "step_index": 0, "tool_name": "resolve_anime", "params": "{\"title\": \"ハルヒ\"}" }
+  ]
 }

@@ -52,10 +52,14 @@
           "results"
         ],
         "stepCount": 2,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "resolve_anime",
             "args": {
+              "title": "涼宮ハルヒ"
+            },
+            "params": {
               "title": "涼宮ハルヒ"
             },
             "status": "ok"
@@ -63,6 +67,9 @@
           {
             "toolName": "search_bangumi",
             "args": {
+              "bangumi_id": "b1"
+            },
+            "params": {
               "bangumi_id": "b1"
             },
             "status": "ok"
@@ -116,10 +123,14 @@
         "locale": "en",
         "dataKeys": [],
         "stepCount": 1,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "web_search",
             "args": {
+              "query": "nishinomiya"
+            },
+            "params": {
               "query": "nishinomiya"
             },
             "status": "ok"
@@ -174,10 +185,14 @@
           "reason"
         ],
         "stepCount": 2,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "resolve_anime",
             "args": {
+              "title": "ハルヒ"
+            },
+            "params": {
               "title": "ハルヒ"
             },
             "status": "ok"
@@ -185,6 +200,9 @@
           {
             "toolName": "search_bangumi",
             "args": {
+              "bangumi_id": "b1"
+            },
+            "params": {
               "bangumi_id": "b1"
             },
             "status": "ok"
@@ -247,6 +265,7 @@
           "route"
         ],
         "stepCount": 0,
+        "paramsRecorded": true,
         "trajectory": [],
         "response": {
           "intent": "plan_selected",
@@ -312,10 +331,14 @@
           "route"
         ],
         "stepCount": 4,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "search_bangumi",
             "args": {
+              "bangumi_id": "b1"
+            },
+            "params": {
               "bangumi_id": "b1"
             },
             "status": "ok"
@@ -325,6 +348,9 @@
             "args": {
               "bangumi_id": "b2"
             },
+            "params": {
+              "bangumi_id": "b2"
+            },
             "status": "ok"
           },
           {
@@ -332,11 +358,17 @@
             "args": {
               "result_ref": "r1"
             },
+            "params": {
+              "result_ref": "r1"
+            },
             "status": "ok"
           },
           {
             "toolName": "plan_route",
             "args": {
+              "result_ref": "r2"
+            },
+            "params": {
               "result_ref": "r2"
             },
             "status": "ok"
@@ -403,10 +435,14 @@
           "reason"
         ],
         "stepCount": 2,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "search_nearby",
             "args": {
+              "place": "西宮"
+            },
+            "params": {
               "place": "西宮"
             },
             "status": "ok"
@@ -414,6 +450,9 @@
           {
             "toolName": "geocode",
             "args": {
+              "place": "西宮"
+            },
+            "params": {
               "place": "西宮"
             },
             "status": "ok"
@@ -472,10 +511,14 @@
           "reason"
         ],
         "stepCount": 3,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "search_nearby",
             "args": {
+              "place": "西宮"
+            },
+            "params": {
               "place": "西宮"
             },
             "status": "ok"
@@ -485,11 +528,17 @@
             "args": {
               "place": "西宮"
             },
+            "params": {
+              "place": "西宮"
+            },
             "status": "ok"
           },
           {
             "toolName": "search_nearby",
             "args": {
+              "place": "西宮市"
+            },
+            "params": {
               "place": "西宮市"
             },
             "status": "ok"
@@ -545,6 +594,7 @@
         "locale": "en",
         "dataKeys": [],
         "stepCount": 0,
+        "paramsRecorded": true,
         "trajectory": [],
         "response": {
           "intent": "greet_user",
@@ -588,6 +638,7 @@
         "locale": "en",
         "dataKeys": [],
         "stepCount": 0,
+        "paramsRecorded": true,
         "trajectory": [],
         "response": {
           "intent": "general_qa",
@@ -631,6 +682,7 @@
         "locale": "en",
         "dataKeys": [],
         "stepCount": 0,
+        "paramsRecorded": true,
         "trajectory": [],
         "response": {
           "intent": "general_qa",
@@ -676,10 +728,14 @@
           "results"
         ],
         "stepCount": 2,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "resolve_anime",
             "args": {
+              "title": "凉宫"
+            },
+            "params": {
               "title": "凉宫"
             },
             "status": "ok"
@@ -687,6 +743,9 @@
           {
             "toolName": "search_bangumi",
             "args": {
+              "bangumi_id": "b1"
+            },
+            "params": {
               "bangumi_id": "b1"
             },
             "status": "ok"
@@ -739,6 +798,7 @@
         "locale": "en",
         "dataKeys": [],
         "stepCount": 0,
+        "paramsRecorded": true,
         "trajectory": [],
         "response": {
           "intent": "general_qa",
@@ -782,10 +842,14 @@
         "locale": "en",
         "dataKeys": [],
         "stepCount": 1,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "web_search",
             "args": {
+              "query": "spot"
+            },
+            "params": {
               "query": "spot"
             },
             "status": "ok"
@@ -836,10 +900,14 @@
         "locale": "ja",
         "dataKeys": [],
         "stepCount": 2,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "resolve_anime",
             "args": {
+              "title": "ハルヒ"
+            },
+            "params": {
               "title": "ハルヒ"
             },
             "status": "ok"
@@ -847,6 +915,9 @@
           {
             "toolName": "search_bangumi",
             "args": {
+              "bangumi_id": "b1"
+            },
+            "params": {
               "bangumi_id": "b1"
             },
             "status": "error"
@@ -900,10 +971,14 @@
           "results"
         ],
         "stepCount": 1,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "search_nearby",
             "args": {
+              "place": "西宮"
+            },
+            "params": {
               "place": "西宮"
             },
             "status": "unsettled"
@@ -955,10 +1030,14 @@
         "locale": "en",
         "dataKeys": [],
         "stepCount": 2,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "web_search",
             "args": {
+              "query": "a"
+            },
+            "params": {
               "query": "a"
             },
             "status": "ok"
@@ -966,6 +1045,9 @@
           {
             "toolName": "web_search",
             "args": {
+              "query": "b"
+            },
+            "params": {
               "query": "b"
             },
             "status": "ok"
@@ -1014,10 +1096,12 @@
         "locale": "en",
         "dataKeys": [],
         "stepCount": 1,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "web_search",
             "args": {},
+            "params": {},
             "status": "ok"
           }
         ],
@@ -1068,10 +1152,14 @@
           "route"
         ],
         "stepCount": 3,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "resolve_anime",
             "args": {
+              "title": "ハルヒ"
+            },
+            "params": {
               "title": "ハルヒ"
             },
             "status": "ok"
@@ -1081,11 +1169,17 @@
             "args": {
               "bangumi_id": "b1"
             },
+            "params": {
+              "bangumi_id": "b1"
+            },
             "status": "ok"
           },
           {
             "toolName": "plan_route",
             "args": {
+              "result_ref": "r1"
+            },
+            "params": {
               "result_ref": "r1"
             },
             "status": "ok"
@@ -1146,10 +1240,14 @@
           "results"
         ],
         "stepCount": 1,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "search_nearby",
             "args": {
+              "place": "西宮"
+            },
+            "params": {
               "place": "西宮"
             },
             "status": "ok"
@@ -1175,6 +1273,135 @@
         "data_keys_present": 1.0,
         "locale_match": 1.0,
         "nonempty_results": 0.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "settled_params_coerced_from_raw_arguments",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_bangumi"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "search_bangumi",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [
+          "results"
+        ],
+        "stepCount": 1,
+        "paramsRecorded": true,
+        "trajectory": [
+          {
+            "toolName": "search_bangumi",
+            "args": {
+              "bangumi_id": "12345"
+            },
+            "params": {
+              "bangumi_id": 12345
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "search_bangumi",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {
+            "results": {
+              "row_count": 2
+            }
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 0.0,
+        "tool_correctness": 0.0,
+        "trajectory_match": 0.6666666666666666,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
+        "step_efficiency": 1.0
+      }
+    },
+    {
+      "caseId": "settled_params_dropped_an_optional_null",
+      "inputs": {
+        "clarification_id": null,
+        "context": null,
+        "locale": "ja",
+        "query": "涼宮ハルヒの聖地はどこですか",
+        "seeded_pending": null,
+        "selected_candidate_ids": null,
+        "selected_point_ids": null
+      },
+      "metadata": {
+        "acceptable_stages": [
+          "search_nearby"
+        ],
+        "data_keys": [
+          "results"
+        ],
+        "expect_nonempty": false
+      },
+      "transcript": {
+        "intent": "search_nearby",
+        "success": true,
+        "message": "西宮市の聖地はこちらです。",
+        "locale": "ja",
+        "dataKeys": [
+          "results"
+        ],
+        "stepCount": 1,
+        "paramsRecorded": true,
+        "trajectory": [
+          {
+            "toolName": "search_nearby",
+            "args": {
+              "place": "西宮",
+              "radius_m": null
+            },
+            "params": {
+              "place": "西宮"
+            },
+            "status": "ok"
+          }
+        ],
+        "response": {
+          "intent": "search_nearby",
+          "success": true,
+          "message": "西宮市の聖地はこちらです。",
+          "data": {
+            "results": {
+              "row_count": 2
+            }
+          }
+        },
+        "runStatus": "succeeded"
+      },
+      "scores": {
+        "argument_correctness": 0.0,
+        "tool_correctness": 1.0,
+        "trajectory_match": 1.0,
+        "max_tool_calls": 1.0,
+        "data_keys_present": 1.0,
+        "locale_match": 1.0,
         "step_efficiency": 1.0
       }
     },
@@ -1206,10 +1433,14 @@
         "locale": "ja",
         "dataKeys": [],
         "stepCount": 1,
+        "paramsRecorded": true,
         "trajectory": [
           {
             "toolName": "resolve_anime",
             "args": {
+              "title": "ハルヒ"
+            },
+            "params": {
               "title": "ハルヒ"
             },
             "status": "ok"

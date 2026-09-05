@@ -13,7 +13,7 @@ import {
   RUN_STATUSES,
   USAGE_SCOPES,
 } from "../src/db/schema.ts";
-import { RunFailureReason, SessionRunStatus } from "@animichi/contract/agent-contract";
+import { RunFailureReason, SessionRunStatus } from "@animichi/contract/session-history-contract";
 import { readMigrationSchema, type ColumnSchema } from "./migration-schema.ts";
 import { readMappedTable } from "./mapped-table.ts";
 

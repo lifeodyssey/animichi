@@ -85,22 +85,37 @@ project's own, ported from `evaluators.py`.
   re-derive the rule. The oracle publishes Python's own `_available_data_keys` under that name, so it
   is the tripwire for `dataKeysOf` too.
 - **The oracle, not a re-derivation.** `fixtures/evaluator-oracle.json` is what the *Python*
-  evaluators score for 20 synthetic transcripts — every `_acceptable_min_steps` branch, the ANY-of-N
-  ties, both empty-chain selections, the three call outcomes, and the `resolve_reply_language`
-  decision points — paired with the wire transcript the TS side reads for the same turn. Changing an
+  evaluators score for 22 synthetic transcripts — every `_acceptable_min_steps` branch, the ANY-of-N
+  ties, both empty-chain selections, the three call outcomes, the `resolve_reply_language`
+  decision points, and both answers `argument_correctness` can give (a call settled into a coerced
+  value and one settled with an optional null dropped, each scored 0.0 by Python itself) — paired
+  with the wire transcript the TS side reads for the same turn. Changing an
   evaluator on either side means re-running `export-fixtures.sh` and re-proving the numbers in the
   same change; the drift gate is what forces it.
 - `EVALUATOR_VERSION = 'official-v1'` mirrors `evaluators.py` and rides on every instance as
   `evaluatorVersion`. Bump both sides together or the two runners' baselines stop being comparable.
 
-### Two places the wire cannot reach Python, and what they cost
+### The two witnesses `argument_correctness` scores (#1381)
 
-- **`argument_correctness` is degenerate — do not read it as a passing score.** Python compares the
-  span's raw arguments against `StepRecord.params`, the *separately* recorded normalized arguments
-  for the same call. The stream publishes one `input` record per call and no second witness, so every
-  settled call matches itself: the metric can only return `1.0` or `{}`. It stays wired, at the right
-  name, so restoring it is one additive member on `TranscriptStep` (#1300's call). Until then it is
-  unmeasured, not passing.
+Python compares the span's raw arguments against `StepRecord.params`, the *separately* recorded
+arguments the runner settled for the same call. The stream publishes only the first, so the metric
+was degenerate here until the retrieval published the second: `GET /v1/conversations/{id}/messages`
+carries every settled step of every run of the session (`steps`, additive), each with the params
+its tool executed with as JSON text, and `turn-transcript.ts` pairs them onto the frames' calls by
+**tool name and occurrence** — the pairing `ArgumentCorrectness(tool, occurrence=k)` makes itself,
+and the only one that survives a settled step the stream never published (`respond`).
+
+The metric therefore has THREE answers, and `src/settled-params.ts` owns the distinction. A read
+that published no `steps` array at all (an edge older than #1381, the Python route's `null`, a read
+that never answered) offered no second record for any call: `TranscriptResult.paramsRecorded` is
+false and the evaluator emits NOTHING, the same `{}` a turn with no successful call emits. Within a
+read that DID publish steps, a call with no step of its own is `params: null` and scores 0 — the one
+answer this side gives that Python has no case for, since Python always had a `params` dict and an
+unrecorded one could pass vacuously (`params_recorded`, #443). A call nobody witnessed must not be
+able to score 1.0, and "unmeasured" must not look like "every call was wrong".
+
+### One place the wire still cannot reach Python, and what it costs
+
 - **`nonempty_results` substitutes the published `results` for the itinerary's `source_ref` hop.** The
   stream carries row counts and points, never a ref to follow, so a routed turn is judged by the
   search it published. Python's two failure branches (no `source_ref`; a `source_ref` that misses the
@@ -108,6 +123,11 @@ project's own, ported from `evaluators.py`.
 
 `src/metric-names.ts` ports `eval_harness.metric_names` — same names, same order, checked against the
 oracle's committed dump. Order is load-bearing: baselines and report tables are keyed positionally.
+Two columns are conditional: `nonempty_results` on the DATASET (no tagged case, no column) and
+`argument_correctness` on the RUN (`src/gate-run/run-metric-names.ts` — no case was offered the
+settled params, so nothing computed it). Both exist because `aggregateScores` is strict, as Python's
+`_scores` is: a metric the list names and the run does not report throws, which would let one
+unavailable measurement take the other seven down with it.
 
 ## Version pin
 
@@ -196,6 +216,7 @@ made. That split is why the task can be tested with a fake fetch at all.
 | Piece | Owns |
 |---|---|
 | `src/turn-transcript.ts` | (SSE frames, transcript read) → `TranscriptResult`, the members Python's evaluators read off an `AgentResult` |
+| `src/settled-params.ts` | the one part of the shaper that reads the RETRIEVAL surface: whether a second record was offered at all, and which settled step answers which frame call |
 | `src/case-submissions.ts` | the `POST /v1/chat` bodies one case sends, history first |
 | `src/staging-turn-task.ts` | the `Dataset.evaluate` task: submit, retry policy, concurrency bound, read back |
 | `src/staging-bearer.ts` · `src/neon-auth-bearer.ts` | the 15-minute Neon Auth JWT, minted and re-minted on age |
@@ -227,7 +248,10 @@ in `agent_result_to_response`, which now projects the payload from the session r
 one, and today's `{results, itinerary}` pairing. `fixtures/captures/*.messages.json` is the one hand-written fixture here — Python
 never served `GET /v1/conversations/{id}/messages` for those turns — and it is parsed through
 the contract's `GetSessionHistoryResponse` so it cannot drift into a shape the edge would never
-send. **Unverified:** no capture has been taken from a live staging turn yet; there was no
+send. Its `steps` restate each call's arguments as the settled params, because that is what the
+recorder had: `record_fixtures.py` declares ONE `params` per replayed call and writes it as the
+frame's `args`, so a capture cannot witness a divergence — the oracle's two settled-params
+scenarios are where that branch is measured. **Unverified:** no capture has been taken from a live staging turn yet; there was no
 `STAGING_GATE_TOKEN` in reach when this landed. `scripts/record-captures.sh` is how that
 changes, and the shaper needing an edit afterwards is itself the finding.
 

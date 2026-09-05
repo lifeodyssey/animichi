@@ -47,12 +47,15 @@ function makeFacts(overrides: Partial<ConversationFacts> = {}): ConversationFact
   return { ownerId: OWNER, turnCount: 0, latestRun: null, ...overrides };
 }
 
-/** Records that answer with one session's facts and one shuffled transcript. */
+/** Records that answer with one session's facts and one shuffled transcript.
+ * The settled steps are `settled-step-params.test.ts`'s subject, not this
+ * file's, so a session here has none. */
 function makeRecords(facts: ConversationFacts | null, rows: TranscriptRow[]): ConversationRecords {
   return {
     factsOf: () => Promise.resolve(facts),
     transcriptOf: (_sessionId, page) =>
       Promise.resolve(rows.slice(page.offset, page.offset + page.limit)),
+    settledStepsOf: () => Promise.resolve([]),
   };
 }
 
@@ -169,6 +172,7 @@ function makeEndlessRecords(): ConversationRecords {
     factsOf: () => Promise.resolve(makeFacts()),
     transcriptOf: (_sessionId, page) =>
       Promise.resolve(Array.from({ length: page.limit }, () => makeRow("2026-08-01T10:00:00Z", "m"))),
+    settledStepsOf: () => Promise.resolve([]),
   };
 }
 

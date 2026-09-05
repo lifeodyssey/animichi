@@ -17,14 +17,16 @@ import {
   ByokProbeErrorBody,
   ByokProbeResponse,
   ChatTurnRequest,
-  GetSessionHistoryResponse,
   GpsPoint,
   PhotoConfirmRequest,
   PhotoSearchRequest,
   PhotoSearchResponse,
   ServiceMetadata,
-  SessionHistoryMessage,
 } from "../src/agent-contract.js";
+import {
+  GetSessionHistoryResponse,
+  SessionHistoryMessage,
+} from "../src/session-history-contract.js";
 import { renderContent, renderModel } from "../scripts/emit-agent-python.js";
 
 const COMMITTED = readFileSync(
