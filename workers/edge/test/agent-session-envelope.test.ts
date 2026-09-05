@@ -3,8 +3,9 @@
  *
  * The two facts Python kept across turns (`agents/session_state.py`) are a value
  * object here, so a turn's state at any moment is one thing that can be written
- * down whole. These cases pin the transitions, the Durable Object round trip and
- * the trusted runtime context the next turn's model is given.
+ * down whole. These cases pin the transitions and the Durable Object round trip;
+ * what the next turn's model is TOLD of them is `agent-status.ts`' own suite
+ * since #1379 (`agent-status-bar.test.ts`).
  *
  * test-type: unit (no clock, no network, no database).
  */
@@ -16,7 +17,6 @@ import {
   SESSION_ENVELOPE_KEY,
   stagedEnvelopeKey,
 } from "../src/agent/session/durable-envelope-store.ts";
-import { TURN_SYSTEM_PROMPT, turnSystemPrompt } from "../src/agent/session/turn-instructions.ts";
 import { RecordingEnvelopeStorage } from "./doubles/recording-envelope-storage.ts";
 import type { OrderedCandidate } from "../src/agent/tools/catalog-tool-session.ts";
 
@@ -108,23 +108,6 @@ void test("a stored candidate carrying no optional fields at all is read back wh
   await store.promote(RUN_ID);
   const read = (await store.load()).pendingClarification;
   assert.deepEqual(read?.candidates, [{ id: "kuki", title: "久喜駅" }]);
-});
-
-void test("a turn with nothing stored runs the bare system prompt", () => {
-  assert.equal(turnSystemPrompt(SessionEnvelope.empty), TURN_SYSTEM_PROMPT);
-});
-
-void test("the trusted runtime context names the anime the session already resolved", () => {
-  const prompt = turnSystemPrompt(SessionEnvelope.empty.withAnime(HARUHI));
-  assert.ok(prompt.startsWith(TURN_SYSTEM_PROMPT));
-  assert.match(prompt, /涼宮ハルヒの憂鬱 \(485\)/u);
-  assert.match(prompt, /already resolved/u);
-});
-
-void test("the trusted runtime context names the open question and its candidates", () => {
-  const prompt = turnSystemPrompt(bothFacts());
-  assert.match(prompt, /anime_ambiguity/u);
-  assert.match(prompt, /485, 2907/u);
 });
 
 /** Promotion is the half that runs on a retry, so running it twice has to be

@@ -3,8 +3,11 @@
  * (card #1290) — port of `apps/agent`'s `domain/text_sanitize.py`.
  *
  * Both ledgers in this folder replay strings the world supplied (a point name,
- * a place name, an anime title) back into the SYSTEM prompt's trusted runtime
- * context. Two hazards ride on that, and one function answers both:
+ * a place name, an anime title) back into the context, on the `<agent_status>`
+ * bar the request ends with (#1379, `agent-status.ts`). The bar rides a `user`
+ * message rather than the system prompt now, which makes this sanitisation more
+ * load-bearing rather than less: the channel vouches for nothing, the code that
+ * builds the line does. Two hazards ride on that, and one function answers both:
  * - a value carrying newlines or control characters could forge extra
  *   context-shaped lines once replayed, so they collapse to single spaces;
  * - a value of unbounded length would spend the whole prompt budget, so it is

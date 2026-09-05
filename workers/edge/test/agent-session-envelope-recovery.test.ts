@@ -58,7 +58,7 @@ void test("a newer run opens from the staging an older run could not publish", a
     store: makeEnvelopeTurnStore({ runId: RUN_TWO }),
     streamFn: makeSequencedToolCallsStreamFn([]),
   });
-  assert.match(second.prompts[0] ?? "", /らき☆すた \(1\)/u);
+  assert.match(second.statuses[0] ?? "", /らき☆すた \(1\)/u);
 });
 
 /** The whole point of the drain: after the newer run has published its own

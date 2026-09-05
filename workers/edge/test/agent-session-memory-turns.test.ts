@@ -4,9 +4,9 @@
  * Only the whole round trip can answer this one. The claim is that a turn far
  * from where a fact was recorded still ACTS on it — the pacing turn 1 planned
  * with and the place name compaction rescued from turn 1's own history both
- * reach turn 3's model, through the Durable Object storage and the system
- * prompt, while the context that model is handed is SMALLER than the raw
- * transcript it was built from.
+ * reach turn 3's model, through the Durable Object storage and the
+ * `<agent_status>` bar (#1379), while the context that model is handed is
+ * SMALLER than the raw transcript it was built from.
  *
  * Only the provider socket and the catalog binding are scripted; the loop, the
  * step persistence, the envelope staging and the compaction hook are the real
@@ -117,25 +117,26 @@ function turnAt(runs: readonly EnvelopeTurnRun[], index: number): EnvelopeTurnRu
 
 void test("turn 3 opens with the pacing turn 1 planned with", async () => {
   const third = turnAt(await runThreeTurns(), 2);
-  assert.match(third.requests[0]?.prompt ?? "", /User hard constraint: chill pacing\./);
+  assert.match(third.statuses[0] ?? "", /User hard constraint: chill pacing\./);
 });
 
 void test("turn 3 opens with the title compaction rescued in turn 1", async () => {
   const third = turnAt(await runThreeTurns(), 2);
   assert.match(
-    third.requests[0]?.prompt ?? "",
+    third.statuses[0] ?? "",
     /Verbatim entity retained from an earlier resolve_anime call: 「らき☆すた」/,
   );
 });
 
 void test("the fact survives the turn that recorded nothing at all", async () => {
   const second = turnAt(await runThreeTurns(), 1);
-  assert.match(second.requests[0]?.prompt ?? "", /User hard constraint: chill pacing\./);
+  assert.match(second.statuses[0] ?? "", /User hard constraint: chill pacing\./);
 });
 
+/** 15 messages of history plus the one `<agent_status>` bar #1379 appends. */
 void test("turn 3's last context is smaller than the raw transcript behind it", async () => {
   const third = turnAt(await runThreeTurns(), 2);
-  assert.equal(lastContextOf(third).length, 15);
+  assert.equal(lastContextOf(third).length, 16);
   assert.ok(returnTextsIn(lastContextOf(third)).length < persistedReturnsOf(third).length);
 });
 
