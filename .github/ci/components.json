@@ -65,7 +65,7 @@
     },
     {
       "name": "security-codeql-javascript",
-      "components": ["catalog", "contract", "e2e", "edge", "eval", "infra", "migrator", "users", "web"],
+      "components": ["catalog", "contract", "e2e", "edge", "eval", "infra", "migrator", "test-postgres", "users", "web"],
       "paths": [".github/scripts/**"]
     },
     {
@@ -75,7 +75,7 @@
     },
     {
       "name": "security-semgrep",
-      "components": ["agent", "catalog", "contract", "e2e", "edge", "eval", "infra", "migrator", "users", "web"],
+      "components": ["agent", "catalog", "contract", "e2e", "edge", "eval", "infra", "migrator", "test-postgres", "users", "web"],
       "paths": [".semgrep/**", ".semgrepignore", "scripts/semgrep-raw-sql-test.sh"]
     },
     {
@@ -93,6 +93,7 @@
         "infra/database-access/pnpm-lock.yaml",
         "packages/contract/package.json",
         "packages/eval/package.json",
+        "packages/test-postgres/package.json",
         "workers/catalog/package.json",
         "workers/edge/package.json",
         "workers/migrator/package.json",
@@ -304,6 +305,14 @@
       "depends_on": ["contract", "db"],
       "ci_lanes": ["lint", "unit", "build"],
       "deploy_unit": "migrator"
+    },
+    {
+      "name": "test-postgres",
+      "paths": ["packages/test-postgres/**"],
+      "deploy_excludes": ["packages/test-postgres/AGENTS.md", "packages/test-postgres/test/**"],
+      "depends_on": [],
+      "ci_lanes": ["typecheck", "lint", "unit"],
+      "deploy_unit": null
     },
     {
       "name": "users",
