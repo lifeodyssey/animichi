@@ -110,11 +110,12 @@ ANON_ACCESS_ENABLED = "true"
 # landing's own surface (/healthz, /img/*, /tiles/*). Consumed by the edge
 # worker itself, so it is deliberately NOT in CONTAINER_ENV_KEYS.
 EDGE_SHOWCASE_MODE = "false"
-# W1-7 (#1256): which tier serves POST /v1/chat and
-# GET /v1/conversations/{id}/messages — "container" (the Python container that
-# has always served them) or "edge" (this Worker's own AgentSession DO + Neon,
-# spec docs/specs/2026-09-01-agent-ts-rewrite-spec.md §三). This is the FALLBACK
-# switch for the agent rewrite: only the literal "edge" moves the two routes,
+# W1-7 (#1256), extended by #1289: which tier serves POST /v1/chat,
+# POST /v1/byok/probe and GET /v1/conversations/{id}/messages — "container" (the
+# Python container that has always served them) or "edge" (this Worker's own
+# AgentSession DO + Neon, spec docs/specs/2026-09-01-agent-ts-rewrite-spec.md
+# §三; the table is edgeTierRoute in src/gateway/routing-policy.ts). This is the
+# FALLBACK switch for the agent rewrite: only the literal "edge" moves them,
 # and every other value — including a typo — keeps the container, because the
 # safe side of this flag is the surface that has been serving all along. Read by
 # the edge worker itself, so deliberately NOT in CONTAINER_ENV_KEYS. Local dev
@@ -130,12 +131,18 @@ ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
 # out is not a faster sweep, it is no sweep at all.
 RUN_SWEEP_INTERVAL_SECONDS = "60"
 # Global anonymous daily spend ceiling (X4). Enforced by the container ingress
-# against the daily_usage table; 0 disables the breaker.
+# against the daily_usage table; 0 disables the breaker. NOT enforced on the
+# edge tier: under AGENT_TURN_ROUTE = "edge" the turn never reaches the
+# container, nothing in src/agent reads this value, and src/protect/
+# cost-breaker.ts only latches a container verdict that never arrives —
+# #1343 / EG-01 (docs/specs/2026-09-05-repo-smell-audit.md §1.2) pending.
 ANON_DAILY_COST_BUDGET_USD = "5.0"
 # Per-identity daily message quota (issue #282, S1.10) — a fairness/UX
 # mechanism, not a security defense line: it keeps one visitor's free usage
 # reasonable while the shared budget above stays open for everyone else.
-# Enforced by the container ingress against anon_daily_message_count; 0 or
+# Enforced against anon_daily_message_count by whichever tier serves the turn —
+# the container ingress, or the edge intake's own reservation upsert
+# (src/agent/intake/anonymous-message-allowance.ts); 0 or
 # unset disables it, the same "0 disables" convention as the budget ceiling
 # above. Default is an owner-set operations decision (20 here is a starting
 # point, not a locked-in value).
@@ -282,12 +289,18 @@ ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
 # out is not a faster sweep, it is no sweep at all.
 RUN_SWEEP_INTERVAL_SECONDS = "60"
 # Global anonymous daily spend ceiling (X4). Enforced by the container ingress
-# against the daily_usage table; 0 disables the breaker.
+# against the daily_usage table; 0 disables the breaker. NOT enforced on the
+# edge tier: under AGENT_TURN_ROUTE = "edge" the turn never reaches the
+# container, nothing in src/agent reads this value, and src/protect/
+# cost-breaker.ts only latches a container verdict that never arrives —
+# #1343 / EG-01 (docs/specs/2026-09-05-repo-smell-audit.md §1.2) pending.
 ANON_DAILY_COST_BUDGET_USD = "5.0"
 # Per-identity daily message quota (issue #282, S1.10) — a fairness/UX
 # mechanism, not a security defense line: it keeps one visitor's free usage
 # reasonable while the shared budget above stays open for everyone else.
-# Enforced by the container ingress against anon_daily_message_count; 0 or
+# Enforced against anon_daily_message_count by whichever tier serves the turn —
+# the container ingress, or the edge intake's own reservation upsert
+# (src/agent/intake/anonymous-message-allowance.ts); 0 or
 # unset disables it, the same "0 disables" convention as the budget ceiling
 # above. Default is an owner-set operations decision (20 here is a starting
 # point, not a locked-in value).
@@ -503,12 +516,18 @@ ANON_RATE_LIMIT_WINDOW_SECONDS = "60"
 # out is not a faster sweep, it is no sweep at all.
 RUN_SWEEP_INTERVAL_SECONDS = "60"
 # Global anonymous daily spend ceiling (X4). Enforced by the container ingress
-# against the daily_usage table; 0 disables the breaker.
+# against the daily_usage table; 0 disables the breaker. NOT enforced on the
+# edge tier: under AGENT_TURN_ROUTE = "edge" the turn never reaches the
+# container, nothing in src/agent reads this value, and src/protect/
+# cost-breaker.ts only latches a container verdict that never arrives —
+# #1343 / EG-01 (docs/specs/2026-09-05-repo-smell-audit.md §1.2) pending.
 ANON_DAILY_COST_BUDGET_USD = "5.0"
 # Per-identity daily message quota (issue #282, S1.10) — a fairness/UX
 # mechanism, not a security defense line: it keeps one visitor's free usage
 # reasonable while the shared budget above stays open for everyone else.
-# Enforced by the container ingress against anon_daily_message_count; 0 or
+# Enforced against anon_daily_message_count by whichever tier serves the turn —
+# the container ingress, or the edge intake's own reservation upsert
+# (src/agent/intake/anonymous-message-allowance.ts); 0 or
 # unset disables it, the same "0 disables" convention as the budget ceiling
 # above. Default is an owner-set operations decision (20 here is a starting
 # point, not a locked-in value).

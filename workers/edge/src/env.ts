@@ -1,6 +1,5 @@
 /// <reference types="@cloudflare/workers-types" />
-// TODO(#841 path-delta): shared Env/context types — stays at the worker root
-// (imported by every concern folder) until the #853 package-ization.
+// The Worker's binding/context types, imported by every concern folder.
 import type { NamedStubs } from "./agent/durable-namespace.ts";
 import type { GuardNamespace } from "./protect/guard-store.ts";
 import type { TileBucket } from "./proxy/tiles.ts";

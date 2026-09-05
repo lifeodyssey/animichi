@@ -42,8 +42,10 @@ function stripUntrustedHeaders(headers: Headers): void {
 
 /** Forward a /v1 request to the container's default instance. Always strips
  * Authorization, client-supplied X-User-*, X-Anon-Id (anti-forgery), and x-byok-endpoint
- * (documented as trusted by the container but client-settable — closed
- * until BYOK launches); on authed paths it injects the worker-verified identity.
+ * — a legacy header name kept off the wire: BYOK shipped in #1289 on the
+ * `X-BYOK-*` headers, and the container names this one in CORS only
+ * (apps/agent/src/animichi/interfaces/fastapi_service.py), so nothing may set
+ * it; on authed paths it injects the worker-verified identity.
  * A trusted `X-Anon-Id` is set only
  * when the caller passes one explicitly (the session-adoption route,
  * SESSION-2 #960 / re-P2-1) — every other route forwards none. `x-session-id` is
