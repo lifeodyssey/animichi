@@ -15,12 +15,13 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 
 - `apps/agent/`        — Python PydanticAI agent (FastAPI container). uv. → `apps/agent/AGENTS.md`
 - `workers/catalog/`   — TS Worker: anime catalog API + data platform (ingest/enrich/publish). → `workers/catalog/AGENTS.md`
-- `workers/users/`     — LIVE Hono/oRPC/jose user-data Worker; 21 tests + CI lane. → `workers/users/AGENTS.md`
+- `workers/users/`     — LIVE Hono/oRPC user-data Worker over Neon; verifies nothing itself (no `jose`) — it trusts the edge-forwarded identity; 13 `test/*.worker.test.ts` files + CI lane. → `workers/users/AGENTS.md`
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `packages/eval/`     — Node eval package (W3): reads the Python-exported datasets with `logfire/evals`. → `packages/eval/AGENTS.md`
 - `packages/test-postgres/` — Test-only Postgres data plane (image, readiness wait, clean DB, Atlas chain) shared by the catalog spike, the edge agent-db arm and `db-fresh-schema.sh`. → `packages/test-postgres/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
-- `workers/edge/`      — CF edge worker (`entry.ts`): auth + `/v1` routing + image proxy. No page fallback — unmatched paths 404.
+- `workers/edge/`      — CF edge worker (`workers/edge/src/entry.ts`): the gateway (auth, `/v1` routing, image/tile proxies; no page fallback — unmatched paths 404) **and**, behind `AGENT_TURN_ROUTE = "edge"`, the TS agent tier itself (`workers/edge/src/agent/`: intake → `AgentSession` DO → Neon settlement) — most of the package's source is now that tier. → `workers/edge/AGENTS.md`
+- `workers/migrator/`  — TS Worker that applies the `migrations/neon` Atlas chain (bundled into the Worker) behind GitHub OIDC. → `workers/migrator/AGENTS.md`
 - `migrations/neon/`    — Atlas/Neon migrations (moved from `db/migrations`); `supabase/` is an archived historical Supabase migration dir (issue #1000), not a live surface. → `migrations/AGENTS.md`
 - `e2e/`               — Playwright browser suite for `apps/web`. → `e2e/AGENTS.md`
 - `infra/`             — Pulumi Cloudflare IaC. → `infra/AGENTS.md`
@@ -82,9 +83,10 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 ## Authoritative docs (read the matching one when doing that work)
 
 - Architecture **why** → `docs/specs/2026-06-13-architecture-adr.md`
-- Current **target** (hybrid, latest; wins over the ADR on agent language) →
-  `docs/specs/2026-07-06-frontend-rebuild-spec.md`
-- Live runtime **reference** → `docs/ARCHITECTURE.md`
+- Current **target** for the agent runtime (TS rewrite inside `workers/edge`; supersedes SD-4 of the
+  rebuild spec) → `docs/specs/2026-09-01-agent-ts-rewrite-spec.md`
+- Web rebuild target (still canonical for `apps/web`) → `docs/specs/2026-07-06-frontend-rebuild-spec.md`
+- Live runtime **reference** (both agent tiers + the `AGENT_TURN_ROUTE` flag) → `docs/ARCHITECTURE.md`
 - Deploy runbook → `docs/ops/deployment.md`
 - **Single Source-of-Truth table + doc-change rules** → `docs/DOCS_POLICY.md` (the one canonical topic→path map)
 - Current **campaign tracking** (merged restructure-spec × GOAL; waves P0–P8; ADRs 0003–0005) →
