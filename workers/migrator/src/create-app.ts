@@ -174,27 +174,10 @@ async function handleMigrate(
   }
 }
 
-/**
- * #1052 (AC5) - read-only applied-head report for the post-staging smoke.
- * Resolves the migrator DSN transiently and reads the applied head from the
- * ledger (the same read-only query /migrate uses on a clean exit). No
- * container runs and no mutation is possible. It is unauthenticated because
- * the head equals the newest committed migrations/neon basename (public info,
- * scripts/migration-head.sh), and the smoke's post-staging job carries no OIDC.
- */
-async function handleLedgerHead(c: Context<{ Bindings: Env }>, deps: MigratorDeps): Promise<Response> {
-  const dsn = await resolveDsn(c.env);
-  if (dsn === undefined) return c.json({ error: "migrator database not configured" }, 503);
-  const readAppliedHead = deps.readAppliedHead ?? ((value: string) => new NeonMigrationsLedger().readAppliedHead(value));
-  const head = await readAppliedHead(dsn);
-  return c.json({ head });
-}
-
 /** Create an independently injectable migrator Hono application. */
 export function createMigratorApp(deps: MigratorDeps = {}): Hono<{ Bindings: Env }> {
   const app = new Hono<{ Bindings: Env }>();
   app.get("/healthz", healthz);
-  app.get("/ledger-head", (c) => handleLedgerHead(c, deps));
   app.post("/migrate", (c) => handleMigrate(c, deps));
   return app;
 }
