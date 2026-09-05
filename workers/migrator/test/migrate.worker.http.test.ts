@@ -84,3 +84,23 @@ describe("POST /migrate HTTP apply (expectedHead)", () => {
     });
   });
 });
+
+// #1339 (ucm-H2): `GET /ledger-head` reported the applied head to anyone, and
+// resolved the DDL-capable migrator DSN on every anonymous hit of a public
+// `workers_dev` host. The head is now readable only from this OIDC-gated
+// response, so both halves are pinned: the route stays absent, and the
+// missing-DSN branch that survived the deletion still answers 503.
+describe("migrator HTTP surface", () => {
+  it("does not route GET /ledger-head", async () => {
+    const { app } = await makeApp();
+    const res = await app.request("https://migrator.test/ledger-head", {}, testEnv());
+    expect(res.status).toBe(404);
+  });
+
+  it("answers 503 on POST /migrate when the migrator DSN is not configured", async () => {
+    const { app, token } = await makeApp();
+    const res = await app.request(post({}, token), {}, {});
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "migrator database not configured" });
+  });
+});
