@@ -45,6 +45,13 @@ export function makeToolCallMessage(...ids: string[]): AssistantMessage {
   };
 }
 
+/** The assistant message that issued one call to a NAMED tool. The route cases
+ * (#1389) need the name on the wire, because a replayed return is recognised as
+ * already-frozen by the tool it opens with. */
+export function makeNamedToolCallMessage(toolName: string, id: string): AssistantMessage {
+  return { ...makeToolCallMessage(id), content: [{ type: "toolCall", id, name: toolName, arguments: {} }] };
+}
+
 /** The `messages` row that message was persisted as, with its envelope. */
 export function makeToolCallRow(
   runId: string,
@@ -60,8 +67,10 @@ export function makeAnswerRow(content: string): TranscriptRow {
   return { role: "assistant", content, responseData: null };
 }
 
-export function makeStep(stepIndex: number, result: StepResult | null): PersistedStep {
-  return { stepIndex, toolName: "lookup_spot", input: {}, result };
+export function makeStep(
+  stepIndex: number, result: StepResult | null, toolName = "lookup_spot",
+): PersistedStep {
+  return { stepIndex, toolName, input: {}, result };
 }
 
 export interface LoadedTurnParts {

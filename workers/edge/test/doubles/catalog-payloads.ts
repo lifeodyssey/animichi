@@ -85,3 +85,42 @@ export const LUCKY_STAR_ROUTE: Itinerary = {
     pacing: "normal",
   },
 };
+
+/** Twelve stops of one work, ids `spot-1` … `spot-12` in visit order. */
+const TWELVE_POINTS: Point[] = Array.from({ length: 12 }, (_unused, index) => ({
+  ...WASHINOMIYA,
+  id: `spot-${String(index + 1)}`,
+  name: `聖地 ${String(index + 1)}`,
+}));
+
+/**
+ * A twelve-stop route (#1389).
+ *
+ * Twelve rather than two because that is where `plan_route`'s own outcome goes
+ * past `TOOL_RETURN_MAX_CHARS` and the frozen summary becomes what a later turn
+ * is shown of the route — the case an ordinal follow-up has to survive.
+ */
+export const TWELVE_STOP_ROUTE: Itinerary = {
+  ordered_points: TWELVE_POINTS,
+  point_count: TWELVE_POINTS.length,
+  timed_itinerary: {
+    stops: TWELVE_POINTS.map((point) => ({
+      cluster_id: point.id,
+      name: point.name,
+      arrive: "10:00",
+      depart: "10:40",
+      dwell_minutes: 40,
+      lat: point.latitude,
+      lng: point.longitude,
+      photo_count: 1,
+    })),
+    legs: [],
+    total_minutes: 480,
+    total_distance_m: 12_000,
+    spot_count: TWELVE_POINTS.length,
+    pacing: "normal",
+  },
+};
+
+/** The stops that route visits, in order — what "the second stop" lands on. */
+export const TWELVE_STOP_IDS: readonly string[] = TWELVE_POINTS.map((point) => point.id);

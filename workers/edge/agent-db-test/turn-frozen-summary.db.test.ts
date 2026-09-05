@@ -19,7 +19,7 @@ import { sql } from "drizzle-orm";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { DurableTurn } from "../src/agent/session/durable-turn.ts";
 import { NeonTurnStore } from "../src/agent/session/neon-turn-store.ts";
-import { TOOL_RETURN_MAX_CHARS } from "../src/agent/session/frozen-tool-return.ts";
+import { TOOL_RETURN_MAX_CHARS } from "../src/agent/session/tool-return-summary.ts";
 import { CountingSpotLookup, makeScriptedTurnModel, makeSessionTurnParts } from "../test/doubles/make-turn-parts.ts";
 import { makeToolCallMessage } from "../test/doubles/make-loaded-turn.ts";
 import { makeSequencedToolCallsStreamFn } from "../test/doubles/pi-provider-double.ts";

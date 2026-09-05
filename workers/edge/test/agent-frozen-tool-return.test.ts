@@ -15,10 +15,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import {
-  TOOL_RETURN_MAX_CHARS,
-  frozenSummaryOf,
-} from "../src/agent/session/frozen-tool-return.ts";
+import { frozenSummaryOf } from "../src/agent/session/frozen-tool-return.ts";
+import { TOOL_RETURN_MAX_CHARS } from "../src/agent/session/tool-return-summary.ts";
 import { resumedTranscript } from "../src/agent/session/turn-transcript.ts";
 import {
   makeAnswerRow,

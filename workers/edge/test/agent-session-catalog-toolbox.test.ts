@@ -103,6 +103,7 @@ void test("a ref minted in one step is readable by the next step of the same run
   assert.deepEqual(stepDetails(store, 1), {
     status: "ok",
     itinerary_ref: `route:2:2@${RUN_ID}`,
+    ordered_point_ids: ["spot-1", "spot-2"],
     point_count: 2,
     total_minutes: 120,
   });

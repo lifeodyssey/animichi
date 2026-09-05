@@ -1,10 +1,19 @@
 /**
  * The compact discriminated outcomes the catalog tools hand back to the model.
  *
- * A straight port of `apps/agent/src/animichi/agents/tool_outcomes.py`: the
+ * A port of `apps/agent/src/animichi/agents/tool_outcomes.py`: the
  * model never sees rows, only an outcome plus the opaque ref it can name in a
  * later call. Keeping the vocabulary identical is what lets the system prompt,
  * the eval trajectories and the web's `intent` frames survive the rewrite.
+ *
+ * ONE FIELD IS NOT PYTHON'S, and it is named here so the divergence is not
+ * discovered later: `ItineraryOk.ordered_point_ids` (#1389). Every other
+ * field on every other outcome matches
+ * `test_tool_outcome_schemas.py`'s frozen field sets. The argument is below,
+ * on the field itself; the seams it could have broken are all additive —
+ * `details` is typed `JsonValue`, the SD-9 `tool-output-available` frame
+ * carries it whole (`session/turn-frames.ts`), and no evaluator reads a
+ * step's details by field.
  */
 
 /**
@@ -119,6 +128,18 @@ export type NearbyOutcome =
 export interface ItineraryOk {
   status: "ok";
   itinerary_ref: string;
+  /**
+   * The stops in visit order, by point id — the ORDINAL ANCHOR (#1389).
+   *
+   * "The second stop" is an ordinal, and an ordinal lands on an ordered list of
+   * identities or on nothing. This outcome used to answer a ref and two
+   * numbers, and a count is not an identity: a later turn reading it back knew
+   * how many stops the route had and not one of them. It is the same loss
+   * `ResolveAmbiguous.candidate_ids` already refuses to take, kept on the same
+   * terms — verbatim, in order, and copied through the frozen summary by
+   * `session/tool-return-summary.ts` rather than paraphrased.
+   */
+  ordered_point_ids: string[];
   point_count: number;
   total_minutes: number;
 }
