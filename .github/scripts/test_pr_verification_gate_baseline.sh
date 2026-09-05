@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Behavioural cases for the OpenAPI compatibility baseline the contract gate
-# vets against (#1341). Three facts, on a real fixture history: a document
-# absent from the merge base gets an empty baseline, a document that is there
-# but unreadable fails the gate, and a document that is there is compared
-# against the merge base's copy — never against the head's own document.
+# vets against (#1341). On real fixture histories: a document absent from the
+# merge base gets an empty baseline; a document that is there is compared
+# against the merge base's copy, never the head's own document; and a merge base
+# the object store cannot answer for — root tree, subtree, or the document blob
+# — fails the gate instead of degrading to an empty baseline.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GATE="${PR_VERIFICATION_GATE:-$SCRIPT_DIR/pr-verification-gate.sh}"
-REAL_GIT="$(command -v git)"
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/pr-verification-baseline.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -49,27 +49,35 @@ make_fixture() {
   git -C "$root" config user.email test@example.com
 }
 
-make_stubs() {
+# A merge base that already publishes the documents and a head that changes
+# them — the history every case except the brand-new document needs.
+make_changed_contract() {
+  local root="$1"
+  make_fixture "$root"
+  write_documents "$root" ping
+  commit_all "$root" base
+  write_documents "$root" pong
+  commit_all "$root" 'change the contract'
+}
+
+# Stands in for `node --import tsx .../vet-openapi.ts <baseline> <candidate>` and
+# records the baseline the gate resolved, which is what the cases assert on.
+make_vet_stub() {
   mkdir -p "$TMP/bin"
   cat > "$TMP/bin/node" <<'STUB'
 #!/usr/bin/env bash
-# Stands in for `node --import tsx .../vet-openapi.ts <baseline> <candidate>`
-# and records the baseline the gate resolved, which is what the cases assert on.
 cp "$4" "$VET_BASELINE_DIR/$(basename "$4")"
 STUB
-  cat > "$TMP/bin/git" <<'STUB'
-#!/usr/bin/env bash
-# Real git, except for the one read a case asks to break: `git show
-# <rev>:packages/contract/$BREAK_GIT_SHOW_DOC`. The history stays real, so the
-# merge base the gate resolves is the real one.
-if [ -n "${BREAK_GIT_SHOW_DOC:-}" ] && [ "$1" = show ] &&
-  [ "${2##*:}" = "packages/contract/$BREAK_GIT_SHOW_DOC" ]; then
-  echo "fatal: unable to read blob" >&2
-  exit 128
-fi
-exec "$REAL_GIT" "$@"
-STUB
-  chmod +x "$TMP/bin/node" "$TMP/bin/git"
+  chmod +x "$TMP/bin/node"
+}
+
+# Loose objects only: a two-commit fixture is never packed, and a packed object
+# would make the case vacuous rather than fail, so the move is checked.
+hide_object() {
+  local root="$1" object="$2" path
+  path="$root/.git/objects/${object:0:2}/${object:2}"
+  [ -e "$path" ] || { echo "FAIL fixture: $object is not a loose object"; exit 1; }
+  mv "$path" "$path.hidden"
 }
 
 assert_recorded_baselines() {
@@ -79,13 +87,21 @@ assert_recorded_baselines() {
   done
 }
 
+assert_gate_refused() {
+  local label="$1" out="$2" recorded="$3" complaint="$4"
+  grep -q "$complaint" "$out" ||
+    { echo "FAIL unreadable-$label: the gate did not report '$complaint'"; cat "$out"; exit 1; }
+  [ ! -e "$recorded/openapi.json" ] ||
+    { echo "FAIL unreadable-$label: the vet ran on a baseline the gate could not read"; exit 1; }
+}
+
 run_gate() {
-  local root="$1" recorded="$2" break_doc="$3" base head
+  local root="$1" recorded="$2" base head
   base="$(git -C "$root" rev-parse HEAD^)"
   head="$(git -C "$root" rev-parse HEAD)"
   mkdir -p "$recorded"
-  PATH="$TMP/bin:$PATH" REAL_GIT="$REAL_GIT" RUNNER_TEMP="$TMP" \
-    VET_BASELINE_DIR="$recorded" BREAK_GIT_SHOW_DOC="$break_doc" \
+  PATH="$TMP/bin:$PATH" RUNNER_TEMP="$TMP" \
+    VET_BASELINE_DIR="$recorded" \
     PR_VERIFICATION_BASE_SHA="$base" PR_VERIFICATION_SOURCE_HEAD_SHA="$head" \
     PR_VERIFICATION_CHECKOUT_SHA="$head" \
     bash "$root/.github/scripts/pr-verification-gate.sh" contract
@@ -97,43 +113,38 @@ new_document_case() {
   commit_all "$root" base
   write_documents "$root" ping
   commit_all "$root" 'publish the contract'
-  run_gate "$root" "$recorded" "" > "$TMP/new-document.out" 2>&1 ||
+  run_gate "$root" "$recorded" > "$TMP/new-document.out" 2>&1 ||
     { echo "FAIL absent-at-base: the gate rejected a brand-new document"; cat "$TMP/new-document.out"; exit 1; }
   assert_recorded_baselines "$recorded" "$EMPTY_BASELINE" \
     'absent-at-base: a brand-new document was not vetted against an empty baseline'
 }
 
-unreadable_document_case() {
-  local root="$TMP/unreadable" recorded="$TMP/unreadable-baselines"
-  make_fixture "$root"
-  write_documents "$root" ping
-  commit_all "$root" base
-  write_documents "$root" pong
-  commit_all "$root" 'change the contract'
-  if run_gate "$root" "$recorded" openapi.json > "$TMP/unreadable.out" 2>&1; then
-    echo "FAIL unreadable-baseline: an unreadable merge-base document passed the gate"; exit 1
-  fi
-  grep -q 'cannot read openapi.json from merge base' "$TMP/unreadable.out" ||
-    { echo "FAIL unreadable-baseline: the gate did not name the document it could not read"; cat "$TMP/unreadable.out"; exit 1; }
-  [ ! -e "$recorded/openapi.json" ] ||
-    { echo "FAIL unreadable-baseline: the vet ran on a baseline the gate could not read"; exit 1; }
-}
-
 published_document_case() {
   local root="$TMP/published" recorded="$TMP/published-baselines"
-  make_fixture "$root"
-  write_documents "$root" ping
-  commit_all "$root" base
-  write_documents "$root" pong
-  commit_all "$root" 'change the contract'
-  run_gate "$root" "$recorded" "" > "$TMP/published.out" 2>&1 ||
+  make_changed_contract "$root"
+  run_gate "$root" "$recorded" > "$TMP/published.out" 2>&1 ||
     { echo "FAIL published-document: the gate rejected a routine contract change"; cat "$TMP/published.out"; exit 1; }
   assert_recorded_baselines "$recorded" "$(document_text ping)" \
     "published-document: the baseline was not the merge base's copy"
 }
 
-make_stubs
+# Every object the baseline read walks. Hiding any one of them is "the
+# repository cannot answer", never "the merge base has no such document".
+unreadable_object_case() {
+  local label="$1" object_rev="$2" complaint="$3" root recorded
+  root="$TMP/unreadable-$label"; recorded="$TMP/unreadable-$label-baselines"
+  make_changed_contract "$root"
+  hide_object "$root" "$(git -C "$root" rev-parse "$object_rev")"
+  if run_gate "$root" "$recorded" > "$TMP/unreadable-$label.out" 2>&1; then
+    echo "FAIL unreadable-$label: an unreadable $label passed the gate"; exit 1
+  fi
+  assert_gate_refused "$label" "$TMP/unreadable-$label.out" "$recorded" "$complaint"
+}
+
+make_vet_stub
 new_document_case
-unreadable_document_case
 published_document_case
-echo "PR Verification compat baseline: absent is empty, unreadable is red, published is the merge base's copy"
+unreadable_object_case root-tree 'HEAD^^{tree}' 'cannot read the merge base tree'
+unreadable_object_case subtree 'HEAD^:packages/contract' 'cannot read the merge base tree'
+unreadable_object_case blob 'HEAD^:packages/contract/openapi.json' 'cannot read openapi.json from merge base'
+echo "PR Verification compat baseline: absent is empty, published is the merge base's copy, an unanswerable merge base is red"
