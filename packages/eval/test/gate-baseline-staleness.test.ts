@@ -56,16 +56,32 @@ void test('a missing baseline names the file it looked for', () => {
   const result = readBaselineRecord(location);
   assert.deepEqual(result, {
     record: null,
+    failures: [],
     warnings: [`Missing baseline for ${LAYER}/${MODEL} at ${baselinePath(location)}`],
   });
 });
 
-void test('an unreadable baseline is a warning, not a crash', () => {
+/** Damaged on disk, not absent: a warning here would disable the regression
+ * gate with a line indistinguishable from a legitimate first run (#1341). */
+function readDamaged(text: string): BaselineReadResult {
   const location = scratchLocation();
-  writeFileSync(baselinePath(location), '{ not json', 'utf8');
-  const result = readBaselineRecord(location);
+  writeFileSync(baselinePath(location), text, 'utf8');
+  return readBaselineRecord(location);
+}
+
+void test('an unreadable baseline is a failure, not a silent skip', () => {
+  const result = readDamaged('{ not json');
   assert.equal(result.record, null);
-  assert.match(oracleEntryAt(result.warnings, 0), /^Invalid baseline for /);
+  assert.deepEqual(result.warnings, []);
+  assert.match(oracleEntryAt(result.failures, 0), /^Invalid baseline for /);
+});
+
+void test('a baseline written to another schema version fails the same way', () => {
+  const fresh = oracleEntryNamed(oracle.baseline_staleness, 'fresh').record;
+  const result = readDamaged(JSON.stringify({ ...fresh, schema_version: 3 }));
+  assert.equal(result.record, null);
+  assert.deepEqual(result.warnings, []);
+  assert.match(oracleEntryAt(result.failures, 0), /^Invalid baseline for /);
 });
 
 void test('a fresh record is returned with nothing to say about it', () => {
