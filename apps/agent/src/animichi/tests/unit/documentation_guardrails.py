@@ -27,13 +27,14 @@ _COVERAGE_KEYS = frozenset(
         "Frontend lines",
     }
 )
-_D7_HEADING = "## D7 — both REJECTED"
-_D7_FACTS = (
-    "Pyodide path: REJECTED",
-    "TS rewrite path: REJECTED",
-    "Python FastAPI container",
-    "warm-keeping strategy",
+_AGENT_RUNTIME_HEADING = "## Agent runtime today — two tiers, one flag"
+_AGENT_RUNTIME_FACTS = (
+    "AGENT_TURN_ROUTE",
+    "Container tier (the default)",
+    "Edge tier (staging today)",
     "first-token SLO",
+    "Pyodide: still rejected",
+    "docs/specs/2026-09-01-agent-ts-rewrite-spec.md",
 )
 
 
@@ -122,21 +123,21 @@ def live_coverage_thresholds(repo_root: Path) -> dict[str, int]:
     return _require_coverage_keys(values, "live coverage configs")
 
 
-def extract_d7_section(architecture: str) -> str:
-    start = architecture.find(_D7_HEADING)
+def extract_agent_runtime_section(architecture: str) -> str:
+    start = architecture.find(_AGENT_RUNTIME_HEADING)
     if start < 0:
-        raise ValueError("docs/ARCHITECTURE.md: D7 decision section missing")
+        raise ValueError("docs/ARCHITECTURE.md: agent-runtime section missing")
     section = architecture[start:]
-    end = section.find("\n## ", len(_D7_HEADING))
+    end = section.find("\n## ", len(_AGENT_RUNTIME_HEADING))
     return section if end < 0 else section[:end]
 
 
-def _check_d7_decision(repo_root: Path) -> None:
-    section = extract_d7_section(_read(repo_root / "docs/ARCHITECTURE.md"))
-    missing = tuple(fact for fact in _D7_FACTS if fact not in section)
+def _check_agent_runtime(repo_root: Path) -> None:
+    section = extract_agent_runtime_section(_read(repo_root / "docs/ARCHITECTURE.md"))
+    missing = tuple(fact for fact in _AGENT_RUNTIME_FACTS if fact not in section)
     if missing:
         raise ValueError(
-            f"docs/ARCHITECTURE.md: D7 facts missing: {', '.join(missing)}"
+            f"docs/ARCHITECTURE.md: agent-runtime facts missing: {', '.join(missing)}"
         )
 
 
@@ -144,7 +145,7 @@ def check_repository_documentation(repo_root: Path = REPO_ROOT) -> None:
     check_retired_technology_docs(repo_root)
     if documented_coverage_thresholds(repo_root) != live_coverage_thresholds(repo_root):
         raise ValueError("docs/testing-strategy.md: coverage thresholds drifted")
-    _check_d7_decision(repo_root)
+    _check_agent_runtime(repo_root)
 
 
 def main() -> int:

@@ -22,18 +22,40 @@ Entry path: `HTTP service → RuntimeAPI → run_animichi_agent() → animichi_a
 
 No hardcoded anime list. DB is source of truth.
 
-## D7 — both REJECTED
+## Agent runtime today — two tiers, one flag
 
-D7 is final: neither proposed replacement for the agent runtime will proceed.
+A chat turn can be answered by either of two runtimes, and `AGENT_TURN_ROUTE` picks which:
 
-- **Pyodide path: REJECTED.** The agent will not move into a Python Cloudflare Worker.
-- **TS rewrite path: REJECTED.** The agent will not be rewritten in TypeScript.
+- **Container tier (the default).** The Python FastAPI agent in `apps/agent/`, run as a Cloudflare
+  container through `RuntimeContainer` (`workers/edge/src/entry.ts`). It owns the whole turn:
+  admission, the PydanticAI loop, the catalog tools, session persistence, and the anonymous cost
+  and message walls. Its cold start is what the rewrite below exists to delete, so while this tier
+  serves, X2's warm p95 ≤3s **first-token SLO** stays a hard requirement.
+- **Edge tier (staging today).** `workers/edge/src/agent/` — the turn runs inside an `AgentSession`
+  Durable Object's `alarm()` handler and Neon is the only source of truth: intake writes the
+  message, a `running` run and the quota reservation in one transaction, the DO replays tool steps
+  by `(run_id, step_index)`, and settlement banks `daily_usage` and the run's terminal row.
+  `workers/edge/src/db/schema.ts` is the query-side mapping of the tables the edge owns from W1.
+  Spec: `docs/specs/2026-09-01-agent-ts-rewrite-spec.md`; package guide: `workers/edge/AGENTS.md`.
 
-The settled runtime is the **Python FastAPI container** with a **warm-keeping strategy**. Keeping
-the container makes X2's warm p95 ≤3s **first-token SLO** a hard requirement. The TypeScript
-comparison found the Vercel AI SDK path feasible, but it would require project-owned retry
-infrastructure and give up the existing PydanticAI `ModelRetry` and `output_validator` safety
-mechanisms. This section consolidates the successive D7 proposals under the final SD-4 ruling.
+The flag has exactly two positions, and only the literal `"edge"` moves the three routes it covers
+— `POST /v1/chat`, `POST /v1/byok/probe`, `GET /v1/conversations/{id}/messages`
+(`edgeTierRoute` in `workers/edge/src/gateway/routing-policy.ts`) — onto the edge tier. Every other
+value, typo included, keeps the container, because the safe side is the surface that has been
+serving all along. In `workers/edge/wrangler.toml` the
+default `[vars]` and `[env.production.vars]` hold `"container"` and `[env.staging.vars]` holds
+`"edge"`: staging runs the rewrite, production does not, and the rollback is one word in that file
+with no redeploy of anything else. The edge Worker reads the flag itself, so it is deliberately not
+in `CONTAINER_ENV_KEYS`. `workers/edge/src/gateway/agent-tier-route.ts` documents the identity
+ladder both positions share, and its one deliberate widening (an anonymous transcript GET).
+
+D7 (2026-08) ruled on two proposed replacements for the container. **Pyodide: still rejected** —
+the agent does not move into a Python Cloudflare Worker. **The TypeScript rewrite was rejected then
+and reversed on 2026-09-01**; its Phase-0 spike gate (W0, real deployed Workers only — `wrangler
+dev` did not count) closed 2026-09-03, and the current decision record is the spec above, which
+supersedes SD-4 of `docs/specs/2026-07-06-frontend-rebuild-spec.md`. The retry and validation safety that the original
+D7 comparison feared losing is carried by the spec's "submit_result tool + validation throw +
+terminate" loop, not by a second retry stack.
 
 ## Request Modes — `interfaces/schemas.py`
 
@@ -113,12 +135,21 @@ no local retriever, handler registry, SQL route planner, or direct Anitabi/Bangu
 
 - Stable request/response facade over `run_animichi_agent()` / `execute_selected_route()`
 - Adds `ui: UIDescriptor` field to response
-- Writes to `request_log` after every response (best-effort, never raises)
+- One settled turn's durable effects — usage, anonymous quota, and the `request_log` audit row —
+  are applied together on the caller's transaction by `interfaces/outbox_dispatch.py`
+  (`SettlementApplier.apply_session`); the statements live in
+  `infrastructure/persistence/repositories/feedback.py`. The audit half is best-effort and
+  never raises
 - Session persistence + route history
 
 ## HTTP Service — `interfaces/fastapi_service.py`
 
-FastAPI. Main endpoints: `GET /healthz`, `POST /v1/runtime`, `POST /v1/runtime/stream` (SSE), `POST /v1/feedback`, `GET /v1/conversations`, `PATCH /v1/conversations/{id}`, `GET /v1/bangumi/popular`, `GET /v1/bangumi/nearby`. Auth is NOT enforced here — it is enforced upstream in the CF Worker.
+FastAPI, assembled from the routers in `interfaces/routes/`. The complete published path
+inventory is `AGENT_PATHS` in `packages/contract/src/agent-paths.ts` — one declaration, read at
+runtime by the edge's routing and rate tables, so nothing here mirrors it. The turn entry is
+`POST /v1/chat` (`interfaces/routes/chat.py`), which answers with an SSE `EventSourceResponse`;
+there is no `/v1/runtime` route and no `/v1/bangumi/popular`. Auth is NOT enforced here — it is
+enforced upstream in the edge Worker.
 
 ## Response Contract
 
@@ -194,21 +225,33 @@ open to callers with no session:
   (`ANON_RATE_LIMIT` / `ANON_RATE_LIMIT_WINDOW_SECONDS`) backed by the `EDGE_GUARD` Durable
   Object, one shard per identity. Exceeding it returns a 429 the client renders as in-character
   "少し待ってね" copy.
-- **Daily-budget circuit breaker (X4)** — every runtime turn banks its `RunUsage` into the
-  `daily_usage` table, partitioned by scope (`anon` / `user` / `byok`). The **container ingress**
-  is the authoritative tier: it compares today's `anon` spend with `ANON_DAILY_COST_BUDGET_USD`
-  and rejects with 403 `anon_budget_exhausted`, which the client renders as login guidance.
-  Logged-in traffic is never gated. The edge caches that verdict in a same-UTC-day latch so
-  subsequent anonymous requests short-circuit without a container round-trip; the latch expires
-  at the day boundary. The edge never reads `daily_usage` itself.
+- **Daily-budget circuit breaker (X4)** — every runtime turn banks its usage into the `daily_usage`
+  table, partitioned by scope (`anon` / `user` / `byok`, plus `platform`). On the **container tier**
+  the container ingress is the authoritative decider: it compares today's `anon` spend with
+  `ANON_DAILY_COST_BUDGET_USD` and rejects with 403 `anon_budget_exhausted`, which the client
+  renders as login guidance. `workers/edge/src/protect/cost-breaker.ts` owns only that verdict's
+  wire contract plus a same-UTC-day latch, so subsequent anonymous requests short-circuit without a
+  container round-trip; the latch expires at the day boundary.
+  **On the edge tier this ceiling currently has no decider.** Nothing under
+  `workers/edge/src/agent/` reads `ANON_DAILY_COST_BUDGET_USD` — the variable is only forwarded to
+  the container (`workers/edge/src/container/container-env.ts`) — and the latch waits on a container
+  verdict that a turn served at the edge never produces. Tracked as EG-01 in
+  `docs/specs/2026-09-05-repo-smell-audit.md` §1.2. What the edge tier does do with the table is
+  WRITE it: settlement banks the day's row itself
+  (`workers/edge/src/agent/settlement/neon-turn-settlement.ts`). Logged-in traffic is never gated
+  on either tier.
 - **Per-identity daily message quota (S1.10, issue #282)** — a fairness/UX mechanism, not a
-  security defense line: the container ingress atomically increments a durable
-  `anon_daily_message_count` row keyed `(usage_date, anon_id)` and rejects with 403
-  `anon_quota_exhausted` (+ `quota_resets_at`, the next UTC midnight) once that one identity's own
+  security defense line: an `anon_daily_message_count` row keyed `(usage_date, anon_id)` is
+  atomically incremented and the turn is rejected with 403 `anon_quota_exhausted`
+  (+ `quota_resets_at`, the next UTC midnight) once that one identity's own
   `ANON_DAILY_MESSAGE_QUOTA` is spent, so a single visitor's free usage stays reasonable while the
-  shared budget above stays open for everyone else. `0` or unset disables it. Runs only after the
-  budget breaker above allows the turn — the global dollar ceiling is the more severe, systemic
-  concern and wins ties over one visitor's own message ceiling. Logged-in traffic is never gated.
+  shared budget above stays open for everyone else. `0` or unset disables it. Both tiers enforce
+  it: the container ingress on the container path, and on the edge path the intake's own
+  reservation upsert, whose returned count drives the refusal and rolls the whole turn back
+  (`workers/edge/src/agent/intake/anonymous-message-allowance.ts`). On the container path it runs
+  only after the budget breaker above allows the turn — the global dollar ceiling is the more
+  severe, systemic concern and wins ties over one visitor's own message ceiling. Logged-in traffic
+  is never gated.
 
 ## Web App
 
@@ -227,7 +270,7 @@ with it. The root Worker (`workers/edge/src/app.ts`) is now an API gateway only:
 | Path | Purpose |
 |---|---|
 | `tests/eval/run_agent_eval.py` | Official-v1 runner: 8 metrics, statistical baseline + gate, streams per-case status |
-| `tests/eval/datasets/agent_eval_v3.json` | Primary suite (~655 cases, 60 paths, 3 locales) |
+| `tests/eval/datasets/agent_eval_v3.json` | Primary suite (662 cases, 66 paths, locales ja/zh/en) |
 | `tests/eval/datasets/agent_eval_heldout_v1.json` | Held-out overfit guard (#416) |
 | `tests/eval/datasets/injection_g1_v1.json` | Indirect-injection defense cases |
 | `tests/eval/direct_gates.py` | Deterministic thrash gates (req/tool/repeat/p95) |

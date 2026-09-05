@@ -1,6 +1,5 @@
-// TODO(#841 path-delta): composition root — stays at the worker root until the
-// #853 package-ization; all logic lives in identity/ gateway/ protect/ proxy/
-// container/.
+// Hono assembly only: it wires the concern folders together and holds no logic
+// of its own.
 import { Hono } from "hono";
 import type { Env, WorkerExecutionContext } from "./env.ts";
 import type { AuthResult } from "./identity/auth.ts";
