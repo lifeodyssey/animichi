@@ -5,7 +5,7 @@ set -euo pipefail
 PACKAGE="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-ALLOWED="agent|catalog|contract|db|docs|e2e|edge|eval|infra|migrator|users|web"
+ALLOWED="agent|catalog|contract|db|docs|e2e|edge|eval|infra|migrator|test-postgres|users|web"
 
 [[ "$PACKAGE" =~ ^($ALLOWED)$ ]] || {
   printf 'pr-verification-gate: unknown package: %s\n' "$PACKAGE" >&2

@@ -1,11 +1,12 @@
 import { mapSource, type ChainSource } from "../src/chain";
 import { QueueLock } from "../src/lock";
 import type { ContainerOutcome } from "../src/migration";
-import type { SqlClient, SqlParam, SqlParams } from "../src/sql";
 import { applyHttp, type HttpApplyInput } from "../src/http-apply";
+import type { FakeSql } from "./fake-sql";
 
-// #1124 — fixture chain + fake neon-http for Option 2 apply tests.
-// Tests inject this ChainSource; they never load the wrangler SQL glob.
+// #1124 — fixture chain for the Option 2 apply tests. Tests inject this
+// ChainSource; they never load the wrangler SQL glob. The fake neon-http client
+// it runs against lives in `./fake-sql`.
 
 export const DSN = "postgresql://migrator:x@ep-direct.neon.tech/neondb";
 export const POOLER_DSN = "postgresql://migrator:x@ep-broad-frost-pooler.neon.tech/neondb";
@@ -23,6 +24,9 @@ export const STMT_2 = "CREATE TABLE public.t2 (id int);";
 export const TWO_BODY = `${STMT_1} ${STMT_2}`;
 export const TWO_FILE = "20260821000000_two_stmt.sql";
 export const CONCURRENT_BODY = "CREATE INDEX CONCURRENTLY idx_t ON public.t (id);";
+export const CONCURRENT_FILE = "20260821000001_concurrent.sql";
+export const CONCURRENT_VERSION = "20260821000001";
+export const CHAIN_HASH = "h1:hash-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=";
 
 const BODIES: Record<string, string> = { [FILE_A]: BODY_A, [FILE_B]: BODY_B };
 const FIXTURE_SUM = ["h1:fixture-directory-sum", `${FILE_A} ${HASH_A}`, `${FILE_B} ${HASH_B}`, ""].join("\n");
@@ -33,95 +37,7 @@ export const fixtureChain: ChainSource = {
 };
 
 export const twoStmtChain: ChainSource = chainOf(TWO_FILE, TWO_BODY);
-
-export interface RevisionInsert {
-  version: string;
-  description: string;
-  applied: number;
-  executedAt: string;
-  executionTime: number;
-  error: string | null;
-  errorStmt: string | null;
-  hash: string;
-  operatorVersion: string;
-}
-
-export class FakeSql implements SqlClient {
-  readonly units: string[] = [];
-  readonly statements: string[] = [];
-  readonly transactions: string[][] = [];
-  readonly revisions: RevisionInsert[] = [];
-  /**
-   * Starts absent, exactly as a freshly reset `public` schema does. This double
-   * used to answer the ledger SELECT with `[]` whether or not the table existed,
-   * which is why every test stayed green through the HTTP 500 that a reset
-   * staging database actually produced (#1216).
-   */
-  ledgerExists = false;
-  failBody: string | undefined;
-  gate: Promise<void> | undefined;
-  gateBody: string | undefined;
-
-  alreadyApplied(version: string): void {
-    this.revisions.push(appliedRow(version));
-  }
-
-  holdOn(body: string, gate: Promise<void>): void {
-    this.gateBody = body;
-    this.gate = gate;
-  }
-
-  connect = (_dsn: string): SqlClient => this;
-  query = (sql: string, params?: SqlParams): Promise<unknown> => fakeQuery(this, sql, params);
-  transaction = (statements: readonly string[]): Promise<unknown> => fakeTx(this, statements);
-
-  head(): string | null {
-    const row = this.revisions.at(-1);
-    if (row === undefined || row.applied < 1) return null;
-    return `${row.version}_${row.description}`;
-  }
-}
-
-async function fakeQuery(db: FakeSql, sql: string, params?: SqlParams): Promise<unknown> {
-  db.statements.push(sql);
-  if (sql.includes("CREATE TABLE IF NOT EXISTS public.atlas_schema_revisions")) return createLedger(db);
-  if (!sql.includes("atlas_schema_revisions")) return execUnit(db, sql);
-  requireLedger(db);
-  return sql.includes("SELECT") ? selectApplied(db) : insertRevision(db, params);
-}
-
-function createLedger(db: FakeSql): unknown[] {
-  db.ledgerExists = true;
-  return [];
-}
-
-/** Postgres rejects a read or write of a table that has not been created yet. */
-function requireLedger(db: FakeSql): void {
-  if (db.ledgerExists) return;
-  throw new Error('relation "public.atlas_schema_revisions" does not exist');
-}
-
-async function fakeTx(db: FakeSql, statements: readonly string[]): Promise<unknown> {
-  db.transactions.push([...statements]);
-  for (const stmt of statements) await execUnit(db, stmt);
-  return [];
-}
-
-function selectApplied(db: FakeSql): { version: string }[] {
-  return db.revisions.filter((row) => row.applied >= 1).map((row) => ({ version: row.version }));
-}
-
-function insertRevision(db: FakeSql, params?: SqlParams): unknown[] {
-  db.revisions.push(revisionFrom(params ?? []));
-  return [];
-}
-
-async function execUnit(db: FakeSql, sql: string): Promise<unknown[]> {
-  db.units.push(sql);
-  if (db.gateBody === sql && db.gate !== undefined) await db.gate;
-  if (db.failBody === sql) throw new Error("sql failed");
-  return [];
-}
+export const concurrentChain: ChainSource = chainOf(CONCURRENT_FILE, CONCURRENT_BODY);
 
 function bodyOf(files: Record<string, string>, name: string): string {
   const body = files[name];
@@ -129,58 +45,8 @@ function bodyOf(files: Record<string, string>, name: string): string {
   return body;
 }
 
-function appliedRow(version: string): RevisionInsert {
-  return { ...revisionStamp(), version, description: "preapplied", applied: 1 };
-}
-
-function revisionStamp(): Omit<RevisionInsert, "version" | "description" | "applied"> {
-  return {
-    executedAt: FIXED_NOW.toISOString(),
-    executionTime: 0,
-    error: null,
-    errorStmt: null,
-    hash: "h1:pre",
-    operatorVersion: "atlas",
-  };
-}
-
-function revisionFrom(params: SqlParams): RevisionInsert {
-  return { ...revisionHead(params), ...revisionTail(params) };
-}
-
-function revisionHead(params: SqlParams): Pick<RevisionInsert, "version" | "description" | "applied" | "executedAt" | "executionTime"> {
-  return {
-    version: str(params, 0),
-    description: str(params, 1),
-    applied: num(params, 2),
-    executedAt: str(params, 3),
-    executionTime: num(params, 4),
-  };
-}
-
-function revisionTail(params: SqlParams): Pick<RevisionInsert, "error" | "errorStmt" | "hash" | "operatorVersion"> {
-  return {
-    error: nullable(params[5]),
-    errorStmt: nullable(params[6]),
-    hash: str(params, 7),
-    operatorVersion: str(params, 8),
-  };
-}
-
-function str(params: SqlParams, i: number): string {
-  return String(params[i] ?? "");
-}
-
-function num(params: SqlParams, i: number): number {
-  return Number(params[i] ?? 0);
-}
-
-function nullable(value: SqlParam | undefined): string | null {
-  return typeof value === "string" ? value : null;
-}
-
 export function chainOf(filename: string, body: string): ChainSource {
-  return mapSource(`h1:sum\n${filename} h1:hash-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx=\n`, { [filename]: body });
+  return mapSource(`h1:sum\n${filename} ${CHAIN_HASH}\n`, { [filename]: body });
 }
 
 export function applyFixture(db: FakeSql, extra: Partial<HttpApplyInput> = {}): Promise<ContainerOutcome> {

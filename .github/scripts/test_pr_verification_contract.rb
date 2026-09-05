@@ -12,7 +12,7 @@ WORKFLOW = ENV.fetch("PR_VERIFICATION_WORKFLOW", File.join(REPO_ROOT, ".github",
 ROUTE = ENV.fetch("PR_VERIFICATION_ROUTE", File.join(REPO_ROOT, ".github", "scripts", "pr-verification-route.sh"))
 GATE = ENV.fetch("PR_VERIFICATION_GATE", File.join(REPO_ROOT, ".github", "scripts", "pr-verification-gate.sh"))
 WORKSPACE_LIB = File.join(REPO_ROOT, "scripts", "local-gates", "workspace-packages.sh")
-EXPECTED_PACKAGES = %w[agent catalog contract e2e edge eval infra migrator users web]
+EXPECTED_PACKAGES = %w[agent catalog contract e2e edge eval infra migrator test-postgres users web]
 
 def workflow_value(path)
   YAML.safe_load(File.read(path).sub(/^on:(?=[ \t#]|$)/, '"on":'), aliases: true)

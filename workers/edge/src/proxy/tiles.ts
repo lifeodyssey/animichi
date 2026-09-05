@@ -1,5 +1,8 @@
 /// <reference types="@cloudflare/workers-types" />
 
+import { gatewayRejection } from "../gateway/responses.ts";
+import { cacheWrite } from "./cache-write.ts";
+
 const TILE_PREFIX = "/tiles/";
 const OBJECT_PREFIX = "tiles/";
 const MAX_PATH_LENGTH = 256;
@@ -58,8 +61,14 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
   webp: "image/webp",
 };
 
+/** A tile refusal in the shared edge envelope (EG-05) — the code is what a
+ * client branches on, and no message is carried because MapLibre renders none.
+ * The CORS + `no-store` headers are this surface's own concern, so they are set
+ * on the shared rejection rather than pushed into it. */
 const errorResponse = (status: number, code: string, request: Request): Response => {
-  return Response.json({ error: code }, { status, headers: errorHeaders(request) });
+  const rejection = gatewayRejection(code, status);
+  for (const [name, value] of errorHeaders(request)) rejection.headers.set(name, value);
+  return rejection;
 };
 
 const corsHeaders = (request: Request): Headers => {
@@ -163,7 +172,7 @@ const cacheHit = async (request: Request): Promise<Response | null> => {
 
 const cachePut = (request: Request, response: Response, ctx: TileExecutionContext): void => {
   const storage = cache();
-  if (storage) ctx.waitUntil(storage.put(cacheKey(request), response.clone()).catch(() => undefined));
+  if (storage) cacheWrite(ctx, storage.put(cacheKey(request), response.clone()), "edge_tile_cache_write_failed");
 };
 
 const setRangeHeaders = (headers: Headers, object: TileObject, range: TileRange | null): void => {

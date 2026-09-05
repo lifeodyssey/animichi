@@ -124,7 +124,7 @@ export class DurableTurn {
   async #ended(turn: LoadedTurn, machine: RunMachine, attempt: TurnAttempt): Promise<TurnState> {
     if (machine.state.phase === "failed") return await this.#failed(turn, machine.state);
     if (attempt.steps.abandoned) return machine.renewed(false);
-    await this.#ending.succeeded(turn, attempt.output, attempt.answer);
+    await this.#ending.succeeded(turn, attempt.output, attempt.answer, attempt.spent);
     return machine.succeed();
   }
 

@@ -364,7 +364,7 @@ Search 必须把「别名命中 / lite 预览 / 后台 ingest」收成 applicati
 
 **实现完成（未来）：**
 
-- [ ] domain 无框架 import（可用 lint/边界测试约束）
+- [x] domain 无框架 import（边界测试 `workers/catalog/test/dependency-rule.worker.test.ts`，#1340）
 - [ ] PlanItinerary / Search 主路径符合分层
 - [ ] 测试分层存在且主测绿
 - [ ] AGENTS.md 描述与树一致
@@ -389,3 +389,5 @@ Search 必须把「别名命中 / lite 预览 / 后台 ingest」收成 applicati
 | 2026-08-06 | 初稿：教科书 DDD+CA 目标、圈层、目录、端口、用例、分期；**明确 DESIGN ONLY** |
 | 2026-08-06 | Owner 全盘接受 C1–C6 → Status **ACCEPTED** |
 | 2026-08-06 | §10.1：重构 = 已有码搬家/抽用例/化简/SOLID，不止 rename；未写能力归 ticket |
+| 2026-09-05 | §12 勾选「domain 无框架 import」：依赖规则成为边界测试；三处倒置回正（reader port 归 application、resolve 自带 subject parser port、transit kernel 进 `domain/transit/`），#1340 |
+| 2026-09-05 | 记录一处 §3 例外：`domain/itinerary/plan.ts` 仍 `import type` 自 `src/types.ts`。该文件零 import、零运行时（边界测试断言），四个形状当初正是因「各模块自持副本已漂移」才集中过去，且唯一的契约对等守卫钉在它身上；domain 侧重新声明会同时恢复漂移并架空守卫。理由写在 `plan.ts` 头注，owner 若要改判即改 §3 与该文件，#1340 |

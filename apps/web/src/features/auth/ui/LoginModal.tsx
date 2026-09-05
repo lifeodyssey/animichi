@@ -71,11 +71,11 @@ interface LoginDialogProps {
   panelRef: RefObject<HTMLDivElement | null>;
 }
 
-/** The dialog's welcome header: greeting fox above the title and subtitle. */
+/** The dialog's welcome header: title and subtitle only — the mascot set is
+ * shelved this round (owner 2026-08-30). */
 function LoginWelcome({ auth }: { auth: Dict["auth"] }) {
   return (
     <>
-      <img className="login-modal__fox" src="/images/landing/fox/fox-welcome.svg" alt="" aria-hidden="true" width={88} height={88} />
       <h2 className="login-modal__title">{auth.title}</h2>
       <p className="login-modal__subtitle">{auth.subtitle}</p>
     </>

@@ -25,7 +25,7 @@ import {
 import { NeonTurnRecords } from "../src/agent/intake/neon-turn-records.ts";
 import type { AgentStatements, AgentTransactions } from "../src/db/agent-database.ts";
 import type { SessionWakeup } from "../src/agent/session/session-wakeup.ts";
-import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
+import { SETUP_HOOK_TIMEOUT_MS, startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
 import { countRows, makeSubmission, onlyRow, reservedCount, seedSession } from "./agent-rows.ts";
 
 const ANON_ID = "anon_0123456789abcdef0123456789abcdef";
@@ -40,7 +40,7 @@ function makeIntake(records: TurnRecords): TurnIntake {
 
 let plane: AgentDataPlane;
 
-before(async () => { plane = await startAgentDataPlane(); }, { timeout: 300_000 });
+before(async () => { plane = await startAgentDataPlane(); }, { timeout: SETUP_HOOK_TIMEOUT_MS });
 after(() => plane.stop(), { timeout: 60_000 });
 
 /** Transactions whose second statement — the run insert — always fails. */

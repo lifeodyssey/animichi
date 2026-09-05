@@ -59,9 +59,10 @@ import {
  */
 export const MESSAGE_MAX_CHARS = 4_000;
 
-/** A conversation id is a primary key that arrives in a header — bounded here
+/** A conversation id is a primary key that arrives in a header, and the dedupe
+ * key is a uniquely-indexed column that arrives in another — both bounded here
  * so a caller cannot mint an arbitrarily large one. */
-const SESSION_ID_MAX_CHARS = 200;
+const HEADER_KEY_MAX_CHARS = 200;
 
 /** The identity the edge already verified, as the agent tier consumes it. */
 export interface TurnIdentity {
@@ -131,11 +132,19 @@ function boundNamespace(binding: NamedStubs | undefined, name: string): NamedStu
   return binding;
 }
 
-/** The turn's own conversation: the one the caller named, or a fresh one. */
-function submittedSessionId(raw: string | null, locale: Locale): string {
-  const named = raw?.trim() ?? "";
-  if (named === "") return crypto.randomUUID();
-  if (named.length > SESSION_ID_MAX_CHARS) throw new ChatEnvelopeError("invalid_body", locale);
+/**
+ * A key the caller supplies in a header, or null when they supplied none
+ * (EG-09, issue #1343). Blank counts as ABSENT — `""` is not nullish, so a
+ * present-but-empty header would otherwise become a real key: the empty
+ * `client_message_id` lands in `messages_session_client_message_id`'s partial
+ * unique index and every later empty-id turn in that session resolves to the
+ * first message as a "replay". Over the bound is a refusal rather than a
+ * truncation: a key this long is not a key the caller can have meant.
+ */
+function boundedHeaderKey(headers: Headers, name: string, max: number, locale: Locale): string | null {
+  const named = headers.get(name)?.trim() ?? "";
+  if (named === "") return null;
+  if (named.length > max) throw new ChatEnvelopeError("invalid_body", locale);
   return named;
 }
 
@@ -165,10 +174,10 @@ export async function submissionOf(
   const byok = byokCredentialIn(request.headers) ?? undefined;
   const selection = selectionIn(payload, locale);
   return {
-    sessionId: submittedSessionId(request.headers.get("x-session-id"), locale),
+    sessionId: boundedHeaderKey(request.headers, "x-session-id", HEADER_KEY_MAX_CHARS, locale) ?? crypto.randomUUID(),
     identityId: identity.userId,
     payer: payerFor(identity, byok),
-    clientMessageId: request.headers.get("x-turn-id")?.trim() ?? crypto.randomUUID(),
+    clientMessageId: boundedHeaderKey(request.headers, "x-turn-id", HEADER_KEY_MAX_CHARS, locale) ?? crypto.randomUUID(),
     text: chatTurnText(payload, locale, maxChars, selection === null),
     byok,
     selection,

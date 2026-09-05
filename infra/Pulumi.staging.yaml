@@ -51,7 +51,6 @@ config:
 
   seichijunrei-infra:stagingGateEnabled: "true"
   seichijunrei-infra:stagingAllowedIps:
-    secure: v1:wd0EzikU1HrW3QUL:BCa/ZLwc+JO7yClbzJwWTIB4+TvMM7DQifddPd+j0qlXareE7Ixo9GEcXoyGAPK8LSzYJVI=
+    secure: AAABALiqDFOq100yZBGSU0p3At9dty2mTuRaVYhpHvubdUiT7iaFwFFXN1+Xo5i9hyth+R6p9++a/dYlaBvf7d/0eDe8
   seichijunrei-infra:stagingGateToken:
-    secure: v1:JKZcAEWw0x0uHQ+g:2k4G1a7NLuYjkiIVfFmy/2zs6qYcuQqG1FGPW29+8tDXArzLF/quxiqs/LxArvfNmNlnWvAjvyjzIs5kkAVNLT9ooz2tzFLAQwMEaS+Lr6c=
-encryptionsalt: v1:bb6ougr5yww=:v1:MPqbekIeu662Z0D8:6ttvr6yA1zxnpD2CdbOXThJW9rHwfA==
+    secure: AAABANl4oFN+iGsQWCIgCwCJoLgLv+Mv6gB1IzjE3ixMVfFvdx5ynM4lXS9tn1LxaYzq4IN9EAIC+7e3rQcOMbDYd9YLD64jfa1MJSeTNTn5B5/eu5jI629d8TXTBapc

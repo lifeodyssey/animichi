@@ -26,6 +26,7 @@ import { TurnSteps } from "./turn-step.ts";
 import type { TurnFrameSink } from "./turn-subscribers.ts";
 import type { Toolbox } from "./turn-toolbox.ts";
 import type { TurnModel } from "./turn-model.ts";
+import type { TurnUsage } from "../settlement/turn-settlement.ts";
 import type { TurnStore } from "./turn-store.ts";
 
 export interface TurnAttemptParts {
@@ -126,6 +127,18 @@ export class TurnAttempt {
   /** What this attempt answered, once its pi run has ended. */
   get answer(): TurnAnswer {
     return this.#answer;
+  }
+
+  /**
+   * What this attempt's TOOLS spent on model calls the pi run never made
+   * (#1292) — the tool-less translation, whose `message_end` `output` cannot
+   * see. Read off the toolbox rather than accumulated here: the toolbox made
+   * the call, and a replayed step is answered from `run_steps.result` without
+   * calling `execute`, so an attempt that replays every step reports nothing
+   * and the ending banks nothing twice.
+   */
+  get spent(): TurnUsage {
+    return this.#parts.toolbox.spent();
   }
 
   /**

@@ -15,8 +15,9 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 - State and `secure:` encryption live in **Pulumi Cloud**, org `lifeodyssey`, declared by `backend.url`
   in each `Pulumi.yaml` (#1077). CI logs in with `pulumi/auth-actions` (GitHub OIDC → short-lived
-  organization token); there is no Pulumi access token, backend URL, R2 state key pair, or config
-  passphrase on the delivery lane. Applies are org-qualified: `pulumi up --stack lifeodyssey/<stack>`.
+  organization token, exported as `PULUMI_ACCESS_TOKEN` for that job only); no long-lived Pulumi
+  access token, backend URL, R2 state key pair, or config passphrase is stored in GitHub secrets.
+  Applies are org-qualified: `pulumi up --stack lifeodyssey/<stack>`.
   The one exception is `scripts/local-gates/infra-check.sh`, whose credential-free program-load
   preflight sets `PULUMI_BACKEND_URL` to a throwaway `file://` backend and never reads real state —
   that env var takes precedence over `backend.url` (measured on the pinned Pulumi 3.255.0).
@@ -29,7 +30,7 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 ## Key files + entrypoints
 
 - `index.ts` — R2 media bucket, flag-gated web Custom Domains, edge routes, www redirect, staging WAF gate, exported catalog DB secret, and the Neon Auth staging declarations (JWKS/issuer derivation + QA login, AUTH-2 #950).
-- `database-access/` — database roles, per-service DSNs, and Auth access material. Its Pulumi project name remains the stable persisted state identity until an explicit cross-project stack migration.
+- `database-access/` — database roles, per-service DSNs, and Auth access material. Its Pulumi project name remains the stable persisted state identity until an explicit cross-project stack migration. Its Neon provider SDK is generated at release time and gitignored, so no test can build this program; `topology-prod-database-access.test.ts` pins the prod stack's role/secret derivations from the source instead.
 - `src/neon-auth.ts` — pure Neon Auth derivation (JWKS URL ↔ issuer base URL, env-var names); pinned by `topology-neon-auth.test.ts`.
 - `Pulumi.yaml` — project metadata and base encrypted config.
 - `Pulumi.staging.yaml` · `Pulumi.prod.yaml` — live environment stacks.

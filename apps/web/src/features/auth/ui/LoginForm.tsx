@@ -38,16 +38,18 @@ function EmailField({ auth, email, onEmail }: EmailFieldProps) {
   return (
     <>
       <label className="login-form__label" htmlFor="login-email">{auth.email_label}</label>
-      <input id="login-email" className="ds-input" type="email" value={email} placeholder={auth.email_placeholder} onChange={onChange} />
+      <span className="animal-input-wrapper animal-input-large"><input id="login-email" className="animal-input-control" type="email" value={email} placeholder={auth.email_placeholder} onChange={onChange} /></span>
     </>
   );
 }
 
 function SubmitButton({ auth, busy }: { auth: Auth; busy: boolean }) {
   return (
-    <button className="ds-button ds-button--primary" type="submit" disabled={busy}>
-      {busy ? auth.submitting : auth.submit}
-    </button>
+    <span className="block [--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)]">
+      <button className="animal-btn animal-btn-primary animal-btn-large w-full" type="submit" disabled={busy}>
+        {busy ? auth.submitting : auth.submit}
+      </button>
+    </span>
   );
 }
 

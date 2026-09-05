@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AGENT_PATHS } from "@animichi/contract/agent-contract";
+import { AGENT_PATHS } from "@animichi/contract/agent-paths";
 import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 import { classifyRatePolicy, RATE_LIMIT_ENVELOPE_FIELDS, type LimiterKind, type LimiterFailure, type RatePolicy } from "../src/gateway/rate-policy.ts";
 import { authenticatedRateLimitKey } from "../src/protect/rate-limiter.ts";

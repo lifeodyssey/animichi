@@ -347,9 +347,10 @@ Both Pulumi projects — `seichijunrei-infra` (`infra/`) and `animichi-neon-secr
 (`infra/database-access/`) — keep their state and their `secure:` encryption in **Pulumi Cloud**,
 organization `lifeodyssey`. `backend.url` in each `Pulumi.yaml` is the source of truth for that.
 
-CI never holds a Pulumi access token. `stage-foundation` and the `promote-production` infra step run
-`pulumi/auth-actions`, which exchanges the job's GitHub OIDC identity for a short-lived Pulumi Cloud
-*organization* token and exports it as `PULUMI_ACCESS_TOKEN`. Those two jobs therefore carry
+No long-lived Pulumi access token is stored in GitHub secrets. `stage-foundation` and the
+`promote-production` infra step run `pulumi/auth-actions`, which exchanges the job's GitHub OIDC
+identity for a short-lived Pulumi Cloud *organization* token and exports it as
+`PULUMI_ACCESS_TOKEN` for the rest of that job only. Those two jobs therefore carry
 `id-token: write`, and `promote-release-unit.sh` fails closed when that token is absent. Applies are
 organization-qualified (`pulumi up --stack lifeodyssey/<stack>`) so a token that defaults elsewhere
 cannot land the apply in another organization. `PULUMI_BACKEND_URL`, `PULUMI_CONFIG_PASSPHRASE`, and
@@ -414,10 +415,15 @@ cd infra                     # or: cd infra/database-access
 #    The explicit `pulumi login` matters: after you have done step 2 for an earlier stack, the
 #    CLI's stored login points at Pulumi Cloud, and this is what re-points it at R2. It is also
 #    exactly what the retired CD code did before every apply.
+#    The two secret values are read with `read -r -s` instead of being typed into an `export`:
+#    an inline assignment lands the value in the shell history file and, briefly, in the process
+#    list. `-s` also keeps it off the terminal. Reading them from a mode-600 file works too.
 export PULUMI_BACKEND_URL='<the retiring s3:// R2 backend URL>'
-export PULUMI_CONFIG_PASSPHRASE='<the current passphrase>'
-export AWS_ACCESS_KEY_ID='<R2 state key id>' AWS_SECRET_ACCESS_KEY='<R2 state secret>'
+export AWS_ACCESS_KEY_ID='<R2 state key id>'
 export AWS_DEFAULT_REGION=auto
+read -r -s -p 'Pulumi config passphrase: ' PULUMI_CONFIG_PASSPHRASE && echo
+read -r -s -p 'R2 state secret: ' AWS_SECRET_ACCESS_KEY && echo
+export PULUMI_CONFIG_PASSPHRASE AWS_SECRET_ACCESS_KEY
 pulumi login "$PULUMI_BACKEND_URL"
 pulumi stack select <stack>
 pulumi stack export --file "/tmp/$(basename "$PWD")-<stack>.json"   # no --show-secrets, ever

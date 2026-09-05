@@ -871,6 +871,14 @@ Unchanged:
 
 Unchanged. `/ledger-head` remains the Worker→Neon HTTPS canary.
 
+**Superseded (2026-09-05, #1339).** `GET /ledger-head` no longer exists. It was
+anonymous on a `workers_dev` host, resolved the DDL-capable migrator DSN on
+every hit, and had no caller. The applied head is now read only from the
+OIDC-gated `POST /migrate` response body, which
+`.github/scripts/promote-release-unit.sh` asserts against the sealed head.
+`GET /healthz` is unchanged; the evidence recorded above stands as of its own
+date.
+
 ### Option 2
 
 No public API change. Same synchronous `POST /migrate`. Internally
@@ -978,6 +986,9 @@ that can apply the committed chain, not a shell.
 | Neon ops | Neon console (read-only) | `start_compute` vs a real session in `pg_stat_activity` |
 | Ledger | `GET /ledger-head` | applied head after a 200 |
 | Activity | runner logs (no new product) | last `getState().status` on timeout |
+
+**Superseded (2026-09-05, #1339)**: the Ledger row's `GET /ledger-head` is
+gone; read `appliedHead` from the `POST /migrate` response instead.
 
 Do not add a new Logfire dashboard or a custom metric pipeline for this
 patch. Do not treat HITL log paste as a substitute for Option 1.

@@ -8,7 +8,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { isJsonRecord } from "../src/agent/json-record.ts";
 import type { QuotaReservation } from "../src/agent/intake/quota-reservation.ts";
 import type { TurnSubmission } from "../src/agent/intake/turn-intake.ts";
-import type { RunFailureReason, RunPayer } from "../src/db/schema.ts";
+import type { RunFailureReason, RunPayer, UsageScope } from "../src/db/schema.ts";
 
 export type AgentDatabase = NodePgDatabase;
 
@@ -177,7 +177,7 @@ export async function reservedOn(
  */
 export async function bankedUsage(
   database: AgentDatabase,
-  scope: RunPayer,
+  scope: UsageScope,
   day: string,
 ): Promise<Record<string, unknown>> {
   const banked = await database.execute(

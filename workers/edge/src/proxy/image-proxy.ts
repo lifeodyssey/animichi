@@ -1,8 +1,11 @@
 import type { WorkerExecutionContext } from "../env.ts";
+import { gatewayRejection } from "../gateway/responses.ts";
+import { cacheWrite } from "./cache-write.ts";
 
-/** Bad request for a path the proxy refuses (empty or traversal). */
-function badRequest(): Response {
-  return new Response("Bad request", { status: 400 });
+/** A path the proxy refuses (empty or traversal), in the shared edge envelope
+ * (EG-05) rather than the plain text it used to answer. */
+function refusedPath(): Response {
+  return gatewayRejection("image_path_invalid", 400, "The image path is not one this proxy serves.");
 }
 
 function imagePathOf(request: Request): string | null {
@@ -37,12 +40,12 @@ async function imageResponse(imagePath: string): Promise<Response> {
 /** Image proxy + cache for image.anitabi.cn (unchanged behaviour, ported from entry.js). */
 export async function handleImageProxy(request: Request, ctx: WorkerExecutionContext): Promise<Response> {
   const imagePath = imagePathOf(request);
-  if (imagePath === null) return badRequest();
+  if (imagePath === null) return refusedPath();
   const cacheKey = new Request(request.url, request);
   const cache: Cache = caches.default;
   const cached: Response | undefined = await cache.match(cacheKey);
   if (cached) return cached;
   const response = await imageResponse(imagePath);
-  if (response.ok) ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  if (response.ok) cacheWrite(ctx, cache.put(cacheKey, response.clone()), "edge_image_cache_write_failed");
   return response;
 }

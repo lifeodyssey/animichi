@@ -30,8 +30,14 @@ success + the applied head. Staging first; production is #1055. Root guide:
    (compile-time Text modules + `atlas.sum` order) via
    `@neondatabase/serverless`, writes `public.atlas_schema_revisions` with
    Atlas v0.30 version/hash semantics (`operator_version =
-   animichi-http-apply/0.30.0`), and skips already-applied versions. A
-   `-pooler` DSN is rejected before SQL. SQL is never taken from the
+   animichi-http-apply/0.30.0`), and skips already-applied versions. The
+   revision row rides in the file's own transaction (#1338), so no crash can
+   leave a file applied and its ledger row missing. `CREATE INDEX
+   CONCURRENTLY` files cannot be transactional; on that path alone the window
+   is inherent, so a duplicate-object error (`42P07`) is read as
+   already-applied — but only for a version the ledger holds no attempt at
+   under a different hash — and the re-run finishes the file instead of
+   wedging the chain. A `-pooler` DSN is rejected before SQL. SQL is never taken from the
    request body (OIDC + optional `{expectedHead?}` only). The batch
    container classes stay until staging proof; `POST /migrate` no longer
    starts them. Tests may inject `runContainer` (including unknown_exit
@@ -39,7 +45,15 @@ success + the applied head. Staging first; production is #1055. Root guide:
 3. **Report**: returns success + applied head from
    `public.atlas_schema_revisions` (`src/ledger.ts`) + `pathVerification`.
    CI fails unless applied head == expected head; it does not gate on
-   `pathVerification`.
+   `pathVerification`. The applied head is visible **only** through this
+   OIDC-authenticated response: #1339 removed the anonymous `GET /ledger-head`
+   route (it resolved the DDL-capable DSN on every anonymous hit of a public
+   `workers_dev` host and had no caller), and `test/migrate.worker.http.test.ts`
+   pins the 404. The post-staging smoke (#1198,
+   `.github/scripts/staging-smoke-check.sh`) probes the edge and the web shell,
+   not the head; if it is ever extended to assert the applied head, it must read
+   a short-TTL value written at apply time (KV / DO storage), never a live DSN
+   read.
 
 Capability boundary: NO destructive path — no schema drop, no arbitrary SQL,
 no down-migration. The migrator DSN is Secrets Store only (non-resident);

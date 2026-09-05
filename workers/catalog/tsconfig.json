@@ -14,7 +14,8 @@
     "verbatimModuleSyntax": false,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts", "vitest.spike.config.ts"],
   "exclude": ["node_modules", "dist"]

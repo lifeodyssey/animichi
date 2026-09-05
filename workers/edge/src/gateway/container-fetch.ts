@@ -70,9 +70,11 @@ async function fetchAttempt(
 
 /** Retries a container fetch through its cold-start "not running" window; any
  * other failure (a real 500, a non-cold-start error) passes straight through
- * on the first attempt. Shared by `/healthz` (`gateway/request.ts`) and every
- * `/v1` forward (`gateway/forward.ts`) — the container's cold start does not
- * care which route woke it. */
+ * on the first attempt. Reached only through `fetchContainerResilient` below,
+ * and so by every route that touches the container — the two landing forwards
+ * `/healthz` and `/` (`gateway/request.ts`, EG-21) and every `/v1` forward
+ * (`gateway/forward.ts`) — because the container's cold start does not care
+ * which route woke it. */
 export async function fetchContainerWithStartupRetry(
   fetchFn: (request: Request) => Promise<Response>, request: Request, sleep: (ms: number) => Promise<void>,
 ): Promise<Response> {

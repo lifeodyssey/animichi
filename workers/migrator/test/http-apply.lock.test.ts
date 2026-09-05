@@ -3,7 +3,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { APPLY_LOCK_NAME, productionApply, QueueLock } from "../src/lock";
-import { BODY_A, BODY_B, FakeSql, applyFixture } from "./http-apply.helpers";
+import { FakeSql } from "./fake-sql";
+import { BODY_A, BODY_B, applyFixture } from "./http-apply.helpers";
 
 // #1124 AC4 — second concurrent run waits on a fake lock (no wall clock)
 // and does not double-apply. Production lock name is fixed, not migrator-job-*.

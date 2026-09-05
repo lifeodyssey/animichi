@@ -1,4 +1,4 @@
-import { AGENT_PATHS } from "@animichi/contract/agent-contract";
+import { AGENT_PATHS } from "@animichi/contract/agent-paths";
 import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 import { isPublicV1 } from "./routing-policy.ts";
 

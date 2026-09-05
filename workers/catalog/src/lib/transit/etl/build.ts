@@ -1,6 +1,6 @@
 import { haversine } from "../../../domain/geo";
-import { compareStrings } from "../compare";
-import type { TopologyGraphAsset, TopologySource, TopologyStation } from "../model";
+import { compareStrings } from "../../../domain/transit/compare";
+import type { TopologyGraphAsset, TopologySource, TopologyStation } from "../../../domain/transit/model";
 import type { EkidataGraph } from "./ekidata";
 import type { N02Subgraph } from "./n02";
 

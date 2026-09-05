@@ -13,6 +13,8 @@ import { mimoModel, type TurnModel } from "../../src/agent/session/turn-model.ts
 import { TurnAnswering } from "../../src/agent/session/turn-answer.ts";
 import { TurnCatalogSession } from "../../src/agent/session/turn-catalog-session.ts";
 import type { Toolbox, TurnTool } from "../../src/agent/session/turn-toolbox.ts";
+import { NO_SUPPLEMENTAL_USAGE } from "../../src/agent/settlement/supplemental-usage.ts";
+import type { TurnUsage } from "../../src/agent/settlement/turn-settlement.ts";
 import type { TranscriptRow } from "../../src/agent/session/turn-store.ts";
 import { makeToolCallingStreamFn } from "./pi-provider-double.ts";
 
@@ -23,6 +25,10 @@ const spotParameters = Type.Object({ title: Type.String() });
  * incarnation stealing the lease, a clock crossing the deadline). */
 export class CountingSpotLookup implements Toolbox {
   calls = 0;
+  /** What this toolbox claims its tools spent off-run (#1292). A case that is
+   * not about the meter leaves it at nothing, which is what a toolbox with no
+   * tool-less model call inside it really spends. */
+  offRunUsage: TurnUsage = NO_SUPPLEMENTAL_USAGE;
   readonly #onCall: () => Promise<void>;
 
   constructor(onCall: () => Promise<void> = () => Promise.resolve()) {
@@ -31,6 +37,10 @@ export class CountingSpotLookup implements Toolbox {
 
   tools(): TurnTool[] {
     return [this.#tool()];
+  }
+
+  spent(): TurnUsage {
+    return this.offRunUsage;
   }
 
   #tool(): AgentTool<typeof spotParameters> {

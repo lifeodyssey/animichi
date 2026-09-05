@@ -52,6 +52,34 @@ export const DEFAULT_MIN_PAIRED = 10;
 export const ERROR_RATE_CEILING = 0.2;
 const UNSTRATIFIED = 'unstratified';
 
+/**
+ * One metric's place in the gate: the comparison it produced, and the strings
+ * that comparison is reported as.
+ *
+ * `bootstrapGate` is the fold of these. A caller that has to WRITE a verdict
+ * down rather than print it — W3-5's result file — reads the rows instead of
+ * deriving a second comparison from the same pairs, which would be a second
+ * seed, a second interval, and eventually a second answer.
+ */
+export interface MetricGateResult {
+  readonly metric: string;
+  /** How many cases carry this metric on both sides. */
+  readonly pairedCases: number;
+  /** `null` when there were too few pairs to compare at all. */
+  readonly comparison: Comparison | null;
+  readonly outcome: GateOutcome;
+}
+
+export function metricGateResults(
+  currentCases: CaseScores,
+  baseline: BaselineRecord,
+  options: BootstrapGateOptions = {},
+): MetricGateResult[] {
+  return baselineMetrics(baseline).map((metric) =>
+    metricGateResult(metric, currentCases, baseline, options),
+  );
+}
+
 export function bootstrapGate(
   currentCases: CaseScores,
   baseline: BaselineRecord,
@@ -59,8 +87,8 @@ export function bootstrapGate(
 ): GateOutcome {
   const failures: string[] = [];
   const warnings: string[] = [];
-  for (const metric of baselineMetrics(baseline)) {
-    collect(metricOutcome(metric, currentCases, baseline, options), failures, warnings);
+  for (const result of metricGateResults(currentCases, baseline, options)) {
+    collect(result.outcome, failures, warnings);
   }
   return { failures, warnings };
 }
@@ -119,18 +147,24 @@ function collect(outcome: GateOutcome, failures: string[], warnings: string[]): 
   warnings.push(...outcome.warnings);
 }
 
-function metricOutcome(
+function metricGateResult(
   metric: string,
   currentCases: CaseScores,
   baseline: BaselineRecord,
   options: BootstrapGateOptions,
-): GateOutcome {
+): MetricGateResult {
   const minPaired = options.minPaired ?? DEFAULT_MIN_PAIRED;
   const pairs = pairedScores(metric, currentCases, baseline, options.strata ?? {});
-  if (pairs.length < minPaired) {
-    return { failures: [], warnings: [fewPairsWarning(metric, pairs.length, minPaired)] };
+  const pairedCases = pairs.length;
+  if (pairedCases < minPaired) {
+    return { metric, pairedCases, comparison: null, outcome: skipped(metric, pairedCases, minPaired) };
   }
-  return comparisonOutcome(metric, pairedComparison(pairs, options));
+  const comparison = pairedComparison(pairs, options);
+  return { metric, pairedCases, comparison, outcome: comparisonOutcome(metric, comparison) };
+}
+
+function skipped(metric: string, paired: number, minPaired: number): GateOutcome {
+  return { failures: [], warnings: [fewPairsWarning(metric, paired, minPaired)] };
 }
 
 function pairedComparison(

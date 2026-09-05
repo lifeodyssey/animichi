@@ -119,7 +119,7 @@ const roleDefs: { name: string; secretName?: string; comment: string }[] = [
   // available on every branch (production `main` compute included); GRANTs and
   // ownership are branch-scoped and shipped as Atlas migrations
   // (migrations/neon/*). The DSN here composes against THIS branch's
-  // read-write endpoint; the production stack (Pulumi.production.yaml, landed
+  // read-write endpoint; the production stack (Pulumi.prod.yaml, landed
   // by #1048 on the same branch of this program) writes the same secret name
   // against the main-branch endpoint. Until #1048's prod stack lands, the
   // production DSN is not yet written to the store.

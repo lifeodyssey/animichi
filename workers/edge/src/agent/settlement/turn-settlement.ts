@@ -17,11 +17,13 @@
  * money stays the driver's decimal string, never a float).
  *
  * The scope a turn charges is the run's OWN payer, read back out of the
- * settling UPDATE rather than supplied by the caller. `runs.payer` and
- * `daily_usage.scope` are one three-value domain (`RUN_PAYERS`), which is what
- * makes Python's `scope_for_identity` a no-op on this side: the intake already
- * classified the turn when it wrote the run, so settlement never re-derives a
- * scope from an identity it would have to be handed.
+ * settling UPDATE rather than supplied by the caller. Every value of
+ * `runs.payer` is a value of `daily_usage.scope` (`RUN_PAYERS` ⊂
+ * `USAGE_SCOPES`), which is what makes Python's `scope_for_identity` a no-op on
+ * this side: the intake already classified the turn when it wrote the run, so
+ * settlement never re-derives a scope from an identity it would have to be
+ * handed. The one scope that is not a payer is `platform`, and only a turn's
+ * SUPPLEMENTAL usage can reach it (`supplemental-usage.ts`, #1292).
  */
 import { RUN_PAYERS, type RunFailureReason, type RunPayer } from "../../db/schema.ts";
 
@@ -64,6 +66,14 @@ export function usagePricesIn(env: Record<string, unknown>): UsagePrices {
 export interface SucceededTurn {
   readonly runId: string;
   readonly usage: TurnUsage;
+  /**
+   * What the turn spent on model calls its pi run never made — today, the
+   * tool-less translation (#1292). Separate from `usage` because it may be
+   * charged to a DIFFERENT scope and is never priced at zero:
+   * `supplemental-usage.ts` owns both rules. `NO_SUPPLEMENTAL_USAGE` for a
+   * turn that made none.
+   */
+  readonly supplemental: TurnUsage;
   readonly prices: UsagePrices;
 }
 

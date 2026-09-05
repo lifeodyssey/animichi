@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_IDENTITY_POLICY,
   identityClassSchema,
   identityPolicySchema,
   type IdentityPolicy,
 } from "../src/identity-contract.js";
+import { DEFAULT_IDENTITY_POLICY } from "../src/identity-policy.js";
 
 // AUTH-1 #945: pins every cell of the explicit public/anonymous/authenticated
 // matrix. A divergent hardcoded quota/limit, or a matrix with the wrong shape,
