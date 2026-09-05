@@ -18,6 +18,11 @@
 # Behavioral tests: contract-drift.test.sh.
 set -euo pipefail
 
+# Callable from any directory (the owning package's `test` script runs it from the
+# package directory, the pre-push orchestrator from the repository root); every
+# path below is repository-relative.
+cd "$(git rev-parse --show-toplevel)"
+
 IDX="$(git rev-parse --git-path index)"
 IDX_DIR="$(mktemp -d)"
 trap 'rm -rf "$IDX_DIR"' EXIT
