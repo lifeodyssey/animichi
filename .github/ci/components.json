@@ -108,7 +108,6 @@
       "name": "security-config-read-sets",
       "paths": [
         ".github/ci/components.json",
-        ".github/scripts/test_config_read_sets.py",
         "apps/agent/src/animichi/tests/unit/test_documentation_guardrails.py",
         "apps/agent/src/animichi/tests/unit/test_secrets_docs_consistency.py",
         "apps/web/tests/unit/chat/turnstile-constants-guard.test.ts",

@@ -1,3 +1,22 @@
+# The pull-request pipeline (CI/CD redesign spec §3.1, card B1 / #1359).
+#
+# The affected set is pnpm's, not ours: `--filter "...[<merge-base>]"` selects
+# every workspace project whose files changed plus every dependent of one, so
+# there is no components.json, no change-plan.py and no second router to drift
+# from. Two projects are subtracted from the matrix because they own a job of
+# their own: the root project `animichi-cloudflare-worker` (docs/**, .github/**
+# and the root lockfile land in it by directory containment, and it has no
+# lint/typecheck/test scripts) and `@animichi/agent` (a pnpm project whose
+# `test` is `uv run pytest` — the `agent` job runs it). `animichi-e2e` is
+# subtracted for the same reason: its `test` is the full Playwright suite,
+# which needs a served Worker; the `e2e` job owns that lane (B4 folds the two).
+#
+# `agent`, `e2e` and `db` are TRANSITIONAL jobs carried over unchanged so no
+# lane goes dark between B1 and B2 / B4 / B5, which rewrite them in place.
+# `codeql` is transitional too (B3 replaces it with CodeQL default setup); it
+# is deliberately absent from both aggregates — the ruleset's code_scanning
+# rule consumes its results directly, and default setup makes in-flight PRs'
+# CodeQL uploads fail, which inside an aggregate would lock those PRs red.
 name: CI
 on:
   pull_request:
@@ -7,202 +26,220 @@ on:
 
 permissions:
   contents: read
-env:
-  PYTHON_VERSION: "3.11"
-  NODE_VERSION: "24"
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.merge_group.head_ref || github.head_ref || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  route:
+  plan:
     name: CI / plan
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      components: ${{ steps.route.outputs.components }}
-      has_components: ${{ steps.route.outputs.has_components }}
-      lanes: ${{ steps.route.outputs.lanes }}
-      security_tools: ${{ steps.route.outputs.security_tools }}
-      has_security_tools: ${{ steps.route.outputs.has_security_tools }}
+      packages: ${{ steps.pnpm.outputs.packages }}
+      agent: ${{ steps.paths.outputs.agent }}
+      web: ${{ steps.paths.outputs.web }}
+      e2e: ${{ steps.paths.outputs.e2e }}
+      migrations: ${{ steps.paths.outputs.migrations }}
+      deps: ${{ steps.paths.outputs.deps }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Verify PR Verification workflow contract
-        run: ruby .github/scripts/test_pr_verification_contract.rb
-      - name: Verify component manifest
-        run: python3 .github/scripts/test_component_manifest.py
-      - name: Verify change-plan behavior
-        run: python3 .github/scripts/test_change_plan.py
-      - name: Verify PR Verification mutation probes
-        run: ruby .github/scripts/test_pr_verification_contract_mutation.rb
-      - name: Verify secret scan contract and range behavior
-        run: |
-          ruby .github/scripts/test_secret_scan_contract.rb
-          ruby .github/scripts/test_secret_scan_contract_mutation.rb
-          bash .github/scripts/resolve-secret-scan-range.test.sh
-      - name: Verify PR Verification aggregation behavior
-        run: bash .github/scripts/test_pr_verification_aggregate.sh
-      - name: Verify affected-package routing
-        run: bash .github/scripts/test_pr_verification_route.sh
-      - name: Resolve affected components
-        id: route
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+      # The paths outside any pnpm project (migrations/, .github/) and the root
+      # dependency files, which pnpm answers with the root project alone.
+      # base/ref are read only on merge_group: on pull_request the action asks
+      # the API for the PR's file list and ignores them.
+      - id: paths
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          base: ${{ github.event.merge_group.base_sha }}
+          ref: ${{ github.event.merge_group.head_sha }}
+          filters: |
+            agent:
+              - 'apps/agent/**'
+              - 'packages/contract/**'
+            web:
+              - 'apps/web/**'
+            e2e:
+              - 'e2e/**'
+              - 'packages/contract/**'
+            migrations:
+              - 'migrations/neon/**'
+            deps:
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - '.npmrc'
+      - id: pnpm
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-          EVENT_NAME: ${{ github.event_name }}
-          EVAL_ALLOWED: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
+          DEPS_CHANGED: ${{ steps.paths.outputs.deps }}
         run: |
           set -euo pipefail
-          range="pr"
-          if [ "$EVENT_NAME" = merge_group ]; then range="main"; fi
-          plan="$(python3 .github/scripts/change-plan.py --base "$BASE_SHA" --head "$HEAD_SHA" --range "$range")"
-          components="$(jq -c '.components' <<< "$plan")"
-          lanes="$(jq -c '.lanes' <<< "$plan")"
-          if [ "$EVAL_ALLOWED" != true ]; then
-            lanes="$(jq -c 'map(select(. != "agent-eval"))' <<< "$lanes")"
+          # A root dependency change selects the root project and nothing else
+          # (`...` adds no dependents of it), so it has to mean "every package".
+          if [ "$DEPS_CHANGED" = true ]; then
+            projects="$(pnpm ls -r --depth -1 --json)"
+          else
+            merge_base="$(git merge-base "$BASE_SHA" "$HEAD_SHA")"
+            projects="$(pnpm ls -r --depth -1 --json --filter "...[$merge_base]")"
           fi
-          security_tools="$(jq -c '[.[] | select(startswith("security-")) | sub("^security-"; "")] | unique' <<< "$lanes")"
-          {
-            echo "components=$components"
-            echo "has_components=$(jq -r 'length > 0' <<< "$components")"
-            echo "lanes=$lanes"
-            echo "security_tools=$security_tools"
-            echo "has_security_tools=$(jq -r 'length > 0' <<< "$security_tools")"
-          } >> "$GITHUB_OUTPUT"
-          echo "Affected components: $components" >> "$GITHUB_STEP_SUMMARY"
-          echo "Selected checks: $lanes" >> "$GITHUB_STEP_SUMMARY"
-  security-diff:
-    name: CI / changed secrets
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Scan changed commits with Gitleaks
-        uses: ./.github/actions/secret-scan
-        with:
-          event-name: ${{ github.event_name }}
-          base-sha: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-          head-sha: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Scan verified secrets with TruffleHog
-        uses: ./.github/actions/security-tool
-        with:
-          tool: trufflehog
-  static-quality:
-    name: CI / repository contracts
-    needs: route
-    if: ${{ needs.route.result == 'success' && contains(fromJSON(needs.route.outputs.lanes), 'static-quality') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: ./.github/actions/static-quality
-  cross-stack:
-    name: CI / cross stack
-    needs: route
-    if: ${{ needs.route.result == 'success' && contains(fromJSON(needs.route.outputs.lanes), 'cross-stack') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: ./.github/actions/cross-stack-e2e
-  security-tools:
-    name: CI / security (${{ matrix.tool }})
-    needs: route
-    if: ${{ needs.route.result == 'success' && needs.route.outputs.has_security_tools == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    permissions:
-      contents: read
-      pull-requests: read
-      security-events: write
-      packages: read
-      actions: read
-    strategy:
-      fail-fast: false
-      matrix:
-        tool: ${{ fromJSON(needs.route.outputs.security_tools) }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: ./.github/actions/security-tool
-        with:
-          tool: ${{ matrix.tool }}
-
-  security:
-    name: Security
-    needs: [route, security-diff, security-tools]
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - name: Aggregate selected security checks
-        env:
-          EXPECTED_SHA: ${{ github.sha }}
-          ACTUAL_SHA: ${{ github.sha }}
-          ROUTE_RESULT: ${{ needs.route.result }}
-          SECRET_SCANS_RESULT: ${{ needs.security-diff.result }}
-          SECURITY_TOOLS: ${{ needs.route.outputs.security_tools }}
-          SECURITY_MATRIX_RESULT: ${{ needs.security-tools.result }}
-        run: bash .github/scripts/security-aggregate.sh
-
-  agent-eval:
-    name: CI / agent eval (L0, report only)
-    needs: route
-    if: ${{ needs.route.result == 'success' && github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON(needs.route.outputs.lanes), 'agent-eval') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: ./.github/actions/agent-eval
-        env:
-          ZEN_GO_API_KEY: ${{ secrets.ZEN_GO_API_KEY }}
-        with:
-          tier: l0
+          packages="$(jq -c '[.[].name] - ["animichi-cloudflare-worker", "@animichi/agent", "animichi-e2e"]' <<< "$projects")"
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+          echo "Affected packages: $packages" >> "$GITHUB_STEP_SUMMARY"
 
   affected:
-    name: CI / affected (${{ matrix.component }})
-    needs: route
-    if: ${{ needs.route.result == 'success' && needs.route.outputs.has_components == 'true' }}
+    name: CI / affected (${{ matrix.package }})
+    needs: plan
+    # An empty array in strategy.matrix is a workflow error, not a skip.
+    if: ${{ needs.plan.result == 'success' && needs.plan.outputs.packages != '[]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
-        component: ${{ fromJSON(needs.route.outputs.components) }}
+        package: ${{ fromJSON(needs.plan.outputs.packages) }}
+    steps:
+      # Full history: the contract package's `test` resolves a merge base for
+      # the published-document compat baseline, and CONTRACT_BASE_REF below
+      # names the base commit rather than a remote-tracking ref.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: ${{ matrix.package == '@animichi/eval' }}
+      # Every binary below is provisioned because one package's own `test`
+      # shells out to it. `test_ci_workflow_contract.rb` pins the pairing, so a
+      # dropped step fails a test instead of that package's lane.
+      #   @animichi/eval -> uv     (test:fixture-drift re-runs the Python exporter)
+      #   catalog        -> atlas  (test:spike boots test-postgres, which applies
+      #                             the migrations/neon chain, atlas-chain.ts:18)
+      #   infra          -> pulumi (test:program-load loads the program through
+      #                             the real language host, infra-check.sh:83-88)
+      - name: Install the pinned Python for the eval fixture export
+        if: ${{ matrix.package == '@animichi/eval' }}
+        run: uv python install 3.11
+      - uses: ./.github/actions/install-atlas
+        if: ${{ matrix.package == 'catalog' }}
+      - name: Install the pinned Pulumi CLI for the infra program load
+        if: ${{ matrix.package == 'infra' }}
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          pulumi-version-file: .pulumi.version
+      - name: Build the hermetic Postgres+PostGIS+pgvector test image
+        if: ${{ contains(fromJSON('["catalog", "edge-worker", "@animichi/test-postgres", "migrator"]'), matrix.package) }}
+        run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+      - name: Run the package's own gates
+        env:
+          PACKAGE: ${{ matrix.package }}
+          CONTRACT_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          VITE_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
+          VITE_SHOWCASE_MODE: "false"
+          VITE_NEON_AUTH_BASE_URL: "http://127.0.0.1:9"
+        run: |
+          set -euo pipefail
+          for script in lint typecheck test test:integration; do
+            pnpm --filter "$PACKAGE" run --if-present "$script"
+          done
+      - name: Resolve this package's coverage report
+        id: coverage
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          case "$PACKAGE" in
+            web) file=apps/web/coverage/lcov.info ;;
+            catalog) file=workers/catalog/coverage/lcov.info ;;
+            users) file=workers/users/coverage/lcov.info ;;
+            *) file="" ;;
+          esac
+          echo "file=$file" >> "$GITHUB_OUTPUT"
+      - name: Publish coverage
+        if: ${{ steps.coverage.outputs.file != '' }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: ${{ steps.coverage.outputs.file }}
+          flags: ${{ matrix.package }}
+          fail_ci_if_error: true
+          use_oidc: true
+
+  contracts:
+    name: CI / repository contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify the workflow invariants and action pinning
+        run: ruby .github/scripts/test_workflow_invariants.rb
+      - name: Verify the CI workflow's affected-matrix shape
+        run: ruby .github/scripts/test_ci_workflow_contract.rb
+      - name: Verify every package's test script chains its segments
+        run: ruby .github/scripts/test_package_test_segments.rb
+      # The delivery contracts the retired `security-tool` composite ran. §4.2
+      # deletes them in C1 together with `cd.yml`; until then this is the only
+      # place in CI that still runs them.
+      - name: Verify the delivery contracts cd.yml depends on
+        run: |
+          set -euo pipefail
+          ruby .github/scripts/test_secret_provisioning_contract.rb
+          ruby .github/scripts/test_secret_provisioning_mutation.rb
+          ruby .github/scripts/test_production_safety_contract.rb
+          ruby .github/scripts/test_promotion_ac5_contract.rb
+          ruby .github/scripts/test_promotion_ac5_mutation.rb
+          ruby .github/scripts/test_cd_worker_promotion_contract.rb
+          ruby .github/scripts/test_cd_esc_token_source_contract.rb
+          python3 .github/scripts/test_edge_runtime_secrets.py
+          node .github/scripts/release-web-runtime-config.test.mjs
+          node .github/scripts/release-web-runtime-config.mutation.test.mjs
+          bash .github/scripts/test_promote_release_unit.sh
+
+  docs:
+    name: CI / documentation hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify the documentation hygiene checks themselves
+        run: |
+          set -euo pipefail
+          bash scripts/local-gates/check-agents-refs.test.sh
+          bash scripts/local-gates/check-docs-paths.test.sh
+          bash scripts/local-gates/check-root-allowlist.test.sh
+      - name: Check AGENTS.md references, docs paths and the root allowlist
+        run: |
+          set -euo pipefail
+          bash scripts/local-gates/check-agents-refs.sh
+          bash scripts/local-gates/check-docs-paths.sh
+          bash scripts/local-gates/check-root-allowlist.sh
+
+  agent:
+    name: CI / agent
+    needs: plan
+    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.agent == 'true' || needs.plan.outputs.deps == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -210,158 +247,255 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
         with:
-          python: ${{ contains(fromJSON('["agent", "db", "docs", "eval"]'), matrix.component) }}
-      - name: Install Python runtime for Python-backed gates
-        if: ${{ contains(fromJSON('["agent", "db", "docs", "eval"]'), matrix.component) }}
-        run: uv python install 3.11
-      - uses: ./.github/actions/install-atlas
-        if: ${{ matrix.component == 'db' || matrix.component == 'catalog' }}
-      - name: Install Pulumi CLI for the infra gate
-        if: ${{ matrix.component == 'infra' }}
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
-        with:
-          pulumi-version-file: .pulumi.version
-      - name: Build hermetic Postgres+PostGIS+pgvector test image
-        if: ${{ matrix.component == 'agent' || matrix.component == 'db' || matrix.component == 'catalog' }}
+          python: "true"
+      - run: uv python install 3.11
+      - name: Build the hermetic Postgres+PostGIS+pgvector test image
         run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
-      - name: Restore Playwright browser cache
-        if: ${{ matrix.component == 'e2e' }}
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Lint, typecheck and prove the Python agent
+        working-directory: apps/agent
+        run: |
+          set -euo pipefail
+          uv run ruff check
+          uv run ruff format --check src/animichi/
+          uv run mypy src/animichi/agents/ src/animichi/interfaces/ src/animichi/domain/ src/animichi/infrastructure/ src/animichi/clients/
+          uv run vulture src/animichi/ vulture_whitelist.py
+          uv run pytest src/animichi/tests/unit/ -v --cov --cov-report=xml:coverage-unit.xml
+      # env -u strips the live/BYO database selectors so an exported TEST_DB can
+      # never route the integration arm at Neon: the offline Docker arm only.
+      - name: Run the offline integration arm
+        working-directory: apps/agent
+        run: >
+          env -u TEST_DB -u TEST_DATABASE_URL -u TEST_DB_ALLOW_MUTATION
+          -u NEON_API_KEY -u NEON_PROJECT_ID -u NEON_ENDPOINT_SUFFIX
+          uv run pytest src/animichi/tests/integration/ -v --cov
+          --cov-report=xml:coverage-integration.xml --cov-fail-under=0
+      - name: Build the agent image
+        run: docker build -f apps/agent/Dockerfile -t animichi-agent:ci .
+      - name: Publish unit coverage
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}-chromium
-      - name: Install Playwright browser
-        if: ${{ matrix.component == 'e2e' }}
-        run: pnpm --dir e2e exec playwright install --with-deps chromium
-      - name: Run affected package gate
+          files: apps/agent/coverage-unit.xml
+          flags: unit
+          fail_ci_if_error: true
+          use_oidc: true
+      - name: Publish integration coverage
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: apps/agent/coverage-integration.xml
+          flags: integration
+          fail_ci_if_error: true
+          use_oidc: true
+
+  e2e:
+    name: CI / cross stack
+    needs: plan
+    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.web == 'true' || needs.plan.outputs.e2e == 'true' || needs.plan.outputs.deps == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # `animichi-e2e` is outside the affected matrix (its `test` is the
+      # served-Worker Playwright suite), so the composite carries both halves
+      # of today's browser lane — static gates and specs — until B4 folds them
+      # into the package's own `test`.
+      - uses: ./.github/actions/cross-stack-e2e
+
+  db:
+    name: CI / schema
+    needs: plan
+    if: ${{ needs.plan.result == 'success' && (needs.plan.outputs.migrations == 'true' || needs.plan.outputs.deps == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+        with:
+          python: "true"
+      - run: uv python install 3.11
+      - uses: ./.github/actions/install-atlas
+      # db-fresh-schema.sh fails closed without the offline image.
+      - name: Build the hermetic Postgres+PostGIS+pgvector test image
+        run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+      - name: Validate the migration directory
+        run: atlas migrate validate --dir file://migrations/neon
+      - name: Prove the migration boundary
+        run: node --test workers/edge/test/migration-boundary.test.ts
+      - name: Lint the migrations
+        working-directory: apps/agent
+        run: uv run sqlfluff lint ../../migrations/neon --dialect postgres --config ../../db/.sqlfluff
+      - name: Apply the whole chain to a disposable database
+        run: bash scripts/local-gates/db-fresh-schema.sh
+
+  gitleaks:
+    name: CI / security (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # gitleaks-action scans `<base>^..<head>`, so the base commit's parent has
+      # to be in the clone; a shallow checkout makes the scan fail or go blind.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
-          CI_COMPONENT: ${{ matrix.component }}
-          PR_VERIFICATION_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
-          PR_VERIFICATION_SOURCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-          PR_VERIFICATION_CHECKOUT_SHA: ${{ github.sha }}
-        run: bash .github/scripts/pr-verification-gate.sh "$CI_COMPONENT"
-      - name: Preserve agent coverage
-        if: ${{ matrix.component == 'agent' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ci-coverage-agent-${{ github.sha }}
-          path: |
-            apps/agent/coverage-unit.xml
-            apps/agent/coverage-integration.xml
-          if-no-files-found: error
-      - name: Preserve web coverage
-        if: ${{ matrix.component == 'web' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ci-coverage-web-${{ github.sha }}
-          path: apps/web/coverage/lcov.info
-          if-no-files-found: error
-      - name: Preserve catalog coverage
-        if: ${{ matrix.component == 'catalog' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ci-coverage-catalog-${{ github.sha }}
-          path: workers/catalog/coverage/lcov.info
-          if-no-files-found: error
-      - name: Preserve users coverage
-        if: ${{ matrix.component == 'users' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: ci-coverage-users-${{ github.sha }}
-          path: workers/users/coverage/lcov.info
-          if-no-files-found: error
+          # No GITLEAKS_LICENSE: the key is required for organization-owned
+          # repositories only, and this one belongs to a user account.
+          GITHUB_TOKEN: ${{ github.token }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
 
-  coverage-agent:
-    name: CI / coverage (agent)
-    needs: [route, affected]
-    if: ${{ needs.affected.result == 'success' && contains(fromJSON(needs.route.outputs.components), 'agent') }}
+  trufflehog:
+    name: CI / security (trufflehog)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      id-token: write
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: trufflesecurity/trufflehog@6f3c981e7b77f235fd2702dd74af25fc4b72bf11 # v3.96.0
+        with:
+          extra_args: --results=verified --only-verified --exclude-detectors=Lob
+
+  osv:
+    name: CI / security (osv)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/coverage
-        with: {component: agent, download_path: apps/agent, files: "", flags: ""}
+      - uses: google/osv-scanner-action/osv-scanner-action@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
+        with:
+          scan-args: |-
+            --recursive
+            ./
 
-  coverage-web:
-    name: CI / coverage (web)
-    needs: [route, affected]
-    if: ${{ needs.affected.result == 'success' && contains(fromJSON(needs.route.outputs.components), 'web') }}
+  semgrep:
+    name: CI / security (semgrep)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      id-token: write
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/coverage
-        with: {component: web, download_path: apps/web/coverage, files: apps/web/coverage/lcov.info, flags: web}
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.14"
+          enable-cache: false
+          prune-cache: "true"
+      # The ruleset's self-test resolves one executable name, so semgrep is
+      # installed onto PATH rather than invoked through `uv tool run`.
+      - name: Install the pinned Semgrep
+        env:
+          SEMGREP_VERSION: 1.172.0
+        run: |
+          set -euo pipefail
+          uv tool install --no-build "semgrep==$SEMGREP_VERSION"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      # The repository's own six ORM-boundary rules only (#999): the public
+      # packs are CodeQL's job, and `semgrep ci` refuses `--config` anyway.
+      - name: Run the repository's Semgrep ruleset
+        run: |
+          set -euo pipefail
+          semgrep scan --config .semgrep --error .
+          bash scripts/semgrep-raw-sql-test.sh
 
-  coverage-catalog:
-    name: CI / coverage (catalog)
-    needs: [route, affected]
-    if: ${{ needs.affected.result == 'success' && contains(fromJSON(needs.route.outputs.components), 'catalog') }}
+  zizmor:
+    name: CI / security (zizmor)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/coverage
-        with: {component: catalog, download_path: workers/catalog/coverage, files: workers/catalog/coverage/lcov.info, flags: catalog}
+      # SARIF upload stays off: CodeQL default setup (B3) blocks third-party
+      # code-scanning uploads, and a red job is the signal this lane needs.
+      #
+      # persona pedantic, because the default persona suppresses
+      # `unpinned-uses` — measured 2026-09-06 with zizmor 1.5.2 offline: an
+      # unpinned `dorny/paths-filter@v4` is "No findings (1 suppressed)" at
+      # `regular` and exit 12 at `pedantic`, while `pedantic` on the five
+      # committed workflows reports nothing at all.
+      - uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
+        with:
+          version: "1.5.2"
+          persona: pedantic
+          advanced-security: false
+          annotations: true
 
-  coverage-users:
-    name: CI / coverage (users)
-    needs: [route, affected]
-    if: ${{ needs.affected.result == 'success' && contains(fromJSON(needs.route.outputs.components), 'users') }}
+  sqlfluff:
+    name: CI / security (sqlfluff)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/coverage
-        with: {component: users, download_path: workers/users/coverage, files: workers/users/coverage/lcov.info, flags: users}
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.14"
+          enable-cache: false
+          prune-cache: "true"
+      - name: Lint the migrations
+        env:
+          # The version apps/agent/uv.lock resolves, so local and CI agree.
+          SQLFLUFF_VERSION: 4.2.2
+        run: |
+          set -euo pipefail
+          uv tool install --no-build "sqlfluff==$SQLFLUFF_VERSION"
+          "$HOME/.local/bin/sqlfluff" lint migrations/neon --dialect postgres --config db/.sqlfluff
+
+  codeql:
+    name: CI / codeql (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, javascript-typescript, python]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          category: /language:${{ matrix.language }}
+
+  security:
+    name: Security
+    needs: [gitleaks, trufflehog, osv, semgrep, zizmor, sqlfluff]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail when any security check failed or was cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1
 
   aggregate:
     name: PR Verification
-    needs: [route, static-quality, security, affected, coverage-agent, coverage-web, coverage-catalog, coverage-users, cross-stack]
+    needs: [plan, affected, contracts, docs, agent, e2e, db, security]
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      actions: read
-      checks: read
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Verify every selected gate on the current head
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_VERIFICATION_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          PR_VERIFICATION_PACKAGES: ${{ needs.route.outputs.components }}
-          PR_VERIFICATION_ROUTE_RESULT: ${{ needs.route.result }}
-          PR_VERIFICATION_MATRIX_RESULT: ${{ needs.affected.result }}
-          PR_VERIFICATION_QUALITY_RESULT: ${{ needs.static-quality.result }}
-          PR_VERIFICATION_SECURITY_RESULT: ${{ needs.security.result }}
-          PR_VERIFICATION_COVERAGE_AGENT_RESULT: ${{ needs.coverage-agent.result }}
-          PR_VERIFICATION_COVERAGE_WEB_RESULT: ${{ needs.coverage-web.result }}
-          PR_VERIFICATION_COVERAGE_CATALOG_RESULT: ${{ needs.coverage-catalog.result }}
-          PR_VERIFICATION_COVERAGE_USERS_RESULT: ${{ needs.coverage-users.result }}
-          PR_VERIFICATION_LANES: ${{ needs.route.outputs.lanes }}
-          PR_VERIFICATION_CROSS_STACK_RESULT: ${{ needs.cross-stack.result }}
-        run: bash .github/scripts/pr-verification-aggregate.sh
+      - name: Fail when any selected gate failed or was cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1

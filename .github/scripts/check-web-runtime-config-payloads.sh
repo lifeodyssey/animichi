@@ -7,9 +7,10 @@
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+# The cross-stack composite is the only PR-side copy left: #1359 deleted
+# pr-verification-gate.sh with the pnpm-affected rewrite.
 SOURCES=(
   ".github/actions/cross-stack-e2e/action.yml"
-  ".github/scripts/pr-verification-gate.sh"
 )
 
 extract_payload() {

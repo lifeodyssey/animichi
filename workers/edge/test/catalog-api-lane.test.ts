@@ -2,11 +2,11 @@
  * W1-4 (#1253) lane contract: the staging catalog lane cannot hang.
  *
  * `api-test/` talks to a real deployed origin, so it never runs in CI and this
- * suite cannot execute it — what it CAN do is read the lane verbatim, the way
- * `agent-db-lane.test.ts` reads its own wiring. The invariant worth pinning is
- * the one an operator discovers the hard way: every request in that lane
- * carries the one shared deadline, so an origin that accepts a connection and
- * then says nothing fails the lane instead of hanging it.
+ * suite cannot execute it — what it CAN do is read the lane verbatim. The
+ * invariant worth pinning is the one an operator discovers the hard way: every
+ * request in that lane carries the one shared deadline, so an origin that
+ * accepts a connection and then says nothing fails the lane instead of
+ * hanging it.
  *
  * test-type: unit (reads a checked-in file; no network, no clock).
  */

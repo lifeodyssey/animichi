@@ -15,14 +15,14 @@ lie about either.
   timeout. Budget roughly half a minute per file for the boot and the chain.
 - Prerequisite (one-time, needs network):
   `docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .`
-- Not in `gate_edge` yet, so **run it by hand before pushing agent-tier changes**.
-  `gate_edge` is also CI's `CI / affected (edge)` leg, and that leg builds no
-  Postgres image; wiring the arm in means changing two contracts this repo pins
-  on purpose — the image step's `if:` in
-  `.github/scripts/test_pr_verification_contract.rb` (scoped to agent/db/catalog)
-  and the edge `ci_lanes` list pinned by `test/bundle-smoke-lane.test.ts`. That
-  is an owner call, tracked as a W1 follow-up.
-- Test-only: excluded from the edge deploy unit in `.github/ci/components.json`.
+- Not in the edge package's `test` chain, so **run it by hand before pushing
+  agent-tier changes**. That chain is what CI's `CI / affected (edge-worker)`
+  leg and the pre-push hook both run, and adding this arm to it means declaring
+  the Postgres image as one of that lane's prerequisites — an owner call,
+  tracked as a W1 follow-up. The chain's segments are pinned by
+  `.github/scripts/test_package_test_segments.rb`.
+- Test-only: it lives outside `src/`, so no Worker bundle can reach it
+  (`packages/test-postgres/test/never-bundled.test.ts` proves it).
 - Not `db-test/`, which is the W0-S4 spike's opt-in lane: that one is pointed at a
   database someone else provisioned (`SPIKE_TEST_DATABASE_URL`) and is deleted
   when the spike closes. This lane brings its own database and outlives W0.
