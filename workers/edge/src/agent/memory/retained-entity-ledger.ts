@@ -20,11 +20,12 @@
  * DEDUP IS NOT AN OPTIMISATION, it is what makes an ALARM RETRY idempotent.
  * Since #1378 an entity is rescued once, on the write path, as its return's
  * summary is frozen — not once per turn and not once per model request. But a
- * turn can be attempted more than once, and a retry replays every settled step
- * (`turn-step.ts`) through the same rescue, because an attempt that crashed
- * before its envelope was promoted must not leave the ledger short of what the
- * first attempt recorded. A repeat moves to the tail instead of duplicating, so
- * however many attempts a turn takes, the ledger reads as if it took one.
+ * turn can be attempted more than once, and this envelope is promoted only at a
+ * terminal path — so an attempt that settled a step and crashed left the row
+ * behind and the ledger nowhere, and the retry reads the entities back off
+ * those rows (`session/turn-attempt.ts`). A repeat moves to the tail instead of
+ * duplicating, so however many attempts a turn takes, the ledger reads as if it
+ * took one.
  *
  * A VALUE OBJECT, like `SessionEnvelope` that carries it: every transition
  * answers a new ledger, so "write the whole thing back once, with the run" is

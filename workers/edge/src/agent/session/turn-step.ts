@@ -177,10 +177,9 @@ export class TurnSteps {
 
   /**
    * Replay the settled result under the next index, or execute and settle it —
-   * and, for either one, rescue what the freeze dropped (#1378) before
-   * remembering it for the fact recorder (#1290).
+   * and remember either one for the fact recorder (#1290).
    *
-   * Both memory writes sit here, below the two entry points, so a SERVER-initiated
+   * The recording sits here, below the two entry points, so a SERVER-initiated
    * step is a fact-bearing step on the same terms as a model's tool call: a
    * `plan_selected` pick leaves a scene reference in the ledger exactly as a
    * model-issued `plan_route` does, and neither caller has to remember to say so.
@@ -193,7 +192,6 @@ export class TurnSteps {
     const stepIndex = this.#sequence.take();
     const settled = this.#sequence.settled(stepIndex);
     const result = settled ?? await this.#executed(stepIndex, toolName, input, execute);
-    this.#rescued(toolName, input, result);
     return this.#recorded(toolName, input, toolResultOf(result));
   }
 
@@ -205,21 +203,15 @@ export class TurnSteps {
     input: JsonValue,
     execute: () => Promise<AgentToolResult<JsonValue>>,
   ): Promise<StepResult> {
-    const { refs, output } = this.#parts;
+    const { refs, output, memory } = this.#parts;
     const mark = refs.mintCount;
     const result = await execute();
     const opening = this.#sequence.opening(stepIndex, output.assistantMessage);
     const minted = refs.mintedSince(mark);
     const step = settledStep(stepIndex, toolName, { input, result, minted }, opening);
+    if (step.result.summary !== undefined) rescueCallEntity(memory, toolName, input);
     await this.#settle(step);
     return step.result;
-  }
-
-  /** The words the frozen summary is about to drop, kept verbatim (#1378). A
-   * REPLAYED step passes through here too, so an attempt that crashed before
-   * its envelope was promoted still leaves the ledger the first one meant to. */
-  #rescued(toolName: string, input: JsonValue, result: StepResult): void {
-    if (result.summary !== undefined) rescueCallEntity(this.#parts.memory, toolName, input);
   }
 
   /** Remember what the run asked and what it got, for the fact recorder. */

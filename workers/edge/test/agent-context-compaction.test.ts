@@ -6,9 +6,11 @@
  * handed to the model twice is the same context. Under the trigger — which is
  * where every measured session sits, 870 tokens against 102,400 — the pass is
  * the identity, so request 1 and request 3 of a turn see the same bytes. Over
- * it, the pass is idempotent instead, because a return it shrank carries a mark
- * that keeps the next pass off it (李博杰《深入理解 AI Agent》ch.2 实验 2-10
- * 策略六: 阈值触发 + 批量压缩 + 防重复保护).
+ * it, the pass is a FIXPOINT instead: it asks `frozenSummaryOf`, which answers
+ * "nothing to take" for a return that is already its own short form, so neither
+ * its own output nor a summary frozen at write time can be summarised twice
+ * (李博杰《深入理解 AI Agent》ch.2 实验 2-10 策略六: 阈值触发 + 批量压缩 +
+ * 防重复保护).
  *
  * test-type: unit (pure function; no clock, no I/O).
  */
@@ -19,13 +21,15 @@ import {
   CONTEXT_COMPACTION_TRIGGER_TOKENS,
   batchCompacted,
 } from "../src/agent/session/context-compaction.ts";
+import { TOOL_RETURN_MAX_CHARS } from "../src/agent/session/frozen-tool-return.ts";
+import { toolReturnSummary } from "../src/agent/session/tool-return-summary.ts";
 import { makeLongSearchOutcome, makeToolTurn } from "./doubles/make-tool-transcript.ts";
 
 /**
  * Wide enough that even its SUMMARY is over the 200-character cap: the ordered
- * candidate ids are kept verbatim, so a second pass over an unmarked summary
+ * candidate ids are kept verbatim, so a pass that failed to recognise a summary
  * would fail to parse it and collapse the ids to `[resolve_anime: completed]`.
- * That is what the mark is for, and this is the case that can see it.
+ * That is what the recognition is for, and this is the case that can see it.
  */
 const AMBIGUOUS = {
   outcome: "needs_disambiguation",
@@ -48,6 +52,22 @@ function makeHistory(): AgentMessage[] {
       outcome: { status: "stale_ref" },
     }),
   ];
+}
+
+/**
+ * An earlier turn's return, as `turn-transcript.ts` replays it: the summary
+ * frozen when the step was written, carrying no mark of any kind.
+ */
+function makeWriteFrozenReturn(text: string): AgentMessage {
+  return {
+    role: "toolResult",
+    toolCallId: "c-9",
+    toolName: "resolve_anime",
+    content: [{ type: "text", text }],
+    details: null,
+    isError: false,
+    timestamp: 0,
+  };
 }
 
 /** One message big enough to put any context over the trigger by itself. */
@@ -75,9 +95,9 @@ void test("three passes under the trigger answer the same bytes every time", () 
   assert.deepEqual(shaped, [shaped[0], shaped[0], shaped[0]]);
 });
 
-void test("over the trigger every long return becomes its marked summary", () => {
+void test("over the trigger every long return becomes its deterministic summary", () => {
   const compacted = batchCompacted([makeOverflowMessage(), ...makeHistory()]);
-  assert.equal(returnTextAt(compacted, 6), "[compacted] [search_nearby: found 12 spots for らき☆すた]");
+  assert.equal(returnTextAt(compacted, 6), "[search_nearby: found 12 spots for らき☆すた]");
 });
 
 void test("over the trigger a short return is still left as it was", () => {
@@ -88,13 +108,29 @@ void test("over the trigger a short return is still left as it was", () => {
 void test("a batch-compacted ambiguous resolve keeps its ordered candidate ids", () => {
   const compacted = batchCompacted([makeOverflowMessage(), ...makeHistory()]);
   const shrunk = returnTextAt(compacted, 3);
-  assert.ok(shrunk.startsWith("[compacted] [resolve_anime: ambiguous, ordered_candidates="), shrunk);
+  assert.ok(shrunk.startsWith("[resolve_anime: ambiguous, ordered_candidates="), shrunk);
   assert.match(shrunk, /"9029"\]\]$/);
   assert.equal(shrunk.includes("clarification_reason"), false);
 });
 
-void test("a second batch pass re-processes nothing the first one marked", () => {
+void test("a second batch pass re-processes nothing the first one shrank", () => {
   const once = batchCompacted([makeOverflowMessage(), ...makeHistory()]);
-  assert.ok(returnTextAt(once, 3).length > 200, "the marked summary is itself over the cap");
+  assert.ok(returnTextAt(once, 3).length > 200, "the summary is itself over the cap");
   assert.deepEqual(batchCompacted(once), once);
+});
+
+/**
+ * The case the review found: a summary FROZEN AT WRITE TIME carries no mark of
+ * any kind, so a pass that recognised only its own output would re-summarise
+ * this one — `[resolve_anime: ambiguous, ordered_candidates=[…]]` does not
+ * parse as JSON, and the generic line it collapses to takes the ordered ids
+ * with it. Every earlier turn arrives in exactly this shape (#1377), so it is
+ * the shape the trigger is most likely to meet.
+ */
+void test("a write-frozen candidate summary survives a forced pass byte-identical", () => {
+  const frozen = toolReturnSummary("resolve_anime", JSON.stringify(AMBIGUOUS));
+  assert.ok(frozen.length > TOOL_RETURN_MAX_CHARS, "the frozen summary is itself over the cap");
+  const held = [makeOverflowMessage(), makeWriteFrozenReturn(frozen)];
+  assert.equal(returnTextAt(batchCompacted(held), 1), frozen);
+  assert.match(returnTextAt(batchCompacted(held), 1), /"9029"\]\]$/);
 });

@@ -10,14 +10,24 @@
  * about to drop are rescued in that same step.
  *
  * WHAT IS WORTH RESCUING is what a summary shape makes no promise to keep: the
- * anime title the user typed and the place name they asked about. A return
- * short enough to be carried in full loses nothing, so it rescues nothing.
+ * anime title the user typed and the place name they asked about.
  *
- * A REPLAYED STEP RESCUES AGAIN, on purpose. `TurnSteps` answers a settled step
- * from `run_steps.result` without executing it, and an attempt that crashed
- * before its envelope was promoted would otherwise leave the ledger without an
- * entity the first attempt had already recorded. The ledger's dedup is what
- * makes doing it once per attempt indistinguishable from doing it once.
+ * A SHORT RETURN RESCUES NOTHING, and the reason is #1377 rather than anything
+ * about the return itself — the entity lives in the CALL's arguments, not in
+ * the answer. Since every turn's assistant tool-call message is replayed
+ * verbatim (`turn-transcript.ts`), those arguments are still in the model's
+ * context in full; a call whose return was never shrunk has therefore lost
+ * nothing worth rescuing, and retaining it would spend the ledger's eight slots
+ * on entities the transcript already carries. Only the calls whose answer was
+ * replaced are the ones a later turn may have trouble anchoring.
+ *
+ * A RETRY RESCUES AGAIN, on purpose, and from the ROWS rather than from a
+ * second execution: the envelope carrying this ledger is promoted only when a
+ * run reaches a terminal path, so an attempt that settled a step and crashed
+ * left the row behind and the ledger nowhere. `TurnAttempt.drive` walks this
+ * run's settled steps back through here before the loop resumes
+ * (`session/turn-attempt.ts`), and the ledger's dedup is what makes doing that
+ * every attempt indistinguishable from doing it once.
  */
 import { isJsonRecord } from "../json-record.ts";
 import type { TurnMemory } from "./session-memory.ts";

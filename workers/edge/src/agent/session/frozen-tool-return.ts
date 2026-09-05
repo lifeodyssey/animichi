@@ -31,20 +31,44 @@ export const TOOL_RETURN_MAX_CHARS = 200;
 
 /** What the tool answered, as the one string both the cap and the summariser
  * read. Only text is ever shrunk; an image carries no summary. */
-export function returnTextOf(content: readonly StepContent[]): string {
+function returnTextOf(content: readonly StepContent[]): string {
   return content
     .filter((part) => part.type === "text")
     .map((part) => part.text)
     .join("");
 }
 
-/** The summary this return is frozen with, or nothing when it is short enough
- * to be carried in full for the rest of the session. */
+/**
+ * Whether this text ALREADY is a frozen short form of that tool's return.
+ *
+ * The summariser's own output is the marker, so there is no second one to keep
+ * in step: every line it writes opens `[<toolName>: `, and a return it has not
+ * touched is the tool's own JSON, which cannot. A separate `[compacted]`-style
+ * prefix would have to be applied by every writer and respected by every
+ * reader — and the one that forgot would re-summarise a summary, which parses
+ * as nothing and collapses to the generic line, taking an ambiguous resolve's
+ * ordered candidate ids with it.
+ */
+function isFrozenSummary(toolName: string, text: string): boolean {
+  return text.startsWith(`[${toolName}: `);
+}
+
+/**
+ * The summary this return is frozen with, or nothing when there is none to
+ * take: a return short enough to be carried in full for the rest of the
+ * session, or one that IS already its own short form.
+ *
+ * This is the single decision. The write path takes it as a step settles and
+ * the threshold pass takes it again over the live context, so "what is this
+ * return's short form" has one answer wherever it is asked — and asking twice
+ * answers the same thing, which is what makes the pass a fixpoint.
+ */
 export function frozenSummaryOf(
   toolName: string, content: readonly StepContent[],
 ): string | undefined {
   const text = returnTextOf(content);
-  return text.length > TOOL_RETURN_MAX_CHARS ? toolReturnSummary(toolName, text) : undefined;
+  if (text.length <= TOOL_RETURN_MAX_CHARS || isFrozenSummary(toolName, text)) return undefined;
+  return toolReturnSummary(toolName, text);
 }
 
 /** How a settled step's result is re-clothed for the model. */

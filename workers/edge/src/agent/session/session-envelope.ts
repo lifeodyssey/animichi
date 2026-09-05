@@ -20,8 +20,8 @@
  * two lifetimes apart is the difference between an envelope and the bag.
  *
  * SINCE #1290 IT CARRIES THE SESSION'S MEMORY TOO — the fact ledger and the
- * the entities rescued from frozen returns, as one `SessionMemory` value. They belong here
- * for the same reason the two facts above do: the NEXT turn is what needs them,
+ * entities rescued from frozen returns, as one `SessionMemory` value. They
+ * belong here for the same reason the two facts above do: the NEXT turn needs them,
  * they are written on the alarm that settles a run, and this envelope is
  * already what that alarm stages and promotes in one write. Adding them as one
  * field rather than two keeps every transition below a single carry-forward.

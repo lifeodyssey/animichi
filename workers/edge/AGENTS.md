@@ -173,12 +173,16 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   first attempt saw and two alarms over the same session produce identical context.
   Nothing re-summarises on the read path — that absence is what makes the bytes stable
   across deploys. The literal entity a shrinking call carried is rescued in the same
-  step (`src/agent/memory/rescued-entity.ts`); the ledger's dedup is what makes an alarm
-  retry idempotent. `src/agent/session/context-compaction.ts` is what remains of the old
+  step (`src/agent/memory/rescued-entity.ts`), and a retry reads those entities back off
+  the settled rows (`TurnAttempt.drive`) because the envelope carrying the ledger is
+  promoted only at a terminal path — which is what the ledger's dedup is now for.
+  `src/agent/session/context-compaction.ts` is what remains of the old
   hook: pi's `transformContext` still hangs there, but the per-request "newest 8" window
   is gone (it slid inside a single turn, changing the prefix on every request), leaving
   a batch pass that fires only above `CONTEXT_COMPACTION_TRIGGER_TOKENS = 102_400` and
-  is not expected to fire at all — the measured 3-turn transcript is 870 tokens. pi's
+  is not expected to fire at all — the measured 3-turn transcript is 870 tokens. That
+  pass asks `frozenSummaryOf` too, so it can never re-summarise a summary: 防重复保护 is
+  the short form's own shape (`isFrozenSummary`), not an added marker. pi's
   OWN compaction was measured against the provider double and rejected for four reasons
   recorded in that file's header.
 - `src/agent/tools/` — `agentToolbox(parts)` returns the six `AgentTool`s the session registers

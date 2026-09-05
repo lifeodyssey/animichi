@@ -12,7 +12,8 @@
  * a clump through every method of the loop.
  */
 import type { SelectionRequest } from "../selection/selection-request.ts";
-import type { LoadedTurn } from "./turn-store.ts";
+import type { LoadedTurn, PersistedStep } from "./turn-store.ts";
+import { rescueCallEntity } from "../memory/rescued-entity.ts";
 import type { TurnMemory } from "../memory/session-memory.ts";
 import { recordTurnFacts } from "../memory/turn-fact-recorder.ts";
 import type { TurnStatus, TurnStatusSource } from "./agent-status.ts";
@@ -84,6 +85,23 @@ const UNRESUMED: ResumedTranscript = { messages: [], settledSteps: 0 };
 
 function resumedFor(turn: LoadedTurn, model: TurnModel | null): ResumedTranscript {
   return model === null ? UNRESUMED : resumedTranscript(turn, model.model);
+}
+
+/**
+ * Put back every entity the steps of THIS run already settled rescued (#1378).
+ *
+ * The rescue happens once, where the summary is decided — but the ledger it
+ * writes into lives in the session envelope, which is promoted only when the
+ * run reaches a terminal path. An attempt that settled a step and then crashed
+ * therefore left the row behind and the ledger nowhere, and the retry does NOT
+ * re-execute that call: `resumedTranscript` seeds its answer, so the model
+ * never asks for it again. Reading the entities back off the rows is what makes
+ * the ledger a property of the RUN rather than of whichever attempt finished
+ * it, and the ledger's dedup is what makes doing it every attempt harmless.
+ */
+function rescueSettledEntities(memory: TurnMemory, steps: readonly PersistedStep[]): void {
+  const shrunk = steps.filter((step) => step.result?.summary !== undefined);
+  for (const step of shrunk) rescueCallEntity(memory, step.toolName, step.input);
 }
 
 /**
@@ -161,6 +179,11 @@ export class TurnAttempt {
    * references came from in the first place (#1288 × #1290) — a turn that
    * throws records nothing either way, since the throw leaves before this line.
    *
+   * THE ENTITIES COME BACK WITH THEM (#1378), and for the same reason one line
+   * up: what an earlier attempt rescued is on its `run_steps` rows and not in
+   * any ledger this attempt has, because the envelope is promoted only at a
+   * terminal path.
+   *
    * THE REFS COME BACK FIRST (#1279). A settled step is replayed from
    * `run_steps.result` without calling `execute`, so the registry the tools
    * mint through is empty on a retry unless it is rebuilt — and a `plan_route`
@@ -177,6 +200,7 @@ export class TurnAttempt {
    */
   async drive(): Promise<void> {
     rehydrateRefs(this.#parts.refs, this.#turn.steps);
+    rescueSettledEntities(this.#parts.memory, this.#turn.steps);
     const request = this.#turn.selection;
     if (request === null) await this.#modelled(modelFor(this.#parts.model));
     else await this.#select(request);
