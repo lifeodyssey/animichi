@@ -26,15 +26,6 @@ const POSTGRES_USER = "postgres";
 const POSTGRES_PASSWORD = "postgres";
 const CLEAN_DATABASE = "edge_agent";
 const MIGRATIONS_DIR = new URL("../../../migrations/neon/", import.meta.url);
-/**
- * How long the image may take before it listens on TCP at all.
- *
- * Its entrypoint runs the postgis init scripts against a Unix socket first (see
- * `waitForConnections`), and the published image is `linux/amd64`: on an
- * arm64 host that init is emulated and crosses testcontainers' own 60s default,
- * which then fails the port wait on a container that was going to be fine.
- */
-const STARTUP_TIMEOUT_MS = 240_000;
 
 /**
  * The one wall-clock budget the whole setup draws from.
