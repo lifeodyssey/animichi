@@ -54,6 +54,16 @@ export interface StepResult {
    * deploy lands between a settled step and the alarm that replays it.
    */
   readonly minted?: readonly StepMint[];
+  /**
+   * The short form a later turn replays this return as (#1378, spec §九 9.2).
+   *
+   * Written beside the raw `content` rather than over it — §三's persistence
+   * granularity is unchanged, so the full result is still what an operator, a
+   * refund or a future summariser reads. Absent on a return short enough to
+   * carry whole and on a row written before the freeze existed; both replay
+   * verbatim, because nothing re-summarises on the read path.
+   */
+  readonly summary?: string;
 }
 
 /** One `run_steps` row as the replay reads it: `result` present = already done. */
