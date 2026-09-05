@@ -1,4 +1,4 @@
-import type { TopologyGraphAsset, TopologyStation } from "../../../src/lib/transit";
+import type { TopologyGraphAsset, TopologyStation } from "../../../src/domain/transit";
 
 const station = (station_id: string, line_id: string, group_id: string, name: string, lat: number, lng: number): TopologyStation => ({ station_id, line_id, group_id, name, lat, lng });
 

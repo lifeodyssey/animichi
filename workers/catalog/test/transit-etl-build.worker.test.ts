@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTransitIndex, estimateTransitLeg, parseTopologyGraph } from "../src/lib/transit";
+import { buildTransitIndex, estimateTransitLeg, parseTopologyGraph } from "../src/domain/transit";
 import { buildTopologyAsset, type EkidataGraph, type N02Subgraph } from "../src/lib/transit/etl";
 
 const ekidata: EkidataGraph = {

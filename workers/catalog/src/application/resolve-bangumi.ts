@@ -15,10 +15,8 @@
  */
 
 import { MAX_CANDIDATES } from "@animichi/contract/constants";
-import { parseBangumi, type BangumiRow } from "../enrich/parse";
 import { normalizeAlias } from "../lib/alias";
 import { optional } from "../lib/optional";
-import type { BangumiSearchSubject } from "../ingest/sources";
 import type { AnimeCandidate, ResolveOutcome } from "../types";
 
 export { MAX_CANDIDATES };
@@ -39,11 +37,40 @@ export interface TitleAliasPort {
   candidatesForWorks(workIds: string[]): Promise<AnimeCandidate[]>;
 }
 
-/** Bangumi search payload, or the typed transport-failure sentinel. */
-export type UpstreamSubjects = BangumiSearchSubject[] | "upstream_unavailable";
+/**
+ * One upstream title hit as this use case reads it: an id plus the two names
+ * the similarity rules compare. The rest of the payload the adapter's rows
+ * carry is deliberately unmodelled here — only `SubjectParserPort` reads it.
+ */
+export interface TitleSubject {
+  id: string;
+  name?: unknown;
+  name_cn?: unknown;
+}
 
-/** Outbound capability: search Bangumi subjects (the explicit ingest adapter). */
-export interface UpstreamTitlePort {
+/** The stored anime fields a candidate is built from. */
+export interface CandidateFields {
+  id: string;
+  title: string;
+  title_cn: string | null;
+  cover_url: string | null;
+  air_date: string | null;
+}
+
+/** Outbound capability: narrow one raw upstream subject, throwing if unusable. */
+export interface SubjectParserPort {
+  parseSubject(subject: TitleSubject): CandidateFields;
+}
+
+/** Upstream title payload, or the typed transport-failure sentinel. */
+export type UpstreamSubjects = TitleSubject[] | "upstream_unavailable";
+
+/**
+ * Outbound capability: the upstream title source. Search and payload format are
+ * one concept with one owner (`adapters/outbound/bangumi-search.ts`), so the
+ * parser port is composed in rather than injected as a second dependency.
+ */
+export interface UpstreamTitlePort extends SubjectParserPort {
   fetchSubjects(query: string): Promise<UpstreamSubjects>;
 }
 
@@ -132,7 +159,7 @@ async function resolveMiss(upstream: UpstreamTitlePort, query: string): Promise<
   const subjects = await upstream.fetchSubjects(query);
   return subjects === "upstream_unavailable"
     ? { outcome: "upstream_unavailable", provider: "bangumi" }
-    : resolveSubjects(query, subjects);
+    : resolveSubjects(upstream, query, subjects);
 }
 
 /** Collapse repeated source rows by work id, retaining each work's max priority. */
@@ -190,21 +217,29 @@ function compareText(left: string, right: string): number {
   return left > right ? 1 : 0;
 }
 
-function resolveSubjects(query: string, subjects: BangumiSearchSubject[]): ResolveOutcome {
-  const candidates = subjects.flatMap(safeSubjectCandidate);
+function resolveSubjects(
+  parser: SubjectParserPort,
+  query: string,
+  subjects: TitleSubject[],
+): ResolveOutcome {
+  const candidates = subjects.flatMap((subject) => safeSubjectCandidate(parser, subject));
   if (candidates.length === 0) return { outcome: "not_found", reason: "anime_not_found" };
-  const similar = similarCandidates(query, subjects);
+  const similar = similarCandidates(parser, query, subjects);
   if (similar.length >= 2) return ambiguous(similar);
   if (similar.length === 1) return resolved(similar[0]);
   return resolved(candidates[0]);
 }
 
-function similarCandidates(query: string, subjects: BangumiSearchSubject[]): AnimeCandidate[] {
+function similarCandidates(
+  parser: SubjectParserPort,
+  query: string,
+  subjects: TitleSubject[],
+): AnimeCandidate[] {
   const q = normalizeAlias(query);
   if (q === "") return [];
   return subjects
     .filter((subject) => isSimilar(subjectName(subject.name) ?? "", subjectName(subject.name_cn), q))
-    .flatMap(safeSubjectCandidate)
+    .flatMap((subject) => safeSubjectCandidate(parser, subject))
     .slice(0, MAX_CANDIDATES);
 }
 
@@ -233,21 +268,17 @@ function subjectName(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-/** Reuse the ingest parser for real `images` and `date`/`air_date` fields. */
-function subjectCandidate(subject: BangumiSearchSubject): AnimeCandidate {
-  return candidateFromRow(parseBangumi(subject.id, subject));
-}
-
-function safeSubjectCandidate(subject: BangumiSearchSubject): AnimeCandidate[] {
+/** A subject the parser port rejects is dropped, not fatal to the resolution. */
+function safeSubjectCandidate(parser: SubjectParserPort, subject: TitleSubject): AnimeCandidate[] {
   try {
-    return [subjectCandidate(subject)];
+    return [candidateFromRow(parser.parseSubject(subject))];
   } catch {
     return [];
   }
 }
 
-/** Map a parsed Bangumi row (+ optional derived point count) to a candidate. */
-export function candidateFromRow(row: BangumiRow, points_count?: number): AnimeCandidate {
+/** Map parsed anime fields (+ optional derived point count) to a candidate. */
+export function candidateFromRow(row: CandidateFields, points_count?: number): AnimeCandidate {
   const meta = optional({
     title_cn: row.title_cn,
     cover_url: row.cover_url,

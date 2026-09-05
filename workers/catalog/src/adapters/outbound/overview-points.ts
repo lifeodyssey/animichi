@@ -4,34 +4,21 @@
  * Built with the Drizzle query builder over the single CatalogDb seam.
  */
 import { asc, eq, sql, type SQL } from "drizzle-orm";
+import type { OverviewPointRow, OverviewPointsReader } from "../../application/get-bangumi-overview";
 import { statementBuilder } from "../../db/client";
 import { bangumi, points } from "../../db/schema";
-
-/** A published point row as the overview projection reads it. */
-export interface OverviewPointRow {
-  id: string;
-  name: string;
-  image: string | null;
-  latitude: number;
-  longitude: number;
-  city: string | null;
-}
 
 /** The minimal DB capability this adapter needs. */
 export interface OverviewPointsDb {
   execute(query: ReturnType<typeof sql>): Promise<{ rows: unknown[] }>;
 }
 
+/** Build the `OverviewPointsReader` backed by `db` (two SELECTs, no writes). */
 export function overviewPointsDb(db: OverviewPointsDb): OverviewPointsReader {
   return {
     pointsForWork: (bangumiId) => loadPoints(db, bangumiId),
     workExists: (bangumiId) => loadWorkExists(db, bangumiId),
   };
-}
-
-export interface OverviewPointsReader {
-  pointsForWork(bangumiId: string): Promise<OverviewPointRow[]>;
-  workExists(bangumiId: string): Promise<boolean>;
 }
 
 async function loadPoints(db: OverviewPointsDb, bangumiId: string): Promise<OverviewPointRow[]> {

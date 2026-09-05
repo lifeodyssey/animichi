@@ -8,6 +8,7 @@ import {
   type TitleAliasPort,
   type UpstreamTitlePort,
 } from "../src/application/resolve-bangumi";
+import { bangumiSubjectParser } from "../src/adapters/outbound/bangumi-search";
 import type { AnimeCandidate } from "../src/types";
 
 type Subject = Record<string, unknown> & { id: string };
@@ -24,7 +25,7 @@ function aliasWith(works: AliasWork[], candidates: AnimeCandidate[]): TitleAlias
 }
 
 function upstreamWith(subjects: Subject[]): UpstreamTitlePort {
-  return { fetchSubjects: () => Promise.resolve(subjects) };
+  return { ...bangumiSubjectParser(), fetchSubjects: () => Promise.resolve(subjects) };
 }
 
 function subject(id: number, name: string, name_cn?: string): Subject {
@@ -36,6 +37,7 @@ const EMPTY_ALIAS = aliasWith([], []);
 describe("resolveBangumi exact-first sequencing", () => {
   it("resolves from the alias index without consulting upstream", async () => {
     const upstream: UpstreamTitlePort = {
+      ...bangumiSubjectParser(),
       fetchSubjects: () => Promise.reject(new Error("upstream must not run")),
     };
     const alias = aliasWith([{ bangumi_id: "3302", priority: 40 }], [candidate("3302", 2)]);
@@ -51,7 +53,7 @@ describe("resolveBangumi exact-first sequencing", () => {
 
     const result = await resolveBangumi(
       EMPTY_ALIAS,
-      { fetchSubjects },
+      { ...bangumiSubjectParser(), fetchSubjects },
       { query: "unrelated search" },
     );
     expect(result).toMatchObject({ outcome: "resolved", match: { bangumi_id: "10" } });

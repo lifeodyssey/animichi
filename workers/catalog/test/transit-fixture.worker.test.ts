@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { haversine } from "../src/domain/geo";
-import { buildTransitIndex, parseTopologyGraph } from "../src/lib/transit";
+import { buildTransitIndex, parseTopologyGraph } from "../src/domain/transit";
 import { tokyoSample } from "./fixtures/transit/tokyo-sample";
 
 const required = <T>(value: T | null | undefined): T => {
