@@ -95,6 +95,19 @@ void test("a lease lost mid-turn abandons the turn instead of settling it", asyn
   assert.equal(store.lease.owner, "do-incarnation-3");
 });
 
+void test("a lease that only lapsed is re-taken by the step's own write", async () => {
+  const clock = makeClock();
+  const store = new InMemoryTurnStore(seed(), clock.now);
+  const overran = (): Promise<void> => {
+    clock.set(START + 60_000);
+    return Promise.resolve();
+  };
+  const toolbox = new CountingSpotLookup(overran);
+  assert.deepEqual(await makeTurn(store, clock, toolbox).run(RUN_ID), { phase: "succeeded" });
+  assert.equal(store.steps.length, 1);
+  assert.equal(store.lease.owner, null, "a settled run releases the lease it re-took");
+});
+
 void test("an abandoned turn wrote no step for the work it did", async () => {
   const clock = makeClock();
   const store = new InMemoryTurnStore(seed(), clock.now);

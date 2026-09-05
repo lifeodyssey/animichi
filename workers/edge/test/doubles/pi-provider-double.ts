@@ -224,3 +224,47 @@ export function makeToolResultRejectingStreamFn(message: string) {
     return new ScriptedProviderStream(base, options?.signal).run(toolCallScript(base));
   };
 }
+
+/** One assistant message's worth of tool calls, as the script pushes them. */
+function batchScript(base: AssistantMessage, batch: readonly ScriptedToolCall[], turn: number): Script {
+  const toolCalls = batch.map((call, offset) => ({
+    type: "toolCall" as const,
+    id: `${DOUBLE_TOOL_CALL_ID}-${String(turn)}-${String(offset)}`,
+    name: call.name,
+    arguments: call.arguments,
+  }));
+  const partial: AssistantMessage = { ...base, content: toolCalls };
+  return async (push, gap) => {
+    push({ type: "start", partial: base });
+    for (const [index, toolCall] of toolCalls.entries()) {
+      await gap();
+      push({ type: "toolcall_start", contentIndex: index, partial });
+      await gap();
+      push({ type: "toolcall_delta", contentIndex: index, delta: JSON.stringify(toolCall.arguments), partial });
+      await gap();
+      push({ type: "toolcall_end", contentIndex: index, toolCall, partial });
+    }
+    await gap();
+    push({ type: "done", reason: "toolUse", message: { ...partial, stopReason: "toolUse" } });
+  };
+}
+
+/**
+ * A `streamFn` that issues one BATCH of tool calls per model turn, then answers.
+ *
+ * `makeSequencedToolCallsStreamFn` puts every call in an assistant message of
+ * its own, which is the shape a one-call-per-turn model produces. A real model
+ * routinely issues several calls in ONE message — the shape `StepSequence`
+ * numbers k, k+1, … under a single `ToolCallEnvelope` — so a turn whose steps
+ * share an issuing message needs its own script.
+ */
+export function makeBatchedToolCallsStreamFn(batches: readonly (readonly ScriptedToolCall[])[]) {
+  let turn = 0;
+  return (model: Model<Api>, _context: Context, options?: SimpleStreamOptions) => {
+    const base = baseMessage(model);
+    const batch = batches[turn];
+    turn += 1;
+    const script = batch ? batchScript(base, batch, turn) : answerScript(base);
+    return new ScriptedProviderStream(base, options?.signal).run(script);
+  };
+}

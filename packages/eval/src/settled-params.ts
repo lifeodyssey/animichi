@@ -88,8 +88,14 @@ function nextParamsOf(queued: Map<string, string[]>, toolName: string): Readonly
  * Paired by tool name and occurrence, which is the pairing
  * `ArgumentCorrectness(tool, occurrence=k)` makes itself: the k-th call to a
  * tool on the stream is answered by the k-th step that run settled under that
- * name. Positional pairing would drift on the first settled step the stream
- * does not publish — `respond` is one on every answered turn.
+ * name.
+ *
+ * `respond` is on NEITHER side and is not a reason a pair can come back short:
+ * the edge drops its frames (`framesFor` skips `ANSWER_TOOL_NAME`) and never
+ * numbers it as a step (`TurnAttempt.#agentParts` registers it outside
+ * `TurnSteps.wrap`), so a turn's answer is absent from both records rather than
+ * unmatched in one. A call with no `params` is a call whose `run_steps` row is
+ * missing — a refused step write, which is what #1397 was.
  */
 export function withSettledParams(
   calls: readonly TranscriptStep[],
