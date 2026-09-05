@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { FIXED_NOW, makeApp, post, testEnv } from "./migrate.worker.helpers";
-import { BODY_B, FakeSql, HEAD_B, workerHttpDeps } from "./http-apply.helpers";
+import { FakeSql } from "./fake-sql";
+import { BODY_B, HEAD_B, workerHttpDeps } from "./http-apply.helpers";
 
 // #1124 AC5 + extra — HTTP seam is OIDC + empty/object {expectedHead?} only;
 // POST /migrate with expectedHead matching the applied chain returns 200.
