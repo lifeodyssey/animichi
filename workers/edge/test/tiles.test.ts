@@ -64,7 +64,7 @@ void test("a missing glyph or style asset is a hard 404", async () => {
   );
   assert.equal(response.status, 404);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
-  assert.deepEqual(await response.json(), { error: "tile_not_found" });
+  assert.deepEqual(await response.json(), { error: { code: "tile_not_found" } });
 });
 
 void test("the asset allowlist rejects unscoped objects and invalid tile coordinates", async () => {
@@ -186,7 +186,7 @@ void test("R2 failures are a retryable 503 for MapLibre fallback", async () => {
   );
   assert.equal(response.status, 503);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
-  assert.deepEqual(await response.json(), { error: "tile_storage_unavailable" });
+  assert.deepEqual(await response.json(), { error: { code: "tile_storage_unavailable" } });
 });
 
 void test("a missing binding fails closed instead of falling through to another origin", async () => {
@@ -194,5 +194,5 @@ void test("a missing binding fails closed instead of falling through to another 
   const response = await app.request("/tiles/uji-kyoto.pmtiles", {}, {}, ctx);
   assert.equal(response.status, 503);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
-  assert.deepEqual(await response.json(), { error: "tile_storage_unavailable" });
+  assert.deepEqual(await response.json(), { error: { code: "tile_storage_unavailable" } });
 });

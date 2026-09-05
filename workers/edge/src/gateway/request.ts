@@ -4,22 +4,23 @@ import type { Env, WorkerExecutionContext } from "../env.ts";
 import type { AuthResult } from "../identity/auth.ts";
 import { handleAnonymousV1 } from "../identity/anonymous-flow.ts";
 import { verifyAnonymousEntry } from "../identity/turnstile-entry.ts";
-import { handleSessionAdopt, SESSION_ADOPT_PATH } from "../identity/session-adopt.ts";
+import { handleSessionAdopt } from "../identity/session-adopt.ts";
 import { handleImageProxy } from "../proxy/image-proxy.ts";
 import { handleTiles } from "../proxy/tiles.ts";
 import type { ShowcaseMode } from "../proxy/showcase.ts";
-import { USERS_BINDING_PREFIX } from "@animichi/contract/internal-binding";
 import { TURNSTILE_VERIFY_PATH } from "@animichi/contract/constants";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { authenticatedForward, forwardPublicCatalog, forwardUsers, forwardV1 } from "./forward.ts";
-import { fetchContainerWithStartupRetry } from "./container-fetch.ts";
+import { fetchContainerResilient } from "./container-fetch.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
-import { UNAUTHORIZED_BODY, methodNotAllowed, notFoundResponse, showcaseDenied, unauthorized } from "./responses.ts";
+import { classify, isFunctionalRoute, type RequestClass } from "./request-class.ts";
+import {
+  credentialsRequired, gatewayRejection, internalError, methodNotAllowed, notFoundResponse, showcaseDenied, unauthorized,
+} from "./responses.ts";
 import { publicReadKey } from "./read-key.ts";
 import { isAnonymousV1, isPublicV1, turnRoutePolicy } from "./routing-policy.ts";
 import { agentTierResponse, type AgentTierGates } from "./agent-tier-route.ts";
-import { STAGING_GATE_EXCHANGE_PATH } from "../staging-gate/session.ts";
 import { stagingGateExchangeResponse } from "../staging-gate/exchange.ts";
 
 // ── EDGE-1 #963: the composed gateway seam ─────────────────────────────────
@@ -31,70 +32,14 @@ import { stagingGateExchangeResponse } from "../staging-gate/exchange.ts";
 // forwarding to Catalog / Users / the agent container run here, in that
 // order. app.ts delegates to it once.
 
-/** The legacy anonymous-session migration path deleted with AdoptSessions
- * (SESSION-2 #960). Explicitly rejected here so no branch can ever forward a
- * request to a route that no longer exists. */
-const SESSION_MIGRATE_PATH = "/v1/session/migrate";
-
-/** The one allowlisted public catalog read (issue #537 / CATALOG-5 #946). */
-const PUBLIC_CATALOG_PATTERN = /^\/catalog\/public\/anime-overview\/\d+$/;
-
-const USERS_PREFIX = USERS_BINDING_PREFIX;
-
-type RequestClass =
-  | { kind: "landing"; asset: "healthz" | "banner" | "tiles" | "img" }
-  | { kind: "staging-gate-exchange" }
-  | { kind: "public-catalog" }
-  | { kind: "users" }
-  | { kind: "adopt" }
-  | { kind: "v1"; pathname: string }
-  | { kind: "retired" }
-  | { kind: "not-found" };
-
-/** The landing surface, which the showcase gate never denies. */
-function landingClass(method: string, pathname: string): RequestClass | null {
-  if (pathname === "/healthz" && method === "GET") return { kind: "landing", asset: "healthz" };
-  // The agent's JSON service banner at the root (CONTRACT-1 #938). Not an HTML
-  // page — #537 retired the page renderer, not the container's root JSON — so
-  // forwarding it to the container keeps every advertised Agent operation
-  // reachable through the CONTAINER binding (#1005 AC1).
-  if (pathname === "/" && method === "GET") return { kind: "landing", asset: "banner" };
-  if (pathname.startsWith("/tiles/")) return { kind: "landing", asset: "tiles" };
-  if (pathname.startsWith("/img/")) return { kind: "landing", asset: "img" };
-  return null;
-}
-
-/** Pure route selection: one classification per request, no bindings read. */
-function classify(request: Request): RequestClass {
-  const { pathname } = new URL(request.url);
-  const landing = landingClass(request.method, pathname);
-  if (landing !== null) return landing;
-  if (request.method === "GET" && PUBLIC_CATALOG_PATTERN.test(pathname)) return { kind: "public-catalog" };
-  if (pathname === SESSION_MIGRATE_PATH) return { kind: "retired" };
-  if (pathname === STAGING_GATE_EXCHANGE_PATH) return { kind: "staging-gate-exchange" };
-  if (pathname.startsWith(USERS_PREFIX)) return { kind: "users" };
-  if (pathname === SESSION_ADOPT_PATH) return { kind: "adopt" };
-  if (pathname.startsWith("/v1/")) return { kind: "v1", pathname };
-  return { kind: "not-found" };
-}
-
-/** Functional routes are denied in showcase mode; the landing surface and the
- * staging-gate OIDC exchange (the CI auth endpoint, reachable past the WAF
- * regardless of showcase) stay. */
-function isFunctionalRoute(route: RequestClass): boolean {
-  return route.kind !== "landing" &&
-    route.kind !== "not-found" &&
-    route.kind !== "staging-gate-exchange";
-}
-
 /** Structured, credential-free request record (EDGE-1 #963): identity kind
  * (class), upstream status and duration only — never a token, trusted
  * header, user identifier, path or payload. */
-function observe(route: RequestClass, response: Response, startedMs: number): void {
+function observe(route: RequestClass, status: number, startedMs: number): void {
   console.warn(JSON.stringify({
     event: "edge_gateway_request",
     class: route.kind,
-    status: response.status,
+    status,
     duration_ms: Date.now() - startedMs,
   }));
 }
@@ -117,7 +62,7 @@ type AuthFailure = Extract<AuthResult, { ok: false }>;
  * record; absent is a flat 401 with no record (issue #441). */
 function authenticationRejection(request: Request, auth: AuthFailure): Response {
   const { pathname } = new URL(request.url);
-  return auth.reason === "invalid" ? unauthorized(pathname) : Response.json(UNAUTHORIZED_BODY, { status: 401 });
+  return auth.reason === "invalid" ? unauthorized(pathname) : credentialsRequired();
 }
 
 export interface GatewayDeps extends AgentTierGates {
@@ -129,17 +74,55 @@ export interface GatewayDeps extends AgentTierGates {
   stagingGateExchange?: (request: Request, env: Env) => Promise<Response>;
 }
 
-export async function HandleGatewayRequest(
+export function HandleGatewayRequest(
   env: Env, request: Request, ctx: WorkerExecutionContext, deps: GatewayDeps,
 ): Promise<Response> {
   const route = classify(request);
-  const startedMs = Date.now();
   observeEntry(route, request);
-  const response = isFunctionalRoute(route) && deps.showcaseMode.isEnabled(env.EDGE_SHOWCASE_MODE)
-    ? showcaseDenied()
-    : await dispatch(route, env, request, ctx, deps);
-  observe(route, response, startedMs);
-  return response;
+  return observed(route, Date.now(), () => routedResponse(route, env, request, ctx, deps));
+}
+
+function routedResponse(
+  route: RequestClass, env: Env, request: Request, ctx: WorkerExecutionContext, deps: GatewayDeps,
+): Promise<Response> {
+  if (isFunctionalRoute(route) && deps.showcaseMode.isEnabled(env.EDGE_SHOWCASE_MODE)) {
+    return Promise.resolve(showcaseDenied());
+  }
+  return dispatch(route, env, request, ctx, deps);
+}
+
+/** Every request leaves a completion record, including one whose dispatch threw
+ * (EG-06): a failure that is invisible in the request stream is the one failure
+ * nobody can find. A throw is recorded as the status `gatewayFailure` will
+ * answer with, then rethrown for `app.onError` to answer. */
+async function observed(
+  route: RequestClass, startedMs: number, dispatchRoute: () => Promise<Response>,
+): Promise<Response> {
+  let status = GATEWAY_FAILURE_STATUS;
+  try {
+    const response = await dispatchRoute();
+    status = response.status;
+    return response;
+  } finally {
+    observe(route, status, startedMs);
+  }
+}
+
+const GATEWAY_FAILURE_STATUS = 500;
+
+/** The Worker's last line (EG-06). Hono's default for an unhandled throw is a
+ * plain-text 500 outside every envelope, so `app.onError` routes here instead:
+ * one structured record — route class, status and the error's NAME, never its
+ * message, which is a server-side string that may carry a DSN or a stack — and
+ * the same rejection envelope as every deliberate refusal. */
+export function gatewayFailure(error: unknown, request: Request): Response {
+  console.warn(JSON.stringify({
+    event: "edge_gateway_error",
+    class: classify(request).kind,
+    status: GATEWAY_FAILURE_STATUS,
+    error: error instanceof Error ? error.name : "unknown",
+  }));
+  return internalError();
 }
 
 function dispatch(route: RequestClass, env: Env, request: Request, ctx: WorkerExecutionContext, deps: GatewayDeps): Promise<Response> {
@@ -158,26 +141,30 @@ function dispatch(route: RequestClass, env: Env, request: Request, ctx: WorkerEx
 function landingResponse(
   env: Env, request: Request, ctx: WorkerExecutionContext, asset: "healthz" | "banner" | "tiles" | "img", sleep: (ms: number) => Promise<void>,
 ): Promise<Response> {
-  if (asset === "healthz") return healthzResponse(env, request, sleep);
-  if (asset === "banner") return bannerResponse(env, request);
+  if (asset === "healthz" || asset === "banner") return containerLanding(env, request, sleep);
   if (asset === "tiles") return handleTiles(request, env.MAP_TILES, ctx);
   return handleImageProxy(request, ctx);
 }
 
-/** Forward `GET /` to the container's root banner (no startup retry needed —
- * a missed banner is a soft miss, unlike the readiness probe). */
-function bannerResponse(env: Env, request: Request): Promise<Response> {
+/** The two landing surfaces the container serves — `GET /healthz` (the CD
+ * smoke's readiness probe, which must keep answering the container's own
+ * `{"status":"ok"}` verbatim) and `GET /` (its JSON service banner).
+ *
+ * Both ride the same bounded fetch as `/v1` (EG-21, issue #1343). They used to
+ * be the exception: the probe had the cold-start retry but no head timeout and
+ * the banner had neither, so a hung container left the Worker request running
+ * long after the smoke's own `--max-time 15` had given up. Nothing argued that
+ * exemption — the head-timeout comment in `container-fetch.ts` argues the
+ * `/v1` bound — and the banner gains the retry for the same reason the probe
+ * has it: the request that wakes a cold container should not be the one that
+ * fails. */
+function containerLanding(env: Env, request: Request, sleep: (ms: number) => Promise<void>): Promise<Response> {
   const container = env.CONTAINER.get(env.CONTAINER.idFromName("default"));
-  return container.fetch(request);
-}
-
-function healthzResponse(env: Env, request: Request, sleep: (ms: number) => Promise<void>): Promise<Response> {
-  const container = env.CONTAINER.get(env.CONTAINER.idFromName("default"));
-  return fetchContainerWithStartupRetry((inner) => container.fetch(inner), request, sleep);
+  return fetchContainerResilient((inner) => container.fetch(inner), request, sleep);
 }
 
 async function publicCatalogResponse(env: Env, request: Request): Promise<Response> {
-  if (new URL(request.url).search) return Promise.resolve(new Response("Unexpected query parameters", { status: 400 }));
+  if (new URL(request.url).search) return gatewayRejection("unexpected_query", 400, "This route takes no query parameters.");
   const guarded = await guardPolicy(env, classifyRatePolicy(request.method, new URL(request.url).pathname), publicReadKey(request), authRateLimitConfigFrom(env));
   if (guarded !== null) return guarded;
   return forwardPublicCatalog(env, request);
@@ -248,7 +235,7 @@ async function privateAgentV1Response(
   if (auth.reason === "invalid") return unauthorized(pathname);
   const anonymous = await anonymousAgentResponse(env, request, pathname, deps);
   if (anonymous !== null) return anonymous;
-  return Response.json(UNAUTHORIZED_BODY, { status: 401 });
+  return credentialsRequired();
 }
 
 async function anonymousAgentResponse(

@@ -41,7 +41,7 @@ import type { TurnstileGate } from "../protect/turnstile.ts";
 import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/rate-limiter.ts";
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
-import { UNAUTHORIZED_BODY, unauthorized } from "./responses.ts";
+import { credentialsRequired, unauthorized } from "./responses.ts";
 import type { EdgeTierRoute } from "./routing-policy.ts";
 import type { AgentTurnTier, TurnIdentity } from "./agent-turn.ts";
 
@@ -97,10 +97,10 @@ export async function agentTierResponse(
   const auth = await gates.authenticate(request, env, ctx);
   if (auth.ok) return authenticatedTierResponse(env, request, auth, pathname, route, gates);
   if (auth.reason === "invalid") return unauthorized(pathname);
-  if (route.kind === "probe") return Response.json(UNAUTHORIZED_BODY, { status: 401 });
+  if (route.kind === "probe") return credentialsRequired();
   const anonymous = await handleAnonymousV1(
     env, request, Date.now(), gates.turnstileGate, gates.sleep,
     (identity) => servedByTier(env, request, { userId: identity.userId, userType: "anonymous" }, route, gates),
   );
-  return anonymous ?? Response.json(UNAUTHORIZED_BODY, { status: 401 });
+  return anonymous ?? credentialsRequired();
 }
