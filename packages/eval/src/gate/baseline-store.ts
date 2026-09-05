@@ -13,10 +13,13 @@ import {
  * `gate.py` reads a baseline through one funnel — locate, load, judge fresh —
  * and answers "no usable baseline" three different ways: the file is missing,
  * it does not parse, or it describes a run this one cannot be compared with.
- * All three are a `null` record plus the warning Python logs, because a first
- * run legitimately has no baseline and must not be a crash.
+ * Python logs all three and carries on. This side does that for two of them and
+ * FAILS on the middle one (#1341): a committed record that no longer parses is
+ * damage, and warning about it disables the regression gate with a line that
+ * reads exactly like a legitimate first run. Missing stays a warning, because a
+ * first run legitimately has no baseline and must not be a crash.
  *
- * Only one warning ever comes back: `_is_stale` short-circuits, and so does this.
+ * Only one line ever comes back: `_is_stale` short-circuits, and so does this.
  */
 
 /** The three fields that always travel together to find a baseline on disk. */
@@ -32,8 +35,16 @@ export interface BaselineExpectations {
   readonly metrics?: readonly string[];
 }
 
+/**
+ * What one baseline read decided, in the gate's own two voices.
+ *
+ * `warnings` is the non-blocking half — no record yet, or one this run cannot be
+ * compared with — and leaves the run reported but ungated. `failures` holds the
+ * single blocking answer: the file is on disk and does not parse.
+ */
 export interface BaselineReadResult {
   readonly record: BaselineRecord | null;
+  readonly failures: readonly string[];
   readonly warnings: readonly string[];
 }
 
@@ -55,11 +66,11 @@ export function readBaselineRecord(
 ): BaselineReadResult {
   const path = baselinePath(location);
   if (!existsSync(path)) {
-    return { record: null, warnings: [`Missing baseline for ${named(location)} at ${path}`] };
+    return ungated(`Missing baseline for ${named(location)} at ${path}`);
   }
   const record = parseBaselineRecord(readFileSync(path, 'utf8'));
   if (record === null) {
-    return { record: null, warnings: [invalidWarning(location, path)] };
+    return baselineInvalid(location, path);
   }
   return freshRecord(record, location, expectations);
 }
@@ -76,12 +87,23 @@ function named(location: BaselineLocation): string {
   return `${location.layer}/${location.modelId}`;
 }
 
+/** No usable baseline and nothing damaged: the run is reported, not gated. */
+function ungated(warning: string): BaselineReadResult {
+  return { record: null, failures: [], warnings: [warning] };
+}
+
+/** The one read outcome that blocks: the record is on disk and unreadable. */
+function baselineInvalid(location: BaselineLocation, path: string): BaselineReadResult {
+  return { record: null, failures: [invalidFailure(location, path)], warnings: [] };
+}
+
 /**
  * Python interpolates the pydantic `ValidationError` here. There is no such
  * object on this side, so the message names the schema it failed instead — the
- * one warning of the five that is not text-identical across the two runners.
+ * one line of the five that is not text-identical across the two runners, and
+ * the one this side raises from a warning to a failure.
  */
-function invalidWarning(location: BaselineLocation, path: string): string {
+function invalidFailure(location: BaselineLocation, path: string): string {
   return `Invalid baseline for ${named(location)} at ${path}: not a schema-v2 baseline record`;
 }
 
@@ -91,7 +113,7 @@ function freshRecord(
   expectations: BaselineExpectations,
 ): BaselineReadResult {
   const warning = stalenessWarning(record, location, expectations);
-  return warning === null ? { record, warnings: [] } : { record: null, warnings: [warning] };
+  return warning === null ? { record, failures: [], warnings: [] } : ungated(warning);
 }
 
 function stalenessWarning(

@@ -166,6 +166,7 @@ export function makeGateRunSettings(scores: CaseScoreMap): GateRunSettings {
     metricNames: metricNames({ hasNonemptyCases: true, l3Enabled: false }),
     baseline: pythonBaseline(),
     baselineModel: PYTHON_BASELINE_MODEL,
+    baselineFailures: [],
     baselineWarnings: [],
     strata: loadCaseStrata(canonicalDatasetPath(GATED_DATASET)),
     now: () => GENERATED_AT,

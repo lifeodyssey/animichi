@@ -148,6 +148,22 @@ void test('an ungated run reports rather than blocks, even when it regressed', (
   assert.equal(gateExitCode(ungatedResult), 0);
 });
 
+const INVALID_BASELINE = 'Invalid baseline for agent_l4_trajectory/openai:mimo-v2.5 at /nowhere: not a schema-v2 baseline record';
+const damagedResult = gateRunResultOf(ungatedRun.report, {
+  ...ungatedRun.settings,
+  baseline: null,
+  baselineFailures: [INVALID_BASELINE],
+  baselineWarnings: [],
+});
+
+void test('a damaged baseline is carried into the result as a failure', () => {
+  assert.deepEqual(damagedResult.failures, [INVALID_BASELINE]);
+});
+
+void test('a damaged baseline blocks rather than ungating the run', () => {
+  assert.equal(gateExitCode(damagedResult), 1);
+});
+
 void test('a run where every turn fell over has no scores to gate', async () => {
   const fallen = await makeFallenOverRun(parity);
   assert.throws(() => gateRunResultOf(fallen.report, fallen.settings), /All cases errored/);

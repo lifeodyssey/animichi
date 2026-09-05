@@ -163,6 +163,16 @@ Notes for the rest of W3:
   text-identical and cannot be: Python interpolates the pydantic `ValidationError`
   into `Invalid baseline for …`, and there is no such object on this side, so the
   message names the schema instead. The other four are pinned verbatim.
+- **A damaged baseline is a failure here, and that is the one place this side does
+  not mirror `gate.py` (#1341).** Python logs `Invalid baseline for …` and carries
+  on, so a truncated or hand-edited committed record disables the regression gate
+  with a non-blocking line that reads exactly like a legitimate first run. On this
+  side `readBaselineRecord` returns that line under `failures` (missing and stale
+  stay under `warnings`), `gateRunResultOf` folds `baselineFailures` into
+  `GateRunResult.failures`, and `eval:gate` exits 1. Nobody re-runs their way out
+  of a damaged file, so it must not look like an ungated run. Whether `gate.py`
+  should stop warning and follow this side is #1351; until it does, the two
+  runners disagree on this one answer by design, not by drift.
 - **`baselines/` holds Python-written records.** `baselineRecordText` reproduces
   `model_dump_json(indent=2)` byte for byte, so a record written by either side is
   a no-op diff for the other; the committed
@@ -259,9 +269,11 @@ to `agent_eval_v3`, which is 662 real staging turns on the QA identity.
   fourth answer a metric can get: fewer than ten paired cases, no comparison.
 - **Only a `fail` exits 1.** `gate_exit_code` exactly: `indeterminate` and
   `skipped` are warnings and exit 0, because a gate that blocked on "not enough
-  evidence" would block on noise. A run where every case errored throws
-  `All cases errored` out of `aggregateScores` and writes no file — Python's
-  `NoEvaluatedCases`, which also persists nothing.
+  evidence" would block on noise. A damaged baseline is the one addition to
+  Python's failure list (see the statistical-gate section above): it arrives as
+  `baselineFailures` and exits 1 like any regression. A run where every case
+  errored throws `All cases errored` out of `aggregateScores` and writes no
+  file — Python's `NoEvaluatedCases`, which also persists nothing.
 - **The breakdown groups by answered intent and requested locale.** There is no
   `metadata.intent` to read and no per-intent summary in `eval_harness.py`;
   what Python has is `exec_tiers.CaseRow`, which writes `intent` off the

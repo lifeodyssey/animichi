@@ -9,8 +9,11 @@ import { pythonFloatText } from './python-number-text.ts';
  * byte — including `1.0` for an integral float — so a baseline written by
  * either language is a no-op diff for the other.
  *
- * Parsing is deliberately total: a malformed file is `null`, never a throw,
- * because the caller's answer to "no usable baseline" is to write one.
+ * Parsing is deliberately total: a malformed file is `null`, never a throw, so
+ * that the one caller who reads a committed record — `baseline-store.ts` — is
+ * the one place that decides what a malformed file MEANS. It means a failure
+ * there, not a written replacement: this runner never writes the record it is
+ * judged by.
  */
 
 export interface BaselineRecord {
