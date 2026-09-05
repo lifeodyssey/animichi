@@ -25,7 +25,7 @@ import assert from "node:assert/strict";
 import { settleFailedTurn } from "../src/agent/settlement/neon-turn-settlement.ts";
 import type { SettlementResult } from "../src/agent/settlement/turn-settlement.ts";
 import type { QuotaReservation } from "../src/agent/intake/quota-reservation.ts";
-import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
+import { SETUP_HOOK_TIMEOUT_MS, startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
 import {
   bankedUsage,
   reservedOn,
@@ -42,7 +42,7 @@ const LEASED = "2026-09-08T08:59:00.000Z";
 
 let plane: AgentDataPlane;
 
-before(async () => { plane = await startAgentDataPlane(); }, { timeout: 300_000 });
+before(async () => { plane = await startAgentDataPlane(); }, { timeout: SETUP_HOOK_TIMEOUT_MS });
 after(() => plane.stop(), { timeout: 60_000 });
 
 /** One anonymous identity per case: the counter row is its own subject. */

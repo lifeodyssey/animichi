@@ -16,6 +16,8 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { JsonValue } from "@earendil-works/pi-ai";
 import type { TSchema } from "typebox";
+import { NO_SUPPLEMENTAL_USAGE } from "../settlement/supplemental-usage.ts";
+import type { TurnUsage } from "../settlement/turn-settlement.ts";
 
 /**
  * One tool as the pi kernel executes it, with its `details` pinned to JSON.
@@ -31,7 +33,23 @@ export type TurnTool = AgentTool<TSchema, JsonValue>;
 export interface Toolbox {
   /** Every tool this turn may call, in registration order. */
   tools(): readonly TurnTool[];
+  /**
+   * What those tools spent on model calls the pi Agent never made (#1292).
+   *
+   * The toolbox is asked rather than the loop told, because the toolbox is the
+   * only thing that knows such a call happened: `translate_anime_title` falls
+   * back to a tool-less completion on the turn's model
+   * (`src/agent/tools/model-title-translation.ts`), which emits no
+   * `message_end` the loop's `TurnOutput` could observe. The settlement banks
+   * it separately — a caller-keyed turn's translation is charged to the
+   * platform, not to the caller (`settlement/supplemental-usage.ts`).
+   */
+  spent(): TurnUsage;
 }
 
-/** A turn with no tools at all — the honest default until #1253 registers some. */
-export const EMPTY_TOOLBOX: Toolbox = { tools: () => [] };
+/** A turn with no tools at all — the honest default when the deployment has no
+ * `CATALOG` binding. It spends nothing off-run because it calls nothing. */
+export const EMPTY_TOOLBOX: Toolbox = {
+  tools: () => [],
+  spent: () => NO_SUPPLEMENTAL_USAGE,
+};

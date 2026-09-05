@@ -22,14 +22,14 @@ import { TurnCatalogSession } from "../src/agent/session/turn-catalog-session.ts
 import { makeScriptedTurnModel, makeSessionTurnParts } from "../test/doubles/make-turn-parts.ts";
 import { makeSequencedToolCallsStreamFn } from "../test/doubles/pi-provider-double.ts";
 import { onlyRow, seedRun, seedSession, type AgentDatabase } from "./agent-rows.ts";
-import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
+import { SETUP_HOOK_TIMEOUT_MS, startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
 
 const OWNER_ID = "neon-subject-answer";
 const MESSAGE = "聖地巡礼のお手伝いをします。";
 
 let plane: AgentDataPlane;
 
-before(async () => { plane = await startAgentDataPlane(); }, { timeout: 300_000 });
+before(async () => { plane = await startAgentDataPlane(); }, { timeout: SETUP_HOOK_TIMEOUT_MS });
 after(() => plane.stop(), { timeout: 60_000 });
 
 /** A running run on a session this identity owns, ready for its alarm. */

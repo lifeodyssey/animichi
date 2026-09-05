@@ -3,10 +3,14 @@ import { z } from "zod";
 /**
  * The explicit identity matrix (AUTH-1 #945): the identity classes the edge
  * gateway recognizes, and the numeric configuration governing each class.
- * This is the single typed document for those cells; the edge worker consumes
- * `DEFAULT_IDENTITY_POLICY` (see workers/edge/src/identity/auth.ts and
- * protect/rate-limiter.ts) so a value can never drift between the contract,
- * the deployed config, and the enforcement code.
+ * This is the single typed document for those cells. The deployed values
+ * themselves are `DEFAULT_IDENTITY_POLICY` in `./identity-policy.ts` — one
+ * declaration, parsed by the schemas here (`test/identity-contract.test.ts`)
+ * and read by the edge (workers/edge/src/identity/auth.ts and
+ * protect/rate-limiter.ts), so a value can never drift between the contract,
+ * the deployed config, and the enforcement code. It lives in its own
+ * import-free module because this one imports zod and the edge is bundled
+ * (#1285).
  *
  * The path -> class classification lives in the edge's
  * `workers/edge/src/gateway/routing-policy.ts` (PUBLIC_V1 / ANON_V1); this
@@ -42,31 +46,3 @@ export const identityPolicySchema = z.object({
   authenticated: identityClassPolicySchema,
 }).strict();
 export type IdentityPolicy = z.infer<typeof identityPolicySchema>;
-
-/** The deployed matrix. Values mirror workers/edge/wrangler.toml [vars] so the
- * config surface cannot diverge from the contract (pinned by
- * workers/edge/test/identity-policy-matrix.test.ts). */
-export const DEFAULT_IDENTITY_POLICY: IdentityPolicy = deepFreeze({
-  public: {
-    rateLimit: null,
-    dailyMessageQuota: null,
-    dailyCostBudgetUsd: null,
-  },
-  anonymous: {
-    rateLimit: { limit: 20, windowSeconds: 60 },
-    dailyMessageQuota: 20,
-    dailyCostBudgetUsd: 5.0,
-  },
-  authenticated: {
-    rateLimit: { limit: 60, windowSeconds: 60 },
-    dailyMessageQuota: null,
-    dailyCostBudgetUsd: null,
-  },
-});
-
-/** Deep-freeze so the shared default can never be mutated on a hot isolate. */
-function deepFreeze<T>(value: T): T {
-  if (typeof value !== "object" || value === null) return value;
-  for (const child of Object.values(value as object)) deepFreeze(child);
-  return Object.freeze(value);
-}

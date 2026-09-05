@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath, URL } from "node:url";
-import { DEFAULT_IDENTITY_POLICY, identityPolicySchema } from "@animichi/contract/identity";
+import { identityPolicySchema } from "@animichi/contract/identity";
+import { DEFAULT_IDENTITY_POLICY } from "@animichi/contract/identity-policy";
 import { createWorkerApp } from "../src/app.ts";
 import { stubCtx } from "../src/container/entry-env.ts";
 import { authRateLimitConfigFrom, rateLimitConfigFrom } from "../src/protect/rate-limiter.ts";
@@ -87,6 +88,7 @@ void test("api_keys is absent from the hard-cut baseline", () => {
     "20260826000005_users.sql",
     "20260829000000_fix_coordinate_sync_precedence.sql",
     "20260902000000_agent_runs.sql",
+    "20260904000000_platform_usage_scope.sql",
   ]);
   assert.ok(files.every((name) => !/public\.api_keys/i.test(sql(name))));
 });

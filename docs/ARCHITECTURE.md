@@ -165,7 +165,8 @@ container can trust those headers unconditionally.
 The identity matrix (AUTH-1 #945) is the explicit contract document
 `packages/contract/src/identity-contract.ts` — per class (public / anonymous / authenticated) the
 rate limit, daily message quota, and daily cost budget. The edge consumes its defaults
-(`DEFAULT_IDENTITY_POLICY`) and the deployed `wrangler.toml` values are pinned to it by
+(`DEFAULT_IDENTITY_POLICY`, declared in the import-free `src/identity-policy.ts` so zod stays out
+of the Worker bundle — #1285) and the deployed `wrangler.toml` values are pinned to it by
 `workers/edge/test/identity-policy-matrix.test.ts`:
 
 - `Authorization: Bearer <jwt>` → verified against the branch's Neon Auth JWKS (`jose`, EdDSA) → `X-User-Type: human`. AUTH-2 #950 hard cut: `NEON_AUTH_JWKS_URL` is the edge's ONLY identity source — the Supabase verifier and the dual-issuer flag are deleted, and issuer/audience are derived from the JWKS URL

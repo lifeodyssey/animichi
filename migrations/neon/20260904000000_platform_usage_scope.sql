@@ -1,0 +1,43 @@
+-- The platform usage scope (W2 follow-up, issue #1292): a fourth value for
+-- daily_usage.scope, for the tokens the PLATFORM paid inside a turn somebody
+-- else paid for.
+--
+-- Where that spend comes from. A caller-keyed (BYOK) turn still translates
+-- anime titles on the SERVER's key: Python's D18
+-- (interfaces/public_api.py::_server_title_translator) forces
+-- translate_anime_title off the caller's credential so the tool cannot inherit
+-- it, and the TypeScript tier wires the same rule (#1289,
+-- workers/edge/src/agent/session/session-turn.ts::translationModel). Those
+-- tokens are ours, not the caller's -- and runs.payer = 'byok' prices the whole
+-- run at zero, so without a scope of their own they would be metered at zero
+-- and vanish from the meter entirely.
+--
+-- runs_payer_check is deliberately NOT widened. runs.payer is who pays for one
+-- TURN, and no turn is ever opened on the platform's behalf: the intake
+-- classifies a turn 'anon', 'user' or 'byok' and nothing else writes that
+-- column, so admitting a fourth payer would admit a value no writer can
+-- produce. The two vocabularies therefore stop being identical here: every
+-- payer is a usage scope, and 'platform' is a scope no payer has.
+--
+-- This scope is where the TypeScript tier deliberately DIVERGES from Python
+-- rather than porting it, so read the Python names carefully. Python's
+-- "platform" is a two-valued PAYER label that selects the PRICE --
+-- AttributedUsage(usage, "platform") (public_api.py:946) reaches
+-- `prices = platform_prices if item.payer == "platform" else UsagePrices(0, 0)`
+-- (public_api.py:1118, outbox_dispatch.py:87-90) -- while the SCOPE it writes
+-- is always re-derived from the identity by scope_for_identity
+-- (application/identity.py:27), whose UsageScope has the same three values as
+-- runs.payer and no fourth. Python therefore folded the BYOK turn's
+-- translation into the CALLER's own 'anon'/'user' day row at platform price.
+-- This tier cannot: it reads the scope off runs.payer rather than an identity
+-- it would have to be handed, and 'byok' is priced at zero, so the same fold
+-- would either meter our own spend at nothing or report it as the caller's.
+--
+-- Purely additive against the deployed consumers one version back (US25/#1052).
+-- Widening a CHECK admits every row the old one admitted, so writers one
+-- version back keep committing and readers one version back keep reading; and
+-- nothing writes 'platform' until the edge carrying this settlement is
+-- deployed, which is the migration-before-consumer order CD already enforces.
+-- Modify "daily_usage" table
+ALTER TABLE public.daily_usage DROP CONSTRAINT daily_usage_scope_check;
+ALTER TABLE public.daily_usage ADD CONSTRAINT daily_usage_scope_check CHECK (scope = ANY(ARRAY['anon'::text, 'user'::text, 'byok'::text, 'platform'::text]));

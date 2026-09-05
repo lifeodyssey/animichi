@@ -5,8 +5,16 @@
  *
  * Deliberately narrow: it understands the statement forms this repository's
  * migrations use — `CREATE TABLE public.x (...)` with one column or constraint
- * per line, `ALTER TABLE public.x ADD COLUMN ...`, `CREATE UNIQUE INDEX ...` —
- * and nothing else. It is a reader, never a DDL authority.
+ * per line, `ALTER TABLE public.x ADD COLUMN ...`, `ALTER TABLE public.x ADD
+ * CONSTRAINT ... CHECK ...`, `CREATE UNIQUE INDEX ...` — and nothing else. It
+ * is a reader, never a DDL authority.
+ *
+ * `ALTER` is read AFTER `CREATE TABLE`, so a CHECK a later migration drops and
+ * re-adds (#1292 widened `daily_usage_scope_check`) reads as the vocabulary in
+ * force rather than as the one the table was created with. `DROP CONSTRAINT`
+ * itself is not read: a drop this chain does not follow with an add would be a
+ * constraint nothing in the mapping claims, and a table's declared domain is
+ * what the tests compare — not the history that arrived at it.
  */
 
 import { readFileSync, readdirSync } from "node:fs";
@@ -31,6 +39,7 @@ export interface TableSchema {
 
 const TABLE_BODY = /CREATE TABLE public\.(\w+) \(\n([\s\S]*?)\n\);/g;
 const ADDED_COLUMN = /^ALTER TABLE public\.(\w+) ADD COLUMN (\w+) (.+);$/gm;
+const ADDED_CONSTRAINT = /^ALTER TABLE public\.(\w+) ADD (CONSTRAINT .+);$/gm;
 const UNIQUE_INDEX = /CREATE UNIQUE INDEX (\w+) ON public\.(\w+) \(([^)]*)\)/g;
 const UNIQUE_CONSTRAINT = /^CONSTRAINT (\w+) UNIQUE \(([^)]*)\)$/;
 const PRIMARY_KEY = /^PRIMARY KEY \(([^)]*)\)$/;
@@ -97,6 +106,12 @@ function readAddedColumns(schema: Map<string, TableSchema>, chain: string): void
   }
 }
 
+function readAddedConstraints(schema: Map<string, TableSchema>, chain: string): void {
+  for (const [, name = "", constraint = ""] of chain.matchAll(ADDED_CONSTRAINT)) {
+    readConstraint(tableOf(schema, name), constraint);
+  }
+}
+
 function readUniqueIndexes(schema: Map<string, TableSchema>, chain: string): void {
   for (const [, index = "", name = "", list = ""] of chain.matchAll(UNIQUE_INDEX)) {
     tableOf(schema, name).uniqueKeys.set(index, columnNames(list));
@@ -110,6 +125,7 @@ export function readMigrationSchema(directory: string): Map<string, TableSchema>
   const schema = new Map<string, TableSchema>();
   readCreatedTables(schema, chain);
   readAddedColumns(schema, chain);
+  readAddedConstraints(schema, chain);
   readUniqueIndexes(schema, chain);
   return schema;
 }

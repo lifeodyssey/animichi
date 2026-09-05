@@ -1,6 +1,9 @@
 /**
- * Agent boundary contract — health/service-metadata wire shapes plus the
- * complete Agent HTTP path inventory (CONTRACT-1, #938).
+ * Agent boundary contract — the health/service-metadata wire shapes of the
+ * Agent HTTP surface (CONTRACT-1, #938). The path inventory itself is
+ * `./agent-paths.ts`, kept out of this file (and deliberately not re-exported
+ * from it) because the edge reads it at runtime and this module imports zod
+ * (#1285).
  *
  * The Agent (FastAPI container) publishes these shapes directly as JSON; the
  * TS contract owns them so the Python side consumes generated models instead
@@ -100,13 +103,6 @@ export const ChatTurnRequest = z.object({
   clarification_id: z.number().int().nullable().optional(),
 });
 export type ChatTurnRequest = z.infer<typeof ChatTurnRequest>;
-
-/** One published Agent path in the complete inventory. */
-export interface AgentPath {
-  method: "GET" | "POST" | "PATCH";
-  path: string;
-  summary: string;
-}
 
 // ---------------------------------------------------------------------------
 // Photo search boundary (AGENT-1 #952).
@@ -292,25 +288,3 @@ export const SubmitFeedbackResult = z.object({
   feedback_id: z.string(),
 });
 export type SubmitFeedbackResult = z.infer<typeof SubmitFeedbackResult>;
-
-/**
- * Complete Agent path inventory (fastapi_service.py router registrations).
- * `summary` is the inventory entry only — it is not emitted into generated
- * models (spec: future paths appear in the inventory, not as unused models).
- */
-export const AGENT_PATHS: AgentPath[] = [
-  { method: "GET", path: "/", summary: "service banner" },
-  { method: "GET", path: "/healthz", summary: "health and service metadata" },
-  { method: "POST", path: "/v1/chat", summary: "chat turn" },
-  { method: "POST", path: "/v1/byok/probe", summary: "probe a bring-your-own-key credential" },
-  { method: "POST", path: "/v1/feedback", summary: "submit feedback" },
-  { method: "GET", path: "/v1/conversations", summary: "list conversations" },
-  { method: "PATCH", path: "/v1/conversations/{session_id}", summary: "rename conversation" },
-  { method: "GET", path: "/v1/conversations/{session_id}/messages", summary: "conversation messages" },
-  { method: "GET", path: "/v1/bangumi/{bangumi_id}/guide", summary: "work guide points" },
-  { method: "GET", path: "/v1/bangumi/nearby", summary: "nearby points" },
-  { method: "GET", path: "/v1/search/preview", summary: "search preview" },
-  { method: "POST", path: "/v1/photo-search", summary: "photo search" },
-  { method: "POST", path: "/v1/photo-search/confirm", summary: "confirm photo offer" },
-  { method: "POST", path: "/v1/sessions/adopt", summary: "adopt anonymous sessions" },
-];

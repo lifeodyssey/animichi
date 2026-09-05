@@ -44,11 +44,33 @@ export const MESSAGE_ROLES = ["user", "assistant"] as const;
 /** A turn's lifecycle states (`runs_status_check`). Terminal: all but `running`. */
 export const RUN_STATUSES = ["running", "succeeded", "failed"] as const;
 
-/** Who pays for a turn (`runs_payer_check`); mirrors `daily_usage.scope`. */
+/** Who pays for a turn (`runs_payer_check`). Every payer is also a
+ * `daily_usage.scope`, but not every scope is a payer — see `USAGE_SCOPES`. */
 export const RUN_PAYERS = ["anon", "user", "byok"] as const;
 
 /** One value of that domain — the type an intake carries before it is a row. */
 export type RunPayer = (typeof RUN_PAYERS)[number];
+
+/**
+ * What a day of spend is partitioned by (`daily_usage_scope_check`, #1292).
+ *
+ * A SUPERSET of `RUN_PAYERS`: a turn's own tokens are banked on its payer, and
+ * `platform` carries what the platform spent INSIDE a turn somebody else paid
+ * for — the tool-less `translate_anime_title` call D18 forces onto the server
+ * key during a BYOK turn (`src/agent/session/session-turn.ts::translationModel`).
+ * No run is ever opened on the platform's behalf, so `runs_payer_check` stays
+ * three-valued and this one is four; the migration
+ * `20260904000000_platform_usage_scope.sql` argues that asymmetry in full.
+ */
+export const USAGE_SCOPES = [...RUN_PAYERS, "platform"] as const;
+
+/** One scope of the day meter — a turn's payer, or the platform. */
+export type UsageScope = (typeof USAGE_SCOPES)[number];
+
+/** The scope carrying spend no caller asked for (#1292). Named so the
+ * settlement can attribute without spelling a literal that also has to match
+ * `daily_usage_scope_check`. */
+export const PLATFORM_SCOPE: UsageScope = "platform";
 
 /** The payer of a turn the CALLER paid for with their own provider key
  * (#1289). Named so the loop can ask the question without spelling a literal
@@ -217,17 +239,17 @@ export const runSteps = pgTable(
  * `(usage_date, scope)` with no surrogate id, exactly as
  * `20260826000004_agent.sql` declares it.
  *
- * `scope` is mapped on `RUN_PAYERS` rather than on a domain of its own because
- * it IS that domain: `daily_usage_scope_check` and `runs_payer_check` admit the
- * same three values, so a settled run's payer is a usage scope by construction
- * and nothing has to translate between them
- * (`test/agent-runs-schema.test.ts` holds the two CHECKs to it).
+ * `scope` is mapped on `USAGE_SCOPES`, which CONTAINS `RUN_PAYERS`: a settled
+ * run's payer is a usage scope by construction, so nothing translates between
+ * them, and `platform` is the one scope no run can be committed on (#1292 —
+ * `daily_usage_scope_check` admits four values, `runs_payer_check` three).
+ * `test/agent-runs-schema.test.ts` holds both CHECKs to these constants.
  */
 export const dailyUsage = pgTable(
   "daily_usage",
   {
     usageDate: date("usage_date").notNull(),
-    scope: text("scope", { enum: RUN_PAYERS }).notNull(),
+    scope: text("scope", { enum: USAGE_SCOPES }).notNull(),
     // Counts of a whole day for one scope: still orders of magnitude below
     // 2^53, so they stay JS numbers like the per-run counters.
     requests: bigint("requests", { mode: "number" }).notNull().default(0),
