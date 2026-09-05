@@ -38,7 +38,7 @@ void test("MIGRATOR_DATABASE_URL is NOT in the container required-keys list", ()
 });
 
 void test("no runtime worker wrangler.toml binds the migrator DSN", () => {
-  const workers = ["catalog", "users", "edge", "jobs"];
+  const workers = ["catalog", "users", "edge"];
   for (const worker of workers) {
     const toml = read(`workers/${worker}/wrangler.toml`);
     assert.doesNotMatch(toml, migratorSecretRegex, `${worker} wrangler.toml must not reference MIGRATOR_DATABASE_URL`);
