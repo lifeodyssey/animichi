@@ -159,10 +159,11 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   provider double before this was written and rejected for four reasons recorded in that
   file's header (it never fires at our token scale, its summary is model-written, it is
   not a fixpoint under the per-alarm replay, and it wants a provider call plus a pi
-  session log this tier does not keep). One consequence worth knowing: an EARLIER run's
-  tool returns are not replayed at all — `resumedTranscript` degrades another run's
-  tool-call row to its text — so the retention window is in practice per-run, and
-  compaction bites on a long agentic turn rather than across turns as it did in Python.
+  session log this tier does not keep). Since #1377 `resumedTranscript` replays EVERY
+  turn's tool calls and returns as structured messages (spec §九 9.1), so the newest-8
+  window is a SESSION-wide window and compaction now bites across turns as it did in
+  Python — the "newest 8" cutoff itself is what #1378 retires, in favour of a summary
+  frozen when the step is written.
 - `src/agent/tools/` — `agentToolbox(parts)` returns the six `AgentTool`s the session registers
   on the pi agent, in Python's own registration order: `resolve_anime`, `search_bangumi`,
   `search_nearby`, `plan_route` (`catalogToolbox`, #1253), then `web_search` and
