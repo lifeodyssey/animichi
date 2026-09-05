@@ -33,7 +33,7 @@ Sole navigation for `docs/` — no docs-level README. Paths on the post-reorg la
 | Path | Holds | Write policy |
 |---|---|---|
 | `docs/specs/` | Active, non-superseded design specs (ADRs live flat) | Superseded → `docs/archive/specs/` (one-way) |
-| `docs/adr/` | Registered ADRs 0001–0005 (canonical) | Amend via a new ADR |
+| `docs/adr/` | Registered ADRs 0001–0006 (canonical) | Amend via a new ADR |
 | `docs/ops/` | Live runbooks (deployment, hardening, maintenance, …) | Update in place |
 | `docs/iterations/` | Active iteration artifacts + `README.md` pointer | Per-iteration dirs |
 | `docs/archive/` | `specs/` · `plans/` · `reviews/` · `design-sync/` · `mockups-demo/` · `landing-hero/` · `review-boards/` | Read-only history |
@@ -89,6 +89,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Testing strategy | `docs/testing-strategy.md` | |
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
 | Secrets architecture / worker secrets | `docs/adr/0003-secrets-architecture.md` | CF Secrets Store + Neon-hosted role passwords + Pulumi `neon.Role`; supersedes the ESC-first plan of #674 |
+| CI/CD principle + identity boundary | `docs/adr/0006-platform-over-handwritten-ci.md` | platform/official action over hand-written; the §二 rejected alternatives; the three OIDC audiences (Pulumi Cloud, migrator, staging = none) |
 | Local development gates | `docs/ops/local-gates.md` + `.pre-commit-config.yaml` | changed-package routing (`--staged` pre-commit / merge-base pre-push); shared commit-msg/PR-title hygiene validator; single pre-push orchestrator `scripts/local-gates/pre-push.sh`; affected CI is routed from `.github/ci/components.json`; canonical 87 agent floor; offline Docker/web integration locally; browser e2e/live-Neon/evals/deploys stay in CI |
 | Review gate (merge quality enforcement) | `docs/ops/review-gate.md` | native thread resolution + required checks + the two-way comment hook; the LLM status machinery retired 2026-08-31 |
 | Close-out campaign (2026-08) | `docs/specs/2026-08-08-repo-closeout-spec.md` | ADRs 0004/0005; merges restructure-spec × GOAL; waves P0–P8 |
