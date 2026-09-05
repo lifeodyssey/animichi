@@ -12,8 +12,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { AGENT_PATHS } from "../src/agent-paths.js";
 import {
-  AGENT_PATHS,
   ByokProbeErrorBody,
   ByokProbeResponse,
   ChatTurnRequest,

@@ -9,9 +9,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./identity": "./src/identity-contract.ts",
+    "./identity-policy": "./src/identity-policy.ts",
     "./models": "./src/models.ts",
     "./contract": "./src/contract.ts",
     "./agent-contract": "./src/agent-contract.ts",
+    "./agent-paths": "./src/agent-paths.ts",
     "./agent-tool-parameters": "./src/agent-tool-parameters.ts",
     "./agent-tool-schemas": "./src/agent-tool-schemas.ts",
     "./internal-binding": "./src/internal-binding.ts",

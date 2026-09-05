@@ -18,8 +18,8 @@ import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+import { AGENT_PATHS } from "../src/agent-paths.js";
 import {
-  AGENT_PATHS,
   ByokProbeResponse,
   ChatTurnRequest,
   EndpointMap,

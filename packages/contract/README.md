@@ -7,7 +7,9 @@ Single source of truth for the types exchanged between the **Python Agent servic
 | File | Contents |
 |---|---|
 | `src/models.ts` | Zod schemas + inferred TS types: `Point`, `TimedStop`, `TransitLeg`, `TimedItinerary`, `Itinerary`, `Pacing`, `Origin` |
-| `src/identity-contract.ts` | Identity matrix (AUTH-1 #945): `IdentityPolicy` zod schema + `DEFAULT_IDENTITY_POLICY` (public/anonymous/authenticated rate/quota/budget cells), consumed by the edge worker |
+| `src/identity-contract.ts` | Identity matrix (AUTH-1 #945): the `IdentityPolicy` zod schemas (public/anonymous/authenticated rate/quota/budget cells) |
+| `src/identity-policy.ts` | `DEFAULT_IDENTITY_POLICY`, the deployed matrix the edge worker reads at runtime — import-free so zod stays out of its bundle (#1285) |
+| `src/agent-paths.ts` | `AGENT_PATHS`, the complete Agent HTTP path inventory the edge's routing/rate tables read at runtime — import-free for the same reason (#1285) |
 | `src/contract.ts` | oRPC contract + additional response types: `SearchResult`, `SpotsResult`, `NearbyResult` and the `catalogContract` object |
 | `src/errors.ts` | Typed error registry: `CATALOG_ERROR_DEFS` (code → status/category/message/data schema), `ErrorCategory`, per-code data schemas, `pickCatalogErrors()` |
 | `src/index.ts` | Re-exports everything above |

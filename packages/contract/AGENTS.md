@@ -47,6 +47,14 @@ on this landing, because after it lands merge-base IS the post-cut contract.
 ## Key files + entrypoints
 
 - `src/models.ts` — shared Zod data models.
+- `src/agent-paths.ts` — `AGENT_PATHS`, the complete Agent HTTP path inventory ·
+  `src/identity-policy.ts` — `DEFAULT_IDENTITY_POLICY`, the deployed identity matrix ·
+  `test/import-free-modules.test.ts` — the gate over both. `workers/edge` reads these two
+  documents at RUNTIME, so they are declared apart from the zod modules that give them meaning
+  (`agent-contract.ts`, `identity-contract.ts`), which do NOT re-export them: a value import from
+  a zod module pulls all 79 of zod's files into the Worker bundle (#1285, measured by
+  `workers/edge/bundle-smoke/entry-bundle.test.ts`). Nothing is generated and nothing is mirrored
+  — each is the one declaration, and the emitters, the edge and the drift tests all read it there.
 - `src/agent-tool-parameters.ts` — the agent's catalog tool parameters, the two web tools' and the
   `respond` answer tool's, in zod (not a wire type: no oRPC procedure and no OpenAPI document references them) ·
   `src/agent-tool-schemas.ts` — their generated JSON Schema · `scripts/emit-tool-schemas.ts` — the
