@@ -1,6 +1,3 @@
-# The animichi-neon-secrets namespace is the stable Pulumi state/config
-# identity; the code and delivery component are named database-access.
-encryptionsalt: v1:qKu76+b3BOU=:v1:TSBQpZbjg8xTwbSX:tl1ZNJUtRiaWH2Vwpv5ZK/+oD6NoTw==
 config:
   animichi-neon-secrets:neonProjectId: billowing-fire-22850320
   animichi-neon-secrets:neonBranchId: br-gentle-king-aowjem8v
@@ -8,5 +5,5 @@ config:
   animichi-neon-secrets:secretsStoreName: animichi-secrets
   animichi-neon-secrets:databaseName: neondb
   animichi-neon-secrets:neonApiKey:
-    secure: v1:Z3Up901uSuh7gY5n:R6nHspqi3LFKE7zrLnRPZTtHUexUCYceutg+lqhxseQcH4KSx0xiUsc+HAqXapouOB23gHtqVg3bfRWmTFs8A7WMGe9+By8Wrr+tzPTsQNyjeptTgQ==
+    secure: AAABAMM9hvRXkvu9hrDrYB+1i13XJmvDn1gcYN1tug+RRLFWhyux3M4fVeTElAxT+VbqxiTIOYItIUMv0/K6kWzIqfzxBDLCGDJLAnRcR/dapLxRrwFVS42DRqJ+u+A9Hm8iGjM=
   animichi-neon-secrets:secretsStoreId: 66c9bb0faef644b4a0671bb7d90d98bd

@@ -39,6 +39,8 @@ exemptions:
     reason: "cloud: GitHub Actions run history and current main ref — durable CD range base"
   - id: uses:codecov/codecov-action
     reason: "OIDC: codecov-action — coverage upload authenticates with GitHub OIDC"
+  - id: uses:pulumi/auth-actions
+    reason: "OIDC: GitHub id-token — CD exchanges the job's OIDC identity for a short-lived Pulumi Cloud organization token (#1077); a workstation uses its own `pulumi login`"
   - id: uses:github/codeql-action/analyze
     reason: "cloud: GitHub-hosted CodeQL runners — analyze"
   - id: uses:github/codeql-action/init

@@ -60,8 +60,8 @@ staging_names.each do |name|
 end
 stage_inputs = {
   "stage-foundation" => %w[
-    cloudflare_pulumi_api_token cloudflare_account_id pulumi_config_passphrase
-    pulumi_backend_url r2_access_key_id r2_secret_access_key neon_api_key reset_staging_db
+    cloudflare_pulumi_api_token cloudflare_account_id pulumi_organization
+    neon_api_key reset_staging_db
   ],
   "stage-migration" => %w[cloudflare_api_token cloudflare_account_id migrator_url],
   "stage-services" => %w[cloudflare_api_token cloudflare_account_id],
@@ -79,9 +79,14 @@ stage_inputs.each do |name, expected|
   actual = action.fetch("with").keys - %w[phase units source_sha]
   abort "#{name} must receive only its phase inputs" unless actual.sort == expected.sort
 end
-migration_permissions = jobs.fetch("stage-migration").fetch("permissions", {})
-abort "only migration may mint the staging OIDC token" unless migration_permissions["id-token"] == "write"
-(staging_names - ["stage-migration"]).each do |name|
+# Two staging phases hold a federated identity and no more: migration mints the migrator
+# ticket, and foundation mints the Pulumi Cloud login that replaced the stored state
+# credentials (#1077). Every Worker-publishing phase stays identity-free.
+oidc_staging = %w[stage-migration stage-foundation]
+oidc_staging.each do |name|
+  abort "#{name} must mint its OIDC token" unless jobs.fetch(name).fetch("permissions", {})["id-token"] == "write"
+end
+(staging_names - oidc_staging).each do |name|
   abort "#{name} must not mint OIDC" if jobs.fetch(name).fetch("permissions", {}).key?("id-token")
 end
 
@@ -91,7 +96,7 @@ abort "production must be a single sequential job" if production.key?("strategy"
 abort "exactly one job may request production approval" unless cd_source.scan(/^\s+environment:\s+production\s*$/).length == 1
 production_steps = production.fetch("steps").to_h { |step| [step.fetch("name", ""), step] }
 secret_sets = {
-  "Promote production foundation payloads" => %w[CLOUDFLARE_PULUMI_API_TOKEN CLOUDFLARE_ACCOUNT_ID PULUMI_CONFIG_PASSPHRASE PULUMI_BACKEND_URL R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY NEON_API_KEY],
+  "Promote production foundation payloads" => %w[CLOUDFLARE_PULUMI_API_TOKEN CLOUDFLARE_ACCOUNT_ID PULUMI_ORG NEON_API_KEY],
   "Promote production database payload" => %w[NEON_DATABASE_URL],
   "Promote production service payloads" => %w[CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID],
   "Promote production edge payload" => %w[
@@ -158,9 +163,10 @@ abort "promotion must reject an unbuilt sealed Neon SDK" unless adapter_source.i
 abort "staging schema must use OIDC migrator" unless adapter_source.include?("ACTIONS_ID_TOKEN_REQUEST_URL") && adapter_source.include?("animichi:github-actions:migrator")
 abort "staging migration failure must never fall through to production" if adapter_source.include?("&& migrate_staging ||")
 abort "production schema must use sealed Atlas migrations" unless adapter_source.include?("atlas migrate apply") && adapter_source.include?("$PAYLOAD_DIR/migrations")
-abort "infra must snapshot rollback state before Pulumi" unless adapter_source.index("pulumi stack export") < adapter_source.index("pulumi up")
-abort "infra must upload its rollback state before Pulumi" unless adapter_source.index("aws s3 cp") < adapter_source.index("pulumi up")
-abort "infra must fail closed without a rollback snapshot" unless adapter_source.include?("empty Pulumi rollback snapshot")
+# #1077 moved state and stack encryption to Pulumi Cloud, so the pre-apply R2 export
+# is retired for Cloud update history. The identity and absence assertions that replaced
+# these three live in test_cd_infrastructure_safety_contract.rb.
+abort "infra must apply an organization-qualified Pulumi Cloud stack" unless adapter_source.include?('--stack "$PULUMI_ORG/$stack"')
 # #1198's park guard used to abort if "smoke" ever reappeared in cd.yml. Owner decision
 # 2026-08-26 (docs/specs/2026-08-26-system-health-audit.md §6.3/§7 W4) lifted that park:
 # staging deploys were verified only by exit code, never by an actual request, and that gap

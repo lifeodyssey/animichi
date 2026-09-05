@@ -1,4 +1,12 @@
 name: seichijunrei-infra
+# State and stack encryption live in Pulumi Cloud (#1077). CI logs in with
+# GitHub OIDC (`pulumi/auth-actions`); `PULUMI_BACKEND_URL` still takes precedence
+# over this key (measured on Pulumi 3.255.0, the pinned version), which is what lets
+# the credential-free local program-load preflight
+# (scripts/local-gates/infra-check.sh) run against a throwaway file:// backend
+# without ever touching this state.
+backend:
+  url: https://api.pulumi.com
 runtime:
   name: nodejs
   options:

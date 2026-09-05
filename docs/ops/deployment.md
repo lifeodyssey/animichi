@@ -341,6 +341,89 @@ approval and production after promotion; do not represent that manual evidence a
 - `/img/*` → image proxy + cache
 - Everything else → JSON `404 not_found` (no asset/page fallback since #537)
 
+### Pulumi state, encryption, and CI identity (#1077)
+
+Both Pulumi projects — `seichijunrei-infra` (`infra/`) and `animichi-neon-secrets`
+(`infra/database-access/`) — keep their state and their `secure:` encryption in **Pulumi Cloud**,
+organization `lifeodyssey`. `backend.url` in each `Pulumi.yaml` is the source of truth for that.
+
+No long-lived Pulumi access token is stored in GitHub secrets. `stage-foundation` and the
+`promote-production` infra step run `pulumi/auth-actions`, which exchanges the job's GitHub OIDC
+identity for a short-lived Pulumi Cloud **personal** token scoped to user `lifeodyssey` (the action
+input `scope: user:lifeodyssey`). `lifeodyssey` is an individual-edition organization, and Pulumi
+Cloud rejects organization tokens for non-enterprise organizations (`Org tokens are not supported
+for non enterprise organizations`), so an organization token type cannot be used here. The Pulumi
+Cloud OIDC issuer policy for this GitHub issuer must therefore carry a **personal** token-type
+policy authorizing that user. The exchanged token is exported as `PULUMI_ACCESS_TOKEN` for the rest
+of that job only. Those two jobs therefore carry
+`id-token: write`, and `promote-release-unit.sh` fails closed when that token is absent. Applies are
+organization-qualified (`pulumi up --stack lifeodyssey/<stack>`) so a token that defaults elsewhere
+cannot land the apply in another organization. `PULUMI_BACKEND_URL`, `PULUMI_CONFIG_PASSPHRASE`, and
+the two R2 state keys are no longer read anywhere on the delivery lane; the contract that keeps them
+out is `.github/scripts/test_cd_infrastructure_safety_contract.rb`.
+
+The Pulumi-plane Cloudflare token and the Neon API key still come from GitHub environment secrets.
+Moving them into ESC is #1078.
+
+The pre-apply `pulumi stack export` copied into the R2 state bucket is retired: Pulumi Cloud's own
+update history is the rollback record, and it does not require writing a state snapshot into the
+bucket that used to hold live state.
+
+#### One-time migration (owner, once per stack)
+
+Agents do not run this — it needs the passphrase and an interactive Pulumi Cloud login. Run it once
+per stack, from the project directory, with the campaign paused (no `main` push mid-flight).
+
+Stacks to move: `seichijunrei-infra/staging`, `seichijunrei-infra/prod`,
+`animichi-neon-secrets/staging`, `animichi-neon-secrets/prod`.
+
+```bash
+cd infra                     # or: cd infra/database-access
+
+# 1. Export from the retiring R2 backend, using the passphrase that still owns the ciphertext.
+#    The explicit `pulumi login` matters: after you have done step 2 for an earlier stack, the
+#    CLI's stored login points at Pulumi Cloud, and this is what re-points it at R2. It is also
+#    exactly what the retired CD code did before every apply.
+#    The two secret values are read with `read -r -s` instead of being typed into an `export`:
+#    an inline assignment lands the value in the shell history file and, briefly, in the process
+#    list. `-s` also keeps it off the terminal. Reading them from a mode-600 file works too.
+export PULUMI_BACKEND_URL='<the retiring s3:// R2 backend URL>'
+export AWS_ACCESS_KEY_ID='<R2 state key id>'
+export AWS_DEFAULT_REGION=auto
+read -r -s -p 'Pulumi config passphrase: ' PULUMI_CONFIG_PASSPHRASE && echo
+read -r -s -p 'R2 state secret: ' AWS_SECRET_ACCESS_KEY && echo
+export PULUMI_CONFIG_PASSPHRASE AWS_SECRET_ACCESS_KEY
+pulumi login "$PULUMI_BACKEND_URL"
+pulumi stack select <stack>
+pulumi stack export --file "/tmp/$(basename "$PWD")-<stack>.json"   # no --show-secrets, ever
+
+# 2. Log into Pulumi Cloud and create the destination stack under the org. PULUMI_BACKEND_URL
+#    must be unset first: it takes precedence over both the stored login and Pulumi.yaml's
+#    backend.url (measured on Pulumi 3.255.0, the version .pulumi.version pins).
+unset PULUMI_BACKEND_URL AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION
+pulumi login                                        # https://api.pulumi.com
+pulumi stack init lifeodyssey/<stack>
+
+# 3. Import the checkpoint, then re-encrypt the stack's `secure:` values under Pulumi Cloud's
+#    provider. change-secrets-provider needs the OLD passphrase to read the existing ciphertext,
+#    so keep PULUMI_CONFIG_PASSPHRASE exported until this command has succeeded.
+pulumi stack import --file "/tmp/$(basename "$PWD")-<stack>.json" --stack lifeodyssey/<stack>
+pulumi stack change-secrets-provider default --stack lifeodyssey/<stack>
+unset PULUMI_CONFIG_PASSPHRASE
+
+# 4. Verify: a clean preview against Pulumi Cloud with no passphrase in the environment.
+pulumi preview --stack lifeodyssey/<stack>
+```
+
+Step 3 rewrites `Pulumi.<stack>.yaml` in the working tree — the `encryptionsalt` line disappears and
+each `secure:` value is replaced by Pulumi Cloud ciphertext. Commit those four files as a normal
+reviewed change. `infra/database-access/Pulumi.prod.yaml` has no encrypted material today, so its
+`change-secrets-provider` is a no-op; run it anyway so all four stacks end on the same provider.
+
+Until every stack is imported, the rollback path is the old one: re-point `PULUMI_BACKEND_URL` at
+R2 and restore the export taken in step 1. After the cutover, rollback is Pulumi Cloud history.
+Deleting the GitHub secrets themselves is #1081, not this step.
+
 ## WAF and Edge Hardening
 
 Manual Cloudflare dashboard steps live in `docs/ops/cloudflare-hardening.md`.
@@ -399,9 +482,10 @@ then dispatch the rollback; do not approve a competing production promotion.
 Worker rollback changes the running Worker version but does not undo Durable Object migrations,
 reverse a database migration, or restore Pulumi state. Edge recovery does republish the verified
 paired agent image bytes; it does not rebuild them. Use expand/contract migrations so one-version
-code rollback remains schema-compatible. For Pulumi, restore the pre-apply export kept beside the
-encrypted R2 state and run a reviewed reconciliation. Never place a state export in a public
-GitHub artifact.
+code rollback remains schema-compatible. For Pulumi, inspect the failed update in Pulumi Cloud's
+stack history and roll back from there (`pulumi stack history`, then export the last good
+checkpoint and `pulumi stack import` it), followed by a reviewed reconciliation — the pre-apply R2
+export is retired (#1077). Never place a state export in a public GitHub artifact.
 
 Automated rollback smoke is part of the same deferred smoke debt as forward promotion. The owner
 must manually check health and the affected user journey after recovery.
