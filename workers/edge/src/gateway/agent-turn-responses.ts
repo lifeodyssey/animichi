@@ -16,7 +16,7 @@
  *    unified here: unifying them would be a wire change hiding inside a
  *    routing change.
  */
-import type { GetSessionHistoryResponse } from "@animichi/contract/agent-contract";
+import type { GetSessionHistoryResponse } from "@animichi/contract/session-history-contract";
 import type { ByokRejection } from "../agent/byok/byok-credential.ts";
 import type { ByokProbeVerdict } from "../agent/byok/byok-probe.ts";
 import type { ChatEnvelopeError } from "./chat-envelope.ts";

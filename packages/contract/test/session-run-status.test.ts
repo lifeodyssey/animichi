@@ -25,7 +25,7 @@ import {
   GetSessionHistoryResponse,
   RunFailureReason,
   SessionRunStatus,
-} from "../src/agent-contract.js";
+} from "../src/session-history-contract.js";
 
 const RUN_ID = "0199ab00-1111-7000-8000-000000000001";
 

@@ -23,7 +23,6 @@ import {
   ByokProbeResponse,
   ChatTurnRequest,
   EndpointMap,
-  GetSessionHistoryResponse,
   GpsPoint,
   PhotoCandidate,
   PhotoConfirmRequest,
@@ -33,10 +32,13 @@ import {
   PhotoSearchResponse,
   RootMetadata,
   ServiceMetadata,
-  SessionHistoryMessage,
   SubmitFeedbackRequest,
   SubmitFeedbackResult,
 } from "../src/agent-contract.js";
+import {
+  GetSessionHistoryResponse,
+  SessionHistoryMessage,
+} from "../src/session-history-contract.js";
 
 const MODELS: { name: string; schema: z.ZodType }[] = [
   { name: "EndpointMap", schema: EndpointMap },

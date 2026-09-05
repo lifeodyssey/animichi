@@ -28,6 +28,7 @@ import { dataKeysOf } from "../src/turn-transcript.ts";
 import {
   answeredCaptureNames,
   pythonEvaluatorView,
+  recordedCall,
   shapedCapture,
 } from "./recorded-capture.ts";
 
@@ -36,7 +37,7 @@ for (const name of answeredCaptureNames()) {
   const python = pythonEvaluatorView(name);
 
   void test(`${name}: the trajectory is Python's, in call order and with its arguments`, () => {
-    assert.deepEqual(shaped.trajectory, python.trajectory);
+    assert.deepEqual(shaped.trajectory.map(recordedCall), python.trajectory);
   });
 
   void test(`${name}: the tool names alone match \`_actual_tools\``, () => {

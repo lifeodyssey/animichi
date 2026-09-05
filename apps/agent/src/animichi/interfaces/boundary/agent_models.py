@@ -197,11 +197,19 @@ class GetSessionHistoryResponseRun(BaseModel):
     ) = None
 
 
+class GetSessionHistoryResponseSteps(BaseModel):
+    run_id: str
+    step_index: int
+    tool_name: str
+    params: str
+
+
 class GetSessionHistoryResponse(BaseModel):
     messages: list[GetSessionHistoryResponseMessages]
     revision: int
     next_offset: int | None
     run: GetSessionHistoryResponseRun | None = None
+    steps: list[GetSessionHistoryResponseSteps] | None = None
 
 
 class SubmitFeedbackRequest(BaseModel):

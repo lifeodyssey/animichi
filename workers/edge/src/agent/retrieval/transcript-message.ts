@@ -18,7 +18,7 @@
  * — and the container writes no user envelope, so answering `null` is what
  * keeps the two tiers' history identical.
  */
-import type { SessionHistoryMessage } from "@animichi/contract/agent-contract";
+import type { SessionHistoryMessage } from "@animichi/contract/session-history-contract";
 import { isJsonRecord } from "../json-record.ts";
 
 /** One transcript row as the store holds it. */

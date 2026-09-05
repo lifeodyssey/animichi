@@ -21,7 +21,7 @@
  * refusal, a 500 — and retrying any of them would quietly turn a failing case
  * into a passing one, which is the failure mode an eval exists to detect.
  */
-import type { GetSessionHistoryResponse } from "@animichi/contract/agent-contract";
+import type { GetSessionHistoryResponse } from "@animichi/contract/session-history-contract";
 
 import { caseSubmissionsOf, type ChatSubmission } from "./case-submissions.ts";
 import type { ExportedAgentInput } from "./dataset-roundtrip.ts";

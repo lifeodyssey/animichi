@@ -13,6 +13,7 @@
     "./models": "./src/models.ts",
     "./contract": "./src/contract.ts",
     "./agent-contract": "./src/agent-contract.ts",
+    "./session-history-contract": "./src/session-history-contract.ts",
     "./agent-paths": "./src/agent-paths.ts",
     "./agent-tool-parameters": "./src/agent-tool-parameters.ts",
     "./agent-tool-schemas": "./src/agent-tool-schemas.ts",

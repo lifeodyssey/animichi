@@ -16,7 +16,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { GetSessionHistoryResponse } from "@animichi/contract/agent-contract";
+import { GetSessionHistoryResponse } from "@animichi/contract/session-history-contract";
 
 import {
   transcriptResultOf,
@@ -39,6 +39,20 @@ export interface CaptureEdit {
   readonly with: readonly string[];
 }
 
+/**
+ * One call as Python's recorder published it: the members its `AgentResult`
+ * view carries. `params` is not among them and cannot be — `record_fixtures.py`
+ * declares one `params` per replayed call and writes it as the frame's `args`,
+ * so the capture's second witness lives in its own transcript read
+ * (`<name>.messages.json`), where the edge would publish it.
+ */
+export type RecordedCall = Pick<TranscriptStep, "toolName" | "args" | "status">;
+
+/** One shaped call, reduced to the members Python's recorder published. */
+export function recordedCall(step: TranscriptStep): RecordedCall {
+  return { toolName: step.toolName, args: step.args, status: step.status };
+}
+
 /** The evaluator view of one turn, as `record_fixtures.py` writes it. */
 export interface PythonEvaluatorView {
   readonly intent: string;
@@ -48,7 +62,7 @@ export interface PythonEvaluatorView {
   readonly dataKeys: readonly string[];
   readonly stepCount: number;
   readonly tools: readonly string[];
-  readonly trajectory: readonly TranscriptStep[];
+  readonly trajectory: readonly RecordedCall[];
 }
 
 /** The captures that answered. `error` has no expectation — its handler raises

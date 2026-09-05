@@ -20,8 +20,12 @@
  *   the stream never said how it ended. The three ports that default to
  *   `include_failed=False` accept only `"ok"`; `MaxToolCalls` counts all three,
  *   because an unfinished call still spent the budget.
- * - **There is no `params`.** See `official-argument-correctness.ts` — that
- *   metric is degenerate on this type and the gap is real, not styling.
+ * - **`params` is the second witness, and it is not on the stream.** A step's
+ *   `args` are the model's own account of the call and its `params` are what
+ *   the runtime ran with; the first arrives on the SD-9 frames and the second
+ *   on the transcript read (#1381). `ArgumentCorrectness` scores the pair, so a
+ *   call the read published nothing for is `params: null` and scores 0 rather
+ *   than matching itself.
  */
 export type {
   AnswerPart,

@@ -57,7 +57,7 @@ export function pythonBaseline(): BaselineRecord {
  */
 export function baselineParityScores(count: number): CaseScoreMap {
   const baseline = pythonBaseline();
-  const width = metricNames({ hasNonemptyCases: true, l3Enabled: false }).length;
+  const width = metricNames({ hasNonemptyCases: true, hasParamsRecorded: true, l3Enabled: false }).length;
   const complete = Object.entries(baseline.cases).filter(
     ([, scores]) => Object.keys(scores).length === width,
   );
@@ -122,13 +122,18 @@ function makeRecordedHistory(turns: number): ExportedAgentInput['context'] {
   };
 }
 
-export function makeTranscriptResult(intent: string, locale: string): TranscriptResult {
+export function makeTranscriptResult(
+  intent: string,
+  locale: string,
+  paramsRecorded = true,
+): TranscriptResult {
   return {
     intent,
     success: true,
     message: '',
     locale,
     dataKeys: [],
+    paramsRecorded,
     stepCount: 0,
     trajectory: [],
     response: null,
@@ -150,20 +155,23 @@ export function makeAgentCase(name: string, intent = 'search_nearby', locale = '
 export async function makeReport(
   cases: AgentCase[],
   scores: CaseScoreMap,
+  paramsRecorded = true,
 ): Promise<AgentEvalReport> {
   const dataset = new Dataset<ExportedAgentInput, TranscriptResult, ExportedAgentExpected>({
     name: 'gated-run',
     cases,
     evaluators: [new RecordedRun(scores)],
   });
-  return dataset.evaluate((inputs) => makeTranscriptResult(inputs.query, inputs.locale));
+  return dataset.evaluate((inputs) =>
+    makeTranscriptResult(inputs.query, inputs.locale, paramsRecorded),
+  );
 }
 
 export function makeGateRunSettings(scores: CaseScoreMap): GateRunSettings {
   return {
     dataset: GATED_DATASET,
     caseCount: Object.keys(scores).length,
-    metricNames: metricNames({ hasNonemptyCases: true, l3Enabled: false }),
+    metricNames: metricNames({ hasNonemptyCases: true, hasParamsRecorded: true, l3Enabled: false }),
     baseline: pythonBaseline(),
     baselineModel: PYTHON_BASELINE_MODEL,
     baselineFailures: [],
@@ -176,6 +184,30 @@ export function makeGateRunSettings(scores: CaseScoreMap): GateRunSettings {
 export async function makeGatedRun(scores: CaseScoreMap): Promise<GatedRun> {
   const cases = Object.keys(scores).map((name) => makeAgentCase(name));
   return { report: await makeReport(cases, scores), settings: makeGateRunSettings(scores) };
+}
+
+/**
+ * The same run against an edge that publishes no settled params (#1381): every
+ * transcript arrives without the second witness, so no case emits
+ * `argument_correctness` and the column is not the run's to report.
+ */
+export async function makeUnwitnessedRun(scores: CaseScoreMap): Promise<GatedRun> {
+  const unwitnessed = withoutMetric(scores, 'argument_correctness');
+  const cases = Object.keys(unwitnessed).map((name) => makeAgentCase(name));
+  return {
+    report: await makeReport(cases, unwitnessed, false),
+    settings: makeGateRunSettings(unwitnessed),
+  };
+}
+
+/** The same scores with one metric emitted by nobody. */
+export function withoutMetric(scores: CaseScoreMap, metric: string): CaseScoreMap {
+  return Object.fromEntries(
+    Object.entries(scores).map(([name, record]) => {
+      const { [metric]: _dropped, ...kept } = record;
+      return [name, kept];
+    }),
+  );
 }
 
 /** A run whose every turn fell over: `report.failures` only, nothing scored. */

@@ -67,8 +67,9 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   see, so the `Toolbox` reports it through `spent()`, and it is charged to `platform` — the one
   `daily_usage_scope_check` value `runs_payer_check` does NOT admit, because no run is ever
   opened on the platform's behalf), `retrieval/` (how a turn is READ BACK:
-  `ConversationRetrieval`, the owned and ordered transcript page plus the latest run's status
-  behind `GET /v1/conversations/:id/messages` — spec §二's disconnect semantics, and the only
+  `ConversationRetrieval`, the owned and ordered transcript page, the latest run's status
+  and — from #1381 — the params the tools of the runs THAT PAGE SHOWS executed with, behind
+  `GET /v1/conversations/:id/messages`: spec §二's disconnect semantics, and the only
   agent-tier read that never runs inside the Durable Object), `tools/` (the four catalog tools
   the model calls, #1253).
   Ports live with the use case, Neon adapters beside them, and

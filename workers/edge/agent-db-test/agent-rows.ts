@@ -131,6 +131,24 @@ function seededQuota(run: SeededRun): SQL {
     ${run.quotaRefundedAt ?? null}, ${run.usageSettledAt ?? null}`;
 }
 
+/** One settled tool step of one run. `input` is what the tool EXECUTED with —
+ * pi's product, not the arguments the model asked with — and `result` rides
+ * with `finished_at` because `run_steps_settled_check` admits nothing else. */
+export interface SeededStep {
+  readonly runId: string;
+  readonly stepIndex: number;
+  readonly toolName: string;
+  readonly input: Record<string, unknown>;
+}
+
+export async function seedStep(database: AgentDatabase, step: SeededStep): Promise<void> {
+  await database.execute(
+    sql`insert into run_steps (run_id, step_index, tool_name, input, result, finished_at)
+        values (${step.runId}, ${step.stepIndex}, ${step.toolName},
+                ${JSON.stringify(step.input)}::jsonb, '{"content": []}'::jsonb, ${FAR_DEADLINE})`,
+  );
+}
+
 /** How many rows one table holds right now. */
 export async function countRows(database: AgentDatabase, table: string): Promise<number> {
   const counted = await database.execute(sql`select count(*)::int as total from ${sql.identifier(table)}`);
