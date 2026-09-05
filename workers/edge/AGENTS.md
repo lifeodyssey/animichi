@@ -125,8 +125,12 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `idFromName(sessionId)` makes that storage session-scoped, `retrieval/` never reads it, and a
   column would buy a migration for a fact only the alarm touches; the full trade-off and its price
   are argued in the adapter's header. `TurnEnvelope` owns the moments: `open()` seeds the turn's
-  tools and puts the stored facts into the system prompt's "Trusted runtime context" block (the
-  ported half of Python's `trusted_session_context`); `stage()` writes the whole envelope under the
+  tools from the stored facts — which reach the MODEL as the `<agent_status>` bar
+  `agent-status.ts` appends to the end of every model request (#1379, spec §九 9.3), not as a
+  system-prompt block: the system prompt is a constant, byte-identical across a session's turns,
+  and a per-turn prefix is 李博杰 ch.2 实验 2-3's 动态系统提示词. The bar is rendered inside pi's
+  `transformContext`, so it is replaced on every request, never reaches `messages` in Neon, and
+  always reflects what the tools have just written; `stage()` writes the whole envelope under the
   run's own key BEFORE the terminal row lands, driven by the `EnvelopeStagingStore` decorator around
   the `TurnStore`; and `close(state)` promotes that staging to the session's envelope once the run
   reaches its OWN terminal path. The order is the recovery: the terminal row is in Neon and the
@@ -150,8 +154,8 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   rescuing are the deepest ones. `turn-fact-recorder.ts` is the only writer of facts
   (`TurnAttempt.drive` calls it after the loop and before the ending, where Python's
   `_execution_result` did), `TurnCatalogSession` fulfils the `TurnMemory` port both
-  writers hold, and `turn-instructions.ts` is the consumer — a ledger field with no
-  prompt line is dead scaffolding. `stored-memory.ts` is the codec the Durable Object
+  writers hold, and `agent-status.ts` is the consumer — a ledger field with no
+  status line is dead scaffolding. `stored-memory.ts` is the codec the Durable Object
   writes through, because a structured clone restores no class prototype; it re-applies
   both caps on the way in, which is Python's `enforce_bounds`-on-restore.
 - The compaction hook is `src/agent/session/context-compaction.ts`, wired as pi's
