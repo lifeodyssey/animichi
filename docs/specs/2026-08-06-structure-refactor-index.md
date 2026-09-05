@@ -1,6 +1,6 @@
 # 结构重构索引（三包 only）
 
-- Status: **六包结构 ACCEPTED**（含 **jobs**，原 maintenance）
+- Status: **五包结构 ACCEPTED**；jobs（原 maintenance）**RETIRED (#1316)**——空壳从未落地
 - Date: 2026-08-06
 - Workflow (three packages): `.grok/workflows/structure-design-three-packages.rhai`
 - Parent: greenfield · monorepo-target-layout
@@ -13,7 +13,7 @@
 |---|---|
 | catalog · agent · users | ACCEPTED |
 | edge · web | ACCEPTED（无巡礼 domain） |
-| **jobs**（原 maintenance） | ACCEPTED — 包名 `workers/jobs` + `src/jobs/*` |
+| **jobs**（原 maintenance） | **RETIRED (#1316)** — 空壳从未落地 |
 
 **Domain model 用法：**
 
@@ -22,7 +22,7 @@
 | catalog / agent | **有** |
 | users | **浅** |
 | edge / web | **无** |
-| **jobs** | **无** — Job + Schedule only |
+| **jobs** | **RETIRED (#1316)** |
 
 ---
 
@@ -35,7 +35,7 @@
 | Users | [users-structure…](./2026-08-06-users-structure-refactor-design.md) **ACCEPTED** | U-S1–S5 |
 | Edge | [edge-gateway-structure…](./2026-08-06-edge-gateway-structure-design.md) **ACCEPTED** | E1–E5 package-ize + src 关切分包 |
 | Web | [web-ui-structure…](./2026-08-06-web-ui-structure-design.md) **ACCEPTED** | W1–W6 routes≈pages + features + platform |
-| **Jobs** | [jobs-worker-structure…](./2026-08-06-jobs-worker-structure-design.md) **ACCEPTED** | J1 `git mv` maintenance→jobs → J2 `src/jobs/*` → J3 saved_routes SQL → J4 弃 Python 双源 |
+| **Jobs** | **RETIRED (#1316)** — 结构设计稿随空壳一并删除 | — |
 
 ---
 
