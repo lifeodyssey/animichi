@@ -15,7 +15,9 @@
  * IT NEVER WRITES A BASELINE. Python's uncapped run creates one when it finds
  * none; the whole point of the double run is to be judged by the Python
  * numbers, so a missing or stale baseline here is a warning and an ungated
- * report, never a fresh record to pass against.
+ * report, never a fresh record to pass against. A baseline that is committed and
+ * no longer parses is the one exception, and it exits 1 (`baseline-store.ts`):
+ * damage that nobody can fix by re-running is not an ungated run.
  *
  * COST. `--dataset` defaults to the set the baseline covers, which is 662 cases
  * and every one of them a real staging turn on the QA identity. Use `--limit`
@@ -114,6 +116,7 @@ function gatedResult(report: AgentEvalReport, args: GateRunArgs, caseCount: numb
     metricNames: metrics,
     baseline: baseline.record,
     baselineModel: PYTHON_BASELINE_MODEL,
+    baselineFailures: baseline.failures,
     baselineWarnings: baseline.warnings,
     strata: loadCaseStrata(canonicalDatasetPath(args.dataset)),
     now: () => new Date(),

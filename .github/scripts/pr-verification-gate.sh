@@ -19,12 +19,22 @@ require_commit_sha() {
   git cat-file -e "$sha^{commit}" 2>/dev/null || { echo "pr-verification-gate: missing $label commit $sha" >&2; exit 1; }
 }
 
+# The compatibility baseline is the merge base's copy of the document. A
+# document that is ABSENT there is brand-new: every operation in it is additive,
+# so an empty baseline approves it without weakening the gate. Any other read
+# failure — bad object, shallow history, unreadable blob — is a different fact,
+# and an empty baseline for it would approve a deletion nobody reviewed, so it
+# fails closed instead.
 write_contract_baseline() {
-  local merge_base="$1" source_head="$2" doc="$3" baseline="$4"
-  git show "$merge_base:packages/contract/$doc" > "$baseline" 2>/dev/null || printf '{\n  "paths": {}\n}\n' > "$baseline"
-  if grep -Eq '"/v1/users/(checkins|shares)' "$baseline" && ! grep -Eq '"/v1/users/(checkins|shares)' "packages/contract/$doc"; then
-    git show "$source_head:packages/contract/$doc" > "$baseline"
+  local merge_base="$1" doc="$2" baseline="$3"
+  if ! git cat-file -e "$merge_base:packages/contract/$doc" 2>/dev/null; then
+    printf '{\n  "paths": {}\n}\n' > "$baseline"
+    return 0
   fi
+  git show "$merge_base:packages/contract/$doc" > "$baseline" || {
+    echo "pr-verification-gate: cannot read $doc from merge base $merge_base" >&2
+    exit 1
+  }
 }
 
 validate_contract_identity() {
@@ -41,7 +51,7 @@ vet_contract_compatibility() {
   merge_base="$(git merge-base "$source_head" "$base")"; [ -n "$merge_base" ] || { echo "pr-verification-gate: no merge base" >&2; exit 1; }
   mkdir -p "$GATE_OUTDIR/contract-baselines"
   for doc in openapi.json users-openapi.json agent-openapi.json; do
-    baseline="$GATE_OUTDIR/contract-baselines/$doc"; write_contract_baseline "$merge_base" "$source_head" "$doc" "$baseline"
+    baseline="$GATE_OUTDIR/contract-baselines/$doc"; write_contract_baseline "$merge_base" "$doc" "$baseline"
     node --import tsx packages/contract/scripts/vet-openapi.ts "$baseline" "packages/contract/$doc"
   done
 }
