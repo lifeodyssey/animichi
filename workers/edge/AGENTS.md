@@ -57,7 +57,12 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   frames and the in-memory subscriber set), `sweeper/` (the singleton `RunSweeper` DO, the
   at-least-once backstop), `settlement/` (how a turn ENDS: the run's terminal row, its
   `daily_usage` rollup and its quota refund, called by the session on its own transaction
-  alongside the assistant message), `retrieval/` (how a turn is READ BACK:
+  alongside the assistant message — plus, from #1292, a SECOND day row for what the turn spent
+  OUTSIDE its pi run. `supplemental-usage.ts` owns that: the tool-less `translate_anime_title`
+  call D18 forces onto the server key during a BYOK turn emits no `message_end` the loop can
+  see, so the `Toolbox` reports it through `spent()`, and it is charged to `platform` — the one
+  `daily_usage_scope_check` value `runs_payer_check` does NOT admit, because no run is ever
+  opened on the platform's behalf), `retrieval/` (how a turn is READ BACK:
   `ConversationRetrieval`, the owned and ordered transcript page plus the latest run's status
   behind `GET /v1/conversations/:id/messages` — spec §二's disconnect semantics, and the only
   agent-tier read that never runs inside the Durable Object), `tools/` (the four catalog tools

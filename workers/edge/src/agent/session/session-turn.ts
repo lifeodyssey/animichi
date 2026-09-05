@@ -10,6 +10,7 @@
 import { withAgentDatabase } from "../../db/agent-database.ts";
 import type { ByokCredential } from "../byok/byok-credential.ts";
 import { byokTurnModel } from "../byok/byok-turn-model.ts";
+import { SupplementalUsage } from "../settlement/supplemental-usage.ts";
 import { usagePricesIn } from "../settlement/turn-settlement.ts";
 import { webSearchFetch } from "../egress/web-search-egress.ts";
 import { answerSelection } from "../selection/turn-selection.ts";
@@ -109,17 +110,25 @@ export function translationModel(env: Record<string, unknown>, turn: TurnModel):
   return serverKey === undefined ? null : guardedMimoTurnModel(serverKey);
 }
 
-/** The translation's tool-less completion, on whichever model D18 allows it.
- * `streamOptionsFor` is the one place a guarded fetch is attached, shared with
- * `turn-agent.ts`, so this hop cannot quietly become the unguarded one. */
+/** The translation's tool-less completion, on whichever model D18 allows it,
+ * reporting its tokens to `spent` (#1292) because no `message_end` of that call
+ * ever reaches the loop. `streamOptionsFor` is the one place a guarded fetch is
+ * attached, shared with `turn-agent.ts`, so this hop cannot quietly become the
+ * unguarded one. */
 function turnTranslator(
-  catalog: CatalogClient, env: Record<string, unknown>, turn: TurnModel,
+  catalog: CatalogClient,
+  env: Record<string, unknown>,
+  turn: TurnModel,
+  spent: SupplementalUsage,
 ): TitleTranslator {
   const chosen = translationModel(env, turn);
   if (chosen === null) return titleTranslator(catalog, () => Promise.resolve(null));
   const stream: ModelStream = (model, context, options) =>
     chosen.registry.streamSimple(model, context, streamOptionsFor(chosen, options));
-  return titleTranslator(catalog, toollessCompletion(chosen.model, stream));
+  const complete = toollessCompletion(chosen.model, stream, (usage) => {
+    spent.record(usage);
+  });
+  return titleTranslator(catalog, complete);
 }
 
 /**
@@ -138,6 +147,11 @@ function turnTranslator(
  * caller-keyed (`translationModel`, D18). It is the whole `TurnModel` rather
  * than a bare registry because that decision reads `callerKeyed`, which lives
  * on the same value.
+ *
+ * The same fallback is why this toolbox owns a `SupplementalUsage` (#1292):
+ * that call is the one model call of a turn the pi Agent never makes, so the
+ * toolbox is the only thing that can answer for its tokens, and `spent()` is
+ * how the settlement collects them.
  */
 export function turnToolbox(
   env: Record<string, unknown>,
@@ -147,9 +161,10 @@ export function turnToolbox(
   const catalog = turnCatalog(env);
   if (catalog === undefined) return EMPTY_TOOLBOX;
   const search = duckduckgoWebSearcher(webSearchFetch());
-  const translate = turnTranslator(catalog, env, model);
+  const spent = new SupplementalUsage();
+  const translate = turnTranslator(catalog, env, model, spent);
   const tools = agentToolbox({ catalog, session, search, translate });
-  return { tools: () => tools };
+  return { tools: () => tools, spent: () => spent.usage };
 }
 
 export interface SessionTurnParts {

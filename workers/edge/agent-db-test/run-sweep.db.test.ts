@@ -19,7 +19,7 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { NeonRunLeases } from "../src/agent/sweeper/neon-run-leases.ts";
-import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
+import { SETUP_HOOK_TIMEOUT_MS, startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
 import { seedRun } from "./agent-rows.ts";
 
 const NOW = Date.parse("2026-09-02T23:30:00.000Z");
@@ -38,7 +38,7 @@ before(async () => {
   neverLeased = await seedRun(plane.database, { sessionId: "never-armed", status: "running", leaseExpiresAt: null });
   await seedRun(plane.database, { sessionId: "held-lease", status: "running", leaseExpiresAt: STILL_LIVE });
   await seedRun(plane.database, { sessionId: "settled", status: "succeeded", leaseExpiresAt: JUST_EXPIRED });
-}, { timeout: 300_000 });
+}, { timeout: SETUP_HOOK_TIMEOUT_MS });
 
 after(() => plane.stop(), { timeout: 60_000 });
 
