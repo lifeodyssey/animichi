@@ -9,10 +9,12 @@ import { candidatesOf } from "./Cards";
 import { LocationPrompt } from "./LocationPrompt";
 
 /** C2 clarification card (issue #260 AC1/AC5): 2-4 candidate buttons plus an
- * escape hatch; selecting one sends the candidate's id through the structured
- * selection channel (W1 #1220) while the user bubble shows the display title,
- * and fades the rest. A failed pick re-arms the card. Photo-search misses
- * reuse this same branch with a manual-entry chip. */
+ * escape hatch; selecting one sends the candidate's id through whichever pick
+ * channel is in scope while the user bubble shows the display title, and fades
+ * the rest. On the session's channel (W1 #1220) that is the structured
+ * `/v1/chat` selection, and a failed pick re-arms the card. Photo-search misses
+ * reuse this same branch with a manual-entry chip, but scoped to the photo
+ * offer's own channel, which confirms the offer instead (#1336). */
 
 const MAX_CANDIDATE_BUTTONS = 4;
 

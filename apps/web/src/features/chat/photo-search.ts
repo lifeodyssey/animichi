@@ -9,10 +9,11 @@ import { sessionHeaders } from "./session-headers";
  * `/v1/photo-search`, reply is the generated photo envelope (a chat-shaped
  * part plus the server-issued `offer_id`), rendered through the same
  * registry as text search. Confirmation sends the offer id + chosen
- * candidate back to `/v1/photo-search/confirm`. Requests carry the shared
- * session headers (auth / Turnstile / session id) plus `x-locale`, and every
- * photo is EXIF-stripped before leaving the browser — GPS reaches the
- * backend only through the explicit `gps` field. */
+ * candidate back to `/v1/photo-search/confirm`, and a confirmation that
+ * never lands leaves an operator record instead of vanishing (#1336).
+ * Requests carry the shared session headers (auth / Turnstile / session id)
+ * plus `x-locale`, and every photo is EXIF-stripped before leaving the
+ * browser — GPS reaches the backend only through the explicit `gps` field. */
 
 export type PhotoGuidance = "configure_vision_key" | "switch_vision_endpoint";
 
@@ -150,6 +151,27 @@ function confirmBody(offerId: string, candidateId: string | undefined): string {
   });
 }
 
+/**
+ * A confirmation that never lands costs the `user_confirmed` signal (SD-26's
+ * five-signal set), not the visitor's turn — their pick continues as an
+ * ordinary chat turn whose failures the D-strips already own. So it earns a
+ * record rather than a D-state. `apps/web` has no telemetry sink, so a
+ * structured `console.warn` reaches the visitor's own devtools and an operator
+ * watching a production console — the channel `reportAdoptionAnomaly` already
+ * uses for exactly this reason (`reportFieldVitals` logs its own report beside
+ * it at debug level).
+ */
+function reportConfirmFailure(offerId: string, reason: string): void {
+  console.warn(JSON.stringify({ event: "photo_offer_confirm_failed", offer_id: offerId, reason }));
+}
+
+/** An error status means the confirmation landed nowhere either. */
+function reportRejectedConfirm(offerId: string) {
+  return (response: Response) => {
+    if (!response.ok) reportConfirmFailure(offerId, String(response.status));
+  };
+}
+
 /** Confirm one candidate of the sessionless photo offer (AC11, AGENT-1 #952):
  * the offer id is server-issued and the candidate must belong to it. */
 export function confirmPhotoSearch(
@@ -158,5 +180,7 @@ export function confirmPhotoSearch(
   candidateId: string | undefined,
   context: PhotoSearchContext,
 ): void {
-  void postJson(baseUrl, "/v1/photo-search/confirm", confirmBody(offerId, candidateId), context).catch(() => undefined);
+  void postJson(baseUrl, "/v1/photo-search/confirm", confirmBody(offerId, candidateId), context)
+    .then(reportRejectedConfirm(offerId))
+    .catch(() => { reportConfirmFailure(offerId, "unreachable"); });
 }

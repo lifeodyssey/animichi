@@ -8,11 +8,14 @@ import { useSelectionSettle } from "./use-selection-settle";
 import type { SetSelectionStatus } from "./use-selection-settle";
 
 /**
- * The clarify-candidate pick turn (W1 #1220): `pick` fires the structured
+ * The channel a clarify-candidate pick travels on. `useClarifyPickState` below
+ * is the session's implementation (W1 #1220): `pick` fires the structured
  * selection through the deterministic channel, the shared settle watcher
  * reports it settled or failed, and `resend` retries the failed pick itself
- * (same message, same idempotency key) instead of replaying history. A failed
- * pick re-arms the clarify card through `status`.
+ * (same message, same idempotency key) instead of replaying history — a failed
+ * pick re-arms the clarify card through `status`. A photo result supplies its
+ * own implementation instead (`photo-offer-pick.ts`), which confirms the
+ * sessionless offer and reports no failure state of its own.
  */
 export interface ClarifyPickTurn {
   /** Whether a structured selection channel is wired at all. */
