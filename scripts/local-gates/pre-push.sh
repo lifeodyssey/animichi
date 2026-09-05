@@ -207,21 +207,17 @@ gate_users() {
   gate workers/users pnpm exec wrangler deploy --dry-run --env= --outdir "$GATE_OUTDIR/users-bundle"
 }
 
-# ── edge (AC4): CI lint + node:test suite (doubles as the workflow-content
-# guard tests) + the bundler smoke gate (W0-S3 #1246: builds the pi kernel
-# entrypoint and EXECUTES the artifact in workerd, which is the only way to see
-# the esbuild `.lazy` chunk-init bug) + production-config dry-run from the repo
-# root. The agent-tier database arm (`pnpm run test:agent-db`, W1-2 #1251) is NOT here
-# yet: this gate is also CI's edge leg, and that leg has no offline Postgres
-# image — adding it means changing two pinned CI contracts (the image step's
-# `if:` in test_pr_verification_contract.rb and the edge `ci_lanes` list in
-# components.json). Run it before pushing edge agent-tier changes; see
-# workers/edge/agent-db-test/README.md.
+# ── edge (AC4): CI lint + the package's own `test` chain (node:test, the
+# contract's chat-answer-part projection, the bundler smoke gate and the
+# rate-limit namespace check — #1358 hung all four on the package script, and
+# `.github/scripts/test_package_test_segments.rb` keeps them there) +
+# production-config dry-run from the repo root. The agent-tier database arm
+# (`pnpm run test:agent-db`, W1-2 #1251) is deliberately NOT in the chain: it
+# needs the offline Postgres image, which this gate does not build. Run it
+# before pushing edge agent-tier changes; see workers/edge/agent-db-test/README.md.
 gate_edge() {
   gate workers/edge pnpm run lint:oxlint
   run pnpm run test:worker
-  gate workers/edge pnpm run test:bundle-smoke
-  run bash workers/edge/scripts/check-edge-ratelimit-namespace.sh
   run pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir "$GATE_OUTDIR/edge-bundle"
 }
 
@@ -234,26 +230,25 @@ gate_e2e() {
   gate e2e pnpm run lint:oxlint
 }
 
-# ── contract: lint + tests + OpenAPI drift (throwaway index) + agent-model
-# drift vs HEAD (a staged correction must not mask committed drift).
+# ── contract: lint + the package's own `test` (unit suite, the published-
+# document compat baseline and the OpenAPI drift check, all chained inside the
+# script since #1358) + agent-model drift vs HEAD, which no package script
+# covers (a staged correction must not mask committed drift).
 gate_contract() {
   gate packages/contract pnpm exec tsc --noEmit
   gate packages/contract pnpm run test
-  gate packages/contract pnpm emit:openapi
-  run bash scripts/local-gates/contract-drift.sh
   gate packages/contract pnpm emit:agent-python
   run git diff --exit-code HEAD -- apps/agent/src/animichi/interfaces/boundary/agent_models.py
 }
 
-# ── eval (#1299): typecheck + the Python→TS dataset round trip + the fixture
-# drift check. The drift arm re-runs the Python exporter, so this gate needs uv
-# (a declared pre-push prerequisite) as well as the TS toolchain.
+# ── eval (#1299): typecheck + the package's own `test`, which is the Python→TS
+# dataset round trip followed by the fixture drift check (#1358 chained them).
+# The drift arm re-runs the Python exporter, so this gate needs uv (a declared
+# pre-push prerequisite) as well as the TS toolchain.
 gate_eval() {
   gate packages/eval pnpm exec tsc --noEmit
   gate packages/eval pnpm run lint:oxlint
   run pnpm run test:eval
-  run bash packages/eval/scripts/export-fixtures.sh
-  run bash scripts/local-gates/eval-fixture-drift.sh
 }
 
 # ── test-postgres (#1326): typecheck + lint + the Docker-free unit suite. The
@@ -265,11 +260,11 @@ gate_test-postgres() {
   gate packages/test-postgres pnpm run test
 }
 
-# ── infra: typecheck + topology tests + credential-free Pulumi program-load.
+# ── infra: typecheck + the package's own `test`, which runs the topology
+# suite and then the credential-free Pulumi program-load (#1358).
 gate_infra() {
   gate infra pnpm run typecheck
   gate infra pnpm test
-  run bash scripts/local-gates/infra-check.sh
 }
 
 # ── db: atlas validate + migration-boundary guard + disposable fresh-schema.
