@@ -97,6 +97,9 @@ void test("a plain 500 is returned immediately without retrying", async () => {
   assert.deepEqual(sleeps, []);
 });
 
+// EG-06 (#1343): this case used to pin Hono's plain-text "Internal Server
+// Error" — the gap turned into a contract. A container error that is not a
+// cold start is still not retried, and now answers the shared edge envelope.
 void test("a non-not-running fetch error passes through without retry", async () => {
   const sleeps: number[] = [];
   const app = createWorkerApp({ sleep: instantSleep(sleeps) });
@@ -105,7 +108,9 @@ void test("a non-not-running fetch error passes through without retry", async ()
   const res = await app.request("/healthz", {}, env, stubCtx);
 
   assert.equal(res.status, 500);
-  assert.equal(await res.text(), "Internal Server Error");
+  assert.deepEqual(await res.json(), {
+    error: { code: "internal_error", message: "The gateway could not complete this request." },
+  });
   assert.deepEqual(sleeps, []);
 });
 
@@ -130,6 +135,35 @@ void test("/v1 retries a not-running 500 with 400/800ms backoff, then forwards t
   assert.equal(res.status, 200);
   assert.equal(await res.text(), "preview results");
   assert.deepEqual(sleeps, [400]);
+});
+
+// EG-21 (#1343): the landing forwards (`GET /` and `GET /healthz`) reached the
+// container without the bound `/v1` had. Both ride `fetchContainerResilient`
+// now — mutation guard: reverting the banner to a bare `container.fetch` turns
+// this red, because the cold-start retry and the head timeout are one call.
+void test("the root banner rides the same cold-start retry as /v1", async () => {
+  const sleeps: number[] = [];
+  const app = createWorkerApp({ sleep: instantSleep(sleeps) });
+  const env = notRunningEnv([
+    () => Promise.resolve(new Response(NOT_RUNNING_BODY, { status: 500 })),
+    () => Promise.resolve(new Response("banner")),
+  ]);
+
+  const res = await app.request("/", {}, env, stubCtx);
+
+  assert.equal(res.status, 200);
+  assert.equal(await res.text(), "banner");
+  assert.deepEqual(sleeps, [400]);
+});
+
+void test("/healthz still answers the smoke's own contract through the bounded fetch", async () => {
+  const app = createWorkerApp({ sleep: instantSleep([]) });
+  const env = notRunningEnv([() => Promise.resolve(Response.json({ status: "ok" }))]);
+
+  const res = await app.request("/healthz", {}, env, stubCtx);
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { status: "ok" });
 });
 
 void test("/v1 does not retry a genuine (non-not-running) container error", async () => {

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createWorkerApp } from "../src/app.ts";
 import { RATE_LIMIT_ENVELOPE_FIELDS, classifyRatePolicy } from "../src/gateway/rate-policy.ts";
-import { RATE_LIMIT_UNAVAILABLE_BODY, rateLimitedResponse, rateLimitUnavailableResponse } from "../src/gateway/responses.ts";
+import { rateLimitedResponse, rateLimitUnavailableResponse } from "../src/gateway/responses.ts";
 import { fakeGuard } from "./doubles/guard-doubles.ts";
 import { stubCtx, alwaysAllowGuard } from "../src/container/entry-env.ts";
 
@@ -26,10 +26,12 @@ void test("rateLimitedResponse is a typed 429 with Retry-After and the documente
   assert.deepEqual(Object.keys(err), [...RATE_LIMIT_ENVELOPE_FIELDS]);
 });
 
-void test("the fail-closed limiter outage response is a DISTINCT typed 503, not a 429", () => {
+void test("the fail-closed limiter outage response is a DISTINCT typed 503, not a 429", async () => {
   const res = rateLimitUnavailableResponse();
   assert.equal(res.status, 503);
-  assert.deepEqual(RATE_LIMIT_UNAVAILABLE_BODY.error, { code: "rate_limit_unavailable", message: "Rate limiter temporarily unavailable. Please retry." });
+  assert.deepEqual(await res.json(), {
+    error: { code: "rate_limit_unavailable", message: "Rate limiter temporarily unavailable. Please retry." },
+  });
 });
 
 // Rate limit and daily quota are distinct in the ROUTE POLICY too (AC3 + AC1):

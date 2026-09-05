@@ -2,6 +2,7 @@
 
 import { DEFAULT_IDENTITY_POLICY, type IdentityClassPolicy } from "../identity/auth.ts";
 import type { GuardNamespace, GuardStore } from "./guard-store.ts";
+import { guardCall, type GuardShard } from "./guard-call.ts";
 
 /**
  * Per-identity short-window abuse limiter (issue #274 / S1.8).
@@ -146,29 +147,27 @@ function parseDecision(value: unknown): RateLimitDecision | null {
   return { allowed, retryAfterSeconds, next: { startedAtMs: 0, count: 0 } };
 }
 
-/** A guard shard narrowed to the single call the limiter needs. */
-interface GuardShard {
-  fetch(request: Request): Promise<Response>;
-}
-
 /**
  * Call the shard and parse its verdict, returning null on ANY failure mode —
  * a non-2xx status, a rejected fetch promise (DO overload, a dropped network
- * connection, a mid-deploy reset), or a 200 whose body isn't the JSON we
- * expect. All three are real Durable Object outage shapes. A caller turns a
+ * connection, a mid-deploy reset), a shard that does not answer inside
+ * `guardCall`'s deadline (EG-21), or a 200 whose body isn't the JSON we
+ * expect. All of them are real Durable Object outage shapes. A caller turns a
  * `null` into the class's POLICY failure mode: `#680` made high-cost/write
  * classes fail CLOSED on this outage, while the anonymous coarse burst (its
  * outer walls are Turnstile + the daily budget latch) still fails open.
  */
 async function fetchDecision(shard: GuardShard, config: RateLimitConfig): Promise<RateLimitDecision | null> {
   try {
-    const response = await shard.fetch(
-      new Request("https://edge-guard/rate-limit", { method: "POST", body: JSON.stringify(config) }),
-    );
-    return response.ok ? parseDecision(await response.json()) : null;
+    const response = await guardCall(shard, rateLimitRequest(config));
+    return response?.ok === true ? parseDecision(await response.json()) : null;
   } catch {
     return null;
   }
+}
+
+function rateLimitRequest(config: RateLimitConfig): Request {
+  return new Request("https://edge-guard/rate-limit", { method: "POST", body: JSON.stringify(config) });
 }
 
 /**

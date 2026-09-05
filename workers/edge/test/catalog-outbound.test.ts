@@ -43,7 +43,9 @@ void test("catalog outbound rejects a write path outside the allowlist", async (
   const request = new Request("http://catalog.internal/catalog/publish", { method: "POST" });
   const response = await catalogOutbound(request, catalogEnv(received));
   assert.equal(response.status, 403);
-  assert.deepEqual(await response.json(), { error: "catalog_request_forbidden" });
+  assert.deepEqual(await response.json(), {
+    error: { code: "catalog_request_forbidden", message: "This catalog route is not one the container may call." },
+  });
   assert.equal(received.length, 0);
 });
 
