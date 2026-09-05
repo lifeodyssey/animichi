@@ -7,7 +7,7 @@
 
 ## 一、目标 / Non-goals
 
-**目标**：`apps/agent`（Python 23,563 生产行）整体退役，chat agent 以 TS 重写跑在 Cloudflare Workers DO 上，Neon 为唯一真相源，全量功能对等（6 模型工具、BYOK、compaction/memory、662-case eval 统计门），完成后直接删除 Python，无影子期。
+**目标**：`apps/agent`（Python 23,563 生产行）整体退役，chat agent 以 TS 重写跑在 Cloudflare Workers DO 上，Neon 为唯一真相源，全量功能对等（6 模型工具、BYOK、上下文与记忆（§九）、662-case eval 统计门），完成后直接删除 Python，无影子期。
 
 **Non-goals**：
 - 不引入独立队列系统（pg-boss / CF Queues 第一天都不要）。
@@ -31,6 +31,11 @@
 | Python 退场 | 直接删，无影子期（生产冻结于 staging-only，删除风险最低窗口） |
 | schema 边界 | `packages/contract` zod 不动；pi 工具参数用 typebox，单一转换点（zod↔JSON Schema 桥位置在 W1 定，防双 schema 漂移） |
 | 结构化输出 | "submit_result 工具 + 校验 throw 回喂 + terminate"模式复刻 `output_validator` 闭环（8/29 note 硬条件 2） |
+| 上下文与状态栏 | **转录重放每一轮的工具调用与结果为结构化消息**（不再把早先一轮降级为文本）；**工具返回摘要在写入时定稿并冻结**，删除「最新 8 条」的每轮再压缩，只保留阈值批量压缩；`SessionEnvelope` 从系统提示词移到转录末尾的 `<agent_status>` user 消息、每轮替换 ⇒ 系统提示词按模型/工具集字节稳定。依据李博杰《深入理解 AI Agent》第 2 章（owner 2026-09-05，#1297）。展开见 §九 |
+
+**决策日志**
+
+- 2026-09-05 · #1297（W2：跨轮工具返回重放 vs 每轮压缩窗口）：**选项 (b) accepted-with-redesign** — 采纳「重放早先各 run 的工具返回」，但按李博杰第 2 章重塑为 §九 的三个动作（结构化重放 / 写入时冻结摘要 / `<agent_status>` 状态栏）；选项 (a)「把 per-run 保留窗口当作 TS 层语义接受」否决。卡片 #1377 · #1378 · #1379。
 
 ## 三、目标架构
 
@@ -81,7 +86,7 @@
 |---|---|---|
 | W0 | spike S1–S5 + kill-switch 裁决 | 已回填（#1249） |
 | W1 | 核心环路（全部在 `workers/edge` 内）：intake + AgentSession DO（alarm 内跑回合）+ pi + mimo + 4 个 catalog 工具 + 连接在时的 SSE + `GET …/messages` 加 run 状态 + 配额结算 | staging 匿名可完整对话；切走再回来拉到完整结果（手动验证，无自动 eval） |
-| W2 | parity：web 工具×2、route 工具、BYOK、compaction/memory（fact_ledger 适配） | 功能对等清单逐项勾（手动验证） |
+| W2 | parity：web 工具×2、route 工具、BYOK、上下文与记忆（fact_ledger 适配；按 §九 = 跨轮结构化重放 + 写入时冻结的工具返回摘要 + 阈值批量压缩 + `<agent_status>` 状态栏，**不是**每轮滑动窗口再压缩） | 功能对等清单逐项勾（手动验证）+ 同一 session 两轮的系统提示词字节相同 |
 | W3 | eval 搬到 TS：框架用 `logfire/evals`（与 pydantic-evals 同数据模型与文件格式，`run_agent_eval.py:133` 的 `Dataset.to_file` 导出 → TS `Dataset.fromFile` 读取；"零迁移"的前提：导出文件里序列化的 8 个评估器名必须以 TS 实现通过 `customEvaluators` 注册、runner 在 Node/Bun/Deno 跑（Workers 内无文件 helper）、两侧包版本钉死；W3 第一张卡 = Python 导出 → TS 导入的 round-trip fixture，跑通前不得声称零迁移）；task = 对 staging 的 HTTP 调用；自写 8 个评估器（4 个官方 agentic：ToolCorrectness / TrajectoryMatch / ArgumentCorrectness / MaxToolCalls，TS 版无内置，轨迹从转录取；4 个自定义照抄 `evaluators.py:162-215`）+ 移植 `gate.py` 的分层配对 bootstrap 统计门 + ANY-of-N + 662 case 双跑 | 双跑无回归（8/29 note 硬条件 3） |
 | W4 | 删除 `apps/agent` + uv CI 臂 + 容器构建 + `[[containers]]`/`RuntimeContainer`/#1239 等待逻辑；CD/文档里的 `root` 旧名统一为 edge；空壳 jobs Worker 处置（DONE，#1316）；docs/AGENTS.md/coverage floors 更新；launch 链（#1181/#1183/#1184）接上新架构 | repo 无 Python agent 残留 |
 
@@ -200,3 +205,75 @@
 ## 八、留给后续复杂 spec 的 open items
 
 DO 计费实数与并发模型（S4 出数）；typebox↔zod 桥的落点代码；`runs`/Drizzle schema 细节与 migration；`GET …/messages` 的 run 状态字段形状（web 端只多读一个字段）；launch 链（#1181/#1183/#1184）接线顺序；CI lane（coverage floors 迁移、nightly eval 工作流改造为对 staging 的 HTTP 跑）；edge 侧 D5 挂死的定位路径（Workers Logs 权限）。
+
+## 九、上下文与状态栏（owner 2026-09-05，依李博杰第 2 章）
+
+裁决入口 #1297（W2 跨轮工具返回重放 vs 每轮压缩窗口）。参考书为《深入理解 AI Agent》第 2 章，下文按其小节标题引用。本节改的是**上下文粒度**；§三 的**落库粒度**（工具步骤 + 文本段聚合）不变，`messages` / `run_steps` 仍然只追加、不重写。
+
+三条动作合起来的目标是一个可被机器检验的性质：**同一 session 的两轮之间，系统提示词与工具定义逐字节相同，变化的部分全部追加在转录末尾**——即书中「KV Cache 友好的上下文设计」开头三条核心结论的第 1、2 条。收益是跨请求的 Prompt Cache 命中（书「KV Cache 与 Prompt Cache：两个层级的缓存」：缓存读取约为首次计算的十分之一），而不是单次请求内的 KV Cache。
+
+### 9.1 转录重放每一轮的工具调用与结果 → #1377
+
+今天 `workers/edge/src/agent/session/turn-transcript.ts:17-18` 明说：早先一轮的 tool-call 行「degrades to its plain text」，实现在同文件 `messagesForRow` 的 `turn-transcript.ts:115`。这正是书中实验 2-3（「KV Cache 的原理与约束」）点名的两个反模式叠加：**滑动窗口对话历史**（工具结果滑出窗口后 Agent「忘记已获得的结果」，反复重复同一次调用）与**文本格式化方法**（把结构化 role-content 消息压成纯文本流，模型要额外花注意力推断角色边界，表现为「忽略工具调用结果、重复执行已完成的操作」）。
+
+**定案**：转录重放每一轮的 assistant tool-call 消息及其工具结果，作为**结构化消息**（`assistant` + `toolResult`），不再降级为文本。
+
+- 早先各 run 的 `run_steps` 一并载入（今天只载入本 run 的，`turn-transcript.ts:100-104` / `turn-store.ts:75-81`）。
+- **崩溃恢复的按 run 配对不变**：`turn-transcript.ts:51-56` 的 `toolCallEnvelopeOf` 用 `messages.response_data` 里的 `run_id` + `step_index` 显式配对，早先 run 的行按各自的 run 配对，本 run 的行仍只与本 alarm 载入的本 run steps 配对；尾部截断分支（`turn-transcript.ts:22-28`）只对**当前 run** 生效，`settledSteps`（`turn-transcript.ts:140-142`）只数本 run 的结果，否则 `StepSequence`（`turn-step-sequence.ts:21-36`）会从错误的序号起步。
+- 早先一轮的结果以其**冻结摘要**（9.2）而非原文重放，所以「更大的上下文」是有界的。
+
+### 9.2 工具返回摘要在写入时定稿并冻结 → #1378
+
+书「缓存作为架构约束」：「工具结果的替换字符串在首次出现时就被冻结……即使后续会话重启，系统也会使用完全相同的替换字符串——以保证恢复后的消息序列与缓存中的字节流一致」；「生产级的分层压缩机制」第 1 层「工具结果预算控制」同义。
+
+今天相反：`context-compaction.ts:11-12` 自述「the raw history is replayed and re-compacted on every alarm」，且 `context-compaction.ts:188-190` 明说 pi 每次模型请求都调一次 `transformContext`，于是 `KEEP_RECENT_MESSAGES = 8`（`context-compaction.ts:52`）这个「最新 8 条」窗口在**一轮之内**就随消息增长而滑动：同一条工具结果在第 1 次请求里是原文、第 3 次请求里变成摘要，前缀字节因此每次请求都变。函数本身是纯的（`context-compaction.ts:167-182`），但它产出的**上下文不是字节稳定的**。
+
+**定案**：
+
+1. 摘要在**写入时**决定一次：一个工具结果落 `run_steps` 时，若其文本长度超过 `TOOL_RETURN_MAX_CHARS`（`context-compaction.ts:55`，200 字符），同时持久化它的确定性摘要，与该 step / message 一起写。此后任何 alarm、任何模型请求都读同一个字符串——跨 alarm 字节稳定。
+2. **确定性 summariser 保留**：`tool-return-summary.ts:81-85`（含 `tool-return-summary.ts:31-35` 逐字保留 `ordered_candidates` 的分支）不变。理由与书「压缩策略的设计原则」的「语义完整性」一致，也与 `tool-return-summary.ts:6-13` 已写下的理由一致：序数追问（「第二个」）只能对着逐字保留的候选 id 解析。
+3. **删除「最新 8 条」的每轮/每请求再压缩**：`KEEP_RECENT_MESSAGES` 及基于它的 `compactToolReturns` cutoff（`context-compaction.ts:177-180`）退役。当前 run 的结果本来就是新写入的，按 (1) 已在写入时定稿。
+4. **阈值批量压缩**作为唯一的动态压缩路径，且默认不触发。常量 `CONTEXT_COMPACTION_TRIGGER_TOKENS = 102_400`（= 128k 窗口的 80%），取自书「压缩与 KV Cache：看似矛盾，实则互补」的「最好在上下文接近阈值时批量压缩，而不是每轮都压」与实验 2-10 策略六的阈值触发 + 批量压缩 + 防重复标记三机制。**按现有量级它不会触发**：`context-compaction.ts:26` 记录的实测是本层构建的 3 轮转录 `estimateContextTokens = {tokens:870}`，离 102,400 差两个数量级。它存在是为了给「某个 session 真的逼近窗口」留一条不撞窗的出路，不是日常路径。
+5. 实体救援（`context-compaction.ts:119-133` → `retained-entity-ledger.ts`）跟着写入时机走：摘要定稿的那一刻救援一次。`retained-entity-ledger.ts:20-25` 现有的「dedup 是因为每轮重新压缩同一段历史」的自述前提随之失效，dedup 保留但理由改为 alarm 重试的幂等。
+
+### 9.3 `SessionEnvelope` 渲染为 `<agent_status>` 用户消息 → #1379
+
+今天 `turn-instructions.ts:157-161` 的 `turnSystemPrompt(envelope)` 把 `trustedLines`（`turn-instructions.ts:147-153`）拼进系统提示词，`turn-envelope.ts:116` 每轮重算一次。书实验 2-3 的第一条就是**动态系统提示词**：「正确的做法是把时间信息作为用户消息追加到对话末尾」。书「Agent 状态栏在上下文中的具体位置」写得更死：状态栏「实际上是作为**一条 user 角色的消息**插入到上下文末尾的——而不是修改开头的 system 消息。原因正是前面讨论的 KV Cache 约束」。
+
+**定案**：`SessionEnvelope` 的内容改为一条 `role: "user"`、内容以 `<agent_status>` 标签包裹的消息，追加在转录**末尾**（在本轮用户消息之后），每轮**替换**上一条——书「状态更新的两种实现与缓存代价」的**实现一：每轮替换**。选实现一而非实现二（Claude Code 的 `<system-reminder>` 持久追加）的依据是书给的分界：状态较大、每轮都更新时选实现一；且本层转录每次 alarm 从 Neon 重建，状态消息不落 `messages`，实现二会让陈旧状态在上下文里累积却拿不到「只追加」的缓存好处。失效范围只覆盖末尾一轮新增的后缀，整个前缀仍可复用。
+
+状态栏内容（书「Agent 状态栏的构成」的「环境当前状态的观察摘要」一类，逐项对应今天已有的字段）：
+
+| 行 | 来源 | 今天在哪 |
+|---|---|---|
+| 当前 anime（title + bangumi id，已解析，勿重解析） | `SessionEnvelope.currentAnime`（`session-envelope.ts:79`） | `turn-instructions.ts:104-106` |
+| 未决澄清：reason + 有序 `candidate_ids` | `PendingClarification`（`session-envelope.ts:50-54`） | `turn-instructions.ts:109-112` |
+| 生效中的用户硬约束（pacing） | `FactLedger.activeHardConstraint()`（`fact-ledger.ts:143`） | `turn-instructions.ts:119-125` |
+| 场景引用（用户显式选中的点位） | `FactLedger.activeSceneReferences()`（`fact-ledger.ts:148`） | `turn-instructions.ts:127-129` |
+| 压缩救回的逐字实体 | `RetainedEntityLedger.entities`（`retained-entity-ledger.ts:71`） | `turn-instructions.ts:139-144` |
+| 本轮各工具的调用次数（成本低才做） | 本 run 的 step 序列（`turn-step-sequence.ts:21-36`） | 不存在，本卡新增 |
+
+约束：
+
+- **只由代码维护**。书状态栏一节的第 1 条注意事项：「状态栏尽量用代码维护……绝不要让它一次性批量统计」，因为「模型几乎无条件地相信状态栏」。本层本来就没有模型抽取环节（`fact-ledger.ts:8-10`：事实来自本轮已落库的 step，不是模型说的），这条继续成立；不得为状态栏引入任何 LLM 汇总。
+- **投毒防线不变**：值仍经 `trusted-text.ts` 清洗并按 `turn-instructions.ts:138-143` 的 `「」` 包裹，因为状态栏这条消息虽然挂在 user 槽位，内容全由服务端生成（书同节：「Harness 是在借用 user 角色这个消息槽位」）。
+- 澄清的 `id` 仍**不**进状态栏，理由照旧（`turn-instructions.ts:96-100`：那是给客户端和服务端校验器的，不是给模型的）。
+- **不删原始上下文**。书同节第 2 条注意事项：状态栏是有损投影，只算了预想会被问到的维度。9.1 的结构化重放是原始记录，状态栏是它之上的加法。
+
+### 9.4 系统提示词里留下什么
+
+`turnSystemPrompt` 去掉 `## Trusted runtime context` 之后，系统提示词 = 一个**常量**，只随模型/工具集变化：
+
+- 静态指令：`TURN_SYSTEM_PROMPT`（`turn-instructions.ts:37-52`，身份、语言、web 工具政策）。
+- 输出词汇：`## Answering` 与 `## Compact output`（`turn-instructions.ts:54-67`）——`respond` 工具的 `kind` 词表，是 Python 五个响应模型的移植（`turn-instructions.ts:16-22`）。
+- **SD-19 未受信工具输出不变量**：`turn-instructions.ts:69-80`。它是架构级安全要求，不是提示调优（`turn-instructions.ts:24-27`），任何情况下不得移出系统提示词。
+
+由此得到本节的验收锚点：**同一 session 连续两轮，系统提示词字符串逐字节相同**。这条是可测的，也是 9.3 的变异判据。
+
+### 9.5 卡片
+
+| 卡 | 内容 | blocked by |
+|---|---|---|
+| #1377 | 转录结构化重放（9.1） | — |
+| #1378 | 摘要写入时冻结 + 删除滑动再压缩（9.2） | #1377 |
+| #1379 | `<agent_status>` 状态栏 + 系统提示词字节稳定（9.3 / 9.4） | #1377 |
