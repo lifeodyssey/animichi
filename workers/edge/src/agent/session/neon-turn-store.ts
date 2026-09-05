@@ -71,11 +71,21 @@ function takeLeaseStatement(runId: string, owner: string, until: Date): SQL {
     returning ${bareName(runs.id)} as run_id`;
 }
 
-/** A renewal is stricter than a claim: only a lease still ours and still live. */
+/**
+ * A renewal is narrower than a claim in exactly one way: the lease must still
+ * be OURS. Whether it has LAPSED is not part of it (#1397) — the slice is
+ * refreshed only by writing a step, and the model round trip between two steps
+ * is not bounded by it (staging's 90th percentile gap is 24 s against a 30 s
+ * slice), so refusing a lapsed lease dropped the row and abandoned a turn
+ * nobody had taken over. Single-writer is the owner predicate alone, and is
+ * carried better this way: a contender that took the run over overwrote
+ * `lease_owner` and this finds it changed, while re-taking our own lapsed lease
+ * pushes the expiry out and makes the NEXT contender lose instead.
+ */
 function renewLeaseStatement(runId: string, owner: string, until: Date): SQL {
   return sql`update ${runs} set ${setLease(owner, until)}
     where ${runs.id} = ${runId} and ${runs.status} = 'running'
-      and ${runs.leaseOwner} = ${owner} and ${runs.leaseExpiresAt} > now()
+      and ${runs.leaseOwner} = ${owner}
     returning ${bareName(runs.id)} as run_id`;
 }
 
