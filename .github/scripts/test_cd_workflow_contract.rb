@@ -59,10 +59,10 @@ staging_names.each do |name|
   abort "#{name} must use the local promotion action" unless action
 end
 stage_inputs = {
-  "stage-foundation" => %w[
-    cloudflare_pulumi_api_token cloudflare_account_id pulumi_organization
-    neon_api_key reset_staging_db
-  ],
+  # The Pulumi-plane Cloudflare token and the Neon key are no longer inputs at
+  # all: foundation opens its ESC environment for them (#1078). What the caller
+  # still declares is the account, the organization, and the reset trigger.
+  "stage-foundation" => %w[cloudflare_account_id pulumi_organization reset_staging_db],
   "stage-migration" => %w[cloudflare_api_token cloudflare_account_id migrator_url],
   "stage-services" => %w[cloudflare_api_token cloudflare_account_id],
   "stage-edge" => %w[
@@ -96,7 +96,9 @@ abort "production must be a single sequential job" if production.key?("strategy"
 abort "exactly one job may request production approval" unless cd_source.scan(/^\s+environment:\s+production\s*$/).length == 1
 production_steps = production.fetch("steps").to_h { |step| [step.fetch("name", ""), step] }
 secret_sets = {
-  "Promote production foundation payloads" => %w[CLOUDFLARE_PULUMI_API_TOKEN CLOUDFLARE_ACCOUNT_ID PULUMI_ORG NEON_API_KEY],
+  # #1078: the Pulumi-plane token and the Neon key reach this step from the ESC
+  # environment the step above opened, so its own `env` names neither.
+  "Promote production foundation payloads" => %w[CLOUDFLARE_ACCOUNT_ID PULUMI_ORG],
   "Promote production database payload" => %w[NEON_DATABASE_URL],
   "Promote production service payloads" => %w[CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID],
   "Promote production edge payload" => %w[

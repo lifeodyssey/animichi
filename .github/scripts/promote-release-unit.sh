@@ -129,11 +129,17 @@ deploy_web() {
 # there is no backend URL, no state key pair, and no config passphrase to hand
 # this script. Requiring the exported token fails closed when that login step
 # was skipped or silently produced nothing.
+#
+# The two Pulumi-plane credentials are injected by `pulumi/esc-action` from the
+# stage's ESC environment (#1078), not passed down as GitHub secrets: the
+# Cloudflare token the providers authenticate with arrives already under the
+# name they read, and the Neon key provisions `animichi-neon-secrets`. Requiring
+# both here fails closed when the ESC environment is missing either key.
 require_infra_env() {
   required PULUMI_ORG
   required PULUMI_ACCESS_TOKEN
   required CLOUDFLARE_ACCOUNT_ID
-  required CLOUDFLARE_PULUMI_API_TOKEN
+  required CLOUDFLARE_API_TOKEN
   required NEON_API_KEY
 }
 
@@ -148,7 +154,6 @@ pulumi_up() {
 
 setup_infra() {
   require_infra_env
-  export CLOUDFLARE_API_TOKEN="$CLOUDFLARE_PULUMI_API_TOKEN"
   pnpm install --dir "$PAYLOAD_DIR" --frozen-lockfile --ignore-scripts
   pnpm install --dir "$PAYLOAD_DIR/infra/database-access" --frozen-lockfile --ignore-scripts
   [ -f "$PAYLOAD_DIR/infra/database-access/sdks/neon/bin/index.js" ] || \

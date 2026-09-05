@@ -40,7 +40,9 @@ exemptions:
   - id: uses:codecov/codecov-action
     reason: "OIDC: codecov-action — coverage upload authenticates with GitHub OIDC"
   - id: uses:pulumi/auth-actions
-    reason: "OIDC: GitHub id-token — CD exchanges the job's OIDC identity for a short-lived Pulumi Cloud organization token (#1077); a workstation uses its own `pulumi login`"
+    reason: "OIDC: GitHub id-token — CD exchanges the job's OIDC identity for a short-lived Pulumi Cloud personal token (individual-edition org) (#1077); a workstation uses its own `pulumi login`"
+  - id: uses:pulumi/esc-action
+    reason: "secrets: Pulumi ESC environments animichi/staging and animichi/prod — CD opens them with that short-lived personal token to inject the Pulumi-plane tokens (#1078); a workstation opens ESC under its own login"
   - id: uses:github/codeql-action/analyze
     reason: "cloud: GitHub-hosted CodeQL runners — analyze"
   - id: uses:github/codeql-action/init
