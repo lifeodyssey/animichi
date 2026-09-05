@@ -1,28 +1,30 @@
 /**
- * The entities compaction rescued before it shrank the tool return that carried
- * them (card #1290) — port of `apps/agent`'s
+ * The entities rescued before the tool return that carried them was shrunk
+ * (card #1290, rewritten by #1378) — port of `apps/agent`'s
  * `domain/compaction_retention.py::RetainedEntityLedger`.
  *
- * `context-compaction.ts` replaces an old, long tool return with a short
- * deterministic summary, and a summary is where a user's own words go missing:
- * the anime title they typed and the place name they asked about are literal
- * strings no summary shape promises to keep. This ledger keeps them verbatim,
- * so an ordinal follow-up ("the first one", "第一个") still has something to
- * resolve against after the raw text is gone.
+ * A long tool return is replayed as a short deterministic summary
+ * (`session/frozen-tool-return.ts`), and a summary is where a user's own words
+ * go missing: the anime title they typed and the place name they asked about
+ * are literal strings no summary shape promises to keep. This ledger keeps them
+ * verbatim, so an ordinal follow-up ("the first one", "第一个") still has
+ * something to resolve against after the raw text is gone.
  *
  * EVICTION IS OLDEST-WINS, not FIFO, and that is the whole point of the module:
- * the entities worth rescuing are the DEEPEST ones, the ones about to fall out
- * of the window entirely. A near-tail entity dropped here is still in the raw
- * transcript for a while yet; a first-turn entity evicted here is gone for
- * good. So once the ledger is full a newer distinct entity is DROPPED rather
- * than allowed to push an older one out.
+ * the entities worth rescuing are the DEEPEST ones. The turn that just ran
+ * still has its call's arguments in the context verbatim, so an entity dropped
+ * from the tail is repeated a few messages away; a first-turn entity evicted
+ * here is gone for good. So once the ledger is full a newer distinct entity is
+ * DROPPED rather than allowed to push an older one out.
  *
- * DEDUP IS NOT AN OPTIMISATION, it is what makes the ledger stable. The
- * transcript is rebuilt from Neon on every alarm (`turn-transcript.ts`) and
- * compaction runs over that raw history again each turn, so the same old tool
- * call is re-compacted — and would be re-recorded — on every later turn. A
- * repeat moves to the tail instead of duplicating, which is what keeps one
- * replayed entity from crowding out every distinct one.
+ * DEDUP IS NOT AN OPTIMISATION, it is what makes an ALARM RETRY idempotent.
+ * Since #1378 an entity is rescued once, on the write path, as its return's
+ * summary is frozen — not once per turn and not once per model request. But a
+ * turn can be attempted more than once, and a retry replays every settled step
+ * (`turn-step.ts`) through the same rescue, because an attempt that crashed
+ * before its envelope was promoted must not leave the ledger short of what the
+ * first attempt recorded. A repeat moves to the tail instead of duplicating, so
+ * however many attempts a turn takes, the ledger reads as if it took one.
  *
  * A VALUE OBJECT, like `SessionEnvelope` that carries it: every transition
  * answers a new ledger, so "write the whole thing back once, with the run" is
@@ -34,7 +36,7 @@ export const MAX_RETAINED_ENTITIES = 8;
 export const MAX_RETAINED_BYTES = 8 * 1024;
 export const MAX_ENTITY_VALUE_BYTES = 96;
 
-/** One verbatim string rescued from a tool interaction compaction shrank. */
+/** One verbatim string rescued from a tool interaction the freeze shrank. */
 export interface RetainedEntity {
   readonly toolName: string;
   readonly value: string;
@@ -64,7 +66,7 @@ function isSame(held: RetainedEntity, entity: RetainedEntity): boolean {
 }
 
 export class RetainedEntityLedger {
-  /** A session no compaction has rescued anything from yet. */
+  /** A session no frozen return has rescued anything from yet. */
   static readonly empty = new RetainedEntityLedger([]);
 
   /** Oldest first — the order the prompt lines are rendered in. */

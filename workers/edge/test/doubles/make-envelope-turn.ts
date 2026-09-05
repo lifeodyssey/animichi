@@ -7,7 +7,7 @@
  * clarification turn N recorded is there for turn N+1" is a claim about the
  * whole round trip, not about a value object.
  */
-import type { PersistedStep } from "../../src/agent/session/turn-store.ts";
+import type { PersistedStep, RunSteps } from "../../src/agent/session/turn-store.ts";
 import type { TurnState } from "../../src/agent/session/run-machine.ts";
 import { DurableTurn } from "../../src/agent/session/durable-turn.ts";
 import { DurableEnvelopeStore } from "../../src/agent/session/durable-envelope-store.ts";
@@ -100,6 +100,9 @@ export interface EnvelopeTurnParts {
   readonly resolveOutcome?: object;
   /** Steps an earlier attempt already settled — the replay branch. */
   readonly steps?: PersistedStep[];
+  /** What the session's EARLIER runs settled (#1377): what their tool-call rows
+   * are answered from, as their frozen summaries (#1378). */
+  readonly earlierSteps?: RunSteps[];
   /** Another incarnation already holding this run's lease. */
   readonly leaseOwner?: string;
   /** A store that refuses to write the step down. */
@@ -135,6 +138,7 @@ export function makeEnvelopeTurnStore(parts: Partial<EnvelopeTurnParts> = {}): I
     {
       runId: parts.runId ?? RUN_ID, sessionId: "session-1", deadlineAt: NOW + 100_000,
       transcript: parts.transcript ?? makeUserTranscript(), steps: parts.steps ?? [],
+      earlierSteps: parts.earlierSteps ?? [],
       leaseOwner: held, leaseExpiresAt: held === undefined ? undefined : NOW + 100_000,
     },
     () => NOW,

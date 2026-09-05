@@ -20,7 +20,7 @@
  * two lifetimes apart is the difference between an envelope and the bag.
  *
  * SINCE #1290 IT CARRIES THE SESSION'S MEMORY TOO — the fact ledger and the
- * compaction-retained entities, as one `SessionMemory` value. They belong here
+ * the entities rescued from frozen returns, as one `SessionMemory` value. They belong here
  * for the same reason the two facts above do: the NEXT turn is what needs them,
  * they are written on the alarm that settles a run, and this envelope is
  * already what that alarm stages and promotes in one write. Adding them as one
@@ -120,7 +120,7 @@ export class SessionEnvelope {
     return new SessionEnvelope(this.pendingClarification, anime, this.#carried);
   }
 
-  /** The turn recorded a fact, or compaction rescued an entity (#1290). */
+  /** The turn recorded a fact, or a frozen return rescued an entity (#1290). */
   remembering(memory: SessionMemory): SessionEnvelope {
     return new SessionEnvelope(this.pendingClarification, this.currentAnime, { ...this.#carried, memory });
   }

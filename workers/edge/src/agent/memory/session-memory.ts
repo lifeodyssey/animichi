@@ -10,13 +10,15 @@
  * no gain.
  *
  * They stay two SEPARATE ledgers inside it, and that was Python's OQ-8 ruling
- * rather than an accident: a retained entity is rescued by compaction and dies
- * with the raw history it was rescued from, while a fact is derived from a
- * settled tool step and outlives every compaction. Different lifecycles,
- * different write paths, no shared record model.
+ * rather than an accident: a retained entity is rescued because a tool return
+ * was frozen into its short form and dies with the raw text it stood in for,
+ * while a fact is derived from a settled tool step and outlives every
+ * shrinking. Different lifecycles, different write paths, no shared record
+ * model.
  *
- * `TurnMemory` is the port the two writers hold — `context-compaction.ts` and
- * `turn-fact-recorder.ts` — and `TurnCatalogSession` is what fulfils it, since
+ * `TurnMemory` is the port the two writers hold — `rescued-entity.ts` and
+ * `turn-fact-recorder.ts`, both on the step write path since #1378 — and
+ * `TurnCatalogSession` is what fulfils it, since
  * the envelope a turn mutates is already its state. Keeping it a port rather
  * than the class itself is what lets both writers be driven in a unit test with
  * no catalog, no store and no Durable Object.
@@ -43,7 +45,7 @@ export interface TurnMemory {
   /**
    * The title the session's `currentAnime` already carries in full, or null.
    *
-   * Compaction reads it to skip re-retaining a title that is already carried
+   * The rescue reads it to skip retaining a title that is already carried
    * unabridged elsewhere in the prompt — retaining it a second time would just
    * spend the same budget twice (Python's `_retain_entity`).
    */

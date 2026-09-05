@@ -1,38 +1,39 @@
 /**
- * W2-4 (#1290): what the model is actually shown of an older conversation.
+ * #1378 (spec §九 9.2): the per-request "newest 8" window is gone, and the one
+ * dynamic path left is a batch pass that fires only near the window.
  *
- * The two invariants these cases hold are the reason the tier is hand-rolled
- * rather than pi's native, model-written compaction: the retention window is
- * exact, and the whole pass is a FIXPOINT — the raw history is replayed and
- * re-compacted on every alarm (`turn-transcript.ts`), so a pass that changed
- * its own output would drift a little further from the transcript each turn.
+ * The property these cases hold is the one the old window broke: a context
+ * handed to the model twice is the same context. Under the trigger — which is
+ * where every measured session sits, 870 tokens against 102,400 — the pass is
+ * the identity, so request 1 and request 3 of a turn see the same bytes. Over
+ * it, the pass is idempotent instead, because a return it shrank carries a mark
+ * that keeps the next pass off it (李博杰《深入理解 AI Agent》ch.2 实验 2-10
+ * 策略六: 阈值触发 + 批量压缩 + 防重复保护).
  *
- * test-type: unit (no clock, no network, no database).
+ * test-type: unit (pure function; no clock, no I/O).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import {
-  KEEP_RECENT_MESSAGES,
-  compactToolReturns,
+  CONTEXT_COMPACTION_TRIGGER_TOKENS,
+  batchCompacted,
 } from "../src/agent/session/context-compaction.ts";
-import { RetainedEntityLedger } from "../src/agent/memory/retained-entity-ledger.ts";
 import { makeLongSearchOutcome, makeToolTurn } from "./doubles/make-tool-transcript.ts";
 
+/**
+ * Wide enough that even its SUMMARY is over the 200-character cap: the ordered
+ * candidate ids are kept verbatim, so a second pass over an unmarked summary
+ * would fail to parse it and collapse the ids to `[resolve_anime: completed]`.
+ * That is what the mark is for, and this is the case that can see it.
+ */
 const AMBIGUOUS = {
   outcome: "needs_disambiguation",
   clarification_reason: "anime_ambiguity",
-  candidate_ids: ["485", "2907"],
-  padding: "x".repeat(300),
+  candidate_ids: Array.from({ length: 30 }, (_unused, index) => `90${String(index).padStart(2, "0")}`),
 };
 
-/**
- * Five tool turns and a trailing user message — sixteen messages, so the cut
- * falls exactly ON a tool return (index 8, the newest message the window must
- * keep). That alignment is deliberate: with the boundary sitting on an
- * assistant message instead, an off-by-one in the window would be invisible,
- * because only tool returns are ever shaped.
- */
+/** Two long tool returns and one short one — the three shapes the pass sorts. */
 function makeHistory(): AgentMessage[] {
   return [
     ...makeToolTurn("らき☆すたの聖地は？", {
@@ -42,21 +43,17 @@ function makeHistory(): AgentMessage[] {
       id: "c-2", toolName: "search_nearby", arguments: { location: "鷲宮神社" },
       outcome: makeLongSearchOutcome("らき☆すた"),
     }),
-    ...makeToolTurn("もっと", {
-      id: "c-3", toolName: "search_bangumi", arguments: { bangumi_id: "1" },
-      outcome: makeLongSearchOutcome("らき☆すた"),
-    }),
     ...makeToolTurn("ルートは？", {
-      id: "c-4", toolName: "plan_route", arguments: { search_result_ref: "search:12:1" },
-      outcome: { status: "ok", itinerary_ref: "route:12:2", point_count: 12, total_minutes: 240 },
+      id: "c-3", toolName: "plan_route", arguments: { search_result_ref: "search:12:1" },
+      outcome: { status: "stale_ref" },
     }),
-    ...makeToolTurn("ゆっくりで", {
-      id: "c-5", toolName: "plan_route",
-      arguments: { search_result_ref: "search:12:1", pacing: "chill" },
-      outcome: { status: "ok", itinerary_ref: "route:12:3", point_count: 12, total_minutes: 300 },
-    }),
-    { role: "user", content: "ありがとう", timestamp: 0 },
   ];
+}
+
+/** One message big enough to put any context over the trigger by itself. */
+function makeOverflowMessage(): AgentMessage {
+  const chars = CONTEXT_COMPACTION_TRIGGER_TOKENS * 4 + 4_000;
+  return { role: "user", content: "x".repeat(chars), timestamp: 0 };
 }
 
 /** The text a tool-result message carries after a pass. */
@@ -66,71 +63,38 @@ function returnTextAt(messages: readonly AgentMessage[], index: number): string 
   return parts.map((part) => (part.type === "text" ? part.text : "")).join("");
 }
 
-function compacted(messages: readonly AgentMessage[], ledger = RetainedEntityLedger.empty) {
-  return compactToolReturns(messages, ledger, null);
-}
-
-void test("the newest messages of the window are handed over untouched", () => {
+void test("under the trigger the whole context is handed over untouched", () => {
   const history = makeHistory();
-  const { messages } = compacted(history);
-  const window = history.length - KEEP_RECENT_MESSAGES;
-  assert.equal(messages.length, history.length);
-  assert.match(returnTextAt(history, window), /"row_count":12/);
-  assert.deepEqual(messages.slice(window), history.slice(window));
+  assert.deepEqual(batchCompacted(history), history);
+  assert.match(returnTextAt(batchCompacted(history), 5), /"row_count":12/);
 });
 
-void test("an old long search return becomes its deterministic summary", () => {
-  const { messages } = compacted(makeHistory());
-  assert.equal(returnTextAt(messages, 5), "[search_nearby: found 12 spots for らき☆すた]");
-});
-
-void test("the entity of a shrunken call lands in the retained ledger", () => {
-  const { retained } = compacted(makeHistory());
-  assert.deepEqual(retained.entities, [
-    { toolName: "resolve_anime", value: "らき☆すた" },
-    { toolName: "search_nearby", value: "鷲宮神社" },
-  ]);
-});
-
-void test("an ambiguous resolve keeps its ordered candidate ids verbatim", () => {
-  const { messages } = compacted(makeHistory());
-  assert.equal(returnTextAt(messages, 2), '[resolve_anime: ambiguous, ordered_candidates=["485","2907"]]');
-});
-
-void test("compacting the replayed history twice is a fixpoint", () => {
+void test("three passes under the trigger answer the same bytes every time", () => {
   const history = makeHistory();
-  const once = compacted(history);
-  const twice = compactToolReturns(history, once.retained, null);
-  assert.deepEqual(twice.messages, once.messages);
-  assert.deepEqual(twice.retained.entities, once.retained.entities);
+  const shaped = [1, 2, 3].map(() => JSON.stringify(batchCompacted(history)));
+  assert.deepEqual(shaped, [shaped[0], shaped[0], shaped[0]]);
 });
 
-void test("the current turn's own tool returns are never touched", () => {
-  const history = makeHistory();
-  const current = history.slice(-KEEP_RECENT_MESSAGES);
-  assert.deepEqual(compacted(current).messages, current);
-  assert.equal(compacted(current).retained.isEmpty, true);
+void test("over the trigger every long return becomes its marked summary", () => {
+  const compacted = batchCompacted([makeOverflowMessage(), ...makeHistory()]);
+  assert.equal(returnTextAt(compacted, 6), "[compacted] [search_nearby: found 12 spots for らき☆すた]");
 });
 
-void test("an old SHORT return is left as it was", () => {
-  const history = [
-    ...makeToolTurn("短い", {
-      id: "c-1", toolName: "search_bangumi", arguments: { bangumi_id: "1" },
-      outcome: { outcome: "empty", anime_title: "らき☆すた", partial: false },
-    }),
-    ...makeToolTurn("次", {
-      id: "c-2", toolName: "plan_route", arguments: { search_result_ref: "search:1:1" },
-      outcome: { status: "stale_ref" },
-    }),
-    ...makeToolTurn("その次", {
-      id: "c-3", toolName: "plan_route", arguments: { search_result_ref: "search:1:1" },
-      outcome: { status: "stale_ref" },
-    }),
-  ];
-  assert.deepEqual(compacted(history).messages, history);
+void test("over the trigger a short return is still left as it was", () => {
+  const compacted = batchCompacted([makeOverflowMessage(), ...makeHistory()]);
+  assert.equal(returnTextAt(compacted, 9), '{"status":"stale_ref"}');
 });
 
-void test("a title the session already resolved is not retained a second time", () => {
-  const { retained } = compactToolReturns(makeHistory(), RetainedEntityLedger.empty, "らき☆すた");
-  assert.deepEqual(retained.entities, [{ toolName: "search_nearby", value: "鷲宮神社" }]);
+void test("a batch-compacted ambiguous resolve keeps its ordered candidate ids", () => {
+  const compacted = batchCompacted([makeOverflowMessage(), ...makeHistory()]);
+  const shrunk = returnTextAt(compacted, 3);
+  assert.ok(shrunk.startsWith("[compacted] [resolve_anime: ambiguous, ordered_candidates="), shrunk);
+  assert.match(shrunk, /"9029"\]\]$/);
+  assert.equal(shrunk.includes("clarification_reason"), false);
+});
+
+void test("a second batch pass re-processes nothing the first one marked", () => {
+  const once = batchCompacted([makeOverflowMessage(), ...makeHistory()]);
+  assert.ok(returnTextAt(once, 3).length > 200, "the marked summary is itself over the cap");
+  assert.deepEqual(batchCompacted(once), once);
 });

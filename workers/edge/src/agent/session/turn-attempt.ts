@@ -48,8 +48,9 @@ export interface TurnAttemptParts {
   /** How this turn answers: the `respond` tool, and the typed output its call
    * becomes (#1283). */
   readonly answering: TurnAnswering;
-  /** What this session remembers (#1290): the fact ledger compaction rescues
-   * entities into, and the recorder appends this turn's facts to. */
+  /** What this session remembers (#1290): the ledger a frozen tool return's
+   * literal entity is rescued into, and the one the recorder appends this
+   * turn's facts to. */
   readonly memory: TurnMemory;
   /** Where the `<agent_status>` bar reads the session's own state (#1379).
    * `TurnCatalogSession` fulfils it, and the tools rewrite that envelope as the
@@ -124,9 +125,11 @@ export class TurnAttempt {
     this.#machine = machine;
     this.#parts = parts;
     this.#resumed = resumedFor(turn, parts.model);
-    const { store, owner, now, refs } = parts;
+    const { store, owner, now, refs, memory } = parts;
     const resumedSteps = this.#resumed.settledSteps;
-    this.steps = new TurnSteps({ store, turn, output: this.output, machine, refs, resumedSteps, owner, now });
+    this.steps = new TurnSteps({
+      store, turn, output: this.output, machine, refs, memory, resumedSteps, owner, now,
+    });
   }
 
   /** What this attempt answered, once its pi run has ended. */
@@ -206,12 +209,12 @@ export class TurnAttempt {
    * result the world is waiting on.
    */
   #agentParts(model: TurnModel) {
-    const { systemPrompt, toolbox, emit, answering, memory } = this.#parts;
+    const { systemPrompt, toolbox, emit, answering } = this.#parts;
     const tools = [...this.steps.wrap(toolbox.tools()), answering.tool()];
     const shouldStop = () => this.#stops();
     const status = () => this.#status();
     const messages = this.#resumed.messages;
-    return { model, systemPrompt, messages, tools, memory, status, output: this.output, emit, shouldStop };
+    return { model, systemPrompt, messages, tools, status, output: this.output, emit, shouldStop };
   }
 
   /**

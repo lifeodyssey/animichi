@@ -30,6 +30,13 @@
  * `#resolve` on every attempt, replayed or not, so this is the one place that
  * sees the whole run.
  *
+ * IT IS ALSO WHERE A TOOL RETURN'S SHORT FORM IS FROZEN (#1378, spec §九 9.2).
+ * The summary a later turn replays the return as is decided here, once, and
+ * stored on the row beside the raw result — never recomputed by a reader — and
+ * the literal entity the shrinking call carried is rescued in the same breath
+ * (`../memory/rescued-entity.ts`). Deciding it at the write is what makes the
+ * bytes the model sees identical on every alarm.
+ *
  * A lost lease is NOT a tool failure. pi turns a tool's throw into an error
  * result the model reacts to, so throwing here would let a turn this
  * incarnation no longer owns carry on talking. The persistence transaction
@@ -39,7 +46,10 @@
  */
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { JsonValue } from "@earendil-works/pi-ai";
+import { rescueCallEntity } from "../memory/rescued-entity.ts";
+import type { TurnMemory } from "../memory/session-memory.ts";
 import type { RecordedStep } from "../memory/turn-fact-recorder.ts";
+import { frozenSummaryOf } from "./frozen-tool-return.ts";
 import type { MintedRefs, StepMint } from "./minted-refs.ts";
 import { TurnStoreUnavailable, type RunMachine } from "./run-machine.ts";
 import type { TurnOutput } from "./turn-output.ts";
@@ -61,6 +71,9 @@ export interface TurnStepParts {
   readonly machine: RunMachine;
   /** The run's ref registry, which every settled step reports back to (#1279). */
   readonly refs: MintedRefs;
+  /** The session's ledgers: where a frozen return's literal entity is rescued
+   * as the summary is decided (#1378). */
+  readonly memory: TurnMemory;
   /** How many of this run's settled steps the resumed transcript already
    * answers — where this attempt's numbering starts (#1279). */
   readonly resumedSteps: number;
@@ -82,8 +95,8 @@ interface ToolCall {
 }
 
 /** One executed call as `run_steps` stores it, with the assistant message it
- * opens when it is the first step of that assistant turn, and the refs it
- * minted (#1279). */
+ * opens when it is the first step of that assistant turn, the refs it minted
+ * (#1279) and the short form later turns replay it as (#1378). */
 function settledStep(
   stepIndex: number,
   toolName: string,
@@ -91,7 +104,8 @@ function settledStep(
   opening: ToolCallEnvelope | null,
 ): SettledStep {
   const { content, details } = call.result;
-  const result = { content, details, minted: call.minted };
+  const summary = frozenSummaryOf(toolName, content);
+  const result = { content, details, minted: call.minted, summary };
   return { stepIndex, toolName, input: call.input, result, toolCallMessage: opening };
 }
 
@@ -163,9 +177,10 @@ export class TurnSteps {
 
   /**
    * Replay the settled result under the next index, or execute and settle it —
-   * and remember either one for the fact recorder (#1290).
+   * and, for either one, rescue what the freeze dropped (#1378) before
+   * remembering it for the fact recorder (#1290).
    *
-   * The recording sits here, below the two entry points, so a SERVER-initiated
+   * Both memory writes sit here, below the two entry points, so a SERVER-initiated
    * step is a fact-bearing step on the same terms as a model's tool call: a
    * `plan_selected` pick leaves a scene reference in the ledger exactly as a
    * model-issued `plan_route` does, and neither caller has to remember to say so.
@@ -177,14 +192,34 @@ export class TurnSteps {
   ): Promise<AgentToolResult<JsonValue>> {
     const stepIndex = this.#sequence.take();
     const settled = this.#sequence.settled(stepIndex);
-    if (settled !== null) return this.#recorded(toolName, input, toolResultOf(settled));
+    const result = settled ?? await this.#executed(stepIndex, toolName, input, execute);
+    this.#rescued(toolName, input, result);
+    return this.#recorded(toolName, input, toolResultOf(result));
+  }
+
+  /** A call this run makes for the FIRST time: executed, frozen and written
+   * down before the loop is allowed to continue. */
+  async #executed(
+    stepIndex: number,
+    toolName: string,
+    input: JsonValue,
+    execute: () => Promise<AgentToolResult<JsonValue>>,
+  ): Promise<StepResult> {
     const { refs, output } = this.#parts;
     const mark = refs.mintCount;
     const result = await execute();
     const opening = this.#sequence.opening(stepIndex, output.assistantMessage);
     const minted = refs.mintedSince(mark);
-    await this.#settle(settledStep(stepIndex, toolName, { input, result, minted }, opening));
-    return this.#recorded(toolName, input, result);
+    const step = settledStep(stepIndex, toolName, { input, result, minted }, opening);
+    await this.#settle(step);
+    return step.result;
+  }
+
+  /** The words the frozen summary is about to drop, kept verbatim (#1378). A
+   * REPLAYED step passes through here too, so an attempt that crashed before
+   * its envelope was promoted still leaves the ledger the first one meant to. */
+  #rescued(toolName: string, input: JsonValue, result: StepResult): void {
+    if (result.summary !== undefined) rescueCallEntity(this.#parts.memory, toolName, input);
   }
 
   /** Remember what the run asked and what it got, for the fact recorder. */
