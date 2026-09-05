@@ -63,8 +63,11 @@ test("a trip to settings and back keeps the conversation, in one document", asyn
 
   await page.getByRole("link", { name: ja.appbar.settings }).click();
   await expect(page.getByRole("heading", { level: 1, name: settings.title })).toBeVisible();
+  // The settings leg has to carry the id too, or the way back has nothing to resume.
+  await expect(page).toHaveURL(new RegExp(`[?&]session=${SESSION_ID}(&|$)`, "u"));
 
   await page.getByRole("link", { name: settings.backToChat }).click();
+  await expect(page).toHaveURL(new RegExp(`[?&]session=${SESSION_ID}(&|$)`, "u"));
   await solveTurnstileEntry(page);
   await expect(page.getByText(FIRST_TURN)).toBeVisible();
   await expect(page.getByText("ユーフォ")).toBeVisible();
