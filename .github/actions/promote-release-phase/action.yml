@@ -118,14 +118,16 @@ runs:
       with:
         pulumi-version-file: .pulumi.version
     # OIDC, not a stored PULUMI_ACCESS_TOKEN: the action exchanges this job's
-    # GitHub id-token for a short-lived Pulumi Cloud organization token and
-    # exports it as PULUMI_ACCESS_TOKEN for the steps below (#1077).
+    # GitHub id-token for a short-lived Pulumi Cloud personal token (individual-
+    # edition orgs cannot mint org tokens) and exports it as PULUMI_ACCESS_TOKEN
+    # for the steps below (#1077).
     - name: Log into Pulumi Cloud with GitHub OIDC
       if: ${{ inputs.phase == 'foundation' }}
       uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
       with:
         organization: ${{ inputs.pulumi_organization }}
-        requested-token-type: urn:pulumi:token-type:access_token:organization
+        requested-token-type: urn:pulumi:token-type:access_token:personal
+        scope: user:lifeodyssey
     - name: Promote foundation payloads
       if: ${{ inputs.phase == 'foundation' }}
       env:
