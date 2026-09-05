@@ -61,8 +61,8 @@ repos:
     hooks:
       # Oxlint for the TS packages actually staged. Dispatch is derived from
       # the workspace set (scripts/local-gates/oxlint-changed.sh): a package
-      # with lint:oxlint is picked up automatically. contract still lints
-      # src/ only (test/ is outside tsconfig; type-aware collapse otherwise).
+      # with lint:oxlint is picked up automatically, and every workspace
+      # package has one (#1358).
       - id: oxlint
         name: oxlint (changed TS packages)
         entry: bash scripts/local-gates/oxlint-changed.sh

@@ -4,7 +4,8 @@
   "main": "index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
-    "test": "node --test topology-*.test.ts"
+    "test": "node --test topology-*.test.ts && pnpm run test:program-load",
+    "test:program-load": "bash ../scripts/local-gates/infra-check.sh"
   },
   "dependencies": {
     "@pulumi/cloudflare": "^6.0.0",

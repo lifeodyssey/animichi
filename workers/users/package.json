@@ -5,11 +5,12 @@
   "type": "module",
   "description": "Animichi Users service — user-domain routes over Neon (Hono + oRPC)",
   "scripts": {
-    "dev": "wrangler dev",
+    "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "typecheck": "tsc --noEmit",
     "test": "npm run test:worker",
-    "test:worker": "vitest run --config vitest.config.ts --coverage",
-    "typecheck": "tsc --noEmit"
+    "dev": "wrangler dev",
+    "test:worker": "vitest run --config vitest.config.ts --coverage"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

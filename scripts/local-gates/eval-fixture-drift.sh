@@ -19,6 +19,11 @@
 # Behavioral tests: eval-fixture-drift.test.sh.
 set -euo pipefail
 
+# Callable from any directory (the owning package's `test` script runs it from the
+# package directory, the pre-push orchestrator from the repository root); every
+# path below is repository-relative.
+cd "$(git rev-parse --show-toplevel)"
+
 FIXTURES="packages/eval/fixtures"
 
 IDX="$(git rev-parse --git-path index)"
