@@ -179,13 +179,16 @@ describe("single CI contract compat gate wiring", () => {
     }
   });
 
-  it("bootstrap lands against the committed post-cut baseline, not the phantom-laden merge-base", () => {
-    expect(workflow).toContain('"/v1/users/(checkins|shares)');
-    expect(workflow).toContain('git show "$source_head:packages/contract/$doc" > "$baseline"');
+  it("reads the baseline from the merge base's copy of the document, never from the source head", () => {
+    expect(workflow).toContain('git show "$merge_base:packages/contract/$doc" > "$baseline"');
+    expect(workflow).not.toContain('git show "$source_head:packages/contract/$doc"');
   });
 
-  it("swaps the baseline only when the candidate is already post-cut (never self-compares)", () => {
-    expect(workflow).toContain('! grep -Eq \'"/v1/users/(checkins|shares)\' "packages/contract/$doc"');
+  it("treats a document absent at the merge base as empty and an unreadable tree or blob as fatal", () => {
+    expect(workflow).toContain('git ls-tree "$merge_base" -- "packages/contract/$doc"');
+    expect(workflow).toContain(String.raw`printf '{\n  "paths": {}\n}\n' > "$baseline"`);
+    expect(workflow).toContain("cannot read the merge base tree $merge_base");
+    expect(workflow).toContain("cannot read $doc from merge base $merge_base");
   });
 
   it("fails closed when neither base SHA context is present (no HEAD fallback)", () => {
