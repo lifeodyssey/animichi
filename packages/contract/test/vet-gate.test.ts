@@ -3,14 +3,14 @@
  *
  * Two guarantees live here so the enforcement cannot silently disappear:
  *
- *  1. The vet CLI (`scripts/vet-openapi.ts`) behaves as the workflow expects:
+ *  1. The vet CLI (`scripts/vet-openapi.ts`) behaves as the gate expects:
  *     unapproved breaking changes exit 1, additive changes exit 0, and the
- *     future-major deprecation/sunset rule is enforced even for additive /
- *     approved runs.
+ *     future-major deprecation/sunset rule holds even for additive runs.
  *
- *  2. The affected contract gate invokes that CLI against an explicit
- *     merge-base baseline, and the normal gate never
- *     passes `--allow-breaking` (approved breaking changes are explicit).
+ *  2. The package's own `test` script invokes that CLI against an explicit
+ *     merge-base baseline (`scripts/vet-openapi-baseline.ts`, #1358 — the gate
+ *     used to live in a CI-only shell script, so only a pull request could run
+ *     it), and never passes `--allow-breaking`.
  */
 
 import { spawnSync } from "node:child_process";
@@ -23,9 +23,9 @@ import type { ApiDocument } from "../src/operation-set.js";
 import usersOpenApi from "../users-openapi.json";
 
 const PACKAGE_ROOT = fileURLToPath(new URL("..", import.meta.url));
-const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const VET_SCRIPT = join(PACKAGE_ROOT, "scripts", "vet-openapi.ts");
-const WORKFLOW_PATH = join(REPO_ROOT, ".github", "scripts", "pr-verification-gate.sh");
+const MANIFEST_PATH = join(PACKAGE_ROOT, "package.json");
+const BASELINE_GATE = join(PACKAGE_ROOT, "scripts", "vet-openapi-baseline.ts");
 const N_MINUS_ONE_FIXTURE = join(PACKAGE_ROOT, "test", "fixtures", "users-contract-n-1.json");
 const CURRENT_USERS_DOC = join(PACKAGE_ROOT, "users-openapi.json");
 
@@ -42,6 +42,14 @@ function runVet(baseline: string, candidate: string, flag?: string): CliResult {
     encoding: "utf8",
   }) as CliResult;
   return { status: result.status, stderr: result.stderr, stdout: result.stdout };
+}
+
+function runBaselineGate(baseRef: string): CliResult {
+  return spawnSync(process.execPath, ["--import", "tsx", BASELINE_GATE], {
+    cwd: PACKAGE_ROOT,
+    encoding: "utf8",
+    env: { ...process.env, CONTRACT_BASE_REF: baseRef },
+  }) as CliResult;
 }
 
 function writeFixture(dir: string, name: string, document: ApiDocument): string {
@@ -130,15 +138,11 @@ describe("vet-openapi CLI approval semantics", () => {
 });
 
 describe("phantom hard-cut classification (baseline bootstrap, #1005 AC3)", () => {
-  it("the CLI rejects the phantom removals against the previous artifact", () => {
+  it("rejects the phantom removals, and passes only with the approval flag", () => {
     const result = runVet(N_MINUS_ONE_FIXTURE, CURRENT_USERS_DOC);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("GET /v1/users/checkins was removed");
     expect(result.stderr).toContain("POST /v1/users/shares was removed");
-  });
-
-  it("the same cut passes only with the explicit approval flag", () => {
-    expect(runVet(N_MINUS_ONE_FIXTURE, CURRENT_USERS_DOC).status).toBe(1);
     expect(runVet(N_MINUS_ONE_FIXTURE, CURRENT_USERS_DOC, "--allow-breaking").status).toBe(0);
   });
 
@@ -150,49 +154,46 @@ describe("phantom hard-cut classification (baseline bootstrap, #1005 AC3)", () =
   });
 });
 
-describe("single CI contract compat gate wiring", () => {
-  const workflow: string = readFileSync(WORKFLOW_PATH, "utf8") as string;
-  const vetInvocationLines = workflow.split("\n").filter((line) => line.includes("vet-openapi.ts"));
+describe("the compat gate is the contract package's own test script", () => {
+  const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) as { scripts: Record<string, string> };
+  const gate: string = readFileSync(BASELINE_GATE, "utf8");
 
-  it("invokes the vet CLI in the affected contract gate", () => {
-    expect(vetInvocationLines.length).toBeGreaterThan(0);
+  it("runs the merge-base gate from `pnpm --filter @animichi/contract test`", () => {
+    expect(manifest.scripts.test).toContain("pnpm run vet:baseline");
+    expect(manifest.scripts["vet:baseline"]).toContain("scripts/vet-openapi-baseline.ts");
   });
 
-  it("resolves a deterministic merge-base baseline against the PR's base branch", () => {
-    expect(workflow).toContain('git merge-base "$source_head" "$base"');
-    expect(workflow).toContain("PR_VERIFICATION_BASE_SHA");
-    expect(workflow).toContain("PR_VERIFICATION_SOURCE_HEAD_SHA");
-    expect(workflow).toContain("PR_VERIFICATION_CHECKOUT_SHA");
+  it("invokes the vet CLI rather than a second copy of its decisions", () => {
+    expect(gate).toContain('join(PACKAGE_ROOT, "scripts", "vet-openapi.ts")');
+    expect(gate).toContain('const args = ["--import", "tsx", VET_SCRIPT, baseline, candidate];');
   });
 
-  it("gates every published OpenAPI document", () => {
-    const invocation = vetInvocationLines.join("\n");
-    for (const doc of ["openapi.json", "users-openapi.json", "agent-openapi.json"]) {
-      expect(workflow).toContain(doc);
-    }
-    expect(invocation).toContain('"packages/contract/$doc"');
+  it("gates all three documents and never passes the approval flag", () => {
+    expect(gate).toContain('["openapi.json", "users-openapi.json", "agent-openapi.json"]');
+    const invocations = gate.split("\n").filter((line) => line.includes("VET_SCRIPT"));
+    expect(invocations.length).toBeGreaterThan(0);
+    for (const line of invocations) expect(line).not.toContain("--allow-breaking");
   });
 
-  it("never passes the approval flag in the normal gate", () => {
-    for (const line of vetInvocationLines) {
-      expect(line).not.toContain("--allow-breaking");
-    }
+  it("takes the baseline from the merge base's own copy, never from a source head", () => {
+    expect(gate).toContain('git("merge-base", "HEAD", BASE_REF)');
+    expect(gate).toContain('process.env.CONTRACT_BASE_REF ?? "origin/main"');
+    expect(gate).toContain("git(\"show\", `${base}:packages/contract/${document}`)");
   });
 
-  it("reads the baseline from the merge base's copy of the document, never from the source head", () => {
-    expect(workflow).toContain('git show "$merge_base:packages/contract/$doc" > "$baseline"');
-    expect(workflow).not.toContain('git show "$source_head:packages/contract/$doc"');
+  it("treats a document absent at the merge base as empty, an unreadable tree as fatal", () => {
+    expect(gate).toContain('git("ls-tree", base, "--", `packages/contract/${document}`)');
+    expect(gate).toContain(String.raw`const EMPTY_BASELINE = '{\n  "paths": {}\n}\n';`);
+    for (const call of gate.split("\n").filter((line) => line.includes("git(")))
+      expect(call).not.toContain("cat-file");
   });
 
-  it("treats a document absent at the merge base as empty and an unreadable tree or blob as fatal", () => {
-    expect(workflow).toContain('git ls-tree "$merge_base" -- "packages/contract/$doc"');
-    expect(workflow).toContain(String.raw`printf '{\n  "paths": {}\n}\n' > "$baseline"`);
-    expect(workflow).toContain("cannot read the merge base tree $merge_base");
-    expect(workflow).toContain("cannot read $doc from merge base $merge_base");
-  });
-
-  it("fails closed when neither base SHA context is present (no HEAD fallback)", () => {
-    expect(workflow).not.toContain("'HEAD'");
-    expect(workflow).toContain('require_commit_sha base "$base"');
+  it("approves the committed documents, and fails closed on an unresolvable base", () => {
+    const approved = runBaselineGate("HEAD");
+    expect(approved.stderr).not.toContain("rejected:");
+    expect(approved.status).toBe(0);
+    const missingBase = runBaselineGate("refs/heads/no-such-base");
+    expect(missingBase.status).toBe(1);
+    expect(missingBase.stderr).toContain("vet-openapi-baseline:");
   });
 });

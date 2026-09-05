@@ -20,13 +20,13 @@ Workspace members are **derived** from `pnpm-workspace.yaml` (directories matchi
 | `apps/web/` | web | oxlint (type-aware) | `typecheck` + `lint:oxlint` + coverage-enabled `test` + `VITE_SHOWCASE_MODE=false test:integration` |
 | `workers/catalog/` | catalog | oxlint | `tsc --noEmit` + `lint:oxlint` + `test:worker` + `test:spike` + `test:smoke` + `wrangler deploy --dry-run` |
 | `workers/users/` | users | oxlint | `tsc --noEmit` + `lint:oxlint` + `test:worker` + `wrangler deploy --dry-run` |
-| `workers/edge/` | edge | oxlint | `lint:oxlint` + `test:worker` + `test:bundle-smoke` (bundles the pi kernel entrypoint and executes the artifact in workerd, #1246) + ratelimit-namespace check + production-config `wrangler deploy --dry-run` |
+| `workers/edge/` | edge | oxlint | `lint:oxlint` + the package's own `test` (node:test suite, the contract projection conformance test, `test:bundle-smoke` — which bundles the pi kernel entrypoint and executes the artifact in workerd, #1246 — and `workers/edge/scripts/check-edge-ratelimit-namespace.sh`; the repo root reaches the same script as `pnpm run test:worker`) + production-config `wrangler deploy --dry-run` |
 | `workers/migrator/` | migrator | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (single CI affected-migrator lane) |
-| `packages/contract/` | contract | oxlint | `tsc --noEmit` + `test` + staged-snapshot OpenAPI drift (`contract-drift.sh`, mirrors CI) + agent-model regeneration drift |
-| `packages/eval/` | eval | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` (the Python→TS dataset round trip) + eval-fixture drift (`eval-fixture-drift.sh`, re-runs the Python exporter) |
+| `packages/contract/` | contract | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` (vitest, the merge-base compat gate `vet:baseline`, and the staged-snapshot OpenAPI drift check `contract-drift.sh`) + agent-model regeneration drift |
+| `packages/eval/` | eval | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` (the Python→TS dataset round trip, then `test:fixture-drift` — the Python re-export plus `eval-fixture-drift.sh`) |
 | `packages/test-postgres/` | test-postgres | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` (Docker-free: the startup wait, the two setup budgets, the image-tag contract) |
-| `infra/` | infra | — | `typecheck` + `test` + credential-free Pulumi program-load (`infra-check.sh`) |
-| `e2e/` | e2e | — | strict TypeScript typecheck + type-aware oxlint (Playwright stays in CI; an e2e-only change is not `all`) |
+| `infra/` | infra | — | `typecheck` + `test` (topology tests, then the credential-free Pulumi program load `infra-check.sh`) |
+| `e2e/` | e2e | oxlint | strict TypeScript typecheck + type-aware oxlint (Playwright stays in CI; an e2e-only change is not `all`) |
 | `migrations/` | db | — | `atlas migrate validate` + migration-boundary guard + sqlfluff + disposable fresh-schema apply (`db-fresh-schema.sh`) |
 | `.github/` | ci | actionlint (workflows) | Static-quality lane (pinned actions + workflow/component-manifest invariants + docs/root-allowlist/e2e-promotion guards + coverage-patch policy + actionlint) |
 | `scripts/`, `.github/scripts/` | scripts | shellcheck (shell) + ruff (py) | the gates' own behavioral tests (self-testing orchestration surface) |

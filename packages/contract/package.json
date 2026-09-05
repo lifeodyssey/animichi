@@ -23,12 +23,16 @@
     "./oidc-github": "./src/oidc-github.ts"
   },
   "scripts": {
+    "lint": "pnpm run lint:oxlint",
+    "lint:oxlint": "oxlint --type-aware --deny-warnings src scripts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run && pnpm run vet:baseline && pnpm run test:openapi-drift",
+    "test:openapi-drift": "pnpm run emit:openapi && bash ../../scripts/local-gates/contract-drift.sh",
     "emit:openapi": "node --import tsx scripts/emit-openapi.ts",
     "emit:agent-python": "node --import tsx scripts/emit-agent-python.ts",
     "emit:tool-schemas": "node --import tsx scripts/emit-tool-schemas.ts",
     "vet:openapi": "node --import tsx scripts/vet-openapi.ts",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "vet:baseline": "node --import tsx scripts/vet-openapi-baseline.ts"
   },
   "dependencies": {
     "@orpc/contract": "1.14.10",

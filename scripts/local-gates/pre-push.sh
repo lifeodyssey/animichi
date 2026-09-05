@@ -221,7 +221,7 @@ gate_edge() {
   gate workers/edge pnpm run lint:oxlint
   run pnpm run test:worker
   gate workers/edge pnpm run test:bundle-smoke
-  run bash .github/scripts/check-edge-ratelimit-namespace.sh
+  run bash workers/edge/scripts/check-edge-ratelimit-namespace.sh
   run pnpm exec wrangler deploy -c workers/edge/wrangler.toml --dry-run -e production --outdir "$GATE_OUTDIR/edge-bundle"
 }
 

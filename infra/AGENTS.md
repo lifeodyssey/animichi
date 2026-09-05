@@ -5,6 +5,14 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 
 ## Commands (from `infra/`)
 
+- `pnpm test` — the topology tests (`topology-*.test.ts`), then `test:program-load`: the
+  credential-free Pulumi program load (`../scripts/local-gates/infra-check.sh`), which is the only
+  check that catches a loader/compiler incompatibility `tsc --noEmit` cannot see. It needs the
+  Pulumi CLI and touches no cloud credentials.
+- `pnpm run typecheck` — `tsc --noEmit` for the program and for `tsconfig.test.json`. This package
+  has **no** `lint` script yet: type-aware oxlint rejects its `moduleResolution: node10` outright
+  (TypeScript 7 removed that value), so linting it is a change to the Pulumi program's module
+  resolution and its own outcome, not a script alias.
 - `pulumi preview --stack lifeodyssey/staging` — preview against `Pulumi.staging.yaml`.
 - `pulumi preview --stack lifeodyssey/prod` — preview against `Pulumi.prod.yaml`.
 - `pulumi up --stack lifeodyssey/staging` — apply the staging stack; normal delivery runs this through CI.
