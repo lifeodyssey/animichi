@@ -283,9 +283,10 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `docs/ops/secrets.md`, `docs/ops/cloudflare-hardening.md`); keep paths and key names in lockstep.
 - The agent tier reads Neon directly through the `AGENT_SVC_DATABASE_URL` Secrets Store
   binding — the same binding the container already unwraps (`src/container/container-env.ts`,
-  `docs/ops/secrets.md`), now with the Worker itself as a second consumer. Staging binds it;
-  production does NOT until #855 provisions the store secret there, and binding a store secret
-  that does not exist fails the deploy. It is the WebSocket driver
+  `docs/ops/secrets.md`), now with the Worker itself as a second consumer. Both deployed
+  environments bind it as of W4-1 (#1314) — staging from the store secret `AGENT_SVC_DATABASE_URL`,
+  production from `AGENT_SVC_DATABASE_URL_PROD` in the same shared store; `test/agent-database-binding.test.ts`
+  pins that split, because binding a store secret that does not exist fails the deploy. It is the WebSocket driver
   (`drizzle-orm/neon-serverless`), not neon-http: the intake is an interactive multi-statement
   transaction and neon-http has no transactions.
 - Durable Object classes stay plain classes with `fetch`/`alarm` (`EdgeGuard`, `RunSweeper`) —
