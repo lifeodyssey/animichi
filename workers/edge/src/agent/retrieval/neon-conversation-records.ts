@@ -75,14 +75,28 @@ function selectFacts(sessionId: string): SQL {
     where ${sessions.id} = ${sessionId}`;
 }
 
-/** One window of the transcript, oldest first — `idx_messages_session_created`. */
+/**
+ * One window of the transcript, oldest first — `idx_messages_session_created`.
+ *
+ * `id` breaks a tie, for the reason it does in `selectFacts` and the reason the
+ * agent's own replay of this table already does it
+ * (`session/neon-turn-store.ts::selectTranscript`): `created_at` defaults to
+ * `now()`, which is the TRANSACTION's clock, so two rows one transaction writes
+ * are stamped identically and `created_at` alone is not a total order. What the
+ * read returns then is whatever the plan hands back — the heap's order, which
+ * is not a fact about the conversation. A UUIDv7 key is time-ordered (#992), so
+ * ordering on it is the write order the transcript means, and it makes THIS
+ * read agree with the one that replays the same rows to the model. The page's
+ * own `limit`/`offset` need that total order too: without it two windows of one
+ * transcript can show the same row twice and drop another.
+ */
 function selectTranscript(sessionId: string, page: TranscriptPage): SQL {
   return sql`select ${messages.role} as role, ${messages.content} as content,
       ${messages.responseData} as response_data,
       to_json(${messages.createdAt}) #>> '{}' as created_at
     from ${messages}
     where ${messages.sessionId} = ${sessionId}
-    order by ${messages.createdAt} asc
+    order by ${messages.createdAt} asc, ${messages.id} asc
     limit ${page.limit} offset ${page.offset}`;
 }
 

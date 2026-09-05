@@ -59,6 +59,9 @@ export interface SeededMessage {
   readonly createdAt: string;
   /** The `response_data` envelope, or none. */
   readonly responseData?: Record<string, unknown> | null;
+  /** The row's own key, for a case about two rows stamped in the SAME instant:
+   * `uuidv7()` would hand out ids in insertion order and hide the tie. */
+  readonly id?: string;
 }
 
 /** The envelope column as the row carries it: SQL NULL when there is none,
@@ -70,8 +73,9 @@ function envelopeOf(message: SeededMessage): string | null {
 
 export async function seedMessage(database: AgentDatabase, message: SeededMessage): Promise<void> {
   await database.execute(
-    sql`insert into messages (session_id, role, content, response_data, created_at)
-        values (${message.sessionId}, ${message.role}, ${message.content},
+    sql`insert into messages (id, session_id, role, content, response_data, created_at)
+        values (coalesce(${message.id ?? null}::uuid, uuidv7()), ${message.sessionId},
+                ${message.role}, ${message.content},
                 ${envelopeOf(message)}::jsonb, ${message.createdAt})`,
   );
 }
