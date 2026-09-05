@@ -27,7 +27,10 @@ Greenfield (no dual wire names / table aliases):
 ## Relationships
 
 - **Web → Edge**: Browser talks only to the public edge (and its own Worker for SSR assets as configured).
-- **Edge → Agent / Catalog / Users**: Gateway; Edge resolves **Identity**, does not own pilgrimage models.
+- **Edge → Agent / Catalog / Users**: Gateway; Edge resolves **Identity** and owns no pilgrimage model.
+  Since W1 it is also the **agent tier's host**: behind `AGENT_TURN_ROUTE = "edge"` a chat turn runs
+  in Edge's own `AgentSession` DO against Neon instead of being forwarded to the Python container
+  ([`docs/specs/2026-09-01-agent-ts-rewrite-spec.md`](./docs/specs/2026-09-01-agent-ts-rewrite-spec.md) §二–§三).
 - **Agent → Catalog**: Customer–supplier; Agent needs Points / Bangumi / Itineraries; Catalog owns master data and planning.
 - **Users → Catalog (by id only)**: **SavedRoute** stores `point_ids`, not Point rows; Users does not redefine Point.
 - **Agent ↔ Users**: Claim anonymous **Session** / saved data after login (via Users APIs / product flows).
@@ -50,7 +53,7 @@ Greenfield (no dual wire names / table aliases):
 | `workers/catalog` | **Yes** (target) | Full CA: domain / application / adapters |
 | `apps/agent` | **Yes** (target) | Domain free of FastAPI/PydanticAI runtime imports |
 | `workers/users` | **Shallow** | Pure rules + ports; no heavy DDD tree |
-| `workers/edge` | **No** | Gateway only — never `src/domain/` for pilgrimage |
+| `workers/edge` | **No pilgrimage domain** | Gateway tier: never `src/domain/` for Point / Bangumi / Itinerary / SavedRoute. Its `src/agent/` tier does own the **agent-turn** model (Session, Run, run step, settlement) — ported from `apps/agent` per [`docs/specs/2026-09-01-agent-ts-rewrite-spec.md`](./docs/specs/2026-09-01-agent-ts-rewrite-spec.md) §三, not a pilgrimage context |
 | `apps/web` | **No** | UI — no `src/domain/` |
 | `infra` | **No** | Topology / Cloudflare only |
 | `packages/contract` | N/A | Published language, not a BC with domain/ |

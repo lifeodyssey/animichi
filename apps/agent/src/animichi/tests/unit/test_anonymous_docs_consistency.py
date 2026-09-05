@@ -64,8 +64,24 @@ def test_the_documented_breaker_names_its_code_and_data_source(
 def test_the_breaker_is_documented_as_container_authoritative(
     architecture: str,
 ) -> None:
-    assert "container ingress" in architecture
-    assert "The edge never reads `daily_usage` itself." in architecture
+    assert "container ingress is the authoritative decider" in architecture
+
+
+def test_the_breaker_is_documented_as_unowned_on_the_edge_tier(
+    architecture: str,
+) -> None:
+    """Under `AGENT_TURN_ROUTE = "edge"` the turn never reaches the container, so
+    the 403 the edge latch waits for is never produced and nothing under
+    `workers/edge/src/agent/` reads the budget variable (EG-01,
+    `docs/specs/2026-09-05-repo-smell-audit.md` §1.2). The doc must say so for as
+    long as that is true — this pin fails once someone fixes it, which is the
+    point."""
+    edge_agent = WORKER / "agent"
+    sources = "".join(
+        path.read_text(encoding="utf-8") for path in sorted(edge_agent.rglob("*.ts"))
+    )
+    assert "ANON_DAILY_COST_BUDGET_USD" not in sources
+    assert "**On the edge tier this ceiling currently has no decider.**" in architecture
 
 
 def test_zero_history_anonymous_visitors_are_documented_as_allowed(
