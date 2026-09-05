@@ -1,13 +1,17 @@
 # packages/eval — AGENTS.md
 
 The TS side of the eval move (W3 of `docs/specs/2026-09-01-agent-ts-rewrite-spec.md`, umbrella
-#1258). Plain **Node** package — it reads files and will later drive HTTP calls at staging, so it
-must never enter a Workers bundle, and imports nothing from `workers/*` except the one
+#1258). Plain **Node** package — it reads files and drives HTTP calls at staging from `scripts/`,
+so it must never enter a Workers bundle, and imports nothing from `workers/*` except the one
 staging door named under “Talking to staging” below. Root guide: `../../AGENTS.md`.
 
-It owns two proven things: the **file contract** between the Python exporter and `logfire/evals`,
-and the **eight evaluators** (`src/evaluators/`) scoring identically to their Python originals.
-W3-2, W3-4 and W3-5 (the staging task, the `gate.py` statistics port, the double run) build on both.
+It owns three things proven against Python's own answers: the **file contract** between the Python
+exporter and `logfire/evals`, the **eight evaluators** (`src/evaluators/`) scoring identically to
+their originals, and the **`gate.py` statistics port** (`src/gate/`) reaching bit-identical
+intervals. The two halves of the W3-5 double run sit on top: the **staging task**
+(`src/staging-turn-task.ts`), which turns one case into real turns, and the **gate runner**
+(`src/gate-run/`, `pnpm run eval:gate`), which turns a finished run into a verdict and a committed
+result file. Neither has met a live staging turn yet.
 
 ## Commands (from `packages/eval/`)
 
