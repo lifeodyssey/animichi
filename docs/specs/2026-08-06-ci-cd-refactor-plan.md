@@ -44,7 +44,7 @@
     ci-web.yml
     ci-agent.yml
     ci-edge.yml
-    ci-jobs.yml                   # 原 pipeline-maintenance
+    # ci-jobs.yml                 → RETIRED（#1316）：jobs 包空壳从未落地，不再规划
 
     # ── CI：横切（各 1 个）──
     ci-security.yml               # 调 reusable-security + 可选 codeql 触发关系写清
@@ -72,7 +72,7 @@
 
     # 删除/归档
     # pipeline-*.yml              → 被 ci-*.yml 取代
-    # purge-anonymous-*.yml       → jobs Worker 已 RETIRED（#1316，空壳从未落地）
+    # purge-anonymous-*.yml       → RETIRED（#1316）；retention 需求如重启，评估并入 catalog 数据平台
     # ci.yml 上帝文件             → 拆空或只剩 redirect 注释期
 ```
 
@@ -167,7 +167,7 @@ jobs:
 | pipeline-catalog | ci-catalog |
 | pipeline-users | ci-users |
 | pipeline-edge | ci-edge |
-| pipeline-maintenance | **ci-jobs**（与包 rename 可同波或先别名） |
+| pipeline-maintenance | **RETIRED (#1316)** — jobs 包空壳已删除，无需 rename |
 | pipeline-contract | ci-contract |
 | pipeline-db | ci-db（validate only；无 deploy） |
 | pipeline-infra | ci-infra（特殊可保留更多 steps，但仍尽量 composite） |
@@ -190,7 +190,7 @@ jobs:
 
 ### PR-C5 — 清理杂物
 
-- 删除或 archive：`purge-anonymous-sessions.yml`、`purge-anon-quota-counts.yml`（权威 **jobs Worker**）
+- 删除或 archive：`purge-anonymous-sessions.yml`、`purge-anon-quota-counts.yml`（jobs 包已 **RETIRED**，#1316；retention 需求如重启，评估并入 catalog 数据平台）
 - `deploy.yml` → `deploy-manual.yml`，与 deploy-prod **共用** reusable-deploy
 - 文档：`docs/ops/deployment.md` 重画「CI 横切 / 包 CI / CD」三层 + Sonar 说明
 

@@ -22,7 +22,7 @@
 | catalog / agent | **有** |
 | users | **浅** |
 | edge / web | **无** |
-| **jobs** | **无** — Job + Schedule only |
+| **jobs** | **RETIRED (#1316)** |
 
 ---
 

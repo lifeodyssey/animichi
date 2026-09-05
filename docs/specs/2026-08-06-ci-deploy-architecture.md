@@ -13,7 +13,7 @@
 
 | 原则 | 含义 |
 |---|---|
-| **Monorepo 下每个可部署小单元一条部署 pipeline** | catalog / users / web / agent(container) / edge(root) / jobs… 各自一条，**不是**错 |
+| **Monorepo 下每个可部署小单元一条部署 pipeline** | catalog / users / web / agent(container) / edge(root) 各自一条，**不是**错 |
 | **标准阶段** | **lint → test → build → 发布 artifact → deploy**；之后 **打 tag**，再部署、再打 tag（环境递进） |
 | **Staging 后质量** | staging 部署完成后跑 **API 测试 + E2E**；必要时 **scheduler** 定时跑 API/E2E — **合理** |
 | **Shared pipeline as code** | reusable workflow / composite action — **方向对** |
@@ -80,7 +80,7 @@
 | `pipeline-web/agent/catalog/...yml` 各写一遍 steps | **同一 reusable**；调用方 30 行级 |
 | `ci.yml` = 安全 + eval + neon 集成 + **整段 deploy 晋升** | **拆开**：检查旁路 vs **deploy orchestration** |
 | `deploy.yml` 手动 prod | 保留；与自动晋升 **共用** reusable-deploy |
-| `purge-anonymous-*.yml` | **删除或归档**（jobs Worker 为权威） |
+| `purge-anonymous-*.yml` | **删除或归档**（jobs 包已 **RETIRED**，#1316；retention 需求如重启，评估并入 catalog 数据平台） |
 | `pipeline-quality.yml` 大杂烩 | 缩成 invariants **或** 并入 security/docs 旁路 |
 | 名 `pipeline-*` | 建议改为 **`ci-<pkg>`** 或 **`check-<pkg>`**；「pipeline」留给部署叙事/数据面口语 |
 
@@ -118,7 +118,7 @@ lint → test → build → publish artifact
 2. PR 上出现 **与 diff 无关** 的全量包编译作为默认（除非 contract/共享触达或 merge_group 全量策略 **成文**）
 3. `ci.yml` 同时拥有「随机 eval」和「prod 五连 deploy」且无目录/命名分层
 4. 包 CI 文件 > ~80 行且大部分是可复用 steps
-5. 两套 purge（GHA + jobs Worker）无「唯一权威」声明
+5. ~~两套 purge（GHA + jobs Worker）无「唯一权威」声明~~ — jobs 包已 **RETIRED**（#1316），不再并存
 
 ---
 
@@ -133,7 +133,6 @@ lint → test → build → publish artifact
 | web | `ci-web` | artifact → CF |
 | agent | `ci-agent` | image/build |
 | edge (root) | `ci-edge` | 路由依赖 users/catalog 已上 |
-| jobs | `ci-jobs` | 原 maintenance |
 
 **db validate** 可以是 `ci-db`；**migrate apply** 只在 deploy reusable 里（已有方向）。
 
