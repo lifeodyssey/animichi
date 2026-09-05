@@ -19,15 +19,18 @@
 S0-v2 Track B 按 GOAL「repo 级 CF token 删除」收口——执行 ticket 以目标分布为准,不得新增 repo 级。
 轮换后同步范围 = 两个 environment + operator-local `.env` + 跑 R2 派生对刷新(见下)。
 
-### Pulumi state 后端(自管 R2,非 Pulumi Cloud)
+### Pulumi state 后端(Pulumi Cloud,org `lifeodyssey`,#1077)
 
-- `PULUMI_BACKEND_URL`:`s3://` 形式带 query 的 R2 端点。**值不得带引号**(曾因带引号存 repo 级
-  导致 `unknown backend cloudUrl format`);pulumi/actions 的 automation-api 不认此 URL,
-  CI 一律 CLI 直登(`pulumi login "$PULUMI_BACKEND_URL"`,前置 install-only 步)。
-- `PULUMI_CONFIG_PASSPHRASE`:栈密文(`secure:`)的解密口令。公开仓库允许提交密文
-  (`infra/AGENTS.md` 约定;Pulumi.prod.yaml 先例),熵在 passphrase。
-- `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`:S3 兼容凭证,**派生自 Pulumi 钥**
-  (access key = token id,secret = sha256(token));Pulumi 钥轮换后必须重派生。
+- 后端由两个 `Pulumi.yaml` 的 `backend.url: https://api.pulumi.com` 声明,不再由环境变量决定。
+  `secure:` 密文改由 Pulumi Cloud 的托管 secrets provider 加密——公开仓库仍可提交密文
+  (`infra/AGENTS.md` 约定),熵在 Pulumi Cloud,不再在一句口令上。
+- CI 登录走 `pulumi/auth-actions`:用该 job 的 GitHub OIDC 身份换一枚短命的 organization token,
+  action 自己导出成 `PULUMI_ACCESS_TOKEN`。GitHub Settings 里没有 Pulumi PAT,也不再有
+  backend URL / R2 state 钥 / passphrase 参与投递。apply 一律带 org 限定:
+  `pulumi up --stack lifeodyssey/<stack>`。
+- 旧的自管 R2 后端(`PULUMI_BACKEND_URL` + 派生 S3 凭证 + passphrase)只剩两个用途:owner 的
+  一次性迁移(见 `docs/ops/deployment.md`「One-time migration」),以及全部 stack 导入完成前的
+  回退路径。删 GitHub 里的这四个名字是 #1081。
 
 ### 应用与门禁密钥(用途索引)
 

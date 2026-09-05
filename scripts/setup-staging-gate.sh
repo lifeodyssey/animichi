@@ -45,7 +45,7 @@ for arg in "$@"; do
 done
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-STACK=staging
+STACK=lifeodyssey/staging
 
 fail() { echo "✗ $*" >&2; exit 1; }
 
@@ -58,12 +58,17 @@ command -v pulumi >/dev/null  || fail "pulumi not found — https://pulumi.com/d
 
 gh auth status >/dev/null 2>&1 || fail "gh is not authenticated — run: gh auth login"
 
-: "${PULUMI_CONFIG_PASSPHRASE:?PULUMI_CONFIG_PASSPHRASE must be set (same value CI uses)}"
-: "${PULUMI_BACKEND_URL:?PULUMI_BACKEND_URL must be set (the R2 state backend)}"
-
 cd "$REPO_ROOT/infra"
+
+# State and stack encryption live in Pulumi Cloud (#1077): the backend comes from
+# infra/Pulumi.yaml and the encryption from the org's secrets provider, so this needs
+# an interactive Pulumi Cloud login rather than a backend URL, R2 keys, and a passphrase.
+# Checked from inside the project so the login is resolved against that declared backend.
+pulumi whoami >/dev/null 2>&1 \
+  || fail "not logged into Pulumi Cloud — run: pulumi login"
+
 pulumi stack select "$STACK" >/dev/null 2>&1 \
-  || fail "cannot select Pulumi stack '$STACK' — check PULUMI_BACKEND_URL and your R2 credentials"
+  || fail "cannot select Pulumi stack '$STACK' — check your Pulumi Cloud login and org access"
 
 # ── Refuse to clobber silently ──────────────────────────────────────────────
 EXISTING_PULUMI=0

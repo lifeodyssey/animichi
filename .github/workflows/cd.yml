@@ -95,6 +95,8 @@ jobs:
     permissions:
       contents: read
       actions: read
+      # Pulumi Cloud login is OIDC (#1077), not a stored access token.
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -107,10 +109,7 @@ jobs:
           source_sha: ${{ github.sha }}
           cloudflare_pulumi_api_token: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
           cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          pulumi_config_passphrase: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-          pulumi_backend_url: ${{ secrets.PULUMI_BACKEND_URL }}
-          r2_access_key_id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2_secret_access_key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          pulumi_organization: lifeodyssey
           neon_api_key: ${{ secrets.NEON_API_KEY }}
           # #1216/audit §2.6: the shared reset script fired on every foundation promotion
           # regardless of whether this push touched the schema at all. Narrow the trigger
@@ -266,6 +265,8 @@ jobs:
     permissions:
       contents: read
       actions: read
+      # Pulumi Cloud login is OIDC (#1077), not a stored access token.
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -290,16 +291,20 @@ jobs:
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         with:
           pulumi-version-file: .pulumi.version
+      - name: Log into Pulumi Cloud with GitHub OIDC
+        if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'infra') }}
+        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        with:
+          organization: lifeodyssey
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:lifeodyssey
       - name: Promote production foundation payloads
         if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'infra') }}
         env:
           SOURCE_SHA: ${{ github.sha }}
           CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
-          PULUMI_BACKEND_URL: ${{ secrets.PULUMI_BACKEND_URL }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          PULUMI_ORG: lifeodyssey
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: bash .github/scripts/promote-release-unit.sh infra production "$SOURCE_SHA" "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-infra"
       - name: Promote production database payload

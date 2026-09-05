@@ -88,8 +88,8 @@ export interface Unsealed {
  *
  * Pulumi serializes a secret as `{[specialSigKey]: specialSecretSig, value}`.
  * Asserting on that wire shape is stronger than calling `isSecret()` on an
- * `Output`, because it is literally what the engine writes to state — which is
- * what ends up in the `pulumi stack export` that lands in R2.
+ * `Output`, because it is literally what the engine writes to state — and an
+ * unmarked value is stored there, and exported later, in the clear.
  *
  * `isRpcSecret`/`unwrapRpcSecret` are Pulumi's own predicates for exactly this.
  * An earlier version inlined the two sentinel hashes as string literals, which

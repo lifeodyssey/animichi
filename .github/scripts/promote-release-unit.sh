@@ -123,59 +123,36 @@ deploy_web() {
     --no-bundle --config "$PAYLOAD_DIR/apps/web/wrangler.jsonc" --env "$TARGET_ENVIRONMENT"
 }
 
+# State and stack encryption live in Pulumi Cloud (#1077). Each project's
+# Pulumi.yaml names the backend and the login is the short-lived organization
+# token `pulumi/auth-actions` exchanged this job's GitHub OIDC identity for, so
+# there is no backend URL, no state key pair, and no config passphrase to hand
+# this script. Requiring the exported token fails closed when that login step
+# was skipped or silently produced nothing.
 require_infra_env() {
-  required PULUMI_BACKEND_URL
+  required PULUMI_ORG
+  required PULUMI_ACCESS_TOKEN
   required CLOUDFLARE_ACCOUNT_ID
-  required R2_ACCESS_KEY_ID
-  required R2_SECRET_ACCESS_KEY
-  required PULUMI_CONFIG_PASSPHRASE
   required CLOUDFLARE_PULUMI_API_TOKEN
   required NEON_API_KEY
 }
 
-export_pulumi_state() {
-  local project="$1" stack="$2" backup="$3"
-  (cd "$project" && pulumi login "$PULUMI_BACKEND_URL" && \
-    pulumi stack select "$stack" && pulumi stack export --file "$backup")
-  [ -s "$backup" ] || fail "empty Pulumi rollback snapshot for $project/$stack"
-}
-
-upload_pulumi_state() {
-  local backup="$1" stack="$2" label="$3" bucket
-  bucket="${PULUMI_BACKEND_URL#s3://}"; bucket="${bucket%%\?*}"
-  AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
-    AWS_DEFAULT_REGION=auto aws s3 cp \
-    --endpoint-url "https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com" \
-    "$backup" "s3://$bucket/rollback-backups/pulumi-$label-$stack-$GITHUB_RUN_ID.json"
-}
-
-pulumi_backup() {
-  local project="$1" stack="$2" label="$3" backup
-  backup="$RUNNER_TEMP/pulumi-$label-$stack-$GITHUB_RUN_ID.json"
-  export_pulumi_state "$project" "$stack" "$backup"
-  upload_pulumi_state "$backup" "$stack" "$label"
-}
-
+# Organization-qualified so an apply cannot land in whatever organization the
+# token happens to default to. Rollback is Pulumi Cloud's own update history —
+# the pre-apply `pulumi stack export` copied into the state bucket retires with
+# that bucket.
 pulumi_up() {
   local project="$1" stack="$2"
-  (cd "$project" && pulumi up --stack "$stack" --non-interactive --yes)
+  (cd "$project" && pulumi up --stack "$PULUMI_ORG/$stack" --non-interactive --yes)
 }
 
 setup_infra() {
   require_infra_env
   export CLOUDFLARE_API_TOKEN="$CLOUDFLARE_PULUMI_API_TOKEN"
-  export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
-  export AWS_DEFAULT_REGION=auto
   pnpm install --dir "$PAYLOAD_DIR" --frozen-lockfile --ignore-scripts
   pnpm install --dir "$PAYLOAD_DIR/infra/database-access" --frozen-lockfile --ignore-scripts
   [ -f "$PAYLOAD_DIR/infra/database-access/sdks/neon/bin/index.js" ] || \
     fail "sealed Neon provider SDK is missing its built entrypoint"
-}
-
-apply_pulumi_project() {
-  local project="$1" stack="$2" label="$3"
-  pulumi_backup "$project" "$stack" "$label"
-  pulumi_up "$project" "$stack"
 }
 
 reset_staging_baseline() {
@@ -191,9 +168,9 @@ deploy_infra() {
   local stack=staging
   [ "$TARGET_ENVIRONMENT" = production ] && stack=prod
   setup_infra
-  apply_pulumi_project "$PAYLOAD_DIR/infra/database-access" "$stack" database-access
+  pulumi_up "$PAYLOAD_DIR/infra/database-access" "$stack"
   reset_staging_baseline
-  apply_pulumi_project "$PAYLOAD_DIR/infra" "$stack" main
+  pulumi_up "$PAYLOAD_DIR/infra" "$stack"
 }
 
 sealed_migration_head() {
