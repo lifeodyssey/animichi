@@ -11,6 +11,13 @@ export function parseChatDataPart(data: unknown): ChatDataPart | null {
   return result.success ? result.data : null;
 }
 
+/** The session id this envelope assigns, or `undefined` when it carries none.
+ * The recordings send `null` until the backend has minted one. */
+export function assignedSessionIdIn(part: ChatDataPart): string | undefined {
+  const assigned = part.session_id;
+  return typeof assigned === "string" && assigned !== "" ? assigned : undefined;
+}
+
 /** The intent-first frame carries only `intent`; render a skeleton card for it. */
 export function isIntentOnly(part: ChatDataPart): boolean {
   return part.message === undefined && part.data === undefined;

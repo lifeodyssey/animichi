@@ -6,14 +6,17 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DoorwaySummary } from "../../../src/features/seo/DoorwaySummary";
 import { dictFor } from "../../../src/i18n/dictionaries";
 import { LocaleProvider } from "../../../src/i18n/LocaleProvider";
+import { AppRouterContext } from "../_router";
 
 afterEach(cleanup);
 
 function renderDoorway() {
   return render(
-    <LocaleProvider>
-      <DoorwaySummary />
-    </LocaleProvider>,
+    <AppRouterContext>
+      <LocaleProvider>
+        <DoorwaySummary />
+      </LocaleProvider>
+    </AppRouterContext>,
   );
 }
 

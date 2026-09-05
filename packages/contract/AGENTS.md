@@ -29,10 +29,13 @@ them. Root guide: `../../AGENTS.md`; detailed mirror checklist: `README.md`.
 OpenAPI emission is byte-stable: JSON is pretty-printed with one trailing newline. Regenerate on
 every contract change and commit all three outputs. CI reruns emission and fails on committed drift,
 then runs `vet:openapi` for each document against the merge-base baseline (the published contract)
-in the `Contract / build` stage — unapproved breaking `/v1` changes fail closed there. Baseline
-bootstrap (#1005 AC3): a merge-base baseline still carrying the retired phantom check-in/share
-surface is replaced by the post-cut documents committed in this tree — that fallback can only fire
-on this landing, because after it lands merge-base IS the post-cut contract.
+in the `Contract / build` stage — unapproved breaking `/v1` changes fail closed there. The baseline
+is always the merge base's own copy of the document, never the source head's: a document the merge
+base does not carry is brand-new, so it gets an empty `{"paths": {}}` baseline that approves every
+operation in it as additive, while a merge base the repository cannot read at all — missing tree or
+blob, shallow clone, corrupt object — exits 1 rather than approving an unreviewed deletion. The
+retired check-in/share bootstrap fallback (#1005 AC3) was deleted in #1347 once every branch was
+post-cut.
 
 ## Conventions
 

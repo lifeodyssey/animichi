@@ -1,6 +1,7 @@
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { LoginModal } from "../../auth/ui/LoginModal";
-import { useChatReturnTarget } from "../ChatReturnTarget";
+import { useChatReturnTarget, useChatSessionId } from "../ChatReturnTarget";
 import type { AuthStatus } from "../../../lib/auth/session";
 import type { ChatDict } from "../i18n";
 
@@ -56,12 +57,17 @@ function NewConversationLink({ dict }: Readonly<{ dict: ChatDict }>) {
   );
 }
 
-/** A plain route link, kept last so settings occupies the true top-right slot. */
+/**
+ * A router link, kept last so settings occupies the true top-right slot. It
+ * carries the conversation as `?session=` so the settings page's own link back
+ * returns to it instead of a fresh draft (#1337).
+ */
 function SettingsLink({ dict }: Readonly<{ dict: ChatDict }>) {
-  return <a className="chat-appbar__settings" href="/settings" aria-label={dict.appbar.settings}>
+  const session = useChatSessionId();
+  return <Link className="chat-appbar__settings" to="/settings" search={{ session }} aria-label={dict.appbar.settings}>
     <SettingsIcon />
     <span className="chat-appbar__settings-label">{dict.appbar.settings}</span>
-  </a>;
+  </Link>;
 }
 
 /** Signed in: the design's teal disc, labelled — it reports state, it is not a

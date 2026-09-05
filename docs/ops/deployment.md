@@ -349,8 +349,13 @@ organization `lifeodyssey`. `backend.url` in each `Pulumi.yaml` is the source of
 
 No long-lived Pulumi access token is stored in GitHub secrets. `stage-foundation` and the
 `promote-production` infra step run `pulumi/auth-actions`, which exchanges the job's GitHub OIDC
-identity for a short-lived Pulumi Cloud *organization* token and exports it as
-`PULUMI_ACCESS_TOKEN` for the rest of that job only. Those two jobs therefore carry
+identity for a short-lived Pulumi Cloud **personal** token scoped to user `lifeodyssey` (the action
+input `scope: user:lifeodyssey`). `lifeodyssey` is an individual-edition organization, and Pulumi
+Cloud rejects organization tokens for non-enterprise organizations (`Org tokens are not supported
+for non enterprise organizations`), so an organization token type cannot be used here. The Pulumi
+Cloud OIDC issuer policy for this GitHub issuer must therefore carry a **personal** token-type
+policy authorizing that user. The exchanged token is exported as `PULUMI_ACCESS_TOKEN` for the rest
+of that job only. Those two jobs therefore carry
 `id-token: write`, and `promote-release-unit.sh` fails closed when that token is absent. Applies are
 organization-qualified (`pulumi up --stack lifeodyssey/<stack>`) so a token that defaults elsewhere
 cannot land the apply in another organization. `PULUMI_BACKEND_URL`, `PULUMI_CONFIG_PASSPHRASE`, and

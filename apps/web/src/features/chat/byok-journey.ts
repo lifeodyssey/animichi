@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-export { BYOK_SETUP_TARGET } from "../../lib/byok/byok-target";
+export { BYOK_SETUP_HASH, BYOK_SETUP_TARGET } from "../../lib/byok/byok-target";
 
 /**
  * Shared plumbing for the BYOK discovery journey (issue #284 Task 8): every

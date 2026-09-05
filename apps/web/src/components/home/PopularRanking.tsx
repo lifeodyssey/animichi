@@ -1,4 +1,5 @@
 import type { PopularBangumi } from "@animichi/contract";
+import { Link } from "@tanstack/react-router";
 import { usePopularRanking } from "../../api/hooks/use-popular";
 import type { Dict } from "../../i18n/dictionaries";
 import { useDict, useLocale } from "../../i18n/LocaleProvider";
@@ -11,10 +12,10 @@ function rowTitle(row: PopularBangumi, locale: Locale): string {
 function RankItem({ row, locale, home }: { readonly row: PopularBangumi; readonly locale: Locale; readonly home: Dict["home"] }) {
   return (
     <li>
-      <a className="flex items-baseline gap-3 rounded-xl px-3 py-2 hover:bg-[var(--color-muted)]" href={`/anime/${row.bangumi_id}`}>
+      <Link className="flex items-baseline gap-3 rounded-xl px-3 py-2 hover:bg-[var(--color-muted)]" to="/anime/$bangumiId" params={{ bangumiId: row.bangumi_id }}>
         <span className="font-bold text-[var(--color-fg)]">{rowTitle(row, locale)}</span>
         <span className="ml-auto text-sm text-[var(--color-muted-fg)]">{row.points_count} {home.popular_spots}</span>
-      </a>
+      </Link>
     </li>
   );
 }

@@ -104,8 +104,12 @@ assert(
 )
 [staging_auth, production_auth].each do |step|
   assert(
-    step.dig("with", "requested-token-type") == "urn:pulumi:token-type:access_token:organization",
-    "the Pulumi login must request an organization token, not a personal or team one"
+    step.dig("with", "requested-token-type") == "urn:pulumi:token-type:access_token:personal",
+    "the Pulumi login must request a personal token: an individual-edition org cannot mint org tokens"
+  )
+  assert(
+    step.dig("with", "scope") == "user:lifeodyssey",
+    "a personal Pulumi token requires the scope input naming the Pulumi user"
   )
 end
 declared_orgs = [

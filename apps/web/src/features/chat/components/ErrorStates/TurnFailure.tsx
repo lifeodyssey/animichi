@@ -1,7 +1,9 @@
+import { Link } from "@tanstack/react-router";
 import type { Locale } from "../../../../i18n/locales";
 import type { ChatErrorState } from "../../lib/error-classifier";
 import type { ChatDict } from "../../i18n";
-import { BYOK_SETUP_TARGET } from "../../byok-journey";
+import { BYOK_SETUP_HASH } from "../../byok-journey";
+import { useChatSessionId } from "../../ChatReturnTarget";
 import { ByokUpsell } from "../ByokUpsell";
 import { BudgetExhausted } from "./BudgetExhausted";
 import { QuotaExhausted } from "./QuotaExhausted";
@@ -51,11 +53,15 @@ function ByokRequiresLogin({ dict }: Readonly<{ dict: ChatDict }>) {
   );
 }
 
+/** The BYOK setup deep link as a router link, carrying the conversation so the
+ * fix does not cost the visitor their turn (#1337). The section comes from
+ * `BYOK_SETUP_HASH`, the same constant `BYOK_SETUP_TARGET` is built from. */
 function OpenSettingsAction({ dict }: Readonly<{ dict: ChatDict }>) {
+  const session = useChatSessionId();
   return (
-    <a className="chat-byok-rejected__open" href={BYOK_SETUP_TARGET}>
+    <Link className="chat-byok-rejected__open" to="/settings" search={{ session }} hash={BYOK_SETUP_HASH}>
       {dict.byok.openSettings}
-    </a>
+    </Link>
   );
 }
 
