@@ -341,7 +341,7 @@ approval and production after promotion; do not represent that manual evidence a
 - `/img/*` → image proxy + cache
 - Everything else → JSON `404 not_found` (no asset/page fallback since #537)
 
-### Pulumi state, encryption, and CI identity (#1077)
+### Pulumi state, encryption, and CI identity (#1077, #1078)
 
 Both Pulumi projects — `seichijunrei-infra` (`infra/`) and `animichi-neon-secrets`
 (`infra/database-access/`) — keep their state and their `secure:` encryption in **Pulumi Cloud**,
@@ -362,8 +362,44 @@ cannot land the apply in another organization. `PULUMI_BACKEND_URL`, `PULUMI_CON
 the two R2 state keys are no longer read anywhere on the delivery lane; the contract that keeps them
 out is `.github/scripts/test_cd_infrastructure_safety_contract.rb`.
 
-The Pulumi-plane Cloudflare token and the Neon API key still come from GitHub environment secrets.
-Moving them into ESC is #1078.
+Immediately after that login, each of the two jobs opens the matching **Pulumi ESC** environment
+with `pulumi/esc-action` — `lifeodyssey/animichi/staging` for the staging foundation phase,
+`lifeodyssey/animichi/prod` for the production infra step — and that is where the two Pulumi-plane
+credentials come from (#1078):
+
+| ESC key | What reads it |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | the Cloudflare provider in both Pulumi programs. The ESC key already carries the Pulumi-scoped token, so the old `CLOUDFLARE_PULUMI_API_TOKEN` → `CLOUDFLARE_API_TOKEN` rename inside `promote-release-unit.sh` is gone |
+| `NEON_API_KEY` | the Neon provider in `infra/database-access` (`animichi-neon-secrets`) |
+
+Neither is a GitHub secret on the delivery lane any more. Three properties are worth stating
+because they are what the contract test asserts:
+
+- **The export list is an explicit two-name allowlist**, not the action's export-everything
+  default. Whatever an ESC environment grows later cannot reach a CI job by accident, so ADR 0003
+  ("no runtime DSN or model key in ESC") holds structurally rather than by convention.
+- **Worker publishing never opens ESC and never runs `esc run wrangler`.** The staging Worker
+  phases run through the same composite action but the ESC step is gated to `phase == 'foundation'`;
+  in `promote-production`, which does both jobs in one approval-gated job, each Worker-publishing
+  step sets `CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}` in its own step `env`, and a
+  step-level `env` wins over the job-level value ESC injected. The Pulumi-plane token cannot deploy
+  a Worker, and the Worker deploy token cannot touch Pulumi state.
+- **The ESC step installs the `.pulumi.version` CLI.** `pulumi/esc-action` installs a Pulumi CLI and
+  prepends it to `PATH`; left unpinned it fetches the latest release and would silently shadow the
+  version `pulumi/actions` just installed. Given the same version it detects the existing install
+  and downloads nothing, so a small step resolves `.pulumi.version` into the action's `version`
+  input rather than duplicating the number.
+
+`.github/scripts/test_cd_esc_token_source_contract.rb` is the contract for all of the above.
+
+**Owner step, not done by this change:** the two ESC environments must actually hold the values,
+projected under `environmentVariables` — that is the section `pulumi env open --format detailed`
+reads and the action injects from. `pulumi env set --secret` alone puts a value under `values`; if
+it is not also referenced from `environmentVariables`, the action logs `No value found for …` and
+`promote-release-unit.sh` fails closed on the missing name. Check with
+`pulumi env open lifeodyssey/animichi/staging --format detailed` (and `…/prod`) before the first
+run; never paste the values anywhere. AC3 of #1078 — one staging infra and neon-secrets apply with
+tokens only from ESC — is that first CD run, and it is the owner's to observe.
 
 The pre-apply `pulumi stack export` copied into the R2 state bucket is retired: Pulumi Cloud's own
 update history is the rollback record, and it does not require writing a state snapshot into the
@@ -483,9 +519,12 @@ Worker rollback changes the running Worker version but does not undo Durable Obj
 reverse a database migration, or restore Pulumi state. Edge recovery does republish the verified
 paired agent image bytes; it does not rebuild them. Use expand/contract migrations so one-version
 code rollback remains schema-compatible. For Pulumi, inspect the failed update in Pulumi Cloud's
-stack history and roll back from there (`pulumi stack history`, then export the last good
-checkpoint and `pulumi stack import` it), followed by a reviewed reconciliation — the pre-apply R2
-export is retired (#1077). Never place a state export in a public GitHub artifact.
+stack history and roll back from there: read the last-good version number out of `pulumi stack
+history`, then `pulumi stack export --version <version> --file state.json` and `pulumi stack import
+--file state.json`. A bare `pulumi stack export` writes the *latest* checkpoint, which after a
+failed update is the broken one, so the version is not optional. Follow the import with a reviewed
+reconciliation — the pre-apply R2 export is retired (#1077). Never place a state export in a public
+GitHub artifact.
 
 Automated rollback smoke is part of the same deferred smoke debt as forward promotion. The owner
 must manually check health and the affected user journey after recovery.

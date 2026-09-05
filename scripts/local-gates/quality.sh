@@ -49,6 +49,7 @@ for ruby_file in \
   "$GS/test_ci_prepush_parity.test.rb" \
   "$GS/test_cd_worker_promotion_contract.rb" \
   "$GS/test_cd_infrastructure_safety_contract.rb" \
+  "$GS/test_cd_esc_token_source_contract.rb" \
   "$GS/test_cd_affected_routing_contract.rb" \
   "$GS/actionlint-queue-contract.rb" \
   "$GS/test_actionlint_queue_contract.rb" \
@@ -103,6 +104,7 @@ run bash "$GS/staging-smoke-check.test.sh"
 run ruby "$GS/test_ci_contract.rb"
 run ruby "$GS/test_cd_worker_promotion_contract.rb"
 run ruby "$GS/test_cd_infrastructure_safety_contract.rb"
+run ruby "$GS/test_cd_esc_token_source_contract.rb"
 run ruby "$GS/test_cd_affected_routing_contract.rb"
 run ruby "$GS/test_security_check_runs_canary.rb"
 run ruby "$GS/test_ci_contract_security_mutation.rb"
