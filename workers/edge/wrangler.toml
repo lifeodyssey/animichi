@@ -43,12 +43,14 @@
 # Production keeps
 # the settings default (no fallback) while its chat surface is disabled; the
 # DeepSeek and generic OpenAI-compat fallbacks stay wired but disabled:
-#   SUPABASE_DB_URL            — postgres://... for asyncpg (legacy plane; still
-#                                the prod container DSN until the #855 cutover)
-#   AGENT_SVC_DATABASE_URL     — Neon agent_svc role DSN (staging, via the
-#                                Secrets Store binding below; forwarded into the
-#                                container and preferred over SUPABASE_DB_URL by
-#                                apps/agent settings, #912 follow-up)
+#   SUPABASE_DB_URL            — postgres://... for asyncpg (legacy plane;
+#                                retired from the prod container once the #855
+#                                cutover's later steps remove it)
+#   AGENT_SVC_DATABASE_URL     — Neon agent_svc role DSN, bound from the Secrets
+#                                Store in BOTH deployed environments (staging
+#                                #912 follow-up, production W4-1 #1314);
+#                                forwarded into the container and preferred over
+#                                SUPABASE_DB_URL by apps/agent settings
 #   ZEN_GO_API_KEY             — live primary model key (zen/go gateway)
 #   MIMO_API_KEY               — staging fallback key for direct MiMo routing
 #   DEEPSEEK_API_KEY           — wired-but-disabled fallback model key (DeepSeek)
@@ -265,9 +267,10 @@ ANON_ACCESS_ENABLED = "false"
 # can never silently re-open the backend.
 EDGE_SHOWCASE_MODE = "true"
 # W1-7 (#1256) agent-tier switch — see the [vars] block above for the contract.
-# Production stays on the container: it has no AGENT_SVC_DATABASE_URL binding at
-# all until #855 provisions the store secret there, so the edge tier could not
-# open its own data plane even if this said "edge".
+# Production stays on the container. W4-1 (#1314) provisioned the production
+# AGENT_SVC_DATABASE_URL binding below, which is the PRECONDITION for flipping
+# this to "edge" — not the flip itself. Moving it is a separate card, with its
+# own staging-proven evidence.
 AGENT_TURN_ROUTE = "container"
 # Per-identity burst limit (abuse control). The per-identity DAILY message
 # quota is issue #282 and is configured separately.
@@ -306,6 +309,27 @@ ANON_DAILY_MESSAGE_QUOTA = "20"
 CORS_ALLOWED_ORIGIN = "https://animichi.com"
 AUTH_RATE_LIMIT = "60"
 AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
+
+# W4-1 (#1314) lifts #855's "production is deliberately unbound": the
+# database-access Pulumi prod stack (infra/database-access, Pulumi.prod.yaml)
+# composes the production branch's agent_svc DSN and writes it to the SAME
+# account Secrets Store staging uses, under the "_PROD" name below — staging and
+# production share one store because the account plan refuses a second, so the
+# secret NAMES are what separate the two environments' credentials while the
+# BINDING name stays identical (container-env.ts forwards one key either way).
+# Pinned by workers/edge/test/agent-database-binding.test.ts against
+# infra/topology-prod-database-access.test.ts, which reads the name off the
+# Pulumi program itself.
+#
+# This is provisioning only: AGENT_TURN_ROUTE above stays "container", so the
+# binding changes where the CONTAINER's DSN comes from and nothing else. The
+# transitional SUPABASE_DB_URL worker secret stays in the core bulk payload
+# (.github/scripts/edge-runtime-secrets.py) until the cutover's later step
+# retires it (docs/ops/prod-dsn-cutover.md).
+[[env.production.secrets_store_secrets]]
+binding = "AGENT_SVC_DATABASE_URL"
+store_id = "66c9bb0faef644b4a0671bb7d90d98bd"
+secret_name = "AGENT_SVC_DATABASE_URL_PROD"
 
 [[env.production.services]]
 binding = "CATALOG"
@@ -504,7 +528,9 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 # infra/database-access Pulumi stack) instead of `wrangler secret put` in CI.
 # env.AGENT_SVC_DATABASE_URL is a SecretsStoreSecret. RuntimeContainer unwraps
 # `.get()` via resolveContainerEnvVars before start (#1157). Not in
-# CONTAINER_REQUIRED_KEYS — production has no binding yet (#855 cutover).
+# CONTAINER_REQUIRED_KEYS: local `wrangler dev` binds no store secret at all, so
+# the container must still start without one (production and staging both bind
+# it as of W4-1, #1314).
 # Do NOT add AGENT_SVC_DATABASE_URL to `secrets.required` here: wrangler
 # rejects a name assigned to both a Secrets Store Secret binding and a Secret
 # binding; the binding's deploy-time store/secret validation is the fail-closed
@@ -513,9 +539,9 @@ AUTH_RATE_LIMIT_WINDOW_SECONDS = "60"
 # The store secret name AGENT_SVC_DATABASE_URL deliberately differs from the
 # production jobs Worker's upload chain name: they are different planes
 # (Cloudflare store vs Worker secret) and store secret names are unique per
-# store. Production keeps getting its container DSN via the SUPABASE_DB_URL
-# worker secret until the #855 prod cutover provisions
-# AGENT_SVC_DATABASE_URL for prod.
+# store. Production's own entry in this one shared store is the "_PROD"-suffixed
+# name bound in [env.production] above (W4-1, #1314); the SUPABASE_DB_URL worker
+# secret stays in the production bulk payload until the cutover retires it.
 [[env.staging.secrets_store_secrets]]
 binding = "AGENT_SVC_DATABASE_URL"
 store_id = "66c9bb0faef644b4a0671bb7d90d98bd"

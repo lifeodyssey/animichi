@@ -17,9 +17,11 @@ export const CONTAINER_ENV_KEYS = [
   // provisions the container DSN under that name until the #855 prod cutover
   // replaces it with AGENT_SVC_DATABASE_URL. The agent settings no longer read
   // SUPABASE_DB_URL, so this is transitional-compat pending that cutover.
-  // #912 follow-up: staging DSN is a Secrets Store binding. `buildContainerEnvVars`
+  // #912 follow-up: the DSN is a Secrets Store binding in both deployed
+  // environments (staging #912, production W4-1 #1314). `buildContainerEnvVars`
   // only copies strings; `resolveContainerEnvVars` unwraps `.get()` first (#1157).
-  // Not in CONTAINER_REQUIRED_KEYS: production has no binding until #855.
+  // Not in CONTAINER_REQUIRED_KEYS: local `wrangler dev` binds no store secret,
+  // so the container must still start without one.
   // (validate_required_env requires AGENT_SVC_DATABASE_URL; the legacy
   // SUPABASE_DB_URL fallback is gone — issue #1000).
   "AGENT_SVC_DATABASE_URL",
