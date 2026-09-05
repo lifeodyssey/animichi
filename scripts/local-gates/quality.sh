@@ -118,6 +118,7 @@ run ruby "$GS/test_secret_scan_contract_mutation.rb"
 run bash "$GS/resolve-secret-scan-range.test.sh"
 run bash "$GS/test_pr_verification_aggregate.sh"
 run bash "$GS/test_pr_verification_route.sh"
+run bash "$GS/test_pr_verification_gate_baseline.sh"
 run bash "$GS/pr-verification-route.sh" "$(git rev-parse HEAD^)" "$(git rev-parse HEAD)"
 run bash -c 'if bash .github/scripts/pr-verification-aggregate.sh >/dev/null 2>&1; then exit 1; fi'
 run bash -c 'if bash .github/scripts/pr-verification-gate.sh invalid >/dev/null 2>&1; then exit 1; fi'
@@ -134,7 +135,7 @@ run shellcheck "$GS/sync-edge-runtime-secrets.sh" "$GS/promote-release-unit.sh"
 run shellcheck "$GS/staging-smoke-check.sh" "$GS/staging-smoke-check.test.sh"
 run shellcheck "infra/database-access/reset-staging-baseline.sh"
 run shellcheck "$GS/download-release-cohort.sh" "$GS/download-release-cohort.test.sh"
-run bash -c 'cd .github/scripts && shellcheck -x pr-verification-aggregate.sh pr-verification-gate.sh pr-verification-route.sh resolve-secret-scan-range.sh resolve-secret-scan-range.test.sh test_pr_verification_aggregate.sh test_pr_verification_route.sh'
+run bash -c 'cd .github/scripts && shellcheck -x pr-verification-aggregate.sh pr-verification-gate.sh pr-verification-route.sh resolve-secret-scan-range.sh resolve-secret-scan-range.test.sh test_pr_verification_aggregate.sh test_pr_verification_route.sh test_pr_verification_gate_baseline.sh'
 run bash scripts/semgrep-raw-sql-test.sh
 run bash "$GS/test_run_actionlint.sh"
 run ruby "$GS/test_actionlint_queue_contract.rb"
