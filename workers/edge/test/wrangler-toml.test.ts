@@ -25,7 +25,6 @@ const observableWorkerConfigs = [
   ["edge", "../wrangler.toml"],
   ["catalog", "../../catalog/wrangler.toml"],
   ["users", "../../users/wrangler.toml"],
-  ["jobs", "../../jobs/wrangler.toml"],
   ["migrator", "../../migrator/wrangler.toml"],
 ] as const;
 
