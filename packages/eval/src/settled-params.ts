@@ -88,15 +88,14 @@ function nextParamsOf(queued: Map<string, string[]>, toolName: string): Readonly
  * Paired by tool name and occurrence, which is the pairing
  * `ArgumentCorrectness(tool, occurrence=k)` makes itself: the k-th call to a
  * tool on the stream is answered by the k-th step that run settled under that
- * name. Positional pairing would drift on the first step whose name the stream
- * reports in a different position — a server-initiated one (`turn-frames.ts`'s
- * `serverStepOpened`) opens a call the model never made.
+ * name.
  *
- * `respond` is on NEITHER side and is not the reason: the edge drops its frames
- * (`framesFor` skips `ANSWER_TOOL_NAME`) and never numbers it as a step
- * (`TurnAttempt.#agentParts` registers it outside `TurnSteps.wrap`), so a turn's
- * answer is absent from both records rather than unmatched in one. A call with
- * no `params` is a call whose row is missing, which is what #1397 was.
+ * `respond` is on NEITHER side and is not a reason a pair can come back short:
+ * the edge drops its frames (`framesFor` skips `ANSWER_TOOL_NAME`) and never
+ * numbers it as a step (`TurnAttempt.#agentParts` registers it outside
+ * `TurnSteps.wrap`), so a turn's answer is absent from both records rather than
+ * unmatched in one. A call with no `params` is a call whose `run_steps` row is
+ * missing — a refused step write, which is what #1397 was.
  */
 export function withSettledParams(
   calls: readonly TranscriptStep[],
