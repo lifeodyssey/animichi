@@ -13,20 +13,16 @@ inputs:
   cloudflare_api_token:
     description: Worker deployment token, supplied only to phases that deploy Workers.
     required: false
-  cloudflare_pulumi_api_token:
-    description: Pulumi-scoped Cloudflare token, supplied only to foundation.
-    required: false
   cloudflare_account_id:
     description: Cloudflare account selected by the staging environment.
     required: false
   pulumi_organization:
     description: >-
       Pulumi Cloud organization this phase exchanges its GitHub OIDC token for
-      (#1077). State and stack encryption live in Pulumi Cloud, so foundation
-      needs no backend URL, R2 state keys, or config passphrase.
-    required: false
-  neon_api_key:
-    description: Neon provisioning key, supplied only to foundation.
+      (#1077), and the organization owning the ESC environment foundation opens
+      for its Pulumi-plane tokens (#1078). State and stack encryption live in
+      Pulumi Cloud, so foundation needs no backend URL, R2 state keys, or config
+      passphrase.
     required: false
   reset_staging_db:
     description: >-
@@ -126,15 +122,40 @@ runs:
       with:
         organization: ${{ inputs.pulumi_organization }}
         requested-token-type: urn:pulumi:token-type:access_token:organization
+    # The ESC action installs a Pulumi CLI and prepends it to PATH. Unpinned it
+    # fetches the latest release and shadows the `.pulumi.version` CLI the step
+    # above installed; given the same version it detects the existing install
+    # and downloads nothing.
+    - name: Resolve the pinned Pulumi CLI version
+      if: ${{ inputs.phase == 'foundation' }}
+      id: pulumi-cli
+      run: |
+        set -euo pipefail
+        printf 'version=%s\n' "$(cat .pulumi.version)" >> "$GITHUB_OUTPUT"
+      shell: bash
+    # ESC, not GitHub Secrets, is where the two Pulumi-plane credentials live
+    # (#1078): the Cloudflare token the Pulumi providers authenticate with, and
+    # the Neon key `animichi-neon-secrets` provisions roles with. The login above
+    # exported the short-lived `PULUMI_ACCESS_TOKEN` this step opens ESC with, and
+    # the action appends the two values to `$GITHUB_ENV` for the promotion below.
+    # `export-environment-variables` is an explicit two-name allowlist rather than
+    # the export-everything default, so ADR 0003 holds structurally: whatever else
+    # an ESC environment may grow later, no runtime DSN and no model key can reach
+    # this job. Worker publishing runs in other phases and never opens ESC.
+    - name: Open the staging ESC environment
+      if: ${{ inputs.phase == 'foundation' }}
+      uses: pulumi/esc-action@32dda43ffe7a2ab21e6bce11c781b44a3e5623cf # v3.2.0
+      with:
+        version: ${{ steps.pulumi-cli.outputs.version }}
+        environment: ${{ inputs.pulumi_organization }}/animichi/staging
+        export-environment-variables: CLOUDFLARE_API_TOKEN,NEON_API_KEY
     - name: Promote foundation payloads
       if: ${{ inputs.phase == 'foundation' }}
       env:
         RELEASE_UNITS: ${{ inputs.units }}
         SOURCE_SHA: ${{ inputs.source_sha }}
-        CLOUDFLARE_PULUMI_API_TOKEN: ${{ inputs.cloudflare_pulumi_api_token }}
         CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare_account_id }}
         PULUMI_ORG: ${{ inputs.pulumi_organization }}
-        NEON_API_KEY: ${{ inputs.neon_api_key }}
         RESET_STAGING_DB: ${{ inputs.reset_staging_db }}
       run: |
         set -euo pipefail

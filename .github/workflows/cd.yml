@@ -95,7 +95,8 @@ jobs:
     permissions:
       contents: read
       actions: read
-      # Pulumi Cloud login is OIDC (#1077), not a stored access token.
+      # Pulumi Cloud login is OIDC (#1077), not a stored access token; the same
+      # identity opens the ESC environment holding the Pulumi-plane tokens (#1078).
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -107,10 +108,8 @@ jobs:
           phase: foundation
           units: ${{ needs.route.outputs.foundation }}
           source_sha: ${{ github.sha }}
-          cloudflare_pulumi_api_token: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
           cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           pulumi_organization: lifeodyssey
-          neon_api_key: ${{ secrets.NEON_API_KEY }}
           # #1216/audit §2.6: the shared reset script fired on every foundation promotion
           # regardless of whether this push touched the schema at all. Narrow the trigger
           # to pushes whose cohort actually includes the `db` unit.
@@ -265,7 +264,8 @@ jobs:
     permissions:
       contents: read
       actions: read
-      # Pulumi Cloud login is OIDC (#1077), not a stored access token.
+      # Pulumi Cloud login is OIDC (#1077), not a stored access token; the same
+      # identity opens the ESC environment holding the Pulumi-plane tokens (#1078).
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -297,14 +297,35 @@ jobs:
         with:
           organization: lifeodyssey
           requested-token-type: urn:pulumi:token-type:access_token:organization
+      # The ESC action installs a Pulumi CLI and prepends it to PATH. Unpinned it
+      # fetches the latest release and shadows the `.pulumi.version` CLI the step
+      # above installed; given the same version it downloads nothing.
+      - name: Resolve the pinned Pulumi CLI version
+        id: pulumi-cli
+        if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'infra') }}
+        run: |
+          set -euo pipefail
+          printf 'version=%s\n' "$(cat .pulumi.version)" >> "$GITHUB_OUTPUT"
+      # Same contract as the staging phase (#1078): the Pulumi-plane Cloudflare
+      # token and the Neon provisioning key come from ESC under the OIDC login
+      # above, exported into `$GITHUB_ENV` for the infra promotion only. The
+      # explicit two-name allowlist is what keeps ADR 0003 true structurally.
+      # The Worker-publishing steps further down set their own
+      # `secrets.CLOUDFLARE_API_TOKEN` in their step `env`, which wins over this
+      # job-level injection — the Pulumi-plane token never deploys a Worker.
+      - name: Open the production ESC environment
+        if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'infra') }}
+        uses: pulumi/esc-action@32dda43ffe7a2ab21e6bce11c781b44a3e5623cf # v3.2.0
+        with:
+          version: ${{ steps.pulumi-cli.outputs.version }}
+          environment: lifeodyssey/animichi/prod
+          export-environment-variables: CLOUDFLARE_API_TOKEN,NEON_API_KEY
       - name: Promote production foundation payloads
         if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'infra') }}
         env:
           SOURCE_SHA: ${{ github.sha }}
-          CLOUDFLARE_PULUMI_API_TOKEN: ${{ secrets.CLOUDFLARE_PULUMI_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PULUMI_ORG: lifeodyssey
-          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
         run: bash .github/scripts/promote-release-unit.sh infra production "$SOURCE_SHA" "$RUNNER_TEMP/release-cohort/release-$SOURCE_SHA-infra"
       - name: Promote production database payload
         if: ${{ contains(fromJSON(needs.route.outputs.production_units), 'db') }}
