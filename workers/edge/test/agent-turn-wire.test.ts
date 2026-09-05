@@ -69,6 +69,22 @@ void test("an oversized session id is refused rather than written as a primary k
   );
 });
 
+// EG-09 (#1343): the dedupe key is read through the same bound as the session
+// id. `""` is not nullish, so a present-but-empty `x-turn-id` used to become the
+// literal empty `client_message_id` — and the partial unique index would then
+// resolve every later empty-id turn in that session to the first message.
+void test("a present but empty dedupe key opens a fresh turn, never a replay of the first", async () => {
+  const submission = await submissionOf(chatRequest({ "x-turn-id": "   " }), ANON, "ja");
+  assert.match(submission.clientMessageId, /^[0-9a-f-]{36}$/);
+});
+
+void test("an oversized dedupe key is refused rather than written as a column", async () => {
+  await assert.rejects(
+    submissionOf(chatRequest({ "x-turn-id": "t".repeat(201) }), ANON, "ja"),
+    (error: unknown) => error instanceof ChatEnvelopeError && error.refusal === "invalid_body",
+  );
+});
+
 void test("the message ceiling is the spec's finalized 4000 characters", () => {
   assert.equal(MESSAGE_MAX_CHARS, 4_000);
 });
