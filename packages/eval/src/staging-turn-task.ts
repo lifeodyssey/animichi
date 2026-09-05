@@ -21,9 +21,11 @@
  * refusal, a 500 — and retrying any of them would quietly turn a failing case
  * into a passing one, which is the failure mode an eval exists to detect.
  */
+import { setEvalAttribute } from "logfire/evals";
 import type { GetSessionHistoryResponse } from "@animichi/contract/session-history-contract";
 
 import { caseSubmissionsOf, type ChatSubmission } from "./case-submissions.ts";
+import type { SeededSessions } from "./seeded-sessions.ts";
 import type { ExportedAgentInput } from "./dataset-roundtrip.ts";
 import { InFlightTurns } from "./in-flight-turns.ts";
 import type { StagingBearer } from "./staging-bearer.ts";
@@ -49,6 +51,17 @@ export const DEFAULT_MAX_CONCURRENCY = 2;
 /** The header the edge answers with, naming the session the turn committed on. */
 const SESSION_ID_HEADER = "x-session-id";
 
+/**
+ * The report attribute a prefix-seeded case carries (E-1 #1380).
+ *
+ * It is set from the TASK and not from `CaseLifecycle.setup()`, because
+ * `setEvalAttribute` writes into the case's own task-run context and the driver
+ * opens that context around the task only (`logfire/evals`' case runner). What
+ * the task knows is exactly what the attribute means: this case's turns ran on
+ * a session somebody had already put a starting point in.
+ */
+export const PREFIX_SEEDED_ATTRIBUTE = "prefix_seeded";
+
 /** What one case's submissions left behind: the turn that is being measured
  * (the LAST one — its predecessors only exist to put history in the session),
  * and the session they all ran on. */
@@ -65,6 +78,15 @@ export interface StagingTurnSettings {
   readonly turnId: () => string;
   readonly maxConcurrency?: number;
   readonly timeoutMs?: number;
+  /**
+   * Where a case's frozen prefix was seeded, when it carries one (E-1 #1380).
+   *
+   * Optional because most runs seed nothing: a set with no `seeded_pending`
+   * case needs no lifecycle and therefore no register, and an absent one reads
+   * as "this case starts from an empty session" — which is what every case
+   * outside `phase1c_selection_v1` does.
+   */
+  readonly sessions?: SeededSessions;
 }
 
 /** A request that never reached the app, and may therefore be sent again. */
@@ -103,13 +125,22 @@ export class StagingTurnTask {
    * than N strangers — to be got wrong.
    */
   async submitCase(inputs: ExportedAgentInput): Promise<SubmittedCase> {
-    let sessionId: string | null = null;
+    let sessionId: string | null = this.#seededSession(inputs);
     let turn: Response | null = null;
     for (const submission of caseSubmissionsOf(inputs)) {
       turn = await this.#submit(submission, inputs.locale, sessionId);
       sessionId = turn.headers.get(SESSION_ID_HEADER) ?? sessionId;
     }
     return { turn, sessionId };
+  }
+
+  /** The session this case's prefix was seeded into, marked on the report so a
+   * reader can tell a case that started from a frozen prefix from one that did
+   * not. `null` is a case with no prefix, which starts where it always did. */
+  #seededSession(inputs: ExportedAgentInput): string | null {
+    const seeded = this.#settings.sessions?.of(inputs) ?? null;
+    if (seeded !== null) setEvalAttribute(PREFIX_SEEDED_ATTRIBUTE, true);
+    return seeded;
   }
 
   async #runCase(inputs: ExportedAgentInput): Promise<TranscriptResult> {

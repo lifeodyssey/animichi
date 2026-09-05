@@ -34,11 +34,16 @@
  */
 import { parseArgs } from "node:util";
 
-import { renderReport } from "logfire/evals";
+import { renderReport, type CaseLifecycleClass } from "logfire/evals";
 import { laneFetch } from "edge-worker/api-test/lane-origin.ts";
 
 import { checkedDatasetName } from "../src/dataset-sets.ts";
-import { loadExportedDataset, type ExportedDatasetHandle } from "../src/dataset-roundtrip.ts";
+import {
+  loadExportedDataset,
+  type ExportedAgentExpected,
+  type ExportedAgentInput,
+  type ExportedDatasetHandle,
+} from "../src/dataset-roundtrip.ts";
 import { canonicalDatasetPath, loadCaseStrata } from "../src/gate/case-strata.ts";
 import { gateRunSettingsFromBaseline } from "../src/gate-run/baseline-gated-settings.ts";
 import { gateExitCode } from "../src/gate-run/gate-exit-code.ts";
@@ -48,6 +53,8 @@ import { writeGateRunResult } from "../src/gate-run/result-file.ts";
 import { runMetricNames } from "../src/gate-run/run-metric-names.ts";
 import { neonAuthBearer, qaSignInFrom } from "../src/neon-auth-bearer.ts";
 import { StagingBearer } from "../src/staging-bearer.ts";
+import { seededPrefixLifecycle } from "../src/prefix-seeding-lifecycle.ts";
+import { SeededSessions } from "../src/seeded-sessions.ts";
 import { DEFAULT_MAX_CONCURRENCY, StagingTurnTask } from "../src/staging-turn-task.ts";
 import type { TranscriptResult } from "../src/turn-transcript.ts";
 
@@ -93,13 +100,29 @@ function stagingBearer(): StagingBearer {
   return new StagingBearer(neonAuthBearer(qaSignInFrom(process.env), fetch), () => Date.now());
 }
 
-function stagingTask(concurrency: number): StagingTurnTask {
-  return new StagingTurnTask({
+/** The two halves of one run (E-1 #1380): the task that takes each case's
+ * turns, and the lifecycle that gives a case with a `seeded_pending` its
+ * starting point first. They share one bearer — an eval run is one sign-in —
+ * and one register, which is how the prefix and the turn land in one session. */
+interface StagingRun {
+  readonly task: StagingTurnTask;
+  readonly lifecycle: CaseLifecycleClass<ExportedAgentInput, TranscriptResult, ExportedAgentExpected>;
+}
+
+function stagingRun(concurrency: number): StagingRun {
+  const bearer = stagingBearer();
+  const sessions = new SeededSessions();
+  const task = new StagingTurnTask({
     door: laneFetch,
-    bearer: stagingBearer(),
+    bearer,
     turnId: () => `eval-${crypto.randomUUID()}`,
     maxConcurrency: concurrency,
+    sessions,
   });
+  const lifecycle = seededPrefixLifecycle<TranscriptResult>({
+    door: laneFetch, bearer, sessions, sessionId: () => `eval-prefix-${crypto.randomUUID()}`,
+  });
+  return { task, lifecycle };
 }
 
 /** `METRIC_NAMES`, for this run: `nonempty_results` only counts when a case
@@ -142,8 +165,10 @@ async function main(): Promise<void> {
   const dataset = await loadExportedDataset<TranscriptResult>(args.dataset);
   // Python caps the same way (`exec_tiers.cap_cases` under `EVAL_MAX_CASES`).
   if (args.limit !== null) dataset.cases = dataset.cases.slice(0, args.limit);
-  const task = stagingTask(args.concurrency);
-  const report = await dataset.evaluate(task.asTask(), { name: `gate_${args.dataset}`, progress: true });
+  const { task, lifecycle } = stagingRun(args.concurrency);
+  const report = await dataset.evaluate(task.asTask(), {
+    name: `gate_${args.dataset}`, progress: true, lifecycle,
+  });
   process.stdout.write(`${renderReport(report)}\n`);
   const result = gatedResult(report, args, dataset.cases.length, gatedMetricNames(dataset, report));
   announce(result, writeGateRunResult(result));
