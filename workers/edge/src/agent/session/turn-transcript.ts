@@ -22,6 +22,13 @@
  * arrive as `assistant` + `toolResult` messages, the shape the model was
  * trained on.
  *
+ * AN EARLIER TURN'S RESULT COMES BACK AS ITS FROZEN SUMMARY, which is what
+ * keeps "every turn" bounded (spec §九 9.1 → 9.2). The summary was decided when
+ * the step was written and is stored on the row, so this rebuild reads a string
+ * rather than deciding one: two alarms over the same session produce the same
+ * bytes. THIS run's own settled steps are replayed whole — a retried alarm
+ * resumes the attempt that saw them whole (`frozen-tool-return.ts`).
+ *
  * A tool-call row carries its own `run_id` and `step_index` in
  * `messages.response_data`, so the pairing stays explicit rather than
  * positional: each row is answered from the steps of the run NAMED IN IT —
@@ -61,6 +68,7 @@ import type {
   ToolCall,
   ToolResultMessage,
 } from "@earendil-works/pi-ai";
+import { frozenReturn, verbatimReturn, type ReplayedContent } from "./frozen-tool-return.ts";
 import {
   toolCallEnvelopeOf,
   type LoadedTurn,
@@ -97,12 +105,12 @@ function textOnly(text: string, model: Model<Api>): AgentMessage[] {
   return text === "" ? [] : [plainAssistant(text, model)];
 }
 
-function toolResultFor(call: ToolCall, result: StepResult): ToolResultMessage {
+function toolResultFor(call: ToolCall, result: StepResult, shown: ReplayedContent): ToolResultMessage {
   return {
     role: "toolResult",
     toolCallId: call.id,
     toolName: call.name,
-    content: result.content,
+    content: shown(result),
     details: result.details,
     isError: false,
     timestamp: 0,
@@ -113,10 +121,11 @@ function toolResultFor(call: ToolCall, result: StepResult): ToolResultMessage {
 function answersFor(
   envelope: ToolCallEnvelope,
   settled: ReadonlyMap<number, StepResult>,
+  shown: ReplayedContent,
 ): ToolResultMessage[] | null {
   const answers = toolCallsOf(envelope.message).map((call, offset) => {
     const result = settled.get(envelope.step_index + offset);
-    return result === undefined ? null : toolResultFor(call, result);
+    return result === undefined ? null : toolResultFor(call, result, shown);
   });
   return answers.every((answer) => answer !== null) ? answers : null;
 }
@@ -195,11 +204,15 @@ class TranscriptRebuild {
   }
 
   /** A tool-call turn, answered by the run that issued it — or dropped: this
-   * run's unanswered call ends the walk, an earlier run's is skipped. */
+   * run's unanswered call ends the walk, an earlier run's is skipped. An
+   * earlier turn's answers are shown as the summary frozen when they were
+   * written; this run's own are shown whole (#1378). */
   #takeCalls(envelope: ToolCallEnvelope): boolean {
-    const answers = answersFor(envelope, this.#results.of(envelope.run_id));
-    if (answers === null) return envelope.run_id !== this.#turn.runId;
-    if (envelope.run_id === this.#turn.runId) this.#settledSteps += answers.length;
+    const own = envelope.run_id === this.#turn.runId;
+    const shown = own ? verbatimReturn : frozenReturn;
+    const answers = answersFor(envelope, this.#results.of(envelope.run_id), shown);
+    if (answers === null) return !own;
+    if (own) this.#settledSteps += answers.length;
     return this.#push([envelope.message, ...answers]);
   }
 

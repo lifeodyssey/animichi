@@ -117,11 +117,11 @@ function selectTranscript(sessionId: string): SQL {
  *
  * What remains unbounded is the count: one row per settled step of every
  * issuing run the transcript still names, and the transcript is the whole
- * session. The `content`/`details` of those results are exactly what is
- * replayed into the context, so no ceiling can be put here without dropping a
- * turn from the model's history — the sliding window #1377 removed. #1378 is
- * where that text shrinks, by freezing each result's summary when it is
- * written.
+ * session. No ceiling can be put here without dropping a turn from the model's
+ * history — the sliding window #1377 removed. What bounds the SIZE instead is
+ * `result.summary`, the short form frozen when the step was written (#1378):
+ * an earlier turn's result is replayed as that string, so a long row costs the
+ * context one line however long its `content` is.
  */
 function selectSteps(runId: string, runIds: readonly string[]): SQL {
   return sql`select ${runSteps.runId} as run_id, ${runSteps.stepIndex} as step_index,
@@ -172,7 +172,8 @@ function toTranscriptRow(row: unknown): TranscriptRow | undefined {
 function toStepResult(value: unknown): StepResult | null {
   if (!isJsonRecord(value) || !Array.isArray(value.content)) return null;
   const content = value.content as StepResult["content"];
-  return { content, details: asJsonValue(value.details), minted: mintsIn(value.minted) };
+  const summary = typeof value.summary === "string" ? value.summary : undefined;
+  return { content, details: asJsonValue(value.details), minted: mintsIn(value.minted), summary };
 }
 
 /** One `run_steps` row, under the run that numbered it. */

@@ -23,9 +23,10 @@ export const MODEL = mimoModel();
 export const USER_ROW: TranscriptRow = { role: "user", content: "Hyouka の聖地は？", responseData: null };
 export const USER_MESSAGE = { role: "user" as const, content: USER_ROW.content, timestamp: 0 };
 
-/** One tool result, as `run_steps.result` stores it. */
-export function makeStepResult(text: string): StepResult {
-  return { content: [{ type: "text", text }], details: null };
+/** One tool result, as `run_steps.result` stores it — with the short form
+ * frozen when it was written, when the case is about one (#1378). */
+export function makeStepResult(text: string, summary?: string): StepResult {
+  return { content: [{ type: "text", text }], details: null, summary };
 }
 
 const NO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
