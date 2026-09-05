@@ -21,8 +21,10 @@ import {
   CONTEXT_COMPACTION_TRIGGER_TOKENS,
   batchCompacted,
 } from "../src/agent/session/context-compaction.ts";
-import { TOOL_RETURN_MAX_CHARS } from "../src/agent/session/frozen-tool-return.ts";
-import { toolReturnSummary } from "../src/agent/session/tool-return-summary.ts";
+import {
+  TOOL_RETURN_MAX_CHARS,
+  toolReturnSummary,
+} from "../src/agent/session/tool-return-summary.ts";
 import { makeLongSearchOutcome, makeToolTurn } from "./doubles/make-tool-transcript.ts";
 
 /**

@@ -23,11 +23,8 @@
  * the summary instead would make a retry's context differ from the attempt it
  * is meant to resume. A return shrinks at the turn boundary, and exactly once.
  */
-import { toolReturnSummary } from "./tool-return-summary.ts";
+import { TOOL_RETURN_MAX_CHARS, toolReturnSummary } from "./tool-return-summary.ts";
 import type { StepContent, StepResult } from "./turn-store.ts";
-
-/** The length a tool return has to exceed before it is worth a short form. */
-export const TOOL_RETURN_MAX_CHARS = 200;
 
 /** What the tool answered, as the one string both the cap and the summariser
  * read. Only text is ever shrunk; an image carries no summary. */

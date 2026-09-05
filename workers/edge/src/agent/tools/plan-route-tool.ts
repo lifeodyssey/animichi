@@ -48,11 +48,22 @@ async function planStored(
   return routed(session.storeItinerary(buildItineraryPayload(itinerary, ref, session.locale)), itinerary);
 }
 
-/** The stored route, as the model reads it: a ref and two numbers. */
+/**
+ * The stored route, as the model reads it: a ref, the stops in visit order, and
+ * two numbers.
+ *
+ * The ids are read off the CATALOG's `ordered_points` rather than off the
+ * stored payload, because the payload's rows are the display copy —
+ * `buildItineraryPayload` localizes cities and proxies screenshots
+ * (`search-result-payload.ts`) — and an identity must not be quoted from a
+ * rendered row. The two lists are the same points in the same order; only the
+ * ids are taken.
+ */
 function routed(itineraryRef: string, itinerary: Itinerary): ItineraryOutcome {
   return {
     status: "ok",
     itinerary_ref: itineraryRef,
+    ordered_point_ids: itinerary.ordered_points.map((point) => point.id),
     point_count: itinerary.point_count,
     total_minutes: itinerary.timed_itinerary.total_minutes,
   };

@@ -169,7 +169,16 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   a return over `TOOL_RETURN_MAX_CHARS` (200) gets `tool-return-summary.ts`'s
   deterministic line, stored as `run_steps.result.summary` beside the untouched raw
   `content` (§三's persistence granularity is unchanged; the key is additive, so no
-  migration). `turn-transcript.ts` replays an EARLIER turn's result as that string and
+  migration; the cap itself lives in `tool-return-summary.ts`, which both readers import).
+  Two returns keep their ORDERED IDENTITIES verbatim rather than a count — an ambiguous
+  `resolve_anime` its `candidate_ids`, and since #1389 `plan_route` its `itinerary_ref` and
+  `ordered_point_ids` — because that is all an ordinal follow-up ("the second stop") can
+  resolve against once the short form is the only record. The bound applies to everything
+  BUT those ids: a route summary drops `total_minutes` before it truncates a stop list.
+  `ItineraryOk.ordered_point_ids` is the one outcome field with no Python counterpart
+  (`src/agent/tools/catalog-tool-outcomes.ts` argues it); `plan_route` deliberately does NOT
+  join `ENTITY_ARGUMENT`, and `src/agent/memory/rescued-entity.ts` says why.
+  `turn-transcript.ts` replays an EARLIER turn's result as that string and
   THIS run's own settled steps verbatim, so a retried alarm resumes on the bytes its
   first attempt saw and two alarms over the same session produce identical context.
   Nothing re-summarises on the read path — that absence is what makes the bytes stable

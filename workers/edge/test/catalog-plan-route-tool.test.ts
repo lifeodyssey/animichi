@@ -46,6 +46,7 @@ void test("a stored result is routed and its route stored under its own ref", as
   assert.deepEqual(outcome, {
     status: "ok",
     itinerary_ref: "route:2:2",
+    ordered_point_ids: ["spot-1", "spot-2"],
     point_count: 2,
     total_minutes: 120,
   });

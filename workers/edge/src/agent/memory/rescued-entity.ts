@@ -12,6 +12,23 @@
  * WHAT IS WORTH RESCUING is what a summary shape makes no promise to keep: the
  * anime title the user typed and the place name they asked about.
  *
+ * `plan_route` DOES NOT JOIN THEM, and #1389 is where that was decided rather
+ * than left unasked. The tool takes two arguments and neither is a literal the
+ * user typed. `search_result_ref` is a handle this tier minted moments earlier
+ * and deliberately does not outlive its run (`session/minted-refs.ts`), so
+ * retaining it would spend one of eight slots on a string that reads
+ * `stale_ref` everywhere it could be named. `pacing` is a three-value enum,
+ * already witnessed as the session's hard constraint by
+ * `turn-fact-recorder.ts` and already rendered in the `<agent_status>` bar —
+ * rescuing it would put the same fact in the prompt twice, which is the exact
+ * duplication `rescueCallEntity` skips a resolved title for below. The route's
+ * own anime reached the session through `resolve_anime`, whose title IS
+ * rescued here. What a frozen route return would otherwise lose is its ordered
+ * stop ids, and those are kept in the summary itself
+ * (`session/tool-return-summary.ts`) rather than pushed into a bounded ledger
+ * that would evict them: a route's ids are one value per stop, and the ledger
+ * holds one value per tool.
+ *
  * A SHORT RETURN RESCUES NOTHING, and the reason is #1377 rather than anything
  * about the return itself — the entity lives in the CALL's arguments, not in
  * the answer. Since every turn's assistant tool-call message is replayed
