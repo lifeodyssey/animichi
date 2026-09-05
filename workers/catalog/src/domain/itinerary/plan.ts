@@ -15,9 +15,9 @@
 
 import type { LocationCluster } from "../clustering/cluster";
 import { haversine } from "../geo";
-import { WALK_DETOUR_COEFFICIENT, WALKING_SPEED_M_PER_MIN } from "../../lib/transit/constants";
-import { maybeTransitLeg } from "../../lib/transit/leg";
-import type { TransitIndex } from "../../lib/transit/graph";
+import { WALK_DETOUR_COEFFICIENT, WALKING_SPEED_M_PER_MIN } from "../transit/constants";
+import { maybeTransitLeg } from "../transit/leg";
+import type { TransitIndex } from "../transit/graph";
 import type { Pacing, TimedItinerary, TimedStop, TransitLeg } from "../../types";
 
 /**
@@ -26,6 +26,16 @@ import type { Pacing, TimedItinerary, TimedStop, TransitLeg } from "../../types"
  * single in-Worker mirror of `packages/contract/src/models.ts`. `import type`
  * erases at compile time, so the contract's zod runtime stays out of the Worker
  * bundle. Re-exported here as the single type source for kernel consumers.
+ *
+ * The design's dependency rule (§3, "domain 用自己的类型") would have domain
+ * declare these itself; this import is a recorded exception, not drift (#1340).
+ * `src/types.ts` is an import-free, zero-runtime declaration file — asserted by
+ * `test/dependency-rule.worker.test.ts`, which is why it is absent from that
+ * gate's forbidden list — and the four shapes were centralised there precisely
+ * because they had already drifted while each module kept its own copy. A
+ * domain-local re-declaration would restore that drift and leave the only
+ * parity guard (`test/contract-parity.worker.test.ts`) watching the wrong
+ * file. Revisit when the kernel's output stops being the contract's shape.
  */
 export type { Pacing, TimedItinerary, TimedStop, TransitLeg };
 

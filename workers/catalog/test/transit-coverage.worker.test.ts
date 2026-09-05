@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { NEAREST_STATION_MAX_M } from "../src/lib/transit";
+import { NEAREST_STATION_MAX_M } from "../src/domain/transit";
 import { stationCoverage } from "../src/lib/transit/etl";
-import type { TopologyStation } from "../src/lib/transit";
+import type { TopologyStation } from "../src/domain/transit";
 
 const station = (lat: number, lng: number): TopologyStation => ({ station_id: "s", line_id: "l", group_id: "g", name: "S", lat, lng });
 

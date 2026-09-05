@@ -1,6 +1,7 @@
 import type { Env } from "../env.ts";
 import type { TurnstileGate } from "../protect/turnstile.ts";
 import { guardTurnstile } from "../protect/turnstile.ts";
+import { credentialsRequired } from "../gateway/responses.ts";
 import { resolveAnonymous } from "./auth.ts";
 import { issueTurnstilePass } from "./turnstile-pass.ts";
 
@@ -16,10 +17,10 @@ export async function verifyAnonymousEntry(
   env: Env, request: Request, gate: TurnstileGate,
 ): Promise<Response> {
   const identity = await resolveAnonymous(request, env);
-  if (identity === null) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (identity === null) return credentialsRequired();
   const challenged = await guardTurnstile(request, env, gate, identity.userId);
   if (challenged !== null) return challenged;
   const secret = env.ANON_ID_SECRET;
-  if (secret === undefined) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (secret === undefined) return credentialsRequired();
   return verifiedResponse(identity.setCookie, await issueTurnstilePass(identity.userId, secret, Date.now()));
 }

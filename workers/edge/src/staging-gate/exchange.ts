@@ -1,5 +1,5 @@
 import type { Env } from "../env.ts";
-import { notFoundResponse } from "../gateway/responses.ts";
+import { gatewayRejection, notFoundResponse } from "../gateway/responses.ts";
 
 /**
  * #1054 — the staging-gate OIDC exchange (CI channel of the staging gate).
@@ -129,11 +129,9 @@ export function defaultStagingGateExchange(
         headers: { [STAGING_GATE_SESSION_HEADER]: result.session.id },
       });
     }
-    const status = exchangeStatus(result);
-    const body = result.kind === "missing-token"
-      ? { error: "missing oidc token" }
-      : { error: "forbidden", message: result.reason };
-    return Response.json(body, { status });
+    return result.kind === "missing-token"
+      ? gatewayRejection("missing_oidc_token", exchangeStatus(result), "An OIDC bearer token is required.")
+      : gatewayRejection("forbidden", exchangeStatus(result), result.reason);
   });
 }
 

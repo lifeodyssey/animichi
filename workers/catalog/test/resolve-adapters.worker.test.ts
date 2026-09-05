@@ -79,7 +79,7 @@ describe("bangumiTitleSearch upstream-ingest adapter", () => {
   });
 
   it("builds a port with production defaults when no config is given", () => {
-    expect(Object.keys(bangumiTitleSearch())).toEqual(["fetchSubjects"]);
+    expect(Object.keys(bangumiTitleSearch())).toEqual(["parseSubject", "fetchSubjects"]);
   });
 
   it("propagates a non-upstream failure instead of the upstream_unavailable sentinel", async () => {

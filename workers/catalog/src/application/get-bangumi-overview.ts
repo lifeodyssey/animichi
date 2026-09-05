@@ -7,8 +7,23 @@
  */
 
 import { clusterByLocation, type LocationCluster } from "../domain/clustering/cluster";
-import type { OverviewPointRow, OverviewPointsReader } from "../adapters/outbound/overview-points";
 import type { AnimeOverview, AnimeOverviewCircle, AnimeSampleItinerary, AnimeScene } from "../types";
+
+/** A published point row, as read and validated by the outbound adapter. */
+export interface OverviewPointRow {
+  id: string;
+  name: string;
+  image: string | null;
+  latitude: number;
+  longitude: number;
+  city: string | null;
+}
+
+/** The two outbound reads the use case depends on. */
+export interface OverviewPointsReader {
+  pointsForWork(bangumiId: string): Promise<OverviewPointRow[]>;
+  workExists(bangumiId: string): Promise<boolean>;
+}
 
 const SCENE_LIMIT = 20;
 const SAMPLE_ITINERARY_REGION_LIMIT = 3;

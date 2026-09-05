@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 import type { GuardNamespace, GuardStore } from "./guard-store.ts";
+import { guardCall } from "./guard-call.ts";
 
 /**
  * Global anonymous daily-budget circuit breaker (X4, issue #274 / S1.8).
@@ -72,10 +73,15 @@ function budgetShard(guard: GuardNamespace): { fetch: (r: Request) => Promise<Re
   return guard.get(guard.idFromName("budget"));
 }
 
+/** One call to the budget shard, bounded (EG-21). A shard that fails, or does
+ * not answer inside the deadline, reads as "not latched" — the same fail-open
+ * this call already applied to a non-2xx, and the safe direction here because
+ * the AUTHORITATIVE verdict is the container's; the latch only saves a
+ * round-trip. */
 async function callBudget(guard: GuardNamespace, method: string, dayKey: string): Promise<boolean> {
   const url = `https://edge-guard/budget?dayKey=${encodeURIComponent(dayKey)}`;
-  const response = await budgetShard(guard).fetch(new Request(url, { method }));
-  if (!response.ok) return false;
+  const response = await guardCall(budgetShard(guard), new Request(url, { method }));
+  if (response === null || !response.ok) return false;
   const parsed: unknown = await response.json();
   return typeof parsed === "object" && parsed !== null && (parsed as { latched?: unknown }).latched === true;
 }

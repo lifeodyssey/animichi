@@ -111,13 +111,14 @@ assert_no_stale_pg16() {
 
 # AC3 hermetic consistency: the offline postgres image is the same immutable
 # PostgreSQL 18.4 / PostGIS 18-3.6 build wherever it is referenced directly —
-# the Dockerfile, the conftest offline image identity, and the fresh-schema
-# gate. A stale PG16 reference in any one of these files must fail this test,
-# and reverting one side to PG16 must fail it too.
+# the Dockerfile, the conftest offline image identity, and the shared
+# declaration `db-fresh-schema.sh` now sources instead of carrying its own copy
+# (#1326). A stale PG16 reference in any one of these files must fail this
+# test, and reverting one side to PG16 must fail it too.
 assert_pg18_consistency() {
   assert_pg18_dockerfile "$1"
   assert_offline_image_identity "$2" "conftest"
-  assert_offline_image_identity "$3" "db-fresh-schema.sh"
+  assert_offline_image_identity "$3" "postgres-image.env"
   assert_no_stale_pg16 "$1"
   assert_no_stale_pg16 "$2"
   assert_no_stale_pg16 "$3"
@@ -127,8 +128,8 @@ test_pg18_image_identity_consistency() {
   assert_pg18_consistency \
     "$REPO_ROOT/apps/agent/docker/test-postgres/Dockerfile" \
     "$REPO_ROOT/apps/agent/src/animichi/tests/conftest_db.py" \
-    "$SCRIPT_DIR/db-fresh-schema.sh"
-  echo "ok: Dockerfile, conftest, and db-fresh-schema.sh share the PG18 image identity"
+    "$REPO_ROOT/packages/test-postgres/postgres-image.env"
+  echo "ok: Dockerfile, conftest, and postgres-image.env share the PG18 image identity"
 }
 
 # #1003 regression: the staged agent-model drift check must compare the

@@ -74,7 +74,8 @@ Source of the SVG and fox artwork: the design-sync canvas
 ### fox/fox-curious.svg, fox-welcome.svg, fox-cheer.svg, fox-stand.svg
 
 - Project-owned mascot artwork (fox guide set), extracted from the design-sync canvas.
-- Still in use: `fox-curious.svg` (chat app bar), `fox-welcome.svg` (login modal).
-- `fox-cheer.svg` and `fox-stand.svg` have had no consumer since before this change —
-  left in place deliberately rather than swept up with the landing deletion.
+- Still in use: `fox-curious.svg` (chat app bar).
+- `fox-welcome.svg` lost its consumer 2026-08-30 when the login modal dropped the
+  mascot; `fox-cheer.svg` and `fox-stand.svg` have had none since before that —
+  all three stay in place deliberately rather than being swept up with the deletion.
 - No external attribution required.

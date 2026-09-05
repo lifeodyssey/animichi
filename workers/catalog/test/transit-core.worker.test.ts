@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MinHeap, isTransitCandidate, shortestPath, buildTransitIndex, WALK_DETOUR_COEFFICIENT, WALKING_SPEED_M_PER_MIN } from "../src/lib/transit";
+import { MinHeap, isTransitCandidate, shortestPath, buildTransitIndex, WALK_DETOUR_COEFFICIENT, WALKING_SPEED_M_PER_MIN } from "../src/domain/transit";
 import { tokyoSample } from "./fixtures/transit/tokyo-sample";
 
 const required = <T>(value: T | null | undefined): T => {

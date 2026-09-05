@@ -6,6 +6,7 @@ import {
   type TitleAliasPort,
   type UpstreamTitlePort,
 } from "../src/application/resolve-bangumi";
+import { bangumiSubjectParser } from "../src/adapters/outbound/bangumi-search";
 import type { AnimeCandidate } from "../src/types";
 
 type Subject = Record<string, unknown> & { id: string };
@@ -22,7 +23,7 @@ function subject(id: number, name: string, name_cn?: string): Subject {
 }
 
 function upstreamWith(subjects: Subject[]): UpstreamTitlePort {
-  return { fetchSubjects: () => Promise.resolve(subjects) };
+  return { ...bangumiSubjectParser(), fetchSubjects: () => Promise.resolve(subjects) };
 }
 
 function candidate(id: string, points_count?: number): AnimeCandidate {

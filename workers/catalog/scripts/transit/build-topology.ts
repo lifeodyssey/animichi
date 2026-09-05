@@ -1,7 +1,7 @@
 /** Usage: pnpm exec tsx scripts/transit/fetch-n02.ts && pnpm exec tsx scripts/transit/build-topology.ts */
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { compareStrings } from "../../src/lib/transit/compare";
+import { compareStrings } from "../../src/domain/transit/compare";
 import { buildShinkansenSubgraph, buildTopologyAsset, parseEkidata, type EkidataCsvs } from "../../src/lib/transit/etl";
 
 const dataDirectory = resolve("data");

@@ -1,0 +1,30 @@
+{
+  "name": "@animichi/test-postgres",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Test-only Postgres data plane: the offline image, the readiness wait, the clean-database recipe and the Atlas chain, shared by every database-backed suite. Never a runtime dependency.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./setup-budget": "./src/setup-budget.ts",
+    "./postgres-image": "./src/postgres-image.ts",
+    "./postgres-startup-wait": "./src/postgres-startup-wait.ts",
+    "./setup-deadline": "./src/setup-deadline.ts"
+  },
+  "scripts": {
+    "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pg": "^8.22.0",
+    "testcontainers": "^12.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/pg": "^8.20.0",
+    "typescript": "^7.0.2"
+  }
+}

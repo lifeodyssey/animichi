@@ -4,6 +4,7 @@ import { authenticatedRateLimitKey, authRateLimitConfigFrom } from "../protect/r
 import { guardPolicy } from "../protect/burst-guard.ts";
 import { classifyRatePolicy } from "./rate-policy.ts";
 import { fetchContainerResilient } from "./container-fetch.ts";
+import { gatewayRejection } from "./responses.ts";
 import { AUTHORIZATION_HEADER, USER_IDENTITY_HEADER, USER_TYPE_HEADER } from "@animichi/contract/internal-binding";
 
 const PUBLIC_CATALOG_HEADERS = ["Accept"] as const;
@@ -49,9 +50,10 @@ function stripUntrustedHeaders(headers: Headers): void {
  * intentionally forwarded: chat session continuity needs it, so the
  * container must never treat it as a trust signal.
  *
- * The fetch itself rides `fetchContainerResilient` (issue #1220): the same
+ * The fetch itself rides `fetchContainerResilient` (issue #1220): the
  * cold-start startup retry `/healthz` already had, plus a 60s head-of-response
- * timeout — see `gateway/container-fetch.ts`. `sleep` is threaded down from
+ * timeout — see `gateway/container-fetch.ts`, which the two landing forwards
+ * joined in EG-21 (#1343). `sleep` is threaded down from
  * `GatewayDeps` so tests can drive the retry's backoff without real waits. */
 export function forwardV1(
   env: Env,
@@ -122,7 +124,7 @@ export function catalogOutbound(request: Request, env: Env): Promise<Response> {
     // Logged as an object, not a JSON string: Workers Logs only indexes fields
     // of structured entries, and filtering is the entire point of this line.
     console.warn({ event: "catalog_outbound_denied", method: request.method, pathname });
-    return Promise.resolve(Response.json({ error: "catalog_request_forbidden" }, { status: 403 }));
+    return Promise.resolve(gatewayRejection("catalog_request_forbidden", 403, "This catalog route is not one the container may call."));
   }
   return env.CATALOG.fetch(request);
 }

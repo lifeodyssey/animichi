@@ -256,6 +256,15 @@ gate_eval() {
   run bash scripts/local-gates/eval-fixture-drift.sh
 }
 
+# ── test-postgres (#1326): typecheck + lint + the Docker-free unit suite. The
+# arms it serves (catalog spike, edge agent-db, db-fresh-schema) bring their own
+# containers in their own gates; nothing here needs a daemon.
+gate_test-postgres() {
+  gate packages/test-postgres pnpm exec tsc --noEmit
+  gate packages/test-postgres pnpm run lint:oxlint
+  gate packages/test-postgres pnpm run test
+}
+
 # ── infra: typecheck + topology tests + credential-free Pulumi program-load.
 gate_infra() {
   gate infra pnpm run typecheck

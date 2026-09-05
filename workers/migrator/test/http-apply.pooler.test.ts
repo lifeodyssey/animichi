@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyChain } from "../src/http-apply";
-import { DSN, FakeSql, FIXED_NOW, POOLER_DSN, applyFixture, fixtureChain } from "./http-apply.helpers";
+import { FakeSql } from "./fake-sql";
+import { DSN, FIXED_NOW, POOLER_DSN, applyFixture, fixtureChain } from "./http-apply.helpers";
 
 // #1124 AC3 — reject a -pooler DSN before any SQL (and before connect()).
 
