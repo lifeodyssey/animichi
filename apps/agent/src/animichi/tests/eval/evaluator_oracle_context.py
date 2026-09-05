@@ -126,10 +126,13 @@ def _provenance(scenario: OracleScenario) -> TurnProvenance:
 
 
 def _step_record(step: OracleStep) -> StepRecord:
+    """The runner's record: what the tool ran with, which is not always what the
+    model asked with (#1381). The span below keeps the model's own arguments,
+    and `OfficialArgumentCorrectness` scores the two against each other."""
     return StepRecord(
         tool=step.tool,
         is_success=succeeded(step),
-        params=dict(step.args),
+        params=step.settled_params,
     )
 
 

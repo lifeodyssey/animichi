@@ -11,26 +11,37 @@
  * 0.0 rather than passing vacuously. A turn with no successful call returns
  * `{}` — no metric, not a zero.
  *
- * ⚠️ **THIS METRIC IS DEGENERATE ON THE WIRE TRANSCRIPT — DO NOT READ IT AS A
- * PASSING SCORE.** Python compares two independently recorded things: the raw
- * arguments on the tool's span, against `StepRecord.params`, the normalized
- * arguments the runner recorded for the same call
- * (`official_evaluators.py::OfficialArgumentCorrectness`). The SD-9 stream
- * publishes only the first — `tool-input-available` carries one `input` record
- * per call and there is no second, independent witness to disagree with it. So
- * every settled call trivially matches itself and this can only ever return
- * `1.0` or `{}`.
+ * WHAT IS COMPARED WITH WHAT. `OfficialArgumentCorrectness` (Python) passes
+ * `StepRecord.params` as the EXPECTED arguments and lets the official evaluator
+ * read the ACTUAL ones off the tool's span. Two records of one call, by two
+ * authors: the model said what it wanted, and the runtime settled what it got.
+ * The wire publishes the same pair since #1381 — `args` off the SD-9 stream,
+ * `params` off `GET /v1/conversations/{id}/messages` — and `turn-transcript.ts`
+ * pairs them by tool name and occurrence, exactly as `occurrence=k` does.
  *
- * What still discriminates, and is therefore worth keeping wired: a call that
- * failed or never settled is excluded, so a turn made only of those returns
- * `{}`. What does not: a call whose arguments were never published arrives as
- * `args: {}`, indistinguishable from a genuine zero-argument call — the exact
- * ambiguity `StepRecord.params_recorded` exists to flag (#443).
+ * The comparison is deep equality and nothing else, because that is all
+ * `'exact'` is: `_diff_arguments` reports every expected key that is missing or
+ * unequal, then every actual key that was not expected. Python parses its
+ * actual side out of the span's JSON text first (`json.loads`), which is why
+ * the wire carries `params` as text and the shaper parses it the same way.
  *
- * The fix is one additive member on `TranscriptStep` — the normalized params,
- * published alongside the raw input — which is #1300's call to make, not this
- * card's. Until then, treat `argument_correctness` as unmeasured.
+ * THREE ANSWERS, NOT TWO. A read that published no `steps` array at all — a
+ * page from an edge older than #1381, the Python route's `null`, a read that
+ * never answered — offered no second record for ANY call, so the metric is not
+ * computable and emits nothing, the same `{}` a turn with no successful call
+ * emits. Scoring those turns 0 would report a whole run of mismatches that
+ * nobody measured.
+ *
+ * Within a read that DID publish steps, a call with no step of its own scores
+ * 0. Python would have compared an empty `params` dict there and passed the
+ * call vacuously when it happened to have been made with no arguments — the
+ * `params_recorded` ambiguity #443 names. That is the one deliberate
+ * refinement here: a call nobody witnessed must not be able to score 1.0, and
+ * no oracle case reaches the branch, so the two runners still agree on every
+ * measured turn.
  */
+
+import { isDeepStrictEqual } from 'node:util';
 
 import { type AgentTurnContext, AgentTurnEvaluator, type MetricRecord } from './agent-evaluator.ts';
 import { type TranscriptStep, completedCalls } from './transcript-view.ts';
@@ -39,16 +50,14 @@ export class OfficialArgumentCorrectness extends AgentTurnEvaluator {
   static override readonly evaluatorName = 'OfficialArgumentCorrectness';
 
   override evaluate(ctx: AgentTurnContext): MetricRecord {
-    const scores = completedCalls(ctx.output).map(publishedArgumentsMatch);
+    if (!ctx.output.paramsRecorded) return {};
+    const scores = completedCalls(ctx.output).map(settledArgumentsMatch);
     return scores.length === 0 ? {} : { argument_correctness: Math.min(...scores) };
   }
 }
 
-/**
- * The whole of what the wire can judge: the call published the arguments it was
- * made with. Restore the real comparison here once a step carries its
- * normalized params next to its raw input.
- */
-function publishedArgumentsMatch(_step: TranscriptStep): number {
-  return 1;
+/** Whether the call ran with the arguments it was made with. */
+function settledArgumentsMatch(step: TranscriptStep): number {
+  if (step.params === null) return 0;
+  return isDeepStrictEqual(step.args, step.params) ? 1 : 0;
 }

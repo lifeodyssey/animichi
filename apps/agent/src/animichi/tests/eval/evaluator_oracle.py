@@ -77,6 +77,9 @@ class _WireStep(BaseModel):
     # An open map on purpose: tool arguments are `Mapping[str, object]` at the
     # source and arbitrary JSON on the wire (`packages/eval/AGENTS.md`).
     args: dict[str, object]
+    # The second witness (#1381): `args` is what the SD-9 stream published, this
+    # is what `GET /v1/conversations/{id}/messages` publishes for the same call.
+    params: dict[str, object]
     status: StepStatus
 
 
@@ -98,6 +101,11 @@ class _WireTranscript(BaseModel):
     locale: str
     dataKeys: list[str]
     stepCount: int
+    # Whether the transcript read published a step record at all (#1381). The
+    # in-process runner always recorded params, so every scenario here is a
+    # turn the second witness WAS offered for; the wire's other answer (no
+    # `steps` array at all) is a page shape Python never serves.
+    paramsRecorded: bool
     trajectory: list[_WireStep]
     response: _WireAnswer | None
     runStatus: str | None
@@ -158,7 +166,12 @@ def _scores(scenario: OracleScenario) -> dict[str, float]:
 
 
 def _wire_step(step: OracleStep) -> _WireStep:
-    return _WireStep(toolName=step.tool, args=dict(step.args), status=step.status)
+    return _WireStep(
+        toolName=step.tool,
+        args=dict(step.args),
+        params=step.settled_params,
+        status=step.status,
+    )
 
 
 def _clarification_data(scenario: OracleScenario) -> dict[str, object]:
@@ -212,6 +225,7 @@ def _wire_transcript(scenario: OracleScenario) -> _WireTranscript:
         locale=scenario.locale,
         dataKeys=sorted(_available_data_keys(result)),
         stepCount=len(scenario.steps),
+        paramsRecorded=True,
         trajectory=[_wire_step(step) for step in scenario.steps],
         response=answer,
         runStatus="succeeded",

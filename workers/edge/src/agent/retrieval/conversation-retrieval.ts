@@ -23,9 +23,23 @@
  * observable), and the PAGINATION computation.
  *
  * The run half is what §三 adds: the state of the session's latest run.
+ *
+ * The STEP half is what §十 10.2 adds (E-2 #1381): the settled steps of the
+ * runs THIS PAGE shows, each carrying the params its tool executed with. It
+ * rides this surface rather than the stream because the stream already carries
+ * the other witness — the model's own arguments — and a metric that compared
+ * that record with itself would be scoring the agent's self-statement. Nothing
+ * about the ownership check changes: the params of a session's steps go to the
+ * session's owner, on the same terms as its transcript, and `run_steps` stays
+ * ungranted to `readonly`.
  */
-import type { GetSessionHistoryResponse, SessionRunStatus } from "@animichi/contract/agent-contract";
+import type {
+  GetSessionHistoryResponse,
+  SessionHistoryStep,
+  SessionRunStatus,
+} from "@animichi/contract/session-history-contract";
 import type { RunFailureReason } from "../../db/schema.ts";
+import { issuingRunOf } from "./issuing-run.ts";
 import { transcriptMessage, type TranscriptRow } from "./transcript-message.ts";
 
 export type { TranscriptRow } from "./transcript-message.ts";
@@ -62,10 +76,30 @@ export interface ConversationFacts {
   readonly latestRun: LatestRun | null;
 }
 
-/** The read seam: the session's facts, then one window of its transcript. */
+/**
+ * One settled tool step of one of the session's runs, as the store holds it
+ * (E-2 #1381).
+ *
+ * `params` is `run_steps.input` — what the tool EXECUTED with, after pi
+ * validated and coerced the model's arguments — as JSON text, which is the
+ * form the column is read in and the form the surface publishes. The model's
+ * own arguments are not here and are not this surface's to publish: they went
+ * out live on the SD-9 stream (`tool-input-available.input`), and the point of
+ * the pair is that the two records have different authors.
+ */
+export interface SettledStepRow {
+  readonly runId: string;
+  readonly stepIndex: number;
+  readonly toolName: string;
+  readonly params: string;
+}
+
+/** The read seam: the session's facts, one window of its transcript, and the
+ * steps the named runs settled. */
 export interface ConversationRecords {
   factsOf(sessionId: string): Promise<ConversationFacts | null>;
   transcriptOf(sessionId: string, page: TranscriptPage): Promise<TranscriptRow[]>;
+  settledStepsOf(sessionId: string, runIds: readonly string[]): Promise<SettledStepRow[]>;
 }
 
 /** One retrieval: which session, on whose behalf, and which window of it. */
@@ -114,17 +148,56 @@ async function windowOf(
   return await records.transcriptOf(request.sessionId, { ...page, limit: page.limit + 1 });
 }
 
-function historyOf(
-  facts: ConversationFacts,
-  page: TranscriptPage,
-  rows: TranscriptRow[],
-): GetSessionHistoryResponse {
-  const ordered = [...rows].sort(ascendingByCreatedAt).slice(0, page.limit);
+/** One settled step as the surface publishes it, under the run that numbered
+ * it — the pairing is by `(run_id, step_index)`, never by position. */
+function publishedStep(row: SettledStepRow): SessionHistoryStep {
   return {
-    messages: ordered.map(transcriptMessage),
-    revision: facts.turnCount,
-    next_offset: nextOffset(page, rows.length > page.limit),
-    run: runStatus(facts.latestRun),
+    run_id: row.runId,
+    step_index: row.stepIndex,
+    tool_name: row.toolName,
+    params: row.params,
+  };
+}
+
+/** The window as it will be published: ordered here rather than trusted from
+ * the store, then cut to the page the extra row overshot. */
+function orderedPage(rows: TranscriptRow[], page: TranscriptPage): TranscriptRow[] {
+  return [...rows].sort(ascendingByCreatedAt).slice(0, page.limit);
+}
+
+/**
+ * The runs whose steps this page may answer for: the ones that issued the
+ * calls ON it, plus the session's latest run.
+ *
+ * The transcript is paginated and `run_steps` is not, so the scope has to come
+ * from somewhere; the page's own rows are the honest answer, since a step
+ * nobody can see a call for on this page answers no question the page raises.
+ * The latest run rides along unconditionally because it is the run this
+ * surface EXISTS for — a client that left mid-turn comes back for exactly that
+ * one, and `packages/eval` pairs its frames with `run.run_id`'s steps — and it
+ * may have committed no message this page shows.
+ */
+function scopedRunIds(facts: ConversationFacts, rows: readonly TranscriptRow[]): string[] {
+  const scoped = new Set(rows.flatMap((row) => issuingRunOf(row) ?? []));
+  if (facts.latestRun !== null) scoped.add(facts.latestRun.runId);
+  return [...scoped];
+}
+
+/** Everything one read gathered, before it is shaped into the payload. */
+interface ReadSession {
+  readonly facts: ConversationFacts;
+  readonly ordered: readonly TranscriptRow[];
+  readonly hasMore: boolean;
+  readonly steps: readonly SettledStepRow[];
+}
+
+function historyOf(read: ReadSession, page: TranscriptPage): GetSessionHistoryResponse {
+  return {
+    messages: read.ordered.map(transcriptMessage),
+    revision: read.facts.turnCount,
+    next_offset: nextOffset(page, read.hasMore),
+    run: runStatus(read.facts.latestRun),
+    steps: read.steps.map(publishedStep),
   };
 }
 
@@ -140,5 +213,8 @@ export async function readConversation(
   const facts = await records.factsOf(request.sessionId);
   if (facts === null || !ownedBy(facts, request.identityId)) return null;
   const page = pageOf(request);
-  return historyOf(facts, page, await windowOf(records, request, page));
+  const rows = await windowOf(records, request, page);
+  const ordered = orderedPage(rows, page);
+  const steps = await records.settledStepsOf(request.sessionId, scopedRunIds(facts, ordered));
+  return historyOf({ facts, ordered, hasMore: rows.length > page.limit, steps }, page);
 }

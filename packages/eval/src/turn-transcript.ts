@@ -14,6 +14,14 @@
  * ended. That is the same fact `StepRecord` holds, published rather than
  * remembered.
  *
+ * THE PARAMS COME FROM THE TRANSCRIPT READ, AND THAT IS THE POINT (E-2 #1381,
+ * owner decision #1311). A frame's `input` is the model's own account of the
+ * call; `StepRecord.params` is what the runtime settled that account into, and
+ * `ArgumentCorrectness` scores one against the other. Taking both off the
+ * stream would make the metric compare a self-statement with itself, so the
+ * second record is read from `GET /v1/conversations/{id}/messages`, where the
+ * edge publishes the params each tool actually ran with.
+ *
  * WHAT THIS TYPE MAY CARRY is bounded by that: exactly the members
  * `evaluators.py` and `official_evaluators.py` read off an `AgentResult`
  * (`_actual_tools`, `_available_data_keys`, `ctx.output.message`,
@@ -24,7 +32,10 @@
  * Pure: no network, no clock, no environment. The reading is here; the
  * requesting is `staging-turn-task.ts`.
  */
-import type { GetSessionHistoryResponse } from "@animichi/contract/agent-contract";
+import type { GetSessionHistoryResponse } from "@animichi/contract/session-history-contract";
+
+import { objectOrNull } from "./json-object.ts";
+import { paramsRecordedIn, settledSteps, withSettledParams } from "./settled-params.ts";
 
 /** One decoded SD-9 frame. The protocol carries its discriminator inside the
  * JSON, so a frame is a bare object and `type` is just one of its members. */
@@ -64,13 +75,21 @@ export type StepStatus = "ok" | "error" | "unsettled";
 
 /**
  * One tool call, in the shape `ArgumentCorrectness` / `ToolCorrectness` /
- * `TrajectoryMatch` compare: the name, the arguments it was called with, and
- * whether it succeeded. A call with no output frame at all stays `"ok"` only
- * when one arrived; see `stepStatus`.
+ * `TrajectoryMatch` compare: the name, the arguments it was called with, what
+ * it ran with, and whether it succeeded. A call with no output frame at all
+ * stays `"ok"` only when one arrived; see `stepStatus`.
+ *
+ * `args` and `params` are the SAME call from two authors, which is the whole
+ * point of the pair (#1381): `args` is the model's own account, off the stream,
+ * and `params` is what the runtime settled it into, off the transcript read.
+ * `params` is `null` when that read published no settled step for this call —
+ * `StepRecord.params_recorded=False`, said in a way that cannot be mistaken for
+ * a call made with no arguments.
  */
 export interface TranscriptStep {
   readonly toolName: string;
   readonly args: Readonly<Record<string, unknown>>;
+  readonly params: Readonly<Record<string, unknown>> | null;
   readonly status: StepStatus;
 }
 
@@ -86,6 +105,13 @@ export interface TranscriptResult {
   readonly dataKeys: readonly string[];
   readonly stepCount: number;
   readonly trajectory: readonly TranscriptStep[];
+  /**
+   * Whether the transcript read offered a second record for these calls at all
+   * (`settled-params.ts::paramsRecordedIn`). False makes `argument_correctness`
+   * emit no metric, which is what "unmeasured" has to look like next to a real
+   * zero.
+   */
+  readonly paramsRecorded: boolean;
   readonly response: AnswerPart | null;
   readonly runStatus: RunStatus | null;
 }
@@ -116,10 +142,7 @@ function frameString(frame: TurnFrame, key: string): string | null {
 }
 
 function frameRecord(frame: TurnFrame, key: string): Readonly<Record<string, unknown>> {
-  const value = frame[key];
-  return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? (value as Readonly<Record<string, unknown>>)
-    : {};
+  return objectOrNull(frame[key]) ?? {};
 }
 
 /** The calls this stream opened, keyed by the id their output frames name.
@@ -129,7 +152,8 @@ function openedCalls(frames: readonly TurnFrame[]): Map<string, TranscriptStep> 
   for (const frame of frames.filter((item) => item.type === "tool-input-start")) {
     const callId = frameString(frame, "toolCallId");
     const toolName = frameString(frame, "toolName");
-    if (callId !== null && toolName !== null) calls.set(callId, { toolName, args: {}, status: "unsettled" });
+    if (callId === null || toolName === null) continue;
+    calls.set(callId, { toolName, args: {}, params: null, status: "unsettled" });
   }
   return calls;
 }
@@ -237,7 +261,8 @@ export interface TurnTranscript {
  */
 export function transcriptResultOf(transcript: TurnTranscript): TranscriptResult {
   const response = answerOf(transcript.frames);
-  const trajectory = trajectoryOf(transcript.frames);
+  const calls = trajectoryOf(transcript.frames);
+  const trajectory = withSettledParams(calls, settledSteps(transcript.history));
   return {
     intent: response?.intent ?? CRASHED_INTENT,
     success: response?.success ?? false,
@@ -246,6 +271,7 @@ export function transcriptResultOf(transcript: TurnTranscript): TranscriptResult
     dataKeys: dataKeysOf(response),
     stepCount: trajectory.length,
     trajectory,
+    paramsRecorded: paramsRecordedIn(transcript.history),
     response,
     runStatus: transcript.history?.run?.status ?? null,
   };

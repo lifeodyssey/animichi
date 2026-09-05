@@ -60,6 +60,42 @@ export class CountingSpotLookup implements Toolbox {
   }
 }
 
+const bangumiParameters = Type.Object({ bangumi_id: Type.Number() });
+
+/**
+ * A tool whose schema wants a NUMBER, so a model that sends the id as text has
+ * its arguments settled into something else before `execute` sees them — pi's
+ * `validateToolArguments` (clone, optional nulls dropped, `Value.Convert`).
+ * It records what it was actually called with, so the divergence is measured
+ * at the tool rather than asserted about the persisted row alone.
+ */
+export class CoercingBangumiLookup implements Toolbox {
+  readonly executedWith: unknown[] = [];
+
+  tools(): TurnTool[] {
+    return [this.#tool()];
+  }
+
+  spent(): TurnUsage {
+    return NO_SUPPLEMENTAL_USAGE;
+  }
+
+  #tool(): AgentTool<typeof bangumiParameters> {
+    return {
+      name: "search_bangumi",
+      label: "Search a bangumi's points",
+      description: "Return the published pilgrimage points of one bangumi id.",
+      parameters: bangumiParameters,
+      execute: (_id: string, params: Static<typeof bangumiParameters>) => this.#answer(params),
+    };
+  }
+
+  async #answer(params: Static<typeof bangumiParameters>): Promise<AgentToolResult<{ rows: number }>> {
+    this.executedWith.push(params);
+    return await Promise.resolve({ content: [{ type: "text", text: "2 points." }], details: { rows: 2 } });
+  }
+}
+
 /** A turn model that streams from a script instead of a socket. */
 export function makeScriptedTurnModel(streamFn = makeToolCallingStreamFn()): TurnModel {
   const model = mimoModel();

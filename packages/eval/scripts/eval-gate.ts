@@ -45,7 +45,7 @@ import { gateExitCode } from "../src/gate-run/gate-exit-code.ts";
 import { gateRunResultOf, type AgentEvalReport, type GateRunResult } from "../src/gate-run/gate-run-result.ts";
 import { pythonBaselineLocation } from "../src/gate-run/python-baseline.ts";
 import { writeGateRunResult } from "../src/gate-run/result-file.ts";
-import { metricNames } from "../src/metric-names.ts";
+import { runMetricNames } from "../src/gate-run/run-metric-names.ts";
 import { neonAuthBearer, qaSignInFrom } from "../src/neon-auth-bearer.ts";
 import { StagingBearer } from "../src/staging-bearer.ts";
 import { DEFAULT_MAX_CONCURRENCY, StagingTurnTask } from "../src/staging-turn-task.ts";
@@ -102,10 +102,15 @@ function stagingTask(concurrency: number): StagingTurnTask {
   });
 }
 
-/** `METRIC_NAMES`: `nonempty_results` only counts when a case asks for it. */
-function runMetricNames(dataset: ExportedDatasetHandle<TranscriptResult>): string[] {
+/** `METRIC_NAMES`, for this run: `nonempty_results` only counts when a case
+ * asks for it, and `argument_correctness` only when the edge published the
+ * settled params it is scored against (#1381). */
+function gatedMetricNames(
+  dataset: ExportedDatasetHandle<TranscriptResult>,
+  report: AgentEvalReport,
+): string[] {
   const hasNonemptyCases = dataset.cases.some((one) => one.metadata?.expect_nonempty === true);
-  return metricNames({ hasNonemptyCases, l3Enabled: L3_ENABLED });
+  return runMetricNames({ report, hasNonemptyCases, l3Enabled: L3_ENABLED });
 }
 
 function gatedResult(report: AgentEvalReport, args: GateRunArgs, caseCount: number, metrics: string[]): GateRunResult {
@@ -140,7 +145,7 @@ async function main(): Promise<void> {
   const task = stagingTask(args.concurrency);
   const report = await dataset.evaluate(task.asTask(), { name: `gate_${args.dataset}`, progress: true });
   process.stdout.write(`${renderReport(report)}\n`);
-  const result = gatedResult(report, args, dataset.cases.length, runMetricNames(dataset));
+  const result = gatedResult(report, args, dataset.cases.length, gatedMetricNames(dataset, report));
   announce(result, writeGateRunResult(result));
   process.exitCode = gateExitCode(result);
 }

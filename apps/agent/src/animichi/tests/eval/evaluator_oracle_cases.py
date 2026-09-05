@@ -2,8 +2,10 @@
 
 Each scenario pins one branch the TypeScript port has to reproduce: the ANY-of-N
 chain disjunction and its ties, the two selection branches that accept the empty
-chain, every branch of `_acceptable_min_steps`, the `{}` (no metric) returns, and
-the `resolve_reply_language` decision points.
+chain, every branch of `_acceptable_min_steps`, the `{}` (no metric) returns, the
+`resolve_reply_language` decision points, and — since #1381 — both answers
+`argument_correctness` can give: every call whose params equal its arguments
+scores 1.0, and the two calls the runtime settled differently score 0.0.
 """
 
 from __future__ import annotations
@@ -248,6 +250,40 @@ SCENARIOS: list[OracleScenario] = [
         data_keys=["results"],
         expect_nonempty=True,
         search_row_count=0,
+    ),
+    OracleScenario(
+        case_id="settled_params_coerced_from_raw_arguments",
+        query=_JA_QUERY,
+        locale="ja",
+        intent="search_bangumi",
+        message=_JA_REPLY,
+        acceptable_stages=["search_bangumi"],
+        steps=[
+            OracleStep(
+                tool="search_bangumi",
+                args={"bangumi_id": "12345"},
+                params={"bangumi_id": 12345},
+            )
+        ],
+        data_keys=["results"],
+        search_row_count=2,
+    ),
+    OracleScenario(
+        case_id="settled_params_dropped_an_optional_null",
+        query=_JA_QUERY,
+        locale="ja",
+        intent="search_nearby",
+        message=_JA_REPLY,
+        acceptable_stages=["search_nearby"],
+        steps=[
+            OracleStep(
+                tool="search_nearby",
+                args={"place": "西宮", "radius_m": None},
+                params={"place": "西宮"},
+            )
+        ],
+        data_keys=["results"],
+        search_row_count=2,
     ),
     OracleScenario(
         case_id="clarify_without_pending",

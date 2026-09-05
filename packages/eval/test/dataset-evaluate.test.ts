@@ -40,12 +40,18 @@ function makeRoutedMultiSelection(): TranscriptResult {
     intent: response.intent,
     locale: 'en',
     message: response.message,
+    paramsRecorded: true,
     response,
     runStatus: 'succeeded',
     stepCount: 1,
     success: true,
     trajectory: [
-      { args: { result_ref: 'search:multi:1' }, status: 'ok', toolName: 'plan_route' },
+      {
+        args: { result_ref: 'search:multi:1' },
+        params: { result_ref: 'search:multi:1' },
+        status: 'ok',
+        toolName: 'plan_route',
+      },
     ],
   };
 }
@@ -66,7 +72,7 @@ void test('a fixture case scored by the real evaluators reports the eight metric
 
   assert.deepEqual(
     Object.keys(scored.scores).sort(),
-    [...metricNames({ hasNonemptyCases: true, l3Enabled: false })].sort(),
+    [...metricNames({ hasNonemptyCases: true, hasParamsRecorded: true, l3Enabled: false })].sort(),
   );
 });
 
