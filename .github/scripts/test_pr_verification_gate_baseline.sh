@@ -2,7 +2,8 @@
 # Behavioural cases for the OpenAPI compatibility baseline the contract gate
 # vets against (#1341). On real fixture histories: a document absent from the
 # merge base gets an empty baseline; a document that is there is compared
-# against the merge base's copy, never the head's own document; and a merge base
+# against the merge base's copy — including when the head retires a route, which
+# is the shape the deleted `checkins|shares` exemption fired in; and a merge base
 # the object store cannot answer for — root tree, subtree, or the document blob
 # — fails the gate instead of degrading to an empty baseline.
 set -euo pipefail
@@ -128,6 +129,23 @@ published_document_case() {
     "published-document: the baseline was not the merge base's copy"
 }
 
+# The deleted exemption's own trigger shape (#1341): a merge base that publishes
+# a route the head has retired is exactly when the old `checkins|shares` carve-out
+# swapped the baseline for the head's document and compared it with itself. The
+# route removal here is the one the exemption was written for.
+retired_route_case() {
+  local root="$TMP/retired-route" recorded="$TMP/retired-route-baselines"
+  make_fixture "$root"
+  write_documents "$root" users/checkins
+  commit_all "$root" base
+  write_documents "$root" users/saved-routes
+  commit_all "$root" 'retire the check-in surface'
+  run_gate "$root" "$recorded" > "$TMP/retired-route.out" 2>&1 ||
+    { echo "FAIL retired-route: the gate rejected a route removal"; cat "$TMP/retired-route.out"; exit 1; }
+  assert_recorded_baselines "$recorded" "$(document_text users/checkins)" \
+    'retired-route: a retired route was vetted against the head, not the merge base'
+}
+
 # Every object the baseline read walks. Hiding any one of them is "the
 # repository cannot answer", never "the merge base has no such document".
 unreadable_object_case() {
@@ -144,7 +162,8 @@ unreadable_object_case() {
 make_vet_stub
 new_document_case
 published_document_case
+retired_route_case
 unreadable_object_case root-tree 'HEAD^^{tree}' 'cannot read the merge base tree'
 unreadable_object_case subtree 'HEAD^:packages/contract' 'cannot read the merge base tree'
 unreadable_object_case blob 'HEAD^:packages/contract/openapi.json' 'cannot read openapi.json from merge base'
-echo "PR Verification compat baseline: absent is empty, published is the merge base's copy, an unanswerable merge base is red"
+echo "PR Verification compat baseline: absent is empty, the merge base's copy is the baseline (retired routes included), an unanswerable merge base is red"

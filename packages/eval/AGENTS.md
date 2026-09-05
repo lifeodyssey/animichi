@@ -170,7 +170,9 @@ Notes for the rest of W3:
   side `readBaselineRecord` returns that line under `failures` (missing and stale
   stay under `warnings`), `gateRunResultOf` folds `baselineFailures` into
   `GateRunResult.failures`, and `eval:gate` exits 1. Nobody re-runs their way out
-  of a damaged file, so it must not look like an ungated run.
+  of a damaged file, so it must not look like an ungated run. Whether `gate.py`
+  should stop warning and follow this side is #1351; until it does, the two
+  runners disagree on this one answer by design, not by drift.
 - **`baselines/` holds Python-written records.** `baselineRecordText` reproduces
   `model_dump_json(indent=2)` byte for byte, so a record written by either side is
   a no-op diff for the other; the committed
