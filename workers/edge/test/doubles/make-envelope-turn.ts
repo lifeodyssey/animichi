@@ -59,21 +59,38 @@ function catalogBinding(resolveOutcome: object) {
   };
 }
 
-/** One model request as it left the loop: the system prompt carrying the
- * session's stored facts, and the context after `transformContext` shaped it. */
+/** One model request as it left the loop: the system prompt it ran under, and
+ * the context after `transformContext` shaped it. */
 export interface ModelRequest {
   readonly prompt: string;
   readonly messages: readonly AgentMessage[];
 }
 
-/** Remember what pi actually sent. The system prompt is where the stored facts
- * have to arrive for the next turn's model to act on them, and the messages are
- * what compaction shaped on the way past (#1290). */
+/** Remember what pi actually sent. The system prompt is the constant every turn
+ * of every session shares since #1379, and the messages are what compaction
+ * shaped and the status bar was appended to on the way past (#1290, #1379). */
 function requestRecording(streamFn: StreamFn, seen: ModelRequest[]): StreamFn {
   return (model, context, options) => {
     seen.push({ prompt: context.systemPrompt ?? "", messages: [...context.messages] as AgentMessage[] });
     return streamFn(model, context, options);
   };
+}
+
+/** The text of one context message, or "" when it is not a plain user message. */
+export function userTextIn(message: AgentMessage | undefined): string {
+  if (message === undefined || !("role" in message) || message.role !== "user") return "";
+  return typeof message.content === "string" ? message.content : "";
+}
+
+/** Every `<agent_status>` bar one request's context carried (#1379). The claims
+ * worth making about it are that there is exactly one and that it is last. */
+export function statusBarsIn(request: ModelRequest): string[] {
+  return request.messages.map(userTextIn).filter((text) => text.startsWith("<agent_status>"));
+}
+
+/** The last message of one request's context, as text. */
+export function lastMessageIn(request: ModelRequest): string {
+  return userTextIn(request.messages[request.messages.length - 1]);
 }
 
 export interface EnvelopeTurnParts {
@@ -105,6 +122,9 @@ export interface EnvelopeTurnRun {
   readonly requests: ModelRequest[];
   /** The system prompt each of this turn's model calls carried. */
   readonly prompts: string[];
+  /** The `<agent_status>` bar each of those calls carried, "" when it carried
+   * none — where the session's own facts arrive since #1379. */
+  readonly statuses: string[];
 }
 
 /** The run one turn is driven against, with the lease and the settled steps an
@@ -150,5 +170,9 @@ export async function runEnvelopeTurn(parts: EnvelopeTurnParts): Promise<Envelop
   });
   const state = await scriptedTurn(parts, store, envelope, requests).run(runId);
   await envelope.close(state);
-  return { store, state, requests, prompts: requests.map((request) => request.prompt) };
+  return {
+    store, state, requests,
+    prompts: requests.map((request) => request.prompt),
+    statuses: requests.map((request) => statusBarsIn(request)[0] ?? ""),
+  };
 }

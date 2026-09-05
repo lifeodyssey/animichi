@@ -15,6 +15,7 @@ import type { SelectionRequest } from "../selection/selection-request.ts";
 import type { LoadedTurn } from "./turn-store.ts";
 import type { TurnMemory } from "../memory/session-memory.ts";
 import { recordTurnFacts } from "../memory/turn-fact-recorder.ts";
+import type { TurnStatus, TurnStatusSource } from "./agent-status.ts";
 import { createTurnAgent } from "./turn-agent.ts";
 import { rehydrateRefs, type MintedRefs } from "./minted-refs.ts";
 import { resumedTranscript, type ResumedTranscript } from "./turn-transcript.ts";
@@ -50,6 +51,10 @@ export interface TurnAttemptParts {
   /** What this session remembers (#1290): the fact ledger compaction rescues
    * entities into, and the recorder appends this turn's facts to. */
   readonly memory: TurnMemory;
+  /** Where the `<agent_status>` bar reads the session's own state (#1379).
+   * `TurnCatalogSession` fulfils it, and the tools rewrite that envelope as the
+   * turn runs, which is why the bar reads it per request. */
+  readonly session: TurnStatusSource;
   /** The refs this RUN minted (#1279): where a settled step reports the ones
    * it added, and where a retry puts the earlier attempts' back. */
   readonly refs: MintedRefs;
@@ -204,8 +209,23 @@ export class TurnAttempt {
     const { systemPrompt, toolbox, emit, answering, memory } = this.#parts;
     const tools = [...this.steps.wrap(toolbox.tools()), answering.tool()];
     const shouldStop = () => this.#stops();
+    const status = () => this.#status();
     const messages = this.#resumed.messages;
-    return { model, systemPrompt, messages, tools, memory, output: this.output, emit, shouldStop };
+    return { model, systemPrompt, messages, tools, memory, status, output: this.output, emit, shouldStop };
+  }
+
+  /**
+   * The status bar's two live facts, read at the moment of a model request
+   * (#1379): what the session vouches for now that this turn's tools have had
+   * their say, and which tools this run has already called.
+   *
+   * The calls are counted off `TurnSteps.recorded`, which is where a step lands
+   * whether it executed or was replayed from `run_steps.result` — so a retried
+   * attempt reports the same counts the first one did.
+   */
+  #status(): TurnStatus {
+    const toolCalls = this.steps.recorded.map((step) => step.toolName);
+    return { envelope: this.#parts.session.envelope, toolCalls };
   }
 
   /** Between turns: the answer, the budget, the lease and the store all get a
