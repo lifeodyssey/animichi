@@ -43,6 +43,15 @@
  * `settledSteps` counts only THIS run's seeded answers: it is where
  * `StepSequence` starts numbering, so an earlier run's results counted into it
  * would make this run's first new call claim an index another step already holds.
+ *
+ * REPLAYING A TURN REPLAYS ITS REFS, AND A REF NOW NAMES ITS RUN. The results
+ * seeded here carry the `result_ref` handles the model was given, and refs are
+ * a per-RUN registry — only this run's mints are put back (`rehydrateRefs`).
+ * So the mint carries its issuing run (`turn-catalog-session.ts`): a foreign
+ * handle cannot collide with one of this run's and always lands on
+ * `stale_ref`, instead of silently resolving to THIS run's rows. Rehydrating
+ * earlier runs' mints — making those handles live again — is a separate
+ * decision and is deliberately NOT taken here.
  */
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import type {

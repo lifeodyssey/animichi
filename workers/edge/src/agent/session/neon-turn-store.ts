@@ -108,10 +108,26 @@ function selectTranscript(sessionId: string): SQL {
  * no `session_id` index a join could use — only the partial unique one over the
  * single RUNNING row. One round trip either way, and this one touches no second
  * table.
+ *
+ * AN EARLIER RUN'S ROWS ARRIVE WITHOUT `minted`. That key holds the catalog
+ * rows behind a ref, and only THIS run's mints are put back (`rehydrateRefs`,
+ * `turn-attempt.ts`) — a foreign run's would be loaded, parsed and dropped.
+ * Deleting it in SQL is what keeps the payload bounded by ONE run's rows
+ * rather than the session's.
+ *
+ * What remains unbounded is the count: one row per settled step of every
+ * issuing run the transcript still names, and the transcript is the whole
+ * session. The `content`/`details` of those results are exactly what is
+ * replayed into the context, so no ceiling can be put here without dropping a
+ * turn from the model's history — the sliding window #1377 removed. #1378 is
+ * where that text shrinks, by freezing each result's summary when it is
+ * written.
  */
-function selectSteps(runIds: readonly string[]): SQL {
+function selectSteps(runId: string, runIds: readonly string[]): SQL {
   return sql`select ${runSteps.runId} as run_id, ${runSteps.stepIndex} as step_index,
-      ${runSteps.toolName} as tool_name, ${runSteps.input} as input, ${runSteps.result} as result
+      ${runSteps.toolName} as tool_name, ${runSteps.input} as input,
+      case when ${runSteps.runId} = ${runId} then ${runSteps.result}
+           else ${runSteps.result} - 'minted'::text end as result
     from ${runSteps} where ${runSteps.runId} in (${sql.join(runIds.map((id) => sql`${id}`), sql`, `)})
     order by ${runSteps.runId}, ${runSteps.stepIndex}`;
 }
@@ -212,7 +228,7 @@ async function loadTurnOn(statements: AgentStatements, runId: string): Promise<L
   const sessionId = textIn(run, "session_id");
   const loaded = await statements.execute(selectTranscript(sessionId));
   const transcript = loaded.rows.map(toTranscriptRow).filter(present);
-  const owned = await statements.execute(selectSteps(issuingRunIds(transcript, runId)));
+  const owned = await statements.execute(selectSteps(runId, issuingRunIds(transcript, runId)));
   const byRun = stepsByRun(owned.rows.map(toOwnedStep).filter(present));
   return {
     runId,

@@ -18,7 +18,9 @@ import { makeScriptedTurnModel, makeSessionTurnParts, makeUserTranscript } from 
 import { makeSequencedToolCallsStreamFn, type ScriptedToolCall } from "./pi-provider-double.ts";
 
 const NOW = 1_000;
-const RUN_ID = "run-1";
+/** The run every answered turn here is driven as — the run its refs name. */
+export const ANSWERED_RUN_ID = "run-1";
+const RUN_ID = ANSWERED_RUN_ID;
 const PRICES = { inputUsdPerMtok: 1, outputUsdPerMtok: 2 };
 
 type StreamFn = NonNullable<Parameters<typeof makeScriptedTurnModel>[0]>;
@@ -76,7 +78,7 @@ export async function makeAnsweredTurn(parts: AnsweredTurnParts): Promise<Answer
     { runId: RUN_ID, sessionId: "session-1", deadlineAt: NOW + 100_000, transcript: makeUserTranscript(), steps: [] },
     () => NOW,
   );
-  const session = new TurnCatalogSession({ locale: "ja" });
+  const session = new TurnCatalogSession({ runId: RUN_ID, locale: "ja" });
   const model = makeScriptedTurnModel(parts.streamFn ?? makeSequencedToolCallsStreamFn(parts.calls ?? []));
   const state = await new DurableTurn({
     store,

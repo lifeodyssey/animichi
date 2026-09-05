@@ -46,7 +46,7 @@ async function answeredSession(sessionId: string): Promise<void> {
 
 /** One turn whose model answers with `respond` and calls nothing else. */
 function greetingTurn(): DurableTurn {
-  const session = new TurnCatalogSession({ locale: "ja" });
+  const session = new TurnCatalogSession({ runId: "run-answer", locale: "ja" });
   const model = makeScriptedTurnModel(makeSequencedToolCallsStreamFn([
     { name: ANSWER_TOOL_NAME, arguments: { kind: "greeting", message: MESSAGE } },
   ]));

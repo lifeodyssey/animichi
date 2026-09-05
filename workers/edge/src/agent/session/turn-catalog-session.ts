@@ -35,6 +35,15 @@ import type { LatLng } from "@animichi/contract";
 
 /** What one turn knows about itself before any tool has run. */
 export interface TurnCatalogSessionParts {
+  /**
+   * The run whose refs these are (#1377).
+   *
+   * It is IN the minted ref, so a handle from an earlier turn — which the
+   * transcript now replays in full — can never be mistaken for one of this
+   * run's. Without it two runs both mint `search:12:1` and a `plan_route`
+   * naming the older one silently routes THIS run's rows.
+   */
+  readonly runId: string;
   /** The language rows are rendered in — city names are localized to it. */
   readonly locale: string;
   /** The user's own coordinates, when the client shared them. */
@@ -49,12 +58,14 @@ export class TurnCatalogSession implements CatalogToolSession, MintedRefs, TurnM
   readonly #searches = new Map<string, SearchResultPayload>();
   readonly #itineraries = new Map<string, ItineraryPayload>();
   readonly #minted: StepMint[] = [];
+  readonly #runId: string;
   #sequence = 0;
   #envelope: SessionEnvelope;
 
   constructor(parts: TurnCatalogSessionParts) {
     this.locale = parts.locale;
     this.origin = parts.origin;
+    this.#runId = parts.runId;
     this.#envelope = parts.envelope ?? SessionEnvelope.empty;
   }
 
@@ -147,9 +158,19 @@ export class TurnCatalogSession implements CatalogToolSession, MintedRefs, TurnM
     return mint.ref;
   }
 
-  /** Python's `RefFactory`: `"{kind}:{row_count}:{sequence}"`, minted once. */
+  /**
+   * Python's `RefFactory` — `"{kind}:{row_count}:{sequence}"` — with the
+   * issuing run appended (#1377).
+   *
+   * The head is Python's and stays readable; the tail is what makes the handle
+   * unforgeable across runs. The transcript replays every earlier turn's tool
+   * results, so their refs are in the model's context, and only THIS run's
+   * mints are put back (`rehydrateRefs`, `turn-attempt.ts`). A ref that names
+   * another run therefore cannot be in this run's map at all, and `plan_route`
+   * answers `stale_ref` instead of routing rows the model did not mean.
+   */
   #mint(kind: string, revision: number): string {
     this.#sequence += 1;
-    return `${kind}:${String(revision)}:${String(this.#sequence)}`;
+    return `${kind}:${String(revision)}:${String(this.#sequence)}@${this.#runId}`;
   }
 }

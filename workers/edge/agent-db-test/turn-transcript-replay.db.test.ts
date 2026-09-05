@@ -22,14 +22,18 @@ import { NeonTurnStore } from "../src/agent/session/neon-turn-store.ts";
 import { CountingSpotLookup, makeScriptedTurnModel, makeSessionTurnParts } from "../test/doubles/make-turn-parts.ts";
 import { makeToolCallMessage } from "../test/doubles/make-loaded-turn.ts";
 import { makeToolCallingStreamFn } from "../test/doubles/pi-provider-double.ts";
-import { onlyRow, seedSession, type AgentDatabase } from "./agent-rows.ts";
+import { onlyRow, seedSession } from "./agent-rows.ts";
 import { SETUP_HOOK_TIMEOUT_MS, startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
 
-const SESSION = "session-1377";
+const REPLAYED = "session-1377-replayed";
+const BOUNDED = "session-1377-bounded";
 const OWNER = "do-incarnation-1";
 const PRICES = { inputUsdPerMtok: 0, outputUsdPerMtok: 0 };
 const EARLIER_ANSWER = "Takayama, for Hyouka.";
 const EARLIER_CALL = makeToolCallMessage("call-earlier");
+/** The rows behind that turn's ref. Only THIS run's mints are rehydrated, so
+ * an earlier run's must not even be loaded (#1377). */
+const MINTED = [{ kind: "search", ref: "search:1:1@earlier", payload: { rows: [] } }];
 
 let plane: AgentDataPlane;
 
@@ -41,18 +45,19 @@ after(async () => {
   await plane.stop();
 });
 
-async function insertUserMessage(database: AgentDatabase, text: string): Promise<string> {
-  const inserted = await database.execute(
-    sql`insert into messages (session_id, role, content) values (${SESSION}, 'user', ${text}) returning id`,
+async function insertUserMessage(sessionId: string, text: string): Promise<string> {
+  const inserted = await plane.database.execute(
+    sql`insert into messages (session_id, role, content) values (${sessionId}, 'user', ${text}) returning id`,
   );
   return String(onlyRow(inserted).id);
 }
 
-async function insertRun(database: AgentDatabase, messageId: string, status: string): Promise<string> {
+async function insertRun(sessionId: string, status: string, text: string): Promise<string> {
+  const messageId = await insertUserMessage(sessionId, text);
   const finished = status === "running" ? null : new Date().toISOString();
-  const inserted = await database.execute(
+  const inserted = await plane.database.execute(
     sql`insert into runs (session_id, message_id, status, deadline_at, finished_at, payer)
-        values (${SESSION}, ${messageId}, ${status}, now() + interval '100 seconds', ${finished}, 'anon')
+        values (${sessionId}, ${messageId}, ${status}, now() + interval '100 seconds', ${finished}, 'anon')
         returning id`,
   );
   return String(onlyRow(inserted).id);
@@ -60,21 +65,22 @@ async function insertRun(database: AgentDatabase, messageId: string, status: str
 
 /** One finished turn as its own alarm left it: the settled step, the assistant
  * tool-call message that issued it, and the answer that closed the run. */
-async function seedAnsweredTurn(database: AgentDatabase): Promise<void> {
-  const runId = await insertRun(database, await insertUserMessage(database, "Hyouka の聖地は？"), "succeeded");
-  const result = { content: [{ type: "text", text: EARLIER_ANSWER }], details: null };
-  await database.execute(
+async function seedAnsweredTurn(sessionId: string): Promise<void> {
+  await seedSession(plane.database, sessionId);
+  const runId = await insertRun(sessionId, "succeeded", "Hyouka の聖地は？");
+  const result = { content: [{ type: "text", text: EARLIER_ANSWER }], details: null, minted: MINTED };
+  await plane.database.execute(
     sql`insert into run_steps (run_id, step_index, tool_name, input, result, finished_at)
         values (${runId}, 0, 'lookup_spot', '{"title":"Hyouka"}'::jsonb,
                 ${JSON.stringify(result)}::jsonb, now())`,
   );
   const envelope = { run_id: runId, step_index: 0, message: EARLIER_CALL };
-  await database.execute(
+  await plane.database.execute(
     sql`insert into messages (session_id, role, content, response_data)
-        values (${SESSION}, 'assistant', '', ${JSON.stringify(envelope)}::jsonb)`,
+        values (${sessionId}, 'assistant', '', ${JSON.stringify(envelope)}::jsonb)`,
   );
-  await database.execute(
-    sql`insert into messages (session_id, role, content) values (${SESSION}, 'assistant', '高山です')`,
+  await plane.database.execute(
+    sql`insert into messages (session_id, role, content) values (${sessionId}, 'assistant', '高山です')`,
   );
 }
 
@@ -99,9 +105,8 @@ function makeSecondTurn(seen: AgentMessage[][]): DurableTurn {
 }
 
 void test("a second turn is handed the first turn's call and result, structured", async () => {
-  await seedSession(plane.database, SESSION);
-  await seedAnsweredTurn(plane.database);
-  const runId = await insertRun(plane.database, await insertUserMessage(plane.database, "他には？"), "running");
+  await seedAnsweredTurn(REPLAYED);
+  const runId = await insertRun(REPLAYED, "running", "他には？");
   const seen: AgentMessage[][] = [];
   assert.deepEqual(await makeSecondTurn(seen).run(runId), { phase: "succeeded" });
 
@@ -113,4 +118,13 @@ void test("a second turn is handed the first turn's call and result, structured"
   const answered = opening[2];
   assert.ok(answered?.role === "toolResult", "the first turn's step answered its call");
   assert.deepEqual(answered.content, [{ type: "text", text: EARLIER_ANSWER }]);
+});
+
+void test("an earlier run's rows are left in the database, not loaded to be dropped", async () => {
+  await seedAnsweredTurn(BOUNDED);
+  const runId = await insertRun(BOUNDED, "running", "他には？");
+  const loaded = await new NeonTurnStore(plane.transactions).loadRunningTurn(runId);
+  const settled = loaded?.earlierSteps.flatMap((run) => run.steps) ?? [];
+  assert.deepEqual(settled.map((step) => step.result?.minted), [[]]);
+  assert.deepEqual(settled.map((step) => step.result?.content), [[{ type: "text", text: EARLIER_ANSWER }]]);
 });

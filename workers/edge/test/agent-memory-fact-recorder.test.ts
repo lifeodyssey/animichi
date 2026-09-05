@@ -39,7 +39,7 @@ function makeSelectionStep(points: readonly unknown[]): RecordedStep {
 }
 
 function makeSession(): TurnCatalogSession {
-  return new TurnCatalogSession({ locale: "ja" });
+  return new TurnCatalogSession({ runId: "run-1", locale: "ja" });
 }
 
 void test("a planned route records the pacing it was asked for", () => {

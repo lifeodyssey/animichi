@@ -26,7 +26,8 @@ const NOW = 1_000;
 const PRICES = { inputUsdPerMtok: 1, outputUsdPerMtok: 2 };
 
 /** The ref `search_bangumi` mints for a two-row result, first mint of the run. */
-const FIRST_SEARCH_REF = "search:2:1";
+const RUN_ID = "run-toolbox";
+const FIRST_SEARCH_REF = `search:2:1@${RUN_ID}`;
 
 /** A `CATALOG` binding that answers the two procedures this turn calls. */
 function catalogBinding(): { fetch: (request: Request) => Promise<Response> } {
@@ -49,7 +50,7 @@ async function runSearchThenRoute() {
     { runId: "run-1", sessionId: "session-1", deadlineAt: NOW + 100_000, transcript: makeUserTranscript(), steps: [] },
     () => NOW,
   );
-  const session = new TurnCatalogSession({ locale: "ja" });
+  const session = new TurnCatalogSession({ runId: RUN_ID, locale: "ja" });
   const model = makeScriptedTurnModel(
     makeSequencedToolCallsStreamFn([
       { name: "search_bangumi", arguments: { bangumi_id: "115908" } },
@@ -73,7 +74,7 @@ function stepDetails(store: InMemoryTurnStore, stepIndex: number): unknown {
 }
 
 void test("the session's toolbox lists all six tools in Python's order", () => {
-  const session = new TurnCatalogSession({ locale: "ja" });
+  const session = new TurnCatalogSession({ runId: RUN_ID, locale: "ja" });
   const toolbox = turnToolbox({ CATALOG: catalogBinding() }, session, makeScriptedTurnModel());
   assert.deepEqual(toolbox.tools().map((tool) => tool.name), [
     "resolve_anime",
@@ -86,7 +87,7 @@ void test("the session's toolbox lists all six tools in Python's order", () => {
 });
 
 void test("an environment with no CATALOG binding leaves the turn without tools", () => {
-  const session = new TurnCatalogSession({ locale: "ja" });
+  const session = new TurnCatalogSession({ runId: RUN_ID, locale: "ja" });
   assert.deepEqual(turnToolbox({}, session, makeScriptedTurnModel()).tools(), []);
 });
 
@@ -101,7 +102,7 @@ void test("a ref minted in one step is readable by the next step of the same run
   });
   assert.deepEqual(stepDetails(store, 1), {
     status: "ok",
-    itinerary_ref: "route:2:2",
+    itinerary_ref: `route:2:2@${RUN_ID}`,
     point_count: 2,
     total_minutes: 120,
   });

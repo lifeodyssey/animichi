@@ -91,7 +91,7 @@ export function makeScriptedTurnModel(streamFn = makeToolCallingStreamFn()): Tur
  * turn two different sessions would be a shape the deployed turn never has.
  */
 export function makeSessionTurnParts(
-  session: TurnCatalogSession = new TurnCatalogSession({ locale: "ja" }),
+  session: TurnCatalogSession = new TurnCatalogSession({ runId: "run-1", locale: "ja" }),
 ): { answering: TurnAnswering; memory: TurnCatalogSession; refs: TurnCatalogSession; selection: null } {
   return { answering: new TurnAnswering(session), memory: session, refs: session, selection: null };
 }

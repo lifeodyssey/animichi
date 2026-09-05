@@ -109,9 +109,9 @@ export class TurnEnvelope {
   readonly #envelopes: SessionEnvelopeStore;
   readonly #runId: string;
 
-  constructor(envelopes: SessionEnvelopeStore, runId: string, parts: TurnCatalogSessionParts) {
+  constructor(envelopes: SessionEnvelopeStore, parts: TurnCatalogSessionParts) {
     this.#envelopes = envelopes;
-    this.#runId = runId;
+    this.#runId = parts.runId;
     this.session = new TurnCatalogSession(parts);
     this.systemPrompt = turnSystemPrompt(this.session.envelope);
   }
@@ -122,7 +122,7 @@ export class TurnEnvelope {
   static async open(parts: TurnEnvelopeParts): Promise<TurnEnvelope> {
     await recoverStagings(parts);
     const envelope = await parts.envelopes.load();
-    return new TurnEnvelope(parts.envelopes, parts.runId, { locale: parts.locale, envelope });
+    return new TurnEnvelope(parts.envelopes, { runId: parts.runId, locale: parts.locale, envelope });
   }
 
   /** Put what the tools left on disk, under this run's key, before the run's
