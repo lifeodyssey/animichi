@@ -4,7 +4,7 @@
  *
  * The two ledgers travel as ONE value because they are written at the same
  * moment and read at the same moment: `SessionEnvelope` carries them across
- * turns, `turn-instructions.ts` renders both into the trusted runtime context,
+ * turns, `agent-status.ts` renders both into the `<agent_status>` bar,
  * and the Durable Object stages and promotes the whole envelope in one write.
  * Two separate fields on the envelope would be two things to keep in step for
  * no gain.

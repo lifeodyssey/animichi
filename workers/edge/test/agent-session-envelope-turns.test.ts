@@ -1,5 +1,6 @@
 /**
- * W1-7a (#1280): what one turn leaves behind, and what the next one is given.
+ * W1-7a (#1280): what one turn leaves behind, and what the next one is given
+ * — on the `<agent_status>` bar since #1379, no longer in the system prompt.
  *
  * Driven over the REAL pi loop, the real `TurnSteps` persistence and the real
  * catalog tools, because "turn N+1" only means something if turn N actually
@@ -53,8 +54,8 @@ void test("the next turn's model is told which question is open, and about what"
   const storage = new RecordingEnvelopeStorage();
   await askedTurn(storage);
   const next = await runEnvelopeTurn({ storage, streamFn: makeSequencedToolCallsStreamFn([]) });
-  assert.match(next.prompts[0] ?? "", /anime_ambiguity/u);
-  assert.match(next.prompts[0] ?? "", /1, 2/u);
+  assert.match(next.statuses[0] ?? "", /anime_ambiguity/u);
+  assert.match(next.statuses[0] ?? "", /1, 2/u);
 });
 
 void test("a tool that answers the question closes it for the turn after that", async () => {
@@ -64,12 +65,12 @@ void test("a tool that answers the question closes it for the turn after that", 
   assert.equal((await storedEnvelope(storage)).pendingClarification, null);
 });
 
-void test("the anime one turn resolved is named in the next turn's system prompt", async () => {
+void test("the anime one turn resolved is named on the next turn's status bar", async () => {
   const storage = new RecordingEnvelopeStorage();
   await resolvedTurn(storage);
   assert.deepEqual((await storedEnvelope(storage)).currentAnime, { bangumiId: "1", title: "らき☆すた" });
   const next = await runEnvelopeTurn({ storage, streamFn: makeSequencedToolCallsStreamFn([NEARBY_CALL]) });
-  assert.match(next.prompts[0] ?? "", /らき☆すた \(1\)/u);
+  assert.match(next.statuses[0] ?? "", /「らき☆すた」 \(1\)/u);
 });
 
 void test("with the anime already resolved the next turn searches without resolving again", async () => {
