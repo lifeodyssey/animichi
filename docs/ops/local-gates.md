@@ -24,6 +24,7 @@ Workspace members are **derived** from `pnpm-workspace.yaml` (directories matchi
 | `workers/migrator/` | migrator | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` + `wrangler deploy --dry-run` (single CI affected-migrator lane) |
 | `packages/contract/` | contract | oxlint | `tsc --noEmit` + `test` + staged-snapshot OpenAPI drift (`contract-drift.sh`, mirrors CI) + agent-model regeneration drift |
 | `packages/eval/` | eval | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` (the Python→TS dataset round trip) + eval-fixture drift (`eval-fixture-drift.sh`, re-runs the Python exporter) |
+| `packages/test-postgres/` | test-postgres | oxlint | `tsc --noEmit` + `lint:oxlint` + `test` (Docker-free: the startup wait, the two setup budgets, the image-tag contract) |
 | `infra/` | infra | — | `typecheck` + `test` + credential-free Pulumi program-load (`infra-check.sh`) |
 | `e2e/` | e2e | — | strict TypeScript typecheck + type-aware oxlint (Playwright stays in CI; an e2e-only change is not `all`) |
 | `migrations/` | db | — | `atlas migrate validate` + migration-boundary guard + sqlfluff + disposable fresh-schema apply (`db-fresh-schema.sh`) |
@@ -64,7 +65,7 @@ Universal (always, sub-second):
 - ruff `--fix` + `ruff format` (all repo Python — ruff is fast enough to run repo-wide)
 
 Changed packages (routed via `changed-packages.sh --staged`):
-- web/catalog/users/edge/migrator/contract/eval → `oxlint --type-aware --deny-warnings` scoped to the package
+- web/catalog/users/edge/migrator/contract/eval/test-postgres → `oxlint --type-aware --deny-warnings` scoped to the package
 
 ## commit-msg (history hygiene, sub-second)
 

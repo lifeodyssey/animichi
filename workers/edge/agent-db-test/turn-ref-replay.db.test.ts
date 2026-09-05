@@ -29,7 +29,7 @@ import {
   type ScriptedToolCall,
 } from "../test/doubles/pi-provider-double.ts";
 import { onlyRow, seedSession, type AgentDatabase } from "./agent-rows.ts";
-import { startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
+import { SETUP_HOOK_TIMEOUT_MS, startAgentDataPlane, type AgentDataPlane } from "./postgres-arm.ts";
 
 const OWNER = "do-incarnation-2";
 const PRICES = { inputUsdPerMtok: 0, outputUsdPerMtok: 0 };
@@ -44,7 +44,7 @@ let plane: AgentDataPlane;
 
 before(async () => {
   plane = await startAgentDataPlane();
-}, { timeout: 300_000 });
+}, { timeout: SETUP_HOOK_TIMEOUT_MS });
 
 after(async () => {
   await plane.stop();

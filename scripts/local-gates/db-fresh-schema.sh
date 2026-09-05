@@ -22,8 +22,6 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
-IMAGE="animichi-test-postgres:18-3.6-pgvector-0.8.5"
-BUILD_CMD="docker build -f apps/agent/docker/test-postgres/Dockerfile -t $IMAGE ."
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required for the fresh-schema gate but is not installed:" >&2
@@ -36,6 +34,16 @@ if ! docker info >/dev/null 2>&1; then
   echo "  start Docker Desktop or run 'colima start', then retry the push." >&2
   exit 1
 fi
+
+# The tag is declared once, in the shared test data plane (#1326): workers/
+# catalog and workers/edge boot the same image from TypeScript, and a copy of
+# the tag here is a copy that drifts without failing. That file is bash, and it
+# is read only once the two Docker checks above have passed — they run on a
+# PATH that may not even have `dirname`, so $ROOT is only trustworthy here.
+# shellcheck source=../../packages/test-postgres/postgres-image.env
+. "$ROOT/packages/test-postgres/postgres-image.env"
+IMAGE="$TEST_POSTGRES_IMAGE"
+BUILD_CMD="docker build -f apps/agent/docker/test-postgres/Dockerfile -t $IMAGE ."
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   echo "missing offline test image; build it first (one-time, needs network):" >&2

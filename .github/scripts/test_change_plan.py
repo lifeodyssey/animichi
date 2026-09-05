@@ -55,7 +55,7 @@ def assert_main_and_fallback() -> None:
         head = commit_file(root, "unknown-root.txt", "unknown")
         result = plan(root, initial, head, "main")
         assert result["fallback_all"] is True
-        assert len(result["components"]) == 12
+        assert len(result["components"]) == 13
         assert set(result["lanes"]) == FALLBACK_LANES
 
 
