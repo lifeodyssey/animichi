@@ -1,0 +1,252 @@
+/**
+ * One staging turn, read back off the wire as the eight eval evaluators need it
+ * (W3-2 #1300, spec `docs/specs/2026-09-01-agent-ts-rewrite-spec.md` §五:
+ * "工具轨迹从 SSE/GET 转录取，不依赖 span tree").
+ *
+ * THE TRAJECTORY COMES FROM THE FRAMES, NOT FROM A SPAN TREE. Python's
+ * evaluators read `AgentResult.steps` — records the in-process runner built as
+ * it went. Nothing equivalent crosses the network, and pydantic-evals' official
+ * adapters reach for OTel spans that a laptop driving staging over HTTP does not
+ * have either. What the deployed edge DOES publish is the SD-9 frames
+ * (`workers/edge/src/agent/session/turn-frames.ts`): `tool-input-start` names
+ * the tool, `tool-input-available` carries its arguments, and a
+ * `tool-output-available` / `-error` under the same `toolCallId` says how it
+ * ended. That is the same fact `StepRecord` holds, published rather than
+ * remembered.
+ *
+ * WHAT THIS TYPE MAY CARRY is bounded by that: exactly the members
+ * `evaluators.py` and `official_evaluators.py` read off an `AgentResult`
+ * (`_actual_tools`, `_available_data_keys`, `ctx.output.message`,
+ * `len(ctx.output.steps)`, each step's `params`), and nothing the wire cannot
+ * answer. A member this shaper had to invent would be a metric scored against
+ * a guess.
+ *
+ * Pure: no network, no clock, no environment. The reading is here; the
+ * requesting is `staging-turn-task.ts`.
+ */
+import type { GetSessionHistoryResponse } from "@animichi/contract/agent-contract";
+
+/** One decoded SD-9 frame. The protocol carries its discriminator inside the
+ * JSON, so a frame is a bare object and `type` is just one of its members. */
+export type TurnFrame = Readonly<Record<string, unknown>>;
+
+/**
+ * The members of the answer part the evaluators read.
+ *
+ * Named after `ChatResponseDataPart` (`packages/contract/src/chat-data-parts.ts`)
+ * but not PARSED with it, and that is a decision rather than a shortcut. The
+ * contract's union is `.strict()`, so one additive member on a future staging
+ * deploy would fail the parse — and a shaper that answered `null` there would
+ * report a turn that answered fine as a turn that crashed, which is a false
+ * measurement rather than a caught bug. Holding the edge to the strict shape is
+ * `packages/contract/test/chat-answer-part.test.ts`'s job, where a failure means
+ * what it says.
+ */
+export interface AnswerPart {
+  readonly intent: string;
+  readonly success: boolean;
+  readonly message: string;
+  readonly data: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * How a tool call ended.
+ *
+ * Three states, not two, because the wire distinguishes three. Python's
+ * `StepRecord.is_success` is a boolean only because a call the in-process runner
+ * never finished produced no record at all; a stream can be cut off mid-call and
+ * still have told us the call was MADE. Collapsing that into `error` would
+ * report a tool failure that never happened, and into `ok` would let
+ * `ArgumentCorrectness` score arguments against an answer nobody saw. W3-3's
+ * port of that evaluator filters on `"ok"`, which is `is_success` exactly.
+ */
+export type StepStatus = "ok" | "error" | "unsettled";
+
+/**
+ * One tool call, in the shape `ArgumentCorrectness` / `ToolCorrectness` /
+ * `TrajectoryMatch` compare: the name, the arguments it was called with, and
+ * whether it succeeded. A call with no output frame at all stays `"ok"` only
+ * when one arrived; see `stepStatus`.
+ */
+export interface TranscriptStep {
+  readonly toolName: string;
+  readonly args: Readonly<Record<string, unknown>>;
+  readonly status: StepStatus;
+}
+
+/** The status of the run that produced this transcript, per `GET /v1/conversations/{id}/messages`. */
+export type RunStatus = "running" | "succeeded" | "failed";
+
+/** One turn as the evaluators read it — Python's `AgentResult`, off the wire. */
+export interface TranscriptResult {
+  readonly intent: string;
+  readonly success: boolean;
+  readonly message: string;
+  readonly locale: string;
+  readonly dataKeys: readonly string[];
+  readonly stepCount: number;
+  readonly trajectory: readonly TranscriptStep[];
+  readonly response: AnswerPart | null;
+  readonly runStatus: RunStatus | null;
+}
+
+/** The stream terminator, which is a bare token rather than JSON. */
+const DONE_FRAME = "data: [DONE]";
+const DATA_PREFIX = "data: ";
+
+/** The id both `data-response` parts share; the second overwrites the first. */
+const RESPONSE_DATA_ID = "response";
+
+/** The intent a turn that crashed carries. The contract has a member for it
+ * (`ChatResponseDataPart`'s `error`), Python had no `AgentResult` at all, and
+ * an evaluator must be able to tell "answered nothing" from "answered". */
+const CRASHED_INTENT = "error";
+
+/** The frames of one `text/event-stream` body, in order. */
+export function turnFramesOf(stream: string): readonly TurnFrame[] {
+  return stream
+    .split("\n")
+    .filter((line) => line.startsWith(DATA_PREFIX) && line !== DONE_FRAME)
+    .map((line) => JSON.parse(line.slice(DATA_PREFIX.length)) as TurnFrame);
+}
+
+function frameString(frame: TurnFrame, key: string): string | null {
+  const value = frame[key];
+  return typeof value === "string" ? value : null;
+}
+
+function frameRecord(frame: TurnFrame, key: string): Readonly<Record<string, unknown>> {
+  const value = frame[key];
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Readonly<Record<string, unknown>>)
+    : {};
+}
+
+/** The calls this stream opened, keyed by the id their output frames name.
+ * A call starts `"unsettled"` and only its own output frame moves it. */
+function openedCalls(frames: readonly TurnFrame[]): Map<string, TranscriptStep> {
+  const calls = new Map<string, TranscriptStep>();
+  for (const frame of frames.filter((item) => item.type === "tool-input-start")) {
+    const callId = frameString(frame, "toolCallId");
+    const toolName = frameString(frame, "toolName");
+    if (callId !== null && toolName !== null) calls.set(callId, { toolName, args: {}, status: "unsettled" });
+  }
+  return calls;
+}
+
+/** The outcome a settling frame reports, or nothing when it settles nothing. */
+function settledStatus(frameType: unknown): StepStatus | null {
+  if (frameType === "tool-output-available") return "ok";
+  return frameType === "tool-output-error" ? "error" : null;
+}
+
+/** One later frame folded onto the call it names; anything else is ignored. */
+function foldFrame(calls: Map<string, TranscriptStep>, frame: TurnFrame): void {
+  const callId = frameString(frame, "toolCallId");
+  const opened = callId === null ? undefined : calls.get(callId);
+  if (callId === null || opened === undefined) return;
+  if (frame.type === "tool-input-available") {
+    calls.set(callId, { ...opened, args: frameRecord(frame, "input") });
+    return;
+  }
+  const status = settledStatus(frame.type);
+  if (status !== null) calls.set(callId, { ...opened, status });
+}
+
+/**
+ * The call order the trajectory is scored in.
+ *
+ * Order is `tool-input-start`'s, because that is when the call was MADE. The
+ * outputs arrive in completion order, and the edge runs a turn's tools
+ * sequentially today — but scoring `TrajectoryMatch(order="in_order")` off
+ * completion order would silently start disagreeing with Python the first time
+ * two tools overlap.
+ */
+export function trajectoryOf(frames: readonly TurnFrame[]): readonly TranscriptStep[] {
+  const calls = openedCalls(frames);
+  for (const frame of frames) foldFrame(calls, frame);
+  return [...calls.values()];
+}
+
+/** The whole answer part, or null when the turn never produced one. */
+export function answerOf(frames: readonly TurnFrame[]): AnswerPart | null {
+  const parts = frames.filter((frame) => frame.type === "data-response" && frame.id === RESPONSE_DATA_ID);
+  const last = parts.at(-1);
+  const part = last === undefined ? null : frameRecord(last, "data");
+  if (part === null || typeof part.intent !== "string") return null;
+  return {
+    intent: part.intent,
+    success: part.success === true,
+    message: typeof part.message === "string" ? part.message : "",
+    data: frameRecord(part, "data"),
+  };
+}
+
+/** The intents whose `data` may publish a search, and those that may publish a
+ * route — `_available_data_keys`' own two lists. The gating is not redundant
+ * with the contract: `RouteData` allows BOTH members, so a `plan_route` answer
+ * carrying search rows would otherwise report a key Python never reports. */
+const SEARCH_INTENTS: ReadonlySet<string> = new Set(["search_bangumi", "search_nearby", "plan_multi"]);
+const ROUTE_INTENTS: ReadonlySet<string> = new Set(["plan_route", "plan_selected", "plan_multi"]);
+
+/** Python's clarification pair: published together whenever a question is
+ * actually pending, which on the wire is a `candidates` member. */
+function clarificationKeys(candidates: unknown): readonly string[] {
+  return candidates === undefined ? [] : ["candidates", "reason"];
+}
+
+/**
+ * Python's `_available_data_keys`, read off the published `data` instead of the
+ * session registry the wire does not carry.
+ *
+ * The two are the same fact from opposite ends: `_available_data_keys` asks
+ * whether the turn's provenance still resolves to a stored payload, and the
+ * `data` member exists exactly when `turn-answer-part.ts` found that payload to
+ * project. What is compared against these keys is the dataset's own
+ * `expected_data_keys` (`results` / `route` / `reason` + `candidates`), so the
+ * names here are that vocabulary and not the wire's.
+ */
+export function dataKeysOf(part: AnswerPart | null): readonly string[] {
+  if (part === null) return [];
+  if (part.intent === "clarify") return clarificationKeys(part.data.candidates);
+  const keys: string[] = [];
+  if (SEARCH_INTENTS.has(part.intent) && part.data.results !== undefined) keys.push("results");
+  if (ROUTE_INTENTS.has(part.intent) && part.data.itinerary !== undefined) keys.push("route");
+  return keys.sort();
+}
+
+/** What one turn produced, and what reading its transcript back added. */
+export interface TurnTranscript {
+  readonly frames: readonly TurnFrame[];
+  readonly history: GetSessionHistoryResponse | null;
+  /** The locale the turn was REQUESTED with — see `transcriptResultOf`. */
+  readonly locale: string;
+}
+
+/**
+ * One turn's transcript as the evaluators read it.
+ *
+ * `locale` is the REQUESTED locale, carried through rather than derived. The
+ * answer envelope publishes no locale to derive one from: `session` is `{}` and
+ * `ui` is a component name, both constant by contract
+ * (`turn-answer-part.ts::capturedMembers`, kept that way so a client cannot
+ * tell which tier answered it). Python did not derive one either — `LocaleMatch`
+ * reads `ctx.inputs.locale` together with the answer's prose and calls
+ * `resolve_reply_language` on the MESSAGE. So the honest members are the locale
+ * that was asked for and the prose that came back; W3-3 scores the pair.
+ */
+export function transcriptResultOf(transcript: TurnTranscript): TranscriptResult {
+  const response = answerOf(transcript.frames);
+  const trajectory = trajectoryOf(transcript.frames);
+  return {
+    intent: response?.intent ?? CRASHED_INTENT,
+    success: response?.success ?? false,
+    message: response?.message ?? "",
+    locale: transcript.locale,
+    dataKeys: dataKeysOf(response),
+    stepCount: trajectory.length,
+    trajectory,
+    response,
+    runStatus: transcript.history?.run?.status ?? null,
+  };
+}

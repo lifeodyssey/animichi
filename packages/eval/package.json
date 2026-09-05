@@ -5,11 +5,16 @@
   "type": "module",
   "description": "Node-side eval package: reads the Python-exported pydantic-evals datasets with logfire/evals.",
   "scripts": {
+    "eval:staging": "node scripts/eval-staging.ts",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
     "test": "node --test \"test/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@animichi/contract": "workspace:*",
     "logfire": "0.22.5"
+  },
+  "devDependencies": {
+    "edge-worker": "workspace:*"
   }
 }

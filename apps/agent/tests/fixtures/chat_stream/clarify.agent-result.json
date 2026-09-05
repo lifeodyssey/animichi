@@ -1,0 +1,23 @@
+{
+  "data_keys": [
+    "candidates",
+    "reason"
+  ],
+  "intent": "clarify",
+  "locale": "ja",
+  "message": "どの作品でしょうか？",
+  "step_count": 1,
+  "success": true,
+  "tools": [
+    "resolve_anime"
+  ],
+  "trajectory": [
+    {
+      "args": {
+        "title": "ハルヒ"
+      },
+      "status": "ok",
+      "tool_name": "resolve_anime"
+    }
+  ]
+}

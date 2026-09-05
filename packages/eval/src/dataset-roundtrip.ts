@@ -28,7 +28,14 @@ export interface ExportedAgentExpected {
   expect_nonempty: boolean;
 }
 
-/** Every case in the exported sets carries `expected_output: null`. */
+/**
+ * Every case in the exported sets carries `expected_output: null`.
+ *
+ * The value in the FILE, and only that. pydantic-evals and `logfire/evals` both
+ * spend ONE type parameter on both halves — `Dataset<Inputs, Output, Metadata>`
+ * types `expected_output` and the task's return alike — which is why the handle
+ * below is generic rather than pinned to this.
+ */
 export type ExportedAgentOutput = null;
 
 /**
