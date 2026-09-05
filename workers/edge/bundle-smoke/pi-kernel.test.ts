@@ -24,8 +24,8 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { URL, fileURLToPath } from "node:url";
-import { build, type BuildOptions } from "esbuild";
 import { Miniflare } from "miniflare";
+import { bundleLikeWrangler } from "./wrangler-bundle.ts";
 
 const ENTRY = fileURLToPath(new URL("./pi-kernel.worker.ts", import.meta.url));
 const WRANGLER_TOML = fileURLToPath(new URL("../wrangler.toml", import.meta.url));
@@ -61,29 +61,6 @@ function deployedRuntime(): { compatibilityDate: string; compatibilityFlags: str
 }
 
 /**
- * esbuild options copied from wrangler's own Worker bundler
- * (`node_modules/wrangler/wrangler-dist/cli.js`, `bundleWorker`): esm/es2024,
- * `import-source` support, and the `workerd, worker, browser` export
- * conditions. Node builtins stay external because the deployed Worker sets
- * `nodejs_compat` and workerd supplies them. A gate that bundled differently
- * from the deploy path would be measuring the wrong artifact.
- */
-const WRANGLER_BUNDLE_OPTIONS: BuildOptions = {
-  bundle: true,
-  format: "esm",
-  target: "es2024",
-  supported: { "import-source": true },
-  conditions: ["workerd", "worker", "browser"],
-  external: ["node:*", "cloudflare:*"],
-  define: { "process.env.NODE_ENV": '"production"' },
-  logLevel: "silent",
-};
-
-async function bundleSmokeWorker(): Promise<void> {
-  await build({ entryPoints: [ENTRY], outfile: BUNDLE, ...WRANGLER_BUNDLE_OPTIONS });
-}
-
-/**
  * The module list is explicit, as a deploy upload is: pi's auth context carries
  * a bundler-opaque `import(specifier)` that Miniflare's automatic dependency
  * walk refuses to resolve even though nothing calls it here.
@@ -111,7 +88,7 @@ async function smokeReport(): Promise<unknown> {
 }
 
 void test("the bundled pi kernel artifact runs a full turn inside workerd", async () => {
-  await bundleSmokeWorker();
+  await bundleLikeWrangler(ENTRY, BUNDLE);
   assert.deepEqual(await smokeReport(), {
     events: ["start", "text_start", "text_delta", "text_end", "done"],
     text: "pong",

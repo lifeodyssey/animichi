@@ -34,13 +34,12 @@ export type UserType = "human" | "anonymous";
  */
 export type { IdentityClass, IdentityClassPolicy, IdentityPolicy };
 
-export {
-  identityClassSchema,
-  identityClassPolicySchema,
-  identityPolicySchema,
-  identityRateLimitSchema,
-  DEFAULT_IDENTITY_POLICY,
-} from "@animichi/contract/identity";
+// The deployed matrix, taken off the contract's import-free module: this
+// Worker reads the numbers at runtime, and `@animichi/contract/identity` would
+// bring zod's whole module graph into the bundle for them (#1285,
+// `bundle-smoke/entry-bundle.test.ts`). The schemas that validate the document
+// stay in the contract, where the tests that parse it import them directly.
+export { DEFAULT_IDENTITY_POLICY } from "@animichi/contract/identity-policy";
 
 /**
  * Why authentication produced no identity (issue #441).

@@ -56,11 +56,12 @@ Staging landed this wire (#912 follow-up). Two consequences for prod:
 
 ## Database-access prod stack (Pulumi)
 
-`infra/database-access/` currently runs only the `staging` stack (`Pulumi.staging.yaml`). The
-prod stack is deliberately **not** created in the staging PR (#912 follow-up) — owner
-approval + secrets are HITL. Steps:
+`infra/database-access/` carries both stacks: `Pulumi.staging.yaml` and, since #1048,
+`Pulumi.prod.yaml`. The prod stack was deliberately **not** created in the staging PR
+(#912 follow-up) — owner approval + secrets are HITL, and `neonApiKey` is still set by the
+operator rather than committed. Steps:
 
-1. **`infra/database-access/Pulumi.production.yaml`** — mirror `Pulumi.staging.yaml`:
+1. **`infra/database-access/Pulumi.prod.yaml`** — mirror `Pulumi.staging.yaml`:
    - `neonProjectId`: the **same** Neon project (roles are **project-scoped**, not
      branch-scoped — do not re-create roles; `pulumi up` on a second stack against the same
      project would try to create them again and Neon rejects duplicate role creates).
@@ -87,12 +88,16 @@ approval + secrets are HITL. Steps:
    `infra/database-access` Pulumi stack after the single `production` approval. The phase restores
    the sealed main-SHA payload, snapshots state, then runs `pulumi up`; roles are reused and
    DSNs are composed against the **main-branch endpoint**.
-4. **Wire prod consumers** (deploy workflow changes, separate PR): add
-   `AGENT_SVC_DATABASE_URL` to the edge Worker's `[env.production.secrets_store_secrets]`
-   and/or CI `worker_secrets`. The jobs Worker is out of this cutover's scope: it stays on
-   the `AGENT_DATABASE_URL` worker secret per the SAFE-1 production pin (#937). Remove the
-   prod GitHub `*_DATABASE_URL`/`SUPABASE_DB_URL` secrets only after the bindings verify
-   (step 5 of the cutover below).
+4. **Wire prod consumers** — **landed by W4-1 (#1314)**, taking the *fallback* store
+   strategy above: one shared store, prod DSNs `_PROD`-suffixed. The edge Worker's
+   `[[env.production.secrets_store_secrets]]` binds `AGENT_SVC_DATABASE_URL` to the store
+   secret `AGENT_SVC_DATABASE_URL_PROD`; no CI `worker_secrets` upload is involved, because
+   a Secrets Store binding is applied by `wrangler deploy` itself. The binding name matches
+   staging's so `CONTAINER_ENV_KEYS` forwards one key in both environments. The jobs Worker
+   is out of this cutover's scope: it stays on the `AGENT_DATABASE_URL` worker secret per the
+   SAFE-1 production pin (#937). Remove the prod GitHub
+   `*_DATABASE_URL`/`SUPABASE_DB_URL` secrets only after the bindings verify (step 5 of the
+   cutover below).
 
 ## Cutover steps (owner window, HITL — mirror #832)
 

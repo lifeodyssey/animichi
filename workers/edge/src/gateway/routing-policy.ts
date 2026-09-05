@@ -1,4 +1,4 @@
-import { AGENT_PATHS } from "@animichi/contract/agent-contract";
+import { AGENT_PATHS } from "@animichi/contract/agent-paths";
 
 // Route classification tables (EDGE-1 #963). Every entry is a path the
 // AGENT_PATHS inventory (CONTRACT-1 #938) must contain: the tables are

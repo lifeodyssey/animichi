@@ -96,7 +96,7 @@ so it no longer has a Live row here — see its "Referenced by nothing" row belo
 | `ZEN_GO_API_KEY` | repo (no env override) | **Production LLM gateway.** MiMo `mimo-v2.5` is routed through the zen/go gateway (`https://opencode.ai/zen/go/v1`) | Exact edge core payload → Worker binding → agent container; also the affected `CI / agent eval` lane and `agent-eval-nightly.yml`, both through `.github/actions/agent-eval` | Missing or blank blocks edge staging, production, and rollback at preflight. Eval lanes 401/403 the provider and the user sees the agent's generic failure response, never the raw provider error (SD-19) |
 | `MIMO_API_KEY` | repo (no env override) | Retired direct-gateway credential retained as an explicit rollback-capable runtime binding | Exact edge core payload → Worker binding → agent container | It is required even while zen/go is the default; missing or blank blocks edge staging, production, and rollback at preflight |
 | `DEEPSEEK_API_KEY` | repo (no env override) | Fallback model — **wired but disabled** (no balance) | Exact edge core payload → Worker binding → agent container | It remains an exact required binding; missing or blank blocks edge staging, production, and rollback at preflight |
-| `SUPABASE_DB_URL` | repo (no env override) | Transitional production container DSN name pending the #855 agent-service cutover | Exact edge core payload → Worker binding → agent container; staging prefers its `AGENT_SVC_DATABASE_URL` Secrets Store binding | Missing or blank blocks edge staging, production, and rollback at preflight; remove it from the core allowlist only as part of the #855 cutover |
+| `SUPABASE_DB_URL` | repo (no env override) | Transitional production container DSN name pending the #855 agent-service cutover | Exact edge core payload → Worker binding → agent container; both deployed environments now prefer their `AGENT_SVC_DATABASE_URL` Secrets Store binding (production since W4-1, #1314) | Missing or blank blocks edge staging, production, and rollback at preflight; remove it from the core allowlist only as part of the #855 cutover |
 | `GOOGLE_MAPS_API_KEY` | repo (no env override) | Geocoding (`apps/agent/src/animichi/infrastructure/gateways/geocoding.py`) | Exact edge core payload → Worker binding → agent container | Missing or blank blocks edge staging, production, and rollback at preflight; an invalid value surfaces later as place-resolution failure |
 | `TURNSTILE_SECRET` | repo (no env override) | Cloudflare Turnstile siteverify secret | Staging-only anonymous payload → edge `workers/edge/src/protect/turnstile.ts`; excluded from production and rollback because anonymous access is off | Missing or blank blocks staging edge promotion at preflight; wrong value makes anonymous chat fail closed with `turnstile_required` |
 | `ANON_ID_SECRET` | repo (no env override) | HMAC key for signed anonymous visitor identities | Staging-only anonymous payload → edge `workers/edge/src/identity/auth.ts`; excluded from production and rollback because anonymous access is off | Missing or blank blocks staging edge promotion. Rotation invalidates existing anonymous identities and can orphan unmigrated anonymous session ownership |
@@ -153,6 +153,7 @@ secrets, so store secrets are listed here for the reader, not enforced by
 | `USERS_DATABASE_URL` | `DATABASE_URL` | `workers/users/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → `workers/users/src/index.ts` |
 | `USERS_DATABASE_URL_PROD` | `DATABASE_URL` | `workers/users/wrangler.toml` `[[env.production.secrets_store_secrets]]` → `workers/users/src/index.ts` |
 | `AGENT_SVC_DATABASE_URL` | `AGENT_SVC_DATABASE_URL` | `workers/edge/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → two consumers of the one binding: `workers/edge/src/container/container-env.ts` (forwarded into the agent container) and, from W1 (#1251), the edge Worker itself in `workers/edge/src/db/agent-database.ts` (the agent turn tier reads Neon directly) |
+| `AGENT_SVC_DATABASE_URL_PROD` | `AGENT_SVC_DATABASE_URL` | `workers/edge/wrangler.toml` `[[env.production.secrets_store_secrets]]` → the same two consumers (W4-1, #1314) |
 
 Bindings are declared per environment in `wrangler.toml` (`secrets_store_secrets` is
 non-inheritable) and are applied automatically by `wrangler deploy` — no CI secret upload step
@@ -161,16 +162,18 @@ the deploy API call, and `env.<binding>.get()` throws at runtime if the secret i
 Note that `secrets.required` must NOT list a name that is also a Secrets Store binding —
 wrangler rejects a name assigned to both binding types.
 
-The agent-service binding is bound only in `[env.staging]`, and the W1 agent tier inherits that
-asymmetry: production edge has no `AGENT_SVC_DATABASE_URL` at all, so binding one there would fail
-the production deploy on a store secret that does not exist. That is a #855 prerequisite, not an
-oversight — production's chat surface is closed (`EDGE_SHOWCASE_MODE = "true"`) until it lands.
+Catalog, users and the agent service all have distinct staging and `_PROD` store secrets because
+both environments share one Cloudflare store — the account plan refuses a second, so the secret
+name is the only thing separating the two environments' credentials. Their runtime DSNs are
+bindings in both environments; CI does not upload them.
 
-Catalog and users have distinct staging and `_PROD` store secrets because both environments share
-one Cloudflare store. Their runtime DSNs are bindings in both environments; CI does not upload
-them. The agent-service binding remains staging-only. Production edge continues to receive
-`SUPABASE_DB_URL` through the exact core bulk payload until #855 provisions a production
-`AGENT_SVC_DATABASE_URL`. Local dev is unchanged (`.dev.vars`).
+The agent-service binding was staging-only until W4-1 (#1314), which provisioned the production
+`agent_svc` DSN through the `infra/database-access` prod stack and bound it on the production edge
+Worker. Landing the binding changed no runtime behaviour: `AGENT_TURN_ROUTE` stays `"container"` in
+production, so the binding only moves where the container's DSN comes from, and production edge
+still receives `SUPABASE_DB_URL` through the exact core bulk payload until the cutover's later step
+retires it (`docs/ops/prod-dsn-cutover.md`). Local dev is unchanged (`.dev.vars`) and binds no store
+secret at all, which is why `AGENT_SVC_DATABASE_URL` is not in `CONTAINER_REQUIRED_KEYS`.
 
 ## Adding a new secret
 

@@ -30,7 +30,7 @@ bindings remain in Wrangler; route ownership stays here. Root guide: `../AGENTS.
 ## Key files + entrypoints
 
 - `index.ts` — R2 media bucket, flag-gated web Custom Domains, edge routes, www redirect, staging WAF gate, exported catalog DB secret, and the Neon Auth staging declarations (JWKS/issuer derivation + QA login, AUTH-2 #950).
-- `database-access/` — database roles, per-service DSNs, and Auth access material. Its Pulumi project name remains the stable persisted state identity until an explicit cross-project stack migration.
+- `database-access/` — database roles, per-service DSNs, and Auth access material. Its Pulumi project name remains the stable persisted state identity until an explicit cross-project stack migration. Its Neon provider SDK is generated at release time and gitignored, so no test can build this program; `topology-prod-database-access.test.ts` pins the prod stack's role/secret derivations from the source instead.
 - `src/neon-auth.ts` — pure Neon Auth derivation (JWKS URL ↔ issuer base URL, env-var names); pinned by `topology-neon-auth.test.ts`.
 - `Pulumi.yaml` — project metadata and base encrypted config.
 - `Pulumi.staging.yaml` · `Pulumi.prod.yaml` — live environment stacks.

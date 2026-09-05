@@ -11,6 +11,7 @@ import {
   RUN_FAILURE_REASONS,
   RUN_PAYERS,
   RUN_STATUSES,
+  USAGE_SCOPES,
 } from "../src/db/schema.ts";
 import { RunFailureReason, SessionRunStatus } from "@animichi/contract/agent-contract";
 import { readMigrationSchema, type ColumnSchema } from "./migration-schema.ts";
@@ -33,8 +34,8 @@ const mapped = new Map([
   ["run_steps", readMappedTable(runSteps)],
   // The day aggregate a settled turn is banked into (#1255). Mapped here for
   // the same reason the turn tables are: `runs.payer` is written into
-  // `daily_usage.scope` verbatim, so the two CHECK vocabularies have to keep
-  // agreeing without anyone re-typing either of them.
+  // `daily_usage.scope` verbatim, so the scope vocabulary has to keep
+  // containing the payer one without anyone re-typing either of them.
   ["daily_usage", readMappedTable(dailyUsage)],
   // The conversation a transcript hangs off (#1254). Mapped for its ownership
   // column alone, and held to the chain here for the same reason as the rest:
@@ -85,6 +86,26 @@ void test("runs pins the vocabularies the client and the reclaim scan read", () 
   assert.deepEqual(runColumns.get("payer")?.values, [...RUN_PAYERS]);
   assert.deepEqual(runColumns.get("failure_reason")?.values, [...RUN_FAILURE_REASONS]);
   assert.equal(runColumns.get("status")?.hasDefault, true);
+});
+
+/**
+ * The meter admits every payer, plus one nobody can be (#1292).
+ *
+ * Asserted as a RELATIONSHIP rather than as two literal lists, because that is
+ * what the settlement relies on: a settled run's payer is written into
+ * `daily_usage.scope` unchanged, so the scope domain must contain the payer
+ * domain — and `platform`, the scope for spend no caller asked for, must not
+ * leak back into the payers a turn can be committed on.
+ */
+void test("the usage meter's scopes are every payer plus the platform", () => {
+  const scopes = readMappedTable(dailyUsage).columns.get("scope")?.values;
+  assert.deepEqual(scopes, [...RUN_PAYERS, "platform"]);
+  assert.deepEqual(scopes, [...USAGE_SCOPES]);
+  assert.equal(RUN_PAYERS.includes("platform" as (typeof RUN_PAYERS)[number]), false);
+  assert.deepEqual(
+    migrated.get("daily_usage")?.checkVocabularies.get("daily_usage_scope_check"),
+    [...USAGE_SCOPES],
+  );
 });
 
 /** The third mirror of the same vocabularies: the wire. `runs.status` and

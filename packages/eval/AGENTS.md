@@ -1,12 +1,17 @@
 # packages/eval — AGENTS.md
 
 The TS side of the eval move (W3 of `docs/specs/2026-09-01-agent-ts-rewrite-spec.md`, umbrella
-#1258). Plain **Node** package — it reads files and will later drive HTTP calls at staging, so it
-must never enter a Workers bundle and never imports `workers/*`. Root guide: `../../AGENTS.md`.
+#1258). Plain **Node** package — it reads files and drives HTTP calls at staging from `scripts/`,
+so it must never enter a Workers bundle, and imports nothing from `workers/*` except the one
+staging door named under “Talking to staging” below. Root guide: `../../AGENTS.md`.
 
-It owns two proven things: the **file contract** between the Python exporter and `logfire/evals`,
-and the **eight evaluators** (`src/evaluators/`) scoring identically to their Python originals.
-W3-2, W3-4 and W3-5 (the staging task, the `gate.py` statistics port, the double run) build on both.
+It owns three things proven against Python's own answers: the **file contract** between the Python
+exporter and `logfire/evals`, the **eight evaluators** (`src/evaluators/`) scoring identically to
+their originals, and the **`gate.py` statistics port** (`src/gate/`) reaching bit-identical
+intervals. The two halves of the W3-5 double run sit on top: the **staging task**
+(`src/staging-turn-task.ts`), which turns one case into real turns, and the **gate runner**
+(`src/gate-run/`, `pnpm run eval:gate`), which turns a finished run into a verdict and a committed
+result file. Neither has met a live staging turn yet.
 
 ## Commands (from `packages/eval/`)
 
@@ -172,3 +177,108 @@ Notes for the rest of W3:
 - **Assertions are folded into the case scores as 1/0.** Python's evaluators all
   return floats; a TS evaluator that returns a boolean lands in
   `report.assertions`, and dropping it would remove a metric the baseline expects.
+
+## Talking to staging (W3-2 #1300)
+
+`src/` shapes and decides; `scripts/` is the only place a credential is read or a request is
+made. That split is why the task can be tested with a fake fetch at all.
+
+| Piece | Owns |
+|---|---|
+| `src/turn-transcript.ts` | (SSE frames, transcript read) → `TranscriptResult`, the members Python's evaluators read off an `AgentResult` |
+| `src/case-submissions.ts` | the `POST /v1/chat` bodies one case sends, history first |
+| `src/staging-turn-task.ts` | the `Dataset.evaluate` task: submit, retry policy, concurrency bound, read back |
+| `src/staging-bearer.ts` · `src/neon-auth-bearer.ts` | the 15-minute Neon Auth JWT, minted and re-minted on age |
+| `scripts/eval-staging.ts` | `pnpm run eval:staging -- --dataset <set> --limit <n>`; prints `renderReport` |
+| `scripts/record-captures.sh` | re-record `fixtures/captures/` from live turns, once a gate token exists |
+
+**One door.** Every staging request goes through `workers/edge/api-test/lane-origin.ts`
+(`laneFetch`), which is why `edge-worker` is a devDependency here. It is the single module
+that resolves `CATALOG_API_ORIGIN`, refuses a non-loopback origin that is not HTTPS, attaches
+`x-staging-key`, and forbids following a redirect (#1291, #1294). Reimplementing those four
+rules would be three places for one of them to be forgotten, and the request that forgot is the
+one that carries a bearer to wherever a `Location` header pointed. Neon Auth is a **different**
+origin behind no WAF rule, so `neon-auth-bearer.ts` takes an injected sender and never reads the
+door's environment. `test/staging-door.test.ts` holds all of that.
+
+**`locale` is the requested locale, not a derived one.** The answer envelope publishes none to
+derive from — `session` is `{}` and `ui` is a component name, both constant by contract
+(`turn-answer-part.ts::capturedMembers`). Python did not derive one either: `LocaleMatch` reads
+`ctx.inputs.locale` together with the answer's prose. So the result carries the locale that was
+asked for and the message that came back, and W3-3 scores the pair.
+
+**Fixtures.** The shaper is measured against the Python-recorded SD-9 captures in
+`apps/agent/tests/fixtures/chat_stream/`, read in place rather than copied, each with the
+`<name>.agent-result.json` its recorder writes from the same turn using the evaluators' own
+accessors. Their **frame grammar** is the deployed edge's — #1283 built `turn-frames.ts` off
+these files and matched them frame for frame — but their answer **envelope** predates a change
+in `agent_result_to_response`, which now projects the payload from the session registry (see
+`record_fixtures.py`'s own note). So `dataKeysOf` is pinned against both shapes: the recorded
+one, and today's `{results, itinerary}` pairing. `fixtures/captures/*.messages.json` is the one hand-written fixture here — Python
+never served `GET /v1/conversations/{id}/messages` for those turns — and it is parsed through
+the contract's `GetSessionHistoryResponse` so it cannot drift into a shape the edge would never
+send. **Unverified:** no capture has been taken from a live staging turn yet; there was no
+`STAGING_GATE_TOKEN` in reach when this landed. `scripts/record-captures.sh` is how that
+changes, and the shaper needing an edit afterwards is itself the finding.
+
+**Why `lib` includes `DOM`.** `tsconfig.json` compiles the shared door, which is written against
+`HeadersInit`; `@types/node` publishes `fetch`/`Response`/`Headers` globally but not that name.
+The package is still Node-only — nothing here may touch a browser global, and the tests would
+say so immediately if it did.
+
+## Gating a run (`src/gate-run/`, `scripts/eval-gate.ts`, #1327)
+
+`pnpm run eval:gate -- --dataset <set> --limit <n> --concurrency <n>` is
+`eval:staging` with a verdict: the same `StagingTurnTask` run, then W3-4's two
+gates on the paired scores, a result file, and `run_agent_eval.py`'s exit code.
+Two entries rather than one flagged entry, because "look at a run" and "block on
+a run" want different defaults and different blast radii — `eval:gate` defaults
+to `agent_eval_v3`, which is 662 real staging turns on the QA identity.
+
+- **Results land in `results/<date>-<dataset>.json`, committed.** #1303's
+  acceptance criterion is a report *committed* under results, so nothing here is
+  gitignored: a verdict that only ever existed on the runner's laptop cannot be
+  the evidence for a wave exit. Same date, same set, same filename — a re-run
+  overwrites rather than accumulating near-identical files.
+- **The baseline is pinned in `python-baseline.ts`, and never written.** Layer
+  `agent_l4_trajectory` and model `openai:mimo-v2.5@https://opencode.ai/zen/go/v1`
+  are constants, not flags: a gate whose baseline can be pointed elsewhere on the
+  command line can always be made to pass by pointing it somewhere easier.
+  Python's uncapped run *creates* a record when it finds none
+  (`_run_uncapped_gate`); this runner never does, because the run being judged
+  must not be able to write what judges it.
+- **A limited run cannot be gated, and says so.** `readBaselineRecord` is given
+  the run's own case count, so `--limit 3` makes the 662-case record stale, the
+  gate compares nothing, and the warning explains — the same place Python's
+  capped runs land (`CAPPED` skips the baseline entirely).
+- **`metricGateResults` is why the file can name a verdict.** `bootstrapGate`
+  returns only strings; the result file needs the interval and the verdict per
+  metric. Rather than a second comparison off the same pairs — a second seed, a
+  second interval, eventually a second answer — `bootstrap-gate.ts` exposes the
+  per-metric rows and `bootstrapGate` became the fold of them. `skipped` is the
+  fourth answer a metric can get: fewer than ten paired cases, no comparison.
+- **Only a `fail` exits 1.** `gate_exit_code` exactly: `indeterminate` and
+  `skipped` are warnings and exit 0, because a gate that blocked on "not enough
+  evidence" would block on noise. A run where every case errored throws
+  `All cases errored` out of `aggregateScores` and writes no file — Python's
+  `NoEvaluatedCases`, which also persists nothing.
+- **The breakdown groups by answered intent and requested locale.** There is no
+  `metadata.intent` to read and no per-intent summary in `eval_harness.py`;
+  what Python has is `exec_tiers.CaseRow`, which writes `intent` off the
+  `AgentResult` and `locale` off the inputs onto every row. `score-breakdown.ts`
+  groups by exactly those two, and each group's numbers come from
+  `logfire/evals`' own `computeAverages` — so a metric only some cases carry
+  (`nonempty_results`) averages over the cases that have it, with the `count`
+  beside the mean. Errored cases are not in it: no output, no intent, no scores;
+  they are the error-rate gate's business.
+- **There are no token or dollar counters, and that is a measurement.** Python
+  reads usage off `AgentResult.usage`; the SD-9 stream publishes no usage part
+  and the history read carries a run status and nothing about cost. `spend`
+  therefore records what the wire can witness: `turns_planned`, the
+  `POST /v1/chat` submissions the cases call for (`caseSubmissionsOf` is pure,
+  so history replays are counted exactly), and `task_seconds`. A double run's
+  dollar figure comes from the provider dashboard.
+- **Not ported: the direct thrash gate.** `direct_gates.py` counts requests and
+  repeats per case out of `AgentResult`; neither number crosses the wire. It is
+  report-only in Python too (`DIRECT_GATE_ENFORCE`), so nothing that blocked
+  there stopped blocking here.

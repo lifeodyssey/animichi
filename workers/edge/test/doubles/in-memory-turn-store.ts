@@ -51,6 +51,9 @@ export class InMemoryTurnStore implements TurnStore {
    * landed" branch, which is the one a replay has anything to rebuild from. */
   refuseStepsFrom = Number.POSITIVE_INFINITY;
   readonly succeeded: SucceededTurnRecord[] = [];
+  /** The instant each settlement was told to stamp — the turn's own injected
+   * clock, so a case can hold the ending to it rather than to the wall. */
+  readonly succeededAt: Date[] = [];
   readonly failed: RunFailureReason[] = [];
 
   constructor(run: SeededRun, now: () => number) {
@@ -99,10 +102,11 @@ export class InMemoryTurnStore implements TurnStore {
     return Promise.resolve(true);
   }
 
-  settleSucceeded(record: SucceededTurnRecord, _at: Date): Promise<SettlementResult> {
+  settleSucceeded(record: SucceededTurnRecord, at: Date): Promise<SettlementResult> {
     if (this.#status !== "running") return Promise.resolve("already_settled");
     this.#status = "succeeded";
     this.succeeded.push(record);
+    this.succeededAt.push(at);
     this.#release();
     return Promise.resolve("settled");
   }

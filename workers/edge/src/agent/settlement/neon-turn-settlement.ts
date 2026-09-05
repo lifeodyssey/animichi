@@ -17,6 +17,13 @@
  *   that reserved nothing (a signed-in or BYOK payer, `runs_quota_reservation_check`)
  *   refunds nothing at all.
  *
+ * A success may leave TWO day rows rather than one (#1292). The turn's own
+ * tokens go on its payer's scope at the price the run committed; what it spent
+ * outside its pi run goes on whichever scope `supplemental-usage.ts` says pays
+ * for that, at the deployment's real prices. Both are inside the one
+ * transaction, and both are behind the same `usage_settled_at` guard, so the
+ * pair is banked exactly once or not at all.
+ *
  * The refund is ONE data-modifying CTE rather than a read-then-write: the
  * marker update and the counter decrement have to be the same decision, and a
  * round trip between them would be both a race and — on a cross-ocean Neon hop
@@ -30,8 +37,9 @@
 import { sql, type SQL } from "drizzle-orm";
 import type { AgentStatements } from "../../db/agent-database.ts";
 import { bareName } from "../../db/column-name.ts";
-import { anonDailyMessageCount, dailyUsage, runs } from "../../db/schema.ts";
+import { anonDailyMessageCount, dailyUsage, runs, type UsageScope } from "../../db/schema.ts";
 import { utcUsageDate } from "../intake/quota-reservation.ts";
+import { supplementalScope } from "./supplemental-usage.ts";
 import { isJsonRecord } from "../json-record.ts";
 import {
   settledRun,
@@ -100,13 +108,35 @@ function addTurnToTheDay(): SQL {
     ${bareName(day.updatedAt)} = now()`;
 }
 
-/** One turn into its payer's day row (Python `_usage_statement`). */
-function bankDailyUsage(usage: TurnUsage, settled: SettledRun, day: string): SQL {
+/** One metered call into one day row (Python `_usage_statement`). */
+function bankDailyUsage(usage: TurnUsage, scope: UsageScope, cost: string, day: string): SQL {
   return sql`insert into ${dailyUsage} (${usageColumns()})
-    values (${day}, ${settled.scope}, ${usage.requests}, ${usage.inputTokens},
-            ${usage.outputTokens}, ${settled.costUsd}::numeric, now())
+    values (${day}, ${scope}, ${usage.requests}, ${usage.inputTokens},
+            ${usage.outputTokens}, ${cost}::numeric, now())
     on conflict (${bareName(dailyUsage.usageDate)}, ${bareName(dailyUsage.scope)})
     do update set ${addTurnToTheDay()}`;
+}
+
+/**
+ * The turn's own tokens, on the scope and at the price the UPDATE committed.
+ */
+function bankTurnUsage(turn: SucceededTurn, settled: SettledRun, day: string): SQL {
+  return bankDailyUsage(turn.usage, settled.scope, settled.costUsd, day);
+}
+
+/**
+ * What the turn spent OUTSIDE its pi run, on whichever scope pays for it
+ * (#1292).
+ *
+ * Always at the deployment's real prices, never the zero a BYOK run is priced
+ * at: `platformCost` zeroes the RUN because the caller's key made those calls,
+ * and this row exists precisely because ours made these. The day is the same
+ * one the turn settles on, so a caller-keyed turn leaves two rows — `byok` at
+ * zero and `platform` carrying the translation.
+ */
+function bankSupplementalUsage(turn: SucceededTurn, settled: SettledRun, day: string): SQL {
+  const scope = supplementalScope(settled.scope);
+  return bankDailyUsage(turn.supplemental, scope, turnCostUsd(turn.supplemental, turn.prices), day);
 }
 
 /** The failed turn's own row. `runs_failed_has_reason_check` makes the reason
@@ -172,8 +202,15 @@ export async function settleSucceededTurn(
 ): Promise<SettlementResult> {
   const committed = committedRow(await statements.execute(markSucceeded(turn, at)));
   if (committed === undefined) return "already_settled";
-  const usage = bankDailyUsage(turn.usage, settledRun(committed), utcUsageDate(at.getTime()));
-  await statements.execute(usage);
+  const settled = settledRun(committed);
+  const day = utcUsageDate(at.getTime());
+  await statements.execute(bankTurnUsage(turn, settled, day));
+  // Python's own gate before it appended an `AttributedUsage`: a turn that
+  // made no off-run call has no second row to write, and an empty one would
+  // still count a request the day never saw.
+  if (turn.supplemental.requests > 0) {
+    await statements.execute(bankSupplementalUsage(turn, settled, day));
+  }
   return "settled";
 }
 

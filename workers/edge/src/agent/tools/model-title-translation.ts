@@ -19,6 +19,15 @@
  *
  * Every failure is `null`, never a throw: the caller's next step is an honest
  * `untranslated` result, which is a better answer than a failed tool.
+ *
+ * WHAT IT SPENT leaves through a sink (#1292). This call is made from inside a
+ * tool rather than by the loop, so its `message_end` never reaches the pi
+ * Agent and `TurnOutput` cannot see the tokens — they were metered nowhere at
+ * all before this. Python solved it the same way, handing the translation its
+ * own `RunUsage` and attributing the total afterwards
+ * (`interfaces/public_api.py::_server_title_translator`); returning the usage
+ * instead would have to travel back through `TranslationResult`, which is the
+ * object the tool hands the MODEL.
  */
 
 import type {
@@ -30,6 +39,7 @@ import type {
   SimpleStreamOptions,
 } from "@earendil-works/pi-ai";
 import type { TranslationLocale } from "@animichi/contract/agent-tool-parameters";
+import type { UsageSink } from "../settlement/supplemental-usage.ts";
 
 /** The system prompt of Python's translation agent, word for word. */
 const TRANSLATION_INSTRUCTIONS = `You translate anime titles, Japanese place names, and user-facing text between
@@ -76,9 +86,21 @@ function textOf(message: AssistantMessage): string {
   return message.content.flatMap((part) => (part.type === "text" ? [part.text] : [])).join("");
 }
 
-/** The completed message's text, or null when the model failed or said nothing. */
-async function completed(stream: AssistantMessageEventStream): Promise<string | null> {
+/**
+ * The completed message's text, or null when the model failed or said nothing —
+ * and, either way, what the provider says it cost.
+ *
+ * A generation that ended in `error` or `aborted` is still reported: the
+ * request reached the provider and came back carrying its own usage, so the
+ * tokens are spent whether or not they became a translation. Only a stream
+ * that THREW reports nothing, because there is no message to read a figure off.
+ */
+async function completed(
+  stream: AssistantMessageEventStream,
+  spent: UsageSink,
+): Promise<string | null> {
   const message = await stream.result();
+  spent({ requests: 1, inputTokens: message.usage.input, outputTokens: message.usage.output });
   if (message.stopReason === "error" || message.stopReason === "aborted") return null;
   return textOf(message).trim() || null;
 }
@@ -93,11 +115,16 @@ function translationContext(prompt: string): Context {
   };
 }
 
-/** A tool-less completion on one model, through one stream function. */
-export function toollessCompletion(model: Model<Api>, stream: ModelStream): ToollessCompletion {
+/** A tool-less completion on one model, through one stream function, reporting
+ * what it spends to `spent`. */
+export function toollessCompletion(
+  model: Model<Api>,
+  stream: ModelStream,
+  spent: UsageSink,
+): ToollessCompletion {
   return async (prompt, signal) => {
     try {
-      return await completed(stream(model, translationContext(prompt), { signal }));
+      return await completed(stream(model, translationContext(prompt), { signal }), spent);
     } catch (error) {
       console.warn({ event: "translation_model_failed", error: String(error) });
       return null;
