@@ -21,17 +21,6 @@
   /* Text on the bright teal ground: white only reaches 2.10:1, this ink 5.62:1.
    * Teal is theme-invariant, so the ink needs no night override. */
   --color-primary-ink: #073f3a;
-  /* Explore action — DESIGN.md §142's single dominant marketing ground
-   * (oklch(67% 0.17 47)). Distinct from --color-explore-bg/-fg, which are the
-   * teal explore-MODE tint pair; this family is the solid action ground.
-   * Hover/press are the teal ramp's own OKLCH lightness steps (+3.91pp /
-   * -9.15pp) applied to this base, so the ramp stays derived, not invented. */
-  --color-explore-action: #e8742e;
-  --color-explore-action-hover: #f48241;
-  --color-explore-action-active: #c15e21;
-  /* Orange this bright cannot carry white either (3.01:1); this deep brown
-   * clears AA on the base, the hover, and the night lift alike. */
-  --color-explore-action-ink: #411f00;
   /* 動森 cream stack (design-sync --bg/--content/--paper): the page floor is
    * the darkest, so cards and bubbles float above it as lighter paper. */
   --color-bg: #f0e8d8;
@@ -176,10 +165,6 @@
   --color-primary-fg: var(--color-primary-fg);
   --color-primary-strong: var(--color-primary-strong);
   --color-primary-ink: var(--color-primary-ink);
-  --color-explore-action: var(--color-explore-action);
-  --color-explore-action-hover: var(--color-explore-action-hover);
-  --color-explore-action-active: var(--color-explore-action-active);
-  --color-explore-action-ink: var(--color-explore-action-ink);
   --color-bg: var(--color-bg);
   --color-paper: var(--color-paper);
   --color-fg: var(--color-fg);
@@ -556,11 +541,6 @@ button, input, select, textarea, [role="button"] {
   --color-paper: #2e2415;
   --color-primary-fg: #10201d;
   --color-primary-soft: #123f39;
-  /* Night lifts the orange (OKLCH L 68.35% -> 72%, chroma eased to 0.145) so it
-   * keeps its prominence on the dark ground; the same deep ink rides it. */
-  --color-explore-action: #ec854d;
-  --color-explore-action-hover: #f8935d;
-  --color-explore-action-active: #c66e3d;
   --color-explore-bg: #0f3531;
   --color-explore-fg: #7fdcd2;
   --color-walk-bg: #1c3320;
@@ -589,59 +569,6 @@ button, input, select, textarea, [role="button"] {
     radial-gradient(50% 34% at 10% -2%, #3c2536 0%, rgb(60 37 54 / 0%) 58%),
     var(--color-bg);
 }
-/* 動森-style pressable button + input primitives (semantic tokens only). */
-.ds-button {
-  border: 2px solid var(--color-border);
-  border-radius: 12px;
-  padding: 10px 18px;
-  min-height: 44px;
-  background: var(--color-card);
-  color: var(--color-fg);
-  font: inherit;
-  font-weight: 700;
-  box-shadow: var(--shadow-press);
-  cursor: pointer;
-  transition: transform 0.05s ease;
-}
-
-.ds-button:active {
-  transform: translateY(4px);
-  box-shadow: none;
-}
-
-.ds-button:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.ds-button--primary {
-  border-color: var(--color-primary-strong);
-  /* White text needs a dark ground: primary teal #19c8b9 only clears 2.1:1,
-   * while primary-strong #0e7d72 reaches 5.0:1 (WCAG AA). */
-  background: var(--color-primary-strong);
-  color: var(--color-primary-fg);
-}
-
-.ds-button--large {
-  padding: 14px 26px;
-  font-size: 1.05rem;
-}
-
-.ds-input {
-  border: 2px solid var(--color-border);
-  border-radius: 12px;
-  padding: 12px 14px;
-  min-height: 44px;
-  background: var(--color-paper);
-  color: var(--color-fg);
-  font: inherit;
-}
-
-.ds-input:focus-visible {
-  outline: 3px solid var(--color-focus);
-  outline-offset: 1px;
-}
-
 /* Tailwind v4 custom variant for the night theme (`<html data-theme="night">`),
  * so page code writes `night:bg-…` utilities instead of hand-rolled selectors. */
 @custom-variant night ([data-theme="night"] &);
@@ -695,14 +622,6 @@ button, input, select, textarea, [role="button"] {
   background: #e8e2d6;
 }
 
-.login-modal__fox {
-  display: block;
-  width: 88px;
-  height: 88px;
-  margin: -4px auto 4px;
-  object-fit: contain;
-}
-
 .login-modal__title {
   margin: 0 0 8px;
   color: #794f27;
@@ -731,50 +650,6 @@ button, input, select, textarea, [role="button"] {
 .login-form__label {
   font-weight: 700;
   color: var(--color-fg);
-}
-
-.login-modal .ds-input {
-  border: 2px solid #e8e2d6;
-  border-radius: 16px;
-  padding: 13px 15px;
-  background: #f0e8d8;
-  font-size: 1rem;
-}
-
-[data-theme="night"] .login-modal .ds-input {
-  border-color: #453a24;
-  background: #241b0f;
-}
-
-.login-modal .ds-input:focus-visible {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-/* "Send login link" is a DESIGN.md §142 explore action, so it takes the orange
- * ground rather than the brand teal — which at 2.09:1 under white text was the
- * modal's only WCAG AA failure. Night needs no override here: the token block
- * already swaps the ramp under [data-theme="night"]. */
-.login-modal .ds-button--primary {
-  width: 100%;
-  border-color: var(--color-explore-action-active);
-  border-radius: 16px;
-  padding: 15px;
-  background: var(--color-explore-action);
-  color: var(--color-explore-action-ink);
-  font-weight: 800;
-  font-size: 1.06rem;
-  box-shadow: 0 4px 0 0 var(--color-explore-action-active);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.12s ease;
-}
-
-.login-modal .ds-button--primary:hover {
-  background: var(--color-explore-action-hover);
-}
-
-.login-modal .ds-button--primary:active {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 0 var(--color-explore-action-active);
 }
 
 .login-form__feedback {
