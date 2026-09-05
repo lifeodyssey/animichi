@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
 import { useDict } from "../../i18n/LocaleProvider";
 import type { Dict } from "../../i18n/dictionaries";
+import { LoginModal } from "../auth/ui/LoginModal";
 
 /**
  * Direction contract (2026-08-30 from-zero round, owner-pinned keepers:
@@ -46,11 +47,20 @@ function BrandLockup({ landing }: Readonly<{ landing: Dict["landing"] }>) {
   );
 }
 
+function useLoginModal(): readonly [boolean, () => void, () => void] {
+  const [open, setOpen] = useState(false);
+  return [open, () => { setOpen(true); }, () => { setOpen(false); }] as const;
+}
+
+/** The login modal lives in the top bar next to its trigger; `position: fixed`
+ * frees it from the header box. */
 function TopBar({ landing }: Readonly<{ landing: Dict["landing"] }>) {
+  const [loginOpen, showLogin, hideLogin] = useLoginModal();
   return (
     <header className="flex w-full max-w-7xl items-center justify-between py-6">
       <BrandLockup landing={landing} />
-      <a href="/chat" className="animal-btn animal-btn-primary animal-btn-large no-underline">{landing.login}</a>
+      <button type="button" onClick={showLogin} className="animal-btn animal-btn-primary animal-btn-large">{landing.login}</button>
+      <LoginModal open={loginOpen} onClose={hideLogin} returnTarget="/chat" />
     </header>
   );
 }
@@ -196,7 +206,9 @@ function LandingSections({ dict }: Readonly<{ dict: Dict }>) {
 
 /** The indexable body of `/` (owner 2026-08-23; from-zero direction-E round
  * 2026-08-30). Mobile hands off to /chat on the first effect; the search form
- * is a plain GET to /chat?q=… so it works before hydration. */
+ * is a plain GET to /chat?q=… so it works before hydration. Log in opens the
+ * magic-link modal in place — the visitor stays on the postcard, and the
+ * mailed link carries them into /chat. */
 export function DoorwaySummary() {
   const dict = useDict();
   return (
