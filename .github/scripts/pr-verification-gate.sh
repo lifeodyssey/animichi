@@ -89,7 +89,7 @@ if [ "$PACKAGE" = e2e ]; then
   E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test \
     web-404.spec.ts web-maplibre-canary.spec.ts web-state-ownership.spec.ts \
     web-a11y-axe.spec.ts web-a11y-keyboard.spec.ts web-a11y-states.spec.ts \
-    web-cwv.spec.ts
+    web-cwv.spec.ts web-chat-settings-return.spec.ts
   exit 0
 fi
 

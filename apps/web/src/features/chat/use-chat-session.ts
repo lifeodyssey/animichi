@@ -7,6 +7,7 @@ import type { PrepareSendMessagesRequest, UIMessage } from "ai";
 import { useCallback, useRef } from "react";
 import type { RefObject } from "react";
 import { z } from "zod";
+import { assignedSessionIdIn } from "./data-parts";
 import { useResendCandidatePick, useSendCandidatePick } from "./selection/candidate-pick-transport";
 import type { SelectedPointsBody } from "./selection/use-recompute-turn";
 import { sessionHeaders } from "./session-headers";
@@ -68,8 +69,9 @@ function useSessionTracker(sessionId: string | undefined, scope: string): Sessio
 }
 
 function captureSessionOffer(ref: SessionRef, part: Readonly<{ data: ChatDataPart }>): void {
-  const { session_id, revision, session_digest } = part.data;
-  if (typeof session_id === "string" && session_id !== "") ref.current.id = session_id;
+  const { revision, session_digest } = part.data;
+  const assigned = assignedSessionIdIn(part.data);
+  if (assigned !== undefined) ref.current.id = assigned;
   if (typeof revision === "number") ref.current.revision = revision;
   if (typeof session_digest === "string" && session_digest !== "") ref.current.digest = session_digest;
 }

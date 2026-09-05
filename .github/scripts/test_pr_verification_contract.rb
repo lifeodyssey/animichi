@@ -127,7 +127,7 @@ def assert_job_contract(workflow, workflow_path)
   gate_source = File.read(GATE)
   identity_contract = ['git rev-parse HEAD', 'merge-base --is-ancestor "$source_head" "$checkout"', 'git merge-base "$source_head" "$base"']
   abort "contract gate lost checkout/source/base identity validation" unless identity_contract.all? { |value| gate_source.include?(value) }
-  web_specs = %w[web-404.spec.ts web-maplibre-canary.spec.ts web-state-ownership.spec.ts web-a11y-axe.spec.ts web-a11y-keyboard.spec.ts web-a11y-states.spec.ts web-cwv.spec.ts]
+  web_specs = %w[web-404.spec.ts web-maplibre-canary.spec.ts web-state-ownership.spec.ts web-a11y-axe.spec.ts web-a11y-keyboard.spec.ts web-a11y-states.spec.ts web-cwv.spec.ts web-chat-settings-return.spec.ts]
   missing_specs = web_specs.reject { |spec| gate_source.include?(spec) }
   abort "e2e gate is missing Web assertions: #{missing_specs.join(', ')}" unless missing_specs.empty?
   abort "e2e gate must not be collection-only" if gate_source.include?("playwright test --list")

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { navigateClient } from "./helpers/client-navigation";
+import { enterRoute } from "./helpers/route-entry";
 import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 /**
@@ -164,7 +164,7 @@ test.describe("WCAG 2.2 AA axe scan of catalog journeys", () => {
       }),
     );
     await openChat(page);
-    await navigateClient(page, "/anime/999", ".anime-empty");
+    await enterRoute(page, "/anime/999", ".anime-empty");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expectNoSeriousOrCritical(page, "anime empty");
   });
@@ -199,7 +199,7 @@ test.describe("WCAG 2.2 AA axe scan of route journeys", () => {
       });
     });
     await openChat(page);
-    await navigateClient(page, "/routes/22222222-2222-4222-8222-222222222222", ".route-panel");
+    await enterRoute(page, "/routes/22222222-2222-4222-8222-222222222222", ".route-panel");
     await expect(page.getByRole("main")).toBeVisible();
     await expectNoSeriousOrCritical(page, "route-detail empty");
   });

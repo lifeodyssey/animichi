@@ -4,10 +4,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { ChatAppBar } from "../../../src/features/chat/components/ChatAppBar";
+import { ChatReturnTargetProvider } from "../../../src/features/chat/ChatReturnTarget";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { LOCALES } from "../../../src/i18n/locales";
 import { LocaleProvider } from "../../../src/i18n/LocaleProvider";
 import type { AuthStatus } from "../../../src/lib/auth/session";
+import { AppRouterContext } from "../_router";
 
 const ja = chatDictFor("ja");
 
@@ -15,9 +17,11 @@ afterEach(cleanup);
 
 function renderAppBar(status: AuthStatus) {
   render(
-    <LocaleProvider>
-      <ChatAppBar dict={ja} status={status} />
-    </LocaleProvider>,
+    <AppRouterContext>
+      <LocaleProvider>
+        <ChatAppBar dict={ja} status={status} />
+      </LocaleProvider>
+    </AppRouterContext>,
   );
 }
 
@@ -37,9 +41,11 @@ describe("chat appbar brand mark", () => {
   it.each(LOCALES)("shows the %s wordmark over the latin lockup", (locale) => {
     const dict = chatDictFor(locale);
     render(
-      <LocaleProvider>
-        <ChatAppBar dict={dict} status="anonymous" />
-      </LocaleProvider>,
+      <AppRouterContext>
+        <LocaleProvider>
+          <ChatAppBar dict={dict} status="anonymous" />
+        </LocaleProvider>
+      </AppRouterContext>,
     );
     expect(screen.getByText(dict.appbar.brand)).toBeTruthy();
     expect(screen.getByText(dict.appbar.tagline)).toBeTruthy();
@@ -55,6 +61,24 @@ describe("chat appbar new conversation", () => {
     renderAppBar("anonymous");
     const link = screen.getByRole("link", { name: ja.appbar.newConversation });
     expect(link.getAttribute("href")).toBe("/chat");
+  });
+});
+
+describe("chat appbar settings link", () => {
+  it("points at the settings route without a conversation to carry", () => {
+    renderAppBar("anonymous");
+    expect(screen.getByRole("link", { name: ja.appbar.settings }).getAttribute("href")).toBe("/settings");
+  });
+
+  it("carries the live conversation so settings can send the visitor back", () => {
+    render(
+      <AppRouterContext>
+        <ChatReturnTargetProvider sessionIdOf={() => "sess-1337"}>
+          <LocaleProvider><ChatAppBar dict={ja} status="anonymous" /></LocaleProvider>
+        </ChatReturnTargetProvider>
+      </AppRouterContext>,
+    );
+    expect(screen.getByRole("link", { name: ja.appbar.settings }).getAttribute("href")).toBe("/settings?session=sess-1337");
   });
 });
 
