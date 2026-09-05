@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { NeonMigrationsLedger } from "../src/ledger";
 import { productionChain } from "../src/bundled-chain";
 import { filesFrom } from "../src/chain";
-import { OPERATOR_VERSION } from "../src/http-apply";
+import { OPERATOR_VERSION, REVISION_UPSERT_SQL } from "../src/http-apply";
+import { FakeSql } from "./fake-sql";
 import {
   BODY_A,
   BODY_B,
   CONCURRENT_BODY,
   DSN,
-  FakeSql,
   HASH_A,
   HASH_B,
   HEAD_B,
@@ -17,6 +17,7 @@ import {
   TWO_BODY,
   applyFixture,
   chainOf,
+  concurrentChain,
   twoStmtChain,
 } from "./http-apply.helpers";
 
@@ -28,7 +29,7 @@ describe("HTTP apply units (AC1)", () => {
     const db = new FakeSql();
     await applyFixture(db);
     expect(db.units).toEqual([BODY_A, BODY_B]);
-    expect(db.transactions).toEqual([[BODY_A], [BODY_B]]);
+    expect(db.transactions).toEqual([[BODY_A, REVISION_UPSERT_SQL], [BODY_B, REVISION_UPSERT_SQL]]);
   });
 
   it("skips versions already in atlas_schema_revisions", async () => {
@@ -36,7 +37,7 @@ describe("HTTP apply units (AC1)", () => {
     db.alreadyApplied("20260811000001");
     await applyFixture(db);
     expect(db.units).toEqual([BODY_B]);
-    expect(db.transactions).toEqual([[BODY_B]]);
+    expect(db.transactions).toEqual([[BODY_B, REVISION_UPSERT_SQL]]);
   });
 });
 
@@ -98,7 +99,7 @@ describe("HTTP apply multi-statement (req 7)", () => {
   it("records a transaction of two queries, not one query of the whole body", async () => {
     const db = new FakeSql();
     await applyFixture(db, { source: twoStmtChain });
-    expect(db.transactions).toEqual([[STMT_1, STMT_2]]);
+    expect(db.transactions).toEqual([[STMT_1, STMT_2, REVISION_UPSERT_SQL]]);
     expect(db.units).toEqual([STMT_1, STMT_2]);
     expect(db.statements).not.toContain(TWO_BODY);
   });
@@ -119,7 +120,7 @@ describe("HTTP apply multi-statement (req 7)", () => {
 
   it("applies CREATE INDEX CONCURRENTLY outside a transaction", async () => {
     const db = new FakeSql();
-    await applyFixture(db, { source: chainOf("20260821000001_concurrent.sql", CONCURRENT_BODY) });
+    await applyFixture(db, { source: concurrentChain });
     expect(db.transactions).toEqual([]);
     expect(db.units).toEqual([CONCURRENT_BODY]);
   });

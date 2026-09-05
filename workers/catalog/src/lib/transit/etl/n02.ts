@@ -1,7 +1,7 @@
 import { haversine } from "../../../domain/geo";
-import { compareStrings } from "../compare";
-import { MinHeap } from "../heap";
-import type { AdjacencyEdge, TopologyLine, TopologyStation } from "../model";
+import { compareStrings } from "../../../domain/transit/compare";
+import { MinHeap } from "../../../domain/transit/heap";
+import type { AdjacencyEdge, TopologyLine, TopologyStation } from "../../../domain/transit/model";
 
 /** Decimal places used to snap nearby N02 segment endpoints into one vertex. */
 export const N02_SNAP_DECIMALS = 4;

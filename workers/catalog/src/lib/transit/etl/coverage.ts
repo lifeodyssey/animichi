@@ -1,6 +1,6 @@
 import { haversine } from "../../../domain/geo";
-import { NEAREST_STATION_MAX_M } from "../constants";
-import type { TopologyStation } from "../model";
+import { NEAREST_STATION_MAX_M } from "../../../domain/transit/constants";
+import type { TopologyStation } from "../../../domain/transit/model";
 
 export interface CoverageSpot { lat: number; lng: number }
 export interface StationCoverage { covered: number; total: number; rate: number }

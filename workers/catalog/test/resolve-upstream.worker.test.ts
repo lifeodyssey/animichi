@@ -4,11 +4,12 @@ import {
   type TitleAliasPort,
   type UpstreamTitlePort,
 } from "../src/application/resolve-bangumi";
+import { bangumiSubjectParser } from "../src/adapters/outbound/bangumi-search";
 
 type Subject = Record<string, unknown> & { id: string };
 
 function upstreamWith(subjects: Subject[]): UpstreamTitlePort {
-  return { fetchSubjects: () => Promise.resolve(subjects) };
+  return { ...bangumiSubjectParser(), fetchSubjects: () => Promise.resolve(subjects) };
 }
 
 function subject(id: number, name: string, name_cn?: string): Subject {
@@ -147,6 +148,7 @@ describe("resolveBangumi upstream subject parsing", () => {
 describe("resolveBangumi upstream failure", () => {
   it("surfaces the typed upstream_unavailable sentinel from the port", async () => {
     const upstream: UpstreamTitlePort = {
+      ...bangumiSubjectParser(),
       fetchSubjects: () => Promise.resolve("upstream_unavailable" as const),
     };
 

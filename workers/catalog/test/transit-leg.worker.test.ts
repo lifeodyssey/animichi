@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LocationCluster } from "../src/domain/clustering/cluster";
 import { buildTimedItinerary } from "../src/domain/itinerary/plan";
-import { buildTransitIndex, maybeTransitLeg, type TopologyGraphAsset } from "../src/lib/transit";
+import { buildTransitIndex, maybeTransitLeg, type TopologyGraphAsset } from "../src/domain/transit";
 import { tokyoSample } from "./fixtures/transit/tokyo-sample";
 
 interface Point { id: string; latitude: number; longitude: number }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTransitIndex, estimateTransitLeg, type TopologyGraphAsset } from "../src/lib/transit";
+import { buildTransitIndex, estimateTransitLeg, type TopologyGraphAsset } from "../src/domain/transit";
 import { tokyoSample } from "./fixtures/transit/tokyo-sample";
 
 const index = buildTransitIndex(tokyoSample);

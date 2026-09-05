@@ -21,6 +21,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { URL, fileURLToPath } from "node:url";
+import { OFFLINE_POSTGRES_IMAGE } from "@animichi/test-postgres/postgres-image";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (path: string): string => readFileSync(`${ROOT}${path}`, "utf8");
@@ -49,14 +50,17 @@ void test("the database arm runs under one exact command, apart from the spike l
   assert.equal(EDGE_PACKAGE.scripts["test:spike-db"], 'node --test "db-test/*.test.ts"');
 });
 
+// The README's build command is a fourth copy of the tag, so it is compared
+// against the shared declaration rather than against a literal written twice
+// (#1326); a stale README would otherwise still satisfy a literal match.
 void test("the arm and its Docker prerequisite are documented where an agent reads", () => {
   assert.match(read("workers/edge/AGENTS.md"), /pnpm run test:agent-db/);
-  assert.match(read("workers/edge/agent-db-test/README.md"), /animichi-test-postgres:18-3\.6-pgvector-0\.8\.5/);
+  assert.ok(read("workers/edge/agent-db-test/README.md").includes(OFFLINE_POSTGRES_IMAGE));
 });
 
 void test("neither database lane is part of the deployed edge", () => {
   const edge = MANIFEST.components.find((component) => component.name === "edge");
   assert.ok(edge?.deploy_excludes.includes("workers/edge/agent-db-test/**"));
   assert.ok(edge?.deploy_excludes.includes("workers/edge/db-test/**"));
-  assert.equal(typeof EDGE_PACKAGE.devDependencies.testcontainers, "string");
+  assert.equal(typeof EDGE_PACKAGE.devDependencies["@animichi/test-postgres"], "string");
 });

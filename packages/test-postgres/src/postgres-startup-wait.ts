@@ -7,7 +7,10 @@
  * bind-then-ready gap is rejected with SQLSTATE 57P03, "the database system is
  * starting up". The container wait strategy (two `ready to accept connections`
  * log lines) closes nearly all of it; this bounded probe closes the rest
- * without ever swallowing a failure that is not a startup symptom. */
+ * without ever swallowing a failure that is not a startup symptom.
+ *
+ * Written for #1324 in `workers/catalog`; shared from here since #1326.
+ */
 
 /** SQLSTATE 57P03 plus the pre-listen socket refusals — the startup symptoms. */
 const STARTUP_CODES: ReadonlySet<string> = new Set(["57P03", "ECONNREFUSED", "ECONNRESET"]);
@@ -20,9 +23,6 @@ export interface StartupWaitLimits {
 
 /** Sleeps between attempts; injected so tests run on a fake clock. */
 export type Pause = (milliseconds: number) => Promise<void>;
-
-/** The spike suite's budget: 30 attempts a second apart. */
-export const SPIKE_STARTUP_WAIT: StartupWaitLimits = { attemptCeiling: 30, pauseMs: 1_000 };
 
 function errorCode(error: unknown): string | null {
   if (!(error instanceof Error) || !("code" in error)) return null;
@@ -47,20 +47,26 @@ async function outcomeOf(probe: () => Promise<void>): Promise<Outcome> {
   }
 }
 
+/** Class fields, not constructor parameter properties: Node's type stripping —
+ * how `workers/edge`'s `node --test` lane loads this package — rejects the
+ * parameter-property form outright. */
 export class PostgresStartupWait {
-  constructor(
-    private readonly limits: StartupWaitLimits,
-    private readonly pause: Pause,
-  ) {}
+  #limits: StartupWaitLimits;
+  #pause: Pause;
+
+  constructor(limits: StartupWaitLimits, pause: Pause) {
+    this.#limits = limits;
+    this.#pause = pause;
+  }
 
   /** Repeat the probe while Postgres is still starting; anything else rethrows. */
   async until(probe: () => Promise<void>): Promise<void> {
-    const { attemptCeiling, pauseMs } = this.limits;
+    const { attemptCeiling, pauseMs } = this.#limits;
     for (let taken = 1; taken <= attemptCeiling; taken += 1) {
       const outcome = await outcomeOf(probe);
       if (outcome.settled) return;
       if (!isStartingUp(outcome.failure)) throw outcome.failure;
-      if (taken < attemptCeiling) await this.pause(pauseMs);
+      if (taken < attemptCeiling) await this.#pause(pauseMs);
     }
     throw new Error(`Postgres was still starting up after ${String(attemptCeiling)} connection attempts`);
   }

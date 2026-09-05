@@ -1,5 +1,5 @@
 import { haversine } from "../../../domain/geo";
-import type { AdjacencyEdge, RailCategory, TopologyLine, TopologyStation } from "../model";
+import type { AdjacencyEdge, RailCategory, TopologyLine, TopologyStation } from "../../../domain/transit/model";
 import { parseCsv, type CsvRow } from "./csv";
 
 /** Rail-path curvature applied to straight-line station distances. */

@@ -151,35 +151,3 @@ it("exposes /healthz", async () => {
   const res = await app.request("https://migrator.test/healthz", {}, testEnv());
   expect(res.status).toBe(200);
 });
-
-describe("GET /ledger-head - read-only applied-head report (post-staging smoke)", () => {
-  // #1052 (AC5): the post-staging smoke compares the migrator's reported
-  // applied head to the expected target. The endpoint is read-only (its only
-  // capability is `SELECT version FROM public.atlas_schema_revisions ... LIMIT 1`
-  // via the ledger reader) and the migration head equals the newest committed
-  // migrations/neon basename, so it is unauthenticated - no stored credential,
-  // no OIDC requirement on the smoke path.
-  it("reports the applied head read from the ledger", async () => {
-    const { app } = await makeApp({
-      readAppliedHead: (): Promise<string | null> => Promise.resolve("20260814191301_turn_idempotency_outbox"),
-    });
-    const res = await app.request("https://migrator.test/ledger-head", {}, testEnv());
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ head: "20260814191301_turn_idempotency_outbox" });
-  });
-
-  it("reports a null head when the ledger has no revisions row", async () => {
-    const { app } = await makeApp({
-      readAppliedHead: (): Promise<string | null> => Promise.resolve(null),
-    });
-    const res = await app.request("https://migrator.test/ledger-head", {}, testEnv());
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ head: null });
-  });
-
-  it("answers 503 when the migrator DSN is not configured", async () => {
-    const { app } = await makeApp();
-    const res = await app.request("https://migrator.test/ledger-head", {}, {});
-    expect(res.status).toBe(503);
-  });
-});

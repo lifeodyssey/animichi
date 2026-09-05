@@ -3,9 +3,16 @@
  * adapter over the Bangumi search fetcher. Maps the fetcher's typed transport
  * failure to the `upstream_unavailable` sentinel; every other failure stays an
  * error. Search policy (similarity, cap) stays in the application use case.
+ *
+ * It also satisfies the composed `SubjectParserPort`: knowing Bangumi's payload
+ * shape (`images`, `date` vs `air_date`) is this adapter's job, so the use case
+ * never reads a raw upstream field.
  */
 
-import type { UpstreamSubjects, UpstreamTitlePort } from "../../application/resolve-bangumi";
+import type {
+  CandidateFields, SubjectParserPort, TitleSubject, UpstreamSubjects, UpstreamTitlePort,
+} from "../../application/resolve-bangumi";
+import { parseBangumi } from "../../enrich/parse";
 import type { RetryOptions } from "../../ingest/retry";
 import {
   BANGUMI_FETCH_N,
@@ -22,7 +29,17 @@ export interface BangumiTitleSearchConfig {
 
 /** Build the `UpstreamTitlePort` backed by the Bangumi search fetcher. */
 export function bangumiTitleSearch(cfg: BangumiTitleSearchConfig = {}): UpstreamTitlePort {
-  return { fetchSubjects: (query) => fetchSubjects(query, cfg) };
+  return { ...bangumiSubjectParser(), fetchSubjects: (query) => fetchSubjects(query, cfg) };
+}
+
+/** Build the `SubjectParserPort` for Bangumi's payload shape, on its own. */
+export function bangumiSubjectParser(): SubjectParserPort {
+  return { parseSubject: parseTitleSubject };
+}
+
+/** Narrow one Bangumi subject; `parseBangumi` throws when it carries no title. */
+function parseTitleSubject(subject: TitleSubject): CandidateFields {
+  return parseBangumi(subject.id, subject);
 }
 
 async function fetchSubjects(

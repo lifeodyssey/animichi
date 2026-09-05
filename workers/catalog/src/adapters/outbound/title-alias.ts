@@ -9,8 +9,7 @@
  */
 import { count, eq, inArray, max, sql, type SQL } from "drizzle-orm";
 import { nullableString, requiredNumber, requiredString } from "../../lib/rows";
-import { candidateFromRow, type AliasWork, type TitleAliasPort } from "../../application/resolve-bangumi";
-import type { BangumiRow } from "../../enrich/parse";
+import { candidateFromRow, type AliasWork, type CandidateFields, type TitleAliasPort } from "../../application/resolve-bangumi";
 import type { AnimeCandidate } from "../../types";
 import { statementBuilder } from "../../db/client";
 import { aliases, bangumi, points } from "../../db/schema";
@@ -72,17 +71,12 @@ function readStoredCandidate(row: Record<string, unknown>): AnimeCandidate {
   return candidateFromRow(parsedRow(row), requiredNumber(row, "points_count"));
 }
 
-function parsedRow(row: Record<string, unknown>): BangumiRow {
+function parsedRow(row: Record<string, unknown>): CandidateFields {
   return {
     id: requiredString(row, "id"),
     title: requiredString(row, "title"),
     title_cn: nullableString(row, "title_cn"),
     cover_url: nullableString(row, "cover_url"),
     air_date: nullableString(row, "air_date"),
-    ...emptyEnrichment(),
   };
-}
-
-function emptyEnrichment() {
-  return { summary: null, rating: null, eps_count: null };
 }
