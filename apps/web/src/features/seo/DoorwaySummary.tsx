@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
 import { useDict } from "../../i18n/LocaleProvider";
@@ -85,6 +86,9 @@ function HomeSearch({ home }: Readonly<{ home: Dict["home"] }>) {
   );
 }
 
+/** Document load on purpose, like the app bar's new-conversation anchor
+ * (`ChatAppBar.tsx:53`): `?q=` opens a NEW conversation, and only a cold start
+ * can guarantee that — a client navigation cannot reset a live scope. */
 function ChipLink({ query, color }: Readonly<{ query: string; color: string }>) {
   return <a href={`/chat?q=${encodeURIComponent(query)}`} className={`rounded-full px-6 py-3 text-lg font-bold text-nook-ink no-underline shadow-[var(--shadow-press)] transition-transform duration-100 hover:-translate-y-0.5 active:translate-y-1 active:shadow-none ${color}`}>{query}</a>;
 }
@@ -159,7 +163,7 @@ function CompareCard({ landing }: Readonly<{ landing: Dict["landing"] }>) {
 function FooterLinks({ landing }: Readonly<{ landing: Dict["landing"] }>) {
   return (
     <nav aria-label={landing.footer_nav} className="flex gap-5">
-      <a href="/privacy" className="text-ground-ink underline underline-offset-4">{landing.privacy}</a>
+      <Link to="/privacy" className="text-ground-ink underline underline-offset-4">{landing.privacy}</Link>
       <a href={REPO_URL} target="_blank" rel="noreferrer" className="text-ground-ink underline underline-offset-4">{landing.github}</a>
     </nav>
   );

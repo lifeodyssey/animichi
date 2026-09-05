@@ -47,8 +47,9 @@ full gate description):
 - `seed.spec.ts` lives at the `e2e/` root (the Playwright MCP server locates seeds
   there), NOT in this directory. It is a zero-assertion scaffold, not a test, so
   it must never count as a case in the always-run suite: the default
-  `npx playwright test` run is exactly **36 tests in 9 files**, and a silent
-  36→37 drift is the failure mode this gate exists to prevent. Isolation
+  `npx playwright test` run is exactly **113 tests in 21 files** (`playwright
+  test --list`, 2026-09-05), and a silent 113→114 drift is the failure mode
+  this gate exists to prevent. Isolation
    mechanism (see `../playwright.config.ts`): the seed has its own `seed` project
    that exists only in the MCP server process (`npx playwright
    run-test-mcp-server`) — the CLI test runner never sees it, and the `chromium`

@@ -12,9 +12,10 @@ import type { ReactNode } from "react";
  * adopted the work correctly and then dropped the visitor on the index route
  * with no way back to it.
  *
- * The live session id cannot come from the URL: `?session=` is an *entry*
- * parameter, and the id the backend assigns mid-conversation is never written
- * back to the address bar (`ChatPage` does not navigate). It lives only in
+ * The live session id is not read back off the URL. `?session=` is an *entry*
+ * parameter: the page publishes the assigned id into the address bar
+ * (`conversation-address`, #1337) but deliberately never reads its own
+ * publication back, since that would re-scope the live `Chat`. The id lives in
  * `useChatSession`'s tracker ref, which is why it is published through context
  * rather than read off `location` — and through the reader function rather than
  * the value, since the ref deliberately does not re-render on change.
@@ -41,11 +42,20 @@ export function ChatReturnTargetProvider({ sessionIdOf, children }: ProviderProp
 }
 
 /**
+ * The live conversation id. A link out of the chat carries it so the visitor
+ * comes back to this conversation (the settings link, #1337); `undefined`
+ * outside a chat.
+ */
+export function useChatSessionId(): string | undefined {
+  return useContext(ChatSessionIdContext)();
+}
+
+/**
  * The return target for a login wall rendered inside the chat. `undefined`
  * outside a chat (the settings-panel modal), which keeps today's `/` behaviour.
  */
 export function useChatReturnTarget(): string | undefined {
-  return chatSessionTarget(useContext(ChatSessionIdContext)());
+  return chatSessionTarget(useChatSessionId());
 }
 
 /**
