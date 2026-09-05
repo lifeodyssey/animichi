@@ -69,6 +69,7 @@ function makeTurn(catalog: CountingSelectionCatalog): DurableTurn {
     toolbox: EMPTY_TOOLBOX,
     answering: new TurnAnswering(session),
     memory: session,
+    session,
     refs: session,
     selection: (request, steps) => answerSelection({ catalog, session, steps, emit }, request),
     systemPrompt: "test",

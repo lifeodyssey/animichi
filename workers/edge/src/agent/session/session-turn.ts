@@ -230,6 +230,7 @@ function configuredTurn(
     toolbox: model === null ? EMPTY_TOOLBOX : turnToolbox(parts.env, envelope.session, model),
     answering: new TurnAnswering(envelope.session),
     memory: envelope.session,
+    session: envelope.session,
     refs: envelope.session,
     selection: turnSelection(parts.env, envelope.session, emit),
     systemPrompt: envelope.systemPrompt,

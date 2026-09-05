@@ -3,7 +3,8 @@
  *
  * Two moments, and they belong together because the invariant between them is
  * the whole point: the turn OPENS with what earlier turns left — the tools are
- * seeded from it and the model is told about it — and CLOSES by writing back
+ * seeded from it, and the model reads it off the `<agent_status>` bar every
+ * request ends with (#1379, `agent-status.ts`) — and CLOSES by writing back
  * what the tools left, once, and only if this incarnation is the one that
  * settled the run.
  *
@@ -12,6 +13,11 @@
  * a `TurnStoreUnavailable` never returns a state at all, so a turn that could
  * not write its own step does not overwrite the envelope either, and the retry
  * finds the previous one intact and replays into it (spec Appendix C).
+ *
+ * NOTHING HERE BUILDS A PROMPT any more. It used to render the envelope into
+ * the system prompt at `open()`, which made that prompt a per-turn string; the
+ * prompt is now the constant of `turn-instructions.ts` (spec §九 9.4) and the
+ * envelope reaches the model as the last message instead.
  *
  * What the turn wrote is settled per TURN and not per step, deliberately: a
  * replayed step is answered from `run_steps.result` without calling `execute`
@@ -53,7 +59,7 @@ export interface TurnEnvelopeParts {
 }
 import type { TurnState } from "./run-machine.ts";
 import { TurnCatalogSession, type TurnCatalogSessionParts } from "./turn-catalog-session.ts";
-import { turnSystemPrompt } from "./turn-instructions.ts";
+import { TURN_SYSTEM_PROMPT } from "./turn-instructions.ts";
 
 /**
  * Whether this alarm may publish what the run staged.
@@ -104,8 +110,16 @@ async function recoverStagings(parts: TurnEnvelopeParts): Promise<void> {
 export class TurnEnvelope {
   /** The session state this turn's catalog tools read and write. */
   readonly session: TurnCatalogSession;
-  /** The system prompt this turn opens with, carrying what the session knows. */
-  readonly systemPrompt: string;
+  /**
+   * The system prompt this turn runs under — the CONSTANT, unconditionally
+   * (#1379).
+   *
+   * It stays the one seam every turn reads its prompt through even though it no
+   * longer computes anything: this is the line a card that made the prompt
+   * session-dependent again would have to change, and the byte-stability cases
+   * drive their turns through it.
+   */
+  readonly systemPrompt = TURN_SYSTEM_PROMPT;
   readonly #envelopes: SessionEnvelopeStore;
   readonly #runId: string;
 
@@ -113,7 +127,6 @@ export class TurnEnvelope {
     this.#envelopes = envelopes;
     this.#runId = parts.runId;
     this.session = new TurnCatalogSession(parts);
-    this.systemPrompt = turnSystemPrompt(this.session.envelope);
   }
 
   /** Recover what earlier alarms left staged, then seed this turn from the

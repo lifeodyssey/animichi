@@ -137,6 +137,7 @@ export function makeSelectionTurn(seed: SelectionTurnSeed): SelectionTurnHarness
     toolbox: EMPTY_TOOLBOX,
     answering: new TurnAnswering(session),
     memory: session,
+    session,
     refs: session,
     selection: (request, steps) => answerSelection({ catalog, session, steps, emit }, request),
     // A modelless deployment offers no tools either, which is what
