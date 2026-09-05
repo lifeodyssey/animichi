@@ -29,6 +29,12 @@ export interface Env {
    * only the literal "edge" moves them onto this Worker's own agent tier;
    * unset/anything else keeps forwarding to the Python container. */
   AGENT_TURN_ROUTE?: string;
+  /** Which deployment this Worker is (`wrangler.toml`, one per environment).
+   * The literal `"staging"` — and nothing else — mounts the eval's frozen-prefix
+   * seeding (E-1 #1380, `gateway/staging-prefix-route.ts`). It is a MOUNT
+   * switch and never an authorisation; the procedure's own ownership check is
+   * what decides who may write. */
+  APP_ENV?: string;
   /** Per-identity anonymous daily message allowance (#282). Read by BOTH the
    * container (through `CONTAINER_ENV_KEYS`) and, since #1256, by the edge's
    * own intake — whichever tier the flag above selected is the one enforcing

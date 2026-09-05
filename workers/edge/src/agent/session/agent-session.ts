@@ -33,6 +33,7 @@ import { DurableEnvelopeStore } from "./durable-envelope-store.ts";
 import type { SessionEnvelopeStore } from "./session-envelope.ts";
 import { SessionRunQueue } from "./session-run-queue.ts";
 import { armedCredential, armedRunId, SESSION_ARM_PATH } from "./session-wakeup.ts";
+import { answerPrefixSeeding, SESSION_PREFIX_PATH } from "./session-prefix.ts";
 import { sseResponse } from "./sse-turn-channel.ts";
 import { TurnSubscribers } from "./turn-subscribers.ts";
 
@@ -78,6 +79,7 @@ export class AgentSession {
     const url = new URL(request.url);
     if (url.pathname === SESSION_ARM_PATH) return await this.#arm(request);
     if (url.pathname === SESSION_STREAM_PATH) return await this.#stream(url);
+    if (url.pathname === SESSION_PREFIX_PATH) return await this.#seedPrefix(request);
     return notFound();
   }
 
@@ -114,6 +116,21 @@ export class AgentSession {
     if (runId === null || runId === "") return notFound();
     const view = await this.#subscribers.openLiveView(runId, this.#queue.holds(runId));
     return view === null ? notFound() : sseResponse(view.body);
+  }
+
+  /**
+   * Seed a frozen trajectory prefix into this session (E-1 #1380).
+   *
+   * It runs HERE, and not in the Worker, because half of a prefix is the
+   * session envelope and that lives in this instance's own storage — the same
+   * single-writer argument the queue and the envelope are kept here for. The
+   * identity it writes on behalf of was verified by the gateway and rides the
+   * request; `answerPrefixSeeding` re-reads it and the seeding checks the
+   * session's ownership against it.
+   */
+  #seedPrefix(request: Request): Promise<Response> {
+    const owner = this.#ctx.id.toString();
+    return answerPrefixSeeding({ env: this.#env, envelopes: this.#envelopes, owner }, request);
   }
 
   /** One run, then close whoever was watching it. The credential is dropped

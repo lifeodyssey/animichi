@@ -71,6 +71,14 @@ fallback (#1005 AC3) was deleted in #1347 once every branch was post-cut.
   `src/agent-tool-schemas.ts` — their generated JSON Schema · `scripts/emit-tool-schemas.ts` — the
   conversion · `test/agent-tool-schemas.test.ts` — its drift gate ·
   `test/chat-answer-part.test.ts` — the conformance gate on the edge's `data-response` projection.
+- `src/staging-prefix-path.ts` — `STAGING_PREFIX_PATH_TEMPLATE` + `STAGING_APP_ENV`, import-free
+  because `workers/edge` reads them at RUNTIME · `src/staging-prefix-contract.ts` — the frozen
+  trajectory prefix body `packages/eval` posts (E-1 #1380). **Neither is emitted**: the procedure
+  is mounted only where `APP_ENV === "staging"`, so the path stays out of `AGENT_PATHS` and out of
+  every OpenAPI document — publishing it would document a route production must not have. The
+  edge re-reads the same body by hand (`workers/edge/src/agent/session/trajectory-prefix.ts`, no zod in the
+  bundle), and `workers/edge/test/trajectory-prefix-body.test.ts` parses one body through both
+  readers so they cannot drift.
 - `src/contract.ts` — catalog procedures and error attachments.
 - `src/users-contract.ts` — users-service procedures and errors.
 - `src/errors.ts` — canonical catalog error registry.

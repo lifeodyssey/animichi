@@ -152,6 +152,25 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   `already_settled` promote. `already_settled` is its own `TurnPhase` precisely so it is not
   confused with `declined`: the first is a retry of an ending this alarm owes, the second is a live
   owner mid-turn whose staging must not be published for it.
+- `src/agent/session/trajectory-prefix.ts`, `prefix-turn.ts`, `prefix-seeding.ts`,
+  `neon-seeded-session.ts`, `session-prefix.ts` + `src/gateway/staging-prefix-route.ts` — the
+  eval's **frozen trajectory prefix** (E-1 #1380, spec §十 10.1; 李博杰《深入理解 AI Agent》
+  ch.7 `initialization_actions`). A `seeded_pending` eval case measures a REPLY to a
+  clarification the agent never got to ask, and on an HTTP tier the only way to put a turn in a
+  session is to have taken it — so this writes one: the prior user message, the assistant
+  tool-call message with its settled `run_steps` row, the answer, and the session envelope
+  carrying the pending clarification under the id the reply names. It writes through the
+  PRODUCT's own seams (`TurnRecords.openTurn`, `TurnStore`, `SessionEnvelopeStore`) and adds no
+  second SQL path, and it runs INSIDE the session's Durable Object because the envelope lives in
+  that instance's storage. **Two doors, neither sufficient alone**: `APP_ENV === "staging"` is
+  the MOUNT (fail closed on every other value — the route does not exist on production, and the
+  path is deliberately absent from `AGENT_PATHS` so no document publishes it and no rate table
+  can name it), and the caller must present the Neon Auth bearer the product reads a session by,
+  with `ConversationRetrieval`'s own `ownedBy` deciding the session is theirs. A session that has
+  already taken a turn is refused (a prefix is a session's FIRST turn); a re-seeding of the same
+  `case_id` writes nothing, because the case id IS the seeded message's `client_message_id` and
+  `messages_session_client_message_id` decides. The prefix run is settled `succeeded` on purpose:
+  left `running` it would make the measured turn a 409 on `runs_one_running_per_session`.
 - `src/agent/memory/` — what a session REMEMBERS, as two bounded value objects
   inside `SessionEnvelope` (W2-4 #1290, spec §一). `FactLedger` carries the facts a
   turn's own settled steps witnessed — an append/supersede chain for the user's hard
