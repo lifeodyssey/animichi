@@ -2,12 +2,13 @@
   "name": "animichi-e2e",
   "private": true,
   "scripts": {
+    "lint": "pnpm run lint:oxlint",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "typecheck": "tsc --noEmit",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:web": "playwright test web-404.spec.ts web-chat-error-states.spec.ts web-chat-anonymous.spec.ts web-chat-save-login-wall.spec.ts web-neon-login.spec.ts web-splash.spec.ts",
-    "test:perf-mobile-cold": "playwright test web-splash.spec.ts web-map-spike.spec.ts --grep @perf-mobile-cold",
-    "typecheck": "tsc --noEmit"
+    "test:perf-mobile-cold": "playwright test web-splash.spec.ts web-map-spike.spec.ts --grep @perf-mobile-cold"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

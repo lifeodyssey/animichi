@@ -8,17 +8,21 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
 
 ## Commands (from `workers/edge/`)
 
-- pnpm. `pnpm test` — the node:test suite under `test/*.test.ts` (doubles in `test/doubles/`).
-  From the repo root the same suite is `pnpm run test:worker` (forwards to
-  `pnpm --filter edge-worker test`; `make test-worker` likewise) — command surface unchanged.
+- pnpm. `pnpm test` — the edge's whole deterministic gate set, in one command (#1358): the
+  node:test suite under `test/*.test.ts` (doubles in `test/doubles/`), then `test:chat-answer-part`
+  (`packages/contract/test/chat-answer-part.test.ts` — it guards THIS package's `data-response`
+  projection, so it runs in this lane and not only when the contract changes), then
+  `test:bundle-smoke`, then `test:ratelimit-namespace`
+  (`scripts/check-edge-ratelimit-namespace.sh` and its behavioral test, which moved here from
+  `.github/scripts/`). From the repo root the same command is `pnpm run test:worker` (forwards to
+  `pnpm --filter edge-worker test`; `make test-worker` likewise).
 - `pnpm run test:bundle-smoke` — the bundler gates (`bundle-smoke/`), the only ones that read the
   ARTIFACT rather than the source: `pi-kernel.test.ts` (W0-S3 #1246) bundles
   `bundle-smoke/pi-kernel.worker.ts` with wrangler's own esbuild settings and **executes** the
   artifact in workerd, and `entry-bundle.test.ts` (#1285) builds `src/entry.ts` the same way and
   fails if zod reached it — the property `src/` keeps by construction and no source-level gate can
   see. Both bundle through `bundle-smoke/wrangler-bundle.ts`, the one copy of those settings.
-  Separate from `pnpm test` on purpose — bundle-only runtime failures are invisible to the
-  node:test suite, and these are slower.
+  Runnable on its own; `pnpm test` runs it as its third segment.
 - `pnpm run test:catalog-api` — opt-in staging lane (`api-test/*.test.ts`, W1-4 #1253) for the
   catalog tools, against a deploy carrying `AGENT_TURN_ROUTE = "edge"`, plus the BYOK probe's
   invalid-key evidence (W2-3 #1289; the valid-key case is the owner's manual step, because it

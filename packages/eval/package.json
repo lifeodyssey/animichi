@@ -5,11 +5,13 @@
   "type": "module",
   "description": "Node-side eval package: reads the Python-exported pydantic-evals datasets with logfire/evals.",
   "scripts": {
+    "lint": "pnpm run lint:oxlint",
+    "lint:oxlint": "oxlint --type-aware --deny-warnings .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.ts\" && pnpm run test:fixture-drift",
     "eval:gate": "node scripts/eval-gate.ts",
     "eval:staging": "node scripts/eval-staging.ts",
-    "lint:oxlint": "oxlint --type-aware --deny-warnings .",
-    "test": "node --test \"test/*.test.ts\"",
-    "typecheck": "tsc --noEmit"
+    "test:fixture-drift": "bash scripts/export-fixtures.sh && bash ../../scripts/local-gates/eval-fixture-drift.sh"
   },
   "dependencies": {
     "@animichi/contract": "workspace:*",

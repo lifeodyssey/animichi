@@ -3,17 +3,18 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Animichi Catalog service \u2014 Cloudflare Workers + Hono + oRPC over Postgres/PostGIS",
+  "description": "Animichi Catalog service — Cloudflare Workers + Hono + oRPC over Postgres/PostGIS",
   "scripts": {
+    "lint": "pnpm run lint:oxlint",
+    "lint:oxlint": "tsx scripts/oxlint/check-no-inline-config.ts && tsx scripts/check-worker-entry-exports.ts && oxlint --type-aware --deny-warnings .",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:worker && npm run test:spike",
     "build:topology": "tsx scripts/transit/build-topology.ts",
     "dev": "wrangler dev",
     "fetch:n02": "tsx scripts/transit/fetch-n02.ts",
-    "lint:oxlint": "tsx scripts/oxlint/check-no-inline-config.ts && tsx scripts/check-worker-entry-exports.ts && oxlint --type-aware --deny-warnings .",
-    "test": "npm run test:worker && npm run test:spike",
     "test:smoke": "tsx scripts/startup-smoke.ts",
     "test:worker": "vitest run --config vitest.config.ts --coverage",
-    "test:spike": "vitest run --config vitest.spike.config.ts",
-    "typecheck": "tsc --noEmit"
+    "test:spike": "vitest run --config vitest.spike.config.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

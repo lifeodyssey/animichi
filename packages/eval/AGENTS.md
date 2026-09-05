@@ -15,7 +15,12 @@ result file. Neither has met a live staging turn yet.
 
 ## Commands (from `packages/eval/`)
 
-- `pnpm run test` — `node --test` over `test/*.test.ts` (Node's native TS type stripping; no bundler).
+- `pnpm run test` — `node --test` over `test/*.test.ts` (Node's native TS type stripping; no
+  bundler), then `test:fixture-drift`: it re-runs the Python exporter
+  (`scripts/export-fixtures.sh`) and fails when the committed fixtures are not what it writes
+  today (`scripts/local-gates/eval-fixture-drift.sh`). That arm needs `uv` — comparing without
+  re-exporting would always be clean, which is no gate at all.
+- `pnpm run lint` / `pnpm run lint:oxlint` — type-aware oxlint, warnings denied.
 - `pnpm run typecheck` — TypeScript 7.0.2 `tsc --noEmit`.
 - From the repo root: `pnpm run test:eval`. Both run in the `eval` CI lane and in the pre-push
   `gate_eval`.
