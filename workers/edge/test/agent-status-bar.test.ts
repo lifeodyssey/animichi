@@ -63,7 +63,7 @@ void test("the bar is one user message wrapped in the agent_status tag", () => {
 });
 
 void test("the bar names the anime the session already resolved", () => {
-  assert.match(barText(makeFullStatus()), /Current anime: 涼宮ハルヒの憂鬱 \(485\)\./u);
+  assert.match(barText(makeFullStatus()), /Current anime: 「涼宮ハルヒの憂鬱」 \(485\)\./u);
   assert.match(barText(makeFullStatus()), /already resolved for this session/u);
 });
 
@@ -84,7 +84,7 @@ void test("the bar never carries the clarification's own id", () => {
 
 void test("the bar carries the pacing the user asked for and the scene they picked", () => {
   assert.match(barText(makeFullStatus()), /User hard constraint: chill pacing\./u);
-  assert.match(barText(makeFullStatus()), /Referenced scene: 第4話 鷲宮神社\./u);
+  assert.match(barText(makeFullStatus()), /Referenced scene: 「第4話 鷲宮神社」\./u);
 });
 
 void test("the bar carries a rescued entity wrapped in its own quotes", () => {

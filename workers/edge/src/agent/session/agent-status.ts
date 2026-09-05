@@ -13,12 +13,17 @@
  * is explicit that the bar rides "一条 user 角色的消息" appended to the end of the
  * context rather than a rewritten `system` message: last is where the attention
  * weight is, and appending leaves every cached token before it intact. The
- * `user` role is a SLOT the harness borrows, not a claim that a user typed this
- * — which is why the poisoning defence is unchanged from when these same lines
- * rode the system channel: values still arrive sanitised by `trusted-text.ts`
- * (both ledgers apply it on write) and a retained entity is still wrapped in
- * `「」` so a value engineered to read as trailing instruction text cannot blend
- * into the directive after it.
+ * `user` role is a SLOT the harness borrows, not a claim that a user typed this.
+ *
+ * WHICH MEANS THIS MODULE IS THE TRUST BOUNDARY, not the channel it rides. The
+ * lines below are built from strings the catalog, the geocoder and the user
+ * supplied, and the system prompt tells the model this summary is the server's
+ * own. Nothing about a `user` message makes that true; `status-value.ts` does,
+ * by removing at RENDER time every character a value could close the tag, the
+ * line or the `「」` quotes with. The ledgers' own `trustedText` runs earlier and
+ * answers a narrower question (control characters, length) — and two of the
+ * values here, the resolved title and the clarification candidates, never enter
+ * a ledger at all.
  *
  * REPLACED EVERY REQUEST, NEVER PERSISTED — the book's 「状态更新的两种实现与缓存
  * 代价」实现一. `turn-agent.ts` renders it inside `transformContext`, which pi
@@ -41,6 +46,7 @@
  * tools are #1253's and their routing table is theirs to write.
  */
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import { quotedStatusValue, statusValue } from "./status-value.ts";
 import type { FactLedger, SceneReferenceRecord } from "../memory/fact-ledger.ts";
 import type { RetainedEntityLedger } from "../memory/retained-entity-ledger.ts";
 import type { PendingClarification, SessionEnvelope } from "./session-envelope.ts";
@@ -63,9 +69,12 @@ export interface TurnStatus {
   readonly toolCalls: readonly string[];
 }
 
-/** The work the session is about, so the next turn does not resolve it again. */
+/** The work the session is about, so the next turn does not resolve it again.
+ * Both halves are the catalog's words (`resolve-anime-tool.ts`), so both go
+ * through `status-value.ts` and the title is stated inside quotes. */
 function resolvedAnimeLine(anime: CurrentAnime): string {
-  return `Current anime: ${anime.title} (${anime.bangumiId}). It is already resolved for this session; use that id rather than resolving the title again.`;
+  const title = quotedStatusValue(anime.title);
+  return `Current anime: ${title} (${statusValue(anime.bangumiId)}). It is already resolved for this session; use that id rather than resolving the title again.`;
 }
 
 /**
@@ -78,14 +87,21 @@ function resolvedAnimeLine(anime: CurrentAnime): string {
  * number in the context is a number a model can invent.
  */
 function openQuestionLine(pending: PendingClarification): string {
-  const ids = pending.candidates.map((candidate) => candidate.id).join(", ");
-  return `Open question: ${pending.reason}; candidate_ids=[${ids}]. The user's message may be answering it.`;
+  const ids = pending.candidates.map((candidate) => statusValue(candidate.id)).join(", ");
+  const reason = statusValue(pending.reason);
+  return `Open question: ${reason}; candidate_ids=[${ids}]. The user's message may be answering it.`;
 }
 
 /**
  * The fact ledger's own consumption point (#1290) — the port of Python's
  * `_fact_ledger_context`, word for word, because a ledger field with no
  * consumer is dead scaffolding and this is the consumer.
+ *
+ * The pacing is the one value on the bar that is NOT externally sourced: it is
+ * a closed vocabulary checked against `PACINGS` on the write path
+ * (`turn-fact-recorder.ts`) and again on the restore path (`stored-memory.ts`),
+ * so there is no string for a sanitiser to work on. The scene name beside it is
+ * the user's own words and is stated as a quoted value.
  */
 function factLines(ledger: FactLedger): string[] {
   const constraint = ledger.activeHardConstraint();
@@ -96,22 +112,26 @@ function factLines(ledger: FactLedger): string[] {
 }
 
 function sceneLine(reference: SceneReferenceRecord): string {
-  return `Referenced scene: ${reference.value}. The user explicitly selected this; treat it as a durable point of interest for follow-up questions this session.`;
+  return `Referenced scene: ${quotedStatusValue(reference.value)}. The user explicitly selected this; treat it as a durable point of interest for follow-up questions this session.`;
 }
 
 /**
  * What compaction rescued before it shrank the return that carried it (#1290),
  * Python's `_compaction_retention_context`.
  *
- * The value is wrapped in `「」` rather than concatenated bare onto the sentence,
- * so a value engineered to read as trailing instruction text cannot blend into
- * the directive that follows it.
+ * The value is stated inside `「」` rather than concatenated bare onto the
+ * sentence, so a value engineered to read as trailing instruction text cannot
+ * blend into the directive that follows it — and it is `status-value.ts` that
+ * makes that quoting mean anything, by removing the quote character from the
+ * value first. The ledger's own `trustedText` does not: it collapses control
+ * characters and bounds the length, and keeps `「」` as ordinary text.
  */
 function retentionLines(ledger: RetainedEntityLedger): string[] {
-  return ledger.entities.map(
-    (entity) =>
-      `Verbatim entity retained from an earlier ${entity.toolName} call: 「${entity.value}」. This was compacted out of the raw conversation; still treat it as valid context for anaphora and follow-up.`,
-  );
+  return ledger.entities.map((entity) => retentionLine(entity.toolName, entity.value));
+}
+
+function retentionLine(toolName: string, value: string): string {
+  return `Verbatim entity retained from an earlier ${statusValue(toolName)} call: ${quotedStatusValue(value)}. This was compacted out of the raw conversation; still treat it as valid context for anaphora and follow-up.`;
 }
 
 /** How many times each tool ran, in the order each was first called. */
@@ -128,7 +148,7 @@ function callCounts(toolCalls: readonly string[]): Map<string, number> {
  */
 function toolCallLines(toolCalls: readonly string[]): string[] {
   if (toolCalls.length === 0) return [];
-  const spelled = [...callCounts(toolCalls)].map(([name, count]) => `${name} ×${String(count)}`);
+  const spelled = [...callCounts(toolCalls)].map(([name, count]) => `${statusValue(name)} ×${String(count)}`);
   return [`Tool calls this turn: ${spelled.join(", ")}.`];
 }
 

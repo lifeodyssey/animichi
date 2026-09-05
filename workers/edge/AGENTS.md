@@ -130,7 +130,12 @@ Root guide: `../../AGENTS.md`. Sibling worker guides: `../catalog/AGENTS.md`, `.
   system-prompt block: the system prompt is a constant, byte-identical across a session's turns,
   and a per-turn prefix is 李博杰 ch.2 实验 2-3's 动态系统提示词. The bar is rendered inside pi's
   `transformContext`, so it is replaced on every request, never reaches `messages` in Neon, and
-  always reflects what the tools have just written; `stage()` writes the whole envelope under the
+  always reflects what the tools have just written. Its values are the catalog's, the geocoder's
+  and the user's words, and the model is told the server wrote the bar, so `status-value.ts` is
+  the trust boundary: at RENDER time it removes from every value the characters the bar builds its
+  own structure from (`<>`, `「」`, newlines) and bounds the length, which is what the ledgers'
+  earlier `trustedText` write gate does NOT do and what the two envelope-held values (the resolved
+  title, the clarification candidates) never pass through at all; `stage()` writes the whole envelope under the
   run's own key BEFORE the terminal row lands, driven by the `EnvelopeStagingStore` decorator around
   the `TurnStore`; and `close(state)` promotes that staging to the session's envelope once the run
   reaches its OWN terminal path. The order is the recovery: the terminal row is in Neon and the

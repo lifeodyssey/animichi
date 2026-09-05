@@ -72,7 +72,7 @@ void test("a session that has done nothing yet is handed no bar", async () => {
  * two of them is on the second one — never one request late. */
 void test("the bar follows the tools within the turn", async () => {
   const run = await busyTurn(new RecordingEnvelopeStorage());
-  assert.match(lastMessageIn(requestAt(run, 1)), /Current anime: らき☆すた \(1\)\./u);
+  assert.match(lastMessageIn(requestAt(run, 1)), /Current anime: 「らき☆すた」 \(1\)\./u);
   assert.match(lastMessageIn(requestAt(run, 1)), /Tool calls this turn: resolve_anime ×1\./u);
   assert.match(lastMessageIn(requestAt(run, 2)), /resolve_anime ×1, search_nearby ×1\./u);
 });
@@ -119,5 +119,5 @@ void test("what turn 1 resolved is on turn 2's first bar", async () => {
     storage, runId: "run-2", queued: ["run-2"],
     streamFn: makeSequencedToolCallsStreamFn([NEARBY_CALL]),
   });
-  assert.match(lastMessageIn(requestAt(second, 0)), /Current anime: らき☆すた \(1\)\./u);
+  assert.match(lastMessageIn(requestAt(second, 0)), /Current anime: 「らき☆すた」 \(1\)\./u);
 });

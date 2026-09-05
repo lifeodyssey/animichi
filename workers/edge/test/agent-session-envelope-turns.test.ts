@@ -70,7 +70,7 @@ void test("the anime one turn resolved is named on the next turn's status bar", 
   await resolvedTurn(storage);
   assert.deepEqual((await storedEnvelope(storage)).currentAnime, { bangumiId: "1", title: "らき☆すた" });
   const next = await runEnvelopeTurn({ storage, streamFn: makeSequencedToolCallsStreamFn([NEARBY_CALL]) });
-  assert.match(next.statuses[0] ?? "", /らき☆すた \(1\)/u);
+  assert.match(next.statuses[0] ?? "", /「らき☆すた」 \(1\)/u);
 });
 
 void test("with the anime already resolved the next turn searches without resolving again", async () => {
