@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Node-side eval package: reads the Python-exported pydantic-evals datasets with logfire/evals.",
   "scripts": {
+    "eval:gate": "node scripts/eval-gate.ts",
     "eval:staging": "node scripts/eval-staging.ts",
     "lint:oxlint": "oxlint --type-aware --deny-warnings .",
     "test": "node --test \"test/*.test.ts\"",
