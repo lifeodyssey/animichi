@@ -1,12 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  RouterContextProvider,
-  createMemoryHistory,
-  createRoute,
-  createRootRoute,
-  createRouter,
-  useRouterState,
-} from "@tanstack/react-router";
+import { RouterContextProvider, useRouterState } from "@tanstack/react-router";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach } from "vitest";
 import { ChatPage } from "../../../src/features/chat/ChatPage";
@@ -16,6 +9,7 @@ import type { ChatSearch } from "../../../src/features/chat/search";
 import { LocaleProvider } from "../../../src/i18n/LocaleProvider";
 import { server } from "../../msw/node";
 import { healthzOkHandler } from "../../msw/chat-handlers";
+import { makeAppRouter } from "../_router";
 
 afterEach(cleanup);
 
@@ -26,12 +20,6 @@ const EMPTY_SEARCH: ChatSearch = { q: undefined, session: undefined, route: unde
 
 // The harness hands the router's URL search to ChatPage exactly as the real
 // route does, without any second local owner.
-const testRoot = createRootRoute();
-
-const testTree = testRoot.addChildren([
-  createRoute({ getParentRoute: () => testRoot, path: "/chat" }),
-]);
-
 function ChatHarness() {
   const search = parseChatSearch(useRouterState({ select: (state) => state.location.search }));
   return <ChatPage search={search} />;
@@ -50,10 +38,7 @@ export function chatSearch(overrides: Partial<ChatSearch> = {}): ChatSearch {
 export function renderChatPage(search: ChatSearch = EMPTY_SEARCH, healthy = true) {
   if (healthy) server.use(healthzOkHandler);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const router = createRouter({
-    routeTree: testTree,
-    history: createMemoryHistory({ initialEntries: [searchHref(search)] }),
-  });
+  const router = makeAppRouter(searchHref(search));
   render(
     <RouterContextProvider router={router}>
       <QueryClientProvider client={queryClient}>
@@ -69,10 +54,7 @@ export function renderChatPage(search: ChatSearch = EMPTY_SEARCH, healthy = true
 export function renderChatEntry(search: ChatSearch = EMPTY_SEARCH, healthy = true) {
   if (healthy) server.use(healthzOkHandler);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const router = createRouter({
-    routeTree: testTree,
-    history: createMemoryHistory({ initialEntries: [searchHref(search)] }),
-  });
+  const router = makeAppRouter(searchHref(search));
   render(
     <RouterContextProvider router={router}>
       <QueryClientProvider client={queryClient}>

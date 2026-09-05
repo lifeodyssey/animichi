@@ -36,6 +36,7 @@ import { maskRecomputeFailure, useTurnFailure } from "./use-turn-failure";
 import type { TurnFailureGate } from "./use-turn-failure";
 import type { TurnFailureView } from "./components/ErrorStates/TurnFailure";
 import { ChatReturnTargetProvider } from "./ChatReturnTarget";
+import { assignedSessionId, useChatEntry, usePublishSessionId } from "./conversation-address";
 import { useAgentWarmup } from "../../lib/agent-warmup";
 
 export interface ChatPageProps {
@@ -99,11 +100,14 @@ function useAutoSendFromQuery(search: ChatSearch, health: BackendHealth, send: (
   });
 }
 
-function useChatState(search: ChatSearch) {
+/** The conversation this page shows, including its address: the id the backend
+ * assigns to a fresh draft is published into `?session=` (#1337). */
+function useChatState(entry: ChatSearch) {
   const config = useMemo(currentChatConfig, []);
   const health = useBackendHealth(config.baseUrl);
-  const chat = useChatSession(config.chatUrl, search.session);
-  const history = useConversationHistory(config.baseUrl, search.session);
+  const chat = useChatSession(config.chatUrl, entry.session);
+  const history = useConversationHistory(config.baseUrl, entry.session);
+  usePublishSessionId(entry, assignedSessionId(chat.messages));
   return { config, health, chat, history };
 }
 
@@ -145,14 +149,14 @@ function useGuardedTray(chat: ChatSession, baseUrl: string, auth: ReturnType<typ
   return useTrayState(chat, baseUrl, { challenged: false, auth }, sessionKey);
 }
 
-function useChatPage(search: ChatSearch) {
-  const { config, health, chat, history } = useChatState(search);
+function useChatPage(entry: ChatSearch) {
+  const { config, health, chat, history } = useChatState(entry);
   const { actions: live, gps } = useOriginTracking(useTurnActions(chat));
   const auth = useAuthStatus();
-  const tray = useGuardedTray(chat, config.baseUrl, auth, search.session);
+  const tray = useGuardedTray(chat, config.baseUrl, auth, entry.session);
   const actions = useLockedActions(live, tray.quota.locked);
   const surfaces = usePageSurfaces(chat, actions, gps);
-  useAutoSendFromQuery(search, health, actions.send);
+  useAutoSendFromQuery(entry, health, actions.send);
   return { config, health, chat, history, actions, auth, ...surfaces, ...tray };
 }
 
@@ -210,22 +214,22 @@ function ChatPageView({ search, page }: Readonly<{ search: ChatSearch; page: Pag
   />;
 }
 
-/** Publishes the live session id so every in-chat login wall can send the
- * visitor back to this conversation after signing in (#507 review P1-1). */
-function withReturnTarget(props: ChatPageProps, page: PageState) {
+/** Publishes the live session id so every in-chat login wall and the settings
+ * link can send the visitor back to this conversation (#507 review P1-1). */
+function withReturnTarget(entry: ChatSearch, page: PageState) {
   return (
     <ChatReturnTargetProvider sessionIdOf={page.chat.sessionIdOf}>
-      <ChatPageView search={props.search} page={page} />
+      <ChatPageView search={entry} page={page} />
     </ChatReturnTargetProvider>
   );
 }
 
 /** The provider stack around the page view: spot selection, clarify pick, actions. */
-function withProviders(props: ChatPageProps, page: PageState) {
+function withProviders(entry: ChatSearch, page: PageState) {
   return (
     <SpotSelectionProvider selection={page.selection}>
       <ClarifyPickProvider turn={page.clarifyPick}>
-        <ChatActionsProvider actions={page.actions}>{withReturnTarget(props, page)}</ChatActionsProvider>
+        <ChatActionsProvider actions={page.actions}>{withReturnTarget(entry, page)}</ChatActionsProvider>
       </ClarifyPickProvider>
     </SpotSelectionProvider>
   );
@@ -233,5 +237,6 @@ function withProviders(props: ChatPageProps, page: PageState) {
 
 export function ChatPage(props: ChatPageProps) {
   useAgentWarmup();
-  return withProviders(props, useChatPage(props.search));
+  const entry = useChatEntry(props.search);
+  return withProviders(entry, useChatPage(entry));
 }

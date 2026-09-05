@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
 import { useDict } from "../../i18n/LocaleProvider";
@@ -159,7 +160,7 @@ function CompareCard({ landing }: Readonly<{ landing: Dict["landing"] }>) {
 function FooterLinks({ landing }: Readonly<{ landing: Dict["landing"] }>) {
   return (
     <nav aria-label={landing.footer_nav} className="flex gap-5">
-      <a href="/privacy" className="text-ground-ink underline underline-offset-4">{landing.privacy}</a>
+      <Link to="/privacy" className="text-ground-ink underline underline-offset-4">{landing.privacy}</Link>
       <a href={REPO_URL} target="_blank" rel="noreferrer" className="text-ground-ink underline underline-offset-4">{landing.github}</a>
     </nav>
   );

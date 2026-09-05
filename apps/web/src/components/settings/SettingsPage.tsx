@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import type { AuthStatus } from "../../lib/auth/session";
 import type { ChatDict } from "../../features/chat/i18n";
@@ -9,13 +10,15 @@ type Props = Readonly<{
   auth: AuthStatus;
   baseUrl: string;
   chat: ChatDict;
+  /** The conversation the visitor came from, carried in as `?session=` (#1337). */
+  session?: string;
 }>;
 
-function SettingsHeader() {
+function SettingsHeader({ session }: Readonly<{ session: string | undefined }>) {
   const settings = useDict().settings;
   return (
     <header className="settings-page__header">
-      <a className="settings-page__back" href="/chat"><span aria-hidden="true">←</span>{settings.backToChat}</a>
+      <Link className="settings-page__back" to="/chat" search={{ session }}><span aria-hidden="true">←</span>{settings.backToChat}</Link>
       <h1>{settings.title}</h1>
       <p>{settings.description}</p>
     </header>
@@ -70,5 +73,5 @@ function SettingsContent(props: Props) {
 
 /** Dedicated, URL-addressable settings surface; never a modal or drawer. */
 export function SettingsPage(props: Props) {
-  return <main className="settings-page"><SettingsHeader /><SettingsContent {...props} /></main>;
+  return <main className="settings-page"><SettingsHeader session={props.session} /><SettingsContent {...props} /></main>;
 }

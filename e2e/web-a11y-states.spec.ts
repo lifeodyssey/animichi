@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { chatDictFor } from "../apps/web/src/features/chat/i18n";
-import { navigateClient } from "./helpers/client-navigation";
+import { enterRoute } from "./helpers/route-entry";
 import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
 
 
@@ -69,7 +69,7 @@ test.describe("AC4 empty states (no animation dependence)", () => {
       route.fulfill({ json: emptyAnimeOverview }),
     );
     await openChat(page);
-    await navigateClient(page, "/anime/999", ".anime-empty");
+    await enterRoute(page, "/anime/999", ".anime-empty");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     const body = await page.locator("main").innerText();
     expect(body.trim().length).toBeGreaterThan(0);
@@ -100,7 +100,7 @@ test.describe("AC4 empty states (no animation dependence)", () => {
       });
     });
     await openChat(page);
-    await navigateClient(page, "/routes/22222222-2222-4222-8222-222222222222", ".route-panel");
+    await enterRoute(page, "/routes/22222222-2222-4222-8222-222222222222", ".route-panel");
     const body = await page.locator("main").innerText();
     expect(body.trim().length).toBeGreaterThan(0);
   });
@@ -116,7 +116,7 @@ test.describe("AC4 error states", () => {
       }),
     );
     await openChat(page);
-    await navigateClient(page, "/anime/999", ".anime-error");
+    await enterRoute(page, "/anime/999", ".anime-error");
     await expect(page.getByRole("heading")).toBeVisible();
     await expect(page.getByRole("button").or(page.getByRole("link")).first()).toBeVisible();
   });
