@@ -36,6 +36,18 @@
 **决策日志**
 
 - 2026-09-05 · #1297（W2：跨轮工具返回重放 vs 每轮压缩窗口）：**选项 (b) accepted-with-redesign** — 采纳「重放早先各 run 的工具返回」，但按李博杰第 2 章重塑为 §九 的三个动作（结构化重放 / 写入时冻结摘要 / `<agent_status>` 状态栏）；选项 (a)「把 per-run 保留窗口当作 TS 层语义接受」否决。卡片 #1377 · #1378 · #1379。
+- 2026-09-05 · #1309（111 处 in-process 会话种子没有 wire 形态）：**选项 (b) 塑形为环境初始化**（不是模型可见的头部）——
+  一个 staging-only 的初始化过程经产品自己的 store 代码把冻结前缀写进目标 session；(a) 降级为端到端用例、(c) 重录
+  `message_history` 均否决。**评审期核实出一处与裁决前提相反的事实**：那 111 处种子（76 个用例）在 Python 基线里
+  本来就不生效（`animichi_runner.py:168-181` 无 `last_search_data` 分支，`test_animichi_runner.py:95-105` 钉死；
+  `last_location` 无读者），真正缺起点的是 5 个 `seeded_pending` 用例。故裁决落地拆档：机制 + 5 例先做，76 例改造
+  owner 2026-09-06 选 A：暂不改造（两侧都是空会话基线，配对比较成立；改造需同批重做 Python 基线），待 #1383 失败归因看这 76 例是否集中失败再议。展开见 §10.1，卡片 #1380。
+- 2026-09-05 · #1311（`argument_correctness` 线上只有一个见证人）：**选项 (b) 发布第二见证**——
+  取回面发布 `run_steps` 的已结算参数，`TranscriptStep` 加 `params`，评估器按 Python 比 `args` vs `params`；SSE 不动；
+  (a)「排除该指标」否决。展开见 §10.2，卡片 #1381。
+- 2026-09-05 · 评估装置补齐（依李博杰第 7 章「验证器」「失败归因」）：新增确定性终局答复验证器与失败归因记录，
+  两者先 report-only，跑满一轮基线周期后由 owner 决定是否入门；统计门维持自建的分层配对 bootstrap（§10.5 给了不换的理由）。
+  卡片 #1382 · #1383。
 
 ## 三、目标架构
 
@@ -87,7 +99,7 @@
 | W0 | spike S1–S5 + kill-switch 裁决 | 已回填（#1249） |
 | W1 | 核心环路（全部在 `workers/edge` 内）：intake + AgentSession DO（alarm 内跑回合）+ pi + mimo + 4 个 catalog 工具 + 连接在时的 SSE + `GET …/messages` 加 run 状态 + 配额结算 | staging 匿名可完整对话；切走再回来拉到完整结果（手动验证，无自动 eval） |
 | W2 | parity：web 工具×2、route 工具、BYOK、上下文与记忆（fact_ledger 适配；按 §九 = 跨轮结构化重放 + 写入时冻结的工具返回摘要 + 阈值批量压缩 + `<agent_status>` 状态栏，**不是**每轮滑动窗口再压缩） | 功能对等清单逐项勾（手动验证）+ 同一 session 两轮的系统提示词字节相同 |
-| W3 | eval 搬到 TS：框架用 `logfire/evals`（与 pydantic-evals 同数据模型与文件格式，`run_agent_eval.py:133` 的 `Dataset.to_file` 导出 → TS `Dataset.fromFile` 读取；"零迁移"的前提：导出文件里序列化的 8 个评估器名必须以 TS 实现通过 `customEvaluators` 注册、runner 在 Node/Bun/Deno 跑（Workers 内无文件 helper）、两侧包版本钉死；W3 第一张卡 = Python 导出 → TS 导入的 round-trip fixture，跑通前不得声称零迁移）；task = 对 staging 的 HTTP 调用；自写 8 个评估器（4 个官方 agentic：ToolCorrectness / TrajectoryMatch / ArgumentCorrectness / MaxToolCalls，TS 版无内置，轨迹从转录取；4 个自定义照抄 `evaluators.py:162-215`）+ 移植 `gate.py` 的分层配对 bootstrap 统计门 + ANY-of-N + 662 case 双跑 | 双跑无回归（8/29 note 硬条件 3） |
+| W3 | eval 搬到 TS：框架用 `logfire/evals`（与 pydantic-evals 同数据模型与文件格式，`run_agent_eval.py:133` 的 `Dataset.to_file` 导出 → TS `Dataset.fromFile` 读取；"零迁移"的前提：导出文件里序列化的 8 个评估器名必须以 TS 实现通过 `customEvaluators` 注册、runner 在 Node/Bun/Deno 跑（Workers 内无文件 helper）、两侧包版本钉死；W3 第一张卡 = Python 导出 → TS 导入的 round-trip fixture，跑通前不得声称零迁移）；task = 对 staging 的 HTTP 调用；自写 8 个评估器（4 个官方 agentic：ToolCorrectness / TrajectoryMatch / ArgumentCorrectness / MaxToolCalls，TS 版无内置，轨迹从转录取；4 个自定义照抄 `evaluators.py:162-215`）+ 移植 `gate.py` 的分层配对 bootstrap 统计门 + ANY-of-N + 662 case 双跑；**评估装置按 §十**：staging-only 环境初始化（先建机制 + 5 个 `seeded_pending` 用例；把 76 个用例改造成轨迹前缀任务需 owner 确认并同批重做 Python 基线）、取回面发布已结算参数让 `argument_correctness` 恢复两见证人比较，二者在双跑前；终局答复验证器与失败归因 report-only，在双跑后 | 双跑无回归（8/29 note 硬条件 3）；#1380 / #1381 在双跑前合入 |
 | W4 | 删除 `apps/agent` + uv CI 臂 + 容器构建 + `[[containers]]`/`RuntimeContainer`/#1239 等待逻辑；CD/文档里的 `root` 旧名统一为 edge；空壳 jobs Worker 处置（DONE，#1316）；docs/AGENTS.md/coverage floors 更新；launch 链（#1181/#1183/#1184）接上新架构 | repo 无 Python agent 残留 |
 
 ## 六、验收标准
@@ -277,3 +289,107 @@ DO 计费实数与并发模型（S4 出数）；typebox↔zod 桥的落点代码
 | #1377 | 转录结构化重放（9.1） | — |
 | #1378 | 摘要写入时冻结 + 删除滑动再压缩（9.2） | #1377 |
 | #1379 | `<agent_status>` 状态栏 + 系统提示词字节稳定（9.3 / 9.4） | #1377 |
+
+## 十、评估（owner 2026-09-05，依李博杰第 7 章）
+
+裁决入口 #1309（111 处 in-process 会话种子没有 wire 形态）与 #1311（`argument_correctness` 在线上只有一个见证人）。参考书为《深入理解 AI Agent》第 7 章，下文按其小节标题引用。§五 W3 的出口判据（662 例双跑无回归）不变；本节改的是**评估装置**本身 —— 用例怎么回到同一起点、由谁核实、失败之后说得出为什么。
+
+书「一条评估任务的解剖」把一个可重复运行的评估环境拆成五个要素：数据集、环境状态、工具接口、评分标准、执行协议。本仓今天有其中三个 —— 数据集是导出的六个集合（`packages/eval/src/dataset-sets.ts:15-22`），工具接口是 edge 的六个模型工具，执行协议是 `StagingTurnTask`（`packages/eval/src/staging-turn-task.ts:105-126`）。缺的是**环境状态可重置**（10.1）与**评分标准里的独立核实**（10.2 / 10.3），失败之后的可读性（10.4）则是书「失败归因」要求的第四件事。
+
+### 10.1 环境初始化与轨迹前缀用例 → #1380
+
+**先更正两处口径，两处都由代码证伪，owner 需据此确认范围（见本节末的待确认项）。**
+
+**其一，"111 个用例"是种子字段数，不是用例数。** `agent_eval_v3` 的 `context.last_search_data` 65 处、`context.last_location` 42 处，落在 **72** 个用例上（35 个两者都有）；`agent_eval_heldout_v1` 另有 4 处 `last_search_data`。合计 **111 处种子、76 个用例**，其余四集为零。另有 5 个用例带 `inputs.seeded_pending`。
+
+**其二，这 111 处种子在 Python 基线里本来就不生效。** `_seed_tool_state`（`apps/agent/src/animichi/agents/animichi_runner.py:168-181`）只认 `last_location`、`origin_lat/lng`、`session_state_v2`、`current_bangumi_id`/`current_anime_title` 五类，并为 hydrate 出来的 ref 做 `reserve`；**`last_search_data` 根本没有分支**，而且有一条单测把这件事钉死：`test_seed_tool_state_does_not_restore_historical_payload_bags`（`apps/agent/src/animichi/tests/unit/test_animichi_runner.py:95-105`）断言喂进 `last_search_data` 后 `session == SessionState()`。`last_location` 虽被赋值，但 `apps/agent/src` 里除了 `tool_state.py:17` 的字段声明与那三行赋值**没有任何读者**。六个集合的 `context` 键实测只有 `last_search_data` / `last_location` / `origin_lat` / `origin_lng` / `message_history` 五种 —— **没有 `session_state_v2`，也没有 `current_bangumi_id`**。而 `origin_lat/lng` 早就走 wire（`packages/eval/src/case-submissions.ts:61-66`），`message_history` 走重放。
+
+结论：#1309 的问题陈述"TS 复现不了 Python 的种子"是**反的** —— Python 也没有复现它们。真正的缺口只有一处，而且是 5 个用例：`seeded_pending`。它们在 Python 里走的是**另一条任务路径** `_selection_task`（`apps/agent/src/animichi/tests/eval/eval_harness.py:280-292`），在进程内直接构造带 `pending_clarification` 的 `SessionState`；HTTP 这一侧，一次选择回合要能校验，session 的 envelope 里必须真的有那个未决澄清（`workers/edge/src/agent/session/session-envelope.ts:50-54`）。而且评估器**已经在按种子存在的前提打分**：`packages/eval/src/evaluators/accepted-chains.ts:113-115` 给 `seeded_pending.reason === "place_ambiguity"` 的用例判最小步数 1。
+
+**定案（#1309 选项 b，塑形为环境初始化而非模型可见的头部）**：建一个 **staging-only 的初始化过程**，把冻结前缀 —— 先前的 user 轮、工具调用、工具返回、session envelope —— 经**产品自己的 store 代码**写进目标 session。依据是书「评估环境 · 五个组成要素」对环境状态的两条要求（「真实性要求状态变化符合业务逻辑，可控性要求每次运行前都能回到同一起点」）以及 τ²-bench 用 `initialization_actions` **调用产品自己的函数**建立初始状态；书「端到端回归任务与轨迹前缀回归任务」把这类用例定义为「把已有的上下文、对话、工具返回和环境状态冻结下来，只要求 Agent 执行下一步」，并称「对于需要高可靠性的生产级 Agent，构建轨迹前缀回归任务集往往比端到端回归任务集更重要」。
+
+**范围（#1380 只做第一档，第二档等 owner 一句话）**：
+
+- **第一档（本卡）**：机制本体 + 5 个 `seeded_pending` 用例。它们今天在 TS 侧是拿"从未建立起来的起点"计分，补上就是纯修复，不动任何基线口径。
+- **第二档（owner 2026-09-06 定 A：暂不做，不在本卡）**：把那 76 个用例真的改造成轨迹前缀任务。它有独立价值（书的论证成立），但**必须同时重做 Python 基线** —— 现行基线是在这些种子不生效的条件下跑出来的，只给 TS 侧加上起点会让双跑比的不是同一件事，正好踩中「配对的含义是让两组共享任务与随机条件」。同时要决定第 76 组用例的可接受动作集合与 `accepted-chains.ts:29-45` 的期望链是否随之改写。
+- **第三档（数据集债，另开卡）**：69 处 `last_search_data` + 42 处 `last_location` 是两侧都不读的死字段，留着只会让下一位读者重犯同一个判断。
+
+约束（每条都来自已核实的代码）：
+
+- **必须在该 session 的 DO 内执行。** envelope 不在 Neon 列里，而在 Durable Object 自己的存储中，键为 `"envelope"`（`durable-envelope-store.ts:4-17,44`），且 §三 让 session 的 DO 做唯一写者。转录与 `run_steps` 经 `NeonTurnStore`（`neon-turn-store.ts:105-121,179-209`），envelope 经 `DurableEnvelopeStore`；不得另写一份 SQL。
+- **前缀 run 必须写成终态。** `runs_one_running_per_session` 是唯一索引（`neon-turn-records.ts:35-36`），留在 `running` 的前缀 run 会让被测回合被 409 拒绝。`result` 与 `finished_at` 同在（`run_steps_settled_check`，`migrations/neon/20260902000000_agent_runs.sql:106`），工具返回的 `minted` 与结果同写（`turn-store.ts:45-55`）。
+- **生产上不存在，且鉴权不止于挂载开关。** 挂载判据 `APP_ENV === "staging"`（`workers/edge/wrangler.toml:100,265,457`），fail closed。但 `APP_ENV` 只是挂载开关，**不是授权**：staging 今天的周界是 WAF + `x-staging-key`（`infra/src/staging.ts:5-20` 写明"Why WAF and not Cloudflare Access"），Cloudflare Access 与 service token 要等 #1369（其 N4 还未验证）。因此 —— **这条会改状态的路径在 #1369 关闭前不得部署**；处理器本身还要校验调用者对目标 session 的**归属**，与取回面同一条判据（`conversation-retrieval.ts:79-82`），不得只靠周界。
+- **harness 侧的调用点是 `CaseLifecycle.setup()`**：`logfire@0.22.5` 的 `CaseLifecycle` 声明 `setup()`（任务之前）、`prepareContext()`（任务之后、评估器之前）、`teardown()`（`node_modules/logfire/dist/index-Dd6NCwQg.d.ts:241-253`），经 `Dataset.evaluate({ lifecycle })` 传**类**而非实例。评估器一个都不改。
+
+**留给 owner 的两处（本卡不得自行拍板）**：(1) 上面的第二档做不做、做则同批重做 Python 基线；(2) `minted-refs.ts:1-9` 写明 ref 的寿命只到本 run 结束，前缀 run 铸的 ref 在被测回合里是 `stale_ref` —— 要么接受（可接受动作集合里不含"引用上一轮的 ref"），要么让 session 的 ref 注册表从先前各 run 的 `run_steps.result.minted` 复活，而后者是**改产品行为**，需单开卡。
+
+**与 §九 的关系**：前缀的工具返回要以结构化消息进入被测回合的上下文，靠的是 #1377（9.1）—— 今天 `turn-transcript.ts:106-117` 的 `messagesForRow` 只为**本 run** 配对 tool-call 信封。W2 在 W3 之前，顺序不冲突；本卡不改转录构建。
+
+### 10.2 第二见证 → #1381
+
+书「验证器」一节的判据：「评估框架必须核实机器可独立复核的事实，而非 Agent 的自我陈述」。模型原样吐出的参数是自我陈述，工具**真正执行时**用的参数是环境的记录。Python 的 `OfficialArgumentCorrectness` 比的就是这两者；TS 侧今天只有前者，于是每个已结算调用都与自己相等，指标恒为 `1.0`（`official-argument-correctness.ts:14-32` 已把这件事写在头注，实现是常量桩 `official-argument-correctness.ts:47-54`）。Python 基线 0.9959 —— 1.0 不是"更好"，是没测。
+
+**两个见证人在本仓确实可能不同（已核实）**：SSE 帧发的是 `event.args = toolCall.arguments`，即从模型流解析出的原始参数（`turn-frames.ts:73-79`）；`run_steps.input` 记的是 pi 交给 `execute` 的 `prepared.args`（`turn-step.ts:157-162` 的 `asJsonValue(call[1])`），而 `prepared.args = validateToolArguments(...)` 会 `structuredClone` 一份、删掉可选 `null`、跑 `Value.Convert` 与 JSON-Schema 强转（`node_modules/@earendil-works/pi-ai/dist/utils/validation.js`）。`"3"` 变 `3`、可选 `null` 被删，都会让两者分歧 —— 正是 Python 那条指标抓的东西。
+
+**定案（#1311 选项 b）**：从 `run_steps` 把**已结算参数**发布到取回面 `GET /v1/conversations/{id}/messages`，`TranscriptStep`（`packages/eval/src/turn-transcript.ts:71-75`）增 `params`，评估器按 Python 比 `args` vs `params`。**直播流不动**。
+
+- **契约非目标在此处明确修订**：§一 Non-goals 的"不改 `packages/contract` 的 zod 契约"自 W1-5 起就已有一次**可加**例外（`GetSessionHistoryResponse` 加 `run`，`packages/contract/src/agent-contract.ts:246-262`）。本节把口径写死：**取回面 payload 只允许可加式增补**（nullable/optional，旧 payload 仍要 parse），**SD-9 帧 surface 与其余 zod 契约一行不动**。
+- **两个见证人今天不在同一条路径上**：SSE 是尽力而为的直播（§三 交接契约、`turn-frames.ts:29-30`），断线即无；取回面今天只发布 `intent`/`success`，会把持久化的 tool-call 信封剥掉（`workers/edge/src/agent/retrieval/transcript-message.ts:53-67`）。对**评估**够用 —— 任务始终握着流并与转录一起成型（`staging-turn-task.ts:119-126`）；对**断线后的复核**不够。是否把 raw 参数也一并持久发布（一个同时带 raw / settled / status / step 身份的取回形状），是一处比裁决更大的接缝，**留给 owner**；本卡按裁决只发 settled 参数。
+- 授权面不放宽：`run_steps` 不授权给 `readonly` 角色，因为「a tool's input and result carry the visitor's own query text」（`migrations/neon/20260902000000_agent_runs.sql:10-12`）。发布对象是该 session 的 owner 本人（`conversation-retrieval.ts:79-82`），数据库授权一行不改。
+
+### 10.3 最终答复验证器 → #1382
+
+书「"做对了但说错了"问题」给了全部理由：τ²-bench 带信息告知要求的 704 次运行失败 240 次，其中 **80 次（占全部失败的三分之一）环境状态正确、信息告知错误**；「多数评估只检查环境状态」，所以这类失败被整体成功率掩盖。书「失败归因」表里对应行是「对用户的信息反馈错误」，定位方式是「把答复里的每个事实断言与工具返回值逐条对齐，取第一条无法溯源或与工具返回矛盾的断言」。今天本仓八个评估器只看轨迹与 `data` 的键（`packages/eval/src/metric-names.ts:14-26`），**没有一条对答复散文设断言**。
+
+**定案**：新增一个**确定性**验证器（不是 LLM 判官）。散文是自由文本，所以它的**覆盖面必须先被界死** —— 只判以下三类可判定的断言，其余一律记未测量：
+
+1. **作品名**：散文中出现的作品名，须等于某个工具返回里的 `anime_title`（`workers/edge/src/agent/tools/catalog-tool-outcomes.ts` 的 outcome `details`，随 `tool-output-available` 上线）。
+2. **计数**：散文中的条数，须与 `row_count` / `data` 行数一致。
+3. **地名**：**仅当**本次答复带 `data.results` / `data.itinerary` 时才判（行由 stored payload 投影而来，`turn-answer-part.ts:137-146,199-212`）；纯散文答复的 `data` 是 `{}`（同文件 212 行），没有行可对照，地名一律记未测量而不是记错。
+
+可溯源来源必须**完整列举**，否则它会把对的判成错的：本次 run 的工具返回、本次答复的 `data` 行、**本轮用户自己的输入**、以及 §九 落地后进入上下文的**先前各 run 的结构化工具返回**（9.1 / #1377）与 `<agent_status>` 状态栏（9.3 / #1379）。只认"本次 run"会与 §九 直接冲突。
+
+- eval 侧转录需保留每步已发布的 output，今天 `turn-transcript.ts:71-75` 只留 name/args/status。
+- **先 report-only**：新指标在结果文件里单列一列，**不得**进 `metricNames()` —— 那份清单按**位置**与 Python 基线文件和报告表对齐（`metric-names.ts:1-12`），插一列会让整套基线错位，双跑就不再是比较。跑满一轮基线周期后由 owner 决定是否入门。
+- 判不了的断言记 `{}`（未测量），既不记 1 也不记 0。真空通过与假阳性是这条验证器自身最容易犯的两个错。
+
+### 10.4 失败归因 → #1383
+
+书「失败归因：从整条轨迹定位首个错误」：端到端评估只给成功/失败，「要让评估结果真正驱动修复，必须对每条失败轨迹进行失败归因：标出主要错误类别、首次出现不可接受行为的步骤、对应的工具调用或模型输出，并附上可复核的证据」；且「归因对象是轨迹中的**首个**导致任务偏离的错误，后续错误往往只是连锁反应」。
+
+**定案**：每个失败用例产出一条结构化记录 —— 首个偏离步骤的下标 + 类别（书中那张表裁剪成一份**封闭**词表）+ 证据引用，主因与后果分开记。**report-only，不参与门禁判决。**
+
+首错定位**规则先筛、不引入 LLM**（书：「规则先筛、LLM 再定位，比把全部轨迹喂给 LLM 更便宜也更准」）：轨迹与用例可接受链的首处分歧（`packages/eval/src/evaluators/accepted-chains.ts`）、第一个 `status === "error"` 的步骤（`turn-transcript.ts:63` 的三态之一）、10.3 给出的第一条无法溯源的断言 —— **取最早的一个**。
+
+**证据的存放位置是硬约束**：提交进仓的结果文件只放**聚合与引用** —— 用例 id、首错下标、类别、工具名、指标 —— 不放原文。理由是这些文件之所以能提交，正因为「Nothing here is a secret: scores, intervals and case counts」（`packages/eval/src/gate-run/result-file.ts:11-13`），而 `run_steps` 连 `readonly` 角色都不授权，因为它带访客自己的查询文本（`migrations/neon/20260902000000_agent_runs.sql:10-12`）；`injection_g1_v1` 的失败用例里更可能带着注入原文。**原文证据落 CI 工件**（有访问控制、有保留期），不进 git。
+
+书里那个 AndroidWorld 案例是这套东西为什么值得做的注脚：32 步没有一步报错、Agent 自行宣告完成，首错落在第 8 步的一句自述上，而根因是 **Harness 的观察通道缺失**而不是模型能力 —— 归错了就会去换模型。
+
+### 10.5 统计门不变（配对分层 bootstrap，固定种子）
+
+不变：`packages/eval/src/gate/paired-bootstrap.ts` 的分层配对 bootstrap（种子 309、2000 次重采样、95% 区间、按行为路径分层），逐字移植自 Python 的 `stats.py`，同种子下与 Python 位相同（同文件 4-14 行）。
+
+**为什么没有框架能替掉它**（2026-09-05 一手文档调研，13 个框架；调研笔记是会话产物，结论逐条列在下面，需要复核的按各家官方文档核）：
+
+- 书「评估结果的统计显著性」要求的是**配对分析** —— 「同一批任务比较两个配置时，应优先做配对分析：逐题记录谁胜出，用 McNemar 检验或配对 bootstrap 判断差异，而不是直接相减两个独立成功率」。W3 双跑正是"同一批任务、两个配置"，所以这条是本仓的判据本身。
+- TS 优先的框架里**没有一个**提供配对显著性检验：`logfire/evals` 的 report evaluator 只有 ROC / PR / KS 与 `repeat`；Braintrust 只有 row-level diff；Mastra、promptfoo、Evalite、Langfuse 都没有。唯一有一手证据的具名统计原语是 Inspect AI 的 `bootstrap_stderr` / `ci` / `ci_wilson`，但它是 Python 且是 task/solver/sandbox 形态 —— 采用它意味着把 agent 跑进它的进程模型，而 §二 已定「eval 只对真实环境测」，agent 是 HTTP 后的黑盒。
+- 换框架还会丢掉与 Python 基线的**位相同**性质，而"位相同"正是双跑能当作比较的前提。
+
+因此：框架继续用 `logfire/evals`（数据模型与文件格式与 pydantic-evals 同源，662 例零迁移），统计门继续是我们自己的 `paired-bootstrap.ts`。
+
+### 10.6 卡片
+
+| 卡 | 内容 | blocked by |
+|---|---|---|
+| #1380 | 初始化过程 + harness `CaseLifecycle.setup()`（10.1 第一档：机制 + 5 个 `seeded_pending` 用例） | #1369（部署与 `(api)` 验收；过程本体与 unit/integration 可先落） |
+| #1381 | 第二见证：取回面发布已结算 params + 评估器恢复比较（10.2） | — |
+| #1382 | 最终答复验证器（10.3） | #1303 |
+| #1383 | 失败归因（10.4） | #1303 |
+
+顺序：#1380、#1381 在 W3-5 双跑（#1303）**之前**落地 —— 前者决定 5 个选择用例是否有起点，后者决定 `argument_correctness` 是否是一个真指标，两者都会改变双跑要比的数字；#1382、#1383 在双跑**之后**，它们读的是那一轮跑出来的答复与失败轨迹。
+
+### 10.7 评审记录（spec dual-review，2026-09-05）
+
+- **Seat A（Fable）**：改 4 处失效 file:line 引用；补上"评估器已按种子存在打分"（`accepted-chains.ts:113-115`）；把 10.3 的报告位置写死（结果文件单列，不进 `metricNames()`）。
+- **Seat B（Codex `gpt-5.6-sol`，`/codex:adversarial-review`，工作树 diff）**：verdict `needs-attention`，5 条 findings，逐条核实后**全部采纳**：(1) [high] 111 处种子在 Python 基线里不生效（`animichi_runner.py:168-181` + `test_animichi_runner.py:95-105` 证实）→ 10.1 拆成三档、第二档需 owner 确认并重做基线；(2) [high] 10.3 无法对自由散文做完整判定（纯散文答复 `data` 为 `{}`）且"只认本次 run"与 §九 冲突 → 覆盖面界死为三类、来源完整列举；(3) [medium] 契约非目标与新增字段冲突、断线后只剩一个见证人 → 显式修订非目标为"取回面仅可加"，两见证人的持久化留 owner；(4) [medium] staging 今天是 WAF 不是 Access（`infra/src/staging.ts:5-20`）→ 该路径 #1369 关闭前不得部署，且要校验 session 归属；(5) [medium] 原文证据不得进已提交结果文件（`result-file.ts:11-13`）→ 落 CI 工件。
+- 复核轮与 owner 签核：**owner 2026-09-06 签核**（10.1 第二档定 A：76 例暂不改造）；Seat B 复核轮由 owner 免除（与 CI/CD spec 同一口径：Codex 席不再作为阻塞）。
