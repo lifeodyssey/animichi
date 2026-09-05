@@ -1,7 +1,7 @@
 /** Full-catalog evaluation becomes meaningful once ekidata conventional rail is ingested; shinkansen-only coverage is a false negative. */
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { parseTopologyGraph } from "../../src/lib/transit";
+import { parseTopologyGraph } from "../../src/domain/transit";
 import { stationCoverage, type CoverageSpot } from "../../src/lib/transit/etl";
 
 function argument(name: string): string | undefined {

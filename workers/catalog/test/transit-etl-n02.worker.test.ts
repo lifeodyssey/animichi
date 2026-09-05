@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { haversine } from "../src/domain/geo";
-import { buildTransitIndex, shortestPath } from "../src/lib/transit";
+import { buildTransitIndex, shortestPath } from "../src/domain/transit";
 import { buildShinkansenSubgraph, N02_SNAP_DECIMALS } from "../src/lib/transit/etl";
 
 const properties = { N02_001: "11", N02_002: "1", N02_003: "テスト新幹線", N02_004: "テストJR" };

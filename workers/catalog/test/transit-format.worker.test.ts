@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatTransitSummary, type TransitEstimate } from "../src/lib/transit";
+import { formatTransitSummary, type TransitEstimate } from "../src/domain/transit";
 
 const estimate = (overrides: Partial<TransitEstimate>): TransitEstimate => ({ board_station_name: "新宿", alight_station_name: "吉祥寺", line_names: ["中央線"], transfers: 0, rail_minutes: 17, wait_minutes: 4, access_walk_minutes: 0, egress_walk_minutes: 0, total_minutes: 21, distance_m: 12000, ...overrides });
 
