@@ -18,13 +18,16 @@ import type { ChatUIMessage } from "./use-chat-session";
  * The two directions must never meet. Re-reading a published id as an entry
  * would change `use-chat-session`'s scope mid-turn — a new `Chat`, a stopped
  * stream and an A3 history refetch — discarding the very conversation this
- * exists to keep.
+ * exists to keep. The cost of freezing the entry is that a future in-app
+ * `<Link>` from chat to a DIFFERENT `/chat?session=` would leave the old
+ * conversation on screen (the page never remounts); no such link exists today,
+ * and adding one means keying the page on the entry id, not widening this.
  */
 export function useChatEntry(search: ChatSearch): ChatSearch {
   return useRef(search).current;
 }
 
-function assignedIn(message: ChatUIMessage): string | undefined {
+function messageSessionId(message: ChatUIMessage): string | undefined {
   for (const part of message.parts) {
     if (part.type !== "data-response") continue;
     const assigned = assignedSessionIdIn(part.data);
@@ -40,7 +43,7 @@ function assignedIn(message: ChatUIMessage): string | undefined {
  */
 export function assignedSessionId(messages: readonly ChatUIMessage[]): string | undefined {
   for (const message of messages) {
-    const assigned = assignedIn(message);
+    const assigned = messageSessionId(message);
     if (assigned !== undefined) return assigned;
   }
   return undefined;

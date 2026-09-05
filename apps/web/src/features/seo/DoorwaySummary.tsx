@@ -86,6 +86,9 @@ function HomeSearch({ home }: Readonly<{ home: Dict["home"] }>) {
   );
 }
 
+/** Document load on purpose, like the app bar's new-conversation anchor
+ * (`ChatAppBar.tsx:53`): `?q=` opens a NEW conversation, and only a cold start
+ * can guarantee that — a client navigation cannot reset a live scope. */
 function ChipLink({ query, color }: Readonly<{ query: string; color: string }>) {
   return <a href={`/chat?q=${encodeURIComponent(query)}`} className={`rounded-full px-6 py-3 text-lg font-bold text-nook-ink no-underline shadow-[var(--shadow-press)] transition-transform duration-100 hover:-translate-y-0.5 active:translate-y-1 active:shadow-none ${color}`}>{query}</a>;
 }

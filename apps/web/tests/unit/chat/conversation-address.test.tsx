@@ -59,6 +59,22 @@ describe("the chat page publishes its conversation to the address bar", () => {
     });
   });
 
+  // The address alone is not the fix: the way out has to carry the id. The
+  // appbar reads it through `useChatSessionId`, a reader over a ref that does
+  // not re-render on its own, so this pins the rendered `href` rather than the
+  // mechanism — a reader frozen to its first render leaves the URL correct and
+  // this assertion red.
+  it("hands the assigned id to the settings link, not just to the address bar", async () => {
+    server.use(chatStreamHandler("search", { sessionId: ASSIGNED }));
+    renderChatPage();
+    sendText("ユーフォ");
+    await screen.findByText(ROUTE_CARD_TEXT);
+    await waitFor(() => {
+      const settings = screen.getByRole("link", { name: ja.appbar.settings });
+      expect(settings.getAttribute("href")).toBe(`/settings?session=${ASSIGNED}`);
+    });
+  });
+
   it("keeps the conversation on screen: its own publication is not a new entry", async () => {
     server.use(chatStreamHandler("search", { sessionId: ASSIGNED }));
     const router = renderChatPage();
