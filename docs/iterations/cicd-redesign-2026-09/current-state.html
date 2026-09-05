@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<title>animichi CI/CD 现状图 · 2026-09</title>
+<style>
+  :root{
+    --ink:#23211d; --muted:#6d6a63; --line:#c9c5bc; --line2:#e2ded5;
+    --paper:#f7f6f2; --card:#fffefb; --band:#f0eee7;
+    --req:#b8860b; --reqbg:#fdf6e0;
+    --bad:#c0392b; --badbg:#fdeceb;
+    --ok:#2f6f4f; --dock:#1a6a8f; --net:#7a5aa8;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; padding:26px 18px 60px; background:var(--paper); color:var(--ink);
+    font-family:"Hiragino Sans","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",system-ui,sans-serif;
+    font-size:13px; line-height:1.5;
+  }
+  .sheet{max-width:1400px;margin:0 auto}
+  code,.m{font-family:"SF Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace;font-size:11.5px}
+  code{background:#efece4;padding:0 3px;border-radius:2px;color:#3a3630}
+  h1{font-size:21px;margin:0 0 4px;letter-spacing:.3px}
+  .sub{color:var(--muted);font-size:11.5px;margin-bottom:16px}
+  .sub .m{font-size:11px}
+
+  /* summary strip */
+  .strip{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:22px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:9px 10px}
+  .stat b{display:block;font-size:20px;line-height:1.15;font-family:"SF Mono",Menlo,monospace}
+  .stat span{display:block;font-size:10.5px;color:var(--muted);margin-top:2px}
+
+  /* bands */
+  .band{border:1px solid var(--line);border-radius:3px;background:var(--band);margin-bottom:20px}
+  .band > h2{
+    margin:0;padding:7px 11px;font-size:13px;background:#e6e2d8;border-bottom:1px solid var(--line);
+    border-radius:2px 2px 0 0;letter-spacing:.4px;
+  }
+  .band > h2 small{font-weight:normal;color:var(--muted);font-size:10.5px;margin-left:8px}
+  .bandno{display:inline-block;background:#4a4640;color:#fff;font-family:"SF Mono",Menlo,monospace;font-size:11px;width:17px;height:17px;line-height:17px;text-align:center;border-radius:2px;margin-right:8px;vertical-align:1px}
+  .body{padding:13px}
+
+  /* boxes */
+  .box{position:relative;background:var(--card);border:1px solid var(--line);border-radius:3px;padding:8px 10px}
+  .box > .t{font-weight:600;font-size:12px;margin-bottom:4px}
+  .box ul{margin:3px 0 0;padding-left:15px}
+  .box li{margin:1px 0;font-size:11.5px}
+  .cite{display:block;color:var(--muted);font-size:10px;margin-top:5px;font-family:"SF Mono",Menlo,monospace;word-break:break-all}
+  .req{border:2px solid var(--req);background:var(--reqbg)}
+  .req .tag{display:inline-block;background:var(--req);color:#fff;font-size:9.5px;padding:1px 5px;border-radius:2px;margin-left:6px;vertical-align:1px;letter-spacing:.5px}
+  .ghost{background:#f4f2ec;border-style:dashed}
+
+  /* rows / arrows */
+  .row{display:flex;align-items:stretch;gap:8px;flex-wrap:nowrap}
+  .row.wrap{flex-wrap:wrap}
+  .arr{align-self:center;color:var(--muted);font-size:17px;flex:0 0 auto;padding:0 1px;font-family:monospace}
+  .col{display:flex;flex-direction:column;gap:8px}
+  .grow{flex:1 1 0;min-width:0}
+  .vdown{text-align:center;color:var(--muted);font-size:15px;line-height:1;margin:5px 0;font-family:monospace}
+  .phases{display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto 1fr auto 1fr;gap:5px;align-items:stretch;margin-top:6px}
+  .phases .box{padding:6px 5px;word-break:normal;overflow-wrap:anywhere;font-size:10.5px}
+  .phases .box code,.phases .box .cite{font-size:10px}
+  .phases .arr{padding:0;font-size:14px}
+
+  /* badges */
+  .badge{
+    position:absolute;top:-9px;right:-8px;background:var(--bad);color:#fff;border-radius:50%;
+    width:19px;height:19px;line-height:19px;text-align:center;font-size:12px;
+    box-shadow:0 0 0 2px var(--paper);z-index:3;font-family:monospace;
+  }
+  .badge.l{right:auto;left:-8px}
+  .badge.b2{top:12px}
+  .badge.b3{top:33px}
+
+  /* tags */
+  .k{display:inline-block;font-size:9.5px;padding:0 5px;border-radius:9px;border:1px solid;margin-right:4px;vertical-align:1px;white-space:nowrap}
+  .k.dock{color:var(--dock);border-color:var(--dock);background:#e8f4f9}
+  .k.net{color:var(--net);border-color:var(--net);background:#f2edfa}
+  .k.pure{color:var(--ok);border-color:var(--ok);background:#e9f3ed}
+  .k.env{color:#8a5a1a;border-color:#c99a4d;background:#fbf2e3}
+
+  /* legend + table */
+  table{border-collapse:collapse;width:100%;background:var(--card);font-size:11.5px}
+  th,td{border:1px solid var(--line2);padding:5px 8px;text-align:left;vertical-align:top}
+  th{background:#eeebe3;font-weight:600;font-size:11px}
+  .legend{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:12px 14px}
+  .legend h3{margin:0 0 8px;font-size:13px}
+  .legend ol{margin:0;padding:0;list-style:none;counter-reset:none}
+  .legend li{display:flex;gap:8px;margin:6px 0;font-size:11.5px;align-items:flex-start}
+  .num{flex:0 0 auto;background:var(--bad);color:#fff;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;font-size:11.5px;font-family:monospace}
+  .legend .src{color:var(--muted);font-family:"SF Mono",Menlo,monospace;font-size:10px}
+  .notes{margin-top:14px;color:var(--muted);font-size:10.5px;line-height:1.65}
+  .notes b{color:var(--ink)}
+  .keyrow{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 12px;font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<h1>animichi CI/CD 现状图 · 2026-09-05</h1>
+<div class="sub">
+  唯一事实来源：<span class="m">scratchpad/cicd-map.md</span>（全文）；仓库 HEAD <span class="m">357d0bf24</span>（<span class="m">.worktrees/main-lane</span>，detached at <span class="m">origin/main</span>）。
+  每个方框的 <span class="m">title</span> 属性带 <span class="m">file:line</span> 出处，鼠标悬停可见。红色 ①–⑧ = 已知问题，图末有图例。
+</div>
+
+<!-- ───────────── SUMMARY STRIP ───────────── -->
+<div class="strip">
+  <div class="stat" title="cicd-map.md §1：pr-verification.yml / cd.yml / codeql.yml / rollback.yml / agent-eval-nightly.yml"><b>5</b><span>workflow 文件</span></div>
+  <div class="stat" title="cicd-map.md §2.1：components.json:169-326，12 个 component"><b>12</b><span>component（manifest）</span></div>
+  <div class="stat" title="cicd-map.md §2.1 正文写 13，同段枚举 14；直接对 .github/ci/components.json 计数 = 14"><b>13<span style="font-size:12px">→</span>14</b><span>global lane（见脚注 A）</span></div>
+  <div class="stat" title="cicd-map.md §1.6：ruleset 19974534 required_status_checks = PR Verification, Security"><b>2</b><span>required check</span></div>
+  <div class="stat" title="cicd-map.md §4.10：cd.yml:10-12 与 rollback.yml:31-33 共用字面量 affected-cd-main"><b>1</b><span>CD 并发组</span></div>
+  <div class="stat" title="cicd-map.md §3.7/§5.3：scripts/local-gates/quality.sh:19-141"><b>~140</b><span>quality.sh 契约检查</span></div>
+</div>
+
+<!-- ───────────── BAND 1 ───────────── -->
+<div class="band">
+  <h2><span class="bandno">A</span>本地门禁链 <small>pre-commit → commit-msg → pre-push（cicd-map.md §5）</small></h2>
+  <div class="body">
+    <div class="keyrow">
+      <span><span class="k dock">Docker</span> 必需，fail-closed，无离线回退</span>
+      <span><span class="k net">网络</span> 仅一次性 / 增量安装</span>
+      <span><span class="k pure">纯静态</span> 不碰 Docker、不联网</span>
+    </div>
+
+    <div class="row">
+      <div class="box grow" title=".pre-commit-config.yaml:27,29-39,45-52,55-58,60-114（cicd-map.md §5.1）">
+        <div class="t">pre-commit stage <span class="k pure">纯静态</span></div>
+        <ul>
+          <li><code>trailing-whitespace</code> / <code>end-of-file-fixer</code> / <code>check-yaml</code> / <code>check-toml</code></li>
+          <li><code>ruff --fix</code> + <code>ruff-format</code>（<code>[python]</code>）</li>
+          <li><code>gitleaks</code></li>
+          <li><code>oxlint</code>（<code>oxlint-changed.sh</code>, <code>always_run</code>）</li>
+          <li><code>shellcheck --severity=warning</code>（<code>^(scripts|\.github/scripts)/</code>）</li>
+          <li><code>actionlint</code>（<code>^\.github/workflows/.*\.ya?ml$</code>）</li>
+          <li><code>semgrep-orm</code>（扫仓库根，保留 <code>.semgrepignore</code> 语义）</li>
+        </ul>
+        <span class="cite">.pre-commit-config.yaml:27,29-39,45-52,55-58,60-114</span>
+      </div>
+      <div class="arr">→</div>
+      <div class="box" style="flex:0 0 190px" title=".pre-commit-config.yaml:116-121（cicd-map.md §5.1）">
+        <div class="t">commit-msg stage <span class="k pure">纯静态</span></div>
+        <ul>
+          <li><code>commit-message.py</code></li>
+          <li><code>always_run: true</code></li>
+          <li>本地提交信息 + squash PR 标题的机器判据</li>
+        </ul>
+        <span class="cite">.pre-commit-config.yaml:116-121</span>
+      </div>
+      <div class="arr">→</div>
+      <div class="box grow" title=".pre-commit-config.yaml:129-135；pre-push.sh:320-325（cicd-map.md §5.1/§5.2）">
+        <div class="t">pre-push stage（唯一入口）</div>
+        <ul>
+          <li>单 hook <code>pre-push</code> → <code>bash scripts/local-gates/pre-push.sh</code></li>
+          <li><code>pass_filenames: false</code>, <code>always_run: true</code></li>
+          <li>真实 hook 一律调用规范的 <code>changed-packages.sh</code>，路由不可被环境变量覆盖</li>
+        </ul>
+        <span class="cite">.pre-commit-config.yaml:129-135 · pre-push.sh:320-325</span>
+      </div>
+    </div>
+
+    <div class="vdown">↓</div>
+
+    <div class="row wrap">
+      <div class="box" style="flex:1 1 250px" title="changed-packages.sh:36-79,81-96,105-108（cicd-map.md §2.4）">
+        <span class="badge">①</span><span class="badge l b2">④</span>
+        <div class="t">1 · <code>changed-packages.sh</code> 路由</div>
+        <ul>
+          <li><code>--staged</code>（pre-commit）/ 默认 <code>origin/main...HEAD</code>（pre-push）</li>
+          <li>5 个硬编码桶：<code>migrations/*→db</code>、<code>.github/scripts/*→scripts</code>、<code>.github/*→ci</code>、<code>scripts/*→scripts</code>、<code>docs/*→docs</code></li>
+          <li>其余交 <code>match_workspace_package</code>（读 <code>pnpm-workspace.yaml</code>）</li>
+          <li>6 个消费者任一变更 → 并入 <code>contract</code></li>
+          <li><b>都不匹配 → 字面量包 <code>all</code></b></li>
+        </ul>
+        <span class="cite">changed-packages.sh:36-79,81-96,92-96,105-108</span>
+      </div>
+      <div class="arr">→</div>
+      <div class="box" style="flex:0 0 210px" title="pre-push.sh:126-142,49-108,161-164（cicd-map.md §5.2）">
+        <span class="badge">④</span>
+        <div class="t">2 · <code>init_route</code> + <code>check_prereqs</code> <span class="k dock">Docker</span></div>
+        <ul>
+          <li><code>route_includes all</code> → <code>ALL=true</code>，<b>无视实际路由，全部包视为选中</b></li>
+          <li>前置：<code>uv pnpm node≥24 ruby atlas pulumi docker actionlint shellcheck semgrep git</code>，缺一即中止</li>
+        </ul>
+        <span class="cite">pre-push.sh:126-142,49-108,161-164</span>
+      </div>
+      <div class="arr">→</div>
+      <div class="box" style="flex:1 1 230px" title="pre-push.sh:151；quality.sh:19-141（cicd-map.md §5.3/§3.7）">
+        <div class="t">3 · <code>quality.sh</code> 全量 <span class="k pure">纯静态</span></div>
+        <ul>
+          <li><b>无条件运行，与路由无关</b></li>
+          <li>~140 条顺序 <code>run</code>：<code>ruby -c</code> ×~35、workflow-invariants、change-plan / cd-cohort-plan / resolve-cd-base / verify-release-artifact / promote-release-unit / secret-scan / codecov-patch / ci-routing-consistency / ci-prepush-parity … 及其 mutation 探针</li>
+          <li>与 CI <code>CI / repository contracts</code> <b>同一个脚本</b></li>
+        </ul>
+        <span class="cite">pre-push.sh:151 · quality.sh:16-18,19-141,122-123</span>
+      </div>
+    </div>
+
+    <div class="vdown">↓</div>
+
+    <div class="row wrap">
+      <div class="box" style="flex:1 1 100%" title="pre-push.sh:172-277,282-287,256,263,271（cicd-map.md §3.1/§5.2/§5.5-5.8）">
+        <div class="t">4 · <code>run_package_gates</code> → 每个被路由选中的包跑 <code>gate_&lt;pkg&gt;</code>（CI 的 <code>CI / affected</code> 复用同一批函数）</div>
+        <div class="row wrap" style="margin-top:6px;gap:6px">
+          <div class="box ghost" style="flex:1 1 170px" title="pre-push.sh:172-180"><b>gate_agent</b> <span class="k dock">Docker</span><br>ruff · ruff format · mypy(4 目录) · vulture · unit pytest <code>--cov</code> · integration pytest · <code>docker build</code><span class="cite">pre-push.sh:172-180</span></div>
+          <div class="box ghost" style="flex:1 1 150px" title="pre-push.sh:184-189"><b>gate_web</b><br>typecheck · <code>lint:oxlint</code> · <code>test</code> · <code>test:integration</code><span class="cite">pre-push.sh:184-189</span></div>
+          <div class="box ghost" style="flex:1 1 150px" title="pre-push.sh:191-277；pr-verification-gate.sh:38-47,88"><b>gate_catalog / users / edge / contract</b><br>lint+typecheck+test(+build dry-run)；<code>contract</code> 另跑 <code>vet-openapi.ts</code> 三份 OpenAPI 基线比对<span class="cite">pre-push.sh:191-277 · pr-verification-gate.sh:38-47</span></div>
+          <div class="box ghost" style="flex:1 1 150px" title="pre-push.sh:256；eval-fixture-drift.sh:1-33"><b>gate_eval</b> <span class="k pure">纯静态</span><br><code>eval-fixture-drift.sh</code>：影子 index 比对 <code>packages/eval/fixtures</code>，不动真索引<span class="cite">pre-push.sh:256 · eval-fixture-drift.sh:1-33</span></div>
+          <div class="box ghost" style="flex:1 1 150px" title="pre-push.sh:260-263；infra-check.sh:83-100,166-173"><b>gate_infra</b> <span class="k pure">纯静态</span><br>typecheck · test · <code>infra-check.sh</code>：<code>file://</code> 后端 + 占位 config 的 <code>pulumi preview</code>，<b>从不接触真凭据</b><span class="cite">pre-push.sh:260-263 · infra-check.sh:83-100,166-173</span></div>
+          <div class="box ghost" style="flex:1 1 170px" title="docs/ops/local-gates.md:92；pre-push.sh:266-272；db-fresh-schema.sh:28-44,59-87"><b>gate_db</b> <span class="k dock">Docker</span> <span class="k net">网络</span><br><code>atlas migrate validate</code> · migration-boundary 测试 · sqlfluff · <code>db-fresh-schema.sh</code>（钉住镜像 <code>animichi-test-postgres:18-3.6-pgvector-0.8.5</code>，缺 docker/守护进程/镜像即失败；首次构建镜像需网络）<span class="cite">pre-push.sh:266-272 · db-fresh-schema.sh:28-44 · docs/ops/local-gates.md:92,116</span></div>
+          <div class="box ghost" style="flex:1 1 130px" title="pre-push.sh:274-277"><b>gate_docs</b> <span class="k pure">纯静态</span><br>secrets/documentation guardrails 两个 pytest<span class="cite">pre-push.sh:274-277</span></div>
+        </div>
+        <span class="cite">pre-push.sh:144-155,282-287 · 与 CI 的对等由 test_ci_prepush_parity.rb 钉住（cicd-map.md §3.1/§6）</span>
+      </div>
+    </div>
+
+    <div class="vdown">↓</div>
+
+    <div class="row">
+      <div class="box grow" title="pre-push.sh:290-318（cicd-map.md §5.7）">
+        <span class="badge l">④</span>
+        <div class="t">5 · <code>run_scripts_self_tests</code> <span class="k pure">纯静态</span></div>
+        <ul>
+          <li>路由含字面量包 <code>scripts</code> → 跑完整 <code>SCRIPT_SUITE</code>（10 个：<code>pre-push / changed-packages / db-fresh-schema / infra-check / infra-check-unauthorized / commit-message / pre-commit-config / contract-drift / eval-fixture-drift / why-blocked</code> 的 <code>.test.sh</code>）</li>
+          <li>路由为 <code>all</code> → <b>只跑 <code>pre-commit-config.test.sh</code></b>（避免 <code>pre-push.test.sh</code> 自递归）</li>
+        </ul>
+        <span class="cite">pre-push.sh:290-301,310-318</span>
+      </div>
+      <div class="arr">→</div>
+      <div class="box" style="flex:0 0 230px" title="pre-push.sh:144-155（set -euo pipefail 全程 fail-fast）">
+        <div class="t">6 · <code>finish_gate</code></div>
+        <ul><li>全程 <code>set -euo pipefail</code> fail-fast，任一步非 0 即中止并打印可操作信息</li></ul>
+        <span class="cite">pre-push.sh:144-155</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────── BAND 2 ───────────── -->
+<div class="band">
+  <h2><span class="bandno">B</span>PR CI —— <span class="m">pr-verification.yml</span>（workflow name: <span class="m">CI</span>） <small>cicd-map.md §1.1 / §2.2 / §3</small></h2>
+  <div class="body">
+
+    <div class="row" style="margin-bottom:10px">
+      <div class="box grow" title="pr-verification.yml:2-6,15-17（cicd-map.md §1.1）">
+        <div class="t">触发与并发</div>
+        <ul>
+          <li><code>pull_request</code>（<code>opened/synchronize/reopened/ready_for_review/converted_to_draft</code>）+ <code>merge_group</code>（<code>branches: [main]</code>）</li>
+          <li><b>无 path filter</b>——裁剪全在 <code>route</code> 里由 <code>change-plan.py</code> 完成</li>
+          <li>并发组 <code>${{ github.workflow }}-${{ merge_group.head_ref || head_ref || ref }}</code>，<code>cancel-in-progress</code> 仅对 <code>pull_request</code> 为真（<code>merge_group</code> 永不取消）</li>
+        </ul>
+        <span class="cite">pr-verification.yml:2-6,8-9,15-17</span>
+      </div>
+    </div>
+
+    <div class="row">
+      <!-- route -->
+      <div class="box" style="flex:0 0 250px" title="pr-verification.yml:19-77；change-plan.py；.github/ci/components.json（cicd-map.md §2.1/§2.2）">
+        <span class="badge">①</span>
+        <div class="t"><code>route</code> · <code>CI / plan</code></div>
+        <ul>
+          <li>无 <code>needs</code>，全历史 checkout</li>
+          <li><code>change-plan.py --base --head --range</code>（PR = merge-base diff；<code>merge_group</code> = <code>before..sha</code>）</li>
+          <li>manifest = <code>.github/ci/components.json</code>（<code>schema_version 2</code>：<code>repository_paths</code> / <code>deploy_triggers</code> / <code>global_lanes</code> / 12 components + <code>depends_on</code> 反向闭包）</li>
+          <li>输出 <code>components · has_components · lanes · security_tools · has_security_tools</code></li>
+          <li>dependabot / fork head → 剥掉 <code>agent-eval</code> lane</li>
+          <li><b>路由自测</b>：同一 job 内先跑自己的契约脚本（<code>test_pr_verification_contract.rb</code>、<code>test_component_manifest.py</code>、<code>test_change_plan.py</code>、mutation 探针、secret-scan 契约、<code>test_pr_verification_aggregate.sh</code>、<code>test_pr_verification_route.sh</code>）</li>
+        </ul>
+        <span class="cite">pr-verification.yml:19-77,57,58-68,65-67 · components.json:1-327</span>
+      </div>
+
+      <div class="arr">→</div>
+
+      <!-- lanes -->
+      <div class="col grow">
+        <div class="row wrap" style="gap:8px">
+          <div class="box" style="flex:1 1 210px" title="pr-verification.yml:78-98；.github/actions/secret-scan/action.yml；resolve-secret-scan-range.sh（cicd-map.md §3.8）">
+            <div class="t"><code>security-diff</code> · <code>CI / changed secrets</code></div>
+            <ul>
+              <li><b>无 <code>needs</code> / 无 <code>if</code>，始终运行</b></li>
+              <li><code>secret-scan</code> 复合动作：<code>resolve-secret-scan-range.sh</code> 定范围 → <code>gitleaks:v8.24.3</code>（钉 digest）<code>--redact --log-opts=&lt;range&gt;</code></li>
+              <li><code>trufflehog</code>（verified-only，排除 <code>Lob</code>）</li>
+            </ul>
+            <span class="cite">pr-verification.yml:78-98,95-98</span>
+          </div>
+
+          <div class="box" style="flex:1 1 210px" title="pr-verification.yml:99-112；components.json:49-60；.github/actions/static-quality/action.yml:1-27（cicd-map.md §3.7）">
+            <div class="t"><code>static-quality</code> · <code>CI / repository contracts</code></div>
+            <ul>
+              <li>lane <code>static-quality</code>：<code>.github/**</code>、<code>scripts/local-gates/**</code>、<code>AGENTS.md</code>、<code>CONTEXT-MAP.md</code>、<code>Makefile</code>、三份 README</li>
+              <li>装钉版 Semgrep <code>1.172.0</code> + actionlint <code>1.7.7</code>（SHA-256 校验）</li>
+              <li>然后 <b>就是 <code>bash scripts/local-gates/quality.sh</code></b>（与本地 pre-push 同一脚本，~140 项）</li>
+            </ul>
+            <span class="cite">pr-verification.yml:99-112 · static-quality/action.yml:1-27 · quality.sh:19-141</span>
+          </div>
+
+          <div class="box" style="flex:1 1 210px" title="pr-verification.yml:113-126；components.json:164-167；cross-stack-e2e/action.yml:1-38（cicd-map.md §3.6）">
+            <div class="t"><code>cross-stack</code> · <code>CI / cross stack</code></div>
+            <ul>
+              <li>lane <code>cross-stack</code>，<b>仅当 component <code>web</code> 被选中</b></li>
+              <li>构建 web Worker → 恢复 Playwright 缓存 → 装 Chromium → <code>wrangler dev --port 8799</code></li>
+              <li>4 条规格：<code>web-404 · web-maplibre-canary · web-chat-anonymous · web-hero-query</code></li>
+            </ul>
+            <span class="cite">pr-verification.yml:113-126 · cross-stack-e2e/action.yml:24-38</span>
+          </div>
+
+          <div class="box" style="flex:1 1 210px" title="pr-verification.yml:127-150；.github/actions/security-tool/action.yml:1-118；components.json:62-75（cicd-map.md §3.3）">
+            <span class="badge">②</span>
+            <div class="t"><code>security-tools</code> · <code>CI / security (${{ matrix.tool }})</code></div>
+            <ul>
+              <li>matrix = <code>route.outputs.security_tools</code>（<code>lanes</code> 里 <code>security-</code> 前缀剥离），<code>fail-fast: false</code></li>
+              <li>白名单 12 个：<code>codeql-actions · codeql-javascript · codeql-python · trufflehog · osv · dependabot-config · config-read-sets · release-config · zizmor · semgrep · sqlfluff · runtime-promotion</code></li>
+              <li><b>每个都按路径/组件裁剪</b>，没有一个无条件运行</li>
+            </ul>
+            <span class="cite">pr-verification.yml:127-150,68 · security-tool/action.yml:1-16,16-118</span>
+          </div>
+
+          <div class="box" style="flex:1 1 210px" title="pr-verification.yml:175-193（cicd-map.md §1.1）">
+            <div class="t"><code>agent-eval</code> · <code>CI / agent eval (L0, report only)</code></div>
+            <ul><li>lane <code>agent-eval</code> + 非 dependabot + 同仓 head；<code>agent-eval</code> 复合动作 <code>tier: l0</code>，仅报告</li></ul>
+            <span class="cite">pr-verification.yml:175-193</span>
+          </div>
+
+          <div class="box" style="flex:1 1 210px" title="pr-verification.yml:194-272；pr-verification-gate.sh:78-88,49-75（cicd-map.md §3.1）">
+            <div class="t"><code>affected</code> · <code>CI / affected (${{ matrix.component }})</code></div>
+            <ul>
+              <li>matrix = <code>route.outputs.components</code>，<code>fail-fast: false</code></li>
+              <li>按组件预置环境：Python（<code>agent/db/docs/eval</code>）、Atlas（<code>db/catalog</code>）、Pulumi CLI（<code>infra</code>）、离线 Postgres 镜像（<code>agent/db/catalog</code>）、Playwright（<code>e2e</code>）</li>
+              <li>→ <code>pr-verification-gate.sh "$CI_COMPONENT"</code> → source <code>pre-push.sh</code> 调 <code>gate_&lt;pkg&gt;</code>（<code>e2e</code> 例外，内联跑 7 条 Playwright 规格）</li>
+              <li>上传 <code>agent/web/catalog/users</code> 覆盖率工件</li>
+            </ul>
+            <span class="cite">pr-verification.yml:194-272 · pr-verification-gate.sh:49-75,78-88</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vdown">↓</div>
+
+    <div class="row">
+      <div class="box grow" title="pr-verification.yml:274-336；.github/actions/coverage/action.yml:19-51；codecov.yml:1-24（cicd-map.md §3.2/§3.5）">
+        <div class="t"><code>coverage-agent</code> / <code>coverage-web</code> / <code>coverage-catalog</code> / <code>coverage-users</code></div>
+        <ul>
+          <li>各自 <code>needs: [route, affected]</code>，条件 = <code>affected</code> 成功 <b>且</b> 该组件在 <code>components</code> 内</li>
+          <li>下载 <code>ci-coverage-&lt;component&gt;-&lt;sha&gt;</code> → <code>codecov-action</code>（<code>use_oidc: true</code>, <code>fail_ci_if_error: true</code>）；<code>agent</code> 传 <code>unit</code>+<code>integration</code> 两个 flag，其余各一个 <code>lcov.info</code></li>
+          <li>12 个组件里 <b>只有这 4 个</b>有覆盖率 job；<code>contract/db/docs/e2e/eval/infra/migrator</code> 没有</li>
+          <li><code>codecov.yml</code>：project 门 <code>informational: true</code>（不阻断）；<b>patch 门 <code>target: 95%</code>, <code>threshold: 0%</code>，阻断</b>，并由 <code>test_codecov_patch.rb</code> 钉住不许悄悄放松</li>
+        </ul>
+        <span class="cite">pr-verification.yml:274-336 · coverage/action.yml:19-51 · codecov.yml:1-24 · test_codecov_patch.rb</span>
+      </div>
+    </div>
+
+    <div class="vdown">↓</div>
+
+    <div class="row">
+      <div class="box req grow" title="pr-verification.yml:152-173；security-aggregate.sh（cicd-map.md §1.1/§1.6）">
+        <div class="t"><code>security</code> → check 名 <code>Security</code><span class="tag">RULESET REQUIRED</span></div>
+        <ul>
+          <li><code>needs: [route, security-diff, security-tools]</code>，<code>if: always()</code></li>
+          <li><code>security-aggregate.sh</code>：<code>EXPECTED_SHA</code>/<code>ACTUAL_SHA</code> 均为 <code>github.sha</code> + 三个上游结果</li>
+        </ul>
+        <span class="cite">pr-verification.yml:152-173,153</span>
+      </div>
+      <div class="arr">&nbsp;</div>
+      <div class="box req grow" title="pr-verification.yml:338-367；pr-verification-aggregate.sh:25-99（cicd-map.md §3.9）">
+        <div class="t"><code>aggregate</code> → check 名 <code>PR Verification</code><span class="tag">RULESET REQUIRED</span></div>
+        <ul>
+          <li><code>needs: [route, static-quality, security, affected, coverage-*×4, cross-stack]</code>，<code>if: always()</code></li>
+          <li><b>构造上 fail-closed</b>：校验 repo 形状与 40-hex head；<code>route</code> 必须 success；lane「选中必 success / 未选中必 skipped」对称（<b>没选却跑了 = 失败</b>）；4 个 coverage job 同样对称</li>
+          <li>组件数 &gt; 0 时查 <code>commits/&lt;head&gt;/check-runs</code>，逐个要求名为 <code>CI / affected (&lt;package&gt;)</code> 且 <code>head_sha</code> 精确匹配、<code>completed/success</code>（重跑重复取最新）——<b>对确切 head 的二次核验</b></li>
+        </ul>
+        <span class="cite">pr-verification.yml:338-367,339 · pr-verification-aggregate.sh:25-36,38-46,48-60,62-66,68-94,96-99</span>
+      </div>
+      <div class="arr">&nbsp;</div>
+      <div class="box" style="flex:1 1 300px" title="pr-verification.yml:127-150；codeql.yml:14-24,32-115；security-tool/action.yml:17-24；components.json:62-75；ruleset 19974534（cicd-map.md §1.3/§1.6）">
+        <span class="badge">②</span>
+        <div class="t">GitHub 原生 <code>code_scanning</code> 规则 vs <code>codeql.yml</code></div>
+        <ul>
+          <li>ruleset 规则：<code>{"type":"code_scanning", tools:[{tool:"CodeQL", security_alerts_threshold:"high_or_higher", alerts_threshold:"errors"}]}</code>——<b>独立于</b>两个 required status check</li>
+          <li><code>codeql.yml</code> 只有 <code>schedule: '37 18 * * 0'</code> + <code>workflow_dispatch</code>，<b>不在 PR/push 上触发</b>（其自述：PR 分析在 CI 的 <code>security-tools</code> 矩阵里）；它的 <code>cancel-in-progress: pull_request</code> 条件因此是死条件</li>
+          <li>PR 侧上传方：<code>security-tool</code> 复合动作用<b>同一个钉版</b> <code>codeql-action@5595ccaf…</code>，<code>category: /language:actions · /language:python · /language:javascript-typescript</code>——与 <code>codeql.yml</code> 三个 category 字符串完全相同</li>
+          <li>但这三个 lane <b>按路径裁剪</b>：<code>security-codeql-actions</code>（<code>.github/workflows/** .github/actions/**</code>）、<code>-javascript</code>（components + <code>.github/scripts/**</code>）、<code>-python</code>（component <code>agent</code> + <code>.github/scripts/** scripts/**</code>）</li>
+        </ul>
+        <span class="cite">codeql.yml:14-24,32-115 · security-tool/action.yml:17-24 · components.json:62-75 · gh api repos/lifeodyssey/animichi/rulesets/19974534</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────── BAND 3 ───────────── -->
+<div class="band">
+  <h2><span class="bandno">C</span>合并闸 <small>branch ruleset + 全局 hook（cicd-map.md §1.6 / §5.9）</small></h2>
+  <div class="body">
+    <div class="row">
+      <div class="box grow" title="gh api repos/lifeodyssey/animichi/rulesets/19974534（cicd-map.md §1.6）">
+        <div class="t">ruleset <code>protect main</code> · id <code>19974534</code> · <code>enforcement: active</code> · <code>ref_name.include: ["~ALL"]</code>（所有分支）</div>
+        <ul>
+          <li><code>deletion</code> · <code>non_fast_forward</code> · <code>required_linear_history</code></li>
+          <li><code>pull_request</code>：<code>allowed_merge_methods:["squash"]</code>（<b>只允许 squash</b>）、<code>required_review_thread_resolution: true</code>、<code>required_approving_review_count: 0</code>、<code>dismiss_stale_reviews_on_push: true</code>、<code>require_extra_approval_for_unattributed_changes: true</code></li>
+          <li><code>required_status_checks</code>：<code>strict_required_status_checks_policy: true</code>，required = <b><code>PR Verification</code></b> 与 <b><code>Security</code></b> ——恰好是 <code>aggregate</code>（<code>pr-verification.yml:339</code>）与 <code>security</code>（<code>:153</code>）两个 job 名。<b>任何 <code>CI / affected (…)</code>、<code>CI / security (…)</code>、coverage job 都不是 required</b></li>
+          <li><code>code_scanning</code>（CodeQL, <code>high_or_higher</code> / <code>errors</code>）· <code>copilot_code_review</code>（<code>review_on_push: true</code>）</li>
+          <li><code>bypass_actors</code>：单个 <code>User</code> <code>actor_id 25764181</code>，<code>bypass_mode: always</code> —— owner 可随时绕过所有分支的所有规则</li>
+        </ul>
+        <span class="cite">gh api repos/lifeodyssey/animichi/rulesets/19974534 · pr-verification.yml:153,339</span>
+      </div>
+      <div class="arr">+</div>
+      <div class="box grow" title="~/.claude/hooks/check-pr-comments.sh:43-97,116-158,160-216,218-256,258-320,322-352；docs/ops/review-gate.md:18-20（cicd-map.md §5.9）">
+        <span class="badge">⑤</span>
+        <div class="t">全局 hook <code>~/.claude/hooks/check-pr-comments.sh</code>（user-scope，不在仓库里）</div>
+        <ul>
+          <li><code>PreToolUse</code> 拦截任何含 <code>gh pr merge</code> 的 Bash 调用，用 Python <code>shlex</code> 解析真实 argv（URL / 任意顺序的 flag 都能认出 PR 号），不满足条件即 <code>exit 2</code></li>
+          <li><b>600 秒防抢跑窗口</b>：PR 年龄 &lt; 600s 时，必须已有 <code>qodo</code>/<code>coderabbit</code>/<code>sonar</code> 的 review 或评论</li>
+          <li><b>bot 时间戳 vs head</b>：head commit 年龄 &lt; 600s 且没有任何 bot 时间戳新于该 commit 的 <code>committedDate</code> → 阻断（要求 bot 重审<b>最终那个</b> commit）</li>
+          <li><b>未解决线程</b>：GraphQL <code>--paginate</code> 拉全部 <code>reviewThreads</code>，任一 <code>isResolved == false</code> → 阻断</li>
+          <li><b>findings ACK</b>：OWNER/MEMBER/COLLABORATOR 的顶层评论含 <code>线程判定</code>/<code>findings triaged</code>/<code>评论判定</code>/<code>toplevel triaged</code> 才算认领，且<b>时间戳必须新于最新 bot 活动</b>（<code>ACK_FRESH</code>，堵死 stale-ACK 绕过）；无新鲜 ACK 时再查 qodo <code>Bugs (N)</code>/<code>Rule violations (N)</code>（N≥1）与 SonarCloud <code>Quality Gate Failed</code>，命中则逐条列出待办并阻断</li>
+          <li>任何 GitHub API 读取失败一律 fail-closed</li>
+        </ul>
+        <span class="cite">check-pr-comments.sh:43-97,116-158,160-216,218-256,258-320,322-352 · docs/ops/review-gate.md:18-20</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────── BAND 4 ───────────── -->
+<div class="band">
+  <h2><span class="bandno">D</span>CD —— <span class="m">cd.yml</span>（push main） <small>cicd-map.md §1.2 / §2.3 / §4</small></h2>
+  <div class="body">
+
+    <div class="row" style="margin-bottom:10px">
+      <div class="box grow" style="border-color:var(--bad);background:var(--badbg)" title="cd.yml:3-5,10-12；rollback.yml:31-33（cicd-map.md §4.10）">
+        <span class="badge l">③</span>
+        <div class="t" style="margin-left:16px">触发 <code>push: branches:[main]</code>（无 dispatch、无 tag、无 path filter）　·　<b>workflow 级并发组 <code>affected-cd-main</code>（静态字面量，非 per-ref/per-SHA），<code>cancel-in-progress: false</code></b></div>
+        <ul style="margin-left:16px">
+          <li><code>cd.yml</code> 内部<b>没有</b>任何 job 级 <code>concurrency:</code> 块；<code>rollback.yml:31-33</code> 用<b>同一字面量</b>，因此回滚与前向晋级互相串行</li>
+          <li>没有只作用于 staging 或只作用于 production 的并发块 —— staging 五段与 production 晋级共享这一个槽位</li>
+        </ul>
+        <span class="cite">cd.yml:3-5,7-8,10-12 · rollback.yml:31-33</span>
+      </div>
+    </div>
+
+    <div class="row wrap">
+      <div class="box" style="flex:1 1 250px" title="cd.yml:18-54；resolve-cd-base.sh:1-30；cd-cohort-plan.py:13-19,21,22,114-128,143（cicd-map.md §2.3）">
+        <div class="t"><code>route</code></div>
+        <ul>
+          <li><code>resolve-cd-base.sh EVENT_BEFORE SOURCE_SHA</code>：要求 <code>SOURCE_SHA</code> == 实时拉取的 <code>main</code> head（否则拒绝为陈旧运行）→ 在最近 20 次成功 <code>cd.yml</code> run 里找 <code>SOURCE_SHA</code> 的最近祖先 → 退回 <code>EVENT_BEFORE</code> → 再退回根提交</li>
+          <li><code>change-plan.py --range main --purpose deploy --format json</code> │ <code>cd-cohort-plan.py --manifest .github/ci/components.json</code></li>
+          <li><b>5 个 phase</b>：<code>foundation: infra</code> / <code>migration: migrator, db</code> / <code>services: agent, catalog, users</code> / <code>edge: edge</code> / <code>web: web</code></li>
+          <li><b>不可分对</b>：<code>{agent, edge}</code>、<code>{migrator, db}</code>——选中一半必选另一半</li>
+          <li><b><code>STAGING_ONLY = {migrator}</code></b>：永不进 <code>production_units</code></li>
+          <li>未知组件名或 <code>fallback_all</code> → 展开为全部有 <code>deploy_unit</code> 的单元</li>
+          <li>输出 <code>has_deployments · deploy_units · production_units · foundation · migration · services · edge · web</code></li>
+        </ul>
+        <span class="cite">cd.yml:18-54,39-54 · resolve-cd-base.sh:1-30 · cd-cohort-plan.py:13-19,21,22,114-128,125-128,143</span>
+      </div>
+
+      <div class="arr">→</div>
+
+      <div class="box" style="flex:1 1 240px" title="cd.yml:56-76,64-67；build-release-unit/action.yml:28-100,102-115,116-122（cicd-map.md §4.2）">
+        <div class="t"><code>build-release-artifacts</code><br><span style="font-weight:normal;font-size:11px">name <code>Build release artifact (${{ matrix.unit }})</code></span></div>
+        <ul>
+          <li>matrix over <code>deploy_units</code>，<code>fail-fast: false</code>；<b>每个 main-SHA 每个单元只构建一次</b>，不按环境重建</li>
+          <li>产物：<code>web</code>→<code>.output</code>+config；<code>catalog/users</code>→<code>wrangler deploy --dry-run</code> bundle；<code>db</code>→<code>migrations/neon/</code>；<code>agent</code>/<code>migrator</code>→<code>docker save image.tar</code>+<code>image-ref</code>；<code>edge</code>→引用 <b>agent 镜像</b>的 dry-run bundle；<code>infra</code>→精确 SHA 的 <code>infra/</code> 归档 + 封存的 <code>@pulumi/neon</code> SDK + <code>rollback-contract</code></li>
+          <li><b>可重现封存</b>：<code>tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner</code>，<code>gzip -n</code>，SHA-256 → <code>artifact-manifest.json {schema_version:1, unit, source_sha, artifact_sha256}</code></li>
+          <li>上传为 <code>release-&lt;source_sha&gt;-&lt;unit&gt;</code>，<code>retention-days: 14</code>，<code>if-no-files-found: error</code></li>
+        </ul>
+        <span class="cite">cd.yml:56-76,64-67 · build-release-unit/action.yml:28-100,96-97,102-115,116-122</span>
+      </div>
+
+      <div class="arr">→</div>
+
+      <!-- staging + prod column -->
+      <div class="col" style="flex:1 1 460px;min-width:0">
+        <div class="box" title="cd.yml:89-224,78-88（cicd-map.md §1.2/§4.3）">
+          <div class="t">staging 五段 <span class="k env">environment: staging</span> —— 顺序即 <code>PHASES</code> 声明顺序</div>
+          <div class="phases">
+            <div class="box ghost" title="cd.yml:89-118,103-114"><b>stage-<br>foundation</b><br><code>infra</code><br><span class="cite">cd.yml:89-118</span></div>
+            <div class="arr">→</div>
+            <div class="box ghost" title="cd.yml:120-142,126-129"><span class="badge">⑧</span><b>stage-<br>migration</b><br><code>migrator, db</code><br><code>id-token: write</code><br><span class="cite">cd.yml:120-142</span></div>
+            <div class="arr">→</div>
+            <div class="box ghost" title="cd.yml:144-164；test_migration_promotion_contract.rb"><b>stage-<br>services</b><br><code>agent, catalog, users</code><br><span class="cite">cd.yml:144-164</span></div>
+            <div class="arr">→</div>
+            <div class="box ghost" title="cd.yml:166-194"><b>stage-<br>edge</b><br><code>edge</code><br><span class="cite">cd.yml:166-194</span></div>
+            <div class="arr">→</div>
+            <div class="box ghost" title="cd.yml:196-224"><b>stage-<br>web</b><br><code>web</code><br><span class="cite">cd.yml:196-224</span></div>
+          </div>
+          <ul style="margin-top:6px">
+            <li><b>跳过传播设计</b>：<code>stage-foundation</code> 之后每一段都在自己的 <code>needs</code> 里列出<b>所有更早的段</b>（不只前驱），因为 <code>!failure() &amp;&amp; !cancelled()</code> 只看 <code>needs</code> 里字面存在的 job；仅因自己的 cohort 切片为 <code>'[]'</code> 而跳过的段报 <code>skipped</code>，不触发 <code>failure()</code>。契约测试 <code>test_cd_skip_propagation_contract.rb</code></li>
+          </ul>
+          <span class="cite">cd.yml:78-88,89-224 · test_cd_skip_propagation_contract.rb</span>
+        </div>
+
+        <div class="vdown">↓</div>
+
+        <div class="box" title="cd.yml:226-257,241-244,251-256；staging-smoke-check.sh（cicd-map.md §4.4）">
+          <span class="badge">⑥</span>
+          <div class="t"><code>post-staging</code> · <code>Verify staging cohort identity</code></div>
+          <ul>
+            <li><code>staging-smoke-check.sh</code> 打 <code>https://animichi-staging.zhenjiazhou0127.workers.dev</code>（edge）与 <code>https://animichi-web-staging.zhenjiazhou0127.workers.dev</code>（web），<code>SMOKE_ATTEMPTS=8</code>、<code>SMOKE_RETRY_DELAY=15</code></li>
+            <li>它是「staging 挂了」与 <code>promote-production</code> 之间的唯一闸；workflow 内联注释记录这解除了此前「staging 健康从不被检查」的状态，引用 #1198 与 <code>docs/specs/2026-08-26-system-health-audit.md §6.3/§7 W4</code></li>
+          </ul>
+          <span class="cite">cd.yml:226-257,241-244,251-256</span>
+        </div>
+
+        <div class="vdown">↓</div>
+
+        <div class="box" style="border-color:var(--req);background:var(--reqbg)" title="cd.yml:259-353,276-284,288-292,293-353；download-release-cohort.sh；promote-release-unit.sh；verify-release-artifact.py:36-48（cicd-map.md §4.5/§4.2）">
+          <div class="t"><code>promote-production</code> · <code>Promote the staging cohort</code> <span class="k env">environment: production（审批）</span></div>
+          <ul>
+            <li><code>needs</code> = 全部 staging 段 + <code>post-staging</code>；<code>download-release-cohort.sh</code> 按 SHA 取<b>同一批</b> staging 工件，<b>绝不重建</b></li>
+            <li>固定顺序：<code>infra</code> → <code>db</code> → <code>services</code>（循环）→ <code>edge</code> → <code>web</code>，每步按 <code>production_units</code> 成员资格开关</li>
+            <li><b>摘要校验</b> <code>verify-release-artifact.py</code>：manifest 键集必须<b>恰好</b>是 <code>{schema_version, unit, source_sha, artifact_sha256}</code>、<code>schema_version == 1</code>、<code>unit</code>/<code>source_sha</code> 精确匹配、tarball <b>现场重算</b>的 SHA-256 必须等于 <code>artifact_sha256</code>；不符即 <code>ValueError</code>，<code>promote-release-unit.sh</code> 的 <code>prepare_payload</code> 在解包前中止</li>
+            <li>本 workflow 没有任何 <code>workflow_dispatch</code> 输入；production 环境的 required reviewers / wait timer 配在 GitHub 仓库设置里，<b>从文件不可验证</b></li>
+          </ul>
+          <span class="cite">cd.yml:259-353,276-284,288-292,293-353 · verify-release-artifact.py:36-48 · promote-release-unit.sh:13-18</span>
+        </div>
+      </div>
+
+      <div class="arr">‖</div>
+
+      <div class="box" style="flex:1 1 230px" title="rollback.yml:3-26,31-33,38-77；rollback-release/action.yml:35-47,94-108,101-109,129-138；validate-rollback-release.py（cicd-map.md §1.4/§4.9）">
+        <span class="badge">③</span>
+        <div class="t"><code>rollback.yml</code> · <code>Rollback</code></div>
+        <ul>
+          <li><code>workflow_dispatch</code> only，必填 <code>component</code>（choice: <code>edge/web/catalog/users</code>）、<code>release_run_id</code>、<code>source_sha</code>、<code>artifact_sha256</code></li>
+          <li><b>并发组同为 <code>affected-cd-main</code></b>，<code>cancel-in-progress: false</code> —— 与 CD 抢同一个槽</li>
+          <li><code>environment: production</code>；checkout <code>refs/heads/main</code></li>
+          <li><b>从不重建</b>：取目标 CD run 的证据，<code>validate-rollback-release.py</code> 要求它是本仓 <code>cd.yml</code> 的成功 <code>push</code> run，工件存在、未过期、非零大小</li>
+          <li><code>edge</code> 回滚会额外下载并校验<b>同一 run</b> 的 <code>agent</code> 工件，按 <code>agent</code> → <code>edge</code> 顺序一起晋级（呼应不可分对）</li>
+          <li><code>db</code>/<code>infra</code>/<code>migrator</code>/单独的 <code>agent</code> 不是回滚目标，复合动作的 <code>case</code> 对其他名字 <code>exit 2</code></li>
+        </ul>
+        <span class="cite">rollback.yml:3-26,31-33,38-77 · rollback-release/action.yml:35-47,94-108,101-109,129-133,129-138</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────────── BAND 5 ───────────── -->
+<div class="band">
+  <h2><span class="bandno">E</span>凭据来源 <small>cicd-map.md §4.7 / §4.8 / ADR 0003</small></h2>
+  <div class="body">
+    <table>
+      <thead>
+        <tr><th style="width:16%">环节</th><th style="width:30%">凭据 / 机制</th><th style="width:14%">类型</th><th style="width:40%">出处</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>stage-foundation</code> / production foundation（Pulumi）</td>
+          <td><code>CLOUDFLARE_PULUMI_API_TOKEN</code>、<code>CLOUDFLARE_ACCOUNT_ID</code>、<code>PULUMI_CONFIG_PASSPHRASE</code>、<code>PULUMI_BACKEND_URL</code>、<code>R2_ACCESS_KEY_ID</code>、<code>R2_SECRET_ACCESS_KEY</code>、<code>NEON_API_KEY</code></td>
+          <td><b>全部为普通 GitHub Actions secret</b><br>（非 OIDC、非 Pulumi Cloud 签发）<span style="position:relative;display:inline-block;width:0"><span class="badge" style="top:-4px;right:-16px">⑦</span></span></td>
+          <td><code>cd.yml:103-114</code>（staging）、<code>cd.yml:293-304</code>（production 同一套）；<code>pulumi login "$PULUMI_BACKEND_URL"</code> 指向 <b>自管 R2 状态后端</b>（<code>https://&lt;account&gt;.r2.cloudflarestorage.com</code>，S3 API），非 <code>app.pulumi.com</code>：<code>promote-release-unit.sh:126-197,136-157</code></td>
+        </tr>
+        <tr>
+          <td><b>生产</b>数据库迁移</td>
+          <td>CD job 自己的 Atlas CLI 直连：<code>atlas migrate validate</code> / <code>apply</code> against <code>NEON_DATABASE_URL</code>；若封存的迁移目录带 <code>STAGING_ONLY_BASELINE</code> 标记则拒绝</td>
+          <td>明文 GitHub secret DSN<span style="position:relative;display:inline-block;width:0"><span class="badge" style="top:-4px;right:-16px">⑧</span></span></td>
+          <td><code>promote-release-unit.sh:261-269,276-278</code>；<code>cd.yml:305-310</code> 传入 <code>secrets.NEON_DATABASE_URL</code>；ADR <code>docs/adr/0003-secrets-architecture.md（第 3–9 行）</code> 自述「production 仍用 GitHub env secret 交付 <code>*_DATABASE_URL</code>，直到 #912 的生产角色切换阶段」</td>
+        </tr>
+        <tr>
+          <td><b>staging</b> 数据库迁移</td>
+          <td>已部署的 <b>migrator Worker</b> + <b>GitHub OIDC</b>：POST <code>{expectedHead}</code> 到 <code>$MIGRATOR_URL/migrate</code>，bearer token <code>audience=animichi:github-actions:migrator</code></td>
+          <td>OIDC 短期票据<br>（<code>id-token: write</code>）</td>
+          <td><code>promote-release-unit.sh:204-225,252-259,272-278</code>；<code>cd.yml:126-129</code>（<code>id-token: write</code>）、<code>cd.yml:142</code>（<code>vars.MIGRATOR_STAGING_URL</code>）；<code>migrator</code> 是 <code>STAGING_ONLY</code>：<code>cd-cohort-plan.py:21,143</code></td>
+        </tr>
+        <tr>
+          <td>Worker 运行时 DSN</td>
+          <td>Cloudflare <b>Secrets Store</b>（write-only，<code>wrangler.toml</code> 声明式绑定），连接串由 Pulumi 组装后直接写入</td>
+          <td>Secrets Store 绑定</td>
+          <td>ADR <code>docs/adr/0003-secrets-architecture.md:15-22</code>；契约测试 <code>test_database_credential_boundary.rb</code>：每个生产 Worker 必须从 Secrets Store 绑定 <code>DATABASE_URL</code>（不是普通 secret）、必须用确切的 secret 名，且 <b>staging 晋级绝不接收生产 DSN</b></td>
+        </tr>
+        <tr>
+          <td>CI-only 值</td>
+          <td>如 <code>STAGING_GATE_TOKEN</code> 留在 GitHub environment secret —— 因为 Secrets Store 的值读不回来</td>
+          <td>GitHub env secret</td>
+          <td>ADR <code>docs/adr/0003-secrets-architecture.md:15-22</code></td>
+        </tr>
+        <tr>
+          <td>Codecov 上传</td>
+          <td><code>codecov-action</code> <code>use_oidc: true</code></td>
+          <td>OIDC</td>
+          <td><code>.github/actions/coverage/action.yml:19-51</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ───────────── LEGEND ───────────── -->
+<div class="legend">
+  <h3>已知问题图例 ①–⑧</h3>
+  <ol>
+    <li><span class="num">①</span><div><b>两套路由不一致</b>：CI/CD 都经 <code>change-plan.py</code> 读单一 manifest <code>.github/ci/components.json</code>（12 组件 + <code>global_lanes</code> + <code>deploy_triggers</code> + <code>depends_on</code> 图闭包 + <code>ci</code>/<code>deploy</code> 双 purpose）；本地是<b>另写的 bash</b>，5 个硬编码桶 + <code>pnpm-workspace.yaml</code> 包集 + 一条写死的 <code>contract</code> 规则，无 lane、无 <code>deploy_triggers</code>、无 purpose 轴。同一物理目录被归到不同桶（manifest 根本没有 <code>scripts</code> 组件；本地把 <code>.github/scripts/*</code> 归 <code>scripts</code>、其余 <code>.github/*</code> 归 <code>ci</code>）。仓库自己把这当已知风险<b>用测试兜住</b>而非当作不变量：<code>test_ci_routing_consistency.rb</code> 只断言两边「拥有相同的路径根」。<div class="src">map §2.4、§2.5 · changed-packages.sh:81-96,92-96,105-108 · change-plan.py:74-83,136-152 · test_ci_routing_consistency.rb:1-4 · issue #1323「ci(repo): route packages/contract changes into the agent pre-push lane」(OPEN)</div></div></li>
+
+    <li><span class="num">②</span><div><b>required 的 <code>code_scanning</code> 在普通 PR 上没有生产者</b>：ruleset 要求 CodeQL 的 <code>high_or_higher</code>/<code>errors</code>，但 <code>codeql.yml</code> 只在 <code>schedule</code>/<code>dispatch</code> 触发，PR 侧的三个 CodeQL lane 又<b>按路径裁剪</b>（<code>security-codeql-actions/-javascript/-python</code>），于是所有可见 check 全绿、PR 仍 <code>mergeStateStatus=BLOCKED</code>，原始 check-run <code>CodeQL</code> 的 <code>conclusion</code> 是 <code>neutral</code>（而 <code>gh pr checks</code> 把 <code>neutral</code> 渲染成 <code>skipping</code>，所以人读的那张表里根本看不见它）；手工 <code>gh workflow run codeql.yml</code> 即解——一次会话里做了四遍。为什么 <code>Security</code> lane 满足不了该规则，issue 明说<b>尚未查到底</b>。<div class="src">map §1.3、§1.6 · codeql.yml:14-24 · security-tool/action.yml:17-24 · components.json:62-75 · issue #1214 §1、§2 (OPEN)　※ 「configuration not found」这一串字样在仓库与 map 中均无出处，实测记录的是 <code>neutral</code>／渲染为 <code>skipping</code></div></div></li>
+
+    <li><span class="num">③</span><div><b>workflow 级并发组让等审批的 run 占住 staging</b>：<code>cd.yml</code> 用静态字面量组 <code>affected-cd-main</code> + <code>cancel-in-progress: false</code>，且组内<b>没有</b>按环境细分的 job 级并发块；<code>promote-production</code> 在 <code>environment: production</code> 上等人审批期间，整个 run 仍占着这个槽，后续 push 的 staging 部署只能排队；<code>rollback.yml</code> 用同一字面量，与之抢同一个槽。<div class="src">map §1.2、§4.10 · cd.yml:10-12 · rollback.yml:31-33 · issue #1325「scope CD concurrency per environment so a waiting production approval never blocks staging」(OPEN)</div></div></li>
+
+    <li><span class="num">④</span><div><b>本地 <code>all</code> 路由把全量 + Docker 拉进每一次 push</b>：任何既不落 5 个桶、也不匹配 workspace 包的路径，<code>changed-packages.sh</code> 一律返回字面量 <code>all</code>；<code>pre-push.sh</code> 的 <code>init_route</code> 见 <code>all</code> 就置 <code>ALL=true</code>，所有包一律视为选中 —— 于是必跑 <code>gate_agent</code> 的 <code>docker build</code> 和 <code>gate_db</code> 的 <code>db-fresh-schema.sh</code>（都是 fail-closed、无离线回退的 Docker 门），而 <code>run_scripts_self_tests</code> 在 <code>all</code> 下<b>反而只跑一个</b> <code>pre-commit-config.test.sh</code>。#1322（spike 等端口而非等 postgres 就绪的竞态）已 CLOSED，但触发它的这套结构没变。<div class="src">map §2.4、§5.2、§5.5、§5.8 · changed-packages.sh:92-96 · pre-push.sh:126-142,179,310-318 · db-fresh-schema.sh:28-44 · docs/ops/local-gates.md:92-93,116 · issue #1322 (CLOSED)</div></div></li>
+
+    <li><span class="num">⑤</span><div><b>hook 的 bot 时间戳规则被 update-branch / rebase 误伤</b>：hook 要求「head commit 年龄 &lt; 600s 时，必须有 bot 时间戳新于该 commit 的 <code>committedDate</code>」，而 ruleset 的 <code>strict_required_status_checks_policy: true</code> + <code>required_linear_history</code> + squash-only 意味着<b>每一次别的 PR 合入 main，其余在途 PR 都变 BEHIND → 必须 rebase/update branch → head commit 变新</b>，于是窗口重置、必须等 bot 重审一轮（并且头绑定的评审签名也一起作废，一次会话里重签了四次，每轮烧一整跑 CI）。<div class="src">map §5.9（时间戳规则本体）+ map §1.6（strict/linear/squash 组合）· check-pr-comments.sh:160-216 · issue #1214 §6 (OPEN)　※ 两者的<b>因果串联</b>是本图的推论，非某一处原文的直述</div></div></li>
+
+    <li><span class="num">⑥</span><div><b>文档与实现打架</b>：<code>docs/ops/deployment.md:334-335</code> 至今写着「Automated post-deploy smoke is deferred technical debt. The owner manually validates staging before approval…do not represent that manual evidence as a CI check」，但 <code>post-staging</code> 的 <code>staging-smoke-check.sh</code> 今天就是一个已实现、自动、会阻断的 CI 检查；workflow 自己的内联注释还记了解除封存的日期与依据。该文档其余部分（push-main-only 触发、build-once/封存/摘要校验、五段顺序 + 一次生产审批、expand/contract 迁移纪律、手工非重建的配对回滚流程）与实现<b>逐条吻合</b>。<div class="src">map §4.4、§7 · docs/ops/deployment.md:334-335 vs cd.yml:226-257,241-244 · 相邻 #1198 (OPEN) 追剩余范围</div></div></li>
+
+    <li><span class="num">⑦</span><div><b>ADR 0003「No Pulumi Cloud dependency」vs 在途的 #1077/#1078</b>：ADR 明写「ESC 需要 Pulumi Cloud 账号；Cloudflare Secrets Store 是我们已在用的账号的原生能力」，当前实现也确实是<b>静态 GitHub secret + 自管 R2 状态后端</b>。而 #1077 提议把 Pulumi state 与 stack 加密迁到 Pulumi Cloud（OIDC 登录）、#1078 提议用 ESC 注入 Pulumi 平面 token —— 两者都<b>尚未实现</b>，方向与 ADR 0003 的既定取舍相反。<div class="src">map §4.8、§8 · docs/adr/0003-secrets-architecture.md:27 · cd.yml:103-114 · promote-release-unit.sh:126-197,136-157 · issues #1077、#1078（均 OPEN）</div></div></li>
+
+    <li><span class="num">⑧</span><div><b>生产迁移路径与 staging 不同构</b>：staging 走「已部署的 migrator Worker + HTTP + GitHub OIDC 票据（<code>audience=animichi:github-actions:migrator</code>）」；生产则由 CD job <b>自己的 Atlas CLI 直连</b> <code>NEON_DATABASE_URL</code>（明文 GitHub secret），生产侧根本没有 migrator Worker（<code>migrator ∈ STAGING_ONLY</code>，永不进 <code>production_units</code>）。两条路径的失败模式、权限面与可审计性都不一样，而<b>只有 staging 那条被日常演练</b>。#1055「Production switch to the migrator path」与 #1057「CI holds no database credential (endgame)」记录了收敛方向，均未实现。<div class="src">map §4.7、§8 · promote-release-unit.sh:204-225,252-259,261-269,272-278 · cd.yml:126-129,142,305-310 · cd-cohort-plan.py:21,143 · issues #1055、#1057（均 OPEN）</div></div></li>
+  </ol>
+
+  <div class="notes">
+    <b>脚注 A（lane 计数）</b>：map §2.1 正文写「13 named lanes」，但同一段随即枚举出 14 个名字。直接对 <code>.github/ci/components.json</code> 的 <code>global_lanes</code> 数组计数 = <b>14</b>（<code>static-quality</code>, <code>security-codeql-actions</code>, <code>security-codeql-javascript</code>, <code>security-codeql-python</code>, <code>security-semgrep</code>, <code>security-osv</code>, <code>security-dependabot-config</code>, <code>security-config-read-sets</code>, <code>security-release-config</code>, <code>security-sqlfluff</code>, <code>security-runtime-promotion</code>, <code>security-zizmor</code>, <code>agent-eval</code>, <code>cross-stack</code>）；<code>components</code> = 12，与 map 一致。摘要条按「map 写 13 / 实际 14」并列标注。<br>
+    <b>脚注 B（本图未画的两个 workflow）</b>：<code>agent-eval-nightly.yml</code>（<code>Agent Eval (L1 nightly)</code>，<code>cron "14 19 * * *"</code> + dispatch，并发组 <code>agent-eval-nightly</code>，<code>cancel-in-progress: false</code>，单 job 跑 <code>agent-eval</code> 复合动作 <code>tier: l1</code>，从不在 PR 上跑）计入摘要的「5 workflow」但不在本图的四条链路上（map §1.5）；<code>codeql.yml</code> 只以 ② 那一格出现。<br>
+    <b>脚注 C（map 已标注的「从文件不可验证」项，本图未画）</b>：GitHub <code>production</code>/<code>staging</code> 环境的保护规则（required reviewers、wait timer）配在仓库设置里；ruleset <code>bypass_actors[0].actor_id 25764181</code> 是否就是 <code>lifeodyssey</code> 由 ADR 0005 断言、未经 API 独立确认；<code>docs/iterations/s0v2/ruleset-target.json</code> 未与线上 ruleset 逐字比对。另：<code>vars.DOORBELL_STAGING_URL</code> 在当前代码库中<b>确认不存在</b>（doorbell 机制曾存在、已被刻意退役，<code>test_cd_worker_promotion_contract.rb</code> 钉住其继续缺席；#1079 提议重新引入，未实现）——故本图不画 doorbell。<br>
+    <b>出处约定</b>：所有 <code>file:line</code> 相对 <code>/Users/lumimamini/Documents/Seichijunrei-agent/.worktrees/main-lane</code>；<code>map §x</code> 指 <code>scratchpad/cicd-map.md</code> 的小节号。issue 状态为 2026-09-05 <code>gh issue view</code> 实查结果。
+  </div>
+</div>
+
+</div>
+</body>
+</html>
