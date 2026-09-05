@@ -102,7 +102,7 @@ export class InMemoryTurnStore implements TurnStore {
   ): Promise<boolean> {
     const refused = this.stepWritesFail || step.stepIndex >= this.refuseStepsFrom;
     if (refused) return Promise.reject(new Error("connection reset"));
-    const held = this.#owner === owner && (this.#expiresAt ?? 0) > this.#now();
+    const held = this.#owner === owner;
     if (this.#status !== "running" || !held) return Promise.resolve(false);
     this.#hold(owner, leaseUntil);
     this.#append(step);

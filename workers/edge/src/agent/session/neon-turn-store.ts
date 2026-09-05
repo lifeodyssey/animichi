@@ -5,16 +5,20 @@
  * `neon-turn-records.ts` gives: they must run on any Postgres driver, so the
  * `agent-db-test/` lane proves the very statements Neon runs.
  *
- * The lease is judged by the DATABASE's clock, not the caller's. Every
- * incarnation that could hold this lease reads the same `now()`, and a Durable
- * Object whose own clock has drifted must not be able to declare another
- * owner's live lease expired. The caller still supplies the EXPIRY it wants,
- * because that is a decision (the slice length), not an observation.
+ * A CLAIM is judged by the DATABASE's clock, not the caller's, so a Durable
+ * Object whose own clock drifted cannot declare a live lease expired; the
+ * EXPIRY stays the caller's, being a decision and not an observation. Mutual
+ * exclusion, though, is the DURABLE OBJECT's rather than the lease's: `owner`
+ * is the session DO's own id (`agent-session.ts`), constant across
+ * incarnations, and `runs_one_running_per_session` keeps the running run unique
+ * per session — so `lease_owner` never changes hands and the lease only gates
+ * the stranded run the sweeper re-arms. Were that to slip, two writers sharing
+ * an owner would both renew and `insertStep`'s `on conflict … do nothing` would
+ * drop the loser's row while `persistStepOn` answered true — this failure class.
  *
  * Three transactions, three spec requirements:
  * - `persistStep` renews the lease as its FIRST statement and writes nothing
- *   when that compare-and-set finds another owner, so a run this incarnation
- *   has lost cannot append to it;
+ *   when that compare-and-set finds another owner;
  * - the assistant tool-call message and the `run_steps` row land in that same
  *   transaction (Appendix C's requirement for this card);
  * - `settleSucceeded` writes the assistant message only when the settlement
@@ -71,11 +75,14 @@ function takeLeaseStatement(runId: string, owner: string, until: Date): SQL {
     returning ${bareName(runs.id)} as run_id`;
 }
 
-/** A renewal is stricter than a claim: only a lease still ours and still live. */
+/** A renewal is narrower than a claim in one way — the lease must still be OURS
+ * — and a LAPSE is not part of it (#1397): only a step's write refreshes the
+ * slice, and the model round trip between two steps is not bounded by it
+ * (staging p90 24 s against 30 s), so refusing a lapse dropped the row. */
 function renewLeaseStatement(runId: string, owner: string, until: Date): SQL {
   return sql`update ${runs} set ${setLease(owner, until)}
     where ${runs.id} = ${runId} and ${runs.status} = 'running'
-      and ${runs.leaseOwner} = ${owner} and ${runs.leaseExpiresAt} > now()
+      and ${runs.leaseOwner} = ${owner}
     returning ${bareName(runs.id)} as run_id`;
 }
 

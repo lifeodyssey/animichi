@@ -20,10 +20,13 @@
  *   the retry of one whose own ending it may still have to finish publishing
  *   (`TurnEnvelope`, #1280). Collapsing the two would let a contender act on a
  *   live owner's half-written state.
- * - `abandoned` — the lease was lost MID-turn: it expired and another
- *   incarnation took it over. Settling `lease_expired` here would race the new
- *   owner's own settlement, so this one stops and writes nothing; whoever holds
- *   the lease now owns the ending.
+ * - `abandoned` — the lease was lost MID-turn: another incarnation took it
+ *   over. Settling `lease_expired` here would race the new owner's own
+ *   settlement, so this one stops and writes nothing; whoever holds the lease
+ *   now owns the ending. A lease that merely LAPSED is not this (#1397): the
+ *   slice is refreshed only by writing a step, and the model round trip between
+ *   two steps is not bounded by it, so a run nobody has taken over is still
+ *   this incarnation's to finish and its write re-takes it.
  *
  * `tool_failed` is deliberately not produced here. pi catches a tool's throw
  * and hands the model an error tool result (`agent-loop`'s `executeToolCall`),
@@ -33,8 +36,16 @@
  */
 import type { RunFailureReason } from "../../db/schema.ts";
 
-/** The lease slice one incarnation asks for; `runs_lease_within_deadline_check`
- * clamps it at the run's own deadline, so this is a request, not a promise. */
+/**
+ * The lease slice one incarnation asks for; `runs_lease_within_deadline_check`
+ * clamps it at the run's own deadline, so this is a request, not a promise.
+ *
+ * It is how long the run stays unsweepable after this incarnation's last write,
+ * NOT a budget the turn has to finish a step inside. Nothing renews it between
+ * two steps, and one model round trip plus one tool execution routinely takes
+ * most of it (#1397), so a step that outlives its slice re-takes the lease on
+ * its own write rather than losing the turn.
+ */
 export const LEASE_SLICE_MS = 30_000;
 
 /** Where one turn is. `running` is the only phase work happens in. */
