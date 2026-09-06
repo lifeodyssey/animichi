@@ -29,6 +29,8 @@ for ruby_file in \
   "$GS/test_pr_verification_contract_mutation.rb" \
   "$GS/test_secret_scan_contract.rb" \
   "$GS/test_secret_scan_contract_mutation.rb" \
+  "$GS/test_gitleaks_config_extends_defaults.rb" \
+  "$GS/test_gitleaks_config_extends_defaults_mutation.rb" \
   "$GS/test_ci_routing_consistency.rb" \
   "$GS/test_ci_contract_ruleset_migration.rb" \
   "$GS/test_ci_contract_ruleset_migration_mutation.rb" \
@@ -116,6 +118,8 @@ run bash scripts/local-gates/shebang-exec-bit.test.sh
 run bash scripts/local-gates/shebang-exec-bit.sh
 run ruby "$GS/test_secret_scan_contract.rb"
 run ruby "$GS/test_secret_scan_contract_mutation.rb"
+run ruby "$GS/test_gitleaks_config_extends_defaults.rb"
+run ruby "$GS/test_gitleaks_config_extends_defaults_mutation.rb"
 run bash "$GS/resolve-secret-scan-range.test.sh"
 run bash "$GS/test_pr_verification_aggregate.sh"
 run bash "$GS/test_pr_verification_route.sh"
