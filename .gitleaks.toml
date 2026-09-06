@@ -1,3 +1,10 @@
+# A config file REPLACES gitleaks' built-in rules unless it extends them, so this
+# block is load-bearing: without it every scan that picks this file up runs with
+# zero rules and reports "no leaks found" for any secret.
+# https://github.com/gitleaks/gitleaks/blob/v8.24.3/README.md#configuration
+[extend]
+  useDefault = true
+
 # atlas.sum lines are base64 sha256 checksums ("h1:..."), not secrets.
 # gitleaks' generic-api-key rule false-positives on SQL table names in the same
 # line; allowlist the checksum file only.
