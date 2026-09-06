@@ -9,6 +9,9 @@
 #   affected    cannot start on an empty matrix, runs exactly the four package
 #               scripts, and provisions every binary a selected package's own
 #               `test` shells out to
+#   browser     the `e2e` job is selected by the web / e2e / deps filters and
+#               runs the browser package's own scripts, which serve the
+#               emitted Worker themselves — no composite in between
 #   workspace   a job that runs a repository script importing workspace
 #               dependencies installs the workspace first
 #   aggregates  `Security` and `PR Verification` each name their dependencies,
@@ -38,6 +41,14 @@ MATRIX_TOOLCHAINS = [
   ["catalog", "docker build -f apps/agent/docker/test-postgres/Dockerfile"],
   ["infra", "pulumi/actions"]
 ].freeze
+# The browser lane (card B4 / #1362). `animichi-e2e` is outside the affected
+# matrix, so these are the only assertions standing between its specs and
+# a silently dark lane: the `plan` filters that select the job, and the package
+# scripts it runs. The retired composite must not come back — the served-Worker
+# half of the lane lives in e2e/playwright.config.ts now.
+BROWSER_FILTERS = %w[web e2e deps].freeze
+BROWSER_SCRIPTS = %w[lint typecheck test].freeze
+RETIRED_BROWSER_COMPOSITE = "cross-stack-e2e"
 AGGREGATE_GUARD = "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')"
 # A `.github/scripts/*.mjs` resolves its imports against the repository's
 # node_modules, so any job that runs one has to install the workspace. Without
@@ -73,8 +84,12 @@ end
 
 # The exact token list, not a substring search: `test` alone would otherwise
 # be satisfied by `test:integration` still being there.
+def looped_scripts(source)
+  source[/^\s*for script in ([^;]+); do/, 1].to_s.split
+end
+
 def matrix_scripts
-  matrix_step_source[/^\s*for script in ([^;]+); do/, 1].to_s.split
+  looped_scripts(matrix_step_source)
 end
 
 def assert_matrix_runs_package_scripts
@@ -94,6 +109,29 @@ def assert_matrix_provisions_toolchains
     @log.unless_true(@ci.steps_of("affected").any? { |step| provisions?(step, package, tool) },
                      "pr-verification.yml: `#{package}` needs a matrix step providing #{tool}")
   end
+end
+
+def browser_step_source
+  @ci.steps_of("e2e").map { |step| "#{step['uses']}#{step['run']}" }.join("\n")
+end
+
+def assert_browser_lane_is_selected_by_the_plan
+  condition = @ci.dig("jobs", "e2e", "if").to_s
+  BROWSER_FILTERS.each do |filter|
+    @log.unless_true(condition.include?("needs.plan.outputs.#{filter} == 'true'"),
+                     "pr-verification.yml:e2e: must run when the `#{filter}` filter matched")
+  end
+end
+
+def assert_browser_lane_runs_the_package
+  source = browser_step_source
+  @log.unless_true(source.include?('pnpm --filter animichi-e2e run "$script"'),
+                   "pr-verification.yml:e2e: must run the browser package's own scripts")
+  @log.unless_true(looped_scripts(source) == BROWSER_SCRIPTS,
+                   "pr-verification.yml:e2e: must run exactly #{BROWSER_SCRIPTS.join(', ')} " \
+                   "(got #{looped_scripts(source).join(', ')})")
+  @log.unless_true(!source.include?(RETIRED_BROWSER_COMPOSITE),
+                   "pr-verification.yml:e2e: the retired #{RETIRED_BROWSER_COMPOSITE} composite is back")
 end
 
 def runs_node_script?(job)
@@ -136,6 +174,8 @@ def main
   assert_matrix_guard
   assert_matrix_runs_package_scripts
   assert_matrix_provisions_toolchains
+  assert_browser_lane_is_selected_by_the_plan
+  assert_browser_lane_runs_the_package
   assert_node_scripts_have_a_workspace
   assert_aggregate("security", SECURITY_JOBS)
   assert_aggregate("aggregate", LANE_JOBS)
