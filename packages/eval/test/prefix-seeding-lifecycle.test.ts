@@ -163,6 +163,12 @@ void test("an unreadable seeded_pending fails the case rather than running it un
     { reason: "anime_ambiguity", revision: "1", candidates: [{ id: "a", title: "A" }] },
     { reason: "anime_ambiguity", revision: 1, candidates: [] },
     { reason: "anime_ambiguity", revision: 1, candidates: [{ title: "no id" }] },
+    // Readable to the eye, refused by the edge's own schema — which is the
+    // whole reason this module reads with that schema rather than beside it.
+    { reason: "anime_ambiguity", revision: 0, candidates: [{ id: "a", title: "A" }] },
+    { reason: "anime_ambiguity", revision: 1.5, candidates: [{ id: "a", title: "A" }] },
+    { reason: "anime_ambiguity", revision: 1, candidates: [{ id: "a", title: "A", lat: "35.0" }] },
+    { reason: "anime_ambiguity", revision: 1, candidates: [{ id: "a", title: "" }] },
   ];
 
   for (const seed of broken) {
@@ -171,4 +177,18 @@ void test("an unreadable seeded_pending fails the case rather than running it un
       (error: unknown) => error instanceof UnreadableSeededPendingError,
     );
   }
+});
+
+void test("an unreadable seed names the member that could not be read", async () => {
+  const first = await firstCaseOf("phase1c_selection_v1");
+  const seed = (member: Record<string, unknown>): ExportedCase =>
+    caseWithSeed(first.inputs, { reason: "anime_ambiguity", revision: 1, candidates: [{ id: "a", title: "A" }], ...member });
+
+  await assert.rejects(
+    setupEvery([seed({ revision: 0 })], fakePrefixDoor().door), /revision 0 is not a positive whole number/,
+  );
+  await assert.rejects(
+    setupEvery([seed({ candidates: [{ id: "a", title: "A", lat: "35.0" }] })], fakePrefixDoor().door),
+    /its candidate list is empty or carries a row the edge would refuse/,
+  );
 });

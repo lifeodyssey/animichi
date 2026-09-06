@@ -130,6 +130,37 @@ async function seededOn(
 }
 
 /**
+ * The caller's body, or the sentinel a body that is not JSON at all takes.
+ *
+ * `request.json()` throws a `SyntaxError` on a malformed document, and that
+ * error belongs to nothing `refusalFor` above knows: left to propagate it
+ * reaches `app.onError` and is answered as a 500 (`gatewayFailure`), which
+ * reports a gateway fault for a body the CALLER wrote. It is the same class of
+ * refusal as a body that parses into no prefix, so it takes the same 400.
+ */
+const UNREADABLE_BODY: unique symbol = Symbol("body that is not JSON");
+
+async function jsonBodyIn(request: Request): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    return UNREADABLE_BODY;
+  }
+}
+
+const NOT_JSON_MESSAGE = "The prefix body is not JSON.";
+
+/** The seeding this hop asks for, once every part of it is readable. */
+async function readableSeeding(parts: SessionPrefixParts, request: Request): Promise<Response> {
+  const identityId = requiredHeader(request, SEED_IDENTITY_HEADER);
+  const sessionId = requiredHeader(request, SEED_SESSION_HEADER);
+  if (identityId === null || sessionId === null) return gatewayRejection("invalid_prefix", 400);
+  const body = await jsonBodyIn(request);
+  if (body === UNREADABLE_BODY) return gatewayRejection("invalid_prefix", 400, NOT_JSON_MESSAGE);
+  return await seededOn(parts, sessionId, identityId, body);
+}
+
+/**
  * The seeding request `AgentSession.fetch` answers.
  *
  * A missing header is a 400 and not a 404: the hop is built by one function in
@@ -140,11 +171,8 @@ async function seededOn(
 export async function answerPrefixSeeding(
   parts: SessionPrefixParts, request: Request,
 ): Promise<Response> {
-  const identityId = requiredHeader(request, SEED_IDENTITY_HEADER);
-  const sessionId = requiredHeader(request, SEED_SESSION_HEADER);
-  if (identityId === null || sessionId === null) return gatewayRejection("invalid_prefix", 400);
   try {
-    return await seededOn(parts, sessionId, identityId, await request.json());
+    return await readableSeeding(parts, request);
   } catch (error) {
     const refusal = refusalFor(error);
     if (refusal === null) throw error;

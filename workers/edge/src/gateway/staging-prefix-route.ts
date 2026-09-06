@@ -93,12 +93,49 @@ function boundSessions(binding: NamedStubs | undefined): NamedStubs {
  * arbitrarily expensive. `PREFIX_MAX_BYTES` is that bound, and it is checked
  * here rather than at the writer because this is the last point before the body
  * is read into memory and handed to a Durable Object.
+ *
+ * THE BOUND IS ENFORCED WHILE READING, and it has to be. A `Content-Length` is
+ * the caller's claim about the caller's own body — chunked requests carry none
+ * at all — so a bound checked against that header and then re-checked after
+ * `request.text()` has already read everything is a bound that admits any body
+ * of any size exactly once. Counting each chunk as it arrives is the same
+ * ceiling with nothing bought on credit: the read stops at the first chunk that
+ * crosses it and the rest is never pulled.
+ *
+ * It is NOT `byok-probe.ts`'s `cappedBody`, though both count `byteLength` on a
+ * stream. That one caps a provider RESPONSE this Worker is forwarding onward
+ * and must leave a stream: it can only ERROR the stream mid-flight, because a
+ * half-read provider answer is a different answer. This one is reading a
+ * REQUEST into a string it will hand to a Durable Object, and its recourse is a
+ * status — a 413 the caller can read. One shared byte counter would have two
+ * outputs, two failure modes and one line in common; they stay apart.
  */
 async function boundedBody(request: Request): Promise<string | null> {
-  const declared = Number(request.headers.get("content-length") ?? Number.NaN);
-  if (Number.isFinite(declared) && declared > PREFIX_MAX_BYTES) return null;
-  const body = await request.text();
-  return new TextEncoder().encode(body).length > PREFIX_MAX_BYTES ? null : body;
+  // `Request.body` is typed `ReadableStream<any>` by the workers lib; the
+  // runtime only ever puts bytes on it, which is the one fact this narrowing
+  // asserts — the same narrowing `byok-probe.ts::cappedResponse` makes.
+  const body = request.body as ReadableStream<Uint8Array> | null;
+  return body === null ? "" : await textWithinBound(body);
+}
+
+/** A body past the bound is not read to its end. */
+async function cancelled(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<null> {
+  await reader.cancel();
+  return null;
+}
+
+/** The body as text, or `null` the moment its bytes pass `PREFIX_MAX_BYTES`. */
+async function textWithinBound(body: ReadableStream<Uint8Array>): Promise<string | null> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  let seen = 0;
+  for (let next = await reader.read(); !next.done; next = await reader.read()) {
+    seen += next.value.byteLength;
+    if (seen > PREFIX_MAX_BYTES) return await cancelled(reader);
+    text += decoder.decode(next.value, { stream: true });
+  }
+  return text + decoder.decode();
 }
 
 const TOO_LARGE_MESSAGE = `A seeding body may not exceed ${String(PREFIX_MAX_BYTES)} bytes.`;

@@ -25,7 +25,11 @@
  * hidden: an ambiguous ask is by definition one that matched several works, and
  * the first offered title is the only term the exported case names.
  */
-import type { SeedTrajectoryPrefixRequest, SeededCandidate } from "@animichi/contract/staging-prefix-contract";
+import {
+  SeedTrajectoryPrefixRequest,
+  SeededClarification,
+  type SeededCandidate,
+} from "@animichi/contract/staging-prefix-contract";
 
 import type { ExportedAgentInput } from "./dataset-roundtrip.ts";
 
@@ -44,19 +48,6 @@ function isAskingReason(value: unknown): value is AskingReason {
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-/** One offered choice, kept with every member the seed declared: the ids AND
- * the coordinates a `place_ambiguity` pick is answered from. */
-function candidateIn(value: unknown): SeededCandidate | null {
-  if (!isRecord(value) || typeof value.id !== "string" || typeof value.title !== "string") return null;
-  return value as unknown as SeededCandidate;
-}
-
-function candidatesIn(value: unknown): SeededCandidate[] | null {
-  if (!Array.isArray(value)) return null;
-  const read = (value as readonly unknown[]).map(candidateIn);
-  return read.length > 0 && read.every((one) => one !== null) ? read : null;
 }
 
 /** The state one case's previous turn left, once every member is readable. */
@@ -96,18 +87,31 @@ function raise(detail: string): never {
   throw new UnreadableSeededPendingError(detail);
 }
 
-/** The candidates it offered, whole or not at all: the ids a reply is
- * validated against are exactly what a trimmed list would silently change. */
+/**
+ * The candidates it offered, whole or not at all: the ids a reply is validated
+ * against are exactly what a trimmed list would silently change.
+ *
+ * Read through the CONTRACT's own schema rather than a second hand-rolled
+ * check. A row with an `id` and a `title` but a `lat` that is a string passes
+ * any check written here and is refused by `SeedTrajectoryPrefixRequest` on the
+ * far side, which turns an unreadable case into a `PrefixSeedingFailure` — the
+ * loud-but-wrong failure this three-state read exists to keep apart from a
+ * refused seeding.
+ */
 function offeredCandidatesIn(held: Readonly<Record<string, unknown>>): SeededCandidate[] {
-  return candidatesIn(held.candidates ?? held.ordered_candidates)
-    ?? raise("its candidate list is empty or carries a row without an id and a title");
+  const read = SeededClarification.shape.candidates.safeParse(held.candidates ?? held.ordered_candidates);
+  return read.success
+    ? read.data
+    : raise("its candidate list is empty or carries a row the edge would refuse");
 }
 
-/** The revision a reply's `clarification_id` must equal. */
+/** The revision a reply's `clarification_id` must equal — held to the
+ * contract's own rule for that id (a positive whole number), because a seed
+ * carrying `0` or `1.5` is one the edge cannot store the question under. */
 function revisionIn(held: Readonly<Record<string, unknown>>): number {
-  const revision = held.revision;
-  if (typeof revision === "number") return revision;
-  return raise(`revision ${JSON.stringify(revision)} is not a number`);
+  const read = SeededClarification.shape.id.safeParse(held.revision);
+  if (read.success) return read.data;
+  return raise(`revision ${JSON.stringify(held.revision)} is not a positive whole number`);
 }
 
 /**
@@ -154,6 +158,23 @@ function askedQuestion(pending: SeededPending): string {
 }
 
 /**
+ * The request those parts make, or the same loud failure a malformed seed takes.
+ *
+ * The members above are read one by one, and this is the whole of them read as
+ * the EDGE reads it — the one shape that decides whether a seeding can succeed
+ * at all. A candidate with an empty title, for instance, is a readable
+ * candidate whose title is also the seeded `user_text`, which
+ * `SeedTrajectoryPrefixRequest` requires to be non-empty; caught here it is an
+ * unreadable case, and caught on the wire it is a seeding failure the harness
+ * would have to guess the cause of.
+ */
+function readableRequest(request: SeedTrajectoryPrefixRequest): SeedTrajectoryPrefixRequest {
+  const read = SeedTrajectoryPrefixRequest.safeParse(request);
+  if (read.success) return read.data;
+  return raise("the prefix it derives is not one the edge would read");
+}
+
+/**
  * The prefix this case needs seeded, or null when it needs none.
  *
  * `caseId` is the idempotency key the edge dedupes on, and it is the DATASET's
@@ -166,7 +187,7 @@ export function trajectoryPrefixOf(
   const pending = seededPendingIn(inputs);
   if (pending === null) return null;
   const subject = pending.candidates[0]?.title ?? "";
-  return {
+  return readableRequest({
     case_id: caseId,
     user_text: subject,
     tool_call: {
@@ -181,5 +202,5 @@ export function trajectoryPrefixOf(
       candidates: pending.candidates,
     },
     current_anime: null,
-  };
+  });
 }

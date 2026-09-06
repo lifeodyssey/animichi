@@ -6,76 +6,23 @@
  * leaves the request on the ordinary `/v1` path, which on production is a
  * container that has never served it — and a verified Neon Auth bearer decides
  * whether a caller may use it. The OWNERSHIP door is past this seam, inside the
- * Durable Object (`trajectory-prefix-seed.test.ts`).
+ * Durable Object (`trajectory-prefix-seed.test.ts`), and the SIZE bound on the
+ * body admitted here is `staging-prefix-body-bound.test.ts`.
  *
  * test-type: api (routing contract of the deployed request surface).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createWorkerApp, type WorkerDeps } from "../src/app.ts";
-import { PREFIX_MAX_BYTES } from "@animichi/contract/staging-prefix-path";
+import type { WorkerDeps } from "../src/app.ts";
 import { stagingPrefixRoute } from "../src/gateway/staging-prefix-route.ts";
-import { fakeGuard } from "./doubles/guard-doubles.ts";
+import { AUTHED, makeStagingPrefixHarness, SEED_PATH } from "./doubles/make-staging-prefix-harness.ts";
 import { makePrefixBody } from "./doubles/make-trajectory-prefix.ts";
 
-const NOW = Date.UTC(2026, 8, 6, 9, 0, 0);
-const SEED_PATH = "/v1/staging/sessions/session-42/prefix";
 const BODY = JSON.stringify(makePrefixBody());
-
-const stubCtx = {
-  waitUntil(promise: Promise<unknown>) { void promise; },
-  passThroughOnException() { return undefined; },
-} as unknown as ExecutionContext;
-
-const AUTHED: WorkerDeps = {
-  authenticate: () => Promise.resolve({ ok: true, userId: "qa-neon-user", userType: "human" } as const),
-};
 
 const ANONYMOUS_CALLER: WorkerDeps = {
   authenticate: () => Promise.resolve({ ok: false, reason: "absent" } as const),
 };
-
-interface Harness {
-  readonly post: (path: string, body: string) => Promise<Response>;
-  /** Every request the session's Durable Object was handed. */
-  readonly seeded: Request[];
-  /** Every request forwarded to the Python container instead. */
-  readonly forwarded: Request[];
-}
-
-function makeHarness(appEnv: string | undefined, deps: WorkerDeps): Harness {
-  const seeded: Request[] = [];
-  const forwarded: Request[] = [];
-  const app = createWorkerApp(deps);
-  const env = {
-    APP_ENV: appEnv,
-    AGENT_TURN_ROUTE: "edge",
-    EDGE_SHOWCASE_MODE: "false",
-    TURNSTILE_SECRET: "fixed-test-turnstile-secret-0000000",
-    EDGE_GUARD: fakeGuard(NOW).namespace,
-    AGENT_SESSION: {
-      idFromName: (name: string) => name,
-      get: () => ({
-        fetch: (request: Request) => {
-          seeded.push(request);
-          return Promise.resolve(Response.json({ session_id: "session-42", seeded: true }));
-        },
-      }),
-    },
-    CONTAINER: {
-      idFromName: () => "id",
-      get: () => ({
-        fetch: (request: Request) => {
-          forwarded.push(request);
-          return Promise.resolve(new Response("container", { status: 404 }));
-        },
-      }),
-    },
-  } as never;
-  const post = async (path: string, body: string): Promise<Response> =>
-    await app.request(path, { method: "POST", body }, env, stubCtx);
-  return { seeded, forwarded, post };
-}
 
 void test("only the literal staging mounts the route", () => {
   const mounted = stagingPrefixRoute("staging", "POST", SEED_PATH);
@@ -101,7 +48,7 @@ void test("the session id is decoded out of the path", () => {
 });
 
 void test("on staging an authenticated seeding reaches the session's durable object", async () => {
-  const harness = makeHarness("staging", AUTHED);
+  const harness = makeStagingPrefixHarness("staging", AUTHED);
 
   const response = await harness.post(SEED_PATH, BODY);
 
@@ -111,7 +58,7 @@ void test("on staging an authenticated seeding reaches the session's durable obj
 });
 
 void test("the durable object is handed the verified identity and the caller's own body", async () => {
-  const harness = makeHarness("staging", AUTHED);
+  const harness = makeStagingPrefixHarness("staging", AUTHED);
 
   await harness.post(SEED_PATH, BODY);
 
@@ -123,7 +70,7 @@ void test("the durable object is handed the verified identity and the caller's o
 });
 
 void test("a caller with no verified bearer is refused and reaches no session", async () => {
-  const harness = makeHarness("staging", ANONYMOUS_CALLER);
+  const harness = makeStagingPrefixHarness("staging", ANONYMOUS_CALLER);
 
   const response = await harness.post(SEED_PATH, BODY);
 
@@ -132,7 +79,7 @@ void test("a caller with no verified bearer is refused and reaches no session", 
 });
 
 void test("on production the path is not this Worker's and reaches no session", async () => {
-  const harness = makeHarness("production", AUTHED);
+  const harness = makeStagingPrefixHarness("production", AUTHED);
 
   await harness.post(SEED_PATH, BODY);
 
@@ -141,34 +88,9 @@ void test("on production the path is not this Worker's and reaches no session", 
 });
 
 void test("on production the request answers whatever the container says, which is 404", async () => {
-  const harness = makeHarness("production", AUTHED);
+  const harness = makeStagingPrefixHarness("production", AUTHED);
 
   const response = await harness.post(SEED_PATH, BODY);
 
   assert.equal(response.status, 404);
-});
-
-/** A body over `PREFIX_MAX_BYTES`, padded inside the seeded user text. */
-function makeOversizedBody(): string {
-  const prefix = { ...(makePrefixBody() as Record<string, unknown>), user_text: "あ".repeat(PREFIX_MAX_BYTES) };
-  return JSON.stringify(prefix);
-}
-
-void test("a seeding body over the cap is refused before any session sees it", async () => {
-  const harness = makeHarness("staging", AUTHED);
-
-  const response = await harness.post(SEED_PATH, makeOversizedBody());
-
-  assert.equal(response.status, 413);
-  assert.deepEqual(harness.seeded, []);
-});
-
-void test("the cap counts bytes, so a body under it in characters can still be refused", async () => {
-  const harness = makeHarness("staging", AUTHED);
-  const body = makeOversizedBody();
-
-  await harness.post(SEED_PATH, body);
-
-  assert.ok(body.length < PREFIX_MAX_BYTES * 2, "the body is well under the cap in characters");
-  assert.ok(new TextEncoder().encode(body).length > PREFIX_MAX_BYTES, "and over it in bytes");
 });
