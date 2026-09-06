@@ -52,7 +52,7 @@ assert_no_other_package_gates() {
   assert_lacks "$GATE_STUB_ROOT/run3.log" "workers/users :: pnpm exec tsc"
   assert_lacks "$GATE_STUB_ROOT/run3.log" "workers/edge :: pnpm run lint:oxlint"
   assert_lacks "$GATE_STUB_ROOT/run3.log" "workers/migrator ::"
-  assert_lacks "$GATE_STUB_ROOT/run3.log" "pnpm emit:openapi"
+  assert_lacks "$GATE_STUB_ROOT/run3.log" "pnpm emit:agent-python"
   assert_lacks "$GATE_STUB_ROOT/run3.log" "pnpm --filter infra"
   assert_lacks "$GATE_STUB_ROOT/run3.log" "atlas"
   assert_lacks "$GATE_STUB_ROOT/run3.log" "pulumi"
@@ -106,9 +106,9 @@ test_all_route_runs_config_contract_self_test() {
 }
 
 assert_contract_union_gates() {
-  assert_has "$GATE_STUB_ROOT/run4.log" "pnpm emit:openapi"
+  assert_has "$GATE_STUB_ROOT/run4.log" "pnpm emit:agent-python"
   assert_has "$GATE_STUB_ROOT/run4.log" "pnpm --filter web typecheck"
-  assert_has "$GATE_STUB_ROOT/stdout" "==> bash scripts/local-gates/contract-drift.sh"
+  assert_has "$GATE_STUB_ROOT/stdout" "==> [packages/contract] pnpm run test"
 }
 
 assert_no_union_unrelated_gates() {
@@ -184,7 +184,7 @@ run_real_entry_in() {
 assert_route_override_ignored() {
   assert_has "$GATE_STUB_ROOT/stdout" "pre-push gate: deterministic set for [contract,web] passed."
   assert_has "$GATE_STUB_ROOT/stdout" "==> [apps/web] pnpm --filter web typecheck"
-  assert_has "$GATE_STUB_ROOT/stdout" "==> bash scripts/local-gates/contract-drift.sh"
+  assert_has "$GATE_STUB_ROOT/stdout" "==> [packages/contract] pnpm run test"
   assert_lacks "$GATE_STUB_ROOT/stdout" "pre-push gate: deterministic set for [web] passed."
   assert_lacks "$GATE_STUB_ROOT/stdout" "==> [apps/agent] uv run ruff check"
 }
