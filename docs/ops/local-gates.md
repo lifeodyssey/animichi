@@ -144,3 +144,5 @@ Environmental note: the full Quality lane SIGBUSes on the stock macOS `/bin/bash
 - `.pre-commit-config.yaml` — hook wiring (pre-commit + commit-msg + one pre-push orchestrator hook)
 - `scripts/local-gates/*.test.sh` + `stub-env.sh` + `test-stub.sh` — behavioral tests
 - This document — the contract
+
+<!-- B1 throwaway: docs-only run (#1359) -->
