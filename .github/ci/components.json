@@ -51,6 +51,7 @@
       "paths": [
         ".github/**",
         "scripts/local-gates/**",
+        ".gitleaks.toml",
         "AGENTS.md",
         "CONTEXT-MAP.md",
         "Makefile",

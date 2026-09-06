@@ -35,6 +35,20 @@ async function seedOwnedSession(sessionId: string): Promise<void> {
   await seedSession(plane.database, sessionId, OWNER);
 }
 
+/** The instant the two tied rows share. `created_at` defaults to `now()`,
+ * which is the TRANSACTION's clock, so any two messages one transaction
+ * writes carry exactly this much of an ordering: none. */
+const TIED_INSTANT = "2026-08-01T11:00:00Z";
+
+/** UUIDv7 keys whose last digit is their write order; the row written FIRST
+ * is given the LATER key, so the heap order a read without a tie-breaker
+ * falls back on is the reverse of the one the keys state. */
+const TIED_KEY_PREFIX = "01930000-0000-7000-8000-00000000000";
+
+function seedTiedMessage(sessionId: string, row: { id: string; content: string }): Promise<void> {
+  return seedMessage(plane.database, { sessionId, role: "user", createdAt: TIED_INSTANT, ...row });
+}
+
 void test("the latest run of a session that failed once and then succeeded is the success", async () => {
   const sessionId = "retrieval-latest-succeeded";
   await seedOwnedSession(sessionId);
@@ -130,6 +144,16 @@ void test("the transcript comes back oldest first, with its envelope and an ISO 
     "2026-08-01T10:00:00+00:00",
     "2026-08-01T12:00:00+00:00",
   ]);
+});
+
+void test("two messages stamped in the same instant come back in key order", async () => {
+  const sessionId = "retrieval-created-at-tie";
+  await seedOwnedSession(sessionId);
+  await seedTiedMessage(sessionId, { id: `${TIED_KEY_PREFIX}2`, content: "second" });
+  await seedTiedMessage(sessionId, { id: `${TIED_KEY_PREFIX}1`, content: "first" });
+  const page = await read(sessionId);
+  assert.ok(page);
+  assert.deepEqual(page.messages.map((message) => message.content), ["first", "second"]);
 });
 
 void test("a session that belongs to someone else is not readable", async () => {

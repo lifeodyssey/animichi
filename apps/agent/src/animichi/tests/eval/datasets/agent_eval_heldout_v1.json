@@ -358,7 +358,7 @@
     "locale": "ja",
     "acceptable_stages": ["search_bangumi"],
     "expected_data_keys": ["results"],
-    "context": {"last_search_data": {"search_bangumi": {"bangumi_id": "115908"}}},
+    "context": null,
     "selected_point_ids": null,
     "metadata": {"anime": "氷菓", "bangumi_id": "36954", "held_out_for": "convergence", "notes": "switch to a new resolvable anime, no wandering"}
   },
@@ -370,7 +370,7 @@
     "locale": "en",
     "acceptable_stages": ["search_bangumi"],
     "expected_data_keys": ["results"],
-    "context": {"last_search_data": {"search_bangumi": {"bangumi_id": "160209"}}},
+    "context": null,
     "selected_point_ids": null,
     "metadata": {"anime": "らき☆すた", "bangumi_id": "1482", "held_out_for": "convergence", "notes": "switch to a new resolvable anime, no wandering"}
   },
@@ -382,7 +382,7 @@
     "locale": "ja",
     "acceptable_stages": ["search_bangumi"],
     "expected_data_keys": ["results"],
-    "context": {"last_search_data": {"search_bangumi": {"bangumi_id": "115908"}}},
+    "context": null,
     "selected_point_ids": null,
     "metadata": {"anime": "ダンダダン", "bangumi_id": "500001", "held_out_for": "convergence", "recency": "2025-2026", "notes": "switch to a recent resolvable anime"}
   },
@@ -394,7 +394,7 @@
     "locale": "zh",
     "acceptable_stages": ["search_bangumi"],
     "expected_data_keys": ["results"],
-    "context": {"last_search_data": {"search_bangumi": {"bangumi_id": "160209"}}},
+    "context": null,
     "selected_point_ids": null,
     "metadata": {"anime": "メダリスト", "bangumi_id": "500002", "held_out_for": "convergence", "recency": "2025-2026", "notes": "switch to a recent resolvable anime"}
   }
