@@ -167,6 +167,13 @@ def assert_cross_component_test_trigger() -> None:
         ]
 
 
+def assert_gitleaks_config_reaches_its_own_guard() -> None:
+    temporary, root, initial = fixture()
+    with temporary:
+        head = commit_file(root, ".gitleaks.toml", "[extend]\n  useDefault = true\n")
+        assert "static-quality" in plan(root, initial, head)["lanes"]
+
+
 def assert_regular_docs_stay_docs_only() -> None:
     temporary, root, initial = fixture()
     with temporary:
@@ -195,6 +202,7 @@ def assert_lane_selection() -> None:
     assert_test_trigger_pr_routing()
     assert_test_trigger_main_routing()
     assert_cross_component_test_trigger()
+    assert_gitleaks_config_reaches_its_own_guard()
     assert_regular_docs_stay_docs_only()
 
 
