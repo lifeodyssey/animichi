@@ -28,10 +28,14 @@ void test("Drizzle schemas cannot become migration runners", () => {
   }
 });
 
+// #1359 replaced the `matrix.component` router with the pnpm-affected shape,
+// so the pin is the schema lane's own commands: validate, never apply. The
+// disposable-container apply lives inside db-fresh-schema.sh, not here.
 void test("PR CI validates migrations without applying a live database", () => {
   const gate = read("scripts/local-gates/pre-push.sh");
   const workflow = read(".github/workflows/pr-verification.yml");
-  assert.match(workflow, /matrix\.component/);
+  assert.match(workflow, /atlas migrate validate --dir file:\/\/migrations\/neon/);
+  assert.doesNotMatch(workflow, /atlas migrate apply/);
   assert.match(gate, /atlas migrate validate --dir file:\/\/migrations\/neon/);
   assert.doesNotMatch(gate, /atlas migrate apply/);
   assert.doesNotMatch(workflow, /supabase db push/);

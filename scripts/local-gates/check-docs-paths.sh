@@ -5,7 +5,8 @@
 # and all docs, keeping the A-3 broken-link class out of the tree.
 # Skipped deliberately:
 #  - docs/archive/ — read-only history (DOCS_POLICY): refs there cannot be fixed
-#  - .github/scripts/*.test.sh — behavioral fixtures must contain broken refs
+#  - */*.test.sh under the gate directories — behavioral fixtures must
+#    contain broken refs on purpose
 #  - URL tokens (https://x/...docs/..., host.tld/docs/...) — external docs
 #  - globs / templates / quoted prose with spaces that do not resolve
 #  - extensionless non-directory tails (branch names like docs/feat-x)
@@ -104,7 +105,7 @@ main() {
   git ls-files > "${tmp}"
   while IFS= read -r file; do
     case "${file}" in
-      docs/archive/*|.github/scripts/*.test.sh) continue ;;
+      docs/archive/*|.github/scripts/*.test.sh|scripts/local-gates/*.test.sh) continue ;;
     esac
     TOTAL_FILES=$((TOTAL_FILES + 1))
     check_file "${file}"

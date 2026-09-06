@@ -4,6 +4,14 @@ runs:
   using: composite
   steps:
     - uses: ./.github/actions/setup
+    # The static half of the browser lane, which the retired
+    # `pr-verification-gate.sh e2e` leg used to run (#1359).
+    - name: Typecheck and lint the browser suite
+      run: |
+        set -euo pipefail
+        pnpm --dir e2e typecheck
+        pnpm --dir e2e run lint:oxlint
+      shell: bash
     - name: Build emitted web Worker
       env:
         VITE_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
@@ -36,6 +44,13 @@ runs:
           sleep 1
         done
         curl -sf -o /dev/null http://localhost:8799/
+        # The union of the two browser lanes this composite now stands for:
+        # its own four specs, plus the eight the retired
+        # `pr-verification-gate.sh e2e` leg ran (#1359). B4 folds them into
+        # `pnpm --filter animichi-e2e test`; until then nothing may drop out.
         E2E_WEB_BASE_URL=http://localhost:8799 pnpm --dir e2e exec playwright test \
-          web-404.spec.ts web-maplibre-canary.spec.ts web-chat-anonymous.spec.ts web-hero-query.spec.ts
+          web-404.spec.ts web-maplibre-canary.spec.ts web-chat-anonymous.spec.ts \
+          web-hero-query.spec.ts web-state-ownership.spec.ts web-a11y-axe.spec.ts \
+          web-a11y-keyboard.spec.ts web-a11y-states.spec.ts web-cwv.spec.ts \
+          web-chat-settings-return.spec.ts
       shell: bash

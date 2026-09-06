@@ -24,17 +24,16 @@ const read = (path: string): string => readFileSync(new URL(path, ROOT), "utf8")
 
 const PACKAGE_NAME = "@animichi/test-postgres";
 
-/** A package that depends on it: where its sources live, which deploy unit
- * they build, and the test directory that actually does the loading. */
+/** A package that depends on it: where its sources live and the test
+ * directory that actually does the loading. */
 interface Consumer {
   readonly directory: string;
-  readonly component: string;
   readonly testOnlyPath: string;
 }
 
 const CONSUMERS: Consumer[] = [
-  { directory: "workers/catalog", component: "catalog", testOnlyPath: "workers/catalog/test/**" },
-  { directory: "workers/edge", component: "edge", testOnlyPath: "workers/edge/agent-db-test/**" },
+  { directory: "workers/catalog", testOnlyPath: "workers/catalog/test/" },
+  { directory: "workers/edge", testOnlyPath: "workers/edge/agent-db-test/" },
 ];
 
 interface PackageManifest {
@@ -42,17 +41,28 @@ interface PackageManifest {
   devDependencies?: Record<string, string>;
 }
 
-interface ComponentManifest {
-  components: { name: string; deploy_excludes: string[] }[];
-}
-
 function manifestOf(consumer: Consumer): PackageManifest {
   return JSON.parse(read(`${consumer.directory}/package.json`)) as PackageManifest;
 }
 
-function deployExcludesOf(component: string): string[] {
-  const manifest = JSON.parse(read(".github/ci/components.json")) as ComponentManifest;
-  return manifest.components.find((entry) => entry.name === component)?.deploy_excludes ?? [];
+/** The directory a Worker's bundle is built from: everything `main` reaches.
+ * `.github/ci/components.json` used to carry a `deploy_excludes` list; #1359
+ * retired the manifest, and the Worker's own `main` is the real boundary. */
+function bundleRootOf(consumer: Consumer): string {
+  const wrangler = read(`${consumer.directory}/wrangler.toml`);
+  const main = /^main\s*=\s*"([^"]+)"/m.exec(wrangler)?.[1] ?? "";
+  const [entryDirectory] = main.split("/");
+  assert.ok(entryDirectory, `${consumer.directory}/wrangler.toml declares no main`);
+  return `${consumer.directory}/${entryDirectory}/`;
+}
+
+/** The workspace globs that make this package a project rather than a
+ * published dependency, so `workspace:*` can resolve it. */
+function workspaceGlobs(): string[] {
+  return read("pnpm-workspace.yaml")
+    .split("\n")
+    .filter((line) => line.trimStart().startsWith("- "))
+    .map((line) => line.trim().slice(2).replaceAll('"', ""));
 }
 
 /** `import … from "x"` and `export … from "x"`, `type` forms excluded. */
@@ -98,9 +108,16 @@ void test("no deployed source loads it", () => {
   }
 });
 
-void test("the directories that do load it are excluded from their deploy units", () => {
+void test("the directories that do load it are outside every Worker bundle", () => {
   for (const consumer of CONSUMERS) {
-    const excludes = deployExcludesOf(consumer.component);
-    assert.ok(excludes.includes(consumer.testOnlyPath), consumer.directory);
+    assert.ok(!consumer.testOnlyPath.startsWith(bundleRootOf(consumer)), consumer.directory);
   }
+});
+
+/** The `workspace:*` devDependency above only means "test-only" while the
+ * package is a workspace project; published, it would be an ordinary dep. */
+void test("it is a workspace project, not a published dependency", () => {
+  assert.ok(workspaceGlobs().includes("packages/*"));
+  const manifest = JSON.parse(read("packages/test-postgres/package.json")) as { private?: boolean };
+  assert.equal(manifest.private, true);
 });
