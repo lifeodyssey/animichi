@@ -110,9 +110,16 @@ export interface ConversationRequest {
   readonly offset?: number;
 }
 
-/** The identity may read the session only when it is the session's owner. An
- * unowned session belongs to nobody, so knowing its id buys nothing. */
-function ownedBy(facts: ConversationFacts, identityId: string): boolean {
+/**
+ * The identity may read the session only when it is the session's owner. An
+ * unowned session belongs to nobody, so knowing its id buys nothing.
+ *
+ * Exported since E-1 (#1380): the staging prefix-seeding procedure holds a
+ * session to the SAME judgement this surface reads one by, and a second
+ * spelling of "is this yours" is the kind of duplicate that drifts in one
+ * direction only.
+ */
+export function ownedBy(facts: ConversationFacts, identityId: string): boolean {
   return facts.ownerId !== null && facts.ownerId === identityId;
 }
 

@@ -224,6 +224,7 @@ made. That split is why the task can be tested with a fake fetch at all.
 | `src/settled-params.ts` | the one part of the shaper that reads the RETRIEVAL surface: whether a second record was offered at all, and which settled step answers which frame call |
 | `src/case-submissions.ts` | the `POST /v1/chat` bodies one case sends, history first |
 | `src/staging-turn-task.ts` | the `Dataset.evaluate` task: submit, retry policy, concurrency bound, read back |
+| `src/prefix-seeding-lifecycle.ts` · `src/trajectory-prefix-case.ts` · `src/seeded-sessions.ts` | the `CaseLifecycle` that seeds a case's frozen prefix before its turn (E-1 #1380) |
 | `src/staging-bearer.ts` · `src/neon-auth-bearer.ts` | the 15-minute Neon Auth JWT, minted and re-minted on age |
 | `scripts/eval-staging.ts` | `pnpm run eval:staging -- --dataset <set> --limit <n>`; prints `renderReport` |
 | `scripts/record-captures.sh` | re-record `fixtures/captures/` from live turns, once a gate token exists |
@@ -236,6 +237,24 @@ rules would be three places for one of them to be forgotten, and the request tha
 one that carries a bearer to wherever a `Location` header pointed. Neon Auth is a **different**
 origin behind no WAF rule, so `neon-auth-bearer.ts` takes an injected sender and never reads the
 door's environment. `test/staging-door.test.ts` holds all of that.
+
+**Cases that need a starting point (E-1 #1380).** Five cases — all of `phase1c_selection_v1` —
+carry `inputs.seeded_pending`, a clarification their measured turn REPLIES to. Python set that
+state directly on an in-process session (`eval_harness._selection_task`); over HTTP a session's
+state is the trace of its turns, so `CaseLifecycle.setup()` posts a frozen prefix to the edge's
+staging-only seeding procedure before the task runs, and the task then sends the case's turns to
+that session (`SeededSessions`, keyed on the case's own `inputs` object — the one reference the
+driver hands both the lifecycle and the task). **No new dataset format**: `seeded_pending` was
+already exported and no fixture was re-exported. What that field CANNOT carry is the turn that
+left the state — it names a reason, an ordered candidate list and a revision, and nothing about
+the ask — so `trajectory-prefix-case.ts` derives the minimal turn consistent with it: the tool
+that can raise that clarification (`resolve_anime` / `search_nearby`), called with the first
+offered title standing in for the user's own words, answered with the offer the question makes.
+Every byte is a function of `seeded_pending`, so two runs derive the same prefix. A refused
+seeding **fails the case** rather than running it unseeded: an unseeded selection case measures a
+`SELECTION_EXPIRED` refusal and scores it as the agent's answer. Seeded cases keep their ids and
+are marked on the report with the `prefix_seeded` attribute (`setEvalAttribute`, set from the
+task, because the driver opens the task-run context around the task and not around `setup()`).
 
 **`locale` is the requested locale, not a derived one.** The answer envelope publishes none to
 derive from — `session` is `{}` and `ui` is a component name, both constant by contract

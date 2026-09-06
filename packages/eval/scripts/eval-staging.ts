@@ -33,6 +33,8 @@ import { renderReport } from "logfire/evals";
 import { laneFetch } from "edge-worker/api-test/lane-origin.ts";
 
 import { checkedDatasetName } from "../src/dataset-sets.ts";
+import { seededPrefixLifecycle } from "../src/prefix-seeding-lifecycle.ts";
+import { SeededSessions } from "../src/seeded-sessions.ts";
 import { loadExportedDataset } from "../src/dataset-roundtrip.ts";
 import { neonAuthBearer, qaSignInFrom } from "../src/neon-auth-bearer.ts";
 import { StagingBearer } from "../src/staging-bearer.ts";
@@ -81,13 +83,24 @@ async function main(): Promise<void> {
   const dataset = await loadExportedDataset<TranscriptResult>(args.dataset);
   // Python caps the same way (`exec_tiers.cap_cases` under `EVAL_MAX_CASES`).
   if (args.limit !== null) dataset.cases = dataset.cases.slice(0, args.limit);
+  const bearer = stagingBearer();
+  // E-1 #1380: the register that ties a case's seeded prefix to the session its
+  // measured turn runs on. One instance for both halves of the run — the
+  // lifecycle writes it, the task reads it.
+  const sessions = new SeededSessions();
   const task = new StagingTurnTask({
     door: laneFetch,
-    bearer: stagingBearer(),
+    bearer,
     turnId: () => `eval-${crypto.randomUUID()}`,
     maxConcurrency: args.concurrency,
+    sessions,
   });
-  const report = await dataset.evaluate(task.asTask(), { name: `staging_${args.dataset}`, progress: true });
+  const lifecycle = seededPrefixLifecycle<TranscriptResult>({
+    door: laneFetch, bearer, sessions, sessionId: () => `eval-prefix-${crypto.randomUUID()}`,
+  });
+  const report = await dataset.evaluate(task.asTask(), {
+    name: `staging_${args.dataset}`, progress: true, lifecycle,
+  });
   process.stdout.write(`${renderReport(report)}\n`);
 }
 
