@@ -38,6 +38,7 @@ node_modules/
 .coverage
 htmlcov/
 coverage.xml
+coverage-*.xml
 *.cover
 .hypothesis/
 
