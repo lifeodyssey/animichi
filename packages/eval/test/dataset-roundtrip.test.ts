@@ -30,6 +30,14 @@ interface DatasetView {
   name: string;
 }
 
+/**
+ * The two session seeds #1398 retired. Neither harness ever read them — Python's
+ * `_seed_tool_state` has no `last_search_data` branch and nothing reads the
+ * `last_location` it assigns, and no `/v1/chat` body carries either — so a case
+ * carrying one reads as a trajectory prefix that never existed.
+ */
+const RETIRED_SEED_KEYS = ['last_search_data', 'last_location'] as const;
+
 function pythonView(setName: string): DatasetView {
   return JSON.parse(readFileSync(caseViewPath(setName), 'utf8')) as DatasetView;
 }
@@ -67,5 +75,17 @@ for (const { caseCount, name } of EXPORTED_DATASETS) {
       name: testCase.name,
     }));
     assert.deepStrictEqual(loaded, pythonView(name).cases);
+  });
+
+  void test(`${name}: no case carries a retired session seed`, async () => {
+    const dataset = await loadExportedDataset(name);
+
+    const carriers = dataset.cases.filter((testCase) =>
+      RETIRED_SEED_KEYS.some((key) => key in (testCase.inputs.context ?? {})),
+    );
+    assert.deepStrictEqual(
+      carriers.map((testCase) => testCase.name),
+      [],
+    );
   });
 }
