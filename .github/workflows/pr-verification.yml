@@ -186,6 +186,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The delivery contracts below spawn `.github/scripts/*.mjs`, which
+      # import workspace dependencies (`jsonc-parser` via
+      # inject-release-web-runtime-config.mjs), so this job needs the installed
+      # workspace exactly like the matrix does — run 34001151283 failed with
+      # ERR_MODULE_NOT_FOUND without it.
+      - uses: ./.github/actions/setup
       - name: Verify the workflow invariants and action pinning
         run: ruby .github/scripts/test_workflow_invariants.rb
       - name: Verify the CI workflow's affected-matrix shape
@@ -424,12 +430,21 @@ jobs:
       # unpinned `dorny/paths-filter@v4` is "No findings (1 suppressed)" at
       # `regular` and exit 12 at `pedantic`, while `pedantic` on the five
       # committed workflows reports nothing at all.
+      #
+      # annotations off: the action turns them into `--format github`, which
+      # zizmor 1.5.2 rejects (`invalid value 'github'`, exit 2 — run
+      # 34001151283). Today's 1.30.0 does accept it, but its newer
+      # `self-repository` audit reports 16 low findings across our five
+      # workflows, `cd.yml` and `rollback.yml` among them; that bump is its own
+      # change, not a B1 fix. Without annotations the action passes no
+      # `--format` and still propagates zizmor's exit code, so a finding is
+      # still a red job.
       - uses: zizmorcore/zizmor-action@70fb788f84895a7701f5643d103d587e460b5c99 # v0.6.3
         with:
           version: "1.5.2"
           persona: pedantic
           advanced-security: false
-          annotations: true
+          annotations: false
 
   sqlfluff:
     name: CI / security (sqlfluff)

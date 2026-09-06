@@ -9,6 +9,8 @@
 #   affected    cannot start on an empty matrix, runs exactly the four package
 #               scripts, and provisions every binary a selected package's own
 #               `test` shells out to
+#   workspace   a job that runs a repository script importing workspace
+#               dependencies installs the workspace first
 #   aggregates  `Security` and `PR Verification` each name their dependencies,
 #               run `always()`, and fail on a failed or cancelled one; the
 #               transitional codeql job is in neither
@@ -37,6 +39,12 @@ MATRIX_TOOLCHAINS = [
   ["infra", "pulumi/actions"]
 ].freeze
 AGGREGATE_GUARD = "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')"
+# A `.github/scripts/*.mjs` resolves its imports against the repository's
+# node_modules, so any job that runs one has to install the workspace. Without
+# it the script dies with ERR_MODULE_NOT_FOUND and the assertion that spawned
+# it reports an ordinary failure (run 34001151283).
+WORKSPACE_SETUP = "./.github/actions/setup"
+NODE_SCRIPT = %r{\bnode \.github/scripts/\S+\.mjs}
 
 @log = ViolationLog.new
 @ci = WorkflowDocument.load(CI_FILE)
@@ -88,6 +96,23 @@ def assert_matrix_provisions_toolchains
   end
 end
 
+def runs_node_script?(job)
+  @ci.steps_of(job).any? { |step| step["run"].to_s.match?(NODE_SCRIPT) }
+end
+
+def installs_workspace?(job)
+  @ci.steps_of(job).any? { |step| step["uses"] == WORKSPACE_SETUP }
+end
+
+def assert_node_scripts_have_a_workspace
+  @ci.jobs.each_key do |job|
+    next unless runs_node_script?(job)
+
+    @log.unless_true(installs_workspace?(job),
+                     "pr-verification.yml:#{job}: runs a repository .mjs script without installing the workspace")
+  end
+end
+
 def assert_aggregate(job, expected_needs)
   @log.unless_true(@ci.dig("jobs", job, "if").to_s.include?("always()"),
                    "pr-verification.yml:#{job}: must run always()")
@@ -111,6 +136,7 @@ def main
   assert_matrix_guard
   assert_matrix_runs_package_scripts
   assert_matrix_provisions_toolchains
+  assert_node_scripts_have_a_workspace
   assert_aggregate("security", SECURITY_JOBS)
   assert_aggregate("aggregate", LANE_JOBS)
   assert_codeql_is_outside_the_aggregates
