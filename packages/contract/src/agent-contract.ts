@@ -212,3 +212,4 @@ export const SubmitFeedbackResult = z.object({
   feedback_id: z.string(),
 });
 export type SubmitFeedbackResult = z.infer<typeof SubmitFeedbackResult>;
+
