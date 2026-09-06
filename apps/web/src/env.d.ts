@@ -25,3 +25,4 @@ declare module "animal-island-ui-tailwind/switch" {
 // PUBLIC config lives in the versioned runtime-config module
 // (src/lib/runtime-config) that the ONE built artifact loads at runtime. Only
 // Vite's own build-invariant flags (PROD/DEV, supplied by vite/client) remain.
+
