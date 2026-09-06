@@ -15,10 +15,10 @@
  * and the anime identity in `long_context_v1` are actually testing — is
  * reproduced exactly, including `padding_chars`.
  *
- * `context.last_search_data` and `context.last_location` have NO wire form at
- * all. They were direct seeds of the in-process session, and no `/v1/chat` body
- * carries them; a case that needs one is measuring something this task cannot
- * set up, and W3-5's double run is where that shows.
+ * `context.last_search_data` and `context.last_location` are gone (#1398). They
+ * had no wire form, and no reader on the Python side either, so the 76 cases
+ * that carried one were already running from an empty session in both
+ * harnesses. `context` is now `message_history` and `origin_lat`/`origin_lng`.
  */
 import type { ExportedAgentInput } from "./dataset-roundtrip.ts";
 

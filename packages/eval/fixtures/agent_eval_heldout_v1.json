@@ -684,13 +684,7 @@
       "inputs": {
         "query": "氷菓の方の聖地はどう",
         "locale": "ja",
-        "context": {
-          "last_search_data": {
-            "search_bangumi": {
-              "bangumi_id": "115908"
-            }
-          }
-        },
+        "context": null,
         "selected_point_ids": null,
         "selected_candidate_ids": null,
         "clarification_id": null,
@@ -713,13 +707,7 @@
       "inputs": {
         "query": "what about Lucky Star instead",
         "locale": "en",
-        "context": {
-          "last_search_data": {
-            "search_bangumi": {
-              "bangumi_id": "160209"
-            }
-          }
-        },
+        "context": null,
         "selected_point_ids": null,
         "selected_candidate_ids": null,
         "clarification_id": null,
@@ -742,13 +730,7 @@
       "inputs": {
         "query": "ダンダダンの方はどう",
         "locale": "ja",
-        "context": {
-          "last_search_data": {
-            "search_bangumi": {
-              "bangumi_id": "115908"
-            }
-          }
-        },
+        "context": null,
         "selected_point_ids": null,
         "selected_candidate_ids": null,
         "clarification_id": null,
@@ -771,13 +753,7 @@
       "inputs": {
         "query": "换成金牌得主看看吧",
         "locale": "zh",
-        "context": {
-          "last_search_data": {
-            "search_bangumi": {
-              "bangumi_id": "160209"
-            }
-          }
-        },
+        "context": null,
         "selected_point_ids": null,
         "selected_candidate_ids": null,
         "clarification_id": null,
