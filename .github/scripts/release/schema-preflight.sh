@@ -35,6 +35,7 @@ while :; do
   code="$(request_preflight)"
   [ "$code" != 200 ] || break
   if [ "$code" = "503" ]; then
+    echo "::notice::preflight 503 body: $(cat schema-preflight.json 2>/dev/null || echo no_response)"
     echo "::notice::preflight unavailable (container starting), attempt $attempt, sleeping 15s..."
     sleep 15
     attempt=$((attempt + 1))
