@@ -34,6 +34,13 @@ attempt=1
 while :; do
   code="$(request_preflight)"
   [ "$code" != 200 ] || break
+  if [ "$code" = "503" ]; then
+    echo "::notice::preflight unavailable (container starting), attempt $attempt, sleeping 15s..."
+    sleep 15
+    attempt=$((attempt + 1))
+    [ $attempt -le 10 ] || { echo '::error::container failed to start after 10 attempts'; exit 1; }
+    continue
+  fi
   if [ -z "$prisma_ref" ] || [ "$code" != 409 ] || ! jq -e '.error == "stale_bundle" or .error == "stale_prisma_bundle"' schema-preflight.json > /dev/null; then
     echo "::notice::preflight response: $(cat schema-preflight.json 2>/dev/null || echo no_response)"
     echo "::error::migration preflight refused or unavailable (HTTP $code)"; exit 1
