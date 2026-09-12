@@ -1,10 +1,12 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import type { ChatDict } from "../i18n";
 import { currentRuntimeConfig } from "../../../lib/runtime-config/provider";
 import { clearTurnstileToken, rememberTurnstileToken } from "../../../lib/turnstile/token-store";
+import { TurnstilePresentation, type TurnstileView } from "./TurnstilePresentation";
+import { useTurnstileEmbed, type TurnstileApi, type TurnstileConfig } from "./turnstile-sdk";
 
-/** Cloudflare's widget loader. `async defer` per the official embed. */
-export const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";
+export { TURNSTILE_SCRIPT_SRC } from "./turnstile-sdk";
 
 /** Mandatory analytics attribution on every `cf-turnstile` element. */
 export const TURNSTILE_ACTION = "turnstile-spin-v2";
@@ -24,16 +26,14 @@ export const TURNSTILE_EXPIRED_CALLBACK = "onAnimichiTurnstileExpired";
 /**
  * The least intrusive of Turnstile's three appearances.
  *
- * `always` keeps a permanent challenge box on the entry screen; `execute` needs
- * an explicit `turnstile.execute()` handshake before a token exists, which
- * would put a round trip in front of the very first message. `interaction-only`
+ * Appearance controls visibility, separately from execution timing. `interaction-only`
  * solves silently and renders NOTHING unless Cloudflare actually decides a
  * human interaction is required. The full-viewport entry therefore stays
  * visually quiet unless Cloudflare actually asks for human interaction.
  */
 export const TURNSTILE_APPEARANCE = "interaction-only";
 
-/** Fills the entry card's width instead of a fixed 300px box when it shows. */
+/** Default size; the embed uses compact when its actual container is below 300px. */
 export const TURNSTILE_SIZE = "flexible";
 
 /** A Turnstile site key is 24 characters; a secret is 35. */
@@ -44,8 +44,9 @@ declare global {
     onAnimichiTurnstile?: (token: string) => void;
     onAnimichiTurnstileError?: () => void;
     onAnimichiTurnstileExpired?: () => void;
-    /** Injected by api.js; only `reset` is used (re-arm after a rejection). */
-    turnstile?: { reset: (widget?: string) => void };
+    onAnimichiTurnstileInteractive?: () => void;
+    onAnimichiTurnstileInteractiveEnd?: () => void;
+    turnstile?: TurnstileApi;
   }
 }
 
@@ -111,18 +112,6 @@ function widgetTheme(): "light" | "dark" {
   return document.documentElement.dataset.theme === "night" ? "dark" : "light";
 }
 
-/** Inject the loader once per document. */
-function useTurnstileScript(): void {
-  useEffect(() => {
-    if (document.querySelector(`script[src="${TURNSTILE_SCRIPT_SRC}"]`) !== null) return;
-    const script = document.createElement("script");
-    script.src = TURNSTILE_SCRIPT_SRC;
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-  }, []);
-}
-
 /** Expose the solved-token callback under a stable global name. */
 function useTurnstileCallback(onToken: (token: string) => void): void {
   useEffect(() => {
@@ -148,19 +137,6 @@ function useTurnstileInvalidation(onInvalid: (() => void) | undefined): void {
   useEffect(() => bindInvalidation(onInvalid), [onInvalid]);
 }
 
-type RetryProps = Readonly<{ dict: ChatDict; onRetry: () => void }>;
-
-function TurnstileRetry({ dict, onRetry }: RetryProps) {
-  return (
-    <div className="turnstile-gate__error" role="alert">
-      <span>{dict.turnstile.failed}</span>
-      <button type="button" className="turnstile-gate__retry" autoFocus onClick={onRetry}>
-        {dict.turnstile.retry}
-      </button>
-    </div>
-  );
-}
-
 type Props = Readonly<{
   dict: ChatDict;
   siteKey: string;
@@ -176,35 +152,50 @@ const WIDGET_ATTRIBUTES = {
   "data-callback": TURNSTILE_CALLBACK,
   "data-error-callback": TURNSTILE_ERROR_CALLBACK,
   "data-expired-callback": TURNSTILE_EXPIRED_CALLBACK,
+  "data-timeout-callback": TURNSTILE_ERROR_CALLBACK,
+  "data-before-interactive-callback": "onAnimichiTurnstileInteractive",
+  "data-after-interactive-callback": "onAnimichiTurnstileInteractiveEnd",
   "data-appearance": TURNSTILE_APPEARANCE,
   "data-size": TURNSTILE_SIZE,
 } as const;
 
-function TurnstileWidget({ siteKey }: Readonly<{ siteKey: string }>) {
-  return (
-    <div className="cf-turnstile" data-sitekey={siteKey} data-theme={widgetTheme()} {...WIDGET_ATTRIBUTES} />
-  );
+function TurnstileWidget({ siteKey, language, attempt }: Readonly<{ siteKey: string; language: string; attempt: number }>) {
+  const ref = useRef<HTMLDivElement>(null), theme = widgetTheme();
+  const config = useMemo<TurnstileConfig>(() => ({ sitekey: siteKey, action: TURNSTILE_ACTION, appearance: TURNSTILE_APPEARANCE, theme, language }), [siteKey, theme, language]);
+  useTurnstileEmbed(ref, config, attempt);
+  return <div ref={ref} className="cf-turnstile [display:flex] w-full min-w-0 justify-center" data-sitekey={siteKey} data-theme={theme} data-language={language} {...WIDGET_ATTRIBUTES} />;
 }
 
-/**
- * The Turnstile widget. Verification itself is server-side at the edge
- * (`workers/edge/turnstile.ts`) — this only collects the token and hands it to the
- * store the chat transport reads.
- */
-function useTurnstileWidget(
-  onToken: ((token: string) => void) | undefined, onInvalid: (() => void) | undefined,
-): void {
-  useTurnstileScript();
-  useTurnstileCallback(onToken ?? rememberTurnstileToken);
-  useTurnstileInvalidation(onInvalid);
+function useInteractiveState(setState: Dispatch<SetStateAction<TurnstileView>>): void {
+  useEffect(() => {
+    window.onAnimichiTurnstileInteractive = () => { setState("interactive"); };
+    window.onAnimichiTurnstileInteractiveEnd = () => { setState(current => current === "interactive" ? "checking" : current); };
+    return () => { window.onAnimichiTurnstileInteractive = undefined; window.onAnimichiTurnstileInteractiveEnd = undefined; };
+  }, [setState]);
 }
 
+function useTurnstileView(onToken: Props["onToken"], onInvalid: Props["onInvalid"]) {
+  const [state, setState] = useState<TurnstileView>("checking");
+  const solved = useCallback((token: string) => { setState("verifying"); (onToken ?? rememberTurnstileToken)(token); }, [onToken]);
+  const invalid = useCallback(() => { setState("failed"); onInvalid?.(); }, [onInvalid]);
+  useTurnstileCallback(solved); useTurnstileInvalidation(invalid); useInteractiveState(setState);
+  return { state, setState };
+}
+
+function useWidgetRetry(onRetry: Props["onRetry"], setState: (state: TurnstileView) => void) {
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setState("checking");
+    if (!window.turnstile?.render) setAttempt(value => value + 1);
+    (onRetry ?? resetTurnstileWidget)();
+  }, [onRetry, setState]);
+  return { attempt, retry };
+}
+
+/** A widget token only advances to awaiting server confirmation, never an admitted state. */
 export function TurnstileGate({ dict, siteKey, failed = false, onRetry, onToken, onInvalid }: Props) {
-  useTurnstileWidget(onToken, onInvalid);
-  return (
-    <section className="turnstile-gate" aria-label={dict.turnstile.label}>
-      <TurnstileWidget siteKey={siteKey} />
-      {failed ? <TurnstileRetry dict={dict} onRetry={onRetry ?? (() => undefined)} /> : null}
-    </section>
-  );
+  const view = useTurnstileView(onToken, onInvalid), retry = useWidgetRetry(onRetry, view.setState);
+  return <TurnstilePresentation dict={dict} state={failed ? "failed" : view.state} onRetry={retry.retry}>
+    <TurnstileWidget siteKey={siteKey} language={dict.locale === "zh" ? "zh-cn" : dict.locale} attempt={retry.attempt} />
+  </TurnstilePresentation>;
 }

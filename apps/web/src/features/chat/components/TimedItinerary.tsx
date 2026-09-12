@@ -1,27 +1,19 @@
-import { LoginModal } from "../../auth/ui/LoginModal";
-import { useChatReturnTarget } from "../ChatReturnTarget";
 import type { ItineraryLeg, ItineraryStation, ItineraryView } from "../lib/itinerary";
 import type { ChatDict } from "../i18n";
 import { legCapsule } from "../route-copy";
-import { useSaveGate } from "../save/use-save-gate";
-import type { SaveGate, SaveGateOptions } from "../save/use-save-gate";
-import type { SaveTarget } from "../save/save-target";
-import { FallbackRetryButton } from "./ErrorStates/FallbackRetryButton";
+import type { SpotRow } from "./Cards";
+import { RouteActions } from "./RouteActions";
+import type { RouteActionProps } from "./RouteActions";
+import { RouteStopScene } from "./RouteStopScene";
 
 type DictProps = Readonly<{ dict: ChatDict }>;
 type ViewProps = Readonly<{ view: ItineraryView; dict: ChatDict }>;
-type GateProps = Readonly<{ gate: SaveGate; dict: ChatDict }>;
-
-/** Injectable for tests; production callers rely on the defaults. */
-export type ItineraryProps = ViewProps & Readonly<{ save?: SaveTarget; saveDeps?: SaveGateOptions }>;
+type TimelineProps = ViewProps & Readonly<{ scenes?: readonly SpotRow[] }>;
+export type ItineraryProps = RouteActionProps;
 
 /** Colour alone never carries the highlight: the star names itself for AT. */
 function GoldStar({ dict }: DictProps) {
-  return (
-    <span className="chat-itinerary__star" role="img" aria-label={dict.route.highlight}>
-      ★
-    </span>
-  );
+  return <span className="chat-itinerary__star text-base" role="img" aria-label={dict.route.highlight}>★</span>;
 }
 
 function stationTimes(station: ItineraryStation): string | undefined {
@@ -30,169 +22,110 @@ function stationTimes(station: ItineraryStation): string | undefined {
   return `${station.arrive}–${station.depart}`;
 }
 
+const STOP_BASE = "chat-itinerary__stop group/stop grid grid-cols-[1.5rem_minmax(0,1fr)] gap-x-3";
+
 function stopClass(station: ItineraryStation): string {
-  return station.highlighted ? "chat-itinerary__stop chat-itinerary__stop--highlight" : "chat-itinerary__stop";
+  return station.highlighted ? `${STOP_BASE} chat-itinerary__stop--highlight` : STOP_BASE;
 }
 
-function StationRow({ station, dict }: Readonly<{ station: ItineraryStation; dict: ChatDict }>) {
-  const times = stationTimes(station);
+/** The rail connects map numbers without competing with the stop names. */
+function StopRail({ index, last }: Readonly<{ index: number; last: boolean }>) {
   return (
-    <li className={stopClass(station)}>
-      {times !== undefined ? <time className="chat-itinerary__time">{times}</time> : null}
-      <span className="chat-itinerary__name">{station.name}</span>
-      {station.highlighted ? <GoldStar dict={dict} /> : null}
-    </li>
-  );
-}
-
-function LegRow({ leg, dict }: Readonly<{ leg: ItineraryLeg; dict: ChatDict }>) {
-  return (
-    <li className="chat-itinerary__leg" data-mode={leg.mode}>
-      <span className="chat-itinerary__capsule">{legCapsule(dict, leg)}</span>
-    </li>
-  );
-}
-
-function TimelineItems({ view, dict }: ViewProps) {
-  return view.stations.flatMap((station, index) => {
-    const leg = view.legs[index];
-    const rows = [<StationRow key={`stop-${station.id}`} station={station} dict={dict} />];
-    if (leg) rows.push(<LegRow key={`leg-${station.id}`} leg={leg} dict={dict} />);
-    return rows;
-  });
-}
-
-function PacingPill({ view, dict }: ViewProps) {
-  if (view.pacing === undefined) return null;
-  return (
-    <span className="chat-pacing-pill" data-pacing={view.pacing}>
-      {dict.route.pacing[view.pacing]}
-    </span>
-  );
-}
-
-function MapsCta({ view, dict }: ViewProps) {
-  if (view.mapsUrl === undefined) return null;
-  return (
-    <a className="chat-chip" data-tone="explore" href={view.mapsUrl} target="_blank" rel="noreferrer">
-      {dict.route.openMaps}
-    </a>
-  );
-}
-
-/** Reserved Walk-mode entry point (issue #271): a disabled seam, not a mode. */
-function WalkCtaSlot({ dict }: DictProps) {
-  return (
-    <button type="button" className="chat-chip" data-tone="walk" data-cta="walk-mode" disabled>
-      {dict.route.walkCta}
-    </button>
-  );
-}
-
-/** A retryable failure stays on the card: inline copy plus a retry, never a
- * full page. A `permanent` 4xx gets copy without a retry — offering one would
- * be a loop that cannot succeed. */
-function SaveError({ gate, dict }: GateProps) {
-  return (
-    <span className="chat-cta-row__error" role="alert">
-      {dict.route.saveError}
-      <FallbackRetryButton label={dict.route.saveRetry} onClick={gate.activate} className="chat-chip" />
-    </span>
-  );
-}
-
-function SavePermanentError({ dict }: DictProps) {
-  return <span className="chat-cta-row__error" role="alert">{dict.route.savePermanentError}</span>;
-}
-
-function SaveFeedback({ gate, dict }: GateProps) {
-  if (gate.status === "saved") return <span className="chat-cta-row__saved" role="status">{dict.route.saved}</span>;
-  if (gate.status === "permanent") return <SavePermanentError dict={dict} />;
-  if (gate.status !== "retryable") return null;
-  return <SaveError gate={gate} dict={dict} />;
-}
-
-/** Saving and saved are both non-actionable: the endpoint has no dedupe key, so
- * a second tap would create a second row. `aria-busy` carries the in-flight
- * meaning that `disabled` alone would flatten into "unavailable". */
-function saveDisabled(gate: SaveGate): boolean {
-  return gate.action === "none" || gate.status === "saving" || gate.status === "saved";
-}
-
-/**
- * P5 save CTA (issue #273 S1.7). Cream, not gold: the design sync reserves the
- * single per-screen gold CTA for しおり共有 (「永不同屏两金」), and lists 保存する
- * under the cream press buttons. The dialog is mounted only while open, so the
- * P5 invariant is visible in the DOM rather than merely asserted.
- */
-function SaveButton({ gate, dict }: GateProps) {
-  const busy = gate.status === "saving";
-  return (
-    <button type="button" className="chat-chip" data-cta="save" disabled={saveDisabled(gate)} aria-busy={busy} onClick={gate.activate}>
-      {dict.route.saveCta}
-    </button>
-  );
-}
-
-function SaveCta({ save, dict, saveDeps }: Omit<ItineraryProps, "view">) {
-  const gate = useSaveGate(save, saveDeps);
-  return (
-    <>
-      <SaveButton gate={gate} dict={dict} />
-      <SaveFeedback gate={gate} dict={dict} />
-      <SaveLoginWall gate={gate} />
-    </>
-  );
-}
-
-/** The P5 save wall carries the session back (#507 review P1-1): without a
- * return target a correct adoption still lands the visitor on `/`.
- *
- * The hook is read **before** the early return, not inside the JSX after it
- * (#514 review round 2). It is inert today — `useChatReturnTarget` wraps only
- * `useContext`, and `readContext` never joins the hook list, so no ordering can
- * shift. But it is a Rules-of-Hooks violation, and this repo cannot catch it:
- * the root `.oxlintrc.json` runs `plugins: ["typescript"]` with
- * `categories.correctness: "off"`, and `apps/web` adds only
- * `max-lines-per-function` — not one react-hooks rule is enabled anywhere, so
- * a green lint carries no information here. The day `useChatReturnTarget` grows
- * a `useMemo`, or React Compiler lands, this becomes a runtime crash in the
- * headline #507 component. */
-function SaveLoginWall({ gate }: Readonly<{ gate: ReturnType<typeof useSaveGate> }>) {
-  const returnTarget = useChatReturnTarget();
-  if (!gate.loginOpen) return null;
-  return <LoginModal open onClose={gate.closeLogin} onSendCommitted={gate.markSendCommitted} returnTarget={returnTarget} />;
-}
-
-function CtaRow({ view, dict, save, saveDeps }: ItineraryProps) {
-  return (
-    <div className="chat-cta-row">
-      <MapsCta view={view} dict={dict} />
-      <SaveCta save={save} dict={dict} saveDeps={saveDeps} />
-      <WalkCtaSlot dict={dict} />
+    <div className="flex flex-col items-center" aria-hidden="true">
+      <span className="grid size-6 flex-none place-items-center rounded-full border-2 border-paper bg-[var(--color-map-pin-teal)] text-xs font-bold tabular-nums text-[var(--color-primary-ink)]">{index + 1}</span>
+      {last ? null : <span className="w-0 flex-1 border-l border-dashed border-border-soft" />}
     </div>
   );
 }
 
-function Timeline({ view, dict }: ViewProps) {
+function StopTime({ station }: Readonly<{ station: ItineraryStation }>) {
+  const times = stationTimes(station);
+  if (times === undefined) return null;
+  return <time className="chat-itinerary__time">{times}</time>;
+}
+
+function StationHeading({ station, dict }: Readonly<{ station: ItineraryStation; dict: ChatDict }>) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="chat-itinerary__name min-w-0 break-words text-base font-bold leading-snug">{station.name}</span>
+      {station.highlighted ? <GoldStar dict={dict} /> : null}
+    </div>
+  );
+}
+
+function StationDetails({ station, dict }: Readonly<{ station: ItineraryStation; dict: ChatDict }>) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <StationHeading station={station} dict={dict} />
+      <StopTime station={station} />
+    </div>
+  );
+}
+
+type StationContentProps = Readonly<{ station: ItineraryStation; dict: ChatDict; scene?: SpotRow }>;
+
+function StationContent({ station, dict, scene }: StationContentProps) {
+  return (
+    <div className="flex items-start gap-3">
+      <RouteStopScene scene={scene} dict={dict} />
+      <StationDetails station={station} dict={dict} />
+    </div>
+  );
+}
+
+function LegCopy({ leg, dict }: Readonly<{ leg?: ItineraryLeg; dict: ChatDict }>) {
+  if (!leg) return null;
+  return <p className="chat-itinerary__leg mt-1.5 text-xs text-muted-fg" data-mode={leg.mode}>{legCapsule(dict, leg)}</p>;
+}
+
+type StationProps = StationContentProps & Readonly<{ index: number; last: boolean; leg?: ItineraryLeg }>;
+
+function StationBody({ station, scene, dict, leg }: StationContentProps & Readonly<{ leg?: ItineraryLeg }>) {
+  return (
+    <div className="min-w-0 [padding-bottom:20px] group-last/stop:[padding-bottom:0]">
+      <StationContent station={station} scene={scene} dict={dict} />
+      <LegCopy leg={leg} dict={dict} />
+    </div>
+  );
+}
+
+function StationRow({ station, index, dict, scene, last, leg }: StationProps) {
+  return (
+    <li className={stopClass(station)}>
+      <StopRail index={index} last={last} />
+      <StationBody station={station} scene={scene} dict={dict} leg={leg} />
+    </li>
+  );
+}
+
+function TimelineItems({ view, dict, scenes }: TimelineProps) {
+  return view.stations.map((station, index) => {
+    const scene = scenes?.find((row) => row.id === station.id);
+    return <StationRow key={station.id} station={station} index={index} dict={dict} scene={scene} leg={view.legs[index]} last={index === view.stations.length - 1} />;
+  });
+}
+
+export function ItineraryPacing({ view, dict }: ViewProps) {
+  if (view.pacing === undefined) return null;
+  return <span className="chat-pacing-pill" data-pacing={view.pacing}>{dict.route.pacing[view.pacing]}</span>;
+}
+
+export function ItineraryTimeline({ view, dict, scenes }: TimelineProps) {
+  if (view.stations.length === 0) return null;
   return (
     <ol className="chat-itinerary__timeline" aria-label={dict.route.timelineLabel}>
-      <TimelineItems view={view} dict={dict} />
+      <TimelineItems view={view} dict={dict} scenes={scenes} />
     </ol>
   );
 }
 
-/**
- * S1.5 route timeline: station-granularity HH:MM rows, one gold-star highlight,
- * walk capsules between stations, pacing pill, and the CTA row. The labelled
- * list doubles as the non-visual equivalent of the promoted map's track order.
- */
+/** Standalone presentation; RouteCard composes these sections around its map. */
 export function TimedItinerary({ view, dict, save, saveDeps }: ItineraryProps) {
   return (
     <div className="chat-itinerary">
-      <PacingPill view={view} dict={dict} />
-      <Timeline view={view} dict={dict} />
-      <CtaRow view={view} dict={dict} save={save} saveDeps={saveDeps} />
+      <ItineraryPacing view={view} dict={dict} />
+      <ItineraryTimeline view={view} dict={dict} />
+      <RouteActions view={view} dict={dict} save={save} saveDeps={saveDeps} />
     </div>
   );
 }

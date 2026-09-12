@@ -23,8 +23,8 @@ describe("DataPartCard", () => {
   it("renders a skeleton card for the intent-first frame", () => {
     renderPart({ intent: "plan_route" });
     const skeleton = screen.getByRole("status");
-    expect(skeleton.getAttribute("aria-busy")).toBe("true");
-    expect(skeleton.getAttribute("data-intent")).toBe("plan_route");
+    expect(skeleton.getAttribute("aria-live")).toBe("polite");
+    expect(skeleton.closest("[data-intent]")?.getAttribute("data-intent")).toBe("plan_route");
   });
 
   it("renders the full route card when the same-ID overwrite arrives", () => {

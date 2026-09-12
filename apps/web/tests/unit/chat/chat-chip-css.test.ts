@@ -14,18 +14,13 @@ describe("nook tri-color chip tiles", () => {
   });
 });
 
-describe("P5 save CTA: cream, so the single gold CTA stays reserved", () => {
-  it("inherits the base chip's cream press style", () => {
-    expect(ruleDeclaration(chatCss, ".chat-chip", "background")).toBe("var(--color-paper)");
-    expect(ruleDeclaration(chatCss, ".chat-chip", "color")).toBe("var(--color-fg)");
-  });
-
-  it("declares no tone override at all — a second gold is what the design forbids", () => {
-    const toneRules = [...chatCss.matchAll(/\.chat-chip\[data-cta="save"\][^{]*\{([^}]*)\}/g)];
+describe("P5 save CTA: the single gold CTA stays reserved", () => {
+  it("declares no save override that could replace the Animal Button paper tone", () => {
+    const toneRules = [...chatCss.matchAll(/\[data-cta="save"\][^{]*\{([^}]*)\}/g)];
     expect(toneRules).toHaveLength(0);
   });
 
-  it("keeps gold reserved: no chip rule spends a gold token", () => {
+  it("keeps gold reserved: no remaining legacy chip spends a gold token", () => {
     const chipRules = [...chatCss.matchAll(/\.chat-chip[^{]*\{([^}]*)\}/g)].map((match) => match[1] ?? "");
     expect(chipRules.some((body) => body.includes("--color-gold"))).toBe(false);
   });
@@ -33,14 +28,6 @@ describe("P5 save CTA: cream, so the single gold CTA stays reserved", () => {
   it("keeps the saved confirmation and save error on semantic tokens", () => {
     expect(ruleDeclaration(chatCss, ".chat-cta-row__saved", "color")).toBe("var(--color-primary-strong)");
     expect(ruleDeclaration(chatCss, ".chat-cta-row__error", "color")).toBe("var(--color-error-strong)");
-  });
-});
-
-describe("C3b drill-back chip (issue #437)", () => {
-  it("carries layout only, so the cream chip tokens stay the single source", () => {
-    expect(ruleDeclaration(chatCss, ".chat-drill__back", "align-self")).toBe("flex-start");
-    expect(ruleDeclaration(chatCss, ".chat-drill__back", "background")).toBeNull();
-    expect(ruleDeclaration(chatCss, ".chat-drill__back", "color")).toBeNull();
   });
 });
 

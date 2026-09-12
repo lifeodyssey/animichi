@@ -16,7 +16,7 @@ describe("ToolStepBadge localized copy", () => {
       const { unmount } = render(
         <ToolStepBadge type={`tool-${key}`} status="done" dict={dict} />,
       );
-      const badge = screen.getByText(dict.toolSteps.labels[key]);
+      const badge = screen.getByText(dict.toolSteps.actions[key]);
       expect(badge.textContent).not.toBe(key);
       unmount();
     }
@@ -25,16 +25,18 @@ describe("ToolStepBadge localized copy", () => {
   it("keeps the raw identifier in data-tool while showing localized text", () => {
     const dict = chatDictFor("ja");
     render(<ToolStepBadge type="tool-search_bangumi" status="done" dict={dict} />);
-    const badge = screen.getByText(dict.toolSteps.labels.search_bangumi);
-    expect(badge.getAttribute("data-tool")).toBe("search_bangumi");
-    expect(badge.getAttribute("data-status")).toBe("done");
+    const badge = screen.getByText(dict.toolSteps.actions.search_bangumi).closest("[data-tool]");
+    expect(badge?.getAttribute("data-tool")).toBe("search_bangumi");
+    expect(badge?.getAttribute("data-status")).toBe("done");
+    expect(screen.queryByText(dict.toolSteps.labels.search_bangumi)).toBeNull();
+    expect(screen.getByText(dict.toolSteps.done)).toBeTruthy();
   });
 
   it("marks running steps", () => {
     const dict = chatDictFor("ja");
     render(<ToolStepBadge type="tool-plan_route" status="running" dict={dict} />);
     const badge = screen.getByText(dict.toolSteps.labels.plan_route);
-    expect(badge.getAttribute("data-status")).toBe("running");
+    expect(badge.closest("[data-status]")?.getAttribute("data-status")).toBe("running");
   });
 });
 
@@ -69,9 +71,9 @@ describe("ToolStepBadge retried step", () => {
     const dict = chatDictFor(locale);
     const { container } = render(<ToolStepBadge type="tool-plan_route" status="retried" dict={dict} />);
     const badge = container.querySelector(".chat-step");
-    expect(badge?.textContent).toContain(dict.toolSteps.labels.plan_route);
+    expect(badge?.textContent).toContain(dict.toolSteps.actions.plan_route);
     expect(badge?.textContent).toContain(dict.toolSteps.retried);
-    expect(screen.getByText(dict.toolSteps.retried).className).toBe("chat-step__note");
+    expect(screen.getByText(dict.toolSteps.retried).closest("[hidden]")).toBeNull();
   });
 
   it("does not rely on aria-label, which is prohibited on a generic element", () => {
@@ -80,11 +82,12 @@ describe("ToolStepBadge retried step", () => {
     expect(container.querySelector(".chat-step")?.getAttribute("aria-label")).toBeNull();
   });
 
-  it("adds no retried note to a terminal error", () => {
+  it("spells out a terminal failure separately from a retry", () => {
     const dict = chatDictFor("en");
     const { container } = render(<ToolStepBadge type="tool-plan_route" status="error" dict={dict} />);
-    expect(container.querySelector(".chat-step__note")).toBeNull();
-    expect(container.querySelector(".chat-step")?.textContent).toBe(dict.toolSteps.labels.plan_route);
+    expect(screen.queryByText(dict.toolSteps.retried)).toBeNull();
+    expect(screen.getByText(dict.toolSteps.failed)).toBeTruthy();
+    expect(container.querySelector(".chat-step")?.textContent).toContain(dict.toolSteps.actions.plan_route);
   });
 });
 

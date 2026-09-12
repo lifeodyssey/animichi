@@ -47,24 +47,24 @@ const brokenScenePatch: FinalFramePatch = (envelope) => ({
 });
 
 describe("D1 recognition failure", () => {
-  it("renders the apology card with hints and the example chips again", async () => {
+  it("renders a focused clue entry and hides wire details", async () => {
     server.use(chatStreamPatchedHandler("search", failedEnvelopePatch("anime_not_found", "resolver miss")));
     renderChatPage();
     sendText("知らない作品");
     expect(await screen.findByText(states.d1Title)).toBeTruthy();
-    expect(screen.getByText(states.d1Subtitle)).toBeTruthy();
-    expect(screen.getByRole("button", { name: ja.chips[0].text })).toBeTruthy();
+    expect(screen.getByText(states.d1Hint)).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: states.d1Label })).toBeTruthy();
     expect(screen.queryByText("resolver miss")).toBeNull();
   });
 });
 
 describe("D2 zero pilgrimage spots", () => {
-  it("renders the no-spots copy with neighbouring suggestions", async () => {
+  it("renders the empty-result copy with a title or region entry", async () => {
     server.use(chatStreamPatchedHandler("search", zeroSpotsPatch));
     renderChatPage();
     sendText("マイナー作品");
     expect(await screen.findByText(states.d2Title)).toBeTruthy();
-    expect(screen.getByRole("button", { name: ja.chips[1].text })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: states.d2Label })).toBeTruthy();
   });
 });
 

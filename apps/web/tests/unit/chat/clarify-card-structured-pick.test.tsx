@@ -15,7 +15,7 @@ const dict = chatDictFor("ja");
 afterEach(cleanup);
 
 const HARUHI = { id: "115908", title: "涼宮ハルヒの憂鬱", title_cn: "凉宫春日的忧郁" };
-const HARUHI_LABEL = "凉宫春日的忧郁(涼宮ハルヒの憂鬱)";
+const HARUHI_LABEL = "涼宮ハルヒの憂鬱(凉宫春日的忧郁)";
 const YUKI = { id: "117696", title: "長門有希ちゃんの消失" };
 
 function makeClarifyPickTurn(overrides: Partial<ClarifyPickTurn> = {}): ClarifyPickTurn {
@@ -41,7 +41,7 @@ function optionState(name: string): string | null {
 }
 
 describe("ClarifyCard bilingual titles (W1 #1220)", () => {
-  it("renders 中文(原文) when the candidate carries a Chinese title", () => {
+  it("leads with the original title in Japanese while retaining the translation", () => {
     render(clarifyElement(PENDING, makeClarifyPickTurn()));
     expect(screen.getByRole("button", { name: HARUHI_LABEL })).toBeTruthy();
   });
@@ -61,7 +61,7 @@ describe("candidateDisplayTitle composition rules", () => {
     [{ id: "115908" }, "115908"],
     [{ title: "原題", title_cn: "" }, "原題"],
   ])("composes %o as %s", (candidate, expected) => {
-    expect(candidateDisplayTitle(candidate)).toBe(expected);
+    expect(candidateDisplayTitle(candidate, "ja")).toBe(expected);
   });
 });
 

@@ -4,7 +4,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { SearchResult } from "../../../src/features/chat/components/SearchResult";
-import type { AttachBasemap } from "../../../src/features/chat/components/SearchMap";
+import { attachReady } from "./basemap-fixture";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { toSearchSpots } from "../../../src/features/chat/lib/spot-clusters";
 import type { SpotRowLike } from "../../../src/features/chat/lib/spot-clusters";
@@ -12,10 +12,7 @@ import type { SpotRowLike } from "../../../src/features/chat/lib/spot-clusters";
 afterEach(cleanup);
 
 const dict = chatDictFor("ja");
-const attachReady: AttachBasemap = ({ onStatus }) => {
-  onStatus("ready");
-  return () => undefined;
-};
+
 
 function row(id: string, lat: number, lng: number, city: string): SpotRowLike {
   return { id, name: id, lat, lng, city, screenshot_url: "/s.webp" };

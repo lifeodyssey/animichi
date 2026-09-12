@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import animalCss from "animal-island-ui-tailwind/dist/index.css?raw";
+import { animalButtonClass } from "../../src/features/chat/components/AnimalButton";
 import animeCss from "../../src/styles/anime.css?raw";
 import chatCss from "../../src/styles/chat.css?raw";
 import css from "../../src/styles/press-3d.css?raw";
@@ -7,21 +9,13 @@ import { ruleDeclaration, sharedRuleDeclaration } from "./stylesheet-probe";
 
 /**
  * §4.2 of docs/iterations/chat-visual-restore/task.md: pill, ledge, hover lift,
- * pressed sink. Three skins each restated it and chat's copy had only ever
- * declared the sink — the lift, which is the half that tells a pointer user the
- * thing is pressable at all, was missing from all seven of its buttons.
+ * pressed sink. Anime and route retain their shared app rule; chat actions now
+ * consume the Animal Island Button class contract through AnimalButton.
  */
 const MEMBERS = [
   ".anime-press",
   ".route-press",
   ".route-goldbar",
-  ".chat-error-banner__retry",
-  ".chat-fallback__retry",
-  ".chat-interruption__retry",
-  ".chat-session-expired__login",
-  ".chat-session-expired__resume",
-  ".chat-budget-exhausted__login",
-  ".chat-quota-exhausted__login",
 ];
 
 describe("§4.2 one pill, one ledge, for every family", () => {
@@ -70,6 +64,29 @@ describe("§4.6 the lift and the sink yield to the reduce preference", () => {
   it.each(MEMBERS)("%s loses its transition under reduced motion", (member) => {
     expect(sharedRuleDeclaration(css, member, "transition")).toBe("none");
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
+  });
+});
+
+describe("chat actions consume the Animal Island press contract", () => {
+  const classes = animalButtonClass();
+
+  it("keeps the library grammar, cream tone, 44px floor and wrapped labels", () => {
+    expect(classes.split(" ")).toEqual(expect.arrayContaining(["animal-btn", "animal-btn-middle", "animal-btn-primary"]));
+    expect(classes).toContain("[--animal-bg-color:var(--color-paper)]");
+    expect(classes).toContain("[--animal-bg-color-secondary:var(--color-muted)]");
+    expect(classes).toContain("[min-height:44px]");
+    expect(classes).toContain("[white-space:normal]");
+  });
+
+  it("uses the library's full resting, hover and pressed depth", () => {
+    expect(ruleDeclaration(animalCss, ".animal-btn-primary", "box-shadow")).toBe("var(--animal-shadow-press)");
+    expect(ruleDeclaration(animalCss, ".animal-btn-primary:hover:not(:disabled)", "box-shadow")).toBe("var(--animal-shadow-press-hover)");
+    expect(ruleDeclaration(animalCss, ".animal-btn-primary:active:not(:disabled)", "box-shadow")).toBe("var(--animal-shadow-press-active)");
+  });
+
+  it("keeps disabled controls still and reduced motion transition-free", () => {
+    expect(sharedRuleDeclaration(animalCss, ".animal-btn:disabled", "box-shadow")).toBe("none");
+    expect(classes).toContain("motion-reduce:transition-none");
   });
 });
 

@@ -3,41 +3,6 @@
  * classes in ChatShell/ChatSidebar/ComposerDock; what remains here is the
  * message-flow and dock-tray language the frozen internals still draw on. */
 
-.chat-bubble {
-  width: fit-content;
-  max-width: 78%;
-  padding: 13px 17px;
-  border-radius: 20px;
-  border-top-left-radius: 6px;
-  border: 2px solid var(--color-border-soft);
-  background: var(--color-card);
-  font-size: 15.5px;
-  line-height: 1.62;
-  font-weight: 500;
-}
-
-.chat-message--user .chat-bubble {
-  align-self: flex-end;
-  margin-left: auto;
-  border-radius: 20px;
-  border-top-right-radius: 6px;
-  border-color: transparent;
-  background: var(--color-primary);
-  color: var(--color-primary-ink);
-  font-weight: 600;
-  box-shadow: 0 4px 0 var(--color-primary-strong);
-}
-
-.chat-messages,
-.chat-history {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
 /* Design spec `rowIn`: each turn slides up as it lands. */
 @keyframes chat-row-in {
   from { opacity: 0; transform: translateY(10px); }
@@ -104,108 +69,6 @@
   box-shadow: 0 3px 0 color-mix(in srgb, var(--color-primary-strong) 30%, var(--color-primary-soft));
 }
 
-/* A1 cold start and the G1 composer moved to Tailwind with the direction-E
- * frame (ColdStart.tsx / ChatInput.tsx); the example-chip row below is the
- * D1/D2 recovery surface the error states still render. */
-
-.chat-fox-avatar {
-  width: 38px;
-  height: 38px;
-  padding: 2px;
-  border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-primary-soft));
-  object-fit: contain;
-  background: var(--color-primary-soft);
-}
-
-.chat-typing {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
-}
-
-.chat-typing__dots {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: 0.875rem 1rem;
-  border-radius: 18px;
-  border-bottom-left-radius: 6px;
-  background: var(--color-primary-soft);
-}
-
-.chat-typing__dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--color-muted-fg);
-  animation: chat-dot-bounce 1s ease-in-out infinite;
-}
-
-.chat-typing__dot:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.chat-typing__dot:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-.chat-step {
-  display: inline-block;
-  margin-right: 0.375rem;
-  padding: 0.125rem 0.625rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  background: var(--color-muted);
-  color: var(--color-muted-fg);
-}
-
-.chat-step[data-status="done"] {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-strong);
-}
-
-.chat-step[data-status="running"] {
-  color: var(--color-fg);
-  background: linear-gradient(90deg, var(--color-muted), var(--color-card), var(--color-muted));
-  background-size: 200% 100%;
-  animation: chat-shimmer 1.4s linear infinite;
-}
-
-.chat-step[data-status="running"]::before {
-  content: "";
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
-  margin-right: 0.375rem;
-  border-radius: 50%;
-  background: var(--color-warning-fg);
-}
-
-.chat-step[data-status="error"] {
-  color: var(--color-error-strong);
-}
-
-/* A step the agent re-ran (ModelRetry): visible as history, never alarming. */
-.chat-step[data-status="retried"] {
-  color: var(--color-muted-fg);
-  text-decoration: line-through;
-  opacity: 0.65;
-}
-
-/* Carries the retried state to assistive tech; the strike-through carries it visually. */
-.chat-step__note {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  clip-path: inset(50%);
-}
-
 /* Design sync's one card language (`.gcard` / `.itin` / `.fcard` are the same
    shell): a paper plane, a 2px soft line, an 18px corner, and a wide low-lying
    ground shadow instead of the button's hard 3px ledge — a card is landed, not
@@ -221,12 +84,10 @@
 }
 
 /* §4.3 pill label: ONE geometry for every scrap of text that names a fact
-   about a card — pacing, leg mode, episode, card version, route badge. The
+   about a card — pacing, card version, route badge. The
    grounds differ per family below; the shape never does. */
-.chat-spot-card__ep,
 .chat-card__version-badge,
 .chat-pacing-pill,
-.chat-itinerary__capsule,
 .chat-route-pill {
   border-radius: 50px;
   padding: 3px 10px;
@@ -235,77 +96,9 @@
   white-space: nowrap;
 }
 
-.chat-card--skeleton {
-  background: var(--color-muted);
-  color: var(--color-muted-fg);
-  animation: chat-pulse 1.2s ease-in-out infinite;
-}
-
 .chat-card--fallback {
   background: var(--color-muted);
   color: var(--color-muted-fg);
-}
-
-.chat-waiting {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.chat-waiting__subtitle {
-  font-size: 0.8125rem;
-  color: var(--color-muted-fg);
-}
-
-.chat-mood {
-  margin: 0;
-  padding: 0.875rem 1rem;
-  border-radius: 14px;
-  color: var(--color-primary-fg);
-  background: linear-gradient(135deg, var(--color-primary-strong), var(--color-primary-ink));
-  box-shadow: 0 3px 0 var(--shadow-3d);
-}
-
-.chat-mood__quote {
-  margin: 0;
-  font-size: 1rem;
-  text-shadow: 0 1px 2px var(--shadow-3d);
-}
-
-.chat-mood__source {
-  margin-top: 0.375rem;
-  font-size: 0.75rem;
-  opacity: 0.85;
-}
-
-.chat-footprint {
-  font-size: 0.8125rem;
-  color: var(--color-muted-fg);
-}
-
-.chat-settled {
-  font-size: 0.8125rem;
-  color: var(--color-muted-fg);
-}
-
-.chat-settled__summary {
-  cursor: pointer;
-  list-style: none;
-}
-
-.chat-settled__elapsed {
-  font-weight: 600;
-  color: var(--color-primary-strong);
-}
-
-.chat-error-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.625rem 1rem;
-  background: var(--color-error-bg);
-  color: var(--color-error-strong);
 }
 
 .chat-chip:disabled {
@@ -313,95 +106,10 @@
   cursor: not-allowed;
 }
 
-/* D1-D9 fallback states (issue #272 S1.6) — semantic tokens only. */
-
-.chat-interruption {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.625rem 1rem;
-  border-radius: 14px;
-  background: var(--color-error-bg);
-  color: var(--color-error-strong);
-}
-
-/* §4.2 3D press, chat's half: the paper ground, the 800 weight and the 44px
-   touch floor that lifted this family off the old 36px. The pill, the ledge,
-   the hover lift and the pressed sink are the shared half and live in
-   press-3d.css — this group used to declare the sink without ever declaring
-   the lift, which is the drift that reunification fixes. */
-.chat-error-banner__retry,
-.chat-fallback__retry,
-.chat-interruption__retry,
-.chat-session-expired__login,
-.chat-session-expired__resume,
-.chat-budget-exhausted__login,
-.chat-quota-exhausted__login {
-  min-height: 44px;
-  border: 2px solid var(--color-border-soft);
-  padding: 0.5rem 1rem;
-  background: var(--color-paper);
-  color: var(--color-fg);
-  font: inherit;
-  font-weight: 800;
-}
-
-.chat-interruption__retry:disabled,
-.chat-session-expired__resume:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.chat-session-expired,
-.chat-budget-exhausted,
-.chat-quota-exhausted {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.625rem 1rem;
-  border-radius: 14px;
-  border-left: 4px solid var(--color-warning-fg);
-  background: var(--color-muted);
-  color: var(--color-fg);
-}
-
-/* D12 (#282 S1.10) is the only banner in this family where nothing failed —
-   this visitor's own allowance ran out while the surface stays healthy — so it
-   overrides just the tint with the primary invitation tokens. The warning
-   tokens stay reserved for D8/D11, where something is actually wrong. */
-.chat-quota-exhausted {
-  border-left-color: var(--color-primary-strong);
-  background: var(--color-primary-soft);
-}
-
-.chat-session-expired__actions,
-.chat-budget-exhausted__actions,
-.chat-quota-exhausted__actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.chat-card--fallback-state {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-
-.chat-fallback__subtitle {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--color-muted-fg);
-}
-
-.chat-fallback__hint {
-  margin: 0;
-  font-size: 0.9375rem;
-  color: var(--color-muted-fg);
-}
+/* D1-D9 fallback states (issue #272 S1.6) — semantic tokens only. The inline
+   banners themselves (chat-error-banner, chat-interruption, the session/limit
+   family) moved to the shared InlineNotice component's Tailwind utilities;
+   their BEM names remain in the DOM as unstyled hooks. */
 
 .chat-short-route {
   display: flex;
@@ -417,168 +125,6 @@
   margin: 0;
   font-size: 0.9375rem;
   color: var(--color-muted-fg);
-}
-
-/* The route card's spot strip (design sync `.srow` list). */
-.chat-card__spots {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.chat-spot {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-}
-
-/* §4.5: rows inside one block are parted by a hairline dash; the 2px solid
-   line is reserved for parting whole blocks. The design's `--line2` sits
-   between our two line tokens, so it is mixed from them rather than invented. */
-.chat-spot + .chat-spot {
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px dashed color-mix(in srgb, var(--color-border) 45%, var(--color-border-soft));
-}
-
-.chat-scene-thumb {
-  flex-shrink: 0;
-  width: 3.5rem;
-  height: 2.25rem;
-  border-radius: 8px;
-  object-fit: cover;
-}
-
-.chat-scene-thumb--fallback {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary-strong), var(--color-primary-ink));
-  color: var(--color-primary-fg);
-  font-size: 0.6875rem;
-  font-weight: 700;
-}
-
-.chat-map-fallback {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 1rem;
-  border: 1px dashed var(--color-border);
-  border-radius: 14px;
-  background: var(--color-muted);
-  color: var(--color-muted-fg);
-}
-
-.chat-map-fallback__doodle {
-  width: 4rem;
-  height: 2.5rem;
-  color: var(--color-primary-strong);
-}
-
-.chat-map-fallback__open {
-  font-weight: 700;
-  color: var(--color-primary-strong);
-}
-
-@keyframes chat-pulse {
-  50% {
-    opacity: 0.6;
-  }
-}
-
-@keyframes chat-shimmer {
-  to {
-    background-position: -200% 0;
-  }
-}
-
-@keyframes chat-dot-bounce {
-  30% {
-    transform: translateY(-0.3rem);
-  }
-}
-
-/* C3a/C3b search result shapes (issue #261 S1.4) */
-
-.chat-search-result {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-/* C3b -> C3a drill: the way back to the 圏 overview (issue #437) */
-
-.chat-drill {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-/* Layout only: the cream press style and tokens come from .chat-chip. */
-.chat-drill__back {
-  align-self: flex-start;
-  font-size: 0.8125rem;
-}
-
-.chat-spot-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
-  gap: 0.75rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* A tile nested in the card plane: same 2px soft line, one corner step down
-   from the 18px shell, and the content cream so it reads as a layer ON paper.
-   No press ledge — the tile is not the control, its checkbox is. */
-.chat-spot-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  padding: 0.5rem;
-  border: 2px solid var(--color-border-soft);
-  border-radius: 14px;
-  background: var(--color-card);
-}
-
-/* §4.4 picked: the teal ground plus the teal press depth, as the design's
-   `.srow.on .pcb` marks a chosen row. */
-.chat-spot-card:has(.chat-spot-card__check:checked) {
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
-  box-shadow: 0 3px 0 var(--color-primary-strong);
-}
-
-.chat-spot-card__check {
-  accent-color: var(--color-primary);
-}
-
-.chat-spot-card .chat-scene-thumb {
-  width: 100%;
-  height: 5rem;
-}
-
-.chat-spot-card__ep {
-  align-self: flex-start;
-  background: var(--color-primary-soft);
-  color: var(--color-primary-strong);
-}
-
-.chat-spot-card__pick {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.875rem;
-  color: var(--color-fg);
-}
-
-.chat-spot-card__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .chat-search-map {
@@ -657,17 +203,12 @@
 .chat-itinerary__timeline {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.chat-itinerary__stop {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
+/* Timeline layout and connections live in Tailwind on the component. */
 
 .chat-itinerary__time {
   font-variant-numeric: tabular-nums;
@@ -675,27 +216,8 @@
   color: var(--color-muted-fg);
 }
 
-.chat-itinerary__stop--highlight .chat-itinerary__name {
-  font-weight: 700;
-}
-
 .chat-itinerary__star {
   color: var(--color-gold);
-}
-
-.chat-itinerary__leg {
-  display: flex;
-  padding-left: 1.5rem;
-}
-
-.chat-itinerary__capsule {
-  background: var(--color-walk-bg);
-  color: var(--color-walk-fg);
-}
-
-.chat-itinerary__leg[data-mode="transit"] .chat-itinerary__capsule {
-  background: var(--color-explore-bg);
-  color: var(--color-explore-fg);
 }
 
 .chat-cta-row {
@@ -705,11 +227,7 @@
   gap: 0.5rem;
 }
 
-/* P5 save CTA (issue #273 S1.7) carries NO tone override on purpose. The design
-   sync assigns the card-foot CTAs as 「金=しおり共有(唯一) · cream=Maps/保存/
-   歩くモード」 with the standing rule 「永不同屏两金」, so 保存する inherits the base
-   .chat-chip cream press style and the gold tokens stay reserved for the single
-   share CTA per screen. A tone rule here would be that second gold. */
+/* Route actions use Animal Button's primary and text appearances. */
 
 .chat-cta-row__saved {
   color: var(--color-primary-strong);
@@ -784,59 +302,6 @@
   color: var(--color-fg);
 }
 
-/* --- E2 selection tray + recompute footprint (issue #273 S1.7) ---
-   Design-sync `Chat 完整状态.html` `.rebar`: gold-bordered sticky bar docked
-   above the composer; the recompute footprint replaces the tool pipeline
-   (`selected_point_ids` bypass — no agent, no agent theater). */
-
-.chat-selection-tray {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  margin: 0 1rem 0.5rem;
-  padding: 0.5625rem 0.625rem 0.5625rem 0.875rem;
-  border: 2px solid var(--color-gold);
-  border-radius: 16px;
-  background: var(--color-card);
-  color: var(--color-fg);
-  font-size: 0.8125rem;
-  font-weight: 700;
-  box-shadow: 0 3px 0 var(--shadow-3d);
-}
-
-.chat-selection-tray__summary {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.chat-selection-tray__sub {
-  color: var(--color-muted-fg);
-  font-size: 0.71875rem;
-}
-
-.chat-selection-tray__count {
-  color: var(--color-fg);
-}
-
-.chat-selection-tray__action {
-  min-height: 44px;
-  border: 0;
-  border-radius: 999px;
-  padding: 0.5625rem 1rem;
-  background: var(--color-gold);
-  color: var(--color-gold-ink);
-  font-size: 0.8125rem;
-  font-weight: 700;
-  box-shadow: 0 3px 0 var(--shadow-3d);
-  cursor: pointer;
-}
-
-.chat-selection-tray__action:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 var(--shadow-3d);
-}
-
 /* Persistent polite live region: keeps announcing the recompute after the
    tray unmounts on fire (a11y focus handoff, #461 review). */
 .chat-live-note {
@@ -853,19 +318,6 @@
 
 /* --- S1.3 clarification, departure chips, location prompt, photo search --- */
 
-.chat-clarify {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  align-items: flex-start;
-}
-
-.chat-clarify__question {
-  color: var(--color-fg);
-}
-
-.chat-clarify__option,
-.chat-clarify__escape,
 .chat-departure__chip {
   border: 1px solid var(--color-border);
   border-radius: 999px;
@@ -875,26 +327,8 @@
   cursor: pointer;
 }
 
-.chat-clarify__option:hover:not(:disabled),
 .chat-departure__chip:hover {
   background: var(--color-primary-soft);
-}
-
-/* §4.4: once one option is taken, its siblings fade to the design's .42. The
-   design also sets `pointer-events:none` there, but that is the prototype
-   standing in for a disabled control — ClarifyCard already marks these buttons
-   `disabled`, so restating it in CSS would be the same fact written twice. */
-.chat-clarify__option--faded {
-  opacity: 0.42;
-  transition: opacity 0.3s ease;
-}
-
-.chat-clarify__escape {
-  color: var(--color-muted-fg);
-}
-
-.chat-clarify__hint {
-  color: var(--color-muted-fg);
 }
 
 .chat-departure {
@@ -907,79 +341,6 @@
 
 .chat-departure__prompt {
   color: var(--color-fg);
-}
-
-.chat-location__allow,
-.chat-location__submit {
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-primary);
-  color: var(--color-primary-ink);
-  padding: 0.35rem 0.9rem;
-  cursor: pointer;
-}
-
-.chat-location__denied p {
-  color: var(--color-muted-fg);
-}
-
-.chat-location__manual {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.chat-location__input {
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  background: var(--color-paper);
-  color: var(--color-fg);
-  padding: 0.35rem 0.6rem;
-}
-
-.chat-photo {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
-  padding: 0.25rem 1rem;
-}
-
-.chat-photo__label {
-  color: var(--color-explore-fg);
-  background: var(--color-explore-bg);
-  border-radius: 999px;
-  padding: 0.35rem 0.9rem;
-  cursor: pointer;
-}
-
-.chat-photo__input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-}
-
-.chat-photo__note {
-  color: var(--color-muted-fg);
-  font-size: 0.8em;
-}
-
-.chat-photo__error {
-  color: var(--color-error-strong);
-  background: var(--color-error-bg);
-  border-radius: 0.5rem;
-  padding: 0.35rem 0.6rem;
-}
-
-.chat-photo__retry {
-  margin-left: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-card);
-  color: var(--color-fg);
-  padding: 0.2rem 0.7rem;
-  cursor: pointer;
 }
 
 /* --- S1.9 Turnstile entry gate --- */
@@ -1007,40 +368,6 @@
   text-align: center;
 }
 
-.turnstile-gate {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  max-width: 32rem;
-  margin-inline: auto;
-  padding-inline: 1rem;
-  padding-block: 2rem;
-  border: 1px solid var(--color-border);
-  border-radius: 24px;
-  background: var(--color-card);
-}
-
-.turnstile-gate .cf-turnstile:not(:empty) {
-  margin-block: 0.75rem;
-}
-
-.turnstile-gate__error {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-block: 0.5rem 0.75rem;
-  padding: 0.5rem 0.875rem;
-  border-radius: 14px;
-  background: var(--color-error-bg);
-  color: var(--color-error-strong);
-  font-size: 0.8125rem;
-  font-weight: 700;
-}
-
 .turnstile-gate__retry {
   min-height: 36px;
   padding: 0 0.875rem;
@@ -1057,105 +384,12 @@
   outline: 2px solid var(--color-focus);
 }
 
-/* BYOK journey surfaces (#284 T8): the D13 gate + value explainer and the
-   D14 key-not-accepted strip. Warning tint family, cream CTA — no gold. */
-
-.chat-byok-upsell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  background: var(--color-card);
-  color: var(--color-fg);
-}
-
-.chat-byok-upsell__title {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.chat-byok-upsell__points {
-  margin: 0;
-  padding-left: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  color: var(--color-muted-fg);
-}
-
-.animal-btn.chat-byok-upsell__signin {
-  align-self: flex-start;
-}
-
-.chat-byok-gate {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.chat-byok-gate__message,
-.chat-byok-rejected {
-  margin: 0;
-  padding: 0.625rem 1rem;
-  border-radius: 14px;
-  border: 1px solid var(--color-warning-fg);
-  background: var(--color-muted);
-  color: var(--color-fg);
-}
-
-.chat-byok-rejected__open:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 0 var(--shadow-3d);
-}
-
-.chat-byok-rejected__open:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 var(--shadow-3d);
-}
-
-.chat-byok-rejected {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.chat-byok-rejected__open {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  min-height: 36px;
-  padding: 0.375rem 0.875rem;
-  background: var(--color-paper);
-  color: var(--color-fg);
-  text-decoration: none;
-  box-shadow: 0 2px 0 var(--shadow-3d);
-  cursor: pointer;
-}
-
 /* WCAG 2.2.2 Pause/Stop/Hide (+ 2.3.3): decorative looping motion yields to
  * the reduce preference. Chat animations are status cues, not content, so the
  * visual states are preserved — only the animation is disabled. */
 @media (prefers-reduced-motion: reduce) {
-  .chat-typing__dot,
-  .chat-step[data-status="running"],
-  .chat-card--skeleton,
   .chat-card,
   .chat-message {
     animation: none;
   }
-}
-
-/* Night flips --color-primary-fg to an ink, so the day card's white-on-teal
- * reading would invert into ink-on-teal at 3.4:1. The night card keeps the
- * light-text reading by sinking the gradient to the page floor instead. */
-[data-theme="night"] .chat-mood,
-[data-theme="night"] .chat-scene-thumb--fallback {
-  background: linear-gradient(135deg, var(--color-primary-ink), var(--color-bg));
-  color: var(--color-fg);
 }

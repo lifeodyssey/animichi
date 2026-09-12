@@ -89,11 +89,11 @@ describe("TurnFailure D12 routing", () => {
     expect(screen.getByRole("status").textContent).toContain(ja.errorStates.d12Message);
   });
 
-  it("keeps D11 on the shared-budget alert banner", () => {
+  it("keeps D11 on the shared-budget status notice", () => {
     renderWithLocale(<TurnFailure view={turnView("D11")} dict={ja} locale="ja" />);
-    const alert = screen.getByRole("alert").textContent;
-    expect(alert).toContain(ja.errorStates.d11Message);
-    expect(alert).not.toContain(ja.errorStates.d12Message);
+    const status = screen.getByRole("status").textContent;
+    expect(status).toContain(ja.errorStates.d11Message);
+    expect(status).not.toContain(ja.errorStates.d12Message);
   });
 
   it("forwards the reset instant so the banner can name the time", () => {
@@ -104,13 +104,13 @@ describe("TurnFailure D12 routing", () => {
   });
 });
 
-describe("LimitBanner keeps each limit's own BEM block", () => {
+describe("limit notices keep their integration hooks", () => {
   it.each([
     ["chat-quota-exhausted", banner(), "status", ja.errorStates.d12Login],
-    ["chat-budget-exhausted", <BudgetExhausted dict={ja} />, "alert", ja.errorStates.d11Login],
-  ])("emits the %s classes the stylesheet targets", (block, element, role, loginLabel) => {
+    ["chat-budget-exhausted", <BudgetExhausted dict={ja} />, "status", ja.errorStates.d11Login],
+  ])("keeps the %s hook and its login action", (block, element, role, loginLabel) => {
     renderWithLocale(element);
-    expect(screen.getByRole(role).className).toBe(block);
+    expect(screen.getByRole(role).closest(`.${block}`)).toBeTruthy();
     expect(screen.getByRole("button", { name: loginLabel }).className).toContain(`${block}__login`);
   });
 });

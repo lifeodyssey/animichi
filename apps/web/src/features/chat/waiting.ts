@@ -1,11 +1,8 @@
-/** Elapsed-time thresholds (ms) that escalate the turn-waiting ritual. */
-export const WAITING_THRESHOLDS = { pipeline: 1000, mood: 4000 } as const;
+/** A delayed reassurance, not a processing stage or completion estimate. */
+export const WAITING_THRESHOLDS = { longWait: 15_000 } as const;
 
-/** B2a running <1s · B2b pipeline 1-4s · B2c mood card ≥4s (states spec §B). */
-export type WaitingPhase = "B2a" | "B2b" | "B2c";
+export type WaitingPhase = "waiting" | "extended";
 
 export function waitingPhase(elapsedMs: number): WaitingPhase {
-  if (elapsedMs >= WAITING_THRESHOLDS.mood) return "B2c";
-  if (elapsedMs >= WAITING_THRESHOLDS.pipeline) return "B2b";
-  return "B2a";
+  return elapsedMs >= WAITING_THRESHOLDS.longWait ? "extended" : "waiting";
 }

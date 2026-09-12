@@ -91,8 +91,8 @@ describe("AC: the tray action drives the selected_point_ids bypass", () => {
       expect(document.querySelector('article[data-intent="plan_selected"]')).toBeTruthy();
     });
     const recomputeTurn = document.querySelector('article[data-intent="plan_selected"]');
-    expect(recomputeTurn?.className).toBe("chat-card");
-    expect(document.querySelector('article[data-intent="search_bangumi"]')?.className).toBe("chat-card");
+    expect(recomputeTurn?.classList.contains("animal-card")).toBe(true);
+    expect(document.querySelector('article[data-intent="search_bangumi"]')?.classList.contains("animal-card")).toBe(true);
   });
 });
 
@@ -147,7 +147,7 @@ describe("AC error path: a failed recompute stays on the tray", () => {
     // A masked 500 renders neither the old D4 copy nor the honest-generic D18.
     expect(document.querySelector(".chat-interruption")).toBeNull();
     expect(screen.getByText("宇治橋")).toBeTruthy();
-    const checked = screen.getAllByRole<HTMLInputElement>("checkbox").filter((box) => box.checked);
+    const checked = screen.getAllByRole("checkbox", { checked: true });
     expect(checked).toHaveLength(2);
   });
 

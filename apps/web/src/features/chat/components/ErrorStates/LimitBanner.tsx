@@ -2,13 +2,14 @@ import { useCallback, useState } from "react";
 import { LoginModal } from "../../../auth/ui/LoginModal";
 import { useChatReturnTarget } from "../../ChatReturnTarget";
 import { FallbackRetryButton } from "./FallbackRetryButton";
+import { InlineNotice } from "./InlineNotice";
 
 type Props = Readonly<{
-  /** BEM block name; owns this banner's tint, shares the family geometry. */
+  /** BEM block name, kept on the notice as an unstyled hook for tests. */
   block: string;
   message: string;
   loginLabel: string;
-  /** Set when a locked composer points its `aria-describedby` at this banner. */
+  /** Optional id for a control that describes itself with this notice. */
   id?: string;
   /** `alert` when something failed; `status` when the surface is merely closed. */
   role?: "alert" | "status";
@@ -17,10 +18,8 @@ type Props = Readonly<{
 }>;
 
 /**
- * The shared shape of the limit banners (D11 budget, D12 quota): an inline
- * live-region strip whose single affordance is login, mounted in place so the
- * conversation never unmounts. D8 is deliberately NOT built on this — its
- * second action (resume) makes it a different component, not a variant.
+ * In-place login for the shared-budget gate, with an optional BYOK action.
+ * Per-visitor quota and expired sessions own their distinct presentations.
  */
 type ActionProps = Readonly<{ block: string; loginLabel: string; onLogin: () => void; secondary?: Props["secondary"] }>;
 
@@ -31,10 +30,10 @@ function SecondaryAction({ block, secondary }: Readonly<{ block: string; seconda
 
 function LoginAction({ block, loginLabel, onLogin, secondary }: ActionProps) {
   return (
-    <span className={`${block}__actions`}>
+    <>
       <FallbackRetryButton label={loginLabel} onClick={onLogin} className={`${block}__login`} />
       <SecondaryAction block={block} secondary={secondary} />
-    </span>
+    </>
   );
 }
 
@@ -45,13 +44,21 @@ function useLoginModal() {
   return { open, show, hide };
 }
 
-export function LimitBanner({ block, message, loginLabel, id, role = "alert", secondary }: Props) {
+function LimitNotice({ block, message, loginLabel, id, role = "alert", secondary, onLogin }: Props & Readonly<{ onLogin: () => void }>) {
+  const actions = <LoginAction block={block} loginLabel={loginLabel} onLogin={onLogin} secondary={secondary} />;
+  return (
+    <InlineNotice block={block} tone="auth" role={role} id={id} actions={actions}>
+      {message}
+    </InlineNotice>
+  );
+}
+
+export function LimitBanner(props: Props) {
   const login = useLoginModal();
   return (
-    <div className={block} id={id} role={role}>
-      <span>{message}</span>
-      <LoginAction block={block} loginLabel={loginLabel} onLogin={login.show} secondary={secondary} />
+    <>
+      <LimitNotice {...props} onLogin={login.show} />
       <LoginModal open={login.open} onClose={login.hide} returnTarget={useChatReturnTarget()} />
-    </div>
+    </>
   );
 }

@@ -81,11 +81,12 @@ describe("G4: a running turn keeps the field, not the key", () => {
     expect(field().placeholder).toBe(ja.inputPlaceholder);
   });
 
-  it("dims the pill only while busy", () => {
+  it("announces the send key as busy until the turn completes", () => {
     const view = render(<ChatInput dict={ja} disabled={false} busy onSend={vi.fn()} />);
-    expect(document.querySelector("form")?.className).toContain("opacity-75");
+    expect(sendKey().getAttribute("aria-busy")).toBe("true");
+    expect(field().disabled).toBe(false);
     view.rerender(<ChatInput dict={ja} disabled={false} onSend={vi.fn()} />);
-    expect(document.querySelector("form")?.className).not.toContain("opacity-75");
+    expect(sendKey().getAttribute("aria-busy")).toBeNull();
   });
 
   it("still takes the field away when the page itself is out of service (A5)", () => {

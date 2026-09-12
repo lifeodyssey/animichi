@@ -4,6 +4,14 @@ declare module "animal-island-ui-tailwind/button" {
   export { Button } from "animal-island-ui-tailwind";
 }
 
+declare module "animal-island-ui-tailwind/checkbox" {
+  export { Checkbox } from "animal-island-ui-tailwind";
+}
+
+declare module "animal-island-ui-tailwind/cursor" {
+  export { Cursor } from "animal-island-ui-tailwind";
+}
+
 declare module "animal-island-ui-tailwind/input" {
   export { Input } from "animal-island-ui-tailwind";
 }

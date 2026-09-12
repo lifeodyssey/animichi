@@ -1,3 +1,4 @@
+import type { Locale } from "../../i18n/locales";
 import type { ChatAppBarDict } from "./appbar-i18n";
 import type { ChatByokDict } from "./byok-i18n";
 import type {
@@ -28,6 +29,8 @@ export interface ChatChip {
 
 /** Chat-page copy, kept feature-local to avoid the shared dictionary hot file. */
 export interface ChatDict {
+  /** The dictionary's own locale, so display rules (e.g. work-title order) can follow it. */
+  readonly locale: Locale;
   readonly chips: readonly [ChatChip, ChatChip, ChatChip];
   /** The composer's invitation (direction-E pill, mockup `.input-wrap input`). */
   readonly inputPlaceholder: string;
@@ -54,22 +57,18 @@ export interface ChatDict {
   readonly coldStartHeading: string;
   /** A1 cold-start one-line sub under the headline. */
   readonly coldStartSub: string;
-  /** A1 entry card 1: begin from a work (teal-tinted in the mockup). */
+  /** Introduces authored example questions, not catalog recommendations. */
+  readonly coldStartExamples: string;
+  /** Context label for the work-based example. */
   readonly entryAnimeTitle: string;
   /** A1 entry card 2: begin from a place. */
   readonly entryCityTitle: string;
-  /** A1 entry card 3: no plan, open conversation. */
-  readonly entryChatTitle: string;
-  /** What entry card 1 sends down the existing send path. */
+  /** The visible question and exact outgoing message for the work example. */
   readonly entryAnimePrompt: string;
-  /** What entry card 2 sends down the existing send path. */
+  /** The visible question and exact outgoing message for the city example. */
   readonly entryCityPrompt: string;
-  /** What entry card 3 sends down the existing send path. */
+  /** Visible, optional conversation starter for an undecided visitor. */
   readonly entryChatPrompt: string;
-  /** A1 teal link under the entry cards (mockup `.sample-link`). */
-  readonly sampleLink: string;
-  /** What the sample link sends down the existing send path. */
-  readonly samplePrompt: string;
   readonly errorBanner: string;
   readonly retry: string;
   readonly historyFootprint: string;

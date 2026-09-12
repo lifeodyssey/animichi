@@ -15,7 +15,7 @@ it("keeps already loaded history visible when resume sends identity headers but 
     headers: { "content-type": "text/event-stream", "x-vercel-ai-ui-message-stream": "v1", "x-session-id": "session-native", "x-operation-id": "op-native" },
   })));
   renderChatPage(chatSearch({ session: "session-native" }));
-  await screen.findByText("Hello");
+  await screen.findByText("Hello", { selector: ".chat-message--user p" });
   await waitFor(() => { expect(stream).toBeDefined(); });
   expect(screen.queryByText("Previously committed answer")).toBeTruthy();
   act(() => { stream?.error(new Error("connection lost before snapshot")); });

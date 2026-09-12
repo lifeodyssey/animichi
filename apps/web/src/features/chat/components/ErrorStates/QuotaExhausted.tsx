@@ -1,6 +1,9 @@
+import { Button } from "animal-island-ui-tailwind/button";
+import { useId, useState } from "react";
 import type { Locale } from "../../../../i18n/locales";
+import { LoginModal } from "../../../auth/ui/LoginModal";
+import { useChatReturnTarget } from "../../ChatReturnTarget";
 import type { ChatDict } from "../../i18n";
-import { LimitBanner } from "./LimitBanner";
 
 type Props = Readonly<{ dict: ChatDict; locale: Locale; resetsAtMs: number | undefined }>;
 
@@ -8,27 +11,38 @@ type Props = Readonly<{ dict: ChatDict; locale: Locale; resetsAtMs: number | und
 export const QUOTA_BANNER_ID = "chat-quota-exhausted-banner";
 
 /**
- * Name the reset instant in the reader's own timezone. "Today" is the server's
- * word, not the visitor's — a UTC-midnight reset is 09:00 tomorrow in JST, so
- * copy that only says "today" is wrong for most of the world.
+ * Include the local calendar date so an overnight reset is unambiguous.
+ * No relative-day label or countdown can become stale while the notice is open.
  */
 export function quotaNotice(dict: ChatDict, locale: Locale, resetsAtMs: number | undefined): string {
-  if (resetsAtMs === undefined) return dict.errorStates.d12Message;
-  const time = new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit" }).format(resetsAtMs);
+  if (resetsAtMs === undefined || !Number.isFinite(new Date(resetsAtMs).getTime())) return dict.errorStates.d12Message;
+  const time = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(resetsAtMs);
   return dict.errorStates.d12MessageAt.replace("{time}", time);
 }
 
-/**
- * D12: this anonymous identity spent its own daily message quota (issue #282
- * S1.10). It shares D11's limit-banner shape — nothing is unmounted and login
- * is the single affordance — but it is not a dead end and not a failure: the
- * surface is healthy, only this visitor's allowance ran out. So it announces
- * as a `status`, not an `alert`, the composer stays mounted with the draft
- * intact, and the banner names when sending resumes on its own.
- */
-export function QuotaExhausted({ dict, locale, resetsAtMs }: Props) {
-  const message = quotaNotice(dict, locale, resetsAtMs);
-  return (
-    <LimitBanner block="chat-quota-exhausted" id={QUOTA_BANNER_ID} role="status" message={message} loginLabel={dict.errorStates.d12Login} />
-  );
+const ACTION = "chat-quota-exhausted__login [min-height:44px]! [height:auto]! [padding:9px_16px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-text-color:var(--color-primary-strong)] [--animal-bg-color:var(--color-paper)] focus-visible:outline-primary-strong motion-reduce:[transition:none]!";
+
+function QuotaMark() {
+  return <span aria-hidden="true" className="mt-0.5 [display:grid] size-7 shrink-0 place-items-center rounded-full bg-gold-soft text-fg">
+    <svg className="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"><circle cx="10" cy="10" r="6.5" /><path d="M10 6.5V10l2.5 1.5" /></svg>
+  </span>;
+}
+
+function QuotaNotice({ dict, locale, resetsAtMs, onLogin }: Props & Readonly<{ onLogin: () => void }>) {
+  const descriptionId = useId();
+  return <div id={QUOTA_BANNER_ID} className="chat-quota-exhausted grid min-w-0 grid-cols-[28px_minmax(0,1fr)] items-start gap-x-3 gap-y-3 py-1 text-sm leading-6 text-fg" role="status" aria-atomic="true">
+    <QuotaMark />
+    <div id={descriptionId} className="grid min-w-0 gap-1 [overflow-wrap:anywhere]"><p className="font-semibold">{dict.errorStates.d12Title}</p><p className="text-pretty text-muted-fg">{quotaNotice(dict, locale, resetsAtMs)}</p></div>
+    <div className="col-start-2 min-w-0"><Button htmlType="button" type="default" className={ACTION} onClick={onLogin} aria-describedby={descriptionId} aria-haspopup="dialog">{dict.errorStates.d12Login}</Button></div>
+  </div>;
+}
+
+/** D12 is a waiting state. Authentication and timed quota release remain with
+ * the caller; opening the dialog or dispatching mail does not unlock sending. */
+export function QuotaExhausted(props: Props) {
+  const [open, setOpen] = useState(false);
+  return <>
+    <QuotaNotice {...props} onLogin={() => { setOpen(true); }} />
+    <LoginModal open={open} onClose={() => { setOpen(false); }} returnTarget={useChatReturnTarget()} />
+  </>;
 }

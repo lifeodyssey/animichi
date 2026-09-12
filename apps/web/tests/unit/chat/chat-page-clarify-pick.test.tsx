@@ -16,7 +16,7 @@ import { chatSearch, renderChatPage } from "./_chat-page";
 
 // jsdom reports en-US, so UI copy renders from the en dict; candidate labels stay data-driven.
 const en = chatDictFor("en");
-const HARUHI_LABEL = "凉宫春日的忧郁(涼宮ハルヒの憂鬱)";
+const HARUHI_LABEL = "涼宮ハルヒの憂鬱(凉宫春日的忧郁)";
 
 /** The clarify recording's envelope re-pointed at a bilingual pending selection. */
 function clarifyCandidatesPatch(envelope: Record<string, unknown>): Record<string, unknown> {
@@ -94,8 +94,9 @@ describe("clarify → pick → results (W1 #1220, MSW seam)", () => {
     expect(picks[0]?.body.clarification_id).toBe(4);
     expect(picks[0]?.turnId).toBeTruthy();
     expect(typed.map((turn) => turn.turnId)).not.toContain(picks[0]?.turnId);
-    // The pick still reads as the visitor's own bubble (button + bubble).
-    expect(screen.getAllByText(HARUHI_LABEL).length).toBeGreaterThan(1);
+    // The option uses separate title lines; the visitor's bubble keeps the full label.
+    expect(screen.getByText(HARUHI_LABEL).closest(".chat-message--user")).not.toBeNull();
+    expect(screen.getByRole("button", { name: HARUHI_LABEL }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("shows the honest in-flight copy on 409, re-arms the card, and retry resends the pick", async () => {

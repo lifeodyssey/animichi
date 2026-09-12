@@ -23,8 +23,12 @@ export const HIDDEN_TOOL_STEPS: ReadonlySet<string> = new Set([
 /** In-character progress copy for tool step badges. */
 export interface ChatToolStepsDict {
   readonly labels: Readonly<Record<ToolStepKey, string>>;
+  readonly actions: Readonly<Record<ToolStepKey, string>>;
   readonly fallback: string;
-  /** Screen-reader suffix for a step the agent re-ran after a recoverable retry. */
+  readonly actionFallback: string;
+  readonly done: string;
+  readonly failed: string;
+  /** Visible suffix for a step the agent re-ran after a recoverable retry. */
   readonly retried: string;
 }
 
@@ -38,7 +42,14 @@ export const jaToolSteps: ChatToolStepsDict = {
     plan_multi: "まとめてルートを組んでるよ…",
     web_search: "ネットでしらべてるよ…",
   },
+  actions: {
+    resolve_anime: "作品の確認", search_bangumi: "聖地の検索", search_nearby: "近くの聖地の検索",
+    plan_route: "ルートの作成", plan_selected: "選んだ場所のルート作成", plan_multi: "ルートの組み合わせ", web_search: "ウェブ検索",
+  },
   fallback: "じゅんびしてるよ…",
+  actionFallback: "処理",
+  done: "完了",
+  failed: "完了できなかったよ",
   retried: "やりなおしたよ",
 };
 
@@ -52,7 +63,14 @@ export const zhToolSteps: ChatToolStepsDict = {
     plan_multi: "在把路线排到一起…",
     web_search: "在网上查一查…",
   },
+  actions: {
+    resolve_anime: "确认作品", search_bangumi: "查找圣地", search_nearby: "查找附近的圣地",
+    plan_route: "规划路线", plan_selected: "按所选地点排路线", plan_multi: "组合路线", web_search: "查询网上资料",
+  },
   fallback: "在准备中…",
+  actionFallback: "处理请求",
+  done: "已完成",
+  failed: "未完成",
   retried: "已重试",
 };
 
@@ -66,6 +84,13 @@ export const enToolSteps: ChatToolStepsDict = {
     plan_multi: "Weaving routes together…",
     web_search: "Searching the web…",
   },
+  actions: {
+    resolve_anime: "Title lookup", search_bangumi: "Location search", search_nearby: "Nearby location search",
+    plan_route: "Route planning", plan_selected: "Route for your picks", plan_multi: "Route combination", web_search: "Web search",
+  },
   fallback: "Working on it…",
+  actionFallback: "Request",
+  done: "completed",
+  failed: "not completed",
   retried: "retried",
 };

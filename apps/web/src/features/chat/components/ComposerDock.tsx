@@ -23,11 +23,15 @@ type Props = Readonly<{
 const DOCK_CLASS = "px-7 pb-[var(--chat-gutter)] max-lg:px-4 max-lg:pb-4";
 /** Mockup caps the composer at 860px and centers it inside the panel, like
  * the cold-start column above it. */
-const STACK_CLASS = "mx-auto grid w-full max-w-[860px] gap-2.5";
-const HINT_CLASS = "flex justify-between text-[12.5px] font-bold opacity-70 max-lg:text-[11.5px]";
+const STACK_CLASS = "mx-auto grid w-full max-w-[860px] gap-3";
+const HINT_CLASS = "flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-3 text-sm font-medium leading-5 text-ground-ink";
+
+function EnterGlyph() {
+  return <svg className="size-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 4v6a2 2 0 0 1-2 2H4m4-4-4 4 4 4" /></svg>;
+}
 
 function ComposerHint({ dict }: Readonly<{ dict: ChatDict }>) {
-  return <div className={HINT_CLASS}><span>{dict.hintSend}</span><span>{dict.hintCamera}</span></div>;
+  return <div className={HINT_CLASS}><span>{dict.hintCamera}</span><span className="[display:flex] items-center gap-1.5 max-sm:[display:none]"><EnterGlyph />{dict.hintSend}</span></div>;
 }
 
 type PartsProps = Readonly<{

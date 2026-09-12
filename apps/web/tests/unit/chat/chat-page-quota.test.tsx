@@ -60,7 +60,7 @@ describe("D12 anonymous daily message quota", () => {
     expect(screen.getByRole("status").textContent).toContain(states.d12Message);
     expect(screen.queryByText(states.d8Message)).toBeNull();
     expect(screen.queryByText(states.d11Message)).toBeNull();
-    expect(screen.getByText("ユーフォ")).toBeTruthy();
+    expect(screen.getAllByText("ユーフォ")).not.toHaveLength(0);
   });
 
   it("names the reset instant when the rejection carried one", async () => {
