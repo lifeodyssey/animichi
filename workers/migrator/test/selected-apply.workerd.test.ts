@@ -1,13 +1,19 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { Miniflare } from "miniflare";
 import { selectedWorker } from "./selected-workerd";
+import { pinsSuiteBudget } from "./suite-budget-pin";
+import { WORKERD_BOOT_BUDGET_MS } from "./test-timeout-budget";
 import { selectedTransport, type SelectedLedger } from "./selected-neon-transport";
 import { HASH_A, HASH_B, metadata, revision } from "./preflight-fixtures";
 
 let runtime: Miniflare | undefined;
 afterEach(async () => { await runtime?.dispose(); });
 
-describe("selected apply through the actual Durable Object", () => {
+// Each test here esbuilds the Worker and boots a Miniflare workerd runtime;
+// that wait is budgeted at the suite, not package-wide (#1594).
+describe("selected apply through the actual Durable Object", { timeout: WORKERD_BOOT_BUDGET_MS }, () => {
+  pinsSuiteBudget(WORKERD_BOOT_BUDGET_MS);
+
   it("refuses a missing ledger before the old apply can create it", async () => {
     const db: SelectedLedger = { rows: null, statements: [], headers: [] };
     const worker = await selectedWorker(selectedTransport(db));
