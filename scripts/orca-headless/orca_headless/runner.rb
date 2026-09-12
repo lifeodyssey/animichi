@@ -28,6 +28,13 @@ module OrcaHeadless
       128 + status.termsig
     end
 
+    def terminate(pid)
+      Process.kill("KILL", pid)
+      wait(pid)
+    rescue Errno::ESRCH
+      wait(pid)
+    end
+
     private
 
     def private_output(path)

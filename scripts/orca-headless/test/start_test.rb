@@ -38,6 +38,39 @@ class HeadlessStartValidationTest < Minitest::Test
   end
 end
 
+class HeadlessCommandResponseShapeTest < Minitest::Test
+  include HeadlessFixture
+
+  def test_refuses_a_null_runtime_response
+    assert_invalid_runtime_response("null")
+  end
+
+  def test_refuses_a_scalar_runtime_response
+    assert_invalid_runtime_response("7")
+  end
+
+  def test_refuses_an_array_runtime_response
+    assert_invalid_runtime_response("[]")
+  end
+
+  def test_refuses_a_malformed_nested_runtime_error
+    payload = JSON.generate("ok" => false, "error" => "invalid")
+    result = OrcaHeadless::CommandResult.new(payload, "", 1)
+    code, _out, error = invoke(start_args, FakeCommandRunner.new([result]))
+    assert_equal 1, code
+    assert_match(/command_failed/, error)
+  end
+
+  private
+
+  def assert_invalid_runtime_response(stdout)
+    result = OrcaHeadless::CommandResult.new(stdout, "", 0)
+    code, _out, error = invoke(start_args, FakeCommandRunner.new([result]))
+    assert_equal 1, code
+    assert_match(/command returned invalid JSON object/, error)
+  end
+end
+
 class HeadlessNativeHandleInputTest < Minitest::Test
   include HeadlessFixture
 

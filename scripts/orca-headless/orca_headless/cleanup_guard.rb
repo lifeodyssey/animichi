@@ -49,10 +49,8 @@ module OrcaHeadless
     end
 
     def valid_settlement?(response, dispatch, outcome)
-      valid = { "completed" => "succeeded", "failed" => "failed" }
-      expected = valid[dispatch["status"]]
       live_wrapper = response.dig("result", "observation", "status") == "live"
-      expected && expected == outcome && dispatch["completedAt"] && live_wrapper
+      StatusEvidence.valid_settlement?(dispatch, outcome) && live_wrapper
     end
 
     def terminal!(context, response, label = "terminal")
@@ -133,15 +131,22 @@ module OrcaHeadless
     end
 
     def find_message(context, response)
-      messages = response.dig("result", "messages")
-      message = Array(messages).find { |item| item["id"] == context.input.settlement_message }
+      result = response["result"]
+      messages = result["messages"] if result.is_a?(Hash)
+      valid = messages.is_a?(Array) && messages.all? { |item| item.is_a?(Hash) }
+      raise EvidenceError, "settlement messages are invalid" unless valid
+
+      message = messages.find { |item| item["id"] == context.input.settlement_message }
       raise EvidenceError, "named worker_done settlement was not found" unless message
 
       message
     end
 
     def parse_payload(message)
-      JSON.parse(message.fetch("payload"))
+      payload = JSON.parse(message.fetch("payload"))
+      return payload if payload.is_a?(Hash)
+
+      raise EvidenceError, "worker_done settlement payload is invalid"
     rescue JSON::ParserError, KeyError, TypeError
       raise EvidenceError, "worker_done settlement payload is invalid"
     end

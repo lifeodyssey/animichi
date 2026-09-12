@@ -48,19 +48,28 @@ module OrcaHeadless
     end
 
     def settlement(worker_response)
-      dispatch = worker_response&.dig("result", "dispatch")
+      result = worker_response && worker_response["result"]
+      return { "state" => "unknown" } unless result.is_a?(Hash)
+
+      dispatch = result["dispatch"]
       return { "state" => "unknown" } unless dispatch.is_a?(Hash)
       return active_settlement(dispatch) unless SETTLEMENT_OUTCOMES.key?(dispatch["status"])
-      outcome = worker_response.dig("result", "projection", "outcome")
+      outcome = settlement_outcome(result)
       return { "state" => "unknown" } unless valid_settlement?(dispatch, outcome)
 
       { "state" => "settled", "status" => dispatch["status"],
         "outcome" => outcome }
     end
 
+    def settlement_outcome(result)
+      projection = result["projection"]
+      projection["outcome"] if projection.is_a?(Hash)
+    end
+
     def valid_settlement?(dispatch, outcome)
       completed = dispatch["completedAt"]
-      SETTLEMENT_OUTCOMES[dispatch["status"]] == outcome &&
+      expected = SETTLEMENT_OUTCOMES[dispatch["status"]]
+      expected && expected == outcome &&
         completed.is_a?(String) && !completed.empty?
     end
 
@@ -79,7 +88,11 @@ module OrcaHeadless
 
     def worker_matches?(launch, response)
       result = response.fetch("result")
+      return false unless result.is_a?(Hash)
+
       dispatch = result.fetch("dispatch")
+      return false unless dispatch.is_a?(Hash)
+
       terminal = result.fetch("terminal")
       identities = dispatch_values_match?(launch, dispatch) && terminal_values_match?(launch, terminal)
       identities && exact_worker?(launch, result)
@@ -101,8 +114,8 @@ module OrcaHeadless
     end
 
     def terminal_matches?(launch, response)
-      terminal = response.dig("result", "terminal")
-      terminal_values_match?(launch, terminal)
+      result = response["result"]
+      result.is_a?(Hash) && terminal_values_match?(launch, result["terminal"])
     end
 
     def terminal_values_match?(launch, terminal)

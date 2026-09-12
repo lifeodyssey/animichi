@@ -55,8 +55,37 @@ module OrcaHeadless
 
     def start_agent(context, config)
       pid = context.process.spawn(config.argv, process_options(config))
-      context.store.write_json("process.json", process_payload(config, pid))
+      record_process(context, config, pid)
       pid
+    end
+
+    def record_process(context, config, pid)
+      context.store.write_json("process.json", process_payload(config, pid))
+    rescue StandardError => error
+      abort_untracked_child(context, pid, error)
+    end
+
+    def abort_untracked_child(context, pid, tracking_error)
+      code = terminate_child(context, pid, tracking_error)
+      record_child_abort(context, pid, code, tracking_error)
+      raise tracking_error
+    end
+
+    def terminate_child(context, pid, tracking_error)
+      context.process.terminate(pid)
+    rescue StandardError => cleanup_error
+      message = "process tracking failed (#{tracking_error.class}); " \
+                "child cleanup is uncertain (#{cleanup_error.class})"
+      raise InputError, message
+    end
+
+    def record_child_abort(context, pid, code, tracking_error)
+      payload = { "childPid" => pid, "state" => "reaped", "exitCode" => code,
+        "trackingError" => tracking_error.class.name, "observedAt" => Time.now.utc.iso8601 }
+      context.store.write_json("process-abort.json", payload)
+    rescue StandardError => receipt_error
+      message = "child #{pid} was reaped but cleanup receipt failed (#{receipt_error.class})"
+      raise InputError, message
     end
 
     def finish_agent(context, pid)

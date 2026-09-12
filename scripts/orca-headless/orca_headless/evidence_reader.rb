@@ -19,7 +19,10 @@ module OrcaHeadless
       path = File.join(@state, name)
       return nil unless File.file?(path)
 
-      JSON.parse(File.binread(path))
+      value = JSON.parse(File.binread(path))
+      return value if value.is_a?(Hash)
+
+      raise EvidenceError, "invalid evidence: #{name}"
     rescue JSON::ParserError
       raise EvidenceError, "invalid evidence: #{name}"
     end

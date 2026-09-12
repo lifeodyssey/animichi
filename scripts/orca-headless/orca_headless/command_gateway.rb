@@ -36,16 +36,24 @@ module OrcaHeadless
     end
 
     def parse(stage, stdout)
-      JSON.parse(stdout)
+      body = JSON.parse(stdout)
+      return body if body.is_a?(Hash)
+
+      raise StageFailure.new(stage, "command returned invalid JSON object")
     rescue JSON::ParserError
-      raise StageFailure.new(stage, "command returned invalid JSON")
+      raise StageFailure.new(stage, "command returned invalid JSON object")
     end
 
     def validate(stage, result, body)
       return if result.exit_code.zero? && body["ok"] == true
 
-      code = body.dig("error", "code") || "command_failed"
+      code = error_code(body) || "command_failed"
       raise StageFailure.new(stage, "#{stage} failed (#{code})")
+    end
+
+    def error_code(body)
+      error = body["error"]
+      error["code"] if error.is_a?(Hash)
     end
   end
 end

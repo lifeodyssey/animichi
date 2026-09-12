@@ -108,11 +108,20 @@ module OrcaHeadless
 
     def state_path(path, workspace)
       raise InputError, "state directory must be absolute" unless Pathname.new(path).absolute?
-      parent = File.realpath(File.dirname(path))
+      parent = state_parent(path)
       candidate = File.join(parent, File.basename(path))
       raise InputError, "state directory must be outside workspace" if inside?(candidate, workspace)
 
       candidate
+    end
+
+    def state_parent(path)
+      parent = File.realpath(File.dirname(path))
+      raise InputError, "state directory parent is not a directory" unless File.directory?(parent)
+
+      parent
+    rescue Errno::ENOENT, Errno::ENOTDIR
+      raise InputError, "state directory parent is not a directory"
     end
 
     def inside?(path, directory)

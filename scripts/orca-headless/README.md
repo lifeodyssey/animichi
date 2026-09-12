@@ -27,16 +27,24 @@ The accepted fixed selections are `codex/gpt-5.6-sol/max`,
 router, provider pool, quota policy, scheduler, review algorithm, or retry loop. Role specs must
 tell the worker to invoke Matt `/implement` or `/code-review` as appropriate.
 
+The launch receipt's provider, model, effort, and argv fields describe the requested selection;
+they are not provider-reported effective identity and do not approve an independent review. The
+coordinator verifies effective provider/model/effort from the provider session separately before
+admitting developer or reviewer evidence.
+
 Codex runs `codex exec` with `--approve-for-me` and the user's normal configuration and
 permissions. Grok runs with `--prompt-file`. Neither path disables hooks or bypasses a sandbox.
 The native Dispatch preamble is atomically published byte-for-byte to a private file only after
 Orca creates the Dispatch. Model stdin, stdout, and stderr are files, never an agent TUI or Chat UI.
 
 The state directory must not already exist. It is created as mode `0700`; receipts, the preamble,
-and logs are mode `0600`. A duplicate `start` refuses before contacting the runtime so it cannot
-create a second terminal or Task for the same attempt. The terminal command uses `exec`, and the
-wrapper holds the PTY after recording the model child's exit; this prevents the old exit receipt
-from authorizing cleanup of a later shell or agent.
+and logs are mode `0600`. Receipt publication is atomic no-replace, removes its pending file, and
+syncs the parent directory before returning. A duplicate `start` refuses before contacting the
+runtime so it cannot create a second terminal or Task for the same attempt. The terminal command
+uses `exec`, and the wrapper holds the PTY after recording the model child's exit; this prevents the
+old exit receipt from authorizing cleanup of a later shell or agent. If the child starts but its
+process receipt cannot be committed, the runner terminates and reaps only that exact new PID; a
+successful abort is recorded in `process-abort.json`, while cleanup uncertainty remains an error.
 
 ## Inspect
 
