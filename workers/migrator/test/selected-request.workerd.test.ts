@@ -2,13 +2,19 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Miniflare } from "miniflare";
 import { metadata, revision } from "./preflight-fixtures";
 import { selectedWorker } from "./selected-workerd";
+import { pinsSuiteBudget } from "./suite-budget-pin";
+import { WORKERD_BOOT_BUDGET_MS } from "./test-timeout-budget";
 import { selectedTransport, type SelectedLedger } from "./selected-neon-transport";
 
 let runtime: Miniflare | undefined;
 afterEach(async () => { await runtime?.dispose(); });
 const production = { environment: undefined, sub: "repo:lifeodyssey/animichi:environment:production" };
 
-describe("selected apply request boundaries", () => {
+// Each test here esbuilds the Worker and boots a Miniflare workerd runtime;
+// that wait is budgeted at the suite, not package-wide (#1594).
+describe("selected apply request boundaries", { timeout: WORKERD_BOOT_BUDGET_MS }, () => {
+  pinsSuiteBudget(WORKERD_BOOT_BUDGET_MS);
+
   it("keeps legitimate production subjects without an environment claim", async () => {
     const db: SelectedLedger = { rows: [revision()], statements: [], headers: [] };
     const worker = await selectedWorker(selectedTransport(db), production, "production");

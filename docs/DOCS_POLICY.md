@@ -72,6 +72,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Topic | Current source of truth | Notes / was |
 |---|---|---|
 | **Why** the architecture is shaped this way | `docs/specs/2026-06-13-architecture-adr.md` | Foundational ADR; its "全 TS on Workers" decision was later refined by the rebuild spec below |
+| Database layer: ORM, migrations, spatial | `docs/specs/2026-09-12-prisma8-database-layer-spec.md` | Owner-signed 2026-09-13: Prisma 8 owns schema **and** query layer; Atlas and Drizzle retire; PostGIS stays. Spatial predicates via a private geography extension pack (debt: #1620). Supersedes the Atlas half of `docs/specs/2026-08-16-migrator-neon-connectivity-spec.md` |
 | **Current target** architecture (agent runtime and eval) | `docs/specs/2026-09-09-agent-on-pi-harness-spec.md` | Native Pi harness and Cloudflare Agents inside `workers/edge`, Neon business authority and native Logfire evals. The 2026-09-01 spec retains its unmodified functional-parity criteria only where not superseded. **Supersedes SD-4 of `docs/specs/2026-07-06-frontend-rebuild-spec.md`**; that spec remains canonical for the web rebuild |
 | Current runtime reference | `docs/ARCHITECTURE.md` | Native chat source, remaining services and deployment evidence boundary |
 | Agent entry | `workers/edge/src/gateway/agent-turn.ts` → `workers/edge/src/agent/host/session-agent.ts` | Authenticated native Pi host |
