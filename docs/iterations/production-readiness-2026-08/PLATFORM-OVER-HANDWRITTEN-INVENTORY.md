@@ -2,6 +2,8 @@
 
 Produced 2026-09-12 against `origin/main` (`e697aa84`), as the evidence base for
 [ADR 0008](../../adr/0008-platform-over-handwritten.md). Buckets are that ADR's:
+Buckets cover every **in-scope** hand-written mechanism. Language ports are excluded — see the excluded section at the end.
+
 **A** = an adopted dependency or platform feature already does this · **B** = it does part of it and
 the gap is real, adjudicated per case in #1593 · **C** = the platform genuinely lacks it, hand-written
 is correct.
@@ -51,7 +53,7 @@ Do not action any row here. Each needs the five admission facts #1593 requires.
 | what | path:line | lines | equivalent | the gap |
 |---|---|---|---|---|
 | OpenAPI breaking-change engine | `packages/contract/src/openapi-diff.ts` · `openapi-schema-diff.ts` · `operation-set.ts` · `openapi-vet.ts` · `openapi-changes.ts` | **830** | `oasdiff` | Not adopted, so not A under this ADR's reading. Could not confirm oasdiff covers our rule that a `/v2/…` path requires the superseded operation to carry `deprecated: true` **and** `x-sunset` |
-| From-scratch Atlas apply engine, ledger, quote-aware SQL splitter | `workers/migrator/src/http-apply.ts` · `sql-split.ts` · `ledger.ts` · `preflight-ledger.ts` · `chain.ts` · `sql.ts` | **644** | Atlas CLI + its own ledger and advisory lock | Workers cannot exec a subprocess. **Collides with ADR 0006 decision 6** — see ADR 0008 §5 |
+| ~~From-scratch Atlas apply engine, ledger, quote-aware SQL splitter~~ **CLOSED 2026-09-12** | `workers/migrator/src/http-apply.ts` · `sql-split.ts` · `ledger.ts` · `preflight-ledger.ts` · `chain.ts` · `sql.ts` (+5 modules the first count missed; ≈812 not 644) | ≈812 | Atlas CLI + its own ledger and advisory lock | **Not** "Workers cannot exec a subprocess" — the connectivity spec refuses that claim. The cause was that **5432 from the migrator container never completed TLS to Neon**, so Option 2 abandoned the port, and that spec's decision 5 then required the Worker to keep writing `atlas_schema_revisions` with Atlas v0.30 semantics. **Resolved by retiring Atlas**: Prisma 8 owns the database layer and `ControlClient.migrate` replaces these modules. See ADR 0008 §5 entry 1 |
 | Exact per-identity rate counter on a DO | `workers/edge/src/protect/rate-limiter.ts` + `edge-guard.ts` | 364 | Cloudflare `RATE_LIMITER` binding | Already used for the coarse tier, whose own comment calls it best-effort. No single-key atomic strongly-consistent count |
 | zod/oRPC → Pydantic code generator | `packages/contract/scripts/emit-agent-python.ts:1-346` | 346 | `datamodel-code-generator` over the emitted OpenAPI | Not adopted; and `agent-openapi.json` is hand-built from an inventory with no component schemas for it to consume |
 | Regex classification of `pulumi preview` stdout | `scripts/local-gates/infra-check.sh:44-179` | 179 | `pulumi preview --json` | Could not confirm the JSON carries severity structurally; and structured severity still would not separate "credentials absent locally" (green) from a real error |
@@ -90,14 +92,11 @@ Correct as written. Each must name what the platform lacks, in the code.
 | Lossless JPEG EXIF-stripping walker | `apps/web/src/lib/exif-strip.ts` | 162 | Survey recorded in the file header: Node-stream-only, unmaintained, or lossy |
 | Zero-dependency PNG chunk codec | `e2e/visual/png.ts` | 160 | No PNG package in the workspace; Playwright's bundled `pngjs` is not a published subpath |
 | Hand-written i18n core | `apps/web/src/i18n/*` + `lib/i18n/locale-storage.ts` | 164 | Zero i18n/intl dependency in `apps/web` |
-| CPython MT19937 ported bit-for-bit | `packages/eval/src/gate/python-random.ts` | 148 | Nothing ships a CPython-bit-compatible RNG. **Not a platform duplication — a language port; see ADR 0008 §5** |
 | OIDC-minted migration handshake | `scripts/delivery/migrate-through-worker.sh` | 137 | **Accepted** — ADR 0006 decision 6 |
 | Bounded backoff with `Retry-After` | `workers/catalog/src/ingest/retry.ts` | 131 | No retry library adopted; Workers `fetch` has none |
 | Stratified paired bootstrap | `packages/eval/src/gate/paired-bootstrap.ts` | 129 | No adopted dep has one |
 | Smoke probe on response-body semantics | `.github/scripts/staging-smoke-check.sh` | 118 | `curl --retry` retries transport/status, not body semantics |
 | BYOK redaction before `console.*` | `workers/edge/src/agent/egress/secret-scrub.ts` | 108 | No Workers-side request-layer redaction middleware exists |
-| Shewchuk exact summation | `packages/eval/src/gate/python-sum.ts` | 98 | JS has no exact-summation primitive |
-| Python round-half-even rendering | `packages/eval/src/gate/python-number-text.ts` | 86 | `toFixed` rounds half-away-from-zero |
 | Container egress denylist as IP-literal globs | `workers/edge/src/container/container-env.ts:59-140` | ~82 | `deniedHosts` is hostname glob — no CIDR, no DNS |
 | Root-directory allowlist gate | `scripts/local-gates/check-root-allowlist.sh` | 81 | No linter enforces it |
 | Container cold-start fetch retry | `workers/edge/src/gateway/container-fetch.ts:14-87` | 74 | `@cloudflare/containers` retries container **start**, never the subsequent `tcpPort.fetch()` |
@@ -110,6 +109,24 @@ Correct as written. Each must name what the platform lacks, in the code.
 | Periodic SSE keep-alive | `workers/edge/src/agent/views/watch-response.ts:27-43` | 17 | AI SDK `createUIMessageStream` has no heartbeat |
 | jsdom `matchMedia`/`ResizeObserver` stubs | `apps/web/tests/setup/viewport-hermetic.ts` | 16 | jsdom implements neither |
 | Cron-string → job-kind lookup | `workers/catalog/src/import/schedule.ts:22-29` | 8 | `ScheduledController` exposes only the cron string |
+
+## Excluded from A/B/C — language ports
+
+ADR 0008 does not reach these, so they carry no bucket. Classifying them as C would be wrong: C means
+*the platform genuinely lacks it*, and no platform is being asked for anything here. What is being
+reproduced is another **language's** behaviour, deliberately, so two implementations of the same gate
+produce diffable numbers.
+
+| what | path | lines | why it exists |
+|---|---|---|---|
+| CPython MT19937, bit-for-bit | `packages/eval/src/gate/python-random.ts` | 148 | The TS gate's bootstrap must be comparable against the Python one's |
+| Shewchuk exact summation (`math.fsum`) | `packages/eval/src/gate/python-sum.ts` | 98 | Naive `+=` drifts enough to flip a bisection step in `clopper-pearson.ts` |
+| Python `format(v,'.Nf')` round-half-even | `packages/eval/src/gate/python-number-text.ts` | 86 | `toFixed` rounds half-away-from-zero; worked example in-file: `0.15625` → Python `"0.1562"`, JS `"0.1563"` |
+
+**These have a closing window, which is the part that matters.** `stats-oracle.ts:9-13` names its source
+as the Python side's own answers, produced by `stats_oracle.py` running the real `stats.py`/`gate.py`;
+#1607 deletes `apps/agent` and takes that source with it. So whether the ports have served their
+purpose must be decided **before #1607 merges**, and #1603 is where it lands.
 
 ## Two things the principle does not reach
 

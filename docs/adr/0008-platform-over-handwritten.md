@@ -60,6 +60,12 @@ breaking-change engine in `packages/contract` duplicates `oasdiff`, which is not
 "already adopted" it is a B; under "off-the-shelf exists" it would be the largest A in the repo.
 **Resolve that reading before applying this ADR to anything.**
 
+Whichever reading wins, it reaches **only candidates already confirmed to have an adopted-or-available
+equivalent that does the same job**. A candidate whose equivalent is unconfirmed is not an A under
+either reading — it stays unresolved until someone confirms it. A candidate where the platform
+genuinely lacks the capability is C, and no reading of this paragraph turns it into an A. The failure
+to guard against is a reviewer using the looser reading to delete hand-written code that is correct.
+
 **Not a licence to delete.** Replacing hand-written machinery with a library is a change like any
 other: it needs the tests that prove the behaviour survived, and mutation evidence where the
 behaviour is load-bearing. "The library does this" is a reason to open the card, not to skip its gates.
