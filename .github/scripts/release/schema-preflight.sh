@@ -30,20 +30,23 @@ request_preflight() {
     -H "Authorization: Bearer $token" -H 'content-type: application/json' \
     --data-binary @preflight-request.json "${MIGRATOR_URL%/}/preflight"
 }
+# A 503 means the endpoint resolved no DSN or its driver threw: nothing here starts a
+# container. The one benign cause is a migrator published seconds ago that is not serving
+# this request yet, so the wait is bounded and then fails closed.
+unavailable_attempts="${UNAVAILABLE_ATTEMPTS:-10}"
+unavailable_poll_seconds="${UNAVAILABLE_POLL_SECONDS:-15}"
 attempt=1
 while :; do
   code="$(request_preflight)"
   [ "$code" != 200 ] || break
   if [ "$code" = "503" ]; then
-    echo "::notice::preflight 503 body: $(cat schema-preflight.json 2>/dev/null || echo no_response)"
-    echo "::notice::preflight unavailable (container starting), attempt $attempt, sleeping 15s..."
-    sleep 15
+    echo "::notice::just-published migrator is not answering preflight yet, attempt $attempt/$unavailable_attempts, sleeping ${unavailable_poll_seconds}s..."
+    sleep "$unavailable_poll_seconds"
     attempt=$((attempt + 1))
-    [ $attempt -le 10 ] || { echo '::error::container failed to start after 10 attempts'; exit 1; }
+    [ "$attempt" -le "$unavailable_attempts" ] || { echo "::error::migrator never answered preflight after $unavailable_attempts attempts"; exit 1; }
     continue
   fi
   if [ -z "$prisma_ref" ] || [ "$code" != 409 ] || ! jq -e '.error == "stale_bundle" or .error == "stale_prisma_bundle"' schema-preflight.json > /dev/null; then
-    echo "::notice::preflight response: $(cat schema-preflight.json 2>/dev/null || echo no_response)"
     echo "::error::migration preflight refused or unavailable (HTTP $code)"; exit 1
   fi
   [ "$attempt" -lt "${STALE_BUNDLE_ATTEMPTS:-3}" ] || { echo '::error::native preflight remained on a stale bundle'; exit 1; }

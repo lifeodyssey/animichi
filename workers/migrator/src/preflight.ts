@@ -15,9 +15,7 @@ function unavailable(c: Context<{ Bindings: Env }>, error: unknown): Response {
   if (error instanceof NeonDbError && error.code === "42P01") {
     return c.json({ compatible: false, error: "ledger_missing" }, 422);
   }
-  const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-  console.error("[preflight] unavailable:", detail);
-  return c.json({ error: "preflight_unavailable", detail }, 503);
+  return c.json({ error: "preflight_unavailable" }, 503);
 }
 
 async function preflight(c: Context<{ Bindings: Env }>, deps: MigratorDeps): Promise<Response> {
@@ -31,7 +29,7 @@ async function preflight(c: Context<{ Bindings: Env }>, deps: MigratorDeps): Pro
       return c.json({ error: "stale_prisma_bundle", prismaTarget: PRISMA_TARGET }, 409);
     }
     const dsn = await resolveDsn(c.env);
-    if (!dsn) return c.json({ error: "preflight_unavailable", detail: "dsn resolved empty" }, 503);
+    if (!dsn) return c.json({ error: "preflight_unavailable" }, 503);
     const result = await preview(c.env, deps, dsn, metadata);
     return c.json(result, result.compatible ? 200 : 422);
   } catch (error) {

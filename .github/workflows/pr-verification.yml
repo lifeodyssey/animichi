@@ -303,6 +303,7 @@ jobs:
           bash scripts/delivery/migrate-through-worker.test.sh
           bash .github/scripts/bundle-release-worker.test.sh
           bash .github/scripts/staging-smoke-check.test.sh
+          bash .github/scripts/release/schema-preflight.test.sh
           bash .github/scripts/check-e2e-promotion.test.sh
           bash .github/scripts/check-e2e-promotion.sh
 
