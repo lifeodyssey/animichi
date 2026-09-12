@@ -6,6 +6,7 @@ import type { ChatDict } from "../i18n";
 import { formatElapsed } from "../telemetry";
 import { statusedSteps } from "../tool-steps";
 import { DataPartCard } from "./DataPartCard";
+import { MESSAGE_LIST_CLASS, MessageText, MessageTurn } from "./MessagePresentation";
 import { SettledFootprint } from "./SettledFootprint";
 import { ToolStepBadge } from "./ToolStepBadge";
 
@@ -22,7 +23,7 @@ function nonToolParts(message: UIMessage): readonly Part[] {
 }
 
 function MessagePart({ part, dict, superseded, settled }: PartProps) {
-  if (part.type === "text") return <p className="chat-bubble">{part.text}</p>;
+  if (part.type === "text") return <MessageText text={part.text} />;
   if (part.type === "data-response") return <DataPartCard data={part.data} dict={dict} superseded={superseded} pending={!settled} />;
   return null;
 }
@@ -65,10 +66,11 @@ function useSupersededKeys(visible: readonly UIMessage[]): ReadonlySet<string> {
   return held.current.set;
 }
 
-function ToolBadges({ parts, dict }: Readonly<{ parts: readonly ToolPart[]; dict: ChatDict }>) {
+function ToolBadges({ parts, dict, settled }: Readonly<{ parts: readonly ToolPart[]; dict: ChatDict; settled: boolean }>) {
   const badges = statusedSteps(parts).flatMap(({ step, status }) => {
     if (HIDDEN_TOOL_STEPS.has(step.type.replace(/^tool-/, ""))) return [];
-    return [<ToolStepBadge key={step.toolCallId} type={step.type} status={status} dict={dict} />];
+    const displayStatus = settled && status === "running" ? "error" : status;
+    return [<ToolStepBadge key={step.toolCallId} type={step.type} status={displayStatus} dict={dict} />];
   });
   return badges;
 }
@@ -82,8 +84,8 @@ type PipelineProps = Readonly<{
 
 function Pipeline({ parts, settled, elapsedLabel, dict }: PipelineProps) {
   if (parts.length === 0) return null;
-  const badges = <ToolBadges parts={parts} dict={dict} />;
-  if (!settled) return badges;
+  const badges = <ToolBadges parts={parts} dict={dict} settled={settled} />;
+  if (!settled) return <div className="grid min-w-0 gap-1 py-1">{badges}</div>;
   return <SettledFootprint elapsedLabel={elapsedLabel} dict={dict}>{badges}</SettledFootprint>;
 }
 
@@ -93,7 +95,8 @@ type RailProps = Readonly<{ message: UIMessage; settled: boolean; elapsedLabel?:
  * stream their `plan_selected` step like any other (TURN-4 #955, bypass
  * detection deleted). */
 function MessageRail({ message, settled, elapsedLabel, dict }: RailProps) {
-  return <Pipeline parts={message.parts.filter(isToolPart)} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />;
+  const parts = message.parts.filter(isToolPart).filter((part) => !HIDDEN_TOOL_STEPS.has(part.type.replace(/^tool-/, "")));
+  return <Pipeline parts={parts} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />;
 }
 
 type BodyProps = Readonly<{
@@ -122,11 +125,13 @@ type ItemProps = Readonly<{
 /** Memoized so a streaming SSE chunk re-renders only the row whose message
  * actually changed; every prop is a primitive or a stable reference. */
 const MessageItem = memo(function MessageItem({ message, dict, settled, elapsedLabel, supersededKeys }: ItemProps) {
+  const rail = <MessageRail message={message} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />;
   return (
-    <li className={`chat-message chat-message--${message.role}`}>
-      <MessageRail message={message} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />
+    <MessageTurn role={message.role}>
+      {settled ? null : rail}
       <MessageBody parts={nonToolParts(message)} messageId={message.id} dict={dict} settled={settled} supersededKeys={supersededKeys} />
-    </li>
+      {settled ? rail : null}
+    </MessageTurn>
   );
 });
 
@@ -175,5 +180,5 @@ export function MessageList({ messages, dict, status, settledDurationMs }: ListP
   const items = visible.map((message) => (
     <MessageRow key={message.id} message={message} isLast={message.id === lastId} dict={dict} status={status} settledDurationMs={settledDurationMs} supersededKeys={supersededKeys} />
   ));
-  return <ol className="chat-messages">{items}</ol>;
+  return <ol className={`chat-messages ${MESSAGE_LIST_CLASS}`}>{items}</ol>;
 }

@@ -1,6 +1,9 @@
+import { useId } from "react";
+import type { ReactNode } from "react";
 import { useSpotSelection } from "../selection/use-spot-selection";
 import { sameIds } from "../selection/use-recompute-turn";
 import type { ChatDict } from "../i18n";
+import { AnimalButton } from "./AnimalButton";
 
 /** The recompute turn's lifecycle as the tray sees it (issue #273 S1.7 E2). */
 export type RecomputeStatus = "idle" | "busy" | "failed";
@@ -13,25 +16,25 @@ type TrayProps = Readonly<{
   onRecompute: (ids: readonly string[]) => void;
 }>;
 
-type SummaryProps = Readonly<{ dict: ChatDict; count: number; failed: boolean }>;
+type SummaryProps = Readonly<{ dict: ChatDict; count: number; hint?: string; hintId: string }>;
 
 /** Design `Chat 完整状态.html` syncRebar: below two picks the bar asks for
  * more (「2件以上選んでください」) and the action disables. */
 const MIN_SELECTION = 2;
 
-function traySub(dict: ChatDict, count: number, failed: boolean): string {
-  if (failed) return dict.search.trayFailed;
-  return count < MIN_SELECTION ? dict.search.trayMinimum : dict.search.trayChanged;
+function trayHint(dict: ChatDict, count: number, failed: boolean): string | undefined {
+  if (count < MIN_SELECTION) return dict.search.trayMinimum;
+  return failed ? dict.search.trayFailed : undefined;
 }
 
-function TraySummary({ dict, count, failed }: SummaryProps) {
+function TraySummary({ dict, count, hint, hintId }: SummaryProps) {
   return (
-    <span className="chat-selection-tray__summary">
-      <span className="chat-selection-tray__sub">{traySub(dict, count, failed)}</span>
-      <span className="chat-selection-tray__count" role="status">
+    <div className="grid min-w-0 gap-1" role="status" aria-atomic="true">
+      <span className="text-base font-bold leading-6 tabular-nums">
         {dict.search.traySelected.replace("{count}", String(count))}
       </span>
-    </span>
+      {hint ? <span id={hintId} className="text-xs font-medium leading-5 text-muted-fg">{hint}</span> : null}
+    </div>
   );
 }
 
@@ -41,28 +44,43 @@ function trayHidden(props: TrayProps, selected: ReadonlySet<string>): boolean {
   return props.status !== "failed" && sameIds(selected, props.lastSentIds);
 }
 
-type ActionProps = Readonly<{ dict: ChatDict; failed: boolean; disabled: boolean; fire: () => void }>;
+type ActionProps = Readonly<{ dict: ChatDict; failed: boolean; disabled: boolean; fire: () => void; hintId?: string }>;
 
-function TrayAction({ dict, failed, disabled, fire }: ActionProps) {
+const ACTION = "chat-selection-tray__action [min-height:44px]! [width:100%] @min-[17rem]/tray:[width:auto] disabled:[--animal-bg-color:var(--color-muted)] disabled:[--animal-text-color:var(--color-muted-fg)]";
+
+function TrayAction({ dict, failed, disabled, fire, hintId }: ActionProps) {
   return (
-    <button type="button" className="chat-selection-tray__action" disabled={disabled} onClick={fire}>
+    <AnimalButton tone="gold" className={ACTION} disabled={disabled} onClick={fire} aria-describedby={hintId}>
       {failed ? dict.search.trayRetry : dict.search.trayAction}
-    </button>
+    </AnimalButton>
   );
 }
 
-/**
- * E2 sticky recompute bar (design-sync `Chat 完整状态.html` `.rebar`): summary
- * line + count on the left, the gold action on the right. A failed bypass
- * turn retries here inline — it never escalates to the full-page D-states.
- */
+type ContentProps = Readonly<{ dict: ChatDict; count: number; failed: boolean; fire: () => void }>;
+const CONTENT = "grid [grid-template-columns:minmax(0,1fr)] items-center [gap:12px] rounded-2xl border border-border-soft bg-paper px-4 py-3 text-fg @min-[17rem]/tray:[grid-template-columns:minmax(0,1fr)_auto] @min-[17rem]/tray:[gap:16px]";
+
+function TrayContent({ dict, count, failed, fire }: ContentProps) {
+  const hint = trayHint(dict, count, failed);
+  const hintId = useId();
+  return (
+    <div className={CONTENT}>
+      <TraySummary dict={dict} count={count} hint={hint} hintId={hintId} />
+      <TrayAction dict={dict} failed={failed} disabled={count < MIN_SELECTION} fire={fire} hintId={hint ? hintId : undefined} />
+    </div>
+  );
+}
+
+/** Shares the composer's width and gutters; only actionable states occupy the dock. */
+function TrayFrame({ children }: Readonly<{ children: ReactNode }>) {
+  return <div className="chat-selection-tray px-7 pb-3 max-lg:px-4"><div className="@container/tray mx-auto w-full max-w-[860px]">{children}</div></div>;
+}
+
 export function SelectionTray(props: TrayProps) {
   const { selected } = useSpotSelection();
   if (trayHidden(props, selected)) return null;
   return (
-    <div className="chat-selection-tray">
-      <TraySummary dict={props.dict} count={selected.size} failed={props.status === "failed"} />
-      <TrayAction dict={props.dict} failed={props.status === "failed"} disabled={selected.size < MIN_SELECTION} fire={() => { props.onRecompute([...selected]); }} />
-    </div>
+    <TrayFrame>
+      <TrayContent dict={props.dict} count={selected.size} failed={props.status === "failed"} fire={() => { props.onRecompute([...selected]); }} />
+    </TrayFrame>
   );
 }

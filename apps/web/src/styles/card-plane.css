@@ -10,8 +10,8 @@
  * this file, and an UNLAYERED rule beats every layered one regardless of
  * source order — so the layer is what keeps each family's own unlayered
  * modifiers winning over the shared plane exactly as they did when the plane
- * lived in their own stylesheet: `.chat-card--skeleton`'s `chat-pulse`,
- * `.chat-card--fallback`'s muted ground, `.shiori-card--poster-fallback`'s
+ * lived in their own stylesheet: `.chat-card--fallback`'s muted ground,
+ * `.shiori-card--poster-fallback`'s
  * export gradient, and the expanded route sheet's flattened card. */
 @layer components {
   .anime-card,

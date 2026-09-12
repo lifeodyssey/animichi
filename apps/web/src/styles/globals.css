@@ -143,9 +143,17 @@
   --shadow-pin: 0 3px 0 rgb(122 95 61 / 32%);
   --shadow-pin-ring: 0 0 0 3px rgb(240 180 41 / 45%);
   --shadow-sheet: 0 -8px 28px rgb(122 95 61 / 20%);
-  --app-font-display: "Noto Serif JP", "Noto Serif JP fallback", "Hiragino Mincho ProN", "Georgia", serif;
-  --app-font-body: "Nunito", "Nunito fallback", "Zen Maru Gothic", "Zen Maru Gothic fallback", "Noto Sans SC", "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+  --app-font-display: "Zen Maru Gothic", "Zen Maru Gothic fallback", "Nunito", "Nunito fallback", "Hiragino Sans", "Yu Gothic UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --app-font-body: "Nunito", "Nunito fallback", "Zen Maru Gothic", "Zen Maru Gothic fallback", "Hiragino Sans", "Yu Gothic UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
   --app-font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
+}
+
+/* zh pages put the SC system faces first: Zen Maru Gothic renders shared
+ * kanji in Japanese forms, so on zh text it must lose per-glyph fallback to
+ * PingFang/YaHei. ja originals (work titles) still resolve inside PingFang. */
+:root[lang="zh"] {
+  --app-font-display: "Nunito", "Nunito fallback", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Zen Maru Gothic", system-ui, sans-serif;
+  --app-font-body: "Nunito", "Nunito fallback", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Zen Maru Gothic", system-ui, sans-serif;
 }
 
 /* Tailwind v4 theme registration (tailwindcss.com/docs/theme, "Referencing
@@ -583,102 +591,6 @@ button, input, select, textarea, [role="button"] {
 /* Tailwind v4 custom variant for the night theme (`<html data-theme="night">`),
  * so page code writes `night:bg-…` utilities instead of hand-rolled selectors. */
 @custom-variant night ([data-theme="night"] &);
-
-.login-modal__mask {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: rgb(61 52 40 / 46%);
-  backdrop-filter: blur(3px);
-}
-
-.login-modal {
-  position: relative;
-  width: 100%;
-  max-width: 420px;
-  padding: 30px 30px 26px;
-  border-radius: 28px;
-  border: 2px solid #e8e2d6;
-  background: var(--color-paper);
-  box-shadow: 0 40px 80px -28px rgb(61 52 40 / 60%);
-  text-align: center;
-}
-
-[data-theme="night"] .login-modal {
-  border-color: #453a24;
-}
-
-.login-modal__close {
-  position: absolute;
-  top: 14px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--color-muted);
-  color: var(--color-muted-fg);
-  font-size: 1.25rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.login-modal__close:hover {
-  background: #e8e2d6;
-}
-
-.login-modal__title {
-  margin: 0 0 8px;
-  color: #794f27;
-  font-family: "Lora", "Noto Serif JP", Georgia, serif;
-  font-size: 1.5rem;
-}
-
-[data-theme="night"] .login-modal__title {
-  color: #f2e6cf;
-}
-
-.login-modal__subtitle {
-  margin: 0 auto 18px;
-  max-width: 30em;
-  color: var(--color-fg);
-  font-size: 0.9rem;
-  line-height: 1.6;
-}
-
-.login-form {
-  display: grid;
-  gap: 12px;
-  text-align: left;
-}
-
-.login-form__label {
-  font-weight: 700;
-  color: var(--color-fg);
-}
-
-.login-form__feedback {
-  margin: 0;
-  font-weight: 700;
-  color: var(--color-error-fg);
-}
-
-.login-form__feedback[role="status"] {
-  color: var(--color-success-fg);
-}
-
-.login-form__hint {
-  margin: 4px 0 0;
-  color: var(--color-muted-fg);
-  font-size: 0.75rem;
-  text-align: center;
-}
 
 /* WCAG 2.2.2 Pause/Stop/Hide: prefers-reduced-motion users get a still page.
  * The static splash is already a discrete 1ms visibility flip (no motion), so

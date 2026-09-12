@@ -1,75 +1,95 @@
-/**
- * @vitest-environment jsdom
- */
+/** @vitest-environment jsdom */
 import type { UIMessage } from "ai";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WaitingRitual } from "../../../src/features/chat/components/WaitingRitual";
 import { chatDictFor } from "../../../src/features/chat/i18n";
+import { waitingCopy } from "../../../src/features/chat/waiting-copy";
 
-const ja = chatDictFor("ja");
+const dict = chatDictFor("zh");
+const copy = waitingCopy("zh");
+const messages: readonly UIMessage[] = [{ id: "u1", role: "user", parts: [{ type: "text", text: "ユーフォ" }] }];
 
-function userMessage(text: string): UIMessage {
-  return { id: "u1", role: "user", parts: [{ type: "text", text }] };
-}
+beforeEach(() => { vi.useFakeTimers(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-function renderRitual(text = "ユーフォ") {
-  return render(<WaitingRitual status="submitted" dict={ja} messages={[userMessage(text)]} />);
-}
+describe("WaitingRitual", () => {
+  it("keeps one honest status instead of inferring progress or an anime quote", () => {
+    const { container } = render(<WaitingRitual status="submitted" dict={dict} messages={messages} />);
+    act(() => { vi.advanceTimersByTime(4200); });
+    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(screen.getByText(copy.label)).toBeTruthy();
+    expect(screen.queryByText(dict.waitingSubtitle)).toBeNull();
+    expect(screen.queryByText(copy.extended)).toBeNull();
+    expect(container.querySelector("img, figure, blockquote")).toBeNull();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
 
-beforeEach(() => {
-  vi.useFakeTimers();
+  it("adds reassurance after 15 seconds without replacing the status line", () => {
+    render(<WaitingRitual status="submitted" dict={dict} messages={messages} />);
+    act(() => { vi.advanceTimersByTime(14_999); });
+    expect(screen.queryByText(copy.extended)).toBeNull();
+    const status = screen.getByRole("status");
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(screen.getByRole("status")).toBe(status);
+    expect(status.textContent).toContain(copy.extended);
+    expect(screen.getByText(copy.label)).toBeTruthy();
+    expect(status.getAttribute("aria-atomic")).toBe("true");
+  });
+
+  it.each(["streaming", "ready", "error"] as const)("removes waiting and its timer when the turn becomes %s", (status) => {
+    const view = render(<WaitingRitual status="submitted" dict={dict} messages={messages} />);
+    act(() => { vi.advanceTimersByTime(15_000); });
+    view.rerender(<WaitingRitual status={status} dict={dict} messages={messages} />);
+    expect(view.container.innerHTML).toBe("");
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
 });
 
-afterEach(() => {
-  vi.useRealTimers();
-  cleanup();
-});
-
-describe("WaitingRitual escalation", () => {
-  it("shows only the fox typing indicator under one second (B2a)", () => {
-    renderRitual();
-    expect(screen.getByRole("status", { name: ja.thinking })).toBeTruthy();
-    expect(screen.queryByText(ja.waitingSubtitle)).toBeNull();
+describe("waiting across turns", () => {
+  it("starts a fresh wait when a new user turn arrives while submitted", () => {
+    const view = render(<WaitingRitual status="submitted" dict={dict} messages={messages} />);
+    act(() => { vi.advanceTimersByTime(15_000); });
+    expect(screen.getByText(copy.extended)).toBeTruthy();
+    const next: readonly UIMessage[] = [...messages, { id: "u2", role: "user", parts: [{ type: "text", text: "换成东京半天" }] }];
+    view.rerender(<WaitingRitual status="submitted" dict={dict} messages={next} />);
+    expect(screen.queryByText(copy.extended)).toBeNull();
+    act(() => { vi.advanceTimersByTime(14_999); });
+    expect(screen.queryByText(copy.extended)).toBeNull();
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(screen.getByText(copy.extended)).toBeTruthy();
   });
 
-  it("adds the first-person fox subtitle after one second (B2b)", () => {
-    renderRitual();
-    act(() => { vi.advanceTimersByTime(1500); });
-    expect(screen.getByText(ja.waitingSubtitle)).toBeTruthy();
+  it("keeps elapsed waiting when message data refreshes for the same user turn", () => {
+    const view = render(<WaitingRitual status="submitted" dict={dict} messages={messages} />);
+    act(() => { vi.advanceTimersByTime(10_000); });
+    const refreshed: readonly UIMessage[] = [...messages, { id: "a1", role: "assistant", parts: [] }];
+    view.rerender(<WaitingRitual status="submitted" dict={dict} messages={refreshed} />);
+    act(() => { vi.advanceTimersByTime(5000); });
+    expect(screen.getByText(copy.extended)).toBeTruthy();
   });
 
-  it("adds the mood card for a known title after four seconds (B2c)", () => {
-    renderRitual();
-    act(() => { vi.advanceTimersByTime(4200); });
-    expect(screen.getByText("ここから、はじまるんだ。")).toBeTruthy();
+  it("does not carry a long wait into a retry of the same message", () => {
+    const view = render(<WaitingRitual status="submitted" dict={dict} messages={messages} />);
+    act(() => { vi.advanceTimersByTime(15_000); });
+    view.rerender(<WaitingRitual status="error" dict={dict} messages={messages} />);
+    view.rerender(<WaitingRitual status="submitted" dict={dict} messages={messages} />);
+    expect(screen.getByText(copy.label)).toBeTruthy();
+    expect(screen.queryByText(copy.extended)).toBeNull();
   });
 
-  it("keeps the mood card hidden for an untitled long wait", () => {
-    renderRitual("近くの聖地");
-    act(() => { vi.advanceTimersByTime(4200); });
-    expect(screen.queryByRole("figure")).toBeNull();
+  it("works before user-message data is available", () => {
+    render(<WaitingRitual status="submitted" dict={dict} messages={[]} />);
+    expect(screen.getByText(copy.label)).toBeTruthy();
+    act(() => { vi.advanceTimersByTime(15_000); });
+    expect(screen.getByText(copy.extended)).toBeTruthy();
   });
 
-  it("skips the mood card when the pending turn has no user text to match", () => {
-    const assistant: UIMessage = { id: "a1", role: "assistant", parts: [{ type: "text", text: "…" }] };
-    render(<WaitingRitual status="submitted" dict={ja} messages={[assistant]} />);
-    act(() => { vi.advanceTimersByTime(4200); });
-    expect(screen.queryByRole("figure")).toBeNull();
-  });
-
-  it("ignores non-text parts when reading the pending user title", () => {
-    const parts = [{ type: "step-start" }, { type: "text", text: "ユーフォ" }];
-    const mixed = { id: "u9", role: "user", parts } as unknown as UIMessage;
-    render(<WaitingRitual status="submitted" dict={ja} messages={[mixed]} />);
-    act(() => { vi.advanceTimersByTime(4200); });
-    expect(screen.getByText("ここから、はじまるんだ。")).toBeTruthy();
-  });
-
-  it("renders nothing once the turn is no longer submitted", () => {
-    const { container } = render(
-      <WaitingRitual status="streaming" dict={ja} messages={[userMessage("ユーフォ")]} />,
-    );
-    expect(container.innerHTML).toBe("");
+  it("releases the waiting timer on unmount", () => {
+    const view = render(<WaitingRitual status="submitted" dict={dict} messages={messages} />);
+    view.unmount();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

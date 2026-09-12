@@ -1,15 +1,18 @@
+import { AnimalButton } from "../AnimalButton";
+
 type Props = Readonly<{
   label: string;
   onClick: () => void;
   disabled?: boolean;
-  className: string;
+  className?: string;
 }>;
 
-/** Shared press-style action button for the D-state fallbacks. */
+/** Shared Animal Island action button for the D-state fallbacks. Small size:
+ * inside a quiet notice strip a full-height button out-shouts the message. */
 export function FallbackRetryButton({ label, onClick, disabled, className }: Props) {
   return (
-    <button type="button" className={className} onClick={onClick} disabled={disabled}>
+    <AnimalButton size="small" className={className} onClick={onClick} disabled={disabled}>
       {label}
-    </button>
+    </AnimalButton>
   );
 }

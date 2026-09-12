@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import byokSettingsSource from "../../../src/features/chat/components/ByokSettings.tsx?raw";
 import settingsPageSource from "../../../src/components/settings/SettingsPage.tsx?raw";
 import byokUpsellSource from "../../../src/features/chat/components/ByokUpsell.tsx?raw";
+import byokSetupSource from "../../../src/features/chat/components/ByokSetupDetails.tsx?raw";
 import budgetExhaustedSource from "../../../src/features/chat/components/ErrorStates/BudgetExhausted.tsx?raw";
+import byokRejectedSource from "../../../src/features/chat/components/ErrorStates/ByokRejected.tsx?raw";
+import byokLoginSource from "../../../src/features/chat/components/ErrorStates/ByokRequiresLogin.tsx?raw";
 import limitBannerSource from "../../../src/features/chat/components/ErrorStates/LimitBanner.tsx?raw";
 import turnFailureSource from "../../../src/features/chat/components/ErrorStates/TurnFailure.tsx?raw";
 import chatCss from "../../../src/styles/chat.css?raw";
@@ -17,7 +20,10 @@ const SOURCES: readonly (readonly [string, string])[] = [
   ["ByokSettings.tsx", byokSettingsSource],
   ["SettingsPage.tsx", settingsPageSource],
   ["ByokUpsell.tsx", byokUpsellSource],
+  ["ByokSetupDetails.tsx", byokSetupSource],
   ["BudgetExhausted.tsx", budgetExhaustedSource],
+  ["ByokRejected.tsx", byokRejectedSource],
+  ["ByokRequiresLogin.tsx", byokLoginSource],
   ["LimitBanner.tsx", limitBannerSource],
   ["TurnFailure.tsx", turnFailureSource],
 ];

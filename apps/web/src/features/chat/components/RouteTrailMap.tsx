@@ -1,5 +1,4 @@
 import type { LocatedSpot } from "../lib/spot-clusters";
-import { pointPlacements } from "../../bubble-map/bubble-geometry";
 import type { PointPlacement } from "../../bubble-map/bubble-geometry";
 import { attachBasemap } from "../../bubble-map/bubble-map-controller";
 import type { ChatDict } from "../i18n";
@@ -14,6 +13,7 @@ type TrailProps = Readonly<{
   dimmed: readonly LocatedSpot[];
   dict: ChatDict;
   attach?: AttachBasemap;
+  showBadge?: boolean;
 }>;
 
 type SpotsProps = Readonly<{ stations: readonly LocatedSpot[]; dimmed: readonly LocatedSpot[] }>;
@@ -23,11 +23,9 @@ interface TrailPlacements {
   readonly rest: readonly PointPlacement[];
 }
 
-/** Route and off-route spots project into ONE percent space so they align. */
-function trailPlacements({ stations, dimmed }: SpotsProps): TrailPlacements {
-  const all = [...stations, ...dimmed].map((spot) => spot.coord);
-  const placements = pointPlacements(all);
-  return { route: placements.slice(0, stations.length), rest: placements.slice(stations.length) };
+/** MapLibre projects route and off-route spots through the same camera. */
+function trailPlacements(placements: readonly PointPlacement[], routeCount: number): TrailPlacements {
+  return { route: placements.slice(0, routeCount), rest: placements.slice(routeCount) };
 }
 
 function trackPoints(placements: readonly PointPlacement[]): string {
@@ -61,8 +59,8 @@ function OrderedPins({ placements }: PinsProps) {
 }
 
 /** Decorative overlay; the timeline list is the accessible walking order. */
-function TrailOverlay(props: SpotsProps) {
-  const { route, rest } = trailPlacements(props);
+function TrailOverlay({ placements, routeCount }: Readonly<{ placements: readonly PointPlacement[]; routeCount: number }>) {
+  const { route, rest } = trailPlacements(placements, routeCount);
   return (
     <div className="chat-search-map__overlay" aria-hidden="true">
       <TrackLine placements={route} />
@@ -86,13 +84,13 @@ function TrailFallback({ stations, dict }: Readonly<{ stations: readonly Located
  * renumbers pins in walking order, dims off-route spots, and shows the gold
  * route pill. Tile failure degrades to D7 like every other basemap surface.
  */
-export function RouteTrailMap({ stations, dimmed, dict, attach = attachBasemap }: TrailProps) {
+export function RouteTrailMap({ stations, dimmed, dict, attach = attachBasemap, showBadge = true }: TrailProps) {
   const basemap = useBasemap(allCoords({ stations, dimmed }), attach);
   if (basemap.status === "fallback") return <TrailFallback stations={stations} dict={dict} />;
   return (
     <MapFrame basemap={basemap} role="img" label={dict.route.mapLabel}>
-      <TrailOverlay stations={stations} dimmed={dimmed} />
-      <span className="chat-route-pill">{dict.route.routePill}</span>
+      <TrailOverlay placements={basemap.placements} routeCount={stations.length} />
+      {showBadge ? <span className="chat-route-pill">{dict.route.routePill}</span> : null}
     </MapFrame>
   );
 }

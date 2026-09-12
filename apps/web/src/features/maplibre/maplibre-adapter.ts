@@ -10,9 +10,11 @@ export type MapLibreMountContext = Readonly<{
 
 export type MapLibreMountOptions = Readonly<{
   attributionControl?: MapOptions["attributionControl"];
+  bounds?: MapOptions["bounds"];
   center?: MapOptions["center"];
   container: HTMLElement;
   interactive?: boolean;
+  fitBoundsOptions?: MapOptions["fitBoundsOptions"];
   onError: () => void;
   onLoad?: (context: MapLibreMountContext) => (() => void) | undefined;
   onReady?: () => void;
@@ -53,11 +55,30 @@ const registerPmtilesProtocol = (gl: MapLibreModule): Promise<void> => {
   return pmtilesRegistration;
 };
 
+// MapLibre v5 rejects path-relative sprite/glyphs URLs ("must be absolute") and
+// fires an error event that would otherwise tear the map down; resolve them
+// against the page origin at mount time so styles stay origin-agnostic. String
+// concat, not `new URL`: the glyphs template braces must survive un-encoded.
+const absolutize = (url: string): string =>
+  url.startsWith("/") ? `${window.location.origin}${url}` : url;
+
+const resolveStyleAssetUrls = (style: StyleSpecification): StyleSpecification => ({
+  ...style,
+  ...(typeof style.sprite === "string" ? { sprite: absolutize(style.sprite) } : {}),
+  ...(style.glyphs ? { glyphs: absolutize(style.glyphs) } : {}),
+});
+
 const mapOptions = (options: MapLibreMountOptions): MapOptions => ({
   container: options.container,
-  style: options.style,
+  style: resolveStyleAssetUrls(options.style),
+  ...cameraOptions(options),
   ...(options.interactive === undefined ? {} : { interactive: options.interactive }),
   ...(options.attributionControl === undefined ? {} : { attributionControl: options.attributionControl }),
+});
+
+const cameraOptions = (options: MapLibreMountOptions): Partial<MapOptions> => ({
+  ...(options.bounds === undefined ? {} : { bounds: options.bounds }),
+  ...(options.fitBoundsOptions === undefined ? {} : { fitBoundsOptions: options.fitBoundsOptions }),
   ...(options.center === undefined ? {} : { center: options.center }),
   ...(options.zoom === undefined ? {} : { zoom: options.zoom }),
 });
@@ -69,6 +90,13 @@ const browserOnly = (): void => {
 };
 
 const ignoreError = (_error: unknown): void => undefined;
+
+/** MapLibre v5 opens compact attribution on narrow maps and only a drag re-collapses it. */
+const collapseAttribution = (map: MapLibreMap): void => {
+  const control = map.getContainer().querySelector(".maplibregl-ctrl-attrib");
+  control?.classList.remove("maplibregl-compact-show");
+  control?.removeAttribute("open");
+};
 
 const bestEffort = (action: () => void): void => {
   try {
@@ -156,6 +184,7 @@ class MapLifecycle implements MapLibreHandle {
   };
 
   private readonly handleReady = (): void => {
+    bestEffort(() => { collapseAttribution(this.map); });
     const cleanup = this.options.onLoad?.({ gl: this.options.gl, map: this.map });
     this.loadCleanup = typeof cleanup === "function" ? cleanup : undefined;
     this.loaded = true;

@@ -1,20 +1,23 @@
 import { describe, expect, it } from "vitest";
 import chatCss from "../../../src/styles/chat.css?raw";
 import globalsCss from "../../../src/styles/globals.css?raw";
+import pressCss from "../../../src/styles/press-3d.css?raw";
 import { contrastRatio, lastRuleDeclaration, parseBlockTokens, parseTokens, ruleDeclaration, tokenValue } from "../stylesheet-probe";
 
 const day = parseTokens(globalsCss);
 const night = parseBlockTokens(globalsCss, '[data-theme="night"]');
 
 const PILL_FAMILY = [
-  ".chat-spot-card__ep",
   ".chat-card__version-badge",
   ".chat-pacing-pill",
-  ".chat-itinerary__capsule",
   ".chat-route-pill",
 ].join(",\n");
 
-const PRESS_FAMILY = [
+/* These class names survive only as unstyled DOM hooks on the shared
+ * InlineNotice/AnimalButton surfaces — the guarantee is that no stylesheet
+ * ever hangs custom press chrome on them again. The render-level half (every
+ * hook element really is an `animal-btn`) lives in chat-banner-css.test.tsx. */
+const RETIRED_CHAT_PRESS_SELECTORS = [
   ".chat-error-banner__retry",
   ".chat-fallback__retry",
   ".chat-interruption__retry",
@@ -22,7 +25,8 @@ const PRESS_FAMILY = [
   ".chat-session-expired__resume",
   ".chat-budget-exhausted__login",
   ".chat-quota-exhausted__login",
-].join(",\n");
+  ".chat-byok-rejected__open",
+];
 
 describe("§4.1 card shell: one plane for every intent card", () => {
   it("keeps only its own padding, the plane coming from card-plane.css", () => {
@@ -68,10 +72,8 @@ describe("§4.3 pill label: one geometry, many grounds", () => {
   });
 
   it.each([
-    [".chat-spot-card__ep", "var(--color-primary-soft)", "var(--color-primary-strong)"],
     [".chat-card__version-badge", "var(--color-muted)", "var(--color-fg)"],
     [".chat-pacing-pill", "var(--color-muted)", "var(--color-fg)"],
-    [".chat-itinerary__capsule", "var(--color-walk-bg)", "var(--color-walk-fg)"],
     [".chat-route-pill", "var(--color-gold-soft)", "var(--color-gold-fg)"],
   ])("leaves %s carrying its own ink pair only — no second copy of the shape", (selector, ground, ink) => {
     expect(lastRuleDeclaration(chatCss, selector, "background")).toBe(ground);
@@ -81,49 +83,27 @@ describe("§4.3 pill label: one geometry, many grounds", () => {
   });
 });
 
-describe("§4.2 3D press: depth IS the affordance, declared once", () => {
-  it("gives every in-thread action the same ground and touch target", () => {
-    expect(chatCss).toContain(`${PRESS_FAMILY} {`);
-    expect(ruleDeclaration(chatCss, PRESS_FAMILY, "min-height")).toBe("44px");
-    expect(ruleDeclaration(chatCss, PRESS_FAMILY, "background")).toBe("var(--color-paper)");
+describe("§4.2 Animal Button press: no legacy selector overrides the library", () => {
+  it.each(RETIRED_CHAT_PRESS_SELECTORS)("retires the custom %s press rules", (selector) => {
+    expect(chatCss).not.toContain(selector);
+    expect(pressCss).not.toContain(selector);
   });
 
-  it("leaves the depth itself to press-3d.css, lift and sink together", () => {
-    expect(ruleDeclaration(chatCss, PRESS_FAMILY, "border-radius")).toBeNull();
-    expect(ruleDeclaration(chatCss, PRESS_FAMILY, "box-shadow")).toBeNull();
-    expect(chatCss).not.toContain("__retry:active");
+  it("loads the Animal Island class layer before app chat styles", () => {
+    const animalImport = globalsCss.indexOf('@import "animal-island-ui-tailwind/style/core";');
+    const chatImport = globalsCss.indexOf('@import "./chat.css";');
+    expect(animalImport).toBeGreaterThan(-1);
+    expect(chatImport).toBeGreaterThan(animalImport);
   });
 });
 
-describe("§4.5 separators: blocks part solid, rows part dashed", () => {
-  it("parts stacked spot rows with a hairline dash mixed from the two line tokens", () => {
-    const rule = ruleDeclaration(chatCss, ".chat-spot + .chat-spot", "border-top") ?? "";
-    expect(rule).toContain("1px dashed");
-    expect(rule).toContain("var(--color-border)");
-    expect(rule).toContain("var(--color-border-soft)");
-  });
-
+describe("§4.5 route list and block separators", () => {
   it("parts a whole block with the design's 2px solid line", () => {
     expect(ruleDeclaration(chatCss, ".chat-short-route", "border-top")).toBe("2px solid var(--color-border-soft)");
   });
 
-  it("strips the spot strip's list chrome so the dashes are the only rule", () => {
-    expect(ruleDeclaration(chatCss, ".chat-card__spots", "list-style")).toBe("none");
-  });
-});
-
-describe("§4.4 picked: the teal ground and the teal depth", () => {
-  it("marks a checked spot tile with the primary family, not a grey shadow", () => {
-    const selector = ".chat-spot-card:has(.chat-spot-card__check:checked)";
-    expect(ruleDeclaration(chatCss, selector, "background")).toBe("var(--color-primary-soft)");
-    expect(ruleDeclaration(chatCss, selector, "border-color")).toBe("var(--color-primary)");
-    expect(ruleDeclaration(chatCss, selector, "box-shadow")).toBe("0 3px 0 var(--color-primary-strong)");
-  });
-
-  it("keeps the tile itself a nested layer on the card plane, never a button", () => {
-    expect(ruleDeclaration(chatCss, ".chat-spot-card", "background")).toBe("var(--color-card)");
-    expect(ruleDeclaration(chatCss, ".chat-spot-card", "border")).toBe("2px solid var(--color-border-soft)");
-    expect(ruleDeclaration(chatCss, ".chat-spot-card", "box-shadow")).toBeNull();
+  it("strips native list chrome from the numbered route timeline", () => {
+    expect(ruleDeclaration(chatCss, ".chat-itinerary__timeline", "list-style")).toBe("none");
   });
 });
 
@@ -151,6 +131,11 @@ describe("the paper ground keeps every ink inside a card above AA", () => {
 
   it.each([["--color-fg"], ["--color-muted-fg"]])("reads %s on the night card plane too", (ink) => {
     const ratio = contrastRatio(tokenValue(night, ink), tokenValue(night, "--color-paper"));
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("keeps the quiet escape readable on its night hover ground", () => {
+    const ratio = contrastRatio(tokenValue(night, "--color-muted-fg"), tokenValue(night, "--color-muted"));
     expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 });

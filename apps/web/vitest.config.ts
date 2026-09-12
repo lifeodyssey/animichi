@@ -4,6 +4,8 @@ import { animalIslandAliases } from "./animal-island-vite";
 export default defineConfig({
   resolve: { alias: animalIslandAliases, dedupe: ["react", "react-dom"] },
   test: {
+    // Let jsdom install origin-scoped storage instead of Node's host WebStorage globals.
+    execArgv: ["--no-experimental-webstorage"],
     server: { deps: { inline: [/animal-island-ui-tailwind/u] } },
     css: true,
     include: ["tests/unit/**/*.test.ts", "tests/unit/**/*.test.tsx"],

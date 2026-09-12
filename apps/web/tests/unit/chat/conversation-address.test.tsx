@@ -84,7 +84,7 @@ describe("the chat page publishes its conversation to the address bar", () => {
     await screen.findByText(ROUTE_CARD_TEXT);
     await waitFor(() => { expect(router.state.location.search).toEqual({ session: ASSIGNED }); });
     expect(screen.getByText(ROUTE_CARD_TEXT)).toBeTruthy();
-    expect(screen.getByText("ユーフォ")).toBeTruthy();
+    expect(screen.getAllByText("ユーフォ")).not.toHaveLength(0);
   });
 
   it("leaves a resumed conversation's address alone", async () => {

@@ -2,7 +2,7 @@ import type { LatLng } from "@animichi/contract";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject } from "react";
 import type { LocatedSpot, SpotCluster } from "../lib/spot-clusters";
-import { bubblePlacements, pointPlacements } from "../../bubble-map/bubble-geometry";
+import { bubbleRadius, circlesMaxCount } from "../../bubble-map/bubble-geometry";
 import type { BubblePlacement, PointPlacement } from "../../bubble-map/bubble-geometry";
 import type { BasemapStatus, MountBasemapOptions } from "../../bubble-map/bubble-map-controller";
 import { clusterName, spotCountBadge } from "../search-copy";
@@ -16,18 +16,19 @@ export type AttachBasemap = (options: MountBasemapOptions) => () => void;
 export interface Basemap {
   readonly ref: RefObject<HTMLDivElement | null>;
   readonly status: BasemapStatus;
+  readonly placements: readonly PointPlacement[];
 }
 
-type StatusSetter = (status: BasemapStatus) => void;
+type MapCallbacks = Pick<MountBasemapOptions, "onStatus" | "onProject">;
 
 function attachTo(
-  container: HTMLDivElement | null,
-  points: readonly LatLng[],
-  onStatus: StatusSetter,
-  attach: AttachBasemap,
+  container: HTMLDivElement | null, points: readonly LatLng[],
+  attach: AttachBasemap, callbacks: MapCallbacks,
 ): (() => void) | undefined {
   if (!container || points.length === 0) return undefined;
-  return attach({ container, points, onStatus, interactive: false });
+  callbacks.onStatus("loading");
+  callbacks.onProject?.([]);
+  return attach({ container, points, ...callbacks, interactive: false });
 }
 
 function coordKey(points: readonly LatLng[]): string {
@@ -49,9 +50,10 @@ function useStablePoints(points: readonly LatLng[]): readonly LatLng[] {
 export function useBasemap(points: readonly LatLng[], attach: AttachBasemap): Basemap {
   const ref = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<BasemapStatus>("loading");
+  const [placements, setPlacements] = useState<readonly PointPlacement[]>([]);
   const stable = useStablePoints(points);
-  useEffect(() => attachTo(ref.current, stable, setStatus, attach), [stable, attach]);
-  return { ref, status };
+  useEffect(() => attachTo(ref.current, stable, attach, { onStatus: setStatus, onProject: setPlacements }), [stable, attach]);
+  return { ref, status, placements };
 }
 
 type FrameProps = Readonly<{
@@ -61,21 +63,37 @@ type FrameProps = Readonly<{
   children: ReactNode;
 }>;
 
-export function MapFrame({ basemap, role, label, children }: FrameProps) {
+function MapViewport({ basemap, role, label, children }: FrameProps) {
   return (
-    <div className="chat-search-map" role={role} aria-label={label}>
-      <div ref={basemap.ref} className="chat-search-map__gl" aria-hidden />
+    <div className="chat-search-map" role={role} aria-label={label} aria-busy={basemap.status === "loading"}>
+      {/* The important utilities beat maplibre-gl.css's `.maplibregl-map { position:
+          relative }`, which is injected after chat.css and would otherwise collapse
+          this container to zero height (map mounts blank while tiles load fine). */}
+      <div ref={basemap.ref} className="chat-search-map__gl absolute! inset-0!" aria-hidden />
       {children}
     </div>
   );
+}
+
+function MapAttribution() {
+  const link = "rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-primary";
+  return (
+    <p className="m-0 text-right text-[10px] leading-4 text-fg-muted">
+      <a className={link} href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a>
+      {" · "}<a className={link} href="https://protomaps.com" target="_blank" rel="noopener noreferrer">Protomaps</a>
+    </p>
+  );
+}
+
+export function MapFrame(props: FrameProps) {
+  return <div className="grid gap-1.5"><MapViewport {...props} /><MapAttribution /></div>;
 }
 
 export function percentStyle(placement: PointPlacement): CSSProperties {
   return { left: `${String(placement.leftPct)}%`, top: `${String(placement.topPct)}%` };
 }
 
-function PinOverlay({ spots }: Readonly<{ spots: readonly LocatedSpot[] }>) {
-  const placements = pointPlacements(spots.map((spot) => spot.coord));
+function PinOverlay({ spots, placements }: Readonly<{ spots: readonly LocatedSpot[]; placements: readonly PointPlacement[] }>) {
   const pins = placements.map((placement, index) => (
     <span key={spots[index]?.id ?? String(index)} className="chat-map-pin" style={percentStyle(placement)} />
   ));
@@ -96,7 +114,7 @@ export function StaticSpotMap({ spots, dict, attach, maxPins }: SpotMapProps) {
   if (basemap.status === "fallback") return <SpotMapFallback spots={spots} dict={dict} />;
   return (
     <MapFrame basemap={basemap} role="img" label={dict.search.mapLabel}>
-      <PinOverlay spots={shown} />
+      <PinOverlay spots={shown} placements={basemap.placements} />
     </MapFrame>
   );
 }
@@ -127,7 +145,7 @@ type BubbleMapProps = Readonly<{
   refocusIndex: number | null;
 }>;
 
-type OverlayProps = Omit<BubbleMapProps, "attach">;
+type OverlayProps = Omit<BubbleMapProps, "attach"> & Readonly<{ placements: readonly PointPlacement[] }>;
 
 function toCircle(cluster: SpotCluster, index: number, dict: ChatDict) {
   return {
@@ -143,14 +161,15 @@ function selectAt(clusters: readonly SpotCluster[], index: number, onSelect: Bub
   if (cluster) onSelect(cluster, index);
 }
 
-function BubbleOverlay({ clusters, dict, onSelect, refocusIndex }: OverlayProps) {
+function BubbleOverlay({ clusters, dict, onSelect, refocusIndex, placements }: OverlayProps) {
   const circles = clusters.map((cluster, index) => toCircle(cluster, index, dict));
-  const bubbles = bubblePlacements(circles).map((placement, index) => (
+  const maxCount = circlesMaxCount(circles);
+  const bubbles = circles.flatMap((circle, index) => placements[index] ? (
     // Keyed by position, not by region name: two clusters >50km apart can share
     // a city name (府中市 exists in both Tokyo and Hiroshima), and a duplicate
     // key silently drops one bubble.
-    <ClusterBubble key={index} placement={placement} dict={dict} refocus={index === refocusIndex} onClick={() => { selectAt(clusters, index, onSelect); }} />
-  ));
+    <ClusterBubble key={index} placement={{ ...circle, ...placements[index], radius: bubbleRadius(circle.count, maxCount) }} dict={dict} refocus={index === refocusIndex} onClick={() => { selectAt(clusters, index, onSelect); }} />
+  ) : []);
   return <div className="chat-search-map__overlay chat-search-map__overlay--bubbles">{bubbles}</div>;
 }
 
@@ -172,7 +191,7 @@ export function ClusterBubbleMap({ clusters, dict, attach, onSelect, refocusInde
   if (basemap.status === "fallback") return <BubbleMapFallback dict={dict} center={clusters[0]?.center} refocus={refocusIndex !== null} />;
   return (
     <MapFrame basemap={basemap} role="group" label={dict.search.mapLabel}>
-      <BubbleOverlay clusters={clusters} dict={dict} onSelect={onSelect} refocusIndex={refocusIndex} />
+      <BubbleOverlay clusters={clusters} dict={dict} onSelect={onSelect} refocusIndex={refocusIndex} placements={basemap.placements} />
     </MapFrame>
   );
 }

@@ -1,12 +1,13 @@
 import { chromium, expect, type Page } from "@playwright/test";
 import type { TestContext } from "node:test";
+import { stubTurnstileSdk } from "./helpers/turnstile-sdk";
 
 /** Browser controls only: all chat submissions and snapshots reach the actual native Worker. */
 export async function nativeRecoveryPage(context: TestContext, baseURL: string) {
   const browser = await chromium.launch({ headless: true });
   context.after(() => browser.close());
   const page = await browser.newPage({ baseURL, locale: "en-US", viewport: { width: 1280, height: 900 } });
-  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await stubTurnstileSdk(page);
   await page.route("**/v1/turnstile/verify", (route) => route.fulfill({ status: 204 }));
   await page.route("**/healthz", (route) => route.fulfill({ status: 200, body: "healthy" }));
   await page.goto("/chat");
@@ -38,12 +39,14 @@ export async function leaveAndReturn(page: Page) {
 
 export async function expectNativeAnswer(page: Page) {
   await expect(page.getByText("Finished", { exact: true })).toBeVisible();
-  await expect(page.getByText("Find the pilgrimage places", { exact: true })).toHaveCount(1);
+  await expect(page.locator(".chat-message--user").getByText("Find the pilgrimage places", { exact: true })).toHaveCount(1);
   const step = page.locator('[data-tool="search_bangumi"][data-status="done"]');
-  const details = page.locator("details").filter({ has: step });
+  const details = page.locator(".chat-settled").filter({ has: step }).getByRole("button");
   await expect(step).toHaveCount(1);
-  await expect(details).not.toHaveAttribute("open");
-  await details.locator("summary").click();
+  await expect(details).toHaveAttribute("aria-expanded", "false");
+  await expect(step).toBeHidden();
+  await details.click();
+  await expect(details).toHaveAttribute("aria-expanded", "true");
   await expect(step).toBeVisible();
 }
 

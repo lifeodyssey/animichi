@@ -40,7 +40,7 @@ describe("LocationPrompt (C4)", () => {
     const { onManual } = renderPrompt({ status: "denied" });
     fireEvent.click(screen.getByRole("button", { name: dict.location.allow }));
     expect(await screen.findByText(dict.location.denied)).toBeTruthy();
-    const input = screen.getByRole("textbox", { name: dict.location.manualPlaceholder });
+    const input = screen.getByRole("textbox", { name: dict.location.manualLabel });
     fireEvent.change(input, { target: { value: " 宇治駅 " } });
     fireEvent.click(screen.getByRole("button", { name: dict.location.manualSubmit }));
     expect(onManual).toHaveBeenCalledWith("宇治駅");
@@ -52,7 +52,7 @@ describe("LocationPrompt (C4)", () => {
     await screen.findByText(dict.location.denied);
     const submit = screen.getByRole("button", { name: dict.location.manualSubmit });
     expect(submit.hasAttribute("disabled")).toBe(true);
-    const input = screen.getByRole("textbox", { name: dict.location.manualPlaceholder });
+    const input = screen.getByRole("textbox", { name: dict.location.manualLabel });
     fireEvent.change(input, { target: { value: "   " } });
     fireEvent.submit(input);
     expect(onManual).not.toHaveBeenCalled();

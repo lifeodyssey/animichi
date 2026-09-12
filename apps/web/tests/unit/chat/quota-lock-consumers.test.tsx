@@ -3,7 +3,7 @@
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, assert, describe, expect, it } from "vitest";
 import { ChatActionsProvider } from "../../../src/features/chat/ChatActions";
 import type { ChatActions } from "../../../src/features/chat/ChatActions";
 import { DataPartCard } from "../../../src/features/chat/components/DataPartCard";
@@ -39,11 +39,16 @@ describe("D12 lock reaches every ChatActions consumer, not just the composer", (
     expect(actions.send).not.toHaveBeenCalled();
   });
 
-  it("swallows the D1 suggestion chips", () => {
-    const [chip] = dict.chips;
+  it("locks the D1 clue entry", () => {
     const actions = renderLocked(<EnvelopeFallback state="D1" dict={dict} />);
-    fireEvent.click(screen.getByRole("button", { name: chip.text }));
+    const field = screen.getByRole("textbox", { name: dict.errorStates.d1Label });
+    expect((field as HTMLInputElement).disabled).toBe(true);
+    fireEvent.change(field, { target: { value: "響け！ユーフォニアム" } });
+    const form = field.closest("form");
+    assert(form);
+    fireEvent.submit(form);
     expect(actions.send).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toBe("");
   });
 
   it("swallows the D6 apology's regenerate", () => {

@@ -8,16 +8,19 @@ const mapState = vi.hoisted(() => {
   interface FakeMapInstance {
     emit: (type: string) => void;
     offCalls: number;
+    options: unknown;
     removeCalls: number;
   }
   const state = { instances: [] as FakeMapInstance[], throwOnConstruct: false, throwOnRemove: false };
   class FakeMap {
     readonly listeners = new globalThis.Map<string, Listener[]>();
+    readonly options: unknown;
     removeCalls = 0;
     offCalls = 0;
 
-    constructor(_options: unknown) {
+    constructor(options: unknown) {
       if (state.throwOnConstruct) throw new Error("WebGL context unavailable");
+      this.options = options;
       state.instances.push(this);
     }
 
@@ -42,6 +45,10 @@ const mapState = vi.hoisted(() => {
       this.removeCalls += 1;
       if (state.throwOnRemove) throw new Error("Map removal failed");
     }
+
+    getContainer(): HTMLElement {
+      return (this.options as { container: HTMLElement }).container;
+    }
   }
   return { addProtocol: vi.fn(), FakeMap, removeProtocol: vi.fn(), setWorkerUrl: vi.fn(), state };
 });
@@ -61,9 +68,7 @@ vi.mock("pmtiles", () => ({
 
 import { attachMapLibre, mountMapLibre } from "../../src/features/maplibre/maplibre-adapter";
 
-const STYLE = {
-  version: 8,
-  sources: {},
+const STYLE = { version: 8, sources: {},
   layers: [{ id: "background", type: "background", paint: { "background-color": "#f8f8f0" } }],
 } satisfies StyleSpecification;
 
@@ -140,12 +145,48 @@ describe("MapLibre v5 adapter lifecycle", () => {
   });
 });
 
-describe("MapLibre v5 teardown", () => {
-  it("contains map teardown failures", async () => {
+describe("MapLibre v5 compact attribution", () => {
+  it("collapses the initially-expanded compact attribution once the map is ready", async () => {
+    const container = document.createElement("div");
+    const control = document.createElement("div");
+    control.className = "maplibregl-ctrl-attrib maplibregl-compact maplibregl-compact-show";
+    control.setAttribute("open", "");
+    container.appendChild(control);
+    const onReady = vi.fn();
+    const handle = await mountMapLibre({ ...options(vi.fn(), onReady), container });
+
+    firstMap().emit("load");
+
+    expect(onReady).toHaveBeenCalledOnce();
+    expect(control.classList.contains("maplibregl-compact-show")).toBe(false);
+    expect(control.hasAttribute("open")).toBe(false);
+    handle.destroy();
+  });
+});
+
+describe("MapLibre v5 teardown", () => {  it("contains map teardown failures", async () => {
     mapState.state.throwOnRemove = true;
     const handle = await mountMapLibre(options(vi.fn(), vi.fn()));
 
     expect(() => { handle.destroy(); }).not.toThrow();
+  });
+});
+
+describe("MapLibre v5 style asset URLs", () => {
+  it("resolves style assets and initializes the camera before loading", async () => {
+    const style = {
+      ...STYLE,
+      sprite: "/tiles/sprites/v4/light",
+      glyphs: "/tiles/fonts/{fontstack}/{range}.pbf",
+    } satisfies StyleSpecification;
+    const bounds: [[number, number], [number, number]] = [[135.8, 34.89], [135.82, 34.9]];
+    const fitBoundsOptions = { padding: 36, maxZoom: 15, animate: false };
+    await mountMapLibre({ ...options(vi.fn(), vi.fn()), style, bounds, fitBoundsOptions });
+    expect(firstMap().options).toMatchObject({ bounds, fitBoundsOptions });
+
+    const mounted = firstMap().options as { style: StyleSpecification };
+    expect(mounted.style.sprite).toBe(`${window.location.origin}/tiles/sprites/v4/light`);
+    expect(mounted.style.glyphs).toBe(`${window.location.origin}/tiles/fonts/{fontstack}/{range}.pbf`);
   });
 });
 

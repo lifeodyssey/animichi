@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
+import { solveTurnstileEntry, stubTurnstileEntry, stubTurnstileSdk } from "./helpers/turnstile";
 
 /**
  * Issue #1015 AC2: keyboard-only accessibility of the critical journeys.
@@ -67,11 +67,15 @@ test.describe("Turnstile entry keyboard recovery", () => {
     await page.route("**/api/auth/get-session", (route) =>
       route.fulfill({ status: 401, json: { error: "no session" } }),
     );
-    await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+    await stubTurnstileSdk(page);
     await page.goto("/chat");
     await solveTurnstileEntry(page, "rejected-token");
     const retry = page.getByRole("button", { name: "もう一度ためす" });
     await expect(retry).toBeVisible();
+    // A vendor callback does not steal focus; the retry is reached by keyboard.
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("link", { name: "コンテンツへ移動" })).toBeFocused();
+    await page.keyboard.press("Tab");
     await expect(retry).toBeFocused();
     await page.keyboard.press("Enter");
     await solveTurnstileEntry(page, "fresh-token");
