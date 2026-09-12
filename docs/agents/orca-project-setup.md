@@ -1,142 +1,162 @@
-# Animichi delivery in Orca
+# Animichi Orca project setup
 
-This is the visible entry point for the reusable project workflow. The operating
-authority is [Orca card delivery](../ops/orca-card-delivery.md). This setup does
-not admit a business card or start a scheduled automation.
+This is the project entry point for the backend, Infra and CI/CD delivery workflow.
+The operating rules live in [Orca card delivery](../ops/orca-card-delivery.md);
+the [coordinator prompt](orca-coordinator-prompt.md) applies them to one card.
+Implementation and fix workers must invoke Matt `/implement`. Independent review
+workers must invoke Matt `/code-review` and follow the actual installed skill.
 
 ## Where to see the configuration
 
-| Orca location | Configuration |
-|---|---|
-| Settings -> Orchestration | Installed skill and nested worker depth |
-| Settings -> Projects -> Seichijunrei-agent | Main baseline and worktree setup |
-| Settings -> Quick Commands | Project workflow document entry |
-| Tasks -> GitHub -> Projects | The selected GitHub Project, its fields and cards |
-| Workspace editor | This pinned setup page, operating contract and coordinator prompt |
-| Agent Dashboard / agent tabs | Running agents; activity is separate from card status |
+- Orca project settings hold the repository base ref, setup command and nesting limit.
+- Orca Tasks -> GitHub -> Projects -> **Animichi Delivery** shows the GitHub cards.
+- Orca's orchestration views show native Runs, Tasks, Dispatches and messages.
+- Pin this file in the editor, or open it through the project Quick Command
+  **Animichi delivery setup**. A portable Quick Command is:
 
-Orca has no single form containing our complete delivery policy. Roles and gates
-live in the tracked instructions; runtime launch receipts verify their effective
-settings. GitHub owns business status. Orca Tasks renders that data using its own
-project UI; it does not reproduce every GitHub Board layout.
-
-## Project setup
-
-- Repository: `lifeodyssey/animichi`.
-- Local checkout: `/Users/lumimamini/Documents/Seichijunrei-agent`.
-- Orca repo ID: `bc0ab6a2-c6c8-430b-a985-a2ae29fda868`.
-- Saved base ref: `origin/main`; resolve its SHA at admission.
-- Saved setup: `pnpm install`, run by default, wait for setup before the agent.
-- Saved nesting depth: `2`, supporting the independent review worker's children.
-- Capacity: one business card, one candidate writer, one heavy gate suite.
-- GitHub Project: [Animichi Delivery, #3](https://github.com/users/lifeodyssey/projects/3).
-- No pilot selected; no scheduling, webhook or short-session controller configured.
-
-New worktrees still require the card's environment preflight;
-`pnpm install` alone does not prove Python, database, Infra, or integration readiness.
-
-Project ID: `PVT_kwHOAYkhVc4BcrlP`. Status field ID:
-`PVTSSF_lAHOAYkhVc4BcrlPzhXSklI`.
-
-| MVP status | Option ID |
-|---|---|
-| Ready for Dev | `e81ea81f` |
-| In Dev | `5fe0f7ba` |
-| Dev Done | `1af4ddd8` |
-| Ready for QA | `668998e0` |
-
-The former Frontend Rebuild project retains its 90 existing cards and all five
-legacy status options with their original IDs. Legacy `Ready` does not admit a
-card to this MVP. Update the Project item field, not the issue title.
-
-Verified Project workflows: `Item closed`, `Pull request merged`,
-`Pull request linked to issue`, `Item added to project`, and `Auto-close issue`
-are disabled. Existing `Auto-add sub-issues to project` remains enabled. The
-coordinator owns MVP status transitions and must recheck these settings at admission.
-
-The project-scoped Quick Command **Animichi delivery setup** opens this page in
-Orca's editor. It is a terminal command: run it from a shell terminal. The same
-file is pinned in the workspace tab bar and available through Explorer -> docs -> agents.
-
-## Roles and start
-
-The [coordinator prompt](orca-coordinator-prompt.md) contains the reusable launch
-instructions. Open a Codex coordinator in Orca with `gpt-6-astra` / `medium`, paste
-that prompt, and replace its issue placeholder after a card is selected.
-
-The coordinator dispatches developers/fixers as `gpt-5.6-sol` / `max` and reviewers
-as `gpt-6-astra` / `max`. All workers use Codex. Prompts require installed Matt
-`/implement` or `/code-review` as appropriate; their methods stay in those skills.
-Orca's standard Run/Task/Dispatch and waiting loop supervise the card through merge.
-
-## Astra max launch on Orca 1.4.200
-
-This version rejects `worker-start --agent codex --model gpt-6-astra --effort max`
-before creating a worker, although Codex itself supports it. Keep the requested
-model/effort using Orca's documented custom-terminal path:
-
-```text
-orca terminal create --worktree <exact-worktree> --title <review-title> \
-  --command 'codex --model gpt-6-astra -c model_reasoning_effort="max"' --json
-orca terminal wait --terminal <returned-handle> --for tui-idle --timeout-ms 60000 --json
-orca terminal read --terminal <returned-handle> --json
-orca orchestration worker-start --task <task-id> --run <run-id> \
-  --worktree <exact-worktree> --terminal <returned-handle> --json
+```sh
+orca file open docs/agents/orca-project-setup.md --worktree current --json
 ```
 
-Require `wait.satisfied: true` before injecting a task. Verify the actual Codex
-startup/session reports `gpt-6-astra max` and retain that evidence. A reused
-terminal's launch fields are null; they do not prove model identity. Require the
-worker-start receipt to show `ready` and an observed turn start. Use this path for
-review descendants too, within the same nesting budget. Do not use unsupervised
-`dispatch --inject`.
+These Markdown files are prompts and operating instructions, not an Orca YAML
+configuration format. Moving a card alone does not start an agent.
 
-An adopted terminal has an authoritative supervised Dispatch, but Orca records
-its process resource as external. After accepted `worker_done`, call
-`worker-release`; `retained / external_terminal` performs no process cleanup.
-If the coordinator created that terminal solely for this attempt and no user
-has taken it over, close its exact handle with `orca terminal close`. Preserve
-pre-existing user terminals. Record both the settlement and actual close receipt.
+## Project settings
 
-## Status and review records
+Use the selected Orca executable to load the installed `orca-cli` and
+`orchestration` guides before changing or operating the project.
+
+| Setting | Project value |
+|---|---|
+| Independent worktree base | `origin/main` |
+| Setup command | `pnpm install` |
+| Setup policy | Run by default; wait for successful setup before task delivery |
+| Nested worker maximum depth | `2` |
+| Coordinator | Codex `gpt-5.6-sol` / `medium` |
+| Development and every fix | Codex `gpt-5.6-sol` / `max`, invoking Matt `/implement` |
+| Independent reviewer | Grok `grok-4.6` / `xhigh`, invoking Matt `/code-review` |
+| Review fallback | Codex `gpt-6-astra` / `xhigh` when Grok allowance or identity is unverified |
+| Worker presentation | Noninteractive execution without visible Chat or TUI panes |
+
+A fresh reviewer and all its review descendants must differ from every model
+that authored the current candidate, including corrections. Effort, account and
+CLI differences do not make the same model independent. Dispatch one reviewer
+entrypoint; the installed skill owns its child organization.
+
+Resolve the actual installed Matt skill files before dispatch and put their
+paths and hashes in the private task brief. Do not substitute a generic method
+when the skill cannot be loaded. Publication belongs to the coordinator.
+
+## Task board
+
+Use [Animichi Delivery, GitHub Project #3](https://github.com/users/lifeodyssey/projects/3).
+Retain existing cards, titles and unrelated status options when configuring it.
+The delivery-specific Status values are:
 
 ```text
 Ready for Dev -> In Dev -> Dev Done -> Ready for QA
-                           |
-                           +-- local review <-> fixes (maximum three reviews)
-                           +-- create regular PR
-                           +-- resolve PR feedback and pass required checks
-                           +-- squash merge, then verify the merge record
 ```
 
-Local review reports and Orca messages exist before PR creation. Issue comments
-can link progress and evidence. After creation, feedback remains in PR comments
-and threads, with fixing commits and replies. The [feedback tool](../../scripts/orca/README.md)
-reads these records; it does not decide that a PR can merge.
+Keep **Dev Done** throughout local review/fixes, regular PR creation, PR feedback
+and required checks. Move to **Ready for QA** only after GitHub confirms the squash
+merge. Product acceptance testing and owner-facing Ready for Review follow later.
+Do not add board columns or rename card titles for internal review steps.
 
-QA/acceptance starts after merge. Ready for Review continues to mean ready for
-the owner after the later testing stage. Product completion is not automated here.
+Disable automatic item-closed, PR-merged, PR-linked or item-added transitions that
+would bypass those stages. Preserve unrelated project automations. Discover live
+project item, field and option IDs through GitHub before changing an item; never
+reuse a runtime terminal ID as a GitHub field identifier.
 
-## Configuration receipt
+## Start a card
 
-Verified on 2026-09-12: Orca 1.4.200 saved and reloaded nesting depth 2, project
-base `origin/main`, setup run-by-default and wait-for-setup. The project-scoped
-Quick Command is saved. GitHub Project #3 is renamed; its 90 pre-existing item
-statuses were compared before and after the four new options were added.
-The eight existing `orca harness` issues #1612–#1619 are also in this Project as
-Backlog items (98 items total); none has been admitted as the business pilot.
+First complete the initial MVP delivery proof using the orchestration configuration
+changes. Only after that passes, inventory existing Ready for Dev and open-PR
+backend/Infra/CI-CD cards and maximize independent work within dependencies,
+ownership and available resources. Preserve every other active worktree.
 
-The configuration-only Orca Run is `run_038f8eebf84b`; its helper implementation
-worker's launch receipt confirms Codex `gpt-5.6-sol` / `max`. Business admission,
-the independent review/fix loop and squash merge remain for the selected pilot.
+1. Keep Orca and the long-lived coordinator session running. Use Sol medium for
+   the coordinator and load the installed Orca skills.
+2. Select the admitted card and read its current scope, readiness, dependencies,
+   ownership and any existing PR. Do not create a second PR for an existing outcome.
+3. Run the [coordinator prompt](orca-coordinator-prompt.md) for that card. A concise
+   instruction to the coordinator already in this checkout is:
 
-The feedback helper passes 13 offline tests / 51 assertions and real read-only
-GitHub captures. The custom-terminal path above has started the independent
-Astra max review workers with supervised Orca Dispatches. Round 1 found two
-naming-rule violations, one pagination defect and one duplication heuristic;
-the Sol fixer owns their correction. The HEAD-guard mutation produced red/green
-evidence. This does not prove the business-card review/merge loop.
+```text
+Read docs/agents/orca-coordinator-prompt.md and execute it for issue #<NUMBER>.
+Use the installed orca-cli and orchestration skills. Start only this card.
+```
 
-Before/after `make check` passed: 2,051 unit tests, 246 integration tests and 20
-existing integration skips; unit coverage 91.61%. Configuration files and the
-helper are local working-tree changes, not a merged configuration PR.
+The coordinator owns the wait/check/reply loop, candidate commits, PR publication,
+comment resolution and merge verification. This MVP does not install a scheduled
+backlog consumer or restartable service. Headless workers remove the worker UI;
+they do not replace the coordinator with an event-only controller.
+
+The [headless launcher commands](../../scripts/orca-headless/README.md) are the
+worker entry point. The coordinator supplies the private role spec, existing
+workspace, native Run and coordinator handles, and fixed model selection. Each
+attempt gets a new private receipt directory; status and accepted cleanup use it.
+
+## Headless compatibility boundary
+
+Orca 1.4.200 has no public headless `worker-start` flag. Selecting Terminal chat
+starts an interactive TUI; it does not select a print-mode worker. `orca serve`
+hosts the runtime without a desktop window and is not a worker-mode switch.
+Do not start a second runtime for the same setup while the desktop host is active.
+See [Orca remote servers](https://www.onorca.dev/docs/remote-servers).
+
+The tested local compatibility path uses the installed RuntimeClient's
+`terminal.create` with `presentation=background`, then the public `task-create`
+and `dispatch --return-preamble` operations. It passes the exact native preamble
+into Codex `exec` or Grok `--prompt-file` with file input/output. No installed-app
+patch or visible-mode fallback is part of this path.
+
+The runtime parameter is internal and version-specific. Verify compatibility
+before mutation and fail closed when it cannot be established. Native Run/Task/
+Dispatch and message authority remain in Orca; local files hold private receipts
+and transcripts, not a second task database.
+
+Low-level Dispatch creates no supervised process resource. `worker-release` may
+return `retained`, `no_owned_resource` and `processAction: none`; that result does
+not prove the process was closed. After accepting a bound settlement, verify the
+actual agent exit and the exact recorded terminal incarnation before closing only
+the launcher's owned terminal. Preserve ambiguous startup/release receipts for
+native recovery; never infer exit or launch a replacement from silence.
+
+A complete acceptance receipt must prove actual startup, model/effort, native
+messages, completion, process exit and cleanup. UI absence alone is insufficient.
+Keep raw prompts, capabilities, local installation paths and session identifiers
+out of public issue updates and PR descriptions.
+
+## Model compatibility and allowance
+
+Orca 1.4.200 rejects Astra `max` in its normal launch catalog even when the local
+Codex CLI supports it. The owner selected temporary **Astra xhigh** for the MVP.
+Do not silently lower other roles' effort or restore max without verifying Orca
+compatibility. Track this in [review #1614](https://github.com/lifeodyssey/animichi/issues/1614).
+
+Before Grok admission, verify current remaining allowance, observation time and
+actual `grok-4.6` / `xhigh` identity. `grok usage` is historical session usage,
+not remaining subscription allowance. A stale cache or unsuccessful refresh
+cannot establish availability; use the configured fallback and record why.
+
+General subscription-based selection, a provider pool and low-allowance Matt
+`/handoff` are deferred to [enhancement #1619](https://github.com/lifeodyssey/animichi/issues/1619).
+They do not expand this MVP into a scheduler or change the review budget.
+
+## Verification and rollout
+
+Track the rollout in [Orca harness #1612](https://github.com/lifeodyssey/animichi/issues/1612)
+and its existing `orca harness` issues. Keep configuration, local tests, independent
+review, PR feedback and confirmed merge as separate evidence boundaries.
+A successful configuration probe alone does not prove the full MVP.
+
+The [PR feedback inventory](../../scripts/orca/README.md) reads top-level comments,
+submitted reviews, threads and replies. It never grants merge approval; required
+checks and the actual [review gate](../ops/review-gate.md) remain mandatory.
+When every PR review bot explicitly reports exhausted allowance, no further bot
+review is awaited. Record the quota notices as non-actionable; existing findings,
+the independent Matt review and required CI still must pass before squash merge.
+
+Pin the configuration revision and verify its files exist in each new worktree.
+If the candidate uses an earlier revision, use the pinned coordinator checkout's
+tools without copying unrelated working-tree changes into the candidate.

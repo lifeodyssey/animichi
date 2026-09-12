@@ -271,6 +271,11 @@ jobs:
           ruby .github/test/workflow-execution.test.rb
           ruby .github/test/workflow-invocations.test.rb
           ruby .github/test/workflow-workspace.test.rb
+      - name: Verify Orca delivery tools
+        run: |
+          set -euo pipefail
+          ruby scripts/orca/test/run.rb
+          ruby scripts/orca-headless/test/run.rb
       - name: Verify repository configuration
         run: |
           set -euo pipefail
