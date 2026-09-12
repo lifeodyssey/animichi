@@ -4,11 +4,15 @@ import { metadata, preflightRequest, signedApp } from "./preflight-fixtures";
 import { PRISMA_TARGET } from "../src/prisma-target";
 
 beforeEach(() => vi.useFakeTimers({ toFake: ["Date"], now: FIXED_NOW }));
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 const privateMessage = "postgresql://admin:secret@private.test/db SELECT secret FROM private";
 
 it("sanitizes a rejected secret binding", async () => {
+  // observability is on at head_sampling_rate 1, so a console.error here ships the driver
+  // exception — the DSN — off the worker. The count is the assertion, never the calls: a
+  // diagnostic for "the DSN must not appear" may not print the DSN.
+  const consoleError = vi.spyOn(console, "error").mockReturnValue(undefined);
   const { app, token, env } = await signedApp();
   const get = vi.fn(() => Promise.reject(new Error(privateMessage)));
   const response = await app.request(preflightRequest(metadata, token), undefined,
@@ -16,6 +20,7 @@ it("sanitizes a rejected secret binding", async () => {
   expect(response.status).toBe(503);
   expect(await response.json()).toEqual({ error: "preflight_unavailable" });
   expect(response.headers.get("cache-control")).toBe("no-store");
+  expect(consoleError.mock.calls.length).toBe(0);
 });
 
 it.each([undefined, "", "invalid-dsn"])("refuses an unavailable binding %s", async (dsn) => {
