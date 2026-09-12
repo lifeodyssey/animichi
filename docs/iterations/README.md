@@ -12,7 +12,8 @@ Current active iteration artifacts:
 - `docs/iterations/production-readiness-2026-08/GOAL.md` — #1004 production-readiness execution contract, dependency frontier, OpenCode policy, review/PR gates, HITL stops, and completion checklist
 - [Agent file disposition](production-readiness-2026-08/AGENT-FILE-DISPOSITION.md) — #1536 W0-1: complete historical inventory with SDK-native deletion decisions
 - [SDK-native rewrite review](production-readiness-2026-08/SDK-NATIVE-REWRITE-REVIEW.md) — #1536 design correction candidate, public SDK evidence and canonical spec changes requiring review
-- [Platform-over-hand-written inventory](production-readiness-2026-08/PLATFORM-OVER-HANDWRITTEN-INVENTORY.md) — ADR 0008's evidence base: every hand-written mechanism sorted into platform-already-does-this, semantics-insufficient (owner adjudicates in #1593), and platform-genuinely-lacks-it
+- [Platform-over-hand-written inventory](production-readiness-2026-08/PLATFORM-OVER-HANDWRITTEN-INVENTORY.md) — ADR 0008's evidence base: every in-scope hand-written mechanism sorted into platform-already-does-this, semantics-insufficient (owner adjudicates in #1593), and platform-genuinely-lacks-it, plus two excluded sets (language ports and recorded decisions)
+- [#1317 decomposition](production-readiness-2026-08/1317-DECOMPOSITION.md) — why deleting `apps/agent` is a migration campaign: the eleven surviving container surfaces, the `/healthz` ordering constraint, and the thirteen cards it was split into
 
 Inherited execution inputs, superseded as program boards:
 - `docs/iterations/iter6/` — retained until #1017 archives/reconciles its still-relevant design evidence
