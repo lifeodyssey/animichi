@@ -38,6 +38,14 @@ is an unclassified A.
 **B — the platform has it, but the semantics are insufficient.** Adjudicated by the owner, case by
 case, in **#1593**. Nothing in B may be kept or removed on the strength of this ADR alone.
 
+**First adjudicated case (2026-09-12): #1620.** A private Prisma 8 extension pack declaring
+`Geography(4326)`, ~380 lines, for a capability used by four lines in one file. Accepted. The precedent
+it sets is about method, not about size: the ratio argued against it, and the ruling went the other way
+because all three alternatives were measured first and each cost more — one line of raw SQL in
+application code, or a second authorization model plus a pre-stable SDK, or `any`-typed columns on a
+version that cannot carry the release handshake. **"Too much code for too little" is a comparison, not
+a measurement.** A B case is not ready for adjudication until the alternatives are priced.
+
 B exists because a rule that resolves it in advance has only two outcomes: it becomes a rubber stamp
 for anything we felt like building, or it deletes a distinction that was load-bearing. The bucket is
 not an escape hatch — #1593 sets five admission requirements for a case, and a case that cannot meet
@@ -65,19 +73,45 @@ A 253-line SSRF guard is a C. Lines measure what a change costs, not whether it 
 
 ## Two collisions this ADR does not resolve
 
-**1. ADR 0006 decision 6 versus the migrator's Atlas engine.** Decision 6 says CI never holds a
-database credential, "even short-lived". That forces migration apply into a Worker; a Worker cannot
-exec a subprocess; so the real Atlas binary is unreachable and `workers/migrator` carries ~644
-hand-written lines re-implementing apply, the ledger, and a quote-aware SQL splitter. The container
-path that *could* run real Atlas is still bound in `wrangler.toml` with zero production call sites.
-The principle and decision 6 point in opposite directions and only the owner can cut it. Filed in
-#1593.
+**1. ADR 0006 decision 6 versus the migrator's Atlas engine — resolved 2026-09-12 as a *wait*, not a decision.**
+Decision 6 says CI never holds a database credential, "even short-lived". That forces migration apply
+into a Worker. The reason the real Atlas binary is unreachable there is **not** that Workers cannot
+exec a subprocess — `docs/specs/2026-08-16-migrator-neon-connectivity-spec.md` explicitly refuses that
+claim ("This spec does **not** claim Cloudflare 'cannot do Postgres TCP'"). It is that **`5432` from
+the migrator container never completed TLS to Neon**: Neon's ops log showed `start_compute` — TCP
+arrived, the compute woke — with no Postgres session established. Option 2 abandoned 5432 entirely,
+and that spec's decision 5 then required the Worker to keep writing `atlas_schema_revisions` with
+Atlas v0.30 version/hash semantics so a laptop `atlas migrate status` stays truthful. Those two
+constraints together are what produced ~644 hand-written lines (`http-apply.ts` 260, `sql-split.ts`
+200, `chain.ts` 64, `ledger.ts` 59, `sql.ts` 50, `preflight-ledger.ts` 11).
+
+So the correct statement is conditional, and it is this ADR's bucket-B admission fact #5 exactly —
+a gap that upstream or a decision closes is a wait, not a decision:
+
+> Those 644 lines exist as long as Atlas owns tables. Atlas owns tables as long as it owns tables.
+
+The owner closed it on 2026-09-12 by retiring Atlas: **Prisma 8 takes the whole database layer**, and
+`ControlClient.migrate` replaces the hand-written apply, ledger and SQL splitter. The exit condition
+was never a tradeoff between security and code volume — it was a schema-ownership decision, and the
+ADR previously mis-stated it as the former. Spec in `docs/specs/`, dated 2026-09-12.
 
 **2. The largest hand-written cluster in the repo is not a platform duplication at all.**
-`packages/eval/src/gate/**` is ~1,736 TypeScript lines twinning ~656 Python lines, including a
-bit-exact CPython MT19937 and an `math.fsum` port, so the TS gate's numbers are diffable against the
-Python one. No platform is being duplicated; a *language* is. This ADR does not reach it, and
-pretending it does would be the first misuse of it.
+`packages/eval/src/gate/**` is ~1,736 TypeScript lines twinning ~656 Python lines
+(`apps/agent/src/animichi/tests/eval/{gate,metric_gate,stats}.py`), including a bit-exact CPython
+MT19937 and an `math.fsum` port, so the two gates produce diffable numbers. No platform is being
+duplicated; a *language* is. This ADR does not reach it, and pretending it does would be its first
+misuse.
+
+**It also has a deadline, which the first version of this ADR missed.** The ports are not a permanent
+duplication — they are a migration in flight. `packages/eval/src/gate/stats-oracle.ts:9-13` names its
+source as "the Python side's own answers, for the TS port to be measured against", written by
+`stats_oracle.py` running the real `stats.py`/`gate.py`; `gate-run/python-baseline.ts:6` names the
+record as the one "a TS staging run is gated against (W3-5 #1303)". Two things then happened: #1303
+closed as superseded with the owner declaring the W3 exit not met and **no Python baseline ever
+produced**, and #1607 will delete `apps/agent` — taking the oracle's source with it. So the decision
+of whether the bit-exact ports (~332 lines: MT19937 148, fsum 98, number rendering 86) have served
+their purpose must be made **before #1607 merges**, and #1603 is where it lands. A wait with a
+closing window is not the same as a wait.
 
 ## Consequences
 
@@ -85,6 +119,13 @@ pretending it does would be the first misuse of it.
   sufficient grounds, and it does not require agreement about taste.
 - A C must carry its justification in the code. Reviewers should reject an unexplained C.
 - A B goes to #1593 and waits. It does not get built, and it does not get deleted, in the meantime.
+- **Cite the repo's own precedent before citing the principle.** The inventory turned up the same job
+  done twice, in opposite ways, and the earlier one got it right: `.github/lib/release/config.mjs:1`
+  reads Wrangler configuration with Wrangler's own `experimental_readRawConfig`, while
+  `workers/catalog/scripts/worker-entry-exports.ts:5-8,33-43` hand-rolls 126 lines of regex over the
+  same files. That is not a team that does not know the platform API exists — it is knowledge that did
+  not travel. A reviewer naming the in-repo precedent carries more than a reviewer naming this ADR,
+  because the precedent proves the thing already works here.
 - The inventory is a snapshot, not a worklist. Cards come from it one at a time, each with its own
   acceptance criteria; nobody is authorised to "apply the ADR" in a sweep.
 
