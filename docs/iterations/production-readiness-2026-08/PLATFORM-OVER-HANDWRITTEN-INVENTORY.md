@@ -27,7 +27,6 @@ The "affected router written three incompatible times" is now one platform-nativ
 
 | what | path:line | lines | already-adopted equivalent |
 |---|---|---|---|
-| Hand-rolled bash test framework repeated across 15 files | `scripts/local-gates/test-stub.sh:1` · `stub-env.sh:1` · 9 × `scripts/local-gates/*.test.sh` · 2 × `.github/scripts/*.test.sh` · `scripts/delivery/migrate-through-worker.test.sh:1` · `workers/edge/scripts/check-edge-ratelimit-namespace.test.sh` · `.claude/hooks/check-pr-comments.test.sh` | **2,215** | `minitest` — adopted and running in the same CI job for 43 equivalent gate tests (`.github/test`, 2,794 lines). `bats-core` is the direct shell equivalent but is **not** adopted; see ADR 0008 §"Not a mandate to adopt" |
 | Hand-written router, path-template→regex, CORS, cookie parsing, behind one `app.all("*")` | `workers/edge/src/app.ts:57` · `gateway/routing-policy.ts:38-42` · `request-class.ts` · `agent-tier-route.ts` · `gateway/request.ts:122-132` · `rate-policy.ts:82-86` (byte-duplicate of `routing-policy.ts:38-42`) · `proxy/tiles.ts:74-95` · `identity/anonymous-id.ts:36-42` + `turnstile-pass.ts:6-12` | ~393 | `hono` 4.13.7 — a **direct dependency**, imported in exactly one place and used only as `new Hono().all("*")`. `workers/catalog`, `workers/users` and `workers/migrator` all use its router properly |
 | Regex TypeScript scanner counting function/class/file lengths | `workers/catalog/scripts/enumerate-1050.ts:1-226` | 226 | `oxlint` `max-lines` / `max-lines-per-function` / `max-classes-per-file` — verified to exist and fire on the installed 1.75.0. The script is referenced by no gate |
 | Regex line-parsing of `wrangler.toml`/`.jsonc` + hand-rolled `posixJoin` | `workers/catalog/scripts/worker-entry-exports.ts:5-8,33-43` + `check-worker-entry-exports.ts` | 126 | `smol-toml` (devDep of `workers/edge`, `packages/agent`), `jsonc-parser` (devDep of `apps/web`), and `node:path` `join` — **imported at line 2 of the sibling file** |
@@ -52,6 +51,7 @@ Do not action any row here. Each needs the five admission facts #1593 requires.
 
 | what | path:line | lines | equivalent | the gap |
 |---|---|---|---|---|
+| Hand-rolled bash test framework repeated across 15 files | `scripts/local-gates/test-stub.sh:1` · `stub-env.sh:1` · 9 × `scripts/local-gates/*.test.sh` · 2 × `.github/scripts/*.test.sh` · `scripts/delivery/migrate-through-worker.test.sh:1` · `workers/edge/scripts/check-edge-ratelimit-namespace.test.sh` · `.claude/hooks/check-pr-comments.test.sh` | **2,215** | `bats-core` | **Moved out of A on review.** `minitest` is adopted and runs 43 equivalent gate tests, but it executes **Ruby** — it provides neither bash discovery nor bash assertion semantics, so it is not an adopted equivalent under A's own test. `bats-core` is the direct equivalent and is **not adopted**. Largest single item in the inventory; goes to #1593 rather than being decided by the principle |
 | OpenAPI breaking-change engine | `packages/contract/src/openapi-diff.ts` · `openapi-schema-diff.ts` · `operation-set.ts` · `openapi-vet.ts` · `openapi-changes.ts` | **830** | `oasdiff` | Not adopted, so not A under this ADR's reading. Could not confirm oasdiff covers our rule that a `/v2/…` path requires the superseded operation to carry `deprecated: true` **and** `x-sunset` |
 | ~~From-scratch Atlas apply engine, ledger, quote-aware SQL splitter~~ **CLOSED 2026-09-12** | `workers/migrator/src/http-apply.ts` · `sql-split.ts` · `ledger.ts` · `preflight-ledger.ts` · `chain.ts` · `sql.ts` (+5 modules the first count missed; ≈812 not 644) | ≈812 | Atlas CLI + its own ledger and advisory lock | **Not** "Workers cannot exec a subprocess" — the connectivity spec refuses that claim. The cause was that **5432 from the migrator container never completed TLS to Neon**, so Option 2 abandoned the port, and that spec's decision 5 then required the Worker to keep writing `atlas_schema_revisions` with Atlas v0.30 semantics. **Resolved by retiring Atlas**: Prisma 8 owns the database layer and `ControlClient.migrate` replaces these modules. See ADR 0008 §5 entry 1 |
 | Exact per-identity rate counter on a DO | `workers/edge/src/protect/rate-limiter.ts` + `edge-guard.ts` | 364 | Cloudflare `RATE_LIMITER` binding | Already used for the coarse tier, whose own comment calls it best-effort. No single-key atomic strongly-consistent count |
@@ -92,7 +92,6 @@ Correct as written. Each must name what the platform lacks, in the code.
 | Lossless JPEG EXIF-stripping walker | `apps/web/src/lib/exif-strip.ts` | 162 | Survey recorded in the file header: Node-stream-only, unmaintained, or lossy |
 | Zero-dependency PNG chunk codec | `e2e/visual/png.ts` | 160 | No PNG package in the workspace; Playwright's bundled `pngjs` is not a published subpath |
 | Hand-written i18n core | `apps/web/src/i18n/*` + `lib/i18n/locale-storage.ts` | 164 | Zero i18n/intl dependency in `apps/web` |
-| OIDC-minted migration handshake | `scripts/delivery/migrate-through-worker.sh` | 137 | **Accepted** — ADR 0006 decision 6 |
 | Bounded backoff with `Retry-After` | `workers/catalog/src/ingest/retry.ts` | 131 | No retry library adopted; Workers `fetch` has none |
 | Stratified paired bootstrap | `packages/eval/src/gate/paired-bootstrap.ts` | 129 | No adopted dep has one |
 | Smoke probe on response-body semantics | `.github/scripts/staging-smoke-check.sh` | 118 | `curl --retry` retries transport/status, not body semantics |
@@ -102,13 +101,29 @@ Correct as written. Each must name what the platform lacks, in the code.
 | Container cold-start fetch retry | `workers/edge/src/gateway/container-fetch.ts:14-87` | 74 | `@cloudflare/containers` retries container **start**, never the subsequent `tcpPort.fetch()` |
 | Regenerate-and-diff drift checks | `scripts/local-gates/contract-drift.sh` + `eval-fixture-drift.sh` | 75 | No tool does "regenerate X, diff against the committed copy" |
 | Single-key snapshot pointer | `workers/catalog/src/publish/pointer.ts` | 56 | R2 has only atomic single-key PUT |
-| Release admission, tar-slip validation, source closure | `.github/lib/release/*.rb` | ~400 | **Accepted** — ADR 0007 |
 | Cycle-safe deep equality | `apps/web/src/features/chat/tool-steps.ts:44-72` | 29 | No deep-equal among adopted deps |
 | TOML extraction for `pyproject.toml` | `test/repo-config/lint-scope.test.rb:34-58` | ~24 | No TOML gem in the Ruby toolchain |
 | `Range:` header parsing | `workers/edge/src/proxy/tiles.ts:138-156` | 19 | R2 takes `{offset,length}`; Workers has no Range parser |
 | Periodic SSE keep-alive | `workers/edge/src/agent/views/watch-response.ts:27-43` | 17 | AI SDK `createUIMessageStream` has no heartbeat |
 | jsdom `matchMedia`/`ResizeObserver` stubs | `apps/web/tests/setup/viewport-hermetic.ts` | 16 | jsdom implements neither |
 | Cron-string → job-kind lookup | `workers/catalog/src/import/schedule.ts:22-29` | 8 | `ScheduledController` exposes only the cron string |
+
+## Excluded from A/B/C — recorded decisions
+
+These are hand-written because a recorded ADR says so. They carry no bucket: C means *the platform
+genuinely lacks it*, and the reason these exist is a decision, not an absence. ADR 0008 states it is
+not retroactive over them.
+
+| what | path | lines | the decision |
+|---|---|---|---|
+| Release admission, tar-slip validation, source closure | `.github/lib/release/*.rb` | ~400 | [ADR 0007](../../adr/0007-selected-release-artifacts.md) — "Repository policy adds admission checks…" on top of GitHub's artifact primitives |
+| OIDC-minted migration handshake | `scripts/delivery/migrate-through-worker.sh` | 137 | [ADR 0006](../../adr/0006-platform-over-handwritten-ci.md) decision 6 — CI never holds a database credential, even short-lived |
+
+The GitHub OIDC verifier (`packages/contract/src/oidc-github.ts` + `workers/migrator/src/policy.ts`)
+deliberately **stays in C**, even though ADR 0006 §3.5 also records it. It is both: Cloudflare Workers
+genuinely have no OIDC federation, *and* the ADR records the resulting split (Pulumi Cloud does have
+federation, so we use theirs). It is C's calibration example, which is why it belongs there rather
+than here.
 
 ## Excluded from A/B/C — language ports
 

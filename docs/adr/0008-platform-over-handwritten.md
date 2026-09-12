@@ -55,9 +55,14 @@ them is an A that has not been read carefully enough.
 
 **Not a mandate to adopt.** "Already adopted" is part of bucket A's test. A capability available in a
 library we do not depend on is not an A — adding a dependency is its own decision with its own cost,
-and this ADR does not pre-approve it. The inventory found this edge immediately: an 830-line OpenAPI
-breaking-change engine in `packages/contract` duplicates `oasdiff`, which is not a dependency. Under
-"already adopted" it is a B; under "off-the-shelf exists" it would be the largest A in the repo.
+and this ADR does not pre-approve it. The inventory found this edge twice, and together the two cases
+are the largest hand-written mass it lists. An 830-line OpenAPI breaking-change engine in
+`packages/contract` duplicates `oasdiff`, which is not a dependency. A 2,215-line hand-rolled bash
+test framework across fifteen files duplicates `bats-core`, also not a dependency — `minitest` is
+adopted and runs 43 equivalent gate tests, but it executes Ruby, so it supplies neither bash discovery
+nor bash assertion semantics. Under "already adopted" both are B; under "off-the-shelf exists" they
+are the two largest A rows in the repo. **This reading therefore does not settle an edge case — it
+settles the two biggest items in the inventory.**
 **Resolve that reading before applying this ADR to anything.**
 
 Whichever reading wins, it reaches **only candidates already confirmed to have an adopted-or-available
