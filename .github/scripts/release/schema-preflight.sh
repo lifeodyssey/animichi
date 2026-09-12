@@ -32,18 +32,23 @@ request_preflight() {
 }
 # A 503 means the endpoint resolved no DSN or its driver threw: nothing here starts a
 # container. The one benign cause is a migrator published seconds ago that is not serving
-# this request yet, so the wait is bounded and then fails closed.
+# this request yet, so the wait is bounded and then fails closed. It keeps its own counter:
+# the CD sequence it exists for is a 503 wait followed by a stale bundle, and a shared
+# counter would have the two waits cancel each other.
+# A curl transport failure (no HTTP status at all: unresolvable host, refused connection)
+# is deliberately not retried — it aborts the run under `set -e`, which is fail-closed.
 unavailable_attempts="${UNAVAILABLE_ATTEMPTS:-10}"
 unavailable_poll_seconds="${UNAVAILABLE_POLL_SECONDS:-15}"
+unavailable_attempt=1
 attempt=1
 while :; do
   code="$(request_preflight)"
   [ "$code" != 200 ] || break
   if [ "$code" = "503" ]; then
-    echo "::notice::just-published migrator is not answering preflight yet, attempt $attempt/$unavailable_attempts, sleeping ${unavailable_poll_seconds}s..."
+    [ "$unavailable_attempt" -lt "$unavailable_attempts" ] || { echo "::error::migrator never answered preflight after $unavailable_attempts attempts"; exit 1; }
+    echo "::notice::just-published migrator is not answering preflight yet, attempt $unavailable_attempt/$unavailable_attempts, sleeping ${unavailable_poll_seconds}s..."
+    unavailable_attempt=$((unavailable_attempt + 1))
     sleep "$unavailable_poll_seconds"
-    attempt=$((attempt + 1))
-    [ "$attempt" -le "$unavailable_attempts" ] || { echo "::error::migrator never answered preflight after $unavailable_attempts attempts"; exit 1; }
     continue
   fi
   if [ -z "$prisma_ref" ] || [ "$code" != 409 ] || ! jq -e '.error == "stale_bundle" or .error == "stale_prisma_bundle"' schema-preflight.json > /dev/null; then
