@@ -1,6 +1,6 @@
 # Orca card delivery: Ready for Dev to merged PR
 
-Owner decisions: 2026-09-12. Scope: backend, Infra, and CI/CD cards that are already
+Owner decisions: 2026-09-12 and 2026-09-13. Scope: backend, Infra, and CI/CD cards that are already
 Ready for Dev. This is the operating contract for an Orca coordinator; it is not
 an implemented background scheduler or evidence that a card has run.
 
@@ -40,28 +40,26 @@ and PR comments for post-publication feedback. A workspace's short Orca comment
 may mirror the latest progress; it is not a threaded review record.
 
 ## Current workers and future pool
-
-The current execution choice supersedes the OpenCode-only Policy C requirement
-for development in this flow: use Codex, model `gpt-5.6-sol`, effort `max`.
+This flow supersedes OpenCode-only Policy C: use Codex `gpt-5.6-sol` / `max` for development.
 
 | Role | Current launch | Ownership |
 |---|---|---|
 | Developer / fixer | Fresh Codex Sol max session | Use `/implement` in the assigned worktree; leave Git publication to the coordinator |
-| Reviewer | Fresh Codex Astra max session | Use Matt `/code-review` as required in the prompt; return findings and evidence |
-| Coordinator | Codex Astra medium (recommended) | Admission, dispatch, evidence, candidate commits, PR feedback, merge, and recovery |
+| Reviewer | Fresh Grok 4.6 xhigh; fallback Codex Astra xhigh | Use Matt `/code-review` as required in the prompt; return findings and evidence |
+| Coordinator | Codex Sol medium | Admission, dispatch, evidence, candidate commits, PR feedback, merge, and recovery |
 
 The reviewer's effective model must differ from the models that wrote the current
 candidate, including fixes. A new session, CLI, account, or reasoning effort does
 not make the same model independent. Record effective provider/model identities;
-unknown identity or an unverified alias cannot satisfy this gate. The MVP uses
-only Codex CLI: developer/fixer `gpt-5.6-sol` / `max`, reviewer `gpt-6-astra` /
-`max`. All review descendants must preserve the same model-independence rule.
-The coordinator recommendation is `gpt-6-astra` / `medium`, in its own session.
-These are fixed role assignments; provider switching and quota routing are deferred.
+unknown identity or an unverified alias cannot satisfy this gate. Development and
+fixes use Codex `gpt-5.6-sol` / `max`; the coordinator uses `gpt-5.6-sol` / `medium`.
+Prefer Grok CLI `grok-4.6` / `xhigh` for review when current allowance is verified;
+otherwise use Codex `gpt-6-astra` / `xhigh` and record why. Review descendants must
+preserve model independence. Verify Grok model/effort and supervised launch before
+admission; an installed CLI or historical usage does not prove available quota.
 
-Reviewers receive the frozen inputs and candidate diff, not the developer's
-conversation. Each fix and review uses a new session. Reviewers return findings;
-developer/fixer workers own candidate edits so review independence remains clear.
+Reviewers receive frozen inputs and diff, not developer conversations. Each fix
+and review uses a fresh session; reviewers return findings and fixers own edits.
 
 Future requirement, recorded but not implemented: maintain a configurable worker
 pool including Codex, Grok, ZCode, DeepSeek-backed workers, Kimi Code, Pi, and
@@ -69,14 +67,14 @@ OpenCode. CLI and model/provider are separate dimensions; DeepSeek does not impl
 a particular CLI. A pool entry must declare CLI, model, effort, role/Profile,
 configuration version, execution host, availability, concurrency, and capabilities.
 The owner's full model/role matrix is recorded in [worker pool #1617](https://github.com/lifeodyssey/animichi/issues/1617).
-Allowance-based selection and low-allowance Matt `/handoff` live only in
-[enhancement #1619](https://github.com/lifeodyssey/animichi/issues/1619); neither blocks the MVP.
+General quota routing and low-allowance Matt `/handoff` remain in
+[enhancement #1619](https://github.com/lifeodyssey/animichi/issues/1619). The Grok-first
+review preference above is a narrow owner override, not a completed worker pool.
 Selection must respect role compatibility, resource limits, and authorization;
 record the effective selection and never silently fall back to another provider.
 
-Profiles must eventually control actual instructions, skills, MCP, tools, and
-configuration exposure. A role prompt, fresh session, or worktree alone does not
-prove that isolation. CLI compatibility and isolation require separate validation.
+Future Profiles must control skills, MCP, tools and configuration exposure; a
+fresh session alone does not prove isolation. Validate each CLI separately.
 
 ## Admission and frozen inputs
 
@@ -111,37 +109,30 @@ Load the relevant bundled reference for placement, recovery, or custom launches.
 - A Dispatch identifies one authoritative attempt at that Task.
 - The business card and its review verdict remain distinct from Task settlement.
 
-An accepted `worker_done` settles the Task/Dispatch automatically. A reviewer may
-successfully finish an inspection that found defects: record those findings as a
-failed candidate review, not as a successful delivery. Conversely, process exit,
-TUI idle, or a successful command receipt never proves review acceptance.
+An accepted `worker_done` settles the Task/Dispatch automatically. A reviewer may successfully finish an inspection that found defects;
+record them as a failed candidate review. Process exit, TUI idle, or a successful command receipt never proves approval.
+At every supervision checkpoint, run launcher `status` and compare model-process exit with native Task settlement.
+A progress-only final response can exit 0 before `worker_done` while native liveness remains cached live. An exited
+process with an unsettled Task requires native Orca recovery, not more cached-liveness waiting or invented completion.
+Preserve completed child reports plus failed-attempt and native Run-takeover evidence without claiming parent Task success.
 
-Use Orca workers for this flow, not an unrelated native subagent system or
-parallel raw Codex CLIs. The review prompt must account for the installed skill's
-worker topology and Orca's nesting limit before dispatch; do not bypass that limit.
+Use Orca workers, not unrelated native subagents or parallel raw Codex CLIs; respect installed skill topology and Orca's nesting limit.
 
-The following is a launch template, not a runnable card or an Orca YAML schema:
+Use the [headless launcher](../../scripts/orca-headless/README.md) with the exact workspace, coordinator, Run,
+private role-spec file and a new private attempt directory. Fixed roles do not schedule cards or select models; follow documented start/status/accepted-cleanup and never use interactive `worker-start` as fallback.
 
-```text
-orca orchestration worker-start --task <task-id> --run <run-id> \
-  --worktree <exact-worktree-selector> --agent codex \
-  --model gpt-5.6-sol --effort max --json
-```
+Verify model/effort from receipts or the reused terminal's live session. Astra uses `xhigh` on Orca 1.4.200; see
+the [compatibility note](../agents/orca-project-setup.md#model-compatibility-and-allowance). New worktrees need
+setup; existing ones need a preflight because `worker-start` does not rerun it.
 
-Verify the model/effort from launch receipts or the reused terminal's live session.
-For Astra max on Orca 1.4.200, use the [startup recipe](../agents/orca-project-setup.md#astra-max-launch-on-orca-14200); do not silently change the model or effort.
-New worktrees must finish setup before prompt delivery. Existing worktrees need
-an explicit environment preflight because `worker-start` does not rerun setup.
+MVP verification uses one pilot candidate writer and one heavy gate suite at a time. After it passes, inventory Ready for
+Dev and open-PR backend/Infra/CI cards, then maximize independent work within verified dependencies, ownership and resources.
+Keep one writer per candidate; dispatch one Matt `/code-review` reviewer per frozen candidate; its skill owns child concurrency within the nesting limit.
 
-MVP capacity: one admitted card, one candidate writer, and one heavy gate suite at
-a time. Independent review axes may run together against a stable candidate.
-The intended depth is two: coordinator -> reviewer -> review-axis workers.
-Verify the actual nesting setting before launch; this is separate from capacity.
-
-Use one coordinator session and the standard Orca supervised waiting loop for
-the whole card. Short-lived coordinators, webhook wakeups, and scheduled admission
-are deferred. Repeated empty waits are checkpoints; inspect worker liveness as
-the installed skill requires. A live session does not mean continuous inference.
+Use one coordinator and the standard supervised waiting loop for the whole card. Require headless workers with no visible TUI/Chat panes; verify
+before admission. Short-session controllers remain deferred. A final response ends a headless process, so each
+role prompt must require bounded native `check`/wait until obligations settle, then one bound `worker_done`;
+no restart loop or scheduler. Empty waits require liveness inspection, not duplicate workers or inferred failure.
 
 ## Development, gates, and candidate
 
@@ -198,35 +189,42 @@ current candidate. Pre-PR reviews produce local reports and Orca messages.
 ## PR feedback and merge
 
 Keep one complete card/Story outcome in one PR. Search for an existing PR before
-creation or recovery. All gate repairs and review corrections stay in that PR.
+creation or recovery; keep every gate repair and review correction in that PR.
 
-Read and paginate every feedback surface: inline review threads and replies,
-review submissions, and top-level issue comments from humans and bots. Re-read
-after every push and before merge. For each actionable item, record its source
-ID/URL, disposition, fixing commit or supporting evidence, and acknowledgement.
-Non-actionable status comments need classification, not meaningless replies.
+Read and paginate every feedback surface: inline threads and replies, review submissions,
+and top-level human and bot comments. Re-read after every push and before merge. Record
+each actionable item's source ID/URL, disposition, fixing commit or evidence, and
+acknowledgement. Classify non-actionable statuses instead of posting meaningless replies. If all PR review bots explicitly report
+exhausted allowance, do not wait for them; quota notices are non-actionable. Existing
+substantive findings, Matt review and required CI still apply.
 
-Use the [read-only feedback tool](../../scripts/orca/README.md) for the complete
-comment inventory. The coordinator calls it while supervising the PR and waits
-up to 60 seconds between observations; no webhook receiver or daemon is required.
-Tool failure is unavailable evidence, never zero findings. CI/checks are queried
-separately. Top-level comments lack a universal resolved flag: inspect their
-findings and replies. A successful inventory is not a merge approval.
+For every complete inventory, set `PR_NUMBER` to the actual PR number,
+`CARD_EVIDENCE_DIR` to the card's existing private evidence directory outside the
+repository, and `OBSERVATION` to a new sequence-plus-stage name such as `02-after-push`:
 
-Fix true findings, rerun checks, and obtain fresh local review after code changes.
-Respond with the actual resolution; resolve inline threads only after their issue
-is addressed. Account for top-level bot findings too. Preserve the comments and
-audit history; "resolve all comments" never means deleting comments or posting a
-blanket acknowledgement without inspecting each finding.
+```sh
+ruby scripts/orca/pr-feedback.rb --repo lifeodyssey/animichi --pr "$PR_NUMBER" \
+  --output "$CARD_EVIDENCE_DIR/pr-feedback-$OBSERVATION.json"
+```
 
-[Review gate](review-gate.md) remains the single source for merge requirements.
-Re-query the live checks/rules and satisfy required CI, thread resolution,
-maintainer acknowledgement, patch coverage, and any required GitHub approvals.
-The owner-local comment hook is not automatically installed in a Codex/Orca tool
-path. Explicitly run it with the actual planned merge command supplied as
-`tool_input.command` JSON and capture its exit status. An empty-input invocation
-does no checking. If the hook is unavailable or rejects, stop and diagnose it;
-never infer that Codex inherited Claude's hook enforcement.
+The [read-only feedback tool](../../scripts/orca/README.md) writes successful output
+atomically. Never reuse an observation name or overwrite an earlier inventory. A nonzero
+exit, missing output, or output whose `complete` is not `true` is unavailable or partial
+evidence, never zero findings or merge permission. Query required CI/checks separately.
+Wait up to 60 seconds between observations; no webhook receiver or daemon is required.
+Top-level comments lack a universal resolved flag: inspect findings and replies. A successful inventory is not merge approval.
+
+Fix true findings, rerun checks, and obtain fresh local review after code changes. Respond
+with the actual resolution; resolve inline threads only after their issue is addressed.
+Account for top-level bot findings and preserve the audit history; resolving all comments
+never means deleting them or posting a blanket acknowledgement without inspection.
+
+[Review gate](review-gate.md) remains the single source for merge requirements. Re-query
+live rules and satisfy required CI, thread resolution, maintainer acknowledgement, patch
+coverage, and required GitHub approvals. The owner-local comment hook is not automatically
+installed in a Codex/Orca path. Run it with the actual planned merge command supplied as
+`tool_input.command` JSON and capture its exit status; empty input does no checking. If the
+hook is unavailable or rejects, stop and diagnose it; never infer that Codex inherited Claude's hook enforcement.
 
 Use the exact reviewed PR head when requesting squash merge:
 
@@ -287,12 +285,14 @@ an unacknowledged FIFO delivery hides later guidance. Do this before worker_done
 Append the appropriate role instruction to each task prompt:
 
 ```text
-Developer/fixer: Use the installed Matt /implement skill for this card or fix brief.
+Developer/fixer: Invoke and follow Matt /implement for development AND every fix,
+including local-review findings, PR comments and CI repairs. Read the actual skill.
 Route its review step to the coordinator's separate, different-model reviewer;
 do not substitute self-review. Return changes and evidence for the coordinator's
 candidate commit. The coordinator owns commit, push, PR, and squash merge actions.
 
-Reviewer: Use the installed Matt /code-review skill on the frozen spec/base/head.
+Reviewer: Invoke and follow Matt /code-review for every review and re-review.
+Read the actual skill; provide frozen spec/base/head and let it organize its work.
 Your effective model must differ from every model that wrote this candidate.
 Report actual findings and evidence without editing the candidate. Report a model
 identity mismatch or unavailable required skill as blocked, never as approval.
