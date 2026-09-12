@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { PLAIN_NODE_BUDGET_MS } from "./test/test-timeout-budget";
 
 /** Load Atlas SQL / atlas.sum as default-export strings (wrangler Text modules). */
 function textModules() {
@@ -18,6 +19,11 @@ export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
     environment: "node",
+    // Stated, not inherited (#1594): most of this arm is in-process, so the
+    // package-wide budget stays tight enough to catch a real hang. The two
+    // suites that wait on something — a workerd boot, a spawned entrypoint —
+    // declare their own budget where they wait; see test/test-timeout-budget.ts.
+    testTimeout: PLAIN_NODE_BUDGET_MS,
     coverage: {
       provider: "istanbul",
       include: ["src/**/*.ts"],
