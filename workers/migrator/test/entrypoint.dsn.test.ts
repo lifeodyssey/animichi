@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterAll, describe, expect, it } from "vitest";
+import { pinsSuiteBudget } from "./suite-budget-pin";
+import { ENTRYPOINT_SPAWN_BUDGET_MS } from "./test-timeout-budget";
 
 const execFileAsync = promisify(execFile);
 const ENTRYPOINT = fileURLToPath(import.meta.url).replace(/\/test\/entrypoint\.dsn\.test\.ts$/, "/docker/entrypoint.sh");
@@ -94,7 +96,12 @@ function atlasLine(log: string, needle: string): string {
   return log.split("\n").find((line) => line.includes(needle)) ?? "";
 }
 
-describe("entrypoint rejection paths (PR1)", () => {
+// Every test here spawns docker/entrypoint.sh through sh with a shadowed
+// PATH, so it pays a chain of process spawns rather than test work; that
+// wait is budgeted at the suite, not package-wide (#1594).
+describe("entrypoint rejection paths (PR1)", { timeout: ENTRYPOINT_SPAWN_BUDGET_MS }, () => {
+  pinsSuiteBudget(ENTRYPOINT_SPAWN_BUDGET_MS);
+
   it("AC1: rejects a -pooler host before atlas runs, mentions pooled endpoint, no DSN leak", async () => {
     const h = makeHarness(DSN_OK);
     const pooler = "postgresql://u:p@animichi-pooler.eu-central-1.aws.neon.tech/neondb";
@@ -116,7 +123,9 @@ describe("entrypoint rejection paths (PR1)", () => {
   });
 });
 
-describe("entrypoint probe + apply (domain DSN)", () => {
+describe("entrypoint probe + apply (domain DSN)", { timeout: ENTRYPOINT_SPAWN_BUDGET_MS }, () => {
+  pinsSuiteBudget(ENTRYPOINT_SPAWN_BUDGET_MS);
+
   it("AC3: atlas URL keeps the Neon hostname (no IPv4 pin) and still has connect_timeout + search_path; stdout never has the URL", async () => {
     const h = makeHarness(DSN_OK);
     const res = await h.run({});
