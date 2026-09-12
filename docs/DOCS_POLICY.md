@@ -34,7 +34,7 @@ Sole navigation for `docs/` — no docs-level README. Paths on the post-reorg la
 | Path | Holds | Write policy |
 |---|---|---|
 | `docs/specs/` | Active, non-superseded design specs (ADRs live flat) | Superseded → `docs/archive/specs/` (one-way) |
-| `docs/adr/` | Registered ADRs 0001–0007 (canonical) | Amend via a new ADR |
+| `docs/adr/` | Registered ADRs 0001–0008 (canonical) | Amend via a new ADR |
 | `docs/ops/` | Live runbooks (deployment, hardening, maintenance, …) | Update in place |
 | `docs/iterations/` | Active iteration artifacts + `README.md` pointer | Per-iteration dirs |
 | `docs/archive/` | `specs/` · `plans/` · `reviews/` · `design-sync/` · `mockups-demo/` · `landing-hero/` · `review-boards/` | Read-only history |
@@ -91,6 +91,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |
 | Secrets architecture / worker secrets | `docs/adr/0003-secrets-architecture.md` | CF Secrets Store + Neon-hosted role passwords + Pulumi `neon.Role`; supersedes the ESC-first plan of #674 |
 | CI/CD principle + identity boundary | `docs/adr/0006-platform-over-handwritten-ci.md`, amended by `docs/adr/0007-selected-release-artifacts.md` | Native platform capabilities and OIDC audiences; explicit immutable artifact selection and whole-environment locks |
+| Platform-over-hand-written, repo-wide | `docs/adr/0008-platform-over-handwritten.md` | Extends ADR 0006 decision 1 past the delivery lane; A/B/C buckets, the B adjudication log is #1593, evidence in `docs/iterations/production-readiness-2026-08/PLATFORM-OVER-HANDWRITTEN-INVENTORY.md` |
 | Local development gates | `docs/ops/local-gates.md` + `.pre-commit-config.yaml` | changed-file routing (`--staged` pre-commit / merge-base pre-push); `commitlint.config.js` as the one commit-msg/PR-title validator; the pre-push gate `scripts/local-gates/pre-push-affected.sh` (packages + three buckets + a fail-closed whitelist); PR CI routes by pnpm's `--filter "...[<ref>]"`, which pre-push cannot use (pnpm/pnpm#12626); `make check-full` is the manual everything-run; browser e2e/live-Neon/evals/deploys stay in CI |
 | Review gate (merge quality enforcement) | `docs/ops/review-gate.md` | native thread resolution + required checks + the two-way comment hook; the LLM status machinery retired 2026-08-31 |
 | Card delivery: Ready for Dev → merged PR | `docs/ops/orca-card-delivery.md` | Owner decision 2026-09-12; scoped to backend/Infra/CI-CD cards. Codex Sol max implements, different-model Matt review workers, three rounds maximum. Overrides the OpenCode/fleet dispatch routing for that scope. Visible entry point: `docs/agents/orca-project-setup.md`; coordinator prompt: `docs/agents/orca-coordinator-prompt.md` |
