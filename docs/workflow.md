@@ -1,4 +1,10 @@
-# Workflow — Matt 流程 × Policy C 编排(每阶段显式触发)
+# Workflow — Matt 流程与执行编排(每阶段显式触发)
+
+后端、Infra、CI/CD 的已就绪卡片采用 [Orca 交付流程](ops/orca-card-delivery.md)
+(2026-09-12 owner 决定):Codex Sol max 按 `/implement` 实施,不同模型的独立 Matt 评审与修正最多三轮,
+创建 PR 后解决全部反馈并走到合并。该范围覆盖下文 Policy C 的执行器和 fleet 派发方式;
+前期拆卡及合并后的 API/E2E/Computer Use 验收不在本阶段内。其他工作保留下文流程。
+
 
 本仓工作流 = [mattpocock/skills](https://github.com/mattpocock/skills) 主流程 + 本仓执行政策。
 **每个阶段显式调用对应 skill,不靠隐式判断**;skill 双侧安装(Claude Code `~/.claude/skills/`

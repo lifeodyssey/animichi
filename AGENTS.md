@@ -105,7 +105,11 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
   ship/PR → `/ship` · qa → `/qa` · review → `/review` · docs → `/document-release` · retro → `/retro` ·
   design system → `/design-consultation` · visual → `/design-review` · architecture → `/plan-eng-review` ·
   quality → `/health` · brainstorm → `/office-hours`. TDD: `/backend-tdd` (Python), `/frontend-tdd` (React).
-- **Codex** — delegate code-writing / deep investigation via **`codex:codex-rescue`**; review via
+- **Orca card delivery** — backend/Infra/CI-CD Ready for Dev → merged PR follows
+  `docs/ops/orca-card-delivery.md`: Codex Sol max with `/implement`, different-model Matt review workers,
+  three review rounds maximum, all PR feedback resolved before merge. This scoped owner
+  choice overrides the OpenCode-only/fleet and legacy Codex dispatch routing below.
+- **Legacy Codex routing (outside the Orca flow)** — delegate code-writing / deep investigation via **`codex:codex-rescue`**; review via
   `/codex:review`; images via `/codex:imagegen`. **Read `.claude/skills/use-codex/SKILL.md` first** —
   short, and skipping it costs whole dispatches. Four facts it exists for: **never run the raw CLI
   concurrently or in a loop** (403/429 is connection contention, not a rate limit — retrying burns
@@ -158,7 +162,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 Canonical workflow: `docs/workflow.md` (Matt flow × Policy C, per-stage machine-judgeable triggers).
 Role definitions live in `.claude/agents/`:
 - planner — grilling → to-spec → to-tickets (blocking edges); spec dual-review (Fable + Codex GPT Sol xhigh) before owner sign-off.
-- executor — **opencode CLI** via one `opencode serve` instance (model `ds-flash-max` → `luna-max`), brief-driven, never commits.
+- executor — Orca card delivery uses **Codex Sol max**; other work uses **opencode CLI** via one `opencode serve` instance (model `ds-flash-max` → `luna-max`). Brief-driven, never commits.
 - reviewer — card-level final review: read the candidate diff vs brief before merge; **Mutation testing is the only valid green-light proof.**
 - tester — Playwright Test Agents pipeline (planner/generator/healer, promotion gates) + staging validation with evidence.
 **Quality Ratchet**: every AC carries a test-type (`unit`|`integration`|`eval`|`browser`|`api`) and a test in the PR diff (`ac_total == ac_with_test`); Codecov patch ≥95%. Merge requires resolved review threads + acknowledged bot findings. Two kinds of gate, not interchangeable. **Committed** (every contributor, every CI run): the `commitlint` commit-msg hook, the pre-push affected gate (`scripts/local-gates/pre-push-affected.sh`, running the same package scripts as CI's affected matrix), and the native workflow/action tests under `.github/test` plus repository configuration tests under
