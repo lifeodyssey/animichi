@@ -71,17 +71,18 @@ describe("ClarifyCard (C2, AC1)", () => {
     fireEvent.click(screen.getByRole("button", { name: dict.clarify.escapeHatch }));
     expect(send).not.toHaveBeenCalled();
     expect(screen.getByText(dict.clarify.rephraseHint)).toBeTruthy();
-    expect(optionState("響け!ユーフォニアム")).toBe("dismissed");
+    expect(screen.queryByRole("list", { name: "candidates" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "響け!ユーフォニアム" })).toBeNull();
     view.rerender(clarifyElement(data, send, "message-2:data-response:0"));
     expect(optionState("響け!ユーフォニアム")).toBe("available");
   });
 });
 
 describe("ClarifyCard photo degradation (AC5)", () => {
-  it("asks which title and offers the manual-entry chip", () => {
+  it("asks which title and offers manual entry immediately", () => {
     renderClarify({ reason: "photo_unrecognized", candidates: [] });
     expect(screen.getByText(dict.clarify.question)).toBeTruthy();
-    expect(screen.getByRole("button", { name: dict.clarify.manualChip })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: dict.clarify.titleLabel })).toBeTruthy();
   });
 
   it("keeps the plain clarify branch free of photo copy", () => {

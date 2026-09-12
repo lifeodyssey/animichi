@@ -87,6 +87,8 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | DB — auth | **Neon Auth (Better Auth)** integrated in `apps/web`; the edge verifies Neon JWKS only (AUTH-2 #950) | `docs/ops/auth-migration-neon.md` runbook |
 | Web app (the only browser surface) | `apps/web/` + `apps/web/AGENTS.md` (TanStack Start) | Legacy `frontend/` retired in #537; spec `2026-07-06-frontend-rebuild-spec.md` |
 | Design tokens / system | `apps/web/` (animal-island-ui-tailwind); ref `docs/design/animal-island-ref/` | |
+| Full product user journey | [User journey](design/user-journey.md) | Discovery, planning, walking and sharing; original implementation-status notes are historical |
+| Chat journey and interaction decisions | [Chat journey component map](design/chat-journey-component-map.md) | Current Chat decisions, user-task/component mapping and handoff gaps; distinguish confirmed decisions, drafts and observed implementation |
 | Eval | `packages/eval/src/native/` + `packages/eval/AGENTS.md` | Native task/observations; statistical oracles and exported source fixtures remain preserved; native assertions and suite migration are separate work |
 | Testing strategy | `docs/testing-strategy.md` | |
 | Deployment ops | `docs/ops/deployment.md`, `docs/ops/cloudflare-hardening.md` | |

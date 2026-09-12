@@ -39,9 +39,9 @@ describe("AC7: regenerating the route replaces the card per the E1 rule", () => 
       assistantMessage("a2", routePartRaw(ujiPoints().slice(0, 3))),
     ]);
     const [oldCard, newCard] = routeCards();
-    expect(oldCard?.className).toBe("chat-card chat-card--superseded");
+    expect(oldCard?.classList.contains("chat-card--superseded")).toBe(true);
     expect(oldCard?.querySelector(".chat-card__version-badge")?.textContent).toBe(ja.previousVersion);
-    expect(newCard?.className).toBe("chat-card");
+    expect(newCard?.classList.contains("chat-card--superseded")).toBe(false);
     expect(newCard?.querySelector(".chat-card__version-badge")).toBeNull();
   });
 
@@ -67,7 +67,7 @@ describe("E1 scoping: only newer versions of the same document supersede", () =>
       assistantMessage("a1", routePartRaw(ujiPoints().slice())),
       assistantMessage("a2", search),
     ]);
-    expect(routeCards()[0]?.className).toBe("chat-card");
+    expect(routeCards()[0]?.classList.contains("chat-card--superseded")).toBe(false);
   });
 
   it("keeps the old card current while the regenerated route is still a skeleton", () => {
@@ -78,7 +78,7 @@ describe("E1 scoping: only newer versions of the same document supersede", () =>
       ],
       "streaming",
     );
-    expect(routeCards()[0]?.className).toBe("chat-card");
-    expect(screen.getByRole("status").getAttribute("data-intent")).toBe("plan_route");
+    expect(routeCards()[0]?.classList.contains("chat-card--superseded")).toBe(false);
+    expect(screen.getByRole("status").closest("[data-intent]")?.getAttribute("data-intent")).toBe("plan_route");
   });
 });

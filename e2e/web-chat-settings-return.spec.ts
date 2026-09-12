@@ -70,7 +70,7 @@ test("a trip to settings and back keeps the conversation, in one document", asyn
   await expect(page).toHaveURL(new RegExp(`[?&]session=${SESSION_ID}(&|$)`, "u"));
   await solveTurnstileEntry(page);
   await expect(page.getByText(FIRST_TURN)).toBeVisible();
-  await expect(page.getByText("ユーフォ")).toBeVisible();
+  await expect(page.locator(".chat-message--user").getByText("ユーフォ", { exact: true })).toBeVisible();
   expect(replays).toHaveLength(1);
   expect(documentLoads).toBe(1);
 });

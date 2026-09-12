@@ -6,21 +6,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SelectionTray } from "../../../src/features/chat/components/SelectionTray";
 import type { RecomputeStatus } from "../../../src/features/chat/components/SelectionTray";
 import { SearchResult } from "../../../src/features/chat/components/SearchResult";
-import type { AttachBasemap } from "../../../src/features/chat/components/SearchMap";
 import {
   SpotSelectionProvider,
   useSpotSelectionState,
 } from "../../../src/features/chat/selection/use-spot-selection";
+import { attachReady } from "./basemap-fixture";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import type { Locale } from "../../../src/i18n/locales";
 import { toSearchSpots } from "../../../src/features/chat/lib/spot-clusters";
 
 afterEach(cleanup);
 
-const attachReady: AttachBasemap = ({ onStatus }) => {
-  onStatus("ready");
-  return () => undefined;
-};
+
 
 function spotRows(count: number) {
   return Array.from({ length: count }, (_, i) => ({
@@ -74,28 +71,28 @@ describe("AC null/empty: the tray follows the live selection", () => {
   it("disables the action below two picks and asks for at least two (design syncRebar)", () => {
     render(<Harness />);
     tick("spot-0");
-    const action = screen.getByRole<HTMLButtonElement>("button", { name: "ルートを組み直す" });
+    const action = screen.getByRole<HTMLButtonElement>("button", { name: "選んだ場所で計画" });
     expect(action.disabled).toBe(true);
     expect(screen.getByText(chatDictFor("ja").search.trayMinimum)).toBeTruthy();
     tick("spot-1");
     expect(action.disabled).toBe(false);
-    expect(screen.getByText(chatDictFor("ja").search.trayChanged)).toBeTruthy();
+    expect(screen.queryByText(chatDictFor("ja").search.trayMinimum)).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe("2件選択中");
   });
 
   it("keeps the checkboxes controlled: ticking marks exactly that card checked", () => {
     render(<Harness />);
     tick("spot-1");
-    const boxes = screen.getAllByRole<HTMLInputElement>("checkbox");
-    expect(boxes.map((box) => box.checked)).toContain(true);
-    expect(boxes.filter((box) => box.checked)).toHaveLength(1);
+    expect(screen.getByRole("checkbox", { name: /spot-1/u, checked: true })).toBeTruthy();
+    expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(1);
   });
 });
 
 describe("AC i18n: count copy, action label and retry label render per locale", () => {
   const cases: readonly [Locale, string, string, string][] = [
-    ["ja", "2件選択中", "ルートを組み直す", "もう一度ためす"],
-    ["zh", "已选 2 处", "重新规划路线", "再试一次"],
-    ["en", "2 selected", "Rebuild the route", "Try again"],
+    ["ja", "2件選択中", "選んだ場所で計画", "もう一度ためす"],
+    ["zh", "已选 2 处", "用这些地点规划", "再试一次"],
+    ["en", "2 selected", "Plan with these places", "Try again"],
   ];
 
   for (const [locale, count, action, retry] of cases) {
@@ -115,6 +112,21 @@ describe("AC i18n: count copy, action label and retry label render per locale", 
 });
 
 describe("AC error path: a failed recompute retries on the tray and keeps the selection", () => {
+  it("explains the missing selection before allowing a retry", () => {
+    const onRecompute = vi.fn();
+    render(<Harness status="failed" onRecompute={onRecompute} />);
+    tick("spot-0");
+    const action = screen.getByRole<HTMLButtonElement>("button", { name: chatDictFor("ja").search.trayRetry });
+    const hint = screen.getByText(chatDictFor("ja").search.trayMinimum);
+    expect(action.disabled).toBe(true);
+    expect(action.getAttribute("aria-describedby")).toBe(hint.id);
+    fireEvent.click(action);
+    expect(onRecompute).not.toHaveBeenCalled();
+    tick("spot-1");
+    expect(action.disabled).toBe(false);
+    expect(screen.getByText(chatDictFor("ja").search.trayFailed)).toBeTruthy();
+  });
+
   it("shows the failure copy and fires the retry with the preserved selection", () => {
     const onRecompute = vi.fn();
     render(<Harness status="failed" onRecompute={onRecompute} />);
@@ -122,7 +134,7 @@ describe("AC error path: a failed recompute retries on the tray and keeps the se
     tick("spot-2");
     fireEvent.click(screen.getByRole("button", { name: chatDictFor("ja").search.trayRetry }));
     expect(onRecompute).toHaveBeenCalledExactlyOnceWith(["p0", "p2"]);
-    const checked = screen.getAllByRole<HTMLInputElement>("checkbox").filter((box) => box.checked);
+    const checked = screen.getAllByRole("checkbox", { checked: true });
     expect(checked).toHaveLength(2);
   });
 
@@ -137,8 +149,7 @@ describe("outside a selection scope the checkboxes are inert", () => {
   it("renders unchecked, unswitchable picks without a provider", () => {
     render(<SearchResult spots={toSearchSpots(spotRows(2))} dict={chatDictFor("ja")} attach={attachReady} />);
     tick("spot-0");
-    const boxes = screen.getAllByRole<HTMLInputElement>("checkbox");
-    expect(boxes.every((box) => !box.checked)).toBe(true);
+    expect(screen.getAllByRole("checkbox", { checked: false })).toHaveLength(2);
   });
 });
 

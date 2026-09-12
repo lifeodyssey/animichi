@@ -17,7 +17,7 @@
   padding: 16px 16px 40px;
 }
 
-/* Hero: canvas title (Noto Serif JP, 900) over a meta pill row. The global h1
+/* Hero: canvas title (display stack, 900) over a meta pill row. The global h1
  * is the 3.25rem/7rem landing display size, scoped down here. */
 .anime-hero {
   display: grid;

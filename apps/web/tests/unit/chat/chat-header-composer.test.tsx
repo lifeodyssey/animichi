@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatHeader } from "../../../src/features/chat/components/ChatHeader";
 import { ComposerDock } from "../../../src/features/chat/components/ComposerDock";
 import { chatDictFor } from "../../../src/features/chat/i18n";
@@ -11,6 +11,7 @@ import { TEST_ORIGIN } from "../../msw/fixtures";
 const ja = chatDictFor("ja");
 const GATE = { locked: false, busy: false, failed: false } as const;
 
+beforeEach(() => { sessionStorage.clear(); });
 afterEach(cleanup);
 
 describe("ChatHeader", () => {
@@ -20,20 +21,30 @@ describe("ChatHeader", () => {
     expect(screen.getByText(ja.titleNewJourney)).toBeTruthy();
     expect(screen.getByText(ja.autosaved)).toBeTruthy();
   });
+
+  it("follows the topic once a title is given", () => {
+    render(<ChatHeader dict={ja} title="宇治に行きたい" />);
+    expect(screen.getByText("宇治に行きたい")).toBeTruthy();
+    expect(screen.queryByText(ja.titleNewJourney)).toBeNull();
+  });
 });
 
-function renderComposer() {
+function renderComposer(onSend = vi.fn()) {
   return render(
-    <ComposerDock dict={ja} baseUrl={TEST_ORIGIN} photo={{ locale: "ja" }} gate={GATE} quotaLocked={false} onSend={vi.fn()} />,
+    <ComposerDock dict={ja} baseUrl={TEST_ORIGIN} photo={{ locale: "ja" }} gate={GATE} quotaLocked={false} onSend={onSend} />,
   );
 }
 
 describe("ComposerDock", () => {
-  it("pins the camera key inside the pill with the photo flow's accessible name", () => {
-    renderComposer();
-    const camera = screen.getByLabelText(ja.photo.upload);
-    expect(camera.tagName).toBe("INPUT");
-    expect(camera.getAttribute("type")).toBe("file");
+  it("opens the file picker from the camera without submitting the draft", () => {
+    const onSend = vi.fn();
+    renderComposer(onSend);
+    const input = screen.getByLabelText<HTMLInputElement>(ja.photo.upload, { selector: 'input[type="file"]' });
+    const chooseFile = vi.spyOn(input, "click");
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "宇治にいきたい" } });
+    fireEvent.click(screen.getByRole("button", { name: ja.photo.upload }));
+    expect(chooseFile).toHaveBeenCalledOnce();
+    expect(onSend).not.toHaveBeenCalled();
   });
 
   it("keeps the gold send disc labelled with the send key", () => {

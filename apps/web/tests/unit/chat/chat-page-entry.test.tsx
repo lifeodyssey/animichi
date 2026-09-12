@@ -12,15 +12,14 @@ import { chatSearch, renderChatPage } from "./_chat-page";
 const ja = chatDictFor("ja");
 
 describe("A1 cold start", () => {
-  it("renders the frozen heading, the three entry doors, and an auto-focused input", async () => {
+  it("renders the invitation, concrete starter questions, and an auto-focused input", async () => {
     setLanguages(["ja"]);
     renderChatPage();
     expect(await screen.findByRole("heading", { level: 1, name: ja.coldStartHeading })).toBeTruthy();
     expect(screen.getByText(ja.coldStartSub)).toBeTruthy();
-    expect(screen.getByRole("button", { name: ja.entryAnimeTitle })).toBeTruthy();
-    expect(screen.getByRole("button", { name: ja.entryCityTitle })).toBeTruthy();
-    expect(screen.getByRole("button", { name: ja.entryChatTitle })).toBeTruthy();
-    expect(screen.getByRole("button", { name: ja.sampleLink })).toBeTruthy();
+    expect(screen.getByRole("button", { name: ja.entryAnimePrompt })).toBeTruthy();
+    expect(screen.getByRole("button", { name: ja.entryCityPrompt })).toBeTruthy();
+    expect(screen.getByRole("button", { name: ja.entryChatPrompt })).toBeTruthy();
     expect(document.activeElement).toBe(screen.getByRole("textbox"));
   });
 
@@ -36,8 +35,8 @@ describe("A1 cold start", () => {
     setLanguages(["ja"]);
     server.use(chatStreamHandler("search"));
     renderChatPage();
-    fireEvent.click(await screen.findByRole("button", { name: ja.entryChatTitle }));
-    expect(await screen.findByText(ja.entryChatPrompt)).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: ja.entryChatPrompt }));
+    expect(await screen.findAllByText(ja.entryChatPrompt)).not.toHaveLength(0);
   });
 });
 

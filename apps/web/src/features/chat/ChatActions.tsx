@@ -8,6 +8,7 @@ export interface ChatActions {
   readonly send: (text: string) => void;
   readonly regenerate: () => void;
   readonly sendWithOrigin?: (text: string, lat: number, lng: number) => void;
+  readonly disabled?: boolean;
 }
 
 /** Origin-aware send that degrades to a plain send for older providers. */
@@ -30,4 +31,9 @@ export function useChatActions(): ChatActions {
   const actions = useContext(ChatActionsContext);
   if (!actions) throw new Error("useChatActions must be used within a ChatActionsProvider");
   return actions;
+}
+
+/** Standalone result previews can render without a live conversation. */
+export function useOptionalChatActions(): ChatActions | null {
+  return useContext(ChatActionsContext);
 }

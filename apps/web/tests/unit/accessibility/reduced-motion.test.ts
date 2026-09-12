@@ -9,11 +9,10 @@ import globalsCss from "../../../src/styles/globals.css?raw";
  */
 const MOTION_MEDIA = "@media (prefers-reduced-motion: reduce)";
 
-describe("reduced-motion: looping chat animations are paused", () => {
+describe("reduced-motion: legacy chat entry animations are paused", () => {
   const looping = [
-    ".chat-typing__dot",
-    '.chat-step[data-status="running"]',
-    ".chat-card--skeleton",
+    ".chat-card",
+    ".chat-message",
   ] as const;
 
   it.each(looping)("%s is neutralised by the reduce guard", (selector) => {

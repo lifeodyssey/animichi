@@ -27,6 +27,7 @@ Seichijunrei = 动漫圣地巡礼的「现场作战系统」。一句话(作品�
 
 ## Capabilities and Constraints
 
+- 当前 Chat 第一期由模型生成行程草案，真实道路规划与精确时刻表属于后续能力；上文描述的是产品长期目标。具体边界见 [Chat 旅程 §5](../../docs/design/chat-journey-component-map.md#5-第一阶段的规划规则与范围)。
 - TanStack Start SSR apps/web;catalog/users CF Workers;Neon 数据面;oRPC 契约
 - 移动端 `/` 首效应交接给 `/chat`;桌面端 `/` 是访客首页
 - 地图 static-first(静态层永不画 >50 pin),MapLibre 点击才升格
@@ -42,6 +43,7 @@ Seichijunrei = 动漫圣地巡礼的「现场作战系统」。一句话(作品�
 ## Evidence on Hand
 
 - 产品旅程与状态机:`docs/design/user-journey.md`(5 段 18 断点,Walk 是审判时刻)
+- [Chat 用户旅程与组件对照](../../docs/design/chat-journey-component-map.md)：当前 Chat 交互决定、图片浏览与规划节点、组件映射及接续缺口；调整 Chat 体验时同步查阅和维护。
 - 设计方向稿:`~/.gstack/projects/lifeodyssey-Seichijunrei-agent/designs/home-20260829/variant-E.png`(已批准)
 - 设计系统参照:`docs/design/animal-island-ref/`(4 份规范)
 - 无真实用户评价/数据——未来工作不得编造 testimonials 或指标

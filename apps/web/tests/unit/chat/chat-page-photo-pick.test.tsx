@@ -79,7 +79,7 @@ async function pickPhotoCandidate(probe: OfferProbe) {
   server.use(...offerHandlers(probe));
   renderChatPage();
   const file = new File([makeJpegBlobWithExif()], "unknown_landscape.jpg", { type: "image/jpeg" });
-  fireEvent.change(screen.getByLabelText(en.photo.upload), { target: { files: [file] } });
+  fireEvent.change(screen.getByLabelText(en.photo.upload, { selector: 'input[type="file"]' }), { target: { files: [file] } });
   fireEvent.click(await screen.findByRole("button", { name: KEION }, { timeout: 10_000 }));
 }
 

@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { enterRoute } from "./helpers/route-entry";
-import { solveTurnstileEntry, stubTurnstileEntry } from "./helpers/turnstile";
+import { solveTurnstileEntry, stubTurnstileEntry, stubTurnstileSdk } from "./helpers/turnstile";
 
 /**
  * Issue #1015 AC1: WCAG 2.2 AA on the five critical journeys. We inject
@@ -74,7 +74,7 @@ async function openChat(page: Page, path = "/chat"): Promise<void> {
 }
 
 async function openTurnstileGate(page: Page): Promise<void> {
-  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await stubTurnstileSdk(page);
   await page.route("**/api/auth/get-session", (route) =>
     route.fulfill({ status: 401, json: { error: "no session" } }),
   );

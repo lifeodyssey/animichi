@@ -47,7 +47,7 @@ describe("D4 mid-stream interruption", () => {
     renderChatPage();
     sendText("ユーフォ");
     expect(await screen.findByText(states.d4Message)).toBeTruthy();
-    expect(screen.getByText("ユーフォ")).toBeTruthy();
+    expect(screen.getAllByText("ユーフォ")).not.toHaveLength(0);
     expect(screen.getByRole("button", { name: states.d4Retry })).toBeTruthy();
     expect(screen.getByRole("textbox").hasAttribute("disabled")).toBe(false);
   });
@@ -63,7 +63,7 @@ describe("D4 mid-stream interruption", () => {
     fireEvent.click(screen.getByRole("button", { name: states.d4Retry }));
     expect(await screen.findByText("宇治の聖地を2件、徒歩ルートにまとめました。")).toBeTruthy();
     expect(seen[0]).toContain("/v1/conversations/s-1/stream");
-    expect(screen.getByText("ユーフォ")).toBeTruthy();
+    expect(screen.getAllByText("ユーフォ")).not.toHaveLength(0);
     expect(screen.queryByText(states.d4Message)).toBeNull();
   });
 });
@@ -76,7 +76,7 @@ describe("D4 before the first chunk", () => {
     expect(await screen.findByText(states.d4Message)).toBeTruthy();
     expect(screen.getByRole("button", { name: states.d4Retry })).toBeTruthy();
     expect(document.querySelector(".chat-typing")).toBeNull();
-    expect(screen.getByText("ユーフォ")).toBeTruthy();
+    expect(screen.getAllByText("ユーフォ")).not.toHaveLength(0);
   });
 });
 
@@ -86,7 +86,7 @@ describe("D8 session expiry", () => {
     renderChatPage();
     sendText("こんにちは");
     expect(await screen.findByText(states.d8Message)).toBeTruthy();
-    expect(screen.getByText("こんにちは")).toBeTruthy();
+    expect(screen.getAllByText("こんにちは")).not.toHaveLength(0);
     expect(screen.getByRole("button", { name: states.d8Login })).toBeTruthy();
   });
 
@@ -118,7 +118,7 @@ describe("D11 anonymous budget exhausted", () => {
     sendText("ユーフォ");
     expect(await screen.findByText(states.d11Message)).toBeTruthy();
     expect(screen.queryByText(states.d8Message)).toBeNull();
-    expect(screen.getByText("ユーフォ")).toBeTruthy();
+    expect(screen.getAllByText("ユーフォ")).not.toHaveLength(0);
   });
 
   it("offers login as the way forward, with nothing to resume", async () => {

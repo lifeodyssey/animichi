@@ -26,7 +26,7 @@ describe("StreamInterruption (D4 mid-stream drop)", () => {
 
   it("locks the retry button while a recovery is in flight", () => {
     renderWithLocale(<StreamInterruption state="D4" dict={ja} onRetry={vi.fn()} recovering />);
-    expect(screen.getByRole("button", { name: ja.errorStates.d4Retry }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: ja.errorStates.d4Retry }).getAttribute("aria-disabled")).toBe("true");
   });
 });
 
@@ -63,7 +63,7 @@ describe("SessionExpired (D8)", () => {
 
   it("locks the resume button while recovery is in flight", () => {
     renderWithLocale(<SessionExpired dict={ja} onResume={vi.fn()} recovering />);
-    expect(screen.getByRole("button", { name: ja.errorStates.d8Resume }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: ja.errorStates.d8Resume }).getAttribute("aria-disabled")).toBe("true");
   });
 });
 
@@ -71,9 +71,9 @@ describe("BudgetExhausted (D11 anonymous daily budget)", () => {
   it.each(LOCALES)("renders the %s budget copy, not the session-expiry copy", (locale) => {
     const dict = chatDictFor(locale);
     renderWithLocale(<BudgetExhausted dict={dict} />);
-    const alert = screen.getByRole("alert").textContent;
-    expect(alert).toContain(dict.errorStates.d11Message);
-    expect(alert).not.toContain(dict.errorStates.d8Message);
+    const status = screen.getByRole("status").textContent;
+    expect(status).toContain(dict.errorStates.d11Message);
+    expect(status).not.toContain(dict.errorStates.d8Message);
   });
 
   it("opens the login dialog inline, the same affordance D8 offers", () => {
@@ -84,7 +84,7 @@ describe("BudgetExhausted (D11 anonymous daily budget)", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("offers no resume button — an anonymous visitor has no session to resume", () => {
+  it("offers sign-in rather than a session-expiry recovery action", () => {
     renderWithLocale(<BudgetExhausted dict={ja} />);
     expect(screen.queryByRole("button", { name: ja.errorStates.d8Resume })).toBeNull();
   });

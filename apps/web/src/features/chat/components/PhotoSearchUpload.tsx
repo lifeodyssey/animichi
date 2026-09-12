@@ -1,156 +1,48 @@
 import type { ChatDataPart } from "@animichi/contract";
-import { useCallback, useMemo, useState } from "react";
-import type { ChangeEvent, ReactNode } from "react";
+import { Button } from "animal-island-ui-tailwind/button";
+import { useRef } from "react";
+import type { ChangeEvent, ReactNode, RefObject } from "react";
 import { useChatActions } from "../ChatActions";
 import type { ChatDict } from "../i18n";
-import {
-  PHOTO_CHALLENGED,
-  isOversizedPhoto,
-  isSupportedPhoto,
-  postPhotoSearch,
-} from "../photo-search";
-import type {
-  PhotoGuidance,
-  PhotoSearchContext,
-  PhotoSearchOutcome,
-} from "../photo-search";
+import { photoAttachmentCopy } from "../photo-attachment-copy";
+import type { PhotoSearchContext } from "../photo-search";
+import type { PhotoAttachment } from "../photo-upload-state";
+import { usePhotoPreview, usePhotoUpload } from "../use-photo-upload";
 import { photoOfferPick } from "../selection/photo-offer-pick";
 import type { PhotoOffer } from "../selection/photo-offer-pick";
 import { ClarifyPickProvider, useClarifyPick } from "../selection/use-clarify-pick";
 import { DataPartCard } from "./DataPartCard";
-
-/** Photo-search upload (issue #260 AC4/AC5/AC7, AGENT-1 #952): the result
- * envelope renders through DataPartCard, sharing the text-search render
- * path; the result is scoped to the offer's own pick channel, so selecting a
- * candidate confirms the server-issued photo offer (AC11) instead of
- * answering a session clarification that was never asked (#1336);
- * failures show on-brand copy with a retry — never a stuck spinner. */
-
-type UploadError = "unsupported" | "tooLarge" | "failed" | "challenge";
-
-type UploadState =
-  | { readonly kind: "idle" }
-  | { readonly kind: "uploading" }
-  | { readonly kind: "error"; readonly error: UploadError }
-  | { readonly kind: "quota"; readonly guidance: PhotoGuidance }
-  | { readonly kind: "done"; readonly part: ChatDataPart; readonly offerId: string };
+import { PhotoAttachmentCard } from "./PhotoAttachmentCard";
 
 type Props = Readonly<{
-  dict: ChatDict;
-  baseUrl: string;
-  context: PhotoSearchContext;
-  /** Direction-E composer: the trigger renders as the pill's camera icon
-   * button instead of the labelled tray control. The flow is identical. */
-  iconTrigger?: boolean;
-  /** Placement override (direction-E composer): the caller positions the
-   * camera trigger inside the composer pill and the outcome below it. */
+  dict: ChatDict; baseUrl: string; context: PhotoSearchContext; iconTrigger?: boolean;
   children?: (slots: Readonly<{ control: ReactNode; outcome: ReactNode }>) => ReactNode;
 }>;
 
-/** Mockup `.icon-btn`: the camera key at the composer's left edge. The ring
- * is focus-within: the focusable file input hides inside the label. */
-const ICON_TRIGGER_CLASS = "grid size-11 flex-none cursor-pointer place-items-center rounded-full text-ground-ink transition-colors duration-100 focus-within:outline-[3px] focus-within:outline-offset-2 focus-within:outline-ground-ink hover:bg-gold-soft";
+type ControlProps = Readonly<{
+  dict: ChatDict; iconTrigger: boolean; busy: boolean; attached: boolean;
+  inputRef: RefObject<HTMLInputElement | null>; onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+}>;
+
+const ICON_TRIGGER_CLASS = "size-11 min-h-11 shrink-0 border-0 p-0 text-fg [--animal-text-color:var(--color-fg)] [--animal-bg-color-secondary:var(--color-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-strong motion-reduce:transition-none";
 
 function CameraIcon() {
-  return (
-    <svg className="size-[22px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-      <circle cx="12" cy="13" r="4" />
-    </svg>
-  );
+  return <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d="M8 6 9.5 4h5L16 6h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" /><circle cx="12" cy="13" r="3.5" /></svg>;
 }
 
-function quotaCopy(dict: ChatDict, guidance: PhotoGuidance): string {
-  if (guidance === "switch_vision_endpoint") return dict.photo.quotaByokNoVision;
-  return dict.photo.quotaNoByok;
+function TrayTrigger({ dict, onChoose }: Readonly<{ dict: ChatDict; onChoose: () => void }>) {
+  return <div className="grid justify-items-start gap-2">
+    <Button htmlType="button" type="default" icon={<CameraIcon />} onClick={onChoose} className="[min-height:44px]! [padding:10px_16px]! [font-size:14px]! [--animal-bg-color:var(--color-paper)] [--animal-text-color:var(--color-fg)] [--animal-border-color:var(--color-border-soft)] focus-visible:outline-primary-strong motion-reduce:transition-none">{dict.photo.upload}</Button>
+    <p className="text-xs leading-5 text-muted-fg">{photoAttachmentCopy(dict.locale).formats}</p>
+    <p className="text-xs leading-5 text-muted-fg">{dict.photo.processedNote}</p>
+  </div>;
 }
 
-function errorCopy(dict: ChatDict, error: UploadError): string {
-  if (error === "unsupported") return dict.photo.unsupported;
-  if (error === "tooLarge") return dict.photo.tooLarge;
-  if (error === "challenge") return dict.turnstile.failed;
-  return dict.photo.failed;
-}
-
-type ErrorProps = Readonly<{ dict: ChatDict; error: UploadError; onRetry: () => void }>;
-
-function UploadFailure({ dict, error, onRetry }: ErrorProps) {
-  return (
-    <p className="chat-photo__error" role="alert">
-      {errorCopy(dict, error)}
-      <button type="button" className="chat-photo__retry" onClick={onRetry}>{dict.photo.retry}</button>
-    </p>
-  );
-}
-
-type StatusProps = Readonly<{ dict: ChatDict; state: UploadState; onRetry: () => void }>;
-
-function UploadStatus({ dict, state, onRetry }: StatusProps) {
-  if (state.kind === "uploading") {
-    return <p className="chat-photo__status" role="status" aria-busy="true">{dict.photo.uploading}</p>;
-  }
-  if (state.kind === "error") return <UploadFailure dict={dict} error={state.error} onRetry={onRetry} />;
-  if (state.kind === "quota") return <p className="chat-photo__error" role="alert">{quotaCopy(dict, state.guidance)}</p>;
-  return null;
-}
-
-type ResultProps = Readonly<{ dict: ChatDict; offer: PhotoOffer; part: ChatDataPart }>;
-
-/** The result renders through the shared card path, but inside the offer's own
- * pick channel: a candidate chosen here belongs to the offer, not to the
- * session (AC11, #1336). The page's `sendable` rides along so the quota lock
- * and the in-flight gate still cover this pick. */
-function PhotoResult({ dict, offer, part }: ResultProps) {
-  const { send } = useChatActions();
-  const { sendable } = useClarifyPick();
-  return (
-    <ClarifyPickProvider turn={photoOfferPick(offer, send, sendable)}>
-      <DataPartCard data={part} dict={dict} />
-    </ClarifyPickProvider>
-  );
-}
-
-type SetUploadState = (state: UploadState) => void;
-
-function settledState(outcome: PhotoSearchOutcome): UploadState {
-  return outcome.kind === "quota" ? outcome : { kind: "done", part: outcome.part, offerId: outcome.offerId };
-}
-
-/** A rejected challenge reads as its own state so the visitor is told to
- * redo the check, not that their photo was bad (issue #447 review). */
-function uploadErrorOf(cause: unknown): UploadError {
-  return cause instanceof Error && cause.message === PHOTO_CHALLENGED ? "challenge" : "failed";
-}
-
-function runUpload(baseUrl: string, file: File, context: PhotoSearchContext, setState: SetUploadState): void {
-  setState({ kind: "uploading" });
-  postPhotoSearch(baseUrl, file, context)
-    .then((outcome) => { setState(settledState(outcome)); })
-    .catch((cause: unknown) => { setState({ kind: "error", error: uploadErrorOf(cause) }); });
-}
-
-function preflightError(file: File): UploadError | null {
-  if (!isSupportedPhoto(file)) return "unsupported";
-  if (isOversizedPhoto(file)) return "tooLarge";
-  return null;
-}
-
-function makeUpload(baseUrl: string, context: PhotoSearchContext, setState: SetUploadState) {
-  return (file: File) => {
-    const error = preflightError(file);
-    if (error !== null) {
-      setState({ kind: "error", error });
-      return;
-    }
-    runUpload(baseUrl, file, context, setState);
-  };
-}
-
-function useUpload(baseUrl: string, context: PhotoSearchContext) {
-  const [state, setState] = useState<UploadState>({ kind: "idle" });
-  const upload = useMemo(() => makeUpload(baseUrl, context, setState), [baseUrl, context]);
-  const reset = useCallback(() => { setState({ kind: "idle" }); }, []);
-  return { state, upload, reset };
+function UploadControl({ dict, iconTrigger, busy, attached, inputRef, onChange }: ControlProps) {
+  const choosePhoto = () => { inputRef.current?.click(); };
+  const input = <input ref={inputRef} type="file" hidden tabIndex={-1} accept="image/jpeg,image/png,image/webp" aria-label={dict.photo.upload} onChange={onChange} disabled={busy} />;
+  if (iconTrigger) return <><Button htmlType="button" type="text" className={ICON_TRIGGER_CLASS} aria-label={dict.photo.upload} title={dict.photo.upload} icon={<CameraIcon />} onClick={choosePhoto} disabled={busy} />{input}</>;
+  return <>{attached ? null : <TrayTrigger dict={dict} onChoose={choosePhoto} />}{input}</>;
 }
 
 function makeFileChange(upload: (file: File) => void) {
@@ -161,43 +53,33 @@ function makeFileChange(upload: (file: File) => void) {
   };
 }
 
-function IconControl({ dict, onChange }: Readonly<{ dict: ChatDict; onChange: (event: ChangeEvent<HTMLInputElement>) => void }>) {
-  const input = <input type="file" className="chat-photo__input" accept="image/jpeg,image/png,image/webp" aria-label={dict.photo.upload} onChange={onChange} />;
-  return <label className={ICON_TRIGGER_CLASS} title={dict.photo.upload}><CameraIcon /><span className="sr-only">{dict.photo.upload}</span>{input}</label>;
+/** Photo candidates confirm their server-issued offer, never a session clarification. */
+function PhotoResult({ dict, offer, part }: Readonly<{ dict: ChatDict; offer: PhotoOffer; part: ChatDataPart }>) {
+  const { send } = useChatActions();
+  const { sendable } = useClarifyPick();
+  return <ClarifyPickProvider turn={photoOfferPick(offer, send, sendable)}><DataPartCard data={part} dict={dict} /></ClarifyPickProvider>;
 }
 
-function TrayControl({ dict, onChange }: Readonly<{ dict: ChatDict; onChange: (event: ChangeEvent<HTMLInputElement>) => void }>) {
-  const input = <input type="file" className="chat-photo__input" accept="image/jpeg,image/png,image/webp" aria-label={dict.photo.upload} onChange={onChange} />;
-  return <><label className="chat-photo__label">{dict.photo.upload}{input}</label><span className="chat-photo__note">{dict.photo.processedNote}</span></>;
-}
+type OutcomeProps = Readonly<{
+  dict: ChatDict; baseUrl: string; context: PhotoSearchContext; attachment: PhotoAttachment | null; src?: string;
+  onRetry: () => void; onReplace: () => void; onRemove: () => void;
+}>;
 
-function UploadControl({ dict, iconTrigger, onChange }: Readonly<{ dict: ChatDict; iconTrigger: boolean; onChange: (event: ChangeEvent<HTMLInputElement>) => void }>) {
-  if (iconTrigger) return <IconControl dict={dict} onChange={onChange} />;
-  return <TrayControl dict={dict} onChange={onChange} />;
-}
-
-function ResultGate({ dict, baseUrl, state, context }: Readonly<{ dict: ChatDict; baseUrl: string; state: UploadState; context: PhotoSearchContext }>) {
-  if (state.kind !== "done") return null;
-  return <PhotoResult dict={dict} offer={{ baseUrl, offerId: state.offerId, context }} part={state.part} />;
-}
-
-type OutcomeProps = Readonly<{ dict: ChatDict; baseUrl: string; state: UploadState; context: PhotoSearchContext; onRetry: () => void }>;
-
-function UploadOutcome({ dict, baseUrl, state, context, onRetry }: OutcomeProps) {
-  return (
-    <>
-      <UploadStatus dict={dict} state={state} onRetry={onRetry} />
-      <ResultGate dict={dict} baseUrl={baseUrl} state={state} context={context} />
-    </>
-  );
+function UploadOutcome(props: OutcomeProps) {
+  const { attachment, dict, baseUrl, context } = props;
+  if (!attachment) return null;
+  const { state, file } = attachment;
+  return <div className="grid min-w-0 gap-4">
+    <div className="grid justify-items-start gap-2"><PhotoAttachmentCard {...props} name={file.name} state={state} /><p className="px-1 text-xs leading-5 text-muted-fg">{dict.photo.processedNote}</p></div>
+    {state.kind === "done" ? <PhotoResult key={state.offerId} dict={dict} offer={{ baseUrl, offerId: state.offerId, context }} part={state.part} /> : null}
+  </div>;
 }
 
 export function PhotoSearchUpload({ dict, baseUrl, context, iconTrigger = false, children }: Props) {
-  const { state, upload, reset } = useUpload(baseUrl, context);
-  const control = <UploadControl dict={dict} iconTrigger={iconTrigger} onChange={makeFileChange(upload)} />;
-  const outcome = <UploadOutcome dict={dict} baseUrl={baseUrl} state={state} context={context} onRetry={reset} />;
+  const { attachment, upload, retry, remove, busy } = usePhotoUpload(baseUrl, context);
+  const inputRef = useRef<HTMLInputElement>(null), src = usePhotoPreview(attachment?.file);
+  const control = <UploadControl dict={dict} iconTrigger={iconTrigger} inputRef={inputRef} busy={busy} attached={attachment !== null} onChange={makeFileChange(upload)} />;
+  const outcome = <UploadOutcome dict={dict} baseUrl={baseUrl} context={context} attachment={attachment} src={src} onRetry={retry} onReplace={() => { inputRef.current?.click(); }} onRemove={remove} />;
   if (children) return <>{children({ control, outcome })}</>;
-  /* TrayControl already carries the processed note — adding it again here
-   * printed it twice on the default path. */
-  return <div className="chat-photo">{control}{outcome}</div>;
+  return <div className="grid min-w-0 gap-3">{control}{outcome}</div>;
 }

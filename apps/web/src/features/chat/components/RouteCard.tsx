@@ -1,31 +1,32 @@
-import type { ChatDataPart, TimedItinerary as TimedItineraryModel } from "@animichi/contract";
-import { itineraryView } from "../lib/itinerary";
+import type { ChatDataPart } from "@animichi/contract";
+import type { ItineraryView } from "../lib/itinerary";
 import { locatedSpots, toSearchSpots } from "../lib/spot-clusters";
 import type { LocatedSpot } from "../lib/spot-clusters";
 import type { ChatDict } from "../i18n";
-import { resultsOf, routeOf, SpotList } from "./Cards";
+import { resultsOf, routeOf } from "./Cards";
 import type { IntentCardProps } from "./Cards";
 import { routeStatsCopy } from "../route-copy";
 import { routeSaveTarget } from "../save/save-target";
 import { RouteTrailMap } from "./RouteTrailMap";
 import type { AttachBasemap } from "./SearchMap";
-import { TimedItinerary } from "./TimedItinerary";
+import { ItineraryPacing, ItineraryTimeline } from "./TimedItinerary";
+import { RouteActions } from "./RouteActions";
+import { routePresentation } from "./route-presentation";
 
 type RouteCardProps = IntentCardProps & Readonly<{ attach?: AttachBasemap }>;
+
+/** Headline: the work this route walks, when the stream resolved its title. */
+function RouteTitle({ part, dict }: IntentCardProps) {
+  const title = routeOf(part)?.anime_title?.trim();
+  const heading = title?.length ? title : dict.route.routePill;
+  return <h3 className="text-xl font-extrabold leading-snug text-fg">{heading}</h3>;
+}
 
 function RouteStats({ part, dict }: Readonly<{ part: ChatDataPart; dict: ChatDict }>) {
   const route = routeOf(part);
   if (!route) return null;
   const copy = routeStatsCopy(dict, route.point_count ?? 0, route.total_walk_minutes ?? undefined);
   return <p className="chat-card__stats">{copy}</p>;
-}
-
-type GateProps = IntentCardProps & Readonly<{ itinerary: TimedItineraryModel | undefined }>;
-
-/** The card owns the part, so it derives the save payload the CTA row needs. */
-function ItineraryGate({ itinerary, part, dict }: GateProps) {
-  if (!itinerary || itinerary.stops.length === 0) return null;
-  return <TimedItinerary view={itineraryView(itinerary)} dict={dict} save={routeSaveTarget(part, dict)} />;
 }
 
 /** Route spots in walking order, restricted to rows the map can place. */
@@ -51,20 +52,37 @@ type MapGateProps = IntentCardProps & Readonly<{ attach?: AttachBasemap }>;
 function TrailMapGate({ part, dict, attach }: MapGateProps) {
   const stations = routeStations(part);
   if (stations.length === 0) return null;
-  return <RouteTrailMap stations={stations} dimmed={offRouteSpots(part, stations)} dict={dict} attach={attach} />;
+  return <RouteTrailMap stations={stations} dimmed={offRouteSpots(part, stations)} dict={dict} attach={attach} showBadge={false} />;
 }
 
-/**
- * S1.5 route card (issue #271): summary stats, the timed itinerary, the
- * promoted trail map, and the spot strip (whose stills degrade per D9).
- */
-export function RouteCard({ part, dict, attach }: RouteCardProps) {
+function RouteHeader({ part, dict, view }: IntentCardProps & Readonly<{ view: ItineraryView }>) {
   return (
-    <div className="chat-card__body">
-      <RouteStats part={part} dict={dict} />
-      <ItineraryGate itinerary={routeOf(part)?.timed_itinerary} part={part} dict={dict} />
+    <header className="grid gap-2">
+      <RouteTitle part={part} dict={dict} />
+      <div className="flex flex-wrap items-center gap-3"><RouteStats part={part} dict={dict} /><ItineraryPacing view={view} dict={dict} /></div>
+    </header>
+  );
+}
+
+function RouteFooter({ part, dict, view }: IntentCardProps & Readonly<{ view: ItineraryView }>) {
+  if (view.stations.length === 0) return null;
+  return <footer className="border-t border-border-soft pt-4"><RouteActions view={view} dict={dict} save={routeSaveTarget(part, dict)} /></footer>;
+}
+
+type PlanProps = IntentCardProps & ReturnType<typeof routePresentation>;
+
+function RoutePlan({ part, dict, view, scenes }: PlanProps) {
+  return <><ItineraryTimeline view={view} scenes={scenes} dict={dict} /><RouteFooter part={part} dict={dict} view={view} /></>;
+}
+
+/** One route document: overview, map, enriched stops, then departure actions. */
+export function RouteCard({ part, dict, attach }: RouteCardProps) {
+  const { view, scenes } = routePresentation(part);
+  return (
+    <div className="grid gap-5">
+      <RouteHeader part={part} dict={dict} view={view} />
       <TrailMapGate part={part} dict={dict} attach={attach} />
-      <SpotList part={part} dict={dict} />
+      <RoutePlan part={part} dict={dict} view={view} scenes={scenes} />
     </div>
   );
 }

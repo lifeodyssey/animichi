@@ -21,9 +21,10 @@ afterEach(() => {
 });
 
 describe("ByokUpsell — value explainer (T8-AC2)", () => {
-  it("states the benefit, browser-only key handling, and the account requirement", () => {
+  it("states the benefit, provider billing, session-scoped key handling, and the account requirement", () => {
     renderWithLocale(<ByokUpsell dict={dict} />);
     expect(screen.getByText(dict.byok.upsellBenefit)).toBeTruthy();
+    expect(screen.getByText(dict.byok.upsellCost)).toBeTruthy();
     expect(screen.getByText(dict.byok.upsellPrivacy)).toBeTruthy();
     expect(screen.getByText(dict.byok.upsellAccount)).toBeTruthy();
   });

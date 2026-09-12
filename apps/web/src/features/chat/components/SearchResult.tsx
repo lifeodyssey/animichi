@@ -1,56 +1,27 @@
 import { useCallback, useState } from "react";
-import { MAX_MAP_PINS, searchMapView, topSpots } from "../lib/spot-clusters";
+import { MAX_MAP_PINS, searchMapView } from "../lib/spot-clusters";
 import type { SearchSpot, SpotCluster } from "../lib/spot-clusters";
 import { attachBasemap } from "../../bubble-map/bubble-map-controller";
-import { episodeTag } from "../search-copy";
-import { useSpotSelection } from "../selection/use-spot-selection";
+import { clusterName, spotCountBadge } from "../search-copy";
 import type { ChatDict } from "../i18n";
-import { EnvelopeFallback } from "./ErrorStates/EnvelopeFallback";
-import { SceneThumb } from "./ErrorStates/SceneThumb";
+import { NoSpotsContent } from "./ErrorStates/EnvelopeFallback";
+import { SpotCardGrid } from "./SearchSpotCard";
+import { animalButtonClass } from "./AnimalButton";
 import { ClusterBubbleMap, StaticSpotMap } from "./SearchMap";
 import type { AttachBasemap } from "./SearchMap";
 import { useAutoFocus } from "./use-auto-focus";
 
-type SpotProps = Readonly<{ spot: SearchSpot; dict: ChatDict }>;
 type GridProps = Readonly<{ spots: readonly SearchSpot[]; dict: ChatDict }>;
 type ClusterProps = Readonly<{ cluster: SpotCluster; dict: ChatDict; attach: AttachBasemap }>;
 
-/** E2 (issue #273 S1.7): the pick is controlled by the shared spot selection. */
-function SpotPick({ spot, dict }: SpotProps) {
-  const { selected, toggle } = useSpotSelection();
-  return (
-    <label className="chat-spot-card__pick">
-      <input type="checkbox" className="chat-spot-card__check" checked={selected.has(spot.id)} onChange={() => { toggle(spot.id); }} aria-label={`${dict.search.select}: ${spot.name}`} />
-      <span className="chat-spot-card__name">{spot.name}</span>
-    </label>
-  );
-}
-
-/** C3a card: screenshot cover (D9-degrading) + episode tag + checkbox. */
-function SpotCard({ spot, dict }: SpotProps) {
-  const ep = episodeTag(dict, spot.ep);
-  return (
-    <li className="chat-spot-card">
-      <SceneThumb src={spot.screenshotUrl} alt={spot.name} ep={spot.ep} dict={dict} />
-      {ep ? <span className="chat-spot-card__ep">{ep}</span> : null}
-      <SpotPick spot={spot} dict={dict} />
-    </li>
-  );
-}
-
-export function SpotCardGrid({ spots, dict }: GridProps) {
-  return (
-    <ul className="chat-spot-grid">
-      {topSpots(spots).map((spot) => (
-        <SpotCard key={spot.id} spot={spot} dict={dict} />
-      ))}
-    </ul>
-  );
+function AreaSummary({ cluster, dict }: Omit<ClusterProps, "attach">) {
+  return <div className="flex items-baseline justify-between gap-3"><p className="text-base font-bold text-fg">{clusterName(cluster, 0, dict)}</p><span className="text-xs text-muted-fg">{spotCountBadge(cluster.spots.length, dict)}</span></div>;
 }
 
 function SingleClusterView({ cluster, dict, attach }: ClusterProps) {
   return (
-    <div className="chat-search-result">
+    <div className="chat-search-result @container grid gap-4">
+      <AreaSummary cluster={cluster} dict={dict} />
       <SpotCardGrid spots={cluster.spots} dict={dict} />
       <StaticSpotMap spots={cluster.spots} dict={dict} attach={attach} maxPins={MAX_MAP_PINS} />
     </div>
@@ -65,8 +36,8 @@ type DrillProps = ClusterProps & Readonly<{ onBack: () => void }>;
 function DrilledClusterView({ cluster, dict, attach, onBack }: DrillProps) {
   const ref = useAutoFocus<HTMLButtonElement>(true);
   return (
-    <div className="chat-drill">
-      <button ref={ref} type="button" className="chat-chip chat-drill__back" onClick={onBack}>{dict.search.backToOverview}</button>
+    <div className="chat-drill grid gap-3">
+      <button ref={ref} type="button" className={animalButtonClass({ appearance: "text", className: "chat-drill__back justify-self-start [min-height:44px]!" })} onClick={onBack}><span>{dict.search.backToOverview}</span></button>
       <SingleClusterView cluster={cluster} dict={dict} attach={attach} />
     </div>
   );
@@ -102,9 +73,9 @@ function useDrillNav(spots: readonly SearchSpot[]): DrillNav {
 /** No locatable spot: the D2 state (issue #272 S1.6), never a silently empty map. */
 function EmptyMapState({ spots, dict }: GridProps) {
   return (
-    <div className="chat-search-result">
+    <div className="chat-search-result @container grid gap-4">
       {spots.length > 0 ? <SpotCardGrid spots={spots} dict={dict} /> : null}
-      <EnvelopeFallback state="D2" dict={dict} />
+      <div className="grid gap-3" data-fallback="D2"><NoSpotsContent dict={dict} hasUnlocatedSpots={spots.length > 0} /></div>
     </div>
   );
 }

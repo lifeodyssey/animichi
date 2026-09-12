@@ -14,6 +14,7 @@ interface CwvMetrics {
   cls: number;
   lcp: number;
   inp: number;
+  inpObserved: boolean;
 }
 
 declare global {
@@ -39,7 +40,7 @@ const reportDir = join(__dirname, "..", "apps", "web", webCwvConfig.reportDir);
 /** Browser-side observer sources are strings: addInitScript serializes one
  * function with no closure, so Node helpers (webCwvConfig, Page) can never be
  * reached from the page context. */
-const INIT_METRICS_SOURCE = `Object.defineProperty(window, "__cwv", { value: { cls: 0, lcp: 0, inp: 0 } });`;
+const INIT_METRICS_SOURCE = `Object.defineProperty(window, "__cwv", { value: { cls: 0, lcp: 0, inp: 0, inpObserved: false } });`;
 
 const CLS_OBSERVER_SOURCE = `new PerformanceObserver((list) => {
   const metrics = window.__cwv;
@@ -56,17 +57,21 @@ const LCP_OBSERVER_SOURCE = `new PerformanceObserver((list) => {
 
 // AC2 — INP interaction proxy: the Event Timing observer reports interaction
 // duration (processing + presentation) for every real input, which is the
-// regression signal the field INP would later carry. buffered reads the past
-// as well as future events, so a driven click always lands.
-const INP_OBSERVER_SOURCE = `new PerformanceObserver((list) => {
+// regression signal the field INP would later carry. Event entries have a
+// 16ms floor; first-input also reports a fast first interaction, including 0ms.
+// https://developer.mozilla.org/en-US/docs/Web/API/PerformanceEventTiming
+const INP_OBSERVER_SOURCE = `const inpObserver = new PerformanceObserver((list) => {
   const metrics = window.__cwv;
   for (const entry of list.getEntries()) {
     const duration = entry.duration;
-    if (entry.interactionId > 0 && Number.isFinite(duration) && duration > metrics.inp) {
-      metrics.inp = duration;
+    if ((entry.interactionId > 0 || entry.entryType === "first-input") && Number.isFinite(duration)) {
+      metrics.inpObserved = true;
+      metrics.inp = Math.max(metrics.inp, duration);
     }
   }
-}).observe({ type: "event", buffered: true, durationThreshold: 0 });`;
+});
+inpObserver.observe({ type: "event", buffered: true, durationThreshold: 16 });
+inpObserver.observe({ type: "first-input", buffered: true });`;
 
 const installObservers = async (page: Page): Promise<void> => {
   await page.addInitScript({ content: INIT_METRICS_SOURCE });
@@ -101,6 +106,7 @@ const measureRoute = async (page: Page, route: string): Promise<CwvMetrics> => {
     cls: window.__cwv?.cls ?? 0,
     lcp: window.__cwv?.lcp ?? 0,
     inp: window.__cwv?.inp ?? 0,
+    inpObserved: window.__cwv?.inpObserved ?? false,
   }));
 };
 
@@ -173,7 +179,10 @@ test(`a representative mobile interaction drives INP at or below ${String(webCwv
     // correctly reset this page-scoped Event Timing observer. The mobile bar
     // carries the login entry on this fixed narrow profile.
     await page.getByRole("button", { name: en.appbar.login }).click();
-    await page.waitForFunction(() => (window.__cwv?.inp ?? 0) > 0);
+    await expect(page.getByRole("dialog")).toBeVisible();
+    // Sample after the click's paint so later event entries can update the maximum.
+    await page.evaluate(() => new Promise<void>((resolve) => { requestAnimationFrame(() => { requestIdleCallback(() => { resolve(); }); }); }));
+    await page.waitForFunction(() => window.__cwv?.inpObserved === true);
     inpRuns.push(await page.evaluate(() => window.__cwv?.inp ?? 0));
   }
   const inp = median(inpRuns) ?? 0;

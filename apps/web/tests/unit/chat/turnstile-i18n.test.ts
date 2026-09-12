@@ -10,15 +10,12 @@ const LATIN_ONLY = /^[\p{ASCII}]+$/u;
 const TECHNICAL_MARKERS = ["turnstile", "cloudflare", "403", "token", "captcha"];
 
 function copyOf(dict: ChatTurnstileDict): readonly string[] {
-  return [dict.label, dict.failed, dict.retry];
+  return Object.values({ ...dict });
 }
 
 describe("AC4 Turnstile copy exists in every locale", () => {
-  it.each(LOCALES)("provides non-empty label/failed/retry copy for %s", (locale) => {
-    const dict = chatDictFor(locale).turnstile;
-    expect(dict.label.length).toBeGreaterThan(0);
-    expect(dict.failed.length).toBeGreaterThan(0);
-    expect(dict.retry.length).toBeGreaterThan(0);
+  it.each(LOCALES)("provides non-empty verification state copy for %s", (locale) => {
+    expect(copyOf(chatDictFor(locale).turnstile)).not.toContain("");
   });
 
   it("keeps each locale's retry prompt distinct", () => {

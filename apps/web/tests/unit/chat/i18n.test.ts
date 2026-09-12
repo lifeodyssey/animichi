@@ -21,12 +21,10 @@ describe("chatDictFor", () => {
     expect(dict.coldStartSub.length).toBeGreaterThan(0);
     expect(dict.entryAnimeTitle.length).toBeGreaterThan(0);
     expect(dict.entryCityTitle.length).toBeGreaterThan(0);
-    expect(dict.entryChatTitle.length).toBeGreaterThan(0);
+    expect(dict.coldStartExamples.length).toBeGreaterThan(0);
     expect(dict.entryAnimePrompt.length).toBeGreaterThan(0);
     expect(dict.entryCityPrompt.length).toBeGreaterThan(0);
     expect(dict.entryChatPrompt.length).toBeGreaterThan(0);
-    expect(dict.sampleLink.length).toBeGreaterThan(0);
-    expect(dict.samplePrompt.length).toBeGreaterThan(0);
     expect(dict.errorBanner.length).toBeGreaterThan(0);
     expect(dict.retry.length).toBeGreaterThan(0);
     expect(dict.thinking.length).toBeGreaterThan(0);

@@ -27,13 +27,16 @@ client effect, and keeps desktop visitors on the clickable doorway. Root guide: 
   shrink as pages are rebuilt in the 2026-08-29 direction-E redesign.
 - **UI styling comes from `animal-island-ui-tailwind`'s CSS class layer**
   (`animal-btn`, `animal-input-wrapper`, `animal-card`, …; already global via the
-  `style/core` import in `globals.css`). Do NOT import its React components: the
-  package's JS entry vendors `react-dom@19. 2.6` under `dist/es/node_modules`,
-  which crashes against our React 19.2.8 ("Incompatible React versions"). Mirror
-  the class structure its components render; retheme via `--animal-*` custom
-  properties on a wrapper. `node_modules/animal-island-ui-tailwind/AI_USAGE.md`
-  documents the design grammar (its HARD RULES are binding: never override the
-  3D press shadow, etc.).
+  `style/core` import in `globals.css`). React components come from the subpath
+  entries only — `animal-island-ui-tailwind/button` (`Button`), `/input`
+  (`Input`), `/checkbox` (`Checkbox`), `/cursor` (`Cursor`), `/radio` (`Radio`), `/select` (`Select`), `/switch` (`Switch`);
+  type shims live in `src/env.d.ts`. Do NOT import the package's main JS entry:
+  it vendors `react-dom@19.2.6` under `dist/es/node_modules`, which crashes
+  against our React 19.2.8 ("Incompatible React versions"). Where no subpath
+  component exists, mirror the class structure its components render; retheme
+  via `--animal-*` custom properties on a wrapper.
+  `node_modules/animal-island-ui-tailwind/AI_USAGE.md` documents the design
+  grammar (its HARD RULES are binding: never override the 3D press shadow, etc.).
   - Pitfall: the package ships its own compiled Tailwind, so its plain utilities
     (`.hidden`, `.flex`, `.grid`, …) land in our shared `@layer utilities` AFTER our
     variant rules and beat them. Never pair a plain utility the package also

@@ -1,4 +1,7 @@
 import type { Page } from "@playwright/test";
+import { stubTurnstileSdk } from "./turnstile-sdk";
+
+export { stubTurnstileSdk };
 
 declare global {
   interface Window {
@@ -6,9 +9,9 @@ declare global {
   }
 }
 
-/** Keep browser tests hermetic while exercising the real entry handshake. */
+/** Keep a late SDK load error from racing the test's explicit solved-token callback. */
 export async function stubTurnstileEntry(page: Page): Promise<void> {
-  await page.route("https://challenges.cloudflare.com/**", (route) => route.abort());
+  await stubTurnstileSdk(page);
   await page.route("**/v1/turnstile/verify", (route) => route.fulfill({ status: 204 }));
 }
 

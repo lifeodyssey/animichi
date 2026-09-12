@@ -5,6 +5,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { RouteTrailMap } from "../../../src/features/chat/components/RouteTrailMap";
 import type { AttachBasemap } from "../../../src/features/chat/components/SearchMap";
+import { attachReady } from "./basemap-fixture";
 import { chatDictFor } from "../../../src/features/chat/i18n";
 import { pointPlacements } from "../../../src/features/bubble-map/bubble-geometry";
 import type { LocatedSpot } from "../../../src/features/chat/lib/spot-clusters";
@@ -14,10 +15,7 @@ import chatCss from "../../../src/styles/chat.css?raw";
 afterEach(cleanup);
 
 const dict = chatDictFor("ja");
-const attachReady: AttachBasemap = ({ onStatus }) => {
-  onStatus("ready");
-  return () => undefined;
-};
+
 const attachFailing: AttachBasemap = ({ onStatus }) => {
   onStatus("fallback");
   return () => undefined;

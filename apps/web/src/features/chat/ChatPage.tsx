@@ -23,7 +23,8 @@ import { ClarifyPickProvider, useClarifyPickState } from "./selection/use-clarif
 import type { ClarifyPickTurn } from "./selection/use-clarify-pick";
 import { useRecomputeTurn } from "./selection/use-recompute-turn";
 import type { RecomputeTurn } from "./selection/use-recompute-turn";
-import { gatedTurnEntry } from "./lib/turn-gate";
+import { gatedTurnEntry, isTurnActive } from "./lib/turn-gate";
+import { journeyTitle } from "./lib/journey-title";
 import { lockedClarifyPick, lockedRecompute, useLockedActions } from "./quota-lock";
 import type { QuotaLock } from "./quota-lock";
 import { useAutoSend } from "./use-auto-send";
@@ -64,7 +65,8 @@ function useTurnActions(chat: ChatSession): ChatActions {
   const { clearError, regenerate } = chat;
   const { send, sendWithOrigin } = useGatedSends(chat);
   const regen = useCallback(() => { clearError(); void regenerate(); }, [clearError, regenerate]);
-  return useMemo(() => ({ send, regenerate: regen, sendWithOrigin }), [send, regen, sendWithOrigin]);
+  const disabled = isTurnActive(chat.status);
+  return useMemo(() => ({ send, regenerate: regen, sendWithOrigin, disabled }), [send, regen, sendWithOrigin, disabled]);
 }
 
 function makeTracked(actions: ChatActions, setGps: (gps: PhotoGps) => void): ChatActions {
@@ -209,7 +211,7 @@ function shellProps(search: ChatSearch, page: PageState, entry: ChatEntryState, 
   const chrome = {
     appbar: <ChatAppBar dict={page.dict} status={page.auth} />,
     sidebar: <ChatSidebar dict={page.dict} status={page.auth} baseUrl={page.config.baseUrl} activeSessionId={search.session} />,
-    header: <ChatHeader dict={page.dict} />,
+    header: <ChatHeader dict={page.dict} title={journeyTitle(page.history.entries, page.chat.messages)} />,
     notices: <ChatNotices entry={entry} onRetry={page.health.retry} history={page.history} dict={page.dict} />,
   };
   return { ...chrome, body: chatBody(entry, page.chat, page.history, page.dict, page.departure.onSend, page.failure, page.locale), dock: chatDock(page.departure, page.dict, page.chat, page.recompute), composer: chatComposer(page.dict, page.config.baseUrl, page.photo, page.quota, page.departure.onSend, gate) };
