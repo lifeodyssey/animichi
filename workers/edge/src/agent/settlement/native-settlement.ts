@@ -3,6 +3,7 @@ import type { Context } from "@earendil-works/pi-agent-core/harness/context";
 import { operationMeta, operationResult, type Session } from "@earendil-works/pi-agent-core/harness/session";
 import { NeonStorage } from "@animichi/pi-session-neon";
 import { bankOperationUsage, lockSettlement, readOperationCharges, refundOperation, type SettlementDatabase } from "./settlement-accounting.ts";
+import { setDefaultConversationTitle } from "../admission/session-owner.ts";
 
 /** Host exclusion covers preparation through drive. The native accept sequence bounds this operation's ledger. */
 export async function prepareOperationSettlement(db: SettlementDatabase, session: Session, operationId: string, context: Context) {
@@ -40,6 +41,7 @@ export async function settleModelOperation(db: SettlementDatabase, session: Sess
     const at = new Date(now).toISOString();
     if (result.status === "completed" && row.admission.rejectionReason === null) {
       await bankOperationUsage(db, tx, charges, at);
+      await setDefaultConversationTitle(db, tx, session.metadata.id);
     } else await refundOperation(db, tx, row.admission, at);
     await tx.orm.public.AgentSettlement.where({ operationId }).update({ lastUsageSeq: terminal.seq, settledAt: at });
     await tx.orm.public.AgentAdmission.where({ id: row.admission.id }).update({ state: "settled" });
