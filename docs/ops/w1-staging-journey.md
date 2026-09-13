@@ -6,8 +6,14 @@ criterion, and it is deliberately a human one: **staging 匿名可完整对话�
 same journey — "回合中切走 → 回来 GET 拿到完整结果（owner 的核心场景）".
 
 This is that journey, written to be run by one person in one sitting. It is the
-`(browser)` evidence for W1-5 (#1254), deferred there because nothing routed to
-the new tier until W1-7 (#1256) flipped `AGENT_TURN_ROUTE`.
+`(browser)` evidence for W1-5 (#1254), deferred there while the native edge
+agent was being built.
+
+<!-- historical: retired in #1582 -->
+The former `AGENT_TURN_ROUTE` switch was used while W1-7 (#1256) staged the
+new tier; #1582 removed it when native agent routes became unconditional. This
+note explains why older W1 wording may mention a switch; it is not an operator
+step.
 
 The signed-in half is automated instead — `workers/edge/api-test/agent-turn.test.ts`
 (`pnpm --filter edge-worker run test:catalog-api`). The anonymous half cannot be:
@@ -15,12 +21,14 @@ its door is behind Turnstile, which is a challenge only a real browser solves.
 
 ## 0 · Preconditions (check these, do not assume them)
 
-1. The deploy under test carries the flag. `workers/edge/wrangler.toml`
-   `[env.staging.vars]` must read `AGENT_TURN_ROUTE = "edge"`, and that commit
-   must be the one CD deployed — merged is not deployed (`docs/ops/deployment.md`).
+1. The deploy under test includes the native edge agent host and its current
+   route policy. Native agent routes are unconditional; confirm the deployed
+   commit SHA is the one CD deployed — merged is not deployed
+   (`docs/ops/deployment.md`).
 2. `https://staging.animichi.com/healthz` answers 200.
-3. Staging binds `AGENT_SVC_DATABASE_URL` (it does; production deliberately does
-   not until #855). Without it every turn 500s on `AGENT_SVC_DATABASE_URL is not bound`.
+3. Staging binds `AGENT_SVC_DATABASE_URL` through its Secrets Store declaration;
+   production declares the same binding after W4-1 (#1314). Without it every
+   native chat/history/stream request 500s with `The native agent database is not configured`.
 
 Screenshot **S0**: the deployed commit sha next to the `healthz` body.
 
@@ -121,7 +129,7 @@ provider outage would not show up as a failure.
    answer with `"intent":"clarify"` and a card offering the candidates.
 2. In that `data-response` part, read `data.clarification_id` — a small integer.
    It is the session's own counter and it is what makes a pick that arrives late
-   refusable; the container publishes the same member.
+   refusable; the native session publishes the same member.
 3. **Click a candidate on the card.** In Network, open the new `POST /v1/chat`
    and check its request body: it carries `selected_candidate_ids` and
    `clarification_id`, and its message list ends with the pick's label bubble.
@@ -227,11 +235,10 @@ key must not be written into this repo, a test, a PR or a log line.
    caller — `POST /v1/byok/probe` with your own key in `X-BYOK-Provider` and
    `X-BYOK-Key`. Expect `200` naming the model and its `vision` support.
 2. Repeat with `X-BYOK-Provider: openai-compatible` and `X-BYOK-Base-Url`
-   pointed at a third-party OpenAI-compatible gateway. Expect the egress
-   refusal: that family reaches `api.openai.com` and nothing else. This is the
-   ONE place `AGENT_TURN_ROUTE = "edge"` deliberately refuses what the container
-   accepted (#1289); ruling the other way is one edit to
-   `workers/edge/src/agent/egress/provider-allowlist.ts`.
+   pointed at a third-party OpenAI-compatible gateway. Expect the native egress
+   refusal: that family reaches `api.openai.com` and nothing else. The current
+   route policy selects the native host unconditionally, and the allowlist is
+   the source of truth (`workers/edge/src/agent/egress/provider-allowlist.ts`).
 3. Send a chat turn carrying the same headers. It must complete on YOUR key.
 4. In that turn, ask for a title translation. It runs on the SERVER key by
    design (Python's D18,
@@ -257,14 +264,30 @@ Screenshot **S5j**: the wrong-key `400`.
 
 ## 5 · Rollback
 
-If any step above fails in a way that hurts real usage, the rollback is one word:
-set `AGENT_TURN_ROUTE = "container"` in `[env.staging.vars]` and let CD deploy it.
-No code change, no revert — the container path is untouched by this card and the
-routing tests pin both positions
-(`workers/edge/test/agent-turn-routing.test.ts`).
+The native route has no container fallback or runtime switch. If a bad deployed
+edge Worker needs recovery, follow [`deployment.md` → Rollback](./deployment.md#rollback):
+list trusted versions, then run:
+
+```sh
+pnpm exec wrangler rollback <version-id> --name animichi-staging -y --message "<why>"
+```
+
+Verify with:
+
+```sh
+pnpm exec wrangler deployments list --name animichi-staging
+```
+
+Probe the staging health endpoint again. This recovers Worker code and
+configuration only; it does not reverse Neon migrations, change Secrets Store
+values, or record the browser journey as rerun. For schema or binding failures,
+use the migration/backup runbooks and recover forward.
 
 ## Recording the result
 
 File the screenshots and the verdict on the W1-7 issue (#1256). The journey
 passes only if **S5** shows the third assistant message and `run.status:
 "succeeded"`; everything before it is context for reading a failure.
+
+This document defines evidence to collect; it is not a receipt that the staging
+browser or API journey has been run.

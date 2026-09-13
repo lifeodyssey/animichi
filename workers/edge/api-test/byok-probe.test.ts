@@ -18,10 +18,9 @@
  * own: BYOK is login-gated on both routes that accept it, so an anonymous
  * caller cannot reach the probe at all.
  *
- * Run it only against a deploy carrying `AGENT_TURN_ROUTE = "edge"`. Against
- * the container position the probe is answered by `apps/agent`, which is the
- * shape this tier was written to preserve — the assertions below hold there
- * too, which is exactly the point of a fallback flag.
+ * Run it only against a deploy containing the native edge agent host. The probe
+ * route is unconditional, so this lane has no container fallback; the
+ * assertions below verify the native response contract.
  *
  * test-type: api (real network against a deployed origin).
  */
