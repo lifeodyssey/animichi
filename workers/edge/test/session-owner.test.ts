@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import { after, test } from "node:test";
+import postgresClient from "@prisma/orm-postgres/runtime";
+import contractJson from "@animichi/pi-session-neon/contract" with { type: "json" };
+import type { Contract } from "@animichi/pi-session-neon/types";
+import { createOrLockOwnedConversation } from "../src/agent/admission/session-owner.ts";
+import type { AdmissionTransaction } from "../src/agent/admission/types.ts";
+
+const database = postgresClient<Contract>({ contractJson, url: "postgres://unit:unit@127.0.0.1:1/unit" });
+const request = { sessionId: "session", identityId: "owner", text: "New query" };
+
+after(async () => database.close());
+
+void test("the session upsert conflict path cannot assign a user title", async () => {
+  let queryPlan: unknown;
+  const transaction = { query: (plan: unknown) => {
+    queryPlan = plan;
+    return Promise.resolve([{ owner: request.identityId }]);
+  } } as unknown as AdmissionTransaction;
+
+  assert.equal(await createOrLockOwnedConversation(database, transaction, request), true);
+  const sql = JSON.stringify(queryPlan);
+  assert.match(sql, /INSERT INTO sessions \(id,\s+user_id,\s+first_query\)/);
+  assert.match(sql, /ON CONFLICT \(id\) DO UPDATE SET user_id = sessions\.user_id/);
+  assert.doesNotMatch(sql, /DO UPDATE SET[^]*title/);
+});
