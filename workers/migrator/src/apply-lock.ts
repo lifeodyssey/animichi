@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { productionChain } from "./bundled-chain";
 import { applySelectedChain } from "./selected-apply";
-import type { ContainerOutcome } from "./migration";
+import type { ApplyOutcome } from "./migration";
 import type { PreflightMetadata } from "./preflight-metadata";
 import { neonClient } from "./sql";
 import { migrateSelected, preflightSelected, type SelectedMetadata, type SelectedMigration, type SelectedPreflight } from "./selected-migration";
@@ -14,7 +14,7 @@ import { migrateSelected, preflightSelected, type SelectedMetadata, type Selecte
  * non-RPC (staging migrate 2026-08-21, HTTP 500 after #1125).
  */
 export class MigratorApplyLock extends DurableObject {
-  async run(dsn: string, metadata: PreflightMetadata): Promise<ContainerOutcome> {
+  async run(dsn: string, metadata: PreflightMetadata): Promise<ApplyOutcome> {
     return this.ctx.blockConcurrencyWhile(() => applyWithBundle(dsn, metadata));
   }
 
@@ -27,7 +27,7 @@ export class MigratorApplyLock extends DurableObject {
   }
 }
 
-function applyWithBundle(dsn: string, metadata: PreflightMetadata): Promise<ContainerOutcome> {
+function applyWithBundle(dsn: string, metadata: PreflightMetadata): Promise<ApplyOutcome> {
   return applySelectedChain({
     dsn,
     source: productionChain,

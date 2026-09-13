@@ -7,7 +7,7 @@ import {
 import { productionChain } from "./bundled-chain";
 import { headsOf, type ChainSource } from "./chain";
 import { NeonMigrationsLedger } from "./ledger";
-import { runMigration, type ContainerOutcome, type MigrationRunResult } from "./migration";
+import { applyMigration, type BoundedChainApply, type MigrationResult } from "./migration";
 import { mainController } from "./request-auth";
 import { registerPreflight } from "./preflight";
 import { resolveDsn } from "./database-url";
@@ -17,20 +17,16 @@ import type { SelectedExecutor, SelectedMigration } from "./selected-migration";
 import { selectedExecutor } from "./selected-executor";
 
 /**
- * #1051 / #1124 — the migrator's Hono application + environment, kept free of
- * @cloudflare/containers so HTTP-seam tests run under plain vitest. Default
- * apply is neon-http (lazy lock + chain); tests inject `runContainer`.
+ * #1051 / #1124 / #1589 — the migrator's Hono application + environment.
+ * Default apply is the bounded neon-http chain behind the fixed lock.
  */
 
-/** Migrator Worker bindings (Secrets Store DSN + apply-lock DO + container). */
+/** Migrator Worker bindings (Secrets Store DSN + apply-lock Durable Object). */
 export interface Env {
   ENVIRONMENT?: string;
   MIGRATOR_DATABASE_URL?: string | SecretsStoreSecret;
-  MIGRATOR_CONTAINER: DurableObjectNamespace;
   /** Fixed-name mutex for HTTP apply. Required on the production default path. */
   MIGRATOR_APPLY_LOCK?: DurableObjectNamespace;
-  /** Optional per-deploy cap on the one-shot container run, in ms. */
-  CONTAINER_TIMEOUT_MS?: string;
   /** Selects the OIDC claims allowlist; only "production" opens that door. */
   MIGRATOR_OIDC_POLICY?: string;
 }
@@ -40,7 +36,7 @@ export interface MigratorDeps {
   verifier?: GitHubOidcVerifier;
   /** JWKS for the env-selected policy; `verifier` overrides the selection. */
   jwks?: JWTVerifyGetKey;
-  runContainer?: (dsn: string, expectedHead?: string) => Promise<ContainerOutcome>;
+  applyChain?: BoundedChainApply;
   readAppliedHead?: (dsn: string) => Promise<string | null>;
   /** The chain this Worker carries; the handshake answers from it. */
   chain?: ChainSource;
@@ -82,26 +78,6 @@ function healthz(c: Context<{ Bindings: Env }>, bundle: BundleHandshake): Respon
   });
 }
 
-function timeoutResponse(result: Extract<MigrationRunResult, { kind: "timeout" }>): Response {
-  const body =
-    result.exitCode === undefined
-      ? { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus }
-      : { success: false, error: "timeout", ranMs: result.ranMs, lastStatus: result.lastStatus, exitCode: result.exitCode };
-  return Response.json(body, { status: 504 });
-}
-
-function headLabel(head: string | null): string {
-  return head ?? "null";
-}
-
-function mismatchResponse(result: Extract<MigrationRunResult, { kind: "head_mismatch" }>): Response {
-  const error = `applied head ${headLabel(result.appliedHead)} does not equal expected head ${headLabel(result.expectedHead)}`;
-  return Response.json(
-    { success: false, exitCode: 1, appliedHead: result.appliedHead, error },
-    { status: 500 },
-  );
-}
-
 function successResponse(result: Extract<SelectedMigration, { kind: "success" }>): Response {
   return Response.json({
     success: true,
@@ -132,44 +108,24 @@ function failureBody(result: Extract<SelectedMigration, { kind: "failure" }>): F
  * A request this bundle and ledger cannot satisfy never becomes satisfiable by
  * waiting, so it must not land in that retry loop.
  */
-function refusedResponse(result: Extract<MigrationRunResult, { kind: "refused" }>): Response {
+function refusedResponse(result: Extract<MigrationResult, { kind: "refused" }>): Response {
   return Response.json({ success: false, appliedHead: null, error: result.reason }, { status: 422 });
 }
 
 function outcomeResponse(result: SelectedMigration): Response {
   if (result.kind === "failure") return Response.json(failureBody(result), { status: 500 });
   if (result.kind === "refused") return refusedResponse(result);
-  if (result.kind === "timeout") return timeoutResponse(result);
-  if (result.kind === "head_mismatch") return mismatchResponse(result);
   return successResponse(result);
 }
 
-/**
- * The bounded apply seam: the head the caller asked for travels with the DSN.
- * A revived container path must forward it too — `ContainerRunner.start(dsn,
- * timeoutMs)` (src/runner.ts) type-checks while dropping the head, and an apply
- * that never sees it is unbounded again.
- */
-type MigrationApply = (dsn: string, expectedHead?: string) => Promise<ContainerOutcome>;
-
-async function runContainerFor(
+async function chainApplyFor(
   env: Env,
   deps: MigratorDeps,
-  metadata: PreflightMetadata,
-): Promise<MigrationApply> {
-  if (deps.runContainer !== undefined) return deps.runContainer;
-  const { productionApply } = await import("./lock");
-  return httpApplyBound(env, productionApply, metadata);
-}
-
-function httpApplyBound(
-  env: Env,
-  bind: (ns: DurableObjectNamespace) => (dsn: string, metadata: PreflightMetadata) => Promise<ContainerOutcome>,
-  metadata: PreflightMetadata,
-): MigrationApply {
+): Promise<BoundedChainApply> {
+  if (deps.applyChain !== undefined) return deps.applyChain;
   if (env.MIGRATOR_APPLY_LOCK === undefined) throw new Error("migrator apply lock not configured");
-  const apply = bind(env.MIGRATOR_APPLY_LOCK);
-  return (dsn) => apply(dsn, metadata);
+  const { productionApply } = await import("./lock");
+  return productionApply(env.MIGRATOR_APPLY_LOCK);
 }
 
 type Guarded =
@@ -211,10 +167,10 @@ async function handleMigrate(
         ...guard.metadata, expectedPrismaRef: guard.metadata.expectedPrismaRef,
       }));
     }
-    const runContainer = await runContainerFor(c.env, deps, guard.metadata);
+    const applyChain = await chainApplyFor(c.env, deps);
     const readAppliedHead = deps.readAppliedHead ??
       ((value: string) => new NeonMigrationsLedger().readAppliedHead(value));
-    const result = await runMigration(dsn, { runContainer, readAppliedHead }, guard.metadata.expectedHead);
+    const result = await applyMigration(dsn, { applyChain, readAppliedHead }, guard.metadata);
     return outcomeResponse(result);
   } catch {
     return c.json({ success: false, error: "migration_unavailable" }, 500);

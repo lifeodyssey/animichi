@@ -32,7 +32,9 @@ module ReleaseSnapshot
   end
 
   def validate_images(images)
-    ReleaseSelection.require_value(images.keys.sort == %w[agent migrator], 'missing paired image')
+    allowed = %w[agent migrator]
+    valid_units = images.key?('agent') && (images.keys - allowed).empty?
+    ReleaseSelection.require_value(valid_units, 'missing or unknown release image')
     images.each do |unit, reference|
       pattern = %r{\Aregistry\.cloudflare\.com/[a-f0-9]{32}/animichi-#{unit}@sha256:[a-f0-9]{64}\z}
       ReleaseSelection.require_value(reference.match?(pattern), 'image must use an immutable registry digest')

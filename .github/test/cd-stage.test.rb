@@ -21,7 +21,7 @@ class CdStageTest < Minitest::Test
     steps(job).index(step(job, name))
   end
 
-  CHAIN = ["Publish the selected migrator", "Preview the selected native migration graph", "Apply database access", "Apply topology",
+  CHAIN = ["Retire the migrator container application", "Publish the selected migrator", "Preview the selected native migration graph", "Apply database access", "Apply topology",
            "Apply the selected migration chain", "Publish the selected services", "Smoke the release"].freeze
 
   def test_each_environment_runs_the_complete_ordered_chain

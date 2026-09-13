@@ -14,8 +14,13 @@ function sealEnvironment(config, image) {
   return sealed;
 }
 
+function hasContainers(config) {
+  return [config, ...Object.values(config.env ?? {})]
+    .some((ring) => (ring.containers ?? []).length > 0);
+}
+
 export function sealedConfig(unit, image, original = sourceConfig(unit)) {
-  if (['edge', 'migrator'].includes(unit) && !/@sha256:[a-f0-9]{64}$/.test(image)) throw new Error('immutable container image required');
+  if (hasContainers(original) && !/@sha256:[a-f0-9]{64}$/.test(image)) throw new Error('immutable container image required');
   const sealed = sealEnvironment(original, image);
   sealed.main = unit === 'web' ? '.output/server/index.mjs' : `bundle/${ENTRIES[unit]}`;
   sealed.env = Object.fromEntries(Object.entries(original.env).map(([name, config]) => [name, sealEnvironment(config, image)]));

@@ -89,24 +89,12 @@ jobs:
           sbom: false
           push: true
           tags: registry.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/animichi-agent:build-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: Build and push the migrator once
-        id: migrator
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          file: workers/migrator/Dockerfile
-          platforms: linux/amd64
-          provenance: false
-          sbom: false
-          push: true
-          tags: registry.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/animichi-migrator:build-${{ github.run_id }}-${{ github.run_attempt }}
-      - name: Bundle paired Workers and seal immutable image references
+      - name: Bundle Workers and seal the immutable image reference
         env:
           AGENT_IMAGE: registry.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/animichi-agent@${{ steps.agent.outputs.digest }}
-          MIGRATOR_IMAGE: registry.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/animichi-migrator@${{ steps.migrator.outputs.digest }}
         run: |
           node .github/scripts/release/build-worker.mjs edge "$AGENT_IMAGE"
-          node .github/scripts/release/build-worker.mjs migrator "$MIGRATOR_IMAGE"
+          node .github/scripts/release/build-worker.mjs migrator
           ruby .github/scripts/release/seal.rb
           ruby .github/scripts/release/inspect-images.rb
       - name: Archive the complete snapshot

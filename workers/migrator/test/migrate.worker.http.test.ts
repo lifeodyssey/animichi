@@ -48,7 +48,7 @@ describe("POST /migrate HTTP seam (AC5)", () => {
 
 describe("POST /migrate HTTP apply default", () => {
   it("fails closed when the apply lock binding is missing", async () => {
-    const { app, token } = await makeApp({ runContainer: undefined });
+    const { app, token } = await makeApp({ applyChain: undefined });
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ success: false, error: "migration_unavailable" });

@@ -1,5 +1,5 @@
 import { headOf, type ChainFile } from "./chain";
-import type { ContainerOutcome } from "./migration";
+import type { ApplyOutcome } from "./migration";
 
 /**
  * #1365 — the segment of the bundled chain one request may apply.
@@ -14,7 +14,7 @@ import type { ContainerOutcome } from "./migration";
  */
 export type RequestedChain = { kind: "files"; files: ChainFile[] } | Refusal;
 
-type Refusal = Extract<ContainerOutcome, { kind: "refused" }>;
+type Refusal = Extract<ApplyOutcome, { kind: "refused" }>;
 
 /** The files to apply for `expectedHead`, or the refusal that stops it before any DDL. */
 export function requestedChain(

@@ -1,4 +1,4 @@
-# SUT: native Wrangler configuration sealing preserves bindings and immutable images.
+# SUT: native Wrangler configuration sealing preserves bindings and immutable container images.
 # frozen_string_literal: true
 require 'minitest/autorun'
 require 'open3'
@@ -13,21 +13,26 @@ class ReleaseConfigTest < Minitest::Test
     JSON.parse(output)
   end
 
-  def test_container_configs_all_use_selected_digest_without_build_context
-    reference = "registry.cloudflare.com/#{'a' * 32}/animichi-migrator@sha256:#{'d' * 64}"
-    config = seal('migrator', reference)
+  def test_migrator_keeps_no_container_in_any_ring
+    config = seal('migrator')
     assert_equal 'bundle/index.js', config.fetch('main')
-    assert_equal reference, config.fetch('containers').first.fetch('image')
-    assert_equal reference, config.dig('env', 'staging', 'containers').first.fetch('image')
-    assert_equal reference, config.dig('env', 'production', 'containers').first.fetch('image')
-    refute config.fetch('containers').first.key?('image_build_context')
-    refute config.dig('env', 'production', 'containers').first.key?('image_build_context')
+    assert_empty config.fetch('containers', [])
+    assert_empty config.dig('env', 'staging').fetch('containers', [])
+    assert_empty config.dig('env', 'production').fetch('containers', [])
     refute config.key?('build')
     assert_equal true, config['no_bundle']
     assert_equal true, config['find_additional_modules']
     assert_equal true, config['preserve_file_names']
     assert_equal 'bundle', config['base_dir']
     assert config.fetch('rules').any? { |rule| rule['type'] == 'Text' && rule['globs'].include?('migrations/**/*') }
+  end
+
+  def test_edge_container_uses_selected_digest_without_build_context
+    reference = "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}"
+    config = seal('edge', reference)
+    assert_equal reference, config.fetch('containers').first.fetch('image')
+    assert_equal reference, config.dig('env', 'staging', 'containers').first.fetch('image')
+    refute config.fetch('containers').first.key?('image_build_context')
   end
 
   def test_catalog_keeps_native_environment_bindings

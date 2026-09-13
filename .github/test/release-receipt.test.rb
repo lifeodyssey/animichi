@@ -2,16 +2,17 @@
 # frozen_string_literal: true
 require 'minitest/autorun'
 require_relative '../lib/release/receipt'
+require_relative 'fixtures/release/receipt-workers'
 
 class ReleaseReceiptTest < Minitest::Test
   def setup
     @selection = { 'artifact_id' => '7', 'artifact_digest' => "sha256:#{'d' * 64}",
                    'source_sha' => 'b' * 40, 'controller_sha' => 'c' * 40 }
-    @images = { 'agent' => 'agent@digest', 'migrator' => 'migrator@digest' }
+    @images = { 'agent' => 'agent@digest' }
     @receipt = { 'format' => 1, 'environment' => 'staging', 'selection' => @selection.dup,
                  'controller_run_id' => '9', 'controller_run_attempt' => '1', 'images' => @images,
                  'smoke' => 'passed', 'schema' => { 'compatible' => true, 'expectedHead' => 'B', 'appliedHead' => 'B', 'pendingCount' => 0 },
-                 'workers' => %w[catalog edge migrator users web].map { |unit| { 'unit' => unit, 'script_name' => "#{unit}-staging", 'version_id' => '11111111-1111-4111-8111-111111111111', 'deployment_id' => '22222222-2222-4222-8222-222222222222' } } }
+                 'workers' => ReleaseReceiptWorkersFixture.workers }
     @receipt['schema']['prisma'] = { 'targetHash' => 'b' * 64, 'markerHash' => 'b' * 64, 'migrations' => [], 'usedLiveMarker' => true }
   end
 
@@ -57,6 +58,23 @@ class ReleaseReceiptTest < Minitest::Test
   def test_refuses_missing_observed_worker
     @receipt['workers'].pop
     assert_raises(ArgumentError) { validate }
+  end
+
+  def test_refuses_a_retired_migrator_container_observation
+    @receipt['workers'].find { |worker| worker['unit'] == 'migrator' }['containers'] << { 'application_id' => 'retired' }
+    assert_raises(ArgumentError) { validate }
+  end
+
+  def test_refuses_a_missing_agent_container_observation
+    @receipt['workers'].find { |worker| worker['unit'] == 'edge' }['containers'].clear
+    assert_raises(ArgumentError) { validate }
+  end
+
+  def test_accepts_the_container_observation_for_a_historical_snapshot
+    @images['migrator'] = 'migrator@digest'
+    @receipt['images'] = @images
+    @receipt['workers'].find { |worker| worker['unit'] == 'migrator' }['containers'] << { 'application_id' => 'legacy' }
+    assert validate
   end
 
   def test_refuses_receipt_from_another_run

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { APPLY_LOCK_NAME, productionApply, QueueLock } from "../src/lock";
 import type { PreflightMetadata } from "../src/preflight-metadata";
 import { selectedMetadata } from "./selected-apply-fixtures";
-import type { ContainerOutcome } from "../src/migration";
+import type { ApplyOutcome } from "../src/migration";
 import { FakeSql } from "./fake-sql";
 import { BODY_A, BODY_B, applyFixture } from "./http-apply.helpers";
 
@@ -66,7 +66,7 @@ interface LockCalls {
 
 function makeLockNamespace(): { namespace: DurableObjectNamespace; calls: LockCalls } {
   const calls: LockCalls = { names: [], runs: [] };
-  const run = (...args: [string, PreflightMetadata]): Promise<ContainerOutcome> => {
+  const run = (...args: [string, PreflightMetadata]): Promise<ApplyOutcome> => {
     calls.runs.push(args);
     return Promise.resolve({ kind: "success", exitCode: 0 });
   };

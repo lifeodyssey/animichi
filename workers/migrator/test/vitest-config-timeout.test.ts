@@ -10,7 +10,12 @@
  */
 import { describe, expect, it } from "vitest";
 import type { ViteUserConfig } from "vitest/config";
-import { CONTAINER_MIGRATION_BUDGET_MS, DECLARED_BUDGETS_MS, PLAIN_NODE_BUDGET_MS } from "./test-timeout-budget";
+import {
+  CONTAINER_MIGRATION_BUDGET_MS,
+  DECLARED_BUDGETS_MS,
+  PLAIN_NODE_BUDGET_MS,
+  WORKERD_BOOT_BUDGET_MS,
+} from "./test-timeout-budget";
 
 /* Every extension Vite will load a config from, not just `.ts`. A review probe
  * added `vitest.slow.config.mts` and this suite stayed green at 7 passed — the
@@ -51,4 +56,12 @@ it("gives the integration arm the container-plus-migration budget", () => {
 
 it("runs itself under that tight default", ({ task }) => {
   expect(task.timeout).toBe(PLAIN_NODE_BUDGET_MS);
+});
+
+it("allows only budgets owned by live suite kinds", () => {
+  expect(DECLARED_BUDGETS_MS).toEqual([
+    PLAIN_NODE_BUDGET_MS,
+    WORKERD_BOOT_BUDGET_MS,
+    CONTAINER_MIGRATION_BUDGET_MS,
+  ]);
 });

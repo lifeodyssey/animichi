@@ -236,6 +236,7 @@ jobs:
           ruby .github/test/cd-credentials.test.rb
           ruby .github/test/cd-delivery-jobs.test.rb
           ruby .github/test/cd-migrations.test.rb
+          ruby .github/test/migrator-container-retirement.test.rb
           ruby .github/test/cd-publish.test.rb
           ruby .github/test/cd-receipt.test.rb
           ruby .github/test/cd-selection.test.rb

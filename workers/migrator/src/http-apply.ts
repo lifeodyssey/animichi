@@ -1,6 +1,6 @@
 import { filesFrom, type ChainFile, type ChainSource } from "./chain";
 import type { ApplyLock } from "./lock";
-import type { ContainerOutcome } from "./migration";
+import type { ApplyOutcome } from "./migration";
 import { requestedChain } from "./requested-chain";
 import { assertDirectDsn, type SqlClient, type SqlFactory, type SqlParam, type SqlStatement } from "./sql";
 import { mixedTxMode, needsTxNone, splitSql } from "./sql-split";
@@ -94,17 +94,17 @@ interface RevisionWrite {
 }
 
 /** Serialize then apply the bundled chain. Tests inject a fake lock. */
-export function applyHttp(input: HttpApplyInput): Promise<ContainerOutcome> {
+export function applyHttp(input: HttpApplyInput): Promise<ApplyOutcome> {
   return input.lock.runExclusive(() => applyChain(input));
 }
 
 /** Apply committed files over neon-http. Rejects `-pooler` before connect/SQL. */
-export async function applyChain(input: ApplyInput): Promise<ContainerOutcome> {
+export async function applyChain(input: ApplyInput): Promise<ApplyOutcome> {
   assertDirectDsn(input.dsn);
   return applyFiles(input);
 }
 
-async function applyFiles(input: ApplyInput): Promise<ContainerOutcome> {
+async function applyFiles(input: ApplyInput): Promise<ApplyOutcome> {
   const sql = input.connect(input.dsn);
   await sql.query(LEDGER_SQL);
   const ledger = await loadLedger(sql);
@@ -118,7 +118,7 @@ async function applyPending(
   files: ChainFile[],
   ledger: LedgerState,
   now: () => Date,
-): Promise<ContainerOutcome> {
+): Promise<ApplyOutcome> {
   for (const file of files) {
     const failed = await applyOne(sql, file, ledger, now);
     if (failed !== undefined) return failed;
@@ -131,7 +131,7 @@ async function applyOne(
   file: ChainFile,
   ledger: LedgerState,
   now: () => Date,
-): Promise<ContainerOutcome | undefined> {
+): Promise<ApplyOutcome | undefined> {
   if (ledger.applied.has(file.version)) return undefined;
   const error = await commitFile(sql, file, ledger, now());
   if (error !== undefined) return recordFailure(sql, file, error, now());
@@ -199,7 +199,7 @@ function isDuplicateObject(error: Error): boolean {
   return typeof error.code === "string" && error.code === DUPLICATE_OBJECT;
 }
 
-async function recordFailure(sql: SqlClient, file: ChainFile, error: Error, at: Date): Promise<ContainerOutcome> {
+async function recordFailure(sql: SqlClient, file: ChainFile, error: Error, at: Date): Promise<ApplyOutcome> {
   await writeRevision(sql, failRow(file, error, at));
   return { kind: "failure", exitCode: 1, error: error.message };
 }

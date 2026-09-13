@@ -1,7 +1,8 @@
 import { mapSource, type ChainSource } from "../src/chain";
 import { QueueLock } from "../src/lock";
-import type { ContainerOutcome } from "../src/migration";
+import type { ApplyOutcome } from "../src/migration";
 import { applyHttp, type HttpApplyInput } from "../src/http-apply";
+import type { PreflightMetadata } from "../src/preflight-metadata";
 import type { FakeSql } from "./fake-sql";
 
 // #1124 — fixture chain for the Option 2 apply tests. Tests inject this
@@ -50,7 +51,7 @@ export function chainOf(filename: string, body: string): ChainSource {
   return mapSource(`h1:sum\n${filename} ${CHAIN_HASH}\n`, { [filename]: body });
 }
 
-export function applyFixture(db: FakeSql, extra: Partial<HttpApplyInput> = {}): Promise<ContainerOutcome> {
+export function applyFixture(db: FakeSql, extra: Partial<HttpApplyInput> = {}): Promise<ApplyOutcome> {
   return applyHttp({
     dsn: DSN,
     source: fixtureChain,
@@ -66,7 +67,8 @@ export function applyFixture(db: FakeSql, extra: Partial<HttpApplyInput> = {}): 
 // leave the apply unbounded exactly as it was before #1471.
 export function workerHttpDeps(db: FakeSql) {
   return {
-    runContainer: (dsn: string, expectedHead?: string) => applyFixture(db, { dsn, expectedHead }),
+    applyChain: (dsn: string, metadata: PreflightMetadata) =>
+      applyFixture(db, { dsn, expectedHead: metadata.expectedHead }),
     readAppliedHead: (): Promise<string | null> => Promise.resolve(db.head()),
   };
 }

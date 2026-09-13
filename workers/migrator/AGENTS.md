@@ -51,10 +51,10 @@ separate DSN secrets and separate OIDC allowlists. Root guide:
    already-applied — but only for a version the ledger holds no attempt at
    under a different hash — and the re-run finishes the file instead of
    wedging the chain. A `-pooler` DSN is rejected before SQL. SQL is never taken from the
-   request body (OIDC + required `{expectedHead, atlasSum, stagingOnlyBaseline}` metadata only). The batch
-   container classes stay until staging proof; `POST /migrate` no longer
-   starts them. Tests may inject `runContainer` (including unknown_exit
-   ledger judgment).
+   request body (OIDC + required `{expectedHead, atlasSum, stagingOnlyBaseline}` metadata only).
+   The retired batch container has no binding, class, image or runtime path (#1589).
+   Tests inject the `applyChain` boundary and exercise the same selected-chain
+   apply that production reaches through `MigratorApplyLock`.
 3. **Answer for the bundle it carries (#1365, closes #1332)**: `wrangler deploy`
    returning is not the new bundle serving, and the old bundle answering a POST
    would apply a chain the release never packaged. `GET /healthz` therefore
@@ -165,10 +165,13 @@ TDD at the HTTP seam (`test/migrate.worker.auth.test.ts` +
 `test/migrate.worker.http.test.ts` + `test/http-apply*.test.ts`): valid
 test-signed JWT → apply + success + applied head; wrong repo / wrong audience /
 expired → 403; HTTP apply of a fixture chain against a fake `neon()`;
-`-pooler` rejected before SQL; fake-lock concurrency; hung-container injection
-→ 504. The container binding is faked and the JWKS injected (plain vitest —
-`create-app.ts` stays free of `@cloudflare/containers`). The container image
-build + staging deploy are CI-verified.
+`-pooler` rejected before SQL; fake-lock concurrency. The bounded apply and
+JWKS are injected in plain Vitest. `test/deployment-contract.test.ts` resolves
+all three Wrangler rings and bundles the deployed entry with an esbuild
+metafile, pinning the deleted class and the absence of the retired binding,
+container configuration and SDK import. Release contracts prove the migrator
+bundle has no image and CD retires the old application before deploying the
+Durable Object class deletion.
 
 Three files own the #1365 surfaces. `test/policy.test.ts` judges CLAIMS against
 both allowlists (the cross-replay matrix, plus the control case: an
@@ -184,8 +187,8 @@ database, not the arguments it was called with.
 
 Test timeouts are budgets, not defaults (#1594). `test/test-timeout-budget.ts`
 declares one number per suite kind with the measurement that justifies it: the
-unit arm keeps vitest's tight 5 s for plain in-process tests, the workerd and
-entrypoint suites carry their own `describe(…, { timeout })`, and the
+unit arm keeps vitest's tight 5 s for plain in-process tests, the workerd
+suites carry their own `describe(…, { timeout })`, and the
 integration config is package-wide because every file there provisions a
 container. `test/vitest-config-timeout.test.ts` globs every
 `vitest*.config.{ts,mts,cts,js,mjs,cjs}` in the package — every extension Vite
