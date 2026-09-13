@@ -1,8 +1,9 @@
+import { Button } from "animal-island-ui-tailwind/button";
 import type { ChatClarifyDict } from "../clarify-i18n";
 import { useChatActions } from "../ChatActions";
 import type { ChatDict } from "../i18n";
 import { useClarifyPick } from "../selection/use-clarify-pick";
-import { AnimalButton } from "./AnimalButton";
+import { chatButtonClass } from "./chat-button-classes";
 import { ClarifyTextEntry } from "./ClarifyTextEntry";
 
 type Props = Readonly<{ reason?: string; dict: ChatDict; editing: boolean; onCancel?: () => void }>;
@@ -30,7 +31,7 @@ function entryCopy(reason: string | undefined, dict: ChatClarifyDict) {
 
 function CancelEntry({ dict, onCancel }: Pick<Props, "dict" | "onCancel">) {
   if (!onCancel) return null;
-  return <AnimalButton appearance="text" className="[padding:8px_0]! [font-weight:600] [--animal-text-color:var(--color-muted-fg)]" onClick={onCancel}>{dict.clarify.backToChoices}</AnimalButton>;
+  return <Button htmlType="button" type="text" className={chatButtonClass({ className: "[padding:8px_0]! [font-weight:600] [--animal-text-color:var(--color-muted-fg)]" })} onClick={onCancel}>{dict.clarify.backToChoices}</Button>;
 }
 
 function useDetails(reason: string | undefined, dict: ChatDict) {

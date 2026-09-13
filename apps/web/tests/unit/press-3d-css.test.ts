@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import animalCss from "animal-island-ui-tailwind/dist/index.css?raw";
-import { animalButtonClass } from "../../src/features/chat/components/AnimalButton";
+import { animalButtonClass } from "../../src/features/chat/components/chat-button-classes";
 import animeCss from "../../src/styles/anime.css?raw";
 import chatCss from "../../src/styles/chat.css?raw";
 import css from "../../src/styles/press-3d.css?raw";
@@ -10,7 +10,7 @@ import { ruleDeclaration, sharedRuleDeclaration } from "./stylesheet-probe";
 /**
  * §4.2 of docs/iterations/chat-visual-restore/task.md: pill, ledge, hover lift,
  * pressed sink. Anime and route retain their shared app rule; chat actions now
- * consume the Animal Island Button class contract through AnimalButton.
+ * consume the Animal Island Button class contract through chat-button-classes.
  */
 const MEMBERS = [
   ".anime-press",

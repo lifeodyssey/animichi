@@ -1,6 +1,7 @@
+import { Button } from "animal-island-ui-tailwind/button";
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode, SubmitEvent } from "react";
-import { AnimalButton } from "./AnimalButton";
+import { chatButtonClass } from "./chat-button-classes";
 
 type Props = Readonly<{
   label: string;
@@ -48,7 +49,7 @@ function EntryField({ label, placeholder, disabled, focusOnMount, text, onChange
 function EntryActions({ label, sentLabel, disabled, sent, secondaryAction }: Readonly<{ label: string; sentLabel: string; disabled: boolean; sent: boolean; secondaryAction?: ReactNode }>) {
   return (
     <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2"><AnimalButton type="submit" tone="primary" className="[min-height:48px]! [--animal-bg-color:var(--color-primary)]! [--animal-text-color:var(--color-primary-ink)]!" disabled={disabled}>{label}</AnimalButton>{secondaryAction}</div>
+      <div className="flex flex-wrap items-center justify-between gap-2"><Button htmlType="submit" type="primary" className={chatButtonClass({ tone: "primary", className: "[min-height:48px]! [--animal-bg-color:var(--color-primary)]! [--animal-text-color:var(--color-primary-ink)]!" })} disabled={disabled}>{label}</Button>{secondaryAction}</div>
       {sent && sentLabel && <p role="status" className="text-sm leading-relaxed text-muted-fg">{sentLabel}</p>}
     </div>
   );

@@ -3,7 +3,7 @@ import { useOptionalChatActions } from "../ChatActions";
 import type { ChatDict } from "../i18n";
 import type { SearchSpot } from "../lib/spot-clusters";
 import { useSpotSelection } from "../selection/use-spot-selection";
-import { animalButtonClass } from "./AnimalButton";
+import { chatButtonClass } from "./chat-button-classes";
 
 type FooterProps = Readonly<{ spots: readonly SearchSpot[]; dict: ChatDict }>;
 
@@ -16,7 +16,7 @@ function ArrangeButton({ spots, dict }: FooterProps) {
   const actions = useOptionalChatActions();
   if (!actions) return null;
   const places = spots.map((spot) => [spot.name, spot.city].filter(Boolean).join(" · ")).join("、");
-  return <footer className="flex pt-1"><Button htmlType="button" type="primary" disabled={actions.disabled} onClick={() => { actions.send(dict.search.arrangePrompt.replace("{places}", places)); }} className={animalButtonClass({ tone: "gold", className: "grow @min-[24rem]:grow-0 @min-[24rem]:min-w-44 disabled:opacity-60" })}>{dict.search.arrange}</Button></footer>;
+  return <footer className="flex pt-1"><Button htmlType="button" type="primary" disabled={actions.disabled} onClick={() => { actions.send(dict.search.arrangePrompt.replace("{places}", places)); }} className={chatButtonClass({ tone: "gold", className: "grow @min-[24rem]:grow-0 @min-[24rem]:min-w-44 disabled:opacity-60" })}>{dict.search.arrange}</Button></footer>;
 }
 
 export function GalleryFooter(props: FooterProps) {

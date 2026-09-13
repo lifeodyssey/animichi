@@ -1,3 +1,4 @@
+import { Button } from "animal-island-ui-tailwind/button";
 import { useCallback, useState } from "react";
 import { MAX_MAP_PINS, searchMapView } from "../lib/spot-clusters";
 import type { SearchSpot, SpotCluster } from "../lib/spot-clusters";
@@ -6,7 +7,7 @@ import { clusterName, spotCountBadge } from "../search-copy";
 import type { ChatDict } from "../i18n";
 import { NoSpotsContent } from "./ErrorStates/EnvelopeFallback";
 import { SpotCardGrid } from "./SearchSpotCard";
-import { animalButtonClass } from "./AnimalButton";
+import { chatButtonClass } from "./chat-button-classes";
 import { ClusterBubbleMap, StaticSpotMap } from "./SearchMap";
 import type { AttachBasemap } from "./SearchMap";
 import { useAutoFocus } from "./use-auto-focus";
@@ -37,7 +38,7 @@ function DrilledClusterView({ cluster, dict, attach, onBack }: DrillProps) {
   const ref = useAutoFocus<HTMLButtonElement>(true);
   return (
     <div className="chat-drill grid gap-3">
-      <button ref={ref} type="button" className={animalButtonClass({ appearance: "text", className: "chat-drill__back justify-self-start [min-height:44px]!" })} onClick={onBack}><span>{dict.search.backToOverview}</span></button>
+      <Button ref={ref} htmlType="button" type="text" className={chatButtonClass({ className: "chat-drill__back justify-self-start [min-height:44px]!" })} onClick={onBack}><span>{dict.search.backToOverview}</span></Button>
       <SingleClusterView cluster={cluster} dict={dict} attach={attach} />
     </div>
   );

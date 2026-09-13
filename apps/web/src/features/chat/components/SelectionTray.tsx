@@ -1,9 +1,10 @@
+import { Button } from "animal-island-ui-tailwind/button";
 import { useId } from "react";
 import type { ReactNode } from "react";
 import { useSpotSelection } from "../selection/use-spot-selection";
 import { sameIds } from "../selection/use-recompute-turn";
 import type { ChatDict } from "../i18n";
-import { AnimalButton } from "./AnimalButton";
+import { chatButtonClass } from "./chat-button-classes";
 
 /** The recompute turn's lifecycle as the tray sees it (issue #273 S1.7 E2). */
 export type RecomputeStatus = "idle" | "busy" | "failed";
@@ -50,9 +51,9 @@ const ACTION = "chat-selection-tray__action [min-height:44px]! [width:100%] @min
 
 function TrayAction({ dict, failed, disabled, fire, hintId }: ActionProps) {
   return (
-    <AnimalButton tone="gold" className={ACTION} disabled={disabled} onClick={fire} aria-describedby={hintId}>
+    <Button htmlType="button" type="primary" className={chatButtonClass({ tone: "gold", className: ACTION })} disabled={disabled} onClick={fire} aria-describedby={hintId}>
       {failed ? dict.search.trayRetry : dict.search.trayAction}
-    </AnimalButton>
+    </Button>
   );
 }
 

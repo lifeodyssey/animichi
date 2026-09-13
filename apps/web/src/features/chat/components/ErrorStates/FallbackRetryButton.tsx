@@ -1,4 +1,5 @@
-import { AnimalButton } from "../AnimalButton";
+import { Button } from "animal-island-ui-tailwind/button";
+import { chatButtonClass } from "../chat-button-classes";
 
 type Props = Readonly<{
   label: string;
@@ -11,8 +12,8 @@ type Props = Readonly<{
  * inside a quiet notice strip a full-height button out-shouts the message. */
 export function FallbackRetryButton({ label, onClick, disabled, className }: Props) {
   return (
-    <AnimalButton size="small" className={className} onClick={onClick} disabled={disabled}>
+    <Button htmlType="button" type="primary" size="small" className={chatButtonClass({ size: "small", className })} onClick={onClick} disabled={disabled}>
       {label}
-    </AnimalButton>
+    </Button>
   );
 }

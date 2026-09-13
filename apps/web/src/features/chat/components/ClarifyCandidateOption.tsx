@@ -1,5 +1,6 @@
+import { Button } from "animal-island-ui-tailwind/button";
 import { useState } from "react";
-import { AnimalButton } from "./AnimalButton";
+import { chatButtonClass } from "./chat-button-classes";
 import type { candidatesOf } from "./Cards";
 import type { Locale } from "../../../i18n/locales";
 import { localizedWorkTitle } from "../lib/work-title";
@@ -51,11 +52,11 @@ const OPTION = [
 
 export function ClarifyCandidateOption({ candidate, locale, label, state, showCover, disabled, onChoose }: Props) {
   return (
-    <li><AnimalButton appearance="default" block className={OPTION} data-state={state} aria-label={label} aria-pressed={state === "selected"} disabled={disabled === true || state !== "available"} onClick={() => { onChoose(candidate); }}>
+    <li><Button htmlType="button" type="default" block className={chatButtonClass({ className: OPTION })} data-state={state} aria-label={label} aria-pressed={state === "selected"} disabled={disabled === true || state !== "available"} onClick={() => { onChoose(candidate); }}>
       <span className="flex w-full items-center [gap:12px] sm:[gap:16px]">
         <CandidateCover key={candidate.cover_url ?? "none"} src={candidate.cover_url} visible={showCover} />
         <CandidateTitles candidate={candidate} locale={locale} /><CandidateIndicator selected={state === "selected"} />
       </span>
-    </AnimalButton></li>
+    </Button></li>
   );
 }

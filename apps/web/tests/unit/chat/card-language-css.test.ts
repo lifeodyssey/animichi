@@ -14,7 +14,7 @@ const PILL_FAMILY = [
 ].join(",\n");
 
 /* These class names survive only as unstyled DOM hooks on the shared
- * InlineNotice/AnimalButton surfaces — the guarantee is that no stylesheet
+ * InlineNotice/chat-button-classes surfaces — the guarantee is that no stylesheet
  * ever hangs custom press chrome on them again. The render-level half (every
  * hook element really is an `animal-btn`) lives in chat-banner-css.test.tsx. */
 const RETIRED_CHAT_PRESS_SELECTORS = [

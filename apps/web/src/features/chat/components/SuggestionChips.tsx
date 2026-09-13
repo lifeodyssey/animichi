@@ -1,5 +1,6 @@
+import { Button } from "animal-island-ui-tailwind/button";
 import type { ChatChipKind, ChatDict } from "../i18n";
-import { AnimalButton } from "./AnimalButton";
+import { chatButtonClass } from "./chat-button-classes";
 
 type Props = Readonly<{
   dict: ChatDict;
@@ -31,9 +32,9 @@ const PRESS_SHADOW = "[--animal-shadow-press:0_5px_0_0_color-mix(in_srgb,var(--c
 /** The `dict.chips` row, shared by the A1 cold start and the D1 fallback. */
 export function SuggestionChips({ dict, onPick, disabled }: Props) {
   const chips = dict.chips.map((chip) => (
-    <AnimalButton key={chip.text} tone={CHIP_TONE[chip.kind]} data-tone={CHIP_DATA_TONE[chip.kind]} disabled={disabled} onClick={() => { onPick(chip.text); }}>
+    <Button key={chip.text} htmlType="button" type="primary" className={chatButtonClass({ tone: CHIP_TONE[chip.kind] })} data-tone={CHIP_DATA_TONE[chip.kind]} disabled={disabled} onClick={() => { onPick(chip.text); }}>
       {chip.text}
-    </AnimalButton>
+    </Button>
   ));
   return <div className={`chat-chips ${PRESS_SHADOW}`}>{chips}</div>;
 }
