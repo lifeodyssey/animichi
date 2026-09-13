@@ -1,0 +1,8 @@
+model GeoPoint {
+  id       String              @id
+  name     String
+  location geo.Geography(4326)
+
+  @@index([location], type: "gist", name: "geo_points_location_gist")
+  @@map("geo_points")
+}

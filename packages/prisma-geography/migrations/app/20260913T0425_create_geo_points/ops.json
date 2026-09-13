@@ -1,0 +1,97 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.geo_points",
+    "label": "Create table \"geo_points\"",
+    "summary": "Creates table \"geo_points\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "geo_points"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"geo_points\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"geo_points\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"geo_points\"",
+        "sql": "CREATE TABLE \"public\".\"geo_points\" (\n  \"id\" text NOT NULL,\n  \"location\" geography(Point,4326) NOT NULL,\n  \"name\" text NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"geo_points\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"geo_points\""
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.geo_points.geo_points_location_gist_fb41678c",
+    "label": "Create index \"geo_points_location_gist_fb41678c\" on \"geo_points\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "geo_points_location_gist_fb41678c",
+        "table": "geo_points"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"geo_points_location_gist_fb41678c\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"geo_points_location_gist_fb41678c\""
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"geo_points_location_gist_fb41678c\"",
+        "sql": "CREATE INDEX \"geo_points_location_gist_fb41678c\" ON \"public\".\"geo_points\" USING \"gist\" (\"location\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"geo_points_location_gist_fb41678c\" exists",
+        "sql": "SELECT (to_regclass($1)) IS NOT NULL AS \"result\"",
+        "params": [
+          "\"public\".\"geo_points_location_gist_fb41678c\""
+        ]
+      }
+    ]
+  }
+]

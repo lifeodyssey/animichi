@@ -19,6 +19,7 @@ stable boundaries, current entry points, and active plans only.
 | `workers/users/AGENTS.md` | Live user-domain Worker (Hono / oRPC / Drizzle) conventions |
 | `packages/agent/AGENTS.md` | Platform-independent TypeScript agent domain library conventions |
 | `packages/contract/AGENTS.md` | Cross-service oRPC/Zod contract conventions |
+| `packages/prisma-geography/AGENTS.md` | Private Prisma geography extension pack conventions and test-only SQL boundary |
 | `apps/web/AGENTS.md` | TanStack Start rebuild conventions |
 | `migrations/AGENTS.md` · `e2e/AGENTS.md` · `infra/AGENTS.md` | Atlas migrations, browser tests, and IaC conventions |
 | `.claude/rules/*.md` | Path-scoped rules loaded only for matching files |
@@ -84,6 +85,7 @@ the current monorepo layout; `backend/…` and `worker/worker.js` are pre-monore
 | Edge worker / auth / routing | `workers/edge/src/entry.ts` (+ `src/app.ts`, `src/identity/auth.ts`) | was `worker/worker.js`, then `worker/` (iter6 C2) |
 | Deploy wiring | `workers/edge/wrangler.toml` + `workers/edge/src/entry.ts` + `docs/ops/deployment.md` | deployment.md = canonical runbook |
 | DB — catalog/user data (data plane) | **Neon Postgres** (Drizzle raw-SQL query-only over neon-http); Atlas migrations in `migrations/neon/` | data plane; no Hyperdrive; the legacy `supabase/migrations/` tree is archived/historical (issue #1000) |
+| DB — private geography extension | `packages/prisma-geography/` + `packages/prisma-geography/AGENTS.md` | Prisma 8 control/runtime extension for `geography(Point,4326)` and metre/KNN operations; no consumer migration in #1623 |
 | DB — auth | **Neon Auth (Better Auth)** integrated in `apps/web`; the edge verifies Neon JWKS only (AUTH-2 #950) | `docs/ops/auth-migration-neon.md` runbook |
 | Web app (the only browser surface) | `apps/web/` + `apps/web/AGENTS.md` (TanStack Start) | Legacy `frontend/` retired in #537; spec `2026-07-06-frontend-rebuild-spec.md` |
 | Design tokens / system | `apps/web/` (animal-island-ui-tailwind); ref `docs/design/animal-island-ref/` | |

@@ -16,6 +16,7 @@ class PackageTestSegmentsTest < Minitest::Test
     # still node's own test runner, so the loader is part of the pinned shape.
     "packages/agent" => [%r{node --import tsx --test}],
     "packages/pi-session-neon" => ["node --test", "test/contract-types.test.ts"],
+    "packages/prisma-geography" => ["node --test", "test/*.unit.test.ts"],
     "packages/eval" => [%r{node --import tsx --test}, "test:fixture-drift"],
     "packages/test-postgres" => ["node --test"],
     "infra" => ["node --test", "test:program-load"],

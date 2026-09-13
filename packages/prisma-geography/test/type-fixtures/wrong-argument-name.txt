@@ -1,0 +1,10 @@
+import type { PostgresClient } from "@prisma/orm-postgres/runtime";
+import type { Contract } from "../../../src/contract.d.ts";
+
+declare const db: PostgresClient<Contract>;
+const origin = { type: "Point", coordinates: [139.7671, 35.6812], srid: 4326 } as const;
+
+db.sql.public.geo_points
+  .select("id")
+  .where((fields, operations) => operations.dwithinMeters(fields.locaton, origin, 30_000))
+  .build();

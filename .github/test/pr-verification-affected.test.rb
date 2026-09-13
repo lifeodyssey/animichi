@@ -17,6 +17,8 @@ class PrVerificationAffectedTest < Minitest::Test
     ["edge-worker", "docker build -f apps/agent/docker/test-postgres/Dockerfile"],
     ["@animichi/pi-session-neon", "ariga/setup-atlas"],
     ["@animichi/pi-session-neon", "docker build -f apps/agent/docker/test-postgres/Dockerfile"],
+    ["@animichi/prisma-geography", "ariga/setup-atlas"],
+    ["@animichi/prisma-geography", "docker build -f apps/agent/docker/test-postgres/Dockerfile"],
     ["infra", "pulumi/actions"]
   ].freeze
   def setup
@@ -49,6 +51,10 @@ class PrVerificationAffectedTest < Minitest::Test
 
   def test_agent_domain_package_selects_its_coverage_report
     assert_includes matrix_step_source, "@animichi/agent) file=packages/agent/coverage/lcov.info ;;"
+  end
+
+  def test_geography_package_selects_its_coverage_report
+    assert_includes matrix_step_source, "@animichi/prisma-geography) file=packages/prisma-geography/coverage/lcov.info ;;"
   end
 
   def provisions?(step, package, tool)
