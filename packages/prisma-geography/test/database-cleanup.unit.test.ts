@@ -29,21 +29,30 @@ void test("fixture cleanup stops PostgreSQL when the pool end fails", async () =
   assert.deepEqual(events, ["db.close", "pool.end", "postgres.stop"]);
 });
 
-function fakeFixture(
-  events: string[],
-  close: () => Promise<void>,
-  end: () => Promise<void> = () => {
-    events.push("pool.end");
-    return Promise.resolve();
-  },
-): DatabaseFixture {
+function fakeFixture(events: string[], close: () => Promise<void>, end?: () => Promise<void>): DatabaseFixture {
   return {
-    postgres: { dsn: "postgresql://test", stop: () => {
-      events.push("postgres.stop");
-      return Promise.resolve();
-    } },
-    pool: { end } as unknown as DatabaseFixture["pool"],
-    db: { close } as unknown as DatabaseFixture["db"],
+    postgres: fakePostgres(events),
+    pool: fakePool(events, end),
+    db: fakeDatabase(close),
     queryLog: { recorded: [] } as unknown as DatabaseFixture["queryLog"],
   };
+}
+
+function fakePostgres(events: string[]): DatabaseFixture["postgres"] {
+  return { dsn: "postgresql://test", stop: () => {
+    events.push("postgres.stop");
+    return Promise.resolve();
+  } };
+}
+
+function fakePool(events: string[], end?: () => Promise<void>): DatabaseFixture["pool"] {
+  const poolEnd = end ?? (() => {
+    events.push("pool.end");
+    return Promise.resolve();
+  });
+  return { end: poolEnd } as unknown as DatabaseFixture["pool"];
+}
+
+function fakeDatabase(close: () => Promise<void>): DatabaseFixture["db"] {
+  return { close } as unknown as DatabaseFixture["db"];
 }
