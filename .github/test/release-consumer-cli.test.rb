@@ -72,8 +72,7 @@ module ReleaseConsumerFixture
 
   def seal_release
     environment = { 'GITHUB_REPOSITORY' => 'lifeodyssey/animichi', 'GITHUB_SHA' => @source, 'GITHUB_RUN_ID' => '9', 'GITHUB_RUN_ATTEMPT' => '1',
-                    'AGENT_IMAGE' => "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}",
-                    'MIGRATOR_IMAGE' => "registry.cloudflare.com/#{'a' * 32}/animichi-migrator@sha256:#{'e' * 64}" }
+                    'AGENT_IMAGE' => "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}" }
     output, error, status = Open3.capture3(environment, 'ruby', File.expand_path('../scripts/release/seal.rb', __dir__), chdir: @root)
     assert status.success?, output + error
     selection = { 'source_sha' => @source, 'repository' => 'lifeodyssey/animichi', 'run_id' => '9', 'run_attempt' => '1', 'controller_sha' => @controller }

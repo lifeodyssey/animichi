@@ -6,6 +6,7 @@ class CdMigrationsTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   CD_FILE = File.join(ROOT, ".github", "workflows", "cd.yml")
   MIGRATION_SCRIPT = "bash scripts/delivery/migrate-through-worker.sh"
+  RETIREMENT_SCRIPT = "bash scripts/delivery/retire-migrator-container.sh"
   MIGRATION_TARGETS = { "stage" => ["staging", "vars.MIGRATOR_STAGING_URL"],
                         "promote-production" => ["production", "vars.MIGRATOR_PRODUCTION_URL"] }.freeze
   BASELINE_GUARD_SCRIPT = "infra/database-access/production-baseline-guard.sh"
@@ -61,13 +62,13 @@ class CdMigrationsTest < Minitest::Test
       refute_nil registry
       refute_nil schema
       mutations = steps.each_index.select { |i| mutates?(steps[i]) }
-      assert_equal 5, mutations.length
+      assert_equal 6, mutations.length
       mutations.each { |i| assert_operator i, :>, registry; assert_operator i, :>, schema }
     end
   end
 
   def mutates?(step)
-    step.dig("with", "command") == "up" || step["run"].to_s.match?(/wrangler deploy|publish-services\.sh|migrate-through-worker\.sh|reset-staging/)
+    step.dig("with", "command") == "up" || step["run"].to_s.match?(/wrangler deploy|publish-services\.sh|migrate-through-worker\.sh|retire-migrator-container\.sh|reset-staging/)
   end
 
   def test_production_baseline_guard_precedes_every_mutation
@@ -81,10 +82,22 @@ class CdMigrationsTest < Minitest::Test
     %w[stage promote-production].each do |job|
       steps = @cd.dig('jobs', job, 'steps')
       publish = steps.index { |step| step['name'] == 'Publish the selected migrator' }
+      retirement = steps.index { |step| step['name'] == 'Retire the migrator container application' }
       preview = steps.index { |step| step['name'] == 'Preview the selected native migration graph' }
+      refute_nil retirement
       refute_nil preview
+      assert_operator retirement, :<, publish
       assert_operator publish, :<, preview
-      steps.each_index.select { |i| mutates?(steps[i]) && i != publish }.each { |i| assert_operator preview, :<, i }
+      later_mutations = steps.each_index.select { |i| mutates?(steps[i]) } - [retirement, publish]
+      later_mutations.each { |i| assert_operator preview, :<, i }
+    end
+  end
+
+  def test_each_environment_retires_only_its_named_application
+    MIGRATION_TARGETS.each do |job, (environment, _url)|
+      step = @cd.dig('jobs', job, 'steps').find { |item| item['name'] == 'Retire the migrator container application' }
+      refute_nil step
+      assert_equal "#{RETIREMENT_SCRIPT} #{environment}", step['run']
     end
   end
 end

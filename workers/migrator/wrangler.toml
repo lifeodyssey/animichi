@@ -1,9 +1,8 @@
-# #1051 / #1124 — the migrator Worker (staging first).
+# #1051 / #1124 / #1589 — the migrator Worker.
 #
-# Option 2 (#1124): POST /migrate applies the committed Atlas chain over
-# neon-http from this Worker (fixed-name DO mutex). The one-shot Atlas
-# container binding stays until staging proof — do not delete [[containers]]
-# in this PR. The migrator DSN (MIGRATOR_DATABASE_URL, dedicated `migrator`
+# POST /migrate applies the committed Atlas chain over neon-http from this
+# Worker behind a fixed-name DO mutex. The retired one-shot Atlas container is
+# deliberately absent. The migrator DSN (MIGRATOR_DATABASE_URL, dedicated `migrator`
 # role, #1050) is a Secrets Store binding, never in GitHub, never on a runtime
 # worker (workers/edge/test/migrator-role-isolation.test.ts).
 #
@@ -46,24 +45,6 @@ preview_urls = false
 
 [vars]
 ENVIRONMENT = "development"
-# #1095: the one-shot container may take several minutes on first-run cold
-# start (image pull + boot + apply); cap raised above that (the migrate-staging
-# trigger curl waits 900s and the job timeout is 20min).
-CONTAINER_TIMEOUT_MS = "600000"
-
-# The one-shot Atlas batch container (no ports; entrypoint runs atlas apply
-# and exits). Kept until Option 2 is proven on staging — then delete.
-[[containers]]
-name = "animichi-migrator"
-class_name = "MigrationContainer"
-image = "./Dockerfile"
-image_build_context = "../../"
-max_instances = 1
-instance_type = "basic"
-
-[[durable_objects.bindings]]
-name = "MIGRATOR_CONTAINER"
-class_name = "MigrationContainer"
 
 [[durable_objects.bindings]]
 name = "MIGRATOR_APPLY_LOCK"
@@ -76,6 +57,10 @@ new_sqlite_classes = ["MigrationContainer"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["MigratorApplyLock"]
+
+[[migrations]]
+tag = "v3-retire-migration-container"
+deleted_classes = ["MigrationContainer"]
 
 [observability]
 enabled = true
@@ -107,19 +92,6 @@ secret_name = "MIGRATOR_DATABASE_URL"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
-# #1095: same 10-min cap as the dev default (first-run cold start).
-CONTAINER_TIMEOUT_MS = "600000"
-
-[[env.staging.containers]]
-class_name = "MigrationContainer"
-image = "./Dockerfile"
-image_build_context = "../../"
-max_instances = 1
-instance_type = "basic"
-
-[[env.staging.durable_objects.bindings]]
-name = "MIGRATOR_CONTAINER"
-class_name = "MigrationContainer"
 
 [[env.staging.durable_objects.bindings]]
 name = "MIGRATOR_APPLY_LOCK"
@@ -132,6 +104,10 @@ new_sqlite_classes = ["MigrationContainer"]
 [[env.staging.migrations]]
 tag = "v2"
 new_sqlite_classes = ["MigratorApplyLock"]
+
+[[env.staging.migrations]]
+tag = "v3-retire-migration-container"
+deleted_classes = ["MigrationContainer"]
 
 [env.production]
 name = "migrator-production"
@@ -148,20 +124,8 @@ secret_name = "MIGRATOR_DATABASE_URL_PROD"
 
 [env.production.vars]
 ENVIRONMENT = "production"
-CONTAINER_TIMEOUT_MS = "600000"
 # The only thing that makes this Worker enforce PRODUCTION_OIDC_POLICY.
 MIGRATOR_OIDC_POLICY = "production"
-
-[[env.production.containers]]
-class_name = "MigrationContainer"
-image = "./Dockerfile"
-image_build_context = "../../"
-max_instances = 1
-instance_type = "basic"
-
-[[env.production.durable_objects.bindings]]
-name = "MIGRATOR_CONTAINER"
-class_name = "MigrationContainer"
 
 [[env.production.durable_objects.bindings]]
 name = "MIGRATOR_APPLY_LOCK"
@@ -174,3 +138,7 @@ new_sqlite_classes = ["MigrationContainer"]
 [[env.production.migrations]]
 tag = "v2"
 new_sqlite_classes = ["MigratorApplyLock"]
+
+[[env.production.migrations]]
+tag = "v3-retire-migration-container"
+deleted_classes = ["MigrationContainer"]

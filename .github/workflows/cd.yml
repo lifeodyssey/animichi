@@ -112,6 +112,8 @@ jobs:
         env:
           MIGRATOR_URL: ${{ vars.MIGRATOR_STAGING_URL }}
         run: bash .github/scripts/release/schema-preflight.sh staging --atlas-only
+      - name: Retire the migrator container application
+        run: bash scripts/delivery/retire-migrator-container.sh staging
       - name: Publish the selected migrator
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: pnpm exec wrangler deploy --no-bundle --config release/migrator/wrangler.json --env staging --tag "sha-$SOURCE_SHA"
@@ -244,6 +246,8 @@ jobs:
         env:
           MIGRATOR_URL: ${{ vars.MIGRATOR_PRODUCTION_URL }}
         run: bash .github/scripts/release/schema-preflight.sh production --atlas-only
+      - name: Retire the migrator container application
+        run: bash scripts/delivery/retire-migrator-container.sh production
       - name: Publish the selected migrator
         env: {SOURCE_SHA: "${{ needs.select.outputs.source_sha }}"}
         run: pnpm exec wrangler deploy --no-bundle --config release/migrator/wrangler.json --env production --tag "sha-$SOURCE_SHA"

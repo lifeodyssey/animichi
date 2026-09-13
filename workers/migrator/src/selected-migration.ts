@@ -3,7 +3,7 @@ import { productionChain } from "./bundled-chain";
 import { parseSum } from "./chain";
 import { applyChain } from "./http-apply";
 import { NeonMigrationsLedger } from "./ledger";
-import { runMigration, type MigrationRunResult } from "./migration";
+import { applyMigration, type ApplyBoundaries, type MigrationResult } from "./migration";
 import { compareMigrationPrefix, type MigrationCompatibility } from "./preflight-compatibility";
 import { readRevisionSnapshot } from "./preflight-ledger";
 import { canonicalHash, type PreflightMetadata } from "./preflight-metadata";
@@ -15,7 +15,7 @@ export type SelectedMetadata = PreflightMetadata & { expectedPrismaRef: string }
 export type SelectedPreflight =
   | (Extract<MigrationCompatibility, { compatible: true }> & { prisma: PrismaPreview })
   | { compatible: false; error: string };
-export type SelectedMigration = MigrationRunResult & {
+export type SelectedMigration = MigrationResult & {
   prisma?: PrismaReceipt;
   /** Public native code or a local stable code; never an Atlas driver message. */
   failureCode?: string;
@@ -53,12 +53,19 @@ export async function preflightSelected(dsn: string, metadata: SelectedMetadata,
   catch (error) { return unavailable(error); }
 }
 
-async function applyAtlas(dsn: string, expectedHead: string): Promise<MigrationRunResult> {
-  const result = await runMigration(dsn, {
-    runContainer: () => applyChain({ dsn, source: productionChain, connect: neonClient, now: () => new Date(), expectedHead }),
+function atlasBoundaries(): ApplyBoundaries {
+  return {
+    applyChain: (connection, selection) => applyChain({
+      dsn: connection, source: productionChain, connect: neonClient,
+      now: () => new Date(), expectedHead: selection.expectedHead,
+    }),
     readAppliedHead: (connection) => new NeonMigrationsLedger().readAppliedHead(connection),
-  }, expectedHead);
-  if (result.kind === "success" && result.appliedHead !== expectedHead) return { kind: "refused", reason: "atlas_head_mismatch" };
+  };
+}
+
+async function applyAtlas(dsn: string, metadata: PreflightMetadata): Promise<MigrationResult> {
+  const result = await applyMigration(dsn, atlasBoundaries(), metadata);
+  if (result.kind === "success" && result.appliedHead !== metadata.expectedHead) return { kind: "refused", reason: "atlas_head_mismatch" };
   return result;
 }
 
@@ -69,7 +76,7 @@ function nativeFailure(code: string): SelectedMigration {
 async function applySelected(dsn: string, metadata: SelectedMetadata, directory: string): Promise<SelectedMigration> {
   const preview = await checkSelected(dsn, metadata, directory);
   if (!preview.compatible) return { kind: "refused", reason: preview.error };
-  const atlas = await applyAtlas(dsn, metadata.expectedHead);
+  const atlas = await applyAtlas(dsn, metadata);
   if (atlas.kind !== "success") return atlas;
   const native = await migratePrisma(dsn, metadata.expectedPrismaRef, directory);
   if (!native.ok) return nativeFailure(native.error);

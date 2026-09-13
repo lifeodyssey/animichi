@@ -2,7 +2,7 @@ import { NeonDbError } from "@neondatabase/serverless";
 import { assertDirectDsn } from "./sql";
 import { applyChain, type ApplyInput } from "./http-apply";
 import { parseSum, type ChainSource } from "./chain";
-import type { ContainerOutcome } from "./migration";
+import type { ApplyOutcome } from "./migration";
 import { compareMigrationPrefix } from "./preflight-compatibility";
 import { readRevisionSnapshot } from "./preflight-ledger";
 import { canonicalHash, type PreflightMetadata } from "./preflight-metadata";
@@ -14,12 +14,12 @@ function matchesBundle(source: ChainSource, metadata: PreflightMetadata): boolea
     canonicalHash(bundled[index].hash) === entry.hash);
 }
 
-function failed(error: unknown): ContainerOutcome {
+function failed(error: unknown): ApplyOutcome {
   if (error instanceof NeonDbError && error.code === "42P01") return { kind: "refused", reason: "ledger_missing" };
   return { kind: "failure", exitCode: 1, error: "migration_unavailable" };
 }
 
-async function applyCompatible(input: ApplyInput, metadata: PreflightMetadata): Promise<ContainerOutcome> {
+async function applyCompatible(input: ApplyInput, metadata: PreflightMetadata): Promise<ApplyOutcome> {
   assertDirectDsn(input.dsn);
   if (!matchesBundle(input.source, metadata)) return { kind: "refused", reason: "bundle_checksum_mismatch" };
   const compatible = compareMigrationPrefix(metadata, await readRevisionSnapshot(input.dsn));
@@ -29,7 +29,7 @@ async function applyCompatible(input: ApplyInput, metadata: PreflightMetadata): 
 }
 
 /** Called only while the fixed apply Durable Object holds its concurrency gate. */
-export async function applySelectedChain(input: ApplyInput, metadata: PreflightMetadata): Promise<ContainerOutcome> {
+export async function applySelectedChain(input: ApplyInput, metadata: PreflightMetadata): Promise<ApplyOutcome> {
   try {
     return await applyCompatible(input, metadata);
   } catch (error) {

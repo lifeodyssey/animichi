@@ -1,4 +1,4 @@
-import type { ContainerOutcome } from "./migration";
+import type { ApplyOutcome, BoundedChainApply } from "./migration";
 import type { SelectedExecutor, SelectedMetadata, SelectedMigration, SelectedPreflight } from "./selected-migration";
 import type { PreflightMetadata } from "./preflight-metadata";
 
@@ -25,7 +25,7 @@ function swallow(): undefined {
 }
 
 interface ApplyStub {
-  run(dsn: string, metadata: PreflightMetadata): Promise<ContainerOutcome>;
+  run(dsn: string, metadata: PreflightMetadata): Promise<ApplyOutcome>;
 }
 
 /**
@@ -34,7 +34,7 @@ interface ApplyStub {
  */
 export function productionApply(
   namespace: DurableObjectNamespace,
-): (dsn: string, metadata: PreflightMetadata) => Promise<ContainerOutcome> {
+): BoundedChainApply {
   const stub = namespace.get(namespace.idFromName(APPLY_LOCK_NAME)) as unknown as ApplyStub;
   return (dsn, metadata) => stub.run(dsn, metadata);
 }

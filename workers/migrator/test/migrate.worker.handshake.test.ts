@@ -4,7 +4,7 @@ import {
   makeApp,
   post,
   testEnv,
-  type ContainerOutcome,
+  type ApplyOutcome,
 } from "./migrate.worker.helpers";
 import { HEAD_A, HEAD_B } from "./http-apply.helpers";
 import { PRISMA_TARGET } from "../src/prisma-target";
@@ -14,7 +14,7 @@ import { PRISMA_TARGET } from "../src/prisma-target";
 // a head the live bundle cannot reach is refused with 409 `stale_bundle`
 // BEFORE the Worker resolves a DSN or runs anything.
 //
-// test-type: unit (HTTP seam; injected chain, container and JWKS).
+// test-type: unit (HTTP seam; injected chain, apply and JWKS).
 
 beforeAll(() => {
   vi.useFakeTimers({ now: FIXED_NOW, shouldAdvanceTime: true });
@@ -55,7 +55,7 @@ describe("POST /migrate refuses a head the bundle cannot reach", () => {
   it("never starts the apply for a stale head", async () => {
     let started = false;
     const { app, token } = await makeApp({
-      runContainer: (): Promise<ContainerOutcome> => {
+      applyChain: (): Promise<ApplyOutcome> => {
         started = true;
         return Promise.resolve({ kind: "success", exitCode: 0 });
       },

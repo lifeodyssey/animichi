@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { issuedToken, joseEnv, makeApp, post, productionEnv, testEnv } from "./migrate.worker.helpers";
 
-import type { ContainerOutcome } from "../src/migration";
+import type { ApplyOutcome } from "../src/migration";
 import type { PreflightMetadata } from "../src/preflight-metadata";
 import { HEAD_B } from "./http-apply.helpers";
 
@@ -24,7 +24,7 @@ describe("selected migration metadata", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
   it("keeps database errors out of the failure response", async () => {
-    const { app, token } = await makeApp({ runContainer: () => Promise.resolve({ kind: "failure", exitCode: 1, error: "password=fixture" }) });
+    const { app, token } = await makeApp({ applyChain: () => Promise.resolve({ kind: "failure", exitCode: 1, error: "password=fixture" }) });
     const response = await app.request(post({}, token), undefined, testEnv());
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ success: false, exitCode: 1, appliedHead: null, error: "migration_failed" });
@@ -53,10 +53,10 @@ describe("selected metadata at the public HTTP boundary", () => {
   });
 
   it("forwards the complete parsed selection through the default DO binding", async () => {
-    const run = vi.fn<(dsn: string, metadata: PreflightMetadata) => Promise<ContainerOutcome>>()
+    const run = vi.fn<(dsn: string, metadata: PreflightMetadata) => Promise<ApplyOutcome>>()
       .mockResolvedValue({ kind: "success", exitCode: 0 });
     const namespace = { idFromName: () => "fixed-id", get: () => ({ run }) } as unknown as DurableObjectNamespace;
-    const { app, token } = await makeApp({ runContainer: undefined });
+    const { app, token } = await makeApp({ applyChain: undefined });
     const response = await app.request(post({}, token), undefined, { ...testEnv(), MIGRATOR_APPLY_LOCK: namespace });
     expect(response.status).toBe(200);
     expect(run).toHaveBeenCalledWith("postgresql://fake:migrator@db.test/neondb", {

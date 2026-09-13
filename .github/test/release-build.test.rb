@@ -1,4 +1,4 @@
-# SUT: release-build.yml produces one complete snapshot with pinned providers, images and environment-independent bundles.
+# SUT: release-build.yml produces one complete snapshot with pinned providers, image and environment-independent bundles.
 require "minitest/autorun"
 require "psych"
 
@@ -41,10 +41,10 @@ class ReleaseBuildTest < Minitest::Test
                    "parameters" => ["kislerdm/neon", "0.17.0"] }, project.dig("packages", "neon"))
   end
 
-  def test_build_produces_both_single_platform_images_once
+  def test_build_produces_only_the_agent_image_once
     images = @steps.select { |step| step["uses"].to_s.start_with?("docker/build-push-action@") }
-    assert_equal %w[agent migrator], images.map { |step| step["id"] }
-    assert_equal ["apps/agent/Dockerfile", "workers/migrator/Dockerfile"], images.map { |step| step.dig("with", "file") }
+    assert_equal %w[agent], images.map { |step| step["id"] }
+    assert_equal ["apps/agent/Dockerfile"], images.map { |step| step.dig("with", "file") }
     images.each do |step|
       assert_equal "linux/amd64", step.dig("with", "platforms")
       assert_equal true, step.dig("with", "push")
@@ -53,10 +53,11 @@ class ReleaseBuildTest < Minitest::Test
     end
   end
 
-  def test_both_workers_pin_the_build_output_digest
-    step = @steps.find { |item| item["name"] == "Bundle paired Workers and seal immutable image references" }
+  def test_edge_pins_the_build_output_digest_and_migrator_has_no_image
+    step = @steps.find { |item| item["name"] == "Bundle Workers and seal the immutable image reference" }
     assert_equal "registry.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/animichi-agent@${{ steps.agent.outputs.digest }}", step.dig("env", "AGENT_IMAGE")
-    assert_equal "registry.cloudflare.com/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/animichi-migrator@${{ steps.migrator.outputs.digest }}", step.dig("env", "MIGRATOR_IMAGE")
+    refute step.fetch("env").key?("MIGRATOR_IMAGE")
+    assert_includes step.fetch("run"), "node .github/scripts/release/build-worker.mjs migrator"
     assert_includes step.fetch("run"), "ruby .github/scripts/release/seal.rb"
     assert_includes step.fetch("run"), "ruby .github/scripts/release/inspect-images.rb"
   end

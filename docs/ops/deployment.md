@@ -62,7 +62,7 @@ The action downloads by ID/run/repository and treats a digest mismatch as an err
 artifact causes refusal; the controller never rebuilds it or substitutes another release.
 
 The immutable tar contains all five Worker deployments: web output/assets, catalog, users, edge
-and migrator bundles/configurations; the two already-pushed image digests; the complete native Atlas
+and migrator bundles/configurations; the already-pushed agent image digest; the complete native Atlas
 chain and baseline marker; the native Prisma contract and complete migration graph; and all tracked
 Pulumi sources with the generated pinned Neon SDK.
 The controller validates the archive boundary, required components, file digests and exact migration
@@ -75,17 +75,18 @@ production`. Its approval does not hold staging's lock. Both set `cancel-in-prog
 retains its native single pending selection, so a pending selection may be replaced. Active chains
 finish coherently. There is no workflow-wide lock, commit-order queue or `queue: max` exception.
 
-Before any Pulumi apply or Worker publication, both jobs inspect real remote registry manifests
-and linux/amd64 image configurations with Docker, then read actual migration compatibility from
+Before any Pulumi apply or Worker publication, both jobs inspect the real remote agent image manifest
+and linux/amd64 configuration with Docker, then read actual migration compatibility from
 the existing migrator's authenticated `/preflight`. Production refuses a staging-only baseline
-before any mutation. After the Atlas check, CD publishes only the selected migrator, waits for its
+before any mutation. After the Atlas check, CD retires the legacy migrator container application when
+the selected snapshot carries the class-deletion contract, publishes only the selected migrator, waits for its
 Atlas and Prisma bundle identities, and runs native Prisma read-only preview. Application foundation,
 DDL and service publication remain gated behind that preview. Missing, empty, partially applied,
 divergent or newer database history fails closed. A Wrangler dry run or `/healthz` response does not
 prove the applied database state or registry availability.
 
 The immutable staging receipt records artifact ID/digest, release/controller SHAs, actual per-script
-Worker deployment/version IDs, container application/namespace/image identities, applied schema and
+Worker deployment/version IDs, configured container application/namespace/image identities, applied schema and
 successful smoke. It proves B was tested. Later C staging can proceed while B waits for approval;
 production must still pass fresh baseline/ledger/registry checks before promoting B. Version IDs
 are script-scoped and are not expected to match between staging and production.
@@ -98,6 +99,49 @@ traces every replaced CD contract. See [ADR 0007](../adr/0007-selected-release-a
 activation prerequisites: deployed ledger preflight, same-lock revalidation, exact builder identity,
 registry access, runtime secrets, baseline cutover and production routing must be established
 before this controller can deliver successfully. Local tests do not prove those platform gates.
+
+### Migrator container retirement (#1589)
+
+The migrator applies both live migration owners in Worker code; it no longer builds or carries a
+container image. Each root, staging and production Wrangler migration chain preserves the historical
+`MigrationContainer` creation tag and appends the unique
+`v3-retire-migration-container` `deleted_classes` tag. `MigratorApplyLock` remains bound in every
+ring because it serializes and revalidates the live apply.
+
+The environment-scoped CD job performs retirement in this order:
+
+1. Call the already-serving migrator's authenticated Atlas-only preflight.
+2. If the selected environment config has no container and includes the class-deletion tag, list
+   every application page and delete only the pinned old environment application by ID. Absence is
+   an idempotent success only after the cursor is exhausted; API, malformed-page, repeated-cursor,
+   page-limit or duplicate exact-name failures fail closed.
+3. Deploy the selected migrator bundle and its `deleted_classes` migration, then wait for the native
+   graph and continue the normal database and service chain.
+
+This order is deliberate. Cloudflare's
+[legacy Durable Object migration guide](https://developers.cloudflare.com/durable-objects/reference/durable-object-class-migrations-legacy/)
+requires removing the binding and code and deploying a unique `deleted_classes` migration; an
+environment migration array overrides the root array. The
+[container deploy guide](https://developers.cloudflare.com/containers/guides/deploy/) says the
+Worker becomes active before container configuration is processed and the deployment is not
+transactional. The
+[Wrangler container commands](https://developers.cloudflare.com/workers/wrangler/commands/containers/)
+define `containers delete` as application deletion, while image deletion is a separate command.
+Pinned Wrangler 4.114.0's `deployContainers` path only creates or updates applications that remain
+in configuration, so omission does not establish application deletion; `deleteCommand` invokes
+`ApplicationsService.deleteApplication` explicitly. Its generated application-list client uses
+`GET /containers/dash/applications`, sends `page_token`, and returns
+`result_info.next_page_token`; the JSON CLI path consumes only one such page. The CD helper uses the
+same pinned API contract with the existing account and bearer-token authority, following each
+non-empty cursor to a bounded exhaustion before it can prove absence. CD therefore deletes the old
+application while the old class still exists, before it deploys the binding/code removal and class
+deletion. It does not delete registry images or touch the agent container application.
+
+A historical selected snapshot that still declares the migrator container skips this retirement,
+retains its optional migrator image identity and is verified by the historical receipt shape. A new
+snapshot contains only the agent image and requires an empty migrator container observation. The
+post-merge staging receipt is the first platform proof of the final state; unit and dry-run tests are
+not substitutes for it.
 
 ## Edge Topology
 
@@ -770,9 +814,9 @@ Then check health on a route that actually exists for that Worker:
   `staging smoke` step probes.
 - web: `https://animichi-web-staging.zhenjiazhou0127.workers.dev/` — the SSR shell, that step's
   second probe.
-- migrator: `GET $MIGRATOR_STAGING_URL/healthz` (the workflow variable of that name). Today it
-  answers `{status, service, env}` (`workers/migrator/src/create-app.ts`) — it does not yet say which
-  migration chain the Worker carries; #1365 adds `bundleHead` to that response.
+- migrator: `GET $MIGRATOR_STAGING_URL/healthz` (the workflow variable of that name). It answers
+  `{status, service, env, bundleHead, prismaTarget}` from the chain and native contract carried by
+  `workers/migrator/src/create-app.ts`.
 - catalog and users: **no public host** — both configs set `workers_dev = false` and are reached only
   through the edge's service bindings. Verify them with `deployments list` plus a request through the
   edge (`/catalog/public/anime-overview/:id` for catalog, an authenticated `/v1/users/*` call for

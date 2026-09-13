@@ -5,7 +5,7 @@ import {
   type GitHubOidcPolicy,
 } from "@animichi/contract/oidc-github";
 import { createMigratorApp, type Env as MigratorEnv, type MigratorDeps } from "../src/create-app";
-import type { ContainerOutcome } from "../src/migration";
+import type { ApplyOutcome } from "../src/migration";
 import {
   MIGRATOR_OIDC_AUDIENCE,
   TRUSTED_CD_WORKFLOW,
@@ -13,11 +13,11 @@ import {
 import { fixtureChain, HEAD_A, HEAD_B } from "./http-apply.helpers";
 
 // #1051 — shared HTTP-seam fixtures for the migrator worker tests: faked
-// container binding + injected JWKS (spec §Testing Decisions 1). jose resolves
+// bounded apply + injected JWKS (spec §Testing Decisions 1). jose resolves
 // exp against the wall clock, so the clock is pinned to a fixed instant.
 export const FIXED_NOW = new Date("2026-03-01T00:00:00.000Z");
 
-export type { ContainerOutcome };
+export type { ApplyOutcome };
 
 const DSN = "postgresql://fake:migrator@db.test/neondb";
 
@@ -31,7 +31,7 @@ export const policy: GitHubOidcPolicy = {
 };
 
 export function testEnv(): MigratorEnv {
-  return { ENVIRONMENT: "staging", MIGRATOR_DATABASE_URL: DSN } as MigratorEnv;
+  return { ENVIRONMENT: "staging", MIGRATOR_DATABASE_URL: DSN };
 }
 
 // #1365 — the production deployment differs from staging by exactly this var
@@ -42,7 +42,7 @@ export function productionEnv(): MigratorEnv {
     ENVIRONMENT: "production",
     MIGRATOR_OIDC_POLICY: "production",
     MIGRATOR_DATABASE_URL: DSN,
-  } as MigratorEnv;
+  };
 }
 
 export async function issuedToken(overrides: Record<string, unknown> = {}): Promise<{
@@ -81,7 +81,7 @@ export async function makeApp(overrides: Partial<MigratorDeps> = {}) {
   const deps: MigratorDeps = {
     chain: fixtureChain,
     verifier: createGitHubOidcVerifier(policy, joseEnv(jwk)),
-    runContainer: (): Promise<ContainerOutcome> => Promise.resolve({ kind: "success", exitCode: 0 }),
+    applyChain: (): Promise<ApplyOutcome> => Promise.resolve({ kind: "success", exitCode: 0 }),
     readAppliedHead: (): Promise<string | null> => Promise.resolve("20260814191301_turn_idempotency_outbox"),
     ...overrides,
   };

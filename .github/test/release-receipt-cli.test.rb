@@ -5,6 +5,7 @@ require 'json'
 require 'tmpdir'
 require 'fileutils'
 require 'open3'
+require_relative 'fixtures/release/receipt-workers'
 
 class ReleaseReceiptCliTest < Minitest::Test
   def setup
@@ -12,7 +13,7 @@ class ReleaseReceiptCliTest < Minitest::Test
     FileUtils.mkdir_p([File.join(@root, 'staging-receipt'), File.join(@root, 'release/migrator/bundle')])
     File.write(File.join(@root, 'release/migrator/bundle/contract.json'), { 'storage' => { 'storageHash' => 'b' * 64 } }.to_json)
     @selection = { 'artifact_id' => '7', 'artifact_digest' => "sha256:#{'d' * 64}", 'source_sha' => 'b' * 40, 'controller_sha' => 'c' * 40 }
-    @images = { 'agent' => 'agent@digest', 'migrator' => 'migrator@digest' }
+    @images = { 'agent' => 'agent@digest' }
     prepare_receipt_metadata
     @environment = { 'PATH' => "#{@root}:#{ENV.fetch('PATH')}", 'RECEIPT_ID' => '20', 'RECEIPT_DIGEST' => 'e' * 64,
                      'GITHUB_RUN_ID' => '9', 'GITHUB_RUN_ATTEMPT' => '2' }
@@ -23,22 +24,15 @@ class ReleaseReceiptCliTest < Minitest::Test
   def prepare_receipt_metadata
     @receipt = { 'format' => 1, 'environment' => 'staging', 'selection' => @selection.dup, 'images' => @images,
                  'controller_run_id' => '9', 'controller_run_attempt' => '1', 'smoke' => 'passed',
-                 'schema' => { 'compatible' => true, 'expectedHead' => 'B', 'appliedHead' => 'B', 'pendingCount' => 0 }, 'workers' => workers }
+                 'schema' => { 'compatible' => true, 'expectedHead' => 'B', 'appliedHead' => 'B', 'pendingCount' => 0 },
+                 'workers' => ReleaseReceiptWorkersFixture.workers }
     @receipt['schema']['prisma'] = { 'targetHash' => 'b' * 64, 'markerHash' => 'b' * 64, 'migrations' => [], 'usedLiveMarker' => true }
     @artifact = { 'id' => 20, 'name' => 'staging-receipt-9-1', 'expired' => false, 'expires_at' => '2026-09-10T00:00:00Z',
                   'digest' => "sha256:#{'e' * 64}", 'workflow_run' => { 'id' => 9 } }
-
   end
 
   def teardown
     FileUtils.remove_entry(@root)
-  end
-
-  def workers
-    %w[catalog edge migrator users web].map do |unit|
-      { 'unit' => unit, 'script_name' => "#{unit}-staging", 'version_id' => '11111111-1111-4111-8111-111111111111',
-        'deployment_id' => '22222222-2222-4222-8222-222222222222' }
-    end
   end
 
   def github_fixture

@@ -13,12 +13,12 @@ import {
   policy,
   post,
   testEnv,
-  type ContainerOutcome,
+  type ApplyOutcome,
 } from "./migrate.worker.helpers";
 
 // #1051 — migrator HTTP-seam identity tests: valid identity, invalid
 // identities (wrong repo / audience / expired), and request guards. The
-// container only runs once the identity is anchored per the allowlist.
+// apply only starts once the identity is anchored per the allowlist.
 
 beforeAll(() => {
   vi.useFakeTimers({ now: FIXED_NOW, shouldAdvanceTime: true });
@@ -28,7 +28,7 @@ afterAll(() => {
 });
 
 describe("POST /migrate — valid identity", () => {
-  it("returns success with the applied head when the container exits 0", async () => {
+  it("returns success with the applied head when the bounded apply succeeds", async () => {
     const { app, token } = await makeApp();
     const res = await app.request(post({}, token), {}, testEnv());
     expect(res.status).toBe(200);
@@ -40,10 +40,10 @@ describe("POST /migrate — valid identity", () => {
     });
   });
 
-  it("injects the migrator DSN into the container run", async () => {
+  it("injects the migrator DSN into the bounded apply", async () => {
     let seenDsn: string | undefined;
     const { app, token } = await makeApp({
-      runContainer: (dsn: string): Promise<ContainerOutcome> => {
+      applyChain: (dsn: string): Promise<ApplyOutcome> => {
         seenDsn = dsn;
         return Promise.resolve({ kind: "success", exitCode: 0 });
       },

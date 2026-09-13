@@ -12,7 +12,7 @@ module ReleaseReceipt
     ReleaseSelection.require_value(receipt.fetch('controller_run_id') == run_id, 'receipt belongs to another controller run')
     ReleaseSelection.require_value((1..Integer(attempt)).cover?(Integer(receipt.fetch('controller_run_attempt'))), 'receipt attempt mismatch')
     validate_schema(receipt.fetch('schema'), prisma_ref)
-    validate_workers(receipt.fetch('workers'))
+    validate_workers(receipt.fetch('workers'), images)
     true
   end
 
@@ -24,11 +24,19 @@ module ReleaseReceipt
     ReleaseSelection.require_value(prisma_ref.match?(/\A[a-f0-9]{64}\z/) && applied, 'staging native schema was not fully applied')
   end
 
-  def validate_workers(workers)
+  def validate_workers(workers, images)
     ReleaseSelection.require_value(workers.map { |worker| worker['unit'] }.sort == %w[catalog edge migrator users web], 'incomplete Worker observations')
     workers.each do |worker|
       ReleaseSelection.require_value(worker.fetch('version_id').match?(UUID) && worker.fetch('deployment_id').match?(UUID), 'invalid observed platform identity')
       ReleaseSelection.require_value(worker.fetch('script_name').is_a?(String), 'missing script-scoped identity')
+      expected = expected_container_count(worker.fetch('unit'), images)
+      ReleaseSelection.require_value(worker.fetch('containers').length == expected, 'unexpected container observation')
     end
+  end
+
+  def expected_container_count(unit, images)
+    return 1 if unit == 'edge'
+    return 1 if unit == 'migrator' && images.key?('migrator')
+    0
   end
 end

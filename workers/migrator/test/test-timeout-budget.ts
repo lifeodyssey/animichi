@@ -2,8 +2,8 @@
  *
  * Vitest's implicit 5000 ms `testTimeout` was a budget nobody chose: both
  * `vitest.config.ts` and `vitest.integration.config.ts` inherited it (#1594),
- * so suites that boot workerd, spawn the container entrypoint, or provision a
- * PostgreSQL database failed on wall clock instead of on behaviour — green on
+ * so suites that boot workerd or provision a PostgreSQL database failed on
+ * wall clock instead of on behaviour — green on
  * an idle host, red on a loaded one. None of those tests asserts that its
  * setup is fast, so each kind names the bound it actually needs.
  *
@@ -45,18 +45,6 @@ export const PLAIN_NODE_BUDGET_MS = 5_000;
 export const WORKERD_BOOT_BUDGET_MS = 30_000;
 
 /**
- * `entrypoint.dsn.test.ts` runs `docker/entrypoint.sh` through `sh` with a
- * shadowed PATH: every test pays a chain of process spawns (the script, the
- * fake `timeout`, the fake `atlas`, `getent`), which is macOS `fork`/`exec`
- * cost, not test work. Measured at load average 36: 3.2 s for one of the
- * probe-plus-apply paths and timeouts at 5.0, 5.0 and 5.3 s for the other
- * three — which is how a file with no runtime and no container still fails at
- * 5 s. 20 s is ~4× that 5.3 s worst case; a script that hangs instead of
- * exiting is still caught well inside the lane.
- */
-export const ENTRYPOINT_SPAWN_BUDGET_MS = 20_000;
-
-/**
  * Every file in `test/integration/` provisions its own PostgreSQL container
  * and then migrates a database inside a test body: `CREATE DATABASE …
  * TEMPLATE template1`, an Atlas or Prisma chain apply, and for two of the
@@ -83,6 +71,5 @@ export const CONTAINER_MIGRATION_BUDGET_MS = 120_000;
 export const DECLARED_BUDGETS_MS: readonly number[] = [
   PLAIN_NODE_BUDGET_MS,
   WORKERD_BOOT_BUDGET_MS,
-  ENTRYPOINT_SPAWN_BUDGET_MS,
   CONTAINER_MIGRATION_BUDGET_MS,
 ];

@@ -21,8 +21,7 @@ class ReleaseSnapshotTest < Minitest::Test
   def snapshot_metadata
     { 'source_sha' => 'b' * 40, 'run_id' => '9', 'run_attempt' => '1',
                   'repository' => 'lifeodyssey/animichi', 'kind' => 'full-snapshot', 'format' => 1,
-                  'images' => { 'agent' => "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}",
-                    'migrator' => "registry.cloudflare.com/#{'a' * 32}/animichi-migrator@sha256:#{'e' * 64}" } }
+                  'images' => { 'agent' => "registry.cloudflare.com/#{'a' * 32}/animichi-agent@sha256:#{'d' * 64}" } }
   end
 
   def teardown
@@ -65,7 +64,17 @@ class ReleaseSnapshotTest < Minitest::Test
   end
 
   def test_refuses_missing_image
-    @metadata['images'].delete('migrator')
+    @metadata['images'].delete('agent')
+    assert_raises(ArgumentError) { ReleaseSnapshot.validate(@root, manifest, @metadata) }
+  end
+
+  def test_accepts_a_historical_snapshot_with_the_retired_migrator_image
+    @metadata['images']['migrator'] = "registry.cloudflare.com/#{'a' * 32}/animichi-migrator@sha256:#{'e' * 64}"
+    assert ReleaseSnapshot.validate(@root, manifest, @metadata)
+  end
+
+  def test_refuses_an_unknown_image_unit
+    @metadata['images']['unknown'] = "registry.cloudflare.com/#{'a' * 32}/animichi-unknown@sha256:#{'e' * 64}"
     assert_raises(ArgumentError) { ReleaseSnapshot.validate(@root, manifest, @metadata) }
   end
 
