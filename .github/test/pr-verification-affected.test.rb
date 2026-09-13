@@ -10,15 +10,15 @@ class PrVerificationAffectedTest < Minitest::Test
     ["@animichi/eval", "uv python install"],
     ["catalog", "ariga/setup-atlas"],
     ["migrator", "ariga/setup-atlas"],
-    ["catalog", "docker build -f apps/agent/docker/test-postgres/Dockerfile"],
+    ["catalog", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/agent", "ariga/setup-atlas"],
-    ["@animichi/agent", "docker build -f apps/agent/docker/test-postgres/Dockerfile"],
+    ["@animichi/agent", "docker build -f packages/test-postgres/Dockerfile"],
     ["edge-worker", "ariga/setup-atlas"],
-    ["edge-worker", "docker build -f apps/agent/docker/test-postgres/Dockerfile"],
+    ["edge-worker", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/pi-session-neon", "ariga/setup-atlas"],
-    ["@animichi/pi-session-neon", "docker build -f apps/agent/docker/test-postgres/Dockerfile"],
+    ["@animichi/pi-session-neon", "docker build -f packages/test-postgres/Dockerfile"],
     ["@animichi/prisma-geography", "ariga/setup-atlas"],
-    ["@animichi/prisma-geography", "docker build -f apps/agent/docker/test-postgres/Dockerfile"],
+    ["@animichi/prisma-geography", "docker build -f packages/test-postgres/Dockerfile"],
     ["infra", "pulumi/actions"]
   ].freeze
   def setup
@@ -72,7 +72,7 @@ end
 class PrVerificationPostgresImageTest < Minitest::Test
   ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   IMAGE_DECLARATION = "packages/test-postgres/postgres-image.env"
-  IMAGE_BUILD = "docker build -f apps/agent/docker/test-postgres/Dockerfile"
+  IMAGE_BUILD = "docker build -f packages/test-postgres/Dockerfile"
   IMAGE_REFERENCE = '"$TEST_POSTGRES_IMAGE"'
   DECLARED_IMAGE = File.read(File.join(ROOT, IMAGE_DECLARATION))[/^TEST_POSTGRES_IMAGE=(.+)$/, 1].to_s.strip
 

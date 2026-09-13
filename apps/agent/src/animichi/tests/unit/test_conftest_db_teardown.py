@@ -101,5 +101,11 @@ def test_require_offline_image_missing_image_names_build_command(
 ) -> None:
     monkeypatch.setattr(conftest_db, "_docker_available", lambda: True)
     monkeypatch.setattr(conftest_db, "_offline_image_present", lambda: False)
-    with pytest.raises(RuntimeError, match="docker build"):
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            r"docker build -f packages/test-postgres/Dockerfile -t "
+            r"animichi-test-postgres:18-3\.6-pgvector-0\.8\.5 \."
+        ),
+    ):
         conftest_db._require_offline_image()

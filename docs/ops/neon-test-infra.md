@@ -27,7 +27,7 @@ in the single CI workflow's affected agent lane.
 
 ```bash
 # One-time image build; this step needs network.
-docker build -f apps/agent/docker/test-postgres/Dockerfile \
+docker build -f packages/test-postgres/Dockerfile \
   -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
 
 # Offline after the image and Atlas 0.30.0 are cached. Typical: 30-45 seconds.

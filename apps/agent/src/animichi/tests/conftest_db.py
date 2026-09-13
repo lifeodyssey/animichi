@@ -42,7 +42,7 @@ from animichi.tests.neon_api import Branch, NeonApi
 ROOT = Path(__file__).resolve().parents[5]
 SEED_FILE = Path(__file__).parent / "fixtures" / "seed.sql"
 OFFLINE_IMAGE = "animichi-test-postgres:18-3.6-pgvector-0.8.5"
-OFFLINE_DOCKERFILE = ROOT / "apps" / "agent" / "docker" / "test-postgres" / "Dockerfile"
+OFFLINE_DOCKERFILE = ROOT / "packages" / "test-postgres" / "Dockerfile"
 NEON_LOCAL_IMAGE = "neondatabase/neon_local:latest"
 WAKE_TIMEOUT_SECONDS = 91.0
 CONNECT_TIMEOUT_SECONDS = 10.0

@@ -82,7 +82,7 @@ shell, so that step names no tag either:
 
 ```bash
 . packages/test-postgres/postgres-image.env
-docker build -f apps/agent/docker/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
+docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
 ```
 
 `test/image-tag-contract.test.ts` does **not** read the workflow (card B2 / #1360): pipeline text

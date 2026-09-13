@@ -175,7 +175,7 @@ jobs:
           pulumi-version-file: .pulumi.version
       - name: Build the hermetic Postgres+PostGIS+pgvector test image
         if: ${{ contains(fromJSON('["catalog", "edge-worker", "@animichi/agent", "@animichi/test-postgres", "migrator", "@animichi/pi-session-neon", "@animichi/prisma-geography"]'), matrix.package) }}
-        run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+        run: docker build -f packages/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
       - name: Run the package's own gates
         env:
           PACKAGE: ${{ matrix.package }}
@@ -368,7 +368,7 @@ jobs:
         run: |
           set -euo pipefail
           . packages/test-postgres/postgres-image.env
-          docker build -f apps/agent/docker/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
+          docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
       # One command, and it is the one pre-push runs: `make check` is ruff +
       # ruff-format + vulture, mypy, the unit suite under the 87% floor
       # (apps/agent/pyproject.toml addopts) and the integration suite. CI no
@@ -436,7 +436,7 @@ jobs:
         run: |
           set -euo pipefail
           . packages/test-postgres/postgres-image.env
-          docker build -f apps/agent/docker/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
+          docker build -f packages/test-postgres/Dockerfile -t "$TEST_POSTGRES_IMAGE" .
       # `animichi-e2e` is outside the affected matrix because its `test` is the
       # served-Worker lane: it builds apps/web and starts `wrangler dev` itself
       # (e2e/playwright.config.ts `webServer`). Everything this job needs is
@@ -488,7 +488,7 @@ jobs:
         run: atlas migrate validate --dir file://migrations/neon
       # db-fresh-schema.sh fails closed without the offline image.
       - name: Build the hermetic Postgres+PostGIS+pgvector test image
-        run: docker build -f apps/agent/docker/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
+        run: docker build -f packages/test-postgres/Dockerfile -t animichi-test-postgres:18-3.6-pgvector-0.8.5 .
       - name: Apply the whole chain to a disposable database
         run: bash scripts/local-gates/db-fresh-schema.sh
       - name: Prove the migrator still agrees with the chain it bundles
