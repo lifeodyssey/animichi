@@ -19,6 +19,7 @@ edge-forwarded identity. **Do not add Supabase-auth or self-verification code**.
 - `packages/agent/`    — Platform-independent TS agent domain library (`@animichi/agent`), consumed by edge. Python remains `@animichi/agent-python`. → `packages/agent/AGENTS.md`
 - `packages/contract/` — Shared oRPC/zod contract; cross-service source of truth. → `packages/contract/AGENTS.md`
 - `packages/eval/`     — Node native Pi task and preserved statistical oracles with `logfire/evals`. → `packages/eval/AGENTS.md`
+- `packages/prisma-geography/` — Private Prisma 8 PostGIS geography extension pack; control/runtime descriptors and disposable-DB evidence. → `packages/prisma-geography/AGENTS.md`
 - `packages/test-postgres/` — Test-only Postgres data plane (image, readiness wait, clean DB, Atlas chain) shared by the catalog spike, the edge agent-db arm and `db-fresh-schema.sh`. → `packages/test-postgres/AGENTS.md`
 - `apps/web/`          — TanStack Start SSR app; **the only browser surface** (legacy `frontend/` retired, #537). → `apps/web/AGENTS.md`
 - `workers/edge/`      — CF edge worker (`workers/edge/src/entry.ts`): the gateway (auth, `/v1` routing, image/tile proxies; no page fallback — unmatched paths 404) **and**, the native Pi agent tier (`workers/edge/src/agent/`: authenticated admission → `SessionAgent` → Neon settlement) — most of the package's source is now that tier. → `workers/edge/AGENTS.md`

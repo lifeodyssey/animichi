@@ -1,0 +1,14 @@
+import type { PostgresClient } from "@prisma/orm-postgres/runtime";
+import type { Contract } from "../../../src/contract.d.ts";
+
+declare const db: PostgresClient<Contract>;
+const origin = { type: "Point", coordinates: [139.7671, 35.6812], srid: 4326 } as const;
+
+const plan = db.sql.public.geo_points
+  .select("id", "location")
+  .select("distanceM", (fields, operations) => operations.distanceMeters(fields.location, origin))
+  .where((fields, operations) => operations.dwithinMeters(fields.location, origin, 30_000))
+  .orderBy((fields, operations) => operations.knnOrder(fields.location, origin))
+  .build();
+
+void db.runtime().query(plan).then((rows) => rows[0]?.distanceM.toFixed(2));
