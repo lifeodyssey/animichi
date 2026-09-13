@@ -13,7 +13,7 @@ function useMarkerMap() {
   const ref = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState<readonly PointPlacement[]>([]);
   const [status, setStatus] = useState<BasemapStatus>("loading");
-  useEffect(() => ref.current ? attachBasemap({ container: ref.current, points: spots.map((spot) => spot.coord), interactive: true, onProject: setPositions, onStatus: setStatus }) : undefined, []);
+  useEffect(() => ref.current ? attachBasemap({ container: ref.current, points: spots.map((spot) => spot.coord), interactive: true, framing: "marker", onProject: setPositions, onStatus: setStatus }) : undefined, []);
   return { ref, positions, status };
 }
 

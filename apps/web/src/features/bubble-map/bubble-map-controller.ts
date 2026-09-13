@@ -1,6 +1,6 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { AnimeOverviewCircle, LatLng } from "@animichi/contract";
-import type { LngLatBoundsLike, Map as MapLibreMap } from "maplibre-gl";
+import type { FitBoundsOptions, LngLatBoundsLike, Map as MapLibreMap } from "maplibre-gl";
 import { attachMapLibre, mountMapLibre, type MapLibreHandle, type MapLibreMountOptions } from "../maplibre/maplibre-adapter";
 import { createMapStyle } from "../map-spike/map-style";
 import type { PointPlacement } from "./bubble-geometry";
@@ -15,6 +15,11 @@ export type MountBasemapOptions = Readonly<{
   onProject?: (placements: readonly PointPlacement[]) => void;
   /** Static-first surfaces (issue #261 C3a) mount the map non-interactive. */
   interactive?: boolean;
+  /** Chat marker maps opt into container-aware framing: adaptive padding,
+   * maxZoom 15, an initial camera at mount, and re-fit + re-projection as the
+   * viewport changes. Omitted, the mount keeps the legacy fixed framing
+   * (padding 64, maxZoom 12, one fit on load) existing maps render with. */
+  framing?: "marker";
 }>;
 
 export type MountBubbleMapOptions = Readonly<{
@@ -24,6 +29,10 @@ export type MountBubbleMapOptions = Readonly<{
 }>;
 
 export type BubbleMapHandle = MapLibreHandle;
+
+const LEGACY_PADDING = 64;
+const LEGACY_MAX_ZOOM = 12;
+const MARKER_MAX_ZOOM = 15;
 
 const pointsBounds = (points: readonly LatLng[]): LngLatBoundsLike => {
   const lngs = points.map((point) => point.lng);
@@ -35,14 +44,20 @@ const pointsBounds = (points: readonly LatLng[]): LngLatBoundsLike => {
 };
 
 // Frame the tile basemap around the coordinates; any overlay renders on top in React.
-const cameraPadding = (container: HTMLElement): number => {
-  return Math.min(64, Math.min(container.clientWidth, container.clientHeight) / 4);
+const paddingFor = (options: MountBasemapOptions, container: HTMLElement): number => {
+  if (options.framing !== "marker") return LEGACY_PADDING;
+  return Math.min(LEGACY_PADDING, Math.min(container.clientWidth, container.clientHeight) / 4);
 };
 
-const fitToPoints = (map: MapLibreMap, points: readonly LatLng[]): void => {
-  if (points.length === 0) return;
-  const padding = cameraPadding(map.getContainer());
-  map.fitBounds(pointsBounds(points), { padding, maxZoom: 15, animate: false });
+const fitOptions = (options: MountBasemapOptions, container: HTMLElement): FitBoundsOptions => ({
+  padding: paddingFor(options, container),
+  maxZoom: options.framing === "marker" ? MARKER_MAX_ZOOM : LEGACY_MAX_ZOOM,
+  animate: false,
+});
+
+const fitToPoints = (map: MapLibreMap, options: MountBasemapOptions): void => {
+  if (options.points.length === 0) return;
+  map.fitBounds(pointsBounds(options.points), fitOptions(options, map.getContainer()));
 };
 
 const projectPoints = (map: MapLibreMap, options: MountBasemapOptions): void => {
@@ -56,29 +71,36 @@ const projectPoints = (map: MapLibreMap, options: MountBasemapOptions): void => 
 
 const observeViewport = (options: MountBasemapOptions, map: MapLibreMap): (() => void) => {
   const project = () => { projectPoints(map, options); };
-  const observer = new ResizeObserver(() => { map.resize(); fitToPoints(map, options.points); project(); });
+  const observer = new ResizeObserver(() => { map.resize(); fitToPoints(map, options); project(); });
   map.on("move", project);
   observer.observe(options.container);
   project();
   return () => { observer.disconnect(); map.off("move", project); };
 };
 
-const onBasemapLoad = (options: MountBasemapOptions, map: MapLibreMap): (() => void) => {
-  fitToPoints(map, options.points);
+const onMarkerLoad = (options: MountBasemapOptions, map: MapLibreMap): (() => void) => {
   const cleanup = observeViewport(options, map);
   const ready = () => { options.onStatus("ready"); };
   void map.once("idle", ready);
   return () => { cleanup(); map.off("idle", ready); };
 };
 
+const onBasemapLoad = (options: MountBasemapOptions, map: MapLibreMap): (() => void) | undefined => {
+  fitToPoints(map, options);
+  if (options.framing === "marker") return onMarkerLoad(options, map);
+  projectPoints(map, options);
+  options.onStatus("ready");
+  return undefined;
+};
+
 const initialCamera = (options: MountBasemapOptions) => ({
   bounds: options.points.length ? pointsBounds(options.points) : undefined,
-  fitBoundsOptions: { padding: cameraPadding(options.container), maxZoom: 15, animate: false },
+  fitBoundsOptions: fitOptions(options, options.container),
 });
 
 const mountOptions = (options: MountBasemapOptions): MapLibreMountOptions => ({
-  ...initialCamera(options),
-  attributionControl: options.interactive === false ? false : { compact: true },
+  ...(options.framing === "marker" ? initialCamera(options) : {}),
+  attributionControl: { compact: true },
   container: options.container,
   interactive: options.interactive ?? true,
   onError: () => { options.onStatus("fallback"); },
