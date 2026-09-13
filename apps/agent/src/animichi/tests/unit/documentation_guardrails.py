@@ -7,9 +7,18 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[6]
 HISTORICAL_MARKER = "<!-- historical: retired in #537 -->"
+HISTORICAL_ROUTE_MARKER = "<!-- historical: retired in #1582 -->"
 
 _HYGIENE_DOCS = (Path("docs/ARCHITECTURE.md"), Path("docs/ops/deployment.md"))
 _RETIRED_TECHNOLOGY = re.compile(r"\b(?:Next\.js|OpenNext|Mapbox)\b", re.I)
+_RETIRED_ROUTE_INSTRUCTION = re.compile(
+    r"(?ix)"
+    r"(?:\b(?:set|unset|configure|enable|disable|deploy|run|use|switch|"
+    r"flip(?:ped|ping)?)\b[^\n]{0,80}\bAGENT_TURN_ROUTE\b|"
+    r"\b(?:must|should|required|requires)\b[^\n]{0,40}"
+    r"\bAGENT_TURN_ROUTE\b|\bAGENT_TURN_ROUTE\b[^\n]{0,40}"
+    r"\b(?:must|should|required|requires|stay(?:s|ing)?)\b|^\s*AGENT_TURN_ROUTE\s*=)"
+)
 _DOCUMENTED_COVERAGE = re.compile(
     r"^\| (Backend total|Frontend (?:statements|branches|functions|lines)) "
     r"\| `(\d+)` \|",
@@ -69,6 +78,33 @@ def check_retired_technology_docs(repo_root: Path) -> None:
     for relative_path in _HYGIENE_DOCS:
         assert_retired_technologies_are_historical(
             _read(repo_root / relative_path), str(relative_path)
+        )
+
+
+def _unmarked_retired_route_instructions(text: str) -> tuple[str, ...]:
+    return tuple(
+        match.group(0).strip()
+        for paragraph in _paragraphs(text)
+        if HISTORICAL_ROUTE_MARKER not in paragraph
+        for match in _RETIRED_ROUTE_INSTRUCTION.finditer(paragraph)
+    )
+
+
+def assert_retired_route_instructions_are_historical(
+    text: str, source: str = "document"
+) -> None:
+    unmarked = _unmarked_retired_route_instructions(text)
+    if not unmarked:
+        return
+    raise ValueError(
+        f"{source}: unmarked retired route instruction: {'; '.join(unmarked)}"
+    )
+
+
+def check_retired_route_docs(repo_root: Path) -> None:
+    for path in sorted((repo_root / "docs").rglob("*.md")):
+        assert_retired_route_instructions_are_historical(
+            _read(path), str(path.relative_to(repo_root))
         )
 
 
@@ -144,6 +180,7 @@ def _check_agent_runtime(repo_root: Path) -> None:
 
 def check_repository_documentation(repo_root: Path = REPO_ROOT) -> None:
     check_retired_technology_docs(repo_root)
+    check_retired_route_docs(repo_root)
     if documented_coverage_thresholds(repo_root) != live_coverage_thresholds(repo_root):
         raise ValueError("docs/testing-strategy.md: coverage thresholds drifted")
     _check_agent_runtime(repo_root)

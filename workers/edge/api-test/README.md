@@ -50,9 +50,11 @@ two Access variables are the only ones that may be absent together — that is e
 run against a target with no Access application in front of it, the loopback
 included.
 
-Run it only after a deploy that carries `AGENT_TURN_ROUTE = "edge"` — against
-the container the turn is answered by `apps/agent`, which emits no
-`x-session-id` header and the first assertion fails.
+Run it only after a deploy whose edge Worker includes the native agent host. The
+chat, probe, transcript and stream routes are selected unconditionally by the
+current route policy; a container-only deployment is not a supported target for
+this lane. The first assertions require the native response headers, including
+`x-session-id`.
 
 ## The Cloudflare Access service token (D3 #1369)
 

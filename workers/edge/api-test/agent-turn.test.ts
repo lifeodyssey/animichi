@@ -5,7 +5,7 @@
  * private service binding, so before `/v1/chat` was served by this Worker there
  * was no deployed vehicle that executed them at all (`api-test/README.md`, and
  * the sibling `catalog-api.test.ts` that asserts the "no public door" half).
- * Once `AGENT_TURN_ROUTE = "edge"` is deployed, one real turn through the
+ * Once the native edge agent host is deployed, one real turn through the
  * staging edge makes the hop observable from outside: the SSE frames name the
  * tool that ran, and the transcript the turn committed can be read back by id.
  *

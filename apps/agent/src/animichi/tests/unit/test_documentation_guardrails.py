@@ -6,9 +6,12 @@ import pytest
 
 from animichi.tests.unit.documentation_guardrails import (
     HISTORICAL_MARKER,
+    HISTORICAL_ROUTE_MARKER,
     REPO_ROOT,
     _coverage_key_drift,
+    assert_retired_route_instructions_are_historical,
     assert_retired_technologies_are_historical,
+    check_retired_route_docs,
     check_retired_technology_docs,
     documented_coverage_thresholds,
     extract_agent_runtime_section,
@@ -37,6 +40,40 @@ def test_historical_marker_allows_retired_technology() -> None:
 
 def test_canonical_docs_only_allow_marked_retired_technology() -> None:
     check_retired_technology_docs(REPO_ROOT)
+
+
+def test_unmarked_retired_route_instruction_fails() -> None:
+    with pytest.raises(ValueError, match="AGENT_TURN_ROUTE"):
+        assert_retired_route_instructions_are_historical(
+            'Set `AGENT_TURN_ROUTE = "container"` before deploying.'
+        )
+
+
+def test_retired_route_requirement_fails_in_either_order() -> None:
+    with pytest.raises(ValueError, match="AGENT_TURN_ROUTE"):
+        assert_retired_route_instructions_are_historical(
+            "`AGENT_TURN_ROUTE` should be set before the staging deploy."
+        )
+
+
+def test_retired_route_stays_instruction_fails() -> None:
+    with pytest.raises(ValueError, match="AGENT_TURN_ROUTE"):
+        assert_retired_route_instructions_are_historical(
+            '`AGENT_TURN_ROUTE` stays "container" in production.'
+        )
+
+
+def test_historical_marker_allows_retired_route_instruction() -> None:
+    historical_note = (
+        f"{HISTORICAL_ROUTE_MARKER}\n"
+        'The retired runbook said to set `AGENT_TURN_ROUTE = "container"`.'
+    )
+
+    assert_retired_route_instructions_are_historical(historical_note)
+
+
+def test_canonical_docs_reject_unmarked_retired_route_instruction() -> None:
+    check_retired_route_docs(REPO_ROOT)
 
 
 def test_coverage_key_drift_names_the_unexpected_key() -> None:

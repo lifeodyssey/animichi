@@ -62,7 +62,7 @@ reference explicitly; adding the stack import alone does not create it.
 
 A secret reaching a shared environment takes one of three shapes:
 
-1. **Edge-to-container core chain** — **CI no longer participates in this chain.** #1364 deleted
+1. **Edge runtime and container core chain** — **CI no longer participates in this chain.** #1364 deleted
    the last upload step (`sync-edge-runtime-secrets.sh` piping a JSON object into `wrangler secret
    bulk`, and the `edge-runtime-secrets.py` allowlist it fed): no workflow uploads a runtime secret
    any more, and `cloudflare/wrangler-action`'s `secrets:` input is deliberately unused.
@@ -76,10 +76,11 @@ A secret reaching a shared environment takes one of three shapes:
    consumer and is neither required nor read/forwarded; the sole agent DSN remains
    `AGENT_SVC_DATABASE_URL`. Removing its unused input does not authorize deleting an online copy.
    The edge's per-environment `secrets_store_secrets` bindings resolve through the existing
-   `readStoreOrString` helper. `RuntimeContainer` resolves only `CONTAINER_ENV_KEYS` before each
-   start; native SDK startup receives strings, while local `.dev.vars` strings remain valid.
-   The native staging turn resolves `MIMO_API_KEY` at session bootstrap; BYOK turns run on the
-   caller key alone and never consult the server binding.
+   `readStoreOrString` helper. Native agent startup reads `MIMO_API_KEY` and
+   `AGENT_SVC_DATABASE_URL` directly from Worker bindings; `RuntimeContainer` resolves only
+   `CONTAINER_ENV_KEYS` before each start. Native SDK startup receives strings, while local
+   `.dev.vars` strings remain valid. BYOK turns run on the caller key alone and never consult
+   the server binding.
 2. **Worker-only anonymous chain** — `TURNSTILE_SECRET` and `ANON_ID_SECRET` use native
    store bindings. `anonymousAccessEnabled` must match the Worker's `ANON_ACCESS_ENABLED` flag.
    When enabled, the program additionally requires and provisions both secrets. The owner
@@ -131,7 +132,7 @@ rotation evidence.
 | Secret | Scope | What it is | Value lives in / read by | Rotation |
 |---|---|---|---|---|
 | `ZEN_GO_API_KEY` | ESC `environmentVariables` (nightly eval) + ESC `pulumiConfig` (edge runtime) | **Production LLM gateway.** MiMo `mimo-v2.5` is routed through the zen/go gateway (`https://opencode.ai/zen/go/v1`) | Exact edge core payload → Worker binding → agent container; and `agent-eval-nightly.yml`, which opens it from ESC | Missing or blank blocks edge staging, production, and rollback at preflight. The nightly eval 401/403s the provider and the user sees the agent's generic failure response, never the raw provider error (SD-19) |
-| `MIMO_API_KEY` | ESC `pulumiConfig` | Direct MiMo credential used by the native staging agent and retained by the Python container | Exact edge core payload → Worker binding → native host model credentials and agent container | It is required even while zen/go is the default; missing or blank blocks edge staging, production, and rollback at preflight |
+| `MIMO_API_KEY` | ESC `pulumiConfig` | Direct MiMo credential used by the native agent and retained by the Python container | Exact edge core payload → Worker binding → native host model credentials and agent container | It is required even while zen/go is the default; missing or blank blocks edge staging, production, and rollback at preflight |
 | `DEEPSEEK_API_KEY` | ESC `pulumiConfig` | Fallback model — **wired but disabled** (no balance) | Exact edge core payload → Worker binding → agent container | It remains an exact required binding; missing or blank blocks edge staging, production, and rollback at preflight |
 | `GOOGLE_MAPS_API_KEY` | ESC `pulumiConfig` | Geocoding (`apps/agent/src/animichi/infrastructure/gateways/geocoding.py`) | Exact edge core payload → Worker binding → agent container | Missing or blank blocks edge staging, production, and rollback at preflight; an invalid value surfaces later as place-resolution failure |
 | `LOGFIRE_TOKEN` | ESC `pulumiConfig`, one project per environment (`animichi-staging` / `animichi-prod`) as of 2026-07-29, replacing one shared `LOGFIRE_TOKEN_PROD`/`LOGFIRE_TOKEN_STAGING` pair that lived less than eight hours (wiring was #498) | Write token for the environment's Logfire project | Exact edge core payload → Worker binding → agent container | Missing or blank blocks edge staging, production, and rollback at preflight. A wrong-but-present value only stops traces for that environment |
@@ -258,8 +259,8 @@ cutover gates above. The established database bindings are:
 | `CATALOG_DATABASE_URL_PROD` | `DATABASE_URL` | `workers/catalog/wrangler.toml` `[[env.production.secrets_store_secrets]]` → `workers/catalog/src/index.ts` |
 | `USERS_DATABASE_URL` | `DATABASE_URL` | `workers/users/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → `workers/users/src/index.ts` |
 | `USERS_DATABASE_URL_PROD` | `DATABASE_URL` | `workers/users/wrangler.toml` `[[env.production.secrets_store_secrets]]` → `workers/users/src/index.ts` |
-| `AGENT_SVC_DATABASE_URL` | `AGENT_SVC_DATABASE_URL` | `workers/edge/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → two consumers of the one binding: `workers/edge/src/container/container-env.ts` (forwarded into the agent container) and, from W1 (#1251), the edge Worker itself in `workers/edge/src/db/agent-database.ts` (the agent turn tier reads Neon directly) |
-| `AGENT_SVC_DATABASE_URL_PROD` | `AGENT_SVC_DATABASE_URL` | `workers/edge/wrangler.toml` `[[env.production.secrets_store_secrets]]` → the same two consumers (W4-1, #1314) |
+| `AGENT_SVC_DATABASE_URL` | `AGENT_SVC_DATABASE_URL` | `workers/edge/wrangler.toml` `[[env.staging.secrets_store_secrets]]` → the native host/gateway (`workers/edge/src/agent/host/native-bootstrap.ts`, `workers/edge/src/gateway/native-history.ts`, `workers/edge/src/gateway/native-stream.ts`) reads Neon directly, while `workers/edge/src/container/container-env.ts` forwards it to the retained agent container |
+| `AGENT_SVC_DATABASE_URL_PROD` | `AGENT_SVC_DATABASE_URL` | `workers/edge/wrangler.toml` `[[env.production.secrets_store_secrets]]` → the same native host/gateway and retained-container consumers (W4-1, #1314) |
 
 Bindings are declared per environment in `wrangler.toml` (`secrets_store_secrets` is
 non-inheritable) and are applied automatically by `wrangler deploy` — no CI secret upload step
@@ -275,11 +276,12 @@ bindings in both environments; CI does not upload them.
 
 The agent-service binding was staging-only until W4-1 (#1314), which provisioned the production
 `agent_svc` DSN through the `infra/database-access` prod stack and bound it on the production edge
-Worker. Landing the binding changed no runtime behaviour: `AGENT_TURN_ROUTE` stays `"container"` in
-production, so the binding only supplies the container's role-scoped DSN. The runtime no longer
-reads `SUPABASE_DB_URL`; #1370 therefore removes its unused forwarding requirement without
-deleting any online copy. Local dev still uses `.dev.vars` strings; Python settings enforce
-`AGENT_SVC_DATABASE_URL`, so the edge forwarding helper does not duplicate that validation.
+Worker. The binding now supplies the native host's Neon DSN and remains available to
+`RuntimeContainer` for other container-served routes; the native route policy has no runtime
+switch. The runtime no longer reads `SUPABASE_DB_URL`; #1370 therefore removes its unused
+forwarding requirement without deleting any online copy. Local dev still uses `.dev.vars` strings;
+Python settings enforce `AGENT_SVC_DATABASE_URL`, so the edge forwarding helper does not duplicate
+that validation.
 
 ## Adding a new secret
 
