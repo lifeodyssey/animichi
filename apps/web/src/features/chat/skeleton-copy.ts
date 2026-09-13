@@ -1,5 +1,6 @@
 import type { ChatDataPart } from "@animichi/contract";
 import type { Locale } from "../../i18n/locales";
+import { intentFamily } from "./registry";
 
 interface SkeletonCopy {
   readonly search: string;
@@ -22,8 +23,9 @@ export function skeletonCopy(locale: Locale): SkeletonCopy {
 /** An intent names the incoming content, not the tool or its progress. */
 export function skeletonLabel(intent: ChatDataPart["intent"], locale: Locale): string {
   const copy = skeletonCopy(locale);
-  if (intent === "search_bangumi" || intent === "search_nearby") return copy.search;
-  if (intent === "plan_route" || intent === "plan_selected" || intent === "plan_multi" || intent === "partial") return copy.route;
-  if (intent === "clarify") return copy.clarify;
+  const family = intentFamily(intent);
+  if (family === "search") return copy.search;
+  if (family === "route") return copy.route;
+  if (family === "clarify") return copy.clarify;
   return copy.reply;
 }

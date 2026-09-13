@@ -67,10 +67,9 @@ function useSupersededKeys(visible: readonly UIMessage[]): ReadonlySet<string> {
 }
 
 function ToolBadges({ parts, dict, settled }: Readonly<{ parts: readonly ToolPart[]; dict: ChatDict; settled: boolean }>) {
-  const badges = statusedSteps(parts).flatMap(({ step, status }) => {
-    if (HIDDEN_TOOL_STEPS.has(step.type.replace(/^tool-/, ""))) return [];
+  const badges = statusedSteps(parts).map(({ step, status }) => {
     const displayStatus = settled && status === "running" ? "error" : status;
-    return [<ToolStepBadge key={step.toolCallId} type={step.type} status={displayStatus} dict={dict} />];
+    return <ToolStepBadge key={step.toolCallId} type={step.type} status={displayStatus} dict={dict} />;
   });
   return badges;
 }
@@ -93,7 +92,8 @@ type RailProps = Readonly<{ message: UIMessage; settled: boolean; elapsedLabel?:
 
 /** The turn's progress rail: tool badges for every turn — selection turns
  * stream their `plan_selected` step like any other (TURN-4 #955, bypass
- * detection deleted). */
+ * detection deleted). Hidden steps are filtered here, the earliest point, so
+ * no downstream component ever sees them. */
 function MessageRail({ message, settled, elapsedLabel, dict }: RailProps) {
   const parts = message.parts.filter(isToolPart).filter((part) => !HIDDEN_TOOL_STEPS.has(part.type.replace(/^tool-/, "")));
   return <Pipeline parts={parts} settled={settled} elapsedLabel={elapsedLabel} dict={dict} />;

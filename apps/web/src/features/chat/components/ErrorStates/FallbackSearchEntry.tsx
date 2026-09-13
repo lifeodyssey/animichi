@@ -29,6 +29,6 @@ export function FallbackSearchEntry({ label, placeholder, submitLabel, sentLabel
   return <form className="grid min-w-0 gap-2" onSubmit={entry.submit}>
     <label htmlFor={id} className="text-sm leading-5 text-muted-fg">{label}</label>
     <div className="flex min-w-0 items-start gap-2.5 pb-1"><Input id={id} className={INPUT} value={entry.text} placeholder={placeholder} disabled={entry.disabled} autoComplete="off" enterKeyHint="send" onChange={(event) => { entry.setText(event.target.value); }} /><Button htmlType="submit" type="primary" className={SUBMIT} aria-label={submitLabel} title={submitLabel} disabled={entry.disabled === true || !entry.text.trim() || entry.sent} icon={entry.sent ? <ProgressGlyph kind="done" /> : <SendGlyph />} /></div>
-    <p role="status" aria-atomic="true" className="empty:hidden text-sm leading-6 text-muted-fg">{entry.sent ? sentLabel : ""}</p>
+    <p role="status" aria-atomic="true" className="text-sm leading-6 text-muted-fg empty:[display:none]">{entry.sent ? sentLabel : ""}</p>
   </form>;
 }

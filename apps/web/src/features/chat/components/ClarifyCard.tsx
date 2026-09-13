@@ -1,6 +1,7 @@
 import type { ChatDataPart } from "@animichi/contract";
+import { Button } from "animal-island-ui-tailwind/button";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AnimalButton } from "./AnimalButton";
+import { chatButtonClass } from "./chat-button-classes";
 import { ClarifyCandidateOption } from "./ClarifyCandidateOption";
 import type { ClarifyOptionState } from "./ClarifyCandidateOption";
 import { sendWithOriginOf, useChatActions } from "../ChatActions";
@@ -66,7 +67,7 @@ type EscapeProps = Readonly<{ label: string; disabled: boolean; onEscape: () => 
 function EscapeHatch({ label, disabled, onEscape }: EscapeProps) {
   return (
     <div className="grid border-t border-border-soft pt-2">
-      <AnimalButton appearance="text" className="chat-clarify__escape justify-self-start [min-height:44px]! [padding:8px_0]! [text-align:left]! [font-weight:600] [--animal-text-color:var(--color-primary-strong)] night:[--animal-text-color:var(--color-explore-fg)]" disabled={disabled} onClick={onEscape}>{label}</AnimalButton>
+      <Button htmlType="button" type="text" className={chatButtonClass({ className: "chat-clarify__escape justify-self-start [min-height:44px]! [padding:8px_0]! [text-align:left]! [font-weight:600] [--animal-text-color:var(--color-primary-strong)] night:[--animal-text-color:var(--color-explore-fg)]" })} disabled={disabled} onClick={onEscape}>{label}</Button>
     </div>
   );
 }
@@ -134,7 +135,7 @@ function CandidateList({ candidates, locale, phase, onChoose }: ListProps) {
   const list = useChoiceFocus(phase);
   const showCover = candidates.some((candidate) => Boolean(candidate.cover_url));
   return (
-    <ul ref={list} hidden={phase.kind === "rephrase"} className="grid w-full gap-3 p-0 [list-style:none] empty:hidden [&[hidden]]:[display:none]" aria-label="candidates">
+    <ul ref={list} hidden={phase.kind === "rephrase"} className="grid w-full gap-3 p-0 [list-style:none] empty:[display:none] [&[hidden]]:[display:none]" aria-label="candidates">
       {candidates.map((candidate) => <ClarifyCandidateOption key={candidateKey(candidate)} candidate={candidate} locale={locale} label={candidateDisplayTitle(candidate, locale)} state={optionState(phase, candidateKey(candidate))} showCover={showCover} disabled={!sendable} onChoose={onChoose} />)}
     </ul>
   );

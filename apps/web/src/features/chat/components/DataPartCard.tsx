@@ -4,7 +4,7 @@ import { classifyFailure } from "../lib/error-classifier";
 import type { ChatErrorState } from "../lib/error-classifier";
 import { isIntentOnly, parseChatDataPart } from "../data-parts";
 import type { ChatDict } from "../i18n";
-import { intentRegistry } from "../registry";
+import { intentFamily, intentRegistry } from "../registry";
 import { EnvelopeFallback } from "./ErrorStates/EnvelopeFallback";
 import { ShortRouteNotice } from "./ErrorStates/ShortRouteNotice";
 import { ResultCardSurface } from "./ResultCardSurface";
@@ -41,9 +41,7 @@ function CardBadge({ dict, superseded }: Readonly<{ dict: ChatDict; superseded?:
 type SurfaceProps = Pick<PartProps, "part" | "superseded"> & Readonly<{ children: ReactNode }>;
 
 function CardSurface({ part, superseded, children }: SurfaceProps) {
-  const route = part.intent === "plan_route" || part.intent === "plan_selected" || part.intent === "plan_multi";
-  const search = part.intent === "search_bangumi" || part.intent === "search_nearby";
-  if (route || search || part.intent === "clarify") return <ResultCardSurface intent={part.intent} superseded={superseded}>{children}</ResultCardSurface>;
+  if (intentFamily(part.intent) !== "prose") return <ResultCardSurface intent={part.intent} superseded={superseded}>{children}</ResultCardSurface>;
   return <article className={cardClass(superseded)} data-intent={part.intent}>{children}</article>;
 }
 
