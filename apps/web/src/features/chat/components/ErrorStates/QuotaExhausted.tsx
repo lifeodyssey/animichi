@@ -20,7 +20,7 @@ export function quotaNotice(dict: ChatDict, locale: Locale, resetsAtMs: number |
   return dict.errorStates.d12MessageAt.replace("{time}", time);
 }
 
-const ACTION = "chat-quota-exhausted__login [min-height:44px]! [height:auto]! [padding:9px_16px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-text-color:var(--color-primary-strong)] [--animal-bg-color:var(--color-paper)] focus-visible:outline-primary-strong motion-reduce:[transition:none]!";
+const ACTION = "chat-quota-exhausted__login [min-height:44px]! [height:auto]! [padding:9px_16px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)] [--animal-border-color:var(--color-gold)] focus-visible:outline-primary-strong motion-reduce:[transition:none]!";
 
 function QuotaMark() {
   return <span aria-hidden="true" className="mt-0.5 [display:grid] size-7 shrink-0 place-items-center rounded-full bg-gold-soft text-fg">

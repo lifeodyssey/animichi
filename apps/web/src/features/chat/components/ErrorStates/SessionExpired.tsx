@@ -14,7 +14,9 @@ type ActionProps = Readonly<{
   descriptionId: string;
 }>;
 
-const ACTION = "[min-height:44px]! [height:auto]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-text-color:var(--color-primary-strong)] focus-visible:outline-primary-strong motion-reduce:transition-none";
+const ACTION = "[min-height:44px]! [height:auto]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! focus-visible:outline-primary-strong motion-reduce:transition-none";
+const QUIET_TEXT = "[--animal-text-color:var(--color-primary-strong)]";
+const GOLD_FILL = "[--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)] [--animal-border-color:var(--color-gold)]";
 const UNAVAILABLE = "animal-btn-disabled [pointer-events:none]";
 
 function ExpiryMark({ recovering }: Readonly<{ recovering: boolean }>) {
@@ -27,13 +29,13 @@ function ResumeAction({ dict, onResume, recovering = false, descriptionId }: Omi
   const hintId = useId();
   return <div className="flex min-w-0 flex-wrap items-center gap-x-1 text-sm text-muted-fg">
     <span id={hintId}>{dict.errorStates.d8ResumeHint}</span>
-    <Button htmlType="button" type="text" className={`chat-session-expired__resume ${ACTION} [padding:10px_2px]! underline underline-offset-4 ${recovering ? UNAVAILABLE : ""}`} onClick={() => { if (!recovering) onResume(); }} aria-disabled={recovering} aria-busy={recovering} aria-describedby={`${hintId} ${descriptionId}`}>{dict.errorStates.d8Resume}</Button>
+    <Button htmlType="button" type="text" className={`chat-session-expired__resume ${ACTION} ${QUIET_TEXT} [padding:10px_2px]! underline underline-offset-4 ${recovering ? UNAVAILABLE : ""}`} onClick={() => { if (!recovering) onResume(); }} aria-disabled={recovering} aria-busy={recovering} aria-describedby={`${hintId} ${descriptionId}`}>{dict.errorStates.d8Resume}</Button>
   </div>;
 }
 
 function ExpiryActions({ dict, onLogin, onResume, recovering = false, descriptionId }: ActionProps) {
   return <div className="col-start-2 grid min-w-0 justify-items-start gap-1">
-    <Button htmlType="button" type="default" className={`chat-session-expired__login ${ACTION} [padding:9px_16px]! [--animal-bg-color:var(--color-paper)] ${recovering ? UNAVAILABLE : ""}`} onClick={() => { if (!recovering) onLogin(); }} aria-disabled={recovering} aria-describedby={descriptionId} aria-haspopup="dialog">{dict.errorStates.d8Login}</Button>
+    <Button htmlType="button" type="default" className={`chat-session-expired__login ${ACTION} ${GOLD_FILL} [padding:9px_16px]! ${recovering ? UNAVAILABLE : ""}`} onClick={() => { if (!recovering) onLogin(); }} aria-disabled={recovering} aria-describedby={descriptionId} aria-haspopup="dialog">{dict.errorStates.d8Login}</Button>
     <ResumeAction dict={dict} onResume={onResume} recovering={recovering} descriptionId={descriptionId} />
   </div>;
 }

@@ -67,6 +67,8 @@ export interface ChatDict {
   readonly entryAnimePrompt: string;
   /** The visible question and exact outgoing message for the city example. */
   readonly entryCityPrompt: string;
+  /** A1 entry card 3: begin from an open chat. */
+  readonly entryChatTitle: string;
   /** Visible, optional conversation starter for an undecided visitor. */
   readonly entryChatPrompt: string;
   readonly errorBanner: string;

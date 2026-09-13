@@ -21,10 +21,13 @@ function ExampleButton({ example, disabled, onChip }: Readonly<{ example: Exampl
 }
 
 function StartExamples({ dict, onChip, disabled = false }: Props) {
-  const examples: readonly Example[] = [{ label: dict.entryAnimeTitle, prompt: dict.entryAnimePrompt, primary: true }, { label: dict.entryCityTitle, prompt: dict.entryCityPrompt }];
+  const examples: readonly Example[] = [
+    { label: dict.entryAnimeTitle, prompt: dict.entryAnimePrompt, primary: true },
+    { label: dict.entryCityTitle, prompt: dict.entryCityPrompt },
+    { label: dict.entryChatTitle, prompt: dict.entryChatPrompt },
+  ];
   return <div className="grid gap-3">
     {examples.map(example => <ExampleButton key={example.label} example={example} disabled={disabled} onChip={onChip} />)}
-    <Button htmlType="button" type="text" className={ACTION + " " + QUIET + " [font-size:14px]!"} disabled={disabled} onClick={() => { onChip(dict.entryChatPrompt); }}>{dict.entryChatPrompt}</Button>
   </div>;
 }
 

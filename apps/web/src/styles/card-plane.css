@@ -17,7 +17,8 @@
   .anime-card,
   .chat-card,
   .route-card,
-  .shiori-card {
+  .shiori-card,
+  .settings-byok__card {
     overflow: hidden;
     border: 2px solid var(--color-border-soft);
     border-radius: 18px;

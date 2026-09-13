@@ -10,7 +10,7 @@ type Props = Readonly<{ dict: ChatDict }>;
 type NoticeProps = Props & Readonly<{ onLogin: () => void; expanded: boolean; onToggle: () => void; detailsId: string }>;
 
 const ACTION = "[min-height:44px]! [height:auto]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! focus-visible:outline-primary-strong motion-reduce:[transition:none]!";
-const LOGIN = `${ACTION} chat-budget-exhausted__login [padding:9px_16px]! [--animal-text-color:var(--color-primary-strong)] [--animal-bg-color:var(--color-paper)]`;
+const LOGIN = `${ACTION} chat-budget-exhausted__login [padding:9px_16px]! [--animal-bg-color:var(--color-gold)] [--animal-text-color:var(--color-gold-ink)] [--animal-border-color:var(--color-gold)]`;
 const DISCLOSURE = `${ACTION} chat-budget-exhausted__byok [padding:9px_4px]! [font-weight:500]! [--animal-text-color:var(--color-muted-fg)]`;
 
 function BudgetMark() {

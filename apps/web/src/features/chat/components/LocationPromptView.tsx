@@ -15,7 +15,7 @@ export type LocationPromptViewProps = Readonly<{
 }>;
 
 const LOCATE = "justify-self-start [min-height:46px]! [height:auto]! [padding:10px_16px]! [font-size:14px]! [line-height:1.5]! [white-space:normal]! [--animal-bg-color:var(--color-primary-soft)] [--animal-text-color:var(--color-primary-strong)] [--animal-border-color:var(--color-border-soft)] focus-visible:outline-primary-strong motion-reduce:transition-none";
-const INPUT = "min-w-0 flex-1 [min-height:48px]! [border-radius:14px]! [--animal-bg-color:var(--color-paper)] [--animal-text-color:var(--color-fg)] [--animal-border-color:var(--color-border-soft)] [--animal-primary-color:var(--color-primary-strong)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-strong [&_input]:[font-size:16px]! [&_input]:min-w-0";
+const INPUT = "min-w-0 flex-1 [min-height:48px]! [border-radius:14px]! border-2 border-fg/70 bg-card [--animal-text-color:var(--color-fg)] [--animal-primary-color:var(--color-primary-strong)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary-strong [&_input]:[font-size:16px]! [&_input]:min-w-0 [&_input]:[-webkit-mask-image:linear-gradient(to_right,black_calc(100%_-_28px),transparent_100%)] [&_input]:[mask-image:linear-gradient(to_right,black_calc(100%_-_28px),transparent_100%)]";
 const SUBMIT = "shrink-0 [width:48px]! [min-width:48px]! [height:48px]! [padding:0]! [--animal-bg-color:var(--color-primary)] [--animal-text-color:var(--color-primary-ink)] focus-visible:outline-primary-strong motion-reduce:transition-none";
 
 function LocationGlyph({ kind }: Readonly<{ kind: "locate" | "arrow" }>) {

@@ -1,5 +1,6 @@
+import { Button } from "animal-island-ui-tailwind/button";
 import { LoginModal } from "../../auth/ui/LoginModal";
-import { AnimalButton, animalButtonClass } from "./AnimalButton";
+import { animalButtonClass, chatButtonClass } from "./chat-button-classes";
 import { useChatReturnTarget } from "../ChatReturnTarget";
 import type { ItineraryView } from "../lib/itinerary";
 import type { ChatDict } from "../i18n";
@@ -52,13 +53,14 @@ function saveDisabled(gate: SaveGate): boolean {
   return gate.action === "none" || gate.status === "saving" || gate.status === "saved";
 }
 
-/** Saving stays secondary to opening the route, with the same login gate. */
+/** Saving stays secondary to opening the route, with the same login gate. The
+ * save action is the card's primary commitment, so it wears the gold CTA fill. */
 function SaveButton({ gate, dict }: GateProps) {
   const busy = gate.status === "saving";
   return (
-    <AnimalButton appearance="text" className="[min-height:44px]! [padding-inline:6px]!" data-cta="save" disabled={saveDisabled(gate)} aria-busy={busy} onClick={gate.activate}>
+    <Button htmlType="button" type="primary" className={chatButtonClass({ tone: "gold", className: "[min-height:44px]!" })} data-cta="save" disabled={saveDisabled(gate)} aria-busy={busy} onClick={gate.activate}>
       {dict.route.saveCta}
-    </AnimalButton>
+    </Button>
   );
 }
 
