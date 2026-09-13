@@ -13,6 +13,14 @@ export interface GeographyParams {
 }
 
 const geographyParamsSchema = z.object({ srid: z.number().int().nonnegative() });
+const finiteCoordinate = z.number().refine(Number.isFinite, { message: "coordinates must be finite" });
+const geographyPointSchema = z
+  .object({
+    type: z.literal("Point"),
+    coordinates: z.tuple([finiteCoordinate, finiteCoordinate]),
+    srid: z.number().int().nonnegative(),
+  })
+  .strict();
 
 export class GeographyCodec<Srid extends number> extends CodecImpl<
   typeof GEOGRAPHY_CODEC_ID,
@@ -28,10 +36,7 @@ export class GeographyCodec<Srid extends number> extends CodecImpl<
   }
 
   encode(value: GeographyPoint<Srid>): Promise<string> {
-    return Promise.resolve(value).then((point) => {
-      assertSrid(point, this.srid);
-      return encodePointEwkt(point);
-    });
+    return Promise.resolve(value).then((point) => encodePointEwkt(validatePoint(point, this.srid)));
   }
 
   decode(wire: string): Promise<GeographyPoint<Srid>> {
@@ -39,8 +44,7 @@ export class GeographyCodec<Srid extends number> extends CodecImpl<
   }
 
   encodeJson(value: GeographyPoint<Srid>): JsonValue {
-    assertSrid(value, this.srid);
-    return encodePointEwkt(value);
+    return encodePointEwkt(validatePoint(value, this.srid));
   }
 
   decodeJson(json: JsonValue): GeographyPoint<Srid> {
@@ -82,6 +86,12 @@ function assertSrid<const Srid extends number>(value: GeographyPoint, expected: 
   if (value.srid !== expected) {
     throw new TypeError(`geography encode: expected SRID ${String(expected)}, received ${String(value.srid)}`);
   }
+}
+
+function validatePoint<const Srid extends number>(value: unknown, expected: Srid): GeographyPoint<Srid> {
+  const point = geographyPointSchema.parse(value);
+  assertSrid(point, expected);
+  return point;
 }
 
 export const geographyDescriptorMap = { geography: new GeographyDescriptor() } as const;

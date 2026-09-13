@@ -27,8 +27,9 @@ export async function startDatabaseFixture(): Promise<DatabaseFixture> {
 }
 
 export async function stopDatabaseFixture(fixture: DatabaseFixture): Promise<void> {
-  await Promise.all([fixture.db.close(), fixture.pool.end()]);
-  await fixture.postgres.stop();
+  const failures = await closeResources(fixture);
+  failures.push(...await stopResource(fixture.postgres));
+  throwCleanupFailures(failures);
 }
 
 async function initializeFixture(postgres: TestPostgres, pool: pg.Pool, driverPool: pg.Pool): Promise<DatabaseFixture> {
@@ -61,4 +62,30 @@ async function seed(db: PostgresClient<Contract>, pool: pg.Pool): Promise<void> 
 async function closeFailedStart(postgres: TestPostgres, pool: pg.Pool, driverPool: pg.Pool): Promise<void> {
   await Promise.allSettled([pool.end(), driverPool.end()]);
   await postgres.stop();
+}
+
+async function closeResources(fixture: DatabaseFixture): Promise<Error[]> {
+  return failuresOf(await Promise.allSettled([
+    Promise.resolve().then(() => fixture.db.close()),
+    Promise.resolve().then(() => fixture.pool.end()),
+  ]));
+}
+
+async function stopResource(postgres: TestPostgres): Promise<Error[]> {
+  return failuresOf(await Promise.allSettled([Promise.resolve().then(() => postgres.stop())]));
+}
+
+function failuresOf(results: readonly PromiseSettledResult<void>[]): Error[] {
+  return results.flatMap((result) => result.status === "rejected" ? [asError(result.reason)] : []);
+}
+
+function asError(reason: unknown): Error {
+  return reason instanceof Error ? reason : new Error(String(reason));
+}
+
+function throwCleanupFailures(failures: readonly Error[]): void {
+  const [first, second] = failures;
+  if (first === undefined) return;
+  if (second === undefined) throw first;
+  throw new AggregateError(failures, "database fixture cleanup failed");
 }

@@ -16,12 +16,15 @@ import { prisma, prismaFailure } from "./support/prisma-cli.ts";
 import { assertGistRadiusAndOrder, assertSequentialScan } from "./support/query-plan.ts";
 
 let fixture: DatabaseFixture;
+let fixtureStarted = false;
 
 before(async () => {
   fixture = await startDatabaseFixture();
+  fixtureStarted = true;
 });
 
 after(async () => {
+  if (!fixtureStarted) return;
   await stopDatabaseFixture(fixture);
 });
 

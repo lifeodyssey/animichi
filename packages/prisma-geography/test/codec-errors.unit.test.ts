@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { GeographyDescriptor } from "../src/geography/codec.ts";
-import { geographyPoint } from "../src/geography/geojson.ts";
+import { geographyPoint, type GeographyPoint } from "../src/geography/geojson.ts";
 
 const TOKYO_HEX = "0101000020e61000005f984c158c7861408104c58f31d74140";
 const TOKYO_BIG_ENDIAN_HEX = "0020000001000010e64061788c154c985f4041d7318fc50481";
@@ -30,6 +30,32 @@ void test("the codec validates JSON and SRID input at runtime", async () => {
   assert.throws(() => dynamicCodec.decodeJson(42), /must be hex EWKB/u);
 });
 
+void test("the codec validates the complete point shape before encoding", async () => {
+  const invalid = asPoint({ type: "LineString", coordinates: [139.7671, 35.6812], srid: 4326 });
+  await assert.rejects(dynamicCodec.encode(invalid), { name: "ZodError" });
+  assert.throws(() => dynamicCodec.encodeJson(invalid), { name: "ZodError" });
+});
+
+void test("the codec rejects point coordinates with the wrong shape", () => {
+  const invalid = asPoint({ type: "Point", coordinates: [139.7671, 35.6812, 0], srid: 4326 });
+  assert.throws(() => dynamicCodec.encodeJson(invalid), { name: "ZodError" });
+});
+
+void test("the codec rejects non-finite coordinates supplied at runtime", () => {
+  const invalid = asPoint({ type: "Point", coordinates: [Number.NaN, 35.6812], srid: 4326 });
+  assert.throws(() => dynamicCodec.encodeJson(invalid), { name: "ZodError" });
+});
+
+void test("the codec rejects non-integer SRIDs supplied at runtime", () => {
+  const invalid = asPoint({ type: "Point", coordinates: [139.7671, 35.6812], srid: 4326.5 });
+  assert.throws(() => dynamicCodec.encodeJson(invalid), { name: "ZodError" });
+});
+
+void test("the codec rejects a point with extra fields", () => {
+  const invalid = asPoint({ type: "Point", coordinates: [139.7671, 35.6812], srid: 4326, altitude: 10 });
+  assert.throws(() => dynamicCodec.encodeJson(invalid), { name: "ZodError" });
+});
+
 void test("the descriptor renders SRID-constrained contract types", () => {
   assert.equal(descriptor.nativeTypeFor({ codecId: "pg/geography@1", typeParams: { srid: 4326 } }), "geography");
   assert.equal(descriptor.renderOutputType({ srid: 4326 }), "Geography<4326>");
@@ -42,4 +68,8 @@ void test("geographyPoint rejects an invalid SRID", () => {
 
 function withType(typeBytes: string): string {
   return `01${typeBytes}${TOKYO_HEX.slice(10)}`;
+}
+
+function asPoint(value: unknown): GeographyPoint<4326> {
+  return value as GeographyPoint<4326>;
 }

@@ -17,12 +17,24 @@ function binaryOperation(method: string, self: unknown, other: unknown, returns:
 
 function dwithinMeters(self: unknown, other: unknown, meters: unknown) {
   const geographyCodec = codecOf(self);
+  assertMeters(meters);
   return buildOperation({
     method: "dwithinMeters",
     args: [toExpr(self, geographyCodec), toExpr(other, geographyCodec), toExpr(meters, { codecId: FLOAT8_CODEC_ID })],
     returns: { codecId: BOOL_CODEC_ID, nullable: false },
     lowering: { targetFamily: "sql", strategy: "function", template: "ST_DWithin({{self}}, {{arg0}}, {{arg1}})" },
   });
+}
+
+function assertMeters(value: unknown): void {
+  if (isExpression(value)) return;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new TypeError("dwithinMeters: meters must be a finite non-negative number");
+  }
+}
+
+function isExpression(value: unknown): value is { readonly buildAst: () => unknown } {
+  return typeof value === "object" && value !== null && "buildAst" in value && typeof value.buildAst === "function";
 }
 
 function distanceMeters(self: unknown, other: unknown) {

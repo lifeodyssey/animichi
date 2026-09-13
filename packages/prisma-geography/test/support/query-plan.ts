@@ -28,13 +28,12 @@ function rootNode(payload: unknown): PlanNode {
 
 function planNode(value: unknown): PlanNode {
   if (!isRecord(value) || typeof value["Node Type"] !== "string") throw new TypeError("EXPLAIN node is malformed");
-  const plans = value.Plans;
   return {
     nodeType: value["Node Type"],
     indexName: optionalString(value["Index Name"]),
     indexCondition: optionalString(value["Index Cond"]),
     orderBy: optionalString(value["Order By"]),
-    children: Array.isArray(plans) ? plans.map(planNode) : [],
+    children: Array.isArray(value.Plans) ? value.Plans.map(planNode) : [],
   };
 }
 

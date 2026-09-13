@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import type { OperationExpr } from "@prisma/orm-postgres/relational-core/ast";
 import { geographyQueryOperations } from "../src/geography/operations.ts";
 
 const location = {
@@ -18,6 +19,20 @@ void test("dwithinMeters lowers to the metre-native PostGIS function", () => {
     template: "ST_DWithin({{self}}, {{arg0}}, {{arg1}})",
   });
   assert.deepEqual(operation.returns, { codecId: "pg/bool@1", nullable: false });
+});
+
+void test("dwithinMeters rejects a negative raw radius", () => {
+  assert.throws(() => geographyQueryOperations().dwithinMeters.impl(location, other, -1), /finite non-negative number/u);
+});
+
+void test("dwithinMeters rejects a non-finite raw radius", () => {
+  assert.throws(() => geographyQueryOperations().dwithinMeters.impl(location, other, Number.POSITIVE_INFINITY), /finite non-negative number/u);
+});
+
+void test("dwithinMeters preserves expression-valued radii", () => {
+  const meters = { buildAst: () => ({ kind: "test-meters" }) };
+  const operation = geographyQueryOperations().dwithinMeters.impl(location, other, meters).buildAst() as OperationExpr;
+  assert.deepEqual(operation.args[1], { kind: "test-meters" });
 });
 
 void test("distanceMeters returns a non-null float8", () => {
