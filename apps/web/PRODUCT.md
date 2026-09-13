@@ -31,7 +31,7 @@ Seichijunrei = 动漫圣地巡礼的「现场作战系统」。一句话(作品�
 - TanStack Start SSR apps/web;catalog/users CF Workers;Neon 数据面;oRPC 契约
 - 移动端 `/` 首效应交接给 `/chat`;桌面端 `/` 是访客首页
 - 地图 static-first(静态层永不画 >50 pin),MapLibre 点击才升格
-- 测试地板:单测 2339 用例,coverage statements 98 / branches 95 / functions 98 / lines 99,只升不降
+- 测试地板:单测 2671 用例,coverage statements 98 / branches 95 / functions 98 / lines 99,只升不降
 - 登录墙只在"保存"一刻(Neon Auth magic link)
 
 ## Brand Commitments
