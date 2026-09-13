@@ -1,6 +1,6 @@
 """Session lifecycle + state mixins for the Session repository (#994).
 
-``_SessionLifecycleMixin`` wraps create/load/rename, and
+``_SessionLifecycleMixin`` wraps create/load, and
 ``_SessionStateMixin`` wraps the state get/upsert/delete operations; both
 delegate to the module-level statement+flow helpers in ``_session_state``
 (1-10-50).
@@ -21,7 +21,6 @@ from animichi.infrastructure.persistence.repositories._session_state import (
     _delete_state,
     _get_state,
     _load,
-    _update_title,
     _upsert,
     _upsert_state,
 )
@@ -81,17 +80,6 @@ async def _upsert_session(
             await _upsert(session, session_id, state, metadata, user_id)
 
 
-async def _update_title_session(
-    sessionmaker: AsyncSessionFactory,
-    session_id: str,
-    title: str,
-    user_id: str | None,
-) -> bool:
-    async with sessionmaker() as session:
-        async with session.begin():
-            return await _update_title(session, session_id, title, user_id)
-
-
 class _SessionStateMixin:
     """State get/upsert/delete operations for the session store."""
 
@@ -130,7 +118,7 @@ class _SessionLifecycleMixin:
 
 
 class _SessionMutationMixin:
-    """Upsert/rename/ownership operations for the session store."""
+    """Upsert/ownership operations for the session store."""
 
     _sessionmaker: AsyncSessionFactory
 
@@ -152,17 +140,6 @@ class _SessionMutationMixin:
 
     async def check_session_owner(self, session_id: str, user_id: str) -> bool:
         return await _session_owned(self._sessionmaker, session_id, user_id)
-
-    async def update_title(
-        self,
-        session_id: str,
-        title: str,
-        *,
-        user_id: str | None = None,
-    ) -> bool:
-        return await _update_title_session(
-            self._sessionmaker, session_id, title, user_id
-        )
 
 
 __all__ = [

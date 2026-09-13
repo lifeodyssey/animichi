@@ -71,4 +71,12 @@ export const APPROVED_BREAKING_CHANGES: readonly ApprovedBreakingChange[] = [
     issue: "#1595",
     approved: "2026-09-15",
   },
+  {
+    document: "agent-openapi.json",
+    method: "PATCH",
+    path: "/v1/conversations/{session_id}",
+    kind: "endpoint-removed",
+    issue: "#1598",
+    approved: "2026-09-15",
+  },
 ];

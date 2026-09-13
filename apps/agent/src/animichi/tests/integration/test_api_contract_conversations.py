@@ -1,10 +1,10 @@
 """The conversation endpoints' HTTP contract.
 
-Messages and rename share one identity rule — a missing ``X-User-Id`` is a 400,
-another user's session is a 404 — so their shape assertions live together;
-the seeding and cleanup they need comes from ``_api_contract_client.py``. The
-health endpoint is pinned in ``test_api_contract_health.py``, and the shared
-error envelope in ``test_api_contract_error_shape.py``.
+One owned session's message page answers 200, and both another user's session
+and a missing one collapse to 404; the seeding and cleanup these assertions
+need comes from ``_api_contract_client.py``. The health endpoint is pinned in
+``test_api_contract_health.py``, and the shared error envelope — including the
+missing-identity 400 — in ``test_api_contract_error_shape.py``.
 """
 
 from __future__ import annotations
@@ -62,43 +62,3 @@ class TestConversationMessages:
                 headers={"X-User-Id": "user-1"},
             )
         assert resp.status_code == 404
-
-
-class TestConversationPatch:
-    async def test_returns_200_on_success(self, tc_db: PersistenceRepos) -> None:
-        await seed_conversation(tc_db, "sess-patch-1", "user-1")
-        try:
-            async with contract_client(db=tc_db) as client:
-                resp = await client.patch(
-                    "/v1/conversations/sess-patch-1",
-                    json={"title": "New title"},
-                    headers={"X-User-Id": "user-1"},
-                )
-            assert resp.status_code == 200
-            body = resp.json()
-            assert "ok" in body
-        finally:
-            await cleanup_test_data(tc_db)
-
-    async def test_blank_title_returns_422(self, tc_db: PersistenceRepos) -> None:
-        await seed_conversation(tc_db, "sess-patch-2", "user-1")
-        try:
-            async with contract_client(db=tc_db) as client:
-                resp = await client.patch(
-                    "/v1/conversations/sess-patch-2",
-                    json={"title": "   "},
-                    headers={"X-User-Id": "user-1"},
-                )
-            assert resp.status_code == 422
-        finally:
-            await cleanup_test_data(tc_db)
-
-    async def test_missing_user_header_returns_400(
-        self, tc_db: PersistenceRepos
-    ) -> None:
-        async with contract_client(db=tc_db) as client:
-            resp = await client.patch(
-                "/v1/conversations/sess-patch-3",
-                json={"title": "hello"},
-            )
-        assert resp.status_code == 400

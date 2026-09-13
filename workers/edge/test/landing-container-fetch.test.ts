@@ -10,9 +10,9 @@ import assert from "node:assert/strict";
 // would still be a container call. `mock.module` has to be registered before
 // the mocked module is loaded, so the app is imported dynamically below; the
 // `/v1` case proves the spy is live and that the forward is still the seam's
-// one caller. #1599 moved that proof onto `PATCH
-// /v1/conversations/{session_id}`: `GET /v1/conversations` is the edge's own
-// conversation index now, so it never reaches the seam.
+// one caller. #1598 retired the container's rename, so that proof rides `POST
+// /v1/photo-search`: `GET /v1/conversations` is the edge's own conversation
+// index now, and photo-search is the surviving container-forwarded route.
 
 const seam = { calls: 0 };
 const container = { fetches: 0 };
@@ -32,9 +32,9 @@ const { createWorkerApp } = await import("../src/app.ts");
 const { alwaysAllowGuard, stubCtx } = await import("../src/container/entry-env.ts");
 
 /** A CONTAINER binding whose every fetch counts itself. `EDGE_GUARD` is the
- * always-allow double because the `/v1` case probes the durable-guarded rename
- * route below: without it the limiter fails closed before the seam and the spy
- * would measure nothing. */
+ * always-allow double because the `/v1` case probes the durable-guarded
+ * photo-search route below: without it the limiter fails closed before the seam
+ * and the spy would measure nothing. */
 function countingEnv() {
   return {
     EDGE_SHOWCASE_MODE: "false",
@@ -77,7 +77,7 @@ void test("the /v1 forward still rides the seam, so the spy is live", async () =
   const app = createWorkerApp({
     authenticate: () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const),
   });
-  const res = await app.request("/v1/conversations/s-1", { method: "PATCH" }, countingEnv(), stubCtx);
+  const res = await app.request("/v1/photo-search", { method: "POST" }, countingEnv(), stubCtx);
   assert.equal(res.status, 200);
   assert.equal(await res.text(), "container");
   assert.equal(seam.calls, 1, "/v1 must ride fetchContainerResilient");

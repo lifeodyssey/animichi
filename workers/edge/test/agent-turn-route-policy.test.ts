@@ -25,7 +25,7 @@ void test("native routes remain exact about HTTP methods", () => {
 void test("the conversation index is a GET list and nothing else on that path is native", () => {
   const policy = turnRoutePolicy();
   assert.equal(policy.select("GET", "/v1/conversations/"), null, "the list path is exact, like every other tier path");
-  assert.equal(policy.select("PATCH", "/v1/conversations"), null, "the rename route is still the container's");
+  assert.equal(policy.select("PATCH", "/v1/conversations"), null, "no PATCH conversation route is native");
   assert.equal(policy.select("GET", "/v1/conversations/s-42"), null);
 });
 

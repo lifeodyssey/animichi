@@ -79,6 +79,11 @@ void test("the three retired catalog reads match no inventory and no limiter cel
   assert.equal(classifyRatePolicy("GET", "/v1/bangumi/nearby").limiter, "none");
 });
 
+void test("retired conversation rename is absent and unmanaged", () => {
+  assert.equal(inventoryPaths.has("/v1/conversations/{session_id}"), false);
+  assert.equal(classifyRatePolicy("PATCH", "/v1/conversations/x").limiter, "none");
+});
+
 void test("anonymous allowlist membership matches the inventory's paths", () => {
   assert.equal(isAnonymousV1("/v1/chat"), true);
   assert.equal(isAnonymousV1("/v1/photo-search"), true);

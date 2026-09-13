@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Annotated, cast
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
@@ -17,16 +17,11 @@ from animichi.infrastructure.observability.runtime import record_history_request
 from animichi.infrastructure.persistence.repositories.composite import (
     PersistenceRepos,
 )
-from animichi.infrastructure.persistence.repositories.session import (
-    SQLModelSessionRepository,
-)
 from animichi.interfaces.boundary.agent_models import GetSessionHistoryResponse
 from animichi.interfaces.routes._deps import (
-    ConversationPatchRequest,
     TrustedAuthContext,
     _error_response,
     _get_db_from_request,
-    _json_response,
     _require_db,
     _require_trusted_user,
 )
@@ -36,15 +31,6 @@ router = APIRouter(prefix="/v1", tags=["conversations"])
 
 def _unauthorized() -> JSONResponse:
     return _error_response("unauthorized", "Missing user identity.", status_code=401)
-
-
-def _session_repo(request: Request) -> SQLModelSessionRepository:
-    """The lifespan-owned SQLModel session repository (#994), falling back to
-    the persistence aggregate's repo for test doubles."""
-    repo = getattr(request.app.state, "session_repo", None)
-    if repo is not None:
-        return cast(SQLModelSessionRepository, repo)
-    return _require_db(_get_db_from_request(request)).session
 
 
 class SessionHistoryAdapter:
@@ -79,27 +65,6 @@ class SessionHistoryAdapter:
 
     async def current_revision(self, session_id: str) -> int:
         return await self._session.current_revision(session_id)
-
-
-@router.patch("/conversations/{session_id}")
-async def handle_patch_conversation(
-    session_id: str,
-    payload: ConversationPatchRequest,
-    request: Request,
-    auth: Annotated[TrustedAuthContext, Depends(_require_trusted_user)],
-) -> JSONResponse:
-    if auth.user_id is None:
-        return _unauthorized()
-    repo = _session_repo(request)
-    record = await repo.load(session_id)
-    if record is None or record.user_id != auth.user_id:
-        return _error_response(
-            "not_found",
-            "Conversation not found.",
-            status_code=404,
-        )
-    await repo.update_title(session_id, payload.title, user_id=auth.user_id)
-    return _json_response({"ok": True})
 
 
 @router.get(

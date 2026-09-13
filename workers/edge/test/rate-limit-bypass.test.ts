@@ -92,7 +92,7 @@ void test("another isolate cannot reset an identity's spent window", async () =>
 
 // AC2 (review REJECT #680): the AUTH cost path previously consulted only
 // isAuthRateLimited (which matched /v1/chat + /v1/byok/*), leaving
-// authenticated PATCH /v1/conversations/*, /v1/photo-search
+// authenticated /v1/photo-search
 // and /v1/photo-search/confirm unguarded. They now route through the SAME
 // policy-driven guard as chat/BYOK: prove it by spending the one-request
 // AUTH window on that class and seeing the second the caller shares reject.
@@ -115,15 +115,6 @@ void test("authenticated POST /v1/photo-search/confirm is guarded by the policy 
   assert.equal(second.status, 429, "an authenticated photo-search confirm must fail closed on the shared window");
 });
 
-void test("authenticated PATCH /v1/conversations/* is guarded by the policy path", async () => {
-  const app = authedApp();
-  const e = env(fakeGuard(NOW).namespace);
-  const patch = { method: "PATCH", headers: { Authorization: "Bearer jwt" } };
-  assert.equal((await app.request("/v1/conversations/conv-123", patch, e, stubCtx)).status, 200);
-  const second = await app.request("/v1/conversations/conv-123", patch, e, stubCtx);
-  assert.equal(second.status, 429, "a PATCH conversation (rename) must be a guarded durable mutation");
-});
-
 void test("an authenticated GET conversation read stays unmanaged (never spends the window)", async () => {
   const app = authedApp();
   const e = env(fakeGuard(NOW).namespace);
@@ -132,15 +123,4 @@ void test("an authenticated GET conversation read stays unmanaged (never spends 
   await app.request("/v1/conversations/conv-123/messages", get, e, stubCtx);
   const res = await app.request("/v1/conversations/conv-123", get, e, stubCtx);
   assert.equal(res.status, 200, "reads are unmanaged and must never consume a window slot");
-});
-
-void test("an authenticated PATCH shares the identity window with chat (one limiter cell)", async () => {
-  // Defeats any two-source-of-truth drift: chat and a PATCH conversation are
-  // both durable fail-closed mutations, so they spend the SAME identity bucker.
-  const app = authedApp();
-  const e = env(fakeGuard(NOW).namespace);
-  const patch = { method: "PATCH", headers: { Authorization: "Bearer jwt" } };
-  assert.equal((await app.request("/v1/chat", POST, e, stubCtx)).status, 200);
-  const res = await app.request("/v1/conversations/conv-1", patch, e, stubCtx);
-  assert.equal(res.status, 429, "chat and a PATCH conversation must share one identity's window");
 });

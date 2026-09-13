@@ -50,14 +50,14 @@ function recordsIn(lines: string[]): Record<string, unknown>[] {
   return lines.map((line) => JSON.parse(line) as Record<string, unknown>);
 }
 
-/** The edge's own verdict for a verified caller: `PATCH
- * /v1/conversations/{session_id}` is container-served, so only the verification
- * (and the stubbed-open limiter) stands between it and the binding. */
+/** The edge's own verdict for a verified caller: `POST /v1/photo-search` is
+ * container-served, so only the verification (and the stubbed-open limiter)
+ * stands between it and the binding. */
 const verified = () => Promise.resolve({ ok: true, userId: "u1", userType: "human" } as const);
 
 async function failingRequest(): Promise<Response> {
   return createWorkerApp({ authenticate: verified }).request(
-    "/v1/conversations/s-1", { method: "PATCH" }, throwingEnv(), stubCtx,
+    "/v1/photo-search", { method: "POST" }, throwingEnv(), stubCtx,
   );
 }
 
