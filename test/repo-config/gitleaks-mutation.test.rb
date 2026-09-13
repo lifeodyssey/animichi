@@ -20,11 +20,28 @@ class GitleaksMutationTest < Minitest::Test
     assert_includes out + err, consequence, "mutation must name its consequence: #{label}"
   end
 
+  def accept_config(path, label)
+    out, err, status = Open3.capture3({ "GITLEAKS_CONFIG" => path }, RbConfig.ruby, CONTRACT)
+    assert status.success?, "valid config rejected: #{label}\n#{out}#{err}"
+  end
+
+  def with_temp_config(source, prefix)
+    Dir.mktmpdir(prefix) do |dir|
+      path = File.join(dir, ".gitleaks.toml")
+      File.write(path, source)
+      yield path
+    end
+  end
+
   def probe(source, label, consequence = ZERO_RULES)
-    Dir.mktmpdir("gitleaks-config-mutation-") do |dir|
-      copy = File.join(dir, ".gitleaks.toml")
-      File.write(copy, source)
-      reject_config(copy, label, consequence)
+    with_temp_config(source, "gitleaks-config-mutation-") do |path|
+      reject_config(path, label, consequence)
+    end
+  end
+
+  def accept_probe(source, label)
+    with_temp_config(source, "gitleaks-config-custom-") do |path|
+      accept_config(path, label)
     end
   end
 
@@ -78,6 +95,23 @@ class GitleaksMutationTest < Minitest::Test
            "inherited rules dropped by name", "the named rules stop running")
   end
 
+  def test_rejects_github_pat_default_rule_redefinition
+    probe("#{File.read(CONFIG)}\n[[rules]]\nid = \"github-pat\"\n",
+          "inherited rule redefined",
+          "redefining that inherited rule can stop it from reporting the secrets it is meant to catch")
+  end
+
+  def test_rejects_private_key_default_rule_redefinition
+    probe("#{File.read(CONFIG)}\n[[rules]]\nid = \"private-key\"\n",
+          "private-key default rule redefined",
+          "redefining that inherited rule can stop it from reporting the secrets it is meant to catch")
+  end
+
+  def test_allows_a_noncolliding_custom_rule
+    source = "#{File.read(CONFIG)}\n[[rules]]\nid = \"animichi-custom-secret\"\nregex = '''ANIMICHI_[A-Z0-9]{16}'''\n"
+    accept_probe(source, "animichi custom rule")
+  end
+
   def test_rejects_allowlist_for_every_path
     mutate(ALLOWLIST_PATHS, "paths = ['''.*''']",
            "allowlist path widened to every file", "exempt from every rule")
@@ -91,5 +125,10 @@ class GitleaksMutationTest < Minitest::Test
   def test_rejects_stopwords_that_silence_a_rule_class
     mutate(ALLOWLIST, "#{ALLOWLIST}\n  stopwords = [\"GHP_\"]",
            "allowlist stopword silenced a whole rule class", "silencing that rule class")
+  end
+
+  def test_rejects_stopwords_that_silence_google_api_keys
+    mutate(ALLOWLIST, "#{ALLOWLIST}\n  stopwords = [\"AIzaSy\"]",
+           "allowlist stopword silenced Google API keys", "silencing that rule class")
   end
 end
