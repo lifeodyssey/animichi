@@ -1,15 +1,26 @@
 # SUT: .gitleaks.toml and its default-rule inheritance.
 # CI parity comes only from these exact Ruby invocations in
-# `.github/workflows/pr-verification.yml`: `ruby test/repo-config/gitleaks-mutation.test.rb`
-# and `ruby test/repo-config/gitleaks.test.rb`; `quality.sh` was retired on this base.
+# `.github/workflows/pr-verification.yml`: `ruby test/repo-config/gitleaks-mutation.test.rb`,
+# `ruby test/repo-config/gitleaks-pin-mutation.test.rb`, and
+# `ruby test/repo-config/gitleaks.test.rb`; `quality.sh` was retired on this base.
+# Values are read through test/repo-config/gitleaks_config.rb, which decodes the
+# TOML spellings gitleaks honors and refuses the ones it cannot compare.
 # Regex and stopword checks see only the finite probe shapes declared below.
 # `.gitleaksignore`, inline `gitleaks:allow`, and allowlist `commits` are out of
 # scope by design.
 require "minitest/autorun"
+require "psych"
+require_relative "gitleaks_release"
+require_relative "gitleaks_toml"
 
 class GitleaksConfigTest < Minitest::Test
-  ROOT = File.expand_path("../..", __dir__)
+  ROOT = ENV.fetch("TEST_REPOSITORY_ROOT", File.expand_path("../..", __dir__))
   CONFIG = ENV.fetch("GITLEAKS_CONFIG", File.join(ROOT, ".gitleaks.toml"))
+  PRE_COMMIT = File.join(ROOT, ".pre-commit-config.yaml")
+  WORKFLOW = File.join(ROOT, ".github/workflows/pr-verification.yml")
+  GITLEAKS_REPO = "https://github.com/gitleaks/gitleaks"
+  GITLEAKS_ACTION = "gitleaks/gitleaks-action@"
+
   CONSEQUENCE = 'gitleaks runs with zero rules and reports "no leaks found" for every secret'
   ABSENT = "gitleaks falls back to its default rules and loses the atlas.sum allowlist this file exists for"
   DISABLED = 'the named rules stop running and gitleaks reports "no leaks found" for the secrets they catch'
@@ -17,70 +28,10 @@ class GitleaksConfigTest < Minitest::Test
   EXEMPTED = 'every matching file is exempt from every rule and gitleaks reports "no leaks found" for its secrets'
   HIDDEN = 'the matching secrets are dropped before they are reported, whatever rule found them'
   SILENCED = 'every secret containing it is dropped, silencing that rule class at any entropy'
-
-  # Snapshot of the 222 IDs in gitleaks v8.30.1's bundled default config.
-  # Source: https://github.com/gitleaks/gitleaks/blob/v8.30.1/config/gitleaks.toml
-  DEFAULT_RULE_IDS = %w[
-    1password-secret-key 1password-service-account-token adafruit-api-key
-    adobe-client-id adobe-client-secret age-secret-key airtable-api-key
-    airtable-personnal-access-token algolia-api-key alibaba-access-key-id
-    alibaba-secret-key anthropic-admin-api-key anthropic-api-key artifactory-api-key
-    artifactory-reference-token asana-client-id asana-client-secret atlassian-api-token
-    authress-service-client-access-key aws-access-token aws-amazon-bedrock-api-key-long-lived
-    aws-amazon-bedrock-api-key-short-lived azure-ad-client-secret beamer-api-token
-    bitbucket-client-id bitbucket-client-secret bittrex-access-key bittrex-secret-key
-    cisco-meraki-api-key clickhouse-cloud-api-secret-key clojars-api-token
-    cloudflare-api-key cloudflare-global-api-key cloudflare-origin-ca-key codecov-access-token
-    cohere-api-token coinbase-access-token confluent-access-token confluent-secret-key
-    contentful-delivery-api-token curl-auth-header curl-auth-user databricks-api-token
-    datadog-access-token defined-networking-api-token digitalocean-access-token
-    digitalocean-pat digitalocean-refresh-token discord-api-token discord-client-id
-    discord-client-secret doppler-api-token droneci-access-token dropbox-api-token
-    dropbox-long-lived-api-token dropbox-short-lived-api-token duffel-api-token
-    dynatrace-api-token easypost-api-token easypost-test-api-token etsy-access-token
-    facebook-access-token facebook-page-access-token facebook-secret fastly-api-token
-    finicity-api-token finicity-client-secret finnhub-access-token flickr-access-token
-    flutterwave-encryption-key flutterwave-public-key flutterwave-secret-key flyio-access-token
-    frameio-api-token freemius-secret-key freshbooks-access-token gcp-api-key
-    generic-api-key github-app-token github-fine-grained-pat github-oauth github-pat
-    github-refresh-token gitlab-cicd-job-token gitlab-deploy-token
-    gitlab-feature-flag-client-token gitlab-feed-token gitlab-incoming-mail-token
-    gitlab-kubernetes-agent-token gitlab-oauth-app-secret gitlab-pat gitlab-pat-routable
-    gitlab-ptt gitlab-rrt gitlab-runner-authentication-token
-    gitlab-runner-authentication-token-routable gitlab-scim-token gitlab-session-cookie
-    gitter-access-token gocardless-api-token grafana-api-key grafana-cloud-api-token
-    grafana-service-account-token harness-api-key hashicorp-tf-api-token
-    hashicorp-tf-password heroku-api-key heroku-api-key-v2 hubspot-api-key
-    huggingface-access-token huggingface-organization-api-token infracost-api-token
-    intercom-api-key intra42-client-secret jfrog-api-key jfrog-identity-token jwt jwt-base64
-    kraken-access-token kubernetes-secret-yaml kucoin-access-token kucoin-secret-key
-    launchdarkly-access-token linear-api-key linear-client-secret linkedin-client-id
-    linkedin-client-secret lob-api-key lob-pub-api-key looker-client-id looker-client-secret
-    mailchimp-api-key mailgun-private-api-token mailgun-pub-key mailgun-signing-key
-    mapbox-api-token mattermost-access-token maxmind-license-key messagebird-api-token
-    messagebird-client-id microsoft-teams-webhook netlify-access-token
-    new-relic-browser-api-token new-relic-insert-key new-relic-user-api-id
-    new-relic-user-api-key notion-api-token npm-access-token nuget-config-password
-    nytimes-access-token octopus-deploy-api-key okta-access-token openai-api-key
-    openshift-user-token perplexity-api-key pkcs12-file plaid-api-token plaid-client-id
-    plaid-secret-key planetscale-api-token planetscale-oauth-token planetscale-password
-    postman-api-token prefect-api-token private-key privateai-api-token pulumi-api-token
-    pypi-upload-token rapidapi-access-token readme-api-token rubygems-api-token
-    scalingo-api-token sendbird-access-id sendbird-access-token sendgrid-api-token
-    sendinblue-api-token sentry-access-token sentry-org-token sentry-user-token
-    settlemint-application-access-token settlemint-personal-access-token
-    settlemint-service-access-token shippo-api-token shopify-access-token
-    shopify-custom-access-token shopify-private-app-access-token shopify-shared-secret
-    sidekiq-secret sidekiq-sensitive-url slack-app-token slack-bot-token
-    slack-config-access-token slack-config-refresh-token slack-legacy-bot-token
-    slack-legacy-token slack-legacy-workspace-token slack-user-token slack-webhook-url
-    snyk-api-token sonar-api-token sourcegraph-access-token square-access-token
-    squarespace-access-token stripe-access-token sumologic-access-id sumologic-access-token
-    telegram-bot-api-token travisci-access-token twilio-api-key twitch-api-token
-    twitter-access-secret twitter-access-token twitter-api-key twitter-api-secret
-    twitter-bearer-token typeform-api-token vault-batch-token vault-service-token
-    yandex-access-token yandex-api-key yandex-aws-access-token zendesk-secret-key
-  ].freeze
+  UNREADABLE = "this guard cannot read that configuration, and a config it cannot read is a config it cannot vouch for"
+  NONCANONICAL = "gitleaks weak typing reads that spelling as a one-element list, so the guard would compare something other than what scans"
+  DRIFTED = "the inventoried default rules are bound to the pinned gitleaks version, so a pin move must re-derive them"
+  INVENTORY = "the inventory must be the pinned release's rule IDs, not a subset of them"
 
   SCANNED = [".", ".env", "workers/edge/src/entry.ts"].freeze
 
@@ -93,30 +44,80 @@ class GitleaksConfigTest < Minitest::Test
     "AIzaSy#{PROBE_BODY[0, 33]}"
   ].freeze
 
-  LITERAL = /'''(.*?)'''|"""(.*?)"""|'([^']*)'|"((?:[^"\\]|\\.)*)"/m
-
-  def tables(path)
-    current = nil
-    File.readlines(path, chomp: true).each_with_object({}) do |raw, grouped|
-      line = raw.strip
-      next if line.empty? || line.start_with?("#")
-
-      header = line[/\A\[\[?\s*([^\[\]]+?)\s*\]\]?\z/, 1]
-      current = header || current
-      grouped[current] ||= []
-      grouped[current] << line unless header
-    end
+  def setup
+    assert File.file?(CONFIG), "#{CONFIG} is missing — #{ABSENT}"
+    @assignments = GitleaksToml.read(File.read(CONFIG))
+  rescue GitleaksToml::Unsupported => error
+    flunk "#{CONFIG}: #{error.message} — #{UNREADABLE}"
   end
 
-  def allowlist_lines(config)
-    config.select { |table, _| table.to_s.split(".").last.to_s.start_with?("allowlist") }
-          .values.flatten
+  # ---- the pinned scanner and the inventory that has to track it ----
+
+  def test_inventory_is_the_pinned_releases_default_rules
+    ids = GitleaksRelease::DEFAULT_RULE_IDS
+    assert_equal 222, ids.size, "#{INVENTORY}: #{ids.size} entries"
+    assert_equal ids, ids.uniq, "#{INVENTORY}: duplicate entries"
   end
 
-  def allowlist_values(config, key)
-    keyed = /^#{Regexp.escape(key)}\s*=\s*\[(.*?)\]/m
-    arrays = allowlist_lines(config).join("\n").scan(keyed).flatten
-    arrays.flat_map { |array| array.scan(LITERAL).flat_map(&:compact) }
+  def test_pre_commit_scanner_pin_matches_the_inventoried_release
+    assert_equal "v#{GitleaksRelease::PINNED_VERSION}", pre_commit_rev, "#{PRE_COMMIT}: #{DRIFTED}"
+  end
+
+  def test_ci_scanner_pin_matches_the_inventoried_release
+    assert_equal GitleaksRelease::PINNED_VERSION, ci_action_version, "#{WORKFLOW}: #{DRIFTED}"
+  end
+
+  # ---- inheritance and the redefinition that reaches the same effect ----
+
+  def test_default_rules_remain_enabled
+    flags = fields("extend", "useDefault").map(&:value)
+    assert_equal [true], flags, "#{CONFIG}: [extend] must set useDefault = true — #{CONSEQUENCE}"
+  end
+
+  def test_no_inherited_rule_is_disabled
+    disabled = fields("extend", "disabledRules").first
+    assert_nil disabled, "#{CONFIG}: [extend] carries #{disabled&.key} — #{DISABLED}"
+  end
+
+  def test_no_default_rule_is_redefined
+    redefinition = GitleaksToml.rule_ids(@assignments).find { |id| GitleaksRelease::DEFAULT_RULE_IDS.include?(id) }
+    assert_nil redefinition, "#{CONFIG}: rule id #{redefinition.inspect} — #{REDEFINED}"
+  end
+
+  # ---- the value-side checks, on decoded values ----
+
+  def test_allowlist_values_are_canonical_string_arrays
+    offender = watched_values.find { |assignment| GitleaksToml.strings(assignment).nil? }
+    assert_nil offender, "#{CONFIG}: #{offender&.key} = #{offender&.value.inspect} — #{NONCANONICAL}"
+  end
+
+  def test_allowlist_does_not_exempt_scanned_paths
+    exempted = allowlist_values("paths").find { |pattern| exempts_scanned_paths?(pattern) }
+    assert_nil exempted, "#{CONFIG}: allowlist path #{exempted.inspect} — #{EXEMPTED}"
+  end
+
+  def test_allowlist_does_not_hide_reported_values
+    hidden = allowlist_values("regexes").find { |pattern| hides_reported_secret?(pattern) }
+    assert_nil hidden, "#{CONFIG}: allowlist regex #{hidden.inspect} — #{HIDDEN}"
+  end
+
+  def test_allowlist_does_not_silence_rule_classes
+    silenced = allowlist_values("stopwords").find { |word| silences_reported_secret?(word) }
+    assert_nil silenced, "#{CONFIG}: allowlist stopword #{silenced.inspect} — #{SILENCED}"
+  end
+
+  def fields(path, key)
+    @assignments.select { |assignment| assignment.path.casecmp?(path) && assignment.key.casecmp?(key) }
+  end
+
+  def watched_values
+    allowlists = GitleaksToml.allowlists(@assignments)
+    allowlists.select { |assignment| GitleaksToml::ALLOWLIST_KEYS.any? { |key| assignment.key.casecmp?(key) } }
+  end
+
+  def allowlist_values(key)
+    watched_values.select { |assignment| assignment.key.casecmp?(key) }
+                  .flat_map { |assignment| GitleaksToml.strings(assignment).to_a }
   end
 
   def exempts_scanned_paths?(pattern)
@@ -133,48 +134,15 @@ class GitleaksConfigTest < Minitest::Test
     REPORTABLE.any? { |secret| secret.downcase.include?(stopword.downcase) }
   end
 
-  def redefined_default_rule(config)
-    config.fetch("rules", []).find do |line|
-      id = line[/\Aid\s*=\s*["']([^"']+)["']/, 1]
-      id && DEFAULT_RULE_IDS.include?(id)
-    end
+  def pre_commit_rev
+    repos = Psych.safe_load(File.read(PRE_COMMIT), aliases: true).fetch("repos")
+    entry = repos.find { |repo| repo["repo"] == GITLEAKS_REPO }
+    entry && entry["rev"]
   end
 
-  def setup
-    assert File.file?(CONFIG), "#{CONFIG} is missing — #{ABSENT}"
-    @config = tables(CONFIG)
-  end
-
-  def test_default_rules_remain_enabled
-    assert @config.key?("extend"), "#{CONFIG}: no [extend] table — #{CONSEQUENCE}"
-    assignment = @config.fetch("extend").find { |line| line.match?(/\AuseDefault\s*=/) }
-    refute_nil assignment, "#{CONFIG}: [extend] never sets useDefault — #{CONSEQUENCE}"
-    assert_match(/\AuseDefault\s*=\s*true\s*(#.*)?\z/, assignment,
-                 "#{CONFIG}: [extend] must set useDefault = true — #{CONSEQUENCE}")
-  end
-
-  def test_no_inherited_rule_is_disabled
-    disabled = @config.fetch("extend", []).find { |line| line.match?(/\AdisabledRules\s*=/) }
-    assert_nil disabled, "#{CONFIG}: [extend] drops inherited rules — #{DISABLED}"
-  end
-
-  def test_no_default_rule_is_redefined
-    redefined = redefined_default_rule(@config)
-    assert_nil redefined, "#{CONFIG}: #{redefined} — #{REDEFINED}"
-  end
-
-  def test_allowlist_does_not_exempt_scanned_paths
-    exempted = allowlist_values(@config, "paths").find { |pattern| exempts_scanned_paths?(pattern) }
-    assert_nil exempted, "#{CONFIG}: allowlist path #{exempted.inspect} — #{EXEMPTED}"
-  end
-
-  def test_allowlist_does_not_hide_reported_values
-    hidden = allowlist_values(@config, "regexes").find { |pattern| hides_reported_secret?(pattern) }
-    assert_nil hidden, "#{CONFIG}: allowlist regex #{hidden.inspect} — #{HIDDEN}"
-  end
-
-  def test_allowlist_does_not_silence_rule_classes
-    silenced = allowlist_values(@config, "stopwords").find { |word| silences_reported_secret?(word) }
-    assert_nil silenced, "#{CONFIG}: allowlist stopword #{silenced.inspect} — #{SILENCED}"
+  def ci_action_version
+    steps = Psych.safe_load(File.read(WORKFLOW), aliases: true).dig("jobs", "gitleaks", "steps").to_a
+    step = steps.find { |candidate| candidate["uses"].to_s.start_with?(GITLEAKS_ACTION) }
+    step && step["env"].to_h["GITLEAKS_VERSION"]
   end
 end

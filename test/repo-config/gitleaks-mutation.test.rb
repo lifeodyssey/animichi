@@ -1,4 +1,6 @@
 # SUT: .gitleaks.toml and its default-rule inheritance.
+# Every probe copies the contract's config into a throwaway directory and
+# mutates the copy; the committed .gitleaks.toml is never written to.
 require "minitest/autorun"
 require "open3"
 require "tmpdir"
@@ -13,6 +15,27 @@ class GitleaksMutationTest < Minitest::Test
   ALLOWLIST_PATHS = /paths\s*=\s*\[.*\]/
   ALLOWLIST = "[allowlist]"
   ZERO_RULES = "zero rules"
+  REDEFINED = "redefining that inherited rule can stop it"
+  UNREADABLE = "this guard cannot read that configuration"
+  NONCANONICAL = "gitleaks weak typing reads that spelling as a one-element list"
+  SILENCED = "silencing that rule class"
+  HIDDEN = "dropped before they are reported"
+
+  # gitleaks honors every one of these spellings of the canonical
+  # `[[rules]] id = "github-pat"`; the reader has to resolve them to one ID.
+  RULE_ID_ENCODINGS = [
+    %([[rules]]\nid = "github-pat"),
+    %([[rules]]\nid = """github-pat"""),
+    %([[rules]]\nid = '''github-pat'''),
+    %([[rules]]\n"id" = "github-pat"),
+    %([[rules]]\nid = "github\\u002dpat"),
+    %([[rules]]\nID = "github-pat"),
+    %([[Rules]]\nid = "github-pat"),
+    %([rules]\nid = "github-pat"),
+    %([['rules']]\nid = "github-pat"),
+    %([["rules"]]\nid = "github-pat"),
+    %([["\\u0072ules"]]\nid = "github-pat")
+  ].freeze
 
   def reject_config(path, label, consequence)
     out, err, status = Open3.capture3({ "GITLEAKS_CONFIG" => path }, RbConfig.ruby, CONTRACT)
@@ -45,6 +68,14 @@ class GitleaksMutationTest < Minitest::Test
     end
   end
 
+  def probe_rule(block, label)
+    probe("#{File.read(CONFIG)}\n#{block}\n", label, REDEFINED)
+  end
+
+  def probe_allowlist(assignment, label, consequence)
+    probe("#{File.read(CONFIG)}\n#{assignment}\n", label, consequence)
+  end
+
   def probe_absent(label, consequence)
     Dir.mktmpdir("gitleaks-config-mutation-") do |dir|
       reject_config(File.join(dir, ".gitleaks.toml"), label, consequence)
@@ -59,8 +90,7 @@ class GitleaksMutationTest < Minitest::Test
   end
 
   def test_accepts_the_committed_configuration
-    out, err, status = Open3.capture3({ "GITLEAKS_CONFIG" => CONFIG }, RbConfig.ruby, CONTRACT)
-    assert status.success?, out + err
+    accept_config(CONFIG, "committed configuration")
   end
 
   def test_rejects_default_rules_relocated_into_the_allowlist
@@ -95,21 +125,43 @@ class GitleaksMutationTest < Minitest::Test
            "inherited rules dropped by name", "the named rules stop running")
   end
 
-  def test_rejects_github_pat_default_rule_redefinition
-    probe("#{File.read(CONFIG)}\n[[rules]]\nid = \"github-pat\"\n",
-          "inherited rule redefined",
-          "redefining that inherited rule can stop it from reporting the secrets it is meant to catch")
+  def test_rejects_weakly_typed_default_inheritance
+    ['useDefault = "true"', "useDefault = 1"].each do |field|
+      mutate(USE_DEFAULT, field, "weakly typed useDefault: #{field}")
+    end
   end
 
-  def test_rejects_private_key_default_rule_redefinition
-    probe("#{File.read(CONFIG)}\n[[rules]]\nid = \"private-key\"\n",
-          "private-key default rule redefined",
-          "redefining that inherited rule can stop it from reporting the secrets it is meant to catch")
+  def test_rejects_every_encoding_of_a_default_rule_id
+    RULE_ID_ENCODINGS.each do |block|
+      probe_rule(block, "equivalent default rule id encoding: #{block.lines.last.strip}")
+    end
+  end
+
+  def test_rejects_a_rules_table_the_reader_cannot_vouch_for
+    probe(%(#{File.read(CONFIG)}\nrules = [{ id = "github-pat", regex = '''$^''' }]\n),
+          "inline-table rules the guard cannot compare", UNREADABLE)
+  end
+
+  def test_rejects_escaped_allowlist_values
+    [[%(stopwords = ["AIza\\u0053y"]), SILENCED], [%(regexes = ["\\u002e*"]), HIDDEN]].each do |assignment, consequence|
+      probe_allowlist(assignment, "escaped allowlist value: #{assignment}", consequence)
+    end
+  end
+
+  def test_rejects_scalar_allowlist_values
+    [%(stopwords = "AIzaSy"), %(paths = ".*"), %(regexes = "AIzaSy")].each do |assignment|
+      probe_allowlist(assignment, "scalar allowlist value: #{assignment}", NONCANONICAL)
+    end
   end
 
   def test_allows_a_noncolliding_custom_rule
     source = "#{File.read(CONFIG)}\n[[rules]]\nid = \"animichi-custom-secret\"\nregex = '''ANIMICHI_[A-Z0-9]{16}'''\n"
     accept_probe(source, "animichi custom rule")
+  end
+
+  def test_allows_an_equivalent_encoding_of_a_noncolliding_custom_rule
+    source = "#{File.read(CONFIG)}\n[[\"rules\"]]\nid = \"animichi-custom-secret\"\nregex = '''ANIMICHI_[A-Z0-9]{16}'''\n"
+    accept_probe(source, "animichi custom rule under a quoted header")
   end
 
   def test_rejects_allowlist_for_every_path
@@ -119,16 +171,16 @@ class GitleaksMutationTest < Minitest::Test
 
   def test_rejects_allowlist_for_every_value
     mutate(ALLOWLIST, "#{ALLOWLIST}\n  regexes = ['''.*''']",
-           "allowlist regex hid every secret value", "dropped before they are reported")
+           "allowlist regex hid every secret value", HIDDEN)
   end
 
   def test_rejects_stopwords_that_silence_a_rule_class
     mutate(ALLOWLIST, "#{ALLOWLIST}\n  stopwords = [\"GHP_\"]",
-           "allowlist stopword silenced a whole rule class", "silencing that rule class")
+           "allowlist stopword silenced a whole rule class", SILENCED)
   end
 
   def test_rejects_stopwords_that_silence_google_api_keys
     mutate(ALLOWLIST, "#{ALLOWLIST}\n  stopwords = [\"AIzaSy\"]",
-           "allowlist stopword silenced Google API keys", "silencing that rule class")
+           "allowlist stopword silenced Google API keys", SILENCED)
   end
 end
